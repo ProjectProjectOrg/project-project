@@ -39,38 +39,75 @@ export const applyTicketPatch = (
   body: patch.body ?? existing.body
 })
 
-export const ticketChangeOf = (
+export const fieldChangesOf = (
   existing: TicketDocument,
   next: TicketDocument
-): TicketPolicy.Change => {
-  const status = next.status !== existing.status
-  const assignees = listChanged(next.assignees, existing.assignees)
-  const content =
+): TicketPolicy.Change => ({
+  content:
     next.title !== existing.title ||
     next.type !== existing.type ||
     next.priority !== existing.priority ||
     next.parent !== existing.parent ||
     !Equal.equals(next.estimate, existing.estimate) ||
     next.body !== existing.body ||
-    listChanged(next.tags, existing.tags)
-  return { content: content || (!status && !assignees), status, assignees }
+    listChanged(next.tags, existing.tags),
+  status: next.status !== existing.status,
+  assignees: listChanged(next.assignees, existing.assignees)
+})
+
+export const isUnchanged = (change: TicketPolicy.Change) =>
+  !change.content && !change.status && !change.assignees
+
+export const ticketChangeOf = (
+  existing: TicketDocument,
+  next: TicketDocument
+): TicketPolicy.Change => {
+  const change = fieldChangesOf(existing, next)
+  return isUnchanged(change) ? { ...change, content: true } : change
 }
 
-export const requestedChangeOf = (patch: TicketPatch): TicketPolicy.Change => {
-  const status = patch.status !== undefined
-  const assignees = patch.assignees !== undefined
-  return {
-    content:
-      patch.type !== undefined ||
-      patch.priority !== undefined ||
-      patch.estimate !== undefined ||
-      patch.tags !== undefined ||
-      patch.parent !== undefined ||
-      (!status && !assignees),
-    status,
-    assignees
-  }
+export const batchChangeOf = (
+  changes: ReadonlyArray<TicketPolicy.Change>
+): TicketPolicy.Change => {
+  const changed = changes.filter((change) => !isUnchanged(change))
+  return changed.length === 0
+    ? { content: true, status: false, assignees: false }
+    : {
+        content: changed.some((change) => change.content === true),
+        status: changed.some((change) => change.status === true),
+        assignees: changed.some((change) => change.assignees === true)
+      }
 }
+
+export type SprintGroup = Readonly<{
+  id: string
+  kind: string
+  completedAt: Date | null
+  tickets: ReadonlyArray<string>
+}>
+
+export const openSprintIdsOf = (
+  groups: ReadonlyArray<SprintGroup>,
+  ticketId: string
+): ReadonlyArray<string> =>
+  groups.flatMap((group) =>
+    group.kind === "sprint" &&
+    group.completedAt === null &&
+    group.tickets.includes(ticketId)
+      ? [group.id]
+      : []
+  )
+
+export const breaksEpicSprintRule = (
+  existing: TicketDocument,
+  next: TicketDocument,
+  sprintsBefore: ReadonlyArray<string>,
+  sprintsAfter: ReadonlyArray<string>
+) =>
+  next.type === "epic" &&
+  sprintsAfter.length > 0 &&
+  (existing.type !== "epic" ||
+    sprintsAfter.some((id) => !sprintsBefore.includes(id)))
 
 export const hierarchyChangeOf = (
   existing: TicketDocument,

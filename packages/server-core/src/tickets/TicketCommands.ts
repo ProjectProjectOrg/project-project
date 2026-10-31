@@ -68,8 +68,12 @@ import {
 import { TicketIndex, type TicketIndexProject } from "./TicketIndex"
 import {
   applyTicketPatch,
+  batchChangeOf,
+  breaksEpicSprintRule,
+  fieldChangesOf,
   hierarchyChangeOf,
-  requestedChangeOf,
+  isUnchanged,
+  openSprintIdsOf,
   ticketChangeOf
 } from "./ticketPatch"
 import {
@@ -630,17 +634,14 @@ const make = Effect.gen(function* () {
                 hierarchyLookups(indexProject, userId),
                 hierarchyChangeOf(existing, next)
               )
-              if (
-                next.type === "epic" &&
-                existing.type !== "epic" &&
-                (yield* groups.list()).some(
-                  (group) =>
-                    group.kind === "sprint" &&
-                    group.completedAt === null &&
-                    group.tickets.includes(existing.id)
+              if (next.type === "epic" && existing.type !== "epic") {
+                const sprints = openSprintIdsOf(
+                  yield* groups.list(),
+                  existing.id
                 )
-              ) {
-                return yield* new Validation({ reason: "epic_in_sprint" })
+                if (breaksEpicSprintRule(existing, next, sprints, sprints)) {
+                  return yield* new Validation({ reason: "epic_in_sprint" })
+                }
               }
               return { ...next, updatedAt: yield* DateTime.nowAsDate }
             }),
@@ -1234,18 +1235,12 @@ const make = Effect.gen(function* () {
     const ids = [...new Set(input.tickets)]
     const { sprint, ...fields } = input.patch
     const touchesTickets = Object.keys(fields).length > 0
-    if (touchesTickets) {
-      yield* requireTicketChange(requestedChangeOf(fields))
-    }
     const indexProject = indexProjectOf(scope)
     if (fields.status !== undefined) {
       yield* validateStatusExists(projectId, fields.status)
     }
     if (fields.tags !== undefined) {
       yield* validateTagsExist(projectId, fields.tags)
-    }
-    if (fields.assignees !== undefined && fields.assignees.length > 0) {
-      yield* validateAssigneesAreMembers(fields.assignees)
     }
     yield* validateEstimate(scope, fields.estimate)
     if (sprint !== undefined && sprint !== null) {
@@ -1275,27 +1270,62 @@ const make = Effect.gen(function* () {
           ticketDocs.read(orgSlug, slug, id)
         )
         const now = yield* DateTime.nowAsDate
+        const patched = originals.map((existing) =>
+          applyTicketPatch(existing, fields, userId, now)
+        )
+        const changes = originals.map((existing, index) =>
+          fieldChangesOf(existing, patched[index])
+        )
+        if (touchesTickets) {
+          yield* requireTicketChange(batchChangeOf(changes))
+        }
+        const newcomers = [
+          ...new Set(
+            originals.flatMap((existing, index) =>
+              patched[index].assignees.filter(
+                (assignee) => !existing.assignees.includes(assignee)
+              )
+            )
+          )
+        ]
+        if (newcomers.length > 0) {
+          yield* validateAssigneesAreMembers(newcomers)
+        }
         const lookups = hierarchyLookups(indexProject, userId)
-        const nexts: Array<TicketDocument> = []
-        for (const existing of originals) {
-          const patched = applyTicketPatch(existing, fields, userId, now)
+        for (const [index, existing] of originals.entries()) {
           yield* validateHierarchy(
             lookups,
-            hierarchyChangeOf(existing, patched)
+            hierarchyChangeOf(existing, patched[index])
           )
-          const plannedInSprint =
+          const sprintsBefore = openSprintIdsOf(openSprints, existing.id)
+          const sprintsAfter =
             sprint === undefined
-              ? openSprints.some((group) => group.tickets.includes(existing.id))
-              : sprint !== null
-          if (patched.type === "epic" && plannedInSprint) {
+              ? sprintsBefore
+              : sprint === null
+                ? []
+                : [sprint]
+          if (
+            breaksEpicSprintRule(
+              existing,
+              patched[index],
+              sprintsBefore,
+              sprintsAfter
+            )
+          ) {
             return yield* new Validation({ reason: "epic_in_sprint" })
           }
-          nexts.push(touchesTickets ? patched : existing)
         }
+        const nexts = originals.map((existing, index) =>
+          touchesTickets && !isUnchanged(changes[index])
+            ? patched[index]
+            : existing
+        )
 
         if (touchesTickets) {
           yield* Effect.gen(function* () {
-            for (const next of nexts) {
+            for (const next of nexts.filter(
+              (next, index) => next !== originals[index]
+            )) {
               yield* ticketDocs.write(orgSlug, slug, next.id, next)
               written.push(next)
               yield* ticketIndex.upsertTicket(indexProject, next)
