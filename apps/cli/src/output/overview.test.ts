@@ -72,4 +72,18 @@ describe("summarize", () => {
     expect(created.at(-1)).toEqual({ date: "2026-10-31", count: 2 })
     expect(created).toHaveLength(11 * 7 + 6)
   })
+
+  it("counts days past the end of an overdue sprint as negative", () => {
+    const overview = summarize(
+      input({
+        sprint: {
+          id: "G-1",
+          name: "Sprint 1",
+          tickets: [],
+          endsAt: at("2026-10-28T00:00:00Z")
+        }
+      })
+    )
+    expect(overview.sprint?.daysLeft).toBe(-3)
+  })
 })

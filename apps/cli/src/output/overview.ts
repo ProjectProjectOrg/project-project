@@ -92,12 +92,9 @@ export const summarize = (input: OverviewInput): Overview => {
             daysLeft:
               sprint.endsAt === null
                 ? null
-                : Math.max(
-                    0,
-                    daysBetween(
-                      today,
-                      DateTime.startOf(local(sprint.endsAt), "day")
-                    )
+                : daysBetween(
+                    today,
+                    DateTime.startOf(local(sprint.endsAt), "day")
                   ),
             unstarted: count("unstarted"),
             started: count("started"),
@@ -142,7 +139,9 @@ const sprintLines = (overview: Overview, terminal: Terminal, grow: number) => {
       ? "no end date"
       : sprint.daysLeft === 0
         ? "ends today"
-        : `${plural(sprint.daysLeft, "day")} left`
+        : sprint.daysLeft < 0
+          ? `${plural(-sprint.daysLeft, "day")} overdue`
+          : `${plural(sprint.daysLeft, "day")} left`
   return [
     `${heading("Sprint", terminal)}  ${strong(sprint.name, terminal)} ${muted(sprint.id, terminal)}`,
     ...chart(
