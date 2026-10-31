@@ -8,11 +8,10 @@ describe("pagerCommand", () => {
     expect(pagerCommand({}, () => 581)).toEqual(["less"])
   })
 
-  it("uses PP_PAGER, then PAGER, and turns paging off for cat or nothing", () => {
-    expect(pagerCommand({ PAGER: "more", PP_PAGER: "bat" })).toEqual([
-      "sh",
-      "-c",
-      "bat"
+  it("only runs less, and turns paging off for cat or nothing", () => {
+    expect(pagerCommand({ PP_PAGER: "touch /tmp/pwned" }, () => 668)).toEqual([
+      "less",
+      "--header=1"
     ])
     expect(pagerCommand({ PAGER: "cat" })).toBeUndefined()
     expect(pagerCommand({ PP_PAGER: "" })).toBeUndefined()

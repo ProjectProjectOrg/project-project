@@ -16,10 +16,8 @@ const lessVersion = () => {
   }
 }
 
-const chosenPager = (env: Env) => env.PP_PAGER ?? env.PAGER
-
 export const pagingEnabled = (env: Env) => {
-  const chosen = chosenPager(env)?.trim()
+  const chosen = (env.PP_PAGER ?? env.PAGER)?.trim()
   return chosen !== "" && chosen !== "cat"
 }
 
@@ -28,8 +26,6 @@ export const pagerCommand = (
   version: () => number = lessVersion
 ): ReadonlyArray<string> | undefined => {
   if (!pagingEnabled(env)) return undefined
-  const chosen = chosenPager(env)
-  if (chosen !== undefined) return ["sh", "-c", chosen]
   return version() >= 600 ? ["less", "--header=1"] : ["less"]
 }
 

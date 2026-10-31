@@ -122,7 +122,7 @@ const allFlag = Flag.Boolean("all").pipe(
 
 const pagerFlag = Flag.Boolean("pager").pipe(
   Flag.withDescription(
-    "In a terminal, page long lists through less. Pass --no-pager to print one page as before."
+    "In a terminal, page long lists through less. Pass --no-pager, or set PAGER=cat, to print one page as before."
   ),
   Flag.withDefault(true)
 )
