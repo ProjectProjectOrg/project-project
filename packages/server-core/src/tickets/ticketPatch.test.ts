@@ -10,6 +10,7 @@ import {
   batchChangeOf,
   breaksEpicSprintRule,
   openSprintIdsOf,
+  revertTicketPatch,
   ticketChangeOf,
   type TicketPatch
 } from "./ticketPatch"
@@ -273,6 +274,52 @@ describe("openSprintIdsOf", () => {
         "T-2"
       )
     ).toEqual(["G-1"])
+  })
+})
+
+describe("revertTicketPatch", () => {
+  const written = applyTicketPatch(
+    existing,
+    { priority: "high", tags: [] },
+    "user-2",
+    now
+  )
+  const later = isoDate("2026-04-03T00:00:00.000Z")
+
+  it("restores the original when nobody touched the ticket since", () => {
+    expect(revertTicketPatch(existing, written, written)).toEqual(existing)
+  })
+
+  it("keeps an edit made in the meantime and reverts the rest", () => {
+    const current = { ...written, title: "Renamed", updatedAt: later }
+    expect(revertTicketPatch(existing, written, current)).toEqual({
+      ...current,
+      priority: "med",
+      tags: existing.tags
+    })
+  })
+
+  it("leaves a field someone else changed again", () => {
+    const current = {
+      ...written,
+      priority: "low" as const,
+      tags: [],
+      updatedAt: later
+    }
+    expect(revertTicketPatch(existing, written, current)).toEqual({
+      ...current,
+      tags: existing.tags
+    })
+  })
+
+  it("does nothing when every changed field was changed again", () => {
+    const current = {
+      ...written,
+      priority: "low" as const,
+      tags: [tagName("ui")],
+      updatedAt: later
+    }
+    expect(revertTicketPatch(existing, written, current)).toBeNull()
   })
 })
 
