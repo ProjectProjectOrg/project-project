@@ -29,6 +29,19 @@ export const pagerCommand = (
   return version() >= 600 ? ["less", "--header=1"] : ["less"]
 }
 
+const PASSED_TO_LESS = ["TERM", "COLORTERM", "LANG", "LC_ALL", "LC_CTYPE"]
+
+export const lessEnv = (env: Env): Record<string, string> => ({
+  ...Object.fromEntries(
+    PASSED_TO_LESS.flatMap((name) => {
+      const value = env[name]
+      return value === undefined ? [] : [[name, value]]
+    })
+  ),
+  LESS: "FRXS",
+  LESSSECURE: "1"
+})
+
 const stdoutSink: PagerSink = {
   write: (text) =>
     Effect.sync(() => {
@@ -41,11 +54,14 @@ const open = Effect.sync(() => {
   const command = pagerCommand(process.env)
   if (command === undefined) return undefined
   try {
-    const child = Bun.spawn([...command], {
+    const less = Bun.which("less")
+    if (less === null) return undefined
+    const [, ...options] = command
+    const child = Bun.spawn([less, ...options], {
       stdin: "pipe",
       stdout: "inherit",
       stderr: "inherit",
-      env: { ...process.env, LESS: "FRXS", LESSSECURE: "1" }
+      env: lessEnv(process.env)
     })
     const state = { closed: false }
     void child.exited.then(() => {

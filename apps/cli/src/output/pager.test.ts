@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { pagerCommand } from "./pager"
+import { lessEnv, pagerCommand } from "./pager"
 
 describe("pagerCommand", () => {
   it("pins the header only on a less that knows --header", () => {
@@ -15,5 +15,17 @@ describe("pagerCommand", () => {
     ])
     expect(pagerCommand({ PAGER: "cat" })).toBeUndefined()
     expect(pagerCommand({ PP_PAGER: "" })).toBeUndefined()
+  })
+
+  it("starts less with fixed options and no inherited less settings", () => {
+    expect(
+      lessEnv({
+        TERM: "xterm-256color",
+        LESS: "--cmd=!touch /tmp/pwned$",
+        LESSSECURE_ALLOW: "lesskey,shell",
+        LESSKEY_CONTENT: "q shell",
+        HOME: "/home/me"
+      })
+    ).toEqual({ TERM: "xterm-256color", LESS: "FRXS", LESSSECURE: "1" })
   })
 })
