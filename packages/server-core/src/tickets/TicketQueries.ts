@@ -55,6 +55,7 @@ import type { MarkdownError } from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import { readProjectDocument } from "../projects/readProjectDocument"
+import * as TicketBranchIndex from "./TicketBranchIndex"
 import {
   TicketIndex,
   type TicketIndexEntry,
@@ -188,6 +189,7 @@ export class TicketQueries extends Context.Service<
 
 const make = Effect.gen(function* () {
   const ticketIndex = yield* TicketIndex
+  const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
   const groups = yield* Groups
   const db = yield* Db
   const projectDocs = yield* ProjectDocs
@@ -798,7 +800,7 @@ const make = Effect.gen(function* () {
     const view = yield* gitView
     const ticket = yield* readTicket(orgSlug, slug, id)
     const body = yield* library.resolveSynced(orgSlug, slug, ticket.body)
-    const branchDeletedAt = yield* ticketIndex.getBranchDeletedAt(
+    const branchDeletedAt = yield* ticketBranchIndex.getBranchDeletedAt(
       orgSlug,
       slug,
       id

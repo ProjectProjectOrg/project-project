@@ -28,6 +28,7 @@ import { GitHub } from "../github/GitHub"
 import { Groups } from "../groups/Groups"
 import { Library } from "../library/Library"
 import * as TicketServices from "../tickets/layer"
+import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
 import * as TicketCommands from "../tickets/TicketCommands"
 import { TicketDocs } from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
@@ -123,6 +124,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
         Layer.provide(docs),
         Layer.provide(testActivityLayer(id)),
         Layer.provide(FinishedStatuses.layer.pipe(Layer.provide(db))),
+        Layer.provide(TicketBranchIndex.layer.pipe(Layer.provide(db))),
         Layer.provide(db),
         Layer.provide(TicketDocumentLock.layer),
         Layer.provide(accessLayer({})),

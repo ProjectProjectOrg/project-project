@@ -39,6 +39,7 @@ import {
   withGitAutomation
 } from "./moveByGitAutomation"
 import { stackLayerStates } from "./stackLayerStates"
+import * as TicketBranchIndex from "./TicketBranchIndex"
 import { TicketDocs, type TicketDocument } from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import {
@@ -204,6 +205,7 @@ const make = Effect.gen(function* () {
   const projects = yield* Projects
   const gitAutomation = yield* ProjectGitAutomation
   const ticketIndex = yield* TicketIndex
+  const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
   const github = yield* GitHub.GitHub
   const { gitView, detailOf, readTicket } = yield* TicketView.TicketView
 
@@ -322,7 +324,7 @@ const make = Effect.gen(function* () {
           Effect.gen(function* () {
             if (
               ticket.branch !== input.name &&
-              (yield* ticketIndex.isRepositoryBranchAttached(
+              (yield* ticketBranchIndex.isRepositoryBranchAttached(
                 projectGithub.repoId,
                 input.name,
                 true
@@ -486,7 +488,7 @@ const make = Effect.gen(function* () {
           projectGithub.repoId,
           Effect.gen(function* () {
             if (
-              yield* ticketIndex.isRepositoryBranchAttached(
+              yield* ticketBranchIndex.isRepositoryBranchAttached(
                 projectGithub.repoId,
                 input.name
               )
@@ -777,10 +779,11 @@ const make = Effect.gen(function* () {
             return
           }
           if (automaticBranch) {
-            const attached = yield* ticketIndex.isRepositoryBranchAttached(
-              projectGithub.repoId,
-              automaticBranch
-            )
+            const attached =
+              yield* ticketBranchIndex.isRepositoryBranchAttached(
+                projectGithub.repoId,
+                automaticBranch
+              )
             if (
               ticket.branchAutoLinkDisabled ||
               (ticket.ignoredBranches ?? []).includes(automaticBranch) ||
@@ -793,12 +796,12 @@ const make = Effect.gen(function* () {
             }
           }
           if (resurrectedIds.has(ticketId)) {
-            yield* ticketIndex.clearBranchStale(indexProject, [ticketId])
+            yield* ticketBranchIndex.clearBranchStale(indexProject, [ticketId])
             changedTicketIds.add(ticketId)
           }
           const addedLayers = yield* Effect.filter(automaticLayers, (layer) =>
             Effect.map(
-              ticketIndex.isRepositoryBranchAttached(
+              ticketBranchIndex.isRepositoryBranchAttached(
                 projectGithub.repoId,
                 layer.branch
               ),
@@ -895,7 +898,7 @@ const make = Effect.gen(function* () {
             { ...indexProject, ticketId, branch }
           )
         }
-        yield* ticketIndex.markBranchStale(
+        yield* ticketBranchIndex.markBranchStale(
           indexProject.projectId,
           branch,
           deletedAt
@@ -934,7 +937,7 @@ const make = Effect.gen(function* () {
     }
 
     const indexed = yield* ticketIndex.list(indexProject)
-    const stacks = yield* ticketIndex.stacksFor(indexProject)
+    const stacks = yield* ticketBranchIndex.stacksFor(indexProject)
     const tickets = indexed.map(
       (ticket): StackedTicketEntry =>
         Object.assign({ stack: stacks.get(ticket.id) ?? [] }, ticket)

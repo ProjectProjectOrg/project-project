@@ -47,6 +47,7 @@ import {
 import { Users, type UsersShape } from "../users/Users"
 import type { GitAutomationConfig } from "./gitAutomation"
 import * as TicketServices from "./layer"
+import * as TicketBranchIndex from "./TicketBranchIndex"
 import {
   TicketDocs,
   type TicketDocsShape,
@@ -533,9 +534,12 @@ export const querySectionsVia =
       return out
     })
 
+export type FakeTicketIndexShape = TicketIndexShape &
+  TicketBranchIndex.TicketBranchIndex["Service"]
+
 export const makeFakeTicketIndex = (
   documents: Map<string, TicketDocument>,
-  overrides: Partial<TicketIndexShape> = {}
+  overrides: Partial<FakeTicketIndexShape> = {}
 ) => {
   let nextTicketNumber =
     Math.max(
@@ -544,7 +548,7 @@ export const makeFakeTicketIndex = (
         Number(id.slice(id.lastIndexOf("-") + 1))
       )
     ) + 1
-  const index: TicketIndexShape = {
+  const index: FakeTicketIndexShape = {
     projectsFor: () => Effect.succeed([]),
     assignedTo: () => Effect.succeed([]),
     touchedBy: () => Effect.succeed([]),
@@ -736,7 +740,10 @@ export const makeFakeTicketIndex = (
       querySectionsVia(index)(project, query, options),
     ...overrides
   }
-  return Layer.succeed(TicketIndex, index)
+  return Layer.mergeAll(
+    Layer.succeed(TicketIndex, index),
+    Layer.succeed(TicketBranchIndex.TicketBranchIndex, index)
+  )
 }
 
 export const makeRecordingTicketIndex = (
@@ -779,7 +786,7 @@ export type TicketsLayerOptions = Readonly<{
   projects?: Layer.Layer<Projects>
   groups?: Layer.Layer<Groups>
   github?: Layer.Layer<GitHub>
-  ticketIndex?: Layer.Layer<TicketIndex>
+  ticketIndex?: Layer.Layer<TicketIndex | TicketBranchIndex.TicketBranchIndex>
   attachments?: Layer.Layer<Attachments>
   figmaLinks?: Layer.Layer<FigmaLinks>
   scope?: ProjectScopeShape

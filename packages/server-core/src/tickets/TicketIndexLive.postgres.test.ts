@@ -31,6 +31,7 @@ import { serializeCommentsRegion } from "../comments/comments-region"
 import { CommentsLive } from "../comments/CommentsLive"
 import { Projects } from "../projects/Projects"
 import { Users } from "../users/Users"
+import * as TicketBranchIndex from "./TicketBranchIndex"
 import {
   TicketDocs,
   type TicketDocsShape,
@@ -73,10 +74,10 @@ const FakeTicketDocs = Layer.succeed(TicketDocs, {
 } satisfies TicketDocsShape)
 
 const DatabaseLive = DbLive.pipe(Layer.provideMerge(PgLive))
-const TestLayer = TicketIndexLive.pipe(
-  Layer.provide(FakeTicketDocs),
-  Layer.provide(DatabaseLive)
-)
+const TestLayer = Layer.mergeAll(
+  TicketIndexLive.pipe(Layer.provide(FakeTicketDocs)),
+  TicketBranchIndex.layer
+).pipe(Layer.provide(DatabaseLive))
 
 const rebuiltDocument: TicketDocument = {
   id: ticketId("T-41"),
@@ -443,6 +444,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         })
 
       const index = yield* TicketIndex
+      const branchIndex = yield* TicketBranchIndex.TicketBranchIndex
       const project = yield* index.projectFor(orgSlug, projectSlug)
       yield* index.upsertTicket(
         project,
@@ -504,11 +506,11 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         prBase: "main",
         ignoredBranches: ["spike"]
       })
-      expect(yield* index.findStackLayers(projectId, "ui")).toEqual([
+      expect(yield* branchIndex.findStackLayers(projectId, "ui")).toEqual([
         { ...project, ticketId: "T-1", branch: "ui" }
       ])
-      expect(yield* index.findStackLayers(projectId, "api")).toEqual([])
-      expect(yield* index.stacksFor(project)).toEqual(
+      expect(yield* branchIndex.findStackLayers(projectId, "api")).toEqual([])
+      expect(yield* branchIndex.stacksFor(project)).toEqual(
         new Map([
           [
             "T-1",
@@ -525,7 +527,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           ]
         ])
       )
-      expect(yield* index.stacksFor(project, [])).toEqual(new Map())
+      expect(yield* branchIndex.stacksFor(project, [])).toEqual(new Map())
 
       const repoId = `repo-${suffix}`
       yield* withClient(async (client) => {
@@ -551,7 +553,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       })
       expect(
         yield* Effect.forEach(["api", "ui", "spike", "nope"], (branch) =>
-          index.isRepositoryBranchAttached(repoId, branch)
+          branchIndex.isRepositoryBranchAttached(repoId, branch)
         )
       ).toEqual([true, true, false, false])
 
@@ -574,13 +576,17 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           ]
         })
       )
-      expect(yield* index.findMergesAwaiting(projectId, "api")).toEqual([
+      expect(yield* branchIndex.findMergesAwaiting(projectId, "api")).toEqual([
         { ...project, ticketId: "T-2", branch: "feat/two", stacked: false }
       ])
-      expect(yield* index.findMergesAwaiting(projectId, "feat/two")).toEqual([
+      expect(
+        yield* branchIndex.findMergesAwaiting(projectId, "feat/two")
+      ).toEqual([
         { ...project, ticketId: "T-2", branch: "two-ui", stacked: true }
       ])
-      expect(yield* index.findMergesAwaiting(projectId, "main")).toEqual([])
+      expect(yield* branchIndex.findMergesAwaiting(projectId, "main")).toEqual(
+        []
+      )
 
       yield* index.deleteTicket(project, "T-1")
       expect(yield* layers()).toEqual([])
@@ -1004,6 +1010,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       )
 
       const index = yield* TicketIndex
+      const branchIndex = yield* TicketBranchIndex.TicketBranchIndex
       const project = yield* index.projectFor(orgSlug, projectSlug)
       const januaryTenth = DateTime.toDate(
         DateTime.makeUnsafe("2026-01-10T00:00:00.000Z")
@@ -1058,21 +1065,21 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         index.upsertTicket(project, document)
       )
 
-      yield* index.markBranchStale(projectId, "feat/T-2", januaryTwelfth)
+      yield* branchIndex.markBranchStale(projectId, "feat/T-2", januaryTwelfth)
       expect(
-        yield* index.getBranchDeletedAt(orgSlug, projectSlug, "T-2")
+        yield* branchIndex.getBranchDeletedAt(orgSlug, projectSlug, "T-2")
       ).toEqual(januaryTwelfth)
       expect(
-        yield* index.getBranchDeletedAt(orgSlug, projectSlug, "T-10")
+        yield* branchIndex.getBranchDeletedAt(orgSlug, projectSlug, "T-10")
       ).toBeNull()
       expect(
-        yield* index.getBranchDeletedAt("wrong-org", projectSlug, "T-2")
+        yield* branchIndex.getBranchDeletedAt("wrong-org", projectSlug, "T-2")
       ).toBeNull()
       expect(
-        yield* index.getBranchDeletedAt(orgSlug, "wrong-project", "T-2")
+        yield* branchIndex.getBranchDeletedAt(orgSlug, "wrong-project", "T-2")
       ).toBeNull()
       expect(
-        yield* index.getBranchDeletedAt(orgSlug, projectSlug, "T-missing")
+        yield* branchIndex.getBranchDeletedAt(orgSlug, projectSlug, "T-missing")
       ).toBeNull()
 
       const firstPage = yield* index.query(

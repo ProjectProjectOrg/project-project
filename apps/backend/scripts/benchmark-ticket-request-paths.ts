@@ -27,6 +27,7 @@ import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
 import { Projects, type ProjectsShape } from "@pp/server-core/projects/Projects"
 import * as TicketServices from "@pp/server-core/tickets/layer"
+import * as TicketBranchIndex from "@pp/server-core/tickets/TicketBranchIndex"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
@@ -489,6 +490,7 @@ const BenchmarkLive = (options: Options) =>
         DocsLive,
         DatabaseLive,
         IndexLive,
+        TicketBranchIndex.layer.pipe(Layer.provide(DatabaseLive)),
         FakeProjects,
         Layer.mock(ProjectGitAutomation, {}),
         Layer.mock(ProjectDocs, {

@@ -22,6 +22,7 @@ import { projectScope } from "../access/testing"
 import * as KeyedLock from "../locks/KeyedLock"
 import { GroupIdTaken, MarkdownError } from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
+import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
 import {
   TicketDocs,
   type TicketDocsShape,
@@ -246,19 +247,10 @@ function makeFakeDocs(initial?: {
     tagUsageCounts: () => Effect.succeed({}),
     findTicketIdsByTag: () => Effect.succeed([]),
     findTicketIdsByStatus: () => Effect.succeed([]),
-    findTicketsByBranch: () => Effect.succeed([]),
-    findStackLayers: () => Effect.succeed([]),
-    stacksFor: () => Effect.succeed(new Map()),
-    findMergesAwaiting: () => Effect.succeed([]),
-    isRepositoryBranchAttached: () => Effect.succeed(false),
-    getBranchDeletedAt: () => Effect.succeed(null),
     upsertTicket: (_project, document) =>
       Effect.sync(() => {
         ticketsById.set(document.id, document)
       }),
-    markBranchStale: () => Effect.succeed([]),
-    clearBranchStale: () => Effect.void,
-    updateBranchChecks: () => Effect.succeed([]),
     deleteTicket: (_project, id) =>
       Effect.sync(() => {
         ticketsById.delete(id)
@@ -280,12 +272,29 @@ function makeFakeDocs(initial?: {
       }),
     reconcileAllProjects: () => Effect.succeed({ projects: [], reconciled: 0 })
   } satisfies TicketIndexShape
+  const ticketBranchIndexService = {
+    findTicketsByBranch: () => Effect.succeed([]),
+    findStackLayers: () => Effect.succeed([]),
+    stacksFor: () => Effect.succeed(new Map()),
+    findMergesAwaiting: () => Effect.succeed([]),
+    isRepositoryBranchAttached: () => Effect.succeed(false),
+    getBranchDeletedAt: () => Effect.succeed(null),
+    markBranchStale: () => Effect.succeed([]),
+    clearBranchStale: () => Effect.void,
+    updateBranchChecks: () => Effect.succeed([])
+  } satisfies TicketBranchIndex.TicketBranchIndex["Service"]
 
   return {
     state: { groups, ticketIds, ticketsById, groupWrites },
     groupLayer: Layer.succeed(GroupDocs, groupService),
     ticketLayer: Layer.succeed(TicketDocs, ticketService),
-    ticketIndexLayer: Layer.succeed(TicketIndex, ticketIndexService)
+    ticketIndexLayer: Layer.mergeAll(
+      Layer.succeed(TicketIndex, ticketIndexService),
+      Layer.succeed(
+        TicketBranchIndex.TicketBranchIndex,
+        ticketBranchIndexService
+      )
+    )
   }
 }
 
