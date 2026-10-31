@@ -1,5 +1,6 @@
 // Thin handlers for the `tickets` HttpApi group. All logic in Tickets.
 
+import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
 import { AppApi, Validation } from "@pp/shared"
@@ -114,33 +115,33 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
         )
       )
       .handle("createBranch", ({ params, payload }) =>
-        Effect.flatMap(Tickets, (tickets) =>
-          tickets.createBranch(params.id, payload)
+        Effect.flatMap(TicketGit.TicketGit, (git) =>
+          git.createBranch(params.id, payload)
         ).pipe(dieOnMarkdown)
       )
       .handle("openPr", ({ params, payload }) =>
-        Effect.flatMap(Tickets, (tickets) =>
-          tickets.openPr(params.id, payload)
+        Effect.flatMap(TicketGit.TicketGit, (git) =>
+          git.openPr(params.id, payload)
         ).pipe(dieOnMarkdown)
       )
       .handle("clearBranch", ({ params }) =>
-        Effect.flatMap(Tickets, (tickets) =>
-          tickets.clearBranch(params.id)
+        Effect.flatMap(TicketGit.TicketGit, (git) =>
+          git.clearBranch(params.id)
         ).pipe(dieOnMarkdown)
       )
       .handle("attachBranch", ({ params, payload }) =>
-        Effect.flatMap(Tickets, (tickets) =>
-          tickets.attachBranch(params.id, payload)
+        Effect.flatMap(TicketGit.TicketGit, (git) =>
+          git.attachBranch(params.id, payload)
         ).pipe(dieOnMarkdown)
       )
       .handle("stackBranch", ({ params, payload }) =>
-        Effect.flatMap(Tickets, (tickets) =>
-          tickets.stackBranch(params.id, payload)
+        Effect.flatMap(TicketGit.TicketGit, (git) =>
+          git.stackBranch(params.id, payload)
         ).pipe(dieOnMarkdown)
       )
       .handle("unstackBranch", ({ params, payload }) =>
-        Effect.flatMap(Tickets, (tickets) =>
-          tickets.unstackBranch(params.id, payload)
+        Effect.flatMap(TicketGit.TicketGit, (git) =>
+          git.unstackBranch(params.id, payload)
         ).pipe(dieOnMarkdown)
       )
 )

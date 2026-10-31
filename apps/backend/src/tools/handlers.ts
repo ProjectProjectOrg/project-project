@@ -11,6 +11,7 @@ import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { Tags } from "@pp/server-core/tags/Tags"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
+import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { Tickets } from "@pp/server-core/tickets/Tickets"
@@ -271,13 +272,13 @@ type GitStateInput = Readonly<{
 }>
 
 const get_git_state = (input: GitStateInput) =>
-  Effect.flatMap(Tickets, (tickets) =>
-    tickets.getGitState(input.ticketId, { reconcile: false })
+  Effect.flatMap(TicketGit.TicketGit, (git) =>
+    git.getGitState(input.ticketId, { reconcile: false })
   )
 
 const sync_git_state = (input: GitStateInput) =>
-  Effect.flatMap(Tickets, (tickets) =>
-    tickets.getGitState(input.ticketId, { reconcile: true })
+  Effect.flatMap(TicketGit.TicketGit, (git) =>
+    git.getGitState(input.ticketId, { reconcile: true })
   )
 
 const get_project_doc = (input: { orgSlug: string; projectSlug: string }) =>
@@ -525,14 +526,14 @@ const attach_branch = (
   } & AttachBranchInput
 ) =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const git = yield* TicketGit.TicketGit
     const {
       orgSlug: _orgSlug,
       projectSlug: _projectSlug,
       id,
       ...payload
     } = input
-    return yield* tickets.attachBranch(id, payload)
+    return yield* git.attachBranch(id, payload)
   })
 
 type StackBranchToolInput = Readonly<{
@@ -543,13 +544,13 @@ type StackBranchToolInput = Readonly<{
   AttachBranchInput
 
 const stack_branch = (input: StackBranchToolInput) =>
-  Effect.flatMap(Tickets, (tickets) =>
-    tickets.stackBranch(input.id, { name: input.name })
+  Effect.flatMap(TicketGit.TicketGit, (git) =>
+    git.stackBranch(input.id, { name: input.name })
   )
 
 const unstack_branch = (input: StackBranchToolInput) =>
-  Effect.flatMap(Tickets, (tickets) =>
-    tickets.unstackBranch(input.id, { name: input.name })
+  Effect.flatMap(TicketGit.TicketGit, (git) =>
+    git.unstackBranch(input.id, { name: input.name })
   )
 
 const create_sprint = (
