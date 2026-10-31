@@ -9,15 +9,13 @@ import {
   TagName,
   TAG_DEFAULT_PALETTE
 } from "@pp/shared"
-import { ProjectScope, type ActivityActor } from "@pp/shared"
+import { ProjectScope } from "@pp/shared"
 import { and, eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
-import type { MarkdownError } from "../markdown/Markdown"
-import * as TicketCommands from "../tickets/TicketCommands"
-import { TicketIndex } from "../tickets/TicketIndex"
+import * as TicketRewrites from "../tickets/TicketRewrites"
 import { Tags, type TagsShape } from "./Tags"
 
 const makeTagName = Schema.decodeUnknownSync(TagName)
@@ -35,29 +33,7 @@ export const TagsLive = Layer.effect(
   Tags,
   Effect.gen(function* () {
     const db = yield* Db
-    const ticketIndex = yield* TicketIndex
-    const commands = yield* TicketCommands.TicketCommands
-
-    const rewriteTagInTickets = (
-      orgSlug: string,
-      slug: string,
-      oldName: string,
-      newName: string | null
-    ): Effect.Effect<void, MarkdownError, ActivityActor> =>
-      Effect.gen(function* () {
-        const project = yield* ticketIndex
-          .projectFor(orgSlug, slug)
-          .pipe(Effect.orDie)
-        const ids = yield* ticketIndex.findTicketIdsByTag(project, oldName)
-        for (const id of ids) {
-          yield* commands.replaceTag(orgSlug, slug, id, oldName, newName).pipe(
-            Effect.catchTag("NotFound", () => Effect.succeed(false)),
-            Effect.catchTag("MalformedTicketDocument", () =>
-              Effect.succeed(false)
-            )
-          )
-        }
-      })
+    const rewrites = yield* TicketRewrites.TicketRewrites
 
     const list: TagsShape["list"] = () =>
       Effect.gen(function* () {
@@ -189,7 +165,7 @@ export const TagsLive = Layer.effect(
           .pipe(Effect.orDie)
 
         if (renaming) {
-          yield* rewriteTagInTickets(orgSlug, slug, name, nextName)
+          yield* rewrites.renameTag(orgSlug, slug, name, nextName)
         }
 
         return {
@@ -218,7 +194,7 @@ export const TagsLive = Layer.effect(
           .pipe(Effect.orDie)
         if (!existingRow) return yield* new NotFound()
 
-        yield* rewriteTagInTickets(orgSlug, slug, name, null)
+        yield* rewrites.renameTag(orgSlug, slug, name, null)
         yield* db
           .delete(projectTag)
           .where(

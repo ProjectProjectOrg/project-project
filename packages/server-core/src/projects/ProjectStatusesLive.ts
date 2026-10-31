@@ -22,8 +22,8 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { generateKeyBetween } from "fractional-indexing"
 
-import * as TicketCommands from "../tickets/TicketCommands"
 import { TicketIndex } from "../tickets/TicketIndex"
+import * as TicketRewrites from "../tickets/TicketRewrites"
 import { ProjectStatuses, type ProjectStatusesShape } from "./ProjectStatuses"
 
 const makeSlug = Schema.decodeUnknownSync(StatusSlug)
@@ -46,7 +46,7 @@ export const ProjectStatusesLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const ticketIndex = yield* TicketIndex
-    const commands = yield* TicketCommands.TicketCommands
+    const rewrites = yield* TicketRewrites.TicketRewrites
 
     const list: ProjectStatusesShape["list"] = () =>
       Effect.gen(function* () {
@@ -64,25 +64,6 @@ export const ProjectStatusesLive = Layer.effect(
       })
 
     const DEFAULT_ICON = "Circle"
-
-    const rewriteTicketsStatus = (
-      orgSlug: string,
-      slug: string,
-      ids: ReadonlyArray<string>,
-      toSlug: string,
-      reason: "renamed" | "removed"
-    ) =>
-      Effect.forEach(
-        ids,
-        (id) =>
-          commands.replaceStatus(orgSlug, slug, id, toSlug, reason).pipe(
-            Effect.catchTag("NotFound", () => Effect.succeed(false)),
-            Effect.catchTag("MalformedTicketDocument", () =>
-              Effect.succeed(false)
-            )
-          ),
-        { concurrency: 8 }
-      )
 
     const create: ProjectStatusesShape["create"] = (input) =>
       Effect.gen(function* () {
@@ -211,7 +192,7 @@ export const ProjectStatusesLive = Layer.effect(
           indexProject,
           current.slug
         )
-        yield* rewriteTicketsStatus(
+        yield* rewrites.moveToStatus(
           orgSlug,
           slug,
           affectedIds,
@@ -314,7 +295,7 @@ export const ProjectStatusesLive = Layer.effect(
           if (!target)
             return yield* new Conflict({ reason: "reassign_target_missing" })
 
-          yield* rewriteTicketsStatus(
+          yield* rewrites.moveToStatus(
             orgSlug,
             slug,
             affectedIds,
