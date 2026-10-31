@@ -45,7 +45,7 @@ const open = Effect.sync(() => {
       stdin: "pipe",
       stdout: "inherit",
       stderr: "inherit",
-      env: { ...process.env, LESS: process.env.LESS ?? "FRXS" }
+      env: { ...process.env, LESS: "FRXS", LESSSECURE: "1" }
     })
     const state = { closed: false }
     void child.exited.then(() => {
