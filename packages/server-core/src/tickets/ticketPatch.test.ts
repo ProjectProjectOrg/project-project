@@ -7,7 +7,9 @@ import type { TicketDocument } from "./TicketDocs"
 import {
   applyTicketPatch,
   hierarchyChangeOf,
-  requestedChangeOf,
+  batchChangeOf,
+  breaksEpicSprintRule,
+  openSprintIdsOf,
   ticketChangeOf,
   type TicketPatch
 } from "./ticketPatch"
@@ -156,39 +158,121 @@ describe("ticketChangeOf", () => {
   })
 })
 
-describe("requestedChangeOf", () => {
+describe("batchChangeOf", () => {
+  const none = { content: false, status: false, assignees: false }
   const cases: ReadonlyArray<
-    readonly [string, TicketPatch, ReturnType<typeof requestedChangeOf>]
+    readonly [
+      string,
+      ReadonlyArray<ReturnType<typeof batchChangeOf>>,
+      ReturnType<typeof batchChangeOf>
+    ]
   > = [
     [
-      "an empty patch counts as a content edit",
-      {},
+      "a batch where nothing changes counts as a content edit",
+      [none, none],
       { content: true, status: false, assignees: false }
     ],
     [
-      "a status counts even when it matches the current one",
-      { status: ticketStatus("todo") },
+      "unchanged tickets add nothing to the tickets that change",
+      [none, { ...none, status: true }],
       { content: false, status: true, assignees: false }
     ],
     [
-      "assignees alone",
-      { assignees: [] },
-      { content: false, status: false, assignees: true }
-    ],
-    [
-      "a cleared estimate is a content edit",
-      { status: ticketStatus("done"), estimate: null },
-      { content: true, status: true, assignees: false }
-    ],
-    [
-      "a parent is a content edit",
-      { parent: null },
-      { content: true, status: false, assignees: false }
+      "each kind of change across the batch is required",
+      [
+        { ...none, status: true },
+        { ...none, assignees: true },
+        { ...none, content: true }
+      ],
+      { content: true, status: true, assignees: true }
     ]
   ]
 
-  it.each(cases)("%s", (_name, patch, change) => {
-    expect(requestedChangeOf(patch)).toEqual(change)
+  it.each(cases)("%s", (_name, changes, change) => {
+    expect(batchChangeOf(changes)).toEqual(change)
+  })
+})
+
+describe("breaksEpicSprintRule", () => {
+  const ticket = existing
+  const epic = { ...existing, type: "epic" as const }
+  const cases: ReadonlyArray<
+    readonly [
+      string,
+      TicketDocument,
+      TicketDocument,
+      ReadonlyArray<string>,
+      ReadonlyArray<string>,
+      boolean
+    ]
+  > = [
+    [
+      "becoming an epic while staying in a sprint",
+      ticket,
+      epic,
+      ["G-1"],
+      ["G-1"],
+      true
+    ],
+    [
+      "becoming an epic while leaving the sprint",
+      ticket,
+      epic,
+      ["G-1"],
+      [],
+      false
+    ],
+    ["becoming an epic outside any sprint", ticket, epic, [], [], false],
+    ["an epic planned into a sprint", epic, epic, [], ["G-1"], true],
+    ["an epic moved to another sprint", epic, epic, ["G-1"], ["G-2"], true],
+    [
+      "an epic left in the sprint it is already in",
+      epic,
+      epic,
+      ["G-1"],
+      ["G-1"],
+      false
+    ],
+    [
+      "a ticket that isn't an epic planned into a sprint",
+      ticket,
+      ticket,
+      [],
+      ["G-1"],
+      false
+    ]
+  ]
+
+  it.each(cases)(
+    "%s",
+    (_name, before, after, sprintsBefore, sprintsAfter, breaks) => {
+      expect(
+        breaksEpicSprintRule(before, after, sprintsBefore, sprintsAfter)
+      ).toBe(breaks)
+    }
+  )
+})
+
+const group = (
+  id: string,
+  kind: string,
+  completedAt: Date | null,
+  tickets: ReadonlyArray<string>
+) => ({ id, kind, completedAt, tickets })
+
+describe("openSprintIdsOf", () => {
+  it("lists only open sprints that hold the ticket", () => {
+    expect(
+      openSprintIdsOf(
+        [
+          group("G-1", "sprint", null, ["T-2"]),
+          group("G-2", "sprint", created, ["T-2"]),
+          group("G-3", "epic", null, ["T-2"]),
+          group("G-4", "sprint", null, ["T-3"])
+        ],
+        "T-2"
+      )
+    ).toEqual(["G-1"])
   })
 })
 
