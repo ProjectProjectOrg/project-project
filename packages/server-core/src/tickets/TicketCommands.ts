@@ -8,7 +8,6 @@ import {
   MentionInvalid,
   NotFound,
   formatMentionHref,
-  TagName,
   TicketId,
   normalizeLineEndings,
   Validation,
@@ -82,7 +81,6 @@ import {
 import * as TicketView from "./TicketView"
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
-const makeTagName = Schema.decodeUnknownSync(TagName)
 const DEFAULT_STATUS = Schema.decodeSync(TicketStatus)("todo")
 
 const requireTicketChange = (change: TicketPolicy.Change) =>
@@ -198,20 +196,6 @@ export class TicketCommands extends Context.Service<
       Forbidden | Conflict | TicketReadError,
       ProjectScope | ActivityActor
     >
-    replaceTag: (
-      orgSlug: string,
-      slug: string,
-      id: string,
-      oldName: string,
-      newName: string | null
-    ) => Effect.Effect<boolean, TicketReadError, ActivityActor>
-    replaceStatus: (
-      orgSlug: string,
-      slug: string,
-      id: string,
-      newStatus: string,
-      reason: "renamed" | "removed"
-    ) => Effect.Effect<boolean, TicketReadError, ActivityActor>
   }>
 >()("@pp/server-core/tickets/TicketCommands") {}
 
@@ -1414,94 +1398,6 @@ const make = Effect.gen(function* () {
     )
   })
 
-  const replaceTag = Effect.fn("TicketCommands.replaceTag")(function* (
-    orgSlug: string,
-    slug: string,
-    id: string,
-    oldName: string,
-    newName: string | null
-  ): Effect.fn.Return<boolean, TicketReadError, ActivityActor> {
-    return yield* withTicketDocumentLock(
-      orgSlug,
-      slug,
-      id,
-      Effect.gen(function* () {
-        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
-        let replaced = false
-        yield* ticketDocs.update(
-          orgSlug,
-          slug,
-          id,
-          (existing) => {
-            if (!existing.tags.some((tag) => tag === oldName)) {
-              return Effect.succeed(existing)
-            }
-            replaced = true
-            const tags =
-              newName === null
-                ? existing.tags.filter((tag) => tag !== oldName)
-                : existing.tags.map((tag) =>
-                    tag === oldName ? makeTagName(newName) : tag
-                  )
-            return DateTime.nowAsDate.pipe(
-              Effect.map((updatedAt) => ({ ...existing, tags, updatedAt }))
-            )
-          },
-          (next) =>
-            replaced
-              ? ticketIndex.upsertTicket(indexProject, next)
-              : Effect.void,
-          newName === null ? { cause: "tag_deleted" } : { silent: true }
-        )
-        if (!replaced) return false
-        return true
-      })
-    )
-  })
-
-  const replaceStatus = Effect.fn("TicketCommands.replaceStatus")(function* (
-    orgSlug: string,
-    slug: string,
-    id: string,
-    newStatus: string,
-    reason: "renamed" | "removed"
-  ): Effect.fn.Return<boolean, TicketReadError, ActivityActor> {
-    return yield* withTicketDocumentLock(
-      orgSlug,
-      slug,
-      id,
-      Effect.gen(function* () {
-        const indexProject = yield* ticketIndex.projectFor(orgSlug, slug)
-        let replaced = false
-        yield* ticketDocs.update(
-          orgSlug,
-          slug,
-          id,
-          (existing) => {
-            if (existing.status === newStatus) {
-              return Effect.succeed(existing)
-            }
-            replaced = true
-            return DateTime.nowAsDate.pipe(
-              Effect.map((updatedAt) => ({
-                ...existing,
-                status: TicketStatus.make(newStatus),
-                updatedAt
-              }))
-            )
-          },
-          (next) =>
-            replaced
-              ? ticketIndex.upsertTicket(indexProject, next)
-              : Effect.void,
-          reason === "renamed" ? { silent: true } : { cause: "status_removed" }
-        )
-        if (!replaced) return false
-        return true
-      })
-    )
-  })
-
   return TicketCommands.of({
     bulkUpdate,
     quickCreate,
@@ -1512,9 +1408,7 @@ const make = Effect.gen(function* () {
     moveInGroup,
     remove,
     archive,
-    unarchive,
-    replaceTag,
-    replaceStatus
+    unarchive
   })
 })
 
