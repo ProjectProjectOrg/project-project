@@ -65,7 +65,7 @@ import {
   type HierarchyLookups,
   type HierarchyNode
 } from "./ticketHierarchy"
-import { TicketIndex, type TicketIndexProject } from "./TicketIndex"
+import { TicketIndex } from "./TicketIndex"
 import {
   applyTicketPatch,
   batchChangeOf,
@@ -78,10 +78,10 @@ import {
 } from "./ticketPatch"
 import {
   documentToTicket,
-  indexProjectOf,
   requirePolicy,
   type TicketReadError
 } from "./ticketPresentation"
+import type { TicketProject } from "./ticketProject"
 import * as TicketView from "./TicketView"
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
@@ -282,11 +282,11 @@ const make = Effect.gen(function* () {
 
   const validateBody = (
     body: string,
-    indexProject: TicketIndexProject
+    project: TicketProject
   ): Effect.Effect<void, NotFound | MentionInvalid, ProjectScope> =>
     validateBodyMentionsWithLookups(body, {
       existingTicketIds: (ticketIds) =>
-        ticketIndex.existingIds(indexProject, ticketIds),
+        ticketIndex.existingIds(project, ticketIds),
       memberIds: () => projects.memberIds()
     })
 
@@ -304,7 +304,7 @@ const make = Effect.gen(function* () {
     })
 
   const hierarchyLookups = (
-    indexProject: TicketIndexProject,
+    project: TicketProject,
     viewerId: string
   ): HierarchyLookups => {
     const found = new Map<TicketId, HierarchyNode | undefined>()
@@ -312,21 +312,21 @@ const make = Effect.gen(function* () {
       find: (id) =>
         found.has(id)
           ? Effect.succeed(found.get(id))
-          : ticketIndex.list(indexProject, [id]).pipe(
+          : ticketIndex.list(project, [id]).pipe(
               Effect.map(([entry]) => entry),
               Effect.tap((entry) => Effect.sync(() => found.set(id, entry)))
             ),
-      hasChildren: (id) => hasChildren(indexProject, viewerId, id)
+      hasChildren: (id) => hasChildren(project, viewerId, id)
     }
   }
 
   const validateNewParent = (
-    indexProject: TicketIndexProject,
+    project: TicketProject,
     viewerId: string,
     type: TicketType,
     parent: TicketId | undefined
   ): Effect.Effect<void, Validation> =>
-    validateHierarchy(hierarchyLookups(indexProject, viewerId), {
+    validateHierarchy(hierarchyLookups(project, viewerId), {
       id: null,
       fromType: null,
       type,
@@ -335,7 +335,7 @@ const make = Effect.gen(function* () {
     })
 
   const childIds = (
-    indexProject: TicketIndexProject,
+    project: TicketProject,
     viewerId: string,
     id: string
   ): Effect.Effect<ReadonlyArray<string>> =>
@@ -344,12 +344,12 @@ const make = Effect.gen(function* () {
       (archived) =>
         Effect.gen(function* () {
           const filter = { parent: [makeTicketId(id)], archived }
-          const { total } = yield* ticketIndex.count(indexProject, filter, {
+          const { total } = yield* ticketIndex.count(project, filter, {
             viewerId
           })
           if (total === 0) return []
           const entries = yield* ticketIndex.query(
-            indexProject,
+            project,
             { ...filter, sort: DEFAULT_TICKET_SORT },
             { viewerId, limit: total }
           )
@@ -359,7 +359,7 @@ const make = Effect.gen(function* () {
     ).pipe(Effect.map((pages) => pages.flat()))
 
   const hasChildren = (
-    indexProject: TicketIndexProject,
+    project: TicketProject,
     viewerId: string,
     id: string
   ): Effect.Effect<boolean> =>
@@ -367,7 +367,7 @@ const make = Effect.gen(function* () {
       [false, true],
       (archived) =>
         ticketIndex.count(
-          indexProject,
+          project,
           { parent: [makeTicketId(id)], archived },
           { viewerId }
         ),
@@ -375,40 +375,38 @@ const make = Effect.gen(function* () {
     ).pipe(Effect.map((counts) => counts.some(({ total }) => total > 0)))
 
   const writeWithIdAllocation = (
-    orgSlug: string,
-    slug: string,
+    project: TicketProject,
     projectKey: ProjectKey,
-    indexProject: TicketIndexProject,
     buildDocument: (id: TicketId) => TicketDocument,
     onFileWritten?: (document: TicketDocument) => void
   ): Effect.Effect<TicketDocument, MarkdownError> =>
     Effect.gen(function* () {
       while (true) {
         const candidate = makeTicketId(
-          `${projectKey}-${yield* ticketIndex.reserveTicketNumber(indexProject)}`
+          `${projectKey}-${yield* ticketIndex.reserveTicketNumber(project)}`
         )
         const document = buildDocument(candidate)
         const result = yield* ticketDocs
-          .create(orgSlug, slug, document, (created) =>
+          .create(project.orgSlug, project.slug, document, (created) =>
             Effect.sync(() => onFileWritten?.(created)).pipe(
               Effect.andThen(
                 attachments.reconcileTicket(
-                  orgSlug,
-                  slug,
+                  project.orgSlug,
+                  project.slug,
                   created.id,
                   created.body
                 )
               ),
               Effect.andThen(
                 figmaLinks.reconcileTicket(
-                  orgSlug,
-                  slug,
+                  project.orgSlug,
+                  project.slug,
                   created.id,
                   created.title,
                   created.body
                 )
               ),
-              Effect.andThen(ticketIndex.upsertTicket(indexProject, created))
+              Effect.andThen(ticketIndex.upsertTicket(project, created))
             )
           )
           .pipe(
@@ -422,8 +420,7 @@ const make = Effect.gen(function* () {
     })
 
   const expansionFor = (
-    orgSlug: string,
-    slug: string,
+    project: TicketProject,
     template: TemplateKey | null | undefined
   ): Effect.Effect<
     TemplateExpansion | null,
@@ -431,13 +428,13 @@ const make = Effect.gen(function* () {
   > =>
     template === undefined || template === null
       ? Effect.succeed(null)
-      : library.expandForCreate(orgSlug, slug, template)
+      : library.expandForCreate(project.orgSlug, project.slug, template)
 
   const quickCreate = Effect.fn("TicketCommands.quickCreate")(function* (
     input: QuickCreateTicketInput
   ) {
     const scope = yield* ProjectScope
-    const { orgSlug, slug, userId: ownerId, projectId } = scope
+    const { userId: ownerId, projectId } = scope
     yield* requireTicketChange({
       content: false,
       status: input.status !== undefined && input.status !== DEFAULT_STATUS,
@@ -446,45 +443,38 @@ const make = Effect.gen(function* () {
     if (input.status !== undefined) {
       yield* validateStatusExists(projectId, input.status)
     }
-    const expansion = yield* expansionFor(orgSlug, slug, input.template)
+    const expansion = yield* expansionFor(scope, input.template)
     const tags = expansion?.tags ?? []
     const body = expansion?.body ?? ""
     yield* validateTagsExist(projectId, tags)
-    const indexProject = indexProjectOf(scope)
     if (body !== "") {
-      yield* validateBody(body, indexProject)
+      yield* validateBody(body, scope)
     }
     const type = input.type ?? expansion?.type ?? "other"
-    yield* validateNewParent(indexProject, ownerId, type, input.parent)
+    yield* validateNewParent(scope, ownerId, type, input.parent)
     const projectKey = yield* projects.key()
     const now = yield* DateTime.nowAsDate
-    const document = yield* writeWithIdAllocation(
-      orgSlug,
-      slug,
-      projectKey,
-      indexProject,
-      (id) => ({
-        id,
-        title: input.title,
-        status: input.status ?? DEFAULT_STATUS,
-        type,
-        priority: expansion?.priority ?? "med",
-        tags: [...tags],
-        branch: null,
-        pr: null,
-        prState: null,
-        lastTransitionedPr: null,
-        assignees: [],
-        parent: input.parent,
-        archivedAt: null,
-        createdBy: ownerId,
-        createdAt: now,
-        updatedBy: ownerId,
-        updatedAt: now,
-        body,
-        commentsRegion: ""
-      })
-    )
+    const document = yield* writeWithIdAllocation(scope, projectKey, (id) => ({
+      id,
+      title: input.title,
+      status: input.status ?? DEFAULT_STATUS,
+      type,
+      priority: expansion?.priority ?? "med",
+      tags: [...tags],
+      branch: null,
+      pr: null,
+      prState: null,
+      lastTransitionedPr: null,
+      assignees: [],
+      parent: input.parent,
+      archivedAt: null,
+      createdBy: ownerId,
+      createdAt: now,
+      updatedBy: ownerId,
+      updatedAt: now,
+      body,
+      commentsRegion: ""
+    }))
     return yield* detailOf(document, yield* gitView)
   })
 
@@ -501,8 +491,7 @@ const make = Effect.gen(function* () {
     if (input.status !== undefined) {
       yield* validateStatusExists(projectId, input.status)
     }
-    const expansion = yield* expansionFor(orgSlug, slug, input.template)
-    const indexProject = indexProjectOf(scope)
+    const expansion = yield* expansionFor(scope, input.template)
     const projectKey = yield* projects.key()
     const tags = input.tags ?? expansion?.tags ?? []
     yield* validateTagsExist(projectId, tags)
@@ -516,39 +505,33 @@ const make = Effect.gen(function* () {
       normalizeLineEndings(input.body ?? expansion?.body ?? "")
     )
     if (body !== "") {
-      yield* validateBody(body, indexProject)
+      yield* validateBody(body, scope)
     }
     const type = input.type ?? expansion?.type ?? "other"
-    yield* validateNewParent(indexProject, ownerId, type, input.parent)
+    yield* validateNewParent(scope, ownerId, type, input.parent)
     const now = yield* DateTime.nowAsDate
-    const document = yield* writeWithIdAllocation(
-      orgSlug,
-      slug,
-      projectKey,
-      indexProject,
-      (id) => ({
-        id,
-        title: input.title,
-        status: input.status ?? DEFAULT_STATUS,
-        type,
-        priority: input.priority ?? expansion?.priority ?? "med",
-        ...(input.estimate ? { estimate: input.estimate } : {}),
-        tags: [...tags],
-        branch: null,
-        pr: null,
-        prState: null,
-        lastTransitionedPr: null,
-        assignees: input.assignees !== undefined ? [...input.assignees] : [],
-        parent: input.parent,
-        archivedAt: null,
-        createdBy: ownerId,
-        createdAt: now,
-        updatedBy: ownerId,
-        updatedAt: now,
-        body,
-        commentsRegion: ""
-      })
-    )
+    const document = yield* writeWithIdAllocation(scope, projectKey, (id) => ({
+      id,
+      title: input.title,
+      status: input.status ?? DEFAULT_STATUS,
+      type,
+      priority: input.priority ?? expansion?.priority ?? "med",
+      ...(input.estimate ? { estimate: input.estimate } : {}),
+      tags: [...tags],
+      branch: null,
+      pr: null,
+      prState: null,
+      lastTransitionedPr: null,
+      assignees: input.assignees !== undefined ? [...input.assignees] : [],
+      parent: input.parent,
+      archivedAt: null,
+      createdBy: ownerId,
+      createdAt: now,
+      updatedBy: ownerId,
+      updatedAt: now,
+      body,
+      commentsRegion: ""
+    }))
     return yield* detailOf(document, yield* gitView)
   })
 
@@ -569,7 +552,6 @@ const make = Effect.gen(function* () {
       id,
       Effect.gen(function* () {
         const view = yield* gitView
-        const indexProject = indexProjectOf(scope)
 
         if (input.status !== undefined) {
           yield* validateStatusExists(projectId, input.status)
@@ -588,7 +570,7 @@ const make = Effect.gen(function* () {
               )
 
         if (body !== undefined) {
-          yield* validateBody(body, indexProject)
+          yield* validateBody(body, scope)
         }
 
         const next = yield* ticketDocs.update(
@@ -631,7 +613,7 @@ const make = Effect.gen(function* () {
                 }
               }
               yield* validateHierarchy(
-                hierarchyLookups(indexProject, userId),
+                hierarchyLookups(scope, userId),
                 hierarchyChangeOf(existing, next)
               )
               if (next.type === "epic" && existing.type !== "epic") {
@@ -661,7 +643,7 @@ const make = Effect.gen(function* () {
                       )
                     )
                   )
-            ).pipe(Effect.andThen(ticketIndex.upsertTicket(indexProject, next)))
+            ).pipe(Effect.andThen(ticketIndex.upsertTicket(scope, next)))
         )
 
         const ticket = yield* withMissingAttachments(
@@ -671,7 +653,7 @@ const make = Effect.gen(function* () {
         const orderKey =
           sort === undefined
             ? null
-            : yield* ticketIndex.orderKeyFor(indexProject, id, sort)
+            : yield* ticketIndex.orderKeyFor(scope, id, sort)
         return { ticket, orderKey }
       })
     )
@@ -680,7 +662,6 @@ const make = Effect.gen(function* () {
   const clearStaleEstimates = Effect.fn("TicketCommands.clearStaleEstimates")(
     function* () {
       const scope = yield* ProjectScope
-      const project = indexProjectOf(scope)
       yield* requireTicketChange({ content: true })
       const { estimation } = yield* readProjectDocument({
         db,
@@ -690,12 +671,12 @@ const make = Effect.gen(function* () {
       const batches = yield* Effect.forEach([false, true], (archived) =>
         Effect.gen(function* () {
           const query = { estimate: ["stale" as const], archived }
-          const { total } = yield* ticketIndex.count(project, query, {
+          const { total } = yield* ticketIndex.count(scope, query, {
             viewerId: scope.userId
           })
           if (total === 0) return []
           return yield* ticketIndex.query(
-            project,
+            scope,
             { ...query, sort: DEFAULT_TICKET_SORT },
             { viewerId: scope.userId, limit: total }
           )
@@ -737,7 +718,7 @@ const make = Effect.gen(function* () {
                     updatedAt: yield* DateTime.nowAsDate
                   }
                 }),
-                (next) => ticketIndex.upsertTicket(project, next)
+                (next) => ticketIndex.upsertTicket(scope, next)
               )
               if (changed) cleared++
             })
@@ -765,7 +746,6 @@ const make = Effect.gen(function* () {
     if (status === undefined) {
       return yield* groups.updateTicketOrder(groupId, position)
     }
-    const indexProject = indexProjectOf(scope)
     return yield* groups.updateTicketOrder(
       groupId,
       position,
@@ -789,7 +769,7 @@ const make = Effect.gen(function* () {
                       updatedAt: now
                     }))
                   ),
-            (next) => ticketIndex.upsertTicket(indexProject, next)
+            (next) => ticketIndex.upsertTicket(scope, next)
           )
           .pipe(
             Effect.asVoid,
@@ -802,53 +782,51 @@ const make = Effect.gen(function* () {
   })
 
   const restoreTicket = (
-    orgSlug: string,
-    slug: string,
-    indexProject: TicketIndexProject,
+    project: TicketProject,
     id: string,
     original: TicketDocument
   ) =>
     ticketDocs
-      .write(orgSlug, slug, id, original)
-      .pipe(Effect.andThen(ticketIndex.upsertTicket(indexProject, original)))
+      .write(project.orgSlug, project.slug, id, original)
+      .pipe(Effect.andThen(ticketIndex.upsertTicket(project, original)))
 
   const discardSplitResult = (
-    orgSlug: string,
-    slug: string,
-    indexProject: TicketIndexProject,
+    project: TicketProject,
     document: TicketDocument
   ) =>
     ticketDocs
       .remove(
-        orgSlug,
-        slug,
+        project.orgSlug,
+        project.slug,
         document.id,
         attachments
-          .reconcileTicket(orgSlug, slug, document.id, "")
+          .reconcileTicket(project.orgSlug, project.slug, document.id, "")
           .pipe(
             Effect.andThen(
-              figmaLinks.reconcileTicket(orgSlug, slug, document.id, "", "")
+              figmaLinks.reconcileTicket(
+                project.orgSlug,
+                project.slug,
+                document.id,
+                "",
+                ""
+              )
             ),
-            Effect.andThen(ticketIndex.deleteTicket(indexProject, document.id))
+            Effect.andThen(ticketIndex.deleteTicket(project, document.id))
           )
       )
       .pipe(Effect.ignore)
 
   const restoreSplitDocuments = (
-    orgSlug: string,
-    slug: string,
+    project: TicketProject,
     id: string,
-    indexProject: TicketIndexProject,
     original: TicketDocument,
     created: ReadonlyArray<TicketDocument>
   ) =>
     Effect.forEach(
       created,
-      (document) => discardSplitResult(orgSlug, slug, indexProject, document),
+      (document) => discardSplitResult(project, document),
       { discard: true }
-    ).pipe(
-      Effect.andThen(restoreTicket(orgSlug, slug, indexProject, id, original))
-    )
+    ).pipe(Effect.andThen(restoreTicket(project, id, original)))
 
   const split = Effect.fn("TicketCommands.split")(function* (
     id: string,
@@ -861,10 +839,9 @@ const make = Effect.gen(function* () {
       return yield* new Validation({ reason: "split_needs_two_results" })
     }
 
-    const indexProject = indexProjectOf(scope)
     const projectKey = yield* projects.key()
     const view = yield* gitView
-    const source = yield* readTicket(orgSlug, slug, id)
+    const source = yield* readTicket(scope, id)
     yield* requireSplit(source, retainedInput, newInputs)
 
     const sourceAssignees = new Set(source.assignees)
@@ -925,7 +902,7 @@ const make = Effect.gen(function* () {
       Effect.gen(function* () {
         const original = yield* ticketDocs.read(orgSlug, slug, id)
         yield* requireSplit(original, retainedInput, newInputs)
-        yield* validateHierarchy(hierarchyLookups(indexProject, userId), {
+        yield* validateHierarchy(hierarchyLookups(scope, userId), {
           id: original.id,
           fromType: original.type,
           type: retainedInput.type,
@@ -940,10 +917,8 @@ const make = Effect.gen(function* () {
           for (const result of newInputs) {
             createdDocuments.push(
               yield* writeWithIdAllocation(
-                orgSlug,
-                slug,
+                scope,
                 projectKey,
-                indexProject,
                 (newId) => ({
                   id: newId,
                   title: result.title,
@@ -988,7 +963,7 @@ const make = Effect.gen(function* () {
                 updatedBy: userId,
                 updatedAt: now
               }),
-            (next) => ticketIndex.upsertTicket(indexProject, next),
+            (next) => ticketIndex.upsertTicket(scope, next),
             { silent: true }
           )
 
@@ -997,14 +972,9 @@ const make = Effect.gen(function* () {
 
         return yield* run.pipe(
           Effect.onError(() =>
-            restoreSplitDocuments(
-              orgSlug,
-              slug,
-              id,
-              indexProject,
-              original,
-              persisted
-            ).pipe(Effect.ignoreCause)
+            restoreSplitDocuments(scope, id, original, persisted).pipe(
+              Effect.ignoreCause
+            )
           )
         )
       })
@@ -1076,10 +1046,8 @@ const make = Effect.gen(function* () {
           ),
           Effect.andThen(
             restoreSplitDocuments(
-              orgSlug,
-              slug,
+              scope,
               id,
-              indexProject,
               written.original,
               written.createdDocuments
             ).pipe(
@@ -1134,7 +1102,6 @@ const make = Effect.gen(function* () {
   > {
     const scope = yield* ProjectScope
     const { orgSlug, slug, userId } = scope
-    const indexProject = indexProjectOf(scope)
     yield* groups.removeTicketFromAllGroups(orgSlug, slug, id)
     yield* withTicketDocumentLock(
       orgSlug,
@@ -1150,11 +1117,11 @@ const make = Effect.gen(function* () {
             Effect.andThen(
               figmaLinks.reconcileTicket(orgSlug, slug, id, "", "")
             ),
-            Effect.andThen(ticketIndex.deleteTicket(indexProject, id))
+            Effect.andThen(ticketIndex.deleteTicket(scope, id))
           )
       )
     )
-    const children = yield* childIds(indexProject, userId, id)
+    const children = yield* childIds(scope, userId, id)
     if (options?.cascadeSubTickets === true) {
       yield* Effect.forEach(
         children,
@@ -1165,15 +1132,13 @@ const make = Effect.gen(function* () {
         { discard: true }
       )
     } else {
-      yield* releaseChildren(orgSlug, slug, userId, indexProject, id, children)
+      yield* releaseChildren(scope, userId, id, children)
     }
   })
 
   const releaseChildren = (
-    orgSlug: string,
-    slug: string,
+    project: TicketProject,
     userId: string,
-    indexProject: TicketIndexProject,
     parentId: string,
     children: ReadonlyArray<string>
   ) =>
@@ -1183,12 +1148,12 @@ const make = Effect.gen(function* () {
         children,
         (childId) =>
           withTicketDocumentLock(
-            orgSlug,
-            slug,
+            project.orgSlug,
+            project.slug,
             childId,
             ticketDocs.update(
-              orgSlug,
-              slug,
+              project.orgSlug,
+              project.slug,
               childId,
               (existing) =>
                 Effect.succeed({
@@ -1197,13 +1162,13 @@ const make = Effect.gen(function* () {
                   updatedBy: userId,
                   updatedAt: now
                 }),
-              (next) => ticketIndex.upsertTicket(indexProject, next)
+              (next) => ticketIndex.upsertTicket(project, next)
             )
           ).pipe(
             Effect.catchCause((cause) =>
               Effect.logError("remove: releasing child ticket failed", {
-                orgSlug,
-                slug,
+                orgSlug: project.orgSlug,
+                slug: project.slug,
                 parentId,
                 childId,
                 cause
@@ -1215,15 +1180,15 @@ const make = Effect.gen(function* () {
     })
 
   const withTicketLocks = <A, E, R>(
-    orgSlug: string,
-    slug: string,
+    project: TicketProject,
     ids: ReadonlyArray<string>,
     effect: Effect.Effect<A, E, R>
   ): Effect.Effect<A, E, R> =>
     ids
       .toSorted()
       .reduceRight(
-        (inner, id) => withTicketDocumentLock(orgSlug, slug, id, inner),
+        (inner, id) =>
+          withTicketDocumentLock(project.orgSlug, project.slug, id, inner),
         effect
       )
 
@@ -1235,7 +1200,6 @@ const make = Effect.gen(function* () {
     const ids = [...new Set(input.tickets)]
     const { sprint, ...fields } = input.patch
     const touchesTickets = Object.keys(fields).length > 0
-    const indexProject = indexProjectOf(scope)
     if (fields.status !== undefined) {
       yield* validateStatusExists(projectId, fields.status)
     }
@@ -1257,13 +1221,11 @@ const make = Effect.gen(function* () {
         originals.filter((original) =>
           written.some((next) => next.id === original.id)
         ),
-        (original) =>
-          restoreTicket(orgSlug, slug, indexProject, original.id, original),
+        (original) => restoreTicket(scope, original.id, original),
         { discard: true }
       ).pipe(Effect.ignore)
     const { originals, nexts } = yield* withTicketLocks(
-      orgSlug,
-      slug,
+      scope,
       ids,
       Effect.gen(function* () {
         const originals = yield* Effect.forEach(ids, (id) =>
@@ -1291,7 +1253,7 @@ const make = Effect.gen(function* () {
         if (newcomers.length > 0) {
           yield* validateAssigneesAreMembers(newcomers)
         }
-        const lookups = hierarchyLookups(indexProject, userId)
+        const lookups = hierarchyLookups(scope, userId)
         for (const [index, existing] of originals.entries()) {
           yield* validateHierarchy(
             lookups,
@@ -1328,7 +1290,7 @@ const make = Effect.gen(function* () {
             )) {
               yield* ticketDocs.write(orgSlug, slug, next.id, next)
               written.push(next)
-              yield* ticketIndex.upsertTicket(indexProject, next)
+              yield* ticketIndex.upsertTicket(scope, next)
             }
           }).pipe(Effect.onError(() => restoreWritten(originals)))
         }
@@ -1347,7 +1309,7 @@ const make = Effect.gen(function* () {
       return null
     }).pipe(
       Effect.onError(() =>
-        withTicketLocks(orgSlug, slug, ids, restoreWritten(originals))
+        withTicketLocks(scope, ids, restoreWritten(originals))
       )
     )
 
@@ -1368,11 +1330,10 @@ const make = Effect.gen(function* () {
       slug,
       id,
       Effect.gen(function* () {
-        const current = yield* readTicket(orgSlug, slug, id)
+        const current = yield* readTicket(scope, id)
         if (current.archivedAt !== null) {
           return yield* new Conflict({ reason: "ticket_already_archived" })
         }
-        const indexProject = indexProjectOf(scope)
         const trimmed = reason?.trim()
         const next = yield* ticketDocs.update(
           orgSlug,
@@ -1386,7 +1347,7 @@ const make = Effect.gen(function* () {
                 updatedAt: now
               }))
             ),
-          (next) => ticketIndex.upsertTicket(indexProject, next),
+          (next) => ticketIndex.upsertTicket(scope, next),
           trimmed ? { archiveReason: trimmed } : {}
         )
         return yield* detailOf(next, yield* gitView)
@@ -1404,11 +1365,10 @@ const make = Effect.gen(function* () {
       slug,
       id,
       Effect.gen(function* () {
-        const current = yield* readTicket(orgSlug, slug, id)
+        const current = yield* readTicket(scope, id)
         if (current.archivedAt === null) {
           return yield* new Conflict({ reason: "ticket_not_archived" })
         }
-        const indexProject = indexProjectOf(scope)
         const next = yield* ticketDocs.update(
           orgSlug,
           slug,
@@ -1421,7 +1381,7 @@ const make = Effect.gen(function* () {
                 updatedAt
               }))
             ),
-          (next) => ticketIndex.upsertTicket(indexProject, next)
+          (next) => ticketIndex.upsertTicket(scope, next)
         )
         return yield* detailOf(next, yield* gitView)
       })

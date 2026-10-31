@@ -56,11 +56,11 @@ import {
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import {
   TicketIndex,
-  type TicketIndexProject,
   type TicketIndexQueryEntry,
   type TicketIndexShape
 } from "./TicketIndex"
 import { TICKET_ORDER_KEY_SEPARATOR } from "./TicketIndexLive"
+import type { TicketProject } from "./ticketProject"
 
 export const decodeGroupSync = Schema.decodeSync(Group)
 
@@ -96,8 +96,8 @@ export const ticketIndexProject = {
   orgSlug: "org",
   organizationId: "org-1",
   projectId: "project-1",
-  projectSlug: "p"
-} satisfies TicketIndexProject
+  slug: "p"
+} satisfies TicketProject
 
 export function unexpected(method: string): Effect.Effect<never> {
   return Effect.die(new Error(`unexpected ${method} call`))

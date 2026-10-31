@@ -766,11 +766,11 @@ it.effect(
                 orgSlug,
                 organizationId: orgSlug,
                 projectId: slug,
-                projectSlug: slug
+                slug
               }),
             list: (project) =>
               Effect.sync(() => [
-                entryFromDocument(documents.get(project.projectSlug)!)
+                entryFromDocument(documents.get(project.slug)!)
               ]),
             isRepositoryBranchAttached: () =>
               Effect.gen(function* () {
@@ -882,7 +882,7 @@ it.effect("manual unlink waits for a webhook write and remains unlinked", () =>
           },
           {
             orgSlug: "org",
-            projectSlug: "p",
+            slug: "p",
             organizationId: "org-1",
             projectId: "project-1",
             ticketId: "T-1",

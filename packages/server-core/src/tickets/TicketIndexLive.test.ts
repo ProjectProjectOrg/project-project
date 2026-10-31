@@ -6,7 +6,6 @@ import * as Schema from "effect/Schema"
 import { describe, expect } from "vitest"
 
 import type { TicketDocument } from "./TicketDocs"
-import type { TicketIndexProject } from "./TicketIndex"
 import {
   commentIndexRowsFor,
   detectTicketIndexDrift,
@@ -15,17 +14,18 @@ import {
   ticketIndexHasDrift,
   type TicketIndexReconcilerDeps
 } from "./TicketIndexMaintenance"
+import type { TicketProject } from "./ticketProject"
 
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 const tagName = Schema.decodeUnknownSync(TagName)
 const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
 
-const project: TicketIndexProject = {
+const project: TicketProject = {
   orgSlug: "acme",
   organizationId: "org-1",
   projectId: "project-1",
-  projectSlug: "demo"
+  slug: "demo"
 }
 
 const doc = (
@@ -286,13 +286,13 @@ describe("detectTicketIndexDrift", () => {
 interface Harness {
   readonly deps: TicketIndexReconcilerDeps
   readonly writes: Array<{
-    project: TicketIndexProject
+    project: TicketProject
     documents: ReadonlyArray<TicketDocument>
   }>
 }
 
 const makeHarness = (config: {
-  projects?: ReadonlyArray<TicketIndexProject>
+  projects?: ReadonlyArray<TicketProject>
   documents: ReadonlyArray<TicketDocument>
   skipped?: number
   indexed: ReadonlyArray<{ ticketId: string; updatedAt: Date }>
@@ -383,10 +383,10 @@ describe("makeTicketIndexReconciler", () => {
 
   it.effect("reconcileAllProjects counts only the projects it rebuilt", () =>
     Effect.gen(function* () {
-      const projectB: TicketIndexProject = {
+      const projectB: TicketProject = {
         ...project,
         projectId: "project-2",
-        projectSlug: "beta"
+        slug: "beta"
       }
       const documents = [doc("T-1", "2026-05-02T00:00:00.000Z")]
       const writes: Array<string> = []

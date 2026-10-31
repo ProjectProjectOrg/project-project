@@ -18,6 +18,7 @@ import {
   type GitView,
   type TicketReadError
 } from "./ticketPresentation"
+import type { TicketProject } from "./ticketProject"
 
 export class TicketView extends Context.Service<
   TicketView,
@@ -25,8 +26,7 @@ export class TicketView extends Context.Service<
     gitViewOf: (scope: ProjectScopeShape) => Effect.Effect<GitView>
     gitView: Effect.Effect<GitView, never, ProjectScope>
     readTicket: (
-      orgSlug: string,
-      slug: string,
+      project: TicketProject,
       id: string
     ) => Effect.Effect<TicketDocument, TicketReadError>
     detailOf: (
@@ -80,11 +80,10 @@ const make = Effect.gen(function* () {
   })
 
   const readTicket = Effect.fn("TicketView.readTicket")(function* (
-    orgSlug: string,
-    slug: string,
+    project: TicketProject,
     id: string
   ) {
-    return yield* ticketDocs.read(orgSlug, slug, id)
+    return yield* ticketDocs.read(project.orgSlug, project.slug, id)
   })
 
   const withMissingAttachments = Effect.fn("TicketView.withMissingAttachments")(

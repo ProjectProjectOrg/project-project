@@ -44,7 +44,7 @@ const main = Effect.gen(function* () {
     totalIndexed += project.indexed
     totalSkipped += project.skipped
     yield* Console.log(
-      `[ticket-index] ${project.project.orgSlug}/${project.project.projectSlug}: indexed=${project.indexed} skipped=${project.skipped}`
+      `[ticket-index] ${project.project.orgSlug}/${project.project.slug}: indexed=${project.indexed} skipped=${project.skipped}`
     )
   }
   yield* Console.log(

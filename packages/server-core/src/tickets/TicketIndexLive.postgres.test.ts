@@ -1090,20 +1090,24 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       )
 
       yield* branchIndex.markBranchStale(projectId, "feat/T-2", januaryTwelfth)
+      expect(yield* branchIndex.getBranchDeletedAt(project, "T-2")).toEqual(
+        januaryTwelfth
+      )
+      expect(yield* branchIndex.getBranchDeletedAt(project, "T-10")).toBeNull()
       expect(
-        yield* branchIndex.getBranchDeletedAt(orgSlug, projectSlug, "T-2")
-      ).toEqual(januaryTwelfth)
-      expect(
-        yield* branchIndex.getBranchDeletedAt(orgSlug, projectSlug, "T-10")
+        yield* branchIndex.getBranchDeletedAt(
+          { ...project, orgSlug: "wrong-org" },
+          "T-2"
+        )
       ).toBeNull()
       expect(
-        yield* branchIndex.getBranchDeletedAt("wrong-org", projectSlug, "T-2")
+        yield* branchIndex.getBranchDeletedAt(
+          { ...project, slug: "wrong-project" },
+          "T-2"
+        )
       ).toBeNull()
       expect(
-        yield* branchIndex.getBranchDeletedAt(orgSlug, "wrong-project", "T-2")
-      ).toBeNull()
-      expect(
-        yield* branchIndex.getBranchDeletedAt(orgSlug, projectSlug, "T-missing")
+        yield* branchIndex.getBranchDeletedAt(project, "T-missing")
       ).toBeNull()
 
       const firstPage = yield* index.query(
@@ -2106,17 +2110,16 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           betaSlug,
           "not-a-project"
         ])
-        expect(visible.map((project) => project.projectSlug).sort()).toEqual(
+        expect(visible.map((project) => project.slug).sort()).toEqual(
           [alphaSlug, betaSlug].sort()
         )
 
         const idsOf = (
           rows: ReadonlyArray<{
             entry: { id: string }
-            project: { projectSlug: string }
+            project: { slug: string }
           }>
-        ) =>
-          rows.map(({ project, entry }) => `${project.projectSlug}:${entry.id}`)
+        ) => rows.map(({ project, entry }) => `${project.slug}:${entry.id}`)
 
         const assigned = yield* index.assignedTo(visible, {
           viewerId,
@@ -2169,7 +2172,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           statusCounts
             .map(
               ({ project, status, count }) =>
-                `${project.projectSlug}:${status}=${count}`
+                `${project.slug}:${status}=${count}`
             )
             .toSorted()
         ).toEqual(
@@ -2186,7 +2189,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
         expect(
           previews
             .map(({ project, total, entries }) => [
-              project.projectSlug,
+              project.slug,
               total,
               entries.map((entry) => entry.id)
             ])

@@ -7,11 +7,8 @@ import type { ProjectGitAutomationShape } from "../projects/ProjectGitAutomation
 import { gitAutomationEvent, planGitAutomation } from "./gitAutomation"
 import type { TicketDocsShape, TicketDocument } from "./TicketDocs"
 import type { TicketDocumentLock } from "./ticketDocumentLock"
-import type {
-  TicketIndexMatch,
-  TicketIndexProject,
-  TicketIndexShape
-} from "./TicketIndex"
+import type { TicketIndexMatch, TicketIndexShape } from "./TicketIndex"
+import type { TicketProject } from "./ticketProject"
 
 export type GitAutomationDeps = Readonly<{
   ticketDocs: TicketDocsShape
@@ -21,7 +18,7 @@ export type GitAutomationDeps = Readonly<{
 
 export const moveByGitAutomation = (
   deps: GitAutomationDeps,
-  project: TicketIndexProject,
+  project: TicketProject,
   ticket: TicketDocument,
   event: GitAutomationEvent | null
 ) =>
@@ -33,7 +30,7 @@ export const moveByGitAutomation = (
     return yield* deps.ticketDocs
       .update(
         project.orgSlug,
-        project.projectSlug,
+        project.slug,
         ticket.id,
         (current) =>
           current.status !== ticket.status
@@ -65,9 +62,9 @@ export const moveForDeletedBranch = (
 ): Effect.Effect<void, MarkdownError> =>
   deps.ticketDocumentLock.withTicketDocumentLock(
     match.orgSlug,
-    match.projectSlug,
+    match.slug,
     match.ticketId,
-    deps.ticketDocs.read(match.orgSlug, match.projectSlug, match.ticketId).pipe(
+    deps.ticketDocs.read(match.orgSlug, match.slug, match.ticketId).pipe(
       Effect.flatMap((ticket) =>
         moveByGitAutomation(
           deps,

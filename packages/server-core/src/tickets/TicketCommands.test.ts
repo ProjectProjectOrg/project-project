@@ -150,7 +150,7 @@ const ticketIndexProject = {
   orgSlug: "org",
   organizationId: "org-1",
   projectId: "project-1",
-  projectSlug: "p"
+  slug: "p"
 }
 
 const FakeTicketIndex = Layer.sync(TicketIndex, () => {

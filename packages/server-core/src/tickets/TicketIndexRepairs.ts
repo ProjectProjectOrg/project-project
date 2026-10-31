@@ -2,22 +2,22 @@ import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
-import type { TicketIndexProject } from "./TicketIndex"
+import type { TicketProject } from "./ticketProject"
 
 export class TicketIndexRepairs extends Context.Service<
   TicketIndexRepairs,
   Readonly<{
-    markUnpublished: (project: TicketIndexProject) => Effect.Effect<void>
-    pending: Effect.Effect<ReadonlyArray<TicketIndexProject>>
-    remove: (projects: ReadonlyArray<TicketIndexProject>) => Effect.Effect<void>
+    markUnpublished: (project: TicketProject) => Effect.Effect<void>
+    pending: Effect.Effect<ReadonlyArray<TicketProject>>
+    remove: (projects: ReadonlyArray<TicketProject>) => Effect.Effect<void>
   }>
 >()("@pp/server-core/tickets/TicketIndexRepairs") {}
 
 const make = Effect.sync(() => {
-  const unpublished = new Map<string, TicketIndexProject>()
+  const unpublished = new Map<string, TicketProject>()
 
   const markUnpublished = Effect.fn("TicketIndexRepairs.markUnpublished")(
-    function* (project: TicketIndexProject) {
+    function* (project: TicketProject) {
       yield* Effect.sync(() => {
         unpublished.set(project.projectId, project)
       })
@@ -27,7 +27,7 @@ const make = Effect.sync(() => {
   const pending = Effect.sync(() => [...unpublished.values()])
 
   const remove = Effect.fn("TicketIndexRepairs.remove")(function* (
-    projects: ReadonlyArray<TicketIndexProject>
+    projects: ReadonlyArray<TicketProject>
   ) {
     yield* Effect.sync(() => {
       for (const project of projects) unpublished.delete(project.projectId)

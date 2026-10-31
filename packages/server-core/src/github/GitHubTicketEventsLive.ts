@@ -46,11 +46,8 @@ import {
   planPullRequestWebhookTicket,
   withPullRequestBase
 } from "../tickets/ticketGitStatePlanner"
-import {
-  TicketIndex,
-  type TicketIndexProject,
-  type TicketIndexShape
-} from "../tickets/TicketIndex"
+import { TicketIndex, type TicketIndexShape } from "../tickets/TicketIndex"
+import type { TicketProject } from "../tickets/ticketProject"
 import {
   planLayerPullRequest,
   planStackAttach,
@@ -68,7 +65,7 @@ export type PullRequestWebhookMatch = Readonly<{
   orgSlug: string
   organizationId: string
   projectId: string
-  projectSlug: string
+  slug: string
   ticketId: string
   branch: string
 }>
@@ -122,12 +119,6 @@ const writePullRequestWebhook = (
   ) => Effect.Effect<PullRequestWebhookPatch | null>
 ): Effect.Effect<void, MarkdownError> =>
   Effect.gen(function* () {
-    const indexProject = {
-      orgSlug: match.orgSlug,
-      organizationId: match.organizationId,
-      projectId: match.projectId,
-      projectSlug: match.projectSlug
-    }
     if (
       claim !== null &&
       deps.claimPullRequest !== undefined &&
@@ -138,7 +129,7 @@ const writePullRequestWebhook = (
     const next = yield* deps.ticketDocs
       .update(
         match.orgSlug,
-        match.projectSlug,
+        match.slug,
         match.ticketId,
         (ticket) =>
           Effect.gen(function* () {
@@ -153,9 +144,7 @@ const writePullRequestWebhook = (
             )
           }),
         (next) =>
-          changed
-            ? deps.ticketIndex.upsertTicket(indexProject, next)
-            : Effect.void,
+          changed ? deps.ticketIndex.upsertTicket(match, next) : Effect.void,
         gitAutomationActivity
       )
       .pipe(
@@ -186,7 +175,7 @@ const writePullRequestWebhook = (
       module: "GitHubWebhooks",
       deliveryId,
       orgSlug: match.orgSlug,
-      slug: match.projectSlug,
+      slug: match.slug,
       ticketId: match.ticketId
     })
   )
@@ -199,7 +188,7 @@ export const applyPullRequestWebhookToTicket = (
 ): Effect.Effect<void, MarkdownError> =>
   deps.ticketDocumentLock.withTicketDocumentLock(
     match.orgSlug,
-    match.projectSlug,
+    match.slug,
     match.ticketId,
     writePullRequestWebhook(deps, match, deliveryId, change, (ticket) =>
       Effect.gen(function* () {
@@ -241,7 +230,7 @@ export const applyPullRequestWebhookToLayer = (
 ): Effect.Effect<void, MarkdownError> =>
   deps.ticketDocumentLock.withTicketDocumentLock(
     match.orgSlug,
-    match.projectSlug,
+    match.slug,
     match.ticketId,
     writePullRequestWebhook(deps, match, deliveryId, change, (ticket) => {
       const layer = ticket.stack?.find(
@@ -271,7 +260,7 @@ const landAwaitingMerge = (
     let landedAt: Date | null = null
     yield* deps.ticketDocumentLock.withTicketDocumentLock(
       match.orgSlug,
-      match.projectSlug,
+      match.slug,
       match.ticketId,
       writePullRequestWebhook(deps, match, deliveryId, null, (ticket) => {
         if (match.stacked) {
@@ -363,7 +352,7 @@ export const linkPullRequestWebhookToTicket = Effect.fn(
   "GitHubWebhooks.linkPullRequestWebhookToTicket"
 )(function* (
   deps: PullRequestWebhookDeps,
-  project: TicketIndexProject,
+  project: TicketProject,
   change: GitHubPullRequestWebhookChange,
   deliveryId: string | null
 ): Effect.fn.Return<void, MarkdownError> {
@@ -379,7 +368,7 @@ export const linkPullRequestWebhookToTicket = Effect.fn(
         module: "GitHubWebhooks",
         deliveryId,
         orgSlug: project.orgSlug,
-        slug: project.projectSlug,
+        slug: project.slug,
         branch: change.branch,
         pr: change.number,
         reason,
@@ -412,7 +401,7 @@ export const linkPullRequestWebhookToTicket = Effect.fn(
   const match = { ...project, ticketId, branch: change.branch }
   yield* deps.ticketDocumentLock.withTicketDocumentLock(
     project.orgSlug,
-    project.projectSlug,
+    project.slug,
     ticketId,
     deps.ticketDocumentLock.withRepositoryBranchLock(
       change.repositoryId,
@@ -496,7 +485,7 @@ export const GitHubTicketEventsLive = Layer.effect(
         .select({
           id: projectIntegrationLink.id,
           projectId: projectIntegrationLink.projectId,
-          projectSlug: projectIndex.slug,
+          slug: projectIndex.slug,
           organizationId: projectIndex.organizationId,
           orgSlug: organization.slug,
           defaultBranch: projectGithubRepository.defaultBranch
@@ -677,11 +666,7 @@ export const GitHubTicketEventsLive = Layer.effect(
             )
             const pending = yield* Effect.filter(matches, (match) =>
               Effect.map(
-                ticketBranchIndex.getBranchDeletedAt(
-                  match.orgSlug,
-                  match.projectSlug,
-                  match.ticketId
-                ),
+                ticketBranchIndex.getBranchDeletedAt(match, match.ticketId),
                 (deletedAt) => deletedAt === null
               )
             )

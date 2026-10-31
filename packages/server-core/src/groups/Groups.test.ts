@@ -207,7 +207,7 @@ function makeFakeDocs(initial?: {
     orgSlug: "org",
     organizationId: "org-1",
     projectId: "project-1",
-    projectSlug: "p"
+    slug: "p"
   }
 
   const ticketIndexService = {
