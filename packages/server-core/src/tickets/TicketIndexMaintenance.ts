@@ -481,22 +481,26 @@ const make = Effect.gen(function* () {
     .where(publishedProject())
     .pipe(Effect.orDie)
 
-  const rebuildProject = (project: TicketIndexProject) =>
-    Effect.gen(function* () {
+  const rebuildProject = Effect.fn("TicketIndexMaintenance.rebuildProject")(
+    function* (project: TicketIndexProject) {
       const indexedBefore = yield* indexedRefs(project)
       const { documents, skipped } = yield* collectDocuments(project)
       yield* writeProjectIndex(project, documents, indexedBefore)
       return { project, indexed: documents.length, skipped }
-    })
+    }
+  )
 
-  const rebuildAllProjects = () =>
-    Effect.gen(function* () {
-      const projects = yield* listProjects
-      const summaries = yield* Effect.forEach(projects, rebuildProject, {
-        concurrency: 1
-      })
-      return { projects: summaries }
-    })
+  const rebuildAllProjects = Effect.fn(
+    "TicketIndexMaintenance.rebuildAllProjects"
+  )(function* () {
+    const projects = yield* listProjects
+    const summaries = yield* Effect.forEach(
+      projects,
+      (project) => rebuildProject(project),
+      { concurrency: 1 }
+    )
+    return { projects: summaries }
+  })
 
   const reconciler = makeTicketIndexReconciler({
     listProjects,
@@ -567,11 +571,26 @@ const make = Effect.gen(function* () {
     )
   )
 
+  const reconcileProject = Effect.fn("TicketIndexMaintenance.reconcileProject")(
+    function* (
+      project: TicketIndexProject,
+      options?: TicketIndexReconcileOptions
+    ) {
+      return yield* reconciler.reconcileProject(project, options)
+    }
+  )
+
+  const reconcileAllProjects = Effect.fn(
+    "TicketIndexMaintenance.reconcileAllProjects"
+  )(function* () {
+    return yield* reconciler.reconcileAllProjects()
+  })
+
   return TicketIndexMaintenance.of({
     rebuildProject,
     rebuildAllProjects,
-    reconcileProject: reconciler.reconcileProject,
-    reconcileAllProjects: reconciler.reconcileAllProjects
+    reconcileProject,
+    reconcileAllProjects
   })
 })
 
