@@ -1,7 +1,12 @@
 import { it } from "@effect/vitest"
 import { Project } from "@pp/access/roles"
-import { SprintCompletedImmutable } from "@pp/shared"
+import {
+  ActivityActor,
+  ProjectScope,
+  SprintCompletedImmutable
+} from "@pp/shared"
 import * as Effect from "effect/Effect"
+import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
 import { expect } from "vitest"
 
@@ -744,6 +749,92 @@ it.effect("bulkUpdate restores the tickets when planning fails", () => {
     expect(docs.documents.get("T-2")?.priority).toBe("med")
   }).pipe(Effect.provide(layer))
 })
+
+it.effect(
+  "a failed sprint step doesn't overwrite an edit made to the tickets in the meantime",
+  () => {
+    let duringSprintStep: Effect.Effect<
+      void,
+      never,
+      ProjectScope | ActivityActor
+    > = Effect.void
+    const { docs, layer } = makeBulkFixture(() =>
+      duringSprintStep.pipe(
+        Effect.andThen(Effect.fail(new SprintCompletedImmutable()))
+      )
+    )
+    return Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      const editing: Array<Fiber.Fiber<void>> = []
+      duringSprintStep = Effect.gen(function* () {
+        const fiber = yield* Effect.forkDetach(
+          tickets
+            .update("T-1", { title: "Edited elsewhere" })
+            .pipe(Effect.asVoid, Effect.orDie)
+        )
+        editing.push(fiber)
+        for (let step = 0; step < 20; step++) yield* Effect.yieldNow
+      })
+      const error = yield* tickets
+        .bulkUpdate({
+          tickets: [ticketId("T-1"), ticketId("T-2")],
+          patch: { priority: "high", sprint: bulkSprint.id }
+        })
+        .pipe(Effect.flip)
+      yield* Fiber.joinAll(editing)
+
+      expect(error._tag).toBe("SprintCompletedImmutable")
+      expect(docs.documents.get("T-1")?.title).toBe("Edited elsewhere")
+      expect(docs.documents.get("T-1")?.priority).toBe("med")
+      expect(docs.documents.get("T-2")?.priority).toBe("med")
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "a failed removal from one sprint puts the tickets back in the sprints they already left",
+  () => {
+    const first = { ...inSprint(["T-9", "T-1", "T-3"]), id: groupId("G-1") }
+    const second = { ...inSprint(["T-2"]), id: groupId("G-2") }
+    const rejoined: Array<
+      readonly [string, string | null, string | null | undefined]
+    > = []
+    const { docs, layer } = makeRulesFixture(
+      [
+        makeTicketDocument("T-1"),
+        makeTicketDocument("T-2"),
+        makeTicketDocument("T-3")
+      ],
+      {
+        list: () => Effect.succeed([first, second]),
+        removeTickets: (id) =>
+          id === first.id
+            ? Effect.succeed({ target: { ...first, body: "" }, evicted: [] })
+            : Effect.fail(new SprintCompletedImmutable()),
+        setSprintMembership: (_org, _slug, ticket, sprintId, options) =>
+          Effect.sync(() => {
+            rejoined.push([ticket, sprintId, options?.after])
+          })
+      }
+    )
+    return Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      const error = yield* tickets
+        .bulkUpdate({
+          tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")],
+          patch: { priority: "high", sprint: null }
+        })
+        .pipe(Effect.flip)
+
+      expect(error._tag).toBe("SprintCompletedImmutable")
+      expect(rejoined).toEqual([
+        ["T-1", "G-1", "T-9"],
+        ["T-3", "G-1", "T-1"]
+      ])
+      expect(docs.documents.get("T-1")?.priority).toBe("med")
+    }).pipe(Effect.provide(layer))
+  }
+)
 
 it.effect("ticket mention validation trusts the ticket index", () => {
   const docs = makeFakeTicketDocs(["T-1"])

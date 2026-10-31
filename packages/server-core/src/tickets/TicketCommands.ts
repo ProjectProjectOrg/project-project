@@ -1224,7 +1224,65 @@ const make = Effect.gen(function* () {
         (original) => restoreTicket(scope, original.id, original),
         { discard: true }
       ).pipe(Effect.ignore)
-    const { originals, nexts } = yield* withTicketLocks(
+    const rejoinSprints = (
+      left: ReadonlyArray<
+        Readonly<{
+          group: (typeof openSprints)[number]
+          leaving: ReadonlyArray<string>
+        }>
+      >
+    ) =>
+      Effect.forEach(
+        left,
+        ({ group, leaving }) =>
+          Effect.forEach(
+            group.tickets.flatMap((ticketId, index) =>
+              leaving.includes(ticketId)
+                ? [
+                    {
+                      ticketId,
+                      after: index === 0 ? null : group.tickets[index - 1]
+                    }
+                  ]
+                : []
+            ),
+            ({ ticketId, after }) =>
+              groups
+                .setSprintMembership(orgSlug, slug, ticketId, group.id, {
+                  after
+                })
+                .pipe(
+                  Effect.catchCause((cause) =>
+                    Effect.logError(
+                      "bulk update: sprint rollback failed",
+                      cause
+                    )
+                  )
+                ),
+            { discard: true }
+          ),
+        { discard: true }
+      )
+    const planSprint = Effect.gen(function* () {
+      if (sprint === undefined) return null
+      if (sprint !== null) return yield* groups.addTickets(sprint, ids)
+      const left: Array<
+        Readonly<{
+          group: (typeof openSprints)[number]
+          leaving: ReadonlyArray<string>
+        }>
+      > = []
+      yield* Effect.gen(function* () {
+        for (const group of openSprints) {
+          const leaving = group.tickets.filter((id) => ids.includes(id))
+          if (leaving.length === 0) continue
+          yield* groups.removeTickets(group.id, leaving)
+          left.push({ group, leaving })
+        }
+      }).pipe(Effect.onError(() => rejoinSprints(left)))
+      return null
+    })
+    const { nexts, sprintChange } = yield* withTicketLocks(
       scope,
       ids,
       Effect.gen(function* () {
@@ -1294,23 +1352,11 @@ const make = Effect.gen(function* () {
             }
           }).pipe(Effect.onError(() => restoreWritten(originals)))
         }
-        return { originals, nexts }
+        const sprintChange = yield* planSprint.pipe(
+          Effect.onError(() => restoreWritten(originals))
+        )
+        return { nexts, sprintChange }
       })
-    )
-
-    const sprintChange = yield* Effect.gen(function* () {
-      if (sprint === undefined) return null
-      if (sprint !== null) return yield* groups.addTickets(sprint, ids)
-      for (const group of openSprints) {
-        const leaving = group.tickets.filter((id) => ids.includes(id))
-        if (leaving.length === 0) continue
-        yield* groups.removeTickets(group.id, leaving)
-      }
-      return null
-    }).pipe(
-      Effect.onError(() =>
-        withTicketLocks(scope, ids, restoreWritten(originals))
-      )
     )
 
     return {
