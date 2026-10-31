@@ -633,7 +633,7 @@ const rebuild_ticket_index = (input: {
     })
     return {
       orgSlug: project.orgSlug,
-      projectSlug: project.projectSlug,
+      projectSlug: project.slug,
       rebuilt: summary.rebuilt,
       indexed: summary.indexed,
       skipped: summary.skipped,

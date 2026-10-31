@@ -2106,17 +2106,16 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           betaSlug,
           "not-a-project"
         ])
-        expect(visible.map((project) => project.projectSlug).sort()).toEqual(
+        expect(visible.map((project) => project.slug).sort()).toEqual(
           [alphaSlug, betaSlug].sort()
         )
 
         const idsOf = (
           rows: ReadonlyArray<{
             entry: { id: string }
-            project: { projectSlug: string }
+            project: { slug: string }
           }>
-        ) =>
-          rows.map(({ project, entry }) => `${project.projectSlug}:${entry.id}`)
+        ) => rows.map(({ project, entry }) => `${project.slug}:${entry.id}`)
 
         const assigned = yield* index.assignedTo(visible, {
           viewerId,
@@ -2169,7 +2168,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           statusCounts
             .map(
               ({ project, status, count }) =>
-                `${project.projectSlug}:${status}=${count}`
+                `${project.slug}:${status}=${count}`
             )
             .toSorted()
         ).toEqual(
@@ -2186,7 +2185,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
         expect(
           previews
             .map(({ project, total, entries }) => [
-              project.projectSlug,
+              project.slug,
               total,
               entries.map((entry) => entry.id)
             ])

@@ -48,16 +48,13 @@ import {
   planStackPullRequests,
   planTicketGitStates
 } from "./ticketGitStatePlanner"
-import {
-  TicketIndex,
-  type TicketIndexEntry,
-  type TicketIndexProject
-} from "./TicketIndex"
+import { TicketIndex, type TicketIndexEntry } from "./TicketIndex"
 import {
   indexProjectOf,
   pendingGitState,
   type TicketReadError
 } from "./ticketPresentation"
+import type { TicketProject } from "./ticketProject"
 import { stackLayerFor, ticketBranches } from "./ticketStack"
 import * as TicketView from "./TicketView"
 
@@ -210,7 +207,7 @@ const make = Effect.gen(function* () {
   const { gitView, detailOf, readTicket } = yield* TicketView.TicketView
 
   const writeGitFields = (
-    indexProject: TicketIndexProject,
+    indexProject: TicketProject,
     existing: TicketDocument,
     patch: {
       branch?: string | null
@@ -226,7 +223,7 @@ const make = Effect.gen(function* () {
   ): Effect.Effect<TicketDocument, TicketReadError, ActivityActor> =>
     ticketDocs.update(
       indexProject.orgSlug,
-      indexProject.projectSlug,
+      indexProject.slug,
       existing.id,
       (current) =>
         DateTime.nowAsDate.pipe(
@@ -657,12 +654,12 @@ const make = Effect.gen(function* () {
 
   const reconcileGitStates = Effect.fn("TicketGit.reconcileGitStates")(
     function* (
-      indexProject: TicketIndexProject,
+      indexProject: TicketProject,
       projectGithub: ProjectGithubIntegration,
       tickets: ReadonlyArray<StackedTicketEntry>,
       raw: GitHub.RawProjectStates
     ): Effect.fn.Return<GitStatesResponse, MarkdownError> {
-      const { orgSlug, projectSlug: slug } = indexProject
+      const { orgSlug, slug } = indexProject
       const automaticLinks = planAutomaticBranchLinks(
         tickets,
         raw.existingBranches,

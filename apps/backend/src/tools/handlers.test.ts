@@ -20,11 +20,9 @@ import { Tags } from "@pp/server-core/tags/Tags"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
-import {
-  TicketIndex,
-  type TicketIndexProject
-} from "@pp/server-core/tickets/TicketIndex"
+import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
 import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
+import type { TicketProject } from "@pp/server-core/tickets/ticketProject"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { Users } from "@pp/server-core/users/Users"
 import {
@@ -200,11 +198,11 @@ const withFakeUser = <T>(fn: () => Effect.Effect<T>) => Effect.suspend(fn)
 
 const ProjectsStub = Layer.mock(Projects, {})
 
-const ticketIndexProject: TicketIndexProject = {
+const ticketIndexProject: TicketProject = {
   orgSlug: "acme",
   organizationId: "org-1",
   projectId: "project-1",
-  projectSlug: "demo"
+  slug: "demo"
 }
 
 const TicketIndexStub = Layer.mock(TicketIndex, {
@@ -219,7 +217,7 @@ const TicketIndexStub = Layer.mock(TicketIndex, {
 const TicketIndexMaintenanceStub = Layer.mock(
   TicketIndexMaintenance.TicketIndexMaintenance,
   {
-    reconcileProject: (project: TicketIndexProject, options?) =>
+    reconcileProject: (project: TicketProject, options?) =>
       Effect.succeed({
         project,
         drift: { missing: ["T-2"], orphaned: ["T-9"], stale: ["T-1"] },

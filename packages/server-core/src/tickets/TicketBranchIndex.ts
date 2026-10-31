@@ -26,7 +26,8 @@ import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
-import type { TicketIndexMatch, TicketIndexProject } from "./TicketIndex"
+import type { TicketIndexMatch } from "./TicketIndex"
+import type { TicketProject } from "./ticketProject"
 
 const stackEntryFromRow = (
   row: typeof ticketBranch.$inferSelect
@@ -52,7 +53,7 @@ export class TicketBranchIndex extends Context.Service<
       branch: string
     ) => Effect.Effect<ReadonlyArray<TicketIndexMatch>>
     stacksFor: (
-      project: TicketIndexProject,
+      project: TicketProject,
       ticketIds?: ReadonlyArray<string>
     ) => Effect.Effect<ReadonlyMap<string, ReadonlyArray<TicketBranchEntry>>>
     findMergesAwaiting: (
@@ -77,7 +78,7 @@ export class TicketBranchIndex extends Context.Service<
       deletedAt: Date
     ) => Effect.Effect<ReadonlyArray<string>>
     clearBranchStale: (
-      project: TicketIndexProject,
+      project: TicketProject,
       ticketIds: ReadonlyArray<string>
     ) => Effect.Effect<void>
     updateBranchChecks: (
@@ -101,7 +102,7 @@ const make = Effect.gen(function* () {
         orgSlug: organization.slug,
         organizationId: ticketIndex.organizationId,
         projectId: ticketIndex.projectId,
-        projectSlug: projectIndex.slug,
+        slug: projectIndex.slug,
         ticketId: ticketIndex.ticketId,
         branch: ticketIndex.branch
       })
@@ -130,7 +131,7 @@ const make = Effect.gen(function* () {
         orgSlug: organization.slug,
         organizationId: projectIndex.organizationId,
         projectId: ticketBranch.projectId,
-        projectSlug: projectIndex.slug,
+        slug: projectIndex.slug,
         ticketId: ticketBranch.ticketId,
         branch: ticketBranch.branch
       })
@@ -151,7 +152,7 @@ const make = Effect.gen(function* () {
   )
 
   const stacksFor = Effect.fn("TicketBranchIndex.stacksFor")(function* (
-    project: TicketIndexProject,
+    project: TicketProject,
     ticketIds?: ReadonlyArray<string>
   ) {
     return yield* ticketIds !== undefined && ticketIds.length === 0
@@ -190,7 +191,7 @@ const make = Effect.gen(function* () {
             orgSlug: organization.slug,
             organizationId: projectIndex.organizationId,
             projectId: ticketIndex.projectId,
-            projectSlug: projectIndex.slug,
+            slug: projectIndex.slug,
             ticketId: ticketIndex.ticketId,
             branch: ticketIndex.branch
           })
@@ -328,7 +329,7 @@ const make = Effect.gen(function* () {
   )
 
   const clearBranchStale = Effect.fn("TicketBranchIndex.clearBranchStale")(
-    function* (project: TicketIndexProject, ticketIds: ReadonlyArray<string>) {
+    function* (project: TicketProject, ticketIds: ReadonlyArray<string>) {
       if (ticketIds.length === 0) return
       yield* db
         .update(ticketIndex)

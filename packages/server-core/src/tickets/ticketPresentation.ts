@@ -13,7 +13,8 @@ import type { MarkdownError } from "../markdown/Markdown"
 import type { ProjectGithubIntegration } from "../projects/Projects"
 import { stackLayerStates } from "./stackLayerStates"
 import type { MalformedTicketDocument, TicketDocument } from "./TicketDocs"
-import type { TicketIndexEntry, TicketIndexProject } from "./TicketIndex"
+import type { TicketIndexEntry } from "./TicketIndex"
+import type { TicketProject } from "./ticketProject"
 
 export type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 
@@ -124,13 +125,11 @@ export function documentToDetail(
   }
 }
 
-export const indexProjectOf = (
-  scope: ProjectScopeShape
-): TicketIndexProject => ({
+export const indexProjectOf = (scope: ProjectScopeShape): TicketProject => ({
   orgSlug: scope.orgSlug,
   organizationId: scope.organizationId,
   projectId: scope.projectId,
-  projectSlug: scope.slug
+  slug: scope.slug
 })
 
 export const requirePolicy = (

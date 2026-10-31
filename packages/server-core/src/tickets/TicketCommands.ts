@@ -65,7 +65,7 @@ import {
   type HierarchyLookups,
   type HierarchyNode
 } from "./ticketHierarchy"
-import { TicketIndex, type TicketIndexProject } from "./TicketIndex"
+import { TicketIndex } from "./TicketIndex"
 import {
   applyTicketPatch,
   batchChangeOf,
@@ -82,6 +82,7 @@ import {
   requirePolicy,
   type TicketReadError
 } from "./ticketPresentation"
+import type { TicketProject } from "./ticketProject"
 import * as TicketView from "./TicketView"
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
@@ -282,7 +283,7 @@ const make = Effect.gen(function* () {
 
   const validateBody = (
     body: string,
-    indexProject: TicketIndexProject
+    indexProject: TicketProject
   ): Effect.Effect<void, NotFound | MentionInvalid, ProjectScope> =>
     validateBodyMentionsWithLookups(body, {
       existingTicketIds: (ticketIds) =>
@@ -304,7 +305,7 @@ const make = Effect.gen(function* () {
     })
 
   const hierarchyLookups = (
-    indexProject: TicketIndexProject,
+    indexProject: TicketProject,
     viewerId: string
   ): HierarchyLookups => {
     const found = new Map<TicketId, HierarchyNode | undefined>()
@@ -321,7 +322,7 @@ const make = Effect.gen(function* () {
   }
 
   const validateNewParent = (
-    indexProject: TicketIndexProject,
+    indexProject: TicketProject,
     viewerId: string,
     type: TicketType,
     parent: TicketId | undefined
@@ -335,7 +336,7 @@ const make = Effect.gen(function* () {
     })
 
   const childIds = (
-    indexProject: TicketIndexProject,
+    indexProject: TicketProject,
     viewerId: string,
     id: string
   ): Effect.Effect<ReadonlyArray<string>> =>
@@ -359,7 +360,7 @@ const make = Effect.gen(function* () {
     ).pipe(Effect.map((pages) => pages.flat()))
 
   const hasChildren = (
-    indexProject: TicketIndexProject,
+    indexProject: TicketProject,
     viewerId: string,
     id: string
   ): Effect.Effect<boolean> =>
@@ -378,7 +379,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     projectKey: ProjectKey,
-    indexProject: TicketIndexProject,
+    indexProject: TicketProject,
     buildDocument: (id: TicketId) => TicketDocument,
     onFileWritten?: (document: TicketDocument) => void
   ): Effect.Effect<TicketDocument, MarkdownError> =>
@@ -804,7 +805,7 @@ const make = Effect.gen(function* () {
   const restoreTicket = (
     orgSlug: string,
     slug: string,
-    indexProject: TicketIndexProject,
+    indexProject: TicketProject,
     id: string,
     original: TicketDocument
   ) =>
@@ -815,7 +816,7 @@ const make = Effect.gen(function* () {
   const discardSplitResult = (
     orgSlug: string,
     slug: string,
-    indexProject: TicketIndexProject,
+    indexProject: TicketProject,
     document: TicketDocument
   ) =>
     ticketDocs
@@ -838,7 +839,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     id: string,
-    indexProject: TicketIndexProject,
+    indexProject: TicketProject,
     original: TicketDocument,
     created: ReadonlyArray<TicketDocument>
   ) =>
@@ -1173,7 +1174,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     userId: string,
-    indexProject: TicketIndexProject,
+    indexProject: TicketProject,
     parentId: string,
     children: ReadonlyArray<string>
   ) =>

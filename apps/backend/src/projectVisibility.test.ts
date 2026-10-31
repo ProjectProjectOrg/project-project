@@ -317,7 +317,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
               .filter(
                 ({ project }) => project.organizationId === organizationId
               )
-              .map(({ project }) => project.projectSlug)
+              .map(({ project }) => project.slug)
           ).toEqual(["published"])
           expect(reconciledSlugs).toEqual(["published"])
           expect(hidden.rows).toEqual([{ id: hiddenId }])

@@ -65,7 +65,7 @@ const baseMatch = (
   orgSlug: "org",
   organizationId: "org-1",
   projectId: "project-1",
-  projectSlug: "p",
+  slug: "p",
   ticketId: "T-1",
   branch: "feat/T-1",
   ...overrides
@@ -504,7 +504,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
     orgSlug: "org",
     organizationId: "org-1",
     projectId: "project-1",
-    projectSlug: "p"
+    slug: "p"
   }
 
   const linkPullRequest = (

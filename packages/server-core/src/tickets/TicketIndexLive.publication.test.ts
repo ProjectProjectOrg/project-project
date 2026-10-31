@@ -15,15 +15,16 @@ import { databaseLayer } from "../../test/database"
 import * as TicketIndexServices from "./indexLayer"
 import { TicketDocs } from "./TicketDocs"
 import type { TicketDocument } from "./TicketDocs"
-import { TicketIndex, type TicketIndexProject } from "./TicketIndex"
+import { TicketIndex } from "./TicketIndex"
+import type { TicketProject } from "./ticketProject"
 
 const ticketId = Schema.decodeUnknownSync(TicketId)
 
-const project: TicketIndexProject = {
+const project: TicketProject = {
   orgSlug: "acme",
   organizationId: "org-1",
   projectId: "project-1",
-  projectSlug: "foo"
+  slug: "foo"
 }
 
 const document: TicketDocument = {

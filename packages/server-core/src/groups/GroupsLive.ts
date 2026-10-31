@@ -126,7 +126,7 @@ export const GroupsLive = Layer.effect(
             orgSlug: scope.orgSlug,
             organizationId: scope.organizationId,
             projectId: scope.projectId,
-            projectSlug: scope.slug
+            slug: scope.slug
           },
           ticketIds
         )

@@ -28,7 +28,6 @@ import type { MarkdownError } from "../markdown/Markdown"
 import { TicketDocs, type TicketDocument } from "./TicketDocs"
 import type { MalformedTicketDocument } from "./TicketDocs"
 import type {
-  TicketIndexProject,
   TicketIndexRebuildProjectSummary,
   TicketIndexRebuildSummary,
   TicketIndexReconcileOptions,
@@ -38,15 +37,16 @@ import type {
 } from "./TicketIndex"
 import { ticketBranchRowsFor, ticketIndexRowFor } from "./TicketIndexLive"
 import * as TicketIndexRepairs from "./TicketIndexRepairs"
+import type { TicketProject } from "./ticketProject"
 
 export const ticketIndexRowsFor = (
-  project: TicketIndexProject,
+  project: TicketProject,
   documents: ReadonlyArray<TicketDocument>
 ): ReadonlyArray<typeof ticketIndex.$inferInsert> =>
   documents.map((document) => ticketIndexRowFor(project, document))
 
 const commentIndexRowsForDocument = (
-  project: TicketIndexProject,
+  project: TicketProject,
   document: TicketDocument
 ): ReadonlyArray<typeof commentIndex.$inferInsert> =>
   parseCommentsRegion(document.commentsRegion).map((comment) => ({
@@ -65,7 +65,7 @@ const commentIndexRowsForDocument = (
   }))
 
 export const commentIndexRowsFor = (
-  project: TicketIndexProject,
+  project: TicketProject,
   documents: ReadonlyArray<TicketDocument>
 ): ReadonlyArray<typeof commentIndex.$inferInsert> =>
   documents.flatMap((document) =>
@@ -125,18 +125,18 @@ export const ticketIndexHasDrift = (drift: TicketIndexDrift): boolean =>
   drift.stale.length > 0
 
 export interface TicketIndexReconcilerDeps {
-  readonly listProjects: Effect.Effect<ReadonlyArray<TicketIndexProject>>
+  readonly listProjects: Effect.Effect<ReadonlyArray<TicketProject>>
   readonly collectDocuments: (
-    project: TicketIndexProject
+    project: TicketProject
   ) => Effect.Effect<
     { documents: ReadonlyArray<TicketDocument>; skipped: number },
     MarkdownError
   >
   readonly indexedRefs: (
-    project: TicketIndexProject
+    project: TicketProject
   ) => Effect.Effect<ReadonlyArray<IndexedTicketRef>>
   readonly writeProject: (
-    project: TicketIndexProject,
+    project: TicketProject,
     documents: ReadonlyArray<TicketDocument>,
     indexedBefore: ReadonlyArray<IndexedTicketRef>
   ) => Effect.Effect<void>
@@ -144,7 +144,7 @@ export interface TicketIndexReconcilerDeps {
 
 export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
   const reconcileProject = (
-    project: TicketIndexProject,
+    project: TicketProject,
     options?: TicketIndexReconcileOptions
   ): Effect.Effect<TicketIndexReconcileProjectSummary, MarkdownError> =>
     Effect.gen(function* () {
@@ -169,7 +169,7 @@ export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
       if (ticketIndexHasDrift(drift)) {
         yield* Effect.logWarning("ticket index drift detected; rebuilding", {
           orgSlug: project.orgSlug,
-          slug: project.projectSlug,
+          slug: project.slug,
           projectId: project.projectId,
           missing: drift.missing,
           orphaned: drift.orphaned,
@@ -208,7 +208,7 @@ export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
                   ).pipe(
                     Effect.annotateLogs({
                       orgSlug: project.orgSlug,
-                      slug: project.projectSlug
+                      slug: project.slug
                     }),
                     Effect.as([])
                   )
@@ -234,7 +234,7 @@ export class TicketIndexMaintenance extends Context.Service<
   TicketIndexMaintenance,
   Readonly<{
     rebuildProject: (
-      project: TicketIndexProject
+      project: TicketProject
     ) => Effect.Effect<
       TicketIndexRebuildProjectSummary,
       MarkdownError | MalformedTicketDocument
@@ -244,7 +244,7 @@ export class TicketIndexMaintenance extends Context.Service<
       MarkdownError | MalformedTicketDocument
     >
     reconcileProject: (
-      project: TicketIndexProject,
+      project: TicketProject,
       options?: TicketIndexReconcileOptions
     ) => Effect.Effect<
       TicketIndexReconcileProjectSummary,
@@ -263,21 +263,18 @@ const make = Effect.gen(function* () {
   const ticketDocs = yield* TicketDocs
   const repairs = yield* TicketIndexRepairs.TicketIndexRepairs
 
-  const collectDocuments = (project: TicketIndexProject) =>
+  const collectDocuments = (project: TicketProject) =>
     Effect.gen(function* () {
-      const ids = yield* ticketDocs.listIds(
-        project.orgSlug,
-        project.projectSlug
-      )
+      const ids = yield* ticketDocs.listIds(project.orgSlug, project.slug)
       const reads = yield* Effect.forEach(
         ids,
         (id) =>
-          ticketDocs.read(project.orgSlug, project.projectSlug, id).pipe(
+          ticketDocs.read(project.orgSlug, project.slug, id).pipe(
             Effect.map((ticket) => ({ ticket, skipped: false as const })),
             Effect.catchTag("MalformedTicketDocument", (error) =>
               Effect.logWarning("Skipping unreadable ticket for ticket index", {
                 orgSlug: project.orgSlug,
-                slug: project.projectSlug,
+                slug: project.slug,
                 ticketId: id,
                 error
               }).pipe(Effect.as({ ticket: null, skipped: true as const }))
@@ -285,7 +282,7 @@ const make = Effect.gen(function* () {
             Effect.catchTag("NotFound", () =>
               Effect.logDebug("Skipping vanished ticket for ticket index", {
                 orgSlug: project.orgSlug,
-                slug: project.projectSlug,
+                slug: project.slug,
                 ticketId: id
               }).pipe(Effect.as({ ticket: null, skipped: true as const }))
             )
@@ -326,7 +323,7 @@ const make = Effect.gen(function* () {
     ])
 
   const writeProjectIndex = (
-    project: TicketIndexProject,
+    project: TicketProject,
     documents: ReadonlyArray<TicketDocument>,
     indexedBefore: ReadonlyArray<IndexedTicketRef>
   ): Effect.Effect<void> => {
@@ -459,7 +456,7 @@ const make = Effect.gen(function* () {
       .pipe(Effect.orDie, Effect.asVoid)
   }
 
-  const indexedRefs = (project: TicketIndexProject) =>
+  const indexedRefs = (project: TicketProject) =>
     db
       .select({
         ticketId: ticketIndex.ticketId,
@@ -474,7 +471,7 @@ const make = Effect.gen(function* () {
       orgSlug: organization.slug,
       organizationId: projectIndex.organizationId,
       projectId: projectIndex.id,
-      projectSlug: projectIndex.slug
+      slug: projectIndex.slug
     })
     .from(projectIndex)
     .innerJoin(organization, eq(organization.id, projectIndex.organizationId))
@@ -482,7 +479,7 @@ const make = Effect.gen(function* () {
     .pipe(Effect.orDie)
 
   const rebuildProject = Effect.fn("TicketIndexMaintenance.rebuildProject")(
-    function* (project: TicketIndexProject) {
+    function* (project: TicketProject) {
       const indexedBefore = yield* indexedRefs(project)
       const { documents, skipped } = yield* collectDocuments(project)
       yield* writeProjectIndex(project, documents, indexedBefore)
@@ -528,7 +525,7 @@ const make = Effect.gen(function* () {
           Effect.flatMap((summary) =>
             Effect.logInfo("repaired drifted ticket index", {
               orgSlug: project.orgSlug,
-              slug: project.projectSlug,
+              slug: project.slug,
               rebuilt: summary.rebuilt
             })
           ),
@@ -572,10 +569,7 @@ const make = Effect.gen(function* () {
   )
 
   const reconcileProject = Effect.fn("TicketIndexMaintenance.reconcileProject")(
-    function* (
-      project: TicketIndexProject,
-      options?: TicketIndexReconcileOptions
-    ) {
+    function* (project: TicketProject, options?: TicketIndexReconcileOptions) {
       return yield* reconciler.reconcileProject(project, options)
     }
   )

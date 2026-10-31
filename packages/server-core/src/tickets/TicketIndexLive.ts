@@ -69,7 +69,6 @@ import {
   type TicketIndexAssignedScope,
   type TicketIndexCounts,
   type TicketIndexOrgEntry,
-  type TicketIndexProject,
   type TicketIndexProjectPreview,
   type TicketIndexQueryEntry,
   type TicketIndexAttachable,
@@ -80,6 +79,7 @@ import {
   type TicketIndexTouchedOptions
 } from "./TicketIndex"
 import * as TicketIndexRepairs from "./TicketIndexRepairs"
+import type { TicketProject } from "./ticketProject"
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
 const makeTagName = Schema.decodeUnknownSync(TagName)
@@ -102,7 +102,7 @@ const estimateFromIndex = (
 }
 
 export const ticketIndexRowFor = (
-  project: TicketIndexProject,
+  project: TicketProject,
   document: TicketDocument
 ): typeof ticketIndex.$inferInsert => ({
   organizationId: project.organizationId,
@@ -131,7 +131,7 @@ export const ticketIndexRowFor = (
 })
 
 export const ticketBranchRowsFor = (
-  project: TicketIndexProject,
+  project: TicketProject,
   document: TicketDocument
 ): ReadonlyArray<typeof ticketBranch.$inferInsert> =>
   (document.stack ?? []).map((layer, position) => ({
@@ -345,7 +345,7 @@ interface TicketWhereOptions {
 }
 
 const ticketWhereConditions = (
-  project: TicketIndexProject,
+  project: TicketProject,
   query: TicketFilter & Pick<TicketListQuery, "q">,
   options: TicketWhereOptions
 ): ReadonlyArray<SQL> => {
@@ -466,14 +466,14 @@ export const TicketIndexLive = Layer.effect(
     const projectFor = (
       orgSlug: string,
       slug: string
-    ): Effect.Effect<TicketIndexProject, NotFound> =>
+    ): Effect.Effect<TicketProject, NotFound> =>
       Effect.gen(function* () {
         const rows = yield* db
           .select({
             orgSlug: organization.slug,
             organizationId: projectIndex.organizationId,
             projectId: projectIndex.id,
-            projectSlug: projectIndex.slug
+            slug: projectIndex.slug
           })
           .from(projectIndex)
           .innerJoin(
@@ -523,7 +523,7 @@ export const TicketIndexLive = Layer.effect(
     })
 
     const list = (
-      project: TicketIndexProject,
+      project: TicketProject,
       ticketIds?: ReadonlyArray<string>
     ): Effect.Effect<ReadonlyArray<TicketIndexEntry>> => {
       if (ticketIds !== undefined && ticketIds.length === 0) {
@@ -547,7 +547,7 @@ export const TicketIndexLive = Layer.effect(
     }
 
     const query = (
-      project: TicketIndexProject,
+      project: TicketProject,
       ticketQuery: TicketPageQuery,
       options: TicketIndexQueryOptions
     ): Effect.Effect<ReadonlyArray<TicketIndexQueryEntry>> => {
@@ -612,7 +612,7 @@ export const TicketIndexLive = Layer.effect(
     }
 
     const querySections = (
-      project: TicketIndexProject,
+      project: TicketProject,
       ticketQuery: TicketListQuery,
       options: TicketIndexSectionsOptions
     ): Effect.Effect<TicketIndexSections> => {
@@ -719,14 +719,14 @@ export const TicketIndexLive = Layer.effect(
     const projectsFor = (
       orgSlug: string,
       slugs: ReadonlyArray<string>
-    ): Effect.Effect<ReadonlyArray<TicketIndexProject>> => {
+    ): Effect.Effect<ReadonlyArray<TicketProject>> => {
       if (slugs.length === 0) return Effect.succeed([])
       return db
         .select({
           orgSlug: organization.slug,
           organizationId: projectIndex.organizationId,
           projectId: projectIndex.id,
-          projectSlug: projectIndex.slug
+          slug: projectIndex.slug
         })
         .from(projectIndex)
         .innerJoin(
@@ -743,7 +743,7 @@ export const TicketIndexLive = Layer.effect(
     }
 
     const acrossProjects = (
-      projects: ReadonlyArray<TicketIndexProject>,
+      projects: ReadonlyArray<TicketProject>,
       conditions: ReadonlyArray<SQL | undefined>
     ) =>
       and(
@@ -756,7 +756,7 @@ export const TicketIndexLive = Layer.effect(
       )
 
     const orgEntriesOf = <Row extends EntryRow>(
-      projects: ReadonlyArray<TicketIndexProject>,
+      projects: ReadonlyArray<TicketProject>,
       rows: ReadonlyArray<Row>
     ): ReadonlyArray<TicketIndexOrgEntry & Readonly<{ row: Row }>> => {
       const byId = new Map(projects.map((p) => [p.projectId, p]))
@@ -775,7 +775,7 @@ export const TicketIndexLive = Layer.effect(
     }
 
     const queryAcross = (
-      projects: ReadonlyArray<TicketIndexProject>,
+      projects: ReadonlyArray<TicketProject>,
       conditions: ReadonlyArray<SQL | undefined>,
       limit: number
     ): Effect.Effect<ReadonlyArray<TicketIndexOrgEntry>> => {
@@ -805,7 +805,7 @@ export const TicketIndexLive = Layer.effect(
     ]
 
     const countAssignedByStatus = (
-      projects: ReadonlyArray<TicketIndexProject>,
+      projects: ReadonlyArray<TicketProject>,
       scope: TicketIndexAssignedScope
     ) => {
       if (projects.length === 0) return Effect.succeed([])
@@ -838,7 +838,7 @@ export const TicketIndexLive = Layer.effect(
     }
 
     const assignedPerProject = (
-      projects: ReadonlyArray<TicketIndexProject>,
+      projects: ReadonlyArray<TicketProject>,
       scope: TicketIndexAssignedScope & Readonly<{ perProject: number }>
     ): Effect.Effect<ReadonlyArray<TicketIndexProjectPreview>> => {
       if (projects.length === 0) return Effect.succeed([])
@@ -887,7 +887,7 @@ export const TicketIndexLive = Layer.effect(
     }
 
     const assignedTo = (
-      projects: ReadonlyArray<TicketIndexProject>,
+      projects: ReadonlyArray<TicketProject>,
       options: TicketIndexAssignedOptions
     ): Effect.Effect<ReadonlyArray<TicketIndexOrgEntry>> =>
       queryAcross(
@@ -903,7 +903,7 @@ export const TicketIndexLive = Layer.effect(
       )
 
     const touchedBy = (
-      projects: ReadonlyArray<TicketIndexProject>,
+      projects: ReadonlyArray<TicketProject>,
       options: TicketIndexTouchedOptions
     ): Effect.Effect<ReadonlyArray<TicketIndexTouchedEntry>> => {
       if (projects.length === 0) return Effect.succeed([])
@@ -960,7 +960,7 @@ export const TicketIndexLive = Layer.effect(
     }
 
     const orderKeyFor = (
-      project: TicketIndexProject,
+      project: TicketProject,
       ticketId: string,
       sort: TicketSort
     ): Effect.Effect<string | null> =>
@@ -985,7 +985,7 @@ export const TicketIndexLive = Layer.effect(
         )
 
     const count = (
-      project: TicketIndexProject,
+      project: TicketProject,
       ticketQuery: TicketCountQuery,
       options: TicketIndexCountOptions
     ): Effect.Effect<TicketIndexCounts> => {
@@ -1015,7 +1015,7 @@ export const TicketIndexLive = Layer.effect(
     }
 
     const listIds = (
-      project: TicketIndexProject
+      project: TicketProject
     ): Effect.Effect<ReadonlyArray<string>> =>
       db
         .select({ ticketId: ticketIndex.ticketId })
@@ -1027,7 +1027,7 @@ export const TicketIndexLive = Layer.effect(
         )
 
     const existingIds = (
-      project: TicketIndexProject,
+      project: TicketProject,
       ticketIds: ReadonlyArray<string>
     ): Effect.Effect<ReadonlySet<string>> => {
       if (ticketIds.length === 0) return Effect.succeed(new Set())
@@ -1047,7 +1047,7 @@ export const TicketIndexLive = Layer.effect(
     }
 
     const reserveTicketNumber = (
-      project: TicketIndexProject
+      project: TicketProject
     ): Effect.Effect<number> =>
       db
         .update(projectIndex)
@@ -1070,7 +1070,7 @@ export const TicketIndexLive = Layer.effect(
         )
 
     const tagUsageCounts = (
-      project: TicketIndexProject
+      project: TicketProject
     ): Effect.Effect<Readonly<Record<string, number>>> =>
       db
         .select({ tags: ticketIndex.tags })
@@ -1088,7 +1088,7 @@ export const TicketIndexLive = Layer.effect(
         )
 
     const findTicketIdsByTag = (
-      project: TicketIndexProject,
+      project: TicketProject,
       tag: string
     ): Effect.Effect<ReadonlyArray<string>> =>
       db
@@ -1105,7 +1105,7 @@ export const TicketIndexLive = Layer.effect(
         )
 
     const findTicketIdsByStatus = (
-      project: TicketIndexProject,
+      project: TicketProject,
       status: string
     ): Effect.Effect<ReadonlyArray<string>> =>
       db
@@ -1123,7 +1123,7 @@ export const TicketIndexLive = Layer.effect(
         )
 
     const syncTicketBranches = (
-      project: TicketIndexProject,
+      project: TicketProject,
       document: TicketDocument
     ) =>
       Effect.gen(function* () {
@@ -1165,7 +1165,7 @@ export const TicketIndexLive = Layer.effect(
       })
 
     const upsertTicket = (
-      project: TicketIndexProject,
+      project: TicketProject,
       document: TicketDocument
     ): Effect.Effect<void> =>
       sql
@@ -1198,7 +1198,7 @@ export const TicketIndexLive = Layer.effect(
               Effect.annotateLogs({
                 module: "TicketIndex",
                 orgSlug: project.orgSlug,
-                slug: project.projectSlug,
+                slug: project.slug,
                 projectId: project.projectId,
                 ticketId: document.id
               }),
@@ -1208,7 +1208,7 @@ export const TicketIndexLive = Layer.effect(
         )
 
     const deleteTicket = (
-      project: TicketIndexProject,
+      project: TicketProject,
       ticketId: string
     ): Effect.Effect<void> =>
       db

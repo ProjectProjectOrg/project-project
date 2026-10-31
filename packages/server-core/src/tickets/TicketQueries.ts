@@ -60,7 +60,6 @@ import {
   TicketIndex,
   type TicketIndexEntry,
   type TicketIndexOrgEntry,
-  type TicketIndexProject,
   type TicketIndexQueryEntry,
   type TicketIndexTouchedEntry
 } from "./TicketIndex"
@@ -71,6 +70,7 @@ import {
   requirePolicy,
   type TicketReadError
 } from "./ticketPresentation"
+import type { TicketProject } from "./ticketProject"
 import * as TicketView from "./TicketView"
 
 const makeUserId = Schema.decodeUnknownSync(UserId)
@@ -214,7 +214,7 @@ const make = Effect.gen(function* () {
   })
 
   const resolveGroupMembers = (
-    project: TicketIndexProject,
+    project: TicketProject,
     groupIds: ReadonlyArray<GroupIdFilter> | undefined
   ): Effect.Effect<
     ReadonlySet<string> | null,
@@ -316,7 +316,7 @@ const make = Effect.gen(function* () {
         [...scopeOf.values()].filter((scope) => projectIds.has(scope.projectId))
       )
       return entries.map(({ project, entry }) => ({
-        projectSlug: project.projectSlug,
+        projectSlug: project.slug,
         ticket: indexEntryToTicket(
           entry,
           views.get(project.projectId) ?? hiddenGit
@@ -362,7 +362,7 @@ const make = Effect.gen(function* () {
       nextCursor: page.nextCursor,
       total: counts.reduce((sum, { count }) => sum + count, 0),
       statusCounts: counts.map(({ project, status, count }) => ({
-        projectSlug: project.projectSlug,
+        projectSlug: project.slug,
         status,
         count
       }))
@@ -385,7 +385,7 @@ const make = Effect.gen(function* () {
     )
     return previews.map(
       ({ project, total, entries }): ProjectTicketsPreview => ({
-        projectSlug: project.projectSlug,
+        projectSlug: project.slug,
         total,
         tickets: entries.map((entry) =>
           indexEntryToTicket(entry, views.get(project.projectId) ?? hiddenGit)
@@ -637,10 +637,7 @@ const make = Effect.gen(function* () {
     const finished =
       unit === null
         ? null
-        : yield* finishedStatuses.forProject(
-            project.orgSlug,
-            project.projectSlug
-          )
+        : yield* finishedStatuses.forProject(project.orgSlug, project.slug)
     const emptyCounts = { total: 0, byStatus: {} as Record<string, number> }
     const pages = members.map(({ key: groupId, ticketIds }) => {
       const result = bySection.get(groupId)
