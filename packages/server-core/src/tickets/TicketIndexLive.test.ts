@@ -14,7 +14,7 @@ import {
   ticketIndexRowsFor,
   ticketIndexHasDrift,
   type TicketIndexReconcilerDeps
-} from "./TicketIndexLive"
+} from "./TicketIndexMaintenance"
 
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)

@@ -1,4 +1,5 @@
 import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
+import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
 
@@ -16,6 +17,7 @@ const argValue = (name: string): string | undefined => {
 
 const main = Effect.gen(function* () {
   const ticketIndex = yield* TicketIndex
+  const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
   const orgSlug = argValue("--org")
   const projectSlug = argValue("--project")
 
@@ -29,12 +31,12 @@ const main = Effect.gen(function* () {
     orgSlug && projectSlug
       ? {
           projects: [
-            yield* ticketIndex.rebuildProject(
+            yield* maintenance.rebuildProject(
               yield* ticketIndex.projectFor(orgSlug, projectSlug)
             )
           ]
         }
-      : yield* ticketIndex.rebuildAllProjects()
+      : yield* maintenance.rebuildAllProjects()
 
   let totalIndexed = 0
   let totalSkipped = 0

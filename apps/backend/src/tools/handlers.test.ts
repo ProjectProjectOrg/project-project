@@ -24,6 +24,7 @@ import {
   TicketIndex,
   type TicketIndexProject
 } from "@pp/server-core/tickets/TicketIndex"
+import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { Users } from "@pp/server-core/users/Users"
 import {
@@ -212,16 +213,22 @@ const TicketIndexStub = Layer.mock(TicketIndex, {
   touchedBy: () => Effect.succeed([]),
   countAssignedByStatus: () => Effect.succeed([]),
   assignedPerProject: () => Effect.succeed([]),
-  projectFor: (_o, _s) => Effect.succeed(ticketIndexProject),
-  reconcileProject: (project: TicketIndexProject, options?) =>
-    Effect.succeed({
-      project,
-      drift: { missing: ["T-2"], orphaned: ["T-9"], stale: ["T-1"] },
-      rebuilt: options?.force === true,
-      indexed: 3,
-      skipped: 1
-    })
+  projectFor: (_o, _s) => Effect.succeed(ticketIndexProject)
 })
+
+const TicketIndexMaintenanceStub = Layer.mock(
+  TicketIndexMaintenance.TicketIndexMaintenance,
+  {
+    reconcileProject: (project: TicketIndexProject, options?) =>
+      Effect.succeed({
+        project,
+        drift: { missing: ["T-2"], orphaned: ["T-9"], stale: ["T-1"] },
+        rebuilt: options?.force === true,
+        indexed: 3,
+        skipped: 1
+      })
+  }
+)
 
 const ProjectDocsStub = Layer.mock(ProjectDocs, {
   readRaw: (_o, _s) =>
@@ -305,6 +312,7 @@ const TestLayer = Layer.mergeAll(
   GroupDocsStub,
   TicketDocsStub,
   TicketIndexStub,
+  TicketIndexMaintenanceStub,
   ProjectStatusesStub,
   Layer.mock(Library, {}),
   ProjectGitAutomationStub

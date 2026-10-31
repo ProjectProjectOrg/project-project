@@ -31,6 +31,7 @@ import { serializeCommentsRegion } from "../comments/comments-region"
 import { CommentsLive } from "../comments/CommentsLive"
 import { Projects } from "../projects/Projects"
 import { Users } from "../users/Users"
+import * as TicketIndexServices from "./indexLayer"
 import * as TicketBranchIndex from "./TicketBranchIndex"
 import {
   TicketDocs,
@@ -38,7 +39,8 @@ import {
   type TicketDocument
 } from "./TicketDocs"
 import { TicketIndex, type TicketIndexSections } from "./TicketIndex"
-import { TICKET_ORDER_KEY_SEPARATOR, TicketIndexLive } from "./TicketIndexLive"
+import { TICKET_ORDER_KEY_SEPARATOR } from "./TicketIndexLive"
+import * as TicketIndexMaintenance from "./TicketIndexMaintenance"
 
 const { Client } = pg
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -75,7 +77,7 @@ const FakeTicketDocs = Layer.succeed(TicketDocs, {
 
 const DatabaseLive = DbLive.pipe(Layer.provideMerge(PgLive))
 const TestLayer = Layer.mergeAll(
-  TicketIndexLive.pipe(Layer.provide(FakeTicketDocs)),
+  TicketIndexServices.layer.pipe(Layer.provide(FakeTicketDocs)),
   TicketBranchIndex.layer
 ).pipe(Layer.provide(DatabaseLive))
 
@@ -122,7 +124,7 @@ const RebuildTicketDocs = Layer.succeed(TicketDocs, {
   readRaw: () => unexpected("TicketDocs.readRaw")
 } satisfies TicketDocsShape)
 
-const RebuildTestLayer = TicketIndexLive.pipe(
+const RebuildTestLayer = TicketIndexServices.layer.pipe(
   Layer.provide(RebuildTicketDocs),
   Layer.provide(DatabaseLive)
 )
@@ -134,7 +136,7 @@ const stackedDocument: TicketDocument = {
   stack: [{ branch: "ui", base: "api", pr: 8, prState: "open" }]
 }
 
-const StackRebuildTestLayer = TicketIndexLive.pipe(
+const StackRebuildTestLayer = TicketIndexServices.layer.pipe(
   Layer.provide(
     Layer.succeed(TicketDocs, {
       listIds: () => Effect.succeed([stackedDocument.id]),
@@ -237,6 +239,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       } satisfies TicketDocsShape)
       yield* Effect.gen(function* () {
         const index = yield* TicketIndex
+        const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
         const project = yield* index.projectFor(organizationId, organizationId)
         yield* index.upsertTicket(project, {
           ...rebuiltDocument,
@@ -245,14 +248,17 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
             DateTime.makeUnsafe("2026-02-01T00:00:00.000Z")
           )
         })
-        yield* index.rebuildProject(project)
+        yield* maintenance.rebuildProject(project)
         const rows = yield* index.list(project, ["T-41"])
         expect(rows.map(({ id, title }) => [id, title])).toEqual([
           ["T-41", "Restored ticket"]
         ])
       }).pipe(
         Effect.provide(
-          TicketIndexLive.pipe(Layer.provide(docs), Layer.provide(DatabaseLive))
+          TicketIndexServices.layer.pipe(
+            Layer.provide(docs),
+            Layer.provide(DatabaseLive)
+          )
         )
       )
     }).pipe(Effect.provide(DatabaseLive))
@@ -279,6 +285,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       } satisfies TicketDocsShape)
       yield* Effect.gen(function* () {
         const index = yield* TicketIndex
+        const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
         const project = yield* index.projectFor(organizationId, organizationId)
         yield* index.upsertTicket(project, {
           ...rebuiltDocument,
@@ -290,7 +297,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
             [project.projectId]
           )
         )
-        yield* index.rebuildProject(project)
+        yield* maintenance.rebuildProject(project)
         const row = yield* withClient((client) =>
           client.query(
             "select branch, branch_deleted_at, checks, checks_head_sha, checks_updated_at, pr_updated_at from ticket_index where project_id = $1",
@@ -309,7 +316,10 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         ])
       }).pipe(
         Effect.provide(
-          TicketIndexLive.pipe(Layer.provide(docs), Layer.provide(DatabaseLive))
+          TicketIndexServices.layer.pipe(
+            Layer.provide(docs),
+            Layer.provide(DatabaseLive)
+          )
         )
       )
     }).pipe(Effect.provide(DatabaseLive))
@@ -336,8 +346,11 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       } satisfies TicketDocsShape)
       yield* Effect.gen(function* () {
         const index = yield* TicketIndex
+        const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
         const project = yield* index.projectFor(organizationId, organizationId)
-        const fiber = yield* Effect.forkChild(index.rebuildProject(project))
+        const fiber = yield* Effect.forkChild(
+          maintenance.rebuildProject(project)
+        )
         yield* Deferred.await(collected)
         const updatedAt = DateTime.toDate(
           DateTime.makeUnsafe("2026-02-01T00:00:00.000Z")
@@ -364,7 +377,10 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         ])
       }).pipe(
         Effect.provide(
-          TicketIndexLive.pipe(Layer.provide(docs), Layer.provide(DatabaseLive))
+          TicketIndexServices.layer.pipe(
+            Layer.provide(docs),
+            Layer.provide(DatabaseLive)
+          )
         )
       )
     }).pipe(Effect.provide(DatabaseLive))
@@ -399,8 +415,10 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       )
 
       const index = yield* TicketIndex
+
+      const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
       const project = yield* index.projectFor(orgSlug, projectSlug)
-      yield* index.rebuildProject(project)
+      yield* maintenance.rebuildProject(project)
 
       expect(yield* index.reserveTicketNumber(project)).toBe(42)
     }).pipe(Effect.provide(RebuildTestLayer))
@@ -620,9 +638,11 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       )
 
       const index = yield* TicketIndex
+
+      const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
       const project = yield* index.projectFor(organizationId, organizationId)
-      yield* index.rebuildProject(project)
-      yield* index.rebuildProject(project)
+      yield* maintenance.rebuildProject(project)
+      yield* maintenance.rebuildProject(project)
 
       const rows = yield* withClient(async (client) => {
         const result = await client.query(
@@ -705,7 +725,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       remove: () => unexpected("TicketDocs.remove"),
       readRaw: () => unexpected("TicketDocs.readRaw")
     } satisfies TicketDocsShape)
-    const indexLayer = TicketIndexLive.pipe(
+    const indexLayer = TicketIndexServices.layer.pipe(
       Layer.provide(ticketDocs),
       Layer.provide(DatabaseLive)
     )
@@ -776,8 +796,10 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       )
 
       const index = yield* TicketIndex
+
+      const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
       const project = yield* index.projectFor(orgSlug, projectSlug)
-      yield* index.rebuildProject(project)
+      yield* maintenance.rebuildProject(project)
 
       const rows = yield* withClient((client) =>
         client.query<{
@@ -922,7 +944,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           }
         ])
       }
-      const indexLayer = TicketIndexLive.pipe(
+      const indexLayer = TicketIndexServices.layer.pipe(
         Layer.provide(
           Layer.succeed(TicketDocs, {
             listIds: () => Effect.succeed([document.id]),
@@ -966,8 +988,10 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         )
 
         const index = yield* TicketIndex
+
+        const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
         const project = yield* index.projectFor(orgSlug, projectSlug)
-        const summary = yield* index.rebuildProject(project)
+        const summary = yield* maintenance.rebuildProject(project)
         expect(summary.indexed).toBe(1)
 
         const rows = yield* withClient((client) =>

@@ -16,12 +16,12 @@ import { BannerPlaceholders } from "@pp/server-core/projects/BannerPlaceholders"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { Projects } from "@pp/server-core/projects/Projects"
 import { ProjectsLive } from "@pp/server-core/projects/ProjectsLive"
+import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import {
   TicketDocs,
   type TicketDocument
 } from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
-import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
 import { Users } from "@pp/server-core/users/Users"
 import {
   CurrentUser,
@@ -212,7 +212,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
     projectsLayer = ProjectsLive.pipe(
       Layer.provideMerge(AccessLive.pipe(Layer.provide(db))),
       Layer.provide(
-        TicketIndexLive.pipe(Layer.provide(db), Layer.provide(docs))
+        TicketIndexServices.layer.pipe(Layer.provide(db), Layer.provide(docs))
       ),
       Layer.provide(docs),
       Layer.provide(lock),

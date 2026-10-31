@@ -254,23 +254,7 @@ function makeFakeDocs(initial?: {
     deleteTicket: (_project, id) =>
       Effect.sync(() => {
         ticketsById.delete(id)
-      }),
-    rebuildProject: () =>
-      Effect.succeed({
-        project: indexProject,
-        indexed: ticketsById.size,
-        skipped: 0
-      }),
-    rebuildAllProjects: () => Effect.succeed({ projects: [] }),
-    reconcileProject: () =>
-      Effect.succeed({
-        project: indexProject,
-        drift: { missing: [], orphaned: [], stale: [] },
-        rebuilt: false,
-        indexed: ticketsById.size,
-        skipped: 0
-      }),
-    reconcileAllProjects: () => Effect.succeed({ projects: [], reconciled: 0 })
+      })
   } satisfies TicketIndexShape
   const ticketBranchIndexService = {
     findTicketsByBranch: () => Effect.succeed([]),

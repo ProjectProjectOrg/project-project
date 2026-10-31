@@ -149,14 +149,6 @@ const makeFakeIndex = (overrides: Partial<FakeIndexShape> = {}) => {
     clearBranchStale: () => Effect.void,
     updateBranchChecks: () => Effect.succeed([]),
     deleteTicket: () => Effect.void,
-    rebuildProject: () =>
-      Effect.die(new Error("unexpected TicketIndex.rebuildProject call")),
-    rebuildAllProjects: () =>
-      Effect.die(new Error("unexpected TicketIndex.rebuildAllProjects call")),
-    reconcileProject: () =>
-      Effect.die(new Error("unexpected TicketIndex.reconcileProject call")),
-    reconcileAllProjects: () =>
-      Effect.die(new Error("unexpected TicketIndex.reconcileAllProjects call")),
     ...overrides
   }
   return { upserts, shape }

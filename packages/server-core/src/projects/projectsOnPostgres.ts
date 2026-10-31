@@ -8,10 +8,10 @@ import * as Redacted from "effect/Redacted"
 import type { Access } from "../access/Access"
 import { AccessLive } from "../access/AccessLive"
 import { GitHub } from "../github/GitHub"
+import * as TicketIndexServices from "../tickets/indexLayer"
 import { TicketDocs, type TicketDocsShape } from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import { TicketIndex } from "../tickets/TicketIndex"
-import { TicketIndexLive } from "../tickets/TicketIndexLive"
 import { Users } from "../users/Users"
 import { BannerPlaceholders } from "./BannerPlaceholders"
 import { FinishedStatuses } from "./FinishedStatuses"
@@ -42,7 +42,7 @@ export const projectsOnPostgres = (
     readRaw: unused,
     ...ticketDocs
   })
-  const ticketIndex = TicketIndexLive.pipe(
+  const ticketIndex = TicketIndexServices.layer.pipe(
     Layer.provide(db),
     Layer.provide(docs)
   )
