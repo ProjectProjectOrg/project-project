@@ -9,13 +9,24 @@ import * as TestClock from "effect/testing/TestClock"
 
 import { ServerStore } from "../servers/ServerStore"
 import { fakeHttp } from "../testing"
-import { noticeFor, UpdateNotice, updateNoticeLayer } from "./UpdateNotice"
+import {
+  type Notice,
+  noticeFor,
+  noticeText,
+  UpdateNotice,
+  updateNoticeLayer
+} from "./UpdateNotice"
 
 const origin = "https://pp.example.com"
 
 describe("noticeFor", () => {
   it("recommends pp upgrade when the server runs another release", () => {
-    expect(noticeFor(origin, Option.some("v2026.11.02"), "2026.10.30")).toEqual(
+    expect(
+      Option.map(
+        noticeFor(origin, Option.some("v2026.11.02"), "2026.10.30"),
+        noticeText
+      )
+    ).toEqual(
       Option.some(
         "https://pp.example.com runs pp v2026.11.02; you have 2026.10.30. Run `pp upgrade --server https://pp.example.com` to match it."
       )
@@ -34,7 +45,7 @@ describe("noticeFor", () => {
 
 const withConfigHome = <A, E>(
   run: (
-    noticeIn: (build: string) => Effect.Effect<Option.Option<string>>
+    noticeIn: (build: string) => Effect.Effect<Option.Option<Notice>>
   ) => Effect.Effect<A, E>,
   asked: Array<string>,
   failing = false
@@ -80,7 +91,7 @@ describe("update notice", () => {
       (noticeIn) =>
         Effect.gen(function* () {
           const first = yield* noticeIn("2026.10.30")
-          expect(Option.getOrThrow(first)).toContain("pp upgrade")
+          expect(noticeText(Option.getOrThrow(first))).toContain("pp upgrade")
           expect(yield* noticeIn("2026.10.30")).toEqual(first)
           expect(asked).toEqual(["/api/cli/release"])
           yield* TestClock.adjust("25 hours")

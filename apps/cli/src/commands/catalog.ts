@@ -10,6 +10,8 @@ import * as Schema from "effect/Schema"
 import { callTool, callToolAs } from "../client/callTool"
 import { usage } from "../CliFailure"
 import { printResult } from "../output/format"
+import { pagingEnabled } from "../output/pager"
+import { stdoutTerminal } from "../output/terminal"
 import { quotedCommandText } from "../output/terminalText"
 import {
   allPages,
@@ -19,6 +21,7 @@ import {
 } from "./context"
 import { type Field, fieldsOf, flagName } from "./fields"
 import { toolInput } from "./input"
+import { pagedList } from "./pagedList"
 import { root } from "./root"
 import { shapings } from "./shaping"
 
@@ -117,6 +120,13 @@ const allFlag = Flag.Boolean("all").pipe(
   Flag.withDefault(false)
 )
 
+const pagerFlag = Flag.Boolean("pager").pipe(
+  Flag.withDescription(
+    "In a terminal, page long lists through less. Pass --no-pager to print one page as before."
+  ),
+  Flag.withDefault(true)
+)
+
 const isToolName = (name: string): name is ToolName =>
   Object.hasOwn(Tools.tools, name)
 
@@ -160,7 +170,12 @@ export const commandFor = (entry: CatalogEntry) => {
   const fields = inputFields.filter((field) => !SCOPE_FIELDS.has(field.name))
   const paginated = fields.some((field) => field.name === "cursor")
   const config = Object.fromEntries([
-    ...(paginated ? [["all", allFlag]] : []),
+    ...(paginated
+      ? [
+          ["all", allFlag],
+          ["pager", pagerFlag]
+        ]
+      : []),
     ...Object.entries(shaping?.flags ?? {}),
     ...entry.args.flatMap((arg) => {
       const field = fields.find((candidate) => candidate.name === arg)
@@ -186,15 +201,30 @@ export const commandFor = (entry: CatalogEntry) => {
         Effect.mapError((error) => usage(flagPath(error.message)))
       )
       const firstCursor = input["cursor"]
+      const page = (cursor: string | undefined) =>
+        callToolAs(
+          server,
+          entry.name,
+          { limit: 200, ...input, cursor },
+          UnknownPage
+        )
+      if (
+        paginated &&
+        !flags.json &&
+        raw["all"] !== true &&
+        raw["pager"] !== false &&
+        firstCursor === undefined &&
+        input["limit"] === undefined &&
+        pagingEnabled(process.env) &&
+        stdoutTerminal().fancy
+      ) {
+        return yield* pagedList(page, entry.command[0]).pipe(
+          explainDefault(scope)
+        )
+      }
       const everyPage = Effect.map(
         allPages(
-          (cursor) =>
-            callToolAs(
-              server,
-              entry.name,
-              { limit: 200, ...input, cursor },
-              UnknownPage
-            ),
+          page,
           Predicate.isString(firstCursor) ? firstCursor : undefined
         ),
         (items) => ({ items, nextCursor: null })
