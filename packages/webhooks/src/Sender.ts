@@ -117,6 +117,10 @@ const urlSecrets = (url: URL) =>
   [
     ...url.pathname.split("/").flatMap((part) => [part, decoded(part)]),
     ...url.searchParams.values(),
+    ...url.search
+      .slice(1)
+      .split("&")
+      .map((pair) => pair.slice(pair.indexOf("=") + 1)),
     url.search.slice(1)
   ].filter((part) => part.length >= minSecretLength)
 

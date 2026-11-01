@@ -41,6 +41,11 @@ beforeAll(() => {
             status: 401
           }
         )
+      if (url.pathname === "/echo-value")
+        return new Response(
+          `bad ${url.search.slice(url.search.indexOf("=") + 1)}`,
+          { status: 401 }
+        )
       if (url.pathname.startsWith("/echo/"))
         return new Response(
           `unknown ${url.pathname}${url.search} ${decodeURIComponent(url.pathname)}`,
@@ -191,6 +196,19 @@ describe("WebhookSender", () => {
       )
       expect(result._tag === "Response" && result.excerpt).not.toContain(
         "my-secret-token"
+      )
+    }).pipe(Effect.provide(sender(true)))
+  )
+
+  it.effect("redacts an encoded query value echoed without its key", () =>
+    Effect.gen(function* () {
+      const send = yield* Sender.WebhookSender
+      const result = yield* send.send(
+        target("/echo-value?token=abc%26secret"),
+        delivery
+      )
+      expect(result._tag === "Response" && result.excerpt).toBe(
+        "bad [redacted]"
       )
     }).pipe(Effect.provide(sender(true)))
   )

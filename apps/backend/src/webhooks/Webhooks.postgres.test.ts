@@ -656,6 +656,25 @@ describe.skipIf(!databaseUrl)("Outbound webhooks", () => {
     })
   )
 
+  it.live("doesn't expire a delivery while its endpoint is sending", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture()
+      const { webhook } = yield* f.hooks((h) =>
+        h.create({ url: f.url("/in-flight"), events: ["ticket_created"] })
+      )
+      yield* f.hooks((h) => h.test(webhook.id))
+      expect(yield* f.dispatcher((d) => d.claim(8))).toHaveLength(1)
+      yield* query(
+        "update webhook_delivery set created_at = now() - interval '25 hours' where endpoint_id = $1",
+        [webhook.id]
+      )
+      yield* f.dispatcher((d) => d.expire())
+      expect(yield* f.deliveries(webhook.id)).toEqual([
+        expect.objectContaining({ state: "pending" })
+      ])
+    })
+  )
+
   it.live("stops sending once the organization is deleted", () =>
     Effect.gen(function* () {
       const f = yield* fixture()

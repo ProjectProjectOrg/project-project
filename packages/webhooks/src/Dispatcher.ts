@@ -267,7 +267,8 @@ const make = Effect.gen(function* () {
       .where(
         and(
           eq(webhookDelivery.state, "pending"),
-          lte(webhookDelivery.createdAt, sql`now() - ${maxAge}`)
+          lte(webhookDelivery.createdAt, sql`now() - ${maxAge}`),
+          sql`not exists (select 1 from ${webhookEndpoint} where ${webhookEndpoint.id} = ${webhookDelivery.endpointId} and ${webhookEndpoint.leaseExpiresAt} > now())`
         )
       )
       .returning({ endpointId: webhookDelivery.endpointId })
