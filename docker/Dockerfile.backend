@@ -23,6 +23,7 @@ COPY packages/integration-everhour/package.json ./packages/integration-everhour/
 COPY packages/integration-github/package.json ./packages/integration-github/
 COPY packages/integration-jira/package.json ./packages/integration-jira/
 COPY packages/integration-slack/package.json ./packages/integration-slack/
+COPY packages/webhooks/package.json ./packages/webhooks/
 COPY packages/server-core/package.json ./packages/server-core/
 COPY packages/shared/package.json ./packages/shared/
 COPY apps/backend/package.json ./apps/backend/
@@ -45,6 +46,7 @@ COPY --from=deps /app/packages/integration-everhour/node_modules ./packages/inte
 COPY --from=deps /app/packages/integration-github/node_modules ./packages/integration-github/node_modules
 COPY --from=deps /app/packages/integration-jira/node_modules ./packages/integration-jira/node_modules
 COPY --from=deps /app/packages/integration-slack/node_modules ./packages/integration-slack/node_modules
+COPY --from=deps /app/packages/webhooks/node_modules ./packages/webhooks/node_modules
 COPY --from=deps /app/packages/server-core/node_modules ./packages/server-core/node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=deps /app/apps/backend/node_modules ./packages/backend/node_modules
@@ -55,6 +57,7 @@ COPY packages/integration-everhour ./packages/integration-everhour
 COPY packages/integration-github ./packages/integration-github
 COPY packages/integration-jira ./packages/integration-jira
 COPY packages/integration-slack ./packages/integration-slack
+COPY packages/webhooks ./packages/webhooks
 COPY packages/server-core ./packages/server-core
 COPY packages/shared ./packages/shared
 COPY apps/backend ./packages/backend

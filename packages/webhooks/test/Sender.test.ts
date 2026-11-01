@@ -42,9 +42,12 @@ beforeAll(() => {
           }
         )
       if (url.pathname.startsWith("/echo/"))
-        return new Response(`unknown ${url.pathname}${url.search}`, {
-          status: 404
-        })
+        return new Response(
+          `unknown ${url.pathname}${url.search} ${decodeURIComponent(url.pathname)}`,
+          {
+            status: 404
+          }
+        )
       if (url.pathname === "/redirect")
         return new Response(null, {
           status: 302,
@@ -167,7 +170,20 @@ describe("WebhookSender", () => {
         delivery
       )
       expect(result._tag === "Response" && result.excerpt).toBe(
-        "unknown /echo/[redacted]?[redacted]"
+        "unknown /echo/[redacted]?[redacted] /echo/[redacted]"
+      )
+    }).pipe(Effect.provide(sender(true)))
+  )
+
+  it.effect("redacts the decoded form of an encoded path token", () =>
+    Effect.gen(function* () {
+      const send = yield* Sender.WebhookSender
+      const result = yield* send.send(
+        target("/echo/my%2Dsecret%2Dtoken"),
+        delivery
+      )
+      expect(result._tag === "Response" && result.excerpt).not.toContain(
+        "my-secret-token"
       )
     }).pipe(Effect.provide(sender(true)))
   )

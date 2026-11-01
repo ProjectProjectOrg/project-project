@@ -18,6 +18,7 @@ COPY packages/integration-everhour/package.json ./packages/integration-everhour/
 COPY packages/integration-github/package.json ./packages/integration-github/
 COPY packages/integration-jira/package.json ./packages/integration-jira/
 COPY packages/integration-slack/package.json ./packages/integration-slack/
+COPY packages/webhooks/package.json ./packages/webhooks/
 COPY packages/server-core/package.json ./packages/server-core/
 COPY packages/shared/package.json ./packages/shared/
 COPY apps/backend/package.json ./apps/backend/

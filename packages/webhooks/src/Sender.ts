@@ -101,9 +101,17 @@ const withoutControlCharacters = (text: string) =>
     isPrintable(character.codePointAt(0) ?? 0) ? character : ""
   ).join("")
 
+const decoded = (part: string) => {
+  try {
+    return decodeURIComponent(part)
+  } catch {
+    return part
+  }
+}
+
 const urlSecrets = (url: URL) =>
   [
-    ...url.pathname.split("/"),
+    ...url.pathname.split("/").flatMap((part) => [part, decoded(part)]),
     ...url.searchParams.values(),
     url.search.slice(1)
   ].filter((part) => part.length >= minSecretLength)

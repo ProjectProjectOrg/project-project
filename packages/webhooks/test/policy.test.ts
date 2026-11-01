@@ -108,6 +108,15 @@ describe("afterAttempt", () => {
     expect(update.nextAttemptAt).toEqual(at(now.getTime() + 7_200_000))
   })
 
+  it("keeps the backoff when Retry-After is shorter", () => {
+    const update = afterAttempt(
+      { failureCount: 8, failingSince: now, goneCount: 0 },
+      classify(response(429, 0)),
+      now
+    )
+    expect(update.nextAttemptAt).toEqual(at(now.getTime() + 2_560_000))
+  })
+
   it("cools the endpoint down after a rejected delivery too", () => {
     const update = afterAttempt(healthy, classify(response(400)), now)
     expect(update.nextAttemptAt.getTime()).toBeGreaterThan(now.getTime())

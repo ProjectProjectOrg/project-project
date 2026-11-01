@@ -118,8 +118,10 @@ export const afterAttempt = (
   const failureCount = health.failureCount + 1
   const failingSince = health.failingSince ?? now
   const goneCount = classification.gone ? health.goneCount + 1 : 0
-  const delaySeconds =
-    classification.retryAfterSeconds ?? backoffSeconds(failureCount)
+  const delaySeconds = Math.max(
+    backoffSeconds(failureCount),
+    classification.retryAfterSeconds ?? 0
+  )
   const disable =
     goneCount >= disableAfterGone
       ? "gone"
