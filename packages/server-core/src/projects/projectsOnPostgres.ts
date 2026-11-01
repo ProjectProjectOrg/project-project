@@ -26,7 +26,8 @@ export const projectsOnPostgres = (
   databaseUrl: string,
   userIds: ReadonlyArray<string>,
   ticketDocs: Partial<TicketDocsShape> = {},
-  projectDocs?: Layer.Layer<ProjectDocs>
+  projectDocs?: Layer.Layer<ProjectDocs>,
+  github: Partial<GitHub["Service"]> = {}
 ): Layer.Layer<
   Projects | TicketIndex | TicketRewrites.TicketRewrites | Access
 > => {
@@ -116,7 +117,8 @@ export const projectsOnPostgres = (
         openPullRequestAsUser: unused,
         fetchInstallationProjectStates: unused,
         listInstallationBranches: unused,
-        branchExistsInstallation: unused
+        branchExistsInstallation: unused,
+        ...github
       })
     ),
     Layer.orDie
