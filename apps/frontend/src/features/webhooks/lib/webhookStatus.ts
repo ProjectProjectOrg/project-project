@@ -26,10 +26,7 @@ export const webhookStatusText = (webhook: Webhook) =>
   webhook.status === "disabled"
     ? disabledReasonText(webhook.disabledReason)
     : webhook.failureCount > 0
-      ? m.webhooks_status_retrying({
-          count: webhook.failureCount,
-          when: formatWhen(webhook.nextAttemptAt)
-        })
+      ? m.webhooks_status_failing({ count: webhook.failureCount })
       : webhook.lastSuccessAt
         ? m.webhooks_status_last_delivered({
             when: formatWhen(webhook.lastSuccessAt)

@@ -111,9 +111,18 @@
   "webhooks_secret_reveal_title": "Signing secret",
   "webhooks_secret_rotate": "Rotate",
   "webhooks_secret_rotate_confirm": "The current secret stops working immediately.",
+  "webhooks_status_failing": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "The last attempt failed",
+        "countPlural=*": "The last {count} attempts failed"
+      }
+    }
+  ],
   "webhooks_status_last_delivered": "Last delivered {when}",
   "webhooks_status_no_deliveries": "No deliveries yet",
-  "webhooks_status_retrying": "Failing, {count} in a row. Next attempt {when}",
   "webhooks_tab": "Webhooks",
   "webhooks_test": "Send test event",
   "webhooks_url_hint": "An https URL. It's stored encrypted and afterwards only its host is shown.",

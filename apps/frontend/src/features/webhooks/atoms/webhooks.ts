@@ -10,6 +10,7 @@ import * as Atom from "effect/reactivity/Atom"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { viewMutation } from "@/api/viewMutation"
+import { predictWebhookUpdate } from "@/features/webhooks/lib/predictWebhook"
 
 type ProjectParams = Readonly<{ orgSlug: string; slug: string }>
 
@@ -96,7 +97,10 @@ type WebhookTarget = Readonly<{ req: WebhooksRequest; id: string }>
 export const updateWebhook = Atom.family(({ req, id }: WebhookTarget) =>
   viewMutation(webhooksFor(req), {
     name: "updateWebhook",
-    predict: (webhooks, _input: UpdateWebhookInput) => webhooks,
+    predict: (webhooks, input: UpdateWebhookInput) =>
+      webhooks.map((webhook) =>
+        webhook.id === id ? predictWebhookUpdate(webhook, input) : webhook
+      ),
     call: (api, input) =>
       api.webhooks.update({
         params: { ...req.params, webhookId: id },
