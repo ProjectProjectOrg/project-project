@@ -10,6 +10,7 @@ import {
   batchChangeOf,
   breaksEpicSprintRule,
   openSprintIdsOf,
+  revertTicketPatch,
   ticketChangeOf,
   type TicketPatch
 } from "./ticketPatch"
@@ -273,6 +274,92 @@ describe("openSprintIdsOf", () => {
         "T-2"
       )
     ).toEqual(["G-1"])
+  })
+})
+
+describe("revertTicketPatch", () => {
+  const written = applyTicketPatch(
+    existing,
+    { priority: "high", tags: [] },
+    "user-2",
+    now
+  )
+  const later = isoDate("2026-04-03T00:00:00.000Z")
+
+  it("restores the original when nobody touched the ticket since", () => {
+    expect(revertTicketPatch(existing, written, written)).toEqual(existing)
+  })
+
+  it("keeps an edit made in the meantime and reverts the rest", () => {
+    const current = { ...written, title: "Renamed", updatedAt: later }
+    expect(revertTicketPatch(existing, written, current)).toEqual({
+      ...current,
+      priority: "med",
+      tags: existing.tags
+    })
+  })
+
+  it("leaves a field someone else changed again", () => {
+    const current = {
+      ...written,
+      priority: "low" as const,
+      tags: [],
+      updatedAt: later
+    }
+    expect(revertTicketPatch(existing, written, current)).toEqual({
+      ...current,
+      tags: existing.tags
+    })
+  })
+
+  it("reverts an estimate when the ticket was read back from disk", () => {
+    const estimated = applyTicketPatch(
+      existing,
+      { estimate: { unit: "points", value: 8 } },
+      "user-2",
+      now
+    )
+    const reread = {
+      ...estimated,
+      estimate: { unit: "points" as const, value: 8 }
+    }
+    expect(reread.estimate).not.toBe(estimated.estimate)
+    expect(revertTicketPatch(existing, estimated, reread)?.estimate).toEqual(
+      existing.estimate
+    )
+  })
+
+  it("keeps type and parent together when someone changed one of them", () => {
+    const epic = { ...existing, type: "epic" as const, parent: undefined }
+    const demoted = applyTicketPatch(epic, { type: "feat" }, "user-2", now)
+    const current = { ...demoted, parent: ticketId("T-7"), updatedAt: later }
+    expect(revertTicketPatch(epic, demoted, current)).toBeNull()
+  })
+
+  it("still reverts other fields when type and parent can't be reverted", () => {
+    const epic = { ...existing, type: "epic" as const, parent: undefined }
+    const demoted = applyTicketPatch(
+      epic,
+      { type: "feat", priority: "high" },
+      "user-2",
+      now
+    )
+    const current = { ...demoted, parent: ticketId("T-7"), updatedAt: later }
+    expect(revertTicketPatch(epic, demoted, current)).toMatchObject({
+      priority: epic.priority,
+      type: "feat",
+      parent: "T-7"
+    })
+  })
+
+  it("does nothing when every changed field was changed again", () => {
+    const current = {
+      ...written,
+      priority: "low" as const,
+      tags: [tagName("ui")],
+      updatedAt: later
+    }
+    expect(revertTicketPatch(existing, written, current)).toBeNull()
   })
 })
 

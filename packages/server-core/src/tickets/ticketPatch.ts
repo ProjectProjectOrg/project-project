@@ -109,6 +109,74 @@ export const breaksEpicSprintRule = (
   (existing.type !== "epic" ||
     sprintsAfter.some((id) => !sprintsBefore.includes(id)))
 
+const patchableKeys = [
+  "title",
+  "status",
+  "type",
+  "priority",
+  "parent",
+  "estimate",
+  "tags",
+  "assignees",
+  "body"
+] as const
+
+type PatchableKey = (typeof patchableKeys)[number]
+
+const sameField = (
+  key: PatchableKey,
+  left: TicketDocument,
+  right: TicketDocument
+) => {
+  const a = left[key]
+  const b = right[key]
+  return Array.isArray(a) && Array.isArray(b)
+    ? !listChanged(a, b)
+    : Equal.equals(a, b)
+}
+
+export const revertTicketPatch = (
+  original: TicketDocument,
+  written: TicketDocument,
+  current: TicketDocument
+): TicketDocument | null => {
+  const hierarchyKeys: ReadonlyArray<PatchableKey> = ["type", "parent"]
+  const hierarchyReverts = hierarchyKeys.every((key) =>
+    sameField(key, current, written)
+  )
+  const reverted = new Set(
+    patchableKeys.filter(
+      (key) =>
+        !sameField(key, written, original) &&
+        sameField(key, current, written) &&
+        (hierarchyReverts || !hierarchyKeys.includes(key))
+    )
+  )
+  if (reverted.size === 0) return null
+  const pick = <K extends PatchableKey>(key: K) =>
+    reverted.has(key) ? original[key] : current[key]
+  const restored: TicketDocument = {
+    ...current,
+    title: pick("title"),
+    status: pick("status"),
+    type: pick("type"),
+    priority: pick("priority"),
+    parent: pick("parent"),
+    estimate: pick("estimate"),
+    tags: pick("tags"),
+    assignees: pick("assignees"),
+    body: pick("body")
+  }
+  if (current.updatedAt.getTime() !== written.updatedAt.getTime()) {
+    return restored
+  }
+  return {
+    ...restored,
+    updatedAt: original.updatedAt,
+    updatedBy: original.updatedBy
+  }
+}
+
 export const hierarchyChangeOf = (
   existing: TicketDocument,
   next: TicketDocument
