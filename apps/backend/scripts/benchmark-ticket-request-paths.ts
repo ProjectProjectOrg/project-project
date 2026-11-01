@@ -26,6 +26,7 @@ import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
 import * as ProjectGithub from "@pp/server-core/projects/ProjectGithub"
+import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import { Projects, type ProjectsShape } from "@pp/server-core/projects/Projects"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketServices from "@pp/server-core/tickets/layer"
@@ -357,26 +358,22 @@ const runWorkload = <A, E>(
 const unexpected = (method: string): Effect.Effect<never> =>
   Effect.die(new Error(`unexpected ${method} call`))
 
-const FakeProjects = Layer.merge(
+const FakeProjects = Layer.mergeAll(
   Layer.succeed(Projects, {
     list: () => unexpected("Projects.list"),
     listPaged: () => unexpected("Projects.listPaged"),
-    listMembersPaged: () => unexpected("Projects.listMembersPaged"),
     create: () => unexpected("Projects.create"),
     get: () => Effect.succeed(benchmarkProject),
     key: () => Effect.succeed(decodeProjectKey("T")),
-    memberIds: () => Effect.succeed(new Set([userId])),
     update: () => unexpected("Projects.update"),
     updateSetup: () => unexpected("Projects.updateSetup"),
-    remove: () => unexpected("Projects.remove"),
-    addMember: () => unexpected("Projects.addMember"),
-    updateMember: () => unexpected("Projects.updateMember"),
-    removeMember: () => unexpected("Projects.removeMember"),
-    leave: () => unexpected("Projects.leave"),
-    cancelPendingMember: () => unexpected("Projects.cancelPendingMember")
+    remove: () => unexpected("Projects.remove")
   } satisfies ProjectsShape),
   Layer.mock(ProjectGithub.ProjectGithub, {
     integration: () => Effect.succeed(null)
+  }),
+  Layer.mock(ProjectMembers.ProjectMembers, {
+    memberIds: () => Effect.succeed(new Set([userId]))
   })
 )
 

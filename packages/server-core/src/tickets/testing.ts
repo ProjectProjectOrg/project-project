@@ -40,6 +40,7 @@ import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import * as ProjectGithub from "../projects/ProjectGithub"
+import * as ProjectMembers from "../projects/ProjectMembers"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
 import type { GitAutomationConfig } from "./gitAutomation"
@@ -196,24 +197,31 @@ export function makeFakeProjects(
   const service = {
     list: () => unexpected("Projects.list"),
     listPaged: () => unexpected("Projects.listPaged"),
-    listMembersPaged: () => unexpected("Projects.listMembersPaged"),
     create: () => unexpected("Projects.create"),
     get: () => unexpected("Projects.get"),
     key: () => Effect.succeed(projectKey(key)),
-    memberIds: () => Effect.succeed(new Set(["user-1", "user-2"])),
     update: () => unexpected("Projects.update"),
     updateSetup: () => unexpected("Projects.updateSetup"),
     remove: () => unexpected("Projects.remove"),
-    addMember: () => unexpected("Projects.addMember"),
-    updateMember: () => unexpected("Projects.updateMember"),
-    removeMember: () => unexpected("Projects.removeMember"),
-    leave: () => unexpected("Projects.leave"),
-    cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
     ...overrides
   } satisfies ProjectsShape
 
   return Layer.succeed(Projects, service)
 }
+
+export const makeFakeProjectMembers = (
+  overrides: Partial<ProjectMembers.ProjectMembers["Service"]> = {}
+) =>
+  Layer.succeed(ProjectMembers.ProjectMembers, {
+    memberIds: () => Effect.succeed(new Set(["user-1", "user-2"])),
+    listMembersPaged: () => unexpected("ProjectMembers.listMembersPaged"),
+    addMember: () => unexpected("ProjectMembers.addMember"),
+    updateMember: () => unexpected("ProjectMembers.updateMember"),
+    removeMember: () => unexpected("ProjectMembers.removeMember"),
+    leave: () => unexpected("ProjectMembers.leave"),
+    cancelPendingMember: () => unexpected("ProjectMembers.cancelPendingMember"),
+    ...overrides
+  })
 
 export const makeFakeProjectGithub = (
   overrides: Partial<ProjectGithub.ProjectGithub["Service"]> = {}
@@ -757,6 +765,7 @@ export type TicketsLayerOptions = Readonly<{
   projectDocs?: Layer.Layer<ProjectDocs>
   projects?: Layer.Layer<Projects>
   projectGithub?: Layer.Layer<ProjectGithub.ProjectGithub>
+  projectMembers?: Layer.Layer<ProjectMembers.ProjectMembers>
   groups?: Layer.Layer<Groups>
   github?: Layer.Layer<GitHub>
   ticketIndex?: Layer.Layer<TicketIndex | TicketBranchIndex.TicketBranchIndex>
@@ -779,6 +788,7 @@ export function makeTicketsLayer(
     Layer.provide(options.projectDocs ?? Layer.empty),
     Layer.provide(options.projects ?? makeFakeProjects(key)),
     Layer.provide(options.projectGithub ?? makeFakeProjectGithub()),
+    Layer.provide(options.projectMembers ?? makeFakeProjectMembers()),
     Layer.provide(options.groups ?? FakeGroups),
     Layer.provide(FakeComments),
     Layer.provide(FakeUsers),
@@ -830,7 +840,7 @@ export const permissionFixture = () => {
   )
   const layer = makeTicketsLayer("T", docs.layer, {
     ticketIndex: makeFakeTicketIndex(docs.documents),
-    projects: makeFakeProjects("T", {
+    projectMembers: makeFakeProjectMembers({
       memberIds: () => Effect.succeed(new Set(["user-1", "user-2", "client-1"]))
     }),
     projectGithub: makeFakeProjectGithub({

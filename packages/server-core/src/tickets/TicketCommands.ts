@@ -52,6 +52,7 @@ import { Groups } from "../groups/Groups"
 import { Library, type TemplateExpansion } from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
 import { ProjectDocs } from "../projects/ProjectDocs"
+import * as ProjectMembers from "../projects/ProjectMembers"
 import { Projects } from "../projects/Projects"
 import { readProjectDocument } from "../projects/readProjectDocument"
 import {
@@ -210,6 +211,7 @@ const make = Effect.gen(function* () {
   const { withTicketDocumentLock } =
     yield* TicketDocumentLock.TicketDocumentLock
   const projects = yield* Projects
+  const projectMembers = yield* ProjectMembers.ProjectMembers
   const projectDocs = yield* ProjectDocs
   const ticketIndex = yield* TicketIndex
   const groups = yield* Groups
@@ -288,14 +290,14 @@ const make = Effect.gen(function* () {
     validateBodyMentionsWithLookups(body, {
       existingTicketIds: (ticketIds) =>
         ticketIndex.existingIds(project, ticketIds),
-      memberIds: () => projects.memberIds()
+      memberIds: () => projectMembers.memberIds()
     })
 
   const validateAssigneesAreMembers = (
     assignees: ReadonlyArray<string>
   ): Effect.Effect<void, Validation, ProjectScope> =>
     Effect.gen(function* () {
-      const members = yield* projects.memberIds()
+      const members = yield* projectMembers.memberIds()
       const invalid = assignees.filter((id) => !members.has(id))
       if (invalid.length > 0) {
         return yield* new Validation({

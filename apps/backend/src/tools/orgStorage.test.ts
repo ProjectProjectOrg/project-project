@@ -8,6 +8,7 @@ import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutomation"
+import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
@@ -79,6 +80,7 @@ const status = Schema.decodeSync(OrgStorageStatus)({
 const unused = Layer.mergeAll(
   Layer.mock(AttachmentUploads.AttachmentUploads, {}),
   Layer.mock(Projects.Projects, {}),
+  Layer.mock(ProjectMembers.ProjectMembers, {}),
   Layer.mergeAll(
     Layer.mock(TicketCommands.TicketCommands, {}),
     Layer.mock(TicketGit.TicketGit, {}),

@@ -29,6 +29,7 @@ import { projectScope } from "../access/testing"
 import { Comments } from "../comments/Comments"
 import { serializeCommentsRegion } from "../comments/comments-region"
 import { CommentsLive } from "../comments/CommentsLive"
+import * as ProjectMembers from "../projects/ProjectMembers"
 import { Projects } from "../projects/Projects"
 import { Users } from "../users/Users"
 import * as TicketIndexServices from "./indexLayer"
@@ -753,6 +754,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         Layer.mergeAll(
           ticketDocs,
           Layer.mock(Projects, {}),
+          Layer.mock(ProjectMembers.ProjectMembers, {}),
           Layer.mock(TicketIndex, {}),
           Layer.mock(Users, {
             fullByIds: () => Effect.succeed([author])

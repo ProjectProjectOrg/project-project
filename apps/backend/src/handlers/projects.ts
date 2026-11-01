@@ -7,6 +7,7 @@
 import { GitHubIntegrations } from "@pp/integration-github/GitHubIntegrations"
 import { Attachments } from "@pp/server-core/attachments/Attachments"
 import * as ProjectGithub from "@pp/server-core/projects/ProjectGithub"
+import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import { Projects } from "@pp/server-core/projects/Projects"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import { AppApi, ProjectScope } from "@pp/shared"
@@ -84,26 +85,28 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
         ).pipe(dieOnMarkdown)
       )
       .handle("addMember", ({ payload }) =>
-        Effect.flatMap(Projects, (projects) =>
-          projects.addMember(payload)
+        Effect.flatMap(ProjectMembers.ProjectMembers, (members) =>
+          members.addMember(payload)
         ).pipe(dieOnMarkdown)
       )
       .handle("updateMember", ({ params, payload }) =>
-        Effect.flatMap(Projects, (projects) =>
-          projects.updateMember(params.userId, payload.role)
+        Effect.flatMap(ProjectMembers.ProjectMembers, (members) =>
+          members.updateMember(params.userId, payload.role)
         ).pipe(dieOnMarkdown)
       )
       .handle("removeMember", ({ params }) =>
-        Effect.flatMap(Projects, (projects) =>
-          projects.removeMember(params.userId)
+        Effect.flatMap(ProjectMembers.ProjectMembers, (members) =>
+          members.removeMember(params.userId)
         ).pipe(dieOnMarkdown)
       )
       .handle("leave", () =>
-        Effect.flatMap(Projects, (projects) => projects.leave())
+        Effect.flatMap(ProjectMembers.ProjectMembers, (members) =>
+          members.leave()
+        )
       )
       .handle("cancelPendingMember", ({ params }) =>
-        Effect.flatMap(Projects, (projects) =>
-          projects.cancelPendingMember(params.invitationId)
+        Effect.flatMap(ProjectMembers.ProjectMembers, (members) =>
+          members.cancelPendingMember(params.invitationId)
         ).pipe(dieOnMarkdown)
       )
       .handle("connectGithub", ({ payload }) =>

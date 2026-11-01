@@ -26,6 +26,7 @@ import {
   makeFakeTicketDocs,
   makeFakeProjects,
   makeFakeProjectGithub,
+  makeFakeProjectMembers,
   scopeIn,
   testInfra,
   FakeDb,
@@ -61,6 +62,7 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
     Layer.provide(passthroughTicketActivity),
     Layer.provide(docs.layer),
     Layer.provide(makeFakeProjects("T")),
+    Layer.provide(makeFakeProjectMembers()),
     Layer.provide(
       makeFakeProjectGithub({
         integration: () => Effect.succeed(githubIntegration)
@@ -132,6 +134,7 @@ it.effect(
       Layer.provide(passthroughTicketActivity),
       Layer.provide(docs.layer),
       Layer.provide(makeFakeProjects("T")),
+      Layer.provide(makeFakeProjectMembers()),
       Layer.provide(
         makeFakeProjectGithub({
           integration: () => Effect.succeed(githubIntegration)

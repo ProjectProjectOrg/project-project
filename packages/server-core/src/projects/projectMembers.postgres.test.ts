@@ -27,6 +27,7 @@ import { asUser } from "../activity/testing"
 import { MalformedTicketDocument } from "../tickets/TicketDocs"
 import type { TicketIndex } from "../tickets/TicketIndex"
 import * as TicketRewrites from "../tickets/TicketRewrites"
+import * as ProjectMembers from "./ProjectMembers"
 import { Projects } from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
@@ -65,7 +66,11 @@ describe.skipIf(!databaseUrl)("project members", () => {
   const admin = randomUUID()
   let pool: Pool
   let projectsLayer: Layer.Layer<
-    Projects | TicketIndex | TicketRewrites.TicketRewrites | Access
+    | Projects
+    | ProjectMembers.ProjectMembers
+    | TicketIndex
+    | TicketRewrites.TicketRewrites
+    | Access
   >
   const unassignAttempts: Array<string> = []
   const unassignedProjects: Array<string> = []
@@ -77,8 +82,13 @@ describe.skipIf(!databaseUrl)("project members", () => {
       layer: () => typeof projectsLayer = () => projectsLayer
     ) =>
     (as: string) =>
-    <A, E, R>(f: (projects: Projects["Service"]) => Effect.Effect<A, E, R>) =>
-      Effect.flatMap(Projects, f).pipe(
+    <A, E, R>(
+      f: (
+        projects: Projects["Service"] & ProjectMembers.ProjectMembers["Service"]
+      ) => Effect.Effect<A, E, R>
+    ) =>
+      Effect.all([Projects, ProjectMembers.ProjectMembers]).pipe(
+        Effect.flatMap(([projects, members]) => f({ ...projects, ...members })),
         Effect.provideServiceEffect(
           ProjectScope,
           Effect.flatMap(Access, (access) =>
@@ -651,6 +661,77 @@ describe.skipIf(!databaseUrl)("project members", () => {
       expect(
         detail.pendingMembers.map((pending) => pending.invitationId)
       ).not.toContain(invitationId)
+    })
+  )
+
+  it.effect(
+    "removes another member and unassigns them from the project's tickets",
+    () =>
+      Effect.gen(function* () {
+        const project = yield* createProject("RMV")
+        const inProject = runIn(project.slug)
+        yield* inProject(pm)((projects) =>
+          projects.addMember({
+            email: `${developer}@example.test`,
+            role: "developer"
+          })
+        )
+        unassignedProjects.length = 0
+        ticketFiles.push(decodeTicketId("MEM-902"))
+        const detail = yield* inProject(pm)((projects) =>
+          projects.removeMember(developer)
+        )
+        ticketFiles.length = 0
+        expect(detail.members.map((member) => member.id)).toEqual([pm])
+        expect(unassignedProjects).toContain(project.slug)
+      })
+  )
+
+  it.effect("tells a pm someone outside the project can't be changed", () =>
+    Effect.gen(function* () {
+      const project = yield* createProject("OUT")
+      const inProject = runIn(project.slug)
+      const update = yield* Effect.flip(
+        inProject(pm)((projects) => projects.updateMember(second, "pm"))
+      )
+      const remove = yield* Effect.flip(
+        inProject(pm)((projects) => projects.removeMember(second))
+      )
+      const cancel = yield* Effect.flip(
+        inProject(pm)((projects) => projects.cancelPendingMember(randomUUID()))
+      )
+      expect(update._tag).toBe("NotFound")
+      expect(remove._tag).toBe("NotFound")
+      expect(cancel._tag).toBe("NotFound")
+    })
+  )
+
+  it.effect("lists member ids and pages members by name", () =>
+    Effect.gen(function* () {
+      const project = yield* createProject("IDS")
+      const inProject = runIn(project.slug)
+      yield* inProject(pm)((projects) =>
+        projects.addMember({
+          email: `${second}@example.test`,
+          role: "developer"
+        })
+      )
+      const ids = yield* inProject(pm)((projects) => projects.memberIds())
+      const all = yield* inProject(pm)((projects) =>
+        projects.listMembersPaged(undefined, 10)
+      )
+      const first = yield* inProject(pm)((projects) =>
+        projects.listMembersPaged(undefined, 1)
+      )
+      expect([...ids].toSorted()).toEqual([pm, second].toSorted())
+      expect(all.items.map((member) => member.id)).toEqual(
+        [pm, second].toSorted()
+      )
+      expect(all.nextCursor).toBeNull()
+      expect(first.items.map((member) => member.id)).toEqual([
+        [pm, second].toSorted()[0]
+      ])
+      expect(first.nextCursor).not.toBeNull()
     })
   )
 

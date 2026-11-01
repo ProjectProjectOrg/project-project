@@ -19,6 +19,7 @@ import { FinishedStatuses } from "./FinishedStatuses"
 import * as ProjectServices from "./layer"
 import { ProjectDocs } from "./ProjectDocs"
 import type * as ProjectGithub from "./ProjectGithub"
+import type * as ProjectMembers from "./ProjectMembers"
 import type { Projects } from "./Projects"
 
 const unused = () => Effect.die(new Error("Unexpected dependency call"))
@@ -32,6 +33,7 @@ export const projectsOnPostgres = (
 ): Layer.Layer<
   | Projects
   | ProjectGithub.ProjectGithub
+  | ProjectMembers.ProjectMembers
   | TicketIndex
   | TicketRewrites.TicketRewrites
   | Access

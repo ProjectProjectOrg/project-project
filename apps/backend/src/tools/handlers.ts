@@ -6,6 +6,7 @@ import { Groups } from "@pp/server-core/groups/Groups"
 import { Library } from "@pp/server-core/library/Library"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
+import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
 import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
@@ -259,8 +260,8 @@ const list_tags = (
 const list_members = (
   input: { orgSlug: string; projectSlug: string } & Pagination
 ) =>
-  Effect.flatMap(Projects.Projects, (projects) =>
-    projects.listMembersPaged(
+  Effect.flatMap(ProjectMembers.ProjectMembers, (members) =>
+    members.listMembersPaged(
       tryDecodeCursor(input.cursor),
       input.limit ?? DEFAULT_LIMIT
     )

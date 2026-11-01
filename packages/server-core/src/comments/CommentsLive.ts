@@ -17,7 +17,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import type { MarkdownError } from "../markdown/Markdown"
-import { Projects } from "../projects/Projects"
+import * as ProjectMembers from "../projects/ProjectMembers"
 import { TicketDocs } from "../tickets/TicketDocs"
 import { TicketIndex } from "../tickets/TicketIndex"
 import { Users } from "../users/Users"
@@ -44,7 +44,7 @@ export const CommentsLive = Layer.effect(
   Comments,
   Effect.gen(function* () {
     const db = yield* Db
-    const projects = yield* Projects
+    const projectMembers = yield* ProjectMembers.ProjectMembers
     const ticketIndex = yield* TicketIndex
     const ticketDocs = yield* TicketDocs
     const users = yield* Users
@@ -65,7 +65,7 @@ export const CommentsLive = Layer.effect(
                 ticketIndex.existingIds(project, ticketIds)
               )
             ),
-        memberIds: () => projects.memberIds()
+        memberIds: () => projectMembers.memberIds()
       })
 
     const updateBlocks = (
