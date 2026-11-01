@@ -25,6 +25,7 @@ import { beforeAll, describe, expect } from "vitest"
 import { databaseLayer } from "../../test/database"
 import { projectScope } from "../access/testing"
 import { MarkdownError } from "../markdown/Markdown"
+import * as ProjectMembers from "../projects/ProjectMembers"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
 import {
@@ -87,23 +88,21 @@ const document: TicketDocument = {
 
 const projectId = randomUUID()
 
-const FakeProjects = Layer.succeed(Projects, {
-  list: () => unexpected("Projects.list"),
-  listPaged: () => unexpected("Projects.listPaged"),
-  listMembersPaged: () => unexpected("Projects.listMembersPaged"),
-  create: () => unexpected("Projects.create"),
-  get: () => unexpected("Projects.get"),
-  key: () => unexpected("Projects.key"),
-  memberIds: () => Effect.succeed(new Set(["user-1", "user-2"])),
-  update: () => unexpected("Projects.update"),
-  updateSetup: () => unexpected("Projects.updateSetup"),
-  remove: () => unexpected("Projects.remove"),
-  addMember: () => unexpected("Projects.addMember"),
-  updateMember: () => unexpected("Projects.updateMember"),
-  removeMember: () => unexpected("Projects.removeMember"),
-  leave: () => unexpected("Projects.leave"),
-  cancelPendingMember: () => unexpected("Projects.cancelPendingMember")
-} satisfies ProjectsShape)
+const FakeProjects = Layer.merge(
+  Layer.succeed(Projects, {
+    list: () => unexpected("Projects.list"),
+    listPaged: () => unexpected("Projects.listPaged"),
+    create: () => unexpected("Projects.create"),
+    get: () => unexpected("Projects.get"),
+    key: () => unexpected("Projects.key"),
+    update: () => unexpected("Projects.update"),
+    updateSetup: () => unexpected("Projects.updateSetup"),
+    remove: () => unexpected("Projects.remove")
+  } satisfies ProjectsShape),
+  Layer.mock(ProjectMembers.ProjectMembers, {
+    memberIds: () => Effect.succeed(new Set(["user-1", "user-2"]))
+  })
+)
 
 const FakeTicketIndex = Layer.succeed(TicketIndex, {
   projectsFor: () => unexpected("TicketIndex.projectsFor"),

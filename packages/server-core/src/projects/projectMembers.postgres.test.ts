@@ -27,6 +27,7 @@ import { asUser } from "../activity/testing"
 import { MalformedTicketDocument } from "../tickets/TicketDocs"
 import type { TicketIndex } from "../tickets/TicketIndex"
 import * as TicketRewrites from "../tickets/TicketRewrites"
+import * as ProjectMembers from "./ProjectMembers"
 import { Projects } from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
@@ -65,7 +66,11 @@ describe.skipIf(!databaseUrl)("project members", () => {
   const admin = randomUUID()
   let pool: Pool
   let projectsLayer: Layer.Layer<
-    Projects | TicketIndex | TicketRewrites.TicketRewrites | Access
+    | Projects
+    | ProjectMembers.ProjectMembers
+    | TicketIndex
+    | TicketRewrites.TicketRewrites
+    | Access
   >
   const unassignAttempts: Array<string> = []
   const unassignedProjects: Array<string> = []
@@ -77,8 +82,13 @@ describe.skipIf(!databaseUrl)("project members", () => {
       layer: () => typeof projectsLayer = () => projectsLayer
     ) =>
     (as: string) =>
-    <A, E, R>(f: (projects: Projects["Service"]) => Effect.Effect<A, E, R>) =>
-      Effect.flatMap(Projects, f).pipe(
+    <A, E, R>(
+      f: (
+        projects: Projects["Service"] & ProjectMembers.ProjectMembers["Service"]
+      ) => Effect.Effect<A, E, R>
+    ) =>
+      Effect.all([Projects, ProjectMembers.ProjectMembers]).pipe(
+        Effect.flatMap(([projects, members]) => f({ ...projects, ...members })),
         Effect.provideServiceEffect(
           ProjectScope,
           Effect.flatMap(Access, (access) =>

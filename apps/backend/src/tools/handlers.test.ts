@@ -13,6 +13,7 @@ import { Groups } from "@pp/server-core/groups/Groups"
 import { Library } from "@pp/server-core/library/Library"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
+import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import { Projects } from "@pp/server-core/projects/Projects"
 import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
@@ -301,6 +302,7 @@ const TestLayer = Layer.mergeAll(
   Layer.mock(OrgStorage.OrgStorage, {}),
   TicketsStub,
   ProjectsStub,
+  Layer.mock(ProjectMembers.ProjectMembers, {}),
   Layer.mock(Comments, {}),
   Layer.mock(Groups, {}),
   Layer.mock(Tags, {}),

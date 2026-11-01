@@ -1,5 +1,4 @@
 import { ProjectPolicy } from "@pp/access/policies"
-import { Org } from "@pp/access/roles"
 import { Db } from "@pp/db"
 import {
   invitation,
@@ -14,32 +13,22 @@ import {
   Conflict,
   GIT_AUTOMATION_SEED,
   deriveProjectIdentity,
-  INVITATION_VALID_DAYS,
   Forbidden,
-  NotFound,
   paginateSorted,
   ProjectColor,
   ProjectIcon,
-  LastProjectPmBlocked,
   ProjectKey,
-  Role,
   OrgScope,
-  ProjectScope,
-  Validation
+  ProjectScope
 } from "@pp/shared"
-import { AssignableRole } from "@pp/shared"
 import type { ProjectSetup } from "@pp/shared"
-import { and, asc, eq, gt, inArray, sql as sqlFragment } from "drizzle-orm"
+import { and, asc, eq, inArray } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
-import { ulid } from "ulid"
 
 import { Access } from "../access/Access"
-import * as TicketRewrites from "../tickets/TicketRewrites"
-import { Users } from "../users/Users"
 import { bannerNeedsPlaceholder } from "./bannerPlaceholder"
 import { BannerPlaceholders } from "./BannerPlaceholders"
 import * as ProjectDetails from "./ProjectDetails"
@@ -51,10 +40,10 @@ import {
 import { Projects, type ProjectsShape } from "./Projects"
 import { withProjectTelemetry } from "./projectTelemetry"
 import { readProjectDocument } from "./readProjectDocument"
+import { syncProjectInvite } from "./syncProjectInvite"
 import { uniqueConstraint } from "./uniqueConstraint"
 
 const MAX_SLUG_ATTEMPTS = 100
-const makeRole = Schema.decodeUnknownSync(Role)
 const makeProjectKey = Schema.decodeUnknownSync(ProjectKey)
 const makeProjectIcon = Schema.decodeUnknownSync(ProjectIcon)
 const makeProjectColor = Schema.decodeUnknownSync(ProjectColor)
@@ -89,12 +78,8 @@ export const ProjectsLive = Layer.effect(
       members: loadMembers,
       pendingMembers: loadPendingMembers,
       githubConnection: loadGithubConnection,
-      writeFrontmatter: syncFrontmatter,
-      replay: replayDetail
+      writeFrontmatter: syncFrontmatter
     } = yield* ProjectDetails.ProjectDetails
-
-    const users = yield* Users
-    const rewrites = yield* TicketRewrites.TicketRewrites
 
     const findFreeSlug = (
       organizationId: string,
@@ -205,50 +190,11 @@ export const ProjectsLive = Layer.effect(
         })
       })
 
-    const listMembersPaged: ProjectsShape["listMembersPaged"] = (
-      cursor,
-      limit
-    ) =>
-      Effect.gen(function* () {
-        const { projectId } = yield* ProjectScope
-        const members = yield* loadMembers(projectId)
-        const sorted = [...members].toSorted((a, b) =>
-          a.name < b.name
-            ? -1
-            : a.name > b.name
-              ? 1
-              : a.id < b.id
-                ? -1
-                : a.id > b.id
-                  ? 1
-                  : 0
-        )
-        return paginateSorted(sorted, {
-          cursor,
-          limit,
-          sortKey: (m) => m.name,
-          id: (m) => m.id
-        })
-      })
-
     const key: ProjectsShape["key"] = () =>
       inScope.pipe(
         Effect.flatMap(({ indexRow }) =>
           Effect.sync(() => makeProjectKey(indexRow.key))
         )
-      )
-
-    const memberIds: ProjectsShape["memberIds"] = () =>
-      Effect.flatMap(ProjectScope, (scope) =>
-        db.query.projectMember
-          .findMany({
-            columns: { userId: true },
-            where: { projectId: scope.projectId }
-          })
-          .pipe(
-            Effect.map((rows) => new Set(rows.map((row) => row.userId))),
-            Effect.orDie
-          )
       )
 
     const create: ProjectsShape["create"] = (input) =>
@@ -664,7 +610,7 @@ export const ProjectsLive = Layer.effect(
                   .pipe(Effect.orDie)
                 yield* Effect.forEach(
                   affected,
-                  ({ id }) => syncProjectInvite(id),
+                  ({ id }) => syncProjectInvite(db, id),
                   { discard: true }
                 )
               })
@@ -673,477 +619,15 @@ export const ProjectsLive = Layer.effect(
         )
       })
 
-    const lockProjectForGrants = (projectId: string) =>
-      db
-        .select({ id: projectIndex.id })
-        .from(projectIndex)
-        .where(eq(projectIndex.id, projectId))
-        .for("share")
-        .pipe(Effect.orDie)
-
-    const syncProjectInvite = (invitationId: string) =>
-      Effect.gen(function* () {
-        const grants = yield* db
-          .select({ roleId: projectInviteGrant.roleId })
-          .from(projectInviteGrant)
-          .where(eq(projectInviteGrant.invitationId, invitationId))
-          .pipe(Effect.orDie)
-        const orgRole = ProjectPolicy.projectInviteOrgRole(
-          grants.map((grant) => makeRole(grant.roleId))
-        )
-        yield* db
-          .update(invitation)
-          .set(
-            Option.match(orgRole, {
-              onNone: () => ({ status: "canceled" }),
-              onSome: (role) => ({ role })
-            })
-          )
-          .where(eq(invitation.id, invitationId))
-          .pipe(Effect.orDie)
-      })
-
-    const attachProjectInviteGrant = (
-      orgSlug: string,
-      inviterId: string,
-      email: string,
-      indexRow: typeof projectIndex.$inferSelect,
-      role: AssignableRole
-    ): Effect.Effect<void> =>
-      db
-        .transaction(() =>
-          Effect.gen(function* () {
-            const organizationId = indexRow.organizationId
-            const normalizedEmail = email.toLowerCase()
-            yield* lockProjectForGrants(indexRow.id)
-            yield* db
-              .execute(
-                sqlFragment`select pg_advisory_xact_lock(hashtextextended(${organizationId} || ':' || ${normalizedEmail}, 0))`
-              )
-              .pipe(Effect.orDie)
-            const now = yield* DateTime.now
-            const [existing] = yield* db
-              .select({
-                id: invitation.id,
-                fromProject: invitation.fromProject
-              })
-              .from(invitation)
-              .where(
-                and(
-                  eq(invitation.organizationId, organizationId),
-                  eq(invitation.email, normalizedEmail),
-                  eq(invitation.status, "pending"),
-                  gt(invitation.expiresAt, DateTime.toDate(now))
-                )
-              )
-              .limit(1)
-              .for("update")
-              .pipe(Effect.orDie)
-            const invite =
-              existing ??
-              (yield* Effect.gen(function* () {
-                const orgRole = ProjectPolicy.inviteOrgRole(role)
-                const [created] = yield* db
-                  .insert(invitation)
-                  .values({
-                    id: yield* Effect.sync(() => ulid()),
-                    organizationId,
-                    email: normalizedEmail,
-                    role: orgRole,
-                    fromProject: true,
-                    status: "pending",
-                    expiresAt: DateTime.toDate(
-                      DateTime.add(now, { days: INVITATION_VALID_DAYS })
-                    ),
-                    inviterId
-                  })
-                  .returning({
-                    id: invitation.id,
-                    fromProject: invitation.fromProject
-                  })
-                  .pipe(Effect.orDie)
-                yield* Effect.logInfo("invitation issued").pipe(
-                  Effect.annotateLogs({
-                    orgSlug,
-                    role: orgRole,
-                    inviteId: created.id
-                  })
-                )
-                return created
-              }))
-            yield* db
-              .insert(projectInviteGrant)
-              .values({
-                invitationId: invite.id,
-                projectId: indexRow.id,
-                roleId: role
-              })
-              .onConflictDoUpdate({
-                target: [
-                  projectInviteGrant.invitationId,
-                  projectInviteGrant.projectId
-                ],
-                set: { roleId: role }
-              })
-              .pipe(Effect.orDie)
-            if (invite.fromProject) {
-              yield* syncProjectInvite(invite.id)
-            }
-          })
-        )
-        .pipe(Effect.catchTag("SqlError", Effect.die))
-
-    const pmCount = (projectId: string): Effect.Effect<number> =>
-      db.query.projectMember
-        .findMany({
-          columns: { userId: true },
-          where: {
-            RAW: (table, _operators) =>
-              _operators.and(
-                _operators.eq(table.projectId, projectId),
-                _operators.eq(table.roleId, "pm")
-              )!
-          }
-        })
-        .pipe(
-          Effect.map((rows) => rows.length),
-          Effect.orDie
-        )
-
-    const memberRole = (
-      projectId: string,
-      targetUserId: string
-    ): Effect.Effect<Role | null> =>
-      db.query.projectMember
-        .findFirst({
-          columns: { roleId: true },
-          where: {
-            RAW: (table, _operators) =>
-              _operators.and(
-                _operators.eq(table.projectId, projectId),
-                _operators.eq(table.userId, targetUserId)
-              )!
-          }
-        })
-        .pipe(
-          Effect.map((row) => (row ? makeRole(row.roleId) : null)),
-          Effect.orDie
-        )
-
-    const requireAnotherPm = (
-      indexRow: typeof projectIndex.$inferSelect,
-      targetRole: Role
-    ): Effect.Effect<void, LastProjectPmBlocked> =>
-      Effect.gen(function* () {
-        if (targetRole !== "pm") return
-        if ((yield* pmCount(indexRow.id)) > 1) return
-        return yield* new LastProjectPmBlocked({
-          projectSlugs: [indexRow.slug]
-        })
-      })
-
-    const addMember: ProjectsShape["addMember"] = (input) =>
-      Effect.gen(function* () {
-        const scope = yield* ProjectScope
-        const { orgSlug, slug, userId } = scope
-        return yield* withProjectTelemetry(
-          "addMember",
-          orgSlug,
-          { slug, userId, targetEmail: input.email, targetRole: input.role },
-          Effect.gen(function* () {
-            const { indexRow } = yield* inScope
-            const email = input.email.trim().toLowerCase()
-            const target = yield* users.findByEmail(email)
-            const targetOrgMember =
-              target === null
-                ? null
-                : yield* db.query.member
-                    .findFirst({
-                      columns: { id: true },
-                      where: {
-                        RAW: (table, _operators) =>
-                          _operators.and(
-                            _operators.eq(
-                              table.organizationId,
-                              indexRow.organizationId
-                            ),
-                            _operators.eq(table.userId, target.id)
-                          )!
-                      }
-                    })
-                    .pipe(Effect.orDie)
-
-            if (target === null || targetOrgMember == null) {
-              if (
-                !ProjectPolicy.canInviteOutsider(
-                  scope,
-                  Org.orgRoles[scope.orgRole],
-                  input.role
-                )
-              ) {
-                return yield* new Forbidden()
-              }
-              yield* attachProjectInviteGrant(
-                orgSlug,
-                userId,
-                email,
-                indexRow,
-                input.role
-              )
-              return yield* replayDetail
-            }
-
-            yield* withProjectWriteLock(
-              indexRow.id,
-              Effect.gen(function* () {
-                const currentRole = yield* memberRole(indexRow.id, target.id)
-                if (currentRole === null) {
-                  yield* db
-                    .insert(projectMember)
-                    .values({
-                      projectId: indexRow.id,
-                      organizationId: indexRow.organizationId,
-                      userId: target.id,
-                      roleId: input.role
-                    })
-                    .pipe(Effect.orDie)
-                } else if (currentRole !== input.role) {
-                  yield* requireAnotherPm(indexRow, currentRole)
-                  yield* db
-                    .update(projectMember)
-                    .set({ roleId: input.role })
-                    .where(
-                      and(
-                        eq(projectMember.projectId, indexRow.id),
-                        eq(projectMember.userId, target.id)
-                      )
-                    )
-                    .pipe(Effect.orDie)
-                }
-              })
-            )
-
-            return yield* replayDetail
-          })
-        )
-      })
-
-    const cancelPendingMember: ProjectsShape["cancelPendingMember"] = (
-      invitationId
-    ) =>
-      Effect.gen(function* () {
-        const scope = yield* ProjectScope
-        const { orgSlug, slug, userId } = scope
-        return yield* withProjectTelemetry(
-          "cancelPendingMember",
-          orgSlug,
-          { slug, userId, invitationId },
-          Effect.gen(function* () {
-            const { indexRow } = yield* inScope
-            yield* db
-              .transaction(() =>
-                Effect.gen(function* () {
-                  yield* lockProjectForGrants(indexRow.id)
-                  const [pending] = yield* db
-                    .select({
-                      status: invitation.status,
-                      role: invitation.role,
-                      fromProject: invitation.fromProject
-                    })
-                    .from(invitation)
-                    .innerJoin(
-                      projectInviteGrant,
-                      and(
-                        eq(projectInviteGrant.invitationId, invitation.id),
-                        eq(projectInviteGrant.projectId, indexRow.id)
-                      )
-                    )
-                    .where(eq(invitation.id, invitationId))
-                    .limit(1)
-                    .for("update", { of: invitation })
-                    .pipe(Effect.orDie)
-                  if (!pending || pending.status !== "pending") {
-                    return yield* new NotFound()
-                  }
-                  yield* db
-                    .delete(projectInviteGrant)
-                    .where(
-                      and(
-                        eq(projectInviteGrant.projectId, indexRow.id),
-                        eq(projectInviteGrant.invitationId, invitationId)
-                      )
-                    )
-                    .pipe(Effect.orDie)
-                  if (pending.fromProject) {
-                    return yield* syncProjectInvite(invitationId)
-                  }
-                  const remaining = yield* db.query.projectInviteGrant
-                    .findFirst({
-                      columns: { invitationId: true },
-                      where: {
-                        RAW: (table, _operators) =>
-                          _operators.eq(table.invitationId, invitationId)
-                      }
-                    })
-                    .pipe(Effect.orDie)
-                  const cancelsInvite =
-                    !remaining &&
-                    ProjectPolicy.canCancelInvitation(
-                      Org.orgRoles[scope.orgRole],
-                      pending.role
-                    )
-                  return yield* cancelsInvite
-                    ? db
-                        .update(invitation)
-                        .set({ status: "canceled" })
-                        .where(eq(invitation.id, invitationId))
-                        .pipe(Effect.asVoid, Effect.orDie)
-                    : Effect.void
-                })
-              )
-              .pipe(Effect.catchTag("SqlError", Effect.die))
-            return yield* replayDetail
-          })
-        )
-      })
-
-    const updateMember: ProjectsShape["updateMember"] = (
-      targetUserId,
-      nextRole
-    ) =>
-      Effect.gen(function* () {
-        const { orgSlug, slug, userId } = yield* ProjectScope
-        return yield* withProjectTelemetry(
-          "updateMember",
-          orgSlug,
-          { slug, userId, targetUserId, nextRole },
-          Effect.gen(function* () {
-            const { indexRow } = yield* inScope
-            yield* withProjectWriteLock(
-              indexRow.id,
-              Effect.gen(function* () {
-                const currentRole = yield* memberRole(indexRow.id, targetUserId)
-                if (currentRole === null) return yield* new NotFound()
-                if (currentRole !== nextRole) {
-                  yield* requireAnotherPm(indexRow, currentRole)
-                }
-                yield* db
-                  .update(projectMember)
-                  .set({ roleId: nextRole })
-                  .where(
-                    and(
-                      eq(projectMember.projectId, indexRow.id),
-                      eq(projectMember.userId, targetUserId)
-                    )
-                  )
-                  .pipe(Effect.orDie)
-              })
-            )
-            return yield* replayDetail
-          })
-        )
-      })
-
-    const dropMember = (
-      indexRow: typeof projectIndex.$inferSelect,
-      orgSlug: string,
-      slug: string,
-      targetUserId: string,
-      currentRole: Role
-    ) =>
-      Effect.gen(function* () {
-        yield* requireAnotherPm(indexRow, currentRole)
-        const removed = yield* withProjectWriteLock(
-          indexRow.id,
-          Effect.gen(function* () {
-            const lockedRole = yield* memberRole(indexRow.id, targetUserId)
-            if (lockedRole === null) return false
-            yield* requireAnotherPm(indexRow, lockedRole)
-            yield* db
-              .delete(projectMember)
-              .where(
-                and(
-                  eq(projectMember.projectId, indexRow.id),
-                  eq(projectMember.userId, targetUserId)
-                )
-              )
-              .pipe(Effect.orDie)
-            return true
-          })
-        )
-        if (removed) {
-          yield* rewrites.unassignUserFromActiveTickets(
-            orgSlug,
-            slug,
-            targetUserId
-          )
-        }
-      })
-
-    const removeMember: ProjectsShape["removeMember"] = (targetUserId) =>
-      Effect.gen(function* () {
-        const { orgSlug, slug, userId } = yield* ProjectScope
-        return yield* withProjectTelemetry(
-          "removeMember",
-          orgSlug,
-          { slug, userId, targetUserId },
-          Effect.gen(function* () {
-            if (targetUserId === userId) {
-              return yield* new Validation({ reason: "remove_self" })
-            }
-            const { indexRow } = yield* inScope
-            const currentRole = yield* memberRole(indexRow.id, targetUserId)
-            if (currentRole === null) return yield* new NotFound()
-            yield* dropMember(
-              indexRow,
-              orgSlug,
-              slug,
-              targetUserId,
-              currentRole
-            )
-            return yield* replayDetail
-          })
-        )
-      })
-
-    const leave: ProjectsShape["leave"] = () =>
-      Effect.gen(function* () {
-        const { orgSlug, slug, userId } = yield* ProjectScope
-        return yield* withProjectTelemetry(
-          "leave",
-          orgSlug,
-          { slug, userId },
-          Effect.gen(function* () {
-            const { indexRow } = yield* inScope
-            const currentRole = yield* memberRole(indexRow.id, userId)
-            if (currentRole === null) return yield* new NotFound()
-            return yield* dropMember(
-              indexRow,
-              orgSlug,
-              slug,
-              userId,
-              currentRole
-            )
-          })
-        )
-      })
-
     return {
       list,
       listPaged,
-      listMembersPaged,
       create,
       get,
       key,
-      memberIds,
       update,
       updateSetup,
-      remove,
-      addMember,
-      updateMember,
-      removeMember,
-      leave,
-      cancelPendingMember
+      remove
     } satisfies ProjectsShape
   })
 )
