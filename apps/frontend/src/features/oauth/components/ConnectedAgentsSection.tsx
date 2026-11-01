@@ -74,7 +74,9 @@ function AgentRow({
   req: OAuthApplicationsRequest
 }) {
   const locale = getLocale()
-  const revoke = useAtomSet(revokeOAuthApplicationAtom({ req, id: app.id }))
+  const revoke = useAtomSet(revokeOAuthApplicationAtom({ req, id: app.id }), {
+    mode: "promiseExit"
+  })
   return (
     <SettingsRow
       icon={
@@ -107,9 +109,7 @@ function AgentRow({
           <ConfirmButton.Action
             prompt={m.profile_connected_agents_revoke_confirm()}
             label={m.profile_connected_agents_revoke()}
-            onConfirm={() => {
-              revoke()
-            }}
+            onConfirm={() => revoke()}
           />
         </ConfirmButton.Confirm>
       </ConfirmButton.Root>
