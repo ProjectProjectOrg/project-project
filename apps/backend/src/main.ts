@@ -71,6 +71,7 @@ import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { FeedbackDispatcherLive } from "@pp/server-core/feedback/FeedbackDelivery"
 import { TicketIndexReconcilerLive } from "@pp/server-core/tickets/TicketIndexReconcilerLive"
 import { AppApi } from "@pp/shared"
+import * as WebhookRuntime from "@pp/webhooks/Runtime"
 import { count } from "drizzle-orm"
 import * as Config from "effect/Config"
 import * as Data from "effect/Data"
@@ -130,6 +131,7 @@ import { SlackHandlerLive } from "./slack/Handlers"
 import { slackOAuthRoutes } from "./slack/OAuthRoutes"
 import { CliInstallRouteLive } from "./tools/cliInstall"
 import { ToolsRouteLive } from "./tools/http"
+import { WebhooksHandlerLive } from "./webhooks/Handlers"
 
 // Exported so tests can compose them without booting a real Bun server.
 export const HealthHandlerLive = HttpApiBuilder.group(
@@ -186,7 +188,12 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(ProjectsHandlerLive),
   Layer.provide(EverhourHandlerLive),
   Layer.provide(
-    Layer.mergeAll(FigmaHandlerLive, SlackHandlerLive, LinkPreviewsHandlerLive)
+    Layer.mergeAll(
+      FigmaHandlerLive,
+      SlackHandlerLive,
+      WebhooksHandlerLive,
+      LinkPreviewsHandlerLive
+    )
   ),
   Layer.provide(JiraHandlerLive),
   Layer.provide(JiraMigrationsHandlerLive),
@@ -463,6 +470,7 @@ export const RouteLive = Layer.mergeAll(
 const ServerLive = HttpRouter.serve(RouteLive).pipe(
   Layer.provide(TicketActivityRecoveryLive),
   Layer.provide(SlackRuntimeLive),
+  Layer.provide(WebhookRuntime.layer),
   Layer.provide(EverhourRuntimeLive),
   Layer.provide(BackendHttpServicesLive),
   Layer.provide(BackendInfrastructureLive)

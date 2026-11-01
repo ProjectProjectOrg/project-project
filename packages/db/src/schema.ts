@@ -271,7 +271,7 @@ export const organizationIntegration = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     provider: text("provider", {
-      enum: ["github", "everhour", "s3", "figma", "slack"]
+      enum: ["github", "everhour", "s3", "figma", "slack", "webhook"]
     }).notNull(),
     status: text("status", {
       enum: ["active", "disconnected", "broken"]
@@ -401,7 +401,7 @@ export const projectIntegrationLink = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     organizationIntegrationId: uuid("organization_integration_id").notNull(),
     provider: text("provider", {
-      enum: ["github", "everhour", "figma", "slack"]
+      enum: ["github", "everhour", "figma", "slack", "webhook"]
     }).notNull(),
     status: text("status", {
       enum: ["active", "disconnected", "broken"]
@@ -441,7 +441,7 @@ export const projectIntegrationLink = pgTable(
     }).onDelete("cascade"),
     uniqueIndex("project_integration_link_active_provider_uidx")
       .on(t.projectId, t.provider)
-      .where(sql`${t.status} = 'active'`),
+      .where(sql`${t.status} = 'active' and ${t.provider} <> 'webhook'`),
     index("project_integration_link_project_idx").on(t.projectId),
     index("project_integration_link_org_integration_idx").on(
       t.organizationIntegrationId
@@ -970,6 +970,98 @@ export const slackNotification = pgTable(
     error: text("error")
   },
   (t) => [index("slack_notification_dispatch_idx").on(t.dispatchedAt)]
+)
+
+export const webhookEndpoint = pgTable(
+  "webhook_endpoint",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    projectIntegrationLinkId: uuid("project_integration_link_id"),
+    urlDisplay: text("url_display").notNull(),
+    urlCiphertext: text("url_ciphertext").notNull(),
+    urlNonce: text("url_nonce").notNull(),
+    urlTag: text("url_tag").notNull(),
+    secretCiphertext: text("secret_ciphertext").notNull(),
+    secretNonce: text("secret_nonce").notNull(),
+    secretTag: text("secret_tag").notNull(),
+    secretFingerprint: text("secret_fingerprint").notNull(),
+    headerNames: jsonb("header_names")
+      .$type<ReadonlyArray<string>>()
+      .notNull()
+      .default([]),
+    headersCiphertext: text("headers_ciphertext"),
+    headersNonce: text("headers_nonce"),
+    headersTag: text("headers_tag"),
+    status: text("status", { enum: ["active", "disabled"] }).notNull(),
+    disabledReason: text("disabled_reason"),
+    disabledAt: timestamp("disabled_at", { withTimezone: true }),
+    failureCount: integer("failure_count").notNull().default(0),
+    failingSince: timestamp("failing_since", { withTimezone: true }),
+    goneCount: integer("gone_count").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+    leaseToken: text("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    foreignKey({
+      name: "webhook_endpoint_link_org_fkey",
+      columns: [t.projectIntegrationLinkId, t.organizationId],
+      foreignColumns: [
+        projectIntegrationLink.id,
+        projectIntegrationLink.organizationId
+      ]
+    }).onDelete("cascade"),
+    uniqueIndex("webhook_endpoint_link_uidx").on(t.projectIntegrationLinkId),
+    index("webhook_endpoint_org_idx").on(t.organizationId),
+    index("webhook_endpoint_due_idx")
+      .on(t.nextAttemptAt, t.id)
+      .where(sql`${t.status} = 'active'`)
+  ]
+)
+
+export const webhookDelivery = pgTable(
+  "webhook_delivery",
+  {
+    id: text("id").primaryKey(),
+    endpointId: uuid("endpoint_id")
+      .notNull()
+      .references(() => webhookEndpoint.id, { onDelete: "cascade" }),
+    event: text("event").notNull(),
+    body: text("body").notNull(),
+    kind: text("kind", { enum: ["event", "test"] }).notNull(),
+    state: text("state", {
+      enum: ["pending", "delivered", "failed", "expired"]
+    }).notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+    lastStatusCode: integer("last_status_code"),
+    lastOutcome: text("last_outcome"),
+    responseExcerpt: text("response_excerpt"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    finishedAt: timestamp("finished_at", { withTimezone: true })
+  },
+  (t) => [
+    index("webhook_delivery_endpoint_idx").on(t.endpointId, t.createdAt),
+    index("webhook_delivery_pending_idx")
+      .on(t.endpointId, t.createdAt, t.id)
+      .where(sql`${t.state} = 'pending'`),
+    index("webhook_delivery_expiry_idx")
+      .on(t.createdAt)
+      .where(sql`${t.state} = 'pending'`)
+  ]
 )
 
 export const feedbackOutbox = pgTable(

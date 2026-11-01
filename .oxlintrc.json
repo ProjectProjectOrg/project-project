@@ -247,7 +247,10 @@
       }
     },
     {
-      "files": ["packages/integration-*/src/**/*.ts"],
+      "files": [
+        "packages/integration-*/src/**/*.ts",
+        "packages/webhooks/src/**/*.ts"
+      ],
       "rules": {
         "eslint/no-restricted-imports": [
           "error",

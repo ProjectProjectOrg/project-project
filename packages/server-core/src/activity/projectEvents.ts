@@ -5,36 +5,69 @@ import type { TicketDocument } from "../tickets/TicketDocs"
 
 type EventTicket = Pick<
   TicketDocument,
-  "id" | "title" | "status" | "archivedAt"
+  "id" | "title" | "status" | "type" | "assignees" | "archivedAt"
 >
 
-const ticketEvent = (
-  kind: "ticket_created" | "ticket_completed" | "ticket_reopened" | null,
-  ticket: EventTicket
-): ReadonlyArray<ProjectEvent> =>
-  kind && ticket.archivedAt === null
-    ? [{ kind, id: ticket.id, title: ticket.title, status: ticket.status }]
-    : []
+const ticketFields = (ticket: EventTicket) => ({
+  id: ticket.id,
+  title: ticket.title,
+  status: ticket.status,
+  type: ticket.type
+})
 
 export const ticketCreatedEvents = (
-  ticket: TicketDocument
-): ReadonlyArray<ProjectEvent> => ticketEvent("ticket_created", ticket)
+  ticket: EventTicket
+): ReadonlyArray<ProjectEvent> =>
+  ticket.archivedAt === null
+    ? [{ kind: "ticket_created", ...ticketFields(ticket) }]
+    : []
+
+const without = (
+  values: ReadonlyArray<string>,
+  excluded: ReadonlyArray<string>
+): ReadonlyArray<string> => {
+  const skip = new Set(excluded)
+  return [...new Set(values)].filter((value) => !skip.has(value))
+}
+
+export const assigneesChanged = (
+  before: Pick<EventTicket, "assignees">,
+  after: Pick<EventTicket, "assignees">
+) =>
+  without(after.assignees, before.assignees).length > 0 ||
+  without(before.assignees, after.assignees).length > 0
 
 export const ticketEvents = (
   before: EventTicket,
   after: EventTicket,
   finished: ReadonlySet<string>
 ): ReadonlyArray<ProjectEvent> => {
-  const wasFinished = finished.has(before.status)
-  const isFinished = finished.has(after.status)
-  return ticketEvent(
-    wasFinished === isFinished
-      ? null
-      : isFinished
-        ? "ticket_completed"
-        : "ticket_reopened",
-    after
-  )
+  if (after.archivedAt !== null) return []
+  const fields = ticketFields(after)
+  const events: Array<ProjectEvent> = []
+  if (before.status !== after.status) {
+    events.push({
+      kind: "ticket_status_changed",
+      ...fields,
+      previousStatus: before.status
+    })
+    const wasFinished = finished.has(before.status)
+    const isFinished = finished.has(after.status)
+    if (wasFinished !== isFinished)
+      events.push({
+        kind: isFinished ? "ticket_completed" : "ticket_reopened",
+        ...fields
+      })
+  }
+  if (assigneesChanged(before, after))
+    events.push({
+      kind: "ticket_assignees_changed",
+      ...fields,
+      assignees: [...new Set(after.assignees)],
+      added: without(after.assignees, before.assignees),
+      removed: without(before.assignees, after.assignees)
+    })
+  return events
 }
 
 type SprintEventKind = (typeof SprintEvent.Type)["kind"]

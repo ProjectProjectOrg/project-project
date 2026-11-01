@@ -70,6 +70,7 @@ import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
 import { UsersLive } from "@pp/server-core/users/UsersLive"
+import * as WebhookServices from "@pp/webhooks/Services"
 import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
@@ -84,11 +85,16 @@ import { AuthenticationLive } from "./Layers/Auth"
 import { BetterAuthLive } from "./Layers/BetterAuth"
 import { FeedbackIntakeGuardLive } from "./Layers/FeedbackIntakeGuard"
 import { SlackHostLive } from "./slack/HostLive"
+import { WebhookHostLive } from "./webhooks/HostLive"
 
 const SlackLive = SlackServicesLive.pipe(
   Layer.provideMerge(SlackHostLive),
   Layer.provideMerge(AccessLive),
   Layer.provideMerge(UsersLive)
+)
+
+const WebhooksLive = WebhookServices.layer.pipe(
+  Layer.provideMerge(WebhookHostLive)
 )
 
 const FeedbackLive = FeedbackDeliveryWorkflowLive.pipe(
@@ -186,7 +192,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
         TicketRewrites.layer.pipe(Layer.provideMerge(TicketIndexServices.layer))
       ),
       Layer.provideMerge(TicketBranchIndex.layer),
-      Layer.provideMerge(SlackLive),
+      Layer.provideMerge(Layer.mergeAll(SlackLive, WebhooksLive)),
       Layer.provideMerge(FeedbackLive),
       Layer.provideMerge(JiraDurableServicesLive),
       Layer.provideMerge(JiraWorkflowsLive),
