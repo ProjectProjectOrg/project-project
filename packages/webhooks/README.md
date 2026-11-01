@@ -21,7 +21,9 @@ from PP: sealing and opening secrets. The backend supplies it in
   clear its lease, so a result from before the change is discarded. Delivery is
   at least once.
 - `WebhookSender` resolves the host, rejects non-public addresses, connects to
-  the checked address with the original host name for TLS, and signs the body.
+  the checked address with the original host name for TLS, and signs the
+  request the Standard Webhooks way (`webhook-*` headers) plus a GitHub-style
+  body signature (`x-pp-signature-256`).
 - `Runtime.layer` runs event intake, dispatch and expiry in the background.
 
 Retry, backoff and auto-disable rules live in `policy.ts` as pure functions.

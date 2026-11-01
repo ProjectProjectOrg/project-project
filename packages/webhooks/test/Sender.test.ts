@@ -92,7 +92,7 @@ const target = (path: string) => ({
 })
 
 describe("WebhookSender", () => {
-  it.effect("signs the exact body and sends the delivery headers", () =>
+  it.live("signs the exact body and sends the delivery headers", () =>
     Effect.gen(function* () {
       received.length = 0
       const send = yield* Sender.WebhookSender
@@ -107,13 +107,20 @@ describe("WebhookSender", () => {
       expect(request?.body).toBe(delivery.body)
       expect(request?.headers).toMatchObject({
         "content-type": "application/json",
+        "webhook-id": "dlv_1",
         "x-pp-event": "ticket_created",
-        "x-pp-delivery": "dlv_1",
-        "x-pp-timestamp": "2026-11-01T12:00:00.000Z",
         "x-pp-signature-256": `sha256=${createHmac("sha256", "whsec_test1234").update(delivery.body).digest("hex")}`,
         authorization: `Bearer tok_${"x".repeat(12)}`,
         host: `127.0.0.1:${server.port}`
       })
+      const timestamp = Number(request?.headers["webhook-timestamp"])
+      const now = DateTime.toEpochMillis(yield* DateTime.now) / 1000
+      expect(Math.abs(now - timestamp)).toBeLessThan(30)
+      const expected = createHmac("sha256", Buffer.from("test1234", "base64"))
+        .update(`dlv_1.${timestamp}.${delivery.body}`)
+        .digest("base64")
+      expect(request?.headers["webhook-signature"]).toBe(`v1,${expected}`)
+      expect(request?.headers).not.toHaveProperty("x-pp-delivery")
     }).pipe(Effect.provide(sender(true)))
   )
 

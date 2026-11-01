@@ -350,11 +350,20 @@ describe.skipIf(!databaseUrl)("Outbound webhooks", () => {
       expect(first?.headers).toMatchObject({
         authorization: "Bearer token-123456",
         "x-pp-event": "ticket_status_changed",
-        "x-pp-delivery": rows[0]?.id,
+        "webhook-id": rows[0]?.id,
         "x-pp-signature-256": `sha256=${createHmac("sha256", created.secret)
           .update(first?.body ?? "")
           .digest("hex")}`
       })
+      const timestamp = first?.headers["webhook-timestamp"]
+      expect(first?.headers["webhook-signature"]).toBe(
+        `v1,${createHmac(
+          "sha256",
+          Buffer.from(created.secret.slice(6), "base64")
+        )
+          .update(`${rows[0]?.id}.${timestamp}.${first?.body}`)
+          .digest("base64")}`
+      )
       expect(decodeBody(first?.body ?? "")).toMatchObject({
         id: rows[0]?.id,
         type: "ticket_status_changed",

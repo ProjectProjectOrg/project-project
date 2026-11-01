@@ -14,7 +14,7 @@ import * as Stream from "effect/Stream"
 
 import { isPublicAddress } from "./addresses"
 import { parseRetryAfter, type AttemptResult } from "./policy"
-import { sign, signatureHeader } from "./signature"
+import { bodySignatureHeader, signBody, signStandard } from "./signature"
 
 export const reservedHeaders: ReadonlySet<string> = new Set([
   "host",
@@ -33,7 +33,11 @@ export const reservedHeaders: ReadonlySet<string> = new Set([
 
 export const isReservedHeader = (name: string) => {
   const lower = name.toLowerCase()
-  return reservedHeaders.has(lower) || lower.startsWith("x-pp-")
+  return (
+    reservedHeaders.has(lower) ||
+    lower.startsWith("x-pp-") ||
+    lower.startsWith("webhook-")
+  )
 }
 
 export const allowPrivateNetworks = Config.Boolean(
@@ -206,18 +210,25 @@ const make = Effect.gen(function* () {
       for (const header of target.headers)
         if (!isReservedHeader(header.name))
           headers[header.name.toLowerCase()] = header.value
+      const timestamp = Math.floor(
+        DateTime.toEpochMillis(yield* DateTime.now) / 1000
+      )
       const request = HttpClientRequest.post(pinned).pipe(
         HttpClientRequest.bodyText(delivery.body, "application/json"),
         HttpClientRequest.setHeaders({
           ...headers,
           host: url.host,
           "user-agent": "ProjectProject-Webhooks/1",
-          "x-pp-event": delivery.event,
-          "x-pp-delivery": delivery.id,
-          "x-pp-timestamp": DateTime.formatIso(
-            DateTime.fromDateUnsafe(delivery.createdAt)
+          "webhook-id": delivery.id,
+          "webhook-timestamp": String(timestamp),
+          "webhook-signature": signStandard(
+            target.secret,
+            delivery.id,
+            timestamp,
+            delivery.body
           ),
-          [signatureHeader]: sign(target.secret, delivery.body)
+          "x-pp-event": delivery.event,
+          [bodySignatureHeader]: signBody(target.secret, delivery.body)
         })
       )
       const secrets = [
