@@ -44,6 +44,7 @@
   "webhooks_error_disabled": "Enable the webhook first.",
   "webhooks_error_header_duplicate": "Each header can only be set once.",
   "webhooks_error_header_reserved": "That header is set by ProjectProject and can't be overridden.",
+  "webhooks_error_too_large": "This delivery is over 1 MiB and can't be sent.",
   "webhooks_error_too_old": "Deliveries older than a day can't be retried.",
   "webhooks_error_url_blocked": "That URL points at a private or internal address.",
   "webhooks_error_url_credentials": "Remove the username and password from the URL; use a header instead.",

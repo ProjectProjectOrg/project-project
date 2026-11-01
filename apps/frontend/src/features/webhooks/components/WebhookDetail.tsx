@@ -1,6 +1,6 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Webhook, WebhookHeader } from "@pp/shared"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { ChevronLeft } from "lucide-react"
 import { useState } from "react"
@@ -17,16 +17,17 @@ import { Button } from "@/components/ui/button"
 import { ConfirmButton } from "@/components/ui/confirm-button"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
-  deleteWebhook,
   rotateWebhookSecret,
   sendWebhookTest,
   setWebhookEnabled,
   updateWebhook,
+  updateWebhookEvents,
   webhookDeliveriesRequest,
   webhooksFor,
   webhooksRequest,
   type WebhooksRequest
 } from "@/features/webhooks/atoms/webhooks"
+import { DeleteWebhookSection } from "@/features/webhooks/components/DeleteWebhookSection"
 import { DeliveryLog } from "@/features/webhooks/components/DeliveryLog"
 import { EventSwitches } from "@/features/webhooks/components/EventSwitches"
 import { HeadersEditor } from "@/features/webhooks/components/HeadersEditor"
@@ -93,8 +94,9 @@ function Detail({
     req.params.slug,
     webhook.id
   )
-  const update = useAtomSet(updateWebhook(target))
-  const updateState = useAtomValue(updateWebhook(target))
+  const updateEvents = useAtomSet(updateWebhookEvents(target))
+  const eventsState = useAtomValue(updateWebhookEvents(target))
+  const eventsError = mutationErrorText(eventsState)
   const [secret, setSecret] = useState<string | null>(null)
   return (
     <>
@@ -107,15 +109,20 @@ function Detail({
         webhook={webhook}
         onRotated={setSecret}
       />
+      {eventsError ? (
+        <p role="alert" className="px-0.5 text-xs text-destructive">
+          {eventsError}
+        </p>
+      ) : null}
       <EventSwitches
         events={webhook.events}
-        disabled={updateState.waiting}
+        disabled={eventsState.waiting}
         onToggle={(kind, on) =>
-          update({ events: toggleEvent(webhook.events, kind, on) })
+          updateEvents(toggleEvent(webhook.events, kind, on))
         }
       />
       <DeliveryLog req={deliveriesReq} />
-      <DeleteSection target={target} />
+      <DeleteWebhookSection target={target} />
     </>
   )
 }
@@ -318,9 +325,8 @@ function EndpointSection({
                 label={m.webhooks_secret_rotate()}
                 onConfirm={async () => {
                   const exit = await rotate()
-                  if (Exit.isFailure(exit)) return false
-                  onRotated(exit.value.secret)
-                  return true
+                  if (Exit.isSuccess(exit)) onRotated(exit.value.secret)
+                  return exit
                 }}
               />
             </ConfirmButton.Confirm>
@@ -364,42 +370,5 @@ function EditActions({
         {m.webhooks_edit_save()}
       </Button>
     </>
-  )
-}
-
-function DeleteSection({ target }: Readonly<{ target: Target }>) {
-  const remove = useAtomSet(deleteWebhook(target), { mode: "promiseExit" })
-  const navigate = useNavigate()
-  return (
-    <SettingsSection>
-      <SettingsGroup>
-        <SettingsRow
-          label={m.webhooks_delete()}
-          description={m.webhooks_delete_description()}
-        >
-          <ConfirmButton.Root>
-            <ConfirmButton.Trigger variant="tertiary" size="sm">
-              {m.webhooks_delete()}
-            </ConfirmButton.Trigger>
-            <ConfirmButton.Confirm>
-              <ConfirmButton.Action
-                prompt={m.webhooks_delete_confirm()}
-                label={m.common_delete_confirm_button()}
-                busyLabel={m.common_deleting_button()}
-                onConfirm={async () => {
-                  const exit = await remove()
-                  if (Exit.isFailure(exit)) return false
-                  void navigate({
-                    to: "/orgs/$orgSlug/projects/$slug/settings/webhooks",
-                    params: target.req.params
-                  })
-                  return true
-                }}
-              />
-            </ConfirmButton.Confirm>
-          </ConfirmButton.Root>
-        </SettingsRow>
-      </SettingsGroup>
-    </SettingsSection>
   )
 }

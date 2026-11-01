@@ -54,5 +54,8 @@ describe("canRetry", () => {
     expect(canRetry(delivery("expired", 23), now)).toBe(true)
     expect(canRetry(delivery("expired", 25), now)).toBe(false)
     expect(canRetry(delivery("delivered", 1), now)).toBe(false)
+    expect(
+      canRetry({ ...delivery("failed", 1), lastOutcome: "body_too_large" }, now)
+    ).toBe(false)
   })
 })

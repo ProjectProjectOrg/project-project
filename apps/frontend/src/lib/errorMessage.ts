@@ -197,6 +197,8 @@ const conflictMessage = (reason: string): string => {
       return m.webhooks_error_delivered()
     case "webhook_delivery_too_old":
       return m.webhooks_error_too_old()
+    case "webhook_delivery_too_large":
+      return m.webhooks_error_too_large()
     default:
       return m.error_unknown()
   }

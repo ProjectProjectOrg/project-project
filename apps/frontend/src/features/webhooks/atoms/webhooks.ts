@@ -1,5 +1,6 @@
 import type {
   CreateWebhookInput,
+  ProjectEventKind,
   UpdateWebhookInput,
   Webhook,
   WebhookDelivery
@@ -95,14 +96,25 @@ type WebhookTarget = Readonly<{ req: WebhooksRequest; id: string }>
 export const updateWebhook = Atom.family(({ req, id }: WebhookTarget) =>
   viewMutation(webhooksFor(req), {
     name: "updateWebhook",
-    predict: (webhooks, input: UpdateWebhookInput) =>
-      input.events === undefined
-        ? webhooks
-        : patchWebhook(webhooks, id, { events: input.events }),
+    predict: (webhooks, _input: UpdateWebhookInput) => webhooks,
     call: (api, input) =>
       api.webhooks.update({
         params: { ...req.params, webhookId: id },
         payload: input
+      }),
+    confirm: replaceWebhook
+  })
+)
+
+export const updateWebhookEvents = Atom.family(({ req, id }: WebhookTarget) =>
+  viewMutation(webhooksFor(req), {
+    name: "updateWebhookEvents",
+    predict: (webhooks, events: ReadonlyArray<ProjectEventKind>) =>
+      patchWebhook(webhooks, id, { events }),
+    call: (api, events) =>
+      api.webhooks.update({
+        params: { ...req.params, webhookId: id },
+        payload: { events }
       }),
     confirm: replaceWebhook
   })
@@ -138,8 +150,7 @@ export const rotateWebhookSecret = Atom.family(({ req, id }: WebhookTarget) =>
 export const deleteWebhook = Atom.family(({ req, id }: WebhookTarget) =>
   viewMutation(webhooksFor(req), {
     name: "deleteWebhook",
-    predict: (webhooks, _input: void) =>
-      webhooks.filter((webhook) => webhook.id !== id),
+    predict: (webhooks, _input: void) => webhooks,
     call: (api) =>
       api.webhooks.delete({ params: { ...req.params, webhookId: id } }),
     confirm: (webhooks) => webhooks.filter((webhook) => webhook.id !== id)

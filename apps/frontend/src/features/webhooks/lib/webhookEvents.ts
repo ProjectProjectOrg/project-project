@@ -62,4 +62,5 @@ const dayMs = 24 * 60 * 60 * 1000
 
 export const canRetry = (delivery: WebhookDelivery, now: Date) =>
   delivery.state !== "delivered" &&
+  delivery.lastOutcome !== "body_too_large" &&
   now.getTime() - delivery.createdAt.getTime() < dayMs
