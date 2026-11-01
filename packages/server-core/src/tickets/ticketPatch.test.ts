@@ -312,6 +312,23 @@ describe("revertTicketPatch", () => {
     })
   })
 
+  it("reverts an estimate when the ticket was read back from disk", () => {
+    const estimated = applyTicketPatch(
+      existing,
+      { estimate: { unit: "points", value: 8 } },
+      "user-2",
+      now
+    )
+    const reread = {
+      ...estimated,
+      estimate: { unit: "points" as const, value: 8 }
+    }
+    expect(reread.estimate).not.toBe(estimated.estimate)
+    expect(revertTicketPatch(existing, estimated, reread)?.estimate).toEqual(
+      existing.estimate
+    )
+  })
+
   it("does nothing when every changed field was changed again", () => {
     const current = {
       ...written,
