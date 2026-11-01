@@ -12,6 +12,7 @@ import * as TicketIndexServices from "../tickets/indexLayer"
 import { TicketDocs, type TicketDocsShape } from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import { TicketIndex } from "../tickets/TicketIndex"
+import * as TicketRewrites from "../tickets/TicketRewrites"
 import { Users } from "../users/Users"
 import { BannerPlaceholders } from "./BannerPlaceholders"
 import { FinishedStatuses } from "./FinishedStatuses"
@@ -26,7 +27,9 @@ export const projectsOnPostgres = (
   userIds: ReadonlyArray<string>,
   ticketDocs: Partial<TicketDocsShape> = {},
   projectDocs?: Layer.Layer<ProjectDocs>
-): Layer.Layer<Projects | TicketIndex | Access> => {
+): Layer.Layer<
+  Projects | TicketIndex | TicketRewrites.TicketRewrites | Access
+> => {
   const db = DbLive.pipe(
     Layer.provideMerge(
       PgClient.layer({ url: Redacted.make(databaseUrl), maxConnections: 1 })
@@ -46,12 +49,17 @@ export const projectsOnPostgres = (
     Layer.provide(db),
     Layer.provide(docs)
   )
-  return ProjectsLive.pipe(
+  const finishedStatuses = FinishedStatuses.layer.pipe(Layer.provide(db))
+  const tickets = TicketRewrites.layer.pipe(
     Layer.provideMerge(ticketIndex),
-    Layer.provideMerge(AccessLive.pipe(Layer.provide(db))),
     Layer.provide(docs),
     Layer.provide(TicketDocumentLock.layer),
-    Layer.provide(FinishedStatuses.layer.pipe(Layer.provide(db))),
+    Layer.provide(finishedStatuses),
+    Layer.provide(db)
+  )
+  return ProjectsLive.pipe(
+    Layer.provideMerge(tickets),
+    Layer.provideMerge(AccessLive.pipe(Layer.provide(db))),
     Layer.provide(db),
     Layer.provide(
       Layer.succeed(BannerPlaceholders, {

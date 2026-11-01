@@ -138,15 +138,6 @@ export interface ProjectsShape {
   readonly cancelPendingMember: (
     invitationId: string
   ) => Effect.Effect<ProjectDetail, NotFound | MarkdownError, ProjectScope>
-  readonly unassignUserFromActiveTickets: (
-    orgSlug: string,
-    slug: string,
-    userId: string
-  ) => Effect.Effect<void, never, ActivityActor>
-  readonly unassignUserFromOrgTickets: (
-    orgSlug: string,
-    userId: string
-  ) => Effect.Effect<void, never, ActivityActor>
   readonly connectGithub: (
     input: ConnectGithubInput
   ) => Effect.Effect<

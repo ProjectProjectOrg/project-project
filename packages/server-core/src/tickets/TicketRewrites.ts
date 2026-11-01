@@ -1,4 +1,8 @@
+import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
+import { organization, projectIndex } from "@pp/db/schema"
 import { TagName, TicketStatus, type ActivityActor } from "@pp/shared"
+import { and, eq } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -6,6 +10,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import type { MarkdownError } from "../markdown/Markdown"
+import { FinishedStatuses } from "../projects/FinishedStatuses"
 import {
   TicketDocs,
   type TicketActivityOptions,
@@ -14,6 +19,11 @@ import {
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import { TicketIndex } from "./TicketIndex"
 import type { TicketReadError } from "./ticketPresentation"
+import {
+  clearedPrMetadata,
+  hasPrMetadata,
+  prMetadataOf
+} from "./ticketPrMetadata"
 
 const makeTagName = Schema.decodeUnknownSync(TagName)
 
@@ -33,13 +43,29 @@ export class TicketRewrites extends Context.Service<
       newStatus: string,
       reason: "renamed" | "removed"
     ) => Effect.Effect<void, MarkdownError, ActivityActor>
+    unassignUserFromActiveTickets: (
+      orgSlug: string,
+      slug: string,
+      userId: string
+    ) => Effect.Effect<void, never, ActivityActor>
+    unassignUserFromOrgTickets: (
+      orgSlug: string,
+      userId: string
+    ) => Effect.Effect<void, never, ActivityActor>
+    withClearedPrMetadata: <A, E, R>(
+      orgSlug: string,
+      slug: string,
+      switchRepository: Effect.Effect<A, E, R>
+    ) => Effect.Effect<A, E | MarkdownError, R | ActivityActor>
   }>
 >()("@pp/server-core/tickets/TicketRewrites") {}
 
 const make = Effect.gen(function* () {
+  const db = yield* Db
   const ticketDocs = yield* TicketDocs
   const ticketIndex = yield* TicketIndex
   const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
+  const finishedStatuses = yield* FinishedStatuses
 
   const rewrite = (
     orgSlug: string,
@@ -167,7 +193,183 @@ const make = Effect.gen(function* () {
     )
   })
 
-  return TicketRewrites.of({ renameTag, moveToStatus })
+  const unassignUserFromActiveTickets = Effect.fn(
+    "TicketRewrites.unassignUserFromActiveTickets"
+  )(function* (orgSlug: string, slug: string, userId: string) {
+    const project = yield* ticketIndex
+      .projectFor(orgSlug, slug)
+      .pipe(Effect.orDie)
+    const ids = yield* ticketDocs.listIds(orgSlug, slug).pipe(Effect.orDie)
+    const finished = yield* finishedStatuses.forProject(orgSlug, slug)
+    yield* Effect.forEach(
+      ids,
+      (id) =>
+        ticketDocs
+          .update(
+            orgSlug,
+            slug,
+            id,
+            (ticket) => {
+              if (
+                finished.has(ticket.status) ||
+                !ticket.assignees.includes(userId)
+              ) {
+                return Effect.succeed(ticket)
+              }
+              return DateTime.nowAsDate.pipe(
+                Effect.map((updatedAt) => ({
+                  ...ticket,
+                  assignees: ticket.assignees.filter((id) => id !== userId),
+                  updatedAt
+                }))
+              )
+            },
+            (next) => ticketIndex.upsertTicket(project, next),
+            { cause: "member_removed" }
+          )
+          .pipe(
+            Effect.catchTag("NotFound", () => Effect.succeed(null)),
+            Effect.catchTags({
+              MalformedTicketDocument: (error) =>
+                Effect.logWarning("unassign skipped a malformed ticket", {
+                  ticketId: id,
+                  error
+                }),
+              MarkdownError: (error) =>
+                Effect.logWarning("unassign could not write a ticket", {
+                  ticketId: id,
+                  error
+                })
+            })
+          ),
+      { concurrency: 8, discard: true }
+    )
+  })
+
+  const unassignUserFromOrgTickets = Effect.fn(
+    "TicketRewrites.unassignUserFromOrgTickets"
+  )(function* (orgSlug: string, userId: string) {
+    const projects = yield* db
+      .select({ slug: projectIndex.slug })
+      .from(projectIndex)
+      .innerJoin(organization, eq(organization.id, projectIndex.organizationId))
+      .where(and(eq(organization.slug, orgSlug), publishedProject()))
+      .pipe(Effect.orDie)
+    yield* Effect.forEach(
+      projects,
+      (project) => unassignUserFromActiveTickets(orgSlug, project.slug, userId),
+      { concurrency: 4, discard: true }
+    )
+  })
+
+  const withClearedPrMetadata = <A, E, R>(
+    orgSlug: string,
+    slug: string,
+    switchRepository: Effect.Effect<A, E, R>
+  ): Effect.Effect<A, E | MarkdownError, R | ActivityActor> =>
+    Effect.gen(function* () {
+      const project = yield* ticketIndex
+        .projectFor(orgSlug, slug)
+        .pipe(Effect.orDie)
+      const ids = yield* ticketDocs.listIds(orgSlug, slug)
+      const originals: Array<TicketDocument> = []
+      const clearAndSwitch = Effect.gen(function* () {
+        for (const id of ids) {
+          const ticket = yield* ticketDocs.read(orgSlug, slug, id).pipe(
+            Effect.catchTags({
+              NotFound: () => Effect.succeed(null),
+              MalformedTicketDocument: (error) =>
+                Effect.logWarning(
+                  "Skipping unreadable ticket pr metadata"
+                ).pipe(
+                  Effect.annotateLogs({ orgSlug, slug, ticketId: id, error }),
+                  Effect.as(null)
+                )
+            })
+          )
+          if (ticket === null || !hasPrMetadata(ticket)) {
+            continue
+          }
+          const next = {
+            ...clearedPrMetadata(ticket),
+            updatedAt: yield* DateTime.nowAsDate
+          }
+          yield* ticketDocs
+            .update(
+              orgSlug,
+              slug,
+              id,
+              (current) =>
+                Effect.succeed({
+                  ...current,
+                  ...prMetadataOf(next),
+                  updatedAt: next.updatedAt
+                }),
+              (updated) =>
+                Effect.gen(function* () {
+                  originals.push(ticket)
+                  yield* ticketIndex.upsertTicket(project, updated)
+                }),
+              { silent: true }
+            )
+            .pipe(
+              Effect.catchTags({
+                NotFound: () => Effect.void,
+                MalformedTicketDocument: (error) =>
+                  Effect.logWarning("Skipping unreadable ticket pr metadata", {
+                    orgSlug,
+                    slug,
+                    ticketId: id,
+                    error
+                  })
+              })
+            )
+        }
+        return yield* switchRepository
+      }).pipe(
+        Effect.onError(() =>
+          Effect.forEach(
+            originals,
+            (ticket) =>
+              ticketDocs.update(
+                orgSlug,
+                slug,
+                ticket.id,
+                (current) =>
+                  Effect.succeed({
+                    ...current,
+                    ...prMetadataOf(ticket),
+                    updatedAt: ticket.updatedAt
+                  }),
+                (restored) => ticketIndex.upsertTicket(project, restored),
+                { silent: true }
+              ),
+            { discard: true }
+          ).pipe(Effect.orDie)
+        ),
+        Effect.uninterruptible
+      )
+      return yield* ids
+        .toSorted()
+        .reduceRight(
+          (effect, id) =>
+            ticketDocumentLock.withTicketDocumentLock(
+              orgSlug,
+              slug,
+              id,
+              effect
+            ),
+          clearAndSwitch
+        )
+    }).pipe(Effect.withSpan("TicketRewrites.withClearedPrMetadata"))
+
+  return TicketRewrites.of({
+    renameTag,
+    moveToStatus,
+    unassignUserFromActiveTickets,
+    unassignUserFromOrgTickets,
+    withClearedPrMetadata
+  })
 })
 
 export const layer = Layer.effect(TicketRewrites, make)

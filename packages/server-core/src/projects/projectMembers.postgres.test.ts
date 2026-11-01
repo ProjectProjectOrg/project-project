@@ -26,6 +26,7 @@ import { testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
 import { MalformedTicketDocument } from "../tickets/TicketDocs"
 import type { TicketIndex } from "../tickets/TicketIndex"
+import * as TicketRewrites from "../tickets/TicketRewrites"
 import { Projects } from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
@@ -63,8 +64,11 @@ describe.skipIf(!databaseUrl)("project members", () => {
   const users = [pm, second, developer]
   const admin = randomUUID()
   let pool: Pool
-  let projectsLayer: Layer.Layer<Projects | TicketIndex | Access>
+  let projectsLayer: Layer.Layer<
+    Projects | TicketIndex | TicketRewrites.TicketRewrites | Access
+  >
   const unassignAttempts: Array<string> = []
+  const unassignedProjects: Array<string> = []
   const ticketFiles: Array<TicketId> = []
 
   const runIn =
@@ -154,6 +158,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
         Effect.suspend(
           (): Effect.Effect<never, MalformedTicketDocument | NotFound> => {
             unassignAttempts.push(ticketId)
+            unassignedProjects.push(projectSlug)
             return ticketId === "MEM-901"
               ? Effect.fail(
                   new MalformedTicketDocument({
@@ -455,6 +460,30 @@ describe.skipIf(!databaseUrl)("project members", () => {
         )
       )
     })
+  )
+
+  it.effect(
+    "unassigns someone leaving the org across its published projects",
+    () =>
+      Effect.gen(function* () {
+        const other = yield* createProject("OTH")
+        const hidden = yield* createProject("HID")
+        yield* Effect.promise(() =>
+          pool.query("UPDATE project_index SET published_at=NULL WHERE id=$1", [
+            hidden.id
+          ])
+        )
+        unassignedProjects.length = 0
+        ticketFiles.push(decodeTicketId("MEM-902"))
+        yield* Effect.flatMap(TicketRewrites.TicketRewrites, (rewrites) =>
+          rewrites.unassignUserFromOrgTickets(orgSlug, developer)
+        ).pipe(asUser(pm), Effect.provide(projectsLayer))
+        ticketFiles.length = 0
+        expect(unassignedProjects).toEqual(
+          expect.arrayContaining([slug, other.slug])
+        )
+        expect(unassignedProjects).not.toContain(hidden.slug)
+      })
   )
 
   const invitationRow = (email: string) =>

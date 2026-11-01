@@ -3,7 +3,7 @@ import {
   type BetterAuthError
 } from "@pp/server-core/auth/BetterAuth"
 import { Org } from "@pp/server-core/organizations/Org"
-import { Projects } from "@pp/server-core/projects/Projects"
+import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
 import {
   AppApi,
   Conflict,
@@ -268,8 +268,8 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
         yield* ba
           .removeMember(request, params.orgSlug, params.userId)
           .pipe(Effect.catchTag("BetterAuthError", removeMemberErrorToFailure))
-        const projects = yield* Projects
-        yield* projects.unassignUserFromOrgTickets(
+        const rewrites = yield* TicketRewrites.TicketRewrites
+        yield* rewrites.unassignUserFromOrgTickets(
           params.orgSlug,
           params.userId
         )
@@ -317,8 +317,8 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
         yield* ba
           .leaveOrg(request, params.orgSlug, user.id)
           .pipe(Effect.catchTag("BetterAuthError", leaveErrorToFailure))
-        const projects = yield* Projects
-        yield* projects.unassignUserFromOrgTickets(params.orgSlug, user.id)
+        const rewrites = yield* TicketRewrites.TicketRewrites
+        yield* rewrites.unassignUserFromOrgTickets(params.orgSlug, user.id)
       })
     )
 )

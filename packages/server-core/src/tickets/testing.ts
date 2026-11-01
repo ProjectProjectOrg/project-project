@@ -61,6 +61,7 @@ import {
 } from "./TicketIndex"
 import { TICKET_ORDER_KEY_SEPARATOR } from "./TicketIndexLive"
 import type { TicketProject } from "./ticketProject"
+import * as TicketRewrites from "./TicketRewrites"
 
 export const decodeGroupSync = Schema.decodeSync(Group)
 
@@ -214,10 +215,6 @@ export function makeFakeProjects(
     removeMember: () => unexpected("Projects.removeMember"),
     leave: () => unexpected("Projects.leave"),
     cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
-    unassignUserFromActiveTickets: () =>
-      unexpected("Projects.unassignUserFromActiveTickets"),
-    unassignUserFromOrgTickets: () =>
-      unexpected("Projects.unassignUserFromOrgTickets"),
     connectGithub: () => unexpected("Projects.connectGithub"),
     disconnectGithub: () => unexpected("Projects.disconnectGithub"),
     ...overrides
@@ -769,7 +766,7 @@ export function makeTicketsLayer(
   ticketDocsLayer: Layer.Layer<TicketDocs>,
   options: TicketsLayerOptions = {}
 ) {
-  return TicketServices.layer.pipe(
+  return Layer.merge(TicketServices.layer, TicketRewrites.layer).pipe(
     Layer.provide(gitAutomationTestLayer(options.gitAutomation)),
     Layer.provide(PassthroughLibrary),
     Layer.provide(passthroughTicketActivity),
