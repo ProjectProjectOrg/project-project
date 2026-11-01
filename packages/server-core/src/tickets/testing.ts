@@ -220,10 +220,10 @@ export const makeFakeProjectGithub = (
 ) =>
   Layer.succeed(ProjectGithub.ProjectGithub, {
     integration: () => Effect.succeed(null),
-    branches: () => unexpected("ProjectGithub.ProjectGithub.branches"),
-    repos: () => unexpected("ProjectGithub.ProjectGithub.repos"),
-    connect: () => unexpected("ProjectGithub.ProjectGithub.connect"),
-    disconnect: () => unexpected("ProjectGithub.ProjectGithub.disconnect"),
+    branches: () => unexpected("ProjectGithub.branches"),
+    repos: () => unexpected("ProjectGithub.repos"),
+    connect: () => unexpected("ProjectGithub.connect"),
+    disconnect: () => unexpected("ProjectGithub.disconnect"),
     ...overrides
   })
 
