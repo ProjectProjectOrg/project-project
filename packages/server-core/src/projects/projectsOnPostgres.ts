@@ -16,9 +16,10 @@ import * as TicketRewrites from "../tickets/TicketRewrites"
 import { Users } from "../users/Users"
 import { BannerPlaceholders } from "./BannerPlaceholders"
 import { FinishedStatuses } from "./FinishedStatuses"
+import * as ProjectServices from "./layer"
 import { ProjectDocs } from "./ProjectDocs"
+import type { ProjectGithub } from "./ProjectGithub"
 import type { Projects } from "./Projects"
-import { ProjectsLive } from "./ProjectsLive"
 
 const unused = () => Effect.die(new Error("Unexpected dependency call"))
 
@@ -29,7 +30,11 @@ export const projectsOnPostgres = (
   projectDocs?: Layer.Layer<ProjectDocs>,
   github: Partial<GitHub["Service"]> = {}
 ): Layer.Layer<
-  Projects | TicketIndex | TicketRewrites.TicketRewrites | Access
+  | Projects
+  | ProjectGithub
+  | TicketIndex
+  | TicketRewrites.TicketRewrites
+  | Access
 > => {
   const db = DbLive.pipe(
     Layer.provideMerge(
@@ -58,7 +63,7 @@ export const projectsOnPostgres = (
     Layer.provide(finishedStatuses),
     Layer.provide(db)
   )
-  return ProjectsLive.pipe(
+  return ProjectServices.layer.pipe(
     Layer.provideMerge(tickets),
     Layer.provideMerge(AccessLive.pipe(Layer.provide(db))),
     Layer.provide(db),

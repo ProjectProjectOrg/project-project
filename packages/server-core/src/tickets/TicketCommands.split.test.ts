@@ -38,6 +38,7 @@ import { MarkdownError } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { ProjectDocs } from "../projects/ProjectDocs"
+import { ProjectGithub } from "../projects/ProjectGithub"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
 import * as TicketBranchIndex from "./TicketBranchIndex"
@@ -85,28 +86,26 @@ let nextTicketNumber = 1
 let failUpsertAfter = Number.POSITIVE_INFINITY
 let upserts = 0
 
-const FakeProjects = Layer.succeed(Projects, {
-  list: () => unexpected("Projects.list"),
-  listPaged: () => unexpected("Projects.listPaged"),
-  listMembersPaged: () => unexpected("Projects.listMembersPaged"),
-  create: () => unexpected("Projects.create"),
-  get: () => unexpected("Projects.get"),
-  key: () => Effect.succeed(decodeProjectKey("T")),
-  githubIntegration: () => Effect.succeed(null),
-  githubBranches: () => unexpected("Projects.githubBranches"),
-  githubRepos: () => unexpected("Projects.githubRepos"),
-  memberIds: () => Effect.succeed(new Set(["user-1", "user-2"])),
-  update: () => unexpected("Projects.update"),
-  updateSetup: () => unexpected("Projects.updateSetup"),
-  remove: () => unexpected("Projects.remove"),
-  addMember: () => unexpected("Projects.addMember"),
-  updateMember: () => unexpected("Projects.updateMember"),
-  removeMember: () => unexpected("Projects.removeMember"),
-  leave: () => unexpected("Projects.leave"),
-  cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
-  connectGithub: () => unexpected("Projects.connectGithub"),
-  disconnectGithub: () => unexpected("Projects.disconnectGithub")
-} satisfies ProjectsShape)
+const FakeProjects = Layer.merge(
+  Layer.succeed(Projects, {
+    list: () => unexpected("Projects.list"),
+    listPaged: () => unexpected("Projects.listPaged"),
+    listMembersPaged: () => unexpected("Projects.listMembersPaged"),
+    create: () => unexpected("Projects.create"),
+    get: () => unexpected("Projects.get"),
+    key: () => Effect.succeed(decodeProjectKey("T")),
+    memberIds: () => Effect.succeed(new Set(["user-1", "user-2"])),
+    update: () => unexpected("Projects.update"),
+    updateSetup: () => unexpected("Projects.updateSetup"),
+    remove: () => unexpected("Projects.remove"),
+    addMember: () => unexpected("Projects.addMember"),
+    updateMember: () => unexpected("Projects.updateMember"),
+    removeMember: () => unexpected("Projects.removeMember"),
+    leave: () => unexpected("Projects.leave"),
+    cancelPendingMember: () => unexpected("Projects.cancelPendingMember")
+  } satisfies ProjectsShape),
+  Layer.mock(ProjectGithub, { integration: () => Effect.succeed(null) })
+)
 
 const FakeGroups = Layer.succeed(Groups, {
   list: () =>

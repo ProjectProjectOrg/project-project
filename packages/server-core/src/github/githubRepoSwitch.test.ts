@@ -13,9 +13,10 @@ import { GitHub } from "@pp/server-core/github/GitHub"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownError } from "@pp/server-core/markdown/Markdown"
 import { BannerPlaceholders } from "@pp/server-core/projects/BannerPlaceholders"
+import * as ProjectServices from "@pp/server-core/projects/layer"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
-import { Projects } from "@pp/server-core/projects/Projects"
-import { ProjectsLive } from "@pp/server-core/projects/ProjectsLive"
+import { ProjectGithub } from "@pp/server-core/projects/ProjectGithub"
+import type { Projects } from "@pp/server-core/projects/Projects"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import {
   TicketDocs,
@@ -96,7 +97,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
   let failWrite = false
   let lockChecks = 0
   let pool: Pool
-  let projectsLayer: Layer.Layer<Projects | Access>
+  let projectsLayer: Layer.Layer<Projects | ProjectGithub | Access>
 
   beforeAll(async () => {
     if (!databaseUrl) throw new Error("Test database URL is required")
@@ -210,7 +211,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
         })
       })
     ).pipe(Layer.provide(db), Layer.provide(KeyedLock.layer))
-    projectsLayer = ProjectsLive.pipe(
+    projectsLayer = ProjectServices.layer.pipe(
       Layer.provideMerge(AccessLive.pipe(Layer.provide(db))),
       Layer.provide(TicketRewrites.layer),
       Layer.provide(
@@ -289,8 +290,8 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
   })
 
   const connect = (repoName = "new") =>
-    Effect.flatMap(Projects, (projects) =>
-      projects.connectGithub({
+    Effect.flatMap(ProjectGithub, (github) =>
+      github.connect({
         repoId: `${repoName}-repo`,
         repoOwner: "acme",
         repoName

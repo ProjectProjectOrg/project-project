@@ -28,6 +28,7 @@ import {
   makeTicketDocument,
   makeFakeTicketDocs,
   makeFakeProjects,
+  makeFakeProjectGithub,
   makeFakeGroups,
   makeFakeTicketIndex,
   makeTicketsLayer,
@@ -52,8 +53,9 @@ it.effect("get uses persisted prState for the fallback git state", () => {
     })
   )
   const layer = makeTicketsLayer("T", docs.layer, {
-    projects: makeFakeProjects("T", {
-      githubIntegration: () => Effect.succeed(githubIntegration)
+    projects: makeFakeProjects("T"),
+    projectGithub: makeFakeProjectGithub({
+      integration: () => Effect.succeed(githubIntegration)
     })
   })
 

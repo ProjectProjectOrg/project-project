@@ -16,11 +16,17 @@ import { Access } from "../access/Access"
 import { testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
 import { ProjectDocs } from "./ProjectDocs"
-import { Projects } from "./Projects"
+import { ProjectGithub } from "./ProjectGithub"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const unused = () => Effect.die(new Error("Unexpected project docs call"))
+
+const repo = (name: string) => ({
+  repoId: `${name}-repo`,
+  repoOwner: "acme",
+  repoName: name
+})
 
 describe.skipIf(!databaseUrl)("project GitHub connection", () => {
   const organizationId = randomUUID()
@@ -36,9 +42,9 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
   let layer: ReturnType<typeof projectsOnPostgres>
 
   const run = <A, E, R>(
-    f: (projects: Projects["Service"]) => Effect.Effect<A, E, R>
+    f: (github: ProjectGithub["Service"]) => Effect.Effect<A, E, R>
   ) =>
-    Effect.flatMap(Projects, f).pipe(
+    Effect.flatMap(ProjectGithub, f).pipe(
       Effect.provideServiceEffect(
         ProjectScope,
         Effect.flatMap(Access, (access) =>
@@ -48,13 +54,6 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
       asUser(userId),
       Effect.provide(layer)
     )
-
-  const repo = (name: string, defaultBaseBranch?: string) => ({
-    repoId: `${name}-repo`,
-    repoOwner: "acme",
-    repoName: name,
-    ...(defaultBaseBranch === undefined ? {} : { defaultBaseBranch })
-  })
 
   beforeAll(async () => {
     if (!databaseUrl) throw new Error("Test database URL is required")
@@ -157,28 +156,26 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
 
   it.effect("lists repositories from the org's GitHub installation", () =>
     Effect.gen(function* () {
-      yield* run((projects) => projects.githubRepos("web", 2))
+      yield* run((github) => github.repos("web", 2))
       expect(repoCalls).toEqual([[installationId, "web", 2]])
     })
   )
 
   it.effect("has no branches before a repository is connected", () =>
     Effect.gen(function* () {
-      const branches = yield* run((projects) =>
-        projects.githubBranches(undefined, 20, undefined)
+      const branches = yield* run((github) =>
+        github.branches(undefined, 20, undefined)
       )
       expect(branches).toEqual({ items: [], nextCursor: null, totalCount: 0 })
       expect(branchCalls).toEqual([])
-      expect(yield* run((projects) => projects.githubIntegration())).toBeNull()
+      expect(yield* run((github) => github.integration())).toBeNull()
     })
   )
 
   it.effect("connects a repository and writes it into the project file", () =>
     Effect.gen(function* () {
       writtenConnections.length = 0
-      const detail = yield* run((projects) =>
-        projects.connectGithub(repo("app"))
-      )
+      const detail = yield* run((github) => github.connect(repo("app")))
       const connection = {
         repoId: "app-repo",
         repoOwner: "acme",
@@ -187,9 +184,7 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
       }
       expect(detail.github).toEqual(connection)
       expect(writtenConnections).toEqual([connection])
-      expect(
-        yield* run((projects) => projects.githubIntegration())
-      ).toMatchObject({
+      expect(yield* run((github) => github.integration())).toMatchObject({
         organizationId,
         projectId,
         projectSlug: slug,
@@ -201,8 +196,8 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
 
   it.effect("lists branches of the connected repository", () =>
     Effect.gen(function* () {
-      const branches = yield* run((projects) =>
-        projects.githubBranches("feat", 20, "cursor")
+      const branches = yield* run((github) =>
+        github.branches("feat", 20, "cursor")
       )
       expect(branches).toEqual({ items: [], nextCursor: "next", totalCount: 3 })
       expect(branchCalls).toEqual([
@@ -214,21 +209,21 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
   it.effect("refuses a repository whose id no longer matches", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(
-        run((projects) =>
-          projects.connectGithub({ ...repo("other"), repoId: "stale-repo" })
+        run((github) =>
+          github.connect({ ...repo("other"), repoId: "stale-repo" })
         )
       )
       expect(error._tag).toBe("RepoGone")
-      expect(
-        (yield* run((projects) => projects.githubIntegration()))?.repoName
-      ).toBe("app")
+      expect((yield* run((github) => github.integration()))?.repoName).toBe(
+        "app"
+      )
     })
   )
 
   it.effect("changes the base branch of the connected repository", () =>
     Effect.gen(function* () {
-      const detail = yield* run((projects) =>
-        projects.connectGithub(repo("app", "develop"))
+      const detail = yield* run((github) =>
+        github.connect({ ...repo("app"), defaultBaseBranch: "develop" })
       )
       expect(detail.github?.defaultBaseBranch).toBe("develop")
     })
@@ -237,10 +232,10 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
   it.effect("disconnects and clears the project file's repository", () =>
     Effect.gen(function* () {
       writtenConnections.length = 0
-      const detail = yield* run((projects) => projects.disconnectGithub())
+      const detail = yield* run((github) => github.disconnect())
       expect(detail.github).toBeNull()
       expect(writtenConnections).toEqual([null])
-      expect(yield* run((projects) => projects.githubIntegration())).toBeNull()
+      expect(yield* run((github) => github.integration())).toBeNull()
     })
   )
 
@@ -253,10 +248,10 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
         )
       )
       const repos = yield* Effect.flip(
-        run((projects) => projects.githubRepos(undefined, 1))
+        run((github) => github.repos(undefined, 1))
       )
       const connect = yield* Effect.flip(
-        run((projects) => projects.connectGithub(repo("app")))
+        run((github) => github.connect(repo("app")))
       )
       expect(repos._tag).toBe("NotFound")
       expect(connect._tag).toBe("NotFound")
