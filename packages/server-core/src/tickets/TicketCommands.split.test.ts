@@ -40,7 +40,7 @@ import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import * as ProjectGithub from "../projects/ProjectGithub"
 import * as ProjectMembers from "../projects/ProjectMembers"
-import { Projects, type ProjectsShape } from "../projects/Projects"
+import * as Projects from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
 import * as TicketBranchIndex from "./TicketBranchIndex"
 import * as TicketCommands from "./TicketCommands"
@@ -88,7 +88,7 @@ let failUpsertAfter = Number.POSITIVE_INFINITY
 let upserts = 0
 
 const FakeProjects = Layer.mergeAll(
-  Layer.succeed(Projects, {
+  Layer.succeed(Projects.Projects, {
     list: () => unexpected("Projects.list"),
     listPaged: () => unexpected("Projects.listPaged"),
     create: () => unexpected("Projects.create"),
@@ -97,7 +97,7 @@ const FakeProjects = Layer.mergeAll(
     update: () => unexpected("Projects.update"),
     updateSetup: () => unexpected("Projects.updateSetup"),
     remove: () => unexpected("Projects.remove")
-  } satisfies ProjectsShape),
+  } satisfies Projects.Projects["Service"]),
   Layer.mock(ProjectGithub.ProjectGithub, {
     integration: () => Effect.succeed(null)
   }),

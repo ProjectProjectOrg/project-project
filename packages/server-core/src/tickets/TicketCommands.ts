@@ -53,7 +53,7 @@ import { Library, type TemplateExpansion } from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import * as ProjectMembers from "../projects/ProjectMembers"
-import { Projects } from "../projects/Projects"
+import * as Projects from "../projects/Projects"
 import { readProjectDocument } from "../projects/readProjectDocument"
 import {
   TicketDocs,
@@ -210,7 +210,7 @@ const make = Effect.gen(function* () {
   const ticketActivity = yield* TicketActivity
   const { withTicketDocumentLock } =
     yield* TicketDocumentLock.TicketDocumentLock
-  const projects = yield* Projects
+  const projects = yield* Projects.Projects
   const projectMembers = yield* ProjectMembers.ProjectMembers
   const projectDocs = yield* ProjectDocs
   const ticketIndex = yield* TicketIndex

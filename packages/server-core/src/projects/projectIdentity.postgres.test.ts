@@ -20,7 +20,7 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 import { Access } from "../access/Access"
 import { testUser } from "../access/testing"
 import { TicketIndex } from "../tickets/TicketIndex"
-import { Projects } from "./Projects"
+import * as Projects from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -31,10 +31,10 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
   const orgs = [`alpha-${suffix}`, `beta-${suffix}`]
   const users = [randomUUID(), randomUUID()]
   let pool: Pool
-  let layer: Layer.Layer<Projects | TicketIndex | Access>
+  let layer: Layer.Layer<Projects.Projects | TicketIndex | Access>
 
   const create = (index: number, name: string, key: string) =>
-    Effect.flatMap(Projects, (projects) =>
+    Effect.flatMap(Projects.Projects, (projects) =>
       projects.create({ name, key: projectKey(key) })
     ).pipe(
       Effect.provideServiceEffect(
@@ -109,7 +109,7 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
 
   it.effect("resolves each org's own project", () =>
     Effect.gen(function* () {
-      const projects = yield* Projects
+      const projects = yield* Projects.Projects
       const index = yield* TicketIndex
       const alpha = yield* projects.get().pipe(inProject(0, 0, "website"))
       const beta = yield* projects.get().pipe(inProject(1, 1, "website"))
@@ -124,7 +124,7 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
 
   it.effect("keeps people out of the other org's project", () =>
     Effect.gen(function* () {
-      const projects = yield* Projects
+      const projects = yield* Projects.Projects
       const error = yield* Effect.flip(
         projects.get().pipe(inProject(0, 1, "website"))
       )
@@ -134,7 +134,7 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
 
   it.effect("deletes one org's project without touching the other", () =>
     Effect.gen(function* () {
-      const projects = yield* Projects
+      const projects = yield* Projects.Projects
       yield* projects.remove().pipe(inProject(0, 0, "website"))
       const beta = yield* projects.get().pipe(inProject(1, 1, "website"))
       expect(beta.slug).toBe("website")

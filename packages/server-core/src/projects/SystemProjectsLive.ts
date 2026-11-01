@@ -18,7 +18,7 @@ import * as Semaphore from "effect/Semaphore"
 
 import { Bots } from "../bots/Bots"
 import { ProjectDocs } from "./ProjectDocs"
-import { Projects } from "./Projects"
+import * as Projects from "./Projects"
 import {
   SystemProjects,
   type SystemProjectSpec,
@@ -39,7 +39,7 @@ export const SystemProjectsLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const bots = yield* Bots
-    const projects = yield* Projects
+    const projects = yield* Projects.Projects
     const projectDocs = yield* ProjectDocs
     const lock = yield* Semaphore.make(1)
 

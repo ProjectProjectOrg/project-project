@@ -20,7 +20,7 @@ import * as ProjectServices from "./layer"
 import { ProjectDocs } from "./ProjectDocs"
 import type * as ProjectGithub from "./ProjectGithub"
 import type * as ProjectMembers from "./ProjectMembers"
-import type { Projects } from "./Projects"
+import type * as Projects from "./Projects"
 
 const unused = () => Effect.die(new Error("Unexpected dependency call"))
 
@@ -31,7 +31,7 @@ export const projectsOnPostgres = (
   projectDocs?: Layer.Layer<ProjectDocs>,
   github: Partial<GitHub["Service"]> = {}
 ): Layer.Layer<
-  | Projects
+  | Projects.Projects
   | ProjectGithub.ProjectGithub
   | ProjectMembers.ProjectMembers
   | TicketIndex

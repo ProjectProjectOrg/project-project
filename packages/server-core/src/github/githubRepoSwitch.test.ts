@@ -16,7 +16,7 @@ import { BannerPlaceholders } from "@pp/server-core/projects/BannerPlaceholders"
 import * as ProjectServices from "@pp/server-core/projects/layer"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import * as ProjectGithub from "@pp/server-core/projects/ProjectGithub"
-import type { Projects } from "@pp/server-core/projects/Projects"
+import type * as Projects from "@pp/server-core/projects/Projects"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import {
   TicketDocs,
@@ -98,7 +98,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
   let lockChecks = 0
   let pool: Pool
   let projectsLayer: Layer.Layer<
-    Projects | ProjectGithub.ProjectGithub | Access
+    Projects.Projects | ProjectGithub.ProjectGithub | Access
   >
 
   beforeAll(async () => {

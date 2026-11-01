@@ -20,7 +20,7 @@ import { BannerPlaceholders } from "@pp/server-core/projects/BannerPlaceholders"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as ProjectServices from "@pp/server-core/projects/layer"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
-import { Projects } from "@pp/server-core/projects/Projects"
+import * as Projects from "@pp/server-core/projects/Projects"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { S3Storage } from "@pp/server-core/storage/S3Storage"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
@@ -62,7 +62,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
   const publishedId = randomUUID()
   const hiddenId = randomUUID()
   let pool: Pool
-  let projectsLayer: Layer.Layer<Projects | Access>
+  let projectsLayer: Layer.Layer<Projects.Projects | Access>
   let ticketIndexLayer: Layer.Layer<
     TicketIndex | TicketIndexMaintenance.TicketIndexMaintenance
   >
@@ -227,7 +227,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       () =>
         Effect.gen(function* () {
           const result = yield* Effect.gen(function* () {
-            const projects = yield* Projects
+            const projects = yield* Projects.Projects
             const access = yield* Access
             const listed = yield* projects.list()
             const scopes = yield* access.projectsInOrg()

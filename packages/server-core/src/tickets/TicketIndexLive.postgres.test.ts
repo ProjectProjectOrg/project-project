@@ -30,7 +30,7 @@ import { Comments } from "../comments/Comments"
 import { serializeCommentsRegion } from "../comments/comments-region"
 import { CommentsLive } from "../comments/CommentsLive"
 import * as ProjectMembers from "../projects/ProjectMembers"
-import { Projects } from "../projects/Projects"
+import * as Projects from "../projects/Projects"
 import { Users } from "../users/Users"
 import * as TicketIndexServices from "./indexLayer"
 import * as TicketBranchIndex from "./TicketBranchIndex"
@@ -753,7 +753,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       Layer.provide(
         Layer.mergeAll(
           ticketDocs,
-          Layer.mock(Projects, {}),
+          Layer.mock(Projects.Projects, {}),
           Layer.mock(ProjectMembers.ProjectMembers, {}),
           Layer.mock(TicketIndex, {}),
           Layer.mock(Users, {

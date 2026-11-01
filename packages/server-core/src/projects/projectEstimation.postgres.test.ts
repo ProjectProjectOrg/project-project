@@ -37,7 +37,7 @@ import { Users } from "../users/Users"
 import { FinishedStatuses } from "./FinishedStatuses"
 import { gitAutomationTestLayer } from "./gitAutomationTesting"
 import { ProjectDocs, type ProjectDocument } from "./ProjectDocs"
-import { Projects } from "./Projects"
+import * as Projects from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -53,7 +53,9 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
   })
   let pool: Pool
   let layer: Layer.Layer<
-    Projects | TicketCommands.TicketCommands | TicketQueries.TicketQueries
+    | Projects.Projects
+    | TicketCommands.TicketCommands
+    | TicketQueries.TicketQueries
   >
   let document: ProjectDocument = {
     slug: "project",
@@ -157,7 +159,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
       Effect.gen(function* () {
         const tickets = yield* TicketCommands.TicketCommands
         const queries = yield* TicketQueries.TicketQueries
-        const projects = yield* Projects
+        const projects = yield* Projects.Projects
         const sorted = yield* queries.list({
           sort: { key: "estimate", dir: "asc" }
         })

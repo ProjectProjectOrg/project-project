@@ -27,7 +27,7 @@ import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
 import * as ProjectGithub from "@pp/server-core/projects/ProjectGithub"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
-import { Projects, type ProjectsShape } from "@pp/server-core/projects/Projects"
+import * as Projects from "@pp/server-core/projects/Projects"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketServices from "@pp/server-core/tickets/layer"
 import * as TicketBranchIndex from "@pp/server-core/tickets/TicketBranchIndex"
@@ -359,7 +359,7 @@ const unexpected = (method: string): Effect.Effect<never> =>
   Effect.die(new Error(`unexpected ${method} call`))
 
 const FakeProjects = Layer.mergeAll(
-  Layer.succeed(Projects, {
+  Layer.succeed(Projects.Projects, {
     list: () => unexpected("Projects.list"),
     listPaged: () => unexpected("Projects.listPaged"),
     create: () => unexpected("Projects.create"),
@@ -368,7 +368,7 @@ const FakeProjects = Layer.mergeAll(
     update: () => unexpected("Projects.update"),
     updateSetup: () => unexpected("Projects.updateSetup"),
     remove: () => unexpected("Projects.remove")
-  } satisfies ProjectsShape),
+  } satisfies Projects.Projects["Service"]),
   Layer.mock(ProjectGithub.ProjectGithub, {
     integration: () => Effect.succeed(null)
   }),
