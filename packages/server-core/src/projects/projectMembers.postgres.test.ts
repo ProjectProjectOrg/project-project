@@ -654,6 +654,77 @@ describe.skipIf(!databaseUrl)("project members", () => {
     })
   )
 
+  it.effect(
+    "removes another member and unassigns them from the project's tickets",
+    () =>
+      Effect.gen(function* () {
+        const project = yield* createProject("RMV")
+        const inProject = runIn(project.slug)
+        yield* inProject(pm)((projects) =>
+          projects.addMember({
+            email: `${developer}@example.test`,
+            role: "developer"
+          })
+        )
+        unassignedProjects.length = 0
+        ticketFiles.push(decodeTicketId("MEM-902"))
+        const detail = yield* inProject(pm)((projects) =>
+          projects.removeMember(developer)
+        )
+        ticketFiles.length = 0
+        expect(detail.members.map((member) => member.id)).toEqual([pm])
+        expect(unassignedProjects).toContain(project.slug)
+      })
+  )
+
+  it.effect("tells a pm someone outside the project can't be changed", () =>
+    Effect.gen(function* () {
+      const project = yield* createProject("OUT")
+      const inProject = runIn(project.slug)
+      const update = yield* Effect.flip(
+        inProject(pm)((projects) => projects.updateMember(second, "pm"))
+      )
+      const remove = yield* Effect.flip(
+        inProject(pm)((projects) => projects.removeMember(second))
+      )
+      const cancel = yield* Effect.flip(
+        inProject(pm)((projects) => projects.cancelPendingMember(randomUUID()))
+      )
+      expect(update._tag).toBe("NotFound")
+      expect(remove._tag).toBe("NotFound")
+      expect(cancel._tag).toBe("NotFound")
+    })
+  )
+
+  it.effect("lists member ids and pages members by name", () =>
+    Effect.gen(function* () {
+      const project = yield* createProject("IDS")
+      const inProject = runIn(project.slug)
+      yield* inProject(pm)((projects) =>
+        projects.addMember({
+          email: `${second}@example.test`,
+          role: "developer"
+        })
+      )
+      const ids = yield* inProject(pm)((projects) => projects.memberIds())
+      const all = yield* inProject(pm)((projects) =>
+        projects.listMembersPaged(undefined, 10)
+      )
+      const first = yield* inProject(pm)((projects) =>
+        projects.listMembersPaged(undefined, 1)
+      )
+      expect([...ids].toSorted()).toEqual([pm, second].toSorted())
+      expect(all.items.map((member) => member.id)).toEqual(
+        [pm, second].toSorted()
+      )
+      expect(all.nextCursor).toBeNull()
+      expect(first.items.map((member) => member.id)).toEqual([
+        [pm, second].toSorted()[0]
+      ])
+      expect(first.nextCursor).not.toBeNull()
+    })
+  )
+
   it.effect("ends project access when the org membership goes", () =>
     Effect.gen(function* () {
       yield* run(developer)((projects) => projects.key())
