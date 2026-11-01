@@ -24,7 +24,7 @@ export const WebhookHeader = Schema.Struct({
   value: Schema.String.check(
     Schema.isMinLength(1),
     Schema.isMaxLength(4096),
-    Schema.isPattern(/^[^\r\n\0]*$/u)
+    Schema.isPattern(/^[\t\x20-\x7e]*$/u)
   )
 })
 export type WebhookHeader = typeof WebhookHeader.Type

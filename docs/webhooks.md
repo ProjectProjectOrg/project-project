@@ -14,7 +14,8 @@ the events it subscribes to, optional extra headers, and a signing secret.
   PP stores the URL encrypted and afterwards shows only its scheme and host,
   because many receivers put a token in the path.
 - **Events:** one or more of the [event types](#events).
-- **Extra headers:** up to 10, e.g. `Authorization: Bearer …`. Stored encrypted
+- **Extra headers:** up to 10, e.g. `Authorization: Bearer …`, with printable
+  ASCII values. Stored encrypted
   and shown by name only. They can't replace the headers PP sets itself:
   `Host`, `Content-Type`, `Content-Length`, `User-Agent`, connection headers,
   and anything starting with `X-PP-`.
