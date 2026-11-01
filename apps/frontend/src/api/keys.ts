@@ -14,6 +14,9 @@ export const Keys = {
   slackOrg: (orgSlug: string): ReactivityKey => key(`slack-org/${orgSlug}`),
   slackProject: (scope: string): ReactivityKey => key(`slack-project/${scope}`),
   slackProfiles: (): ReactivityKey => key("slack-profiles"),
+  webhooks: (scope: string): ReactivityKey => key(`webhooks/${scope}`),
+  webhookDeliveries: (scope: string, id: string): ReactivityKey =>
+    key(`webhook-deliveries/${scope}/${id}`),
   orgEmail: (orgSlug: string): ReactivityKey => key(`org-email/${orgSlug}`),
   /** One ticket's content, wherever it is shown. */
   ticket: (scope: string, id: TicketId): ReactivityKey =>

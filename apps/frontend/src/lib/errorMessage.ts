@@ -158,6 +158,20 @@ const validationMessage = (reason: string): string => {
       return invalidBlocksMessage(detail)
     case "unknown_template":
       return m.templates_error_unknown_template({ key: detail })
+    case "webhook_url_invalid_url":
+      return m.webhooks_error_url_invalid()
+    case "webhook_url_insecure_scheme":
+      return m.webhooks_error_url_insecure()
+    case "webhook_url_credentials_in_url":
+      return m.webhooks_error_url_credentials()
+    case "webhook_url_blocked_address":
+      return m.webhooks_error_url_blocked()
+    case "webhook_url_unresolvable":
+      return m.webhooks_error_url_unresolvable()
+    case "webhook_header_reserved":
+      return m.webhooks_error_header_reserved()
+    case "webhook_header_duplicate":
+      return m.webhooks_error_header_duplicate()
     default:
       return m.error_unknown()
   }
@@ -177,6 +191,12 @@ const conflictMessage = (reason: string): string => {
       return m.tickets_archive_error_already_archived()
     case "ticket_not_archived":
       return m.tickets_unarchive_error_not_archived()
+    case "webhook_disabled":
+      return m.webhooks_error_disabled()
+    case "webhook_delivery_delivered":
+      return m.webhooks_error_delivered()
+    case "webhook_delivery_too_old":
+      return m.webhooks_error_too_old()
     default:
       return m.error_unknown()
   }

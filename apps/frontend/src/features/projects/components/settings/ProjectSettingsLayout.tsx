@@ -7,6 +7,7 @@ import {
   SlidersHorizontal,
   TriangleAlert,
   Users,
+  Webhook,
   Workflow
 } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
@@ -41,6 +42,7 @@ type SectionKey =
   | "workflow"
   | "templates"
   | "integrations"
+  | "webhooks"
   | "danger"
 
 type ProjectSettingsSection = Readonly<{
@@ -86,6 +88,13 @@ const SECTIONS: ReadonlyArray<ProjectSettingsSection> = [
     icon: GitBranch,
     heading: m.project_settings_integrations_heading(),
     description: m.project_settings_integrations_description()
+  },
+  {
+    key: "webhooks",
+    label: m.webhooks_tab(),
+    icon: Webhook,
+    heading: m.webhooks_heading(),
+    description: m.webhooks_description()
   },
   {
     key: "danger",
@@ -134,9 +143,9 @@ function projectSettingsLayoutId(orgSlug: string, slug: string) {
 function ProjectSettingsRail() {
   const { orgSlug, slug } = useProjectRoute()
   const reduceMotion = useReducedMotion()
-  const canDelete = useAtomValue(
-    projectActor(projectRequest(orgSlug, slug))
-  ).call("projects", "delete")
+  const actor = useAtomValue(projectActor(projectRequest(orgSlug, slug)))
+  const canDelete = actor.call("projects", "delete")
+  const canManageWebhooks = actor.call("webhooks", "list")
   const projectResult = useAtomValue(project(projectRequest(orgSlug, slug)))
   const projectName = Result.isSuccess(projectResult)
     ? projectResult.value.name
@@ -183,7 +192,9 @@ function ProjectSettingsRail() {
       </div>
       <SettingsRailNav>
         {SECTIONS.filter(
-          (section) => section.key !== "danger" || canDelete
+          (section) =>
+            (section.key !== "danger" || canDelete) &&
+            (section.key !== "webhooks" || canManageWebhooks)
         ).map((section, index) => (
           <SettingsRailLink
             key={section.key}
