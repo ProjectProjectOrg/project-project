@@ -329,6 +329,13 @@ describe("revertTicketPatch", () => {
     )
   })
 
+  it("keeps type and parent together when someone changed one of them", () => {
+    const epic = { ...existing, type: "epic" as const, parent: undefined }
+    const demoted = applyTicketPatch(epic, { type: "feat" }, "user-2", now)
+    const current = { ...demoted, parent: ticketId("T-7"), updatedAt: later }
+    expect(revertTicketPatch(epic, demoted, current)).toBeNull()
+  })
+
   it("does nothing when every changed field was changed again", () => {
     const current = {
       ...written,

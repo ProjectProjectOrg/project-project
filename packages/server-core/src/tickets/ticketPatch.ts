@@ -140,10 +140,16 @@ export const revertTicketPatch = (
   written: TicketDocument,
   current: TicketDocument
 ): TicketDocument | null => {
+  const hierarchyKeys: ReadonlyArray<PatchableKey> = ["type", "parent"]
+  const hierarchyReverts = hierarchyKeys.every((key) =>
+    sameField(key, current, written)
+  )
   const reverted = new Set(
     patchableKeys.filter(
       (key) =>
-        !sameField(key, written, original) && sameField(key, current, written)
+        !sameField(key, written, original) &&
+        sameField(key, current, written) &&
+        (hierarchyReverts || !hierarchyKeys.includes(key))
     )
   )
   if (reverted.size === 0) return null

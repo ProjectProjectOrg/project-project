@@ -792,6 +792,34 @@ it.effect(
 )
 
 it.effect(
+  "a failed sprint step still reverts the other tickets when one was deleted meanwhile",
+  () => {
+    let duringSprintStep: Effect.Effect<void> = Effect.void
+    const { docs, layer } = makeBulkFixture(() =>
+      duringSprintStep.pipe(
+        Effect.andThen(Effect.fail(new SprintCompletedImmutable()))
+      )
+    )
+    duringSprintStep = Effect.sync(() => {
+      docs.documents.delete("T-1")
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      const error = yield* tickets
+        .bulkUpdate({
+          tickets: [ticketId("T-1"), ticketId("T-2")],
+          patch: { priority: "high", sprint: bulkSprint.id }
+        })
+        .pipe(Effect.flip)
+
+      expect(error._tag).toBe("SprintCompletedImmutable")
+      expect(docs.documents.has("T-1")).toBe(false)
+      expect(docs.documents.get("T-2")?.priority).toBe("med")
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
   "a failed removal from one sprint puts the tickets back in the sprints they already left",
   () => {
     const first = { ...inSprint(["T-9", "T-1", "T-3"]), id: groupId("G-1") }

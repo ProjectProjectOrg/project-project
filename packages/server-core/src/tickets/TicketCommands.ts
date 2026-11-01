@@ -1229,10 +1229,10 @@ const make = Effect.gen(function* () {
             if (reverted !== null) {
               yield* restoreTicket(scope, next.id, reverted)
             }
-          }),
+          }).pipe(Effect.ignore),
         { discard: true }
       )
-    ).pipe(Effect.ignore)
+    )
     const rejoinSprints = (
       left: ReadonlyArray<
         Readonly<{
