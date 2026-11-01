@@ -81,9 +81,9 @@ export class ProjectDetails extends Context.Service<
     withWriteLock: <A, E, R>(
       projectId: string,
       effect: Effect.Effect<A, E, R>
-    ) => Effect.Effect<A, Exclude<E, { readonly _tag: "SqlError" }>, R>
+    ) => Effect.Effect<A, Exclude<E, Readonly<{ _tag: "SqlError" }>>, R>
     current: Effect.Effect<
-      { scope: ProjectScopeShape; indexRow: ProjectIndexRow },
+      Readonly<{ scope: ProjectScopeShape; indexRow: ProjectIndexRow }>,
       NotFound,
       ProjectScope
     >
