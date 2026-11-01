@@ -336,6 +336,22 @@ describe("revertTicketPatch", () => {
     expect(revertTicketPatch(epic, demoted, current)).toBeNull()
   })
 
+  it("still reverts other fields when type and parent can't be reverted", () => {
+    const epic = { ...existing, type: "epic" as const, parent: undefined }
+    const demoted = applyTicketPatch(
+      epic,
+      { type: "feat", priority: "high" },
+      "user-2",
+      now
+    )
+    const current = { ...demoted, parent: ticketId("T-7"), updatedAt: later }
+    expect(revertTicketPatch(epic, demoted, current)).toMatchObject({
+      priority: epic.priority,
+      type: "feat",
+      parent: "T-7"
+    })
+  })
+
   it("does nothing when every changed field was changed again", () => {
     const current = {
       ...written,
