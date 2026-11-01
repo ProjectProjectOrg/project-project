@@ -21,7 +21,8 @@
       "./messages/{locale}/jira.json",
       "./messages/{locale}/templates.json",
       "./messages/{locale}/slack.json",
-      "./messages/{locale}/feedback.json"
+      "./messages/{locale}/feedback.json",
+      "./messages/{locale}/webhooks.json"
     ]
   }
 }

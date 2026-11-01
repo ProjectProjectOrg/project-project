@@ -62,9 +62,11 @@ import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsGeneralRouteImport } from
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsDangerRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/danger'
 import { Route as AuthedOrgsOrgSlugProjectsSlugProjectHeaderAboutRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/about'
 import { Route as AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsRouteRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/route'
+import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/webhooks/index'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/templates/index'
 import { Route as AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/index'
 import { Route as AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_.split'
+import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksWebhookIdRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/webhooks/$webhookId'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey'
 import { Route as AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsGroupIdRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId'
 import { Route as AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesBlocksBlockKeyRouteImport } from './routes/_authed/orgs/$orgSlug/projects/$slug/settings/templates/blocks.$blockKey'
@@ -373,6 +375,12 @@ const AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsRouteRoute =
     path: '/sprints',
     getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugProjectHeaderRouteRoute,
   } as any)
+const AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksIndexRoute =
+  AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksIndexRouteImport.update({
+    id: '/webhooks/',
+    path: '/webhooks/',
+    getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute,
+  } as any)
 const AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRoute =
   AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRouteImport.update({
     id: '/templates/',
@@ -391,6 +399,12 @@ const AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute =
     id: '/tickets/$id_/split',
     path: '/tickets/$id/split',
     getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugRouteRoute,
+  } as any)
+const AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksWebhookIdRoute =
+  AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksWebhookIdRouteImport.update({
+    id: '/webhooks/$webhookId',
+    path: '/webhooks/$webhookId',
+    getParentRoute: () => AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute,
   } as any)
 const AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute =
   AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRouteImport.update({
@@ -468,9 +482,11 @@ export interface FileRoutesByFullPath {
   '/orgs/$orgSlug/settings/integrations/storage/': typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageIndexRoute
   '/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsGroupIdRoute
   '/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute
+  '/orgs/$orgSlug/projects/$slug/settings/webhooks/$webhookId': typeof AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksWebhookIdRoute
   '/orgs/$orgSlug/projects/$slug/tickets/$id/split': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute
   '/orgs/$orgSlug/projects/$slug/sprints/': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings/templates/': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRoute
+  '/orgs/$orgSlug/projects/$slug/settings/webhooks/': typeof AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings/templates/blocks/$blockKey': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesBlocksBlockKeyRoute
 }
 export interface FileRoutesByTo {
@@ -519,9 +535,11 @@ export interface FileRoutesByTo {
   '/orgs/$orgSlug/settings/integrations/storage': typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageIndexRoute
   '/orgs/$orgSlug/projects/$slug/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsGroupIdRoute
   '/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute
+  '/orgs/$orgSlug/projects/$slug/settings/webhooks/$webhookId': typeof AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksWebhookIdRoute
   '/orgs/$orgSlug/projects/$slug/tickets/$id/split': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute
   '/orgs/$orgSlug/projects/$slug/sprints': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings/templates': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRoute
+  '/orgs/$orgSlug/projects/$slug/settings/webhooks': typeof AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksIndexRoute
   '/orgs/$orgSlug/projects/$slug/settings/templates/blocks/$blockKey': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesBlocksBlockKeyRoute
 }
 export interface FileRoutesById {
@@ -581,9 +599,11 @@ export interface FileRoutesById {
   '/_authed/orgs/$orgSlug/settings/integrations/storage/': typeof AuthedOrgsOrgSlugSettingsIntegrationsStorageIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsGroupIdRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute
+  '/_authed/orgs/$orgSlug/projects/$slug/settings/webhooks/$webhookId': typeof AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksWebhookIdRoute
   '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_/split': typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRoute
   '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRoute
+  '/_authed/orgs/$orgSlug/projects/$slug/settings/webhooks/': typeof AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/blocks/$blockKey': typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesBlocksBlockKeyRoute
 }
 export interface FileRouteTypes {
@@ -642,9 +662,11 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/settings/integrations/storage/'
     | '/orgs/$orgSlug/projects/$slug/sprints/$groupId'
     | '/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey'
+    | '/orgs/$orgSlug/projects/$slug/settings/webhooks/$webhookId'
     | '/orgs/$orgSlug/projects/$slug/tickets/$id/split'
     | '/orgs/$orgSlug/projects/$slug/sprints/'
     | '/orgs/$orgSlug/projects/$slug/settings/templates/'
+    | '/orgs/$orgSlug/projects/$slug/settings/webhooks/'
     | '/orgs/$orgSlug/projects/$slug/settings/templates/blocks/$blockKey'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -693,9 +715,11 @@ export interface FileRouteTypes {
     | '/orgs/$orgSlug/settings/integrations/storage'
     | '/orgs/$orgSlug/projects/$slug/sprints/$groupId'
     | '/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey'
+    | '/orgs/$orgSlug/projects/$slug/settings/webhooks/$webhookId'
     | '/orgs/$orgSlug/projects/$slug/tickets/$id/split'
     | '/orgs/$orgSlug/projects/$slug/sprints'
     | '/orgs/$orgSlug/projects/$slug/settings/templates'
+    | '/orgs/$orgSlug/projects/$slug/settings/webhooks'
     | '/orgs/$orgSlug/projects/$slug/settings/templates/blocks/$blockKey'
   id:
     | '__root__'
@@ -754,9 +778,11 @@ export interface FileRouteTypes {
     | '/_authed/orgs/$orgSlug/settings/integrations/storage/'
     | '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey'
+    | '/_authed/orgs/$orgSlug/projects/$slug/settings/webhooks/$webhookId'
     | '/_authed/orgs/$orgSlug/projects/$slug/tickets/$id_/split'
     | '/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/'
+    | '/_authed/orgs/$orgSlug/projects/$slug/settings/webhooks/'
     | '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/blocks/$blockKey'
   fileRoutesById: FileRoutesById
 }
@@ -1143,6 +1169,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderSprintsRouteRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderRouteRoute
     }
+    '/_authed/orgs/$orgSlug/projects/$slug/settings/webhooks/': {
+      id: '/_authed/orgs/$orgSlug/projects/$slug/settings/webhooks/'
+      path: '/webhooks'
+      fullPath: '/orgs/$orgSlug/projects/$slug/settings/webhooks/'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksIndexRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute
+    }
     '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/': {
       id: '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/'
       path: '/templates'
@@ -1163,6 +1196,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/orgs/$orgSlug/projects/$slug/tickets/$id/split'
       preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugTicketsIdSplitRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/projects/$slug/settings/webhooks/$webhookId': {
+      id: '/_authed/orgs/$orgSlug/projects/$slug/settings/webhooks/$webhookId'
+      path: '/webhooks/$webhookId'
+      fullPath: '/orgs/$orgSlug/projects/$slug/settings/webhooks/$webhookId'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksWebhookIdRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsRouteRoute
     }
     '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey': {
       id: '/_authed/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey'
@@ -1347,7 +1387,9 @@ interface AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteChildren {
   AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsWorkflowRoute
   AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute
   AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute
+  AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksWebhookIdRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksWebhookIdRoute
   AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRoute
+  AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksIndexRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksIndexRoute
   AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesBlocksBlockKeyRoute: typeof AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesBlocksBlockKeyRoute
 }
 
@@ -1367,8 +1409,12 @@ const AuthedOrgsOrgSlugProjectsSlugSettingsRouteRouteChildren: AuthedOrgsOrgSlug
       AuthedOrgsOrgSlugProjectsSlugSettingsIndexRoute,
     AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute:
       AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesTemplateKeyRoute,
+    AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksWebhookIdRoute:
+      AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksWebhookIdRoute,
     AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRoute:
       AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesIndexRoute,
+    AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksIndexRoute:
+      AuthedOrgsOrgSlugProjectsSlugSettingsWebhooksIndexRoute,
     AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesBlocksBlockKeyRoute:
       AuthedOrgsOrgSlugProjectsSlugSettingsTemplatesBlocksBlockKeyRoute,
   }

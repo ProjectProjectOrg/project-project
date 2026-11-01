@@ -174,6 +174,7 @@ Render every ticket in a list with `Row` (`apps/frontend/src/features/tickets/co
 | `apps/frontend/messages/en/figma.json`    | `figma_`                                               |
 | `apps/frontend/messages/en/jira.json`     | `jira_`                                                |
 | `apps/frontend/messages/en/templates.json` | `templates_`                                          |
+| `apps/frontend/messages/en/webhooks.json` | `webhooks_`                                           |
 
 Within each message file, group keys by prefix in the order listed above, then sort alphabetically inside each prefix group.
 
