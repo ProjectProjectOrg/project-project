@@ -32,7 +32,7 @@ import * as Struct from "effect/Struct"
 import * as GitHub from "../github/GitHub"
 import type { MarkdownError } from "../markdown/Markdown"
 import { ProjectGitAutomation } from "../projects/ProjectGitAutomation"
-import { Projects, type ProjectGithubIntegration } from "../projects/Projects"
+import * as ProjectGithub from "../projects/ProjectGithub"
 import {
   gitAutomationActivity,
   moveForDeletedBranch,
@@ -80,7 +80,7 @@ type TicketBranches = Readonly<{
 
 const stacksOf = (
   tickets: Iterable<TicketBranches>,
-  github: ProjectGithubIntegration,
+  github: ProjectGithub.ProjectGithubIntegration,
   raw?: GitHub.RawProjectStates
 ): Record<string, ReadonlyArray<StackLayerState>> =>
   Object.fromEntries(
@@ -195,7 +195,7 @@ const make = Effect.gen(function* () {
   const ticketDocs = yield* TicketDocs
   const { withTicketDocumentLock, withRepositoryBranchLock } =
     yield* TicketDocumentLock.TicketDocumentLock
-  const projects = yield* Projects
+  const projectGithubLinks = yield* ProjectGithub.ProjectGithub
   const gitAutomation = yield* ProjectGitAutomation
   const ticketIndex = yield* TicketIndex
   const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
@@ -248,7 +248,7 @@ const make = Effect.gen(function* () {
       slug,
       id,
       Effect.gen(function* () {
-        const projectGithub = yield* projects.githubIntegration()
+        const projectGithub = yield* projectGithubLinks.integration()
         if (!projectGithub) {
           return yield* new Conflict({ reason: "no_github_connection" })
         }
@@ -291,7 +291,7 @@ const make = Effect.gen(function* () {
       slug,
       id,
       Effect.gen(function* () {
-        const projectGithub = yield* projects.githubIntegration()
+        const projectGithub = yield* projectGithubLinks.integration()
         if (!projectGithub) {
           return yield* new Conflict({ reason: "no_github_connection" })
         }
@@ -353,7 +353,7 @@ const make = Effect.gen(function* () {
       slug,
       id,
       Effect.gen(function* () {
-        const projectGithub = yield* projects.githubIntegration()
+        const projectGithub = yield* projectGithubLinks.integration()
         if (!projectGithub) {
           return yield* new Conflict({ reason: "no_github_connection" })
         }
@@ -434,7 +434,7 @@ const make = Effect.gen(function* () {
       slug,
       id,
       Effect.gen(function* () {
-        const projectGithub = yield* projects.githubIntegration()
+        const projectGithub = yield* projectGithubLinks.integration()
         if (!projectGithub) {
           return yield* new Conflict({ reason: "no_github_connection" })
         }
@@ -523,7 +523,7 @@ const make = Effect.gen(function* () {
 
   const withMergeBaseChain = Effect.fn("TicketGit.withMergeBaseChain")(
     function* (
-      projectGithub: ProjectGithubIntegration,
+      projectGithub: ProjectGithub.ProjectGithubIntegration,
       raw: GitHub.RawProjectStates,
       requested: ReadonlyArray<string>,
       mergeBases: ReadonlyArray<string>
@@ -586,7 +586,7 @@ const make = Effect.gen(function* () {
   )
 
   const fetchGitSnapshot = Effect.fn("TicketGit.fetchGitSnapshot")(function* (
-    projectGithub: ProjectGithubIntegration,
+    projectGithub: ProjectGithub.ProjectGithubIntegration,
     tickets: ReadonlyArray<StackedTicketEntry>
   ) {
     const branches = [
@@ -645,7 +645,7 @@ const make = Effect.gen(function* () {
   const reconcileGitStates = Effect.fn("TicketGit.reconcileGitStates")(
     function* (
       project: TicketProject,
-      projectGithub: ProjectGithubIntegration,
+      projectGithub: ProjectGithub.ProjectGithubIntegration,
       tickets: ReadonlyArray<StackedTicketEntry>,
       raw: GitHub.RawProjectStates
     ): Effect.fn.Return<GitStatesResponse, MarkdownError> {
@@ -912,7 +912,7 @@ const make = Effect.gen(function* () {
     ProjectScope
   > {
     const scope = yield* ProjectScope
-    const projectGithub = yield* projects.githubIntegration()
+    const projectGithub = yield* projectGithubLinks.integration()
 
     if (!projectGithub) {
       return {

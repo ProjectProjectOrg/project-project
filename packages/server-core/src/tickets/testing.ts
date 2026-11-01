@@ -39,11 +39,8 @@ import { TicketIdTaken } from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
 import { ProjectDocs } from "../projects/ProjectDocs"
-import {
-  Projects,
-  type ProjectGithubIntegration,
-  type ProjectsShape
-} from "../projects/Projects"
+import * as ProjectGithub from "../projects/ProjectGithub"
+import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
 import type { GitAutomationConfig } from "./gitAutomation"
 import * as TicketServices from "./layer"
@@ -91,7 +88,7 @@ export const githubIntegration = {
   repoOwner: "acme",
   repoName: "app",
   defaultBaseBranch: "main"
-} satisfies ProjectGithubIntegration
+} satisfies ProjectGithub.ProjectGithubIntegration
 
 export const ticketIndexProject = {
   orgSlug: "org",
@@ -203,9 +200,6 @@ export function makeFakeProjects(
     create: () => unexpected("Projects.create"),
     get: () => unexpected("Projects.get"),
     key: () => Effect.succeed(projectKey(key)),
-    githubIntegration: () => Effect.succeed(null),
-    githubBranches: () => unexpected("Projects.githubBranches"),
-    githubRepos: () => unexpected("Projects.githubRepos"),
     memberIds: () => Effect.succeed(new Set(["user-1", "user-2"])),
     update: () => unexpected("Projects.update"),
     updateSetup: () => unexpected("Projects.updateSetup"),
@@ -215,13 +209,23 @@ export function makeFakeProjects(
     removeMember: () => unexpected("Projects.removeMember"),
     leave: () => unexpected("Projects.leave"),
     cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
-    connectGithub: () => unexpected("Projects.connectGithub"),
-    disconnectGithub: () => unexpected("Projects.disconnectGithub"),
     ...overrides
   } satisfies ProjectsShape
 
   return Layer.succeed(Projects, service)
 }
+
+export const makeFakeProjectGithub = (
+  overrides: Partial<ProjectGithub.ProjectGithub["Service"]> = {}
+) =>
+  Layer.succeed(ProjectGithub.ProjectGithub, {
+    integration: () => Effect.succeed(null),
+    branches: () => unexpected("ProjectGithub.branches"),
+    repos: () => unexpected("ProjectGithub.repos"),
+    connect: () => unexpected("ProjectGithub.connect"),
+    disconnect: () => unexpected("ProjectGithub.disconnect"),
+    ...overrides
+  })
 
 export const scopeIn = (orgSlug: string, slug: string) =>
   projectScope("member", "developer", {
@@ -752,6 +756,7 @@ export const PassthroughLibrary = Layer.mock(Library, {
 export type TicketsLayerOptions = Readonly<{
   projectDocs?: Layer.Layer<ProjectDocs>
   projects?: Layer.Layer<Projects>
+  projectGithub?: Layer.Layer<ProjectGithub.ProjectGithub>
   groups?: Layer.Layer<Groups>
   github?: Layer.Layer<GitHub>
   ticketIndex?: Layer.Layer<TicketIndex | TicketBranchIndex.TicketBranchIndex>
@@ -773,6 +778,7 @@ export function makeTicketsLayer(
     Layer.provide(ticketDocsLayer),
     Layer.provide(options.projectDocs ?? Layer.empty),
     Layer.provide(options.projects ?? makeFakeProjects(key)),
+    Layer.provide(options.projectGithub ?? makeFakeProjectGithub()),
     Layer.provide(options.groups ?? FakeGroups),
     Layer.provide(FakeComments),
     Layer.provide(FakeUsers),
@@ -825,8 +831,10 @@ export const permissionFixture = () => {
   const layer = makeTicketsLayer("T", docs.layer, {
     ticketIndex: makeFakeTicketIndex(docs.documents),
     projects: makeFakeProjects("T", {
-      githubIntegration: () => Effect.succeed(githubIntegration),
       memberIds: () => Effect.succeed(new Set(["user-1", "user-2", "client-1"]))
+    }),
+    projectGithub: makeFakeProjectGithub({
+      integration: () => Effect.succeed(githubIntegration)
     })
   })
   return { docs, layer }

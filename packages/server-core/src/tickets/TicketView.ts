@@ -10,7 +10,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
 import { Attachments } from "../attachments/Attachments"
-import { Projects } from "../projects/Projects"
+import * as ProjectGithub from "../projects/ProjectGithub"
 import { Users } from "../users/Users"
 import { TicketDocs, type TicketDocument } from "./TicketDocs"
 import {
@@ -43,7 +43,7 @@ export class TicketView extends Context.Service<
 
 const make = Effect.gen(function* () {
   const ticketDocs = yield* TicketDocs
-  const projects = yield* Projects
+  const projectGithubLinks = yield* ProjectGithub.ProjectGithub
   const attachments = yield* Attachments
   const users = yield* Users
 
@@ -53,8 +53,8 @@ const make = Effect.gen(function* () {
     if (!scope.permissions.can({ github: ["read"] })) {
       return { integration: null, visible: false } satisfies GitView
     }
-    const integration = yield* projects
-      .githubIntegration()
+    const integration = yield* projectGithubLinks
+      .integration()
       .pipe(Effect.provideService(ProjectScope, scope))
     return { integration, visible: true } satisfies GitView
   })

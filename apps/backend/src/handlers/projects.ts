@@ -6,6 +6,7 @@
 
 import { GitHubIntegrations } from "@pp/integration-github/GitHubIntegrations"
 import { Attachments } from "@pp/server-core/attachments/Attachments"
+import * as ProjectGithub from "@pp/server-core/projects/ProjectGithub"
 import { Projects } from "@pp/server-core/projects/Projects"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import { AppApi, ProjectScope } from "@pp/shared"
@@ -78,8 +79,8 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
         )
       )
       .handle("listGithubRepos", ({ query }) =>
-        Effect.flatMap(Projects, (projects) =>
-          projects.githubRepos(query.q, query.page ?? 1)
+        Effect.flatMap(ProjectGithub.ProjectGithub, (github) =>
+          github.repos(query.q, query.page ?? 1)
         ).pipe(dieOnMarkdown)
       )
       .handle("addMember", ({ payload }) =>
@@ -106,13 +107,13 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
         ).pipe(dieOnMarkdown)
       )
       .handle("connectGithub", ({ payload }) =>
-        Effect.flatMap(Projects, (projects) =>
-          projects.connectGithub(payload)
+        Effect.flatMap(ProjectGithub.ProjectGithub, (github) =>
+          github.connect(payload)
         ).pipe(dieOnMarkdown)
       )
       .handle("disconnectGithub", () =>
-        Effect.flatMap(Projects, (projects) =>
-          projects.disconnectGithub()
+        Effect.flatMap(ProjectGithub.ProjectGithub, (github) =>
+          github.disconnect()
         ).pipe(dieOnMarkdown)
       )
       .handle("gitStates", () =>
@@ -121,8 +122,8 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
         )
       )
       .handle("listBranches", ({ query }) =>
-        Effect.flatMap(Projects, (projects) =>
-          projects.githubBranches(query.q, query.first ?? 30, query.after)
+        Effect.flatMap(ProjectGithub.ProjectGithub, (github) =>
+          github.branches(query.q, query.first ?? 30, query.after)
         ).pipe(dieOnMarkdown)
       )
 )

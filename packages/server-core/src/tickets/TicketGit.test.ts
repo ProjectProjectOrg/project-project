@@ -25,6 +25,7 @@ import {
   makeTicketDocument,
   makeFakeTicketDocs,
   makeFakeProjects,
+  makeFakeProjectGithub,
   scopeIn,
   testInfra,
   FakeDb,
@@ -59,9 +60,10 @@ it.effect("listGitStates fetches only distinct ticket branches", () => {
     Layer.provide(PassthroughLibrary),
     Layer.provide(passthroughTicketActivity),
     Layer.provide(docs.layer),
+    Layer.provide(makeFakeProjects("T")),
     Layer.provide(
-      makeFakeProjects("T", {
-        githubIntegration: () => Effect.succeed(githubIntegration)
+      makeFakeProjectGithub({
+        integration: () => Effect.succeed(githubIntegration)
       })
     ),
     Layer.provide(FakeGroups),
@@ -129,9 +131,10 @@ it.effect(
       Layer.provide(PassthroughLibrary),
       Layer.provide(passthroughTicketActivity),
       Layer.provide(docs.layer),
+      Layer.provide(makeFakeProjects("T")),
       Layer.provide(
-        makeFakeProjects("T", {
-          githubIntegration: () => Effect.succeed(githubIntegration)
+        makeFakeProjectGithub({
+          integration: () => Effect.succeed(githubIntegration)
         })
       ),
       Layer.provide(FakeGroups),
@@ -253,8 +256,9 @@ it.effect(
     )
     const fetchedBranches: Array<ReadonlyArray<string>> = []
     const layer = makeTicketsLayer("T", docs.layer, {
-      projects: makeFakeProjects("T", {
-        githubIntegration: () => Effect.succeed(githubIntegration)
+      projects: makeFakeProjects("T"),
+      projectGithub: makeFakeProjectGithub({
+        integration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: makeFakeTicketIndex(docs.documents),
       github: makeFakeGitHub({
@@ -315,8 +319,9 @@ it.effect(
     const before = docs.documents.get("T-1")
     const beforeGone = docs.documents.get("T-2")
     const layer = makeTicketsLayer("T", docs.layer, {
-      projects: makeFakeProjects("T", {
-        githubIntegration: () => Effect.succeed(githubIntegration)
+      projects: makeFakeProjects("T"),
+      projectGithub: makeFakeProjectGithub({
+        integration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: makeFakeTicketIndex(docs.documents),
       github: makeFakeGitHub({
@@ -363,8 +368,9 @@ it.effect("listGitStates links an external branch and its existing PR", () => {
   const docs = makeFakeTicketDocs(["T-1"])
   const queries: Array<string | undefined> = []
   const layer = makeTicketsLayer("T", docs.layer, {
-    projects: makeFakeProjects("T", {
-      githubIntegration: () => Effect.succeed(githubIntegration)
+    projects: makeFakeProjects("T"),
+    projectGithub: makeFakeProjectGithub({
+      integration: () => Effect.succeed(githubIntegration)
     }),
     ticketIndex: makeFakeTicketIndex(docs.documents),
     github: makeFakeGitHub({
@@ -423,8 +429,9 @@ it.effect(
   () => {
     const docs = makeFakeTicketDocs(["T-1"])
     const layer = makeTicketsLayer("T", docs.layer, {
-      projects: makeFakeProjects("T", {
-        githubIntegration: () => Effect.succeed(githubIntegration)
+      projects: makeFakeProjects("T"),
+      projectGithub: makeFakeProjectGithub({
+        integration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: makeFakeTicketIndex(docs.documents),
       github: makeFakeGitHub({
@@ -494,8 +501,9 @@ const mergedSnapshotLayer = (
   baseRefName: string
 ) =>
   makeTicketsLayer("T", docs.layer, {
-    projects: makeFakeProjects("T", {
-      githubIntegration: () =>
+    projects: makeFakeProjects("T"),
+    projectGithub: makeFakeProjectGithub({
+      integration: () =>
         Effect.succeed({ ...githubIntegration, defaultBaseBranch: "release" })
     }),
     ticketIndex: makeFakeTicketIndex(docs.documents),
@@ -565,8 +573,9 @@ it.effect(
 it.effect("attachBranch moves the ticket by the branch rule", () => {
   const docs = makeFakeTicketDocs(["T-1"])
   const layer = makeTicketsLayer("T", docs.layer, {
-    projects: makeFakeProjects("T", {
-      githubIntegration: () => Effect.succeed(githubIntegration)
+    projects: makeFakeProjects("T"),
+    projectGithub: makeFakeProjectGithub({
+      integration: () => Effect.succeed(githubIntegration)
     }),
     ticketIndex: makeFakeTicketIndex(docs.documents),
     github: makeFakeGitHub({
@@ -596,8 +605,9 @@ it.effect(
     const docs = makeFakeTicketDocs(["T-1"])
     docs.documents.set("T-1", makeTicketDocument("T-1", { branch: "feat/T-1" }))
     const layer = makeTicketsLayer("T", docs.layer, {
-      projects: makeFakeProjects("T", {
-        githubIntegration: () => Effect.succeed(githubIntegration)
+      projects: makeFakeProjects("T"),
+      projectGithub: makeFakeProjectGithub({
+        integration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: makeFakeTicketIndex(docs.documents),
       github: makeFakeGitHub({
@@ -646,8 +656,9 @@ it.effect(
   () => {
     const docs = makeFakeTicketDocs(["T-1"])
     const layer = makeTicketsLayer("T", docs.layer, {
-      projects: makeFakeProjects("T", {
-        githubIntegration: () => Effect.succeed(githubIntegration)
+      projects: makeFakeProjects("T"),
+      projectGithub: makeFakeProjectGithub({
+        integration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: makeFakeTicketIndex(docs.documents),
       github: makeFakeGitHub({
@@ -684,8 +695,9 @@ it.effect(
 it.effect("reserved repository branches require manual attachment", () => {
   const docs = makeFakeTicketDocs(["T-1"])
   const layer = makeTicketsLayer("T", docs.layer, {
-    projects: makeFakeProjects("T", {
-      githubIntegration: () => Effect.succeed(githubIntegration)
+    projects: makeFakeProjects("T"),
+    projectGithub: makeFakeProjectGithub({
+      integration: () => Effect.succeed(githubIntegration)
     }),
     ticketIndex: makeFakeTicketIndex(docs.documents, {
       isRepositoryBranchAttached: (repoId, branch, stackedOnly) => {
@@ -752,8 +764,9 @@ it.effect(
             })
         }),
         {
-          projects: makeFakeProjects("T", {
-            githubIntegration: () =>
+          projects: makeFakeProjects("T"),
+          projectGithub: makeFakeProjectGithub({
+            integration: () =>
               Effect.map(ProjectScope, ({ slug }) => ({
                 ...githubIntegration,
                 projectId: slug,
@@ -861,8 +874,9 @@ it.effect("manual unlink waits for a webhook write and remains unlinked", () =>
       "T",
       Layer.succeed(TicketDocs, coordinatedDocs),
       {
-        projects: makeFakeProjects("T", {
-          githubIntegration: () => Effect.succeed(githubIntegration)
+        projects: makeFakeProjects("T"),
+        projectGithub: makeFakeProjectGithub({
+          integration: () => Effect.succeed(githubIntegration)
         }),
         ticketIndex: indexLayer
       }
@@ -926,8 +940,9 @@ it.effect(
     const docs = makeFakeTicketDocs(["T-1"])
     docs.documents.set("T-1", makeTicketDocument("T-1", { branch: "feat/T-1" }))
     const layer = makeTicketsLayer("T", docs.layer, {
-      projects: makeFakeProjects("T", {
-        githubIntegration: () => Effect.succeed(githubIntegration)
+      projects: makeFakeProjects("T"),
+      projectGithub: makeFakeProjectGithub({
+        integration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: makeFakeTicketIndex(docs.documents),
       github: makeFakeGitHub({
@@ -959,8 +974,9 @@ it.effect(
     const docs = makeFakeTicketDocs(["T-1", "T-2"])
     docs.documents.set("T-1", makeTicketDocument("T-1", { branch: "feat/T-1" }))
     const layer = makeTicketsLayer("T", docs.layer, {
-      projects: makeFakeProjects("T", {
-        githubIntegration: () => Effect.succeed(githubIntegration)
+      projects: makeFakeProjects("T"),
+      projectGithub: makeFakeProjectGithub({
+        integration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: makeFakeTicketIndex(docs.documents),
       github: makeFakeGitHub({
@@ -1027,8 +1043,9 @@ it.effect(
       })
     )
     const layer = makeTicketsLayer("T", docs.layer, {
-      projects: makeFakeProjects("T", {
-        githubIntegration: () => Effect.succeed(githubIntegration)
+      projects: makeFakeProjects("T"),
+      projectGithub: makeFakeProjectGithub({
+        integration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: makeFakeTicketIndex(docs.documents),
       github: makeFakeGitHub({
@@ -1086,8 +1103,9 @@ it.effect("createBranch writes markdown and upserts the ticket index", () => {
     readonly userId: string
   }> = []
   const layer = makeTicketsLayer("T", docs.layer, {
-    projects: makeFakeProjects("T", {
-      githubIntegration: () => Effect.succeed(githubIntegration)
+    projects: makeFakeProjects("T"),
+    projectGithub: makeFakeProjectGithub({
+      integration: () => Effect.succeed(githubIntegration)
     }),
     github: makeFakeGitHub({
       createBranchAsUser: (owner, repo, branch, base, userId) =>
@@ -1133,8 +1151,9 @@ it.effect(
     docs.documents.set("T-1", makeTicketDocument("T-1", { branch: "feat/T-1" }))
     const index = makeRecordingTicketIndex(docs.documents)
     const layer = makeTicketsLayer("T", docs.layer, {
-      projects: makeFakeProjects("T", {
-        githubIntegration: () => Effect.succeed(githubIntegration)
+      projects: makeFakeProjects("T"),
+      projectGithub: makeFakeProjectGithub({
+        integration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: index.layer
     })
@@ -1160,8 +1179,9 @@ it.effect(
   () => {
     const docs = makeFakeTicketDocs(["T-1"])
     const layer = makeTicketsLayer("T", docs.layer, {
-      projects: makeFakeProjects("T", {
-        githubIntegration: () => Effect.succeed(githubIntegration)
+      projects: makeFakeProjects("T"),
+      projectGithub: makeFakeProjectGithub({
+        integration: () => Effect.succeed(githubIntegration)
       }),
       ticketIndex: makeFakeTicketIndex(docs.documents),
       github: makeFakeGitHub({
@@ -1231,8 +1251,9 @@ it.effect(
       "T",
       Layer.succeed(TicketDocs, failingDocs),
       {
-        projects: makeFakeProjects("T", {
-          githubIntegration: () => Effect.succeed(githubIntegration)
+        projects: makeFakeProjects("T"),
+        projectGithub: makeFakeProjectGithub({
+          integration: () => Effect.succeed(githubIntegration)
         }),
         ticketIndex: makeFakeTicketIndex(docs.documents, {
           list: () =>
@@ -1306,8 +1327,9 @@ const stackLayer = (
   github: Partial<GitHubShape> = {}
 ) =>
   makeTicketsLayer("T", docs.layer, {
-    projects: makeFakeProjects("T", {
-      githubIntegration: () => Effect.succeed(githubIntegration)
+    projects: makeFakeProjects("T"),
+    projectGithub: makeFakeProjectGithub({
+      integration: () => Effect.succeed(githubIntegration)
     }),
     ticketIndex: makeFakeTicketIndex(docs.documents),
     github: makeFakeGitHub({

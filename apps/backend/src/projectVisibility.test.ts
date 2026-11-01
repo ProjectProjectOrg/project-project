@@ -18,9 +18,9 @@ import { FigmaLinksLive } from "@pp/server-core/figma/FigmaLinksLive"
 import { GitHub } from "@pp/server-core/github/GitHub"
 import { BannerPlaceholders } from "@pp/server-core/projects/BannerPlaceholders"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
+import * as ProjectServices from "@pp/server-core/projects/layer"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { Projects } from "@pp/server-core/projects/Projects"
-import { ProjectsLive } from "@pp/server-core/projects/ProjectsLive"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { S3Storage } from "@pp/server-core/storage/S3Storage"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
@@ -189,7 +189,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       Layer.orDie
     )
     ticketIndexLayer = ticketIndex
-    projectsLayer = ProjectsLive.pipe(
+    projectsLayer = ProjectServices.layer.pipe(
       Layer.provideMerge(AccessLive),
       Layer.provide(TicketRewrites.layer),
       Layer.provide(TicketDocumentLock.layer),

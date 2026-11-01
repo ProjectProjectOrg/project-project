@@ -94,9 +94,6 @@ const FakeProjects = Layer.succeed(Projects, {
   create: () => unexpected("Projects.create"),
   get: () => unexpected("Projects.get"),
   key: () => unexpected("Projects.key"),
-  githubIntegration: () => unexpected("Projects.githubIntegration"),
-  githubBranches: () => unexpected("Projects.githubBranches"),
-  githubRepos: () => unexpected("Projects.githubRepos"),
   memberIds: () => Effect.succeed(new Set(["user-1", "user-2"])),
   update: () => unexpected("Projects.update"),
   updateSetup: () => unexpected("Projects.updateSetup"),
@@ -105,9 +102,7 @@ const FakeProjects = Layer.succeed(Projects, {
   updateMember: () => unexpected("Projects.updateMember"),
   removeMember: () => unexpected("Projects.removeMember"),
   leave: () => unexpected("Projects.leave"),
-  cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
-  connectGithub: () => unexpected("Projects.connectGithub"),
-  disconnectGithub: () => unexpected("Projects.disconnectGithub")
+  cancelPendingMember: () => unexpected("Projects.cancelPendingMember")
 } satisfies ProjectsShape)
 
 const FakeTicketIndex = Layer.succeed(TicketIndex, {

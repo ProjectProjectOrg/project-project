@@ -10,7 +10,7 @@ import {
 import * as Effect from "effect/Effect"
 
 import type { MarkdownError } from "../markdown/Markdown"
-import type { ProjectGithubIntegration } from "../projects/Projects"
+import type * as ProjectGithub from "../projects/ProjectGithub"
 import { stackLayerStates } from "./stackLayerStates"
 import type { MalformedTicketDocument, TicketDocument } from "./TicketDocs"
 import type { TicketIndexEntry } from "./TicketIndex"
@@ -18,7 +18,7 @@ import type { TicketIndexEntry } from "./TicketIndex"
 export type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 
 export type GitView = Readonly<{
-  integration: ProjectGithubIntegration | null
+  integration: ProjectGithub.ProjectGithubIntegration | null
   visible: boolean
 }>
 
@@ -36,7 +36,7 @@ export const presentTicket = <T extends Ticket>(view: GitView, ticket: T): T =>
 
 export function pendingGitState(
   document: Pick<TicketDocument, "branch" | "pr" | "prState">,
-  github: ProjectGithubIntegration | null,
+  github: ProjectGithub.ProjectGithubIntegration | null,
   branchDeletedAt: Date | null = null
 ): Ticket["gitState"] {
   const baseBranch = github?.defaultBaseBranch ?? "main"

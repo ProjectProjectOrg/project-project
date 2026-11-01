@@ -54,9 +54,9 @@ import { OAuthApplicationsLive } from "@pp/server-core/oauth/OAuthApplicationsLi
 import { OrgLive } from "@pp/server-core/organizations/OrgLive"
 import { BannerPlaceholdersLive } from "@pp/server-core/projects/BannerPlaceholdersLive"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
+import * as ProjectServices from "@pp/server-core/projects/layer"
 import { ProjectDocsLive } from "@pp/server-core/projects/ProjectDocsLive"
 import { ProjectGitAutomationLive } from "@pp/server-core/projects/ProjectGitAutomationLive"
-import { ProjectsLive } from "@pp/server-core/projects/ProjectsLive"
 import { ProjectStatusesLive } from "@pp/server-core/projects/ProjectStatusesLive"
 import { SystemProjectsLive } from "@pp/server-core/projects/SystemProjectsLive"
 import { OrgStorageLive } from "@pp/server-core/storage/OrgStorageLive"
@@ -168,7 +168,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(LinkPreviewsLive),
     Layer.provideMerge(CommentsLive),
     Layer.provideMerge(GroupsLive),
-    Layer.provideMerge(ProjectsLive),
+    Layer.provideMerge(ProjectServices.layer),
     Layer.provideMerge(OrgLive),
     Layer.provideMerge(AccessLive),
     Layer.provideMerge(GitHubLive),
