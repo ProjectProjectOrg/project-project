@@ -197,26 +197,37 @@ const make = Effect.gen(function* () {
     input: UpdateWebhookInput
   ) {
     yield* find(id)
-    yield* endpoints.update(id, {
-      ...(input.url === undefined ? {} : { url: input.url }),
-      ...(input.headers === undefined ? {} : { headers: input.headers })
-    })
-    if (input.events !== undefined) {
-      const events = [...new Set(input.events)]
-      yield* db
-        .update(projectIntegrationLink)
-        .set({ subscribedEvents: events, updatedAt: sql`now()` })
-        .where(
-          eq(
-            projectIntegrationLink.id,
-            db
-              .select({ id: webhookEndpoint.projectIntegrationLinkId })
-              .from(webhookEndpoint)
-              .where(eq(webhookEndpoint.id, id))
-          )
-        )
-        .pipe(Effect.orDie)
-    }
+    yield* db
+      .transaction(() =>
+        Effect.gen(function* () {
+          yield* endpoints.update(id, {
+            ...(input.url === undefined ? {} : { url: input.url }),
+            ...(input.headers === undefined ? {} : { headers: input.headers })
+          })
+          if (input.events === undefined) return
+          yield* db
+            .update(projectIntegrationLink)
+            .set({
+              subscribedEvents: [...new Set(input.events)],
+              updatedAt: sql`now()`
+            })
+            .where(
+              eq(
+                projectIntegrationLink.id,
+                db
+                  .select({ id: webhookEndpoint.projectIntegrationLinkId })
+                  .from(webhookEndpoint)
+                  .where(eq(webhookEndpoint.id, id))
+              )
+            )
+        })
+      )
+      .pipe(
+        Effect.catchTags({
+          SqlError: Effect.die,
+          EffectDrizzleQueryError: Effect.die
+        })
+      )
     return yield* find(id)
   })
 
@@ -338,6 +349,8 @@ const make = Effect.gen(function* () {
           const row = yield* delivery(id, deliveryId)
           if (row.state === "delivered")
             return yield* new Conflict({ reason: "webhook_delivery_delivered" })
+          if (row.lastOutcome === "body_too_large")
+            return yield* new Conflict({ reason: "webhook_delivery_too_large" })
           if (now.getTime() - row.createdAt.getTime() >= maxDeliveryAgeMs)
             return yield* new Conflict({ reason: "webhook_delivery_too_old" })
           if (row.state !== "pending")

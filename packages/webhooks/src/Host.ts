@@ -2,9 +2,9 @@ import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import type * as Effect from "effect/Effect"
 
-export class WebhookSecretError extends Data.TaggedError("WebhookSecretError")<{
-  readonly reason: string
-}> {}
+export class WebhookSecretError extends Data.TaggedError("WebhookSecretError")<
+  Readonly<{ reason: string }>
+> {}
 
 export type SealedSecret = Readonly<{
   ciphertext: string

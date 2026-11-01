@@ -61,6 +61,7 @@ export type UrlProblem =
   | "unresolvable"
 
 const timeoutMs = 10_000
+const minSecretLength = 6
 const excerptBytes = 64 * 1024
 const storedExcerptChars = 1024
 
@@ -88,7 +89,7 @@ const resolveAddresses = (url: URL) => {
 
 const redact = (text: string, secrets: ReadonlyArray<string>) =>
   secrets
-    .filter((value) => value.length >= 6)
+    .filter((value) => value.length >= minSecretLength)
     .toSorted((a, b) => b.length - a.length)
     .reduce((acc, value) => acc.split(value).join("[redacted]"), text)
 
@@ -105,7 +106,7 @@ const urlSecrets = (url: URL) =>
     ...url.pathname.split("/"),
     ...url.searchParams.values(),
     url.search.slice(1)
-  ].filter((part) => part.length >= 8)
+  ].filter((part) => part.length >= minSecretLength)
 
 const readExcerpt = (stream: Stream.Stream<Uint8Array, unknown>) => {
   let total = 0
@@ -126,11 +127,16 @@ const readExcerpt = (stream: Stream.Stream<Uint8Array, unknown>) => {
   )
 }
 
+type TransportFailure = Readonly<{
+  reason?: Readonly<{ cause?: unknown }>
+}>
+
+type CodedCause = Readonly<{ code?: unknown }>
+
 const failureReason = (error: unknown): AttemptResult => {
-  const cause = (error as { reason?: { cause?: unknown } } | null)?.reason
-    ?.cause
+  const cause = (error as TransportFailure | null)?.reason?.cause
   const text = String(
-    (cause as { code?: unknown } | null)?.code ?? cause ?? error
+    (cause as CodedCause | null)?.code ?? cause ?? error
   ).toUpperCase()
   return {
     _tag: "Failure",

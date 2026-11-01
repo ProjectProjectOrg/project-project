@@ -41,6 +41,10 @@ beforeAll(() => {
             status: 401
           }
         )
+      if (url.pathname.startsWith("/echo/"))
+        return new Response(`unknown ${url.pathname}${url.search}`, {
+          status: 404
+        })
       if (url.pathname === "/redirect")
         return new Response(null, {
           status: 302,
@@ -152,6 +156,19 @@ describe("WebhookSender", () => {
         status: 401,
         excerpt: "bad token [redacted] and [redacted]"
       })
+    }).pipe(Effect.provide(sender(true)))
+  )
+
+  it.effect("redacts short tokens from the URL the receiver echoes", () =>
+    Effect.gen(function* () {
+      const send = yield* Sender.WebhookSender
+      const result = yield* send.send(
+        target("/echo/abc1234?k=tok5678"),
+        delivery
+      )
+      expect(result._tag === "Response" && result.excerpt).toBe(
+        "unknown /echo/[redacted]?[redacted]"
+      )
     }).pipe(Effect.provide(sender(true)))
   )
 

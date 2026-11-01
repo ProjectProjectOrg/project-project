@@ -87,6 +87,10 @@ describe.skipIf(!databaseUrl)("Outbound webhooks", () => {
           headers: Object.fromEntries(request.headers),
           body: await request.text()
         })
+        if (path === "/fenced")
+          await pool.query(
+            "update webhook_endpoint set lease_token = 'stolen' where lease_token is not null and project_integration_link_id is not null and url_display like '%127.0.0.1%' and id in (select endpoint_id from webhook_delivery where state = 'pending')"
+          )
         return new Response("thanks", { status: replies.get(path) ?? 200 })
       }
     })
@@ -541,7 +545,26 @@ describe.skipIf(!databaseUrl)("Outbound webhooks", () => {
     })
   )
 
-  it.live("discards a result after the endpoint changed mid-flight", () =>
+  it.live("does not send after a PM disables a claimed webhook", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture()
+      const { webhook } = yield* f.hooks((h) =>
+        h.create({ url: f.url("/stopped"), events: ["ticket_status_changed"] })
+      )
+      yield* f.createTicket()
+      yield* f.editTicket({ status: decodeStatus("doing") })
+      yield* f.intake()
+      const claims = yield* f.dispatcher((d) => d.claim(8))
+      yield* f.hooks((h) => h.disable(webhook.id))
+      yield* f.dispatcher((d) => d.process(claims[0]!))
+      expect(received).toEqual([])
+      expect(yield* f.deliveries(webhook.id)).toEqual([
+        expect.objectContaining({ state: "pending", attempts: 0 })
+      ])
+    })
+  )
+
+  it.live("writes nothing when the lease is lost while sending", () =>
     Effect.gen(function* () {
       const f = yield* fixture()
       const { webhook } = yield* f.hooks((h) =>
@@ -550,14 +573,15 @@ describe.skipIf(!databaseUrl)("Outbound webhooks", () => {
       yield* f.createTicket()
       yield* f.editTicket({ status: decodeStatus("doing") })
       yield* f.intake()
-      const claims = yield* f.dispatcher((d) => d.claim(8))
-      expect(claims).toHaveLength(1)
-      yield* f.hooks((h) => h.rotateSecret(webhook.id))
-      yield* f.dispatcher((d) => d.process(claims[0]!))
+      yield* f.drain()
       expect(received).toHaveLength(1)
       expect(yield* f.deliveries(webhook.id)).toEqual([
         expect.objectContaining({ state: "pending", attempts: 0 })
       ])
+      expect(yield* f.endpoint(webhook.id)).toMatchObject({
+        lease_token: "stolen",
+        failure_count: 0
+      })
     })
   )
 
@@ -597,6 +621,18 @@ describe.skipIf(!databaseUrl)("Outbound webhooks", () => {
       expect(decodeBody(received.at(-1)?.body ?? "")).toMatchObject({
         type: "ping",
         data: {}
+      })
+
+      yield* query(
+        "insert into webhook_delivery (id, endpoint_id, event, body, kind, state, last_outcome, created_at, finished_at) values ('huge', $1, 'ticket_created', '{}', 'event', 'failed', 'body_too_large', now(), now())",
+        [webhook.id]
+      )
+      const tooLarge = yield* f
+        .hooks((h) => h.retryDelivery(webhook.id, "huge"))
+        .pipe(Effect.flip)
+      expect(tooLarge).toMatchObject({
+        _tag: "Conflict",
+        reason: "webhook_delivery_too_large"
       })
 
       const delivered = yield* f

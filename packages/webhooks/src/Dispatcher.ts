@@ -241,10 +241,17 @@ const make = Effect.gen(function* () {
         createdAt: webhookDelivery.createdAt
       })
       .from(webhookDelivery)
+      .innerJoin(
+        webhookEndpoint,
+        eq(webhookEndpoint.id, webhookDelivery.endpointId)
+      )
       .where(
         and(
           eq(webhookDelivery.endpointId, claim.endpointId),
-          pendingWithinWindow
+          pendingWithinWindow,
+          eq(webhookEndpoint.status, "active"),
+          eq(webhookEndpoint.leaseToken, claim.token),
+          gt(webhookEndpoint.leaseExpiresAt, sql`now()`)
         )
       )
       .orderBy(asc(webhookDelivery.createdAt), asc(webhookDelivery.id))
