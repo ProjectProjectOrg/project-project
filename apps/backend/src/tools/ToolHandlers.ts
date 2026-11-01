@@ -8,7 +8,7 @@ import { Library } from "@pp/server-core/library/Library"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
-import { Projects } from "@pp/server-core/projects/Projects"
+import * as Projects from "@pp/server-core/projects/Projects"
 import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { Tags } from "@pp/server-core/tags/Tags"
@@ -32,7 +32,7 @@ export const toolDependencies = [
   ProjectGitAutomation,
   ProjectMembers.ProjectMembers,
   ProjectStatuses,
-  Projects,
+  Projects.Projects,
   Tags,
   TicketDocs,
   TicketGit.TicketGit,

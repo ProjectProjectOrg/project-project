@@ -8,7 +8,7 @@ import { GitHubIntegrations } from "@pp/integration-github/GitHubIntegrations"
 import { Attachments } from "@pp/server-core/attachments/Attachments"
 import * as ProjectGithub from "@pp/server-core/projects/ProjectGithub"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
-import { Projects } from "@pp/server-core/projects/Projects"
+import * as Projects from "@pp/server-core/projects/Projects"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import { AppApi, ProjectScope } from "@pp/shared"
 import * as Effect from "effect/Effect"
@@ -22,34 +22,34 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
   (handlers) =>
     handlers
       .handle("list", () =>
-        Effect.flatMap(Projects, (projects) => projects.list()).pipe(
+        Effect.flatMap(Projects.Projects, (projects) => projects.list()).pipe(
           dieOnMarkdown
         )
       )
       .handle("create", ({ payload }) =>
-        Effect.flatMap(Projects, (projects) => projects.create(payload)).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(Projects.Projects, (projects) =>
+          projects.create(payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("get", () =>
-        Effect.flatMap(Projects, (projects) => projects.get()).pipe(
+        Effect.flatMap(Projects.Projects, (projects) => projects.get()).pipe(
           dieOnMarkdown
         )
       )
       .handle("update", ({ payload }) =>
-        Effect.flatMap(Projects, (projects) => projects.update(payload)).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(Projects.Projects, (projects) =>
+          projects.update(payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("updateSetup", ({ payload }) =>
-        Effect.flatMap(Projects, (projects) =>
+        Effect.flatMap(Projects.Projects, (projects) =>
           projects.updateSetup(payload)
         ).pipe(dieOnMarkdown)
       )
       .handle("delete", () =>
         Effect.gen(function* () {
           const { orgSlug, slug } = yield* ProjectScope
-          const projects = yield* Projects
+          const projects = yield* Projects.Projects
           const attachments = yield* Attachments
           yield* attachments.orphanProject(orgSlug, slug, projects.remove())
         }).pipe(dieOnMarkdown)

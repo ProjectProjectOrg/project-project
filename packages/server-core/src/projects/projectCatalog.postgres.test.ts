@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 import { Access } from "../access/Access"
 import { testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
-import { Projects } from "./Projects"
+import * as Projects from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -126,10 +126,12 @@ describe.skipIf(!databaseUrl)("project catalog", () => {
   it.effect("pages projects newest first", () =>
     Effect.gen(function* () {
       const first = yield* inOrg(
-        Effect.flatMap(Projects, (projects) => projects.listPaged(undefined, 2))
+        Effect.flatMap(Projects.Projects, (projects) =>
+          projects.listPaged(undefined, 2)
+        )
       )
       const all = yield* inOrg(
-        Effect.flatMap(Projects, (projects) =>
+        Effect.flatMap(Projects.Projects, (projects) =>
           projects.listPaged(undefined, 10)
         )
       )
@@ -152,7 +154,7 @@ describe.skipIf(!databaseUrl)("project catalog", () => {
       )
       const detail = yield* inProject(
         slugs[0],
-        Effect.flatMap(Projects, (projects) =>
+        Effect.flatMap(Projects.Projects, (projects) =>
           projects.updateSetup({ invitePeopleDismissedAt: dismissedAt })
         )
       )
@@ -168,11 +170,13 @@ describe.skipIf(!databaseUrl)("project catalog", () => {
     Effect.gen(function* () {
       const { tracer, named } = recordingTracer()
       yield* inOrg(
-        Effect.flatMap(Projects, (projects) => projects.listPaged(undefined, 2))
+        Effect.flatMap(Projects.Projects, (projects) =>
+          projects.listPaged(undefined, 2)
+        )
       ).pipe(Effect.withTracer(tracer))
       yield* inProject(
         slugs[1],
-        Effect.flatMap(Projects, (projects) => projects.get())
+        Effect.flatMap(Projects.Projects, (projects) => projects.get())
       ).pipe(Effect.withTracer(tracer))
       expect(named("Projects.list")).toEqual([
         expect.objectContaining({

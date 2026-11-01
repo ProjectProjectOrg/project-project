@@ -26,7 +26,7 @@ import { databaseLayer } from "../../test/database"
 import { projectScope } from "../access/testing"
 import { MarkdownError } from "../markdown/Markdown"
 import * as ProjectMembers from "../projects/ProjectMembers"
-import { Projects, type ProjectsShape } from "../projects/Projects"
+import * as Projects from "../projects/Projects"
 import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
 import {
   MalformedTicketDocument,
@@ -89,7 +89,7 @@ const document: TicketDocument = {
 const projectId = randomUUID()
 
 const FakeProjects = Layer.merge(
-  Layer.succeed(Projects, {
+  Layer.succeed(Projects.Projects, {
     list: () => unexpected("Projects.list"),
     listPaged: () => unexpected("Projects.listPaged"),
     create: () => unexpected("Projects.create"),
@@ -98,7 +98,7 @@ const FakeProjects = Layer.merge(
     update: () => unexpected("Projects.update"),
     updateSetup: () => unexpected("Projects.updateSetup"),
     remove: () => unexpected("Projects.remove")
-  } satisfies ProjectsShape),
+  } satisfies Projects.Projects["Service"]),
   Layer.mock(ProjectMembers.ProjectMembers, {
     memberIds: () => Effect.succeed(new Set(["user-1", "user-2"]))
   })

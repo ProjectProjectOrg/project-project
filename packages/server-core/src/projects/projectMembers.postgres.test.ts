@@ -28,7 +28,7 @@ import { MalformedTicketDocument } from "../tickets/TicketDocs"
 import type { TicketIndex } from "../tickets/TicketIndex"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import * as ProjectMembers from "./ProjectMembers"
-import { Projects } from "./Projects"
+import * as Projects from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
 const decodeSlugSync = Schema.decodeSync(Slug)
@@ -66,7 +66,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
   const admin = randomUUID()
   let pool: Pool
   let projectsLayer: Layer.Layer<
-    | Projects
+    | Projects.Projects
     | ProjectMembers.ProjectMembers
     | TicketIndex
     | TicketRewrites.TicketRewrites
@@ -84,10 +84,11 @@ describe.skipIf(!databaseUrl)("project members", () => {
     (as: string) =>
     <A, E, R>(
       f: (
-        projects: Projects["Service"] & ProjectMembers.ProjectMembers["Service"]
+        projects: Projects.Projects["Service"] &
+          ProjectMembers.ProjectMembers["Service"]
       ) => Effect.Effect<A, E, R>
     ) =>
-      Effect.all([Projects, ProjectMembers.ProjectMembers]).pipe(
+      Effect.all([Projects.Projects, ProjectMembers.ProjectMembers]).pipe(
         Effect.flatMap(([projects, members]) => f({ ...projects, ...members })),
         Effect.provideServiceEffect(
           ProjectScope,

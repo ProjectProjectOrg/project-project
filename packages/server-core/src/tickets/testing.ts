@@ -41,7 +41,7 @@ import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import * as ProjectGithub from "../projects/ProjectGithub"
 import * as ProjectMembers from "../projects/ProjectMembers"
-import { Projects, type ProjectsShape } from "../projects/Projects"
+import * as Projects from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
 import type { GitAutomationConfig } from "./gitAutomation"
 import * as TicketServices from "./layer"
@@ -192,7 +192,7 @@ export function makeFakeTicketDocs(initialIds: ReadonlyArray<string>) {
 
 export function makeFakeProjects(
   key: string,
-  overrides: Partial<ProjectsShape> = {}
+  overrides: Partial<Projects.Projects["Service"]> = {}
 ) {
   const service = {
     list: () => unexpected("Projects.list"),
@@ -204,9 +204,9 @@ export function makeFakeProjects(
     updateSetup: () => unexpected("Projects.updateSetup"),
     remove: () => unexpected("Projects.remove"),
     ...overrides
-  } satisfies ProjectsShape
+  } satisfies Projects.Projects["Service"]
 
-  return Layer.succeed(Projects, service)
+  return Layer.succeed(Projects.Projects, service)
 }
 
 export const makeFakeProjectMembers = (
@@ -763,7 +763,7 @@ export const PassthroughLibrary = Layer.mock(Library, {
 
 export type TicketsLayerOptions = Readonly<{
   projectDocs?: Layer.Layer<ProjectDocs>
-  projects?: Layer.Layer<Projects>
+  projects?: Layer.Layer<Projects.Projects>
   projectGithub?: Layer.Layer<ProjectGithub.ProjectGithub>
   projectMembers?: Layer.Layer<ProjectMembers.ProjectMembers>
   groups?: Layer.Layer<Groups>
