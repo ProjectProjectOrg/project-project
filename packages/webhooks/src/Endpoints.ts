@@ -13,6 +13,7 @@ import * as Schema from "effect/Schema"
 
 import { bodyBytes, maxBodyBytes } from "./envelope"
 import { WebhookHost, type WebhookSecretError } from "./Host"
+import { trimHistory } from "./retention"
 import * as Sender from "./Sender"
 import { fingerprint, generateSecret } from "./signature"
 
@@ -306,12 +307,14 @@ const make = Effect.gen(function* () {
       .insert(webhookDelivery)
       .values({
         ...delivery,
+        body: tooLarge ? "" : delivery.body,
         state: tooLarge ? "failed" : "pending",
         lastOutcome: tooLarge ? "body_too_large" : null,
         finishedAt: tooLarge ? sql`now()` : null
       })
       .onConflictDoNothing()
       .pipe(Effect.orDie)
+    if (tooLarge) yield* trimHistory(db, delivery.endpointId).pipe(Effect.orDie)
   })
 
   const target = Effect.fn("WebhookEndpoints.target")(function* (id: string) {

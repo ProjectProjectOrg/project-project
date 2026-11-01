@@ -19,6 +19,7 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import { bodyBytes, eventEnvelope, maxBodyBytes } from "./envelope"
+import { trimHistory } from "./retention"
 
 const decodeEvent = Schema.decodeUnknownOption(ProjectEvent)
 
@@ -99,7 +100,7 @@ const make = Effect.gen(function* () {
           id: row.id,
           endpointId: row.endpointId,
           event: event.value.kind,
-          body,
+          body: tooLarge ? "" : body,
           kind: "event" as const,
           createdAt: row.createdAt,
           state: tooLarge ? ("failed" as const) : ("pending" as const),
@@ -117,6 +118,15 @@ const make = Effect.gen(function* () {
               .insert(webhookDelivery)
               .values(deliveries)
               .onConflictDoNothing()
+          yield* Effect.forEach(
+            new Set(
+              deliveries.flatMap((delivery) =>
+                delivery.state === "failed" ? [delivery.endpointId] : []
+              )
+            ),
+            (endpointId) => trimHistory(db, endpointId),
+            { discard: true }
+          )
           yield* db
             .update(projectIntegrationEvent)
             .set({ consumedAt })

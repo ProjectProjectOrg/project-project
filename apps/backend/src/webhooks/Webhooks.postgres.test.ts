@@ -27,6 +27,7 @@ import {
   TicketStatus
 } from "@pp/shared"
 import * as Dispatcher from "@pp/webhooks/Dispatcher"
+import * as Endpoints from "@pp/webhooks/Endpoints"
 import * as Events from "@pp/webhooks/Events"
 import * as ProjectWebhooks from "@pp/webhooks/ProjectWebhooks"
 import * as WebhookServices from "@pp/webhooks/Services"
@@ -298,6 +299,7 @@ describe.skipIf(!databaseUrl)("Outbound webhooks", () => {
       deliveries,
       endpoint,
       makeDue,
+      run,
       url
     }
   })
@@ -652,6 +654,57 @@ describe.skipIf(!databaseUrl)("Outbound webhooks", () => {
         reason: "webhook_delivery_delivered"
       })
     })
+  )
+
+  it.live("stops sending once the organization is deleted", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture()
+      const { webhook } = yield* f.hooks((h) =>
+        h.create({ url: f.url("/deleted-org"), events: ["ticket_created"] })
+      )
+      yield* f.hooks((h) => h.test(webhook.id))
+      yield* query("update organization set deleted_at = now() where id = $1", [
+        f.orgId
+      ])
+      expect(yield* f.dispatcher((d) => d.claim(8))).toEqual([])
+      expect(received).toEqual([])
+    })
+  )
+
+  it.live(
+    "keeps oversized deliveries within retention, without their body",
+    () =>
+      Effect.gen(function* () {
+        const f = yield* fixture()
+        const { webhook } = yield* f.hooks((h) =>
+          h.create({ url: f.url("/huge"), events: ["ticket_created"] })
+        )
+        const body = "x".repeat(1024 * 1024 + 1)
+        yield* f.run(
+          Effect.flatMap(Endpoints.WebhookEndpoints, (endpoints) =>
+            Effect.forEach(
+              Array.from({ length: 55 }, (_, n) => n),
+              (n) =>
+                endpoints.enqueue({
+                  id: `huge-${n}`,
+                  endpointId: webhook.id,
+                  event: "ticket_created",
+                  body,
+                  kind: "event",
+                  createdAt: DateTime.toDate(
+                    DateTime.makeUnsafe(Date.UTC(2026, 10, 1, 0, n))
+                  )
+                }),
+              { discard: true }
+            )
+          )
+        )
+        const [stats] = yield* query<{ rows: number; bytes: number }>(
+          "select count(*)::int as rows, coalesce(sum(length(body)), 0)::int as bytes from webhook_delivery where endpoint_id = $1",
+          [webhook.id]
+        )
+        expect(stats).toEqual({ rows: 50, bytes: 0 })
+      })
   )
 
   it.live("expires deliveries older than a day without sending them", () =>

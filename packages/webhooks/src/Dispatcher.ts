@@ -1,5 +1,6 @@
 import { Db } from "@pp/db"
 import {
+  organization,
   projectIntegrationLink,
   webhookDelivery,
   webhookEndpoint
@@ -30,12 +31,14 @@ import {
   minSendIntervalMs,
   type AttemptResult
 } from "./policy"
+import { trimHistory } from "./retention"
 import * as Sender from "./Sender"
 
-export const keepDeliveries = { event: 50, test: 10, expired: 20 } as const
 const leaseSeconds = 60
 const maxAge = sql.raw(`interval '${maxDeliveryAgeMs / 1000} seconds'`)
 const sendFloor = sql.raw(`interval '${minSendIntervalMs} milliseconds'`)
+
+const liveOrganization = sql`exists (select 1 from ${organization} where ${organization.id} = ${webhookEndpoint.organizationId} and ${organization.deletedAt} is null)`
 
 export type Claim = Readonly<{ endpointId: string; token: string }>
 
@@ -58,26 +61,7 @@ const make = Effect.gen(function* () {
     gt(webhookDelivery.createdAt, sql`now() - ${maxAge}`)
   )
 
-  const trim = (endpointId: string) =>
-    db.execute(
-      sql`delete from ${webhookDelivery} where ${webhookDelivery.id} in (
-        select id from (
-          select id, bucket, row_number() over (
-            partition by bucket order by created_at desc, id desc
-          ) as position
-          from (
-            select id, created_at,
-              case when state = 'expired' then 'expired' else kind end as bucket
-            from ${webhookDelivery}
-            where endpoint_id = ${endpointId} and state <> 'pending'
-          ) finished
-        ) ranked
-        where (bucket = 'event' and position > ${keepDeliveries.event})
-          or (bucket = 'test' and position > ${keepDeliveries.test})
-          or (bucket = 'expired' and position > ${keepDeliveries.expired})
-      )`,
-      "objects"
-    )
+  const trim = (endpointId: string) => trimHistory(db, endpointId)
 
   const claim = Effect.fn("WebhookDispatcher.claim")(function* (limit: number) {
     if (limit <= 0) return []
@@ -87,6 +71,7 @@ const make = Effect.gen(function* () {
       .where(
         and(
           eq(webhookEndpoint.status, "active"),
+          liveOrganization,
           lte(webhookEndpoint.nextAttemptAt, sql`now()`),
           or(
             isNull(webhookEndpoint.lastAttemptAt),
@@ -250,6 +235,7 @@ const make = Effect.gen(function* () {
           eq(webhookDelivery.endpointId, claim.endpointId),
           pendingWithinWindow,
           eq(webhookEndpoint.status, "active"),
+          liveOrganization,
           eq(webhookEndpoint.leaseToken, claim.token),
           gt(webhookEndpoint.leaseExpiresAt, sql`now()`)
         )
