@@ -19,7 +19,10 @@ import {
   type WebhookDeliveriesRequest
 } from "@/features/webhooks/atoms/webhooks"
 import { canRetry } from "@/features/webhooks/lib/webhookEvents"
-import { formatWhen } from "@/features/webhooks/lib/webhookStatus"
+import {
+  deliveryOutcomeText,
+  formatWhen
+} from "@/features/webhooks/lib/webhookStatus"
 import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -30,11 +33,6 @@ const stateLabel: Readonly<Record<WebhookDelivery["state"], () => string>> = {
   failed: () => m.webhooks_delivery_failed(),
   expired: () => m.webhooks_delivery_expired()
 }
-
-const outcomeText = (delivery: WebhookDelivery) =>
-  delivery.lastStatusCode !== null
-    ? m.webhooks_delivery_status_code({ code: delivery.lastStatusCode })
-    : delivery.lastOutcome
 
 export function DeliveryLog({
   req
@@ -95,7 +93,7 @@ function DeliveryRow({
   const target = { req, deliveryId: delivery.id }
   const retry = useAtomSet(retryWebhookDelivery(target))
   const state = useAtomValue(retryWebhookDelivery(target))
-  const outcome = outcomeText(delivery)
+  const outcome = deliveryOutcomeText(delivery)
   return (
     <SettingsRow
       label={
