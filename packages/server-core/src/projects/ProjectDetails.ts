@@ -36,7 +36,7 @@ import * as Schema from "effect/Schema"
 
 import type { MarkdownError } from "../markdown/Markdown"
 import { ProjectDocs } from "./ProjectDocs"
-import type { ProjectGithubIntegration } from "./ProjectGithub"
+import type * as ProjectGithub from "./ProjectGithub"
 import { readProjectDocument } from "./readProjectDocument"
 
 const decodeUserId = Schema.decodeSync(UserId)
@@ -75,10 +75,6 @@ const rescoped = (
   }
 }
 
-/**
- * Reads and writes the parts of a project's detail that Projects and
- * ProjectGithub share. Internal to the projects module.
- */
 export class ProjectDetails extends Context.Service<
   ProjectDetails,
   Readonly<{
@@ -97,7 +93,7 @@ export class ProjectDetails extends Context.Service<
     ) => Effect.Effect<ReadonlyArray<PendingProjectMember>>
     githubIntegration: (
       projectId: string
-    ) => Effect.Effect<ProjectGithubIntegration | null>
+    ) => Effect.Effect<ProjectGithub.ProjectGithubIntegration | null>
     githubConnection: (
       indexRow: ProjectIndexRow
     ) => Effect.Effect<GithubConnection | null>
@@ -139,7 +135,10 @@ const make = Effect.gen(function* () {
           return yield* effect
         })
       )
-      .pipe(Effect.catchTag("SqlError", Effect.die))
+      .pipe(
+        Effect.catchTag("SqlError", Effect.die),
+        Effect.withSpan("ProjectDetails.withWriteLock")
+      )
 
   const inScope = Effect.gen(function* () {
     const scope = yield* ProjectScope
@@ -149,10 +148,10 @@ const make = Effect.gen(function* () {
     return indexRow ? { scope, indexRow } : yield* new NotFound()
   })
 
-  const loadMembers = (
+  const loadMembers = Effect.fn("ProjectDetails.members")(function* (
     projectId: string
-  ): Effect.Effect<ReadonlyArray<Member>> =>
-    db.query.projectMember
+  ) {
+    return yield* db.query.projectMember
       .findMany({
         where: {
           RAW: (table, _operators) => _operators.eq(table.projectId, projectId)
@@ -185,144 +184,151 @@ const make = Effect.gen(function* () {
         ),
         Effect.orDie
       )
+  })
 
-  const loadPendingMembers = (
-    projectId: string
-  ): Effect.Effect<ReadonlyArray<PendingProjectMember>> =>
-    DateTime.nowAsDate.pipe(
-      Effect.flatMap((now) =>
-        db
-          .select({
-            invitationId: projectInviteGrant.invitationId,
-            email: invitation.email,
-            role: projectInviteGrant.roleId,
-            expiresAt: invitation.expiresAt
-          })
-          .from(projectInviteGrant)
-          .innerJoin(
-            invitation,
-            eq(invitation.id, projectInviteGrant.invitationId)
-          )
-          .where(
-            and(
-              eq(projectInviteGrant.projectId, projectId),
-              eq(invitation.status, "pending"),
-              gt(invitation.expiresAt, now)
+  const loadPendingMembers = Effect.fn("ProjectDetails.pendingMembers")(
+    function* (projectId: string) {
+      return yield* DateTime.nowAsDate.pipe(
+        Effect.flatMap((now) =>
+          db
+            .select({
+              invitationId: projectInviteGrant.invitationId,
+              email: invitation.email,
+              role: projectInviteGrant.roleId,
+              expiresAt: invitation.expiresAt
+            })
+            .from(projectInviteGrant)
+            .innerJoin(
+              invitation,
+              eq(invitation.id, projectInviteGrant.invitationId)
             )
-          )
-          .orderBy(asc(invitation.email))
-      ),
-      Effect.map((rows) =>
-        rows.map((row) => ({
-          invitationId: row.invitationId,
-          email: row.email,
-          role: makeAssignableRole(row.role),
-          expiresAt: row.expiresAt
-        }))
-      ),
-      Effect.orDie
-    )
-
-  const loadGithubIntegration = (
-    projectId: string
-  ): Effect.Effect<ProjectGithubIntegration | null> =>
-    db
-      .select({
-        projectIntegrationLinkId: projectIntegrationLink.id,
-        organizationId: projectIntegrationLink.organizationId,
-        projectId: projectIntegrationLink.projectId,
-        projectSlug: projectIndex.slug,
-        installationId: organizationGithubIntegration.installationId,
-        repoId: projectGithubRepository.repoId,
-        repoOwner: projectGithubRepository.repoOwner,
-        repoName: projectGithubRepository.repoName,
-        defaultBaseBranch: projectGithubRepository.defaultBranch
-      })
-      .from(projectIntegrationLink)
-      .innerJoin(
-        projectIndex,
-        eq(projectIndex.id, projectIntegrationLink.projectId)
-      )
-      .innerJoin(
-        projectGithubRepository,
-        eq(
-          projectGithubRepository.projectIntegrationLinkId,
-          projectIntegrationLink.id
-        )
-      )
-      .innerJoin(
-        organizationIntegration,
-        eq(
-          organizationIntegration.id,
-          projectIntegrationLink.organizationIntegrationId
-        )
-      )
-      .innerJoin(
-        organizationGithubIntegration,
-        eq(
-          organizationGithubIntegration.organizationIntegrationId,
-          organizationIntegration.id
-        )
-      )
-      .where(
-        and(
-          eq(projectIntegrationLink.projectId, projectId),
-          eq(projectIntegrationLink.provider, "github"),
-          eq(projectIntegrationLink.status, "active"),
-          eq(projectGithubRepository.status, "active"),
-          eq(organizationIntegration.status, "active")
-        )
-      )
-      .limit(1)
-      .pipe(
-        Effect.map((rows) => rows[0] ?? null),
+            .where(
+              and(
+                eq(projectInviteGrant.projectId, projectId),
+                eq(invitation.status, "pending"),
+                gt(invitation.expiresAt, now)
+              )
+            )
+            .orderBy(asc(invitation.email))
+        ),
+        Effect.map((rows) =>
+          rows.map((row) => ({
+            invitationId: row.invitationId,
+            email: row.email,
+            role: makeAssignableRole(row.role),
+            expiresAt: row.expiresAt
+          }))
+        ),
         Effect.orDie
       )
+    }
+  )
 
-  const loadGithubConnection = (
-    indexRow: typeof projectIndex.$inferSelect
-  ): Effect.Effect<GithubConnection | null> =>
-    loadGithubIntegration(indexRow.id).pipe(
-      Effect.map((row) =>
-        row === null
-          ? null
-          : {
-              repoId: row.repoId,
-              repoOwner: row.repoOwner,
-              repoName: row.repoName,
-              defaultBaseBranch: row.defaultBaseBranch
-            }
+  const loadGithubIntegration = Effect.fn("ProjectDetails.githubIntegration")(
+    function* (projectId: string) {
+      return yield* db
+        .select({
+          projectIntegrationLinkId: projectIntegrationLink.id,
+          organizationId: projectIntegrationLink.organizationId,
+          projectId: projectIntegrationLink.projectId,
+          projectSlug: projectIndex.slug,
+          installationId: organizationGithubIntegration.installationId,
+          repoId: projectGithubRepository.repoId,
+          repoOwner: projectGithubRepository.repoOwner,
+          repoName: projectGithubRepository.repoName,
+          defaultBaseBranch: projectGithubRepository.defaultBranch
+        })
+        .from(projectIntegrationLink)
+        .innerJoin(
+          projectIndex,
+          eq(projectIndex.id, projectIntegrationLink.projectId)
+        )
+        .innerJoin(
+          projectGithubRepository,
+          eq(
+            projectGithubRepository.projectIntegrationLinkId,
+            projectIntegrationLink.id
+          )
+        )
+        .innerJoin(
+          organizationIntegration,
+          eq(
+            organizationIntegration.id,
+            projectIntegrationLink.organizationIntegrationId
+          )
+        )
+        .innerJoin(
+          organizationGithubIntegration,
+          eq(
+            organizationGithubIntegration.organizationIntegrationId,
+            organizationIntegration.id
+          )
+        )
+        .where(
+          and(
+            eq(projectIntegrationLink.projectId, projectId),
+            eq(projectIntegrationLink.provider, "github"),
+            eq(projectIntegrationLink.status, "active"),
+            eq(projectGithubRepository.status, "active"),
+            eq(organizationIntegration.status, "active")
+          )
+        )
+        .limit(1)
+        .pipe(
+          Effect.map((rows) => rows[0] ?? null),
+          Effect.orDie
+        )
+    }
+  )
+
+  const loadGithubConnection = Effect.fn("ProjectDetails.githubConnection")(
+    function* (indexRow: typeof projectIndex.$inferSelect) {
+      return yield* loadGithubIntegration(indexRow.id).pipe(
+        Effect.map((row) =>
+          row === null
+            ? null
+            : {
+                repoId: row.repoId,
+                repoOwner: row.repoOwner,
+                repoName: row.repoName,
+                defaultBaseBranch: row.defaultBaseBranch
+              }
+        )
       )
-    )
+    }
+  )
 
-  const syncFrontmatter = (
-    orgSlug: string,
-    slug: string,
-    name: string,
-    icon: string,
-    color: string,
-    createdBy: string,
-    createdAt: Date,
-    key: ProjectKey,
-    body: string,
-    connection: GithubConnection | null,
-    setup: ProjectSetup,
-    estimation: EstimationMode
-  ): Effect.Effect<void, MarkdownError> =>
-    projectDocs.write(orgSlug, slug, {
-      org: orgSlug,
-      slug,
-      key,
-      name,
-      icon,
-      color,
-      createdBy,
-      createdAt,
-      github: connection,
-      estimation,
-      setup,
-      body
-    })
+  const syncFrontmatter = Effect.fn("ProjectDetails.writeFrontmatter")(
+    function* (
+      orgSlug: string,
+      slug: string,
+      name: string,
+      icon: string,
+      color: string,
+      createdBy: string,
+      createdAt: Date,
+      key: ProjectKey,
+      body: string,
+      connection: GithubConnection | null,
+      setup: ProjectSetup,
+      estimation: EstimationMode
+    ) {
+      return yield* projectDocs.write(orgSlug, slug, {
+        org: orgSlug,
+        slug,
+        key,
+        name,
+        icon,
+        color,
+        createdBy,
+        createdAt,
+        github: connection,
+        estimation,
+        setup,
+        body
+      })
+    }
+  )
 
   const replayDetail = Effect.flatMap(ProjectScope, (current) =>
     withProjectWriteLock(

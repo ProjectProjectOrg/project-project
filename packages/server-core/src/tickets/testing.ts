@@ -39,10 +39,7 @@ import { TicketIdTaken } from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
 import { ProjectDocs } from "../projects/ProjectDocs"
-import {
-  ProjectGithub,
-  type ProjectGithubIntegration
-} from "../projects/ProjectGithub"
+import * as ProjectGithub from "../projects/ProjectGithub"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
 import type { GitAutomationConfig } from "./gitAutomation"
@@ -91,7 +88,7 @@ export const githubIntegration = {
   repoOwner: "acme",
   repoName: "app",
   defaultBaseBranch: "main"
-} satisfies ProjectGithubIntegration
+} satisfies ProjectGithub.ProjectGithubIntegration
 
 export const ticketIndexProject = {
   orgSlug: "org",
@@ -219,14 +216,14 @@ export function makeFakeProjects(
 }
 
 export const makeFakeProjectGithub = (
-  overrides: Partial<ProjectGithub["Service"]> = {}
+  overrides: Partial<ProjectGithub.ProjectGithub["Service"]> = {}
 ) =>
-  Layer.succeed(ProjectGithub, {
+  Layer.succeed(ProjectGithub.ProjectGithub, {
     integration: () => Effect.succeed(null),
-    branches: () => unexpected("ProjectGithub.branches"),
-    repos: () => unexpected("ProjectGithub.repos"),
-    connect: () => unexpected("ProjectGithub.connect"),
-    disconnect: () => unexpected("ProjectGithub.disconnect"),
+    branches: () => unexpected("ProjectGithub.ProjectGithub.branches"),
+    repos: () => unexpected("ProjectGithub.ProjectGithub.repos"),
+    connect: () => unexpected("ProjectGithub.ProjectGithub.connect"),
+    disconnect: () => unexpected("ProjectGithub.ProjectGithub.disconnect"),
     ...overrides
   })
 
@@ -759,7 +756,7 @@ export const PassthroughLibrary = Layer.mock(Library, {
 export type TicketsLayerOptions = Readonly<{
   projectDocs?: Layer.Layer<ProjectDocs>
   projects?: Layer.Layer<Projects>
-  projectGithub?: Layer.Layer<ProjectGithub>
+  projectGithub?: Layer.Layer<ProjectGithub.ProjectGithub>
   groups?: Layer.Layer<Groups>
   github?: Layer.Layer<GitHub>
   ticketIndex?: Layer.Layer<TicketIndex | TicketBranchIndex.TicketBranchIndex>

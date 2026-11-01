@@ -15,7 +15,7 @@ import { MarkdownError } from "@pp/server-core/markdown/Markdown"
 import { BannerPlaceholders } from "@pp/server-core/projects/BannerPlaceholders"
 import * as ProjectServices from "@pp/server-core/projects/layer"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
-import { ProjectGithub } from "@pp/server-core/projects/ProjectGithub"
+import * as ProjectGithub from "@pp/server-core/projects/ProjectGithub"
 import type { Projects } from "@pp/server-core/projects/Projects"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import {
@@ -97,7 +97,9 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
   let failWrite = false
   let lockChecks = 0
   let pool: Pool
-  let projectsLayer: Layer.Layer<Projects | ProjectGithub | Access>
+  let projectsLayer: Layer.Layer<
+    Projects | ProjectGithub.ProjectGithub | Access
+  >
 
   beforeAll(async () => {
     if (!databaseUrl) throw new Error("Test database URL is required")
@@ -290,7 +292,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
   })
 
   const connect = (repoName = "new") =>
-    Effect.flatMap(ProjectGithub, (github) =>
+    Effect.flatMap(ProjectGithub.ProjectGithub, (github) =>
       github.connect({
         repoId: `${repoName}-repo`,
         repoOwner: "acme",

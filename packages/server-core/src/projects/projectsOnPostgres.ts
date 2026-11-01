@@ -18,7 +18,7 @@ import { BannerPlaceholders } from "./BannerPlaceholders"
 import { FinishedStatuses } from "./FinishedStatuses"
 import * as ProjectServices from "./layer"
 import { ProjectDocs } from "./ProjectDocs"
-import type { ProjectGithub } from "./ProjectGithub"
+import type * as ProjectGithub from "./ProjectGithub"
 import type { Projects } from "./Projects"
 
 const unused = () => Effect.die(new Error("Unexpected dependency call"))
@@ -31,7 +31,7 @@ export const projectsOnPostgres = (
   github: Partial<GitHub["Service"]> = {}
 ): Layer.Layer<
   | Projects
-  | ProjectGithub
+  | ProjectGithub.ProjectGithub
   | TicketIndex
   | TicketRewrites.TicketRewrites
   | Access

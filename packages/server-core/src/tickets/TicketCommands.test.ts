@@ -45,7 +45,7 @@ import { MarkdownLive } from "../markdown/MarkdownLive"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
 import { ProjectDocs } from "../projects/ProjectDocs"
-import { ProjectGithub } from "../projects/ProjectGithub"
+import * as ProjectGithub from "../projects/ProjectGithub"
 import { Projects, type ProjectsShape } from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
 import * as TicketServices from "./layer"
@@ -81,7 +81,9 @@ const FakeProjects = Layer.merge(
     leave: () => unexpected("Projects.leave"),
     cancelPendingMember: () => unexpected("Projects.cancelPendingMember")
   } satisfies ProjectsShape),
-  Layer.mock(ProjectGithub, { integration: () => Effect.succeed(null) })
+  Layer.mock(ProjectGithub.ProjectGithub, {
+    integration: () => Effect.succeed(null)
+  })
 )
 
 const FakeGroups = Layer.succeed(Groups, {

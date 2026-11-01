@@ -10,7 +10,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
 import { Attachments } from "../attachments/Attachments"
-import { ProjectGithub } from "../projects/ProjectGithub"
+import * as ProjectGithub from "../projects/ProjectGithub"
 import { Users } from "../users/Users"
 import { TicketDocs, type TicketDocument } from "./TicketDocs"
 import {
@@ -43,7 +43,7 @@ export class TicketView extends Context.Service<
 
 const make = Effect.gen(function* () {
   const ticketDocs = yield* TicketDocs
-  const projectGithubLinks = yield* ProjectGithub
+  const projectGithubLinks = yield* ProjectGithub.ProjectGithub
   const attachments = yield* Attachments
   const users = yield* Users
 

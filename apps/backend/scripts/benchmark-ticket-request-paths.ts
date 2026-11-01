@@ -25,7 +25,7 @@ import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
-import { ProjectGithub } from "@pp/server-core/projects/ProjectGithub"
+import * as ProjectGithub from "@pp/server-core/projects/ProjectGithub"
 import { Projects, type ProjectsShape } from "@pp/server-core/projects/Projects"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketServices from "@pp/server-core/tickets/layer"
@@ -375,7 +375,9 @@ const FakeProjects = Layer.merge(
     leave: () => unexpected("Projects.leave"),
     cancelPendingMember: () => unexpected("Projects.cancelPendingMember")
   } satisfies ProjectsShape),
-  Layer.mock(ProjectGithub, { integration: () => Effect.succeed(null) })
+  Layer.mock(ProjectGithub.ProjectGithub, {
+    integration: () => Effect.succeed(null)
+  })
 )
 
 const makeFakeGroups = (ticketCount: number) => {

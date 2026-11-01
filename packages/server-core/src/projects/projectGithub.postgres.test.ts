@@ -16,7 +16,7 @@ import { Access } from "../access/Access"
 import { testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
 import { ProjectDocs } from "./ProjectDocs"
-import { ProjectGithub } from "./ProjectGithub"
+import * as ProjectGithub from "./ProjectGithub"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -42,9 +42,11 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
   let layer: ReturnType<typeof projectsOnPostgres>
 
   const run = <A, E, R>(
-    f: (github: ProjectGithub["Service"]) => Effect.Effect<A, E, R>
+    f: (
+      github: ProjectGithub.ProjectGithub["Service"]
+    ) => Effect.Effect<A, E, R>
   ) =>
-    Effect.flatMap(ProjectGithub, f).pipe(
+    Effect.flatMap(ProjectGithub.ProjectGithub, f).pipe(
       Effect.provideServiceEffect(
         ProjectScope,
         Effect.flatMap(Access, (access) =>

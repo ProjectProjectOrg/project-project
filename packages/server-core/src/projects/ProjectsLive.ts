@@ -42,7 +42,7 @@ import * as TicketRewrites from "../tickets/TicketRewrites"
 import { Users } from "../users/Users"
 import { bannerNeedsPlaceholder } from "./bannerPlaceholder"
 import { BannerPlaceholders } from "./BannerPlaceholders"
-import { presentDetail, ProjectDetails } from "./ProjectDetails"
+import * as ProjectDetails from "./ProjectDetails"
 import { ProjectDocs } from "./ProjectDocs"
 import {
   iconImageSlots,
@@ -91,7 +91,7 @@ export const ProjectsLive = Layer.effect(
       githubConnection: loadGithubConnection,
       writeFrontmatter: syncFrontmatter,
       replay: replayDetail
-    } = yield* ProjectDetails
+    } = yield* ProjectDetails.ProjectDetails
 
     const users = yield* Users
     const rewrites = yield* TicketRewrites.TicketRewrites
@@ -420,7 +420,7 @@ export const ProjectsLive = Layer.effect(
               indexRow.banner
             )
             const key = makeProjectKey(indexRow.key)
-            return presentDetail(scope, {
+            return ProjectDetails.presentDetail(scope, {
               org: orgSlug,
               slug: indexRow.slug,
               key,
@@ -550,7 +550,7 @@ export const ProjectsLive = Layer.effect(
               nextEstimation
             )
 
-            return presentDetail(scope, {
+            return ProjectDetails.presentDetail(scope, {
               org: orgSlug,
               slug,
               key: makeProjectKey(indexRow.key),
@@ -605,7 +605,7 @@ export const ProjectsLive = Layer.effect(
               setup,
               file.estimation
             )
-            return presentDetail(scope, {
+            return ProjectDetails.presentDetail(scope, {
               org: orgSlug,
               slug,
               key: makeProjectKey(indexRow.key),
