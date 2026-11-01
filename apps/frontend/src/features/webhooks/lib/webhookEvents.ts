@@ -1,8 +1,9 @@
-import type {
-  ProjectEventKind,
-  WebhookDelivery,
-  WebhookHeader
+import {
+  WebhookHeader,
+  type ProjectEventKind,
+  type WebhookDelivery
 } from "@pp/shared"
+import * as Schema from "effect/Schema"
 
 import { m } from "@/paraglide/messages"
 
@@ -57,6 +58,17 @@ export const filledHeaders = (
       ? []
       : [{ name, value: header.value }]
   })
+
+const isHeader = Schema.is(WebhookHeader)
+
+export const HeaderRows = Schema.Array(
+  Schema.Struct({ name: Schema.String, value: Schema.String })
+).check(
+  Schema.makeFilter(
+    (rows) =>
+      filledHeaders(rows).every(isHeader) && filledHeaders(rows).length <= 10
+  )
+)
 
 const dayMs = 24 * 60 * 60 * 1000
 

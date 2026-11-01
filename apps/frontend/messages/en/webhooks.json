@@ -81,6 +81,7 @@
   "webhooks_header_value": "Header value",
   "webhooks_header_value_placeholder": "Bearer …",
   "webhooks_headers_hint": "Sent with every request, for receivers that want a token. Stored encrypted.",
+  "webhooks_headers_invalid": "Each header needs a name (letters, digits and dashes) and a value.",
   "webhooks_headers_label": "Extra headers",
   "webhooks_headers_none": "None",
   "webhooks_headers_replace": "Replace",

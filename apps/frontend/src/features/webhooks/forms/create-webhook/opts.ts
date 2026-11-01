@@ -5,7 +5,10 @@ import {
 } from "@pp/shared"
 import * as Schema from "effect/Schema"
 
-import { filledHeaders } from "@/features/webhooks/lib/webhookEvents"
+import {
+  filledHeaders,
+  HeaderRows
+} from "@/features/webhooks/lib/webhookEvents"
 import { appFormOptions, validateAfterSubmit } from "@/lib/form"
 
 export type CreateWebhookValues = Readonly<{
@@ -17,9 +20,7 @@ export type CreateWebhookValues = Readonly<{
 const CreateWebhookFormSchema = Schema.Struct({
   url: Schema.String.check(Schema.makeFilter((url) => url.trim().length > 0)),
   events: Schema.Array(ProjectEventKind).check(Schema.isMinLength(1)),
-  headers: Schema.Array(
-    Schema.Struct({ name: Schema.String, value: Schema.String })
-  )
+  headers: HeaderRows
 })
 
 export const toCreateWebhookInput = (

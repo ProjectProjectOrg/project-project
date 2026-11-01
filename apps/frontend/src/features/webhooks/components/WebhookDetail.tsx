@@ -1,6 +1,6 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { Webhook, WebhookHeader } from "@pp/shared"
-import { Link } from "@tanstack/react-router"
+import type { Webhook } from "@pp/shared"
+import { getRouteApi, Link } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { ChevronLeft } from "lucide-react"
 import { useState } from "react"
@@ -12,15 +12,12 @@ import {
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
-import { SettingsInput } from "@/components/shell/settings/SettingsTextField"
 import { Button } from "@/components/ui/button"
 import { ConfirmButton } from "@/components/ui/confirm-button"
-import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   rotateWebhookSecret,
   sendWebhookTest,
   setWebhookEnabled,
-  updateWebhook,
   updateWebhookEvents,
   webhookDeliveriesRequest,
   webhooksFor,
@@ -30,19 +27,21 @@ import {
 import { DeleteWebhookSection } from "@/features/webhooks/components/DeleteWebhookSection"
 import { DeliveryLog } from "@/features/webhooks/components/DeliveryLog"
 import { EventSwitches } from "@/features/webhooks/components/EventSwitches"
-import { HeadersEditor } from "@/features/webhooks/components/HeadersEditor"
 import { SecretReveal } from "@/features/webhooks/components/SecretReveal"
-import {
-  filledHeaders,
-  toggleEvent
-} from "@/features/webhooks/lib/webhookEvents"
+import { ReplaceHeadersForm } from "@/features/webhooks/forms/replace-headers"
+import { ReplaceUrlForm } from "@/features/webhooks/forms/replace-url"
+import { toggleEvent } from "@/features/webhooks/lib/webhookEvents"
 import { webhookStatusText } from "@/features/webhooks/lib/webhookStatus"
 import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-export function WebhookDetail({ webhookId }: Readonly<{ webhookId: string }>) {
-  const { orgSlug, slug } = useProjectRoute()
+const routeApi = getRouteApi(
+  "/_authed/orgs/$orgSlug/projects/$slug/settings/webhooks/$webhookId"
+)
+
+export function WebhookDetail() {
+  const { orgSlug, slug, webhookId } = routeApi.useParams()
   const req = webhooksRequest(orgSlug, slug)
   const result = useAtomValue(webhooksFor(req))
   const refresh = useAtomRefresh(webhooksFor(req))
@@ -198,23 +197,11 @@ function EndpointSection({
   webhook: Webhook
   onRotated: (secret: string) => void
 }>) {
-  const update = useAtomSet(updateWebhook(target), { mode: "promiseExit" })
-  const updateState = useAtomValue(updateWebhook(target))
   const rotate = useAtomSet(rotateWebhookSecret(target), {
     mode: "promiseExit"
   })
   const [editing, setEditing] = useState<"url" | "headers" | null>(null)
-  const [url, setUrl] = useState("")
-  const [headers, setHeaders] = useState<ReadonlyArray<WebhookHeader>>([])
-  const save = async () => {
-    const exit = await update(
-      editing === "url"
-        ? { url: url.trim() }
-        : { headers: filledHeaders(headers) }
-    )
-    if (Exit.isSuccess(exit)) setEditing(null)
-  }
-  const error = editing === null ? null : mutationErrorText(updateState)
+  const close = () => setEditing(null)
   return (
     <SettingsSection title={m.webhooks_endpoint_title()}>
       <SettingsGroup>
@@ -227,35 +214,15 @@ function EndpointSection({
               <span className="font-mono">{webhook.url}</span>
             )
           }
-          error={editing === "url" ? error : null}
         >
           {editing === "url" ? (
-            <>
-              <SettingsInput
-                type="url"
-                autoComplete="off"
-                placeholder="https://"
-                className="w-72 font-mono"
-                value={url}
-                disabled={updateState.waiting}
-                onChange={(event) => setUrl(event.target.value)}
-              />
-              <EditActions
-                busy={updateState.waiting}
-                canSave={url.trim() !== ""}
-                onSave={save}
-                onCancel={() => setEditing(null)}
-              />
-            </>
+            <ReplaceUrlForm target={target} onDone={close} />
           ) : (
             <Button
               type="button"
               variant="tertiary"
               size="sm"
-              onClick={() => {
-                setUrl("")
-                setEditing("url")
-              }}
+              onClick={() => setEditing("url")}
             >
               {m.webhooks_url_replace()}
             </Button>
@@ -275,35 +242,19 @@ function EndpointSection({
               m.webhooks_headers_none()
             )
           }
-          error={editing === "headers" ? error : null}
         >
           {editing === "headers" ? (
-            <div className="flex w-full flex-col gap-3">
-              <HeadersEditor
-                headers={headers}
-                disabled={updateState.waiting}
-                onChange={setHeaders}
-              />
-              <div className="flex justify-end gap-2">
-                <EditActions
-                  busy={updateState.waiting}
-                  canSave
-                  onSave={save}
-                  onCancel={() => setEditing(null)}
-                />
-              </div>
-            </div>
+            <ReplaceHeadersForm
+              target={target}
+              names={webhook.headerNames}
+              onDone={close}
+            />
           ) : (
             <Button
               type="button"
               variant="tertiary"
               size="sm"
-              onClick={() => {
-                setHeaders(
-                  webhook.headerNames.map((name) => ({ name, value: "" }))
-                )
-                setEditing("headers")
-              }}
+              onClick={() => setEditing("headers")}
             >
               {m.webhooks_headers_replace()}
             </Button>
@@ -334,41 +285,5 @@ function EndpointSection({
         </SettingsRow>
       </SettingsGroup>
     </SettingsSection>
-  )
-}
-
-function EditActions({
-  busy,
-  canSave,
-  onSave,
-  onCancel
-}: Readonly<{
-  busy: boolean
-  canSave: boolean
-  onSave: () => Promise<void>
-  onCancel: () => void
-}>) {
-  return (
-    <>
-      <Button
-        type="button"
-        variant="tertiary"
-        size="sm"
-        disabled={busy}
-        onClick={onCancel}
-      >
-        {m.webhooks_edit_cancel()}
-      </Button>
-      <Button
-        type="button"
-        variant="primary"
-        size="sm"
-        loading={busy}
-        disabled={!canSave}
-        onClick={() => void onSave()}
-      >
-        {m.webhooks_edit_save()}
-      </Button>
-    </>
   )
 }

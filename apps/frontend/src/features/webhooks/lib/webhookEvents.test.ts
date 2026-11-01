@@ -1,7 +1,13 @@
 import * as DateTime from "effect/DateTime"
+import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { canRetry, filledHeaders, toggleEvent } from "./webhookEvents"
+import {
+  canRetry,
+  filledHeaders,
+  HeaderRows,
+  toggleEvent
+} from "./webhookEvents"
 
 const delivery = (
   state: "pending" | "delivered" | "failed" | "expired",
@@ -57,5 +63,22 @@ describe("canRetry", () => {
     expect(
       canRetry({ ...delivery("failed", 1), lastOutcome: "body_too_large" }, now)
     ).toBe(false)
+  })
+})
+
+describe("HeaderRows", () => {
+  const valid = Schema.is(HeaderRows)
+  it("accepts empty rows and complete headers", () => {
+    expect(
+      valid([
+        { name: "Authorization", value: "Bearer x" },
+        { name: "", value: "" }
+      ])
+    ).toBe(true)
+  })
+
+  it("rejects a header without a value or with an invalid name", () => {
+    expect(valid([{ name: "Authorization", value: "" }])).toBe(false)
+    expect(valid([{ name: "Bad Name", value: "x" }])).toBe(false)
   })
 })

@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button"
 import {
   retryWebhookDelivery,
   webhookDeliveries,
+  webhooksFor,
+  webhooksRequest,
   type WebhookDeliveriesRequest
 } from "@/features/webhooks/atoms/webhooks"
 import { canRetry } from "@/features/webhooks/lib/webhookEvents"
@@ -38,7 +40,14 @@ export function DeliveryLog({
   req
 }: Readonly<{ req: WebhookDeliveriesRequest }>) {
   const result = useAtomValue(webhookDeliveries(req))
-  const refresh = useAtomRefresh(webhookDeliveries(req))
+  const refreshDeliveries = useAtomRefresh(webhookDeliveries(req))
+  const refreshWebhooks = useAtomRefresh(
+    webhooksFor(webhooksRequest(req.params.orgSlug, req.params.slug))
+  )
+  const refresh = () => {
+    refreshDeliveries()
+    refreshWebhooks()
+  }
   return (
     <SettingsSection
       title={

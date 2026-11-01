@@ -87,6 +87,9 @@ export function CreateWebhookForm({
                 layout="stacked"
                 label={m.webhooks_headers_label()}
                 description={m.webhooks_headers_hint()}
+                error={
+                  field.errors.length > 0 ? m.webhooks_headers_invalid() : null
+                }
               >
                 <HeadersEditor
                   headers={field.value}
