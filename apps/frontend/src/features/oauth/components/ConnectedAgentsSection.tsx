@@ -1,5 +1,7 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { cliRelease, type OAuthApplication } from "@pp/shared"
+import * as Cause from "effect/Cause"
+import * as Exit from "effect/Exit"
 import { KeyRound } from "lucide-react"
 import { useMemo, useState } from "react"
 
@@ -19,6 +21,7 @@ import {
   oauthApplicationsAtom,
   revokeOAuthApplicationAtom
 } from "@/features/oauth/atoms/oauthApplications"
+import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -28,6 +31,9 @@ export function ConnectedAgentsSection() {
   const applicationsAtom = oauthApplicationsAtom(req)
   const applications = useAtomValue(applicationsAtom)
   const refresh = useAtomRefresh(applicationsAtom)
+  const [revokeErrors, setRevokeErrors] = useState<
+    Readonly<Record<string, string | undefined>>
+  >({})
 
   return (
     <>
@@ -53,7 +59,18 @@ export function ConnectedAgentsSection() {
                 />
               ) : (
                 value.map((app) => (
-                  <AgentRow key={app.id} app={app} req={req} />
+                  <AgentRow
+                    key={app.id}
+                    app={app}
+                    req={req}
+                    error={revokeErrors[app.id]}
+                    onError={(error) =>
+                      setRevokeErrors((errors) => ({
+                        ...errors,
+                        [app.id]: error
+                      }))
+                    }
+                  />
                 ))
               )}
             </SettingsGroup>
@@ -68,11 +85,15 @@ export function ConnectedAgentsSection() {
 
 function AgentRow({
   app,
-  req
-}: {
+  req,
+  error,
+  onError
+}: Readonly<{
   app: OAuthApplication
   req: OAuthApplicationsRequest
-}) {
+  error: string | undefined
+  onError: (error: string | undefined) => void
+}>) {
   const locale = getLocale()
   const revoke = useAtomSet(revokeOAuthApplicationAtom({ req, id: app.id }), {
     mode: "promiseExit"
@@ -85,6 +106,7 @@ function AgentRow({
         </span>
       }
       label={app.name}
+      error={error}
       description={
         <>
           <span className="font-mono">{app.clientId}</span>
@@ -109,7 +131,12 @@ function AgentRow({
           <ConfirmButton.Action
             prompt={m.profile_connected_agents_revoke_confirm()}
             label={m.profile_connected_agents_revoke()}
-            onConfirm={() => revoke()}
+            onConfirm={async () => {
+              onError(undefined)
+              const exit = await revoke()
+              if (Exit.isFailure(exit))
+                onError(errorMessage(Cause.squash(exit.cause)))
+            }}
           />
         </ConfirmButton.Confirm>
       </ConfirmButton.Root>
