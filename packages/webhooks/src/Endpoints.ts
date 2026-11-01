@@ -68,6 +68,7 @@ export class WebhookEndpoints extends Context.Service<
     ) => Effect.Effect<void, Validation>
     rotateSecret: (id: string) => Effect.Effect<string>
     enable: (id: string) => Effect.Effect<void>
+    disable: (id: string) => Effect.Effect<void>
     enqueue: (delivery: QueuedDelivery) => Effect.Effect<void>
     target: (id: string) => Effect.Effect<Sender.Target, WebhookSecretError>
   }>
@@ -265,6 +266,38 @@ const make = Effect.gen(function* () {
       .pipe(Effect.orDie)
   })
 
+  const disable = Effect.fn("WebhookEndpoints.disable")(function* (id: string) {
+    yield* db
+      .transaction(() =>
+        Effect.gen(function* () {
+          yield* lock(id)
+          const [row] = yield* db
+            .update(webhookEndpoint)
+            .set({
+              status: "disabled",
+              disabledReason: "manual",
+              disabledAt: sql`now()`,
+              leaseToken: null,
+              leaseExpiresAt: null,
+              updatedAt: sql`now()`
+            })
+            .where(eq(webhookEndpoint.id, id))
+            .returning({ linkId: webhookEndpoint.projectIntegrationLinkId })
+          if (row?.linkId)
+            yield* db
+              .update(projectIntegrationLink)
+              .set({
+                status: "broken",
+                lastCheckStatus: "error",
+                lastCheckError: "webhook_manual",
+                updatedAt: sql`now()`
+              })
+              .where(eq(projectIntegrationLink.id, row.linkId))
+        })
+      )
+      .pipe(Effect.orDie)
+  })
+
   const enqueue = Effect.fn("WebhookEndpoints.enqueue")(function* (
     delivery: QueuedDelivery
   ) {
@@ -317,6 +350,7 @@ const make = Effect.gen(function* () {
     update,
     rotateSecret,
     enable,
+    disable,
     enqueue,
     target
   })

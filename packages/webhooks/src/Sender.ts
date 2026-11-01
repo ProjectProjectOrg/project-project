@@ -238,6 +238,7 @@ const make = Effect.gen(function* () {
       }).pipe(
         Effect.scoped,
         Effect.provideService(FetchHttpClient.RequestInit, init),
+        Effect.provideService(HttpClient.TracerDisabledWhen, () => true),
         Effect.catch((error) => Effect.succeed(failureReason(error)))
       )
     }).pipe(

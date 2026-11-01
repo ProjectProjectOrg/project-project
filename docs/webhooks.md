@@ -132,13 +132,17 @@ count and sends anything still within the 24-hour window.
 ## Delivery log
 
 Settings list each webhook's recent deliveries: event, state, attempts, last
-status code or error, and a response excerpt. PP keeps the latest 50 deliveries
-and 10 test pings per webhook. From the log you can:
+status code or error, and a response excerpt. PP keeps the latest 50 deliveries,
+10 test pings and 20 expired deliveries per webhook, so an outage can't push
+out older history. From the log you can:
 
 - **Send test event:** queues a `ping` through the normal signing path.
-- **Retry now:** a pending delivery is tried as soon as the per-second limit
-  allows; a failed or expired one is queued again, with the same delivery id,
-  if it is less than a day old.
+- **Retry now:** resets the webhook's failure count. A pending delivery is
+  tried as soon as the per-second limit allows; a failed or expired one is
+  queued again, with the same delivery id, if it is less than a day old.
+
+A PM can also disable a webhook by hand. It keeps its settings and log,
+receives no events while disabled, and can be enabled again.
 
 ## Address checks
 

@@ -2889,6 +2889,15 @@ const WebhooksGroup = HttpApiGroup.make("webhooks")
       .middleware(ProjectAccess)
   )
   .add(
+    HttpApiEndpoint.post("disable", `${webhookPath}/disable`, {
+      params: WebhookPath,
+      success: Webhook,
+      error: WebhookErrors
+    })
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
     HttpApiEndpoint.post("test", `${webhookPath}/test`, {
       params: WebhookPath,
       success: WebhookDelivery,

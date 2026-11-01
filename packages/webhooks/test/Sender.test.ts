@@ -6,6 +6,7 @@ import * as ConfigProvider from "effect/ConfigProvider"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Tracer from "effect/Tracer"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import * as Sender from "../src/Sender"
@@ -106,6 +107,32 @@ describe("WebhookSender", () => {
         authorization: `Bearer tok_${"x".repeat(12)}`,
         host: `127.0.0.1:${server.port}`
       })
+    }).pipe(Effect.provide(sender(true)))
+  )
+
+  it.effect("keeps the URL's path and query out of traces", () =>
+    Effect.gen(function* () {
+      const spans: Array<Tracer.NativeSpan> = []
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options)
+          spans.push(span)
+          return span
+        }
+      })
+      const send = yield* Sender.WebhookSender
+      yield* send
+        .send(target("/hooks/path-secret-123?token=query-secret-456"), delivery)
+        .pipe(Effect.withTracer(tracer))
+      expect(spans.map((span) => span.name)).toContain("WebhookSender.attempt")
+      const traced = spans
+        .flatMap((span) => [
+          span.name,
+          ...[...span.attributes.values()].map(String)
+        ])
+        .join(" ")
+      expect(traced).not.toContain("path-secret-123")
+      expect(traced).not.toContain("query-secret-456")
     }).pipe(Effect.provide(sender(true)))
   )
 

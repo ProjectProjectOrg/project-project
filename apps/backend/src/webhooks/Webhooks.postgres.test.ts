@@ -459,6 +459,88 @@ describe.skipIf(!databaseUrl)("Outbound webhooks", () => {
       })
   )
 
+  it.live("lets a PM pause a webhook without losing its history", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture()
+      const { webhook } = yield* f.hooks((h) =>
+        h.create({ url: f.url("/paused"), events: ["ticket_status_changed"] })
+      )
+      yield* f.createTicket()
+      yield* f.editTicket({ status: decodeStatus("doing") })
+      yield* f.intake()
+      yield* f.drain()
+      const paused = yield* f.hooks((h) => h.disable(webhook.id))
+      expect(paused).toMatchObject({
+        status: "disabled",
+        disabledReason: "manual"
+      })
+      expect(yield* f.endpoint(webhook.id)).toMatchObject({
+        link_status: "broken"
+      })
+      yield* f.editTicket({ status: decodeStatus("done") })
+      yield* f.intake()
+      yield* f.drain()
+      expect(received).toHaveLength(1)
+      expect(yield* f.deliveries(webhook.id)).toEqual([
+        expect.objectContaining({ state: "delivered" })
+      ])
+    })
+  )
+
+  it.live("resets the failure streak when a PM retries", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture()
+      const { webhook } = yield* f.hooks((h) =>
+        h.create({
+          url: f.url("/moved-away"),
+          events: ["ticket_status_changed"]
+        })
+      )
+      replies.set("/moved-away", 410)
+      yield* f.createTicket()
+      for (const status of ["doing", "done"])
+        yield* f.editTicket({ status: decodeStatus(status) })
+      yield* f.intake()
+      for (let attempt = 0; attempt < 2; attempt++) {
+        yield* f.makeDue(webhook.id)
+        yield* f.drain()
+      }
+      const [first] = yield* f.deliveries(webhook.id)
+      yield* f.hooks((h) => h.retryDelivery(webhook.id, first!.id))
+      expect(yield* f.endpoint(webhook.id)).toMatchObject({
+        status: "active",
+        failure_count: 0
+      })
+      yield* f.makeDue(webhook.id)
+      yield* f.drain()
+      expect(yield* f.endpoint(webhook.id)).toMatchObject({
+        status: "active",
+        failure_count: 1
+      })
+    })
+  )
+
+  it.live("keeps expired deliveries from pushing out delivered history", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture()
+      const { webhook } = yield* f.hooks((h) =>
+        h.create({ url: f.url("/history"), events: ["ticket_created"] })
+      )
+      yield* query(
+        "insert into webhook_delivery (id, endpoint_id, event, body, kind, state, created_at, finished_at) select 'done-' || n, $1, 'ticket_created', '{}', 'event', 'delivered', now() - interval '2 days' - n * interval '1 minute', now() from generate_series(1, 3) n",
+        [webhook.id]
+      )
+      yield* query(
+        "insert into webhook_delivery (id, endpoint_id, event, body, kind, state, created_at) select 'late-' || n, $1, 'ticket_created', '{}', 'event', 'pending', now() - interval '25 hours' - n * interval '1 second' from generate_series(1, 60) n",
+        [webhook.id]
+      )
+      yield* f.dispatcher((d) => d.expire())
+      const states = (yield* f.deliveries(webhook.id)).map((row) => row.state)
+      expect(states.filter((state) => state === "delivered")).toHaveLength(3)
+      expect(states.filter((state) => state === "expired")).toHaveLength(20)
+    })
+  )
+
   it.live("discards a result after the endpoint changed mid-flight", () =>
     Effect.gen(function* () {
       const f = yield* fixture()

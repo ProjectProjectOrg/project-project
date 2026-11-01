@@ -32,7 +32,7 @@ import {
 } from "./policy"
 import * as Sender from "./Sender"
 
-export const keepDeliveries = { event: 50, test: 10 } as const
+export const keepDeliveries = { event: 50, test: 10, expired: 20 } as const
 const leaseSeconds = 60
 const maxAge = sql.raw(`interval '${maxDeliveryAgeMs / 1000} seconds'`)
 const sendFloor = sql.raw(`interval '${minSendIntervalMs} milliseconds'`)
@@ -62,14 +62,19 @@ const make = Effect.gen(function* () {
     db.execute(
       sql`delete from ${webhookDelivery} where ${webhookDelivery.id} in (
         select id from (
-          select id, kind, row_number() over (
-            partition by kind order by created_at desc, id desc
+          select id, bucket, row_number() over (
+            partition by bucket order by created_at desc, id desc
           ) as position
-          from ${webhookDelivery}
-          where endpoint_id = ${endpointId} and state <> 'pending'
+          from (
+            select id, created_at,
+              case when state = 'expired' then 'expired' else kind end as bucket
+            from ${webhookDelivery}
+            where endpoint_id = ${endpointId} and state <> 'pending'
+          ) finished
         ) ranked
-        where (kind = 'event' and position > ${keepDeliveries.event})
-          or (kind = 'test' and position > ${keepDeliveries.test})
+        where (bucket = 'event' and position > ${keepDeliveries.event})
+          or (bucket = 'test' and position > ${keepDeliveries.test})
+          or (bucket = 'expired' and position > ${keepDeliveries.expired})
       )`,
       "objects"
     )

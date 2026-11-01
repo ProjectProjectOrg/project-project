@@ -34,6 +34,11 @@ export const WebhooksHandlerLive = HttpApiBuilder.group(
           webhooks.enable(params.webhookId)
         )
       )
+      .handle("disable", ({ params }) =>
+        Effect.flatMap(ProjectWebhooks, (webhooks) =>
+          webhooks.disable(params.webhookId)
+        )
+      )
       .handle("test", ({ params }) =>
         Effect.flatMap(ProjectWebhooks, (webhooks) =>
           webhooks.test(params.webhookId)

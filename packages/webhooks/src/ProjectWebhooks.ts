@@ -81,6 +81,7 @@ export class ProjectWebhooks extends Context.Service<
     remove: (id: string) => Scoped<void, NotFound>
     rotateSecret: (id: string) => Scoped<WebhookWithSecret, NotFound>
     enable: (id: string) => Scoped<Webhook, NotFound>
+    disable: (id: string) => Scoped<Webhook, NotFound>
     test: (id: string) => Scoped<WebhookDelivery, NotFound | Conflict>
     deliveries: (id: string) => Scoped<ReadonlyArray<WebhookDelivery>, NotFound>
     retryDelivery: (
@@ -256,6 +257,12 @@ const make = Effect.gen(function* () {
     return yield* find(id)
   })
 
+  const disable = Effect.fn("ProjectWebhooks.disable")(function* (id: string) {
+    yield* find(id)
+    yield* endpoints.disable(id)
+    return yield* find(id)
+  })
+
   const delivery = (endpointId: string, deliveryId: string) =>
     db
       .select(deliveryColumns)
@@ -340,7 +347,13 @@ const make = Effect.gen(function* () {
               .where(eq(webhookDelivery.id, deliveryId))
           yield* db
             .update(webhookEndpoint)
-            .set({ nextAttemptAt: now, updatedAt: now })
+            .set({
+              failureCount: 0,
+              failingSince: null,
+              goneCount: 0,
+              nextAttemptAt: now,
+              updatedAt: now
+            })
             .where(eq(webhookEndpoint.id, id))
         })
       )
@@ -360,6 +373,7 @@ const make = Effect.gen(function* () {
     remove,
     rotateSecret,
     enable,
+    disable,
     test,
     deliveries,
     retryDelivery
