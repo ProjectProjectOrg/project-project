@@ -26,6 +26,7 @@ import { testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
 import { MalformedTicketDocument } from "../tickets/TicketDocs"
 import type { TicketIndex } from "../tickets/TicketIndex"
+import * as TicketRewrites from "../tickets/TicketRewrites"
 import { Projects } from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
@@ -63,7 +64,9 @@ describe.skipIf(!databaseUrl)("project members", () => {
   const users = [pm, second, developer]
   const admin = randomUUID()
   let pool: Pool
-  let projectsLayer: Layer.Layer<Projects | TicketIndex | Access>
+  let projectsLayer: Layer.Layer<
+    Projects | TicketIndex | TicketRewrites.TicketRewrites | Access
+  >
   const unassignAttempts: Array<string> = []
   const unassignedProjects: Array<string> = []
   const ticketFiles: Array<TicketId> = []
@@ -472,9 +475,9 @@ describe.skipIf(!databaseUrl)("project members", () => {
         )
         unassignedProjects.length = 0
         ticketFiles.push(decodeTicketId("MEM-902"))
-        yield* run(pm)((projects) =>
-          projects.unassignUserFromOrgTickets(orgSlug, developer)
-        )
+        yield* Effect.flatMap(TicketRewrites.TicketRewrites, (rewrites) =>
+          rewrites.unassignUserFromOrgTickets(orgSlug, developer)
+        ).pipe(asUser(pm), Effect.provide(projectsLayer))
         ticketFiles.length = 0
         expect(unassignedProjects).toEqual(
           expect.arrayContaining([slug, other.slug])

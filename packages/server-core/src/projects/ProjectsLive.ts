@@ -19,7 +19,6 @@ import {
   OrgScope,
   ProjectScope,
   Validation,
-  type ActivityActor,
   type ProjectScopeShape
 } from "@pp/shared"
 import { and, asc, eq, gt, inArray, sql as sqlFragment } from "drizzle-orm"
@@ -37,10 +36,8 @@ import { ulid } from "ulid"
 
 const decodeUserId = Schema.decodeSync(UserId)
 import { Db } from "@pp/db"
-import { publishedProject } from "@pp/db/projectVisibility"
 import {
   invitation,
-  organization,
   organizationGithubIntegration,
   organizationIntegration,
   projectGitAutomation,
@@ -64,19 +61,10 @@ import type {
 import { Access } from "../access/Access"
 import { GitHub } from "../github/GitHub"
 import type { MarkdownError } from "../markdown/Markdown"
-import type { TicketDocument } from "../tickets/TicketDocs"
-import { TicketDocs } from "../tickets/TicketDocs"
-import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
-import { TicketIndex } from "../tickets/TicketIndex"
-import {
-  clearedPrMetadata,
-  hasPrMetadata,
-  prMetadataOf
-} from "../tickets/ticketPrMetadata"
+import * as TicketRewrites from "../tickets/TicketRewrites"
 import { Users } from "../users/Users"
 import { bannerNeedsPlaceholder } from "./bannerPlaceholder"
 import { BannerPlaceholders } from "./BannerPlaceholders"
-import { FinishedStatuses } from "./FinishedStatuses"
 import { ProjectDocs } from "./ProjectDocs"
 import {
   iconImageSlots,
@@ -201,12 +189,9 @@ export const ProjectsLive = Layer.effect(
     const sql = yield* SqlClient.SqlClient
     const bannerPlaceholders = yield* BannerPlaceholders
     const projectDocs = yield* ProjectDocs
-    const ticketDocs = yield* TicketDocs
-    const ticketIndex = yield* TicketIndex
     const users = yield* Users
     const github = yield* GitHub
-    const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
-    const finishedStatuses = yield* FinishedStatuses
+    const rewrites = yield* TicketRewrites.TicketRewrites
 
     const inScope = Effect.gen(function* () {
       const scope = yield* ProjectScope
@@ -1082,183 +1067,6 @@ export const ProjectsLive = Layer.effect(
       )
     )
 
-    const unassignUserFromActiveTickets = (
-      orgSlug: string,
-      slug: string,
-      userId: string
-    ): Effect.Effect<void, never, ActivityActor> =>
-      Effect.gen(function* () {
-        const project = yield* ticketIndex
-          .projectFor(orgSlug, slug)
-          .pipe(Effect.orDie)
-        const ids = yield* ticketDocs.listIds(orgSlug, slug).pipe(Effect.orDie)
-        const finished = yield* finishedStatuses.forProject(orgSlug, slug)
-        yield* Effect.forEach(
-          ids,
-          (id) =>
-            ticketDocs
-              .update(
-                orgSlug,
-                slug,
-                id,
-                (ticket) => {
-                  if (
-                    finished.has(ticket.status) ||
-                    !ticket.assignees.includes(userId)
-                  ) {
-                    return Effect.succeed(ticket)
-                  }
-                  return DateTime.nowAsDate.pipe(
-                    Effect.map((updatedAt) => ({
-                      ...ticket,
-                      assignees: ticket.assignees.filter((id) => id !== userId),
-                      updatedAt
-                    }))
-                  )
-                },
-                (next) => ticketIndex.upsertTicket(project, next),
-                { cause: "member_removed" }
-              )
-              .pipe(
-                Effect.catchTag("NotFound", () => Effect.succeed(null)),
-                Effect.catchTags({
-                  MalformedTicketDocument: (error) =>
-                    Effect.logWarning("unassign skipped a malformed ticket", {
-                      ticketId: id,
-                      error
-                    }),
-                  MarkdownError: (error) =>
-                    Effect.logWarning("unassign could not write a ticket", {
-                      ticketId: id,
-                      error
-                    })
-                })
-              ),
-          { concurrency: 8, discard: true }
-        )
-      })
-
-    const unassignUserFromOrgTickets = (
-      orgSlug: string,
-      userId: string
-    ): Effect.Effect<void, never, ActivityActor> =>
-      Effect.gen(function* () {
-        const projects = yield* db
-          .select({ slug: projectIndex.slug })
-          .from(projectIndex)
-          .innerJoin(
-            organization,
-            eq(organization.id, projectIndex.organizationId)
-          )
-          .where(and(eq(organization.slug, orgSlug), publishedProject()))
-          .pipe(Effect.orDie)
-        yield* Effect.forEach(
-          projects,
-          (project) =>
-            unassignUserFromActiveTickets(orgSlug, project.slug, userId),
-          { concurrency: 4, discard: true }
-        )
-      })
-
-    const withClearedTicketPrMetadata = <A, E, R>(
-      orgSlug: string,
-      slug: string,
-      switchRepository: Effect.Effect<A, E, R>
-    ): Effect.Effect<A, E | MarkdownError, R | ActivityActor> =>
-      Effect.gen(function* () {
-        const project = yield* ticketIndex
-          .projectFor(orgSlug, slug)
-          .pipe(Effect.orDie)
-        const ids = yield* ticketDocs.listIds(orgSlug, slug)
-        const originals: Array<TicketDocument> = []
-        const clearAndSwitch = Effect.gen(function* () {
-          for (const id of ids) {
-            const ticket = yield* ticketDocs.read(orgSlug, slug, id).pipe(
-              Effect.catchTags({
-                NotFound: () => Effect.succeed(null),
-                MalformedTicketDocument: (error) =>
-                  Effect.logWarning(
-                    "Skipping unreadable ticket pr metadata"
-                  ).pipe(
-                    Effect.annotateLogs({ orgSlug, slug, ticketId: id, error }),
-                    Effect.as(null)
-                  )
-              })
-            )
-            if (ticket === null || !hasPrMetadata(ticket)) {
-              continue
-            }
-            const next = {
-              ...clearedPrMetadata(ticket),
-              updatedAt: yield* DateTime.nowAsDate
-            }
-            yield* ticketDocs
-              .update(
-                orgSlug,
-                slug,
-                id,
-                (current) =>
-                  Effect.succeed({
-                    ...current,
-                    ...prMetadataOf(next),
-                    updatedAt: next.updatedAt
-                  }),
-                (updated) =>
-                  Effect.gen(function* () {
-                    originals.push(ticket)
-                    yield* ticketIndex.upsertTicket(project, updated)
-                  }),
-                { silent: true }
-              )
-              .pipe(
-                Effect.catchTags({
-                  NotFound: () => Effect.void,
-                  MalformedTicketDocument: (error) =>
-                    Effect.logWarning(
-                      "Skipping unreadable ticket pr metadata",
-                      { orgSlug, slug, ticketId: id, error }
-                    )
-                })
-              )
-          }
-          return yield* switchRepository
-        }).pipe(
-          Effect.onError(() =>
-            Effect.forEach(
-              originals,
-              (ticket) =>
-                ticketDocs.update(
-                  orgSlug,
-                  slug,
-                  ticket.id,
-                  (current) =>
-                    Effect.succeed({
-                      ...current,
-                      ...prMetadataOf(ticket),
-                      updatedAt: ticket.updatedAt
-                    }),
-                  (restored) => ticketIndex.upsertTicket(project, restored),
-                  { silent: true }
-                ),
-              { discard: true }
-            ).pipe(Effect.orDie)
-          ),
-          Effect.uninterruptible
-        )
-        return yield* [...ids]
-          .sort()
-          .reduceRight(
-            (effect, id) =>
-              ticketDocumentLock.withTicketDocumentLock(
-                orgSlug,
-                slug,
-                id,
-                effect
-              ),
-            clearAndSwitch
-          )
-      })
-
     const lockProjectForGrants = (projectId: string) =>
       db
         .select({ id: projectIndex.id })
@@ -1658,7 +1466,11 @@ export const ProjectsLive = Layer.effect(
           })
         )
         if (removed) {
-          yield* unassignUserFromActiveTickets(orgSlug, slug, targetUserId)
+          yield* rewrites.unassignUserFromActiveTickets(
+            orgSlug,
+            slug,
+            targetUserId
+          )
         }
       })
 
@@ -1849,7 +1661,7 @@ export const ProjectsLive = Layer.effect(
               .pipe(Effect.catchTag("SqlError", Effect.die))
 
             yield* repoChanged
-              ? withClearedTicketPrMetadata(orgSlug, slug, switchRepository)
+              ? rewrites.withClearedPrMetadata(orgSlug, slug, switchRepository)
               : switchRepository
 
             return yield* replayDetail
@@ -1928,8 +1740,6 @@ export const ProjectsLive = Layer.effect(
       removeMember,
       leave,
       cancelPendingMember,
-      unassignUserFromActiveTickets,
-      unassignUserFromOrgTickets,
       connectGithub,
       disconnectGithub
     } satisfies ProjectsShape

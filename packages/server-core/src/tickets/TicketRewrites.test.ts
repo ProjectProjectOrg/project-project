@@ -1,20 +1,12 @@
 import { it } from "@effect/vitest"
-import { Db } from "@pp/db"
 import { ActivityActor } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import * as SqlClient from "effect/sql/SqlClient"
 import { describe, expect } from "vitest"
 
-import { Access } from "../access/Access"
-import { GitHub } from "../github/GitHub"
-import { BannerPlaceholders } from "../projects/BannerPlaceholders"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
-import { ProjectDocs } from "../projects/ProjectDocs"
-import { Projects } from "../projects/Projects"
-import { ProjectsLive } from "../projects/ProjectsLive"
-import { Users } from "../users/Users"
 import {
+  FakeDb,
   isoDate,
   makeFakeTicketDocs,
   makeFakeTicketIndex,
@@ -28,6 +20,7 @@ import {
   type TicketActivityOptions
 } from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
+import * as TicketRewrites from "./TicketRewrites"
 
 const removed = userId("user-gone")
 const kept = userId("user-kept")
@@ -76,7 +69,7 @@ const fixture = (malformed: ReadonlyArray<string> = []) => {
               )
             )
   })
-  const layer = ProjectsLive.pipe(
+  const layer = TicketRewrites.layer.pipe(
     Layer.provide(ticketDocs),
     Layer.provide(
       makeFakeTicketIndex(index, {
@@ -86,17 +79,7 @@ const fixture = (malformed: ReadonlyArray<string> = []) => {
     ),
     Layer.provide(FinishedStatuses.baseline),
     Layer.provide(TicketDocumentLock.layer),
-    Layer.provide(
-      Layer.mergeAll(
-        Layer.mock(Db, {}),
-        Layer.mock(SqlClient.SqlClient, {}),
-        Layer.mock(Access, {}),
-        Layer.mock(BannerPlaceholders, {}),
-        Layer.mock(ProjectDocs, {}),
-        Layer.mock(Users, {}),
-        Layer.mock(GitHub, {})
-      )
-    )
+    Layer.provide(FakeDb)
   )
   return { documents: docs.documents, activity, upserts, layer }
 }
@@ -104,10 +87,10 @@ const fixture = (malformed: ReadonlyArray<string> = []) => {
 const ticketIdOf = (id: string) => makeTicketDocument(id).id
 
 const unassign = (
-  layer: Layer.Layer<Projects>
+  layer: Layer.Layer<TicketRewrites.TicketRewrites>
 ): Effect.Effect<void, never, never> =>
-  Effect.flatMap(Projects, (projects) =>
-    projects.unassignUserFromActiveTickets("org", "p", removed)
+  Effect.flatMap(TicketRewrites.TicketRewrites, (rewrites) =>
+    rewrites.unassignUserFromActiveTickets("org", "p", removed)
   ).pipe(
     Effect.provideService(ActivityActor, ActivityActor.user("user-pm")),
     Effect.provide(layer)

@@ -375,10 +375,6 @@ const FakeProjects = Layer.succeed(Projects, {
   removeMember: () => unexpected("Projects.removeMember"),
   leave: () => unexpected("Projects.leave"),
   cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
-  unassignUserFromActiveTickets: () =>
-    unexpected("Projects.unassignUserFromActiveTickets"),
-  unassignUserFromOrgTickets: () =>
-    unexpected("Projects.unassignUserFromOrgTickets"),
   connectGithub: () => unexpected("Projects.connectGithub"),
   disconnectGithub: () => unexpected("Projects.disconnectGithub")
 } satisfies ProjectsShape)

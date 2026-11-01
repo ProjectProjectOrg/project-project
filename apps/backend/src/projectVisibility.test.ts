@@ -31,6 +31,7 @@ import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
 import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
+import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
 import { Users } from "@pp/server-core/users/Users"
 import {
   ActivityActor,
@@ -190,6 +191,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
     ticketIndexLayer = ticketIndex
     projectsLayer = ProjectsLive.pipe(
       Layer.provideMerge(AccessLive),
+      Layer.provide(TicketRewrites.layer),
       Layer.provide(TicketDocumentLock.layer),
       Layer.provide(FinishedStatuses.baseline),
       Layer.provide(

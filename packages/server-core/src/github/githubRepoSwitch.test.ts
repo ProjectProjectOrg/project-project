@@ -22,6 +22,7 @@ import {
   type TicketDocument
 } from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
+import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
 import { Users } from "@pp/server-core/users/Users"
 import {
   CurrentUser,
@@ -211,6 +212,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
     ).pipe(Layer.provide(db), Layer.provide(KeyedLock.layer))
     projectsLayer = ProjectsLive.pipe(
       Layer.provideMerge(AccessLive.pipe(Layer.provide(db))),
+      Layer.provide(TicketRewrites.layer),
       Layer.provide(
         TicketIndexServices.layer.pipe(Layer.provide(db), Layer.provide(docs))
       ),
@@ -373,46 +375,48 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
       })
     })
   )
-  it.effect("puts the PR metadata back when the new repository is refused", () =>
-    Effect.gen(function* () {
-      const otherProjectId = randomUUID()
-      const otherLinkId = randomUUID()
-      yield* Effect.promise(async () => {
-        await pool.query(
-          "INSERT INTO project_index (id,slug,organization_id,key,name,icon,color,created_by) VALUES ($1,$2,$3,'K','Kept','folder','#3b82f6',$4)",
-          [otherProjectId, `kept-${otherProjectId}`, organizationId, userId]
-        )
-        await pool.query(
-          "INSERT INTO project_integration_link (id,project_id,organization_id,organization_integration_id,provider,status) VALUES ($1,$2,$3,$4,'github','active')",
-          [otherLinkId, otherProjectId, organizationId, integrationId]
-        )
-        await pool.query(
-          "INSERT INTO project_github_repository (project_integration_link_id,organization_id,status,repo_id,repo_owner,repo_name,default_branch) VALUES ($1,$2,'active','kept-repo','acme','kept','main')",
-          [otherLinkId, organizationId]
-        )
-      })
-      ticket = initialTicket
+  it.effect(
+    "puts the PR metadata back when the new repository is refused",
+    () =>
+      Effect.gen(function* () {
+        const otherProjectId = randomUUID()
+        const otherLinkId = randomUUID()
+        yield* Effect.promise(async () => {
+          await pool.query(
+            "INSERT INTO project_index (id,slug,organization_id,key,name,icon,color,created_by) VALUES ($1,$2,$3,'K','Kept','folder','#3b82f6',$4)",
+            [otherProjectId, `kept-${otherProjectId}`, organizationId, userId]
+          )
+          await pool.query(
+            "INSERT INTO project_integration_link (id,project_id,organization_id,organization_integration_id,provider,status) VALUES ($1,$2,$3,$4,'github','active')",
+            [otherLinkId, otherProjectId, organizationId, integrationId]
+          )
+          await pool.query(
+            "INSERT INTO project_github_repository (project_integration_link_id,organization_id,status,repo_id,repo_owner,repo_name,default_branch) VALUES ($1,$2,'active','kept-repo','acme','kept','main')",
+            [otherLinkId, organizationId]
+          )
+        })
+        ticket = initialTicket
 
-      const error = yield* Effect.flip(connect("kept"))
-      expect(error).toMatchObject({
-        _tag: "Conflict",
-        reason: "github_repo_already_connected"
-      })
-      expect(ticket).toMatchObject({
-        pr: 42,
-        prState: "open",
-        lastTransitionedPr: 41,
-        updatedAt: initialTicket.updatedAt
-      })
-      const indexed = yield* Effect.promise(() =>
-        pool.query(
-          "SELECT pr,pr_state,last_transitioned_pr FROM ticket_index WHERE project_id=$1 AND ticket_id=$2",
-          [projectId, ticketId]
+        const error = yield* Effect.flip(connect("kept"))
+        expect(error).toMatchObject({
+          _tag: "Conflict",
+          reason: "github_repo_already_connected"
+        })
+        expect(ticket).toMatchObject({
+          pr: 42,
+          prState: "open",
+          lastTransitionedPr: 41,
+          updatedAt: initialTicket.updatedAt
+        })
+        const indexed = yield* Effect.promise(() =>
+          pool.query(
+            "SELECT pr,pr_state,last_transitioned_pr FROM ticket_index WHERE project_id=$1 AND ticket_id=$2",
+            [projectId, ticketId]
+          )
         )
-      )
-      expect(indexed.rows).toEqual([
-        { pr: 42, pr_state: "open", last_transitioned_pr: 41 }
-      ])
-    })
+        expect(indexed.rows).toEqual([
+          { pr: 42, pr_state: "open", last_transitioned_pr: 41 }
+        ])
+      })
   )
 })
