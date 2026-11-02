@@ -26,16 +26,16 @@ export class TicketIdTaken extends Data.TaggedError("TicketIdTaken")<{}> {}
 
 export class GroupIdTaken extends Data.TaggedError("GroupIdTaken")<{}> {}
 
-export interface ParsedMarkdown {
-  readonly data: Record<string, unknown>
-  readonly body: string
-}
+export type ParsedMarkdown = Readonly<{
+  data: Record<string, unknown>
+  body: string
+}>
 
-export interface TicketParts {
-  readonly data: Record<string, unknown>
-  readonly description: string
-  readonly region: string
-}
+export type TicketParts = Readonly<{
+  data: Record<string, unknown>
+  description: string
+  region: string
+}>
 
 export type LibraryKind = "blocks" | "templates"
 
