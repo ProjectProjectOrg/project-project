@@ -48,7 +48,7 @@ import * as Schema from "effect/Schema"
 
 import { validateBodyMentions } from "../comments/BodyMentions"
 import * as KeyedLock from "../locks/KeyedLock"
-import type { MarkdownError, LibraryKind } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as LibraryDocs from "./LibraryDocs"
@@ -60,7 +60,7 @@ export type TemplateExpansion = Readonly<{
   tags: ReadonlyArray<TagName>
 }>
 
-type OrgEditError = Validation | MentionInvalid | MarkdownError
+type OrgEditError = Validation | MentionInvalid | Markdown.MarkdownError
 
 type ProjectEditError = NotFound | OrgEditError
 
@@ -69,12 +69,12 @@ export class Library extends Context.Service<
   Readonly<{
     orgLibrary: () => Effect.Effect<
       LibraryValue,
-      NotFound | MarkdownError,
+      NotFound | Markdown.MarkdownError,
       OrgScope
     >
     projectLibrary: () => Effect.Effect<
       LibraryValue,
-      NotFound | MarkdownError,
+      NotFound | Markdown.MarkdownError,
       ProjectScope
     >
     createOrgBlock: (
@@ -86,7 +86,7 @@ export class Library extends Context.Service<
     ) => Effect.Effect<BlockDefinition, OrgEditError | NotFound, OrgScope>
     removeOrgBlock: (
       key: string
-    ) => Effect.Effect<void, NotFound | MarkdownError, OrgScope>
+    ) => Effect.Effect<void, NotFound | Markdown.MarkdownError, OrgScope>
     createOrgTemplate: (
       input: CreateTemplateInput
     ) => Effect.Effect<TemplateDefinition, OrgEditError | Conflict, OrgScope>
@@ -96,12 +96,12 @@ export class Library extends Context.Service<
     ) => Effect.Effect<TemplateDefinition, OrgEditError | NotFound, OrgScope>
     removeOrgTemplate: (
       key: string
-    ) => Effect.Effect<void, NotFound | MarkdownError, OrgScope>
+    ) => Effect.Effect<void, NotFound | Markdown.MarkdownError, OrgScope>
     setOrgTemplateDefaults: (
       input: UpdateTemplateDefaultsInput
     ) => Effect.Effect<
       LibraryDefaults,
-      NotFound | Validation | MarkdownError,
+      NotFound | Validation | Markdown.MarkdownError,
       OrgScope
     >
     createBlock: (
@@ -117,10 +117,14 @@ export class Library extends Context.Service<
     ) => Effect.Effect<BlockDefinition, ProjectEditError, ProjectScope>
     removeBlock: (
       key: string
-    ) => Effect.Effect<void, NotFound | MarkdownError, ProjectScope>
+    ) => Effect.Effect<void, NotFound | Markdown.MarkdownError, ProjectScope>
     hideBlock: (
       key: string
-    ) => Effect.Effect<void, NotFound | Conflict | MarkdownError, ProjectScope>
+    ) => Effect.Effect<
+      void,
+      NotFound | Conflict | Markdown.MarkdownError,
+      ProjectScope
+    >
     createTemplate: (
       input: CreateTemplateInput
     ) => Effect.Effect<
@@ -134,34 +138,41 @@ export class Library extends Context.Service<
     ) => Effect.Effect<TemplateDefinition, ProjectEditError, ProjectScope>
     removeTemplate: (
       key: string
-    ) => Effect.Effect<void, NotFound | MarkdownError, ProjectScope>
+    ) => Effect.Effect<void, NotFound | Markdown.MarkdownError, ProjectScope>
     hideTemplate: (
       key: string
-    ) => Effect.Effect<void, NotFound | Conflict | MarkdownError, ProjectScope>
+    ) => Effect.Effect<
+      void,
+      NotFound | Conflict | Markdown.MarkdownError,
+      ProjectScope
+    >
     setTemplateDefaults: (
       input: UpdateTemplateDefaultsInput
     ) => Effect.Effect<
       LibraryDefaults,
-      NotFound | Validation | MarkdownError,
+      NotFound | Validation | Markdown.MarkdownError,
       ProjectScope
     >
     expandForCreate: (
       orgSlug: string,
       slug: string,
       key: TemplateKey
-    ) => Effect.Effect<TemplateExpansion, NotFound | Validation | MarkdownError>
+    ) => Effect.Effect<
+      TemplateExpansion,
+      NotFound | Validation | Markdown.MarkdownError
+    >
     resolveSynced: (
       orgSlug: string,
       slug: string,
       body: string
-    ) => Effect.Effect<string, MarkdownError>
+    ) => Effect.Effect<string, Markdown.MarkdownError>
   }>
 >()("@pp/server-core/library/Library") {}
 
 type Keyed = Readonly<{ key: string }>
 
 type KindOps<Draft extends Keyed, Definition extends Keyed> = Readonly<{
-  kind: LibraryKind
+  kind: Markdown.LibraryKind
   isKey: (key: string) => boolean
   definitions: (layer: LibraryLayer) => ReadonlyArray<Draft>
   hidden: (layer: LibraryLayer) => ReadonlyArray<string>
@@ -315,7 +326,7 @@ const make = Effect.gen(function* () {
   const layersFor = (
     orgSlug: string,
     slug: string | null
-  ): Effect.Effect<LibraryLayers, MarkdownError> =>
+  ): Effect.Effect<LibraryLayers, Markdown.MarkdownError> =>
     Effect.all(
       {
         org: docs.readLayer(orgSlug, null),
@@ -371,7 +382,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string | null,
     needed: boolean
-  ): Effect.Effect<ReadonlySet<string>, MarkdownError> =>
+  ): Effect.Effect<ReadonlySet<string>, Markdown.MarkdownError> =>
     slug === null || !needed
       ? Effect.succeed(new Set<string>())
       : ticketDocs
@@ -410,7 +421,10 @@ const make = Effect.gen(function* () {
     slug: string | null,
     content: string,
     allowsBlocks: boolean
-  ): Effect.fn.Return<void, Validation | MentionInvalid | MarkdownError> {
+  ): Effect.fn.Return<
+    void,
+    Validation | MentionInvalid | Markdown.MarkdownError
+  > {
     const issue = contentIssue(content, allowsBlocks)
     if (issue !== null) return yield* issue
     if (!content.includes("](mention:")) return
@@ -438,7 +452,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     body: string
-  ): Effect.fn.Return<string, MarkdownError> {
+  ): Effect.fn.Return<string, Markdown.MarkdownError> {
     if (!body.includes("](mention:")) return body
     return withKnownMentions(body, yield* mentionLookups(orgSlug, slug, body))
   })
@@ -453,7 +467,7 @@ const make = Effect.gen(function* () {
       orgSlug: string,
       slug: string,
       body: string
-    ): Effect.fn.Return<string, MarkdownError> {
+    ): Effect.fn.Return<string, Markdown.MarkdownError> {
       const segments = parseTicketBlocks(body)
       const synced = segments.filter(isSyncedWithMention)
       if (synced.length === 0) return body
@@ -494,7 +508,7 @@ const make = Effect.gen(function* () {
     slug: string | null,
     layers: LibraryLayers,
     key: string
-  ): Effect.Effect<boolean, MarkdownError> =>
+  ): Effect.Effect<boolean, Markdown.MarkdownError> =>
     hasFileAt(ops, ownLayer(layers), key)
       ? Effect.succeed(true)
       : docs.hasFile(orgSlug, slug, ops.kind, key)
@@ -520,12 +534,15 @@ const make = Effect.gen(function* () {
       orgSlug: string,
       slug: string | null,
       draft: Draft
-    ) => Effect.Effect<void, MarkdownError>,
+    ) => Effect.Effect<void, Markdown.MarkdownError>,
     orgSlug: string,
     slug: string | null,
     layers: LibraryLayers,
     draft: Draft
-  ): Effect.Effect<Definition, Validation | MentionInvalid | MarkdownError> =>
+  ): Effect.Effect<
+    Definition,
+    Validation | MentionInvalid | Markdown.MarkdownError
+  > =>
     Effect.gen(function* () {
       yield* validateContent(
         orgSlug,
@@ -547,13 +564,13 @@ const make = Effect.gen(function* () {
       orgSlug: string,
       slug: string | null,
       draft: Draft
-    ) => Effect.Effect<void, MarkdownError>,
+    ) => Effect.Effect<void, Markdown.MarkdownError>,
     orgSlug: string,
     slug: string | null,
     draft: Draft
   ): Effect.Effect<
     Definition,
-    Conflict | Validation | MentionInvalid | MarkdownError
+    Conflict | Validation | MentionInvalid | Markdown.MarkdownError
   > =>
     Effect.gen(function* () {
       yield* Effect.annotateCurrentSpan({ orgSlug, slug, key: draft.key })
@@ -575,7 +592,7 @@ const make = Effect.gen(function* () {
       orgSlug: string,
       slug: string | null,
       draft: Draft
-    ) => Effect.Effect<void, MarkdownError>,
+    ) => Effect.Effect<void, Markdown.MarkdownError>,
     patch: (draft: Draft, input: Patch) => Draft,
     orgSlug: string,
     slug: string | null,
@@ -583,7 +600,7 @@ const make = Effect.gen(function* () {
     input: Patch
   ): Effect.Effect<
     Definition,
-    NotFound | Validation | MentionInvalid | MarkdownError
+    NotFound | Validation | MentionInvalid | Markdown.MarkdownError
   > =>
     Effect.gen(function* () {
       yield* Effect.annotateCurrentSpan({ orgSlug, slug, key })
@@ -614,7 +631,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string | null,
     key: string
-  ): Effect.Effect<void, NotFound | MarkdownError> =>
+  ): Effect.Effect<void, NotFound | Markdown.MarkdownError> =>
     Effect.gen(function* () {
       yield* Effect.annotateCurrentSpan({ orgSlug, slug, key })
       if (!ops.isKey(key)) return yield* new NotFound()
@@ -634,7 +651,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     key: string
-  ): Effect.Effect<void, NotFound | Conflict | MarkdownError> =>
+  ): Effect.Effect<void, NotFound | Conflict | Markdown.MarkdownError> =>
     Effect.gen(function* () {
       yield* Effect.annotateCurrentSpan({ orgSlug, slug, key })
       if (!ops.isKey(key)) return yield* new NotFound()
@@ -663,7 +680,7 @@ const make = Effect.gen(function* () {
   const layerDefaultsFor = (
     orgSlug: string,
     slug: string | null
-  ): Effect.Effect<LayerDefaults, NotFound | MarkdownError> =>
+  ): Effect.Effect<LayerDefaults, NotFound | Markdown.MarkdownError> =>
     Effect.all(
       {
         org: docs.readOrgDefaults(orgSlug),
@@ -709,8 +726,11 @@ const make = Effect.gen(function* () {
     input: UpdateTemplateDefaultsInput,
     write: (
       defaults: PartialTemplateDefaults
-    ) => Effect.Effect<void, NotFound | MarkdownError>
-  ): Effect.fn.Return<LibraryDefaults, NotFound | Validation | MarkdownError> {
+    ) => Effect.Effect<void, NotFound | Markdown.MarkdownError>
+  ): Effect.fn.Return<
+    LibraryDefaults,
+    NotFound | Validation | Markdown.MarkdownError
+  > {
     const [layers, current] = yield* Effect.all(
       [layersFor(orgSlug, slug), layerDefaultsFor(orgSlug, slug)],
       { concurrency: 2 }
@@ -768,7 +788,7 @@ const make = Effect.gen(function* () {
     key: TemplateKey
   ): Effect.fn.Return<
     TemplateExpansion,
-    NotFound | Validation | MarkdownError
+    NotFound | Validation | Markdown.MarkdownError
   > {
     const [layers, defaults] = yield* Effect.all(
       [layersFor(orgSlug, slug), layerDefaultsFor(orgSlug, slug)],
@@ -805,7 +825,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     body: string
-  ): Effect.fn.Return<string, MarkdownError> {
+  ): Effect.fn.Return<string, Markdown.MarkdownError> {
     if (!SYNCED_OPENER.test(body)) return body
     const library = resolveLibrary(
       yield* layersFor(orgSlug, slug),

@@ -17,8 +17,7 @@ import pg from "pg"
 import { describe, expect } from "vitest"
 
 import { contentHash, markdownFileContent } from "../markdown/fileContent"
-import { Markdown } from "../markdown/Markdown"
-import { MarkdownLive } from "../markdown/MarkdownLive"
+import * as Markdown from "../markdown/Markdown"
 import type { TicketScopedChange } from "./changes"
 import { TicketActivity } from "./TicketActivity"
 import { TicketActivityLive } from "./TicketActivityLive"
@@ -59,7 +58,7 @@ const TestLayer = Layer.unwrap(
     })
     return TicketActivityLive.pipe(
       Layer.provideMerge(
-        MarkdownLive.pipe(
+        Markdown.layer.pipe(
           Layer.provide(
             ConfigProvider.layer(
               ConfigProvider.fromUnknown({ PROJECTS_DIR: root })
@@ -131,7 +130,7 @@ const statusMove: ReadonlyArray<TicketScopedChange> = [
 
 const writeTicketFile = (orgSlug: string, slug: string, title: string) =>
   Effect.gen(function* () {
-    const markdown = yield* Markdown
+    const markdown = yield* Markdown.Markdown
     const frontmatter = { id: "T-1", title }
     const body = "Body\n"
     yield* markdown

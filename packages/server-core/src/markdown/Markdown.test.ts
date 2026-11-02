@@ -5,11 +5,12 @@ import * as ConfigProvider from "effect/ConfigProvider"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Path from "effect/Path"
+import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
-import { Markdown } from "./Markdown"
-import { MarkdownLive } from "./MarkdownLive"
+import * as Markdown from "./Markdown"
 
 const TestLayer = Layer.unwrap(
   Effect.gen(function* () {
@@ -17,7 +18,7 @@ const TestLayer = Layer.unwrap(
     const tmpRoot = yield* fs.makeTempDirectoryScoped({
       prefix: "projectproject-md-"
     })
-    return MarkdownLive.pipe(
+    return Markdown.layer.pipe(
       Layer.provideMerge(
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({ PROJECTS_DIR: tmpRoot })
@@ -58,7 +59,7 @@ describe("Markdown tickets (real fs)", () => {
     "returns MarkdownError for rejected project, ticket, and group files",
     () =>
       Effect.gen(function* () {
-        const md = yield* Markdown
+        const md = yield* Markdown.Markdown
         const fs = yield* FileSystem.FileSystem
         const path = yield* Path.Path
         const project = md.projectDir("acme", "foo")
@@ -97,7 +98,7 @@ describe("Markdown tickets (real fs)", () => {
 
   it.effect("round-trips frontmatter-looking ticket bodies as text", () =>
     Effect.gen(function* () {
-      const md = yield* Markdown
+      const md = yield* Markdown.Markdown
       const body = "---js\nthrow new Error('executed')\n---\nExample\n"
 
       yield* md.createTicketFile(
@@ -116,7 +117,7 @@ describe("Markdown tickets (real fs)", () => {
 
   it.effect("keeps the original ticket when exclusive creation collides", () =>
     Effect.gen(function* () {
-      const md = yield* Markdown
+      const md = yield* Markdown.Markdown
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
       const root = yield* Config.String("PROJECTS_DIR")
@@ -158,7 +159,7 @@ describe("Markdown tickets (real fs)", () => {
     "atomically replaces a ticket without leaving temporary files",
     () =>
       Effect.gen(function* () {
-        const md = yield* Markdown
+        const md = yield* Markdown.Markdown
         const fs = yield* FileSystem.FileSystem
         const path = yield* Path.Path
         const root = yield* Config.String("PROJECTS_DIR")
@@ -199,7 +200,7 @@ describe("Markdown deletion (real fs)", () => {
     "removeTicketFile removes the file and listTicketIds reflects it",
     () =>
       Effect.gen(function* () {
-        const md = yield* Markdown
+        const md = yield* Markdown.Markdown
         const fs = yield* FileSystem.FileSystem
         const path = yield* Path.Path
         const root = yield* Config.String("PROJECTS_DIR")
@@ -234,7 +235,7 @@ describe("Markdown deletion (real fs)", () => {
     "removeProjectDir removes the entire project tree including tickets",
     () =>
       Effect.gen(function* () {
-        const md = yield* Markdown
+        const md = yield* Markdown.Markdown
         const fs = yield* FileSystem.FileSystem
         const path = yield* Path.Path
         const root = yield* Config.String("PROJECTS_DIR")
@@ -273,7 +274,7 @@ describe("Markdown deletion (real fs)", () => {
     "project re-created under same slug after removeProjectDir is empty of old tickets",
     () =>
       Effect.gen(function* () {
-        const md = yield* Markdown
+        const md = yield* Markdown.Markdown
         yield* md.writeProjectFile(
           "acme",
           "foo",
@@ -296,5 +297,74 @@ describe("Markdown deletion (real fs)", () => {
         )
         expect(yield* md.listTicketIds("acme", "foo")).toEqual([])
       }).pipe(Effect.provide(TestLayer))
+  )
+})
+
+describe("Markdown tracing", () => {
+  it.effect("traces each call under its Markdown span", () =>
+    Effect.gen(function* () {
+      const spans: Array<Tracer.NativeSpan> = []
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options)
+          spans.push(span)
+          return span
+        }
+      })
+
+      yield* Effect.gen(function* () {
+        const md = yield* Markdown.Markdown
+        yield* md.writeProjectFile(
+          "acme",
+          "foo",
+          projectFrontmatter("foo"),
+          "# Foo\n"
+        )
+        yield* md.createTicketFile(
+          "acme",
+          "foo",
+          "T-1",
+          ticketFrontmatter("T-1"),
+          "# notes\n"
+        )
+        yield* md.readTicketParts("acme", "foo", "T-1")
+        yield* md.writeTicketWithRegion(
+          "acme",
+          "foo",
+          "T-1",
+          ticketFrontmatter("T-1"),
+          "# notes\n",
+          ""
+        )
+        yield* md.listTicketIds("acme", "foo")
+        yield* md.writeOrgLibraryFile("acme", "# Library\n")
+        yield* md.readOrgLibraryFile("acme")
+      }).pipe(Effect.withTracer(tracer))
+
+      expect(
+        spans
+          .filter((span) => span.name.startsWith("Markdown."))
+          .map((span) => ({
+            name: span.name,
+            parent: Option.match(span.parent, {
+              onNone: () => null,
+              onSome: (parent) => (parent._tag === "Span" ? parent.name : null)
+            })
+          }))
+      ).toEqual([
+        { name: "Markdown.writeProjectFile", parent: null },
+        { name: "Markdown.createTicketFile", parent: null },
+        { name: "Markdown.readTicketParts", parent: null },
+        { name: "Markdown.readTicketFile", parent: "Markdown.readTicketParts" },
+        { name: "Markdown.writeTicketWithRegion", parent: null },
+        {
+          name: "Markdown.writeTicketFile",
+          parent: "Markdown.writeTicketWithRegion"
+        },
+        { name: "Markdown.listTicketIds", parent: null },
+        { name: "Markdown.writeOrgLibraryFile", parent: null },
+        { name: "Markdown.readOrgLibraryFile", parent: null }
+      ])
+    }).pipe(Effect.provide(TestLayer))
   )
 })

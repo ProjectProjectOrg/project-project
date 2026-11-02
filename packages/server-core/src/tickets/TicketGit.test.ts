@@ -10,7 +10,7 @@ import { expect } from "vitest"
 import { asUser, passthroughTicketActivity } from "../activity/testing"
 import { type GitHubShape } from "../github/GitHub"
 import { applyPullRequestWebhookToTicket } from "../github/GitHubTicketEventsLive"
-import { MarkdownError } from "../markdown/Markdown"
+import * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import {
   DEFAULT_GIT_AUTOMATION_CONFIG,
@@ -1229,7 +1229,10 @@ it.effect(
       })
     )
     const stale = new Set<string>()
-    const diskFull = new MarkdownError({ message: "disk full", cause: null })
+    const diskFull = new Markdown.MarkdownError({
+      message: "disk full",
+      cause: null
+    })
     let failMove = true
     const failingDocs: TicketDocs.TicketDocs["Service"] = {
       ...docs.service,

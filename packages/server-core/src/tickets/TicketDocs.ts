@@ -28,11 +28,7 @@ import { ticketCreatedEvents, ticketEvents } from "../activity/projectEvents"
 import { TicketActivity } from "../activity/TicketActivity"
 import * as KeyedLock from "../locks/KeyedLock"
 import { markdownFileContent, ticketFileBody } from "../markdown/fileContent"
-import {
-  Markdown,
-  type MarkdownError,
-  type TicketIdTaken
-} from "../markdown/Markdown"
+import * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 
 const TicketFrontmatterOnDisk = Schema.Struct({
@@ -298,27 +294,27 @@ export class TicketDocs extends Context.Service<
     listIds: (
       orgSlug: string,
       slug: string
-    ) => Effect.Effect<ReadonlyArray<TicketId>, MarkdownError>
+    ) => Effect.Effect<ReadonlyArray<TicketId>, Markdown.MarkdownError>
     read: (
       orgSlug: string,
       slug: string,
       id: string
     ) => Effect.Effect<
       TicketDocument,
-      NotFound | MarkdownError | MalformedTicketDocument
+      NotFound | Markdown.MarkdownError | MalformedTicketDocument
     >
     create: (
       orgSlug: string,
       slug: string,
       document: TicketDocument,
       onPersist?: (document: TicketDocument) => Effect.Effect<void>
-    ) => Effect.Effect<void, MarkdownError | TicketIdTaken>
+    ) => Effect.Effect<void, Markdown.MarkdownError | Markdown.TicketIdTaken>
     write: (
       orgSlug: string,
       slug: string,
       id: string,
       document: TicketDocument
-    ) => Effect.Effect<void, MarkdownError>
+    ) => Effect.Effect<void, Markdown.MarkdownError>
     update: <E, R>(
       orgSlug: string,
       slug: string,
@@ -330,7 +326,7 @@ export class TicketDocs extends Context.Service<
       activity?: TicketActivityOptions
     ) => Effect.Effect<
       TicketDocument,
-      NotFound | MarkdownError | MalformedTicketDocument | E,
+      NotFound | Markdown.MarkdownError | MalformedTicketDocument | E,
       R | ActivityActor
     >
     remove: (
@@ -338,14 +334,14 @@ export class TicketDocs extends Context.Service<
       slug: string,
       id: string,
       onPersist?: Effect.Effect<void>
-    ) => Effect.Effect<void, NotFound | MarkdownError>
+    ) => Effect.Effect<void, NotFound | Markdown.MarkdownError>
     readRaw: (
       orgSlug: string,
       slug: string,
       id: string
     ) => Effect.Effect<
       { path: string; content: string },
-      NotFound | MarkdownError
+      NotFound | Markdown.MarkdownError
     >
   }>
 >()("@pp/server-core/tickets/TicketDocs") {}
@@ -387,7 +383,7 @@ const annotateTicketDoc = <A, E, R>(
 }
 
 const make = Effect.gen(function* () {
-  const markdown = yield* Markdown
+  const markdown = yield* Markdown.Markdown
   const keyedLock = yield* KeyedLock.KeyedLock
   const ticketActivity = yield* TicketActivity
   const finishedStatuses = yield* FinishedStatuses

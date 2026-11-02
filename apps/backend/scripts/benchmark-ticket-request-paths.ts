@@ -15,7 +15,7 @@ import { GitHub, type GitHubShape } from "@pp/server-core/github/GitHub"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
-import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutomation"
@@ -462,7 +462,7 @@ const DocsLive = TicketDocs.layer.pipe(
   Layer.provide(KeyedLock.layer),
   Layer.provide(FinishedStatuses.baseline),
   Layer.provide(passthroughTicketActivity),
-  Layer.provide(MarkdownLive),
+  Layer.provide(Markdown.layer),
   Layer.provideMerge(BunServices.layer)
 )
 const DatabaseLive = DbLive.pipe(Layer.provideMerge(PgLive))

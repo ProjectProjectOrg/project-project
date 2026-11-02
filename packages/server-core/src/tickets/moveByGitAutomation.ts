@@ -2,7 +2,7 @@ import { ActivityActor, type GitAutomationEvent } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import type * as ProjectGitAutomation from "../projects/ProjectGitAutomation"
 import { gitAutomationEvent, planGitAutomation } from "./gitAutomation"
 import type * as TicketDocs from "./TicketDocs"
@@ -59,7 +59,7 @@ export const moveForDeletedBranch = (
       >
     }>,
   match: TicketIndex.TicketIndexMatch
-): Effect.Effect<void, MarkdownError> =>
+): Effect.Effect<void, Markdown.MarkdownError> =>
   deps.ticketDocumentLock.withTicketDocumentLock(
     match.orgSlug,
     match.slug,

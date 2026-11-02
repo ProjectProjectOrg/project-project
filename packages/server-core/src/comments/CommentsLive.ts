@@ -15,7 +15,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketIndex from "../tickets/TicketIndex"
@@ -69,7 +69,7 @@ export const CommentsLive = Layer.effect(
       transform: (
         blocks: ReadonlyArray<CommentBlock>
       ) => ReadonlyArray<CommentBlock>,
-      onPersist?: Effect.Effect<void, MarkdownError>
+      onPersist?: Effect.Effect<void, Markdown.MarkdownError>
     ) => {
       let previous: Parameters<typeof ticketDocs.write>[3] | undefined
       return ticketDocs.update(

@@ -14,8 +14,7 @@ import { testUser } from "@pp/server-core/access/testing"
 import { TicketActivityLive } from "@pp/server-core/activity/TicketActivityLive"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
-import { Markdown } from "@pp/server-core/markdown/Markdown"
-import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
@@ -153,14 +152,14 @@ describe.skipIf(!databaseUrl)("Everhour backend composition", () => {
           Layer.provideMerge(FinishedStatuses.layer),
           Layer.provideMerge(KeyedLock.layer),
           Layer.provideMerge(TicketActivityLive),
-          Layer.provideMerge(MarkdownLive),
+          Layer.provideMerge(Markdown.layer),
           Layer.provideMerge(SecretCrypto.layer)
         )
         yield* Effect.gen(function* () {
           const access = yield* Access.Access
           const org = yield* access.org(orgId)
           const project = yield* access.project(orgId, "project")
-          const markdown = yield* Markdown
+          const markdown = yield* Markdown.Markdown
           const timestamps = {
             createdBy: userId,
             createdAt: "2026-10-23T00:00:00Z",

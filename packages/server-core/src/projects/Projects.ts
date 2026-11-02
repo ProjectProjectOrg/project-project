@@ -41,7 +41,7 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import { projectMemberOf, projectScopeOf } from "../access/projectScope"
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import { bannerNeedsPlaceholder } from "./bannerPlaceholder"
 import * as BannerPlaceholders from "./BannerPlaceholders"
 import * as ProjectDetails from "./ProjectDetails"
@@ -91,7 +91,7 @@ export class Projects extends Context.Service<
     ) => Effect.Effect<Project, Conflict, OrgScope>
     get: () => Effect.Effect<
       ProjectDetail,
-      NotFound | MarkdownError,
+      NotFound | Markdown.MarkdownError,
       ProjectScope
     >
     key: () => Effect.Effect<ProjectKey, NotFound, ProjectScope>
@@ -100,13 +100,17 @@ export class Projects extends Context.Service<
       input: UpdateProjectInput
     ) => Effect.Effect<
       ProjectDetail,
-      Forbidden | NotFound | MarkdownError,
+      Forbidden | NotFound | Markdown.MarkdownError,
       ProjectScope
     >
     updateSetup: (
       input: UpdateProjectSetupInput
-    ) => Effect.Effect<ProjectDetail, NotFound | MarkdownError, ProjectScope>
-    remove: () => Effect.Effect<void, MarkdownError, ProjectScope>
+    ) => Effect.Effect<
+      ProjectDetail,
+      NotFound | Markdown.MarkdownError,
+      ProjectScope
+    >
+    remove: () => Effect.Effect<void, Markdown.MarkdownError, ProjectScope>
   }>
 >()("@pp/server-core/projects/Projects") {}
 

@@ -1,9 +1,5 @@
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
-import {
-  GroupIdTaken,
-  MarkdownError,
-  TicketIdTaken
-} from "@pp/server-core/markdown/Markdown"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import {
   AttachmentNotUploaded,
   BranchExists,
@@ -21,10 +17,10 @@ const BackendToolError = Schema.Union([
   BetterAuth.BetterAuthError,
   BranchExists,
   BranchProtected,
-  Schema.instanceOf(GroupIdTaken),
-  Schema.instanceOf(MarkdownError),
+  Schema.instanceOf(Markdown.GroupIdTaken),
+  Schema.instanceOf(Markdown.MarkdownError),
   Schema.instanceOf(Schema.SchemaError),
-  Schema.instanceOf(TicketIdTaken)
+  Schema.instanceOf(Markdown.TicketIdTaken)
 ])
 type BackendToolError = typeof BackendToolError.Type
 const isBackendError = Schema.is(BackendToolError)

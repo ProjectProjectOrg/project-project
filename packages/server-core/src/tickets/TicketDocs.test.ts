@@ -26,8 +26,7 @@ import {
 } from "../activity/testing"
 import { TicketActivity } from "../activity/TicketActivity"
 import * as KeyedLock from "../locks/KeyedLock"
-import { Markdown } from "../markdown/Markdown"
-import { MarkdownLive } from "../markdown/MarkdownLive"
+import * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as TicketDocs from "./TicketDocs"
 
@@ -46,7 +45,7 @@ const testLayer = (
         ),
         Layer.provide(activity),
         Layer.provideMerge(
-          MarkdownLive.pipe(
+          Markdown.layer.pipe(
             Layer.provideMerge(
               ConfigProvider.layer(
                 ConfigProvider.fromUnknown({ PROJECTS_DIR: tmpRoot })
@@ -214,7 +213,7 @@ describe("TicketDocs branch matching persistence", () => {
 
   it.effect("decodes a ticket without branchAutoLinkDisabled", () =>
     Effect.gen(function* () {
-      const markdown = yield* Markdown
+      const markdown = yield* Markdown.Markdown
       const docs = yield* TicketDocs.TicketDocs
       yield* markdown.createTicketFile(
         "acme",
@@ -247,7 +246,7 @@ describe("TicketDocs branch matching persistence", () => {
 
   it.effect("decodes the singular assignee field", () =>
     Effect.gen(function* () {
-      const markdown = yield* Markdown
+      const markdown = yield* Markdown.Markdown
       const docs = yield* TicketDocs.TicketDocs
       yield* markdown.createTicketFile(
         "acme",
@@ -280,7 +279,7 @@ describe("TicketDocs branch matching persistence", () => {
 
   it.effect("decodes a null singular assignee field", () =>
     Effect.gen(function* () {
-      const markdown = yield* Markdown
+      const markdown = yield* Markdown.Markdown
       const docs = yield* TicketDocs.TicketDocs
       yield* markdown.createTicketFile(
         "acme",
@@ -409,7 +408,7 @@ describe("TicketDocs branches persistence", () => {
 
   it.effect("rejects a branches list that repeats a branch", () =>
     Effect.gen(function* () {
-      const markdown = yield* Markdown
+      const markdown = yield* Markdown.Markdown
       const docs = yield* TicketDocs.TicketDocs
       yield* markdown.createTicketFile(
         "acme",
@@ -443,7 +442,7 @@ describe("TicketDocs branches persistence", () => {
 
   it.effect("reads a ticket file written before the branches list", () =>
     Effect.gen(function* () {
-      const markdown = yield* Markdown
+      const markdown = yield* Markdown.Markdown
       const docs = yield* TicketDocs.TicketDocs
       yield* markdown.createTicketFile(
         "acme",
@@ -523,7 +522,7 @@ describe("TicketDocs estimate persistence", () => {
 
   it.effect("reads a hand-written estimate outside the scales as none", () =>
     Effect.gen(function* () {
-      const markdown = yield* Markdown
+      const markdown = yield* Markdown.Markdown
       const docs = yield* TicketDocs.TicketDocs
       yield* markdown.createTicketFile(
         "acme",

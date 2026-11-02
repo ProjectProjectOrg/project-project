@@ -28,7 +28,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { generateKeyBetween } from "fractional-indexing"
 
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import * as TicketIndex from "../tickets/TicketIndex"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 
@@ -44,7 +44,7 @@ export class ProjectStatuses extends Context.Service<
       input: UpdateStatusInput
     ) => Effect.Effect<
       ProjectStatus,
-      Forbidden | NotFound | Conflict | MarkdownError,
+      Forbidden | NotFound | Conflict | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     reorder: (
@@ -56,7 +56,7 @@ export class ProjectStatuses extends Context.Service<
       input: DeleteStatusInput
     ) => Effect.Effect<
       void,
-      Forbidden | NotFound | Conflict | MarkdownError,
+      Forbidden | NotFound | Conflict | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
   }>

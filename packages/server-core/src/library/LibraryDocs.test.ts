@@ -12,8 +12,7 @@ import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
 import { markdownFileContent, parseMarkdownFile } from "../markdown/fileContent"
-import { Markdown } from "../markdown/Markdown"
-import { MarkdownLive } from "../markdown/MarkdownLive"
+import * as Markdown from "../markdown/Markdown"
 import * as LibraryDocs from "./LibraryDocs"
 
 const decodeUnknownBlockDraft = Schema.decodeUnknownEffect(BlockDraft)
@@ -27,7 +26,7 @@ const TestLayer = Layer.unwrap(
       prefix: "projectproject-library-"
     })
     return LibraryDocs.layer.pipe(
-      Layer.provideMerge(MarkdownLive),
+      Layer.provideMerge(Markdown.layer),
       Layer.provideMerge(
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({ PROJECTS_DIR: tmpRoot })
@@ -64,7 +63,7 @@ const templateKey = Schema.decodeUnknownSync(TemplateKey)
 const libraryPath = (org: string, ...rest: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const path = yield* Path.Path
-    const markdown = yield* Markdown
+    const markdown = yield* Markdown.Markdown
     return path.join(
       path.dirname(markdown.libraryDir(org, null, "blocks")),
       ...rest
@@ -188,7 +187,7 @@ describe("LibraryDocs (real fs)", () => {
   it.effect("writes org and project files at the documented paths", () =>
     Effect.gen(function* () {
       const docs = yield* LibraryDocs.LibraryDocs
-      const markdown = yield* Markdown
+      const markdown = yield* Markdown.Markdown
       const fs = yield* FileSystem.FileSystem
 
       yield* docs.writeBlock("acme", null, block)
@@ -243,7 +242,7 @@ describe("LibraryDocs (real fs)", () => {
   it.effect("fills defaults for sparse hand-written frontmatter", () =>
     Effect.gen(function* () {
       const docs = yield* LibraryDocs.LibraryDocs
-      const markdown = yield* Markdown
+      const markdown = yield* Markdown.Markdown
       yield* markdown.writeLibraryFile(
         "acme",
         null,
@@ -271,7 +270,7 @@ describe("LibraryDocs (real fs)", () => {
   it.effect("reads a template written with the retired type field", () =>
     Effect.gen(function* () {
       const docs = yield* LibraryDocs.LibraryDocs
-      const markdown = yield* Markdown
+      const markdown = yield* Markdown.Markdown
       yield* markdown.writeLibraryFile(
         "acme",
         null,
@@ -330,7 +329,7 @@ describe("LibraryDocs (real fs)", () => {
   it.effect("skips files it cannot decode", () =>
     Effect.gen(function* () {
       const docs = yield* LibraryDocs.LibraryDocs
-      const markdown = yield* Markdown
+      const markdown = yield* Markdown.Markdown
       const fs = yield* FileSystem.FileSystem
       yield* markdown.writeLibraryFile(
         "acme",
@@ -365,7 +364,7 @@ describe("LibraryDocs (real fs)", () => {
   it.effect("reads a CRLF definition file with LF content", () =>
     Effect.gen(function* () {
       const docs = yield* LibraryDocs.LibraryDocs
-      const markdown = yield* Markdown
+      const markdown = yield* Markdown.Markdown
       yield* markdown.writeLibraryFile(
         "acme",
         null,
@@ -385,7 +384,7 @@ describe("LibraryDocs (real fs)", () => {
 
   it.effect("rejects unsafe keys and slugs", () =>
     Effect.gen(function* () {
-      const markdown = yield* Markdown
+      const markdown = yield* Markdown.Markdown
       const badKey = yield* markdown
         .writeLibraryFile("acme", null, "blocks", "../escape", "x")
         .pipe(Effect.flip)

@@ -14,7 +14,7 @@ import { ProjectStateCache } from "@pp/integration-github/projectStateCache"
 import * as ProjectStateCacheLayer from "@pp/integration-github/projectStateCache"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { GitHubTicketEvents } from "@pp/server-core/github/GitHubTicketEvents"
-import { MarkdownError } from "@pp/server-core/markdown/Markdown"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { OrgScope } from "@pp/shared"
 import type { GitHubInstallationAccount, RawProjectStates } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
@@ -598,7 +598,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       Effect.gen(function* () {
         const started = yield* Deferred.make<void>()
         const release = yield* Deferred.make<void>()
-        const failure = new MarkdownError({
+        const failure = new Markdown.MarkdownError({
           cause: "disk full",
           message: "ticket write failed"
         })

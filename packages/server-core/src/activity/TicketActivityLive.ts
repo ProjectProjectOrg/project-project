@@ -26,7 +26,7 @@ import * as Schedule from "effect/Schedule"
 import * as Schema from "effect/Schema"
 
 import { contentHash } from "../markdown/fileContent"
-import { Markdown } from "../markdown/Markdown"
+import * as Markdown from "../markdown/Markdown"
 import type { TicketScopedChange } from "./changes"
 import {
   TicketActivity,
@@ -103,7 +103,7 @@ export const TicketActivityLive = Layer.effect(
   TicketActivity,
   Effect.gen(function* () {
     const db = yield* Db
-    const markdown = yield* Markdown
+    const markdown = yield* Markdown.Markdown
     const crypto = yield* Crypto.Crypto
     const newId = crypto.randomUUIDv7().pipe(Effect.orDie)
 

@@ -4,7 +4,7 @@ import {
   JiraPlannedArchive,
   skippedAttachmentsForArchive
 } from "@pp/integration-jira/Report"
-import { Markdown } from "@pp/server-core/markdown/Markdown"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import {
   AppApi,
@@ -132,7 +132,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
             siteUrl === undefined
           )
             return yield* new NotFound()
-          const markdown = yield* Markdown
+          const markdown = yield* Markdown.Markdown
           const fs = yield* FileSystem.FileSystem
           const path = yield* Path.Path
           const archivePath = path.join(

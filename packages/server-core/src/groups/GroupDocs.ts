@@ -17,11 +17,7 @@ import { groupMembershipChanges } from "../activity/changes"
 import { sprintEvents } from "../activity/projectEvents"
 import { TicketActivity } from "../activity/TicketActivity"
 import { markdownFileContent } from "../markdown/fileContent"
-import {
-  type GroupIdTaken,
-  type MarkdownError,
-  Markdown
-} from "../markdown/Markdown"
+import * as Markdown from "../markdown/Markdown"
 
 export type GroupDocument = GroupDetail
 
@@ -33,43 +29,47 @@ export class GroupDocs extends Context.Service<
     listIds: (
       orgSlug: string,
       slug: string
-    ) => Effect.Effect<ReadonlyArray<GroupId>, MarkdownError>
+    ) => Effect.Effect<ReadonlyArray<GroupId>, Markdown.MarkdownError>
     read: (
       orgSlug: string,
       slug: string,
       id: string
-    ) => Effect.Effect<GroupDocument, NotFound | MarkdownError>
+    ) => Effect.Effect<GroupDocument, NotFound | Markdown.MarkdownError>
     create: (
       orgSlug: string,
       slug: string,
       document: GroupDocument
-    ) => Effect.Effect<void, MarkdownError | GroupIdTaken, ActivityActor>
+    ) => Effect.Effect<
+      void,
+      Markdown.MarkdownError | Markdown.GroupIdTaken,
+      ActivityActor
+    >
     write: (
       orgSlug: string,
       slug: string,
       id: string,
       document: GroupDocument,
       activity?: GroupActivityOptions
-    ) => Effect.Effect<void, MarkdownError, ActivityActor>
+    ) => Effect.Effect<void, Markdown.MarkdownError, ActivityActor>
     writeIfExists: (
       orgSlug: string,
       slug: string,
       id: string,
       document: GroupDocument,
       activity?: GroupActivityOptions
-    ) => Effect.Effect<void, NotFound | MarkdownError, ActivityActor>
+    ) => Effect.Effect<void, NotFound | Markdown.MarkdownError, ActivityActor>
     remove: (
       orgSlug: string,
       slug: string,
       id: string
-    ) => Effect.Effect<void, NotFound | MarkdownError, ActivityActor>
+    ) => Effect.Effect<void, NotFound | Markdown.MarkdownError, ActivityActor>
     readRaw: (
       orgSlug: string,
       slug: string,
       id: string
     ) => Effect.Effect<
       { path: string; content: string },
-      NotFound | MarkdownError
+      NotFound | Markdown.MarkdownError
     >
   }>
 >()("@pp/server-core/groups/GroupDocs") {}
@@ -125,7 +125,7 @@ const annotateGroupDoc = <A, E, R>(
 }
 
 const make = Effect.gen(function* () {
-  const markdown = yield* Markdown
+  const markdown = yield* Markdown.Markdown
   const ticketActivity = yield* TicketActivity
 
   const listIds = Effect.fn("GroupDocs.listIds")(function* (

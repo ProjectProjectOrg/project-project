@@ -8,7 +8,7 @@ import {
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import type * as ProjectGithub from "../projects/ProjectGithub"
 import { stackLayerStates } from "./stackLayerStates"
 import type * as TicketDocs from "./TicketDocs"
@@ -16,7 +16,7 @@ import type * as TicketIndex from "./TicketIndex"
 
 export type TicketReadError =
   | NotFound
-  | MarkdownError
+  | Markdown.MarkdownError
   | TicketDocs.MalformedTicketDocument
 
 export type GitView = Readonly<{

@@ -44,7 +44,7 @@ import {
   prepareJiraPublication,
   type JiraAttachmentOutcome
 } from "@pp/integration-jira/PublicationPlan"
-import { Markdown } from "@pp/server-core/markdown/Markdown"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import type * as S3Storage from "@pp/server-core/storage/S3Storage"
 import {
   BASELINE_STATUS_SEED,
@@ -233,7 +233,7 @@ export const verifyJiraPermanentArchive = Effect.fn(
   artifacts: Pick<JiraMigrationArtifactsShape, "readJson" | "verify">
 ) {
   const db = yield* Db
-  const markdown = yield* Markdown
+  const markdown = yield* Markdown.Markdown
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const [migration] = yield* db
@@ -896,7 +896,7 @@ export const writeJiraHiddenDocuments = Effect.fn(
   "JiraImport.writeHiddenDocuments"
 )(function* (input: JiraHiddenDocumentsInput) {
   const db = yield* Db
-  const markdown = yield* Markdown
+  const markdown = yield* Markdown.Markdown
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   if (
@@ -1184,7 +1184,7 @@ export const verifyJiraHiddenMaterialization = Effect.fn(
   input: JiraHiddenVerificationInput
 ) {
   const db = yield* Db
-  const markdown = yield* Markdown
+  const markdown = yield* Markdown.Markdown
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const [migration] = yield* db

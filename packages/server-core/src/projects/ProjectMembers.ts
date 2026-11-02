@@ -31,7 +31,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { ulid } from "ulid"
 
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import { Users } from "../users/Users"
 import * as ProjectDetails from "./ProjectDetails"
@@ -56,7 +56,7 @@ export class ProjectMembers extends Context.Service<
       input: AddMemberInput
     ) => Effect.Effect<
       ProjectDetail,
-      NotFound | Forbidden | MarkdownError | LastProjectPmBlocked,
+      NotFound | Forbidden | Markdown.MarkdownError | LastProjectPmBlocked,
       ProjectScope
     >
     updateMember: (
@@ -64,14 +64,14 @@ export class ProjectMembers extends Context.Service<
       nextRole: AssignableRole
     ) => Effect.Effect<
       ProjectDetail,
-      NotFound | MarkdownError | LastProjectPmBlocked,
+      NotFound | Markdown.MarkdownError | LastProjectPmBlocked,
       ProjectScope
     >
     removeMember: (
       targetUserId: string
     ) => Effect.Effect<
       ProjectDetail,
-      NotFound | Validation | MarkdownError | LastProjectPmBlocked,
+      NotFound | Validation | Markdown.MarkdownError | LastProjectPmBlocked,
       ProjectScope | ActivityActor
     >
     leave: () => Effect.Effect<
@@ -81,7 +81,11 @@ export class ProjectMembers extends Context.Service<
     >
     cancelPendingMember: (
       invitationId: string
-    ) => Effect.Effect<ProjectDetail, NotFound | MarkdownError, ProjectScope>
+    ) => Effect.Effect<
+      ProjectDetail,
+      NotFound | Markdown.MarkdownError,
+      ProjectScope
+    >
   }>
 >()("@pp/server-core/projects/ProjectMembers") {}
 

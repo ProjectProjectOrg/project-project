@@ -49,7 +49,7 @@ import type { InvalidCommentBody } from "../comments/Comments"
 import * as FigmaLinks from "../figma/FigmaLinks"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
@@ -113,14 +113,22 @@ export class TicketCommands extends Context.Service<
       input: QuickCreateTicketInput
     ) => Effect.Effect<
       TicketDetail,
-      Forbidden | NotFound | Validation | MentionInvalid | MarkdownError,
+      | Forbidden
+      | NotFound
+      | Validation
+      | MentionInvalid
+      | Markdown.MarkdownError,
       ProjectScope
     >
     create: (
       input: CreateTicketInput
     ) => Effect.Effect<
       TicketDetail,
-      Forbidden | NotFound | Validation | MentionInvalid | MarkdownError,
+      | Forbidden
+      | NotFound
+      | Validation
+      | MentionInvalid
+      | Markdown.MarkdownError,
       ProjectScope
     >
     update: (
@@ -147,7 +155,7 @@ export class TicketCommands extends Context.Service<
       | Forbidden
       | SprintCompletedImmutable
       | Validation
-      | MarkdownError,
+      | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     split: (
@@ -175,7 +183,7 @@ export class TicketCommands extends Context.Service<
       options?: DeleteTicketQuery
     ) => Effect.Effect<
       void,
-      NotFound | MarkdownError,
+      NotFound | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     archive: (
@@ -377,7 +385,7 @@ const make = Effect.gen(function* () {
     projectKey: ProjectKey,
     buildDocument: (id: TicketId) => TicketDocs.TicketDocument,
     onFileWritten?: (document: TicketDocs.TicketDocument) => void
-  ): Effect.Effect<TicketDocs.TicketDocument, MarkdownError> =>
+  ): Effect.Effect<TicketDocs.TicketDocument, Markdown.MarkdownError> =>
     Effect.gen(function* () {
       while (true) {
         const candidate = makeTicketId(
@@ -425,7 +433,7 @@ const make = Effect.gen(function* () {
     template: TemplateKey | null | undefined
   ): Effect.Effect<
     Library.TemplateExpansion | null,
-    NotFound | Validation | MarkdownError
+    NotFound | Validation | Markdown.MarkdownError
   > =>
     template === undefined || template === null
       ? Effect.succeed(null)
@@ -1139,7 +1147,7 @@ const make = Effect.gen(function* () {
     options?: DeleteTicketQuery
   ): Effect.fn.Return<
     void,
-    NotFound | MarkdownError,
+    NotFound | Markdown.MarkdownError,
     ProjectScope | ActivityActor
   > {
     const scope = yield* ProjectScope

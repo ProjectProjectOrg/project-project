@@ -33,7 +33,7 @@ import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import * as ProjectDocs from "./ProjectDocs"
 import type * as ProjectGithub from "./ProjectGithub"
 import { readProjectDocument } from "./readProjectDocument"
@@ -109,8 +109,12 @@ export class ProjectDetails extends Context.Service<
       connection: GithubConnection | null,
       setup: ProjectSetup,
       estimation: EstimationMode
-    ) => Effect.Effect<void, MarkdownError>
-    replay: Effect.Effect<ProjectDetail, NotFound | MarkdownError, ProjectScope>
+    ) => Effect.Effect<void, Markdown.MarkdownError>
+    replay: Effect.Effect<
+      ProjectDetail,
+      NotFound | Markdown.MarkdownError,
+      ProjectScope
+    >
   }>
 >()("@pp/server-core/projects/ProjectDetails") {}
 

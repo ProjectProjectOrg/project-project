@@ -7,7 +7,7 @@ import * as Schema from "effect/Schema"
 import * as Tracer from "effect/Tracer"
 import { expect } from "vitest"
 
-import { Markdown } from "../markdown/Markdown"
+import * as Markdown from "../markdown/Markdown"
 import * as ProjectDocs from "./ProjectDocs"
 
 const templateKey = Schema.decodeUnknownSync(TemplateKey)
@@ -39,7 +39,7 @@ const docsWith = (initial: Record<string, unknown>) => {
   let data = initial
   const layer = ProjectDocs.layer.pipe(
     Layer.provide(
-      Layer.mock(Markdown, {
+      Layer.mock(Markdown.Markdown, {
         root: "/tmp",
         projectDir: () => "/tmp/demo",
         libraryDir: () => "/tmp/demo/blocks",
