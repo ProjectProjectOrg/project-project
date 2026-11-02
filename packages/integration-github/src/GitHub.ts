@@ -2,12 +2,18 @@
 import { createHash } from "node:crypto"
 
 import {
+  type BranchExists,
+  type BranchListResponse,
+  type BranchProtected,
   GitHubError,
   type GitHubInstallationAccount,
   GithubRepo,
   GithubRepoPage,
-  type GitHubShape,
+  type GitHubScopeInsufficient,
+  type GitHubTokenExpired,
   RateLimited,
+  type RawProjectStates,
+  type RepoGone,
   type VerifiedInstallationRepo
 } from "@pp/shared"
 import * as Context from "effect/Context"
@@ -38,9 +44,94 @@ export type {
   RawPullRequestText
 } from "@pp/shared"
 
-export class GitHub extends Context.Service<GitHub, GitHubShape>()(
-  "@pp/integration-github/GitHub"
-) {}
+export class GitHub extends Context.Service<
+  GitHub,
+  Readonly<{
+    getInstallationAccount: (
+      installationId: string
+    ) => Effect.Effect<
+      GitHubInstallationAccount,
+      RepoGone | RateLimited | GitHubError
+    >
+    listInstallationRepos: (
+      installationId: string,
+      query: string | undefined,
+      page: number
+    ) => Effect.Effect<GithubRepoPage, RepoGone | RateLimited | GitHubError>
+    verifyInstallationRepo: (
+      installationId: string,
+      owner: string,
+      name: string
+    ) => Effect.Effect<
+      VerifiedInstallationRepo,
+      RepoGone | RateLimited | GitHubError
+    >
+    exchangeAppUserCode: (code: string) => Effect.Effect<string, GitHubError>
+    listAppUserInstallations: (
+      userAccessToken: string
+    ) => Effect.Effect<
+      ReadonlyArray<GitHubInstallationAccount>,
+      RateLimited | GitHubError
+    >
+    createBranchAsUser: (
+      owner: string,
+      name: string,
+      branchName: string,
+      baseBranch: string,
+      userId: string
+    ) => Effect.Effect<
+      Readonly<{ name: string; sha: string }>,
+      | GitHubTokenExpired
+      | GitHubScopeInsufficient
+      | RepoGone
+      | BranchExists
+      | BranchProtected
+      | RateLimited
+      | GitHubError
+    >
+    openPullRequestAsUser: (
+      owner: string,
+      name: string,
+      args: Readonly<{
+        head: string
+        base: string
+        title: string
+        body: string
+        draft: boolean
+      }>,
+      userId: string
+    ) => Effect.Effect<
+      Readonly<{ number: number; url: string }>,
+      | GitHubTokenExpired
+      | GitHubScopeInsufficient
+      | RepoGone
+      | BranchProtected
+      | RateLimited
+      | GitHubError
+    >
+    fetchInstallationProjectStates: (
+      installationId: string,
+      owner: string,
+      name: string,
+      branches: ReadonlyArray<string>,
+      branchQuery?: string
+    ) => Effect.Effect<RawProjectStates, RepoGone | RateLimited | GitHubError>
+    listInstallationBranches: (
+      installationId: string,
+      owner: string,
+      name: string,
+      query: string | undefined,
+      first: number,
+      after: string | undefined
+    ) => Effect.Effect<BranchListResponse, RepoGone | RateLimited | GitHubError>
+    branchExistsInstallation: (
+      installationId: string,
+      owner: string,
+      name: string,
+      branch: string
+    ) => Effect.Effect<boolean, RepoGone | RateLimited | GitHubError>
+  }>
+>()("@pp/integration-github/GitHub") {}
 
 export function githubRepoMatchesQuery(
   repo: Readonly<{
