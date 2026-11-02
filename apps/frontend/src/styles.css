@@ -458,7 +458,7 @@
   .lexical-content
   > .ticket-block:is([data-hovered], [data-active])
   .lexical-inline-code {
-  background-color: var(--tint);
+  background-color: var(--active);
 }
 .prose-md .ticket-block[data-dragging] {
   background-color: color-mix(in oklch, var(--muted) 70%, transparent);
