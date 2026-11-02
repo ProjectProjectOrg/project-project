@@ -7,7 +7,9 @@ import type {
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { expect } from "vitest"
 
 import type { GitHubWebhookMutationSink } from "./GitHubWebhooks"
@@ -748,3 +750,34 @@ it.effect("logs and ignores malformed check payloads", () =>
     expect(calls).toEqual([])
   })
 )
+
+it.effect("traces each delivery under one GitHubWebhooks.handle span", () => {
+  const spans: Array<Tracer.NativeSpan> = []
+  const tracer = Tracer.make({
+    span: (options) => {
+      const span = new Tracer.NativeSpan(options)
+      spans.push(span)
+      return span
+    }
+  })
+  return Effect.gen(function* () {
+    const calls: Array<Call> = []
+    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    yield* webhooks.handle(
+      delivery("installation", {
+        action: "deleted",
+        installation: { id: 123 }
+      })
+    )
+    yield* webhooks.handle(delivery("ping", {}))
+    expect(
+      spans.map((span) => ({
+        name: span.name,
+        root: Option.isNone(span.parent)
+      }))
+    ).toEqual([
+      { name: "GitHubWebhooks.handle", root: true },
+      { name: "GitHubWebhooks.handle", root: true }
+    ])
+  }).pipe(Effect.withTracer(tracer))
+})
