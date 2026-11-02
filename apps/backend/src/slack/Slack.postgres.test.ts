@@ -14,15 +14,14 @@ import {
 import { SlackEvents } from "@pp/integration-slack/Events"
 import { SlackIntegrations } from "@pp/integration-slack/Integrations"
 import { SlackPreviews } from "@pp/integration-slack/Previews"
-import { Access } from "@pp/server-core/access/Access"
-import { AccessLive } from "@pp/server-core/access/AccessLive"
+import * as Access from "@pp/server-core/access/Access"
 import { TicketActivity } from "@pp/server-core/activity/TicketActivity"
 import { TicketActivityLive } from "@pp/server-core/activity/TicketActivityLive"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
-import { SecretCryptoLive } from "@pp/server-core/storage/SecretCryptoLive"
+import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import { Users } from "@pp/server-core/users/Users"
 import { UsersLive } from "@pp/server-core/users/UsersLive"
@@ -242,7 +241,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       Layer.provideMerge(SlackIntegrations.layer),
       Layer.provideMerge(SlackClient.layer),
       Layer.provideMerge(SlackHostLive),
-      Layer.provideMerge(AccessLive),
+      Layer.provideMerge(Access.layer),
       Layer.provideMerge(UsersLive),
       Layer.provideMerge(GroupDocs.layer),
       Layer.provideMerge(TicketDocs.layer),
@@ -250,7 +249,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       Layer.provideMerge(KeyedLock.layer),
       Layer.provideMerge(TicketActivityLive),
       Layer.provideMerge(MarkdownLive),
-      Layer.provideMerge(SecretCryptoLive)
+      Layer.provideMerge(SecretCrypto.layer)
     )
     const infrastructure = Layer.mergeAll(
       DbLive.pipe(
@@ -285,15 +284,15 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
     const administrator = admin?.id === adminId ? admin : sharer
     if (!administrator) throw new Error("Admin missing")
     const orgScope = yield* Effect.provide(
-      Effect.flatMap(Access, (access) => access.org(orgId)).pipe(
+      Effect.flatMap(Access.Access, (access) => access.org(orgId)).pipe(
         Effect.provideService(CurrentUser, administrator)
       ),
       instance.context
     )
     const projectScope = yield* Effect.provide(
-      Effect.flatMap(Access, (access) => access.project(orgId, "project")).pipe(
-        Effect.provideService(CurrentUser, administrator)
-      ),
+      Effect.flatMap(Access.Access, (access) =>
+        access.project(orgId, "project")
+      ).pipe(Effect.provideService(CurrentUser, administrator)),
       instance.context
     )
     const asOrg = <A, E>(

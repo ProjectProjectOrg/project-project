@@ -19,8 +19,8 @@ import {
   projectScope,
   testUser
 } from "../access/testing"
-import { OrgStorage } from "../storage/OrgStorage"
-import { S3Storage } from "../storage/S3Storage"
+import * as OrgStorage from "../storage/OrgStorage"
+import * as S3Storage from "../storage/S3Storage"
 import * as Attachments from "./Attachments"
 
 const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
@@ -434,11 +434,11 @@ const connection = {
   secretAccessKey: "secret"
 }
 
-const stubOrgStorage = Layer.mock(OrgStorage, {
+const stubOrgStorage = Layer.mock(OrgStorage.OrgStorage, {
   requireConnection: () => Effect.succeed(connection)
 })
 
-const stubS3 = Layer.mock(S3Storage, {
+const stubS3 = Layer.mock(S3Storage.S3Storage, {
   presignGet: () => Effect.succeed("https://signed.example/shot.png")
 })
 
@@ -532,7 +532,7 @@ const deletionHarness = (input: {
     ),
     Layer.provide(stubOrgStorage),
     Layer.provide(
-      Layer.mock(S3Storage, {
+      Layer.mock(S3Storage.S3Storage, {
         deleteObject: (_, key) => {
           order.push("s3")
           deletedKeys.push(key)

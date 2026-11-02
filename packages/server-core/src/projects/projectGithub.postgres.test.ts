@@ -12,7 +12,7 @@ import * as Layer from "effect/Layer"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { Access } from "../access/Access"
+import * as Access from "../access/Access"
 import { testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
 import * as ProjectDocs from "./ProjectDocs"
@@ -49,7 +49,7 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
     Effect.flatMap(ProjectGithub.ProjectGithub, f).pipe(
       Effect.provideServiceEffect(
         ProjectScope,
-        Effect.flatMap(Access, (access) =>
+        Effect.flatMap(Access.Access, (access) =>
           access.project(organizationId, slug)
         ).pipe(Effect.provideService(CurrentUser, testUser(userId)))
       ),

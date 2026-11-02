@@ -5,8 +5,8 @@ import {
   type JiraTransportResponse
 } from "@pp/integration-jira/Client"
 import { JiraCredentials } from "@pp/integration-jira/Credentials"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
-import { S3Storage, S3Unavailable } from "@pp/server-core/storage/S3Storage"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import { Effect, Layer, Redacted, Stream, Schema } from "effect"
 import { Workflow, WorkflowEngine } from "effect/workflow"
 
@@ -107,8 +107,8 @@ export const makeScanTestLayer = (
     Layer.provide(
       Layer.mergeAll(
         Layer.succeed(
-          OrgStorage,
-          OrgStorage.of({
+          OrgStorage.OrgStorage,
+          OrgStorage.OrgStorage.of({
             getStatus: () => Effect.die("unused"),
             connect: () => Effect.die("unused"),
             disconnect: () => Effect.die("unused"),
@@ -125,12 +125,12 @@ export const makeScanTestLayer = (
           })
         ),
         Layer.succeed(
-          S3Storage,
-          S3Storage.of({
+          S3Storage.S3Storage,
+          S3Storage.S3Storage.of({
             putObject: (_, key, _type, bytes) =>
               failPut(key)
                 ? Effect.fail(
-                    new S3Unavailable({
+                    new S3Storage.S3Unavailable({
                       reason: "test storage failure",
                       retryable: true
                     })

@@ -12,7 +12,7 @@ import * as GitHubIntegrations from "@pp/integration-github/GitHubIntegrations"
 import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
 import { ProjectStateCache } from "@pp/integration-github/projectStateCache"
 import * as ProjectStateCacheLayer from "@pp/integration-github/projectStateCache"
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { GitHubTicketEvents } from "@pp/server-core/github/GitHubTicketEvents"
 import { MarkdownError } from "@pp/server-core/markdown/Markdown"
 import { OrgScope } from "@pp/shared"
@@ -85,7 +85,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       Layer.provide(GitHubHostLive),
       Layer.provide(
         Layer.mergeAll(
-          Layer.mock(BetterAuth, {}),
+          Layer.mock(BetterAuth.BetterAuth, {}),
           Layer.mock(GitHubTicketEvents, events)
         )
       ),
@@ -98,7 +98,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       Layer.provide(GitHubHostLive),
       Layer.provide(
         Layer.mergeAll(
-          Layer.mock(BetterAuth, {}),
+          Layer.mock(BetterAuth.BetterAuth, {}),
           Layer.mock(GitHubTicketEvents, {})
         )
       ),
@@ -110,7 +110,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
     Layer.provide(GitHubHostLive),
     Layer.provide(
       Layer.mergeAll(
-        Layer.mock(BetterAuth, {}),
+        Layer.mock(BetterAuth.BetterAuth, {}),
         Layer.mock(GitHubTicketEvents, {})
       )
     ),
@@ -435,7 +435,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
         Layer.provide(GitHubHostLive),
         Layer.provide(
           Layer.mergeAll(
-            Layer.mock(BetterAuth, {}),
+            Layer.mock(BetterAuth.BetterAuth, {}),
             Layer.mock(GitHubTicketEvents, {})
           )
         ),

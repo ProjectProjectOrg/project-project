@@ -54,14 +54,10 @@ import * as Layer from "effect/Layer"
 import * as Result from "effect/Result"
 import { ulid } from "ulid"
 
-import { Access } from "../access/Access"
+import * as Access from "../access/Access"
 import { projectInOrg } from "../projects/projectLookup"
-import { OrgStorage } from "../storage/OrgStorage"
-import {
-  attachmentObjectKey,
-  S3Storage,
-  type S3Connection
-} from "../storage/S3Storage"
+import * as OrgStorage from "../storage/OrgStorage"
+import * as S3Storage from "../storage/S3Storage"
 
 export const PENDING_TTL_MS = 60 * 60 * 1000
 
@@ -384,9 +380,9 @@ const mapS3Unavailable = (error: { reason: string }) =>
 
 const make = Effect.gen(function* () {
   const db = yield* Db
-  const access = yield* Access
-  const orgStorage = yield* OrgStorage
-  const s3 = yield* S3Storage
+  const access = yield* Access.Access
+  const orgStorage = yield* OrgStorage.OrgStorage
+  const s3 = yield* S3Storage.S3Storage
 
   const toAttachment = (
     row: typeof attachmentIndex.$inferSelect
@@ -444,7 +440,7 @@ const make = Effect.gen(function* () {
     const connection = yield* orgStorage.requireConnection(orgSlug)
 
     const id = ulid()
-    const objectKey = attachmentObjectKey({
+    const objectKey = S3Storage.attachmentObjectKey({
       keyPrefix: connection.keyPrefix,
       orgSlug,
       projectSlug: slug,
@@ -716,7 +712,7 @@ const make = Effect.gen(function* () {
   )
 
   const deleteObjectIfUnshared = (
-    connection: S3Connection,
+    connection: S3Storage.S3Connection,
     row: { readonly id: string; readonly objectKey: string }
   ) =>
     Effect.gen(function* () {

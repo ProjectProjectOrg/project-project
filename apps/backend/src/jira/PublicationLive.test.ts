@@ -29,10 +29,7 @@ import {
   prepareJiraPublication as prepareJiraPublicationWithFormat
 } from "@pp/integration-jira/PublicationPlan"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
-import {
-  attachmentObjectKey,
-  type S3Connection
-} from "@pp/server-core/storage/S3Storage"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import { JiraMigrationConfiguration } from "@pp/shared"
 import { attachmentUrl, TicketId } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
@@ -405,7 +402,7 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
           "jira-attachment-1",
           "2026-09-22T10:00:00.000Z"
         )
-        const connection: S3Connection = {
+        const connection: S3Storage.S3Connection = {
           endpoint: "http://127.0.0.1:59000",
           bucket: "projectproject-t172-local-test",
           region: "us-east-1",
@@ -415,7 +412,7 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
           secretAccessKey: "test"
         }
         const bytes = new TextEncoder().encode("Jira attachment")
-        const objectKey = attachmentObjectKey({
+        const objectKey = S3Storage.attachmentObjectKey({
           keyPrefix: null,
           orgSlug: organizationId,
           projectSlug: slug,
@@ -432,9 +429,9 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
           }
         }
         const s3 = {
-          getObject: (_connection: S3Connection, key: string) =>
+          getObject: (_connection: S3Storage.S3Connection, key: string) =>
             Effect.succeed(stored.get(key) ?? null),
-          headObject: (_connection: S3Connection, key: string) =>
+          headObject: (_connection: S3Storage.S3Connection, key: string) =>
             Effect.succeed(
               stored.has(key)
                 ? {
@@ -445,7 +442,7 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
                 : null
             ),
           putObject: (
-            _connection: S3Connection,
+            _connection: S3Storage.S3Connection,
             key: string,
             _contentType: string,
             value: Uint8Array
@@ -669,7 +666,7 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
           },
           source: { projectDescription: null, artifacts: [metadata] }
         })
-        const connection: S3Connection = {
+        const connection: S3Storage.S3Connection = {
           endpoint: "http://127.0.0.1:59000",
           bucket: "projectproject-t172-local-test",
           region: "us-east-1",

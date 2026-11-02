@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto"
 import { it } from "@effect/vitest"
 import { invitation, member, organization, user } from "@pp/db/auth-schema"
 import { projectIndex, projectInviteGrant, projectMember } from "@pp/db/schema"
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { APIError } from "better-auth/api"
 import { drizzle } from "drizzle-orm/node-postgres"
 import * as DateTime from "effect/DateTime"
@@ -38,13 +38,13 @@ describe.skipIf(!databaseUrl)("BetterAuth live", () => {
 
   const listInvitations = (request: Request) =>
     Effect.gen(function* () {
-      const betterAuth = yield* BetterAuth
+      const betterAuth = yield* BetterAuth.BetterAuth
       return yield* betterAuth.listInvitations(request)
     }).pipe(Effect.provide(betterAuthLive))
 
   const transferOwnership = (request: Request) =>
     Effect.gen(function* () {
-      const betterAuth = yield* BetterAuth
+      const betterAuth = yield* BetterAuth.BetterAuth
       return yield* betterAuth.transferOwnership(
         request,
         orgSlug,
@@ -371,7 +371,7 @@ describe.skipIf(!databaseUrl)("BetterAuth live", () => {
         )
       const activate = (orgSlugToActivate: string, request: Request) =>
         Effect.gen(function* () {
-          const betterAuth = yield* BetterAuth
+          const betterAuth = yield* BetterAuth.BetterAuth
           const refreshed = merged(
             request,
             yield* betterAuth.setActiveOrganization(request, orgSlugToActivate)
@@ -486,7 +486,7 @@ describe.skipIf(!databaseUrl)("BetterAuth live", () => {
             }
           })
         const accept = (request: Request, invitationId: string) =>
-          Effect.flatMap(BetterAuth, (betterAuth) =>
+          Effect.flatMap(BetterAuth.BetterAuth, (betterAuth) =>
             betterAuth.acceptInvitation(request, invitationId)
           ).pipe(Effect.provide(betterAuthLive))
         const projectRoles = Effect.promise(async () => {
@@ -566,7 +566,7 @@ describe.skipIf(!databaseUrl)("BetterAuth live", () => {
         }).pipe(Effect.ensuring(Effect.sync(() => writeSpy.mockRestore())))
 
         const leaving = yield* Effect.flip(
-          Effect.flatMap(BetterAuth, (betterAuth) =>
+          Effect.flatMap(BetterAuth.BetterAuth, (betterAuth) =>
             betterAuth.leaveOrg(request, orgSlug, soleOwner.user_id)
           ).pipe(Effect.provide(betterAuthLive))
         )

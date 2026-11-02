@@ -15,8 +15,8 @@ import { JiraMigrationArtifacts } from "@pp/integration-jira/MigrationArtifacts"
 import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
-import { S3Storage } from "@pp/server-core/storage/S3Storage"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { ConfigProvider, Effect, Layer, Redacted } from "effect"
@@ -87,8 +87,8 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
         }
         const fakes = Layer.mergeAll(
           Layer.succeed(
-            OrgStorage,
-            OrgStorage.of({
+            OrgStorage.OrgStorage,
+            OrgStorage.OrgStorage.of({
               getStatus: () => Effect.die("unused"),
               connect: () => Effect.die("unused"),
               disconnect: () => Effect.die("unused"),
@@ -96,8 +96,8 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
             })
           ),
           Layer.succeed(
-            S3Storage,
-            S3Storage.of({
+            S3Storage.S3Storage,
+            S3Storage.S3Storage.of({
               putObject: () => Effect.die("unused"),
               getObject: () => Effect.die("unused"),
               listObjectKeys: () => Effect.die("unused"),

@@ -1,4 +1,4 @@
-import { BetterAuthError } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import {
   GroupIdTaken,
   MarkdownError,
@@ -18,7 +18,7 @@ import * as Schema from "effect/Schema"
 
 const BackendToolError = Schema.Union([
   AttachmentNotUploaded,
-  BetterAuthError,
+  BetterAuth.BetterAuthError,
   BranchExists,
   BranchProtected,
   Schema.instanceOf(GroupIdTaken),

@@ -25,7 +25,7 @@ import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 import * as Stream from "effect/Stream"
 
-import { Access } from "../access/Access"
+import * as Access from "../access/Access"
 import * as OrgStorage from "../storage/OrgStorage"
 import * as S3Storage from "../storage/S3Storage"
 import * as SecretCrypto from "../storage/SecretCrypto"
@@ -68,7 +68,7 @@ export const AttachmentUploadsLive = Layer.effect(
   Effect.gen(function* () {
     const attachments = yield* Attachments.Attachments
     const db = yield* Db.Db
-    const access = yield* Access
+    const access = yield* Access.Access
     const users = yield* Users
     const sql = yield* SqlClient.SqlClient
     const docs = yield* TicketDocs.TicketDocs

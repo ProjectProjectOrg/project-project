@@ -4,12 +4,8 @@ import {
   JiraArtifactError,
   JiraMigrationArtifacts
 } from "@pp/integration-jira/MigrationArtifacts"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
-import {
-  S3Storage,
-  type S3Connection,
-  type S3StorageShape
-} from "@pp/server-core/storage/S3Storage"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
@@ -23,7 +19,7 @@ const encodeUnknownJson = Schema.encodeEffect(
   Schema.fromJsonString(Schema.Unknown)
 )
 
-const connection: S3Connection = {
+const connection: S3Storage.S3Connection = {
   endpoint: "https://storage.example.test",
   bucket: "artifacts",
   region: "auto",
@@ -44,7 +40,7 @@ const coordinates = {
 const makeLayer = () => {
   const objects = new Map<string, Uint8Array>()
   const deleted: Array<string> = []
-  const storage: S3StorageShape = {
+  const storage: S3Storage.S3Storage["Service"] = {
     putObject: (_connection, key, _contentType, bytes) =>
       Effect.sync(() => {
         objects.set(key, bytes)
@@ -66,11 +62,13 @@ const makeLayer = () => {
     checkConnection: () => Effect.die("unused")
   }
   const layer = JiraMigrationArtifactsLive.pipe(
-    Layer.provide(Layer.succeed(S3Storage, S3Storage.of(storage))),
+    Layer.provide(
+      Layer.succeed(S3Storage.S3Storage, S3Storage.S3Storage.of(storage))
+    ),
     Layer.provide(
       Layer.succeed(
-        OrgStorage,
-        OrgStorage.of({
+        OrgStorage.OrgStorage,
+        OrgStorage.OrgStorage.of({
           getStatus: () => Effect.die("unused"),
           connect: () => Effect.die("unused"),
           disconnect: () => Effect.die("unused"),

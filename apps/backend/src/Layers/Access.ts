@@ -1,4 +1,4 @@
-import { Access } from "@pp/server-core/access/Access"
+import * as Access from "@pp/server-core/access/Access"
 import {
   Forbidden,
   IncludeDeletedOrg,
@@ -35,7 +35,7 @@ const requirementOf = <I, S>(
 export const OrgAccessLive = Layer.effect(
   OrgAccess,
   Effect.gen(function* () {
-    const access = yield* Access
+    const access = yield* Access.Access
     return OrgAccess.of(
       Effect.fn("OrgAccess")(function* (httpEffect, { endpoint }) {
         const requirement = yield* requirementOf(endpoint, RequiresOrg)
@@ -57,7 +57,7 @@ export const OrgAccessLive = Layer.effect(
 export const ProjectAccessLive = Layer.effect(
   ProjectAccess,
   Effect.gen(function* () {
-    const access = yield* Access
+    const access = yield* Access.Access
     return ProjectAccess.of(
       Effect.fn("ProjectAccess")(function* (httpEffect, { endpoint }) {
         const requirement = yield* requirementOf(endpoint, RequiresProject)

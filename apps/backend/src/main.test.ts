@@ -56,7 +56,7 @@ vi.mock("./auth", () => ({
   toolsResource: "http://localhost:3000/api/v1/tools"
 }))
 import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 
 import { AuthHandlerLive } from "./handlers/auth"
 import {
@@ -84,7 +84,7 @@ const ApiUnderTestLive = HttpApiBuilder.layer(
 ).pipe(
   Layer.provide(HealthHandlerLive),
   Layer.provide(AuthHandlerLive),
-  Layer.provide(Layer.mock(BetterAuth, {})),
+  Layer.provide(Layer.mock(BetterAuth.BetterAuth, {})),
   Layer.provide(
     Layer.succeed(Authentication, {
       sessionCookie: () => Effect.fail(new Unauthorized())

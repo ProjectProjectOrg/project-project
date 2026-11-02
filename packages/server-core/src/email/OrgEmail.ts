@@ -16,7 +16,7 @@ import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
 import * as Result from "effect/Result"
 
-import { SecretCrypto } from "../storage/SecretCrypto"
+import * as SecretCrypto from "../storage/SecretCrypto"
 import { Smtp } from "./Smtp"
 
 type EmailRow = typeof organizationEmail.$inferSelect
@@ -59,7 +59,7 @@ export class OrgEmail extends Context.Service<
     Effect.gen(function* () {
       const crypto = yield* Crypto.Crypto
       const db = yield* Db
-      const secrets = yield* SecretCrypto
+      const secrets = yield* SecretCrypto.SecretCrypto
       const smtp = yield* Smtp
 
       const read = Effect.fnUntraced(function* (organizationId: string) {

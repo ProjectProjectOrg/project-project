@@ -5,13 +5,7 @@ import * as Option from "effect/Option"
 import * as Tracer from "effect/Tracer"
 import { describe, expect, vi } from "vitest"
 
-import { S3Storage } from "./S3Storage"
-import {
-  attachmentObjectKey,
-  normalizeEtag,
-  sanitizeFilename
-} from "./S3Storage"
-import { S3StorageLive } from "./S3StorageLive"
+import * as S3Storage from "./S3Storage"
 
 const base = {
   keyPrefix: null,
@@ -24,26 +18,28 @@ const base = {
 
 describe("attachmentObjectKey", () => {
   it("namespaces by org, project and ticket", () => {
-    expect(attachmentObjectKey(base)).toBe(
+    expect(S3Storage.attachmentObjectKey(base)).toBe(
       "orgs/acme/projects/web/tickets/T-12/01JBX7Q2K9ZWCVE8MTQ4RXPGHN-screenshot.png"
     )
   })
 
   it("applies a key prefix when the bucket is shared", () => {
-    expect(attachmentObjectKey({ ...base, keyPrefix: "projectproject" })).toBe(
+    expect(
+      S3Storage.attachmentObjectKey({ ...base, keyPrefix: "projectproject" })
+    ).toBe(
       "projectproject/orgs/acme/projects/web/tickets/T-12/01JBX7Q2K9ZWCVE8MTQ4RXPGHN-screenshot.png"
     )
   })
 
   it("trims leading and trailing slashes from the prefix", () => {
-    expect(attachmentObjectKey({ ...base, keyPrefix: "/pp/" })).toBe(
+    expect(S3Storage.attachmentObjectKey({ ...base, keyPrefix: "/pp/" })).toBe(
       "pp/orgs/acme/projects/web/tickets/T-12/01JBX7Q2K9ZWCVE8MTQ4RXPGHN-screenshot.png"
     )
   })
 
   it("keeps the attachment id as the uniqueness guarantee", () => {
-    const a = attachmentObjectKey(base)
-    const b = attachmentObjectKey({
+    const a = S3Storage.attachmentObjectKey(base)
+    const b = S3Storage.attachmentObjectKey({
       ...base,
       attachmentId: "01JBX000000000000000000000"
     })
@@ -53,55 +49,57 @@ describe("attachmentObjectKey", () => {
 
 describe("sanitizeFilename", () => {
   it("strips path separators", () => {
-    expect(sanitizeFilename("../../etc/passwd")).toBe("etc-passwd")
+    expect(S3Storage.sanitizeFilename("../../etc/passwd")).toBe("etc-passwd")
   })
 
   it("strips characters that break object keys", () => {
-    expect(sanitizeFilename("my file (1)?.png")).toBe("my-file-1.png")
+    expect(S3Storage.sanitizeFilename("my file (1)?.png")).toBe("my-file-1.png")
   })
 
   it("collapses runs of separators", () => {
-    expect(sanitizeFilename("a///b   c.png")).toBe("a-b-c.png")
+    expect(S3Storage.sanitizeFilename("a///b   c.png")).toBe("a-b-c.png")
   })
 
   it("preserves a normal filename", () => {
-    expect(sanitizeFilename("screenshot.png")).toBe("screenshot.png")
+    expect(S3Storage.sanitizeFilename("screenshot.png")).toBe("screenshot.png")
   })
 
   it("falls back when the name sanitizes to nothing", () => {
-    expect(sanitizeFilename("///")).toBe("file")
+    expect(S3Storage.sanitizeFilename("///")).toBe("file")
   })
 
   it("truncates an absurdly long name", () => {
     expect(
-      sanitizeFilename(`${"a".repeat(300)}.png`).length
+      S3Storage.sanitizeFilename(`${"a".repeat(300)}.png`).length
     ).toBeLessThanOrEqual(120)
   })
 })
 
 describe("normalizeEtag", () => {
   it("strips the quotes S3 wraps an etag in", () => {
-    expect(normalizeEtag('"d41d8cd98f00b204e9800998ecf8427e"')).toBe(
+    expect(S3Storage.normalizeEtag('"d41d8cd98f00b204e9800998ecf8427e"')).toBe(
       "d41d8cd98f00b204e9800998ecf8427e"
     )
   })
 
   it("lowercases so two spellings of one object dedupe together", () => {
-    expect(normalizeEtag('"D41D8CD98F00B204E9800998ECF8427E"')).toBe(
+    expect(S3Storage.normalizeEtag('"D41D8CD98F00B204E9800998ECF8427E"')).toBe(
       "d41d8cd98f00b204e9800998ecf8427e"
     )
   })
 
   it("refuses a multipart etag, which is not a content hash", () => {
-    expect(normalizeEtag('"d41d8cd98f00b204e9800998ecf8427e-3"')).toBeNull()
+    expect(
+      S3Storage.normalizeEtag('"d41d8cd98f00b204e9800998ecf8427e-3"')
+    ).toBeNull()
   })
 
   it("refuses a missing etag", () => {
-    expect(normalizeEtag(undefined)).toBeNull()
+    expect(S3Storage.normalizeEtag(undefined)).toBeNull()
   })
 
   it("refuses anything that is not a hex digest", () => {
-    expect(normalizeEtag('"not-a-digest"')).toBeNull()
+    expect(S3Storage.normalizeEtag('"not-a-digest"')).toBeNull()
   })
 })
 
@@ -122,13 +120,13 @@ describe("S3 endpoint transport", () => {
     "not a URL"
   ])("rejects %s before signing", (endpoint) =>
     Effect.gen(function* () {
-      const storage = yield* S3Storage
+      const storage = yield* S3Storage.S3Storage
       const error = yield* Effect.flip(
         storage.presignPut({ ...connection, endpoint }, "file", "image/png", 60)
       )
       expect(error._tag).toBe("S3Unavailable")
       expect(error.retryable).toBe(false)
-    }).pipe(Effect.provide(S3StorageLive))
+    }).pipe(Effect.provide(S3Storage.layer))
   )
   it.effect.each([
     "https://storage.example.test",
@@ -137,7 +135,7 @@ describe("S3 endpoint transport", () => {
     "http://[::1]:9000"
   ])("allows %s", (endpoint) =>
     Effect.gen(function* () {
-      const storage = yield* S3Storage
+      const storage = yield* S3Storage.S3Storage
       const url = yield* storage.presignPut(
         { ...connection, endpoint },
         "file",
@@ -145,7 +143,7 @@ describe("S3 endpoint transport", () => {
         60
       )
       expect(new URL(url).origin).toBe(endpoint)
-    }).pipe(Effect.provide(S3StorageLive))
+    }).pipe(Effect.provide(S3Storage.layer))
   )
 })
 
@@ -182,12 +180,12 @@ describe("listObjectKeys", () => {
       })
 
     return Effect.gen(function* () {
-      const storage = yield* S3Storage
+      const storage = yield* S3Storage.S3Storage
       const keys = yield* storage.listObjectKeys(connection, "prefix/")
       expect(keys).toEqual(["prefix/a", "prefix/b"])
       expect(send).toHaveBeenCalledTimes(2)
     }).pipe(
-      Effect.provide(S3StorageLive),
+      Effect.provide(S3Storage.layer),
       Effect.ensuring(Effect.sync(() => send.mockRestore()))
     )
   })
@@ -203,7 +201,7 @@ describe("listObjectKeys", () => {
     )
 
     return Effect.gen(function* () {
-      const storage = yield* S3Storage
+      const storage = yield* S3Storage.S3Storage
       const error = yield* Effect.flip(
         storage.listObjectKeys(connection, "prefix/")
       )
@@ -214,7 +212,7 @@ describe("listObjectKeys", () => {
       })
       expect(send).toHaveBeenCalledTimes(2)
     }).pipe(
-      Effect.provide(S3StorageLive),
+      Effect.provide(S3Storage.layer),
       Effect.ensuring(Effect.sync(() => send.mockRestore()))
     )
   })
@@ -242,7 +240,7 @@ describe("S3 failure classification", () => {
   ])("maps $cause to $reason", ({ cause, reason, retryable }) => {
     const send = vi.spyOn(S3Client.prototype, "send").mockRejectedValue(cause)
     return Effect.gen(function* () {
-      const storage = yield* S3Storage
+      const storage = yield* S3Storage.S3Storage
       const error = yield* Effect.flip(
         storage.checkConnection({
           endpoint: "https://storage.example.test",
@@ -256,7 +254,7 @@ describe("S3 failure classification", () => {
       )
       expect(error).toMatchObject({ reason, retryable })
     }).pipe(
-      Effect.provide(S3StorageLive),
+      Effect.provide(S3Storage.layer),
       Effect.ensuring(Effect.sync(() => send.mockRestore()))
     )
   })
@@ -273,7 +271,7 @@ describe("tracing", () => {
       }
     })
     return Effect.gen(function* () {
-      const storage = yield* S3Storage
+      const storage = yield* S3Storage.S3Storage
       yield* storage.presignPut(
         {
           endpoint: "https://storage.example.test",
@@ -290,7 +288,7 @@ describe("tracing", () => {
       )
     }).pipe(
       Effect.withTracer(tracer),
-      Effect.provide(S3StorageLive),
+      Effect.provide(S3Storage.layer),
       Effect.map(() => {
         const tree = spans.map((span) => ({
           name: span.name,
@@ -304,6 +302,14 @@ describe("tracing", () => {
         expect(tree).toContainEqual({
           name: "S3Storage.withClientEffect",
           parent: "S3Storage.withClient"
+        })
+        expect(tree).toContainEqual({
+          name: "S3Storage.withClient",
+          parent: "S3Storage.presignPut"
+        })
+        expect(tree).toContainEqual({
+          name: "S3Storage.presignPut",
+          parent: null
         })
       })
     )

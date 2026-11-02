@@ -1,4 +1,4 @@
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
 import { Users } from "@pp/server-core/users/Users"
 import { CurrentUser } from "@pp/shared"
@@ -16,7 +16,7 @@ const serveFigmaThumbnail = Effect.gen(function* () {
   const ref = FigmaLinks.parseFigmaThumbnailUrl(url.pathname)
   if (!ref) return notFound
 
-  const ba = yield* BetterAuth
+  const ba = yield* BetterAuth.BetterAuth
   const session = yield* ba
     .getSession(toWebHeaders(req.headers))
     .pipe(Effect.orElseSucceed(() => null))

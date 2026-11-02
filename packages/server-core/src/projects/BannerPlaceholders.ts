@@ -7,8 +7,8 @@ import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 
-import { OrgStorage } from "../storage/OrgStorage"
-import { S3Storage } from "../storage/S3Storage"
+import * as OrgStorage from "../storage/OrgStorage"
+import * as S3Storage from "../storage/S3Storage"
 import {
   bannerNeedsPlaceholder,
   encodeBannerPlaceholder
@@ -37,8 +37,8 @@ const GENERATE_TIMEOUT = "10 seconds"
 const make = Effect.gen(function* () {
   const db = yield* Db
   const fetch = yield* Effect.service(Fetch)
-  const orgStorage = yield* OrgStorage
-  const s3 = yield* S3Storage
+  const orgStorage = yield* OrgStorage.OrgStorage
+  const s3 = yield* S3Storage.S3Storage
   const unencodable = new Set<string>()
 
   const generate = (orgSlug: string, attachmentId: string) =>

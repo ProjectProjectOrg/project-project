@@ -12,7 +12,7 @@ import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
-import { Access } from "./Access"
+import * as Access from "./Access"
 
 const decodeUser = Schema.decodeSync(User)
 
@@ -74,7 +74,7 @@ export const accessLayer = (
     projects?: ReadonlyArray<ProjectScope["Service"]>
   }>
 ) =>
-  Layer.succeed(Access, {
+  Layer.succeed(Access.Access, {
     org: (orgSlug, lookup) =>
       scopes.org?.orgSlug === orgSlug &&
       (scopes.org.deletedAt === null || lookup?.includeDeleted === true)

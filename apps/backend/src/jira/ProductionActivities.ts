@@ -29,8 +29,8 @@ import {
   loadJiraPublicationPlan,
   persistJiraPreparedPublication
 } from "@pp/integration-jira/PublicationArtifacts"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
-import { S3Storage } from "@pp/server-core/storage/S3Storage"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import { JiraError } from "@pp/shared"
 import { eq } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
@@ -85,8 +85,8 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
   const projection = yield* JiraMigrationProjection
   const jira = yield* JiraClient
   const artifacts = yield* JiraMigrationArtifacts
-  const orgStorage = yield* OrgStorage
-  const s3 = yield* S3Storage
+  const orgStorage = yield* OrgStorage.OrgStorage
+  const s3 = yield* S3Storage.S3Storage
   const cleanup = yield* CleanupWorkflow.makeJiraCleanupCommands
 
   const readAttempt = (fence: AttemptFence) =>

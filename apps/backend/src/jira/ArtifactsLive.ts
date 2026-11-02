@@ -1,8 +1,8 @@
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHash } from "node:crypto"
 
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
-import { S3Storage, type S3Connection } from "@pp/server-core/storage/S3Storage"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
@@ -14,13 +14,16 @@ const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Json))
 const normalizePrefix = (prefix: string | null): string =>
   (prefix ?? "").replace(/^\/+|\/+$/g, "")
 
-const physicalKey = (connection: S3Connection, logicalKey: string): string => {
+const physicalKey = (
+  connection: S3Storage.S3Connection,
+  logicalKey: string
+): string => {
   const prefix = normalizePrefix(connection.keyPrefix)
   return prefix === "" ? logicalKey : `${prefix}/${logicalKey}`
 }
 
 const logicalKey = (
-  connection: S3Connection,
+  connection: S3Storage.S3Connection,
   key: string
 ): Effect.Effect<string, JiraArtifactError> => {
   const prefix = normalizePrefix(connection.keyPrefix)
@@ -37,8 +40,8 @@ const sha256 = (bytes: Uint8Array): string =>
 export const JiraMigrationArtifactsLive = Layer.effect(
   JiraMigrationArtifacts,
   Effect.gen(function* () {
-    const orgStorage = yield* OrgStorage
-    const s3 = yield* S3Storage
+    const orgStorage = yield* OrgStorage.OrgStorage
+    const s3 = yield* S3Storage.S3Storage
 
     const getVerified = Effect.fn("JiraMigrationArtifacts.getVerified")(
       function* (orgSlug: string, ref: JiraArtifactRef) {

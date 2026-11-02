@@ -1,4 +1,4 @@
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as FigmaIntegrations from "@pp/server-core/figma/FigmaIntegrations"
 import * as Config from "effect/Config"
 import * as Effect from "effect/Effect"
@@ -35,7 +35,7 @@ const profileSettingsUrl = (params?: Record<string, string>) =>
 
 const requireSession = Effect.gen(function* () {
   const req = yield* HttpServerRequest.HttpServerRequest
-  const ba = yield* BetterAuth
+  const ba = yield* BetterAuth.BetterAuth
   const session = yield* ba
     .getSession(toWebHeaders(req.headers))
     .pipe(Effect.orElseSucceed(() => null))

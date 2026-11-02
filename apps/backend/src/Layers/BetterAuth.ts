@@ -1,12 +1,6 @@
 import * as schema from "@pp/db/schema"
 import { member, oauthClient, organization, user } from "@pp/db/schema"
-import {
-  BetterAuth,
-  BetterAuthError,
-  InvitationState,
-  NoGithubToken,
-  type BetterAuthShape
-} from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import {
   NotFound,
   Org,
@@ -62,7 +56,7 @@ const decodeOrgInvitation = Schema.decodeEffect(OrgInvitation)
 
 const decodeUserInvitation = Schema.decodeEffect(UserInvitation)
 
-const decodeInvitationState = Schema.decodeEffect(InvitationState)
+const decodeInvitationState = Schema.decodeEffect(BetterAuth.InvitationState)
 
 const TransferOutcome = Schema.Union([
   Schema.TaggedStruct("ok", {}),
@@ -74,7 +68,7 @@ const TransferOutcome = Schema.Union([
 const decodeTransferOutcome = Schema.decodeEffect(TransferOutcome)
 
 export const BetterAuthLive = Layer.effect(
-  BetterAuth,
+  BetterAuth.BetterAuth,
   Effect.sync(() => {
     const db = drizzle(process.env.DATABASE_URL!, {
       relations: schema.relations
@@ -83,7 +77,7 @@ export const BetterAuthLive = Layer.effect(
     const attempt = <A>(thunk: () => Promise<A>) =>
       Effect.tryPromise({
         try: thunk,
-        catch: (cause) => new BetterAuthError({ cause })
+        catch: (cause) => new BetterAuth.BetterAuthError({ cause })
       })
 
     const resolveOrgId = Effect.fn("BetterAuth.resolveOrgId")(function* (
@@ -244,14 +238,14 @@ export const BetterAuthLive = Layer.effect(
           ok: () => Effect.void,
           not_found: () => new NotFound(),
           forbidden: () =>
-            new BetterAuthError({
+            new BetterAuth.BetterAuthError({
               cause: new APIError("FORBIDDEN", {
                 code: "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER",
                 message: "Only an organization owner can transfer ownership"
               })
             }),
           invalid: () =>
-            new BetterAuthError({
+            new BetterAuth.BetterAuthError({
               cause: new APIError("BAD_REQUEST", {
                 code: "ROLE_NOT_FOUND",
                 message:
@@ -354,21 +348,25 @@ export const BetterAuthLive = Layer.effect(
       } satisfies User
     })
 
-    return {
-      handler: (request) =>
-        Effect.tryPromise({
+    return BetterAuth.BetterAuth.of({
+      handler: Effect.fn("BetterAuth.handler")(function* (request: Request) {
+        return yield* Effect.tryPromise({
           try: () => auth.handler(request),
-          catch: (cause) => new BetterAuthError({ cause })
-        }),
+          catch: (cause) => new BetterAuth.BetterAuthError({ cause })
+        })
+      }),
       getPersonalGithub,
       getPersonalEverhour,
       getOrgSlugById,
       me,
-      getSession: (headers) =>
-        Effect.tryPromise({
+      getSession: Effect.fn("BetterAuth.getSession")(function* (
+        headers: Headers
+      ) {
+        return yield* Effect.tryPromise({
           try: () => auth.api.getSession({ headers }),
-          catch: (cause) => new BetterAuthError({ cause })
-        }),
+          catch: (cause) => new BetterAuth.BetterAuthError({ cause })
+        })
+      }),
       getGithubAccessToken: Effect.fn("BetterAuth.getGithubAccessToken")(
         function* (userId: string) {
           const row = yield* attempt(() =>
@@ -377,7 +375,7 @@ export const BetterAuthLive = Layer.effect(
               where: { userId, providerId: "github" }
             })
           )
-          if (!row?.accessToken) return yield* new NoGithubToken()
+          if (!row?.accessToken) return yield* new BetterAuth.NoGithubToken()
           return row.accessToken
         }
       ),
@@ -471,8 +469,11 @@ export const BetterAuthLive = Layer.effect(
           role: orgRoleOf(first.role)
         }).pipe(Effect.orDie)
       }),
-      submitConsent: (request, input) =>
-        Effect.tryPromise({
+      submitConsent: Effect.fn("BetterAuth.submitConsent")(function* (
+        request: Request,
+        input: { accept: boolean; oauth_query: string }
+      ) {
+        return yield* Effect.tryPromise({
           try: () =>
             auth.api
               .oauth2Consent({
@@ -482,9 +483,15 @@ export const BetterAuthLive = Layer.effect(
                 request
               })
               .then((result) => ({ redirectURI: result.url })),
-          catch: (cause) => new BetterAuthError({ cause })
-        }),
-      getMembers: (request, orgSlug) => readMembers(request, orgSlug),
+          catch: (cause) => new BetterAuth.BetterAuthError({ cause })
+        })
+      }),
+      getMembers: Effect.fn("BetterAuth.getMembers")(function* (
+        request: Request,
+        orgSlug: string
+      ) {
+        return yield* readMembers(request, orgSlug)
+      }),
       renameOrg: Effect.fn("BetterAuth.renameOrg")(function* (
         request: Request,
         orgSlug: string,
@@ -525,8 +532,14 @@ export const BetterAuthLive = Layer.effect(
           status: "pending"
         }).pipe(Effect.orDie)
       }),
-      updateMemberRole: (request, orgSlug, userId, role: OrgAssignableRole) =>
-        setRole(request, orgSlug, userId, role),
+      updateMemberRole: Effect.fn("BetterAuth.updateMemberRole")(function* (
+        request: Request,
+        orgSlug: string,
+        userId: string,
+        role: OrgAssignableRole
+      ) {
+        return yield* setRole(request, orgSlug, userId, role)
+      }),
       removeMember: Effect.fn("BetterAuth.removeMember")(function* (
         request: Request,
         orgSlug: string,
@@ -583,7 +596,7 @@ export const BetterAuthLive = Layer.effect(
           })
         )
         if (!session || session.user.id !== selfUserId) {
-          return yield* new BetterAuthError({
+          return yield* new BetterAuth.BetterAuthError({
             cause: new APIError("FORBIDDEN", {
               code: "YOU_ARE_NOT_ALLOWED_TO_UPDATE_THIS_MEMBER",
               message: "The transfer caller does not match the session"
@@ -763,15 +776,19 @@ export const BetterAuthLive = Layer.effect(
           role: orgRoleOf(acceptedMember.role)
         }).pipe(Effect.orDie)
       }),
-      rejectInvitation: (request, invitationId) =>
-        attempt(() =>
+      rejectInvitation: Effect.fn("BetterAuth.rejectInvitation")(function* (
+        request: Request,
+        invitationId: string
+      ) {
+        yield* attempt(() =>
           auth.api.rejectInvitation({
             asResponse: false,
             body: { invitationId },
             headers: request.headers,
             request
           })
-        ).pipe(Effect.asVoid),
+        )
+      }),
       getPublicClientName: Effect.fn("BetterAuth.getPublicClientName")(
         function* (clientId: string) {
           const rows = yield* attempt(() =>
@@ -784,6 +801,6 @@ export const BetterAuthLive = Layer.effect(
           return rows[0]?.name ?? null
         }
       )
-    } satisfies BetterAuthShape
+    })
   })
 )

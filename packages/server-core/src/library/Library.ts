@@ -47,7 +47,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import { validateBodyMentions } from "../comments/BodyMentions"
-import { KeyedLock, LockKey } from "../locks/KeyedLock"
+import * as KeyedLock from "../locks/KeyedLock"
 import type { MarkdownError, LibraryKind } from "../markdown/Markdown"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import * as TicketDocs from "../tickets/TicketDocs"
@@ -292,14 +292,14 @@ const make = Effect.gen(function* () {
   const docs = yield* LibraryDocs.LibraryDocs
   const projectDocs = yield* ProjectDocs.ProjectDocs
   const ticketDocs = yield* TicketDocs.TicketDocs
-  const keyedLock = yield* KeyedLock
+  const keyedLock = yield* KeyedLock.KeyedLock
 
   const withLayerLock = <A, E, R>(
     orgSlug: string,
     slug: string | null,
     effect: Effect.Effect<A, E, R>
   ): Effect.Effect<A, E, R> =>
-    keyedLock.withLock(LockKey.libraryLayer(orgSlug, slug), effect)
+    keyedLock.withLock(KeyedLock.LockKey.libraryLayer(orgSlug, slug), effect)
 
   const orgLayer: Effect.Effect<LayerTarget, never, OrgScope> = Effect.map(
     OrgScope,

@@ -14,7 +14,7 @@ import {
   JiraTokenEndpoint,
   type JiraTokenGrant
 } from "@pp/integration-jira/OAuth"
-import { SecretCryptoLive } from "@pp/server-core/storage/SecretCryptoLive"
+import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as DateTime from "effect/DateTime"
@@ -119,7 +119,7 @@ describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
           publicBaseUrl: "https://app.example"
         })
       ),
-      Layer.provide(JiraHostLive.pipe(Layer.provide(SecretCryptoLive))),
+      Layer.provide(JiraHostLive.pipe(Layer.provide(SecretCrypto.layer))),
       Layer.provide(BunCrypto.layer),
       Layer.provide(database)
     )

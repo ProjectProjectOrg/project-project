@@ -5,8 +5,7 @@ import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { migrationsFolder } from "@pp/db"
 import { DbLive } from "@pp/db"
-import { Access } from "@pp/server-core/access/Access"
-import { AccessLive } from "@pp/server-core/access/AccessLive"
+import * as Access from "@pp/server-core/access/Access"
 import { testUser } from "@pp/server-core/access/testing"
 import { asUser } from "@pp/server-core/activity/testing"
 import { GitHub } from "@pp/server-core/github/GitHub"
@@ -95,7 +94,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
   let lockChecks = 0
   let pool: Pool
   let projectsLayer: Layer.Layer<
-    Projects.Projects | ProjectGithub.ProjectGithub | Access
+    Projects.Projects | ProjectGithub.ProjectGithub | Access.Access
   >
 
   beforeAll(async () => {
@@ -211,7 +210,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
       })
     ).pipe(Layer.provide(db), Layer.provide(KeyedLock.layer))
     projectsLayer = ProjectServices.layer.pipe(
-      Layer.provideMerge(AccessLive.pipe(Layer.provide(db))),
+      Layer.provideMerge(Access.layer.pipe(Layer.provide(db))),
       Layer.provide(TicketRewrites.layer),
       Layer.provide(
         TicketIndexServices.layer.pipe(Layer.provide(db), Layer.provide(docs))
@@ -298,7 +297,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
     ).pipe(
       Effect.provideServiceEffect(
         ProjectScope,
-        Effect.flatMap(Access, (access) =>
+        Effect.flatMap(Access.Access, (access) =>
           access.project(organizationId, slug)
         ).pipe(Effect.provideService(CurrentUser, testUser(userId)))
       ),

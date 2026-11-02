@@ -34,10 +34,10 @@ import * as Layer from "effect/Layer"
 import * as Match from "effect/Match"
 import { ulid } from "ulid"
 
-import { Access } from "../access/Access"
+import * as Access from "../access/Access"
 import { projectInOrg } from "../projects/projectLookup"
-import { OrgStorage } from "../storage/OrgStorage"
-import { S3Storage, type S3Connection } from "../storage/S3Storage"
+import * as OrgStorage from "../storage/OrgStorage"
+import * as S3Storage from "../storage/S3Storage"
 import * as Figma from "./Figma"
 import * as FigmaIntegrations from "./FigmaIntegrations"
 
@@ -212,15 +212,15 @@ export const figmaLinkMetadata = (input: {
 
 const make = Effect.gen(function* () {
   const fetch = yield* Effect.service(Fetch)
-  const access = yield* Access
+  const access = yield* Access.Access
   const db = yield* Db
   const figma = yield* Figma.Figma
   const integrations = yield* FigmaIntegrations.FigmaIntegrations
-  const orgStorage = yield* OrgStorage
-  const s3 = yield* S3Storage
+  const orgStorage = yield* OrgStorage.OrgStorage
+  const s3 = yield* S3Storage.S3Storage
 
   const uploadThumbnail = (
-    connection: S3Connection,
+    connection: S3Storage.S3Connection,
     key: string,
     bytes: Uint8Array
   ) =>

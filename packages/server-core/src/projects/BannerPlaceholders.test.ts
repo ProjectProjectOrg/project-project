@@ -7,15 +7,15 @@ import * as Option from "effect/Option"
 import * as Tracer from "effect/Tracer"
 import { expect } from "vitest"
 
-import { OrgStorage } from "../storage/OrgStorage"
-import { S3Storage } from "../storage/S3Storage"
+import * as OrgStorage from "../storage/OrgStorage"
+import * as S3Storage from "../storage/S3Storage"
 import * as BannerPlaceholders from "./BannerPlaceholders"
 
 const layer = BannerPlaceholders.layer.pipe(
   // ensure never reaches the database for a banner without an attachment
   Layer.provide(Layer.succeed(Db, {} as Db["Service"])),
-  Layer.provide(Layer.mock(OrgStorage, {})),
-  Layer.provide(Layer.mock(S3Storage, {})),
+  Layer.provide(Layer.mock(OrgStorage.OrgStorage, {})),
+  Layer.provide(Layer.mock(S3Storage.S3Storage, {})),
   Layer.provide(Layer.succeed(FetchHttpClient.Fetch, globalThis.fetch))
 )
 

@@ -5,8 +5,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
 
-import type { Access } from "../access/Access"
-import { AccessLive } from "../access/AccessLive"
+import * as Access from "../access/Access"
 import { GitHub } from "../github/GitHub"
 import * as TicketIndexServices from "../tickets/indexLayer"
 import * as TicketDocs from "../tickets/TicketDocs"
@@ -36,7 +35,7 @@ export const projectsOnPostgres = (
   | ProjectMembers.ProjectMembers
   | TicketIndex.TicketIndex
   | TicketRewrites.TicketRewrites
-  | Access
+  | Access.Access
 > => {
   const db = DbLive.pipe(
     Layer.provideMerge(
@@ -67,7 +66,7 @@ export const projectsOnPostgres = (
   )
   return ProjectServices.layer.pipe(
     Layer.provideMerge(tickets),
-    Layer.provideMerge(AccessLive.pipe(Layer.provide(db))),
+    Layer.provideMerge(Access.layer.pipe(Layer.provide(db))),
     Layer.provide(db),
     Layer.provide(
       Layer.succeed(BannerPlaceholders.BannerPlaceholders, {

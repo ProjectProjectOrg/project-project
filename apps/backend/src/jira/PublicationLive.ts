@@ -45,10 +45,7 @@ import {
   type JiraAttachmentOutcome
 } from "@pp/integration-jira/PublicationPlan"
 import { Markdown } from "@pp/server-core/markdown/Markdown"
-import {
-  type S3Connection,
-  type S3StorageShape
-} from "@pp/server-core/storage/S3Storage"
+import type * as S3Storage from "@pp/server-core/storage/S3Storage"
 import {
   BASELINE_STATUS_SEED,
   baselineStatusDescription,
@@ -89,7 +86,7 @@ export type JiraPublicationSnapshotInput = Readonly<{
   organizationId: string
   orgSlug: string
   ownerId: string
-  connection: S3Connection
+  connection: S3Storage.S3Connection
 }>
 
 export const buildJiraPreparedPublicationFromSnapshot = Effect.fn(
@@ -331,9 +328,12 @@ export const makeJiraMaterializationDependencies = (
   prepared: JiraPreparedPublicationV1,
   fence: AttemptFence,
   services: Readonly<{
-    connection: S3Connection
+    connection: S3Storage.S3Connection
     jira: Pick<JiraClientShape, "attachmentContent">
-    s3: Pick<S3StorageShape, "getObject" | "putObject" | "headObject">
+    s3: Pick<
+      S3Storage.S3Storage["Service"],
+      "getObject" | "putObject" | "headObject"
+    >
     artifacts: Pick<
       JiraMigrationArtifactsShape,
       "writeJson" | "readJson" | "verify"
@@ -981,7 +981,7 @@ export type JiraPreparedAttachmentInput = Readonly<{
   projectSlug: string
   uploadedBy: string
   cloudId: string
-  connection: S3Connection
+  connection: S3Storage.S3Connection
   attachment: JiraPreparedPublicationV1["attachments"][number]
 }>
 
@@ -989,7 +989,7 @@ export const copyJiraPreparedAttachment = Effect.fn(
   "JiraImport.copyPreparedAttachment"
 )(function* (
   jira: Pick<JiraClientShape, "attachmentContent">,
-  s3: Pick<S3StorageShape, "getObject" | "putObject">,
+  s3: Pick<S3Storage.S3Storage["Service"], "getObject" | "putObject">,
   input: JiraPreparedAttachmentInput
 ) {
   const { attachment, fence } = input
@@ -1174,13 +1174,13 @@ export type JiraHiddenVerificationInput = Readonly<{
   archiveDocument: JiraPublicationPlanV1["archiveDocument"]
   reportDocument: JiraPublicationPlanV1["reportDocument"]
   attachments: JiraPublicationPlanV1["attachments"]
-  connection: S3Connection
+  connection: S3Storage.S3Connection
 }>
 
 export const verifyJiraHiddenMaterialization = Effect.fn(
   "JiraImport.verifyHiddenMaterialization"
 )(function* (
-  s3: Pick<S3StorageShape, "getObject" | "headObject">,
+  s3: Pick<S3Storage.S3Storage["Service"], "getObject" | "headObject">,
   input: JiraHiddenVerificationInput
 ) {
   const db = yield* Db

@@ -23,7 +23,7 @@ import {
 } from "@pp/integration-jira/OAuth"
 import { JiraMigrationRetentionLive } from "@pp/integration-jira/Retention"
 import { SlackServicesLive } from "@pp/integration-slack/Services"
-import { AccessLive } from "@pp/server-core/access/AccessLive"
+import * as Access from "@pp/server-core/access/Access"
 import { TicketActivityFeedLive } from "@pp/server-core/activity/TicketActivityFeed"
 import { TicketActivityLive } from "@pp/server-core/activity/TicketActivityLive"
 import * as Attachments from "@pp/server-core/attachments/Attachments"
@@ -59,9 +59,9 @@ import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutomation"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as SystemProjects from "@pp/server-core/projects/SystemProjects"
-import { OrgStorageLive } from "@pp/server-core/storage/OrgStorageLive"
-import { S3StorageLive } from "@pp/server-core/storage/S3StorageLive"
-import { SecretCryptoLive } from "@pp/server-core/storage/SecretCryptoLive"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
+import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import { TagsLive } from "@pp/server-core/tags/TagsLive"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketServices from "@pp/server-core/tickets/layer"
@@ -87,7 +87,7 @@ import { SlackHostLive } from "./slack/HostLive"
 
 const SlackLive = SlackServicesLive.pipe(
   Layer.provideMerge(SlackHostLive),
-  Layer.provideMerge(AccessLive),
+  Layer.provideMerge(Access.layer),
   Layer.provideMerge(UsersLive)
 )
 
@@ -100,7 +100,7 @@ const FeedbackLive = FeedbackDeliveryWorkflowLive.pipe(
 
 const EverhourIntegrationLive = EverhourServicesLive.pipe(
   Layer.provideMerge(EverhourHostLive),
-  Layer.provideMerge(AccessLive)
+  Layer.provideMerge(Access.layer)
 )
 
 const makeJiraServicesLive = <TE, TR, EE, ER, CE, CR>(
@@ -113,7 +113,7 @@ const makeJiraServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(
       JiraCredentialsLive.pipe(
         Layer.provideMerge(tokenEndpoint.pipe(Layer.provideMerge(oauthConfig))),
-        Layer.provideMerge(JiraHostLive.pipe(Layer.provide(SecretCryptoLive)))
+        Layer.provideMerge(JiraHostLive.pipe(Layer.provide(SecretCrypto.layer)))
       )
     )
   )
@@ -170,7 +170,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(Groups.layer),
     Layer.provideMerge(ProjectServices.layer),
     Layer.provideMerge(OrgLive),
-    Layer.provideMerge(AccessLive),
+    Layer.provideMerge(Access.layer),
     Layer.provideMerge(GitHubLive),
     Layer.provideMerge(GitHubTicketEventsLive),
     Layer.provideMerge(ProjectGitAutomation.layer)
@@ -198,23 +198,23 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(LibraryDocs.layer),
       Layer.provideMerge(MarkdownLive),
       Layer.provideMerge(OAuthApplicationsLive),
-      Layer.provideMerge(SecretCryptoLive),
+      Layer.provideMerge(SecretCrypto.layer),
       Layer.provideMerge(
         makeJiraServicesLive(transport, tokenEndpoint, oauthConfig)
       )
     )
     .pipe(
-      Layer.provideMerge(S3StorageLive),
+      Layer.provideMerge(S3Storage.layer),
       Layer.provideMerge(
         OrgEmail.layer.pipe(
           Layer.provide(Smtp.layer),
-          Layer.provide(SecretCryptoLive)
+          Layer.provide(SecretCrypto.layer)
         )
       ),
       Layer.provideMerge(
-        OrgStorageLive.pipe(
-          Layer.provideMerge(S3StorageLive),
-          Layer.provideMerge(SecretCryptoLive)
+        OrgStorage.layer.pipe(
+          Layer.provideMerge(S3Storage.layer),
+          Layer.provideMerge(SecretCrypto.layer)
         )
       )
     )

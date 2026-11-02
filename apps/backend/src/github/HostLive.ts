@@ -3,7 +3,7 @@ import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
 import { member, organization } from "@pp/db/schema"
 import { GitHubHost } from "@pp/integration-github/Host"
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { GitHubTicketEvents } from "@pp/server-core/github/GitHubTicketEvents"
 import {
   Forbidden,
@@ -21,7 +21,7 @@ import * as Schema from "effect/Schema"
 export const GitHubHostLive = Layer.effect(
   GitHubHost,
   Effect.gen(function* () {
-    const auth = yield* BetterAuth
+    const auth = yield* BetterAuth.BetterAuth
     const db = yield* Db
     const events = yield* GitHubTicketEvents
     const decodeOrgRole = Schema.decodeUnknownEffect(OrgRole)

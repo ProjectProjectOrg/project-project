@@ -1,6 +1,6 @@
 import { JiraCredentials } from "@pp/integration-jira/Credentials"
 import { JiraOAuthConfig } from "@pp/integration-jira/OAuth"
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as Effect from "effect/Effect"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Match from "effect/Match"
@@ -10,7 +10,7 @@ import { toWebHeaders } from "../http/toWebHeaders"
 
 const requireSession = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest
-  const auth = yield* BetterAuth
+  const auth = yield* BetterAuth.BetterAuth
   return yield* auth
     .getSession(toWebHeaders(request.headers))
     .pipe(Effect.orElseSucceed(() => null))

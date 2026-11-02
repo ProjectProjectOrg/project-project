@@ -20,7 +20,7 @@ import {
   organizationIntegration,
   organizationS3Integration
 } from "@pp/db/schema"
-import { Access } from "@pp/server-core/access/Access"
+import * as Access from "@pp/server-core/access/Access"
 import { accessLayer, projectScope } from "@pp/server-core/access/testing"
 import * as Attachments from "@pp/server-core/attachments/Attachments"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
@@ -36,11 +36,8 @@ import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
-import * as OrgStorageLayer from "@pp/server-core/storage/OrgStorageLive"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
-import * as S3StorageLayer from "@pp/server-core/storage/S3StorageLive"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
-import * as SecretCryptoLayer from "@pp/server-core/storage/SecretCryptoLive"
 import * as Tags from "@pp/server-core/tags/Tags"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
@@ -179,7 +176,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
     slug,
     projectId
   })
-  const access = Layer.succeed(Access, {
+  const access = Layer.succeed(Access.Access, {
     org: () => Effect.die("Access.org is not used by attachment tools"),
     project: (orgSlug, projectSlug) =>
       Effect.flatMap(CurrentUser, (current) =>
@@ -200,7 +197,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
     Layer.mock(Users.Users, {
       fullByIds: (ids) => Effect.succeed(ids.includes(user.id) ? [user] : [])
     }),
-    SecretCryptoLayer.SecretCryptoLive,
+    SecretCrypto.layer,
     Layer.mock(OrgStorage.OrgStorage, {
       requireConnection: () =>
         options.disconnected
@@ -235,7 +232,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
       }
     }),
     options.storage
-      ? S3StorageLayer.S3StorageLive
+      ? S3Storage.layer
       : Layer.mock(S3Storage.S3Storage, {
           presignPut: (_connection, key) =>
             Effect.succeed(`https://storage.example.test/${key}`),
@@ -456,7 +453,7 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
           return yield* storage.requireConnection(f.scope.orgSlug)
         }).pipe(
           Effect.provide(
-            OrgStorageLayer.OrgStorageLive.pipe(
+            OrgStorage.layer.pipe(
               Layer.provide(Layer.mock(SecretCrypto.SecretCrypto, { open }))
             )
           ),
@@ -798,7 +795,7 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
         const [row] = yield* f.rows
         expect(row.status).toBe("live")
         const s3 = yield* S3Storage.S3Storage.pipe(
-          Effect.provide(S3StorageLayer.S3StorageLive)
+          Effect.provide(S3Storage.layer)
         )
         const url = yield* s3.presignGet(
           storage,

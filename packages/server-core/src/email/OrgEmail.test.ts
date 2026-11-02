@@ -16,7 +16,7 @@ import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { orgScope } from "../access/testing"
-import { SecretCryptoLive } from "../storage/SecretCryptoLive"
+import * as SecretCrypto from "../storage/SecretCrypto"
 import { OrgEmail } from "./OrgEmail"
 import { Smtp, type SmtpConnection } from "./Smtp"
 
@@ -70,7 +70,7 @@ describe.skipIf(!databaseUrl)("organization email configuration", () => {
   ) =>
     OrgEmail.layer.pipe(
       Layer.provide(Layer.succeed(Smtp, { sendTest })),
-      Layer.provide(SecretCryptoLive),
+      Layer.provide(SecretCrypto.layer),
       Layer.provide(BunServices.layer),
       Layer.provide(
         DbLive.pipe(

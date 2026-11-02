@@ -17,8 +17,7 @@ import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { Access } from "./Access"
-import { AccessLive } from "./AccessLive"
+import * as Access from "./Access"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -63,19 +62,18 @@ describe.skipIf(!databaseUrl)("Access", () => {
   const otherWebsite = randomUUID()
   const deletedWebsite = randomUUID()
   let pool: Pool
-  let layer: Layer.Layer<Access>
+  let layer: Layer.Layer<Access.Access>
 
   const as = (userId: string) =>
     Effect.provideService(CurrentUser, userFor(userId))
 
   const project = (userId: string, org = orgSlug) =>
-    Effect.flatMap(Access, (access) => access.project(org, "website")).pipe(
-      as(userId),
-      Effect.provide(layer)
-    )
+    Effect.flatMap(Access.Access, (access) =>
+      access.project(org, "website")
+    ).pipe(as(userId), Effect.provide(layer))
 
   const org = (userId: string, slug = orgSlug, includeDeleted = false) =>
-    Effect.flatMap(Access, (access) =>
+    Effect.flatMap(Access.Access, (access) =>
       access.org(slug, { includeDeleted })
     ).pipe(as(userId), Effect.provide(layer))
 
@@ -139,7 +137,7 @@ describe.skipIf(!databaseUrl)("Access", () => {
         [projectId, organizationId, userId, roleId]
       )
     }
-    layer = AccessLive.pipe(
+    layer = Access.layer.pipe(
       Layer.provide(DbLive),
       Layer.provide(
         PgClient.layer({ url: Redacted.make(databaseUrl), maxConnections: 1 })
@@ -273,7 +271,7 @@ describe.skipIf(!databaseUrl)("Access", () => {
       }
     })
     return Effect.gen(function* () {
-      const access = yield* Access
+      const access = yield* Access.Access
       const scope = yield* access.org(orgSlug)
       yield* access.project(orgSlug, "website")
       yield* access.projectsInOrg().pipe(Effect.provideService(OrgScope, scope))
