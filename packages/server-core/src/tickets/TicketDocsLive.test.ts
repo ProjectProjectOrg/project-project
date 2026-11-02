@@ -13,10 +13,13 @@ import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
 import {
+  asUser,
   passthroughTicketActivity,
   recordingTicketActivity,
   type RecordedActivity
@@ -84,6 +87,102 @@ const ticketDocument = (
   updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-07T10:00:00Z")),
   commentsRegion: "",
   body: "# Branch matching\n"
+})
+
+describe("TicketDocs tracing", () => {
+  it.effect(
+    "traces each call under one TicketDocs span with its attributes",
+    () =>
+      Effect.gen(function* () {
+        const spans: Array<Tracer.NativeSpan> = []
+        const tracer = Tracer.make({
+          span: (options) => {
+            const span = new Tracer.NativeSpan(options)
+            spans.push(span)
+            return span
+          }
+        })
+
+        yield* Effect.gen(function* () {
+          const docs = yield* TicketDocs
+          yield* docs.create("acme", "project", ticketDocument("T-90"))
+          yield* docs.read("acme", "project", "T-90")
+          yield* docs.write("acme", "project", "T-90", ticketDocument("T-90"))
+          yield* docs.update("acme", "project", "T-90", (ticket) =>
+            Effect.succeed({ ...ticket, title: "Renamed" })
+          )
+          yield* docs.readRaw("acme", "project", "T-90")
+          yield* docs.listIds("acme", "project")
+          yield* docs.remove("acme", "project", "T-90")
+        }).pipe(asUser("user-1"), Effect.withTracer(tracer))
+
+        const traced = spans
+          .filter((span) => span.name.startsWith("TicketDocs."))
+          .map((span) => ({
+            name: span.name,
+            parent: Option.match(span.parent, {
+              onNone: () => null,
+              onSome: (parent) => (parent._tag === "Span" ? parent.name : null)
+            }),
+            attributes: Object.fromEntries(span.attributes)
+          }))
+        const ticket = (operation: string) => ({
+          module: "TicketDocs",
+          operation,
+          orgSlug: "acme",
+          slug: "project",
+          ticketId: "T-90"
+        })
+        expect(traced).toEqual([
+          {
+            name: "TicketDocs.create",
+            parent: null,
+            attributes: ticket("create")
+          },
+          { name: "TicketDocs.read", parent: null, attributes: ticket("read") },
+          {
+            name: "TicketDocs.write",
+            parent: null,
+            attributes: ticket("write")
+          },
+          {
+            name: "TicketDocs.update",
+            parent: null,
+            attributes: ticket("update")
+          },
+          {
+            name: "TicketDocs.read",
+            parent: "TicketDocs.update",
+            attributes: ticket("read")
+          },
+          {
+            name: "TicketDocs.write",
+            parent: "TicketDocs.update",
+            attributes: ticket("write")
+          },
+          {
+            name: "TicketDocs.readRaw",
+            parent: null,
+            attributes: ticket("readRaw")
+          },
+          {
+            name: "TicketDocs.listIds",
+            parent: null,
+            attributes: {
+              module: "TicketDocs",
+              operation: "listIds",
+              orgSlug: "acme",
+              slug: "project"
+            }
+          },
+          {
+            name: "TicketDocs.remove",
+            parent: null,
+            attributes: ticket("remove")
+          }
+        ])
+      }).pipe(Effect.provide(TestLayer))
+  )
 })
 
 describe("TicketDocs branch matching persistence", () => {
