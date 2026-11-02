@@ -55,10 +55,7 @@ vi.mock("./auth", () => ({
   mcpResource: "http://localhost:3000/mcp",
   toolsResource: "http://localhost:3000/api/v1/tools"
 }))
-import {
-  GitHubWebhooks,
-  type GitHubWebhooksShape
-} from "@pp/integration-github/GitHubWebhooks"
+import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 
 import { AuthHandlerLive } from "./handlers/auth"
@@ -210,7 +207,9 @@ const jsonBody = (value: Schema.Json) => encodeUnknownJsonSync(value)
 const signWebhookBody = (body: string) =>
   `sha256=${createHmac("sha256", webhookSecret).update(body).digest("hex")}`
 
-const makeWebhookHandler = (service: GitHubWebhooksShape) =>
+const makeWebhookHandler = (
+  service: GitHubWebhooks.GitHubWebhooks["Service"]
+) =>
   (() => {
     const web = HttpRouter.toWebHandler(
       HttpRouter.add(
@@ -218,7 +217,7 @@ const makeWebhookHandler = (service: GitHubWebhooksShape) =>
         "/api/integrations/github/webhook",
         githubWebhookRoute
       ).pipe(
-        Layer.provide(Layer.succeed(GitHubWebhooks, service)),
+        Layer.provide(Layer.succeed(GitHubWebhooks.GitHubWebhooks, service)),
         Layer.provide(
           ConfigProvider.layer(
             ConfigProvider.fromUnknown({
@@ -229,7 +228,7 @@ const makeWebhookHandler = (service: GitHubWebhooksShape) =>
       )
     )
     const context = Context.merge(
-      Context.make(GitHubWebhooks, service),
+      Context.make(GitHubWebhooks.GitHubWebhooks, service),
       Context.make(
         ConfigProvider.ConfigProvider,
         ConfigProvider.fromUnknown({

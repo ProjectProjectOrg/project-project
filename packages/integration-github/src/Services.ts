@@ -1,10 +1,10 @@
 import * as Layer from "effect/Layer"
 
-import { GitHubIntegrationsLive } from "./GitHubIntegrationsLive"
-import { GitHubLive } from "./GitHubLive"
-import { GitHubWebhooksLive } from "./GitHubWebhooksLive"
+import * as GitHub from "./GitHub"
+import * as GitHubIntegrations from "./GitHubIntegrations"
+import * as GitHubWebhooks from "./GitHubWebhooks"
 
-export const GitHubServicesLive = Layer.mergeAll(
-  GitHubIntegrationsLive,
-  GitHubWebhooksLive
-).pipe(Layer.provideMerge(GitHubLive))
+export const layer = Layer.mergeAll(
+  GitHubIntegrations.layer,
+  GitHubWebhooks.layer
+).pipe(Layer.provideMerge(GitHub.layer))

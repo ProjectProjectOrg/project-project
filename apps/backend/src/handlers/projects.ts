@@ -4,7 +4,7 @@
 // (HTTP 500). It represents corruption (decode failure, fs blip), not a
 // routine outcome the wire needs to model.
 
-import { GitHubIntegrations } from "@pp/integration-github/GitHubIntegrations"
+import * as GitHubIntegrations from "@pp/integration-github/GitHubIntegrations"
 import * as Attachments from "@pp/server-core/attachments/Attachments"
 import * as ProjectGithub from "@pp/server-core/projects/ProjectGithub"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
@@ -55,27 +55,27 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
         }).pipe(dieOnMarkdown)
       )
       .handle("githubIntegration", () =>
-        Effect.flatMap(GitHubIntegrations, (integrations) =>
+        Effect.flatMap(GitHubIntegrations.GitHubIntegrations, (integrations) =>
           integrations.getStatus()
         )
       )
       .handle("startGithubInstall", ({ payload }) =>
-        Effect.flatMap(GitHubIntegrations, (integrations) =>
+        Effect.flatMap(GitHubIntegrations.GitHubIntegrations, (integrations) =>
           integrations.startInstall(payload.returnProjectSlug)
         )
       )
       .handle("githubInstallationChoices", ({ query }) =>
-        Effect.flatMap(GitHubIntegrations, (integrations) =>
+        Effect.flatMap(GitHubIntegrations.GitHubIntegrations, (integrations) =>
           integrations.installationChoices(query.state)
         )
       )
       .handle("chooseGithubInstallation", ({ payload }) =>
-        Effect.flatMap(GitHubIntegrations, (integrations) =>
+        Effect.flatMap(GitHubIntegrations.GitHubIntegrations, (integrations) =>
           integrations.chooseInstallation(payload.state, payload.installationId)
         )
       )
       .handle("listGithubInstallationRepos", ({ query }) =>
-        Effect.flatMap(GitHubIntegrations, (integrations) =>
+        Effect.flatMap(GitHubIntegrations.GitHubIntegrations, (integrations) =>
           integrations.listRepos(query.q, query.page ?? 1)
         )
       )

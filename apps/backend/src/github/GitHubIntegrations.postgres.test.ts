@@ -7,12 +7,9 @@ import { it } from "@effect/vitest"
 import { Org } from "@pp/access/roles"
 import { migrationsFolder } from "@pp/db"
 import { DbLive } from "@pp/db"
-import { GitHub } from "@pp/integration-github/GitHub"
-import type { GitHubShape } from "@pp/integration-github/GitHub"
-import { GitHubIntegrations } from "@pp/integration-github/GitHubIntegrations"
-import { GitHubIntegrationsLive } from "@pp/integration-github/GitHubIntegrationsLive"
-import { GitHubWebhooks } from "@pp/integration-github/GitHubWebhooks"
-import { GitHubWebhooksLive } from "@pp/integration-github/GitHubWebhooksLive"
+import * as GitHub from "@pp/integration-github/GitHub"
+import * as GitHubIntegrations from "@pp/integration-github/GitHubIntegrations"
+import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
 import { ProjectStateCache } from "@pp/integration-github/projectStateCache"
 import * as ProjectStateCacheLayer from "@pp/integration-github/projectStateCache"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
@@ -31,6 +28,7 @@ import * as Fiber from "effect/Fiber"
 import * as Option from "effect/Option"
 import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
@@ -56,11 +54,12 @@ const githubConfig = ConfigProvider.fromUnknown({
 })
 
 const makeGithub = (
-  exchangeAppUserCode: GitHubShape["exchangeAppUserCode"] = (code) =>
-    Effect.succeed(`token-${code}`),
-  listAppUserInstallations: GitHubShape["listAppUserInstallations"] = () =>
+  exchangeAppUserCode: GitHub.GitHub["Service"]["exchangeAppUserCode"] = (
+    code
+  ) => Effect.succeed(`token-${code}`),
+  listAppUserInstallations: GitHub.GitHub["Service"]["listAppUserInstallations"] = () =>
     Effect.succeed(accessibleInstallations)
-): GitHubShape => ({
+): GitHub.GitHub["Service"] => ({
   getInstallationAccount: (installationId) =>
     Effect.succeed(installationAccount(installationId)),
   listInstallationRepos: () => Effect.die("not used in callback tests"),
@@ -82,7 +81,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
     Layer.provideMerge(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
   )
   const webhookLayer = (events: Partial<GitHubTicketEvents["Service"]> = {}) =>
-    GitHubWebhooksLive.pipe(
+    GitHubWebhooks.layer.pipe(
       Layer.provide(GitHubHostLive),
       Layer.provide(
         Layer.mergeAll(
@@ -93,9 +92,9 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       Layer.provideMerge(ProjectStateCacheLayer.layer),
       Layer.provide(databaseLayer)
     )
-  const integrationLayerWith = (github: GitHubShape) =>
-    GitHubIntegrationsLive.pipe(
-      Layer.provide(Layer.succeed(GitHub, github)),
+  const integrationLayerWith = (github: GitHub.GitHub["Service"]) =>
+    GitHubIntegrations.layer.pipe(
+      Layer.provide(Layer.succeed(GitHub.GitHub, github)),
       Layer.provide(GitHubHostLive),
       Layer.provide(
         Layer.mergeAll(
@@ -106,8 +105,8 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       Layer.provide(BunCrypto.layer),
       Layer.provide(databaseLayer)
     )
-  const integrationLayer = GitHubIntegrationsLive.pipe(
-    Layer.provide(Layer.succeed(GitHub, makeGithub())),
+  const integrationLayer = GitHubIntegrations.layer.pipe(
+    Layer.provide(Layer.succeed(GitHub.GitHub, makeGithub())),
     Layer.provide(GitHubHostLive),
     Layer.provide(
       Layer.mergeAll(
@@ -201,7 +200,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
   }
 
   const callback = (state: string, code: string) =>
-    Effect.flatMap(GitHubIntegrations, (integrations) =>
+    Effect.flatMap(GitHubIntegrations.GitHubIntegrations, (integrations) =>
       integrations.completeCallback(state, code)
     ).pipe(Effect.provide(integrationLayer))
 
@@ -255,7 +254,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
           insertSession("owner", false)
         )
         const { redirectUrl } = yield* Effect.flatMap(
-          GitHubIntegrations,
+          GitHubIntegrations.GitHubIntegrations,
           (integrations) => integrations.completeCallback(fixture.state, "new")
         ).pipe(
           Effect.provide(
@@ -295,7 +294,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       expect(choiceUrl.searchParams.get("installChoice")).toBe(fixture.state)
 
       const choices = yield* Effect.flatMap(
-        GitHubIntegrations,
+        GitHubIntegrations.GitHubIntegrations,
         (integrations) => integrations.installationChoices(fixture.state)
       ).pipe(asMember(fixture), Effect.provide(integrationLayer))
       expect(choices.installations).toContainEqual({
@@ -305,8 +304,10 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
         connectedElsewhere: false
       })
 
-      const chosen = yield* Effect.flatMap(GitHubIntegrations, (integrations) =>
-        integrations.chooseInstallation(fixture.state, fixture.installationId)
+      const chosen = yield* Effect.flatMap(
+        GitHubIntegrations.GitHubIntegrations,
+        (integrations) =>
+          integrations.chooseInstallation(fixture.state, fixture.installationId)
       ).pipe(asMember(fixture), Effect.provide(integrationLayer))
       expect(chosen.redirectUrl).toBe(
         `https://pp.test/orgs/github-${fixture.organizationId}/settings/integrations?githubInstall=success`
@@ -344,7 +345,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       yield* callback(fixture.state, "elsewhere")
 
       const choices = yield* Effect.flatMap(
-        GitHubIntegrations,
+        GitHubIntegrations.GitHubIntegrations,
         (integrations) => integrations.installationChoices(fixture.state)
       ).pipe(asMember(fixture), Effect.provide(integrationLayer))
       expect(
@@ -353,8 +354,10 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
         )?.connectedElsewhere
       ).toBe(true)
 
-      const error = yield* Effect.flatMap(GitHubIntegrations, (integrations) =>
-        integrations.chooseInstallation(fixture.state, fixture.installationId)
+      const error = yield* Effect.flatMap(
+        GitHubIntegrations.GitHubIntegrations,
+        (integrations) =>
+          integrations.chooseInstallation(fixture.state, fixture.installationId)
       ).pipe(asMember(fixture), Effect.provide(integrationLayer), Effect.flip)
       expect(error).toMatchObject({
         _tag: "Conflict",
@@ -367,8 +370,10 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
     Effect.gen(function* () {
       const fixture = yield* Effect.promise(() => insertSession("owner", false))
       yield* callback(fixture.state, "private")
-      const error = yield* Effect.flatMap(GitHubIntegrations, (integrations) =>
-        integrations.chooseInstallation(fixture.state, fixture.installationId)
+      const error = yield* Effect.flatMap(
+        GitHubIntegrations.GitHubIntegrations,
+        (integrations) =>
+          integrations.chooseInstallation(fixture.state, fixture.installationId)
       ).pipe(
         asMember({ ...fixture, userId: randomUUID() }),
         Effect.provide(integrationLayer),
@@ -425,8 +430,8 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
           return `token-${code}`
         })
       )
-      const raceLayer = GitHubIntegrationsLive.pipe(
-        Layer.provide(Layer.succeed(GitHub, raceGithub)),
+      const raceLayer = GitHubIntegrations.layer.pipe(
+        Layer.provide(Layer.succeed(GitHub.GitHub, raceGithub)),
         Layer.provide(GitHubHostLive),
         Layer.provide(
           Layer.mergeAll(
@@ -438,7 +443,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
         Layer.provide(databaseLayer)
       )
       const raceCallback = (code: string) =>
-        Effect.flatMap(GitHubIntegrations, (integrations) =>
+        Effect.flatMap(GitHubIntegrations.GitHubIntegrations, (integrations) =>
           integrations.completeCallback(fixture.state, code)
         ).pipe(Effect.provide(raceLayer))
       const results = yield* Effect.all(
@@ -540,7 +545,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
         yield* callback(fixture.state, "install")
         yield* Effect.gen(function* () {
           const cache = yield* ProjectStateCache
-          const webhooks = yield* GitHubWebhooks
+          const webhooks = yield* GitHubWebhooks.GitHubWebhooks
           let reads = 0
           const fetch = Effect.sync((): RawProjectStates => {
             reads += 1
@@ -606,7 +611,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
         }
         yield* Effect.gen(function* () {
           const cache = yield* ProjectStateCache
-          const webhooks = yield* GitHubWebhooks
+          const webhooks = yield* GitHubWebhooks.GitHubWebhooks
           let reads = 0
           let finished = false
           const fetch = Effect.sync((): RawProjectStates => {
@@ -663,4 +668,58 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
         }).pipe(Effect.provide(webhookLayer(events)))
       })
   )
+
+  it.effect("traces each call under one GitHubIntegrations span", () => {
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return Effect.gen(function* () {
+      const fixture = yield* Effect.promise(() => insertSession("owner", false))
+      yield* Effect.gen(function* () {
+        const integrations = yield* GitHubIntegrations.GitHubIntegrations
+        yield* integrations.completeCallback(fixture.state, "trace")
+        yield* integrations
+          .installationChoices(fixture.state)
+          .pipe(asMember(fixture))
+        yield* integrations
+          .chooseInstallation(fixture.state, fixture.installationId)
+          .pipe(asMember(fixture))
+        yield* integrations.getStatus().pipe(asMember(fixture))
+        yield* integrations.startInstall(null).pipe(asMember(fixture))
+      }).pipe(Effect.withTracer(tracer), Effect.provide(integrationLayer))
+      expect(
+        spans
+          .filter((span) => span.name.startsWith("GitHub"))
+          .map((span) => ({
+            name: span.name,
+            parent: Option.map(span.parent, (parent) =>
+              parent._tag === "Span" ? parent.name : parent._tag
+            ).pipe(Option.getOrNull)
+          }))
+      ).toEqual([
+        { name: "GitHubIntegrations.completeCallback", parent: null },
+        {
+          name: "GitHubHost.installationChoiceRedirect",
+          parent: "GitHubIntegrations.completeCallback"
+        },
+        { name: "GitHubIntegrations.installationChoices", parent: null },
+        { name: "GitHubIntegrations.chooseInstallation", parent: null },
+        {
+          name: "GitHubHost.requireInstallPermission",
+          parent: "sql.transaction"
+        },
+        {
+          name: "GitHubHost.installationRedirect",
+          parent: "GitHubIntegrations.chooseInstallation"
+        },
+        { name: "GitHubIntegrations.getStatus", parent: null },
+        { name: "GitHubIntegrations.startInstall", parent: null }
+      ])
+    }).pipe(Effect.provideService(ConfigProvider.ConfigProvider, githubConfig))
+  })
 })
