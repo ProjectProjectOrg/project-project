@@ -18,7 +18,7 @@ import {
   type FigmaLinksShape
 } from "@pp/server-core/figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "@pp/server-core/github/GitHub"
-import { Groups, type GroupsShape } from "@pp/server-core/groups/Groups"
+import * as Groups from "@pp/server-core/groups/Groups"
 import { Library } from "@pp/server-core/library/Library"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
@@ -395,7 +395,7 @@ const makeFakeGroups = (ticketCount: number) => {
     updatedAt: "2026-01-01T00:00:00.000Z",
     body: ""
   })
-  return Layer.succeed(Groups, {
+  return Layer.succeed(Groups.Groups, {
     list: () => unexpected("Groups.list"),
     listPaged: () => unexpected("Groups.listPaged"),
     listSprintsPaged: () => unexpected("Groups.listSprintsPaged"),
@@ -411,7 +411,7 @@ const makeFakeGroups = (ticketCount: number) => {
     ensureSprintAssignable: () => Effect.void,
     setSprintMembership: () => Effect.void,
     removeTicketFromAllGroups: () => Effect.void
-  } satisfies GroupsShape)
+  } satisfies Groups.Groups["Service"])
 }
 
 const FakeGitHub = Layer.succeed(GitHub, {

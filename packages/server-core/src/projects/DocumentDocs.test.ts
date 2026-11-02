@@ -21,8 +21,7 @@ import {
 } from "@pp/shared"
 
 import { testActivityLayer } from "../activity/testing"
-import { GroupDocs } from "../groups/GroupDocs"
-import { GroupDocsLive } from "../groups/GroupDocsLive"
+import * as GroupDocs from "../groups/GroupDocs"
 import * as KeyedLock from "../locks/KeyedLock"
 import { Markdown, type MarkdownShape } from "../markdown/Markdown"
 import * as TicketDocs from "../tickets/TicketDocs"
@@ -476,7 +475,7 @@ it.effect(
 
 it.effect("GroupDocs reads missing optional fields as typed defaults", () =>
   Effect.gen(function* () {
-    const docs = yield* GroupDocs
+    const docs = yield* GroupDocs.GroupDocs
     const document = yield* docs.read("org", "project", "G-1")
 
     expect(document).toMatchObject({
@@ -495,7 +494,7 @@ it.effect("GroupDocs reads missing optional fields as typed defaults", () =>
     expect(document.updatedAt.toISOString()).toBe("2026-03-02T00:00:00.000Z")
   }).pipe(
     Effect.provide(
-      GroupDocsLive.pipe(
+      GroupDocs.layer.pipe(
         Layer.provideMerge(testActivityLayer()),
         Layer.provide(
           makeMarkdown({
@@ -528,7 +527,7 @@ it.effect("GroupDocs serializes typed group documents for disk writes", () => {
     | undefined
 
   return Effect.gen(function* () {
-    const docs = yield* GroupDocs
+    const docs = yield* GroupDocs.GroupDocs
     yield* docs.writeIfExists("org", "project", "G-2", {
       id: groupId("G-2"),
       name: "Sprint 1",
@@ -563,7 +562,7 @@ it.effect("GroupDocs serializes typed group documents for disk writes", () => {
     })
   }).pipe(
     Effect.provide(
-      GroupDocsLive.pipe(
+      GroupDocs.layer.pipe(
         Layer.provideMerge(testActivityLayer()),
         Layer.provide(
           makeMarkdown({
@@ -769,7 +768,7 @@ it.effect(
   "GroupDocs.readRaw returns the on-disk path and raw file contents",
   () =>
     Effect.gen(function* () {
-      const docs = yield* GroupDocs
+      const docs = yield* GroupDocs.GroupDocs
       const file = yield* docs.readRaw("acme", "web", "G-3")
       expect(file).toEqual({
         path: "groups/G-3.md",
@@ -777,7 +776,7 @@ it.effect(
       })
     }).pipe(
       Effect.provide(
-        GroupDocsLive.pipe(
+        GroupDocs.layer.pipe(
           Layer.provideMerge(testActivityLayer()),
           Layer.provide(
             makeMarkdown({
@@ -814,7 +813,7 @@ it.effect("GroupDocs traces each call under one GroupDocs span", () => {
     body: "# Sprint 4\n"
   }
   return Effect.gen(function* () {
-    const docs = yield* GroupDocs
+    const docs = yield* GroupDocs.GroupDocs
     const document = yield* docs.read("acme", "web", "G-4")
     yield* docs.listIds("acme", "web")
     yield* docs.create("acme", "web", document)
@@ -869,7 +868,7 @@ it.effect("GroupDocs traces each call under one GroupDocs span", () => {
   }).pipe(
     Effect.withTracer(tracer),
     Effect.provide(
-      GroupDocsLive.pipe(
+      GroupDocs.layer.pipe(
         Layer.provideMerge(testActivityLayer()),
         Layer.provide(
           makeMarkdown({

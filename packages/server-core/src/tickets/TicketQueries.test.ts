@@ -14,7 +14,7 @@ import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
 import {} from "../github/GitHub"
-import { Groups, type GroupsShape } from "../groups/Groups"
+import * as Groups from "../groups/Groups"
 import {
   decodeGroupSync,
   isoDate,
@@ -688,7 +688,7 @@ function sprintGroup(
 function makeFakeSprintGroups(sprints: ReadonlyArray<GroupDetail>) {
   const byId = new Map(sprints.map((sprint) => [sprint.id, sprint]))
   const isGroupId = Schema.is(GroupId)
-  return Layer.succeed(Groups, {
+  return Layer.succeed(Groups.Groups, {
     list: () => Effect.succeed(sprints),
     listPaged: () => unexpected("Groups.listPaged"),
     listSprintsPaged: () => unexpected("Groups.listSprintsPaged"),
@@ -710,7 +710,7 @@ function makeFakeSprintGroups(sprints: ReadonlyArray<GroupDetail>) {
     ensureSprintAssignable: () => Effect.void,
     setSprintMembership: () => Effect.void,
     removeTicketFromAllGroups: () => Effect.void
-  } satisfies GroupsShape)
+  } satisfies Groups.Groups["Service"])
 }
 
 it.effect(

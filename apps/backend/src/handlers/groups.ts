@@ -1,4 +1,4 @@
-import { Groups } from "@pp/server-core/groups/Groups"
+import * as Groups from "@pp/server-core/groups/Groups"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { AppApi } from "@pp/shared"
@@ -13,15 +13,17 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
   (handlers) =>
     handlers
       .handle("list", () =>
-        Effect.flatMap(Groups, (groups) => groups.list()).pipe(dieOnMarkdown)
+        Effect.flatMap(Groups.Groups, (groups) => groups.list()).pipe(
+          dieOnMarkdown
+        )
       )
       .handle("create", ({ payload }) =>
-        Effect.flatMap(Groups, (groups) => groups.create(payload)).pipe(
+        Effect.flatMap(Groups.Groups, (groups) => groups.create(payload)).pipe(
           dieOnMarkdown
         )
       )
       .handle("get", ({ params }) =>
-        Effect.flatMap(Groups, (groups) => groups.get(params.id)).pipe(
+        Effect.flatMap(Groups.Groups, (groups) => groups.get(params.id)).pipe(
           dieOnMarkdown
         )
       )
@@ -31,22 +33,22 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
         ).pipe(dieOnMarkdown)
       )
       .handle("update", ({ params, payload }) =>
-        Effect.flatMap(Groups, (groups) =>
+        Effect.flatMap(Groups.Groups, (groups) =>
           groups.update(params.id, payload)
         ).pipe(dieOnMarkdown)
       )
       .handle("updateTickets", ({ params, payload }) =>
-        Effect.flatMap(Groups, (groups) =>
+        Effect.flatMap(Groups.Groups, (groups) =>
           groups.updateTickets(params.id, payload)
         ).pipe(dieOnMarkdown)
       )
       .handle("addTickets", ({ params, payload }) =>
-        Effect.flatMap(Groups, (groups) =>
+        Effect.flatMap(Groups.Groups, (groups) =>
           groups.addTickets(params.id, payload.tickets)
         ).pipe(dieOnMarkdown)
       )
       .handle("removeTickets", ({ params, payload }) =>
-        Effect.flatMap(Groups, (groups) =>
+        Effect.flatMap(Groups.Groups, (groups) =>
           groups.removeTickets(params.id, payload.tickets)
         ).pipe(dieOnMarkdown)
       )
@@ -56,13 +58,13 @@ export const GroupsHandlerLive = HttpApiBuilder.group(
         ).pipe(dieOnMarkdown)
       )
       .handle("complete", ({ params, payload }) =>
-        Effect.flatMap(Groups, (groups) =>
+        Effect.flatMap(Groups.Groups, (groups) =>
           groups.complete(params.id, payload)
         ).pipe(dieOnMarkdown)
       )
       .handle("delete", ({ params }) =>
-        Effect.flatMap(Groups, (groups) => groups.remove(params.id)).pipe(
-          dieOnMarkdown
-        )
+        Effect.flatMap(Groups.Groups, (groups) =>
+          groups.remove(params.id)
+        ).pipe(dieOnMarkdown)
       )
 )

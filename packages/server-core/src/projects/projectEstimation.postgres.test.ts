@@ -25,7 +25,7 @@ import { Attachments } from "../attachments/Attachments"
 import { Comments } from "../comments/Comments"
 import { FigmaLinks } from "../figma/FigmaLinks"
 import { GitHub } from "../github/GitHub"
-import { Groups } from "../groups/Groups"
+import * as Groups from "../groups/Groups"
 import { Library } from "../library/Library"
 import * as TicketServices from "../tickets/layer"
 import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
@@ -134,7 +134,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
           Layer.mergeAll(
             Layer.mock(TicketDocs.TicketDocs, {}),
             Layer.mock(GitHub, {}),
-            Layer.mock(Groups, {}),
+            Layer.mock(Groups.Groups, {}),
             Layer.mock(Comments, {}),
             Layer.mock(Attachments, {}),
             Layer.mock(FigmaLinks, {}),

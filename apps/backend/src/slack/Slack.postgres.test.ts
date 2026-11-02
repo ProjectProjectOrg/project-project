@@ -18,8 +18,7 @@ import { Access } from "@pp/server-core/access/Access"
 import { AccessLive } from "@pp/server-core/access/AccessLive"
 import { TicketActivity } from "@pp/server-core/activity/TicketActivity"
 import { TicketActivityLive } from "@pp/server-core/activity/TicketActivityLive"
-import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
-import { GroupDocsLive } from "@pp/server-core/groups/GroupDocsLive"
+import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
@@ -245,7 +244,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       Layer.provideMerge(SlackHostLive),
       Layer.provideMerge(AccessLive),
       Layer.provideMerge(UsersLive),
-      Layer.provideMerge(GroupDocsLive),
+      Layer.provideMerge(GroupDocs.layer),
       Layer.provideMerge(TicketDocs.layer),
       Layer.provideMerge(FinishedStatuses.layer),
       Layer.provideMerge(KeyedLock.layer),
@@ -971,7 +970,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
           body: ""
         })
         yield* Effect.provide(
-          Effect.flatMap(GroupDocs, (docs) =>
+          Effect.flatMap(GroupDocs.GroupDocs, (docs) =>
             docs.create(f.orgId, "project", document)
           ).pipe(
             Effect.provideService(ActivityActor, ActivityActor.user(f.userId))
@@ -992,7 +991,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
         expect(jobs.rows[0]?.available_at.toISOString()).toBe(startsAt)
         expect(jobs.rows[0]?.payload.kind).toBe("sprint_started")
         yield* Effect.provide(
-          Effect.flatMap(GroupDocs, (docs) =>
+          Effect.flatMap(GroupDocs.GroupDocs, (docs) =>
             docs.write(f.orgId, "project", document.id, {
               ...document,
               startsAt: null
@@ -1025,7 +1024,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
     Effect.gen(function* () {
       const f = yield* fixture()
       yield* Effect.provide(
-        Effect.flatMap(GroupDocs, (docs) =>
+        Effect.flatMap(GroupDocs.GroupDocs, (docs) =>
           docs.create(
             f.orgId,
             "project",
@@ -1088,7 +1087,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       Effect.gen(function* () {
         const f = yield* fixture()
         yield* Effect.provide(
-          Effect.flatMap(GroupDocs, (docs) =>
+          Effect.flatMap(GroupDocs.GroupDocs, (docs) =>
             docs.create(
               f.orgId,
               "project",

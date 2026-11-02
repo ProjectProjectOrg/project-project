@@ -48,7 +48,7 @@ import { Attachments } from "../attachments/Attachments"
 import { validateBodyMentionsWithLookups } from "../comments/BodyMentions"
 import type { InvalidCommentBody } from "../comments/Comments"
 import { FigmaLinks } from "../figma/FigmaLinks"
-import { Groups } from "../groups/Groups"
+import * as Groups from "../groups/Groups"
 import { Library, type TemplateExpansion } from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
 import { ProjectDocs } from "../projects/ProjectDocs"
@@ -210,7 +210,7 @@ const make = Effect.gen(function* () {
   const projectMembers = yield* ProjectMembers.ProjectMembers
   const projectDocs = yield* ProjectDocs
   const ticketIndex = yield* TicketIndex.TicketIndex
-  const groups = yield* Groups
+  const groups = yield* Groups.Groups
   const db = yield* Db
   const attachments = yield* Attachments
   const figmaLinks = yield* FigmaLinks

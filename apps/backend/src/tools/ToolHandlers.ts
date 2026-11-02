@@ -2,8 +2,8 @@ import { Access } from "@pp/server-core/access/Access"
 import { AttachmentUploads } from "@pp/server-core/attachments/AttachmentUploads"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { Comments } from "@pp/server-core/comments/Comments"
-import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
-import { Groups } from "@pp/server-core/groups/Groups"
+import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
+import * as Groups from "@pp/server-core/groups/Groups"
 import { Library } from "@pp/server-core/library/Library"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
@@ -24,8 +24,8 @@ export const toolDependencies = [
   AttachmentUploads,
   BetterAuth,
   Comments,
-  GroupDocs,
-  Groups,
+  GroupDocs.GroupDocs,
+  Groups.Groups,
   Library,
   OrgStorage,
   ProjectDocs,

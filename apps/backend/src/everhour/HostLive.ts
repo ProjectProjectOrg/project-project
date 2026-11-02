@@ -3,7 +3,7 @@ import { publishedProject } from "@pp/db/projectVisibility"
 import { organization, projectIndex, projectMember } from "@pp/db/schema"
 import { EverhourHost } from "@pp/integration-everhour/Host"
 import { Access } from "@pp/server-core/access/Access"
-import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
+import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import { SecretCrypto } from "@pp/server-core/storage/SecretCrypto"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
@@ -19,7 +19,7 @@ export const EverhourHostLive = Layer.effect(
     const db = yield* Db
     const access = yield* Access
     const ticketIndex = yield* TicketIndex.TicketIndex
-    const groupDocs = yield* GroupDocs
+    const groupDocs = yield* GroupDocs.GroupDocs
     const ticketDocs = yield* TicketDocs.TicketDocs
     const secrets = yield* SecretCrypto
     const sprints: EverhourHost["Service"]["sprints"] = Effect.fn(

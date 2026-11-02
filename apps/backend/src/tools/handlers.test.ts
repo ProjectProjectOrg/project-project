@@ -8,8 +8,8 @@ import {
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { Comments } from "@pp/server-core/comments/Comments"
-import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
-import { Groups } from "@pp/server-core/groups/Groups"
+import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
+import * as Groups from "@pp/server-core/groups/Groups"
 import { Library } from "@pp/server-core/library/Library"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
@@ -238,7 +238,7 @@ const ProjectDocsStub = Layer.mock(ProjectDocs, {
     })
 })
 
-const GroupDocsStub = Layer.mock(GroupDocs, {
+const GroupDocsStub = Layer.mock(GroupDocs.GroupDocs, {
   readRaw: (_o, _s, _id) =>
     Effect.succeed({
       path: "orgs/acme/projects/demo/groups/G-1.md",
@@ -305,7 +305,7 @@ const TestLayer = Layer.mergeAll(
   ProjectsStub,
   Layer.mock(ProjectMembers.ProjectMembers, {}),
   Layer.mock(Comments, {}),
-  Layer.mock(Groups, {}),
+  Layer.mock(Groups.Groups, {}),
   Layer.mock(Tags, {}),
   Layer.mock(Users, {}),
   Layer.mock(BetterAuth, {}),
@@ -1462,7 +1462,7 @@ describe("MCP handlers → add_tickets_to_group", () => {
       groupId?: string
       ticketIds?: ReadonlyArray<string>
     } = {}
-    const stub = Layer.mock(Groups, {
+    const stub = Layer.mock(Groups.Groups, {
       addTickets: (groupId: string, ticketIds: ReadonlyArray<string>) =>
         Effect.flatMap(ProjectScope, (scope) => {
           captured.orgSlug = scope.orgSlug
@@ -1495,7 +1495,7 @@ describe("MCP handlers → add_tickets_to_group", () => {
     return { stub, captured }
   }
 
-  const makeLayer = (groupsLayer: Layer.Layer<Groups>) =>
+  const makeLayer = (groupsLayer: Layer.Layer<Groups.Groups>) =>
     Layer.mergeAll(
       TestLayer,
       Layer.mergeAll(
@@ -1592,7 +1592,7 @@ describe("MCP handlers → sprint writes", () => {
       updateInput?: any
       completeInput?: any
     } = {}
-    const stub = Layer.mock(Groups, {
+    const stub = Layer.mock(Groups.Groups, {
       get: (id) => Effect.succeed(baseGroup({ id, kind: options.kind })),
       create: (input) => {
         captured.createInput = input
@@ -1634,7 +1634,7 @@ describe("MCP handlers → sprint writes", () => {
     return { stub, captured }
   }
 
-  const makeLayer = (groupsLayer: Layer.Layer<Groups>) =>
+  const makeLayer = (groupsLayer: Layer.Layer<Groups.Groups>) =>
     Layer.mergeAll(
       TestLayer,
       Layer.mergeAll(
