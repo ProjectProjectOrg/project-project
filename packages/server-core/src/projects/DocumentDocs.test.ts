@@ -4,7 +4,9 @@ import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { expect } from "vitest"
 
 const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
@@ -790,3 +792,98 @@ it.effect(
       )
     )
 )
+
+it.effect("GroupDocs traces each call under one GroupDocs span", () => {
+  const spans: Array<Tracer.NativeSpan> = []
+  const tracer = Tracer.make({
+    span: (options) => {
+      const span = new Tracer.NativeSpan(options)
+      spans.push(span)
+      return span
+    }
+  })
+  const file = {
+    data: {
+      id: "G-4",
+      name: "Sprint 4",
+      color: "#10b981",
+      createdBy: "user-1",
+      createdAt: "2026-03-30T00:00:00.000Z",
+      updatedAt: "2026-03-30T00:00:00.000Z"
+    },
+    body: "# Sprint 4\n"
+  }
+  return Effect.gen(function* () {
+    const docs = yield* GroupDocs
+    const document = yield* docs.read("acme", "web", "G-4")
+    yield* docs.listIds("acme", "web")
+    yield* docs.create("acme", "web", document)
+    yield* docs.write("acme", "web", "G-4", document)
+    yield* docs.writeIfExists("acme", "web", "G-4", document)
+    yield* docs.readRaw("acme", "web", "G-4")
+    yield* docs.remove("acme", "web", "G-4")
+
+    const group = (operation: string, parent: string | null = null) => ({
+      name: `GroupDocs.${operation}`,
+      parent,
+      attributes: {
+        module: "GroupDocs",
+        operation,
+        orgSlug: "acme",
+        slug: "web",
+        groupId: "G-4"
+      }
+    })
+    expect(
+      spans
+        .filter((span) => span.name.startsWith("GroupDocs."))
+        .map((span) => ({
+          name: span.name,
+          parent: Option.match(span.parent, {
+            onNone: () => null,
+            onSome: (parent) => (parent._tag === "Span" ? parent.name : null)
+          }),
+          attributes: Object.fromEntries(span.attributes)
+        }))
+    ).toEqual([
+      group("read"),
+      {
+        name: "GroupDocs.listIds",
+        parent: null,
+        attributes: {
+          module: "GroupDocs",
+          operation: "listIds",
+          orgSlug: "acme",
+          slug: "web"
+        }
+      },
+      group("create"),
+      group("write"),
+      group("read", "GroupDocs.write"),
+      group("writeIfExists"),
+      group("read", "GroupDocs.writeIfExists"),
+      group("readRaw"),
+      group("remove"),
+      group("read", "GroupDocs.remove")
+    ])
+  }).pipe(
+    Effect.withTracer(tracer),
+    Effect.provide(
+      GroupDocsLive.pipe(
+        Layer.provideMerge(testActivityLayer()),
+        Layer.provide(
+          makeMarkdown({
+            listGroupIds: () => Effect.succeed(["G-4"]),
+            readGroupFile: () => Effect.succeed(file),
+            readGroupFileRaw: () =>
+              Effect.succeed({ path: "groups/G-4.md", content: "" }),
+            createGroupFile: () => Effect.void,
+            writeGroupFile: () => Effect.void,
+            writeGroupFileIfExists: () => Effect.void,
+            removeGroupFile: () => Effect.void
+          })
+        )
+      )
+    )
+  )
+})
