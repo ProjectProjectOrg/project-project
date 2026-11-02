@@ -17,7 +17,7 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as Semaphore from "effect/Semaphore"
 
-import { type Bot, Bots } from "../bots/Bots"
+import * as Bots from "../bots/Bots"
 import type * as Markdown from "../markdown/Markdown"
 import * as ProjectDocs from "./ProjectDocs"
 import * as Projects from "./Projects"
@@ -28,7 +28,7 @@ export type SystemProjectSpec = Readonly<{
   orgSlug: string
   name: string
   key: string
-  bot: Bot
+  bot: Bots.Bot
 }>
 
 export class SystemProjects extends Context.Service<
@@ -54,7 +54,7 @@ const keyCandidates = (key: string) => [
 
 const make = Effect.gen(function* () {
   const db = yield* Db
-  const bots = yield* Bots
+  const bots = yield* Bots.Bots
   const projects = yield* Projects.Projects
   const projectDocs = yield* ProjectDocs.ProjectDocs
   const lock = yield* Semaphore.make(1)

@@ -1,6 +1,6 @@
 import * as Attachments from "@pp/server-core/attachments/Attachments"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
-import { Users } from "@pp/server-core/users/Users"
+import * as Users from "@pp/server-core/users/Users"
 import {
   attachmentViewParams,
   CurrentUser,
@@ -142,7 +142,7 @@ const serveAttachment = Effect.gen(function* () {
   const [viewer] =
     session === null
       ? []
-      : yield* Effect.flatMap(Users, (users) =>
+      : yield* Effect.flatMap(Users.Users, (users) =>
           users.fullByIds([session.user.id])
         )
   if (viewer === undefined) {

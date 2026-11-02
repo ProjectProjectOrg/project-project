@@ -23,8 +23,7 @@ import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
-import { Users } from "@pp/server-core/users/Users"
-import { UsersLive } from "@pp/server-core/users/UsersLive"
+import * as Users from "@pp/server-core/users/Users"
 import {
   ActivityActor,
   GroupDetail,
@@ -242,7 +241,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       Layer.provideMerge(SlackClient.layer),
       Layer.provideMerge(SlackHostLive),
       Layer.provideMerge(Access.layer),
-      Layer.provideMerge(UsersLive),
+      Layer.provideMerge(Users.layer),
       Layer.provideMerge(GroupDocs.layer),
       Layer.provideMerge(TicketDocs.layer),
       Layer.provideMerge(FinishedStatuses.layer),
@@ -278,7 +277,9 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       )
     const instance = yield* startServices()
     const [admin, sharer] = yield* Effect.provide(
-      Effect.flatMap(Users, (users) => users.fullByIds([adminId, userId])),
+      Effect.flatMap(Users.Users, (users) =>
+        users.fullByIds([adminId, userId])
+      ),
       instance.context
     )
     const administrator = admin?.id === adminId ? admin : sharer

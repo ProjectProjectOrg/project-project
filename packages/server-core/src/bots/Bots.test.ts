@@ -6,12 +6,11 @@ import * as Tracer from "effect/Tracer"
 import { expect } from "vitest"
 
 import { databaseLayer } from "../../test/database"
-import { Bots } from "./Bots"
-import { BotsLive } from "./BotsLive"
+import * as Bots from "./Bots"
 
 const bot = { key: "feedback", name: "Feedback", role: "client" } as const
 
-const BotsTest = BotsLive.pipe(
+const BotsTest = Bots.layer.pipe(
   Layer.provide(
     databaseLayer(({ sql }) =>
       Effect.succeed(sql.startsWith("select") ? [["project-1", "org-1"]] : [])
@@ -29,7 +28,7 @@ it.effect("traces projectScope with ensure nested under it", () => {
     }
   })
   return Effect.gen(function* () {
-    const bots = yield* Bots
+    const bots = yield* Bots.Bots
     const scope = yield* bots.projectScope(bot, "acme", "feedback")
     expect(scope).toMatchObject({
       userId: "bot_feedback",

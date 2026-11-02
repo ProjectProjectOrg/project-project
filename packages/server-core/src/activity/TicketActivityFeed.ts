@@ -18,7 +18,7 @@ import * as Layer from "effect/Layer"
 
 import type * as Markdown from "../markdown/Markdown"
 import * as TicketDocs from "../tickets/TicketDocs"
-import { Users } from "../users/Users"
+import * as Users from "../users/Users"
 import { coalesceActivity } from "./coalesce"
 import {
   TicketActivity,
@@ -90,7 +90,7 @@ export const TicketActivityFeedLive = Layer.effect(
   Effect.gen(function* () {
     const activity = yield* TicketActivity
     const ticketDocs = yield* TicketDocs.TicketDocs
-    const users = yield* Users
+    const users = yield* Users.Users
 
     const list: TicketActivityFeedShape["list"] = (ticketId, cursor) =>
       Effect.gen(function* () {

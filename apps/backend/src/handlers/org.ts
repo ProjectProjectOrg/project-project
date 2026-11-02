@@ -1,5 +1,5 @@
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
-import { Org } from "@pp/server-core/organizations/Org"
+import * as Org from "@pp/server-core/organizations/Org"
 import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
 import {
   AppApi,
@@ -206,13 +206,15 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
     .handle("myOrgs", () =>
       Effect.gen(function* () {
         const user = yield* CurrentUser
-        const org = yield* Org
+        const org = yield* Org.Org
         return yield* org.myOrgs(user.id)
       })
     )
-    .handle("get", () => Effect.flatMap(Org, (org) => org.get()))
-    .handle("softDelete", () => Effect.flatMap(Org, (org) => org.softDelete()))
-    .handle("restore", () => Effect.flatMap(Org, (org) => org.restore()))
+    .handle("get", () => Effect.flatMap(Org.Org, (org) => org.get()))
+    .handle("softDelete", () =>
+      Effect.flatMap(Org.Org, (org) => org.softDelete())
+    )
+    .handle("restore", () => Effect.flatMap(Org.Org, (org) => org.restore()))
     .handle("members", ({ params }) =>
       Effect.gen(function* () {
         yield* CurrentUser
@@ -226,7 +228,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
     .handle("rename", ({ params, payload }) =>
       Effect.gen(function* () {
         const ba = yield* BetterAuth.BetterAuth
-        const org = yield* Org
+        const org = yield* Org.Org
         const request = yield* webRequest
         yield* ba
           .renameOrg(request, params.orgSlug, payload.name)

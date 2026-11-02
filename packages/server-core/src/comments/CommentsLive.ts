@@ -20,7 +20,7 @@ import * as ProjectMembers from "../projects/ProjectMembers"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketIndex from "../tickets/TicketIndex"
 import type { TicketProject } from "../tickets/ticketProject"
-import { Users } from "../users/Users"
+import * as Users from "../users/Users"
 import { validateBodyMentionsWithLookups } from "./BodyMentions"
 import {
   Comments,
@@ -47,7 +47,7 @@ export const CommentsLive = Layer.effect(
     const projectMembers = yield* ProjectMembers.ProjectMembers
     const ticketIndex = yield* TicketIndex.TicketIndex
     const ticketDocs = yield* TicketDocs.TicketDocs
-    const users = yield* Users
+    const users = yield* Users.Users
     const crypto = yield* Crypto.Crypto
 
     const newCommentId: Effect.Effect<CommentId> = crypto.randomULID.pipe(

@@ -11,10 +11,10 @@ import { expect } from "vitest"
 import { databaseLayer } from "../../test/database"
 import { projectScope } from "../access/testing"
 import * as Attachments from "../attachments/Attachments"
-import { SystemProjects } from "../projects/SystemProjects"
+import * as SystemProjects from "../projects/SystemProjects"
 import * as TicketCommands from "../tickets/TicketCommands"
-import { FeedbackConfig } from "./FeedbackConfig"
-import { FeedbackIntake } from "./FeedbackIntake"
+import * as FeedbackConfig from "./FeedbackConfig"
+import * as FeedbackIntake from "./FeedbackIntake"
 
 const report: FeedbackReport = {
   id: "01a18200-0000-7000-8000-000000000000",
@@ -34,7 +34,7 @@ const FeedbackIntakeTest = FeedbackIntake.layer.pipe(
     databaseLayer(({ sql }) =>
       Effect.succeed(sql.startsWith("select") ? [["FB-1", false, null]] : [])
     ),
-    Layer.succeed(FeedbackConfig, {
+    Layer.succeed(FeedbackConfig.FeedbackConfig, {
       targetUrl: Option.none(),
       instanceUrl: "http://localhost:5173",
       version: Option.none(),
@@ -45,7 +45,7 @@ const FeedbackIntakeTest = FeedbackIntake.layer.pipe(
       }),
       trustedProxyHops: 1
     }),
-    Layer.succeed(SystemProjects, {
+    Layer.succeed(SystemProjects.SystemProjects, {
       ensure: () => Effect.succeed(projectScope("guest", "client"))
     }),
     Layer.mock(TicketCommands.TicketCommands, {}),
@@ -64,7 +64,7 @@ it.effect("traces receive with its steps nested under it", () => {
     }
   })
   return Effect.gen(function* () {
-    const intake = yield* FeedbackIntake
+    const intake = yield* FeedbackIntake.FeedbackIntake
     yield* intake.receive(report, [])
     expect(
       spans.flatMap((span) =>

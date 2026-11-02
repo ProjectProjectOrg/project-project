@@ -22,8 +22,7 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { projectScope } from "../access/testing"
 import * as ProjectStatuses from "../projects/ProjectStatuses"
-import { Tags } from "../tags/Tags"
-import { TagsLive } from "../tags/TagsLive"
+import * as Tags from "../tags/Tags"
 import {
   makeFakeTicketDocs,
   makeFakeTicketIndex,
@@ -143,7 +142,7 @@ describe.skipIf(!databaseUrl)("tag and status rewrites", () => {
     const db = DbLive.pipe(
       Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl ?? "") }))
     )
-    const layer = Layer.mergeAll(TagsLive, ProjectStatuses.layer).pipe(
+    const layer = Layer.mergeAll(Tags.layer, ProjectStatuses.layer).pipe(
       Layer.provide(
         Layer.mergeAll(
           makeTicketsLayer("T", recordingDocs, { ticketIndex: index }),
@@ -159,11 +158,11 @@ describe.skipIf(!databaseUrl)("tag and status rewrites", () => {
   }
 
   const run = <A, E>(
-    layer: Layer.Layer<Tags | ProjectStatuses.ProjectStatuses>,
+    layer: Layer.Layer<Tags.Tags | ProjectStatuses.ProjectStatuses>,
     effect: Effect.Effect<
       A,
       E,
-      Tags | ProjectStatuses.ProjectStatuses | ProjectScope | ActivityActor
+      Tags.Tags | ProjectStatuses.ProjectStatuses | ProjectScope | ActivityActor
     >
   ) =>
     resetProject().pipe(
@@ -180,7 +179,7 @@ describe.skipIf(!databaseUrl)("tag and status rewrites", () => {
       return run(
         layer,
         Effect.gen(function* () {
-          const tags = yield* Tags
+          const tags = yield* Tags.Tags
           yield* tags.update(tagName("core"), { name: tagName("platform") })
 
           expect(documents.get("T-1")?.tags).toEqual(["platform", "ui"])
@@ -201,7 +200,7 @@ describe.skipIf(!databaseUrl)("tag and status rewrites", () => {
       return run(
         layer,
         Effect.gen(function* () {
-          const tags = yield* Tags
+          const tags = yield* Tags.Tags
           yield* tags.remove(tagName("ui"))
 
           expect(documents.get("T-1")?.tags).toEqual(["core"])

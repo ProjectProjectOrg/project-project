@@ -7,12 +7,11 @@ import { migrationsFolder } from "@pp/db"
 import { DbLive } from "@pp/db"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
-import { DateTime, Effect, Layer, Redacted } from "effect"
+import { DateTime, Effect, Layer, Option, Redacted, Tracer } from "effect"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { OAuthApplications } from "./OAuthApplications"
-import { OAuthApplicationsLive } from "./OAuthApplicationsLive"
+import * as OAuthApplications from "./OAuthApplications"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const date = (value: string) => DateTime.toDate(DateTime.makeUnsafe(value))
@@ -28,7 +27,7 @@ describe.skipIf(!databaseUrl)("OAuth application service", () => {
   const consentB = randomUUID()
   const accessA = randomUUID()
   const refreshA = randomUUID()
-  const dbLayer = OAuthApplicationsLive.pipe(
+  const dbLayer = OAuthApplications.layer.pipe(
     Layer.provide(
       DbLive.pipe(
         Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
@@ -128,7 +127,7 @@ describe.skipIf(!databaseUrl)("OAuth application service", () => {
     "deduplicates consent rows and reports the latest token issuance",
     () =>
       Effect.gen(function* () {
-        const service = yield* OAuthApplications
+        const service = yield* OAuthApplications.OAuthApplications
         const applications = yield* service.listForUser(userA)
         expect(applications).toHaveLength(1)
         expect(applications[0]?.lastUsedAt).toEqual(
@@ -169,7 +168,7 @@ describe.skipIf(!databaseUrl)("OAuth application service", () => {
               ]
             )
           )
-          const service = yield* OAuthApplications
+          const service = yield* OAuthApplications.OAuthApplications
           const applications = yield* service.listForUser(userA)
           expect(applications.map((application) => application.id)).toEqual([
             clientRowId,
@@ -191,9 +190,36 @@ describe.skipIf(!databaseUrl)("OAuth application service", () => {
       }).pipe(Effect.provide(dbLayer))
   )
 
+  it.effect("traces each call under its own span", () => {
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return Effect.gen(function* () {
+      const service = yield* OAuthApplications.OAuthApplications
+      yield* service.listForUser(userB)
+      yield* Effect.flip(service.revokeForUser(userB, randomUUID()))
+      expect(
+        spans.flatMap((span) =>
+          Option.isNone(span.parent) &&
+          span.name.startsWith("OAuthApplications.")
+            ? [span.name]
+            : []
+        )
+      ).toEqual([
+        "OAuthApplications.listForUser",
+        "OAuthApplications.revokeForUser"
+      ])
+    }).pipe(Effect.withTracer(tracer), Effect.provide(dbLayer))
+  })
+
   it.effect("revokes only the requesting user's consent and tokens", () =>
     Effect.gen(function* () {
-      const service = yield* OAuthApplications
+      const service = yield* OAuthApplications.OAuthApplications
       yield* service.revokeForUser(userA, clientRowId)
       const remaining = yield* service.listForUser(userB)
       expect(remaining).toHaveLength(1)

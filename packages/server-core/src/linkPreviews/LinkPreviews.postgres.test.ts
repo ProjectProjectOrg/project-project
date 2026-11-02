@@ -9,12 +9,13 @@ import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
+import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { LinkPreviews } from "./LinkPreviews"
-import { LinkPreviewsLive } from "./LinkPreviewsLive"
+import * as LinkPreviews from "./LinkPreviews"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -35,13 +36,15 @@ const html = (body: string) =>
     headers: { "content-type": "text/html; charset=utf-8" }
   })
 
-describe.skipIf(!databaseUrl)("LinkPreviewsLive", () => {
+describe.skipIf(!databaseUrl)("LinkPreviews", () => {
   const origin = "http://93.184.216.34"
   let pool: Pool
-  let layer: Layer.Layer<LinkPreviews>
+  let layer: Layer.Layer<LinkPreviews.LinkPreviews>
 
   const preview = (url: string, fetch: ReturnType<typeof fakeFetch>["fetch"]) =>
-    Effect.flatMap(LinkPreviews, (linkPreviews) => linkPreviews.get(url)).pipe(
+    Effect.flatMap(LinkPreviews.LinkPreviews, (linkPreviews) =>
+      linkPreviews.get(url)
+    ).pipe(
       Effect.provide(layer),
       Effect.provideService(FetchHttpClient.Fetch, fetch)
     )
@@ -57,7 +60,7 @@ describe.skipIf(!databaseUrl)("LinkPreviewsLive", () => {
     }
     pool = new Pool({ connectionString: databaseUrl })
     await migrate(drizzle({ client: pool }), { migrationsFolder })
-    layer = LinkPreviewsLive.pipe(
+    layer = LinkPreviews.layer.pipe(
       Layer.provide(DbLive),
       Layer.provide(
         PgClient.layer({ url: Redacted.make(databaseUrl), maxConnections: 1 })
@@ -90,6 +93,28 @@ describe.skipIf(!databaseUrl)("LinkPreviewsLive", () => {
         expect(result).toEqual({ url: page, title: null, faviconUrl: null })
       })
   )
+
+  it.effect("traces get under its own span", () => {
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return Effect.gen(function* () {
+      const network = fakeFetch(() => html("<title>Example</title>"))
+      yield* preview(`${origin}/${randomUUID()}`, network.fetch)
+      expect(
+        spans.flatMap((span) =>
+          Option.isNone(span.parent) && span.name.startsWith("LinkPreviews.")
+            ? [span.name]
+            : []
+        )
+      ).toEqual(["LinkPreviews.get"])
+    }).pipe(Effect.withTracer(tracer))
+  })
 
   it.effect("serves a cached preview without fetching the page again", () =>
     Effect.gen(function* () {

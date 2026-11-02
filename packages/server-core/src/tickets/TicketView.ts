@@ -10,7 +10,7 @@ import * as Layer from "effect/Layer"
 
 import * as Attachments from "../attachments/Attachments"
 import * as ProjectGithub from "../projects/ProjectGithub"
-import { Users } from "../users/Users"
+import * as Users from "../users/Users"
 import * as TicketDocs from "./TicketDocs"
 import {
   documentToDetail,
@@ -44,7 +44,7 @@ const make = Effect.gen(function* () {
   const ticketDocs = yield* TicketDocs.TicketDocs
   const projectGithubLinks = yield* ProjectGithub.ProjectGithub
   const attachments = yield* Attachments.Attachments
-  const users = yield* Users
+  const users = yield* Users.Users
 
   const gitViewOf = Effect.fn("TicketView.gitViewOf")(function* (
     scope: ProjectScope["Service"]

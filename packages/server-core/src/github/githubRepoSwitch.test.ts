@@ -20,7 +20,7 @@ import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
-import { Users } from "@pp/server-core/users/Users"
+import * as Users from "@pp/server-core/users/Users"
 import {
   CurrentUser,
   ProjectScope,
@@ -252,7 +252,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
         })
       ),
       Layer.provide(
-        Layer.succeed(Users, {
+        Layer.succeed(Users.Users, {
           findByEmail: unused,
           findManyByIds: unused,
           fullByIds: unused

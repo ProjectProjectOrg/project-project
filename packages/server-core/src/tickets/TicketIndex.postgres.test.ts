@@ -32,7 +32,7 @@ import { serializeCommentsRegion } from "../comments/comments-region"
 import { CommentsLive } from "../comments/CommentsLive"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
-import { Users } from "../users/Users"
+import * as Users from "../users/Users"
 import * as TicketIndexServices from "./indexLayer"
 import * as TicketBranchIndex from "./TicketBranchIndex"
 import * as TicketDocs from "./TicketDocs"
@@ -782,7 +782,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           Layer.mock(Projects.Projects, {}),
           Layer.mock(ProjectMembers.ProjectMembers, {}),
           Layer.mock(TicketIndex.TicketIndex, {}),
-          Layer.mock(Users, {
+          Layer.mock(Users.Users, {
             fullByIds: () => Effect.succeed([author])
           }),
           DatabaseLive,

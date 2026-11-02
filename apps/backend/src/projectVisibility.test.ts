@@ -29,7 +29,7 @@ import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
-import { Users } from "@pp/server-core/users/Users"
+import * as Users from "@pp/server-core/users/Users"
 import {
   ActivityActor,
   AppApi,
@@ -198,7 +198,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
           ticketDocs,
           Layer.mock(BannerPlaceholders.BannerPlaceholders, {}),
           Layer.mock(ProjectDocs.ProjectDocs, {}),
-          Layer.mock(Users, {}),
+          Layer.mock(Users.Users, {}),
           Layer.mock(GitHub, {})
         )
       ),

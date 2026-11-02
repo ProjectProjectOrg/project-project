@@ -19,7 +19,7 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 import * as Access from "../access/Access"
 import { projectScope, testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
-import { Bots } from "../bots/Bots"
+import * as Bots from "../bots/Bots"
 import * as ProjectDocs from "./ProjectDocs"
 import * as Projects from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
@@ -244,7 +244,7 @@ describe.skipIf(!databaseUrl)("project catalog", () => {
           )
         ),
         Layer.provide(
-          Layer.mock(Bots, {
+          Layer.mock(Bots.Bots, {
             projectScope: (_bot, orgSlug, slug) =>
               Effect.succeed(projectScope("owner", "pm", { orgSlug, slug }))
           })

@@ -30,7 +30,7 @@ import * as OrgStorage from "../storage/OrgStorage"
 import * as S3Storage from "../storage/S3Storage"
 import * as SecretCrypto from "../storage/SecretCrypto"
 import * as TicketDocs from "../tickets/TicketDocs"
-import { Users } from "../users/Users"
+import * as Users from "../users/Users"
 import * as Attachments from "./Attachments"
 import * as AttachmentUploads from "./AttachmentUploads"
 
@@ -69,7 +69,7 @@ export const AttachmentUploadsLive = Layer.effect(
     const attachments = yield* Attachments.Attachments
     const db = yield* Db.Db
     const access = yield* Access.Access
-    const users = yield* Users
+    const users = yield* Users.Users
     const sql = yield* SqlClient.SqlClient
     const docs = yield* TicketDocs.TicketDocs
     const orgStorage = yield* OrgStorage.OrgStorage

@@ -33,7 +33,7 @@ import { ulid } from "ulid"
 
 import type * as Markdown from "../markdown/Markdown"
 import * as TicketRewrites from "../tickets/TicketRewrites"
-import { Users } from "../users/Users"
+import * as Users from "../users/Users"
 import * as ProjectDetails from "./ProjectDetails"
 import { withProjectTelemetry } from "./projectTelemetry"
 import { syncProjectInvite } from "./syncProjectInvite"
@@ -91,7 +91,7 @@ export class ProjectMembers extends Context.Service<
 
 const make = Effect.gen(function* () {
   const db = yield* Db
-  const users = yield* Users
+  const users = yield* Users.Users
   const rewrites = yield* TicketRewrites.TicketRewrites
   const {
     withWriteLock: withProjectWriteLock,
