@@ -1,5 +1,5 @@
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { Comments } from "@pp/server-core/comments/Comments"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
@@ -9,7 +9,7 @@ import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutoma
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import { Tags } from "@pp/server-core/tags/Tags"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
@@ -126,7 +126,7 @@ const TICKET_TYPES: ReadonlyArray<TicketType> = [
 const me = (_input: {}) =>
   Effect.gen(function* () {
     const current = yield* CurrentUser
-    const betterAuth = yield* BetterAuth
+    const betterAuth = yield* BetterAuth.BetterAuth
     const [user, orgs] = yield* Effect.all(
       [betterAuth.me(current, null), betterAuth.listOrganizations(current.id)],
       { concurrency: 2 }
@@ -140,7 +140,7 @@ const me = (_input: {}) =>
 const list_orgs = (input: Pagination) =>
   Effect.gen(function* () {
     const current = yield* CurrentUser
-    const betterAuth = yield* BetterAuth
+    const betterAuth = yield* BetterAuth.BetterAuth
     return yield* betterAuth.listOrganizationsPaged(
       current.id,
       tryDecodeCursor(input.cursor),
@@ -150,9 +150,9 @@ const list_orgs = (input: Pagination) =>
 
 const get_org = Effect.fn("get_org")(function* (input: { orgSlug: string }) {
   const current = yield* CurrentUser
-  const betterAuth = yield* BetterAuth
+  const betterAuth = yield* BetterAuth.BetterAuth
   const org = yield* betterAuth.getOrganization(current.id, input.orgSlug)
-  const orgStorage = yield* OrgStorage
+  const orgStorage = yield* OrgStorage.OrgStorage
   const { status, lastCheckedAt } = yield* orgStorage.getStatus()
   return { ...org, storage: { status, lastCheckedAt } }
 })

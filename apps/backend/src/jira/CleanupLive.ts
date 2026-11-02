@@ -16,8 +16,8 @@ import {
   JiraMigrationProjection
 } from "@pp/integration-jira/MigrationProjection"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
-import { S3Storage } from "@pp/server-core/storage/S3Storage"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import { and, eq, isNull } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Match from "effect/Match"
@@ -31,8 +31,8 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
   const db = yield* Db
   const projection = yield* JiraMigrationProjection
   const artifacts = yield* JiraMigrationArtifacts
-  const orgStorage = yield* OrgStorage
-  const s3 = yield* S3Storage
+  const orgStorage = yield* OrgStorage.OrgStorage
+  const s3 = yield* S3Storage.S3Storage
   const projectDocs = yield* ProjectDocs.ProjectDocs
 
   const readState = (

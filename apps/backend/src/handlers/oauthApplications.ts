@@ -1,7 +1,4 @@
-import {
-  BetterAuth,
-  type BetterAuthError
-} from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { OAuthApplications } from "@pp/server-core/oauth/OAuthApplications"
 import { AppApi, CurrentUser, Validation } from "@pp/shared"
 import { isAPIError } from "better-auth/api"
@@ -9,7 +6,7 @@ import * as Effect from "effect/Effect"
 import { HttpServerRequest } from "effect/http"
 import { HttpApiBuilder } from "effect/http-api"
 
-export const consentErrorToFailure = (error: BetterAuthError) => {
+export const consentErrorToFailure = (error: BetterAuth.BetterAuthError) => {
   const { cause } = error
 
   if (!isAPIError(cause) || cause.statusCode < 400 || cause.statusCode >= 500) {
@@ -53,7 +50,7 @@ export const OAuthApplicationsHandlerLive = HttpApiBuilder.group(
       .handle("consent", ({ payload }) =>
         Effect.gen(function* () {
           yield* CurrentUser
-          const ba = yield* BetterAuth
+          const ba = yield* BetterAuth.BetterAuth
           const req = yield* HttpServerRequest.HttpServerRequest
           const request = yield* HttpServerRequest.toWeb(req).pipe(Effect.orDie)
           const result = yield* ba
@@ -70,7 +67,7 @@ export const PublicOAuthHandlerLive = HttpApiBuilder.group(
   (handlers) =>
     handlers.handle("publicClient", ({ query }) =>
       Effect.gen(function* () {
-        const ba = yield* BetterAuth
+        const ba = yield* BetterAuth.BetterAuth
         const name = yield* ba
           .getPublicClientName(query.client_id)
           .pipe(Effect.catchTag("BetterAuthError", Effect.die))

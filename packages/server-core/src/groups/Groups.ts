@@ -35,7 +35,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
-import { KeyedLock, LockKey } from "../locks/KeyedLock"
+import * as KeyedLock from "../locks/KeyedLock"
 import type { MarkdownError } from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as TicketDocs from "../tickets/TicketDocs"
@@ -218,7 +218,7 @@ const make = Effect.gen(function* () {
   const groupDocs = yield* GroupDocs.GroupDocs
   const ticketDocs = yield* TicketDocs.TicketDocs
   const ticketIndex = yield* TicketIndex.TicketIndex
-  const keyedLock = yield* KeyedLock
+  const keyedLock = yield* KeyedLock.KeyedLock
   const finishedStatuses = yield* FinishedStatuses
 
   const withGroupFilesLock = <A, E, R>(
@@ -226,7 +226,7 @@ const make = Effect.gen(function* () {
     slug: string,
     effect: Effect.Effect<A, E, R>
   ): Effect.Effect<A, E, R> =>
-    keyedLock.withLock(LockKey.groupFiles(orgSlug, slug), effect)
+    keyedLock.withLock(KeyedLock.LockKey.groupFiles(orgSlug, slug), effect)
 
   const lockedInScope = <A, E, R>(
     body: (scope: ProjectScope["Service"]) => Effect.Effect<A, E, R>

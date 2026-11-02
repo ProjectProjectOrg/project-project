@@ -21,7 +21,7 @@ import * as Schema from "effect/Schema"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { Access } from "../access/Access"
+import * as Access from "../access/Access"
 import { testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
 import * as TicketDocs from "../tickets/TicketDocs"
@@ -70,7 +70,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
     | ProjectMembers.ProjectMembers
     | TicketIndex.TicketIndex
     | TicketRewrites.TicketRewrites
-    | Access
+    | Access.Access
   >
   const unassignAttempts: Array<string> = []
   const unassignedProjects: Array<string> = []
@@ -92,7 +92,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
         Effect.flatMap(([projects, members]) => f({ ...projects, ...members })),
         Effect.provideServiceEffect(
           ProjectScope,
-          Effect.flatMap(Access, (access) =>
+          Effect.flatMap(Access.Access, (access) =>
             access.project(orgSlug, projectSlug)
           ).pipe(Effect.provideService(CurrentUser, testUser(as)))
         ),

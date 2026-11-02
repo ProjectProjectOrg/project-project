@@ -23,7 +23,7 @@
 // If a handler ever feels like it's accumulating logic, that's the signal to
 // push it into a service.
 
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { AppApi, CurrentUser } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpServerRequest } from "effect/http"
@@ -36,7 +36,7 @@ export const AuthHandlerLive = HttpApiBuilder.group(
   "auth",
   (handlers) =>
     Effect.gen(function* () {
-      const ba = yield* BetterAuth
+      const ba = yield* BetterAuth.BetterAuth
       return handlers.handle("me", () =>
         Effect.gen(function* () {
           const user = yield* CurrentUser

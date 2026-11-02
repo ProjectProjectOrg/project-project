@@ -21,8 +21,8 @@ import * as FileSystem from "effect/FileSystem"
 import type { Multipart } from "effect/http"
 import * as Layer from "effect/Layer"
 
-import { OrgStorage } from "../storage/OrgStorage"
-import { S3Storage, sanitizeFilename } from "../storage/S3Storage"
+import * as OrgStorage from "../storage/OrgStorage"
+import * as S3Storage from "../storage/S3Storage"
 import { singleLineFilename } from "./feedbackTicket"
 
 const UNCLAIMED_TTL = "1 day"
@@ -39,14 +39,14 @@ const objectKey = (
   id: string,
   filename: string
 ) => {
-  const tail = `orgs/${orgSlug}/feedback/${id}-${sanitizeFilename(filename)}`
+  const tail = `orgs/${orgSlug}/feedback/${id}-${S3Storage.sanitizeFilename(filename)}`
   return keyPrefix ? `${keyPrefix}/${tail}` : tail
 }
 
 const makeFeedbackAttachments = Effect.gen(function* () {
   const db = yield* Db
-  const orgStorage = yield* OrgStorage
-  const s3 = yield* S3Storage
+  const orgStorage = yield* OrgStorage.OrgStorage
+  const s3 = yield* S3Storage.S3Storage
   const fs = yield* FileSystem.FileSystem
   const crypto = yield* Crypto.Crypto
 

@@ -18,31 +18,34 @@ export const LockKey = {
     JSON.stringify(["repository-branch", repoId])
 }
 
-export type KeyedLockShape = Readonly<{
-  withLock: <A, E, R>(
+export class KeyedLock extends Context.Service<
+  KeyedLock,
+  Readonly<{
+    withLock: <A, E, R>(
+      key: string,
+      effect: Effect.Effect<A, E, R>
+    ) => Effect.Effect<A, E, R>
+  }>
+>()("@pp/server-core/locks/KeyedLock") {}
+
+const make = Effect.gen(function* () {
+  const locks = yield* RcMap.make({
+    lookup: (_key: string) => Semaphore.make(1)
+  })
+
+  const withLock = Effect.fn("KeyedLock.withLock")(function* <A, E, R>(
     key: string,
     effect: Effect.Effect<A, E, R>
-  ) => Effect.Effect<A, E, R>
-}>
-
-export class KeyedLock extends Context.Service<KeyedLock, KeyedLockShape>()(
-  "@pp/server-core/locks/KeyedLock"
-) {}
-
-export const layer = Layer.effect(
-  KeyedLock,
-  Effect.gen(function* () {
-    const locks = yield* RcMap.make({
-      lookup: (_key: string) => Semaphore.make(1)
-    })
-    return KeyedLock.of({
-      withLock: (key, effect) =>
-        Effect.scopedWith((scope) =>
-          RcMap.get(locks, key).pipe(
-            Scope.provide(scope),
-            Effect.flatMap((lock) => lock.withPermit(effect))
-          )
-        )
-    })
+  ) {
+    return yield* Effect.scopedWith((scope) =>
+      RcMap.get(locks, key).pipe(
+        Scope.provide(scope),
+        Effect.flatMap((lock) => lock.withPermit(effect))
+      )
+    )
   })
-)
+
+  return KeyedLock.of({ withLock })
+})
+
+export const layer = Layer.effect(KeyedLock, make)

@@ -16,7 +16,7 @@ import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { Access } from "../access/Access"
+import * as Access from "../access/Access"
 import { projectScope, testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
 import { Bots } from "../bots/Bots"
@@ -69,9 +69,9 @@ describe.skipIf(!databaseUrl)("project catalog", () => {
     effect.pipe(
       Effect.provideServiceEffect(
         OrgScope,
-        Effect.flatMap(Access, (access) => access.org(organizationId)).pipe(
-          Effect.provideService(CurrentUser, testUser(userId))
-        )
+        Effect.flatMap(Access.Access, (access) =>
+          access.org(organizationId)
+        ).pipe(Effect.provideService(CurrentUser, testUser(userId)))
       ),
       asUser(userId),
       Effect.provide(layer)
@@ -81,7 +81,7 @@ describe.skipIf(!databaseUrl)("project catalog", () => {
     effect.pipe(
       Effect.provideServiceEffect(
         ProjectScope,
-        Effect.flatMap(Access, (access) =>
+        Effect.flatMap(Access.Access, (access) =>
           access.project(organizationId, slug)
         ).pipe(Effect.provideService(CurrentUser, testUser(userId)))
       ),

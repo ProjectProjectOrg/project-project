@@ -17,7 +17,7 @@ import * as Schema from "effect/Schema"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { Access } from "../access/Access"
+import * as Access from "../access/Access"
 import { testUser } from "../access/testing"
 import * as TicketIndex from "../tickets/TicketIndex"
 import * as Projects from "./Projects"
@@ -31,7 +31,9 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
   const orgs = [`alpha-${suffix}`, `beta-${suffix}`]
   const users = [randomUUID(), randomUUID()]
   let pool: Pool
-  let layer: Layer.Layer<Projects.Projects | TicketIndex.TicketIndex | Access>
+  let layer: Layer.Layer<
+    Projects.Projects | TicketIndex.TicketIndex | Access.Access
+  >
 
   const create = (index: number, name: string, key: string) =>
     Effect.flatMap(Projects.Projects, (projects) =>
@@ -39,7 +41,7 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
     ).pipe(
       Effect.provideServiceEffect(
         OrgScope,
-        Effect.flatMap(Access, (access) => access.org(orgs[index])).pipe(
+        Effect.flatMap(Access.Access, (access) => access.org(orgs[index])).pipe(
           Effect.provideService(CurrentUser, testUser(users[index]))
         )
       ),
@@ -49,7 +51,7 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
   const inProject = (index: number, orgIndex: number, slug: string) =>
     Effect.provideServiceEffect(
       ProjectScope,
-      Effect.flatMap(Access, (access) =>
+      Effect.flatMap(Access.Access, (access) =>
         access.project(orgs[orgIndex], slug)
       ).pipe(Effect.provideService(CurrentUser, testUser(users[index])))
     )

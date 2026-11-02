@@ -1,6 +1,6 @@
-import { Access } from "@pp/server-core/access/Access"
+import * as Access from "@pp/server-core/access/Access"
 import { AttachmentUploads } from "@pp/server-core/attachments/AttachmentUploads"
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { Comments } from "@pp/server-core/comments/Comments"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
@@ -10,7 +10,7 @@ import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutoma
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import { Tags } from "@pp/server-core/tags/Tags"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
@@ -20,14 +20,14 @@ import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMain
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 
 export const toolDependencies = [
-  Access,
+  Access.Access,
   AttachmentUploads,
-  BetterAuth,
+  BetterAuth.BetterAuth,
   Comments,
   GroupDocs.GroupDocs,
   Groups.Groups,
   Library.Library,
-  OrgStorage,
+  OrgStorage.OrgStorage,
   ProjectDocs.ProjectDocs,
   ProjectGitAutomation.ProjectGitAutomation,
   ProjectMembers.ProjectMembers,

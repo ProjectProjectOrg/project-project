@@ -6,8 +6,7 @@ import { readFile } from "node:fs/promises"
 import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { DbLive } from "@pp/db"
-import { Access } from "@pp/server-core/access/Access"
-import { AccessLive } from "@pp/server-core/access/AccessLive"
+import * as Access from "@pp/server-core/access/Access"
 import { orgScope, testUser } from "@pp/server-core/access/testing"
 import * as Attachments from "@pp/server-core/attachments/Attachments"
 import * as Figma from "@pp/server-core/figma/Figma"
@@ -19,8 +18,8 @@ import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as ProjectServices from "@pp/server-core/projects/layer"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as Projects from "@pp/server-core/projects/Projects"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
-import { S3Storage } from "@pp/server-core/storage/S3Storage"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
@@ -60,7 +59,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
   const publishedId = randomUUID()
   const hiddenId = randomUUID()
   let pool: Pool
-  let projectsLayer: Layer.Layer<Projects.Projects | Access>
+  let projectsLayer: Layer.Layer<Projects.Projects | Access.Access>
   let ticketIndexLayer: Layer.Layer<
     TicketIndex.TicketIndex | TicketIndexMaintenance.TicketIndexMaintenance
   >
@@ -84,12 +83,12 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
     Effect.map(HttpRouter.HttpRouter, (router) => router.prefixed("/api"))
   )
 
-  const access = () => AccessLive.pipe(Layer.provide(dbLayer()))
+  const access = () => Access.layer.pipe(Layer.provide(dbLayer()))
 
   const asOwner = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     Effect.provideService(effect, CurrentUser, testUser(userId))
 
-  const storage = Layer.mock(OrgStorage, {
+  const storage = Layer.mock(OrgStorage.OrgStorage, {
     requireConnection: () =>
       Effect.succeed({
         endpoint: "https://storage.example.test",
@@ -188,7 +187,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
     )
     ticketIndexLayer = ticketIndex
     projectsLayer = ProjectServices.layer.pipe(
-      Layer.provideMerge(AccessLive),
+      Layer.provideMerge(Access.layer),
       Layer.provide(TicketRewrites.layer),
       Layer.provide(TicketDocumentLock.layer),
       Layer.provide(FinishedStatuses.baseline),
@@ -226,7 +225,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
         Effect.gen(function* () {
           const result = yield* Effect.gen(function* () {
             const projects = yield* Projects.Projects
-            const access = yield* Access
+            const access = yield* Access.Access
             const listed = yield* projects.list()
             const scopes = yield* access.projectsInOrg()
             const hiddenProject = yield* Effect.result(
@@ -361,7 +360,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
                 Layer.provide(access()),
                 Layer.provide(storage),
                 Layer.provide(
-                  Layer.mock(S3Storage, {
+                  Layer.mock(S3Storage.S3Storage, {
                     presignGet: () =>
                       Effect.sync(() => {
                         attachmentSigns += 1
@@ -394,7 +393,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
                   Layer.mock(FigmaIntegrations.FigmaIntegrations, {})
                 ),
                 Layer.provide(
-                  Layer.mock(S3Storage, {
+                  Layer.mock(S3Storage.S3Storage, {
                     presignGet: () =>
                       Effect.sync(() => {
                         thumbnailSigns += 1
@@ -438,7 +437,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
                 Layer.provide(access()),
                 Layer.provide(storage),
                 Layer.provide(
-                  Layer.mock(S3Storage, {
+                  Layer.mock(S3Storage.S3Storage, {
                     presignGet: () =>
                       Effect.sync(() => {
                         signs += 1
@@ -492,7 +491,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
                 Layer.provide(dbLayer()),
                 Layer.provide(access()),
                 Layer.provide(storage),
-                Layer.provide(Layer.mock(S3Storage, {}))
+                Layer.provide(Layer.mock(S3Storage.S3Storage, {}))
               )
             )
           )
@@ -526,7 +525,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
                 Layer.provide(access()),
                 Layer.provide(storage),
                 Layer.provide(
-                  Layer.mock(S3Storage, {
+                  Layer.mock(S3Storage.S3Storage, {
                     deleteObject: () =>
                       Effect.sync(() => {
                         deletedObjects += 1

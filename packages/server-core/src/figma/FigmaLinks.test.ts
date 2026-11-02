@@ -22,8 +22,8 @@ import { describe, expect, vi } from "vitest"
 
 import { makeDatabase } from "../../test/database"
 import { accessLayer, projectScope, testUser } from "../access/testing"
-import { OrgStorage } from "../storage/OrgStorage"
-import { S3Storage } from "../storage/S3Storage"
+import * as OrgStorage from "../storage/OrgStorage"
+import * as S3Storage from "../storage/S3Storage"
 import * as Figma from "./Figma"
 import * as FigmaIntegrations from "./FigmaIntegrations"
 import * as FigmaLinks from "./FigmaLinks"
@@ -308,7 +308,7 @@ type HarnessInput = Readonly<{
   db: TestDb
   credential?: Effect.Effect<never, FigmaAuthInvalid | FigmaNotConnected>
   figma?: Partial<Record<string, unknown>>
-  storage?: ReturnType<OrgStorage["Service"]["requireConnection"]>
+  storage?: ReturnType<OrgStorage.OrgStorage["Service"]["requireConnection"]>
   viewer?: ProjectScope["Service"]
   markProjectCredentialRejected?: (
     orgSlug: string,
@@ -345,14 +345,14 @@ const harness = (input: HarnessInput) =>
       })
     ),
     Layer.provide(
-      Layer.mock(OrgStorage, {
+      Layer.mock(OrgStorage.OrgStorage, {
         requireConnection: () =>
           input.storage ?? Effect.fail(new StorageNotConnected())
       })
     ),
 
     Layer.provide(
-      Layer.mock(S3Storage, {
+      Layer.mock(S3Storage.S3Storage, {
         presignPut: () => Effect.succeed("https://signed.example/put"),
         presignGet: () => Effect.succeed("https://signed.example/get")
       })

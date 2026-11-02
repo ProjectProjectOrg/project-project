@@ -1,5 +1,5 @@
 import { it } from "@effect/vitest"
-import { BetterAuthError } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { APIError } from "better-auth/api"
 import { Cause, Effect, Exit } from "effect"
 import * as DateTime from "effect/DateTime"
@@ -12,14 +12,15 @@ import {
 } from "./invitations"
 
 const inviteError = (code: string) =>
-  new BetterAuthError({
+  new BetterAuth.BetterAuthError({
     cause: new APIError("BAD_REQUEST", { code, message: code })
   })
 
 const codelessError = (
   status: "BAD_REQUEST" | "FORBIDDEN" | "UNAUTHORIZED" = "BAD_REQUEST",
   message = "Invitation not found!"
-) => new BetterAuthError({ cause: new APIError(status, { message }) })
+) =>
+  new BetterAuth.BetterAuthError({ cause: new APIError(status, { message }) })
 
 const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
 
@@ -283,7 +284,7 @@ it.effect("dies on an unrecognised invitation code rather than guessing", () =>
 )
 
 const serverError = () =>
-  new BetterAuthError({
+  new BetterAuth.BetterAuthError({
     cause: new APIError("INTERNAL_SERVER_ERROR", { message: "boom" })
   })
 

@@ -16,9 +16,9 @@ import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { Access } from "../access/Access"
-import { OrgStorage } from "../storage/OrgStorage"
-import { S3Storage } from "../storage/S3Storage"
+import * as Access from "../access/Access"
+import * as OrgStorage from "../storage/OrgStorage"
+import * as S3Storage from "../storage/S3Storage"
 import * as Attachments from "./Attachments"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -109,9 +109,9 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
     )
     layer = Attachments.layer.pipe(
       Layer.provideMerge(db),
-      Layer.provide(Layer.mock(Access, {})),
-      Layer.provide(Layer.mock(OrgStorage, {})),
-      Layer.provide(Layer.mock(S3Storage, {})),
+      Layer.provide(Layer.mock(Access.Access, {})),
+      Layer.provide(Layer.mock(OrgStorage.OrgStorage, {})),
+      Layer.provide(Layer.mock(S3Storage.S3Storage, {})),
       Layer.orDie
     )
   })

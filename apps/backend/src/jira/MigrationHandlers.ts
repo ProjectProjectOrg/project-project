@@ -5,7 +5,7 @@ import {
   skippedAttachmentsForArchive
 } from "@pp/integration-jira/Report"
 import { Markdown } from "@pp/server-core/markdown/Markdown"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import {
   AppApi,
   CurrentUser,
@@ -46,7 +46,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       .handle("create", ({ payload }) =>
         Effect.gen(function* () {
           const { user, org } = yield* context
-          const storage = yield* OrgStorage
+          const storage = yield* OrgStorage.OrgStorage
           yield* storage.requireConnection(org.orgSlug).pipe(
             Effect.catchTags({
               StorageNotConnected: () =>

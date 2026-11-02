@@ -42,7 +42,7 @@
 // way is to provide `BetterAuthLive` somewhere underneath `AuthenticationLive`
 // in the `Layer.provide` chain.
 
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import {
   ActivityActor,
   Authentication,
@@ -73,7 +73,7 @@ export function normalizeEditorPreference(
 export const AuthenticationLive = Layer.effect(
   Authentication,
   Effect.gen(function* () {
-    const ba = yield* BetterAuth
+    const ba = yield* BetterAuth.BetterAuth
 
     return Authentication.of({
       sessionCookie: (httpEffect, _options) =>

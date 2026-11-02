@@ -151,12 +151,12 @@ describe("TicketDocs tracing", () => {
           },
           {
             name: "TicketDocs.read",
-            parent: "TicketDocs.update",
+            parent: "KeyedLock.withLock",
             attributes: ticket("read")
           },
           {
             name: "TicketDocs.write",
-            parent: "TicketDocs.update",
+            parent: "KeyedLock.withLock",
             attributes: ticket("write")
           },
           {

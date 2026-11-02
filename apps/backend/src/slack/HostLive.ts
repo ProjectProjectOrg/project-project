@@ -1,9 +1,9 @@
 import { Db } from "@pp/db"
 import { projectStatus } from "@pp/db/schema"
 import { SlackHost } from "@pp/integration-slack/Host"
-import { Access } from "@pp/server-core/access/Access"
+import * as Access from "@pp/server-core/access/Access"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
-import { SecretCrypto } from "@pp/server-core/storage/SecretCrypto"
+import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import { Users } from "@pp/server-core/users/Users"
 import { CurrentUser, SlackError } from "@pp/shared"
@@ -16,11 +16,11 @@ export const SlackHostLive = Layer.effect(
   SlackHost,
   Effect.gen(function* () {
     const db = yield* Db
-    const access = yield* Access
+    const access = yield* Access.Access
     const docs = yield* TicketDocs.TicketDocs
     const groups = yield* GroupDocs.GroupDocs
     const users = yield* Users
-    const secrets = yield* SecretCrypto
+    const secrets = yield* SecretCrypto.SecretCrypto
     const ticketSummary: SlackHost["Service"]["ticketSummary"] = Effect.fn(
       "SlackHost.ticketSummary"
     )(function* (request) {

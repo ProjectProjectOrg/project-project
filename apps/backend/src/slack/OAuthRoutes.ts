@@ -3,7 +3,7 @@ import {
   slackCallbackPath,
   slackPublicUrl
 } from "@pp/integration-slack/Integrations"
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as Effect from "effect/Effect"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Schema from "effect/Schema"
@@ -24,7 +24,7 @@ const profileRedirect = (failed: boolean) =>
   })
 const session = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest
-  const auth = yield* BetterAuth
+  const auth = yield* BetterAuth.BetterAuth
   const current = yield* auth.getSession(toWebHeaders(request.headers))
   const binding = (request.headers.cookie ?? "")
     .split(";")

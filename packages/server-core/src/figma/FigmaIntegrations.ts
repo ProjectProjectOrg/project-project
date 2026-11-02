@@ -35,8 +35,8 @@ import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
-import { OrgStorage } from "../storage/OrgStorage"
-import { SecretCrypto } from "../storage/SecretCrypto"
+import * as OrgStorage from "../storage/OrgStorage"
+import * as SecretCrypto from "../storage/SecretCrypto"
 import * as TicketIndex from "../tickets/TicketIndex"
 import * as Figma from "./Figma"
 
@@ -426,8 +426,8 @@ const make = Effect.gen(function* () {
   const crypto = yield* Crypto.Crypto
   const sql = yield* SqlClient.SqlClient
   const figma = yield* Figma.Figma
-  const secrets = yield* SecretCrypto
-  const orgStorage = yield* OrgStorage
+  const secrets = yield* SecretCrypto.SecretCrypto
+  const orgStorage = yield* OrgStorage.OrgStorage
   const ticketIndex = yield* TicketIndex.TicketIndex
 
   const client = figmaOAuthClient

@@ -67,7 +67,7 @@ import { SlackRuntimeLive } from "@pp/integration-slack/Runtime"
 //   exit-code mapping.
 import { TicketActivityRecoveryLive } from "@pp/server-core/activity/TicketActivityLive"
 import { AttachmentReaperLive } from "@pp/server-core/attachments/AttachmentReaperLive"
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { FeedbackDispatcherLive } from "@pp/server-core/feedback/FeedbackDelivery"
 import { TicketIndexReconcilerLive } from "@pp/server-core/tickets/TicketIndexReconcilerLive"
 import { AppApi } from "@pp/shared"
@@ -160,7 +160,7 @@ export const DbHandlerLive = HttpApiBuilder.group(AppApi, "db", (handlers) =>
 )
 
 const betterAuthApp = Effect.gen(function* () {
-  const ba = yield* BetterAuth
+  const ba = yield* BetterAuth.BetterAuth
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   if (isClosedAuthPath(new URL(webReq.url).pathname)) {

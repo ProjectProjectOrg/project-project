@@ -1,6 +1,8 @@
 import { it } from "@effect/vitest"
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
+import * as Tracer from "effect/Tracer"
 import { beforeEach, describe, expect, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
@@ -62,7 +64,7 @@ describe("BetterAuthLive getPersonalGithub", () => {
 
 const runGetPersonalGithub = (userId: string) =>
   Effect.gen(function* () {
-    const service = yield* BetterAuth
+    const service = yield* BetterAuth.BetterAuth
     return yield* service.getPersonalGithub(userId)
   }).pipe(Effect.provide(BetterAuthLive))
 
@@ -81,7 +83,7 @@ it.effect("passes the HTTP request through when accepting OAuth consent", () =>
     })
 
     const result = yield* Effect.gen(function* () {
-      const service = yield* BetterAuth
+      const service = yield* BetterAuth.BetterAuth
       return yield* service.submitConsent(request, input)
     }).pipe(Effect.provide(BetterAuthLive))
 
@@ -96,3 +98,58 @@ it.effect("passes the HTTP request through when accepting OAuth consent", () =>
     })
   })
 )
+
+it.effect("traces each BetterAuth call under its own span", () => {
+  const spans: Array<Tracer.NativeSpan> = []
+  const tracer = Tracer.make({
+    span: (options) => {
+      const span = new Tracer.NativeSpan(options)
+      spans.push(span)
+      return span
+    }
+  })
+  mocks.findFirst.mockResolvedValue(undefined)
+  return Effect.gen(function* () {
+    const service = yield* BetterAuth.BetterAuth
+    yield* service.getPersonalGithub("user-1")
+  }).pipe(
+    Effect.withTracer(tracer),
+    Effect.provide(BetterAuthLive),
+    Effect.map(() =>
+      expect(
+        spans
+          .filter((span) => Option.isNone(span.parent))
+          .map((span) => span.name)
+      ).toEqual(["BetterAuth.getPersonalGithub"])
+    )
+  )
+})
+
+it.effect("traces submitConsent under its own span", () => {
+  const spans: Array<Tracer.NativeSpan> = []
+  const tracer = Tracer.make({
+    span: (options) => {
+      const span = new Tracer.NativeSpan(options)
+      spans.push(span)
+      return span
+    }
+  })
+  mocks.oauth2Consent.mockResolvedValue({ url: "http://localhost/callback" })
+  return Effect.gen(function* () {
+    const service = yield* BetterAuth.BetterAuth
+    yield* service.submitConsent(
+      new Request("http://localhost/api/oauth-applications/consent"),
+      { accept: true, oauth_query: "signed-query" }
+    )
+  }).pipe(
+    Effect.withTracer(tracer),
+    Effect.provide(BetterAuthLive),
+    Effect.map(() =>
+      expect(
+        spans
+          .filter((span) => Option.isNone(span.parent))
+          .map((span) => span.name)
+      ).toEqual(["BetterAuth.submitConsent"])
+    )
+  )
+})

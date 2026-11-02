@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Access } from "@pp/server-core/access/Access"
+import * as Access from "@pp/server-core/access/Access"
 import {
   orgScope,
   projectScope,
   testUser
 } from "@pp/server-core/access/testing"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { Comments } from "@pp/server-core/comments/Comments"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
@@ -173,7 +173,7 @@ const TicketsStub = Layer.mergeAll(
 const fakeUser = testUser("u-1")
 
 const accessAs = (role: Role | null) =>
-  Layer.succeed(Access, {
+  Layer.succeed(Access.Access, {
     org: (orgSlug) =>
       Effect.map(CurrentUser, (current) =>
         orgScope("member", { orgSlug, userId: current.id })
@@ -311,7 +311,7 @@ const TestLayer = Layer.mergeAll(
   Layer.mock(Groups.Groups, {}),
   Layer.mock(Tags, {}),
   Layer.mock(Users, {}),
-  Layer.mock(BetterAuth, {}),
+  Layer.mock(BetterAuth.BetterAuth, {}),
   ProjectDocsStub,
   GroupDocsStub,
   TicketDocsStub,

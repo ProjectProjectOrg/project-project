@@ -2,9 +2,9 @@ import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
 import { organization, projectIndex, projectMember } from "@pp/db/schema"
 import { EverhourHost } from "@pp/integration-everhour/Host"
-import { Access } from "@pp/server-core/access/Access"
+import * as Access from "@pp/server-core/access/Access"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
-import { SecretCrypto } from "@pp/server-core/storage/SecretCrypto"
+import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import { EverhourConfigMissing, NotFound } from "@pp/shared"
@@ -17,11 +17,11 @@ export const EverhourHostLive = Layer.effect(
   EverhourHost,
   Effect.gen(function* () {
     const db = yield* Db
-    const access = yield* Access
+    const access = yield* Access.Access
     const ticketIndex = yield* TicketIndex.TicketIndex
     const groupDocs = yield* GroupDocs.GroupDocs
     const ticketDocs = yield* TicketDocs.TicketDocs
-    const secrets = yield* SecretCrypto
+    const secrets = yield* SecretCrypto.SecretCrypto
     const sprints: EverhourHost["Service"]["sprints"] = Effect.fn(
       "EverhourHost.sprints"
     )(function* (orgSlug, slug) {

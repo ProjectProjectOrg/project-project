@@ -1,7 +1,7 @@
 import { JiraHost, JiraPublicationFormat } from "@pp/integration-jira/Host"
 import { serializeCommentsRegion } from "@pp/server-core/comments/comments-region"
-import { attachmentObjectKey } from "@pp/server-core/storage/S3Storage"
-import { SecretCrypto } from "@pp/server-core/storage/SecretCrypto"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
+import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import { JiraError } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -9,7 +9,7 @@ import * as Layer from "effect/Layer"
 export const JiraHostLive = Layer.effect(
   JiraHost,
   Effect.gen(function* () {
-    const secrets = yield* SecretCrypto
+    const secrets = yield* SecretCrypto.SecretCrypto
     return JiraHost.of({
       seal: (plaintext) =>
         secrets
@@ -29,5 +29,5 @@ export const JiraHostLive = Layer.effect(
 
 export const JiraPublicationFormatLive = Layer.succeed(JiraPublicationFormat, {
   serializeCommentsRegion,
-  attachmentObjectKey
+  attachmentObjectKey: S3Storage.attachmentObjectKey
 })

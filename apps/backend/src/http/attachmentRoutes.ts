@@ -1,5 +1,5 @@
 import * as Attachments from "@pp/server-core/attachments/Attachments"
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { Users } from "@pp/server-core/users/Users"
 import {
   attachmentViewParams,
@@ -135,7 +135,7 @@ const serveAttachment = Effect.gen(function* () {
   const ref = parseAttachmentUrl(url.pathname)
   if (!ref) return notFound
 
-  const ba = yield* BetterAuth
+  const ba = yield* BetterAuth.BetterAuth
   const session = yield* ba
     .getSession(toWebHeaders(req.headers))
     .pipe(Effect.orElseSucceed(() => null))

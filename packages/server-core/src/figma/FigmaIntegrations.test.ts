@@ -17,8 +17,8 @@ import * as Tracer from "effect/Tracer"
 import { afterEach, describe, expect, vi } from "vitest"
 
 import { databaseLayer, makeDatabase } from "../../test/database"
-import { OrgStorage } from "../storage/OrgStorage"
-import { SecretCrypto } from "../storage/SecretCrypto"
+import * as OrgStorage from "../storage/OrgStorage"
+import * as SecretCrypto from "../storage/SecretCrypto"
 import * as TicketIndex from "../tickets/TicketIndex"
 import * as Figma from "./Figma"
 import * as FigmaIntegrations from "./FigmaIntegrations"
@@ -671,8 +671,8 @@ describe("FigmaIntegrations tracing", () => {
           FigmaIntegrations.layer.pipe(
             Layer.provide(databaseLayer(() => Effect.succeed([]))),
             Layer.provide(Layer.mock(Figma.Figma, {})),
-            Layer.provide(Layer.mock(SecretCrypto, {})),
-            Layer.provide(Layer.mock(OrgStorage, {})),
+            Layer.provide(Layer.mock(SecretCrypto.SecretCrypto, {})),
+            Layer.provide(Layer.mock(OrgStorage.OrgStorage, {})),
             Layer.provide(Layer.mock(TicketIndex.TicketIndex, {})),
             Layer.provide(
               Layer.succeed(FetchHttpClient.Fetch, globalThis.fetch)

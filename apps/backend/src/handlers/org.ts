@@ -1,7 +1,4 @@
-import {
-  BetterAuth,
-  type BetterAuthError
-} from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { Org } from "@pp/server-core/organizations/Org"
 import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
 import {
@@ -89,18 +86,20 @@ const INVALID_CODES = new Map([
 ])
 
 export const betterAuthErrorStatus = (
-  error: BetterAuthError
+  error: BetterAuth.BetterAuthError
 ): number | null => {
   const { cause } = error
   return isAPIError(cause) ? cause.statusCode : null
 }
 
-export const isClientRefusal = (error: BetterAuthError): boolean => {
+export const isClientRefusal = (error: BetterAuth.BetterAuthError): boolean => {
   const status = betterAuthErrorStatus(error)
   return status !== null && status >= 400 && status < 500
 }
 
-export const betterAuthErrorCode = (error: BetterAuthError): string | null => {
+export const betterAuthErrorCode = (
+  error: BetterAuth.BetterAuthError
+): string | null => {
   const { cause } = error
   if (!isAPIError(cause)) return null
   const code = cause.body?.code
@@ -108,7 +107,7 @@ export const betterAuthErrorCode = (error: BetterAuthError): string | null => {
 }
 
 export const memberErrorToFailure = (
-  error: BetterAuthError
+  error: BetterAuth.BetterAuthError
 ): Effect.Effect<never, Forbidden | NotFound | Conflict | Validation> => {
   if (!isClientRefusal(error)) return Effect.die(error)
   const code = betterAuthErrorCode(error)
@@ -123,7 +122,7 @@ export const memberErrorToFailure = (
 }
 
 export const opaqueErrorToFailure = (
-  error: BetterAuthError
+  error: BetterAuth.BetterAuthError
 ): Effect.Effect<never, NotFound> =>
   memberErrorToFailure(error).pipe(
     Effect.catchTags({
@@ -134,7 +133,7 @@ export const opaqueErrorToFailure = (
   )
 
 export const memberAccessErrorToFailure = (
-  error: BetterAuthError
+  error: BetterAuth.BetterAuthError
 ): Effect.Effect<never, Forbidden | NotFound> =>
   memberErrorToFailure(error).pipe(
     Effect.catchTags({
@@ -144,7 +143,7 @@ export const memberAccessErrorToFailure = (
   )
 
 export const memberChangeErrorToFailure = (
-  error: BetterAuthError
+  error: BetterAuth.BetterAuthError
 ): Effect.Effect<never, Forbidden | NotFound | Conflict> =>
   memberErrorToFailure(error).pipe(
     Effect.catchTags({ Validation: () => new Forbidden() })
@@ -153,7 +152,7 @@ export const memberChangeErrorToFailure = (
 const LAST_PROJECT_PM_BLOCKED = "LAST_PROJECT_PM_BLOCKED"
 
 export const blockingProjectSlugs = (
-  error: BetterAuthError
+  error: BetterAuth.BetterAuthError
 ): ReadonlyArray<string> | null => {
   if (!isClientRefusal(error)) return null
   if (betterAuthErrorCode(error) !== LAST_PROJECT_PM_BLOCKED) return null
@@ -165,7 +164,7 @@ export const blockingProjectSlugs = (
 }
 
 export const removeMemberErrorToFailure = (
-  error: BetterAuthError
+  error: BetterAuth.BetterAuthError
 ): Effect.Effect<
   never,
   Forbidden | NotFound | Conflict | LastProjectPmBlocked
@@ -177,7 +176,7 @@ export const removeMemberErrorToFailure = (
 }
 
 export const leaveErrorToFailure = (
-  error: BetterAuthError
+  error: BetterAuth.BetterAuthError
 ): Effect.Effect<never, NotFound | Conflict | LastProjectPmBlocked> => {
   const projectSlugs = blockingProjectSlugs(error)
   return projectSlugs === null
@@ -191,7 +190,7 @@ export const leaveErrorToFailure = (
 }
 
 export const transferErrorToFailure = (
-  error: BetterAuthError
+  error: BetterAuth.BetterAuthError
 ): Effect.Effect<never, Forbidden | NotFound | Validation> =>
   memberErrorToFailure(error).pipe(
     Effect.catchTags({ Conflict: () => new Forbidden() })
@@ -217,7 +216,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
     .handle("members", ({ params }) =>
       Effect.gen(function* () {
         yield* CurrentUser
-        const ba = yield* BetterAuth
+        const ba = yield* BetterAuth.BetterAuth
         const request = yield* webRequest
         return yield* ba
           .getMembers(request, params.orgSlug)
@@ -226,7 +225,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
     )
     .handle("rename", ({ params, payload }) =>
       Effect.gen(function* () {
-        const ba = yield* BetterAuth
+        const ba = yield* BetterAuth.BetterAuth
         const org = yield* Org
         const request = yield* webRequest
         yield* ba
@@ -238,7 +237,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
     .handle("inviteMember", ({ params, payload }) =>
       Effect.gen(function* () {
         yield* CurrentUser
-        const ba = yield* BetterAuth
+        const ba = yield* BetterAuth.BetterAuth
         const request = yield* webRequest
         return yield* ba
           .inviteMember(request, params.orgSlug, payload)
@@ -248,7 +247,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
     .handle("updateMemberRole", ({ params, payload }) =>
       Effect.gen(function* () {
         yield* CurrentUser
-        const ba = yield* BetterAuth
+        const ba = yield* BetterAuth.BetterAuth
         const request = yield* webRequest
         return yield* ba
           .updateMemberRole(
@@ -263,7 +262,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
     .handle("removeMember", ({ params }) =>
       Effect.gen(function* () {
         yield* CurrentUser
-        const ba = yield* BetterAuth
+        const ba = yield* BetterAuth.BetterAuth
         const request = yield* webRequest
         yield* ba
           .removeMember(request, params.orgSlug, params.userId)
@@ -278,7 +277,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
     .handle("cancelInvitation", ({ params }) =>
       Effect.gen(function* () {
         yield* CurrentUser
-        const ba = yield* BetterAuth
+        const ba = yield* BetterAuth.BetterAuth
         const request = yield* webRequest
         yield* ba
           .cancelInvitation(request, params.orgSlug, params.invitationId)
@@ -288,7 +287,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
     .handle("transferOwnership", ({ params, payload }) =>
       Effect.gen(function* () {
         const user = yield* CurrentUser
-        const ba = yield* BetterAuth
+        const ba = yield* BetterAuth.BetterAuth
         const request = yield* webRequest
         return yield* ba
           .transferOwnership(request, params.orgSlug, payload.userId, user.id)
@@ -297,7 +296,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
     )
     .handle("setActive", ({ params }) =>
       Effect.gen(function* () {
-        const ba = yield* BetterAuth
+        const ba = yield* BetterAuth.BetterAuth
         const request = yield* webRequest
         const cookies = Cookies.fromSetCookie(
           yield* ba
@@ -312,7 +311,7 @@ export const OrgHandlerLive = HttpApiBuilder.group(AppApi, "org", (handlers) =>
     .handle("leave", ({ params }) =>
       Effect.gen(function* () {
         const user = yield* CurrentUser
-        const ba = yield* BetterAuth
+        const ba = yield* BetterAuth.BetterAuth
         const request = yield* webRequest
         yield* ba
           .leaveOrg(request, params.orgSlug, user.id)

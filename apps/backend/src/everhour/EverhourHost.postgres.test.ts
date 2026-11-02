@@ -9,8 +9,7 @@ import { EverhourApiKeys } from "@pp/integration-everhour/ApiKeys"
 import { EverhourHost } from "@pp/integration-everhour/Host"
 import { EverhourServicesLive } from "@pp/integration-everhour/Services"
 import * as TimeTracking from "@pp/integration-everhour/TimeTracking"
-import { Access } from "@pp/server-core/access/Access"
-import { AccessLive } from "@pp/server-core/access/AccessLive"
+import * as Access from "@pp/server-core/access/Access"
 import { testUser } from "@pp/server-core/access/testing"
 import { TicketActivityLive } from "@pp/server-core/activity/TicketActivityLive"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
@@ -18,7 +17,7 @@ import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { Markdown } from "@pp/server-core/markdown/Markdown"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
-import { SecretCryptoLive } from "@pp/server-core/storage/SecretCryptoLive"
+import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import { CurrentUser, OrgScope, ProjectScope } from "@pp/shared"
@@ -147,7 +146,7 @@ describe.skipIf(!databaseUrl)("Everhour backend composition", () => {
         )
         const services = EverhourServicesLive.pipe(
           Layer.provideMerge(EverhourHostLive),
-          Layer.provideMerge(AccessLive),
+          Layer.provideMerge(Access.layer),
           Layer.provideMerge(TicketIndexServices.layer),
           Layer.provideMerge(GroupDocs.layer),
           Layer.provideMerge(TicketDocs.layer),
@@ -155,10 +154,10 @@ describe.skipIf(!databaseUrl)("Everhour backend composition", () => {
           Layer.provideMerge(KeyedLock.layer),
           Layer.provideMerge(TicketActivityLive),
           Layer.provideMerge(MarkdownLive),
-          Layer.provideMerge(SecretCryptoLive)
+          Layer.provideMerge(SecretCrypto.layer)
         )
         yield* Effect.gen(function* () {
-          const access = yield* Access
+          const access = yield* Access.Access
           const org = yield* access.org(orgId)
           const project = yield* access.project(orgId, "project")
           const markdown = yield* Markdown

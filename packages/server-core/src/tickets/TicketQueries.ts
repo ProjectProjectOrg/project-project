@@ -47,7 +47,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
-import { Access } from "../access/Access"
+import * as Access from "../access/Access"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
@@ -189,7 +189,7 @@ const make = Effect.gen(function* () {
   const projectDocs = yield* ProjectDocs.ProjectDocs
   const finishedStatuses = yield* FinishedStatuses
   const library = yield* Library.Library
-  const access = yield* Access
+  const access = yield* Access.Access
   const { gitViewOf, gitView, readTicket, detailOf, withMissingAttachments } =
     yield* TicketView.TicketView
 

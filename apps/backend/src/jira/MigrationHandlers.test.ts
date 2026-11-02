@@ -16,7 +16,7 @@ import { JiraCredentials } from "@pp/integration-jira/Credentials"
 import { JiraMigrations } from "@pp/integration-jira/Migrations"
 import { accessLayer, orgScope } from "@pp/server-core/access/testing"
 import { Markdown } from "@pp/server-core/markdown/Markdown"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import { JiraError, JiraRateLimited as PublicJiraRateLimited } from "@pp/shared"
 import {
   ActivityActor,
@@ -119,7 +119,7 @@ const dependenciesFor = (
       disconnect: unused,
       markReconnectRequired: unused
     }),
-    Layer.succeed(OrgStorage)({
+    Layer.succeed(OrgStorage.OrgStorage)({
       getStatus: unused,
       connect: unused,
       disconnect: unused,
