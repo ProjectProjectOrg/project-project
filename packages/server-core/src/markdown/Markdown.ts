@@ -1,10 +1,3 @@
-// Markdown service — filesystem-backed read/write for projects on disk.
-//
-// Source of truth is markdown on disk under
-// `<PROJECTS_DIR>/orgs/<orgSlug>/projects/<projectSlug>/project.md`. Every
-// public method takes `orgSlug` explicitly — there is no implicit "active
-// org" lookup at this layer; callers (handlers via the Projects service)
-// thread it through.
 import { NotFound, LIBRARY_KEY_MAX_LENGTH, TicketId } from "@pp/shared"
 import * as Config from "effect/Config"
 import * as Context from "effect/Context"
