@@ -34,7 +34,7 @@ import * as FigmaLinks from "../figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "../github/GitHub"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
-import { TicketIdTaken } from "../markdown/Markdown"
+import * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
 import * as ProjectDocs from "../projects/ProjectDocs"
@@ -138,7 +138,8 @@ export function makeFakeTicketDocs(initialIds: ReadonlyArray<string>) {
       document: TicketDocs.TicketDocument,
       onPersist
     ) => {
-      if (documents.has(document.id)) return Effect.fail(new TicketIdTaken())
+      if (documents.has(document.id))
+        return Effect.fail(new Markdown.TicketIdTaken())
       documents.set(document.id, document)
       return onPersist ? onPersist(document) : Effect.void
     },

@@ -21,7 +21,7 @@ import {
   templateDefaultsFrom,
   withTemplateDefaults
 } from "../library/templateDefaultsFrontmatter"
-import { Markdown, type MarkdownError } from "../markdown/Markdown"
+import * as Markdown from "../markdown/Markdown"
 import {
   type SystemProjectRole,
   systemRoleFrom,
@@ -65,39 +65,39 @@ export class ProjectDocs extends Context.Service<
     read: (
       orgSlug: string,
       slug: string
-    ) => Effect.Effect<ProjectDocument, NotFound | MarkdownError>
+    ) => Effect.Effect<ProjectDocument, NotFound | Markdown.MarkdownError>
     write: (
       orgSlug: string,
       slug: string,
       document: ProjectDocumentWrite
-    ) => Effect.Effect<void, MarkdownError>
+    ) => Effect.Effect<void, Markdown.MarkdownError>
     writeTemplateDefaults: (
       orgSlug: string,
       slug: string,
       defaults: PartialTemplateDefaults
-    ) => Effect.Effect<void, NotFound | MarkdownError>
+    ) => Effect.Effect<void, NotFound | Markdown.MarkdownError>
     systemRole: (
       orgSlug: string,
       slug: string
     ) => Effect.Effect<
       Option.Option<SystemProjectRole>,
-      NotFound | MarkdownError
+      NotFound | Markdown.MarkdownError
     >
     markSystem: (
       orgSlug: string,
       slug: string,
       role: SystemProjectRole
-    ) => Effect.Effect<void, NotFound | MarkdownError>
+    ) => Effect.Effect<void, NotFound | Markdown.MarkdownError>
     removeDir: (
       orgSlug: string,
       slug: string
-    ) => Effect.Effect<void, MarkdownError>
+    ) => Effect.Effect<void, Markdown.MarkdownError>
     readRaw: (
       orgSlug: string,
       slug: string
     ) => Effect.Effect<
       Readonly<{ path: string; content: string }>,
-      NotFound | MarkdownError
+      NotFound | Markdown.MarkdownError
     >
   }>
 >()("@pp/server-core/projects/ProjectDocs") {}
@@ -210,7 +210,7 @@ const annotateProjectDoc = <A, E, R>(
 }
 
 const make = Effect.gen(function* () {
-  const markdown = yield* Markdown
+  const markdown = yield* Markdown.Markdown
 
   const read = Effect.fn("ProjectDocs.read")(function* (
     orgSlug: string,

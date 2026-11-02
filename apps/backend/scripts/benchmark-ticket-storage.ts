@@ -16,7 +16,7 @@ import {
   passthroughTicketActivity
 } from "@pp/server-core/activity/testing"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
-import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import { TicketId, TicketStatus } from "@pp/shared"
@@ -359,7 +359,7 @@ const benchmarkProgram = (options: Options, scratchRoot: string) =>
         Layer.provide(KeyedLock.layer),
         Layer.provide(FinishedStatuses.baseline),
         Layer.provide(passthroughTicketActivity),
-        Layer.provide(MarkdownLive),
+        Layer.provide(Markdown.layer),
         Layer.provideMerge(
           ConfigProvider.layer(
             ConfigProvider.fromUnknown({ PROJECTS_DIR: scratchRoot })

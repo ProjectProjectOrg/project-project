@@ -40,7 +40,7 @@ import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import * as LibraryDocs from "../library/LibraryDocs"
 import * as KeyedLock from "../locks/KeyedLock"
-import { MarkdownLive } from "../markdown/MarkdownLive"
+import * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
 import * as ProjectDocs from "../projects/ProjectDocs"
@@ -281,7 +281,7 @@ const TestLayer = Layer.unwrap(
             })
           )
         ),
-        Layer.provide(MarkdownLive),
+        Layer.provide(Markdown.layer),
         Layer.provideMerge(
           ConfigProvider.layer(
             ConfigProvider.fromUnknown({ PROJECTS_DIR: tmpRoot })

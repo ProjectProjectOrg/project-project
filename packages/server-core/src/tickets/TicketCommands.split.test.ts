@@ -34,8 +34,7 @@ import * as FigmaLinks from "../figma/FigmaLinks"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import * as KeyedLock from "../locks/KeyedLock"
-import { MarkdownError } from "../markdown/Markdown"
-import { MarkdownLive } from "../markdown/MarkdownLive"
+import * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import * as ProjectGithub from "../projects/ProjectGithub"
@@ -141,7 +140,7 @@ const FakeGroups = Layer.succeed(Groups.Groups, {
     Effect.suspend(() => {
       sprintAssignmentAttempts += 1
       if (sprintAssignmentAttempts === failSprintAssignmentAt) {
-        return new MarkdownError({
+        return new Markdown.MarkdownError({
           cause: new Error("sprint write failed"),
           message: "sprint write failed"
         })
@@ -317,7 +316,7 @@ const TestLayer = Layer.unwrap(
           })
         )
       ),
-      Layer.provide(MarkdownLive),
+      Layer.provide(Markdown.layer),
       Layer.provideMerge(
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({ PROJECTS_DIR: tmpRoot })

@@ -12,7 +12,7 @@ import {
   makeJiraMigrationWorkflow
 } from "@pp/integration-jira/MigrationWorkflow"
 import { JiraPublicationInvalid } from "@pp/integration-jira/Preflight"
-import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import { drizzle } from "drizzle-orm/node-postgres"
@@ -126,7 +126,7 @@ describe.skipIf(!databaseUrl)("Jira production workflow composition", () => {
         )
         const layer = workflow.pipe(
           Layer.provideMerge(
-            MarkdownLive.pipe(
+            Markdown.layer.pipe(
               Layer.provide(
                 ConfigProvider.layer(
                   ConfigProvider.fromUnknown({ PROJECTS_DIR: "/tmp" })

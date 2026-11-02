@@ -49,7 +49,7 @@ import * as Library from "@pp/server-core/library/Library"
 import * as LibraryDocs from "@pp/server-core/library/LibraryDocs"
 import { LinkPreviewsLive } from "@pp/server-core/linkPreviews/LinkPreviewsLive"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
-import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { OAuthApplicationsLive } from "@pp/server-core/oauth/OAuthApplicationsLive"
 import { OrgLive } from "@pp/server-core/organizations/OrgLive"
 import * as BannerPlaceholders from "@pp/server-core/projects/BannerPlaceholders"
@@ -196,7 +196,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(GroupDocs.layer),
       Layer.provideMerge(TicketActivityLive),
       Layer.provideMerge(LibraryDocs.layer),
-      Layer.provideMerge(MarkdownLive),
+      Layer.provideMerge(Markdown.layer),
       Layer.provideMerge(OAuthApplicationsLive),
       Layer.provideMerge(SecretCrypto.layer),
       Layer.provideMerge(

@@ -6,17 +6,17 @@ import type {
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 
 export type GitHubTicketEventsShape = Readonly<{
   pullRequestChanged: (
     change: GitHubPullRequestWebhookChange,
     deliveryId: string | null
-  ) => Effect.Effect<void, MarkdownError>
+  ) => Effect.Effect<void, Markdown.MarkdownError>
   branchDeleted: (
     change: GitHubBranchDeletionChange,
     deliveryId: string | null
-  ) => Effect.Effect<void, MarkdownError>
+  ) => Effect.Effect<void, Markdown.MarkdownError>
   checkStateChanged: (
     change: GitHubCheckWebhookChange,
     deliveryId: string | null

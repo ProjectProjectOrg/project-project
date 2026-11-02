@@ -10,7 +10,7 @@ import type { ActivityActor, ProjectScope } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 
 export interface TagsShape {
   readonly list: () => Effect.Effect<ReadonlyArray<Tag>, never, ProjectScope>
@@ -30,14 +30,14 @@ export interface TagsShape {
     patch: UpdateTagInput
   ) => Effect.Effect<
     Tag,
-    NotFound | Conflict | MarkdownError,
+    NotFound | Conflict | Markdown.MarkdownError,
     ProjectScope | ActivityActor
   >
   readonly remove: (
     name: string
   ) => Effect.Effect<
     void,
-    NotFound | MarkdownError,
+    NotFound | Markdown.MarkdownError,
     ProjectScope | ActivityActor
   >
 }

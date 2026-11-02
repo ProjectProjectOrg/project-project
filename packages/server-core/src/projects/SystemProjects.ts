@@ -18,7 +18,7 @@ import * as Schema from "effect/Schema"
 import * as Semaphore from "effect/Semaphore"
 
 import { type Bot, Bots } from "../bots/Bots"
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import * as ProjectDocs from "./ProjectDocs"
 import * as Projects from "./Projects"
 import type { SystemProjectRole } from "./systemProjectFrontmatter"
@@ -36,7 +36,10 @@ export class SystemProjects extends Context.Service<
   Readonly<{
     ensure: (
       spec: SystemProjectSpec
-    ) => Effect.Effect<ProjectScope["Service"], NotFound | MarkdownError>
+    ) => Effect.Effect<
+      ProjectScope["Service"],
+      NotFound | Markdown.MarkdownError
+    >
   }>
 >()("@pp/server-core/projects/SystemProjects") {}
 

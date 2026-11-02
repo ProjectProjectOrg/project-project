@@ -27,7 +27,7 @@ import { describe, expect } from "vitest"
 import { databaseLayer } from "../../test/database"
 import { orgScope, projectScope } from "../access/testing"
 import * as KeyedLock from "../locks/KeyedLock"
-import type { LibraryKind } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as Library from "./Library"
@@ -70,7 +70,11 @@ const updateLayer = (
   world.layers.set(key, update(world.layers.get(key) ?? EMPTY_LAYER))
 }
 
-const withoutKey = (layer: LibraryLayer, kind: LibraryKind, key: string) =>
+const withoutKey = (
+  layer: LibraryLayer,
+  kind: Markdown.LibraryKind,
+  key: string
+) =>
   kind === "blocks"
     ? {
         ...layer,

@@ -8,8 +8,7 @@ import * as Layer from "effect/Layer"
 import * as Path from "effect/Path"
 import { describe, expect } from "vitest"
 
-import { Markdown } from "./Markdown"
-import { MarkdownLive } from "./MarkdownLive"
+import * as Markdown from "./Markdown"
 
 const TestLayer = Layer.unwrap(
   Effect.gen(function* () {
@@ -17,7 +16,7 @@ const TestLayer = Layer.unwrap(
     const tmpRoot = yield* fs.makeTempDirectoryScoped({
       prefix: "projectproject-md-"
     })
-    return MarkdownLive.pipe(
+    return Markdown.layer.pipe(
       Layer.provideMerge(
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({ PROJECTS_DIR: tmpRoot })
@@ -58,7 +57,7 @@ describe("Markdown tickets (real fs)", () => {
     "returns MarkdownError for rejected project, ticket, and group files",
     () =>
       Effect.gen(function* () {
-        const md = yield* Markdown
+        const md = yield* Markdown.Markdown
         const fs = yield* FileSystem.FileSystem
         const path = yield* Path.Path
         const project = md.projectDir("acme", "foo")
@@ -97,7 +96,7 @@ describe("Markdown tickets (real fs)", () => {
 
   it.effect("round-trips frontmatter-looking ticket bodies as text", () =>
     Effect.gen(function* () {
-      const md = yield* Markdown
+      const md = yield* Markdown.Markdown
       const body = "---js\nthrow new Error('executed')\n---\nExample\n"
 
       yield* md.createTicketFile(
@@ -116,7 +115,7 @@ describe("Markdown tickets (real fs)", () => {
 
   it.effect("keeps the original ticket when exclusive creation collides", () =>
     Effect.gen(function* () {
-      const md = yield* Markdown
+      const md = yield* Markdown.Markdown
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
       const root = yield* Config.String("PROJECTS_DIR")
@@ -158,7 +157,7 @@ describe("Markdown tickets (real fs)", () => {
     "atomically replaces a ticket without leaving temporary files",
     () =>
       Effect.gen(function* () {
-        const md = yield* Markdown
+        const md = yield* Markdown.Markdown
         const fs = yield* FileSystem.FileSystem
         const path = yield* Path.Path
         const root = yield* Config.String("PROJECTS_DIR")
@@ -199,7 +198,7 @@ describe("Markdown deletion (real fs)", () => {
     "removeTicketFile removes the file and listTicketIds reflects it",
     () =>
       Effect.gen(function* () {
-        const md = yield* Markdown
+        const md = yield* Markdown.Markdown
         const fs = yield* FileSystem.FileSystem
         const path = yield* Path.Path
         const root = yield* Config.String("PROJECTS_DIR")
@@ -234,7 +233,7 @@ describe("Markdown deletion (real fs)", () => {
     "removeProjectDir removes the entire project tree including tickets",
     () =>
       Effect.gen(function* () {
-        const md = yield* Markdown
+        const md = yield* Markdown.Markdown
         const fs = yield* FileSystem.FileSystem
         const path = yield* Path.Path
         const root = yield* Config.String("PROJECTS_DIR")
@@ -273,7 +272,7 @@ describe("Markdown deletion (real fs)", () => {
     "project re-created under same slug after removeProjectDir is empty of old tickets",
     () =>
       Effect.gen(function* () {
-        const md = yield* Markdown
+        const md = yield* Markdown.Markdown
         yield* md.writeProjectFile(
           "acme",
           "foo",

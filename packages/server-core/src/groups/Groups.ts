@@ -36,7 +36,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import * as KeyedLock from "../locks/KeyedLock"
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketIndex from "../tickets/TicketIndex"
@@ -52,7 +52,7 @@ export class Groups extends Context.Service<
   Readonly<{
     list: () => Effect.Effect<
       ReadonlyArray<Group>,
-      NotFound | MarkdownError,
+      NotFound | Markdown.MarkdownError,
       ProjectScope
     >
     listPaged: (
@@ -61,7 +61,7 @@ export class Groups extends Context.Service<
       limit: number
     ) => Effect.Effect<
       { items: ReadonlyArray<Group>; nextCursor: string | null },
-      NotFound | MarkdownError,
+      NotFound | Markdown.MarkdownError,
       ProjectScope
     >
     listSprintsPaged: (
@@ -70,17 +70,21 @@ export class Groups extends Context.Service<
       limit: number
     ) => Effect.Effect<
       { items: ReadonlyArray<Group>; nextCursor: string | null },
-      NotFound | MarkdownError,
+      NotFound | Markdown.MarkdownError,
       ProjectScope
     >
     get: (
       id: string
-    ) => Effect.Effect<GroupDetail, NotFound | MarkdownError, ProjectScope>
+    ) => Effect.Effect<
+      GroupDetail,
+      NotFound | Markdown.MarkdownError,
+      ProjectScope
+    >
     create: (
       input: CreateGroupInput
     ) => Effect.Effect<
       Group,
-      Forbidden | NotFound | Validation | MarkdownError,
+      Forbidden | NotFound | Validation | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     update: (
@@ -88,7 +92,7 @@ export class Groups extends Context.Service<
       input: UpdateGroupInput
     ) => Effect.Effect<
       GroupDetail,
-      Forbidden | NotFound | Validation | MarkdownError,
+      Forbidden | NotFound | Validation | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     updateTickets: (
@@ -100,7 +104,7 @@ export class Groups extends Context.Service<
       | NotFound
       | SprintCompletedImmutable
       | Validation
-      | MarkdownError,
+      | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     addTickets: (
@@ -112,7 +116,7 @@ export class Groups extends Context.Service<
       | NotFound
       | SprintCompletedImmutable
       | Validation
-      | MarkdownError,
+      | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     removeTickets: (
@@ -120,7 +124,7 @@ export class Groups extends Context.Service<
       ticketIds: ReadonlyArray<TicketId>
     ) => Effect.Effect<
       UpdateGroupTicketsOutput,
-      Forbidden | NotFound | SprintCompletedImmutable | MarkdownError,
+      Forbidden | NotFound | SprintCompletedImmutable | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     updateTicketOrder: <E = never, R = never>(
@@ -133,7 +137,7 @@ export class Groups extends Context.Service<
       | NotFound
       | SprintCompletedImmutable
       | Validation
-      | MarkdownError
+      | Markdown.MarkdownError
       | E,
       ProjectScope | ActivityActor | R
     >
@@ -146,21 +150,21 @@ export class Groups extends Context.Service<
       | NotFound
       | SprintCompletedImmutable
       | Validation
-      | MarkdownError,
+      | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     remove: (
       id: string
     ) => Effect.Effect<
       void,
-      Forbidden | NotFound | MarkdownError,
+      Forbidden | NotFound | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     ensureSprintAssignable: (
       sprintIds: ReadonlyArray<GroupId>
     ) => Effect.Effect<
       void,
-      Forbidden | NotFound | SprintCompletedImmutable | MarkdownError,
+      Forbidden | NotFound | SprintCompletedImmutable | Markdown.MarkdownError,
       ProjectScope
     >
     setSprintMembership: (
@@ -169,12 +173,12 @@ export class Groups extends Context.Service<
       ticketId: TicketId,
       sprintId: GroupId | null,
       options?: SprintMembershipOptions
-    ) => Effect.Effect<void, Conflict | MarkdownError, ActivityActor>
+    ) => Effect.Effect<void, Conflict | Markdown.MarkdownError, ActivityActor>
     removeTicketFromAllGroups: (
       orgSlug: string,
       slug: string,
       ticketId: string
-    ) => Effect.Effect<void, MarkdownError, ActivityActor>
+    ) => Effect.Effect<void, Markdown.MarkdownError, ActivityActor>
   }>
 >()("@pp/server-core/groups/Groups") {}
 
@@ -239,7 +243,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     ticketIds: ReadonlyArray<string>
-  ): Effect.Effect<void, NotFound | MarkdownError> =>
+  ): Effect.Effect<void, NotFound | Markdown.MarkdownError> =>
     Effect.gen(function* () {
       if (ticketIds.length === 0) return
       const existing = yield* ticketDocs.listIds(orgSlug, slug)
@@ -322,7 +326,7 @@ const make = Effect.gen(function* () {
     predicate: (group: Group, now: Date) => boolean
   ): Effect.Effect<
     ReadonlyArray<Group>,
-    NotFound | MarkdownError,
+    NotFound | Markdown.MarkdownError,
     ProjectScope
   > =>
     Effect.gen(function* () {
@@ -541,7 +545,7 @@ const make = Effect.gen(function* () {
         overlap: ReadonlyArray<TicketId>
       }>
     >,
-    MarkdownError
+    Markdown.MarkdownError
   > =>
     Effect.gen(function* () {
       if (incoming.length === 0) return []
@@ -596,7 +600,7 @@ const make = Effect.gen(function* () {
     nextTickets: ReadonlyArray<TicketId>
   ): Effect.Effect<
     UpdateGroupTicketsOutput,
-    Forbidden | MarkdownError,
+    Forbidden | Markdown.MarkdownError,
     ProjectScope | ActivityActor
   > =>
     Effect.gen(function* () {

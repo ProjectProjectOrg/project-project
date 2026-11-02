@@ -23,7 +23,7 @@ import {
 import { testActivityLayer } from "../activity/testing"
 import * as GroupDocs from "../groups/GroupDocs"
 import * as KeyedLock from "../locks/KeyedLock"
-import { Markdown, type MarkdownShape } from "../markdown/Markdown"
+import * as Markdown from "../markdown/Markdown"
 import * as TicketDocs from "../tickets/TicketDocs"
 import { FinishedStatuses } from "./FinishedStatuses"
 import * as ProjectDocs from "./ProjectDocs"
@@ -39,7 +39,7 @@ function unexpectedMarkdownCall(method: string): Effect.Effect<never> {
   return Effect.die(new Error(`unexpected Markdown.${method} call`))
 }
 
-function makeMarkdown(overrides: Partial<MarkdownShape>) {
+function makeMarkdown(overrides: Partial<Markdown.Markdown["Service"]>) {
   const service = {
     root: "/tmp/projectproject-test",
     projectDir: (orgSlug: string, projectSlug: string) =>
@@ -72,9 +72,9 @@ function makeMarkdown(overrides: Partial<MarkdownShape>) {
     writeOrgLibraryFile: () => unexpectedMarkdownCall("writeOrgLibraryFile"),
     removeLibraryFile: () => unexpectedMarkdownCall("removeLibraryFile"),
     ...overrides
-  } satisfies MarkdownShape
+  } satisfies Markdown.Markdown["Service"]
 
-  return Layer.succeed(Markdown, service)
+  return Layer.succeed(Markdown.Markdown, service)
 }
 
 it.effect("TicketDocs reads ticket frontmatter as a typed document", () =>

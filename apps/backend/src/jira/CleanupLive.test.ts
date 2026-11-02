@@ -13,7 +13,7 @@ import {
 } from "@pp/integration-jira/CleanupWorkflow"
 import { JiraMigrationArtifacts } from "@pp/integration-jira/MigrationArtifacts"
 import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
-import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
@@ -146,7 +146,7 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
           fakes
         ).pipe(
           Layer.provideMerge(
-            MarkdownLive.pipe(
+            Markdown.layer.pipe(
               Layer.provide(
                 ConfigProvider.layer(
                   ConfigProvider.fromUnknown({ PROJECTS_DIR: "/tmp" })

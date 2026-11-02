@@ -24,7 +24,7 @@ import * as Layer from "effect/Layer"
 import * as SqlClient from "effect/sql/SqlClient"
 
 import { parseCommentsRegion } from "../comments/comments-region"
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketIndex from "./TicketIndex"
 import * as TicketIndexRepairs from "./TicketIndexRepairs"
@@ -123,7 +123,7 @@ export interface TicketIndexReconcilerDeps {
     project: TicketProject
   ) => Effect.Effect<
     { documents: ReadonlyArray<TicketDocs.TicketDocument>; skipped: number },
-    MarkdownError
+    Markdown.MarkdownError
   >
   readonly indexedRefs: (
     project: TicketProject
@@ -141,7 +141,7 @@ export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
     options?: TicketIndex.TicketIndexReconcileOptions
   ): Effect.Effect<
     TicketIndex.TicketIndexReconcileProjectSummary,
-    MarkdownError
+    Markdown.MarkdownError
   > =>
     Effect.gen(function* () {
       const indexedBefore = yield* deps.indexedRefs(project)
@@ -186,7 +186,7 @@ export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
 
   const reconcileAllProjects = (): Effect.Effect<
     TicketIndex.TicketIndexReconcileSummary,
-    MarkdownError
+    Markdown.MarkdownError
   > =>
     Effect.gen(function* () {
       const projects = yield* deps.listProjects
@@ -233,22 +233,22 @@ export class TicketIndexMaintenance extends Context.Service<
       project: TicketProject
     ) => Effect.Effect<
       TicketIndex.TicketIndexRebuildProjectSummary,
-      MarkdownError | TicketDocs.MalformedTicketDocument
+      Markdown.MarkdownError | TicketDocs.MalformedTicketDocument
     >
     rebuildAllProjects: () => Effect.Effect<
       TicketIndex.TicketIndexRebuildSummary,
-      MarkdownError | TicketDocs.MalformedTicketDocument
+      Markdown.MarkdownError | TicketDocs.MalformedTicketDocument
     >
     reconcileProject: (
       project: TicketProject,
       options?: TicketIndex.TicketIndexReconcileOptions
     ) => Effect.Effect<
       TicketIndex.TicketIndexReconcileProjectSummary,
-      MarkdownError | TicketDocs.MalformedTicketDocument
+      Markdown.MarkdownError | TicketDocs.MalformedTicketDocument
     >
     reconcileAllProjects: () => Effect.Effect<
       TicketIndex.TicketIndexReconcileSummary,
-      MarkdownError | TicketDocs.MalformedTicketDocument
+      Markdown.MarkdownError | TicketDocs.MalformedTicketDocument
     >
   }>
 >()("@pp/server-core/tickets/TicketIndexMaintenance") {}

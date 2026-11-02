@@ -24,12 +24,7 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import { markdownFileContent, parseMarkdownFile } from "../markdown/fileContent"
-import {
-  type LibraryKind,
-  MarkdownError,
-  Markdown,
-  type LibraryFile
-} from "../markdown/Markdown"
+import * as Markdown from "../markdown/Markdown"
 import {
   templateDefaultsFrom,
   withTemplateDefaults
@@ -41,43 +36,43 @@ export class LibraryDocs extends Context.Service<
     readLayer: (
       orgSlug: string,
       projectSlug: string | null
-    ) => Effect.Effect<LibraryLayer, MarkdownError>
+    ) => Effect.Effect<LibraryLayer, Markdown.MarkdownError>
     writeBlock: (
       orgSlug: string,
       projectSlug: string | null,
       draft: BlockDraft
-    ) => Effect.Effect<void, MarkdownError>
+    ) => Effect.Effect<void, Markdown.MarkdownError>
     writeTemplate: (
       orgSlug: string,
       projectSlug: string | null,
       draft: TemplateDraft
-    ) => Effect.Effect<void, MarkdownError>
+    ) => Effect.Effect<void, Markdown.MarkdownError>
     writeTombstone: (
       orgSlug: string,
       projectSlug: string | null,
-      kind: LibraryKind,
+      kind: Markdown.LibraryKind,
       key: string
-    ) => Effect.Effect<void, MarkdownError>
+    ) => Effect.Effect<void, Markdown.MarkdownError>
     readOrgDefaults: (
       orgSlug: string
-    ) => Effect.Effect<PartialTemplateDefaults, MarkdownError>
+    ) => Effect.Effect<PartialTemplateDefaults, Markdown.MarkdownError>
     writeOrgDefaults: (
       orgSlug: string,
       defaults: PartialTemplateDefaults
-    ) => Effect.Effect<void, MarkdownError>
+    ) => Effect.Effect<void, Markdown.MarkdownError>
 
     hasFile: (
       orgSlug: string,
       projectSlug: string | null,
-      kind: LibraryKind,
+      kind: Markdown.LibraryKind,
       key: string
-    ) => Effect.Effect<boolean, MarkdownError>
+    ) => Effect.Effect<boolean, Markdown.MarkdownError>
     remove: (
       orgSlug: string,
       projectSlug: string | null,
-      kind: LibraryKind,
+      kind: Markdown.LibraryKind,
       key: string
-    ) => Effect.Effect<boolean, MarkdownError>
+    ) => Effect.Effect<boolean, Markdown.MarkdownError>
   }>
 >()("@pp/server-core/library/LibraryDocs") {}
 
@@ -129,7 +124,7 @@ type DecodedLayerPart<A> = Readonly<{
   hidden: ReadonlyArray<string>
 }>
 
-const parseFile = (file: LibraryFile): Option.Option<ParsedFile> => {
+const parseFile = (file: Markdown.LibraryFile): Option.Option<ParsedFile> => {
   try {
     const parsed = parseMarkdownFile(normalizeLineEndings(file.content))
     return Option.some({
@@ -175,7 +170,7 @@ type ClassifiedFile<A> =
 
 const classifyFile = <A>(decode: (file: ParsedFile) => Option.Option<A>) => {
   const ClassifiedFile = Data.taggedEnum<ClassifiedFile<A>>()
-  return (file: LibraryFile): ClassifiedFile<A> => {
+  return (file: Markdown.LibraryFile): ClassifiedFile<A> => {
     const parsed = parseFile(file)
     if (Option.isNone(parsed)) return ClassifiedFile.skipped({ key: file.key })
     if (isTombstone(parsed.value.data))
@@ -231,14 +226,14 @@ const annotateLibraryDoc = <A, E>(
 }
 
 const make = Effect.gen(function* () {
-  const markdown = yield* Markdown
+  const markdown = yield* Markdown.Markdown
 
   const readKind = <A>(
     orgSlug: string,
     projectSlug: string | null,
-    kind: LibraryKind,
+    kind: Markdown.LibraryKind,
     decode: (file: ParsedFile) => Option.Option<A>
-  ): Effect.Effect<DecodedLayerPart<A>, MarkdownError> =>
+  ): Effect.Effect<DecodedLayerPart<A>, Markdown.MarkdownError> =>
     Effect.gen(function* () {
       const files = yield* markdown.listLibraryFiles(orgSlug, projectSlug, kind)
       const classified = files.map(classifyFile(decode))
@@ -343,7 +338,7 @@ const make = Effect.gen(function* () {
   const writeTombstone = Effect.fn("LibraryDocs.writeTombstone")(function* (
     orgSlug: string,
     projectSlug: string | null,
-    kind: LibraryKind,
+    kind: Markdown.LibraryKind,
     key: string
   ) {
     return yield* annotateLibraryDoc(
@@ -357,7 +352,10 @@ const make = Effect.gen(function* () {
 
   const readOrgFile = (
     orgSlug: string
-  ): Effect.Effect<OrgLibraryFile, MarkdownError | OrgLibraryUnreadable> =>
+  ): Effect.Effect<
+    OrgLibraryFile,
+    Markdown.MarkdownError | OrgLibraryUnreadable
+  > =>
     markdown
       .readOrgLibraryFile(orgSlug)
       .pipe(
@@ -400,7 +398,7 @@ const make = Effect.gen(function* () {
         const file = yield* readOrgFile(orgSlug).pipe(
           Effect.catchTag("OrgLibraryUnreadable", (error) =>
             Effect.fail(
-              new MarkdownError({
+              new Markdown.MarkdownError({
                 cause: error.cause,
                 message: `refusing to overwrite unparseable orgs/${orgSlug}/library.md`
               })
@@ -421,7 +419,7 @@ const make = Effect.gen(function* () {
   const hasFile = Effect.fn("LibraryDocs.hasFile")(function* (
     orgSlug: string,
     projectSlug: string | null,
-    kind: LibraryKind,
+    kind: Markdown.LibraryKind,
     key: string
   ) {
     return yield* annotateLibraryDoc(
@@ -438,7 +436,7 @@ const make = Effect.gen(function* () {
   const remove = Effect.fn("LibraryDocs.remove")(function* (
     orgSlug: string,
     projectSlug: string | null,
-    kind: LibraryKind,
+    kind: Markdown.LibraryKind,
     key: string
   ) {
     return yield* annotateLibraryDoc(

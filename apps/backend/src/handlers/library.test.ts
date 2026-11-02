@@ -5,7 +5,7 @@ import {
   projectScope
 } from "@pp/server-core/access/testing"
 import * as Library from "@pp/server-core/library/Library"
-import { MarkdownError } from "@pp/server-core/markdown/Markdown"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import {
   ActivityActor,
   AppApi,
@@ -115,11 +115,11 @@ const libraryDefaults = {
 const failFor = <A>(
   key: string,
   value: A
-): Effect.Effect<A, NotFound | MarkdownError> =>
+): Effect.Effect<A, NotFound | Markdown.MarkdownError> =>
   Match.value(key).pipe(
     Match.when("missing", () => Effect.fail(new NotFound())),
     Match.when("broken", () =>
-      Effect.fail(new MarkdownError({ cause: null, message: "disk" }))
+      Effect.fail(new Markdown.MarkdownError({ cause: null, message: "disk" }))
     ),
     Match.orElse(() => Effect.succeed(value))
   )

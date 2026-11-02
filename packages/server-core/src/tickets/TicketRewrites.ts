@@ -9,7 +9,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
@@ -31,14 +31,14 @@ export class TicketRewrites extends Context.Service<
       slug: string,
       oldName: string,
       newName: string | null
-    ) => Effect.Effect<void, MarkdownError, ActivityActor>
+    ) => Effect.Effect<void, Markdown.MarkdownError, ActivityActor>
     moveToStatus: (
       orgSlug: string,
       slug: string,
       ids: ReadonlyArray<string>,
       newStatus: string,
       reason: "renamed" | "removed"
-    ) => Effect.Effect<void, MarkdownError, ActivityActor>
+    ) => Effect.Effect<void, Markdown.MarkdownError, ActivityActor>
     unassignUserFromActiveTickets: (
       orgSlug: string,
       slug: string,
@@ -52,7 +52,7 @@ export class TicketRewrites extends Context.Service<
       orgSlug: string,
       slug: string,
       switchRepository: Effect.Effect<A, E, R>
-    ) => Effect.Effect<A, E | MarkdownError, R | ActivityActor>
+    ) => Effect.Effect<A, E | Markdown.MarkdownError, R | ActivityActor>
   }>
 >()("@pp/server-core/tickets/TicketRewrites") {}
 
@@ -269,7 +269,7 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     switchRepository: Effect.Effect<A, E, R>
-  ): Effect.Effect<A, E | MarkdownError, R | ActivityActor> =>
+  ): Effect.Effect<A, E | Markdown.MarkdownError, R | ActivityActor> =>
     Effect.gen(function* () {
       const project = yield* ticketIndex
         .projectFor(orgSlug, slug)

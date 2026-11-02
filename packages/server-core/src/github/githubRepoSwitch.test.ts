@@ -10,7 +10,7 @@ import { testUser } from "@pp/server-core/access/testing"
 import { asUser } from "@pp/server-core/activity/testing"
 import { GitHub } from "@pp/server-core/github/GitHub"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
-import { MarkdownError } from "@pp/server-core/markdown/Markdown"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as BannerPlaceholders from "@pp/server-core/projects/BannerPlaceholders"
 import * as ProjectServices from "@pp/server-core/projects/layer"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
@@ -161,7 +161,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
       write: (_org, _slug, _id, next) =>
         Effect.gen(function* () {
           if (failWrite) {
-            return yield* new MarkdownError({
+            return yield* new Markdown.MarkdownError({
               message: "Write failed",
               cause: new Error("Test failure")
             })
@@ -173,7 +173,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
         Effect.gen(function* () {
           const next = yield* transform(ticket)
           if (failWrite)
-            return yield* new MarkdownError({
+            return yield* new Markdown.MarkdownError({
               message: "Write failed",
               cause: new Error("Test failure")
             })

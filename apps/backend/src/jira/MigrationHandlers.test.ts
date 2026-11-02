@@ -15,7 +15,7 @@ import {
 import { JiraCredentials } from "@pp/integration-jira/Credentials"
 import { JiraMigrations } from "@pp/integration-jira/Migrations"
 import { accessLayer, orgScope } from "@pp/server-core/access/testing"
-import { Markdown } from "@pp/server-core/markdown/Markdown"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import { JiraError, JiraRateLimited as PublicJiraRateLimited } from "@pp/shared"
 import {
@@ -104,7 +104,7 @@ const dependenciesFor = (
   Layer.mergeAll(
     BunFileSystem.layer,
     BunPath.layer,
-    Layer.mock(Markdown, {
+    Layer.mock(Markdown.Markdown, {
       root,
       projectDir: () => root,
       libraryDir: () => root

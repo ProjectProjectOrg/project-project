@@ -20,7 +20,7 @@ import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as SqlClient from "effect/sql/SqlClient"
 
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import * as ProjectGitAutomation from "../projects/ProjectGitAutomation"
 import {
   gitAutomationActivity,
@@ -110,7 +110,7 @@ const writePullRequestWebhook = (
   patchFor: (
     ticket: TicketDocs.TicketDocument
   ) => Effect.Effect<PullRequestWebhookPatch | null>
-): Effect.Effect<void, MarkdownError> =>
+): Effect.Effect<void, Markdown.MarkdownError> =>
   Effect.gen(function* () {
     if (
       claim !== null &&
@@ -178,7 +178,7 @@ export const applyPullRequestWebhookToTicket = (
   match: PullRequestWebhookMatch,
   change: GitHubPullRequestWebhookChange,
   deliveryId: string | null
-): Effect.Effect<void, MarkdownError> =>
+): Effect.Effect<void, Markdown.MarkdownError> =>
   deps.ticketDocumentLock.withTicketDocumentLock(
     match.orgSlug,
     match.slug,
@@ -220,7 +220,7 @@ export const applyPullRequestWebhookToLayer = (
   match: PullRequestWebhookMatch,
   change: GitHubPullRequestWebhookChange,
   deliveryId: string | null
-): Effect.Effect<void, MarkdownError> =>
+): Effect.Effect<void, Markdown.MarkdownError> =>
   deps.ticketDocumentLock.withTicketDocumentLock(
     match.orgSlug,
     match.slug,
@@ -248,7 +248,7 @@ const landAwaitingMerge = (
   deliveryId: string | null,
   base: Readonly<{ branch: string; mergedAt: Date }>,
   mergedAtByPr: ReadonlyMap<number, Date>
-): Effect.Effect<Date | null, MarkdownError> =>
+): Effect.Effect<Date | null, Markdown.MarkdownError> =>
   Effect.gen(function* () {
     let landedAt: Date | null = null
     yield* deps.ticketDocumentLock.withTicketDocumentLock(
@@ -302,7 +302,7 @@ export const landMergesInto = Effect.fn("GitHubWebhooks.landMergesInto")(
     deliveryId: string | null,
     mergedAt: Date | null,
     mergedAtByPr: ReadonlyMap<number, Date>
-  ): Effect.fn.Return<void, MarkdownError> {
+  ): Effect.fn.Return<void, Markdown.MarkdownError> {
     if (mergedAt === null) return
     const visited = new Set([branch])
     let frontier: ReadonlyArray<Readonly<{ branch: string; mergedAt: Date }>> =
@@ -348,7 +348,7 @@ export const linkPullRequestWebhookToTicket = Effect.fn(
   project: TicketProject,
   change: GitHubPullRequestWebhookChange,
   deliveryId: string | null
-): Effect.fn.Return<void, MarkdownError> {
+): Effect.fn.Return<void, Markdown.MarkdownError> {
   const logSkipped = (
     reason: PullRequestLinkSkip,
     extra: Readonly<{

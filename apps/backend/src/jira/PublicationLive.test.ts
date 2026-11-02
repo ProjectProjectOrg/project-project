@@ -28,7 +28,7 @@ import {
   jiraAttachmentId,
   prepareJiraPublication as prepareJiraPublicationWithFormat
 } from "@pp/integration-jira/PublicationPlan"
-import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import { JiraMigrationConfiguration } from "@pp/shared"
 import { attachmentUrl, TicketId } from "@pp/shared"
@@ -222,7 +222,7 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
             const root = yield* fs.makeTempDirectoryScoped({
               prefix: "jira-hidden-"
             })
-            const markdownLayer = MarkdownLive.pipe(
+            const markdownLayer = Markdown.layer.pipe(
               Layer.provide(
                 ConfigProvider.layer(
                   ConfigProvider.fromUnknown({ PROJECTS_DIR: root })
@@ -512,7 +512,7 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
             const root = yield* fs.makeTempDirectoryScoped({
               prefix: "jira-verify-"
             })
-            const markdownLayer = MarkdownLive.pipe(
+            const markdownLayer = Markdown.layer.pipe(
               Layer.provide(
                 ConfigProvider.layer(
                   ConfigProvider.fromUnknown({ PROJECTS_DIR: root })
@@ -739,7 +739,7 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
             const root = yield* fs.makeTempDirectoryScoped({
               prefix: "jira-plan-"
             })
-            const markdownLayer = MarkdownLive.pipe(
+            const markdownLayer = Markdown.layer.pipe(
               Layer.provide(
                 ConfigProvider.layer(
                   ConfigProvider.fromUnknown({ PROJECTS_DIR: root })

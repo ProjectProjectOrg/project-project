@@ -8,7 +8,7 @@ import { DbLive, pgTypes } from "@pp/db"
 import { JiraClient } from "@pp/integration-jira/Client"
 import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
 import { JiraMigrationWorkflow } from "@pp/integration-jira/MigrationWorkflow"
-import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
@@ -148,7 +148,7 @@ describe.skipIf(!databaseUrl)("Jira SQL workflow restart", () => {
           Layer.provideMerge(clientOnly),
           Layer.provideMerge(storage),
           Layer.provideMerge(
-            MarkdownLive.pipe(
+            Markdown.layer.pipe(
               Layer.provide(
                 ConfigProvider.layer(
                   ConfigProvider.fromUnknown({ PROJECTS_DIR: "/tmp" })

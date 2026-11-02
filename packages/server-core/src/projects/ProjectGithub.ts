@@ -29,7 +29,7 @@ import * as Layer from "effect/Layer"
 import * as SqlClient from "effect/sql/SqlClient"
 
 import { GitHub } from "../github/GitHub"
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import * as ProjectDetails from "./ProjectDetails"
 import { withProjectTelemetry } from "./projectTelemetry"
@@ -83,12 +83,12 @@ export class ProjectGithub extends Context.Service<
       | RepoGone
       | RateLimited
       | GitHubError
-      | MarkdownError,
+      | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     disconnect: () => Effect.Effect<
       ProjectDetail,
-      NotFound | MarkdownError,
+      NotFound | Markdown.MarkdownError,
       ProjectScope
     >
   }>

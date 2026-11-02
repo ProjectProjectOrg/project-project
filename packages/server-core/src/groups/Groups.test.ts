@@ -21,7 +21,7 @@ import { expect } from "vitest"
 
 import { projectScope } from "../access/testing"
 import * as KeyedLock from "../locks/KeyedLock"
-import { GroupIdTaken, MarkdownError } from "../markdown/Markdown"
+import * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
 import * as TicketDocs from "../tickets/TicketDocs"
@@ -133,7 +133,7 @@ function makeFakeDocs(initial?: {
       document: GroupDocs.GroupDocument
     ) => {
       if (groups.has(document.id)) {
-        return Effect.fail(new GroupIdTaken())
+        return Effect.fail(new Markdown.GroupIdTaken())
       }
       groups.set(document.id, document)
       return Effect.void
@@ -146,7 +146,7 @@ function makeFakeDocs(initial?: {
     ) => {
       if (initial?.failingWrites?.includes(id)) {
         return Effect.fail(
-          new MarkdownError({ cause: null, message: "write failed" })
+          new Markdown.MarkdownError({ cause: null, message: "write failed" })
         )
       }
       groupWrites.push({ id })

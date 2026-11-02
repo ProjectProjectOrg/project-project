@@ -30,7 +30,7 @@ import * as Schema from "effect/Schema"
 import * as Struct from "effect/Struct"
 
 import * as GitHub from "../github/GitHub"
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import * as ProjectGitAutomation from "../projects/ProjectGitAutomation"
 import * as ProjectGithub from "../projects/ProjectGithub"
 import {
@@ -178,14 +178,14 @@ export class TicketGit extends Context.Service<
       options?: GitStateOptions
     ) => Effect.Effect<
       GitStatesResponse,
-      NotFound | MarkdownError,
+      NotFound | Markdown.MarkdownError,
       ProjectScope
     >
     listGitStates: (
       options?: GitStateOptions
     ) => Effect.Effect<
       GitStatesResponse,
-      NotFound | MarkdownError,
+      NotFound | Markdown.MarkdownError,
       ProjectScope
     >
   }>
@@ -648,7 +648,7 @@ const make = Effect.gen(function* () {
       projectGithub: ProjectGithub.ProjectGithubIntegration,
       tickets: ReadonlyArray<StackedTicketEntry>,
       raw: GitHub.RawProjectStates
-    ): Effect.fn.Return<GitStatesResponse, MarkdownError> {
+    ): Effect.fn.Return<GitStatesResponse, Markdown.MarkdownError> {
       const { orgSlug, slug } = project
       const automaticLinks = planAutomaticBranchLinks(
         tickets,
@@ -908,7 +908,7 @@ const make = Effect.gen(function* () {
     options: GitStateOptions = { reconcile: true }
   ): Effect.fn.Return<
     GitStatesResponse,
-    NotFound | MarkdownError,
+    NotFound | Markdown.MarkdownError,
     ProjectScope
   > {
     const scope = yield* ProjectScope
@@ -1011,7 +1011,7 @@ const make = Effect.gen(function* () {
     options?: GitStateOptions
   ): Effect.fn.Return<
     GitStatesResponse,
-    NotFound | MarkdownError,
+    NotFound | Markdown.MarkdownError,
     ProjectScope
   > {
     const all = yield* listGitStates(options)

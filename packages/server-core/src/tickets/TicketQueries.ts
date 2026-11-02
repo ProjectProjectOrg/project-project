@@ -50,7 +50,7 @@ import * as Schema from "effect/Schema"
 import * as Access from "../access/Access"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
-import type { MarkdownError } from "../markdown/Markdown"
+import type * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import { readProjectDocument } from "../projects/readProjectDocument"
@@ -124,21 +124,21 @@ export class TicketQueries extends Context.Service<
       query: TicketListQuery
     ) => Effect.Effect<
       TicketSections,
-      Forbidden | NotFound | MarkdownError,
+      Forbidden | NotFound | Markdown.MarkdownError,
       ProjectScope
     >
     sprintSections: (
       query: TicketListQuery
     ) => Effect.Effect<
       TicketSprintSections,
-      Forbidden | NotFound | MarkdownError,
+      Forbidden | NotFound | Markdown.MarkdownError,
       ProjectScope
     >
     epicSections: (
       query: TicketListQuery
     ) => Effect.Effect<
       TicketEpicSections,
-      Forbidden | NotFound | MarkdownError,
+      Forbidden | NotFound | Markdown.MarkdownError,
       ProjectScope
     >
     list: (
@@ -146,28 +146,28 @@ export class TicketQueries extends Context.Service<
       limit?: number
     ) => Effect.Effect<
       TicketListPage,
-      Forbidden | NotFound | MarkdownError,
+      Forbidden | NotFound | Markdown.MarkdownError,
       ProjectScope
     >
     count: (
       query: TicketCountQuery
     ) => Effect.Effect<
       TicketCounts,
-      Forbidden | NotFound | MarkdownError,
+      Forbidden | NotFound | Markdown.MarkdownError,
       ProjectScope
     >
     search: (
       options: TicketSearchQuery
     ) => Effect.Effect<
       ReadonlyArray<Ticket>,
-      NotFound | MarkdownError,
+      NotFound | Markdown.MarkdownError,
       ProjectScope
     >
     listInGroup: (
       groupId: string
     ) => Effect.Effect<
       ReadonlyArray<Ticket>,
-      NotFound | MarkdownError,
+      NotFound | Markdown.MarkdownError,
       ProjectScope
     >
     tagUsageCounts: () => Effect.Effect<
@@ -212,7 +212,7 @@ const make = Effect.gen(function* () {
     groupIds: ReadonlyArray<GroupIdFilter> | undefined
   ): Effect.Effect<
     ReadonlySet<string> | null,
-    NotFound | MarkdownError,
+    NotFound | Markdown.MarkdownError,
     ProjectScope
   > =>
     Effect.gen(function* () {

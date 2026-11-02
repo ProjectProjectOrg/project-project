@@ -24,7 +24,7 @@ import { beforeAll, describe, expect } from "vitest"
 
 import { databaseLayer } from "../../test/database"
 import { projectScope } from "../access/testing"
-import { MarkdownError } from "../markdown/Markdown"
+import * as Markdown from "../markdown/Markdown"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
 import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
@@ -429,7 +429,7 @@ it.effect("removes imported index rows when the markdown write fails", () => {
       return sql.startsWith("select") ? rows : []
     })
   )
-  const failure = new MarkdownError({
+  const failure = new Markdown.MarkdownError({
     message: "fixture write failed",
     cause: new Error("write failed")
   })
@@ -636,7 +636,7 @@ describe.skipIf(!databaseUrl)("comment persistence failure", () => {
               [id, projectId, userId, previousEdit]
             )
           })
-          const failure = new MarkdownError({
+          const failure = new Markdown.MarkdownError({
             message: "fixture write failed",
             cause: new Error("write failed")
           })
