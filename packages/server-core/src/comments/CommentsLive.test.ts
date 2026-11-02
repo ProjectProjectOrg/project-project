@@ -34,7 +34,7 @@ import {
   type TicketDocsShape,
   type TicketDocument
 } from "../tickets/TicketDocs"
-import { TicketIndex, type TicketIndexShape } from "../tickets/TicketIndex"
+import * as TicketIndex from "../tickets/TicketIndex"
 import { Users, type UsersShape } from "../users/Users"
 import { Comments } from "./Comments"
 import { parseCommentsRegion, serializeCommentsRegion } from "./comments-region"
@@ -104,7 +104,7 @@ const FakeProjects = Layer.merge(
   })
 )
 
-const FakeTicketIndex = Layer.succeed(TicketIndex, {
+const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   projectsFor: () => unexpected("TicketIndex.projectsFor"),
   assignedTo: () => unexpected("TicketIndex.assignedTo"),
   touchedBy: () => unexpected("TicketIndex.touchedBy"),
@@ -124,7 +124,7 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
   findTicketIdsByStatus: () => unexpected("TicketIndex.findTicketIdsByStatus"),
   upsertTicket: () => unexpected("TicketIndex.upsertTicket"),
   deleteTicket: () => unexpected("TicketIndex.deleteTicket")
-} satisfies TicketIndexShape)
+} satisfies TicketIndex.TicketIndex["Service"])
 
 const FakeTicketBranchIndex = Layer.succeed(
   TicketBranchIndex.TicketBranchIndex,

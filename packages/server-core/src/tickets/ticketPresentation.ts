@@ -13,7 +13,7 @@ import type { MarkdownError } from "../markdown/Markdown"
 import type * as ProjectGithub from "../projects/ProjectGithub"
 import { stackLayerStates } from "./stackLayerStates"
 import type { MalformedTicketDocument, TicketDocument } from "./TicketDocs"
-import type { TicketIndexEntry } from "./TicketIndex"
+import type * as TicketIndex from "./TicketIndex"
 
 export type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
 
@@ -95,7 +95,7 @@ export function documentToTicket(
 }
 
 export function indexEntryToTicket(
-  entry: TicketIndexEntry,
+  entry: TicketIndex.TicketIndexEntry,
   view: GitView
 ): Ticket {
   const { branchDeletedAt: _branchDeletedAt, ...ticket } = entry

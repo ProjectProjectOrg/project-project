@@ -8,7 +8,7 @@ const isolatedTests = [
   "src/figma/FigmaLinksLive.test.ts",
   "src/markdown/fileContent.test.ts",
   "src/storage/SecretCrypto.test.ts",
-  "src/tickets/TicketIndexLive.postgres.test.ts"
+  "src/tickets/TicketIndex.postgres.test.ts"
 ]
 
 export default defineConfig({

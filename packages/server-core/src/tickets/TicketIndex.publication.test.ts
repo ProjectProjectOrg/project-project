@@ -15,7 +15,7 @@ import { databaseLayer } from "../../test/database"
 import * as TicketIndexServices from "./indexLayer"
 import { TicketDocs } from "./TicketDocs"
 import type { TicketDocument } from "./TicketDocs"
-import { TicketIndex } from "./TicketIndex"
+import * as TicketIndex from "./TicketIndex"
 import type { TicketProject } from "./ticketProject"
 
 const ticketId = Schema.decodeUnknownSync(TicketId)
@@ -78,7 +78,7 @@ const layerFor = (
 it.effect("retries a transient index publication failure", () => {
   const { layer, state } = makeDb(2)
   return Effect.gen(function* () {
-    const index = yield* TicketIndex
+    const index = yield* TicketIndex.TicketIndex
     const publishing = yield* Effect.forkChild(
       index.upsertTicket(project, document)
     )
@@ -91,7 +91,7 @@ it.effect("retries a transient index publication failure", () => {
 it.effect("does not fail the request when publication stays broken", () => {
   const { layer, state } = makeDb(Number.POSITIVE_INFINITY)
   return Effect.gen(function* () {
-    const index = yield* TicketIndex
+    const index = yield* TicketIndex.TicketIndex
     const publishing = yield* Effect.forkChild(
       index.upsertTicket(project, document).pipe(Effect.exit)
     )
@@ -114,7 +114,7 @@ it.effect("reconciles a project whose publication never landed", () => {
   })
 
   return Effect.gen(function* () {
-    const index = yield* TicketIndex
+    const index = yield* TicketIndex.TicketIndex
     const publishing = yield* Effect.forkChild(
       index.upsertTicket(project, document)
     )

@@ -11,7 +11,7 @@ import { GitHub } from "../github/GitHub"
 import * as TicketIndexServices from "../tickets/indexLayer"
 import { TicketDocs, type TicketDocsShape } from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
-import { TicketIndex } from "../tickets/TicketIndex"
+import * as TicketIndex from "../tickets/TicketIndex"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import { Users } from "../users/Users"
 import { BannerPlaceholders } from "./BannerPlaceholders"
@@ -34,7 +34,7 @@ export const projectsOnPostgres = (
   | Projects.Projects
   | ProjectGithub.ProjectGithub
   | ProjectMembers.ProjectMembers
-  | TicketIndex
+  | TicketIndex.TicketIndex
   | TicketRewrites.TicketRewrites
   | Access
 > => {

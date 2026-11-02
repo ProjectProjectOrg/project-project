@@ -17,7 +17,7 @@ import {
   type TicketDocument
 } from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
-import { TicketIndex } from "./TicketIndex"
+import * as TicketIndex from "./TicketIndex"
 import type { TicketReadError } from "./ticketPresentation"
 import {
   clearedPrMetadata,
@@ -63,7 +63,7 @@ export class TicketRewrites extends Context.Service<
 const make = Effect.gen(function* () {
   const db = yield* Db
   const ticketDocs = yield* TicketDocs
-  const ticketIndex = yield* TicketIndex
+  const ticketIndex = yield* TicketIndex.TicketIndex
   const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
   const finishedStatuses = yield* FinishedStatuses
 

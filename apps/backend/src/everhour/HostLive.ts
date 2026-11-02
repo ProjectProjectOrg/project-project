@@ -6,7 +6,7 @@ import { Access } from "@pp/server-core/access/Access"
 import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
 import { SecretCrypto } from "@pp/server-core/storage/SecretCrypto"
 import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
-import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
+import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import { EverhourConfigMissing, NotFound } from "@pp/shared"
 import { and, eq, isNull } from "drizzle-orm"
 import * as Effect from "effect/Effect"
@@ -18,7 +18,7 @@ export const EverhourHostLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const access = yield* Access
-    const ticketIndex = yield* TicketIndex
+    const ticketIndex = yield* TicketIndex.TicketIndex
     const groupDocs = yield* GroupDocs
     const ticketDocs = yield* TicketDocs
     const secrets = yield* SecretCrypto

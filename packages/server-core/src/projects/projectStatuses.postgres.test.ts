@@ -23,7 +23,7 @@ import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { projectScope } from "../access/testing"
-import { TicketIndex } from "../tickets/TicketIndex"
+import * as TicketIndex from "../tickets/TicketIndex"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import { ProjectStatuses } from "./ProjectStatuses"
 import { ProjectStatusesLive } from "./ProjectStatusesLive"
@@ -71,7 +71,7 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
       [id, id]
     )
     layer = ProjectStatusesLive.pipe(
-      Layer.provide(Layer.mock(TicketIndex, {})),
+      Layer.provide(Layer.mock(TicketIndex.TicketIndex, {})),
       Layer.provide(Layer.mock(TicketRewrites.TicketRewrites, {})),
       Layer.provide(
         DbLive.pipe(

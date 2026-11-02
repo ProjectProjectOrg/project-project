@@ -48,7 +48,7 @@ import {
   planStackPullRequests,
   planTicketGitStates
 } from "./ticketGitStatePlanner"
-import { TicketIndex, type TicketIndexEntry } from "./TicketIndex"
+import * as TicketIndex from "./TicketIndex"
 import { pendingGitState, type TicketReadError } from "./ticketPresentation"
 import type { TicketProject } from "./ticketProject"
 import { stackLayerFor, ticketBranches } from "./ticketStack"
@@ -65,7 +65,7 @@ type GitHubFailure =
 
 export type GitStateOptions = Readonly<{ reconcile: boolean }>
 
-type StackedTicketEntry = TicketIndexEntry &
+type StackedTicketEntry = TicketIndex.TicketIndexEntry &
   Readonly<{
     stack: ReadonlyArray<TicketBranchEntry>
   }>
@@ -197,7 +197,7 @@ const make = Effect.gen(function* () {
     yield* TicketDocumentLock.TicketDocumentLock
   const projectGithubLinks = yield* ProjectGithub.ProjectGithub
   const gitAutomation = yield* ProjectGitAutomation
-  const ticketIndex = yield* TicketIndex
+  const ticketIndex = yield* TicketIndex.TicketIndex
   const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
   const github = yield* GitHub.GitHub
   const { gitView, detailOf, readTicket } = yield* TicketView.TicketView

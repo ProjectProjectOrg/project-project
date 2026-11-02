@@ -27,15 +27,7 @@ import { parseCommentsRegion } from "../comments/comments-region"
 import type { MarkdownError } from "../markdown/Markdown"
 import { TicketDocs, type TicketDocument } from "./TicketDocs"
 import type { MalformedTicketDocument } from "./TicketDocs"
-import type {
-  TicketIndexRebuildProjectSummary,
-  TicketIndexRebuildSummary,
-  TicketIndexReconcileOptions,
-  TicketIndexReconcileProjectSummary,
-  TicketIndexReconcileSummary,
-  TicketIndexDrift
-} from "./TicketIndex"
-import { ticketBranchRowsFor, ticketIndexRowFor } from "./TicketIndexLive"
+import * as TicketIndex from "./TicketIndex"
 import * as TicketIndexRepairs from "./TicketIndexRepairs"
 import type { TicketProject } from "./ticketProject"
 
@@ -43,7 +35,7 @@ export const ticketIndexRowsFor = (
   project: TicketProject,
   documents: ReadonlyArray<TicketDocument>
 ): ReadonlyArray<typeof ticketIndex.$inferInsert> =>
-  documents.map((document) => ticketIndexRowFor(project, document))
+  documents.map((document) => TicketIndex.ticketIndexRowFor(project, document))
 
 const commentIndexRowsForDocument = (
   project: TicketProject,
@@ -94,7 +86,7 @@ export interface DocumentTicketRef {
 export const detectTicketIndexDrift = (
   indexed: ReadonlyArray<IndexedTicketRef>,
   documents: ReadonlyArray<DocumentTicketRef>
-): TicketIndexDrift => {
+): TicketIndex.TicketIndexDrift => {
   const indexedTimes = new Map(
     indexed.map((row) => [row.ticketId, row.updatedAt.getTime()])
   )
@@ -119,7 +111,9 @@ export const detectTicketIndexDrift = (
   }
 }
 
-export const ticketIndexHasDrift = (drift: TicketIndexDrift): boolean =>
+export const ticketIndexHasDrift = (
+  drift: TicketIndex.TicketIndexDrift
+): boolean =>
   drift.missing.length > 0 ||
   drift.orphaned.length > 0 ||
   drift.stale.length > 0
@@ -145,8 +139,11 @@ export interface TicketIndexReconcilerDeps {
 export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
   const reconcileProject = (
     project: TicketProject,
-    options?: TicketIndexReconcileOptions
-  ): Effect.Effect<TicketIndexReconcileProjectSummary, MarkdownError> =>
+    options?: TicketIndex.TicketIndexReconcileOptions
+  ): Effect.Effect<
+    TicketIndex.TicketIndexReconcileProjectSummary,
+    MarkdownError
+  > =>
     Effect.gen(function* () {
       const indexedBefore = yield* deps.indexedRefs(project)
       const { documents, skipped } = yield* deps.collectDocuments(project)
@@ -189,7 +186,7 @@ export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
     })
 
   const reconcileAllProjects = (): Effect.Effect<
-    TicketIndexReconcileSummary,
+    TicketIndex.TicketIndexReconcileSummary,
     MarkdownError
   > =>
     Effect.gen(function* () {
@@ -236,22 +233,22 @@ export class TicketIndexMaintenance extends Context.Service<
     rebuildProject: (
       project: TicketProject
     ) => Effect.Effect<
-      TicketIndexRebuildProjectSummary,
+      TicketIndex.TicketIndexRebuildProjectSummary,
       MarkdownError | MalformedTicketDocument
     >
     rebuildAllProjects: () => Effect.Effect<
-      TicketIndexRebuildSummary,
+      TicketIndex.TicketIndexRebuildSummary,
       MarkdownError | MalformedTicketDocument
     >
     reconcileProject: (
       project: TicketProject,
-      options?: TicketIndexReconcileOptions
+      options?: TicketIndex.TicketIndexReconcileOptions
     ) => Effect.Effect<
-      TicketIndexReconcileProjectSummary,
+      TicketIndex.TicketIndexReconcileProjectSummary,
       MarkdownError | MalformedTicketDocument
     >
     reconcileAllProjects: () => Effect.Effect<
-      TicketIndexReconcileSummary,
+      TicketIndex.TicketIndexReconcileSummary,
       MarkdownError | MalformedTicketDocument
     >
   }>
@@ -423,7 +420,9 @@ const make = Effect.gen(function* () {
               )
             const branches = documents
               .filter((document) => writtenIds.has(document.id))
-              .flatMap((document) => ticketBranchRowsFor(project, document))
+              .flatMap((document) =>
+                TicketIndex.ticketBranchRowsFor(project, document)
+              )
             if (branches.length > 0) {
               yield* db.insert(ticketBranch).values(branches)
             }
@@ -569,7 +568,10 @@ const make = Effect.gen(function* () {
   )
 
   const reconcileProject = Effect.fn("TicketIndexMaintenance.reconcileProject")(
-    function* (project: TicketProject, options?: TicketIndexReconcileOptions) {
+    function* (
+      project: TicketProject,
+      options?: TicketIndex.TicketIndexReconcileOptions
+    ) {
       return yield* reconciler.reconcileProject(project, options)
     }
   )

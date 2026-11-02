@@ -47,7 +47,7 @@ import * as TicketCommands from "./TicketCommands"
 import { TicketDocs } from "./TicketDocs"
 import { TicketDocsLive } from "./TicketDocsLive"
 import * as TicketDocumentLock from "./ticketDocumentLock"
-import { TicketIndex, type TicketIndexShape } from "./TicketIndex"
+import * as TicketIndex from "./TicketIndex"
 import * as TicketView from "./TicketView"
 
 const decodeProjectKey = Schema.decodeUnknownSync(ProjectKey)
@@ -207,7 +207,7 @@ const FakeUsers = Layer.succeed(Users, {
   fullByIds: (ids) => Effect.succeed(ids.map(fakeUser))
 } satisfies UsersShape)
 
-const FakeTicketIndex = Layer.succeed(TicketIndex, {
+const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   projectsFor: () => Effect.succeed([]),
   assignedTo: () => Effect.succeed([]),
   touchedBy: () => Effect.succeed([]),
@@ -233,7 +233,7 @@ const FakeTicketIndex = Layer.succeed(TicketIndex, {
         : Effect.void
     }),
   deleteTicket: () => Effect.void
-} satisfies TicketIndexShape)
+} satisfies TicketIndex.TicketIndex["Service"])
 
 const FakeTicketBranchIndex = Layer.succeed(
   TicketBranchIndex.TicketBranchIndex,

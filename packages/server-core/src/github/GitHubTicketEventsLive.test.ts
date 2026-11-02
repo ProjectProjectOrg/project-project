@@ -23,7 +23,7 @@ import {
   type TicketDocument
 } from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
-import type { TicketIndexShape } from "../tickets/TicketIndex"
+import type * as TicketIndex from "../tickets/TicketIndex"
 import {
   applyPullRequestWebhookToLayer,
   applyPullRequestWebhookToTicket,
@@ -111,7 +111,7 @@ const makeFakeDocs = (initial: ReadonlyArray<TicketDocument>) => {
   return { documents, writes, reads, shape }
 }
 
-type FakeIndexShape = TicketIndexShape &
+type FakeIndexShape = TicketIndex.TicketIndex["Service"] &
   TicketBranchIndex.TicketBranchIndex["Service"]
 
 const makeFakeIndex = (overrides: Partial<FakeIndexShape> = {}) => {

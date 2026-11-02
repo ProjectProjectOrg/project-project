@@ -46,7 +46,7 @@ import {
   planPullRequestWebhookTicket,
   withPullRequestBase
 } from "../tickets/ticketGitStatePlanner"
-import { TicketIndex, type TicketIndexShape } from "../tickets/TicketIndex"
+import * as TicketIndex from "../tickets/TicketIndex"
 import type { TicketProject } from "../tickets/ticketProject"
 import {
   planLayerPullRequest,
@@ -72,7 +72,7 @@ export type PullRequestWebhookMatch = Readonly<{
 
 type PullRequestWebhookDeps = Readonly<{
   ticketDocs: TicketDocsShape
-  ticketIndex: TicketIndexShape
+  ticketIndex: TicketIndex.TicketIndex["Service"]
   ticketBranchIndex: TicketBranchIndex.TicketBranchIndex["Service"]
   ticketDocumentLock: TicketDocumentLock.TicketDocumentLock["Service"]
   gitAutomation: ProjectGitAutomationShape
@@ -469,7 +469,7 @@ export const GitHubTicketEventsLive = Layer.effect(
     const db = yield* Db
     const sql = yield* SqlClient.SqlClient
     const ticketDocs = yield* TicketDocs
-    const ticketIndex = yield* TicketIndex
+    const ticketIndex = yield* TicketIndex.TicketIndex
     const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
     const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
     const gitAutomation = yield* ProjectGitAutomation
