@@ -18,8 +18,10 @@ import {
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
 import { databaseLayer } from "../../test/database"
@@ -1006,4 +1008,77 @@ describe("resolveSynced", () => {
       world
     )
   })
+})
+
+describe("tracing", () => {
+  it.effect(
+    "traces each call under one Library span with its attributes",
+    () => {
+      const spans: Array<Tracer.NativeSpan> = []
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options)
+          spans.push(span)
+          return span
+        }
+      })
+      return run(
+        Effect.gen(function* () {
+          const library = yield* Library
+          yield* library.createOrgBlock(blockInput()).pipe(asOrg("org-admin"))
+          yield* library
+            .updateOrgBlock("context", { name: "Renamed" })
+            .pipe(asOrg("org-admin"))
+          yield* library
+            .createOrgTemplate(templateInput())
+            .pipe(asOrg("org-admin"))
+          yield* library
+            .hideTemplate("incident")
+            .pipe(asProject("project-admin"))
+          yield* library
+            .createBlock(blockInput({ name: "Project context" }))
+            .pipe(asProject("project-admin"))
+          yield* library.removeBlock("context").pipe(asProject("project-admin"))
+          yield* library.orgLibrary().pipe(asOrg("member"))
+        }).pipe(Effect.withTracer(tracer))
+      ).pipe(
+        Effect.map(() =>
+          expect(
+            spans
+              .filter((span) => Option.isNone(span.parent))
+              .map((span) => ({
+                name: span.name,
+                attributes: Object.fromEntries(span.attributes)
+              }))
+          ).toEqual([
+            {
+              name: "Library.create:blocks",
+              attributes: { orgSlug: "acme", slug: null, key: "context" }
+            },
+            {
+              name: "Library.update:blocks",
+              attributes: { orgSlug: "acme", slug: null, key: "context" }
+            },
+            {
+              name: "Library.create:templates",
+              attributes: { orgSlug: "acme", slug: null, key: "incident" }
+            },
+            {
+              name: "Library.hide:templates",
+              attributes: { orgSlug: "acme", slug: "web", key: "incident" }
+            },
+            {
+              name: "Library.create:blocks",
+              attributes: { orgSlug: "acme", slug: "web", key: "context" }
+            },
+            {
+              name: "Library.remove:blocks",
+              attributes: { orgSlug: "acme", slug: "web", key: "context" }
+            },
+            { name: "Library.orgLibrary", attributes: {} }
+          ])
+        )
+      )
+    }
+  )
 })

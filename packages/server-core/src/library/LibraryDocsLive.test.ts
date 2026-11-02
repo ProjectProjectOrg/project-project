@@ -5,8 +5,10 @@ import * as ConfigProvider from "effect/ConfigProvider"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
 import { markdownFileContent, parseMarkdownFile } from "../markdown/fileContent"
@@ -399,5 +401,124 @@ describe("LibraryDocs (real fs)", () => {
       expect(badProject._tag).toBe("MarkdownError")
       expect(tooLong._tag).toBe("MarkdownError")
     }).pipe(Effect.provide(TestLayer))
+  )
+})
+
+describe("LibraryDocs tracing", () => {
+  it.effect(
+    "traces each call under one LibraryDocs span with its attributes",
+    () =>
+      Effect.gen(function* () {
+        const spans: Array<Tracer.NativeSpan> = []
+        const tracer = Tracer.make({
+          span: (options) => {
+            const span = new Tracer.NativeSpan(options)
+            spans.push(span)
+            return span
+          }
+        })
+
+        yield* Effect.gen(function* () {
+          const docs = yield* LibraryDocs
+          yield* docs.writeBlock("acme", null, block)
+          yield* docs.writeTemplate("acme", "web", template)
+          yield* docs.writeTombstone(
+            "acme",
+            "web",
+            "blocks",
+            "acceptance-criteria"
+          )
+          yield* docs.readLayer("acme", "web")
+          yield* docs.writeOrgDefaults("acme", {
+            bug: templateKey("bug-report")
+          })
+          yield* docs.readOrgDefaults("acme")
+          yield* docs.hasFile("acme", null, "blocks", "acceptance-criteria")
+          yield* docs.remove("acme", null, "blocks", "acceptance-criteria")
+        }).pipe(Effect.withTracer(tracer))
+
+        const at = (orgSlug: string, projectSlug: string | null) => ({
+          module: "LibraryDocs",
+          orgSlug,
+          projectSlug
+        })
+        expect(
+          spans
+            .filter((span) => span.name.startsWith("LibraryDocs."))
+            .map((span) => ({
+              name: span.name,
+              parent: Option.match(span.parent, {
+                onNone: () => null,
+                onSome: (parent) =>
+                  parent._tag === "Span" ? parent.name : null
+              }),
+              attributes: Object.fromEntries(span.attributes)
+            }))
+        ).toEqual([
+          {
+            name: "LibraryDocs.writeBlock",
+            parent: null,
+            attributes: {
+              ...at("acme", null),
+              operation: "writeBlock",
+              key: "acceptance-criteria"
+            }
+          },
+          {
+            name: "LibraryDocs.writeTemplate",
+            parent: null,
+            attributes: {
+              ...at("acme", "web"),
+              operation: "writeTemplate",
+              key: "bug-report"
+            }
+          },
+          {
+            name: "LibraryDocs.writeTombstone",
+            parent: null,
+            attributes: {
+              ...at("acme", "web"),
+              operation: "writeTombstone",
+              kind: "blocks",
+              key: "acceptance-criteria"
+            }
+          },
+          {
+            name: "LibraryDocs.readLayer",
+            parent: null,
+            attributes: { ...at("acme", "web"), operation: "readLayer" }
+          },
+          {
+            name: "LibraryDocs.writeOrgDefaults",
+            parent: null,
+            attributes: { ...at("acme", null), operation: "writeOrgDefaults" }
+          },
+          {
+            name: "LibraryDocs.readOrgDefaults",
+            parent: null,
+            attributes: { ...at("acme", null), operation: "readOrgDefaults" }
+          },
+          {
+            name: "LibraryDocs.hasFile",
+            parent: null,
+            attributes: {
+              ...at("acme", null),
+              operation: "hasFile",
+              kind: "blocks",
+              key: "acceptance-criteria"
+            }
+          },
+          {
+            name: "LibraryDocs.remove",
+            parent: null,
+            attributes: {
+              ...at("acme", null),
+              operation: "remove",
+              kind: "blocks",
+              key: "acceptance-criteria"
+            }
+          }
+        ])
+      }).pipe(Effect.provide(TestLayer))
   )
 })
