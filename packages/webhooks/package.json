@@ -1,0 +1,27 @@
+{
+  "name": "@pp/webhooks",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "bun run --bun vitest run --no-file-parallelism",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint . --fix"
+  },
+  "dependencies": {
+    "@pp/db": "workspace:*",
+    "@pp/shared": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.5",
+    "effect": "4.0.5"
+  },
+  "devDependencies": {
+    "@effect/platform-bun": "4.0.5",
+    "@effect/vitest": "4.0.5",
+    "@types/bun": "latest",
+    "vitest": "5.0.5"
+  }
+}

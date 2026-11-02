@@ -257,6 +257,15 @@ import {
   WorkTypeOption
 } from "./schemas/TimeTracking"
 import { User } from "./schemas/User"
+import {
+  CreateWebhookInput,
+  UpdateWebhookInput,
+  Webhook,
+  WebhookDelivery,
+  WebhookDeliveryId,
+  WebhookId,
+  WebhookWithSecret
+} from "./schemas/Webhook"
 
 const HealthResponse = Schema.Struct({
   status: Schema.Literal("ok"),
@@ -2805,6 +2814,122 @@ const LinkPreviewsGroup = HttpApiGroup.make("linkPreviews")
   )
   .middleware(Authentication)
 
+const WebhookErrors = [
+  Unauthorized,
+  NotFound,
+  Forbidden,
+  Validation,
+  Conflict
+] as const
+const WebhookPath = Schema.Struct({
+  ...ProjectPath.fields,
+  webhookId: WebhookId
+})
+const WebhookDeliveryPath = Schema.Struct({
+  ...WebhookPath.fields,
+  deliveryId: WebhookDeliveryId
+})
+const webhooksPath = "/orgs/:orgSlug/projects/:slug/webhooks"
+const webhookPath = `${webhooksPath}/:webhookId`
+const WebhooksGroup = HttpApiGroup.make("webhooks")
+  .add(
+    HttpApiEndpoint.get("list", webhooksPath, {
+      params: ProjectPath,
+      success: Schema.Array(Webhook),
+      error: WebhookErrors
+    })
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post("create", webhooksPath, {
+      params: ProjectPath,
+      payload: CreateWebhookInput,
+      success: WebhookWithSecret,
+      error: WebhookErrors
+    })
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.patch("update", webhookPath, {
+      params: WebhookPath,
+      payload: UpdateWebhookInput,
+      success: Webhook,
+      error: WebhookErrors
+    })
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.delete("delete", webhookPath, {
+      params: WebhookPath,
+      success: HttpApiSchema.NoContent,
+      error: WebhookErrors
+    })
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post("rotateSecret", `${webhookPath}/rotate-secret`, {
+      params: WebhookPath,
+      success: WebhookWithSecret,
+      error: WebhookErrors
+    })
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post("enable", `${webhookPath}/enable`, {
+      params: WebhookPath,
+      success: Webhook,
+      error: WebhookErrors
+    })
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post("disable", `${webhookPath}/disable`, {
+      params: WebhookPath,
+      success: Webhook,
+      error: WebhookErrors
+    })
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post("test", `${webhookPath}/test`, {
+      params: WebhookPath,
+      success: WebhookDelivery,
+      error: WebhookErrors
+    })
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get("deliveries", `${webhookPath}/deliveries`, {
+      params: WebhookPath,
+      success: Schema.Array(WebhookDelivery),
+      error: WebhookErrors
+    })
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "retryDelivery",
+      `${webhookPath}/deliveries/:deliveryId/retry`,
+      {
+        params: WebhookDeliveryPath,
+        success: WebhookDelivery,
+        error: WebhookErrors
+      }
+    )
+      .annotate(RequiresProject, { settings: ["manage"] })
+      .middleware(ProjectAccess)
+  )
+  .middleware(Authentication)
+
 const AppApi = HttpApi.make("projectproject")
   .add(HealthGroup)
   .add(DbGroup)
@@ -2820,6 +2945,7 @@ const AppApi = HttpApi.make("projectproject")
   .add(StorageGroup)
   .add(OrgEmailGroup)
   .add(SlackGroup)
+  .add(WebhooksGroup)
   .add(AttachmentsGroup)
   .add(TicketsGroup)
   .add(TicketCommentsGroup)

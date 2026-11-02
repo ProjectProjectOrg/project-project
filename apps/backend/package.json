@@ -41,6 +41,7 @@
     "@pp/integration-slack": "workspace:*",
     "@pp/server-core": "workspace:*",
     "@pp/shared": "workspace:*",
+    "@pp/webhooks": "workspace:*",
     "better-auth": "1.7.3",
     "better-call": "1.4.0",
     "drizzle-orm": "1.0.0-rc.5",

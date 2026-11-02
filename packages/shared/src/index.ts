@@ -62,6 +62,7 @@ export * from "./library/library"
 export * from "./schemas/OrgEmail"
 
 export * from "./schemas/Slack"
+export * from "./schemas/Webhook"
 
 export * from "./schemas/Feedback"
 export * from "./schemas/ProjectEvent"

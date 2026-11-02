@@ -9,7 +9,11 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import { ticketChanges } from "../activity/changes"
-import { ticketCreatedEvents, ticketEvents } from "../activity/projectEvents"
+import {
+  assigneesChanged,
+  ticketCreatedEvents,
+  ticketEvents
+} from "../activity/projectEvents"
 import { TicketActivity } from "../activity/TicketActivity"
 import * as KeyedLock from "../locks/KeyedLock"
 import { ticketFileBody } from "../markdown/fileContent"
@@ -254,12 +258,16 @@ export const TicketDocsLive = Layer.effect(
                   ...(activity.extra ?? [])
                 ]
             const events =
-              activity.silent || current.status === next.status
+              activity.silent ||
+              (current.status === next.status &&
+                !assigneesChanged(current, next))
                 ? []
                 : ticketEvents(
                     current,
                     next,
-                    yield* finishedStatuses.forProject(orgSlug, slug)
+                    current.status === next.status
+                      ? new Set<string>()
+                      : yield* finishedStatuses.forProject(orgSlug, slug)
                   )
             return yield* Effect.gen(function* () {
               yield* ticketActivity.record(

@@ -206,6 +206,12 @@ summary; opening the ticket still requires PP access. Ticket bodies, comments
 and attachments are not included. Commands, ticket mutations and the future AI
 bot are outside v1.
 
+## Outbound webhooks
+
+Projects can send signed events to URLs their PMs configure. See
+[docs/webhooks.md](docs/webhooks.md) for the request format, signature
+verification, retries and the `WEBHOOKS_ALLOW_PRIVATE_NETWORKS` setting.
+
 ## Conventions
 
 - **Effect v4.** Core APIs come from `effect`; HTTP, SQL, and atom modules live under `effect/http`, `effect/http-api`, `effect/sql`, and `effect/reactivity`. See [the migration handoff](docs/migrations/effect-v4-handoff.md).

@@ -1,0 +1,265 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
+import { createHmac } from "node:crypto"
+
+import { it } from "@effect/vitest"
+import * as ConfigProvider from "effect/ConfigProvider"
+import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Tracer from "effect/Tracer"
+import { afterAll, beforeAll, describe, expect } from "vitest"
+
+import * as Sender from "../src/Sender"
+
+type Received = Readonly<{
+  headers: Record<string, string>
+  body: string
+}>
+
+let server: ReturnType<typeof Bun.serve>
+const received: Array<Received> = []
+
+beforeAll(() => {
+  server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    async fetch(request) {
+      const url = new URL(request.url)
+      received.push({
+        headers: Object.fromEntries(request.headers),
+        body: await request.text()
+      })
+      if (url.pathname === "/busy")
+        return new Response("slow down", {
+          status: 429,
+          headers: { "retry-after": "30" }
+        })
+      if (url.pathname === "/echo-secret")
+        return new Response(
+          `bad token tok_${"x".repeat(12)} and whsec_test1234`,
+          {
+            status: 401
+          }
+        )
+      if (url.pathname === "/echo-value")
+        return new Response(
+          `bad ${url.search.slice(url.search.indexOf("=") + 1)}`,
+          { status: 401 }
+        )
+      if (url.pathname.startsWith("/echo/"))
+        return new Response(
+          `unknown ${url.pathname}${url.search} ${decodeURIComponent(url.pathname)}`,
+          {
+            status: 404
+          }
+        )
+      if (url.pathname === "/redirect")
+        return new Response(null, {
+          status: 302,
+          headers: { location: "http://169.254.169.254/" }
+        })
+      if (url.pathname === "/big") return new Response("y".repeat(300_000))
+      return new Response("ok", { status: 202 })
+    }
+  })
+})
+
+afterAll(() => {
+  void server.stop(true)
+})
+
+const sender = (allowPrivate: boolean) =>
+  Sender.layer.pipe(
+    Layer.provide(
+      Layer.succeed(
+        ConfigProvider.ConfigProvider,
+        ConfigProvider.fromUnknown({
+          WEBHOOKS_ALLOW_PRIVATE_NETWORKS: allowPrivate ? "true" : "false"
+        })
+      )
+    )
+  )
+
+const delivery = {
+  id: "dlv_1",
+  event: "ticket_created",
+  body: JSON.stringify({ id: "dlv_1", type: "ticket_created" }),
+  createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-11-01T12:00:00Z"))
+}
+const target = (path: string) => ({
+  url: `http://127.0.0.1:${server.port}${path}`,
+  secret: "whsec_test1234",
+  headers: [
+    { name: "Authorization", value: `Bearer tok_${"x".repeat(12)}` },
+    { name: "X-PP-Event", value: "spoofed" },
+    { name: "Host", value: "evil.example" }
+  ]
+})
+
+describe("WebhookSender", () => {
+  it.live("signs the exact body and sends the delivery headers", () =>
+    Effect.gen(function* () {
+      received.length = 0
+      const send = yield* Sender.WebhookSender
+      const result = yield* send.send(target("/hook"), delivery)
+      expect(result).toEqual({
+        _tag: "Response",
+        status: 202,
+        retryAfterSeconds: null,
+        excerpt: "ok"
+      })
+      const [request] = received
+      expect(request?.body).toBe(delivery.body)
+      expect(request?.headers).toMatchObject({
+        "content-type": "application/json",
+        "webhook-id": "dlv_1",
+        "x-pp-event": "ticket_created",
+        "x-pp-signature-256": `sha256=${createHmac("sha256", "whsec_test1234").update(delivery.body).digest("hex")}`,
+        authorization: `Bearer tok_${"x".repeat(12)}`,
+        host: `127.0.0.1:${server.port}`
+      })
+      const timestamp = Number(request?.headers["webhook-timestamp"])
+      const now = DateTime.toEpochMillis(yield* DateTime.now) / 1000
+      expect(Math.abs(now - timestamp)).toBeLessThan(30)
+      const expected = createHmac("sha256", Buffer.from("test1234", "base64"))
+        .update(`dlv_1.${timestamp}.${delivery.body}`)
+        .digest("base64")
+      expect(request?.headers["webhook-signature"]).toBe(`v1,${expected}`)
+      expect(request?.headers).not.toHaveProperty("x-pp-delivery")
+    }).pipe(Effect.provide(sender(true)))
+  )
+
+  it.effect("keeps the URL's path and query out of traces", () =>
+    Effect.gen(function* () {
+      const spans: Array<Tracer.NativeSpan> = []
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options)
+          spans.push(span)
+          return span
+        }
+      })
+      const send = yield* Sender.WebhookSender
+      yield* send
+        .send(target("/hooks/path-secret-123?token=query-secret-456"), delivery)
+        .pipe(Effect.withTracer(tracer))
+      expect(spans.map((span) => span.name)).toContain("WebhookSender.attempt")
+      const traced = spans
+        .flatMap((span) => [
+          span.name,
+          ...[...span.attributes.values()].map(String)
+        ])
+        .join(" ")
+      expect(traced).not.toContain("path-secret-123")
+      expect(traced).not.toContain("query-secret-456")
+    }).pipe(Effect.provide(sender(true)))
+  )
+
+  it.effect("reports Retry-After on busy receivers", () =>
+    Effect.gen(function* () {
+      const send = yield* Sender.WebhookSender
+      const result = yield* send.send(target("/busy"), delivery)
+      expect(result).toMatchObject({ status: 429, retryAfterSeconds: 30 })
+    }).pipe(Effect.provide(sender(true)))
+  )
+
+  it.effect("redacts secrets the receiver echoes back", () =>
+    Effect.gen(function* () {
+      const send = yield* Sender.WebhookSender
+      const result = yield* send.send(target("/echo-secret"), delivery)
+      expect(result).toMatchObject({
+        status: 401,
+        excerpt: "bad token [redacted] and [redacted]"
+      })
+    }).pipe(Effect.provide(sender(true)))
+  )
+
+  it.effect("redacts short tokens from the URL the receiver echoes", () =>
+    Effect.gen(function* () {
+      const send = yield* Sender.WebhookSender
+      const result = yield* send.send(
+        target("/echo/abc1234?k=tok5678"),
+        delivery
+      )
+      expect(result._tag === "Response" && result.excerpt).toBe(
+        "unknown /echo/[redacted]?[redacted] /echo/[redacted]"
+      )
+    }).pipe(Effect.provide(sender(true)))
+  )
+
+  it.effect("redacts the decoded form of an encoded path token", () =>
+    Effect.gen(function* () {
+      const send = yield* Sender.WebhookSender
+      const result = yield* send.send(
+        target("/echo/my%2Dsecret%2Dtoken"),
+        delivery
+      )
+      expect(result._tag === "Response" && result.excerpt).not.toContain(
+        "my-secret-token"
+      )
+    }).pipe(Effect.provide(sender(true)))
+  )
+
+  it.effect("redacts an encoded query value echoed without its key", () =>
+    Effect.gen(function* () {
+      const send = yield* Sender.WebhookSender
+      const result = yield* send.send(
+        target("/echo-value?token=abc%26secret"),
+        delivery
+      )
+      expect(result._tag === "Response" && result.excerpt).toBe(
+        "bad [redacted]"
+      )
+    }).pipe(Effect.provide(sender(true)))
+  )
+
+  it.effect("does not follow redirects", () =>
+    Effect.gen(function* () {
+      const send = yield* Sender.WebhookSender
+      const result = yield* send.send(target("/redirect"), delivery)
+      expect(result).toMatchObject({ _tag: "Response", status: 302 })
+    }).pipe(Effect.provide(sender(true)))
+  )
+
+  it.effect("keeps at most 1 KiB of a large response", () =>
+    Effect.gen(function* () {
+      const send = yield* Sender.WebhookSender
+      const result = yield* send.send(target("/big"), delivery)
+      expect(result._tag === "Response" && result.excerpt?.length).toBe(1024)
+    }).pipe(Effect.provide(sender(true)))
+  )
+
+  it.effect("refuses private addresses unless allowed", () =>
+    Effect.gen(function* () {
+      received.length = 0
+      const send = yield* Sender.WebhookSender
+      const result = yield* send.send(
+        { ...target("/hook"), url: `https://127.0.0.1:${server.port}/hook` },
+        delivery
+      )
+      expect(result).toEqual({ _tag: "Failure", reason: "blocked_address" })
+      expect(received).toEqual([])
+      expect(yield* send.check("https://localhost/hook")).toBe(
+        "blocked_address"
+      )
+      expect(yield* send.check("http://example.com/hook")).toBe(
+        "insecure_scheme"
+      )
+      expect(yield* send.check("https://user:pw@example.com/")).toBe(
+        "credentials_in_url"
+      )
+      expect(yield* send.check("not a url")).toBe("invalid_url")
+    }).pipe(Effect.provide(sender(false)))
+  )
+
+  it.effect("reports connection failures", () =>
+    Effect.gen(function* () {
+      const send = yield* Sender.WebhookSender
+      const result = yield* send.send(
+        { ...target("/hook"), url: "http://127.0.0.1:1/hook" },
+        delivery
+      )
+      expect(result).toEqual({ _tag: "Failure", reason: "connection" })
+    }).pipe(Effect.provide(sender(true)))
+  )
+})

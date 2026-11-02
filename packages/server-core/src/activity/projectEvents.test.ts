@@ -76,23 +76,70 @@ describe("sprintEvents", () => {
 
 describe("ticketEvents", () => {
   const finished: ReadonlySet<string> = new Set(["done", "wont_do"])
-  const inStatus = (status: string) => ({
+  const make = (status: string, assignees: ReadonlyArray<string> = []) => ({
     id: ticket,
     title: "Ship it",
     status: Schema.decodeUnknownSync(StatusSlug)(status),
+    type: "feat" as const,
+    assignees,
     archivedAt: null
   })
   const kinds = (from: string, to: string) =>
-    ticketEvents(inStatus(from), inStatus(to), finished).map(
-      (event) => event.kind
-    )
+    ticketEvents(make(from), make(to), finished).map((event) => event.kind)
 
   it.each([
-    ["todo", "wont_do", ["ticket_completed"]],
-    ["wont_do", "in_progress", ["ticket_reopened"]],
-    ["done", "wont_do", []],
-    ["todo", "in_progress", []]
+    ["todo", "wont_do", ["ticket_status_changed", "ticket_completed"]],
+    ["wont_do", "in_progress", ["ticket_status_changed", "ticket_reopened"]],
+    ["done", "wont_do", ["ticket_status_changed"]],
+    ["todo", "in_progress", ["ticket_status_changed"]],
+    ["todo", "todo", []]
   ])("%s -> %s", (from, to, expected) => {
     expect(kinds(from, to)).toEqual(expected)
+  })
+
+  it("reports the previous status and the ticket type", () => {
+    expect(ticketEvents(make("todo"), make("in_progress"), finished)).toEqual([
+      {
+        kind: "ticket_status_changed",
+        id: ticket,
+        title: "Ship it",
+        status: "in_progress",
+        type: "feat",
+        previousStatus: "todo"
+      }
+    ])
+  })
+
+  it("reports who was added and removed when assignees change", () => {
+    expect(
+      ticketEvents(make("todo", ["a", "b"]), make("todo", ["b", "c"]), finished)
+    ).toEqual([
+      {
+        kind: "ticket_assignees_changed",
+        id: ticket,
+        title: "Ship it",
+        status: "todo",
+        type: "feat",
+        assignees: ["b", "c"],
+        added: ["c"],
+        removed: ["a"]
+      }
+    ])
+  })
+
+  it("ignores reordered assignees", () => {
+    expect(
+      ticketEvents(make("todo", ["a", "b"]), make("todo", ["b", "a"]), finished)
+    ).toEqual([])
+  })
+
+  it("emits nothing for archived tickets", () => {
+    expect(
+      ticketEvents(
+        make("todo"),
+        { ...make("done", ["a"]), archivedAt: completedAt },
+        finished
+      )
+    ).toEqual([])
   })
 })
