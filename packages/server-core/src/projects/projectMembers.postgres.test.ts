@@ -238,13 +238,6 @@ describe.skipIf(!databaseUrl)("project members", () => {
         {
           name: "ProjectMembers.updateMember",
           parent: null,
-          module: undefined,
-          operation: undefined,
-          orgSlug: undefined
-        },
-        {
-          name: "Projects.updateMember",
-          parent: "ProjectMembers.updateMember",
           module: "Projects",
           operation: "updateMember",
           orgSlug

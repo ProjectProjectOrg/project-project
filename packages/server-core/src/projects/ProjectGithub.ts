@@ -32,7 +32,7 @@ import * as GitHub from "../github/GitHub"
 import type * as Markdown from "../markdown/Markdown"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import * as ProjectDetails from "./ProjectDetails"
-import { withProjectTelemetry } from "./projectTelemetry"
+import { annotateProjectTelemetry } from "./projectTelemetry"
 import { uniqueConstraint } from "./uniqueConstraint"
 
 export interface ProjectGithubIntegration {
@@ -176,7 +176,7 @@ const make = Effect.gen(function* () {
     input: ConnectGithubInput
   ) {
     const { orgSlug, slug, userId } = yield* ProjectScope
-    return yield* withProjectTelemetry(
+    return yield* annotateProjectTelemetry(
       "connectGithub",
       orgSlug,
       {
@@ -322,7 +322,7 @@ const make = Effect.gen(function* () {
 
   const disconnectGithub = Effect.fn("ProjectGithub.disconnect")(function* () {
     const { orgSlug, slug, userId } = yield* ProjectScope
-    return yield* withProjectTelemetry(
+    return yield* annotateProjectTelemetry(
       "disconnectGithub",
       orgSlug,
       { slug, userId },
