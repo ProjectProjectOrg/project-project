@@ -15,7 +15,6 @@ import {
   ActivityActor,
   GIT_ACTIVITY_KINDS,
   TicketActivityChange,
-  type ActivityActorShape,
   type ActivityCause
 } from "@pp/shared"
 import { and, desc, eq, inArray, lt, notInArray, or, sql } from "drizzle-orm"
@@ -59,7 +58,7 @@ type ActorColumns = Pick<
   | "actorSource"
 >
 
-const actorColumns = (actor: ActivityActorShape): ActorColumns => {
+const actorColumns = (actor: ActivityActor["Service"]): ActorColumns => {
   if (actor.kind === "system") {
     return {
       actorKind: "system",
@@ -80,7 +79,7 @@ const actorColumns = (actor: ActivityActorShape): ActorColumns => {
 
 const actorOf = (
   row: typeof ticketActivity.$inferSelect
-): ActivityActorShape => {
+): ActivityActor["Service"] => {
   if (row.actorKind === "agent") {
     return ActivityActor.agent(row.actorUserId ?? "", {
       id: row.actorClientId ?? "",

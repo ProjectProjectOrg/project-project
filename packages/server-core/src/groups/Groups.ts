@@ -27,8 +27,7 @@ import {
   paginateSorted,
   padNumericIdSort,
   sprintState,
-  TAG_DEFAULT_PALETTE,
-  type ProjectScopeShape
+  TAG_DEFAULT_PALETTE
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
@@ -206,7 +205,7 @@ function documentToGroup(document: GroupDocs.GroupDocument): Group {
 }
 
 const requireGroupPolicy = (
-  allowed: (scope: ProjectScopeShape) => boolean
+  allowed: (scope: ProjectScope["Service"]) => boolean
 ): Effect.Effect<void, Forbidden, ProjectScope> =>
   Effect.flatMap(ProjectScope, (scope) =>
     allowed(scope) ? Effect.void : Effect.fail(new Forbidden())
@@ -230,7 +229,7 @@ const make = Effect.gen(function* () {
     keyedLock.withLock(LockKey.groupFiles(orgSlug, slug), effect)
 
   const lockedInScope = <A, E, R>(
-    body: (scope: ProjectScopeShape) => Effect.Effect<A, E, R>
+    body: (scope: ProjectScope["Service"]) => Effect.Effect<A, E, R>
   ): Effect.Effect<A, E, R | ProjectScope> =>
     Effect.flatMap(ProjectScope, (scope) =>
       withGroupFilesLock(scope.orgSlug, scope.slug, body(scope))
@@ -253,7 +252,7 @@ const make = Effect.gen(function* () {
     })
 
   const rejectEpicsInSprint = (
-    scope: ProjectScopeShape,
+    scope: ProjectScope["Service"],
     kind: GroupKind,
     ticketIds: ReadonlyArray<string>
   ): Effect.Effect<void, Validation> =>

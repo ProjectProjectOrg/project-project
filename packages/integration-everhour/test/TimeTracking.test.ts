@@ -2,8 +2,7 @@ import { it as effectIt } from "@effect/vitest"
 import {
   DEFAULT_WORK_TYPES,
   ProjectScope,
-  type OrgEverhourConfig,
-  type ProjectScopeShape
+  type OrgEverhourConfig
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -111,7 +110,7 @@ describe("EverhourTimeTracking tracing", () => {
     orgSlug: "acme",
     projectId: "project-1",
     slug: "website"
-  } as ProjectScopeShape)
+  } as ProjectScope["Service"])
 
   effectIt.effect("opens one span per service call", () =>
     Effect.gen(function* () {

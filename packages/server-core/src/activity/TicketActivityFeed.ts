@@ -4,7 +4,7 @@ import {
   ProjectScope,
   TICKET_ACTIVITY_PAGE_SIZE,
   Validation,
-  type ActivityActorShape,
+  type ActivityActor,
   type NotFound,
   type TicketActivityActor,
   type TicketActivityEntry,
@@ -67,7 +67,7 @@ const cursorOf = (entry: StoredTicketActivity): string =>
   })
 
 const presentActor = (
-  actor: ActivityActorShape,
+  actor: ActivityActor["Service"],
   users: ReadonlyMap<string, User>
 ): TicketActivityActor | null => {
   if (actor.kind === "system") return actor

@@ -14,7 +14,7 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import { auth } from "../auth"
-import type { ToolCallerShape } from "../tools/ToolCaller"
+import type { Caller } from "../tools/ToolCaller"
 import { normalizeEditorPreference } from "./Auth"
 import { proofUrl } from "./proofUrl"
 
@@ -134,7 +134,7 @@ export const bearerVerifier = (resource: string) =>
       ) {
         return yield* new UserBanned()
       }
-      const caller: ToolCallerShape = {
+      const caller: Caller = {
         user: {
           id: UserId.make(account.id),
           email: account.email,

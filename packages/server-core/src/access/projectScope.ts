@@ -1,6 +1,6 @@
 import { Effective } from "@pp/access/roles"
 import { projectIndex, projectMember } from "@pp/db/schema"
-import { Role, type OrgScopeShape, type ProjectScopeShape } from "@pp/shared"
+import { Role, type OrgScope, type ProjectScope } from "@pp/shared"
 import { and, eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
@@ -8,16 +8,16 @@ import * as Schema from "effect/Schema"
 
 const decodeRole = Schema.decodeUnknownEffect(Schema.NullOr(Role))
 
-export const projectMemberOf = (scope: OrgScopeShape) =>
+export const projectMemberOf = (scope: OrgScope["Service"]) =>
   and(
     eq(projectMember.projectId, projectIndex.id),
     eq(projectMember.userId, scope.userId)
   )
 
 export const projectScopeOf = (
-  scope: OrgScopeShape,
+  scope: OrgScope["Service"],
   row: Readonly<{ projectId: string; slug: string; role: string | null }>
-): Effect.Effect<Option.Option<ProjectScopeShape>> =>
+): Effect.Effect<Option.Option<ProjectScope["Service"]>> =>
   decodeRole(row.role).pipe(
     Effect.orDie,
     Effect.map((role) =>

@@ -5,8 +5,7 @@ import {
   ORG_DELETE_GRACE_DAYS,
   type OrgDetail,
   OrgRole,
-  OrgScope,
-  type OrgScopeShape
+  OrgScope
 } from "@pp/shared"
 import { and, eq, isNull } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
@@ -31,7 +30,7 @@ export const OrgLive = Layer.effect(
     const db = yield* Db
 
     const detail = (
-      scope: OrgScopeShape,
+      scope: OrgScope["Service"],
       deletedAt: Date | null
     ): Effect.Effect<OrgDetail> =>
       db

@@ -1,7 +1,6 @@
 import {
   ActivityActor,
   TicketStatus,
-  type ActivityActorShape,
   type ActivityCause,
   type TicketActivityChange
 } from "@pp/shared"
@@ -23,7 +22,7 @@ let sequence = 0
 const entry = (
   secondsAfterStart: number,
   change: TicketActivityChange,
-  actor: ActivityActorShape = wouter,
+  actor: ActivityActor["Service"] = wouter,
   cause: ActivityCause | null = null
 ): StoredTicketActivity => {
   sequence += 1

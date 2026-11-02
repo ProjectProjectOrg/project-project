@@ -7,8 +7,7 @@ import {
   type FeedbackReport,
   isRasterImageContentType,
   NotFound,
-  ProjectScope,
-  type ProjectScopeShape
+  ProjectScope
 } from "@pp/shared"
 import { eq } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -152,7 +151,7 @@ export class FeedbackIntake extends Context.Service<
 
       const attachFiles = Effect.fn("FeedbackIntake.attachFiles")(
         function* (
-          _scope: ProjectScopeShape,
+          _scope: ProjectScope["Service"],
           report: FeedbackReport,
           ticketId: string,
           verbatim: boolean,
@@ -204,7 +203,7 @@ export class FeedbackIntake extends Context.Service<
           )
 
       const fileTicket = Effect.fn("FeedbackIntake.fileTicket")(function* (
-        scope: ProjectScopeShape,
+        scope: ProjectScope["Service"],
         report: FeedbackReport
       ) {
         const create = (verbatim: boolean) =>
@@ -223,7 +222,7 @@ export class FeedbackIntake extends Context.Service<
       })
 
       const finish = Effect.fn("FeedbackIntake.finish")(function* (
-        scope: ProjectScopeShape,
+        scope: ProjectScope["Service"],
         report: FeedbackReport,
         filed: Readonly<{ ticketId: string; verbatim: boolean }>,
         files: ReadonlyArray<Multipart.PersistedFile>

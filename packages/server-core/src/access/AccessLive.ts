@@ -7,14 +7,7 @@ import {
   projectIndex,
   projectMember
 } from "@pp/db/schema"
-import {
-  CurrentUser,
-  NotFound,
-  OrgRole,
-  OrgScope,
-  Role,
-  type OrgScopeShape
-} from "@pp/shared"
+import { CurrentUser, NotFound, OrgRole, OrgScope, Role } from "@pp/shared"
 import { and, eq, isNull, type SQL } from "drizzle-orm"
 import * as Arr from "effect/Array"
 import * as Effect from "effect/Effect"
@@ -123,7 +116,7 @@ export const AccessLive = Layer.effect(
       }
     )
 
-    const visibleProjectRows = (scope: OrgScopeShape, where?: SQL) =>
+    const visibleProjectRows = (scope: OrgScope["Service"], where?: SQL) =>
       db
         .select({
           projectId: projectIndex.id,

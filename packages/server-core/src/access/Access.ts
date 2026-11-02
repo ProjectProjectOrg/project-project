@@ -1,10 +1,4 @@
-import type {
-  CurrentUser,
-  NotFound,
-  OrgScope,
-  OrgScopeShape,
-  ProjectScopeShape
-} from "@pp/shared"
+import type { CurrentUser, NotFound, OrgScope, ProjectScope } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 import type * as Option from "effect/Option"
@@ -15,19 +9,19 @@ export type AccessShape = Readonly<{
   org: (
     orgSlug: string,
     lookup?: OrgLookup
-  ) => Effect.Effect<OrgScopeShape, NotFound, CurrentUser>
+  ) => Effect.Effect<OrgScope["Service"], NotFound, CurrentUser>
   project: (
     orgSlug: string,
     slug: string
-  ) => Effect.Effect<ProjectScopeShape, NotFound, CurrentUser>
+  ) => Effect.Effect<ProjectScope["Service"], NotFound, CurrentUser>
   projectsInOrg: () => Effect.Effect<
-    ReadonlyArray<ProjectScopeShape>,
+    ReadonlyArray<ProjectScope["Service"]>,
     never,
     OrgScope
   >
   projectById: (
     projectId: string
-  ) => Effect.Effect<Option.Option<ProjectScopeShape>, never, OrgScope>
+  ) => Effect.Effect<Option.Option<ProjectScope["Service"]>, never, OrgScope>
 }>
 
 export class Access extends Context.Service<Access, AccessShape>()(

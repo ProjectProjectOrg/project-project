@@ -120,14 +120,13 @@ const StatusWithAutomation = Schema.Struct({
   setBy: Schema.optional(Schema.Array(GitAutomationEvent))
 })
 
-export type ToolCliShape = Readonly<{
-  command: readonly [string, ...ReadonlyArray<string>]
-  args?: ReadonlyArray<string>
-}>
-
-export class ToolCli extends Context.Service<ToolCli, ToolCliShape>()(
-  "@pp/shared/tools/Tools/ToolCli"
-) {}
+export class ToolCli extends Context.Service<
+  ToolCli,
+  Readonly<{
+    command: readonly [string, ...ReadonlyArray<string>]
+    args?: ReadonlyArray<string>
+  }>
+>()("@pp/shared/tools/Tools/ToolCli") {}
 
 export class ToolFailure extends Schema.TaggedError<ToolFailure>()(
   "ToolFailure",
@@ -178,7 +177,7 @@ const defineTool = <
     title: string
     hints: ToolHints
     description: string
-    cli: ToolCliShape
+    cli: ToolCli["Service"]
     parameters: Parameters
     success: Success
   }>

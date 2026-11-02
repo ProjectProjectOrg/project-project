@@ -18,7 +18,6 @@ import {
   type TicketListQuery,
   type User,
   ProjectScope,
-  type ProjectScopeShape,
   StatusSlug
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -766,7 +765,7 @@ export type TicketsLayerOptions = Readonly<{
   >
   attachments?: Layer.Layer<Attachments.Attachments>
   figmaLinks?: Layer.Layer<FigmaLinks.FigmaLinks>
-  scope?: ProjectScopeShape
+  scope?: ProjectScope["Service"]
   gitAutomation?: GitAutomationConfig
 }>
 
@@ -845,5 +844,5 @@ export const permissionFixture = () => {
   return { docs, layer }
 }
 
-export const as = (scope: ProjectScopeShape) =>
+export const as = (scope: ProjectScope["Service"]) =>
   Effect.provideService(ProjectScope, scope)

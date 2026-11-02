@@ -1,12 +1,15 @@
 import type { Db } from "@pp/db"
 import { projectIndex } from "@pp/db/schema"
-import { NotFound, type ProjectScopeShape } from "@pp/shared"
+import { NotFound, type ProjectScope } from "@pp/shared"
 import { eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 
 import type * as ProjectDocs from "./ProjectDocs"
 
-type ProjectRef = Pick<ProjectScopeShape, "projectId" | "orgSlug" | "slug">
+type ProjectRef = Pick<
+  ProjectScope["Service"],
+  "projectId" | "orgSlug" | "slug"
+>
 
 export const readProjectDocument = Effect.fn("readProjectDocument")(function* ({
   db,

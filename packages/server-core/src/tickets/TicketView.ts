@@ -1,5 +1,4 @@
 import {
-  type ProjectScopeShape,
   ProjectScope,
   type TicketDetail,
   type User,
@@ -23,7 +22,7 @@ import type { TicketProject } from "./ticketProject"
 export class TicketView extends Context.Service<
   TicketView,
   Readonly<{
-    gitViewOf: (scope: ProjectScopeShape) => Effect.Effect<GitView>
+    gitViewOf: (scope: ProjectScope["Service"]) => Effect.Effect<GitView>
     gitView: Effect.Effect<GitView, never, ProjectScope>
     readTicket: (
       project: TicketProject,
@@ -48,7 +47,7 @@ const make = Effect.gen(function* () {
   const users = yield* Users
 
   const gitViewOf = Effect.fn("TicketView.gitViewOf")(function* (
-    scope: ProjectScopeShape
+    scope: ProjectScope["Service"]
   ) {
     if (!scope.permissions.can({ github: ["read"] })) {
       return { integration: null, visible: false } satisfies GitView

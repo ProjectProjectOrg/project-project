@@ -1,6 +1,6 @@
 import {
   Estimate,
-  type ActivityActorShape,
+  type ActivityActor,
   type TicketActivityChange
 } from "@pp/shared"
 import * as Schema from "effect/Schema"
@@ -19,7 +19,7 @@ type ValueChange = Extract<
 const isValueChange = (change: TicketActivityChange): change is ValueChange =>
   "from" in change && "to" in change
 
-const actorKey = (actor: ActivityActorShape): string => {
+const actorKey = (actor: ActivityActor["Service"]): string => {
   if (actor.kind === "system") return `system:${actor.source}`
   if (actor.kind === "agent") return `agent:${actor.userId}:${actor.clientId}`
   return `user:${actor.userId}`

@@ -6,6 +6,7 @@ import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as TestClock from "effect/testing/TestClock"
+import * as Tracer from "effect/Tracer"
 
 import { ServerStore } from "../servers/ServerStore"
 import { fakeHttp } from "../testing"
@@ -129,6 +130,24 @@ describe("update notice", () => {
         }),
       asked,
       true
+    )
+  })
+  it.effect("traces a check under an UpdateNotice.check span", () => {
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return withConfigHome(
+      (noticeIn) =>
+        Effect.gen(function* () {
+          yield* noticeIn("2026.10.30").pipe(Effect.withTracer(tracer))
+          expect(spans.map((span) => span.name)).toContain("UpdateNotice.check")
+        }),
+      []
     )
   })
 })

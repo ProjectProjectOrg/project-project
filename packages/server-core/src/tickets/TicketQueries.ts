@@ -18,7 +18,6 @@ import {
   type OrgTicketRow,
   paginateSorted,
   ProjectScope,
-  type ProjectScopeShape,
   type ProjectTicketsPreview,
   RECENT_TICKETS_LIMIT,
   type RecentTicketActivity,
@@ -300,7 +299,7 @@ const make = Effect.gen(function* () {
   })
 
   const gitViewsFor = (
-    scopes: ReadonlyArray<ProjectScopeShape>
+    scopes: ReadonlyArray<ProjectScope["Service"]>
   ): Effect.Effect<ReadonlyMap<string, GitView>> =>
     Effect.forEach(
       scopes,
@@ -314,7 +313,7 @@ const make = Effect.gen(function* () {
   const hiddenGit: GitView = { integration: null, visible: false }
 
   const orgTicketRows = (
-    scopeOf: ReadonlyMap<string, ProjectScopeShape>,
+    scopeOf: ReadonlyMap<string, ProjectScope["Service"]>,
     entries: ReadonlyArray<TicketIndex.TicketIndexOrgEntry>
   ): Effect.Effect<ReadonlyArray<OrgTicketRow>> =>
     Effect.gen(function* () {

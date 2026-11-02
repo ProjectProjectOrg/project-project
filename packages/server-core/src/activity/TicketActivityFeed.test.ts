@@ -7,8 +7,7 @@ import {
   TICKET_ACTIVITY_PAGE_SIZE,
   TicketId,
   TicketStatus,
-  UserId,
-  type ProjectScopeShape
+  UserId
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -88,7 +87,7 @@ const history: ReadonlyArray<StoredTicketActivity> = [
 const gitRequests: Array<boolean> = []
 
 const feedLayer = (
-  scope: ProjectScopeShape,
+  scope: ProjectScope["Service"],
   rows: ReadonlyArray<StoredTicketActivity>
 ) =>
   TicketActivityFeedLive.pipe(
