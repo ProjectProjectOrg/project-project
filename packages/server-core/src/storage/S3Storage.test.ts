@@ -1,6 +1,8 @@
 import { ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3"
 import { it } from "@effect/vitest"
 import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
+import * as Tracer from "effect/Tracer"
 import { describe, expect, vi } from "vitest"
 
 import { S3Storage } from "./S3Storage"
@@ -256,6 +258,54 @@ describe("S3 failure classification", () => {
     }).pipe(
       Effect.provide(S3StorageLive),
       Effect.ensuring(Effect.sync(() => send.mockRestore()))
+    )
+  })
+})
+
+describe("tracing", () => {
+  it.effect("runs each call through the client helper spans", () => {
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return Effect.gen(function* () {
+      const storage = yield* S3Storage
+      yield* storage.presignPut(
+        {
+          endpoint: "https://storage.example.test",
+          bucket: "test",
+          region: "auto",
+          keyPrefix: null,
+          forcePathStyle: true,
+          accessKeyId: "test",
+          secretAccessKey: "test"
+        },
+        "file",
+        "image/png",
+        60
+      )
+    }).pipe(
+      Effect.withTracer(tracer),
+      Effect.provide(S3StorageLive),
+      Effect.map(() => {
+        const tree = spans.map((span) => ({
+          name: span.name,
+          parent: Option.match(span.parent, {
+            onNone: () => null,
+            onSome: (parent) =>
+              spans.find((other) => other.spanId === parent.spanId)?.name ??
+              null
+          })
+        }))
+        expect(tree).toContainEqual({
+          name: "S3Storage.withClientEffect",
+          parent: "S3Storage.withClient"
+        })
+      })
     )
   })
 })

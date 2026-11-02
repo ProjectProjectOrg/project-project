@@ -4,6 +4,8 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as HttpClient from "effect/http/HttpClient"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
+import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
 import { databaseLayer } from "../../test/database"
@@ -94,4 +96,29 @@ describe("OrgStorage", () => {
         }
       }).pipe(Effect.provide(storageLayer))
   )
+
+  it.effect("traces getStatus under its own span", () => {
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return Effect.gen(function* () {
+      const storage = yield* OrgStorage
+      yield* storage.getStatus().pipe(as("admin"))
+    }).pipe(
+      Effect.withTracer(tracer),
+      Effect.provide(storageLayer),
+      Effect.map(() =>
+        expect(
+          spans
+            .filter((span) => Option.isNone(span.parent))
+            .map((span) => span.name)
+        ).toEqual(["OrgStorage.getStatus"])
+      )
+    )
+  })
 })

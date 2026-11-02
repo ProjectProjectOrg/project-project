@@ -5,13 +5,15 @@ import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { Project } from "@pp/access/roles"
 import { DbLive, migrationsFolder } from "@pp/db"
-import { CurrentUser, User } from "@pp/shared"
+import { CurrentUser, OrgScope, User } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
@@ -260,6 +262,42 @@ describe.skipIf(!databaseUrl)("Access", () => {
       expect(stranger.projectId).toBe(otherWebsite)
     })
   )
+
+  it.effect("traces each Access call under its own span", () => {
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return Effect.gen(function* () {
+      const access = yield* Access
+      const scope = yield* access.org(orgSlug)
+      yield* access.project(orgSlug, "website")
+      yield* access.projectsInOrg().pipe(Effect.provideService(OrgScope, scope))
+      yield* access
+        .projectById(website)
+        .pipe(Effect.provideService(OrgScope, scope))
+    }).pipe(
+      Effect.withTracer(tracer),
+      as(people.owner),
+      Effect.provide(layer),
+      Effect.map(() =>
+        expect(
+          spans
+            .filter((span) => Option.isNone(span.parent))
+            .map((span) => span.name)
+        ).toEqual([
+          "Access.org",
+          "Access.project",
+          "Access.projectsInOrg",
+          "Access.projectById"
+        ])
+      )
+    )
+  })
 
   it.effect("ends project access as soon as someone leaves the org", () =>
     Effect.gen(function* () {
