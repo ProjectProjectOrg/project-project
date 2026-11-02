@@ -1,13 +1,3 @@
-// Users service — read-only helpers over Better Auth's user table.
-//
-// We don't go through Better Auth's API for these because (a) Better Auth's
-// public API is signed-in-user-shaped, not "look up someone else", and
-// (b) we already have a Drizzle client for our own queries. Hitting the
-// shared user table directly is the simplest seam.
-//
-// Surface stays small on purpose: only what Projects (and later Tickets'
-// assignee resolution) actually need.
-
 import { Db } from "@pp/db"
 import { UserId, type User } from "@pp/shared"
 import * as Context from "effect/Context"
