@@ -13,7 +13,7 @@ import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
 import { ProjectStateCache } from "@pp/integration-github/projectStateCache"
 import * as ProjectStateCacheLayer from "@pp/integration-github/projectStateCache"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
-import { GitHubTicketEvents } from "@pp/server-core/github/GitHubTicketEvents"
+import * as GitHubTicketEvents from "@pp/server-core/github/GitHubTicketEvents"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { OrgScope } from "@pp/shared"
 import type { GitHubInstallationAccount, RawProjectStates } from "@pp/shared"
@@ -80,13 +80,15 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
   const databaseLayer = DbLive.pipe(
     Layer.provideMerge(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
   )
-  const webhookLayer = (events: Partial<GitHubTicketEvents["Service"]> = {}) =>
+  const webhookLayer = (
+    events: Partial<GitHubTicketEvents.GitHubTicketEvents["Service"]> = {}
+  ) =>
     GitHubWebhooks.layer.pipe(
       Layer.provide(GitHubHostLive),
       Layer.provide(
         Layer.mergeAll(
           Layer.mock(BetterAuth.BetterAuth, {}),
-          Layer.mock(GitHubTicketEvents, events)
+          Layer.mock(GitHubTicketEvents.GitHubTicketEvents, events)
         )
       ),
       Layer.provideMerge(ProjectStateCacheLayer.layer),
@@ -99,7 +101,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       Layer.provide(
         Layer.mergeAll(
           Layer.mock(BetterAuth.BetterAuth, {}),
-          Layer.mock(GitHubTicketEvents, {})
+          Layer.mock(GitHubTicketEvents.GitHubTicketEvents, {})
         )
       ),
       Layer.provide(BunCrypto.layer),
@@ -111,7 +113,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
     Layer.provide(
       Layer.mergeAll(
         Layer.mock(BetterAuth.BetterAuth, {}),
-        Layer.mock(GitHubTicketEvents, {})
+        Layer.mock(GitHubTicketEvents.GitHubTicketEvents, {})
       )
     ),
     Layer.provide(BunCrypto.layer),
@@ -436,7 +438,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
         Layer.provide(
           Layer.mergeAll(
             Layer.mock(BetterAuth.BetterAuth, {}),
-            Layer.mock(GitHubTicketEvents, {})
+            Layer.mock(GitHubTicketEvents.GitHubTicketEvents, {})
           )
         ),
         Layer.provide(BunCrypto.layer),

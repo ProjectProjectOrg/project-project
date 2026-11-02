@@ -4,7 +4,7 @@ import { publishedProject } from "@pp/db/projectVisibility"
 import { member, organization } from "@pp/db/schema"
 import { GitHubHost } from "@pp/integration-github/Host"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
-import { GitHubTicketEvents } from "@pp/server-core/github/GitHubTicketEvents"
+import * as GitHubTicketEvents from "@pp/server-core/github/GitHubTicketEvents"
 import {
   Forbidden,
   GitHubError,
@@ -23,7 +23,7 @@ export const GitHubHostLive = Layer.effect(
   Effect.gen(function* () {
     const auth = yield* BetterAuth.BetterAuth
     const db = yield* Db
-    const events = yield* GitHubTicketEvents
+    const events = yield* GitHubTicketEvents.GitHubTicketEvents
     const decodeOrgRole = Schema.decodeUnknownEffect(OrgRole)
     const publicBaseUrl = Config.String("BETTER_AUTH_URL").pipe(
       Config.withDefault("http://localhost:5173")

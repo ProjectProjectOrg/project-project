@@ -21,21 +21,13 @@ import {
   DEFAULT_GIT_AUTOMATION_CONFIG,
   gitAutomationTestService
 } from "../projects/gitAutomationTesting"
-import { ProjectGitAutomation } from "../projects/ProjectGitAutomation"
+import * as ProjectGitAutomation from "../projects/ProjectGitAutomation"
 import { moveForDeletedBranch } from "../tickets/moveByGitAutomation"
 import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as TicketIndex from "../tickets/TicketIndex"
-import { GitHubTicketEvents } from "./GitHubTicketEvents"
-import {
-  GitHubTicketEventsLive,
-  applyPullRequestWebhookToLayer,
-  applyPullRequestWebhookToTicket,
-  landMergesInto,
-  linkPullRequestWebhookToTicket,
-  type PullRequestWebhookMatch
-} from "./GitHubTicketEventsLive"
+import * as GitHubTicketEvents from "./GitHubTicketEvents"
 
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
@@ -65,8 +57,8 @@ const baseDocument = (
 })
 
 const baseMatch = (
-  overrides: Partial<PullRequestWebhookMatch> = {}
-): PullRequestWebhookMatch => ({
+  overrides: Partial<GitHubTicketEvents.PullRequestWebhookMatch> = {}
+): GitHubTicketEvents.PullRequestWebhookMatch => ({
   orgSlug: "org",
   organizationId: "org-1",
   projectId: "project-1",
@@ -181,7 +173,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
         const docs = makeFakeDocs([baseDocument()])
         const index = makeFakeIndex()
 
-        yield* applyPullRequestWebhookToTicket(
+        yield* GitHubTicketEvents.applyPullRequestWebhookToTicket(
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
@@ -214,7 +206,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           upsertTicket: () => Effect.die(new Error("index failed"))
         })
 
-        const exit = yield* applyPullRequestWebhookToTicket(
+        const exit = yield* GitHubTicketEvents.applyPullRequestWebhookToTicket(
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
@@ -265,7 +257,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
 
         yield* Effect.all(
           [
-            applyPullRequestWebhookToTicket(
+            GitHubTicketEvents.applyPullRequestWebhookToTicket(
               {
                 ticketDocs: serialDocs,
                 ticketIndex: index.shape,
@@ -278,7 +270,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
               openChange,
               "delivery-1"
             ),
-            applyPullRequestWebhookToTicket(
+            GitHubTicketEvents.applyPullRequestWebhookToTicket(
               {
                 ticketDocs: serialDocs,
                 ticketIndex: index.shape,
@@ -310,7 +302,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
         ])
         const index = makeFakeIndex()
 
-        yield* applyPullRequestWebhookToTicket(
+        yield* GitHubTicketEvents.applyPullRequestWebhookToTicket(
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
@@ -349,7 +341,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
             )
         }
 
-        yield* applyPullRequestWebhookToTicket(
+        yield* GitHubTicketEvents.applyPullRequestWebhookToTicket(
           {
             ticketDocs: malformedDocs,
             ticketIndex: index.shape,
@@ -374,7 +366,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
         const docs = makeFakeDocs([baseDocument({ pr: 81, prState: "open" })])
         const index = makeFakeIndex()
 
-        yield* applyPullRequestWebhookToTicket(
+        yield* GitHubTicketEvents.applyPullRequestWebhookToTicket(
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
@@ -399,7 +391,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
         const docs = makeFakeDocs([baseDocument()])
         const index = makeFakeIndex()
 
-        yield* applyPullRequestWebhookToTicket(
+        yield* GitHubTicketEvents.applyPullRequestWebhookToTicket(
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
@@ -419,7 +411,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           lastTransitionedPr: 80
         })
 
-        yield* applyPullRequestWebhookToTicket(
+        yield* GitHubTicketEvents.applyPullRequestWebhookToTicket(
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
@@ -444,7 +436,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
         const docs = makeFakeDocs([baseDocument()])
         const index = makeFakeIndex()
 
-        yield* applyPullRequestWebhookToTicket(
+        yield* GitHubTicketEvents.applyPullRequestWebhookToTicket(
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
@@ -524,7 +516,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           Effect.succeed(new Set(ids.filter((id) => docs.documents.has(id)))),
         ...indexOverrides
       })
-      yield* linkPullRequestWebhookToTicket(
+      yield* GitHubTicketEvents.linkPullRequestWebhookToTicket(
         {
           ticketDocs: docs.shape,
           ticketIndex: index.shape,
@@ -755,11 +747,11 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
   const applyToLayer = (
     document: TicketDocs.TicketDocument,
     change: GitHubPullRequestWebhookChange,
-    match: PullRequestWebhookMatch = stackedMatch
+    match: GitHubTicketEvents.PullRequestWebhookMatch = stackedMatch
   ) =>
     Effect.gen(function* () {
       const docs = makeFakeDocs([document])
-      yield* applyPullRequestWebhookToLayer(
+      yield* GitHubTicketEvents.applyPullRequestWebhookToLayer(
         {
           ticketDocs: docs.shape,
           ticketIndex: makeFakeIndex().shape,
@@ -861,19 +853,19 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           gitAutomation: gitAutomationTestService()
         }
 
-        yield* applyPullRequestWebhookToTicket(
+        yield* GitHubTicketEvents.applyPullRequestWebhookToTicket(
           deps,
           baseMatch(),
           { ...openChange, baseBranch: "feat/T-0" },
           "delivery-1"
         )
-        yield* applyPullRequestWebhookToTicket(
+        yield* GitHubTicketEvents.applyPullRequestWebhookToTicket(
           deps,
           baseMatch(),
           openChange,
           "delivery-2"
         )
-        yield* applyPullRequestWebhookToTicket(
+        yield* GitHubTicketEvents.applyPullRequestWebhookToTicket(
           deps,
           baseMatch(),
           openChange,
@@ -897,7 +889,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
         })
       ])
       const index = makeFakeIndex()
-      yield* applyPullRequestWebhookToLayer(
+      yield* GitHubTicketEvents.applyPullRequestWebhookToLayer(
         {
           ticketDocs: docs.shape,
           ticketIndex: index.shape,
@@ -990,7 +982,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
             Effect.sync(() => awaiting(base))
         })
 
-        yield* landMergesInto(
+        yield* GitHubTicketEvents.landMergesInto(
           {
             ticketDocs: docs.shape,
             ticketIndex: index.shape,
@@ -1041,14 +1033,14 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
 describe.skipIf(!databaseUrl)("GitHubTicketEvents tracing", () => {
-  const eventsLayer = GitHubTicketEventsLive.pipe(
+  const eventsLayer = GitHubTicketEvents.layer.pipe(
     Layer.provide(
       Layer.mergeAll(
         Layer.mock(TicketDocs.TicketDocs, {}),
         Layer.mock(TicketIndex.TicketIndex, {}),
         Layer.mock(TicketBranchIndex.TicketBranchIndex, {}),
         Layer.mock(TicketDocumentLock.TicketDocumentLock, {}),
-        Layer.mock(ProjectGitAutomation, {})
+        Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {})
       )
     ),
     Layer.provide(
@@ -1078,7 +1070,7 @@ describe.skipIf(!databaseUrl)("GitHubTicketEvents tracing", () => {
         branch: "feat/T-1"
       }
       return Effect.gen(function* () {
-        const events = yield* GitHubTicketEvents
+        const events = yield* GitHubTicketEvents.GitHubTicketEvents
         yield* events.pullRequestChanged(
           {
             ...unknownRepo,

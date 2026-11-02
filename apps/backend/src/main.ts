@@ -65,7 +65,7 @@ import { SlackRuntimeLive } from "@pp/integration-slack/Runtime"
 //   long-lived resources; launch keeps the server alive for the lifetime of
 //   the process. `BunRuntime.runMain` adds Bun-specific signal handling and
 //   exit-code mapping.
-import { TicketActivityRecoveryLive } from "@pp/server-core/activity/TicketActivityLive"
+import { TicketActivityRecoveryLive } from "@pp/server-core/activity/TicketActivityRecoveryLive"
 import { AttachmentReaperLive } from "@pp/server-core/attachments/AttachmentReaperLive"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { FeedbackDispatcherLive } from "@pp/server-core/feedback/FeedbackDelivery"

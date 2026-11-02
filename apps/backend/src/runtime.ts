@@ -24,12 +24,12 @@ import {
 import { JiraMigrationRetentionLive } from "@pp/integration-jira/Retention"
 import { SlackServicesLive } from "@pp/integration-slack/Services"
 import * as Access from "@pp/server-core/access/Access"
-import { TicketActivityFeedLive } from "@pp/server-core/activity/TicketActivityFeed"
-import { TicketActivityLive } from "@pp/server-core/activity/TicketActivityLive"
+import * as TicketActivity from "@pp/server-core/activity/TicketActivity"
+import * as TicketActivityFeed from "@pp/server-core/activity/TicketActivityFeed"
 import * as Attachments from "@pp/server-core/attachments/Attachments"
-import { AttachmentUploadsLive } from "@pp/server-core/attachments/AttachmentUploadsLive"
+import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import * as Bots from "@pp/server-core/bots/Bots"
-import { CommentsLive } from "@pp/server-core/comments/CommentsLive"
+import * as Comments from "@pp/server-core/comments/Comments"
 import { OrgEmail } from "@pp/server-core/email/OrgEmail"
 import { Smtp } from "@pp/server-core/email/Smtp"
 import { FeedbackAttachments } from "@pp/server-core/feedback/FeedbackAttachments"
@@ -42,7 +42,7 @@ import * as FeedbackIntake from "@pp/server-core/feedback/FeedbackIntake"
 import * as Figma from "@pp/server-core/figma/Figma"
 import * as FigmaIntegrations from "@pp/server-core/figma/FigmaIntegrations"
 import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
-import { GitHubTicketEventsLive } from "@pp/server-core/github/GitHubTicketEventsLive"
+import * as GitHubTicketEvents from "@pp/server-core/github/GitHubTicketEvents"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
@@ -161,19 +161,19 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(SystemProjects.layer),
       Layer.provideMerge(ProjectStatuses.layer),
       Layer.provideMerge(TicketServices.layer),
-      Layer.provideMerge(TicketActivityFeedLive),
+      Layer.provideMerge(TicketActivityFeed.layer),
       Layer.provideMerge(Library.layer),
-      Layer.provideMerge(AttachmentUploadsLive),
+      Layer.provideMerge(AttachmentUploads.layer),
       Layer.provideMerge(Attachments.layer),
       Layer.provideMerge(FigmaLinks.layer),
       Layer.provideMerge(LinkPreviews.layer),
-      Layer.provideMerge(CommentsLive),
+      Layer.provideMerge(Comments.layer),
       Layer.provideMerge(Groups.layer),
       Layer.provideMerge(ProjectServices.layer),
       Layer.provideMerge(Org.layer),
       Layer.provideMerge(Access.layer),
       Layer.provideMerge(GitHubLive),
-      Layer.provideMerge(GitHubTicketEventsLive),
+      Layer.provideMerge(GitHubTicketEvents.layer),
       Layer.provideMerge(ProjectGitAutomation.layer)
     )
     .pipe(
@@ -195,7 +195,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(TicketDocs.layer),
       Layer.provideMerge(FinishedStatuses.layer),
       Layer.provideMerge(GroupDocs.layer),
-      Layer.provideMerge(TicketActivityLive),
+      Layer.provideMerge(TicketActivity.layer),
       Layer.provideMerge(LibraryDocs.layer),
       Layer.provideMerge(Markdown.layer),
       Layer.provideMerge(OAuthApplications.layer),

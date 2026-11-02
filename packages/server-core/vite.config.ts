@@ -1,8 +1,8 @@
 import { defineConfig } from "vitest/config"
 
 const isolatedTests = [
-  "src/activity/TicketActivityLive.postgres.test.ts",
-  "src/comments/CommentsLive.test.ts",
+  "src/activity/TicketActivity.postgres.test.ts",
+  "src/comments/Comments.test.ts",
   "src/email/OrgEmail.test.ts",
   "src/figma/FigmaIntegrations.test.ts",
   "src/figma/FigmaLinks.test.ts",

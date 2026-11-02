@@ -27,9 +27,8 @@ import pg from "pg"
 import { describe, expect } from "vitest"
 
 import { projectScope } from "../access/testing"
-import { Comments } from "../comments/Comments"
+import * as Comments from "../comments/Comments"
 import { serializeCommentsRegion } from "../comments/comments-region"
-import { CommentsLive } from "../comments/CommentsLive"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
 import * as Users from "../users/Users"
@@ -775,7 +774,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         lastCheckError: null
       }
     }
-    const commentsLayer = CommentsLive.pipe(
+    const commentsLayer = Comments.layer.pipe(
       Layer.provide(
         Layer.mergeAll(
           ticketDocs,
@@ -882,7 +881,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       ])
 
       const listed = yield* Effect.gen(function* () {
-        const comments = yield* Comments
+        const comments = yield* Comments.Comments
         return yield* comments.list(rebuildDocument.id)
       }).pipe(
         Effect.provide(commentsLayer),

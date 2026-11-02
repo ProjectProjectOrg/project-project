@@ -11,7 +11,7 @@ import { EverhourServicesLive } from "@pp/integration-everhour/Services"
 import * as TimeTracking from "@pp/integration-everhour/TimeTracking"
 import * as Access from "@pp/server-core/access/Access"
 import { testUser } from "@pp/server-core/access/testing"
-import { TicketActivityLive } from "@pp/server-core/activity/TicketActivityLive"
+import * as TicketActivity from "@pp/server-core/activity/TicketActivity"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
@@ -151,7 +151,7 @@ describe.skipIf(!databaseUrl)("Everhour backend composition", () => {
           Layer.provideMerge(TicketDocs.layer),
           Layer.provideMerge(FinishedStatuses.layer),
           Layer.provideMerge(KeyedLock.layer),
-          Layer.provideMerge(TicketActivityLive),
+          Layer.provideMerge(TicketActivity.layer),
           Layer.provideMerge(Markdown.layer),
           Layer.provideMerge(SecretCrypto.layer)
         )

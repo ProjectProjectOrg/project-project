@@ -8,8 +8,8 @@ import * as Layer from "effect/Layer"
 import { expect } from "vitest"
 
 import { asUser, passthroughTicketActivity } from "../activity/testing"
-import { type GitHubShape } from "../github/GitHub"
-import { applyPullRequestWebhookToTicket } from "../github/GitHubTicketEventsLive"
+import type * as GitHub from "../github/GitHub"
+import * as GitHubTicketEvents from "../github/GitHubTicketEvents"
 import * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import {
@@ -889,7 +889,7 @@ it.effect("manual unlink waits for a webhook write and remains unlinked", () =>
       const index = yield* TicketIndex.TicketIndex
       const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
       const webhook = yield* Effect.forkChild(
-        applyPullRequestWebhookToTicket(
+        GitHubTicketEvents.applyPullRequestWebhookToTicket(
           {
             ticketDocs: coordinatedDocs,
             ticketIndex: index,
@@ -1330,7 +1330,7 @@ it.effect(
 
 const stackLayer = (
   docs: ReturnType<typeof makeFakeTicketDocs>,
-  github: Partial<GitHubShape> = {}
+  github: Partial<GitHub.GitHub["Service"]> = {}
 ) =>
   makeTicketsLayer("T", docs.layer, {
     projects: makeFakeProjects("T"),

@@ -11,17 +11,16 @@ export type {
   ChecksStatus
 } from "@pp/shared"
 
-export type GitHubShape = Pick<
-  GitHubClientShape,
-  | "listInstallationRepos"
-  | "verifyInstallationRepo"
-  | "createBranchAsUser"
-  | "openPullRequestAsUser"
-  | "fetchInstallationProjectStates"
-  | "listInstallationBranches"
-  | "branchExistsInstallation"
->
-
-export class GitHub extends Context.Service<GitHub, GitHubShape>()(
-  "@pp/server-core/github/GitHub"
-) {}
+export class GitHub extends Context.Service<
+  GitHub,
+  Pick<
+    GitHubClientShape,
+    | "listInstallationRepos"
+    | "verifyInstallationRepo"
+    | "createBranchAsUser"
+    | "openPullRequestAsUser"
+    | "fetchInstallationProjectStates"
+    | "listInstallationBranches"
+    | "branchExistsInstallation"
+  >
+>()("@pp/server-core/github/GitHub") {}

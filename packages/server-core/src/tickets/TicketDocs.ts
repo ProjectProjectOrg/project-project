@@ -25,7 +25,7 @@ import * as Struct from "effect/Struct"
 
 import { ticketChanges } from "../activity/changes"
 import { ticketCreatedEvents, ticketEvents } from "../activity/projectEvents"
-import { TicketActivity } from "../activity/TicketActivity"
+import * as TicketActivity from "../activity/TicketActivity"
 import * as KeyedLock from "../locks/KeyedLock"
 import { markdownFileContent, ticketFileBody } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
@@ -385,7 +385,7 @@ const annotateTicketDoc = <A, E, R>(
 const make = Effect.gen(function* () {
   const markdown = yield* Markdown.Markdown
   const keyedLock = yield* KeyedLock.KeyedLock
-  const ticketActivity = yield* TicketActivity
+  const ticketActivity = yield* TicketActivity.TicketActivity
   const finishedStatuses = yield* FinishedStatuses
 
   const withMutationLock = <A, E, R>(

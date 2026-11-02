@@ -1,4 +1,4 @@
-import { TicketActivityFeed } from "@pp/server-core/activity/TicketActivityFeed"
+import * as TicketActivityFeed from "@pp/server-core/activity/TicketActivityFeed"
 import { AppApi } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"
@@ -10,7 +10,7 @@ export const TicketActivityHandlerLive = HttpApiBuilder.group(
   "ticketActivity",
   (handlers) =>
     handlers.handle("list", ({ params, query }) =>
-      Effect.flatMap(TicketActivityFeed, (feed) =>
+      Effect.flatMap(TicketActivityFeed.TicketActivityFeed, (feed) =>
         feed.list(params.id, query.cursor)
       ).pipe(dieOnMarkdown)
     )

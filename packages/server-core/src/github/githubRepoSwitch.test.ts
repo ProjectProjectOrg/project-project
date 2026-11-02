@@ -8,7 +8,7 @@ import { DbLive } from "@pp/db"
 import * as Access from "@pp/server-core/access/Access"
 import { testUser } from "@pp/server-core/access/testing"
 import { asUser } from "@pp/server-core/activity/testing"
-import { GitHub } from "@pp/server-core/github/GitHub"
+import * as GitHub from "@pp/server-core/github/GitHub"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as BannerPlaceholders from "@pp/server-core/projects/BannerPlaceholders"
@@ -259,7 +259,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
         })
       ),
       Layer.provide(
-        Layer.succeed(GitHub, {
+        Layer.succeed(GitHub.GitHub, {
           verifyInstallationRepo: (_installationId, owner, name) =>
             Effect.succeed({
               repoId: `${name}-repo`,

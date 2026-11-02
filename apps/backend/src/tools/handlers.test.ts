@@ -7,7 +7,7 @@ import {
 } from "@pp/server-core/access/testing"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
-import { Comments } from "@pp/server-core/comments/Comments"
+import * as Comments from "@pp/server-core/comments/Comments"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
@@ -307,7 +307,7 @@ const TestLayer = Layer.mergeAll(
   TicketsStub,
   ProjectsStub,
   Layer.mock(ProjectMembers.ProjectMembers, {}),
-  Layer.mock(Comments, {}),
+  Layer.mock(Comments.Comments, {}),
   Layer.mock(Groups.Groups, {}),
   Layer.mock(Tags.Tags, {}),
   Layer.mock(Users.Users, {}),
@@ -706,7 +706,7 @@ describe("MCP handlers → write tools", () => {
     })
   )
 
-  const WriteCommentsStub = Layer.mock(Comments, {
+  const WriteCommentsStub = Layer.mock(Comments.Comments, {
     create: (ticketId, input: { body: string }) => {
       captured.createComment = { ticketId, body: input.body }
       return Effect.succeed({

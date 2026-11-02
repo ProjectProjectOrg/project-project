@@ -24,14 +24,14 @@ import {
   recordingTicketActivity,
   type RecordedActivity
 } from "../activity/testing"
-import { TicketActivity } from "../activity/TicketActivity"
+import * as TicketActivity from "../activity/TicketActivity"
 import * as KeyedLock from "../locks/KeyedLock"
 import * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as TicketDocs from "./TicketDocs"
 
 const testLayer = (
-  activity: Layer.Layer<TicketActivity> = passthroughTicketActivity
+  activity: Layer.Layer<TicketActivity.TicketActivity> = passthroughTicketActivity
 ) =>
   Layer.unwrap(
     Effect.gen(function* () {
@@ -790,8 +790,8 @@ describe("TicketDocs activity capture", () => {
     const landed = yield* Deferred.make<void>()
     const gate = yield* Deferred.make<void>()
     const layer = Layer.succeed(
-      TicketActivity,
-      TicketActivity.of({
+      TicketActivity.TicketActivity,
+      TicketActivity.TicketActivity.of({
         record: (_orgSlug, _slug, _document, _changes, _cause, write) =>
           Effect.gen(function* () {
             const result = yield* write

@@ -42,10 +42,10 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import { ticketChanges } from "../activity/changes"
-import { TicketActivity } from "../activity/TicketActivity"
+import * as TicketActivity from "../activity/TicketActivity"
 import * as Attachments from "../attachments/Attachments"
 import { validateBodyMentionsWithLookups } from "../comments/BodyMentions"
-import type { InvalidCommentBody } from "../comments/Comments"
+import type * as Comments from "../comments/Comments"
 import * as FigmaLinks from "../figma/FigmaLinks"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
@@ -195,7 +195,7 @@ export class TicketCommands extends Context.Service<
       | Conflict
       | TicketReadError
       | MentionInvalid
-      | InvalidCommentBody,
+      | Comments.InvalidCommentBody,
       ProjectScope | ActivityActor
     >
     unarchive: (
@@ -210,7 +210,7 @@ export class TicketCommands extends Context.Service<
 
 const make = Effect.gen(function* () {
   const ticketDocs = yield* TicketDocs.TicketDocs
-  const ticketActivity = yield* TicketActivity
+  const ticketActivity = yield* TicketActivity.TicketActivity
   const { withTicketDocumentLock } =
     yield* TicketDocumentLock.TicketDocumentLock
   const projects = yield* Projects.Projects

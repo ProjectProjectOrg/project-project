@@ -18,7 +18,9 @@ import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import pg from "pg"
 import { beforeAll, describe, expect } from "vitest"
 
@@ -31,9 +33,8 @@ import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketIndex from "../tickets/TicketIndex"
 import * as Users from "../users/Users"
-import { Comments } from "./Comments"
+import * as Comments from "./Comments"
 import { parseCommentsRegion, serializeCommentsRegion } from "./comments-region"
-import { CommentsLive } from "./CommentsLive"
 
 const decodeCommentIdSync = Schema.decodeSync(CommentId)
 
@@ -198,7 +199,7 @@ const makeLayer = (
   ticketDocs: TicketDocs.TicketDocs["Service"],
   database = FakeDb
 ) =>
-  CommentsLive.pipe(
+  Comments.layer.pipe(
     Layer.provide(
       Layer.mergeAll(
         Layer.succeed(TicketDocs.TicketDocs, ticketDocs),
@@ -250,7 +251,7 @@ it.effect("creates comments through TicketDocs", () => {
   )
 
   return Effect.gen(function* () {
-    const comments = yield* Comments
+    const comments = yield* Comments.Comments
     const created = yield* comments.create(ticketId("T-1"), {
       body: "A useful comment"
     })
@@ -305,7 +306,7 @@ it.effect(
     const body = `Historical body\n\n${"x".repeat(20_001)}`
 
     return Effect.gen(function* () {
-      const comments = yield* Comments
+      const comments = yield* Comments.Comments
       const imported = yield* comments.importHistorical(ticketId("T-1"), [
         {
           author: { kind: "user", userId: "user-1" },
@@ -362,7 +363,7 @@ it.effect("rejects reserved markers without writing imported history", () => {
   )
 
   return Effect.gen(function* () {
-    const comments = yield* Comments
+    const comments = yield* Comments.Comments
     const result = yield* Effect.exit(
       comments.importHistorical(ticketId("T-1"), [
         {
@@ -396,7 +397,7 @@ it.effect("rejects incomplete Jira snapshot attribution", () => {
   )
 
   return Effect.gen(function* () {
-    const comments = yield* Comments
+    const comments = yield* Comments.Comments
     const result = yield* Effect.exit(
       comments.importHistorical(ticketId("T-1"), [
         {
@@ -439,7 +440,7 @@ it.effect("removes imported index rows when the markdown write fails", () => {
   )
 
   return Effect.gen(function* () {
-    const comments = yield* Comments
+    const comments = yield* Comments.Comments
     const result = yield* Effect.exit(
       comments.importHistorical(ticketId("T-1"), [
         {
@@ -502,7 +503,7 @@ it.effect("restores markdown when an edit index update fails", () => {
   const layer = makeLayer(docs, database)
 
   return Effect.gen(function* () {
-    const comments = yield* Comments
+    const comments = yield* Comments.Comments
     const result = yield* Effect.exit(
       comments.edit(ticketId("T-1"), id, {
         body: "Changed body"
@@ -540,7 +541,7 @@ it.effect(
     const id = decodeCommentIdSync("c_imported")
 
     return Effect.gen(function* () {
-      const comments = yield* Comments
+      const comments = yield* Comments.Comments
       const editResult = yield* Effect.exit(
         comments.edit(ticketId("T-1"), id, {
           body: "Changed"
@@ -571,7 +572,7 @@ it.effect("keeps malformed ticket documents in the typed error channel", () => {
   )
 
   return Effect.gen(function* () {
-    const comments = yield* Comments
+    const comments = yield* Comments.Comments
     const error = yield* Effect.flip(
       comments.create(ticketId("T-1"), {
         body: "A useful comment"
@@ -645,7 +646,7 @@ describe.skipIf(!databaseUrl)("comment persistence failure", () => {
             DbLive.pipe(Layer.provideMerge(PgLive), Layer.orDie)
           )
           const result = yield* Effect.gen(function* () {
-            const comments = yield* Comments
+            const comments = yield* Comments.Comments
             return yield* Effect.flip(
               (operation === "edit"
                 ? comments
@@ -684,7 +685,7 @@ describe("comment moderation", () => {
     authorId: string,
     caller: ReturnType<typeof scopeFor>
   ) =>
-    Effect.flatMap(Comments, (comments) =>
+    Effect.flatMap(Comments.Comments, (comments) =>
       operation === "edit"
         ? comments
             .edit(ticketId("T-1"), commentId, { body: "Changed" })
@@ -721,4 +722,37 @@ describe("comment moderation", () => {
       }
     })
   )
+
+  it.effect("traces each call under one Comments span", () => {
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return Effect.gen(function* () {
+      const comments = yield* Comments.Comments
+      yield* comments.list(ticketId("T-1"))
+      yield* comments.create(ticketId("T-1"), { body: "New" })
+      yield* comments.importHistorical(ticketId("T-1"), [])
+      yield* comments.edit(ticketId("T-1"), commentId, { body: "Changed" })
+      yield* comments.remove(ticketId("T-1"), commentId)
+      expect(
+        spans
+          .filter((span) => Option.isNone(span.parent))
+          .map((span) => span.name)
+      ).toEqual([
+        "Comments.list",
+        "Comments.create",
+        "Comments.importHistorical",
+        "Comments.edit",
+        "Comments.remove"
+      ])
+    }).pipe(
+      Effect.withTracer(tracer),
+      Effect.provide(makeLayer(makeTicketDocs(), authoredBy("user-1")))
+    )
+  })
 })
