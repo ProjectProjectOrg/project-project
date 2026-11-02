@@ -75,11 +75,6 @@ export class BetterAuth extends Context.Service<
       identity: UserIdentity,
       activeOrganizationId: string | null | undefined
     ) => Effect.Effect<User, BetterAuthError>
-    // Org membership list for a user. Returns the org slug + the user's role
-    // in that org. Used by the MCP `me` tool to populate `roles`. We hit the
-    // `member` + `organization` tables directly rather than going through
-    // `auth.api.listOrganizations` because that API is headers-based — here we
-    // already have the resolved userId from `CurrentUser`.
     listOrganizations: (
       userId: string
     ) => Effect.Effect<
