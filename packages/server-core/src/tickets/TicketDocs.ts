@@ -366,13 +366,6 @@ function toDocument(
   }
 }
 
-const ticketDocAnnotations = (
-  operation: string,
-  orgSlug: string,
-  slug: string,
-  attributes: Record<string, unknown>
-) => ({ module: "TicketDocs", operation, orgSlug, slug, ...attributes })
-
 const annotateTicketDoc = <A, E, R>(
   operation: string,
   orgSlug: string,
@@ -380,23 +373,15 @@ const annotateTicketDoc = <A, E, R>(
   attributes: Record<string, unknown>,
   effect: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, R> => {
-  const annotations = ticketDocAnnotations(operation, orgSlug, slug, attributes)
+  const annotations = {
+    module: "TicketDocs",
+    operation,
+    orgSlug,
+    slug,
+    ...attributes
+  }
   return Effect.annotateCurrentSpan(annotations).pipe(
     Effect.andThen(effect),
-    Effect.annotateLogs(annotations)
-  )
-}
-
-const withTicketDocSpan = <A, E, R>(
-  operation: string,
-  orgSlug: string,
-  slug: string,
-  attributes: Record<string, unknown>,
-  effect: Effect.Effect<A, E, R>
-): Effect.Effect<A, E, R> => {
-  const annotations = ticketDocAnnotations(operation, orgSlug, slug, attributes)
-  return effect.pipe(
-    Effect.withSpan(`TicketDocs.${operation}`, { attributes: annotations }),
     Effect.annotateLogs(annotations)
   )
 }
@@ -539,7 +524,7 @@ const make = Effect.gen(function* () {
     )
   })
 
-  const update = <E, R>(
+  const update = Effect.fn("TicketDocs.update")(function* <E, R>(
     orgSlug: string,
     slug: string,
     id: string,
@@ -548,12 +533,8 @@ const make = Effect.gen(function* () {
     ) => Effect.Effect<TicketDocument, E, R>,
     onPersist?: (document: TicketDocument) => Effect.Effect<void, E, R>,
     activity: TicketActivityOptions = {}
-  ): Effect.Effect<
-    TicketDocument,
-    NotFound | MarkdownError | MalformedTicketDocument | E,
-    R | ActivityActor
-  > =>
-    withTicketDocSpan(
+  ) {
+    return yield* annotateTicketDoc(
       "update",
       orgSlug,
       slug,
@@ -613,6 +594,7 @@ const make = Effect.gen(function* () {
         })
       )
     )
+  })
 
   const remove = Effect.fn("TicketDocs.remove")(function* (
     orgSlug: string,
