@@ -35,7 +35,7 @@ import type * as Markdown from "../markdown/Markdown"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import * as Users from "../users/Users"
 import * as ProjectDetails from "./ProjectDetails"
-import { withProjectTelemetry } from "./projectTelemetry"
+import { annotateProjectTelemetry } from "./projectTelemetry"
 import { syncProjectInvite } from "./syncProjectInvite"
 
 const makeRole = Schema.decodeUnknownSync(Role)
@@ -291,7 +291,7 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* ProjectScope
     const { orgSlug, slug, userId } = scope
-    return yield* withProjectTelemetry(
+    return yield* annotateProjectTelemetry(
       "addMember",
       orgSlug,
       { slug, userId, targetEmail: input.email, targetRole: input.role },
@@ -377,7 +377,7 @@ const make = Effect.gen(function* () {
     function* (invitationId: string) {
       const scope = yield* ProjectScope
       const { orgSlug, slug, userId } = scope
-      return yield* withProjectTelemetry(
+      return yield* annotateProjectTelemetry(
         "cancelPendingMember",
         orgSlug,
         { slug, userId, invitationId },
@@ -456,7 +456,7 @@ const make = Effect.gen(function* () {
     nextRole: AssignableRole
   ) {
     const { orgSlug, slug, userId } = yield* ProjectScope
-    return yield* withProjectTelemetry(
+    return yield* annotateProjectTelemetry(
       "updateMember",
       orgSlug,
       { slug, userId, targetUserId, nextRole },
@@ -527,7 +527,7 @@ const make = Effect.gen(function* () {
     targetUserId: string
   ) {
     const { orgSlug, slug, userId } = yield* ProjectScope
-    return yield* withProjectTelemetry(
+    return yield* annotateProjectTelemetry(
       "removeMember",
       orgSlug,
       { slug, userId, targetUserId },
@@ -546,7 +546,7 @@ const make = Effect.gen(function* () {
 
   const leave = Effect.fn("ProjectMembers.leave")(function* () {
     const { orgSlug, slug, userId } = yield* ProjectScope
-    return yield* withProjectTelemetry(
+    return yield* annotateProjectTelemetry(
       "leave",
       orgSlug,
       { slug, userId },
