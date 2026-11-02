@@ -38,7 +38,7 @@ import {
   as
 } from "./testing"
 import * as TicketCommands from "./TicketCommands"
-import { type TicketDocument } from "./TicketDocs"
+import type * as TicketDocs from "./TicketDocs"
 import * as TicketQueries from "./TicketQueries"
 
 it.effect("get uses persisted prState for the fallback git state", () => {
@@ -77,7 +77,7 @@ it.effect("get uses persisted prState for the fallback git state", () => {
 
 it.effect("epicSections groups tickets under their epic, then No epic", () => {
   const docs = makeFakeTicketDocs([])
-  const add = (id: string, overrides: Partial<TicketDocument>) =>
+  const add = (id: string, overrides: Partial<TicketDocs.TicketDocument>) =>
     docs.documents.set(id, makeTicketDocument(id, overrides))
   add("T-1", { type: "epic", title: "Estimation" })
   add("T-2", { title: "Estimate field", parent: ticketId("T-1") })

@@ -24,7 +24,7 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 import { Access } from "../access/Access"
 import { testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
-import { MalformedTicketDocument } from "../tickets/TicketDocs"
+import * as TicketDocs from "../tickets/TicketDocs"
 import type * as TicketIndex from "../tickets/TicketIndex"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import * as ProjectMembers from "./ProjectMembers"
@@ -167,12 +167,15 @@ describe.skipIf(!databaseUrl)("project members", () => {
       listIds: () => Effect.succeed([...ticketFiles]),
       update: (orgSlug, projectSlug, ticketId) =>
         Effect.suspend(
-          (): Effect.Effect<never, MalformedTicketDocument | NotFound> => {
+          (): Effect.Effect<
+            never,
+            TicketDocs.MalformedTicketDocument | NotFound
+          > => {
             unassignAttempts.push(ticketId)
             unassignedProjects.push(projectSlug)
             return ticketId === "MEM-901"
               ? Effect.fail(
-                  new MalformedTicketDocument({
+                  new TicketDocs.MalformedTicketDocument({
                     orgSlug,
                     slug: projectSlug,
                     ticketId,

@@ -44,8 +44,7 @@ import * as Projects from "../projects/Projects"
 import { Users, type UsersShape } from "../users/Users"
 import * as TicketBranchIndex from "./TicketBranchIndex"
 import * as TicketCommands from "./TicketCommands"
-import { TicketDocs } from "./TicketDocs"
-import { TicketDocsLive } from "./TicketDocsLive"
+import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import * as TicketIndex from "./TicketIndex"
 import * as TicketView from "./TicketView"
@@ -295,7 +294,7 @@ const TestLayer = Layer.unwrap(
       Layer.provide(TicketView.layer),
       Layer.provide(Layer.mock(ProjectDocs, {})),
       Layer.provide(PassthroughLibrary),
-      Layer.provideMerge(TicketDocsLive),
+      Layer.provideMerge(TicketDocs.layer),
       Layer.provideMerge(recordingActivityLayer(recordedActivity)),
       Layer.provide(FakeAttachments),
       Layer.provide(FakeFigmaLinks),
@@ -382,7 +381,7 @@ it.effect("split retains the original and creates the remaining tickets", () =>
   Effect.gen(function* () {
     yield* resetFakes
     const tickets = yield* TicketCommands.TicketCommands
-    const docs = yield* TicketDocs
+    const docs = yield* TicketDocs.TicketDocs
     const original = yield* seedOriginal
 
     const outcome = yield* tickets.split(original.id, {
@@ -441,7 +440,7 @@ it.effect("split keeps the new tickets in the original's epic", () =>
   Effect.gen(function* () {
     yield* resetFakes
     const tickets = yield* TicketCommands.TicketCommands
-    const docs = yield* TicketDocs
+    const docs = yield* TicketDocs.TicketDocs
     const original = yield* seedOriginal
     const epicId = decodeTicketId("T-99")
     const stored = yield* docs.read("org", "p", original.id)
@@ -513,7 +512,7 @@ it.effect("split restores the original when a later write fails", () =>
   Effect.gen(function* () {
     yield* resetFakes
     const tickets = yield* TicketCommands.TicketCommands
-    const docs = yield* TicketDocs
+    const docs = yield* TicketDocs.TicketDocs
     const original = yield* seedOriginal
 
     failUpsertAfter = upserts + 2
@@ -569,7 +568,7 @@ it.effect(
     Effect.gen(function* () {
       yield* resetFakes
       const tickets = yield* TicketCommands.TicketCommands
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
       const root = yield* Config.String("PROJECTS_DIR")
@@ -705,7 +704,7 @@ it.effect(
     Effect.gen(function* () {
       yield* resetFakes
       const tickets = yield* TicketCommands.TicketCommands
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       const { ticket: original } = yield* seedClientTicket
       yield* docs.update("org", "p", original.id, (existing) =>
         Effect.succeed({

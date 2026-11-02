@@ -52,8 +52,7 @@ import { Users, type UsersShape } from "../users/Users"
 import * as TicketServices from "./layer"
 import * as TicketBranchIndex from "./TicketBranchIndex"
 import * as TicketCommands from "./TicketCommands"
-import { TicketDocs } from "./TicketDocs"
-import { TicketDocsLive } from "./TicketDocsLive"
+import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import * as TicketIndex from "./TicketIndex"
 import * as TicketQueries from "./TicketQueries"
@@ -254,7 +253,7 @@ const TestLayer = Layer.unwrap(
               })
           })
         ),
-        Layer.provideMerge(TicketDocsLive),
+        Layer.provideMerge(TicketDocs.layer),
         Layer.provideMerge(recordingTicketActivity(recordedActivity)),
         Layer.provideMerge(
           Layer.succeed(ActivityActor, ActivityActor.user("user-1"))
@@ -387,7 +386,7 @@ it.effect("archiving records the trimmed reason on the activity entry", () =>
       { kind: "archived", reason: "no longer relevant" }
     ])
 
-    const docs = yield* TicketDocs
+    const docs = yield* TicketDocs.TicketDocs
     const stored = yield* docs.read("org", "p", created.id)
     expect(stored.commentsRegion).not.toContain("no longer relevant")
 
@@ -675,7 +674,11 @@ it.effect("get resolves synced blocks without rewriting the file", () =>
     expect(fetched.body).not.toContain("Tests cover the change")
     expect(fetched.body).not.toContain("{{")
 
-    const stored = yield* (yield* TicketDocs).read("org", "p", created.id)
+    const stored = yield* (yield* TicketDocs.TicketDocs).read(
+      "org",
+      "p",
+      created.id
+    )
     expect(stored.body).toContain("Tests cover the change")
   }).pipe(Effect.provide(TestLayer))
 )
@@ -691,7 +694,11 @@ it.effect("update refreshes the stored synced snapshot", () =>
       body: `Intro\n\n${SYNCED_DONE}`
     })
 
-    const stored = yield* (yield* TicketDocs).read("org", "p", created.id)
+    const stored = yield* (yield* TicketDocs.TicketDocs).read(
+      "org",
+      "p",
+      created.id
+    )
     expect(stored.body).toContain("Intro")
     expect(stored.body).toContain('<block type="definition-of-done" sync>')
     expect(stored.body).toContain("- [x] Reviewed and merged")
@@ -725,7 +732,11 @@ it.effect("a body without synced blocks is stored and read byte for byte", () =>
       body
     })
 
-    const stored = yield* (yield* TicketDocs).read("org", "p", created.id)
+    const stored = yield* (yield* TicketDocs.TicketDocs).read(
+      "org",
+      "p",
+      created.id
+    )
     const fetched = yield* queries.get(created.id)
     expect(updated.ticket.body).toBe(body)
     expect(fetched.body).toBe(stored.body)

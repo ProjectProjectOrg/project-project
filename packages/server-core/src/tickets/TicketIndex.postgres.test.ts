@@ -35,11 +35,7 @@ import * as Projects from "../projects/Projects"
 import { Users } from "../users/Users"
 import * as TicketIndexServices from "./indexLayer"
 import * as TicketBranchIndex from "./TicketBranchIndex"
-import {
-  TicketDocs,
-  type TicketDocsShape,
-  type TicketDocument
-} from "./TicketDocs"
+import * as TicketDocs from "./TicketDocs"
 import * as TicketIndex from "./TicketIndex"
 import * as TicketIndexMaintenance from "./TicketIndexMaintenance"
 
@@ -66,7 +62,7 @@ const tagName = Schema.decodeUnknownSync(TagName)
 const unexpected = (method: string): Effect.Effect<never> =>
   Effect.die(new Error(`unexpected ${method} call`))
 
-const FakeTicketDocs = Layer.succeed(TicketDocs, {
+const FakeTicketDocs = Layer.succeed(TicketDocs.TicketDocs, {
   listIds: () => unexpected("TicketDocs.listIds"),
   read: () => unexpected("TicketDocs.read"),
   create: () => unexpected("TicketDocs.create"),
@@ -74,7 +70,7 @@ const FakeTicketDocs = Layer.succeed(TicketDocs, {
   update: () => unexpected("TicketDocs.update"),
   remove: () => unexpected("TicketDocs.remove"),
   readRaw: () => unexpected("TicketDocs.readRaw")
-} satisfies TicketDocsShape)
+} satisfies TicketDocs.TicketDocs["Service"])
 
 const DatabaseLive = DbLive.pipe(Layer.provideMerge(PgLive))
 const TestLayer = Layer.mergeAll(
@@ -82,7 +78,7 @@ const TestLayer = Layer.mergeAll(
   TicketBranchIndex.layer
 ).pipe(Layer.provide(DatabaseLive))
 
-const rebuiltDocument: TicketDocument = {
+const rebuiltDocument: TicketDocs.TicketDocument = {
   id: ticketId("T-41"),
   title: "Restored ticket",
   status: ticketStatus("todo"),
@@ -105,8 +101,8 @@ const rebuiltDocument: TicketDocument = {
 
 const indexedDocument = (
   id: string,
-  overrides: Partial<TicketDocument> = {}
-): TicketDocument => ({
+  overrides: Partial<TicketDocs.TicketDocument> = {}
+): TicketDocs.TicketDocument => ({
   ...rebuiltDocument,
   id: ticketId(id),
   title: id,
@@ -115,7 +111,7 @@ const indexedDocument = (
   ...overrides
 })
 
-const RebuildTicketDocs = Layer.succeed(TicketDocs, {
+const RebuildTicketDocs = Layer.succeed(TicketDocs.TicketDocs, {
   listIds: () => Effect.succeed([rebuiltDocument.id]),
   read: () => Effect.succeed(rebuiltDocument),
   create: () => unexpected("TicketDocs.create"),
@@ -123,14 +119,14 @@ const RebuildTicketDocs = Layer.succeed(TicketDocs, {
   update: () => unexpected("TicketDocs.update"),
   remove: () => unexpected("TicketDocs.remove"),
   readRaw: () => unexpected("TicketDocs.readRaw")
-} satisfies TicketDocsShape)
+} satisfies TicketDocs.TicketDocs["Service"])
 
 const RebuildTestLayer = TicketIndexServices.layer.pipe(
   Layer.provide(RebuildTicketDocs),
   Layer.provide(DatabaseLive)
 )
 
-const stackedDocument: TicketDocument = {
+const stackedDocument: TicketDocs.TicketDocument = {
   ...rebuiltDocument,
   id: ticketId("T-7"),
   branch: "api",
@@ -139,7 +135,7 @@ const stackedDocument: TicketDocument = {
 
 const StackRebuildTestLayer = TicketIndexServices.layer.pipe(
   Layer.provide(
-    Layer.succeed(TicketDocs, {
+    Layer.succeed(TicketDocs.TicketDocs, {
       listIds: () => Effect.succeed([stackedDocument.id]),
       read: () => Effect.succeed(stackedDocument),
       create: () => unexpected("TicketDocs.create"),
@@ -147,7 +143,7 @@ const StackRebuildTestLayer = TicketIndexServices.layer.pipe(
       update: () => unexpected("TicketDocs.update"),
       remove: () => unexpected("TicketDocs.remove"),
       readRaw: () => unexpected("TicketDocs.readRaw")
-    } satisfies TicketDocsShape)
+    } satisfies TicketDocs.TicketDocs["Service"])
   ),
   Layer.provide(DatabaseLive)
 )
@@ -259,7 +255,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
   it.effect("rebuilds an index row that is ahead of its ticket file", () =>
     Effect.gen(function* () {
       const organizationId = yield* seedRebuildProject
-      const docs = Layer.succeed(TicketDocs, {
+      const docs = Layer.succeed(TicketDocs.TicketDocs, {
         listIds: () => Effect.succeed([rebuiltDocument.id]),
         read: () => Effect.succeed(rebuiltDocument),
         create: () => unexpected("create"),
@@ -267,7 +263,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         update: () => unexpected("update"),
         remove: () => unexpected("remove"),
         readRaw: () => unexpected("readRaw")
-      } satisfies TicketDocsShape)
+      } satisfies TicketDocs.TicketDocs["Service"])
       yield* Effect.gen(function* () {
         const index = yield* TicketIndex.TicketIndex
         const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
@@ -298,14 +294,14 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
   it.effect("clears cached git state when a rebuild changes the branch", () =>
     Effect.gen(function* () {
       const organizationId = yield* seedRebuildProject
-      const onDisk: TicketDocument = {
+      const onDisk: TicketDocs.TicketDocument = {
         ...rebuiltDocument,
         branch: "feat/new",
         updatedAt: DateTime.toDate(
           DateTime.makeUnsafe("2026-02-01T00:00:00.000Z")
         )
       }
-      const docs = Layer.succeed(TicketDocs, {
+      const docs = Layer.succeed(TicketDocs.TicketDocs, {
         listIds: () => Effect.succeed([onDisk.id]),
         read: () => Effect.succeed(onDisk),
         create: () => unexpected("create"),
@@ -313,7 +309,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         update: () => unexpected("update"),
         remove: () => unexpected("remove"),
         readRaw: () => unexpected("readRaw")
-      } satisfies TicketDocsShape)
+      } satisfies TicketDocs.TicketDocs["Service"])
       yield* Effect.gen(function* () {
         const index = yield* TicketIndex.TicketIndex
         const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
@@ -361,7 +357,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       const organizationId = yield* seedRebuildProject
       const collected = yield* Deferred.make<void>()
       const resume = yield* Deferred.make<void>()
-      const docs = Layer.succeed(TicketDocs, {
+      const docs = Layer.succeed(TicketDocs.TicketDocs, {
         listIds: () => Effect.succeed([rebuiltDocument.id]),
         read: () =>
           Effect.gen(function* () {
@@ -374,7 +370,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         update: () => unexpected("update"),
         remove: () => unexpected("remove"),
         readRaw: () => unexpected("readRaw")
-      } satisfies TicketDocsShape)
+      } satisfies TicketDocs.TicketDocs["Service"])
       yield* Effect.gen(function* () {
         const index = yield* TicketIndex.TicketIndex
         const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
@@ -712,7 +708,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       DateTime.makeUnsafe("2021-04-05T05:06:07.890Z")
     )
     const largeBody = `Historical Jira body\n\n${"x".repeat(20_001)}`
-    const rebuildDocument: TicketDocument = {
+    const rebuildDocument: TicketDocs.TicketDocument = {
       ...rebuiltDocument,
       id: ticketId("T-42"),
       createdBy: userId,
@@ -747,7 +743,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         }
       ])
     }
-    const ticketDocs = Layer.succeed(TicketDocs, {
+    const ticketDocs = Layer.succeed(TicketDocs.TicketDocs, {
       listIds: () => Effect.succeed([rebuildDocument.id]),
       read: () => Effect.succeed(rebuildDocument),
       create: () => unexpected("TicketDocs.create"),
@@ -755,7 +751,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       update: () => unexpected("TicketDocs.update"),
       remove: () => unexpected("TicketDocs.remove"),
       readRaw: () => unexpected("TicketDocs.readRaw")
-    } satisfies TicketDocsShape)
+    } satisfies TicketDocs.TicketDocs["Service"])
     const indexLayer = TicketIndexServices.layer.pipe(
       Layer.provide(ticketDocs),
       Layer.provide(DatabaseLive)
@@ -953,7 +949,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       const createdAt = DateTime.toDate(
         DateTime.makeUnsafe("2021-04-01T01:02:03.456Z")
       )
-      const document: TicketDocument = {
+      const document: TicketDocs.TicketDocument = {
         ...rebuiltDocument,
         id: ticketId("T-43"),
         createdBy: userId,
@@ -978,7 +974,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       }
       const indexLayer = TicketIndexServices.layer.pipe(
         Layer.provide(
-          Layer.succeed(TicketDocs, {
+          Layer.succeed(TicketDocs.TicketDocs, {
             listIds: () => Effect.succeed([document.id]),
             read: () => Effect.succeed(document),
             create: () => unexpected("TicketDocs.create"),
@@ -986,7 +982,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
             update: () => unexpected("TicketDocs.update"),
             remove: () => unexpected("TicketDocs.remove"),
             readRaw: () => unexpected("TicketDocs.readRaw")
-          } satisfies TicketDocsShape)
+          } satisfies TicketDocs.TicketDocs["Service"])
         ),
         Layer.provide(DatabaseLive)
       )

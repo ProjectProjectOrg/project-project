@@ -28,12 +28,7 @@ import { MarkdownError } from "../markdown/Markdown"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
 import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
-import {
-  MalformedTicketDocument,
-  TicketDocs,
-  type TicketDocsShape,
-  type TicketDocument
-} from "../tickets/TicketDocs"
+import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketIndex from "../tickets/TicketIndex"
 import { Users, type UsersShape } from "../users/Users"
 import { Comments } from "./Comments"
@@ -65,7 +60,7 @@ const at = (value: string) => DateTime.toDate(DateTime.makeUnsafe(value))
 const unexpected = (method: string): Effect.Effect<never> =>
   Effect.die(new Error(`unexpected ${method} call`))
 
-const document: TicketDocument = {
+const document: TicketDocs.TicketDocument = {
   id: ticketId("T-1"),
   title: "Comments",
   status: ticketStatus("todo"),
@@ -199,11 +194,14 @@ const scopeFor = (
     projectId
   })
 
-const makeLayer = (ticketDocs: TicketDocsShape, database = FakeDb) =>
+const makeLayer = (
+  ticketDocs: TicketDocs.TicketDocs["Service"],
+  database = FakeDb
+) =>
   CommentsLive.pipe(
     Layer.provide(
       Layer.mergeAll(
-        Layer.succeed(TicketDocs, ticketDocs),
+        Layer.succeed(TicketDocs.TicketDocs, ticketDocs),
         FakeProjects,
         FakeTicketIndex,
         FakeTicketBranchIndex,
@@ -217,9 +215,9 @@ const makeLayer = (ticketDocs: TicketDocsShape, database = FakeDb) =>
   )
 
 const makeTicketDocs = (
-  overrides: Partial<TicketDocsShape> = {}
-): TicketDocsShape => {
-  const service: TicketDocsShape = {
+  overrides: Partial<TicketDocs.TicketDocs["Service"]> = {}
+): TicketDocs.TicketDocs["Service"] => {
+  const service: TicketDocs.TicketDocs["Service"] = {
     listIds: () => unexpected("TicketDocs.listIds"),
     read: () => Effect.succeed(document),
     create: () => unexpected("TicketDocs.create"),
@@ -237,7 +235,7 @@ const makeTicketDocs = (
 }
 
 it.effect("creates comments through TicketDocs", () => {
-  let written: TicketDocument | undefined
+  let written: TicketDocs.TicketDocument | undefined
   const layer = makeLayer(
     makeTicketDocs({
       update: (_orgSlug, _slug, _ticketId, transform) =>
@@ -560,7 +558,7 @@ it.effect(
 )
 
 it.effect("keeps malformed ticket documents in the typed error channel", () => {
-  const malformed = new MalformedTicketDocument({
+  const malformed = new TicketDocs.MalformedTicketDocument({
     orgSlug: "org",
     slug: "project",
     ticketId: "T-1",

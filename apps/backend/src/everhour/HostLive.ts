@@ -5,7 +5,7 @@ import { EverhourHost } from "@pp/integration-everhour/Host"
 import { Access } from "@pp/server-core/access/Access"
 import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
 import { SecretCrypto } from "@pp/server-core/storage/SecretCrypto"
-import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import { EverhourConfigMissing, NotFound } from "@pp/shared"
 import { and, eq, isNull } from "drizzle-orm"
@@ -20,7 +20,7 @@ export const EverhourHostLive = Layer.effect(
     const access = yield* Access
     const ticketIndex = yield* TicketIndex.TicketIndex
     const groupDocs = yield* GroupDocs
-    const ticketDocs = yield* TicketDocs
+    const ticketDocs = yield* TicketDocs.TicketDocs
     const secrets = yield* SecretCrypto
     const sprints: EverhourHost["Service"]["sprints"] = Effect.fn(
       "EverhourHost.sprints"

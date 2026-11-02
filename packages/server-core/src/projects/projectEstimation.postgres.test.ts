@@ -30,7 +30,7 @@ import { Library } from "../library/Library"
 import * as TicketServices from "../tickets/layer"
 import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
 import * as TicketCommands from "../tickets/TicketCommands"
-import { TicketDocs } from "../tickets/TicketDocs"
+import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as TicketQueries from "../tickets/TicketQueries"
 import { Users } from "../users/Users"
@@ -132,7 +132,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
         Layer.provide(accessLayer({})),
         Layer.provide(
           Layer.mergeAll(
-            Layer.mock(TicketDocs, {}),
+            Layer.mock(TicketDocs.TicketDocs, {}),
             Layer.mock(GitHub, {}),
             Layer.mock(Groups, {}),
             Layer.mock(Comments, {}),

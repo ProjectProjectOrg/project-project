@@ -18,10 +18,7 @@ import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import * as ProjectGithub from "@pp/server-core/projects/ProjectGithub"
 import type * as Projects from "@pp/server-core/projects/Projects"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
-import {
-  TicketDocs,
-  type TicketDocument
-} from "@pp/server-core/tickets/TicketDocs"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
 import { Users } from "@pp/server-core/users/Users"
@@ -67,7 +64,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
   const createdAt = DateTime.toDateUtc(
     DateTime.makeUnsafe("2026-09-08T00:00:00Z")
   )
-  const initialTicket: TicketDocument = {
+  const initialTicket: TicketDocs.TicketDocument = {
     id: ticketId,
     title: "Keep branch, clear old PR",
     status: decodeTicketStatusSync("todo"),
@@ -159,7 +156,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
         })
       )
     )
-    const docs = Layer.succeed(TicketDocs, {
+    const docs = Layer.succeed(TicketDocs.TicketDocs, {
       listIds: () => Effect.succeed([ticketId]),
       read: () => Effect.sync(() => ticket),
       write: (_org, _slug, _id, next) =>

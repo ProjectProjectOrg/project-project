@@ -46,11 +46,7 @@ import { Users, type UsersShape } from "../users/Users"
 import type { GitAutomationConfig } from "./gitAutomation"
 import * as TicketServices from "./layer"
 import * as TicketBranchIndex from "./TicketBranchIndex"
-import {
-  TicketDocs,
-  type TicketDocsShape,
-  type TicketDocument
-} from "./TicketDocs"
+import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import * as TicketIndex from "./TicketIndex"
 import type { TicketProject } from "./ticketProject"
@@ -99,8 +95,8 @@ export function unexpected(method: string): Effect.Effect<never> {
 
 export function makeTicketDocument(
   id: string,
-  overrides: Partial<TicketDocument> = {}
-): TicketDocument {
+  overrides: Partial<TicketDocs.TicketDocument> = {}
+): TicketDocs.TicketDocument {
   const now = isoDate("2026-04-01T00:00:00.000Z")
   return {
     id: ticketId(id),
@@ -126,11 +122,11 @@ export function makeTicketDocument(
 }
 
 export function makeFakeTicketDocs(initialIds: ReadonlyArray<string>) {
-  const documents = new Map<string, TicketDocument>(
+  const documents = new Map<string, TicketDocs.TicketDocument>(
     initialIds.map((id) => [id, makeTicketDocument(id)])
   )
 
-  const service: TicketDocsShape = {
+  const service: TicketDocs.TicketDocs["Service"] = {
     listIds: () =>
       Effect.succeed([...documents.keys()].map((id) => ticketId(id))),
     read: (_org: string, _slug: string, id: string) => {
@@ -140,7 +136,7 @@ export function makeFakeTicketDocs(initialIds: ReadonlyArray<string>) {
     create: (
       _org: string,
       _slug: string,
-      document: TicketDocument,
+      document: TicketDocs.TicketDocument,
       onPersist
     ) => {
       if (documents.has(document.id)) return Effect.fail(new TicketIdTaken())
@@ -151,7 +147,7 @@ export function makeFakeTicketDocs(initialIds: ReadonlyArray<string>) {
       _org: string,
       _slug: string,
       id: string,
-      document: TicketDocument
+      document: TicketDocs.TicketDocument
     ) => {
       documents.set(id, document)
       return Effect.void
@@ -181,7 +177,7 @@ export function makeFakeTicketDocs(initialIds: ReadonlyArray<string>) {
   return {
     documents,
     service,
-    layer: Layer.succeed(TicketDocs, service)
+    layer: Layer.succeed(TicketDocs.TicketDocs, service)
   }
 }
 
@@ -413,7 +409,7 @@ export const makeFakeGitHub = (overrides: Partial<GitHubShape> = {}) =>
     ...overrides
   } satisfies GitHubShape)
 
-export const entryFromDocument = (document: TicketDocument) => {
+export const entryFromDocument = (document: TicketDocs.TicketDocument) => {
   const { body: _body, commentsRegion: _commentsRegion, ...entry } = document
   return {
     ...entry,
@@ -434,7 +430,7 @@ export const entryFromDocument = (document: TicketDocument) => {
 export const priorityOrdinal = { high: 3, med: 2, low: 1 } as const
 
 export const ticketSortValue = (
-  document: TicketDocument,
+  document: TicketDocs.TicketDocument,
   query: TicketListQuery
 ): string => {
   switch (query.sort.key) {
@@ -453,7 +449,7 @@ export const ticketSortValue = (
 }
 
 export const matchingDocuments = (
-  documents: Map<string, TicketDocument>,
+  documents: Map<string, TicketDocs.TicketDocument>,
   query: TicketFilter & Pick<TicketListQuery, "q">,
   viewerId: string,
   ticketIds?: ReadonlyArray<string>,
@@ -542,7 +538,7 @@ export type FakeTicketIndexShape = TicketIndex.TicketIndex["Service"] &
   TicketBranchIndex.TicketBranchIndex["Service"]
 
 export const makeFakeTicketIndex = (
-  documents: Map<string, TicketDocument>,
+  documents: Map<string, TicketDocs.TicketDocument>,
   overrides: Partial<FakeTicketIndexShape> = {}
 ) => {
   let nextTicketNumber =
@@ -722,7 +718,7 @@ export const makeFakeTicketIndex = (
 }
 
 export const makeRecordingTicketIndex = (
-  documents: Map<string, TicketDocument>
+  documents: Map<string, TicketDocs.TicketDocument>
 ) => {
   const calls: Array<
     | {
@@ -774,7 +770,7 @@ export type TicketsLayerOptions = Readonly<{
 
 export function makeTicketsLayer(
   key: string,
-  ticketDocsLayer: Layer.Layer<TicketDocs>,
+  ticketDocsLayer: Layer.Layer<TicketDocs.TicketDocs>,
   options: TicketsLayerOptions = {}
 ) {
   return Layer.merge(TicketServices.layer, TicketRewrites.layer).pipe(

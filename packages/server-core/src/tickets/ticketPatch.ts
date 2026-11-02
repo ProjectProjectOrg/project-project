@@ -2,7 +2,7 @@ import type { TicketPolicy } from "@pp/access/policies"
 import type { UpdateTicketInput } from "@pp/shared"
 import * as Equal from "effect/Equal"
 
-import type { TicketDocument } from "./TicketDocs"
+import type * as TicketDocs from "./TicketDocs"
 import type { HierarchyChange } from "./ticketHierarchy"
 
 export type TicketPatch = UpdateTicketInput
@@ -15,11 +15,11 @@ const listChanged = (
   next.some((value, index) => value !== current[index])
 
 export const applyTicketPatch = (
-  existing: TicketDocument,
+  existing: TicketDocs.TicketDocument,
   patch: TicketPatch,
   actor: string,
   now: Date
-): TicketDocument => ({
+): TicketDocs.TicketDocument => ({
   ...existing,
   title: patch.title ?? existing.title,
   status: patch.status ?? existing.status,
@@ -40,8 +40,8 @@ export const applyTicketPatch = (
 })
 
 export const fieldChangesOf = (
-  existing: TicketDocument,
-  next: TicketDocument
+  existing: TicketDocs.TicketDocument,
+  next: TicketDocs.TicketDocument
 ): TicketPolicy.Change => ({
   content:
     next.title !== existing.title ||
@@ -59,8 +59,8 @@ export const isUnchanged = (change: TicketPolicy.Change) =>
   !change.content && !change.status && !change.assignees
 
 export const ticketChangeOf = (
-  existing: TicketDocument,
-  next: TicketDocument
+  existing: TicketDocs.TicketDocument,
+  next: TicketDocs.TicketDocument
 ): TicketPolicy.Change => {
   const change = fieldChangesOf(existing, next)
   return isUnchanged(change) ? { ...change, content: true } : change
@@ -99,8 +99,8 @@ export const openSprintIdsOf = (
   )
 
 export const breaksEpicSprintRule = (
-  existing: TicketDocument,
-  next: TicketDocument,
+  existing: TicketDocs.TicketDocument,
+  next: TicketDocs.TicketDocument,
   sprintsBefore: ReadonlyArray<string>,
   sprintsAfter: ReadonlyArray<string>
 ) =>
@@ -125,8 +125,8 @@ type PatchableKey = (typeof patchableKeys)[number]
 
 const sameField = (
   key: PatchableKey,
-  left: TicketDocument,
-  right: TicketDocument
+  left: TicketDocs.TicketDocument,
+  right: TicketDocs.TicketDocument
 ) => {
   const a = left[key]
   const b = right[key]
@@ -136,10 +136,10 @@ const sameField = (
 }
 
 export const revertTicketPatch = (
-  original: TicketDocument,
-  written: TicketDocument,
-  current: TicketDocument
-): TicketDocument | null => {
+  original: TicketDocs.TicketDocument,
+  written: TicketDocs.TicketDocument,
+  current: TicketDocs.TicketDocument
+): TicketDocs.TicketDocument | null => {
   const hierarchyKeys: ReadonlyArray<PatchableKey> = ["type", "parent"]
   const hierarchyReverts = hierarchyKeys.every((key) =>
     sameField(key, current, written)
@@ -155,7 +155,7 @@ export const revertTicketPatch = (
   if (reverted.size === 0) return null
   const pick = <K extends PatchableKey>(key: K) =>
     reverted.has(key) ? original[key] : current[key]
-  const restored: TicketDocument = {
+  const restored: TicketDocs.TicketDocument = {
     ...current,
     title: pick("title"),
     status: pick("status"),
@@ -178,8 +178,8 @@ export const revertTicketPatch = (
 }
 
 export const hierarchyChangeOf = (
-  existing: TicketDocument,
-  next: TicketDocument
+  existing: TicketDocs.TicketDocument,
+  next: TicketDocs.TicketDocument
 ): HierarchyChange => ({
   id: existing.id,
   fromType: existing.type,

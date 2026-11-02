@@ -9,7 +9,7 @@ import type { Access } from "../access/Access"
 import { AccessLive } from "../access/AccessLive"
 import { GitHub } from "../github/GitHub"
 import * as TicketIndexServices from "../tickets/indexLayer"
-import { TicketDocs, type TicketDocsShape } from "../tickets/TicketDocs"
+import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as TicketIndex from "../tickets/TicketIndex"
 import * as TicketRewrites from "../tickets/TicketRewrites"
@@ -27,7 +27,7 @@ const unused = () => Effect.die(new Error("Unexpected dependency call"))
 export const projectsOnPostgres = (
   databaseUrl: string,
   userIds: ReadonlyArray<string>,
-  ticketDocs: Partial<TicketDocsShape> = {},
+  ticketDocs: Partial<TicketDocs.TicketDocs["Service"]> = {},
   projectDocs?: Layer.Layer<ProjectDocs>,
   github: Partial<GitHub["Service"]> = {}
 ): Layer.Layer<
@@ -43,7 +43,7 @@ export const projectsOnPostgres = (
       PgClient.layer({ url: Redacted.make(databaseUrl), maxConnections: 1 })
     )
   )
-  const docs = Layer.succeed(TicketDocs, {
+  const docs = Layer.succeed(TicketDocs.TicketDocs, {
     listIds: () => Effect.succeed([]),
     read: unused,
     write: unused,

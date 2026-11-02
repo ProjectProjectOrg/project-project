@@ -5,7 +5,7 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { describe, expect } from "vitest"
 
-import type { TicketDocument } from "./TicketDocs"
+import type * as TicketDocs from "./TicketDocs"
 import {
   commentIndexRowsFor,
   detectTicketIndexDrift,
@@ -31,8 +31,8 @@ const project: TicketProject = {
 const doc = (
   id: string,
   updatedAt: string,
-  overrides: Partial<TicketDocument> = {}
-): TicketDocument => ({
+  overrides: Partial<TicketDocs.TicketDocument> = {}
+): TicketDocs.TicketDocument => ({
   id: ticketId(id),
   title: `Ticket ${id}`,
   status: ticketStatus("todo"),
@@ -287,13 +287,13 @@ interface Harness {
   readonly deps: TicketIndexReconcilerDeps
   readonly writes: Array<{
     project: TicketProject
-    documents: ReadonlyArray<TicketDocument>
+    documents: ReadonlyArray<TicketDocs.TicketDocument>
   }>
 }
 
 const makeHarness = (config: {
   projects?: ReadonlyArray<TicketProject>
-  documents: ReadonlyArray<TicketDocument>
+  documents: ReadonlyArray<TicketDocs.TicketDocument>
   skipped?: number
   indexed: ReadonlyArray<{ ticketId: string; updatedAt: Date }>
 }): Harness => {

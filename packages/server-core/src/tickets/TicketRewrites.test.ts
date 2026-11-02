@@ -14,11 +14,7 @@ import {
   ticketStatus,
   userId
 } from "./testing"
-import {
-  MalformedTicketDocument,
-  TicketDocs,
-  type TicketActivityOptions
-} from "./TicketDocs"
+import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import * as TicketRewrites from "./TicketRewrites"
 
@@ -40,10 +36,13 @@ const fixture = (malformed: ReadonlyArray<string> = []) => {
   ]) {
     docs.documents.set(document.id, document)
   }
-  const activity: Array<{ id: string; options: TicketActivityOptions }> = []
+  const activity: Array<{
+    id: string
+    options: TicketDocs.TicketActivityOptions
+  }> = []
   const upserts: Array<string> = []
   const index = new Map(docs.documents)
-  const ticketDocs = Layer.succeed(TicketDocs, {
+  const ticketDocs = Layer.succeed(TicketDocs.TicketDocs, {
     ...docs.service,
     listIds: () =>
       docs.service
@@ -52,7 +51,7 @@ const fixture = (malformed: ReadonlyArray<string> = []) => {
     update: (org, slug, id, transform, onPersist, options = {}) =>
       malformed.includes(id)
         ? Effect.fail(
-            new MalformedTicketDocument({
+            new TicketDocs.MalformedTicketDocument({
               orgSlug: org,
               slug,
               ticketId: id,

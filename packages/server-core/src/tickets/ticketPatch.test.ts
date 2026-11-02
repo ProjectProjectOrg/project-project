@@ -3,7 +3,7 @@ import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import type { TicketDocument } from "./TicketDocs"
+import type * as TicketDocs from "./TicketDocs"
 import {
   applyTicketPatch,
   hierarchyChangeOf,
@@ -22,7 +22,7 @@ const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
 const created = isoDate("2026-04-01T00:00:00.000Z")
 const now = isoDate("2026-04-02T00:00:00.000Z")
 
-const existing: TicketDocument = {
+const existing: TicketDocs.TicketDocument = {
   id: ticketId("T-2"),
   title: "Checkout",
   status: ticketStatus("todo"),
@@ -200,8 +200,8 @@ describe("breaksEpicSprintRule", () => {
   const cases: ReadonlyArray<
     readonly [
       string,
-      TicketDocument,
-      TicketDocument,
+      TicketDocs.TicketDocument,
+      TicketDocs.TicketDocument,
       ReadonlyArray<string>,
       ReadonlyArray<string>,
       boolean

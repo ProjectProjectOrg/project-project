@@ -23,11 +23,7 @@ import * as KeyedLock from "../locks/KeyedLock"
 import { GroupIdTaken, MarkdownError } from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
-import {
-  TicketDocs,
-  type TicketDocsShape,
-  type TicketDocument
-} from "../tickets/TicketDocs"
+import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as TicketIndex from "../tickets/TicketIndex"
 import { GroupDocs, type GroupDocsShape, type GroupDocument } from "./GroupDocs"
@@ -52,7 +48,7 @@ const defaultTicketStatus = ticketStatus("todo")
 function makeTicketDocument(
   id: string,
   status: TicketStatus = defaultTicketStatus
-): TicketDocument {
+): TicketDocs.TicketDocument {
   const now = isoDate("2026-04-01T00:00:00.000Z")
   return {
     id: ticketId(id),
@@ -76,7 +72,7 @@ function makeTicketDocument(
   }
 }
 
-function ticketIndexEntryFromDocument(ticket: TicketDocument) {
+function ticketIndexEntryFromDocument(ticket: TicketDocs.TicketDocument) {
   const { body: _body, commentsRegion: _commentsRegion, ...entry } = ticket
   return {
     ...entry,
@@ -110,7 +106,7 @@ function makeFakeDocs(initial?: {
     Object.entries(initial?.groups ?? {})
   )
   const ticketIds = [...(initial?.ticketIds ?? [])]
-  const ticketsById = new Map<string, TicketDocument>(
+  const ticketsById = new Map<string, TicketDocs.TicketDocument>(
     ticketIds.map((id) => [
       id,
       {
@@ -172,7 +168,7 @@ function makeFakeDocs(initial?: {
     readRaw: () => Effect.die(new Error("unexpected GroupDocs.readRaw call"))
   } satisfies GroupDocsShape
 
-  const ticketService: TicketDocsShape = {
+  const ticketService: TicketDocs.TicketDocs["Service"] = {
     listIds: () =>
       Effect.succeed([...ticketsById.keys()].map((id) => ticketId(id))),
     read: (_org: string, _slug: string, id: string) => {
@@ -184,7 +180,7 @@ function makeFakeDocs(initial?: {
       _org: string,
       _slug: string,
       id: string,
-      document: TicketDocument
+      document: TicketDocs.TicketDocument
     ) => {
       ticketsById.set(id, document)
       return Effect.void
@@ -271,7 +267,7 @@ function makeFakeDocs(initial?: {
   return {
     state: { groups, ticketIds, ticketsById, groupWrites },
     groupLayer: Layer.succeed(GroupDocs, groupService),
-    ticketLayer: Layer.succeed(TicketDocs, ticketService),
+    ticketLayer: Layer.succeed(TicketDocs.TicketDocs, ticketService),
     ticketIndexLayer: Layer.mergeAll(
       Layer.succeed(TicketIndex.TicketIndex, ticketIndexService),
       Layer.succeed(

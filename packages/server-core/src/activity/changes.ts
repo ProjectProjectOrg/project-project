@@ -9,13 +9,13 @@ import {
 } from "@pp/shared"
 import * as Schema from "effect/Schema"
 
-import type { TicketDocument } from "../tickets/TicketDocs"
+import type * as TicketDocs from "../tickets/TicketDocs"
 
 const makeUserId = Schema.decodeUnknownSync(UserId)
 const sameEstimate = Schema.toEquivalence(Schema.NullOr(Estimate))
 
 export type TicketChangeSource = Pick<
-  TicketDocument,
+  TicketDocs.TicketDocument,
   | "title"
   | "status"
   | "priority"

@@ -46,7 +46,7 @@ import { validateBodyMentions } from "../comments/BodyMentions"
 import { KeyedLock, LockKey } from "../locks/KeyedLock"
 import type { LibraryKind, MarkdownError } from "../markdown/Markdown"
 import { ProjectDocs } from "../projects/ProjectDocs"
-import { TicketDocs } from "../tickets/TicketDocs"
+import * as TicketDocs from "../tickets/TicketDocs"
 import { Library, type LibraryShape, type TemplateExpansion } from "./Library"
 import { LibraryDocs } from "./LibraryDocs"
 
@@ -185,7 +185,7 @@ export const LibraryLive = Layer.effect(
     const db = yield* Db
     const docs = yield* LibraryDocs
     const projectDocs = yield* ProjectDocs
-    const ticketDocs = yield* TicketDocs
+    const ticketDocs = yield* TicketDocs.TicketDocs
     const keyedLock = yield* KeyedLock
 
     const withLayerLock = <A, E, R>(

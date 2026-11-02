@@ -13,10 +13,13 @@ import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
 import {
+  asUser,
   passthroughTicketActivity,
   recordingTicketActivity,
   type RecordedActivity
@@ -26,8 +29,7 @@ import * as KeyedLock from "../locks/KeyedLock"
 import { Markdown } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
-import { TicketDocs, type TicketDocument } from "./TicketDocs"
-import { TicketDocsLive } from "./TicketDocsLive"
+import * as TicketDocs from "./TicketDocs"
 
 const testLayer = (
   activity: Layer.Layer<TicketActivity> = passthroughTicketActivity
@@ -38,7 +40,7 @@ const testLayer = (
       const tmpRoot = yield* fs.makeTempDirectoryScoped({
         prefix: "projectproject-ticket-docs-"
       })
-      return TicketDocsLive.pipe(
+      return TicketDocs.layer.pipe(
         Layer.provide(
           Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
         ),
@@ -64,7 +66,7 @@ const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 const ticketDocument = (
   id: string,
   branchAutoLinkDisabled?: boolean
-): TicketDocument => ({
+): TicketDocs.TicketDocument => ({
   id: ticketId(id),
   title: "Persist branch matching preference",
   status: ticketStatus("todo"),
@@ -86,10 +88,106 @@ const ticketDocument = (
   body: "# Branch matching\n"
 })
 
+describe("TicketDocs tracing", () => {
+  it.effect(
+    "traces each call under one TicketDocs span with its attributes",
+    () =>
+      Effect.gen(function* () {
+        const spans: Array<Tracer.NativeSpan> = []
+        const tracer = Tracer.make({
+          span: (options) => {
+            const span = new Tracer.NativeSpan(options)
+            spans.push(span)
+            return span
+          }
+        })
+
+        yield* Effect.gen(function* () {
+          const docs = yield* TicketDocs.TicketDocs
+          yield* docs.create("acme", "project", ticketDocument("T-90"))
+          yield* docs.read("acme", "project", "T-90")
+          yield* docs.write("acme", "project", "T-90", ticketDocument("T-90"))
+          yield* docs.update("acme", "project", "T-90", (ticket) =>
+            Effect.succeed({ ...ticket, title: "Renamed" })
+          )
+          yield* docs.readRaw("acme", "project", "T-90")
+          yield* docs.listIds("acme", "project")
+          yield* docs.remove("acme", "project", "T-90")
+        }).pipe(asUser("user-1"), Effect.withTracer(tracer))
+
+        const traced = spans
+          .filter((span) => span.name.startsWith("TicketDocs."))
+          .map((span) => ({
+            name: span.name,
+            parent: Option.match(span.parent, {
+              onNone: () => null,
+              onSome: (parent) => (parent._tag === "Span" ? parent.name : null)
+            }),
+            attributes: Object.fromEntries(span.attributes)
+          }))
+        const ticket = (operation: string) => ({
+          module: "TicketDocs",
+          operation,
+          orgSlug: "acme",
+          slug: "project",
+          ticketId: "T-90"
+        })
+        expect(traced).toEqual([
+          {
+            name: "TicketDocs.create",
+            parent: null,
+            attributes: ticket("create")
+          },
+          { name: "TicketDocs.read", parent: null, attributes: ticket("read") },
+          {
+            name: "TicketDocs.write",
+            parent: null,
+            attributes: ticket("write")
+          },
+          {
+            name: "TicketDocs.update",
+            parent: null,
+            attributes: ticket("update")
+          },
+          {
+            name: "TicketDocs.read",
+            parent: "TicketDocs.update",
+            attributes: ticket("read")
+          },
+          {
+            name: "TicketDocs.write",
+            parent: "TicketDocs.update",
+            attributes: ticket("write")
+          },
+          {
+            name: "TicketDocs.readRaw",
+            parent: null,
+            attributes: ticket("readRaw")
+          },
+          {
+            name: "TicketDocs.listIds",
+            parent: null,
+            attributes: {
+              module: "TicketDocs",
+              operation: "listIds",
+              orgSlug: "acme",
+              slug: "project"
+            }
+          },
+          {
+            name: "TicketDocs.remove",
+            parent: null,
+            attributes: ticket("remove")
+          }
+        ])
+      }).pipe(Effect.provide(TestLayer))
+  )
+})
+
 describe("TicketDocs branch matching persistence", () => {
   it.effect("round-trips branchAutoLinkDisabled=true through markdown", () =>
     Effect.gen(function* () {
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       yield* docs.create("acme", "project", ticketDocument("T-1", true))
 
       const document = yield* docs.read("acme", "project", "T-1")
@@ -102,7 +200,7 @@ describe("TicketDocs branch matching persistence", () => {
 
   it.effect("omits branchAutoLinkDisabled after writing false", () =>
     Effect.gen(function* () {
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       yield* docs.create("acme", "project", ticketDocument("T-2", true))
       yield* docs.write("acme", "project", "T-2", ticketDocument("T-2", false))
 
@@ -117,7 +215,7 @@ describe("TicketDocs branch matching persistence", () => {
   it.effect("decodes a ticket without branchAutoLinkDisabled", () =>
     Effect.gen(function* () {
       const markdown = yield* Markdown
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       yield* markdown.createTicketFile(
         "acme",
         "project",
@@ -150,7 +248,7 @@ describe("TicketDocs branch matching persistence", () => {
   it.effect("decodes the singular assignee field", () =>
     Effect.gen(function* () {
       const markdown = yield* Markdown
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       yield* markdown.createTicketFile(
         "acme",
         "project",
@@ -183,7 +281,7 @@ describe("TicketDocs branch matching persistence", () => {
   it.effect("decodes a null singular assignee field", () =>
     Effect.gen(function* () {
       const markdown = yield* Markdown
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       yield* markdown.createTicketFile(
         "acme",
         "project",
@@ -217,7 +315,7 @@ describe("TicketDocs branch matching persistence", () => {
 describe("TicketDocs branches persistence", () => {
   it.effect("writes the ticket's branch and its stack as one list", () =>
     Effect.gen(function* () {
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       const stack = [
         {
           branch: "feat/T-21-ui",
@@ -275,7 +373,7 @@ describe("TicketDocs branches persistence", () => {
 
   it.effect("writes no git keys for a ticket without a branch", () =>
     Effect.gen(function* () {
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       yield* docs.create("acme", "project", {
         ...ticketDocument("T-22"),
         branch: null,
@@ -293,7 +391,7 @@ describe("TicketDocs branches persistence", () => {
 
   it.effect("drops the stack when the ticket's own branch is cleared", () =>
     Effect.gen(function* () {
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       yield* docs.create("acme", "project", {
         ...ticketDocument("T-24"),
         branch: null,
@@ -312,7 +410,7 @@ describe("TicketDocs branches persistence", () => {
   it.effect("rejects a branches list that repeats a branch", () =>
     Effect.gen(function* () {
       const markdown = yield* Markdown
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       yield* markdown.createTicketFile(
         "acme",
         "project",
@@ -346,7 +444,7 @@ describe("TicketDocs branches persistence", () => {
   it.effect("reads a ticket file written before the branches list", () =>
     Effect.gen(function* () {
       const markdown = yield* Markdown
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       yield* markdown.createTicketFile(
         "acme",
         "project",
@@ -395,7 +493,7 @@ describe("TicketDocs branches persistence", () => {
 describe("TicketDocs estimate persistence", () => {
   it.effect("writes each estimate unit as a self-describing token", () =>
     Effect.gen(function* () {
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       const cases = [
         ["T-11", { unit: "points", value: 5 }, "estimate: 5\n"],
         ["T-12", { unit: "tshirt", value: "M" }, "estimate: M\n"],
@@ -416,7 +514,7 @@ describe("TicketDocs estimate persistence", () => {
 
   it.effect("omits the key for an unestimated ticket", () =>
     Effect.gen(function* () {
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       yield* docs.create("acme", "project", ticketDocument("T-14"))
       const raw = yield* docs.readRaw("acme", "project", "T-14")
       expect(raw.content).not.toContain("estimate")
@@ -426,7 +524,7 @@ describe("TicketDocs estimate persistence", () => {
   it.effect("reads a hand-written estimate outside the scales as none", () =>
     Effect.gen(function* () {
       const markdown = yield* Markdown
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       yield* markdown.createTicketFile(
         "acme",
         "project",
@@ -458,7 +556,7 @@ describe("TicketDocs epic parent persistence", () => {
     "writes the parent into frontmatter and drops it once cleared",
     () =>
       Effect.gen(function* () {
-        const docs = yield* TicketDocs
+        const docs = yield* TicketDocs.TicketDocs
         yield* docs.create("acme", "project", {
           ...ticketDocument("T-16"),
           parent: ticketId("T-1")
@@ -480,12 +578,14 @@ describe("TicketDocs activity capture", () => {
   const later = DateTime.toDate(DateTime.makeUnsafe("2026-09-08T10:00:00Z"))
 
   const capture = <A, E>(
-    run: (docs: TicketDocs["Service"]) => Effect.Effect<A, E, ActivityActor>,
+    run: (
+      docs: TicketDocs.TicketDocs["Service"]
+    ) => Effect.Effect<A, E, ActivityActor>,
     actor = ActivityActor.user("user-2")
   ) => {
     const recorded: Array<RecordedActivity> = []
     return Effect.gen(function* () {
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       yield* docs.create("acme", "project", ticketDocument("T-1"))
       const result = yield* run(docs).pipe(
         Effect.provideService(ActivityActor, actor)
@@ -730,7 +830,7 @@ describe("TicketDocs activity capture", () => {
         const gated = yield* gatedActivity
         const persisted = yield* Deferred.make<string>()
         yield* Effect.gen(function* () {
-          const docs = yield* TicketDocs
+          const docs = yield* TicketDocs.TicketDocs
           yield* docs.create("acme", "project", ticketDocument("T-1"))
           yield* gated.arm
           const fiber = yield* docs
@@ -768,7 +868,7 @@ describe("TicketDocs activity capture", () => {
         const gated = yield* gatedActivity
         const persisted = yield* Deferred.make<string>()
         yield* Effect.gen(function* () {
-          const docs = yield* TicketDocs
+          const docs = yield* TicketDocs.TicketDocs
           yield* gated.arm
           const fiber = yield* docs
             .create("acme", "project", ticketDocument("T-1"), (document) =>
