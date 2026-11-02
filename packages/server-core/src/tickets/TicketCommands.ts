@@ -44,7 +44,7 @@ import * as Schema from "effect/Schema"
 
 import { ticketChanges } from "../activity/changes"
 import { TicketActivity } from "../activity/TicketActivity"
-import { Attachments } from "../attachments/Attachments"
+import * as Attachments from "../attachments/Attachments"
 import { validateBodyMentionsWithLookups } from "../comments/BodyMentions"
 import type { InvalidCommentBody } from "../comments/Comments"
 import { FigmaLinks } from "../figma/FigmaLinks"
@@ -212,7 +212,7 @@ const make = Effect.gen(function* () {
   const ticketIndex = yield* TicketIndex.TicketIndex
   const groups = yield* Groups.Groups
   const db = yield* Db
-  const attachments = yield* Attachments
+  const attachments = yield* Attachments.Attachments
   const figmaLinks = yield* FigmaLinks
   const library = yield* Library
 

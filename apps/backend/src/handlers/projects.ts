@@ -5,7 +5,7 @@
 // routine outcome the wire needs to model.
 
 import { GitHubIntegrations } from "@pp/integration-github/GitHubIntegrations"
-import { Attachments } from "@pp/server-core/attachments/Attachments"
+import * as Attachments from "@pp/server-core/attachments/Attachments"
 import * as ProjectGithub from "@pp/server-core/projects/ProjectGithub"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
@@ -50,7 +50,7 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
         Effect.gen(function* () {
           const { orgSlug, slug } = yield* ProjectScope
           const projects = yield* Projects.Projects
-          const attachments = yield* Attachments
+          const attachments = yield* Attachments.Attachments
           yield* attachments.orphanProject(orgSlug, slug, projects.remove())
         }).pipe(dieOnMarkdown)
       )

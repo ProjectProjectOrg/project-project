@@ -9,8 +9,7 @@ import { DbLive } from "@pp/db"
 import { Access } from "@pp/server-core/access/Access"
 import { AccessLive } from "@pp/server-core/access/AccessLive"
 import { orgScope, testUser } from "@pp/server-core/access/testing"
-import { Attachments } from "@pp/server-core/attachments/Attachments"
-import { AttachmentsLive } from "@pp/server-core/attachments/AttachmentsLive"
+import * as Attachments from "@pp/server-core/attachments/Attachments"
 import { Figma } from "@pp/server-core/figma/Figma"
 import { FigmaIntegrations } from "@pp/server-core/figma/FigmaIntegrations"
 import { FigmaLinks } from "@pp/server-core/figma/FigmaLinks"
@@ -346,7 +345,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
             )
           )
           let attachmentSigns = 0
-          const attachments = yield* Attachments.pipe(
+          const attachments = yield* Attachments.Attachments.pipe(
             Effect.flatMap((service) =>
               Effect.exit(
                 asOwner(
@@ -358,7 +357,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
               )
             ),
             Effect.provide(
-              AttachmentsLive.pipe(
+              Attachments.layer.pipe(
                 Layer.provide(dbLayer()),
                 Layer.provide(access()),
                 Layer.provide(storage),
@@ -421,7 +420,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
             insertAttachment(attachmentId, null, "orphaned")
           )
           let signs = 0
-          const result = yield* Attachments.pipe(
+          const result = yield* Attachments.Attachments.pipe(
             Effect.flatMap((service) =>
               Effect.exit(
                 asOwner(
@@ -433,7 +432,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
               )
             ),
             Effect.provide(
-              AttachmentsLive.pipe(
+              Attachments.layer.pipe(
                 Layer.provide(dbLayer()),
                 Layer.provide(access()),
                 Layer.provide(storage),
@@ -479,7 +478,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
               [publishedAttachment, publishedId, hiddenId]
             )
           )
-          const result = yield* Attachments.pipe(
+          const result = yield* Attachments.Attachments.pipe(
             Effect.flatMap((service) =>
               Effect.all({
                 page: service.listForOrg({}),
@@ -488,7 +487,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
             ),
             Effect.provideService(OrgScope, ownerScope),
             Effect.provide(
-              AttachmentsLive.pipe(
+              Attachments.layer.pipe(
                 Layer.provide(dbLayer()),
                 Layer.provide(access()),
                 Layer.provide(storage),
@@ -515,13 +514,13 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
           const attachmentId = `hidden-delete-${randomUUID()}`
           yield* Effect.promise(() => insertAttachment(attachmentId, hiddenId))
           let deletedObjects = 0
-          const result = yield* Attachments.pipe(
+          const result = yield* Attachments.Attachments.pipe(
             Effect.flatMap((service) =>
               Effect.exit(service.deleteForOrg(attachmentId))
             ),
             Effect.provideService(OrgScope, ownerScope),
             Effect.provide(
-              AttachmentsLive.pipe(
+              Attachments.layer.pipe(
                 Layer.provide(dbLayer()),
                 Layer.provide(access()),
                 Layer.provide(storage),
