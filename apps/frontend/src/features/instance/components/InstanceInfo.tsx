@@ -9,27 +9,26 @@ import { displayVersion } from "../lib/displayVersion"
 
 export function InstanceInfo() {
   const health = useAtomValue(instanceHealth)
-  const host = window.location.host
   const version = AsyncResult.isSuccess(health) ? health.value.version : null
 
   return (
-    <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground">
-      <div className="min-w-0 flex-1 leading-tight">
-        <div className="truncate">{host}</div>
-        {version ? (
-          <div className="truncate font-mono" title={version}>
-            {displayVersion(version)}
-          </div>
-        ) : null}
-      </div>
+    <div className="group/version flex h-6 items-center gap-1.5 px-3 text-muted-foreground/70">
       {version ? (
-        <CopyButton
-          value={`${host} ${version}`}
-          copyLabel={m.chrome_user_menu_copy_version()}
-          copiedLabel={m.chrome_user_menu_version_copied()}
-          className="text-muted-foreground"
-          iconClassName="size-3.5"
-        />
+        <>
+          <span
+            className="min-w-0 truncate font-mono text-[10.5px] transition-colors group-hover/version:text-muted-foreground"
+            title={version}
+          >
+            {displayVersion(version)}
+          </span>
+          <CopyButton
+            value={version}
+            copyLabel={m.chrome_sidebar_copy_version()}
+            copiedLabel={m.chrome_sidebar_version_copied()}
+            className="size-5 text-muted-foreground opacity-0 transition-opacity group-hover/version:opacity-100 focus-visible:opacity-100 data-[copied]:opacity-100"
+            iconClassName="size-3"
+          />
+        </>
       ) : null}
     </div>
   )
