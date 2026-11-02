@@ -964,3 +964,32 @@ describe("FigmaLinks tracing", () => {
     })
   )
 })
+
+describe("FigmaLinks background tracing", () => {
+  it.live(
+    "runs the detached metadata resolution under the reconcileTicket span",
+    () =>
+      Effect.gen(function* () {
+        const parents: Array<string> = []
+        const getFile = () =>
+          Effect.currentSpan.pipe(
+            Effect.map((span) => span.name),
+            Effect.orElseSucceed(() => "none"),
+            Effect.flatMap((name) => {
+              parents.push(name)
+              return Effect.fail(new FigmaAuthInvalid())
+            })
+          )
+        const { db } = yield* recordingDb((sql) =>
+          sql.includes(JOINED)
+            ? referencedLink({ fetchedAt: null, lastCheckStatus: null })
+            : []
+        )
+
+        yield* reconcile(harness({ db, figma: { getFile } }), BODY)
+        yield* Effect.sleep("100 millis")
+
+        expect(parents).toEqual(["FigmaLinks.reconcileTicket"])
+      })
+  )
+})
