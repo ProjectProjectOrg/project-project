@@ -23,7 +23,7 @@ import { accessLayer, projectScope } from "../access/testing"
 import { testActivityLayer } from "../activity/testing"
 import * as Attachments from "../attachments/Attachments"
 import { Comments } from "../comments/Comments"
-import { FigmaLinks } from "../figma/FigmaLinks"
+import * as FigmaLinks from "../figma/FigmaLinks"
 import { GitHub } from "../github/GitHub"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
@@ -137,7 +137,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
             Layer.mock(Groups.Groups, {}),
             Layer.mock(Comments, {}),
             Layer.mock(Attachments.Attachments, {}),
-            Layer.mock(FigmaLinks, {}),
+            Layer.mock(FigmaLinks.FigmaLinks, {}),
             Layer.mock(Users, {}),
             Layer.mock(Library.Library, {})
           )

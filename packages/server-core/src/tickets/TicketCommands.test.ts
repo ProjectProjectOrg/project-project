@@ -34,7 +34,7 @@ import {
   type RecordedActivity
 } from "../activity/testing"
 import * as Attachments from "../attachments/Attachments"
-import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
+import * as FigmaLinks from "../figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "../github/GitHub"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
@@ -200,11 +200,11 @@ const FakeAttachments = Layer.succeed(Attachments.Attachments, {
   dedupeOnce: () => unexpected("Attachments.dedupeOnce")
 } satisfies Attachments.Attachments["Service"])
 
-const FakeFigmaLinks = Layer.succeed(FigmaLinks, {
+const FakeFigmaLinks = Layer.succeed(FigmaLinks.FigmaLinks, {
   reconcileTicket: () => Effect.void,
   listForTicket: () => unexpected("FigmaLinks.listForTicket"),
   resolveThumbnailUrl: () => unexpected("FigmaLinks.resolveThumbnailUrl")
-} satisfies FigmaLinksShape)
+} satisfies FigmaLinks.FigmaLinks["Service"])
 
 const FakeDb = databaseLayer(({ sql }) =>
   Effect.sync(() => {

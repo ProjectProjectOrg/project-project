@@ -1,5 +1,5 @@
-import { FigmaIntegrations } from "@pp/server-core/figma/FigmaIntegrations"
-import { FigmaLinks } from "@pp/server-core/figma/FigmaLinks"
+import * as FigmaIntegrations from "@pp/server-core/figma/FigmaIntegrations"
+import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
 import { AppApi, CurrentUser } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"
@@ -14,34 +14,34 @@ export const FigmaHandlerLive = HttpApiBuilder.group(
       .handle("profile", () =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          const integrations = yield* FigmaIntegrations
+          const integrations = yield* FigmaIntegrations.FigmaIntegrations
           return yield* integrations.getProfile(user.id)
         })
       )
       .handle("disconnectProfile", () =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          const integrations = yield* FigmaIntegrations
+          const integrations = yield* FigmaIntegrations.FigmaIntegrations
           return yield* integrations.disconnectProfile(user.id)
         })
       )
       .handle("projectStatus", () =>
-        Effect.flatMap(FigmaIntegrations, (integrations) =>
+        Effect.flatMap(FigmaIntegrations.FigmaIntegrations, (integrations) =>
           integrations.getProjectStatus()
         ).pipe(dieOnMarkdown)
       )
       .handle("connectProject", ({ payload }) =>
-        Effect.flatMap(FigmaIntegrations, (integrations) =>
+        Effect.flatMap(FigmaIntegrations.FigmaIntegrations, (integrations) =>
           integrations.connectProject(payload.accessToken)
         ).pipe(dieOnMarkdown)
       )
       .handle("disconnectProject", () =>
-        Effect.flatMap(FigmaIntegrations, (integrations) =>
+        Effect.flatMap(FigmaIntegrations.FigmaIntegrations, (integrations) =>
           integrations.disconnectProject()
         ).pipe(dieOnMarkdown)
       )
       .handle("ticketLinks", ({ params }) =>
-        Effect.flatMap(FigmaLinks, (figmaLinks) =>
+        Effect.flatMap(FigmaLinks.FigmaLinks, (figmaLinks) =>
           figmaLinks.listForTicket(params.id)
         ).pipe(dieOnMarkdown)
       )

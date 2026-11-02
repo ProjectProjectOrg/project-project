@@ -10,10 +10,7 @@ import { accessLayer, projectScope } from "@pp/server-core/access/testing"
 import { passthroughTicketActivity } from "@pp/server-core/activity/testing"
 import * as Attachments from "@pp/server-core/attachments/Attachments"
 import { Comments, type CommentsShape } from "@pp/server-core/comments/Comments"
-import {
-  FigmaLinks,
-  type FigmaLinksShape
-} from "@pp/server-core/figma/FigmaLinks"
+import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "@pp/server-core/github/GitHub"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
@@ -430,11 +427,11 @@ const FakeComments = Layer.succeed(Comments, {
   remove: () => unexpected("Comments.remove")
 } satisfies CommentsShape)
 
-const FakeFigmaLinks = Layer.succeed(FigmaLinks, {
+const FakeFigmaLinks = Layer.succeed(FigmaLinks.FigmaLinks, {
   reconcileTicket: () => Effect.void,
   listForTicket: () => unexpected("FigmaLinks.listForTicket"),
   resolveThumbnailUrl: () => unexpected("FigmaLinks.resolveThumbnailUrl")
-} satisfies FigmaLinksShape)
+} satisfies FigmaLinks.FigmaLinks["Service"])
 
 const FakeUsers = Layer.succeed(Users, {
   findByEmail: () => unexpected("Users.findByEmail"),

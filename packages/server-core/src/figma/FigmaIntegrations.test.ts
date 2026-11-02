@@ -9,22 +9,19 @@ import * as Crypto from "effect/Crypto"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
+import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { afterEach, describe, expect, vi } from "vitest"
 
-import { makeDatabase } from "../../test/database"
-import { chooseCredential, isTokenExpired } from "./FigmaIntegrations"
-import {
-  consumeOauthStateQuery,
-  exchangeAuthorizationCode,
-  figmaOAuthClient,
-  refreshAccessToken,
-  requireConsumedState,
-  resolveCredential,
-  startOauthFlow,
-  type FigmaTokenGrant
-} from "./FigmaIntegrationsLive"
+import { databaseLayer, makeDatabase } from "../../test/database"
+import { OrgStorage } from "../storage/OrgStorage"
+import { SecretCrypto } from "../storage/SecretCrypto"
+import * as TicketIndex from "../tickets/TicketIndex"
+import * as Figma from "./Figma"
+import * as FigmaIntegrations from "./FigmaIntegrations"
 
 const isFigmaAuthInvalid = Schema.is(FigmaAuthInvalid)
 
@@ -38,19 +35,28 @@ const at = (iso: string): Date =>
 describe("chooseCredential", () => {
   it("prefers the personal oauth token", () => {
     expect(
-      chooseCredential({ personalToken: "personal", projectToken: "project" })
+      FigmaIntegrations.chooseCredential({
+        personalToken: "personal",
+        projectToken: "project"
+      })
     ).toEqual({ _tag: "Bearer", token: "personal" })
   })
 
   it("falls back to the project token", () => {
     expect(
-      chooseCredential({ personalToken: null, projectToken: "project" })
+      FigmaIntegrations.chooseCredential({
+        personalToken: null,
+        projectToken: "project"
+      })
     ).toEqual({ _tag: "FigmaToken", token: "project" })
   })
 
   it("returns null when neither is present", () => {
     expect(
-      chooseCredential({ personalToken: null, projectToken: null })
+      FigmaIntegrations.chooseCredential({
+        personalToken: null,
+        projectToken: null
+      })
     ).toBeNull()
   })
 })
@@ -59,15 +65,21 @@ describe("isTokenExpired", () => {
   const now = at("2026-09-04T12:00:00Z")
 
   it("treats a token expiring inside the skew window as expired", () => {
-    expect(isTokenExpired(at("2026-09-04T12:04:00Z"), now)).toBe(true)
+    expect(
+      FigmaIntegrations.isTokenExpired(at("2026-09-04T12:04:00Z"), now)
+    ).toBe(true)
   })
 
   it("treats a token well in the future as valid", () => {
-    expect(isTokenExpired(at("2026-10-04T12:00:00Z"), now)).toBe(false)
+    expect(
+      FigmaIntegrations.isTokenExpired(at("2026-10-04T12:00:00Z"), now)
+    ).toBe(false)
   })
 
   it("treats an already-past expiry as expired", () => {
-    expect(isTokenExpired(at("2026-09-03T12:00:00Z"), now)).toBe(true)
+    expect(
+      FigmaIntegrations.isTokenExpired(at("2026-09-03T12:00:00Z"), now)
+    ).toBe(true)
   })
 })
 
@@ -89,18 +101,22 @@ const harness = (personal: {
   readonly refreshToken: string
   readonly expiresAt: Date
 }) => {
-  const persisted: Array<FigmaTokenGrant> = []
+  const persisted: Array<FigmaIntegrations.FigmaTokenGrant> = []
   const rejections: Array<string> = []
   return {
     persisted,
     rejections,
     run: (projectToken: string | null) =>
-      resolveCredential({
+      FigmaIntegrations.resolveCredential({
         personal,
         projectToken,
         now,
         refresh: (refreshToken) =>
-          refreshAccessToken({ client, refreshToken, now }).pipe(
+          FigmaIntegrations.refreshAccessToken({
+            client,
+            refreshToken,
+            now
+          }).pipe(
             Effect.provideService(FetchHttpClient.Fetch, globalThis.fetch)
           ),
         persist: (grant) =>
@@ -264,7 +280,7 @@ describe("credentialFor refresh on expiry", () => {
   it.effect("fails FigmaNotConnected when neither credential exists", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(
-        resolveCredential({
+        FigmaIntegrations.resolveCredential({
           personal: null,
           projectToken: null,
           now,
@@ -279,7 +295,7 @@ describe("credentialFor refresh on expiry", () => {
 
   it.effect("resolves the project credential when no user is present", () =>
     Effect.gen(function* () {
-      const credential = yield* resolveCredential({
+      const credential = yield* FigmaIntegrations.resolveCredential({
         personal: null,
         projectToken: "project-token",
         now,
@@ -298,7 +314,7 @@ describe("credentialFor refresh on expiry", () => {
 describe("figmaOAuthClient", () => {
   it.effect("fails FigmaError when the figma credentials are absent", () =>
     Effect.gen(function* () {
-      const error = yield* Effect.flip(figmaOAuthClient)
+      const error = yield* Effect.flip(FigmaIntegrations.figmaOAuthClient)
       if (!isFigmaError(error)) throw error
       expect(error.reason).toBe("figma_oauth_unconfigured")
     }).pipe(
@@ -311,7 +327,7 @@ describe("figmaOAuthClient", () => {
 
   it.effect("fails FigmaError when only the client id is present", () =>
     Effect.gen(function* () {
-      const error = yield* Effect.flip(figmaOAuthClient)
+      const error = yield* Effect.flip(FigmaIntegrations.figmaOAuthClient)
       expect(isFigmaError(error)).toBe(true)
     }).pipe(
       Effect.provideService(
@@ -323,7 +339,7 @@ describe("figmaOAuthClient", () => {
 
   it.effect("reads both credentials when they are configured", () =>
     Effect.gen(function* () {
-      const configured = yield* figmaOAuthClient
+      const configured = yield* FigmaIntegrations.figmaOAuthClient
       expect(configured.clientId).toBe("client-id")
       expect(Redacted.isRedacted(configured.clientSecret)).toBe(true)
     }).pipe(
@@ -346,10 +362,12 @@ describe("credentialFor without oauth configuration", () => {
   })
 
   const lazyRefresh = (refreshToken: string) =>
-    Effect.flatMap(figmaOAuthClient, (oauth) =>
-      refreshAccessToken({ client: oauth, refreshToken, now }).pipe(
-        Effect.provideService(FetchHttpClient.Fetch, globalThis.fetch)
-      )
+    Effect.flatMap(FigmaIntegrations.figmaOAuthClient, (oauth) =>
+      FigmaIntegrations.refreshAccessToken({
+        client: oauth,
+        refreshToken,
+        now
+      }).pipe(Effect.provideService(FetchHttpClient.Fetch, globalThis.fetch))
     )
 
   it.effect(
@@ -359,7 +377,7 @@ describe("credentialFor without oauth configuration", () => {
         const fetchMock = vi.fn(async () => jsonResponse(200, {}))
         vi.stubGlobal("fetch", fetchMock)
 
-        const credential = yield* resolveCredential({
+        const credential = yield* FigmaIntegrations.resolveCredential({
           personal: null,
           projectToken: "project-pat",
           now,
@@ -380,7 +398,7 @@ describe("credentialFor without oauth configuration", () => {
     "does not read oauth configuration for a personal token that is still valid",
     () =>
       Effect.gen(function* () {
-        const credential = yield* resolveCredential({
+        const credential = yield* FigmaIntegrations.resolveCredential({
           personal: {
             accessToken: "fresh-token",
             refreshToken: "refresh-token",
@@ -402,7 +420,7 @@ describe("credentialFor without oauth configuration", () => {
     () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(
-          resolveCredential({
+          FigmaIntegrations.resolveCredential({
             personal: {
               accessToken: "stale-token",
               refreshToken: "refresh-token",
@@ -455,7 +473,12 @@ const CONSUME_WHERE_CLAUSE =
   '("user_figma_oauth_state"."expires_at" > $4))'
 
 const consumeQuery = (db: TestDb) =>
-  consumeOauthStateQuery(db, "user-1", STATE, at("2026-09-04T12:00:00Z"))
+  FigmaIntegrations.consumeOauthStateQuery(
+    db,
+    "user-1",
+    STATE,
+    at("2026-09-04T12:00:00Z")
+  )
 
 describe("oauth state replay defences", () => {
   it.effect(
@@ -494,14 +517,16 @@ describe("oauth state replay defences", () => {
   it.effect("rejects a state the guarded update did not match", () =>
     Effect.gen(function* () {
       const { calls, db } = yield* proxyDb([])
-      const consumed = yield* consumeOauthStateQuery(
+      const consumed = yield* FigmaIntegrations.consumeOauthStateQuery(
         db,
         "user-1",
         STATE,
         at("2026-09-04T12:00:00Z")
       )
 
-      const error = yield* Effect.flip(requireConsumedState(consumed))
+      const error = yield* Effect.flip(
+        FigmaIntegrations.requireConsumedState(consumed)
+      )
 
       expect(isFigmaAuthInvalid(error)).toBe(true)
       expect(calls).toHaveLength(1)
@@ -513,7 +538,7 @@ describe("oauth state replay defences", () => {
   it.effect("accepts a state the guarded update claimed exactly once", () =>
     Effect.gen(function* () {
       const { db } = yield* proxyDb([["state-1"]])
-      const consumed = yield* consumeOauthStateQuery(
+      const consumed = yield* FigmaIntegrations.consumeOauthStateQuery(
         db,
         "user-1",
         STATE,
@@ -521,7 +546,7 @@ describe("oauth state replay defences", () => {
       )
 
       expect(consumed).toEqual([{ id: "state-1" }])
-      yield* requireConsumedState(consumed)
+      yield* FigmaIntegrations.requireConsumedState(consumed)
     })
   )
 })
@@ -531,10 +556,10 @@ describe("startOauthFlow", () => {
     Effect.gen(function* () {
       const { calls, db } = yield* proxyDb()
       const error = yield* Effect.flip(
-        startOauthFlow({
+        FigmaIntegrations.startOauthFlow({
           db,
           crypto: yield* Crypto.Crypto,
-          client: figmaOAuthClient,
+          client: FigmaIntegrations.figmaOAuthClient,
           redirectUri: Effect.succeed("https://example.test/callback"),
           userId: "user-1"
         })
@@ -555,7 +580,7 @@ describe("exchangeAuthorizationCode", () => {
   })
 
   const exchange = () =>
-    exchangeAuthorizationCode({
+    FigmaIntegrations.exchangeAuthorizationCode({
       client,
       redirectUri: "https://example.test/callback",
       code: "auth-code",
@@ -621,6 +646,57 @@ describe("exchangeAuthorizationCode", () => {
       expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
         "https://api.figma.com/v1/oauth/token"
       )
+    })
+  )
+})
+
+describe("FigmaIntegrations tracing", () => {
+  it.effect("traces each call under its FigmaIntegrations span", () =>
+    Effect.gen(function* () {
+      const spans: Array<Tracer.NativeSpan> = []
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options)
+          spans.push(span)
+          return span
+        }
+      })
+
+      yield* Effect.gen(function* () {
+        const integrations = yield* FigmaIntegrations.FigmaIntegrations
+        yield* integrations.getProfile("user-1")
+        yield* Effect.exit(integrations.credentialFor("acme", "web", null))
+      }).pipe(
+        Effect.provide(
+          FigmaIntegrations.layer.pipe(
+            Layer.provide(databaseLayer(() => Effect.succeed([]))),
+            Layer.provide(Layer.mock(Figma.Figma, {})),
+            Layer.provide(Layer.mock(SecretCrypto, {})),
+            Layer.provide(Layer.mock(OrgStorage, {})),
+            Layer.provide(Layer.mock(TicketIndex.TicketIndex, {})),
+            Layer.provide(
+              Layer.succeed(FetchHttpClient.Fetch, globalThis.fetch)
+            ),
+            Layer.provide(BunCrypto.layer)
+          )
+        ),
+        Effect.withTracer(tracer)
+      )
+
+      expect(
+        spans
+          .filter((span) => span.name.startsWith("FigmaIntegrations."))
+          .map((span) => ({
+            name: span.name,
+            parent: Option.match(span.parent, {
+              onNone: () => null,
+              onSome: (parent) => (parent._tag === "Span" ? parent.name : null)
+            })
+          }))
+      ).toEqual([
+        { name: "FigmaIntegrations.getProfile", parent: null },
+        { name: "FigmaIntegrations.credentialFor", parent: null }
+      ])
     })
   )
 })

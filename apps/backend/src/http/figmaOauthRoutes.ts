@@ -1,5 +1,5 @@
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
-import { FigmaIntegrations } from "@pp/server-core/figma/FigmaIntegrations"
+import * as FigmaIntegrations from "@pp/server-core/figma/FigmaIntegrations"
 import * as Config from "effect/Config"
 import * as Effect from "effect/Effect"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
@@ -47,7 +47,7 @@ const figmaOauthStartRoute = Effect.gen(function* () {
   if (session === null) {
     return HttpServerResponse.text("Unauthorized", { status: 401 })
   }
-  const integrations = yield* FigmaIntegrations
+  const integrations = yield* FigmaIntegrations.FigmaIntegrations
   const { authorizeUrl } = yield* integrations.beginProfileConnect(
     session.user.id
   )
@@ -87,7 +87,7 @@ const figmaOauthCallbackRoute = Effect.gen(function* () {
     })
     return HttpServerResponse.redirect(redirectUrl, { status: 302 })
   }
-  const integrations = yield* FigmaIntegrations
+  const integrations = yield* FigmaIntegrations.FigmaIntegrations
   yield* integrations.completeProfileConnect(
     session.user.id,
     query.value.code,

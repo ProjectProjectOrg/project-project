@@ -47,7 +47,7 @@ import { TicketActivity } from "../activity/TicketActivity"
 import * as Attachments from "../attachments/Attachments"
 import { validateBodyMentionsWithLookups } from "../comments/BodyMentions"
 import type { InvalidCommentBody } from "../comments/Comments"
-import { FigmaLinks } from "../figma/FigmaLinks"
+import * as FigmaLinks from "../figma/FigmaLinks"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
@@ -213,7 +213,7 @@ const make = Effect.gen(function* () {
   const groups = yield* Groups.Groups
   const db = yield* Db
   const attachments = yield* Attachments.Attachments
-  const figmaLinks = yield* FigmaLinks
+  const figmaLinks = yield* FigmaLinks.FigmaLinks
   const library = yield* Library.Library
 
   const { gitView, detailOf, readTicket, withMissingAttachments } =

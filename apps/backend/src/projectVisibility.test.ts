@@ -10,10 +10,9 @@ import { Access } from "@pp/server-core/access/Access"
 import { AccessLive } from "@pp/server-core/access/AccessLive"
 import { orgScope, testUser } from "@pp/server-core/access/testing"
 import * as Attachments from "@pp/server-core/attachments/Attachments"
-import { Figma } from "@pp/server-core/figma/Figma"
-import { FigmaIntegrations } from "@pp/server-core/figma/FigmaIntegrations"
-import { FigmaLinks } from "@pp/server-core/figma/FigmaLinks"
-import { FigmaLinksLive } from "@pp/server-core/figma/FigmaLinksLive"
+import * as Figma from "@pp/server-core/figma/Figma"
+import * as FigmaIntegrations from "@pp/server-core/figma/FigmaIntegrations"
+import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
 import { GitHub } from "@pp/server-core/github/GitHub"
 import { BannerPlaceholders } from "@pp/server-core/projects/BannerPlaceholders"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
@@ -374,7 +373,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
             )
           )
           let thumbnailSigns = 0
-          const thumbnails = yield* FigmaLinks.pipe(
+          const thumbnails = yield* FigmaLinks.FigmaLinks.pipe(
             Effect.flatMap((service) =>
               Effect.exit(
                 asOwner(
@@ -386,12 +385,14 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
               )
             ),
             Effect.provide(
-              FigmaLinksLive.pipe(
+              FigmaLinks.layer.pipe(
                 Layer.provide(dbLayer()),
                 Layer.provide(access()),
                 Layer.provide(storage),
-                Layer.provide(Layer.mock(Figma, {})),
-                Layer.provide(Layer.mock(FigmaIntegrations, {})),
+                Layer.provide(Layer.mock(Figma.Figma, {})),
+                Layer.provide(
+                  Layer.mock(FigmaIntegrations.FigmaIntegrations, {})
+                ),
                 Layer.provide(
                   Layer.mock(S3Storage, {
                     presignGet: () =>

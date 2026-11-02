@@ -31,7 +31,7 @@ import { accessLayer, projectScope } from "../access/testing"
 import { passthroughTicketActivity } from "../activity/testing"
 import * as Attachments from "../attachments/Attachments"
 import { Comments, type CommentsShape } from "../comments/Comments"
-import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
+import * as FigmaLinks from "../figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "../github/GitHub"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
@@ -316,14 +316,14 @@ export const makeFakeAttachments = (
   } satisfies Attachments.Attachments["Service"])
 
 export const makeFakeFigmaLinks = (
-  overrides: Partial<FigmaLinksShape> = {}
-): Layer.Layer<FigmaLinks> =>
-  Layer.succeed(FigmaLinks, {
+  overrides: Partial<FigmaLinks.FigmaLinks["Service"]> = {}
+): Layer.Layer<FigmaLinks.FigmaLinks> =>
+  Layer.succeed(FigmaLinks.FigmaLinks, {
     reconcileTicket: () => Effect.void,
     listForTicket: () => unexpected("FigmaLinks.listForTicket"),
     resolveThumbnailUrl: () => unexpected("FigmaLinks.resolveThumbnailUrl"),
     ...overrides
-  } satisfies FigmaLinksShape)
+  } satisfies FigmaLinks.FigmaLinks["Service"])
 
 export const makeRecordingFigmaLinks = () => {
   const calls: Array<{
@@ -765,7 +765,7 @@ export type TicketsLayerOptions = Readonly<{
     TicketIndex.TicketIndex | TicketBranchIndex.TicketBranchIndex
   >
   attachments?: Layer.Layer<Attachments.Attachments>
-  figmaLinks?: Layer.Layer<FigmaLinks>
+  figmaLinks?: Layer.Layer<FigmaLinks.FigmaLinks>
   scope?: ProjectScopeShape
   gitAutomation?: GitAutomationConfig
 }>
