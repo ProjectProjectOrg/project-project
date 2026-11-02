@@ -15,6 +15,7 @@ import {
 } from "@/components/shell/SidebarSlot"
 import { ThemeSwitcher } from "@/components/shell/ThemeSwitcher"
 import { FeedbackPopover } from "@/features/feedback/components/FeedbackPopover"
+import { InstanceInfo } from "@/features/instance/components/InstanceInfo"
 import { OrgSwitcher } from "@/features/organizations/components/OrgSwitcher"
 import { transitions } from "@/lib/springs"
 
@@ -87,6 +88,7 @@ export function SidebarContent({ user }: { user: User }) {
       <div className="flex flex-col gap-1 p-3">
         <ThemeSwitcher />
         {orgSlug ? <FeedbackPopover orgSlug={orgSlug} /> : null}
+        <InstanceInfo />
       </div>
     </div>
   )
