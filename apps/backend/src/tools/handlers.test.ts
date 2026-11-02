@@ -191,7 +191,8 @@ const accessAs = (role: Role | null) =>
               })
             )
       ),
-    projectsInOrg: () => Effect.succeed([])
+    projectsInOrg: () => Effect.succeed([]),
+    projectById: () => Effect.succeedNone
   })
 
 const AccessStub = accessAs("pm")

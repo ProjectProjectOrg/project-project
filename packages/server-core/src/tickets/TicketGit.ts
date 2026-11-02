@@ -923,8 +923,10 @@ const make = Effect.gen(function* () {
       }
     }
 
-    const indexed = yield* ticketIndex.list(scope)
-    const stacks = yield* ticketBranchIndex.stacksFor(scope)
+    const [indexed, stacks] = yield* Effect.all(
+      [ticketIndex.list(scope), ticketBranchIndex.stacksFor(scope)],
+      { concurrency: 2 }
+    )
     const tickets = indexed.map(
       (ticket): StackedTicketEntry =>
         Object.assign({ stack: stacks.get(ticket.id) ?? [] }, ticket)

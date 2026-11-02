@@ -7,6 +7,7 @@ import type {
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
+import type * as Option from "effect/Option"
 
 export type OrgLookup = Readonly<{ includeDeleted?: boolean }>
 
@@ -24,6 +25,9 @@ export type AccessShape = Readonly<{
     never,
     OrgScope
   >
+  projectById: (
+    projectId: string
+  ) => Effect.Effect<Option.Option<ProjectScopeShape>, never, OrgScope>
 }>
 
 export class Access extends Context.Service<Access, AccessShape>()(

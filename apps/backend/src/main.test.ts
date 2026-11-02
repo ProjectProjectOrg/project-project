@@ -59,6 +59,7 @@ import {
   GitHubWebhooks,
   type GitHubWebhooksShape
 } from "@pp/integration-github/GitHubWebhooks"
+import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 
 import { AuthHandlerLive } from "./handlers/auth"
 import {
@@ -86,6 +87,7 @@ const ApiUnderTestLive = HttpApiBuilder.layer(
 ).pipe(
   Layer.provide(HealthHandlerLive),
   Layer.provide(AuthHandlerLive),
+  Layer.provide(Layer.mock(BetterAuth, {})),
   Layer.provide(
     Layer.succeed(Authentication, {
       sessionCookie: () => Effect.fail(new Unauthorized())

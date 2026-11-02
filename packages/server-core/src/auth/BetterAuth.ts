@@ -10,6 +10,8 @@ import type {
   OrgMembers,
   PersonalEverhour,
   PersonalGithub,
+  User,
+  UserIdentity,
   UserInvitation
 } from "@pp/shared"
 import * as Context from "effect/Context"
@@ -69,6 +71,10 @@ export type BetterAuthShape = Readonly<{
   readonly getOrgSlugById: (
     organizationId: string | null | undefined
   ) => Effect.Effect<string | null, BetterAuthError>
+  readonly me: (
+    identity: UserIdentity,
+    activeOrganizationId: string | null | undefined
+  ) => Effect.Effect<User, BetterAuthError>
   // Org membership list for a user. Returns the org slug + the user's role
   // in that org. Used by the MCP `me` tool to populate `roles`. We hit the
   // `member` + `organization` tables directly rather than going through

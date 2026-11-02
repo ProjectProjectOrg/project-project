@@ -175,9 +175,12 @@ export const AttachmentUploadsLive = Layer.effect(
             }
             return scope
           })
-          const { projectId } = yield* uploaderScope
-          yield* requireTicket(grant.ticketId).pipe(
-            Effect.provideServiceEffect(ProjectScope, uploaderScope)
+          const { projectId } = yield* uploaderScope.pipe(
+            Effect.tap((scope) =>
+              requireTicket(grant.ticketId).pipe(
+                Effect.provideService(ProjectScope, scope)
+              )
+            )
           )
           const query = () =>
             db
@@ -221,6 +224,13 @@ export const AttachmentUploadsLive = Layer.effect(
             })
 
           const bytes = Buffer.concat(chunks, offset)
+          const [scope, connection] = yield* Effect.all(
+            [
+              uploaderScope,
+              orgStorage.requireConnection(grant.orgSlug).pipe(Effect.result)
+            ],
+            { concurrency: 2 }
+          )
 
           return yield* sql
             .withTransaction(
@@ -236,12 +246,9 @@ export const AttachmentUploadsLive = Layer.effect(
                     .set({ byteSize: bytes.byteLength })
                     .where(eq(attachmentIndex.id, row.id))
                     .pipe(Effect.orDie)
-                  const connection = yield* orgStorage.requireConnection(
-                    grant.orgSlug
-                  )
                   yield* s3
                     .putObject(
-                      connection,
+                      yield* Effect.fromResult(connection),
                       row.objectKey,
                       row.contentType,
                       bytes
@@ -255,7 +262,7 @@ export const AttachmentUploadsLive = Layer.effect(
                 const { id, url, filename, contentType } =
                   yield* attachments.commit(grant.ticketId, grant.attachmentId)
                 return { id, url, filename, contentType }
-              }).pipe(Effect.provideServiceEffect(ProjectScope, uploaderScope))
+              }).pipe(Effect.provideService(ProjectScope, scope))
             )
             .pipe(Effect.catchTag("SqlError", Effect.die))
         },

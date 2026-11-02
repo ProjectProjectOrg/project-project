@@ -285,11 +285,16 @@ export const LibraryLive = Layer.effect(
           )
         )
       ]
-      const users = yield* knownUsers(orgSlug, slug, userIds)
-      const tickets = yield* knownTickets(
-        orgSlug,
-        slug,
-        links.some((link) => link.parsed?.type === "ticket")
+      const [users, tickets] = yield* Effect.all(
+        [
+          knownUsers(orgSlug, slug, userIds),
+          knownTickets(
+            orgSlug,
+            slug,
+            links.some((link) => link.parsed?.type === "ticket")
+          )
+        ],
+        { concurrency: 2 }
       )
       return { users, tickets }
     })
@@ -307,14 +312,14 @@ export const LibraryLive = Layer.effect(
       yield* validateBodyMentions(content, users, tickets)
     })
 
-    const sanitizeMentions = Effect.fn("Library.sanitizeMentions")(function* (
-      orgSlug: string,
-      slug: string,
-      body: string
-    ): Effect.fn.Return<string, MarkdownError> {
-      if (!body.includes("](mention:")) return body
-      const { users, tickets } = yield* mentionLookups(orgSlug, slug, body)
-      return body.replace(MENTION_LINK, (link, label: string, href: string) => {
+    const withKnownMentions = (
+      body: string,
+      {
+        users,
+        tickets
+      }: Readonly<{ users: ReadonlySet<string>; tickets: ReadonlySet<string> }>
+    ): string =>
+      body.replace(MENTION_LINK, (link, label: string, href: string) => {
         const parsed = parseMentionHref(href)
         const known =
           parsed !== null &&
@@ -324,6 +329,14 @@ export const LibraryLive = Layer.effect(
             : tickets.has(parsed.id))
         return known ? link : plainMention(label, href)
       })
+
+    const sanitizeMentions = Effect.fn("Library.sanitizeMentions")(function* (
+      orgSlug: string,
+      slug: string,
+      body: string
+    ): Effect.fn.Return<string, MarkdownError> {
+      if (!body.includes("](mention:")) return body
+      return withKnownMentions(body, yield* mentionLookups(orgSlug, slug, body))
     })
 
     const isSyncedWithMention = (segment: TicketBlockSegment): boolean =>
@@ -338,15 +351,25 @@ export const LibraryLive = Layer.effect(
         body: string
       ): Effect.fn.Return<string, MarkdownError> {
         const segments = parseTicketBlocks(body)
-        if (!segments.some(isSyncedWithMention)) return body
-        const sanitized = yield* Effect.forEach(segments, (segment) =>
-          segment.kind === "block" && isSyncedWithMention(segment)
-            ? sanitizeMentions(orgSlug, slug, segment.content).pipe(
-                Effect.map((content) => ({ ...segment, content }))
-              )
-            : Effect.succeed(segment)
+        const synced = segments.filter(isSyncedWithMention)
+        if (synced.length === 0) return body
+        const lookups = yield* mentionLookups(
+          orgSlug,
+          slug,
+          synced
+            .map((segment) => (segment.kind === "block" ? segment.content : ""))
+            .join("\n")
         )
-        return serializeTicketBlocks(sanitized)
+        return serializeTicketBlocks(
+          segments.map((segment) =>
+            segment.kind === "block" && isSyncedWithMention(segment)
+              ? {
+                  ...segment,
+                  content: withKnownMentions(segment.content, lookups)
+                }
+              : segment
+          )
+        )
       }
     )
 
@@ -354,16 +377,9 @@ export const LibraryLive = Layer.effect(
       orgSlug: string,
       slug: string
     ) {
-      const project = yield* db.query.projectIndex.findFirst({
-        columns: { id: true },
-        where: { slug, organization: { slug: orgSlug } }
-      })
-      if (!project) return new Set<string>()
       const rows = yield* db.query.projectTag.findMany({
         columns: { name: true },
-        where: {
-          RAW: (table, operators) => operators.eq(table.projectId, project.id)
-        }
+        where: { project: { slug, organization: { slug: orgSlug } } }
       })
       return new Set<string>(rows.map((row) => row.name))
     }, Effect.orDie)
@@ -675,15 +691,19 @@ export const LibraryLive = Layer.effect(
       )
       if (template === undefined)
         return yield* new Validation({ reason: `unknown_template:${key}` })
-      const body = yield* sanitizeMentions(
-        orgSlug,
-        slug,
-        expandTemplate(template, blockLookupFor(library))
+      const [body, known] = yield* Effect.all(
+        [
+          sanitizeMentions(
+            orgSlug,
+            slug,
+            expandTemplate(template, blockLookupFor(library))
+          ),
+          template.tags.length === 0
+            ? Effect.succeed(new Set<string>())
+            : projectTagNames(orgSlug, slug)
+        ],
+        { concurrency: 2 }
       )
-      const known =
-        template.tags.length === 0
-          ? new Set<string>()
-          : yield* projectTagNames(orgSlug, slug)
       return {
         body,
         type: ticketTypeForTemplate(library.defaults, template.key),

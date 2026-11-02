@@ -605,14 +605,18 @@ export const FigmaLinksLive = Layer.effect(
             readonly linkId: string
             readonly ref: FigmaRef
           }> = []
-          for (const key of plan.added) {
-            const ref = byKey.get(key)
-            if (ref === undefined) continue
-            const link = yield* upsertLink(
-              project.organizationId,
-              project.id,
-              ref
-            )
+          const upserted = yield* Effect.forEach(
+            plan.added.flatMap((key) => {
+              const ref = byKey.get(key)
+              return ref === undefined ? [] : [ref]
+            }),
+            (ref) =>
+              upsertLink(project.organizationId, project.id, ref).pipe(
+                Effect.map((link) => ({ ref, link }))
+              ),
+            { concurrency: 8 }
+          )
+          for (const { ref, link } of upserted) {
             if (link === null) continue
             added.push({ linkId: link.id, ref })
             if (link.resolve) toResolve.push({ linkId: link.id, ref })

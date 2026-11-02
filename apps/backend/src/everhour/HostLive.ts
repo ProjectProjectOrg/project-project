@@ -11,6 +11,7 @@ import { EverhourConfigMissing, NotFound } from "@pp/shared"
 import { and, eq, isNull } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 
 export const EverhourHostLive = Layer.effect(
   EverhourHost,
@@ -110,16 +111,16 @@ export const EverhourHostLive = Layer.effect(
           Effect.orElseSucceed(() => null)
         ),
       timeReadableSlug: (projectId) =>
-        access.projectsInOrg().pipe(
-          Effect.map((scopes) => {
-            const project = scopes.find(
-              (scope) => scope.projectId === projectId
+        access
+          .projectById(projectId)
+          .pipe(
+            Effect.map((project) =>
+              Option.isSome(project) &&
+              project.value.permissions.can({ time: ["read"] })
+                ? project.value.slug
+                : null
             )
-            return project?.permissions.can({ time: ["read"] })
-              ? project.slug
-              : null
-          })
-        ),
+          ),
       seal: (plaintext) =>
         secrets
           .seal(plaintext)

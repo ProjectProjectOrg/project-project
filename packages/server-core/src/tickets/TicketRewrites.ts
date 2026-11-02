@@ -173,9 +173,11 @@ const make = Effect.gen(function* () {
       .projectFor(orgSlug, slug)
       .pipe(Effect.orDie)
     const ids = yield* ticketIndex.findTicketIdsByTag(project, oldName)
-    for (const id of ids) {
-      yield* skipUnreadable(replaceTag(orgSlug, slug, id, oldName, newName))
-    }
+    yield* Effect.forEach(
+      ids,
+      (id) => skipUnreadable(replaceTag(orgSlug, slug, id, oldName, newName)),
+      { concurrency: 8, discard: true }
+    )
   })
 
   const moveToStatus = Effect.fn("TicketRewrites.moveToStatus")(function* (
@@ -196,11 +198,14 @@ const make = Effect.gen(function* () {
   const unassignUserFromActiveTickets = Effect.fn(
     "TicketRewrites.unassignUserFromActiveTickets"
   )(function* (orgSlug: string, slug: string, userId: string) {
-    const project = yield* ticketIndex
-      .projectFor(orgSlug, slug)
-      .pipe(Effect.orDie)
-    const ids = yield* ticketDocs.listIds(orgSlug, slug).pipe(Effect.orDie)
-    const finished = yield* finishedStatuses.forProject(orgSlug, slug)
+    const [project, ids, finished] = yield* Effect.all(
+      [
+        ticketIndex.projectFor(orgSlug, slug).pipe(Effect.orDie),
+        ticketDocs.listIds(orgSlug, slug).pipe(Effect.orDie),
+        finishedStatuses.forProject(orgSlug, slug)
+      ],
+      { concurrency: "unbounded" }
+    )
     yield* Effect.forEach(
       ids,
       (id) =>

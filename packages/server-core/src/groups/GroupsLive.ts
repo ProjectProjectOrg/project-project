@@ -264,11 +264,15 @@ export const GroupsLive = Layer.effect(
           yield* requireGroupAction(kind, "manage")
 
           const requestedTickets = input.tickets ?? []
-          yield* validateTicketIds(orgSlug, slug, requestedTickets)
-          yield* rejectEpicsInSprint(scope, kind, requestedTickets)
           yield* validateInterval(input.startsAt ?? null, input.endsAt ?? null)
-
-          const ids = yield* groupDocs.listIds(orgSlug, slug)
+          const [, , ids] = yield* Effect.all(
+            [
+              validateTicketIds(orgSlug, slug, requestedTickets),
+              rejectEpicsInSprint(scope, kind, requestedTickets),
+              groupDocs.listIds(orgSlug, slug)
+            ],
+            { concurrency: "unbounded" }
+          )
           let candidate = nextIdFrom(ids)
 
           let color: GroupColor
@@ -487,8 +491,13 @@ export const GroupsLive = Layer.effect(
           if (existing.completedAt !== null) {
             return yield* new SprintCompletedImmutable()
           }
-          yield* validateTicketIds(orgSlug, slug, input.tickets)
-          yield* rejectEpicsInSprint(scope, existing.kind, input.tickets)
+          yield* Effect.all(
+            [
+              validateTicketIds(orgSlug, slug, input.tickets),
+              rejectEpicsInSprint(scope, existing.kind, input.tickets)
+            ],
+            { concurrency: 2, discard: true }
+          )
           return yield* changeTickets(orgSlug, slug, existing, input.tickets)
         })
       )
@@ -517,8 +526,13 @@ export const GroupsLive = Layer.effect(
             } satisfies UpdateGroupTicketsOutput
           }
 
-          yield* validateTicketIds(orgSlug, slug, additions)
-          yield* rejectEpicsInSprint(scope, existing.kind, additions)
+          yield* Effect.all(
+            [
+              validateTicketIds(orgSlug, slug, additions),
+              rejectEpicsInSprint(scope, existing.kind, additions)
+            ],
+            { concurrency: 2, discard: true }
+          )
           const merged = [...existing.tickets, ...additions]
           return yield* changeTickets(orgSlug, slug, existing, merged)
         })
@@ -624,19 +638,24 @@ export const GroupsLive = Layer.effect(
           const now = yield* DateTime.nowAsDate
           yield* validateCompletion(now, source.startsAt, now)
 
-          const tickets = yield* Effect.forEach(
-            source.tickets,
-            (tid) =>
-              ticketDocs
-                .read(orgSlug, slug, tid)
-                .pipe(
-                  Effect.catchTag("MalformedTicketDocument", () =>
-                    Effect.fail(new NotFound())
-                  )
-                ),
-            { concurrency: 8 }
+          const [tickets, finished] = yield* Effect.all(
+            [
+              Effect.forEach(
+                source.tickets,
+                (tid) =>
+                  ticketDocs
+                    .read(orgSlug, slug, tid)
+                    .pipe(
+                      Effect.catchTag("MalformedTicketDocument", () =>
+                        Effect.fail(new NotFound())
+                      )
+                    ),
+                { concurrency: 8 }
+              ),
+              finishedStatuses.forProject(orgSlug, slug)
+            ],
+            { concurrency: 2 }
           )
-          const finished = yield* finishedStatuses.forProject(orgSlug, slug)
           const stay: Array<TicketId> = []
           const carry: Array<TicketId> = []
           for (const ticket of tickets) {
@@ -719,7 +738,7 @@ export const GroupsLive = Layer.effect(
               groupDocs
                 .read(orgSlug, slug, id)
                 .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null))),
-            { concurrency: 1 }
+            { concurrency: 8 }
           )
           const activeSprints = groups.filter(
             (group): group is GroupDocument =>

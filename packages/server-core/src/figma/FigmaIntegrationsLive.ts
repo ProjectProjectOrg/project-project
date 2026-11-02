@@ -604,8 +604,10 @@ export const FigmaIntegrationsLive = Layer.effect(
     const getProjectStatus: FigmaIntegrationsShape["getProjectStatus"] = () =>
       Effect.gen(function* () {
         const { orgSlug, projectId } = yield* ProjectScope
-        const row = yield* activeLink(projectId)
-        const storage = yield* storageConnected(orgSlug)
+        const [row, storage] = yield* Effect.all(
+          [activeLink(projectId), storageConnected(orgSlug)],
+          { concurrency: 2 }
+        )
         if (row === null) return notConnectedStatus(storage)
         return {
           connected: row.status === "active",

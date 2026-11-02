@@ -45,21 +45,20 @@
 //
 // USER TYPE FOR THE TAG
 // ----------------------------------------------------------------------------
-// `CurrentUser`'s value type is the schema-defined `User` from
-// `./schemas/User.ts` — *not* Better Auth's inferred user type. Why? Because
-// the Tag is used in `shared/`, which knows nothing about Better Auth.
-// The middleware Layer (in backend) is responsible for ensuring the value
-// it provides matches the shared `User` shape.
+// `CurrentUser`'s value type is `UserIdentity` from `./schemas/User.ts`: the
+// shared `User` without the per-viewer fields (active org, personal GitHub and
+// Everhour connections). Those cost queries and only `GET /me` needs them, so
+// the `/me` handler resolves them instead of the middleware.
 
 import * as Context from "effect/Context"
 import { HttpApiMiddleware, HttpApiSecurity } from "effect/http-api"
 
 import type { ActivityActor } from "./access/ActivityActor"
 import { Unauthorized } from "./errors"
-import type { User } from "./schemas/User"
+import type { UserIdentity } from "./schemas/User"
 
 /** @effect-leakable-service */
-export class CurrentUser extends Context.Service<CurrentUser, User>()(
+export class CurrentUser extends Context.Service<CurrentUser, UserIdentity>()(
   "@pp/shared/Authentication/CurrentUser"
 ) {}
 

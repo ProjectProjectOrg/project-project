@@ -69,7 +69,7 @@ export const makeSlackDelivery = Effect.gen(function* () {
       const [row] = yield* db
         .select({
           payload: slackNotification.payload,
-          actorId: slackNotification.actorId,
+          actorName: user.name,
           organizationId: projectIntegrationLink.organizationId,
           orgSlug: organization.slug,
           slug: projectIndex.slug,
@@ -107,6 +107,7 @@ export const makeSlackDelivery = Effect.gen(function* () {
           organization,
           eq(organization.id, projectIntegrationLink.organizationId)
         )
+        .leftJoin(user, eq(user.id, slackNotification.actorId))
         .where(
           and(
             eq(slackNotification.id, id),
@@ -133,14 +134,6 @@ export const makeSlackDelivery = Effect.gen(function* () {
         yield* finish(id, "event_disabled")
         return { kind: "done" }
       }
-      const [actor] = row.actorId
-        ? yield* db
-            .select({ name: user.name })
-            .from(user)
-            .where(eq(user.id, row.actorId))
-            .limit(1)
-            .pipe(Effect.orDie)
-        : []
       const status =
         "status" in event
           ? yield* db
@@ -185,7 +178,7 @@ export const makeSlackDelivery = Effect.gen(function* () {
           id,
           notificationMessage({
             notification: event,
-            actor: actor?.name ?? "ProjectProject",
+            actor: row.actorName ?? "ProjectProject",
             url,
             statusLabel: status[0]?.label ?? null
           })

@@ -439,43 +439,62 @@ export const AttachmentsLive = Layer.effect(
         }
         const where = and(...conditions)
 
-        const items = yield* db
-          .select({ row: attachmentIndex, projectSlug: projectIndex.slug })
-          .from(attachmentIndex)
-          .leftJoin(
-            projectIndex,
-            eq(projectIndex.id, attachmentIndex.projectId)
-          )
-          .where(and(where, libraryAttachmentIsVisible()))
-          .orderBy(order(column), order(attachmentIndex.id))
-          .limit(limit)
-          .offset(attachmentPageOffset(params.page, limit))
-          .pipe(Effect.orDie)
+        const pageOf = Effect.gen(function* () {
+          const items = yield* db
+            .select({ row: attachmentIndex, projectSlug: projectIndex.slug })
+            .from(attachmentIndex)
+            .leftJoin(
+              projectIndex,
+              eq(projectIndex.id, attachmentIndex.projectId)
+            )
+            .where(and(where, libraryAttachmentIsVisible()))
+            .orderBy(order(column), order(attachmentIndex.id))
+            .limit(limit)
+            .offset(attachmentPageOffset(params.page, limit))
+            .pipe(Effect.orDie)
 
-        const references =
-          items.length === 0
-            ? []
-            : yield* db
-                .select({
-                  attachmentId: attachmentReference.attachmentId,
-                  projectSlug: projectIndex.slug,
-                  ticketId: attachmentReference.ticketId
-                })
-                .from(attachmentReference)
-                .innerJoin(
-                  projectIndex,
-                  eq(projectIndex.id, attachmentReference.projectId)
-                )
-                .where(
-                  and(
-                    inArray(
-                      attachmentReference.attachmentId,
-                      items.map((item) => item.row.id)
-                    ),
-                    publishedProject(projectIndex)
+          const references =
+            items.length === 0
+              ? []
+              : yield* db
+                  .select({
+                    attachmentId: attachmentReference.attachmentId,
+                    projectSlug: projectIndex.slug,
+                    ticketId: attachmentReference.ticketId
+                  })
+                  .from(attachmentReference)
+                  .innerJoin(
+                    projectIndex,
+                    eq(projectIndex.id, attachmentReference.projectId)
                   )
-                )
-                .pipe(Effect.orDie)
+                  .where(
+                    and(
+                      inArray(
+                        attachmentReference.attachmentId,
+                        items.map((item) => item.row.id)
+                      ),
+                      publishedProject(projectIndex)
+                    )
+                  )
+                  .pipe(Effect.orDie)
+          return { items, references }
+        })
+
+        const [{ items, references }, counted] = yield* Effect.all(
+          [
+            pageOf,
+            db
+              .select({ total: sql<number>`count(*)::int` })
+              .from(attachmentIndex)
+              .leftJoin(
+                projectIndex,
+                eq(projectIndex.id, attachmentIndex.projectId)
+              )
+              .where(and(where, libraryAttachmentIsVisible()))
+              .pipe(Effect.orDie)
+          ],
+          { concurrency: 2 }
+        )
 
         const byAttachment = new Map<string, Array<AttachmentTicketRef>>()
         for (const reference of references) {
@@ -487,16 +506,6 @@ export const AttachmentsLive = Layer.effect(
           if (target) target.push(entry)
           else byAttachment.set(reference.attachmentId, [entry])
         }
-
-        const counted = yield* db
-          .select({ total: sql<number>`count(*)::int` })
-          .from(attachmentIndex)
-          .leftJoin(
-            projectIndex,
-            eq(projectIndex.id, attachmentIndex.projectId)
-          )
-          .where(and(where, libraryAttachmentIsVisible()))
-          .pipe(Effect.orDie)
 
         return {
           items: items.map((item) =>
@@ -597,37 +606,43 @@ export const AttachmentsLive = Layer.effect(
       body
     ) =>
       Effect.gen(function* () {
-        const { id: projectId } = yield* projectInOrg(db, orgSlug, slug)
         const referenced = new Set(
           extractAttachmentRefs(body)
             .filter((ref) => ref.orgSlug === orgSlug)
             .map((ref) => ref.id)
         )
 
-        const existing = yield* db
-          .select({ attachmentId: attachmentReference.attachmentId })
-          .from(attachmentReference)
-          .where(
-            and(
-              eq(attachmentReference.projectId, projectId),
-              eq(attachmentReference.ticketId, ticketId)
-            )
-          )
-          .pipe(Effect.orDie)
-
-        const known =
-          referenced.size === 0
-            ? []
-            : yield* db
-                .select({ id: attachmentIndex.id })
-                .from(attachmentIndex)
+        const [{ projectId, existing }, known] = yield* Effect.all(
+          [
+            Effect.gen(function* () {
+              const { id: projectId } = yield* projectInOrg(db, orgSlug, slug)
+              const existing = yield* db
+                .select({ attachmentId: attachmentReference.attachmentId })
+                .from(attachmentReference)
                 .where(
                   and(
-                    eq(attachmentIndex.orgSlug, orgSlug),
-                    inArray(attachmentIndex.id, [...referenced])
+                    eq(attachmentReference.projectId, projectId),
+                    eq(attachmentReference.ticketId, ticketId)
                   )
                 )
                 .pipe(Effect.orDie)
+              return { projectId, existing }
+            }),
+            referenced.size === 0
+              ? Effect.succeed([])
+              : db
+                  .select({ id: attachmentIndex.id })
+                  .from(attachmentIndex)
+                  .where(
+                    and(
+                      eq(attachmentIndex.orgSlug, orgSlug),
+                      inArray(attachmentIndex.id, [...referenced])
+                    )
+                  )
+                  .pipe(Effect.orDie)
+          ],
+          { concurrency: 2 }
+        )
 
         const plan = planReferences({
           referenced: new Set(known.map((row) => row.id)),
@@ -664,21 +679,28 @@ export const AttachmentsLive = Layer.effect(
         const touched = [...new Set([...plan.toAdd, ...plan.toRemove])]
         if (touched.length === 0) return
 
-        const counts = yield* db
-          .select({
-            attachmentId: attachmentReference.attachmentId,
-            references: sql<number>`count(*)::int`
-          })
-          .from(attachmentReference)
-          .where(inArray(attachmentReference.attachmentId, touched))
-          .groupBy(attachmentReference.attachmentId)
-          .pipe(Effect.orDie)
-
-        const rows = yield* db
-          .select({ id: attachmentIndex.id, status: attachmentIndex.status })
-          .from(attachmentIndex)
-          .where(inArray(attachmentIndex.id, touched))
-          .pipe(Effect.orDie)
+        const [counts, rows] = yield* Effect.all(
+          [
+            db
+              .select({
+                attachmentId: attachmentReference.attachmentId,
+                references: sql<number>`count(*)::int`
+              })
+              .from(attachmentReference)
+              .where(inArray(attachmentReference.attachmentId, touched))
+              .groupBy(attachmentReference.attachmentId)
+              .pipe(Effect.orDie),
+            db
+              .select({
+                id: attachmentIndex.id,
+                status: attachmentIndex.status
+              })
+              .from(attachmentIndex)
+              .where(inArray(attachmentIndex.id, touched))
+              .pipe(Effect.orDie)
+          ],
+          { concurrency: 2 }
+        )
 
         const statuses = planStatuses({
           rows,

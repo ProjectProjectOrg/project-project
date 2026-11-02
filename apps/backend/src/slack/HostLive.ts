@@ -39,18 +39,23 @@ export const SlackHostLive = Layer.effect(
         .read(request.orgSlug, request.slug, request.id)
         .pipe(Effect.option)
       if (Option.isNone(ticket) || ticket.value.archivedAt !== null) return null
-      const [status] = yield* db
-        .select({ label: projectStatus.label })
-        .from(projectStatus)
-        .where(
-          and(
-            eq(projectStatus.projectId, scope.value.projectId),
-            eq(projectStatus.slug, ticket.value.status)
-          )
-        )
-        .limit(1)
-        .pipe(Effect.orDie)
-      const assigned = yield* users.findManyByIds(ticket.value.assignees)
+      const [[status], assigned] = yield* Effect.all(
+        [
+          db
+            .select({ label: projectStatus.label })
+            .from(projectStatus)
+            .where(
+              and(
+                eq(projectStatus.projectId, scope.value.projectId),
+                eq(projectStatus.slug, ticket.value.status)
+              )
+            )
+            .limit(1)
+            .pipe(Effect.orDie),
+          users.findManyByIds(ticket.value.assignees)
+        ],
+        { concurrency: 2 }
+      )
       return {
         id: ticket.value.id,
         title: ticket.value.title,

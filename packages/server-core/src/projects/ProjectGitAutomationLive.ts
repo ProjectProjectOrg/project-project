@@ -47,29 +47,39 @@ export const ProjectGitAutomationLive = Layer.effect(
 
     const forProject = (projectId: string) =>
       Effect.gen(function* () {
-        const rows = yield* db
-          .select({
-            event: projectGitAutomation.event,
-            statusSlug: projectGitAutomation.statusSlug
-          })
-          .from(projectGitAutomation)
-          .where(eq(projectGitAutomation.projectId, projectId))
-        const project = yield* db
-          .select({ forwardOnly: projectIndex.gitAutomationForwardOnly })
-          .from(projectIndex)
-          .where(eq(projectIndex.id, projectId))
+        const [rows, project] = yield* Effect.all(
+          [
+            db
+              .select({
+                event: projectGitAutomation.event,
+                statusSlug: projectGitAutomation.statusSlug
+              })
+              .from(projectGitAutomation)
+              .where(eq(projectGitAutomation.projectId, projectId)),
+            db
+              .select({ forwardOnly: projectIndex.gitAutomationForwardOnly })
+              .from(projectIndex)
+              .where(eq(projectIndex.id, projectId))
+          ],
+          { concurrency: 2 }
+        )
         return gitAutomationFromRows(rows, project[0]?.forwardOnly ?? true)
       }).pipe(Effect.orDie)
 
     const configFor: ProjectGitAutomationShape["configFor"] = (projectId) =>
       Effect.gen(function* () {
-        const automation = yield* forProject(projectId)
-        const statuses = yield* db
-          .select({ slug: projectStatus.slug })
-          .from(projectStatus)
-          .where(eq(projectStatus.projectId, projectId))
-          .orderBy(asc(projectStatus.orderKey))
-          .pipe(Effect.orDie)
+        const [automation, statuses] = yield* Effect.all(
+          [
+            forProject(projectId),
+            db
+              .select({ slug: projectStatus.slug })
+              .from(projectStatus)
+              .where(eq(projectStatus.projectId, projectId))
+              .orderBy(asc(projectStatus.orderKey))
+              .pipe(Effect.orDie)
+          ],
+          { concurrency: 2 }
+        )
         return {
           ...automation,
           statusOrder: statuses.map((status) => status.slug)

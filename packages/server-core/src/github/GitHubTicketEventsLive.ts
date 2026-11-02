@@ -580,13 +580,19 @@ export const GitHubTicketEventsLive = Layer.effect(
                 claimPullRequest: (update: GitHubPullRequestWebhookChange) =>
                   rememberPullRequest(db, update)
               }
-              const [owners, stacked] = yield* Effect.all([
-                ticketBranchIndex.findTicketsByBranch(
-                  link.projectId,
-                  change.branch
-                ),
-                ticketBranchIndex.findStackLayers(link.projectId, change.branch)
-              ])
+              const [owners, stacked] = yield* Effect.all(
+                [
+                  ticketBranchIndex.findTicketsByBranch(
+                    link.projectId,
+                    change.branch
+                  ),
+                  ticketBranchIndex.findStackLayers(
+                    link.projectId,
+                    change.branch
+                  )
+                ],
+                { concurrency: 2 }
+              )
               if (owners.length === 0 && stacked.length === 0) {
                 yield* linkPullRequestWebhookToTicket(
                   deps,
@@ -664,11 +670,14 @@ export const GitHubTicketEventsLive = Layer.effect(
               link.projectId,
               change.branch
             )
-            const pending = yield* Effect.filter(matches, (match) =>
-              Effect.map(
-                ticketBranchIndex.getBranchDeletedAt(match, match.ticketId),
-                (deletedAt) => deletedAt === null
-              )
+            const pending = yield* Effect.filter(
+              matches,
+              (match) =>
+                Effect.map(
+                  ticketBranchIndex.getBranchDeletedAt(match, match.ticketId),
+                  (deletedAt) => deletedAt === null
+                ),
+              { concurrency: 8 }
             )
             yield* Effect.forEach(
               pending,
