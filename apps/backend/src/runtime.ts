@@ -52,13 +52,13 @@ import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { OAuthApplicationsLive } from "@pp/server-core/oauth/OAuthApplicationsLive"
 import { OrgLive } from "@pp/server-core/organizations/OrgLive"
-import { BannerPlaceholdersLive } from "@pp/server-core/projects/BannerPlaceholdersLive"
+import * as BannerPlaceholders from "@pp/server-core/projects/BannerPlaceholders"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as ProjectServices from "@pp/server-core/projects/layer"
-import { ProjectDocsLive } from "@pp/server-core/projects/ProjectDocsLive"
-import { ProjectGitAutomationLive } from "@pp/server-core/projects/ProjectGitAutomationLive"
-import { ProjectStatusesLive } from "@pp/server-core/projects/ProjectStatusesLive"
-import { SystemProjectsLive } from "@pp/server-core/projects/SystemProjectsLive"
+import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
+import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutomation"
+import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
+import * as SystemProjects from "@pp/server-core/projects/SystemProjects"
 import { OrgStorageLive } from "@pp/server-core/storage/OrgStorageLive"
 import { S3StorageLive } from "@pp/server-core/storage/S3StorageLive"
 import { SecretCryptoLive } from "@pp/server-core/storage/SecretCryptoLive"
@@ -157,8 +157,8 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
 ) =>
   TagsLive.pipe(
     Layer.provideMerge(FeedbackIntake.layer),
-    Layer.provideMerge(SystemProjectsLive),
-    Layer.provideMerge(ProjectStatusesLive),
+    Layer.provideMerge(SystemProjects.layer),
+    Layer.provideMerge(ProjectStatuses.layer),
     Layer.provideMerge(TicketServices.layer),
     Layer.provideMerge(TicketActivityFeedLive),
     Layer.provideMerge(Library.layer),
@@ -173,14 +173,14 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(AccessLive),
     Layer.provideMerge(GitHubLive),
     Layer.provideMerge(GitHubTicketEventsLive),
-    Layer.provideMerge(ProjectGitAutomationLive)
+    Layer.provideMerge(ProjectGitAutomation.layer)
   )
     .pipe(
       Layer.provideMerge(EverhourIntegrationLive),
       Layer.provideMerge(
         FigmaIntegrations.layer.pipe(Layer.provideMerge(Figma.layer))
       ),
-      Layer.provideMerge(BannerPlaceholdersLive),
+      Layer.provideMerge(BannerPlaceholders.layer),
       Layer.provideMerge(UsersLive),
       Layer.provideMerge(
         TicketRewrites.layer.pipe(Layer.provideMerge(TicketIndexServices.layer))
@@ -190,7 +190,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(FeedbackLive),
       Layer.provideMerge(JiraDurableServicesLive),
       Layer.provideMerge(JiraWorkflowsLive),
-      Layer.provideMerge(ProjectDocsLive),
+      Layer.provideMerge(ProjectDocs.layer),
       Layer.provideMerge(TicketDocs.layer),
       Layer.provideMerge(FinishedStatuses.layer),
       Layer.provideMerge(GroupDocs.layer),

@@ -21,8 +21,7 @@ import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { projectScope } from "../access/testing"
-import { ProjectStatuses } from "../projects/ProjectStatuses"
-import { ProjectStatusesLive } from "../projects/ProjectStatusesLive"
+import * as ProjectStatuses from "../projects/ProjectStatuses"
 import { Tags } from "../tags/Tags"
 import { TagsLive } from "../tags/TagsLive"
 import {
@@ -144,7 +143,7 @@ describe.skipIf(!databaseUrl)("tag and status rewrites", () => {
     const db = DbLive.pipe(
       Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl ?? "") }))
     )
-    const layer = Layer.mergeAll(TagsLive, ProjectStatusesLive).pipe(
+    const layer = Layer.mergeAll(TagsLive, ProjectStatuses.layer).pipe(
       Layer.provide(
         Layer.mergeAll(
           makeTicketsLayer("T", recordingDocs, { ticketIndex: index }),
@@ -160,11 +159,11 @@ describe.skipIf(!databaseUrl)("tag and status rewrites", () => {
   }
 
   const run = <A, E>(
-    layer: Layer.Layer<Tags | ProjectStatuses>,
+    layer: Layer.Layer<Tags | ProjectStatuses.ProjectStatuses>,
     effect: Effect.Effect<
       A,
       E,
-      Tags | ProjectStatuses | ProjectScope | ActivityActor
+      Tags | ProjectStatuses.ProjectStatuses | ProjectScope | ActivityActor
     >
   ) =>
     resetProject().pipe(
@@ -224,7 +223,7 @@ describe.skipIf(!databaseUrl)("tag and status rewrites", () => {
       return run(
         layer,
         Effect.gen(function* () {
-          const statuses = yield* ProjectStatuses
+          const statuses = yield* ProjectStatuses.ProjectStatuses
           yield* statuses.update(statusSlug("in_review"), {
             label: label("Needs review")
           })
@@ -246,7 +245,7 @@ describe.skipIf(!databaseUrl)("tag and status rewrites", () => {
       return run(
         layer,
         Effect.gen(function* () {
-          const statuses = yield* ProjectStatuses
+          const statuses = yield* ProjectStatuses.ProjectStatuses
           yield* statuses.remove(statusSlug("in_review"), {
             reassignTo: statusSlug("done")
           })

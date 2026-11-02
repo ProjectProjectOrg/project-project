@@ -4,7 +4,7 @@ import { NotFound, type ProjectScopeShape } from "@pp/shared"
 import { eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 
-import type { ProjectDocs } from "./ProjectDocs"
+import type * as ProjectDocs from "./ProjectDocs"
 
 type ProjectRef = Pick<ProjectScopeShape, "projectId" | "orgSlug" | "slug">
 
@@ -15,7 +15,7 @@ export const readProjectDocument = Effect.fn("readProjectDocument")(function* ({
   indexed
 }: Readonly<{
   db: Db["Service"]
-  docs: ProjectDocs["Service"]
+  docs: ProjectDocs.ProjectDocs["Service"]
   project: ProjectRef
   indexed?: Pick<typeof projectIndex.$inferSelect, "estimation">
 }>) {

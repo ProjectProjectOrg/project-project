@@ -3,7 +3,7 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 
 import type { MarkdownError } from "../markdown/Markdown"
-import type { ProjectGitAutomationShape } from "../projects/ProjectGitAutomation"
+import type * as ProjectGitAutomation from "../projects/ProjectGitAutomation"
 import { gitAutomationEvent, planGitAutomation } from "./gitAutomation"
 import type * as TicketDocs from "./TicketDocs"
 import type { TicketDocumentLock } from "./ticketDocumentLock"
@@ -13,7 +13,7 @@ import type { TicketProject } from "./ticketProject"
 export type GitAutomationDeps = Readonly<{
   ticketDocs: TicketDocs.TicketDocs["Service"]
   ticketIndex: TicketIndex.TicketIndex["Service"]
-  gitAutomation: ProjectGitAutomationShape
+  gitAutomation: ProjectGitAutomation.ProjectGitAutomation["Service"]
 }>
 
 export const moveByGitAutomation = (
@@ -84,7 +84,7 @@ export const moveForDeletedBranch = (
 export const gitAutomationActivity = { statusCause: "git_automation" } as const
 
 export const withGitAutomation = (
-  gitAutomation: ProjectGitAutomationShape,
+  gitAutomation: ProjectGitAutomation.ProjectGitAutomation["Service"],
   projectId: string,
   before: TicketDocs.TicketDocument,
   after: TicketDocs.TicketDocument

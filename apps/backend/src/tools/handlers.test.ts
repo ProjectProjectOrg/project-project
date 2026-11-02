@@ -11,11 +11,11 @@ import { Comments } from "@pp/server-core/comments/Comments"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
-import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
-import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
+import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
+import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutomation"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
-import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
+import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import { Tags } from "@pp/server-core/tags/Tags"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
@@ -230,7 +230,7 @@ const TicketIndexMaintenanceStub = Layer.mock(
   }
 )
 
-const ProjectDocsStub = Layer.mock(ProjectDocs, {
+const ProjectDocsStub = Layer.mock(ProjectDocs.ProjectDocs, {
   readRaw: (_o, _s) =>
     Effect.succeed({
       path: "orgs/acme/projects/demo/project.md",
@@ -254,7 +254,7 @@ const TicketDocsStub = Layer.mock(TicketDocs.TicketDocs, {
     })
 })
 
-const ProjectStatusesStub = Layer.mock(ProjectStatuses, {
+const ProjectStatusesStub = Layer.mock(ProjectStatuses.ProjectStatuses, {
   list: () =>
     Effect.succeed(
       decodeProjectStatuses([
@@ -282,20 +282,23 @@ const ProjectStatusesStub = Layer.mock(ProjectStatuses, {
     )
 })
 
-const ProjectGitAutomationStub = Layer.mock(ProjectGitAutomation, {
-  get: () =>
-    Effect.succeed({
-      rules: {
-        branch_linked: null,
-        pr_draft_opened: StatusSlug.make("code_test"),
-        pr_opened: StatusSlug.make("code_test"),
-        pr_merged: StatusSlug.make("done"),
-        pr_closed: null,
-        branch_deleted: null
-      },
-      forwardOnly: true
-    })
-})
+const ProjectGitAutomationStub = Layer.mock(
+  ProjectGitAutomation.ProjectGitAutomation,
+  {
+    get: () =>
+      Effect.succeed({
+        rules: {
+          branch_linked: null,
+          pr_draft_opened: StatusSlug.make("code_test"),
+          pr_opened: StatusSlug.make("code_test"),
+          pr_merged: StatusSlug.make("done"),
+          pr_closed: null,
+          branch_deleted: null
+        },
+        forwardOnly: true
+      })
+  }
+)
 
 const TestLayer = Layer.mergeAll(
   AccessStub,

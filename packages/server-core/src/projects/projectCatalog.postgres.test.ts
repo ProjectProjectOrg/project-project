@@ -20,11 +20,10 @@ import { Access } from "../access/Access"
 import { projectScope, testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
 import { Bots } from "../bots/Bots"
-import { ProjectDocs } from "./ProjectDocs"
+import * as ProjectDocs from "./ProjectDocs"
 import * as Projects from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
-import { SystemProjects } from "./SystemProjects"
-import { SystemProjectsLive } from "./SystemProjectsLive"
+import * as SystemProjects from "./SystemProjects"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -238,7 +237,7 @@ describe.skipIf(!databaseUrl)("project catalog", () => {
   it.effect("traces SystemProjects.ensure with its role and org", () =>
     Effect.gen(function* () {
       const { tracer, named, parentOf } = recordingTracer()
-      const systemProjects = SystemProjectsLive.pipe(
+      const systemProjects = SystemProjects.layer.pipe(
         Layer.provide(
           DbLive.pipe(
             Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
@@ -252,7 +251,7 @@ describe.skipIf(!databaseUrl)("project catalog", () => {
         ),
         Layer.provide(Layer.mock(Projects.Projects, {})),
         Layer.provide(
-          Layer.mock(ProjectDocs, {
+          Layer.mock(ProjectDocs.ProjectDocs, {
             systemRole: (_org, slug) =>
               Effect.succeed(
                 slug === slugs[1] ? Option.some("feedback") : Option.none()
@@ -261,14 +260,16 @@ describe.skipIf(!databaseUrl)("project catalog", () => {
         ),
         Layer.orDie
       )
-      const scope = yield* Effect.flatMap(SystemProjects, (projects) =>
-        projects.ensure({
-          role: "feedback",
-          orgSlug: organizationId,
-          name: "Feedback",
-          key: "FB",
-          bot: { key: "feedback", name: "Feedback", role: "developer" }
-        })
+      const scope = yield* Effect.flatMap(
+        SystemProjects.SystemProjects,
+        (projects) =>
+          projects.ensure({
+            role: "feedback",
+            orgSlug: organizationId,
+            name: "Feedback",
+            key: "FB",
+            bot: { key: "feedback", name: "Feedback", role: "developer" }
+          })
       ).pipe(Effect.withTracer(tracer), Effect.provide(systemProjects))
       expect(scope.slug).toBe(slugs[1])
       expect(named("SystemProjects.ensure")).toEqual([

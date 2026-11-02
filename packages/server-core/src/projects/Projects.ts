@@ -43,9 +43,9 @@ import * as Schema from "effect/Schema"
 import { projectMemberOf, projectScopeOf } from "../access/projectScope"
 import type { MarkdownError } from "../markdown/Markdown"
 import { bannerNeedsPlaceholder } from "./bannerPlaceholder"
-import { BannerPlaceholders } from "./BannerPlaceholders"
+import * as BannerPlaceholders from "./BannerPlaceholders"
 import * as ProjectDetails from "./ProjectDetails"
-import { ProjectDocs } from "./ProjectDocs"
+import * as ProjectDocs from "./ProjectDocs"
 import {
   iconImageSlots,
   replaceProjectImageReference
@@ -113,9 +113,9 @@ export class Projects extends Context.Service<
 const make = Effect.gen(function* () {
   const db = yield* Db
 
-  const bannerPlaceholders = yield* BannerPlaceholders
+  const bannerPlaceholders = yield* BannerPlaceholders.BannerPlaceholders
 
-  const projectDocs = yield* ProjectDocs
+  const projectDocs = yield* ProjectDocs.ProjectDocs
   const {
     withWriteLock: withProjectWriteLock,
     current: inScope,

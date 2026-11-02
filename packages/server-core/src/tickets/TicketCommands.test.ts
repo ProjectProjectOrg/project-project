@@ -43,7 +43,7 @@ import * as KeyedLock from "../locks/KeyedLock"
 import { MarkdownLive } from "../markdown/MarkdownLive"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
-import { ProjectDocs } from "../projects/ProjectDocs"
+import * as ProjectDocs from "../projects/ProjectDocs"
 import * as ProjectGithub from "../projects/ProjectGithub"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
@@ -230,7 +230,7 @@ const TestLayer = Layer.unwrap(
         Layer.provideMerge(Library.layer),
         Layer.provideMerge(LibraryDocs.layer),
         Layer.provide(
-          Layer.mock(ProjectDocs, {
+          Layer.mock(ProjectDocs.ProjectDocs, {
             read: () =>
               Effect.succeed({
                 slug: Slug.make("project"),

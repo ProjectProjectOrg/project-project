@@ -26,8 +26,7 @@ import * as KeyedLock from "../locks/KeyedLock"
 import { Markdown, type MarkdownShape } from "../markdown/Markdown"
 import * as TicketDocs from "../tickets/TicketDocs"
 import { FinishedStatuses } from "./FinishedStatuses"
-import { ProjectDocs } from "./ProjectDocs"
-import { ProjectDocsLive } from "./ProjectDocsLive"
+import * as ProjectDocs from "./ProjectDocs"
 
 const groupId = Schema.decodeUnknownSync(GroupId)
 const ticketId = Schema.decodeUnknownSync(TicketId)
@@ -591,7 +590,7 @@ it.effect("GroupDocs serializes typed group documents for disk writes", () => {
 
 it.effect("ProjectDocs reads project frontmatter with typed defaults", () =>
   Effect.gen(function* () {
-    const docs = yield* ProjectDocs
+    const docs = yield* ProjectDocs.ProjectDocs
     const document = yield* docs.read("org", "project")
 
     expect(document).toMatchObject({
@@ -605,7 +604,7 @@ it.effect("ProjectDocs reads project frontmatter with typed defaults", () =>
     expect(document.createdAt.toISOString()).toBe("2026-05-01T00:00:00.000Z")
   }).pipe(
     Effect.provide(
-      ProjectDocsLive.pipe(
+      ProjectDocs.layer.pipe(
         Layer.provide(
           makeMarkdown({
             readProjectFile: () =>
@@ -638,7 +637,7 @@ it.effect(
       | undefined
 
     return Effect.gen(function* () {
-      const docs = yield* ProjectDocs
+      const docs = yield* ProjectDocs.ProjectDocs
       yield* docs.write("org", "project", {
         org: "org",
         slug: "project",
@@ -690,7 +689,7 @@ it.effect(
       })
     }).pipe(
       Effect.provide(
-        ProjectDocsLive.pipe(
+        ProjectDocs.layer.pipe(
           Layer.provide(
             makeMarkdown({
               readProjectFile: () => Effect.fail(new NotFound()),
@@ -710,7 +709,7 @@ it.effect(
   "ProjectDocs.readRaw returns the on-disk path and raw file contents",
   () =>
     Effect.gen(function* () {
-      const docs = yield* ProjectDocs
+      const docs = yield* ProjectDocs.ProjectDocs
       const file = yield* docs.readRaw("acme", "web")
       expect(file).toEqual({
         path: "project.md",
@@ -718,7 +717,7 @@ it.effect(
       })
     }).pipe(
       Effect.provide(
-        ProjectDocsLive.pipe(
+        ProjectDocs.layer.pipe(
           Layer.provide(
             makeMarkdown({
               readProjectFileRaw: (_org, _slug) =>

@@ -12,7 +12,7 @@ import { expect } from "vitest"
 
 import { projectScope } from "../access/testing"
 import type * as Groups from "../groups/Groups"
-import { ProjectDocs } from "../projects/ProjectDocs"
+import * as ProjectDocs from "../projects/ProjectDocs"
 import {
   decodeGroupSync,
   decodeGroupDetailSync,
@@ -1135,7 +1135,7 @@ it.effect(
     )
     let switched = false
     const layer = makeTicketsLayer("T", docs.layer, {
-      projectDocs: Layer.mock(ProjectDocs, {
+      projectDocs: Layer.mock(ProjectDocs.ProjectDocs, {
         read: (_org, slug) =>
           Effect.succeed({
             slug,

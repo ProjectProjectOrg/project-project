@@ -13,17 +13,17 @@ import {
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Effect from "effect/Effect"
-import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { projectScope } from "../access/testing"
-import { ProjectGitAutomation } from "./ProjectGitAutomation"
-import { ProjectGitAutomationLive } from "./ProjectGitAutomationLive"
+import * as ProjectGitAutomation from "./ProjectGitAutomation"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const slug = Schema.decodeSync(StatusSlug)
@@ -47,7 +47,7 @@ describe.skipIf(!databaseUrl)("project git automation", () => {
     slug: "project"
   })
   let pool: Pool
-  let layer: Layer.Layer<ProjectGitAutomation>
+  let layer: Layer.Layer<ProjectGitAutomation.ProjectGitAutomation>
 
   beforeAll(async () => {
     if (!databaseUrl) throw new Error("Test database URL is required")
@@ -76,7 +76,7 @@ describe.skipIf(!databaseUrl)("project git automation", () => {
       "INSERT INTO project_status (project_id,slug,label,icon,color,order_key,created_by) VALUES ($1,'todo','Todo','Circle','#a3a3a3','a0',$2), ($1,'in_review','In review','Eye','#e0a03b','a1',$2), ($1,'done','Done','CircleCheck','#22c55e','a2',$2)",
       [id, id]
     )
-    layer = ProjectGitAutomationLive.pipe(
+    layer = ProjectGitAutomation.layer.pipe(
       Layer.provide(
         DbLive.pipe(
           Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl) }))
@@ -94,7 +94,11 @@ describe.skipIf(!databaseUrl)("project git automation", () => {
   })
 
   const run = <A, E>(
-    effect: Effect.Effect<A, E, ProjectGitAutomation | ProjectScope>
+    effect: Effect.Effect<
+      A,
+      E,
+      ProjectGitAutomation.ProjectGitAutomation | ProjectScope
+    >
   ) =>
     effect.pipe(
       Effect.provideService(ProjectScope, scope),
@@ -106,7 +110,7 @@ describe.skipIf(!databaseUrl)("project git automation", () => {
     () =>
       run(
         Effect.gen(function* () {
-          const automation = yield* ProjectGitAutomation
+          const automation = yield* ProjectGitAutomation.ProjectGitAutomation
           expect(yield* automation.get()).toEqual({
             rules: noRules,
             forwardOnly: true
@@ -167,7 +171,7 @@ describe.skipIf(!databaseUrl)("project git automation", () => {
   it.effect("rejects a rule that points at a status the project lacks", () =>
     run(
       Effect.gen(function* () {
-        const automation = yield* ProjectGitAutomation
+        const automation = yield* ProjectGitAutomation.ProjectGitAutomation
         const failure = yield* Effect.flip(
           automation.update({
             rules: { ...noRules, pr_closed: slug("archived") },
@@ -201,10 +205,12 @@ describe.skipIf(!databaseUrl)("project git automation", () => {
             )
           )
           const pending = yield* run(
-            Effect.flatMap(ProjectGitAutomation, (automation) =>
-              automation.update({ rules: { pr_closed: slug("race") } })
+            Effect.flatMap(
+              ProjectGitAutomation.ProjectGitAutomation,
+              (automation) =>
+                automation.update({ rules: { pr_closed: slug("race") } })
             )
-          ).pipe(Effect.exit, Effect.forkChild)
+          ).pipe(Effect.flip, Effect.forkChild)
           try {
             yield* Effect.promise(async () => {
               await expect
@@ -221,7 +227,7 @@ describe.skipIf(!databaseUrl)("project git automation", () => {
             yield* Effect.promise(() => client.query("COMMIT"))
           }
           expect(yield* Fiber.join(pending)).toEqual(
-            Exit.fail(new Conflict({ reason: "status_not_found" }))
+            new Conflict({ reason: "status_not_found" })
           )
         } finally {
           yield* Effect.promise(() => client.query("ROLLBACK"))
@@ -229,4 +235,38 @@ describe.skipIf(!databaseUrl)("project git automation", () => {
         }
       })
   )
+
+  const recordSpans = () => {
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    const roots = () =>
+      spans.flatMap((span) => (Option.isNone(span.parent) ? [span.name] : []))
+    return { tracer, roots }
+  }
+
+  it.effect("traces each call under its own ProjectGitAutomation span", () => {
+    const { tracer, roots } = recordSpans()
+    return run(
+      Effect.gen(function* () {
+        const automation = yield* ProjectGitAutomation.ProjectGitAutomation
+        yield* automation.get()
+        yield* automation.configFor(id)
+        yield* automation.update({})
+      }).pipe(Effect.withTracer(tracer))
+    ).pipe(
+      Effect.map(() =>
+        expect(roots()).toEqual([
+          "ProjectGitAutomation.get",
+          "ProjectGitAutomation.configFor",
+          "ProjectGitAutomation.update"
+        ])
+      )
+    )
+  })
 })
