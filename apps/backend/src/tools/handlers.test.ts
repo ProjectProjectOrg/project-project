@@ -10,7 +10,7 @@ import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { Comments } from "@pp/server-core/comments/Comments"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
-import { Library } from "@pp/server-core/library/Library"
+import * as Library from "@pp/server-core/library/Library"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
@@ -315,7 +315,7 @@ const TestLayer = Layer.mergeAll(
   TicketIndexStub,
   TicketIndexMaintenanceStub,
   ProjectStatusesStub,
-  Layer.mock(Library, {}),
+  Layer.mock(Library.Library, {}),
   ProjectGitAutomationStub
 )
 
@@ -522,7 +522,7 @@ const fakeLibrary = Schema.decodeUnknownSync(LibrarySchema)({
   canEdit: true
 })
 
-const LibraryStub = Layer.mock(Library, {
+const LibraryStub = Layer.mock(Library.Library, {
   projectLibrary: () => Effect.succeed(fakeLibrary)
 })
 
@@ -578,7 +578,7 @@ const bigBlock = (key: string) => ({
   content: `## ${key}\n\n${"x".repeat(15_000)}`
 })
 
-const BigLibraryStub = Layer.mock(Library, {
+const BigLibraryStub = Layer.mock(Library.Library, {
   projectLibrary: () =>
     Effect.succeed(
       decodeUnknownLibrarySchemaSync({
@@ -1179,7 +1179,7 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
     })
   )
 
-  const TemplateLibraryStub = Layer.mock(Library, {
+  const TemplateLibraryStub = Layer.mock(Library.Library, {
     projectLibrary: () => Effect.succeed(fakeLibrary),
     expandForCreate: (_o: string, _s: string, key: string) =>
       key === "bug-report"
@@ -1282,7 +1282,7 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
 
   it.effect("checks membership before looking up a template", () => {
     let expanded = false
-    const ProbedLibraryStub = Layer.mock(Library, {
+    const ProbedLibraryStub = Layer.mock(Library.Library, {
       expandForCreate: () => {
         expanded = true
         return Effect.fail(new Validation({ reason: "unknown_template:nope" }))

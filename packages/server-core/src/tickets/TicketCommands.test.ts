@@ -37,9 +37,8 @@ import * as Attachments from "../attachments/Attachments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "../github/GitHub"
 import * as Groups from "../groups/Groups"
-import { LibraryDocs } from "../library/LibraryDocs"
-import { LibraryDocsLive } from "../library/LibraryDocsLive"
-import { LibraryLive } from "../library/LibraryLive"
+import * as Library from "../library/Library"
+import * as LibraryDocs from "../library/LibraryDocs"
 import * as KeyedLock from "../locks/KeyedLock"
 import { MarkdownLive } from "../markdown/MarkdownLive"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
@@ -228,8 +227,8 @@ const TestLayer = Layer.unwrap(
     return TicketServices.layer
       .pipe(Layer.provide(gitAutomationTestLayer()))
       .pipe(
-        Layer.provideMerge(LibraryLive),
-        Layer.provideMerge(LibraryDocsLive),
+        Layer.provideMerge(Library.layer),
+        Layer.provideMerge(LibraryDocs.layer),
         Layer.provide(
           Layer.mock(ProjectDocs, {
             read: () =>
@@ -503,7 +502,7 @@ const projectDoneBlock = decodeBlockDraft({
 
 const adoptAtOrg = (keys: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const docs = yield* LibraryDocs
+    const docs = yield* LibraryDocs.LibraryDocs
     for (const block of BUILTIN_BLOCKS.filter((draft) =>
       keys.includes(draft.key)
     ))
@@ -586,7 +585,11 @@ it.effect("no template or a null template creates a blank ticket", () =>
 it.effect("create lets explicit fields win and filters template tags", () =>
   Effect.gen(function* () {
     yield* adoptAtOrg(["context"])
-    yield* (yield* LibraryDocs).writeTemplate("org", "p", projectTemplate({}))
+    yield* (yield* LibraryDocs.LibraryDocs).writeTemplate(
+      "org",
+      "p",
+      projectTemplate({})
+    )
     const tickets = yield* TicketCommands.TicketCommands
     const defaults = yield* tickets.create({
       title: "from template",
@@ -641,7 +644,7 @@ it.effect("an unknown template fails with Validation", () =>
 
 it.effect("unresolvable template mentions become plain text on create", () =>
   Effect.gen(function* () {
-    yield* (yield* LibraryDocs).writeTemplate(
+    yield* (yield* LibraryDocs.LibraryDocs).writeTemplate(
       "org",
       "p",
       projectTemplate({
@@ -666,7 +669,11 @@ it.effect("get resolves synced blocks without rewriting the file", () =>
       title: "synced",
       body: SYNCED_DONE
     })
-    yield* (yield* LibraryDocs).writeBlock("org", "p", projectDoneBlock)
+    yield* (yield* LibraryDocs.LibraryDocs).writeBlock(
+      "org",
+      "p",
+      projectDoneBlock
+    )
 
     const fetched = yield* queries.get(created.id)
     expect(fetched.body).toContain("- [x] Reviewed and merged")
@@ -689,7 +696,11 @@ it.effect("update refreshes the stored synced snapshot", () =>
     const created = yield* tickets.quickCreate({
       title: "stale snapshot"
     })
-    yield* (yield* LibraryDocs).writeBlock("org", "p", projectDoneBlock)
+    yield* (yield* LibraryDocs.LibraryDocs).writeBlock(
+      "org",
+      "p",
+      projectDoneBlock
+    )
     yield* tickets.update(created.id, {
       body: `Intro\n\n${SYNCED_DONE}`
     })

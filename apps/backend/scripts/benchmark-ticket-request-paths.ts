@@ -16,7 +16,7 @@ import {
 } from "@pp/server-core/figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "@pp/server-core/github/GitHub"
 import * as Groups from "@pp/server-core/groups/Groups"
-import { Library } from "@pp/server-core/library/Library"
+import * as Library from "@pp/server-core/library/Library"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
@@ -457,7 +457,7 @@ const FakeAttachments = Layer.succeed(Attachments.Attachments, {
   dedupeOnce: () => unexpected("Attachments.dedupeOnce")
 } satisfies Attachments.Attachments["Service"])
 
-const PassthroughLibrary = Layer.mock(Library, {
+const PassthroughLibrary = Layer.mock(Library.Library, {
   resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body)
 })
 

@@ -49,7 +49,7 @@ import { validateBodyMentionsWithLookups } from "../comments/BodyMentions"
 import type { InvalidCommentBody } from "../comments/Comments"
 import { FigmaLinks } from "../figma/FigmaLinks"
 import * as Groups from "../groups/Groups"
-import { Library, type TemplateExpansion } from "../library/Library"
+import * as Library from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import * as ProjectMembers from "../projects/ProjectMembers"
@@ -214,7 +214,7 @@ const make = Effect.gen(function* () {
   const db = yield* Db
   const attachments = yield* Attachments.Attachments
   const figmaLinks = yield* FigmaLinks
-  const library = yield* Library
+  const library = yield* Library.Library
 
   const { gitView, detailOf, readTicket, withMissingAttachments } =
     yield* TicketView.TicketView
@@ -425,7 +425,7 @@ const make = Effect.gen(function* () {
     project: TicketProject,
     template: TemplateKey | null | undefined
   ): Effect.Effect<
-    TemplateExpansion | null,
+    Library.TemplateExpansion | null,
     NotFound | Validation | MarkdownError
   > =>
     template === undefined || template === null

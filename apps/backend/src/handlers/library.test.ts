@@ -4,7 +4,7 @@ import {
   orgScope,
   projectScope
 } from "@pp/server-core/access/testing"
-import { Library, type LibraryShape } from "@pp/server-core/library/Library"
+import * as Library from "@pp/server-core/library/Library"
 import { MarkdownError } from "@pp/server-core/markdown/Markdown"
 import {
   ActivityActor,
@@ -124,7 +124,7 @@ const failFor = <A>(
     Match.orElse(() => Effect.succeed(value))
   )
 
-const fakeLibrary: LibraryShape = {
+const fakeLibrary: Library.Library["Service"] = {
   orgLibrary: () => inOrgScope("orgLibrary", [], Effect.succeed(library)),
   projectLibrary: () =>
     inProjectScope("projectLibrary", [], Effect.succeed(library)),
@@ -174,7 +174,7 @@ const fakeLibrary: LibraryShape = {
   resolveSynced: () => Effect.die("unexpected")
 }
 
-const services = Context.make(Library, fakeLibrary)
+const services = Context.make(Library.Library, fakeLibrary)
 
 const TestApi = HttpApi.make(AppApi.identifier).add(AppApi.groups.library)
 
