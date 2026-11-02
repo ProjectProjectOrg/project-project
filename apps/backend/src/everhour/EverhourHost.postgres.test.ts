@@ -13,7 +13,7 @@ import { Access } from "@pp/server-core/access/Access"
 import { AccessLive } from "@pp/server-core/access/AccessLive"
 import { testUser } from "@pp/server-core/access/testing"
 import { TicketActivityLive } from "@pp/server-core/activity/TicketActivityLive"
-import { GroupDocsLive } from "@pp/server-core/groups/GroupDocsLive"
+import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { Markdown } from "@pp/server-core/markdown/Markdown"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
@@ -149,7 +149,7 @@ describe.skipIf(!databaseUrl)("Everhour backend composition", () => {
           Layer.provideMerge(EverhourHostLive),
           Layer.provideMerge(AccessLive),
           Layer.provideMerge(TicketIndexServices.layer),
-          Layer.provideMerge(GroupDocsLive),
+          Layer.provideMerge(GroupDocs.layer),
           Layer.provideMerge(TicketDocs.layer),
           Layer.provideMerge(FinishedStatuses.layer),
           Layer.provideMerge(KeyedLock.layer),

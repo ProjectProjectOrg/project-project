@@ -31,7 +31,7 @@ import {
 } from "../activity/testing"
 import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
-import { Groups, type GroupsShape } from "../groups/Groups"
+import * as Groups from "../groups/Groups"
 import { Library } from "../library/Library"
 import * as KeyedLock from "../locks/KeyedLock"
 import { MarkdownError } from "../markdown/Markdown"
@@ -105,7 +105,7 @@ const FakeProjects = Layer.mergeAll(
   })
 )
 
-const FakeGroups = Layer.succeed(Groups, {
+const FakeGroups = Layer.succeed(Groups.Groups, {
   list: () =>
     Effect.sync(() => {
       return [...sprintTicketOrders].map(
@@ -178,7 +178,7 @@ const FakeGroups = Layer.succeed(Groups, {
       return Effect.void
     }),
   removeTicketFromAllGroups: () => Effect.void
-} satisfies GroupsShape)
+} satisfies Groups.Groups["Service"])
 
 const fakeUser = (id: string): User => ({
   id: decodeUserId(id),

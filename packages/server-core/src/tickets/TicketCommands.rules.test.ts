@@ -11,7 +11,7 @@ import * as Layer from "effect/Layer"
 import { expect } from "vitest"
 
 import { projectScope } from "../access/testing"
-import { type GroupsShape } from "../groups/Groups"
+import type * as Groups from "../groups/Groups"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import {
   decodeGroupSync,
@@ -391,7 +391,9 @@ const bulkSprint = decodeGroupSync({
   updatedAt: "2026-04-01T00:00:00.000Z"
 })
 
-const makeBulkFixture = (addTickets: GroupsShape["addTickets"]) => {
+const makeBulkFixture = (
+  addTickets: Groups.Groups["Service"]["addTickets"]
+) => {
   const docs = makeFakeTicketDocs(["T-1", "T-2", "T-3"])
   docs.documents.set(
     "T-3",
@@ -437,7 +439,7 @@ it.effect("bulkUpdate patches every ticket and plans them in one call", () => {
 
 const makeRulesFixture = (
   documents: ReadonlyArray<TicketDocs.TicketDocument>,
-  groups: Partial<GroupsShape> = {}
+  groups: Partial<Groups.Groups["Service"]> = {}
 ) => {
   const docs = makeFakeTicketDocs([])
   for (const document of documents) docs.documents.set(document.id, document)

@@ -49,7 +49,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import { Access } from "../access/Access"
-import { Groups } from "../groups/Groups"
+import * as Groups from "../groups/Groups"
 import { Library } from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
@@ -185,7 +185,7 @@ export class TicketQueries extends Context.Service<
 const make = Effect.gen(function* () {
   const ticketIndex = yield* TicketIndex.TicketIndex
   const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
-  const groups = yield* Groups
+  const groups = yield* Groups.Groups
   const db = yield* Db
   const projectDocs = yield* ProjectDocs
   const finishedStatuses = yield* FinishedStatuses

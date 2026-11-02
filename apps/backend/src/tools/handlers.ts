@@ -1,8 +1,8 @@
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { Comments } from "@pp/server-core/comments/Comments"
-import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
-import { Groups } from "@pp/server-core/groups/Groups"
+import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
+import * as Groups from "@pp/server-core/groups/Groups"
 import { Library } from "@pp/server-core/library/Library"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
@@ -175,7 +175,7 @@ const list_groups = (
     filter?: GroupFilter
   } & Pagination
 ) =>
-  Effect.flatMap(Groups, (groups) =>
+  Effect.flatMap(Groups.Groups, (groups) =>
     groups.listPaged(
       input.filter,
       tryDecodeCursor(input.cursor),
@@ -190,7 +190,7 @@ const list_sprints = (
     state?: SprintState
   } & Pagination
 ) =>
-  Effect.flatMap(Groups, (groups) =>
+  Effect.flatMap(Groups.Groups, (groups) =>
     groups.listSprintsPaged(
       input.state,
       tryDecodeCursor(input.cursor),
@@ -202,7 +202,7 @@ const get_group = (input: {
   orgSlug: string
   projectSlug: string
   id: string
-}) => Effect.flatMap(Groups, (groups) => groups.get(input.id))
+}) => Effect.flatMap(Groups.Groups, (groups) => groups.get(input.id))
 
 const list_tickets = (
   input: {
@@ -298,7 +298,7 @@ const get_group_doc = (input: {
   id: string
 }) =>
   Effect.gen(function* () {
-    const docs = yield* GroupDocs
+    const docs = yield* GroupDocs.GroupDocs
     return yield* docs.readRaw(input.orgSlug, input.projectSlug, input.id)
   })
 
@@ -568,14 +568,14 @@ const create_sprint = (
   >
 ) =>
   Effect.gen(function* () {
-    const groups = yield* Groups
+    const groups = yield* Groups.Groups
     const { orgSlug: _orgSlug, projectSlug: _projectSlug, ...rest } = input
     return yield* groups.create({ ...rest, kind: "sprint" })
   })
 
 const requireSprintKind = (id: GroupId) =>
   Effect.gen(function* () {
-    const groups = yield* Groups
+    const groups = yield* Groups.Groups
     const group = yield* groups.get(id)
     if (group.kind !== "sprint") {
       return yield* new Validation({ reason: `not_a_sprint:${id}` })
@@ -591,7 +591,7 @@ const update_sprint = (
   } & Omit<UpdateGroupInput, "completedAt">
 ) =>
   Effect.gen(function* () {
-    const groups = yield* Groups
+    const groups = yield* Groups.Groups
     const {
       orgSlug: _orgSlug,
       projectSlug: _projectSlug,
@@ -610,7 +610,7 @@ const complete_sprint = (
   } & CompleteSprintInput
 ) =>
   Effect.gen(function* () {
-    const groups = yield* Groups
+    const groups = yield* Groups.Groups
     const {
       orgSlug: _orgSlug,
       projectSlug: _projectSlug,
@@ -655,7 +655,7 @@ const add_tickets_to_group = (input: {
   groupId: GroupId
   ticketIds: ReadonlyArray<TicketId>
 }) =>
-  Effect.flatMap(Groups, (groups) =>
+  Effect.flatMap(Groups.Groups, (groups) =>
     groups.addTickets(input.groupId, input.ticketIds)
   )
 

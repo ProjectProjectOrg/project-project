@@ -43,8 +43,8 @@ import { FigmaIntegrationsLive } from "@pp/server-core/figma/FigmaIntegrationsLi
 import { FigmaLinksLive } from "@pp/server-core/figma/FigmaLinksLive"
 import { FigmaLive } from "@pp/server-core/figma/FigmaLive"
 import { GitHubTicketEventsLive } from "@pp/server-core/github/GitHubTicketEventsLive"
-import { GroupDocsLive } from "@pp/server-core/groups/GroupDocsLive"
-import { GroupsLive } from "@pp/server-core/groups/GroupsLive"
+import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
+import * as Groups from "@pp/server-core/groups/Groups"
 import { LibraryDocsLive } from "@pp/server-core/library/LibraryDocsLive"
 import { LibraryLive } from "@pp/server-core/library/LibraryLive"
 import { LinkPreviewsLive } from "@pp/server-core/linkPreviews/LinkPreviewsLive"
@@ -167,7 +167,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(FigmaLinksLive),
     Layer.provideMerge(LinkPreviewsLive),
     Layer.provideMerge(CommentsLive),
-    Layer.provideMerge(GroupsLive),
+    Layer.provideMerge(Groups.layer),
     Layer.provideMerge(ProjectServices.layer),
     Layer.provideMerge(OrgLive),
     Layer.provideMerge(AccessLive),
@@ -193,7 +193,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(ProjectDocsLive),
       Layer.provideMerge(TicketDocs.layer),
       Layer.provideMerge(FinishedStatuses.layer),
-      Layer.provideMerge(GroupDocsLive),
+      Layer.provideMerge(GroupDocs.layer),
       Layer.provideMerge(TicketActivityLive),
       Layer.provideMerge(LibraryDocsLive),
       Layer.provideMerge(MarkdownLive),

@@ -36,7 +36,7 @@ import {
 import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "../github/GitHub"
-import { Groups, type GroupsShape } from "../groups/Groups"
+import * as Groups from "../groups/Groups"
 import { LibraryDocs } from "../library/LibraryDocs"
 import { LibraryDocsLive } from "../library/LibraryDocsLive"
 import { LibraryLive } from "../library/LibraryLive"
@@ -82,7 +82,7 @@ const FakeProjects = Layer.mergeAll(
   })
 )
 
-const FakeGroups = Layer.succeed(Groups, {
+const FakeGroups = Layer.succeed(Groups.Groups, {
   list: () => unexpected("Groups.list"),
   listPaged: () => unexpected("Groups.listPaged"),
   listSprintsPaged: () => unexpected("Groups.listSprintsPaged"),
@@ -98,7 +98,7 @@ const FakeGroups = Layer.succeed(Groups, {
   ensureSprintAssignable: () => Effect.void,
   setSprintMembership: () => Effect.void,
   removeTicketFromAllGroups: () => Effect.void
-} satisfies GroupsShape)
+} satisfies Groups.Groups["Service"])
 
 const FakeGitHub = Layer.succeed(GitHub, {
   listInstallationRepos: () => unexpected("GitHub.listInstallationRepos"),
