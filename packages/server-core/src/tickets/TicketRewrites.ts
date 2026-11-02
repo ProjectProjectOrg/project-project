@@ -265,106 +265,100 @@ const make = Effect.gen(function* () {
     )
   })
 
-  const withClearedPrMetadata = <A, E, R>(
+  const withClearedPrMetadata = Effect.fn(
+    "TicketRewrites.withClearedPrMetadata"
+  )(function* <A, E, R>(
     orgSlug: string,
     slug: string,
     switchRepository: Effect.Effect<A, E, R>
-  ): Effect.Effect<A, E | Markdown.MarkdownError, R | ActivityActor> =>
-    Effect.gen(function* () {
-      const project = yield* ticketIndex
-        .projectFor(orgSlug, slug)
-        .pipe(Effect.orDie)
-      const ids = yield* ticketDocs.listIds(orgSlug, slug)
-      const originals: Array<TicketDocs.TicketDocument> = []
-      const clearAndSwitch = Effect.gen(function* () {
-        for (const id of ids) {
-          const ticket = yield* ticketDocs.read(orgSlug, slug, id).pipe(
+  ): Effect.fn.Return<A, E | Markdown.MarkdownError, R | ActivityActor> {
+    const project = yield* ticketIndex
+      .projectFor(orgSlug, slug)
+      .pipe(Effect.orDie)
+    const ids = yield* ticketDocs.listIds(orgSlug, slug)
+    const originals: Array<TicketDocs.TicketDocument> = []
+    const clearAndSwitch = Effect.gen(function* () {
+      for (const id of ids) {
+        const ticket = yield* ticketDocs.read(orgSlug, slug, id).pipe(
+          Effect.catchTags({
+            NotFound: () => Effect.succeed(null),
+            MalformedTicketDocument: (error) =>
+              Effect.logWarning("Skipping unreadable ticket pr metadata").pipe(
+                Effect.annotateLogs({ orgSlug, slug, ticketId: id, error }),
+                Effect.as(null)
+              )
+          })
+        )
+        if (ticket === null || !hasPrMetadata(ticket)) {
+          continue
+        }
+        const next = {
+          ...clearedPrMetadata(ticket),
+          updatedAt: yield* DateTime.nowAsDate
+        }
+        yield* ticketDocs
+          .update(
+            orgSlug,
+            slug,
+            id,
+            (current) =>
+              Effect.succeed({
+                ...current,
+                ...prMetadataOf(next),
+                updatedAt: next.updatedAt
+              }),
+            (updated) =>
+              Effect.gen(function* () {
+                originals.push(ticket)
+                yield* ticketIndex.upsertTicket(project, updated)
+              }),
+            { silent: true }
+          )
+          .pipe(
             Effect.catchTags({
-              NotFound: () => Effect.succeed(null),
+              NotFound: () => Effect.void,
               MalformedTicketDocument: (error) =>
-                Effect.logWarning(
-                  "Skipping unreadable ticket pr metadata"
-                ).pipe(
-                  Effect.annotateLogs({ orgSlug, slug, ticketId: id, error }),
-                  Effect.as(null)
-                )
+                Effect.logWarning("Skipping unreadable ticket pr metadata", {
+                  orgSlug,
+                  slug,
+                  ticketId: id,
+                  error
+                })
             })
           )
-          if (ticket === null || !hasPrMetadata(ticket)) {
-            continue
-          }
-          const next = {
-            ...clearedPrMetadata(ticket),
-            updatedAt: yield* DateTime.nowAsDate
-          }
-          yield* ticketDocs
-            .update(
+      }
+      return yield* switchRepository
+    }).pipe(
+      Effect.onError(() =>
+        Effect.forEach(
+          originals,
+          (ticket) =>
+            ticketDocs.update(
               orgSlug,
               slug,
-              id,
+              ticket.id,
               (current) =>
                 Effect.succeed({
                   ...current,
-                  ...prMetadataOf(next),
-                  updatedAt: next.updatedAt
+                  ...prMetadataOf(ticket),
+                  updatedAt: ticket.updatedAt
                 }),
-              (updated) =>
-                Effect.gen(function* () {
-                  originals.push(ticket)
-                  yield* ticketIndex.upsertTicket(project, updated)
-                }),
+              (restored) => ticketIndex.upsertTicket(project, restored),
               { silent: true }
-            )
-            .pipe(
-              Effect.catchTags({
-                NotFound: () => Effect.void,
-                MalformedTicketDocument: (error) =>
-                  Effect.logWarning("Skipping unreadable ticket pr metadata", {
-                    orgSlug,
-                    slug,
-                    ticketId: id,
-                    error
-                  })
-              })
-            )
-        }
-        return yield* switchRepository
-      }).pipe(
-        Effect.onError(() =>
-          Effect.forEach(
-            originals,
-            (ticket) =>
-              ticketDocs.update(
-                orgSlug,
-                slug,
-                ticket.id,
-                (current) =>
-                  Effect.succeed({
-                    ...current,
-                    ...prMetadataOf(ticket),
-                    updatedAt: ticket.updatedAt
-                  }),
-                (restored) => ticketIndex.upsertTicket(project, restored),
-                { silent: true }
-              ),
-            { discard: true }
-          ).pipe(Effect.orDie)
-        ),
-        Effect.uninterruptible
-      )
-      return yield* ids
-        .toSorted()
-        .reduceRight(
-          (effect, id) =>
-            ticketDocumentLock.withTicketDocumentLock(
-              orgSlug,
-              slug,
-              id,
-              effect
             ),
-          clearAndSwitch
-        )
-    }).pipe(Effect.withSpan("TicketRewrites.withClearedPrMetadata"))
+          { discard: true }
+        ).pipe(Effect.orDie)
+      ),
+      Effect.uninterruptible
+    )
+    return yield* ids
+      .toSorted()
+      .reduceRight(
+        (effect, id) =>
+          ticketDocumentLock.withTicketDocumentLock(orgSlug, slug, id, effect),
+        clearAndSwitch
+      )
+  })
 
   return TicketRewrites.of({
     renameTag,

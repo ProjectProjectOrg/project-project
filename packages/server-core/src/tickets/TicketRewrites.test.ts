@@ -2,6 +2,8 @@ import { it } from "@effect/vitest"
 import { ActivityActor } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
+import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
 import { FinishedStatuses } from "../projects/FinishedStatuses"
@@ -122,5 +124,57 @@ describe("unassigning a removed member from a project's tickets", () => {
       expect(documents.get("T-4")?.assignees).toEqual([])
       expect(documents.get("T-5")?.assignees).toEqual([])
     })
+  )
+})
+
+describe("TicketRewrites tracing", () => {
+  it.effect(
+    "runs the repository switch inside one TicketRewrites.withClearedPrMetadata span",
+    () =>
+      Effect.gen(function* () {
+        const spans: Array<Tracer.NativeSpan> = []
+        const tracer = Tracer.make({
+          span: (options) => {
+            const span = new Tracer.NativeSpan(options)
+            spans.push(span)
+            return span
+          }
+        })
+        const { layer } = fixture()
+
+        const result = yield* Effect.flatMap(
+          TicketRewrites.TicketRewrites,
+          (rewrites) =>
+            rewrites.withClearedPrMetadata(
+              "org",
+              "p",
+              Effect.succeed("switched").pipe(Effect.withSpan("switch"))
+            )
+        ).pipe(
+          Effect.provideService(ActivityActor, ActivityActor.user("user-pm")),
+          Effect.provide(layer),
+          Effect.withTracer(tracer)
+        )
+
+        const ancestors = (span: Tracer.NativeSpan): Array<string> =>
+          Option.match(span.parent, {
+            onNone: () => [],
+            onSome: (parent) =>
+              parent._tag === "Span" && parent instanceof Tracer.NativeSpan
+                ? [parent.name, ...ancestors(parent)]
+                : []
+          })
+        const rewrite = spans.filter(
+          (span) => span.name === "TicketRewrites.withClearedPrMetadata"
+        )
+        const switchSpan = spans.find((span) => span.name === "switch")
+
+        expect(result).toBe("switched")
+        expect(rewrite).toHaveLength(1)
+        expect(Option.isNone(rewrite[0].parent)).toBe(true)
+        expect(switchSpan && ancestors(switchSpan)).toContain(
+          "TicketRewrites.withClearedPrMetadata"
+        )
+      })
   )
 })
