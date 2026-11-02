@@ -1,4 +1,4 @@
-import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
+import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
@@ -16,7 +16,7 @@ const argValue = (name: string): string | undefined => {
 }
 
 const main = Effect.gen(function* () {
-  const ticketIndex = yield* TicketIndex
+  const ticketIndex = yield* TicketIndex.TicketIndex
   const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
   const orgSlug = argValue("--org")
   const projectSlug = argValue("--project")

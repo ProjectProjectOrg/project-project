@@ -56,13 +56,7 @@ import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { ProjectDocs } from "../projects/ProjectDocs"
 import { readProjectDocument } from "../projects/readProjectDocument"
 import * as TicketBranchIndex from "./TicketBranchIndex"
-import {
-  TicketIndex,
-  type TicketIndexEntry,
-  type TicketIndexOrgEntry,
-  type TicketIndexQueryEntry,
-  type TicketIndexTouchedEntry
-} from "./TicketIndex"
+import * as TicketIndex from "./TicketIndex"
 import {
   type GitView,
   indexEntryToTicket,
@@ -77,8 +71,10 @@ const EPIC_SECTION_SORT: TicketSort = { key: "title", dir: "asc" }
 const EPIC_SECTIONS_LIMIT = 200
 
 export function recentActivityOf(
-  entry: Pick<TicketIndexTouchedEntry, "lastCommentAt"> &
-    Readonly<{ entry: Pick<TicketIndexEntry, "createdBy" | "createdAt"> }>,
+  entry: Pick<TicketIndex.TicketIndexTouchedEntry, "lastCommentAt"> &
+    Readonly<{
+      entry: Pick<TicketIndex.TicketIndexEntry, "createdBy" | "createdAt">
+    }>,
   viewerId: UserId
 ): RecentTicketActivity {
   const created =
@@ -92,7 +88,7 @@ export function recentActivityOf(
 }
 
 function ticketPage(
-  entries: ReadonlyArray<TicketIndexQueryEntry>,
+  entries: ReadonlyArray<TicketIndex.TicketIndexQueryEntry>,
   query: TicketListQuery,
   view: GitView,
   limit: number
@@ -187,7 +183,7 @@ export class TicketQueries extends Context.Service<
 >()("@pp/server-core/tickets/TicketQueries") {}
 
 const make = Effect.gen(function* () {
-  const ticketIndex = yield* TicketIndex
+  const ticketIndex = yield* TicketIndex.TicketIndex
   const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
   const groups = yield* Groups
   const db = yield* Db
@@ -319,7 +315,7 @@ const make = Effect.gen(function* () {
 
   const orgTicketRows = (
     scopeOf: ReadonlyMap<string, ProjectScopeShape>,
-    entries: ReadonlyArray<TicketIndexOrgEntry>
+    entries: ReadonlyArray<TicketIndex.TicketIndexOrgEntry>
   ): Effect.Effect<ReadonlyArray<OrgTicketRow>> =>
     Effect.gen(function* () {
       const projectIds = new Set(

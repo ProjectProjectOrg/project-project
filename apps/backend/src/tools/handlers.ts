@@ -14,7 +14,7 @@ import { Tags } from "@pp/server-core/tags/Tags"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
-import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
+import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import {
@@ -626,7 +626,7 @@ const rebuild_ticket_index = (input: {
   projectSlug: string
 }) =>
   Effect.gen(function* () {
-    const ticketIndex = yield* TicketIndex
+    const ticketIndex = yield* TicketIndex.TicketIndex
     const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
     const project = yield* ticketIndex.projectFor(
       input.orgSlug,

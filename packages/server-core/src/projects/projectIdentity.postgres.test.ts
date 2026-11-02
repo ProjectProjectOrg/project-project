@@ -19,7 +19,7 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { Access } from "../access/Access"
 import { testUser } from "../access/testing"
-import { TicketIndex } from "../tickets/TicketIndex"
+import * as TicketIndex from "../tickets/TicketIndex"
 import * as Projects from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
@@ -31,7 +31,7 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
   const orgs = [`alpha-${suffix}`, `beta-${suffix}`]
   const users = [randomUUID(), randomUUID()]
   let pool: Pool
-  let layer: Layer.Layer<Projects.Projects | TicketIndex | Access>
+  let layer: Layer.Layer<Projects.Projects | TicketIndex.TicketIndex | Access>
 
   const create = (index: number, name: string, key: string) =>
     Effect.flatMap(Projects.Projects, (projects) =>
@@ -110,7 +110,7 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
   it.effect("resolves each org's own project", () =>
     Effect.gen(function* () {
       const projects = yield* Projects.Projects
-      const index = yield* TicketIndex
+      const index = yield* TicketIndex.TicketIndex
       const alpha = yield* projects.get().pipe(inProject(0, 0, "website"))
       const beta = yield* projects.get().pipe(inProject(1, 1, "website"))
       const alphaIndex = yield* index.projectFor(orgs[0], "website")

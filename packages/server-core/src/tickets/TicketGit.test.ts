@@ -47,7 +47,7 @@ import * as TicketCommands from "./TicketCommands"
 import { TicketDocs, type TicketDocsShape } from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import * as TicketGit from "./TicketGit"
-import { TicketIndex } from "./TicketIndex"
+import * as TicketIndex from "./TicketIndex"
 
 it.effect("listGitStates fetches only distinct ticket branches", () => {
   const docs = makeFakeTicketDocs(["T-1", "T-2", "T-3", "T-4"])
@@ -886,7 +886,7 @@ it.effect("manual unlink waits for a webhook write and remains unlinked", () =>
     )
     return yield* Effect.gen(function* () {
       const git = yield* TicketGit.TicketGit
-      const index = yield* TicketIndex
+      const index = yield* TicketIndex.TicketIndex
       const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
       const webhook = yield* Effect.forkChild(
         applyPullRequestWebhookToTicket(

@@ -55,7 +55,7 @@ import * as TicketCommands from "./TicketCommands"
 import { TicketDocs } from "./TicketDocs"
 import { TicketDocsLive } from "./TicketDocsLive"
 import * as TicketDocumentLock from "./ticketDocumentLock"
-import { TicketIndex, type TicketIndexShape } from "./TicketIndex"
+import * as TicketIndex from "./TicketIndex"
 import * as TicketQueries from "./TicketQueries"
 
 const decodeProjectKey = Schema.decodeUnknownSync(ProjectKey)
@@ -147,7 +147,7 @@ const ticketIndexProject = {
   slug: "p"
 }
 
-const FakeTicketIndex = Layer.sync(TicketIndex, () => {
+const FakeTicketIndex = Layer.sync(TicketIndex.TicketIndex, () => {
   let reserved = 0
   return {
     projectsFor: () => Effect.succeed([]),
@@ -169,7 +169,7 @@ const FakeTicketIndex = Layer.sync(TicketIndex, () => {
     findTicketIdsByStatus: () => Effect.succeed([]),
     upsertTicket: () => Effect.void,
     deleteTicket: () => Effect.void
-  } satisfies TicketIndexShape
+  } satisfies TicketIndex.TicketIndex["Service"]
 })
 
 const FakeTicketBranchIndex = Layer.succeed(

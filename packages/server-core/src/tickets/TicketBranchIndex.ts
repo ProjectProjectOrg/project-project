@@ -26,7 +26,7 @@ import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
-import type { TicketIndexMatch } from "./TicketIndex"
+import type * as TicketIndex from "./TicketIndex"
 import type { TicketProject } from "./ticketProject"
 
 const stackEntryFromRow = (
@@ -47,11 +47,11 @@ export class TicketBranchIndex extends Context.Service<
     findTicketsByBranch: (
       projectId: string,
       branch: string
-    ) => Effect.Effect<ReadonlyArray<TicketIndexMatch>>
+    ) => Effect.Effect<ReadonlyArray<TicketIndex.TicketIndexMatch>>
     findStackLayers: (
       projectId: string,
       branch: string
-    ) => Effect.Effect<ReadonlyArray<TicketIndexMatch>>
+    ) => Effect.Effect<ReadonlyArray<TicketIndex.TicketIndexMatch>>
     stacksFor: (
       project: TicketProject,
       ticketIds?: ReadonlyArray<string>
@@ -60,7 +60,9 @@ export class TicketBranchIndex extends Context.Service<
       projectId: string,
       base: string
     ) => Effect.Effect<
-      ReadonlyArray<TicketIndexMatch & Readonly<{ stacked: boolean }>>
+      ReadonlyArray<
+        TicketIndex.TicketIndexMatch & Readonly<{ stacked: boolean }>
+      >
     >
     isRepositoryBranchAttached: (
       repoId: string,

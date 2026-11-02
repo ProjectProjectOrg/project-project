@@ -29,7 +29,7 @@ import {
   type TicketDocument
 } from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
-import { TicketIndex, type TicketIndexShape } from "../tickets/TicketIndex"
+import * as TicketIndex from "../tickets/TicketIndex"
 import { GroupDocs, type GroupDocsShape, type GroupDocument } from "./GroupDocs"
 import { Groups } from "./Groups"
 import { GroupsLive } from "./GroupsLive"
@@ -225,12 +225,14 @@ function makeFakeDocs(initial?: {
           .filter((ticket) => requested === null || requested.has(ticket.id))
           .map(ticketIndexEntryFromDocument)
       }),
-    query: () => Effect.die(new Error("unexpected TicketIndex.query")),
+    query: () =>
+      Effect.die(new Error("unexpected TicketIndex.TicketIndex.query")),
     querySections: () =>
-      Effect.die(new Error("unexpected TicketIndex.querySections")),
+      Effect.die(new Error("unexpected TicketIndex.TicketIndex.querySections")),
     orderKeyFor: () =>
-      Effect.die(new Error("unexpected TicketIndex.orderKeyFor")),
-    count: () => Effect.die(new Error("unexpected TicketIndex.count")),
+      Effect.die(new Error("unexpected TicketIndex.TicketIndex.orderKeyFor")),
+    count: () =>
+      Effect.die(new Error("unexpected TicketIndex.TicketIndex.count")),
     listIds: () => Effect.succeed([...ticketsById.keys()]),
     existingIds: (_project, ticketIds) =>
       Effect.succeed(
@@ -255,7 +257,7 @@ function makeFakeDocs(initial?: {
       Effect.sync(() => {
         ticketsById.delete(id)
       })
-  } satisfies TicketIndexShape
+  } satisfies TicketIndex.TicketIndex["Service"]
   const ticketBranchIndexService = {
     findTicketsByBranch: () => Effect.succeed([]),
     findStackLayers: () => Effect.succeed([]),
@@ -273,7 +275,7 @@ function makeFakeDocs(initial?: {
     groupLayer: Layer.succeed(GroupDocs, groupService),
     ticketLayer: Layer.succeed(TicketDocs, ticketService),
     ticketIndexLayer: Layer.mergeAll(
-      Layer.succeed(TicketIndex, ticketIndexService),
+      Layer.succeed(TicketIndex.TicketIndex, ticketIndexService),
       Layer.succeed(
         TicketBranchIndex.TicketBranchIndex,
         ticketBranchIndexService

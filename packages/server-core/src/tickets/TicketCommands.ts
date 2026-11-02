@@ -66,7 +66,7 @@ import {
   type HierarchyLookups,
   type HierarchyNode
 } from "./ticketHierarchy"
-import { TicketIndex } from "./TicketIndex"
+import * as TicketIndex from "./TicketIndex"
 import {
   applyTicketPatch,
   batchChangeOf,
@@ -213,7 +213,7 @@ const make = Effect.gen(function* () {
   const projects = yield* Projects.Projects
   const projectMembers = yield* ProjectMembers.ProjectMembers
   const projectDocs = yield* ProjectDocs
-  const ticketIndex = yield* TicketIndex
+  const ticketIndex = yield* TicketIndex.TicketIndex
   const groups = yield* Groups
   const db = yield* Db
   const attachments = yield* Attachments

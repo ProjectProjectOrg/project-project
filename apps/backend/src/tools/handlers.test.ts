@@ -21,7 +21,7 @@ import { Tags } from "@pp/server-core/tags/Tags"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
-import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
+import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
 import type { TicketProject } from "@pp/server-core/tickets/ticketProject"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
@@ -207,7 +207,7 @@ const ticketIndexProject: TicketProject = {
   slug: "demo"
 }
 
-const TicketIndexStub = Layer.mock(TicketIndex, {
+const TicketIndexStub = Layer.mock(TicketIndex.TicketIndex, {
   projectsFor: () => Effect.succeed([]),
   assignedTo: () => Effect.succeed([]),
   touchedBy: () => Effect.succeed([]),

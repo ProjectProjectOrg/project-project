@@ -15,7 +15,7 @@ import { Tags } from "@pp/server-core/tags/Tags"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
-import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
+import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 
@@ -36,7 +36,7 @@ export const toolDependencies = [
   Tags,
   TicketDocs,
   TicketGit.TicketGit,
-  TicketIndex,
+  TicketIndex.TicketIndex,
   TicketIndexMaintenance.TicketIndexMaintenance,
   TicketQueries.TicketQueries,
   TicketCommands.TicketCommands

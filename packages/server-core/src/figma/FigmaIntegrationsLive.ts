@@ -35,7 +35,7 @@ import * as SqlClient from "effect/sql/SqlClient"
 
 import { OrgStorage } from "../storage/OrgStorage"
 import { SecretCrypto } from "../storage/SecretCrypto"
-import { TicketIndex } from "../tickets/TicketIndex"
+import * as TicketIndex from "../tickets/TicketIndex"
 import { Figma, FigmaCredential } from "./Figma"
 import {
   chooseCredential,
@@ -360,7 +360,7 @@ export const FigmaIntegrationsLive = Layer.effect(
     const figma = yield* Figma
     const secrets = yield* SecretCrypto
     const orgStorage = yield* OrgStorage
-    const ticketIndex = yield* TicketIndex
+    const ticketIndex = yield* TicketIndex.TicketIndex
 
     const client = figmaOAuthClient
 

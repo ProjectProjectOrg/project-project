@@ -2,16 +2,16 @@ import { encodeCursor, type TicketSort } from "@pp/shared"
 import { PgDialect } from "drizzle-orm/pg-core"
 import { describe, expect, it } from "vitest"
 
-import { ticketCursorCondition, ticketSortExpression } from "./TicketIndexLive"
+import * as TicketIndex from "./TicketIndex"
 
 const dialect = new PgDialect()
 
 const render = (sort: TicketSort): string =>
-  dialect.sqlToQuery(ticketSortExpression(sort)).sql
+  dialect.sqlToQuery(TicketIndex.ticketSortExpression(sort)).sql
 
 const renderCursor = (sort: TicketSort, id: string, value: string): string => {
-  const expression = ticketSortExpression(sort)
-  const condition = ticketCursorCondition(
+  const expression = TicketIndex.ticketSortExpression(sort)
+  const condition = TicketIndex.ticketCursorCondition(
     { sort, cursor: encodeCursor({ id, sort: value }) },
     expression
   )

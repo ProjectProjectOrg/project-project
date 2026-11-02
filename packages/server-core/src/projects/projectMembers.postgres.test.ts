@@ -25,7 +25,7 @@ import { Access } from "../access/Access"
 import { testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
 import { MalformedTicketDocument } from "../tickets/TicketDocs"
-import type { TicketIndex } from "../tickets/TicketIndex"
+import type * as TicketIndex from "../tickets/TicketIndex"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import * as ProjectMembers from "./ProjectMembers"
 import * as Projects from "./Projects"
@@ -68,7 +68,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
   let projectsLayer: Layer.Layer<
     | Projects.Projects
     | ProjectMembers.ProjectMembers
-    | TicketIndex
+    | TicketIndex.TicketIndex
     | TicketRewrites.TicketRewrites
     | Access
   >

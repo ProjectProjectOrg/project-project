@@ -22,6 +22,7 @@ import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import pg from "pg"
 import { describe, expect } from "vitest"
 
@@ -39,8 +40,7 @@ import {
   type TicketDocsShape,
   type TicketDocument
 } from "./TicketDocs"
-import { TicketIndex, type TicketIndexSections } from "./TicketIndex"
-import { TICKET_ORDER_KEY_SEPARATOR } from "./TicketIndexLive"
+import * as TicketIndex from "./TicketIndex"
 import * as TicketIndexMaintenance from "./TicketIndexMaintenance"
 
 const { Client } = pg
@@ -212,7 +212,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         )
       )
 
-      const index = yield* TicketIndex
+      const index = yield* TicketIndex.TicketIndex
       const project = yield* index.projectFor(orgSlug, projectSlug)
       const numbers = yield* Effect.forEach(
         Array.from({ length: 32 }),
@@ -223,6 +223,34 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       expect(numbers.toSorted((left, right) => left - right)).toEqual(
         Array.from({ length: 32 }, (_, value) => value + 1)
       )
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("traces each index call under its TicketIndex span", () =>
+    Effect.gen(function* () {
+      const organizationId = yield* seedRebuildProject
+      const names: Array<string> = []
+      const tracer = Tracer.make({
+        span: (options) => {
+          names.push(options.name)
+          return new Tracer.NativeSpan(options)
+        }
+      })
+
+      yield* Effect.gen(function* () {
+        const index = yield* TicketIndex.TicketIndex
+        const project = yield* index.projectFor(organizationId, organizationId)
+        yield* index.reserveTicketNumber(project)
+        yield* index.listIds(project)
+        yield* index.deleteTicket(project, "T-1")
+      }).pipe(Effect.withTracer(tracer))
+
+      expect(names.filter((name) => name.startsWith("TicketIndex."))).toEqual([
+        "TicketIndex.projectFor",
+        "TicketIndex.reserveTicketNumber",
+        "TicketIndex.listIds",
+        "TicketIndex.deleteTicket"
+      ])
     }).pipe(Effect.provide(TestLayer))
   )
 
@@ -239,7 +267,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         readRaw: () => unexpected("readRaw")
       } satisfies TicketDocsShape)
       yield* Effect.gen(function* () {
-        const index = yield* TicketIndex
+        const index = yield* TicketIndex.TicketIndex
         const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
         const project = yield* index.projectFor(organizationId, organizationId)
         yield* index.upsertTicket(project, {
@@ -285,7 +313,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         readRaw: () => unexpected("readRaw")
       } satisfies TicketDocsShape)
       yield* Effect.gen(function* () {
-        const index = yield* TicketIndex
+        const index = yield* TicketIndex.TicketIndex
         const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
         const project = yield* index.projectFor(organizationId, organizationId)
         yield* index.upsertTicket(project, {
@@ -346,7 +374,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         readRaw: () => unexpected("readRaw")
       } satisfies TicketDocsShape)
       yield* Effect.gen(function* () {
-        const index = yield* TicketIndex
+        const index = yield* TicketIndex.TicketIndex
         const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
         const project = yield* index.projectFor(organizationId, organizationId)
         const fiber = yield* Effect.forkChild(
@@ -415,7 +443,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         )
       )
 
-      const index = yield* TicketIndex
+      const index = yield* TicketIndex.TicketIndex
 
       const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
       const project = yield* index.projectFor(orgSlug, projectSlug)
@@ -462,7 +490,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           return result.rows
         })
 
-      const index = yield* TicketIndex
+      const index = yield* TicketIndex.TicketIndex
       const branchIndex = yield* TicketBranchIndex.TicketBranchIndex
       const project = yield* index.projectFor(orgSlug, projectSlug)
       yield* index.upsertTicket(
@@ -638,7 +666,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         )
       )
 
-      const index = yield* TicketIndex
+      const index = yield* TicketIndex.TicketIndex
 
       const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
       const project = yield* index.projectFor(organizationId, organizationId)
@@ -755,7 +783,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           ticketDocs,
           Layer.mock(Projects.Projects, {}),
           Layer.mock(ProjectMembers.ProjectMembers, {}),
-          Layer.mock(TicketIndex, {}),
+          Layer.mock(TicketIndex.TicketIndex, {}),
           Layer.mock(Users, {
             fullByIds: () => Effect.succeed([author])
           }),
@@ -797,7 +825,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         })
       )
 
-      const index = yield* TicketIndex
+      const index = yield* TicketIndex.TicketIndex
 
       const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
       const project = yield* index.projectFor(orgSlug, projectSlug)
@@ -989,7 +1017,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           })
         )
 
-        const index = yield* TicketIndex
+        const index = yield* TicketIndex.TicketIndex
 
         const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
         const project = yield* index.projectFor(orgSlug, projectSlug)
@@ -1035,7 +1063,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         )
       )
 
-      const index = yield* TicketIndex
+      const index = yield* TicketIndex.TicketIndex
       const branchIndex = yield* TicketBranchIndex.TicketBranchIndex
       const project = yield* index.projectFor(orgSlug, projectSlug)
       const januaryTenth = DateTime.toDate(
@@ -1268,7 +1296,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         byStatus: { todo: 1, in_progress: 1 }
       })
 
-      const summarize = (sections: TicketIndexSections) =>
+      const summarize = (sections: TicketIndex.TicketIndexSections) =>
         Object.fromEntries(
           [...sections].map(([key, section]) => [
             key,
@@ -1381,7 +1409,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         )
       )
 
-      const index = yield* TicketIndex
+      const index = yield* TicketIndex.TicketIndex
       const project = yield* index.projectFor(orgSlug, projectSlug)
       const epic = ticketId("T-1")
       yield* Effect.forEach(
@@ -1451,7 +1479,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         )
       )
 
-      const index = yield* TicketIndex
+      const index = yield* TicketIndex.TicketIndex
       const project = yield* index.projectFor(orgSlug, projectSlug)
       const epic = ticketId("T-1")
       const parent = ticketId("T-2")
@@ -1540,7 +1568,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           )
         )
 
-        const index = yield* TicketIndex
+        const index = yield* TicketIndex.TicketIndex
         const project = yield* index.projectFor(orgSlug, projectSlug)
         const epic = ticketId("T-1")
         const target = ticketId("T-4")
@@ -1654,7 +1682,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           updatedAt: later
         })
       ]
-      const index = yield* TicketIndex
+      const index = yield* TicketIndex.TicketIndex
       const project = yield* index.projectFor(orgSlug, projectSlug)
       yield* Effect.forEach(documents, (document) =>
         index.upsertTicket(project, document)
@@ -1688,7 +1716,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           expect(new Set(orderKeys).size).toBe(orderKeys.length)
           for (const row of rows) {
             expect(row.orderKey).toBe(
-              `${row.sortValue}${TICKET_ORDER_KEY_SEPARATOR}${row.entry.id}`
+              `${row.sortValue}${TicketIndex.TICKET_ORDER_KEY_SEPARATOR}${row.entry.id}`
             )
           }
 
@@ -1749,7 +1777,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         )
       )
 
-      const index = yield* TicketIndex
+      const index = yield* TicketIndex.TicketIndex
       const project = yield* index.projectFor(orgSlug, projectSlug)
       yield* Effect.forEach(
         [
@@ -1828,7 +1856,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         indexedDocument("T-5", { title: "ab" }),
         indexedDocument("T-6", { title: "Z zz" })
       ]
-      const index = yield* TicketIndex
+      const index = yield* TicketIndex.TicketIndex
       const project = yield* index.projectFor(orgSlug, projectSlug)
       yield* Effect.forEach(documents, (document) =>
         index.upsertTicket(project, document)
@@ -1935,7 +1963,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           indexedDocument("T-2", { title: "ab 1", priority: "low" }),
           indexedDocument("T-30", { title: "dup", priority: "med" })
         ]
-        const index = yield* TicketIndex
+        const index = yield* TicketIndex.TicketIndex
         const project = yield* index.projectFor(orgSlug, projectSlug)
         yield* Effect.forEach(documents, (document) =>
           index.upsertTicket(project, document)
@@ -2031,7 +2059,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
           })
         )
 
-        const index = yield* TicketIndex
+        const index = yield* TicketIndex.TicketIndex
         const [alpha, beta, hidden] = yield* Effect.forEach(
           [alphaSlug, betaSlug, hiddenSlug],
           (slug) => index.projectFor(orgSlug, slug)

@@ -22,7 +22,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { generateKeyBetween } from "fractional-indexing"
 
-import { TicketIndex } from "../tickets/TicketIndex"
+import * as TicketIndex from "../tickets/TicketIndex"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import { ProjectStatuses, type ProjectStatusesShape } from "./ProjectStatuses"
 
@@ -45,7 +45,7 @@ export const ProjectStatusesLive = Layer.effect(
   ProjectStatuses,
   Effect.gen(function* () {
     const db = yield* Db
-    const ticketIndex = yield* TicketIndex
+    const ticketIndex = yield* TicketIndex.TicketIndex
     const rewrites = yield* TicketRewrites.TicketRewrites
 
     const list: ProjectStatusesShape["list"] = () =>

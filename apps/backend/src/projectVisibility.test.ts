@@ -28,7 +28,7 @@ import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
-import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
+import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
@@ -64,7 +64,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
   let pool: Pool
   let projectsLayer: Layer.Layer<Projects.Projects | Access>
   let ticketIndexLayer: Layer.Layer<
-    TicketIndex | TicketIndexMaintenance.TicketIndexMaintenance
+    TicketIndex.TicketIndex | TicketIndexMaintenance.TicketIndexMaintenance
   >
   let reconciledSlugs: ReadonlyArray<string> = []
 
@@ -248,7 +248,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
           })
           expect(
             yield* Effect.flip(
-              Effect.flatMap(TicketIndex, (index) =>
+              Effect.flatMap(TicketIndex.TicketIndex, (index) =>
                 index.projectFor(`visibility-${organizationId}`, "hidden")
               )
             )

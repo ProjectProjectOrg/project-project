@@ -52,12 +52,7 @@ import {
   type TicketDocument
 } from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
-import {
-  TicketIndex,
-  type TicketIndexQueryEntry,
-  type TicketIndexShape
-} from "./TicketIndex"
-import { TICKET_ORDER_KEY_SEPARATOR } from "./TicketIndexLive"
+import * as TicketIndex from "./TicketIndex"
 import type { TicketProject } from "./ticketProject"
 import * as TicketRewrites from "./TicketRewrites"
 
@@ -483,15 +478,15 @@ export const decodeStatusSlug = Schema.decodeSync(StatusSlug)
 
 export const querySectionsVia =
   (
-    index: Pick<TicketIndexShape, "query" | "count">
-  ): TicketIndexShape["querySections"] =>
+    index: Pick<TicketIndex.TicketIndex["Service"], "query" | "count">
+  ): TicketIndex.TicketIndex["Service"]["querySections"] =>
   (project, query, options) =>
     Effect.gen(function* () {
       const out = new Map<
         string,
         {
           counts: { total: number; byStatus: Readonly<Record<string, number>> }
-          entries: ReadonlyArray<TicketIndexQueryEntry>
+          entries: ReadonlyArray<TicketIndex.TicketIndexQueryEntry>
         }
       >()
       const countQuery = { ...query, status: undefined }
@@ -543,7 +538,7 @@ export const querySectionsVia =
       return out
     })
 
-export type FakeTicketIndexShape = TicketIndexShape &
+export type FakeTicketIndexShape = TicketIndex.TicketIndex["Service"] &
   TicketBranchIndex.TicketBranchIndex["Service"]
 
 export const makeFakeTicketIndex = (
@@ -600,7 +595,7 @@ export const makeFakeTicketIndex = (
           return {
             entry: entryFromDocument(document),
             sortValue,
-            orderKey: `${sortValue}${TICKET_ORDER_KEY_SEPARATOR}${document.id}`
+            orderKey: `${sortValue}${TicketIndex.TICKET_ORDER_KEY_SEPARATOR}${document.id}`
           }
         })
       }),
@@ -609,7 +604,7 @@ export const makeFakeTicketIndex = (
         const document = documents.get(ticketId)
         if (document === undefined) return null
         const sortValue = ticketSortValue(document, { sort })
-        return `${sortValue}${TICKET_ORDER_KEY_SEPARATOR}${ticketId}`
+        return `${sortValue}${TicketIndex.TICKET_ORDER_KEY_SEPARATOR}${ticketId}`
       }),
     count: (_project, query: TicketCountQuery, options) =>
       Effect.sync(() => {
@@ -721,7 +716,7 @@ export const makeFakeTicketIndex = (
     ...overrides
   }
   return Layer.mergeAll(
-    Layer.succeed(TicketIndex, index),
+    Layer.succeed(TicketIndex.TicketIndex, index),
     Layer.succeed(TicketBranchIndex.TicketBranchIndex, index)
   )
 }
@@ -768,7 +763,9 @@ export type TicketsLayerOptions = Readonly<{
   projectMembers?: Layer.Layer<ProjectMembers.ProjectMembers>
   groups?: Layer.Layer<Groups>
   github?: Layer.Layer<GitHub>
-  ticketIndex?: Layer.Layer<TicketIndex | TicketBranchIndex.TicketBranchIndex>
+  ticketIndex?: Layer.Layer<
+    TicketIndex.TicketIndex | TicketBranchIndex.TicketBranchIndex
+  >
   attachments?: Layer.Layer<Attachments>
   figmaLinks?: Layer.Layer<FigmaLinks>
   scope?: ProjectScopeShape
