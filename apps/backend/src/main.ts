@@ -5,8 +5,8 @@ import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
 import { projectIndex } from "@pp/db/schema"
 import { EverhourRuntimeLive } from "@pp/integration-everhour/Runtime"
-import { GitHubIntegrations } from "@pp/integration-github/GitHubIntegrations"
-import { GitHubWebhooks } from "@pp/integration-github/GitHubWebhooks"
+import * as GitHubIntegrations from "@pp/integration-github/GitHubIntegrations"
+import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
 import { SlackRuntimeLive } from "@pp/integration-slack/Runtime"
 // apps/backend/src/main.ts
 //
@@ -240,7 +240,7 @@ const GithubCallbackQuery = Schema.fromURLSearchParams(
 const decodeGithubCallbackQueryOption = Schema.decodeOption(GithubCallbackQuery)
 
 const githubSetupRoute = Effect.gen(function* () {
-  const integrations = yield* GitHubIntegrations
+  const integrations = yield* GitHubIntegrations.GitHubIntegrations
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   const url = new URL(webReq.url)
@@ -273,7 +273,7 @@ const githubSetupRoute = Effect.gen(function* () {
 )
 
 const githubCallbackRoute = Effect.gen(function* () {
-  const integrations = yield* GitHubIntegrations
+  const integrations = yield* GitHubIntegrations.GitHubIntegrations
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   const url = new URL(webReq.url)
@@ -380,7 +380,7 @@ export const readGithubWebhookBody = (
   })
 
 export const githubWebhookRoute = Effect.gen(function* () {
-  const webhooks = yield* GitHubWebhooks
+  const webhooks = yield* GitHubWebhooks.GitHubWebhooks
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   const body = yield* readGithubWebhookBody(webReq).pipe(

@@ -12,8 +12,8 @@ import * as Schema from "effect/Schema"
 import * as Tracer from "effect/Tracer"
 import { expect } from "vitest"
 
-import type { GitHubWebhookMutationSink } from "./GitHubWebhooks"
-import { makeGitHubWebhooks } from "./GitHubWebhooksLive"
+import * as GitHubWebhooks from "./GitHubWebhooks"
+
 const encodeUnknownJsonSync = Schema.encodeSync(
   Schema.fromJsonString(Schema.Unknown)
 )
@@ -63,7 +63,9 @@ type Call =
       change: GitHubCheckWebhookChange
     }>
 
-const makeSink = (calls: Array<Call>): GitHubWebhookMutationSink => ({
+const makeSink = (
+  calls: Array<Call>
+): GitHubWebhooks.GitHubWebhookMutationSink => ({
   installationDeleted: (installationId) =>
     Effect.sync(() => {
       calls.push({ type: "deleted", installationId })
@@ -123,7 +125,7 @@ const delivery = (event: string, body: Schema.Json) => ({
 it.effect("dispatches installation.deleted", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle(
       delivery("installation", {
         action: "deleted",
@@ -137,7 +139,7 @@ it.effect("dispatches installation.deleted", () =>
 it.effect("dispatches installation.suspend", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle(
       delivery("installation", {
         action: "suspend",
@@ -151,7 +153,7 @@ it.effect("dispatches installation.suspend", () =>
 it.effect("dispatches installation.unsuspend", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle(
       delivery("installation", {
         action: "unsuspend",
@@ -165,7 +167,7 @@ it.effect("dispatches installation.unsuspend", () =>
 it.effect("dispatches installation_repositories.removed with repo ids", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle(
       delivery("installation_repositories", {
         action: "removed",
@@ -186,7 +188,7 @@ it.effect("dispatches installation_repositories.removed with repo ids", () =>
 it.effect("dispatches handled pull_request actions", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     const cases = [
       { action: "opened", merged: false, draft: false, expectedState: "open" },
       { action: "opened", merged: false, draft: true, expectedState: "open" },
@@ -285,7 +287,7 @@ it.effect("dispatches handled pull_request actions", () =>
 it.effect("ignores unhandled pull_request actions and fork pull requests", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle(
       delivery("pull_request", {
         action: "labeled",
@@ -319,7 +321,7 @@ it.effect("ignores unhandled pull_request actions and fork pull requests", () =>
 it.effect("ignores unhandled events and actions", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle(delivery("push", { action: "created" }))
     yield* webhooks.handle(
       delivery("installation", {
@@ -334,7 +336,7 @@ it.effect("ignores unhandled events and actions", () =>
 it.effect("logs and ignores malformed handled payloads", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle({
       event: "installation",
       deliveryId: "delivery-1",
@@ -355,7 +357,7 @@ it.effect(
   () =>
     Effect.gen(function* () {
       const calls: Array<Call> = []
-      const webhooks = makeGitHubWebhooks(makeSink(calls))
+      const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
       yield* webhooks.handle(
         delivery("repository", {
           action: "renamed",
@@ -386,7 +388,7 @@ it.effect(
 it.effect("dispatches repository.transferred with metadata", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle(
       delivery("repository", {
         action: "transferred",
@@ -419,7 +421,7 @@ it.effect(
   () =>
     Effect.gen(function* () {
       const calls: Array<Call> = []
-      const webhooks = makeGitHubWebhooks(makeSink(calls))
+      const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
       for (const action of ["archived", "unarchived", "deleted"]) {
         yield* webhooks.handle(
           delivery("repository", {
@@ -440,7 +442,7 @@ it.effect(
 it.effect("ignores unhandled repository actions", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     for (const action of ["created", "edited", "publicized", "privatized"]) {
       yield* webhooks.handle(
         delivery("repository", {
@@ -457,7 +459,7 @@ it.effect("ignores unhandled repository actions", () =>
 it.effect("ignores repository.renamed missing metadata", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle(
       delivery("repository", {
         action: "renamed",
@@ -472,7 +474,7 @@ it.effect("ignores repository.renamed missing metadata", () =>
 it.effect("dispatches delete of a branch ref matched by repo id", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle(
       delivery("delete", {
         ref: "feat/T-85-branch-deletion-webhooks",
@@ -497,7 +499,7 @@ it.effect("dispatches delete of a branch ref matched by repo id", () =>
 it.effect("processes repeated delete deliveries idempotently at the sink", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     const payload = {
       ref: "feat/T-1",
       ref_type: "branch",
@@ -530,7 +532,7 @@ it.effect("processes repeated delete deliveries idempotently at the sink", () =>
 it.effect("ignores delete of the default branch and of tag refs", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle(
       delivery("delete", {
         ref: "main",
@@ -554,7 +556,7 @@ it.effect("ignores delete of the default branch and of tag refs", () =>
 it.effect("logs and ignores malformed delete payloads", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle(
       delivery("delete", {
         ref_type: "branch",
@@ -569,7 +571,7 @@ it.effect("logs and ignores malformed delete payloads", () =>
 it.effect("maps check_suite status and conclusion to check state", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     const cases = [
       { status: "completed", conclusion: "success", checks: "passing" },
       { status: "completed", conclusion: "failure", checks: "failing" },
@@ -617,7 +619,7 @@ it.effect("maps check_suite status and conclusion to check state", () =>
 it.effect("ignores check_suite deliveries without a head branch", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle(
       delivery("check_suite", {
         action: "completed",
@@ -641,7 +643,7 @@ it.effect(
   () =>
     Effect.gen(function* () {
       const calls: Array<Call> = []
-      const webhooks = makeGitHubWebhooks(makeSink(calls))
+      const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
       const cases = [
         { state: "success", checks: "passing" },
         { state: "failure", checks: "failing" },
@@ -687,7 +689,7 @@ it.effect(
 it.effect("ignores commit status for commits that are not a branch head", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle(
       delivery("status", {
         installation: { id: "123" },
@@ -705,7 +707,7 @@ it.effect("ignores commit status for commits that are not a branch head", () =>
 it.effect("ignores check_run events and unknown commit status states", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle(
       delivery("check_run", {
         action: "completed",
@@ -732,7 +734,7 @@ it.effect("ignores check_run events and unknown commit status states", () =>
 it.effect("logs and ignores malformed check payloads", () =>
   Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle(
       delivery("check_suite", {
         action: "completed",
@@ -762,7 +764,7 @@ it.effect("traces each delivery under one GitHubWebhooks.handle span", () => {
   })
   return Effect.gen(function* () {
     const calls: Array<Call> = []
-    const webhooks = makeGitHubWebhooks(makeSink(calls))
+    const webhooks = GitHubWebhooks.fromSink(makeSink(calls))
     yield* webhooks.handle(
       delivery("installation", {
         action: "deleted",
