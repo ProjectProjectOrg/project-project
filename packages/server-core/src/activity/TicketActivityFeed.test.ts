@@ -12,17 +12,16 @@ import {
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
 import { projectScope, testUser } from "../access/testing"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as Users from "../users/Users"
-import { TicketActivity, type StoredTicketActivity } from "./TicketActivity"
-import {
-  TicketActivityFeed,
-  TicketActivityFeedLive
-} from "./TicketActivityFeed"
+import * as TicketActivity from "./TicketActivity"
+import * as TicketActivityFeed from "./TicketActivityFeed"
 
 const ticketId = Schema.decodeUnknownSync(TicketId)
 const status = Schema.decodeUnknownSync(TicketStatus)
@@ -57,9 +56,11 @@ const ticket: TicketDocs.TicketDocument = {
 const stored = (
   seq: number,
   iso: string,
-  change: StoredTicketActivity["change"],
-  actor: StoredTicketActivity["actor"] = ActivityActor.user("wouter")
-): StoredTicketActivity => ({
+  change: TicketActivity.StoredTicketActivity["change"],
+  actor: TicketActivity.StoredTicketActivity["actor"] = ActivityActor.user(
+    "wouter"
+  )
+): TicketActivity.StoredTicketActivity => ({
   id: `activity-${seq}`,
   seq,
   occurredAt: at(iso),
@@ -68,7 +69,7 @@ const stored = (
   change
 })
 
-const history: ReadonlyArray<StoredTicketActivity> = [
+const history: ReadonlyArray<TicketActivity.StoredTicketActivity> = [
   stored(
     3,
     "2026-10-03T09:00:00Z",
@@ -88,12 +89,12 @@ const gitRequests: Array<boolean> = []
 
 const feedLayer = (
   scope: ProjectScope["Service"],
-  rows: ReadonlyArray<StoredTicketActivity>
+  rows: ReadonlyArray<TicketActivity.StoredTicketActivity>
 ) =>
-  TicketActivityFeedLive.pipe(
+  TicketActivityFeed.layer.pipe(
     Layer.provide(
       Layer.mergeAll(
-        Layer.succeed(TicketActivity, {
+        Layer.succeed(TicketActivity.TicketActivity, {
           record: () => unexpected("TicketActivity.record"),
           recover: () => unexpected("TicketActivity.recover"),
           removeTicket: () => unexpected("TicketActivity.removeTicket"),
@@ -125,7 +126,9 @@ const feedLayer = (
   )
 
 const list = (cursor?: string) =>
-  Effect.flatMap(TicketActivityFeed, (feed) => feed.list("T-7", cursor))
+  Effect.flatMap(TicketActivityFeed.TicketActivityFeed, (feed) =>
+    feed.list("T-7", cursor)
+  )
 
 describe("TicketActivityFeed", () => {
   it.effect("presents people, agents and GitHub, ending with creation", () =>
@@ -217,4 +220,26 @@ describe("TicketActivityFeed", () => {
       })
     }).pipe(Effect.provide(feedLayer(projectScope("member", "pm"), history)))
   )
+
+  it.effect("traces each list call under one TicketActivityFeed span", () => {
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return list().pipe(
+      Effect.withTracer(tracer),
+      Effect.provide(feedLayer(projectScope("member", "pm"), history)),
+      Effect.map(() =>
+        expect(
+          spans
+            .filter((span) => Option.isNone(span.parent))
+            .map((span) => span.name)
+        ).toEqual(["TicketActivityFeed.list"])
+      )
+    )
+  })
 })

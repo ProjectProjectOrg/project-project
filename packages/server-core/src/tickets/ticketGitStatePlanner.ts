@@ -6,11 +6,7 @@ import type {
 } from "@pp/shared"
 import * as Option from "effect/Option"
 
-import type {
-  RawBranchEntry,
-  RawProjectStates,
-  RawPullRequestText
-} from "../github/GitHub"
+import type * as GitHub from "../github/GitHub"
 import {
   pickPullRequestTicket,
   pullRequestTicketReferences,
@@ -29,12 +25,12 @@ type AutomaticBranchLinkTicket = Pick<TicketGitStateInput, "id" | "branch"> & {
   readonly ignoredBranches?: ReadonlyArray<string> | undefined
 }
 
-const noPullRequestText: RawPullRequestText = { title: "", body: "" }
+const noPullRequestText: GitHub.RawPullRequestText = { title: "", body: "" }
 
 const pickBranchTicket = (
   branch: string,
   knownIds: ReadonlySet<string>,
-  openPullRequestText: ReadonlyMap<string, RawPullRequestText>
+  openPullRequestText: ReadonlyMap<string, GitHub.RawPullRequestText>
 ): Option.Option<PullRequestTicketPick> =>
   pickPullRequestTicket(
     pullRequestTicketReferences({
@@ -46,7 +42,7 @@ const pickBranchTicket = (
 
 const chainBottom = (
   branches: ReadonlySet<string>,
-  prByBranch: ReadonlyMap<string, RawBranchEntry>
+  prByBranch: ReadonlyMap<string, GitHub.RawBranchEntry>
 ): string | null => {
   const bottoms = [...branches].filter((branch) => {
     const base = prByBranch.get(branch)?.baseRefName
@@ -59,8 +55,11 @@ export function planAutomaticBranchLinks(
   tickets: ReadonlyArray<AutomaticBranchLinkTicket>,
   branches: ReadonlySet<string>,
   defaultBranch: string,
-  openPullRequestText: ReadonlyMap<string, RawPullRequestText> = new Map(),
-  prByBranch: ReadonlyMap<string, RawBranchEntry> = new Map()
+  openPullRequestText: ReadonlyMap<
+    string,
+    GitHub.RawPullRequestText
+  > = new Map(),
+  prByBranch: ReadonlyMap<string, GitHub.RawBranchEntry> = new Map()
 ): ReadonlyMap<TicketId, string> {
   const knownIds = new Set<string>(tickets.map((ticket) => ticket.id))
   const attachedBranches = new Set(
@@ -97,8 +96,11 @@ export function planAutomaticStacks(
   ownLinks: ReadonlyMap<TicketId, string>,
   branches: ReadonlySet<string>,
   defaultBranch: string,
-  openPullRequestText: ReadonlyMap<string, RawPullRequestText> = new Map(),
-  prByBranch: ReadonlyMap<string, RawBranchEntry> = new Map()
+  openPullRequestText: ReadonlyMap<
+    string,
+    GitHub.RawPullRequestText
+  > = new Map(),
+  prByBranch: ReadonlyMap<string, GitHub.RawBranchEntry> = new Map()
 ): ReadonlyMap<TicketId, ReadonlyArray<TicketBranchEntry>> {
   const byId = new Map(tickets.map((ticket) => [ticket.id, ticket]))
   const knownIds = new Set<string>(byId.keys())
@@ -155,7 +157,7 @@ export function planAutomaticStacks(
 
 export const planStackPullRequests = (
   stack: ReadonlyArray<TicketBranchEntry> | undefined,
-  context: LandingContext<RawBranchEntry>
+  context: LandingContext<GitHub.RawBranchEntry>
 ): ReadonlyArray<TicketBranchEntry> =>
   (stack ?? []).map((layer) => {
     const pr = context.prByBranch.get(layer.branch)
@@ -167,7 +169,10 @@ export const planStackPullRequests = (
         ) ?? layer)
   })
 
-type MergeCandidate = Pick<RawBranchEntry, "state" | "baseRefName" | "mergedAt">
+type MergeCandidate = Pick<
+  GitHub.RawBranchEntry,
+  "state" | "baseRefName" | "mergedAt"
+>
 
 type LandingContext<T extends MergeCandidate = MergeCandidate> = Readonly<{
   defaultBranch: string
@@ -212,7 +217,7 @@ export const pullRequestLanded = (
 
 export const stackPullRequest = (
   branch: string,
-  pr: RawBranchEntry,
+  pr: GitHub.RawBranchEntry,
   context: LandingContext
 ): StackPullRequest => ({
   branch,
@@ -313,7 +318,7 @@ export const withPullRequestBase = (
 
 export function planTicketGitStates(
   tickets: ReadonlyArray<TicketGitStateInput>,
-  raw: RawProjectStates,
+  raw: GitHub.RawProjectStates,
   now: Date
 ): TicketGitStatePlan {
   const states: Record<string, GitState> = {}

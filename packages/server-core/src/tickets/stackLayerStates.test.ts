@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest"
 
-import type { RawBranchEntry } from "../github/GitHub"
+import type * as GitHub from "../github/GitHub"
 import { stackLayerStates } from "./stackLayerStates"
 
 const repository = { repoOwner: "acme", repoName: "app" }
 
-const livePr = (overrides: Partial<RawBranchEntry>): RawBranchEntry => ({
+const livePr = (
+  overrides: Partial<GitHub.RawBranchEntry>
+): GitHub.RawBranchEntry => ({
   headRefName: "ui",
   baseRefName: "api",
   state: "open",

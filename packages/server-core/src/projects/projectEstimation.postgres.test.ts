@@ -22,9 +22,9 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 import { accessLayer, projectScope } from "../access/testing"
 import { testActivityLayer } from "../activity/testing"
 import * as Attachments from "../attachments/Attachments"
-import { Comments } from "../comments/Comments"
+import * as Comments from "../comments/Comments"
 import * as FigmaLinks from "../figma/FigmaLinks"
-import { GitHub } from "../github/GitHub"
+import * as GitHub from "../github/GitHub"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import * as TicketServices from "../tickets/layer"
@@ -133,9 +133,9 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
         Layer.provide(
           Layer.mergeAll(
             Layer.mock(TicketDocs.TicketDocs, {}),
-            Layer.mock(GitHub, {}),
+            Layer.mock(GitHub.GitHub, {}),
             Layer.mock(Groups.Groups, {}),
-            Layer.mock(Comments, {}),
+            Layer.mock(Comments.Comments, {}),
             Layer.mock(Attachments.Attachments, {}),
             Layer.mock(FigmaLinks.FigmaLinks, {}),
             Layer.mock(Users.Users, {}),

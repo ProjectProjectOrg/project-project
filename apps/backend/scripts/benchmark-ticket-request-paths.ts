@@ -9,9 +9,9 @@ import { DbLive, PgLive } from "@pp/db"
 import { accessLayer, projectScope } from "@pp/server-core/access/testing"
 import { passthroughTicketActivity } from "@pp/server-core/activity/testing"
 import * as Attachments from "@pp/server-core/attachments/Attachments"
-import { Comments, type CommentsShape } from "@pp/server-core/comments/Comments"
+import * as Comments from "@pp/server-core/comments/Comments"
 import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
-import { GitHub, type GitHubShape } from "@pp/server-core/github/GitHub"
+import * as GitHub from "@pp/server-core/github/GitHub"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
@@ -408,7 +408,7 @@ const makeFakeGroups = (ticketCount: number) => {
   } satisfies Groups.Groups["Service"])
 }
 
-const FakeGitHub = Layer.succeed(GitHub, {
+const FakeGitHub = Layer.succeed(GitHub.GitHub, {
   listInstallationRepos: () => unexpected("GitHub.listInstallationRepos"),
   verifyInstallationRepo: () => unexpected("GitHub.verifyInstallationRepo"),
   createBranchAsUser: () => unexpected("GitHub.createBranchAsUser"),
@@ -417,15 +417,15 @@ const FakeGitHub = Layer.succeed(GitHub, {
     unexpected("GitHub.fetchInstallationProjectStates"),
   listInstallationBranches: () => unexpected("GitHub.listInstallationBranches"),
   branchExistsInstallation: () => unexpected("GitHub.branchExistsInstallation")
-} satisfies GitHubShape)
+} satisfies GitHub.GitHub["Service"])
 
-const FakeComments = Layer.succeed(Comments, {
+const FakeComments = Layer.succeed(Comments.Comments, {
   list: () => unexpected("Comments.list"),
   create: () => unexpected("Comments.create"),
   importHistorical: () => unexpected("Comments.importHistorical"),
   edit: () => unexpected("Comments.edit"),
   remove: () => unexpected("Comments.remove")
-} satisfies CommentsShape)
+} satisfies Comments.Comments["Service"])
 
 const FakeFigmaLinks = Layer.succeed(FigmaLinks.FigmaLinks, {
   reconcileTicket: () => Effect.void,

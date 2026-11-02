@@ -15,7 +15,7 @@ import * as Schema from "effect/Schema"
 
 import { groupMembershipChanges } from "../activity/changes"
 import { sprintEvents } from "../activity/projectEvents"
-import { TicketActivity } from "../activity/TicketActivity"
+import * as TicketActivity from "../activity/TicketActivity"
 import { markdownFileContent } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
 
@@ -126,7 +126,7 @@ const annotateGroupDoc = <A, E, R>(
 
 const make = Effect.gen(function* () {
   const markdown = yield* Markdown.Markdown
-  const ticketActivity = yield* TicketActivity
+  const ticketActivity = yield* TicketActivity.TicketActivity
 
   const listIds = Effect.fn("GroupDocs.listIds")(function* (
     orgSlug: string,

@@ -6,7 +6,7 @@ import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
 
 import * as Access from "../access/Access"
-import { GitHub } from "../github/GitHub"
+import * as GitHub from "../github/GitHub"
 import * as TicketIndexServices from "../tickets/indexLayer"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
@@ -28,7 +28,7 @@ export const projectsOnPostgres = (
   userIds: ReadonlyArray<string>,
   ticketDocs: Partial<TicketDocs.TicketDocs["Service"]> = {},
   projectDocs?: Layer.Layer<ProjectDocs.ProjectDocs>,
-  github: Partial<GitHub["Service"]> = {}
+  github: Partial<GitHub.GitHub["Service"]> = {}
 ): Layer.Layer<
   | Projects.Projects
   | ProjectGithub.ProjectGithub
@@ -116,7 +116,7 @@ export const projectsOnPostgres = (
       })
     ),
     Layer.provide(
-      Layer.succeed(GitHub, {
+      Layer.succeed(GitHub.GitHub, {
         verifyInstallationRepo: unused,
         listInstallationRepos: unused,
         createBranchAsUser: unused,

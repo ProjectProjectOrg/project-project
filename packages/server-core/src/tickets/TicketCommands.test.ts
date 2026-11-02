@@ -35,7 +35,7 @@ import {
 } from "../activity/testing"
 import * as Attachments from "../attachments/Attachments"
 import * as FigmaLinks from "../figma/FigmaLinks"
-import { GitHub, type GitHubShape } from "../github/GitHub"
+import * as GitHub from "../github/GitHub"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import * as LibraryDocs from "../library/LibraryDocs"
@@ -99,7 +99,7 @@ const FakeGroups = Layer.succeed(Groups.Groups, {
   removeTicketFromAllGroups: () => Effect.void
 } satisfies Groups.Groups["Service"])
 
-const FakeGitHub = Layer.succeed(GitHub, {
+const FakeGitHub = Layer.succeed(GitHub.GitHub, {
   listInstallationRepos: () => unexpected("GitHub.listInstallationRepos"),
   verifyInstallationRepo: () => unexpected("GitHub.verifyInstallationRepo"),
   createBranchAsUser: () => unexpected("GitHub.createBranchAsUser"),
@@ -108,7 +108,7 @@ const FakeGitHub = Layer.succeed(GitHub, {
     unexpected("GitHub.fetchInstallationProjectStates"),
   listInstallationBranches: () => unexpected("GitHub.listInstallationBranches"),
   branchExistsInstallation: () => unexpected("GitHub.branchExistsInstallation")
-} satisfies GitHubShape)
+} satisfies GitHub.GitHub["Service"])
 
 const decodeUserId = Schema.decodeUnknownSync(UserId)
 

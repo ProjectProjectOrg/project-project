@@ -15,8 +15,7 @@ import { SlackEvents } from "@pp/integration-slack/Events"
 import { SlackIntegrations } from "@pp/integration-slack/Integrations"
 import { SlackPreviews } from "@pp/integration-slack/Previews"
 import * as Access from "@pp/server-core/access/Access"
-import { TicketActivity } from "@pp/server-core/activity/TicketActivity"
-import { TicketActivityLive } from "@pp/server-core/activity/TicketActivityLive"
+import * as TicketActivity from "@pp/server-core/activity/TicketActivity"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
@@ -246,7 +245,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       Layer.provideMerge(TicketDocs.layer),
       Layer.provideMerge(FinishedStatuses.layer),
       Layer.provideMerge(KeyedLock.layer),
-      Layer.provideMerge(TicketActivityLive),
+      Layer.provideMerge(TicketActivity.layer),
       Layer.provideMerge(Markdown.layer),
       Layer.provideMerge(SecretCrypto.layer)
     )
@@ -485,7 +484,9 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
         )
         const restarted = yield* f.startServices()
         yield* Effect.provide(
-          Effect.flatMap(TicketActivity, (activity) => activity.recover()),
+          Effect.flatMap(TicketActivity.TicketActivity, (activity) =>
+            activity.recover()
+          ),
           restarted.context
         )
         const pending = yield* Effect.promise(() =>
@@ -544,7 +545,9 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
           "ticket_created"
         ])
         yield* Effect.provide(
-          Effect.flatMap(TicketActivity, (activity) => activity.recover()),
+          Effect.flatMap(TicketActivity.TicketActivity, (activity) =>
+            activity.recover()
+          ),
           dispatcher.context
         )
         expect(

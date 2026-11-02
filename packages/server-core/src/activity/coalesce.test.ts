@@ -9,7 +9,7 @@ import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import { coalesceActivity } from "./coalesce"
-import type { StoredTicketActivity } from "./TicketActivity"
+import type * as TicketActivity from "./TicketActivity"
 
 const status = Schema.decodeUnknownSync(TicketStatus)
 const wouter = ActivityActor.user("wouter")
@@ -24,7 +24,7 @@ const entry = (
   change: TicketActivityChange,
   actor: ActivityActor["Service"] = wouter,
   cause: ActivityCause | null = null
-): StoredTicketActivity => {
+): TicketActivity.StoredTicketActivity => {
   sequence += 1
   return {
     id: `a${sequence}`,
@@ -45,8 +45,9 @@ const moved = (from: string, to: string): TicketActivityChange => ({
 })
 const edited: TicketActivityChange = { kind: "description_edited" }
 
-const newestFirst = (entries: ReadonlyArray<StoredTicketActivity>) =>
-  [...entries].reverse()
+const newestFirst = (
+  entries: ReadonlyArray<TicketActivity.StoredTicketActivity>
+) => [...entries].reverse()
 
 describe("coalesceActivity", () => {
   it("merges successive estimate edits while keeping the initial value", () => {

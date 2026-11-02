@@ -12,15 +12,16 @@ import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import pg from "pg"
 import { describe, expect } from "vitest"
 
 import { contentHash, markdownFileContent } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
 import type { TicketScopedChange } from "./changes"
-import { TicketActivity } from "./TicketActivity"
-import { TicketActivityLive } from "./TicketActivityLive"
+import * as TicketActivity from "./TicketActivity"
 
 const { Client } = pg
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -56,7 +57,7 @@ const TestLayer = Layer.unwrap(
     const root = yield* fs.makeTempDirectoryScoped({
       prefix: "projectproject-ticket-activity-"
     })
-    return TicketActivityLive.pipe(
+    return TicketActivity.layer.pipe(
       Layer.provideMerge(
         Markdown.layer.pipe(
           Layer.provide(
@@ -181,7 +182,7 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
   it.live("commits activity when interrupted after the write lands", () =>
     Effect.gen(function* () {
       const project = yield* seedProject
-      const activity = yield* TicketActivity
+      const activity = yield* TicketActivity.TicketActivity
       const landed = yield* Deferred.make<void>()
       const gate = yield* Deferred.make<void>()
       const fiber = yield* activity
@@ -218,7 +219,7 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
   it.live("commits the batch once the document write succeeds", () =>
     Effect.gen(function* () {
       const project = yield* seedProject
-      const activity = yield* TicketActivity
+      const activity = yield* TicketActivity.TicketActivity
       yield* activity
         .record(
           project.orgSlug,
@@ -262,7 +263,7 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
     () =>
       Effect.gen(function* () {
         const project = yield* seedProject
-        const activity = yield* TicketActivity
+        const activity = yield* TicketActivity.TicketActivity
         yield* activity
           .record(
             project.orgSlug,
@@ -303,7 +304,7 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
   it.live("leaves no activity when the document write fails", () =>
     Effect.gen(function* () {
       const project = yield* seedProject
-      const activity = yield* TicketActivity
+      const activity = yield* TicketActivity.TicketActivity
       const exit = yield* activity
         .record(
           project.orgSlug,
@@ -331,7 +332,7 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
     () =>
       Effect.gen(function* () {
         const project = yield* seedProject
-        const activity = yield* TicketActivity
+        const activity = yield* TicketActivity.TicketActivity
         const landed = yield* writeTicketFile(
           project.orgSlug,
           project.slug,
@@ -360,7 +361,7 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
   it.live("recovery treats a missing document as a landed deletion", () =>
     Effect.gen(function* () {
       const project = yield* seedProject
-      const activity = yield* TicketActivity
+      const activity = yield* TicketActivity.TicketActivity
       yield* activity
         .record(
           project.orgSlug,
@@ -397,7 +398,7 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
     () =>
       Effect.gen(function* () {
         const project = yield* seedProject
-        const activity = yield* TicketActivity
+        const activity = yield* TicketActivity.TicketActivity
         for (const title of ["One", "Two", "Three"]) {
           yield* activity
             .record(
@@ -451,7 +452,7 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
   it.live("a later write settles an earlier batch whose write landed", () =>
     Effect.gen(function* () {
       const project = yield* seedProject
-      const activity = yield* TicketActivity
+      const activity = yield* TicketActivity.TicketActivity
       const landed = yield* writeTicketFile(
         project.orgSlug,
         project.slug,
@@ -491,7 +492,7 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
   it.live("can leave git activity out of a page", () =>
     Effect.gen(function* () {
       const project = yield* seedProject
-      const activity = yield* TicketActivity
+      const activity = yield* TicketActivity.TicketActivity
       yield* activity
         .record(
           project.orgSlug,
@@ -527,4 +528,66 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
       expect(yield* kinds(false)).toEqual(["status_changed"])
     }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
+
+  it.live("traces each call under one TicketActivity span", () => {
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return Effect.gen(function* () {
+      const project = yield* seedProject
+      const activity = yield* TicketActivity.TicketActivity
+      yield* activity
+        .record(
+          project.orgSlug,
+          project.slug,
+          { kind: "ticket", id: "T-1", content: "after" },
+          statusMove,
+          null,
+          writeTicketFile(project.orgSlug, project.slug, "After").pipe(
+            Effect.withSpan("test.write")
+          )
+        )
+        .pipe(
+          Effect.provideService(
+            ActivityActor,
+            ActivityActor.user(project.userId)
+          ),
+          Effect.withTracer(tracer)
+        )
+      yield* activity
+        .page(project.projectId, "T-1", null, 10, true)
+        .pipe(Effect.withTracer(tracer))
+      yield* activity
+        .removeTicket(project.orgSlug, project.slug, "T-1")
+        .pipe(Effect.withTracer(tracer))
+      yield* activity.recover().pipe(Effect.withTracer(tracer))
+      expect(
+        spans
+          .filter(
+            (span) =>
+              span.name.startsWith("TicketActivity.") ||
+              span.name === "test.write"
+          )
+          .map((span) => ({
+            name: span.name,
+            parent: Option.getOrNull(
+              Option.map(span.parent, (parent) =>
+                parent._tag === "Span" ? parent.name : "external"
+              )
+            )
+          }))
+      ).toEqual([
+        { name: "TicketActivity.record", parent: null },
+        { name: "test.write", parent: "TicketActivity.record" },
+        { name: "TicketActivity.page", parent: null },
+        { name: "TicketActivity.removeTicket", parent: null },
+        { name: "TicketActivity.recover", parent: null }
+      ])
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  })
 })

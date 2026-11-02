@@ -1,7 +1,7 @@
 import * as Access from "@pp/server-core/access/Access"
-import { AttachmentUploads } from "@pp/server-core/attachments/AttachmentUploads"
+import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
-import { Comments } from "@pp/server-core/comments/Comments"
+import * as Comments from "@pp/server-core/comments/Comments"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
@@ -21,9 +21,9 @@ import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 
 export const toolDependencies = [
   Access.Access,
-  AttachmentUploads,
+  AttachmentUploads.AttachmentUploads,
   BetterAuth.BetterAuth,
-  Comments,
+  Comments.Comments,
   GroupDocs.GroupDocs,
   Groups.Groups,
   Library.Library,

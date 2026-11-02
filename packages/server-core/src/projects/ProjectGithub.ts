@@ -28,7 +28,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as SqlClient from "effect/sql/SqlClient"
 
-import { GitHub } from "../github/GitHub"
+import * as GitHub from "../github/GitHub"
 import type * as Markdown from "../markdown/Markdown"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import * as ProjectDetails from "./ProjectDetails"
@@ -97,7 +97,7 @@ export class ProjectGithub extends Context.Service<
 const make = Effect.gen(function* () {
   const db = yield* Db
   const sql = yield* SqlClient.SqlClient
-  const github = yield* GitHub
+  const github = yield* GitHub.GitHub
   const rewrites = yield* TicketRewrites.TicketRewrites
   const {
     current: inScope,

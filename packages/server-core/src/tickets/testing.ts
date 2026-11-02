@@ -29,9 +29,9 @@ import { databaseLayer } from "../../test/database"
 import { accessLayer, projectScope } from "../access/testing"
 import { passthroughTicketActivity } from "../activity/testing"
 import * as Attachments from "../attachments/Attachments"
-import { Comments, type CommentsShape } from "../comments/Comments"
+import * as Comments from "../comments/Comments"
 import * as FigmaLinks from "../figma/FigmaLinks"
-import { GitHub, type GitHubShape } from "../github/GitHub"
+import * as GitHub from "../github/GitHub"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import * as Markdown from "../markdown/Markdown"
@@ -388,16 +388,18 @@ export const FakeUsers = Layer.succeed(Users.Users, {
   fullByIds: (ids) => Effect.succeed(ids.map(fakeUser))
 } satisfies Users.Users["Service"])
 
-export const FakeComments = Layer.succeed(Comments, {
+export const FakeComments = Layer.succeed(Comments.Comments, {
   list: () => unexpected("Comments.list"),
   create: () => unexpected("Comments.create"),
   importHistorical: () => unexpected("Comments.importHistorical"),
   edit: () => unexpected("Comments.edit"),
   remove: () => unexpected("Comments.remove")
-} satisfies CommentsShape)
+} satisfies Comments.Comments["Service"])
 
-export const makeFakeGitHub = (overrides: Partial<GitHubShape> = {}) =>
-  Layer.succeed(GitHub, {
+export const makeFakeGitHub = (
+  overrides: Partial<GitHub.GitHub["Service"]> = {}
+) =>
+  Layer.succeed(GitHub.GitHub, {
     listInstallationRepos: () => unexpected("GitHub.listInstallationRepos"),
     verifyInstallationRepo: () => unexpected("GitHub.verifyInstallationRepo"),
     createBranchAsUser: () => unexpected("GitHub.createBranchAsUser"),
@@ -409,7 +411,7 @@ export const makeFakeGitHub = (overrides: Partial<GitHubShape> = {}) =>
     branchExistsInstallation: () =>
       unexpected("GitHub.branchExistsInstallation"),
     ...overrides
-  } satisfies GitHubShape)
+  } satisfies GitHub.GitHub["Service"])
 
 export const entryFromDocument = (document: TicketDocs.TicketDocument) => {
   const { body: _body, commentsRegion: _commentsRegion, ...entry } = document
@@ -760,7 +762,7 @@ export type TicketsLayerOptions = Readonly<{
   projectGithub?: Layer.Layer<ProjectGithub.ProjectGithub>
   projectMembers?: Layer.Layer<ProjectMembers.ProjectMembers>
   groups?: Layer.Layer<Groups.Groups>
-  github?: Layer.Layer<GitHub>
+  github?: Layer.Layer<GitHub.GitHub>
   ticketIndex?: Layer.Layer<
     TicketIndex.TicketIndex | TicketBranchIndex.TicketBranchIndex
   >

@@ -1,6 +1,6 @@
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
-import { Comments } from "@pp/server-core/comments/Comments"
+import * as Comments from "@pp/server-core/comments/Comments"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
@@ -519,7 +519,7 @@ const create_comment = (input: {
   ticketId: TicketId
   body: string
 }) =>
-  Effect.flatMap(Comments, (comments) =>
+  Effect.flatMap(Comments.Comments, (comments) =>
     comments.create(input.ticketId, { body: input.body })
   ).pipe(
     Effect.catchTag("InvalidCommentBody", (error) =>
