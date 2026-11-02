@@ -17,7 +17,9 @@ import * as Clock from "effect/Clock"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import type * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
@@ -199,6 +201,57 @@ describe.skipIf(!databaseUrl)("project members", () => {
       await pool.end()
     }
   })
+
+  it.effect("traces a member change on its ProjectMembers span", () =>
+    Effect.gen(function* () {
+      const spans: Array<Tracer.NativeSpan> = []
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options)
+          spans.push(span)
+          return span
+        }
+      })
+      yield* Effect.exit(
+        run(pm)((projects) =>
+          projects.updateMember(randomUUID(), "developer")
+        ).pipe(Effect.withTracer(tracer))
+      )
+      expect(
+        spans
+          .filter((span) => span.name.endsWith(".updateMember"))
+          .map((span) => {
+            const attributes = Object.fromEntries(span.attributes)
+            return {
+              name: span.name,
+              parent: Option.match(span.parent, {
+                onNone: () => null,
+                onSome: (parent) =>
+                  parent._tag === "Span" ? parent.name : null
+              }),
+              module: attributes.module,
+              operation: attributes.operation,
+              orgSlug: attributes.orgSlug
+            }
+          })
+      ).toEqual([
+        {
+          name: "ProjectMembers.updateMember",
+          parent: null,
+          module: undefined,
+          operation: undefined,
+          orgSlug: undefined
+        },
+        {
+          name: "Projects.updateMember",
+          parent: "ProjectMembers.updateMember",
+          module: "Projects",
+          operation: "updateMember",
+          orgSlug
+        }
+      ])
+    })
+  )
 
   it.effect("adds org members as developer and promotes them to pm", () =>
     Effect.gen(function* () {
