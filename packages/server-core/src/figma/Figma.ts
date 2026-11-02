@@ -74,12 +74,12 @@ export class Figma extends Context.Service<
     ) => Effect.Effect<Uint8Array, FigmaCallError>
     createDevResource: (
       credential: FigmaCredential,
-      input: {
-        readonly fileKey: string
-        readonly nodeId: string
-        readonly name: string
-        readonly url: string
-      }
+      input: Readonly<{
+        fileKey: string
+        nodeId: string
+        name: string
+        url: string
+      }>
     ) => Effect.Effect<string | null, FigmaCallError>
     deleteDevResource: (
       credential: FigmaCredential,
@@ -399,12 +399,12 @@ const make = Effect.gen(function* () {
 
   const createDevResource = Effect.fn("Figma.createDevResource")(function* (
     credential: FigmaCredential,
-    input: {
-      readonly fileKey: string
-      readonly nodeId: string
-      readonly name: string
-      readonly url: string
-    }
+    input: Readonly<{
+      fileKey: string
+      nodeId: string
+      name: string
+      url: string
+    }>
   ) {
     return yield* withFetch(
       send(credential, "POST", "/v1/dev_resources", {
