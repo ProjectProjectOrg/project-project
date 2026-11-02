@@ -68,11 +68,13 @@ import * as Fiber from "effect/Fiber"
 import { HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 import * as Stream from "effect/Stream"
 import * as TestClock from "effect/testing/TestClock"
+import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { beforeAll, afterAll, describe, expect, vi } from "vitest"
 
@@ -546,6 +548,54 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
       expect(responses.map((r) => r.status)).toEqual([200, 200])
       expect(f.writes).toHaveLength(1)
     }).pipe(Effect.scoped, Effect.provide(dbLayer))
+  )
+
+  it.effect(
+    "traces prepare and receive under their AttachmentUploads spans",
+    () => {
+      const spans: Array<Tracer.NativeSpan> = []
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options)
+          spans.push(span)
+          return span
+        }
+      })
+      const parentName = (span: Tracer.NativeSpan) =>
+        Option.getOrNull(
+          Option.map(span.parent, (parent) =>
+            parent._tag === "Span" ? parent.name : "external"
+          )
+        )
+      return Effect.gen(function* () {
+        const f = yield* fixture()
+        const prepared = yield* f.prepare()
+        yield* f.receive(prepared.uploadUrl, Stream.make(bytes))
+        expect(
+          spans
+            .filter((span) => span.name.startsWith("AttachmentUploads."))
+            .map((span) => ({ name: span.name, parent: parentName(span) }))
+        ).toEqual([
+          {
+            name: "AttachmentUploads.prepare",
+            parent: "attachmentFixture.prepare"
+          },
+          {
+            name: "AttachmentUploads.requireTicket",
+            parent: "AttachmentUploads.prepare"
+          },
+          { name: "AttachmentUploads.receive", parent: null },
+          {
+            name: "AttachmentUploads.requireTicket",
+            parent: "AttachmentUploads.receive"
+          },
+          {
+            name: "AttachmentUploads.requireTicket",
+            parent: "sql.transaction"
+          }
+        ])
+      }).pipe(Effect.withTracer(tracer), Effect.scoped, Effect.provide(dbLayer))
+    }
   )
 
   it.effect("rejects tampered and expired URLs before reading bytes", () =>
