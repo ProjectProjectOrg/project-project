@@ -12,7 +12,7 @@ import {
   type JiraScanContext,
   type JiraScanKind
 } from "./MigrationActivities"
-import type { JiraArtifactRef } from "./MigrationArtifacts"
+import type * as MigrationArtifacts from "./MigrationArtifacts"
 import { buildJiraScanArtifacts } from "./Scan"
 
 const decodeUnknownJiraProjectArray = Schema.decodeUnknownEffect(
@@ -86,8 +86,8 @@ const decodeUnknownJiraMigrationManifestV2 = Schema.decodeUnknownEffect(
 export type ScanChunkReference = Readonly<{
   kind: JiraScanKind
   parentId: string | null
-  raw: JiraArtifactRef
-  normalized: JiraArtifactRef
+  raw: MigrationArtifacts.JiraArtifactRef
+  normalized: MigrationArtifacts.JiraArtifactRef
   warnings: ReadonlyArray<string>
 }>
 export type ScanChunk = Readonly<
@@ -340,7 +340,7 @@ export const prepareScanV2 = Effect.fn("prepareScanV2")(function* (
 export type PreparedScanV2 = Effect.Success<ReturnType<typeof prepareScanV2>>
 export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
   data: PreparedScanV2,
-  refs: ReadonlyMap<string, JiraArtifactRef>
+  refs: ReadonlyMap<string, MigrationArtifacts.JiraArtifactRef>
 ) {
   const { context, legacy, issues, fields } = data
   const ref = (kind: string, id: string) => refs.get(`${kind}:${id}`)

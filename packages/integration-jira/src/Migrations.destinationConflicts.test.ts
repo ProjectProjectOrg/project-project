@@ -2,7 +2,7 @@ import { JiraMigrationConfiguration } from "@pp/shared"
 import { Schema } from "effect"
 import { expect, it } from "vitest"
 
-import { jiraDestinationConflicts } from "./Migrations"
+import * as Migrations from "./Migrations"
 
 const destination = Schema.decodeUnknownSync(JiraMigrationConfiguration)({
   destination: { name: "Application", slug: "fixture-application", key: "APP" },
@@ -19,7 +19,7 @@ const destination = Schema.decodeUnknownSync(JiraMigrationConfiguration)({
 
 it("reports exact organization slug, key, and ticket ID conflicts", () => {
   expect(
-    jiraDestinationConflicts({
+    Migrations.jiraDestinationConflicts({
       organizationId: "current-org",
       currentProjectId: "current-project",
       destination,
@@ -59,7 +59,7 @@ it("reports exact organization slug, key, and ticket ID conflicts", () => {
 
 it("ignores a slug taken in another organization", () => {
   expect(
-    jiraDestinationConflicts({
+    Migrations.jiraDestinationConflicts({
       organizationId: "current-org",
       currentProjectId: "current-project",
       destination,

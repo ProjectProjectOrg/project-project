@@ -10,16 +10,22 @@ import {
 } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
-import { DateTime, Effect, Layer, Record, Redacted, Schema } from "effect"
+import {
+  DateTime,
+  Effect,
+  Layer,
+  Option,
+  Record,
+  Redacted,
+  Schema,
+  Tracer
+} from "effect"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { JiraClient } from "./Client"
-import type { JiraMigrationArtifactsShape } from "./MigrationArtifacts"
-import {
-  JiraMigrationProjection,
-  type AttemptFence
-} from "./MigrationProjection"
+import * as Client from "./Client"
+import type * as MigrationArtifacts from "./MigrationArtifacts"
+import * as MigrationProjection from "./MigrationProjection"
 import {
   makeProjectionScanDependencies,
   withJiraRemoteWriteIntent
@@ -34,6 +40,19 @@ const decodeUnknownJiraMigrationRequirements = Schema.decodeUnknownEffect(
 )
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
+const recordSpans = () => {
+  const spans: Array<Tracer.NativeSpan> = []
+  const tracer = Tracer.make({
+    span: (options) => {
+      const span = new Tracer.NativeSpan(options)
+      spans.push(span)
+      return span
+    }
+  })
+  const roots = () =>
+    spans.filter((span) => Option.isNone(span.parent)).map((span) => span.name)
+  return { spans, tracer, roots }
+}
 const source = {
   cloudId: "cloud-1",
   siteName: "Example",
@@ -45,7 +64,7 @@ const source = {
 
 describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
   let pool: Pool
-  let layer: Layer.Layer<JiraMigrationProjection>
+  let layer: Layer.Layer<MigrationProjection.JiraMigrationProjection>
   const owners: Array<{ organizationId: string; userId: string }> = []
   beforeAll(async () => {
     const url = new URL(databaseUrl!)
@@ -58,7 +77,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
     await migrate(drizzle({ client: pool }), {
       migrationsFolder: `${import.meta.dirname}/../../db/src/migrations`
     })
-    layer = JiraMigrationProjection.layer.pipe(
+    layer = MigrationProjection.layer.pipe(
       Layer.provide(
         DbLive.pipe(
           Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
@@ -98,7 +117,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
     id: string
     workflowExecutionId: string | null
     workflowAttempt: number
-  }): AttemptFence => ({
+  }): MigrationProjection.AttemptFence => ({
     migrationId: row.id,
     workflowExecutionId: row.workflowExecutionId!,
     workflowAttempt: row.workflowAttempt
@@ -110,7 +129,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
       Effect.gen(function* () {
         const input = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const created = yield* p.ensureCreated(input)
           const current = fence(created)
           yield* p.completeScan(current, {
@@ -231,7 +250,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
       Effect.gen(function* () {
         const input = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const created = yield* p.ensureCreated(input)
           const current = fence(created)
           yield* p.completeScan(current, emptyScan)
@@ -270,7 +289,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
       Effect.gen(function* () {
         const input = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const created = yield* p.ensureCreated(input)
           const current = fence(created)
           expect(yield* p.beginRemoteWrites(current)).toBe(true)
@@ -354,7 +373,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
     Effect.gen(function* () {
       const input = yield* Effect.promise(() => fixture())
       yield* Effect.gen(function* () {
-        const p = yield* JiraMigrationProjection
+        const p = yield* MigrationProjection.JiraMigrationProjection
         const created = yield* p.ensureCreated(input)
         const current = fence(created)
         expect(yield* p.completeScan(current, emptyScan)).toBe(true)
@@ -419,7 +438,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
     Effect.gen(function* () {
       const input = yield* Effect.promise(() => fixture())
       yield* Effect.gen(function* () {
-        const p = yield* JiraMigrationProjection
+        const p = yield* MigrationProjection.JiraMigrationProjection
         const created = yield* p.ensureCreated(input)
         const current = fence(created)
         expect(
@@ -450,7 +469,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
     Effect.gen(function* () {
       const input = yield* Effect.promise(() => fixture())
       yield* Effect.gen(function* () {
-        const p = yield* JiraMigrationProjection
+        const p = yield* MigrationProjection.JiraMigrationProjection
         const created = yield* p.ensureCreated(input)
         const current = fence(created)
         const ref = {
@@ -459,26 +478,27 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           byteSize: 2,
           sha256: "a".repeat(64)
         }
-        const artifacts: JiraMigrationArtifactsShape = {
-          writeJson: () =>
-            Effect.gen(function* () {
-              expect(
-                (yield* p.owned(input, created.id).pipe(Effect.orDie))
-                  .checkpoint
-              ).toHaveProperty("remoteWritesMayStillCommit")
-              return ref
-            }),
-          readJson: () => Effect.die("unused"),
-          verify: () => Effect.die("unused"),
-          listPrefix: () => Effect.die("unused"),
-          deletePrefix: () => Effect.die("unused")
-        }
+        const artifacts: MigrationArtifacts.JiraMigrationArtifacts["Service"] =
+          {
+            writeJson: () =>
+              Effect.gen(function* () {
+                expect(
+                  (yield* p.owned(input, created.id).pipe(Effect.orDie))
+                    .checkpoint
+                ).toHaveProperty("remoteWritesMayStillCommit")
+                return ref
+              }),
+            readJson: () => Effect.die("unused"),
+            verify: () => Effect.die("unused"),
+            listPrefix: () => Effect.die("unused"),
+            deletePrefix: () => Effect.die("unused")
+          }
         const dependencies = makeProjectionScanDependencies(
           p,
           {
-            client: yield* JiraClient.pipe(
+            client: yield* Client.JiraClient.pipe(
               Effect.provide(
-                Layer.mock(JiraClient, {
+                Layer.mock(Client.JiraClient, {
                   snapshots: {
                     currentUser: () => Effect.die("unused"),
                     project: () => Effect.die("unused"),
@@ -524,7 +544,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
         const expiredInput = yield* Effect.promise(() => fixture())
         const succeededInput = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const expired = yield* p.ensureCreated(expiredInput)
           yield* p.recordFailure(fence(expired), {
             reason: "retryable",
@@ -579,7 +599,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
         const projectId = randomUUID()
         const projectSlug = `hidden-${randomUUID()}`
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const created = yield* p.ensureCreated(input)
           const current = fence(created)
           const scannedAt = DateTime.toDate(
@@ -639,7 +659,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
       Effect.gen(function* () {
         const input = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const created = yield* p.ensureCreated(input)
           const current = fence(created)
           yield* withJiraRemoteWriteIntent(
@@ -678,7 +698,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
       Effect.gen(function* () {
         const input = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const rows = yield* Effect.all(
             Array.from({ length: 4 }, () => p.ensureCreated(input)),
             { concurrency: "unbounded" }
@@ -705,7 +725,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
     Effect.gen(function* () {
       const input = yield* Effect.promise(() => fixture())
       yield* Effect.gen(function* () {
-        const p = yield* JiraMigrationProjection
+        const p = yield* MigrationProjection.JiraMigrationProjection
         yield* p.ensureCreated(input)
       }).pipe(Effect.provide(layer))
       yield* Effect.promise(() =>
@@ -715,7 +735,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
         )
       )
       yield* Effect.gen(function* () {
-        const p = yield* JiraMigrationProjection
+        const p = yield* MigrationProjection.JiraMigrationProjection
         expect(yield* Effect.result(p.ensureCreated(input))).toMatchObject({
           _tag: "Failure",
           failure: { _tag: "Conflict" }
@@ -743,7 +763,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
     Effect.gen(function* () {
       const input = yield* Effect.promise(() => fixture())
       yield* Effect.gen(function* () {
-        const p = yield* JiraMigrationProjection
+        const p = yield* MigrationProjection.JiraMigrationProjection
         const old = yield* p.ensureCreated(input)
         yield* p.advance(fence(old), {
           status: "needs_configuration",
@@ -827,7 +847,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
         for (const status of ["ready", "reconnect_required"] as const) {
           const input = yield* Effect.promise(() => fixture())
           yield* Effect.gen(function* () {
-            const p = yield* JiraMigrationProjection
+            const p = yield* MigrationProjection.JiraMigrationProjection
             const created = yield* p.ensureCreated(input)
             yield* p.completeScan(fence(created), emptyScan)
             const scanned = yield* p.owned(input, created.id)
@@ -910,7 +930,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
     Effect.gen(function* () {
       const input = yield* Effect.promise(() => fixture())
       yield* Effect.gen(function* () {
-        const p = yield* JiraMigrationProjection
+        const p = yield* MigrationProjection.JiraMigrationProjection
         const created = yield* p.ensureCreated(input)
         yield* p.recordFailure(fence(created), {
           reason: "network_error",
@@ -987,7 +1007,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
       Effect.gen(function* () {
         const input = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const row = yield* p.ensureCreated(input)
           const requirements = {
             destination: {
@@ -1211,7 +1231,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
       Effect.gen(function* () {
         const input = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const row = yield* p.ensureCreated(input)
           yield* p.recordScanFailure(fence(row), "metadata/0", {
             reason: "network",
@@ -1309,7 +1329,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
       Effect.gen(function* () {
         const input = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const row = yield* p.ensureCreated(input)
           yield* p.recordScanFailure(fence(row), "network/0", {
             reason: "reconnect_required",
@@ -1351,7 +1371,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
       Effect.gen(function* () {
         const input = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const row = yield* p.ensureCreated(input)
           yield* p.advance(fence(row), { status: "succeeded", phase: "done" })
           expect(
@@ -1377,7 +1397,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
       Effect.gen(function* () {
         const input = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const row = yield* p.ensureCreated(input)
           const current = fence(row)
           const failure = {
@@ -1440,7 +1460,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
       Effect.gen(function* () {
         const input = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const row = yield* p.ensureCreated(input)
           const current = fence(row)
           yield* Effect.all(
@@ -1477,6 +1497,44 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           expect((yield* p.owned(input, row.id)).status).toBe("scanning")
         }).pipe(Effect.provide(layer))
       })
+  )
+
+  it.effect("traces the projection methods that had no span", () =>
+    Effect.gen(function* () {
+      const input = yield* Effect.promise(() => fixture())
+      const { tracer, roots } = recordSpans()
+      yield* Effect.gen(function* () {
+        const p = yield* MigrationProjection.JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        yield* p.beginRemoteWrites(fence(created))
+        yield* p.settleRemoteWrites(fence(created))
+        yield* p.listOwned(input)
+      }).pipe(Effect.withTracer(tracer), Effect.provide(layer))
+      expect(roots()).toEqual([
+        "JiraMigrationProjection.ensureCreated",
+        "JiraMigrationProjection.beginRemoteWrites",
+        "JiraMigrationProjection.settleRemoteWrites",
+        "JiraMigrationProjection.listOwned"
+      ])
+    })
+  )
+
+  it.effect("pins the projection spans that already existed", () =>
+    Effect.gen(function* () {
+      const input = yield* Effect.promise(() => fixture())
+      const { tracer, roots } = recordSpans()
+      yield* Effect.gen(function* () {
+        const p = yield* MigrationProjection.JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        yield* p.owned(input, created.id)
+        yield* p.finalizeInterrupted(fence(created))
+      }).pipe(Effect.withTracer(tracer), Effect.provide(layer))
+      expect(roots()).toEqual([
+        "JiraMigrationProjection.ensureCreated",
+        "JiraMigrationProjection.owned",
+        "JiraMigrationProjection.finalizeInterrupted"
+      ])
+    })
   )
 })
 

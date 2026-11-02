@@ -9,12 +9,8 @@ import {
   JiraMigrationCleanupFailure,
   type JiraMigrationCleanupPayload
 } from "@pp/integration-jira/CleanupWorkflow"
-import { JiraMigrationArtifacts } from "@pp/integration-jira/MigrationArtifacts"
-import {
-  decodeCheckpoint,
-  fenceFor,
-  JiraMigrationProjection
-} from "@pp/integration-jira/MigrationProjection"
+import * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
+import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
@@ -29,8 +25,8 @@ const cleanupFailure = (reason: string) =>
 
 export const makeJiraCleanupActivities = Effect.gen(function* () {
   const db = yield* Db
-  const projection = yield* JiraMigrationProjection
-  const artifacts = yield* JiraMigrationArtifacts
+  const projection = yield* MigrationProjection.JiraMigrationProjection
+  const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
   const orgStorage = yield* OrgStorage.OrgStorage
   const s3 = yield* S3Storage.S3Storage
   const projectDocs = yield* ProjectDocs.ProjectDocs
@@ -56,7 +52,9 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
         state.row.revision < payload.cleanupGeneration
       )
         return yield* Effect.fail(cleanupFailure("cleanup-claim-lost"))
-      const checkpoint = yield* decodeCheckpoint(state.row.checkpoint).pipe(
+      const checkpoint = yield* MigrationProjection.decodeCheckpoint(
+        state.row.checkpoint
+      ).pipe(
         Effect.mapError(() => cleanupFailure("cleanup-checkpoint-invalid"))
       )
       if (checkpoint.remoteWritesMayStillCommit)
@@ -97,7 +95,7 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
         .where(eq(jiraMigration.id, payload.migrationId))
         .limit(1)
         .pipe(Effect.mapError(() => cleanupFailure("cleanup-read-failed")))
-      const fence = row && fenceFor(row)
+      const fence = row && MigrationProjection.fenceFor(row)
       if (!fence) return false
       return yield* projection
         .claimCleanup(fence, {
@@ -235,7 +233,7 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
   ) =>
     Effect.gen(function* () {
       const { row, orgSlug } = yield* readState(payload, executionId)
-      const fence = fenceFor(row)
+      const fence = MigrationProjection.fenceFor(row)
       if (!fence)
         return yield* Effect.fail(cleanupFailure("cleanup-claim-lost"))
       yield* verifyJiraPermanentArchive(fence, orgSlug, artifacts).pipe(
@@ -259,7 +257,7 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
         if (!existing) return
       }
       const { row } = yield* readState(payload, executionId)
-      const fence = fenceFor(row)
+      const fence = MigrationProjection.fenceFor(row)
       if (!fence)
         return yield* Effect.fail(cleanupFailure("cleanup-claim-lost"))
       const completed = yield* Match.value(payload.mode)
@@ -286,7 +284,7 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
         .from(jiraMigration)
         .where(eq(jiraMigration.id, payload.migrationId))
         .limit(1)
-      const fence = row && fenceFor(row)
+      const fence = row && MigrationProjection.fenceFor(row)
       if (!fence) return
       yield* projection.releaseCleanup(fence, executionId, payload.mode)
     }).pipe(

@@ -12,7 +12,7 @@ import * as TestClock from "effect/testing/TestClock"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { JiraMigrationProjection } from "./MigrationProjection"
+import * as MigrationProjection from "./MigrationProjection"
 import {
   selectExpiredJiraMigrations,
   selectPendingPostSuccessCleanup
@@ -22,7 +22,7 @@ const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
 describe.skipIf(!databaseUrl)("Jira migration retention", () => {
   let pool: Pool
-  let layer: Layer.Layer<JiraMigrationProjection | Db>
+  let layer: Layer.Layer<MigrationProjection.JiraMigrationProjection | Db>
   const owners: Array<Readonly<{ organizationId: string; userId: string }>> = []
 
   beforeAll(async () => {
@@ -37,7 +37,7 @@ describe.skipIf(!databaseUrl)("Jira migration retention", () => {
       migrationsFolder: `${import.meta.dirname}/../../db/src/migrations`
     })
     const pg = PgClient.layer({ url: Redacted.make(databaseUrl!) })
-    layer = JiraMigrationProjection.layer.pipe(
+    layer = MigrationProjection.layer.pipe(
       Layer.provideMerge(DbLive),
       Layer.provideMerge(pg),
       Layer.orDie
@@ -73,7 +73,7 @@ describe.skipIf(!databaseUrl)("Jira migration retention", () => {
           )
         )
         const ids = yield* Effect.gen(function* () {
-          const projection = yield* JiraMigrationProjection
+          const projection = yield* MigrationProjection.JiraMigrationProjection
           const create = (requestId: string) =>
             projection.ensureCreated({
               ...owner,
@@ -149,7 +149,7 @@ describe.skipIf(!databaseUrl)("Jira migration retention", () => {
         )
       )
       yield* Effect.gen(function* () {
-        const projection = yield* JiraMigrationProjection
+        const projection = yield* MigrationProjection.JiraMigrationProjection
         const created = yield* projection.ensureCreated({
           ...owner,
           requestId: randomUUID(),

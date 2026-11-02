@@ -6,11 +6,8 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schedule from "effect/Schedule"
 
-import { fenceFor } from "./MigrationProjection"
-import type {
-  JiraMigrationCleanupCommand,
-  JiraMigrationCleanupCommands
-} from "./Migrations"
+import * as MigrationProjection from "./MigrationProjection"
+import type * as Migrations from "./Migrations"
 
 export const selectExpiredJiraMigrations = Effect.gen(function* () {
   const db = yield* Db
@@ -29,12 +26,14 @@ export const selectExpiredJiraMigrations = Effect.gen(function* () {
     )
     .orderBy(jiraMigration.retainedUntil)
     .limit(100)
-  return rows.flatMap((row): ReadonlyArray<JiraMigrationCleanupCommand> => {
-    const fence = fenceFor(row)
-    return fence === null
-      ? []
-      : [{ ...fence, expectedRevision: row.revision, mode: "expire" }]
-  })
+  return rows.flatMap(
+    (row): ReadonlyArray<Migrations.JiraMigrationCleanupCommand> => {
+      const fence = MigrationProjection.fenceFor(row)
+      return fence === null
+        ? []
+        : [{ ...fence, expectedRevision: row.revision, mode: "expire" }]
+    }
+  )
 })
 
 export const selectPendingPostSuccessCleanup = Effect.gen(function* () {
@@ -53,16 +52,18 @@ export const selectPendingPostSuccessCleanup = Effect.gen(function* () {
     )
     .orderBy(jiraMigration.finishedAt)
     .limit(100)
-  return rows.flatMap((row): ReadonlyArray<JiraMigrationCleanupCommand> => {
-    const fence = fenceFor(row)
-    return fence === null
-      ? []
-      : [{ ...fence, expectedRevision: row.revision, mode: "post_success" }]
-  })
+  return rows.flatMap(
+    (row): ReadonlyArray<Migrations.JiraMigrationCleanupCommand> => {
+      const fence = MigrationProjection.fenceFor(row)
+      return fence === null
+        ? []
+        : [{ ...fence, expectedRevision: row.revision, mode: "post_success" }]
+    }
+  )
 })
 
 export const runJiraMigrationRetention = (
-  cleanup: JiraMigrationCleanupCommands
+  cleanup: Migrations.JiraMigrationCleanupCommands
 ) =>
   Effect.gen(function* () {
     const expired = yield* selectExpiredJiraMigrations
@@ -82,7 +83,7 @@ export const runJiraMigrationRetention = (
   })
 
 export const JiraMigrationRetentionLive = (
-  cleanup: JiraMigrationCleanupCommands
+  cleanup: Migrations.JiraMigrationCleanupCommands
 ) =>
   Layer.effectDiscard(
     Effect.forkScoped(

@@ -18,23 +18,15 @@ import {
   user as userTable
 } from "@pp/db/schema"
 import { JiraRateLimited } from "@pp/integration-jira/Blocked"
-import type { JiraClientShape } from "@pp/integration-jira/Client"
+import type * as Client from "@pp/integration-jira/Client"
 import {
   canonicalJiraJson,
   JiraMigrationManifestV2
 } from "@pp/integration-jira/Manifest"
 import { jiraDestinationTicketId } from "@pp/integration-jira/Mappings"
 import { jiraDocumentBatches } from "@pp/integration-jira/MigrationActivities"
-import type {
-  JiraArtifactRef,
-  JiraMigrationArtifactsShape
-} from "@pp/integration-jira/MigrationArtifacts"
-import { artifactKey } from "@pp/integration-jira/MigrationArtifacts"
-import {
-  decodeCheckpoint,
-  JiraMigrationCheckpoint,
-  type AttemptFence
-} from "@pp/integration-jira/MigrationProjection"
+import * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
+import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
 import { JiraMigrationWorkflowFailure } from "@pp/integration-jira/MigrationWorkflow"
 import { JiraPublicationInvalid } from "@pp/integration-jira/Preflight"
 import {
@@ -73,13 +65,13 @@ const isJiraRateLimited = Schema.is(JiraRateLimited)
 const isJiraPublicationInvalid = Schema.is(JiraPublicationInvalid)
 
 const encodeJiraMigrationCheckpoint = Schema.encodeEffect(
-  JiraMigrationCheckpoint
+  MigrationProjection.JiraMigrationCheckpoint
 )
 
 const toDate = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
 export type JiraPublicationSnapshotInput = Readonly<{
-  fence: AttemptFence
-  manifestRef: JiraArtifactRef
+  fence: MigrationProjection.AttemptFence
+  manifestRef: MigrationArtifacts.JiraArtifactRef
   configurationRevision: number
   configuration: JiraMigrationConfiguration
   migrationCreatedAt: string
@@ -93,7 +85,10 @@ export const buildJiraPreparedPublicationFromSnapshot = Effect.fn(
   "JiraImport.buildFromSnapshot"
 )(function* (
   input: JiraPublicationSnapshotInput,
-  artifacts: Pick<JiraMigrationArtifactsShape, "readJson">
+  artifacts: Pick<
+    MigrationArtifacts.JiraMigrationArtifacts["Service"],
+    "readJson"
+  >
 ) {
   const db = yield* Db
   const manifest = yield* artifacts.readJson(
@@ -216,7 +211,10 @@ export const prepareJiraPublicationFromSnapshot = Effect.fn(
   "JiraImport.prepareFromSnapshot"
 )(function* (
   input: JiraPublicationSnapshotInput,
-  artifacts: Pick<JiraMigrationArtifactsShape, "readJson" | "writeJson">
+  artifacts: Pick<
+    MigrationArtifacts.JiraMigrationArtifacts["Service"],
+    "readJson" | "writeJson"
+  >
 ) {
   const prepared = yield* buildJiraPreparedPublicationFromSnapshot(
     input,
@@ -228,9 +226,12 @@ export const prepareJiraPublicationFromSnapshot = Effect.fn(
 export const verifyJiraPermanentArchive = Effect.fn(
   "JiraImport.verifyPermanentArchive"
 )(function* (
-  fence: AttemptFence,
+  fence: MigrationProjection.AttemptFence,
   orgSlug: string,
-  artifacts: Pick<JiraMigrationArtifactsShape, "readJson" | "verify">
+  artifacts: Pick<
+    MigrationArtifacts.JiraMigrationArtifacts["Service"],
+    "readJson" | "verify"
+  >
 ) {
   const db = yield* Db
   const markdown = yield* Markdown.Markdown
@@ -252,7 +253,9 @@ export const verifyJiraPermanentArchive = Effect.fn(
     return yield* new JiraPublicationInvalid({
       reasons: ["published-archive-attempt-conflict"]
     })
-  const checkpoint = yield* decodeCheckpoint(migration.checkpoint)
+  const checkpoint = yield* MigrationProjection.decodeCheckpoint(
+    migration.checkpoint
+  )
   if (!checkpoint.publishedPlan)
     return yield* new JiraPublicationInvalid({
       reasons: ["published-archive-plan-missing"]
@@ -326,16 +329,16 @@ export const verifyJiraPermanentArchive = Effect.fn(
 
 export const makeJiraMaterializationDependencies = (
   prepared: JiraPreparedPublicationV1,
-  fence: AttemptFence,
+  fence: MigrationProjection.AttemptFence,
   services: Readonly<{
     connection: S3Storage.S3Connection
-    jira: Pick<JiraClientShape, "attachmentContent">
+    jira: Pick<Client.JiraClient["Service"], "attachmentContent">
     s3: Pick<
       S3Storage.S3Storage["Service"],
       "getObject" | "putObject" | "headObject"
     >
     artifacts: Pick<
-      JiraMigrationArtifactsShape,
+      MigrationArtifacts.JiraMigrationArtifacts["Service"],
       "writeJson" | "readJson" | "verify"
     >
   }>
@@ -378,7 +381,7 @@ export const makeJiraMaterializationDependencies = (
   }
   const mapFailure = <A, E extends Error, R>(effect: Effect.Effect<A, E, R>) =>
     effect.pipe(Effect.mapError(failure))
-  const load = (ref: JiraArtifactRef) =>
+  const load = (ref: MigrationArtifacts.JiraArtifactRef) =>
     loadJiraPublicationPlan(prepared.orgSlug, ref, services.artifacts)
   const write = (documents: JiraPublicationPlanV1["documents"]) =>
     writeJiraHiddenDocuments({
@@ -413,7 +416,10 @@ export const makeJiraMaterializationDependencies = (
           Effect.provide(JiraPublicationFormatLive)
         )
       ),
-    writeDocumentBatch: (ref: JiraArtifactRef, ordinal: number) =>
+    writeDocumentBatch: (
+      ref: MigrationArtifacts.JiraArtifactRef,
+      ordinal: number
+    ) =>
       mapFailure(
         Effect.gen(function* () {
           const { plan } = yield* load(ref)
@@ -425,21 +431,21 @@ export const makeJiraMaterializationDependencies = (
           return yield* write(batch)
         })
       ),
-    writeArchive: (ref: JiraArtifactRef) =>
+    writeArchive: (ref: MigrationArtifacts.JiraArtifactRef) =>
       mapFailure(
         Effect.gen(function* () {
           const { plan } = yield* load(ref)
           return yield* write([plan.archiveDocument])
         })
       ),
-    writeReport: (ref: JiraArtifactRef) =>
+    writeReport: (ref: MigrationArtifacts.JiraArtifactRef) =>
       mapFailure(
         Effect.gen(function* () {
           const { plan } = yield* load(ref)
           return yield* write([plan.reportDocument])
         })
       ),
-    verify: (ref: JiraArtifactRef) =>
+    verify: (ref: MigrationArtifacts.JiraArtifactRef) =>
       mapFailure(
         Effect.gen(function* () {
           const { plan, publicationRevision } = yield* load(ref)
@@ -466,7 +472,7 @@ export const makeJiraMaterializationDependencies = (
         })
       ),
     publish: (
-      ref: JiraArtifactRef,
+      ref: MigrationArtifacts.JiraArtifactRef,
       verified: Readonly<{
         planSha256: string
         documentCount: number
@@ -490,8 +496,8 @@ export const makeJiraMaterializationDependencies = (
 }
 
 export type JiraAtomicPublicationInput = Readonly<{
-  fence: AttemptFence
-  planRef: JiraArtifactRef
+  fence: MigrationProjection.AttemptFence
+  planRef: MigrationArtifacts.JiraArtifactRef
   plan: JiraPublicationPlanV1
   publicationRevision: string
   verified: Readonly<{
@@ -547,10 +553,12 @@ export const publishJiraMigrationAtomically = Effect.fn(
           return yield* new JiraPublicationInvalid({
             reasons: ["stale-publication-attempt"]
           })
-        const checkpoint = yield* decodeCheckpoint(migration.checkpoint)
+        const checkpoint = yield* MigrationProjection.decodeCheckpoint(
+          migration.checkpoint
+        )
         if (
           input.planRef.key !==
-          artifactKey({
+          MigrationArtifacts.artifactKey({
             migrationId: fence.migrationId,
             scanRevision: migration.scanRevision,
             area: "publication",
@@ -778,7 +786,7 @@ export const publishJiraMigrationAtomically = Effect.fn(
 })
 
 export type HiddenJiraProjectInput = Readonly<{
-  fence: AttemptFence
+  fence: MigrationProjection.AttemptFence
   project: Readonly<{
     id: string
     organizationId: string
@@ -879,7 +887,7 @@ export const ensureHiddenJiraProject = Effect.fn(
 })
 
 export type JiraHiddenDocumentsInput = Readonly<{
-  fence: AttemptFence
+  fence: MigrationProjection.AttemptFence
   projectId: string
   orgSlug: string
   projectSlug: string
@@ -974,7 +982,7 @@ export const writeJiraHiddenDocuments = Effect.fn(
 })
 
 export type JiraPreparedAttachmentInput = Readonly<{
-  fence: AttemptFence
+  fence: MigrationProjection.AttemptFence
   projectId: string
   organizationId: string
   orgSlug: string
@@ -988,7 +996,7 @@ export type JiraPreparedAttachmentInput = Readonly<{
 export const copyJiraPreparedAttachment = Effect.fn(
   "JiraImport.copyPreparedAttachment"
 )(function* (
-  jira: Pick<JiraClientShape, "attachmentContent">,
+  jira: Pick<Client.JiraClient["Service"], "attachmentContent">,
   s3: Pick<S3Storage.S3Storage["Service"], "getObject" | "putObject">,
   input: JiraPreparedAttachmentInput
 ) {
@@ -1030,7 +1038,9 @@ export const copyJiraPreparedAttachment = Effect.fn(
         org?.slug !== input.orgSlug
       )
         return null
-      const checkpoint = yield* decodeCheckpoint(migration.checkpoint)
+      const checkpoint = yield* MigrationProjection.decodeCheckpoint(
+        migration.checkpoint
+      )
       return checkpoint.remoteWritesMayStillCommit?.workflowExecutionId ===
         fence.workflowExecutionId &&
         checkpoint.remoteWritesMayStillCommit.workflowAttempt ===
@@ -1089,7 +1099,7 @@ export const copyJiraPreparedAttachment = Effect.fn(
         .where(eq(projectIndex.id, input.projectId))
         .limit(1)
       const checkpoint = migration
-        ? yield* decodeCheckpoint(migration.checkpoint)
+        ? yield* MigrationProjection.decodeCheckpoint(migration.checkpoint)
         : null
       if (
         !migration ||
@@ -1165,7 +1175,7 @@ export const copyJiraPreparedAttachment = Effect.fn(
 })
 
 export type JiraHiddenVerificationInput = Readonly<{
-  fence: AttemptFence
+  fence: MigrationProjection.AttemptFence
   projectId: string
   orgSlug: string
   projectSlug: string
@@ -1211,7 +1221,9 @@ export const verifyJiraHiddenMaterialization = Effect.fn(
     return yield* new JiraPublicationInvalid({
       reasons: ["stale-materialization-attempt"]
     })
-  const checkpoint = yield* decodeCheckpoint(migration.checkpoint)
+  const checkpoint = yield* MigrationProjection.decodeCheckpoint(
+    migration.checkpoint
+  )
   if (
     checkpoint.remoteWritesMayStillCommit?.workflowExecutionId !==
       input.fence.workflowExecutionId ||

@@ -1,5 +1,5 @@
-import { JiraCredentials } from "@pp/integration-jira/Credentials"
-import { JiraOAuthConfig } from "@pp/integration-jira/OAuth"
+import * as Credentials from "@pp/integration-jira/Credentials"
+import * as OAuthConfig from "@pp/integration-jira/OAuthConfig"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as Effect from "effect/Effect"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
@@ -37,7 +37,7 @@ const startRoute = Effect.gen(function* () {
   if (!returnPath) {
     return HttpServerResponse.text("Missing return path", { status: 400 })
   }
-  const credentials = yield* JiraCredentials
+  const credentials = yield* Credentials.JiraCredentials
   const { authorizeUrl } = yield* credentials.beginConnect(
     session.user.id,
     returnPath
@@ -46,7 +46,7 @@ const startRoute = Effect.gen(function* () {
 }).pipe(
   Effect.catchTag("JiraError", () =>
     Effect.gen(function* () {
-      const config = yield* JiraOAuthConfig
+      const config = yield* OAuthConfig.JiraOAuthConfig
       return redirect(
         config.publicBaseUrl,
         "/profile",
@@ -56,7 +56,7 @@ const startRoute = Effect.gen(function* () {
   ),
   Effect.catchCause(() =>
     Effect.gen(function* () {
-      const config = yield* JiraOAuthConfig
+      const config = yield* OAuthConfig.JiraOAuthConfig
       return redirect(
         config.publicBaseUrl,
         "/profile",
@@ -76,7 +76,7 @@ const callbackRoute = Effect.gen(function* () {
   const url = new URL(webRequest.url)
   const code = url.searchParams.get("code")
   const state = url.searchParams.get("state")
-  const config = yield* JiraOAuthConfig
+  const config = yield* OAuthConfig.JiraOAuthConfig
   if (!code || !state) {
     return redirect(
       config.publicBaseUrl,
@@ -84,7 +84,7 @@ const callbackRoute = Effect.gen(function* () {
       "jira_oauth_callback_invalid"
     )
   }
-  const credentials = yield* JiraCredentials
+  const credentials = yield* Credentials.JiraCredentials
   const returnPath = yield* credentials
     .returnPathForState(session.user.id, state)
     .pipe(Effect.orElseSucceed(() => "/profile"))
@@ -108,7 +108,7 @@ const callbackRoute = Effect.gen(function* () {
 }).pipe(
   Effect.catchCause(() =>
     Effect.gen(function* () {
-      const config = yield* JiraOAuthConfig
+      const config = yield* OAuthConfig.JiraOAuthConfig
       return redirect(
         config.publicBaseUrl,
         "/profile",

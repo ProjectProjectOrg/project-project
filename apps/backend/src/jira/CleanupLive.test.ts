@@ -11,8 +11,8 @@ import {
   makeJiraCleanupCommands,
   makeJiraMigrationCleanupWorkflow
 } from "@pp/integration-jira/CleanupWorkflow"
-import { JiraMigrationArtifacts } from "@pp/integration-jira/MigrationArtifacts"
-import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
+import * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
+import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
@@ -127,8 +127,8 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
             })
           ),
           Layer.succeed(
-            JiraMigrationArtifacts,
-            JiraMigrationArtifacts.of({
+            MigrationArtifacts.JiraMigrationArtifacts,
+            MigrationArtifacts.JiraMigrationArtifacts.of({
               writeJson: () => Effect.die("unused"),
               readJson: () => Effect.die("unused"),
               verify: () => Effect.die("unused"),
@@ -142,7 +142,7 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
         )
         const pg = PgClient.layer({ url: Redacted.make(databaseUrl!) })
         const layer = Layer.mergeAll(
-          JiraMigrationProjection.layer.pipe(Layer.provideMerge(DbLive)),
+          MigrationProjection.layer.pipe(Layer.provideMerge(DbLive)),
           fakes
         ).pipe(
           Layer.provideMerge(
@@ -159,7 +159,7 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
           Layer.orDie
         )
         const result = yield* Effect.gen(function* () {
-          const projection = yield* JiraMigrationProjection
+          const projection = yield* MigrationProjection.JiraMigrationProjection
           const db = yield* Db
           const created = yield* projection.ensureCreated({
             ...owner,

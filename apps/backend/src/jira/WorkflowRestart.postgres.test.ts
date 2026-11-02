@@ -5,8 +5,8 @@ import * as BunServices from "@effect/platform-bun/BunServices"
 import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { DbLive, pgTypes } from "@pp/db"
-import { JiraClient } from "@pp/integration-jira/Client"
-import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
+import * as Client from "@pp/integration-jira/Client"
+import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
 import { JiraMigrationWorkflow } from "@pp/integration-jira/MigrationWorkflow"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
@@ -90,9 +90,10 @@ describe.skipIf(!databaseUrl)("Jira SQL workflow restart", () => {
           accessKeyId: "test",
           secretAccessKey: "test"
         }
-        const clientOnly = Layer.effect(JiraClient, JiraClient).pipe(
-          Layer.provide(fixture.layer)
-        )
+        const clientOnly = Layer.effect(
+          Client.JiraClient,
+          Client.JiraClient
+        ).pipe(Layer.provide(fixture.layer))
         const storage = Layer.mergeAll(
           Layer.succeed(
             OrgStorage.OrgStorage,
@@ -194,7 +195,7 @@ describe.skipIf(!databaseUrl)("Jira SQL workflow restart", () => {
         }).pipe(Effect.provide(layer))
         blockIssue = false
         yield* Effect.gen(function* () {
-          const projection = yield* JiraMigrationProjection
+          const projection = yield* MigrationProjection.JiraMigrationProjection
           const row = yield* projection.owned(owner, migrationId).pipe(
             Effect.repeat({
               while: (current) => current.status === "scanning",
@@ -218,7 +219,7 @@ describe.skipIf(!databaseUrl)("Jira SQL workflow restart", () => {
         ).toHaveLength(2)
         yield* Effect.gen(function* () {
           yield* JiraMigrationWorkflow.resume(migrationId)
-          const projection = yield* JiraMigrationProjection
+          const projection = yield* MigrationProjection.JiraMigrationProjection
           const row = yield* projection.owned(owner, migrationId)
           expect(row.status).toBe("needs_configuration")
         }).pipe(Effect.provide(layer))
