@@ -241,6 +241,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         const index = yield* TicketIndex.TicketIndex
         const project = yield* index.projectFor(organizationId, organizationId)
         yield* index.reserveTicketNumber(project)
+        yield* index.upsertTicket(project, indexedDocument("T-1"))
         yield* index.listIds(project)
         yield* index.deleteTicket(project, "T-1")
       }).pipe(Effect.withTracer(tracer))
@@ -248,6 +249,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       expect(names.filter((name) => name.startsWith("TicketIndex."))).toEqual([
         "TicketIndex.projectFor",
         "TicketIndex.reserveTicketNumber",
+        "TicketIndex.upsertTicket",
         "TicketIndex.listIds",
         "TicketIndex.deleteTicket"
       ])
