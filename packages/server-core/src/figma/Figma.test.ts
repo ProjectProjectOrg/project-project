@@ -8,16 +8,12 @@ import {
 import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { afterEach, describe, expect, vi } from "vitest"
 
-import {
-  figmaAuthHeader,
-  figmaImageScale,
-  Figma,
-  FigmaCredential
-} from "./Figma"
-import { FigmaLive } from "./FigmaLive"
+import * as Figma from "./Figma"
 
 const isFigmaAuthInvalid = Schema.is(FigmaAuthInvalid)
 
@@ -29,14 +25,16 @@ const isFigmaError = Schema.is(FigmaError)
 
 describe("figmaAuthHeader", () => {
   it("uses a bearer header for an oauth credential", () => {
-    expect(figmaAuthHeader(FigmaCredential.Bearer({ token: "abc" }))).toEqual({
+    expect(
+      Figma.figmaAuthHeader(Figma.FigmaCredential.Bearer({ token: "abc" }))
+    ).toEqual({
       Authorization: "Bearer abc"
     })
   })
 
   it("uses the figma token header for a personal access token", () => {
     expect(
-      figmaAuthHeader(FigmaCredential.FigmaToken({ token: "abc" }))
+      Figma.figmaAuthHeader(Figma.FigmaCredential.FigmaToken({ token: "abc" }))
     ).toEqual({
       "X-Figma-Token": "abc"
     })
@@ -45,15 +43,15 @@ describe("figmaAuthHeader", () => {
 
 describe("figmaImageScale", () => {
   it("clamps below the minimum", () => {
-    expect(figmaImageScale(0)).toBe(0.01)
+    expect(Figma.figmaImageScale(0)).toBe(0.01)
   })
 
   it("clamps above the maximum", () => {
-    expect(figmaImageScale(99)).toBe(4)
+    expect(Figma.figmaImageScale(99)).toBe(4)
   })
 
   it("passes a valid scale through", () => {
-    expect(figmaImageScale(2)).toBe(2)
+    expect(Figma.figmaImageScale(2)).toBe(2)
   })
 })
 
@@ -97,7 +95,7 @@ const FetchLive = Layer.succeed(
   )
 )
 
-describe("FigmaLive status mapping", () => {
+describe("Figma status mapping", () => {
   afterEach(() => {
     vi.unstubAllGlobals()
   })
@@ -105,29 +103,29 @@ describe("FigmaLive status mapping", () => {
   it.effect("maps 401 to FigmaAuthInvalid", () =>
     Effect.gen(function* () {
       stubFetch(vi.fn(async () => jsonResponse(401, { message: "bad token" })))
-      const figma = yield* Figma
+      const figma = yield* Figma.Figma
       const error = yield* Effect.flip(figma.getFile(credential, "abc123"))
       expect(isFigmaAuthInvalid(error)).toBe(true)
-    }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect("maps 403 to FigmaAuthInvalid", () =>
     Effect.gen(function* () {
       stubFetch(vi.fn(async () => jsonResponse(403, { message: "forbidden" })))
-      const figma = yield* Figma
+      const figma = yield* Figma.Figma
       const error = yield* Effect.flip(figma.getFile(credential, "abc123"))
       expect(isFigmaAuthInvalid(error)).toBe(true)
-    }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect("maps 404 to FigmaFileNotFound carrying the fileKey", () =>
     Effect.gen(function* () {
       stubFetch(vi.fn(async () => jsonResponse(404, { message: "not found" })))
-      const figma = yield* Figma
+      const figma = yield* Figma.Figma
       const error = yield* Effect.flip(figma.getFile(credential, "missing-key"))
       if (!isFigmaFileNotFound(error)) throw error
       expect(error.fileKey).toBe("missing-key")
-    }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect("maps 429 to FigmaRateLimited reading the Retry-After header", () =>
@@ -137,11 +135,11 @@ describe("FigmaLive status mapping", () => {
           jsonResponse(429, { message: "slow down" }, { "Retry-After": "42" })
         )
       )
-      const figma = yield* Figma
+      const figma = yield* Figma.Figma
       const error = yield* Effect.flip(figma.getFile(credential, "abc123"))
       if (!isFigmaRateLimited(error)) throw error
       expect(error.retryAfterSeconds).toBe(42)
-    }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect(
@@ -151,11 +149,11 @@ describe("FigmaLive status mapping", () => {
         stubFetch(
           vi.fn(async () => jsonResponse(429, { message: "slow down" }))
         )
-        const figma = yield* Figma
+        const figma = yield* Figma.Figma
         const error = yield* Effect.flip(figma.getFile(credential, "abc123"))
         if (!isFigmaRateLimited(error)) throw error
         expect(error.retryAfterSeconds).toBe(60)
-      }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+      }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect(
@@ -171,21 +169,21 @@ describe("FigmaLive status mapping", () => {
             )
           )
         )
-        const figma = yield* Figma
+        const figma = yield* Figma.Figma
         const error = yield* Effect.flip(figma.getFile(credential, "abc123"))
         if (!isFigmaRateLimited(error)) throw error
         expect(error.retryAfterSeconds).toBe(60)
-      }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+      }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect("maps 500 to FigmaError", () =>
     Effect.gen(function* () {
       stubFetch(vi.fn(async () => jsonResponse(500, { message: "kaboom" })))
-      const figma = yield* Figma
+      const figma = yield* Figma.Figma
       const error = yield* Effect.flip(figma.getFile(credential, "abc123"))
       if (!isFigmaError(error)) throw error
       expect(error.reason).toBe("kaboom")
-    }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect("maps a successful getFile response", () =>
@@ -199,25 +197,25 @@ describe("FigmaLive status mapping", () => {
           })
         )
       )
-      const figma = yield* Figma
+      const figma = yield* Figma.Figma
       const file = yield* figma.getFile(credential, "abc123")
       expect(file.name).toBe("My Design File")
       expect(file.lastModified?.toISOString()).toBe("2026-01-02T03:04:05.000Z")
       expect(file.thumbnailUrl).toBe("https://figma-thumbnails.example/abc.png")
-    }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect("rejects a malformed successful response", () =>
     Effect.gen(function* () {
       stubFetch(vi.fn(async () => jsonResponse(200, { lastModified: 42 })))
-      const figma = yield* Figma
+      const figma = yield* Figma.Figma
       const error = yield* Effect.flip(figma.getFile(credential, "abc123"))
       expect(isFigmaError(error)).toBe(true)
-    }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 })
 
-describe("FigmaLive subtle behaviours", () => {
+describe("Figma subtle behaviours", () => {
   afterEach(() => {
     vi.unstubAllGlobals()
   })
@@ -239,7 +237,7 @@ describe("FigmaLive subtle behaviours", () => {
             })
           )
         )
-        const figma = yield* Figma
+        const figma = yield* Figma.Figma
         const result = yield* figma.createDevResource(credential, {
           fileKey: "abc123",
           nodeId: "1:2",
@@ -247,7 +245,7 @@ describe("FigmaLive subtle behaviours", () => {
           url: "https://example.com/spec"
         })
         expect(result).toBeNull()
-      }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+      }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect(
@@ -274,7 +272,7 @@ describe("FigmaLive subtle behaviours", () => {
           })
         })
         stubFetch(fetchMock)
-        const figma = yield* Figma
+        const figma = yield* Figma.Figma
         const result = yield* figma.createDevResource(credential, {
           fileKey: "abc123",
           nodeId: "1:2",
@@ -286,7 +284,7 @@ describe("FigmaLive subtle behaviours", () => {
           fetchInputUrl(call).includes("/dev_resources?node_ids=")
         )
         expect(lookup).toBeDefined()
-      }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+      }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect(
@@ -313,7 +311,7 @@ describe("FigmaLive subtle behaviours", () => {
           })
         })
         stubFetch(fetchMock)
-        const figma = yield* Figma
+        const figma = yield* Figma.Figma
         const result = yield* figma.createDevResource(credential, {
           fileKey: "abc123",
           nodeId: "1:2",
@@ -321,7 +319,7 @@ describe("FigmaLive subtle behaviours", () => {
           url: "https://example.com/spec"
         })
         expect(result).toBeNull()
-      }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+      }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect("returns the created dev resource id on success", () =>
@@ -334,7 +332,7 @@ describe("FigmaLive subtle behaviours", () => {
           })
         )
       )
-      const figma = yield* Figma
+      const figma = yield* Figma.Figma
       const result = yield* figma.createDevResource(credential, {
         fileKey: "abc123",
         nodeId: "1:2",
@@ -342,7 +340,7 @@ describe("FigmaLive subtle behaviours", () => {
         url: "https://example.com/spec"
       })
       expect(result).toBe("dev-resource-1")
-    }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect(
@@ -352,7 +350,7 @@ describe("FigmaLive subtle behaviours", () => {
         stubFetch(
           vi.fn(async () => jsonResponse(429, { message: "slow down" }))
         )
-        const figma = yield* Figma
+        const figma = yield* Figma.Figma
         const error = yield* Effect.flip(
           figma.createDevResource(credential, {
             fileKey: "abc123",
@@ -362,15 +360,15 @@ describe("FigmaLive subtle behaviours", () => {
           })
         )
         expect(isFigmaRateLimited(error)).toBe(true)
-      }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+      }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect("treats deleting an already-gone dev resource as success", () =>
     Effect.gen(function* () {
       stubFetch(vi.fn(async () => jsonResponse(404, { message: "not found" })))
-      const figma = yield* Figma
+      const figma = yield* Figma.Figma
       yield* figma.deleteDevResource(credential, "abc123", "dev-resource-1")
-    }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect(
@@ -378,13 +376,13 @@ describe("FigmaLive subtle behaviours", () => {
     () =>
       Effect.gen(function* () {
         stubFetch(vi.fn(async () => jsonResponse(200, { nodes: {} })))
-        const figma = yield* Figma
+        const figma = yield* Figma.Figma
         const error = yield* Effect.flip(
           figma.getNodeName(credential, "abc123", "1:2")
         )
         if (!isFigmaFileNotFound(error)) throw error
         expect(error.fileKey).toBe("abc123")
-      }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+      }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect(
@@ -403,10 +401,10 @@ describe("FigmaLive subtle behaviours", () => {
           return new Response(new Uint8Array([1, 2, 3]), { status: 200 })
         })
         stubFetch(fetchMock)
-        const figma = yield* Figma
+        const figma = yield* Figma.Figma
         const bytes = yield* figma.renderNode(credential, "abc123", null, 1)
         expect(Array.from(bytes)).toEqual([1, 2, 3])
-      }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+      }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect(
@@ -416,12 +414,63 @@ describe("FigmaLive subtle behaviours", () => {
         stubFetch(
           vi.fn(async () => jsonResponse(200, { images: { "1:2": null } }))
         )
-        const figma = yield* Figma
+        const figma = yield* Figma.Figma
         const error = yield* Effect.flip(
           figma.renderNode(credential, "abc123", "1:2", 1)
         )
         if (!isFigmaError(error)) throw error
         expect(error.reason).toBe("node_not_renderable")
-      }).pipe(Effect.provide(FigmaLive.pipe(Layer.provide(FetchLive))))
+      }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
+  )
+})
+
+describe("Figma tracing", () => {
+  it.effect("traces each call under its Figma span", () =>
+    Effect.gen(function* () {
+      const spans: Array<Tracer.NativeSpan> = []
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options)
+          spans.push(span)
+          return span
+        }
+      })
+      stubFetch(
+        vi.fn(async (input: string | URL | Request) =>
+          fetchInputUrl(input).includes("/v1/me")
+            ? jsonResponse(200, { id: "1", handle: "ada", email: null })
+            : fetchInputUrl(input).includes("/dev_resources/")
+              ? new Response(null, { status: 204 })
+              : jsonResponse(200, {
+                  name: "Design",
+                  lastModified: null,
+                  thumbnailUrl: null
+                })
+        )
+      )
+
+      yield* Effect.gen(function* () {
+        const figma = yield* Figma.Figma
+        yield* figma.getMe(credential)
+        yield* figma.getFile(credential, "abc123")
+        yield* figma.deleteDevResource(credential, "abc123", "dev-1")
+      }).pipe(Effect.withTracer(tracer))
+
+      expect(
+        spans
+          .filter((span) => span.name.startsWith("Figma."))
+          .map((span) => ({
+            name: span.name,
+            parent: Option.match(span.parent, {
+              onNone: () => null,
+              onSome: (parent) => (parent._tag === "Span" ? parent.name : null)
+            })
+          }))
+      ).toEqual([
+        { name: "Figma.getMe", parent: null },
+        { name: "Figma.getFile", parent: null },
+        { name: "Figma.deleteDevResource", parent: null }
+      ])
+    }).pipe(Effect.provide(Figma.layer.pipe(Layer.provide(FetchLive))))
   )
 })

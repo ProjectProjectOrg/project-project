@@ -7,6 +7,7 @@ import {
   FigmaError,
   FigmaNotConnected,
   type OrgRole,
+  ProjectScope,
   type Role,
   StorageNotConnected,
   type ProjectScopeShape
@@ -16,38 +17,27 @@ import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
+import * as Tracer from "effect/Tracer"
 import { describe, expect, vi } from "vitest"
 
 import { makeDatabase } from "../../test/database"
 import { accessLayer, projectScope, testUser } from "../access/testing"
 import { OrgStorage } from "../storage/OrgStorage"
 import { S3Storage } from "../storage/S3Storage"
-import { FigmaCredential } from "./Figma"
-import { Figma, type FigmaShape } from "./Figma"
-import { FigmaIntegrations } from "./FigmaIntegrations"
-import {
-  devResourceName,
-  FigmaLinks,
-  planFigmaReferences,
-  shouldBacklink
-} from "./FigmaLinks"
-import {
-  needsFigmaMetadata,
-  figmaCheckReason,
-  figmaLinkMetadata,
-  figmaThumbnailKey,
-  FigmaLinksLive
-} from "./FigmaLinksLive"
+import * as Figma from "./Figma"
+import * as FigmaIntegrations from "./FigmaIntegrations"
+import * as FigmaLinks from "./FigmaLinks"
 
 describe("devResourceName", () => {
   it("names the resource after the ticket", () => {
-    expect(devResourceName("T-51", "Figma integration")).toBe(
+    expect(FigmaLinks.devResourceName("T-51", "Figma integration")).toBe(
       "T-51 · Figma integration"
     )
   })
 
   it("truncates a very long title", () => {
-    const name = devResourceName("T-51", "x".repeat(200))
+    const name = FigmaLinks.devResourceName("T-51", "x".repeat(200))
     expect(name.length).toBeLessThanOrEqual(100)
     expect(name.startsWith("T-51 · ")).toBe(true)
   })
@@ -55,18 +45,18 @@ describe("devResourceName", () => {
 
 describe("shouldBacklink", () => {
   it("backlinks a node-level reference", () => {
-    expect(shouldBacklink({ nodeId: "1:2" })).toBe(true)
+    expect(FigmaLinks.shouldBacklink({ nodeId: "1:2" })).toBe(true)
   })
 
   it("skips a file-level reference", () => {
-    expect(shouldBacklink({ nodeId: null })).toBe(false)
+    expect(FigmaLinks.shouldBacklink({ nodeId: null })).toBe(false)
   })
 })
 
 describe("planFigmaReferences", () => {
   it("adds a reference that appears in the body", () => {
     expect(
-      planFigmaReferences({
+      FigmaLinks.planFigmaReferences({
         existing: new Set(),
         referenced: new Set(["k/1:2"])
       })
@@ -75,7 +65,7 @@ describe("planFigmaReferences", () => {
 
   it("removes a reference that left the body", () => {
     expect(
-      planFigmaReferences({
+      FigmaLinks.planFigmaReferences({
         existing: new Set(["k/1:2"]),
         referenced: new Set()
       })
@@ -84,7 +74,7 @@ describe("planFigmaReferences", () => {
 
   it("leaves an unchanged reference alone", () => {
     expect(
-      planFigmaReferences({
+      FigmaLinks.planFigmaReferences({
         existing: new Set(["k/1:2"]),
         referenced: new Set(["k/1:2"])
       })
@@ -93,7 +83,7 @@ describe("planFigmaReferences", () => {
 
   it("handles a simultaneous add and remove", () => {
     expect(
-      planFigmaReferences({
+      FigmaLinks.planFigmaReferences({
         existing: new Set(["k/1:2"]),
         referenced: new Set(["k/3:4"])
       })
@@ -102,7 +92,7 @@ describe("planFigmaReferences", () => {
 
   it("removes everything when the body is emptied", () => {
     expect(
-      planFigmaReferences({
+      FigmaLinks.planFigmaReferences({
         existing: new Set(["a/1:2", "b/3:4"]),
         referenced: new Set()
       })
@@ -113,7 +103,7 @@ describe("planFigmaReferences", () => {
 describe("figmaThumbnailKey", () => {
   it("keys a node-level ref under the org and file", () => {
     expect(
-      figmaThumbnailKey({
+      FigmaLinks.figmaThumbnailKey({
         keyPrefix: null,
         orgSlug: "acme",
         projectSlug: "web",
@@ -125,7 +115,7 @@ describe("figmaThumbnailKey", () => {
 
   it("keys a file-level ref distinctly from any node", () => {
     expect(
-      figmaThumbnailKey({
+      FigmaLinks.figmaThumbnailKey({
         keyPrefix: "pp",
         orgSlug: "acme",
         projectSlug: "web",
@@ -139,12 +129,16 @@ describe("figmaThumbnailKey", () => {
 describe("figmaCheckReason", () => {
   it("never leaks a message from the figma error body", () => {
     expect(
-      figmaCheckReason(new FigmaError({ reason: "token abc123 rejected" }))
+      FigmaLinks.figmaCheckReason(
+        new FigmaError({ reason: "token abc123 rejected" })
+      )
     ).toBe("figma_unavailable")
   })
 
   it("names the auth failure without a credential", () => {
-    expect(figmaCheckReason(new FigmaAuthInvalid())).toBe("figma_auth_invalid")
+    expect(FigmaLinks.figmaCheckReason(new FigmaAuthInvalid())).toBe(
+      "figma_auth_invalid"
+    )
   })
 })
 
@@ -156,13 +150,16 @@ describe("needsFigmaMetadata", () => {
 
   it("resolves a link that has never been fetched", () => {
     expect(
-      needsFigmaMetadata({ fetchedAt: null, lastCheckStatus: null }, now)
+      FigmaLinks.needsFigmaMetadata(
+        { fetchedAt: null, lastCheckStatus: null },
+        now
+      )
     ).toBe(true)
   })
 
   it("retries a link whose last check errored", () => {
     expect(
-      needsFigmaMetadata(
+      FigmaLinks.needsFigmaMetadata(
         {
           fetchedAt: at("2026-09-04T11:59:00Z"),
           lastCheckStatus: "error"
@@ -174,7 +171,7 @@ describe("needsFigmaMetadata", () => {
 
   it("skips a link fetched successfully within the day", () => {
     expect(
-      needsFigmaMetadata(
+      FigmaLinks.needsFigmaMetadata(
         { fetchedAt: at("2026-09-04T11:00:00Z"), lastCheckStatus: "ok" },
         now
       )
@@ -183,7 +180,7 @@ describe("needsFigmaMetadata", () => {
 
   it("refreshes a link fetched more than a day ago", () => {
     expect(
-      needsFigmaMetadata(
+      FigmaLinks.needsFigmaMetadata(
         { fetchedAt: at("2026-09-03T11:00:00Z"), lastCheckStatus: "ok" },
         now
       )
@@ -194,7 +191,7 @@ describe("needsFigmaMetadata", () => {
 describe("figmaLinkMetadata", () => {
   it("falls back to the file name when the node name is unresolved", () => {
     expect(
-      figmaLinkMetadata({
+      FigmaLinks.figmaLinkMetadata({
         fileKey: "FILEKEY123",
         nodeId: "1:2",
         name: null,
@@ -206,7 +203,7 @@ describe("figmaLinkMetadata", () => {
   })
 
   it("falls back to the file key when nothing is resolved yet", () => {
-    const metadata = figmaLinkMetadata({
+    const metadata = FigmaLinks.figmaLinkMetadata({
       fileKey: "FILEKEY123",
       nodeId: null,
       name: null,
@@ -220,7 +217,7 @@ describe("figmaLinkMetadata", () => {
 
   it("prefers the node name over the file name", () => {
     expect(
-      figmaLinkMetadata({
+      FigmaLinks.figmaLinkMetadata({
         fileKey: "FILEKEY123",
         nodeId: "1:2",
         name: "Checkout frame",
@@ -322,7 +319,7 @@ type HarnessInput = Readonly<{
 }>
 
 const harness = (input: HarnessInput) =>
-  FigmaLinksLive.pipe(
+  FigmaLinks.layer.pipe(
     Layer.provide(Layer.succeed(Db, input.db)),
     Layer.provide(
       accessLayer({
@@ -330,16 +327,18 @@ const harness = (input: HarnessInput) =>
       })
     ),
     Layer.provide(
-      Layer.mock(FigmaIntegrations, {
+      Layer.mock(FigmaIntegrations.FigmaIntegrations, {
         credentialFor: () =>
           input.credential ??
-          Effect.succeed(FigmaCredential.FigmaToken({ token: "secret-pat" })),
+          Effect.succeed(
+            Figma.FigmaCredential.FigmaToken({ token: "secret-pat" })
+          ),
         markProjectCredentialRejected:
           input.markProjectCredentialRejected ?? (() => Effect.void)
       })
     ),
     Layer.provide(
-      Layer.mock(Figma, {
+      Layer.mock(Figma.Figma, {
         getFile: () => Effect.fail(new FigmaAuthInvalid()),
         getNodeName: () => Effect.fail(new FigmaAuthInvalid()),
         renderNode: () => Effect.fail(new FigmaAuthInvalid()),
@@ -362,11 +361,11 @@ const harness = (input: HarnessInput) =>
   )
 
 const reconcile = (
-  layer: Layer.Layer<FigmaLinks>,
+  layer: Layer.Layer<FigmaLinks.FigmaLinks>,
   body: string,
   title = "Fix login bug"
 ) =>
-  FigmaLinks.pipe(
+  FigmaLinks.FigmaLinks.pipe(
     Effect.flatMap((links) =>
       Effect.exit(links.reconcileTicket("acme", "web", "WEB-1", title, body))
     ),
@@ -616,7 +615,7 @@ describe("reconcileTicket dev mode backlink", () => {
     () =>
       Effect.gen(function* () {
         const createDevResource = vi.fn(
-          (..._args: Parameters<FigmaShape["createDevResource"]>) =>
+          (..._args: Parameters<Figma.Figma["Service"]["createDevResource"]>) =>
             Effect.succeed("dev-99")
         )
         const { params, db } = yield* recordingDb((sql) => {
@@ -649,7 +648,7 @@ describe("reconcileTicket dev mode backlink", () => {
     () =>
       Effect.gen(function* () {
         const createDevResource = vi.fn(
-          (..._args: Parameters<FigmaShape["createDevResource"]>) =>
+          (..._args: Parameters<Figma.Figma["Service"]["createDevResource"]>) =>
             Effect.succeed("dev-42")
         )
         const { params, db } = yield* recordingDb((sql) => {
@@ -819,8 +818,8 @@ const viewerAs = (orgRole: OrgRole, role: Role | null) =>
   projectScope(orgRole, role, { orgSlug: "acme", slug: "web" })
 
 describe("resolveThumbnailUrl", () => {
-  const resolve = (layer: Layer.Layer<FigmaLinks>) =>
-    FigmaLinks.pipe(
+  const resolve = (layer: Layer.Layer<FigmaLinks.FigmaLinks>) =>
+    FigmaLinks.FigmaLinks.pipe(
       Effect.flatMap((links) =>
         Effect.exit(links.resolveThumbnailUrl("acme", "link-1"))
       ),
@@ -905,6 +904,92 @@ describe("resolveThumbnailUrl", () => {
         )
         assertTrue(Exit.isFailure(exit))
         expect(exit.cause.toString()).toContain("StorageNotConnected")
+      })
+  )
+})
+
+describe("FigmaLinks tracing", () => {
+  it.effect("traces each call under its FigmaLinks span", () =>
+    Effect.gen(function* () {
+      const spans: Array<Tracer.NativeSpan> = []
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options)
+          spans.push(span)
+          return span
+        }
+      })
+      const { db } = yield* emptyDb()
+
+      yield* Effect.gen(function* () {
+        const links = yield* FigmaLinks.FigmaLinks
+        yield* links.reconcileTicket(
+          "acme",
+          "web",
+          "WEB-1",
+          "Fix login bug",
+          "no links here"
+        )
+        yield* links.listForTicket("WEB-1").pipe(
+          Effect.provideService(
+            ProjectScope,
+            projectScope("member", "developer", {
+              orgSlug: "acme",
+              slug: "web"
+            })
+          )
+        )
+        yield* Effect.exit(links.resolveThumbnailUrl("acme", "link-1"))
+      }).pipe(
+        Effect.provide(harness({ db })),
+        Effect.provideService(CurrentUser, testUser("user-1")),
+        Effect.withTracer(tracer)
+      )
+
+      expect(
+        spans
+          .filter((span) => span.name.startsWith("FigmaLinks."))
+          .map((span) => ({
+            name: span.name,
+            parent: Option.match(span.parent, {
+              onNone: () => null,
+              onSome: (parent) => (parent._tag === "Span" ? parent.name : null)
+            })
+          }))
+      ).toEqual([
+        { name: "FigmaLinks.reconcileTicket", parent: null },
+        { name: "FigmaLinks.listForTicket", parent: null },
+        { name: "FigmaLinks.resolveThumbnailUrl", parent: null }
+      ])
+    })
+  )
+})
+
+describe("FigmaLinks background tracing", () => {
+  it.live(
+    "runs the detached metadata resolution under the reconcileTicket span",
+    () =>
+      Effect.gen(function* () {
+        const parents: Array<string> = []
+        const getFile = () =>
+          Effect.currentSpan.pipe(
+            Effect.map((span) => span.name),
+            Effect.orElseSucceed(() => "none"),
+            Effect.flatMap((name) => {
+              parents.push(name)
+              return Effect.fail(new FigmaAuthInvalid())
+            })
+          )
+        const { db } = yield* recordingDb((sql) =>
+          sql.includes(JOINED)
+            ? referencedLink({ fetchedAt: null, lastCheckStatus: null })
+            : []
+        )
+
+        yield* reconcile(harness({ db, figma: { getFile } }), BODY)
+        yield* Effect.sleep("100 millis")
+
+        expect(parents).toEqual(["FigmaLinks.reconcileTicket"])
       })
   )
 })

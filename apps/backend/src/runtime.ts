@@ -39,9 +39,9 @@ import {
   FeedbackDeliveryWorkflowLive
 } from "@pp/server-core/feedback/FeedbackDelivery"
 import { FeedbackIntake } from "@pp/server-core/feedback/FeedbackIntake"
-import { FigmaIntegrationsLive } from "@pp/server-core/figma/FigmaIntegrationsLive"
-import { FigmaLinksLive } from "@pp/server-core/figma/FigmaLinksLive"
-import { FigmaLive } from "@pp/server-core/figma/FigmaLive"
+import * as Figma from "@pp/server-core/figma/Figma"
+import * as FigmaIntegrations from "@pp/server-core/figma/FigmaIntegrations"
+import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
 import { GitHubTicketEventsLive } from "@pp/server-core/github/GitHubTicketEventsLive"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
@@ -164,7 +164,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(Library.layer),
     Layer.provideMerge(AttachmentUploadsLive),
     Layer.provideMerge(Attachments.layer),
-    Layer.provideMerge(FigmaLinksLive),
+    Layer.provideMerge(FigmaLinks.layer),
     Layer.provideMerge(LinkPreviewsLive),
     Layer.provideMerge(CommentsLive),
     Layer.provideMerge(Groups.layer),
@@ -178,7 +178,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     .pipe(
       Layer.provideMerge(EverhourIntegrationLive),
       Layer.provideMerge(
-        FigmaIntegrationsLive.pipe(Layer.provideMerge(FigmaLive))
+        FigmaIntegrations.layer.pipe(Layer.provideMerge(Figma.layer))
       ),
       Layer.provideMerge(BannerPlaceholdersLive),
       Layer.provideMerge(UsersLive),
