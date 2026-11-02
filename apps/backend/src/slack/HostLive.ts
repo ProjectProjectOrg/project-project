@@ -5,7 +5,7 @@ import * as Access from "@pp/server-core/access/Access"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
-import { Users } from "@pp/server-core/users/Users"
+import * as Users from "@pp/server-core/users/Users"
 import { CurrentUser, SlackError } from "@pp/shared"
 import { and, eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
@@ -19,7 +19,7 @@ export const SlackHostLive = Layer.effect(
     const access = yield* Access.Access
     const docs = yield* TicketDocs.TicketDocs
     const groups = yield* GroupDocs.GroupDocs
-    const users = yield* Users
+    const users = yield* Users.Users
     const secrets = yield* SecretCrypto.SecretCrypto
     const ticketSummary: SlackHost["Service"]["ticketSummary"] = Effect.fn(
       "SlackHost.ticketSummary"

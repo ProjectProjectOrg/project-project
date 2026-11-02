@@ -41,7 +41,7 @@ import * as ProjectDocs from "../projects/ProjectDocs"
 import * as ProjectGithub from "../projects/ProjectGithub"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
-import { Users, type UsersShape } from "../users/Users"
+import * as Users from "../users/Users"
 import type { GitAutomationConfig } from "./gitAutomation"
 import * as TicketServices from "./layer"
 import * as TicketBranchIndex from "./TicketBranchIndex"
@@ -382,11 +382,11 @@ export const fakeUser = (id: string): User => ({
   }
 })
 
-export const FakeUsers = Layer.succeed(Users, {
+export const FakeUsers = Layer.succeed(Users.Users, {
   findByEmail: () => unexpected("Users.findByEmail"),
   findManyByIds: () => unexpected("Users.findManyByIds"),
   fullByIds: (ids) => Effect.succeed(ids.map(fakeUser))
-} satisfies UsersShape)
+} satisfies Users.Users["Service"])
 
 export const FakeComments = Layer.succeed(Comments, {
   list: () => unexpected("Comments.list"),

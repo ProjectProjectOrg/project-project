@@ -1,5 +1,5 @@
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
-import { OAuthApplications } from "@pp/server-core/oauth/OAuthApplications"
+import * as OAuthApplications from "@pp/server-core/oauth/OAuthApplications"
 import { AppApi, CurrentUser, Validation } from "@pp/shared"
 import { isAPIError } from "better-auth/api"
 import * as Effect from "effect/Effect"
@@ -35,14 +35,14 @@ export const OAuthApplicationsHandlerLive = HttpApiBuilder.group(
       .handle("list", () =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          const svc = yield* OAuthApplications
+          const svc = yield* OAuthApplications.OAuthApplications
           return yield* svc.listForUser(user.id)
         })
       )
       .handle("revoke", ({ params }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          const svc = yield* OAuthApplications
+          const svc = yield* OAuthApplications.OAuthApplications
           yield* svc.revokeForUser(user.id, params.id)
           return { ok: true } as const
         })

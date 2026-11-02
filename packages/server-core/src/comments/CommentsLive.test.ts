@@ -30,7 +30,7 @@ import * as Projects from "../projects/Projects"
 import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketIndex from "../tickets/TicketIndex"
-import { Users, type UsersShape } from "../users/Users"
+import * as Users from "../users/Users"
 import { Comments } from "./Comments"
 import { parseCommentsRegion, serializeCommentsRegion } from "./comments-region"
 import { CommentsLive } from "./CommentsLive"
@@ -156,11 +156,11 @@ const author = {
   }
 }
 
-const FakeUsers = Layer.succeed(Users, {
+const FakeUsers = Layer.succeed(Users.Users, {
   findByEmail: () => unexpected("Users.findByEmail"),
   findManyByIds: () => unexpected("Users.findManyByIds"),
   fullByIds: () => Effect.succeed([author])
-} satisfies UsersShape)
+} satisfies Users.Users["Service"])
 
 const FakeDb = databaseLayer(({ sql }) =>
   sql.startsWith("select")

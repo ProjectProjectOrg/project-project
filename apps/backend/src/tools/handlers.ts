@@ -10,7 +10,7 @@ import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
-import { Tags } from "@pp/server-core/tags/Tags"
+import * as Tags from "@pp/server-core/tags/Tags"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
@@ -257,7 +257,7 @@ const list_statuses = (_input: { orgSlug: string; projectSlug: string }) =>
 const list_tags = (
   input: { orgSlug: string; projectSlug: string } & Pagination
 ) =>
-  Effect.flatMap(Tags, (tags) =>
+  Effect.flatMap(Tags.Tags, (tags) =>
     tags.listPaged(tryDecodeCursor(input.cursor), input.limit ?? DEFAULT_LIMIT)
   )
 

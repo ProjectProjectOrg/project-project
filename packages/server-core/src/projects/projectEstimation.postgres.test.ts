@@ -33,7 +33,7 @@ import * as TicketCommands from "../tickets/TicketCommands"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as TicketQueries from "../tickets/TicketQueries"
-import { Users } from "../users/Users"
+import * as Users from "../users/Users"
 import { FinishedStatuses } from "./FinishedStatuses"
 import { gitAutomationTestLayer } from "./gitAutomationTesting"
 import * as ProjectDocs from "./ProjectDocs"
@@ -138,7 +138,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
             Layer.mock(Comments, {}),
             Layer.mock(Attachments.Attachments, {}),
             Layer.mock(FigmaLinks.FigmaLinks, {}),
-            Layer.mock(Users, {}),
+            Layer.mock(Users.Users, {}),
             Layer.mock(Library.Library, {})
           )
         )

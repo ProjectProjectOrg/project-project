@@ -17,7 +17,7 @@ import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
-import { Tags } from "@pp/server-core/tags/Tags"
+import * as Tags from "@pp/server-core/tags/Tags"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
@@ -25,7 +25,7 @@ import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
 import type { TicketProject } from "@pp/server-core/tickets/ticketProject"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
-import { Users } from "@pp/server-core/users/Users"
+import * as Users from "@pp/server-core/users/Users"
 import {
   blockLookupFor,
   expandTemplate,
@@ -309,8 +309,8 @@ const TestLayer = Layer.mergeAll(
   Layer.mock(ProjectMembers.ProjectMembers, {}),
   Layer.mock(Comments, {}),
   Layer.mock(Groups.Groups, {}),
-  Layer.mock(Tags, {}),
-  Layer.mock(Users, {}),
+  Layer.mock(Tags.Tags, {}),
+  Layer.mock(Users.Users, {}),
   Layer.mock(BetterAuth.BetterAuth, {}),
   ProjectDocsStub,
   GroupDocsStub,

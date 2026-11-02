@@ -1,6 +1,6 @@
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
-import { Users } from "@pp/server-core/users/Users"
+import * as Users from "@pp/server-core/users/Users"
 import { CurrentUser } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpServerRequest, HttpServerResponse } from "effect/http"
@@ -23,7 +23,7 @@ const serveFigmaThumbnail = Effect.gen(function* () {
   const [viewer] =
     session === null
       ? []
-      : yield* Effect.flatMap(Users, (users) =>
+      : yield* Effect.flatMap(Users.Users, (users) =>
           users.fullByIds([session.user.id])
         )
   if (viewer === undefined) {

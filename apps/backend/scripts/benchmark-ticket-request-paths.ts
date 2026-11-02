@@ -29,7 +29,7 @@ import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
-import { Users, type UsersShape } from "@pp/server-core/users/Users"
+import * as Users from "@pp/server-core/users/Users"
 import {
   ActivityActor,
   encodeCursor,
@@ -433,11 +433,11 @@ const FakeFigmaLinks = Layer.succeed(FigmaLinks.FigmaLinks, {
   resolveThumbnailUrl: () => unexpected("FigmaLinks.resolveThumbnailUrl")
 } satisfies FigmaLinks.FigmaLinks["Service"])
 
-const FakeUsers = Layer.succeed(Users, {
+const FakeUsers = Layer.succeed(Users.Users, {
   findByEmail: () => unexpected("Users.findByEmail"),
   findManyByIds: () => Effect.succeed([]),
   fullByIds: () => Effect.succeed([])
-} satisfies UsersShape)
+} satisfies Users.Users["Service"])
 
 const FakeAttachments = Layer.succeed(Attachments.Attachments, {
   prepare: () => unexpected("Attachments.prepare"),

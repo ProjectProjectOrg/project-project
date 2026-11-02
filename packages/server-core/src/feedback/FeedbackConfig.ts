@@ -6,19 +6,22 @@ import * as Option from "effect/Option"
 
 export const DEFAULT_FEEDBACK_TARGET_URL = "https://projectproject.missler.xyz"
 
-export type FeedbackConfigShape = Readonly<{
-  targetUrl: Option.Option<string>
-  instanceUrl: string
-  version: Option.Option<string>
-  intake: Option.Option<
-    Readonly<{
-      orgSlug: string
-      projectName: string
-      projectKey: string
-    }>
-  >
-  trustedProxyHops: number
-}>
+export class FeedbackConfig extends Context.Service<
+  FeedbackConfig,
+  Readonly<{
+    targetUrl: Option.Option<string>
+    instanceUrl: string
+    version: Option.Option<string>
+    intake: Option.Option<
+      Readonly<{
+        orgSlug: string
+        projectName: string
+        projectKey: string
+      }>
+    >
+    trustedProxyHops: number
+  }>
+>()("@pp/server-core/feedback/FeedbackConfig") {}
 
 const feedbackConfig = Config.all({
   sendingEnabled: Config.Boolean("FEEDBACK_SENDING_ENABLED").pipe(
@@ -47,35 +50,29 @@ const feedbackConfig = Config.all({
   trustedProxyHops: Config.Int("TRUSTED_PROXY_HOPS").pipe(Config.withDefault(1))
 })
 
-export class FeedbackConfig extends Context.Service<
-  FeedbackConfig,
-  FeedbackConfigShape
->()("@pp/server-core/feedback/FeedbackConfig") {
-  static readonly layer = Layer.effect(
-    FeedbackConfig,
-    Effect.gen(function* () {
-      const config = yield* feedbackConfig
-      const intake = config.intakeEnabled
-        ? Option.map(config.intakeOrg, (orgSlug) => ({
-            orgSlug,
-            projectName: config.projectName,
-            projectKey: config.projectKey
-          }))
-        : Option.none()
-      if (config.intakeEnabled && Option.isNone(intake)) {
-        yield* Effect.logWarning(
-          "FEEDBACK_INTAKE_ENABLED is set but no FEEDBACK_INTAKE_ORG or BOOTSTRAP_ORG_SLUG; intake stays off"
-        )
-      }
-      return {
-        targetUrl: config.sendingEnabled
-          ? Option.some(config.targetUrl)
-          : Option.none(),
-        instanceUrl: config.instanceUrl,
-        version: config.version,
-        intake,
-        trustedProxyHops: config.trustedProxyHops
-      } satisfies FeedbackConfigShape
-    }).pipe(Effect.orDie)
-  )
-}
+const make = Effect.gen(function* () {
+  const config = yield* feedbackConfig
+  const intake = config.intakeEnabled
+    ? Option.map(config.intakeOrg, (orgSlug) => ({
+        orgSlug,
+        projectName: config.projectName,
+        projectKey: config.projectKey
+      }))
+    : Option.none()
+  if (config.intakeEnabled && Option.isNone(intake)) {
+    yield* Effect.logWarning(
+      "FEEDBACK_INTAKE_ENABLED is set but no FEEDBACK_INTAKE_ORG or BOOTSTRAP_ORG_SLUG; intake stays off"
+    )
+  }
+  return FeedbackConfig.of({
+    targetUrl: config.sendingEnabled
+      ? Option.some(config.targetUrl)
+      : Option.none(),
+    instanceUrl: config.instanceUrl,
+    version: config.version,
+    intake,
+    trustedProxyHops: config.trustedProxyHops
+  })
+}).pipe(Effect.orDie)
+
+export const layer = Layer.effect(FeedbackConfig, make)

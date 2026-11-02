@@ -12,7 +12,7 @@ import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as TicketIndex from "../tickets/TicketIndex"
 import * as TicketRewrites from "../tickets/TicketRewrites"
-import { Users } from "../users/Users"
+import * as Users from "../users/Users"
 import * as BannerPlaceholders from "./BannerPlaceholders"
 import { FinishedStatuses } from "./FinishedStatuses"
 import * as ProjectServices from "./layer"
@@ -104,7 +104,7 @@ export const projectsOnPostgres = (
         })
     ),
     Layer.provide(
-      Layer.succeed(Users, {
+      Layer.succeed(Users.Users, {
         findByEmail: (email) =>
           Effect.succeed(
             userIds

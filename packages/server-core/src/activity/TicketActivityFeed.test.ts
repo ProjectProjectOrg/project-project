@@ -17,7 +17,7 @@ import { describe, expect } from "vitest"
 
 import { projectScope, testUser } from "../access/testing"
 import * as TicketDocs from "../tickets/TicketDocs"
-import { Users } from "../users/Users"
+import * as Users from "../users/Users"
 import { TicketActivity, type StoredTicketActivity } from "./TicketActivity"
 import {
   TicketActivityFeed,
@@ -114,7 +114,7 @@ const feedLayer = (
           remove: () => unexpected("TicketDocs.remove"),
           readRaw: () => unexpected("TicketDocs.readRaw")
         } satisfies TicketDocs.TicketDocs["Service"]),
-        Layer.succeed(Users, {
+        Layer.succeed(Users.Users, {
           findByEmail: () => unexpected("Users.findByEmail"),
           findManyByIds: () => unexpected("Users.findManyByIds"),
           fullByIds: (ids) => Effect.succeed(ids.map(testUser))
