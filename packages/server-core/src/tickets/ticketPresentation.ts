@@ -1,7 +1,6 @@
 import {
   Forbidden,
   type NotFound,
-  type ProjectScopeShape,
   ProjectScope,
   type Ticket,
   type TicketDetail,
@@ -128,7 +127,7 @@ export function documentToDetail(
 }
 
 export const requirePolicy = (
-  allowed: (scope: ProjectScopeShape) => boolean
+  allowed: (scope: ProjectScope["Service"]) => boolean
 ): Effect.Effect<void, Forbidden, ProjectScope> =>
   Effect.flatMap(ProjectScope, (scope) =>
     allowed(scope) ? Effect.void : Effect.fail(new Forbidden())

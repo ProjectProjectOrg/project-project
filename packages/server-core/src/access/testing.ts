@@ -3,8 +3,7 @@ import {
   NotFound,
   OrgScope,
   type OrgRole,
-  type OrgScopeShape,
-  type ProjectScopeShape,
+  type ProjectScope,
   type Role,
   User
 } from "@pp/shared"
@@ -40,8 +39,8 @@ export const testUser = (id: string) =>
 
 export const orgScope = (
   role: OrgRole,
-  overrides: Partial<Omit<OrgScopeShape, "role" | "permissions">> = {}
-): OrgScopeShape => ({
+  overrides: Partial<Omit<OrgScope["Service"], "role" | "permissions">> = {}
+): OrgScope["Service"] => ({
   userId: "user-1",
   organizationId: "org-1",
   orgSlug: "acme",
@@ -55,9 +54,9 @@ export const projectScope = (
   orgRole: OrgRole,
   role: Role | null,
   overrides: Partial<
-    Omit<ProjectScopeShape, "orgRole" | "role" | "permissions">
+    Omit<ProjectScope["Service"], "orgRole" | "role" | "permissions">
   > = {}
-): ProjectScopeShape => ({
+): ProjectScope["Service"] => ({
   userId: "user-1",
   organizationId: "org-1",
   orgSlug: "acme",
@@ -71,8 +70,8 @@ export const projectScope = (
 
 export const accessLayer = (
   scopes: Readonly<{
-    org?: OrgScopeShape
-    projects?: ReadonlyArray<ProjectScopeShape>
+    org?: OrgScope["Service"]
+    projects?: ReadonlyArray<ProjectScope["Service"]>
   }>
 ) =>
   Layer.succeed(Access, {

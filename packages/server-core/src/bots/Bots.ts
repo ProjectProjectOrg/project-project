@@ -1,4 +1,4 @@
-import type { NotFound, ProjectScopeShape, Role } from "@pp/shared"
+import type { NotFound, ProjectScope, Role } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
@@ -14,7 +14,7 @@ export type BotsShape = Readonly<{
     bot: Bot,
     orgSlug: string,
     slug: string
-  ) => Effect.Effect<ProjectScopeShape, NotFound>
+  ) => Effect.Effect<ProjectScope["Service"], NotFound>
 }>
 
 export class Bots extends Context.Service<Bots, BotsShape>()(

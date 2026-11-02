@@ -1,8 +1,4 @@
-import {
-  ActivityActor,
-  type ActivityActorShape,
-  type ActivityCause
-} from "@pp/shared"
+import { ActivityActor, type ActivityCause } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
@@ -11,7 +7,7 @@ import { TicketActivity, type ActivityDocument } from "./TicketActivity"
 
 export type RecordedActivity = Readonly<{
   document: ActivityDocument
-  actor: ActivityActorShape
+  actor: ActivityActor["Service"]
   cause: ActivityCause | null
   changes: ReadonlyArray<TicketScopedChange>
 }>

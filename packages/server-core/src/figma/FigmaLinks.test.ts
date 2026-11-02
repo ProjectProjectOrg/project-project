@@ -9,8 +9,7 @@ import {
   type OrgRole,
   ProjectScope,
   type Role,
-  StorageNotConnected,
-  type ProjectScopeShape
+  StorageNotConnected
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Deferred from "effect/Deferred"
@@ -310,7 +309,7 @@ type HarnessInput = Readonly<{
   credential?: Effect.Effect<never, FigmaAuthInvalid | FigmaNotConnected>
   figma?: Partial<Record<string, unknown>>
   storage?: ReturnType<OrgStorage["Service"]["requireConnection"]>
-  viewer?: ProjectScopeShape
+  viewer?: ProjectScope["Service"]
   markProjectCredentialRejected?: (
     orgSlug: string,
     slug: string,

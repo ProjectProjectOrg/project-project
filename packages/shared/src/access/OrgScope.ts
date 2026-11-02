@@ -4,16 +4,15 @@ import * as Context from "effect/Context"
 
 import type { OrgRole } from "../schemas/Org"
 
-export type OrgScopeShape = Readonly<{
-  userId: string
-  organizationId: string
-  orgSlug: string
-  role: OrgRole
-  deletedAt: Date | null
-  permissions: Statement.Role<Org.OrgResources>
-}>
-
 /** @effect-leakable-service */
-export class OrgScope extends Context.Service<OrgScope, OrgScopeShape>()(
-  "@pp/shared/access/OrgScope"
-) {}
+export class OrgScope extends Context.Service<
+  OrgScope,
+  Readonly<{
+    userId: string
+    organizationId: string
+    orgSlug: string
+    role: OrgRole
+    deletedAt: Date | null
+    permissions: Statement.Role<Org.OrgResources>
+  }>
+>()("@pp/shared/access/OrgScope") {}

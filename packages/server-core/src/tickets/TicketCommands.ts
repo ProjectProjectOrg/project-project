@@ -19,7 +19,6 @@ import {
   TicketType,
   ProjectScope,
   ActivityActor,
-  type ProjectScopeShape,
   type DeleteTicketQuery,
   type BulkUpdateTicketsResult,
   type ClearStaleEstimatesResult,
@@ -260,7 +259,7 @@ const make = Effect.gen(function* () {
     })
 
   const validateEstimate = Effect.fnUntraced(function* (
-    scope: ProjectScopeShape,
+    scope: ProjectScope["Service"],
     estimate: Estimate | null | undefined
   ) {
     if (estimate === undefined || estimate === null) return

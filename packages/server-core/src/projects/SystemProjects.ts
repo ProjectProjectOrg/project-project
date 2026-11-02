@@ -6,8 +6,7 @@ import {
   CreatableProjectKey,
   NotFound,
   OrgScope,
-  type OrgScopeShape,
-  type ProjectScopeShape
+  type ProjectScope
 } from "@pp/shared"
 import { and, asc, eq, isNull } from "drizzle-orm"
 import * as Arr from "effect/Array"
@@ -37,7 +36,7 @@ export class SystemProjects extends Context.Service<
   Readonly<{
     ensure: (
       spec: SystemProjectSpec
-    ) => Effect.Effect<ProjectScopeShape, NotFound | MarkdownError>
+    ) => Effect.Effect<ProjectScope["Service"], NotFound | MarkdownError>
   }>
 >()("@pp/server-core/projects/SystemProjects") {}
 
@@ -107,7 +106,7 @@ const make = Effect.gen(function* () {
       role: "owner",
       deletedAt: null,
       permissions: Org.orgRoles.owner
-    } satisfies OrgScopeShape
+    } satisfies OrgScope["Service"]
   })
 
   const create = Effect.fn("SystemProjects.create")(function* (

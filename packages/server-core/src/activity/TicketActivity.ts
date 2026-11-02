@@ -1,7 +1,6 @@
 import type {
   ProjectEvent,
   ActivityActor,
-  ActivityActorShape,
   ActivityCause,
   TicketActivityChange
 } from "@pp/shared"
@@ -20,7 +19,7 @@ export type StoredTicketActivity = Readonly<{
   id: string
   seq: number
   occurredAt: Date
-  actor: ActivityActorShape
+  actor: ActivityActor["Service"]
   cause: ActivityCause | null
   change: TicketActivityChange
 }>

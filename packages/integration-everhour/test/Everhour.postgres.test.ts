@@ -7,8 +7,7 @@ import { DbLive, PgLive } from "@pp/db"
 import {
   EverhourError,
   EverhourProjectAccessDenied,
-  ProjectScope,
-  type ProjectScopeShape
+  ProjectScope
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import type * as Duration from "effect/Duration"
@@ -286,7 +285,7 @@ const scopeFor = (fixture: Fixture, userId: string) =>
     orgSlug: fixture.orgSlug,
     projectId: fixture.projectId,
     slug: fixture.slug
-  }) as ProjectScopeShape
+  }) as ProjectScope["Service"]
 
 const as =
   (fixture: Fixture, userId: string) =>

@@ -23,7 +23,6 @@ import {
   type Member,
   type PendingProjectMember,
   type ProjectDetail,
-  type ProjectScopeShape,
   type ProjectSetup
 } from "@pp/shared"
 import { and, asc, eq, gt } from "drizzle-orm"
@@ -49,7 +48,7 @@ const makeProjectColor = Schema.decodeUnknownSync(ProjectColor)
 type ProjectIndexRow = typeof projectIndex.$inferSelect
 
 export const presentDetail = (
-  scope: ProjectScopeShape,
+  scope: ProjectScope["Service"],
   detail: Omit<ProjectDetail, "permissions">
 ): ProjectDetail => ({
   ...detail,
@@ -61,9 +60,9 @@ export const presentDetail = (
 })
 
 const rescoped = (
-  scope: ProjectScopeShape,
+  scope: ProjectScope["Service"],
   members: ReadonlyArray<Member>
-): ProjectScopeShape => {
+): ProjectScope["Service"] => {
   const role =
     members.find((candidate) => candidate.id === scope.userId)?.role ?? null
   return {
@@ -83,7 +82,7 @@ export class ProjectDetails extends Context.Service<
       effect: Effect.Effect<A, E, R>
     ) => Effect.Effect<A, Exclude<E, Readonly<{ _tag: "SqlError" }>>, R>
     current: Effect.Effect<
-      Readonly<{ scope: ProjectScopeShape; indexRow: ProjectIndexRow }>,
+      Readonly<{ scope: ProjectScope["Service"]; indexRow: ProjectIndexRow }>,
       NotFound,
       ProjectScope
     >

@@ -6,8 +6,7 @@ import {
   CommentId,
   Forbidden,
   NotFound,
-  ProjectScope,
-  type ProjectScopeShape
+  ProjectScope
 } from "@pp/shared"
 import { eq, inArray } from "drizzle-orm"
 import * as Crypto from "effect/Crypto"
@@ -360,7 +359,7 @@ export const CommentsLive = Layer.effect(
       ticketId: string,
       commentId: string,
       allowed: (
-        actor: ProjectScopeShape,
+        actor: ProjectScope["Service"],
         comment: CommentPolicy.Authored
       ) => boolean
     ): Effect.Effect<
