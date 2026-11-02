@@ -21,50 +21,47 @@ import {
 } from "../access/testing"
 import { OrgStorage } from "../storage/OrgStorage"
 import { S3Storage } from "../storage/S3Storage"
-import { Attachments } from "./Attachments"
-import { AttachmentsLive } from "./AttachmentsLive"
+import * as Attachments from "./Attachments"
 
 const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
-import {
-  attachmentServesInline,
-  attachmentPageOffset,
-  attachmentSortPlan,
-  deriveAttachmentEtag,
-  isServableStatus,
-  ORPHAN_GRACE_MS,
-  planReap,
-  planDedupe,
-  planReferences,
-  summarizeAttachments,
-  planStatuses,
-  validateUploadRequest
-} from "./Attachments"
 
 describe("validateUploadRequest", () => {
   it("accepts an allowed type within the cap", () => {
     expect(
-      validateUploadRequest({ contentType: "image/png", byteSize: 1024 })
+      Attachments.validateUploadRequest({
+        contentType: "image/png",
+        byteSize: 1024
+      })
     ).toBeNull()
   })
 
   it("accepts text and markdown within the cap", () => {
     expect(
-      validateUploadRequest({ contentType: "text/plain", byteSize: 1024 })
+      Attachments.validateUploadRequest({
+        contentType: "text/plain",
+        byteSize: 1024
+      })
     ).toBeNull()
     expect(
-      validateUploadRequest({ contentType: "text/markdown", byteSize: 1024 })
+      Attachments.validateUploadRequest({
+        contentType: "text/markdown",
+        byteSize: 1024
+      })
     ).toBeNull()
   })
 
   it("rejects svg", () => {
     expect(
-      validateUploadRequest({ contentType: "image/svg+xml", byteSize: 1024 })
+      Attachments.validateUploadRequest({
+        contentType: "image/svg+xml",
+        byteSize: 1024
+      })
     ).toEqual({ kind: "type", contentType: "image/svg+xml" })
   })
 
   it("rejects an executable", () => {
     expect(
-      validateUploadRequest({
+      Attachments.validateUploadRequest({
         contentType: "application/x-msdownload",
         byteSize: 1024
       })
@@ -73,7 +70,7 @@ describe("validateUploadRequest", () => {
 
   it("rejects a file over the cap", () => {
     expect(
-      validateUploadRequest({
+      Attachments.validateUploadRequest({
         contentType: "image/png",
         byteSize: ATTACHMENT_MAX_BYTES + 1
       })
@@ -82,7 +79,7 @@ describe("validateUploadRequest", () => {
 
   it("accepts a file exactly at the cap", () => {
     expect(
-      validateUploadRequest({
+      Attachments.validateUploadRequest({
         contentType: "image/png",
         byteSize: ATTACHMENT_MAX_BYTES
       })
@@ -91,13 +88,16 @@ describe("validateUploadRequest", () => {
 
   it("rejects a zero-byte file", () => {
     expect(
-      validateUploadRequest({ contentType: "image/png", byteSize: 0 })
+      Attachments.validateUploadRequest({
+        contentType: "image/png",
+        byteSize: 0
+      })
     ).toEqual({ kind: "size", maxBytes: ATTACHMENT_MAX_BYTES })
   })
 
   it("checks the type before the size", () => {
     expect(
-      validateUploadRequest({
+      Attachments.validateUploadRequest({
         contentType: "image/svg+xml",
         byteSize: ATTACHMENT_MAX_BYTES + 1
       })
@@ -106,7 +106,7 @@ describe("validateUploadRequest", () => {
 
   it("tolerates a content type with parameters", () => {
     expect(
-      validateUploadRequest({
+      Attachments.validateUploadRequest({
         contentType: "image/png; charset=binary",
         byteSize: 10
       })
@@ -117,12 +117,14 @@ describe("validateUploadRequest", () => {
 describe("planReferences", () => {
   it("adds a reference for an attachment the body newly mentions", () => {
     expect(
-      planReferences({ referenced: new Set(["a"]), existing: [] })
+      Attachments.planReferences({ referenced: new Set(["a"]), existing: [] })
     ).toEqual({ toAdd: ["a"], toRemove: [] })
   })
 
   it("drops a reference the body no longer mentions", () => {
-    expect(planReferences({ referenced: new Set(), existing: ["a"] })).toEqual({
+    expect(
+      Attachments.planReferences({ referenced: new Set(), existing: ["a"] })
+    ).toEqual({
       toAdd: [],
       toRemove: ["a"]
     })
@@ -130,13 +132,19 @@ describe("planReferences", () => {
 
   it("leaves an unchanged reference alone", () => {
     expect(
-      planReferences({ referenced: new Set(["a"]), existing: ["a"] })
+      Attachments.planReferences({
+        referenced: new Set(["a"]),
+        existing: ["a"]
+      })
     ).toEqual({ toAdd: [], toRemove: [] })
   })
 
   it("adds and drops in the same edit", () => {
     expect(
-      planReferences({ referenced: new Set(["a", "b"]), existing: ["b", "c"] })
+      Attachments.planReferences({
+        referenced: new Set(["a", "b"]),
+        existing: ["b", "c"]
+      })
     ).toEqual({ toAdd: ["a"], toRemove: ["c"] })
   })
 })
@@ -144,7 +152,7 @@ describe("planReferences", () => {
 describe("planStatuses", () => {
   it("keeps an attachment live while any ticket still references it", () => {
     expect(
-      planStatuses({
+      Attachments.planStatuses({
         rows: [{ id: "a", status: "live" }],
         referenceCounts: new Map([["a", 2]])
       })
@@ -153,7 +161,7 @@ describe("planStatuses", () => {
 
   it("orphans an attachment only when its last reference goes", () => {
     expect(
-      planStatuses({
+      Attachments.planStatuses({
         rows: [{ id: "a", status: "live" }],
         referenceCounts: new Map([["a", 0]])
       })
@@ -162,7 +170,7 @@ describe("planStatuses", () => {
 
   it("does not orphan an attachment that another ticket still references", () => {
     expect(
-      planStatuses({
+      Attachments.planStatuses({
         rows: [{ id: "a", status: "live" }],
         referenceCounts: new Map([["a", 1]])
       })
@@ -171,7 +179,7 @@ describe("planStatuses", () => {
 
   it("restores an orphaned attachment that a ticket references again", () => {
     expect(
-      planStatuses({
+      Attachments.planStatuses({
         rows: [{ id: "a", status: "orphaned" }],
         referenceCounts: new Map([["a", 1]])
       })
@@ -180,7 +188,7 @@ describe("planStatuses", () => {
 
   it("leaves a referenced pending row pending, so commit still gets to validate the object", () => {
     expect(
-      planStatuses({
+      Attachments.planStatuses({
         rows: [{ id: "a", status: "pending" }],
         referenceCounts: new Map([["a", 1]])
       })
@@ -189,7 +197,7 @@ describe("planStatuses", () => {
 
   it("leaves an unreferenced pending row pending, since its upload may still land", () => {
     expect(
-      planStatuses({
+      Attachments.planStatuses({
         rows: [{ id: "a", status: "pending" }],
         referenceCounts: new Map([["a", 0]])
       })
@@ -198,7 +206,7 @@ describe("planStatuses", () => {
 
   it("treats a missing count as no references", () => {
     expect(
-      planStatuses({
+      Attachments.planStatuses({
         rows: [{ id: "a", status: "live" }],
         referenceCounts: new Map()
       })
@@ -211,7 +219,7 @@ describe("planReap", () => {
 
   it("reaps a pending row past its ttl", () => {
     expect(
-      planReap({
+      Attachments.planReap({
         now,
         rows: [
           {
@@ -228,7 +236,7 @@ describe("planReap", () => {
 
   it("spares a pending row inside its ttl", () => {
     expect(
-      planReap({
+      Attachments.planReap({
         now,
         rows: [
           {
@@ -245,16 +253,16 @@ describe("planReap", () => {
 
   it("reaps an orphaned row past the grace period", () => {
     expect(
-      planReap({
+      Attachments.planReap({
         now,
         rows: [
           {
             id: "a",
             status: "orphaned",
             // @effect-diagnostics-next-line globalDate:off
-            createdAt: new Date(now - ORPHAN_GRACE_MS * 2),
+            createdAt: new Date(now - Attachments.ORPHAN_GRACE_MS * 2),
             // @effect-diagnostics-next-line globalDate:off
-            orphanedAt: new Date(now - ORPHAN_GRACE_MS - 1000)
+            orphanedAt: new Date(now - Attachments.ORPHAN_GRACE_MS - 1000)
           }
         ]
       })
@@ -263,14 +271,14 @@ describe("planReap", () => {
 
   it("spares an orphaned row inside the grace period", () => {
     expect(
-      planReap({
+      Attachments.planReap({
         now,
         rows: [
           {
             id: "a",
             status: "orphaned",
             // @effect-diagnostics-next-line globalDate:off
-            createdAt: new Date(now - ORPHAN_GRACE_MS * 2),
+            createdAt: new Date(now - Attachments.ORPHAN_GRACE_MS * 2),
             // @effect-diagnostics-next-line globalDate:off
             orphanedAt: new Date(now - 1000)
           }
@@ -281,14 +289,14 @@ describe("planReap", () => {
 
   it("never reaps a live row", () => {
     expect(
-      planReap({
+      Attachments.planReap({
         now,
         rows: [
           {
             id: "a",
             status: "live",
             // @effect-diagnostics-next-line globalDate:off
-            createdAt: new Date(now - ORPHAN_GRACE_MS * 10),
+            createdAt: new Date(now - Attachments.ORPHAN_GRACE_MS * 10),
             orphanedAt: null
           }
         ]
@@ -298,14 +306,14 @@ describe("planReap", () => {
 
   it("spares an orphaned row with a null orphanedAt", () => {
     expect(
-      planReap({
+      Attachments.planReap({
         now,
         rows: [
           {
             id: "a",
             status: "orphaned",
             // @effect-diagnostics-next-line globalDate:off
-            createdAt: new Date(now - ORPHAN_GRACE_MS * 10),
+            createdAt: new Date(now - Attachments.ORPHAN_GRACE_MS * 10),
             orphanedAt: null
           }
         ]
@@ -316,15 +324,15 @@ describe("planReap", () => {
 
 describe("isServableStatus", () => {
   it("serves a live attachment", () => {
-    expect(isServableStatus("live")).toBe(true)
+    expect(Attachments.isServableStatus("live")).toBe(true)
   })
 
   it("serves an orphaned attachment, so undoing a removal shows the image again rather than a load error", () => {
-    expect(isServableStatus("orphaned")).toBe(true)
+    expect(Attachments.isServableStatus("orphaned")).toBe(true)
   })
 
   it("refuses a pending attachment, whose object may not exist yet", () => {
-    expect(isServableStatus("pending")).toBe(false)
+    expect(Attachments.isServableStatus("pending")).toBe(false)
   })
 })
 
@@ -344,28 +352,28 @@ describe("isAttachmentDeletable", () => {
 
 describe("attachmentSortPlan", () => {
   it("sorts newest first by default", () => {
-    expect(attachmentSortPlan(undefined)).toEqual({
+    expect(Attachments.attachmentSortPlan(undefined)).toEqual({
       column: "createdAt",
       direction: "desc"
     })
   })
 
   it("sorts oldest first", () => {
-    expect(attachmentSortPlan("created_asc")).toEqual({
+    expect(Attachments.attachmentSortPlan("created_asc")).toEqual({
       column: "createdAt",
       direction: "asc"
     })
   })
 
   it("sorts biggest first, so the bucket hogs surface at the top", () => {
-    expect(attachmentSortPlan("size_desc")).toEqual({
+    expect(Attachments.attachmentSortPlan("size_desc")).toEqual({
       column: "byteSize",
       direction: "desc"
     })
   })
 
   it("sorts smallest first", () => {
-    expect(attachmentSortPlan("size_asc")).toEqual({
+    expect(Attachments.attachmentSortPlan("size_asc")).toEqual({
       column: "byteSize",
       direction: "asc"
     })
@@ -444,7 +452,7 @@ const stubAccess = (role: Role) =>
   })
 
 const servingLayer = (role: Role) =>
-  AttachmentsLive.pipe(
+  Attachments.layer.pipe(
     Layer.provide(servingDb),
     Layer.provide(stubOrgStorage),
     Layer.provide(stubS3),
@@ -452,7 +460,7 @@ const servingLayer = (role: Role) =>
   )
 
 const resolveAs = (role: Role) =>
-  Attachments.pipe(
+  Attachments.Attachments.pipe(
     Effect.flatMap((attachments) =>
       Effect.result(attachments.resolveForServing("acme", "att-1"))
     ),
@@ -503,7 +511,7 @@ const deletionHarness = (input: {
   const deletedKeys: Array<string> = []
   const deletedRows: Array<string> = []
   const order: Array<string> = []
-  const layer = AttachmentsLive.pipe(
+  const layer = Attachments.layer.pipe(
     Layer.provide(
       databaseLayer(({ sql }) =>
         Effect.sync(() => {
@@ -535,7 +543,7 @@ const deletionHarness = (input: {
     Layer.provide(stubAccess(input.role)),
     Layer.merge(Layer.succeed(OrgScope, orgScope(input.role)))
   )
-  const run = Attachments.pipe(
+  const run = Attachments.Attachments.pipe(
     Effect.flatMap((attachments) =>
       Effect.result(attachments.deleteForOrg("att-1"))
     ),
@@ -657,7 +665,7 @@ const listHarness = (input: {
     offset?: number
   } = {}
   const rows = input.rows ?? []
-  const layer = AttachmentsLive.pipe(
+  const layer = Attachments.layer.pipe(
     Layer.provide(
       databaseLayer(({ sql, params }) =>
         Effect.sync(() => {
@@ -697,7 +705,7 @@ describe("listForOrg", () => {
   it.effect("scopes the query to the org", () =>
     Effect.gen(function* () {
       const { layer, capture } = listHarness({ role: "owner" })
-      yield* Attachments.pipe(
+      yield* Attachments.Attachments.pipe(
         Effect.flatMap((a) => a.listForOrg({})),
         Effect.provide(layer)
       )
@@ -708,7 +716,7 @@ describe("listForOrg", () => {
   it.effect("narrows to a status and a project when both are filtered", () =>
     Effect.gen(function* () {
       const { layer, capture } = listHarness({ role: "owner" })
-      yield* Attachments.pipe(
+      yield* Attachments.Attachments.pipe(
         Effect.flatMap((a) =>
           a.listForOrg({
             status: "orphaned",
@@ -726,7 +734,7 @@ describe("listForOrg", () => {
   it.effect("offsets to the requested page", () =>
     Effect.gen(function* () {
       const { layer, capture } = listHarness({ role: "owner" })
-      yield* Attachments.pipe(
+      yield* Attachments.Attachments.pipe(
         Effect.flatMap((a) => a.listForOrg({ page: 3, limit: 25 })),
         Effect.provide(layer)
       )
@@ -742,7 +750,7 @@ describe("listForOrg", () => {
         rows: [servingRow],
         total: 217
       })
-      const page = yield* Attachments.pipe(
+      const page = yield* Attachments.Attachments.pipe(
         Effect.flatMap((a) => a.listForOrg({})),
         Effect.provide(layer)
       )
@@ -769,7 +777,7 @@ describe("listForOrg", () => {
           }
         ]
       })
-      const page = yield* Attachments.pipe(
+      const page = yield* Attachments.Attachments.pipe(
         Effect.flatMap((a) => a.listForOrg({})),
         Effect.provide(layer)
       )
@@ -790,7 +798,7 @@ describe("listForOrg", () => {
           total: 1,
           references: []
         })
-        const page = yield* Attachments.pipe(
+        const page = yield* Attachments.Attachments.pipe(
           Effect.flatMap((a) => a.listForOrg({})),
           Effect.provide(layer)
         )
@@ -805,7 +813,7 @@ describe("listForOrg", () => {
         rows: [servingRow],
         total: 1
       })
-      const page = yield* Attachments.pipe(
+      const page = yield* Attachments.Attachments.pipe(
         Effect.flatMap((a) => a.listForOrg({})),
         Effect.provide(layer)
       )
@@ -834,7 +842,7 @@ describe("summarizeForOrg", () => {
             { objectKey: "k-b", byteSize: 900, status: "pending" }
           ]
         })
-        const summary = yield* Attachments.pipe(
+        const summary = yield* Attachments.Attachments.pipe(
           Effect.flatMap((a) => a.summarizeForOrg()),
           Effect.provide(layer)
         )
@@ -860,7 +868,7 @@ describe("summarizeForOrg", () => {
           { objectKey: "k-e", byteSize: 100, status: "orphaned" }
         ]
       })
-      const summary = yield* Attachments.pipe(
+      const summary = yield* Attachments.Attachments.pipe(
         Effect.flatMap((a) => a.summarizeForOrg()),
         Effect.provide(layer)
       )
@@ -876,36 +884,39 @@ describe("summarizeForOrg", () => {
 
 describe("attachmentPageOffset", () => {
   it("starts the first page at the top", () => {
-    expect(attachmentPageOffset(1, 50)).toBe(0)
+    expect(Attachments.attachmentPageOffset(1, 50)).toBe(0)
   })
 
   it("treats a missing page as the first", () => {
-    expect(attachmentPageOffset(undefined, 50)).toBe(0)
+    expect(Attachments.attachmentPageOffset(undefined, 50)).toBe(0)
   })
 
   it("skips a whole page for the second page", () => {
-    expect(attachmentPageOffset(2, 50)).toBe(50)
+    expect(Attachments.attachmentPageOffset(2, 50)).toBe(50)
   })
 
   it("scales with the page size", () => {
-    expect(attachmentPageOffset(3, 25)).toBe(50)
+    expect(Attachments.attachmentPageOffset(3, 25)).toBe(50)
   })
 
   it("never offsets backwards", () => {
-    expect(attachmentPageOffset(0, 50)).toBe(0)
+    expect(Attachments.attachmentPageOffset(0, 50)).toBe(0)
   })
 })
 
 describe("attachmentServesInline", () => {
   it("renders a raster image in the page", () => {
     expect(
-      attachmentServesInline({ contentType: "image/png", download: false })
+      Attachments.attachmentServesInline({
+        contentType: "image/png",
+        download: false
+      })
     ).toBe(true)
   })
 
   it("downloads a pdf rather than opening it in the page", () => {
     expect(
-      attachmentServesInline({
+      Attachments.attachmentServesInline({
         contentType: "application/pdf",
         download: false
       })
@@ -914,23 +925,28 @@ describe("attachmentServesInline", () => {
 
   it("downloads an image when the caller asked for a download", () => {
     expect(
-      attachmentServesInline({ contentType: "image/png", download: true })
+      Attachments.attachmentServesInline({
+        contentType: "image/png",
+        download: true
+      })
     ).toBe(false)
   })
 })
 
 describe("deriveAttachmentEtag", () => {
   it("returns null when there is no upstream etag", () => {
-    expect(deriveAttachmentEtag(null, null)).toBeNull()
-    expect(deriveAttachmentEtag(null, 256)).toBeNull()
+    expect(Attachments.deriveAttachmentEtag(null, null)).toBeNull()
+    expect(Attachments.deriveAttachmentEtag(null, 256)).toBeNull()
   })
 
   it("passes the upstream etag through unchanged when serving the original", () => {
-    expect(deriveAttachmentEtag('"abc123"', null)).toBe('"abc123"')
+    expect(Attachments.deriveAttachmentEtag('"abc123"', null)).toBe('"abc123"')
   })
 
   it("qualifies the etag with the rung when serving a resized image", () => {
-    expect(deriveAttachmentEtag('"abc123"', 256)).toBe('"abc123-w256"')
+    expect(Attachments.deriveAttachmentEtag('"abc123"', 256)).toBe(
+      '"abc123-w256"'
+    )
   })
 })
 
@@ -951,7 +967,7 @@ describe("planDedupe", () => {
 
   it("repoints a later duplicate at the earliest copy's object", () => {
     expect(
-      planDedupe({
+      Attachments.planDedupe({
         rows: [
           row({
             id: "a",
@@ -972,13 +988,15 @@ describe("planDedupe", () => {
 
   it("leaves a lone copy alone", () => {
     expect(
-      planDedupe({ rows: [row({ id: "a", key: "k-a", hash: "h" })] })
+      Attachments.planDedupe({
+        rows: [row({ id: "a", key: "k-a", hash: "h" })]
+      })
     ).toEqual([])
   })
 
   it("never merges rows whose hashes differ", () => {
     expect(
-      planDedupe({
+      Attachments.planDedupe({
         rows: [
           row({ id: "a", key: "k-a", hash: "h1" }),
           row({ id: "b", key: "k-b", hash: "h2" })
@@ -989,7 +1007,7 @@ describe("planDedupe", () => {
 
   it("never merges a matching hash at a different size", () => {
     expect(
-      planDedupe({
+      Attachments.planDedupe({
         rows: [
           row({ id: "a", key: "k-a", hash: "h", size: 100 }),
           row({ id: "b", key: "k-b", hash: "h", size: 200 })
@@ -1000,7 +1018,7 @@ describe("planDedupe", () => {
 
   it("skips rows whose hash is not known yet", () => {
     expect(
-      planDedupe({
+      Attachments.planDedupe({
         rows: [
           row({ id: "a", key: "k-a", hash: null }),
           row({ id: "b", key: "k-b", hash: null })
@@ -1011,7 +1029,7 @@ describe("planDedupe", () => {
 
   it("leaves a duplicate that already shares the canonical object", () => {
     expect(
-      planDedupe({
+      Attachments.planDedupe({
         rows: [
           row({
             id: "a",
@@ -1031,7 +1049,7 @@ describe("planDedupe", () => {
   })
 
   it("collapses a whole group onto one object", () => {
-    const plan = planDedupe({
+    const plan = Attachments.planDedupe({
       rows: [
         row({ id: "a", key: "k-a", hash: "h", at: "2026-09-01T00:00:00.000Z" }),
         row({ id: "b", key: "k-b", hash: "h", at: "2026-09-02T00:00:00.000Z" }),
@@ -1046,7 +1064,7 @@ describe("planDedupe", () => {
 describe("summarizeAttachments", () => {
   it("counts every row and its bytes when nothing is shared", () => {
     expect(
-      summarizeAttachments({
+      Attachments.summarizeAttachments({
         rows: [
           { objectKey: "k-a", byteSize: 100, status: "live" },
           { objectKey: "k-b", byteSize: 200, status: "orphaned" }
@@ -1063,7 +1081,7 @@ describe("summarizeAttachments", () => {
   })
 
   it("charges a deduplicated object's bytes once, not once per row", () => {
-    const summary = summarizeAttachments({
+    const summary = Attachments.summarizeAttachments({
       rows: [
         { objectKey: "k", byteSize: 100, status: "live" },
         { objectKey: "k", byteSize: 100, status: "live" }
@@ -1074,7 +1092,7 @@ describe("summarizeAttachments", () => {
   })
 
   it("charges a shared object to its live row rather than the orphaned one", () => {
-    const summary = summarizeAttachments({
+    const summary = Attachments.summarizeAttachments({
       rows: [
         { objectKey: "k", byteSize: 100, status: "orphaned" },
         { objectKey: "k", byteSize: 100, status: "live" }
@@ -1087,7 +1105,7 @@ describe("summarizeAttachments", () => {
   })
 
   it("leaves pending bytes out of the headline, since the object may not exist", () => {
-    const summary = summarizeAttachments({
+    const summary = Attachments.summarizeAttachments({
       rows: [
         { objectKey: "k-a", byteSize: 100, status: "live" },
         { objectKey: "k-b", byteSize: 900, status: "pending" }
@@ -1103,7 +1121,7 @@ describe("summarizeAttachments", () => {
   })
 
   it("reports zeroes for an empty bucket", () => {
-    expect(summarizeAttachments({ rows: [] })).toEqual({
+    expect(Attachments.summarizeAttachments({ rows: [] })).toEqual({
       byStatus: [],
       count: 0,
       bytes: 0
@@ -1116,7 +1134,7 @@ describe("missingIds", () => {
     const capture: { where?: string } = {}
     return {
       capture,
-      layer: AttachmentsLive.pipe(
+      layer: Attachments.layer.pipe(
         Layer.provide(
           databaseLayer(({ sql }) =>
             Effect.sync(() => {
@@ -1135,7 +1153,7 @@ describe("missingIds", () => {
   it.effect("names only the referenced ids that no longer resolve", () =>
     Effect.gen(function* () {
       const { layer } = resolvableHarness([{ id: "a" }, { id: "c" }])
-      const ids = yield* Attachments.pipe(
+      const ids = yield* Attachments.Attachments.pipe(
         Effect.flatMap((a) => a.missingIds("acme", ["a", "b", "c"])),
         Effect.provide(layer)
       )
@@ -1146,7 +1164,7 @@ describe("missingIds", () => {
   it.effect("names nothing when every referenced id resolves", () =>
     Effect.gen(function* () {
       const { layer } = resolvableHarness([{ id: "a" }])
-      const ids = yield* Attachments.pipe(
+      const ids = yield* Attachments.Attachments.pipe(
         Effect.flatMap((a) => a.missingIds("acme", ["a"])),
         Effect.provide(layer)
       )
@@ -1157,7 +1175,7 @@ describe("missingIds", () => {
   it.effect("asks for nothing when the body references nothing", () =>
     Effect.gen(function* () {
       const { layer, capture } = resolvableHarness([])
-      const ids = yield* Attachments.pipe(
+      const ids = yield* Attachments.Attachments.pipe(
         Effect.flatMap((a) => a.missingIds("acme", [])),
         Effect.provide(layer)
       )
@@ -1171,7 +1189,7 @@ describe("missingIds", () => {
     () =>
       Effect.gen(function* () {
         const { layer, capture } = resolvableHarness([{ id: "a" }])
-        yield* Attachments.pipe(
+        yield* Attachments.Attachments.pipe(
           Effect.flatMap((a) => a.missingIds("acme", ["a"])),
           Effect.provide(layer)
         )

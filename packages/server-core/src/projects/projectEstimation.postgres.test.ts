@@ -21,7 +21,7 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { accessLayer, projectScope } from "../access/testing"
 import { testActivityLayer } from "../activity/testing"
-import { Attachments } from "../attachments/Attachments"
+import * as Attachments from "../attachments/Attachments"
 import { Comments } from "../comments/Comments"
 import { FigmaLinks } from "../figma/FigmaLinks"
 import { GitHub } from "../github/GitHub"
@@ -136,7 +136,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
             Layer.mock(GitHub, {}),
             Layer.mock(Groups.Groups, {}),
             Layer.mock(Comments, {}),
-            Layer.mock(Attachments, {}),
+            Layer.mock(Attachments.Attachments, {}),
             Layer.mock(FigmaLinks, {}),
             Layer.mock(Users, {}),
             Layer.mock(Library, {})

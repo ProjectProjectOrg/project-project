@@ -26,7 +26,7 @@ import { SlackServicesLive } from "@pp/integration-slack/Services"
 import { AccessLive } from "@pp/server-core/access/AccessLive"
 import { TicketActivityFeedLive } from "@pp/server-core/activity/TicketActivityFeed"
 import { TicketActivityLive } from "@pp/server-core/activity/TicketActivityLive"
-import { AttachmentsLive } from "@pp/server-core/attachments/AttachmentsLive"
+import * as Attachments from "@pp/server-core/attachments/Attachments"
 import { AttachmentUploadsLive } from "@pp/server-core/attachments/AttachmentUploadsLive"
 import { BotsLive } from "@pp/server-core/bots/BotsLive"
 import { CommentsLive } from "@pp/server-core/comments/CommentsLive"
@@ -163,7 +163,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(TicketActivityFeedLive),
     Layer.provideMerge(LibraryLive),
     Layer.provideMerge(AttachmentUploadsLive),
-    Layer.provideMerge(AttachmentsLive),
+    Layer.provideMerge(Attachments.layer),
     Layer.provideMerge(FigmaLinksLive),
     Layer.provideMerge(LinkPreviewsLive),
     Layer.provideMerge(CommentsLive),

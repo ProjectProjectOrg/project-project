@@ -29,7 +29,7 @@ import * as Schema from "effect/Schema"
 import { databaseLayer } from "../../test/database"
 import { accessLayer, projectScope } from "../access/testing"
 import { passthroughTicketActivity } from "../activity/testing"
-import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
+import * as Attachments from "../attachments/Attachments"
 import { Comments, type CommentsShape } from "../comments/Comments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "../github/GitHub"
@@ -297,9 +297,9 @@ export const makeFakeGroups = (
 export const FakeGroups = makeFakeGroups()
 
 export const makeFakeAttachments = (
-  overrides: Partial<AttachmentsShape> = {}
-): Layer.Layer<Attachments> =>
-  Layer.succeed(Attachments, {
+  overrides: Partial<Attachments.Attachments["Service"]> = {}
+): Layer.Layer<Attachments.Attachments> =>
+  Layer.succeed(Attachments.Attachments, {
     prepare: () => unexpected("Attachments.prepare"),
     commit: () => unexpected("Attachments.commit"),
     storeBytes: () => unexpected("Attachments.storeBytes"),
@@ -313,7 +313,7 @@ export const makeFakeAttachments = (
     reapOnce: () => unexpected("Attachments.reapOnce"),
     dedupeOnce: () => unexpected("Attachments.dedupeOnce"),
     ...overrides
-  } satisfies AttachmentsShape)
+  } satisfies Attachments.Attachments["Service"])
 
 export const makeFakeFigmaLinks = (
   overrides: Partial<FigmaLinksShape> = {}
@@ -764,7 +764,7 @@ export type TicketsLayerOptions = Readonly<{
   ticketIndex?: Layer.Layer<
     TicketIndex.TicketIndex | TicketBranchIndex.TicketBranchIndex
   >
-  attachments?: Layer.Layer<Attachments>
+  attachments?: Layer.Layer<Attachments.Attachments>
   figmaLinks?: Layer.Layer<FigmaLinks>
   scope?: ProjectScopeShape
   gitAutomation?: GitAutomationConfig

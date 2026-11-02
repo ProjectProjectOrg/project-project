@@ -22,7 +22,7 @@ import {
 } from "@pp/db/schema"
 import { Access } from "@pp/server-core/access/Access"
 import { accessLayer, projectScope } from "@pp/server-core/access/testing"
-import * as AttachmentsLayer from "@pp/server-core/attachments/AttachmentsLive"
+import * as Attachments from "@pp/server-core/attachments/Attachments"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import * as AttachmentUploadsLayer from "@pp/server-core/attachments/AttachmentUploadsLive"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
@@ -268,7 +268,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
         })
   )
   const domain = AttachmentUploadsLayer.AttachmentUploadsLive.pipe(
-    Layer.provideMerge(AttachmentsLayer.AttachmentsLive),
+    Layer.provideMerge(Attachments.layer),
     Layer.provideMerge(dependencies)
   )
   const context = yield* Layer.build(

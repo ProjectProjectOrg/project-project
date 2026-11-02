@@ -13,7 +13,7 @@ import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 import type * as Stream from "effect/Stream"
 
-import type { AttachmentUploadError } from "./Attachments"
+import type * as Attachments from "./Attachments"
 
 export class AttachmentUploads extends Context.Service<
   AttachmentUploads,
@@ -23,7 +23,7 @@ export class AttachmentUploads extends Context.Service<
       input: Omit<PrepareAttachmentInput, "byteSize">
     ) => Effect.Effect<
       PrepareAttachmentResult,
-      AttachmentUploadError,
+      Attachments.AttachmentUploadError,
       ProjectScope
     >
     readonly receive: (
@@ -33,7 +33,7 @@ export class AttachmentUploads extends Context.Service<
     ) => Effect.Effect<
       Pick<Attachment, "id" | "url" | "filename" | "contentType">,
       | Forbidden
-      | AttachmentUploadError
+      | Attachments.AttachmentUploadError
       | AttachmentNotUploaded
       | Unauthorized
       | Validation

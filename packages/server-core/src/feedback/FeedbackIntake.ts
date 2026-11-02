@@ -19,7 +19,7 @@ import type { Multipart } from "effect/http"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 
-import { Attachments } from "../attachments/Attachments"
+import * as Attachments from "../attachments/Attachments"
 import type { Bot } from "../bots/Bots"
 import { SystemProjects } from "../projects/SystemProjects"
 import * as TicketCommands from "../tickets/TicketCommands"
@@ -72,7 +72,7 @@ export class FeedbackIntake extends Context.Service<
       const config = yield* FeedbackConfig
       const systemProjects = yield* SystemProjects
       const commands = yield* TicketCommands.TicketCommands
-      const attachments = yield* Attachments
+      const attachments = yield* Attachments.Attachments
       const fs = yield* FileSystem.FileSystem
 
       const openReceipt = Effect.fn("FeedbackIntake.openReceipt")(function* (

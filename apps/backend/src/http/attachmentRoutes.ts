@@ -1,8 +1,4 @@
-import {
-  Attachments,
-  attachmentServesInline,
-  deriveAttachmentEtag
-} from "@pp/server-core/attachments/Attachments"
+import * as Attachments from "@pp/server-core/attachments/Attachments"
 import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { Users } from "@pp/server-core/users/Users"
 import {
@@ -73,7 +69,7 @@ const streamOriginal = (
   contentType: string,
   upstreamEtag: string | null
 ) => {
-  const etag = deriveAttachmentEtag(upstreamEtag, null)
+  const etag = Attachments.deriveAttachmentEtag(upstreamEtag, null)
   return HttpServerResponse.stream(
     Stream.fromReadableStream({
       evaluate: () => body,
@@ -107,7 +103,7 @@ const proxyAttachment = Effect.fn("attachmentRoutes.proxyAttachment")(
     const original = new Uint8Array(buffer)
 
     const serveOriginal = () => {
-      const etag = deriveAttachmentEtag(upstreamEtag, null)
+      const etag = Attachments.deriveAttachmentEtag(upstreamEtag, null)
       return HttpServerResponse.uint8Array(original, {
         contentType,
         headers: immutableHeaders(etag)
@@ -124,7 +120,7 @@ const proxyAttachment = Effect.fn("attachmentRoutes.proxyAttachment")(
     const resized = yield* resizeTo(original, rung, animated)
     if (resized === null) return notFound
 
-    const etag = deriveAttachmentEtag(upstreamEtag, rung)
+    const etag = Attachments.deriveAttachmentEtag(upstreamEtag, rung)
     return HttpServerResponse.uint8Array(new Uint8Array(resized), {
       contentType,
       headers: immutableHeaders(etag)
@@ -159,12 +155,12 @@ const serveAttachment = Effect.gen(function* () {
     : false
   const view = attachmentViewParams(webReq.url)
 
-  const attachments = yield* Attachments
+  const attachments = yield* Attachments.Attachments
   const { url: signed, contentType } = yield* attachments
     .resolveForServing(ref.orgSlug, ref.id, { download })
     .pipe(Effect.provideService(CurrentUser, viewer))
 
-  if (!attachmentServesInline({ contentType, download })) {
+  if (!Attachments.attachmentServesInline({ contentType, download })) {
     return HttpServerResponse.redirect(signed, {
       status: 302,
       headers: { "cache-control": "private, no-store" }

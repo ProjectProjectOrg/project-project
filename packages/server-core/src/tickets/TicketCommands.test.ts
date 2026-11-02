@@ -33,7 +33,7 @@ import {
   recordingTicketActivity,
   type RecordedActivity
 } from "../activity/testing"
-import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
+import * as Attachments from "../attachments/Attachments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "../github/GitHub"
 import * as Groups from "../groups/Groups"
@@ -186,7 +186,7 @@ const FakeTicketBranchIndex = Layer.succeed(
   }
 )
 
-const FakeAttachments = Layer.succeed(Attachments, {
+const FakeAttachments = Layer.succeed(Attachments.Attachments, {
   prepare: () => unexpected("Attachments.prepare"),
   commit: () => unexpected("Attachments.commit"),
   storeBytes: () => unexpected("Attachments.storeBytes"),
@@ -199,7 +199,7 @@ const FakeAttachments = Layer.succeed(Attachments, {
   missingIds: () => Effect.succeed([]),
   reapOnce: () => unexpected("Attachments.reapOnce"),
   dedupeOnce: () => unexpected("Attachments.dedupeOnce")
-} satisfies AttachmentsShape)
+} satisfies Attachments.Attachments["Service"])
 
 const FakeFigmaLinks = Layer.succeed(FigmaLinks, {
   reconcileTicket: () => Effect.void,

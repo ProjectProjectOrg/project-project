@@ -8,10 +8,7 @@ import * as BunServices from "@effect/platform-bun/BunServices"
 import { DbLive, PgLive } from "@pp/db"
 import { accessLayer, projectScope } from "@pp/server-core/access/testing"
 import { passthroughTicketActivity } from "@pp/server-core/activity/testing"
-import {
-  Attachments,
-  type AttachmentsShape
-} from "@pp/server-core/attachments/Attachments"
+import * as Attachments from "@pp/server-core/attachments/Attachments"
 import { Comments, type CommentsShape } from "@pp/server-core/comments/Comments"
 import {
   FigmaLinks,
@@ -445,7 +442,7 @@ const FakeUsers = Layer.succeed(Users, {
   fullByIds: () => Effect.succeed([])
 } satisfies UsersShape)
 
-const FakeAttachments = Layer.succeed(Attachments, {
+const FakeAttachments = Layer.succeed(Attachments.Attachments, {
   prepare: () => unexpected("Attachments.prepare"),
   commit: () => unexpected("Attachments.commit"),
   storeBytes: () => unexpected("Attachments.storeBytes"),
@@ -458,7 +455,7 @@ const FakeAttachments = Layer.succeed(Attachments, {
   missingIds: () => Effect.succeed([]),
   reapOnce: () => unexpected("Attachments.reapOnce"),
   dedupeOnce: () => unexpected("Attachments.dedupeOnce")
-} satisfies AttachmentsShape)
+} satisfies Attachments.Attachments["Service"])
 
 const PassthroughLibrary = Layer.mock(Library, {
   resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body)
