@@ -225,14 +225,12 @@ function makeFakeDocs(initial?: {
           .filter((ticket) => requested === null || requested.has(ticket.id))
           .map(ticketIndexEntryFromDocument)
       }),
-    query: () =>
-      Effect.die(new Error("unexpected TicketIndex.TicketIndex.query")),
+    query: () => Effect.die(new Error("unexpected TicketIndex.query")),
     querySections: () =>
-      Effect.die(new Error("unexpected TicketIndex.TicketIndex.querySections")),
+      Effect.die(new Error("unexpected TicketIndex.querySections")),
     orderKeyFor: () =>
-      Effect.die(new Error("unexpected TicketIndex.TicketIndex.orderKeyFor")),
-    count: () =>
-      Effect.die(new Error("unexpected TicketIndex.TicketIndex.count")),
+      Effect.die(new Error("unexpected TicketIndex.orderKeyFor")),
+    count: () => Effect.die(new Error("unexpected TicketIndex.count")),
     listIds: () => Effect.succeed([...ticketsById.keys()]),
     existingIds: (_project, ticketIds) =>
       Effect.succeed(
