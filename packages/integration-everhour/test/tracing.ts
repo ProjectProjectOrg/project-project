@@ -4,8 +4,6 @@ import * as Tracer from "effect/Tracer"
 
 export type TracedSpan = Readonly<{ name: string; parent: string | null }>
 
-// Runs the effect under a recording tracer and returns the Everhour service
-// spans it opened, each with the name of its parent span (null at the root).
 export const everhourSpans = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function* () {
     const spans: Array<Tracer.NativeSpan> = []
