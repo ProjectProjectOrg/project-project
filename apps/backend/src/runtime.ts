@@ -6,22 +6,15 @@ import { EverhourServicesLive } from "@pp/integration-everhour/Services"
 import * as GitHubProjectStateCache from "@pp/integration-github/projectStateCache"
 import * as GitHubRequest from "@pp/integration-github/request"
 import * as JiraCleanupWorkflow from "@pp/integration-jira/CleanupWorkflow"
-import {
-  JiraClientLive,
-  JiraTransport,
-  JiraTransportLive
-} from "@pp/integration-jira/Client"
-import { JiraCredentialsLive } from "@pp/integration-jira/Credentials"
-import { JiraMigrationArtifacts } from "@pp/integration-jira/MigrationArtifacts"
-import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
-import { JiraMigrationsDurableLive } from "@pp/integration-jira/Migrations"
-import {
-  JiraOAuthConfig,
-  JiraOAuthConfigLive,
-  JiraTokenEndpoint,
-  JiraTokenEndpointLive
-} from "@pp/integration-jira/OAuth"
+import * as Client from "@pp/integration-jira/Client"
+import * as Credentials from "@pp/integration-jira/Credentials"
+import * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
+import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
+import * as Migrations from "@pp/integration-jira/Migrations"
+import * as OAuthConfig from "@pp/integration-jira/OAuthConfig"
 import { JiraMigrationRetentionLive } from "@pp/integration-jira/Retention"
+import * as TokenEndpoint from "@pp/integration-jira/TokenEndpoint"
+import * as Transport from "@pp/integration-jira/Transport"
 import { SlackServicesLive } from "@pp/integration-slack/Services"
 import * as Access from "@pp/server-core/access/Access"
 import * as TicketActivity from "@pp/server-core/activity/TicketActivity"
@@ -104,14 +97,14 @@ const EverhourIntegrationLive = EverhourServicesLive.pipe(
 )
 
 const makeJiraServicesLive = <TE, TR, EE, ER, CE, CR>(
-  transport: Layer.Layer<JiraTransport, TE, TR>,
-  tokenEndpoint: Layer.Layer<JiraTokenEndpoint, EE, ER>,
-  oauthConfig: Layer.Layer<JiraOAuthConfig, CE, CR>
+  transport: Layer.Layer<Transport.JiraTransport, TE, TR>,
+  tokenEndpoint: Layer.Layer<TokenEndpoint.JiraTokenEndpoint, EE, ER>,
+  oauthConfig: Layer.Layer<OAuthConfig.JiraOAuthConfig, CE, CR>
 ) =>
-  JiraClientLive.pipe(
+  Client.layer.pipe(
     Layer.provideMerge(transport),
     Layer.provideMerge(
-      JiraCredentialsLive.pipe(
+      Credentials.layer.pipe(
         Layer.provideMerge(tokenEndpoint.pipe(Layer.provideMerge(oauthConfig))),
         Layer.provideMerge(JiraHostLive.pipe(Layer.provide(SecretCrypto.layer)))
       )
@@ -121,10 +114,10 @@ const makeJiraServicesLive = <TE, TR, EE, ER, CE, CR>(
 const JiraDurableServicesLive = Layer.unwrap(
   Effect.gen(function* () {
     const cleanup = yield* JiraCleanupWorkflow.makeJiraCleanupCommands
-    const projection = yield* JiraMigrationProjection
-    const artifacts = yield* JiraMigrationArtifacts
+    const projection = yield* MigrationProjection.JiraMigrationProjection
+    const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
     return Layer.mergeAll(
-      JiraMigrationsDurableLive(
+      Migrations.layer(
         cleanup,
         {
           unresolvedFailedAttachments: projection.unresolvedFailedAttachments
@@ -151,9 +144,9 @@ export const BackendInfrastructureLive = Layer.mergeAll(
 )
 
 export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
-  transport: Layer.Layer<JiraTransport, TE, TR>,
-  tokenEndpoint: Layer.Layer<JiraTokenEndpoint, EE, ER>,
-  oauthConfig: Layer.Layer<JiraOAuthConfig, CE, CR>
+  transport: Layer.Layer<Transport.JiraTransport, TE, TR>,
+  tokenEndpoint: Layer.Layer<TokenEndpoint.JiraTokenEndpoint, EE, ER>,
+  oauthConfig: Layer.Layer<OAuthConfig.JiraOAuthConfig, CE, CR>
 ) =>
   Tags.layer
     .pipe(
@@ -221,15 +214,15 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     )
 
 export const BackendServicesLive = makeBackendServicesLive(
-  JiraTransportLive,
-  JiraTokenEndpointLive,
-  JiraOAuthConfigLive
+  Transport.layer,
+  TokenEndpoint.layer,
+  OAuthConfig.layer
 )
 
 export const makeBackendHttpServicesLive = <TE, TR, EE, ER, CE, CR>(
-  transport: Layer.Layer<JiraTransport, TE, TR>,
-  tokenEndpoint: Layer.Layer<JiraTokenEndpoint, EE, ER>,
-  oauthConfig: Layer.Layer<JiraOAuthConfig, CE, CR>
+  transport: Layer.Layer<Transport.JiraTransport, TE, TR>,
+  tokenEndpoint: Layer.Layer<TokenEndpoint.JiraTokenEndpoint, EE, ER>,
+  oauthConfig: Layer.Layer<OAuthConfig.JiraOAuthConfig, CE, CR>
 ) =>
   Layer.mergeAll(
     AuthenticationLive,
@@ -243,9 +236,9 @@ export const makeBackendHttpServicesLive = <TE, TR, EE, ER, CE, CR>(
   )
 
 export const BackendHttpServicesLive = makeBackendHttpServicesLive(
-  JiraTransportLive,
-  JiraTokenEndpointLive,
-  JiraOAuthConfigLive
+  Transport.layer,
+  TokenEndpoint.layer,
+  OAuthConfig.layer
 )
 
 export const BackendRuntimeLive = BackendServicesLive.pipe(

@@ -1,11 +1,11 @@
 import { it } from "@effect/vitest"
-import { JiraClient } from "@pp/integration-jira/Client"
+import * as Client from "@pp/integration-jira/Client"
 import {
   JiraScanPageResult,
   defineScanPageActivity,
   scanPageActivityName
 } from "@pp/integration-jira/MigrationActivities"
-import { JiraMigrationArtifacts } from "@pp/integration-jira/MigrationArtifacts"
+import * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
 import { buildJiraScanArtifacts } from "@pp/integration-jira/Scan"
 import { scanCollection } from "@pp/integration-jira/Scan"
 import { Schema } from "effect"
@@ -257,8 +257,8 @@ describe("durable scan page", () => {
       Effect.gen(function* () {
         const fixture = makeScanTestLayer()
         yield* Effect.gen(function* () {
-          const client = yield* JiraClient
-          const artifacts = yield* JiraMigrationArtifacts
+          const client = yield* Client.JiraClient
+          const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
           const progress: unknown[] = []
           const input = {
             ...scanContext,
@@ -418,8 +418,8 @@ describe("scan collection pagination", () => {
           )
         })
         yield* Effect.gen(function* () {
-          const client = yield* JiraClient
-          const artifacts = yield* JiraMigrationArtifacts
+          const client = yield* Client.JiraClient
+          const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
           const pages = yield* scanCollection(
             { ...scanContext, kind, parentId: "1" },
             (input) =>
@@ -455,7 +455,7 @@ it.effect(
       }
       const fixture = makeScanTestLayer(() => Effect.succeed(response(raw)))
       yield* Effect.gen(function* () {
-        const artifacts = yield* JiraMigrationArtifacts
+        const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
         const page = yield* defineScanPageActivity(
           {
             ...scanContext,
@@ -466,7 +466,7 @@ it.effect(
             operationTry: 0
           },
           {
-            client: yield* JiraClient,
+            client: yield* Client.JiraClient,
             artifacts,
             progress: () => Effect.succeed(true)
           }
@@ -489,8 +489,8 @@ it.effect(
     Effect.gen(function* () {
       const fixture = makeScanTestLayer()
       yield* Effect.gen(function* () {
-        const artifacts = yield* JiraMigrationArtifacts
-        const client = yield* JiraClient
+        const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
+        const client = yield* Client.JiraClient
         const page = yield* defineScanPageActivity(
           {
             ...scanContext,
@@ -673,8 +673,8 @@ it.effect(
       }
       const fixture = makeScanTestLayer(() => Effect.succeed(response(source)))
       yield* Effect.gen(function* () {
-        const artifacts = yield* JiraMigrationArtifacts
-        const client = yield* JiraClient
+        const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
+        const client = yield* Client.JiraClient
         const page = yield* defineScanPageActivity(
           {
             ...scanContext,
@@ -811,7 +811,7 @@ it.effect(
         )
       )
       const result = yield* Effect.gen(function* () {
-        const client = yield* JiraClient
+        const client = yield* Client.JiraClient
         return yield* Effect.result(
           client.searchIssuesPage({
             userId: "user-1",

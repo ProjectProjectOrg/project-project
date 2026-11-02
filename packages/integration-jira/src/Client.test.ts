@@ -8,6 +8,7 @@ import * as Fiber from "effect/Fiber"
 import { FetchHttpClient } from "effect/http"
 import * as Layer from "effect/Layer"
 import * as Match from "effect/Match"
+import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Ref from "effect/Ref"
 import * as Result from "effect/Result"
@@ -18,19 +19,9 @@ import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
 import { JiraRateLimited, JiraTransientFailure } from "./Blocked"
-import {
-  JiraClient,
-  JiraClientLive,
-  JiraTransport,
-  JiraTransportLive,
-  paginateCursor,
-  paginateOffset,
-  type JiraClientShape,
-  type JiraCallError,
-  type JiraTransportRequest,
-  type JiraTransportResponse
-} from "./Client"
-import { JiraCredentials } from "./Credentials"
+import * as Client from "./Client"
+import * as Credentials from "./Credentials"
+import * as Transport from "./Transport"
 
 const durableFailureJson = Schema.fromJsonString(
   Schema.Union([JiraRateLimited, JiraTransientFailure])
@@ -42,7 +33,7 @@ const encodeRateLimited = Schema.encodeSync(JiraRateLimited)
 const decodeUnknownJiraRateLimitedOption =
   Schema.decodeUnknownOption(JiraRateLimited)
 
-const stubCredentials = JiraCredentials.of({
+const stubCredentials = Credentials.JiraCredentials.of({
   status: () => Effect.die("unused"),
   beginConnect: () => Effect.die("unused"),
   completeConnect: () => Effect.die("unused"),
@@ -59,7 +50,7 @@ describe("Jira client", () => {
     () =>
       Effect.gen(function* () {
         const seen: Array<string | null> = []
-        const values = yield* paginateCursor((cursor) => {
+        const values = yield* Client.paginateCursor((cursor) => {
           seen.push(cursor)
           return Effect.succeed(
             Match.value(cursor).pipe(
@@ -80,7 +71,7 @@ describe("Jira client", () => {
   it.effect("rejects a repeated cursor", () =>
     Effect.gen(function* () {
       const result = yield* Effect.result(
-        paginateCursor(() =>
+        Client.paginateCursor(() =>
           Effect.succeed({ values: [], nextPageToken: "repeat" })
         )
       )
@@ -97,7 +88,7 @@ describe("Jira client", () => {
     () =>
       Effect.gen(function* () {
         const seen: Array<number> = []
-        const values = yield* paginateOffset((startAt) => {
+        const values = yield* Client.paginateOffset((startAt) => {
           seen.push(startAt)
           return Effect.succeed(
             Match.value(startAt).pipe(
@@ -132,8 +123,10 @@ describe("Jira client", () => {
 
   it.effect("adds bearer auth and exhausts project pagination", () =>
     Effect.gen(function* () {
-      const requests = yield* Ref.make<Array<JiraTransportRequest>>([])
-      const transport = JiraTransport.of({
+      const requests = yield* Ref.make<Array<Transport.JiraTransportRequest>>(
+        []
+      )
+      const transport = Transport.JiraTransport.of({
         execute: (request) =>
           Effect.gen(function* () {
             yield* Ref.update(requests, (all) => [...all, request])
@@ -180,10 +173,10 @@ describe("Jira client", () => {
               headers: {},
               json: Effect.succeed(body),
               stream: Stream.empty
-            } satisfies JiraTransportResponse
+            } satisfies Transport.JiraTransportResponse
           })
       })
-      const credentials = JiraCredentials.of({
+      const credentials = Credentials.JiraCredentials.of({
         status: () => Effect.die("unused"),
         beginConnect: () => Effect.die("unused"),
         completeConnect: () => Effect.die("unused"),
@@ -195,7 +188,7 @@ describe("Jira client", () => {
         markReconnectRequired: () => Effect.void
       })
       const projects = yield* Effect.gen(function* () {
-        const client = yield* JiraClient
+        const client = yield* Client.JiraClient
         return yield* client.projects("user-1", "cloud id")
       }).pipe(Effect.provide(clientLayer(transport, credentials)))
       const recorded = yield* Ref.get(requests)
@@ -210,7 +203,7 @@ describe("Jira client", () => {
 
   it.effect("decodes project statuses with top-level issue type fields", () =>
     Effect.gen(function* () {
-      const transport = JiraTransport.of({
+      const transport = Transport.JiraTransport.of({
         execute: () =>
           Effect.succeed({
             status: 200,
@@ -232,7 +225,7 @@ describe("Jira client", () => {
             stream: Stream.empty
           })
       })
-      const credentials = JiraCredentials.of({
+      const credentials = Credentials.JiraCredentials.of({
         status: () => Effect.die("unused"),
         beginConnect: () => Effect.die("unused"),
         completeConnect: () => Effect.die("unused"),
@@ -243,7 +236,7 @@ describe("Jira client", () => {
         markReconnectRequired: () => Effect.void
       })
       const result = yield* Effect.gen(function* () {
-        const client = yield* JiraClient
+        const client = yield* Client.JiraClient
         return yield* client.projectStatuses("user", "cloud", "APP")
       }).pipe(Effect.provide(clientLayer(transport, credentials)))
       expect(result).toEqual([
@@ -265,8 +258,8 @@ describe("Jira client", () => {
 
   it.effect("omits an empty expand value from enhanced issue search", () =>
     Effect.gen(function* () {
-      const requests: Array<JiraTransportRequest> = []
-      const transport = JiraTransport.of({
+      const requests: Array<Transport.JiraTransportRequest> = []
+      const transport = Transport.JiraTransport.of({
         execute: (request) => {
           requests.push(request)
           return Effect.succeed({
@@ -280,7 +273,7 @@ describe("Jira client", () => {
           })
         }
       })
-      const credentials = JiraCredentials.of({
+      const credentials = Credentials.JiraCredentials.of({
         status: () => Effect.die("unused"),
         beginConnect: () => Effect.die("unused"),
         completeConnect: () => Effect.die("unused"),
@@ -291,7 +284,7 @@ describe("Jira client", () => {
         markReconnectRequired: () => Effect.void
       })
       const issues = yield* Effect.gen(function* () {
-        const client = yield* JiraClient
+        const client = yield* Client.JiraClient
         return yield* client.searchIssues("user", "cloud", {
           jql: 'project = "APP"',
           fields: ["summary"]
@@ -308,8 +301,8 @@ describe("Jira client", () => {
 
   it.effect("uses the board-scoped enhanced endpoint for sprint issues", () =>
     Effect.gen(function* () {
-      const requests: Array<JiraTransportRequest> = []
-      const transport = JiraTransport.of({
+      const requests: Array<Transport.JiraTransportRequest> = []
+      const transport = Transport.JiraTransport.of({
         execute: (request) => {
           requests.push(request)
           const nextPageToken = new URL(request.url).searchParams.get(
@@ -348,7 +341,7 @@ describe("Jira client", () => {
           })
         }
       })
-      const credentials = JiraCredentials.of({
+      const credentials = Credentials.JiraCredentials.of({
         status: () => Effect.die("unused"),
         beginConnect: () => Effect.die("unused"),
         completeConnect: () => Effect.die("unused"),
@@ -359,7 +352,7 @@ describe("Jira client", () => {
         markReconnectRequired: () => Effect.void
       })
       const exit = yield* Effect.gen(function* () {
-        const client = yield* JiraClient
+        const client = yield* Client.JiraClient
         return yield* Effect.exit(
           client.sprintIssues("user", "cloud", 84, 37, ["id"])
         )
@@ -396,7 +389,7 @@ describe("Jira client", () => {
   it.effect("maps permission failures without reading the upstream body", () =>
     Effect.gen(function* () {
       let bodyRead = false
-      const transport = JiraTransport.of({
+      const transport = Transport.JiraTransport.of({
         execute: () =>
           Effect.succeed({
             status: 403,
@@ -408,7 +401,7 @@ describe("Jira client", () => {
             stream: Stream.empty
           })
       })
-      const credentials = JiraCredentials.of({
+      const credentials = Credentials.JiraCredentials.of({
         status: () => Effect.die("unused"),
         beginConnect: () => Effect.die("unused"),
         completeConnect: () => Effect.die("unused"),
@@ -419,7 +412,7 @@ describe("Jira client", () => {
         markReconnectRequired: () => Effect.void
       })
       const result = yield* Effect.gen(function* () {
-        const client = yield* JiraClient
+        const client = yield* Client.JiraClient
         return yield* Effect.result(client.fields("user", "cloud"))
       }).pipe(Effect.provide(clientLayer(transport, credentials)))
       expect(result).toMatchObject({
@@ -434,9 +427,9 @@ describe("Jira client", () => {
     "refreshes once when attachment download returns unauthorized",
     () =>
       Effect.gen(function* () {
-        const requests: Array<JiraTransportRequest> = []
+        const requests: Array<Transport.JiraTransportRequest> = []
         const refreshes: Array<boolean | undefined> = []
-        const transport = JiraTransport.of({
+        const transport = Transport.JiraTransport.of({
           execute: (request) => {
             requests.push(request)
             return Effect.succeed({
@@ -447,7 +440,7 @@ describe("Jira client", () => {
             })
           }
         })
-        const credentials = JiraCredentials.of({
+        const credentials = Credentials.JiraCredentials.of({
           status: () => Effect.die("unused"),
           beginConnect: () => Effect.die("unused"),
           completeConnect: () => Effect.die("unused"),
@@ -465,7 +458,7 @@ describe("Jira client", () => {
           markReconnectRequired: () => Effect.void
         })
         yield* Effect.gen(function* () {
-          const client = yield* JiraClient
+          const client = yield* Client.JiraClient
           yield* client
             .attachmentContent("user", "cloud", "123", "bytes=2-4")
             .pipe(Stream.runDrain)
@@ -484,14 +477,14 @@ describe("Jira client", () => {
 })
 
 const clientLayer = (
-  transport: typeof JiraTransport.Service,
+  transport: typeof Transport.JiraTransport.Service,
   credentials = stubCredentials
 ) =>
-  JiraClientLive.pipe(
+  Client.layer.pipe(
     Layer.provide(
       Layer.mergeAll(
-        Layer.succeed(JiraTransport, transport),
-        Layer.succeed(JiraCredentials, credentials)
+        Layer.succeed(Transport.JiraTransport, transport),
+        Layer.succeed(Credentials.JiraCredentials, credentials)
       )
     )
   )
@@ -499,7 +492,7 @@ const response = (
   status: number,
   body: Schema.Json = {},
   headers: Record<string, string> = {}
-): JiraTransportResponse => ({
+): Transport.JiraTransportResponse => ({
   status,
   headers,
   json: Effect.succeed(body),
@@ -598,9 +591,9 @@ const pageCases = [
 ] as const
 
 const requestPage = (
-  client: JiraClientShape,
+  client: Client.JiraClient["Service"],
   fixture: (typeof pageCases)[number]
-): Effect.Effect<unknown, JiraCallError> => {
+): Effect.Effect<unknown, Client.JiraCallError> => {
   switch (fixture.method) {
     case "searchIssuesPage":
       return client.searchIssuesPage(fixture.input)
@@ -631,8 +624,8 @@ describe("Jira one-page boundary", () => {
       `${fixture.method} returns one decoded page with continuation`,
       () =>
         Effect.gen(function* () {
-          const requests: Array<JiraTransportRequest> = []
-          const transport = JiraTransport.of({
+          const requests: Array<Transport.JiraTransportRequest> = []
+          const transport = Transport.JiraTransport.of({
             execute: (request) =>
               Effect.sync(() => {
                 requests.push(request)
@@ -647,7 +640,7 @@ describe("Jira one-page boundary", () => {
               })
           })
           const page = yield* Effect.gen(function* () {
-            const client = yield* JiraClient
+            const client = yield* Client.JiraClient
             return yield* requestPage(client, fixture)
           }).pipe(Effect.provide(clientLayer(transport)))
           expect(page).toMatchObject(
@@ -704,7 +697,7 @@ describe("Jira one-page boundary", () => {
       () =>
         Effect.gen(function* () {
           let requests = 0
-          const transport = JiraTransport.of({
+          const transport = Transport.JiraTransport.of({
             execute: () =>
               Effect.sync(() => {
                 requests += 1
@@ -718,7 +711,7 @@ describe("Jira one-page boundary", () => {
               })
           })
           const fiber = yield* Effect.gen(function* () {
-            const client = yield* JiraClient
+            const client = yield* Client.JiraClient
             return yield* Effect.result(client.fields("user", "cloud"))
           }).pipe(Effect.provide(clientLayer(transport)), Effect.forkChild)
           yield* TestClock.adjust(Duration.days(2))
@@ -745,7 +738,7 @@ describe("Jira one-page boundary", () => {
     it.effect(`returns typed ${reason} without retries`, () =>
       Effect.gen(function* () {
         let requests = 0
-        const transport = JiraTransport.of({
+        const transport = Transport.JiraTransport.of({
           execute: () =>
             Effect.suspend(() => {
               requests += 1
@@ -755,7 +748,7 @@ describe("Jira one-page boundary", () => {
             })
         })
         const fiber = yield* Effect.gen(function* () {
-          const client = yield* JiraClient
+          const client = yield* Client.JiraClient
           return yield* Effect.result(client.fields("user", "cloud"))
         }).pipe(Effect.provide(clientLayer(transport)), Effect.forkChild)
         yield* TestClock.adjust(Duration.seconds(10))
@@ -770,10 +763,10 @@ describe("Jira one-page boundary", () => {
   for (const secondStatus of [200, 401]) {
     it.effect(`refreshes once and handles second status ${secondStatus}`, () =>
       Effect.gen(function* () {
-        const requests: Array<JiraTransportRequest> = []
+        const requests: Array<Transport.JiraTransportRequest> = []
         const refreshes: Array<boolean | undefined> = []
         let reconnects = 0
-        const credentials = JiraCredentials.of({
+        const credentials = Credentials.JiraCredentials.of({
           ...stubCredentials,
           accessTokenFor: (_userId, options) =>
             Effect.sync(() => {
@@ -789,7 +782,7 @@ describe("Jira one-page boundary", () => {
               reconnects += 1
             })
         })
-        const transport = JiraTransport.of({
+        const transport = Transport.JiraTransport.of({
           execute: (request) =>
             Effect.sync(() => {
               requests.push(request)
@@ -797,7 +790,7 @@ describe("Jira one-page boundary", () => {
             })
         })
         const result = yield* Effect.gen(function* () {
-          const client = yield* JiraClient
+          const client = yield* Client.JiraClient
           return yield* Effect.result(client.fields("user", "cloud"))
         }).pipe(Effect.provide(clientLayer(transport, credentials)))
         expect(result).toMatchObject(
@@ -823,7 +816,7 @@ describe("Jira one-page boundary", () => {
   it.effect("rejects a stalled offset", () =>
     Effect.gen(function* () {
       const result = yield* Effect.result(
-        paginateOffset(() =>
+        Client.paginateOffset(() =>
           Effect.succeed({
             values: ["a"],
             startAt: 0,
@@ -847,7 +840,7 @@ describe("Jira boundary edge cases", () => {
     () =>
       Effect.gen(function* () {
         let requests = 0
-        const transport = JiraTransport.of({
+        const transport = Transport.JiraTransport.of({
           execute: () =>
             Effect.sync(() => {
               requests += 1
@@ -861,7 +854,7 @@ describe("Jira boundary edge cases", () => {
             })
         })
         const result = yield* Effect.gen(function* () {
-          const client = yield* JiraClient
+          const client = yield* Client.JiraClient
           return yield* Effect.result(client.projects("user", "cloud"))
         }).pipe(Effect.provide(clientLayer(transport)))
         expect(result._tag).toBe("Success")
@@ -873,7 +866,9 @@ describe("Jira boundary edge cases", () => {
     Readonly<{
       body: Schema.Json
       expected: Omit<
-        Effect.Success<ReturnType<JiraClientShape["componentsPage"]>>,
+        Effect.Success<
+          ReturnType<Client.JiraClient["Service"]["componentsPage"]>
+        >,
         "raw"
       >
     }>
@@ -915,7 +910,7 @@ describe("Jira boundary edge cases", () => {
       () =>
         Effect.gen(function* () {
           const result = yield* Effect.gen(function* () {
-            const client = yield* JiraClient
+            const client = yield* Client.JiraClient
             return yield* client.componentsPage({
               ...scope,
               projectIdOrKey: "APP"
@@ -923,7 +918,7 @@ describe("Jira boundary edge cases", () => {
           }).pipe(
             Effect.provide(
               clientLayer(
-                JiraTransport.of({
+                Transport.JiraTransport.of({
                   execute: () => Effect.succeed(response(200, fixture.body))
                 })
               )
@@ -945,14 +940,14 @@ describe("Jira boundary edge cases", () => {
     it.effect(`rejects malformed offset page ${JSON.stringify(body)}`, () =>
       Effect.gen(function* () {
         const result = yield* Effect.gen(function* () {
-          const client = yield* JiraClient
+          const client = yield* Client.JiraClient
           return yield* Effect.result(
             client.componentsPage({ ...scope, projectIdOrKey: "APP" })
           )
         }).pipe(
           Effect.provide(
             clientLayer(
-              JiraTransport.of({
+              Transport.JiraTransport.of({
                 execute: () => Effect.succeed(response(200, body))
               })
             )
@@ -970,7 +965,7 @@ describe("Jira boundary edge cases", () => {
     it.effect(`${method} rejects the supplied cursor returned unchanged`, () =>
       Effect.gen(function* () {
         const result = yield* Effect.gen(function* () {
-          const client = yield* JiraClient
+          const client = yield* Client.JiraClient
           return yield* Effect.result(
             client[method]({
               ...scope,
@@ -984,7 +979,7 @@ describe("Jira boundary edge cases", () => {
         }).pipe(
           Effect.provide(
             clientLayer(
-              JiraTransport.of({
+              Transport.JiraTransport.of({
                 execute: () =>
                   Effect.succeed(
                     response(200, { issues: [], nextPageToken: "repeat" })
@@ -1007,12 +1002,12 @@ describe("Jira boundary edge cases", () => {
       () =>
         Effect.gen(function* () {
           const result = yield* Effect.gen(function* () {
-            const client = yield* JiraClient
+            const client = yield* Client.JiraClient
             return yield* Effect.result(client.fields("user", "cloud"))
           }).pipe(
             Effect.provide(
               clientLayer(
-                JiraTransport.of({
+                Transport.JiraTransport.of({
                   execute: () => Effect.die("must not request Jira")
                 }),
                 {
@@ -1048,12 +1043,12 @@ describe("Jira boundary edge cases", () => {
     Effect.gen(function* () {
       yield* TestClock.setTime(10000)
       const result = yield* Effect.gen(function* () {
-        const client = yield* JiraClient
+        const client = yield* Client.JiraClient
         return yield* Effect.result(client.fields("user", "cloud"))
       }).pipe(
         Effect.provide(
           clientLayer(
-            JiraTransport.of({
+            Transport.JiraTransport.of({
               execute: () =>
                 Effect.succeed(
                   response(
@@ -1104,7 +1099,7 @@ describe("Jira boundary edge cases", () => {
       () =>
         Effect.gen(function* () {
           let requests = 0
-          const transport = JiraTransport.of({
+          const transport = Transport.JiraTransport.of({
             execute: () =>
               Effect.sync(() => {
                 requests += 1
@@ -1112,7 +1107,7 @@ describe("Jira boundary edge cases", () => {
               })
           })
           const result = yield* Effect.gen(function* () {
-            const client = yield* JiraClient
+            const client = yield* Client.JiraClient
             return yield* Effect.result(
               client
                 .attachmentContent("user", "cloud", "123")
@@ -1129,8 +1124,8 @@ describe("Jira boundary edge cases", () => {
     "drops bearer auth on attachment cross-origin redirects and retains byte range",
     () =>
       Effect.gen(function* () {
-        const requests: Array<JiraTransportRequest> = []
-        const transport = JiraTransport.of({
+        const requests: Array<Transport.JiraTransportRequest> = []
+        const transport = Transport.JiraTransport.of({
           execute: (request) =>
             Effect.sync(() => {
               requests.push(request)
@@ -1147,7 +1142,7 @@ describe("Jira boundary edge cases", () => {
             })
         })
         const result = yield* Effect.gen(function* () {
-          const client = yield* JiraClient
+          const client = yield* Client.JiraClient
           return yield* client
             .attachmentContent("user", "cloud", "123", "bytes=1-2")
             .pipe(Stream.runCollect)
@@ -1190,14 +1185,14 @@ describe("Jira boundary edge cases", () => {
 
 it.effect("uses fresh credentials on authenticated attachment redirects", () =>
   Effect.gen(function* () {
-    const requests: Array<JiraTransportRequest> = []
+    const requests: Array<Transport.JiraTransportRequest> = []
     let lookups = 0
-    const credentials = JiraCredentials.of({
+    const credentials = Credentials.JiraCredentials.of({
       ...stubCredentials,
       accessTokenFor: () =>
         Effect.sync(() => ({ token: Redacted.make(`token-${++lookups}`) }))
     })
-    const transport = JiraTransport.of({
+    const transport = Transport.JiraTransport.of({
       execute: (request) =>
         Effect.sync(() => {
           requests.push(request)
@@ -1207,7 +1202,7 @@ it.effect("uses fresh credentials on authenticated attachment redirects", () =>
         })
     })
     yield* Effect.gen(function* () {
-      const client = yield* JiraClient
+      const client = yield* Client.JiraClient
       yield* client
         .attachmentContent("user", "cloud", "123")
         .pipe(Stream.runDrain)
@@ -1222,14 +1217,16 @@ it.effect("uses fresh credentials on authenticated attachment redirects", () =>
 it.effect("rejects attachment responses without content", () =>
   Effect.gen(function* () {
     const result = yield* Effect.gen(function* () {
-      const client = yield* JiraClient
+      const client = yield* Client.JiraClient
       return yield* Effect.result(
         client.attachmentContent("user", "cloud", "123").pipe(Stream.runDrain)
       )
     }).pipe(
       Effect.provide(
         clientLayer(
-          JiraTransport.of({ execute: () => Effect.succeed(response(204)) })
+          Transport.JiraTransport.of({
+            execute: () => Effect.succeed(response(204))
+          })
         )
       )
     )
@@ -1256,12 +1253,12 @@ describe("Retry-After HTTP-date formats", () => {
       Effect.gen(function* () {
         yield* TestClock.setTime(now)
         const result = yield* Effect.gen(function* () {
-          const client = yield* JiraClient
+          const client = yield* Client.JiraClient
           return yield* Effect.result(client.fields("user", "cloud"))
         }).pipe(
           Effect.provide(
             clientLayer(
-              JiraTransport.of({
+              Transport.JiraTransport.of({
                 execute: () =>
                   Effect.succeed(response(429, {}, { "retry-after": header }))
               })
@@ -1327,17 +1324,17 @@ describe("Jira live JSON response transport", () => {
             { preconnect: () => undefined }
           )
         )
-        const live = JiraClientLive.pipe(
+        const live = Client.layer.pipe(
           Layer.provide(
             Layer.mergeAll(
-              JiraTransportLive.pipe(Layer.provide(FetchHttpClient.layer)),
-              Layer.succeed(JiraCredentials, stubCredentials)
+              Transport.layer.pipe(Layer.provide(FetchHttpClient.layer)),
+              Layer.succeed(Credentials.JiraCredentials, stubCredentials)
             )
           ),
           Layer.provideMerge(fetch)
         )
         const result = yield* Effect.gen(function* () {
-          const client = yield* JiraClient
+          const client = yield* Client.JiraClient
           return yield* Effect.result(client.fields("user", "cloud"))
         }).pipe(Effect.provide(live))
         assertFailure(result, expected)
@@ -1371,7 +1368,7 @@ describe("scan source provenance", () => {
           hiddenExtension: "metadata-marker"
         }
         const layer = clientLayer(
-          JiraTransport.of({
+          Transport.JiraTransport.of({
             execute: (request) =>
               Effect.succeed({
                 status: 200,
@@ -1385,7 +1382,7 @@ describe("scan source provenance", () => {
           stubCredentials
         )
         yield* Effect.gen(function* () {
-          const client = yield* JiraClient
+          const client = yield* Client.JiraClient
           const page = yield* client.searchIssuesPage({
             userId: "u",
             cloudId: "c",
@@ -1415,20 +1412,32 @@ const recordSpans = () => {
       return span
     }
   })
-  return { spans, tracer }
+  type Node = Readonly<{ name: string; children: ReadonlyArray<Node> }>
+  const childrenOf = (parent: Tracer.NativeSpan | undefined): Array<Node> =>
+    spans
+      .filter((span) =>
+        parent === undefined
+          ? Option.isNone(span.parent)
+          : Option.isSome(span.parent) && span.parent.value === parent
+      )
+      .filter((span) => span.name.startsWith("Jira"))
+      .map((span) => ({ name: span.name, children: childrenOf(span) }))
+  return { spans, tracer, tree: () => childrenOf(undefined) }
 }
 
 describe("Jira client tracing", () => {
   it.effect("pins the request spans that already existed", () => {
     const { spans, tracer } = recordSpans()
     return Effect.gen(function* () {
-      const client = yield* JiraClient
+      const client = yield* Client.JiraClient
       yield* client.fields("user", "cloud")
     }).pipe(
       Effect.withTracer(tracer),
       Effect.provide(
         clientLayer(
-          JiraTransport.of({ execute: () => Effect.succeed(response(200, [])) })
+          Transport.JiraTransport.of({
+            execute: () => Effect.succeed(response(200, []))
+          })
         )
       ),
       Effect.map(() =>
@@ -1441,6 +1450,83 @@ describe("Jira client tracing", () => {
                 name === "JiraClient.checkResponse"
             )
         ).toEqual(["JiraClient.authorize", "JiraClient.checkResponse"])
+      )
+    )
+  })
+
+  it.effect("traces each client method under its own span", () => {
+    const { tracer, tree } = recordSpans()
+    return Effect.gen(function* () {
+      const client = yield* Client.JiraClient
+      yield* client.fields("user", "cloud")
+      yield* Stream.runDrain(client.attachmentContent("user", "cloud", "10"))
+    }).pipe(
+      Effect.withTracer(tracer),
+      Effect.provide(
+        clientLayer(
+          Transport.JiraTransport.of({
+            execute: () => Effect.succeed(response(200, []))
+          })
+        )
+      ),
+      Effect.map(() =>
+        expect(tree()).toEqual([
+          {
+            name: "JiraClient.fields",
+            children: [
+              {
+                name: "JiraClient.snapshots.fields",
+                children: [
+                  { name: "JiraClient.authorize", children: [] },
+                  { name: "JiraClient.checkResponse", children: [] }
+                ]
+              }
+            ]
+          },
+          {
+            name: "JiraClient.attachmentContent",
+            children: [
+              {
+                name: "JiraClient.authorize",
+                children: [
+                  { name: "JiraClient.attachmentRedirects", children: [] }
+                ]
+              },
+              { name: "JiraClient.checkResponse", children: [] }
+            ]
+          }
+        ])
+      )
+    )
+  })
+
+  it.effect("traces the transport request", () => {
+    const { tracer, tree } = recordSpans()
+    const fetch = Layer.succeed(
+      FetchHttpClient.Fetch,
+      Object.assign(async () => Response.json([]), {
+        preconnect: () => undefined
+      })
+    )
+    return Effect.gen(function* () {
+      const transport = yield* Transport.JiraTransport
+      yield* transport.execute({
+        method: "GET",
+        url: "https://api.atlassian.com/ex/jira/cloud/rest/api/3/field",
+        headers: {}
+      })
+    }).pipe(
+      Effect.withTracer(tracer),
+      Effect.provide(
+        Transport.layer.pipe(
+          Layer.provide(FetchHttpClient.layer),
+          Layer.provide(fetch)
+        )
+      ),
+      Effect.map(() =>
+        expect(tree()).toEqual([
+          { name: "JiraTransport.execute", children: [] }
+        ])
       )
     )
   })

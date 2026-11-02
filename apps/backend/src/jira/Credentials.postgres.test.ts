@@ -6,14 +6,10 @@ import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { assertTrue } from "@effect/vitest/utils"
 import { DbLive } from "@pp/db"
-import { JiraCredentialsLive } from "@pp/integration-jira/Credentials"
-import { JiraCredentials } from "@pp/integration-jira/Credentials"
-import {
-  JIRA_SCOPES,
-  JiraOAuthConfig,
-  JiraTokenEndpoint,
-  type JiraTokenGrant
-} from "@pp/integration-jira/OAuth"
+import * as Credentials from "@pp/integration-jira/Credentials"
+import * as OAuth from "@pp/integration-jira/OAuth"
+import * as OAuthConfig from "@pp/integration-jira/OAuthConfig"
+import * as TokenEndpoint from "@pp/integration-jira/TokenEndpoint"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
@@ -92,13 +88,13 @@ describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
     const grant = (
       accessToken: string,
       refreshToken: string
-    ): JiraTokenGrant => ({
+    ): OAuth.JiraTokenGrant => ({
       accessToken,
       refreshToken,
       expiresAt: DateTime.toDate(DateTime.add(now, { hours: 1 })),
-      grantedScopes: input?.scopes ?? JIRA_SCOPES.split(" ")
+      grantedScopes: input?.scopes ?? OAuth.JIRA_SCOPES.split(" ")
     })
-    const endpoint = JiraTokenEndpoint.of({
+    const endpoint = TokenEndpoint.JiraTokenEndpoint.of({
       exchange: () => Effect.succeed(grant("access-plain", "refresh-plain")),
       refresh: () =>
         Effect.gen(function* () {
@@ -111,10 +107,10 @@ describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
     const database = DbLive.pipe(
       Layer.provideMerge(PgClient.layer({ url: Redacted.make(databaseUrl) }))
     )
-    const layer = JiraCredentialsLive.pipe(
-      Layer.provide(Layer.succeed(JiraTokenEndpoint, endpoint)),
+    const layer = Credentials.layer.pipe(
+      Layer.provide(Layer.succeed(TokenEndpoint.JiraTokenEndpoint, endpoint)),
       Layer.provide(
-        Layer.succeed(JiraOAuthConfig, {
+        Layer.succeed(OAuthConfig.JiraOAuthConfig, {
           clientId: "jira-client",
           clientSecret: Redacted.make("jira-secret"),
           publicBaseUrl: "https://app.example"
@@ -140,7 +136,7 @@ describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
         }
       })
       yield* Effect.gen(function* () {
-        const credentials = yield* JiraCredentials
+        const credentials = yield* Credentials.JiraCredentials
         yield* credentials.status(userId)
         const begin = yield* credentials.beginConnect(userId, "/profile")
         const state = Option.getOrThrow(
@@ -174,7 +170,7 @@ describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
         const otherUserId = yield* Effect.promise(() => insertUser())
         const { layer } = yield* makeTestLayer()
         const begin = yield* Effect.gen(function* () {
-          const credentials = yield* JiraCredentials
+          const credentials = yield* Credentials.JiraCredentials
           return yield* credentials.beginConnect(userId, "/profile?tab=jira")
         }).pipe(Effect.provide(layer))
         const authorizeUrl = new URL(begin.authorizeUrl)
@@ -193,19 +189,19 @@ describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
         expect(encodeJson(row.rows[0])).not.toContain(state)
         expect(row.rows[0].return_path).toBe("/profile?tab=jira")
         const wrongUser = yield* Effect.gen(function* () {
-          const credentials = yield* JiraCredentials
+          const credentials = yield* Credentials.JiraCredentials
           return yield* Effect.result(
             credentials.completeConnect(otherUserId, "code", state)
           )
         }).pipe(Effect.provide(layer))
         expect(wrongUser._tag).toBe("Failure")
         const connected = yield* Effect.gen(function* () {
-          const credentials = yield* JiraCredentials
+          const credentials = yield* Credentials.JiraCredentials
           return yield* credentials.completeConnect(userId, "code", state)
         }).pipe(Effect.provide(layer))
         expect(connected.status).toBe("connected")
         const replay = yield* Effect.gen(function* () {
-          const credentials = yield* JiraCredentials
+          const credentials = yield* Credentials.JiraCredentials
           return yield* Effect.result(
             credentials.completeConnect(userId, "code", state)
           )
@@ -219,7 +215,7 @@ describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
       const userId = yield* Effect.promise(() => insertUser())
       const { layer } = yield* makeTestLayer()
       yield* Effect.gen(function* () {
-        const credentials = yield* JiraCredentials
+        const credentials = yield* Credentials.JiraCredentials
         const { authorizeUrl } = yield* credentials.beginConnect(
           userId,
           "/profile"
@@ -237,7 +233,7 @@ describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
       expect(encodeJson(stored.rows[0])).not.toContain("access-plain")
       expect(encodeJson(stored.rows[0])).not.toContain("refresh-plain")
       const disconnected = yield* Effect.gen(function* () {
-        const credentials = yield* JiraCredentials
+        const credentials = yield* Credentials.JiraCredentials
         return yield* credentials.disconnect(userId)
       }).pipe(Effect.provide(layer))
       expect(disconnected.status).toBe("disconnected")
@@ -260,7 +256,7 @@ describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
           refreshDelay: "50 millis"
         })
         yield* Effect.gen(function* () {
-          const credentials = yield* JiraCredentials
+          const credentials = yield* Credentials.JiraCredentials
           const { authorizeUrl } = yield* credentials.beginConnect(
             userId,
             "/profile"
@@ -282,7 +278,7 @@ describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
           )
         )
         const tokens = yield* Effect.gen(function* () {
-          const credentials = yield* JiraCredentials
+          const credentials = yield* Credentials.JiraCredentials
           const first = yield* Effect.forkChild(
             credentials.accessTokenFor(userId)
           )
@@ -307,12 +303,12 @@ describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
     Effect.gen(function* () {
       const userId = yield* Effect.promise(() => insertUser())
       const { layer } = yield* makeTestLayer({
-        scopes: JIRA_SCOPES.split(" ").filter(
+        scopes: OAuth.JIRA_SCOPES.split(" ").filter(
           (scope) => scope !== "offline_access"
         )
       })
       const result = yield* Effect.gen(function* () {
-        const credentials = yield* JiraCredentials
+        const credentials = yield* Credentials.JiraCredentials
         const { authorizeUrl } = yield* credentials.beginConnect(
           userId,
           "/profile"

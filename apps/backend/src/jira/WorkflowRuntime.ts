@@ -1,5 +1,5 @@
 import * as CleanupWorkflow from "@pp/integration-jira/CleanupWorkflow"
-import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
+import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
 import * as MigrationWorkflow from "@pp/integration-jira/MigrationWorkflow"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -24,6 +24,6 @@ export const JiraWorkflowsLive = Layer.mergeAll(
   )
 ).pipe(
   Layer.provideMerge(WorkflowEngineLive),
-  Layer.provideMerge(JiraMigrationProjection.layer),
+  Layer.provideMerge(MigrationProjection.layer),
   Layer.provideMerge(JiraMigrationArtifactsLive)
 )

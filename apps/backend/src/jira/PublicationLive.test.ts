@@ -11,7 +11,7 @@ import {
   type JiraConvertedText,
   type JiraMigrationManifest
 } from "@pp/integration-jira/Manifest"
-import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
+import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
 import {
   finalizeJiraMigrationAttempt,
   JiraMigrationWorkflowFailure
@@ -881,7 +881,8 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
                 )
               )).rows
               expect(before?.published_at).toBeNull()
-              const projection = yield* JiraMigrationProjection
+              const projection =
+                yield* MigrationProjection.JiraMigrationProjection
               expect(
                 yield* projection.settleRemoteWrites({
                   migrationId,
@@ -1177,7 +1178,7 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
             Layer.mergeAll(
               dbLayer,
               BunServices.layer,
-              JiraMigrationProjection.layer.pipe(Layer.provide(dbLayer))
+              MigrationProjection.layer.pipe(Layer.provide(dbLayer))
             )
           )
         )

@@ -42,34 +42,32 @@ export type JiraMigrationArtifactError =
 export const artifactKey = (coordinates: JiraArtifactCoordinates): string =>
   `migrations/jira/${coordinates.migrationId}/scan-${coordinates.scanRevision}/${coordinates.area}/${coordinates.kind}/${coordinates.identity}.json`
 
-export type JiraMigrationArtifactsShape = Readonly<{
-  writeJson: (
-    orgSlug: string,
-    coordinates: JiraArtifactCoordinates,
-    value: Schema.Json
-  ) => Effect.Effect<JiraArtifactRef, JiraMigrationArtifactError>
-  readJson: <A>(
-    orgSlug: string,
-    ref: JiraArtifactRef,
-    decode: ReturnType<typeof Schema.decodeUnknownEffect<Schema.Decoder<A>>>
-  ) => Effect.Effect<A, JiraMigrationArtifactError>
-  verify: (
-    orgSlug: string,
-    ref: JiraArtifactRef
-  ) => Effect.Effect<void, JiraMigrationArtifactError>
-  listPrefix: (
-    orgSlug: string,
-    prefix: string
-  ) => Effect.Effect<ReadonlyArray<string>, JiraMigrationArtifactError>
-  deletePrefix: (
-    orgSlug: string,
-    prefix: string
-  ) => Effect.Effect<void, JiraMigrationArtifactError>
-}>
-
 export class JiraMigrationArtifacts extends Context.Service<
   JiraMigrationArtifacts,
-  JiraMigrationArtifactsShape
+  Readonly<{
+    writeJson: (
+      orgSlug: string,
+      coordinates: JiraArtifactCoordinates,
+      value: Schema.Json
+    ) => Effect.Effect<JiraArtifactRef, JiraMigrationArtifactError>
+    readJson: <A>(
+      orgSlug: string,
+      ref: JiraArtifactRef,
+      decode: ReturnType<typeof Schema.decodeUnknownEffect<Schema.Decoder<A>>>
+    ) => Effect.Effect<A, JiraMigrationArtifactError>
+    verify: (
+      orgSlug: string,
+      ref: JiraArtifactRef
+    ) => Effect.Effect<void, JiraMigrationArtifactError>
+    listPrefix: (
+      orgSlug: string,
+      prefix: string
+    ) => Effect.Effect<ReadonlyArray<string>, JiraMigrationArtifactError>
+    deletePrefix: (
+      orgSlug: string,
+      prefix: string
+    ) => Effect.Effect<void, JiraMigrationArtifactError>
+  }>
 >()("@pp/integration-jira/MigrationArtifacts/JiraMigrationArtifacts") {}
 
 export type JiraArtifactStorageError = Readonly<

@@ -6,14 +6,10 @@ import {
   JiraRateLimited,
   JiraTransientFailure
 } from "@pp/integration-jira/Blocked"
-import {
-  JiraClient,
-  JiraClientLive,
-  JiraTransportLive,
-  type JiraCallError
-} from "@pp/integration-jira/Client"
-import { JiraCredentials } from "@pp/integration-jira/Credentials"
-import { JiraMigrations } from "@pp/integration-jira/Migrations"
+import * as Client from "@pp/integration-jira/Client"
+import * as Credentials from "@pp/integration-jira/Credentials"
+import * as Migrations from "@pp/integration-jira/Migrations"
+import * as Transport from "@pp/integration-jira/Transport"
 import { accessLayer, orgScope } from "@pp/server-core/access/testing"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
@@ -96,9 +92,9 @@ const authentication = Layer.merge(
   Layer.succeed(FeedbackIntakeGuard)((effect) => effect)
 )
 const dependenciesFor = (
-  failure?: JiraCallError,
+  failure?: Client.JiraCallError,
   failureAt: "sites" | "projects" = "sites",
-  clientLayer?: Layer.Layer<JiraClient>,
+  clientLayer?: Layer.Layer<Client.JiraClient>,
   root = "."
 ) =>
   Layer.mergeAll(
@@ -109,7 +105,7 @@ const dependenciesFor = (
       projectDir: () => root,
       libraryDir: () => root
     }),
-    Layer.succeed(JiraCredentials)({
+    Layer.succeed(Credentials.JiraCredentials)({
       status: unused,
       beginConnect: unused,
       completeConnect: unused,
@@ -135,7 +131,7 @@ const dependenciesFor = (
         })
     }),
     clientLayer ??
-      Layer.succeed(JiraClient)({
+      Layer.succeed(Client.JiraClient)({
         snapshots: {
           currentUser: () => Effect.die("unused"),
           project: () => Effect.die("unused"),
@@ -298,7 +294,7 @@ it.effect(
         } satisfies JiraMigrationDetail
         const services = Layer.mergeAll(
           dependenciesFor(undefined, "sites", undefined, root),
-          Layer.succeed(JiraMigrations)({
+          Layer.succeed(Migrations.JiraMigrations)({
             list: unused,
             create: unused,
             configure: unused,
@@ -361,7 +357,7 @@ it.effect(
     Effect.gen(function* () {
       const services = Layer.mergeAll(
         dependenciesFor(),
-        Layer.succeed(JiraMigrations)({
+        Layer.succeed(Migrations.JiraMigrations)({
           list: unused,
           get: unused,
           create: unused,
@@ -427,7 +423,7 @@ it.effect(
   () =>
     Effect.gen(function* () {
       const now = DateTime.makeUnsafe("2026-09-22T00:00:00Z")
-      const migrations = Layer.succeed(JiraMigrations)({
+      const migrations = Layer.succeed(Migrations.JiraMigrations)({
         list: unused,
         get: unused,
         configure: unused,
@@ -549,7 +545,7 @@ for (const failureAt of ["sites", "projects"] as const) {
         Effect.gen(function* () {
           const dependencies = Layer.mergeAll(
             dependenciesFor(failure, failureAt),
-            Layer.succeed(JiraMigrations)({
+            Layer.succeed(Migrations.JiraMigrations)({
               list: unused,
               get: unused,
               create: unused,
@@ -639,11 +635,11 @@ for (const kind of ["body reset", "malformed JSON"] as const) {
             { preconnect: () => undefined }
           )
         )
-        const jira = JiraClientLive.pipe(
+        const jira = Client.layer.pipe(
           Layer.provide(
             Layer.mergeAll(
-              JiraTransportLive.pipe(Layer.provide(FetchHttpClient.layer)),
-              Layer.succeed(JiraCredentials)({
+              Transport.layer.pipe(Layer.provide(FetchHttpClient.layer)),
+              Layer.succeed(Credentials.JiraCredentials)({
                 status: unused,
                 beginConnect: unused,
                 completeConnect: unused,
@@ -661,7 +657,7 @@ for (const kind of ["body reset", "malformed JSON"] as const) {
         const dependencies = Layer.mergeAll(
           dependenciesFor(undefined, "sites", jira),
           fetch,
-          Layer.succeed(JiraMigrations)({
+          Layer.succeed(Migrations.JiraMigrations)({
             list: unused,
             get: unused,
             create: unused,
@@ -737,7 +733,7 @@ it.effect(
       })
       const dependencies = Layer.mergeAll(
         dependenciesFor(),
-        Layer.succeed(JiraMigrations)({
+        Layer.succeed(Migrations.JiraMigrations)({
           list: unused,
           get: unused,
           create: unused,

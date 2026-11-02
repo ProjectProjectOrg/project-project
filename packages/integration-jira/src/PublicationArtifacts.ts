@@ -15,10 +15,7 @@ import {
 } from "./Manifest"
 import { jiraConfigurationToMappings } from "./Mappings"
 import { jiraDocumentBatches } from "./MigrationActivities"
-import type {
-  JiraArtifactRef,
-  JiraMigrationArtifactsShape
-} from "./MigrationArtifacts"
+import type * as MigrationArtifacts from "./MigrationArtifacts"
 import {
   preflightJiraMigration,
   JiraPublicationInvalid,
@@ -89,7 +86,10 @@ export const resolveJiraPublicationSource = Effect.fn(
 )(function* (
   orgSlug: string,
   manifest: JiraMigrationManifestV2,
-  artifacts: Pick<JiraMigrationArtifactsShape, "readJson">
+  artifacts: Pick<
+    MigrationArtifacts.JiraMigrationArtifacts["Service"],
+    "readJson"
+  >
 ) {
   const refs = [
     ...manifest.rawArtifacts,
@@ -158,7 +158,10 @@ export const persistJiraPreparedPublication = Effect.fn(
   "JiraImport.persistPreparedPublication"
 )(function* (
   prepared: JiraPreparedPublicationV1,
-  artifacts: Pick<JiraMigrationArtifactsShape, "writeJson">
+  artifacts: Pick<
+    MigrationArtifacts.JiraMigrationArtifacts["Service"],
+    "writeJson"
+  >
 ) {
   const encoded = yield* encodeJiraPreparedPublicationV1(prepared)
   const identity = createHash("sha256")
@@ -181,8 +184,11 @@ export const loadJiraPreparedPublication = Effect.fn(
   "JiraImport.loadPreparedPublication"
 )(function* (
   orgSlug: string,
-  ref: JiraArtifactRef,
-  artifacts: Pick<JiraMigrationArtifactsShape, "verify" | "readJson">
+  ref: MigrationArtifacts.JiraArtifactRef,
+  artifacts: Pick<
+    MigrationArtifacts.JiraMigrationArtifacts["Service"],
+    "verify" | "readJson"
+  >
 ) {
   yield* artifacts.verify(orgSlug, ref)
   const prepared = yield* artifacts.readJson(
@@ -202,7 +208,10 @@ export const persistJiraPublicationPlan = Effect.fn(
 )(function* (
   prepared: JiraPreparedPublicationV1,
   outcomes: ReadonlyArray<JiraAttachmentOutcome>,
-  artifacts: Pick<JiraMigrationArtifactsShape, "writeJson">
+  artifacts: Pick<
+    MigrationArtifacts.JiraMigrationArtifacts["Service"],
+    "writeJson"
+  >
 ) {
   const finalized = yield* finalizeJiraPublication(prepared, outcomes)
   const planRef = yield* artifacts.writeJson(
@@ -227,8 +236,11 @@ export const loadJiraPublicationPlan = Effect.fn(
   "JiraImport.loadPublicationPlan"
 )(function* (
   orgSlug: string,
-  ref: JiraArtifactRef,
-  artifacts: Pick<JiraMigrationArtifactsShape, "verify" | "readJson">
+  ref: MigrationArtifacts.JiraArtifactRef,
+  artifacts: Pick<
+    MigrationArtifacts.JiraMigrationArtifacts["Service"],
+    "verify" | "readJson"
+  >
 ) {
   yield* artifacts.verify(orgSlug, ref)
   const plan = yield* artifacts.readJson(

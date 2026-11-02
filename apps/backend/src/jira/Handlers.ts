@@ -1,5 +1,5 @@
-import { JiraClient, toPublicJiraError } from "@pp/integration-jira/Client"
-import { JiraCredentials } from "@pp/integration-jira/Credentials"
+import * as Client from "@pp/integration-jira/Client"
+import * as Credentials from "@pp/integration-jira/Credentials"
 import {
   AppApi,
   CurrentUser,
@@ -17,23 +17,23 @@ export const JiraHandlerLive = HttpApiBuilder.group(
       .handle("profile", () =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          const credentials = yield* JiraCredentials
+          const credentials = yield* Credentials.JiraCredentials
           return yield* credentials.status(user.id)
         })
       )
       .handle("disconnectProfile", () =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          const credentials = yield* JiraCredentials
+          const credentials = yield* Credentials.JiraCredentials
           return yield* credentials.disconnect(user.id)
         })
       )
       .handle("sites", () =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          const client = yield* JiraClient
+          const client = yield* Client.JiraClient
           return yield* client.accessibleSites(user.id).pipe(
-            Effect.mapError(toPublicJiraError),
+            Effect.mapError(Client.toPublicJiraError),
             Effect.catchTag("JiraResourceNotFound", () =>
               Effect.fail(new JiraError({ reason: "invalid_response" }))
             )
@@ -43,9 +43,9 @@ export const JiraHandlerLive = HttpApiBuilder.group(
       .handle("projects", ({ params }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          const client = yield* JiraClient
+          const client = yield* Client.JiraClient
           const sites = yield* client.accessibleSites(user.id).pipe(
-            Effect.mapError(toPublicJiraError),
+            Effect.mapError(Client.toPublicJiraError),
             Effect.catchTag("JiraResourceNotFound", () =>
               Effect.fail(new JiraError({ reason: "invalid_response" }))
             )
@@ -55,7 +55,7 @@ export const JiraHandlerLive = HttpApiBuilder.group(
           }
           return yield* client
             .projects(user.id, params.cloudId)
-            .pipe(Effect.mapError(toPublicJiraError))
+            .pipe(Effect.mapError(Client.toPublicJiraError))
         })
       )
 )

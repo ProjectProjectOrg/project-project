@@ -5,7 +5,7 @@ import * as BunServices from "@effect/platform-bun/BunServices"
 import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { DbLive } from "@pp/db"
-import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
+import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
 import { JiraMigrationWorkflowCommand } from "@pp/integration-jira/MigrationWorkflow"
 import {
   JiraMigrationWorkflow,
@@ -94,7 +94,7 @@ describe.skipIf(!databaseUrl)("Jira production workflow composition", () => {
         )
         const fixture = makeScanTestLayer()
         const pg = PgClient.layer({ url: Redacted.make(databaseUrl!) })
-        const projection = JiraMigrationProjection.layer.pipe(
+        const projection = MigrationProjection.layer.pipe(
           Layer.provideMerge(DbLive)
         )
         const fakeStorage = Layer.mergeAll(
@@ -142,7 +142,7 @@ describe.skipIf(!databaseUrl)("Jira production workflow composition", () => {
           Layer.provideMerge(pg)
         )
         const result = yield* Effect.gen(function* () {
-          const projection = yield* JiraMigrationProjection
+          const projection = yield* MigrationProjection.JiraMigrationProjection
           const migrationId = yield* JiraMigrationWorkflow.execute(
             {
               command: JiraMigrationWorkflowCommand.cases.Create.make({

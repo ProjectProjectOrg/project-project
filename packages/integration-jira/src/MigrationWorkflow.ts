@@ -32,13 +32,9 @@ import {
   type JiraScanKind,
   type ScanSnapshotDependencies
 } from "./MigrationActivities"
-import { artifactKey, JiraArtifactError } from "./MigrationArtifacts"
-import {
-  JiraScanResumeResult,
-  type AttemptFence,
-  type JiraMigrationProjectionShape
-} from "./MigrationProjection"
-import type { JiraMigrationSource } from "./Migrations"
+import * as MigrationArtifacts from "./MigrationArtifacts"
+import * as MigrationProjection from "./MigrationProjection"
+import type * as Migrations from "./Migrations"
 import { scanCollection, ISSUE_DEPENDENT_CONCURRENCY } from "./Scan"
 import type { ScanChunkReference } from "./ScanV2"
 
@@ -63,7 +59,7 @@ export const PersistedJiraMigrationSource = Schema.Struct({
   projectId: Schema.NonEmptyString,
   projectKey: Schema.NonEmptyString,
   projectName: Schema.NonEmptyString
-}) satisfies Schema.Schema<JiraMigrationSource>
+}) satisfies Schema.Schema<Migrations.JiraMigrationSource>
 
 export const JiraMigrationWorkflowCommand = Schema.Union([
   Schema.TaggedStruct("Create", {
@@ -213,12 +209,19 @@ export const makeJiraMigrationWorkflow = <R>(
               yield* DurableDeferred.await(retryDeferred(awaitedSequence))
               const resumed = yield* Activity.make({
                 name: `v1/import-resume/${operationKey}/${awaitedSequence}`,
-                success: JiraScanResumeResult,
+                success: MigrationProjection.JiraScanResumeResult,
                 error: JiraMigrationWorkflowFailure,
                 execute: activities.resumeImport(input, awaitedSequence)
               })
-              if (JiraScanResumeResult.guards.Resumed(resumed)) break
-              if (JiraScanResumeResult.guards.Rejected(resumed))
+              if (
+                MigrationProjection.JiraScanResumeResult.guards.Resumed(resumed)
+              )
+                break
+              if (
+                MigrationProjection.JiraScanResumeResult.guards.Rejected(
+                  resumed
+                )
+              )
                 return yield* Effect.fail(
                   JiraMigrationWorkflowFailure.make({
                     reason: "jira_migration_superseded",
@@ -253,8 +256,8 @@ export const makeJiraMigrationWorkflow = <R>(
   )
 
 export const withJiraRemoteWriteIntent = <A, E, R>(
-  projection: JiraMigrationProjectionShape,
-  fence: AttemptFence,
+  projection: MigrationProjection.JiraMigrationProjection["Service"],
+  fence: MigrationProjection.AttemptFence,
   run: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E | JiraMigrationWorkflowFailureValue, R> =>
   Effect.gen(function* () {
@@ -291,8 +294,8 @@ export const withJiraRemoteWriteIntent = <A, E, R>(
 export const finalizeJiraMigrationAttempt = Effect.fn(
   "JiraMigration.finalizeAttempt"
 )(function* (
-  projection: JiraMigrationProjectionShape,
-  fence: AttemptFence,
+  projection: MigrationProjection.JiraMigrationProjection["Service"],
+  fence: MigrationProjection.AttemptFence,
   exit: Exit.Exit<unknown, unknown>
 ) {
   if (Exit.isSuccess(exit)) return
@@ -310,13 +313,15 @@ export const finalizeJiraMigrationAttempt = Effect.fn(
 })
 
 export const makeProjectionMigrationActivities = <R>(
-  projection: JiraMigrationProjectionShape,
+  projection: MigrationProjection.JiraMigrationProjection["Service"],
   finalize: MigrationActivities<R>["finalize"],
   scan: MigrationActivities<R>["scan"],
   materialize: MigrationActivities<R>["materialize"],
   publish: MigrationActivities<R>["publish"]
 ): MigrationActivities<R | WorkflowEngine.WorkflowEngine> => {
-  const fenceForActivity = (input: Parameters<typeof scan>[0]): AttemptFence =>
+  const fenceForActivity = (
+    input: Parameters<typeof scan>[0]
+  ): MigrationProjection.AttemptFence =>
     JiraMigrationWorkflowCommand.match(input.payload.command, {
       Create: () => ({
         migrationId: input.executionId,
@@ -424,14 +429,15 @@ export const runScanUnit = <A>(
           yield* DurableDeferred.await(retryDeferred(awaitedSequence))
           const resumed = yield* Activity.make({
             name: `v1/scan-resume/${operationKey}/${awaitedSequence}`,
-            success: JiraScanResumeResult,
+            success: MigrationProjection.JiraScanResumeResult,
             error: JiraScanFailure,
             execute: dependencies
               .resume(context, awaitedSequence)
               .pipe(Effect.mapError(scanError))
           })
-          if (JiraScanResumeResult.guards.Resumed(resumed)) break
-          if (JiraScanResumeResult.guards.Rejected(resumed))
+          if (MigrationProjection.JiraScanResumeResult.guards.Resumed(resumed))
+            break
+          if (MigrationProjection.JiraScanResumeResult.guards.Rejected(resumed))
             return yield* scanFailure("jira_migration_superseded")
           awaitedSequence = resumed.failureSequence
         }
@@ -604,12 +610,12 @@ export const scanSnapshot = Effect.fn("scanSnapshot")(
 )
 
 export const makeProjectionScanDependencies = (
-  projection: JiraMigrationProjectionShape,
+  projection: MigrationProjection.JiraMigrationProjection["Service"],
   dependencies: Pick<
     ScanSnapshotDependencies,
     "client" | "artifacts" | "identityOptions"
   >,
-  fence: AttemptFence
+  fence: MigrationProjection.AttemptFence
 ): ScanSnapshotDependencies => {
   const writeLock = Semaphore.makeUnsafe(1)
   return {
@@ -631,8 +637,8 @@ export const makeProjectionScanDependencies = (
                 Match.tag(
                   "JiraMigrationWorkflowFailure",
                   () =>
-                    new JiraArtifactError({
-                      key: artifactKey(coordinates),
+                    new MigrationArtifacts.JiraArtifactError({
+                      key: MigrationArtifacts.artifactKey(coordinates),
                       reason: "write_intent"
                     })
                 ),

@@ -19,12 +19,8 @@ import { WorkflowEngine } from "effect/workflow"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { JiraMigrationProjection, fenceFor } from "./MigrationProjection"
-import {
-  isCompleteJiraConfiguration,
-  JiraMigrations,
-  JiraMigrationsWorkflowLive
-} from "./Migrations"
+import * as MigrationProjection from "./MigrationProjection"
+import * as Migrations from "./Migrations"
 import { JiraMigrationWorkflowCommand } from "./MigrationWorkflow"
 import {
   JiraMigrationWorkflow,
@@ -68,7 +64,7 @@ const readyPublication = {
 
 describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
   let pool: Pool
-  let projectionLayer: Layer.Layer<JiraMigrationProjection>
+  let projectionLayer: Layer.Layer<MigrationProjection.JiraMigrationProjection>
   const userIds: Array<string> = []
   const organizationIds: Array<string> = []
 
@@ -88,7 +84,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
     const database = DbLive.pipe(
       Layer.provideMerge(PgClient.layer({ url: Redacted.make(databaseUrl) }))
     )
-    projectionLayer = JiraMigrationProjection.layer.pipe(
+    projectionLayer = MigrationProjection.layer.pipe(
       Layer.provide(database),
       Layer.orDie
     )
@@ -138,7 +134,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
         const owner = yield* Effect.promise(() => createOwner())
         const requestId = randomUUID()
         yield* Effect.gen(function* () {
-          const projection = yield* JiraMigrationProjection
+          const projection = yield* MigrationProjection.JiraMigrationProjection
           const entered = yield* Deferred.make<void>()
           const release = yield* Deferred.make<void>()
           const activities = makeProjectionMigrationActivities(
@@ -157,7 +153,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
                 yield* activities.start(input)
               })
           })
-          const service = JiraMigrationsWorkflowLive({
+          const service = Migrations.workflowLayer({
             run: () => Effect.die("Task 7 command not exercised"),
             cancel: () => Effect.die("Task 7 command not exercised"),
             discard: () => Effect.die("Task 7 command not exercised"),
@@ -168,7 +164,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
             Layer.provide(WorkflowEngine.layerMemory)
           )
           yield* Effect.gen(function* () {
-            const migrations = yield* JiraMigrations
+            const migrations = yield* Migrations.JiraMigrations
             const first = yield* migrations
               .create(owner.organizationId, owner.userId, requestId, source)
               .pipe(Effect.forkChild)
@@ -233,7 +229,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => createOwner())
         yield* Effect.gen(function* () {
-          const projection = yield* JiraMigrationProjection
+          const projection = yield* MigrationProjection.JiraMigrationProjection
           const release = yield* Deferred.make<void>()
           const finalized = yield* Deferred.make<boolean>()
           const activities = makeProjectionMigrationActivities(
@@ -273,7 +269,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
                   Effect.asVoid
                 )
           })
-          const service = JiraMigrationsWorkflowLive({
+          const service = Migrations.workflowLayer({
             run: () => Effect.die("unused"),
             cancel: () => Effect.die("unused"),
             discard: () => Effect.die("unused"),
@@ -283,7 +279,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
             Layer.provideMerge(WorkflowEngine.layerMemory)
           )
           yield* Effect.gen(function* () {
-            const migrations = yield* JiraMigrations
+            const migrations = yield* Migrations.JiraMigrations
             const created = yield* migrations.create(
               owner.organizationId,
               owner.userId,
@@ -300,7 +296,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
               yield* Effect.yieldNow
             }
             const original = yield* projection.owned(owner, created.id)
-            yield* projection.advance(fenceFor(original)!, {
+            yield* projection.advance(MigrationProjection.fenceFor(original)!, {
               status: "needs_configuration",
               phase: "configuration"
             })
@@ -347,7 +343,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => createOwner())
         yield* Effect.gen(function* () {
-          const projection = yield* JiraMigrationProjection
+          const projection = yield* MigrationProjection.JiraMigrationProjection
           const activities = makeProjectionMigrationActivities(
             projection,
             () => Effect.void,
@@ -396,7 +392,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
               yield* Effect.yieldNow
             }
             const original = yield* projection.owned(owner, originalExecutionId)
-            yield* projection.advance(fenceFor(original)!, {
+            yield* projection.advance(MigrationProjection.fenceFor(original)!, {
               status: "needs_configuration",
               phase: "configuration"
             })
@@ -447,7 +443,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => createOwner())
         yield* Effect.gen(function* () {
-          const projection = yield* JiraMigrationProjection
+          const projection = yield* MigrationProjection.JiraMigrationProjection
           const release = yield* Deferred.make<void>()
           const entered = yield* Deferred.make<void>()
           const activities = makeProjectionMigrationActivities(
@@ -472,7 +468,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
                 yield* activities.start(input)
               })
           })
-          const service = JiraMigrationsWorkflowLive({
+          const service = Migrations.workflowLayer({
             run: () => Effect.die("unused"),
             cancel: () => Effect.die("unused"),
             discard: () => Effect.die("unused"),
@@ -482,7 +478,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
             Layer.provideMerge(WorkflowEngine.layerMemory)
           )
           yield* Effect.gen(function* () {
-            const migrations = yield* JiraMigrations
+            const migrations = yield* Migrations.JiraMigrations
             const created = yield* migrations.create(
               owner.organizationId,
               owner.userId,
@@ -490,7 +486,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
               source
             )
             const original = yield* projection.owned(owner, created.id)
-            yield* projection.advance(fenceFor(original)!, {
+            yield* projection.advance(MigrationProjection.fenceFor(original)!, {
               status: "needs_configuration",
               phase: "configuration"
             })
@@ -508,7 +504,9 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
               { discard: true }
             )
             yield* Deferred.await(entered)
-            yield* projection.advance(fenceFor(original)!, { progressDone: 1 })
+            yield* projection.advance(MigrationProjection.fenceFor(original)!, {
+              progressDone: 1
+            })
             yield* Deferred.succeed(release, undefined)
             while (true) {
               const result =
@@ -544,7 +542,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
     Effect.gen(function* () {
       const owner = yield* Effect.promise(() => createOwner())
       yield* Effect.gen(function* () {
-        const projection = yield* JiraMigrationProjection
+        const projection = yield* MigrationProjection.JiraMigrationProjection
         const release = yield* Deferred.make<void>()
         const started = yield* Deferred.make<void>()
         const entered = yield* Deferred.make<void>()
@@ -565,7 +563,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
               yield* Deferred.succeed(started, undefined)
             })
         })
-        const service = JiraMigrationsWorkflowLive({
+        const service = Migrations.workflowLayer({
           run: () => Effect.die("Task 7 command not exercised"),
           cancel: () => Effect.die("Task 7 command not exercised"),
           discard: () => Effect.die("Task 7 command not exercised"),
@@ -575,7 +573,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
           Layer.provide(WorkflowEngine.layerMemory)
         )
         yield* Effect.gen(function* () {
-          const migrations = yield* JiraMigrations
+          const migrations = yield* Migrations.JiraMigrations
           const requestId = randomUUID()
           const creation = yield* Effect.forkChild(
             Effect.result(
@@ -609,7 +607,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
   )
 
   const traceWorkflowCommands = () =>
-    JiraMigrationsWorkflowLive({
+    Migrations.workflowLayer({
       run: () => Effect.die("not exercised"),
       cancel: () => Effect.die("not exercised"),
       discard: () => Effect.die("not exercised"),
@@ -624,7 +622,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
       const owner = yield* Effect.promise(() => createOwner())
       const { tracer, roots } = recordSpans()
       yield* Effect.gen(function* () {
-        const migrations = yield* JiraMigrations
+        const migrations = yield* Migrations.JiraMigrations
         yield* Effect.result(
           migrations.rescan(owner.organizationId, owner.userId, randomUUID(), 0)
         )
@@ -633,6 +631,24 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
         Effect.provide(traceWorkflowCommands())
       )
       expect(roots()).toEqual(["JiraMigrations.rescan"])
+    })
+  )
+
+  it.effect("traces list and get", () =>
+    Effect.gen(function* () {
+      const owner = yield* Effect.promise(() => createOwner())
+      const { tracer, roots } = recordSpans()
+      yield* Effect.gen(function* () {
+        const migrations = yield* Migrations.JiraMigrations
+        yield* migrations.list(owner.organizationId, owner.userId)
+        yield* Effect.result(
+          migrations.get(owner.organizationId, owner.userId, randomUUID())
+        )
+      }).pipe(
+        Effect.withTracer(tracer),
+        Effect.provide(traceWorkflowCommands())
+      )
+      expect(roots()).toEqual(["JiraMigrations.list", "JiraMigrations.get"])
     })
   )
 
@@ -693,7 +709,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
     }
 
     expect(
-      isCompleteJiraConfiguration(
+      Migrations.isCompleteJiraConfiguration(
         {
           ...base,
           statuses: [
@@ -707,7 +723,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
       )
     ).toBe(true)
     expect(
-      isCompleteJiraConfiguration(
+      Migrations.isCompleteJiraConfiguration(
         {
           ...base,
           statuses: [
@@ -722,7 +738,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
       )
     ).toBe(false)
     expect(
-      isCompleteJiraConfiguration(
+      Migrations.isCompleteJiraConfiguration(
         {
           ...base,
           statuses: [
@@ -737,7 +753,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
       )
     ).toBe(true)
     expect(
-      isCompleteJiraConfiguration(
+      Migrations.isCompleteJiraConfiguration(
         {
           ...base,
           statuses: [
