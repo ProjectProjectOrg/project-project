@@ -3,8 +3,10 @@ import { Conflict, OrgScope, type OrgRole } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as TestClock from "effect/testing/TestClock"
+import * as Tracer from "effect/Tracer"
 import { expect } from "vitest"
 
 import { databaseLayer } from "../../test/database"
@@ -172,3 +174,24 @@ it.effect("restore rejects a live org with Conflict", () =>
     expect(error).toStrictEqual(new Conflict({ reason: "not_deleted" }))
   }).pipe(inScope(makeState(), "owner"))
 )
+
+it.effect("traces each Org call under its own span", () => {
+  const spans: Array<Tracer.NativeSpan> = []
+  const tracer = Tracer.make({
+    span: (options) => {
+      const span = new Tracer.NativeSpan(options)
+      spans.push(span)
+      return span
+    }
+  })
+  return Effect.gen(function* () {
+    yield* setNow
+    const org = yield* Org
+    yield* org.get()
+    yield* org.softDelete()
+    yield* Effect.flip(org.restore())
+    expect(
+      spans.flatMap((span) => (Option.isNone(span.parent) ? [span.name] : []))
+    ).toEqual(["Org.get", "Org.softDelete", "Org.restore"])
+  }).pipe(Effect.withTracer(tracer), inScope(makeState(), "owner"))
+})
