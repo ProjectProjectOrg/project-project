@@ -34,7 +34,7 @@ import { Comments, type CommentsShape } from "../comments/Comments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
 import { GitHub, type GitHubShape } from "../github/GitHub"
 import * as Groups from "../groups/Groups"
-import { Library } from "../library/Library"
+import * as Library from "../library/Library"
 import { TicketIdTaken } from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
@@ -750,7 +750,7 @@ export const makeRecordingTicketIndex = (
   }
 }
 
-export const PassthroughLibrary = Layer.mock(Library, {
+export const PassthroughLibrary = Layer.mock(Library.Library, {
   resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body)
 })
 

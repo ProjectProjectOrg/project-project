@@ -45,8 +45,8 @@ import { FigmaLive } from "@pp/server-core/figma/FigmaLive"
 import { GitHubTicketEventsLive } from "@pp/server-core/github/GitHubTicketEventsLive"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
-import { LibraryDocsLive } from "@pp/server-core/library/LibraryDocsLive"
-import { LibraryLive } from "@pp/server-core/library/LibraryLive"
+import * as Library from "@pp/server-core/library/Library"
+import * as LibraryDocs from "@pp/server-core/library/LibraryDocs"
 import { LinkPreviewsLive } from "@pp/server-core/linkPreviews/LinkPreviewsLive"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
@@ -161,7 +161,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
     Layer.provideMerge(ProjectStatusesLive),
     Layer.provideMerge(TicketServices.layer),
     Layer.provideMerge(TicketActivityFeedLive),
-    Layer.provideMerge(LibraryLive),
+    Layer.provideMerge(Library.layer),
     Layer.provideMerge(AttachmentUploadsLive),
     Layer.provideMerge(AttachmentsLive),
     Layer.provideMerge(FigmaLinksLive),
@@ -195,7 +195,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(FinishedStatuses.layer),
       Layer.provideMerge(GroupDocs.layer),
       Layer.provideMerge(TicketActivityLive),
-      Layer.provideMerge(LibraryDocsLive),
+      Layer.provideMerge(LibraryDocs.layer),
       Layer.provideMerge(MarkdownLive),
       Layer.provideMerge(OAuthApplicationsLive),
       Layer.provideMerge(SecretCryptoLive),

@@ -3,7 +3,7 @@ import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { Comments } from "@pp/server-core/comments/Comments"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
-import { Library } from "@pp/server-core/library/Library"
+import * as Library from "@pp/server-core/library/Library"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
@@ -75,7 +75,7 @@ const sanitizeMcpBody = (body: string) =>
     }
     const segments = parseTicketBlocks(body)
     if (!segments.some((segment) => segment.kind === "block")) return body
-    const library = yield* Library
+    const library = yield* Library.Library
     const lookup = blockLookupFor(yield* library.projectLibrary())
     return serializeTicketBlocks(
       segments.map((segment) => {
@@ -314,7 +314,7 @@ const get_ticket_doc = (input: {
 
 const list_blocks = (_input: { orgSlug: string; projectSlug: string }) =>
   Effect.gen(function* () {
-    const library = yield* Library
+    const library = yield* Library.Library
     const result = yield* library.projectLibrary()
     return result.blocks
       .filter((block) => !block.hidden)
@@ -330,7 +330,7 @@ const list_blocks = (_input: { orgSlug: string; projectSlug: string }) =>
 
 const list_templates = (_input: { orgSlug: string; projectSlug: string }) =>
   Effect.gen(function* () {
-    const library = yield* Library
+    const library = yield* Library.Library
     const result = yield* library.projectLibrary()
     const lookup = blockLookupFor(result)
     return result.templates
@@ -372,7 +372,7 @@ const templateBodyFor = (id: TicketId, template: TemplateKey) =>
   Effect.gen(function* () {
     const { orgSlug, slug } = yield* ProjectScope
     const queries = yield* TicketQueries.TicketQueries
-    const library = yield* Library
+    const library = yield* Library.Library
     const expansion = yield* library.expandForCreate(orgSlug, slug, template)
     const [ticket, projectLibrary] = yield* Effect.all(
       [queries.get(id), library.projectLibrary()],

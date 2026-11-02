@@ -26,7 +26,7 @@ import { Comments } from "../comments/Comments"
 import { FigmaLinks } from "../figma/FigmaLinks"
 import { GitHub } from "../github/GitHub"
 import * as Groups from "../groups/Groups"
-import { Library } from "../library/Library"
+import * as Library from "../library/Library"
 import * as TicketServices from "../tickets/layer"
 import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
 import * as TicketCommands from "../tickets/TicketCommands"
@@ -139,7 +139,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
             Layer.mock(Attachments, {}),
             Layer.mock(FigmaLinks, {}),
             Layer.mock(Users, {}),
-            Layer.mock(Library, {})
+            Layer.mock(Library.Library, {})
           )
         )
       )

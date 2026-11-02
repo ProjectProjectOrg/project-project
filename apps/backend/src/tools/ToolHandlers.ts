@@ -4,7 +4,7 @@ import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
 import { Comments } from "@pp/server-core/comments/Comments"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
-import { Library } from "@pp/server-core/library/Library"
+import * as Library from "@pp/server-core/library/Library"
 import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
 import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
@@ -26,7 +26,7 @@ export const toolDependencies = [
   Comments,
   GroupDocs.GroupDocs,
   Groups.Groups,
-  Library,
+  Library.Library,
   OrgStorage,
   ProjectDocs,
   ProjectGitAutomation,

@@ -32,7 +32,7 @@ import {
 import { Attachments, type AttachmentsShape } from "../attachments/Attachments"
 import { FigmaLinks, type FigmaLinksShape } from "../figma/FigmaLinks"
 import * as Groups from "../groups/Groups"
-import { Library } from "../library/Library"
+import * as Library from "../library/Library"
 import * as KeyedLock from "../locks/KeyedLock"
 import { MarkdownError } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
@@ -280,7 +280,7 @@ const FakeDb = databaseLayer(({ sql }) =>
   })
 )
 
-const PassthroughLibrary = Layer.mock(Library, {
+const PassthroughLibrary = Layer.mock(Library.Library, {
   resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body)
 })
 

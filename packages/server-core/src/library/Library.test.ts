@@ -30,9 +30,8 @@ import * as KeyedLock from "../locks/KeyedLock"
 import type { LibraryKind } from "../markdown/Markdown"
 import { ProjectDocs, type ProjectDocument } from "../projects/ProjectDocs"
 import * as TicketDocs from "../tickets/TicketDocs"
-import { Library } from "./Library"
-import { LibraryDocs, type LibraryDocsShape } from "./LibraryDocs"
-import { LibraryLive } from "./LibraryLive"
+import * as Library from "./Library"
+import * as LibraryDocs from "./LibraryDocs"
 
 const templateKey = Schema.decodeUnknownSync(TemplateKey)
 const ticketId = Schema.decodeUnknownSync(TicketId)
@@ -86,7 +85,7 @@ const withoutKey = (layer: LibraryLayer, kind: LibraryKind, key: string) =>
         )
       }
 
-const fakeLibraryDocs = (world: World): LibraryDocsShape => ({
+const fakeLibraryDocs = (world: World): LibraryDocs.LibraryDocs["Service"] => ({
   readLayer: (orgSlug, projectSlug) =>
     Effect.sync(() => {
       world.reads.push(scopeKey(orgSlug, projectSlug))
@@ -192,8 +191,10 @@ const makeWorld = (): World => ({
 })
 
 const makeLayer = (world: World) =>
-  LibraryLive.pipe(
-    Layer.provide(Layer.succeed(LibraryDocs, fakeLibraryDocs(world))),
+  Library.layer.pipe(
+    Layer.provide(
+      Layer.succeed(LibraryDocs.LibraryDocs, fakeLibraryDocs(world))
+    ),
     Layer.provide(
       Layer.mock(ProjectDocs, {
         read: () => Effect.succeed(projectDocument(world.defaults.current)),
@@ -229,7 +230,7 @@ const asProject = (user: string) =>
   )
 
 const run = <A, E>(
-  effect: Effect.Effect<A, E, Library>,
+  effect: Effect.Effect<A, E, Library.Library>,
   world: World = makeWorld()
 ) => effect.pipe(Effect.provide(makeLayer(world)))
 
@@ -267,7 +268,7 @@ const templateInput = (
   })
 
 const failureTag = <A, E extends { _tag: string }>(
-  effect: Effect.Effect<A, E, Library>
+  effect: Effect.Effect<A, E, Library.Library>
 ) =>
   effect.pipe(
     Effect.flip,
@@ -296,7 +297,7 @@ describe("reading", () => {
     const world = makeWorld()
     return run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         const org = yield* library.orgLibrary().pipe(asOrg("member"))
         const admin = yield* library.orgLibrary().pipe(asOrg("org-admin"))
 
@@ -333,7 +334,7 @@ describe("reading", () => {
     world.defaults.current = { bug: null, other: templateKey("spike") }
     return run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         const org = yield* library.orgLibrary().pipe(asOrg("member"))
         const project = yield* library
           .projectLibrary()
@@ -370,7 +371,7 @@ describe("keys per layer", () => {
   it.effect("lets a project shadow an org key once", () =>
     run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         const org = yield* library
           .createOrgBlock(blockInput())
           .pipe(asOrg("org-admin"))
@@ -393,7 +394,7 @@ describe("keys per layer", () => {
   it.effect("keeps a synced built-in synced once adopted", () =>
     run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         const done = BUILTIN_BLOCKS.find(
           (block) => block.key === "definition-of-done"
         )!
@@ -408,7 +409,7 @@ describe("keys per layer", () => {
   it.effect("updates only a file that exists at this layer", () =>
     run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         expect(
           yield* failureTag(
             library
@@ -445,7 +446,7 @@ describe("keys per layer", () => {
   it.effect("removes this layer's file and reverts to the one below", () =>
     run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         expect(
           yield* failureTag(
             library.removeOrgBlock("context").pipe(asOrg("org-admin"))
@@ -472,7 +473,7 @@ describe("keys per layer", () => {
   it.effect("lets a project hide an org key and nothing else", () =>
     run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         expect(
           yield* failureTag(
             library.hideBlock("context").pipe(asProject("project-admin"))
@@ -509,7 +510,7 @@ describe("keys per layer", () => {
     world.unreadable.add("acme/web/context")
     return run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         const created = yield* library
           .createOrgBlock(blockInput())
           .pipe(asOrg("org-admin"), Effect.flip)
@@ -534,7 +535,7 @@ describe("keys per layer", () => {
     world.unreadable.add("acme/web/incident")
     return run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         const created = yield* library
           .createTemplate(templateInput())
           .pipe(asProject("project-admin"), Effect.flip)
@@ -548,7 +549,7 @@ describe("keys per layer", () => {
   it.effect("refuses to hide a key this layer customized", () =>
     run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         yield* library.createOrgBlock(blockInput()).pipe(asOrg("org-admin"))
         yield* library
           .createBlock(blockInput({ content: "## Background\n\nOurs" }))
@@ -575,7 +576,7 @@ describe("keys per layer", () => {
 
 describe("content validation", () => {
   const reason = <A, E extends { _tag: string }>(
-    effect: Effect.Effect<A, E, Library>
+    effect: Effect.Effect<A, E, Library.Library>
   ) =>
     effect.pipe(
       Effect.flip,
@@ -585,7 +586,7 @@ describe("content validation", () => {
   it.effect("rejects block markup inside a block definition", () =>
     run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         expect(
           yield* reason(
             library
@@ -604,7 +605,7 @@ describe("content validation", () => {
   it.effect("rejects a nested block in a template body", () =>
     run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         expect(
           yield* reason(
             library
@@ -623,7 +624,7 @@ describe("content validation", () => {
   it.effect("rejects attachments in definitions", () =>
     run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         expect(
           yield* reason(
             library
@@ -643,7 +644,7 @@ describe("content validation", () => {
   it.effect("validates mentions against the layer", () =>
     run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         const withMention = (mention: string) =>
           blockInput({ content: `## Context\n\nAsk ${mention}` })
 
@@ -693,7 +694,7 @@ describe("template defaults", () => {
       world.orgDefaults.current = { bug: templateKey("bug-report") }
       return run(
         Effect.gen(function* () {
-          const library = yield* Library
+          const library = yield* Library.Library
           const unknown = yield* library
             .setTemplateDefaults({
               defaults: { bug: templateKey("feature") }
@@ -735,7 +736,7 @@ describe("template defaults", () => {
     adopt(world, null, ["feature"])
     return run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         const unknown = yield* library
           .setOrgTemplateDefaults({
             defaults: { bug: templateKey("bug-report") }
@@ -774,7 +775,7 @@ describe("expandForCreate", () => {
     world.orgDefaults.current = { bug: templateKey("bug-report") }
     return run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         const expansion = yield* library.expandForCreate(
           "acme",
           "web",
@@ -805,7 +806,7 @@ describe("expandForCreate", () => {
       world.defaults.current = { feat: templateKey("chore") }
       return run(
         Effect.gen(function* () {
-          const library = yield* Library
+          const library = yield* Library.Library
           const typeOf = (key: string) =>
             library
               .expandForCreate("acme", "web", templateKey(key))
@@ -833,7 +834,7 @@ describe("expandForCreate", () => {
     }))
     return run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         const expansion = yield* library.expandForCreate(
           "acme",
           "web",
@@ -854,7 +855,7 @@ describe("expandForCreate", () => {
     const world = makeWorld()
     return run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         const rejected = yield* library
           .createTemplate(
             templateInput({ body: "Ask [Admin](mention:user/org-admin)" })
@@ -891,7 +892,7 @@ describe("expandForCreate", () => {
     }))
     return run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         const unadopted = yield* library
           .expandForCreate("acme", "web", templateKey("incident"))
           .pipe(Effect.flip)
@@ -920,7 +921,7 @@ describe("resolveSynced", () => {
       '<block type="context">\n\n## Context\n\nsync is a word\n\n</block>'
     return run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         const resolved = yield* library.resolveSynced("acme", "web", body)
         expect(resolved).toBe(body)
         expect(world.reads).toEqual([])
@@ -935,7 +936,7 @@ describe("resolveSynced", () => {
       '<block type="definition-of-done" sync>\n\n## Definition of done\n\n- [x] Reviewed\n\n</block>'
     return run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         const resolved = yield* library.resolveSynced("acme", "web", body)
         expect(resolved).toBe(body.replace(" sync>", ">"))
       }),
@@ -963,7 +964,7 @@ describe("resolveSynced", () => {
         '<block type="definition-of-done" sync>\n\n## Definition of done\n\n- [x] Checked by [Member](mention:user/member)\n\n</block>'
       return run(
         Effect.gen(function* () {
-          const library = yield* Library
+          const library = yield* Library.Library
           const resolved = yield* library.resolveSynced("acme", "web", body)
           expect(resolved).toBe(
             '<block type="definition-of-done" sync>\n\n## Definition of done\n\n- [ ] Signed off by @Admin\n- [x] Checked by [Member](mention:user/member)\n\n</block>'
@@ -999,7 +1000,7 @@ describe("resolveSynced", () => {
     ].join("\n")
     return run(
       Effect.gen(function* () {
-        const library = yield* Library
+        const library = yield* Library.Library
         const resolved = yield* library.resolveSynced("acme", "web", body)
         expect(resolved).toContain("- [x] Reviewed\n- [ ] Shipped")
         expect(resolved).not.toContain("Tests cover the change")
@@ -1024,7 +1025,7 @@ describe("tracing", () => {
       })
       return run(
         Effect.gen(function* () {
-          const library = yield* Library
+          const library = yield* Library.Library
           yield* library.createOrgBlock(blockInput()).pipe(asOrg("org-admin"))
           yield* library
             .updateOrgBlock("context", { name: "Renamed" })
@@ -1052,27 +1053,27 @@ describe("tracing", () => {
               }))
           ).toEqual([
             {
-              name: "Library.create:blocks",
+              name: "Library.createOrgBlock",
               attributes: { orgSlug: "acme", slug: null, key: "context" }
             },
             {
-              name: "Library.update:blocks",
+              name: "Library.updateOrgBlock",
               attributes: { orgSlug: "acme", slug: null, key: "context" }
             },
             {
-              name: "Library.create:templates",
+              name: "Library.createOrgTemplate",
               attributes: { orgSlug: "acme", slug: null, key: "incident" }
             },
             {
-              name: "Library.hide:templates",
+              name: "Library.hideTemplate",
               attributes: { orgSlug: "acme", slug: "web", key: "incident" }
             },
             {
-              name: "Library.create:blocks",
+              name: "Library.createBlock",
               attributes: { orgSlug: "acme", slug: "web", key: "context" }
             },
             {
-              name: "Library.remove:blocks",
+              name: "Library.removeBlock",
               attributes: { orgSlug: "acme", slug: "web", key: "context" }
             },
             { name: "Library.orgLibrary", attributes: {} }
