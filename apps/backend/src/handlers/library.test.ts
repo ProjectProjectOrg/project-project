@@ -203,17 +203,7 @@ const ApiUnderTestLive = HttpApiBuilder.layer(TestApi).pipe(
             username: null,
             image: null,
             createdAt: DateTime.toDate(DateTime.makeUnsafe(0)),
-            activeOrgSlug: "acme",
-            personalGithub: { connected: false },
-            editorPreference: "github",
-            personalEverhour: {
-              connected: false,
-              everhourUserId: null,
-              name: null,
-              email: null,
-              lastVerifiedAt: null,
-              lastCheckError: null
-            }
+            editorPreference: "github"
           }),
           Effect.provideService(ActivityActor, ActivityActor.user(USER_ID))
         )

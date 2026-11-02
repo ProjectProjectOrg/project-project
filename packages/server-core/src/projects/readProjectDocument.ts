@@ -11,19 +11,28 @@ type ProjectRef = Pick<ProjectScopeShape, "projectId" | "orgSlug" | "slug">
 export const readProjectDocument = Effect.fn("readProjectDocument")(function* ({
   db,
   docs,
-  project
+  project,
+  indexed
 }: Readonly<{
   db: Db["Service"]
   docs: ProjectDocs["Service"]
   project: ProjectRef
+  indexed?: Pick<typeof projectIndex.$inferSelect, "estimation">
 }>) {
-  const file = yield* docs.read(project.orgSlug, project.slug)
-  const row = yield* db.query.projectIndex
-    .findFirst({
-      columns: { estimation: true },
-      where: { id: project.projectId }
-    })
-    .pipe(Effect.orDie)
+  const [file, row] = yield* Effect.all(
+    [
+      docs.read(project.orgSlug, project.slug),
+      indexed === undefined
+        ? db.query.projectIndex
+            .findFirst({
+              columns: { estimation: true },
+              where: { id: project.projectId }
+            })
+            .pipe(Effect.orDie)
+        : Effect.succeed(indexed)
+    ],
+    { concurrency: 2 }
+  )
   if (!row) return yield* new NotFound()
   if (row.estimation === file.estimation) return file
 

@@ -7,8 +7,15 @@ import {
   projectIndex,
   projectMember
 } from "@pp/db/schema"
-import { CurrentUser, NotFound, OrgRole, OrgScope, Role } from "@pp/shared"
-import { and, eq, isNull } from "drizzle-orm"
+import {
+  CurrentUser,
+  NotFound,
+  OrgRole,
+  OrgScope,
+  Role,
+  type OrgScopeShape
+} from "@pp/shared"
+import { and, eq, isNull, type SQL } from "drizzle-orm"
 import * as Arr from "effect/Array"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -16,6 +23,7 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import { Access, type AccessShape } from "./Access"
+import { projectMemberOf, projectScopeOf } from "./projectScope"
 
 const decodeOrgRole = Schema.decodeUnknownEffect(OrgRole)
 
@@ -115,53 +123,47 @@ export const AccessLive = Layer.effect(
       }
     )
 
-    const projectsInOrg: AccessShape["projectsInOrg"] = Effect.fn(
-      "Access.projectsInOrg"
-    )(function* () {
-      const scope = yield* OrgScope
-      const rows = yield* db
+    const visibleProjectRows = (scope: OrgScopeShape, where?: SQL) =>
+      db
         .select({
           projectId: projectIndex.id,
           slug: projectIndex.slug,
           role: projectMember.roleId
         })
         .from(projectIndex)
-        .leftJoin(
-          projectMember,
-          and(
-            eq(projectMember.projectId, projectIndex.id),
-            eq(projectMember.userId, scope.userId)
-          )
-        )
+        .leftJoin(projectMember, projectMemberOf(scope))
         .where(
           and(
             eq(projectIndex.organizationId, scope.organizationId),
-            publishedProject()
+            publishedProject(),
+            where
           )
         )
         .pipe(Effect.orDie)
+
+    const projectsInOrg: AccessShape["projectsInOrg"] = Effect.fn(
+      "Access.projectsInOrg"
+    )(function* () {
+      const scope = yield* OrgScope
+      const rows = yield* visibleProjectRows(scope)
       return yield* Effect.forEach(rows, (row) =>
-        decodeRole(row.role).pipe(
-          Effect.orDie,
-          Effect.map((role) =>
-            Option.map(
-              Effective.roleOnProject(scope.role, role),
-              (permissions) => ({
-                userId: scope.userId,
-                organizationId: scope.organizationId,
-                orgSlug: scope.orgSlug,
-                orgRole: scope.role,
-                projectId: row.projectId,
-                slug: row.slug,
-                role,
-                permissions
-              })
-            )
-          )
-        )
+        projectScopeOf(scope, row)
       ).pipe(Effect.map(Arr.getSomes))
     })
 
-    return { org, project, projectsInOrg } satisfies AccessShape
+    const projectById: AccessShape["projectById"] = Effect.fn(
+      "Access.projectById"
+    )(function* (projectId) {
+      const scope = yield* OrgScope
+      const [row] = yield* visibleProjectRows(
+        scope,
+        eq(projectIndex.id, projectId)
+      )
+      return row === undefined
+        ? Option.none()
+        : yield* projectScopeOf(scope, row)
+    })
+
+    return { org, project, projectsInOrg, projectById } satisfies AccessShape
   })
 )

@@ -9,6 +9,7 @@ import {
 } from "@/features/library/atoms/library"
 import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
+import { epicsRequest, projectEpics } from "@/features/tickets/atoms/epics"
 import {
   ticketDetail,
   ticketRequest
@@ -39,6 +40,9 @@ export const Route = createFileRoute(
     context.registry.mount(orgDetail(orgRequest(params.orgSlug)))()
     context.registry.mount(
       projectLibraryFor(projectLibraryRequest(params.orgSlug, params.slug))
+    )()
+    context.registry.mount(
+      projectEpics(epicsRequest(params.orgSlug, params.slug))
     )()
     return {
       crumb: {

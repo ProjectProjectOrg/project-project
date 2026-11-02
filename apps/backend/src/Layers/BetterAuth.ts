@@ -19,6 +19,8 @@ import {
   PersonalGithub,
   UserInvitation,
   type OrgAssignableRole,
+  type User,
+  type UserIdentity,
   type CursorPayload,
   type InviteMemberInput
 } from "@pp/shared"
@@ -279,12 +281,89 @@ export const BetterAuthLive = Layer.effect(
       return yield* readMember(organizationId, userId)
     })
 
+    const getPersonalGithub = Effect.fn("BetterAuth.getPersonalGithub")(
+      function* (userId: string) {
+        const row = yield* attempt(() =>
+          db.query.account.findFirst({
+            columns: { id: true },
+            where: { userId, providerId: "github" }
+          })
+        )
+        return yield* decodePersonalGithub({
+          connected: row !== undefined
+        }).pipe(Effect.orDie)
+      }
+    )
+
+    const getPersonalEverhour = Effect.fn("BetterAuth.getPersonalEverhour")(
+      function* (userId: string) {
+        const row = yield* attempt(() =>
+          db.query.userEverhourIntegration.findFirst({
+            columns: {
+              everhourUserId: true,
+              name: true,
+              email: true,
+              lastVerifiedAt: true,
+              lastCheckError: true
+            },
+            where: { userId }
+          })
+        )
+        return yield* decodePersonalEverhour({
+          connected: row !== undefined,
+          everhourUserId: row?.everhourUserId ?? null,
+          name: row?.name ?? null,
+          email: row?.email ?? null,
+          lastVerifiedAt: row?.lastVerifiedAt?.toISOString() ?? null,
+          lastCheckError: row?.lastCheckError ?? null
+        }).pipe(Effect.orDie)
+      }
+    )
+
+    const getOrgSlugById = Effect.fn("BetterAuth.getOrgSlugById")(function* (
+      organizationId: string | null | undefined
+    ) {
+      if (!organizationId) return null
+      const row = yield* attempt(() =>
+        db.query.organization.findFirst({
+          columns: { slug: true },
+          where: { id: organizationId }
+        })
+      )
+      return row?.slug ?? null
+    })
+
+    const me = Effect.fn("BetterAuth.me")(function* (
+      identity: UserIdentity,
+      activeOrganizationId: string | null | undefined
+    ) {
+      const [activeOrgSlug, personalGithub, personalEverhour] =
+        yield* Effect.all(
+          [
+            getOrgSlugById(activeOrganizationId),
+            getPersonalGithub(identity.id),
+            getPersonalEverhour(identity.id)
+          ],
+          { concurrency: "unbounded" }
+        )
+      return {
+        ...identity,
+        activeOrgSlug,
+        personalGithub,
+        personalEverhour
+      } satisfies User
+    })
+
     return {
       handler: (request) =>
         Effect.tryPromise({
           try: () => auth.handler(request),
           catch: (cause) => new BetterAuthError({ cause })
         }),
+      getPersonalGithub,
+      getPersonalEverhour,
+      getOrgSlugById,
+      me,
       getSession: (headers) =>
         Effect.tryPromise({
           try: () => auth.api.getSession({ headers }),
@@ -300,43 +379,6 @@ export const BetterAuthLive = Layer.effect(
           )
           if (!row?.accessToken) return yield* new NoGithubToken()
           return row.accessToken
-        }
-      ),
-      getPersonalGithub: Effect.fn("BetterAuth.getPersonalGithub")(function* (
-        userId: string
-      ) {
-        const row = yield* attempt(() =>
-          db.query.account.findFirst({
-            columns: { id: true },
-            where: { userId, providerId: "github" }
-          })
-        )
-        return yield* decodePersonalGithub({
-          connected: row !== undefined
-        }).pipe(Effect.orDie)
-      }),
-      getPersonalEverhour: Effect.fn("BetterAuth.getPersonalEverhour")(
-        function* (userId: string) {
-          const row = yield* attempt(() =>
-            db.query.userEverhourIntegration.findFirst({
-              columns: {
-                everhourUserId: true,
-                name: true,
-                email: true,
-                lastVerifiedAt: true,
-                lastCheckError: true
-              },
-              where: { userId }
-            })
-          )
-          return yield* decodePersonalEverhour({
-            connected: row !== undefined,
-            everhourUserId: row?.everhourUserId ?? null,
-            name: row?.name ?? null,
-            email: row?.email ?? null,
-            lastVerifiedAt: row?.lastVerifiedAt?.toISOString() ?? null,
-            lastCheckError: row?.lastCheckError ?? null
-          }).pipe(Effect.orDie)
         }
       ),
       listOrganizations: Effect.fn("BetterAuth.listOrganizations")(function* (
@@ -428,18 +470,6 @@ export const BetterAuthLive = Layer.effect(
           name: first.name,
           role: orgRoleOf(first.role)
         }).pipe(Effect.orDie)
-      }),
-      getOrgSlugById: Effect.fn("BetterAuth.getOrgSlugById")(function* (
-        organizationId: string | null | undefined
-      ) {
-        if (!organizationId) return null
-        const row = yield* attempt(() =>
-          db.query.organization.findFirst({
-            columns: { slug: true },
-            where: { id: organizationId }
-          })
-        )
-        return row?.slug ?? null
       }),
       submitConsent: (request, input) =>
         Effect.tryPromise({

@@ -1,4 +1,4 @@
-import { ActivityActor, CurrentUser, type User } from "@pp/shared"
+import { ActivityActor, CurrentUser, type UserIdentity } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
@@ -6,7 +6,7 @@ import * as Option from "effect/Option"
 export type ToolClient = Readonly<{ id: string; name: string }>
 
 export type ToolCallerShape = Readonly<{
-  user: User
+  user: UserIdentity
   client: Option.Option<ToolClient>
 }>
 

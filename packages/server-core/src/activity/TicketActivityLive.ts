@@ -270,31 +270,35 @@ export const TicketActivityLive = Layer.effect(
       Effect.gen(function* () {
         const projectId = yield* projectIdOf(orgSlug, slug)
         if (projectId === null) return yield* write
-        yield* settlePending(orgSlug, slug, projectId, document)
-        const subscriptions =
-          requested.length === 0
-            ? []
-            : yield* db
-                .select({
-                  id: projectIntegrationLink.id,
-                  events: projectIntegrationLink.subscribedEvents
-                })
-                .from(projectIntegrationLink)
-                .innerJoin(
-                  organizationIntegration,
-                  eq(
-                    organizationIntegration.id,
-                    projectIntegrationLink.organizationIntegrationId
+        const [, subscriptions] = yield* Effect.all(
+          [
+            settlePending(orgSlug, slug, projectId, document),
+            requested.length === 0
+              ? Effect.succeed([])
+              : db
+                  .select({
+                    id: projectIntegrationLink.id,
+                    events: projectIntegrationLink.subscribedEvents
+                  })
+                  .from(projectIntegrationLink)
+                  .innerJoin(
+                    organizationIntegration,
+                    eq(
+                      organizationIntegration.id,
+                      projectIntegrationLink.organizationIntegrationId
+                    )
                   )
-                )
-                .where(
-                  and(
-                    eq(projectIntegrationLink.projectId, projectId),
-                    eq(projectIntegrationLink.status, "active"),
-                    eq(organizationIntegration.status, "active")
+                  .where(
+                    and(
+                      eq(projectIntegrationLink.projectId, projectId),
+                      eq(projectIntegrationLink.status, "active"),
+                      eq(organizationIntegration.status, "active")
+                    )
                   )
-                )
-                .pipe(Effect.orDie)
+                  .pipe(Effect.orDie)
+          ],
+          { concurrency: 2 }
+        )
         const selected = subscriptions.flatMap((subscription) =>
           requested
             .filter((event) =>

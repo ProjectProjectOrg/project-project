@@ -1,5 +1,6 @@
 import { ProjectPolicy } from "@pp/access/policies"
 import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
 import {
   invitation,
   projectGitAutomation,
@@ -31,14 +32,15 @@ import type {
   UpdateProjectInput,
   UpdateProjectSetupInput
 } from "@pp/shared"
-import { and, asc, eq, inArray } from "drizzle-orm"
+import { and, asc, eq } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
-import { Access } from "../access/Access"
+import { projectMemberOf, projectScopeOf } from "../access/projectScope"
 import type { MarkdownError } from "../markdown/Markdown"
 import { bannerNeedsPlaceholder } from "./bannerPlaceholder"
 import { BannerPlaceholders } from "./BannerPlaceholders"
@@ -111,8 +113,6 @@ export class Projects extends Context.Service<
 const make = Effect.gen(function* () {
   const db = yield* Db
 
-  const access = yield* Access
-
   const bannerPlaceholders = yield* BannerPlaceholders
 
   const projectDocs = yield* ProjectDocs
@@ -153,7 +153,8 @@ const make = Effect.gen(function* () {
     })
 
   const list = Effect.fn("Projects.list")(function* () {
-    const { orgSlug, userId } = yield* OrgScope
+    const orgScope = yield* OrgScope
+    const { orgSlug, userId } = orgScope
     return yield* annotateProjectTelemetry(
       "list",
       orgSlug,
@@ -170,21 +171,28 @@ const make = Effect.gen(function* () {
           createdBy: projectIndex.createdBy,
           createdAt: projectIndex.createdAt
         }
-        const visible = yield* access.projectsInOrg()
-        const rows =
-          visible.length === 0
-            ? []
-            : yield* db
-                .select(baseSelect)
-                .from(projectIndex)
-                .where(
-                  inArray(
-                    projectIndex.id,
-                    visible.map((scope) => scope.projectId)
-                  )
-                )
-                .orderBy(asc(projectIndex.createdAt))
-                .pipe(Effect.orDie)
+        const candidates = yield* db
+          .select({
+            ...baseSelect,
+            projectId: projectIndex.id,
+            role: projectMember.roleId
+          })
+          .from(projectIndex)
+          .leftJoin(projectMember, projectMemberOf(orgScope))
+          .where(
+            and(
+              eq(projectIndex.organizationId, orgScope.organizationId),
+              publishedProject()
+            )
+          )
+          .orderBy(asc(projectIndex.createdAt))
+          .pipe(Effect.orDie)
+        const visible = yield* Effect.forEach(candidates, (row) =>
+          projectScopeOf(orgScope, row)
+        )
+        const rows = candidates.filter((_, index) =>
+          Option.isSome(visible[index])
+        )
         const healable = rows.filter((r) => bannerNeedsPlaceholder(r.banner))
         if (healable.length > 0)
           yield* Effect.forkDetach(
@@ -390,19 +398,22 @@ const make = Effect.gen(function* () {
       orgSlug,
       { slug, userId },
       Effect.gen(function* () {
-        const file = yield* readProjectDocument({
-          db,
-          docs: projectDocs,
-          project: scope
-        })
-        const members = yield* loadMembers(indexRow.id)
-        const pendingMembers = yield* loadPendingMembers(indexRow.id)
-        const connection = yield* loadGithubConnection(indexRow)
-        const banner = yield* bannerPlaceholders.ensure(
-          orgSlug,
-          slug,
-          indexRow.banner
-        )
+        const [file, members, pendingMembers, connection, banner] =
+          yield* Effect.all(
+            [
+              readProjectDocument({
+                db,
+                docs: projectDocs,
+                project: scope,
+                indexed: indexRow
+              }),
+              loadMembers(indexRow.id),
+              loadPendingMembers(indexRow.id),
+              loadGithubConnection(indexRow),
+              bannerPlaceholders.ensure(orgSlug, slug, indexRow.banner)
+            ],
+            { concurrency: "unbounded" }
+          )
         const key = makeProjectKey(indexRow.key)
         return ProjectDetails.presentDetail(scope, {
           org: orgSlug,
@@ -448,7 +459,8 @@ const make = Effect.gen(function* () {
         const file = yield* readProjectDocument({
           db,
           docs: projectDocs,
-          project: scope
+          project: scope,
+          indexed: indexRow
         })
         const connection = yield* loadGithubConnection(indexRow)
 
@@ -569,7 +581,8 @@ const make = Effect.gen(function* () {
         const file = yield* readProjectDocument({
           db,
           docs: projectDocs,
-          project: scope
+          project: scope,
+          indexed: indexRow
         })
         const connection = yield* loadGithubConnection(indexRow)
         const members = yield* loadMembers(indexRow.id)

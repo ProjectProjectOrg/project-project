@@ -158,8 +158,10 @@ export class FeedbackIntake extends Context.Service<
           verbatim: boolean,
           files: ReadonlyArray<Multipart.PersistedFile>
         ) {
-          const stored = (yield* Effect.forEach(files, (file) =>
-            storeFile(ticketId, file)
+          const stored = (yield* Effect.forEach(
+            files,
+            (file) => storeFile(ticketId, file),
+            { concurrency: 4 }
           )).flatMap(Option.toArray)
           const notStored = unstoredFiles(
             report.attachments,

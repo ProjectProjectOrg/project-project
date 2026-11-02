@@ -184,43 +184,46 @@ const make = Effect.gen(function* () {
 
   const findMergesAwaiting = Effect.fn("TicketBranchIndex.findMergesAwaiting")(
     function* (projectId: string, base: string) {
-      return yield* Effect.all([
-        db
-          .select({
-            orgSlug: organization.slug,
-            organizationId: projectIndex.organizationId,
-            projectId: ticketIndex.projectId,
-            slug: projectIndex.slug,
-            ticketId: ticketIndex.ticketId,
-            branch: ticketIndex.branch
-          })
-          .from(ticketIndex)
-          .innerJoin(projectIndex, eq(projectIndex.id, ticketIndex.projectId))
-          .innerJoin(
-            organization,
-            eq(organization.id, projectIndex.organizationId)
-          )
-          .where(
-            and(
-              eq(ticketIndex.projectId, projectId),
-              eq(ticketIndex.prBase, base),
-              eq(ticketIndex.prState, "merged"),
-              isNotNull(ticketIndex.pr),
-              or(
-                isNull(ticketIndex.lastTransitionedPr),
-                ne(ticketIndex.lastTransitionedPr, ticketIndex.pr)
-              )
+      return yield* Effect.all(
+        [
+          db
+            .select({
+              orgSlug: organization.slug,
+              organizationId: projectIndex.organizationId,
+              projectId: ticketIndex.projectId,
+              slug: projectIndex.slug,
+              ticketId: ticketIndex.ticketId,
+              branch: ticketIndex.branch
+            })
+            .from(ticketIndex)
+            .innerJoin(projectIndex, eq(projectIndex.id, ticketIndex.projectId))
+            .innerJoin(
+              organization,
+              eq(organization.id, projectIndex.organizationId)
             )
-          ),
-        stackLayerMatches(
-          and(
-            eq(ticketBranch.projectId, projectId),
-            eq(ticketBranch.base, base),
-            eq(ticketBranch.prState, "merged"),
-            eq(ticketBranch.landed, false)
+            .where(
+              and(
+                eq(ticketIndex.projectId, projectId),
+                eq(ticketIndex.prBase, base),
+                eq(ticketIndex.prState, "merged"),
+                isNotNull(ticketIndex.pr),
+                or(
+                  isNull(ticketIndex.lastTransitionedPr),
+                  ne(ticketIndex.lastTransitionedPr, ticketIndex.pr)
+                )
+              )
+            ),
+          stackLayerMatches(
+            and(
+              eq(ticketBranch.projectId, projectId),
+              eq(ticketBranch.base, base),
+              eq(ticketBranch.prState, "merged"),
+              eq(ticketBranch.landed, false)
+            )
           )
-        )
-      ]).pipe(
+        ],
+        { concurrency: 2 }
+      ).pipe(
         Effect.map(([own, stacked]) => [
           ...own.flatMap((row) =>
             row.branch === null

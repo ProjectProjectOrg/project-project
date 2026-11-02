@@ -393,20 +393,23 @@ const make = Effect.gen(function* () {
           .create(project.orgSlug, project.slug, document, (created) =>
             Effect.sync(() => onFileWritten?.(created)).pipe(
               Effect.andThen(
-                attachments.reconcileTicket(
-                  project.orgSlug,
-                  project.slug,
-                  created.id,
-                  created.body
-                )
-              ),
-              Effect.andThen(
-                figmaLinks.reconcileTicket(
-                  project.orgSlug,
-                  project.slug,
-                  created.id,
-                  created.title,
-                  created.body
+                Effect.all(
+                  [
+                    attachments.reconcileTicket(
+                      project.orgSlug,
+                      project.slug,
+                      created.id,
+                      created.body
+                    ),
+                    figmaLinks.reconcileTicket(
+                      project.orgSlug,
+                      project.slug,
+                      created.id,
+                      created.title,
+                      created.body
+                    )
+                  ],
+                  { concurrency: 2, discard: true }
                 )
               ),
               Effect.andThen(ticketIndex.upsertTicket(project, created))
@@ -443,19 +446,28 @@ const make = Effect.gen(function* () {
       status: input.status !== undefined && input.status !== DEFAULT_STATUS,
       assignees: false
     })
-    if (input.status !== undefined) {
-      yield* validateStatusExists(projectId, input.status)
-    }
-    const expansion = yield* expansionFor(scope, input.template)
+    const [, expansion, projectKey, view] = yield* Effect.all(
+      [
+        input.status === undefined
+          ? Effect.void
+          : validateStatusExists(projectId, input.status),
+        expansionFor(scope, input.template),
+        projects.key(),
+        gitView
+      ],
+      { concurrency: "unbounded" }
+    )
     const tags = expansion?.tags ?? []
     const body = expansion?.body ?? ""
-    yield* validateTagsExist(projectId, tags)
-    if (body !== "") {
-      yield* validateBody(body, scope)
-    }
     const type = input.type ?? expansion?.type ?? "other"
-    yield* validateNewParent(scope, ownerId, type, input.parent)
-    const projectKey = yield* projects.key()
+    yield* Effect.all(
+      [
+        validateTagsExist(projectId, tags),
+        body === "" ? Effect.void : validateBody(body, scope),
+        validateNewParent(scope, ownerId, type, input.parent)
+      ],
+      { concurrency: "unbounded", discard: true }
+    )
     const now = yield* DateTime.nowAsDate
     const document = yield* writeWithIdAllocation(scope, projectKey, (id) => ({
       id,
@@ -478,7 +490,7 @@ const make = Effect.gen(function* () {
       body,
       commentsRegion: ""
     }))
-    return yield* detailOf(document, yield* gitView)
+    return yield* detailOf(document, view)
   })
 
   const create = Effect.fn("TicketCommands.create")(function* (
@@ -491,27 +503,41 @@ const make = Effect.gen(function* () {
       status: input.status !== undefined && input.status !== DEFAULT_STATUS,
       assignees: (input.assignees ?? []).length > 0
     })
-    if (input.status !== undefined) {
-      yield* validateStatusExists(projectId, input.status)
-    }
-    const expansion = yield* expansionFor(scope, input.template)
-    const projectKey = yield* projects.key()
-    const tags = input.tags ?? expansion?.tags ?? []
-    yield* validateTagsExist(projectId, tags)
-    if (input.assignees !== undefined && input.assignees.length > 0) {
-      yield* validateAssigneesAreMembers(input.assignees)
-    }
-    yield* validateEstimate(scope, input.estimate)
-    const body = yield* library.resolveSynced(
-      orgSlug,
-      slug,
-      normalizeLineEndings(input.body ?? expansion?.body ?? "")
+    const [, , , expansion, projectKey, view] = yield* Effect.all(
+      [
+        input.status === undefined
+          ? Effect.void
+          : validateStatusExists(projectId, input.status),
+        input.assignees === undefined || input.assignees.length === 0
+          ? Effect.void
+          : validateAssigneesAreMembers(input.assignees),
+        validateEstimate(scope, input.estimate),
+        expansionFor(scope, input.template),
+        projects.key(),
+        gitView
+      ],
+      { concurrency: "unbounded" }
     )
-    if (body !== "") {
-      yield* validateBody(body, scope)
-    }
+    const tags = input.tags ?? expansion?.tags ?? []
     const type = input.type ?? expansion?.type ?? "other"
-    yield* validateNewParent(scope, ownerId, type, input.parent)
+    const [, body] = yield* Effect.all(
+      [
+        validateTagsExist(projectId, tags),
+        library
+          .resolveSynced(
+            orgSlug,
+            slug,
+            normalizeLineEndings(input.body ?? expansion?.body ?? "")
+          )
+          .pipe(
+            Effect.tap((body) =>
+              body === "" ? Effect.void : validateBody(body, scope)
+            )
+          ),
+        validateNewParent(scope, ownerId, type, input.parent)
+      ],
+      { concurrency: "unbounded" }
+    )
     const now = yield* DateTime.nowAsDate
     const document = yield* writeWithIdAllocation(scope, projectKey, (id) => ({
       id,
@@ -535,7 +561,7 @@ const make = Effect.gen(function* () {
       body,
       commentsRegion: ""
     }))
-    return yield* detailOf(document, yield* gitView)
+    return yield* detailOf(document, view)
   })
 
   const update = Effect.fn("TicketCommands.update")(function* (
@@ -546,35 +572,43 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* ProjectScope
     const { orgSlug, slug, userId, projectId } = scope
-    yield* validateEstimate(scope, input.estimate)
-    if (sort?.key === "estimate")
-      yield* readProjectDocument({ db, docs: projectDocs, project: scope })
+    const readsProjectDocument =
+      input.estimate !== undefined && input.estimate !== null
+    yield* Effect.all(
+      [
+        validateEstimate(scope, input.estimate),
+        sort?.key === "estimate" && !readsProjectDocument
+          ? readProjectDocument({ db, docs: projectDocs, project: scope })
+          : Effect.void
+      ],
+      { concurrency: 2, discard: true }
+    )
     return yield* withTicketDocumentLock(
       orgSlug,
       slug,
       id,
       Effect.gen(function* () {
-        const view = yield* gitView
-
-        if (input.status !== undefined) {
-          yield* validateStatusExists(projectId, input.status)
-        }
-        if (input.tags !== undefined) {
-          yield* validateTagsExist(projectId, input.tags)
-        }
-
-        const body =
-          input.body === undefined
-            ? undefined
-            : yield* library.resolveSynced(
-                orgSlug,
-                slug,
-                normalizeLineEndings(input.body)
-              )
-
-        if (body !== undefined) {
-          yield* validateBody(body, scope)
-        }
+        const [, , view, body] = yield* Effect.all(
+          [
+            input.status === undefined
+              ? Effect.void
+              : validateStatusExists(projectId, input.status),
+            input.tags === undefined
+              ? Effect.void
+              : validateTagsExist(projectId, input.tags),
+            gitView,
+            input.body === undefined
+              ? Effect.succeed(undefined)
+              : library
+                  .resolveSynced(
+                    orgSlug,
+                    slug,
+                    normalizeLineEndings(input.body)
+                  )
+                  .pipe(Effect.tap((body) => validateBody(body, scope)))
+          ],
+          { concurrency: "unbounded" }
+        )
 
         const next = yield* ticketDocs.update(
           orgSlug,
@@ -633,30 +667,35 @@ const make = Effect.gen(function* () {
           (next) =>
             (input.body === undefined
               ? Effect.void
-              : attachments
-                  .reconcileTicket(orgSlug, slug, id, next.body)
-                  .pipe(
-                    Effect.andThen(
-                      figmaLinks.reconcileTicket(
-                        orgSlug,
-                        slug,
-                        id,
-                        next.title,
-                        next.body
-                      )
+              : Effect.all(
+                  [
+                    attachments.reconcileTicket(orgSlug, slug, id, next.body),
+                    figmaLinks.reconcileTicket(
+                      orgSlug,
+                      slug,
+                      id,
+                      next.title,
+                      next.body
                     )
-                  )
+                  ],
+                  { concurrency: 2, discard: true }
+                )
             ).pipe(Effect.andThen(ticketIndex.upsertTicket(scope, next)))
         )
 
-        const ticket = yield* withMissingAttachments(
-          orgSlug,
-          yield* detailOf(next, view)
+        const [ticket, orderKey] = yield* Effect.all(
+          [
+            detailOf(next, view).pipe(
+              Effect.flatMap((detail) =>
+                withMissingAttachments(orgSlug, detail)
+              )
+            ),
+            sort === undefined
+              ? Effect.succeed(null)
+              : ticketIndex.orderKeyFor(scope, id, sort)
+          ],
+          { concurrency: 2 }
         )
-        const orderKey =
-          sort === undefined
-            ? null
-            : yield* ticketIndex.orderKeyFor(scope, id, sort)
         return { ticket, orderKey }
       })
     )
@@ -1087,12 +1126,17 @@ const make = Effect.gen(function* () {
       )
     )
 
-    return {
-      retained: yield* detailOf(written.retained, view),
-      created: yield* Effect.forEach(written.createdDocuments, (document) =>
-        detailOf(document, view)
-      )
-    }
+    return yield* Effect.all(
+      {
+        retained: detailOf(written.retained, view),
+        created: Effect.forEach(
+          written.createdDocuments,
+          (document) => detailOf(document, view),
+          { concurrency: 8 }
+        )
+      },
+      { concurrency: 2 }
+    )
   })
 
   const remove = Effect.fn("TicketCommands.remove")(function* (
@@ -1114,14 +1158,13 @@ const make = Effect.gen(function* () {
         orgSlug,
         slug,
         id,
-        attachments
-          .reconcileTicket(orgSlug, slug, id, "")
-          .pipe(
-            Effect.andThen(
-              figmaLinks.reconcileTicket(orgSlug, slug, id, "", "")
-            ),
-            Effect.andThen(ticketIndex.deleteTicket(scope, id))
-          )
+        Effect.all(
+          [
+            attachments.reconcileTicket(orgSlug, slug, id, ""),
+            figmaLinks.reconcileTicket(orgSlug, slug, id, "", "")
+          ],
+          { concurrency: 2, discard: true }
+        ).pipe(Effect.andThen(ticketIndex.deleteTicket(scope, id)))
       )
     )
     const children = yield* childIds(scope, userId, id)
@@ -1178,7 +1221,7 @@ const make = Effect.gen(function* () {
               })
             )
           ),
-        { discard: true }
+        { concurrency: 4, discard: true }
       )
     })
 
@@ -1203,20 +1246,26 @@ const make = Effect.gen(function* () {
     const ids = [...new Set(input.tickets)]
     const { sprint, ...fields } = input.patch
     const touchesTickets = Object.keys(fields).length > 0
-    if (fields.status !== undefined) {
-      yield* validateStatusExists(projectId, fields.status)
-    }
-    if (fields.tags !== undefined) {
-      yield* validateTagsExist(projectId, fields.tags)
-    }
-    yield* validateEstimate(scope, fields.estimate)
-    if (sprint !== undefined && sprint !== null) {
-      yield* groups.ensureSprintAssignable([sprint])
-    }
-    const openSprints = (yield* groups.list()).filter(
+    const [, , , , allGroups, view] = yield* Effect.all(
+      [
+        fields.status === undefined
+          ? Effect.void
+          : validateStatusExists(projectId, fields.status),
+        fields.tags === undefined
+          ? Effect.void
+          : validateTagsExist(projectId, fields.tags),
+        validateEstimate(scope, fields.estimate),
+        sprint === undefined || sprint === null
+          ? Effect.void
+          : groups.ensureSprintAssignable([sprint]),
+        groups.list(),
+        gitView
+      ],
+      { concurrency: "unbounded" }
+    )
+    const openSprints = allGroups.filter(
       (group) => group.kind === "sprint" && group.completedAt === null
     )
-    const view = yield* gitView
 
     const written: Array<
       Readonly<{ original: TicketDocument; next: TicketDocument }>
@@ -1298,8 +1347,10 @@ const make = Effect.gen(function* () {
       scope,
       ids,
       Effect.gen(function* () {
-        const originals = yield* Effect.forEach(ids, (id) =>
-          ticketDocs.read(orgSlug, slug, id)
+        const originals = yield* Effect.forEach(
+          ids,
+          (id) => ticketDocs.read(orgSlug, slug, id),
+          { concurrency: 8 }
         )
         const now = yield* DateTime.nowAsDate
         const patched = originals.map((existing) =>

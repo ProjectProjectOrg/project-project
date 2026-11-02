@@ -20,6 +20,7 @@ import type { MarkdownError } from "../markdown/Markdown"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import { TicketDocs } from "../tickets/TicketDocs"
 import { TicketIndex } from "../tickets/TicketIndex"
+import type { TicketProject } from "../tickets/ticketProject"
 import { Users } from "../users/Users"
 import { validateBodyMentionsWithLookups } from "./BodyMentions"
 import {
@@ -55,16 +56,10 @@ export const CommentsLive = Layer.effect(
       Effect.map((id) => decodeCommentId(`c_${id}`))
     )
 
-    const validateBody = (orgSlug: string, slug: string, body: string) =>
+    const validateBody = (project: TicketProject, body: string) =>
       validateBodyMentionsWithLookups(body, {
         existingTicketIds: (ticketIds) =>
-          ticketIndex
-            .projectFor(orgSlug, slug)
-            .pipe(
-              Effect.flatMap((project) =>
-                ticketIndex.existingIds(project, ticketIds)
-              )
-            ),
+          ticketIndex.existingIds(project, ticketIds),
         memberIds: () => projectMembers.memberIds()
       })
 
@@ -122,12 +117,17 @@ export const CommentsLive = Layer.effect(
           })
           .pipe(Effect.orDie)
         if (rows.length === 0) return []
-        const document = yield* ticketDocs.read(orgSlug, slug, ticketId)
+        const [document, authors] = yield* Effect.all(
+          [
+            ticketDocs.read(orgSlug, slug, ticketId),
+            users.fullByIds(
+              rows.flatMap((r) => (r.authorId === null ? [] : [r.authorId]))
+            )
+          ],
+          { concurrency: 2 }
+        )
         const blocks = parseCommentsRegion(document.commentsRegion)
         const blockById = new Map(blocks.map((b) => [b.id, b]))
-        const authors = yield* users.fullByIds(
-          rows.flatMap((r) => (r.authorId === null ? [] : [r.authorId]))
-        )
         const authorById = new Map<string, (typeof authors)[number]>(
           authors.map((user) => [user.id, user])
         )
@@ -182,12 +182,19 @@ export const CommentsLive = Layer.effect(
 
     const create: CommentsShape["create"] = (ticketId, input) =>
       Effect.gen(function* () {
-        const { orgSlug, slug, userId, projectId } = yield* ProjectScope
+        const scope = yield* ProjectScope
+        const { orgSlug, slug, userId, projectId } = scope
         const validation = validateCommentBody(input.body)
         if (!validation.ok) {
           return yield* new InvalidCommentBody({ reason: validation.reason })
         }
-        yield* validateBody(orgSlug, slug, input.body)
+        const [, author] = yield* Effect.all(
+          [
+            validateBody(scope, input.body),
+            users.fullByIds([userId]).pipe(Effect.map((xs) => xs[0]))
+          ],
+          { concurrency: 2 }
+        )
         const id = yield* newCommentId
         const now = yield* DateTime.nowAsDate
 
@@ -226,9 +233,6 @@ export const CommentsLive = Layer.effect(
               .pipe(Effect.orDie)
           )
         )
-        const author = yield* users
-          .fullByIds([userId])
-          .pipe(Effect.map((xs) => xs[0]))
         return {
           id,
           ticketId,
@@ -246,22 +250,26 @@ export const CommentsLive = Layer.effect(
       input
     ) =>
       Effect.gen(function* () {
-        const { orgSlug, slug, projectId } = yield* ProjectScope
-        yield* Effect.forEach(input, (comment) =>
-          Effect.gen(function* () {
-            if (!isHistoricalCommentAuthor(comment.author)) {
-              return yield* new InvalidCommentAuthor({
-                reason: "invalid_attribution"
-              })
-            }
-            const validation = validateCommentBody(comment.body)
-            if (!validation.ok) {
-              return yield* new InvalidCommentBody({
-                reason: validation.reason
-              })
-            }
-            yield* validateBody(orgSlug, slug, comment.body)
-          })
+        const scope = yield* ProjectScope
+        const { orgSlug, slug, projectId } = scope
+        yield* Effect.forEach(
+          input,
+          (comment) =>
+            Effect.gen(function* () {
+              if (!isHistoricalCommentAuthor(comment.author)) {
+                return yield* new InvalidCommentAuthor({
+                  reason: "invalid_attribution"
+                })
+              }
+              const validation = validateCommentBody(comment.body)
+              if (!validation.ok) {
+                return yield* new InvalidCommentBody({
+                  reason: validation.reason
+                })
+              }
+              yield* validateBody(scope, comment.body)
+            }),
+          { concurrency: 8, discard: true }
         )
 
         const linkedUserIds = [
@@ -388,7 +396,8 @@ export const CommentsLive = Layer.effect(
 
     const edit: CommentsShape["edit"] = (ticketId, commentId, input) =>
       Effect.gen(function* () {
-        const { orgSlug, slug } = yield* ProjectScope
+        const scope = yield* ProjectScope
+        const { orgSlug, slug } = scope
         const validation = validateCommentBody(input.body)
         if (!validation.ok) {
           return yield* new InvalidCommentBody({ reason: validation.reason })
@@ -398,7 +407,7 @@ export const CommentsLive = Layer.effect(
           commentId,
           CommentPolicy.canEdit
         )
-        yield* validateBody(orgSlug, slug, input.body)
+        yield* validateBody(scope, input.body)
         const editedAt = yield* DateTime.nowAsDate
         yield* updateBlocks(
           orgSlug,

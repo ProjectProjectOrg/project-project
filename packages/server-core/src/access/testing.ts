@@ -92,5 +92,15 @@ export const accessLayer = (
         (scopes.projects ?? []).filter(
           (scope) => scope.organizationId === org.organizationId
         )
+      ),
+    projectById: (projectId) =>
+      Effect.map(OrgScope, (org) =>
+        Option.fromUndefinedOr(
+          scopes.projects?.find(
+            (scope) =>
+              scope.organizationId === org.organizationId &&
+              scope.projectId === projectId
+          )
+        )
       )
   })

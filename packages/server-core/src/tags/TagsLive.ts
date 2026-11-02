@@ -76,29 +76,18 @@ export const TagsLive = Layer.effect(
 
         const existing = yield* db.query.projectTag
           .findMany({
-            columns: { color: true },
+            columns: { name: true, color: true },
             where: {
               RAW: (table, _operators) =>
                 _operators.eq(table.projectId, projectId)
             }
           })
           .pipe(Effect.orDie)
+        if (existing.some((tag) => tag.name === input.name)) {
+          return yield* new Conflict({ reason: "tag_exists" })
+        }
 
         const color = input.color ?? pickColor(existing.map((e) => e.color))
-
-        const existingRow = yield* db.query.projectTag
-          .findFirst({
-            columns: { name: true },
-            where: {
-              RAW: (table, _operators) =>
-                _operators.and(
-                  _operators.eq(table.projectId, projectId),
-                  _operators.eq(table.name, input.name)
-                )!
-            }
-          })
-          .pipe(Effect.orDie)
-        if (existingRow) return yield* new Conflict({ reason: "tag_exists" })
 
         const inserted = yield* db
           .insert(projectTag)

@@ -56,12 +56,19 @@ export const SystemProjectsLive = Layer.effect(
         .where(and(eq(organization.slug, spec.orgSlug), publishedProject()))
         .orderBy(asc(projectIndex.createdAt))
         .pipe(Effect.orDie)
-      return yield* Effect.findFirst(rows, ({ slug }) =>
-        projectDocs.systemRole(spec.orgSlug, slug).pipe(
-          Effect.map((role) => Option.contains(role, spec.role)),
-          Effect.catchTag("NotFound", () => Effect.succeed(false))
-        )
-      ).pipe(Effect.map(Option.map(({ slug }) => slug)))
+      const matches = yield* Effect.forEach(
+        rows,
+        ({ slug }) =>
+          projectDocs.systemRole(spec.orgSlug, slug).pipe(
+            Effect.map((role) => Option.contains(role, spec.role)),
+            Effect.catchTag("NotFound", () => Effect.succeed(false))
+          ),
+        { concurrency: 8 }
+      )
+      return Option.map(
+        Option.fromUndefinedOr(rows.find((_, index) => matches[index])),
+        ({ slug }) => slug
+      )
     })
 
     const ownerScope = Effect.fn("SystemProjects.ownerScope")(function* (

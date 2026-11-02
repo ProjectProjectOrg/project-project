@@ -87,17 +87,25 @@ export const makeSlackPreviews = Effect.gen(function* () {
       yield* client.promptToConnect(row.botToken, target, connectUrl.toString())
       return
     }
+    const userId = viewer.userId
     const unfurls: Record<string, SlackUnfurl> = {}
-    for (const { url } of event.links.slice(0, 5)) {
-      const ticket = parseTicketLink(baseUrl, url)
-      if (!ticket) continue
-      const summary = yield* host.ticketSummary({
-        ...ticket,
-        userId: viewer.userId,
-        organizationId
-      })
-      if (!summary) continue
-      unfurls[url] = ticketPreview(summary)
+    const summaries = yield* Effect.forEach(
+      event.links.slice(0, 5),
+      ({ url }) => {
+        const ticket = parseTicketLink(baseUrl, url)
+        if (!ticket) return Effect.succeed(null)
+        return host
+          .ticketSummary({
+            ...ticket,
+            userId,
+            organizationId
+          })
+          .pipe(Effect.map((summary) => (summary ? { url, summary } : null)))
+      },
+      { concurrency: 5 }
+    )
+    for (const entry of summaries) {
+      if (entry) unfurls[entry.url] = ticketPreview(entry.summary)
     }
     if (Object.keys(unfurls).length === 0) return
     const [stillConnected] = yield* db

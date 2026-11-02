@@ -127,9 +127,12 @@ const me = (_input: {}) =>
   Effect.gen(function* () {
     const current = yield* CurrentUser
     const betterAuth = yield* BetterAuth
-    const orgs = yield* betterAuth.listOrganizations(current.id)
+    const [user, orgs] = yield* Effect.all(
+      [betterAuth.me(current, null), betterAuth.listOrganizations(current.id)],
+      { concurrency: 2 }
+    )
     return {
-      user: current,
+      user,
       roles: orgs.map((o) => ({ orgSlug: o.orgSlug, role: o.role }))
     }
   })

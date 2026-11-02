@@ -210,8 +210,8 @@ const FakeFigmaLinks = Layer.succeed(FigmaLinks, {
 
 const FakeDb = databaseLayer(({ sql }) =>
   Effect.sync(() => {
-    if (sql.includes('from "project_index"')) return [["project-1"]]
     if (sql.includes('from "project_tag"')) return [["frontend"]]
+    if (sql.includes('from "project_index"')) return [["project-1"]]
     if (sql.includes('from "project_status"'))
       return [["todo"], ["in_progress"], ["done"]]
     throw new Error(`Unexpected SQL: ${sql}`)

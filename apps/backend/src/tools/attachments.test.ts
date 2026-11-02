@@ -190,7 +190,8 @@ const fixture = Effect.fn("attachmentFixture")(function* (
           ? Effect.fail(new NotFound())
           : Effect.succeed(member)
       ),
-    projectsInOrg: () => Effect.succeed([])
+    projectsInOrg: () => Effect.succeed([]),
+    projectById: () => Effect.succeedNone
   })
   const dependencies = Layer.mergeAll(
     Layer.succeed(Db.Db, db),

@@ -339,7 +339,8 @@ const make = Effect.gen(function* () {
         const file = yield* readProjectDocument({
           db,
           docs: projectDocs,
-          project: scope
+          project: scope,
+          indexed: indexRow
         })
         const connection = yield* loadGithubConnection(indexRow)
         const members = yield* loadMembers(indexRow.id)
