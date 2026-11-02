@@ -13,8 +13,7 @@ import * as TestClock from "effect/testing/TestClock"
 
 import { databaseLayer } from "../../test/database"
 import * as TicketIndexServices from "./indexLayer"
-import { TicketDocs } from "./TicketDocs"
-import type { TicketDocument } from "./TicketDocs"
+import * as TicketDocs from "./TicketDocs"
 import * as TicketIndex from "./TicketIndex"
 import type { TicketProject } from "./ticketProject"
 
@@ -27,7 +26,7 @@ const project: TicketProject = {
   slug: "foo"
 }
 
-const document: TicketDocument = {
+const document: TicketDocs.TicketDocument = {
   id: ticketId("T-1"),
   title: "Publish me",
   status: TicketStatus.make("todo"),
@@ -72,7 +71,10 @@ const makeDb = (failures: number) => {
 
 const layerFor = (
   db: Layer.Layer<Db | SqlClient.SqlClient>,
-  docs: Layer.Layer<TicketDocs> = Layer.mock(TicketDocs, {})
+  docs: Layer.Layer<TicketDocs.TicketDocs> = Layer.mock(
+    TicketDocs.TicketDocs,
+    {}
+  )
 ) => TicketIndexServices.layer.pipe(Layer.provide(db), Layer.provide(docs))
 
 it.effect("retries a transient index publication failure", () => {
@@ -105,7 +107,7 @@ it.effect("does not fail the request when publication stays broken", () => {
 it.effect("reconciles a project whose publication never landed", () => {
   const { layer } = makeDb(Number.POSITIVE_INFINITY)
   const docs = { listIdsCalls: 0 }
-  const docsLayer = Layer.mock(TicketDocs, {
+  const docsLayer = Layer.mock(TicketDocs.TicketDocs, {
     listIds: () =>
       Effect.sync(() => {
         docs.listIdsCalls += 1

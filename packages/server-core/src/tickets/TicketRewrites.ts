@@ -11,11 +11,7 @@ import * as Schema from "effect/Schema"
 
 import type { MarkdownError } from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
-import {
-  TicketDocs,
-  type TicketActivityOptions,
-  type TicketDocument
-} from "./TicketDocs"
+import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import * as TicketIndex from "./TicketIndex"
 import type { TicketReadError } from "./ticketPresentation"
@@ -62,7 +58,7 @@ export class TicketRewrites extends Context.Service<
 
 const make = Effect.gen(function* () {
   const db = yield* Db
-  const ticketDocs = yield* TicketDocs
+  const ticketDocs = yield* TicketDocs.TicketDocs
   const ticketIndex = yield* TicketIndex.TicketIndex
   const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
   const finishedStatuses = yield* FinishedStatuses
@@ -71,8 +67,10 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     id: string,
-    change: (existing: TicketDocument) => Effect.Effect<TicketDocument> | null,
-    activity: TicketActivityOptions
+    change: (
+      existing: TicketDocs.TicketDocument
+    ) => Effect.Effect<TicketDocs.TicketDocument> | null,
+    activity: TicketDocs.TicketActivityOptions
   ): Effect.Effect<boolean, TicketReadError, ActivityActor> =>
     ticketDocumentLock.withTicketDocumentLock(
       orgSlug,
@@ -277,7 +275,7 @@ const make = Effect.gen(function* () {
         .projectFor(orgSlug, slug)
         .pipe(Effect.orDie)
       const ids = yield* ticketDocs.listIds(orgSlug, slug)
-      const originals: Array<TicketDocument> = []
+      const originals: Array<TicketDocs.TicketDocument> = []
       const clearAndSwitch = Effect.gen(function* () {
         for (const id of ids) {
           const ticket = yield* ticketDocs.read(orgSlug, slug, id).pipe(

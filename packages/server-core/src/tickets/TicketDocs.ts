@@ -1,8 +1,9 @@
 import {
+  ActivityActor,
+  activityActorUserId,
   Estimate,
   estimateToken,
   parseEstimateToken,
-  type ActivityActor,
   type ActivityCause,
   type TicketActivityChange,
   PullRequestState,
@@ -17,12 +18,22 @@ import {
 import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import * as SchemaTransformation from "effect/SchemaTransformation"
 import * as Struct from "effect/Struct"
 
+import { ticketChanges } from "../activity/changes"
+import { ticketCreatedEvents, ticketEvents } from "../activity/projectEvents"
+import { TicketActivity } from "../activity/TicketActivity"
+import * as KeyedLock from "../locks/KeyedLock"
 import { markdownFileContent, ticketFileBody } from "../markdown/fileContent"
-import type { MarkdownError, TicketIdTaken } from "../markdown/Markdown"
+import {
+  Markdown,
+  type MarkdownError,
+  type TicketIdTaken
+} from "../markdown/Markdown"
+import { FinishedStatuses } from "../projects/FinishedStatuses"
 
 const TicketFrontmatterOnDisk = Schema.Struct({
   id: TicketId,
@@ -281,32 +292,254 @@ export type TicketActivityOptions = Readonly<{
   archiveReason?: string
 }>
 
-export interface TicketDocsShape {
-  readonly listIds: (
+export class TicketDocs extends Context.Service<
+  TicketDocs,
+  Readonly<{
+    listIds: (
+      orgSlug: string,
+      slug: string
+    ) => Effect.Effect<ReadonlyArray<TicketId>, MarkdownError>
+    read: (
+      orgSlug: string,
+      slug: string,
+      id: string
+    ) => Effect.Effect<
+      TicketDocument,
+      NotFound | MarkdownError | MalformedTicketDocument
+    >
+    create: (
+      orgSlug: string,
+      slug: string,
+      document: TicketDocument,
+      onPersist?: (document: TicketDocument) => Effect.Effect<void>
+    ) => Effect.Effect<void, MarkdownError | TicketIdTaken>
+    write: (
+      orgSlug: string,
+      slug: string,
+      id: string,
+      document: TicketDocument
+    ) => Effect.Effect<void, MarkdownError>
+    update: <E, R>(
+      orgSlug: string,
+      slug: string,
+      id: string,
+      transform: (
+        document: TicketDocument
+      ) => Effect.Effect<TicketDocument, E, R>,
+      onPersist?: (document: TicketDocument) => Effect.Effect<void, E, R>,
+      activity?: TicketActivityOptions
+    ) => Effect.Effect<
+      TicketDocument,
+      NotFound | MarkdownError | MalformedTicketDocument | E,
+      R | ActivityActor
+    >
+    remove: (
+      orgSlug: string,
+      slug: string,
+      id: string,
+      onPersist?: Effect.Effect<void>
+    ) => Effect.Effect<void, NotFound | MarkdownError>
+    readRaw: (
+      orgSlug: string,
+      slug: string,
+      id: string
+    ) => Effect.Effect<
+      { path: string; content: string },
+      NotFound | MarkdownError
+    >
+  }>
+>()("@pp/server-core/tickets/TicketDocs") {}
+
+const decodeFrontmatter = Schema.decodeUnknownEffect(TicketFrontmatter)
+const encodeFrontmatter = Schema.encodeSync(TicketFrontmatter)
+const decodeTicketId = Schema.decodeUnknownEffect(TicketId)
+
+function toDocument(
+  frontmatter: TicketFrontmatter,
+  body: string,
+  commentsRegion: string
+): TicketDocument {
+  return {
+    ...frontmatter,
+    body,
+    commentsRegion
+  }
+}
+
+const ticketDocAnnotations = (
+  operation: string,
+  orgSlug: string,
+  slug: string,
+  attributes: Record<string, unknown>
+) => ({ module: "TicketDocs", operation, orgSlug, slug, ...attributes })
+
+const annotateTicketDoc = <A, E, R>(
+  operation: string,
+  orgSlug: string,
+  slug: string,
+  attributes: Record<string, unknown>,
+  effect: Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R> => {
+  const annotations = ticketDocAnnotations(operation, orgSlug, slug, attributes)
+  return Effect.annotateCurrentSpan(annotations).pipe(
+    Effect.andThen(effect),
+    Effect.annotateLogs(annotations)
+  )
+}
+
+const withTicketDocSpan = <A, E, R>(
+  operation: string,
+  orgSlug: string,
+  slug: string,
+  attributes: Record<string, unknown>,
+  effect: Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R> => {
+  const annotations = ticketDocAnnotations(operation, orgSlug, slug, attributes)
+  return effect.pipe(
+    Effect.withSpan(`TicketDocs.${operation}`, { attributes: annotations }),
+    Effect.annotateLogs(annotations)
+  )
+}
+
+const make = Effect.gen(function* () {
+  const markdown = yield* Markdown
+  const keyedLock = yield* KeyedLock.KeyedLock
+  const ticketActivity = yield* TicketActivity
+  const finishedStatuses = yield* FinishedStatuses
+
+  const withMutationLock = <A, E, R>(
+    orgSlug: string,
+    slug: string,
+    id: string,
+    effect: Effect.Effect<A, E, R>
+  ): Effect.Effect<A, E, R> =>
+    keyedLock.withLock(KeyedLock.LockKey.ticketWrite(orgSlug, slug, id), effect)
+
+  const listIds = Effect.fn("TicketDocs.listIds")(function* (
     orgSlug: string,
     slug: string
-  ) => Effect.Effect<ReadonlyArray<TicketId>, MarkdownError>
-  readonly read: (
+  ) {
+    return yield* annotateTicketDoc(
+      "listIds",
+      orgSlug,
+      slug,
+      {},
+      markdown
+        .listTicketIds(orgSlug, slug)
+        .pipe(
+          Effect.flatMap((ids) =>
+            Effect.forEach(ids, (id) => decodeTicketId(id).pipe(Effect.orDie))
+          )
+        )
+    )
+  })
+
+  const read = Effect.fn("TicketDocs.read")(function* (
     orgSlug: string,
     slug: string,
     id: string
-  ) => Effect.Effect<
-    TicketDocument,
-    NotFound | MarkdownError | MalformedTicketDocument
-  >
-  readonly create: (
+  ) {
+    return yield* annotateTicketDoc(
+      "read",
+      orgSlug,
+      slug,
+      { ticketId: id },
+      Effect.gen(function* () {
+        const file = yield* markdown.readTicketParts(orgSlug, slug, id)
+        const frontmatter = yield* decodeFrontmatter(file.data).pipe(
+          Effect.mapError(
+            (cause) =>
+              new MalformedTicketDocument({
+                orgSlug,
+                slug,
+                ticketId: id,
+                path: `orgs/${orgSlug}/projects/${slug}/tickets/${id}.md`,
+                cause,
+                reason: "invalid_frontmatter"
+              })
+          )
+        )
+        return toDocument(frontmatter, file.description, file.region)
+      })
+    )
+  })
+
+  const create = Effect.fn("TicketDocs.create")(function* (
     orgSlug: string,
     slug: string,
     document: TicketDocument,
     onPersist?: (document: TicketDocument) => Effect.Effect<void>
-  ) => Effect.Effect<void, MarkdownError | TicketIdTaken>
-  readonly write: (
+  ) {
+    return yield* annotateTicketDoc(
+      "create",
+      orgSlug,
+      slug,
+      { ticketId: document.id },
+      withMutationLock(
+        orgSlug,
+        slug,
+        document.id,
+        ticketActivity
+          .record(
+            orgSlug,
+            slug,
+            {
+              kind: "ticket",
+              id: document.id,
+              content: ticketFileContent(document)
+            },
+            [],
+            null,
+            markdown.createTicketFile(
+              orgSlug,
+              slug,
+              document.id,
+              encodeFrontmatter(document),
+              ticketFileBody(document.body, document.commentsRegion)
+            ),
+            ticketCreatedEvents(document)
+          )
+          .pipe(
+            Effect.provideService(
+              ActivityActor,
+              ActivityActor.user(document.createdBy)
+            )
+          )
+          .pipe(
+            Effect.andThen(
+              Effect.suspend(() =>
+                onPersist ? onPersist(document) : Effect.void
+              )
+            ),
+            Effect.uninterruptible
+          )
+      )
+    )
+  })
+
+  const write = Effect.fn("TicketDocs.write")(function* (
     orgSlug: string,
     slug: string,
     id: string,
     document: TicketDocument
-  ) => Effect.Effect<void, MarkdownError>
-  readonly update: <E, R>(
+  ) {
+    return yield* annotateTicketDoc(
+      "write",
+      orgSlug,
+      slug,
+      { ticketId: id },
+      markdown.writeTicketWithRegion(
+        orgSlug,
+        slug,
+        id,
+        encodeFrontmatter(document),
+        document.body,
+        document.commentsRegion
+      )
+    )
+  })
+
+  const update = <E, R>(
     orgSlug: string,
     slug: string,
     id: string,
@@ -314,28 +547,121 @@ export interface TicketDocsShape {
       document: TicketDocument
     ) => Effect.Effect<TicketDocument, E, R>,
     onPersist?: (document: TicketDocument) => Effect.Effect<void, E, R>,
-    activity?: TicketActivityOptions
-  ) => Effect.Effect<
+    activity: TicketActivityOptions = {}
+  ): Effect.Effect<
     TicketDocument,
     NotFound | MarkdownError | MalformedTicketDocument | E,
     R | ActivityActor
-  >
-  readonly remove: (
+  > =>
+    withTicketDocSpan(
+      "update",
+      orgSlug,
+      slug,
+      { ticketId: id },
+      withMutationLock(
+        orgSlug,
+        slug,
+        id,
+        Effect.gen(function* () {
+          const current = yield* read(orgSlug, slug, id)
+          const transformed = yield* transform(current)
+          if (transformed === current) {
+            if (onPersist) yield* onPersist(current)
+            return current
+          }
+          const actor = yield* ActivityActor
+          const touched =
+            transformed.updatedAt.getTime() !== current.updatedAt.getTime()
+          const next = touched
+            ? {
+                ...transformed,
+                updatedBy: activityActorUserId(actor) ?? transformed.updatedBy
+              }
+            : transformed
+          const changes = activity.silent
+            ? []
+            : [
+                ...ticketChanges(current, next, activity.archiveReason),
+                ...(activity.extra ?? [])
+              ]
+          const events =
+            activity.silent || current.status === next.status
+              ? []
+              : ticketEvents(
+                  current,
+                  next,
+                  yield* finishedStatuses.forProject(orgSlug, slug)
+                )
+          return yield* Effect.gen(function* () {
+            yield* ticketActivity.record(
+              orgSlug,
+              slug,
+              { kind: "ticket", id, content: ticketFileContent(next) },
+              changes.map((change) =>
+                change.kind === "status_changed" &&
+                activity.statusCause !== undefined
+                  ? { ticketId: next.id, change, cause: activity.statusCause }
+                  : { ticketId: next.id, change }
+              ),
+              activity.cause ?? null,
+              write(orgSlug, slug, id, next),
+              events
+            )
+            if (onPersist) yield* onPersist(next)
+            return next
+          }).pipe(Effect.uninterruptible)
+        })
+      )
+    )
+
+  const remove = Effect.fn("TicketDocs.remove")(function* (
     orgSlug: string,
     slug: string,
     id: string,
-    onPersist?: Effect.Effect<void>
-  ) => Effect.Effect<void, NotFound | MarkdownError>
-  readonly readRaw: (
+    onPersist: Effect.Effect<void> = Effect.void
+  ) {
+    return yield* annotateTicketDoc(
+      "remove",
+      orgSlug,
+      slug,
+      { ticketId: id },
+      withMutationLock(
+        orgSlug,
+        slug,
+        id,
+        markdown
+          .removeTicketFile(orgSlug, slug, id)
+          .pipe(
+            Effect.andThen(ticketActivity.removeTicket(orgSlug, slug, id)),
+            Effect.andThen(onPersist)
+          )
+      )
+    )
+  })
+
+  const readRaw = Effect.fn("TicketDocs.readRaw")(function* (
     orgSlug: string,
     slug: string,
     id: string
-  ) => Effect.Effect<
-    { path: string; content: string },
-    NotFound | MarkdownError
-  >
-}
+  ) {
+    return yield* annotateTicketDoc(
+      "readRaw",
+      orgSlug,
+      slug,
+      { ticketId: id },
+      markdown.readTicketFileRaw(orgSlug, slug, id)
+    )
+  })
 
-export class TicketDocs extends Context.Service<TicketDocs, TicketDocsShape>()(
-  "@pp/server-core/tickets/TicketDocs"
-) {}
+  return TicketDocs.of({
+    listIds,
+    read,
+    create,
+    write,
+    update,
+    remove,
+    readRaw
+  })
+})
+
+export const layer = Layer.effect(TicketDocs, make)

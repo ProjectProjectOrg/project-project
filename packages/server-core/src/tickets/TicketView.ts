@@ -12,7 +12,7 @@ import * as Layer from "effect/Layer"
 import { Attachments } from "../attachments/Attachments"
 import * as ProjectGithub from "../projects/ProjectGithub"
 import { Users } from "../users/Users"
-import { TicketDocs, type TicketDocument } from "./TicketDocs"
+import * as TicketDocs from "./TicketDocs"
 import {
   documentToDetail,
   type GitView,
@@ -28,9 +28,9 @@ export class TicketView extends Context.Service<
     readTicket: (
       project: TicketProject,
       id: string
-    ) => Effect.Effect<TicketDocument, TicketReadError>
+    ) => Effect.Effect<TicketDocs.TicketDocument, TicketReadError>
     detailOf: (
-      document: TicketDocument,
+      document: TicketDocs.TicketDocument,
       view: GitView,
       branchDeletedAt?: Date | null
     ) => Effect.Effect<TicketDetail>
@@ -42,7 +42,7 @@ export class TicketView extends Context.Service<
 >()("@pp/server-core/tickets/TicketView") {}
 
 const make = Effect.gen(function* () {
-  const ticketDocs = yield* TicketDocs
+  const ticketDocs = yield* TicketDocs.TicketDocs
   const projectGithubLinks = yield* ProjectGithub.ProjectGithub
   const attachments = yield* Attachments
   const users = yield* Users
@@ -62,7 +62,7 @@ const make = Effect.gen(function* () {
   const gitView = Effect.flatMap(ProjectScope, gitViewOf)
 
   const detailOf = Effect.fn("TicketView.detailOf")(function* (
-    document: TicketDocument,
+    document: TicketDocs.TicketDocument,
     view: GitView,
     branchDeletedAt: Date | null = null
   ) {

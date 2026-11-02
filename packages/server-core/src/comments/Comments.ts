@@ -16,7 +16,7 @@ import type * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
 import type { MarkdownError } from "../markdown/Markdown"
-import type { MalformedTicketDocument } from "../tickets/TicketDocs"
+import type * as TicketDocs from "../tickets/TicketDocs"
 
 export class InvalidCommentBody extends Data.TaggedError("InvalidCommentBody")<{
   readonly reason: string
@@ -53,7 +53,7 @@ export type CommentsShape = Readonly<{
     ticketId: TicketId
   ) => Effect.Effect<
     ReadonlyArray<Comment>,
-    NotFound | MarkdownError | MalformedTicketDocument,
+    NotFound | MarkdownError | TicketDocs.MalformedTicketDocument,
     ProjectScope
   >
   create: (
@@ -65,7 +65,7 @@ export type CommentsShape = Readonly<{
     | InvalidCommentBody
     | MentionInvalid
     | MarkdownError
-    | MalformedTicketDocument,
+    | TicketDocs.MalformedTicketDocument,
     ProjectScope | ActivityActor
   >
   importHistorical: (
@@ -78,7 +78,7 @@ export type CommentsShape = Readonly<{
     | InvalidCommentAuthor
     | MentionInvalid
     | MarkdownError
-    | MalformedTicketDocument,
+    | TicketDocs.MalformedTicketDocument,
     ProjectScope | ActivityActor
   >
   edit: (
@@ -92,7 +92,7 @@ export type CommentsShape = Readonly<{
     | InvalidCommentBody
     | MentionInvalid
     | MarkdownError
-    | MalformedTicketDocument,
+    | TicketDocs.MalformedTicketDocument,
     ProjectScope | ActivityActor
   >
   remove: (
@@ -100,7 +100,7 @@ export type CommentsShape = Readonly<{
     commentId: CommentId
   ) => Effect.Effect<
     void,
-    Forbidden | NotFound | MarkdownError | MalformedTicketDocument,
+    Forbidden | NotFound | MarkdownError | TicketDocs.MalformedTicketDocument,
     ProjectScope | ActivityActor
   >
 }>

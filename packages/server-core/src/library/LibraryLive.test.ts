@@ -27,7 +27,7 @@ import { orgScope, projectScope } from "../access/testing"
 import * as KeyedLock from "../locks/KeyedLock"
 import type { LibraryKind } from "../markdown/Markdown"
 import { ProjectDocs, type ProjectDocument } from "../projects/ProjectDocs"
-import { TicketDocs } from "../tickets/TicketDocs"
+import * as TicketDocs from "../tickets/TicketDocs"
 import { Library } from "./Library"
 import { LibraryDocs, type LibraryDocsShape } from "./LibraryDocs"
 import { LibraryLive } from "./LibraryLive"
@@ -203,7 +203,7 @@ const makeLayer = (world: World) =>
     ),
     Layer.provide(KeyedLock.layer),
     Layer.provide(
-      Layer.mock(TicketDocs, {
+      Layer.mock(TicketDocs.TicketDocs, {
         listIds: () => Effect.succeed([ticketId("T-1")])
       })
     ),

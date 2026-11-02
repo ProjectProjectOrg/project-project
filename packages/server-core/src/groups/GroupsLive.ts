@@ -30,7 +30,7 @@ import * as Schema from "effect/Schema"
 import { KeyedLock, LockKey } from "../locks/KeyedLock"
 import type { MarkdownError } from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
-import { TicketDocs } from "../tickets/TicketDocs"
+import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketIndex from "../tickets/TicketIndex"
 import { GroupDocs, type GroupDocument } from "./GroupDocs"
 import {
@@ -79,7 +79,7 @@ export const GroupsLive = Layer.effect(
   Groups,
   Effect.gen(function* () {
     const groupDocs = yield* GroupDocs
-    const ticketDocs = yield* TicketDocs
+    const ticketDocs = yield* TicketDocs.TicketDocs
     const ticketIndex = yield* TicketIndex.TicketIndex
     const keyedLock = yield* KeyedLock
     const finishedStatuses = yield* FinishedStatuses

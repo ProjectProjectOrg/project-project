@@ -17,7 +17,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
 import type { MarkdownError } from "../markdown/Markdown"
-import { TicketDocs, type MalformedTicketDocument } from "../tickets/TicketDocs"
+import * as TicketDocs from "../tickets/TicketDocs"
 import { Users } from "../users/Users"
 import { coalesceActivity } from "./coalesce"
 import {
@@ -32,7 +32,7 @@ export type TicketActivityFeedShape = Readonly<{
     cursor: string | undefined
   ) => Effect.Effect<
     TicketActivityPage,
-    NotFound | Validation | MarkdownError | MalformedTicketDocument,
+    NotFound | Validation | MarkdownError | TicketDocs.MalformedTicketDocument,
     ProjectScope
   >
 }>
@@ -86,7 +86,7 @@ export const TicketActivityFeedLive = Layer.effect(
   TicketActivityFeed,
   Effect.gen(function* () {
     const activity = yield* TicketActivity
-    const ticketDocs = yield* TicketDocs
+    const ticketDocs = yield* TicketDocs.TicketDocs
     const users = yield* Users
 
     const list: TicketActivityFeedShape["list"] = (ticketId, cursor) =>

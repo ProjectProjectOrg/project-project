@@ -18,7 +18,7 @@ import * as Schema from "effect/Schema"
 
 import type { MarkdownError } from "../markdown/Markdown"
 import * as ProjectMembers from "../projects/ProjectMembers"
-import { TicketDocs } from "../tickets/TicketDocs"
+import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketIndex from "../tickets/TicketIndex"
 import type { TicketProject } from "../tickets/ticketProject"
 import { Users } from "../users/Users"
@@ -47,7 +47,7 @@ export const CommentsLive = Layer.effect(
     const db = yield* Db
     const projectMembers = yield* ProjectMembers.ProjectMembers
     const ticketIndex = yield* TicketIndex.TicketIndex
-    const ticketDocs = yield* TicketDocs
+    const ticketDocs = yield* TicketDocs.TicketDocs
     const users = yield* Users
     const crypto = yield* Crypto.Crypto
 

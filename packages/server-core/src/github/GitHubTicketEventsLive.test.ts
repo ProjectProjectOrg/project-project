@@ -17,11 +17,7 @@ import {
 } from "../projects/gitAutomationTesting"
 import { moveForDeletedBranch } from "../tickets/moveByGitAutomation"
 import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
-import {
-  MalformedTicketDocument,
-  type TicketDocsShape,
-  type TicketDocument
-} from "../tickets/TicketDocs"
+import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import type * as TicketIndex from "../tickets/TicketIndex"
 import {
@@ -36,8 +32,8 @@ const ticketId = Schema.decodeUnknownSync(TicketId)
 const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
 
 const baseDocument = (
-  overrides: Partial<TicketDocument> = {}
-): TicketDocument => ({
+  overrides: Partial<TicketDocs.TicketDocument> = {}
+): TicketDocs.TicketDocument => ({
   id: ticketId("T-1"),
   title: "first",
   status: ticketStatus("in_progress"),
@@ -71,11 +67,11 @@ const baseMatch = (
   ...overrides
 })
 
-const makeFakeDocs = (initial: ReadonlyArray<TicketDocument>) => {
+const makeFakeDocs = (initial: ReadonlyArray<TicketDocs.TicketDocument>) => {
   const documents = new Map(initial.map((doc) => [doc.id as string, doc]))
-  const writes: Array<{ id: string; document: TicketDocument }> = []
+  const writes: Array<{ id: string; document: TicketDocs.TicketDocument }> = []
   const reads: Array<string> = []
-  const shape: TicketDocsShape = {
+  const shape: TicketDocs.TicketDocs["Service"] = {
     listIds: () =>
       Effect.succeed([...documents.keys()].map((id) => ticketId(id))),
     read: (_org, _slug, id) => {
@@ -235,7 +231,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
         const index = makeFakeIndex()
         let activeUpdates = 0
         let maxActiveUpdates = 0
-        const serialDocs: TicketDocsShape = {
+        const serialDocs: TicketDocs.TicketDocs["Service"] = {
           ...docs.shape,
           update: (org, slug, id, transform, onPersist) =>
             Effect.gen(function* () {
@@ -329,11 +325,11 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
       Effect.gen(function* () {
         const docs = makeFakeDocs([])
         const index = makeFakeIndex()
-        const malformedDocs: TicketDocsShape = {
+        const malformedDocs: TicketDocs.TicketDocs["Service"] = {
           ...docs.shape,
           read: () =>
             Effect.fail(
-              new MalformedTicketDocument({
+              new TicketDocs.MalformedTicketDocument({
                 orgSlug: "org",
                 slug: "p",
                 ticketId: "T-1",
@@ -508,7 +504,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
   }
 
   const linkPullRequest = (
-    documents: ReadonlyArray<TicketDocument>,
+    documents: ReadonlyArray<TicketDocs.TicketDocument>,
     change: Partial<GitHubPullRequestWebhookChange>,
     indexOverrides: Partial<FakeIndexShape> = {}
   ) =>
@@ -534,7 +530,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
       return docs
     })
 
-  const unlinked = (overrides: Partial<TicketDocument> = {}) =>
+  const unlinked = (overrides: Partial<TicketDocs.TicketDocument> = {}) =>
     baseDocument({ branch: null, ...overrides })
 
   for (const { name, change } of [
@@ -748,7 +744,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
     baseDocument({ stack: [{ branch: "feat/T-1-docs" }, layer] })
 
   const applyToLayer = (
-    document: TicketDocument,
+    document: TicketDocs.TicketDocument,
     change: GitHubPullRequestWebhookChange,
     match: PullRequestWebhookMatch = stackedMatch
   ) =>

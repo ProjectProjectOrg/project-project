@@ -66,7 +66,7 @@ import { TagsLive } from "@pp/server-core/tags/TagsLive"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketServices from "@pp/server-core/tickets/layer"
 import * as TicketBranchIndex from "@pp/server-core/tickets/TicketBranchIndex"
-import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
 import { UsersLive } from "@pp/server-core/users/UsersLive"
@@ -191,7 +191,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(JiraDurableServicesLive),
       Layer.provideMerge(JiraWorkflowsLive),
       Layer.provideMerge(ProjectDocsLive),
-      Layer.provideMerge(TicketDocsLive),
+      Layer.provideMerge(TicketDocs.layer),
       Layer.provideMerge(FinishedStatuses.layer),
       Layer.provideMerge(GroupDocsLive),
       Layer.provideMerge(TicketActivityLive),

@@ -32,7 +32,7 @@ import {
   makeTicketsLayer,
   ticketStatus
 } from "./testing"
-import { TicketDocs, type TicketActivityOptions } from "./TicketDocs"
+import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -120,10 +120,10 @@ describe.skipIf(!databaseUrl)("tag and status rewrites", () => {
       })
     )
     const activity: Array<
-      readonly [string, TicketActivityOptions | undefined]
+      readonly [string, TicketDocs.TicketActivityOptions | undefined]
     > = []
     const upserts: Array<string> = []
-    const recordingDocs = Layer.succeed(TicketDocs, {
+    const recordingDocs = Layer.succeed(TicketDocs.TicketDocs, {
       ...docs.service,
       update: (org, slug, ticketId, transform, onPersist, options) =>
         docs.service

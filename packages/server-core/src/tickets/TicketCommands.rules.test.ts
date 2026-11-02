@@ -35,7 +35,7 @@ import {
   as
 } from "./testing"
 import * as TicketCommands from "./TicketCommands"
-import type { TicketDocument } from "./TicketDocs"
+import type * as TicketDocs from "./TicketDocs"
 import * as TicketQueries from "./TicketQueries"
 
 it.effect(
@@ -436,7 +436,7 @@ it.effect("bulkUpdate patches every ticket and plans them in one call", () => {
 })
 
 const makeRulesFixture = (
-  documents: ReadonlyArray<TicketDocument>,
+  documents: ReadonlyArray<TicketDocs.TicketDocument>,
   groups: Partial<GroupsShape> = {}
 ) => {
   const docs = makeFakeTicketDocs([])

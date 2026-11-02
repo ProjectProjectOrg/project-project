@@ -44,7 +44,7 @@ import {
 } from "./testing"
 import * as TicketBranchIndex from "./TicketBranchIndex"
 import * as TicketCommands from "./TicketCommands"
-import { TicketDocs, type TicketDocsShape } from "./TicketDocs"
+import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import * as TicketGit from "./TicketGit"
 import * as TicketIndex from "./TicketIndex"
@@ -751,7 +751,7 @@ it.effect(
       const docs = makeFakeTicketDocs([])
       const layer = makeTicketsLayer(
         "T",
-        Layer.succeed(TicketDocs, {
+        Layer.succeed(TicketDocs.TicketDocs, {
           ...docs.service,
           read: (_org, slug) => Effect.succeed(documents.get(slug)!),
           update: (_org, slug, _id, transform, onPersist) =>
@@ -853,7 +853,7 @@ it.effect("manual unlink waits for a webhook write and remains unlinked", () =>
     const releaseWrite = yield* Deferred.make<void>()
     const docs = makeFakeTicketDocs(["T-1"])
     docs.documents.set("T-1", makeTicketDocument("T-1", { branch: "feat/T-1" }))
-    const coordinatedDocs: TicketDocsShape = {
+    const coordinatedDocs: TicketDocs.TicketDocs["Service"] = {
       ...docs.service,
       update: (org, slug, id, transform, onPersist) =>
         docs.service.update(
@@ -875,7 +875,7 @@ it.effect("manual unlink waits for a webhook write and remains unlinked", () =>
     const indexLayer = makeFakeTicketIndex(docs.documents)
     const layer = makeTicketsLayer(
       "T",
-      Layer.succeed(TicketDocs, coordinatedDocs),
+      Layer.succeed(TicketDocs.TicketDocs, coordinatedDocs),
       {
         projects: makeFakeProjects("T"),
         projectGithub: makeFakeProjectGithub({
@@ -1231,7 +1231,7 @@ it.effect(
     const stale = new Set<string>()
     const diskFull = new MarkdownError({ message: "disk full", cause: null })
     let failMove = true
-    const failingDocs: TicketDocsShape = {
+    const failingDocs: TicketDocs.TicketDocs["Service"] = {
       ...docs.service,
       update: (org, slug, id, transform, onPersist, activity) =>
         docs.service.update(
@@ -1252,7 +1252,7 @@ it.effect(
     }
     const layer = makeTicketsLayer(
       "T",
-      Layer.succeed(TicketDocs, failingDocs),
+      Layer.succeed(TicketDocs.TicketDocs, failingDocs),
       {
         projects: makeFakeProjects("T"),
         projectGithub: makeFakeProjectGithub({

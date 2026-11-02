@@ -1,6 +1,6 @@
 import * as Struct from "effect/Struct"
 
-import type { TicketDocument } from "./TicketDocs"
+import type * as TicketDocs from "./TicketDocs"
 
 const prMetadataKeys = [
   "pr",
@@ -11,10 +11,10 @@ const prMetadataKeys = [
   "stack"
 ] as const
 
-export const prMetadataOf = (ticket: TicketDocument) =>
+export const prMetadataOf = (ticket: TicketDocs.TicketDocument) =>
   Struct.pick(ticket, prMetadataKeys)
 
-export const hasPrMetadata = (ticket: TicketDocument): boolean =>
+export const hasPrMetadata = (ticket: TicketDocs.TicketDocument): boolean =>
   ticket.pr !== null ||
   ticket.prState !== null ||
   ticket.prDraft === true ||
@@ -28,7 +28,9 @@ export const hasPrMetadata = (ticket: TicketDocument): boolean =>
       layer.landed === true
   )
 
-export const clearedPrMetadata = (ticket: TicketDocument): TicketDocument => ({
+export const clearedPrMetadata = (
+  ticket: TicketDocs.TicketDocument
+): TicketDocs.TicketDocument => ({
   ...ticket,
   pr: null,
   prState: null,

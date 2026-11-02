@@ -1,10 +1,10 @@
 import type { ProjectEvent, SprintEvent } from "@pp/shared"
 
 import type { GroupDocument } from "../groups/GroupDocs"
-import type { TicketDocument } from "../tickets/TicketDocs"
+import type * as TicketDocs from "../tickets/TicketDocs"
 
 type EventTicket = Pick<
-  TicketDocument,
+  TicketDocs.TicketDocument,
   "id" | "title" | "status" | "archivedAt"
 >
 
@@ -17,7 +17,7 @@ const ticketEvent = (
     : []
 
 export const ticketCreatedEvents = (
-  ticket: TicketDocument
+  ticket: TicketDocs.TicketDocument
 ): ReadonlyArray<ProjectEvent> => ticketEvent("ticket_created", ticket)
 
 export const ticketEvents = (

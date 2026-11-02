@@ -19,7 +19,7 @@ import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import { Tags } from "@pp/server-core/tags/Tags"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
-import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
@@ -246,7 +246,7 @@ const GroupDocsStub = Layer.mock(GroupDocs, {
     })
 })
 
-const TicketDocsStub = Layer.mock(TicketDocs, {
+const TicketDocsStub = Layer.mock(TicketDocs.TicketDocs, {
   readRaw: (_o, _s, _id) =>
     Effect.succeed({
       path: "orgs/acme/projects/demo/tickets/T-1.md",

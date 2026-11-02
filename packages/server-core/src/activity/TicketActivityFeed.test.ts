@@ -17,11 +17,7 @@ import * as Schema from "effect/Schema"
 import { describe, expect } from "vitest"
 
 import { projectScope, testUser } from "../access/testing"
-import {
-  TicketDocs,
-  type TicketDocsShape,
-  type TicketDocument
-} from "../tickets/TicketDocs"
+import * as TicketDocs from "../tickets/TicketDocs"
 import { Users } from "../users/Users"
 import { TicketActivity, type StoredTicketActivity } from "./TicketActivity"
 import {
@@ -37,7 +33,7 @@ const at = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
 const unexpected = (method: string): Effect.Effect<never> =>
   Effect.die(new Error(`unexpected ${method} call`))
 
-const ticket: TicketDocument = {
+const ticket: TicketDocs.TicketDocument = {
   id: ticketId("T-7"),
   title: "Split me",
   status: status("todo"),
@@ -107,7 +103,7 @@ const feedLayer = (
             return Effect.succeed(rows.slice(0, limit))
           }
         }),
-        Layer.succeed(TicketDocs, {
+        Layer.succeed(TicketDocs.TicketDocs, {
           listIds: () => unexpected("TicketDocs.listIds"),
           read: (_orgSlug, _slug, id) =>
             id === ticket.id
@@ -118,7 +114,7 @@ const feedLayer = (
           update: () => unexpected("TicketDocs.update"),
           remove: () => unexpected("TicketDocs.remove"),
           readRaw: () => unexpected("TicketDocs.readRaw")
-        } satisfies TicketDocsShape),
+        } satisfies TicketDocs.TicketDocs["Service"]),
         Layer.succeed(Users, {
           findByEmail: () => unexpected("Users.findByEmail"),
           findManyByIds: () => unexpected("Users.findManyByIds"),

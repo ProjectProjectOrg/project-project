@@ -25,7 +25,7 @@ import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { S3Storage } from "@pp/server-core/storage/S3Storage"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
-import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
@@ -176,7 +176,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
         PgClient.layer({ url: Redacted.make(databaseUrl), maxConnections: 1 })
       )
     )
-    const ticketDocs = Layer.mock(TicketDocs, {
+    const ticketDocs = Layer.mock(TicketDocs.TicketDocs, {
       listIds: (orgSlug, projectSlug) => {
         if (orgSlug === `visibility-${organizationId}`)
           reconciledSlugs = [...reconciledSlugs, projectSlug]

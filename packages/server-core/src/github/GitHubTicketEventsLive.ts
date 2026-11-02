@@ -35,11 +35,7 @@ import {
   pullRequestTicketReferences
 } from "../tickets/pullRequestTicketReference"
 import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
-import {
-  TicketDocs,
-  type TicketDocsShape,
-  type TicketDocument
-} from "../tickets/TicketDocs"
+import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import {
   planPullRequestPatch,
@@ -71,7 +67,7 @@ export type PullRequestWebhookMatch = Readonly<{
 }>
 
 type PullRequestWebhookDeps = Readonly<{
-  ticketDocs: TicketDocsShape
+  ticketDocs: TicketDocs.TicketDocs["Service"]
   ticketIndex: TicketIndex.TicketIndex["Service"]
   ticketBranchIndex: TicketBranchIndex.TicketBranchIndex["Service"]
   ticketDocumentLock: TicketDocumentLock.TicketDocumentLock["Service"]
@@ -83,7 +79,7 @@ type PullRequestWebhookDeps = Readonly<{
 
 type PullRequestWebhookPatch = Partial<
   Pick<
-    TicketDocument,
+    TicketDocs.TicketDocument,
     | "branch"
     | "pr"
     | "prState"
@@ -115,7 +111,7 @@ const writePullRequestWebhook = (
   deliveryId: string | null,
   claim: GitHubPullRequestWebhookChange | null,
   patchFor: (
-    ticket: TicketDocument
+    ticket: TicketDocs.TicketDocument
   ) => Effect.Effect<PullRequestWebhookPatch | null>
 ): Effect.Effect<void, MarkdownError> =>
   Effect.gen(function* () {
@@ -468,7 +464,7 @@ export const GitHubTicketEventsLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const sql = yield* SqlClient.SqlClient
-    const ticketDocs = yield* TicketDocs
+    const ticketDocs = yield* TicketDocs.TicketDocs
     const ticketIndex = yield* TicketIndex.TicketIndex
     const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
     const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock

@@ -65,7 +65,7 @@ import * as Schedule from "effect/Schedule"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
-import type { TicketDocument } from "./TicketDocs"
+import type * as TicketDocs from "./TicketDocs"
 import * as TicketIndexRepairs from "./TicketIndexRepairs"
 import type { TicketProject } from "./ticketProject"
 
@@ -298,7 +298,7 @@ export class TicketIndex extends Context.Service<
     ) => Effect.Effect<ReadonlyArray<string>>
     upsertTicket: (
       project: TicketProject,
-      document: TicketDocument
+      document: TicketDocs.TicketDocument
     ) => Effect.Effect<void>
     deleteTicket: (
       project: TicketProject,
@@ -329,7 +329,7 @@ const estimateFromIndex = (
 
 export const ticketIndexRowFor = (
   project: TicketProject,
-  document: TicketDocument
+  document: TicketDocs.TicketDocument
 ): typeof ticketIndex.$inferInsert => ({
   organizationId: project.organizationId,
   projectId: project.projectId,
@@ -358,7 +358,7 @@ export const ticketIndexRowFor = (
 
 export const ticketBranchRowsFor = (
   project: TicketProject,
-  document: TicketDocument
+  document: TicketDocs.TicketDocument
 ): ReadonlyArray<typeof ticketBranch.$inferInsert> =>
   (document.stack ?? []).map((layer, position) => ({
     projectId: project.projectId,
@@ -1350,7 +1350,7 @@ const make = Effect.gen(function* () {
 
   const syncTicketBranches = (
     project: TicketProject,
-    document: TicketDocument
+    document: TicketDocs.TicketDocument
   ) =>
     Effect.gen(function* () {
       const rows = ticketBranchRowsFor(project, document)
@@ -1392,7 +1392,7 @@ const make = Effect.gen(function* () {
 
   const upsertTicket = Effect.fn("TicketIndex.upsertTicket")(function* (
     project: TicketProject,
-    document: TicketDocument
+    document: TicketDocs.TicketDocument
   ) {
     return yield* sql
       .withTransaction(

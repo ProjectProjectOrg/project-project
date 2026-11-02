@@ -23,8 +23,7 @@ import { GroupDocs } from "../groups/GroupDocs"
 import { GroupDocsLive } from "../groups/GroupDocsLive"
 import * as KeyedLock from "../locks/KeyedLock"
 import { Markdown, type MarkdownShape } from "../markdown/Markdown"
-import { TicketDocs } from "../tickets/TicketDocs"
-import { TicketDocsLive } from "../tickets/TicketDocsLive"
+import * as TicketDocs from "../tickets/TicketDocs"
 import { FinishedStatuses } from "./FinishedStatuses"
 import { ProjectDocs } from "./ProjectDocs"
 import { ProjectDocsLive } from "./ProjectDocsLive"
@@ -80,7 +79,7 @@ function makeMarkdown(overrides: Partial<MarkdownShape>) {
 
 it.effect("TicketDocs reads ticket frontmatter as a typed document", () =>
   Effect.gen(function* () {
-    const docs = yield* TicketDocs
+    const docs = yield* TicketDocs.TicketDocs
     const document = yield* docs.read("org", "project", "T-1")
 
     expect(document).toMatchObject({
@@ -103,7 +102,7 @@ it.effect("TicketDocs reads ticket frontmatter as a typed document", () =>
     expect(document.updatedAt.toISOString()).toBe("2026-01-02T00:00:00.000Z")
   }).pipe(
     Effect.provide(
-      TicketDocsLive.pipe(
+      TicketDocs.layer.pipe(
         Layer.provideMerge(testActivityLayer()),
         Layer.provide(
           Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
@@ -139,7 +138,7 @@ it.effect(
     let body: string | undefined
 
     return Effect.gen(function* () {
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       yield* docs.create("org", "project", {
         id: ticketId("T-2"),
         title: "Write tests",
@@ -166,7 +165,7 @@ it.effect(
       )
     }).pipe(
       Effect.provide(
-        TicketDocsLive.pipe(
+        TicketDocs.layer.pipe(
           Layer.provideMerge(testActivityLayer()),
           Layer.provide(
             Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
@@ -203,7 +202,7 @@ it.effect(
       | undefined
 
     return Effect.gen(function* () {
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       yield* docs.write("org", "project", "T-2", {
         id: ticketId("T-2"),
         title: "Write tests",
@@ -248,7 +247,7 @@ it.effect(
       })
     }).pipe(
       Effect.provide(
-        TicketDocsLive.pipe(
+        TicketDocs.layer.pipe(
           Layer.provideMerge(testActivityLayer()),
           Layer.provide(
             Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
@@ -305,7 +304,7 @@ it.effect("TicketDocs serializes concurrent document updates", () => {
   }
 
   return Effect.gen(function* () {
-    const docs = yield* TicketDocs
+    const docs = yield* TicketDocs.TicketDocs
     const firstEntered = yield* Deferred.make<void>()
     const releaseFirst = yield* Deferred.make<void>()
 
@@ -338,7 +337,7 @@ it.effect("TicketDocs serializes concurrent document updates", () => {
     expect(document.commentsRegion).toContain("comment")
   }).pipe(
     Effect.provide(
-      TicketDocsLive.pipe(
+      TicketDocs.layer.pipe(
         Layer.provideMerge(testActivityLayer()),
         Layer.provide(
           Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
@@ -394,7 +393,7 @@ it.effect(
     }
 
     return Effect.gen(function* () {
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       const published: string[] = []
       const firstEntered = yield* Deferred.make<void>()
       const releaseFirst = yield* Deferred.make<void>()
@@ -446,7 +445,7 @@ it.effect(
       expect(document.commentsRegion).toContain("comment")
     }).pipe(
       Effect.provide(
-        TicketDocsLive.pipe(
+        TicketDocs.layer.pipe(
           Layer.provideMerge(testActivityLayer()),
           Layer.provide(
             Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
@@ -737,7 +736,7 @@ it.effect(
   "TicketDocs.readRaw returns the on-disk path and raw file contents",
   () =>
     Effect.gen(function* () {
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       const file = yield* docs.readRaw("acme", "web", "T-12")
       expect(file).toEqual({
         path: "tickets/T-12.md",
@@ -745,7 +744,7 @@ it.effect(
       })
     }).pipe(
       Effect.provide(
-        TicketDocsLive.pipe(
+        TicketDocs.layer.pipe(
           Layer.provideMerge(testActivityLayer()),
           Layer.provide(
             Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)

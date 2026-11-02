@@ -20,7 +20,7 @@ import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import { SecretCryptoLive } from "@pp/server-core/storage/SecretCryptoLive"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
-import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import { CurrentUser, OrgScope, ProjectScope } from "@pp/shared"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as Effect from "effect/Effect"
@@ -150,7 +150,7 @@ describe.skipIf(!databaseUrl)("Everhour backend composition", () => {
           Layer.provideMerge(AccessLive),
           Layer.provideMerge(TicketIndexServices.layer),
           Layer.provideMerge(GroupDocsLive),
-          Layer.provideMerge(TicketDocsLive),
+          Layer.provideMerge(TicketDocs.layer),
           Layer.provideMerge(FinishedStatuses.layer),
           Layer.provideMerge(KeyedLock.layer),
           Layer.provideMerge(TicketActivityLive),

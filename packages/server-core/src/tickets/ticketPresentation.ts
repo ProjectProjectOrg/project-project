@@ -12,10 +12,13 @@ import * as Effect from "effect/Effect"
 import type { MarkdownError } from "../markdown/Markdown"
 import type * as ProjectGithub from "../projects/ProjectGithub"
 import { stackLayerStates } from "./stackLayerStates"
-import type { MalformedTicketDocument, TicketDocument } from "./TicketDocs"
+import type * as TicketDocs from "./TicketDocs"
 import type * as TicketIndex from "./TicketIndex"
 
-export type TicketReadError = NotFound | MarkdownError | MalformedTicketDocument
+export type TicketReadError =
+  | NotFound
+  | MarkdownError
+  | TicketDocs.MalformedTicketDocument
 
 export type GitView = Readonly<{
   integration: ProjectGithub.ProjectGithubIntegration | null
@@ -35,7 +38,7 @@ export const presentTicket = <T extends Ticket>(view: GitView, ticket: T): T =>
   view.visible ? ticket : withoutGit(ticket)
 
 export function pendingGitState(
-  document: Pick<TicketDocument, "branch" | "pr" | "prState">,
+  document: Pick<TicketDocs.TicketDocument, "branch" | "pr" | "prState">,
   github: ProjectGithub.ProjectGithubIntegration | null,
   branchDeletedAt: Date | null = null
 ): Ticket["gitState"] {
@@ -81,7 +84,7 @@ export function pendingGitState(
 }
 
 export function documentToTicket(
-  document: TicketDocument,
+  document: TicketDocs.TicketDocument,
   view: GitView,
   branchDeletedAt: Date | null = null
 ): Ticket {
@@ -106,7 +109,7 @@ export function indexEntryToTicket(
 }
 
 export function documentToDetail(
-  document: TicketDocument,
+  document: TicketDocs.TicketDocument,
   view: GitView,
   creator: User | null,
   updater: User | null,

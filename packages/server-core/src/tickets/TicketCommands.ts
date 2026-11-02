@@ -55,11 +55,7 @@ import { ProjectDocs } from "../projects/ProjectDocs"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
 import { readProjectDocument } from "../projects/readProjectDocument"
-import {
-  TicketDocs,
-  ticketFileContent,
-  type TicketDocument
-} from "./TicketDocs"
+import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import {
   validateHierarchy,
@@ -93,7 +89,7 @@ const requireTicketChange = (change: TicketPolicy.Change) =>
   requirePolicy((scope) => TicketPolicy.canChange(scope, change))
 
 const requireSplit = (
-  source: TicketDocument,
+  source: TicketDocs.TicketDocument,
   retained: SplitTicketResultInput,
   created: ReadonlyArray<SplitTicketResultInput>
 ) =>
@@ -206,7 +202,7 @@ export class TicketCommands extends Context.Service<
 >()("@pp/server-core/tickets/TicketCommands") {}
 
 const make = Effect.gen(function* () {
-  const ticketDocs = yield* TicketDocs
+  const ticketDocs = yield* TicketDocs.TicketDocs
   const ticketActivity = yield* TicketActivity
   const { withTicketDocumentLock } =
     yield* TicketDocumentLock.TicketDocumentLock
@@ -380,9 +376,9 @@ const make = Effect.gen(function* () {
   const writeWithIdAllocation = (
     project: TicketProject,
     projectKey: ProjectKey,
-    buildDocument: (id: TicketId) => TicketDocument,
-    onFileWritten?: (document: TicketDocument) => void
-  ): Effect.Effect<TicketDocument, MarkdownError> =>
+    buildDocument: (id: TicketId) => TicketDocs.TicketDocument,
+    onFileWritten?: (document: TicketDocs.TicketDocument) => void
+  ): Effect.Effect<TicketDocs.TicketDocument, MarkdownError> =>
     Effect.gen(function* () {
       while (true) {
         const candidate = makeTicketId(
@@ -826,7 +822,7 @@ const make = Effect.gen(function* () {
   const restoreTicket = (
     project: TicketProject,
     id: string,
-    original: TicketDocument
+    original: TicketDocs.TicketDocument
   ) =>
     ticketDocs
       .write(project.orgSlug, project.slug, id, original)
@@ -834,7 +830,7 @@ const make = Effect.gen(function* () {
 
   const discardSplitResult = (
     project: TicketProject,
-    document: TicketDocument
+    document: TicketDocs.TicketDocument
   ) =>
     ticketDocs
       .remove(
@@ -861,8 +857,8 @@ const make = Effect.gen(function* () {
   const restoreSplitDocuments = (
     project: TicketProject,
     id: string,
-    original: TicketDocument,
-    created: ReadonlyArray<TicketDocument>
+    original: TicketDocs.TicketDocument,
+    created: ReadonlyArray<TicketDocs.TicketDocument>
   ) =>
     Effect.forEach(
       created,
@@ -952,10 +948,10 @@ const make = Effect.gen(function* () {
           parentChanged: false
         })
         const now = yield* DateTime.nowAsDate
-        const persisted: Array<TicketDocument> = []
+        const persisted: Array<TicketDocs.TicketDocument> = []
 
         const run = Effect.gen(function* () {
-          const createdDocuments: Array<TicketDocument> = []
+          const createdDocuments: Array<TicketDocs.TicketDocument> = []
           for (const result of newInputs) {
             createdDocuments.push(
               yield* writeWithIdAllocation(
@@ -1112,7 +1108,7 @@ const make = Effect.gen(function* () {
         {
           kind: "ticket",
           id,
-          content: ticketFileContent(written.retained)
+          content: TicketDocs.ticketFileContent(written.retained)
         },
         [
           ...ticketChanges(written.original, written.retained),
@@ -1268,7 +1264,10 @@ const make = Effect.gen(function* () {
     )
 
     const written: Array<
-      Readonly<{ original: TicketDocument; next: TicketDocument }>
+      Readonly<{
+        original: TicketDocs.TicketDocument
+        next: TicketDocs.TicketDocument
+      }>
     > = []
     const revertWritten = Effect.suspend(() =>
       Effect.forEach(

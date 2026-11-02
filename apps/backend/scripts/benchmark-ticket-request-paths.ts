@@ -32,7 +32,7 @@ import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketServices from "@pp/server-core/tickets/layer"
 import * as TicketBranchIndex from "@pp/server-core/tickets/TicketBranchIndex"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
-import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { Users, type UsersShape } from "@pp/server-core/users/Users"
@@ -464,7 +464,7 @@ const PassthroughLibrary = Layer.mock(Library, {
   resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body)
 })
 
-const DocsLive = TicketDocsLive.pipe(
+const DocsLive = TicketDocs.layer.pipe(
   Layer.provide(KeyedLock.layer),
   Layer.provide(FinishedStatuses.baseline),
   Layer.provide(passthroughTicketActivity),

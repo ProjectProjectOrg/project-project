@@ -25,21 +25,20 @@ import * as SqlClient from "effect/sql/SqlClient"
 
 import { parseCommentsRegion } from "../comments/comments-region"
 import type { MarkdownError } from "../markdown/Markdown"
-import { TicketDocs, type TicketDocument } from "./TicketDocs"
-import type { MalformedTicketDocument } from "./TicketDocs"
+import * as TicketDocs from "./TicketDocs"
 import * as TicketIndex from "./TicketIndex"
 import * as TicketIndexRepairs from "./TicketIndexRepairs"
 import type { TicketProject } from "./ticketProject"
 
 export const ticketIndexRowsFor = (
   project: TicketProject,
-  documents: ReadonlyArray<TicketDocument>
+  documents: ReadonlyArray<TicketDocs.TicketDocument>
 ): ReadonlyArray<typeof ticketIndex.$inferInsert> =>
   documents.map((document) => TicketIndex.ticketIndexRowFor(project, document))
 
 const commentIndexRowsForDocument = (
   project: TicketProject,
-  document: TicketDocument
+  document: TicketDocs.TicketDocument
 ): ReadonlyArray<typeof commentIndex.$inferInsert> =>
   parseCommentsRegion(document.commentsRegion).map((comment) => ({
     id: comment.id,
@@ -58,14 +57,14 @@ const commentIndexRowsForDocument = (
 
 export const commentIndexRowsFor = (
   project: TicketProject,
-  documents: ReadonlyArray<TicketDocument>
+  documents: ReadonlyArray<TicketDocs.TicketDocument>
 ): ReadonlyArray<typeof commentIndex.$inferInsert> =>
   documents.flatMap((document) =>
     commentIndexRowsForDocument(project, document)
   )
 
 const nextTicketNumberFor = (
-  documents: ReadonlyArray<TicketDocument>
+  documents: ReadonlyArray<TicketDocs.TicketDocument>
 ): number =>
   documents.reduce((next, document) => {
     const dash = document.id.lastIndexOf("-")
@@ -123,7 +122,7 @@ export interface TicketIndexReconcilerDeps {
   readonly collectDocuments: (
     project: TicketProject
   ) => Effect.Effect<
-    { documents: ReadonlyArray<TicketDocument>; skipped: number },
+    { documents: ReadonlyArray<TicketDocs.TicketDocument>; skipped: number },
     MarkdownError
   >
   readonly indexedRefs: (
@@ -131,7 +130,7 @@ export interface TicketIndexReconcilerDeps {
   ) => Effect.Effect<ReadonlyArray<IndexedTicketRef>>
   readonly writeProject: (
     project: TicketProject,
-    documents: ReadonlyArray<TicketDocument>,
+    documents: ReadonlyArray<TicketDocs.TicketDocument>,
     indexedBefore: ReadonlyArray<IndexedTicketRef>
   ) => Effect.Effect<void>
 }
@@ -234,22 +233,22 @@ export class TicketIndexMaintenance extends Context.Service<
       project: TicketProject
     ) => Effect.Effect<
       TicketIndex.TicketIndexRebuildProjectSummary,
-      MarkdownError | MalformedTicketDocument
+      MarkdownError | TicketDocs.MalformedTicketDocument
     >
     rebuildAllProjects: () => Effect.Effect<
       TicketIndex.TicketIndexRebuildSummary,
-      MarkdownError | MalformedTicketDocument
+      MarkdownError | TicketDocs.MalformedTicketDocument
     >
     reconcileProject: (
       project: TicketProject,
       options?: TicketIndex.TicketIndexReconcileOptions
     ) => Effect.Effect<
       TicketIndex.TicketIndexReconcileProjectSummary,
-      MarkdownError | MalformedTicketDocument
+      MarkdownError | TicketDocs.MalformedTicketDocument
     >
     reconcileAllProjects: () => Effect.Effect<
       TicketIndex.TicketIndexReconcileSummary,
-      MarkdownError | MalformedTicketDocument
+      MarkdownError | TicketDocs.MalformedTicketDocument
     >
   }>
 >()("@pp/server-core/tickets/TicketIndexMaintenance") {}
@@ -257,7 +256,7 @@ export class TicketIndexMaintenance extends Context.Service<
 const make = Effect.gen(function* () {
   const db = yield* Db
   const sql = yield* SqlClient.SqlClient
-  const ticketDocs = yield* TicketDocs
+  const ticketDocs = yield* TicketDocs.TicketDocs
   const repairs = yield* TicketIndexRepairs.TicketIndexRepairs
 
   const collectDocuments = (project: TicketProject) =>
@@ -321,7 +320,7 @@ const make = Effect.gen(function* () {
 
   const writeProjectIndex = (
     project: TicketProject,
-    documents: ReadonlyArray<TicketDocument>,
+    documents: ReadonlyArray<TicketDocs.TicketDocument>,
     indexedBefore: ReadonlyArray<IndexedTicketRef>
   ): Effect.Effect<void> => {
     const tickets = ticketIndexRowsFor(project, documents)

@@ -24,11 +24,7 @@ import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import { SecretCryptoLive } from "@pp/server-core/storage/SecretCryptoLive"
-import {
-  TicketDocs,
-  type TicketDocument
-} from "@pp/server-core/tickets/TicketDocs"
-import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import { Users } from "@pp/server-core/users/Users"
 import { UsersLive } from "@pp/server-core/users/UsersLive"
 import {
@@ -250,7 +246,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       Layer.provideMerge(AccessLive),
       Layer.provideMerge(UsersLive),
       Layer.provideMerge(GroupDocsLive),
-      Layer.provideMerge(TicketDocsLive),
+      Layer.provideMerge(TicketDocs.layer),
       Layer.provideMerge(FinishedStatuses.layer),
       Layer.provideMerge(KeyedLock.layer),
       Layer.provideMerge(TicketActivityLive),
@@ -339,7 +335,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
         })
       )
     )
-    const document: TicketDocument = {
+    const document: TicketDocs.TicketDocument = {
       id: decodeTicketId("T-1"),
       title: "Fix <!channel>",
       status: decodeStatus("todo"),
@@ -361,7 +357,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
     }
     const create = () =>
       Effect.provide(
-        Effect.flatMap(TicketDocs, (docs) =>
+        Effect.flatMap(TicketDocs.TicketDocs, (docs) =>
           docs.create(orgId, "project", document)
         ),
         instance.context
@@ -931,7 +927,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       yield* f.create()
       for (const status of ["done", "todo"]) {
         yield* Effect.provide(
-          Effect.flatMap(TicketDocs, (docs) =>
+          Effect.flatMap(TicketDocs.TicketDocs, (docs) =>
             docs.update(f.orgId, "project", "T-1", (current) =>
               Effect.succeed({ ...current, status: decodeStatus(status) })
             )

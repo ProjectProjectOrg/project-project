@@ -5,13 +5,13 @@ import * as Effect from "effect/Effect"
 import type { MarkdownError } from "../markdown/Markdown"
 import type { ProjectGitAutomationShape } from "../projects/ProjectGitAutomation"
 import { gitAutomationEvent, planGitAutomation } from "./gitAutomation"
-import type { TicketDocsShape, TicketDocument } from "./TicketDocs"
+import type * as TicketDocs from "./TicketDocs"
 import type { TicketDocumentLock } from "./ticketDocumentLock"
 import type * as TicketIndex from "./TicketIndex"
 import type { TicketProject } from "./ticketProject"
 
 export type GitAutomationDeps = Readonly<{
-  ticketDocs: TicketDocsShape
+  ticketDocs: TicketDocs.TicketDocs["Service"]
   ticketIndex: TicketIndex.TicketIndex["Service"]
   gitAutomation: ProjectGitAutomationShape
 }>
@@ -19,7 +19,7 @@ export type GitAutomationDeps = Readonly<{
 export const moveByGitAutomation = (
   deps: GitAutomationDeps,
   project: TicketProject,
-  ticket: TicketDocument,
+  ticket: TicketDocs.TicketDocument,
   event: GitAutomationEvent | null
 ) =>
   Effect.gen(function* () {
@@ -86,9 +86,9 @@ export const gitAutomationActivity = { statusCause: "git_automation" } as const
 export const withGitAutomation = (
   gitAutomation: ProjectGitAutomationShape,
   projectId: string,
-  before: TicketDocument,
-  after: TicketDocument
-): Effect.Effect<TicketDocument> => {
+  before: TicketDocs.TicketDocument,
+  after: TicketDocs.TicketDocument
+): Effect.Effect<TicketDocs.TicketDocument> => {
   const event = gitAutomationEvent(before, after)
   if (event === null) return Effect.succeed(after)
   return Effect.map(gitAutomation.configFor(projectId), (config) => {

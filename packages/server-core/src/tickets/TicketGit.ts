@@ -40,7 +40,7 @@ import {
 } from "./moveByGitAutomation"
 import { stackLayerStates } from "./stackLayerStates"
 import * as TicketBranchIndex from "./TicketBranchIndex"
-import { TicketDocs, type TicketDocument } from "./TicketDocs"
+import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import {
   planAutomaticBranchLinks,
@@ -114,7 +114,7 @@ const mergeBasesAwaitingLanding = (
 ]
 
 const withoutIgnored = (
-  ticket: Pick<TicketDocument, "ignoredBranches">,
+  ticket: Pick<TicketDocs.TicketDocument, "ignoredBranches">,
   branch: string
 ): ReadonlyArray<string> =>
   (ticket.ignoredBranches ?? []).filter((ignored) => ignored !== branch)
@@ -192,7 +192,7 @@ export class TicketGit extends Context.Service<
 >()("@pp/server-core/tickets/TicketGit") {}
 
 const make = Effect.gen(function* () {
-  const ticketDocs = yield* TicketDocs
+  const ticketDocs = yield* TicketDocs.TicketDocs
   const { withTicketDocumentLock, withRepositoryBranchLock } =
     yield* TicketDocumentLock.TicketDocumentLock
   const projectGithubLinks = yield* ProjectGithub.ProjectGithub
@@ -204,19 +204,19 @@ const make = Effect.gen(function* () {
 
   const writeGitFields = (
     project: TicketProject,
-    existing: TicketDocument,
+    existing: TicketDocs.TicketDocument,
     patch: {
       branch?: string | null
       branchAutoLinkDisabled?: boolean
       pr?: number | null
-      prState?: TicketDocument["prState"]
+      prState?: TicketDocs.TicketDocument["prState"]
       prDraft?: boolean
       prBase?: string
       lastTransitionedPr?: number | null
       stack?: ReadonlyArray<TicketBranchEntry>
       ignoredBranches?: ReadonlyArray<string>
     }
-  ): Effect.Effect<TicketDocument, TicketReadError, ActivityActor> =>
+  ): Effect.Effect<TicketDocs.TicketDocument, TicketReadError, ActivityActor> =>
     ticketDocs.update(
       project.orgSlug,
       project.slug,
