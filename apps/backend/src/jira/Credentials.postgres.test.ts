@@ -28,6 +28,7 @@ import * as Ref from "effect/Ref"
 import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
 import * as TestClock from "effect/testing/TestClock"
+import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
@@ -125,6 +126,45 @@ describe.skipIf(!databaseUrl)("JiraCredentials Postgres", () => {
     )
     return { layer, refreshCalls, refreshEntered }
   })
+
+  it.effect("pins the credential spans that already existed", () =>
+    Effect.gen(function* () {
+      const userId = yield* Effect.promise(() => insertUser())
+      const { layer } = yield* makeTestLayer()
+      const spans: Array<Tracer.NativeSpan> = []
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options)
+          spans.push(span)
+          return span
+        }
+      })
+      yield* Effect.gen(function* () {
+        const credentials = yield* JiraCredentials
+        yield* credentials.status(userId)
+        const begin = yield* credentials.beginConnect(userId, "/profile")
+        const state = Option.getOrThrow(
+          Option.fromNullishOr(
+            new URL(begin.authorizeUrl).searchParams.get("state")
+          )
+        )
+        yield* credentials.completeConnect(userId, "code", state)
+        yield* credentials.accessTokenFor(userId)
+        yield* credentials.disconnect(userId)
+      }).pipe(Effect.withTracer(tracer), Effect.provide(layer))
+      expect(
+        spans
+          .filter((span) => Option.isNone(span.parent))
+          .map((span) => span.name)
+      ).toEqual([
+        "JiraCredentials.status",
+        "JiraCredentials.beginConnect",
+        "JiraCredentials.completeConnect",
+        "JiraCredentials.accessTokenFor",
+        "JiraCredentials.disconnect"
+      ])
+    })
+  )
 
   it.effect(
     "stores only a hash of state and consumes it once for the initiating user",

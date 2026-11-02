@@ -1,5 +1,10 @@
 import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import { HttpClient, HttpClientResponse } from "effect/http"
+import * as Layer from "effect/Layer"
+import * as Redacted from "effect/Redacted"
 import type * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -10,6 +15,9 @@ import {
   jiraAuthorizeUrl,
   jiraCodeChallenge,
   jiraRedirectUri,
+  JiraOAuthConfig,
+  JiraTokenEndpoint,
+  JiraTokenEndpointLive,
   parseTokenGrant,
   validateReturnPath
 } from "./OAuth"
@@ -144,5 +152,67 @@ describe("Jira OAuth", () => {
     expect(classifyTokenRejection({ error_description: "secret" })).toBe(
       "invalid_response"
     )
+  })
+})
+
+const recordSpans = () => {
+  const spans: Array<Tracer.NativeSpan> = []
+  const tracer = Tracer.make({
+    span: (options) => {
+      const span = new Tracer.NativeSpan(options)
+      spans.push(span)
+      return span
+    }
+  })
+  return { spans, tracer }
+}
+
+const tokenEndpointLayer = JiraTokenEndpointLive.pipe(
+  Layer.provide(
+    Layer.succeed(JiraOAuthConfig, {
+      clientId: "jira-client",
+      clientSecret: Redacted.make("jira-secret"),
+      publicBaseUrl: "https://app.example"
+    })
+  ),
+  Layer.provide(
+    Layer.succeed(
+      HttpClient.HttpClient,
+      HttpClient.make((request) =>
+        Effect.succeed(
+          HttpClientResponse.fromWeb(
+            request,
+            Response.json({
+              access_token: "access",
+              refresh_token: "refresh",
+              expires_in: 3600,
+              scope: JIRA_SCOPES,
+              token_type: "Bearer"
+            })
+          )
+        )
+      )
+    )
+  )
+)
+
+const exchangeAndRefresh = Effect.gen(function* () {
+  const tokens = yield* JiraTokenEndpoint
+  yield* tokens.exchange("code", "verifier")
+  yield* tokens.refresh("refresh")
+})
+
+describe("JiraTokenEndpoint tracing", () => {
+  it("pins the token request span that already existed", async () => {
+    const { spans, tracer } = recordSpans()
+    await Effect.runPromise(
+      exchangeAndRefresh.pipe(
+        Effect.withTracer(tracer),
+        Effect.provide(tokenEndpointLayer)
+      )
+    )
+    expect(
+      spans.filter((span) => span.name === "JiraTokenEndpoint.requestGrant")
+    ).toHaveLength(2)
   })
 })

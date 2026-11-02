@@ -10,7 +10,16 @@ import {
 } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
-import { DateTime, Effect, Layer, Record, Redacted, Schema } from "effect"
+import {
+  DateTime,
+  Effect,
+  Layer,
+  Option,
+  Record,
+  Redacted,
+  Schema,
+  Tracer
+} from "effect"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
@@ -34,6 +43,19 @@ const decodeUnknownJiraMigrationRequirements = Schema.decodeUnknownEffect(
 )
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
+const recordSpans = () => {
+  const spans: Array<Tracer.NativeSpan> = []
+  const tracer = Tracer.make({
+    span: (options) => {
+      const span = new Tracer.NativeSpan(options)
+      spans.push(span)
+      return span
+    }
+  })
+  const roots = () =>
+    spans.filter((span) => Option.isNone(span.parent)).map((span) => span.name)
+  return { spans, tracer, roots }
+}
 const source = {
   cloudId: "cloud-1",
   siteName: "Example",
@@ -1477,6 +1499,24 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           expect((yield* p.owned(input, row.id)).status).toBe("scanning")
         }).pipe(Effect.provide(layer))
       })
+  )
+
+  it.effect("pins the projection spans that already existed", () =>
+    Effect.gen(function* () {
+      const input = yield* Effect.promise(() => fixture())
+      const { tracer, roots } = recordSpans()
+      yield* Effect.gen(function* () {
+        const p = yield* JiraMigrationProjection
+        const created = yield* p.ensureCreated(input)
+        yield* p.owned(input, created.id)
+        yield* p.finalizeInterrupted(fence(created))
+      }).pipe(Effect.withTracer(tracer), Effect.provide(layer))
+      expect(roots()).toEqual([
+        "JiraMigrationProjection.ensureCreated",
+        "JiraMigrationProjection.owned",
+        "JiraMigrationProjection.finalizeInterrupted"
+      ])
+    })
   )
 })
 

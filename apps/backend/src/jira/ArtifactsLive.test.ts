@@ -9,6 +9,7 @@ import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
 const decodeArtifactBody = Schema.decodeUnknownEffect(
@@ -213,6 +214,38 @@ describe("JiraMigrationArtifacts", () => {
       }).pipe(Effect.provide(layer))
     }
   )
+})
+
+describe("JiraMigrationArtifacts tracing", () => {
+  it.effect("pins the verification span that already existed", () => {
+    const { layer } = makeLayer()
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return Effect.gen(function* () {
+      const artifacts = yield* JiraMigrationArtifacts
+      const ref = yield* artifacts.writeJson("acme", coordinates, {
+        body: "traced"
+      })
+      yield* artifacts.verify("acme", ref)
+      yield* artifacts.readJson("acme", ref, decodeArtifactBody)
+    }).pipe(
+      Effect.withTracer(tracer),
+      Effect.provide(layer),
+      Effect.map(() =>
+        expect(
+          spans
+            .map((span) => span.name)
+            .filter((name) => name === "JiraMigrationArtifacts.getVerified")
+        ).toHaveLength(2)
+      )
+    )
+  })
 })
 
 import { JiraMigrationArtifactsLive } from "./ArtifactsLive"

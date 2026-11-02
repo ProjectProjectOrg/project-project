@@ -14,6 +14,7 @@ import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import * as TestClock from "effect/testing/TestClock"
+import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
 import { JiraRateLimited, JiraTransientFailure } from "./Blocked"
@@ -1403,4 +1404,44 @@ describe("scan source provenance", () => {
         }).pipe(Effect.provide(layer))
       })
   )
+})
+
+const recordSpans = () => {
+  const spans: Array<Tracer.NativeSpan> = []
+  const tracer = Tracer.make({
+    span: (options) => {
+      const span = new Tracer.NativeSpan(options)
+      spans.push(span)
+      return span
+    }
+  })
+  return { spans, tracer }
+}
+
+describe("Jira client tracing", () => {
+  it.effect("pins the request spans that already existed", () => {
+    const { spans, tracer } = recordSpans()
+    return Effect.gen(function* () {
+      const client = yield* JiraClient
+      yield* client.fields("user", "cloud")
+    }).pipe(
+      Effect.withTracer(tracer),
+      Effect.provide(
+        clientLayer(
+          JiraTransport.of({ execute: () => Effect.succeed(response(200, [])) })
+        )
+      ),
+      Effect.map(() =>
+        expect(
+          spans
+            .map((span) => span.name)
+            .filter(
+              (name) =>
+                name === "JiraClient.authorize" ||
+                name === "JiraClient.checkResponse"
+            )
+        ).toEqual(["JiraClient.authorize", "JiraClient.checkResponse"])
+      )
+    )
+  })
 })

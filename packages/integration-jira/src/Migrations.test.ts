@@ -8,7 +8,7 @@ import { CreatableProjectKey, StatusSlug } from "@pp/shared"
 import { JiraMigrationRequirements } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
-import { Deferred, Fiber, Option } from "effect"
+import { Deferred, Fiber, Option, Tracer } from "effect"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Predicate from "effect/Predicate"
@@ -37,6 +37,19 @@ const decodeUnknownJiraMigrationRequirementsSync = Schema.decodeUnknownSync(
 )
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
+const recordSpans = () => {
+  const spans: Array<Tracer.NativeSpan> = []
+  const tracer = Tracer.make({
+    span: (options) => {
+      const span = new Tracer.NativeSpan(options)
+      spans.push(span)
+      return span
+    }
+  })
+  const roots = () =>
+    spans.filter((span) => Option.isNone(span.parent)).map((span) => span.name)
+  return { spans, tracer, roots }
+}
 const readyPublication = {
   projectId: "project-1",
   planRef: {
@@ -592,6 +605,34 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
           expect(created.sourceProjectId).toBe("10000")
         }).pipe(Effect.provide(service))
       }).pipe(Effect.provide(projectionLayer), Effect.scoped)
+    })
+  )
+
+  const traceWorkflowCommands = () =>
+    JiraMigrationsWorkflowLive({
+      run: () => Effect.die("not exercised"),
+      cancel: () => Effect.die("not exercised"),
+      discard: () => Effect.die("not exercised"),
+      destinationConflicts: () => Effect.die("not exercised")
+    }).pipe(
+      Layer.provide(projectionLayer),
+      Layer.provide(WorkflowEngine.layerMemory)
+    )
+
+  it.effect("pins the JiraMigrations spans that already existed", () =>
+    Effect.gen(function* () {
+      const owner = yield* Effect.promise(() => createOwner())
+      const { tracer, roots } = recordSpans()
+      yield* Effect.gen(function* () {
+        const migrations = yield* JiraMigrations
+        yield* Effect.result(
+          migrations.rescan(owner.organizationId, owner.userId, randomUUID(), 0)
+        )
+      }).pipe(
+        Effect.withTracer(tracer),
+        Effect.provide(traceWorkflowCommands())
+      )
+      expect(roots()).toEqual(["JiraMigrations.rescan"])
     })
   )
 
