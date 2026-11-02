@@ -12,11 +12,11 @@ export function InstanceInfo() {
   const version = AsyncResult.isSuccess(health) ? health.value.version : null
 
   return (
-    <div className="group/version flex h-6 items-center gap-1.5 px-3 text-muted-foreground/70">
+    <div className="group/reveal flex h-6 items-center gap-1.5 px-3 text-muted-foreground/70">
       {version ? (
         <>
           <span
-            className="min-w-0 truncate font-mono text-[10.5px] transition-colors group-hover/version:text-muted-foreground"
+            className="min-w-0 truncate font-mono text-[10.5px] transition-colors group-hover/reveal:text-muted-foreground"
             title={version}
           >
             {displayVersion(version)}
@@ -25,7 +25,7 @@ export function InstanceInfo() {
             value={version}
             copyLabel={m.chrome_sidebar_copy_version()}
             copiedLabel={m.chrome_sidebar_version_copied()}
-            className="size-5 text-muted-foreground opacity-0 transition-opacity group-hover/version:opacity-100 focus-visible:opacity-100 data-[copied]:opacity-100"
+            className="size-5 text-muted-foreground opacity-0 transition-opacity group-hover/reveal:opacity-100 focus-visible:opacity-100 data-[copied]:opacity-100"
             iconClassName="size-3"
           />
         </>
