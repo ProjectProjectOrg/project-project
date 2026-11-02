@@ -8,7 +8,7 @@ import { DbLive, pgTypes } from "@pp/db"
 import { EverhourApiKeys } from "@pp/integration-everhour/ApiKeys"
 import { EverhourHost } from "@pp/integration-everhour/Host"
 import { EverhourServicesLive } from "@pp/integration-everhour/Services"
-import { EverhourTimeTracking } from "@pp/integration-everhour/TimeTracking"
+import * as TimeTracking from "@pp/integration-everhour/TimeTracking"
 import { Access } from "@pp/server-core/access/Access"
 import { AccessLive } from "@pp/server-core/access/AccessLive"
 import { testUser } from "@pp/server-core/access/testing"
@@ -225,7 +225,7 @@ describe.skipIf(!databaseUrl)("Everhour backend composition", () => {
             apiKey: "key-for-member",
             everhourUserId
           })
-          const time = yield* EverhourTimeTracking
+          const time = yield* TimeTracking.EverhourTimeTracking
           expect(
             (yield* time
               .workTypesForTicket("T-1")
