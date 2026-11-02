@@ -9,7 +9,7 @@ import { JiraClient } from "@pp/integration-jira/Client"
 import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
 import { JiraMigrationWorkflow } from "@pp/integration-jira/MigrationWorkflow"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
-import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
+import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { S3Storage } from "@pp/server-core/storage/S3Storage"
 import { drizzle } from "drizzle-orm/node-postgres"
@@ -127,8 +127,8 @@ describe.skipIf(!databaseUrl)("Jira SQL workflow restart", () => {
             })
           ),
           Layer.succeed(
-            ProjectDocs,
-            ProjectDocs.of({
+            ProjectDocs.ProjectDocs,
+            ProjectDocs.ProjectDocs.of({
               read: () => Effect.die("unused"),
               write: () => Effect.die("unused"),
               readRaw: () => Effect.die("unused"),

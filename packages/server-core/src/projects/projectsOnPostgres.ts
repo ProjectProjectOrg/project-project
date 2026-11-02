@@ -14,10 +14,10 @@ import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as TicketIndex from "../tickets/TicketIndex"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import { Users } from "../users/Users"
-import { BannerPlaceholders } from "./BannerPlaceholders"
+import * as BannerPlaceholders from "./BannerPlaceholders"
 import { FinishedStatuses } from "./FinishedStatuses"
 import * as ProjectServices from "./layer"
-import { ProjectDocs } from "./ProjectDocs"
+import * as ProjectDocs from "./ProjectDocs"
 import type * as ProjectGithub from "./ProjectGithub"
 import type * as ProjectMembers from "./ProjectMembers"
 import type * as Projects from "./Projects"
@@ -28,7 +28,7 @@ export const projectsOnPostgres = (
   databaseUrl: string,
   userIds: ReadonlyArray<string>,
   ticketDocs: Partial<TicketDocs.TicketDocs["Service"]> = {},
-  projectDocs?: Layer.Layer<ProjectDocs>,
+  projectDocs?: Layer.Layer<ProjectDocs.ProjectDocs>,
   github: Partial<GitHub["Service"]> = {}
 ): Layer.Layer<
   | Projects.Projects
@@ -70,13 +70,13 @@ export const projectsOnPostgres = (
     Layer.provideMerge(AccessLive.pipe(Layer.provide(db))),
     Layer.provide(db),
     Layer.provide(
-      Layer.succeed(BannerPlaceholders, {
+      Layer.succeed(BannerPlaceholders.BannerPlaceholders, {
         ensure: (_org, _slug, current) => Effect.succeed(current)
       })
     ),
     Layer.provide(
       projectDocs ??
-        Layer.succeed(ProjectDocs, {
+        Layer.succeed(ProjectDocs.ProjectDocs, {
           read: (_org, slug) =>
             Effect.succeed({
               slug,

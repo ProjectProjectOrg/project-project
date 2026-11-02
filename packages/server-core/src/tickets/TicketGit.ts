@@ -31,7 +31,7 @@ import * as Struct from "effect/Struct"
 
 import * as GitHub from "../github/GitHub"
 import type { MarkdownError } from "../markdown/Markdown"
-import { ProjectGitAutomation } from "../projects/ProjectGitAutomation"
+import * as ProjectGitAutomation from "../projects/ProjectGitAutomation"
 import * as ProjectGithub from "../projects/ProjectGithub"
 import {
   gitAutomationActivity,
@@ -196,7 +196,7 @@ const make = Effect.gen(function* () {
   const { withTicketDocumentLock, withRepositoryBranchLock } =
     yield* TicketDocumentLock.TicketDocumentLock
   const projectGithubLinks = yield* ProjectGithub.ProjectGithub
-  const gitAutomation = yield* ProjectGitAutomation
+  const gitAutomation = yield* ProjectGitAutomation.ProjectGitAutomation
   const ticketIndex = yield* TicketIndex.TicketIndex
   const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
   const github = yield* GitHub.GitHub

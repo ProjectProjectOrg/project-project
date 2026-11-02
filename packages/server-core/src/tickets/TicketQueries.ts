@@ -53,7 +53,7 @@ import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
-import { ProjectDocs } from "../projects/ProjectDocs"
+import * as ProjectDocs from "../projects/ProjectDocs"
 import { readProjectDocument } from "../projects/readProjectDocument"
 import * as TicketBranchIndex from "./TicketBranchIndex"
 import * as TicketIndex from "./TicketIndex"
@@ -187,7 +187,7 @@ const make = Effect.gen(function* () {
   const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
   const groups = yield* Groups.Groups
   const db = yield* Db
-  const projectDocs = yield* ProjectDocs
+  const projectDocs = yield* ProjectDocs.ProjectDocs
   const finishedStatuses = yield* FinishedStatuses
   const library = yield* Library.Library
   const access = yield* Access

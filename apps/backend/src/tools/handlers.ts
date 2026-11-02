@@ -4,11 +4,11 @@ import { Comments } from "@pp/server-core/comments/Comments"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
-import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
-import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
+import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
+import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutomation"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
-import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
+import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { Tags } from "@pp/server-core/tags/Tags"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
@@ -246,10 +246,11 @@ const statusesWithAutomation = (
 
 const list_statuses = (_input: { orgSlug: string; projectSlug: string }) =>
   Effect.gen(function* () {
-    const statuses = yield* (yield* ProjectStatuses).list()
+    const statuses = yield* (yield* ProjectStatuses.ProjectStatuses).list()
     const scope = yield* ProjectScope
     if (!permits(scope.permissions, { github: ["read"] })) return { statuses }
-    const automation = yield* (yield* ProjectGitAutomation).get()
+    const automation =
+      yield* (yield* ProjectGitAutomation.ProjectGitAutomation).get()
     return statusesWithAutomation(statuses, automation)
   })
 
@@ -288,7 +289,7 @@ const sync_git_state = (input: GitStateInput) =>
 
 const get_project_doc = (input: { orgSlug: string; projectSlug: string }) =>
   Effect.gen(function* () {
-    const docs = yield* ProjectDocs
+    const docs = yield* ProjectDocs.ProjectDocs
     return yield* docs.readRaw(input.orgSlug, input.projectSlug)
   })
 

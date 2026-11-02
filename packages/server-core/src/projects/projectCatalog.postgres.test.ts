@@ -1,22 +1,29 @@
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { randomUUID } from "node:crypto"
 
+import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
-import { migrationsFolder } from "@pp/db"
+import { DbLive, migrationsFolder } from "@pp/db"
 import { CurrentUser, OrgScope, ProjectScope } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
+import * as Redacted from "effect/Redacted"
 import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { Access } from "../access/Access"
-import { testUser } from "../access/testing"
+import { projectScope, testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
+import { Bots } from "../bots/Bots"
+import * as ProjectDocs from "./ProjectDocs"
 import * as Projects from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
+import * as SystemProjects from "./SystemProjects"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -33,7 +40,20 @@ const recordingTracer = () => {
     spans.flatMap((span) =>
       span.name === name ? [Object.fromEntries(span.attributes)] : []
     )
-  return { tracer, named }
+  const parentOf = (name: string) =>
+    spans.flatMap((span) =>
+      span.name === name
+        ? [
+            Option.match(span.parent, {
+              onNone: () => null,
+              onSome: (parent) =>
+                spans.find((other) => other.spanId === parent.spanId)?.name ??
+                null
+            })
+          ]
+        : []
+    )
+  return { tracer, named, parentOf }
 }
 
 describe.skipIf(!databaseUrl)("project catalog", () => {
@@ -195,6 +215,68 @@ describe.skipIf(!databaseUrl)("project catalog", () => {
           userId
         })
       ])
+    })
+  )
+
+  it.effect("traces the project write lock under the call that takes it", () =>
+    Effect.gen(function* () {
+      const { tracer, named, parentOf } = recordingTracer()
+      yield* inProject(
+        slugs[0],
+        Effect.flatMap(Projects.Projects, (projects) =>
+          projects.updateSetup({ workflowReviewedAt: null })
+        )
+      ).pipe(Effect.withTracer(tracer))
+      expect(named("ProjectDetails.withWriteLock")).toEqual([{}])
+      expect(parentOf("ProjectDetails.withWriteLock")).toEqual([
+        "Projects.updateSetup"
+      ])
+    })
+  )
+
+  it.effect("traces SystemProjects.ensure with its role and org", () =>
+    Effect.gen(function* () {
+      const { tracer, named, parentOf } = recordingTracer()
+      const systemProjects = SystemProjects.layer.pipe(
+        Layer.provide(
+          DbLive.pipe(
+            Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
+          )
+        ),
+        Layer.provide(
+          Layer.mock(Bots, {
+            projectScope: (_bot, orgSlug, slug) =>
+              Effect.succeed(projectScope("owner", "pm", { orgSlug, slug }))
+          })
+        ),
+        Layer.provide(Layer.mock(Projects.Projects, {})),
+        Layer.provide(
+          Layer.mock(ProjectDocs.ProjectDocs, {
+            systemRole: (_org, slug) =>
+              Effect.succeed(
+                slug === slugs[1] ? Option.some("feedback") : Option.none()
+              )
+          })
+        ),
+        Layer.orDie
+      )
+      const scope = yield* Effect.flatMap(
+        SystemProjects.SystemProjects,
+        (projects) =>
+          projects.ensure({
+            role: "feedback",
+            orgSlug: organizationId,
+            name: "Feedback",
+            key: "FB",
+            bot: { key: "feedback", name: "Feedback", role: "developer" }
+          })
+      ).pipe(Effect.withTracer(tracer), Effect.provide(systemProjects))
+      expect(scope.slug).toBe(slugs[1])
+      expect(named("SystemProjects.ensure")).toEqual([
+        { role: "feedback", orgSlug: organizationId }
+      ])
+      expect(parentOf("SystemProjects.ensure")).toEqual([null])
+      expect(parentOf("SystemProjects.find")).toEqual(["SystemProjects.ensure"])
     })
   )
 })

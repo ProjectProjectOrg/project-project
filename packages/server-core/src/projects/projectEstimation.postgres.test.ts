@@ -36,7 +36,7 @@ import * as TicketQueries from "../tickets/TicketQueries"
 import { Users } from "../users/Users"
 import { FinishedStatuses } from "./FinishedStatuses"
 import { gitAutomationTestLayer } from "./gitAutomationTesting"
-import { ProjectDocs, type ProjectDocument } from "./ProjectDocs"
+import * as ProjectDocs from "./ProjectDocs"
 import * as Projects from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
@@ -57,7 +57,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
     | TicketCommands.TicketCommands
     | TicketQueries.TicketQueries
   >
-  let document: ProjectDocument = {
+  let document: ProjectDocs.ProjectDocument = {
     slug: "project",
     name: "Project",
     icon: "folder",
@@ -73,7 +73,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
       connectGithubDismissedAt: null
     }
   }
-  const docs = Layer.mock(ProjectDocs, {
+  const docs = Layer.mock(ProjectDocs.ProjectDocs, {
     read: () => Effect.sync(() => document),
     write: (_org, _slug, next) =>
       Effect.sync(() => {

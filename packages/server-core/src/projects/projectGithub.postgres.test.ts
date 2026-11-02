@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 import { Access } from "../access/Access"
 import { testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
-import { ProjectDocs } from "./ProjectDocs"
+import * as ProjectDocs from "./ProjectDocs"
 import * as ProjectGithub from "./ProjectGithub"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
@@ -97,7 +97,7 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
       [integrationId, installationId]
     )
 
-    const projectDocs = Layer.succeed(ProjectDocs, {
+    const projectDocs = Layer.succeed(ProjectDocs.ProjectDocs, {
       read: () =>
         Effect.succeed({
           slug,

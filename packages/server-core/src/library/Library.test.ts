@@ -28,7 +28,7 @@ import { databaseLayer } from "../../test/database"
 import { orgScope, projectScope } from "../access/testing"
 import * as KeyedLock from "../locks/KeyedLock"
 import type { LibraryKind } from "../markdown/Markdown"
-import { ProjectDocs, type ProjectDocument } from "../projects/ProjectDocs"
+import * as ProjectDocs from "../projects/ProjectDocs"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as Library from "./Library"
 import * as LibraryDocs from "./LibraryDocs"
@@ -150,7 +150,7 @@ const fakeLibraryDocs = (world: World): LibraryDocs.LibraryDocs["Service"] => ({
 
 const projectDocument = (
   templateDefaults: PartialTemplateDefaults
-): ProjectDocument => ({
+): ProjectDocs.ProjectDocument => ({
   slug: slug("web"),
   name: "Web",
   icon: "folder",
@@ -196,7 +196,7 @@ const makeLayer = (world: World) =>
       Layer.succeed(LibraryDocs.LibraryDocs, fakeLibraryDocs(world))
     ),
     Layer.provide(
-      Layer.mock(ProjectDocs, {
+      Layer.mock(ProjectDocs.ProjectDocs, {
         read: () => Effect.succeed(projectDocument(world.defaults.current)),
         writeTemplateDefaults: (_org, _slug, defaults) =>
           Effect.sync(() => {

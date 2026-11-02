@@ -12,9 +12,9 @@ import { asUser } from "@pp/server-core/activity/testing"
 import { GitHub } from "@pp/server-core/github/GitHub"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownError } from "@pp/server-core/markdown/Markdown"
-import { BannerPlaceholders } from "@pp/server-core/projects/BannerPlaceholders"
+import * as BannerPlaceholders from "@pp/server-core/projects/BannerPlaceholders"
 import * as ProjectServices from "@pp/server-core/projects/layer"
-import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
+import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as ProjectGithub from "@pp/server-core/projects/ProjectGithub"
 import type * as Projects from "@pp/server-core/projects/Projects"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
@@ -221,12 +221,12 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
       Layer.provide(FinishedStatuses.baseline),
       Layer.provide(db),
       Layer.provide(
-        Layer.succeed(BannerPlaceholders, {
+        Layer.succeed(BannerPlaceholders.BannerPlaceholders, {
           ensure: (_org, _slug, current) => Effect.succeed(current)
         })
       ),
       Layer.provide(
-        Layer.succeed(ProjectDocs, {
+        Layer.succeed(ProjectDocs.ProjectDocs, {
           read: () =>
             Effect.succeed({
               slug,

@@ -38,7 +38,7 @@ import * as Library from "../library/Library"
 import { TicketIdTaken } from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { gitAutomationTestLayer } from "../projects/gitAutomationTesting"
-import { ProjectDocs } from "../projects/ProjectDocs"
+import * as ProjectDocs from "../projects/ProjectDocs"
 import * as ProjectGithub from "../projects/ProjectGithub"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
@@ -238,7 +238,7 @@ export const defaultScope = scopeIn("org", "p")
 
 export const testInfra = (scope = defaultScope) =>
   Layer.mergeAll(
-    Layer.mock(ProjectDocs, {
+    Layer.mock(ProjectDocs.ProjectDocs, {
       read: (_org, slug) =>
         Effect.succeed({
           slug,
@@ -755,7 +755,7 @@ export const PassthroughLibrary = Layer.mock(Library.Library, {
 })
 
 export type TicketsLayerOptions = Readonly<{
-  projectDocs?: Layer.Layer<ProjectDocs>
+  projectDocs?: Layer.Layer<ProjectDocs.ProjectDocs>
   projects?: Layer.Layer<Projects.Projects>
   projectGithub?: Layer.Layer<ProjectGithub.ProjectGithub>
   projectMembers?: Layer.Layer<ProjectMembers.ProjectMembers>

@@ -2,12 +2,13 @@ import { it } from "@effect/vitest"
 import { TemplateKey } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { expect } from "vitest"
 
 import { Markdown } from "../markdown/Markdown"
-import { ProjectDocs } from "./ProjectDocs"
-import { ProjectDocsLive } from "./ProjectDocsLive"
+import * as ProjectDocs from "./ProjectDocs"
 
 const templateKey = Schema.decodeUnknownSync(TemplateKey)
 
@@ -36,7 +37,7 @@ const legacy = {
 
 const docsWith = (initial: Record<string, unknown>) => {
   let data = initial
-  const layer = ProjectDocsLive.pipe(
+  const layer = ProjectDocs.layer.pipe(
     Layer.provide(
       Layer.mock(Markdown, {
         root: "/tmp",
@@ -47,7 +48,10 @@ const docsWith = (initial: Record<string, unknown>) => {
         writeProjectFile: (_org, _slug, next) =>
           Effect.sync(() => {
             data = next
-          })
+          }),
+        readProjectFileRaw: () =>
+          Effect.succeed({ path: "project.md", content: "# Demo" }),
+        removeProjectDir: () => Effect.void
       })
     )
   )
@@ -59,7 +63,7 @@ it.effect(
   () => {
     const { layer } = docsWith(legacy)
     return Effect.gen(function* () {
-      const docs = yield* ProjectDocs
+      const docs = yield* ProjectDocs.ProjectDocs
       const document = yield* docs.read("demo", "demo")
       expect(document.name).toBe("Demo")
       expect(document.body).toBe("# Demo")
@@ -70,7 +74,7 @@ it.effect(
 it.effect("reads an explicitly null legacy github field", () => {
   const { layer } = docsWith({ ...base, github: null })
   return Effect.gen(function* () {
-    const docs = yield* ProjectDocs
+    const docs = yield* ProjectDocs.ProjectDocs
     const document = yield* docs.read("demo", "demo")
     expect(document.github).toBeNull()
   }).pipe(Effect.provide(layer))
@@ -79,7 +83,7 @@ it.effect("reads an explicitly null legacy github field", () => {
 it.effect("drops the legacy aesthetic keys on the next write", () => {
   const { layer, written } = docsWith(legacy)
   return Effect.gen(function* () {
-    const docs = yield* ProjectDocs
+    const docs = yield* ProjectDocs.ProjectDocs
     const original = yield* docs.read("demo", "demo")
     yield* docs.write("demo", "demo", {
       ...original,
@@ -98,7 +102,7 @@ it.effect("reads templateDefaults and ignores invalid entries", () => {
     templateDefaults: { bug: "incident", other: null, feat: "blank", nope: "x" }
   })
   return Effect.gen(function* () {
-    const docs = yield* ProjectDocs
+    const docs = yield* ProjectDocs.ProjectDocs
     const document = yield* docs.read("demo", "demo")
     expect(document.templateDefaults).toEqual({ bug: "incident", other: null })
   }).pipe(Effect.provide(layer))
@@ -110,7 +114,7 @@ it.effect("keeps templateDefaults across a project write", () => {
     templateDefaults: { bug: "incident" }
   })
   return Effect.gen(function* () {
-    const docs = yield* ProjectDocs
+    const docs = yield* ProjectDocs.ProjectDocs
     const original = yield* docs.read("demo", "demo")
     yield* docs.write("demo", "demo", {
       ...original,
@@ -132,7 +136,7 @@ it.effect("writes templateDefaults without touching other frontmatter", () => {
     templateDefaults: { bug: "x" }
   })
   return Effect.gen(function* () {
-    const docs = yield* ProjectDocs
+    const docs = yield* ProjectDocs.ProjectDocs
     yield* docs.writeTemplateDefaults("demo", "demo", {})
     expect(written()).toEqual(base)
     yield* docs.writeTemplateDefaults("demo", "demo", {
@@ -145,7 +149,7 @@ it.effect("writes templateDefaults without touching other frontmatter", () => {
 it.effect("writes estimation only when it is switched on", () => {
   const { layer, written } = docsWith(base)
   return Effect.gen(function* () {
-    const docs = yield* ProjectDocs
+    const docs = yield* ProjectDocs.ProjectDocs
     const original = yield* docs.read("demo", "demo")
     expect(original.estimation).toBe("off")
     const write = (estimation: typeof original.estimation) =>
@@ -163,3 +167,64 @@ it.effect("writes estimation only when it is switched on", () => {
     expect(written()).not.toHaveProperty("estimation")
   }).pipe(Effect.provide(layer))
 })
+
+it.effect(
+  "traces each call under one ProjectDocs span with its attributes",
+  () => {
+    const { layer } = docsWith(base)
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return Effect.gen(function* () {
+      const docs = yield* ProjectDocs.ProjectDocs
+      const original = yield* docs.read("demo", "demo")
+      yield* docs.write("demo", "demo", {
+        ...original,
+        org: "demo",
+        key: original.key!,
+        createdBy: "owner"
+      })
+      yield* docs.writeTemplateDefaults("demo", "demo", {})
+      yield* docs.markSystem("demo", "demo", "feedback")
+      yield* docs.systemRole("demo", "demo")
+      yield* docs.readRaw("demo", "demo")
+      yield* docs.removeDir("demo", "demo")
+    }).pipe(
+      Effect.withTracer(tracer),
+      Effect.provide(layer),
+      Effect.map(() =>
+        expect(
+          spans.map((span) => ({
+            name: span.name,
+            root: Option.isNone(span.parent),
+            attributes: Object.fromEntries(span.attributes)
+          }))
+        ).toEqual(
+          [
+            "read",
+            "write",
+            "writeTemplateDefaults",
+            "markSystem",
+            "systemRole",
+            "readRaw",
+            "removeDir"
+          ].map((operation) => ({
+            name: `ProjectDocs.${operation}`,
+            root: true,
+            attributes: {
+              module: "ProjectDocs",
+              operation,
+              orgSlug: "demo",
+              slug: "demo"
+            }
+          }))
+        )
+      )
+    )
+  }
+)

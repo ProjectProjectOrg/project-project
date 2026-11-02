@@ -14,10 +14,10 @@ import * as Figma from "@pp/server-core/figma/Figma"
 import * as FigmaIntegrations from "@pp/server-core/figma/FigmaIntegrations"
 import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
 import { GitHub } from "@pp/server-core/github/GitHub"
-import { BannerPlaceholders } from "@pp/server-core/projects/BannerPlaceholders"
+import * as BannerPlaceholders from "@pp/server-core/projects/BannerPlaceholders"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as ProjectServices from "@pp/server-core/projects/layer"
-import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
+import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as Projects from "@pp/server-core/projects/Projects"
 import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
 import { S3Storage } from "@pp/server-core/storage/S3Storage"
@@ -197,8 +197,8 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
           db,
           ticketIndex,
           ticketDocs,
-          Layer.mock(BannerPlaceholders, {}),
-          Layer.mock(ProjectDocs, {}),
+          Layer.mock(BannerPlaceholders.BannerPlaceholders, {}),
+          Layer.mock(ProjectDocs.ProjectDocs, {}),
           Layer.mock(Users, {}),
           Layer.mock(GitHub, {})
         )

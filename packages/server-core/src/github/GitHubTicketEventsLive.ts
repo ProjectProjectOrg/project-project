@@ -21,10 +21,7 @@ import * as Option from "effect/Option"
 import * as SqlClient from "effect/sql/SqlClient"
 
 import type { MarkdownError } from "../markdown/Markdown"
-import {
-  ProjectGitAutomation,
-  type ProjectGitAutomationShape
-} from "../projects/ProjectGitAutomation"
+import * as ProjectGitAutomation from "../projects/ProjectGitAutomation"
 import {
   gitAutomationActivity,
   moveForDeletedBranch,
@@ -71,7 +68,7 @@ type PullRequestWebhookDeps = Readonly<{
   ticketIndex: TicketIndex.TicketIndex["Service"]
   ticketBranchIndex: TicketBranchIndex.TicketBranchIndex["Service"]
   ticketDocumentLock: TicketDocumentLock.TicketDocumentLock["Service"]
-  gitAutomation: ProjectGitAutomationShape
+  gitAutomation: ProjectGitAutomation.ProjectGitAutomation["Service"]
   claimPullRequest?: (
     change: GitHubPullRequestWebhookChange
   ) => Effect.Effect<boolean>
@@ -468,7 +465,7 @@ export const GitHubTicketEventsLive = Layer.effect(
     const ticketIndex = yield* TicketIndex.TicketIndex
     const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
     const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
-    const gitAutomation = yield* ProjectGitAutomation
+    const gitAutomation = yield* ProjectGitAutomation.ProjectGitAutomation
     const activeProjectLinksForRepository = Effect.fn(
       "GitHubWebhooks.activeProjectLinksForRepository"
     )(function* (

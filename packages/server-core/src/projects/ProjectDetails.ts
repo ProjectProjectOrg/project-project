@@ -35,7 +35,7 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import type { MarkdownError } from "../markdown/Markdown"
-import { ProjectDocs } from "./ProjectDocs"
+import * as ProjectDocs from "./ProjectDocs"
 import type * as ProjectGithub from "./ProjectGithub"
 import { readProjectDocument } from "./readProjectDocument"
 
@@ -117,28 +117,25 @@ export class ProjectDetails extends Context.Service<
 
 const make = Effect.gen(function* () {
   const db = yield* Db
-  const projectDocs = yield* ProjectDocs
+  const projectDocs = yield* ProjectDocs.ProjectDocs
 
-  const withProjectWriteLock = <A, E, R>(
-    projectId: string,
-    effect: Effect.Effect<A, E, R>
-  ) =>
-    db
-      .transaction(() =>
-        Effect.gen(function* () {
-          yield* db
-            .select({ id: projectIndex.id })
-            .from(projectIndex)
-            .where(eq(projectIndex.id, projectId))
-            .for("update")
-            .pipe(Effect.orDie)
-          return yield* effect
-        })
-      )
-      .pipe(
-        Effect.catchTag("SqlError", Effect.die),
-        Effect.withSpan("ProjectDetails.withWriteLock")
-      )
+  const withProjectWriteLock = Effect.fn("ProjectDetails.withWriteLock")(
+    function* <A, E, R>(projectId: string, effect: Effect.Effect<A, E, R>) {
+      return yield* db
+        .transaction(() =>
+          Effect.gen(function* () {
+            yield* db
+              .select({ id: projectIndex.id })
+              .from(projectIndex)
+              .where(eq(projectIndex.id, projectId))
+              .for("update")
+              .pipe(Effect.orDie)
+            return yield* effect
+          })
+        )
+        .pipe(Effect.catchTag("SqlError", Effect.die))
+    }
+  )
 
   const inScope = Effect.gen(function* () {
     const scope = yield* ProjectScope

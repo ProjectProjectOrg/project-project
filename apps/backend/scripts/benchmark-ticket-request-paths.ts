@@ -17,8 +17,8 @@ import * as Library from "@pp/server-core/library/Library"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
-import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
-import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
+import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
+import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutomation"
 import * as ProjectGithub from "@pp/server-core/projects/ProjectGithub"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
@@ -480,8 +480,8 @@ const BenchmarkLive = (options: Options) =>
         IndexLive,
         TicketBranchIndex.layer.pipe(Layer.provide(DatabaseLive)),
         FakeProjects,
-        Layer.mock(ProjectGitAutomation, {}),
-        Layer.mock(ProjectDocs, {
+        Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {}),
+        Layer.mock(ProjectDocs.ProjectDocs, {
           read: (_org, slug) =>
             Effect.succeed({ ...benchmarkProject, slug, templateDefaults: {} })
         }),

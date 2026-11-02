@@ -49,7 +49,7 @@ import * as Schema from "effect/Schema"
 import { validateBodyMentions } from "../comments/BodyMentions"
 import { KeyedLock, LockKey } from "../locks/KeyedLock"
 import type { MarkdownError, LibraryKind } from "../markdown/Markdown"
-import { ProjectDocs } from "../projects/ProjectDocs"
+import * as ProjectDocs from "../projects/ProjectDocs"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as LibraryDocs from "./LibraryDocs"
 
@@ -290,7 +290,7 @@ type LayerTarget = Readonly<{ orgSlug: string; slug: string | null }>
 const make = Effect.gen(function* () {
   const db = yield* Db
   const docs = yield* LibraryDocs.LibraryDocs
-  const projectDocs = yield* ProjectDocs
+  const projectDocs = yield* ProjectDocs.ProjectDocs
   const ticketDocs = yield* TicketDocs.TicketDocs
   const keyedLock = yield* KeyedLock
 

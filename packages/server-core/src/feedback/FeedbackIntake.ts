@@ -21,7 +21,7 @@ import * as Option from "effect/Option"
 
 import * as Attachments from "../attachments/Attachments"
 import type { Bot } from "../bots/Bots"
-import { SystemProjects } from "../projects/SystemProjects"
+import * as SystemProjects from "../projects/SystemProjects"
 import * as TicketCommands from "../tickets/TicketCommands"
 import { FeedbackConfig, type FeedbackConfigShape } from "./FeedbackConfig"
 import {
@@ -70,7 +70,7 @@ export class FeedbackIntake extends Context.Service<
     Effect.gen(function* () {
       const db = yield* Db
       const config = yield* FeedbackConfig
-      const systemProjects = yield* SystemProjects
+      const systemProjects = yield* SystemProjects.SystemProjects
       const commands = yield* TicketCommands.TicketCommands
       const attachments = yield* Attachments.Attachments
       const fs = yield* FileSystem.FileSystem

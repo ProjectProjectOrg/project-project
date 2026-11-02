@@ -51,7 +51,7 @@ import * as FigmaLinks from "../figma/FigmaLinks"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import type { MarkdownError } from "../markdown/Markdown"
-import { ProjectDocs } from "../projects/ProjectDocs"
+import * as ProjectDocs from "../projects/ProjectDocs"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
 import { readProjectDocument } from "../projects/readProjectDocument"
@@ -208,7 +208,7 @@ const make = Effect.gen(function* () {
     yield* TicketDocumentLock.TicketDocumentLock
   const projects = yield* Projects.Projects
   const projectMembers = yield* ProjectMembers.ProjectMembers
-  const projectDocs = yield* ProjectDocs
+  const projectDocs = yield* ProjectDocs.ProjectDocs
   const ticketIndex = yield* TicketIndex.TicketIndex
   const groups = yield* Groups.Groups
   const db = yield* Db

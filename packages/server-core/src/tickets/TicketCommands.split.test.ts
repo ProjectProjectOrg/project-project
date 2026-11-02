@@ -37,7 +37,7 @@ import * as KeyedLock from "../locks/KeyedLock"
 import { MarkdownError } from "../markdown/Markdown"
 import { MarkdownLive } from "../markdown/MarkdownLive"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
-import { ProjectDocs } from "../projects/ProjectDocs"
+import * as ProjectDocs from "../projects/ProjectDocs"
 import * as ProjectGithub from "../projects/ProjectGithub"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
@@ -292,7 +292,7 @@ const TestLayer = Layer.unwrap(
     })
     return TicketCommands.layer.pipe(
       Layer.provide(TicketView.layer),
-      Layer.provide(Layer.mock(ProjectDocs, {})),
+      Layer.provide(Layer.mock(ProjectDocs.ProjectDocs, {})),
       Layer.provide(PassthroughLibrary),
       Layer.provideMerge(TicketDocs.layer),
       Layer.provideMerge(recordingActivityLayer(recordedActivity)),
