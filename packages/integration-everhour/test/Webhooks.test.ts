@@ -3,17 +3,13 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { describe, expect } from "vitest"
 
-import type { EverhourTimeRecord } from "../src/Client"
-import {
-  EverhourTimeTracking,
-  type EverhourTimeTrackingShape
-} from "../src/TimeTracking"
-import {
-  EverhourWebhooks,
-  EverhourWebhooksLive,
-  parseTimeRecord
-} from "../src/Webhooks"
+import { EverhourApiKeys } from "../src/ApiKeys"
+import * as Client from "../src/Client"
+import { EverhourHost } from "../src/Host"
+import * as TimeTracking from "../src/TimeTracking"
+import * as Webhooks from "../src/Webhooks"
 import { databaseLayer } from "./database"
+import { everhourSpans } from "./tracing"
 
 const unexpected = (method: string): Effect.Effect<never> =>
   Effect.die(new Error(`unexpected ${method} call`))
@@ -26,9 +22,9 @@ const fakeDb = (
   )
 
 const recordingTimeTracking = (
-  calls: Array<{ linkId: string; record: EverhourTimeRecord }>
+  calls: Array<{ linkId: string; record: Client.EverhourTimeRecord }>
 ) =>
-  Layer.succeed(EverhourTimeTracking, {
+  Layer.succeed(TimeTracking.EverhourTimeTracking, {
     workTypesForTicket: () => unexpected("workTypesForTicket"),
     startTicketTimer: () => unexpected("startTicketTimer"),
     startSprintTimer: () => unexpected("startSprintTimer"),
@@ -40,7 +36,7 @@ const recordingTimeTracking = (
       Effect.sync(() => {
         calls.push({ linkId, record })
       })
-  } satisfies EverhourTimeTrackingShape)
+  } satisfies TimeTracking.EverhourTimeTracking["Service"])
 
 const body = `{
   "event": "api:time:updated",
@@ -93,7 +89,7 @@ const liveDeliveryBody = `{
 describe("parseTimeRecord", () => {
   it.effect("maps a wrapped time-record payload", () =>
     Effect.sync(() => {
-      const record = parseTimeRecord(body)
+      const record = Webhooks.parseTimeRecord(body)
       expect(record).toEqual({
         id: "2660155",
         taskId: "ev:9876543210",
@@ -110,7 +106,7 @@ describe("parseTimeRecord", () => {
     "maps a live api:time:updated delivery (payload.data nesting)",
     () =>
       Effect.sync(() => {
-        const record = parseTimeRecord(liveDeliveryBody)
+        const record = Webhooks.parseTimeRecord(liveDeliveryBody)
         expect(record).toEqual({
           id: "214588860",
           taskId: "ev:188193235916608",
@@ -125,8 +121,8 @@ describe("parseTimeRecord", () => {
 
   it.effect("returns null for unparseable bodies", () =>
     Effect.sync(() => {
-      expect(parseTimeRecord("not json")).toBeNull()
-      expect(parseTimeRecord(`{ "event": "x" }`)).toBeNull()
+      expect(Webhooks.parseTimeRecord("not json")).toBeNull()
+      expect(Webhooks.parseTimeRecord(`{ "event": "x" }`)).toBeNull()
     })
   )
 })
@@ -134,14 +130,14 @@ describe("parseTimeRecord", () => {
 describe("EverhourWebhooks.handle", () => {
   it.effect("dispatches to applyWebhookTimeEvent for a known secret", () =>
     Effect.gen(function* () {
-      const webhooks = yield* EverhourWebhooks
+      const webhooks = yield* Webhooks.EverhourWebhooks
       yield* webhooks.handle({ secret: "good", body })
       expect(dispatchedForKnown).toHaveLength(1)
       expect(dispatchedForKnown[0].linkId).toBe("link-1")
       expect(dispatchedForKnown[0].record.id).toBe("2660155")
     }).pipe(
       Effect.provide(
-        EverhourWebhooksLive.pipe(
+        Webhooks.layer.pipe(
           Layer.provide(fakeDb({ projectIntegrationLinkId: "link-1" })),
           Layer.provide(recordingTimeTrackingFixture)
         )
@@ -151,12 +147,12 @@ describe("EverhourWebhooks.handle", () => {
 
   it.effect("ignores deliveries for an unknown secret", () =>
     Effect.gen(function* () {
-      const webhooks = yield* EverhourWebhooks
+      const webhooks = yield* Webhooks.EverhourWebhooks
       yield* webhooks.handle({ secret: "bogus", body })
       expect(dispatchedForUnknown).toHaveLength(0)
     }).pipe(
       Effect.provide(
-        EverhourWebhooksLive.pipe(
+        Webhooks.layer.pipe(
           Layer.provide(fakeDb(undefined)),
           Layer.provide(recordingTimeTrackingFixtureUnknown)
         )
@@ -167,12 +163,48 @@ describe("EverhourWebhooks.handle", () => {
 
 const dispatchedForKnown: Array<{
   linkId: string
-  record: EverhourTimeRecord
+  record: Client.EverhourTimeRecord
 }> = []
 const recordingTimeTrackingFixture = recordingTimeTracking(dispatchedForKnown)
 const dispatchedForUnknown: Array<{
   linkId: string
-  record: EverhourTimeRecord
+  record: Client.EverhourTimeRecord
 }> = []
 const recordingTimeTrackingFixtureUnknown =
   recordingTimeTracking(dispatchedForUnknown)
+
+describe("EverhourWebhooks tracing", () => {
+  const knownSecretDb = databaseLayer(({ sql }) =>
+    Effect.succeed(sql.includes("webhook_secret") ? [["link-1"]] : [])
+  )
+
+  it.effect("traces handle with the time-tracking call under it", () =>
+    Effect.gen(function* () {
+      const webhooks = yield* Webhooks.EverhourWebhooks
+      const spans = yield* everhourSpans(
+        webhooks.handle({ secret: "good", body })
+      )
+      expect(spans).toEqual([
+        { name: "EverhourWebhooks.handle", parent: null },
+        {
+          name: "EverhourTimeTracking.applyWebhookTimeEvent",
+          parent: "EverhourWebhooks.handle"
+        }
+      ])
+    }).pipe(
+      Effect.provide(
+        Webhooks.layer.pipe(
+          Layer.provide(TimeTracking.layer),
+          Layer.provide(
+            Layer.mergeAll(
+              Layer.mock(Client.Everhour, {}),
+              Layer.mock(EverhourHost, {}),
+              Layer.mock(EverhourApiKeys, {})
+            )
+          ),
+          Layer.provide(knownSecretDb)
+        )
+      )
+    )
+  )
+})

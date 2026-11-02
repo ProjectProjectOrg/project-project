@@ -1,31 +1,43 @@
-import { DEFAULT_WORK_TYPES, type OrgEverhourConfig } from "@pp/shared"
+import { it as effectIt } from "@effect/vitest"
+import {
+  DEFAULT_WORK_TYPES,
+  ProjectScope,
+  type OrgEverhourConfig,
+  type ProjectScopeShape
+} from "@pp/shared"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
 import { describe, expect, it } from "vitest"
 
-import {
-  resolveSprintForTicket,
-  summariseAttribution,
-  timerComment,
-  workTypeOptions
-} from "../src/TimeTracking"
+import { EverhourApiKeys } from "../src/ApiKeys"
+import * as Client from "../src/Client"
+import { EverhourHost } from "../src/Host"
+import * as TimeTracking from "../src/TimeTracking"
+import { databaseLayer } from "./database"
+import { everhourSpans } from "./tracing"
 
 describe("timerComment", () => {
   it("stamps the ticket id and title", () => {
-    expect(timerComment("T-12", "Fix the thing")).toBe("T-12 — Fix the thing")
+    expect(TimeTracking.timerComment("T-12", "Fix the thing")).toBe(
+      "T-12 — Fix the thing"
+    )
   })
 
   it("appends the user's note", () => {
-    expect(timerComment("T-12", "Fix the thing", "pairing")).toBe(
+    expect(TimeTracking.timerComment("T-12", "Fix the thing", "pairing")).toBe(
       "T-12 — Fix the thing — pairing"
     )
   })
 
   it("falls back to the bare ticket id when there is no title", () => {
-    expect(timerComment("T-12", null)).toBe("T-12")
+    expect(TimeTracking.timerComment("T-12", null)).toBe("T-12")
   })
 
   it("is just the note for ticket-less (sprint) entries", () => {
-    expect(timerComment(null, null, "sprint planning")).toBe("sprint planning")
-    expect(timerComment(null, null)).toBe("")
+    expect(TimeTracking.timerComment(null, null, "sprint planning")).toBe(
+      "sprint planning"
+    )
+    expect(TimeTracking.timerComment(null, null)).toBe("")
   })
 })
 
@@ -37,14 +49,14 @@ describe("summariseAttribution", () => {
   ]
 
   it("totals all seconds and isolates the actor's seconds", () => {
-    expect(summariseAttribution(rows, "u-1")).toEqual({
+    expect(TimeTracking.summariseAttribution(rows, "u-1")).toEqual({
       totalSeconds: 6000,
       userSeconds: 4200
     })
   })
 
   it("reports zero user seconds when the actor has no Everhour identity", () => {
-    expect(summariseAttribution(rows, null)).toEqual({
+    expect(TimeTracking.summariseAttribution(rows, null)).toEqual({
       totalSeconds: 6000,
       userSeconds: 0
     })
@@ -58,18 +70,18 @@ describe("resolveSprintForTicket", () => {
   ]
 
   it("finds the sprint containing the ticket", () => {
-    expect(resolveSprintForTicket(sprints, "T-3")).toBe("G-2")
+    expect(TimeTracking.resolveSprintForTicket(sprints, "T-3")).toBe("G-2")
   })
 
   it("returns null when the ticket is in no sprint", () => {
-    expect(resolveSprintForTicket(sprints, "T-99")).toBeNull()
+    expect(TimeTracking.resolveSprintForTicket(sprints, "T-99")).toBeNull()
   })
 })
 
 describe("workTypeOptions", () => {
   it("projects the org config into ordered {key,label} options", () => {
     const config: OrgEverhourConfig = { workTypes: DEFAULT_WORK_TYPES }
-    expect(workTypeOptions(config)).toEqual([
+    expect(TimeTracking.workTypeOptions(config)).toEqual([
       { key: "development", label: "Development" },
       { key: "design", label: "Design" },
       { key: "project_management", label: "Project Management" },
@@ -85,6 +97,51 @@ describe("workTypeOptions", () => {
         { key: "a", label: "A", order: 1, isDefault: true }
       ]
     }
-    expect(workTypeOptions(config).map((o) => o.key)).toEqual(["a", "b"])
+    expect(TimeTracking.workTypeOptions(config).map((o) => o.key)).toEqual([
+      "a",
+      "b"
+    ])
   })
+})
+
+describe("EverhourTimeTracking tracing", () => {
+  const unlinkedProject = Layer.succeed(ProjectScope, {
+    userId: "user-1",
+    organizationId: "org-1",
+    orgSlug: "acme",
+    projectId: "project-1",
+    slug: "website"
+  } as ProjectScopeShape)
+
+  effectIt.effect("opens one span per service call", () =>
+    Effect.gen(function* () {
+      const time = yield* TimeTracking.EverhourTimeTracking
+      const spans = yield* everhourSpans(
+        Effect.all([
+          time.workTypesForTicket("T-1"),
+          time.ticketTimeSummary("T-1")
+        ])
+      )
+      expect(spans).toEqual([
+        { name: "EverhourTimeTracking.workTypesForTicket", parent: null },
+        { name: "EverhourTimeTracking.ticketTimeSummary", parent: null }
+      ])
+    }).pipe(
+      Effect.provide(
+        Layer.merge(
+          TimeTracking.layer.pipe(
+            Layer.provide(
+              Layer.mergeAll(
+                Layer.mock(Client.Everhour, {}),
+                Layer.mock(EverhourHost, {}),
+                Layer.mock(EverhourApiKeys, {}),
+                databaseLayer(() => Effect.succeed([]))
+              )
+            )
+          ),
+          unlinkedProject
+        )
+      )
+    )
+  )
 })

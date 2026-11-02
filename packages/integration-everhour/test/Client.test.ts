@@ -8,7 +8,8 @@ import * as Schema from "effect/Schema"
 import * as TestClock from "effect/testing/TestClock"
 import { afterEach, describe, expect, vi } from "vitest"
 
-import { Everhour, EverhourLive } from "../src/Client"
+import * as Client from "../src/Client"
+import { everhourSpans } from "./tracing"
 
 const isEverhourError = Schema.is(EverhourError)
 const isEverhourProjectAccessDenied = Schema.is(EverhourProjectAccessDenied)
@@ -61,23 +62,23 @@ describe("EverhourLive response decoding", () => {
           jsonResponse({ id: 42, name: "Luuk", email: "luuk@example.com" })
         )
       )
-      const everhour = yield* Everhour
+      const everhour = yield* Client.Everhour
       const user = yield* everhour.getCurrentUser("api-key")
       expect(user).toEqual({
         id: "42",
         name: "Luuk",
         email: "luuk@example.com"
       })
-    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Client.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect("rejects a malformed successful response", () =>
     Effect.gen(function* () {
       stubFetch(vi.fn(async () => jsonResponse({ id: null })))
-      const everhour = yield* Everhour
+      const everhour = yield* Client.Everhour
       const error = yield* Effect.flip(everhour.getCurrentUser("api-key"))
       expect(isEverhourError(error)).toBe(true)
-    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Client.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect("treats an omitted project user list as unknown, not empty", () =>
@@ -85,10 +86,10 @@ describe("EverhourLive response decoding", () => {
       stubFetch(
         vi.fn(async () => jsonResponse({ id: "ev:1", name: "Website" }))
       )
-      const everhour = yield* Everhour
+      const everhour = yield* Client.Everhour
       const project = yield* everhour.getProject("api-key", "ev:1")
       expect(project.users).toBeNull()
-    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Client.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect("reports time on an unassigned project as access denied", () =>
@@ -107,7 +108,7 @@ describe("EverhourLive response decoding", () => {
             )
         )
       )
-      const everhour = yield* Everhour
+      const everhour = yield* Client.Everhour
       const error = yield* Effect.flip(
         everhour.addTime("api-key", {
           task: "ev:197217677721262",
@@ -116,7 +117,7 @@ describe("EverhourLive response decoding", () => {
         })
       )
       expect(isEverhourProjectAccessDenied(error)).toBe(true)
-    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Client.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect("retries a rate-limited request after Retry-After", () =>
@@ -128,7 +129,7 @@ describe("EverhourLive response decoding", () => {
           jsonResponse({ id: 42, name: "Luuk", email: null })
         )
       stubFetch(fetch)
-      const everhour = yield* Everhour
+      const everhour = yield* Client.Everhour
       const pending = yield* everhour
         .getCurrentUser("api-key")
         .pipe(Effect.forkChild)
@@ -138,13 +139,13 @@ describe("EverhourLive response decoding", () => {
       const user = yield* Fiber.join(pending)
       expect(user.id).toBe("42")
       expect(fetch).toHaveBeenCalledTimes(2)
-    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Client.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect("gives up on a request Everhour never answers", () =>
     Effect.gen(function* () {
       stubFetch(vi.fn(() => new Promise<Response>(() => {})))
-      const everhour = yield* Everhour
+      const everhour = yield* Client.Everhour
       const pending = yield* everhour
         .getCurrentUser("api-key")
         .pipe(Effect.flip, Effect.forkChild)
@@ -154,21 +155,21 @@ describe("EverhourLive response decoding", () => {
         _tag: "EverhourError",
         message: "Everhour did not respond in time"
       })
-    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Client.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect("fails at once when Everhour asks to wait over ten seconds", () =>
     Effect.gen(function* () {
       const fetch = vi.fn<FetchImplementation>(async () => rateLimited(30))
       stubFetch(fetch)
-      const everhour = yield* Everhour
+      const everhour = yield* Client.Everhour
       const error = yield* Effect.flip(everhour.getCurrentUser("api-key"))
       expect(error).toMatchObject({
         _tag: "EverhourRateLimited",
         retryAfterSeconds: 30
       })
       expect(fetch).toHaveBeenCalledTimes(1)
-    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Client.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect("returns the record a stopped timer saved, with its history", () =>
@@ -190,7 +191,7 @@ describe("EverhourLive response decoding", () => {
           })
         )
       )
-      const everhour = yield* Everhour
+      const everhour = yield* Client.Everhour
       const record = yield* everhour.stopTimer("api-key")
       expect(record).toEqual({
         id: "277062174",
@@ -201,12 +202,12 @@ describe("EverhourLive response decoding", () => {
         comment: "T-1 — Fix the thing",
         history: [{ id: "473389371", seconds: 60 }]
       })
-    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Client.layer.pipe(Layer.provide(FetchLive))))
   )
   it.effect("recovers omitted history for saved time and stopped timers", () =>
     Effect.gen(function* () {
       const wire = { id: 277062174, user: 42, date: "2026-10-23", time: 60 }
-      const everhour = yield* Everhour
+      const everhour = yield* Client.Everhour
       for (const operation of ["log", "stop"] as const) {
         const fetch = vi
           .fn<FetchImplementation>()
@@ -235,13 +236,13 @@ describe("EverhourLive response decoding", () => {
           "/users/42/time?from=2026-10-23&to=2026-10-23&limit=100&page=1"
         )
       }
-    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Client.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect("fails when a saved record's history cannot be recovered", () =>
     Effect.gen(function* () {
       const wire = { id: 277062174, user: 42, date: "2026-10-23", time: 60 }
-      const everhour = yield* Everhour
+      const everhour = yield* Client.Everhour
       for (const operation of ["log", "stop"] as const) {
         stubFetch(
           vi
@@ -265,7 +266,7 @@ describe("EverhourLive response decoding", () => {
           message: "Everhour did not return history for the saved time record"
         })
       }
-    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Client.layer.pipe(Layer.provide(FetchLive))))
   )
   it.effect("finds saved history past the first page of a user's day", () =>
     Effect.gen(function* () {
@@ -287,7 +288,7 @@ describe("EverhourLive response decoding", () => {
           ])
         )
       stubFetch(fetch)
-      const everhour = yield* Everhour
+      const everhour = yield* Client.Everhour
       const record = yield* everhour.addTime("api-key", {
         task: "task",
         time: 60,
@@ -299,14 +300,14 @@ describe("EverhourLive response decoding", () => {
       expect(
         request instanceof Request ? request.url : request?.toString()
       ).toContain("page=2")
-    }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+    }).pipe(Effect.provide(Client.layer.pipe(Layer.provide(FetchLive))))
   )
   it.effect(
     "recovers the entry from the mutation snapshot when a later write appears",
     () =>
       Effect.gen(function* () {
         const wire = { id: 277062174, user: 42, date: "2026-10-23", time: 60 }
-        const everhour = yield* Everhour
+        const everhour = yield* Client.Everhour
         for (const operation of ["log", "stop"] as const) {
           stubFetch(
             vi
@@ -337,7 +338,7 @@ describe("EverhourLive response decoding", () => {
           expect(record?.seconds).toBe(60)
           expect(record?.history).toEqual([{ id: "101", seconds: 60 }])
         }
-      }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+      }).pipe(Effect.provide(Client.layer.pipe(Layer.provide(FetchLive))))
   )
 
   it.effect(
@@ -362,7 +363,7 @@ describe("EverhourLive response decoding", () => {
               ])
             )
         )
-        const everhour = yield* Everhour
+        const everhour = yield* Client.Everhour
         const error = yield* Effect.flip(
           everhour.addTime("api-key", {
             task: "task",
@@ -371,6 +372,34 @@ describe("EverhourLive response decoding", () => {
           })
         )
         expect(error._tag).toBe("EverhourError")
-      }).pipe(Effect.provide(EverhourLive.pipe(Layer.provide(FetchLive))))
+      }).pipe(Effect.provide(Client.layer.pipe(Layer.provide(FetchLive))))
+  )
+})
+
+describe("Everhour tracing", () => {
+  it.effect("opens one span per client call", () =>
+    Effect.gen(function* () {
+      stubFetch(
+        vi
+          .fn<FetchImplementation>()
+          .mockResolvedValueOnce(
+            jsonResponse({ id: 42, name: "Luuk", email: null })
+          )
+          .mockResolvedValueOnce(
+            jsonResponse({ id: 7, name: "Website", type: "board" })
+          )
+      )
+      const everhour = yield* Client.Everhour
+      const spans = yield* everhourSpans(
+        Effect.all([
+          everhour.getCurrentUser("api-key"),
+          everhour.getProject("api-key", "ev:7")
+        ])
+      )
+      expect(spans).toEqual([
+        { name: "Everhour.getCurrentUser", parent: null },
+        { name: "Everhour.getProject", parent: null }
+      ])
+    }).pipe(Effect.provide(Client.layer.pipe(Layer.provide(FetchLive))))
   )
 })
