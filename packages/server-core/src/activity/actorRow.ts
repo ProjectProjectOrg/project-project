@@ -1,9 +1,5 @@
 import type { TicketActivityOutboxRow } from "@pp/db/schema"
-import {
-  ActivityActor,
-  type TicketActivityActor,
-  type User
-} from "@pp/shared"
+import { ActivityActor, type TicketActivityActor, type User } from "@pp/shared"
 
 export type ActorColumns = Readonly<
   Pick<

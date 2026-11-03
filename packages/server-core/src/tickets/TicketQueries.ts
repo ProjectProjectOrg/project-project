@@ -124,20 +124,12 @@ export function recentActivityOf(
       ? null
       : {
           at: entry.lastCommentAt,
-          activity: {
-            tag: "commented",
-            actor: viewerId,
-            at: entry.lastCommentAt
-          }
+          activity: { tag: "commented", at: entry.lastCommentAt }
         },
     entry.entry.createdBy === viewerId
       ? {
           at: entry.entry.createdAt,
-          activity: {
-            tag: "created",
-            actor: viewerId,
-            at: entry.entry.createdAt
-          }
+          activity: { tag: "created", at: entry.entry.createdAt }
         }
       : null
   ]

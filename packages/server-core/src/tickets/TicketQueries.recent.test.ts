@@ -56,7 +56,6 @@ describe("recentActivityOf", () => {
   it("prefers the viewer's latest comment when it is newer than creating", () => {
     expect(recentActivityOf(touched("viewer", later), viewer, users)).toEqual({
       tag: "commented",
-      actor: viewer,
       at: later
     })
   })
@@ -64,7 +63,6 @@ describe("recentActivityOf", () => {
   it("reports creating when the viewer never commented", () => {
     expect(recentActivityOf(touched("viewer", null), viewer, users)).toEqual({
       tag: "created",
-      actor: viewer,
       at: earlier
     })
   })
