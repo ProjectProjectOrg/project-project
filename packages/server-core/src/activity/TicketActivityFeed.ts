@@ -4,7 +4,7 @@ import {
   ProjectScope,
   TICKET_ACTIVITY_PAGE_SIZE,
   Validation,
-  type ActivityActorShape,
+  type ActivityActor,
   type NotFound,
   type TicketActivityActor,
   type TicketActivityEntry,
@@ -16,35 +16,32 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
-import type { MarkdownError } from "../markdown/Markdown"
-import { TicketDocs, type MalformedTicketDocument } from "../tickets/TicketDocs"
-import { Users } from "../users/Users"
+import type * as Markdown from "../markdown/Markdown"
+import * as TicketDocs from "../tickets/TicketDocs"
+import * as Users from "../users/Users"
 import { coalesceActivity } from "./coalesce"
-import {
-  TicketActivity,
-  type ActivityPageCursor,
-  type StoredTicketActivity
-} from "./TicketActivity"
-
-export type TicketActivityFeedShape = Readonly<{
-  list: (
-    ticketId: string,
-    cursor: string | undefined
-  ) => Effect.Effect<
-    TicketActivityPage,
-    NotFound | Validation | MarkdownError | MalformedTicketDocument,
-    ProjectScope
-  >
-}>
+import * as TicketActivity from "./TicketActivity"
 
 export class TicketActivityFeed extends Context.Service<
   TicketActivityFeed,
-  TicketActivityFeedShape
+  Readonly<{
+    list: (
+      ticketId: string,
+      cursor: string | undefined
+    ) => Effect.Effect<
+      TicketActivityPage,
+      | NotFound
+      | Validation
+      | Markdown.MarkdownError
+      | TicketDocs.MalformedTicketDocument,
+      ProjectScope
+    >
+  }>
 >()("@pp/server-core/activity/TicketActivityFeed") {}
 
 const parseCursor = (
   cursor: string | undefined
-): Effect.Effect<ActivityPageCursor | null, Validation> =>
+): Effect.Effect<TicketActivity.ActivityPageCursor | null, Validation> =>
   cursor === undefined
     ? Effect.succeed(null)
     : Effect.try({
@@ -60,14 +57,14 @@ const parseCursor = (
         catch: () => new Validation({ reason: "invalid_cursor" })
       })
 
-const cursorOf = (entry: StoredTicketActivity): string =>
+const cursorOf = (entry: TicketActivity.StoredTicketActivity): string =>
   encodeCursor({
     id: String(entry.seq),
     sort: DateTime.formatIso(DateTime.fromDateUnsafe(entry.occurredAt))
   })
 
 const presentActor = (
-  actor: ActivityActorShape,
+  actor: ActivityActor["Service"],
   users: ReadonlyMap<string, User>
 ): TicketActivityActor | null => {
   if (actor.kind === "system") return actor
@@ -82,79 +79,75 @@ const presentActor = (
       }
 }
 
-export const TicketActivityFeedLive = Layer.effect(
-  TicketActivityFeed,
-  Effect.gen(function* () {
-    const activity = yield* TicketActivity
-    const ticketDocs = yield* TicketDocs
-    const users = yield* Users
+const make = Effect.gen(function* () {
+  const activity = yield* TicketActivity.TicketActivity
+  const ticketDocs = yield* TicketDocs.TicketDocs
+  const users = yield* Users.Users
 
-    const list: TicketActivityFeedShape["list"] = (ticketId, cursor) =>
-      Effect.gen(function* () {
-        const scope = yield* ProjectScope
-        const ticket = yield* ticketDocs.read(
-          scope.orgSlug,
-          scope.slug,
-          ticketId
-        )
-        const before = yield* parseCursor(cursor)
-        const rows = yield* activity.page(
-          scope.projectId,
-          ticket.id,
-          before,
-          TICKET_ACTIVITY_PAGE_SIZE + 1,
-          scope.permissions.can({ github: ["read"] })
-        )
-        const hasMore = rows.length > TICKET_ACTIVITY_PAGE_SIZE
-        const page = rows.slice(0, TICKET_ACTIVITY_PAGE_SIZE)
-        const visible = coalesceActivity(page)
-        const actorIds = visible.flatMap((entry) =>
-          entry.actor.kind === "system" ? [] : [entry.actor.userId]
-        )
-        const mentionedIds = visible.flatMap((entry) =>
-          entry.change.kind === "assignees_changed"
-            ? [...entry.change.added, ...entry.change.removed]
-            : []
-        )
-        const userIds = new Set<string>([...actorIds, ...mentionedIds])
-        if (!hasMore) userIds.add(ticket.createdBy)
-        const found = yield* users.fullByIds([...userIds])
-        const byId = new Map<string, User>(found.map((user) => [user.id, user]))
-        const items: Array<TicketActivityEntry> = visible.flatMap((entry) => {
-          const actor = presentActor(entry.actor, byId)
-          return actor === null
-            ? []
-            : [
-                {
-                  kind: "change" as const,
-                  id: entry.id,
-                  occurredAt: entry.occurredAt,
-                  actor,
-                  cause: entry.cause,
-                  change: entry.change
-                }
-              ]
-        })
-        if (!hasMore) {
-          const creator = byId.get(ticket.createdBy)
-          items.push({
-            kind: "created",
-            id: "created",
-            occurredAt: ticket.createdAt,
-            actor:
-              creator === undefined ? null : { kind: "user", user: creator },
-            splitFrom: ticket.splitFrom ?? null
-          })
-        }
-        const last = page.at(-1)
-        const mentioned = new Set<string>(mentionedIds)
-        return {
-          items,
-          people: found.filter((user) => mentioned.has(user.id)),
-          nextCursor: hasMore && last !== undefined ? cursorOf(last) : null
-        }
+  const list = Effect.fn("TicketActivityFeed.list")(function* (
+    ticketId: string,
+    cursor: string | undefined
+  ) {
+    const scope = yield* ProjectScope
+    const ticket = yield* ticketDocs.read(scope.orgSlug, scope.slug, ticketId)
+    const before = yield* parseCursor(cursor)
+    const rows = yield* activity.page(
+      scope.projectId,
+      ticket.id,
+      before,
+      TICKET_ACTIVITY_PAGE_SIZE + 1,
+      scope.permissions.can({ github: ["read"] })
+    )
+    const hasMore = rows.length > TICKET_ACTIVITY_PAGE_SIZE
+    const page = rows.slice(0, TICKET_ACTIVITY_PAGE_SIZE)
+    const visible = coalesceActivity(page)
+    const actorIds = visible.flatMap((entry) =>
+      entry.actor.kind === "system" ? [] : [entry.actor.userId]
+    )
+    const mentionedIds = visible.flatMap((entry) =>
+      entry.change.kind === "assignees_changed"
+        ? [...entry.change.added, ...entry.change.removed]
+        : []
+    )
+    const userIds = new Set<string>([...actorIds, ...mentionedIds])
+    if (!hasMore) userIds.add(ticket.createdBy)
+    const found = yield* users.fullByIds([...userIds])
+    const byId = new Map<string, User>(found.map((user) => [user.id, user]))
+    const items: Array<TicketActivityEntry> = visible.flatMap((entry) => {
+      const actor = presentActor(entry.actor, byId)
+      return actor === null
+        ? []
+        : [
+            {
+              kind: "change" as const,
+              id: entry.id,
+              occurredAt: entry.occurredAt,
+              actor,
+              cause: entry.cause,
+              change: entry.change
+            }
+          ]
+    })
+    if (!hasMore) {
+      const creator = byId.get(ticket.createdBy)
+      items.push({
+        kind: "created",
+        id: "created",
+        occurredAt: ticket.createdAt,
+        actor: creator === undefined ? null : { kind: "user", user: creator },
+        splitFrom: ticket.splitFrom ?? null
       })
-
-    return TicketActivityFeed.of({ list })
+    }
+    const last = page.at(-1)
+    const mentioned = new Set<string>(mentionedIds)
+    return {
+      items,
+      people: found.filter((user) => mentioned.has(user.id)),
+      nextCursor: hasMore && last !== undefined ? cursorOf(last) : null
+    }
   })
-)
+
+  return TicketActivityFeed.of({ list })
+})
+
+export const layer = Layer.effect(TicketActivityFeed, make)

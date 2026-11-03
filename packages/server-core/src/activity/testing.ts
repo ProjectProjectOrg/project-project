@@ -1,24 +1,20 @@
-import {
-  ActivityActor,
-  type ActivityActorShape,
-  type ActivityCause
-} from "@pp/shared"
+import { ActivityActor, type ActivityCause } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
 import type { TicketScopedChange } from "./changes"
-import { TicketActivity, type ActivityDocument } from "./TicketActivity"
+import * as TicketActivity from "./TicketActivity"
 
 export type RecordedActivity = Readonly<{
-  document: ActivityDocument
-  actor: ActivityActorShape
+  document: TicketActivity.ActivityDocument
+  actor: ActivityActor["Service"]
   cause: ActivityCause | null
   changes: ReadonlyArray<TicketScopedChange>
 }>
 
 export const passthroughTicketActivity = Layer.succeed(
-  TicketActivity,
-  TicketActivity.of({
+  TicketActivity.TicketActivity,
+  TicketActivity.TicketActivity.of({
     record: (_orgSlug, _slug, _document, _changes, _cause, write) => write,
     recover: () => Effect.void,
     removeTicket: () => Effect.void,
@@ -28,8 +24,8 @@ export const passthroughTicketActivity = Layer.succeed(
 
 export const recordingTicketActivity = (recorded: Array<RecordedActivity>) =>
   Layer.succeed(
-    TicketActivity,
-    TicketActivity.of({
+    TicketActivity.TicketActivity,
+    TicketActivity.TicketActivity.of({
       record: (_orgSlug, _slug, document, changes, cause, write) =>
         Effect.gen(function* () {
           const result = yield* write

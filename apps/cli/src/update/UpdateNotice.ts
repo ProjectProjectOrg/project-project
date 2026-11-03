@@ -31,32 +31,34 @@ const UpdateChecksJson = Schema.fromJsonString(UpdateChecks, { space: 2 })
 const decodeChecks = Schema.decodeUnknownEffect(UpdateChecksJson)
 const encodeChecks = Schema.encodeEffect(UpdateChecksJson)
 
-export type UpdateNoticeShape = Readonly<{
-  check: (origin: string) => Effect.Effect<void>
-  notice: Effect.Effect<Option.Option<string>>
-}>
+export type Notice = Readonly<{ fact: string; action: string }>
 
-export const UpdateNotice = Context.Reference<UpdateNoticeShape>(
-  "@pp/cli/update/UpdateNotice",
-  {
-    defaultValue: () => ({
-      check: () => Effect.void,
-      notice: Effect.succeedNone
-    })
-  }
-)
+export const noticeText = (notice: Notice) => `${notice.fact} ${notice.action}`
+
+export const UpdateNotice = Context.Reference<
+  Readonly<{
+    check: (origin: string) => Effect.Effect<void>
+    notice: Effect.Effect<Option.Option<Notice>>
+  }>
+>("@pp/cli/update/UpdateNotice", {
+  defaultValue: () => ({
+    check: () => Effect.void,
+    notice: Effect.succeedNone
+  })
+})
 
 export const noticeFor = (
   origin: string,
   release: Option.Option<string>,
   build: string
-) =>
+): Option.Option<Notice> =>
   Option.flatMap(release, (tag) =>
     tag.replace(/^v/, "") === build
       ? Option.none()
-      : Option.some(
-          `${origin} runs pp ${tag}; you have ${build}. Run \`pp upgrade --server ${origin}\` to match it.`
-        )
+      : Option.some({
+          fact: `${origin} runs pp ${tag}; you have ${build}.`,
+          action: `Run \`pp upgrade --server ${origin}\` to match it.`
+        })
   )
 
 const releaseFor = (origin: string) =>
@@ -116,20 +118,19 @@ export const updateNoticeLayer = (build: string) =>
         FileSystem.FileSystem | Path.Path | ServerStore | HttpClient.HttpClient
       >()
       const running = yield* Ref.make(
-        Option.none<Fiber.Fiber<Option.Option<string>>>()
+        Option.none<Fiber.Fiber<Option.Option<Notice>>>()
       )
-      const notice: UpdateNoticeShape = {
-        check: (origin) =>
-          Effect.gen(function* () {
-            if (Option.isSome(yield* Ref.get(running))) return
-            const fiber = yield* releaseFor(origin).pipe(
-              Effect.map((release) => noticeFor(origin, release, build)),
-              Effect.orElseSucceed(() => Option.none<string>()),
-              Effect.provideContext(services),
-              Effect.forkDetach
-            )
-            yield* Ref.set(running, Option.some(fiber))
-          }),
+      const notice: (typeof UpdateNotice)["Service"] = {
+        check: Effect.fn("UpdateNotice.check")(function* (origin: string) {
+          if (Option.isSome(yield* Ref.get(running))) return
+          const fiber = yield* releaseFor(origin).pipe(
+            Effect.map((release) => noticeFor(origin, release, build)),
+            Effect.orElseSucceed(() => Option.none<Notice>()),
+            Effect.provideContext(services),
+            Effect.forkDetach
+          )
+          yield* Ref.set(running, Option.some(fiber))
+        }),
         notice: Effect.flatMap(
           Ref.get(running),
           Option.match({

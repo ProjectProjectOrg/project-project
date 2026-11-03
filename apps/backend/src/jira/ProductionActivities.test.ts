@@ -5,16 +5,16 @@ import * as BunServices from "@effect/platform-bun/BunServices"
 import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { DbLive } from "@pp/db"
-import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
+import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
 import { JiraMigrationWorkflowCommand } from "@pp/integration-jira/MigrationWorkflow"
 import {
   JiraMigrationWorkflow,
   makeJiraMigrationWorkflow
 } from "@pp/integration-jira/MigrationWorkflow"
 import { JiraPublicationInvalid } from "@pp/integration-jira/Preflight"
-import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
-import { S3Storage } from "@pp/server-core/storage/S3Storage"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { ConfigProvider, Effect, Layer, Redacted, Schedule } from "effect"
@@ -94,13 +94,13 @@ describe.skipIf(!databaseUrl)("Jira production workflow composition", () => {
         )
         const fixture = makeScanTestLayer()
         const pg = PgClient.layer({ url: Redacted.make(databaseUrl!) })
-        const projection = JiraMigrationProjection.layer.pipe(
+        const projection = MigrationProjection.layer.pipe(
           Layer.provideMerge(DbLive)
         )
         const fakeStorage = Layer.mergeAll(
           Layer.succeed(
-            OrgStorage,
-            OrgStorage.of({
+            OrgStorage.OrgStorage,
+            OrgStorage.OrgStorage.of({
               getStatus: () => Effect.die("unused"),
               connect: () => Effect.die("unused"),
               disconnect: () => Effect.die("unused"),
@@ -108,8 +108,8 @@ describe.skipIf(!databaseUrl)("Jira production workflow composition", () => {
             })
           ),
           Layer.succeed(
-            S3Storage,
-            S3Storage.of({
+            S3Storage.S3Storage,
+            S3Storage.S3Storage.of({
               putObject: () => Effect.die("unused"),
               getObject: () => Effect.die("unused"),
               listObjectKeys: () => Effect.die("unused"),
@@ -126,7 +126,7 @@ describe.skipIf(!databaseUrl)("Jira production workflow composition", () => {
         )
         const layer = workflow.pipe(
           Layer.provideMerge(
-            MarkdownLive.pipe(
+            Markdown.layer.pipe(
               Layer.provide(
                 ConfigProvider.layer(
                   ConfigProvider.fromUnknown({ PROJECTS_DIR: "/tmp" })
@@ -142,7 +142,7 @@ describe.skipIf(!databaseUrl)("Jira production workflow composition", () => {
           Layer.provideMerge(pg)
         )
         const result = yield* Effect.gen(function* () {
-          const projection = yield* JiraMigrationProjection
+          const projection = yield* MigrationProjection.JiraMigrationProjection
           const migrationId = yield* JiraMigrationWorkflow.execute(
             {
               command: JiraMigrationWorkflowCommand.cases.Create.make({

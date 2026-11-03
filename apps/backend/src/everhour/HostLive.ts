@@ -2,25 +2,26 @@ import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
 import { organization, projectIndex, projectMember } from "@pp/db/schema"
 import { EverhourHost } from "@pp/integration-everhour/Host"
-import { Access } from "@pp/server-core/access/Access"
-import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
-import { SecretCrypto } from "@pp/server-core/storage/SecretCrypto"
-import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
-import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
+import * as Access from "@pp/server-core/access/Access"
+import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
+import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
+import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
 import { EverhourConfigMissing, NotFound } from "@pp/shared"
 import { and, eq, isNull } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 
 export const EverhourHostLive = Layer.effect(
   EverhourHost,
   Effect.gen(function* () {
     const db = yield* Db
-    const access = yield* Access
-    const ticketIndex = yield* TicketIndex
-    const groupDocs = yield* GroupDocs
-    const ticketDocs = yield* TicketDocs
-    const secrets = yield* SecretCrypto
+    const access = yield* Access.Access
+    const ticketIndex = yield* TicketIndex.TicketIndex
+    const groupDocs = yield* GroupDocs.GroupDocs
+    const ticketDocs = yield* TicketDocs.TicketDocs
+    const secrets = yield* SecretCrypto.SecretCrypto
     const sprints: EverhourHost["Service"]["sprints"] = Effect.fn(
       "EverhourHost.sprints"
     )(function* (orgSlug, slug) {
@@ -110,16 +111,16 @@ export const EverhourHostLive = Layer.effect(
           Effect.orElseSucceed(() => null)
         ),
       timeReadableSlug: (projectId) =>
-        access.projectsInOrg().pipe(
-          Effect.map((scopes) => {
-            const project = scopes.find(
-              (scope) => scope.projectId === projectId
+        access
+          .projectById(projectId)
+          .pipe(
+            Effect.map((project) =>
+              Option.isSome(project) &&
+              project.value.permissions.can({ time: ["read"] })
+                ? project.value.slug
+                : null
             )
-            return project?.permissions.can({ time: ["read"] })
-              ? project.slug
-              : null
-          })
-        ),
+          ),
       seal: (plaintext) =>
         secrets
           .seal(plaintext)

@@ -8,7 +8,7 @@ export const canonicalJiraJson = (value: Schema.Json): string => {
       .join(",")}}`
   return JSON.stringify(value)
 }
-import { JiraArtifactRef } from "./MigrationArtifacts"
+import * as MigrationArtifacts from "./MigrationArtifacts"
 
 export const JIRA_MIGRATION_MANIFEST_VERSION = 2 as const
 export const JIRA_MIGRATION_MANIFEST_V1_VERSION = 1 as const
@@ -277,7 +277,7 @@ export const JiraManifestIssueV2 = Schema.Struct({
   key: Schema.NonEmptyString,
   issueNumber: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1))),
   summary: Schema.NonEmptyString,
-  descriptionArtifact: Schema.NullOr(JiraArtifactRef),
+  descriptionArtifact: Schema.NullOr(MigrationArtifacts.JiraArtifactRef),
   statusId: Schema.NonEmptyString,
   issueTypeId: Schema.NonEmptyString,
   priorityId: Schema.NullOr(Schema.String),
@@ -293,7 +293,7 @@ export const JiraManifestCommentV2 = Schema.Struct({
   id: Schema.NonEmptyString,
   issueId: Schema.NonEmptyString,
   authorAccountId: Schema.NonEmptyString,
-  bodyArtifact: JiraArtifactRef,
+  bodyArtifact: MigrationArtifacts.JiraArtifactRef,
   createdAt: Schema.NonEmptyString,
   updatedAt: Schema.NullOr(Schema.String),
   restricted: Schema.Boolean
@@ -319,7 +319,7 @@ export const JiraManifestWorklogV2 = Schema.Struct({
   authorAccountId: Schema.NonEmptyString,
   seconds: NonNegativeInt,
   startedAt: Schema.NonEmptyString,
-  bodyArtifact: Schema.NullOr(JiraArtifactRef),
+  bodyArtifact: Schema.NullOr(MigrationArtifacts.JiraArtifactRef),
   restricted: Schema.Boolean
 })
 
@@ -341,7 +341,7 @@ export const JiraManifestAttachmentV2 = Schema.Struct({
   filename: Schema.NonEmptyString,
   mimeType: Schema.NonEmptyString,
   byteSize: NonNegativeInt,
-  metadataArtifact: JiraArtifactRef,
+  metadataArtifact: MigrationArtifacts.JiraArtifactRef,
   downloadUrl: Schema.NullOr(Schema.String),
   jiraUrl: Schema.NullOr(Schema.String),
   downloadAllowed: Schema.Boolean
@@ -408,7 +408,7 @@ export const JiraManifestCustomFieldV2 = Schema.Struct({
   id: Schema.NonEmptyString,
   name: Schema.NonEmptyString,
   type: Schema.NonEmptyString,
-  valuesArtifact: JiraArtifactRef
+  valuesArtifact: MigrationArtifacts.JiraArtifactRef
 })
 
 export const JiraManifestWarningV2 = Schema.Struct({
@@ -453,7 +453,7 @@ export const JiraMigrationManifestV2 = Schema.Struct({
   customFields: Schema.Array(JiraManifestCustomFieldV2),
   coverage: Schema.Array(JiraManifestCoverage),
   warnings: Schema.Array(JiraManifestWarningV2),
-  rawArtifacts: Schema.Array(JiraArtifactRef),
+  rawArtifacts: Schema.Array(MigrationArtifacts.JiraArtifactRef),
   schemaVersions: Schema.Array(JiraManifestVersionV2),
   converterVersions: Schema.Array(JiraManifestVersionV2)
 })

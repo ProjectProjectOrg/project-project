@@ -17,16 +17,20 @@ import * as Clock from "effect/Clock"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import type * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { Access } from "../access/Access"
+import * as Access from "../access/Access"
 import { testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
-import { MalformedTicketDocument } from "../tickets/TicketDocs"
-import type { TicketIndex } from "../tickets/TicketIndex"
-import { Projects } from "./Projects"
+import * as TicketDocs from "../tickets/TicketDocs"
+import type * as TicketIndex from "../tickets/TicketIndex"
+import * as TicketRewrites from "../tickets/TicketRewrites"
+import * as ProjectMembers from "./ProjectMembers"
+import * as Projects from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
 const decodeSlugSync = Schema.decodeSync(Slug)
@@ -63,8 +67,15 @@ describe.skipIf(!databaseUrl)("project members", () => {
   const users = [pm, second, developer]
   const admin = randomUUID()
   let pool: Pool
-  let projectsLayer: Layer.Layer<Projects | TicketIndex | Access>
+  let projectsLayer: Layer.Layer<
+    | Projects.Projects
+    | ProjectMembers.ProjectMembers
+    | TicketIndex.TicketIndex
+    | TicketRewrites.TicketRewrites
+    | Access.Access
+  >
   const unassignAttempts: Array<string> = []
+  const unassignedProjects: Array<string> = []
   const ticketFiles: Array<TicketId> = []
 
   const runIn =
@@ -73,11 +84,17 @@ describe.skipIf(!databaseUrl)("project members", () => {
       layer: () => typeof projectsLayer = () => projectsLayer
     ) =>
     (as: string) =>
-    <A, E, R>(f: (projects: Projects["Service"]) => Effect.Effect<A, E, R>) =>
-      Effect.flatMap(Projects, f).pipe(
+    <A, E, R>(
+      f: (
+        projects: Projects.Projects["Service"] &
+          ProjectMembers.ProjectMembers["Service"]
+      ) => Effect.Effect<A, E, R>
+    ) =>
+      Effect.all([Projects.Projects, ProjectMembers.ProjectMembers]).pipe(
+        Effect.flatMap(([projects, members]) => f({ ...projects, ...members })),
         Effect.provideServiceEffect(
           ProjectScope,
-          Effect.flatMap(Access, (access) =>
+          Effect.flatMap(Access.Access, (access) =>
             access.project(orgSlug, projectSlug)
           ).pipe(Effect.provideService(CurrentUser, testUser(as)))
         ),
@@ -152,11 +169,15 @@ describe.skipIf(!databaseUrl)("project members", () => {
       listIds: () => Effect.succeed([...ticketFiles]),
       update: (orgSlug, projectSlug, ticketId) =>
         Effect.suspend(
-          (): Effect.Effect<never, MalformedTicketDocument | NotFound> => {
+          (): Effect.Effect<
+            never,
+            TicketDocs.MalformedTicketDocument | NotFound
+          > => {
             unassignAttempts.push(ticketId)
+            unassignedProjects.push(projectSlug)
             return ticketId === "MEM-901"
               ? Effect.fail(
-                  new MalformedTicketDocument({
+                  new TicketDocs.MalformedTicketDocument({
                     orgSlug,
                     slug: projectSlug,
                     ticketId,
@@ -180,6 +201,50 @@ describe.skipIf(!databaseUrl)("project members", () => {
       await pool.end()
     }
   })
+
+  it.effect("traces a member change on its ProjectMembers span", () =>
+    Effect.gen(function* () {
+      const spans: Array<Tracer.NativeSpan> = []
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options)
+          spans.push(span)
+          return span
+        }
+      })
+      yield* Effect.exit(
+        run(pm)((projects) =>
+          projects.updateMember(randomUUID(), "developer")
+        ).pipe(Effect.withTracer(tracer))
+      )
+      expect(
+        spans
+          .filter((span) => span.name.endsWith(".updateMember"))
+          .map((span) => {
+            const attributes = Object.fromEntries(span.attributes)
+            return {
+              name: span.name,
+              parent: Option.match(span.parent, {
+                onNone: () => null,
+                onSome: (parent) =>
+                  parent._tag === "Span" ? parent.name : null
+              }),
+              module: attributes.module,
+              operation: attributes.operation,
+              orgSlug: attributes.orgSlug
+            }
+          })
+      ).toEqual([
+        {
+          name: "ProjectMembers.updateMember",
+          parent: null,
+          module: "Projects",
+          operation: "updateMember",
+          orgSlug
+        }
+      ])
+    })
+  )
 
   it.effect("adds org members as developer and promotes them to pm", () =>
     Effect.gen(function* () {
@@ -457,6 +522,30 @@ describe.skipIf(!databaseUrl)("project members", () => {
     })
   )
 
+  it.effect(
+    "unassigns someone leaving the org across its published projects",
+    () =>
+      Effect.gen(function* () {
+        const other = yield* createProject("OTH")
+        const hidden = yield* createProject("HID")
+        yield* Effect.promise(() =>
+          pool.query("UPDATE project_index SET published_at=NULL WHERE id=$1", [
+            hidden.id
+          ])
+        )
+        unassignedProjects.length = 0
+        ticketFiles.push(decodeTicketId("MEM-902"))
+        yield* Effect.flatMap(TicketRewrites.TicketRewrites, (rewrites) =>
+          rewrites.unassignUserFromOrgTickets(orgSlug, developer)
+        ).pipe(asUser(pm), Effect.provide(projectsLayer))
+        ticketFiles.length = 0
+        expect(unassignedProjects).toEqual(
+          expect.arrayContaining([slug, other.slug])
+        )
+        expect(unassignedProjects).not.toContain(hidden.slug)
+      })
+  )
+
   const invitationRow = (email: string) =>
     Effect.promise(async () => {
       const result = await pool.query<InvitationRow>(
@@ -622,6 +711,77 @@ describe.skipIf(!databaseUrl)("project members", () => {
       expect(
         detail.pendingMembers.map((pending) => pending.invitationId)
       ).not.toContain(invitationId)
+    })
+  )
+
+  it.effect(
+    "removes another member and unassigns them from the project's tickets",
+    () =>
+      Effect.gen(function* () {
+        const project = yield* createProject("RMV")
+        const inProject = runIn(project.slug)
+        yield* inProject(pm)((projects) =>
+          projects.addMember({
+            email: `${developer}@example.test`,
+            role: "developer"
+          })
+        )
+        unassignedProjects.length = 0
+        ticketFiles.push(decodeTicketId("MEM-902"))
+        const detail = yield* inProject(pm)((projects) =>
+          projects.removeMember(developer)
+        )
+        ticketFiles.length = 0
+        expect(detail.members.map((member) => member.id)).toEqual([pm])
+        expect(unassignedProjects).toContain(project.slug)
+      })
+  )
+
+  it.effect("tells a pm someone outside the project can't be changed", () =>
+    Effect.gen(function* () {
+      const project = yield* createProject("OUT")
+      const inProject = runIn(project.slug)
+      const update = yield* Effect.flip(
+        inProject(pm)((projects) => projects.updateMember(second, "pm"))
+      )
+      const remove = yield* Effect.flip(
+        inProject(pm)((projects) => projects.removeMember(second))
+      )
+      const cancel = yield* Effect.flip(
+        inProject(pm)((projects) => projects.cancelPendingMember(randomUUID()))
+      )
+      expect(update._tag).toBe("NotFound")
+      expect(remove._tag).toBe("NotFound")
+      expect(cancel._tag).toBe("NotFound")
+    })
+  )
+
+  it.effect("lists member ids and pages members by name", () =>
+    Effect.gen(function* () {
+      const project = yield* createProject("IDS")
+      const inProject = runIn(project.slug)
+      yield* inProject(pm)((projects) =>
+        projects.addMember({
+          email: `${second}@example.test`,
+          role: "developer"
+        })
+      )
+      const ids = yield* inProject(pm)((projects) => projects.memberIds())
+      const all = yield* inProject(pm)((projects) =>
+        projects.listMembersPaged(undefined, 10)
+      )
+      const first = yield* inProject(pm)((projects) =>
+        projects.listMembersPaged(undefined, 1)
+      )
+      expect([...ids].toSorted()).toEqual([pm, second].toSorted())
+      expect(all.items.map((member) => member.id)).toEqual(
+        [pm, second].toSorted()
+      )
+      expect(all.nextCursor).toBeNull()
+      expect(first.items.map((member) => member.id)).toEqual([
+        [pm, second].toSorted()[0]
+      ])
+      expect(first.nextCursor).not.toBeNull()
     })
   )
 

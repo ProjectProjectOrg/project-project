@@ -4,10 +4,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
 import type { GitAutomationConfig } from "../tickets/gitAutomation"
-import {
-  ProjectGitAutomation,
-  type ProjectGitAutomationShape
-} from "./ProjectGitAutomation"
+import * as ProjectGitAutomation from "./ProjectGitAutomation"
 
 export const DEFAULT_GIT_AUTOMATION_CONFIG: GitAutomationConfig = {
   rules: {
@@ -24,7 +21,7 @@ export const DEFAULT_GIT_AUTOMATION_CONFIG: GitAutomationConfig = {
 
 export const gitAutomationTestService = (
   config: GitAutomationConfig = DEFAULT_GIT_AUTOMATION_CONFIG
-): ProjectGitAutomationShape => ({
+): ProjectGitAutomation.ProjectGitAutomation["Service"] => ({
   get: () => Effect.die("git automation get is not stubbed"),
   configFor: () => Effect.succeed(config),
   update: () => Effect.die("git automation update is not stubbed")
@@ -32,4 +29,8 @@ export const gitAutomationTestService = (
 
 export const gitAutomationTestLayer = (
   config: GitAutomationConfig = DEFAULT_GIT_AUTOMATION_CONFIG
-) => Layer.succeed(ProjectGitAutomation, gitAutomationTestService(config))
+) =>
+  Layer.succeed(
+    ProjectGitAutomation.ProjectGitAutomation,
+    gitAutomationTestService(config)
+  )

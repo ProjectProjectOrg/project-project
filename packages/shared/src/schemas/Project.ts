@@ -112,6 +112,32 @@ export const StartGithubInstallResponse = Schema.Struct({
 })
 export type StartGithubInstallResponse = typeof StartGithubInstallResponse.Type
 
+export const GithubInstallationChoice = Schema.Struct({
+  installationId: Schema.String,
+  accountLogin: Schema.String,
+  accountType: Schema.Literals(["User", "Organization"]),
+  connectedElsewhere: Schema.Boolean
+})
+export type GithubInstallationChoice = typeof GithubInstallationChoice.Type
+
+export const GithubInstallationChoices = Schema.Struct({
+  installations: Schema.Array(GithubInstallationChoice)
+})
+export type GithubInstallationChoices = typeof GithubInstallationChoices.Type
+
+export const ChooseGithubInstallationInput = Schema.Struct({
+  state: Schema.NonEmptyString,
+  installationId: Schema.NullOr(Schema.NonEmptyString)
+})
+export type ChooseGithubInstallationInput =
+  typeof ChooseGithubInstallationInput.Type
+
+export const ChooseGithubInstallationResponse = Schema.Struct({
+  redirectUrl: Schema.String
+})
+export type ChooseGithubInstallationResponse =
+  typeof ChooseGithubInstallationResponse.Type
+
 export const ProjectSetup = Schema.Struct({
   workflowReviewedAt: Schema.NullOr(Schema.DateFromString),
   invitePeopleDismissedAt: Schema.NullOr(Schema.DateFromString),

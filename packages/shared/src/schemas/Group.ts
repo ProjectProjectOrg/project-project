@@ -40,16 +40,33 @@ export const GroupDetail = Schema.Struct({
 })
 export type GroupDetail = typeof GroupDetail.Type
 
+const groupFieldDocs = {
+  color: "A `#RRGGBB` colour.",
+  startsAt: "The start date, ISO 8601, or `null` for none.",
+  endsAt: "The end date, ISO 8601, or `null` for none."
+} as const
+
 export const CreateGroupInput = Schema.Struct({
   name: Schema.String.pipe(
     Schema.check(Schema.isMinLength(1)),
     Schema.check(Schema.isMaxLength(200))
-  ),
+  ).annotate({
+    description: "The name, 1 to 200 characters."
+  }),
   kind: Schema.optional(GroupKind),
-  color: Schema.optional(GroupColor),
-  startsAt: Schema.optional(Schema.NullOr(Schema.DateFromString)),
-  endsAt: Schema.optional(Schema.NullOr(Schema.DateFromString)),
-  tickets: Schema.optional(Schema.Array(TicketId))
+  color: Schema.optional(GroupColor).annotate({
+    description: groupFieldDocs.color
+  }),
+  startsAt: Schema.optional(Schema.NullOr(Schema.DateFromString)).annotate({
+    description: groupFieldDocs.startsAt
+  }),
+  endsAt: Schema.optional(Schema.NullOr(Schema.DateFromString)).annotate({
+    description: groupFieldDocs.endsAt
+  }),
+  tickets: Schema.optional(Schema.Array(TicketId)).annotate({
+    description:
+      "Ticket ids to add on creation; sprint membership is exclusive, so they leave any other sprint."
+  })
 })
 export type CreateGroupInput = typeof CreateGroupInput.Type
 
@@ -59,11 +76,19 @@ export const UpdateGroupInput = Schema.Struct({
       Schema.check(Schema.isMinLength(1)),
       Schema.check(Schema.isMaxLength(200))
     )
-  ),
-  body: Schema.optional(Schema.String),
-  color: Schema.optional(GroupColor),
-  startsAt: Schema.optional(Schema.NullOr(Schema.DateFromString)),
-  endsAt: Schema.optional(Schema.NullOr(Schema.DateFromString)),
+  ).annotate({ description: "A new name, 1 to 200 characters." }),
+  body: Schema.optional(Schema.String).annotate({
+    description: "The markdown description; replaces the whole body."
+  }),
+  color: Schema.optional(GroupColor).annotate({
+    description: groupFieldDocs.color
+  }),
+  startsAt: Schema.optional(Schema.NullOr(Schema.DateFromString)).annotate({
+    description: groupFieldDocs.startsAt
+  }),
+  endsAt: Schema.optional(Schema.NullOr(Schema.DateFromString)).annotate({
+    description: groupFieldDocs.endsAt
+  }),
   completedAt: Schema.optional(Schema.NullOr(Schema.DateFromString))
 })
 export type UpdateGroupInput = typeof UpdateGroupInput.Type
@@ -99,7 +124,10 @@ export const CompleteSprintDestination = Schema.Union([
 export type CompleteSprintDestination = typeof CompleteSprintDestination.Type
 
 export const CompleteSprintInput = Schema.Struct({
-  destination: CompleteSprintDestination
+  destination: CompleteSprintDestination.annotate({
+    description:
+      'Where unfinished tickets go: `{ kind: "sprint", groupId: "G-N" }` or `{ kind: "backlog" }`.'
+  })
 })
 export type CompleteSprintInput = typeof CompleteSprintInput.Type
 

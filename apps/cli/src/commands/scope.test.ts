@@ -100,6 +100,7 @@ const run = (world: World, args: ReadonlyArray<string>) => {
       remove: () => Effect.succeed(true),
       setDefault: () => Effect.void,
       setScope: (_origin, scope) => Effect.sync(() => void saved.push(scope)),
+      update: () => Effect.die("unused"),
       select: (preferred) =>
         Option.getOrElse(preferred, () => origin) === origin
           ? Effect.succeed(server)
@@ -235,22 +236,6 @@ describe("choosing the org and project", () => {
       expect(world.toolInput("list_tickets")).toMatchObject({
         orgSlug: "beta",
         projectSlug: "app"
-      })
-    })
-  })
-
-  it.effect("fills pp call input, keeping slugs the JSON already has", () => {
-    const world = run({ orgs: ["acme"], projects: { acme: ["website"] } }, [
-      "call",
-      "get_ticket",
-      '{"id":"T-1","projectSlug":"app"}'
-    ])
-    return Effect.gen(function* () {
-      yield* world.effect
-      expect(world.toolInput("get_ticket")).toEqual({
-        orgSlug: "acme",
-        projectSlug: "app",
-        id: "T-1"
       })
     })
   })

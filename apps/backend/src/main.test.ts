@@ -55,10 +55,8 @@ vi.mock("./auth", () => ({
   mcpResource: "http://localhost:3000/mcp",
   toolsResource: "http://localhost:3000/api/v1/tools"
 }))
-import {
-  GitHubWebhooks,
-  type GitHubWebhooksShape
-} from "@pp/integration-github/GitHubWebhooks"
+import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 
 import { AuthHandlerLive } from "./handlers/auth"
 import {
@@ -86,6 +84,7 @@ const ApiUnderTestLive = HttpApiBuilder.layer(
 ).pipe(
   Layer.provide(HealthHandlerLive),
   Layer.provide(AuthHandlerLive),
+  Layer.provide(Layer.mock(BetterAuth.BetterAuth, {})),
   Layer.provide(
     Layer.succeed(Authentication, {
       sessionCookie: () => Effect.fail(new Unauthorized())
@@ -130,7 +129,7 @@ const TestHttpClientLayer = FetchHttpClient.layer.pipe(
 // 1. The test you wrote: happy path through the raw web handler.
 // ----------------------------------------------------------------------------
 
-it.effect("GET /api/health responds with { status: 'ok' } and a 200", () =>
+it.effect("GET /api/health responds with status and version and a 200", () =>
   Effect.gen(function* () {
     const response = yield* Effect.promise(() =>
       handler(new Request("http://localhost/api/health"))
@@ -139,7 +138,7 @@ it.effect("GET /api/health responds with { status: 'ok' } and a 200", () =>
     expect(response.status).toBe(200)
 
     const body = yield* Effect.promise(() => response.json())
-    expect(body).toEqual({ status: "ok" })
+    expect(body).toEqual({ status: "ok", version: "dev" })
   })
 )
 
@@ -191,14 +190,14 @@ it.effect("GET /unknown returns 404", () =>
 //    forcing the test to keep up with the contract.
 // ----------------------------------------------------------------------------
 
-it.effect("HttpApiClient.health.get() returns { status: 'ok' }", () =>
+it.effect("HttpApiClient.health.get() returns the status and version", () =>
   Effect.gen(function* () {
     const client = yield* HttpApiClient.make(AppApi, {
       baseUrl: "http://localhost/api"
     })
     const result = yield* client.health.get()
 
-    expect(result).toEqual({ status: "ok" })
+    expect(result).toEqual({ status: "ok", version: "dev" })
   }).pipe(Effect.provide(TestHttpClientLayer))
 )
 
@@ -208,7 +207,9 @@ const jsonBody = (value: Schema.Json) => encodeUnknownJsonSync(value)
 const signWebhookBody = (body: string) =>
   `sha256=${createHmac("sha256", webhookSecret).update(body).digest("hex")}`
 
-const makeWebhookHandler = (service: GitHubWebhooksShape) =>
+const makeWebhookHandler = (
+  service: GitHubWebhooks.GitHubWebhooks["Service"]
+) =>
   (() => {
     const web = HttpRouter.toWebHandler(
       HttpRouter.add(
@@ -216,7 +217,7 @@ const makeWebhookHandler = (service: GitHubWebhooksShape) =>
         "/api/integrations/github/webhook",
         githubWebhookRoute
       ).pipe(
-        Layer.provide(Layer.succeed(GitHubWebhooks, service)),
+        Layer.provide(Layer.succeed(GitHubWebhooks.GitHubWebhooks, service)),
         Layer.provide(
           ConfigProvider.layer(
             ConfigProvider.fromUnknown({
@@ -227,7 +228,7 @@ const makeWebhookHandler = (service: GitHubWebhooksShape) =>
       )
     )
     const context = Context.merge(
-      Context.make(GitHubWebhooks, service),
+      Context.make(GitHubWebhooks.GitHubWebhooks, service),
       Context.make(
         ConfigProvider.ConfigProvider,
         ConfigProvider.fromUnknown({

@@ -6,16 +6,28 @@ import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as TestClock from "effect/testing/TestClock"
+import * as Tracer from "effect/Tracer"
 
 import { ServerStore } from "../servers/ServerStore"
 import { fakeHttp } from "../testing"
-import { noticeFor, UpdateNotice, updateNoticeLayer } from "./UpdateNotice"
+import {
+  type Notice,
+  noticeFor,
+  noticeText,
+  UpdateNotice,
+  updateNoticeLayer
+} from "./UpdateNotice"
 
 const origin = "https://pp.example.com"
 
 describe("noticeFor", () => {
   it("recommends pp upgrade when the server runs another release", () => {
-    expect(noticeFor(origin, Option.some("v2026.11.02"), "2026.10.30")).toEqual(
+    expect(
+      Option.map(
+        noticeFor(origin, Option.some("v2026.11.02"), "2026.10.30"),
+        noticeText
+      )
+    ).toEqual(
       Option.some(
         "https://pp.example.com runs pp v2026.11.02; you have 2026.10.30. Run `pp upgrade --server https://pp.example.com` to match it."
       )
@@ -34,7 +46,7 @@ describe("noticeFor", () => {
 
 const withConfigHome = <A, E>(
   run: (
-    noticeIn: (build: string) => Effect.Effect<Option.Option<string>>
+    noticeIn: (build: string) => Effect.Effect<Option.Option<Notice>>
   ) => Effect.Effect<A, E>,
   asked: Array<string>,
   failing = false
@@ -80,7 +92,7 @@ describe("update notice", () => {
       (noticeIn) =>
         Effect.gen(function* () {
           const first = yield* noticeIn("2026.10.30")
-          expect(Option.getOrThrow(first)).toContain("pp upgrade")
+          expect(noticeText(Option.getOrThrow(first))).toContain("pp upgrade")
           expect(yield* noticeIn("2026.10.30")).toEqual(first)
           expect(asked).toEqual(["/api/cli/release"])
           yield* TestClock.adjust("25 hours")
@@ -118,6 +130,24 @@ describe("update notice", () => {
         }),
       asked,
       true
+    )
+  })
+  it.effect("traces a check under an UpdateNotice.check span", () => {
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return withConfigHome(
+      (noticeIn) =>
+        Effect.gen(function* () {
+          yield* noticeIn("2026.10.30").pipe(Effect.withTracer(tracer))
+          expect(spans.map((span) => span.name)).toContain("UpdateNotice.check")
+        }),
+      []
     )
   })
 })

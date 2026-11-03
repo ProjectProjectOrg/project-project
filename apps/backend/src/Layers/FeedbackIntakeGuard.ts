@@ -1,4 +1,4 @@
-import { FeedbackConfig } from "@pp/server-core/feedback/FeedbackConfig"
+import * as FeedbackConfig from "@pp/server-core/feedback/FeedbackConfig"
 import { clientIp } from "@pp/server-core/feedback/feedbackTicket"
 import { FeedbackIntakeGuard, NotFound, RateLimited } from "@pp/shared"
 import * as Clock from "effect/Clock"
@@ -29,7 +29,7 @@ const IntakeRateLimiterLive =
 export const FeedbackIntakeGuardLive = Layer.effect(
   FeedbackIntakeGuard,
   Effect.gen(function* () {
-    const config = yield* FeedbackConfig
+    const config = yield* FeedbackConfig.FeedbackConfig
     // @effect-diagnostics-next-line unstableApiUsage:off
     const limiter = yield* RateLimiter.RateLimiter
     return FeedbackIntakeGuard.of(

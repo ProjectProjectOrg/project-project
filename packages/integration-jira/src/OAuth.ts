@@ -1,16 +1,8 @@
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createHash } from "node:crypto"
 
-import { JiraError, JiraRateLimited, JiraReconnectRequired } from "@pp/shared"
-import * as Config from "effect/Config"
-import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
-import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
-import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
-import * as Layer from "effect/Layer"
-import * as Predicate from "effect/Predicate"
-import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 
 export const JIRA_SCOPES =
@@ -43,31 +35,6 @@ export type JiraTokenGrant = Readonly<{
   expiresAt: Date
   grantedScopes: ReadonlyArray<string>
 }>
-
-export type JiraOAuthConfigShape = Readonly<{
-  clientId: string
-  clientSecret: Redacted.Redacted
-  publicBaseUrl: string
-  authorizationEndpoint?: string
-}>
-
-export class JiraOAuthConfig extends Context.Service<
-  JiraOAuthConfig,
-  JiraOAuthConfigShape
->()("@pp/integration-jira/OAuth/JiraOAuthConfig") {}
-
-export const JiraOAuthConfigLive = Layer.effect(
-  JiraOAuthConfig,
-  Effect.all({
-    clientId: Config.String("JIRA_CLIENT_ID").pipe(Config.withDefault("")),
-    clientSecret: Config.Redacted("JIRA_CLIENT_SECRET").pipe(
-      Config.withDefault(Redacted.make(""))
-    ),
-    publicBaseUrl: Config.String("BETTER_AUTH_URL").pipe(
-      Config.withDefault("http://localhost:5173")
-    )
-  })
-)
 
 export const jiraRedirectUri = (baseUrl: string): string =>
   new URL(JIRA_OAUTH_CALLBACK_PATH, baseUrl).toString()
@@ -159,94 +126,3 @@ export const classifyTokenRejection = (
   if (Exit.isFailure(result)) return "invalid_response"
   return result.value.error === "invalid_grant" ? "invalid_grant" : "transient"
 }
-
-export type JiraTokenEndpointShape = Readonly<{
-  exchange: (
-    code: string,
-    codeVerifier: string | null
-  ) => Effect.Effect<
-    JiraTokenGrant,
-    JiraReconnectRequired | JiraRateLimited | JiraError
-  >
-  refresh: (
-    refreshToken: string
-  ) => Effect.Effect<
-    JiraTokenGrant,
-    JiraReconnectRequired | JiraRateLimited | JiraError
-  >
-}>
-
-export class JiraTokenEndpoint extends Context.Service<
-  JiraTokenEndpoint,
-  JiraTokenEndpointShape
->()("@pp/integration-jira/OAuth/JiraTokenEndpoint") {}
-
-const requestGrant = Effect.fn("JiraTokenEndpoint.requestGrant")(function* (
-  client: HttpClient.HttpClient,
-  config: JiraOAuthConfigShape,
-  payload: Record<string, string>
-) {
-  const request = HttpClientRequest.post(JIRA_TOKEN_URL).pipe(
-    HttpClientRequest.bodyJsonUnsafe({
-      ...payload,
-      client_id: config.clientId,
-      client_secret: Redacted.value(config.clientSecret)
-    })
-  )
-  const response = yield* client.execute(request).pipe(
-    Effect.timeout("20 seconds"),
-    Effect.mapError((error) =>
-      Predicate.isTagged(error, "TimeoutError")
-        ? new JiraError({ reason: "timeout" })
-        : new JiraError({ reason: "network" })
-    )
-  )
-  if (response.status === 429) {
-    const retryAfter = Number(response.headers["retry-after"] ?? "0")
-    return yield* new JiraRateLimited({
-      retryAfterSeconds: Number.isFinite(retryAfter) ? retryAfter : 0
-    })
-  }
-  if (response.status >= 500) {
-    return yield* new JiraError({ reason: "server_error" })
-  }
-  const body = yield* HttpClientResponse.schemaBodyJson(Schema.Json)(
-    response
-  ).pipe(Effect.mapError(() => new JiraError({ reason: "invalid_response" })))
-  if (response.status < 200 || response.status >= 300) {
-    const classification = classifyTokenRejection(body)
-    if (classification === "invalid_grant") {
-      return yield* new JiraReconnectRequired({ reason: "invalid_grant" })
-    }
-    return yield* new JiraError({
-      reason:
-        classification === "transient" ? "server_error" : "invalid_response"
-    })
-  }
-  const grant = parseTokenGrant(body, yield* DateTime.now)
-  return grant === null
-    ? yield* new JiraError({ reason: "invalid_response" })
-    : grant
-})
-
-export const JiraTokenEndpointLive = Layer.effect(
-  JiraTokenEndpoint,
-  Effect.gen(function* () {
-    const config = yield* JiraOAuthConfig
-    const client = yield* HttpClient.HttpClient
-    return JiraTokenEndpoint.of({
-      exchange: (code, codeVerifier) =>
-        requestGrant(client, config, {
-          grant_type: "authorization_code",
-          code,
-          redirect_uri: jiraRedirectUri(config.publicBaseUrl),
-          ...(codeVerifier === null ? {} : { code_verifier: codeVerifier })
-        }),
-      refresh: (refreshToken) =>
-        requestGrant(client, config, {
-          grant_type: "refresh_token",
-          refresh_token: refreshToken
-        })
-    })
-  })
-)

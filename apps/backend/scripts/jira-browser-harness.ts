@@ -2,8 +2,9 @@
 import { createHash, generateKeyPairSync, randomUUID } from "node:crypto"
 
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3"
-import { JiraTransport } from "@pp/integration-jira/Client"
-import { JiraOAuthConfig, JiraTokenEndpoint } from "@pp/integration-jira/OAuth"
+import * as OAuthConfig from "@pp/integration-jira/OAuthConfig"
+import * as TokenEndpoint from "@pp/integration-jira/TokenEndpoint"
+import * as Transport from "@pp/integration-jira/Transport"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { Effect, Layer, Redacted, Schema } from "effect"
@@ -185,9 +186,9 @@ export const makeJiraBrowserHarnessLive = async (
     { BackendInfrastructureLive, makeBackendHttpServicesLive }
   ] = await Promise.all([import("../src/main"), import("../src/runtime")])
   const services = makeBackendHttpServicesLive(
-    Layer.succeed(JiraTransport, fixture.transport),
-    Layer.succeed(JiraTokenEndpoint, fixture.tokenEndpoint),
-    Layer.succeed(JiraOAuthConfig, {
+    Layer.succeed(Transport.JiraTransport, fixture.transport),
+    Layer.succeed(TokenEndpoint.JiraTokenEndpoint, fixture.tokenEndpoint),
+    Layer.succeed(OAuthConfig.JiraOAuthConfig, {
       clientId: "fixture-client",
       clientSecret: Redacted.make("fixture-secret"),
       publicBaseUrl: browserFrontendOrigin,

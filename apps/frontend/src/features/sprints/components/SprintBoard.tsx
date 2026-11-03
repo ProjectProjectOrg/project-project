@@ -17,6 +17,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { motion, Reorder } from "motion/react"
 import { useContext, useEffect, useMemo, useRef, useState } from "react"
 
+import { fireMutation } from "@/api/viewMutation"
 import { AsyncView } from "@/components/shell/AsyncView"
 import { DitherShell } from "@/components/ui/dither-shell"
 import {
@@ -190,7 +191,7 @@ function SprintBoardContent({
         if (after === src.id) return
         const status = nextStatus !== src.status ? nextStatus : undefined
         if (status !== undefined && !canTransition) return
-        registry.set(placeBoardTicket({ req, id: src.id }), {
+        void fireMutation(registry, placeBoardTicket({ req, id: src.id }), {
           ticketId: src.id,
           status,
           after

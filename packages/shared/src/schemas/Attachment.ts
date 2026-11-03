@@ -126,8 +126,13 @@ export const PrepareAttachmentInput = Schema.Struct({
   filename: Schema.String.pipe(
     Schema.check(Schema.isMinLength(1)),
     Schema.check(Schema.isMaxLength(255))
+  ).annotate({ description: "The file name, used as the link label." }),
+  contentType: Schema.String.pipe(Schema.check(Schema.isMinLength(1))).annotate(
+    {
+      description:
+        "The MIME type: PNG, JPEG, GIF, WebP, AVIF, PDF, ZIP, gzip or tar."
+    }
   ),
-  contentType: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
   byteSize: Schema.Finite.pipe(Schema.check(Schema.isInt()))
 })
 export type PrepareAttachmentInput = typeof PrepareAttachmentInput.Type

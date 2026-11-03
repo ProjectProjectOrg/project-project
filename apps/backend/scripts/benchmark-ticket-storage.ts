@@ -16,13 +16,9 @@ import {
   passthroughTicketActivity
 } from "@pp/server-core/activity/testing"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
-import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
-import {
-  TicketDocs,
-  type TicketDocument
-} from "@pp/server-core/tickets/TicketDocs"
-import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import { TicketId, TicketStatus } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Clock from "effect/Clock"
@@ -158,7 +154,7 @@ const makeBody = (index: number): string => {
   )
 }
 
-const makeDocument = (index: number): TicketDocument => {
+const makeDocument = (index: number): TicketDocs.TicketDocument => {
   const timestamp = new Date("2026-01-01T00:00:00.000Z")
   return {
     id: decodeTicketId(`T-${index + 1}`),
@@ -248,7 +244,7 @@ const fromPromise = <A>(run: () => Promise<A>) => Effect.tryPromise(run)
 const benchmarkProgram = (options: Options, scratchRoot: string) =>
   Effect.gen(function* () {
     const host = yield* HostEnvironment
-    const ticketDocs = yield* TicketDocs
+    const ticketDocs = yield* TicketDocs.TicketDocs
     const documents = Array.from({ length: options.ticketCount }, (_, index) =>
       makeDocument(index)
     )
@@ -359,11 +355,11 @@ const benchmarkProgram = (options: Options, scratchRoot: string) =>
     }
   }).pipe(
     Effect.provide(
-      TicketDocsLive.pipe(
+      TicketDocs.layer.pipe(
         Layer.provide(KeyedLock.layer),
         Layer.provide(FinishedStatuses.baseline),
         Layer.provide(passthroughTicketActivity),
-        Layer.provide(MarkdownLive),
+        Layer.provide(Markdown.layer),
         Layer.provideMerge(
           ConfigProvider.layer(
             ConfigProvider.fromUnknown({ PROJECTS_DIR: scratchRoot })

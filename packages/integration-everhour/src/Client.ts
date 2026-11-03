@@ -81,95 +81,102 @@ export type EverhourTrackingError =
   | EverhourClientError
   | EverhourProjectAccessDenied
 
-export type EverhourShape = Readonly<{
-  getCurrentUser: (
-    apiKey: string
-  ) => Effect.Effect<EverhourUser, EverhourClientError>
-  getProject: (
-    apiKey: string,
-    projectId: string
-  ) => Effect.Effect<EverhourProject, EverhourClientError>
-  createProject: (
-    apiKey: string,
-    input: Readonly<{
-      name: string
-      type: "board"
-      users?: ReadonlyArray<string>
-    }>
-  ) => Effect.Effect<EverhourProject, EverhourClientError>
-  updateProject: (
-    apiKey: string,
-    projectId: string,
-    input: Readonly<{ name: string }>
-  ) => Effect.Effect<EverhourProject, EverhourClientError>
-  teamUserIds: (
-    apiKey: string
-  ) => Effect.Effect<ReadonlyArray<string>, EverhourClientError>
-  assignProjectUsers: (
-    apiKey: string,
-    projectId: string,
-    users: ReadonlyArray<string>
-  ) => Effect.Effect<EverhourProject, EverhourClientError>
-  createSection: (
-    apiKey: string,
-    projectId: string,
-    input: Readonly<{ name: string; status: "open" | "archived" }>
-  ) => Effect.Effect<EverhourSection, EverhourClientError>
-  updateSection: (
-    apiKey: string,
-    sectionId: string,
-    input: Readonly<{ name: string; status: "open" | "archived" }>
-  ) => Effect.Effect<EverhourSection, EverhourClientError>
-  getTask: (
-    apiKey: string,
-    taskId: string
-  ) => Effect.Effect<EverhourTask, EverhourClientError>
-  createTask: (
-    apiKey: string,
-    projectId: string,
-    payload: EverhourTaskPayload
-  ) => Effect.Effect<EverhourTask, EverhourClientError>
-  updateTask: (
-    apiKey: string,
-    taskId: string,
-    payload: EverhourTaskPayload
-  ) => Effect.Effect<EverhourTask, EverhourClientError>
-  startTimer: (
-    apiKey: string,
-    input: Readonly<{
-      task: string
-      comment?: string
-      userDate?: string
-    }>
-  ) => Effect.Effect<EverhourTimer, EverhourTrackingError>
-  stopTimer: (
-    apiKey: string
-  ) => Effect.Effect<EverhourTimeRecord | null, EverhourClientError>
-  getCurrentTimer: (
-    apiKey: string
-  ) => Effect.Effect<EverhourTimer | null, EverhourClientError>
-  addTime: (
-    apiKey: string,
-    input: Readonly<{
-      task: string
-      time: number
-      date: string
-      comment?: string
-    }>
-  ) => Effect.Effect<EverhourTimeRecord, EverhourTrackingError>
-  createWebhook: (
-    apiKey: string,
-    input: Readonly<{ targetUrl: string; project: string }>
-  ) => Effect.Effect<Readonly<{ id: string }>, EverhourClientError>
-  deleteWebhook: (
-    apiKey: string,
-    webhookId: string
-  ) => Effect.Effect<void, EverhourClientError>
+type CreateProjectInput = Readonly<{
+  name: string
+  type: "board"
+  users?: ReadonlyArray<string>
 }>
 
-export class Everhour extends Context.Service<Everhour, EverhourShape>()(
-  "@pp/integration-everhour/Client/Everhour"
-) {}
+type SectionInput = Readonly<{ name: string; status: "open" | "archived" }>
+
+type StartTimerInput = Readonly<{
+  task: string
+  comment?: string
+  userDate?: string
+}>
+
+type AddTimeInput = Readonly<{
+  task: string
+  time: number
+  date: string
+  comment?: string
+}>
+
+export class Everhour extends Context.Service<
+  Everhour,
+  Readonly<{
+    getCurrentUser: (
+      apiKey: string
+    ) => Effect.Effect<EverhourUser, EverhourClientError>
+    getProject: (
+      apiKey: string,
+      projectId: string
+    ) => Effect.Effect<EverhourProject, EverhourClientError>
+    createProject: (
+      apiKey: string,
+      input: CreateProjectInput
+    ) => Effect.Effect<EverhourProject, EverhourClientError>
+    updateProject: (
+      apiKey: string,
+      projectId: string,
+      input: Readonly<{ name: string }>
+    ) => Effect.Effect<EverhourProject, EverhourClientError>
+    teamUserIds: (
+      apiKey: string
+    ) => Effect.Effect<ReadonlyArray<string>, EverhourClientError>
+    assignProjectUsers: (
+      apiKey: string,
+      projectId: string,
+      users: ReadonlyArray<string>
+    ) => Effect.Effect<EverhourProject, EverhourClientError>
+    createSection: (
+      apiKey: string,
+      projectId: string,
+      input: SectionInput
+    ) => Effect.Effect<EverhourSection, EverhourClientError>
+    updateSection: (
+      apiKey: string,
+      sectionId: string,
+      input: SectionInput
+    ) => Effect.Effect<EverhourSection, EverhourClientError>
+    getTask: (
+      apiKey: string,
+      taskId: string
+    ) => Effect.Effect<EverhourTask, EverhourClientError>
+    createTask: (
+      apiKey: string,
+      projectId: string,
+      payload: EverhourTaskPayload
+    ) => Effect.Effect<EverhourTask, EverhourClientError>
+    updateTask: (
+      apiKey: string,
+      taskId: string,
+      payload: EverhourTaskPayload
+    ) => Effect.Effect<EverhourTask, EverhourClientError>
+    startTimer: (
+      apiKey: string,
+      input: StartTimerInput
+    ) => Effect.Effect<EverhourTimer, EverhourTrackingError>
+    stopTimer: (
+      apiKey: string
+    ) => Effect.Effect<EverhourTimeRecord | null, EverhourClientError>
+    getCurrentTimer: (
+      apiKey: string
+    ) => Effect.Effect<EverhourTimer | null, EverhourClientError>
+    addTime: (
+      apiKey: string,
+      input: AddTimeInput
+    ) => Effect.Effect<EverhourTimeRecord, EverhourTrackingError>
+    createWebhook: (
+      apiKey: string,
+      input: Readonly<{ targetUrl: string; project: string }>
+    ) => Effect.Effect<Readonly<{ id: string }>, EverhourClientError>
+    deleteWebhook: (
+      apiKey: string,
+      webhookId: string
+    ) => Effect.Effect<void, EverhourClientError>
+  }>
+>()("@pp/integration-everhour/Client/Everhour") {}
 
 const baseUrl = "https://api.everhour.com"
 
@@ -555,176 +562,278 @@ const ensureTimeHistory = Effect.fn("Everhour.ensureTimeHistory")(function* (
   })
 })
 
-export const EverhourLive = Layer.effect(
-  Everhour,
-  Effect.gen(function* () {
-    const fetch = yield* Effect.service(Fetch)
-    const tracking = <A>(
-      effect: Effect.Effect<A, EverhourTrackingError>
-    ): Effect.Effect<A, EverhourTrackingError> =>
-      effect.pipe(Effect.provideService(FetchHttpClient.Fetch, fetch))
-    const withFetch = <A>(effect: Effect.Effect<A, EverhourTrackingError>) =>
-      tracking(effect).pipe(
-        Effect.catchTag("EverhourProjectAccessDenied", () =>
-          Effect.fail(
-            new EverhourError({
-              message: "Everhour denied access to this project"
-            })
-          )
+const make = Effect.gen(function* () {
+  const fetch = yield* Effect.service(Fetch)
+  const tracking = <A>(
+    effect: Effect.Effect<A, EverhourTrackingError>
+  ): Effect.Effect<A, EverhourTrackingError> =>
+    effect.pipe(Effect.provideService(FetchHttpClient.Fetch, fetch))
+  const withFetch = <A>(effect: Effect.Effect<A, EverhourTrackingError>) =>
+    tracking(effect).pipe(
+      Effect.catchTag("EverhourProjectAccessDenied", () =>
+        Effect.fail(
+          new EverhourError({
+            message: "Everhour denied access to this project"
+          })
         )
       )
+    )
 
-    return {
-      getCurrentUser: (apiKey) =>
-        withFetch(request(apiKey, "GET", "/users/me", undefined, decodeUser)),
-      getProject: (apiKey, projectId) =>
-        withFetch(
-          request(
-            apiKey,
-            "GET",
-            `/projects/${encodeURIComponent(projectId)}`,
-            undefined,
-            decodeProject
-          )
-        ),
-      createProject: (apiKey, input) =>
-        withFetch(request(apiKey, "POST", "/projects", input, decodeProject)),
-      updateProject: (apiKey, projectId, input) =>
-        withFetch(
-          request(
-            apiKey,
-            "PUT",
-            `/projects/${encodeURIComponent(projectId)}`,
-            { name: input.name, type: "board" },
-            decodeProject
-          )
-        ),
-      teamUserIds: (apiKey) =>
-        withFetch(request(apiKey, "GET", "/team/users", undefined, decodeTeam)),
-      assignProjectUsers: (apiKey, projectId, users) =>
-        withFetch(
-          request(
-            apiKey,
-            "PUT",
-            `/projects/${encodeURIComponent(projectId)}`,
-            { users: users.map(Number) },
-            decodeProject
-          )
-        ),
-      createSection: (apiKey, projectId, input) =>
-        withFetch(
-          request(
-            apiKey,
-            "POST",
-            `/projects/${encodeURIComponent(projectId)}/sections`,
-            input,
-            decodeSection
-          )
-        ),
-      updateSection: (apiKey, sectionId, input) =>
-        withFetch(
-          request(
-            apiKey,
-            "PUT",
-            `/sections/${encodeURIComponent(sectionId)}`,
-            input,
-            decodeSection
-          )
-        ),
-      getTask: (apiKey, taskId) =>
-        withFetch(
-          request(
-            apiKey,
-            "GET",
-            `/tasks/${encodeURIComponent(taskId)}`,
-            undefined,
-            decodeTask
-          )
-        ),
-      createTask: (apiKey, projectId, payload) =>
-        withFetch(
-          request(
-            apiKey,
-            "POST",
-            `/projects/${encodeURIComponent(projectId)}/tasks`,
-            { ...payload },
-            decodeTask
-          )
-        ),
-      updateTask: (apiKey, taskId, payload) =>
-        withFetch(
-          request(
-            apiKey,
-            "PUT",
-            `/tasks/${encodeURIComponent(taskId)}`,
-            { ...payload },
-            decodeTask
-          )
-        ),
-      startTimer: (apiKey, input) =>
-        tracking(request(apiKey, "POST", "/timers", input, decodeTimer)),
-      getCurrentTimer: (apiKey) =>
-        withFetch(
-          requestNullable(
-            apiKey,
-            "GET",
-            "/timers/current",
-            undefined,
-            decodeTimer
-          ).pipe(
-            Effect.map((timer) =>
-              timer && timer.status === "active" && timer.taskId ? timer : null
-            )
-          )
-        ),
-      stopTimer: (apiKey) =>
-        withFetch(
-          requestNullable(
-            apiKey,
-            "DELETE",
-            "/timers/current",
-            undefined,
-            decodeStoppedTimer
-          ).pipe(
-            Effect.flatMap((record) =>
-              record === null
-                ? Effect.succeed(null)
-                : ensureTimeHistory(apiKey, record)
-            )
-          )
-        ),
-      addTime: (apiKey, input) =>
-        tracking(
-          request(apiKey, "POST", "/time", input, decodeTimeRecord).pipe(
-            Effect.flatMap((record) =>
-              ensureTimeHistory(apiKey, record, input.time)
-            )
-          )
-        ),
-      createWebhook: (apiKey, input) =>
-        withFetch(
-          request(
-            apiKey,
-            "POST",
-            "/hooks",
-            {
-              targetUrl: input.targetUrl,
-              events: ["api:time:updated"],
-              project: input.project
-            },
-            decodeWebhook
-          )
-        ),
-      deleteWebhook: (apiKey, webhookId) =>
-        withFetch(
-          request(
-            apiKey,
-            "DELETE",
-            `/hooks/${encodeURIComponent(webhookId)}`,
-            undefined,
-            () => Effect.void
-          )
-        )
-    } satisfies EverhourShape
+  const getCurrentUser = Effect.fn("Everhour.getCurrentUser")(function* (
+    apiKey: string
+  ) {
+    return yield* withFetch(
+      request(apiKey, "GET", "/users/me", undefined, decodeUser)
+    )
   })
-)
+
+  const getProject = Effect.fn("Everhour.getProject")(function* (
+    apiKey: string,
+    projectId: string
+  ) {
+    return yield* withFetch(
+      request(
+        apiKey,
+        "GET",
+        `/projects/${encodeURIComponent(projectId)}`,
+        undefined,
+        decodeProject
+      )
+    )
+  })
+
+  const createProject = Effect.fn("Everhour.createProject")(function* (
+    apiKey: string,
+    input: CreateProjectInput
+  ) {
+    return yield* withFetch(
+      request(apiKey, "POST", "/projects", input, decodeProject)
+    )
+  })
+
+  const updateProject = Effect.fn("Everhour.updateProject")(function* (
+    apiKey: string,
+    projectId: string,
+    input: Readonly<{ name: string }>
+  ) {
+    return yield* withFetch(
+      request(
+        apiKey,
+        "PUT",
+        `/projects/${encodeURIComponent(projectId)}`,
+        { name: input.name, type: "board" },
+        decodeProject
+      )
+    )
+  })
+
+  const teamUserIds = Effect.fn("Everhour.teamUserIds")(function* (
+    apiKey: string
+  ) {
+    return yield* withFetch(
+      request(apiKey, "GET", "/team/users", undefined, decodeTeam)
+    )
+  })
+
+  const assignProjectUsers = Effect.fn("Everhour.assignProjectUsers")(
+    function* (
+      apiKey: string,
+      projectId: string,
+      users: ReadonlyArray<string>
+    ) {
+      return yield* withFetch(
+        request(
+          apiKey,
+          "PUT",
+          `/projects/${encodeURIComponent(projectId)}`,
+          { users: users.map(Number) },
+          decodeProject
+        )
+      )
+    }
+  )
+
+  const createSection = Effect.fn("Everhour.createSection")(function* (
+    apiKey: string,
+    projectId: string,
+    input: SectionInput
+  ) {
+    return yield* withFetch(
+      request(
+        apiKey,
+        "POST",
+        `/projects/${encodeURIComponent(projectId)}/sections`,
+        input,
+        decodeSection
+      )
+    )
+  })
+
+  const updateSection = Effect.fn("Everhour.updateSection")(function* (
+    apiKey: string,
+    sectionId: string,
+    input: SectionInput
+  ) {
+    return yield* withFetch(
+      request(
+        apiKey,
+        "PUT",
+        `/sections/${encodeURIComponent(sectionId)}`,
+        input,
+        decodeSection
+      )
+    )
+  })
+
+  const getTask = Effect.fn("Everhour.getTask")(function* (
+    apiKey: string,
+    taskId: string
+  ) {
+    return yield* withFetch(
+      request(
+        apiKey,
+        "GET",
+        `/tasks/${encodeURIComponent(taskId)}`,
+        undefined,
+        decodeTask
+      )
+    )
+  })
+
+  const createTask = Effect.fn("Everhour.createTask")(function* (
+    apiKey: string,
+    projectId: string,
+    payload: EverhourTaskPayload
+  ) {
+    return yield* withFetch(
+      request(
+        apiKey,
+        "POST",
+        `/projects/${encodeURIComponent(projectId)}/tasks`,
+        { ...payload },
+        decodeTask
+      )
+    )
+  })
+
+  const updateTask = Effect.fn("Everhour.updateTask")(function* (
+    apiKey: string,
+    taskId: string,
+    payload: EverhourTaskPayload
+  ) {
+    return yield* withFetch(
+      request(
+        apiKey,
+        "PUT",
+        `/tasks/${encodeURIComponent(taskId)}`,
+        { ...payload },
+        decodeTask
+      )
+    )
+  })
+
+  const startTimer = Effect.fn("Everhour.startTimer")(function* (
+    apiKey: string,
+    input: StartTimerInput
+  ) {
+    return yield* tracking(
+      request(apiKey, "POST", "/timers", input, decodeTimer)
+    )
+  })
+
+  const getCurrentTimer = Effect.fn("Everhour.getCurrentTimer")(function* (
+    apiKey: string
+  ) {
+    const timer = yield* withFetch(
+      requestNullable(apiKey, "GET", "/timers/current", undefined, decodeTimer)
+    )
+    return timer && timer.status === "active" && timer.taskId ? timer : null
+  })
+
+  const stopTimer = Effect.fn("Everhour.stopTimer")(function* (apiKey: string) {
+    return yield* withFetch(
+      requestNullable(
+        apiKey,
+        "DELETE",
+        "/timers/current",
+        undefined,
+        decodeStoppedTimer
+      ).pipe(
+        Effect.flatMap((record) =>
+          record === null
+            ? Effect.succeed(null)
+            : ensureTimeHistory(apiKey, record)
+        )
+      )
+    )
+  })
+
+  const addTime = Effect.fn("Everhour.addTime")(function* (
+    apiKey: string,
+    input: AddTimeInput
+  ) {
+    return yield* tracking(
+      request(apiKey, "POST", "/time", input, decodeTimeRecord).pipe(
+        Effect.flatMap((record) =>
+          ensureTimeHistory(apiKey, record, input.time)
+        )
+      )
+    )
+  })
+
+  const createWebhook = Effect.fn("Everhour.createWebhook")(function* (
+    apiKey: string,
+    input: Readonly<{ targetUrl: string; project: string }>
+  ) {
+    return yield* withFetch(
+      request(
+        apiKey,
+        "POST",
+        "/hooks",
+        {
+          targetUrl: input.targetUrl,
+          events: ["api:time:updated"],
+          project: input.project
+        },
+        decodeWebhook
+      )
+    )
+  })
+
+  const deleteWebhook = Effect.fn("Everhour.deleteWebhook")(function* (
+    apiKey: string,
+    webhookId: string
+  ) {
+    return yield* withFetch(
+      request(
+        apiKey,
+        "DELETE",
+        `/hooks/${encodeURIComponent(webhookId)}`,
+        undefined,
+        () => Effect.void
+      )
+    )
+  })
+
+  return Everhour.of({
+    getCurrentUser,
+    getProject,
+    createProject,
+    updateProject,
+    teamUserIds,
+    assignProjectUsers,
+    createSection,
+    updateSection,
+    getTask,
+    createTask,
+    updateTask,
+    startTimer,
+    stopTimer,
+    getCurrentTimer,
+    addTime,
+    createWebhook,
+    deleteWebhook
+  })
+})
+
+export const layer = Layer.effect(Everhour, make)

@@ -34,6 +34,7 @@ const store = Layer.succeed(
     remove: () => Effect.die("unused"),
     setDefault: () => Effect.die("unused"),
     setScope: () => Effect.die("unused"),
+    update: () => Effect.die("unused"),
     select: () => Effect.fail(notSignedIn("unused"))
   })
 )

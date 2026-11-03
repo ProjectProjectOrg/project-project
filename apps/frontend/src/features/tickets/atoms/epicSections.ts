@@ -13,6 +13,7 @@ import * as Atom from "effect/reactivity/Atom"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import { bindRowMutation, viewMutation } from "@/api/viewMutation"
 import { currentUserId } from "@/features/auth/atoms/auth"
 import {
@@ -64,7 +65,7 @@ const scopeOf = (req: EpicSectionsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 const snapshotQuery = (req: EpicSectionsRequest) =>
-  Api.query("tickets", "epicSections", {
+  query("tickets", "epicSections", {
     params: req.params,
     query: req.query,
     timeToLive: "2 minutes",
@@ -85,7 +86,7 @@ const pageQuery = (
   key: EpicSectionKey,
   cursor: string
 ) =>
-  Api.query("tickets", "list", {
+  query("tickets", "list", {
     params: req.params,
     query: {
       ...req.query,

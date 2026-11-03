@@ -1,11 +1,11 @@
 import {
   Estimate,
-  type ActivityActorShape,
+  type ActivityActor,
   type TicketActivityChange
 } from "@pp/shared"
 import * as Schema from "effect/Schema"
 
-import type { StoredTicketActivity } from "./TicketActivity"
+import type * as TicketActivity from "./TicketActivity"
 
 export const DESCRIPTION_EDIT_WINDOW_MS = 10 * 60 * 1000
 export const VALUE_CHANGE_WINDOW_MS = 60 * 1000
@@ -19,7 +19,7 @@ type ValueChange = Extract<
 const isValueChange = (change: TicketActivityChange): change is ValueChange =>
   "from" in change && "to" in change
 
-const actorKey = (actor: ActivityActorShape): string => {
+const actorKey = (actor: ActivityActor["Service"]): string => {
   if (actor.kind === "system") return `system:${actor.source}`
   if (actor.kind === "agent") return `agent:${actor.userId}:${actor.clientId}`
   return `user:${actor.userId}`
@@ -54,13 +54,13 @@ const startingFrom = (
 }
 
 type Run = {
-  entry: StoredTicketActivity
+  entry: TicketActivity.StoredTicketActivity
   oldestAt: number
 }
 
 export const coalesceActivity = (
-  newestFirst: ReadonlyArray<StoredTicketActivity>
-): ReadonlyArray<StoredTicketActivity> => {
+  newestFirst: ReadonlyArray<TicketActivity.StoredTicketActivity>
+): ReadonlyArray<TicketActivity.StoredTicketActivity> => {
   const output: Array<Run> = []
   const openRuns = new Map<string, Run>()
   const latestKeyOfKind = new Map<string, string>()

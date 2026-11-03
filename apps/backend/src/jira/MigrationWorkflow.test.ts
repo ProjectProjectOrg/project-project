@@ -1,5 +1,5 @@
 import { it } from "@effect/vitest"
-import { JiraClient } from "@pp/integration-jira/Client"
+import * as Client from "@pp/integration-jira/Client"
 import { JiraMigrationManifestV2 } from "@pp/integration-jira/Manifest"
 import {
   JIRA_DOCUMENT_BATCH_SIZE,
@@ -16,9 +16,8 @@ import {
   defineFinalizeMigrationActivity,
   defineStartMigrationActivity
 } from "@pp/integration-jira/MigrationActivities"
-import { JiraMigrationArtifacts } from "@pp/integration-jira/MigrationArtifacts"
-import type { JiraArtifactRef } from "@pp/integration-jira/MigrationArtifacts"
-import { JiraScanResumeResult } from "@pp/integration-jira/MigrationProjection"
+import * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
+import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
 import {
   JiraMigrationWorkflow,
   JiraMigrationWorkflowFailure,
@@ -638,15 +637,19 @@ describe("durable snapshot workflow", () => {
         start: () => Effect.void,
         scan: () =>
           Effect.gen(function* () {
-            const client = yield* JiraClient
-            const artifacts = yield* JiraMigrationArtifacts
+            const client = yield* Client.JiraClient
+            const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
             const result = yield* scanSnapshot(scanContext, {
               client,
               artifacts,
               progress: () => Effect.succeed(true),
               recordFailure: () => Effect.sync(() => ++sequence),
               resume: () =>
-                Effect.succeed(JiraScanResumeResult.cases.Resumed.make({})),
+                Effect.succeed(
+                  MigrationProjection.JiraScanResumeResult.cases.Resumed.make(
+                    {}
+                  )
+                ),
               identityOptions: Effect.succeed([]),
               configured: (_fence, result) =>
                 Effect.sync(() => {
@@ -727,7 +730,7 @@ const snapshotHarness = (
     sequence: 0,
     failed: false,
     configured: 0,
-    manifest: null as JiraArtifactRef | null,
+    manifest: null as MigrationArtifacts.JiraArtifactRef | null,
     reasons: [] as Array<string>
   }
   const receipts = new Map<string, number>()
@@ -739,8 +742,8 @@ const snapshotHarness = (
     scan: () =>
       Effect.gen(function* () {
         yield* scanSnapshot(scanContext, {
-          client: yield* JiraClient,
-          artifacts: yield* JiraMigrationArtifacts,
+          client: yield* Client.JiraClient,
+          artifacts: yield* MigrationArtifacts.JiraMigrationArtifacts,
           identityOptions,
           progress: () => Effect.succeed(true),
           recordFailure: (_fence, key, failure) =>
@@ -758,13 +761,19 @@ const snapshotHarness = (
               Effect.andThen(
                 Effect.sync(() => {
                   if (sequence < state.sequence)
-                    return JiraScanResumeResult.cases.AwaitRetry.make({
-                      failureSequence: state.sequence
-                    })
+                    return MigrationProjection.JiraScanResumeResult.cases.AwaitRetry.make(
+                      {
+                        failureSequence: state.sequence
+                      }
+                    )
                   if (sequence !== state.sequence)
-                    return JiraScanResumeResult.cases.Rejected.make({})
+                    return MigrationProjection.JiraScanResumeResult.cases.Rejected.make(
+                      {}
+                    )
                   state.failed = false
-                  return JiraScanResumeResult.cases.Resumed.make({})
+                  return MigrationProjection.JiraScanResumeResult.cases.Resumed.make(
+                    {}
+                  )
                 })
               )
             ),
@@ -1027,7 +1036,7 @@ describe("scan retry and coverage", () => {
         expect(peak).toBeGreaterThan(1)
         expect(peak).toBeLessThanOrEqual(4)
         expect(harness.state.configured).toBe(1)
-        const artifacts = yield* JiraMigrationArtifacts
+        const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
         const manifest = yield* artifacts.readJson(
           "acme",
           harness.state.manifest!,
@@ -1093,7 +1102,7 @@ describe("scan retry and coverage", () => {
         })
         yield* waitUntilSuspended(id)
         expect(harness.state.configured).toBe(1)
-        const artifacts = yield* JiraMigrationArtifacts
+        const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
         const manifest = yield* artifacts.readJson(
           "acme",
           harness.state.manifest!,

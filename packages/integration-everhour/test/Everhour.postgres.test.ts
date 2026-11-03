@@ -7,8 +7,7 @@ import { DbLive, PgLive } from "@pp/db"
 import {
   EverhourError,
   EverhourProjectAccessDenied,
-  ProjectScope,
-  type ProjectScopeShape
+  ProjectScope
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import type * as Duration from "effect/Duration"
@@ -18,22 +17,11 @@ import pg from "pg"
 import { describe, expect } from "vitest"
 
 import { EverhourApiKeys } from "../src/ApiKeys"
-import {
-  Everhour,
-  type EverhourProject,
-  type EverhourShape,
-  type EverhourTimeRecord
-} from "../src/Client"
+import * as EverhourClient from "../src/Client"
 import { EVERHOUR_EVENTS, EverhourEvents } from "../src/Events"
 import { EverhourHost } from "../src/Host"
-import {
-  EverhourIntegrations,
-  EverhourIntegrationsLive
-} from "../src/Integrations"
-import {
-  EverhourTimeTracking,
-  EverhourTimeTrackingLive
-} from "../src/TimeTracking"
+import * as Integrations from "../src/Integrations"
+import * as TimeTracking from "../src/TimeTracking"
 
 const { Client } = pg
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -63,7 +51,7 @@ const unexpected = (name: string) => () =>
   Effect.die(new Error(`unexpected ${name} call`))
 
 type FakeEverhour = Readonly<{
-  service: EverhourShape
+  service: EverhourClient.Everhour["Service"]
   project: { users: Array<string> }
   assignedWith: Array<string>
   settings: {
@@ -87,15 +75,15 @@ const fakeEverhour = (users: ReadonlyArray<string>): FakeEverhour => {
   const sections: Array<string> = []
   const projectReads = { count: 0 }
   const hooks: FakeEverhour["hooks"] = { beforeProjectRead: () => Effect.void }
-  const records = new Map<string, EverhourTimeRecord>()
+  const records = new Map<string, EverhourClient.EverhourTimeRecord>()
   let nextEntry = 1000
-  const remote = (): EverhourProject => ({
+  const remote = (): EverhourClient.EverhourProject => ({
     id: "ev:project",
     name: "Website",
     type: "board",
     users: [...project.users]
   })
-  const service: EverhourShape = {
+  const service: EverhourClient.Everhour["Service"] = {
     getCurrentUser: unexpected("getCurrentUser"),
     getProject: () =>
       Effect.suspend(() => {
@@ -135,7 +123,7 @@ const fakeEverhour = (users: ReadonlyArray<string>): FakeEverhour => {
           return Effect.fail(new EverhourProjectAccessDenied())
         const key = `${user}:${input.date}:${input.task}`
         const existing = records.get(key)
-        const record: EverhourTimeRecord = {
+        const record: EverhourClient.EverhourTimeRecord = {
           id: existing?.id ?? `record-${records.size + 1}`,
           taskId: input.task,
           userId: user,
@@ -247,14 +235,14 @@ type Fixture = Effect.Success<typeof seed>
 
 const servicesLayer = (fixture: Fixture, everhour: FakeEverhour) =>
   Layer.mergeAll(
-    EverhourTimeTrackingLive,
-    EverhourIntegrationsLive,
+    TimeTracking.layer,
+    Integrations.layer,
     EverhourEvents.layer
   ).pipe(
     Layer.provide(EverhourApiKeys.layer),
     Layer.provide(
       Layer.mergeAll(
-        Layer.succeed(Everhour, everhour.service),
+        Layer.succeed(EverhourClient.Everhour, everhour.service),
         Layer.succeed(EverhourHost, {
           project: () =>
             Effect.succeed({
@@ -297,7 +285,7 @@ const scopeFor = (fixture: Fixture, userId: string) =>
     orgSlug: fixture.orgSlug,
     projectId: fixture.projectId,
     slug: fixture.slug
-  }) as ProjectScopeShape
+  }) as ProjectScope["Service"]
 
 const as =
   (fixture: Fixture, userId: string) =>
@@ -305,7 +293,7 @@ const as =
     effect.pipe(Effect.provideService(ProjectScope, scopeFor(fixture, userId)))
 
 const logTime = (ticketId: string, seconds: number) =>
-  Effect.flatMap(EverhourTimeTracking, (time) =>
+  Effect.flatMap(TimeTracking.EverhourTimeTracking, (time) =>
     time.logTime({
       ticketId,
       workTypeKey: "development",
@@ -315,7 +303,7 @@ const logTime = (ticketId: string, seconds: number) =>
   )
 
 const ticketSeconds = (ticketId: string) =>
-  Effect.flatMap(EverhourTimeTracking, (time) =>
+  Effect.flatMap(TimeTracking.EverhourTimeTracking, (time) =>
     time.ticketTimeSummary(ticketId)
   ).pipe(Effect.map((summary) => summary.totalSeconds))
 
@@ -400,7 +388,7 @@ describe.skipIf(!databaseUrl)("Everhour time tracking", () => {
         const developer = as(fixture, fixture.developer)
         yield* developer(logTime("T-1", 600))
         const [recordId] = yield* recordFor(fixture)
-        const time = yield* EverhourTimeTracking
+        const time = yield* TimeTracking.EverhourTimeTracking
         yield* time.applyWebhookTimeEvent(fixture.linkId, {
           id: recordId!,
           taskId: "ev:task-dev",
@@ -428,7 +416,7 @@ describe.skipIf(!databaseUrl)("Everhour time tracking", () => {
           const developer = as(fixture, fixture.developer)
           yield* developer(logTime("T-1", 600))
           const [recordId] = yield* recordFor(fixture)
-          const time = yield* EverhourTimeTracking
+          const time = yield* TimeTracking.EverhourTimeTracking
           yield* time.applyWebhookTimeEvent(fixture.linkId, {
             id: recordId!,
             taskId: "ev:task-dev",
@@ -456,7 +444,7 @@ describe.skipIf(!databaseUrl)("Everhour time tracking", () => {
           const developer = as(fixture, fixture.developer)
           yield* developer(logTime("T-1", 600))
           const [recordId] = yield* recordFor(fixture)
-          const time = yield* EverhourTimeTracking
+          const time = yield* TimeTracking.EverhourTimeTracking
           yield* time.applyWebhookTimeEvent(fixture.linkId, {
             id: recordId!,
             taskId: "ev:task-dev",
@@ -539,7 +527,7 @@ describe.skipIf(!databaseUrl)("Everhour project sync", () => {
           fixture,
           fixture.manager
         )(
-          Effect.flatMap(EverhourIntegrations, (integrations) =>
+          Effect.flatMap(Integrations.EverhourIntegrations, (integrations) =>
             integrations.syncProject()
           )
         ).pipe(Effect.provide(servicesLayer(fixture, everhour)))
@@ -561,7 +549,7 @@ describe.skipIf(!databaseUrl)("Everhour project sync", () => {
         fixture,
         fixture.manager
       )(
-        Effect.flatMap(EverhourIntegrations, (integrations) =>
+        Effect.flatMap(Integrations.EverhourIntegrations, (integrations) =>
           integrations.syncProject()
         )
       ).pipe(Effect.provide(servicesLayer(fixture, everhour)))
@@ -582,7 +570,7 @@ describe.skipIf(!databaseUrl)("Everhour project sync", () => {
           fixture,
           fixture.developer
         )(
-          Effect.flatMap(EverhourIntegrations, (integrations) =>
+          Effect.flatMap(Integrations.EverhourIntegrations, (integrations) =>
             integrations.syncProject()
           )
         ).pipe(Effect.flip, Effect.provide(servicesLayer(fixture, everhour)))
@@ -626,8 +614,9 @@ const requestSync = (fixture: Fixture) =>
     )
   )
 
-const syncRequested = Effect.flatMap(EverhourIntegrations, (integrations) =>
-  integrations.syncRequested()
+const syncRequested = Effect.flatMap(
+  Integrations.EverhourIntegrations,
+  (integrations) => integrations.syncRequested()
 )
 
 describe.skipIf(!databaseUrl)("Everhour background sync", () => {
@@ -720,8 +709,9 @@ describe.skipIf(!databaseUrl)("Everhour background sync", () => {
     Effect.gen(function* () {
       const fixture = yield* seed
       const everhour = fakeEverhour([fixture.manager])
-      const sweep = Effect.flatMap(EverhourIntegrations, (integrations) =>
-        integrations.requestStaleSyncs()
+      const sweep = Effect.flatMap(
+        Integrations.EverhourIntegrations,
+        (integrations) => integrations.requestStaleSyncs()
       ).pipe(Effect.provide(servicesLayer(fixture, everhour)))
       const syncedAgo = (interval: string) =>
         withClient((client) =>
@@ -753,7 +743,7 @@ describe.skipIf(!databaseUrl)("Everhour background sync", () => {
         fixture,
         fixture.manager
       )(
-        Effect.flatMap(EverhourIntegrations, (integrations) =>
+        Effect.flatMap(Integrations.EverhourIntegrations, (integrations) =>
           integrations.connectProject()
         )
       ).pipe(Effect.provide(servicesLayer(fixture, everhour)))
@@ -817,7 +807,7 @@ describe.skipIf(!databaseUrl)("Everhour background sync", () => {
           fixture,
           fixture.manager
         )(
-          Effect.flatMap(EverhourIntegrations, (integrations) =>
+          Effect.flatMap(Integrations.EverhourIntegrations, (integrations) =>
             integrations.syncProject()
           )
         ).pipe(Effect.provide(servicesLayer(fixture, everhour)))
@@ -845,7 +835,7 @@ describe.skipIf(!databaseUrl)("Everhour background sync", () => {
           fixture,
           fixture.manager
         )(
-          Effect.flatMap(EverhourIntegrations, (integrations) =>
+          Effect.flatMap(Integrations.EverhourIntegrations, (integrations) =>
             integrations.syncProject()
           )
         ).pipe(Effect.timeout("5 seconds"))
@@ -903,7 +893,7 @@ describe.skipIf(!databaseUrl)("Everhour background sync", () => {
           [fixture.linkId]
         )
       )
-      yield* Effect.flatMap(EverhourIntegrations, (integrations) =>
+      yield* Effect.flatMap(Integrations.EverhourIntegrations, (integrations) =>
         integrations.requestStaleSyncs()
       ).pipe(Effect.provide(servicesLayer(fixture, everhour)))
       expect((yield* syncState(fixture)).sync_requested_at).toBeNull()

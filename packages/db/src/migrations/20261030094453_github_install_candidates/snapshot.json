@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "3dd5bd7f-0bd7-48dc-90d1-1d523404dcde",
+  "prevIds": [
+    "e0e1dcfb-5149-4d93-8b71-9baec79b7fda"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "github_app_install_session",
+        "candidate_installations"
+      ],
+      "writes": [
+        "s|col|public.github_app_install_session.candidate_installations",
+        "n|col|public.github_app_install_session.candidate_installations",
+        "e|col|public.github_app_install_session.candidate_installations"
+      ],
+      "reads": [
+        "n|tbl|public.github_app_install_session",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "github_app_install_session",
+        "name": "candidate_installations",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

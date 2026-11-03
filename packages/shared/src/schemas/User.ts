@@ -83,3 +83,8 @@ export const User = Schema.Struct({
   personalEverhour: PersonalEverhour
 })
 export type User = typeof User.Type
+
+export type UserIdentity = Omit<
+  User,
+  "activeOrgSlug" | "personalGithub" | "personalEverhour"
+>

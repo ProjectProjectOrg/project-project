@@ -3,11 +3,7 @@ import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import type {
-  RawBranchEntry,
-  RawMergedPullRequest,
-  RawProjectStates
-} from "../github/GitHub"
+import type * as GitHub from "../github/GitHub"
 import {
   planAutomaticBranchLinks,
   planAutomaticStacks,
@@ -32,7 +28,9 @@ const baseTicket = {
   lastTransitionedPr: null
 } satisfies TicketGitStateInput
 
-function raw(overrides: Partial<RawProjectStates> = {}): RawProjectStates {
+function raw(
+  overrides: Partial<GitHub.RawProjectStates> = {}
+): GitHub.RawProjectStates {
   return {
     defaultBranch: "main",
     existingBranches: new Set(),
@@ -45,8 +43,8 @@ function raw(overrides: Partial<RawProjectStates> = {}): RawProjectStates {
 }
 
 const pullRequest = (
-  overrides: Partial<RawBranchEntry> = {}
-): RawBranchEntry => ({
+  overrides: Partial<GitHub.RawBranchEntry> = {}
+): GitHub.RawBranchEntry => ({
   headRefName: "feat/T-1",
   baseRefName: "main",
   state: "open",
@@ -59,7 +57,7 @@ const pullRequest = (
   ...overrides
 })
 
-const withPullRequest = (pr: RawBranchEntry) =>
+const withPullRequest = (pr: GitHub.RawBranchEntry) =>
   raw({
     existingBranches: new Set(["feat/T-1"]),
     prByBranch: new Map([["feat/T-1", pr]])
@@ -668,7 +666,7 @@ describe("pullRequestLanded", () => {
     ] as const
   const landed = (
     head: string,
-    prs: ReadonlyArray<readonly [string, RawBranchEntry]>
+    prs: ReadonlyArray<readonly [string, GitHub.RawBranchEntry]>
   ) => {
     const prByBranch = new Map(prs)
     const target = prByBranch.get(head)
@@ -713,7 +711,7 @@ describe("pullRequestLanded", () => {
     const child = merged("ui", "api", "2026-05-01T09:00:00Z")[1]
     const mergedPrsByBranch = new Map<
       string,
-      ReadonlyArray<RawMergedPullRequest>
+      ReadonlyArray<GitHub.RawMergedPullRequest>
     >()
     for (const [branch, pr] of history) {
       mergedPrsByBranch.set(branch, [

@@ -21,21 +21,8 @@ import * as DurableDeferred from "effect/workflow/DurableDeferred"
 import * as WorkflowEngine from "effect/workflow/WorkflowEngine"
 
 import { jiraDestinationTicketId } from "./Mappings"
-import { type JiraMigrationArtifactsShape } from "./MigrationArtifacts"
-import {
-  actionsFor,
-  JiraMigrationGate,
-  decodeCheckpoint,
-  decodeConfiguration,
-  toSummary,
-  type JiraMigrationRow,
-  JiraMigrationProjection,
-  matchesSource,
-  fenceFor,
-  type AttemptFence,
-  type ProjectionOwner,
-  type JiraMigrationCleanupMode
-} from "./MigrationProjection"
+import type * as MigrationArtifacts from "./MigrationArtifacts"
+import * as MigrationProjection from "./MigrationProjection"
 import {
   JiraMigrationWorkflow,
   JiraMigrationWorkflowCommand,
@@ -76,204 +63,220 @@ export type JiraMigrationMutationError =
   | Conflict
   | JiraError
 
-export type JiraMigrationsShape = Readonly<{
-  list: (
-    organizationId: string,
-    userId: string
-  ) => Effect.Effect<ReadonlyArray<JiraMigrationSummary>, JiraError>
-  create: (
-    organizationId: string,
-    userId: string,
-    requestId: string,
-    source: JiraMigrationSource
-  ) => Effect.Effect<JiraMigrationDetail, Conflict | JiraError>
-  get: (
-    organizationId: string,
-    userId: string,
-    migrationId: string
-  ) => Effect.Effect<JiraMigrationDetail, NotFound | JiraError>
-  destinationConflicts: (
-    organizationId: string,
-    userId: string,
-    orgSlug: string,
-    migrationId: string,
-    expectedRevision: number
-  ) => Effect.Effect<
-    ReadonlyArray<JiraMigrationDestinationConflict>,
-    JiraMigrationMutationError
-  >
-  configure: (
-    organizationId: string,
-    userId: string,
-    migrationId: string,
-    expectedRevision: number,
-    configuration: JiraMigrationConfiguration
-  ) => Effect.Effect<JiraMigrationDetail, JiraMigrationMutationError>
-  rescan: (
-    organizationId: string,
-    userId: string,
-    migrationId: string,
-    expectedRevision: number
-  ) => Effect.Effect<JiraMigrationDetail, JiraMigrationMutationError>
-  run: (
-    organizationId: string,
-    userId: string,
-    migrationId: string,
-    expectedRevision: number
-  ) => Effect.Effect<JiraMigrationDetail, JiraMigrationMutationError>
-  cancel: (
-    organizationId: string,
-    userId: string,
-    migrationId: string,
-    expectedRevision: number
-  ) => Effect.Effect<JiraMigrationDetail, JiraMigrationMutationError>
-  discard: (
-    organizationId: string,
-    userId: string,
-    migrationId: string
-  ) => Effect.Effect<void, NotFound | Validation>
-}>
-
 export class JiraMigrations extends Context.Service<
   JiraMigrations,
-  JiraMigrationsShape
+  Readonly<{
+    list: (
+      organizationId: string,
+      userId: string
+    ) => Effect.Effect<ReadonlyArray<JiraMigrationSummary>, JiraError>
+    create: (
+      organizationId: string,
+      userId: string,
+      requestId: string,
+      source: JiraMigrationSource
+    ) => Effect.Effect<JiraMigrationDetail, Conflict | JiraError>
+    get: (
+      organizationId: string,
+      userId: string,
+      migrationId: string
+    ) => Effect.Effect<JiraMigrationDetail, NotFound | JiraError>
+    destinationConflicts: (
+      organizationId: string,
+      userId: string,
+      orgSlug: string,
+      migrationId: string,
+      expectedRevision: number
+    ) => Effect.Effect<
+      ReadonlyArray<JiraMigrationDestinationConflict>,
+      JiraMigrationMutationError
+    >
+    configure: (
+      organizationId: string,
+      userId: string,
+      migrationId: string,
+      expectedRevision: number,
+      configuration: JiraMigrationConfiguration
+    ) => Effect.Effect<JiraMigrationDetail, JiraMigrationMutationError>
+    rescan: (
+      organizationId: string,
+      userId: string,
+      migrationId: string,
+      expectedRevision: number
+    ) => Effect.Effect<JiraMigrationDetail, JiraMigrationMutationError>
+    run: (
+      organizationId: string,
+      userId: string,
+      migrationId: string,
+      expectedRevision: number
+    ) => Effect.Effect<JiraMigrationDetail, JiraMigrationMutationError>
+    cancel: (
+      organizationId: string,
+      userId: string,
+      migrationId: string,
+      expectedRevision: number
+    ) => Effect.Effect<JiraMigrationDetail, JiraMigrationMutationError>
+    discard: (
+      organizationId: string,
+      userId: string,
+      migrationId: string
+    ) => Effect.Effect<void, NotFound | Validation>
+  }>
 >()("@pp/integration-jira/Migrations/JiraMigrations") {}
 
-export const JiraMigrationsWorkflowLive = (
+const makeWorkflow = (
   commands: Pick<
-    JiraMigrationsShape,
+    JiraMigrations["Service"],
     "run" | "cancel" | "discard" | "destinationConflicts"
   >,
   prepareRescan?: (
-    row: JiraMigrationRow
-  ) => Effect.Effect<JiraMigrationRow, JiraMigrationMutationError>,
-  configure?: JiraMigrationsShape["configure"]
+    row: MigrationProjection.JiraMigrationRow
+  ) => Effect.Effect<
+    MigrationProjection.JiraMigrationRow,
+    JiraMigrationMutationError
+  >,
+  configure?: JiraMigrations["Service"]["configure"]
 ) =>
-  Layer.effect(
-    JiraMigrations,
-    Effect.gen(function* () {
-      const projection = yield* JiraMigrationProjection
-      const engine = yield* WorkflowEngine.WorkflowEngine
-      const create = Effect.fn("JiraMigrations.create")(
-        function* (
-          organizationId: string,
-          userId: string,
-          requestId: string,
-          source: JiraMigrationSource
-        ) {
-          const executionId = yield* JiraMigrationWorkflow.execute(
-            {
-              command: JiraMigrationWorkflowCommand.cases.Create.make({
-                organizationId,
-                userId,
-                requestId,
-                source
-              })
-            },
-            { discard: true }
-          )
-          const row = yield* projection
-            .owned({ organizationId, userId }, executionId)
-            .pipe(
-              Effect.retry({
-                while: Predicate.isTagged("NotFound"),
-                schedule: Schedule.spaced("20 millis")
-              }),
-              Effect.timeout("1 second"),
-              Effect.mapError((error) =>
-                Match.value(error).pipe(
-                  Match.tag("JiraError", (error) => error),
-                  Match.orElse(() => new JiraError({ reason: "timeout" }))
-                )
+  Effect.gen(function* () {
+    const projection = yield* MigrationProjection.JiraMigrationProjection
+    const engine = yield* WorkflowEngine.WorkflowEngine
+    const create = Effect.fn("JiraMigrations.create")(
+      function* (
+        organizationId: string,
+        userId: string,
+        requestId: string,
+        source: JiraMigrationSource
+      ) {
+        const executionId = yield* JiraMigrationWorkflow.execute(
+          {
+            command: JiraMigrationWorkflowCommand.cases.Create.make({
+              organizationId,
+              userId,
+              requestId,
+              source
+            })
+          },
+          { discard: true }
+        )
+        const row = yield* projection
+          .owned({ organizationId, userId }, executionId)
+          .pipe(
+            Effect.retry({
+              while: Predicate.isTagged("NotFound"),
+              schedule: Schedule.spaced("20 millis")
+            }),
+            Effect.timeout("1 second"),
+            Effect.mapError((error) =>
+              Match.value(error).pipe(
+                Match.tag("JiraError", (error) => error),
+                Match.orElse(() => new JiraError({ reason: "timeout" }))
               )
             )
-          if (!matchesSource(row, source))
-            return yield* new Conflict({
-              reason: "jira_migration_request_conflict"
-            })
-          return yield* projection.toDetail(row)
-        },
-        Effect.provideService(WorkflowEngine.WorkflowEngine, engine)
-      )
-      const rescan = Effect.fn("JiraMigrations.rescan")(
-        function* (
-          organizationId: string,
-          userId: string,
-          migrationId: string,
-          expectedRevision: number
-        ) {
-          const owner = { organizationId, userId }
-          let row = yield* projection.owned(owner, migrationId)
-          if (row.revision !== expectedRevision || !fenceFor(row))
-            return yield* new Conflict({
-              reason: "jira_migration_revision_conflict"
-            })
-          if (!actionsFor(row).canRescan)
+          )
+        if (!MigrationProjection.matchesSource(row, source))
+          return yield* new Conflict({
+            reason: "jira_migration_request_conflict"
+          })
+        return yield* projection.toDetail(row)
+      },
+      Effect.provideService(WorkflowEngine.WorkflowEngine, engine)
+    )
+    const rescan = Effect.fn("JiraMigrations.rescan")(
+      function* (
+        organizationId: string,
+        userId: string,
+        migrationId: string,
+        expectedRevision: number
+      ) {
+        const owner = { organizationId, userId }
+        let row = yield* projection.owned(owner, migrationId)
+        if (
+          row.revision !== expectedRevision ||
+          !MigrationProjection.fenceFor(row)
+        )
+          return yield* new Conflict({
+            reason: "jira_migration_revision_conflict"
+          })
+        if (!MigrationProjection.actionsFor(row).canRescan)
+          return yield* new Validation({
+            reason: "jira_migration_rescan_not_allowed"
+          })
+        if (row.destinationProjectId !== null) {
+          if (!prepareRescan)
             return yield* new Validation({
               reason: "jira_migration_rescan_not_allowed"
             })
-          if (row.destinationProjectId !== null) {
-            if (!prepareRescan)
-              return yield* new Validation({
-                reason: "jira_migration_rescan_not_allowed"
-              })
-            row = yield* prepareRescan(row)
-          }
-          const command = {
-            _tag: "Rescan" as const,
-            supersededExecutionId: row.workflowExecutionId!,
-            migrationId,
-            expectedRevision: row.revision,
-            workflowAttempt: row.workflowAttempt + 1,
-            scanRevision: row.scanRevision + 1
-          }
-          const executionId = yield* JiraMigrationWorkflow.execute(
-            { command },
-            { discard: true }
-          )
-          yield* projection.beginRescan({ ...command, executionId })
-          yield* JiraMigrationWorkflow.interrupt(row.workflowExecutionId!)
-          return yield* projection
-            .owned(owner, migrationId)
-            .pipe(Effect.flatMap(projection.toDetail))
-        },
-        Effect.provideService(WorkflowEngine.WorkflowEngine, engine)
+          row = yield* prepareRescan(row)
+        }
+        const command = {
+          _tag: "Rescan" as const,
+          supersededExecutionId: row.workflowExecutionId!,
+          migrationId,
+          expectedRevision: row.revision,
+          workflowAttempt: row.workflowAttempt + 1,
+          scanRevision: row.scanRevision + 1
+        }
+        const executionId = yield* JiraMigrationWorkflow.execute(
+          { command },
+          { discard: true }
+        )
+        yield* projection.beginRescan({ ...command, executionId })
+        yield* JiraMigrationWorkflow.interrupt(row.workflowExecutionId!)
+        return yield* projection
+          .owned(owner, migrationId)
+          .pipe(Effect.flatMap(projection.toDetail))
+      },
+      Effect.provideService(WorkflowEngine.WorkflowEngine, engine)
+    )
+    const list = Effect.fn("JiraMigrations.list")(function* (
+      organizationId: string,
+      userId: string
+    ) {
+      const rows = yield* projection.listOwned({ organizationId, userId })
+      return rows.map(MigrationProjection.toSummary)
+    })
+    const get = Effect.fn("JiraMigrations.get")(function* (
+      organizationId: string,
+      userId: string,
+      migrationId: string
+    ) {
+      const row = yield* projection.owned(
+        { organizationId, userId },
+        migrationId
       )
-      return JiraMigrations.of({
-        ...commands,
-        create,
-        rescan,
-        list: (organizationId, userId) =>
-          projection
-            .listOwned({ organizationId, userId })
-            .pipe(Effect.map((rows) => rows.map(toSummary))),
-        get: (organizationId, userId, migrationId) =>
-          projection
-            .owned({ organizationId, userId }, migrationId)
-            .pipe(Effect.flatMap(projection.toDetail)),
-        configure:
-          configure ??
-          ((
-            organizationId,
-            userId,
-            migrationId,
-            expectedRevision,
-            configuration
-          ) =>
-            projection.saveConfiguration({
-              owner: { organizationId, userId },
-              migrationId,
-              expectedRevision,
-              configuration
-            }))
+      return yield* projection.toDetail(row)
+    })
+    const saveConfiguration = Effect.fn("JiraMigrations.configure")(function* (
+      organizationId: string,
+      userId: string,
+      migrationId: string,
+      expectedRevision: number,
+      configuration: JiraMigrationConfiguration
+    ) {
+      return yield* projection.saveConfiguration({
+        owner: { organizationId, userId },
+        migrationId,
+        expectedRevision,
+        configuration
       })
     })
-  )
+    return JiraMigrations.of({
+      ...commands,
+      create,
+      rescan,
+      list,
+      get,
+      configure: configure ?? saveConfiguration
+    })
+  })
 
-export type JiraMigrationCleanupCommand = AttemptFence &
+export const workflowLayer = (...args: Parameters<typeof makeWorkflow>) =>
+  Layer.effect(JiraMigrations, makeWorkflow(...args))
+
+export type JiraMigrationCleanupCommand = MigrationProjection.AttemptFence &
   Readonly<{
     expectedRevision: number
-    mode: JiraMigrationCleanupMode
+    mode: MigrationProjection.JiraMigrationCleanupMode
   }>
 export type JiraMigrationCleanupCommands = Readonly<{
   start: (
@@ -283,17 +286,18 @@ export type JiraMigrationCleanupCommands = Readonly<{
     input: JiraMigrationCleanupCommand &
       Readonly<{ cleanupExecutionId: string }>
   ) => Effect.Effect<
-    Readonly<{ fence: AttemptFence; revision: number }>,
+    Readonly<{ fence: MigrationProjection.AttemptFence; revision: number }>,
     JiraMigrationMutationError
   >
 }>
 export type JiraMigrationMaterializationCommands = Readonly<{
   unresolvedFailedAttachments: (
-    input: AttemptFence & Readonly<{ expectedRevision: number }>
+    input: MigrationProjection.AttemptFence &
+      Readonly<{ expectedRevision: number }>
   ) => Effect.Effect<ReadonlyArray<string>, JiraMigrationMutationError>
 }>
 export type JiraMigrationRunCommand = Readonly<{
-  owner: ProjectionOwner
+  owner: MigrationProjection.ProjectionOwner
   migrationId: string
   expectedRevision: number
 }>
@@ -356,21 +360,26 @@ export const jiraDestinationConflicts = (
 }
 export const submitJiraMigrationRun = Effect.fn("submitJiraMigrationRun")(
   function* (input: JiraMigrationRunCommand) {
-    const projection = yield* JiraMigrationProjection
+    const projection = yield* MigrationProjection.JiraMigrationProjection
     const sql = yield* SqlClient.SqlClient
     return yield* sql
       .withTransaction(
         Effect.gen(function* () {
           const row = yield* projection.owned(input.owner, input.migrationId)
-          if (row.revision !== input.expectedRevision || !fenceFor(row))
+          if (
+            row.revision !== input.expectedRevision ||
+            !MigrationProjection.fenceFor(row)
+          )
             return yield* new Conflict({
               reason: "jira_migration_revision_conflict"
             })
-          const checkpoint = yield* decodeCheckpoint(row.checkpoint)
+          const checkpoint = yield* MigrationProjection.decodeCheckpoint(
+            row.checkpoint
+          )
           const gate = checkpoint.currentGate
           if (
             !gate ||
-            (JiraMigrationGate.guards.StartImport(gate)
+            (MigrationProjection.JiraMigrationGate.guards.StartImport(gate)
               ? gate.scanRevision !== row.scanRevision
               : gate.failureSequence !== row.failureSequence)
           )
@@ -381,7 +390,7 @@ export const submitJiraMigrationRun = Effect.fn("submitJiraMigrationRun")(
             ...input,
             action: "run"
           })
-          if (JiraMigrationGate.guards.StartImport(gate)) {
+          if (MigrationProjection.JiraMigrationGate.guards.StartImport(gate)) {
             const deferred = startImportDeferred(gate.scanRevision)
             const token = DurableDeferred.tokenFromExecutionId(deferred, {
               workflow: JiraMigrationWorkflow,
@@ -413,240 +422,245 @@ export const submitJiraMigrationRun = Effect.fn("submitJiraMigrationRun")(
   }
 )
 
-export const JiraMigrationsDurableLive = (
+const make = (
   cleanup: JiraMigrationCleanupCommands,
   materialization: JiraMigrationMaterializationCommands,
-  artifacts: Pick<JiraMigrationArtifactsShape, "readJson">
+  artifacts: Pick<
+    MigrationArtifacts.JiraMigrationArtifacts["Service"],
+    "readJson"
+  >
 ) =>
-  Layer.unwrap(
-    Effect.gen(function* () {
-      const projection = yield* JiraMigrationProjection
-      const sql = yield* SqlClient.SqlClient
-      const queries = yield* JiraDestinationQueries
-      const engine = yield* WorkflowEngine.WorkflowEngine
-      const provide = <A, E>(
-        effect: Effect.Effect<
-          A,
-          E,
-          | JiraMigrationProjection
-          | SqlClient.SqlClient
-          | WorkflowEngine.WorkflowEngine
-        >
-      ) =>
-        effect.pipe(
-          Effect.provideService(JiraMigrationProjection, projection),
-          Effect.provideService(SqlClient.SqlClient, sql),
-          Effect.provideService(WorkflowEngine.WorkflowEngine, engine)
-        )
-      const run: JiraMigrationsShape["run"] = Effect.fn("JiraMigrations.run")(
-        function* (organizationId, userId, migrationId, expectedRevision) {
-          const owner = { organizationId, userId }
-          const accepted = yield* provide(
-            submitJiraMigrationRun({ owner, migrationId, expectedRevision })
-          )
-          const observed = yield* projection.owned(owner, migrationId).pipe(
-            Effect.repeat({
-              while: (row) => row.revision <= accepted.revision,
-              schedule: Schedule.spaced("20 millis")
-            }),
-            Effect.timeoutOption("2 seconds")
-          )
-          const current = Option.isSome(observed)
-            ? observed.value
-            : yield* projection.owned(owner, migrationId)
-          return yield* projection.toDetail(current)
-        }
+  Effect.gen(function* () {
+    const projection = yield* MigrationProjection.JiraMigrationProjection
+    const sql = yield* SqlClient.SqlClient
+    const queries = yield* JiraDestinationQueries
+    const engine = yield* WorkflowEngine.WorkflowEngine
+    const provide = <A, E>(
+      effect: Effect.Effect<
+        A,
+        E,
+        | MigrationProjection.JiraMigrationProjection
+        | SqlClient.SqlClient
+        | WorkflowEngine.WorkflowEngine
+      >
+    ) =>
+      effect.pipe(
+        Effect.provideService(
+          MigrationProjection.JiraMigrationProjection,
+          projection
+        ),
+        Effect.provideService(SqlClient.SqlClient, sql),
+        Effect.provideService(WorkflowEngine.WorkflowEngine, engine)
       )
-      const cancel: JiraMigrationsShape["cancel"] = Effect.fn(
-        "JiraMigrations.cancel"
-      )(function* (organizationId, userId, migrationId, expectedRevision) {
+    const run: JiraMigrations["Service"]["run"] = Effect.fn(
+      "JiraMigrations.run"
+    )(function* (organizationId, userId, migrationId, expectedRevision) {
+      const owner = { organizationId, userId }
+      const accepted = yield* provide(
+        submitJiraMigrationRun({ owner, migrationId, expectedRevision })
+      )
+      const observed = yield* projection.owned(owner, migrationId).pipe(
+        Effect.repeat({
+          while: (row) => row.revision <= accepted.revision,
+          schedule: Schedule.spaced("20 millis")
+        }),
+        Effect.timeoutOption("2 seconds")
+      )
+      const current = Option.isSome(observed)
+        ? observed.value
+        : yield* projection.owned(owner, migrationId)
+      return yield* projection.toDetail(current)
+    })
+    const cancel: JiraMigrations["Service"]["cancel"] = Effect.fn(
+      "JiraMigrations.cancel"
+    )(function* (organizationId, userId, migrationId, expectedRevision) {
+      const owner = { organizationId, userId }
+      const row = yield* projection.owned(owner, migrationId)
+      const fence = MigrationProjection.fenceFor(row)
+      if (!fence)
+        return yield* new Conflict({
+          reason: "jira_migration_revision_conflict"
+        })
+      yield* projection.transition({
+        owner,
+        migrationId,
+        expectedRevision,
+        action: "cancel"
+      })
+      yield* provide(JiraMigrationWorkflow.interrupt(fence.workflowExecutionId))
+      yield* projection.finalizeInterrupted(fence)
+      return yield* projection
+        .owned(owner, migrationId)
+        .pipe(Effect.flatMap(projection.toDetail))
+    })
+    const discard: JiraMigrations["Service"]["discard"] = Effect.fn(
+      "JiraMigrations.discard"
+    )(
+      function* (organizationId, userId, migrationId) {
+        const row = yield* projection.owned(
+          { organizationId, userId },
+          migrationId
+        )
+        const fence = MigrationProjection.fenceFor(row)
+        if (!fence || !projection.actionsFor(row).canDiscard)
+          return yield* new Validation({
+            reason: "jira_migration_discard_not_allowed"
+          })
+        yield* cleanup.start({
+          ...fence,
+          expectedRevision: row.revision,
+          mode: "discard"
+        })
+      },
+      Effect.catchTag("Conflict", () =>
+        Effect.fail(
+          new Validation({ reason: "jira_migration_discard_not_allowed" })
+        )
+      ),
+      Effect.catchTag("JiraError", (error) =>
+        Effect.logError("Jira migration cleanup submission failed", {
+          reason: error.reason
+        }).pipe(
+          Effect.andThen(
+            Effect.fail(
+              new Validation({ reason: "jira_migration_cleanup_failed" })
+            )
+          )
+        )
+      )
+    )
+    const prepareRescan = Effect.fn("JiraMigrations.prepareRescan")(function* (
+      row: MigrationProjection.JiraMigrationRow
+    ) {
+      const fence = MigrationProjection.fenceFor(row)
+      if (!fence)
+        return yield* new Conflict({
+          reason: "jira_migration_revision_conflict"
+        })
+      const command = {
+        ...fence,
+        expectedRevision: row.revision,
+        mode: "reset_import" as const
+      }
+      const cleanupExecutionId = yield* cleanup.start(command)
+      const reset = yield* cleanup.awaitReset({
+        ...command,
+        cleanupExecutionId
+      })
+      const current = yield* projection.owned(
+        { organizationId: row.organizationId, userId: row.initiatedBy },
+        row.id
+      )
+      if (
+        current.revision !== reset.revision ||
+        current.workflowExecutionId !== reset.fence.workflowExecutionId ||
+        current.workflowAttempt !== reset.fence.workflowAttempt ||
+        current.id !== reset.fence.migrationId ||
+        current.destinationProjectId !== null ||
+        current.cleanupExecutionId !== null
+      )
+        return yield* new Conflict({
+          reason: "jira_migration_revision_conflict"
+        })
+      return current
+    })
+    const configure: JiraMigrations["Service"]["configure"] = Effect.fn(
+      "JiraMigrations.configure"
+    )(
+      function* (
+        organizationId,
+        userId,
+        migrationId,
+        expectedRevision,
+        configuration
+      ) {
         const owner = { organizationId, userId }
         const row = yield* projection.owned(owner, migrationId)
-        const fence = fenceFor(row)
-        if (!fence)
+        const fence = MigrationProjection.fenceFor(row)
+        if (!fence || row.revision !== expectedRevision)
           return yield* new Conflict({
             reason: "jira_migration_revision_conflict"
           })
-        yield* projection.transition({
+        const unresolvedFailedAttachmentIds =
+          row.destinationProjectId === null
+            ? undefined
+            : yield* materialization.unresolvedFailedAttachments({
+                ...fence,
+                expectedRevision
+              })
+        return yield* projection.saveConfiguration({
           owner,
           migrationId,
           expectedRevision,
-          action: "cancel"
+          configuration,
+          unresolvedFailedAttachmentIds
         })
-        yield* provide(
-          JiraMigrationWorkflow.interrupt(fence.workflowExecutionId)
-        )
-        yield* projection.finalizeInterrupted(fence)
-        return yield* projection
-          .owned(owner, migrationId)
-          .pipe(Effect.flatMap(projection.toDetail))
-      })
-      const discard: JiraMigrationsShape["discard"] = Effect.fn(
-        "JiraMigrations.discard"
-      )(
-        function* (organizationId, userId, migrationId) {
+      }
+    )
+    const destinationConflicts: JiraMigrations["Service"]["destinationConflicts"] =
+      Effect.fn("JiraMigrations.destinationConflicts")(
+        function* (
+          organizationId,
+          userId,
+          orgSlug,
+          migrationId,
+          expectedRevision
+        ) {
           const row = yield* projection.owned(
             { organizationId, userId },
             migrationId
           )
-          const fence = fenceFor(row)
-          if (!fence || !projection.actionsFor(row).canDiscard)
+          if (row.revision !== expectedRevision)
+            return yield* new Conflict({
+              reason: "jira_migration_revision_conflict"
+            })
+          const checkpoint = yield* MigrationProjection.decodeCheckpoint(
+            row.checkpoint
+          )
+          const configuration = yield* MigrationProjection.decodeConfiguration(
+            row.configuration
+          )
+          if (!configuration || !checkpoint.scan?.manifest)
             return yield* new Validation({
-              reason: "jira_migration_discard_not_allowed"
+              reason: "jira_migration_not_configurable"
             })
-          yield* cleanup.start({
-            ...fence,
-            expectedRevision: row.revision,
-            mode: "discard"
-          })
-        },
-        Effect.catchTag("Conflict", () =>
-          Effect.fail(
-            new Validation({ reason: "jira_migration_discard_not_allowed" })
-          )
-        ),
-        Effect.catchTag("JiraError", (error) =>
-          Effect.logError("Jira migration cleanup submission failed", {
-            reason: error.reason
-          }).pipe(
-            Effect.andThen(
-              Effect.fail(
-                new Validation({ reason: "jira_migration_cleanup_failed" })
+          const manifest = yield* artifacts
+            .readJson(
+              orgSlug,
+              checkpoint.scan.manifest,
+              decodeUnknownManifestIssueNumbers
+            )
+            .pipe(
+              Effect.mapError(
+                () => new JiraError({ reason: "invalid_response" })
               )
             )
+          const destinationTicketIds = manifest.issues.map(({ issueNumber }) =>
+            jiraDestinationTicketId(configuration.destination.key, issueNumber)
           )
-        )
-      )
-      const prepareRescan = Effect.fn("JiraMigrations.prepareRescan")(
-        function* (row: JiraMigrationRow) {
-          const fence = fenceFor(row)
-          if (!fence)
-            return yield* new Conflict({
-              reason: "jira_migration_revision_conflict"
-            })
-          const command = {
-            ...fence,
-            expectedRevision: row.revision,
-            mode: "reset_import" as const
-          }
-          const cleanupExecutionId = yield* cleanup.start(command)
-          const reset = yield* cleanup.awaitReset({
-            ...command,
-            cleanupExecutionId
-          })
-          const current = yield* projection.owned(
-            { organizationId: row.organizationId, userId: row.initiatedBy },
-            row.id
-          )
-          if (
-            current.revision !== reset.revision ||
-            current.workflowExecutionId !== reset.fence.workflowExecutionId ||
-            current.workflowAttempt !== reset.fence.workflowAttempt ||
-            current.id !== reset.fence.migrationId ||
-            current.destinationProjectId !== null ||
-            current.cleanupExecutionId !== null
-          )
-            return yield* new Conflict({
-              reason: "jira_migration_revision_conflict"
-            })
-          return current
-        }
-      )
-      const configure: JiraMigrationsShape["configure"] = Effect.fn(
-        "JiraMigrations.configure"
-      )(
-        function* (
-          organizationId,
-          userId,
-          migrationId,
-          expectedRevision,
-          configuration
-        ) {
-          const owner = { organizationId, userId }
-          const row = yield* projection.owned(owner, migrationId)
-          const fence = fenceFor(row)
-          if (!fence || row.revision !== expectedRevision)
-            return yield* new Conflict({
-              reason: "jira_migration_revision_conflict"
-            })
-          const unresolvedFailedAttachmentIds =
-            row.destinationProjectId === null
-              ? undefined
-              : yield* materialization.unresolvedFailedAttachments({
-                  ...fence,
-                  expectedRevision
-                })
-          return yield* projection.saveConfiguration({
-            owner,
-            migrationId,
-            expectedRevision,
-            configuration,
-            unresolvedFailedAttachmentIds
-          })
-        }
-      )
-      const destinationConflicts: JiraMigrationsShape["destinationConflicts"] =
-        Effect.fn("JiraMigrations.destinationConflicts")(
-          function* (
+          const { projects, tickets } = yield* queries.read(
             organizationId,
-            userId,
-            orgSlug,
-            migrationId,
-            expectedRevision
-          ) {
-            const row = yield* projection.owned(
-              { organizationId, userId },
-              migrationId
-            )
-            if (row.revision !== expectedRevision)
-              return yield* new Conflict({
-                reason: "jira_migration_revision_conflict"
-              })
-            const checkpoint = yield* decodeCheckpoint(row.checkpoint)
-            const configuration = yield* decodeConfiguration(row.configuration)
-            if (!configuration || !checkpoint.scan?.manifest)
-              return yield* new Validation({
-                reason: "jira_migration_not_configurable"
-              })
-            const manifest = yield* artifacts
-              .readJson(
-                orgSlug,
-                checkpoint.scan.manifest,
-                decodeUnknownManifestIssueNumbers
-              )
-              .pipe(
-                Effect.mapError(
-                  () => new JiraError({ reason: "invalid_response" })
-                )
-              )
-            const destinationTicketIds = manifest.issues.map(
-              ({ issueNumber }) =>
-                jiraDestinationTicketId(
-                  configuration.destination.key,
-                  issueNumber
-                )
-            )
-            const { projects, tickets } = yield* queries.read(
-              organizationId,
-              destinationTicketIds
-            )
-            return jiraDestinationConflicts({
-              organizationId,
-              currentProjectId: jiraProjectIdFor(migrationId),
-              destination: configuration.destination,
-              destinationTicketIds,
-              projects,
-              tickets
-            })
-          }
-        )
-      return JiraMigrationsWorkflowLive(
-        { run, cancel, discard, destinationConflicts },
-        prepareRescan,
-        configure
+            destinationTicketIds
+          )
+          return jiraDestinationConflicts({
+            organizationId,
+            currentProjectId: jiraProjectIdFor(migrationId),
+            destination: configuration.destination,
+            destinationTicketIds,
+            projects,
+            tickets
+          })
+        }
       )
-    })
-  )
+    return yield* makeWorkflow(
+      { run, cancel, discard, destinationConflicts },
+      prepareRescan,
+      configure
+    )
+  })
+
+export const layer = (...args: Parameters<typeof make>) =>
+  Layer.effect(JiraMigrations, make(...args))
 
 export class JiraDestinationQueries extends Context.Service<
   JiraDestinationQueries,

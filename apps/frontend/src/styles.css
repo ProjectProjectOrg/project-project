@@ -453,6 +453,13 @@
   > .ticket-block:is([data-hovered], [data-active]) {
   background-color: var(--block-editing-fill);
 }
+/* Opaque `--muted` matches the hover fill; a translucent tint stacks on it. */
+.prose-md.block-gutter
+  .lexical-content
+  > .ticket-block:is([data-hovered], [data-active])
+  .lexical-inline-code {
+  background-color: var(--active);
+}
 .prose-md .ticket-block[data-dragging] {
   background-color: color-mix(in oklch, var(--muted) 70%, transparent);
   outline: 1px dashed var(--border);

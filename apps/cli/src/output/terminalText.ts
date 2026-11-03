@@ -27,3 +27,4 @@ export const quotedCommandText = (text: string) =>
       text
     )
     .replaceAll("an `pp ", "a `pp ")
+    .replaceAll("the server instructions", "`pp guide`")

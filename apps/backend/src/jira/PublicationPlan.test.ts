@@ -5,10 +5,7 @@ import type {
 } from "@pp/integration-jira/Manifest"
 import { JiraMigrationManifestV2 } from "@pp/integration-jira/Manifest"
 import { JiraMigrationMappings } from "@pp/integration-jira/Mappings"
-import type {
-  JiraArtifactRef,
-  JiraMigrationArtifactsShape
-} from "@pp/integration-jira/MigrationArtifacts"
+import type * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
 import type { JiraPreflightResult } from "@pp/integration-jira/Preflight"
 import {
   loadJiraPublicationPlan,
@@ -680,7 +677,7 @@ describe("immutable v2 publication", () => {
           sha256: "b".repeat(64)
         }
         const artifacts: Pick<
-          JiraMigrationArtifactsShape,
+          MigrationArtifacts.JiraMigrationArtifacts["Service"],
           "writeJson" | "verify" | "readJson"
         > = {
           writeJson: (_orgSlug, coordinates, value) =>
@@ -692,7 +689,7 @@ describe("immutable v2 publication", () => {
           verify: () => Effect.void,
           readJson: <A>(
             _orgSlug: string,
-            _ref: JiraArtifactRef,
+            _ref: MigrationArtifacts.JiraArtifactRef,
             decode: ReturnType<
               typeof Schema.decodeUnknownEffect<Schema.Decoder<A>>
             >
@@ -757,10 +754,13 @@ describe("immutable v2 publication", () => {
           ]
         ])
         const reads: Array<string> = []
-        const artifacts: Pick<JiraMigrationArtifactsShape, "readJson"> = {
+        const artifacts: Pick<
+          MigrationArtifacts.JiraMigrationArtifacts["Service"],
+          "readJson"
+        > = {
           readJson: <A>(
             _orgSlug: string,
-            ref: JiraArtifactRef,
+            ref: MigrationArtifacts.JiraArtifactRef,
             decode: ReturnType<
               typeof Schema.decodeUnknownEffect<Schema.Decoder<A>>
             >

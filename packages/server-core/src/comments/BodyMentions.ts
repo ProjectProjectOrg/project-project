@@ -68,11 +68,16 @@ export const validateBodyMentionsWithLookups = <
         )
       )
     ]
-    const ticketIds = yield* lookups.existingTicketIds(referencedTicketIds)
     const hasUserMentions = links.some((link) => link.parsed?.type === "user")
-    const memberIds = hasUserMentions
-      ? yield* lookups.memberIds()
-      : new Set<string>()
+    const [ticketIds, memberIds] = yield* Effect.all(
+      [
+        lookups.existingTicketIds(referencedTicketIds),
+        hasUserMentions
+          ? lookups.memberIds()
+          : Effect.succeed<ReadonlySet<string>>(new Set<string>())
+      ],
+      { concurrency: 2 }
+    )
     yield* validateBodyMentions(body, memberIds, ticketIds)
   })
 }

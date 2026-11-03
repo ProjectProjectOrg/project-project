@@ -13,7 +13,7 @@ export const cliRelease = {
   repository: "ProjectProjectOrg/project-project",
   installScriptPath: "/api/cli/install.sh",
   releasePath: "/api/cli/release",
-  catalogVersionHeader: "pp-catalog-version"
+  toolVersionHeader: "pp-tool-version"
 } as const
 
 export const ServerCliRelease = Schema.Struct({

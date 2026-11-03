@@ -40,6 +40,7 @@
     ".windsurf/**",
     "opensrc/**",
     "tools/oxlint/anti-slop/**",
+    "apps/cli/vendor/**",
     "**/node_modules",
     "**/dist",
     "**/build",

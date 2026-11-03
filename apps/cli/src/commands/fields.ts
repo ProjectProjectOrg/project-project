@@ -15,6 +15,7 @@ export type Field = Readonly<{
   kind: FieldKind
   required: boolean
   nullable: boolean
+  choices: ReadonlyArray<string> | undefined
   description: string | undefined
 }>
 
@@ -28,12 +29,14 @@ const Typed = Schema.Struct({
   items: Schema.optional(Schema.Unknown)
 })
 const Alternatives = Schema.Struct({ anyOf: Schema.Array(Schema.Unknown) })
+const Enumerated = Schema.Struct({ enum: Schema.Array(Schema.String) })
 const Described = Schema.Struct({ description: Schema.String })
 const NullType = Schema.Struct({ type: Schema.Literal("null") })
 
 const isTyped = Schema.is(Typed)
 const isAlternatives = Schema.is(Alternatives)
 const isDescribed = Schema.is(Described)
+const isEnumerated = Schema.is(Enumerated)
 const isNull = Schema.is(NullType)
 const decodeObject = Schema.decodeUnknownSync(ObjectSchema)
 
@@ -47,6 +50,29 @@ const kindOf = (schema: unknown): FieldKind => {
   if (!isTyped(schema)) return "json"
   if (schema.type !== "array") return schema.type
   return kindOf(schema.items) === "string" ? "strings" : "json"
+}
+
+const choicesOf = (schema: unknown): ReadonlyArray<string> | undefined => {
+  if (isAlternatives(schema)) {
+    const options = schema.anyOf.filter((option) => !isNull(option))
+    const choices = options.map(choicesOf)
+    return choices.every((found) => found !== undefined)
+      ? choices.flat()
+      : undefined
+  }
+  if (isEnumerated(schema)) return schema.enum
+  return isTyped(schema) && schema.type === "array"
+    ? choicesOf(schema.items)
+    : undefined
+}
+
+const descriptionOf = (schema: unknown): string | undefined => {
+  if (isDescribed(schema)) return schema.description
+  if (!isAlternatives(schema)) return undefined
+  return schema.anyOf
+    .filter((option) => !isNull(option))
+    .map(descriptionOf)
+    .find((found) => found !== undefined)
 }
 
 const allowsNull = (schema: unknown) =>
@@ -66,7 +92,8 @@ export const fieldsOf = (tool: Tool.Any): ReadonlyArray<Field> => {
     kind: kindOf(property),
     required: required.has(name),
     nullable: isClearable(property, required.has(name)),
-    description: isDescribed(property) ? property.description : undefined
+    choices: choicesOf(property),
+    description: descriptionOf(property)
   }))
 }
 

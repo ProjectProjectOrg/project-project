@@ -3,10 +3,11 @@ import { randomBytes } from "node:crypto"
 
 import { it } from "@effect/vitest"
 import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
+import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
-import { SecretCrypto } from "./SecretCrypto"
-import { SecretCryptoLive } from "./SecretCryptoLive"
+import * as SecretCrypto from "./SecretCrypto"
 
 const withEncryptionKey = <A, E, R>(
   value: string | undefined,
@@ -40,29 +41,29 @@ describe("SecretCrypto", () => {
   it.effect("round-trips a secret", () =>
     withRandomKey(
       Effect.gen(function* () {
-        const crypto = yield* SecretCrypto
+        const crypto = yield* SecretCrypto.SecretCrypto
         const sealed = yield* crypto.seal("r2-secret-key")
         expect(yield* crypto.open(sealed)).toBe("r2-secret-key")
-      }).pipe(Effect.provide(SecretCryptoLive))
+      }).pipe(Effect.provide(SecretCrypto.layer))
     )
   )
 
   it.effect("produces a different nonce every time", () =>
     withRandomKey(
       Effect.gen(function* () {
-        const crypto = yield* SecretCrypto
+        const crypto = yield* SecretCrypto.SecretCrypto
         const a = yield* crypto.seal("same")
         const b = yield* crypto.seal("same")
         expect(a.nonce).not.toBe(b.nonce)
         expect(a.ciphertext).not.toBe(b.ciphertext)
-      }).pipe(Effect.provide(SecretCryptoLive))
+      }).pipe(Effect.provide(SecretCrypto.layer))
     )
   )
 
   it.effect("fails to open a tampered ciphertext", () =>
     withRandomKey(
       Effect.gen(function* () {
-        const crypto = yield* SecretCrypto
+        const crypto = yield* SecretCrypto.SecretCrypto
         const sealed = yield* crypto.seal("r2-secret-key")
         const result = yield* Effect.result(
           crypto.open({
@@ -71,7 +72,7 @@ describe("SecretCrypto", () => {
           })
         )
         expect(result._tag).toBe("Failure")
-      }).pipe(Effect.provide(SecretCryptoLive))
+      }).pipe(Effect.provide(SecretCrypto.layer))
     )
   )
 
@@ -79,10 +80,10 @@ describe("SecretCrypto", () => {
     withEncryptionKey(
       undefined,
       Effect.gen(function* () {
-        const crypto = yield* SecretCrypto
+        const crypto = yield* SecretCrypto.SecretCrypto
         const result = yield* Effect.result(crypto.seal("x"))
         expect(result._tag).toBe("Failure")
-      }).pipe(Effect.provide(SecretCryptoLive))
+      }).pipe(Effect.provide(SecretCrypto.layer))
     )
   )
 
@@ -90,10 +91,35 @@ describe("SecretCrypto", () => {
     withEncryptionKey(
       Buffer.from("short").toString("base64"),
       Effect.gen(function* () {
-        const crypto = yield* SecretCrypto
+        const crypto = yield* SecretCrypto.SecretCrypto
         const result = yield* Effect.result(crypto.seal("x"))
         expect(result._tag).toBe("Failure")
-      }).pipe(Effect.provide(SecretCryptoLive))
+      }).pipe(Effect.provide(SecretCrypto.layer))
     )
   )
+
+  it.effect("traces seal and open under their own spans", () => {
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return withRandomKey(
+      Effect.gen(function* () {
+        const crypto = yield* SecretCrypto.SecretCrypto
+        yield* crypto.open(yield* crypto.seal("r2-secret-key"))
+      }).pipe(Effect.withTracer(tracer), Effect.provide(SecretCrypto.layer))
+    ).pipe(
+      Effect.map(() =>
+        expect(
+          spans
+            .filter((span) => Option.isNone(span.parent))
+            .map((span) => span.name)
+        ).toEqual(["SecretCrypto.seal", "SecretCrypto.open"])
+      )
+    )
+  })
 })

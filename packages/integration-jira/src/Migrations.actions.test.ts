@@ -2,7 +2,7 @@ import type { jiraMigration } from "@pp/db/schema"
 import * as DateTime from "effect/DateTime"
 import { describe, expect, it } from "vitest"
 
-import { actionsFor } from "./Migrations"
+import * as Migrations from "./Migrations"
 
 type Row = typeof jiraMigration.$inferSelect
 
@@ -49,18 +49,20 @@ const row = (overrides: Partial<Row>): Row => ({
 describe("actionsFor a failed migration", () => {
   it("blocks actions while cleanup owns the migration", () => {
     expect(
-      Object.values(actionsFor(row({ cleanupExecutionId: "cleanup-1" })))
+      Object.values(
+        Migrations.actionsFor(row({ cleanupExecutionId: "cleanup-1" }))
+      )
     ).toEqual(Array(6).fill(false))
   })
   it("lets the user return to mapping when the scan survived", () => {
-    const actions = actionsFor(row({}))
+    const actions = Migrations.actionsFor(row({}))
 
     expect(actions.canConfigure).toBe(true)
     expect(actions.canRetry).toBe(false)
   })
 
   it("offers a plain retry instead when the failure was transient", () => {
-    const actions = actionsFor(
+    const actions = Migrations.actionsFor(
       row({ failureReason: "storage_unavailable", failureRetryable: true })
     )
 
@@ -68,15 +70,16 @@ describe("actionsFor a failed migration", () => {
   })
 
   it("does not offer mapping when the scan never completed", () => {
-    const actions = actionsFor(row({ scanAt: null }))
+    const actions = Migrations.actionsFor(row({ scanAt: null }))
 
     expect(actions.canConfigure).toBe(false)
   })
 
   it("still allows mapping while a migration is merely unconfigured", () => {
     expect(
-      actionsFor(row({ status: "needs_configuration", failureReason: null }))
-        .canConfigure
+      Migrations.actionsFor(
+        row({ status: "needs_configuration", failureReason: null })
+      ).canConfigure
     ).toBe(true)
   })
 })

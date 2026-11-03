@@ -21,21 +21,23 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { accessLayer, projectScope } from "../access/testing"
 import { testActivityLayer } from "../activity/testing"
-import { Attachments } from "../attachments/Attachments"
-import { Comments } from "../comments/Comments"
-import { FigmaLinks } from "../figma/FigmaLinks"
-import { GitHub } from "../github/GitHub"
-import { Groups } from "../groups/Groups"
-import { Library } from "../library/Library"
-import { TicketDocs } from "../tickets/TicketDocs"
+import * as Attachments from "../attachments/Attachments"
+import * as Comments from "../comments/Comments"
+import * as FigmaLinks from "../figma/FigmaLinks"
+import * as GitHub from "../github/GitHub"
+import * as Groups from "../groups/Groups"
+import * as Library from "../library/Library"
+import * as TicketServices from "../tickets/layer"
+import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
+import * as TicketCommands from "../tickets/TicketCommands"
+import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
-import { Tickets } from "../tickets/Tickets"
-import { TicketsLive } from "../tickets/TicketsLive"
-import { Users } from "../users/Users"
+import * as TicketQueries from "../tickets/TicketQueries"
+import * as Users from "../users/Users"
 import { FinishedStatuses } from "./FinishedStatuses"
 import { gitAutomationTestLayer } from "./gitAutomationTesting"
-import { ProjectDocs, type ProjectDocument } from "./ProjectDocs"
-import { Projects } from "./Projects"
+import * as ProjectDocs from "./ProjectDocs"
+import * as Projects from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -50,8 +52,12 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
     slug: "project"
   })
   let pool: Pool
-  let layer: Layer.Layer<Projects | Tickets>
-  let document: ProjectDocument = {
+  let layer: Layer.Layer<
+    | Projects.Projects
+    | TicketCommands.TicketCommands
+    | TicketQueries.TicketQueries
+  >
+  let document: ProjectDocs.ProjectDocument = {
     slug: "project",
     name: "Project",
     icon: "folder",
@@ -67,7 +73,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
       connectGithubDismissedAt: null
     }
   }
-  const docs = Layer.mock(ProjectDocs, {
+  const docs = Layer.mock(ProjectDocs.ProjectDocs, {
     read: () => Effect.sync(() => document),
     write: (_org, _slug, next) =>
       Effect.sync(() => {
@@ -113,28 +119,31 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
     const db = DbLive.pipe(
       Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl) }))
     )
-    layer = TicketsLive.pipe(
-      Layer.provide(gitAutomationTestLayer()),
-      Layer.provideMerge(projectsOnPostgres(databaseUrl, [id], {}, docs)),
-      Layer.provide(docs),
-      Layer.provide(testActivityLayer(id)),
-      Layer.provide(FinishedStatuses.layer.pipe(Layer.provide(db))),
-      Layer.provide(db),
-      Layer.provide(TicketDocumentLock.layer),
-      Layer.provide(accessLayer({})),
-      Layer.provide(
-        Layer.mergeAll(
-          Layer.mock(TicketDocs, {}),
-          Layer.mock(GitHub, {}),
-          Layer.mock(Groups, {}),
-          Layer.mock(Comments, {}),
-          Layer.mock(Attachments, {}),
-          Layer.mock(FigmaLinks, {}),
-          Layer.mock(Users, {}),
-          Layer.mock(Library, {})
+    layer = TicketServices.layer
+      .pipe(
+        Layer.provide(gitAutomationTestLayer()),
+        Layer.provideMerge(projectsOnPostgres(databaseUrl, [id], {}, docs)),
+        Layer.provide(docs),
+        Layer.provide(testActivityLayer(id)),
+        Layer.provide(FinishedStatuses.layer.pipe(Layer.provide(db))),
+        Layer.provide(TicketBranchIndex.layer.pipe(Layer.provide(db))),
+        Layer.provide(db),
+        Layer.provide(TicketDocumentLock.layer),
+        Layer.provide(accessLayer({})),
+        Layer.provide(
+          Layer.mergeAll(
+            Layer.mock(TicketDocs.TicketDocs, {}),
+            Layer.mock(GitHub.GitHub, {}),
+            Layer.mock(Groups.Groups, {}),
+            Layer.mock(Comments.Comments, {}),
+            Layer.mock(Attachments.Attachments, {}),
+            Layer.mock(FigmaLinks.FigmaLinks, {}),
+            Layer.mock(Users.Users, {}),
+            Layer.mock(Library.Library, {})
+          )
         )
       )
-    ).pipe(Layer.orDie)
+      .pipe(Layer.orDie)
   })
 
   afterAll(async () => {
@@ -148,16 +157,17 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
     "reconciles before ticket queries and validation, and preserves file settings on unrelated writes",
     () =>
       Effect.gen(function* () {
-        const tickets = yield* Tickets
-        const projects = yield* Projects
-        const sorted = yield* tickets.list({
+        const tickets = yield* TicketCommands.TicketCommands
+        const queries = yield* TicketQueries.TicketQueries
+        const projects = yield* Projects.Projects
+        const sorted = yield* queries.list({
           sort: { key: "estimate", dir: "asc" }
         })
         expect(sorted.items.map(({ ticket }) => ticket.id)).toEqual([
           "T-2",
           "T-1"
         ])
-        expect((yield* tickets.count({ estimate: ["any"] })).total).toBe(1)
+        expect((yield* queries.count({ estimate: ["any"] })).total).toBe(1)
         expect((yield* projects.get()).estimation).toBe("points")
 
         document = { ...document, estimation: "tshirt" }
@@ -168,7 +178,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
           new Validation({ reason: "estimate_unit_mismatch:points:tshirt" })
         )
         expect(
-          (yield* tickets.list({
+          (yield* queries.list({
             estimate: ["stale"],
             sort: DEFAULT_TICKET_SORT
           })).items.map(({ ticket }) => ticket.id)
@@ -189,7 +199,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
 
         document = { ...document, estimation: "off" }
         expect((yield* projects.get()).estimation).toBe("off")
-        expect((yield* tickets.count({ estimate: ["any"] })).total).toBe(0)
+        expect((yield* queries.count({ estimate: ["any"] })).total).toBe(0)
         yield* projects.update({ estimation: "points" })
         expect(document.estimation).toBe("points")
       }).pipe(

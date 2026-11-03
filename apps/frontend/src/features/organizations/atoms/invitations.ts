@@ -1,15 +1,15 @@
 import type { UserInvitation } from "@pp/shared"
 import * as Atom from "effect/reactivity/Atom"
 
-import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
+import { query } from "@/api/query"
 import { viewMutation } from "@/api/viewMutation"
 
 export type InvitationRequest = Readonly<{
   invitationId: string
 }>
 
-const invitationsQuery = Api.query("invitations", "list", {
+const invitationsQuery = query("invitations", "list", {
   timeToLive: "30 seconds",
   reactivityKeys: [Keys.invitations()]
 })

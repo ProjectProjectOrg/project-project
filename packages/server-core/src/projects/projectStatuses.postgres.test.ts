@@ -17,16 +17,17 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
 import { projectScope } from "../access/testing"
-import { TicketIndex } from "../tickets/TicketIndex"
-import { Tickets } from "../tickets/Tickets"
-import { ProjectStatuses } from "./ProjectStatuses"
-import { ProjectStatusesLive } from "./ProjectStatusesLive"
+import * as TicketIndex from "../tickets/TicketIndex"
+import * as TicketRewrites from "../tickets/TicketRewrites"
+import * as ProjectStatuses from "./ProjectStatuses"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const label = Schema.decodeSync(StatusLabel)
@@ -41,7 +42,7 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
     slug: "project"
   })
   let pool: Pool
-  let layer: Layer.Layer<ProjectStatuses>
+  let layer: Layer.Layer<ProjectStatuses.ProjectStatuses>
 
   beforeAll(async () => {
     if (!databaseUrl) throw new Error("Test database URL is required")
@@ -70,9 +71,9 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
       "INSERT INTO project_status (project_id,slug,label,icon,color,order_key,created_by) VALUES ($1,'todo','Todo','Circle','#a3a3a3','a0',$2), ($1,'in_review','In review','Eye','#e0a03b','a1',$2), ($1,'in_progress','In progress','CircleDot','#3b82f6','a2',$2), ($1,'done','Done','CircleCheck','#22c55e','a3',$2)",
       [id, id]
     )
-    layer = ProjectStatusesLive.pipe(
-      Layer.provide(Layer.mock(TicketIndex, {})),
-      Layer.provide(Layer.mock(Tickets, {})),
+    layer = ProjectStatuses.layer.pipe(
+      Layer.provide(Layer.mock(TicketIndex.TicketIndex, {})),
+      Layer.provide(Layer.mock(TicketRewrites.TicketRewrites, {})),
       Layer.provide(
         DbLive.pipe(
           Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl) }))
@@ -90,7 +91,11 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
   })
 
   const run = <A, E>(
-    effect: Effect.Effect<A, E, ProjectStatuses | ProjectScope | ActivityActor>
+    effect: Effect.Effect<
+      A,
+      E,
+      ProjectStatuses.ProjectStatuses | ProjectScope | ActivityActor
+    >
   ) =>
     effect.pipe(
       Effect.provideService(ProjectScope, scope),
@@ -101,7 +106,7 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
   it.effect("saves, keeps and clears a status description", () =>
     run(
       Effect.gen(function* () {
-        const statuses = yield* ProjectStatuses
+        const statuses = yield* ProjectStatuses.ProjectStatuses
         const described = yield* statuses.update("in_review", {
           description: "A PR is open and waiting for review"
         })
@@ -129,7 +134,7 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
     () =>
       run(
         Effect.gen(function* () {
-          const statuses = yield* ProjectStatuses
+          const statuses = yield* ProjectStatuses.ProjectStatuses
           const described = yield* statuses.update("todo", {
             description: "Refined and ready to pick up"
           })
@@ -161,7 +166,7 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
   it.effect("creates a status at the end of the requested phase", () =>
     run(
       Effect.gen(function* () {
-        const statuses = yield* ProjectStatuses
+        const statuses = yield* ProjectStatuses.ProjectStatuses
         const review = yield* statuses.create({ label: label("Code review") })
         expect(review.orderKey > "a2" && review.orderKey < "a3").toBe(true)
 
@@ -183,7 +188,7 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
   it.effect("refuses to move a built-in status past another one", () =>
     run(
       Effect.gen(function* () {
-        const statuses = yield* ProjectStatuses
+        const statuses = yield* ProjectStatuses.ProjectStatuses
         const error = yield* Effect.flip(
           statuses.reorder("done", { orderKey: OrderKey.make("a1V") })
         )
@@ -196,4 +201,44 @@ describe.skipIf(!databaseUrl)("project statuses", () => {
       })
     )
   )
+
+  const recordSpans = () => {
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    const roots = () =>
+      spans.flatMap((span) => (Option.isNone(span.parent) ? [span.name] : []))
+    return { tracer, roots }
+  }
+
+  it.effect("traces each call under its own ProjectStatuses span", () => {
+    const { tracer, roots } = recordSpans()
+    return run(
+      Effect.gen(function* () {
+        const statuses = yield* ProjectStatuses.ProjectStatuses
+        yield* statuses.list()
+        yield* Effect.flip(statuses.create({ label: label("Todo") }))
+        yield* Effect.flip(statuses.update("missing", {}))
+        yield* Effect.flip(
+          statuses.reorder("missing", { orderKey: OrderKey.make("a0") })
+        )
+        yield* Effect.flip(statuses.remove("todo", {}))
+      }).pipe(Effect.withTracer(tracer))
+    ).pipe(
+      Effect.map(() =>
+        expect(roots()).toEqual([
+          "ProjectStatuses.list",
+          "ProjectStatuses.create",
+          "ProjectStatuses.update",
+          "ProjectStatuses.reorder",
+          "ProjectStatuses.remove"
+        ])
+      )
+    )
+  })
 })

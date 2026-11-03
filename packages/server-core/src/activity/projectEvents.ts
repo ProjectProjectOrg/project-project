@@ -1,10 +1,10 @@
 import type { ProjectEvent, SprintEvent } from "@pp/shared"
 
-import type { GroupDocument } from "../groups/GroupDocs"
-import type { TicketDocument } from "../tickets/TicketDocs"
+import type * as GroupDocs from "../groups/GroupDocs"
+import type * as TicketDocs from "../tickets/TicketDocs"
 
 type EventTicket = Pick<
-  TicketDocument,
+  TicketDocs.TicketDocument,
   "id" | "title" | "status" | "archivedAt"
 >
 
@@ -17,7 +17,7 @@ const ticketEvent = (
     : []
 
 export const ticketCreatedEvents = (
-  ticket: TicketDocument
+  ticket: TicketDocs.TicketDocument
 ): ReadonlyArray<ProjectEvent> => ticketEvent("ticket_created", ticket)
 
 export const ticketEvents = (
@@ -40,14 +40,14 @@ export const ticketEvents = (
 type SprintEventKind = (typeof SprintEvent.Type)["kind"]
 
 export const sprintEvents = (
-  before: GroupDocument | null,
-  after: GroupDocument | null
+  before: GroupDocs.GroupDocument | null,
+  after: GroupDocs.GroupDocument | null
 ): ReadonlyArray<ProjectEvent> => {
   const previous = before?.kind === "sprint" ? before : null
   const sprint = after?.kind === "sprint" ? after : null
   const event = (
     kind: SprintEventKind,
-    group: GroupDocument
+    group: GroupDocs.GroupDocument
   ): ProjectEvent => ({
     kind,
     id: group.id,

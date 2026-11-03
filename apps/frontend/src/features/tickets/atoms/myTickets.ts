@@ -12,6 +12,7 @@ import * as Atom from "effect/reactivity/Atom"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import type { OptimisticView } from "@/api/viewMutation"
 import {
   projectsFor,
@@ -121,7 +122,7 @@ const listensTo = ({ req, scopes }: ScopedRequest) => [
 ]
 
 const mineQuery = (scoped: ScopedRequest, cursor: string | undefined) =>
-  Api.query("tickets", "mine", {
+  query("tickets", "mine", {
     params: scoped.req.params,
     query: cursor === undefined ? {} : { cursor },
     timeToLive: "2 minutes",
@@ -129,14 +130,14 @@ const mineQuery = (scoped: ScopedRequest, cursor: string | undefined) =>
   })
 
 const mineByProjectQuery = (scoped: ScopedRequest) =>
-  Api.query("tickets", "mineByProject", {
+  query("tickets", "mineByProject", {
     params: scoped.req.params,
     timeToLive: "2 minutes",
     reactivityKeys: listensTo(scoped)
   })
 
 const recentQuery = (scoped: ScopedRequest) =>
-  Api.query("tickets", "recent", {
+  query("tickets", "recent", {
     params: scoped.req.params,
     timeToLive: "2 minutes",
     reactivityKeys: [

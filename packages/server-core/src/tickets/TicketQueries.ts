@@ -1,0 +1,858 @@
+import { TicketPolicy } from "@pp/access/policies"
+import { Db } from "@pp/db"
+import {
+  DEFAULT_TICKET_SORT,
+  EPIC_SECTION_NONE,
+  type EpicSectionKey,
+  estimationUnit,
+  type Forbidden,
+  type GroupId,
+  type GroupIdFilter,
+  MY_TICKETS_DONE_WINDOW_DAYS,
+  MY_TICKETS_PAGE_SIZE,
+  MY_TICKETS_PER_PROJECT,
+  type MyTicketsQuery,
+  type NotFound,
+  OrgScope,
+  type OrgTicketPage,
+  type OrgTicketRow,
+  paginateSorted,
+  ProjectScope,
+  type ProjectTicketsPreview,
+  RECENT_TICKETS_LIMIT,
+  type RecentTicketActivity,
+  type RecentTicketRow,
+  sprintSectionKey,
+  sprintState,
+  summarizeEstimates,
+  type Ticket,
+  type TicketCountQuery,
+  type TicketCounts,
+  type TicketDetail,
+  type TicketEpicSections,
+  TICKET_LIST_LIMIT,
+  type TicketListPage,
+  type TicketListQuery,
+  type TicketPageQuery,
+  type TicketSearchQuery,
+  type TicketSections,
+  type TicketSort,
+  type TicketSprintSections,
+  TicketType,
+  UserId
+} from "@pp/shared"
+import * as Context from "effect/Context"
+import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
+
+import * as Access from "../access/Access"
+import * as Groups from "../groups/Groups"
+import * as Library from "../library/Library"
+import type * as Markdown from "../markdown/Markdown"
+import { FinishedStatuses } from "../projects/FinishedStatuses"
+import * as ProjectDocs from "../projects/ProjectDocs"
+import { readProjectDocument } from "../projects/readProjectDocument"
+import * as TicketBranchIndex from "./TicketBranchIndex"
+import * as TicketIndex from "./TicketIndex"
+import {
+  type GitView,
+  indexEntryToTicket,
+  requirePolicy,
+  type TicketReadError
+} from "./ticketPresentation"
+import type { TicketProject } from "./ticketProject"
+import * as TicketView from "./TicketView"
+
+const makeUserId = Schema.decodeUnknownSync(UserId)
+const EPIC_SECTION_SORT: TicketSort = { key: "title", dir: "asc" }
+const EPIC_SECTIONS_LIMIT = 200
+
+export function recentActivityOf(
+  entry: Pick<TicketIndex.TicketIndexTouchedEntry, "lastCommentAt"> &
+    Readonly<{
+      entry: Pick<TicketIndex.TicketIndexEntry, "createdBy" | "createdAt">
+    }>,
+  viewerId: UserId
+): RecentTicketActivity {
+  const created =
+    entry.entry.createdBy === viewerId ? entry.entry.createdAt : null
+  const commented = entry.lastCommentAt
+  if (commented !== null && (created === null || commented >= created)) {
+    return { tag: "commented", actor: viewerId, at: commented }
+  }
+  if (created !== null) return { tag: "created", actor: viewerId, at: created }
+  return { tag: "assigned" }
+}
+
+function ticketPage(
+  entries: ReadonlyArray<TicketIndex.TicketIndexQueryEntry>,
+  query: TicketListQuery,
+  view: GitView,
+  limit: number
+): TicketListPage {
+  const page = paginateSorted(entries, {
+    cursor: undefined,
+    limit,
+    sortKey: (row) => row.sortValue,
+    id: (row) => row.entry.id,
+    dir: query.sort.dir
+  })
+  return {
+    items: page.items.map(({ entry, orderKey }) => ({
+      ticket: indexEntryToTicket(entry, view),
+      orderKey
+    })),
+    nextCursor: page.nextCursor
+  }
+}
+
+export class TicketQueries extends Context.Service<
+  TicketQueries,
+  Readonly<{
+    mine: (
+      query: MyTicketsQuery
+    ) => Effect.Effect<OrgTicketPage, never, OrgScope>
+    mineByProject: () => Effect.Effect<
+      ReadonlyArray<ProjectTicketsPreview>,
+      never,
+      OrgScope
+    >
+    recent: () => Effect.Effect<ReadonlyArray<RecentTicketRow>, never, OrgScope>
+    sections: (
+      query: TicketListQuery
+    ) => Effect.Effect<
+      TicketSections,
+      Forbidden | NotFound | Markdown.MarkdownError,
+      ProjectScope
+    >
+    sprintSections: (
+      query: TicketListQuery
+    ) => Effect.Effect<
+      TicketSprintSections,
+      Forbidden | NotFound | Markdown.MarkdownError,
+      ProjectScope
+    >
+    epicSections: (
+      query: TicketListQuery
+    ) => Effect.Effect<
+      TicketEpicSections,
+      Forbidden | NotFound | Markdown.MarkdownError,
+      ProjectScope
+    >
+    list: (
+      query: TicketPageQuery,
+      limit?: number
+    ) => Effect.Effect<
+      TicketListPage,
+      Forbidden | NotFound | Markdown.MarkdownError,
+      ProjectScope
+    >
+    count: (
+      query: TicketCountQuery
+    ) => Effect.Effect<
+      TicketCounts,
+      Forbidden | NotFound | Markdown.MarkdownError,
+      ProjectScope
+    >
+    search: (
+      options: TicketSearchQuery
+    ) => Effect.Effect<
+      ReadonlyArray<Ticket>,
+      NotFound | Markdown.MarkdownError,
+      ProjectScope
+    >
+    listInGroup: (
+      groupId: string
+    ) => Effect.Effect<
+      ReadonlyArray<Ticket>,
+      NotFound | Markdown.MarkdownError,
+      ProjectScope
+    >
+    tagUsageCounts: () => Effect.Effect<
+      Readonly<Record<string, number>>,
+      never,
+      ProjectScope
+    >
+    get: (
+      id: string
+    ) => Effect.Effect<TicketDetail, TicketReadError, ProjectScope>
+  }>
+>()("@pp/server-core/tickets/TicketQueries") {}
+
+const make = Effect.gen(function* () {
+  const ticketIndex = yield* TicketIndex.TicketIndex
+  const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
+  const groups = yield* Groups.Groups
+  const db = yield* Db
+  const projectDocs = yield* ProjectDocs.ProjectDocs
+  const finishedStatuses = yield* FinishedStatuses
+  const library = yield* Library.Library
+  const access = yield* Access.Access
+  const { gitViewOf, gitView, readTicket, detailOf, withMissingAttachments } =
+    yield* TicketView.TicketView
+
+  const queryable = Effect.fnUntraced(function* (
+    query: TicketCountQuery | TicketListQuery
+  ) {
+    yield* requirePolicy((scope) => TicketPolicy.canQuery(scope, query))
+    const scope = yield* ProjectScope
+    if (
+      query.estimate?.length ||
+      ("sort" in query && query.sort.key === "estimate")
+    ) {
+      yield* readProjectDocument({ db, docs: projectDocs, project: scope })
+    }
+    return scope
+  })
+
+  const resolveGroupMembers = (
+    project: TicketProject,
+    groupIds: ReadonlyArray<GroupIdFilter> | undefined
+  ): Effect.Effect<
+    ReadonlySet<string> | null,
+    NotFound | Markdown.MarkdownError,
+    ProjectScope
+  > =>
+    Effect.gen(function* () {
+      if (groupIds === undefined || groupIds.length === 0) return null
+      const wantsUngrouped = groupIds.includes("ungrouped")
+      const explicitIds = groupIds.filter((id) => id !== "ungrouped")
+      const memberSet = new Set<string>()
+      const [details, ungrouped] = yield* Effect.all(
+        [
+          Effect.forEach(
+            explicitIds,
+            (id) =>
+              groups
+                .get(id)
+                .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null))),
+            { concurrency: 8 }
+          ),
+          wantsUngrouped
+            ? Effect.all([groups.list(), ticketIndex.listIds(project)], {
+                concurrency: 2
+              })
+            : Effect.succeed(null)
+        ],
+        { concurrency: 2 }
+      )
+      for (const g of details) {
+        if (g === null) continue
+        for (const t of g.tickets) memberSet.add(t)
+      }
+      if (ungrouped !== null) {
+        const [allGroups, allTicketIds] = ungrouped
+        const inIncompleteSprint = new Set<string>()
+        const now = yield* DateTime.nowAsDate
+        for (const g of allGroups) {
+          if (g.kind !== "sprint" || sprintState(g, now) === "completed")
+            continue
+          for (const t of g.tickets) inIncompleteSprint.add(t)
+        }
+        for (const id of allTicketIds) {
+          if (!inIncompleteSprint.has(id)) memberSet.add(id)
+        }
+      }
+      return memberSet
+    })
+
+  const list = Effect.fn("TicketQueries.list")(function* (
+    query: TicketPageQuery,
+    limit?: number
+  ) {
+    const scope = yield* queryable(query)
+    const { userId } = scope
+    const [groupMemberSet, sectionMemberSet] = yield* Effect.all(
+      [
+        resolveGroupMembers(scope, query.groupId),
+        resolveGroupMembers(scope, query.section?.groupId)
+      ],
+      { concurrency: 2 }
+    )
+    const pageLimit = limit ?? TICKET_LIST_LIMIT
+    const [queryEntries, view] = yield* Effect.all(
+      [
+        ticketIndex.query(scope, query, {
+          viewerId: userId,
+          ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet],
+          sectionTicketIds:
+            sectionMemberSet === null ? undefined : [...sectionMemberSet],
+          limit: pageLimit + 1
+        }),
+        gitView
+      ],
+      { concurrency: 2 }
+    )
+    return ticketPage(queryEntries, query, view, pageLimit)
+  })
+
+  const readableProjects = Effect.gen(function* () {
+    const scopes = (yield* access.projectsInOrg()).filter((scope) =>
+      scope.permissions.can({ ticket: ["read"] })
+    )
+    return {
+      projects: scopes,
+      scopeOf: new Map(scopes.map((scope) => [scope.projectId, scope]))
+    }
+  })
+
+  const gitViewsFor = (
+    scopes: ReadonlyArray<ProjectScope["Service"]>
+  ): Effect.Effect<ReadonlyMap<string, GitView>> =>
+    Effect.forEach(
+      scopes,
+      (scope) =>
+        gitViewOf(scope).pipe(
+          Effect.map((view) => [scope.projectId, view] as const)
+        ),
+      { concurrency: 8 }
+    ).pipe(Effect.map((views) => new Map(views)))
+
+  const hiddenGit: GitView = { integration: null, visible: false }
+
+  const orgTicketRows = (
+    scopeOf: ReadonlyMap<string, ProjectScope["Service"]>,
+    entries: ReadonlyArray<TicketIndex.TicketIndexOrgEntry>
+  ): Effect.Effect<ReadonlyArray<OrgTicketRow>> =>
+    Effect.gen(function* () {
+      const projectIds = new Set(
+        entries.map(({ project }) => project.projectId)
+      )
+      const views = yield* gitViewsFor(
+        [...scopeOf.values()].filter((scope) => projectIds.has(scope.projectId))
+      )
+      return entries.map(({ project, entry }) => ({
+        projectSlug: project.slug,
+        ticket: indexEntryToTicket(
+          entry,
+          views.get(project.projectId) ?? hiddenGit
+        )
+      }))
+    })
+
+  const assignedScope = (userId: string) =>
+    Effect.map(DateTime.now, (now) => ({
+      viewerId: userId,
+      doneAfter: DateTime.toDate(
+        DateTime.subtract(now, { days: MY_TICKETS_DONE_WINDOW_DAYS })
+      )
+    }))
+
+  const mine = Effect.fn("TicketQueries.mine")(function* (
+    query: MyTicketsQuery
+  ) {
+    const { userId } = yield* OrgScope
+    const { projects: visible, scopeOf } = yield* readableProjects
+    const scope = yield* assignedScope(userId)
+    const [entries, counts] = yield* Effect.all(
+      [
+        ticketIndex.assignedTo(visible, {
+          ...scope,
+          cursor: query.cursor,
+          limit: MY_TICKETS_PAGE_SIZE + 1
+        }),
+        ticketIndex.countAssignedByStatus(visible, scope)
+      ],
+      { concurrency: "unbounded" }
+    )
+    const page = paginateSorted(entries, {
+      cursor: undefined,
+      limit: MY_TICKETS_PAGE_SIZE,
+      sortKey: (row) => row.sortValue,
+      id: (row) => row.entry.id,
+      dir: "desc"
+    })
+    const items = yield* orgTicketRows(scopeOf, page.items)
+    return {
+      items,
+      nextCursor: page.nextCursor,
+      total: counts.reduce((sum, { count }) => sum + count, 0),
+      statusCounts: counts.map(({ project, status, count }) => ({
+        projectSlug: project.slug,
+        status,
+        count
+      }))
+    } satisfies OrgTicketPage
+  })
+
+  const mineByProject = Effect.fn("TicketQueries.mineByProject")(function* () {
+    const { userId } = yield* OrgScope
+    const { projects: visible, scopeOf } = yield* readableProjects
+    const scope = yield* assignedScope(userId)
+    const previews = yield* ticketIndex.assignedPerProject(visible, {
+      ...scope,
+      perProject: MY_TICKETS_PER_PROJECT
+    })
+    const views = yield* gitViewsFor(
+      previews.flatMap(({ project }) => {
+        const found = scopeOf.get(project.projectId)
+        return found ? [found] : []
+      })
+    )
+    return previews.map(
+      ({ project, total, entries }): ProjectTicketsPreview => ({
+        projectSlug: project.slug,
+        total,
+        tickets: entries.map((entry) =>
+          indexEntryToTicket(entry, views.get(project.projectId) ?? hiddenGit)
+        )
+      })
+    )
+  })
+
+  const recent = Effect.fn("TicketQueries.recent")(function* () {
+    const { userId } = yield* OrgScope
+    const { projects: visible, scopeOf } = yield* readableProjects
+    const entries = yield* ticketIndex.touchedBy(visible, {
+      viewerId: userId,
+      limit: RECENT_TICKETS_LIMIT
+    })
+    const rows = yield* orgTicketRows(scopeOf, entries)
+    const viewerId = makeUserId(userId)
+    return rows.map(
+      (row, index): RecentTicketRow => ({
+        ...row,
+        activity: recentActivityOf(entries[index], viewerId)
+      })
+    )
+  })
+
+  const listInGroup = Effect.fn("TicketQueries.listInGroup")(function* (
+    groupId: string
+  ) {
+    const scope = yield* ProjectScope
+    const [group, view] = yield* Effect.all([groups.get(groupId), gitView], {
+      concurrency: 2
+    })
+    const entries = yield* ticketIndex.list(scope, group.tickets)
+    const byId = new Map(entries.map((entry) => [entry.id, entry]))
+    return group.tickets.flatMap((id) => {
+      const entry = byId.get(id)
+      if (!entry || entry.archivedAt !== null) return []
+      return [indexEntryToTicket(entry, view)]
+    })
+  })
+
+  const SEARCH_DEFAULT_LIMIT = 24
+  const SEARCH_MAX_LIMIT = 100
+
+  const search = Effect.fn("TicketQueries.search")(function* (
+    options: TicketSearchQuery
+  ) {
+    const scope = yield* ProjectScope
+    const { userId } = scope
+    const [excludedTicketIds, attachParent, view] = yield* Effect.all(
+      [
+        options.excludeGroupId
+          ? groups.get(options.excludeGroupId).pipe(
+              Effect.catchTag("NotFound", () =>
+                Effect.succeed({ tickets: [] })
+              ),
+              Effect.map(({ tickets }) => tickets)
+            )
+          : Effect.succeed(undefined),
+        options.attachableTo === undefined
+          ? Effect.succeed(undefined)
+          : ticketIndex
+              .list(scope, [options.attachableTo])
+              .pipe(Effect.map((entries) => entries[0])),
+        gitView
+      ],
+      { concurrency: "unbounded" }
+    )
+    const limit = Math.min(
+      Math.max(1, options.limit ?? SEARCH_DEFAULT_LIMIT),
+      SEARCH_MAX_LIMIT
+    )
+    const queryEntries = yield* ticketIndex.query(
+      scope,
+      { q: options.q, sort: DEFAULT_TICKET_SORT },
+      {
+        viewerId: userId,
+        excludeTicketIds: excludedTicketIds,
+        attachableTo:
+          options.attachableTo === undefined
+            ? undefined
+            : {
+                parent: options.attachableTo,
+                leavesOnly: attachParent?.type !== "epic"
+              },
+        limit
+      }
+    )
+    return queryEntries.map(({ entry }) => indexEntryToTicket(entry, view))
+  })
+
+  const tagUsageCounts = Effect.fn("TicketQueries.tagUsageCounts")(
+    function* () {
+      const scope = yield* ProjectScope
+      return yield* ticketIndex.tagUsageCounts(scope)
+    }
+  )
+
+  const count = Effect.fn("TicketQueries.count")(function* (
+    query: TicketCountQuery
+  ) {
+    const scope = yield* queryable(query)
+    const { userId } = scope
+    const groupMemberSet = yield* resolveGroupMembers(scope, query.groupId)
+    const queryForCount: TicketCountQuery = {
+      ...query,
+      status: undefined
+    }
+    const counts = yield* ticketIndex.count(scope, queryForCount, {
+      viewerId: userId,
+      ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet]
+    })
+    return {
+      total: counts.total,
+      byStatus: counts.byStatus
+    }
+  })
+
+  const sections = Effect.fn("TicketQueries.sections")(function* (
+    query: TicketListQuery
+  ) {
+    const scope = yield* queryable(query)
+    const { userId } = scope
+    const groupMemberSet = yield* resolveGroupMembers(scope, query.groupId)
+    const options = {
+      viewerId: userId,
+      ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet]
+    }
+    const [bySection, view] = yield* Effect.all(
+      [
+        ticketIndex.querySections(
+          scope,
+          { ...query, cursor: undefined },
+          { ...options, limit: TICKET_LIST_LIMIT + 1, sections: "status" }
+        ),
+        gitView
+      ],
+      { concurrency: 2 }
+    )
+    const byStatus: Record<string, number> = {}
+    let total = 0
+    for (const [status, section] of bySection) {
+      byStatus[status] = section.counts.total
+      total += section.counts.total
+    }
+    const counts = { total, byStatus }
+    const pages = Object.keys(byStatus)
+      .filter(
+        (status) =>
+          !query.status?.length ||
+          query.status.some((requested) => requested === status)
+      )
+      .map(
+        (status) =>
+          [
+            status,
+            ticketPage(
+              bySection.get(status)?.entries ?? [],
+              query,
+              view,
+              TICKET_LIST_LIMIT
+            )
+          ] as const
+      )
+    return { counts, sections: Object.fromEntries(pages) }
+  })
+
+  const sprintSections = Effect.fn("TicketQueries.sprintSections")(function* (
+    query: TicketListQuery
+  ) {
+    const scope = yield* queryable(query)
+    const { userId } = scope
+    const [allGroups, projectDocument, view] = yield* Effect.all(
+      [
+        groups.list(),
+        readProjectDocument({ db, docs: projectDocs, project: scope }),
+        gitView
+      ],
+      { concurrency: "unbounded" }
+    )
+    const sprints = allGroups.filter((group) => group.kind === "sprint")
+    const unit = estimationUnit(projectDocument.estimation)
+    const sectionIds: ReadonlyArray<GroupIdFilter> = [
+      ...new Set<GroupIdFilter>(
+        query.groupId?.length
+          ? query.groupId
+          : ["ungrouped", ...sprints.map((sprint) => sprint.id)]
+      )
+    ]
+    const selectedSections = new Set(sectionIds)
+    const claimed = new Set<string>()
+    const bySprint = new Map<GroupId, Array<string>>()
+    const takeUnclaimed = (tickets: ReadonlyArray<string>) => {
+      const ids: Array<string> = []
+      for (const id of tickets) {
+        if (claimed.has(id)) continue
+        claimed.add(id)
+        ids.push(id)
+      }
+      return ids
+    }
+    for (const sprint of sprints) {
+      if (sprint.completedAt === null && selectedSections.has(sprint.id)) {
+        bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
+      }
+    }
+    for (const sprint of sprints) {
+      if (sprint.completedAt !== null && selectedSections.has(sprint.id)) {
+        bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
+      }
+    }
+    const ungroupedMembers = query.groupId?.includes("ungrouped")
+      ? yield* resolveGroupMembers(scope, ["ungrouped"])
+      : null
+    const members = yield* Effect.forEach(
+      sectionIds,
+      (groupId) =>
+        Effect.gen(function* () {
+          const known =
+            groupId === "ungrouped" ? undefined : bySprint.get(groupId)
+          const ticketIds =
+            groupId === "ungrouped"
+              ? ungroupedMembers === null
+                ? undefined
+                : [...ungroupedMembers].filter((id) => !claimed.has(id))
+              : known !== undefined
+                ? known
+                : yield* resolveGroupMembers(scope, [groupId]).pipe(
+                    Effect.map((members) =>
+                      members === null
+                        ? []
+                        : [...members].filter((id) => !claimed.has(id))
+                    )
+                  )
+          return { key: groupId, ticketIds }
+        }),
+      { concurrency: 4 }
+    )
+    const estimatedIds =
+      unit === null
+        ? []
+        : members.flatMap(({ key, ticketIds }) =>
+            key === "ungrouped" || ticketIds === undefined ? [] : ticketIds
+          )
+    const [bySection, estimatedList, finished] = yield* Effect.all(
+      [
+        ticketIndex.querySections(
+          scope,
+          { ...query, groupId: undefined, cursor: undefined },
+          {
+            viewerId: userId,
+            limit: TICKET_LIST_LIMIT + 1,
+            sections: members
+          }
+        ),
+        estimatedIds.length === 0
+          ? Effect.succeed([])
+          : ticketIndex.list(scope, estimatedIds),
+        unit === null
+          ? Effect.succeed(null)
+          : finishedStatuses.forProject(scope.orgSlug, scope.slug)
+      ],
+      { concurrency: "unbounded" }
+    )
+    const estimatedEntries = new Map(
+      estimatedList.map((entry): [string, typeof entry] => [entry.id, entry])
+    )
+    const emptyCounts = { total: 0, byStatus: {} as Record<string, number> }
+    const pages = members.map(({ key: groupId, ticketIds }) => {
+      const result = bySection.get(groupId)
+      const counts = result?.counts ?? emptyCounts
+      const estimates =
+        unit === null ||
+        finished === null ||
+        groupId === "ungrouped" ||
+        ticketIds === undefined
+          ? null
+          : summarizeEstimates(
+              ticketIds.flatMap((id) => {
+                const entry = estimatedEntries.get(id)
+                return entry === undefined || entry.archivedAt !== null
+                  ? []
+                  : [entry]
+              }),
+              unit,
+              finished
+            )
+      return {
+        section: {
+          key: sprintSectionKey(groupId === "ungrouped" ? null : groupId),
+          count: query.status?.length
+            ? [...new Set(query.status)].reduce(
+                (sum, status) => sum + (counts.byStatus[status] ?? 0),
+                0
+              )
+            : counts.total,
+          page: ticketPage(
+            result?.entries ?? [],
+            query,
+            view,
+            TICKET_LIST_LIMIT
+          ),
+          estimates
+        },
+        counts
+      }
+    })
+    const byStatus: Record<string, number> = {}
+    for (const { counts } of pages) {
+      for (const [status, count] of Object.entries(counts.byStatus)) {
+        byStatus[status] = (byStatus[status] ?? 0) + count
+      }
+    }
+    const sections = pages.map(({ section }) => section)
+    return {
+      total: sections.reduce((sum, section) => sum + section.count, 0),
+      counts: {
+        total: pages.reduce((sum, { counts }) => sum + counts.total, 0),
+        byStatus
+      },
+      sections
+    }
+  })
+
+  const epicSections = Effect.fn("TicketQueries.epicSections")(function* (
+    query: TicketListQuery
+  ) {
+    const scope = yield* queryable(query)
+    const { userId } = scope
+    const epicOptions = { viewerId: userId, limit: EPIC_SECTIONS_LIMIT }
+    const [groupMemberSet, openEpics, archivedEpics, view] = yield* Effect.all(
+      [
+        resolveGroupMembers(scope, query.groupId),
+        ticketIndex.query(
+          scope,
+          { type: ["epic"], sort: EPIC_SECTION_SORT },
+          epicOptions
+        ),
+        ticketIndex.query(
+          scope,
+          { type: ["epic"], archived: true, sort: EPIC_SECTION_SORT },
+          epicOptions
+        ),
+        gitView
+      ],
+      { concurrency: "unbounded" }
+    )
+    const archivedIds = new Set<string>(
+      archivedEpics.map(({ entry }) => entry.id)
+    )
+    const sectionsWanted: ReadonlyArray<
+      Readonly<{ key: EpicSectionKey; title: string | null }>
+    > = [
+      ...[...openEpics, ...archivedEpics]
+        .map(({ entry }) => ({ key: entry.id, title: entry.title }))
+        .toSorted((a, b) => a.title.localeCompare(b.title)),
+      { key: EPIC_SECTION_NONE, title: null }
+    ]
+    const bySection = yield* ticketIndex.querySections(
+      scope,
+      {
+        ...query,
+        type: (query.type?.length ? query.type : TicketType.literals).filter(
+          (type) => type !== "epic"
+        ),
+        parent: sectionsWanted.map(({ key }) => key),
+        groupId: undefined,
+        cursor: undefined
+      },
+      {
+        viewerId: userId,
+        ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet],
+        limit: TICKET_LIST_LIMIT + 1,
+        sections: "parent"
+      }
+    )
+    const emptyCounts = { total: 0, byStatus: {} as Record<string, number> }
+    const pages = sectionsWanted.map(({ key, title }) => {
+      const result = bySection.get(key)
+      const counts = result?.counts ?? emptyCounts
+      return {
+        section: {
+          key,
+          title,
+          count: query.status?.length
+            ? [...new Set(query.status)].reduce(
+                (sum, status) => sum + (counts.byStatus[status] ?? 0),
+                0
+              )
+            : counts.total,
+          page: ticketPage(
+            result?.entries ?? [],
+            query,
+            view,
+            TICKET_LIST_LIMIT
+          )
+        },
+        counts
+      }
+    })
+    const byStatus: Record<string, number> = {}
+    for (const { counts } of pages) {
+      for (const [status, count] of Object.entries(counts.byStatus)) {
+        byStatus[status] = (byStatus[status] ?? 0) + count
+      }
+    }
+    const sections = pages
+      .map(({ section }) => section)
+      .filter((section) => section.count > 0 || !archivedIds.has(section.key))
+    return {
+      total: sections.reduce((sum, section) => sum + section.count, 0),
+      counts: {
+        total: pages.reduce((sum, { counts }) => sum + counts.total, 0),
+        byStatus
+      },
+      sections
+    }
+  })
+
+  const get = Effect.fn("TicketQueries.get")(function* (id: string) {
+    const scope = yield* ProjectScope
+    const { orgSlug, slug, userId } = scope
+    const [view, ticket, branchDeletedAt] = yield* Effect.all(
+      [
+        gitView,
+        readTicket(scope, id),
+        ticketBranchIndex.getBranchDeletedAt(scope, id)
+      ],
+      { concurrency: "unbounded" }
+    )
+    const [body, { total: subTicketCount }, detail] = yield* Effect.all(
+      [
+        library.resolveSynced(orgSlug, slug, ticket.body),
+        ticketIndex.count(scope, { parent: [ticket.id] }, { viewerId: userId }),
+        detailOf(ticket, view, branchDeletedAt)
+      ],
+      { concurrency: "unbounded" }
+    )
+    return yield* withMissingAttachments(orgSlug, {
+      ...detail,
+      body,
+      subTicketCount
+    })
+  })
+
+  return TicketQueries.of({
+    mine,
+    mineByProject,
+    recent,
+    sections,
+    sprintSections,
+    epicSections,
+    list,
+    count,
+    search,
+    listInGroup,
+    tagUsageCounts,
+    get
+  })
+})
+
+export const layer = Layer.effect(TicketQueries, make)

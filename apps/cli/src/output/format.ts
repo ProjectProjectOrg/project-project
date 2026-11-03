@@ -33,34 +33,51 @@ const cell = (value: unknown) => {
 
 const cellText = (value: unknown) => (Predicate.isString(value) ? value : "")
 
-const table = (rows: ReadonlyArray<Readonly<Record<string, unknown>>>) => {
+type Row = Readonly<Record<string, unknown>>
+
+export const tableLayout = (rows: ReadonlyArray<Row>) => {
   const first = rows[0]
-  if (first === undefined) return "No results."
+  if (first === undefined) return undefined
   const preferred = COLUMN_PREFERENCE.filter((key) => key in first)
   const others = Object.keys(first).filter(
     (key) => !preferred.includes(key) && isPrimitive(first[key])
   )
   const picked = [...preferred, ...others].slice(0, 4)
-  const cells = rows.map((row) => picked.map((key) => cell(row[key])))
+  const cellsOf = (row: Row) => picked.map((key) => cell(row[key]))
   const widths = picked.map((key, index) =>
     Math.min(
       60,
-      Math.max(key.length, ...cells.map((row) => (row[index] ?? "").length))
+      Math.max(
+        key.length,
+        ...rows.map((row) => (cellsOf(row)[index] ?? "").length)
+      )
     )
   )
-  const line = (values: ReadonlyArray<string>) =>
+  const line = (values: ReadonlyArray<string>, cutAt = widths) =>
     values
       .map((value, index) =>
-        value.length > (widths[index] ?? 0)
-          ? `${value.slice(0, (widths[index] ?? 1) - 1)}…`
+        value.length > (cutAt[index] ?? 0)
+          ? `${value.slice(0, (cutAt[index] ?? 1) - 1)}…`
           : value.padEnd(widths[index] ?? 0)
       )
       .join("  ")
       .trimEnd()
-  return [
-    line(picked.map((key) => key.toUpperCase())),
-    ...cells.map(line)
-  ].join("\n")
+  return {
+    header: line(picked.map((key) => key.toUpperCase())),
+    row: (row: Row) => line(cellsOf(row)),
+    laterRow: (row: Row) =>
+      line(
+        cellsOf(row),
+        picked.map(() => 60)
+      )
+  }
+}
+
+const table = (rows: ReadonlyArray<Row>) => {
+  const layout = tableLayout(rows)
+  return layout === undefined
+    ? "No results."
+    : [layout.header, ...rows.map(layout.row)].join("\n")
 }
 
 const flatten = (
@@ -112,7 +129,7 @@ const details = (record: Readonly<Record<string, unknown>>) => {
   ].join("\n")
 }
 
-const isRows = (
+export const isRows = (
   value: unknown
 ): value is ReadonlyArray<Readonly<Record<string, unknown>>> =>
   Array.isArray(value) && value.every(Predicate.isObject)

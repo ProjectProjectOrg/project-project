@@ -1,8 +1,8 @@
 import {
-  catalogVersion,
   cliOAuthClient,
   cliRelease,
   ToolFailure,
+  toolInputVersions,
   type ToolName
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
@@ -62,8 +62,8 @@ export const callTool = Effect.fn("callTool")(function* (
   ).pipe(
     HttpClientRequest.bearerToken(accessToken),
     HttpClientRequest.setHeader(
-      cliRelease.catalogVersionHeader,
-      catalogVersion
+      cliRelease.toolVersionHeader,
+      toolInputVersions[name]
     ),
     HttpClientRequest.bodyJson(input),
     Effect.flatMap(client.execute),

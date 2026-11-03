@@ -7,8 +7,8 @@ import type {
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
-import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import {
   bindRowMutation,
   keepPredicted,
@@ -43,7 +43,7 @@ export type BoardValue = Readonly<{
 }>
 
 const ticketsQuery = (req: BoardRequest) =>
-  Api.query("groups", "listTickets", {
+  query("groups", "listTickets", {
     params: req.params,
     timeToLive: "2 minutes",
     reactivityKeys: [

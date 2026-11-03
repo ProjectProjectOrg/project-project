@@ -1,8 +1,8 @@
 import type { GroupId, UpdateGroupInput } from "@pp/shared"
 import * as Atom from "effect/reactivity/Atom"
 
-import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 import { applySprintDetailPatch } from "./sprintPatch"
@@ -26,7 +26,7 @@ const scopeOf = (req: SprintRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 export const sprintQuery = (req: SprintRequest) =>
-  Api.query("groups", "get", {
+  query("groups", "get", {
     params: req.params,
     timeToLive: "2 minutes",
     reactivityKeys: [Keys.sprint(scopeOf(req), req.params.id)]

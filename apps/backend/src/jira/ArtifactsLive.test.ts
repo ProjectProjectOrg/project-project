@@ -1,18 +1,12 @@
 import { it } from "@effect/vitest"
-import {
-  artifactKey,
-  JiraArtifactError,
-  JiraMigrationArtifacts
-} from "@pp/integration-jira/MigrationArtifacts"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
-import {
-  S3Storage,
-  type S3Connection,
-  type S3StorageShape
-} from "@pp/server-core/storage/S3Storage"
+import * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
 const decodeArtifactBody = Schema.decodeUnknownEffect(
@@ -23,7 +17,7 @@ const encodeUnknownJson = Schema.encodeEffect(
   Schema.fromJsonString(Schema.Unknown)
 )
 
-const connection: S3Connection = {
+const connection: S3Storage.S3Connection = {
   endpoint: "https://storage.example.test",
   bucket: "artifacts",
   region: "auto",
@@ -44,7 +38,7 @@ const coordinates = {
 const makeLayer = () => {
   const objects = new Map<string, Uint8Array>()
   const deleted: Array<string> = []
-  const storage: S3StorageShape = {
+  const storage: S3Storage.S3Storage["Service"] = {
     putObject: (_connection, key, _contentType, bytes) =>
       Effect.sync(() => {
         objects.set(key, bytes)
@@ -66,11 +60,13 @@ const makeLayer = () => {
     checkConnection: () => Effect.die("unused")
   }
   const layer = JiraMigrationArtifactsLive.pipe(
-    Layer.provide(Layer.succeed(S3Storage, S3Storage.of(storage))),
+    Layer.provide(
+      Layer.succeed(S3Storage.S3Storage, S3Storage.S3Storage.of(storage))
+    ),
     Layer.provide(
       Layer.succeed(
-        OrgStorage,
-        OrgStorage.of({
+        OrgStorage.OrgStorage,
+        OrgStorage.OrgStorage.of({
           getStatus: () => Effect.die("unused"),
           connect: () => Effect.die("unused"),
           disconnect: () => Effect.die("unused"),
@@ -84,10 +80,12 @@ const makeLayer = () => {
 
 describe("artifactKey", () => {
   it("maps logical coordinates to one deterministic JSON key", () => {
-    expect(artifactKey(coordinates)).toBe(
+    expect(MigrationArtifacts.artifactKey(coordinates)).toBe(
       "migrations/jira/m1/scan-3/raw/issues/page-0004-abc123.json"
     )
-    expect(artifactKey(coordinates)).toBe(artifactKey({ ...coordinates }))
+    expect(MigrationArtifacts.artifactKey(coordinates)).toBe(
+      MigrationArtifacts.artifactKey({ ...coordinates })
+    )
   })
 })
 
@@ -97,7 +95,7 @@ describe("JiraMigrationArtifacts", () => {
     () => {
       const { layer, objects } = makeLayer()
       return Effect.gen(function* () {
-        const artifacts = yield* JiraMigrationArtifacts
+        const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
         const first = yield* artifacts.writeJson("acme", coordinates, {
           body: "first"
         })
@@ -118,7 +116,7 @@ describe("JiraMigrationArtifacts", () => {
   it.effect("keeps sensitive JSON out of workflow-facing references", () => {
     const { layer } = makeLayer()
     return Effect.gen(function* () {
-      const artifacts = yield* JiraMigrationArtifacts
+      const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
       const ref = yield* artifacts.writeJson("acme", coordinates, {
         body: "SENSITIVE-MARKER"
       })
@@ -126,7 +124,7 @@ describe("JiraMigrationArtifacts", () => {
       const encodedActivityResult = yield* encodeUnknownJson(activityResult)
 
       expect(ref).toEqual({
-        key: artifactKey(coordinates),
+        key: MigrationArtifacts.artifactKey(coordinates),
         contentType: "application/json",
         byteSize: 27,
         sha256: expect.stringMatching(/^[0-9a-f]{64}$/)
@@ -138,7 +136,7 @@ describe("JiraMigrationArtifacts", () => {
   it.effect("verifies integrity before validating decoded JSON", () => {
     const { layer } = makeLayer()
     return Effect.gen(function* () {
-      const artifacts = yield* JiraMigrationArtifacts
+      const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
       const ref = yield* artifacts.writeJson("acme", coordinates, {
         body: "safe"
       })
@@ -173,7 +171,10 @@ describe("JiraMigrationArtifacts", () => {
         .readJson("acme", invalid, decodeArtifactBody)
         .pipe(Effect.flip)
       expect(error).toEqual(
-        new JiraArtifactError({ key: invalid.key, reason: "schema" })
+        new MigrationArtifacts.JiraArtifactError({
+          key: invalid.key,
+          reason: "schema"
+        })
       )
     }).pipe(Effect.provide(layer))
   })
@@ -196,7 +197,7 @@ describe("JiraMigrationArtifacts", () => {
       )
 
       return Effect.gen(function* () {
-        const artifacts = yield* JiraMigrationArtifacts
+        const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
         const prefix = "migrations/jira/m1/scan-3/"
 
         expect(yield* artifacts.listPrefix("acme", prefix)).toEqual([
@@ -215,6 +216,89 @@ describe("JiraMigrationArtifacts", () => {
       }).pipe(Effect.provide(layer))
     }
   )
+})
+
+describe("JiraMigrationArtifacts tracing", () => {
+  it.effect("pins the verification span that already existed", () => {
+    const { layer } = makeLayer()
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return Effect.gen(function* () {
+      const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
+      const ref = yield* artifacts.writeJson("acme", coordinates, {
+        body: "traced"
+      })
+      yield* artifacts.verify("acme", ref)
+      yield* artifacts.readJson("acme", ref, decodeArtifactBody)
+    }).pipe(
+      Effect.withTracer(tracer),
+      Effect.provide(layer),
+      Effect.map(() =>
+        expect(
+          spans
+            .map((span) => span.name)
+            .filter((name) => name === "JiraMigrationArtifacts.getVerified")
+        ).toHaveLength(2)
+      )
+    )
+  })
+
+  it.effect("traces each artifact method under its own span", () => {
+    const { layer } = makeLayer()
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return Effect.gen(function* () {
+      const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
+      const ref = yield* artifacts.writeJson("acme", coordinates, {
+        body: "traced"
+      })
+      yield* artifacts.verify("acme", ref)
+      yield* artifacts.readJson("acme", ref, decodeArtifactBody)
+      yield* artifacts.listPrefix("acme", "migrations/jira/m1/")
+      yield* artifacts.deletePrefix("acme", "migrations/jira/m1/")
+    }).pipe(
+      Effect.withTracer(tracer),
+      Effect.provide(layer),
+      Effect.map(() =>
+        expect(
+          spans.map((span) => ({
+            name: span.name,
+            parent: Option.match(span.parent, {
+              onNone: () => null,
+              onSome: (parent) =>
+                parent._tag === "Span" ? parent.name : parent.spanId
+            })
+          }))
+        ).toEqual([
+          { name: "JiraMigrationArtifacts.writeJson", parent: null },
+          { name: "JiraMigrationArtifacts.verify", parent: null },
+          {
+            name: "JiraMigrationArtifacts.getVerified",
+            parent: "JiraMigrationArtifacts.verify"
+          },
+          { name: "JiraMigrationArtifacts.readJson", parent: null },
+          {
+            name: "JiraMigrationArtifacts.getVerified",
+            parent: "JiraMigrationArtifacts.readJson"
+          },
+          { name: "JiraMigrationArtifacts.listPrefix", parent: null },
+          { name: "JiraMigrationArtifacts.deletePrefix", parent: null }
+        ])
+      )
+    )
+  })
 })
 
 import { JiraMigrationArtifactsLive } from "./ArtifactsLive"

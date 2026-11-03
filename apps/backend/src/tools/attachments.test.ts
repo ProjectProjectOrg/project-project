@@ -20,11 +20,10 @@ import {
   organizationIntegration,
   organizationS3Integration
 } from "@pp/db/schema"
-import { Access } from "@pp/server-core/access/Access"
+import * as Access from "@pp/server-core/access/Access"
 import { accessLayer, projectScope } from "@pp/server-core/access/testing"
-import * as AttachmentsLayer from "@pp/server-core/attachments/AttachmentsLive"
+import * as Attachments from "@pp/server-core/attachments/Attachments"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
-import * as AttachmentUploadsLayer from "@pp/server-core/attachments/AttachmentUploadsLive"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as Comments from "@pp/server-core/comments/Comments"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
@@ -32,18 +31,19 @@ import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutomation"
+import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
-import * as OrgStorageLayer from "@pp/server-core/storage/OrgStorageLive"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
-import * as S3StorageLayer from "@pp/server-core/storage/S3StorageLive"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
-import * as SecretCryptoLayer from "@pp/server-core/storage/SecretCryptoLive"
 import * as Tags from "@pp/server-core/tags/Tags"
+import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
+import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
-import * as Tickets from "@pp/server-core/tickets/Tickets"
+import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
+import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import * as Users from "@pp/server-core/users/Users"
 import {
   ActivityActor,
@@ -67,11 +67,13 @@ import * as Fiber from "effect/Fiber"
 import { HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 import * as Stream from "effect/Stream"
 import * as TestClock from "effect/testing/TestClock"
+import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { beforeAll, afterAll, describe, expect, vi } from "vitest"
 
@@ -175,7 +177,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
     slug,
     projectId
   })
-  const access = Layer.succeed(Access, {
+  const access = Layer.succeed(Access.Access, {
     org: () => Effect.die("Access.org is not used by attachment tools"),
     project: (orgSlug, projectSlug) =>
       Effect.flatMap(CurrentUser, (current) =>
@@ -186,7 +188,8 @@ const fixture = Effect.fn("attachmentFixture")(function* (
           ? Effect.fail(new NotFound())
           : Effect.succeed(member)
       ),
-    projectsInOrg: () => Effect.succeed([])
+    projectsInOrg: () => Effect.succeed([]),
+    projectById: () => Effect.succeedNone
   })
   const dependencies = Layer.mergeAll(
     Layer.succeed(Db.Db, db),
@@ -195,7 +198,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
     Layer.mock(Users.Users, {
       fullByIds: (ids) => Effect.succeed(ids.includes(user.id) ? [user] : [])
     }),
-    SecretCryptoLayer.SecretCryptoLive,
+    SecretCrypto.layer,
     Layer.mock(OrgStorage.OrgStorage, {
       requireConnection: () =>
         options.disconnected
@@ -230,7 +233,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
       }
     }),
     options.storage
-      ? S3StorageLayer.S3StorageLive
+      ? S3Storage.layer
       : Layer.mock(S3Storage.S3Storage, {
           presignPut: (_connection, key) =>
             Effect.succeed(`https://storage.example.test/${key}`),
@@ -262,8 +265,8 @@ const fixture = Effect.fn("attachmentFixture")(function* (
             })
         })
   )
-  const domain = AttachmentUploadsLayer.AttachmentUploadsLive.pipe(
-    Layer.provideMerge(AttachmentsLayer.AttachmentsLive),
+  const domain = AttachmentUploads.layer.pipe(
+    Layer.provideMerge(Attachments.layer),
     Layer.provideMerge(dependencies)
   )
   const context = yield* Layer.build(
@@ -273,7 +276,12 @@ const fixture = Effect.fn("attachmentFixture")(function* (
       Layer.succeed(CurrentUser, user),
       Layer.succeed(ActivityActor, ActivityActor.user(user.id)),
       Layer.mock(Projects.Projects, {}),
-      Layer.mock(Tickets.Tickets, {}),
+      Layer.mock(ProjectMembers.ProjectMembers, {}),
+      Layer.mergeAll(
+        Layer.mock(TicketCommands.TicketCommands, {}),
+        Layer.mock(TicketGit.TicketGit, {}),
+        Layer.mock(TicketQueries.TicketQueries, {})
+      ),
       Layer.mock(Comments.Comments, {}),
       Layer.mock(Groups.Groups, {}),
       Layer.mock(Tags.Tags, {}),
@@ -282,6 +290,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
       Layer.mock(ProjectDocs.ProjectDocs, {}),
       Layer.mock(GroupDocs.GroupDocs, {}),
       Layer.mock(TicketIndex.TicketIndex, {}),
+      Layer.mock(TicketIndexMaintenance.TicketIndexMaintenance, {}),
       Layer.mock(ProjectStatuses.ProjectStatuses, {}),
       Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {}),
       Layer.mock(Library.Library, {})
@@ -445,7 +454,7 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
           return yield* storage.requireConnection(f.scope.orgSlug)
         }).pipe(
           Effect.provide(
-            OrgStorageLayer.OrgStorageLive.pipe(
+            OrgStorage.layer.pipe(
               Layer.provide(Layer.mock(SecretCrypto.SecretCrypto, { open }))
             )
           ),
@@ -538,6 +547,54 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
       expect(responses.map((r) => r.status)).toEqual([200, 200])
       expect(f.writes).toHaveLength(1)
     }).pipe(Effect.scoped, Effect.provide(dbLayer))
+  )
+
+  it.effect(
+    "traces prepare and receive under their AttachmentUploads spans",
+    () => {
+      const spans: Array<Tracer.NativeSpan> = []
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options)
+          spans.push(span)
+          return span
+        }
+      })
+      const parentName = (span: Tracer.NativeSpan) =>
+        Option.getOrNull(
+          Option.map(span.parent, (parent) =>
+            parent._tag === "Span" ? parent.name : "external"
+          )
+        )
+      return Effect.gen(function* () {
+        const f = yield* fixture()
+        const prepared = yield* f.prepare()
+        yield* f.receive(prepared.uploadUrl, Stream.make(bytes))
+        expect(
+          spans
+            .filter((span) => span.name.startsWith("AttachmentUploads."))
+            .map((span) => ({ name: span.name, parent: parentName(span) }))
+        ).toEqual([
+          {
+            name: "AttachmentUploads.prepare",
+            parent: "attachmentFixture.prepare"
+          },
+          {
+            name: "AttachmentUploads.requireTicket",
+            parent: "AttachmentUploads.prepare"
+          },
+          { name: "AttachmentUploads.receive", parent: null },
+          {
+            name: "AttachmentUploads.requireTicket",
+            parent: "AttachmentUploads.receive"
+          },
+          {
+            name: "AttachmentUploads.requireTicket",
+            parent: "sql.transaction"
+          }
+        ])
+      }).pipe(Effect.withTracer(tracer), Effect.scoped, Effect.provide(dbLayer))
+    }
   )
 
   it.effect("rejects tampered and expired URLs before reading bytes", () =>
@@ -787,7 +844,7 @@ describe.skipIf(!databaseUrl)("MCP attachment upload with Postgres", () => {
         const [row] = yield* f.rows
         expect(row.status).toBe("live")
         const s3 = yield* S3Storage.S3Storage.pipe(
-          Effect.provide(S3StorageLayer.S3StorageLive)
+          Effect.provide(S3Storage.layer)
         )
         const url = yield* s3.presignGet(
           storage,
@@ -904,12 +961,18 @@ describe("MCP attachment contracts", () => {
             Layer.mock(OrgStorage.OrgStorage, {}),
             Layer.mock(ProjectDocs.ProjectDocs, {}),
             Layer.mock(Projects.Projects, {}),
+            Layer.mock(ProjectMembers.ProjectMembers, {}),
             Layer.mock(ProjectStatuses.ProjectStatuses, {}),
             Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {}),
             Layer.mock(Tags.Tags, {}),
             Layer.mock(TicketDocs.TicketDocs, {}),
             Layer.mock(TicketIndex.TicketIndex, {}),
-            Layer.mock(Tickets.Tickets, {}),
+            Layer.mock(TicketIndexMaintenance.TicketIndexMaintenance, {}),
+            Layer.mergeAll(
+              Layer.mock(TicketCommands.TicketCommands, {}),
+              Layer.mock(TicketGit.TicketGit, {}),
+              Layer.mock(TicketQueries.TicketQueries, {})
+            ),
             Layer.mock(Users.Users, {}),
             Layer.mock(Library.Library, {})
           )

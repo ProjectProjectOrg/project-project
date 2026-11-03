@@ -42,7 +42,7 @@
 // way is to provide `BetterAuthLive` somewhere underneath `AuthenticationLive`
 // in the `Layer.provide` chain.
 
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import {
   ActivityActor,
   Authentication,
@@ -56,7 +56,7 @@ import * as Layer from "effect/Layer"
 
 import { toWebHeaders } from "../http/toWebHeaders"
 
-function normalizeEditorPreference(
+export function normalizeEditorPreference(
   value: string | null | undefined
 ): EditorPreference {
   switch (value) {
@@ -73,7 +73,7 @@ function normalizeEditorPreference(
 export const AuthenticationLive = Layer.effect(
   Authentication,
   Effect.gen(function* () {
-    const ba = yield* BetterAuth
+    const ba = yield* BetterAuth.BetterAuth
 
     return Authentication.of({
       sessionCookie: (httpEffect, _options) =>
@@ -104,21 +104,6 @@ export const AuthenticationLive = Layer.effect(
             (session.user as { editorPreference?: string | null })
               .editorPreference
           )
-          // `activeOrganizationId` lives on the session row (organization
-          // plugin). Resolve to a slug here so the wire shape is the
-          // human-readable identifier the frontend builds URLs from.
-          const activeOrganizationId = (
-            session.session as { activeOrganizationId?: string | null }
-          ).activeOrganizationId
-          const activeOrgSlug = yield* ba
-            .getOrgSlugById(activeOrganizationId)
-            .pipe(Effect.orDie)
-          const personalGithub = yield* ba
-            .getPersonalGithub(id)
-            .pipe(Effect.orDie)
-          const personalEverhour = yield* ba
-            .getPersonalEverhour(id)
-            .pipe(Effect.orDie)
           return yield* httpEffect.pipe(
             Effect.provideService(ActivityActor, ActivityActor.user(id)),
             Effect.provideService(CurrentUser, {
@@ -128,10 +113,7 @@ export const AuthenticationLive = Layer.effect(
               username,
               image: image ?? null,
               createdAt,
-              activeOrgSlug,
-              personalGithub,
-              editorPreference,
-              personalEverhour
+              editorPreference
             })
           )
         })

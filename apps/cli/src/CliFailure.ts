@@ -1,3 +1,4 @@
+import type { ToolError } from "@pp/shared"
 import * as Data from "effect/Data"
 import * as Runtime from "effect/Runtime"
 
@@ -26,7 +27,9 @@ export class CliFailure extends Data.TaggedError("CliFailure")<
   readonly [Runtime.errorReported] = false
 }
 
-const exitCodeByError: Readonly<Record<string, ExitCode>> = {
+const exitCodeByError: Readonly<
+  Record<ToolError["_tag"] | "CatalogMismatch", ExitCode>
+> = {
   Unauthorized: ExitCode.notSignedIn,
   Forbidden: ExitCode.forbidden,
   NotFound: ExitCode.notFound,
@@ -48,8 +51,13 @@ const exitCodeByError: Readonly<Record<string, ExitCode>> = {
   CatalogMismatch: ExitCode.outdated
 }
 
+const isKnownError = (
+  error: string
+): error is ToolError["_tag"] | "CatalogMismatch" =>
+  Object.hasOwn(exitCodeByError, error)
+
 export const exitCodeForError = (error: string): ExitCode =>
-  exitCodeByError[error] ?? ExitCode.failure
+  isKnownError(error) ? exitCodeByError[error] : ExitCode.failure
 
 export const notSignedIn = (message: string) =>
   new CliFailure({ message, code: ExitCode.notSignedIn })

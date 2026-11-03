@@ -6,29 +6,30 @@ import { readFile } from "node:fs/promises"
 import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { DbLive } from "@pp/db"
-import { Access } from "@pp/server-core/access/Access"
-import { AccessLive } from "@pp/server-core/access/AccessLive"
+import * as Access from "@pp/server-core/access/Access"
 import { orgScope, testUser } from "@pp/server-core/access/testing"
-import { Attachments } from "@pp/server-core/attachments/Attachments"
-import { AttachmentsLive } from "@pp/server-core/attachments/AttachmentsLive"
-import { Figma } from "@pp/server-core/figma/Figma"
-import { FigmaIntegrations } from "@pp/server-core/figma/FigmaIntegrations"
-import { FigmaLinks } from "@pp/server-core/figma/FigmaLinks"
-import { FigmaLinksLive } from "@pp/server-core/figma/FigmaLinksLive"
-import { GitHub } from "@pp/server-core/github/GitHub"
-import { BannerPlaceholders } from "@pp/server-core/projects/BannerPlaceholders"
+import * as Attachments from "@pp/server-core/attachments/Attachments"
+import * as Figma from "@pp/server-core/figma/Figma"
+import * as FigmaIntegrations from "@pp/server-core/figma/FigmaIntegrations"
+import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
+import * as GitHub from "@pp/server-core/github/GitHub"
+import * as BannerPlaceholders from "@pp/server-core/projects/BannerPlaceholders"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
-import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
-import { Projects } from "@pp/server-core/projects/Projects"
-import { ProjectsLive } from "@pp/server-core/projects/ProjectsLive"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
-import { S3Storage } from "@pp/server-core/storage/S3Storage"
-import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
+import * as ProjectServices from "@pp/server-core/projects/layer"
+import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
+import * as Projects from "@pp/server-core/projects/Projects"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
+import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
+import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
-import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
-import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
-import { Tickets } from "@pp/server-core/tickets/Tickets"
-import { Users } from "@pp/server-core/users/Users"
+import * as TicketGit from "@pp/server-core/tickets/TicketGit"
+import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
+import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
+import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
+import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
+import * as Users from "@pp/server-core/users/Users"
 import {
   ActivityActor,
   AppApi,
@@ -58,8 +59,10 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
   const publishedId = randomUUID()
   const hiddenId = randomUUID()
   let pool: Pool
-  let projectsLayer: Layer.Layer<Projects | Access>
-  let ticketIndexLayer: Layer.Layer<TicketIndex>
+  let projectsLayer: Layer.Layer<Projects.Projects | Access.Access>
+  let ticketIndexLayer: Layer.Layer<
+    TicketIndex.TicketIndex | TicketIndexMaintenance.TicketIndexMaintenance
+  >
   let reconciledSlugs: ReadonlyArray<string> = []
 
   const dbLayer = () =>
@@ -80,12 +83,12 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
     Effect.map(HttpRouter.HttpRouter, (router) => router.prefixed("/api"))
   )
 
-  const access = () => AccessLive.pipe(Layer.provide(dbLayer()))
+  const access = () => Access.layer.pipe(Layer.provide(dbLayer()))
 
   const asOwner = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     Effect.provideService(effect, CurrentUser, testUser(userId))
 
-  const storage = Layer.mock(OrgStorage, {
+  const storage = Layer.mock(OrgStorage.OrgStorage, {
     requireConnection: () =>
       Effect.succeed({
         endpoint: "https://storage.example.test",
@@ -170,21 +173,22 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
         PgClient.layer({ url: Redacted.make(databaseUrl), maxConnections: 1 })
       )
     )
-    const ticketDocs = Layer.mock(TicketDocs, {
+    const ticketDocs = Layer.mock(TicketDocs.TicketDocs, {
       listIds: (orgSlug, projectSlug) => {
         if (orgSlug === `visibility-${organizationId}`)
           reconciledSlugs = [...reconciledSlugs, projectSlug]
         return Effect.succeed([])
       }
     })
-    const ticketIndex = TicketIndexLive.pipe(
+    const ticketIndex = TicketIndexServices.layer.pipe(
       Layer.provide(db),
       Layer.provide(ticketDocs),
       Layer.orDie
     )
     ticketIndexLayer = ticketIndex
-    projectsLayer = ProjectsLive.pipe(
-      Layer.provideMerge(AccessLive),
+    projectsLayer = ProjectServices.layer.pipe(
+      Layer.provideMerge(Access.layer),
+      Layer.provide(TicketRewrites.layer),
       Layer.provide(TicketDocumentLock.layer),
       Layer.provide(FinishedStatuses.baseline),
       Layer.provide(
@@ -192,10 +196,10 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
           db,
           ticketIndex,
           ticketDocs,
-          Layer.mock(BannerPlaceholders, {}),
-          Layer.mock(ProjectDocs, {}),
-          Layer.mock(Users, {}),
-          Layer.mock(GitHub, {})
+          Layer.mock(BannerPlaceholders.BannerPlaceholders, {}),
+          Layer.mock(ProjectDocs.ProjectDocs, {}),
+          Layer.mock(Users.Users, {}),
+          Layer.mock(GitHub.GitHub, {})
         )
       ),
       Layer.orDie
@@ -220,8 +224,8 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       () =>
         Effect.gen(function* () {
           const result = yield* Effect.gen(function* () {
-            const projects = yield* Projects
-            const access = yield* Access
+            const projects = yield* Projects.Projects
+            const access = yield* Access.Access
             const listed = yield* projects.list()
             const scopes = yield* access.projectsInOrg()
             const hiddenProject = yield* Effect.result(
@@ -241,7 +245,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
           })
           expect(
             yield* Effect.flip(
-              Effect.flatMap(TicketIndex, (index) =>
+              Effect.flatMap(TicketIndex.TicketIndex, (index) =>
                 index.projectFor(`visibility-${organizationId}`, "hidden")
               )
             )
@@ -255,7 +259,13 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
         HttpApi.make(AppApi.identifier).add(ticketsGroup)
       ).pipe(
         Layer.provide(TicketsHandlerLive),
-        Layer.provideMerge(Layer.mock(Tickets, {})),
+        Layer.provideMerge(
+          Layer.mergeAll(
+            Layer.mock(TicketCommands.TicketCommands, {}),
+            Layer.mock(TicketGit.TicketGit, {}),
+            Layer.mock(TicketQueries.TicketQueries, {})
+          )
+        ),
         Layer.provide(
           Layer.mergeAll(OrgAccessLive, ProjectAccessLive).pipe(
             Layer.provide(access())
@@ -294,8 +304,9 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
       "skips unpublished projects during index reconciliation while direct migration lookup retains them",
       () =>
         Effect.gen(function* () {
-          const summary = yield* Effect.flatMap(TicketIndex, (index) =>
-            index.reconcileAllProjects()
+          const summary = yield* Effect.flatMap(
+            TicketIndexMaintenance.TicketIndexMaintenance,
+            (maintenance) => maintenance.reconcileAllProjects()
           )
           const hidden = yield* Effect.promise(() =>
             pool.query("select id from project_index where id = $1", [hiddenId])
@@ -305,7 +316,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
               .filter(
                 ({ project }) => project.organizationId === organizationId
               )
-              .map(({ project }) => project.projectSlug)
+              .map(({ project }) => project.slug)
           ).toEqual(["published"])
           expect(reconciledSlugs).toEqual(["published"])
           expect(hidden.rows).toEqual([{ id: hiddenId }])
@@ -332,7 +343,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
             )
           )
           let attachmentSigns = 0
-          const attachments = yield* Attachments.pipe(
+          const attachments = yield* Attachments.Attachments.pipe(
             Effect.flatMap((service) =>
               Effect.exit(
                 asOwner(
@@ -344,12 +355,12 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
               )
             ),
             Effect.provide(
-              AttachmentsLive.pipe(
+              Attachments.layer.pipe(
                 Layer.provide(dbLayer()),
                 Layer.provide(access()),
                 Layer.provide(storage),
                 Layer.provide(
-                  Layer.mock(S3Storage, {
+                  Layer.mock(S3Storage.S3Storage, {
                     presignGet: () =>
                       Effect.sync(() => {
                         attachmentSigns += 1
@@ -361,7 +372,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
             )
           )
           let thumbnailSigns = 0
-          const thumbnails = yield* FigmaLinks.pipe(
+          const thumbnails = yield* FigmaLinks.FigmaLinks.pipe(
             Effect.flatMap((service) =>
               Effect.exit(
                 asOwner(
@@ -373,14 +384,16 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
               )
             ),
             Effect.provide(
-              FigmaLinksLive.pipe(
+              FigmaLinks.layer.pipe(
                 Layer.provide(dbLayer()),
                 Layer.provide(access()),
                 Layer.provide(storage),
-                Layer.provide(Layer.mock(Figma, {})),
-                Layer.provide(Layer.mock(FigmaIntegrations, {})),
+                Layer.provide(Layer.mock(Figma.Figma, {})),
                 Layer.provide(
-                  Layer.mock(S3Storage, {
+                  Layer.mock(FigmaIntegrations.FigmaIntegrations, {})
+                ),
+                Layer.provide(
+                  Layer.mock(S3Storage.S3Storage, {
                     presignGet: () =>
                       Effect.sync(() => {
                         thumbnailSigns += 1
@@ -407,7 +420,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
             insertAttachment(attachmentId, null, "orphaned")
           )
           let signs = 0
-          const result = yield* Attachments.pipe(
+          const result = yield* Attachments.Attachments.pipe(
             Effect.flatMap((service) =>
               Effect.exit(
                 asOwner(
@@ -419,12 +432,12 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
               )
             ),
             Effect.provide(
-              AttachmentsLive.pipe(
+              Attachments.layer.pipe(
                 Layer.provide(dbLayer()),
                 Layer.provide(access()),
                 Layer.provide(storage),
                 Layer.provide(
-                  Layer.mock(S3Storage, {
+                  Layer.mock(S3Storage.S3Storage, {
                     presignGet: () =>
                       Effect.sync(() => {
                         signs += 1
@@ -465,7 +478,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
               [publishedAttachment, publishedId, hiddenId]
             )
           )
-          const result = yield* Attachments.pipe(
+          const result = yield* Attachments.Attachments.pipe(
             Effect.flatMap((service) =>
               Effect.all({
                 page: service.listForOrg({}),
@@ -474,11 +487,11 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
             ),
             Effect.provideService(OrgScope, ownerScope),
             Effect.provide(
-              AttachmentsLive.pipe(
+              Attachments.layer.pipe(
                 Layer.provide(dbLayer()),
                 Layer.provide(access()),
                 Layer.provide(storage),
-                Layer.provide(Layer.mock(S3Storage, {}))
+                Layer.provide(Layer.mock(S3Storage.S3Storage, {}))
               )
             )
           )
@@ -501,18 +514,18 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
           const attachmentId = `hidden-delete-${randomUUID()}`
           yield* Effect.promise(() => insertAttachment(attachmentId, hiddenId))
           let deletedObjects = 0
-          const result = yield* Attachments.pipe(
+          const result = yield* Attachments.Attachments.pipe(
             Effect.flatMap((service) =>
               Effect.exit(service.deleteForOrg(attachmentId))
             ),
             Effect.provideService(OrgScope, ownerScope),
             Effect.provide(
-              AttachmentsLive.pipe(
+              Attachments.layer.pipe(
                 Layer.provide(dbLayer()),
                 Layer.provide(access()),
                 Layer.provide(storage),
                 Layer.provide(
-                  Layer.mock(S3Storage, {
+                  Layer.mock(S3Storage.S3Storage, {
                     deleteObject: () =>
                       Effect.sync(() => {
                         deletedObjects += 1

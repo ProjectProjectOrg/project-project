@@ -7,6 +7,7 @@ import * as Option from "effect/Option"
 
 import { catalogEntries } from "./catalog"
 import { toolInput } from "./input"
+import { groupFilter, parseSort } from "./shaping"
 
 const entry = (name: string) => {
   const found = catalogEntries.find((candidate) => candidate.name === name)
@@ -33,6 +34,39 @@ describe("generated commands", () => {
       archived: "boolean",
       q: "string",
       sort: "json"
+    })
+  })
+
+  it("offer enum values as choices and describe each flag", () => {
+    const fields = Object.fromEntries(
+      entry("list_tickets").fields.map((field) => [field.name, field])
+    )
+    expect(fields["type"]?.choices).toEqual([
+      "feat",
+      "bug",
+      "chore",
+      "other",
+      "epic"
+    ])
+    expect(fields["estimate"]?.choices).toContain("stale")
+    expect(fields["assignee"]?.choices).toBeUndefined()
+    expect(fields["sort"]?.description).toContain("`key`")
+    for (const field of entry("create_ticket").fields) {
+      expect(field.description, field.name).toBeDefined()
+    }
+  })
+
+  it("read --sort as key[:dir], defaulting to the key's natural direction", () => {
+    expect(parseSort("updated")).toEqual({ key: "updated", dir: "desc" })
+    expect(parseSort("title:desc")).toEqual({ key: "title", dir: "desc" })
+    expect(parseSort("size")).toBeUndefined()
+    expect(parseSort("title:up")).toBeUndefined()
+  })
+
+  it("build the group filter from --kind and --active, or leave it out", () => {
+    expect(groupFilter([], Option.none())).toEqual({})
+    expect(groupFilter(["epic"], Option.some(false))).toEqual({
+      filter: { kind: ["epic"], active: false }
     })
   })
 

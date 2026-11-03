@@ -183,7 +183,7 @@ Read `docs/frontend/forms.md` before writing or changing a form.
 
 Read `docs/frontend/data-layer.md` before adding or changing a read, a mutation or an `AsyncResult` render. The rules most often broken:
 
-- **One client.** `apps/frontend/src/api/Api.ts` is the only way to reach the server. Never hand-roll a fetch atom.
+- **One client.** `apps/frontend/src/api/Api.ts` is the only way to reach the server. Never hand-roll a fetch atom. Reads go through `query` from `@/api/query`, not `Api.query`.
 - **Reads are wrappers.** Every exported read is `Atom.family((req) => Atom.optimistic(query(req)))`, keyed by a request object with a `_view` literal. The query stays module-private, and `timeToLive` and `reactivityKeys` are declared on it.
 - **Default to optimistic.** Mutations are `viewMutation` against the wrapper of the view they fire from, keyed by view request plus entity id, with input equal to the API payload.
 - **Read and write through the same wrapper.** An optimistic value on an atom nobody renders is invisible until a reload, and nothing errors.
@@ -209,6 +209,18 @@ Effect HttpApi + Drizzle + Better Auth + Postgres. Extend within those choices u
 - Core (`server-core`) never imports an integration package. Integrations reach PP through host services the backend supplies; their host implementations and composition tests live in the matching backend directory.
 - Migrations live in `db`, HTTP contracts in `shared`. One SQL workflow engine serves every integration.
 - Don't add a universal integration-driver interface, and don't migrate other integrations as part of an ordinary integration change.
+
+### Backend services
+
+New services, and services you split or substantially rewrite, follow one shape. Older services keep theirs until they are touched; don't rename them in passing.
+
+- One module per service: the `Context.Service` tag with its interface written inline as a `Readonly<{ ... }>` shape, a private `make`, then `export const layer = Layer.effect(Tag, make)`. No separate `XShape` type; refer to the interface as `X["Service"]`.
+- Consumers import the module as a namespace (`import * as TicketQueries from "./TicketQueries"`) and use `TicketQueries.TicketQueries` and `TicketQueries.layer`.
+- Split a large service by what callers use it for, not by file length. T-259 splits `Tickets` into `TicketQueries` (reads), `TicketCommands` (edits) and `TicketGit` (branches and pull requests); each yields only the services it uses.
+- Helpers shared by a domain's services live in an internal service (`TicketView`) or a module of pure functions (`ticketPresentation.ts`). A domain's `layer.ts` provides the internal pieces and exports only the public services; `runtime.ts` composes domain layers.
+- Every service method is `Effect.fn("Service.method")`, so it gets a span. A shared effect value, such as `TicketView.gitView`, stays a plain `Effect`.
+
+Reference: `packages/server-core/src/tickets/` and t3code's `docs/internals/effect-services.md` in `opensrc/`.
 
 ## Repo orientation
 

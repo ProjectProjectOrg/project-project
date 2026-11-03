@@ -12,6 +12,7 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 import { applyTicketDetailPatch } from "../lib/ticketPatch"
@@ -36,7 +37,7 @@ const scopeOf = (req: TicketRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 export const ticketQuery = (req: TicketRequest) =>
-  Api.query("tickets", "get", {
+  query("tickets", "get", {
     params: req.params,
     timeToLive: "2 minutes",
     reactivityKeys: [

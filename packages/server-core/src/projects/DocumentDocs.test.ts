@@ -4,7 +4,9 @@ import * as Deferred from "effect/Deferred"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { expect } from "vitest"
 
 const isoDate = (s: string) => DateTime.toDate(DateTime.makeUnsafe(s))
@@ -19,15 +21,12 @@ import {
 } from "@pp/shared"
 
 import { testActivityLayer } from "../activity/testing"
-import { GroupDocs } from "../groups/GroupDocs"
-import { GroupDocsLive } from "../groups/GroupDocsLive"
+import * as GroupDocs from "../groups/GroupDocs"
 import * as KeyedLock from "../locks/KeyedLock"
-import { Markdown, type MarkdownShape } from "../markdown/Markdown"
-import { TicketDocs } from "../tickets/TicketDocs"
-import { TicketDocsLive } from "../tickets/TicketDocsLive"
+import * as Markdown from "../markdown/Markdown"
+import * as TicketDocs from "../tickets/TicketDocs"
 import { FinishedStatuses } from "./FinishedStatuses"
-import { ProjectDocs } from "./ProjectDocs"
-import { ProjectDocsLive } from "./ProjectDocsLive"
+import * as ProjectDocs from "./ProjectDocs"
 
 const groupId = Schema.decodeUnknownSync(GroupId)
 const ticketId = Schema.decodeUnknownSync(TicketId)
@@ -40,7 +39,7 @@ function unexpectedMarkdownCall(method: string): Effect.Effect<never> {
   return Effect.die(new Error(`unexpected Markdown.${method} call`))
 }
 
-function makeMarkdown(overrides: Partial<MarkdownShape>) {
+function makeMarkdown(overrides: Partial<Markdown.Markdown["Service"]>) {
   const service = {
     root: "/tmp/projectproject-test",
     projectDir: (orgSlug: string, projectSlug: string) =>
@@ -73,14 +72,14 @@ function makeMarkdown(overrides: Partial<MarkdownShape>) {
     writeOrgLibraryFile: () => unexpectedMarkdownCall("writeOrgLibraryFile"),
     removeLibraryFile: () => unexpectedMarkdownCall("removeLibraryFile"),
     ...overrides
-  } satisfies MarkdownShape
+  } satisfies Markdown.Markdown["Service"]
 
-  return Layer.succeed(Markdown, service)
+  return Layer.succeed(Markdown.Markdown, service)
 }
 
 it.effect("TicketDocs reads ticket frontmatter as a typed document", () =>
   Effect.gen(function* () {
-    const docs = yield* TicketDocs
+    const docs = yield* TicketDocs.TicketDocs
     const document = yield* docs.read("org", "project", "T-1")
 
     expect(document).toMatchObject({
@@ -103,7 +102,7 @@ it.effect("TicketDocs reads ticket frontmatter as a typed document", () =>
     expect(document.updatedAt.toISOString()).toBe("2026-01-02T00:00:00.000Z")
   }).pipe(
     Effect.provide(
-      TicketDocsLive.pipe(
+      TicketDocs.layer.pipe(
         Layer.provideMerge(testActivityLayer()),
         Layer.provide(
           Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
@@ -139,7 +138,7 @@ it.effect(
     let body: string | undefined
 
     return Effect.gen(function* () {
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       yield* docs.create("org", "project", {
         id: ticketId("T-2"),
         title: "Write tests",
@@ -166,7 +165,7 @@ it.effect(
       )
     }).pipe(
       Effect.provide(
-        TicketDocsLive.pipe(
+        TicketDocs.layer.pipe(
           Layer.provideMerge(testActivityLayer()),
           Layer.provide(
             Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
@@ -203,7 +202,7 @@ it.effect(
       | undefined
 
     return Effect.gen(function* () {
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       yield* docs.write("org", "project", "T-2", {
         id: ticketId("T-2"),
         title: "Write tests",
@@ -248,7 +247,7 @@ it.effect(
       })
     }).pipe(
       Effect.provide(
-        TicketDocsLive.pipe(
+        TicketDocs.layer.pipe(
           Layer.provideMerge(testActivityLayer()),
           Layer.provide(
             Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
@@ -305,7 +304,7 @@ it.effect("TicketDocs serializes concurrent document updates", () => {
   }
 
   return Effect.gen(function* () {
-    const docs = yield* TicketDocs
+    const docs = yield* TicketDocs.TicketDocs
     const firstEntered = yield* Deferred.make<void>()
     const releaseFirst = yield* Deferred.make<void>()
 
@@ -338,7 +337,7 @@ it.effect("TicketDocs serializes concurrent document updates", () => {
     expect(document.commentsRegion).toContain("comment")
   }).pipe(
     Effect.provide(
-      TicketDocsLive.pipe(
+      TicketDocs.layer.pipe(
         Layer.provideMerge(testActivityLayer()),
         Layer.provide(
           Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
@@ -394,7 +393,7 @@ it.effect(
     }
 
     return Effect.gen(function* () {
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       const published: string[] = []
       const firstEntered = yield* Deferred.make<void>()
       const releaseFirst = yield* Deferred.make<void>()
@@ -446,7 +445,7 @@ it.effect(
       expect(document.commentsRegion).toContain("comment")
     }).pipe(
       Effect.provide(
-        TicketDocsLive.pipe(
+        TicketDocs.layer.pipe(
           Layer.provideMerge(testActivityLayer()),
           Layer.provide(
             Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
@@ -475,7 +474,7 @@ it.effect(
 
 it.effect("GroupDocs reads missing optional fields as typed defaults", () =>
   Effect.gen(function* () {
-    const docs = yield* GroupDocs
+    const docs = yield* GroupDocs.GroupDocs
     const document = yield* docs.read("org", "project", "G-1")
 
     expect(document).toMatchObject({
@@ -494,7 +493,7 @@ it.effect("GroupDocs reads missing optional fields as typed defaults", () =>
     expect(document.updatedAt.toISOString()).toBe("2026-03-02T00:00:00.000Z")
   }).pipe(
     Effect.provide(
-      GroupDocsLive.pipe(
+      GroupDocs.layer.pipe(
         Layer.provideMerge(testActivityLayer()),
         Layer.provide(
           makeMarkdown({
@@ -527,7 +526,7 @@ it.effect("GroupDocs serializes typed group documents for disk writes", () => {
     | undefined
 
   return Effect.gen(function* () {
-    const docs = yield* GroupDocs
+    const docs = yield* GroupDocs.GroupDocs
     yield* docs.writeIfExists("org", "project", "G-2", {
       id: groupId("G-2"),
       name: "Sprint 1",
@@ -562,7 +561,7 @@ it.effect("GroupDocs serializes typed group documents for disk writes", () => {
     })
   }).pipe(
     Effect.provide(
-      GroupDocsLive.pipe(
+      GroupDocs.layer.pipe(
         Layer.provideMerge(testActivityLayer()),
         Layer.provide(
           makeMarkdown({
@@ -591,7 +590,7 @@ it.effect("GroupDocs serializes typed group documents for disk writes", () => {
 
 it.effect("ProjectDocs reads project frontmatter with typed defaults", () =>
   Effect.gen(function* () {
-    const docs = yield* ProjectDocs
+    const docs = yield* ProjectDocs.ProjectDocs
     const document = yield* docs.read("org", "project")
 
     expect(document).toMatchObject({
@@ -605,7 +604,7 @@ it.effect("ProjectDocs reads project frontmatter with typed defaults", () =>
     expect(document.createdAt.toISOString()).toBe("2026-05-01T00:00:00.000Z")
   }).pipe(
     Effect.provide(
-      ProjectDocsLive.pipe(
+      ProjectDocs.layer.pipe(
         Layer.provide(
           makeMarkdown({
             readProjectFile: () =>
@@ -638,7 +637,7 @@ it.effect(
       | undefined
 
     return Effect.gen(function* () {
-      const docs = yield* ProjectDocs
+      const docs = yield* ProjectDocs.ProjectDocs
       yield* docs.write("org", "project", {
         org: "org",
         slug: "project",
@@ -690,7 +689,7 @@ it.effect(
       })
     }).pipe(
       Effect.provide(
-        ProjectDocsLive.pipe(
+        ProjectDocs.layer.pipe(
           Layer.provide(
             makeMarkdown({
               readProjectFile: () => Effect.fail(new NotFound()),
@@ -710,7 +709,7 @@ it.effect(
   "ProjectDocs.readRaw returns the on-disk path and raw file contents",
   () =>
     Effect.gen(function* () {
-      const docs = yield* ProjectDocs
+      const docs = yield* ProjectDocs.ProjectDocs
       const file = yield* docs.readRaw("acme", "web")
       expect(file).toEqual({
         path: "project.md",
@@ -718,7 +717,7 @@ it.effect(
       })
     }).pipe(
       Effect.provide(
-        ProjectDocsLive.pipe(
+        ProjectDocs.layer.pipe(
           Layer.provide(
             makeMarkdown({
               readProjectFileRaw: (_org, _slug) =>
@@ -737,7 +736,7 @@ it.effect(
   "TicketDocs.readRaw returns the on-disk path and raw file contents",
   () =>
     Effect.gen(function* () {
-      const docs = yield* TicketDocs
+      const docs = yield* TicketDocs.TicketDocs
       const file = yield* docs.readRaw("acme", "web", "T-12")
       expect(file).toEqual({
         path: "tickets/T-12.md",
@@ -745,7 +744,7 @@ it.effect(
       })
     }).pipe(
       Effect.provide(
-        TicketDocsLive.pipe(
+        TicketDocs.layer.pipe(
           Layer.provideMerge(testActivityLayer()),
           Layer.provide(
             Layer.mergeAll(KeyedLock.layer, FinishedStatuses.baseline)
@@ -768,7 +767,7 @@ it.effect(
   "GroupDocs.readRaw returns the on-disk path and raw file contents",
   () =>
     Effect.gen(function* () {
-      const docs = yield* GroupDocs
+      const docs = yield* GroupDocs.GroupDocs
       const file = yield* docs.readRaw("acme", "web", "G-3")
       expect(file).toEqual({
         path: "groups/G-3.md",
@@ -776,7 +775,7 @@ it.effect(
       })
     }).pipe(
       Effect.provide(
-        GroupDocsLive.pipe(
+        GroupDocs.layer.pipe(
           Layer.provideMerge(testActivityLayer()),
           Layer.provide(
             makeMarkdown({
@@ -791,3 +790,98 @@ it.effect(
       )
     )
 )
+
+it.effect("GroupDocs traces each call under one GroupDocs span", () => {
+  const spans: Array<Tracer.NativeSpan> = []
+  const tracer = Tracer.make({
+    span: (options) => {
+      const span = new Tracer.NativeSpan(options)
+      spans.push(span)
+      return span
+    }
+  })
+  const file = {
+    data: {
+      id: "G-4",
+      name: "Sprint 4",
+      color: "#10b981",
+      createdBy: "user-1",
+      createdAt: "2026-03-30T00:00:00.000Z",
+      updatedAt: "2026-03-30T00:00:00.000Z"
+    },
+    body: "# Sprint 4\n"
+  }
+  return Effect.gen(function* () {
+    const docs = yield* GroupDocs.GroupDocs
+    const document = yield* docs.read("acme", "web", "G-4")
+    yield* docs.listIds("acme", "web")
+    yield* docs.create("acme", "web", document)
+    yield* docs.write("acme", "web", "G-4", document)
+    yield* docs.writeIfExists("acme", "web", "G-4", document)
+    yield* docs.readRaw("acme", "web", "G-4")
+    yield* docs.remove("acme", "web", "G-4")
+
+    const group = (operation: string, parent: string | null = null) => ({
+      name: `GroupDocs.${operation}`,
+      parent,
+      attributes: {
+        module: "GroupDocs",
+        operation,
+        orgSlug: "acme",
+        slug: "web",
+        groupId: "G-4"
+      }
+    })
+    expect(
+      spans
+        .filter((span) => span.name.startsWith("GroupDocs."))
+        .map((span) => ({
+          name: span.name,
+          parent: Option.match(span.parent, {
+            onNone: () => null,
+            onSome: (parent) => (parent._tag === "Span" ? parent.name : null)
+          }),
+          attributes: Object.fromEntries(span.attributes)
+        }))
+    ).toEqual([
+      group("read"),
+      {
+        name: "GroupDocs.listIds",
+        parent: null,
+        attributes: {
+          module: "GroupDocs",
+          operation: "listIds",
+          orgSlug: "acme",
+          slug: "web"
+        }
+      },
+      group("create"),
+      group("write"),
+      group("read", "GroupDocs.write"),
+      group("writeIfExists"),
+      group("read", "GroupDocs.writeIfExists"),
+      group("readRaw"),
+      group("remove"),
+      group("read", "GroupDocs.remove")
+    ])
+  }).pipe(
+    Effect.withTracer(tracer),
+    Effect.provide(
+      GroupDocs.layer.pipe(
+        Layer.provideMerge(testActivityLayer()),
+        Layer.provide(
+          makeMarkdown({
+            listGroupIds: () => Effect.succeed(["G-4"]),
+            readGroupFile: () => Effect.succeed(file),
+            readGroupFileRaw: () =>
+              Effect.succeed({ path: "groups/G-4.md", content: "" }),
+            createGroupFile: () => Effect.void,
+            writeGroupFile: () => Effect.void,
+            writeGroupFileIfExists: () => Effect.void,
+            removeGroupFile: () => Effect.void
+          })
+        )
+      )
+    )
+  )
+})

@@ -17,8 +17,6 @@ import {
   ProjectScope,
   RequiresOrg,
   RequiresProject,
-  type OrgScopeShape,
-  type ProjectScopeShape,
   User
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -143,8 +141,8 @@ const AuthenticationStub = Layer.succeed(Authentication, {
 })
 
 type Scopes = Readonly<{
-  org?: OrgScopeShape
-  projects?: ReadonlyArray<ProjectScopeShape>
+  org?: OrgScope["Service"]
+  projects?: ReadonlyArray<ProjectScope["Service"]>
 }>
 
 type Reply = Readonly<{ status: number; body: string }>

@@ -3,14 +3,15 @@ import { Conflict, OrgScope, type OrgRole } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as TestClock from "effect/testing/TestClock"
+import * as Tracer from "effect/Tracer"
 import { expect } from "vitest"
 
 import { databaseLayer } from "../../test/database"
 import { orgScope } from "../access/testing"
-import { Org } from "./Org"
-import { OrgLive } from "./OrgLive"
+import * as Org from "./Org"
 
 const NOW = "2026-05-19T00:00:00.000Z"
 const setNow = TestClock.setTime(
@@ -73,7 +74,7 @@ const inScope = (
 ) =>
   Effect.provide(
     Layer.merge(
-      OrgLive.pipe(Layer.provide(makeDb(state))),
+      Org.layer.pipe(Layer.provide(makeDb(state))),
       Layer.succeed(OrgScope, orgScope(role, { deletedAt }))
     )
   )
@@ -84,8 +85,8 @@ it.effect("myOrgs maps rows and filters deleted in the query", () =>
       { slug: "acme", name: "Acme", role: "owner" },
       { slug: "beta", name: "Beta", role: "member" }
     ])
-    const org = yield* Org.pipe(
-      Effect.provide(OrgLive.pipe(Layer.provide(makeDb(state))))
+    const org = yield* Org.Org.pipe(
+      Effect.provide(Org.layer.pipe(Layer.provide(makeDb(state))))
     )
     const orgs = yield* org.myOrgs("user-1")
     expect(orgs).toEqual([
@@ -103,7 +104,7 @@ it.effect(
   () => {
     const deletedAt = daysBefore(3)
     return Effect.gen(function* () {
-      const org = yield* Org
+      const org = yield* Org.Org
       const detail = yield* org.get()
       expect(detail).toStrictEqual({
         id: "org-1",
@@ -121,7 +122,7 @@ it.effect(
 
 it.effect("get returns null deletedAt/purgeAt for a live org", () =>
   Effect.gen(function* () {
-    const org = yield* Org
+    const org = yield* Org.Org
     const detail = yield* org.get()
     expect(detail.deletedAt).toBeNull()
     expect(detail.purgeAt).toBeNull()
@@ -132,7 +133,7 @@ it.effect("softDelete sets deletedAt for an owner", () => {
   const state = makeState()
   return Effect.gen(function* () {
     yield* setNow
-    const org = yield* Org
+    const org = yield* Org.Org
     const detail = yield* org.softDelete()
     expect(detail.deletedAt).toEqual(nowDate)
     expect(detail.purgeAt).toEqual(plusGrace(nowDate))
@@ -146,7 +147,7 @@ it.effect(
     const state = makeState()
     return Effect.gen(function* () {
       yield* setNow
-      const org = yield* Org
+      const org = yield* Org.Org
       const detail = yield* org.restore()
       expect(detail.deletedAt).toBeNull()
       expect(detail.purgeAt).toBeNull()
@@ -158,7 +159,7 @@ it.effect(
 it.effect("restore rejects a past-grace org with Conflict", () =>
   Effect.gen(function* () {
     yield* setNow
-    const org = yield* Org
+    const org = yield* Org.Org
     const error = yield* Effect.flip(org.restore())
     expect(error).toStrictEqual(new Conflict({ reason: "grace_expired" }))
   }).pipe(inScope(makeState(), "owner", daysBefore(20)))
@@ -167,8 +168,30 @@ it.effect("restore rejects a past-grace org with Conflict", () =>
 it.effect("restore rejects a live org with Conflict", () =>
   Effect.gen(function* () {
     yield* setNow
-    const org = yield* Org
+    const org = yield* Org.Org
     const error = yield* Effect.flip(org.restore())
     expect(error).toStrictEqual(new Conflict({ reason: "not_deleted" }))
   }).pipe(inScope(makeState(), "owner"))
 )
+
+it.effect("traces each Org call under its own span", () => {
+  const spans: Array<Tracer.NativeSpan> = []
+  const tracer = Tracer.make({
+    span: (options) => {
+      const span = new Tracer.NativeSpan(options)
+      spans.push(span)
+      return span
+    }
+  })
+  return Effect.gen(function* () {
+    yield* setNow
+    const org = yield* Org.Org
+    yield* org.myOrgs("user-1")
+    yield* org.get()
+    yield* org.softDelete()
+    yield* Effect.flip(org.restore())
+    expect(
+      spans.flatMap((span) => (Option.isNone(span.parent) ? [span.name] : []))
+    ).toEqual(["Org.myOrgs", "Org.get", "Org.softDelete", "Org.restore"])
+  }).pipe(Effect.withTracer(tracer), inScope(makeState(), "owner"))
+})

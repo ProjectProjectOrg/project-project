@@ -1,6 +1,6 @@
 import { Db } from "@pp/db"
 import { oauthClient, oauthConsent, user } from "@pp/db/auth-schema"
-import { Users } from "@pp/server-core/users/Users"
+import { UserId } from "@pp/shared"
 import {
   createDpopReplayStore,
   verifyAccessTokenRequest
@@ -14,7 +14,8 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import { auth } from "../auth"
-import type { ToolCallerShape } from "../tools/ToolCaller"
+import type { Caller } from "../tools/ToolCaller"
+import { normalizeEditorPreference } from "./Auth"
 import { proofUrl } from "./proofUrl"
 
 export class TokenRejected extends Data.TaggedError("TokenRejected")<
@@ -40,7 +41,6 @@ const decodeClaims = Schema.decodeUnknownEffect(AccessTokenClaims)
 export const bearerVerifier = (resource: string) =>
   Effect.gen(function* () {
     const db = yield* Db
-    const users = yield* Users
     const { baseURL, internalAdapter } = yield* Effect.promise(
       () => auth.$context
     )
@@ -80,42 +80,70 @@ export const bearerVerifier = (resource: string) =>
     const resolveCaller = Effect.fn("BearerAuth.resolveCaller")(function* (
       decoded: typeof AccessTokenClaims.Type
     ) {
-      const consents = yield* db
-        .select({ id: oauthConsent.id, clientName: oauthClient.name })
-        .from(oauthConsent)
-        .innerJoin(oauthClient, eq(oauthClient.clientId, oauthConsent.clientId))
-        .where(
-          and(
-            eq(oauthConsent.userId, decoded.sub),
-            eq(oauthConsent.clientId, decoded.client_id),
-            inArray(oauthConsent.id, decoded.pp_consent_ids),
-            or(isNull(oauthClient.disabled), eq(oauthClient.disabled, false))
-          )
-        )
-        .limit(1)
-        .pipe(Effect.orDie)
+      const [consents, [account]] = yield* Effect.all(
+        [
+          db
+            .select({ id: oauthConsent.id, clientName: oauthClient.name })
+            .from(oauthConsent)
+            .innerJoin(
+              oauthClient,
+              eq(oauthClient.clientId, oauthConsent.clientId)
+            )
+            .where(
+              and(
+                eq(oauthConsent.userId, decoded.sub),
+                eq(oauthConsent.clientId, decoded.client_id),
+                inArray(oauthConsent.id, decoded.pp_consent_ids),
+                or(
+                  isNull(oauthClient.disabled),
+                  eq(oauthClient.disabled, false)
+                )
+              )
+            )
+            .limit(1)
+            .pipe(Effect.orDie),
+          db
+            .select({
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              username: user.username,
+              image: user.image,
+              createdAt: user.createdAt,
+              editorPreference: user.editorPreference,
+              banned: user.banned,
+              banExpires: user.banExpires
+            })
+            .from(user)
+            .where(eq(user.id, decoded.sub))
+            .limit(1)
+            .pipe(Effect.orDie)
+        ],
+        { concurrency: "unbounded" }
+      )
       if (consents.length === 0) {
         return yield* new ConsentRevoked()
       }
-      const [account] = yield* db
-        .select({ banned: user.banned, banExpires: user.banExpires })
-        .from(user)
-        .where(eq(user.id, decoded.sub))
-        .limit(1)
-        .pipe(Effect.orDie)
+      if (!account) {
+        return yield* Effect.die("Token subject is missing from users")
+      }
       const now = yield* DateTime.nowAsDate
       if (
-        account?.banned &&
+        account.banned &&
         (account.banExpires === null || account.banExpires > now)
       ) {
         return yield* new UserBanned()
       }
-      const found = yield* users.fullByIds([decoded.sub])
-      if (!found[0]) {
-        return yield* Effect.die("Token subject is missing from users")
-      }
-      const caller: ToolCallerShape = {
-        user: found[0],
+      const caller: Caller = {
+        user: {
+          id: UserId.make(account.id),
+          email: account.email,
+          name: account.name,
+          username: account.username,
+          image: account.image,
+          createdAt: account.createdAt,
+          editorPreference: normalizeEditorPreference(account.editorPreference)
+        },
         client: Option.some({
           id: decoded.client_id,
           name: consents[0].clientName ?? decoded.client_id

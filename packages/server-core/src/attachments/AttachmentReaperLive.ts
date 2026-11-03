@@ -3,10 +3,10 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schedule from "effect/Schedule"
 
-import { Attachments, REAPER_INTERVAL_MS } from "./Attachments"
+import * as Attachments from "./Attachments"
 
 export const reapAttachments = Effect.gen(function* () {
-  const attachments = yield* Attachments
+  const attachments = yield* Attachments.Attachments
   const { hashed, deduped } = yield* attachments.dedupeOnce()
   if (hashed > 0 || deduped > 0) {
     yield* Effect.logInfo("attachment dedupe complete", { hashed, deduped })
@@ -20,10 +20,10 @@ export const reapAttachments = Effect.gen(function* () {
 )
 
 export const AttachmentReaperLive = Layer.effectDiscard(
-  Effect.forkDetach(
+  Effect.forkScoped(
     Effect.repeat(
       reapAttachments,
-      Schedule.spaced(Duration.millis(REAPER_INTERVAL_MS))
+      Schedule.spaced(Duration.millis(Attachments.REAPER_INTERVAL_MS))
     )
   )
 )

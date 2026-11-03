@@ -1,10 +1,7 @@
 import { it } from "@effect/vitest"
-import {
-  JiraClient,
-  JiraClientLive,
-  JiraTransport
-} from "@pp/integration-jira/Client"
-import { JiraCredentials } from "@pp/integration-jira/Credentials"
+import * as Client from "@pp/integration-jira/Client"
+import * as Credentials from "@pp/integration-jira/Credentials"
+import * as Transport from "@pp/integration-jira/Transport"
 import { DateTime, Effect, Fiber, Layer, Redacted, Stream } from "effect"
 import { describe, expect } from "vitest"
 
@@ -17,7 +14,7 @@ const fixtureClient = Effect.fn("fixtureClient")(function* (
   scenario: JiraBrowserScenario
 ) {
   const fixture = yield* createJiraBrowserFixture(scenario)
-  const credentials = JiraCredentials.of({
+  const credentials = Credentials.JiraCredentials.of({
     status: () => Effect.die("unused"),
     beginConnect: () => Effect.die("unused"),
     completeConnect: () => Effect.die("unused"),
@@ -28,15 +25,15 @@ const fixtureClient = Effect.fn("fixtureClient")(function* (
       Effect.succeed({ token: Redacted.make("fixture-access-token") }),
     markReconnectRequired: () => Effect.void
   })
-  const layer = JiraClientLive.pipe(
+  const layer = Client.layer.pipe(
     Layer.provide(
       Layer.mergeAll(
-        Layer.succeed(JiraTransport, fixture.transport),
-        Layer.succeed(JiraCredentials, credentials)
+        Layer.succeed(Transport.JiraTransport, fixture.transport),
+        Layer.succeed(Credentials.JiraCredentials, credentials)
       )
     )
   )
-  const client = yield* JiraClient.pipe(Effect.provide(layer))
+  const client = yield* Client.JiraClient.pipe(Effect.provide(layer))
   return { client, fixture }
 })
 

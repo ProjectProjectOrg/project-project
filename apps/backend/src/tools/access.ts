@@ -1,4 +1,4 @@
-import { Access } from "@pp/server-core/access/Access"
+import * as Access from "@pp/server-core/access/Access"
 import {
   Forbidden,
   type OrgRequirement,
@@ -16,7 +16,7 @@ export const inOrg =
   ) =>
   (input: I) =>
     Effect.gen(function* () {
-      const scope = yield* (yield* Access).org(input.orgSlug)
+      const scope = yield* (yield* Access.Access).org(input.orgSlug)
       if (!permits(scope.permissions, requires)) {
         return yield* new Forbidden()
       }
@@ -30,7 +30,7 @@ export const inProject =
   ) =>
   (input: I) =>
     Effect.gen(function* () {
-      const scope = yield* (yield* Access).project(
+      const scope = yield* (yield* Access.Access).project(
         input.orgSlug,
         input.projectSlug
       )

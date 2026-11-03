@@ -10,8 +10,8 @@ import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import type * as Registry from "effect/reactivity/AtomRegistry"
 
-import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import { bindRowMutation, fireMutation, viewMutation } from "@/api/viewMutation"
 import {
   insertByOrderKey,
@@ -51,7 +51,7 @@ const childTicketsPage = (
   req: ChildTicketsRequest,
   cursor: string | undefined
 ) =>
-  Api.query("tickets", "list", {
+  query("tickets", "list", {
     params: req.params,
     query: {
       parent: [req.parent],
