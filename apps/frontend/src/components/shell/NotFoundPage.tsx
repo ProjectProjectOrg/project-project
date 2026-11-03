@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router"
+import type { ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { DitherShell } from "@/components/ui/dither-shell"
@@ -9,6 +10,7 @@ type NotFoundPageProps = {
   title?: string
   body?: string
   homeLabel?: string
+  actions?: ReactNode
   contained?: boolean
 }
 
@@ -17,6 +19,7 @@ export function NotFoundPage({
   title,
   body,
   homeLabel,
+  actions,
   contained = false
 }: NotFoundPageProps = {}) {
   return (
@@ -32,14 +35,18 @@ export function NotFoundPage({
         <p className="max-w-[28ch] text-body leading-relaxed text-muted-foreground">
           {body ?? m.common_not_found_body()}
         </p>
-        <Button
-          render={<Link to="/" />}
-          variant="primary"
-          size="lg"
-          className="mt-2 w-full"
-        >
-          {homeLabel ?? m.common_not_found_home_link()}
-        </Button>
+        {actions === undefined ? (
+          <Button
+            render={<Link to="/" />}
+            variant="primary"
+            size="lg"
+            className="mt-2 w-full"
+          >
+            {homeLabel ?? m.common_not_found_home_link()}
+          </Button>
+        ) : (
+          <div className="mt-2 flex w-full flex-col gap-2">{actions}</div>
+        )}
       </div>
     </DitherShell>
   )

@@ -13,6 +13,7 @@ import { ticketRepo } from "@/features/github/lib/repos"
 import { useMarkTicketRead } from "@/features/inbox/hooks/useMarkTicketRead"
 import { useProject } from "@/features/projects/hooks/useProject"
 import {
+  lastKnownBeforeNotFound,
   movedTicket,
   ticketDetail,
   ticketRequest,
@@ -22,6 +23,7 @@ import {
   TicketPage,
   TicketPageSkeleton
 } from "@/features/tickets/components/ticket-page"
+import { DeletedTicketPage } from "@/features/tickets/components/ticket-page/DeletedTicketPage"
 import { TicketBackButton } from "@/features/tickets/components/ticket-page/TicketBackButton"
 import { TicketPageLoading } from "@/features/tickets/components/ticket-page/TicketPageLoading"
 import { TicketStepper } from "@/features/tickets/components/ticket-page/TicketStepper"
@@ -40,19 +42,29 @@ const routeApi = getRouteApi(
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 
-function MovedTicketRedirect({ req }: Readonly<{ req: TicketRequest }>) {
+function MovedTicketRedirect({
+  req,
+  vanished
+}: Readonly<{
+  req: TicketRequest
+  vanished: ReturnType<typeof lastKnownBeforeNotFound>
+}>) {
   const result = useAtomValue(movedTicket(req))
   return Result.matchWithError(result, {
     onInitial: () => <TicketPageSkeleton />,
     onError: (error) =>
       Match.value(error).pipe(
-        Match.tag("NotFound", () => (
-          <NotFoundPage
-            contained
-            title={m.tickets_not_found_title()}
-            body={m.tickets_not_found_body()}
-          />
-        )),
+        Match.tag("NotFound", () =>
+          vanished !== null ? (
+            <DeletedTicketPage ticket={vanished} />
+          ) : (
+            <NotFoundPage
+              contained
+              title={m.tickets_not_found_title()}
+              body={m.tickets_not_found_body()}
+            />
+          )
+        ),
         Match.orElse((error) => <ErrorPage contained error={error} />)
       ),
     onDefect: (defect) => <ErrorPage contained error={defect} />,
@@ -144,7 +156,12 @@ function LoadedTicket({
     onInitial: () => loading,
     onError: (error) =>
       Match.value(error).pipe(
-        Match.tag("NotFound", () => <MovedTicketRedirect req={req} />),
+        Match.tag("NotFound", () => (
+          <MovedTicketRedirect
+            req={req}
+            vanished={lastKnownBeforeNotFound(result)}
+          />
+        )),
         Match.orElse((error) => <ErrorPage contained error={error} />)
       ),
     onDefect: (defect) => <ErrorPage contained error={defect} />,

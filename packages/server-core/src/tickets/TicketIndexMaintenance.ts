@@ -26,6 +26,7 @@ import * as Layer from "effect/Layer"
 import * as SqlClient from "effect/sql/SqlClient"
 
 import { parseCommentsRegion } from "../comments/comments-region"
+import * as LiveChanges from "../live/LiveChanges"
 import type * as Markdown from "../markdown/Markdown"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketIndex from "./TicketIndex"
@@ -262,6 +263,7 @@ const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
   const ticketDocs = yield* TicketDocs.TicketDocs
   const repairs = yield* TicketIndexRepairs.TicketIndexRepairs
+  const liveChanges = yield* LiveChanges.LiveChanges
 
   const collectDocuments = (project: TicketProject) =>
     Effect.gen(function* () {
@@ -548,6 +550,13 @@ const make = Effect.gen(function* () {
           ),
           Effect.tap(() =>
             Effect.sync(() => repairBackoff.delete(project.projectId))
+          ),
+          Effect.tap(() =>
+            liveChanges.publish({
+              kind: "tickets",
+              orgSlug: project.orgSlug,
+              slug: project.slug
+            })
           ),
           Effect.catchCause((cause) =>
             Clock.currentTimeMillis.pipe(

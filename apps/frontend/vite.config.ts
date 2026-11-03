@@ -10,6 +10,7 @@ import { defineConfig } from "vite"
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const domTests = [
+  "src/api/liveFreshness.test.ts",
   "src/features/*/hooks/**/*.test.{ts,tsx}",
   "src/features/attachments/atoms/attachments.test.ts",
   "src/features/editor/components/LexicalEditor.test.ts",

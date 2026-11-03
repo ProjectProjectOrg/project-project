@@ -7,7 +7,7 @@ import {
   useParams
 } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useState } from "react"
+import { Fragment, useState } from "react"
 
 import { Breadcrumbs } from "@/components/shell/Breadcrumbs"
 import { ErrorPage } from "@/components/shell/ErrorPage"
@@ -19,6 +19,7 @@ import { authedRouteRedirect } from "@/features/auth/lib/authRedirect"
 import { CommandMenuHost } from "@/features/command-menu/components/CommandMenuHost"
 import { RunningTimerIndicator } from "@/features/everhour/components/RunningTimerIndicator"
 import { SendFeedbackDialogHost } from "@/features/feedback/components/SendFeedbackDialog"
+import { LiveUpdates } from "@/features/live/components/LiveUpdates"
 import { CreateSprintDialogHost } from "@/features/sprints/components/CreateSprintDialog"
 import { CreateTicketDialogHost } from "@/features/tickets/components/create-ticket/CreateTicketDialog"
 import { FlagTicketDialogHost } from "@/features/tickets/components/FlagTicketDialog"
@@ -43,10 +44,12 @@ export function AuthedLayout() {
         return <Navigate to="/orgs/$orgSlug" params={redirect.params} replace />
       }
       return (
-        <Shell
-          key={orgSlug ?? value.activeOrgSlug}
-          user={{ ...value, activeOrgSlug: orgSlug ?? value.activeOrgSlug }}
-        />
+        <Fragment key={orgSlug ?? value.activeOrgSlug}>
+          <LiveUpdates />
+          <Shell
+            user={{ ...value, activeOrgSlug: orgSlug ?? value.activeOrgSlug }}
+          />
+        </Fragment>
       )
     }
   })

@@ -4,6 +4,8 @@ import * as React from "react"
 import { useActivityHiddenPortalRef } from "@/hooks/useActivityHiddenPortalRef"
 import { cn } from "@/lib/utils"
 
+import { InteractionHold } from "./interaction-hold"
+
 function Popover(props: React.ComponentProps<typeof PopoverPrimitive.Root>) {
   return <PopoverPrimitive.Root {...props} />
 }
@@ -61,6 +63,7 @@ function PopoverContent({
         collisionBoundary={collisionBoundary}
         collisionPadding={collisionPadding}
       >
+        <InteractionHold />
         <PopoverPrimitive.Popup
           data-slot="popover-content"
           className={cn(

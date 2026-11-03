@@ -19,6 +19,8 @@ import { forwardThroughMenuBackdrop, isMenuBackdrop } from "@/lib/menuBackdrop"
 import { fieldTouchClass } from "@/lib/typeScale"
 import { cn } from "@/lib/utils"
 
+import { InteractionHold } from "./interaction-hold"
+
 const DeferMenusContext = React.createContext(false)
 type DropdownMenuFilter =
   | boolean
@@ -216,6 +218,7 @@ function DropdownMenuPopup({
           className={cn(menuPopupClass, className)}
           {...props}
         >
+          <InteractionHold />
           <MenuHighlight restOnFirst={highlightFirst} />
           {children}
         </MenuPrimitive.Popup>

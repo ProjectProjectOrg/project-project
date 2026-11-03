@@ -1,15 +1,21 @@
-import type {
-  ArchiveTicketInput,
-  DeleteTicketQuery,
-  MoveTicketInput,
-  MarkTicketInput,
-  SplitTicketInput,
-  TicketId
+import {
+  type ArchiveTicketInput,
+  type DeleteTicketQuery,
+  type MarkTicketInput,
+  type MoveTicketInput,
+  NotFound,
+  type SplitTicketInput,
+  type TicketDetail,
+  type TicketId
 } from "@pp/shared"
+import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Reactivity from "effect/reactivity/Reactivity"
+import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
@@ -65,6 +71,17 @@ const movedTicketQuery = (req: TicketRequest) =>
 export const movedTicket = Atom.family((req: TicketRequest) =>
   Atom.optimistic(movedTicketQuery(req))
 )
+
+export const lastKnownBeforeNotFound = (
+  result: AsyncResult.AsyncResult<TicketDetail, unknown>
+): TicketDetail | null =>
+  AsyncResult.isFailure(result) &&
+  Cause.findErrorOption(result.cause).pipe(
+    Option.exists(Schema.is(NotFound))
+  ) &&
+  Option.isSome(result.previousSuccess)
+    ? result.previousSuccess.value.value
+    : null
 
 export const ticketBodyDraft = Atom.family((_req: TicketRequest) =>
   Atom.make<string | null>(null).pipe(Atom.setIdleTTL("10 minutes"))
