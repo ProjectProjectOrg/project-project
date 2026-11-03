@@ -30,6 +30,14 @@ pp upgrade --nightly    # the latest nightly
 
 Once a day `pp` asks your server which release it runs. When yours is different, commands still work and end with a line suggesting `pp upgrade`. If a command's input has changed between your `pp` and the server, that command stops and tells you to run `pp upgrade`; other commands keep working. Set `PP_NO_UPDATE_CHECK=1` to turn the daily check off.
 
+### Uninstall
+
+```sh
+pp uninstall
+```
+
+This signs you out of every server, deletes `~/.config/pp`, takes the installer's line out of your shell profile and removes the `pp` binary. It asks first; agents and scripts pass `--yes`.
+
 ### From the repository
 
 ```sh

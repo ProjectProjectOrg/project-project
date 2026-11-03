@@ -16,7 +16,7 @@ const fakeRelease = (directory: string, tamper: boolean) =>
     tamper ? "sed -i.bak 's/^[0-9a-f]*/0000/' SHA256SUMS" : "true"
   ].join("\n")
 
-const install = (tamper: boolean, shell?: string) =>
+const install = (tamper: boolean, shell?: string, uninstall = false) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
@@ -25,6 +25,7 @@ const install = (tamper: boolean, shell?: string) =>
     const release = path.join(home, "release")
     const bin = path.join(home, "bin")
     yield* fs.makeDirectory(release)
+    yield* fs.writeFileString(path.join(home, ".bashrc"), "alias ll='ls -l'\n")
     yield* spawner.string(
       ChildProcess.make("sh", ["-c", fakeRelease(release, tamper)])
     )
@@ -43,6 +44,15 @@ const install = (tamper: boolean, shell?: string) =>
         stderr: "ignore"
       })
     )
+    if (uninstall) {
+      yield* spawner.exitCode(
+        ChildProcess.make(
+          process.execPath,
+          [path.resolve(import.meta.dirname, "main.ts"), "uninstall", "--yes"],
+          { env: { ...env, PP_NO_UPDATE_CHECK: "1" }, stdout: "ignore" }
+        )
+      )
+    }
     const installed = yield* fs.exists(path.join(bin, "pp"))
     const output = installed
       ? yield* spawner.string(ChildProcess.make(path.join(bin, "pp"), []))
@@ -84,6 +94,14 @@ describe("install.sh", () => {
       const result = yield* install(false, "/bin/bash")
       expect(result.bashrc).toContain("# Added by the pp installer")
       expect(result.bashProfile).toContain("# Added by the pp installer")
+    })
+  )
+
+  it.effect("pp uninstall takes back exactly the PATH lines it added", () =>
+    Effect.gen(function* () {
+      const result = yield* install(false, "/bin/bash", true)
+      expect(result.bashrc).toBe("alias ll='ls -l'\n")
+      expect(result.bashProfile).toBe("")
     })
   )
 })

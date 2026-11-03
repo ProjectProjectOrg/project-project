@@ -7,6 +7,7 @@ import { guideCommand } from "./guide"
 import { overviewCommand } from "./overview"
 import { root } from "./root"
 import { statusCommand, useCommand } from "./scope"
+import { uninstallCommand } from "./uninstall"
 import { upgradeCommand } from "./upgrade"
 
 const groupDescriptions: Readonly<Record<string, string>> = {
@@ -57,6 +58,7 @@ export const pp = root.pipe(
     overviewCommand,
     guideCommand,
     upgradeCommand,
+    uninstallCommand,
     ...topLevel,
     ...[...leaves.keys()].map(groupCommand)
   ])
