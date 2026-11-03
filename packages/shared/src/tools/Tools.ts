@@ -124,6 +124,7 @@ export class ToolCli extends Context.Service<
   ToolCli,
   Readonly<{
     command: readonly [string, ...ReadonlyArray<string>]
+    summary: string
     args?: ReadonlyArray<string>
   }>
 >()("@pp/shared/tools/Tools/ToolCli") {}
@@ -211,7 +212,10 @@ export const Tools = Toolkit.make(
       "when assigning yourself to a ticket, and each org you belong to " +
       "with your role there. Call this first when you don't know which " +
       "org to work in.",
-    cli: { command: ["me"] },
+    cli: {
+      command: ["me"],
+      summary: "Show who you are and the orgs you belong to."
+    },
     parameters: Schema.Record(Schema.String, Schema.Never),
     success: MeOutput
   }),
@@ -221,7 +225,10 @@ export const Tools = Toolkit.make(
     description:
       "List the organizations you belong to. Each `slug` is the `orgSlug` " +
       "other tools take. Paginated: pass `nextCursor` back as `cursor`.",
-    cli: { command: ["orgs", "list"] },
+    cli: {
+      command: ["orgs", "list"],
+      summary: "List the organizations you belong to."
+    },
     parameters: Pagination,
     success: Page(Org)
   }),
@@ -236,7 +243,10 @@ export const Tools = Toolkit.make(
       "their own. If storage is not connected or broken, the user has to " +
       "fix it in organization settings before `prepare_ticket_attachment` " +
       "can work.",
-    cli: { command: ["orgs", "get"] },
+    cli: {
+      command: ["orgs", "get"],
+      summary: "Show an organization and its storage status."
+    },
     parameters: Schema.Struct({ orgSlug }),
     success: Schema.Struct({
       ...Org.fields,
@@ -254,7 +264,10 @@ export const Tools = Toolkit.make(
       "`projectSlug` other tools take, and `key` is the prefix of its " +
       "ticket ids (key `T` gives `T-12`). Paginated: pass `nextCursor` " +
       "back as `cursor`.",
-    cli: { command: ["projects", "list"] },
+    cli: {
+      command: ["projects", "list"],
+      summary: "List the projects in an organization."
+    },
     parameters: Schema.Struct({ orgSlug, ...Pagination.fields }),
     success: Page(Project)
   }),
@@ -268,7 +281,10 @@ export const Tools = Toolkit.make(
       "(`estimation`, see `create_ticket`), members, your `permissions`, " +
       "and `body`, the project's own markdown description. Read `body` " +
       "for background before writing or refining tickets.",
-    cli: { command: ["projects", "get"] },
+    cli: {
+      command: ["projects", "get"],
+      summary: "Show a project, its members and settings."
+    },
     parameters: Schema.Struct({ orgSlug, projectSlug }),
     success: ProjectDetail
   }),
@@ -279,7 +295,10 @@ export const Tools = Toolkit.make(
       "List a project's groups: sprints, epics, milestones and other sets " +
       "of tickets (ids like `G-3`). For sprints alone, `list_sprints` is " +
       "simpler. Paginated: pass `nextCursor` back as `cursor`.",
-    cli: { command: ["groups", "list"] },
+    cli: {
+      command: ["groups", "list"],
+      summary: "List sprints, epics, milestones and other groups."
+    },
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,
@@ -298,7 +317,7 @@ export const Tools = Toolkit.make(
       "List a project's sprints, using the same rules as the app's sprint " +
       "page. Use this to find the current sprint, and `list_groups` for " +
       "epics and milestones. Paginated: pass `nextCursor` back as `cursor`.",
-    cli: { command: ["sprints", "list"] },
+    cli: { command: ["sprints", "list"], summary: "List a project's sprints." },
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,
@@ -317,7 +336,11 @@ export const Tools = Toolkit.make(
       "Fetch one group (sprint, epic or milestone) by id (`G-N`): its " +
       "kind, dates, member ticket ids (`tickets`) and markdown `body`. To " +
       "read those tickets, call `list_tickets` with `groupId`.",
-    cli: { command: ["groups", "get"], args: ["id"] },
+    cli: {
+      command: ["groups", "get"],
+      args: ["id"],
+      summary: "Show a group and the tickets in it."
+    },
     parameters: Schema.Struct({ orgSlug, projectSlug, id: groupId }),
     success: GroupDetail
   }),
@@ -332,7 +355,10 @@ export const Tools = Toolkit.make(
       "`subTicketCount` and `subTicketDoneCount`. Ticket `status` values " +
       "are slugs; use the label from `list_statuses` in conversation. " +
       "Paginated: pass `nextCursor` back as `cursor`.",
-    cli: { command: ["tickets", "list"] },
+    cli: {
+      command: ["tickets", "list"],
+      summary: "List and filter a project's tickets."
+    },
     parameters: TicketListQuery.pipe(
       Schema.fieldsAssign({
         orgSlug,
@@ -355,7 +381,11 @@ export const Tools = Toolkit.make(
       "Read a ticket before updating it: `update_ticket` replaces the " +
       "whole body. Use the label from `list_statuses` when naming its " +
       "status in conversation.",
-    cli: { command: ["tickets", "get"], args: ["id"] },
+    cli: {
+      command: ["tickets", "get"],
+      args: ["id"],
+      summary: "Show a ticket with its description and git state."
+    },
     parameters: Schema.Struct({ orgSlug, projectSlug, id: ticketId }),
     success: TicketDetailWithBlocks
   }),
@@ -376,7 +406,10 @@ export const Tools = Toolkit.make(
       "moves a ticket backwards. Don't set a status by hand that " +
       "automation will set for you. `setBy` and `automationForwardOnly` " +
       "are left out when you can't read the project's GitHub settings.",
-    cli: { command: ["statuses", "list"] },
+    cli: {
+      command: ["statuses", "list"],
+      summary: "List a project's statuses in workflow order."
+    },
     parameters: Schema.Struct({ orgSlug, projectSlug }),
     success: Schema.Struct({
       statuses: Schema.Array(StatusWithAutomation),
@@ -390,7 +423,7 @@ export const Tools = Toolkit.make(
       "List the tags defined in a project. Tickets can only use existing " +
       "tags: `create_ticket` and `update_ticket` fail on an unknown name. " +
       "Paginated: pass `nextCursor` back as `cursor`.",
-    cli: { command: ["tags", "list"] },
+    cli: { command: ["tags", "list"], summary: "List a project's tags." },
     parameters: Schema.Struct({ orgSlug, projectSlug, ...Pagination.fields }),
     success: Page(Tag)
   }),
@@ -401,7 +434,10 @@ export const Tools = Toolkit.make(
       "List the project's members with their role. Use a member's `id` in " +
       "ticket `assignees` and in `[Label](mention:user/<id>)` mentions. " +
       "Paginated: pass `nextCursor` back as `cursor`.",
-    cli: { command: ["members", "list"] },
+    cli: {
+      command: ["members", "list"],
+      summary: "List a project's members and their roles."
+    },
     parameters: Schema.Struct({ orgSlug, projectSlug, ...Pagination.fields }),
     success: Page(Member)
   }),
@@ -421,7 +457,11 @@ export const Tools = Toolkit.make(
       "pull requests and CI across a project; `get_ticket` carries the " +
       "same `gitState` for a single ticket. This only reads: it never " +
       "links branches or moves statuses. `sync_git_state` does.",
-    cli: { command: ["git", "state"], args: ["ticketId"] },
+    cli: {
+      command: ["git", "state"],
+      args: ["ticketId"],
+      summary: "Show tickets' branch and pull request state."
+    },
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,
@@ -448,7 +488,11 @@ export const Tools = Toolkit.make(
       "example right after opening a pull request. Returns the same " +
       "shape as `get_git_state`; `transitioned` lists the status moves " +
       "and `changedTicketIds` the tickets written.",
-    cli: { command: ["git", "sync"], args: ["ticketId"] },
+    cli: {
+      command: ["git", "sync"],
+      args: ["ticketId"],
+      summary: "Refresh git state and run git automation."
+    },
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,
@@ -466,7 +510,10 @@ export const Tools = Toolkit.make(
       "markdown body, exactly as stored. `get_project` returns the same " +
       "data parsed, plus members and permissions; use this when you need " +
       "the file verbatim.",
-    cli: { command: ["projects", "doc"] },
+    cli: {
+      command: ["projects", "doc"],
+      summary: "Print a project's markdown file as stored."
+    },
     parameters: Schema.Struct({ orgSlug, projectSlug }),
     success: DocFile
   }),
@@ -477,7 +524,11 @@ export const Tools = Toolkit.make(
       "Raw source of a group's markdown file: YAML frontmatter and body, " +
       "exactly as stored. `get_group` returns the same data parsed; use " +
       "this when you need the file verbatim.",
-    cli: { command: ["groups", "doc"], args: ["id"] },
+    cli: {
+      command: ["groups", "doc"],
+      args: ["id"],
+      summary: "Print a group's markdown file as stored."
+    },
     parameters: Schema.Struct({ orgSlug, projectSlug, id: groupId }),
     success: DocFile
   }),
@@ -489,7 +540,11 @@ export const Tools = Toolkit.make(
       "exactly as stored. Prefer `get_ticket`, which returns the parsed " +
       "ticket with resolved blocks and git state; use this when you need " +
       "the file verbatim.",
-    cli: { command: ["tickets", "doc"], args: ["id"] },
+    cli: {
+      command: ["tickets", "doc"],
+      args: ["id"],
+      summary: "Print a ticket's markdown file as stored."
+    },
     parameters: Schema.Struct({ orgSlug, projectSlug, id: ticketId }),
     success: DocFile
   }),
@@ -509,7 +564,10 @@ export const Tools = Toolkit.make(
       "line as-is. Hidden blocks are omitted. `sync` true means the block " +
       "is a shared, managed definition. " +
       BLOCK_FORMAT_POINTER,
-    cli: { command: ["blocks", "list"] },
+    cli: {
+      command: ["blocks", "list"],
+      summary: "List the blocks a project can use."
+    },
     parameters: Schema.Struct({ orgSlug, projectSlug }),
     success: Schema.Array(
       Schema.Struct({
@@ -539,7 +597,10 @@ export const Tools = Toolkit.make(
       "without an explicit `type` gives the ticket that type. Hidden " +
       "templates are omitted. " +
       BLOCK_FORMAT_POINTER,
-    cli: { command: ["templates", "list"] },
+    cli: {
+      command: ["templates", "list"],
+      summary: "List the ticket templates a project can use."
+    },
     parameters: Schema.Struct({ orgSlug, projectSlug }),
     success: Schema.Array(
       Schema.Struct({
@@ -583,7 +644,11 @@ export const Tools = Toolkit.make(
       MENTION_GUIDE +
       " Returns the full ticket, with the same `blocks` breakdown as " +
       "`get_ticket`.",
-    cli: { command: ["tickets", "create"], args: ["title"] },
+    cli: {
+      command: ["tickets", "create"],
+      args: ["title"],
+      summary: "Create a ticket."
+    },
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,
@@ -637,7 +702,11 @@ export const Tools = Toolkit.make(
       "The branch can't be changed here; use `attach_branch`. Returns the " +
       "full ticket after the update, with the same `blocks` breakdown as " +
       "`get_ticket`.",
-    cli: { command: ["tickets", "update"], args: ["id"] },
+    cli: {
+      command: ["tickets", "update"],
+      args: ["id"],
+      summary: "Change a ticket's fields or description."
+    },
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,
@@ -682,7 +751,11 @@ export const Tools = Toolkit.make(
       MENTION_GUIDE +
       " Archiving an archived ticket fails with `Conflict`. Returns the " +
       "ticket with `archivedAt` set.",
-    cli: { command: ["tickets", "archive"], args: ["id"] },
+    cli: {
+      command: ["tickets", "archive"],
+      args: ["id"],
+      summary: "Archive a ticket you no longer need."
+    },
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,
@@ -709,7 +782,11 @@ export const Tools = Toolkit.make(
       "to true, and read one with `get_ticket`. Restoring a " +
       "ticket that isn't archived fails with `Conflict`. Returns the ticket " +
       "with `archivedAt` null.",
-    cli: { command: ["tickets", "restore"], args: ["id"] },
+    cli: {
+      command: ["tickets", "restore"],
+      args: ["id"],
+      summary: "Bring back an archived ticket."
+    },
     parameters: Schema.Struct({ orgSlug, projectSlug, id: ticketId }),
     success: TicketDetail
   }),
@@ -738,7 +815,8 @@ export const Tools = Toolkit.make(
       "file content. If storage is not connected, connect it in organization settings and retry.",
     cli: {
       command: ["attachments", "prepare"],
-      args: ["ticketId", "filename"]
+      args: ["ticketId", "filename"],
+      summary: "Prepare a file upload for a ticket."
     },
     parameters: Schema.Struct({
       orgSlug,
@@ -779,7 +857,11 @@ export const Tools = Toolkit.make(
       "and anything a reviewer should know. " +
       MENTION_GUIDE +
       " Returns the created comment.",
-    cli: { command: ["tickets", "comment"], args: ["ticketId"] },
+    cli: {
+      command: ["tickets", "comment"],
+      args: ["ticketId"],
+      summary: "Comment on a ticket."
+    },
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,
@@ -812,7 +894,11 @@ export const Tools = Toolkit.make(
       "requests, use `stack_branch`. Linking can move the ticket's status " +
       "when a status is set by `branch_linked` (see `list_statuses`). " +
       "Returns the updated ticket.",
-    cli: { command: ["branches", "attach"], args: ["id", "name"] },
+    cli: {
+      command: ["branches", "attach"],
+      args: ["id", "name"],
+      summary: "Link a GitHub branch to a ticket."
+    },
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,
@@ -839,7 +925,11 @@ export const Tools = Toolkit.make(
       "that mentions the ticket is also stacked automatically when it " +
       "opens on a ticket that already has a branch. Pull request state " +
       "for each layer comes from GitHub. Returns the updated ticket.",
-    cli: { command: ["branches", "stack"], args: ["id", "name"] },
+    cli: {
+      command: ["branches", "stack"],
+      args: ["id", "name"],
+      summary: "Stack a branch on top of a ticket's branch."
+    },
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,
@@ -861,7 +951,11 @@ export const Tools = Toolkit.make(
       "ignored so it is not stacked on the ticket again automatically; " +
       "`stack_branch` adds it back. Fails with `Conflict` when the branch " +
       "is not stacked on the ticket. Returns the updated ticket.",
-    cli: { command: ["branches", "unstack"], args: ["id", "name"] },
+    cli: {
+      command: ["branches", "unstack"],
+      args: ["id", "name"],
+      summary: "Take a branch off a ticket's stack."
+    },
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,
@@ -882,7 +976,11 @@ export const Tools = Toolkit.make(
       "Create a sprint in a project. This tool only creates sprints, not " +
       "epics or milestones. Set the sprint's markdown `body` afterwards " +
       "with `update_sprint`. Returns the created sprint.",
-    cli: { command: ["sprints", "create"], args: ["name"] },
+    cli: {
+      command: ["sprints", "create"],
+      args: ["name"],
+      summary: "Create a sprint."
+    },
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,
@@ -910,7 +1008,11 @@ export const Tools = Toolkit.make(
       "`complete_sprint` (it carries destination semantics for " +
       "carryover); this tool deliberately excludes `completedAt`. Returns " +
       "the updated sprint.",
-    cli: { command: ["sprints", "update"], args: ["id"] },
+    cli: {
+      command: ["sprints", "update"],
+      args: ["id"],
+      summary: "Change a sprint's name, dates or description."
+    },
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,
@@ -939,7 +1041,11 @@ export const Tools = Toolkit.make(
       "Already-completed sprints fail with `SprintCompletedImmutable`. " +
       "Returns the now-completed sprint plus the `carried` ticket ids the " +
       "server moved to the destination.",
-    cli: { command: ["sprints", "complete"], args: ["id"] },
+    cli: {
+      command: ["sprints", "complete"],
+      args: ["id"],
+      summary: "Complete a sprint and move its unfinished tickets."
+    },
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,
@@ -969,7 +1075,10 @@ export const Tools = Toolkit.make(
       "content was out of date), the number of documents `indexed`, the " +
       "number `skipped` because they were unreadable, and whether the index " +
       "was actually `rebuilt`.",
-    cli: { command: ["tickets", "rebuild-index"] },
+    cli: {
+      command: ["tickets", "rebuild-index"],
+      summary: "Rebuild a project's ticket index from its files."
+    },
     parameters: Schema.Struct({ orgSlug, projectSlug }),
     success: RebuildTicketIndexOutput
   }),
@@ -993,7 +1102,11 @@ export const Tools = Toolkit.make(
       "`evicted` field of the response. Adding to a completed sprint " +
       "fails with `SprintCompletedImmutable`. Returns the updated group " +
       "and the list of evictions.",
-    cli: { command: ["groups", "add-tickets"], args: ["groupId"] },
+    cli: {
+      command: ["groups", "add-tickets"],
+      args: ["groupId"],
+      summary: "Add tickets to a sprint, epic or milestone."
+    },
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,

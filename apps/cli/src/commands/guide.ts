@@ -37,5 +37,8 @@ export const guideCommand = Command.make("guide", {}, () =>
 ).pipe(
   Command.withDescription(
     "How to work with ProjectProject through pp: the guidance agents get over MCP, with pp commands."
+  ),
+  Command.withShortDescription(
+    "Read how to work with ProjectProject through pp."
   )
 )

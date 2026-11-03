@@ -69,5 +69,6 @@ export const overviewCommand = Command.make("overview", {}, () =>
 ).pipe(
   Command.withDescription(
     "A picture of the current project: the running sprint, tickets by status, and tickets created over the last 12 weeks."
-  )
+  ),
+  Command.withShortDescription("See the current sprint and ticket trends.")
 )
