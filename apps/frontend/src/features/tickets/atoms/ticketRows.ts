@@ -2,7 +2,8 @@ import type {
   TicketId,
   TicketSort,
   TicketUpdateResult,
-  UpdateTicketInput
+  UpdateTicketInput,
+  UpdateTicketPayload
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -142,7 +143,7 @@ export const coalescingTicketUpdate = <V, VE>(
     name: update.name,
     idleTTL: update.idleTTL ?? "2 minutes",
     predict: update.predict,
-    call: (client, payload: UpdateTicketInput) =>
+    call: (client, payload: UpdateTicketPayload) =>
       client.tickets.update({
         params: update.path,
         query: update.sort === undefined ? {} : { sort: update.sort },

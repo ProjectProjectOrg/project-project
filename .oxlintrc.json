@@ -182,6 +182,22 @@
       }
     },
     {
+      "files": [
+        "apps/backend/src/**/*.ts",
+        "packages/server-core/src/**/*.ts",
+        "packages/integration-*/src/**/*.ts"
+      ],
+      "rules": {
+        "workspace/no-raw-fork-detach": "error"
+      }
+    },
+    {
+      "files": ["packages/server-core/src/live/LiveChanges.ts", "**/*.test.ts"],
+      "rules": {
+        "workspace/no-raw-fork-detach": "off"
+      }
+    },
+    {
       "files": ["apps/frontend/src/api/**/*.{ts,tsx}"],
       "rules": {
         "workspace/no-raw-api-query": "off"

@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema"
-import { useLayoutEffect, useRef } from "react"
+import { useLayoutEffect } from "react"
 
 import {
   createLocalStorageCodec,
@@ -43,6 +43,8 @@ export function useViewPreference(
 
 export type ProjectView = ViewPreference | "description"
 
+const adoptedLinkViews = new Set<string>()
+
 export function useProjectView(
   orgSlug: string,
   slug: string,
@@ -56,12 +58,11 @@ export function useProjectView(
   const fromSearch: ViewPreference | undefined =
     searchView === "list" || searchView === "board" ? searchView : undefined
 
-  const adoptedSearchView = useRef<string | undefined>(undefined)
   useLayoutEffect(() => {
     if (fromSearch === undefined) return
     const adoptionKey = `${viewPreferenceKey(orgSlug, slug, scope)}:${fromSearch}`
-    if (adoptionKey === adoptedSearchView.current) return
-    adoptedSearchView.current = adoptionKey
+    if (adoptedLinkViews.has(adoptionKey)) return
+    adoptedLinkViews.add(adoptionKey)
     setPreference(fromSearch)
   }, [fromSearch, orgSlug, slug, scope, setPreference])
 

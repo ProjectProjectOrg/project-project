@@ -106,6 +106,7 @@ import { GroupsHandlerLive } from "./handlers/groups"
 import { InvitationsHandlerLive } from "./handlers/invitations"
 import { LibraryHandlerLive } from "./handlers/library"
 import { LinkPreviewsHandlerLive } from "./handlers/linkPreviews"
+import { LiveHandlerLive } from "./handlers/live"
 import {
   OAuthApplicationsHandlerLive,
   PublicOAuthHandlerLive
@@ -206,7 +207,7 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
       FeedbackIntakeHandlerLive
     )
   ),
-  Layer.provide(AttachmentsHandlerLive)
+  Layer.provide(Layer.mergeAll(AttachmentsHandlerLive, LiveHandlerLive))
 )
 
 export const ApiLive = ApiRoutesLive.pipe(

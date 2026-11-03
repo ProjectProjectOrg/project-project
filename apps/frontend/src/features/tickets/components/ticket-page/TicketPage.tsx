@@ -105,7 +105,7 @@ export function TicketPage({
           <MarkdownSaveIndicator status={bodyStatus} />
           <SaveAsTemplatePopover
             ticket={ticket}
-            body={bodyDraft ?? ticket.body}
+            body={bodyDraft?.body ?? ticket.body}
           />
           {canEdit && actor.call("tickets", "split") && (
             <SplitTicketControl id={ticket.id} />

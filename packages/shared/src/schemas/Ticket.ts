@@ -222,6 +222,15 @@ export const UpdateTicketInput = Schema.Struct({
 })
 export type UpdateTicketInput = typeof UpdateTicketInput.Type
 
+export const UpdateTicketPayload = Schema.Struct({
+  ...UpdateTicketInput.fields,
+  expectedBody: Schema.optional(Schema.String).annotate({
+    description:
+      "The description the change was made against; the update fails with `ticket_body_changed` when the stored description differs."
+  })
+})
+export type UpdateTicketPayload = typeof UpdateTicketPayload.Type
+
 export const SplitTicketResultInput = Schema.Struct({
   title: Schema.String.pipe(
     Schema.check(Schema.isMinLength(1)),

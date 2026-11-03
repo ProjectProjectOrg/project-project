@@ -16,6 +16,7 @@ import * as Schema from "effect/Schema"
 import { groupMembershipChanges } from "../activity/changes"
 import { sprintEvents } from "../activity/projectEvents"
 import * as TicketActivity from "../activity/TicketActivity"
+import * as LiveChanges from "../live/LiveChanges"
 import { markdownFileContent } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
 
@@ -127,6 +128,22 @@ const annotateGroupDoc = <A, E, R>(
 const make = Effect.gen(function* () {
   const markdown = yield* Markdown.Markdown
   const ticketActivity = yield* TicketActivity.TicketActivity
+  const liveChanges = yield* LiveChanges.LiveChanges
+
+  const announced = <A, E, R>(
+    orgSlug: string,
+    slug: string,
+    id: string,
+    effect: Effect.Effect<A, E, R>
+  ): Effect.Effect<A, E, R> =>
+    Effect.tap(effect, () =>
+      liveChanges.publish({
+        kind: "group",
+        orgSlug,
+        slug,
+        id: GroupId.make(id)
+      })
+    )
 
   const listIds = Effect.fn("GroupDocs.listIds")(function* (
     orgSlug: string,
@@ -201,24 +218,29 @@ const make = Effect.gen(function* () {
     slug: string,
     document: GroupDocument
   ) {
-    return yield* annotateGroupDoc(
-      "create",
+    return yield* announced(
       orgSlug,
       slug,
-      { groupId: document.id },
-      recordMembership(
+      document.id,
+      annotateGroupDoc(
+        "create",
         orgSlug,
         slug,
-        document.id,
-        null,
-        document,
-        {},
-        markdown.createGroupFile(
+        { groupId: document.id },
+        recordMembership(
           orgSlug,
           slug,
           document.id,
-          encodeFrontmatter(document),
-          document.body
+          null,
+          document,
+          {},
+          markdown.createGroupFile(
+            orgSlug,
+            slug,
+            document.id,
+            encodeFrontmatter(document),
+            document.body
+          )
         )
       )
     )
@@ -231,29 +253,34 @@ const make = Effect.gen(function* () {
     document: GroupDocument,
     activity: GroupActivityOptions = {}
   ) {
-    return yield* annotateGroupDoc(
-      "write",
+    return yield* announced(
       orgSlug,
       slug,
-      { groupId: id },
-      Effect.gen(function* () {
-        const before = yield* previous(orgSlug, slug, id)
-        yield* recordMembership(
-          orgSlug,
-          slug,
-          id,
-          before,
-          document,
-          activity,
-          markdown.writeGroupFile(
+      id,
+      annotateGroupDoc(
+        "write",
+        orgSlug,
+        slug,
+        { groupId: id },
+        Effect.gen(function* () {
+          const before = yield* previous(orgSlug, slug, id)
+          yield* recordMembership(
             orgSlug,
             slug,
             id,
-            encodeFrontmatter(document),
-            document.body
+            before,
+            document,
+            activity,
+            markdown.writeGroupFile(
+              orgSlug,
+              slug,
+              id,
+              encodeFrontmatter(document),
+              document.body
+            )
           )
-        )
-      })
+        })
+      )
     )
   })
 
@@ -264,30 +291,35 @@ const make = Effect.gen(function* () {
     document: GroupDocument,
     activity: GroupActivityOptions = {}
   ) {
-    return yield* annotateGroupDoc(
-      "writeIfExists",
+    return yield* announced(
       orgSlug,
       slug,
-      { groupId: id },
-      Effect.gen(function* () {
-        const before = yield* previous(orgSlug, slug, id)
-        if (before === null) return yield* new NotFound()
-        return yield* recordMembership(
-          orgSlug,
-          slug,
-          id,
-          before,
-          document,
-          activity,
-          markdown.writeGroupFileIfExists(
+      id,
+      annotateGroupDoc(
+        "writeIfExists",
+        orgSlug,
+        slug,
+        { groupId: id },
+        Effect.gen(function* () {
+          const before = yield* previous(orgSlug, slug, id)
+          if (before === null) return yield* new NotFound()
+          return yield* recordMembership(
             orgSlug,
             slug,
             id,
-            encodeFrontmatter(document),
-            document.body
+            before,
+            document,
+            activity,
+            markdown.writeGroupFileIfExists(
+              orgSlug,
+              slug,
+              id,
+              encodeFrontmatter(document),
+              document.body
+            )
           )
-        )
-      })
+        })
+      )
     )
   })
 
@@ -296,23 +328,28 @@ const make = Effect.gen(function* () {
     slug: string,
     id: string
   ) {
-    return yield* annotateGroupDoc(
-      "remove",
+    return yield* announced(
       orgSlug,
       slug,
-      { groupId: id },
-      Effect.gen(function* () {
-        const before = yield* previous(orgSlug, slug, id)
-        yield* recordMembership(
-          orgSlug,
-          slug,
-          id,
-          before,
-          null,
-          { cause: "group_deleted" },
-          markdown.removeGroupFile(orgSlug, slug, id)
-        )
-      })
+      id,
+      annotateGroupDoc(
+        "remove",
+        orgSlug,
+        slug,
+        { groupId: id },
+        Effect.gen(function* () {
+          const before = yield* previous(orgSlug, slug, id)
+          yield* recordMembership(
+            orgSlug,
+            slug,
+            id,
+            before,
+            null,
+            { cause: "group_deleted" },
+            markdown.removeGroupFile(orgSlug, slug, id)
+          )
+        })
+      )
     )
   })
 

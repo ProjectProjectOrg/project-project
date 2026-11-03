@@ -1,4 +1,4 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import { $convertToMarkdownString } from "@lexical/markdown"
 import {
   expandTemplate,
@@ -8,8 +8,6 @@ import {
   type TicketType
 } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
-import * as Cause from "effect/Cause"
-import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   HISTORY_MERGE_TAG,
@@ -45,13 +43,13 @@ import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   ticketBodyDraft,
-  ticketRequest,
-  updateTicketDetail
+  ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import { useOrgActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+import { DescriptionConflict } from "./DescriptionConflict"
 import {
   replaceWithTemplate,
   restoreBody,
@@ -60,6 +58,7 @@ import {
   templateSwap
 } from "./descriptionTemplates"
 import { DescriptionTemplateStarts } from "./DescriptionTemplateStarts"
+import { useDescriptionSync } from "./useDescriptionSync"
 
 export type TemplateSwapNote = Readonly<{
   name: string
@@ -94,11 +93,9 @@ export function DescriptionField({
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const req = ticketRequest(orgSlug, slug, ticket.id)
-  const update = useAtomSet(updateTicketDetail(req), { mode: "promiseExit" })
   const bodyDraft = useAtomValue(ticketBodyDraft(req))
   const [definitionError, setDefinitionError] = useState<string | null>(null)
   const blocks = useEditorBlocks(orgSlug, slug, ticket.type, setDefinitionError)
-  const setBodyDraft = useAtomSet(ticketBodyDraft(req))
   const storageResult = useAtomValue(orgStorage(storageRequest(orgSlug)))
   const storageActive =
     Result.isSuccess(storageResult) && storageResult.value.status === "active"
@@ -185,6 +182,14 @@ export function DescriptionField({
   const [expanded, setExpanded] = useState(false)
   const [focused, setFocused] = useState(false)
 
+  const sync = useDescriptionSync({
+    req,
+    body: ticket.body,
+    editorRef,
+    transformers,
+    focused
+  })
+
   useLayoutEffect(() => {
     const inner = contentRef.current
     if (!inner) return
@@ -221,7 +226,7 @@ export function DescriptionField({
   const collapsed = overflows && !expanded && !focused
   const offersStarts =
     library !== null &&
-    (bodyDraft ?? ticket.body).trim() === "" &&
+    (bodyDraft?.body ?? ticket.body).trim() === "" &&
     templateStarts(library, ticket.type).templates.length > 0
 
   return (
@@ -231,8 +236,9 @@ export function DescriptionField({
         id={DESCRIPTION_REGION_ID}
         data-block-rail-host
         data-editing={focused ? "" : undefined}
+        data-conflict={sync.stale !== null ? "" : undefined}
         className={cn(
-          "relative rounded-lg border border-transparent px-3 py-2 transition-colors duration-150 data-editing:border-border data-editing:bg-background",
+          "relative rounded-lg border border-transparent px-3 py-2 transition-colors duration-150 data-conflict:border-state-warning/50 data-conflict:bg-background data-editing:border-border data-editing:bg-background data-conflict:data-editing:border-state-warning/50",
           collapsed && "overflow-y-clip"
         )}
         style={{
@@ -246,6 +252,13 @@ export function DescriptionField({
           if (!keepsEditing(e.currentTarget, e.relatedTarget)) setFocused(false)
         }}
       >
+        {sync.stale !== null && (
+          <DescriptionConflict
+            changedBy={ticket.updater}
+            onTakeTheirs={sync.takeTheirs}
+            onKeepMine={sync.keepMine}
+          />
+        )}
         <div
           ref={contentRef}
           className={cn("relative", offersStarts && "min-h-56")}
@@ -253,16 +266,12 @@ export function DescriptionField({
           <MentionScopeProvider scope={{ orgSlug, slug, members }}>
             <AttachmentAvailabilityProvider missing={ticket.missingAttachments}>
               <LexicalEditor
-                key={`${slug}/${ticket.id}`}
-                markdown={bodyDraft ?? ticket.body}
-                onDraftChange={setBodyDraft}
-                onChange={async (next) => {
-                  const exit = await update({ body: next })
-                  if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
-                  setBodyDraft((draft) => (draft === next ? null : draft))
-                }}
+                key={`${slug}/${ticket.id}/${sync.revision}`}
+                markdown={bodyDraft?.body ?? ticket.body}
+                onDraftChange={sync.onDraftChange}
+                onChange={(next) => sync.save(next, sync.revision)}
                 onStatusChange={onStatusChange}
-                autoFocus={autoFocus ? "start" : false}
+                autoFocus={autoFocus && sync.revision === 0 ? "start" : false}
                 placeholder={m.tickets_description_placeholder()}
                 attachments={attachments}
                 blocks={blocks}
@@ -274,7 +283,7 @@ export function DescriptionField({
             <DescriptionTemplateStarts
               library={library}
               ticketType={ticket.type}
-              body={bodyDraft ?? ticket.body}
+              body={bodyDraft?.body ?? ticket.body}
               onStart={startFrom}
               onMore={openTemplateMenu}
               className="absolute inset-x-0 top-7 bottom-0"

@@ -6,6 +6,7 @@ import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Stream from "effect/Stream"
 import * as Tracer from "effect/Tracer"
 import { expect } from "vitest"
 
@@ -22,6 +23,7 @@ import {
 
 import { testActivityLayer } from "../activity/testing"
 import * as GroupDocs from "../groups/GroupDocs"
+import * as LiveChanges from "../live/LiveChanges"
 import * as KeyedLock from "../locks/KeyedLock"
 import * as Markdown from "../markdown/Markdown"
 import * as TicketDocs from "../tickets/TicketDocs"
@@ -494,6 +496,7 @@ it.effect("GroupDocs reads missing optional fields as typed defaults", () =>
   }).pipe(
     Effect.provide(
       GroupDocs.layer.pipe(
+        Layer.provide(LiveChanges.layer),
         Layer.provideMerge(testActivityLayer()),
         Layer.provide(
           makeMarkdown({
@@ -516,77 +519,101 @@ it.effect("GroupDocs reads missing optional fields as typed defaults", () =>
   )
 )
 
-it.effect("GroupDocs serializes typed group documents for disk writes", () => {
-  let written:
-    | {
-        id: string
-        frontmatter: Record<string, unknown>
-        body: string
-      }
-    | undefined
+it.effect(
+  "GroupDocs serializes typed group documents for disk writes and announces them",
+  () => {
+    let written:
+      | {
+          id: string
+          frontmatter: Record<string, unknown>
+          body: string
+        }
+      | undefined
 
-  return Effect.gen(function* () {
-    const docs = yield* GroupDocs.GroupDocs
-    yield* docs.writeIfExists("org", "project", "G-2", {
-      id: groupId("G-2"),
-      name: "Sprint 1",
-      kind: "sprint",
-      tickets: [ticketId("T-1"), ticketId("T-2")],
-      color: groupColor("#10b981"),
-      startsAt: isoDate("2026-04-01T00:00:00.000Z"),
-      endsAt: isoDate("2026-04-14T00:00:00.000Z"),
-      completedAt: null,
-      createdBy: "user-1",
-      createdAt: isoDate("2026-03-30T00:00:00.000Z"),
-      updatedAt: isoDate("2026-04-02T00:00:00.000Z"),
-      body: "# Sprint 1\n"
-    })
-
-    expect(written).toEqual({
-      id: "G-2",
-      frontmatter: {
-        id: "G-2",
+    return Effect.gen(function* () {
+      const docs = yield* GroupDocs.GroupDocs
+      const live = yield* LiveChanges.LiveChanges
+      const announced = yield* live.changes.pipe(
+        Stream.take(1),
+        Stream.runCollect,
+        Effect.map((changes) => ({ changes, written: written !== undefined })),
+        Effect.forkChild
+      )
+      yield* Effect.yieldNow
+      yield* docs.writeIfExists("org", "project", "G-2", {
+        id: groupId("G-2"),
         name: "Sprint 1",
         kind: "sprint",
-        tickets: ["T-1", "T-2"],
-        color: "#10b981",
-        startsAt: "2026-04-01T00:00:00.000Z",
-        endsAt: "2026-04-14T00:00:00.000Z",
+        tickets: [ticketId("T-1"), ticketId("T-2")],
+        color: groupColor("#10b981"),
+        startsAt: isoDate("2026-04-01T00:00:00.000Z"),
+        endsAt: isoDate("2026-04-14T00:00:00.000Z"),
         completedAt: null,
         createdBy: "user-1",
-        createdAt: "2026-03-30T00:00:00.000Z",
-        updatedAt: "2026-04-02T00:00:00.000Z"
-      },
-      body: "# Sprint 1\n"
-    })
-  }).pipe(
-    Effect.provide(
-      GroupDocs.layer.pipe(
-        Layer.provideMerge(testActivityLayer()),
-        Layer.provide(
-          makeMarkdown({
-            readGroupFile: () =>
-              Effect.succeed({
-                data: {
-                  id: "G-2",
-                  name: "Sprint 1",
-                  color: "#10b981",
-                  createdBy: "user-1",
-                  createdAt: "2026-03-30T00:00:00.000Z",
-                  updatedAt: "2026-03-30T00:00:00.000Z"
-                },
-                body: "# Sprint 1\n"
-              }),
-            writeGroupFileIfExists: (_org, _slug, id, frontmatter, body) => {
-              written = { id, frontmatter, body }
-              return Effect.void
-            }
-          })
+        createdAt: isoDate("2026-03-30T00:00:00.000Z"),
+        updatedAt: isoDate("2026-04-02T00:00:00.000Z"),
+        body: "# Sprint 1\n"
+      })
+
+      expect(written).toEqual({
+        id: "G-2",
+        frontmatter: {
+          id: "G-2",
+          name: "Sprint 1",
+          kind: "sprint",
+          tickets: ["T-1", "T-2"],
+          color: "#10b981",
+          startsAt: "2026-04-01T00:00:00.000Z",
+          endsAt: "2026-04-14T00:00:00.000Z",
+          completedAt: null,
+          createdBy: "user-1",
+          createdAt: "2026-03-30T00:00:00.000Z",
+          updatedAt: "2026-04-02T00:00:00.000Z"
+        },
+        body: "# Sprint 1\n"
+      })
+      expect(yield* Fiber.join(announced)).toEqual({
+        changes: [
+          {
+            kind: "group",
+            orgSlug: "org",
+            slug: "project",
+            id: "G-2",
+            origin: null
+          }
+        ],
+        written: true
+      })
+    }).pipe(
+      Effect.provide(
+        GroupDocs.layer.pipe(
+          Layer.provideMerge(LiveChanges.layer),
+          Layer.provideMerge(testActivityLayer()),
+          Layer.provide(
+            makeMarkdown({
+              readGroupFile: () =>
+                Effect.succeed({
+                  data: {
+                    id: "G-2",
+                    name: "Sprint 1",
+                    color: "#10b981",
+                    createdBy: "user-1",
+                    createdAt: "2026-03-30T00:00:00.000Z",
+                    updatedAt: "2026-03-30T00:00:00.000Z"
+                  },
+                  body: "# Sprint 1\n"
+                }),
+              writeGroupFileIfExists: (_org, _slug, id, frontmatter, body) => {
+                written = { id, frontmatter, body }
+                return Effect.void
+              }
+            })
+          )
         )
       )
     )
-  )
-})
+  }
+)
 
 it.effect("ProjectDocs reads project frontmatter with typed defaults", () =>
   Effect.gen(function* () {
@@ -776,6 +803,7 @@ it.effect(
     }).pipe(
       Effect.provide(
         GroupDocs.layer.pipe(
+          Layer.provide(LiveChanges.layer),
           Layer.provideMerge(testActivityLayer()),
           Layer.provide(
             makeMarkdown({
@@ -868,6 +896,7 @@ it.effect("GroupDocs traces each call under one GroupDocs span", () => {
     Effect.withTracer(tracer),
     Effect.provide(
       GroupDocs.layer.pipe(
+        Layer.provide(LiveChanges.layer),
         Layer.provideMerge(testActivityLayer()),
         Layer.provide(
           makeMarkdown({

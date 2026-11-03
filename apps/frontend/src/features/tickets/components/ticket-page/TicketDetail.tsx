@@ -10,6 +10,7 @@ import { ErrorPage } from "@/components/shell/ErrorPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
 import { useProject } from "@/features/projects/hooks/useProject"
 import {
+  lastKnownBeforeNotFound,
   ticketDetail,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
@@ -17,6 +18,7 @@ import {
   TicketPage,
   TicketPageSkeleton
 } from "@/features/tickets/components/ticket-page"
+import { DeletedTicketPage } from "@/features/tickets/components/ticket-page/DeletedTicketPage"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(
@@ -44,6 +46,9 @@ export function TicketDetail() {
       replace: true
     })
   }, [autoFocusBody, navigate])
+
+  const vanished = lastKnownBeforeNotFound(result)
+  if (vanished !== null) return <DeletedTicketPage ticket={vanished} />
 
   return Result.matchWithError(result, {
     onInitial: () => <TicketPageSkeleton />,

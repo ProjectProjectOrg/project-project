@@ -52,6 +52,35 @@ function reportIfCrossPackage(context, node) {
 
 export default {
   rules: {
+    "no-raw-fork-detach": {
+      meta: {
+        type: "problem",
+        docs: {
+          description:
+            "require LiveChanges.forkDetached for work that outlives a request"
+        },
+        schema: []
+      },
+      create(context) {
+        return {
+          MemberExpression(node) {
+            if (
+              !node.computed &&
+              node.object?.type === "Identifier" &&
+              node.object.name === "Effect" &&
+              (node.property?.name === "forkDetach" ||
+                node.property?.name === "forkDaemon")
+            ) {
+              context.report({
+                node,
+                message:
+                  "Use `LiveChanges.forkDetached` so background work does not publish live changes as the requesting browser tab, which would hide them from that tab."
+              })
+            }
+          }
+        }
+      }
+    },
     "no-raw-api-query": {
       meta: {
         type: "problem",

@@ -178,7 +178,7 @@ export function TicketDesignLinks({ ticket }: { ticket: TicketDetail }) {
   const bodyDraft = useAtomValue(
     ticketBodyDraft(ticketRequest(orgSlug, slug, ticket.id))
   )
-  const links = extractTicketDesignLinks(bodyDraft ?? ticket.body)
+  const links = extractTicketDesignLinks(bodyDraft?.body ?? ticket.body)
 
   if (links.length === 0) return null
 

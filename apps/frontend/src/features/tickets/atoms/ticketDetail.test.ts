@@ -1,4 +1,6 @@
 import {
+  Forbidden,
+  NotFound,
   TicketDetail,
   TicketId,
   TicketStatus,
@@ -15,7 +17,12 @@ import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { stubFetch } from "@/api/testFetch"
 
-import { ticketDetail, ticketRequest, updateTicketDetail } from "./ticketDetail"
+import {
+  lastKnownBeforeNotFound,
+  ticketDetail,
+  ticketRequest,
+  updateTicketDetail
+} from "./ticketDetail"
 
 const encodeTicketUpdateResultSync = Schema.encodeSync(TicketUpdateResult)
 
@@ -369,6 +376,43 @@ describe("ticket detail invalidation keys", () => {
         new Set<ProbeName>(["ticketsIn", "ticketLists", "ticketPages"])
       )
       expect(published.has("self")).toBe(false)
+    } finally {
+      registry.dispose()
+    }
+  })
+})
+
+describe("an open ticket that disappears", () => {
+  it("keeps the last loaded version once a refetch says it no longer exists, and only then", async () => {
+    let respond = () => Response.json(encode(ticket))
+    fetchStub.set(() => Promise.resolve(respond()))
+    const registry = AtomRegistry.make()
+    const view = ticketDetail(req)
+    registry.mount(view)
+    try {
+      await vi.waitFor(() =>
+        expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
+      )
+      expect(lastKnownBeforeNotFound(registry.get(view))).toBeNull()
+
+      respond = () =>
+        Response.json(Schema.encodeSync(Forbidden)(new Forbidden()), {
+          status: 403
+        })
+      registry.refresh(view)
+      await vi.waitFor(() =>
+        expect(AsyncResult.isFailure(registry.get(view))).toBe(true)
+      )
+      expect(lastKnownBeforeNotFound(registry.get(view))).toBeNull()
+
+      respond = () =>
+        Response.json(Schema.encodeSync(NotFound)(new NotFound()), {
+          status: 404
+        })
+      registry.refresh(view)
+      await vi.waitFor(() =>
+        expect(lastKnownBeforeNotFound(registry.get(view))).toEqual(ticket)
+      )
     } finally {
       registry.dispose()
     }

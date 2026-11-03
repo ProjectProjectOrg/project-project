@@ -40,6 +40,7 @@ import * as SqlClient from "effect/sql/SqlClient"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
+import * as LiveChanges from "../live/LiveChanges"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 
 const decodeSlugSync = Schema.decodeSync(Slug)
@@ -213,7 +214,11 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
       Layer.provideMerge(Access.layer.pipe(Layer.provide(db))),
       Layer.provide(TicketRewrites.layer),
       Layer.provide(
-        TicketIndexServices.layer.pipe(Layer.provide(db), Layer.provide(docs))
+        TicketIndexServices.layer.pipe(
+          Layer.provide(LiveChanges.layer),
+          Layer.provide(db),
+          Layer.provide(docs)
+        )
       ),
       Layer.provide(docs),
       Layer.provide(lock),

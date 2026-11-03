@@ -17,15 +17,18 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
+import * as Stream from "effect/Stream"
 import * as Tracer from "effect/Tracer"
 import pg from "pg"
 import { beforeAll, describe, expect } from "vitest"
 
 import { databaseLayer } from "../../test/database"
 import { projectScope } from "../access/testing"
+import * as LiveChanges from "../live/LiveChanges"
 import * as Markdown from "../markdown/Markdown"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
@@ -200,6 +203,7 @@ const makeLayer = (
   database = FakeDb
 ) =>
   Comments.layer.pipe(
+    Layer.provideMerge(LiveChanges.layer),
     Layer.provide(
       Layer.mergeAll(
         Layer.succeed(TicketDocs.TicketDocs, ticketDocs),
@@ -266,6 +270,44 @@ it.effect("creates comments through TicketDocs", () => {
         body: "A useful comment"
       }
     ])
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("announces the ticket's comments once the comment is written", () => {
+  const writes: Array<string> = []
+  const layer = makeLayer(
+    makeTicketDocs({
+      update: (_orgSlug, _slug, _ticketId, transform) =>
+        transform(document).pipe(
+          Effect.tap(() => Effect.sync(() => writes.push("written")))
+        )
+    })
+  )
+
+  return Effect.gen(function* () {
+    const comments = yield* Comments.Comments
+    const live = yield* LiveChanges.LiveChanges
+    const announced = yield* live.changes.pipe(
+      Stream.take(1),
+      Stream.runCollect,
+      Effect.map((changes) => ({ changes, writes: [...writes] })),
+      Effect.forkChild
+    )
+    yield* Effect.yieldNow
+    yield* comments.create(ticketId("T-1"), { body: "A useful comment" })
+
+    expect(yield* Fiber.join(announced)).toEqual({
+      changes: [
+        {
+          kind: "comments",
+          orgSlug: "org",
+          slug: "project",
+          ticketId: "T-1",
+          origin: null
+        }
+      ],
+      writes: ["written"]
+    })
   }).pipe(Effect.provide(layer))
 })
 
