@@ -18,16 +18,17 @@ const help = (...args: ReadonlyArray<string>) =>
     return text.split("\n")
   }).pipe(Effect.provide(BunServices.layer))
 
+const rows = (lines: ReadonlyArray<string>) =>
+  lines.slice(
+    lines.indexOf("COMMANDS") + 1,
+    lines.indexOf("", lines.indexOf("COMMANDS"))
+  )
+
 describe("help", () => {
   it.effect(
     "lists every command on one line that fits an 80-column terminal",
     () =>
       Effect.gen(function* () {
-        const rows = (lines: ReadonlyArray<string>) =>
-          lines.slice(
-            lines.indexOf("COMMANDS") + 1,
-            lines.indexOf("", lines.indexOf("COMMANDS"))
-          )
         const top = yield* help()
         const pages = [
           top,
