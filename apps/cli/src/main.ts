@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import * as BunRuntime from "@effect/platform-bun/BunRuntime"
 import * as BunServices from "@effect/platform-bun/BunServices"
-import { Command } from "effect/cli"
+import { CliOutput, Command } from "effect/cli"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -12,8 +12,10 @@ import * as Option from "effect/Option"
 import { Browser } from "./auth/Browser"
 import { Loopback } from "./auth/Loopback"
 import { CliFailure, ExitCode } from "./CliFailure"
+import { sharedFlagNames } from "./commands/root"
 import { pp } from "./commands/tree"
 import { framed } from "./output/frame"
+import { helpFormatter } from "./output/help"
 import { reveal } from "./output/reveal"
 import { welcomeLines } from "./output/splash"
 import { muted, stderrTerminal, stdoutTerminal } from "./output/terminal"
@@ -27,6 +29,13 @@ import {
 import { buildVersion } from "./version"
 
 const ServicesLive = Layer.mergeAll(
+  CliOutput.layer(
+    helpFormatter(
+      stdoutTerminal(),
+      process.stdout.columns || 80,
+      sharedFlagNames
+    )
+  ),
   ServerStore.layer,
   Loopback.layer,
   Browser.layer,
