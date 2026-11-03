@@ -20,19 +20,33 @@ const help = (...args: ReadonlyArray<string>) =>
 
 describe("help", () => {
   it.effect(
-    "fits an 80-column terminal and lists each command on one line",
+    "lists every command on one line that fits an 80-column terminal",
     () =>
       Effect.gen(function* () {
-        const lines = yield* help("tickets")
-        expect(lines.filter((line) => line.length > 80)).toEqual([])
-        const commands = lines.slice(lines.indexOf("COMMANDS") + 1)
-        expect(commands.find((line) => line.startsWith("  update "))).toBe(
-          "  update          Update a ticket."
+        const rows = (lines: ReadonlyArray<string>) =>
+          lines.slice(
+            lines.indexOf("COMMANDS") + 1,
+            lines.indexOf("", lines.indexOf("COMMANDS"))
+          )
+        const top = yield* help()
+        const pages = [
+          top,
+          ...(yield* Effect.forEach(
+            rows(top).map((line) => line.trim().split(" ")[0] ?? ""),
+            (name) => help(name),
+            { concurrency: 8 }
+          ))
+        ]
+        for (const lines of pages) {
+          expect(lines.filter((line) => line.length > 80)).toEqual([])
+          expect(rows(lines).filter((line) => line.endsWith("…"))).toEqual([])
+        }
+        expect(rows(pages[0] ?? [])).toContain(
+          "  tickets       Read, create and change tickets."
         )
-        expect(lines).toContain(
-          "  Run `pp tickets <command> --help` for more about a command."
+        expect(top).toContain(
+          "  Run `pp <command> --help` for more about a command."
         )
-        expect(commands.find((line) => line.startsWith("  get "))).toMatch(/…$/)
       })
   )
 

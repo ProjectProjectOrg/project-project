@@ -210,6 +210,7 @@ export const useCommand = Command.make(
   Command.withDescription(
     "Choose the org and project commands use when you don't pass --org and --project. Without an argument, pick from a list."
   ),
+  Command.withShortDescription("Choose the default org and project."),
   Command.withExamples([
     {
       command: "pp use acme/website",
@@ -314,5 +315,6 @@ export const statusCommand = Command.make("status", {}, () =>
 ).pipe(
   Command.withDescription(
     "Show the server, account, org and project commands use, and where each comes from."
-  )
+  ),
+  Command.withShortDescription("Show the server, org and project in use.")
 )

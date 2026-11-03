@@ -117,6 +117,7 @@ export const attachCommand = Command.make(
   Command.withDescription(
     "Upload a file and add it to the end of a ticket's description, in one step."
   ),
+  Command.withShortDescription("Upload a file to a ticket's description."),
   Command.withExamples([
     {
       command: "pp tickets attach T-130 ./screenshot.png",

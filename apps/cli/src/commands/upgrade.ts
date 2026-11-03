@@ -108,5 +108,6 @@ export const upgradeCommand = Command.make(
 ).pipe(
   Command.withDescription(
     "Install the pp that matches your server (or --latest / --nightly)."
-  )
+  ),
+  Command.withShortDescription("Install the pp that matches your server.")
 )

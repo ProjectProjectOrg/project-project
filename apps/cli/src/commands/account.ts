@@ -111,7 +111,8 @@ export const logoutCommand = Command.make("logout", {}, () =>
 ).pipe(
   Command.withDescription(
     "Sign out of a server: revoke its tokens and forget it. Uses --server or the default."
-  )
+  ),
+  Command.withShortDescription("Sign out of a server.")
 )
 
 const listServers = Command.make("list", {}, () =>

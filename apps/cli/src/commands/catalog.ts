@@ -107,6 +107,7 @@ export type CatalogEntry = Readonly<{
   command: readonly [string, ...ReadonlyArray<string>]
   args: ReadonlyArray<string>
   fields: ReadonlyArray<Field>
+  summary: string
   description: string
 }>
 
@@ -141,6 +142,7 @@ const entryFor = (tool: Tool.Any): ReadonlyArray<CatalogEntry> => {
         command: cli.command,
         args: cli.args ?? [],
         fields: fieldsOf(tool),
+        summary: quotedCommandText(cli.summary),
         description: quotedCommandText(tool.description ?? "")
       }
       return [entry]
@@ -237,5 +239,8 @@ export const commandFor = (entry: CatalogEntry) => {
             )
       yield* printResult(result, flags.json)
     })
-  ).pipe(Command.withDescription(entry.description))
+  ).pipe(
+    Command.withDescription(entry.description),
+    Command.withShortDescription(entry.summary)
+  )
 }
