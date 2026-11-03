@@ -16,8 +16,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { MenuNote } from "@/components/ui/menu-note"
 import { ConnectMenu } from "@/features/github/components/ConnectMenu"
-import { MenuNote } from "@/features/github/components/MenuNote"
 import { useCanManageGithub } from "@/features/github/hooks/useCanManageGithub"
 import { useGithubWarning } from "@/features/github/hooks/useGithubWarning"
 import { repoUrl } from "@/features/github/lib/branchUrl"

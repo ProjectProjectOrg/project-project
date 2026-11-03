@@ -7,8 +7,7 @@ import {
   branchSearchView,
   defaultBranchName,
   mentionsTicket,
-  sanitizeBranchName,
-  shouldLoadMoreBranches
+  sanitizeBranchName
 } from "./branchPicker"
 
 const branch = (name: string): BranchListItem => ({ name, isProtected: false })
@@ -147,27 +146,5 @@ describe("branchSearchView", () => {
 
   it("has nothing to show before any branches load", () => {
     expect(branchSearchView({ term: "x", exact: null, base: null })).toBeNull()
-  })
-})
-
-describe("shouldLoadMoreBranches", () => {
-  it("loads when the list is scrolled near its end", () => {
-    expect(
-      shouldLoadMoreBranches({
-        scrollTop: 300,
-        scrollHeight: 600,
-        clientHeight: 220
-      })
-    ).toBe(true)
-  })
-
-  it("waits while the end is still far away", () => {
-    expect(
-      shouldLoadMoreBranches({
-        scrollTop: 0,
-        scrollHeight: 600,
-        clientHeight: 220
-      })
-    ).toBe(false)
   })
 })

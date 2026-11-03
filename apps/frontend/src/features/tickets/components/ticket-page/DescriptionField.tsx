@@ -48,6 +48,7 @@ import {
   ticketRequest,
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
+import { useTicketParticipants } from "@/features/tickets/hooks/useTicketParticipants"
 import { useOrgActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -111,6 +112,7 @@ export function DescriptionField({
   })
   const transformers = transformersForAttachments(attachments)
   const editorRef = useRef<LexicalEditorType | null>(null)
+  const involved = useTicketParticipants(ticket.id)
   const library = blocks?.library ?? null
   const lookup = useMemo(() => lookupFor(library), [library])
 
@@ -250,7 +252,7 @@ export function DescriptionField({
           ref={contentRef}
           className={cn("relative", offersStarts && "min-h-56")}
         >
-          <MentionScopeProvider scope={{ orgSlug, slug, members }}>
+          <MentionScopeProvider scope={{ orgSlug, slug, members, involved }}>
             <AttachmentAvailabilityProvider missing={ticket.missingAttachments}>
               <LexicalEditor
                 key={`${slug}/${ticket.id}`}
