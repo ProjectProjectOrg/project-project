@@ -29,6 +29,9 @@ describe("help", () => {
         expect(commands.find((line) => line.startsWith("  update "))).toBe(
           "  update          Update a ticket."
         )
+        expect(lines).toContain(
+          "  Run `pp tickets <command> --help` for more about a command."
+        )
         expect(commands.find((line) => line.startsWith("  get "))).toMatch(/…$/)
       })
   )

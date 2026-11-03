@@ -199,6 +199,17 @@ const renderHelp = (
     )
   }
 
+  const path = /^(.*?) <subcommand>/.exec(doc.usage)?.[1]
+  if (path !== undefined && (doc.subcommands ?? []).length > 0) {
+    sections.push(
+      `${heading("LEARN MORE")}\n${block(
+        `Run \`${path} <command> --help\` for more about a command.`,
+        width,
+        terminal
+      )}`
+    )
+  }
+
   return `${sections.join("\n\n")}\n`
 }
 
