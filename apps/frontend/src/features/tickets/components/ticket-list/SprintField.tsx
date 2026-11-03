@@ -176,6 +176,7 @@ export function SprintBadgeTrigger({
   })
   const removeState = useAtomValue(removeTicketsFromSprint({ req, ticketId }))
   const [open, setOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
   const sprints = Result.isSuccess(list) ? list.value : []
   const hasAnyEligible = sprints.some((s) => s.completedAt === null)
   const current = Result.isSuccess(membership)
@@ -189,11 +190,17 @@ export function SprintBadgeTrigger({
     ? m.tickets_sprint_assign_error_fallback()
     : (current?.name ?? m.tickets_assign_sprint_chip())
 
-  if (!hasAnyEligible) {
-    return Result.isSuccess(list) && canPlan ? (
-      <NewSprintPopover ticketId={ticketId} className={className} />
-    ) : null
+  if (creating || (!hasAnyEligible && Result.isSuccess(list) && canPlan)) {
+    return (
+      <NewSprintPopover
+        ticketId={ticketId}
+        open={creating}
+        onOpenChange={setCreating}
+        className={className}
+      />
+    )
   }
+  if (!hasAnyEligible) return null
 
   return (
     <fieldset disabled={current !== null && !canMove} className="contents">
@@ -235,14 +242,17 @@ export function SprintBadgeTrigger({
 
 function NewSprintPopover({
   ticketId,
+  open,
+  onOpenChange,
   className
-}: {
+}: Readonly<{
   ticketId: TicketId
+  open: boolean
+  onOpenChange: (open: boolean) => void
   className?: string
-}) {
-  const [open, setOpen] = useState(false)
+}>) {
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger
         render={
           <Button type="button" variant="chip" className={className}>
@@ -255,7 +265,7 @@ function NewSprintPopover({
         <InlineForm.Root
           actions={["create"]}
           mode={open ? "create" : "idle"}
-          onModeChange={(mode) => setOpen(mode !== "idle")}
+          onModeChange={(mode) => onOpenChange(mode !== "idle")}
           variant="ghost"
           className="p-3"
         >
