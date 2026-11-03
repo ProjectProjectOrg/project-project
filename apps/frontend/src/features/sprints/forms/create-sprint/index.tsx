@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { useNavigate } from "@tanstack/react-router"
+import type { Group, TicketId } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -25,7 +25,15 @@ import { m } from "@/paraglide/messages"
 
 import { createSprintFormOpts } from "./opts"
 
-export function CreateSprintForm() {
+const NO_TICKETS: ReadonlyArray<TicketId> = []
+
+export function CreateSprintForm({
+  tickets = NO_TICKETS,
+  onCreated
+}: Readonly<{
+  tickets?: ReadonlyArray<TicketId>
+  onCreated?: (sprint: Group) => void
+}>) {
   const { orgSlug, slug } = useProjectRoute()
   const req = sprintListRequest(orgSlug, slug)
   const create = useAtomSet(createSprint(req), { mode: "promiseExit" })
@@ -34,7 +42,6 @@ export function CreateSprintForm() {
   const serverError = Result.isFailure(state)
     ? m.sprints_create_error_fallback()
     : null
-  const navigate = useNavigate()
   const { close, setBusy } = useInlineForm()
   const [pickerOpen, setPickerOpen] = useState(false)
   const form = useAppForm({
@@ -45,14 +52,12 @@ export function CreateSprintForm() {
       const exit = await create({
         name: value.name.trim(),
         startsAt: value.range.from,
-        endsAt: value.range.to
+        endsAt: value.range.to,
+        tickets
       })
       if (!Exit.isSuccess(exit)) return setBusy(false)
       close()
-      void navigate({
-        to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
-        params: { orgSlug, slug, groupId: exit.value.id }
-      })
+      onCreated?.(exit.value)
     }
   })
 

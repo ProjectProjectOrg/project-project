@@ -115,9 +115,16 @@ export const createSprint = Atom.family((req: SprintListRequest) =>
       ...sprints
     ],
     call: (client, input) =>
-      client.groups.create({ params: req.params, payload: input }),
+      client.groups.create({
+        params: req.params,
+        payload: { ...input, kind: "sprint" }
+      }),
     confirm: (sprints, created, input) =>
-      confirmCreatedSprint(sprints, input, created)
+      confirmCreatedSprint(sprints, input, created),
+    publish: (_created, input) =>
+      (input.tickets ?? []).length === 0
+        ? []
+        : [Keys.sprintMembership(scopeOf(req)), Keys.ticketsIn(scopeOf(req))]
   })
 )
 

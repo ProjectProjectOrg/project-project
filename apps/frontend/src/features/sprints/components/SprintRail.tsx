@@ -5,7 +5,7 @@ import {
   sprintState,
   type Group
 } from "@pp/shared"
-import { Link, useParams } from "@tanstack/react-router"
+import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Plus } from "lucide-react"
@@ -204,6 +204,8 @@ function pickSprintNavigationTarget(
 }
 
 function NewSprintForm() {
+  const { orgSlug, slug } = useProjectRoute()
+  const navigate = useNavigate()
   const Root = InlineForm.Root<"create">
   return (
     <Root
@@ -226,7 +228,14 @@ function NewSprintForm() {
         </InlineForm.Trigger>
       </InlineForm.Idle>
       <InlineForm.Form action="create">
-        <CreateSprintForm />
+        <CreateSprintForm
+          onCreated={(sprint) =>
+            void navigate({
+              to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
+              params: { orgSlug, slug, groupId: sprint.id }
+            })
+          }
+        />
       </InlineForm.Form>
     </Root>
   )
