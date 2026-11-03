@@ -1,0 +1,1 @@
+CREATE INDEX "ticket_activity_ticket_kind_idx" ON "ticket_activity" ("project_id","ticket_id",("change"->>'kind'),"occurred_at","seq");

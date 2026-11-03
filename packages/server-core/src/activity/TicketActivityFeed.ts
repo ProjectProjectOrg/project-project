@@ -4,9 +4,7 @@ import {
   ProjectScope,
   TICKET_ACTIVITY_PAGE_SIZE,
   Validation,
-  type ActivityActor,
   type NotFound,
-  type TicketActivityActor,
   type TicketActivityEntry,
   type TicketActivityPage,
   type User
@@ -19,6 +17,7 @@ import * as Layer from "effect/Layer"
 import type * as Markdown from "../markdown/Markdown"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as Users from "../users/Users"
+import { presentActor } from "./actorRow"
 import { coalesceActivity } from "./coalesce"
 import * as TicketActivity from "./TicketActivity"
 
@@ -62,22 +61,6 @@ const cursorOf = (entry: TicketActivity.StoredTicketActivity): string =>
     id: String(entry.seq),
     sort: DateTime.formatIso(DateTime.fromDateUnsafe(entry.occurredAt))
   })
-
-const presentActor = (
-  actor: ActivityActor["Service"],
-  users: ReadonlyMap<string, User>
-): TicketActivityActor | null => {
-  if (actor.kind === "system") return actor
-  const user = users.get(actor.userId)
-  if (user === undefined) return null
-  return actor.kind === "user"
-    ? { kind: "user", user }
-    : {
-        kind: "agent",
-        user,
-        client: { id: actor.clientId, name: actor.clientName }
-      }
-}
 
 const make = Effect.gen(function* () {
   const activity = yield* TicketActivity.TicketActivity

@@ -28,6 +28,7 @@ import * as Schema from "effect/Schema"
 
 import { contentHash } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
+import { actorColumns, actorOf } from "./actorRow"
 import type { TicketScopedChange } from "./changes"
 
 export type ActivityDocument = Readonly<{
@@ -87,47 +88,6 @@ type IntegrationEventRow =
 
 const encodeChange = Schema.encodeSync(TicketActivityChange)
 const decodeChange = Schema.decodeUnknownSync(TicketActivityChange)
-
-type ActorColumns = Pick<
-  TicketActivityOutboxRow,
-  | "actorKind"
-  | "actorUserId"
-  | "actorClientId"
-  | "actorClientName"
-  | "actorSource"
->
-
-const actorColumns = (actor: ActivityActor["Service"]): ActorColumns => {
-  if (actor.kind === "system") {
-    return {
-      actorKind: "system",
-      actorUserId: null,
-      actorClientId: null,
-      actorClientName: null,
-      actorSource: actor.source
-    }
-  }
-  return {
-    actorKind: actor.kind,
-    actorUserId: actor.userId,
-    actorClientId: actor.kind === "agent" ? actor.clientId : null,
-    actorClientName: actor.kind === "agent" ? actor.clientName : null,
-    actorSource: null
-  }
-}
-
-const actorOf = (
-  row: typeof ticketActivity.$inferSelect
-): ActivityActor["Service"] => {
-  if (row.actorKind === "agent") {
-    return ActivityActor.agent(row.actorUserId ?? "", {
-      id: row.actorClientId ?? "",
-      name: row.actorClientName ?? ""
-    })
-  }
-  if (row.actorKind === "user") return ActivityActor.user(row.actorUserId ?? "")
-  return ActivityActor.system(row.actorSource ?? "automation")
-}
 
 const olderThan = (cursor: ActivityPageCursor) =>
   or(

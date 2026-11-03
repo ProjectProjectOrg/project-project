@@ -5,10 +5,12 @@ import {
   organization,
   projectIndex,
   projectStatus,
+  ticketActivity,
   ticketBranch,
   ticketIndex
 } from "@pp/db/schema"
 import {
+  type ActivityActor,
   type ChecksStatus,
   type PullRequestState,
   type TicketPriority,
@@ -19,6 +21,7 @@ import {
   estimateRank,
   NotFound,
   TagName,
+  TicketActivityChange,
   TicketId,
   tryDecodeCursor,
   type EstimateFilterValue,
@@ -65,6 +68,7 @@ import * as Schedule from "effect/Schedule"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
+import { actorOf, type ActorColumns } from "../activity/actorRow"
 import type * as TicketDocs from "./TicketDocs"
 import * as TicketIndexRepairs from "./TicketIndexRepairs"
 import type { TicketProject } from "./ticketProject"
@@ -155,8 +159,18 @@ export type TicketIndexOrgEntry = Readonly<{
   sortValue: string
 }>
 
+export type TicketIndexTouchedEvent = Readonly<{
+  occurredAt: Date
+  actor: ActivityActor["Service"]
+  change: TicketActivityChange
+}>
+
 export type TicketIndexTouchedEntry = TicketIndexOrgEntry &
-  Readonly<{ lastCommentAt: Date | null }>
+  Readonly<{
+    lastCommentAt: Date | null
+    assignedEvent: TicketIndexTouchedEvent | null
+    statusEvent: TicketIndexTouchedEvent | null
+  }>
 
 export type TicketIndexAssignedOptions = Readonly<{
   viewerId: string
@@ -178,6 +192,7 @@ export type TicketIndexProjectPreview = Readonly<{
 
 export type TicketIndexTouchedOptions = Readonly<{
   viewerId: string
+  gitProjectIds: ReadonlyArray<string>
   limit: number
 }>
 
@@ -310,6 +325,20 @@ export class TicketIndex extends Context.Service<
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
 const makeTagName = Schema.decodeUnknownSync(TagName)
 const decodeEstimate = Schema.decodeUnknownOption(Estimate)
+const decodeActivityChange = Schema.decodeUnknownSync(TicketActivityChange)
+
+const touchedEventOf = (
+  row:
+    | (ActorColumns & Readonly<{ occurredAt: Date | null; change: unknown }>)
+    | null
+): TicketIndexTouchedEvent | null =>
+  row === null || row.occurredAt === null
+    ? null
+    : {
+        occurredAt: row.occurredAt,
+        actor: actorOf(row),
+        change: decodeActivityChange(row.change)
+      }
 
 const estimateFromIndex = (
   unit: (typeof ticketIndex.$inferSelect)["estimateUnit"],
@@ -1139,22 +1168,73 @@ const make = Effect.gen(function* () {
       from ${commentIndex}
       where ${viewerComments}
     )`
+    const viewerAssigned = arrayContains(ticketIndex.assignees, [
+      options.viewerId
+    ])
+    const viewerCreated = eq(ticketIndex.createdBy, options.viewerId)
+    const activityKind = drizzleSql<string>`${ticketActivity.change}->>'kind'`
+    const latestEvent = (alias: string, conditions: ReadonlyArray<SQL>) =>
+      db
+        .select({
+          occurredAt: ticketActivity.occurredAt,
+          actorKind: ticketActivity.actorKind,
+          actorUserId: ticketActivity.actorUserId,
+          actorClientId: ticketActivity.actorClientId,
+          actorClientName: ticketActivity.actorClientName,
+          actorSource: ticketActivity.actorSource,
+          change: ticketActivity.change
+        })
+        .from(ticketActivity)
+        .where(
+          and(
+            eq(ticketActivity.projectId, ticketIndex.projectId),
+            eq(ticketActivity.ticketId, ticketIndex.ticketId),
+            ...conditions
+          )
+        )
+        .orderBy(desc(ticketActivity.occurredAt), desc(ticketActivity.seq))
+        .limit(1)
+        .as(alias)
+    const assignedEvent = latestEvent("assigned_event", [
+      viewerAssigned,
+      eq(activityKind, "assignees_changed"),
+      drizzleSql`${ticketActivity.change} @> jsonb_build_object(
+        'added', jsonb_build_array(${options.viewerId}::text)
+      )`
+    ])
+    const gitVisible =
+      options.gitProjectIds.length === 0
+        ? drizzleSql`false`
+        : inArray(ticketIndex.projectId, [...options.gitProjectIds])
+    const statusEvent = latestEvent("status_event", [
+      or(viewerAssigned, viewerCreated) ?? drizzleSql`false`,
+      eq(activityKind, "status_changed"),
+      or(
+        drizzleSql`${ticketActivity.cause} is distinct from 'git_automation'`,
+        gitVisible
+      ) ?? drizzleSql`true`
+    ])
     const activityAt = drizzleSql`greatest(
-      case when ${ticketIndex.createdBy} = ${options.viewerId}
-        then ${ticketIndex.createdAt} end,
-      ${lastCommentAt}
+      case when ${viewerCreated} then ${ticketIndex.createdAt} end,
+      ${lastCommentAt},
+      ${assignedEvent.occurredAt},
+      ${statusEvent.occurredAt}
     )`
     return yield* db
       .select({
         ...entryColumns,
-        lastCommentAt: lastCommentAt.mapWith(commentIndex.createdAt)
+        lastCommentAt: lastCommentAt.mapWith(commentIndex.createdAt),
+        assignedEvent: { ...assignedEvent._.selectedFields },
+        statusEvent: { ...statusEvent._.selectedFields }
       })
       .from(ticketIndex)
+      .leftJoinLateral(assignedEvent, drizzleSql`true`)
+      .leftJoinLateral(statusEvent, drizzleSql`true`)
       .where(
         acrossProjects(projects, [
           or(
-            eq(ticketIndex.createdBy, options.viewerId),
-            arrayContains(ticketIndex.assignees, [options.viewerId]),
+            viewerCreated,
+            viewerAssigned,
             exists(
               db
                 .select({ id: commentIndex.id })
@@ -1174,7 +1254,9 @@ const make = Effect.gen(function* () {
         Effect.map((rows) =>
           orgEntriesOf(projects, rows).map(({ row, ...entry }) => ({
             ...entry,
-            lastCommentAt: row.lastCommentAt
+            lastCommentAt: row.lastCommentAt,
+            assignedEvent: touchedEventOf(row.assignedEvent),
+            statusEvent: touchedEventOf(row.statusEvent)
           }))
         ),
         Effect.orDie

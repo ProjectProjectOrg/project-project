@@ -856,6 +856,13 @@ export const ticketActivity = pgTable(
       t.ticketId,
       t.occurredAt,
       t.seq
+    ),
+    index("ticket_activity_ticket_kind_idx").on(
+      t.projectId,
+      t.ticketId,
+      sql`(${t.change}->>'kind')`,
+      t.occurredAt,
+      t.seq
     )
   ]
 )
