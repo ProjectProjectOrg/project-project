@@ -5,24 +5,22 @@ import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { migrationsFolder } from "@pp/db"
 import { DbLive } from "@pp/db"
-import { Access } from "@pp/server-core/access/Access"
-import { AccessLive } from "@pp/server-core/access/AccessLive"
+import * as Access from "@pp/server-core/access/Access"
 import { testUser } from "@pp/server-core/access/testing"
 import { asUser } from "@pp/server-core/activity/testing"
-import { GitHub } from "@pp/server-core/github/GitHub"
+import * as GitHub from "@pp/server-core/github/GitHub"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
-import { MarkdownError } from "@pp/server-core/markdown/Markdown"
-import { BannerPlaceholders } from "@pp/server-core/projects/BannerPlaceholders"
-import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
-import { Projects } from "@pp/server-core/projects/Projects"
-import { ProjectsLive } from "@pp/server-core/projects/ProjectsLive"
-import {
-  TicketDocs,
-  type TicketDocument
-} from "@pp/server-core/tickets/TicketDocs"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
+import * as BannerPlaceholders from "@pp/server-core/projects/BannerPlaceholders"
+import * as ProjectServices from "@pp/server-core/projects/layer"
+import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
+import * as ProjectGithub from "@pp/server-core/projects/ProjectGithub"
+import type * as Projects from "@pp/server-core/projects/Projects"
+import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
-import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
-import { Users } from "@pp/server-core/users/Users"
+import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
+import * as Users from "@pp/server-core/users/Users"
 import {
   CurrentUser,
   ProjectScope,
@@ -65,7 +63,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
   const createdAt = DateTime.toDateUtc(
     DateTime.makeUnsafe("2026-09-08T00:00:00Z")
   )
-  const initialTicket: TicketDocument = {
+  const initialTicket: TicketDocs.TicketDocument = {
     id: ticketId,
     title: "Keep branch, clear old PR",
     status: decodeTicketStatusSync("todo"),
@@ -95,7 +93,9 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
   let failWrite = false
   let lockChecks = 0
   let pool: Pool
-  let projectsLayer: Layer.Layer<Projects | Access>
+  let projectsLayer: Layer.Layer<
+    Projects.Projects | ProjectGithub.ProjectGithub | Access.Access
+  >
 
   beforeAll(async () => {
     if (!databaseUrl) throw new Error("Test database URL is required")
@@ -155,13 +155,13 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
         })
       )
     )
-    const docs = Layer.succeed(TicketDocs, {
+    const docs = Layer.succeed(TicketDocs.TicketDocs, {
       listIds: () => Effect.succeed([ticketId]),
       read: () => Effect.sync(() => ticket),
       write: (_org, _slug, _id, next) =>
         Effect.gen(function* () {
           if (failWrite) {
-            return yield* new MarkdownError({
+            return yield* new Markdown.MarkdownError({
               message: "Write failed",
               cause: new Error("Test failure")
             })
@@ -173,7 +173,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
         Effect.gen(function* () {
           const next = yield* transform(ticket)
           if (failWrite)
-            return yield* new MarkdownError({
+            return yield* new Markdown.MarkdownError({
               message: "Write failed",
               cause: new Error("Test failure")
             })
@@ -209,22 +209,23 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
         })
       })
     ).pipe(Layer.provide(db), Layer.provide(KeyedLock.layer))
-    projectsLayer = ProjectsLive.pipe(
-      Layer.provideMerge(AccessLive.pipe(Layer.provide(db))),
+    projectsLayer = ProjectServices.layer.pipe(
+      Layer.provideMerge(Access.layer.pipe(Layer.provide(db))),
+      Layer.provide(TicketRewrites.layer),
       Layer.provide(
-        TicketIndexLive.pipe(Layer.provide(db), Layer.provide(docs))
+        TicketIndexServices.layer.pipe(Layer.provide(db), Layer.provide(docs))
       ),
       Layer.provide(docs),
       Layer.provide(lock),
       Layer.provide(FinishedStatuses.baseline),
       Layer.provide(db),
       Layer.provide(
-        Layer.succeed(BannerPlaceholders, {
+        Layer.succeed(BannerPlaceholders.BannerPlaceholders, {
           ensure: (_org, _slug, current) => Effect.succeed(current)
         })
       ),
       Layer.provide(
-        Layer.succeed(ProjectDocs, {
+        Layer.succeed(ProjectDocs.ProjectDocs, {
           read: () =>
             Effect.succeed({
               slug,
@@ -251,19 +252,19 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
         })
       ),
       Layer.provide(
-        Layer.succeed(Users, {
+        Layer.succeed(Users.Users, {
           findByEmail: unused,
           findManyByIds: unused,
           fullByIds: unused
         })
       ),
       Layer.provide(
-        Layer.succeed(GitHub, {
-          verifyInstallationRepo: () =>
+        Layer.succeed(GitHub.GitHub, {
+          verifyInstallationRepo: (_installationId, owner, name) =>
             Effect.succeed({
-              repoId: "new-repo",
-              owner: "acme",
-              name: "new",
+              repoId: `${name}-repo`,
+              owner,
+              name,
               defaultBranch: "main"
             }),
           listInstallationRepos: unused,
@@ -286,17 +287,17 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
     }
   })
 
-  const connect = () =>
-    Effect.flatMap(Projects, (projects) =>
-      projects.connectGithub({
-        repoId: "new-repo",
+  const connect = (repoName = "new") =>
+    Effect.flatMap(ProjectGithub.ProjectGithub, (github) =>
+      github.connect({
+        repoId: `${repoName}-repo`,
         repoOwner: "acme",
-        repoName: "new"
+        repoName
       })
     ).pipe(
       Effect.provideServiceEffect(
         ProjectScope,
-        Effect.flatMap(Access, (access) =>
+        Effect.flatMap(Access.Access, (access) =>
           access.project(organizationId, slug)
         ).pipe(Effect.provideService(CurrentUser, testUser(userId)))
       ),
@@ -343,6 +344,77 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
             pr_state: null,
             last_transitioned_pr: null
           }
+        ])
+      })
+  )
+
+  it.effect("refuses a repository another project already uses", () =>
+    Effect.gen(function* () {
+      const otherProjectId = randomUUID()
+      const otherLinkId = randomUUID()
+      yield* Effect.promise(async () => {
+        await pool.query(
+          "INSERT INTO project_index (id,slug,organization_id,key,name,icon,color,created_by) VALUES ($1,$2,$3,'O','Other','folder','#3b82f6',$4)",
+          [otherProjectId, `other-${otherProjectId}`, organizationId, userId]
+        )
+        await pool.query(
+          "INSERT INTO project_integration_link (id,project_id,organization_id,organization_integration_id,provider,status) VALUES ($1,$2,$3,$4,'github','active')",
+          [otherLinkId, otherProjectId, organizationId, integrationId]
+        )
+        await pool.query(
+          "INSERT INTO project_github_repository (project_integration_link_id,organization_id,status,repo_id,repo_owner,repo_name,default_branch) VALUES ($1,$2,'active','taken-repo','acme','taken','main')",
+          [otherLinkId, organizationId]
+        )
+      })
+
+      const error = yield* Effect.flip(connect("taken"))
+      expect(error).toMatchObject({
+        _tag: "Conflict",
+        reason: "github_repo_already_connected"
+      })
+    })
+  )
+  it.effect(
+    "puts the PR metadata back when the new repository is refused",
+    () =>
+      Effect.gen(function* () {
+        const otherProjectId = randomUUID()
+        const otherLinkId = randomUUID()
+        yield* Effect.promise(async () => {
+          await pool.query(
+            "INSERT INTO project_index (id,slug,organization_id,key,name,icon,color,created_by) VALUES ($1,$2,$3,'K','Kept','folder','#3b82f6',$4)",
+            [otherProjectId, `kept-${otherProjectId}`, organizationId, userId]
+          )
+          await pool.query(
+            "INSERT INTO project_integration_link (id,project_id,organization_id,organization_integration_id,provider,status) VALUES ($1,$2,$3,$4,'github','active')",
+            [otherLinkId, otherProjectId, organizationId, integrationId]
+          )
+          await pool.query(
+            "INSERT INTO project_github_repository (project_integration_link_id,organization_id,status,repo_id,repo_owner,repo_name,default_branch) VALUES ($1,$2,'active','kept-repo','acme','kept','main')",
+            [otherLinkId, organizationId]
+          )
+        })
+        ticket = initialTicket
+
+        const error = yield* Effect.flip(connect("kept"))
+        expect(error).toMatchObject({
+          _tag: "Conflict",
+          reason: "github_repo_already_connected"
+        })
+        expect(ticket).toMatchObject({
+          pr: 42,
+          prState: "open",
+          lastTransitionedPr: 41,
+          updatedAt: initialTicket.updatedAt
+        })
+        const indexed = yield* Effect.promise(() =>
+          pool.query(
+            "SELECT pr,pr_state,last_transitioned_pr FROM ticket_index WHERE project_id=$1 AND ticket_id=$2",
+            [projectId, ticketId]
+          )
+        )
+        expect(indexed.rows).toEqual([
+          { pr: 42, pr_state: "open", last_transitioned_pr: 41 }
         ])
       })
   )

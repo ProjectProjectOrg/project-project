@@ -199,8 +199,11 @@ import {
 } from "./schemas/OrgEmail"
 import {
   AddMemberInput,
+  ChooseGithubInstallationInput,
+  ChooseGithubInstallationResponse,
   ConnectGithubInput,
   CreateProjectInput,
+  GithubInstallationChoices,
   GithubRepoPage,
   GithubOrgIntegrationStatus,
   Project,
@@ -256,7 +259,8 @@ import {
 import { User } from "./schemas/User"
 
 const HealthResponse = Schema.Struct({
-  status: Schema.Literal("ok")
+  status: Schema.Literal("ok"),
+  version: Schema.String
 })
 export type HealthResponse = typeof HealthResponse.Type
 
@@ -581,6 +585,34 @@ const ProjectsGroup = HttpApiGroup.make("projects")
         payload: StartGithubInstallInput,
         success: StartGithubInstallResponse,
         error: [Unauthorized, NotFound, Forbidden, GitHubError]
+      }
+    )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "githubInstallationChoices",
+      "/orgs/:orgSlug/integrations/github/install/choices",
+      {
+        params: OrgPath,
+        query: Schema.Struct({ state: Schema.NonEmptyString }),
+        success: GithubInstallationChoices,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "chooseGithubInstallation",
+      "/orgs/:orgSlug/integrations/github/install/choose",
+      {
+        params: OrgPath,
+        payload: ChooseGithubInstallationInput,
+        success: ChooseGithubInstallationResponse,
+        error: [Unauthorized, NotFound, Forbidden, Conflict, GitHubError]
       }
     )
       .annotate(RequiresOrg, { integration: ["manage"] })
@@ -1874,7 +1906,14 @@ const TicketsGroup = HttpApiGroup.make("tickets")
         params: TicketPath,
         payload: ArchiveTicketInput,
         success: TicketDetail,
-        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Conflict,
+          Validation,
+          MentionInvalid
+        ]
       }
     )
       .annotate(RequiresProject, { ticket: ["update"] })
@@ -1887,7 +1926,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       {
         params: TicketPath,
         success: TicketDetail,
-        error: [Unauthorized, NotFound, Forbidden]
+        error: [Unauthorized, NotFound, Forbidden, Conflict]
       }
     )
       .annotate(RequiresProject, { ticket: ["update"] })

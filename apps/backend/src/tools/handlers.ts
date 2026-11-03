@@ -1,18 +1,22 @@
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
-import { Comments } from "@pp/server-core/comments/Comments"
-import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
-import { Groups } from "@pp/server-core/groups/Groups"
-import { Library } from "@pp/server-core/library/Library"
-import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
-import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
+import * as Comments from "@pp/server-core/comments/Comments"
+import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
+import * as Groups from "@pp/server-core/groups/Groups"
+import * as Library from "@pp/server-core/library/Library"
+import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
+import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutomation"
+import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
-import { ProjectStatuses } from "@pp/server-core/projects/ProjectStatuses"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
-import { Tags } from "@pp/server-core/tags/Tags"
+import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as Tags from "@pp/server-core/tags/Tags"
+import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
-import { TicketIndex } from "@pp/server-core/tickets/TicketIndex"
-import { Tickets } from "@pp/server-core/tickets/Tickets"
+import * as TicketGit from "@pp/server-core/tickets/TicketGit"
+import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
+import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
+import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import {
   blockLookupFor,
   expandTemplateKeepingHints,
@@ -71,7 +75,7 @@ const sanitizeMcpBody = (body: string) =>
     }
     const segments = parseTicketBlocks(body)
     if (!segments.some((segment) => segment.kind === "block")) return body
-    const library = yield* Library
+    const library = yield* Library.Library
     const lookup = blockLookupFor(yield* library.projectLibrary())
     return serializeTicketBlocks(
       segments.map((segment) => {
@@ -122,10 +126,13 @@ const TICKET_TYPES: ReadonlyArray<TicketType> = [
 const me = (_input: {}) =>
   Effect.gen(function* () {
     const current = yield* CurrentUser
-    const betterAuth = yield* BetterAuth
-    const orgs = yield* betterAuth.listOrganizations(current.id)
+    const betterAuth = yield* BetterAuth.BetterAuth
+    const [user, orgs] = yield* Effect.all(
+      [betterAuth.me(current, null), betterAuth.listOrganizations(current.id)],
+      { concurrency: 2 }
+    )
     return {
-      user: current,
+      user,
       roles: orgs.map((o) => ({ orgSlug: o.orgSlug, role: o.role }))
     }
   })
@@ -133,7 +140,7 @@ const me = (_input: {}) =>
 const list_orgs = (input: Pagination) =>
   Effect.gen(function* () {
     const current = yield* CurrentUser
-    const betterAuth = yield* BetterAuth
+    const betterAuth = yield* BetterAuth.BetterAuth
     return yield* betterAuth.listOrganizationsPaged(
       current.id,
       tryDecodeCursor(input.cursor),
@@ -143,9 +150,9 @@ const list_orgs = (input: Pagination) =>
 
 const get_org = Effect.fn("get_org")(function* (input: { orgSlug: string }) {
   const current = yield* CurrentUser
-  const betterAuth = yield* BetterAuth
+  const betterAuth = yield* BetterAuth.BetterAuth
   const org = yield* betterAuth.getOrganization(current.id, input.orgSlug)
-  const orgStorage = yield* OrgStorage
+  const orgStorage = yield* OrgStorage.OrgStorage
   const { status, lastCheckedAt } = yield* orgStorage.getStatus()
   return { ...org, storage: { status, lastCheckedAt } }
 })
@@ -168,7 +175,7 @@ const list_groups = (
     filter?: GroupFilter
   } & Pagination
 ) =>
-  Effect.flatMap(Groups, (groups) =>
+  Effect.flatMap(Groups.Groups, (groups) =>
     groups.listPaged(
       input.filter,
       tryDecodeCursor(input.cursor),
@@ -183,7 +190,7 @@ const list_sprints = (
     state?: SprintState
   } & Pagination
 ) =>
-  Effect.flatMap(Groups, (groups) =>
+  Effect.flatMap(Groups.Groups, (groups) =>
     groups.listSprintsPaged(
       input.state,
       tryDecodeCursor(input.cursor),
@@ -195,7 +202,7 @@ const get_group = (input: {
   orgSlug: string
   projectSlug: string
   id: string
-}) => Effect.flatMap(Groups, (groups) => groups.get(input.id))
+}) => Effect.flatMap(Groups.Groups, (groups) => groups.get(input.id))
 
 const list_tickets = (
   input: {
@@ -205,8 +212,8 @@ const list_tickets = (
     Pick<Pagination, "limit">
 ) =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const page = yield* tickets.list(TicketListQuery.make(input), input.limit)
+    const queries = yield* TicketQueries.TicketQueries
+    const page = yield* queries.list(TicketListQuery.make(input), input.limit)
     return {
       items: page.items.map((row) => row.ticket),
       nextCursor: page.nextCursor
@@ -219,8 +226,8 @@ const get_ticket = (input: {
   id: string
 }) =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
-    const detail = yield* tickets.get(input.id)
+    const queries = yield* TicketQueries.TicketQueries
+    const detail = yield* queries.get(input.id)
     return withBlocks(detail)
   })
 
@@ -239,25 +246,26 @@ const statusesWithAutomation = (
 
 const list_statuses = (_input: { orgSlug: string; projectSlug: string }) =>
   Effect.gen(function* () {
-    const statuses = yield* (yield* ProjectStatuses).list()
+    const statuses = yield* (yield* ProjectStatuses.ProjectStatuses).list()
     const scope = yield* ProjectScope
     if (!permits(scope.permissions, { github: ["read"] })) return { statuses }
-    const automation = yield* (yield* ProjectGitAutomation).get()
+    const automation =
+      yield* (yield* ProjectGitAutomation.ProjectGitAutomation).get()
     return statusesWithAutomation(statuses, automation)
   })
 
 const list_tags = (
   input: { orgSlug: string; projectSlug: string } & Pagination
 ) =>
-  Effect.flatMap(Tags, (tags) =>
+  Effect.flatMap(Tags.Tags, (tags) =>
     tags.listPaged(tryDecodeCursor(input.cursor), input.limit ?? DEFAULT_LIMIT)
   )
 
 const list_members = (
   input: { orgSlug: string; projectSlug: string } & Pagination
 ) =>
-  Effect.flatMap(Projects.Projects, (projects) =>
-    projects.listMembersPaged(
+  Effect.flatMap(ProjectMembers.ProjectMembers, (members) =>
+    members.listMembersPaged(
       tryDecodeCursor(input.cursor),
       input.limit ?? DEFAULT_LIMIT
     )
@@ -270,18 +278,18 @@ type GitStateInput = Readonly<{
 }>
 
 const get_git_state = (input: GitStateInput) =>
-  Effect.flatMap(Tickets, (tickets) =>
-    tickets.getGitState(input.ticketId, { reconcile: false })
+  Effect.flatMap(TicketGit.TicketGit, (git) =>
+    git.getGitState(input.ticketId, { reconcile: false })
   )
 
 const sync_git_state = (input: GitStateInput) =>
-  Effect.flatMap(Tickets, (tickets) =>
-    tickets.getGitState(input.ticketId, { reconcile: true })
+  Effect.flatMap(TicketGit.TicketGit, (git) =>
+    git.getGitState(input.ticketId, { reconcile: true })
   )
 
 const get_project_doc = (input: { orgSlug: string; projectSlug: string }) =>
   Effect.gen(function* () {
-    const docs = yield* ProjectDocs
+    const docs = yield* ProjectDocs.ProjectDocs
     return yield* docs.readRaw(input.orgSlug, input.projectSlug)
   })
 
@@ -291,7 +299,7 @@ const get_group_doc = (input: {
   id: string
 }) =>
   Effect.gen(function* () {
-    const docs = yield* GroupDocs
+    const docs = yield* GroupDocs.GroupDocs
     return yield* docs.readRaw(input.orgSlug, input.projectSlug, input.id)
   })
 
@@ -307,7 +315,7 @@ const get_ticket_doc = (input: {
 
 const list_blocks = (_input: { orgSlug: string; projectSlug: string }) =>
   Effect.gen(function* () {
-    const library = yield* Library
+    const library = yield* Library.Library
     const result = yield* library.projectLibrary()
     return result.blocks
       .filter((block) => !block.hidden)
@@ -323,7 +331,7 @@ const list_blocks = (_input: { orgSlug: string; projectSlug: string }) =>
 
 const list_templates = (_input: { orgSlug: string; projectSlug: string }) =>
   Effect.gen(function* () {
-    const library = yield* Library
+    const library = yield* Library.Library
     const result = yield* library.projectLibrary()
     const lookup = blockLookupFor(result)
     return result.templates
@@ -345,7 +353,7 @@ const create_ticket = (
   input: { orgSlug: string; projectSlug: string } & CreateTicketInput
 ) =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const commands = yield* TicketCommands.TicketCommands
     const {
       orgSlug: _orgSlug,
       projectSlug: _projectSlug,
@@ -354,7 +362,7 @@ const create_ticket = (
     } = input
     const sanitizedBody =
       body === undefined ? undefined : yield* sanitizeMcpBody(body)
-    const created = yield* tickets.create({
+    const created = yield* commands.create({
       ...payload,
       ...(sanitizedBody === undefined ? {} : { body: sanitizedBody })
     })
@@ -364,11 +372,11 @@ const create_ticket = (
 const templateBodyFor = (id: TicketId, template: TemplateKey) =>
   Effect.gen(function* () {
     const { orgSlug, slug } = yield* ProjectScope
-    const tickets = yield* Tickets
-    const library = yield* Library
+    const queries = yield* TicketQueries.TicketQueries
+    const library = yield* Library.Library
     const expansion = yield* library.expandForCreate(orgSlug, slug, template)
     const [ticket, projectLibrary] = yield* Effect.all(
-      [tickets.get(id), library.projectLibrary()],
+      [queries.get(id), library.projectLibrary()],
       { concurrency: 2 }
     )
     if (!isUntouchedBody(ticket.body, projectLibrary)) {
@@ -381,7 +389,7 @@ const templateBodyFor = (id: TicketId, template: TemplateKey) =>
 
 const editedBody = (id: TicketId, edits: ReadonlyArray<TicketBodyEdit>) =>
   Effect.gen(function* () {
-    const ticket = yield* (yield* Tickets).get(id)
+    const ticket = yield* (yield* TicketQueries.TicketQueries).get(id)
     const result = applyTicketBodyEdits(ticket.body, edits)
     if (!result.ok) {
       return yield* new Validation({
@@ -405,7 +413,7 @@ const update_ticket = (
   } & UpdateTicketInput
 ) =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const commands = yield* TicketCommands.TicketCommands
     const {
       orgSlug: _orgSlug,
       projectSlug: _projectSlug,
@@ -428,7 +436,7 @@ const update_ticket = (
             : undefined
       const nextBody =
         body !== undefined ? yield* sanitizeMcpBody(body) : pending?.body
-      return yield* tickets.update(
+      return yield* commands.update(
         id,
         {
           ...payload,
@@ -460,6 +468,24 @@ const update_ticket = (
     )
     return withBlocks(updated.ticket)
   })
+
+const archive_ticket = (
+  input: Tool.Parameters<typeof Tools.tools.archive_ticket>
+) =>
+  Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+    commands.archive(input.id, input.reason)
+  ).pipe(
+    Effect.catchTag("InvalidCommentBody", (error) =>
+      Effect.fail(new Validation({ reason: error.reason }))
+    )
+  )
+
+const restore_ticket = (
+  input: Tool.Parameters<typeof Tools.tools.restore_ticket>
+) =>
+  Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+    commands.unarchive(input.id)
+  )
 
 const prepare_ticket_attachment = (
   input: Tool.Parameters<typeof Tools.tools.prepare_ticket_attachment>
@@ -493,7 +519,7 @@ const create_comment = (input: {
   ticketId: TicketId
   body: string
 }) =>
-  Effect.flatMap(Comments, (comments) =>
+  Effect.flatMap(Comments.Comments, (comments) =>
     comments.create(input.ticketId, { body: input.body })
   ).pipe(
     Effect.catchTag("InvalidCommentBody", (error) =>
@@ -509,14 +535,14 @@ const attach_branch = (
   } & AttachBranchInput
 ) =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const git = yield* TicketGit.TicketGit
     const {
       orgSlug: _orgSlug,
       projectSlug: _projectSlug,
       id,
       ...payload
     } = input
-    return yield* tickets.attachBranch(id, payload)
+    return yield* git.attachBranch(id, payload)
   })
 
 type StackBranchToolInput = Readonly<{
@@ -527,13 +553,13 @@ type StackBranchToolInput = Readonly<{
   AttachBranchInput
 
 const stack_branch = (input: StackBranchToolInput) =>
-  Effect.flatMap(Tickets, (tickets) =>
-    tickets.stackBranch(input.id, { name: input.name })
+  Effect.flatMap(TicketGit.TicketGit, (git) =>
+    git.stackBranch(input.id, { name: input.name })
   )
 
 const unstack_branch = (input: StackBranchToolInput) =>
-  Effect.flatMap(Tickets, (tickets) =>
-    tickets.unstackBranch(input.id, { name: input.name })
+  Effect.flatMap(TicketGit.TicketGit, (git) =>
+    git.unstackBranch(input.id, { name: input.name })
   )
 
 const create_sprint = (
@@ -543,14 +569,14 @@ const create_sprint = (
   >
 ) =>
   Effect.gen(function* () {
-    const groups = yield* Groups
+    const groups = yield* Groups.Groups
     const { orgSlug: _orgSlug, projectSlug: _projectSlug, ...rest } = input
     return yield* groups.create({ ...rest, kind: "sprint" })
   })
 
 const requireSprintKind = (id: GroupId) =>
   Effect.gen(function* () {
-    const groups = yield* Groups
+    const groups = yield* Groups.Groups
     const group = yield* groups.get(id)
     if (group.kind !== "sprint") {
       return yield* new Validation({ reason: `not_a_sprint:${id}` })
@@ -566,7 +592,7 @@ const update_sprint = (
   } & Omit<UpdateGroupInput, "completedAt">
 ) =>
   Effect.gen(function* () {
-    const groups = yield* Groups
+    const groups = yield* Groups.Groups
     const {
       orgSlug: _orgSlug,
       projectSlug: _projectSlug,
@@ -585,7 +611,7 @@ const complete_sprint = (
   } & CompleteSprintInput
 ) =>
   Effect.gen(function* () {
-    const groups = yield* Groups
+    const groups = yield* Groups.Groups
     const {
       orgSlug: _orgSlug,
       projectSlug: _projectSlug,
@@ -601,17 +627,18 @@ const rebuild_ticket_index = (input: {
   projectSlug: string
 }) =>
   Effect.gen(function* () {
-    const ticketIndex = yield* TicketIndex
+    const ticketIndex = yield* TicketIndex.TicketIndex
+    const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
     const project = yield* ticketIndex.projectFor(
       input.orgSlug,
       input.projectSlug
     )
-    const summary = yield* ticketIndex.reconcileProject(project, {
+    const summary = yield* maintenance.reconcileProject(project, {
       force: true
     })
     return {
       orgSlug: project.orgSlug,
-      projectSlug: project.projectSlug,
+      projectSlug: project.slug,
       rebuilt: summary.rebuilt,
       indexed: summary.indexed,
       skipped: summary.skipped,
@@ -629,7 +656,7 @@ const add_tickets_to_group = (input: {
   groupId: GroupId
   ticketIds: ReadonlyArray<TicketId>
 }) =>
-  Effect.flatMap(Groups, (groups) =>
+  Effect.flatMap(Groups.Groups, (groups) =>
     groups.addTickets(input.groupId, input.ticketIds)
   )
 
@@ -665,6 +692,8 @@ export const ToolHandlersLive = Tools.toLayer(
       list_templates: run.project({ ticket: ["read"] }, list_templates),
       create_ticket: run.project({ ticket: ["create"] }, create_ticket),
       update_ticket: run.project("membership", update_ticket),
+      archive_ticket: run.project({ ticket: ["update"] }, archive_ticket),
+      restore_ticket: run.project({ ticket: ["update"] }, restore_ticket),
       prepare_ticket_attachment: run.project(
         { attachment: ["upload"] },
         prepare_ticket_attachment

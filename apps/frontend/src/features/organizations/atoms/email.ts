@@ -3,8 +3,8 @@ import * as Effect from "effect/Effect"
 import * as Atom from "effect/reactivity/Atom"
 import * as Reactivity from "effect/reactivity/Reactivity"
 
-import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
+import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 export type EmailRequest = Readonly<{ params: Readonly<{ orgSlug: string }> }>
@@ -12,7 +12,7 @@ export const emailRequest = (orgSlug: string): EmailRequest => ({
   params: { orgSlug }
 })
 const emailQuery = (req: EmailRequest) =>
-  Api.query("orgEmail", "get", {
+  query("orgEmail", "get", {
     params: req.params,
     timeToLive: "30 seconds",
     reactivityKeys: [Keys.orgEmail(req.params.orgSlug)]

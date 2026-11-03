@@ -11,12 +11,12 @@ import {
   makeJiraCleanupCommands,
   makeJiraMigrationCleanupWorkflow
 } from "@pp/integration-jira/CleanupWorkflow"
-import { JiraMigrationArtifacts } from "@pp/integration-jira/MigrationArtifacts"
-import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
-import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
-import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
-import { S3Storage } from "@pp/server-core/storage/S3Storage"
+import * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
+import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
+import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import { ConfigProvider, Effect, Layer, Redacted } from "effect"
@@ -87,8 +87,8 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
         }
         const fakes = Layer.mergeAll(
           Layer.succeed(
-            OrgStorage,
-            OrgStorage.of({
+            OrgStorage.OrgStorage,
+            OrgStorage.OrgStorage.of({
               getStatus: () => Effect.die("unused"),
               connect: () => Effect.die("unused"),
               disconnect: () => Effect.die("unused"),
@@ -96,8 +96,8 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
             })
           ),
           Layer.succeed(
-            S3Storage,
-            S3Storage.of({
+            S3Storage.S3Storage,
+            S3Storage.S3Storage.of({
               putObject: () => Effect.die("unused"),
               getObject: () => Effect.die("unused"),
               listObjectKeys: () => Effect.die("unused"),
@@ -112,8 +112,8 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
             })
           ),
           Layer.succeed(
-            ProjectDocs,
-            ProjectDocs.of({
+            ProjectDocs.ProjectDocs,
+            ProjectDocs.ProjectDocs.of({
               read: () => Effect.die("unused"),
               write: () => Effect.die("unused"),
               readRaw: () => Effect.die("unused"),
@@ -127,8 +127,8 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
             })
           ),
           Layer.succeed(
-            JiraMigrationArtifacts,
-            JiraMigrationArtifacts.of({
+            MigrationArtifacts.JiraMigrationArtifacts,
+            MigrationArtifacts.JiraMigrationArtifacts.of({
               writeJson: () => Effect.die("unused"),
               readJson: () => Effect.die("unused"),
               verify: () => Effect.die("unused"),
@@ -142,11 +142,11 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
         )
         const pg = PgClient.layer({ url: Redacted.make(databaseUrl!) })
         const layer = Layer.mergeAll(
-          JiraMigrationProjection.layer.pipe(Layer.provideMerge(DbLive)),
+          MigrationProjection.layer.pipe(Layer.provideMerge(DbLive)),
           fakes
         ).pipe(
           Layer.provideMerge(
-            MarkdownLive.pipe(
+            Markdown.layer.pipe(
               Layer.provide(
                 ConfigProvider.layer(
                   ConfigProvider.fromUnknown({ PROJECTS_DIR: "/tmp" })
@@ -159,7 +159,7 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
           Layer.orDie
         )
         const result = yield* Effect.gen(function* () {
-          const projection = yield* JiraMigrationProjection
+          const projection = yield* MigrationProjection.JiraMigrationProjection
           const db = yield* Db
           const created = yield* projection.ensureCreated({
             ...owner,

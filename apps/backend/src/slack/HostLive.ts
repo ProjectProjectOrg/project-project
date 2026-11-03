@@ -1,11 +1,11 @@
 import { Db } from "@pp/db"
 import { projectStatus } from "@pp/db/schema"
 import { SlackHost } from "@pp/integration-slack/Host"
-import { Access } from "@pp/server-core/access/Access"
-import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
-import { SecretCrypto } from "@pp/server-core/storage/SecretCrypto"
-import { TicketDocs } from "@pp/server-core/tickets/TicketDocs"
-import { Users } from "@pp/server-core/users/Users"
+import * as Access from "@pp/server-core/access/Access"
+import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
+import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
+import * as Users from "@pp/server-core/users/Users"
 import { CurrentUser, SlackError } from "@pp/shared"
 import { and, eq } from "drizzle-orm"
 import * as Effect from "effect/Effect"
@@ -16,11 +16,11 @@ export const SlackHostLive = Layer.effect(
   SlackHost,
   Effect.gen(function* () {
     const db = yield* Db
-    const access = yield* Access
-    const docs = yield* TicketDocs
-    const groups = yield* GroupDocs
-    const users = yield* Users
-    const secrets = yield* SecretCrypto
+    const access = yield* Access.Access
+    const docs = yield* TicketDocs.TicketDocs
+    const groups = yield* GroupDocs.GroupDocs
+    const users = yield* Users.Users
+    const secrets = yield* SecretCrypto.SecretCrypto
     const ticketSummary: SlackHost["Service"]["ticketSummary"] = Effect.fn(
       "SlackHost.ticketSummary"
     )(function* (request) {
@@ -39,18 +39,23 @@ export const SlackHostLive = Layer.effect(
         .read(request.orgSlug, request.slug, request.id)
         .pipe(Effect.option)
       if (Option.isNone(ticket) || ticket.value.archivedAt !== null) return null
-      const [status] = yield* db
-        .select({ label: projectStatus.label })
-        .from(projectStatus)
-        .where(
-          and(
-            eq(projectStatus.projectId, scope.value.projectId),
-            eq(projectStatus.slug, ticket.value.status)
-          )
-        )
-        .limit(1)
-        .pipe(Effect.orDie)
-      const assigned = yield* users.findManyByIds(ticket.value.assignees)
+      const [[status], assigned] = yield* Effect.all(
+        [
+          db
+            .select({ label: projectStatus.label })
+            .from(projectStatus)
+            .where(
+              and(
+                eq(projectStatus.projectId, scope.value.projectId),
+                eq(projectStatus.slug, ticket.value.status)
+              )
+            )
+            .limit(1)
+            .pipe(Effect.orDie),
+          users.findManyByIds(ticket.value.assignees)
+        ],
+        { concurrency: 2 }
+      )
       return {
         id: ticket.value.id,
         title: ticket.value.title,

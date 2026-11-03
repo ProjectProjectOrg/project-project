@@ -1,8 +1,4 @@
-import {
-  BetterAuth,
-  type BetterAuthError,
-  type InvitationState
-} from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import {
   AppApi,
   CurrentUser,
@@ -32,8 +28,10 @@ const UNUSABLE_CODES = new Set([
   "INVITER_IS_NO_LONGER_A_MEMBER_OF_THE_ORGANIZATION"
 ])
 
-const addressedTo = (state: InvitationState, recipientEmail: string) =>
-  state.email.toLowerCase() === recipientEmail.toLowerCase()
+const addressedTo = (
+  state: BetterAuth.InvitationState,
+  recipientEmail: string
+) => state.email.toLowerCase() === recipientEmail.toLowerCase()
 
 const UNNAMED_REFUSAL_STATUS = 400
 
@@ -44,8 +42,8 @@ const namesAKnownRefusal = (code: string) =>
   UNUSABLE_CODES.has(code)
 
 export const acceptErrorToFailure = (
-  error: BetterAuthError,
-  state: InvitationState | null,
+  error: BetterAuth.BetterAuthError,
+  state: BetterAuth.InvitationState | null,
   now: Date,
   recipientEmail: string
 ): Effect.Effect<never, NotFound | InvitationNotAcceptable> => {
@@ -78,7 +76,7 @@ export const acceptErrorToFailure = (
 }
 
 export const invitationErrorToFailure = (
-  error: BetterAuthError
+  error: BetterAuth.BetterAuthError
 ): Effect.Effect<never, NotFound> => {
   if (!isClientRefusal(error)) return Effect.die(error)
   const code = betterAuthErrorCode(error)
@@ -92,7 +90,7 @@ export const invitationErrorToFailure = (
 }
 
 export const listInvitationsErrorToFailure = (
-  error: BetterAuthError
+  error: BetterAuth.BetterAuthError
 ): Effect.Effect<never, InvitationNotAcceptable> => {
   if (!isClientRefusal(error)) return Effect.die(error)
   const code = betterAuthErrorCode(error)
@@ -117,7 +115,7 @@ export const InvitationsHandlerLive = HttpApiBuilder.group(
       .handle("list", () =>
         Effect.gen(function* () {
           yield* CurrentUser
-          const ba = yield* BetterAuth
+          const ba = yield* BetterAuth.BetterAuth
           const request = yield* webRequest
           return yield* ba
             .listInvitations(request)
@@ -129,7 +127,7 @@ export const InvitationsHandlerLive = HttpApiBuilder.group(
       .handle("get", ({ params }) =>
         Effect.gen(function* () {
           yield* CurrentUser
-          const ba = yield* BetterAuth
+          const ba = yield* BetterAuth.BetterAuth
           const request = yield* webRequest
           return yield* ba
             .getInvitation(request, params.invitationId)
@@ -139,7 +137,7 @@ export const InvitationsHandlerLive = HttpApiBuilder.group(
       .handle("accept", ({ params }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          const ba = yield* BetterAuth
+          const ba = yield* BetterAuth.BetterAuth
           const request = yield* webRequest
           return yield* ba.acceptInvitation(request, params.invitationId).pipe(
             Effect.catchTag("BetterAuthError", (error) =>
@@ -162,7 +160,7 @@ export const InvitationsHandlerLive = HttpApiBuilder.group(
       .handle("reject", ({ params }) =>
         Effect.gen(function* () {
           yield* CurrentUser
-          const ba = yield* BetterAuth
+          const ba = yield* BetterAuth.BetterAuth
           const request = yield* webRequest
           yield* ba
             .rejectInvitation(request, params.invitationId)

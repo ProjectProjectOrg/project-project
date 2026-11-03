@@ -3,8 +3,8 @@ import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
 import { member, organization } from "@pp/db/schema"
 import { GitHubHost } from "@pp/integration-github/Host"
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
-import { GitHubTicketEvents } from "@pp/server-core/github/GitHubTicketEvents"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
+import * as GitHubTicketEvents from "@pp/server-core/github/GitHubTicketEvents"
 import {
   Forbidden,
   GitHubError,
@@ -21,9 +21,9 @@ import * as Schema from "effect/Schema"
 export const GitHubHostLive = Layer.effect(
   GitHubHost,
   Effect.gen(function* () {
-    const auth = yield* BetterAuth
+    const auth = yield* BetterAuth.BetterAuth
     const db = yield* Db
-    const events = yield* GitHubTicketEvents
+    const events = yield* GitHubTicketEvents.GitHubTicketEvents
     const decodeOrgRole = Schema.decodeUnknownEffect(OrgRole)
     const publicBaseUrl = Config.String("BETTER_AUTH_URL").pipe(
       Config.withDefault("http://localhost:5173")
@@ -57,18 +57,24 @@ export const GitHubHostLive = Layer.effect(
         return yield* new Forbidden()
       }
     })
+    const organizationSlug = (organizationId: string) =>
+      db.query.organization
+        .findFirst({
+          columns: { slug: true },
+          where: {
+            RAW: (table, _operators) => _operators.eq(table.id, organizationId)
+          }
+        })
+        .pipe(
+          Effect.orDie,
+          Effect.flatMap((org) =>
+            org ? Effect.succeed(org.slug) : Effect.fail(new NotFound())
+          )
+        )
+    const baseUrl = publicBaseUrl.pipe(Effect.mapError(() => configError))
     const installationRedirect = Effect.fn("GitHubHost.installationRedirect")(
       function* (organizationId: string, projectId: string | null) {
-        const org = yield* db.query.organization
-          .findFirst({
-            columns: { slug: true },
-            where: {
-              RAW: (table, _operators) =>
-                _operators.eq(table.id, organizationId)
-            }
-          })
-          .pipe(Effect.orDie)
-        if (!org) return yield* new NotFound()
+        const orgSlug = yield* organizationSlug(organizationId)
         const project =
           projectId == null
             ? null
@@ -85,15 +91,22 @@ export const GitHubHostLive = Layer.effect(
                   }
                 })
                 .pipe(Effect.orDie)
-        const baseUrl = yield* publicBaseUrl.pipe(
-          Effect.mapError(() => configError)
-        )
-        const redirectUrl = project
-          ? `${baseUrl}/orgs/${org.slug}/projects/${project.slug}?githubInstall=success`
-          : `${baseUrl}/orgs/${org.slug}/settings/integrations?githubInstall=success`
-        return redirectUrl
+        const base = yield* baseUrl
+        return project
+          ? `${base}/orgs/${orgSlug}/projects/${project.slug}?githubInstall=success`
+          : `${base}/orgs/${orgSlug}/settings/integrations?githubInstall=success`
       }
     )
+    const installationChoiceRedirect = Effect.fn(
+      "GitHubHost.installationChoiceRedirect"
+    )(function* (organizationId: string, state: string) {
+      const orgSlug = yield* organizationSlug(organizationId)
+      const url = new URL(
+        `${yield* baseUrl}/orgs/${orgSlug}/settings/integrations/github`
+      )
+      url.searchParams.set("installChoice", state)
+      return url.toString()
+    })
     return GitHubHost.of({
       pullRequestChanged: (change, deliveryId) =>
         events
@@ -114,6 +127,7 @@ export const GitHubHostLive = Layer.effect(
       checkStateChanged: events.checkStateChanged,
       requireInstallPermission,
       installationRedirect,
+      installationChoiceRedirect,
       installationProject: (organizationId, slug) =>
         db.query.projectIndex
           .findFirst({

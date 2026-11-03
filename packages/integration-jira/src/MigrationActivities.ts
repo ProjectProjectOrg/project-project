@@ -17,14 +17,11 @@ import * as Schema from "effect/Schema"
 import { Activity } from "effect/workflow"
 
 import { JiraRateLimited, JiraTransientFailure } from "./Blocked"
-import type { JiraClientShape, JiraCallError } from "./Client"
+import type * as Client from "./Client"
 import { JiraIssue, type JiraOffsetPage } from "./ClientSchemas"
 import { canonicalJiraJson } from "./Manifest"
-import {
-  JiraArtifactRef,
-  type JiraMigrationArtifactsShape
-} from "./MigrationArtifacts"
-import type { AttemptFence, JiraScanResumeResult } from "./MigrationProjection"
+import * as MigrationArtifacts from "./MigrationArtifacts"
+import type * as MigrationProjection from "./MigrationProjection"
 import type {
   JiraMigrationWorkflowFailure,
   JiraMigrationWorkflowFailureValue,
@@ -63,7 +60,7 @@ export type VerifiedJiraMaterialization =
 
 export type JiraReadyPublication = Readonly<{
   projectId: string
-  planRef: JiraArtifactRef
+  planRef: MigrationArtifacts.JiraArtifactRef
   verified: VerifiedJiraMaterialization
 }>
 
@@ -84,7 +81,7 @@ export type JiraMaterializationDependencies<
     outcomes: ReadonlyArray<JiraAttachmentOutcome>
   ) => Effect.Effect<
     Readonly<{
-      planRef: JiraArtifactRef
+      planRef: MigrationArtifacts.JiraArtifactRef
       publicationRevision: string
       documentBatchCount: number
     }>,
@@ -92,17 +89,17 @@ export type JiraMaterializationDependencies<
     R
   >
   writeDocumentBatch: (
-    planRef: JiraArtifactRef,
+    planRef: MigrationArtifacts.JiraArtifactRef,
     ordinal: number
   ) => Effect.Effect<number, JiraMigrationWorkflowFailureValue, R>
   writeArchive: (
-    planRef: JiraArtifactRef
+    planRef: MigrationArtifacts.JiraArtifactRef
   ) => Effect.Effect<number, JiraMigrationWorkflowFailureValue, R>
   writeReport: (
-    planRef: JiraArtifactRef
+    planRef: MigrationArtifacts.JiraArtifactRef
   ) => Effect.Effect<number, JiraMigrationWorkflowFailureValue, R>
   verify: (
-    planRef: JiraArtifactRef
+    planRef: MigrationArtifacts.JiraArtifactRef
   ) => Effect.Effect<
     VerifiedJiraMaterialization,
     JiraMigrationWorkflowFailureValue,
@@ -119,7 +116,7 @@ export const prepareJiraPublicationReference = <R>(
   dependencies: Readonly<{
     error: typeof JiraMigrationWorkflowFailure
     prepare: Effect.Effect<
-      JiraArtifactRef,
+      MigrationArtifacts.JiraArtifactRef,
       JiraMigrationWorkflowFailureValue,
       R
     >
@@ -131,7 +128,7 @@ export const prepareJiraPublicationReference = <R>(
       input.configurationRevision,
       input.operationTry ?? 0
     ),
-    success: JiraArtifactRef,
+    success: MigrationArtifacts.JiraArtifactRef,
     error: dependencies.error,
     execute: dependencies.prepare
   })
@@ -200,7 +197,7 @@ export const materializeJiraPreparedPublication = <
         input.operationTry ?? 0
       ),
       success: Schema.Struct({
-        planRef: JiraArtifactRef,
+        planRef: MigrationArtifacts.JiraArtifactRef,
         publicationRevision: Schema.String,
         documentBatchCount: Schema.Int
       }),
@@ -260,14 +257,14 @@ export const materializeJiraPreparedPublication = <
 
 export const publishJiraPreparedPublication = <R>(
   ready: Readonly<{
-    planRef: JiraArtifactRef
+    planRef: MigrationArtifacts.JiraArtifactRef
     verified: VerifiedJiraMaterialization
   }>,
   dependencies: Readonly<{
     operationTry?: number
     error: typeof JiraMigrationWorkflowFailure
     publish: (
-      planRef: JiraArtifactRef,
+      planRef: MigrationArtifacts.JiraArtifactRef,
       verified: VerifiedJiraMaterialization
     ) => Effect.Effect<boolean, JiraMigrationWorkflowFailureValue, R>
   }>
@@ -332,7 +329,11 @@ export type MigrationActivities<R = never> = Readonly<{
   resumeImport?: (
     input: MigrationActivityInput,
     failureSequence: number
-  ) => Effect.Effect<JiraScanResumeResult, JiraMigrationWorkflowFailureValue, R>
+  ) => Effect.Effect<
+    MigrationProjection.JiraScanResumeResult,
+    JiraMigrationWorkflowFailureValue,
+    R
+  >
 }>
 
 export const activityName = (parts: ReadonlyArray<string | number>) =>
@@ -488,7 +489,7 @@ export const JiraScanContext = Schema.Struct({
 export type JiraScanContext = typeof JiraScanContext.Type
 export const JiraScanPageInput = Schema.Struct({
   ...JiraScanContext.fields,
-  sourceArtifact: Schema.optional(JiraArtifactRef),
+  sourceArtifact: Schema.optional(MigrationArtifacts.JiraArtifactRef),
   kind: JiraScanKind,
   parentId: Schema.NullOr(Schema.String),
   cursor: Schema.NullOr(Schema.String),
@@ -497,8 +498,8 @@ export const JiraScanPageInput = Schema.Struct({
 })
 export type JiraScanPageInput = typeof JiraScanPageInput.Type
 export const JiraScanPageResult = Schema.Struct({
-  raw: JiraArtifactRef,
-  normalized: JiraArtifactRef,
+  raw: MigrationArtifacts.JiraArtifactRef,
+  normalized: MigrationArtifacts.JiraArtifactRef,
   count: Schema.Int,
   nextCursor: Schema.NullOr(Schema.String),
   warnings: Schema.Array(Schema.String)
@@ -563,10 +564,10 @@ export const scanPageActivityName = (input: {
     input.operationTry
   ].join("/")
 export type ScanPageDependencies = Readonly<{
-  client: JiraClientShape
-  artifacts: JiraMigrationArtifactsShape
+  client: Client.JiraClient["Service"]
+  artifacts: MigrationArtifacts.JiraMigrationArtifacts["Service"]
   progress: (
-    fence: AttemptFence,
+    fence: MigrationProjection.AttemptFence,
     page: {
       kind: JiraScanKind
       parentId: string | null
@@ -576,7 +577,7 @@ export type ScanPageDependencies = Readonly<{
   ) => Effect.Effect<boolean, JiraError>
 }>
 const singleSnapshotPage = <A>(
-  effect: Effect.Effect<{ raw: Schema.Json; value: A }, JiraCallError>
+  effect: Effect.Effect<{ raw: Schema.Json; value: A }, Client.JiraCallError>
 ) =>
   effect.pipe(
     Effect.map(({ raw, value }) => ({
@@ -588,7 +589,7 @@ const singleSnapshotPage = <A>(
 const collectionSnapshotPage = <A>(
   effect: Effect.Effect<
     { raw: Schema.Json; value: ReadonlyArray<A> },
-    JiraCallError
+    Client.JiraCallError
   >
 ) =>
   effect.pipe(
@@ -597,14 +598,14 @@ const collectionSnapshotPage = <A>(
 
 const pageResponse = Effect.fn("Jira.scanPageResponse")(function* (
   input: JiraScanPageInput,
-  client: JiraClientShape
+  client: Client.JiraClient["Service"]
 ): Effect.fn.Return<
   {
     raw: Schema.Json
     values: ReadonlyArray<Schema.Json>
     nextCursor: string | null
   },
-  JiraCallError
+  Client.JiraCallError
 > {
   const { userId, cloudId, projectId, parentId, kind, cursor } = input
   const base = { userId, cloudId }
@@ -678,7 +679,7 @@ const pageResponse = Effect.fn("Jira.scanPageResponse")(function* (
   }
   const fetch: Effect.Effect<
     JiraOffsetPage<Schema.Json>,
-    JiraCallError
+    Client.JiraCallError
   > = Match.value(kind).pipe(
     Match.when("comments", () => client.commentsPage(issue)),
     Match.when("changelogs", () => client.changelogsPage(issue)),
@@ -756,7 +757,7 @@ export const defineScanPageActivity = (
           values: ReadonlyArray<Schema.Json>
           nextCursor: string | null
         },
-        | JiraCallError
+        | Client.JiraCallError
         | JiraScanFailure
         | import("./MigrationArtifacts").JiraMigrationArtifactError
       > =
@@ -796,7 +797,7 @@ export const defineScanPageActivity = (
             Schedule.recurs(3)
           ]).pipe(
             Schedule.setInputType<
-              | JiraCallError
+              | Client.JiraCallError
               | JiraScanFailure
               | import("./MigrationArtifacts").JiraMigrationArtifactError
             >(),
@@ -854,9 +855,9 @@ export const defineScanPageActivity = (
   })
 
 export const JiraScanSnapshotResult = Schema.Struct({
-  manifest: JiraArtifactRef,
-  requirements: JiraArtifactRef,
-  summary: JiraArtifactRef
+  manifest: MigrationArtifacts.JiraArtifactRef,
+  requirements: MigrationArtifacts.JiraArtifactRef,
+  summary: MigrationArtifacts.JiraArtifactRef
 })
 export type JiraScanSnapshotResult = typeof JiraScanSnapshotResult.Type
 export type ScanSnapshotDependencies = Readonly<
@@ -866,22 +867,22 @@ export type ScanSnapshotDependencies = Readonly<
       JiraError
     >
     configured: (
-      fence: AttemptFence,
+      fence: MigrationProjection.AttemptFence,
       result: {
-        manifest: JiraArtifactRef
+        manifest: MigrationArtifacts.JiraArtifactRef
         requirements: JiraMigrationRequirements
         summary: JiraMigrationScanSummary
       }
     ) => Effect.Effect<boolean, JiraError>
     recordFailure: (
-      fence: AttemptFence,
+      fence: MigrationProjection.AttemptFence,
       operationKey: string,
       failure: JiraScanFailure
     ) => Effect.Effect<number | null, JiraError>
     resume: (
-      fence: AttemptFence,
+      fence: MigrationProjection.AttemptFence,
       failureSequence: number
-    ) => Effect.Effect<JiraScanResumeResult, JiraError>
+    ) => Effect.Effect<MigrationProjection.JiraScanResumeResult, JiraError>
   }
 >
 export const defineIdentityOptionsActivity = (
@@ -898,7 +899,7 @@ export const defineIdentityOptionsActivity = (
       cursorHash: cursorHash(null),
       operationTry
     }),
-    success: JiraArtifactRef,
+    success: MigrationArtifacts.JiraArtifactRef,
     error: JiraScanPageError,
     execute: Effect.gen(function* () {
       const options = yield* dependencies.identityOptions
@@ -918,7 +919,7 @@ export const defineIdentityOptionsActivity = (
 export const defineBuildManifestActivity = (
   context: JiraScanContext,
   references: ReadonlyArray<ScanChunkReference>,
-  identityOptionsArtifact: JiraArtifactRef,
+  identityOptionsArtifact: MigrationArtifacts.JiraArtifactRef,
   dependencies: ScanSnapshotDependencies,
   operationTry: number
 ) =>
@@ -961,7 +962,7 @@ export const defineBuildManifestActivity = (
           decodeUnknownJiraMigrationUserOptionArray
         )
       )
-      const refs = new Map<string, JiraArtifactRef>()
+      const refs = new Map<string, MigrationArtifacts.JiraArtifactRef>()
       for (const document of prepared.documents) {
         const ref = yield* dependencies.artifacts.writeJson(
           context.orgSlug,

@@ -1,6 +1,8 @@
 import { useAtomSet } from "@effect/atom-react"
 import { ProjectPolicy } from "@pp/access/policies"
 import { getRouteApi } from "@tanstack/react-router"
+import * as Cause from "effect/Cause"
+import * as Exit from "effect/Exit"
 import { useState } from "react"
 
 import { PageContainer } from "@/components/shell/Page"
@@ -25,7 +27,8 @@ export function AboutTab() {
   const { orgSlug } = routeApi.useParams()
   const project = useProject()
   const update = useAtomSet(
-    updateProject(projectRequest(orgSlug, project.slug))
+    updateProject(projectRequest(orgSlug, project.slug)),
+    { mode: "promiseExit" }
   )
   const [status, setStatus] = useState<SaveStatus>("idle")
   const canEdit = ProjectPolicy.canUpdate(useProjectActor(), { body: true })
@@ -44,7 +47,10 @@ export function AboutTab() {
         <LexicalEditor
           key={project.slug}
           markdown={project.body}
-          onChange={(next) => update({ body: next })}
+          onChange={async (next) => {
+            const exit = await update({ body: next })
+            if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
+          }}
           onStatusChange={setStatus}
           className="rounded-lg border border-border bg-background px-3 py-2"
         />

@@ -1,7 +1,7 @@
 import { FeedbackAttachments } from "@pp/server-core/feedback/FeedbackAttachments"
-import { FeedbackConfig } from "@pp/server-core/feedback/FeedbackConfig"
+import * as FeedbackConfig from "@pp/server-core/feedback/FeedbackConfig"
 import { FeedbackDelivery } from "@pp/server-core/feedback/FeedbackDelivery"
-import { FeedbackIntake } from "@pp/server-core/feedback/FeedbackIntake"
+import * as FeedbackIntake from "@pp/server-core/feedback/FeedbackIntake"
 import { singleLine } from "@pp/server-core/feedback/feedbackTicket"
 import { AppApi, CurrentUser } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -19,7 +19,7 @@ export const FeedbackHandlerLive = HttpApiBuilder.group(
     handlers
       .handle("status", ({ params }) =>
         Effect.gen(function* () {
-          const config = yield* FeedbackConfig
+          const config = yield* FeedbackConfig.FeedbackConfig
           if (Option.isNone(config.targetUrl)) {
             return { enabled: false, attachments: false }
           }
@@ -38,7 +38,7 @@ export const FeedbackHandlerLive = HttpApiBuilder.group(
       .handle("submit", ({ payload }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          const config = yield* FeedbackConfig
+          const config = yield* FeedbackConfig.FeedbackConfig
           const request = yield* HttpServerRequest.HttpServerRequest
           const delivery = yield* FeedbackDelivery
           const userAgent = request.headers["user-agent"]?.trim()
@@ -72,7 +72,7 @@ export const FeedbackIntakeHandlerLive = HttpApiBuilder.group(
   "feedbackIntake",
   (handlers) =>
     handlers.handle("receive", ({ payload }) =>
-      Effect.flatMap(FeedbackIntake, (intake) =>
+      Effect.flatMap(FeedbackIntake.FeedbackIntake, (intake) =>
         intake.receive(payload.report, payload.files)
       )
     )

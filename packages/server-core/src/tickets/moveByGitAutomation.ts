@@ -2,27 +2,24 @@ import { ActivityActor, type GitAutomationEvent } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 
-import type { MarkdownError } from "../markdown/Markdown"
-import type { ProjectGitAutomationShape } from "../projects/ProjectGitAutomation"
+import type * as Markdown from "../markdown/Markdown"
+import type * as ProjectGitAutomation from "../projects/ProjectGitAutomation"
 import { gitAutomationEvent, planGitAutomation } from "./gitAutomation"
-import type { TicketDocsShape, TicketDocument } from "./TicketDocs"
+import type * as TicketDocs from "./TicketDocs"
 import type { TicketDocumentLock } from "./ticketDocumentLock"
-import type {
-  TicketIndexMatch,
-  TicketIndexProject,
-  TicketIndexShape
-} from "./TicketIndex"
+import type * as TicketIndex from "./TicketIndex"
+import type { TicketProject } from "./ticketProject"
 
 export type GitAutomationDeps = Readonly<{
-  ticketDocs: TicketDocsShape
-  ticketIndex: TicketIndexShape
-  gitAutomation: ProjectGitAutomationShape
+  ticketDocs: TicketDocs.TicketDocs["Service"]
+  ticketIndex: TicketIndex.TicketIndex["Service"]
+  gitAutomation: ProjectGitAutomation.ProjectGitAutomation["Service"]
 }>
 
 export const moveByGitAutomation = (
   deps: GitAutomationDeps,
-  project: TicketIndexProject,
-  ticket: TicketDocument,
+  project: TicketProject,
+  ticket: TicketDocs.TicketDocument,
   event: GitAutomationEvent | null
 ) =>
   Effect.gen(function* () {
@@ -33,7 +30,7 @@ export const moveByGitAutomation = (
     return yield* deps.ticketDocs
       .update(
         project.orgSlug,
-        project.projectSlug,
+        project.slug,
         ticket.id,
         (current) =>
           current.status !== ticket.status
@@ -61,13 +58,13 @@ export const moveForDeletedBranch = (
         "withTicketDocumentLock"
       >
     }>,
-  match: TicketIndexMatch
-): Effect.Effect<void, MarkdownError> =>
+  match: TicketIndex.TicketIndexMatch
+): Effect.Effect<void, Markdown.MarkdownError> =>
   deps.ticketDocumentLock.withTicketDocumentLock(
     match.orgSlug,
-    match.projectSlug,
+    match.slug,
     match.ticketId,
-    deps.ticketDocs.read(match.orgSlug, match.projectSlug, match.ticketId).pipe(
+    deps.ticketDocs.read(match.orgSlug, match.slug, match.ticketId).pipe(
       Effect.flatMap((ticket) =>
         moveByGitAutomation(
           deps,
@@ -87,11 +84,11 @@ export const moveForDeletedBranch = (
 export const gitAutomationActivity = { statusCause: "git_automation" } as const
 
 export const withGitAutomation = (
-  gitAutomation: ProjectGitAutomationShape,
+  gitAutomation: ProjectGitAutomation.ProjectGitAutomation["Service"],
   projectId: string,
-  before: TicketDocument,
-  after: TicketDocument
-): Effect.Effect<TicketDocument> => {
+  before: TicketDocs.TicketDocument,
+  after: TicketDocs.TicketDocument
+): Effect.Effect<TicketDocs.TicketDocument> => {
   const event = gitAutomationEvent(before, after)
   if (event === null) return Effect.succeed(after)
   return Effect.map(gitAutomation.configFor(projectId), (config) => {

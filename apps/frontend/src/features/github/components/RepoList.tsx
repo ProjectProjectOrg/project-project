@@ -2,7 +2,6 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { GithubRepo } from "@pp/shared"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Exit from "effect/Exit"
-import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Lock } from "lucide-react"
 import { useState } from "react"
@@ -18,9 +17,9 @@ import {
   githubReposRequest
 } from "@/features/github/atoms/github"
 import { MenuNote } from "@/features/github/components/MenuNote"
+import { useConnectGithubError } from "@/features/github/hooks/useConnectGithubError"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -34,29 +33,12 @@ export function RepoList({
   const { orgSlug, slug } = useProjectRoute()
   const req = projectRequest(orgSlug, slug)
   const connect = useAtomSet(connectGithub(req), { mode: "promiseExit" })
-  const connectState = useAtomValue(connectGithub(req))
   const [pending, setPending] = useState<string | null>(null)
   const [debouncedQuery] = useDebouncedValue(query, { wait: 300 })
   const reposReq = githubReposRequest(orgSlug, slug, debouncedQuery)
   const repos = useAtomValue(githubRepos(reposReq))
-  const error =
-    connectState.waiting || pending !== null
-      ? null
-      : mutationErrorText(
-          connectState,
-          (failure) =>
-            Match.value(failure).pipe(
-              Match.tag("GitHubTokenExpired", () =>
-                m.github_chip_connect_token_expired_error()
-              ),
-              Match.tag("GitHubScopeInsufficient", () =>
-                m.github_chip_connect_scope_insufficient_error()
-              ),
-              Match.tag("RepoGone", () => m.git_repo_gone_error()),
-              Match.orElse(() => m.github_chip_connect_failed_error())
-            ),
-          m.github_chip_connect_failed_error
-        )
+  const connectError = useConnectGithubError(orgSlug, slug)
+  const error = pending === null ? connectError : null
 
   async function pick(repo: GithubRepo) {
     if (pending !== null) return

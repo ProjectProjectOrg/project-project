@@ -5,8 +5,8 @@ import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
 import { projectIndex } from "@pp/db/schema"
 import { EverhourRuntimeLive } from "@pp/integration-everhour/Runtime"
-import { GitHubIntegrations } from "@pp/integration-github/GitHubIntegrations"
-import { GitHubWebhooks } from "@pp/integration-github/GitHubWebhooks"
+import * as GitHubIntegrations from "@pp/integration-github/GitHubIntegrations"
+import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
 import { SlackRuntimeLive } from "@pp/integration-slack/Runtime"
 // apps/backend/src/main.ts
 //
@@ -65,9 +65,9 @@ import { SlackRuntimeLive } from "@pp/integration-slack/Runtime"
 //   long-lived resources; launch keeps the server alive for the lifetime of
 //   the process. `BunRuntime.runMain` adds Bun-specific signal handling and
 //   exit-code mapping.
-import { TicketActivityRecoveryLive } from "@pp/server-core/activity/TicketActivityLive"
+import { TicketActivityRecoveryLive } from "@pp/server-core/activity/TicketActivityRecoveryLive"
 import { AttachmentReaperLive } from "@pp/server-core/attachments/AttachmentReaperLive"
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { FeedbackDispatcherLive } from "@pp/server-core/feedback/FeedbackDelivery"
 import { TicketIndexReconcilerLive } from "@pp/server-core/tickets/TicketIndexReconcilerLive"
 import { AppApi } from "@pp/shared"
@@ -136,7 +136,14 @@ export const HealthHandlerLive = HttpApiBuilder.group(
   AppApi,
   "health",
   (handlers) =>
-    handlers.handle("get", () => Effect.succeed({ status: "ok" as const }))
+    handlers.handle("get", () =>
+      Effect.gen(function* () {
+        const version = yield* Config.String("APP_VERSION").pipe(
+          Config.withDefault("")
+        )
+        return { status: "ok" as const, version: version || "dev" }
+      }).pipe(Effect.orDie)
+    )
 )
 
 export const DbHandlerLive = HttpApiBuilder.group(AppApi, "db", (handlers) =>
@@ -153,7 +160,7 @@ export const DbHandlerLive = HttpApiBuilder.group(AppApi, "db", (handlers) =>
 )
 
 const betterAuthApp = Effect.gen(function* () {
-  const ba = yield* BetterAuth
+  const ba = yield* BetterAuth.BetterAuth
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   if (isClosedAuthPath(new URL(webReq.url).pathname)) {
@@ -233,7 +240,7 @@ const GithubCallbackQuery = Schema.fromURLSearchParams(
 const decodeGithubCallbackQueryOption = Schema.decodeOption(GithubCallbackQuery)
 
 const githubSetupRoute = Effect.gen(function* () {
-  const integrations = yield* GitHubIntegrations
+  const integrations = yield* GitHubIntegrations.GitHubIntegrations
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   const url = new URL(webReq.url)
@@ -266,7 +273,7 @@ const githubSetupRoute = Effect.gen(function* () {
 )
 
 const githubCallbackRoute = Effect.gen(function* () {
-  const integrations = yield* GitHubIntegrations
+  const integrations = yield* GitHubIntegrations.GitHubIntegrations
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   const url = new URL(webReq.url)
@@ -373,7 +380,7 @@ export const readGithubWebhookBody = (
   })
 
 export const githubWebhookRoute = Effect.gen(function* () {
-  const webhooks = yield* GitHubWebhooks
+  const webhooks = yield* GitHubWebhooks.GitHubWebhooks
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   const body = yield* readGithubWebhookBody(webReq).pipe(

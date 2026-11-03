@@ -4,12 +4,12 @@ import * as Schedule from "effect/Schedule"
 import * as Scope from "effect/Scope"
 
 import { EverhourEvents } from "./Events"
-import { EverhourIntegrations, SWEEP_EVERY } from "./Integrations"
+import * as Integrations from "./Integrations"
 
 export const EverhourRuntimeLive = Layer.effectDiscard(
   Effect.gen(function* () {
     const events = yield* EverhourEvents
-    const integrations = yield* EverhourIntegrations
+    const integrations = yield* Integrations.EverhourIntegrations
     const scope = yield* Scope.Scope
     yield* events.enqueue().pipe(
       Effect.catchCause(() =>
@@ -31,7 +31,7 @@ export const EverhourRuntimeLive = Layer.effectDiscard(
     )
     yield* integrations.requestStaleSyncs().pipe(
       Effect.catchCause(() => Effect.logWarning("Everhour sync sweep failed")),
-      Effect.repeat(Schedule.spaced(SWEEP_EVERY)),
+      Effect.repeat(Schedule.spaced(Integrations.SWEEP_EVERY)),
       Effect.forkIn(scope)
     )
   })

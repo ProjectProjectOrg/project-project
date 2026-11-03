@@ -1,0 +1,370 @@
+import * as BunServices from "@effect/platform-bun/BunServices"
+import { it } from "@effect/vitest"
+import * as Config from "effect/Config"
+import * as ConfigProvider from "effect/ConfigProvider"
+import * as Effect from "effect/Effect"
+import * as FileSystem from "effect/FileSystem"
+import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
+import * as Path from "effect/Path"
+import * as Tracer from "effect/Tracer"
+import { describe, expect } from "vitest"
+
+import * as Markdown from "./Markdown"
+
+const TestLayer = Layer.unwrap(
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const tmpRoot = yield* fs.makeTempDirectoryScoped({
+      prefix: "projectproject-md-"
+    })
+    return Markdown.layer.pipe(
+      Layer.provideMerge(
+        ConfigProvider.layer(
+          ConfigProvider.fromUnknown({ PROJECTS_DIR: tmpRoot })
+        )
+      )
+    )
+  })
+).pipe(Layer.provideMerge(BunServices.layer))
+
+const projectFrontmatter = (slug: string) => ({
+  org: "acme",
+  slug,
+  key: "T",
+  name: slug,
+  createdBy: "user-1",
+  createdAt: "2026-05-19T00:00:00.000Z",
+  members: []
+})
+
+const ticketFrontmatter = (id: string) => ({
+  id,
+  title: id,
+  status: "todo",
+  type: "other",
+  priority: "med",
+  tags: [],
+  branch: null,
+  pr: null,
+  lastTransitionedPr: null,
+  assignees: [],
+  createdBy: "user-1",
+  createdAt: "2026-05-19T00:00:00.000Z",
+  updatedAt: "2026-05-19T00:00:00.000Z"
+})
+
+describe("Markdown tickets (real fs)", () => {
+  it.effect(
+    "returns MarkdownError for rejected project, ticket, and group files",
+    () =>
+      Effect.gen(function* () {
+        const md = yield* Markdown.Markdown
+        const fs = yield* FileSystem.FileSystem
+        const path = yield* Path.Path
+        const project = md.projectDir("acme", "foo")
+        const files = [
+          {
+            file: path.join(project, "project.md"),
+            read: md.readProjectFile("acme", "foo")
+          },
+          {
+            file: path.join(project, "tickets", "T-1.md"),
+            read: md.readTicketFile("acme", "foo", "T-1")
+          },
+          {
+            file: path.join(project, "groups", "G-1.md"),
+            read: md.readGroupFile("acme", "foo", "G-1")
+          }
+        ]
+
+        for (const { file, read } of files) {
+          yield* fs.makeDirectory(path.dirname(file), { recursive: true })
+          for (const raw of [
+            "---js\n({ example: true })\n---\nBody\n",
+            "---\nexample: [unclosed\n---\nBody\n"
+          ]) {
+            yield* fs.writeFileString(file, raw)
+            const error = yield* read.pipe(Effect.flip)
+            expect(error).toMatchObject({
+              _tag: "MarkdownError",
+              message: `parse failed: ${file}`,
+              cause: expect.any(Error)
+            })
+          }
+        }
+      }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("round-trips frontmatter-looking ticket bodies as text", () =>
+    Effect.gen(function* () {
+      const md = yield* Markdown.Markdown
+      const body = "---js\nthrow new Error('executed')\n---\nExample\n"
+
+      yield* md.createTicketFile(
+        "acme",
+        "foo",
+        "T-1",
+        ticketFrontmatter("T-1"),
+        body
+      )
+      expect(yield* md.readTicketFile("acme", "foo", "T-1")).toEqual({
+        data: ticketFrontmatter("T-1"),
+        body
+      })
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("keeps the original ticket when exclusive creation collides", () =>
+    Effect.gen(function* () {
+      const md = yield* Markdown.Markdown
+      const fs = yield* FileSystem.FileSystem
+      const path = yield* Path.Path
+      const root = yield* Config.String("PROJECTS_DIR")
+
+      yield* md.createTicketFile(
+        "acme",
+        "foo",
+        "T-1",
+        ticketFrontmatter("T-1"),
+        "# Original\n"
+      )
+      const error = yield* md
+        .createTicketFile(
+          "acme",
+          "foo",
+          "T-1",
+          ticketFrontmatter("T-1"),
+          "# Replacement\n"
+        )
+        .pipe(Effect.flip)
+      const file = path.join(
+        root,
+        "orgs",
+        "acme",
+        "projects",
+        "foo",
+        "tickets",
+        "T-1.md"
+      )
+      const entries = yield* fs.readDirectory(path.dirname(file))
+
+      expect(error._tag).toBe("TicketIdTaken")
+      expect(yield* fs.readFileString(file, "utf8")).toContain("# Original")
+      expect(entries).toEqual(["T-1.md"])
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect(
+    "atomically replaces a ticket without leaving temporary files",
+    () =>
+      Effect.gen(function* () {
+        const md = yield* Markdown.Markdown
+        const fs = yield* FileSystem.FileSystem
+        const path = yield* Path.Path
+        const root = yield* Config.String("PROJECTS_DIR")
+
+        yield* md.createTicketFile(
+          "acme",
+          "foo",
+          "T-1",
+          ticketFrontmatter("T-1"),
+          "# Before\n"
+        )
+        yield* md.writeTicketFile(
+          "acme",
+          "foo",
+          "T-1",
+          { ...ticketFrontmatter("T-1"), title: "After" },
+          "# After\n"
+        )
+        const file = path.join(
+          root,
+          "orgs",
+          "acme",
+          "projects",
+          "foo",
+          "tickets",
+          "T-1.md"
+        )
+        const entries = yield* fs.readDirectory(path.dirname(file))
+
+        expect(yield* fs.readFileString(file, "utf8")).toContain("# After")
+        expect(entries).toEqual(["T-1.md"])
+      }).pipe(Effect.provide(TestLayer))
+  )
+})
+
+describe("Markdown deletion (real fs)", () => {
+  it.effect(
+    "removeTicketFile removes the file and listTicketIds reflects it",
+    () =>
+      Effect.gen(function* () {
+        const md = yield* Markdown.Markdown
+        const fs = yield* FileSystem.FileSystem
+        const path = yield* Path.Path
+        const root = yield* Config.String("PROJECTS_DIR")
+
+        yield* md.createTicketFile(
+          "acme",
+          "foo",
+          "T-1",
+          ticketFrontmatter("T-1"),
+          "# T-1 body\n"
+        )
+        expect(yield* md.listTicketIds("acme", "foo")).toEqual(["T-1"])
+
+        const filePath = path.join(
+          root,
+          "orgs",
+          "acme",
+          "projects",
+          "foo",
+          "tickets",
+          "T-1.md"
+        )
+        expect(yield* fs.exists(filePath)).toBe(true)
+
+        yield* md.removeTicketFile("acme", "foo", "T-1")
+        expect(yield* fs.exists(filePath)).toBe(false)
+        expect(yield* md.listTicketIds("acme", "foo")).toEqual([])
+      }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect(
+    "removeProjectDir removes the entire project tree including tickets",
+    () =>
+      Effect.gen(function* () {
+        const md = yield* Markdown.Markdown
+        const fs = yield* FileSystem.FileSystem
+        const path = yield* Path.Path
+        const root = yield* Config.String("PROJECTS_DIR")
+
+        yield* md.writeProjectFile(
+          "acme",
+          "foo",
+          projectFrontmatter("foo"),
+          "# Foo\n"
+        )
+        yield* md.createTicketFile(
+          "acme",
+          "foo",
+          "T-1",
+          ticketFrontmatter("T-1"),
+          "# T-1\n"
+        )
+        yield* md.createTicketFile(
+          "acme",
+          "foo",
+          "T-2",
+          ticketFrontmatter("T-2"),
+          "# T-2 with notes\n"
+        )
+
+        const dir = path.join(root, "orgs", "acme", "projects", "foo")
+        expect(yield* fs.exists(dir)).toBe(true)
+
+        yield* md.removeProjectDir("acme", "foo")
+        expect(yield* fs.exists(dir)).toBe(false)
+        expect(yield* md.listTicketIds("acme", "foo")).toEqual([])
+      }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect(
+    "project re-created under same slug after removeProjectDir is empty of old tickets",
+    () =>
+      Effect.gen(function* () {
+        const md = yield* Markdown.Markdown
+        yield* md.writeProjectFile(
+          "acme",
+          "foo",
+          projectFrontmatter("foo"),
+          "# Foo\n"
+        )
+        yield* md.createTicketFile(
+          "acme",
+          "foo",
+          "T-1",
+          ticketFrontmatter("T-1"),
+          "# leaked notes\n"
+        )
+        yield* md.removeProjectDir("acme", "foo")
+        yield* md.writeProjectFile(
+          "acme",
+          "foo",
+          projectFrontmatter("foo"),
+          "# Foo (recreated)\n"
+        )
+        expect(yield* md.listTicketIds("acme", "foo")).toEqual([])
+      }).pipe(Effect.provide(TestLayer))
+  )
+})
+
+describe("Markdown tracing", () => {
+  it.effect("traces each call under its Markdown span", () =>
+    Effect.gen(function* () {
+      const spans: Array<Tracer.NativeSpan> = []
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options)
+          spans.push(span)
+          return span
+        }
+      })
+
+      yield* Effect.gen(function* () {
+        const md = yield* Markdown.Markdown
+        yield* md.writeProjectFile(
+          "acme",
+          "foo",
+          projectFrontmatter("foo"),
+          "# Foo\n"
+        )
+        yield* md.createTicketFile(
+          "acme",
+          "foo",
+          "T-1",
+          ticketFrontmatter("T-1"),
+          "# notes\n"
+        )
+        yield* md.readTicketParts("acme", "foo", "T-1")
+        yield* md.writeTicketWithRegion(
+          "acme",
+          "foo",
+          "T-1",
+          ticketFrontmatter("T-1"),
+          "# notes\n",
+          ""
+        )
+        yield* md.listTicketIds("acme", "foo")
+        yield* md.writeOrgLibraryFile("acme", "# Library\n")
+        yield* md.readOrgLibraryFile("acme")
+      }).pipe(Effect.withTracer(tracer))
+
+      expect(
+        spans
+          .filter((span) => span.name.startsWith("Markdown."))
+          .map((span) => ({
+            name: span.name,
+            parent: Option.match(span.parent, {
+              onNone: () => null,
+              onSome: (parent) => (parent._tag === "Span" ? parent.name : null)
+            })
+          }))
+      ).toEqual([
+        { name: "Markdown.writeProjectFile", parent: null },
+        { name: "Markdown.createTicketFile", parent: null },
+        { name: "Markdown.readTicketParts", parent: null },
+        { name: "Markdown.readTicketFile", parent: "Markdown.readTicketParts" },
+        { name: "Markdown.writeTicketWithRegion", parent: null },
+        {
+          name: "Markdown.writeTicketFile",
+          parent: "Markdown.writeTicketWithRegion"
+        },
+        { name: "Markdown.listTicketIds", parent: null },
+        { name: "Markdown.writeOrgLibraryFile", parent: null },
+        { name: "Markdown.readOrgLibraryFile", parent: null }
+      ])
+    }).pipe(Effect.provide(TestLayer))
+  )
+})

@@ -37,7 +37,9 @@ export function SprintField({
   const list = useAtomValue(sprintList(req))
   const addTickets = useAtomSet(addTicketsToSprint({ req, ticketId }))
   const addState = useAtomValue(addTicketsToSprint({ req, ticketId }))
-  const removeTickets = useAtomSet(removeTicketsFromSprint({ req, ticketId }))
+  const removeTickets = useAtomSet(removeTicketsFromSprint({ req, ticketId }), {
+    mode: "promiseExit"
+  })
   const removeState = useAtomValue(removeTicketsFromSprint({ req, ticketId }))
   const [open, setOpen] = useState(false)
   const canMove = GroupPolicy.can(useProjectActor(), "sprint", "remove_ticket")
@@ -162,7 +164,9 @@ export function SprintBadgeTrigger({
   const membership = useAtomValue(sprintMembership(req))
   const addTickets = useAtomSet(addTicketsToSprint({ req, ticketId }))
   const addState = useAtomValue(addTicketsToSprint({ req, ticketId }))
-  const removeTickets = useAtomSet(removeTicketsFromSprint({ req, ticketId }))
+  const removeTickets = useAtomSet(removeTicketsFromSprint({ req, ticketId }), {
+    mode: "promiseExit"
+  })
   const removeState = useAtomValue(removeTicketsFromSprint({ req, ticketId }))
   const [open, setOpen] = useState(false)
   const sprints = Result.isSuccess(list) ? list.value : []

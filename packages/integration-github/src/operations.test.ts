@@ -5,7 +5,7 @@ import * as Schema from "effect/Schema"
 import { Octokit } from "octokit"
 import { beforeEach, describe, expect, vi } from "vitest"
 
-import { GitHub } from "./GitHub"
+import * as GitHub from "./GitHub"
 import { GitHubHost } from "./Host"
 import * as ProjectStateCache from "./projectStateCache"
 import * as GitHubRequest from "./request"
@@ -39,13 +39,11 @@ vi.mock("./clients", () => ({
     })
 }))
 
-const { GitHubLive } = await import("./GitHubLive")
-
 const fakeHost: Pick<GitHubHost["Service"], "userAccessToken"> = {
   userAccessToken: () => Effect.succeed("user-token")
 }
 
-const layer = GitHubLive.pipe(
+const layer = GitHub.layer.pipe(
   Layer.provide(
     Layer.mergeAll(
       Layer.mock(GitHubHost, fakeHost),
@@ -94,7 +92,7 @@ describe("GitHub installation authentication", () => {
         fetch
           .mockResolvedValueOnce(appLimited)
           .mockResolvedValueOnce(installationResponse)
-        const github = yield* GitHub
+        const github = yield* GitHub.GitHub
 
         const firstAppCall = yield* github
           .getInstallationAccount("123")
@@ -120,7 +118,12 @@ describe("GitHub installation authentication", () => {
     Effect.gen(function* () {
       const installations = json({
         total_count: 1,
-        installations: [{ id: 123 }]
+        installations: [
+          {
+            id: 123,
+            account: { id: 9, login: "acme", type: "Organization" }
+          }
+        ]
       })
       Object.defineProperty(installations, "url", {
         value: "https://api.github.com/user/installations"
@@ -128,15 +131,20 @@ describe("GitHub installation authentication", () => {
       const limited = json({ message: "API rate limit exceeded" }, 429)
       limited.headers.set("retry-after", "60")
       fetch.mockResolvedValueOnce(limited).mockResolvedValueOnce(installations)
-      const github = yield* GitHub
+      const github = yield* GitHub.GitHub
       yield* github
-        .appUserCanAccessInstallation("limited-app-user", "123")
+        .listAppUserInstallations("limited-app-user")
         .pipe(Effect.flip)
-      expect(
-        yield* github.appUserCanAccessInstallation("other-app-user", "123")
-      ).toBe(true)
+      expect(yield* github.listAppUserInstallations("other-app-user")).toEqual([
+        {
+          installationId: "123",
+          accountId: "9",
+          accountLogin: "acme",
+          accountType: "Organization"
+        }
+      ])
       yield* github
-        .appUserCanAccessInstallation("limited-app-user", "123")
+        .listAppUserInstallations("limited-app-user")
         .pipe(Effect.flip)
       expect(fetch).toHaveBeenCalledTimes(2)
     }).pipe(Effect.provide(layer))
@@ -153,7 +161,7 @@ describe("GitHub installation authentication", () => {
           default_branch: "main"
         })
       )
-      const github = yield* GitHub
+      const github = yield* GitHub.GitHub
       const error = yield* github
         .verifyInstallationRepo("123", "acme", "app")
         .pipe(Effect.flip)
@@ -177,7 +185,7 @@ describe("GitHub installation authentication", () => {
           default_branch: "main"
         })
       )
-      const github = yield* GitHub
+      const github = yield* GitHub.GitHub
       yield* github.verifyInstallationRepo("123", "acme", "app")
       yield* github.verifyInstallationRepo("123", "acme", "app")
       expect(
@@ -195,7 +203,7 @@ describe("GitHub PR creation", () => {
     () =>
       Effect.gen(function* () {
         fetch.mockResolvedValueOnce(json([pullRequest]))
-        const github = yield* GitHub
+        const github = yield* GitHub.GitHub
         expect(
           yield* github.openPullRequestAsUser("acme", "app", args, "user")
         ).toEqual({
@@ -219,7 +227,7 @@ describe("GitHub PR creation", () => {
           ])
         )
         .mockResolvedValueOnce(json(pullRequest, 201))
-      const github = yield* GitHub
+      const github = yield* GitHub.GitHub
       expect(
         yield* github.openPullRequestAsUser("acme", "app", args, "user")
       ).toEqual({
@@ -248,7 +256,7 @@ describe("GitHub PR creation", () => {
             )
           )
           .mockResolvedValueOnce(json([pullRequest]))
-        const github = yield* GitHub
+        const github = yield* GitHub.GitHub
         expect(
           yield* github.openPullRequestAsUser("acme", "app", args, "user")
         ).toEqual({
@@ -276,7 +284,7 @@ describe("GitHub PR creation", () => {
             )
           )
           .mockResolvedValueOnce(json([]))
-        const github = yield* GitHub
+        const github = yield* GitHub.GitHub
         const error = yield* github
           .openPullRequestAsUser("acme", "app", args, "user")
           .pipe(Effect.flip)
@@ -299,7 +307,7 @@ describe("GitHub PR creation", () => {
         .mockResolvedValueOnce(
           json({ message: "No commits between main and feat/T-1" }, 422)
         )
-      const github = yield* GitHub
+      const github = yield* GitHub.GitHub
       const error = yield* github
         .openPullRequestAsUser("acme", "app", args, "user")
         .pipe(Effect.flip)
@@ -316,7 +324,7 @@ it.effect(
       fetch
         .mockResolvedValueOnce(json([]))
         .mockResolvedValueOnce(json({ message: "Internal Server Error" }, 500))
-      const github = yield* GitHub
+      const github = yield* GitHub.GitHub
       const error = yield* github
         .openPullRequestAsUser("acme", "app", args, "user")
         .pipe(Effect.flip)
@@ -335,7 +343,7 @@ it.effect(
       fetch
         .mockResolvedValueOnce(json({ commit: { sha: "abc123" } }))
         .mockResolvedValueOnce(json({ message: "Internal Server Error" }, 500))
-      const github = yield* GitHub
+      const github = yield* GitHub.GitHub
       const error = yield* github
         .createBranchAsUser("acme", "app", args.head, args.base, "user")
         .pipe(Effect.flip)

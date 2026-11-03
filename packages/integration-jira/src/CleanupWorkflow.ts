@@ -8,11 +8,8 @@ import * as Schema from "effect/Schema"
 import { Activity, Workflow } from "effect/workflow"
 import * as WorkflowEngine from "effect/workflow/WorkflowEngine"
 
-import { fenceFor } from "./MigrationProjection"
-import type {
-  JiraMigrationCleanupCommand,
-  JiraMigrationCleanupCommands
-} from "./Migrations"
+import * as MigrationProjection from "./MigrationProjection"
+import type * as Migrations from "./Migrations"
 
 export const JiraMigrationCleanupFailure = Schema.TaggedStruct(
   "JiraMigrationCleanupFailure",
@@ -147,7 +144,7 @@ export const makeJiraMigrationCleanupWorkflow = <R>(
 export const makeJiraCleanupCommands = Effect.gen(function* () {
   const db = yield* Db
   const engine = yield* WorkflowEngine.WorkflowEngine
-  const payloadFor = (input: JiraMigrationCleanupCommand) => ({
+  const payloadFor = (input: Migrations.JiraMigrationCleanupCommand) => ({
     migrationId: input.migrationId,
     mode: input.mode,
     cleanupGeneration: input.expectedRevision + 1
@@ -155,13 +152,15 @@ export const makeJiraCleanupCommands = Effect.gen(function* () {
   const provideEngine = <A, E>(
     effect: Effect.Effect<A, E, WorkflowEngine.WorkflowEngine>
   ) => Effect.provideService(effect, WorkflowEngine.WorkflowEngine, engine)
-  const start: JiraMigrationCleanupCommands["start"] = (input) =>
+  const start: Migrations.JiraMigrationCleanupCommands["start"] = (input) =>
     provideEngine(
       JiraMigrationCleanupWorkflow.execute(payloadFor(input), {
         discard: true
       })
     )
-  const awaitReset: JiraMigrationCleanupCommands["awaitReset"] = (input) =>
+  const awaitReset: Migrations.JiraMigrationCleanupCommands["awaitReset"] = (
+    input
+  ) =>
     Effect.gen(function* () {
       const payload = payloadFor(input)
       const executionId = yield* provideEngine(
@@ -180,7 +179,7 @@ export const makeJiraCleanupCommands = Effect.gen(function* () {
         .where(eq(jiraMigration.id, input.migrationId))
         .limit(1)
         .pipe(Effect.mapError(() => new JiraError({ reason: "server_error" })))
-      const fence = row && fenceFor(row)
+      const fence = row && MigrationProjection.fenceFor(row)
       if (
         !row ||
         !fence ||
@@ -195,5 +194,5 @@ export const makeJiraCleanupCommands = Effect.gen(function* () {
         })
       return { fence, revision: row.revision }
     })
-  return { start, awaitReset } satisfies JiraMigrationCleanupCommands
+  return { start, awaitReset } satisfies Migrations.JiraMigrationCleanupCommands
 })

@@ -4,6 +4,7 @@ import { loginCommand, logoutCommand, serversCommand } from "./account"
 import { attachCommand } from "./attach"
 import { catalogEntries, commandFor } from "./catalog"
 import { guideCommand } from "./guide"
+import { overviewCommand } from "./overview"
 import { root } from "./root"
 import { statusCommand, useCommand } from "./scope"
 import { upgradeCommand } from "./upgrade"
@@ -53,6 +54,7 @@ export const pp = root.pipe(
     serversCommand,
     useCommand,
     statusCommand,
+    overviewCommand,
     guideCommand,
     upgradeCommand,
     ...topLevel,

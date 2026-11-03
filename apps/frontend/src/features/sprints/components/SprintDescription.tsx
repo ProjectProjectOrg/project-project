@@ -1,5 +1,7 @@
 import { useAtomSet } from "@effect/atom-react"
 import type { GroupDetail } from "@pp/shared"
+import * as Cause from "effect/Cause"
+import * as Exit from "effect/Exit"
 import { lazy, Suspense, useState } from "react"
 
 import type { SaveStatus } from "@/features/editor/components/LexicalEditor"
@@ -36,7 +38,7 @@ export function SprintDescription({
   const { orgSlug, slug } = useProjectRoute()
   const project = useProject()
   const req = sprintRequest(orgSlug, slug, sprint.id)
-  const update = useAtomSet(updateSprintDetail(req))
+  const update = useAtomSet(updateSprintDetail(req), { mode: "promiseExit" })
   const [status, setStatus] = useState<SaveStatus>("idle")
 
   if (disabled) {
@@ -57,8 +59,9 @@ export function SprintDescription({
           <LexicalEditor
             key={`sprint:${sprint.id}`}
             markdown={sprint.body}
-            onChange={(next) => {
-              update({ body: next })
+            onChange={async (next) => {
+              const exit = await update({ body: next })
+              if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
             }}
             onStatusChange={setStatus}
             placeholder={m.sprints_description_placeholder()}

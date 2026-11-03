@@ -1,9 +1,9 @@
-import { EverhourWebhooks } from "@pp/integration-everhour/Webhooks"
+import * as Webhooks from "@pp/integration-everhour/Webhooks"
 import * as Effect from "effect/Effect"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 
 const everhourWebhookRoute = Effect.gen(function* () {
-  const webhooks = yield* EverhourWebhooks
+  const webhooks = yield* Webhooks.EverhourWebhooks
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   const url = new URL(webReq.url)

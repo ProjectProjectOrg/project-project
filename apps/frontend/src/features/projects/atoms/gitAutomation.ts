@@ -1,8 +1,8 @@
 import type { GitAutomation, UpdateGitAutomationInput } from "@pp/shared"
 import * as Atom from "effect/reactivity/Atom"
 
-import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import { coalescingMutation, replaceWith } from "@/api/viewMutation"
 
 export type GitAutomationRequest = Readonly<{
@@ -18,7 +18,7 @@ const scopeOf = (req: GitAutomationRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 const gitAutomationQuery = (req: GitAutomationRequest) =>
-  Api.query("gitAutomation", "get", {
+  query("gitAutomation", "get", {
     params: req.params,
     timeToLive: "5 minutes",
     reactivityKeys: [

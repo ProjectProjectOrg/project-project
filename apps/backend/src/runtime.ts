@@ -6,68 +6,63 @@ import { EverhourServicesLive } from "@pp/integration-everhour/Services"
 import * as GitHubProjectStateCache from "@pp/integration-github/projectStateCache"
 import * as GitHubRequest from "@pp/integration-github/request"
 import * as JiraCleanupWorkflow from "@pp/integration-jira/CleanupWorkflow"
-import {
-  JiraClientLive,
-  JiraTransport,
-  JiraTransportLive
-} from "@pp/integration-jira/Client"
-import { JiraCredentialsLive } from "@pp/integration-jira/Credentials"
-import { JiraMigrationArtifacts } from "@pp/integration-jira/MigrationArtifacts"
-import { JiraMigrationProjection } from "@pp/integration-jira/MigrationProjection"
-import { JiraMigrationsDurableLive } from "@pp/integration-jira/Migrations"
-import {
-  JiraOAuthConfig,
-  JiraOAuthConfigLive,
-  JiraTokenEndpoint,
-  JiraTokenEndpointLive
-} from "@pp/integration-jira/OAuth"
+import * as Client from "@pp/integration-jira/Client"
+import * as Credentials from "@pp/integration-jira/Credentials"
+import * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
+import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
+import * as Migrations from "@pp/integration-jira/Migrations"
+import * as OAuthConfig from "@pp/integration-jira/OAuthConfig"
 import { JiraMigrationRetentionLive } from "@pp/integration-jira/Retention"
+import * as TokenEndpoint from "@pp/integration-jira/TokenEndpoint"
+import * as Transport from "@pp/integration-jira/Transport"
 import { SlackServicesLive } from "@pp/integration-slack/Services"
-import { AccessLive } from "@pp/server-core/access/AccessLive"
-import { TicketActivityFeedLive } from "@pp/server-core/activity/TicketActivityFeed"
-import { TicketActivityLive } from "@pp/server-core/activity/TicketActivityLive"
-import { AttachmentsLive } from "@pp/server-core/attachments/AttachmentsLive"
-import { AttachmentUploadsLive } from "@pp/server-core/attachments/AttachmentUploadsLive"
-import { BotsLive } from "@pp/server-core/bots/BotsLive"
-import { CommentsLive } from "@pp/server-core/comments/CommentsLive"
+import * as Access from "@pp/server-core/access/Access"
+import * as TicketActivity from "@pp/server-core/activity/TicketActivity"
+import * as TicketActivityFeed from "@pp/server-core/activity/TicketActivityFeed"
+import * as Attachments from "@pp/server-core/attachments/Attachments"
+import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
+import * as Bots from "@pp/server-core/bots/Bots"
+import * as Comments from "@pp/server-core/comments/Comments"
 import { OrgEmail } from "@pp/server-core/email/OrgEmail"
 import { Smtp } from "@pp/server-core/email/Smtp"
 import { FeedbackAttachments } from "@pp/server-core/feedback/FeedbackAttachments"
-import { FeedbackConfig } from "@pp/server-core/feedback/FeedbackConfig"
+import * as FeedbackConfig from "@pp/server-core/feedback/FeedbackConfig"
 import {
   FeedbackDelivery,
   FeedbackDeliveryWorkflowLive
 } from "@pp/server-core/feedback/FeedbackDelivery"
-import { FeedbackIntake } from "@pp/server-core/feedback/FeedbackIntake"
-import { FigmaIntegrationsLive } from "@pp/server-core/figma/FigmaIntegrationsLive"
-import { FigmaLinksLive } from "@pp/server-core/figma/FigmaLinksLive"
-import { FigmaLive } from "@pp/server-core/figma/FigmaLive"
-import { GitHubTicketEventsLive } from "@pp/server-core/github/GitHubTicketEventsLive"
-import { GroupDocsLive } from "@pp/server-core/groups/GroupDocsLive"
-import { GroupsLive } from "@pp/server-core/groups/GroupsLive"
-import { LibraryDocsLive } from "@pp/server-core/library/LibraryDocsLive"
-import { LibraryLive } from "@pp/server-core/library/LibraryLive"
-import { LinkPreviewsLive } from "@pp/server-core/linkPreviews/LinkPreviewsLive"
+import * as FeedbackIntake from "@pp/server-core/feedback/FeedbackIntake"
+import * as Figma from "@pp/server-core/figma/Figma"
+import * as FigmaIntegrations from "@pp/server-core/figma/FigmaIntegrations"
+import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
+import * as GitHubTicketEvents from "@pp/server-core/github/GitHubTicketEvents"
+import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
+import * as Groups from "@pp/server-core/groups/Groups"
+import * as Library from "@pp/server-core/library/Library"
+import * as LibraryDocs from "@pp/server-core/library/LibraryDocs"
+import * as LinkPreviews from "@pp/server-core/linkPreviews/LinkPreviews"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
-import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
-import { OAuthApplicationsLive } from "@pp/server-core/oauth/OAuthApplicationsLive"
-import { OrgLive } from "@pp/server-core/organizations/OrgLive"
-import { BannerPlaceholdersLive } from "@pp/server-core/projects/BannerPlaceholdersLive"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
+import * as OAuthApplications from "@pp/server-core/oauth/OAuthApplications"
+import * as Org from "@pp/server-core/organizations/Org"
+import * as BannerPlaceholders from "@pp/server-core/projects/BannerPlaceholders"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
-import { ProjectDocsLive } from "@pp/server-core/projects/ProjectDocsLive"
-import { ProjectGitAutomationLive } from "@pp/server-core/projects/ProjectGitAutomationLive"
-import { ProjectsLive } from "@pp/server-core/projects/ProjectsLive"
-import { ProjectStatusesLive } from "@pp/server-core/projects/ProjectStatusesLive"
-import { SystemProjectsLive } from "@pp/server-core/projects/SystemProjectsLive"
-import { OrgStorageLive } from "@pp/server-core/storage/OrgStorageLive"
-import { S3StorageLive } from "@pp/server-core/storage/S3StorageLive"
-import { SecretCryptoLive } from "@pp/server-core/storage/SecretCryptoLive"
-import { TagsLive } from "@pp/server-core/tags/TagsLive"
-import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
+import * as ProjectServices from "@pp/server-core/projects/layer"
+import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
+import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutomation"
+import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
+import * as SystemProjects from "@pp/server-core/projects/SystemProjects"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
+import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
+import * as Tags from "@pp/server-core/tags/Tags"
+import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
+import * as TicketServices from "@pp/server-core/tickets/layer"
+import * as TicketBranchIndex from "@pp/server-core/tickets/TicketBranchIndex"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
-import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
-import { TicketsLive } from "@pp/server-core/tickets/TicketsLive"
-import { UsersLive } from "@pp/server-core/users/UsersLive"
+import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
+import * as Users from "@pp/server-core/users/Users"
 import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
@@ -85,33 +80,33 @@ import { SlackHostLive } from "./slack/HostLive"
 
 const SlackLive = SlackServicesLive.pipe(
   Layer.provideMerge(SlackHostLive),
-  Layer.provideMerge(AccessLive),
-  Layer.provideMerge(UsersLive)
+  Layer.provideMerge(Access.layer),
+  Layer.provideMerge(Users.layer)
 )
 
 const FeedbackLive = FeedbackDeliveryWorkflowLive.pipe(
   Layer.provideMerge(FeedbackDelivery.layer),
   Layer.provideMerge(FeedbackAttachments.layer),
-  Layer.provideMerge(BotsLive),
+  Layer.provideMerge(Bots.layer),
   Layer.provideMerge(FeedbackConfig.layer)
 )
 
 const EverhourIntegrationLive = EverhourServicesLive.pipe(
   Layer.provideMerge(EverhourHostLive),
-  Layer.provideMerge(AccessLive)
+  Layer.provideMerge(Access.layer)
 )
 
 const makeJiraServicesLive = <TE, TR, EE, ER, CE, CR>(
-  transport: Layer.Layer<JiraTransport, TE, TR>,
-  tokenEndpoint: Layer.Layer<JiraTokenEndpoint, EE, ER>,
-  oauthConfig: Layer.Layer<JiraOAuthConfig, CE, CR>
+  transport: Layer.Layer<Transport.JiraTransport, TE, TR>,
+  tokenEndpoint: Layer.Layer<TokenEndpoint.JiraTokenEndpoint, EE, ER>,
+  oauthConfig: Layer.Layer<OAuthConfig.JiraOAuthConfig, CE, CR>
 ) =>
-  JiraClientLive.pipe(
+  Client.layer.pipe(
     Layer.provideMerge(transport),
     Layer.provideMerge(
-      JiraCredentialsLive.pipe(
+      Credentials.layer.pipe(
         Layer.provideMerge(tokenEndpoint.pipe(Layer.provideMerge(oauthConfig))),
-        Layer.provideMerge(JiraHostLive.pipe(Layer.provide(SecretCryptoLive)))
+        Layer.provideMerge(JiraHostLive.pipe(Layer.provide(SecretCrypto.layer)))
       )
     )
   )
@@ -119,10 +114,10 @@ const makeJiraServicesLive = <TE, TR, EE, ER, CE, CR>(
 const JiraDurableServicesLive = Layer.unwrap(
   Effect.gen(function* () {
     const cleanup = yield* JiraCleanupWorkflow.makeJiraCleanupCommands
-    const projection = yield* JiraMigrationProjection
-    const artifacts = yield* JiraMigrationArtifacts
+    const projection = yield* MigrationProjection.JiraMigrationProjection
+    const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
     return Layer.mergeAll(
-      JiraMigrationsDurableLive(
+      Migrations.layer(
         cleanup,
         {
           unresolvedFailedAttachments: projection.unresolvedFailedAttachments
@@ -149,81 +144,85 @@ export const BackendInfrastructureLive = Layer.mergeAll(
 )
 
 export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
-  transport: Layer.Layer<JiraTransport, TE, TR>,
-  tokenEndpoint: Layer.Layer<JiraTokenEndpoint, EE, ER>,
-  oauthConfig: Layer.Layer<JiraOAuthConfig, CE, CR>
+  transport: Layer.Layer<Transport.JiraTransport, TE, TR>,
+  tokenEndpoint: Layer.Layer<TokenEndpoint.JiraTokenEndpoint, EE, ER>,
+  oauthConfig: Layer.Layer<OAuthConfig.JiraOAuthConfig, CE, CR>
 ) =>
-  TagsLive.pipe(
-    Layer.provideMerge(FeedbackIntake.layer),
-    Layer.provideMerge(SystemProjectsLive),
-    Layer.provideMerge(ProjectStatusesLive),
-    Layer.provideMerge(TicketsLive),
-    Layer.provideMerge(TicketActivityFeedLive),
-    Layer.provideMerge(LibraryLive),
-    Layer.provideMerge(AttachmentUploadsLive),
-    Layer.provideMerge(AttachmentsLive),
-    Layer.provideMerge(FigmaLinksLive),
-    Layer.provideMerge(LinkPreviewsLive),
-    Layer.provideMerge(CommentsLive),
-    Layer.provideMerge(GroupsLive),
-    Layer.provideMerge(ProjectsLive),
-    Layer.provideMerge(OrgLive),
-    Layer.provideMerge(AccessLive),
-    Layer.provideMerge(GitHubLive),
-    Layer.provideMerge(GitHubTicketEventsLive),
-    Layer.provideMerge(ProjectGitAutomationLive)
-  )
+  Tags.layer
+    .pipe(
+      Layer.provideMerge(FeedbackIntake.layer),
+      Layer.provideMerge(SystemProjects.layer),
+      Layer.provideMerge(ProjectStatuses.layer),
+      Layer.provideMerge(TicketServices.layer),
+      Layer.provideMerge(TicketActivityFeed.layer),
+      Layer.provideMerge(Library.layer),
+      Layer.provideMerge(AttachmentUploads.layer),
+      Layer.provideMerge(Attachments.layer),
+      Layer.provideMerge(FigmaLinks.layer),
+      Layer.provideMerge(LinkPreviews.layer),
+      Layer.provideMerge(Comments.layer),
+      Layer.provideMerge(Groups.layer),
+      Layer.provideMerge(ProjectServices.layer),
+      Layer.provideMerge(Org.layer),
+      Layer.provideMerge(Access.layer),
+      Layer.provideMerge(GitHubLive),
+      Layer.provideMerge(GitHubTicketEvents.layer),
+      Layer.provideMerge(ProjectGitAutomation.layer)
+    )
     .pipe(
       Layer.provideMerge(EverhourIntegrationLive),
       Layer.provideMerge(
-        FigmaIntegrationsLive.pipe(Layer.provideMerge(FigmaLive))
+        FigmaIntegrations.layer.pipe(Layer.provideMerge(Figma.layer))
       ),
-      Layer.provideMerge(BannerPlaceholdersLive),
-      Layer.provideMerge(UsersLive),
-      Layer.provideMerge(TicketIndexLive),
+      Layer.provideMerge(BannerPlaceholders.layer),
+      Layer.provideMerge(Users.layer),
+      Layer.provideMerge(
+        TicketRewrites.layer.pipe(Layer.provideMerge(TicketIndexServices.layer))
+      ),
+      Layer.provideMerge(TicketBranchIndex.layer),
       Layer.provideMerge(SlackLive),
       Layer.provideMerge(FeedbackLive),
       Layer.provideMerge(JiraDurableServicesLive),
       Layer.provideMerge(JiraWorkflowsLive),
-      Layer.provideMerge(ProjectDocsLive),
-      Layer.provideMerge(TicketDocsLive),
+      Layer.provideMerge(ProjectDocs.layer),
+      Layer.provideMerge(TicketDocs.layer),
       Layer.provideMerge(FinishedStatuses.layer),
-      Layer.provideMerge(GroupDocsLive),
-      Layer.provideMerge(TicketActivityLive),
-      Layer.provideMerge(LibraryDocsLive),
-      Layer.provideMerge(MarkdownLive),
-      Layer.provideMerge(OAuthApplicationsLive),
-      Layer.provideMerge(SecretCryptoLive),
+      Layer.provideMerge(GroupDocs.layer),
+      Layer.provideMerge(TicketActivity.layer),
+      Layer.provideMerge(LibraryDocs.layer),
+      Layer.provideMerge(Markdown.layer),
+      Layer.provideMerge(OAuthApplications.layer),
+      Layer.provideMerge(SecretCrypto.layer),
       Layer.provideMerge(
         makeJiraServicesLive(transport, tokenEndpoint, oauthConfig)
       )
     )
     .pipe(
-      Layer.provideMerge(S3StorageLive),
+      Layer.provideMerge(S3Storage.layer),
       Layer.provideMerge(
         OrgEmail.layer.pipe(
           Layer.provide(Smtp.layer),
-          Layer.provide(SecretCryptoLive)
+          Layer.provide(SecretCrypto.layer)
         )
       ),
       Layer.provideMerge(
-        OrgStorageLive.pipe(
-          Layer.provideMerge(S3StorageLive),
-          Layer.provideMerge(SecretCryptoLive)
+        OrgStorage.layer.pipe(
+          Layer.provideMerge(S3Storage.layer),
+          Layer.provideMerge(SecretCrypto.layer)
         )
       )
     )
 
 export const BackendServicesLive = makeBackendServicesLive(
-  JiraTransportLive,
-  JiraTokenEndpointLive,
-  JiraOAuthConfigLive
+  Transport.layer,
+  TokenEndpoint.layer,
+  OAuthConfig.layer
 )
 
 export const makeBackendHttpServicesLive = <TE, TR, EE, ER, CE, CR>(
-  transport: Layer.Layer<JiraTransport, TE, TR>,
-  tokenEndpoint: Layer.Layer<JiraTokenEndpoint, EE, ER>,
-  oauthConfig: Layer.Layer<JiraOAuthConfig, CE, CR>
+  transport: Layer.Layer<Transport.JiraTransport, TE, TR>,
+  tokenEndpoint: Layer.Layer<TokenEndpoint.JiraTokenEndpoint, EE, ER>,
+  oauthConfig: Layer.Layer<OAuthConfig.JiraOAuthConfig, CE, CR>
 ) =>
   Layer.mergeAll(
     AuthenticationLive,
@@ -237,9 +236,9 @@ export const makeBackendHttpServicesLive = <TE, TR, EE, ER, CE, CR>(
   )
 
 export const BackendHttpServicesLive = makeBackendHttpServicesLive(
-  JiraTransportLive,
-  JiraTokenEndpointLive,
-  JiraOAuthConfigLive
+  Transport.layer,
+  TokenEndpoint.layer,
+  OAuthConfig.layer
 )
 
 export const BackendRuntimeLive = BackendServicesLive.pipe(

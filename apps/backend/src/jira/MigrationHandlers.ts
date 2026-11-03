@@ -1,11 +1,11 @@
-import { JiraClient, toPublicJiraError } from "@pp/integration-jira/Client"
-import { JiraMigrations } from "@pp/integration-jira/Migrations"
+import * as Client from "@pp/integration-jira/Client"
+import * as Migrations from "@pp/integration-jira/Migrations"
 import {
   JiraPlannedArchive,
   skippedAttachmentsForArchive
 } from "@pp/integration-jira/Report"
-import { Markdown } from "@pp/server-core/markdown/Markdown"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import {
   AppApi,
   CurrentUser,
@@ -39,14 +39,14 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       .handle("list", () =>
         Effect.gen(function* () {
           const { user, org } = yield* context
-          const migrations = yield* JiraMigrations
+          const migrations = yield* Migrations.JiraMigrations
           return yield* migrations.list(org.organizationId, user.id)
         })
       )
       .handle("create", ({ payload }) =>
         Effect.gen(function* () {
           const { user, org } = yield* context
-          const storage = yield* OrgStorage
+          const storage = yield* OrgStorage.OrgStorage
           yield* storage.requireConnection(org.orgSlug).pipe(
             Effect.catchTags({
               StorageNotConnected: () =>
@@ -63,18 +63,18 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
                 )
             })
           )
-          const jira = yield* JiraClient
+          const jira = yield* Client.JiraClient
           const sites = yield* jira
             .accessibleSites(user.id)
-            .pipe(Effect.mapError(toPublicJiraError))
+            .pipe(Effect.mapError(Client.toPublicJiraError))
           const site = sites.find(({ cloudId }) => cloudId === payload.cloudId)
           if (!site) return yield* new JiraResourceNotFound()
           const projects = yield* jira
             .projects(user.id, site.cloudId)
-            .pipe(Effect.mapError(toPublicJiraError))
+            .pipe(Effect.mapError(Client.toPublicJiraError))
           const project = projects.find(({ id }) => id === payload.projectId)
           if (!project) return yield* new JiraResourceNotFound()
-          const migrations = yield* JiraMigrations
+          const migrations = yield* Migrations.JiraMigrations
           return yield* migrations.create(
             org.organizationId,
             user.id,
@@ -93,7 +93,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       .handle("get", ({ params }) =>
         Effect.gen(function* () {
           const { user, org } = yield* context
-          const migrations = yield* JiraMigrations
+          const migrations = yield* Migrations.JiraMigrations
           return yield* migrations.get(
             org.organizationId,
             user.id,
@@ -104,7 +104,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       .handle("destinationConflicts", ({ params, query }) =>
         Effect.gen(function* () {
           const { user, org } = yield* context
-          const migrations = yield* JiraMigrations
+          const migrations = yield* Migrations.JiraMigrations
           return yield* migrations.destinationConflicts(
             org.organizationId,
             user.id,
@@ -117,7 +117,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       .handle("skippedAttachments", ({ params }) =>
         Effect.gen(function* () {
           const { user, org } = yield* context
-          const migrations = yield* JiraMigrations
+          const migrations = yield* Migrations.JiraMigrations
           const detail = yield* migrations.get(
             org.organizationId,
             user.id,
@@ -132,7 +132,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
             siteUrl === undefined
           )
             return yield* new NotFound()
-          const markdown = yield* Markdown
+          const markdown = yield* Markdown.Markdown
           const fs = yield* FileSystem.FileSystem
           const path = yield* Path.Path
           const archivePath = path.join(
@@ -166,7 +166,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       .handle("configure", ({ params, payload }) =>
         Effect.gen(function* () {
           const { user, org } = yield* context
-          const migrations = yield* JiraMigrations
+          const migrations = yield* Migrations.JiraMigrations
           return yield* migrations.configure(
             org.organizationId,
             user.id,
@@ -179,7 +179,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       .handle("rescan", ({ params, payload }) =>
         Effect.gen(function* () {
           const { user, org } = yield* context
-          const migrations = yield* JiraMigrations
+          const migrations = yield* Migrations.JiraMigrations
           return yield* migrations.rescan(
             org.organizationId,
             user.id,
@@ -191,7 +191,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       .handle("run", ({ params, payload }) =>
         Effect.gen(function* () {
           const { user, org } = yield* context
-          const migrations = yield* JiraMigrations
+          const migrations = yield* Migrations.JiraMigrations
           return yield* migrations.run(
             org.organizationId,
             user.id,
@@ -203,7 +203,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       .handle("cancel", ({ params, payload }) =>
         Effect.gen(function* () {
           const { user, org } = yield* context
-          const migrations = yield* JiraMigrations
+          const migrations = yield* Migrations.JiraMigrations
           return yield* migrations.cancel(
             org.organizationId,
             user.id,
@@ -215,7 +215,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       .handle("discard", ({ params }) =>
         Effect.gen(function* () {
           const { user, org } = yield* context
-          const migrations = yield* JiraMigrations
+          const migrations = yield* Migrations.JiraMigrations
           yield* migrations.discard(
             org.organizationId,
             user.id,

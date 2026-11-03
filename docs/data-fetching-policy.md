@@ -61,8 +61,8 @@ publish keys for all affected views, including every affected source of a compos
 view. Shared-key invalidation may also refresh the initiating view; correctness
 comes before avoiding a redundant request. Batch operations that can partially
 succeed refresh server truth on failure too. Keys are built in
-`packages/frontend/src/api/keys.ts`; the conventions that bind this are the
-"Mutations and optimistic updates" section of `AGENTS.md`.
+`apps/frontend/src/api/keys.ts`; the conventions that bind this are in
+`docs/frontend/data-layer.md`.
 
 The installed `effect/reactivity/AtomRegistry` implementation separates
 wrapper and base lifetimes. After a loader mount is released, an unused wrapper

@@ -21,7 +21,7 @@ import {
   type FeedbackAttachmentBytes,
   FeedbackAttachments
 } from "./FeedbackAttachments"
-import { FeedbackConfig } from "./FeedbackConfig"
+import * as FeedbackConfig from "./FeedbackConfig"
 
 const MAX_ATTEMPTS = 16
 const BASE_RETRY_SECONDS = 30
@@ -54,7 +54,7 @@ export const FeedbackDeliveryWorkflow = Workflow.make(
 
 const makeFeedbackDelivery = Effect.gen(function* () {
   const db = yield* Db
-  const config = yield* FeedbackConfig
+  const config = yield* FeedbackConfig.FeedbackConfig
   const httpClient = yield* HttpClient.HttpClient
   const crypto = yield* Crypto.Crypto
   const attachments = yield* FeedbackAttachments

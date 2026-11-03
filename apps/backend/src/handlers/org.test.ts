@@ -1,5 +1,5 @@
 import { it } from "@effect/vitest"
-import { BetterAuthError } from "@pp/server-core/auth/BetterAuth"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { APIError } from "better-auth/api"
 import { Cause, Effect, Exit } from "effect"
 import { expect } from "vitest"
@@ -26,21 +26,22 @@ const orgError = (
   status: "BAD_REQUEST" | "FORBIDDEN" | "UNAUTHORIZED",
   code: string
 ) =>
-  new BetterAuthError({
+  new BetterAuth.BetterAuthError({
     cause: new APIError(status, { code, message: code })
   })
 
 const codelessError = (
   status: "BAD_REQUEST" | "FORBIDDEN" | "UNAUTHORIZED" = "BAD_REQUEST",
   message = "User not found"
-) => new BetterAuthError({ cause: new APIError(status, { message }) })
+) =>
+  new BetterAuth.BetterAuthError({ cause: new APIError(status, { message }) })
 
 const bodiedError = (
   status: "BAD_REQUEST" | "FORBIDDEN" | "UNAUTHORIZED" | 409,
   code: string,
   body: Record<string, unknown>
 ) =>
-  new BetterAuthError({
+  new BetterAuth.BetterAuthError({
     cause: new APIError(status, { code, message: code, ...body })
   })
 
@@ -272,7 +273,7 @@ it.effect("never reports a project-owner removal from a 5xx", () =>
   Effect.gen(function* () {
     const exit = yield* Effect.exit(
       removeMemberErrorToFailure(
-        new BetterAuthError({
+        new BetterAuth.BetterAuthError({
           cause: new APIError("INTERNAL_SERVER_ERROR", {
             code: "LAST_PROJECT_PM_BLOCKED",
             message: "boom"
@@ -326,7 +327,7 @@ it.effect("dies on a non-APIError cause rather than inventing a refusal", () =>
   Effect.gen(function* () {
     const exit = yield* Effect.exit(
       memberErrorToFailure(
-        new BetterAuthError({ cause: new Error("socket hang up") })
+        new BetterAuth.BetterAuthError({ cause: new Error("socket hang up") })
       )
     )
     expect(exit._tag).toBe("Failure")
@@ -340,7 +341,7 @@ it.effect(
     Effect.gen(function* () {
       const exit = yield* Effect.exit(
         memberErrorToFailure(
-          new BetterAuthError({
+          new BetterAuth.BetterAuthError({
             cause: new APIError("INTERNAL_SERVER_ERROR", { message: "boom" })
           })
         )

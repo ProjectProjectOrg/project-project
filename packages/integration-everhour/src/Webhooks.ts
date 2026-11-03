@@ -6,31 +6,25 @@ import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as SchemaTransformation from "effect/SchemaTransformation"
 
-import {
-  TimeRecordResponse,
-  toTimeRecord,
-  type EverhourTimeRecord
-} from "./Client"
-import { EverhourTimeTracking } from "./TimeTracking"
+import * as Client from "./Client"
+import * as TimeTracking from "./TimeTracking"
 
 export type EverhourWebhookDelivery = Readonly<{
   secret: string
   body: string
 }>
 
-export type EverhourWebhooksShape = Readonly<{
-  handle: (delivery: EverhourWebhookDelivery) => Effect.Effect<void>
-}>
-
 export class EverhourWebhooks extends Context.Service<
   EverhourWebhooks,
-  EverhourWebhooksShape
+  Readonly<{
+    handle: (delivery: EverhourWebhookDelivery) => Effect.Effect<void>
+  }>
 >()("@pp/integration-everhour/Webhooks/EverhourWebhooks") {}
 
 const wrapped = <K extends string>(key: K) =>
-  Schema.Struct({ [key]: TimeRecordResponse }).pipe(
+  Schema.Struct({ [key]: Client.TimeRecordResponse }).pipe(
     Schema.decodeTo(
-      Schema.toType(TimeRecordResponse),
+      Schema.toType(Client.TimeRecordResponse),
       SchemaTransformation.transform({
         decode: (input) => input[key],
         encode: (input) => ({ [key]: input })
@@ -39,10 +33,10 @@ const wrapped = <K extends string>(key: K) =>
   )
 
 const PayloadData = Schema.Struct({
-  payload: Schema.Struct({ data: TimeRecordResponse })
+  payload: Schema.Struct({ data: Client.TimeRecordResponse })
 }).pipe(
   Schema.decodeTo(
-    Schema.toType(TimeRecordResponse),
+    Schema.toType(Client.TimeRecordResponse),
     SchemaTransformation.transform({
       decode: (input) => input.payload.data,
       encode: (input) => ({ payload: { data: input } })
@@ -52,7 +46,7 @@ const PayloadData = Schema.Struct({
 
 const WebhookTimeRecord = Schema.fromJsonString(
   Schema.Union([
-    TimeRecordResponse,
+    Client.TimeRecordResponse,
     wrapped("data"),
     wrapped("time"),
     wrapped("timeRecord"),
@@ -62,38 +56,40 @@ const WebhookTimeRecord = Schema.fromJsonString(
 )
 const decodeWebhookTimeRecord = Schema.decodeOption(WebhookTimeRecord)
 
-export const parseTimeRecord = (body: string): EverhourTimeRecord | null => {
+export const parseTimeRecord = (
+  body: string
+): Client.EverhourTimeRecord | null => {
   const decoded = decodeWebhookTimeRecord(body)
   if (Option.isNone(decoded)) return null
-  return toTimeRecord(decoded.value)
+  return Client.toTimeRecord(decoded.value)
 }
 
-export const EverhourWebhooksLive = Layer.effect(
-  EverhourWebhooks,
-  Effect.gen(function* () {
-    const db = yield* Db
-    const timeTracking = yield* EverhourTimeTracking
+const make = Effect.gen(function* () {
+  const db = yield* Db
+  const timeTracking = yield* TimeTracking.EverhourTimeTracking
 
-    const handle: EverhourWebhooksShape["handle"] = ({ secret, body }) =>
-      Effect.gen(function* () {
-        const integration = yield* db.query.projectEverhourIntegration
-          .findFirst({
-            columns: { projectIntegrationLinkId: true },
-            where: {
-              RAW: (table, _operators) =>
-                _operators.eq(table.webhookSecret, secret)
-            }
-          })
-          .pipe(Effect.orDie)
-        if (!integration) return
-        const record = parseTimeRecord(body)
-        if (!record) return
-        yield* timeTracking.applyWebhookTimeEvent(
-          integration.projectIntegrationLinkId,
-          record
-        )
-      }).pipe(Effect.ignore)
+  const handle = Effect.fn("EverhourWebhooks.handle")(function* ({
+    secret,
+    body
+  }: EverhourWebhookDelivery) {
+    const integration = yield* db.query.projectEverhourIntegration
+      .findFirst({
+        columns: { projectIntegrationLinkId: true },
+        where: {
+          RAW: (table, _operators) => _operators.eq(table.webhookSecret, secret)
+        }
+      })
+      .pipe(Effect.orDie)
+    if (!integration) return
+    const record = parseTimeRecord(body)
+    if (!record) return
+    yield* timeTracking.applyWebhookTimeEvent(
+      integration.projectIntegrationLinkId,
+      record
+    )
+  }, Effect.ignore())
 
-    return { handle } satisfies EverhourWebhooksShape
-  })
-)
+  return EverhourWebhooks.of({ handle })
+})
+
+export const layer = Layer.effect(EverhourWebhooks, make)

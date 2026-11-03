@@ -49,7 +49,7 @@ import {
   type JiraStatusCreateOption,
   type JiraMigrationMappings
 } from "./Mappings"
-import { JiraArtifactRef } from "./MigrationArtifacts"
+import * as MigrationArtifacts from "./MigrationArtifacts"
 import type {
   JiraPreflightFinding,
   JiraPreflightBlockerCode,
@@ -733,7 +733,10 @@ const decodeUnknownJiraResolvedConvertedText = Schema.decodeUnknownEffect(
 export const JiraResolvedSource = Schema.Struct({
   projectDescription: Schema.NullOr(JiraResolvedConvertedText),
   artifacts: Schema.Array(
-    Schema.Struct({ ref: JiraArtifactRef, value: Schema.Json })
+    Schema.Struct({
+      ref: MigrationArtifacts.JiraArtifactRef,
+      value: Schema.Json
+    })
   )
 })
 export const JiraPreparationInput = Schema.Struct({
@@ -872,7 +875,7 @@ const sourceValues = (prepared: typeof JiraPreparationInput.Type) =>
   new Map(prepared.source.artifacts.map((x) => [x.ref.key, x.value]))
 const sourceText = (
   values: ReadonlyMap<string, Schema.Json>,
-  ref: JiraArtifactRef | null
+  ref: MigrationArtifacts.JiraArtifactRef | null
 ) =>
   ref === null
     ? null

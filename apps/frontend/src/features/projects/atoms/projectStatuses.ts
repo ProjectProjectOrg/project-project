@@ -15,8 +15,8 @@ import * as DateTime from "effect/DateTime"
 import * as Atom from "effect/reactivity/Atom"
 import { generateKeyBetween } from "fractional-indexing"
 
-import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import { fireMutation, viewMutation } from "@/api/viewMutation"
 import { compareByOrderKey } from "@/lib/orderKey"
 
@@ -37,7 +37,7 @@ const scopeOf = (req: StatusesRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 const statusesQuery = (req: StatusesRequest) =>
-  Api.query("statuses", "list", {
+  query("statuses", "list", {
     params: req.params,
     timeToLive: "5 minutes",
     reactivityKeys: [Keys.statuses(scopeOf(req))]

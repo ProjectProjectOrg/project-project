@@ -5,34 +5,44 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
 
-import type { Access } from "../access/Access"
-import { AccessLive } from "../access/AccessLive"
-import { GitHub } from "../github/GitHub"
-import { TicketDocs, type TicketDocsShape } from "../tickets/TicketDocs"
+import * as Access from "../access/Access"
+import * as GitHub from "../github/GitHub"
+import * as TicketIndexServices from "../tickets/indexLayer"
+import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
-import { TicketIndex } from "../tickets/TicketIndex"
-import { TicketIndexLive } from "../tickets/TicketIndexLive"
-import { Users } from "../users/Users"
-import { BannerPlaceholders } from "./BannerPlaceholders"
+import * as TicketIndex from "../tickets/TicketIndex"
+import * as TicketRewrites from "../tickets/TicketRewrites"
+import * as Users from "../users/Users"
+import * as BannerPlaceholders from "./BannerPlaceholders"
 import { FinishedStatuses } from "./FinishedStatuses"
-import { ProjectDocs } from "./ProjectDocs"
-import type { Projects } from "./Projects"
-import { ProjectsLive } from "./ProjectsLive"
+import * as ProjectServices from "./layer"
+import * as ProjectDocs from "./ProjectDocs"
+import type * as ProjectGithub from "./ProjectGithub"
+import type * as ProjectMembers from "./ProjectMembers"
+import type * as Projects from "./Projects"
 
 const unused = () => Effect.die(new Error("Unexpected dependency call"))
 
 export const projectsOnPostgres = (
   databaseUrl: string,
   userIds: ReadonlyArray<string>,
-  ticketDocs: Partial<TicketDocsShape> = {},
-  projectDocs?: Layer.Layer<ProjectDocs>
-): Layer.Layer<Projects | TicketIndex | Access> => {
+  ticketDocs: Partial<TicketDocs.TicketDocs["Service"]> = {},
+  projectDocs?: Layer.Layer<ProjectDocs.ProjectDocs>,
+  github: Partial<GitHub.GitHub["Service"]> = {}
+): Layer.Layer<
+  | Projects.Projects
+  | ProjectGithub.ProjectGithub
+  | ProjectMembers.ProjectMembers
+  | TicketIndex.TicketIndex
+  | TicketRewrites.TicketRewrites
+  | Access.Access
+> => {
   const db = DbLive.pipe(
     Layer.provideMerge(
       PgClient.layer({ url: Redacted.make(databaseUrl), maxConnections: 1 })
     )
   )
-  const docs = Layer.succeed(TicketDocs, {
+  const docs = Layer.succeed(TicketDocs.TicketDocs, {
     listIds: () => Effect.succeed([]),
     read: unused,
     write: unused,
@@ -42,25 +52,30 @@ export const projectsOnPostgres = (
     readRaw: unused,
     ...ticketDocs
   })
-  const ticketIndex = TicketIndexLive.pipe(
+  const ticketIndex = TicketIndexServices.layer.pipe(
     Layer.provide(db),
     Layer.provide(docs)
   )
-  return ProjectsLive.pipe(
+  const finishedStatuses = FinishedStatuses.layer.pipe(Layer.provide(db))
+  const tickets = TicketRewrites.layer.pipe(
     Layer.provideMerge(ticketIndex),
-    Layer.provideMerge(AccessLive.pipe(Layer.provide(db))),
     Layer.provide(docs),
     Layer.provide(TicketDocumentLock.layer),
-    Layer.provide(FinishedStatuses.layer.pipe(Layer.provide(db))),
+    Layer.provide(finishedStatuses),
+    Layer.provide(db)
+  )
+  return ProjectServices.layer.pipe(
+    Layer.provideMerge(tickets),
+    Layer.provideMerge(Access.layer.pipe(Layer.provide(db))),
     Layer.provide(db),
     Layer.provide(
-      Layer.succeed(BannerPlaceholders, {
+      Layer.succeed(BannerPlaceholders.BannerPlaceholders, {
         ensure: (_org, _slug, current) => Effect.succeed(current)
       })
     ),
     Layer.provide(
       projectDocs ??
-        Layer.succeed(ProjectDocs, {
+        Layer.succeed(ProjectDocs.ProjectDocs, {
           read: (_org, slug) =>
             Effect.succeed({
               slug,
@@ -89,7 +104,7 @@ export const projectsOnPostgres = (
         })
     ),
     Layer.provide(
-      Layer.succeed(Users, {
+      Layer.succeed(Users.Users, {
         findByEmail: (email) =>
           Effect.succeed(
             userIds
@@ -101,14 +116,15 @@ export const projectsOnPostgres = (
       })
     ),
     Layer.provide(
-      Layer.succeed(GitHub, {
+      Layer.succeed(GitHub.GitHub, {
         verifyInstallationRepo: unused,
         listInstallationRepos: unused,
         createBranchAsUser: unused,
         openPullRequestAsUser: unused,
         fetchInstallationProjectStates: unused,
         listInstallationBranches: unused,
-        branchExistsInstallation: unused
+        branchExistsInstallation: unused,
+        ...github
       })
     ),
     Layer.orDie

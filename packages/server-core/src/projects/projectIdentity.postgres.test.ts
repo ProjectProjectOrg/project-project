@@ -17,10 +17,10 @@ import * as Schema from "effect/Schema"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { Access } from "../access/Access"
+import * as Access from "../access/Access"
 import { testUser } from "../access/testing"
-import { TicketIndex } from "../tickets/TicketIndex"
-import { Projects } from "./Projects"
+import * as TicketIndex from "../tickets/TicketIndex"
+import * as Projects from "./Projects"
 import { projectsOnPostgres } from "./projectsOnPostgres"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -31,15 +31,17 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
   const orgs = [`alpha-${suffix}`, `beta-${suffix}`]
   const users = [randomUUID(), randomUUID()]
   let pool: Pool
-  let layer: Layer.Layer<Projects | TicketIndex | Access>
+  let layer: Layer.Layer<
+    Projects.Projects | TicketIndex.TicketIndex | Access.Access
+  >
 
   const create = (index: number, name: string, key: string) =>
-    Effect.flatMap(Projects, (projects) =>
+    Effect.flatMap(Projects.Projects, (projects) =>
       projects.create({ name, key: projectKey(key) })
     ).pipe(
       Effect.provideServiceEffect(
         OrgScope,
-        Effect.flatMap(Access, (access) => access.org(orgs[index])).pipe(
+        Effect.flatMap(Access.Access, (access) => access.org(orgs[index])).pipe(
           Effect.provideService(CurrentUser, testUser(users[index]))
         )
       ),
@@ -49,7 +51,7 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
   const inProject = (index: number, orgIndex: number, slug: string) =>
     Effect.provideServiceEffect(
       ProjectScope,
-      Effect.flatMap(Access, (access) =>
+      Effect.flatMap(Access.Access, (access) =>
         access.project(orgs[orgIndex], slug)
       ).pipe(Effect.provideService(CurrentUser, testUser(users[index])))
     )
@@ -109,8 +111,8 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
 
   it.effect("resolves each org's own project", () =>
     Effect.gen(function* () {
-      const projects = yield* Projects
-      const index = yield* TicketIndex
+      const projects = yield* Projects.Projects
+      const index = yield* TicketIndex.TicketIndex
       const alpha = yield* projects.get().pipe(inProject(0, 0, "website"))
       const beta = yield* projects.get().pipe(inProject(1, 1, "website"))
       const alphaIndex = yield* index.projectFor(orgs[0], "website")
@@ -124,7 +126,7 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
 
   it.effect("keeps people out of the other org's project", () =>
     Effect.gen(function* () {
-      const projects = yield* Projects
+      const projects = yield* Projects.Projects
       const error = yield* Effect.flip(
         projects.get().pipe(inProject(0, 1, "website"))
       )
@@ -134,7 +136,7 @@ describe.skipIf(!databaseUrl)("project identity per org", () => {
 
   it.effect("deletes one org's project without touching the other", () =>
     Effect.gen(function* () {
-      const projects = yield* Projects
+      const projects = yield* Projects.Projects
       yield* projects.remove().pipe(inProject(0, 0, "website"))
       const beta = yield* projects.get().pipe(inProject(1, 1, "website"))
       expect(beta.slug).toBe("website")

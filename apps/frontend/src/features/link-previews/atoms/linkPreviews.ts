@@ -1,6 +1,6 @@
 import * as Atom from "effect/reactivity/Atom"
 
-import { Api } from "@/api/Api"
+import { query } from "@/api/query"
 
 export type LinkPreviewRequest = Readonly<{
   query: Readonly<{ url: string }>
@@ -11,7 +11,7 @@ export const linkPreviewRequest = (url: string): LinkPreviewRequest => ({
 })
 
 const linkPreviewQuery = (req: LinkPreviewRequest) =>
-  Api.query("linkPreviews", "get", {
+  query("linkPreviews", "get", {
     query: req.query,
     timeToLive: "1 hour"
   })

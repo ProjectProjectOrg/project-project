@@ -1,12 +1,8 @@
-import {
-  JiraClientLive,
-  JiraTransport,
-  type JiraTransportRequest,
-  type JiraTransportResponse
-} from "@pp/integration-jira/Client"
-import { JiraCredentials } from "@pp/integration-jira/Credentials"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
-import { S3Storage, S3Unavailable } from "@pp/server-core/storage/S3Storage"
+import * as Client from "@pp/integration-jira/Client"
+import * as Credentials from "@pp/integration-jira/Credentials"
+import * as Transport from "@pp/integration-jira/Transport"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import { Effect, Layer, Redacted, Stream, Schema } from "effect"
 import { Workflow, WorkflowEngine } from "effect/workflow"
 
@@ -47,15 +43,15 @@ export const response = (
   json: Schema.Json,
   status = 200,
   headers: Record<string, string> = {}
-): JiraTransportResponse => ({
+): Transport.JiraTransportResponse => ({
   status,
   headers,
   json: Effect.succeed(json),
   stream: Stream.empty
 })
 export const scanFixtureResponse = (
-  request: JiraTransportRequest
-): JiraTransportResponse => {
+  request: Transport.JiraTransportRequest
+): Transport.JiraTransportResponse => {
   const url = new URL(request.url)
   const path = url.pathname
   const offset = Number(url.searchParams.get("startAt") ?? 0)
@@ -96,19 +92,19 @@ export const scanFixtureResponse = (
 }
 export const makeScanTestLayer = (
   fetch: (
-    request: JiraTransportRequest
-  ) => Effect.Effect<JiraTransportResponse> = (request) =>
+    request: Transport.JiraTransportRequest
+  ) => Effect.Effect<Transport.JiraTransportResponse> = (request) =>
     Effect.succeed(scanFixtureResponse(request)),
   failPut: (key: string) => boolean = () => false
 ) => {
   const objects = new Map<string, Uint8Array>()
-  const requests: Array<JiraTransportRequest> = []
+  const requests: Array<Transport.JiraTransportRequest> = []
   const storage = JiraMigrationArtifactsLive.pipe(
     Layer.provide(
       Layer.mergeAll(
         Layer.succeed(
-          OrgStorage,
-          OrgStorage.of({
+          OrgStorage.OrgStorage,
+          OrgStorage.OrgStorage.of({
             getStatus: () => Effect.die("unused"),
             connect: () => Effect.die("unused"),
             disconnect: () => Effect.die("unused"),
@@ -125,12 +121,12 @@ export const makeScanTestLayer = (
           })
         ),
         Layer.succeed(
-          S3Storage,
-          S3Storage.of({
+          S3Storage.S3Storage,
+          S3Storage.S3Storage.of({
             putObject: (_, key, _type, bytes) =>
               failPut(key)
                 ? Effect.fail(
-                    new S3Unavailable({
+                    new S3Storage.S3Unavailable({
                       reason: "test storage failure",
                       retryable: true
                     })
@@ -156,12 +152,12 @@ export const makeScanTestLayer = (
       )
     )
   )
-  const client = JiraClientLive.pipe(
+  const client = Client.layer.pipe(
     Layer.provide(
       Layer.mergeAll(
         Layer.succeed(
-          JiraTransport,
-          JiraTransport.of({
+          Transport.JiraTransport,
+          Transport.JiraTransport.of({
             execute: (request) =>
               Effect.suspend(() => {
                 requests.push(request)
@@ -170,8 +166,8 @@ export const makeScanTestLayer = (
           })
         ),
         Layer.succeed(
-          JiraCredentials,
-          JiraCredentials.of({
+          Credentials.JiraCredentials,
+          Credentials.JiraCredentials.of({
             status: () => Effect.die("unused"),
             beginConnect: () => Effect.die("unused"),
             completeConnect: () => Effect.die("unused"),

@@ -8,13 +8,17 @@ import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutomation"
+import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as Tags from "@pp/server-core/tags/Tags"
+import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
+import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
-import * as Tickets from "@pp/server-core/tickets/Tickets"
+import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMaintenance"
+import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import * as Users from "@pp/server-core/users/Users"
 import {
   CurrentUser,
@@ -76,7 +80,12 @@ const status = Schema.decodeSync(OrgStorageStatus)({
 const unused = Layer.mergeAll(
   Layer.mock(AttachmentUploads.AttachmentUploads, {}),
   Layer.mock(Projects.Projects, {}),
-  Layer.mock(Tickets.Tickets, {}),
+  Layer.mock(ProjectMembers.ProjectMembers, {}),
+  Layer.mergeAll(
+    Layer.mock(TicketCommands.TicketCommands, {}),
+    Layer.mock(TicketGit.TicketGit, {}),
+    Layer.mock(TicketQueries.TicketQueries, {})
+  ),
   Layer.mock(Comments.Comments, {}),
   Layer.mock(Groups.Groups, {}),
   Layer.mock(Tags.Tags, {}),
@@ -85,6 +94,7 @@ const unused = Layer.mergeAll(
   Layer.mock(GroupDocs.GroupDocs, {}),
   Layer.mock(TicketDocs.TicketDocs, {}),
   Layer.mock(TicketIndex.TicketIndex, {}),
+  Layer.mock(TicketIndexMaintenance.TicketIndexMaintenance, {}),
   Layer.mock(ProjectStatuses.ProjectStatuses, {}),
   Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {}),
   Layer.mock(Library.Library, {})

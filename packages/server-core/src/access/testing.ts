@@ -3,8 +3,7 @@ import {
   NotFound,
   OrgScope,
   type OrgRole,
-  type OrgScopeShape,
-  type ProjectScopeShape,
+  type ProjectScope,
   type Role,
   User
 } from "@pp/shared"
@@ -13,7 +12,7 @@ import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
-import { Access } from "./Access"
+import * as Access from "./Access"
 
 const decodeUser = Schema.decodeSync(User)
 
@@ -40,8 +39,8 @@ export const testUser = (id: string) =>
 
 export const orgScope = (
   role: OrgRole,
-  overrides: Partial<Omit<OrgScopeShape, "role" | "permissions">> = {}
-): OrgScopeShape => ({
+  overrides: Partial<Omit<OrgScope["Service"], "role" | "permissions">> = {}
+): OrgScope["Service"] => ({
   userId: "user-1",
   organizationId: "org-1",
   orgSlug: "acme",
@@ -55,9 +54,9 @@ export const projectScope = (
   orgRole: OrgRole,
   role: Role | null,
   overrides: Partial<
-    Omit<ProjectScopeShape, "orgRole" | "role" | "permissions">
+    Omit<ProjectScope["Service"], "orgRole" | "role" | "permissions">
   > = {}
-): ProjectScopeShape => ({
+): ProjectScope["Service"] => ({
   userId: "user-1",
   organizationId: "org-1",
   orgSlug: "acme",
@@ -71,11 +70,11 @@ export const projectScope = (
 
 export const accessLayer = (
   scopes: Readonly<{
-    org?: OrgScopeShape
-    projects?: ReadonlyArray<ProjectScopeShape>
+    org?: OrgScope["Service"]
+    projects?: ReadonlyArray<ProjectScope["Service"]>
   }>
 ) =>
-  Layer.succeed(Access, {
+  Layer.succeed(Access.Access, {
     org: (orgSlug, lookup) =>
       scopes.org?.orgSlug === orgSlug &&
       (scopes.org.deletedAt === null || lookup?.includeDeleted === true)
@@ -91,6 +90,16 @@ export const accessLayer = (
       Effect.map(OrgScope, (org) =>
         (scopes.projects ?? []).filter(
           (scope) => scope.organizationId === org.organizationId
+        )
+      ),
+    projectById: (projectId) =>
+      Effect.map(OrgScope, (org) =>
+        Option.fromUndefinedOr(
+          scopes.projects?.find(
+            (scope) =>
+              scope.organizationId === org.organizationId &&
+              scope.projectId === projectId
+          )
         )
       )
   })

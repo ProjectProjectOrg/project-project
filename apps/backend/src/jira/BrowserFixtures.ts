@@ -1,13 +1,7 @@
-import type {
-  JiraTransportRequest,
-  JiraTransportResponse,
-  JiraTransportShape
-} from "@pp/integration-jira/Client"
 import { JiraManifestSourceV2 } from "@pp/integration-jira/Manifest"
-import {
-  JIRA_SCOPES,
-  type JiraTokenEndpointShape
-} from "@pp/integration-jira/OAuth"
+import * as OAuth from "@pp/integration-jira/OAuth"
+import type * as TokenEndpoint from "@pp/integration-jira/TokenEndpoint"
+import type * as Transport from "@pp/integration-jira/Transport"
 import { JiraReconnectRequired } from "@pp/shared"
 import {
   DateTime,
@@ -39,8 +33,8 @@ export type JiraFixtureCall = Readonly<{
 }>
 
 export type JiraBrowserFixture = Readonly<{
-  transport: JiraTransportShape
-  tokenEndpoint: JiraTokenEndpointShape
+  transport: Transport.JiraTransport["Service"]
+  tokenEndpoint: TokenEndpoint.JiraTokenEndpoint["Service"]
   source: typeof JiraManifestSourceV2.Type
   categories: ReadonlyArray<string>
   setScenario: (scenario: JiraBrowserScenario) => Effect.Effect<void>
@@ -236,20 +230,20 @@ const response = (
   status = 200,
   headers: Readonly<Record<string, string>> = {},
   stream: Stream.Stream<Uint8Array> = Stream.empty
-): JiraTransportResponse => ({
+): Transport.JiraTransportResponse => ({
   status,
   headers,
   json: Effect.succeed(body),
   stream
 })
 
-const nextPageToken = (request: JiraTransportRequest) =>
+const nextPageToken = (request: Transport.JiraTransportRequest) =>
   Predicate.isObject(request.body) &&
   Predicate.isString(request.body.nextPageToken)
     ? request.body.nextPageToken
     : null
 
-const pageFromRequest = (request: JiraTransportRequest) => {
+const pageFromRequest = (request: Transport.JiraTransportRequest) => {
   const url = new URL(request.url)
   const path = url.pathname
   const startAt = url.searchParams.get("startAt") ?? "0"
@@ -307,7 +301,9 @@ const pageFromRequest = (request: JiraTransportRequest) => {
   return { operation: "unknown", page: "single" }
 }
 
-const jsonForRequest = (request: JiraTransportRequest): Schema.Json => {
+const jsonForRequest = (
+  request: Transport.JiraTransportRequest
+): Schema.Json => {
   const url = new URL(request.url)
   const path = url.pathname
   const startAt = Number(url.searchParams.get("startAt") ?? "0")
@@ -645,7 +641,7 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
 
     const transport = {
       execute: Effect.fn("JiraBrowserFixture.transport.execute")(function* (
-        request: JiraTransportRequest
+        request: Transport.JiraTransportRequest
       ) {
         const logicalPage = pageFromRequest(request)
         yield* record({
@@ -694,7 +690,7 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
         }
         return response(jsonForRequest(request))
       })
-    } satisfies JiraTransportShape
+    } satisfies Transport.JiraTransport["Service"]
 
     const tokenGrant = {
       accessToken: "fixture-access-token-2",
@@ -702,7 +698,7 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
       expiresAt: DateTime.toDate(
         DateTime.makeUnsafe("2026-09-22T11:00:00.000Z")
       ),
-      grantedScopes: JIRA_SCOPES.split(" ")
+      grantedScopes: OAuth.JIRA_SCOPES.split(" ")
     }
     const tokenEndpoint = {
       exchange: Effect.fn("JiraBrowserFixture.tokenEndpoint.exchange")(
@@ -737,7 +733,7 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
         }
         return tokenGrant
       })
-    } satisfies JiraTokenEndpointShape
+    } satisfies TokenEndpoint.JiraTokenEndpoint["Service"]
 
     return {
       transport,

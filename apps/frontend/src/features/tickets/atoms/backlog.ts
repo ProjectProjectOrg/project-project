@@ -16,6 +16,7 @@ import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import { bindRowMutation, viewMutation } from "@/api/viewMutation"
 import {
   insertByOrderKey,
@@ -71,7 +72,7 @@ export type BacklogValue = Readonly<{
 }>
 
 const sectionsQuery = (req: BacklogRequest) =>
-  Api.query("tickets", "sections", {
+  query("tickets", "sections", {
     params: req.params,
     query: req.query,
     timeToLive: "2 minutes",
@@ -88,7 +89,7 @@ const loadedPagesAtom = Atom.family((_req: BacklogRequest) =>
 )
 
 const pageQuery = (req: BacklogRequest, status: string, cursor: string) =>
-  Api.query("tickets", "list", {
+  query("tickets", "list", {
     params: req.params,
     query: {
       ...req.query,

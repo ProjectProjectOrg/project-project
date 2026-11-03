@@ -5,18 +5,19 @@ import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { Project } from "@pp/access/roles"
 import { DbLive, migrationsFolder } from "@pp/db"
-import { CurrentUser, User } from "@pp/shared"
+import { CurrentUser, OrgScope, User } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { Access } from "./Access"
-import { AccessLive } from "./AccessLive"
+import * as Access from "./Access"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -61,19 +62,18 @@ describe.skipIf(!databaseUrl)("Access", () => {
   const otherWebsite = randomUUID()
   const deletedWebsite = randomUUID()
   let pool: Pool
-  let layer: Layer.Layer<Access>
+  let layer: Layer.Layer<Access.Access>
 
   const as = (userId: string) =>
     Effect.provideService(CurrentUser, userFor(userId))
 
   const project = (userId: string, org = orgSlug) =>
-    Effect.flatMap(Access, (access) => access.project(org, "website")).pipe(
-      as(userId),
-      Effect.provide(layer)
-    )
+    Effect.flatMap(Access.Access, (access) =>
+      access.project(org, "website")
+    ).pipe(as(userId), Effect.provide(layer))
 
   const org = (userId: string, slug = orgSlug, includeDeleted = false) =>
-    Effect.flatMap(Access, (access) =>
+    Effect.flatMap(Access.Access, (access) =>
       access.org(slug, { includeDeleted })
     ).pipe(as(userId), Effect.provide(layer))
 
@@ -137,7 +137,7 @@ describe.skipIf(!databaseUrl)("Access", () => {
         [projectId, organizationId, userId, roleId]
       )
     }
-    layer = AccessLive.pipe(
+    layer = Access.layer.pipe(
       Layer.provide(DbLive),
       Layer.provide(
         PgClient.layer({ url: Redacted.make(databaseUrl), maxConnections: 1 })
@@ -260,6 +260,42 @@ describe.skipIf(!databaseUrl)("Access", () => {
       expect(stranger.projectId).toBe(otherWebsite)
     })
   )
+
+  it.effect("traces each Access call under its own span", () => {
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return Effect.gen(function* () {
+      const access = yield* Access.Access
+      const scope = yield* access.org(orgSlug)
+      yield* access.project(orgSlug, "website")
+      yield* access.projectsInOrg().pipe(Effect.provideService(OrgScope, scope))
+      yield* access
+        .projectById(website)
+        .pipe(Effect.provideService(OrgScope, scope))
+    }).pipe(
+      Effect.withTracer(tracer),
+      as(people.owner),
+      Effect.provide(layer),
+      Effect.map(() =>
+        expect(
+          spans
+            .filter((span) => Option.isNone(span.parent))
+            .map((span) => span.name)
+        ).toEqual([
+          "Access.org",
+          "Access.project",
+          "Access.projectsInOrg",
+          "Access.projectById"
+        ])
+      )
+    )
+  })
 
   it.effect("ends project access as soon as someone leaves the org", () =>
     Effect.gen(function* () {

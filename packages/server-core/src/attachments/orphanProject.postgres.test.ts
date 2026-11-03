@@ -12,14 +12,14 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { afterAll, beforeAll, describe, expect } from "vitest"
 
-import { Access } from "../access/Access"
-import { OrgStorage } from "../storage/OrgStorage"
-import { S3Storage } from "../storage/S3Storage"
-import { Attachments } from "./Attachments"
-import { AttachmentsLive } from "./AttachmentsLive"
+import * as Access from "../access/Access"
+import * as OrgStorage from "../storage/OrgStorage"
+import * as S3Storage from "../storage/S3Storage"
+import * as Attachments from "./Attachments"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 
@@ -34,7 +34,7 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
   const doomed = randomUUID()
   const survivor = randomUUID()
   let pool: Pool
-  let layer: Layer.Layer<Attachments | Db>
+  let layer: Layer.Layer<Attachments.Attachments | Db>
 
   const statuses = () =>
     Effect.promise(async () =>
@@ -107,11 +107,11 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
         PgClient.layer({ url: Redacted.make(databaseUrl), maxConnections: 1 })
       )
     )
-    layer = AttachmentsLive.pipe(
+    layer = Attachments.layer.pipe(
       Layer.provideMerge(db),
-      Layer.provide(Layer.mock(Access, {})),
-      Layer.provide(Layer.mock(OrgStorage, {})),
-      Layer.provide(Layer.mock(S3Storage, {})),
+      Layer.provide(Layer.mock(Access.Access, {})),
+      Layer.provide(Layer.mock(OrgStorage.OrgStorage, {})),
+      Layer.provide(Layer.mock(S3Storage.S3Storage, {})),
       Layer.orDie
     )
   })
@@ -125,9 +125,33 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
     }
   })
 
+  it.effect("traces calls under their Attachments spans", () =>
+    Effect.gen(function* () {
+      const names: Array<string> = []
+      const tracer = Tracer.make({
+        span: (options) => {
+          names.push(options.name)
+          return new Tracer.NativeSpan(options)
+        }
+      })
+      yield* Effect.gen(function* () {
+        const attachments = yield* Attachments.Attachments
+        yield* attachments.missingIds(orgSlug, [`${organizationId}-a1`])
+        yield* Effect.flip(
+          attachments.orphanProject(orgSlug, "doomed", new RemovalFailed())
+        )
+      }).pipe(Effect.withTracer(tracer))
+
+      expect(names.filter((name) => name.startsWith("Attachments."))).toEqual([
+        "Attachments.missingIds",
+        "Attachments.orphanProject"
+      ])
+    }).pipe(Effect.provide(layer))
+  )
+
   it.effect("leaves everything live when the removal fails", () =>
     Effect.gen(function* () {
-      const attachments = yield* Attachments
+      const attachments = yield* Attachments.Attachments
       const error = yield* Effect.flip(
         attachments.orphanProject(orgSlug, "doomed", new RemovalFailed())
       )
@@ -146,7 +170,7 @@ describe.skipIf(!databaseUrl)("orphanProject", () => {
     "orphans what the deleted project uploaded or used, and keeps what others still use",
     () =>
       Effect.gen(function* () {
-        const attachments = yield* Attachments
+        const attachments = yield* Attachments.Attachments
         const db = yield* Db
         let concurrentUpload: Promise<string> = Promise.resolve("not started")
         const result = yield* attachments.orphanProject(

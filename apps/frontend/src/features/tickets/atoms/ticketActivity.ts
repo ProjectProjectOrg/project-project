@@ -2,8 +2,8 @@ import type { TicketActivityEntry, TicketId } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
-import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 
 export type TicketActivityRequest = Readonly<{
   params: Readonly<{
@@ -28,7 +28,7 @@ const scopeOf = (req: TicketActivityRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 const pageQuery = (req: TicketActivityRequest, cursor: string | null) =>
-  Api.query("ticketActivity", "list", {
+  query("ticketActivity", "list", {
     params: req.params,
     query: cursor === null ? {} : { cursor },
     timeToLive: "5 minutes",

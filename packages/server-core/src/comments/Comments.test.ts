@@ -1,0 +1,758 @@
+// @effect-diagnostics-next-line nodeBuiltinImport:off
+import { randomUUID } from "node:crypto"
+
+import * as BunCrypto from "@effect/platform-bun/BunCrypto"
+import { it } from "@effect/vitest"
+import { DbLive, migrationsFolder, PgLive } from "@pp/db"
+import { commentIndex } from "@pp/db/schema"
+import {
+  ActivityActor,
+  CommentId,
+  TicketId,
+  TicketStatus,
+  UserId,
+  ProjectScope
+} from "@pp/shared"
+import { drizzle } from "drizzle-orm/node-postgres"
+import { migrate } from "drizzle-orm/node-postgres/migrator"
+import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
+import * as Tracer from "effect/Tracer"
+import pg from "pg"
+import { beforeAll, describe, expect } from "vitest"
+
+import { databaseLayer } from "../../test/database"
+import { projectScope } from "../access/testing"
+import * as Markdown from "../markdown/Markdown"
+import * as ProjectMembers from "../projects/ProjectMembers"
+import * as Projects from "../projects/Projects"
+import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
+import * as TicketDocs from "../tickets/TicketDocs"
+import * as TicketIndex from "../tickets/TicketIndex"
+import * as Users from "../users/Users"
+import * as Comments from "./Comments"
+import { parseCommentsRegion, serializeCommentsRegion } from "./comments-region"
+
+const decodeCommentIdSync = Schema.decodeSync(CommentId)
+
+const decodeUnknownCommentId = Schema.decodeUnknownEffect(CommentId)
+
+const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
+
+if (databaseUrl) {
+  const url = new URL(databaseUrl)
+  if (
+    !["127.0.0.1", "localhost"].includes(url.hostname) ||
+    !url.pathname.startsWith("/projectproject_effect_v4_")
+  ) {
+    throw new Error("Test requires an isolated local database")
+  }
+  process.env.DATABASE_URL = databaseUrl
+}
+
+const ticketId = Schema.decodeUnknownSync(TicketId)
+const ticketStatus = Schema.decodeUnknownSync(TicketStatus)
+const userId = Schema.decodeSync(UserId)
+const at = (value: string) => DateTime.toDate(DateTime.makeUnsafe(value))
+
+const unexpected = (method: string): Effect.Effect<never> =>
+  Effect.die(new Error(`unexpected ${method} call`))
+
+const document: TicketDocs.TicketDocument = {
+  id: ticketId("T-1"),
+  title: "Comments",
+  status: ticketStatus("todo"),
+  type: "chore",
+  priority: "med",
+  tags: [],
+  branch: null,
+  pr: null,
+  prState: null,
+  lastTransitionedPr: null,
+  assignees: [],
+  archivedAt: null,
+  createdBy: "user-1",
+  createdAt: at("2026-01-01T00:00:00.000Z"),
+  updatedBy: "user-1",
+  updatedAt: at("2026-01-01T00:00:00.000Z"),
+  body: "# Comments\n",
+  commentsRegion: ""
+}
+
+const projectId = randomUUID()
+
+const FakeProjects = Layer.merge(
+  Layer.succeed(Projects.Projects, {
+    list: () => unexpected("Projects.list"),
+    listPaged: () => unexpected("Projects.listPaged"),
+    create: () => unexpected("Projects.create"),
+    get: () => unexpected("Projects.get"),
+    key: () => unexpected("Projects.key"),
+    update: () => unexpected("Projects.update"),
+    updateSetup: () => unexpected("Projects.updateSetup"),
+    remove: () => unexpected("Projects.remove")
+  } satisfies Projects.Projects["Service"]),
+  Layer.mock(ProjectMembers.ProjectMembers, {
+    memberIds: () => Effect.succeed(new Set(["user-1", "user-2"]))
+  })
+)
+
+const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
+  projectsFor: () => unexpected("TicketIndex.projectsFor"),
+  assignedTo: () => unexpected("TicketIndex.assignedTo"),
+  touchedBy: () => unexpected("TicketIndex.touchedBy"),
+  countAssignedByStatus: () => unexpected("TicketIndex.countAssignedByStatus"),
+  assignedPerProject: () => unexpected("TicketIndex.assignedPerProject"),
+  projectFor: () => unexpected("TicketIndex.projectFor"),
+  list: () => unexpected("TicketIndex.list"),
+  query: () => unexpected("TicketIndex.query"),
+  querySections: () => unexpected("TicketIndex.querySections"),
+  orderKeyFor: () => unexpected("TicketIndex.orderKeyFor"),
+  count: () => unexpected("TicketIndex.count"),
+  listIds: () => unexpected("TicketIndex.listIds"),
+  existingIds: () => unexpected("TicketIndex.existingIds"),
+  reserveTicketNumber: () => unexpected("TicketIndex.reserveTicketNumber"),
+  tagUsageCounts: () => unexpected("TicketIndex.tagUsageCounts"),
+  findTicketIdsByTag: () => unexpected("TicketIndex.findTicketIdsByTag"),
+  findTicketIdsByStatus: () => unexpected("TicketIndex.findTicketIdsByStatus"),
+  upsertTicket: () => unexpected("TicketIndex.upsertTicket"),
+  deleteTicket: () => unexpected("TicketIndex.deleteTicket")
+} satisfies TicketIndex.TicketIndex["Service"])
+
+const FakeTicketBranchIndex = Layer.succeed(
+  TicketBranchIndex.TicketBranchIndex,
+  {
+    findTicketsByBranch: () => unexpected("TicketIndex.findTicketsByBranch"),
+    findStackLayers: () => unexpected("TicketIndex.findStackLayers"),
+    stacksFor: () => unexpected("TicketIndex.stacksFor"),
+    findMergesAwaiting: () => unexpected("TicketIndex.findMergesAwaiting"),
+    isRepositoryBranchAttached: () => Effect.succeed(false),
+    getBranchDeletedAt: () => Effect.succeed(null),
+    markBranchStale: () => unexpected("TicketIndex.markBranchStale"),
+    clearBranchStale: () => unexpected("TicketIndex.clearBranchStale"),
+    updateBranchChecks: () => unexpected("TicketIndex.updateBranchChecks")
+  }
+)
+
+const author = {
+  id: userId("user-1"),
+  email: "user@example.com",
+  name: "User",
+  username: "user",
+  image: null,
+  createdAt: at("2026-01-01T00:00:00.000Z"),
+  activeOrgSlug: "org",
+  personalGithub: { connected: false },
+  editorPreference: "github" as const,
+  personalEverhour: {
+    connected: false,
+    everhourUserId: null,
+    name: null,
+    email: null,
+    lastVerifiedAt: null,
+    lastCheckError: null
+  }
+}
+
+const FakeUsers = Layer.succeed(Users.Users, {
+  findByEmail: () => unexpected("Users.findByEmail"),
+  findManyByIds: () => unexpected("Users.findManyByIds"),
+  fullByIds: () => Effect.succeed([author])
+} satisfies Users.Users["Service"])
+
+const FakeDb = databaseLayer(({ sql }) =>
+  sql.startsWith("select")
+    ? Effect.die(new Error(`Unexpected SQL: ${sql}`))
+    : Effect.succeed([])
+)
+
+const commentRow = (
+  input: Readonly<Partial<typeof commentIndex.$inferSelect>>
+) => [
+  input.id ?? "c_moderation",
+  input.projectId ?? "project-1",
+  input.ticketId ?? "T-1",
+  input.origin ?? "native",
+  input.authorKind ?? "user",
+  input.authorId ?? "user-1",
+  input.jiraDisplayName ?? null,
+  input.jiraAccountId ?? null,
+  (input.createdAt ?? at("2026-01-01T00:00:00.000Z")).toISOString(),
+  input.editedAt?.toISOString() ?? null
+]
+
+const scopeFor = (
+  userId: string,
+  role: "pm" | "developer" | "client" = "developer"
+) =>
+  projectScope(role === "client" ? "guest" : "member", role, {
+    userId,
+    orgSlug: "org",
+    slug: "project",
+    projectId
+  })
+
+const makeLayer = (
+  ticketDocs: TicketDocs.TicketDocs["Service"],
+  database = FakeDb
+) =>
+  Comments.layer.pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        Layer.succeed(TicketDocs.TicketDocs, ticketDocs),
+        FakeProjects,
+        FakeTicketIndex,
+        FakeTicketBranchIndex,
+        FakeUsers,
+        database,
+        BunCrypto.layer
+      )
+    ),
+    Layer.merge(Layer.succeed(ProjectScope, scopeFor("user-1"))),
+    Layer.merge(Layer.succeed(ActivityActor, ActivityActor.user("user-1")))
+  )
+
+const makeTicketDocs = (
+  overrides: Partial<TicketDocs.TicketDocs["Service"]> = {}
+): TicketDocs.TicketDocs["Service"] => {
+  const service: TicketDocs.TicketDocs["Service"] = {
+    listIds: () => unexpected("TicketDocs.listIds"),
+    read: () => Effect.succeed(document),
+    create: () => unexpected("TicketDocs.create"),
+    write: () => unexpected("TicketDocs.write"),
+    update: (orgSlug, slug, id, transform, onPersist) =>
+      service.read(orgSlug, slug, id).pipe(
+        Effect.flatMap(transform),
+        Effect.tap((next) => (onPersist ? onPersist(next) : Effect.void))
+      ),
+    remove: () => unexpected("TicketDocs.remove"),
+    readRaw: () => unexpected("TicketDocs.readRaw"),
+    ...overrides
+  }
+  return service
+}
+
+it.effect("creates comments through TicketDocs", () => {
+  let written: TicketDocs.TicketDocument | undefined
+  const layer = makeLayer(
+    makeTicketDocs({
+      update: (_orgSlug, _slug, _ticketId, transform) =>
+        transform(document).pipe(
+          Effect.tap((next) =>
+            Effect.sync(() => {
+              written = next
+            })
+          )
+        )
+    })
+  )
+
+  return Effect.gen(function* () {
+    const comments = yield* Comments.Comments
+    const created = yield* comments.create(ticketId("T-1"), {
+      body: "A useful comment"
+    })
+
+    expect(created.author).toEqual({ kind: "user", user: author })
+    expect(created.origin).toBe("native")
+    expect(written?.body).toBe(document.body)
+    expect(parseCommentsRegion(written?.commentsRegion ?? "")).toMatchObject([
+      {
+        author: { kind: "user", userId: "user-1" },
+        origin: "native",
+        body: "A useful comment"
+      }
+    ])
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect(
+  "imports Jira history with complete bodies and exact timestamps",
+  () => {
+    const rows: Array<ReadonlyArray<unknown>> = []
+    let current = document
+    const database = databaseLayer(({ sql, params }) =>
+      Effect.sync(() => {
+        if (sql.startsWith("insert")) {
+          for (let index = 0; index < params.length; index += 10)
+            rows.push(params.slice(index, index + 10))
+        }
+        if (sql.startsWith("delete")) rows.splice(0)
+        return sql.startsWith("select") ? rows : []
+      })
+    )
+    const docs = makeTicketDocs({
+      read: () => Effect.succeed(current),
+      write: (_orgSlug, _slug, _ticketId, next) =>
+        Effect.sync(() => {
+          current = next
+        }),
+      update: (_orgSlug, _slug, _ticketId, transform, onPersist) =>
+        transform(current).pipe(
+          Effect.tap((next) =>
+            Effect.sync(() => {
+              current = next
+            })
+          ),
+          Effect.tap((next) => (onPersist ? onPersist(next) : Effect.void))
+        )
+    })
+    const layer = makeLayer(docs, database)
+    const createdAt = at("2021-04-02T03:04:05.678Z")
+    const editedAt = at("2021-04-03T04:05:06.789Z")
+    const body = `Historical body\n\n${"x".repeat(20_001)}`
+
+    return Effect.gen(function* () {
+      const comments = yield* Comments.Comments
+      const imported = yield* comments.importHistorical(ticketId("T-1"), [
+        {
+          author: { kind: "user", userId: "user-1" },
+          body,
+          createdAt,
+          editedAt
+        },
+        {
+          author: {
+            kind: "jira",
+            displayName: "Former Jira User",
+            accountId: "jira-account-1"
+          },
+          body: "Snapshot body",
+          createdAt,
+          editedAt: null
+        }
+      ])
+      const listed = yield* comments.list(ticketId("T-1"))
+
+      expect(imported).toEqual(listed)
+      expect(listed[0]).toMatchObject({
+        author: { kind: "user", user: author },
+        origin: "jira",
+        body,
+        createdAt,
+        editedAt
+      })
+      expect(listed[1]).toMatchObject({
+        author: {
+          kind: "jira",
+          displayName: "Former Jira User",
+          accountId: "jira-account-1"
+        },
+        origin: "jira",
+        body: "Snapshot body",
+        createdAt,
+        editedAt: null
+      })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect("rejects reserved markers without writing imported history", () => {
+  let updates = 0
+  const layer = makeLayer(
+    makeTicketDocs({
+      update: () =>
+        Effect.sync(() => {
+          updates++
+          return document
+        })
+    })
+  )
+
+  return Effect.gen(function* () {
+    const comments = yield* Comments.Comments
+    const result = yield* Effect.exit(
+      comments.importHistorical(ticketId("T-1"), [
+        {
+          author: {
+            kind: "jira",
+            displayName: "Former Jira User",
+            accountId: "jira-account-1"
+          },
+          body: "<!-- comments:end -->",
+          createdAt: at("2021-04-02T03:04:05.678Z"),
+          editedAt: null
+        }
+      ])
+    )
+
+    expect(result._tag).toBe("Failure")
+    expect(updates).toBe(0)
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("rejects incomplete Jira snapshot attribution", () => {
+  let updates = 0
+  const layer = makeLayer(
+    makeTicketDocs({
+      update: () =>
+        Effect.sync(() => {
+          updates++
+          return document
+        })
+    })
+  )
+
+  return Effect.gen(function* () {
+    const comments = yield* Comments.Comments
+    const result = yield* Effect.exit(
+      comments.importHistorical(ticketId("T-1"), [
+        {
+          author: {
+            kind: "jira",
+            displayName: "",
+            accountId: "jira-account-1"
+          },
+          body: "Imported body",
+          createdAt: at("2021-04-02T03:04:05.678Z"),
+          editedAt: null
+        }
+      ])
+    )
+
+    expect(result._tag).toBe("Failure")
+    expect(updates).toBe(0)
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("removes imported index rows when the markdown write fails", () => {
+  const rows: Array<ReadonlyArray<unknown>> = []
+  const database = databaseLayer(({ sql, params }) =>
+    Effect.sync(() => {
+      if (sql.startsWith("insert")) {
+        for (let index = 0; index < params.length; index += 10)
+          rows.push(params.slice(index, index + 10))
+      }
+      if (sql.startsWith("delete")) rows.splice(0)
+      return sql.startsWith("select") ? rows : []
+    })
+  )
+  const failure = new Markdown.MarkdownError({
+    message: "fixture write failed",
+    cause: new Error("write failed")
+  })
+  const layer = makeLayer(
+    makeTicketDocs({ update: () => Effect.fail(failure) }),
+    database
+  )
+
+  return Effect.gen(function* () {
+    const comments = yield* Comments.Comments
+    const result = yield* Effect.exit(
+      comments.importHistorical(ticketId("T-1"), [
+        {
+          author: { kind: "user", userId: "user-1" },
+          body: "Imported body",
+          createdAt: at("2021-04-02T03:04:05.678Z"),
+          editedAt: null
+        }
+      ])
+    )
+
+    expect(result._tag).toBe("Failure")
+    expect(rows).toEqual([])
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("restores markdown when an edit index update fails", () => {
+  let current = {
+    ...document,
+    commentsRegion: ""
+  }
+  const id = decodeCommentIdSync("c_native")
+  current = {
+    ...current,
+    commentsRegion: serializeCommentsRegion([
+      {
+        id,
+        author: { kind: "user", userId: "user-1" },
+        origin: "native",
+        body: "Original body",
+        createdAt: at("2021-04-02T03:04:05.678Z"),
+        editedAt: null
+      }
+    ])
+  }
+  const original = current.commentsRegion
+  const docs = makeTicketDocs({
+    read: () => Effect.succeed(current),
+    write: (_orgSlug, _slug, _ticketId, next) =>
+      Effect.sync(() => {
+        current = next
+      }),
+    update: (_orgSlug, _slug, _ticketId, transform, onPersist) =>
+      transform(current).pipe(
+        Effect.tap((next) =>
+          Effect.sync(() => {
+            current = next
+          })
+        ),
+        Effect.tap((next) => (onPersist ? onPersist(next) : Effect.void))
+      )
+  })
+  const database = databaseLayer(({ sql }) =>
+    sql.startsWith("update")
+      ? Effect.die(new Error("index update failed"))
+      : Effect.succeed([
+          commentRow({ id, createdAt: at("2021-04-02T03:04:05.678Z") })
+        ])
+  )
+  const layer = makeLayer(docs, database)
+
+  return Effect.gen(function* () {
+    const comments = yield* Comments.Comments
+    const result = yield* Effect.exit(
+      comments.edit(ticketId("T-1"), id, {
+        body: "Changed body"
+      })
+    )
+
+    expect(result._tag).toBe("Failure")
+    expect(current.commentsRegion).toBe(original)
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect(
+  "denies changes to Jira-origin comments without mutating markdown",
+  () => {
+    let updates = 0
+    const database = databaseLayer(() =>
+      Effect.succeed([
+        commentRow({
+          id: "c_imported",
+          origin: "jira",
+          createdAt: at("2021-04-02T03:04:05.678Z")
+        })
+      ])
+    )
+    const layer = makeLayer(
+      makeTicketDocs({
+        update: () =>
+          Effect.sync(() => {
+            updates++
+            return document
+          })
+      }),
+      database
+    )
+    const id = decodeCommentIdSync("c_imported")
+
+    return Effect.gen(function* () {
+      const comments = yield* Comments.Comments
+      const editResult = yield* Effect.exit(
+        comments.edit(ticketId("T-1"), id, {
+          body: "Changed"
+        })
+      )
+      const removeResult = yield* Effect.exit(
+        comments.remove(ticketId("T-1"), id)
+      )
+
+      expect(editResult._tag).toBe("Failure")
+      expect(removeResult._tag).toBe("Failure")
+      expect(updates).toBe(0)
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect("keeps malformed ticket documents in the typed error channel", () => {
+  const malformed = new TicketDocs.MalformedTicketDocument({
+    orgSlug: "org",
+    slug: "project",
+    ticketId: "T-1",
+    path: "orgs/org/projects/project/tickets/T-1.md",
+    reason: "invalid_frontmatter",
+    cause: new Error("invalid frontmatter")
+  })
+  const layer = makeLayer(
+    makeTicketDocs({ update: () => Effect.fail(malformed) })
+  )
+
+  return Effect.gen(function* () {
+    const comments = yield* Comments.Comments
+    const error = yield* Effect.flip(
+      comments.create(ticketId("T-1"), {
+        body: "A useful comment"
+      })
+    )
+
+    expect(error).toBe(malformed)
+  }).pipe(Effect.provide(layer))
+})
+
+describe.skipIf(!databaseUrl)("comment persistence failure", () => {
+  beforeAll(async () => {
+    const pool = new pg.Pool({ connectionString: databaseUrl })
+    await migrate(drizzle({ client: pool }), { migrationsFolder })
+    await pool.end()
+  })
+
+  for (const operation of ["edit", "remove"] as const) {
+    it.effect(
+      `preserves ${operation} metadata when the markdown write fails`,
+      () =>
+        Effect.gen(function* () {
+          const client = yield* Effect.acquireRelease(
+            Effect.promise(async () => {
+              const client = new pg.Client({
+                connectionString: databaseUrl
+              })
+              await client.connect()
+              return client
+            }),
+            (client) => Effect.promise(() => client.end())
+          )
+          const userId = randomUUID()
+          const id = yield* decodeUnknownCommentId(`c_${randomUUID()}`)
+          const previousEdit = at("2026-01-01T01:00:00.000Z")
+          yield* Effect.promise(() =>
+            client.query(
+              `insert into "user" (id, name, email, created_at, updated_at) values ($1, 'Test', $2, now(), now())`,
+              [userId, `${userId}@example.com`]
+            )
+          )
+          const organizationId = randomUUID()
+          yield* Effect.addFinalizer(() =>
+            Effect.promise(async () => {
+              await client.query("delete from organization where id = $1", [
+                organizationId
+              ])
+              await client.query('delete from "user" where id = $1', [userId])
+            })
+          )
+          yield* Effect.promise(async () => {
+            await client.query(
+              "insert into organization (id, name, slug, created_at) values ($1, $1, $1, now())",
+              [organizationId]
+            )
+            await client.query(
+              "insert into project_index (id, slug, organization_id, key, name, icon, color, created_by) values ($1, $2, $3, 'CMT', 'Comments', 'x', '#000000', $4) on conflict (id) do nothing",
+              [projectId, `comments-${organizationId}`, organizationId, userId]
+            )
+            await client.query(
+              "insert into comment_index (id, project_id, ticket_id, origin, author_kind, author_id, created_at, edited_at) values ($1, $2, 'T-1', 'native', 'user', $3, now(), $4)",
+              [id, projectId, userId, previousEdit]
+            )
+          })
+          const failure = new Markdown.MarkdownError({
+            message: "fixture write failed",
+            cause: new Error("write failed")
+          })
+          const layer = makeLayer(
+            makeTicketDocs({ update: () => Effect.fail(failure) }),
+            DbLive.pipe(Layer.provideMerge(PgLive), Layer.orDie)
+          )
+          const result = yield* Effect.gen(function* () {
+            const comments = yield* Comments.Comments
+            return yield* Effect.flip(
+              (operation === "edit"
+                ? comments
+                    .edit(ticketId("T-1"), id, {
+                      body: "Changed"
+                    })
+                    .pipe(Effect.asVoid)
+                : comments.remove(ticketId("T-1"), id)
+              ).pipe(Effect.provideService(ProjectScope, scopeFor(userId)))
+            )
+          }).pipe(Effect.provide(layer))
+          expect(result._tag).toBe("MarkdownError")
+          const rows = yield* Effect.promise(() =>
+            client.query<{ edited_at: Date }>(
+              "select edited_at from comment_index where id = $1",
+              [id]
+            )
+          )
+          expect(rows.rows).toEqual([{ edited_at: previousEdit }])
+        })
+    )
+  }
+})
+
+const moderatedComment = Schema.decodeUnknownSync(CommentId)("c_moderation")
+
+describe("comment moderation", () => {
+  const commentId = moderatedComment
+  const authoredBy = (authorId: string) =>
+    databaseLayer(({ sql }) =>
+      Effect.succeed(sql.startsWith("select") ? [commentRow({ authorId })] : [])
+    )
+
+  const attempt = (
+    operation: "edit" | "remove",
+    authorId: string,
+    caller: ReturnType<typeof scopeFor>
+  ) =>
+    Effect.flatMap(Comments.Comments, (comments) =>
+      operation === "edit"
+        ? comments
+            .edit(ticketId("T-1"), commentId, { body: "Changed" })
+            .pipe(Effect.asVoid)
+        : comments.remove(ticketId("T-1"), commentId)
+    ).pipe(
+      Effect.provideService(ProjectScope, caller),
+      Effect.provide(makeLayer(makeTicketDocs(), authoredBy(authorId))),
+      Effect.exit
+    )
+
+  it.effect("lets a PM edit and delete someone else's comment", () =>
+    Effect.gen(function* () {
+      const pm = scopeFor("user-1", "pm")
+      expect((yield* attempt("edit", "user-2", pm))._tag).toBe("Success")
+      expect((yield* attempt("remove", "user-2", pm))._tag).toBe("Success")
+    })
+  )
+
+  it.effect("keeps developers and clients to their own comments", () =>
+    Effect.gen(function* () {
+      for (const caller of [
+        scopeFor("user-1", "developer"),
+        scopeFor("user-1", "client")
+      ]) {
+        expect((yield* attempt("edit", "user-1", caller))._tag).toBe("Success")
+        expect((yield* attempt("remove", "user-1", caller))._tag).toBe(
+          "Success"
+        )
+        const editing = yield* attempt("edit", "user-2", caller)
+        const removing = yield* attempt("remove", "user-2", caller)
+        expect(String(editing)).toContain("Forbidden")
+        expect(String(removing)).toContain("Forbidden")
+      }
+    })
+  )
+
+  it.effect("traces each call under one Comments span", () => {
+    const spans: Array<Tracer.NativeSpan> = []
+    const tracer = Tracer.make({
+      span: (options) => {
+        const span = new Tracer.NativeSpan(options)
+        spans.push(span)
+        return span
+      }
+    })
+    return Effect.gen(function* () {
+      const comments = yield* Comments.Comments
+      yield* comments.list(ticketId("T-1"))
+      yield* comments.create(ticketId("T-1"), { body: "New" })
+      yield* comments.importHistorical(ticketId("T-1"), [])
+      yield* comments.edit(ticketId("T-1"), commentId, { body: "Changed" })
+      yield* comments.remove(ticketId("T-1"), commentId)
+      expect(
+        spans
+          .filter((span) => Option.isNone(span.parent))
+          .map((span) => span.name)
+      ).toEqual([
+        "Comments.list",
+        "Comments.create",
+        "Comments.importHistorical",
+        "Comments.edit",
+        "Comments.remove"
+      ])
+    }).pipe(
+      Effect.withTracer(tracer),
+      Effect.provide(makeLayer(makeTicketDocs(), authoredBy("user-1")))
+    )
+  })
+})

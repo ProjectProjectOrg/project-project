@@ -56,6 +56,7 @@ import { Member, Project, ProjectDetail, Slug } from "../schemas/Project"
 import { ProjectStatus } from "../schemas/Status"
 import { Tag, TagName } from "../schemas/Tag"
 import {
+  ArchiveTicketInput,
   CreateTicketInput,
   Ticket,
   TicketDetail,
@@ -119,14 +120,13 @@ const StatusWithAutomation = Schema.Struct({
   setBy: Schema.optional(Schema.Array(GitAutomationEvent))
 })
 
-export type ToolCliShape = Readonly<{
-  command: readonly [string, ...ReadonlyArray<string>]
-  args?: ReadonlyArray<string>
-}>
-
-export class ToolCli extends Context.Service<ToolCli, ToolCliShape>()(
-  "@pp/shared/tools/Tools/ToolCli"
-) {}
+export class ToolCli extends Context.Service<
+  ToolCli,
+  Readonly<{
+    command: readonly [string, ...ReadonlyArray<string>]
+    args?: ReadonlyArray<string>
+  }>
+>()("@pp/shared/tools/Tools/ToolCli") {}
 
 export class ToolFailure extends Schema.TaggedError<ToolFailure>()(
   "ToolFailure",
@@ -177,7 +177,7 @@ const defineTool = <
     title: string
     hints: ToolHints
     description: string
-    cli: ToolCliShape
+    cli: ToolCli["Service"]
     parameters: Parameters
     success: Success
   }>
@@ -659,6 +659,59 @@ export const Tools = Toolkit.make(
       })
     }),
     success: TicketDetailWithBlocks
+  }),
+  defineTool("archive_ticket", {
+    title: "Archive ticket",
+    hints: {
+      readOnly: false,
+      destructive: false,
+      idempotent: true,
+      openWorld: false
+    },
+    description:
+      "Archive a ticket once it is no longer needed, for example after " +
+      "folding it into another ticket or superseding it. Archiving is not " +
+      "deletion: the ticket keeps its id, description, comments and " +
+      "history, drops out of `list_tickets` and boards, and " +
+      "`restore_ticket` brings it back unchanged. Permanent deletion is " +
+      "left to people in the app. Sub-tickets are not archived with their " +
+      "parent.\n\n" +
+      "`reason` is recorded on the ticket's activity, attributed to you; " +
+      "name the ticket that replaces it, e.g. " +
+      "`Folded into [T-238](mention:ticket/T-238)`. " +
+      MENTION_GUIDE +
+      " Archiving an archived ticket fails with `Conflict`. Returns the " +
+      "ticket with `archivedAt` set.",
+    cli: { command: ["tickets", "archive"], args: ["id"] },
+    parameters: Schema.Struct({
+      orgSlug,
+      projectSlug,
+      id: ticketId,
+      reason: ArchiveTicketInput.fields.reason.annotate({
+        description:
+          "Why the ticket is archived, as markdown up to 20,000 characters."
+      })
+    }),
+    success: TicketDetail
+  }),
+  defineTool("restore_ticket", {
+    title: "Restore ticket",
+    hints: {
+      readOnly: false,
+      destructive: false,
+      idempotent: true,
+      openWorld: false
+    },
+    description:
+      "Restore an archived ticket so it shows in `list_tickets` and " +
+      "boards again, with its status, description and history as they " +
+      "were. Find archived tickets with `list_tickets` and `archived` set " +
+      "to true, and read one with `get_ticket`. Restoring a " +
+      "ticket that isn't archived fails with `Conflict`. Returns the ticket " +
+      "with `archivedAt` null.",
+    cli: { command: ["tickets", "restore"], args: ["id"] },
+    parameters: Schema.Struct({ orgSlug, projectSlug, id: ticketId }),
+    success: TicketDetail
   }),
   defineTool("prepare_ticket_attachment", {
     title: "Prepare attachment upload",

@@ -14,23 +14,15 @@ import {
 import { SlackEvents } from "@pp/integration-slack/Events"
 import { SlackIntegrations } from "@pp/integration-slack/Integrations"
 import { SlackPreviews } from "@pp/integration-slack/Previews"
-import { Access } from "@pp/server-core/access/Access"
-import { AccessLive } from "@pp/server-core/access/AccessLive"
-import { TicketActivity } from "@pp/server-core/activity/TicketActivity"
-import { TicketActivityLive } from "@pp/server-core/activity/TicketActivityLive"
-import { GroupDocs } from "@pp/server-core/groups/GroupDocs"
-import { GroupDocsLive } from "@pp/server-core/groups/GroupDocsLive"
+import * as Access from "@pp/server-core/access/Access"
+import * as TicketActivity from "@pp/server-core/activity/TicketActivity"
+import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
-import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
-import { SecretCryptoLive } from "@pp/server-core/storage/SecretCryptoLive"
-import {
-  TicketDocs,
-  type TicketDocument
-} from "@pp/server-core/tickets/TicketDocs"
-import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
-import { Users } from "@pp/server-core/users/Users"
-import { UsersLive } from "@pp/server-core/users/UsersLive"
+import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
+import * as Users from "@pp/server-core/users/Users"
 import {
   ActivityActor,
   GroupDetail,
@@ -247,15 +239,15 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       Layer.provideMerge(SlackIntegrations.layer),
       Layer.provideMerge(SlackClient.layer),
       Layer.provideMerge(SlackHostLive),
-      Layer.provideMerge(AccessLive),
-      Layer.provideMerge(UsersLive),
-      Layer.provideMerge(GroupDocsLive),
-      Layer.provideMerge(TicketDocsLive),
+      Layer.provideMerge(Access.layer),
+      Layer.provideMerge(Users.layer),
+      Layer.provideMerge(GroupDocs.layer),
+      Layer.provideMerge(TicketDocs.layer),
       Layer.provideMerge(FinishedStatuses.layer),
       Layer.provideMerge(KeyedLock.layer),
-      Layer.provideMerge(TicketActivityLive),
-      Layer.provideMerge(MarkdownLive),
-      Layer.provideMerge(SecretCryptoLive)
+      Layer.provideMerge(TicketActivity.layer),
+      Layer.provideMerge(Markdown.layer),
+      Layer.provideMerge(SecretCrypto.layer)
     )
     const infrastructure = Layer.mergeAll(
       DbLive.pipe(
@@ -284,21 +276,23 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       )
     const instance = yield* startServices()
     const [admin, sharer] = yield* Effect.provide(
-      Effect.flatMap(Users, (users) => users.fullByIds([adminId, userId])),
+      Effect.flatMap(Users.Users, (users) =>
+        users.fullByIds([adminId, userId])
+      ),
       instance.context
     )
     const administrator = admin?.id === adminId ? admin : sharer
     if (!administrator) throw new Error("Admin missing")
     const orgScope = yield* Effect.provide(
-      Effect.flatMap(Access, (access) => access.org(orgId)).pipe(
+      Effect.flatMap(Access.Access, (access) => access.org(orgId)).pipe(
         Effect.provideService(CurrentUser, administrator)
       ),
       instance.context
     )
     const projectScope = yield* Effect.provide(
-      Effect.flatMap(Access, (access) => access.project(orgId, "project")).pipe(
-        Effect.provideService(CurrentUser, administrator)
-      ),
+      Effect.flatMap(Access.Access, (access) =>
+        access.project(orgId, "project")
+      ).pipe(Effect.provideService(CurrentUser, administrator)),
       instance.context
     )
     const asOrg = <A, E>(
@@ -339,7 +333,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
         })
       )
     )
-    const document: TicketDocument = {
+    const document: TicketDocs.TicketDocument = {
       id: decodeTicketId("T-1"),
       title: "Fix <!channel>",
       status: decodeStatus("todo"),
@@ -361,7 +355,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
     }
     const create = () =>
       Effect.provide(
-        Effect.flatMap(TicketDocs, (docs) =>
+        Effect.flatMap(TicketDocs.TicketDocs, (docs) =>
           docs.create(orgId, "project", document)
         ),
         instance.context
@@ -490,7 +484,9 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
         )
         const restarted = yield* f.startServices()
         yield* Effect.provide(
-          Effect.flatMap(TicketActivity, (activity) => activity.recover()),
+          Effect.flatMap(TicketActivity.TicketActivity, (activity) =>
+            activity.recover()
+          ),
           restarted.context
         )
         const pending = yield* Effect.promise(() =>
@@ -549,7 +545,9 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
           "ticket_created"
         ])
         yield* Effect.provide(
-          Effect.flatMap(TicketActivity, (activity) => activity.recover()),
+          Effect.flatMap(TicketActivity.TicketActivity, (activity) =>
+            activity.recover()
+          ),
           dispatcher.context
         )
         expect(
@@ -931,7 +929,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       yield* f.create()
       for (const status of ["done", "todo"]) {
         yield* Effect.provide(
-          Effect.flatMap(TicketDocs, (docs) =>
+          Effect.flatMap(TicketDocs.TicketDocs, (docs) =>
             docs.update(f.orgId, "project", "T-1", (current) =>
               Effect.succeed({ ...current, status: decodeStatus(status) })
             )
@@ -975,7 +973,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
           body: ""
         })
         yield* Effect.provide(
-          Effect.flatMap(GroupDocs, (docs) =>
+          Effect.flatMap(GroupDocs.GroupDocs, (docs) =>
             docs.create(f.orgId, "project", document)
           ).pipe(
             Effect.provideService(ActivityActor, ActivityActor.user(f.userId))
@@ -996,7 +994,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
         expect(jobs.rows[0]?.available_at.toISOString()).toBe(startsAt)
         expect(jobs.rows[0]?.payload.kind).toBe("sprint_started")
         yield* Effect.provide(
-          Effect.flatMap(GroupDocs, (docs) =>
+          Effect.flatMap(GroupDocs.GroupDocs, (docs) =>
             docs.write(f.orgId, "project", document.id, {
               ...document,
               startsAt: null
@@ -1029,7 +1027,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
     Effect.gen(function* () {
       const f = yield* fixture()
       yield* Effect.provide(
-        Effect.flatMap(GroupDocs, (docs) =>
+        Effect.flatMap(GroupDocs.GroupDocs, (docs) =>
           docs.create(
             f.orgId,
             "project",
@@ -1092,7 +1090,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       Effect.gen(function* () {
         const f = yield* fixture()
         yield* Effect.provide(
-          Effect.flatMap(GroupDocs, (docs) =>
+          Effect.flatMap(GroupDocs.GroupDocs, (docs) =>
             docs.create(
               f.orgId,
               "project",

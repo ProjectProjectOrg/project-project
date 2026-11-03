@@ -1,7 +1,6 @@
-import { BetterAuth } from "@pp/server-core/auth/BetterAuth"
-import { FigmaLinks } from "@pp/server-core/figma/FigmaLinks"
-import { parseFigmaThumbnailUrl } from "@pp/server-core/figma/FigmaLinks"
-import { Users } from "@pp/server-core/users/Users"
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
+import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
+import * as Users from "@pp/server-core/users/Users"
 import { CurrentUser } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpServerRequest, HttpServerResponse } from "effect/http"
@@ -14,24 +13,24 @@ const serveFigmaThumbnail = Effect.gen(function* () {
   const req = yield* HttpServerRequest.HttpServerRequest
   const webReq = yield* HttpServerRequest.toWeb(req)
   const url = new URL(webReq.url)
-  const ref = parseFigmaThumbnailUrl(url.pathname)
+  const ref = FigmaLinks.parseFigmaThumbnailUrl(url.pathname)
   if (!ref) return notFound
 
-  const ba = yield* BetterAuth
+  const ba = yield* BetterAuth.BetterAuth
   const session = yield* ba
     .getSession(toWebHeaders(req.headers))
     .pipe(Effect.orElseSucceed(() => null))
   const [viewer] =
     session === null
       ? []
-      : yield* Effect.flatMap(Users, (users) =>
+      : yield* Effect.flatMap(Users.Users, (users) =>
           users.fullByIds([session.user.id])
         )
   if (viewer === undefined) {
     return HttpServerResponse.text("Unauthorized", { status: 401 })
   }
 
-  const figmaLinks = yield* FigmaLinks
+  const figmaLinks = yield* FigmaLinks.FigmaLinks
   const signed = yield* figmaLinks
     .resolveThumbnailUrl(ref.orgSlug, ref.linkId)
     .pipe(Effect.provideService(CurrentUser, viewer))

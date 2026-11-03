@@ -1,20 +1,16 @@
 import * as Layer from "effect/Layer"
 
 import { EverhourApiKeys } from "./ApiKeys"
-import { EverhourLive } from "./Client"
+import * as Client from "./Client"
 import { EverhourEvents } from "./Events"
-import { EverhourIntegrationsLive } from "./Integrations"
-import { EverhourTimeTrackingLive } from "./TimeTracking"
-import { EverhourWebhooksLive } from "./Webhooks"
+import * as Integrations from "./Integrations"
+import * as TimeTracking from "./TimeTracking"
+import * as Webhooks from "./Webhooks"
 
-export const EverhourServicesLive = EverhourWebhooksLive.pipe(
+export const EverhourServicesLive = Webhooks.layer.pipe(
   Layer.provideMerge(
-    Layer.mergeAll(
-      EverhourTimeTrackingLive,
-      EverhourIntegrationsLive,
-      EverhourEvents.layer
-    )
+    Layer.mergeAll(TimeTracking.layer, Integrations.layer, EverhourEvents.layer)
   ),
   Layer.provideMerge(EverhourApiKeys.layer),
-  Layer.provideMerge(EverhourLive)
+  Layer.provideMerge(Client.layer)
 )

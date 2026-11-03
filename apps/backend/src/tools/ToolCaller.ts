@@ -1,21 +1,21 @@
-import { ActivityActor, CurrentUser, type User } from "@pp/shared"
+import { ActivityActor, CurrentUser, type UserIdentity } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 
 export type ToolClient = Readonly<{ id: string; name: string }>
 
-export type ToolCallerShape = Readonly<{
-  user: User
+export type Caller = Readonly<{
+  user: UserIdentity
   client: Option.Option<ToolClient>
 }>
 
-export const ToolCaller = Context.Reference<Option.Option<ToolCallerShape>>(
+export const ToolCaller = Context.Reference<Option.Option<Caller>>(
   "@pp/backend/tools/ToolCaller",
   { defaultValue: () => Option.none() }
 )
 
-const actorOf = (caller: ToolCallerShape) =>
+const actorOf = (caller: Caller) =>
   Option.match(caller.client, {
     onNone: () => ActivityActor.user(caller.user.id),
     onSome: (client) => ActivityActor.agent(caller.user.id, client)

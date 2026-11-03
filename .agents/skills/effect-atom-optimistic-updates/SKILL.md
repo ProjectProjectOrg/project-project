@@ -25,9 +25,9 @@ what a wrapper around that view prevents.
 ## Pattern
 
 ```ts
-// 1. Query. Declares what it listens to.
+// 1. Query, from `@/api/query`. Declares what it listens to; revalidates on focus and remount.
 const backlogQuery = (req: BacklogRequest) =>
-  Api.query("tickets", "sections", {
+  query("tickets", "sections", {
     params: req.params,
     query: req.query,
     timeToLive: "2 minutes",

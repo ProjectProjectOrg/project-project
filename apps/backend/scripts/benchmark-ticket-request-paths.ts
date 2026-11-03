@@ -8,30 +8,28 @@ import * as BunServices from "@effect/platform-bun/BunServices"
 import { DbLive, PgLive } from "@pp/db"
 import { accessLayer, projectScope } from "@pp/server-core/access/testing"
 import { passthroughTicketActivity } from "@pp/server-core/activity/testing"
-import {
-  Attachments,
-  type AttachmentsShape
-} from "@pp/server-core/attachments/Attachments"
-import { Comments, type CommentsShape } from "@pp/server-core/comments/Comments"
-import {
-  FigmaLinks,
-  type FigmaLinksShape
-} from "@pp/server-core/figma/FigmaLinks"
-import { GitHub, type GitHubShape } from "@pp/server-core/github/GitHub"
-import { Groups, type GroupsShape } from "@pp/server-core/groups/Groups"
-import { Library } from "@pp/server-core/library/Library"
+import * as Attachments from "@pp/server-core/attachments/Attachments"
+import * as Comments from "@pp/server-core/comments/Comments"
+import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
+import * as GitHub from "@pp/server-core/github/GitHub"
+import * as Groups from "@pp/server-core/groups/Groups"
+import * as Library from "@pp/server-core/library/Library"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
-import { MarkdownLive } from "@pp/server-core/markdown/MarkdownLive"
+import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
-import { ProjectDocs } from "@pp/server-core/projects/ProjectDocs"
-import { ProjectGitAutomation } from "@pp/server-core/projects/ProjectGitAutomation"
-import { Projects, type ProjectsShape } from "@pp/server-core/projects/Projects"
-import { TicketDocsLive } from "@pp/server-core/tickets/TicketDocsLive"
+import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
+import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutomation"
+import * as ProjectGithub from "@pp/server-core/projects/ProjectGithub"
+import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
+import * as Projects from "@pp/server-core/projects/Projects"
+import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
+import * as TicketServices from "@pp/server-core/tickets/layer"
+import * as TicketBranchIndex from "@pp/server-core/tickets/TicketBranchIndex"
+import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
-import { TicketIndexLive } from "@pp/server-core/tickets/TicketIndexLive"
-import { Tickets } from "@pp/server-core/tickets/Tickets"
-import { TicketsLive } from "@pp/server-core/tickets/TicketsLive"
-import { Users, type UsersShape } from "@pp/server-core/users/Users"
+import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
+import * as Users from "@pp/server-core/users/Users"
 import {
   ActivityActor,
   encodeCursor,
@@ -354,32 +352,24 @@ const runWorkload = <A, E>(
 const unexpected = (method: string): Effect.Effect<never> =>
   Effect.die(new Error(`unexpected ${method} call`))
 
-const FakeProjects = Layer.succeed(Projects, {
-  list: () => unexpected("Projects.list"),
-  listPaged: () => unexpected("Projects.listPaged"),
-  listMembersPaged: () => unexpected("Projects.listMembersPaged"),
-  create: () => unexpected("Projects.create"),
-  get: () => Effect.succeed(benchmarkProject),
-  key: () => Effect.succeed(decodeProjectKey("T")),
-  githubIntegration: () => Effect.succeed(null),
-  githubBranches: () => unexpected("Projects.githubBranches"),
-  githubRepos: () => unexpected("Projects.githubRepos"),
-  memberIds: () => Effect.succeed(new Set([userId])),
-  update: () => unexpected("Projects.update"),
-  updateSetup: () => unexpected("Projects.updateSetup"),
-  remove: () => unexpected("Projects.remove"),
-  addMember: () => unexpected("Projects.addMember"),
-  updateMember: () => unexpected("Projects.updateMember"),
-  removeMember: () => unexpected("Projects.removeMember"),
-  leave: () => unexpected("Projects.leave"),
-  cancelPendingMember: () => unexpected("Projects.cancelPendingMember"),
-  unassignUserFromActiveTickets: () =>
-    unexpected("Projects.unassignUserFromActiveTickets"),
-  unassignUserFromOrgTickets: () =>
-    unexpected("Projects.unassignUserFromOrgTickets"),
-  connectGithub: () => unexpected("Projects.connectGithub"),
-  disconnectGithub: () => unexpected("Projects.disconnectGithub")
-} satisfies ProjectsShape)
+const FakeProjects = Layer.mergeAll(
+  Layer.succeed(Projects.Projects, {
+    list: () => unexpected("Projects.list"),
+    listPaged: () => unexpected("Projects.listPaged"),
+    create: () => unexpected("Projects.create"),
+    get: () => Effect.succeed(benchmarkProject),
+    key: () => Effect.succeed(decodeProjectKey("T")),
+    update: () => unexpected("Projects.update"),
+    updateSetup: () => unexpected("Projects.updateSetup"),
+    remove: () => unexpected("Projects.remove")
+  } satisfies Projects.Projects["Service"]),
+  Layer.mock(ProjectGithub.ProjectGithub, {
+    integration: () => Effect.succeed(null)
+  }),
+  Layer.mock(ProjectMembers.ProjectMembers, {
+    memberIds: () => Effect.succeed(new Set([userId]))
+  })
+)
 
 const makeFakeGroups = (ticketCount: number) => {
   const group = decodeGroupDetail({
@@ -399,7 +389,7 @@ const makeFakeGroups = (ticketCount: number) => {
     updatedAt: "2026-01-01T00:00:00.000Z",
     body: ""
   })
-  return Layer.succeed(Groups, {
+  return Layer.succeed(Groups.Groups, {
     list: () => unexpected("Groups.list"),
     listPaged: () => unexpected("Groups.listPaged"),
     listSprintsPaged: () => unexpected("Groups.listSprintsPaged"),
@@ -415,10 +405,10 @@ const makeFakeGroups = (ticketCount: number) => {
     ensureSprintAssignable: () => Effect.void,
     setSprintMembership: () => Effect.void,
     removeTicketFromAllGroups: () => Effect.void
-  } satisfies GroupsShape)
+  } satisfies Groups.Groups["Service"])
 }
 
-const FakeGitHub = Layer.succeed(GitHub, {
+const FakeGitHub = Layer.succeed(GitHub.GitHub, {
   listInstallationRepos: () => unexpected("GitHub.listInstallationRepos"),
   verifyInstallationRepo: () => unexpected("GitHub.verifyInstallationRepo"),
   createBranchAsUser: () => unexpected("GitHub.createBranchAsUser"),
@@ -427,29 +417,29 @@ const FakeGitHub = Layer.succeed(GitHub, {
     unexpected("GitHub.fetchInstallationProjectStates"),
   listInstallationBranches: () => unexpected("GitHub.listInstallationBranches"),
   branchExistsInstallation: () => unexpected("GitHub.branchExistsInstallation")
-} satisfies GitHubShape)
+} satisfies GitHub.GitHub["Service"])
 
-const FakeComments = Layer.succeed(Comments, {
+const FakeComments = Layer.succeed(Comments.Comments, {
   list: () => unexpected("Comments.list"),
   create: () => unexpected("Comments.create"),
   importHistorical: () => unexpected("Comments.importHistorical"),
   edit: () => unexpected("Comments.edit"),
   remove: () => unexpected("Comments.remove")
-} satisfies CommentsShape)
+} satisfies Comments.Comments["Service"])
 
-const FakeFigmaLinks = Layer.succeed(FigmaLinks, {
+const FakeFigmaLinks = Layer.succeed(FigmaLinks.FigmaLinks, {
   reconcileTicket: () => Effect.void,
   listForTicket: () => unexpected("FigmaLinks.listForTicket"),
   resolveThumbnailUrl: () => unexpected("FigmaLinks.resolveThumbnailUrl")
-} satisfies FigmaLinksShape)
+} satisfies FigmaLinks.FigmaLinks["Service"])
 
-const FakeUsers = Layer.succeed(Users, {
+const FakeUsers = Layer.succeed(Users.Users, {
   findByEmail: () => unexpected("Users.findByEmail"),
   findManyByIds: () => Effect.succeed([]),
   fullByIds: () => Effect.succeed([])
-} satisfies UsersShape)
+} satisfies Users.Users["Service"])
 
-const FakeAttachments = Layer.succeed(Attachments, {
+const FakeAttachments = Layer.succeed(Attachments.Attachments, {
   prepare: () => unexpected("Attachments.prepare"),
   commit: () => unexpected("Attachments.commit"),
   storeBytes: () => unexpected("Attachments.storeBytes"),
@@ -462,35 +452,36 @@ const FakeAttachments = Layer.succeed(Attachments, {
   missingIds: () => Effect.succeed([]),
   reapOnce: () => unexpected("Attachments.reapOnce"),
   dedupeOnce: () => unexpected("Attachments.dedupeOnce")
-} satisfies AttachmentsShape)
+} satisfies Attachments.Attachments["Service"])
 
-const PassthroughLibrary = Layer.mock(Library, {
+const PassthroughLibrary = Layer.mock(Library.Library, {
   resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body)
 })
 
-const DocsLive = TicketDocsLive.pipe(
+const DocsLive = TicketDocs.layer.pipe(
   Layer.provide(KeyedLock.layer),
   Layer.provide(FinishedStatuses.baseline),
   Layer.provide(passthroughTicketActivity),
-  Layer.provide(MarkdownLive),
+  Layer.provide(Markdown.layer),
   Layer.provideMerge(BunServices.layer)
 )
 const DatabaseLive = DbLive.pipe(Layer.provideMerge(PgLive))
-const IndexLive = TicketIndexLive.pipe(
+const IndexLive = TicketIndexServices.layer.pipe(
   Layer.provide(DocsLive),
   Layer.provide(DatabaseLive)
 )
 const BenchmarkLive = (options: Options) =>
-  TicketsLive.pipe(
+  TicketServices.layer.pipe(
     Layer.provide(PassthroughLibrary),
     Layer.provide(
       Layer.mergeAll(
         DocsLive,
         DatabaseLive,
         IndexLive,
+        TicketBranchIndex.layer.pipe(Layer.provide(DatabaseLive)),
         FakeProjects,
-        Layer.mock(ProjectGitAutomation, {}),
-        Layer.mock(ProjectDocs, {
+        Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {}),
+        Layer.mock(ProjectDocs.ProjectDocs, {
           read: (_org, slug) =>
             Effect.succeed({ ...benchmarkProject, slug, templateDefaults: {} })
         }),
@@ -666,7 +657,8 @@ const benchmarkProgram = (
   projectId: string
 ) =>
   Effect.gen(function* () {
-    const tickets = yield* Tickets
+    const commands = yield* TicketCommands.TicketCommands
+    const queries = yield* TicketQueries.TicketQueries
     const results: Array<BenchmarkResult> = []
     const fixtures = Array.from({ length: options.ticketCount }, (_, index) =>
       fixtureFor(index, options.ticketCount)
@@ -734,7 +726,7 @@ const benchmarkProgram = (
 
     yield* measure("list-default", () =>
       verify(
-        tickets.list({
+        queries.list({
           sort: { key: "created", dir: "desc" }
         }),
         (page) =>
@@ -745,7 +737,7 @@ const benchmarkProgram = (
     )
     yield* measure("list-deep-cursor", () =>
       verify(
-        tickets.list({
+        queries.list({
           sort: { key: "id", dir: "asc" },
           cursor: deepCursor
         }),
@@ -759,7 +751,7 @@ const benchmarkProgram = (
     )
     yield* measure("list-filter-status", () =>
       verify(
-        tickets.list({
+        queries.list({
           status: [inProgress],
           sort: { key: "created", dir: "desc" }
         }),
@@ -774,7 +766,7 @@ const benchmarkProgram = (
     )
     yield* measure("list-filter-tag", () =>
       verify(
-        tickets.list({
+        queries.list({
           tags: [performanceTag],
           sort: { key: "created", dir: "desc" }
         }),
@@ -788,7 +780,7 @@ const benchmarkProgram = (
     )
     yield* measure("list-filter-assignee", () =>
       verify(
-        tickets.list({
+        queries.list({
           assignee: ["mine"],
           sort: { key: "created", dir: "desc" }
         }),
@@ -800,7 +792,7 @@ const benchmarkProgram = (
     )
     yield* measure("list-archived", () =>
       verify(
-        tickets.list({
+        queries.list({
           archived: true,
           sort: { key: "created", dir: "desc" }
         }),
@@ -812,7 +804,7 @@ const benchmarkProgram = (
     )
     yield* measure("list-filter-group", () =>
       verify(
-        tickets.list({
+        queries.list({
           groupId: [groupId],
           sort: { key: "created", dir: "desc" }
         }),
@@ -826,7 +818,7 @@ const benchmarkProgram = (
     )
     yield* measure("count-filtered", () =>
       verify(
-        tickets.count({
+        queries.count({
           type: ["bug"]
         }),
         (counts) =>
@@ -840,7 +832,7 @@ const benchmarkProgram = (
     )
     yield* measure("search-common", () =>
       verify(
-        tickets.search({
+        queries.search({
           q: "benchmark",
           limit: 100
         }),
@@ -854,7 +846,7 @@ const benchmarkProgram = (
     )
     yield* measure("search-rare", () =>
       verify(
-        tickets.search({
+        queries.search({
           q: "unique latency sentinel",
           limit: 100
         }),
@@ -866,7 +858,7 @@ const benchmarkProgram = (
     )
     yield* measure("search-empty", () =>
       verify(
-        tickets.search({
+        queries.search({
           q: "no-ticket-has-this-title",
           limit: 100
         }),
@@ -877,7 +869,7 @@ const benchmarkProgram = (
     yield* measure("detail", (sample) => {
       const id = targetId(sample)
       return verify(
-        tickets.get(id),
+        queries.get(id),
         (ticket) => ticket.id === id,
         `ticket detail returned the wrong ticket for ${id}`
       )
@@ -885,7 +877,7 @@ const benchmarkProgram = (
     yield* measure("update-metadata", (sample) => {
       const title = `Updated benchmark ticket ${sample}`
       return verify(
-        tickets.update(targetId(sample), {
+        commands.update(targetId(sample), {
           title
         }),
         ({ ticket }) => ticket.title === title,
@@ -895,7 +887,7 @@ const benchmarkProgram = (
     yield* measure("update-body", (sample) => {
       const body = makeBody(sample)
       return verify(
-        tickets.update(targetId(sample), {
+        commands.update(targetId(sample), {
           body
         }),
         ({ ticket }) => ticket.body === body,
@@ -905,7 +897,7 @@ const benchmarkProgram = (
     yield* measure("update-body-with-ticket-mentions", (sample) => {
       const body = `${makeBody(sample)}\n\nSee [first](mention:ticket/T-1), [middle](mention:ticket/T-${Math.max(1, Math.floor(options.ticketCount / 2))}), and [last](mention:ticket/T-${options.ticketCount}).\n`
       return verify(
-        tickets.update(targetId(sample), {
+        commands.update(targetId(sample), {
           body
         }),
         ({ ticket }) => ticket.body === body,
@@ -917,7 +909,7 @@ const benchmarkProgram = (
       const title = `Created benchmark ticket ${sample}`
       const body = makeBody(sample)
       return verify(
-        tickets.create({ title, body }),
+        commands.create({ title, body }),
         (ticket) => {
           const unique = !createdIds.has(ticket.id)
           createdIds.add(ticket.id)

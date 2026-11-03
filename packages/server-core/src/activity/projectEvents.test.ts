@@ -3,7 +3,7 @@ import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import type { GroupDocument } from "../groups/GroupDocs"
+import type * as GroupDocs from "../groups/GroupDocs"
 import { sprintEvents, ticketEvents } from "./projectEvents"
 
 const sprint = Schema.decodeUnknownSync(GroupDetail)({
@@ -24,8 +24,10 @@ const completedAt = DateTime.toDate(DateTime.makeUnsafe("2026-10-20T00:00:00Z"))
 const startsAt = DateTime.toDate(DateTime.makeUnsafe("2026-10-23T09:00:00Z"))
 const ticket = Schema.decodeUnknownSync(TicketId)("T-1")
 
-const kinds = (before: GroupDocument | null, after: GroupDocument | null) =>
-  sprintEvents(before, after).map((event) => event.kind)
+const kinds = (
+  before: GroupDocs.GroupDocument | null,
+  after: GroupDocs.GroupDocument | null
+) => sprintEvents(before, after).map((event) => event.kind)
 
 describe("sprintEvents", () => {
   it.each([

@@ -8,6 +8,7 @@ import * as Atom from "effect/reactivity/Atom"
 
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 export type SlackOrgRequest = Readonly<{
@@ -26,7 +27,7 @@ export const slackProjectRequest = (
 
 export const slackOrg = Atom.family((req: SlackOrgRequest) =>
   Atom.optimistic(
-    Api.query("slack", "orgStatus", {
+    query("slack", "orgStatus", {
       params: req.params,
       timeToLive: "30 seconds",
       reactivityKeys: [Keys.slackOrg(req.params.orgSlug)]
@@ -35,7 +36,7 @@ export const slackOrg = Atom.family((req: SlackOrgRequest) =>
 )
 export const slackManifest = Atom.family((req: SlackOrgRequest) =>
   Atom.optimistic(
-    Api.query("slack", "manifest", {
+    query("slack", "manifest", {
       params: req.params,
       timeToLive: "5 minutes"
     })
@@ -66,7 +67,7 @@ export const disconnectSlackOrg = Atom.family((req: SlackOrgRequest) =>
 )
 export const slackProject = Atom.family((req: SlackProjectRequest) =>
   Atom.optimistic(
-    Api.query("slack", "projectStatus", {
+    query("slack", "projectStatus", {
       params: req.params,
       timeToLive: "30 seconds",
       reactivityKeys: [
@@ -77,7 +78,7 @@ export const slackProject = Atom.family((req: SlackProjectRequest) =>
   )
 )
 export const slackChannels = Atom.family((req: SlackProjectRequest) =>
-  Api.query("slack", "channels", {
+  query("slack", "channels", {
     params: req.params,
     timeToLive: "30 seconds",
     reactivityKeys: [Keys.slackOrg(req.params.orgSlug)]
@@ -119,7 +120,7 @@ export const testSlackProject = Atom.family((req: SlackProjectRequest) =>
 export const slackProfiles = Atom.family(
   (_req: Readonly<Record<string, never>>) =>
     Atom.optimistic(
-      Api.query("slack", "profiles", {
+      query("slack", "profiles", {
         timeToLive: "30 seconds",
         reactivityKeys: [Keys.slackProfiles()]
       })

@@ -1,19 +1,15 @@
 import { Db } from "@pp/db"
 import { member, organization, jiraMigration, user } from "@pp/db/schema"
 import * as CleanupWorkflow from "@pp/integration-jira/CleanupWorkflow"
-import { JiraClient } from "@pp/integration-jira/Client"
+import * as Client from "@pp/integration-jira/Client"
 import {
   materializeJiraPreparedPublication,
   prepareJiraPublicationReference,
   publishJiraPreparedPublication,
   type MigrationActivityInput
 } from "@pp/integration-jira/MigrationActivities"
-import { JiraMigrationArtifacts } from "@pp/integration-jira/MigrationArtifacts"
-import {
-  decodeCheckpoint,
-  JiraMigrationProjection,
-  type AttemptFence
-} from "@pp/integration-jira/MigrationProjection"
+import * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
+import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
 import {
   JiraMigrationWorkflowFailure,
   withJiraRemoteWriteIntent
@@ -29,8 +25,8 @@ import {
   loadJiraPublicationPlan,
   persistJiraPreparedPublication
 } from "@pp/integration-jira/PublicationArtifacts"
-import { OrgStorage } from "@pp/server-core/storage/OrgStorage"
-import { S3Storage } from "@pp/server-core/storage/S3Storage"
+import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import { JiraError } from "@pp/shared"
 import { eq } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
@@ -46,7 +42,9 @@ import * as JiraImport from "./PublicationLive"
 
 const isJiraPublicationInvalid = Schema.is(JiraPublicationInvalid)
 
-const fenceForInput = (input: MigrationActivityInput): AttemptFence =>
+const fenceForInput = (
+  input: MigrationActivityInput
+): MigrationProjection.AttemptFence =>
   MigrationWorkflow.JiraMigrationWorkflowCommand.match(input.payload.command, {
     Create: () => ({
       migrationId: input.executionId,
@@ -82,14 +80,14 @@ export const preparationFailure = (
 
 export const makeJiraProductionActivities = Effect.gen(function* () {
   const db = yield* Db
-  const projection = yield* JiraMigrationProjection
-  const jira = yield* JiraClient
-  const artifacts = yield* JiraMigrationArtifacts
-  const orgStorage = yield* OrgStorage
-  const s3 = yield* S3Storage
+  const projection = yield* MigrationProjection.JiraMigrationProjection
+  const jira = yield* Client.JiraClient
+  const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
+  const orgStorage = yield* OrgStorage.OrgStorage
+  const s3 = yield* S3Storage.S3Storage
   const cleanup = yield* CleanupWorkflow.makeJiraCleanupCommands
 
-  const readAttempt = (fence: AttemptFence) =>
+  const readAttempt = (fence: MigrationProjection.AttemptFence) =>
     Effect.gen(function* () {
       const [current] = yield* db
         .select({ row: jiraMigration, orgSlug: organization.slug })
@@ -166,9 +164,9 @@ export const makeJiraProductionActivities = Effect.gen(function* () {
       const { row, orgSlug } = yield* readAttempt(fence)
       if (!["migrating", "succeeded"].includes(row.status))
         return yield* Effect.fail(failure("jira_migration_superseded", false))
-      const checkpoint = yield* decodeCheckpoint(row.checkpoint).pipe(
-        Effect.mapError(materializationFailure)
-      )
+      const checkpoint = yield* MigrationProjection.decodeCheckpoint(
+        row.checkpoint
+      ).pipe(Effect.mapError(materializationFailure))
       const manifestRef = checkpoint.scan?.manifest
       const accepted = checkpoint.acceptedConfiguration
       if (!manifestRef || !accepted)

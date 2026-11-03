@@ -12,8 +12,8 @@ import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Schema from "effect/Schema"
 
-import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
+import { query } from "@/api/query"
 import { viewMutation } from "@/api/viewMutation"
 import {
   ticketQuery,
@@ -34,7 +34,7 @@ const scopeOf = (req: TagsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 const tagsQuery = (req: TagsRequest) =>
-  Api.query("tags", "list", {
+  query("tags", "list", {
     params: req.params,
     timeToLive: "2 minutes",
     reactivityKeys: [Keys.tags(scopeOf(req))]
@@ -45,7 +45,7 @@ export const tagsFor = Atom.family((req: TagsRequest) =>
 )
 
 const tagUsageQuery = (req: TagsRequest) =>
-  Api.query("tags", "usageCounts", {
+  query("tags", "usageCounts", {
     params: req.params,
     timeToLive: "2 minutes",
     reactivityKeys: [

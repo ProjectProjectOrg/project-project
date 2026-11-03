@@ -1,7 +1,6 @@
 import type { TicketActivityOutboxRow } from "@pp/db/schema"
 import {
   ActivityActor,
-  type ActivityActorShape,
   type TicketActivityActor,
   type User
 } from "@pp/shared"
@@ -17,7 +16,7 @@ export type ActorColumns = Readonly<
   >
 >
 
-export const actorColumns = (actor: ActivityActorShape): ActorColumns => {
+export const actorColumns = (actor: ActivityActor["Service"]): ActorColumns => {
   if (actor.kind === "system") {
     return {
       actorKind: "system",
@@ -36,7 +35,7 @@ export const actorColumns = (actor: ActivityActorShape): ActorColumns => {
   }
 }
 
-export const actorOf = (row: ActorColumns): ActivityActorShape => {
+export const actorOf = (row: ActorColumns): ActivityActor["Service"] => {
   if (row.actorKind === "agent") {
     return ActivityActor.agent(row.actorUserId ?? "", {
       id: row.actorClientId ?? "",
@@ -48,7 +47,7 @@ export const actorOf = (row: ActorColumns): ActivityActorShape => {
 }
 
 export const presentActor = (
-  actor: ActivityActorShape,
+  actor: ActivityActor["Service"],
   users: ReadonlyMap<string, User>
 ): TicketActivityActor | null => {
   if (actor.kind === "system") return actor

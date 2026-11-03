@@ -97,6 +97,7 @@
   "git_stale_branch_title": "Branch \"{name}\" not on remote",
   "github_chip_connect_failed_error": "Couldn't connect repo.",
   "github_chip_connect_repo_button": "Connect repo",
+  "github_chip_connect_repo_taken_error": "Another project already uses this repo.",
   "github_chip_connect_scope_insufficient_error": "Insufficient scope on GitHub token.",
   "github_chip_connect_token_expired_error": "GitHub token expired — re-authenticate.",
   "github_chip_default_base_branch_hint": "Leave empty to use the repo's default branch.",

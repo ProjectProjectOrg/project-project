@@ -7,22 +7,9 @@ import { it } from "@effect/vitest"
 import { DbLive } from "@pp/db"
 import { Db } from "@pp/db"
 import { JiraScanFailure } from "@pp/integration-jira/MigrationActivities"
-import {
-  JiraArtifactError,
-  type JiraArtifactRef
-} from "@pp/integration-jira/MigrationArtifacts"
-import {
-  JiraMigrationProjection,
-  fenceFor,
-  type JiraMigrationProjectionShape
-} from "@pp/integration-jira/MigrationProjection"
-import {
-  submitJiraMigrationRun,
-  JiraMigrations,
-  JiraMigrationsDurableLive,
-  type JiraMigrationCleanupCommands,
-  type JiraMigrationsShape
-} from "@pp/integration-jira/Migrations"
+import * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
+import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
+import * as Migrations from "@pp/integration-jira/Migrations"
 import { JiraMigrationWorkflowCommand } from "@pp/integration-jira/MigrationWorkflow"
 import {
   JiraMigrationWorkflow,
@@ -50,7 +37,8 @@ import {
   Option,
   Redacted,
   Schedule,
-  Schema
+  Schema,
+  Tracer
 } from "effect"
 import {
   ClusterWorkflowEngine,
@@ -156,7 +144,7 @@ const scan = {
 describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
   let pool: Pool
   let commandTestLayer: () => Layer.Layer<
-    | JiraMigrationProjection
+    | MigrationProjection.JiraMigrationProjection
     | SqlClient.SqlClient
     | WorkflowEngine.WorkflowEngine
     | Db
@@ -176,7 +164,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       migrationsFolder: `${import.meta.dirname}/../../../../packages/db/src/migrations`
     })
     const pg = PgClient.layer({ url: Redacted.make(databaseUrl!) })
-    const projection = JiraMigrationProjection.layer.pipe(
+    const projection = MigrationProjection.layer.pipe(
       Layer.provideMerge(DbLive)
     )
     commandTestLayer = () => {
@@ -229,21 +217,25 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
     return owner
   }
 
-  const unexpectedCleanup: JiraMigrationCleanupCommands = {
+  const unexpectedCleanup: Migrations.JiraMigrationCleanupCommands = {
     start: () => Effect.die("Unexpected cleanup start"),
     awaitReset: () => Effect.die("Unexpected reset wait")
   }
   const artifacts = (issueNumbers: ReadonlyArray<number> = []) => ({
     readJson: <A>(
       _orgSlug: string,
-      _ref: JiraArtifactRef,
+      _ref: MigrationArtifacts.JiraArtifactRef,
       decode: ReturnType<typeof Schema.decodeUnknownEffect<Schema.Decoder<A>>>
     ) =>
       decode({
         issues: issueNumbers.map((issueNumber) => ({ issueNumber }))
       }).pipe(
         Effect.mapError(
-          () => new JiraArtifactError({ key: "manifest", reason: "schema" })
+          () =>
+            new MigrationArtifacts.JiraArtifactError({
+              key: "manifest",
+              reason: "schema"
+            })
         )
       )
   })
@@ -252,7 +244,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
     unresolvedFailedAttachmentIds: ReadonlyArray<string> = [],
     issueNumbers: ReadonlyArray<number> = []
   ) =>
-    JiraMigrationsDurableLive(
+    Migrations.layer(
       cleanup,
       {
         unresolvedFailedAttachments: () =>
@@ -261,7 +253,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       artifacts(issueNumbers)
     ).pipe(Layer.provide(JiraDestinationQueriesLive))
   const scanningWorkflow = (
-    p: JiraMigrationProjectionShape,
+    p: MigrationProjection.JiraMigrationProjection["Service"],
     owner: Readonly<{ organizationId: string; userId: string }>,
     currentScan = scan
   ) =>
@@ -272,7 +264,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
         ({ executionId }) =>
           p.owned(owner, executionId).pipe(
             Effect.flatMap((row) =>
-              p.completeScan(fenceFor(row)!, currentScan)
+              p.completeScan(MigrationProjection.fenceFor(row)!, currentScan)
             ),
             Effect.asVoid,
             Effect.orDie
@@ -285,8 +277,8 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       )
     )
   const createScanned = Effect.fn(function* (
-    m: JiraMigrationsShape,
-    p: JiraMigrationProjectionShape,
+    m: Migrations.JiraMigrations["Service"],
+    p: MigrationProjection.JiraMigrationProjection["Service"],
     owner: Readonly<{ organizationId: string; userId: string }>
   ) {
     const created = yield* m.create(
@@ -327,9 +319,9 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
           )
         )
         yield* Effect.gen(function* () {
-          const projection = yield* JiraMigrationProjection
+          const projection = yield* MigrationProjection.JiraMigrationProjection
           yield* Effect.gen(function* () {
-            const migrations = yield* JiraMigrations
+            const migrations = yield* Migrations.JiraMigrations
             const scanned = yield* createScanned(migrations, projection, owner)
             const ready = yield* migrations.configure(
               owner.organizationId,
@@ -403,11 +395,11 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const engine = yield* WorkflowEngine.WorkflowEngine
           const sql = yield* SqlClient.SqlClient
           yield* Effect.gen(function* () {
-            const m = yield* JiraMigrations
+            const m = yield* Migrations.JiraMigrations
             const created = yield* createScanned(m, p, owner)
             const ready = yield* m.configure(
               owner.organizationId,
@@ -418,7 +410,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             )
             const before = yield* p.owned(owner, created.id)
             const result = yield* Effect.exit(
-              submitJiraMigrationRun({
+              Migrations.submitJiraMigrationRun({
                 owner,
                 migrationId: created.id,
                 expectedRevision: ready.revision
@@ -458,7 +450,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               retainedUntil: before.retainedUntil,
               checkpoint: before.checkpoint
             })
-            yield* submitJiraMigrationRun({
+            yield* Migrations.submitJiraMigrationRun({
               owner,
               migrationId: created.id,
               expectedRevision: ready.revision
@@ -480,7 +472,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const requiredScan = {
             ...scan,
             requirements: {
@@ -496,7 +488,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             }
           }
           yield* Effect.gen(function* () {
-            const m = yield* JiraMigrations
+            const m = yield* Migrations.JiraMigrations
             const created = yield* createScanned(m, p, owner)
             const saved = yield* m.configure(
               owner.organizationId,
@@ -594,24 +586,25 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const entered = yield* Deferred.make<void>()
           const observationEntered = yield* Deferred.make<void>()
           let held = false
-          const observing: JiraMigrationProjectionShape = {
-            ...p,
-            owned: (requestedOwner, id) =>
-              p.owned(requestedOwner, id).pipe(
-                Effect.flatMap((row) => {
-                  if (row.status !== "migrating" || held)
-                    return Effect.succeed(row)
-                  held = true
-                  return Deferred.succeed(observationEntered, undefined).pipe(
-                    Effect.andThen(Effect.never)
-                  )
-                })
-              )
-          }
+          const observing: MigrationProjection.JiraMigrationProjection["Service"] =
+            {
+              ...p,
+              owned: (requestedOwner, id) =>
+                p.owned(requestedOwner, id).pipe(
+                  Effect.flatMap((row) => {
+                    if (row.status !== "migrating" || held)
+                      return Effect.succeed(row)
+                    held = true
+                    return Deferred.succeed(observationEntered, undefined).pipe(
+                      Effect.andThen(Effect.never)
+                    )
+                  })
+                )
+            }
           const finalized = yield* Deferred.make<void>()
           const workflow = makeJiraMigrationWorkflow(
             makeProjectionMigrationActivities(
@@ -619,7 +612,9 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               () => Deferred.succeed(finalized, undefined).pipe(Effect.asVoid),
               ({ executionId }) =>
                 p.owned(owner, executionId).pipe(
-                  Effect.flatMap((row) => p.completeScan(fenceFor(row)!, scan)),
+                  Effect.flatMap((row) =>
+                    p.completeScan(MigrationProjection.fenceFor(row)!, scan)
+                  ),
                   Effect.asVoid,
                   Effect.orDie
                 ),
@@ -632,7 +627,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             )
           )
           yield* Effect.gen(function* () {
-            const m = yield* JiraMigrations
+            const m = yield* Migrations.JiraMigrations
             const created = yield* createScanned(m, p, owner)
             const ready = yield* m.configure(
               owner.organizationId,
@@ -651,7 +646,9 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               .pipe(Effect.forkChild)
             yield* Deferred.await(observationEntered)
             const accepted = yield* p.owned(owner, created.id)
-            yield* p.advance(fenceFor(accepted)!, { progressDone: 37 })
+            yield* p.advance(MigrationProjection.fenceFor(accepted)!, {
+              progressDone: 37
+            })
             const running = yield* Fiber.join(request)
             expect(running).toMatchObject({
               status: "migrating",
@@ -677,7 +674,10 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               Layer.merge(
                 commandLayer().pipe(
                   Layer.provide(
-                    Layer.succeed(JiraMigrationProjection, observing)
+                    Layer.succeed(
+                      MigrationProjection.JiraMigrationProjection,
+                      observing
+                    )
                   )
                 ),
                 workflow
@@ -695,7 +695,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const firstFailure = yield* Deferred.make<void>()
           const secondFailure = yield* Deferred.make<void>()
           const finished = yield* Deferred.make<void>()
@@ -705,7 +705,9 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               () => Effect.void,
               ({ executionId }) =>
                 p.owned(owner, executionId).pipe(
-                  Effect.flatMap((row) => p.completeScan(fenceFor(row)!, scan)),
+                  Effect.flatMap((row) =>
+                    p.completeScan(MigrationProjection.fenceFor(row)!, scan)
+                  ),
                   Effect.asVoid,
                   Effect.orDie
                 ),
@@ -718,7 +720,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                     name: "test/configuration-failure",
                     success: Schema.Boolean,
                     execute: p
-                      .recordFailure(fenceFor(row)!, {
+                      .recordFailure(MigrationProjection.fenceFor(row)!, {
                         reason: "configuration_blocked",
                         retryable: false
                       })
@@ -730,7 +732,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                     name: "test/reconnect-failure",
                     success: Schema.Boolean,
                     execute: p
-                      .recordFailure(fenceFor(row)!, {
+                      .recordFailure(MigrationProjection.fenceFor(row)!, {
                         reason: "reconnect_required",
                         retryable: true,
                         status: "reconnect_required"
@@ -746,7 +748,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             )
           )
           yield* Effect.gen(function* () {
-            const m = yield* JiraMigrations
+            const m = yield* Migrations.JiraMigrations
             const created = yield* createScanned(m, p, owner)
             const ready = yield* m.configure(
               owner.organizationId,
@@ -838,7 +840,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const attachmentScan = {
             ...scan,
             requirements: {
@@ -852,7 +854,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             }
           }
           yield* Effect.gen(function* () {
-            const m = yield* JiraMigrations
+            const m = yield* Migrations.JiraMigrations
             const created = yield* createScanned(m, p, owner)
             const accepted = {
               ...configuration,
@@ -866,17 +868,17 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               created.revision,
               accepted
             )
-            yield* submitJiraMigrationRun({
+            yield* Migrations.submitJiraMigrationRun({
               owner,
               migrationId: created.id,
               expectedRevision: ready.revision
             })
             const row = yield* p.owned(owner, created.id)
-            yield* p.advance(fenceFor(row)!, {
+            yield* p.advance(MigrationProjection.fenceFor(row)!, {
               destinationProjectId: randomUUID(),
               destinationProjectSlug: "application"
             })
-            yield* p.recordFailure(fenceFor(row)!, {
+            yield* p.recordFailure(MigrationProjection.fenceFor(row)!, {
               reason: "attachment_failed",
               retryable: true
             })
@@ -947,8 +949,8 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
-          const cleanup: JiraMigrationCleanupCommands = {
+          const p = yield* MigrationProjection.JiraMigrationProjection
+          const cleanup: Migrations.JiraMigrationCleanupCommands = {
             start: (input) =>
               Effect.gen(function* () {
                 const claim = {
@@ -964,10 +966,10 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             awaitReset: unexpectedCleanup.awaitReset
           }
           yield* Effect.gen(function* () {
-            const m = yield* JiraMigrations
+            const m = yield* Migrations.JiraMigrations
             const created = yield* createScanned(m, p, owner)
             const row = yield* p.owned(owner, created.id)
-            yield* p.recordFailure(fenceFor(row)!, {
+            yield* p.recordFailure(MigrationProjection.fenceFor(row)!, {
               reason: "failed",
               retryable: true
             })
@@ -1012,12 +1014,12 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           yield* Effect.gen(function* () {
-            const m = yield* JiraMigrations
+            const m = yield* Migrations.JiraMigrations
             const created = yield* createScanned(m, p, owner)
             const row = yield* p.owned(owner, created.id)
-            const current = fenceFor(row)!
+            const current = MigrationProjection.fenceFor(row)!
             expect(
               yield* p.advance(current, {
                 status: "migrating",
@@ -1056,7 +1058,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const cleanupStarted = yield* Deferred.make<void>()
           const removeHidden = yield* Deferred.make<void>()
           const newScan = yield* Deferred.make<void>()
@@ -1072,7 +1074,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               }))
             }
           }
-          const cleanup: JiraMigrationCleanupCommands = {
+          const cleanup: Migrations.JiraMigrationCleanupCommands = {
             start: (input) =>
               Effect.gen(function* () {
                 expect(input.mode).toBe("reset_import")
@@ -1105,7 +1107,10 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                   )
                 ).toBe(true)
                 const current = yield* p.owned(owner, input.migrationId)
-                return { fence: fenceFor(current)!, revision: current.revision }
+                return {
+                  fence: MigrationProjection.fenceFor(current)!,
+                  revision: current.revision
+                }
               })
           }
           const workflow = makeJiraMigrationWorkflow(
@@ -1137,7 +1142,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             )
           )
           yield* Effect.gen(function* () {
-            const m = yield* JiraMigrations
+            const m = yield* Migrations.JiraMigrations
             const created = yield* createScanned(m, p, owner)
             const accepted = {
               ...configuration,
@@ -1151,17 +1156,17 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               created.revision,
               accepted
             )
-            yield* submitJiraMigrationRun({
+            yield* Migrations.submitJiraMigrationRun({
               owner,
               migrationId: created.id,
               expectedRevision: ready.revision
             })
             const running = yield* p.owned(owner, created.id)
-            yield* p.advance(fenceFor(running)!, {
+            yield* p.advance(MigrationProjection.fenceFor(running)!, {
               destinationProjectId: randomUUID(),
               destinationProjectSlug: "application"
             })
-            yield* p.recordFailure(fenceFor(running)!, {
+            yield* p.recordFailure(MigrationProjection.fenceFor(running)!, {
               reason: "attachment_failed",
               retryable: true,
               status: status === "ready" ? "failed" : "reconnect_required"
@@ -1237,9 +1242,15 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               current.workflowExecutionId
             )
             expect(
-              yield* p.advance(fenceFor(current)!, { status: "succeeded" })
+              yield* p.advance(MigrationProjection.fenceFor(current)!, {
+                status: "succeeded"
+              })
             ).toBe(false)
-            expect(yield* p.finalizeInterrupted(fenceFor(current)!)).toBe(false)
+            expect(
+              yield* p.finalizeInterrupted(
+                MigrationProjection.fenceFor(current)!
+              )
+            ).toBe(false)
             yield* Deferred.succeed(newScan, undefined)
           }).pipe(
             Effect.provide(
@@ -1257,8 +1268,8 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
-          const cleanup: JiraMigrationCleanupCommands = {
+          const p = yield* MigrationProjection.JiraMigrationProjection
+          const cleanup: Migrations.JiraMigrationCleanupCommands = {
             start: (input) =>
               Effect.gen(function* () {
                 if (
@@ -1292,11 +1303,14 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                   expectedRevision: reset.revision,
                   configuration
                 })
-                return { fence: fenceFor(reset)!, revision: reset.revision }
+                return {
+                  fence: MigrationProjection.fenceFor(reset)!,
+                  revision: reset.revision
+                }
               })
           }
           yield* Effect.gen(function* () {
-            const m = yield* JiraMigrations
+            const m = yield* Migrations.JiraMigrations
             const created = yield* createScanned(m, p, owner)
             const ready = yield* m.configure(
               owner.organizationId,
@@ -1305,16 +1319,16 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               created.revision,
               configuration
             )
-            yield* submitJiraMigrationRun({
+            yield* Migrations.submitJiraMigrationRun({
               owner,
               migrationId: created.id,
               expectedRevision: ready.revision
             })
             const running = yield* p.owned(owner, created.id)
-            yield* p.advance(fenceFor(running)!, {
+            yield* p.advance(MigrationProjection.fenceFor(running)!, {
               destinationProjectId: randomUUID()
             })
-            yield* p.recordFailure(fenceFor(running)!, {
+            yield* p.recordFailure(MigrationProjection.fenceFor(running)!, {
               reason: "failed",
               retryable: true
             })
@@ -1354,7 +1368,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const lookup = yield* Deferred.make<void>()
           const releaseLookup = yield* Deferred.make<void>()
           const attachmentScan = {
@@ -1371,14 +1385,14 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               ]
             }
           }
-          const layer = JiraMigrationsDurableLive(
+          const layer = Migrations.layer(
             unexpectedCleanup,
             {
               unresolvedFailedAttachments: (input) =>
                 Effect.gen(function* () {
                   const current = yield* p.owned(owner, input.migrationId)
                   expect(input).toEqual({
-                    ...fenceFor(current)!,
+                    ...MigrationProjection.fenceFor(current)!,
                     expectedRevision: current.revision
                   })
                   yield* Deferred.succeed(lookup, undefined)
@@ -1389,7 +1403,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             artifacts()
           ).pipe(Layer.provide(JiraDestinationQueriesLive))
           yield* Effect.gen(function* () {
-            const m = yield* JiraMigrations
+            const m = yield* Migrations.JiraMigrations
             const created = yield* createScanned(m, p, owner)
             const ready = yield* m.configure(
               owner.organizationId,
@@ -1398,16 +1412,16 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               created.revision,
               configuration
             )
-            yield* submitJiraMigrationRun({
+            yield* Migrations.submitJiraMigrationRun({
               owner,
               migrationId: created.id,
               expectedRevision: ready.revision
             })
             const running = yield* p.owned(owner, created.id)
-            yield* p.advance(fenceFor(running)!, {
+            yield* p.advance(MigrationProjection.fenceFor(running)!, {
               destinationProjectId: randomUUID()
             })
-            yield* p.recordFailure(fenceFor(running)!, {
+            yield* p.recordFailure(MigrationProjection.fenceFor(running)!, {
               reason: "attachment_failed",
               retryable: true
             })
@@ -1459,7 +1473,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const engine = yield* WorkflowEngine.WorkflowEngine
           let trace: ReadonlyArray<string> = []
           const tracing: WorkflowEngine.WorkflowEngine["Service"] = {
@@ -1486,7 +1500,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                     .owned(owner, executionId)
                     .pipe(Effect.orDie)
                   const context = {
-                    ...fenceFor(row)!,
+                    ...MigrationProjection.fenceFor(row)!,
                     scanRevision: 1,
                     orgSlug: owner.organizationId,
                     userId: owner.userId,
@@ -1543,7 +1557,9 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                     ),
                     Effect.orDie
                   )
-                  yield* p.completeScan(fenceFor(row)!, scan).pipe(Effect.orDie)
+                  yield* p
+                    .completeScan(MigrationProjection.fenceFor(row)!, scan)
+                    .pipe(Effect.orDie)
                   yield* Deferred.succeed(completed, undefined)
                 }),
               () => Effect.succeed(readyPublication),
@@ -1551,7 +1567,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             )
           )
           yield* Effect.gen(function* () {
-            const m = yield* JiraMigrations
+            const m = yield* Migrations.JiraMigrations
             const created = yield* m.create(
               owner.organizationId,
               owner.userId,
@@ -1561,7 +1577,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             yield* Deferred.await(failureVisible)
             const failed = yield* p.owned(owner, created.id)
             expect(failed.status).toBe("failed")
-            yield* submitJiraMigrationRun({
+            yield* Migrations.submitJiraMigrationRun({
               owner,
               migrationId: created.id,
               expectedRevision: failed.revision
@@ -1605,14 +1621,14 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const failedSignal = yield* Deferred.make<void>()
           const retried = yield* Deferred.make<void>()
           const cleanupEntered = yield* Deferred.make<void>()
           const allowCleanup = yield* Deferred.make<void>()
           const runRead = yield* Deferred.make<void>()
           const allowRun = yield* Deferred.make<void>()
-          const cleanup: JiraMigrationCleanupCommands = {
+          const cleanup: Migrations.JiraMigrationCleanupCommands = {
             start: (input) =>
               Effect.gen(function* () {
                 expect(input.mode).toBe("discard")
@@ -1639,7 +1655,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                     .owned(owner, executionId)
                     .pipe(Effect.orDie)
                   const context = {
-                    ...fenceFor(row)!,
+                    ...MigrationProjection.fenceFor(row)!,
                     scanRevision: 1,
                     orgSlug: owner.organizationId,
                     userId: owner.userId,
@@ -1687,7 +1703,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             )
           )
           yield* Effect.gen(function* () {
-            const m = yield* JiraMigrations
+            const m = yield* Migrations.JiraMigrations
             const created = yield* m.create(
               owner.organizationId,
               owner.userId,
@@ -1696,25 +1712,29 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             )
             yield* Deferred.await(failedSignal)
             const failed = yield* p.owned(owner, created.id)
-            yield* p.settleRemoteWrites(fenceFor(failed)!)
-            const held: JiraMigrationProjectionShape = {
-              ...p,
-              owned: (requestedOwner, id) =>
-                p.owned(requestedOwner, id).pipe(
-                  Effect.tap(() => Deferred.succeed(runRead, undefined)),
-                  Effect.tap(() => Deferred.await(allowRun))
-                )
-            }
+            yield* p.settleRemoteWrites(MigrationProjection.fenceFor(failed)!)
+            const held: MigrationProjection.JiraMigrationProjection["Service"] =
+              {
+                ...p,
+                owned: (requestedOwner, id) =>
+                  p.owned(requestedOwner, id).pipe(
+                    Effect.tap(() => Deferred.succeed(runRead, undefined)),
+                    Effect.tap(() => Deferred.await(allowRun))
+                  )
+              }
             const discard = yield* m
               .discard(owner.organizationId, owner.userId, created.id)
               .pipe(Effect.result, Effect.forkChild)
             yield* Deferred.await(cleanupEntered)
-            const retry = yield* submitJiraMigrationRun({
+            const retry = yield* Migrations.submitJiraMigrationRun({
               owner,
               migrationId: created.id,
               expectedRevision: failed.revision
             }).pipe(
-              Effect.provideService(JiraMigrationProjection, held),
+              Effect.provideService(
+                MigrationProjection.JiraMigrationProjection,
+                held
+              ),
               Effect.result,
               Effect.forkChild
             )
@@ -1793,13 +1813,13 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const cancelRead = yield* Deferred.make<void>()
           const allowCancel = yield* Deferred.make<void>()
           const publishRead = yield* Deferred.make<void>()
           const allowPublish = yield* Deferred.make<void>()
           let interceptCancel = false
-          const held: JiraMigrationProjectionShape = {
+          const held: MigrationProjection.JiraMigrationProjection["Service"] = {
             ...p,
             owned: (requestedOwner, id) =>
               p.owned(requestedOwner, id).pipe(
@@ -1813,10 +1833,12 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               )
           }
           const commands = commandLayer().pipe(
-            Layer.provide(Layer.succeed(JiraMigrationProjection, held))
+            Layer.provide(
+              Layer.succeed(MigrationProjection.JiraMigrationProjection, held)
+            )
           )
           yield* Effect.gen(function* () {
-            const m = yield* JiraMigrations
+            const m = yield* Migrations.JiraMigrations
             const created = yield* createScanned(m, p, owner)
             const ready = yield* m.configure(
               owner.organizationId,
@@ -1825,7 +1847,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               created.revision,
               configuration
             )
-            yield* submitJiraMigrationRun({
+            yield* Migrations.submitJiraMigrationRun({
               owner,
               migrationId: created.id,
               expectedRevision: ready.revision
@@ -1845,7 +1867,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               const current = yield* p.owned(owner, created.id)
               yield* Deferred.succeed(publishRead, undefined)
               yield* Deferred.await(allowPublish)
-              return yield* p.advance(fenceFor(current)!, {
+              return yield* p.advance(MigrationProjection.fenceFor(current)!, {
                 status: "succeeded",
                 phase: "complete"
               })
@@ -1868,7 +1890,11 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                 failure: { _tag: "Conflict" }
               })
             }
-            expect(yield* p.finalizeInterrupted(fenceFor(running)!)).toBe(false)
+            expect(
+              yield* p.finalizeInterrupted(
+                MigrationProjection.fenceFor(running)!
+              )
+            ).toBe(false)
             const current = yield* p.owned(owner, created.id)
             expect(current).toMatchObject({
               status: winner === "cancel" ? "cancelled" : "succeeded",
@@ -1892,7 +1918,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => fixture())
         yield* Effect.gen(function* () {
-          const p = yield* JiraMigrationProjection
+          const p = yield* MigrationProjection.JiraMigrationProjection
           const sql = yield* SqlClient.SqlClient
           const scanned = yield* Deferred.make<string>()
           const released = yield* Deferred.make<void>()
@@ -1906,7 +1932,9 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                 const row = yield* p
                   .ensureCreated({ ...payload.command, executionId })
                   .pipe(Effect.orDie)
-                yield* p.completeScan(fenceFor(row)!, scan).pipe(Effect.orDie)
+                yield* p
+                  .completeScan(MigrationProjection.fenceFor(row)!, scan)
+                  .pipe(Effect.orDie)
                 yield* Deferred.succeed(scanned, row.id)
                 yield* DurableDeferred.await(startImportDeferred(1))
                 yield* Deferred.succeed(released, undefined)
@@ -1942,7 +1970,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             const transaction = yield* sql
               .withTransaction(
                 Effect.gen(function* () {
-                  yield* submitJiraMigrationRun(input)
+                  yield* Migrations.submitJiraMigrationRun(input)
                   yield* Deferred.succeed(submitted, undefined)
                   yield* Deferred.await(rollback)
                   return yield* new Conflict({ reason: "force_rollback" })
@@ -1970,16 +1998,47 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               status: "ready",
               revision: ready.revision
             })
-            yield* submitJiraMigrationRun(input)
+            yield* Migrations.submitJiraMigrationRun(input)
             yield* Deferred.await(released).pipe(Effect.timeout("5 seconds"))
             expect((yield* p.owned(owner, id)).status).toBe("migrating")
             expect(
-              yield* Effect.result(submitJiraMigrationRun(input))
+              yield* Effect.result(Migrations.submitJiraMigrationRun(input))
             ).toMatchObject({ _tag: "Failure", failure: { _tag: "Conflict" } })
           }).pipe(Effect.provide(workflow))
         }).pipe(Effect.provide(commandTestLayer()), Effect.scoped)
       }),
     20000
+  )
+
+  it.effect("traces destination queries", () =>
+    Effect.gen(function* () {
+      const spans: Array<Tracer.NativeSpan> = []
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options)
+          spans.push(span)
+          return span
+        }
+      })
+      yield* Effect.gen(function* () {
+        const queries = yield* Migrations.JiraDestinationQueries
+        yield* queries.read(randomUUID(), ["APP-1"])
+      }).pipe(
+        Effect.withTracer(tracer),
+        Effect.provide(
+          JiraDestinationQueriesLive.pipe(
+            Layer.provide(DbLive),
+            Layer.provide(PgClient.layer({ url: Redacted.make(databaseUrl!) })),
+            Layer.orDie
+          )
+        )
+      )
+      expect(
+        spans
+          .filter((span) => Option.isNone(span.parent))
+          .map((span) => span.name)
+      ).toEqual(["JiraDestinationQueries.read"])
+    })
   )
 })
 

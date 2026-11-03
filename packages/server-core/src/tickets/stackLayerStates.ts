@@ -1,6 +1,6 @@
 import type { StackLayerState, TicketBranchEntry } from "@pp/shared"
 
-import type { RawProjectStates } from "../github/GitHub"
+import type * as GitHub from "../github/GitHub"
 import { orderStackLayers } from "./ticketStack"
 
 type Repository = Readonly<{ repoOwner: string; repoName: string }>
@@ -9,7 +9,7 @@ export const stackLayerStates = (
   ownBranch: string | null,
   stack: ReadonlyArray<TicketBranchEntry> | undefined,
   repository: Repository | null,
-  snapshot?: Pick<RawProjectStates, "existingBranches" | "prByBranch">
+  snapshot?: Pick<GitHub.RawProjectStates, "existingBranches" | "prByBranch">
 ): ReadonlyArray<StackLayerState> =>
   orderStackLayers(ownBranch, stack).map(({ layer, depth }) => {
     const live = snapshot?.prByBranch.get(layer.branch)

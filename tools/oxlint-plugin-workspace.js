@@ -52,6 +52,34 @@ function reportIfCrossPackage(context, node) {
 
 export default {
   rules: {
+    "no-raw-api-query": {
+      meta: {
+        type: "problem",
+        docs: {
+          description:
+            "require the revalidating query wrapper instead of Api.query"
+        },
+        schema: []
+      },
+      create(context) {
+        return {
+          MemberExpression(node) {
+            if (
+              !node.computed &&
+              node.object?.type === "Identifier" &&
+              node.object.name === "Api" &&
+              node.property?.name === "query"
+            ) {
+              context.report({
+                node,
+                message:
+                  'Use `query` from "@/api/query" so the view revalidates when the tab regains focus and when it remounts.'
+              })
+            }
+          }
+        }
+      }
+    },
     "no-relative-packages": {
       meta: {
         type: "problem",

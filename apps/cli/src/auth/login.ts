@@ -6,6 +6,7 @@ import * as Option from "effect/Option"
 
 import { callToolAs } from "../client/callTool"
 import { notSignedIn, usage } from "../CliFailure"
+import { withLoading } from "../output/loading"
 import { originOf } from "../servers/origin"
 import { type SavedServer, ServerStore } from "../servers/ServerStore"
 import { Browser } from "./Browser"
@@ -113,13 +114,16 @@ const signIn = (discovered: Discovered, pkce: Pkce) =>
         `Opening your browser to sign in to ${discovered.origin}.\nIf it doesn't open, visit:\n\n  ${url}\n`
       )
       yield* (yield* Browser).open(url)
-      const params = yield* redirected(listening)
+      const params = yield* redirected(listening).pipe(
+        withLoading("Waiting for you to approve in the browser")
+      )
       return yield* completeSignIn(
         discovered,
         pkce,
         listening.redirectUri,
         params
       ).pipe(
+        withLoading("Signing in"),
         Effect.onExit((exit) =>
           listening.finish(
             Exit.isSuccess(exit)

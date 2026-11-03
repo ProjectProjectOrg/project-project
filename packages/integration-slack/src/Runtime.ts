@@ -141,33 +141,36 @@ export const SlackRuntimeLive = Layer.effectDiscard(
           sockets.delete(id)
         }
       }
-      for (const { id } of rows) {
-        yield* Effect.gen(function* () {
-          const credentials = yield* integrations.credentials(id)
-          const existing = sockets.get(id)
-          if (
-            existing &&
-            existing.token === credentials.appToken &&
-            existing.fiber.pollUnsafe() === undefined
-          )
-            return
-          if (existing) yield* Fiber.interrupt(existing.fiber)
-          const fiber = yield* openSocket(id, credentials.appToken).pipe(
-            Effect.forkIn(scope)
-          )
-          sockets.set(id, { token: credentials.appToken, fiber })
-        }).pipe(
-          Effect.catchCause(() =>
-            Effect.gen(function* () {
-              yield* setSocketError(id, "credentials")
-              yield* Effect.logWarning(
-                "Slack configuration could not be loaded",
-                { organizationId: id }
-              )
-            })
-          )
-        )
-      }
+      yield* Effect.forEach(
+        rows,
+        ({ id }) =>
+          Effect.gen(function* () {
+            const credentials = yield* integrations.credentials(id)
+            const existing = sockets.get(id)
+            if (
+              existing &&
+              existing.token === credentials.appToken &&
+              existing.fiber.pollUnsafe() === undefined
+            )
+              return
+            if (existing) yield* Fiber.interrupt(existing.fiber)
+            const fiber = yield* openSocket(id, credentials.appToken).pipe(
+              Effect.forkIn(scope)
+            )
+            sockets.set(id, { token: credentials.appToken, fiber })
+          }).pipe(
+            Effect.catchCause(() =>
+              Effect.gen(function* () {
+                yield* setSocketError(id, "credentials")
+                yield* Effect.logWarning(
+                  "Slack configuration could not be loaded",
+                  { organizationId: id }
+                )
+              })
+            )
+          ),
+        { concurrency: 8, discard: true }
+      )
     })
     const dispatch = Effect.gen(function* () {
       yield* events.enqueue()
