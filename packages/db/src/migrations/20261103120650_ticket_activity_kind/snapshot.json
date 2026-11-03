@@ -2,29 +2,11 @@
   "type": "diff",
   "version": "9",
   "dialect": "postgres",
-  "id": "392036e5-d27f-4250-9fc6-faaa22748d3f",
+  "id": "c4960949-7391-4c02-a03e-af8d2f726b68",
   "prevIds": [
     "3dd5bd7f-0bd7-48dc-90d1-1d523404dcde"
   ],
   "footprints": [
-    {
-      "statementType": "add_column",
-      "statementTarget": [
-        "column",
-        "public",
-        "ticket_activity",
-        "kind"
-      ],
-      "writes": [
-        "s|col|public.ticket_activity.kind",
-        "n|col|public.ticket_activity.kind",
-        "e|col|public.ticket_activity.kind"
-      ],
-      "reads": [
-        "n|tbl|public.ticket_activity",
-        "n|sch|public"
-      ]
-    },
     {
       "statementType": "create_index",
       "statementTarget": [
@@ -44,32 +26,12 @@
         "n|sch|public",
         "n|col|public.ticket_activity.project_id",
         "n|col|public.ticket_activity.ticket_id",
-        "n|col|public.ticket_activity.kind",
         "n|col|public.ticket_activity.occurred_at",
         "n|col|public.ticket_activity.seq"
       ]
     }
   ],
   "deltas": [
-    {
-      "op": "create",
-      "row": {
-        "schema": "public",
-        "table": "ticket_activity",
-        "name": "kind",
-        "type": "text",
-        "typeSchema": null,
-        "notNull": true,
-        "dimensions": 0,
-        "default": null,
-        "generated": {
-          "as": "change->>'kind'",
-          "type": "stored"
-        },
-        "identity": null,
-        "entityType": "columns"
-      }
-    },
     {
       "op": "create",
       "row": {
@@ -93,8 +55,8 @@
             "opclass": null
           },
           {
-            "value": "kind",
-            "isExpression": false,
+            "value": "(\"change\"->>'kind')",
+            "isExpression": true,
             "asc": true,
             "nullsFirst": false,
             "opclass": null

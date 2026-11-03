@@ -2195,6 +2195,8 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
              values
                (gen_random_uuid(), $1, 'AL-2', '2030-01-01T00:00:00Z', 'user', $3, null, null,
                  jsonb_build_object('kind', 'assignees_changed', 'added', jsonb_build_array($3::text), 'removed', '[]'::jsonb)),
+               (gen_random_uuid(), $1, 'AL-2', '2029-12-31T00:00:00Z', 'user', $3, null, null,
+                 '{"kind":"status_changed","from":"todo","to":"in_progress"}'),
                (gen_random_uuid(), $1, 'AL-1', '2030-01-03T00:00:00Z', 'user', $3, null, null,
                  '{"kind":"assignees_changed","added":["someone-else"],"removed":[]}'),
                (gen_random_uuid(), $2, 'BE-1', '2030-01-02T00:00:00Z', 'system', null, 'github', 'git_automation',
@@ -2217,6 +2219,11 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
         expect(withoutGit[0].assignedEvent?.actor).toEqual({
           kind: "user",
           userId: viewerId
+        })
+        expect(withoutGit[0].statusEvent?.change).toEqual({
+          kind: "status_changed",
+          from: "todo",
+          to: "in_progress"
         })
         expect(withoutGit[4].statusEvent).toBeNull()
 

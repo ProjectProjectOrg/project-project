@@ -1172,6 +1172,7 @@ const make = Effect.gen(function* () {
       options.viewerId
     ])
     const viewerCreated = eq(ticketIndex.createdBy, options.viewerId)
+    const activityKind = drizzleSql<string>`${ticketActivity.change}->>'kind'`
     const latestEvent = (alias: string, conditions: ReadonlyArray<SQL>) =>
       db
         .select({
@@ -1196,7 +1197,7 @@ const make = Effect.gen(function* () {
         .as(alias)
     const assignedEvent = latestEvent("assigned_event", [
       viewerAssigned,
-      eq(ticketActivity.kind, "assignees_changed"),
+      eq(activityKind, "assignees_changed"),
       drizzleSql`${ticketActivity.change} @> jsonb_build_object(
         'added', jsonb_build_array(${options.viewerId}::text)
       )`
@@ -1207,7 +1208,7 @@ const make = Effect.gen(function* () {
         : inArray(ticketIndex.projectId, [...options.gitProjectIds])
     const statusEvent = latestEvent("status_event", [
       or(viewerAssigned, viewerCreated) ?? drizzleSql`false`,
-      eq(ticketActivity.kind, "status_changed"),
+      eq(activityKind, "status_changed"),
       or(
         drizzleSql`${ticketActivity.cause} is distinct from 'git_automation'`,
         gitVisible
