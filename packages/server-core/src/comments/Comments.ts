@@ -22,6 +22,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
+import * as LiveChanges from "../live/LiveChanges"
 import type * as Markdown from "../markdown/Markdown"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as TicketDocs from "../tickets/TicketDocs"
@@ -140,11 +141,28 @@ const make = Effect.gen(function* () {
   const ticketDocs = yield* TicketDocs.TicketDocs
   const users = yield* Users.Users
   const crypto = yield* Crypto.Crypto
+  const liveChanges = yield* LiveChanges.LiveChanges
 
   const newCommentId: Effect.Effect<CommentId> = crypto.randomULID.pipe(
     Effect.orDie,
     Effect.map((id) => decodeCommentId(`c_${id}`))
   )
+
+  const announced = <A, E, R>(
+    effect: Effect.Effect<A, E, R>,
+    ticketId: TicketId
+  ): Effect.Effect<A, E, R | ProjectScope> =>
+    Effect.tap(effect, () =>
+      Effect.gen(function* () {
+        const { orgSlug, slug } = yield* ProjectScope
+        yield* liveChanges.publish({
+          kind: "comments",
+          orgSlug,
+          slug,
+          ticketId
+        })
+      })
+    )
 
   const validateBody = (project: TicketProject, body: string) =>
     validateBodyMentionsWithLookups(body, {
@@ -322,7 +340,7 @@ const make = Effect.gen(function* () {
             .pipe(Effect.orDie)
         )
       )
-      return {
+      const created: Comment = {
         id,
         ticketId,
         projectSlug: slug,
@@ -332,7 +350,9 @@ const make = Effect.gen(function* () {
         createdAt: now,
         editedAt: null
       }
-    }
+      return created
+    },
+    announced
   )
 
   const importHistorical: Comments["Service"]["importHistorical"] = Effect.fn(
@@ -441,7 +461,7 @@ const make = Effect.gen(function* () {
       createdAt: block.createdAt,
       editedAt: block.editedAt
     }))
-  })
+  }, announced)
 
   const authorizedComment = (
     ticketId: string,
@@ -515,7 +535,7 @@ const make = Effect.gen(function* () {
       const author = yield* users
         .fullByIds([meta.authorId])
         .pipe(Effect.map((xs) => xs[0]))
-      return {
+      const edited: Comment = {
         id: commentId,
         ticketId,
         projectSlug: slug,
@@ -525,7 +545,9 @@ const make = Effect.gen(function* () {
         createdAt: meta.createdAt,
         editedAt
       }
-    }
+      return edited
+    },
+    announced
   )
 
   const remove: Comments["Service"]["remove"] = Effect.fn("Comments.remove")(
@@ -542,7 +564,8 @@ const make = Effect.gen(function* () {
           .where(eq(commentIndex.id, commentId))
           .pipe(Effect.asVoid, Effect.orDie)
       )
-    }
+    },
+    announced
   )
 
   return Comments.of({ list, create, importHistorical, edit, remove })

@@ -43,3 +43,20 @@ it("reads the same view outside React that the hook renders", () => {
   expect(readViewPreference("acme", "project", "sprints")).toBe("board")
   expect(readViewPreference("acme", "project", "backlog")).toBe("list")
 })
+
+const useLinkedBoard = () =>
+  useProjectView("acme", "linked", "board", "backlog")
+
+it("adopts a linked view once, so a remount still carrying that link keeps a newer choice made elsewhere", () => {
+  const first = renderHook(useLinkedBoard)
+  expect(first.result.current.view).toBe("board")
+  first.unmount()
+
+  const otherWindow = renderHook(() =>
+    useProjectView("acme", "linked", undefined, "backlog")
+  )
+  act(() => otherWindow.result.current.setPreference("list"))
+
+  const remounted = renderHook(useLinkedBoard)
+  expect(remounted.result.current.view).toBe("list")
+})

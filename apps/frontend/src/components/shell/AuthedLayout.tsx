@@ -19,6 +19,7 @@ import { UserMenu } from "@/components/shell/UserMenu"
 import { me } from "@/features/auth/atoms/auth"
 import { authedRouteRedirect } from "@/features/auth/lib/authRedirect"
 import { RunningTimerIndicator } from "@/features/everhour/components/RunningTimerIndicator"
+import { LiveUpdates } from "@/features/live/components/LiveUpdates"
 import { PageBackdropContext } from "@/lib/pageBackdrop"
 
 export function AuthedLayout() {
@@ -40,6 +41,7 @@ export function AuthedLayout() {
       }
       return (
         <SidebarSlotProvider key={orgSlug ?? value.activeOrgSlug}>
+          <LiveUpdates />
           <Shell
             user={{ ...value, activeOrgSlug: orgSlug ?? value.activeOrgSlug }}
           />

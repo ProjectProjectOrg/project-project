@@ -14,6 +14,8 @@ import {
 import type { IconComponent } from "@/lib/icon"
 import { cn } from "@/lib/utils"
 
+import { InteractionHold } from "./interaction-hold"
+
 export type SelectOption<Value extends string> = Readonly<{
   value: Value
   label: ReactNode
@@ -252,6 +254,7 @@ function SelectContent({
             className
           )}
         >
+          <InteractionHold />
           <MenuHighlight />
           {children}
         </SelectPrimitive.Popup>

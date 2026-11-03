@@ -60,7 +60,7 @@ const tagsSource = (slug: string) =>
   Api.query("tags", "list", {
     params: { orgSlug: "acme", slug },
     timeToLive: "2 minutes",
-    reactivityKeys: [Keys.tags(projectScope("acme", slug))]
+    reactivityKeys: [Keys.tags(projectScope("acme", slug)), Keys.liveResync()]
   })
 
 const serving = (tags: () => ReadonlyArray<Tag>) => {

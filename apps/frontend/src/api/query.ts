@@ -6,12 +6,14 @@ import * as Atom from "effect/reactivity/Atom"
 import * as Result from "effect/Result"
 
 import { Api } from "./Api"
+import { Keys } from "./keys"
+import { focusWhileLiveIsStale } from "./liveFreshness"
 
 const revalidate = Atom.swr({
   staleTime: "30 seconds",
   revalidateOnMount: true,
   revalidateOnFocus: true,
-  focusSignal: Atom.windowFocusSignal
+  focusSignal: focusWhileLiveIsStale
 })
 
 const unreachable = <E>(cause: Cause.Cause<E>) => {
@@ -33,8 +35,19 @@ const keepLoadedWhenUnreachable = <A, E>(
 
 const revalidating = new WeakMap<object, unknown>()
 
+const withLiveResync = <R extends Readonly<{ reactivityKeys?: unknown }>>(
+  request: R
+): R =>
+  Array.isArray(request.reactivityKeys)
+    ? {
+        ...request,
+        reactivityKeys: [...request.reactivityKeys, Keys.liveResync()]
+      }
+    : request
+
 export const query = ((...args: Parameters<typeof Api.query>) => {
-  const source = Api.query(...args)
+  const [group, endpoint, request] = args
+  const source = Api.query(group, endpoint, withLiveResync(request))
   const known = revalidating.get(source)
   if (known !== undefined) return known
   const wrapped = revalidate(source).pipe(Atom.map(keepLoadedWhenUnreachable))

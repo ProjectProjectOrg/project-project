@@ -41,6 +41,8 @@ import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
 import * as LibraryDocs from "@pp/server-core/library/LibraryDocs"
 import * as LinkPreviews from "@pp/server-core/linkPreviews/LinkPreviews"
+import * as LiveChanges from "@pp/server-core/live/LiveChanges"
+import * as LiveFeed from "@pp/server-core/live/LiveFeed"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as OAuthApplications from "@pp/server-core/oauth/OAuthApplications"
@@ -131,6 +133,7 @@ const JiraDurableServicesLive = Layer.unwrap(
 
 export const BackendInfrastructureLive = Layer.mergeAll(
   KeyedLock.layer,
+  LiveChanges.layer,
   GitHubProjectStateCache.layer,
   GitHubRequest.layer,
   TicketDocumentLock.layer,
@@ -164,6 +167,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(Groups.layer),
       Layer.provideMerge(ProjectServices.layer),
       Layer.provideMerge(Org.layer),
+      Layer.provideMerge(LiveFeed.layer),
       Layer.provideMerge(Access.layer),
       Layer.provideMerge(GitHubLive),
       Layer.provideMerge(GitHubTicketEvents.layer),

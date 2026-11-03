@@ -17,6 +17,7 @@ import { SlackPreviews } from "@pp/integration-slack/Previews"
 import * as Access from "@pp/server-core/access/Access"
 import * as TicketActivity from "@pp/server-core/activity/TicketActivity"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
+import * as LiveChanges from "@pp/server-core/live/LiveChanges"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
@@ -245,6 +246,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       Layer.provideMerge(TicketDocs.layer),
       Layer.provideMerge(FinishedStatuses.layer),
       Layer.provideMerge(KeyedLock.layer),
+      Layer.provideMerge(LiveChanges.layer),
       Layer.provideMerge(TicketActivity.layer),
       Layer.provideMerge(Markdown.layer),
       Layer.provideMerge(SecretCrypto.layer)

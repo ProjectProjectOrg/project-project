@@ -179,6 +179,7 @@ import {
   UpdateTemplateInput
 } from "./schemas/Library"
 import { LinkPreview, LinkPreviewQuery } from "./schemas/LinkPreview"
+import { LiveEvent, LiveEventsQuery } from "./schemas/LiveEvent"
 import { OAuthApplication } from "./schemas/OAuthApplication"
 import {
   InviteMemberInput,
@@ -245,7 +246,7 @@ import {
   Ticket,
   TicketDetail,
   TicketId,
-  UpdateTicketInput
+  UpdateTicketPayload
 } from "./schemas/Ticket"
 import { TicketActivityPage } from "./schemas/TicketActivity"
 import {
@@ -1877,7 +1878,7 @@ const TicketsGroup = HttpApiGroup.make("tickets")
       {
         params: TicketPath,
         query: TicketOrderKeyHttpQuery,
-        payload: UpdateTicketInput,
+        payload: UpdateTicketPayload,
         success: TicketUpdateResult,
         error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
       }
@@ -2805,6 +2806,16 @@ const LinkPreviewsGroup = HttpApiGroup.make("linkPreviews")
   )
   .middleware(Authentication)
 
+const LiveGroup = HttpApiGroup.make("live")
+  .add(
+    HttpApiEndpoint.get("events", "/events", {
+      query: LiveEventsQuery,
+      success: HttpApiSchema.StreamSse({ data: LiveEvent }),
+      error: [Unauthorized]
+    })
+  )
+  .middleware(Authentication)
+
 const AppApi = HttpApi.make("projectproject")
   .add(HealthGroup)
   .add(DbGroup)
@@ -2833,5 +2844,6 @@ const AppApi = HttpApi.make("projectproject")
   .add(PublicOAuthGroup)
   .add(FeedbackGroup)
   .add(FeedbackIntakeGroup)
+  .add(LiveGroup)
   .annotateMerge(OpenApi.annotations({ servers: [{ url: "/api" }] }))
 export { AppApi }
