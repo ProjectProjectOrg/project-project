@@ -11,12 +11,12 @@ import {
   DropdownMenuItem,
   DropdownMenuList
 } from "@/components/ui/dropdown-menu"
+import { MenuNote } from "@/components/ui/menu-note"
 import {
   connectGithub,
   githubRepos,
   githubReposRequest
 } from "@/features/github/atoms/github"
-import { MenuNote } from "@/features/github/components/MenuNote"
 import { useConnectGithubError } from "@/features/github/hooks/useConnectGithubError"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"

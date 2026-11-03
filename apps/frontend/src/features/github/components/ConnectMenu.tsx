@@ -13,12 +13,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { MenuNote } from "@/components/ui/menu-note"
 import {
   githubIntegration,
   githubOrgRequest,
   startGithubInstall
 } from "@/features/github/atoms/github"
-import { MenuNote } from "@/features/github/components/MenuNote"
 import { RepoList } from "@/features/github/components/RepoList"
 import { useConnectGithubError } from "@/features/github/hooks/useConnectGithubError"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"

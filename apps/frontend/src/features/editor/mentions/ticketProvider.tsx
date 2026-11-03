@@ -8,14 +8,17 @@ import {
   openEpicTitles
 } from "@/features/tickets/atoms/epics"
 import {
-  searchRequest,
-  ticketSearch
-} from "@/features/tickets/atoms/ticketSearch"
+  ticketMentionPage,
+  ticketMentionPageRequest
+} from "@/features/tickets/atoms/ticketMentions"
 import { EpicSeparator } from "@/features/tickets/components/ticket-list/EpicLabel"
+import { m } from "@/paraglide/messages"
 
-import type { MentionCandidate, MentionProvider } from "./registry"
+import { MentionSearchFailed } from "./errors"
+import type { MentionCandidate, MentionPage, MentionProvider } from "./registry"
 
 const NO_EPICS: ReadonlyMap<TicketId, string> = new Map()
+const NO_PAGE: MentionPage = { candidates: [], nextCursor: null }
 
 const toCandidate =
   (epics: ReadonlyMap<TicketId, string>) =>
@@ -34,14 +37,15 @@ export const ticketProvider = (
 ): MentionProvider => ({
   trigger: "#",
   type: "ticket",
-  search: (query) => {
-    if (!scope.orgSlug || !scope.slug) return Effect.succeed([])
+  search: (query, cursor) => {
+    if (!scope.orgSlug || !scope.slug) return Effect.succeed(NO_PAGE)
     return Effect.gen(function* () {
-      const results = yield* Atom.getResult(
-        ticketSearch(
-          searchRequest(scope.orgSlug, scope.slug, { q: query, limit: 8 })
+      const page = yield* Atom.getResult(
+        ticketMentionPage(
+          ticketMentionPageRequest(scope.orgSlug, scope.slug, query, cursor)
         )
       )
+      const results = page.items.map((row) => row.ticket)
       const parents = results.flatMap((ticket) =>
         ticket.parent ? [ticket.parent] : []
       )
@@ -57,8 +61,16 @@ export const ticketProvider = (
             Effect.orElseSucceed(() => NO_EPICS)
           )
         : NO_EPICS
-      return results.map(toCandidate(new Map([...archived, ...open])))
-    }).pipe(Effect.orElseSucceed(() => []))
+      return {
+        candidates: results.map(toCandidate(new Map([...archived, ...open]))),
+        nextCursor: page.nextCursor
+      }
+    }).pipe(Effect.mapError(() => new MentionSearchFailed()))
+  },
+  notes: {
+    loading: () => m.tickets_mention_tickets_loading(),
+    empty: () => m.tickets_mention_tickets_empty(),
+    failed: () => m.tickets_mention_tickets_failed()
   },
   renderRow: (candidate) => (
     <div className="flex min-w-0 items-center gap-2">

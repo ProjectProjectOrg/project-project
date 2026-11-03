@@ -20,6 +20,7 @@ import {
   ticketActivityRequest
 } from "@/features/tickets/atoms/ticketActivity"
 import { TicketActivityFeed } from "@/features/tickets/components/TicketActivityFeed"
+import { useTicketParticipants } from "@/features/tickets/hooks/useTicketParticipants"
 import { useProjectActor } from "@/lib/access"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
@@ -47,6 +48,7 @@ export function CommentsSection({
   const result = useAtomValue(comments(req))
   useAtomMount(ticketActivity(ticketActivityRequest(orgSlug, slug, ticketId)))
   const project = useProject()
+  const involved = useTicketParticipants(ticketId)
   const canComment = useProjectActor().call("ticketComments", "create")
   const [collapsed, setCollapsed] = useState(false)
   const [showAll, setShowAll] = useState(false)
@@ -83,7 +85,9 @@ export function CommentsSection({
       : m.comments_heading()
 
   return (
-    <MentionScopeProvider scope={{ orgSlug, slug, members: project.members }}>
+    <MentionScopeProvider
+      scope={{ orgSlug, slug, members: project.members, involved }}
+    >
       <section className="mt-8 space-y-4">
         <div className="flex items-center gap-1">
           <button
