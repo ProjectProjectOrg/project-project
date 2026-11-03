@@ -14,15 +14,16 @@ import { ServerStore } from "../servers/ServerStore"
 import { helpFormatter } from "./help"
 import { plain } from "./terminal"
 
-const services = Layer.mergeAll(
-  CliOutput.layer(helpFormatter(plain, 80, sharedFlagNames)),
-  ServerStore.layer,
-  Browser.layer,
-  Loopback.layer,
-  FetchHttpClient.layer
-).pipe(Layer.provideMerge(BunServices.layer))
+const services = (columns: number) =>
+  Layer.mergeAll(
+    CliOutput.layer(helpFormatter(plain, columns, sharedFlagNames)),
+    ServerStore.layer,
+    Browser.layer,
+    Loopback.layer,
+    FetchHttpClient.layer
+  ).pipe(Layer.provideMerge(BunServices.layer))
 
-const help = (...args: ReadonlyArray<string>) =>
+const helpAt = (columns: number, ...args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const printed: Array<string> = []
     const capture: Console.Console = {
@@ -33,10 +34,12 @@ const help = (...args: ReadonlyArray<string>) =>
     }
     yield* Command.runWith(pp, { version: "test" })([...args, "--help"]).pipe(
       Effect.provideService(Console.Console, capture),
-      Effect.provide(services)
+      Effect.provide(services(columns))
     )
     return printed.join("\n").split("\n")
   })
+
+const help = (...args: ReadonlyArray<string>) => helpAt(80, ...args)
 
 const rows = (lines: ReadonlyArray<string>) =>
   lines.slice(
@@ -80,6 +83,17 @@ describe("help", () => {
       expect(flags.some((line) => line.includes("--status"))).toBe(true)
       expect(flags.some((line) => line.includes("--server"))).toBe(false)
       expect(lines.filter((line) => line.length > 80)).toEqual([])
+    })
+  )
+
+  it.effect("wraps to a terminal narrower than 40 columns", () =>
+    Effect.gen(function* () {
+      for (const command of [["tickets", "list"], ["login"], ["use"]]) {
+        const lines = yield* helpAt(36, ...command)
+        expect(
+          lines.filter((line) => line.length > 36 && !line.startsWith("  pp "))
+        ).toEqual([])
+      }
     })
   )
 })

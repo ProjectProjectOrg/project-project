@@ -16,6 +16,7 @@ const INDENT = "  "
 const GAP = 3
 const MAX_LEFT = 26
 const MAX_WIDTH = 100
+const MIN_RIGHT = 20
 
 const cyan = (text: string, terminal: Terminal) =>
   terminal.color && text !== "" ? `\x1b[36m${text}\x1b[39m` : text
@@ -76,15 +77,16 @@ const table = (
     MAX_LEFT,
     Math.max(0, ...rows.map((row) => visibleWidth(row.left)))
   )
-  const column = INDENT.length + left + GAP
-  const right = Math.max(20, width - column)
+  const stacked = width - (INDENT.length + left + GAP) < MIN_RIGHT
+  const column = stacked ? INDENT.length * 2 : INDENT.length + left + GAP
+  const right = Math.max(1, width - column)
   return rows
     .flatMap((row) => {
       const text = oneLine
         ? [truncated(withCode(row.right, terminal), right)]
         : wrap(withCode(row.right, terminal), right)
       const lines = text.map((line) => `${" ".repeat(column)}${line}`)
-      if (visibleWidth(row.left) > left) {
+      if (stacked || visibleWidth(row.left) > left) {
         return [`${INDENT}${row.left}`, ...lines]
       }
       const [head = "", ...rest] = lines
@@ -122,7 +124,7 @@ const renderHelp = (
   columns: number,
   shared: ReadonlyArray<string>
 ) => {
-  const width = Math.min(MAX_WIDTH, Math.max(40, columns))
+  const width = Math.min(MAX_WIDTH, columns)
   const heading = (title: string) => strong(title, terminal)
   const sections: Array<string> = []
   const root = isRootPage(doc)
@@ -179,7 +181,9 @@ const renderHelp = (
           [
             ...(example.description === undefined
               ? []
-              : [`${INDENT}${muted(`# ${example.description}`, terminal)}`]),
+              : wrap(`# ${example.description}`, width - INDENT.length).map(
+                  (line) => `${INDENT}${muted(line, terminal)}`
+                )),
             `${INDENT}${cyan(example.command, terminal)}`
           ].join("\n")
         )
