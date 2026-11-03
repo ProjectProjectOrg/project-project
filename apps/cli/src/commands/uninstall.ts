@@ -15,8 +15,23 @@ import { canPrompt } from "./scope"
 
 const profiles = [".zshrc", ".bashrc", ".bash_profile"]
 
-const withoutInstallerPath = (text: string) =>
-  text.replace(/\n?# Added by the pp installer\nexport PATH="[^"\n]*"\n?/g, "")
+const MARKER = "# Added by the pp installer"
+const isPathExport = (line: string | undefined) =>
+  line !== undefined && /^export PATH="[^"]*"$/.test(line)
+
+const withoutInstallerPath = (text: string) => {
+  const lines = text.split("\n")
+  const kept: Array<string> = []
+  for (let index = 0; index < lines.length; index++) {
+    if (lines[index] === MARKER && isPathExport(lines[index + 1])) {
+      if (kept.at(-1) === "") kept.pop()
+      index++
+      continue
+    }
+    kept.push(lines[index] ?? "")
+  }
+  return kept.join("\n")
+}
 
 const confirmed = (yes: boolean, servers: number) =>
   Effect.gen(function* () {
@@ -40,8 +55,10 @@ const confirmed = (yes: boolean, servers: number) =>
 const cleanProfiles = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
-  const home = yield* Config.String("HOME")
+  const home = yield* Config.String("HOME").pipe(Effect.orElseSucceed(() => ""))
   const cleaned: Array<string> = []
+  const failed: Array<string> = []
+  if (home === "") return { cleaned, failed }
   for (const name of profiles) {
     const file = path.join(home, name)
     const text = yield* fs
@@ -50,11 +67,15 @@ const cleanProfiles = Effect.gen(function* () {
     if (text === undefined) continue
     const next = withoutInstallerPath(text)
     if (next === text) continue
-    yield* fs.writeFileString(file, next)
-    cleaned.push(file)
+    const written = yield* fs.writeFileString(file, next).pipe(
+      Effect.as(true),
+      Effect.orElseSucceed(() => false)
+    )
+    if (written) cleaned.push(file)
+    else failed.push(file)
   }
-  return cleaned
-}).pipe(Effect.orElseSucceed((): ReadonlyArray<string> => []))
+  return { cleaned, failed }
+})
 
 export const uninstallCommand = Command.make(
   "uninstall",
@@ -90,7 +111,7 @@ export const uninstallCommand = Command.make(
       )
       const settings = path.dirname(store.file)
       yield* fs.remove(settings, { recursive: true, force: true })
-      const cleaned = yield* cleanProfiles
+      const { cleaned, failed } = yield* cleanProfiles
       const binary = buildVersion === "dev" ? null : process.execPath
       if (binary !== null) yield* fs.remove(binary, { force: true })
 
@@ -99,7 +120,8 @@ export const uninstallCommand = Command.make(
           {
             signedOut: servers.map((server) => server.origin),
             removed: [...(binary === null ? [] : [binary]), settings],
-            profiles: cleaned
+            profiles: cleaned,
+            profilesLeft: failed
           },
           true
         )
@@ -109,6 +131,10 @@ export const uninstallCommand = Command.make(
           ...servers.map((server) => `Signed out of ${server.origin}.`),
           `Deleted ${settings}.`,
           ...cleaned.map((file) => `Took pp off your PATH in ${file}.`),
+          ...failed.map(
+            (file) =>
+              `Couldn't edit ${file}. Remove the "${MARKER}" line and the PATH line under it yourself.`
+          ),
           binary === null
             ? "This pp runs from source, so there's no binary to remove."
             : `Removed ${binary}. pp is uninstalled.`

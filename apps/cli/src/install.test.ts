@@ -16,7 +16,13 @@ const fakeRelease = (directory: string, tamper: boolean) =>
     tamper ? "sed -i.bak 's/^[0-9a-f]*/0000/' SHA256SUMS" : "true"
   ].join("\n")
 
-const install = (tamper: boolean, shell?: string, uninstall = false) =>
+type Uninstall = Readonly<{
+  bashrc?: string
+  addedLater?: string
+  readOnly?: ReadonlyArray<string>
+}>
+
+const install = (tamper: boolean, shell?: string, uninstall?: Uninstall) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
@@ -25,7 +31,10 @@ const install = (tamper: boolean, shell?: string, uninstall = false) =>
     const release = path.join(home, "release")
     const bin = path.join(home, "bin")
     yield* fs.makeDirectory(release)
-    yield* fs.writeFileString(path.join(home, ".bashrc"), "alias ll='ls -l'\n")
+    yield* fs.writeFileString(
+      path.join(home, ".bashrc"),
+      uninstall?.bashrc ?? "alias ll='ls -l'\n"
+    )
     yield* spawner.string(
       ChildProcess.make("sh", ["-c", fakeRelease(release, tamper)])
     )
@@ -44,7 +53,17 @@ const install = (tamper: boolean, shell?: string, uninstall = false) =>
         stderr: "ignore"
       })
     )
-    if (uninstall) {
+    if (uninstall !== undefined) {
+      if (uninstall.addedLater !== undefined) {
+        const bashrc = path.join(home, ".bashrc")
+        yield* fs.writeFileString(
+          bashrc,
+          (yield* fs.readFileString(bashrc)) + uninstall.addedLater
+        )
+      }
+      for (const name of uninstall.readOnly ?? []) {
+        yield* fs.chmod(path.join(home, name), 0o444)
+      }
       yield* spawner.exitCode(
         ChildProcess.make(
           process.execPath,
@@ -99,8 +118,28 @@ describe("install.sh", () => {
 
   it.effect("pp uninstall takes back exactly the PATH lines it added", () =>
     Effect.gen(function* () {
-      const result = yield* install(false, "/bin/bash", true)
+      const result = yield* install(false, "/bin/bash", {})
       expect(result.bashrc).toBe("alias ll='ls -l'\n")
+      expect(result.bashProfile).toBe("")
+    })
+  )
+
+  it.effect("pp uninstall keeps the lines around its block apart", () =>
+    Effect.gen(function* () {
+      const result = yield* install(false, "/bin/bash", {
+        bashrc: "export EDITOR=vim",
+        addedLater: "export PAGER=less\n"
+      })
+      expect(result.bashrc).toBe("export EDITOR=vim\nexport PAGER=less\n")
+    })
+  )
+
+  it.effect("pp uninstall cleans the profiles it can write to", () =>
+    Effect.gen(function* () {
+      const result = yield* install(false, "/bin/bash", {
+        readOnly: [".bashrc"]
+      })
+      expect(result.bashrc).toContain("# Added by the pp installer")
       expect(result.bashProfile).toBe("")
     })
   )
