@@ -53,22 +53,20 @@ describe("help", () => {
     () =>
       Effect.gen(function* () {
         const top = yield* help()
-        const pages = [
-          top,
-          ...(yield* Effect.forEach(
-            rows(top).map((line) => line.trim().split(" ")[0] ?? ""),
-            (name) => help(name)
-          ))
-        ]
-        for (const lines of pages) {
-          expect(lines.filter((line) => line.length > 80)).toEqual([])
-          expect(rows(lines).filter((line) => line.endsWith("…"))).toEqual([])
-        }
-        expect(rows(pages[0] ?? [])).toContain(
-          "  tickets       Read, create and change tickets."
+        const names = rows(top).map((line) => line.trim().split(" ")[0] ?? "")
+        const pages = yield* Effect.forEach(names, (name) =>
+          Effect.map(help(name), (lines) => ({ name, lines }))
         )
-        expect(top).toContain(
-          "  Run `pp <command> --help` for more about a command."
+        for (const { name, lines } of [{ name: "", lines: top }, ...pages]) {
+          expect(lines.filter((line) => line.length > 80)).toEqual([])
+          if (!lines.includes("COMMANDS")) continue
+          expect(rows(lines).filter((line) => line.endsWith("…"))).toEqual([])
+          expect(lines).toContain(
+            `  Run \`${["pp", name].filter(Boolean).join(" ")} <command> --help\` for more about a command.`
+          )
+        }
+        expect(rows(top)).toContain(
+          "  tickets       Read, create and change tickets."
         )
       })
   )
