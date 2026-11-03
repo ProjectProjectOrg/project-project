@@ -1,22 +1,42 @@
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { describe, expect, it } from "@effect/vitest"
+import { CliOutput, Command } from "effect/cli"
+import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
-import * as Path from "effect/Path"
-import { ChildProcess, ChildProcessSpawner } from "effect/process"
+import { FetchHttpClient } from "effect/http"
+import * as Layer from "effect/Layer"
+
+import { Browser } from "../auth/Browser"
+import { Loopback } from "../auth/Loopback"
+import { sharedFlagNames } from "../commands/root"
+import { pp } from "../commands/tree"
+import { ServerStore } from "../servers/ServerStore"
+import { helpFormatter } from "./help"
+import { plain } from "./terminal"
+
+const services = Layer.mergeAll(
+  CliOutput.layer(helpFormatter(plain, 80, sharedFlagNames)),
+  ServerStore.layer,
+  Browser.layer,
+  Loopback.layer,
+  FetchHttpClient.layer
+).pipe(Layer.provideMerge(BunServices.layer))
 
 const help = (...args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const path = yield* Path.Path
-    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
-    const main = path.resolve(import.meta.dirname, "..", "main.ts")
-    const text = yield* spawner.string(
-      ChildProcess.make(process.execPath, [main, ...args, "--help"], {
-        env: { NO_COLOR: "1", PP_NO_UPDATE_CHECK: "1" },
-        extendEnv: true
-      })
+    const printed: Array<string> = []
+    const capture: Console.Console = {
+      ...globalThis.console,
+      log: (...parts: ReadonlyArray<unknown>) => {
+        printed.push(parts.join(" "))
+      }
+    }
+    yield* Command.runWith(pp, { version: "test" })([...args, "--help"]).pipe(
+      Effect.provideService(Console.Console, capture),
+      Effect.provide(services)
     )
-    return text.split("\n")
-  }).pipe(Effect.provide(BunServices.layer))
+    return printed.join("\n").split("\n")
+  })
 
 const rows = (lines: ReadonlyArray<string>) =>
   lines.slice(
@@ -34,8 +54,7 @@ describe("help", () => {
           top,
           ...(yield* Effect.forEach(
             rows(top).map((line) => line.trim().split(" ")[0] ?? ""),
-            (name) => help(name),
-            { concurrency: 8 }
+            (name) => help(name)
           ))
         ]
         for (const lines of pages) {
