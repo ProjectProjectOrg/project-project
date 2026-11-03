@@ -41,11 +41,13 @@
 // in the `Layer.provide` chain.
 
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
+import { ChangeOrigin } from "@pp/server-core/live/LiveChanges"
 import {
   ActivityActor,
   Authentication,
   CurrentUser,
   type EditorPreference,
+  LIVE_ORIGIN_HEADER,
   Unauthorized
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
@@ -67,6 +69,11 @@ export function normalizeEditorPreference(
       return "github"
   }
 }
+
+const CLIENT_ID = /^[A-Za-z0-9-]{1,64}$/u
+
+const changeOriginOf = (value: string | undefined): string | null =>
+  value !== undefined && CLIENT_ID.test(value) ? value : null
 
 export const AuthenticationLive = Layer.effect(
   Authentication,
@@ -103,6 +110,10 @@ export const AuthenticationLive = Layer.effect(
               .editorPreference
           )
           return yield* httpEffect.pipe(
+            Effect.provideService(
+              ChangeOrigin,
+              changeOriginOf(req.headers[LIVE_ORIGIN_HEADER])
+            ),
             Effect.provideService(ActivityActor, ActivityActor.user(id)),
             Effect.provideService(CurrentUser, {
               id,

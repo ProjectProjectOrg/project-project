@@ -23,6 +23,7 @@ import { InboxGroup } from "./inbox/InboxApi"
 import { JiraGroup, JiraMigrationsGroup } from "./jira/JiraApi"
 import { LibraryGroup } from "./library/LibraryApi"
 import { LinkPreviewsGroup } from "./linkPreviews/LinkPreviewsApi"
+import { LiveGroup } from "./live/LiveApi"
 import {
   InvitationsGroup,
   OrgEmailGroup,
@@ -92,4 +93,5 @@ export const AppApi = HttpApi.make("projectproject")
   .add(PublicAuthGroup)
   .add(FeedbackGroup)
   .add(FeedbackIntakeGroup)
+  .add(LiveGroup)
   .annotateMerge(OpenApi.annotations({ servers: [{ url: "/api" }] }))

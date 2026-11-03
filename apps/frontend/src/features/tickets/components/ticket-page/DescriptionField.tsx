@@ -81,6 +81,17 @@ export type DescriptionHandle = Readonly<{
 
 const sameBody = (a: string, b: string): boolean => a.trim() === b.trim()
 
+function useIdleReload(body: string, idle: boolean) {
+  const [loaded, setLoaded] = useState({ body, revision: 0 })
+  if (idle && body !== loaded.body)
+    setLoaded({ body, revision: loaded.revision + 1 })
+  return {
+    revision: loaded.revision,
+    saved: (next: string) =>
+      setLoaded((current) => ({ ...current, body: next }))
+  }
+}
+
 export function DescriptionField({
   ticket,
   members,
@@ -127,6 +138,7 @@ export function DescriptionField({
     rootRef,
     initial: autoFocus
   })
+  const loaded = useIdleReload(ticket.body, !editing && bodyDraft === null)
 
   const startAs = (key: TypeKey) => {
     const editor = editorRef.current
@@ -238,16 +250,17 @@ export function DescriptionField({
           <MentionScopeProvider scope={{ orgSlug, slug, members, involved }}>
             <AttachmentAvailabilityProvider missing={ticket.missingAttachments}>
               <LexicalEditor
-                key={`${slug}/${ticket.id}`}
+                key={`${slug}/${ticket.id}/${loaded.revision}`}
                 markdown={body}
                 onDraftChange={setBodyDraft}
                 onChange={async (next) => {
                   const exit = await update({ body: next })
                   if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
+                  loaded.saved(next)
                   setBodyDraft((draft) => (draft === next ? null : draft))
                 }}
                 onStatusChange={setSaveStatus}
-                autoFocus={autoFocus ? "start" : false}
+                autoFocus={autoFocus && loaded.revision === 0 ? "start" : false}
                 placeholder={m.tickets_description_placeholder()}
                 attachments={attachments}
                 blocks={blocks}

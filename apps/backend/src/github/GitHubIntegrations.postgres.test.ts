@@ -15,6 +15,7 @@ import { ProjectStateCache } from "@pp/integration-github/projectStateCache"
 import * as ProjectStateCacheLayer from "@pp/integration-github/projectStateCache"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as GitHubTicketEvents from "@pp/server-core/github/GitHubTicketEvents"
+import * as LiveChanges from "@pp/server-core/live/LiveChanges"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
@@ -117,6 +118,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
     Layer.provide(Layer.succeed(TicketDocs.TicketDocs, scopedTicketDocs)),
     Layer.provide(TicketDocumentLock.layer),
     Layer.provide(FinishedStatuses.baseline),
+    Layer.provide(LiveChanges.layer),
     Layer.provide(databaseLayer)
   )
   const webhookLayer = (

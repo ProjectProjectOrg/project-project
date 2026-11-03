@@ -62,6 +62,8 @@ export * from "./library/resolve"
 
 export * from "./linkPreviews/LinkPreview"
 
+export * from "./live/LiveEvent"
+
 export * from "./organizations/Org"
 export * from "./organizations/OrgEmail"
 

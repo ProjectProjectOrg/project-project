@@ -114,6 +114,7 @@ import { JiraMigrationsHandlerLive } from "./jira/MigrationHandlers"
 import { jiraOauthRoutes } from "./jira/OAuthRoutes"
 import { LibraryHandlerLive } from "./library/Handlers"
 import { LinkPreviewsHandlerLive } from "./linkPreviews/Handlers"
+import { LiveHandlerLive } from "./live/Handlers"
 import { McpLive } from "./mcp/Mcp"
 import {
   OAuthApplicationsHandlerLive,
@@ -215,7 +216,7 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
       FeedbackIntakeHandlerLive
     )
   ),
-  Layer.provide(AttachmentsHandlerLive)
+  Layer.provide(Layer.mergeAll(AttachmentsHandlerLive, LiveHandlerLive))
 )
 
 export const ApiLive = ApiRoutesLive.pipe(
