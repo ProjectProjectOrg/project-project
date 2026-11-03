@@ -3,8 +3,6 @@ import type { BranchListItem } from "@pp/shared"
 import type { BranchListView } from "@/features/github/atoms/github"
 import { slugify } from "@/lib/slug"
 
-const LOAD_MORE_DISTANCE_PX = 96
-
 export type BranchPickerEntry =
   | Readonly<{ kind: "create"; name: string }>
   | Readonly<{ kind: "branch"; branch: BranchListItem }>
@@ -122,16 +120,6 @@ export const branchSearchView = ({
     loadMoreFailed: false
   }
 }
-
-export const shouldLoadMoreBranches = ({
-  scrollTop,
-  scrollHeight,
-  clientHeight
-}: Readonly<{
-  scrollTop: number
-  scrollHeight: number
-  clientHeight: number
-}>): boolean => scrollHeight - scrollTop - clientHeight <= LOAD_MORE_DISTANCE_PX
 
 export const branchMenuFilter = (
   query: string,

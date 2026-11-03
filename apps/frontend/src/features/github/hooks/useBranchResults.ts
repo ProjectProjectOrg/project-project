@@ -16,10 +16,10 @@ import {
 } from "@/features/github/atoms/github"
 import {
   branchSearchView,
-  sanitizeBranchName,
-  shouldLoadMoreBranches
+  sanitizeBranchName
 } from "@/features/github/lib/branchPicker"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { isNearScrollEnd } from "@/lib/scroll"
 
 const SEARCH_DEBOUNCE_MS = 150
 
@@ -59,7 +59,7 @@ export function useBranchResults(query: string): BranchResults {
     onScroll: (event) => {
       if (exact === null || !Result.isSuccess(result) || result.waiting) return
       if (!exact.hasMore || exact.loadingMore || exact.loadMoreFailed) return
-      if (shouldLoadMoreBranches(event.currentTarget)) setPages(pages + 1)
+      if (isNearScrollEnd(event.currentTarget)) setPages(pages + 1)
     }
   }
 }

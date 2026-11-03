@@ -5,6 +5,7 @@ export type MentionScope = Readonly<{
   orgSlug: string
   slug: string
   members?: ReadonlyArray<Member>
+  involved?: ReadonlyArray<string>
 }>
 
 const Ctx = createContext<MentionScope | null>(null)
