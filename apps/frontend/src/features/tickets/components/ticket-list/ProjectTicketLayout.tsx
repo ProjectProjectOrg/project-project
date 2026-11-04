@@ -4,7 +4,7 @@ import type { GroupId, TicketListQuery } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { motion } from "motion/react"
-import { Activity, type ReactNode } from "react"
+import { Activity, useRef, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { PageContainer } from "@/components/shell/Page"
@@ -28,6 +28,7 @@ import {
   createLocalStorageCodec,
   useLocalStorageState
 } from "@/hooks/useLocalStorageState"
+import { useStickyBar } from "@/hooks/useStickyBar"
 import { useProjectActor } from "@/lib/access"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
@@ -59,6 +60,9 @@ export const readBacklogGrouping = (
     groupingCodec,
     "status"
   )
+
+const listStickyTop = (height: number) =>
+  `calc(var(--project-tabs-h, 0px) + ${height}px)`
 
 type TicketLayoutState = Readonly<{
   grouping: typeof GroupingSchema.Type
@@ -99,6 +103,8 @@ export function ProjectTicketLayout({
     `${orgSlug}/${slug}/${scope}/${view}`
   )
   const isBoard = view === "board"
+  const stickyRef = useRef<HTMLDivElement>(null)
+  useStickyBar(stickyRef, "--list-sticky-top", listStickyTop)
   const filters: ReadonlyArray<FilterDimension> = groupId
     ? isBoard
       ? ["type", "assignee", "tags", "subTicketExpansion"]
@@ -123,80 +129,91 @@ export function ProjectTicketLayout({
   return (
     <CreatorActiveScope>
       <PageContainer className="group/list gap-3">
-        <Activity mode={view === "description" ? "hidden" : "visible"}>
-          {(showCreator || reorder.reorderMode) && (
-            <div className="relative min-h-9">
+        <div
+          ref={stickyRef}
+          className="sticky top-(--project-tabs-h,0px) z-20 -mt-3 -mb-3 flex flex-col gap-3 pt-3 pb-3 will-change-transform before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-0.5 data-stuck:bg-(--page-surface) data-stuck:before:bg-(--page-surface)"
+        >
+          <Activity mode={view === "description" ? "hidden" : "visible"}>
+            {(showCreator || reorder.reorderMode) && (
+              <div className="relative min-h-9">
+                <motion.div
+                  initial={false}
+                  animate={{ opacity: reorder.reorderMode ? 1 : 0 }}
+                  transition={transitions.fade}
+                  inert={!reorder.reorderMode}
+                  aria-hidden={!reorder.reorderMode}
+                  className="absolute inset-x-0 top-1/2 -translate-y-1/2"
+                >
+                  <ReorderBoardBanner
+                    onSave={reorder.saveReorder}
+                    onCancel={reorder.cancelReorder}
+                  />
+                </motion.div>
+                <motion.div
+                  initial={false}
+                  animate={{ opacity: reorder.reorderMode ? 0 : 1 }}
+                  transition={transitions.fade}
+                  inert={reorder.reorderMode}
+                  aria-hidden={reorder.reorderMode}
+                >
+                  {groupId
+                    ? canAddToSprint && (
+                        <SprintCreator key={groupId} groupId={groupId} />
+                      )
+                    : canCreate && <BacklogTicketCreator query={query} />}
+                </motion.div>
+              </div>
+            )}
+          </Activity>
+          <DimWhileCreating className="transition-opacity duration-200 ease-out">
+            <Activity mode={view === "description" ? "hidden" : "visible"}>
               <motion.div
                 initial={false}
-                animate={{ opacity: reorder.reorderMode ? 1 : 0 }}
-                transition={transitions.fade}
-                inert={!reorder.reorderMode}
-                aria-hidden={!reorder.reorderMode}
-                className="absolute inset-x-0 top-1/2 -translate-y-1/2"
-              >
-                <ReorderBoardBanner
-                  onSave={reorder.saveReorder}
-                  onCancel={reorder.cancelReorder}
-                />
-              </motion.div>
-              <motion.div
-                initial={false}
-                animate={{ opacity: reorder.reorderMode ? 0 : 1 }}
+                animate={{ opacity: reorder.reorderMode ? 0.35 : 1 }}
                 transition={transitions.fade}
                 inert={reorder.reorderMode}
                 aria-hidden={reorder.reorderMode}
               >
-                {groupId
-                  ? canAddToSprint && (
-                      <SprintCreator key={groupId} groupId={groupId} />
-                    )
-                  : canCreate && <BacklogTicketCreator query={query} />}
-              </motion.div>
-            </div>
-          )}
-        </Activity>
-        <DimWhileCreating className="flex flex-col gap-3 transition-opacity duration-200 ease-out">
-          <Activity mode={view === "description" ? "hidden" : "visible"}>
-            <motion.div
-              initial={false}
-              animate={{ opacity: reorder.reorderMode ? 0.35 : 1 }}
-              transition={transitions.fade}
-              inert={reorder.reorderMode}
-              aria-hidden={reorder.reorderMode}
-            >
-              <TicketToolbar
-                scopeKey={scope}
-                query={query}
-                onQueryChange={onQueryChange}
-                members={project.members}
-                counts={Result.isSuccess(counts) ? counts.value : null}
-                filters={
-                  project.estimation === "off"
-                    ? filters
-                    : [...filters, "estimate"]
-                }
-                estimation={project.estimation}
-                showSort={!groupId || !isBoard}
-                viewControls={<ViewSwitcher />}
-              >
-                {!groupId && !isBoard && (
-                  <BacklogGroupingControl
-                    value={grouping}
-                    onChange={setGrouping}
+                <TicketToolbar
+                  scopeKey={scope}
+                  query={query}
+                  onQueryChange={onQueryChange}
+                  members={project.members}
+                  counts={Result.isSuccess(counts) ? counts.value : null}
+                  filters={
+                    project.estimation === "off"
+                      ? filters
+                      : [...filters, "estimate"]
+                  }
+                  estimation={project.estimation}
+                  showSort={!groupId || !isBoard}
+                  viewControls={<ViewSwitcher />}
+                >
+                  {!groupId && !isBoard && (
+                    <BacklogGroupingControl
+                      value={grouping}
+                      onChange={setGrouping}
+                    />
+                  )}
+                </TicketToolbar>
+                {groupId && isBoard && countError && (
+                  <ErrorPage
+                    error={countError.error}
+                    reset={refreshCounts}
+                    contained
                   />
                 )}
-              </TicketToolbar>
-              {groupId && isBoard && countError && (
-                <ErrorPage
-                  error={countError.error}
-                  reset={refreshCounts}
-                  contained
-                />
-              )}
-            </motion.div>
-          </Activity>
+              </motion.div>
+            </Activity>
+          </DimWhileCreating>
+        </div>
+        <DimWhileCreating className="flex flex-col transition-opacity duration-200 ease-out">
           {children({ grouping, preferencesKey, reorder })}
         </DimWhileCreating>
+        <div
+          aria-hidden
+          className="pointer-events-none sticky bottom-0 z-10 -mt-7 -mb-6 h-10 bg-linear-to-t from-(--page-surface)"
+        />
       </PageContainer>
     </CreatorActiveScope>
   )

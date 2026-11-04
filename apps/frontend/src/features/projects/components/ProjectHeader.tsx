@@ -90,18 +90,9 @@ function MorphSlot({
   )
 }
 
-export function ProjectHeader({
-  name,
-  project
-}: {
-  name: string
-  project: ProjectDetailType
-}) {
+function useHeaderMode() {
   const { orgSlug, slug } = useProjectRoute()
   const actor = useProjectActor()
-  const canEdit = ProjectPolicy.canUpdate(actor, { settings: true })
-  const reduce = useReducedMotion() ?? false
-
   const matches = useMatches()
   const sprintMatch = matches.find(
     (mt) =>
@@ -124,10 +115,43 @@ export function ProjectHeader({
   const mode = sprintGroupId ? `sprint:${sprintGroupId}` : "project"
   const isCompleted = sprint?.completedAt != null
   const canPlan = GroupPolicy.can(actor, "sprint", "manage")
+  return {
+    sprintMatch,
+    sprintGroupId,
+    sprints,
+    sprint,
+    sprintMissing,
+    mode,
+    isCompleted,
+    canPlan
+  }
+}
+
+export function ProjectHeader({
+  name,
+  project
+}: {
+  name: string
+  project: ProjectDetailType
+}) {
+  const { orgSlug, slug } = useProjectRoute()
+  const actor = useProjectActor()
+  const canEdit = ProjectPolicy.canUpdate(actor, { settings: true })
+  const reduce = useReducedMotion() ?? false
+  const {
+    sprintMatch,
+    sprintGroupId,
+    sprints,
+    sprint,
+    sprintMissing,
+    mode,
+    isCompleted,
+    canPlan
+  } = useHeaderMode()
 
   return (
     <LayoutGroup id={`project-header-${slug}`}>
-      <header className="flex items-start gap-3">
+      <header className="flex items-start gap-3 pr-(--project-actions-w,0px)">
         <MorphSlot
           slotKey={mode}
           layoutId="project-header-icon"
@@ -230,27 +254,44 @@ export function ProjectHeader({
             )}
           </MorphSlot>
         </div>
-
-        <MorphSlot slotKey={mode} reduce={reduce}>
-          {sprintGroupId ? (
-            sprint ? (
-              canPlan ? (
-                <SprintDeleteMenu sprint={sprint} sprints={sprints} />
-              ) : null
-            ) : sprintMissing ? null : (
-              <div className="size-8" />
-            )
-          ) : (
-            <div className="flex items-center gap-3">
-              {actor.call("projects", "gitStates") && (
-                <GithubChip github={project.github} />
-              )}
-              <ProjectMenu />
-            </div>
-          )}
-        </MorphSlot>
       </header>
     </LayoutGroup>
+  )
+}
+
+/**
+ * The header's trailing actions. `ProjectHeaderLayout` renders them in their
+ * own sticky bar, so they stay put while the header scrolls away and settle
+ * beside the pinned tabs.
+ */
+export function ProjectHeaderActions({
+  project
+}: {
+  project: ProjectDetailType
+}) {
+  const actor = useProjectActor()
+  const reduce = useReducedMotion() ?? false
+  const { sprintGroupId, sprints, sprint, sprintMissing, mode, canPlan } =
+    useHeaderMode()
+  return (
+    <MorphSlot slotKey={mode} reduce={reduce}>
+      {sprintGroupId ? (
+        sprint ? (
+          canPlan ? (
+            <SprintDeleteMenu sprint={sprint} sprints={sprints} />
+          ) : null
+        ) : sprintMissing ? null : (
+          <div className="size-8" />
+        )
+      ) : (
+        <div className="flex items-center gap-3">
+          {actor.call("projects", "gitStates") && (
+            <GithubChip github={project.github} />
+          )}
+          <ProjectMenu />
+        </div>
+      )}
+    </MorphSlot>
   )
 }
 

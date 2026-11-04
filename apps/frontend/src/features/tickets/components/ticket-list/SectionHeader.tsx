@@ -1,13 +1,20 @@
 import type { ProjectStatus, TicketStatus } from "@pp/shared"
 import { ChevronDown, Plus } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
-import { forwardRef, type ReactNode, type Ref } from "react"
+import {
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  type ReactNode,
+  type Ref
+} from "react"
 
 import { Hitbox } from "@/components/ui/hitbox"
 import {
   statusLabelFor,
   statusMetaFor
 } from "@/features/tickets/lib/ticketMeta"
+import { useStuck } from "@/hooks/useStickyBar"
 import { keepInPlace } from "@/lib/keepInPlace"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
@@ -93,28 +100,45 @@ function StatusHeadingIcon({
 const morphFrom = { opacity: 0, filter: "blur(8px)" }
 const morphTo = { opacity: 1, filter: "blur(0px)" }
 
-export const SectionHeader = forwardRef<HTMLDivElement, SectionHeaderProps>(
-  function SectionHeader(props, ref: Ref<HTMLDivElement>) {
-    const {
-      canCreate = true,
-      collapsed,
-      creating,
-      onToggleCollapsed,
-      onStartCreate,
-      onDismissCreate,
-      creator
-    } = props
-    const label = headingLabel(props)
-    return (
+export const SectionHeader = forwardRef<
+  HTMLDivElement | null,
+  SectionHeaderProps
+>(function SectionHeader(props, ref: Ref<HTMLDivElement | null>) {
+  const {
+    canCreate = true,
+    collapsed,
+    creating,
+    onToggleCollapsed,
+    onStartCreate,
+    onDismissCreate,
+    creator
+  } = props
+  const label = headingLabel(props)
+  const stickyRef = useRef<HTMLDivElement>(null)
+  useImperativeHandle<HTMLDivElement | null, HTMLDivElement | null>(
+    ref,
+    () => stickyRef.current
+  )
+  useStuck(stickyRef)
+  // The square page-coloured backing fills the rounded corners, so rows
+  // scrolling under the pinned header don't show through them. The 2px bleed
+  // above tucks under the bar this header pins against and covers the
+  // sub-pixel seam between the two composited layers at fractional device
+  // pixels; at rest it only covers the gap between sections. The fade below
+  // eases rows out while the header is pinned.
+  return (
+    <div
+      ref={stickyRef}
+      className="sticky top-(--list-sticky-top,0px) z-10 bg-(--page-surface) will-change-transform before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-0.5 before:bg-(--page-surface) after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-7 after:bg-(image:--sticky-fade) after:opacity-0 after:transition-opacity after:duration-150 data-stuck:after:opacity-100"
+    >
       <div
-        ref={ref}
         onClick={
           creating
             ? undefined
             : (e) => keepInPlace(e.currentTarget, onToggleCollapsed)
         }
         className={cn(
-          "sticky top-0 z-10 flex items-center gap-3 rounded-lg bg-muted px-3 py-2 transition-colors",
+          "flex items-center gap-3 rounded-lg bg-muted px-3 py-2 transition-colors",
           !creating &&
             "cursor-pointer select-none hover:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)]"
         )}
@@ -205,6 +229,6 @@ export const SectionHeader = forwardRef<HTMLDivElement, SectionHeaderProps>(
           </Hitbox>
         )}
       </div>
-    )
-  }
-)
+    </div>
+  )
+})

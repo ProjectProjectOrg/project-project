@@ -263,6 +263,15 @@
 
 :root {
   --page-surface: color-mix(in srgb, var(--muted) 60%, var(--background));
+  /* Under a pinned list header: a solid strip the width of the row gap, so a
+     row never touches the header, then an eased fade. */
+  --sticky-fade: linear-gradient(
+    to bottom,
+    var(--page-surface) 4px,
+    color-mix(in srgb, var(--page-surface) 70%, transparent) 10px,
+    color-mix(in srgb, var(--page-surface) 30%, transparent) 18px,
+    transparent 28px
+  );
 }
 [data-page-banner] [data-page-header] {
   text-shadow:
@@ -1050,6 +1059,13 @@ html.dark .prose-md .token.coord {
   #root {
     height: 100%;
     isolation: isolate;
+  }
+  /* Chrome on macOS rubber-bands the page sideways even with nothing to
+     scroll. Clipping x (applied to the viewport as hidden) stops that, while
+     overscroll-behavior stays auto so swipe back/forward keeps working. */
+  html,
+  body {
+    overflow-x: clip;
   }
 }
 
