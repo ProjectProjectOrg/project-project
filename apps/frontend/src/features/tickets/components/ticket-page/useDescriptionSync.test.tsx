@@ -221,6 +221,21 @@ describe("useDescriptionSync", () => {
     ])
   })
 
+  it("saves a clean merge that the editor serializes back to the draft", async () => {
+    const { patches } = serve(saved)
+    const editor = editorWith("Loaded\n\nMy paragraph")
+    const { rerender } = setup(true, null, editor)
+
+    rerender({ body: "\nLoaded", focused: true })
+
+    expect(markdownOf(editor)).toBe("Loaded\n\nMy paragraph")
+    await vi.waitFor(() =>
+      expect(patches).toEqual([
+        { body: "Loaded\n\nMy paragraph", expectedBody: "\nLoaded" }
+      ])
+    )
+  })
+
   it("keeps the draft and shows the conflicting lines when both sides changed the same paragraph", () => {
     serve(saved)
     const editor = editorWith("Mine")

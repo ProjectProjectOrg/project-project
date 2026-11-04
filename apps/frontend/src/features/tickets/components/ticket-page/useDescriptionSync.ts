@@ -118,10 +118,12 @@ export function useDescriptionSync({
         baseRef.current = incoming
         setStale(null)
         setConflicts([])
-        setDraft({ body: merge.body, base: incoming })
+        if (merge.body !== current)
+          mergeIntoEditor(editor, merge.body, transformers)
+        const merged = currentMarkdown(editor)
+        setDraft({ body: merged, base: incoming })
         // An unchanged editor fires no autosave, so save the merge here.
-        if (merge.body === current) void send(current)
-        else mergeIntoEditor(editor, merge.body, transformers)
+        if (merged === current) void send(merged)
       } else {
         setStale(incoming)
         setConflicts(merge?._tag === "Conflict" ? merge.conflicts : [])
