@@ -68,7 +68,7 @@ const diffHunks = (
   }
 
   const hunks: Array<Hunk> = []
-  let open: { baseStart: number; sideStart: number } | null = null
+  let open: Readonly<{ baseStart: number; sideStart: number }> | null = null
   const close = (i: number, j: number) => {
     if (open === null) return
     hunks.push({
