@@ -8,8 +8,8 @@ import * as Schema from "effect/Schema"
 import * as TestClock from "effect/testing/TestClock"
 import { afterEach, describe, expect, vi } from "vitest"
 
-import * as Client from "../src/Client"
-import { everhourSpans } from "./tracing"
+import { everhourSpans } from "../test/tracing"
+import * as Client from "./Client"
 
 const isEverhourError = Schema.is(EverhourError)
 const isEverhourProjectAccessDenied = Schema.is(EverhourProjectAccessDenied)

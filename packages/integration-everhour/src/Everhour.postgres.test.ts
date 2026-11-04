@@ -16,12 +16,12 @@ import * as Layer from "effect/Layer"
 import pg from "pg"
 import { describe, expect } from "vitest"
 
-import { EverhourApiKeys } from "../src/ApiKeys"
-import * as EverhourClient from "../src/Client"
-import { EVERHOUR_EVENTS, EverhourEvents } from "../src/Events"
-import { EverhourHost } from "../src/Host"
-import * as Integrations from "../src/Integrations"
-import * as TimeTracking from "../src/TimeTracking"
+import { EverhourApiKeys } from "./ApiKeys"
+import * as EverhourClient from "./Client"
+import { EVERHOUR_EVENTS, EverhourEvents } from "./Events"
+import { EverhourHost } from "./Host"
+import * as Integrations from "./Integrations"
+import * as TimeTracking from "./TimeTracking"
 
 const { Client } = pg
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL

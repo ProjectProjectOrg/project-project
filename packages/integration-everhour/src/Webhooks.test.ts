@@ -3,13 +3,13 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { describe, expect } from "vitest"
 
-import { EverhourApiKeys } from "../src/ApiKeys"
-import * as Client from "../src/Client"
-import { EverhourHost } from "../src/Host"
-import * as TimeTracking from "../src/TimeTracking"
-import * as Webhooks from "../src/Webhooks"
-import { databaseLayer } from "./database"
-import { everhourSpans } from "./tracing"
+import { databaseLayer } from "../test/database"
+import { everhourSpans } from "../test/tracing"
+import { EverhourApiKeys } from "./ApiKeys"
+import * as Client from "./Client"
+import { EverhourHost } from "./Host"
+import * as TimeTracking from "./TimeTracking"
+import * as Webhooks from "./Webhooks"
 
 const unexpected = (method: string): Effect.Effect<never> =>
   Effect.die(new Error(`unexpected ${method} call`))

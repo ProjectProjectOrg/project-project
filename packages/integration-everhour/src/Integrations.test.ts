@@ -5,12 +5,12 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { describe, expect, it } from "vitest"
 
-import { EverhourApiKeys } from "../src/ApiKeys"
-import * as Client from "../src/Client"
-import { EverhourHost } from "../src/Host"
-import * as Integrations from "../src/Integrations"
-import { databaseLayer } from "./database"
-import { everhourSpans } from "./tracing"
+import { databaseLayer } from "../test/database"
+import { everhourSpans } from "../test/tracing"
+import { EverhourApiKeys } from "./ApiKeys"
+import * as Client from "./Client"
+import { EverhourHost } from "./Host"
+import * as Integrations from "./Integrations"
 
 const config: OrgEverhourConfig = { workTypes: DEFAULT_WORK_TYPES }
 
