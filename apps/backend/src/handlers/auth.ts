@@ -1,5 +1,3 @@
-// apps/backend/src/handlers/auth.ts
-//
 // THE `auth` HTTPAPI GROUP — HANDLER LAYER.
 // ============================================================================
 // One endpoint to implement: `GET /me`. The Authentication middleware (in

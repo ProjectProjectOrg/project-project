@@ -8,8 +8,6 @@ import { EverhourRuntimeLive } from "@pp/integration-everhour/Runtime"
 import * as GitHubIntegrations from "@pp/integration-github/GitHubIntegrations"
 import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
 import { SlackRuntimeLive } from "@pp/integration-slack/Runtime"
-// apps/backend/src/main.ts
-//
 // Backend entry point. This file's only job is to wire up the HttpApi from
 // the shared package, attach an implementation, and run the resulting Layer
 // on a Bun HTTP server.

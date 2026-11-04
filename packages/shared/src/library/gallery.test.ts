@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { parseTicketBlocks, validateTicketBlocks } from "../ticketBlocks"
+import { parseTicketBlocks, validateTicketBlocks } from "../tickets/blocks"
 import {
   BUILTIN_BLOCKS,
   BUILTIN_TEMPLATE_DEFAULTS,
@@ -13,7 +13,7 @@ import {
   blockLookupFor,
   expandTemplate,
   resolveLibrary
-} from "./library"
+} from "./resolve"
 
 const builtinLookup = blockLookupFor(
   resolveLibrary(

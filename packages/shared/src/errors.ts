@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema"
 
-import { JiraFailureReason, JiraReconnectReason } from "./schemas/JiraMigration"
+import { JiraFailureReason, JiraReconnectReason } from "./jira/JiraMigration"
 
 export class Unauthorized extends Schema.TaggedError<Unauthorized>()(
   "Unauthorized",

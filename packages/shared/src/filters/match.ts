@@ -1,11 +1,11 @@
-import { matchesEstimateFilter } from "../estimates"
-import type { Estimate, EstimationMode } from "../schemas/Estimate"
+import type { UserId } from "../auth/User"
+import type { Estimate, EstimationMode } from "../estimates/Estimate"
+import { matchesEstimateFilter } from "../estimates/estimates"
 import type {
   PullRequestState,
   TicketStatus,
   TicketType
-} from "../schemas/Ticket"
-import type { UserId } from "../schemas/User"
+} from "../tickets/Ticket"
 import type { TicketFilter, TicketListQuery } from "./Ticket"
 
 export type MatchableTicket = Readonly<{

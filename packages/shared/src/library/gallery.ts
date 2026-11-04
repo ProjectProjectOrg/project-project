@@ -1,12 +1,12 @@
 import * as Schema from "effect/Schema"
 
+import { formatTicketBlock } from "../tickets/blocks"
 import {
   BlockDraft,
   type BlockIcon,
   TemplateDefaults,
   TemplateDraft
-} from "../schemas/Library"
-import { formatTicketBlock } from "../ticketBlocks"
+} from "./Library"
 
 type BlockSource = Readonly<{
   key: string

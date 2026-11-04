@@ -1,5 +1,3 @@
-// apps/backend/src/main.test.ts
-//
 // Chapter 0 — backend handler tests.
 // ============================================================================
 // First test (the one you wrote): asserts the happy path of `health.get`.

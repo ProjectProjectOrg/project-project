@@ -1,0 +1,342 @@
+// Project schema — over-the-wire shape returned by /projects endpoints.
+//
+// `slug` is the URL-safe identifier. We constrain it at the schema boundary
+// rather than just trusting the server, because the slug is also a filesystem
+// path component on disk. A bad slug is a bad path. Lowercase a-z0-9 + dashes
+// only, can't start or end with a dash.
+//
+// `Project` is the full record (used by list responses for now; later by /get).
+
+import { Project as ProjectAccess } from "@pp/access/roles"
+import * as Effect from "effect/Effect"
+import * as Schema from "effect/Schema"
+
+import { AttachmentId } from "../attachments/Attachment"
+import { UserId } from "../auth/User"
+import { EstimationMode } from "../estimates/Estimate"
+
+export const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/u
+
+export const Slug = Schema.String.pipe(
+  Schema.check(Schema.isPattern(SLUG_PATTERN)),
+  Schema.check(Schema.isMinLength(1)),
+  Schema.check(Schema.isMaxLength(64))
+)
+export type Slug = typeof Slug.Type
+
+export const CreatableProjectKey = Schema.String.pipe(
+  Schema.check(Schema.isPattern(/^[A-Z][A-Z0-9]{1,9}$/u)),
+  Schema.brand("CreatableProjectKey")
+)
+export type CreatableProjectKey = typeof CreatableProjectKey.Type
+
+export const ProjectKey = Schema.Union([
+  CreatableProjectKey,
+  Schema.Literal("T")
+]).pipe(Schema.brand("ProjectKey"))
+export type ProjectKey = typeof ProjectKey.Type
+
+export const Role = ProjectAccess.ProjectRoleName
+export type Role = typeof Role.Type
+
+export const ProjectPermissions = ProjectAccess.projectStatement.schema
+export type ProjectPermissions = typeof ProjectPermissions.Type
+
+export const ProjectIcon = Schema.String.pipe(
+  Schema.check(Schema.isMinLength(1)),
+  Schema.check(Schema.isMaxLength(16)),
+  Schema.brand("ProjectIcon")
+)
+export type ProjectIcon = typeof ProjectIcon.Type
+
+export const ProjectColor = Schema.String.pipe(
+  Schema.check(Schema.isPattern(/^#[0-9a-fA-F]{6}$/u)),
+  Schema.brand("ProjectColor")
+)
+export type ProjectColor = typeof ProjectColor.Type
+
+export const AssignableRole = Role
+export type AssignableRole = typeof AssignableRole.Type
+
+// Wire shape for a project member. Includes everything the UI needs to
+// render and act on a row — `id` is the stable handle for API calls, the
+// rest are display fields. `username` and `image` are nullable because
+// users created before those fields were populated may not have them yet.
+export const Member = Schema.Struct({
+  id: UserId,
+  username: Schema.NullOr(Schema.String),
+  name: Schema.String,
+  email: Schema.String,
+  // GitHub avatar URL, populated by Better Auth on first sign-in. Used by
+  // MemberAvatar to render a real photo; if missing or fails to load, the
+  // component falls back to a name-initial circle.
+  image: Schema.NullOr(Schema.String),
+  role: Role
+})
+export type Member = typeof Member.Type
+
+export const PendingProjectMember = Schema.Struct({
+  invitationId: Schema.String,
+  email: Schema.String,
+  role: AssignableRole,
+  expiresAt: Schema.DateFromString
+})
+export type PendingProjectMember = typeof PendingProjectMember.Type
+
+// GitHub connection on a project. `null` means no repo connected.
+// `defaultBaseBranch` overrides the repo's default branch when set.
+export const GithubConnection = Schema.Struct({
+  repoId: Schema.String,
+  repoOwner: Schema.String,
+  repoName: Schema.String,
+  defaultBaseBranch: Schema.NullOr(Schema.String)
+})
+export type GithubConnection = typeof GithubConnection.Type
+
+export const GithubOrgIntegrationStatus = Schema.Struct({
+  status: Schema.Literals(["not_connected", "active", "broken"]),
+  accountLogin: Schema.NullOr(Schema.String),
+  accountType: Schema.NullOr(Schema.Literals(["User", "Organization"])),
+  lastCheckedAt: Schema.NullOr(Schema.DateFromString),
+  lastCheckError: Schema.NullOr(Schema.String)
+})
+export type GithubOrgIntegrationStatus = typeof GithubOrgIntegrationStatus.Type
+
+export const StartGithubInstallInput = Schema.Struct({
+  returnProjectSlug: Schema.optional(Schema.NullOr(Slug))
+})
+export type StartGithubInstallInput = typeof StartGithubInstallInput.Type
+
+export const StartGithubInstallResponse = Schema.Struct({
+  installUrl: Schema.String
+})
+export type StartGithubInstallResponse = typeof StartGithubInstallResponse.Type
+
+export const GithubInstallationChoice = Schema.Struct({
+  installationId: Schema.String,
+  accountLogin: Schema.String,
+  accountType: Schema.Literals(["User", "Organization"]),
+  connectedElsewhere: Schema.Boolean
+})
+export type GithubInstallationChoice = typeof GithubInstallationChoice.Type
+
+export const GithubInstallationChoices = Schema.Struct({
+  installations: Schema.Array(GithubInstallationChoice)
+})
+export type GithubInstallationChoices = typeof GithubInstallationChoices.Type
+
+export const ChooseGithubInstallationInput = Schema.Struct({
+  state: Schema.NonEmptyString,
+  installationId: Schema.NullOr(Schema.NonEmptyString)
+})
+export type ChooseGithubInstallationInput =
+  typeof ChooseGithubInstallationInput.Type
+
+export const ChooseGithubInstallationResponse = Schema.Struct({
+  redirectUrl: Schema.String
+})
+export type ChooseGithubInstallationResponse =
+  typeof ChooseGithubInstallationResponse.Type
+
+export const ProjectSetup = Schema.Struct({
+  workflowReviewedAt: Schema.NullOr(Schema.DateFromString),
+  invitePeopleDismissedAt: Schema.NullOr(Schema.DateFromString),
+  connectGithubDismissedAt: Schema.NullOr(Schema.DateFromString)
+})
+export type ProjectSetup = typeof ProjectSetup.Type
+
+export const ProjectBannerPreset = Schema.Literals([
+  "sunset",
+  "water_lily_pond",
+  "wheat_stacks",
+  "cliff_walk",
+  "saint_lazare",
+  "bordighera"
+])
+export type ProjectBannerPreset = typeof ProjectBannerPreset.Type
+
+export const ProjectBannerCrop = Schema.Struct({
+  x: Schema.Finite.pipe(
+    Schema.check(Schema.isBetween({ minimum: 0, maximum: 1 }))
+  ),
+  y: Schema.Finite.pipe(
+    Schema.check(Schema.isBetween({ minimum: 0, maximum: 1 }))
+  ),
+  zoom: Schema.Finite.pipe(
+    Schema.check(Schema.isBetween({ minimum: 1, maximum: 4 }))
+  )
+})
+
+export const BANNER_PLACEHOLDER_BUDGET = 1536
+
+export const BANNER_PLACEHOLDER_MAX_LENGTH = 4096
+
+export const ProjectBannerPlaceholder = Schema.NullOr(
+  Schema.String.pipe(
+    Schema.check(
+      Schema.isPattern(/^data:image\/webp;base64,[A-Za-z0-9+/]+=*$/u)
+    ),
+    Schema.check(Schema.isMaxLength(BANNER_PLACEHOLDER_MAX_LENGTH))
+  )
+)
+
+export const ProjectBanner = Schema.Union([
+  Schema.Struct({
+    type: Schema.Literal("preset"),
+    preset: ProjectBannerPreset,
+    crop: ProjectBannerCrop,
+    placeholder: Schema.optional(ProjectBannerPlaceholder)
+  }),
+  Schema.Struct({
+    type: Schema.Literal("attachment"),
+    attachmentId: AttachmentId,
+    crop: ProjectBannerCrop,
+    placeholder: Schema.optional(ProjectBannerPlaceholder)
+  })
+])
+export type ProjectBanner = typeof ProjectBanner.Type
+
+export const ProjectIconCrop = ProjectBannerCrop
+
+export const ProjectIconTolerance = Schema.Int.pipe(
+  Schema.check(Schema.isBetween({ minimum: 0, maximum: 160 }))
+)
+
+export const ProjectIconImage = Schema.Union([
+  Schema.Struct({
+    type: Schema.Literal("sticker"),
+    sourceAttachmentId: AttachmentId,
+    renderedAttachmentId: AttachmentId,
+    cutoutTolerance: Schema.NullOr(ProjectIconTolerance),
+    crop: ProjectIconCrop
+  }),
+  Schema.Struct({
+    type: Schema.Literal("full_bleed"),
+    sourceAttachmentId: AttachmentId,
+    crop: ProjectIconCrop
+  })
+])
+export type ProjectIconImage = typeof ProjectIconImage.Type
+
+export const Project = Schema.Struct({
+  banner: Schema.NullOr(ProjectBanner),
+  iconImage: Schema.NullOr(ProjectIconImage),
+  org: Slug,
+  slug: Slug,
+  key: ProjectKey,
+  name: Schema.String,
+  icon: ProjectIcon,
+  color: ProjectColor,
+  createdBy: Schema.String,
+  createdAt: Schema.DateFromString
+})
+export type Project = typeof Project.Type
+
+export const CreateProjectInput = Schema.Struct({
+  name: Schema.String.pipe(
+    Schema.check(Schema.isMinLength(1)),
+    Schema.check(Schema.isMaxLength(120))
+  ),
+  key: CreatableProjectKey
+})
+export type CreateProjectInput = typeof CreateProjectInput.Type
+
+// Returned by GET /projects/:slug. The list endpoint stays index-shaped (no
+// body); this one carries the markdown body so the detail view can render it
+// without a second round trip. `createdBy` is the immutable creator of the
+// project, kept for audit only.
+// `github` is the connection block from project.md; null when no repo is
+// connected.
+export const ProjectDetail = Schema.Struct({
+  ...Project.fields,
+  github: Schema.NullOr(GithubConnection),
+  setup: ProjectSetup,
+  estimation: EstimationMode.pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed("off" as const))
+  ),
+  body: Schema.String,
+  members: Schema.Array(Member),
+  pendingMembers: Schema.Array(PendingProjectMember),
+  permissions: ProjectPermissions
+})
+export type ProjectDetail = typeof ProjectDetail.Type
+
+export const AddMemberInput = Schema.Struct({
+  email: Schema.String.pipe(
+    Schema.check(Schema.isMinLength(3)),
+    Schema.check(Schema.isMaxLength(254))
+  ),
+  role: AssignableRole
+})
+export type AddMemberInput = typeof AddMemberInput.Type
+
+export const UpdateMemberInput = Schema.Struct({
+  role: AssignableRole
+})
+export type UpdateMemberInput = typeof UpdateMemberInput.Type
+
+// Partial update payload. Both fields optional — the client sends only what
+// changed. Empty object is allowed but a no-op on the server.
+export const UpdateProjectInput = Schema.Struct({
+  banner: Schema.optional(Schema.NullOr(ProjectBanner)),
+  iconImage: Schema.optional(Schema.NullOr(ProjectIconImage)),
+  name: Schema.optional(
+    Schema.String.pipe(
+      Schema.check(Schema.isMinLength(1)),
+      Schema.check(Schema.isMaxLength(120))
+    )
+  ),
+  body: Schema.optional(Schema.String),
+  icon: Schema.optional(ProjectIcon),
+  color: Schema.optional(ProjectColor),
+  estimation: Schema.optional(EstimationMode)
+})
+export type UpdateProjectInput = typeof UpdateProjectInput.Type
+
+export const UpdateProjectSetupInput = Schema.Struct({
+  workflowReviewedAt: Schema.optional(Schema.NullOr(Schema.DateFromString)),
+  invitePeopleDismissedAt: Schema.optional(
+    Schema.NullOr(Schema.DateFromString)
+  ),
+  connectGithubDismissedAt: Schema.optional(
+    Schema.NullOr(Schema.DateFromString)
+  )
+})
+export type UpdateProjectSetupInput = typeof UpdateProjectSetupInput.Type
+
+// --- GitHub connection inputs ----------------------------------------------
+
+export const ConnectGithubInput = Schema.Struct({
+  repoId: Schema.String.pipe(
+    Schema.check(Schema.isMinLength(1)),
+    Schema.check(Schema.isMaxLength(80))
+  ),
+  repoOwner: Schema.String.pipe(
+    Schema.check(Schema.isMinLength(1)),
+    Schema.check(Schema.isMaxLength(120))
+  ),
+  repoName: Schema.String.pipe(
+    Schema.check(Schema.isMinLength(1)),
+    Schema.check(Schema.isMaxLength(120))
+  ),
+  defaultBaseBranch: Schema.optional(Schema.NullOr(Schema.String))
+})
+export type ConnectGithubInput = typeof ConnectGithubInput.Type
+
+// What the connect-repo picker renders. `defaultBranch` lets us prefill the
+// base-branch picker on first connect, so the user almost never has to pick.
+export const GithubRepo = Schema.Struct({
+  id: Schema.String,
+  owner: Schema.String,
+  name: Schema.String,
+  defaultBranch: Schema.String,
+  private: Schema.Boolean,
+  description: Schema.NullOr(Schema.String)
+})
+export type GithubRepo = typeof GithubRepo.Type
+
+export const GithubRepoPage = Schema.Struct({
+  repos: Schema.Array(GithubRepo),
+  hasMore: Schema.Boolean
+})
+export type GithubRepoPage = typeof GithubRepoPage.Type

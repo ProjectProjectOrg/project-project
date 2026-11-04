@@ -1,8 +1,8 @@
 import type { Statement } from "@pp/access"
 import { Org, Project } from "@pp/access/roles"
 
-import type { OrgPermissions } from "../schemas/Org"
-import type { ProjectPermissions } from "../schemas/Project"
+import type { OrgPermissions } from "../organizations/Org"
+import type { ProjectPermissions } from "../projects/Project"
 import { type CanCall, canCallOrg, canCallProject } from "./canCall"
 
 export type ProjectActor = Readonly<{

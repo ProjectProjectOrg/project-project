@@ -3,6 +3,13 @@ import * as Context from "effect/Context"
 import * as Schema from "effect/Schema"
 
 import {
+  ATTACHMENT_MAX_BYTES,
+  OrgStorageStatus,
+  PrepareAttachmentInput,
+  PrepareAttachmentResult
+} from "../attachments/Attachment"
+import { Comment, CreateCommentInput } from "../comments/Comment"
+import {
   AttachmentTooLarge,
   AttachmentTypeRejected,
   StorageConfigMissing,
@@ -23,16 +30,8 @@ import {
   Validation
 } from "../errors"
 import { GroupFilter, TicketListQuery } from "../filters"
-import { Page, Pagination } from "../Pagination"
-import {
-  ATTACHMENT_MAX_BYTES,
-  OrgStorageStatus,
-  PrepareAttachmentInput,
-  PrepareAttachmentResult
-} from "../schemas/Attachment"
-import { Comment, CreateCommentInput } from "../schemas/Comment"
-import { GitAutomationEvent } from "../schemas/GitAutomation"
-import { AttachBranchInput, GitStatesResponse } from "../schemas/GitState"
+import { GitAutomationEvent } from "../github/GitAutomation"
+import { AttachBranchInput, GitStatesResponse } from "../github/GitState"
 import {
   CompleteSprintInput,
   CompleteSprintOutput,
@@ -42,7 +41,8 @@ import {
   GroupId,
   UpdateGroupInput,
   UpdateGroupTicketsOutput
-} from "../schemas/Group"
+} from "../groups/Group"
+import { SprintState } from "../groups/sprints"
 import {
   BlockKey,
   LibraryContent,
@@ -50,11 +50,13 @@ import {
   LibraryName,
   LibraryOrigin,
   TemplateKey
-} from "../schemas/Library"
-import { Org } from "../schemas/Org"
-import { Member, Project, ProjectDetail, Slug } from "../schemas/Project"
-import { ProjectStatus } from "../schemas/Status"
-import { Tag, TagName } from "../schemas/Tag"
+} from "../library/Library"
+import { Org } from "../organizations/Org"
+import { Page, Pagination } from "../pagination/Pagination"
+import { Member, Project, ProjectDetail, Slug } from "../projects/Project"
+import { ProjectStatus } from "../statuses/Status"
+import { Tag, TagName } from "../tags/Tag"
+import { TicketBodyEdits } from "../tickets/bodyEdits"
 import {
   ArchiveTicketInput,
   CreateTicketInput,
@@ -64,9 +66,7 @@ import {
   TicketPriority,
   TicketType,
   UpdateTicketInput
-} from "../schemas/Ticket"
-import { SprintState } from "../sprintLogic"
-import { TicketBodyEdits } from "../ticketBodyEdits"
+} from "../tickets/Ticket"
 import { DocFile } from "./DocFile"
 import { MeOutput } from "./MeOutput"
 import { RebuildTicketIndexOutput } from "./RebuildTicketIndexOutput"

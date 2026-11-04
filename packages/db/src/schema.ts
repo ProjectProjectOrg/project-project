@@ -1,5 +1,3 @@
-// packages/db/src/schema.ts
-//
 // THE DATABASE SCHEMA, AS TYPESCRIPT.
 // ============================================================================
 // drizzle-orm lets you describe Postgres tables as TypeScript values. The

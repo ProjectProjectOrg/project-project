@@ -1,9 +1,7 @@
-// apps/backend/src/Layers/Auth.ts
-//
 // THE AUTHENTICATION MIDDLEWARE — LIVE IMPLEMENTATION.
 // ============================================================================
 // The `Authentication` Tag, the `CurrentUser` Tag, and the cookie security
-// scheme are all declared in `packages/shared/src/Authentication.ts`. This
+// scheme are all declared in `packages/shared/src/auth/Authentication.ts`. This
 // file *implements* the Live Layer — the runtime logic that reads the cookie,
 // asks Better Auth who's logged in, and either provides a `User` to the
 // handler or fails with `Unauthorized`.

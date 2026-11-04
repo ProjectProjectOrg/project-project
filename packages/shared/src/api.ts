@@ -1,6 +1,4 @@
 import * as Effect from "effect/Effect"
-// packages/shared/src/api.ts
-//
 // THIS FILE IS THE CONTRACT.
 // ----------------------------------------------------------------------------
 // ProjectProject's HTTP API is defined here, once. The backend implements it; the
@@ -26,7 +24,25 @@ import * as Schema from "effect/Schema"
 
 import { IncludeDeletedOrg, OrgAccess, RequiresOrg } from "./access/OrgAccess"
 import { ProjectAccess, RequiresProject } from "./access/ProjectAccess"
-import { Authentication } from "./Authentication"
+import {
+  Attachment,
+  AttachmentListPage,
+  AttachmentListParams,
+  AttachmentSummary,
+  ConnectStorageInput,
+  OrgStorageStatus,
+  PrepareAttachmentInput,
+  PrepareAttachmentResult
+} from "./attachments/Attachment"
+import { Authentication } from "./auth/Authentication"
+import { OAuthApplication } from "./auth/OAuthApplication"
+import { User } from "./auth/User"
+import {
+  Comment,
+  CommentId,
+  CreateCommentInput,
+  UpdateCommentInput
+} from "./comments/Comment"
 import {
   AttachmentNotUploaded,
   AttachmentTooLarge,
@@ -70,6 +86,34 @@ import {
   Unauthorized,
   Validation
 } from "./errors"
+import { ClearStaleEstimatesResult } from "./estimates/Estimate"
+import {
+  ConnectEverhourProfileInput,
+  EverhourProjectIntegrationStatus,
+  EverhourSyncSummary,
+  PersonalEverhour
+} from "./everhour/Everhour"
+import {
+  ActiveTimer,
+  LogTimeInput,
+  StartSprintTimerInput,
+  StartTimerInput,
+  TicketTimeSummary,
+  WorkTypeOption
+} from "./everhour/TimeTracking"
+import {
+  FeedbackAttachment,
+  FeedbackIntakePayload,
+  FeedbackStatus,
+  FeedbackUploadPayload,
+  SubmitFeedbackInput
+} from "./feedback/Feedback"
+import {
+  ConnectFigmaProjectInput,
+  FigmaLinkMetadata,
+  FigmaProjectIntegrationStatus,
+  PersonalFigma
+} from "./figma/Figma"
 import {
   DEFAULT_TICKET_SORT,
   MyTicketsQuery,
@@ -89,50 +133,7 @@ import {
   TicketSprintSections,
   TicketUpdateResult
 } from "./filters/Ticket"
-import {
-  Attachment,
-  AttachmentListPage,
-  AttachmentListParams,
-  AttachmentSummary,
-  ConnectStorageInput,
-  OrgStorageStatus,
-  PrepareAttachmentInput,
-  PrepareAttachmentResult
-} from "./schemas/Attachment"
-import {
-  BulkUpdateTicketsInput,
-  BulkUpdateTicketsResult
-} from "./schemas/BulkTickets"
-import {
-  Comment,
-  CommentId,
-  CreateCommentInput,
-  UpdateCommentInput
-} from "./schemas/Comment"
-import { ClearStaleEstimatesResult } from "./schemas/Estimate"
-import {
-  ConnectEverhourProfileInput,
-  EverhourProjectIntegrationStatus,
-  EverhourSyncSummary,
-  PersonalEverhour
-} from "./schemas/Everhour"
-import {
-  FeedbackAttachment,
-  FeedbackIntakePayload,
-  FeedbackStatus,
-  FeedbackUploadPayload,
-  SubmitFeedbackInput
-} from "./schemas/Feedback"
-import {
-  ConnectFigmaProjectInput,
-  FigmaLinkMetadata,
-  FigmaProjectIntegrationStatus,
-  PersonalFigma
-} from "./schemas/Figma"
-import {
-  GitAutomation,
-  UpdateGitAutomationInput
-} from "./schemas/GitAutomation"
+import { GitAutomation, UpdateGitAutomationInput } from "./github/GitAutomation"
 import {
   AttachBranchInput,
   BranchListResponse,
@@ -140,7 +141,7 @@ import {
   GitStatesResponse,
   OpenPrInput,
   OpenPrResult
-} from "./schemas/GitState"
+} from "./github/GitState"
 import {
   CompleteSprintInput,
   CompleteSprintOutput,
@@ -152,7 +153,7 @@ import {
   UpdateGroupTicketsInput,
   UpdateGroupTicketsOutput,
   UpdateTicketOrderInput
-} from "./schemas/Group"
+} from "./groups/Group"
 import {
   ConfigureJiraMigrationInput,
   CreateJiraMigrationInput,
@@ -164,7 +165,7 @@ import {
   JiraProjectChoice,
   JiraSite,
   JiraSkippedAttachment
-} from "./schemas/JiraMigration"
+} from "./jira/JiraMigration"
 import {
   BlockDefinition,
   BlockKey,
@@ -177,9 +178,8 @@ import {
   UpdateBlockInput,
   UpdateTemplateDefaultsInput,
   UpdateTemplateInput
-} from "./schemas/Library"
-import { LinkPreview, LinkPreviewQuery } from "./schemas/LinkPreview"
-import { OAuthApplication } from "./schemas/OAuthApplication"
+} from "./library/Library"
+import { LinkPreview, LinkPreviewQuery } from "./linkPreviews/LinkPreview"
 import {
   InviteMemberInput,
   Org,
@@ -191,12 +191,12 @@ import {
   TransferOrgOwnershipInput,
   UpdateMemberRoleInput,
   UserInvitation
-} from "./schemas/Org"
+} from "./organizations/Org"
 import {
   OrgEmailStatus,
   SaveOrgEmailInput,
   OrgEmailError
-} from "./schemas/OrgEmail"
+} from "./organizations/OrgEmail"
 import {
   AddMemberInput,
   ChooseGithubInstallationInput,
@@ -214,7 +214,7 @@ import {
   UpdateMemberInput,
   UpdateProjectInput,
   UpdateProjectSetupInput
-} from "./schemas/Project"
+} from "./projects/Project"
 import {
   ConnectSlackInput,
   SlackOrgStatus,
@@ -226,15 +226,19 @@ import {
   SlackAuthInvalid,
   SlackRateLimited,
   SlackError
-} from "./schemas/Slack"
+} from "./slack/Slack"
 import {
   CreateStatusInput,
   ProjectStatus,
   ReorderStatusInput,
   StatusSlug,
   UpdateStatusInput
-} from "./schemas/Status"
-import { CreateTagInput, Tag, TagName, UpdateTagInput } from "./schemas/Tag"
+} from "./statuses/Status"
+import { CreateTagInput, Tag, TagName, UpdateTagInput } from "./tags/Tag"
+import {
+  BulkUpdateTicketsInput,
+  BulkUpdateTicketsResult
+} from "./tickets/BulkTickets"
 import {
   ArchiveTicketInput,
   DeleteTicketQuery,
@@ -246,17 +250,8 @@ import {
   TicketDetail,
   TicketId,
   UpdateTicketInput
-} from "./schemas/Ticket"
-import { TicketActivityPage } from "./schemas/TicketActivity"
-import {
-  ActiveTimer,
-  LogTimeInput,
-  StartSprintTimerInput,
-  StartTimerInput,
-  TicketTimeSummary,
-  WorkTypeOption
-} from "./schemas/TimeTracking"
-import { User } from "./schemas/User"
+} from "./tickets/Ticket"
+import { TicketActivityPage } from "./tickets/TicketActivity"
 
 const HealthResponse = Schema.Struct({
   status: Schema.Literal("ok"),

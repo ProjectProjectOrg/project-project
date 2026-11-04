@@ -4,8 +4,8 @@
 import * as Schema from "effect/Schema"
 import * as Struct from "effect/Struct"
 
-import { OrgRole } from "../schemas/Org"
-import { User } from "../schemas/User"
+import { User } from "../auth/User"
+import { OrgRole } from "../organizations/Org"
 
 export const MeRole = Schema.Struct({
   orgSlug: Schema.String,

@@ -2,7 +2,7 @@ import type { Statement } from "@pp/access"
 import type { Org } from "@pp/access/roles"
 import * as Context from "effect/Context"
 
-import type { OrgRole } from "../schemas/Org"
+import type { OrgRole } from "../organizations/Org"
 
 /** @effect-leakable-service */
 export class OrgScope extends Context.Service<
