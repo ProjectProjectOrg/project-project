@@ -3,8 +3,8 @@ import { TicketId, TicketStatus } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 
-import type * as TicketDocs from "./TicketDocs"
-import { clearedPrMetadata, hasPrMetadata } from "./ticketPrMetadata"
+import type * as TicketDocs from "../tickets/TicketDocs"
+import { clearedPrMetadata, hasPrMetadata } from "./prMetadata"
 
 const decodeUnknownTicketIdSync = Schema.decodeUnknownSync(TicketId)
 

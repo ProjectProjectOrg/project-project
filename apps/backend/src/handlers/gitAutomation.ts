@@ -1,4 +1,4 @@
-import * as ProjectGitAutomation from "@pp/server-core/projects/ProjectGitAutomation"
+import * as ProjectGitAutomation from "@pp/server-core/git/ProjectGitAutomation"
 import { AppApi } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"

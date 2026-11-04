@@ -28,12 +28,12 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as SqlClient from "effect/sql/SqlClient"
 
-import * as GitHub from "../github/GitHub"
 import type * as Markdown from "../markdown/Markdown"
+import * as ProjectDetails from "../projects/ProjectDetails"
+import { annotateProjectTelemetry } from "../projects/projectTelemetry"
+import { uniqueConstraint } from "../projects/uniqueConstraint"
 import * as TicketRewrites from "../tickets/TicketRewrites"
-import * as ProjectDetails from "./ProjectDetails"
-import { annotateProjectTelemetry } from "./projectTelemetry"
-import { uniqueConstraint } from "./uniqueConstraint"
+import * as GitHub from "./GitHub"
 
 export interface ProjectGithubIntegration {
   readonly projectIntegrationLinkId: string
@@ -92,7 +92,7 @@ export class ProjectGithub extends Context.Service<
       ProjectScope
     >
   }>
->()("@pp/server-core/projects/ProjectGithub") {}
+>()("@pp/server-core/github/ProjectGithub") {}
 
 const make = Effect.gen(function* () {
   const db = yield* Db

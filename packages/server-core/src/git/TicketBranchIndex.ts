@@ -26,8 +26,8 @@ import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
-import type * as TicketIndex from "./TicketIndex"
-import type { TicketProject } from "./ticketProject"
+import type * as TicketIndex from "../tickets/TicketIndex"
+import type { TicketProject } from "../tickets/ticketProject"
 
 const stackEntryFromRow = (
   row: typeof ticketBranch.$inferSelect
@@ -90,7 +90,7 @@ export class TicketBranchIndex extends Context.Service<
       updatedAt: Date
     ) => Effect.Effect<ReadonlyArray<string>>
   }>
->()("@pp/server-core/tickets/TicketBranchIndex") {}
+>()("@pp/server-core/git/TicketBranchIndex") {}
 
 const make = Effect.gen(function* () {
   const db = yield* Db

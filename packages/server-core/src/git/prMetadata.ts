@@ -1,6 +1,6 @@
 import * as Struct from "effect/Struct"
 
-import type * as TicketDocs from "./TicketDocs"
+import type * as TicketDocs from "../tickets/TicketDocs"
 
 const prMetadataKeys = [
   "pr",

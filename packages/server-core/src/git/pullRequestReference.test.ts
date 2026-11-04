@@ -5,7 +5,7 @@ import {
   pickPullRequestTicket,
   pullRequestTicketReferences,
   type PullRequestText
-} from "./pullRequestTicketReference"
+} from "./pullRequestReference"
 
 const pick = (pr: Partial<PullRequestText>, existing: ReadonlyArray<string>) =>
   Option.getOrNull(

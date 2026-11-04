@@ -1,7 +1,7 @@
 // Thin handlers for the `tickets` HttpApi group. All logic in TicketQueries, TicketCommands and TicketGit.
 
+import * as TicketGit from "@pp/server-core/git/TicketGit"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
-import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { AppApi, Validation } from "@pp/shared"
 import * as Effect from "effect/Effect"

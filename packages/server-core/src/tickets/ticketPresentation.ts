@@ -8,9 +8,9 @@ import {
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 
+import { stackLayerStates } from "../git/stackLayerStates"
+import type * as ProjectGithub from "../github/ProjectGithub"
 import type * as Markdown from "../markdown/Markdown"
-import type * as ProjectGithub from "../projects/ProjectGithub"
-import { stackLayerStates } from "./stackLayerStates"
 import type * as TicketDocs from "./TicketDocs"
 import type * as TicketIndex from "./TicketIndex"
 

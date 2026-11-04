@@ -2,13 +2,13 @@ import { StatusSlug } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { DEFAULT_GIT_AUTOMATION_CONFIG } from "../projects/gitAutomationTesting"
 import {
   gitAutomationEvent,
   planGitAutomation,
   type GitAutomationConfig,
   type TicketGitFields
-} from "./gitAutomation"
+} from "./automation"
+import { DEFAULT_GIT_AUTOMATION_CONFIG } from "./automationTesting"
 
 const status = Schema.decodeSync(StatusSlug)
 

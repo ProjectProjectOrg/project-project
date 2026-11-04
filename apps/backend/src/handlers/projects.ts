@@ -6,10 +6,10 @@
 
 import * as GitHubIntegrations from "@pp/integration-github/GitHubIntegrations"
 import * as Attachments from "@pp/server-core/attachments/Attachments"
-import * as ProjectGithub from "@pp/server-core/projects/ProjectGithub"
+import * as TicketGit from "@pp/server-core/git/TicketGit"
+import * as ProjectGithub from "@pp/server-core/github/ProjectGithub"
 import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
-import * as TicketGit from "@pp/server-core/tickets/TicketGit"
 import { AppApi, ProjectScope } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"

@@ -15,9 +15,9 @@ import { afterAll, beforeAll, describe, expect } from "vitest"
 import * as Access from "../access/Access"
 import { testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
-import * as ProjectDocs from "./ProjectDocs"
+import * as ProjectDocs from "../projects/ProjectDocs"
+import { projectsOnPostgres } from "../projects/projectsOnPostgres"
 import * as ProjectGithub from "./ProjectGithub"
-import { projectsOnPostgres } from "./projectsOnPostgres"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const unused = () => Effect.die(new Error("Unexpected project docs call"))

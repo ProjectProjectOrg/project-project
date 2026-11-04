@@ -12,12 +12,7 @@ import type * as GitHub from "../github/GitHub"
 import * as GitHubTicketEvents from "../github/GitHubTicketEvents"
 import * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
-import {
-  DEFAULT_GIT_AUTOMATION_CONFIG,
-  gitAutomationTestLayer,
-  gitAutomationTestService
-} from "../projects/gitAutomationTesting"
-import * as TicketServices from "./layer"
+import * as TicketServices from "../tickets/layer"
 import {
   isoDate,
   ticketStatus,
@@ -41,13 +36,18 @@ import {
   makeRecordingTicketIndex,
   PassthroughLibrary,
   makeTicketsLayer
-} from "./testing"
+} from "../tickets/testing"
+import * as TicketCommands from "../tickets/TicketCommands"
+import * as TicketDocs from "../tickets/TicketDocs"
+import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
+import * as TicketIndex from "../tickets/TicketIndex"
+import {
+  DEFAULT_GIT_AUTOMATION_CONFIG,
+  gitAutomationTestLayer,
+  gitAutomationTestService
+} from "./automationTesting"
 import * as TicketBranchIndex from "./TicketBranchIndex"
-import * as TicketCommands from "./TicketCommands"
-import * as TicketDocs from "./TicketDocs"
-import * as TicketDocumentLock from "./ticketDocumentLock"
 import * as TicketGit from "./TicketGit"
-import * as TicketIndex from "./TicketIndex"
 
 it.effect("listGitStates fetches only distinct ticket branches", () => {
   const docs = makeFakeTicketDocs(["T-1", "T-2", "T-3", "T-4"])

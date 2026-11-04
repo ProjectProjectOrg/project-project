@@ -5,7 +5,7 @@ import {
   orderStackLayers,
   planLayerPullRequest,
   planStackAttach
-} from "./ticketStack"
+} from "./stack"
 
 const layer = (branch: string, base?: string): TicketBranchEntry =>
   base === undefined ? { branch } : { branch, base }

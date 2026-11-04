@@ -1,7 +1,7 @@
 import type { StackLayerState, TicketBranchEntry } from "@pp/shared"
 
 import type * as GitHub from "../github/GitHub"
-import { orderStackLayers } from "./ticketStack"
+import { orderStackLayers } from "./stack"
 
 type Repository = Readonly<{ repoOwner: string; repoName: string }>
 

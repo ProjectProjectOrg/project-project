@@ -12,7 +12,7 @@ import {
   pullRequestLanded,
   planTicketGitStates,
   type TicketGitStateInput
-} from "./ticketGitStatePlanner"
+} from "./statePlanner"
 
 const now = DateTime.toDate(DateTime.makeUnsafe("2026-05-08T10:00:00.000Z"))
 const ticketId = Schema.decodeUnknownSync(TicketId)

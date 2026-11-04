@@ -21,33 +21,33 @@ import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as SqlClient from "effect/sql/SqlClient"
 
-import type * as Markdown from "../markdown/Markdown"
-import * as ProjectGitAutomation from "../projects/ProjectGitAutomation"
 import {
   gitAutomationActivity,
   moveForDeletedBranch,
   withGitAutomation
-} from "../tickets/moveByGitAutomation"
+} from "../git/automationMoves"
+import * as ProjectGitAutomation from "../git/ProjectGitAutomation"
 import {
   pickPullRequestTicket,
   pullRequestTicketReferences
-} from "../tickets/pullRequestTicketReference"
-import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
-import * as TicketDocs from "../tickets/TicketDocs"
-import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
-import {
-  planPullRequestPatch,
-  planPullRequestWebhookTicket,
-  withPullRequestBase
-} from "../tickets/ticketGitStatePlanner"
-import * as TicketIndex from "../tickets/TicketIndex"
-import type { TicketProject } from "../tickets/ticketProject"
+} from "../git/pullRequestReference"
 import {
   planLayerPullRequest,
   planStackAttach,
   replaceLayer,
   type StackPullRequest
-} from "../tickets/ticketStack"
+} from "../git/stack"
+import {
+  planPullRequestPatch,
+  planPullRequestWebhookTicket,
+  withPullRequestBase
+} from "../git/statePlanner"
+import * as TicketBranchIndex from "../git/TicketBranchIndex"
+import type * as Markdown from "../markdown/Markdown"
+import * as TicketDocs from "../tickets/TicketDocs"
+import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
+import * as TicketIndex from "../tickets/TicketIndex"
+import type { TicketProject } from "../tickets/ticketProject"
 import {
   mergedPullRequestsForRepository,
   reconcilePullRequestChange,

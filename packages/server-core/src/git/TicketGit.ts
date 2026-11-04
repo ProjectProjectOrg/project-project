@@ -30,29 +30,32 @@ import * as Schema from "effect/Schema"
 import * as Struct from "effect/Struct"
 
 import * as GitHub from "../github/GitHub"
+import * as ProjectGithub from "../github/ProjectGithub"
 import type * as Markdown from "../markdown/Markdown"
-import * as ProjectGitAutomation from "../projects/ProjectGitAutomation"
-import * as ProjectGithub from "../projects/ProjectGithub"
+import * as TicketDocs from "../tickets/TicketDocs"
+import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
+import * as TicketIndex from "../tickets/TicketIndex"
+import {
+  pendingGitState,
+  type TicketReadError
+} from "../tickets/ticketPresentation"
+import type { TicketProject } from "../tickets/ticketProject"
+import * as TicketView from "../tickets/TicketView"
 import {
   gitAutomationActivity,
   moveForDeletedBranch,
   withGitAutomation
-} from "./moveByGitAutomation"
+} from "./automationMoves"
+import * as ProjectGitAutomation from "./ProjectGitAutomation"
+import { stackLayerFor, ticketBranches } from "./stack"
 import { stackLayerStates } from "./stackLayerStates"
-import * as TicketBranchIndex from "./TicketBranchIndex"
-import * as TicketDocs from "./TicketDocs"
-import * as TicketDocumentLock from "./ticketDocumentLock"
 import {
   planAutomaticBranchLinks,
   planAutomaticStacks,
   planStackPullRequests,
   planTicketGitStates
-} from "./ticketGitStatePlanner"
-import * as TicketIndex from "./TicketIndex"
-import { pendingGitState, type TicketReadError } from "./ticketPresentation"
-import type { TicketProject } from "./ticketProject"
-import { stackLayerFor, ticketBranches } from "./ticketStack"
-import * as TicketView from "./TicketView"
+} from "./statePlanner"
+import * as TicketBranchIndex from "./TicketBranchIndex"
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
 
@@ -189,7 +192,7 @@ export class TicketGit extends Context.Service<
       ProjectScope
     >
   }>
->()("@pp/server-core/tickets/TicketGit") {}
+>()("@pp/server-core/git/TicketGit") {}
 
 const make = Effect.gen(function* () {
   const ticketDocs = yield* TicketDocs.TicketDocs

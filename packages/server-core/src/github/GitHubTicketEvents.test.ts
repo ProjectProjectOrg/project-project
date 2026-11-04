@@ -17,13 +17,13 @@ import * as Schema from "effect/Schema"
 import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
+import { moveForDeletedBranch } from "../git/automationMoves"
 import {
   DEFAULT_GIT_AUTOMATION_CONFIG,
   gitAutomationTestService
-} from "../projects/gitAutomationTesting"
-import * as ProjectGitAutomation from "../projects/ProjectGitAutomation"
-import { moveForDeletedBranch } from "../tickets/moveByGitAutomation"
-import * as TicketBranchIndex from "../tickets/TicketBranchIndex"
+} from "../git/automationTesting"
+import * as ProjectGitAutomation from "../git/ProjectGitAutomation"
+import * as TicketBranchIndex from "../git/TicketBranchIndex"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as TicketIndex from "../tickets/TicketIndex"

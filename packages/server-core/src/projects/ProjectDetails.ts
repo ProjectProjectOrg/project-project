@@ -33,9 +33,9 @@ import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
+import type * as ProjectGithub from "../github/ProjectGithub"
 import type * as Markdown from "../markdown/Markdown"
 import * as ProjectDocs from "./ProjectDocs"
-import type * as ProjectGithub from "./ProjectGithub"
 import { readProjectDocument } from "./readProjectDocument"
 
 const decodeUserId = Schema.decodeSync(UserId)

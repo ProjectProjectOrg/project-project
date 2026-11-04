@@ -3,12 +3,12 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 
 import type * as Markdown from "../markdown/Markdown"
-import type * as ProjectGitAutomation from "../projects/ProjectGitAutomation"
-import { gitAutomationEvent, planGitAutomation } from "./gitAutomation"
-import type * as TicketDocs from "./TicketDocs"
-import type { TicketDocumentLock } from "./ticketDocumentLock"
-import type * as TicketIndex from "./TicketIndex"
-import type { TicketProject } from "./ticketProject"
+import type * as TicketDocs from "../tickets/TicketDocs"
+import type { TicketDocumentLock } from "../tickets/ticketDocumentLock"
+import type * as TicketIndex from "../tickets/TicketIndex"
+import type { TicketProject } from "../tickets/ticketProject"
+import { gitAutomationEvent, planGitAutomation } from "./automation"
+import type * as ProjectGitAutomation from "./ProjectGitAutomation"
 
 export type GitAutomationDeps = Readonly<{
   ticketDocs: TicketDocs.TicketDocs["Service"]

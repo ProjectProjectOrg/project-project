@@ -11,13 +11,13 @@ import {
   pickPullRequestTicket,
   pullRequestTicketReferences,
   type PullRequestTicketPick
-} from "./pullRequestTicketReference"
+} from "./pullRequestReference"
 import {
   planLayerPullRequest,
   planStackAttach,
   ticketBranches,
   type StackPullRequest
-} from "./ticketStack"
+} from "./stack"
 
 type AutomaticBranchLinkTicket = Pick<TicketGitStateInput, "id" | "branch"> & {
   readonly archivedAt?: Date | null

@@ -18,7 +18,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
-import type { GitAutomationConfig } from "../tickets/gitAutomation"
+import type { GitAutomationConfig } from "./automation"
 
 export class ProjectGitAutomation extends Context.Service<
   ProjectGitAutomation,
@@ -29,7 +29,7 @@ export class ProjectGitAutomation extends Context.Service<
       input: UpdateGitAutomationInput
     ) => Effect.Effect<GitAutomation, Conflict, ProjectScope>
   }>
->()("@pp/server-core/projects/ProjectGitAutomation") {}
+>()("@pp/server-core/git/ProjectGitAutomation") {}
 
 const decodeRules = Schema.decodeUnknownSync(GitAutomationRules)
 

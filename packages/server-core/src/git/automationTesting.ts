@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
-import type { GitAutomationConfig } from "../tickets/gitAutomation"
+import type { GitAutomationConfig } from "./automation"
 import * as ProjectGitAutomation from "./ProjectGitAutomation"
 
 export const DEFAULT_GIT_AUTOMATION_CONFIG: GitAutomationConfig = {
