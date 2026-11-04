@@ -5,6 +5,8 @@ import { TriangleAlert } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { me } from "@/features/auth/atoms/auth"
+import type { MergeConflict } from "@/features/tickets/lib/descriptionMerge"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const headline = (changedBy: User | null, viewerId: string | null) => {
@@ -15,10 +17,12 @@ const headline = (changedBy: User | null, viewerId: string | null) => {
 
 export function DescriptionConflict({
   changedBy,
+  conflicts,
   onTakeTheirs,
   onKeepMine
 }: Readonly<{
   changedBy: User | null
+  conflicts: ReadonlyArray<MergeConflict>
   onTakeTheirs: () => void
   onKeepMine: () => void
 }>) {
@@ -44,6 +48,7 @@ export function DescriptionConflict({
             <span className="block text-muted-foreground">
               {m.tickets_description_unsaved()}
             </span>
+            {conflicts.length > 0 && <ConflictLines conflicts={conflicts} />}
           </span>
           <span className="flex flex-wrap justify-end gap-2 @2xl:shrink-0">
             <Button variant="secondary" size="sm" onClick={onTakeTheirs}>
@@ -56,5 +61,34 @@ export function DescriptionConflict({
         </span>
       </span>
     </output>
+  )
+}
+
+function ConflictLines({
+  conflicts
+}: Readonly<{ conflicts: ReadonlyArray<MergeConflict> }>) {
+  return (
+    <span className="mt-2 flex max-h-40 flex-col gap-1.5 overflow-y-auto">
+      {conflicts.map((conflict) => {
+        const removed = conflict.theirs.length === 0
+        return (
+          <span key={conflict.line} className="flex flex-col gap-0.5">
+            <span className="text-xs text-muted-foreground">
+              {removed
+                ? m.tickets_description_conflict_removed()
+                : m.tickets_description_conflict_lines()}
+            </span>
+            <span
+              className={cn(
+                "block rounded-md bg-muted px-2 py-1 whitespace-pre-wrap text-foreground",
+                removed && "text-muted-foreground line-through"
+              )}
+            >
+              {(removed ? conflict.base : conflict.theirs).join("\n")}
+            </span>
+          </span>
+        )
+      })}
+    </span>
   )
 }

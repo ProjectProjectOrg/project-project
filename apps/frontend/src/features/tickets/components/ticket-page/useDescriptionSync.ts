@@ -18,13 +18,20 @@ import {
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
 import {
+  type MergeConflict,
+  mergeDescriptions
+} from "@/features/tickets/lib/descriptionMerge"
+import {
   isDescriptionConflict,
   remoteBodyAction
 } from "@/features/tickets/lib/descriptionSync"
 
+import { mergeIntoEditor } from "./mergeIntoEditor"
+
 export type DescriptionSync = Readonly<{
   revision: number
   stale: string | null
+  conflicts: ReadonlyArray<MergeConflict>
   onDraftChange: (next: string) => void
   save: (next: string, editorRevision: number) => Promise<void>
   takeTheirs: () => void
@@ -55,6 +62,7 @@ export function useDescriptionSync({
   const [stale, setStale] = useState<string | null>(() =>
     draft !== null && draft.base !== body ? body : null
   )
+  const [conflicts, setConflicts] = useState<ReadonlyArray<MergeConflict>>([])
   const idle = !focused && draft === null
 
   const currentMarkdown = (editor: LexicalEditor): string =>
@@ -67,28 +75,9 @@ export function useDescriptionSync({
     revisionRef.current += 1
     setRevision(revisionRef.current)
     setStale(null)
+    setConflicts([])
     setDraft(null)
   }
-
-  const onRemoteBody = useEffectEvent((incoming: string) => {
-    const editor = editorRef.current
-    const action = remoteBodyAction({
-      incoming,
-      base: baseRef.current,
-      sent: sentRef.current,
-      current: editor === null ? null : currentMarkdown(editor),
-      idle
-    })
-    if (action === "adopt") baseRef.current = incoming
-    else if (action === "reload") reloadWith(incoming)
-    else if (action === "notify") setStale(incoming)
-  })
-  useEffect(() => onRemoteBody(body), [body])
-
-  const reloadSettled = useEffectEvent(reloadWith)
-  useEffect(() => {
-    if (stale !== null && idle) reloadSettled(stale)
-  }, [stale, idle])
 
   const send = async (next: string) => {
     sentRef.current = next
@@ -108,9 +97,49 @@ export function useDescriptionSync({
     return exit
   }
 
+  const onRemoteBody = useEffectEvent((incoming: string) => {
+    const editor = editorRef.current
+    const current = editor === null ? null : currentMarkdown(editor)
+    const action = remoteBodyAction({
+      incoming,
+      base: baseRef.current,
+      sent: sentRef.current,
+      current,
+      idle
+    })
+    if (action === "adopt") baseRef.current = incoming
+    else if (action === "reload") reloadWith(incoming)
+    else if (action === "notify") {
+      const merge =
+        editor === null || current === null
+          ? null
+          : mergeDescriptions(baseRef.current, current, incoming)
+      if (editor !== null && current !== null && merge?._tag === "Merged") {
+        baseRef.current = incoming
+        setStale(null)
+        setConflicts([])
+        setDraft({ body: merge.body, base: incoming })
+        // The editor saves the merged text against `incoming` once it
+        // changes; when the merge left it as it was, save it here.
+        if (merge.body === current) void send(current)
+        else mergeIntoEditor(editor, merge.body, transformers)
+      } else {
+        setStale(incoming)
+        setConflicts(merge?._tag === "Conflict" ? merge.conflicts : [])
+      }
+    }
+  })
+  useEffect(() => onRemoteBody(body), [body])
+
+  const reloadSettled = useEffectEvent(reloadWith)
+  useEffect(() => {
+    if (stale !== null && idle) reloadSettled(stale)
+  }, [stale, idle])
+
   return {
     revision,
     stale,
+    conflicts,
     onDraftChange: (next) =>
       setDraft((current) => ({
         body: next,
@@ -129,6 +158,7 @@ export function useDescriptionSync({
       if (stale === null || editor === null) return
       baseRef.current = stale
       setStale(null)
+      setConflicts([])
       void send(currentMarkdown(editor))
     }
   }

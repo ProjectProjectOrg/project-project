@@ -255,6 +255,7 @@ export function DescriptionField({
         {sync.stale !== null && (
           <DescriptionConflict
             changedBy={ticket.updater}
+            conflicts={sync.conflicts}
             onTakeTheirs={sync.takeTheirs}
             onKeepMine={sync.keepMine}
           />

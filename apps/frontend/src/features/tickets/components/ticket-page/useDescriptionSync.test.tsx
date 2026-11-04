@@ -1,5 +1,9 @@
 import { RegistryContext } from "@effect/atom-react"
 import {
+  $convertFromMarkdownString,
+  $convertToMarkdownString
+} from "@lexical/markdown"
+import {
   TicketDetail,
   TicketId,
   TicketStatus,
@@ -11,7 +15,7 @@ import { act, cleanup, renderHook } from "@testing-library/react"
 import * as DateTime from "effect/DateTime"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import type { LexicalEditor } from "lexical"
+import { createEditor, type LexicalEditor } from "lexical"
 import type { ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -81,12 +85,34 @@ const saved = (patch: Patch) =>
     })
   )
 
-const setup = (focused: boolean, draft: TicketBodyDraft | null = null) => {
+const editorWith = (markdown: string): LexicalEditor => {
+  const editor = createEditor({
+    onError: (error) => {
+      throw error
+    }
+  })
+  editor.update(
+    () => $convertFromMarkdownString(markdown, [...MARKDOWN_TRANSFORMERS]),
+    { discrete: true }
+  )
+  return editor
+}
+
+const markdownOf = (editor: LexicalEditor): string =>
+  editor
+    .getEditorState()
+    .read(() => $convertToMarkdownString([...MARKDOWN_TRANSFORMERS]))
+
+const setup = (
+  focused: boolean,
+  draft: TicketBodyDraft | null = null,
+  editor: LexicalEditor | null = null
+) => {
   const registry = AtomRegistry.make()
   registry.mount(ticketDetail(req))
   registry.mount(ticketBodyDraft(req))
   registry.set(ticketBodyDraft(req), draft)
-  const editorRef = { current: null as LexicalEditor | null }
+  const editorRef = { current: editor }
   const wrapper = ({ children }: Readonly<{ children: ReactNode }>) => (
     <RegistryContext.Provider value={registry}>
       {children}
@@ -173,5 +199,41 @@ describe("useDescriptionSync", () => {
       act(() => result.current.save("Mine", 0))
     ).rejects.toMatchObject({ reason: "ticket_body_changed" })
     await vi.waitFor(() => expect(gets).toHaveBeenCalledTimes(2))
+  })
+
+  it("merges a remote change to another paragraph into the editor, and saves against it", async () => {
+    const { patches } = serve(saved)
+    const editor = editorWith("Loaded\n\nMy paragraph")
+    const { result, rerender, registry } = setup(true, null, editor)
+
+    rerender({ body: "Agent intro\n\nLoaded", focused: true })
+
+    const merged = "Agent intro\n\nLoaded\n\nMy paragraph"
+    expect(markdownOf(editor)).toBe(merged)
+    expect(result.current).toMatchObject({ stale: null, revision: 0 })
+    expect(registry.get(ticketBodyDraft(req))).toEqual({
+      body: merged,
+      base: "Agent intro\n\nLoaded"
+    })
+    await act(() => result.current.save(merged, 0))
+    expect(patches).toEqual([
+      { body: merged, expectedBody: "Agent intro\n\nLoaded" }
+    ])
+  })
+
+  it("keeps the draft and shows the conflicting lines when both sides changed the same paragraph", () => {
+    serve(saved)
+    const editor = editorWith("Mine")
+    const { result, rerender } = setup(true, null, editor)
+
+    rerender({ body: "Theirs", focused: true })
+
+    expect(markdownOf(editor)).toBe("Mine")
+    expect(result.current).toMatchObject({
+      stale: "Theirs",
+      conflicts: [
+        { line: 0, base: ["Loaded"], mine: ["Mine"], theirs: ["Theirs"] }
+      ]
+    })
   })
 })

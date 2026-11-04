@@ -103,6 +103,8 @@
   "tickets_description_changed_by": "{name} changed this description while you were editing.",
   "tickets_description_changed_by_you": "You changed this description somewhere else while you were editing here.",
   "tickets_description_changed_elsewhere": "This description changed while you were editing.",
+  "tickets_description_conflict_lines": "You both changed these lines. Their version:",
+  "tickets_description_conflict_removed": "They removed these lines.",
   "tickets_description_keep_mine": "Keep my version",
   "tickets_description_placeholder": "Write a description, or type / to add blocks…",
   "tickets_description_unsaved": "Your edits aren't saved yet.",
