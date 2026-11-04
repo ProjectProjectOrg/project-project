@@ -14,7 +14,6 @@ import {
 
 import { $ensureTrailingLine } from "./descriptionTemplates"
 
-/** Where the caret sits, as text in a block that survives a re-import. */
 type Caret = Readonly<{ index: number; text: string; offset: number }>
 
 const isTextBlock = (node: LexicalNode): node is ElementNode =>
@@ -105,11 +104,6 @@ function $placeCaret(caret: Caret) {
   block.selectEnd()
 }
 
-/**
- * Replaces the editor's content with a merged description, keeping the caret
- * in the block it was in. The undo history is cleared afterwards: undoing past
- * the merge would quietly drop the other person's change on the next save.
- */
 export function mergeIntoEditor(
   editor: LexicalEditor,
   markdown: string,
@@ -125,6 +119,7 @@ export function mergeIntoEditor(
     },
     {
       discrete: true,
+      // Undoing past the merge would drop their change on the next save.
       onUpdate: () => editor.dispatchCommand(CLEAR_HISTORY_COMMAND, undefined)
     }
   )

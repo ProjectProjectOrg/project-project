@@ -119,8 +119,7 @@ export function useDescriptionSync({
         setStale(null)
         setConflicts([])
         setDraft({ body: merge.body, base: incoming })
-        // The editor saves the merged text against `incoming` once it
-        // changes; when the merge left it as it was, save it here.
+        // An unchanged editor fires no autosave, so save the merge here.
         if (merge.body === current) void send(current)
         else mergeIntoEditor(editor, merge.body, transformers)
       } else {

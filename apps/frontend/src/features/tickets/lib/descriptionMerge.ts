@@ -1,20 +1,5 @@
-/**
- * Line-level three-way merge for ticket descriptions.
- *
- * `base` is the description the editor loaded, `mine` the draft and `theirs`
- * the stored description. Each side is diffed against `base` (longest common
- * subsequence), and the two change sets are combined diff3-style: a change
- * only one side made is taken as is, the same change on both sides is taken
- * once, and different changes to the same lines are a conflict.
- *
- * Changes to neighbouring lines merge cleanly, so ticking one checkbox while
- * someone edits the next one is not a conflict. Two insertions at the same
- * spot are, because there is no right order for them.
- */
-
 import * as Data from "effect/Data"
 
-/** Base lines from `line` (0-based) that both sides changed differently. */
 export type MergeConflict = Readonly<{
   line: number
   base: ReadonlyArray<string>
@@ -71,8 +56,6 @@ const diffHunks = (
   const m = other.length - prefix - suffix
   if (n === 0 && m === 0) return []
 
-  // lcs[i * (m + 1) + j] is the LCS length of base[i..] and other[j..],
-  // both offset by the shared prefix.
   const width = m + 1
   const lcs = new Uint32Array((n + 1) * width)
   for (let i = n - 1; i >= 0; i--) {
@@ -119,7 +102,6 @@ const diffHunks = (
   return hunks
 }
 
-/** The side's lines for base range `[start, end)`, given its hunks inside it. */
 const sideLines = (
   lines: ReadonlyArray<string>,
   base: ReadonlyArray<string>,
@@ -162,8 +144,7 @@ export const mergeDescriptions = (
     const start = first.baseStart
     let end = first.baseEnd
     next++
-    // A hunk joins the region when it overlaps it, or when both sit at the
-    // same insertion point. Hunks that only touch the region's end don't.
+    // Hunks that only touch the region's end stay separate.
     while (next < hunks.length) {
       const hunk = hunks[next]
       if (!(hunk.baseStart < end || hunk.baseStart === start)) break
