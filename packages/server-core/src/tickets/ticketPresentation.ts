@@ -37,13 +37,15 @@ export const presentTicket = <T extends Ticket>(view: GitView, ticket: T): T =>
   view.visible ? ticket : withoutGit(ticket)
 
 export function pendingGitState(
-  document: Pick<TicketDocs.TicketDocument, "branch" | "pr" | "prState">,
+  document: Pick<TicketDocs.TicketDocument, "branch" | "pr" | "prState"> &
+    Readonly<{ prBase?: string | null | undefined }>,
   github: ProjectGithub.ProjectGithubIntegration | null,
   branchDeletedAt: Date | null = null
 ): Ticket["gitState"] {
-  const baseBranch = github?.defaultBaseBranch ?? "main"
-  if (!document.branch) return { tag: "no_branch", baseBranch }
+  const defaultBase = github?.defaultBaseBranch ?? "main"
+  if (!document.branch) return { tag: "no_branch", baseBranch: defaultBase }
   if (document.pr !== null) {
+    const baseBranch = document.prBase ?? defaultBase
     const url = github
       ? `https://github.com/${github.repoOwner}/${github.repoName}/pull/${document.pr}`
       : ""
@@ -79,7 +81,11 @@ export function pendingGitState(
   if (branchDeletedAt !== null) {
     return { tag: "stale_branch", name: document.branch }
   }
-  return { tag: "branch_pending", name: document.branch, baseBranch }
+  return {
+    tag: "branch_pending",
+    name: document.branch,
+    baseBranch: defaultBase
+  }
 }
 
 export function documentToTicket(
