@@ -35,23 +35,29 @@ const firstOwned = (
     (candidate) => candidate.closest("[data-menu-highlight-host]") === container
   )
 
+const findHighlighted = (
+  container: HTMLElement,
+  selector: string
+): HTMLElement | undefined =>
+  firstOwned(container, selector) ??
+  (selector === HIGHLIGHTED
+    ? firstOwned(container, OPEN_SUBMENU_TRIGGER)
+    : undefined)
+
+const rectOf = (element: HTMLElement): HighlightRect => ({
+  top: element.offsetTop + HIGHLIGHT_INSET,
+  left: element.offsetLeft,
+  width: element.offsetWidth,
+  height: element.offsetHeight - HIGHLIGHT_INSET * 2,
+  tone: toneOf(element)
+})
+
 export const measureHighlight = (
   container: HTMLElement,
   selector: string = HIGHLIGHTED
 ): HighlightRect | null => {
-  const element =
-    firstOwned(container, selector) ??
-    (selector === HIGHLIGHTED
-      ? firstOwned(container, OPEN_SUBMENU_TRIGGER)
-      : undefined)
-  if (element === undefined) return null
-  return {
-    top: element.offsetTop + HIGHLIGHT_INSET,
-    left: element.offsetLeft,
-    width: element.offsetWidth,
-    height: element.offsetHeight - HIGHLIGHT_INSET * 2,
-    tone: toneOf(element)
-  }
+  const element = findHighlighted(container, selector)
+  return element === undefined ? null : rectOf(element)
 }
 
 const sameRect = (a: HighlightRect | null, b: HighlightRect | null): boolean =>
@@ -104,13 +110,35 @@ function useHighlightRect(
 
   useLayoutEffect(() => {
     const container = anchorRef.current?.parentElement
-    return container
-      ? observeHighlight(container, () =>
-          setState((previous) =>
-            nextHighlight(previous, measureHighlight(container, selector))
-          )
-        )
-      : undefined
+    if (!container) return undefined
+    // Base UI clears its highlight while the pointer crosses a separator or
+    // the popup's padding. Hold the last highlighted item while the pointer
+    // is still inside, so the pill doesn't fade out and back in.
+    let held: HTMLElement | undefined
+    let inside = false
+    const measure = () => {
+      const highlighted = findHighlighted(container, selector)
+      if (highlighted) held = highlighted
+      else if (!inside || !held?.isConnected || !container.contains(held))
+        held = undefined
+      const rect = held === undefined ? null : rectOf(held)
+      setState((previous) => nextHighlight(previous, rect))
+    }
+    const enter = () => {
+      inside = true
+    }
+    const leave = () => {
+      inside = false
+      measure()
+    }
+    container.addEventListener("pointerenter", enter)
+    container.addEventListener("pointerleave", leave)
+    const stop = observeHighlight(container, measure)
+    return () => {
+      stop()
+      container.removeEventListener("pointerenter", enter)
+      container.removeEventListener("pointerleave", leave)
+    }
   }, [anchorRef, selector])
 
   return state

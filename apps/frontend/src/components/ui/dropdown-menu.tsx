@@ -184,11 +184,38 @@ function DropdownMenuPopup({
           {...props}
         >
           <MenuHighlight />
+          <HighlightCheckedOnOpen />
           {children}
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>
     </DropdownMenuPortal>
   )
+}
+
+/**
+ * A choice menu (a radio group) opens on its current value, like a select:
+ * the checked item is highlighted, so ArrowDown moves on from it and Enter
+ * keeps it. Base UI highlights the first item on a keyboard open and none on
+ * a pointer open; focusing the checked item a frame later is how Base UI
+ * itself highlights one. Menus whose filter input holds focus are left alone.
+ */
+function HighlightCheckedOnOpen() {
+  const anchorRef = React.useRef<HTMLSpanElement>(null)
+  React.useEffect(() => {
+    const popup = anchorRef.current?.parentElement
+    if (!popup) return undefined
+    const frame = requestAnimationFrame(() => {
+      const active = document.activeElement
+      if (active instanceof HTMLInputElement && popup.contains(active)) return
+      const checked = popup.querySelector<HTMLElement>(
+        "[role=menuitemradio][aria-checked=true]"
+      )
+      if (checked?.closest("[data-slot=dropdown-menu-content]") === popup)
+        checked.focus()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [])
+  return <span ref={anchorRef} hidden />
 }
 
 function DropdownMenuGroup({
