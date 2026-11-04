@@ -15,7 +15,7 @@ import {
 import { useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
+import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,6 +75,7 @@ export function TicketRowActions({
 
   return (
     <ConfirmButton.Root bare>
+      <PopoverOpenMarker archiving={archiving} />
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -196,4 +197,17 @@ export function TicketRowActions({
       </ConfirmButton.Popover>
     </ConfirmButton.Root>
   )
+}
+
+/**
+ * The archive form and the delete confirmation are trigger-less popovers, so
+ * nothing in the row carries Base UI's data-popup-open while they're open.
+ * This marker keeps the row lit (and the list's hover pill hidden) the way an
+ * open menu does.
+ */
+function PopoverOpenMarker({ archiving }: Readonly<{ archiving: boolean }>) {
+  const { state } = useConfirmButton()
+  return archiving || state === "confirming" ? (
+    <span hidden data-popup-open="" />
+  ) : null
 }

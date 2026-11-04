@@ -16,6 +16,7 @@ import {
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { TicketHoverCard } from "@/features/tickets/components/TicketHoverCard"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
+import { useRegisterFluidHoverItem } from "@/hooks/useFluidHover"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 
@@ -49,6 +50,9 @@ export type RowProps = Readonly<{
   previewOpen: boolean
   onPreviewPointerEnter: (ticketId: Ticket["id"]) => void
   onPreviewOpenChange: (ticketId: Ticket["id"], open: boolean) => void
+  /** Fluid hover slot in the surrounding list, when the list has one. */
+  hoverIndex?: number
+  registerHover?: (index: number, element: HTMLElement | null) => void
 }>
 
 function RowImpl({
@@ -63,7 +67,9 @@ function RowImpl({
   editable = true,
   previewOpen,
   onPreviewPointerEnter,
-  onPreviewOpenChange
+  onPreviewOpenChange,
+  hoverIndex,
+  registerHover
 }: RowProps) {
   const { orgSlug, slug } = useProjectRoute()
   const onPatch = useAtomSet(update(ticket.id))
@@ -71,6 +77,7 @@ function RowImpl({
   const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
   const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
   const rowElement = useRef<HTMLDivElement>(null)
+  useRegisterFluidHoverItem(registerHover, hoverIndex, rowElement)
   const estimation = useEstimationMode()
   const isChild = nest?.role === "child"
   const [previewMounted, setPreviewMounted] = useState(false)
@@ -95,7 +102,7 @@ function RowImpl({
             className={cn(
               "col-span-full grid grid-cols-subgrid items-center gap-x-1.5 px-3 py-2.5 text-left outline-none [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20",
               variant === "standalone" &&
-                "relative isolate rounded-lg transition-colors hover:bg-hover has-[[data-popup-open]]:bg-hover"
+                "relative isolate rounded-lg transition-colors has-[[data-popup-open]]:bg-hover"
             )}
           >
             <NestTree nest={nest} />
@@ -103,12 +110,15 @@ function RowImpl({
               {!isChild && showParent && ticket.parent && (
                 <EpicPrefix epicId={ticket.parent} />
               )}
+              {/* ::after is the row-wide click target and focus ring;
+                  ::before reaches 2px into the gap above and below, so the
+                  4px between rows still belongs to a row (cursor, hover). */}
               <Link
                 to="/orgs/$orgSlug/projects/$slug/tickets/$id"
                 params={{ orgSlug, slug, id: ticket.id }}
                 preload="intent"
                 data-row-link
-                className="flex min-w-0 items-center self-stretch outline-none after:absolute after:inset-0 after:z-10 after:rounded-lg after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
+                className="flex min-w-0 items-center self-stretch outline-none before:absolute before:inset-x-0 before:-inset-y-0.5 before:content-[''] after:absolute after:inset-0 after:z-10 after:rounded-lg after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
               >
                 <PopoverTrigger
                   openOnHover
