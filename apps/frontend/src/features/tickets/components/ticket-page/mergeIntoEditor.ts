@@ -1,4 +1,5 @@
 import { $convertFromMarkdownString, type Transformer } from "@lexical/markdown"
+import { $dfs } from "@lexical/utils"
 import {
   $getRoot,
   $getSelection,
@@ -11,6 +12,8 @@ import {
   type LexicalEditor,
   type LexicalNode
 } from "lexical"
+
+import { $isAttachmentNode } from "@/features/editor/lexical/AttachmentNode"
 
 import { $ensureTrailingLine } from "./descriptionTemplates"
 
@@ -103,6 +106,17 @@ function $placeCaret(caret: Caret) {
   }
   block.selectEnd()
 }
+
+export const hasUnsavedAttachments = (editor: LexicalEditor): boolean =>
+  editor
+    .getEditorState()
+    .read(() =>
+      $dfs().some(
+        ({ node }) =>
+          $isAttachmentNode(node) &&
+          (node.getUploadId() !== undefined || node.getFailed())
+      )
+    )
 
 export function mergeIntoEditor(
   editor: LexicalEditor,

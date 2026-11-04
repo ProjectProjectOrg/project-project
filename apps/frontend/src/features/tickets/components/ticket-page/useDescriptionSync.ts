@@ -26,7 +26,7 @@ import {
   remoteBodyAction
 } from "@/features/tickets/lib/descriptionSync"
 
-import { mergeIntoEditor } from "./mergeIntoEditor"
+import { hasUnsavedAttachments, mergeIntoEditor } from "./mergeIntoEditor"
 
 export type DescriptionSync = Readonly<{
   revision: number
@@ -111,7 +111,7 @@ export function useDescriptionSync({
     else if (action === "reload") reloadWith(incoming)
     else if (action === "notify") {
       const merge =
-        editor === null || current === null
+        editor === null || current === null || hasUnsavedAttachments(editor)
           ? null
           : mergeDescriptions(baseRef.current, current, incoming)
       if (editor !== null && current !== null && merge?._tag === "Merged") {

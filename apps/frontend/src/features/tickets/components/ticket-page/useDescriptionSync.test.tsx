@@ -3,6 +3,7 @@ import {
   $convertFromMarkdownString,
   $convertToMarkdownString
 } from "@lexical/markdown"
+import { $dfs } from "@lexical/utils"
 import {
   TicketDetail,
   TicketId,
@@ -15,12 +16,22 @@ import { act, cleanup, renderHook } from "@testing-library/react"
 import * as DateTime from "effect/DateTime"
 import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
-import { createEditor, type LexicalEditor } from "lexical"
+import {
+  $createParagraphNode,
+  $getRoot,
+  createEditor,
+  type LexicalEditor
+} from "lexical"
 import type { ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
 import { MARKDOWN_TRANSFORMERS } from "@/features/editor/components/LexicalEditor"
+import {
+  $createAttachmentNode,
+  $isAttachmentNode,
+  AttachmentNode
+} from "@/features/editor/lexical/AttachmentNode"
 import {
   ticketBodyDraft,
   type TicketBodyDraft,
@@ -234,6 +245,43 @@ describe("useDescriptionSync", () => {
         { body: "Loaded\n\nMy paragraph", expectedBody: "\nLoaded" }
       ])
     )
+  })
+
+  it("leaves the editor alone while an attachment is still uploading", () => {
+    serve(saved)
+    const editor = createEditor({
+      nodes: [AttachmentNode],
+      onError: (error) => {
+        throw error
+      }
+    })
+    editor.update(
+      () => {
+        $convertFromMarkdownString("Loaded", [...MARKDOWN_TRANSFORMERS])
+        $getRoot().append(
+          $createParagraphNode().append(
+            $createAttachmentNode({
+              url: "",
+              alt: "shot.png",
+              filename: "shot.png",
+              kind: "image",
+              uploadId: "upload-1"
+            })
+          )
+        )
+      },
+      { discrete: true }
+    )
+    const { result, rerender } = setup(true, null, editor)
+
+    rerender({ body: "Agent intro\n\nLoaded", focused: true })
+
+    expect(
+      editor
+        .getEditorState()
+        .read(() => $dfs().filter(({ node }) => $isAttachmentNode(node)).length)
+    ).toBe(1)
+    expect(result.current.stale).toBe("Agent intro\n\nLoaded")
   })
 
   it("keeps the draft and shows the conflicting lines when both sides changed the same paragraph", () => {

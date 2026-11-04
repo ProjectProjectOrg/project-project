@@ -8,8 +8,8 @@ export type MergeConflict = Readonly<{
 }>
 
 export type DescriptionMerge = Data.TaggedEnum<{
-  Merged: { readonly body: string }
-  Conflict: { readonly conflicts: ReadonlyArray<MergeConflict> }
+  Merged: Readonly<{ body: string }>
+  Conflict: Readonly<{ conflicts: ReadonlyArray<MergeConflict> }>
 }>
 
 const { Merged, Conflict } = Data.taggedEnum<DescriptionMerge>()
