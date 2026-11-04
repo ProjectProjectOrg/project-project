@@ -4,7 +4,7 @@ import * as MigrationWorkflow from "@pp/integration-jira/MigrationWorkflow"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
-import { WorkflowEngineLive } from "../workflows/Runtime"
+import { WorkflowEngineLive } from "../workflows/WorkflowEngine"
 import { JiraMigrationArtifactsLive } from "./ArtifactsLive"
 import * as CleanupOperations from "./CleanupLive"
 import * as MigrationProduction from "./ProductionActivities"

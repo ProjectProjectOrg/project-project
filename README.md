@@ -110,7 +110,7 @@ with Bun retained for this project's runtime and package manager.
 
 ProjectProject is **invite-only**. There is no public "first user creates the
 org" flow, and org creation stays gated (`allowUserToCreateOrganization: false`
-in `apps/backend/src/auth.ts`). A fresh instance is seeded once, then grows
+in `apps/backend/src/auth/config.ts`). A fresh instance is seeded once, then grows
 by invitation.
 
 1. **Seed the first org + owner.** Set the `BOOTSTRAP_*` values in `.env` (see

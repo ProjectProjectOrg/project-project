@@ -210,6 +210,25 @@ Effect HttpApi + Drizzle + Better Auth + Postgres. Extend within those choices u
 - Migrations live in `db`, HTTP contracts in `shared`. One SQL workflow engine serves every integration.
 - Don't add a universal integration-driver interface, and don't migrate other integrations as part of an ordinary integration change.
 
+### Backend layout
+
+Every package is organised by domain, and a domain keeps the same folder name across packages: `shared/src/tickets`, `server-core/src/tickets`, `apps/backend/src/tickets`, `frontend/src/features/tickets`.
+
+```
+packages/shared/src/<domain>/      schemas (Ticket.ts) and the pure logic beside them (blocks.ts); index.ts re-exports
+packages/server-core/src/<domain>/ services (TicketQueries.ts), pure helpers, layer.ts, tests
+apps/backend/src/<domain>/
+  Handlers.ts        HttpApiBuilder.group for the domain; a second group gets its own file (EmailHandlers.ts)
+  Routes.ts          raw HttpRouter routes (OAuthRoutes.ts, UploadRoutes.ts, WebhookRoutes.ts)
+  HostLive.ts, *Live.ts  layers that implement an integration's host services
+apps/backend/src/http/  helpers shared by several domains' handlers
+```
+
+- **Naming.** Modules that export a service, layer or handler group are PascalCase (`TicketGit.ts`, `Handlers.ts`); modules of pure functions and types are camelCase (`statePlanner.ts`). Drop the prefix the folder already carries: `tickets/blocks.ts`, not `tickets/ticketBlocks.ts`. Server-side folders are camelCase (`linkPreviews/`).
+- **Service keys follow the path:** `@pp/<package>/<domain>/<Module>/<Name>`. The `deterministicKeys` diagnostic fails typecheck when a moved service keeps its old key.
+- **Moves** update every consumer; no re-export shims.
+- Git and pull-request logic that isn't specific to GitHub lives in `git/`. GitHub-specific code (the client, webhooks, repo connections) lives in `github/`.
+
 ### Backend services
 
 New services, and services you split or substantially rewrite, follow one shape. Older services keep theirs until they are touched; don't rename them in passing.

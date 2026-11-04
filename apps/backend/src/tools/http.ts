@@ -9,9 +9,9 @@ import * as Effect from "effect/Effect"
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Layer from "effect/Layer"
 
-import { ToolsAuthMiddlewareLive } from "../Layers/ToolsAuth"
 import { ToolHandlersLive } from "./handlers"
 import { invokeTool, isToolName, type ToolkitHandlers } from "./invokeTool"
+import { ToolsAuthMiddlewareLive } from "./ToolsAuth"
 
 const failure = (status: number, error: string, message: string) =>
   HttpServerResponse.jsonUnsafe(new ToolFailure({ error, message }), {

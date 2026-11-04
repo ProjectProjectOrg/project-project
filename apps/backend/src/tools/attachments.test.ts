@@ -77,7 +77,7 @@ import * as Tracer from "effect/Tracer"
 import { Pool } from "pg"
 import { beforeAll, afterAll, describe, expect, vi } from "vitest"
 
-import { attachmentUploadRoute } from "../http/attachmentUploadRoutes"
+import { attachmentUploadRoute } from "../attachments/UploadRoutes"
 import { toolErrorMessage } from "./errorText"
 import { callTool } from "./testing"
 

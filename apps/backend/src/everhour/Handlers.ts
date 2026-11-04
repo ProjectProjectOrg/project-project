@@ -4,7 +4,7 @@ import { AppApi, CurrentUser } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import { HttpApiBuilder } from "effect/http-api"
 
-import { dieOnMarkdown } from "../handlers/lib"
+import { dieOnMarkdown } from "../http/dieOnMarkdown"
 
 export const EverhourHandlerLive = HttpApiBuilder.group(
   AppApi,

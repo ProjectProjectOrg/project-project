@@ -41,7 +41,7 @@ import { FetchHttpClient, HttpRouter, HttpServer } from "effect/http"
 import { HttpApiTest } from "effect/http-api"
 import { expect } from "vitest"
 
-import { OrgAccessLive, ProjectAccessLive } from "../Layers/Access"
+import { OrgAccessLive, ProjectAccessLive } from "../access/AccessMiddleware"
 import { JiraHandlerLive } from "./Handlers"
 import { JiraMigrationsHandlerLive } from "./MigrationHandlers"
 

@@ -64,7 +64,7 @@ import * as Schema from "effect/Schema"
 import { ToolHandlersLive } from "./handlers"
 import { invokeTool, isToolName } from "./invokeTool"
 import { ToolCaller } from "./ToolCaller"
-import type { ToolServices } from "./ToolHandlers"
+import type { ToolServices } from "./toolDependencies"
 
 const decodeProjectStatuses = Schema.decodeSync(Schema.Array(ProjectStatus))
 
