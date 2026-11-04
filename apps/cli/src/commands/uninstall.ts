@@ -153,5 +153,6 @@ export const uninstallCommand = Command.make(
 ).pipe(
   Command.withDescription(
     "Remove pp: sign out of every server, delete its settings and take it off your PATH."
-  )
+  ),
+  Command.withShortDescription("Remove pp and its settings.")
 )
