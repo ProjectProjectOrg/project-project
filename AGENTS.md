@@ -226,11 +226,11 @@ Reference: `packages/server-core/src/tickets/` and t3code's `docs/internals/effe
 
 - **Architecture:** `docs/PROJECTPROJECT.md` — workspaces and what each owns.
 - **Domain glossary:** `CONTEXT.md`.
-- **Frontend deep dives:** `docs/frontend/data-layer.md`, `docs/frontend/forms.md`, `docs/data-fetching-policy.md`.
+- **Frontend deep dives:** `docs/frontend/data-layer.md`, `docs/frontend/forms.md`, `docs/frontend/data-fetching-policy.md`.
 - **Tests:** `docs/testing.md`.
 - **Running and deploying:** `README.md`, `docs/deploy.md`.
-- **Decisions:** `docs/superpowers/specs/` — design specs from past features. Context for why something is shaped the way it is, not a description of the current code.
-- **History:** `docs/chapters/` is the Effect curriculum the project started from. Historical; don't treat it as current.
+- **Integrations:** `docs/integrations/` — setup guides and reference material per integration.
+- **History:** `docs/history/` holds dated material that describes the past, not the current code: `specs/` (design specs from past features, the context for why something is shaped the way it is), `research/`, `benchmarks/`, `audits/`, `migrations/`, and `chapters/` (the Effect curriculum the project started from). Living docs stay at the top of `docs/`; new specs and research go in `docs/history/` with a `YYYY-MM-DD-` prefix.
 
 ## Also ask first
 
@@ -264,4 +264,4 @@ npx opensrc <owner>/<repo>      # GitHub repo (e.g., npx opensrc vercel/ai)
 
 ## Learning more about Effect
 
-This repository uses Effect v4. Before writing Effect code, read `node_modules/effect/AGENTS.md` completely and follow its linked guides as needed. Search `node_modules/effect/src` for API definitions. See `docs/migrations/effect-v4-handoff.md` for migration guidance.
+This repository uses Effect v4. Before writing Effect code, read `node_modules/effect/AGENTS.md` completely and follow its linked guides as needed. Search `node_modules/effect/src` for API definitions. See `docs/history/migrations/effect-v4-handoff.md` for migration guidance.

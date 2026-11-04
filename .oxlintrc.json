@@ -8,7 +8,7 @@
   "jsPlugins": [
     {
       "name": "workspace",
-      "specifier": "./tools/oxlint-plugin-workspace.js"
+      "specifier": "./tools/oxlint/plugin-workspace.js"
     },
     {
       "name": "anti-slop",

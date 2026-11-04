@@ -6,7 +6,7 @@ description: Use when adding or changing optimistic UI in apps/frontend (instant
 # Effect Atom optimistic updates
 
 Adapted from `UsefulSoftwareCo/executor` (`.skills/effect-atom-optimistic-updates`, MIT).
-Full design: `docs/superpowers/specs/2026-09-11-native-atom-data-layer-design.md`.
+Full design: `docs/history/specs/2026-09-11-native-atom-data-layer-design.md`.
 
 ## Overview
 

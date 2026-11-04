@@ -49,6 +49,5 @@ opensrc/
 
 # Local benchmark output
 .benchmark-results/
-docs/benchmarks/*.json
-docs/benchmarks/*.jsonl
-packages/backend/.tmp/jira-browser-projects/
+docs/history/benchmarks/*.json
+docs/history/benchmarks/*.jsonl

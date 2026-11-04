@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-11
 **Status:** Draft, awaiting review
-**Builds on:** `docs/superpowers/specs/2026-05-11-mcp-server-design.md` (overall MCP architecture) and `docs/superpowers/plans/2026-05-11-mcp-foundation.md` (the Foundation that lands the dispatcher and `me`).
+**Builds on:** `docs/history/specs/2026-05-11-mcp-server-design.md` (overall MCP architecture) and `docs/superpowers/plans/2026-05-11-mcp-foundation.md` (the Foundation that lands the dispatcher and `me`).
 
 ## Goal
 

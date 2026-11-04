@@ -1,7 +1,7 @@
 # Native atom data layer — design
 
 Status: implemented, 2026-09-11; review corrections applied 2026-09-15.
-The conventions are recorded in `AGENTS.md` and `docs/data-fetching-policy.md`.
+The conventions are recorded in `AGENTS.md` and `docs/frontend/data-fetching-policy.md`.
 
 ## Problem
 
@@ -266,7 +266,7 @@ a follow-up if it shows up in measurements.
 
 - Status change from the backlog: one reducer moves the row between sections
   and adjusts `counts.byStatus`. The sections response already carries counts
-  and first pages together, and `docs/data-fetching-policy.md` says to keep
+  and first pages together, and `docs/frontend/data-fetching-policy.md` says to keep
   that. `updateTicketStatusAtom` folds into `updateBacklogTicket` with
   `update({ status })`.
 - Board placement: one reducer over the composed board view reorders the card
@@ -384,7 +384,7 @@ style (`packages/frontend/src/atoms/tickets.sections.test.ts`).
    oauth applications and consent, auth. These already have the native
    optimistic shape; the change is `Api.query` plus request keys.
 4. Removal: `ApiClient`, `AppLayer`, `runtime.ts`, remaining key helpers.
-   Update `docs/data-fetching-policy.md` to reference this design.
+   Update `docs/frontend/data-fetching-policy.md` to reference this design.
 
 ## Testing
 

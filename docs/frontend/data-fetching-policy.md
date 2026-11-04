@@ -7,7 +7,7 @@ Wouter's approval comment on T-139 and the link from T-137 remain pending.
 
 Routes initiate reads through canonical resource atoms in the shared registry.
 Atoms own cached server state and per-view optimistic updates as defined in
-[the native atom design](superpowers/specs/2026-09-11-native-atom-data-layer-design.md).
+[the native atom design](../history/specs/2026-09-11-native-atom-data-layer-design.md).
 Components subscribe and render. Loaders must not create a second owner by
 calling the same API outside that cache.
 

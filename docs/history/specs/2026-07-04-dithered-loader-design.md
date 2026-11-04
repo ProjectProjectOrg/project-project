@@ -42,7 +42,7 @@ Per animation frame:
 1. **Geometry** — advance `P` from the breathing clock; compute the two panel
    trapezoid paths and their gradient stops.
 2. **SVG layer** — build a parametric SVG from `P` (two `<path>` panels + two
-   per-panel linear gradients). Derived from `docs/logo-reference.svg`,
+   per-panel linear gradients). Derived from `docs/assets/logo-reference.svg`,
    generalized so `P`, the heights, and the gradients are parameters.
 3. **Rasterize** — draw the SVG into an offscreen `<canvas>` (via an `Image` /
    `drawImage`, or `OffscreenCanvas` where available).

@@ -14,7 +14,7 @@ Unlike GitHub and Figma, no production core module outside the Jira directory co
 
 Inspected worktree: `1a9cb3082e861a4645c434c55fa3e81fb5ad9b0e`. Compared the Jira directory and Jira backend routes with fetched main `9138ae3f54d022e74eaca727de8596cab04c0716`: no differences. Runtime/schema changes between those trees are from the merged Everhour extraction and do not alter Jira's current flow. Implement from latest main when authorized.
 
-This proposal complements the existing [T-172 durable migration design](2026-09-22-t172-effect-jira-migration-design.md). It changes ownership, not that workflow's recovery model. The [new provider research](../../jira-package-research.md) revalidates the relevant Atlassian contracts; the [earlier research](../../jira-cloud-migration-research.md) remains background context.
+This proposal complements the existing [T-172 durable migration design](2026-09-22-t172-effect-jira-migration-design.md). It changes ownership, not that workflow's recovery model. The [new provider research](../research/2026-10-23-jira-package-research.md) revalidates the relevant Atlassian contracts; the [earlier research](../research/2026-09-25-jira-cloud-migration-research.md) remains background context.
 
 No source code, tests, configuration, live services or databases were changed or executed for this investigation. The only outputs are research/design documents and a diagram.
 

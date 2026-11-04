@@ -3,7 +3,7 @@
 Date: 2026-09-14
 Status: Published as [T-172](https://projectproject.missler.xyz/orgs/project-project/projects/project-project/tickets/T-172)
 
-Feasibility: [Jira Cloud migration spike](../../spikes/2026-09-14-jira-cloud-migration-feasibility.md)
+Feasibility: [Jira Cloud migration spike](../research/2026-09-14-jira-cloud-migration-feasibility.md)
 
 ## Summary
 
@@ -13,7 +13,7 @@ The migration prioritizes broad preservation and explicit reporting over pretend
 
 The first release targets Jira Cloud sites hosted by Atlassian, typically under `*.atlassian.net`. Jira Data Center, CSV imports, site-backup imports, and ongoing synchronization are outside this release.
 
-Detailed feasibility findings and official Atlassian sources are in [the research note](../../jira-cloud-migration-research.md).
+Detailed feasibility findings and official Atlassian sources are in [the research note](../research/2026-09-25-jira-cloud-migration-research.md).
 
 ## Goals
 

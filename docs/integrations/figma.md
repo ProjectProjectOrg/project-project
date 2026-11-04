@@ -74,8 +74,8 @@ Locally these live in `.env`. In production the compose file reads
 file on the server — nothing in the repo does it for you, and the failure mode
 is Figma silently unavailable in production while working perfectly locally.
 
-Both are documented in [`.env.example`](../.env.example) and
-[`.env.production.example`](../.env.production.example).
+Both are documented in [`.env.example`](../../.env.example) and
+[`.env.production.example`](../../.env.production.example).
 
 ## 5. Run the migrations
 

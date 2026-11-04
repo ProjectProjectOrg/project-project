@@ -65,7 +65,7 @@ Integration packages own provider behavior and reach PP through Effect host serv
     └── blocks/, templates/                # project-level library
 ```
 
-The rule: markdown holds what is **portable and cheap** — anything a human would write or read, or another tool could use, expressed in a few characters. Postgres holds what is neither — data that is large, opaque or meaningless outside this instance. Losing the Postgres half costs a re-upload or a reindex, not information. See `docs/superpowers/specs/2026-09-10-aesthetic-data-in-postgres-design.md`.
+The rule: markdown holds what is **portable and cheap** — anything a human would write or read, or another tool could use, expressed in a few characters. Postgres holds what is neither — data that is large, opaque or meaningless outside this instance. Losing the Postgres half costs a re-upload or a reindex, not information. See `docs/history/specs/2026-09-10-aesthetic-data-in-postgres-design.md`.
 
 **`project.md`:**
 
@@ -175,7 +175,7 @@ The parts the code doesn't make obvious:
 - **GitHub** — a GitHub App per organization. Repos connect per project; tickets link branches and stacked PRs, and status automation runs on PR events through webhooks. Ticket ownership, stack reconciliation and status automation stay in core.
 - **Slack** — workspace per organization, channel notifications per project, ticket link previews. See `packages/integration-slack/README.md`.
 - **Everhour** — per-user time tracking against tickets. See `packages/integration-everhour/README.md`.
-- **Figma** — linked frames on tickets. See `docs/figma-setup.md`.
+- **Figma** — linked frames on tickets. See `docs/integrations/figma.md`.
 - **Jira Cloud** — a durable, resumable migration of a Jira project into PP. The package owns the migration workflow and planning; backend adapters own writing PP data and the atomic commit that makes it visible.
 - **Feedback** — instances send feedback and bug reports to a central instance. See `docs/deploy.md`.
 
