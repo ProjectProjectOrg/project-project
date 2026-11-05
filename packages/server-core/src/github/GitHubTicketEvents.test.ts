@@ -1,6 +1,7 @@
 import { PgClient } from "@effect/sql-pg"
 import { it as plainIt, layer } from "@effect/vitest"
 import { DbLive } from "@pp/db"
+import { EMPTY_TICKET_RELATIONS } from "@pp/shared"
 import {
   NotFound,
   TicketId,
@@ -145,6 +146,8 @@ const makeFakeIndex = (overrides: Partial<FakeIndexShape> = {}) => {
     markBranchStale: () => Effect.succeed([]),
     clearBranchStale: () => Effect.void,
     updateBranchChecks: () => Effect.succeed([]),
+    relationsOf: () => Effect.succeed(EMPTY_TICKET_RELATIONS),
+    relationEdges: () => Effect.succeed([]),
     deleteTicket: () => Effect.void,
     ...overrides
   }

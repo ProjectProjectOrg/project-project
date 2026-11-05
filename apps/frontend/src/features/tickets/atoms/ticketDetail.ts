@@ -1,6 +1,7 @@
 import type {
   ArchiveTicketInput,
   DeleteTicketQuery,
+  MarkTicketInput,
   SplitTicketInput,
   TicketId,
   UpdateTicketInput
@@ -15,6 +16,7 @@ import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 
+import { withoutRelation } from "../lib/relationGroups"
 import { applyTicketDetailPatch } from "../lib/ticketPatch"
 import { coalescingTicketUpdate } from "./ticketRows"
 
@@ -89,6 +91,31 @@ export const archiveTicket = Atom.family((req: TicketRequest) =>
         : ticket,
     call: (client, input) =>
       client.tickets.archive({ params: req.params, payload: input }),
+    confirm: replaceWith,
+    publish: () => Keys.ticketsChanged(scopeOf(req))
+  })
+)
+
+export const markTicket = Atom.family((req: TicketRequest) =>
+  viewMutation(ticketDetail(req), {
+    name: "markTicket",
+    predict: (ticket, _input: MarkTicketInput) => ticket,
+    call: (client, input) =>
+      client.tickets.mark({ params: req.params, payload: input }),
+    confirm: replaceWith,
+    publish: () => Keys.ticketsChanged(scopeOf(req))
+  })
+)
+
+export const unmarkTicket = Atom.family((req: TicketRequest) =>
+  viewMutation(ticketDetail(req), {
+    name: "unmarkTicket",
+    predict: (ticket, input: MarkTicketInput) => ({
+      ...ticket,
+      relations: withoutRelation(ticket.relations, input)
+    }),
+    call: (client, input) =>
+      client.tickets.unmark({ params: req.params, payload: input }),
     confirm: replaceWith,
     publish: () => Keys.ticketsChanged(scopeOf(req))
   })

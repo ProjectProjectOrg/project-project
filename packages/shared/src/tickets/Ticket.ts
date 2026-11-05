@@ -92,6 +92,7 @@ export const Ticket = Schema.Struct({
   parent: Schema.optional(Schema.NullOr(TicketId)),
   subTicketCount: Schema.optional(Schema.Number),
   subTicketDoneCount: Schema.optional(Schema.Number),
+  openBlockerCount: Schema.optional(Schema.Number),
   archivedAt: Schema.NullOr(Schema.DateFromString),
   createdBy: Schema.String,
   createdAt: Schema.DateFromString,
@@ -99,10 +100,52 @@ export const Ticket = Schema.Struct({
 })
 export type Ticket = typeof Ticket.Type
 
+export const LinkedTicket = Schema.Struct({
+  id: TicketId,
+  title: Schema.String,
+  status: TicketStatus,
+  archivedAt: Schema.NullOr(Schema.DateFromString)
+})
+export type LinkedTicket = typeof LinkedTicket.Type
+
+export const TicketRelations = Schema.Struct({
+  blockedBy: Schema.Array(LinkedTicket),
+  blocking: Schema.Array(LinkedTicket),
+  related: Schema.Array(LinkedTicket),
+  duplicateOf: Schema.NullOr(LinkedTicket),
+  duplicates: Schema.Array(LinkedTicket)
+})
+export type TicketRelations = typeof TicketRelations.Type
+
+export const EMPTY_TICKET_RELATIONS: TicketRelations = {
+  blockedBy: [],
+  blocking: [],
+  related: [],
+  duplicateOf: null,
+  duplicates: []
+}
+
+export const MarkKind = Schema.Literals(["blockedBy", "blocking", "related"])
+export type MarkKind = typeof MarkKind.Type
+
+export const MarkTicketInput = Schema.Struct({
+  kind: MarkKind.annotate({
+    description:
+      "`blockedBy`: this ticket can't start until `target` is done. `blocking`: `target` can't start until this ticket is done. `related`: the two tickets are related."
+  }),
+  target: TicketId.annotate({
+    description: "The id of the other ticket, in the same project."
+  })
+})
+export type MarkTicketInput = typeof MarkTicketInput.Type
+
 export const TicketDetail = Schema.Struct({
   ...Ticket.fields,
   stack: Schema.optional(Schema.Array(StackLayerState)),
   splitFrom: Schema.optional(Schema.NullOr(TicketId)),
+  relations: TicketRelations.pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(EMPTY_TICKET_RELATIONS))
+  ),
   creator: Schema.NullOr(User),
   updater: Schema.NullOr(User),
   body: Schema.String,
@@ -134,7 +177,10 @@ const ticketFieldDocs = {
   assignees: "User ids of project members (`list_members`).",
   body: "The description as CommonMark markdown, which may contain named blocks.",
   parent:
-    "The id of an epic (making this one of its tickets) or of a ticket (making this a sub-ticket)."
+    "The id of an epic (making this one of its tickets) or of a ticket (making this a sub-ticket).",
+  blockedBy:
+    "Ids of tickets in the same project that must be done before this one can start. To say this ticket blocks another, use `mark_ticket` with `blocking`.",
+  relatedTo: "Ids of related tickets in the same project."
 } as const
 
 export const CreateTicketInput = Schema.Struct({
@@ -168,6 +214,12 @@ export const CreateTicketInput = Schema.Struct({
   parent: Schema.optional(TicketId).annotate({
     description: ticketFieldDocs.parent
   }),
+  blockedBy: Schema.optional(Schema.Array(TicketId)).annotate({
+    description: ticketFieldDocs.blockedBy
+  }),
+  relatedTo: Schema.optional(Schema.Array(TicketId)).annotate({
+    description: ticketFieldDocs.relatedTo
+  }),
   template: Schema.optional(Schema.NullOr(TemplateKey)).annotate({
     description:
       "A template key from `list_templates` to expand into the body; omit or pass `null` for a blank ticket."
@@ -183,7 +235,11 @@ export type DeleteTicketQuery = typeof DeleteTicketQuery.Type
 export const ArchiveTicketInput = Schema.Struct({
   reason: Schema.optional(
     Schema.String.pipe(Schema.check(Schema.isMaxLength(20_000)))
-  )
+  ),
+  duplicateOf: Schema.optional(TicketId).annotate({
+    description:
+      "The id of the ticket this one duplicates. It must not itself be a duplicate, and no ticket may already be a duplicate of this one."
+  })
 })
 export type ArchiveTicketInput = typeof ArchiveTicketInput.Type
 
@@ -218,6 +274,12 @@ export const UpdateTicketInput = Schema.Struct({
   }),
   parent: Schema.optional(Schema.NullOr(TicketId)).annotate({
     description: `${ticketFieldDocs.parent} \`null\` removes the parent.`
+  }),
+  blockedBy: Schema.optional(Schema.Array(TicketId)).annotate({
+    description: `${ticketFieldDocs.blockedBy} Replaces the list; pass an empty list to clear.`
+  }),
+  relatedTo: Schema.optional(Schema.Array(TicketId)).annotate({
+    description: `${ticketFieldDocs.relatedTo} Replaces the list stored on this ticket; pass an empty list to clear.`
   })
 })
 export type UpdateTicketInput = typeof UpdateTicketInput.Type

@@ -12,6 +12,7 @@ import * as Attachments from "../attachments/Attachments"
 import * as ProjectGithub from "../github/ProjectGithub"
 import * as Users from "../users/Users"
 import * as TicketDocs from "./TicketDocs"
+import * as TicketIndex from "./TicketIndex"
 import {
   documentToDetail,
   type GitView,
@@ -32,7 +33,7 @@ export class TicketView extends Context.Service<
       document: TicketDocs.TicketDocument,
       view: GitView,
       branchDeletedAt?: Date | null
-    ) => Effect.Effect<TicketDetail>
+    ) => Effect.Effect<TicketDetail, never, ProjectScope>
     withMissingAttachments: (
       orgSlug: string,
       detail: TicketDetail
@@ -45,6 +46,7 @@ const make = Effect.gen(function* () {
   const projectGithubLinks = yield* ProjectGithub.ProjectGithub
   const attachments = yield* Attachments.Attachments
   const users = yield* Users.Users
+  const ticketIndex = yield* TicketIndex.TicketIndex
 
   const gitViewOf = Effect.fn("TicketView.gitViewOf")(function* (
     scope: ProjectScope["Service"]
@@ -69,12 +71,17 @@ const make = Effect.gen(function* () {
       ...new Set([document.createdBy, document.updatedBy])
     ])
     const byId = new Map<string, User>(found.map((user) => [user.id, user]))
+    const relations = yield* ticketIndex.relationsOf(
+      yield* ProjectScope,
+      document.id
+    )
     return documentToDetail(
       document,
       view,
       byId.get(document.createdBy) ?? null,
       byId.get(document.updatedBy) ?? null,
-      branchDeletedAt
+      branchDeletedAt,
+      relations
     )
   })
 

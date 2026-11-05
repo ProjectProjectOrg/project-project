@@ -1,4 +1,5 @@
 import type { GroupId, TicketId, TicketSearchQuery } from "@pp/shared"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
 import { Keys, projectScope } from "@/api/keys"
@@ -39,3 +40,7 @@ export const ticketSearch = Atom.family((req: SearchRequest) => {
     ]
   })
 })
+
+export const idleTicketSearch: ReturnType<typeof ticketSearch> = Atom.make(
+  AsyncResult.success([])
+)

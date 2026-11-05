@@ -1,4 +1,6 @@
 import {
+  EMPTY_TICKET_RELATIONS,
+  type TicketRelations,
   Forbidden,
   type NotFound,
   ProjectScope,
@@ -112,7 +114,8 @@ export function documentToDetail(
   view: GitView,
   creator: User | null,
   updater: User | null,
-  branchDeletedAt: Date | null = null
+  branchDeletedAt: Date | null = null,
+  relations: TicketRelations = EMPTY_TICKET_RELATIONS
 ): TicketDetail {
   return {
     ...documentToTicket(document, view, branchDeletedAt),
@@ -120,6 +123,7 @@ export function documentToDetail(
       ? stackLayerStates(document.branch, document.stack, view.integration)
       : [],
     splitFrom: document.splitFrom ?? null,
+    relations,
     creator,
     updater,
     body: document.body

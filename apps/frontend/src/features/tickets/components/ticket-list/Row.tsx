@@ -2,6 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Member, Ticket, TicketId } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
+import { OctagonMinus } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { memo, useRef, useState } from "react"
 
@@ -18,6 +19,7 @@ import { TicketHoverCard } from "@/features/tickets/components/TicketHoverCard"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
 import { AssigneeField } from "./AssigneeField"
 import { EpicLink, EpicSeparator, useParentLabel } from "./EpicLabel"
@@ -142,6 +144,13 @@ function RowImpl({
                   </span>
                 </PopoverTrigger>
               </Link>
+              {(ticket.openBlockerCount ?? 0) > 0 && (
+                <OctagonMinus
+                  aria-label={m.tickets_filters_blocked()}
+                  className="relative z-20 ml-2 size-3.5 shrink-0 text-state-warning"
+                  strokeWidth={1.75}
+                />
+              )}
               <SubTicketProgress
                 ticket={ticket}
                 className="relative z-20 ml-2"
@@ -192,6 +201,9 @@ function RowImpl({
                 id={ticket.id}
                 archived={ticket.archivedAt !== null}
                 parent={ticket.parent ?? null}
+                contextTarget={rowElement}
+                subTickets={ticket.subTicketCount}
+                epic={ticket.type === "epic"}
                 onDetach={
                   editable ? () => onPatch({ parent: null }) : undefined
                 }

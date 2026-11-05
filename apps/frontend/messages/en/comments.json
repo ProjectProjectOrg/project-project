@@ -8,13 +8,10 @@
   "comments_edit_button": "Edit",
   "comments_edited_marker": "(edited)",
   "comments_editing_marker": "editing…",
-  "comments_empty": "No comments yet.",
   "comments_heading": "Comments",
   "comments_heading_with_count": "Comments · {count}",
   "comments_imported_from_jira": "Imported from Jira",
   "comments_load_failed": "Failed to load comments.",
   "comments_save_button": "Save",
-  "comments_save_failed": "Failed to save.",
-  "comments_show_older_many": "Show {count} older comments",
-  "comments_show_older_one": "Show 1 older comment"
+  "comments_save_failed": "Failed to save."
 }

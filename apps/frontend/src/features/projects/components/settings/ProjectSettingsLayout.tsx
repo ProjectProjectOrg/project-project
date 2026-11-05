@@ -1,14 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import { getRouteApi, Outlet, useLocation } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import {
-  GitBranch,
-  LayoutTemplate,
-  SlidersHorizontal,
-  TriangleAlert,
-  Users,
-  Workflow
-} from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { useCallback } from "react"
 
@@ -30,71 +22,11 @@ import {
   useProjectRoute,
   ProjectContext
 } from "@/features/projects/hooks/useProject"
+import { PROJECT_SETTINGS_SECTIONS } from "@/features/projects/lib/projectSettingsSections"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi("/_authed/orgs/$orgSlug/projects/$slug/settings")
-
-type SectionKey =
-  | "general"
-  | "team"
-  | "workflow"
-  | "templates"
-  | "integrations"
-  | "danger"
-
-type ProjectSettingsSection = Readonly<{
-  key: SectionKey
-  label: string
-  icon: typeof SlidersHorizontal
-  heading: string
-  description: string
-}>
-
-const SECTIONS: ReadonlyArray<ProjectSettingsSection> = [
-  {
-    key: "general",
-    label: m.project_settings_general_tab(),
-    icon: SlidersHorizontal,
-    heading: m.project_settings_general_heading(),
-    description: m.project_settings_general_description()
-  },
-  {
-    key: "team",
-    label: m.project_settings_team_tab(),
-    icon: Users,
-    heading: m.project_settings_team_heading(),
-    description: m.project_settings_team_description()
-  },
-  {
-    key: "workflow",
-    label: m.project_settings_workflow_tab(),
-    icon: Workflow,
-    heading: m.project_settings_workflow_heading(),
-    description: m.project_settings_workflow_description()
-  },
-  {
-    key: "templates",
-    label: m.project_settings_templates_tab(),
-    icon: LayoutTemplate,
-    heading: m.project_settings_templates_heading(),
-    description: m.project_settings_templates_description()
-  },
-  {
-    key: "integrations",
-    label: m.project_settings_integrations_tab(),
-    icon: GitBranch,
-    heading: m.project_settings_integrations_heading(),
-    description: m.project_settings_integrations_description()
-  },
-  {
-    key: "danger",
-    label: m.project_settings_danger_tab(),
-    icon: TriangleAlert,
-    heading: m.project_settings_danger_heading(),
-    description: m.project_settings_danger_description()
-  }
-]
 
 export function ProjectSettingsLayout() {
   const { orgSlug, slug } = routeApi.useParams()
@@ -110,12 +42,12 @@ export function ProjectSettingsLayout() {
   useSidebarSlot(`settings:${orgSlug}/${slug}`, renderRail)
 
   const activeSection =
-    SECTIONS.find((section) => {
+    PROJECT_SETTINGS_SECTIONS.find((section) => {
       const base = `/orgs/${orgSlug}/projects/${slug}/settings/${section.key}`
       return (
         location.pathname === base || location.pathname.startsWith(`${base}/`)
       )
-    }) ?? SECTIONS[0]
+    }) ?? PROJECT_SETTINGS_SECTIONS[0]
 
   return (
     <SettingsPage
@@ -182,7 +114,7 @@ function ProjectSettingsRail() {
         </motion.div>
       </div>
       <SettingsRailNav>
-        {SECTIONS.filter(
+        {PROJECT_SETTINGS_SECTIONS.filter(
           (section) => section.key !== "danger" || canDelete
         ).map((section, index) => (
           <SettingsRailLink

@@ -49,6 +49,11 @@ import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import * as TicketIndex from "./TicketIndex"
 import type { TicketProject } from "./ticketProject"
+import {
+  relationsFromRows,
+  type RelationEdge,
+  type RelationRow
+} from "./ticketRelations"
 import * as TicketRewrites from "./TicketRewrites"
 
 export const decodeGroupSync = Schema.decodeSync(Group)
@@ -421,6 +426,7 @@ export const entryFromDocument = (document: TicketDocs.TicketDocument) => {
     parent: entry.parent ?? null,
     subTicketCount: 0,
     subTicketDoneCount: 0,
+    openBlockerCount: 0,
     prDraft: entry.prDraft ?? false,
     prBase: entry.prBase ?? null,
     ignoredBranches: entry.ignoredBranches ?? [],
@@ -537,6 +543,46 @@ export const querySectionsVia =
       }
       return out
     })
+
+export const relationEdgesOfDocuments = (
+  documents: Map<string, TicketDocs.TicketDocument>
+): ReadonlyArray<RelationEdge> =>
+  [...documents.values()].flatMap((document) =>
+    TicketIndex.ticketRelationRowsFor(
+      { orgSlug: "", organizationId: "", projectId: "", slug: "" },
+      document
+    ).map((row) => ({
+      from: document.id,
+      to: ticketId(row.toTicketId),
+      kind: row.kind
+    }))
+  )
+
+export const relationsOfDocuments = (
+  documents: Map<string, TicketDocs.TicketDocument>,
+  ticketId: string
+) =>
+  relationsFromRows(
+    relationEdgesOfDocuments(documents).flatMap((edge): Array<RelationRow> => {
+      const direction =
+        edge.from === ticketId ? "out" : edge.to === ticketId ? "in" : null
+      if (direction === null) return []
+      const other = documents.get(direction === "out" ? edge.to : edge.from)
+      if (other === undefined) return []
+      return [
+        {
+          direction,
+          kind: edge.kind,
+          other: {
+            id: other.id,
+            title: other.title,
+            status: other.status,
+            archivedAt: other.archivedAt
+          }
+        }
+      ]
+    })
+  )
 
 export type FakeTicketIndexShape = TicketIndex.TicketIndex["Service"] &
   TicketBranchIndex.TicketBranchIndex["Service"]
@@ -713,6 +759,9 @@ export const makeFakeTicketIndex = (
       }),
     querySections: (project, query, options) =>
       querySectionsVia(index)(project, query, options),
+    relationsOf: (_project, ticketId) =>
+      Effect.sync(() => relationsOfDocuments(documents, ticketId)),
+    relationEdges: () => Effect.sync(() => relationEdgesOfDocuments(documents)),
     ...overrides
   }
   return Layer.mergeAll(

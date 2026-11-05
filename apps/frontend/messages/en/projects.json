@@ -183,8 +183,6 @@
   "org_settings_templates_heading": "Templates",
   "org_settings_templates_tab": "Templates",
   "org_switcher_create_new": "Create new org",
-  "org_switcher_current_org": "Your organizations",
-  "org_switcher_switch_aria_label": "Switch to {name}",
   "org_switcher_trigger_aria_label": "Switch organization",
   "projects_create_error_fallback": "Failed to create project",
   "projects_create_key_aria_label": "Project key",

@@ -102,6 +102,10 @@ const TicketFilterFields = {
   archived: Schema.optional(Schema.Boolean).annotate({
     description:
       "`true` lists only archived tickets; they are left out otherwise."
+  }),
+  blocked: Schema.optional(Schema.Boolean).annotate({
+    description:
+      "`true` lists only tickets blocked by an unfinished, unarchived ticket; `false` only tickets that aren't."
   })
 } as const
 

@@ -101,13 +101,23 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
       )
       .handle("archive", ({ params, payload }) =>
         Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
-          commands.archive(params.id, payload.reason)
+          commands.archive(params.id, payload)
         ).pipe(
           Effect.catchTag("InvalidCommentBody", (error) =>
             Effect.fail(new Validation({ reason: error.reason }))
           ),
           dieOnMarkdown
         )
+      )
+      .handle("mark", ({ params, payload }) =>
+        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+          commands.mark(params.id, payload)
+        ).pipe(dieOnMarkdown)
+      )
+      .handle("unmark", ({ params, payload }) =>
+        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+          commands.unmark(params.id, payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("unarchive", ({ params }) =>
         Effect.flatMap(TicketCommands.TicketCommands, (commands) =>

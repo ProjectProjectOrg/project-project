@@ -12,9 +12,10 @@ import {
   Trash2,
   Unlink
 } from "lucide-react"
-import { useRef, useState } from "react"
+import { useId, useRef, useState, type RefObject } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
   DropdownMenu,
@@ -32,19 +33,38 @@ import {
   unarchiveTicket
 } from "@/features/tickets/atoms/ticketDetail"
 import { ArchiveForm } from "@/features/tickets/components/ticket-list/ArchiveControl"
+import { MarkAsSubmenu } from "@/features/tickets/components/ticket-marks/MarkAsSubmenu"
+import {
+  SaveAsTemplateMenuItem,
+  SaveAsTemplatePopover
+} from "@/features/tickets/components/ticket-page/SaveAsTemplatePopover"
+import type { SaveAsTemplateProps } from "@/features/tickets/forms/save-as-template"
 import { useProjectActor } from "@/hooks/useActor"
+import { useContextMenu, type ContextRegion } from "@/hooks/useContextMenu"
 import { m } from "@/paraglide/messages"
 
 export function TicketRowActions({
   id,
   archived,
   parent,
-  onDetach
+  onDetach,
+  onDeleted,
+  subTickets = 0,
+  epic = false,
+  template,
+  contextTarget,
+  contextRegion
 }: {
   id: TicketId
   archived: boolean
   parent: TicketId | null
   onDetach?: () => void
+  onDeleted?: () => void
+  subTickets?: number
+  epic?: boolean
+  template?: SaveAsTemplateProps
+  contextTarget?: RefObject<HTMLElement | null>
+  contextRegion?: ContextRegion
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const [archiving, setArchiving] = useState(false)
@@ -60,12 +80,23 @@ export function TicketRowActions({
   const actor = useProjectActor()
   const canArchive = actor.call("tickets", "archive")
   const canDelete = actor.call("tickets", "delete")
+  const canMark = !archived && TicketPolicy.canChange(actor, { content: true })
   const detachFrom =
     onDetach !== undefined && TicketPolicy.canChange(actor, { content: true })
       ? parent
       : null
+  const noTarget = useRef<HTMLElement>(null)
+  const menu = useContextMenu(
+    contextTarget ?? noTarget,
+    contextTarget !== undefined,
+    contextRegion
+  )
+  const [savingTemplate, setSavingTemplate] = useState(false)
+  const [cascade, setCascade] = useState(false)
+  const cascadeId = useId()
+  const popupAnchor = menu.anchor ?? trigger
 
-  if (!canArchive && !canDelete && detachFrom === null) return null
+  if (!canArchive && !canDelete && !canMark && detachFrom === null) return null
 
   const archiveAndClose = async (input: ArchiveTicketInput) => {
     const exit = await archive(input)
@@ -75,7 +106,7 @@ export function TicketRowActions({
 
   return (
     <ConfirmButton.Root bare>
-      <DropdownMenu>
+      <DropdownMenu open={menu.open} onOpenChange={menu.onOpenChange}>
         <DropdownMenuTrigger
           render={
             <Button
@@ -84,6 +115,8 @@ export function TicketRowActions({
               variant="ghost"
               size="icon-sm"
               aria-label={m.tickets_row_actions_aria_label()}
+              onPointerDown={menu.clearAnchor}
+              onKeyDown={menu.clearAnchor}
               onClick={(e) => e.stopPropagation()}
               className="shrink-0"
             >
@@ -92,11 +125,16 @@ export function TicketRowActions({
           }
         />
         <DropdownMenuContent
-          align="end"
+          anchor={menu.anchor ?? undefined}
+          align={menu.anchor === null ? "end" : "start"}
           sideOffset={6}
           className="w-48"
           onClick={(e) => e.stopPropagation()}
         >
+          {canMark && <MarkAsSubmenu ticketId={id} />}
+          {canMark && (detachFrom !== null || canArchive || canDelete) && (
+            <DropdownMenuSeparator />
+          )}
           {detachFrom !== null && (
             <DropdownMenuItem onClick={onDetach} className="cursor-pointer">
               <Unlink className="size-4" strokeWidth={1.75} />
@@ -121,6 +159,11 @@ export function TicketRowActions({
                 <Split className="size-4" strokeWidth={1.75} />
                 {m.tickets_split_menu_item()}
               </DropdownMenuItem>
+              {template !== undefined && (
+                <SaveAsTemplateMenuItem
+                  onSelect={() => setSavingTemplate(true)}
+                />
+              )}
               {archived ? (
                 <DropdownMenuItem
                   disabled={unarchiveState.waiting}
@@ -163,7 +206,7 @@ export function TicketRowActions({
         }}
       >
         <PopoverContent
-          anchor={trigger}
+          anchor={popupAnchor}
           align="end"
           sideOffset={6}
           className="w-72"
@@ -179,7 +222,7 @@ export function TicketRowActions({
           />
         </PopoverContent>
       </Popover>
-      <ConfirmButton.Popover anchor={trigger} className="w-72">
+      <ConfirmButton.Popover anchor={popupAnchor} className="w-72">
         <ConfirmButton.Action
           layout="stacked"
           prompt={m.tickets_row_delete_confirm()}
@@ -191,9 +234,39 @@ export function TicketRowActions({
               ? m.tickets_row_delete_error_fallback()
               : null
           }
-          onConfirm={() => remove({})}
-        />
+          onConfirm={async () => {
+            const exit = await remove({ cascadeSubTickets: cascade })
+            if (Exit.isSuccess(exit)) onDeleted?.()
+            return exit
+          }}
+        >
+          {subTickets > 0 && (
+            <label
+              htmlFor={cascadeId}
+              className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground"
+            >
+              <Checkbox
+                id={cascadeId}
+                checked={cascade}
+                onCheckedChange={setCascade}
+              />
+              {epic
+                ? m.tickets_detail_delete_cascade_tickets({ count: subTickets })
+                : m.tickets_detail_delete_cascade_sub_tickets({
+                    count: subTickets
+                  })}
+            </label>
+          )}
+        </ConfirmButton.Action>
       </ConfirmButton.Popover>
+      {template !== undefined && (
+        <SaveAsTemplatePopover
+          {...template}
+          open={savingTemplate}
+          onOpenChange={setSavingTemplate}
+          anchor={popupAnchor}
+        />
+      )}
     </ConfirmButton.Root>
   )
 }

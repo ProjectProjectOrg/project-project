@@ -11,10 +11,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import {
   gitAutomationFor,
   gitAutomationRequest
@@ -207,8 +207,30 @@ function TargetPicker({
   const selectedMeta = statusMetaFor(value ?? "", statuses)
   const SelectedIcon = selectedMeta.icon
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
+    <Select
+      items={targets.map((s) => {
+        const meta = statusMetaFor(s.slug, statuses)
+        const Icon = meta.icon
+        return {
+          value: s.slug,
+          textValue: meta.label,
+          label: (
+            <>
+              <Icon
+                className={cn("size-4", meta.className)}
+                style={meta.color ? { color: meta.color } : undefined}
+                strokeWidth={1.75}
+              />
+              {meta.label}
+            </>
+          )
+        }
+      })}
+      value={value}
+      onValueChange={onChange}
+      contentProps={{ align: "start", className: "w-44" }}
+    >
+      <SelectTrigger
         render={
           <Button type="button" variant="tertiary" size="sm">
             <SelectedIcon
@@ -223,30 +245,6 @@ function TargetPicker({
           </Button>
         }
       />
-      <DropdownMenuContent align="start" sideOffset={6} className="w-44">
-        <DropdownMenuRadioGroup
-          value={value}
-          onValueChange={onChange}
-          items={targets.map((s) => {
-            const meta = statusMetaFor(s.slug, statuses)
-            const Icon = meta.icon
-            return {
-              value: s.slug,
-              closeOnClick: true,
-              label: (
-                <>
-                  <Icon
-                    className={cn("size-4", meta.className)}
-                    style={meta.color ? { color: meta.color } : undefined}
-                    strokeWidth={1.75}
-                  />
-                  {meta.label}
-                </>
-              )
-            }
-          })}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    </Select>
   )
 }

@@ -681,6 +681,60 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
     }).pipe(Effect.provide(StackRebuildTestLayer))
   )
 
+  it.effect("rebuilds both relation directions from ticket files", () =>
+    Effect.gen(function* () {
+      const organizationId = `ticket-index-rel-rebuild-${randomUUID()}`
+      yield* withClient(async (client) => {
+        await client.query(
+          "insert into organization (id, name, slug, created_at) values ($1, $1, $1, now())",
+          [organizationId]
+        )
+        await client.query(
+          "insert into project_index (id, slug, organization_id, key, name, icon, color, created_by, created_at) values ($1, $2, $2, 'T', 'Test', 'folder', 'blue', 'test-user', now())",
+          [randomUUID(), organizationId]
+        )
+      })
+      yield* Effect.addFinalizer(() =>
+        withClient((client) =>
+          client.query("delete from organization where id = $1", [
+            organizationId
+          ])
+        )
+      )
+      const index = yield* TicketIndex.TicketIndex
+      const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
+      const project = yield* index.projectFor(organizationId, organizationId)
+      yield* maintenance.rebuildProject(project)
+
+      const blocker = yield* index.relationsOf(project, "T-2")
+      expect(blocker.blocking.map((ticket) => ticket.id)).toEqual(["T-1"])
+      const waiting = yield* index.relationsOf(project, "T-1")
+      expect(waiting.blockedBy.map((ticket) => ticket.id)).toEqual(["T-2"])
+    }).pipe(
+      Effect.provide(
+        TicketIndexServices.layer.pipe(
+          Layer.provide(
+            Layer.succeed(TicketDocs.TicketDocs, {
+              listIds: () => Effect.succeed([ticketId("T-1"), ticketId("T-2")]),
+              read: (_org, _slug, id) =>
+                Effect.succeed(
+                  id === "T-1"
+                    ? indexedDocument("T-1", { blockedBy: [ticketId("T-2")] })
+                    : indexedDocument(id)
+                ),
+              create: () => unexpected("TicketDocs.create"),
+              write: () => unexpected("TicketDocs.write"),
+              update: () => unexpected("TicketDocs.update"),
+              remove: () => unexpected("TicketDocs.remove"),
+              readRaw: () => unexpected("TicketDocs.readRaw")
+            } satisfies TicketDocs.TicketDocs["Service"])
+          ),
+          Layer.provide(DatabaseLive)
+        )
+      )
+    )
+  )
+
   it.effect("restores canonical comments as listable index rows", () => {
     const suffix = randomUUID()
     const organizationId = `ticket-index-comments-${suffix}`
@@ -1533,6 +1587,88 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       expect(yield* doneSection("nested")).toEqual([])
       expect(yield* doneSection("flat")).toEqual(["T-5"])
     }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect(
+    "derives blocked state and both relation directions from frontmatter links",
+    () =>
+      Effect.gen(function* () {
+        const suffix = randomUUID()
+        const organizationId = `ticket-index-rel-${suffix}`
+        const projectId = randomUUID()
+        yield* withClient(async (client) => {
+          await client.query(
+            `insert into organization (id, name, slug, created_at)
+               values ($1, 'Ticket relations', $1, now())`,
+            [organizationId]
+          )
+          await client.query(
+            `insert into project_index
+                 (id, slug, organization_id, key, name, icon, color, created_by, created_at)
+               values ($1, $2, $2, 'T', 'Ticket relations', 'folder', 'blue', 'test-user', now())`,
+            [projectId, organizationId]
+          )
+        })
+        yield* Effect.addFinalizer(() =>
+          withClient((client) =>
+            client.query("delete from organization where id = $1", [
+              organizationId
+            ])
+          )
+        )
+
+        const index = yield* TicketIndex.TicketIndex
+        const project = yield* index.projectFor(organizationId, organizationId)
+        const archived = DateTime.toDate(DateTime.nowUnsafe())
+        yield* Effect.forEach(
+          [
+            indexedDocument("T-2"),
+            indexedDocument("T-3", { status: ticketStatus("done") }),
+            indexedDocument("T-4", { archivedAt: archived }),
+            indexedDocument("T-1", {
+              blockedBy: [ticketId("T-2"), ticketId("T-3"), ticketId("T-4")]
+            }),
+            indexedDocument("T-5", { relatedTo: [ticketId("T-1")] }),
+            indexedDocument("T-6", {
+              duplicateOf: ticketId("T-1"),
+              archivedAt: archived
+            }),
+            indexedDocument("T-7", { blockedBy: [ticketId("T-99")] })
+          ],
+          (document) => index.upsertTicket(project, document)
+        )
+
+        const blocked = (value: boolean) =>
+          index
+            .query(
+              project,
+              { blocked: value, sort: { key: "id", dir: "asc" } },
+              { viewerId: "viewer", limit: 10 }
+            )
+            .pipe(Effect.map((rows) => rows.map(({ entry }) => entry.id)))
+        const ids = (list: ReadonlyArray<{ readonly id: string }>) =>
+          list.map((ticket) => ticket.id)
+
+        expect(yield* blocked(true)).toEqual(["T-1"])
+        expect(yield* blocked(false)).toEqual(["T-2", "T-3", "T-5", "T-7"])
+        const [t1] = yield* index.list(project, ["T-1"])
+        expect(t1?.openBlockerCount).toBe(1)
+
+        const relations = yield* index.relationsOf(project, "T-1")
+        expect(ids(relations.blockedBy)).toEqual(["T-2", "T-3", "T-4"])
+        expect(ids(relations.related)).toEqual(["T-5"])
+        expect(ids(relations.duplicates)).toEqual(["T-6"])
+        expect(
+          ids((yield* index.relationsOf(project, "T-2")).blocking)
+        ).toEqual(["T-1"])
+        expect((yield* index.relationsOf(project, "T-7")).blockedBy).toEqual([])
+
+        yield* index.upsertTicket(
+          project,
+          indexedDocument("T-2", { status: ticketStatus("done") })
+        )
+        expect(yield* blocked(true)).toEqual([])
+      }).pipe(Effect.provide(TestLayer))
   )
 
   it.effect(

@@ -16,7 +16,7 @@ export function TicketPageHeader({
   meta?: ReactNode
 }) {
   return (
-    <header className="flex items-start gap-2">
+    <header className="flex items-start gap-(--ticket-title-gap)">
       <div className="mt-1.5 flex h-[1lh] w-(--ticket-status-column) shrink-0 items-center justify-center text-xl">
         <StatusButton
           ticket={ticket}
@@ -35,7 +35,7 @@ export function TicketPageHeader({
             <TitleField key={ticket.id} ticket={ticket} />
           )}
         </h1>
-        <div className="flex items-center gap-1.5 px-2">
+        <div className="flex min-h-8 items-center gap-1.5 px-2">
           <span className="font-mono text-xs text-muted-foreground tabular-nums">
             {ticket.id}
           </span>

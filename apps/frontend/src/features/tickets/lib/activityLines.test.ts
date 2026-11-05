@@ -308,6 +308,9 @@ describe("activityLines", () => {
       activityLines({
         kind: "sprint_moved",
         key: "a:b",
+        actor: null,
+        // @effect-diagnostics-next-line globalDate:off
+        at: new Date(0),
         from: "Sprint 1",
         to: "Sprint 2",
         cause: "sprint_completed"

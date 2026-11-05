@@ -1,4 +1,5 @@
 import {
+  EMPTY_TICKET_RELATIONS,
   TicketDetail,
   TicketId,
   TicketStatus,
@@ -45,6 +46,7 @@ const ticket = {
   createdBy: "user-1",
   createdAt: created,
   updatedAt: created,
+  relations: EMPTY_TICKET_RELATIONS,
   creator: null,
   updater: null,
   body: "Before"

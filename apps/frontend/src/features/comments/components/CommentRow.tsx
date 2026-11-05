@@ -1,7 +1,6 @@
 import { useAtomValue, useAtomSet } from "@effect/atom-react"
 import { CommentPolicy } from "@pp/access/policies"
 import type { Comment, TicketId } from "@pp/shared"
-import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useState } from "react"
@@ -18,12 +17,12 @@ import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { Markdown } from "@/features/editor/components/Markdown"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { TimelineTime } from "@/features/tickets/components/TimelineTime"
 import { useProjectActor } from "@/hooks/useActor"
 import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import { getLocale } from "@/paraglide/runtime"
 
 type Mode = "idle" | "edit"
 
@@ -41,10 +40,6 @@ export function CommentRow({
   const actor = useProjectActor()
   const linkedAuthor =
     comment.author.kind === "user" ? comment.author.user : null
-  const authorName =
-    comment.author.kind === "user"
-      ? (comment.author.user.name ?? comment.author.user.email)
-      : comment.author.displayName
   const authored =
     !pending && comment.origin === "native" && linkedAuthor !== null
       ? { authorId: linkedAuthor.id }
@@ -62,32 +57,14 @@ export function CommentRow({
   return (
     <InlineForm.Root<Mode>
       actions={["edit"]}
+      fade={false}
       className={cn(
         "ticket-comment rounded-md p-(--ticket-comment-pad)",
         waiting && "animate-pulse"
       )}
     >
       <InlineForm.Idle block>
-        <header className="flex items-center justify-between gap-2 text-sm">
-          <div className="flex items-center gap-2">
-            {linkedAuthor && <MemberAvatar member={linkedAuthor} size={20} />}
-            <span className="font-medium">{authorName}</span>
-            <time className="text-muted-foreground">
-              {DateTime.toDate(
-                DateTime.makeUnsafe(comment.createdAt)
-              ).toLocaleString(getLocale())}
-            </time>
-            {comment.editedAt && (
-              <span className="text-xs text-muted-foreground">
-                {m.comments_edited_marker()}
-              </span>
-            )}
-            {comment.origin === "jira" && (
-              <span className="text-xs text-muted-foreground">
-                {m.comments_imported_from_jira()}
-              </span>
-            )}
-          </div>
+        <CommentHeader comment={comment}>
           {(canEdit || canDelete) && (
             <div className="flex items-center gap-1">
               {canEdit && (
@@ -116,7 +93,7 @@ export function CommentRow({
               )}
             </div>
           )}
-        </header>
+        </CommentHeader>
         <div className="mt-2">
           <Markdown>{comment.body}</Markdown>
         </div>
@@ -125,6 +102,42 @@ export function CommentRow({
         <EditForm comment={comment} ticketId={ticketId} />
       </InlineForm.Form>
     </InlineForm.Root>
+  )
+}
+
+function CommentHeader({
+  comment,
+  children
+}: {
+  comment: Comment
+  children: React.ReactNode
+}) {
+  const author = comment.author
+  return (
+    <header className="flex min-h-8 items-center justify-between gap-2 text-sm">
+      <div className="flex items-center gap-2">
+        {author.kind === "user" && (
+          <MemberAvatar member={author.user} size={20} />
+        )}
+        <span className="font-medium">
+          {author.kind === "user"
+            ? (author.user.name ?? author.user.email)
+            : author.displayName}
+        </span>
+        <TimelineTime at={comment.createdAt} />
+        {comment.editedAt && (
+          <span className="text-xs text-muted-foreground">
+            {m.comments_edited_marker()}
+          </span>
+        )}
+        {comment.origin === "jira" && (
+          <span className="text-xs text-muted-foreground">
+            {m.comments_imported_from_jira()}
+          </span>
+        )}
+      </div>
+      {children}
+    </header>
   )
 }
 
@@ -166,20 +179,17 @@ function EditForm({
 
   return (
     <>
-      <header className="mt-1.5 flex items-center gap-2 text-sm">
-        {comment.author.kind === "user" && (
-          <MemberAvatar member={comment.author.user} size={20} />
-        )}
-        <span className="font-medium">
-          {comment.author.kind === "user"
-            ? (comment.author.user.name ?? comment.author.user.email)
-            : comment.author.displayName}
-        </span>
-        <span className="text-muted-foreground">
+      <CommentHeader comment={comment}>
+        <span className="text-sm text-muted-foreground">
           {m.comments_editing_marker()}
         </span>
-      </header>
-      <LexicalEditor markdown={body} onChange={(md) => setBody(md)} autoFocus />
+      </CommentHeader>
+      <LexicalEditor
+        markdown={body}
+        onChange={(md) => setBody(md)}
+        autoFocus
+        compact
+      />
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-end gap-2">
         <InlineForm.Cancel />

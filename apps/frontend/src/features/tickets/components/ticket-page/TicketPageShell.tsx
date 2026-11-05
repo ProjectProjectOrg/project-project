@@ -23,8 +23,6 @@ export function TicketPageShell({
 
       {header}
 
-      <div className="h-px bg-border/60" />
-
       {children}
     </div>
   )

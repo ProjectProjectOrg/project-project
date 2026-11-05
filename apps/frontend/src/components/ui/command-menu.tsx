@@ -1,5 +1,10 @@
-import { SearchIcon } from "lucide-react"
-import { animate, motion, useReducedMotion } from "motion/react"
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
+import {
+  animate,
+  motion,
+  useReducedMotion,
+  type AnimationPlaybackControls
+} from "motion/react"
 import {
   createContext,
   memo,
@@ -220,12 +225,14 @@ export type CommandMenuProps = Omit<
   Readonly<{
     items: ReadonlyArray<CommandMenuItemData>
     onSelect?: (item: CommandMenuItemData) => void
+    stretch?: boolean
     children: ReactNode
   }>
 
 function CommandMenu({
   items,
   onSelect,
+  stretch = false,
   className,
   children,
   ref,
@@ -284,7 +291,7 @@ function CommandMenu({
   const reduceMotion = useReducedMotion() ?? false
   const scrollAnimationRef = useRef<{ stop: () => void } | null>(null)
   const scrollToRow = useCallback(
-    (index: number) => {
+    (index: number, instant = false) => {
       const list = listRef.current
       const viewport = list?.closest<HTMLElement>(
         '[data-slot="scroll-area-viewport"]'
@@ -292,30 +299,43 @@ function CommandMenu({
       if (!list || !viewport) return
       scrollAnimationRef.current?.stop()
       scrollAnimationRef.current = null
-      if (index === 0) {
-        viewport.scrollTop = 0
-        return
-      }
       const row = list.querySelector<HTMLElement>(
         `[data-fluid-hover-index="${index}"]`
       )
       if (!row) return
-      const rowTop = row.offsetTop + list.offsetTop
-      const target = Math.max(
-        0,
-        Math.min(
-          rowTop + row.offsetHeight / 2 - viewport.clientHeight / 2,
-          viewport.scrollHeight - viewport.clientHeight
-        )
-      )
-      if (reduceMotion) {
+      const maxScroll = viewport.scrollHeight - viewport.clientHeight
+      const margin =
+        Number.parseFloat(
+          getComputedStyle(viewport).getPropertyValue("--scroll-fade-size")
+        ) || 0
+      const rowRect = row.getBoundingClientRect()
+      const viewportTop = viewport.getBoundingClientRect().top
+      const rowTop = rowRect.top - viewportTop + viewport.scrollTop - margin
+      const rowBottom = rowTop + rowRect.height + margin * 2
+      const visibleTop = viewport.scrollTop
+      const visibleBottom = visibleTop + viewport.clientHeight
+      const wanted =
+        rowTop < visibleTop
+          ? rowTop
+          : rowBottom > visibleBottom
+            ? rowBottom - viewport.clientHeight
+            : null
+      const target =
+        index === 0
+          ? 0
+          : wanted === null
+            ? visibleTop
+            : Math.max(0, Math.min(wanted, maxScroll))
+      if (target === visibleTop) return
+      if (instant || reduceMotion) {
         viewport.scrollTop = target
         return
       }
       scrollAnimationRef.current = animate(viewport.scrollTop, target, {
         ...spring.fast,
         onUpdate: (value) => {
-          viewport.scrollTop = value
+          viewport.scrollTop =
+            Math.round(value * devicePixelRatio) / devicePixelRatio
         }
       })
     },
@@ -327,7 +347,7 @@ function CommandMenu({
   rowsRef.current = rows
   useEffect(() => {
     setActiveIndex(rowsRef.current.length === 0 ? null : 0)
-    scrollToRow(0)
+    scrollToRow(0, true)
   }, [rowsKey, setActiveIndex, scrollToRow])
 
   const move = useCallback(
@@ -406,14 +426,20 @@ function CommandMenu({
           {...props}
         >
           <motion.div
-            className="max-h-[inherit] overflow-hidden"
+            className={cn(
+              "max-h-[inherit] overflow-hidden",
+              stretch && "flex min-h-0 flex-1 flex-col"
+            )}
             initial={false}
-            animate={height === null ? {} : { height }}
+            animate={stretch || height === null ? {} : { height }}
             transition={reduceMotion ? { duration: 0 } : spring.moderate}
           >
             <div
               ref={columnRef}
-              className="flex max-h-[inherit] min-h-0 flex-col"
+              className={cn(
+                "flex max-h-[inherit] min-h-0 flex-col",
+                stretch && "flex-1"
+              )}
             >
               {children}
             </div>
@@ -500,9 +526,8 @@ function CommandMenuInput({
   return (
     <div
       data-slot="command-menu-input"
-      className="flex h-9 shrink-0 items-center gap-2 px-3"
+      className="flex h-9 shrink-0 items-center px-2"
     >
-      <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
       <input
         ref={ref}
         role="combobox"
@@ -565,8 +590,8 @@ function CommandMenuList({
 
   return (
     <ScrollArea
-      className="scroll-divider flex min-h-0 flex-1 flex-col border-t border-border/60 [&::before]:!-top-px"
-      viewportClassName="min-h-0 flex-1 [&>div[style]]:!block [&>div[style]]:!min-w-0 [--scroll-fade-size:32px] scroll-fade"
+      className="scroll-divider flex min-h-0 flex-1 flex-col border-t border-border/60 [&::after]:!hidden [&::before]:!-top-px"
+      viewportClassName="min-h-0 flex-1 [&>div[style]]:!block [&>div[style]]:!min-w-0 ![--scroll-fade-size:12px] scroll-fade"
     >
       <div
         ref={(node) => {
@@ -608,7 +633,7 @@ function CommandMenuList({
                   id={headingId}
                   role="presentation"
                   className={cn(
-                    "flex shrink-0 items-center text-xs text-muted-foreground",
+                    "flex shrink-0 items-center text-xs font-medium text-(--prose-quiet)",
                     "h-7 px-2"
                   )}
                 >
@@ -750,9 +775,9 @@ const CommandMenuItem = memo(function CommandMenuItem({
       }}
       className={cn(
         "relative z-10 flex shrink-0 cursor-pointer items-center outline-none select-none",
-        "h-9 gap-2 rounded-lg px-2 text-[13px]",
+        "h-9 gap-2 rounded-lg px-2 text-sm tracking-[-0.006em]",
         "transition-[color] duration-80",
-        isActive ? "text-foreground" : "text-muted-foreground",
+        isActive ? "text-foreground" : "text-(--prose-body)",
         className
       )}
       {...props}
@@ -760,8 +785,11 @@ const CommandMenuItem = memo(function CommandMenuItem({
       {Icon && (
         <Icon
           size={16}
-          strokeWidth={isActive ? 2 : 1.5}
-          className="shrink-0 transition-[color,stroke-width] duration-80"
+          strokeWidth={1.75}
+          className={cn(
+            "shrink-0 transition-[color] duration-80",
+            isActive ? "text-foreground" : "text-muted-foreground"
+          )}
         />
       )}
       {children}
@@ -796,9 +824,245 @@ function CommandMenuFooter({
   )
 }
 
+type ParsedShortcut = Readonly<{
+  mod: boolean
+  meta: boolean
+  ctrl: boolean
+  alt: boolean
+  shift: boolean
+  key: string
+}>
+
+const parseShortcut = (shortcut: string): ParsedShortcut => {
+  const modifiers = new Set<string>()
+  let key = ""
+  for (const token of shortcutTokens(shortcut)) {
+    const lower = token.toLowerCase()
+    const modifier = MODIFIER_TOKENS[lower]
+    if (modifier) modifiers.add(modifier)
+    else key = KEY_ALIASES[lower] ?? lower
+  }
+  return {
+    mod: modifiers.has("mod"),
+    meta: modifiers.has("meta"),
+    ctrl: modifiers.has("ctrl"),
+    alt: modifiers.has("alt"),
+    shift: modifiers.has("shift"),
+    key
+  }
+}
+
+const matchesShortcut = (
+  event: KeyboardEvent,
+  parsed: ParsedShortcut
+): boolean => {
+  if (parsed.key === "") return false
+  const key = event.key.toLowerCase()
+  const byCode =
+    parsed.key.length === 1 &&
+    /[a-z0-9]/.test(parsed.key) &&
+    (event.altKey || !/^[a-z0-9]$/i.test(event.key)) &&
+    event.code.toLowerCase() ===
+      (/[a-z]/.test(parsed.key) ? `key${parsed.key}` : `digit${parsed.key}`)
+  if (key !== parsed.key && !byCode) return false
+  if (parsed.mod) {
+    if (!event.metaKey && !event.ctrlKey) return false
+  } else if (event.metaKey !== parsed.meta || event.ctrlKey !== parsed.ctrl) {
+    return false
+  }
+  if (event.altKey !== parsed.alt) return false
+  return !parsed.shift || event.shiftKey
+}
+
+const hasModifier = (parsed: ParsedShortcut): boolean =>
+  parsed.mod || parsed.meta || parsed.ctrl || parsed.alt
+
+const isEditable = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+
+const comboKey = (parsed: ParsedShortcut): string =>
+  [
+    parsed.mod && "mod",
+    parsed.meta && "meta",
+    parsed.ctrl && "ctrl",
+    parsed.alt && "alt",
+    parsed.shift && "shift",
+    parsed.key
+  ]
+    .filter(Boolean)
+    .join("+")
+
+const mountedDialogs: Array<
+  Readonly<{ combo: string; isOpen: () => boolean }>
+> = []
+
+export type CommandMenuDialogProps = Readonly<{
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  pulseKey?: string
+  shortcut?: string | null
+  title: string
+  className?: string
+  children: ReactNode
+}>
+
+const PULSE_SCALE = 0.98
+const PULSE_PRESS = { duration: 0.09, ease: "linear" } as const
+const PULSE_RELEASE = {
+  type: "spring",
+  stiffness: 1900,
+  damping: 118,
+  restDelta: 0.002
+} as const
+const PANEL_RESIZE = {
+  type: "spring",
+  stiffness: 3200,
+  damping: 118,
+  restDelta: 0.5
+} as const
+
+type ContentSize = Readonly<{ height: number; instant: boolean }>
+
+function CommandMenuDialog({
+  open,
+  onOpenChange,
+  pulseKey,
+  shortcut = "mod+k",
+  title,
+  className,
+  children
+}: CommandMenuDialogProps) {
+  const openRef = useRef(open)
+  const onOpenChangeRef = useRef(onOpenChange)
+  const popupRef = useRef<HTMLDivElement | null>(null)
+  const lastPulseRef = useRef(pulseKey)
+  const pulseOpenRef = useRef(open)
+  const pulseRef = useRef<AnimationPlaybackControls | null>(null)
+  const reduceMotion = useReducedMotion() ?? false
+  useEffect(() => {
+    const popup = popupRef.current
+    const changed = lastPulseRef.current !== pulseKey
+    const wasOpen = pulseOpenRef.current
+    lastPulseRef.current = pulseKey
+    pulseOpenRef.current = open
+    if (!changed || !wasOpen || !open || popup === null || reduceMotion) return
+    pulseRef.current?.stop()
+    popup.style.transformOrigin = "center"
+    const press = animate(popup, { scale: PULSE_SCALE }, PULSE_PRESS)
+    pulseRef.current = press
+    void press.then(() => {
+      if (pulseRef.current !== press) return
+      const release = animate(popup, { scale: 1 }, PULSE_RELEASE)
+      pulseRef.current = release
+      void release.then(() => {
+        if (pulseRef.current !== release) return
+        pulseRef.current = null
+        popup.style.transformOrigin = ""
+      })
+    })
+  }, [pulseKey, open, reduceMotion])
+  useEffect(() => () => pulseRef.current?.stop(), [])
+  const [content, setContent] = useState<ContentSize | null>(null)
+  const observeContent = useCallback((node: HTMLDivElement | null) => {
+    if (node === null) return undefined
+    const measure = () => {
+      node.style.height = "auto"
+      const height = node.offsetHeight
+      node.style.height = ""
+      if (height === 0) return
+      setContent((previous) =>
+        previous?.height === height
+          ? previous
+          : { height, instant: previous === null }
+      )
+    }
+    const resizes = new ResizeObserver(measure)
+    resizes.observe(node)
+    const mutations = new MutationObserver(measure)
+    mutations.observe(node, { childList: true, subtree: true })
+    return () => {
+      resizes.disconnect()
+      mutations.disconnect()
+      setContent(null)
+    }
+  }, [])
+  useIsoLayoutEffect(() => {
+    openRef.current = open
+    onOpenChangeRef.current = onOpenChange
+  })
+
+  useEffect(() => {
+    if (!shortcut) return undefined
+    const parsed = parseShortcut(shortcut)
+    if (parsed.key === "") return undefined
+    const entry = { combo: comboKey(parsed), isOpen: () => openRef.current }
+    mountedDialogs.push(entry)
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat || event.defaultPrevented) return
+      if (!matchesShortcut(event, parsed)) return
+      if (!hasModifier(parsed) && isEditable(event.target)) return
+      const peers = mountedDialogs.filter((d) => d.combo === entry.combo)
+      const answers = peers.find((d) => d.isOpen()) ?? peers.at(-1)
+      if (answers !== entry) return
+      event.preventDefault()
+      onOpenChangeRef.current(!openRef.current)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => {
+      window.removeEventListener("keydown", onKeyDown)
+      const index = mountedDialogs.indexOf(entry)
+      if (index !== -1) mountedDialogs.splice(index, 1)
+    }
+  }, [shortcut])
+
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Backdrop
+          data-slot="command-menu-backdrop"
+          className="fixed inset-0 bg-black/15 data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:animate-in data-[open]:fade-in-0 motion-reduce:animate-none dark:bg-black/40"
+        />
+        <DialogPrimitive.Popup
+          ref={popupRef}
+          data-slot="command-menu-dialog"
+          className={cn(
+            "fixed inset-x-0 top-[round(down,max(12dvh,calc(50dvh-220px)),1px)] mx-auto flex w-[min(40rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-border/60 bg-popover text-foreground shadow-[0_16px_48px_rgba(0,0,0,0.12)] outline-none dark:shadow-[0_16px_48px_rgba(0,0,0,0.6)]",
+            "origin-top data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-[0.98] data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-[0.98] motion-reduce:animate-none",
+            className
+          )}
+        >
+          <DialogPrimitive.Title className="sr-only">
+            {title}
+          </DialogPrimitive.Title>
+          <motion.div
+            className="overflow-hidden"
+            initial={false}
+            animate={content === null ? {} : { height: content.height }}
+            transition={
+              reduceMotion || content === null || content.instant
+                ? { duration: 0 }
+                : PANEL_RESIZE
+            }
+          >
+            <div
+              ref={observeContent}
+              className="flex h-full max-h-[min(440px,76dvh)] flex-col"
+            >
+              {children}
+            </div>
+          </motion.div>
+        </DialogPrimitive.Popup>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  )
+}
+
 export {
   useCommandMenu,
   CommandMenu,
+  CommandMenuDialog,
   CommandMenuTabs,
   CommandMenuInput,
   CommandMenuList,

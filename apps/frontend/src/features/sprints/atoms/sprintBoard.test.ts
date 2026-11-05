@@ -1,4 +1,5 @@
 import {
+  EMPTY_TICKET_RELATIONS,
   Group,
   GroupDetail,
   GroupId,
@@ -79,6 +80,7 @@ const encodeTicketUpdate = (ticket: TicketDetail) =>
 const asGroupDetail = (g: Group): GroupDetail => ({ ...g, body: "" })
 const asTicketDetail = (t: Ticket): TicketDetail => ({
   ...t,
+  relations: EMPTY_TICKET_RELATIONS,
   creator: null,
   updater: null,
   body: ""

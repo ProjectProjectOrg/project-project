@@ -10,8 +10,7 @@ import {
   useState,
   use,
   type ComponentProps,
-  type ReactNode,
-  type RefObject
+  type ReactNode
 } from "react"
 
 import { Button, type ButtonProps } from "@/components/ui/button"
@@ -187,7 +186,7 @@ function ConfirmPopover({
   children
 }: Readonly<{
   when?: string
-  anchor: RefObject<HTMLElement | null>
+  anchor: ComponentProps<typeof PopoverContent>["anchor"]
   className?: string
   children: ReactNode
 }>) {

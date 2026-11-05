@@ -1,4 +1,5 @@
 import {
+  EMPTY_TICKET_RELATIONS,
   DEFAULT_TICKET_SORT,
   GroupId,
   padNumericIdSort,
@@ -68,6 +69,7 @@ const encodeDetail = Schema.encodeSync(TicketDetail)
 const encodeUpdateResponse = Schema.encodeSync(TicketUpdateResult)
 const asDetail = (t: Ticket): TicketDetail => ({
   ...t,
+  relations: EMPTY_TICKET_RELATIONS,
   creator: null,
   updater: null,
   body: "Before"
