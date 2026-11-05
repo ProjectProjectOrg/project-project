@@ -3,11 +3,14 @@ import {
   LexicalTypeaheadMenuPlugin,
   MenuOption
 } from "@lexical/react/LexicalTypeaheadMenuPlugin"
+import { mergeRegister } from "@lexical/utils"
 import {
   TextNode,
   $getSelection,
   $isRangeSelection,
   $isElementNode,
+  BLUR_COMMAND,
+  FOCUS_COMMAND,
   KEY_BACKSPACE_COMMAND,
   KEY_DELETE_COMMAND,
   COMMAND_PRIORITY_LOW,
@@ -107,6 +110,30 @@ export function MentionsPlugin(): JSX.Element | null {
   )
   const results = useMentionResults(activeProvider, queryString)
   const listRef = useRef<HTMLDivElement>(null)
+  const [blurred, setBlurred] = useState(false)
+
+  useEffect(
+    () =>
+      mergeRegister(
+        editor.registerCommand(
+          BLUR_COMMAND,
+          () => {
+            setBlurred(true)
+            return false
+          },
+          COMMAND_PRIORITY_LOW
+        ),
+        editor.registerCommand(
+          FOCUS_COMMAND,
+          () => {
+            setBlurred(false)
+            return false
+          },
+          COMMAND_PRIORITY_LOW
+        )
+      ),
+    [editor]
+  )
 
   const lastQuery = useRef<string | null>(null)
 
@@ -220,7 +247,9 @@ export function MentionsPlugin(): JSX.Element | null {
         anchorRef,
         { selectedIndex, selectOptionAndCleanUp, setHighlightedIndex }
       ) => {
-        if (!anchorRef.current || activeProvider === null) return null
+        if (!anchorRef.current || activeProvider === null || blurred) {
+          return null
+        }
         const note = noteFor(activeProvider, results, queryString ?? "")
         if (options.length === 0 && note === null) return null
         return (
