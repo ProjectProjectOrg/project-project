@@ -14,6 +14,7 @@ type InlineFormContextValue = Readonly<{
   setBusy: (b: boolean) => void
   hoveredAction: string | null
   setHoveredAction: (a: string | null) => void
+  fade: boolean
 }>
 
 const InlineFormContext = createContext<InlineFormContextValue | null>(null)
@@ -33,6 +34,7 @@ type RootProps<A extends string> = Readonly<{
   onModeChange?: (mode: "idle" | NoInfer<A>) => void
   className?: string
   variant?: "bordered" | "ghost"
+  fade?: boolean
   children: React.ReactNode
 }>
 
@@ -43,6 +45,7 @@ function Root<const A extends string = string>({
   onModeChange,
   className,
   variant = "bordered",
+  fade = true,
   children
 }: RootProps<A>) {
   const [uncontrolled, setUncontrolled] = useState<"idle" | A>(defaultMode)
@@ -79,9 +82,10 @@ function Root<const A extends string = string>({
       busy,
       setBusy,
       hoveredAction,
-      setHoveredAction
+      setHoveredAction,
+      fade
     }),
-    [mode, open, close, busy, hoveredAction]
+    [mode, open, close, busy, hoveredAction, fade]
   )
 
   return (
@@ -109,11 +113,11 @@ function Idle({
   children: React.ReactNode
   block?: boolean
 }) {
-  const { mode } = useInlineForm()
+  const { mode, fade } = useInlineForm()
   if (mode !== "idle") return null
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={fade ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
       transition={transitions.fade}
     >
@@ -221,11 +225,11 @@ function Form({
   className?: string
   children: React.ReactNode
 }) {
-  const { mode, close, busy } = useInlineForm()
+  const { mode, close, busy, fade } = useInlineForm()
   if (mode !== action) return null
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={fade ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
       transition={transitions.fade}
       onKeyDown={(e) => {

@@ -5,6 +5,7 @@ import {
   organization,
   projectIndex,
   ticketBranch,
+  ticketRelationIndex,
   ticketIndex,
   user
 } from "@pp/db/schema"
@@ -63,14 +64,21 @@ export const commentIndexRowsFor = (
     commentIndexRowsForDocument(project, document)
   )
 
-const nextTicketNumberFor = (
+export const nextTicketNumberFor = (
   documents: ReadonlyArray<TicketDocs.TicketDocument>
 ): number =>
-  documents.reduce((next, document) => {
-    const dash = document.id.lastIndexOf("-")
-    const number = Number(document.id.slice(dash + 1))
-    return Number.isSafeInteger(number) ? Math.max(next, number + 1) : next
-  }, 1)
+  documents
+    .flatMap((document) => [
+      document.id,
+      ...(document.blockedBy ?? []),
+      ...(document.relatedTo ?? []),
+      ...(document.duplicateOf === undefined ? [] : [document.duplicateOf])
+    ])
+    .reduce((next, id) => {
+      const dash = id.lastIndexOf("-")
+      const number = Number(id.slice(dash + 1))
+      return Number.isSafeInteger(number) ? Math.max(next, number + 1) : next
+    }, 1)
 
 export interface IndexedTicketRef {
   readonly ticketId: string
@@ -424,6 +432,22 @@ const make = Effect.gen(function* () {
               )
             if (branches.length > 0) {
               yield* db.insert(ticketBranch).values(branches)
+            }
+            yield* db
+              .delete(ticketRelationIndex)
+              .where(
+                and(
+                  eq(ticketRelationIndex.projectId, project.projectId),
+                  inArray(ticketRelationIndex.fromTicketId, [...writtenIds])
+                )
+              )
+            const relations = documents
+              .filter((document) => writtenIds.has(document.id))
+              .flatMap((document) =>
+                TicketIndex.ticketRelationRowsFor(project, document)
+              )
+            if (relations.length > 0) {
+              yield* db.insert(ticketRelationIndex).values(relations)
             }
           }
           if (touchedIds.length > 0) {

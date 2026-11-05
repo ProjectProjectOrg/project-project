@@ -5,7 +5,6 @@ import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Random from "effect/Random"
 import * as Result from "effect/reactivity/AsyncResult"
-import { motion, AnimatePresence } from "motion/react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -16,7 +15,6 @@ import {
 } from "@/features/comments/atoms/comments"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 const newCommentIdentity = () => ({
@@ -39,7 +37,6 @@ function ReadyCommentComposer({
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const [body, setBody] = useState("")
-  const [expanded, setExpanded] = useState(false)
   const [editorVersion, setEditorVersion] = useState(0)
   const [identity, setIdentity] = useState(newCommentIdentity)
   const req = commentsRequest(orgSlug, slug, ticketId)
@@ -57,27 +54,12 @@ function ReadyCommentComposer({
     if (Exit.isSuccess(exit)) {
       setBody("")
       setEditorVersion((v) => v + 1)
-      setExpanded(false)
       setIdentity(newCommentIdentity())
     }
   }
 
-  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
-    if (e.currentTarget.contains(e.relatedTarget)) return
-    if (!body.trim()) setExpanded(false)
-  }
-
   return (
-    <motion.div
-      onFocus={() => setExpanded(true)}
-      onBlur={handleBlur}
-      animate={{
-        paddingTop: expanded ? 12 : 6,
-        paddingBottom: expanded ? 12 : 6
-      }}
-      transition={transitions.layout}
-      className="rounded-md border border-border bg-background px-3"
-    >
+    <div className="rounded-md border border-border bg-background px-3 py-3">
       <LexicalEditor
         key={editorVersion}
         markdown={body}
@@ -85,30 +67,17 @@ function ReadyCommentComposer({
         placeholder={m.comments_composer_placeholder()}
         compact
       />
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            key="actions"
-            initial={{ opacity: 0, height: 0, marginTop: 0 }}
-            animate={{ opacity: 1, height: "auto", marginTop: 8 }}
-            exit={{ opacity: 0, height: 0, marginTop: 0 }}
-            transition={transitions.presence}
-            className="overflow-hidden"
-          >
-            {error && <p className="mb-2 text-sm text-destructive">{error}</p>}
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                onClick={submit}
-                disabled={submitting || !body.trim()}
-                className={submitting ? "animate-pulse" : undefined}
-              >
-                {m.comments_composer_submit()}
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      <div className="mt-2 flex justify-end">
+        <Button
+          size="sm"
+          onClick={submit}
+          disabled={submitting || !body.trim()}
+          className={submitting ? "animate-pulse" : undefined}
+        >
+          {m.comments_composer_submit()}
+        </Button>
+      </div>
+    </div>
   )
 }

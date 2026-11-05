@@ -1,13 +1,10 @@
 import { useAtomValue } from "@effect/atom-react"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { LayoutTemplate } from "lucide-react"
+import type { ComponentProps } from "react"
 
-import { Button } from "@/components/ui/button"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
+import { Popover, PopoverContent } from "@/components/ui/popover"
 import {
   projectLibraryFor,
   projectLibraryRequest
@@ -21,7 +18,7 @@ import {
 import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
-export function SaveAsTemplatePopover(props: SaveAsTemplateProps) {
+function useTemplateLayers() {
   const { orgSlug, slug } = useProjectRoute()
   const libraryResult = useAtomValue(
     projectLibraryFor(projectLibraryRequest(orgSlug, slug))
@@ -33,25 +30,47 @@ export function SaveAsTemplatePopover(props: SaveAsTemplateProps) {
     ...(library.canEdit ? (["project"] as const) : []),
     ...(orgAdmin ? (["org"] as const) : [])
   ]
-  if (layers.length === 0) return null
+  return layers.length === 0 ? null : { library, layers }
+}
+
+export function SaveAsTemplateMenuItem({
+  onSelect
+}: Readonly<{ onSelect: () => void }>) {
+  if (useTemplateLayers() === null) return null
   return (
-    <Popover>
-      <PopoverTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={m.templates_save_as_action()}
-            title={m.templates_save_as_action()}
-            className="text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <LayoutTemplate strokeWidth={1.75} />
-          </Button>
-        }
-      />
-      <PopoverContent align="end" className="w-72">
-        <SaveAsTemplateForm {...props} library={library} layers={layers} />
+    <DropdownMenuItem onClick={onSelect} className="cursor-pointer">
+      <LayoutTemplate className="size-4" strokeWidth={1.75} />
+      {m.templates_save_as_action()}
+    </DropdownMenuItem>
+  )
+}
+
+export function SaveAsTemplatePopover({
+  open,
+  onOpenChange,
+  anchor,
+  ...props
+}: SaveAsTemplateProps &
+  Readonly<{
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    anchor: ComponentProps<typeof PopoverContent>["anchor"]
+  }>) {
+  const target = useTemplateLayers()
+  if (target === null) return null
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverContent
+        anchor={anchor}
+        align="end"
+        className="w-72"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <SaveAsTemplateForm
+          {...props}
+          library={target.library}
+          layers={target.layers}
+        />
       </PopoverContent>
     </Popover>
   )

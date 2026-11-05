@@ -39,6 +39,22 @@ const listChange = <K extends string, S extends Schema.Top>(
     removed: Schema.Array(value)
   })
 
+export const RelationSide = Schema.Literals([
+  "blockedBy",
+  "blocking",
+  "related",
+  "duplicateOf",
+  "duplicates"
+])
+export type RelationSide = typeof RelationSide.Type
+
+const relationChange = <K extends string>(kind: K) =>
+  Schema.Struct({
+    kind: Schema.Literal(kind),
+    relation: RelationSide,
+    ticket: TicketId
+  })
+
 const groupChange = <K extends string>(kind: K) =>
   Schema.Struct({
     kind: Schema.Literal(kind),
@@ -65,6 +81,8 @@ export const TicketActivityChange = Schema.Union([
     kind: Schema.Literal("split"),
     into: Schema.Array(TicketId)
   }),
+  relationChange("relation_added"),
+  relationChange("relation_removed"),
   groupChange("group_added"),
   groupChange("group_removed"),
   Schema.Struct({

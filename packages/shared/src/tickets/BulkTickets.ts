@@ -8,7 +8,12 @@ import { Ticket, TicketId, UpdateTicketInput } from "./Ticket"
 export const BULK_TICKETS_MAX = 200
 
 export const BulkTicketPatch = Schema.Struct({
-  ...Struct.omit(UpdateTicketInput.fields, ["title", "body"]),
+  ...Struct.omit(UpdateTicketInput.fields, [
+    "title",
+    "body",
+    "blockedBy",
+    "relatedTo"
+  ]),
   sprint: Schema.optional(Schema.NullOr(GroupId))
 })
 export type BulkTicketPatch = typeof BulkTicketPatch.Type

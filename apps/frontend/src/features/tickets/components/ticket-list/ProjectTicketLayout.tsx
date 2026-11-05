@@ -102,9 +102,24 @@ export function ProjectTicketLayout({
   const isBoard = view === "board"
   const filters: ReadonlyArray<FilterDimension> = groupId
     ? isBoard
-      ? ["type", "assignee", "tags", "subTicketExpansion"]
-      : ["archived", "type", "assignee", "tags", "subTicketExpansion"]
-    : ["archived", "type", "assignee", "sprint", "tags", "subTicketExpansion"]
+      ? ["blocked", "type", "assignee", "tags", "subTicketExpansion"]
+      : [
+          "blocked",
+          "archived",
+          "type",
+          "assignee",
+          "tags",
+          "subTicketExpansion"
+        ]
+    : [
+        "blocked",
+        "archived",
+        "type",
+        "assignee",
+        "sprint",
+        "tags",
+        "subTicketExpansion"
+      ]
   const countsSource = {
     orgSlug,
     slug,

@@ -1,6 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import type {
   Estimate,
+  LinkedTicket,
   Member,
   ProjectStatus,
   TicketId,
@@ -8,9 +9,10 @@ import type {
   TicketStatus,
   TicketType
 } from "@pp/shared"
-import { flattenTicketBlocks } from "@pp/shared"
+import { finishedStatusSlugs, flattenTicketBlocks } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
+import { OctagonMinus } from "lucide-react"
 import type { ComponentProps } from "react"
 import { lazy, Suspense } from "react"
 
@@ -35,6 +37,7 @@ import {
   PRIORITY_LABELS,
   PRIORITY_META
 } from "@/features/tickets/lib/priorityMeta"
+import { openBlockers } from "@/features/tickets/lib/relationGroups"
 import {
   statusMetaFor,
   statusLabelFor,
@@ -117,6 +120,13 @@ export function TicketHoverCard({
                 {ticket.title}
               </div>
               <MetaRow ticket={ticket} scope={scope} statuses={statuses} />
+              <BlockedLine
+                blockers={openBlockers(
+                  ticket.relations,
+                  new Set(finishedStatusSlugs(statuses))
+                )}
+                statuses={statuses}
+              />
               {body.length > 0 && (
                 <div className="relative">
                   <Suspense fallback={null}>
@@ -223,6 +233,44 @@ function MetaRow({
             <MemberAvatar key={member.id} member={member} size={16} />
           ))}
         </span>
+      )}
+    </div>
+  )
+}
+
+function BlockedLine({
+  blockers,
+  statuses
+}: {
+  blockers: ReadonlyArray<LinkedTicket>
+  statuses: ReadonlyArray<ProjectStatus>
+}) {
+  const [first] = blockers
+  if (first === undefined) return null
+  const meta = statusMetaFor(first.status, statuses)
+  const StatusIcon = meta.icon
+  return (
+    <div className="flex min-w-0 items-center gap-1.5 rounded-md bg-hover px-2 py-1.5 text-xs">
+      <OctagonMinus
+        className="size-3.5 shrink-0 text-state-warning"
+        strokeWidth={1.75}
+      />
+      <span className="shrink-0 text-muted-foreground">
+        {m.tickets_hover_blocked_by()}
+      </span>
+      <span className="shrink-0 font-mono text-foreground">{first.id}</span>
+      <span className="min-w-0 flex-1 truncate">{first.title}</span>
+      {blockers.length > 1 ? (
+        <span className="shrink-0 text-muted-foreground">
+          {m.tickets_hover_blocked_more({ count: blockers.length - 1 })}
+        </span>
+      ) : (
+        <StatusIcon
+          aria-label={meta.label}
+          className={cn("size-3.5 shrink-0", meta.className)}
+          style={meta.color ? { color: meta.color } : undefined}
+          strokeWidth={1.75}
+        />
       )}
     </div>
   )

@@ -7,7 +7,8 @@ import {
   projectStatus,
   ticketActivity,
   ticketBranch,
-  ticketIndex
+  ticketIndex,
+  ticketRelationIndex
 } from "@pp/db/schema"
 import {
   type ActivityActor,
@@ -31,6 +32,7 @@ import {
   type TicketPageQuery,
   type TicketSection,
   type TicketSort,
+  type TicketRelations,
   type ParentFilter,
   TicketStatus
 } from "@pp/shared"
@@ -57,7 +59,7 @@ import {
   sql as drizzleSql,
   type SQL
 } from "drizzle-orm"
-import type { AnyPgColumn } from "drizzle-orm/pg-core"
+import { alias, type AnyPgColumn } from "drizzle-orm/pg-core"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -72,6 +74,11 @@ import { actorOf, type ActorColumns } from "../activity/actorRow"
 import type * as TicketDocs from "./TicketDocs"
 import * as TicketIndexRepairs from "./TicketIndexRepairs"
 import type { TicketProject } from "./ticketProject"
+import {
+  relationsFromRows,
+  type RelationEdge,
+  type RelationRow
+} from "./ticketRelations"
 
 export interface TicketIndexQueryOptions {
   readonly viewerId: string
@@ -121,6 +128,7 @@ export type TicketIndexEntry = Readonly<{
   parent: TicketId | null
   subTicketCount: number
   subTicketDoneCount: number
+  openBlockerCount: number
   archivedAt: Date | null
   createdBy: string
   createdAt: Date
@@ -319,6 +327,13 @@ export class TicketIndex extends Context.Service<
       project: TicketProject,
       ticketId: string
     ) => Effect.Effect<void>
+    relationsOf: (
+      project: TicketProject,
+      ticketId: string
+    ) => Effect.Effect<TicketRelations>
+    relationEdges: (
+      project: TicketProject
+    ) => Effect.Effect<ReadonlyArray<RelationEdge>>
   }>
 >()("@pp/server-core/tickets/TicketIndex") {}
 
@@ -400,6 +415,39 @@ export const ticketBranchRowsFor = (
     prDraft: layer.prDraft ?? false,
     landed: layer.landed ?? false
   }))
+
+export const ticketRelationRowsFor = (
+  project: TicketProject,
+  document: TicketDocs.TicketDocument
+): ReadonlyArray<typeof ticketRelationIndex.$inferInsert> => {
+  const edges = [
+    ...(document.blockedBy ?? []).map((to) => ({
+      to,
+      kind: "blocked_by" as const
+    })),
+    ...(document.relatedTo ?? []).map((to) => ({
+      to,
+      kind: "related" as const
+    })),
+    ...(document.duplicateOf === undefined
+      ? []
+      : [{ to: document.duplicateOf, kind: "duplicate_of" as const }])
+  ]
+  const seen = new Set<string>()
+  return edges.flatMap(({ to, kind }) => {
+    const key = `${kind}:${to}`
+    if (to === document.id || seen.has(key)) return []
+    seen.add(key)
+    return [
+      {
+        projectId: project.projectId,
+        fromTicketId: document.id,
+        toTicketId: to,
+        kind
+      }
+    ]
+  })
+}
 
 const ticketIdSortExpression = drizzleSql<string>`case
   when ${ticketIndex.ticketId} ~ '-[0-9]+$' then
@@ -531,16 +579,37 @@ const childTicketCount = (condition: SQL) =>
     and ${condition}
 )`.mapWith(Number)
 
+const blockerRow = drizzleSql`${drizzleSql.identifier("blocker_tickets")}`
+
+const openBlockerCountOf = (row: SQL) => drizzleSql<number>`(
+  select count(*) from ${ticketRelationIndex} r
+  join ${ticketIndex} as ${blockerRow}
+    on ${columnOf(blockerRow, ticketIndex.projectId)} = r.project_id
+    and ${columnOf(blockerRow, ticketIndex.ticketId)} = r.to_ticket_id
+  where r.project_id = ${columnOf(row, ticketIndex.projectId)}
+    and r.from_ticket_id = ${columnOf(row, ticketIndex.ticketId)}
+    and r.kind = 'blocked_by'
+    and ${columnOf(blockerRow, ticketIndex.archivedAt)} is null
+    and not ${finishedStatus(blockerRow)}
+)`
+
 const entryColumns = {
   ...getTableColumns(ticketIndex),
   subTicketCount: childTicketCount(drizzleSql`true`).as("sub_ticket_count"),
   subTicketDoneCount: childTicketCount(finishedStatus(childRow)).as(
     "sub_ticket_done_count"
-  )
+  ),
+  openBlockerCount: openBlockerCountOf(parentRow)
+    .mapWith(Number)
+    .as("open_blocker_count")
 }
 
 type EntryRow = typeof ticketIndex.$inferSelect &
-  Readonly<{ subTicketCount: number; subTicketDoneCount: number }>
+  Readonly<{
+    subTicketCount: number
+    subTicketDoneCount: number
+    openBlockerCount: number
+  }>
 
 const attachableConditions = (
   attachable: TicketIndexAttachable | undefined
@@ -673,6 +742,13 @@ const ticketWhereConditions = (
   if (filter?.parent !== undefined) {
     conditions.push(parentCondition(filter.parent))
   }
+  if (filter?.blocked !== undefined) {
+    conditions.push(
+      filter.blocked
+        ? drizzleSql`${openBlockerCountOf(parentRow)} > 0`
+        : drizzleSql`${openBlockerCountOf(parentRow)} = 0`
+    )
+  }
   if (filter?.subTickets === "nested") {
     const matchingParents = and(
       ne(ticketIndex.type, "epic"),
@@ -765,6 +841,7 @@ const make = Effect.gen(function* () {
     parent: row.parent === null ? null : makeTicketId(row.parent),
     subTicketCount: row.subTicketCount,
     subTicketDoneCount: row.subTicketDoneCount,
+    openBlockerCount: row.openBlockerCount,
     archivedAt: row.archivedAt,
     createdBy: row.createdBy,
     createdAt: row.createdAt,
@@ -1472,6 +1549,24 @@ const make = Effect.gen(function* () {
         })
     })
 
+  const syncTicketRelations = (
+    project: TicketProject,
+    document: TicketDocs.TicketDocument
+  ) =>
+    Effect.gen(function* () {
+      yield* db
+        .delete(ticketRelationIndex)
+        .where(
+          and(
+            eq(ticketRelationIndex.projectId, project.projectId),
+            eq(ticketRelationIndex.fromTicketId, document.id)
+          )
+        )
+      const rows = ticketRelationRowsFor(project, document)
+      if (rows.length === 0) return
+      yield* db.insert(ticketRelationIndex).values([...rows])
+    })
+
   const upsertTicket = Effect.fn("TicketIndex.upsertTicket")(function* (
     project: TicketProject,
     document: TicketDocs.TicketDocument
@@ -1487,6 +1582,7 @@ const make = Effect.gen(function* () {
               set: ticketIndexRowFor(project, document)
             })
           yield* syncTicketBranches(project, document)
+          yield* syncTicketRelations(project, document)
         })
       )
       .pipe(
@@ -1529,7 +1625,81 @@ const make = Effect.gen(function* () {
       .pipe(Effect.asVoid, Effect.orDie)
   })
 
+  const relationsOf = Effect.fn("TicketIndex.relationsOf")(function* (
+    project: TicketProject,
+    ticketId: string
+  ) {
+    const other = alias(ticketIndex, "other_ticket")
+    const rows = yield* db
+      .select({
+        from: ticketRelationIndex.fromTicketId,
+        kind: ticketRelationIndex.kind,
+        ticketId: other.ticketId,
+        title: other.title,
+        status: other.status,
+        archivedAt: other.archivedAt
+      })
+      .from(ticketRelationIndex)
+      .innerJoin(
+        other,
+        and(
+          eq(other.projectId, ticketRelationIndex.projectId),
+          eq(
+            other.ticketId,
+            drizzleSql`case when ${ticketRelationIndex.fromTicketId} = ${ticketId} then ${ticketRelationIndex.toTicketId} else ${ticketRelationIndex.fromTicketId} end`
+          )
+        )
+      )
+      .where(
+        and(
+          eq(ticketRelationIndex.projectId, project.projectId),
+          or(
+            eq(ticketRelationIndex.fromTicketId, ticketId),
+            eq(ticketRelationIndex.toTicketId, ticketId)
+          )
+        )
+      )
+      .pipe(Effect.orDie)
+    return relationsFromRows(
+      rows.map(
+        (row): RelationRow => ({
+          direction: row.from === ticketId ? "out" : "in",
+          kind: row.kind,
+          other: {
+            id: makeTicketId(row.ticketId),
+            title: row.title,
+            status: TicketStatus.make(row.status),
+            archivedAt: row.archivedAt
+          }
+        })
+      )
+    )
+  })
+
+  const relationEdges = Effect.fn("TicketIndex.relationEdges")(function* (
+    project: TicketProject
+  ) {
+    const rows = yield* db
+      .select({
+        from: ticketRelationIndex.fromTicketId,
+        to: ticketRelationIndex.toTicketId,
+        kind: ticketRelationIndex.kind
+      })
+      .from(ticketRelationIndex)
+      .where(eq(ticketRelationIndex.projectId, project.projectId))
+      .pipe(Effect.orDie)
+    return rows.map(
+      (row): RelationEdge => ({
+        from: makeTicketId(row.from),
+        to: makeTicketId(row.to),
+        kind: row.kind
+      })
+    )
+  })
+
   return TicketIndex.of({
+    relationsOf,
+    relationEdges,
     projectFor,
     projectsFor,
     assignedTo,

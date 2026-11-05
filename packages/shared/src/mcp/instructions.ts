@@ -22,7 +22,8 @@ export const agentGuide = {
   workingOnTicket:
     "Working on a ticket:\n" +
     "1. Read it with `get_ticket`. If its status says it isn't ready to " +
-    "start, refine it first (below) or ask.\n" +
+    "start, refine it first (below) or ask. If `relations.blockedBy` " +
+    "lists a ticket that isn't finished, say so before starting.\n" +
     "2. Assign yourself: take your user id from `me` and add it to the " +
     "ticket's `assignees` with `update_ticket`, keeping anyone already " +
     "assigned.\n" +
@@ -54,7 +55,8 @@ export const agentGuide = {
     "for someone who wasn't in your conversation: a title that names " +
     "the outcome, one or two plain sentences at the top saying what and " +
     "why, then the details. Spell out project-specific terms, mention " +
-    "related tickets instead of assuming the reader knows them, use " +
+    "related tickets instead of assuming the reader knows them, record " +
+    "what it depends on with `blockedBy` (or `mark_ticket`), use " +
     "only tags that exist (`list_tags`), and assign no one unless " +
     "asked.",
   blocks:

@@ -13,6 +13,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import {
   Archive,
   ChevronDown,
+  OctagonMinus,
   SlidersHorizontal,
   UserRound
 } from "lucide-react"
@@ -134,6 +135,14 @@ export function Filters() {
                     onChange={(archived) => onChange({ archived })}
                   />
                 )
+              case "blocked":
+                return (
+                  <FilterBlocked
+                    key={dimension}
+                    value={value?.blocked}
+                    onChange={(blocked) => onChange({ blocked })}
+                  />
+                )
               case "type":
                 return (
                   <FilterType
@@ -203,6 +212,27 @@ function FilterArchived({
       >
         <Archive className="size-4" strokeWidth={1.75} />
         {m.tickets_filters_archived_show()}
+      </DropdownMenuCheckboxItem>
+    </FilterSection>
+  )
+}
+
+function FilterBlocked({
+  value,
+  onChange
+}: {
+  value: TicketFilter["blocked"]
+  onChange: (value: TicketFilter["blocked"]) => void
+}) {
+  return (
+    <FilterSection>
+      <SectionLabel>{m.tickets_filters_blocked()}</SectionLabel>
+      <DropdownMenuCheckboxItem
+        checked={value === true}
+        onCheckedChange={(on) => onChange(on ? true : undefined)}
+      >
+        <OctagonMinus className="size-4" strokeWidth={1.75} />
+        {m.tickets_filters_blocked_only()}
       </DropdownMenuCheckboxItem>
     </FilterSection>
   )

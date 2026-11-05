@@ -42,7 +42,7 @@ function FilterableRoot({
   if (!filterable) return children
   const options = filterable === true ? {} : filterable
   return (
-    <MenuPrimitive.FilterProvider autoHighlight {...options}>
+    <MenuPrimitive.FilterProvider autoHighlight="always" {...options}>
       {children}
     </MenuPrimitive.FilterProvider>
   )
@@ -465,6 +465,7 @@ function DropdownMenuSub({
 function DropdownMenuSubTrigger({
   className,
   inset,
+  delay = 0,
   children,
   ...props
 }: React.ComponentProps<typeof MenuPrimitive.SubmenuTrigger> & {
@@ -472,6 +473,7 @@ function DropdownMenuSubTrigger({
 }) {
   return (
     <MenuPrimitive.SubmenuTrigger
+      delay={delay}
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
@@ -517,10 +519,7 @@ function DropdownMenuSubContent({
       >
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-sub-content"
-          className={cn(
-            "relative z-50 min-w-[8rem] origin-[var(--transform-origin)] overflow-hidden rounded-xl border border-border/60 bg-card p-1 text-foreground shadow-[0_4px_12px_rgba(0,0,0,0.02)] data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-95 data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 motion-reduce:data-[closed]:animate-none motion-reduce:data-[open]:animate-none dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]",
-            className
-          )}
+          className={cn(menuPopupClass, className)}
           {...props}
         >
           <MenuHighlight />

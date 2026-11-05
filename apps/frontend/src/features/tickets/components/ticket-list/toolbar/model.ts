@@ -8,6 +8,7 @@ export type FilterDimension =
   | "sprint"
   | "estimate"
   | "archived"
+  | "blocked"
   | "subTicketExpansion"
 
 const FILTER_KEYS: Readonly<
@@ -19,6 +20,7 @@ const FILTER_KEYS: Readonly<
   sprint: "groupId",
   estimate: "estimate",
   archived: "archived",
+  blocked: "blocked",
   subTicketExpansion: null
 }
 

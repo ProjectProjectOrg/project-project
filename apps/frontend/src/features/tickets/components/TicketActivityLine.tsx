@@ -6,6 +6,7 @@ import type {
   TicketPriority,
   TicketType
 } from "@pp/shared"
+import { Link } from "@tanstack/react-router"
 import {
   GitBranch,
   GitMerge,
@@ -18,6 +19,7 @@ import {
 import type { ReactNode } from "react"
 
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TagChip } from "@/features/tags/components/TagChip"
 import type {
   ActivityLine,
@@ -162,6 +164,20 @@ const LITERAL_ICONS: Readonly<
   pr_closed: { icon: GitPullRequestClosed, className: "text-muted-foreground" }
 }
 
+function TicketValue({ id }: Readonly<{ id: string }>) {
+  const { orgSlug, slug } = useProjectRoute()
+  return (
+    <Link
+      to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+      params={{ orgSlug, slug, id }}
+      preload="intent"
+      className="text-foreground underline-offset-2 transition-colors hover:underline"
+    >
+      <Literal>{id}</Literal>
+    </Link>
+  )
+}
+
 function ActivityValueView({
   value,
   lookups
@@ -187,6 +203,8 @@ function ActivityValueView({
       return <Value icon={GROUP_ICONS[value.groupKind]}>{value.name}</Value>
     case "people":
       return <People ids={value.ids} members={lookups.members} />
+    case "ticket":
+      return <TicketValue id={value.id} />
   }
   return <Tags names={value.names} tags={lookups.tags} />
 }

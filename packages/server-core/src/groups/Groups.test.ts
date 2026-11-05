@@ -1,5 +1,6 @@
 import { it } from "@effect/vitest"
 import { assertTrue } from "@effect/vitest/utils"
+import { EMPTY_TICKET_RELATIONS } from "@pp/shared"
 import { GroupColor } from "@pp/shared"
 import {
   ActivityActor,
@@ -83,6 +84,7 @@ function ticketIndexEntryFromDocument(ticket: TicketDocs.TicketDocument) {
     parent: entry.parent ?? null,
     subTicketCount: 0,
     subTicketDoneCount: 0,
+    openBlockerCount: 0,
     branchDeletedAt: null,
     checks: null,
     checksHeadSha: null,
@@ -251,6 +253,8 @@ function makeFakeDocs(initial?: {
       Effect.sync(() => {
         ticketsById.set(document.id, document)
       }),
+    relationsOf: () => Effect.succeed(EMPTY_TICKET_RELATIONS),
+    relationEdges: () => Effect.succeed([]),
     deleteTicket: (_project, id) =>
       Effect.sync(() => {
         ticketsById.delete(id)

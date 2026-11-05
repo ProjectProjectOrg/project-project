@@ -146,6 +146,7 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
               {filters.map((dimension) => {
                 switch (dimension) {
                   case "archived":
+                  case "blocked":
                     return null
                   case "type":
                     return (
@@ -187,6 +188,17 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
                 }
                 return null
               })}
+              {filters.includes("blocked") && (
+                <label className="flex min-h-8 items-center justify-between gap-3 text-[13px] text-muted-foreground">
+                  {m.tickets_filters_blocked_only()}
+                  <Switch
+                    checked={value?.blocked === true}
+                    onCheckedChange={(on) =>
+                      onChange({ blocked: on ? true : undefined })
+                    }
+                  />
+                </label>
+              )}
               {filters.includes("archived") && (
                 <FilterArchived
                   value={value?.archived}

@@ -1,5 +1,6 @@
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { it } from "@effect/vitest"
+import { EMPTY_TICKET_RELATIONS } from "@pp/shared"
 import {
   Forbidden,
   GroupColor,
@@ -230,6 +231,8 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
         ? Effect.die(new Error("index write failed"))
         : Effect.void
     }),
+  relationsOf: () => Effect.succeed(EMPTY_TICKET_RELATIONS),
+  relationEdges: () => Effect.succeed([]),
   deleteTicket: () => Effect.void
 } satisfies TicketIndex.TicketIndex["Service"])
 

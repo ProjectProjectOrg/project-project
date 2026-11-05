@@ -1,4 +1,5 @@
 import {
+  EMPTY_TICKET_RELATIONS,
   Tag,
   TagColor,
   TagName,
@@ -59,6 +60,7 @@ const ticket = {
   createdBy: "user-1",
   createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
   updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
+  relations: EMPTY_TICKET_RELATIONS,
   creator: null,
   updater: null,
   body: ""

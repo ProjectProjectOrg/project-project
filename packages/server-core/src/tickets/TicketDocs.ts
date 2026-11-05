@@ -23,7 +23,7 @@ import * as Schema from "effect/Schema"
 import * as SchemaTransformation from "effect/SchemaTransformation"
 import * as Struct from "effect/Struct"
 
-import { ticketChanges } from "../activity/changes"
+import { relationChanges, ticketChanges } from "../activity/changes"
 import { ticketCreatedEvents, ticketEvents } from "../activity/projectEvents"
 import * as TicketActivity from "../activity/TicketActivity"
 import * as KeyedLock from "../locks/KeyedLock"
@@ -66,6 +66,9 @@ const TicketFrontmatterOnDisk = Schema.Struct({
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
   splitFrom: Schema.optionalKey(TicketId),
+  blockedBy: Schema.optionalKey(Schema.Array(TicketId)),
+  relatedTo: Schema.optionalKey(Schema.Array(TicketId)),
+  duplicateOf: Schema.optionalKey(TicketId),
   createdBy: Schema.String,
   createdAt: Schema.DateFromString,
   updatedBy: Schema.optionalKey(Schema.String),
@@ -103,6 +106,9 @@ const TicketFrontmatterValue = Schema.Struct({
       assignees: () => Schema.Array(Schema.String),
       parent: () => Schema.optional(TicketId),
       splitFrom: () => Schema.optional(TicketId),
+      blockedBy: () => Schema.optional(Schema.Array(TicketId)),
+      relatedTo: () => Schema.optional(Schema.Array(TicketId)),
+      duplicateOf: () => Schema.optional(TicketId),
       updatedBy: () => Schema.String
     }
   ),
@@ -222,6 +228,9 @@ export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
             "updatedBy",
             "parent",
             "splitFrom",
+            "blockedBy",
+            "relatedTo",
+            "duplicateOf",
             "estimate",
             ...gitKeysOnDisk
           ]),
@@ -233,7 +242,10 @@ export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
                 : [input.assignee]),
             updatedBy: input.updatedBy ?? input.createdBy,
             ...(input.parent ? { parent: input.parent } : {}),
-            ...(input.splitFrom ? { splitFrom: input.splitFrom } : {})
+            ...(input.splitFrom ? { splitFrom: input.splitFrom } : {}),
+            ...(input.blockedBy?.length ? { blockedBy: input.blockedBy } : {}),
+            ...(input.relatedTo?.length ? { relatedTo: input.relatedTo } : {}),
+            ...(input.duplicateOf ? { duplicateOf: input.duplicateOf } : {})
           },
           gitFromDisk(input),
           decodedEstimate(input.estimate)
@@ -243,12 +255,18 @@ export const TicketFrontmatter = TicketFrontmatterOnDisk.pipe(
           Struct.omit(input, [
             "parent",
             "splitFrom",
+            "blockedBy",
+            "relatedTo",
+            "duplicateOf",
             "estimate",
             ...gitKeysInMemory
           ]),
           gitToDisk(input),
           input.parent ? { parent: input.parent } : {},
           input.splitFrom ? { splitFrom: input.splitFrom } : {},
+          input.blockedBy?.length ? { blockedBy: input.blockedBy } : {},
+          input.relatedTo?.length ? { relatedTo: input.relatedTo } : {},
+          input.duplicateOf ? { duplicateOf: input.duplicateOf } : {},
           input.estimate ? { estimate: estimateToken(input.estimate) } : {}
         )
     })
@@ -469,7 +487,7 @@ const make = Effect.gen(function* () {
               id: document.id,
               content: ticketFileContent(document)
             },
-            [],
+            relationChanges(null, document),
             null,
             markdown.createTicketFile(
               orgSlug,
@@ -574,12 +592,15 @@ const make = Effect.gen(function* () {
               orgSlug,
               slug,
               { kind: "ticket", id, content: ticketFileContent(next) },
-              changes.map((change) =>
-                change.kind === "status_changed" &&
-                activity.statusCause !== undefined
-                  ? { ticketId: next.id, change, cause: activity.statusCause }
-                  : { ticketId: next.id, change }
-              ),
+              [
+                ...changes.map((change) =>
+                  change.kind === "status_changed" &&
+                  activity.statusCause !== undefined
+                    ? { ticketId: next.id, change, cause: activity.statusCause }
+                    : { ticketId: next.id, change }
+                ),
+                ...(activity.silent ? [] : relationChanges(current, next))
+              ],
               activity.cause ?? null,
               write(orgSlug, slug, id, next),
               events

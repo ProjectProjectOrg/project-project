@@ -1,19 +1,20 @@
 export const RAIL_SIZE = 20
-const RAIL_GAP = 4
 const RAIL_EDGE = 2
 
 export type RailBounds = Readonly<{
   hostLeft: number
   textLeft: number
+  gap: number
   clipLeft: number | null
 }>
 
 export const railLeft = ({
   hostLeft,
   textLeft,
+  gap,
   clipLeft
 }: RailBounds): number | null => {
-  const preferred = hostLeft - RAIL_GAP - RAIL_SIZE
+  const preferred = hostLeft - gap - RAIL_SIZE
   const left =
     clipLeft === null ? preferred : Math.max(preferred, clipLeft + RAIL_EDGE)
   return left + RAIL_SIZE > textLeft - RAIL_EDGE ? null : left - textLeft
@@ -33,6 +34,9 @@ export const measureRailBounds = (
   return {
     hostLeft: host.getBoundingClientRect().left,
     textLeft: anchor.getBoundingClientRect().left,
+    gap: parseFloat(
+      getComputedStyle(host).getPropertyValue("--block-rail-gap")
+    ),
     clipLeft:
       clip === null ? null : clip.getBoundingClientRect().left + clip.clientLeft
   }

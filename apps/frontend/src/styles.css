@@ -414,11 +414,15 @@
 /* `.block-rail-scope` and `.block-rail-sheet` lend the ticket page's rail to
    another surface (the gallery preview): read-only block icons hang in the
    margin left of the padded sheet, like they do next to a comment. */
+@property --block-rail-gap {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 4px;
+}
 .ticket-page,
 .block-rail-scope {
   --ticket-status-column: 2.5rem;
   --block-rail-size: 20px;
-  --block-rail-gap: 4px;
   --ticket-rail-inset: calc(
     var(--ticket-status-column) / 2 + var(--block-rail-gap) +
       var(--block-rail-size) / 2
@@ -427,11 +431,31 @@
 .block-rail-scope {
   --ticket-status-column: 1rem;
 }
+/* One text edge for the ticket page: the title's (status column, its gap and
+   the title's hover padding). Boxed fields (description, comments) sit their
+   border and padding outside it, and the block rail stretches its gap so its
+   icons stay centred under the status icon. */
+.ticket-page {
+  --ticket-title-gap: 0.25rem;
+  --ticket-text-inset: calc(
+    var(--ticket-status-column) + var(--ticket-title-gap) + 0.5rem
+  );
+  --ticket-box-offset: calc(0.75rem + 1px);
+  --ticket-rail-inset: calc(
+    var(--ticket-text-inset) - var(--ticket-box-offset)
+  );
+  --block-rail-gap: calc(
+    var(--ticket-rail-inset) - var(--ticket-status-column) / 2 -
+      var(--block-rail-size) / 2
+  );
+}
 .ticket-comment,
 .block-rail-sheet {
   --ticket-comment-pad: 0.75rem;
 }
-.ticket-page .ticket-comment .prose-md .ticket-block > .ticket-block-icon,
+.ticket-page .ticket-comment .prose-md .ticket-block > .ticket-block-icon {
+  display: none;
+}
 .block-rail-scope
   .block-rail-sheet
   .prose-md

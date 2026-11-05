@@ -1,12 +1,7 @@
 import { ChevronDown, Layers } from "lucide-react"
 
 import { CollapsingLabel } from "@/components/ui/collapsing-label"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import { m } from "@/paraglide/messages"
 
 import { ToolbarButton } from "./toolbar/shared"
@@ -32,8 +27,17 @@ export function GroupingMenu<K extends string>({
   const current = options.find((option) => option.key === value)
   const label = m.tickets_grouping_label({ label: current?.label ?? value })
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
+    <Select
+      items={options.map((option) => ({
+        value: option.key,
+        textValue: option.label,
+        label: option.label
+      }))}
+      value={value}
+      onValueChange={onChange}
+      contentProps={{ align: "end" }}
+    >
+      <SelectTrigger
         render={
           <ToolbarButton aria-label={label}>
             <Layers className="size-4" />
@@ -42,17 +46,6 @@ export function GroupingMenu<K extends string>({
           </ToolbarButton>
         }
       />
-      <DropdownMenuContent align="end">
-        <DropdownMenuRadioGroup
-          value={value}
-          onValueChange={onChange}
-          items={options.map((option) => ({
-            value: option.key,
-            closeOnClick: true,
-            label: option.label
-          }))}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    </Select>
   )
 }

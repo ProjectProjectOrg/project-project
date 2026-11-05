@@ -109,6 +109,8 @@ branches: # omitted until a branch is linked
 ignoredBranches: # never linked automatically again
   - feat/T-12-spike
 assignees: [github_88]
+blockedBy: [T-9] # can't start until T-9 is done; omitted when empty
+relatedTo: [T-14] # omitted when empty
 createdBy: github_42
 createdAt: 2025-11-04T11:30:00Z
 updatedAt: 2025-11-04T15:12:00Z
@@ -121,6 +123,8 @@ Code blocks, lists, tables, the works.
 ```
 
 Ticket IDs are sequential per project.
+
+Relations live in the frontmatter of one ticket: the waiting ticket stores `blockedBy`, a duplicate stores `duplicateOf` (set when it is archived as a duplicate), and `relatedTo` stays on the ticket it was added from. The reverse directions ("blocking", "duplicates", the other side of "related") come from the `ticket_relation_index` table, which is rebuilt from frontmatter with the ticket index. Deleting a ticket leaves links to it in other files; reads hide them, and the next relation edit on the referencing ticket drops them.
 
 ### What lives in Postgres
 

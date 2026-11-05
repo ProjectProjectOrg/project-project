@@ -54,6 +54,7 @@ import {
   ArchiveTicketInput,
   CreateTicketInput,
   DeleteTicketQuery,
+  MarkTicketInput,
   QuickCreateTicketInput,
   SplitTicketInput,
   SplitTicketResult,
@@ -319,6 +320,34 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: TicketPath,
         success: TicketDetail,
         error: [Unauthorized, NotFound, Forbidden, Conflict]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["update"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "mark",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/mark",
+      {
+        params: TicketPath,
+        payload: MarkTicketInput,
+        success: TicketDetail,
+        error: [Unauthorized, NotFound, Forbidden, Validation]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["update"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "unmark",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/unmark",
+      {
+        params: TicketPath,
+        payload: MarkTicketInput,
+        success: TicketDetail,
+        error: [Unauthorized, NotFound, Forbidden]
       }
     )
       .annotate(RequiresProject, { ticket: ["update"] })
