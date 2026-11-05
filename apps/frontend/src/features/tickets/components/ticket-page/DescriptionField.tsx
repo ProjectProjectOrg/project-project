@@ -269,7 +269,7 @@ export function DescriptionField({
                 attachments={attachments}
                 blocks={blocks}
                 editorRef={editorRef}
-                className="text-base"
+                size="large"
               />
             </AttachmentAvailabilityProvider>
           </MentionScopeProvider>
