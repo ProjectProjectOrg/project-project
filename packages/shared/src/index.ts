@@ -1,4 +1,5 @@
 export * from "./api"
+export { OrgPath, ProjectPath } from "./http/paths"
 export * from "./colors"
 export * from "./errors"
 export * from "./filters"
@@ -32,6 +33,7 @@ export * from "./everhour/TimeTracking"
 export * from "./everhour/WorkType"
 
 export * from "./feedback/Feedback"
+export { FeedbackIntakeGuard } from "./feedback/FeedbackApi"
 
 export * from "./figma/Figma"
 export * from "./figma/urls"
@@ -71,6 +73,7 @@ export * from "./statuses/phase"
 export * from "./statuses/slug"
 
 export * from "./tags/Tag"
+export type { TagUsageCounts } from "./tags/TagsApi"
 
 export * from "./tickets/BulkTickets"
 export * from "./tickets/Ticket"

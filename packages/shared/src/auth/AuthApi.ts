@@ -1,0 +1,50 @@
+import { HttpApiEndpoint, HttpApiGroup } from "effect/http-api"
+import * as Schema from "effect/Schema"
+
+import { NotFound, Unauthorized, Validation } from "../errors"
+import { Authentication } from "./Authentication"
+import { OAuthApplication } from "./OAuthApplication"
+import { User } from "./User"
+
+export const AuthGroup = HttpApiGroup.make("auth")
+  .add(
+    HttpApiEndpoint.get("me", "/me", {
+      success: User,
+      error: Unauthorized
+    })
+  )
+  .middleware(Authentication)
+
+export const OAuthApplicationsGroup = HttpApiGroup.make("oauthApplications")
+  .add(
+    HttpApiEndpoint.get("list", "/oauth-applications", {
+      success: Schema.Array(OAuthApplication),
+      error: Unauthorized
+    })
+  )
+  .add(
+    HttpApiEndpoint.delete("revoke", "/oauth-applications/:id", {
+      params: Schema.Struct({ id: Schema.String }),
+      success: Schema.Struct({ ok: Schema.Literal(true) }),
+      error: [Unauthorized, NotFound]
+    })
+  )
+  .add(
+    HttpApiEndpoint.post("consent", "/oauth-applications/consent", {
+      payload: Schema.Struct({
+        accept: Schema.Boolean,
+        oauth_query: Schema.String
+      }),
+      success: Schema.Struct({ redirectURI: Schema.String }),
+      error: [Unauthorized, Validation]
+    })
+  )
+  .middleware(Authentication)
+
+export const PublicOAuthGroup = HttpApiGroup.make("publicOAuth").add(
+  HttpApiEndpoint.get("publicClient", "/oauth-applications/public", {
+    query: Schema.Struct({ client_id: Schema.String }),
+    success: Schema.Struct({ name: Schema.NullOr(Schema.String) }),
+    error: [NotFound]
+  })
+)
