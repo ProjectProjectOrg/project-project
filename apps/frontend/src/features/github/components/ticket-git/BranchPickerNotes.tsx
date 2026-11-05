@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 
+import { MenuNote } from "@/components/ui/menu-note"
 import { menuLabelClass } from "@/components/ui/menu-styles"
-import { MenuNote } from "@/features/github/components/MenuNote"
 import type { BranchResults } from "@/features/github/hooks/useBranchResults"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"

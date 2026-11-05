@@ -2,8 +2,11 @@ import * as Effect from "effect/Effect"
 import * as Atom from "effect/reactivity/Atom"
 
 import { me } from "@/features/auth/atoms/auth"
+import { rankMembers } from "@/features/editor/lib/memberRanking"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
+import { m } from "@/paraglide/messages"
 
+import { MentionSearchFailed } from "./errors"
 import type { MentionProvider, MentionScope } from "./registry"
 
 export const userProvider = (scope: MentionScope): MentionProvider => ({
@@ -14,15 +17,7 @@ export const userProvider = (scope: MentionScope): MentionProvider => ({
       const q = query.toLowerCase()
       const members = scope.members
       if (members && members.length > 0) {
-        const filtered = members.filter((member) => {
-          if (!q) return true
-          return (
-            member.name.toLowerCase().includes(q) ||
-            member.email.toLowerCase().includes(q) ||
-            (member.username?.toLowerCase().includes(q) ?? false)
-          )
-        })
-        return filtered.map((member) => ({
+        return rankMembers(members, query, scope.involved).map((member) => ({
           id: member.id,
           label: member.name,
           secondary: member.email,
@@ -39,7 +34,15 @@ export const userProvider = (scope: MentionScope): MentionProvider => ({
         return []
       }
       return [{ id: viewer.id, label, image: null }]
-    }).pipe(Effect.orElseSucceed(() => [])),
+    }).pipe(
+      Effect.map((candidates) => ({ candidates, nextCursor: null })),
+      Effect.mapError(() => new MentionSearchFailed())
+    ),
+  notes: {
+    loading: () => m.tickets_mention_people_loading(),
+    empty: () => m.tickets_mention_people_empty(),
+    failed: () => m.tickets_mention_people_failed()
+  },
   renderRow: (candidate) => (
     <div className="flex min-w-0 items-center gap-2">
       <MemberAvatar

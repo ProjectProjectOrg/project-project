@@ -15,40 +15,49 @@ it.effect("deduplicates identical ticket mention searches", () =>
     (registry) => {
       const fetch = vi.fn(() =>
         Promise.resolve(
-          Response.json([
-            {
-              id: "WEB-1",
-              title: "Native atom search",
-              status: "todo",
-              type: "feat",
-              priority: "med",
-              tags: [],
-              branch: null,
-              pr: null,
-              prState: null,
-              lastTransitionedPr: null,
-              gitState: { tag: "no_branch" },
-              assignees: [],
-              archivedAt: null,
-              createdBy: "user-1",
-              createdAt: "2026-01-01T00:00:00.000Z",
-              updatedAt: "2026-01-01T00:00:00.000Z"
-            }
-          ])
+          Response.json({
+            items: [
+              {
+                orderKey: "a0",
+                ticket: {
+                  id: "WEB-1",
+                  title: "Native atom search",
+                  status: "todo",
+                  type: "feat",
+                  priority: "med",
+                  tags: [],
+                  branch: null,
+                  pr: null,
+                  prState: null,
+                  lastTransitionedPr: null,
+                  gitState: { tag: "no_branch" },
+                  assignees: [],
+                  archivedAt: null,
+                  createdBy: "user-1",
+                  createdAt: "2026-01-01T00:00:00.000Z",
+                  updatedAt: "2026-01-01T00:00:00.000Z"
+                }
+              }
+            ],
+            nextCursor: "next"
+          })
         )
       )
       fetchStub.set(fetch)
       const provider = ticketProvider({ orgSlug: "acme", slug: "web" })
       const search = () =>
         provider
-          .search("native")
+          .search("native", null)
           .pipe(Effect.provideService(Registry.AtomRegistry, registry))
 
       return Effect.gen(function* () {
         const [first, second] = yield* Effect.all([search(), search()], {
           concurrency: "unbounded"
         })
-        expect(first).toEqual([{ id: "WEB-1", label: "Native atom search" }])
+        expect(first).toEqual({
+          candidates: [{ id: "WEB-1", label: "Native atom search" }],
+          nextCursor: "next"
+        })
         expect(second).toEqual(first)
         expect(fetch).toHaveBeenCalledOnce()
       })

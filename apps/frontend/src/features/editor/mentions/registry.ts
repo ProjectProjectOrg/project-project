@@ -3,6 +3,7 @@ import type * as Effect from "effect/Effect"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
 import type { ReactNode } from "react"
 
+import type { MentionSearchFailed } from "./errors"
 import type { MentionScope } from "./scope"
 
 export type MentionCandidate = Readonly<{
@@ -12,15 +13,26 @@ export type MentionCandidate = Readonly<{
   image?: string | null
 }>
 
+export type MentionPage = Readonly<{
+  candidates: ReadonlyArray<MentionCandidate>
+  nextCursor: string | null
+}>
+
 export type { MentionScope }
 
 export type MentionProvider = Readonly<{
   trigger: string
   type: MentionType
   search: (
-    query: string
-  ) => Effect.Effect<ReadonlyArray<MentionCandidate>, never, AtomRegistry>
+    query: string,
+    cursor: string | null
+  ) => Effect.Effect<MentionPage, MentionSearchFailed, AtomRegistry>
   renderRow: (candidate: MentionCandidate) => ReactNode
+  notes: Readonly<{
+    loading: () => string
+    empty: () => string
+    failed: () => string
+  }>
 }>
 
 import { ticketProvider } from "./ticketProvider"

@@ -1,31 +1,45 @@
-import { RegistryContext } from "@effect/atom-react"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import {
   LexicalTypeaheadMenuPlugin,
   MenuOption
 } from "@lexical/react/LexicalTypeaheadMenuPlugin"
-import * as Effect from "effect/Effect"
-import * as Registry from "effect/reactivity/AtomRegistry"
+import { mergeRegister } from "@lexical/utils"
 import {
   TextNode,
   $getSelection,
   $isRangeSelection,
   $isElementNode,
+  BLUR_COMMAND,
+  FOCUS_COMMAND,
   KEY_BACKSPACE_COMMAND,
   KEY_DELETE_COMMAND,
+  KEY_ENTER_COMMAND,
+  KEY_TAB_COMMAND,
+  COMMAND_PRIORITY_HIGH,
   COMMAND_PRIORITY_LOW,
   type LexicalNode
 } from "lexical"
 import {
-  useContext,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type JSX
 } from "react"
-import { createPortal } from "react-dom"
 
+import { MenuHighlight } from "@/components/ui/menu-highlight"
+import { MenuNote } from "@/components/ui/menu-note"
+import { menuItemClass, menuPopupClass } from "@/components/ui/menu-styles"
+import {
+  type MentionResults,
+  useMentionResults
+} from "@/features/editor/hooks/useMentionResults"
+import {
+  isProseQuery,
+  matchMentionTrigger
+} from "@/features/editor/lib/mentionTrigger"
 import {
   type MentionCandidate,
   type MentionProvider,
@@ -34,8 +48,32 @@ import {
   providerForType
 } from "@/features/editor/mentions/registry"
 import { useMentionScope } from "@/features/editor/mentions/scope"
+import { isNearScrollEnd } from "@/lib/scroll"
+import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
 import { $createMentionNode, $isMentionNode } from "./MentionNode"
+import { TypeaheadPortal } from "./TypeaheadPortal"
+
+type MenuNoteContent = Readonly<{ text: string; tone: "muted" | "error" }>
+
+const noteFor = (
+  provider: MentionProvider,
+  results: MentionResults,
+  query: string
+): MenuNoteContent | null => {
+  if (results.status === "failed") {
+    return { text: provider.notes.failed(), tone: "error" }
+  }
+  if (results.candidates.length > 0) return null
+  if (results.status === "loading" || results.status === "searching") {
+    return { text: provider.notes.loading(), tone: "muted" }
+  }
+  if (results.status === "ready" && !isProseQuery(query)) {
+    return { text: provider.notes.empty(), tone: "muted" }
+  }
+  return null
+}
 
 class MentionMenuOption extends MenuOption {
   constructor(
@@ -51,10 +89,13 @@ const emptyScope = { orgSlug: "", slug: "" }
 export function MentionsPlugin(): JSX.Element | null {
   const [editor] = useLexicalComposerContext()
   const scope = useMentionScope()
-  const registry = useContext(RegistryContext)
+  const orgSlug = scope?.orgSlug ?? emptyScope.orgSlug
+  const slug = scope?.slug ?? emptyScope.slug
+  const members = scope?.members
+  const involved = scope?.involved
   const providers = useMemo(
-    () => mentionProviders(scope ?? emptyScope),
-    [scope]
+    () => mentionProviders({ orgSlug, slug, members, involved }),
+    [orgSlug, slug, members, involved]
   )
   const triggers = useMemo(
     () => providers.map((provider) => provider.trigger).join(""),
@@ -71,81 +112,86 @@ export function MentionsPlugin(): JSX.Element | null {
         : (providerForType(providers, activeType) ?? null),
     [activeType, providers]
   )
-  const [results, setResults] = useState<{
-    provider: MentionProvider
-    query: string
-    scope: typeof scope
-    candidates: ReadonlyArray<MentionCandidate>
-  } | null>(null)
+  const results = useMentionResults(activeProvider, queryString)
+  const listRef = useRef<HTMLDivElement>(null)
+  const [blurred, setBlurred] = useState(false)
+
+  useEffect(
+    () =>
+      mergeRegister(
+        editor.registerCommand(
+          BLUR_COMMAND,
+          () => {
+            setBlurred(true)
+            return false
+          },
+          COMMAND_PRIORITY_LOW
+        ),
+        editor.registerCommand(
+          FOCUS_COMMAND,
+          () => {
+            setBlurred(false)
+            return false
+          },
+          COMMAND_PRIORITY_LOW
+        )
+      ),
+    [editor]
+  )
+
+  const searching = useRef(false)
+  useLayoutEffect(() => {
+    searching.current = queryString !== null && results.status === "searching"
+  }, [queryString, results.status])
+
+  useEffect(() => {
+    const holdWhileSearching = (event: KeyboardEvent | null) => {
+      if (!searching.current) return false
+      event?.preventDefault()
+      return true
+    }
+    return mergeRegister(
+      editor.registerCommand(
+        KEY_ENTER_COMMAND,
+        holdWhileSearching,
+        COMMAND_PRIORITY_HIGH
+      ),
+      editor.registerCommand(
+        KEY_TAB_COMMAND,
+        holdWhileSearching,
+        COMMAND_PRIORITY_HIGH
+      )
+    )
+  }, [editor])
+
+  const lastQuery = useRef<string | null>(null)
+
+  const onQueryChange = useCallback((next: string | null) => {
+    if (lastQuery.current !== next) listRef.current?.scrollTo({ top: 0 })
+    lastQuery.current = next
+    setQueryString(next)
+  }, [])
 
   const checkForTriggerMatch = useCallback(
     (text: string) => {
-      for (let i = text.length - 1; i >= 0; i--) {
-        const ch = text[i]
-        if (triggers.includes(ch)) {
-          const prev = i === 0 ? " " : text[i - 1]
-          if (/\s/.test(prev)) {
-            const provider = providerForTrigger(providers, ch)
-            if (!provider) return null
-            const matchString = text.slice(i + 1)
-            if (/\s/.test(matchString)) return null
-            setActiveType(provider.type)
-            return {
-              leadOffset: i,
-              matchingString: matchString,
-              replaceableString: text.slice(i)
-            }
-          }
-        }
-      }
-      return null
+      const match = matchMentionTrigger(text, triggers)
+      if (match === null) return null
+      const provider = providerForTrigger(providers, match.trigger)
+      if (!provider) return null
+      setActiveType(provider.type)
+      return match
     },
     [providers, triggers]
   )
 
-  useEffect(() => {
-    if (!activeProvider || queryString === null) {
-      setResults(null)
-      return
-    }
-    const controller = new AbortController()
-    setResults(null)
-    Effect.runPromise(
-      Effect.gen(function* () {
-        if (queryString.length > 0) yield* Effect.sleep("200 millis")
-        return yield* activeProvider.search(queryString)
-      }).pipe(Effect.provideService(Registry.AtomRegistry, registry)),
-      { signal: controller.signal }
-    ).then(
-      (r) => {
-        if (!controller.signal.aborted)
-          setResults({
-            provider: activeProvider,
-            query: queryString,
-            scope,
-            candidates: r.slice(0, 8)
-          })
-      },
-      () => {
-        if (!controller.signal.aborted) setResults(null)
-      }
-    )
-    return () => {
-      controller.abort()
-    }
-  }, [activeProvider, queryString, scope, registry])
-
   const options = useMemo(
     () =>
-      results &&
-      results.provider === activeProvider &&
-      results.query === queryString &&
-      results.scope === scope
-        ? results.candidates.map(
-            (c) => new MentionMenuOption(results.provider, c)
-          )
-        : [],
-    [activeProvider, queryString, scope, results]
+      activeProvider === null
+        ? []
+        : results.candidates.map(
+            (candidate) => new MentionMenuOption(activeProvider, candidate)
+          ),
+    [activeProvider, results.candidates]
   )
 
   const onSelectOption = useCallback(
@@ -222,31 +268,65 @@ export function MentionsPlugin(): JSX.Element | null {
 
   return (
     <LexicalTypeaheadMenuPlugin<MentionMenuOption>
-      onQueryChange={setQueryString}
+      onQueryChange={onQueryChange}
+      onClose={() => setQueryString(null)}
       onSelectOption={onSelectOption}
       triggerFn={checkForTriggerMatch}
       options={options}
-      menuRenderFn={(anchorRef, { selectedIndex, selectOptionAndCleanUp }) => {
-        if (!anchorRef.current || options.length === 0) return null
-        return createPortal(
-          <div className="z-50 mt-1 w-72 overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md">
-            {options.map((opt, i) => (
-              <button
-                key={opt.key}
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  selectOptionAndCleanUp(opt)
-                }}
-                className={`block w-full px-3 py-1.5 text-left text-sm transition-colors hover:bg-hover ${
-                  i === selectedIndex ? "bg-hover" : ""
-                }`}
-              >
-                {opt.provider.renderRow(opt.candidate)}
-              </button>
-            ))}
-          </div>,
-          anchorRef.current
+      menuRenderFn={(
+        anchorRef,
+        { selectedIndex, selectOptionAndCleanUp, setHighlightedIndex }
+      ) => {
+        if (!anchorRef.current || activeProvider === null || blurred) {
+          return null
+        }
+        const note = noteFor(activeProvider, results, queryString ?? "")
+        if (options.length === 0 && note === null) return null
+        return (
+          <TypeaheadPortal anchor={anchorRef.current}>
+            <div
+              ref={listRef}
+              data-open=""
+              className={cn(menuPopupClass, "mt-1 max-h-64 w-80")}
+              onScroll={(event) => {
+                if (results.hasMore && isNearScrollEnd(event.currentTarget)) {
+                  results.loadMore()
+                }
+              }}
+            >
+              <MenuHighlight />
+              {note !== null && (
+                <MenuNote tone={note.tone}>{note.text}</MenuNote>
+              )}
+              {options.map((opt, i) => (
+                <div
+                  key={opt.key}
+                  id={`typeahead-item-${i}`}
+                  ref={(element) => opt.setRefElement(element)}
+                  role="option"
+                  tabIndex={-1}
+                  aria-selected={i === selectedIndex}
+                  data-highlighted={i === selectedIndex ? "" : undefined}
+                  onMouseEnter={() => setHighlightedIndex(i)}
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    selectOptionAndCleanUp(opt)
+                  }}
+                  className={menuItemClass}
+                >
+                  {opt.provider.renderRow(opt.candidate)}
+                </div>
+              ))}
+              {results.loadingMore && (
+                <MenuNote>{m.tickets_mention_loading_more()}</MenuNote>
+              )}
+              {results.loadMoreFailed && (
+                <MenuNote tone="error">
+                  {m.tickets_mention_load_more_failed()}
+                </MenuNote>
+              )}
+            </div>
+          </TypeaheadPortal>
         )
       }}
     />

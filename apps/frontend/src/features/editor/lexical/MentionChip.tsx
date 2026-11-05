@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema"
 
 import { Badge } from "@/components/ui/badge"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
+import { useInAppLink } from "@/features/editor/hooks/useInAppLink"
 import { useMentionScope } from "@/features/editor/mentions/scope"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { TicketHoverCard } from "@/features/tickets/components/TicketHoverCard"
@@ -20,6 +21,7 @@ export function MentionChip({
   label: string
 }) {
   const scope = useMentionScope()
+  const linkRef = useInAppLink()
   if (type === "user") {
     const member = scope?.members?.find((m) => m.id === id)
     return (
@@ -31,6 +33,7 @@ export function MentionChip({
             <Link
               to="/orgs/$orgSlug/projects/$slug/settings/team"
               params={{ orgSlug: scope.orgSlug, slug: scope.slug }}
+              ref={linkRef}
               onMouseDown={(e) => e.preventDefault()}
             />
           ) : undefined
@@ -66,6 +69,7 @@ export function MentionChip({
           <Link
             to="/orgs/$orgSlug/projects/$slug/tickets/$id"
             params={{ orgSlug: scope.orgSlug, slug: scope.slug, id }}
+            ref={linkRef}
             onMouseDown={(e) => e.preventDefault()}
           />
         }
