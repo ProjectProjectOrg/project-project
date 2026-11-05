@@ -362,6 +362,23 @@
 .prose-md.text-sm {
   font-size: 14px;
 }
+/* Ticket descriptions read a step larger than comments and other bodies. The
+   h2 and h3 sizes move up with the body so headings keep their contrast. */
+.prose-md.text-base {
+  font-size: 16px;
+}
+.prose-md.text-base :is(h2, .lexical-h2) {
+  font-size: 1.125rem;
+}
+.prose-md.text-base :is(h3, .lexical-h3) {
+  font-size: 1rem;
+}
+.prose-md.text-base .ticket-block {
+  --block-first-line: calc(1.125rem * 1.35);
+}
+.prose-md.text-base .ticket-block:has(> .ticket-block-body > h3:first-child) {
+  --block-first-line: calc(1rem * 1.35);
+}
 /* Block spacing — applied to non-first siblings. We avoid `margin: 0` on
    block types (.prose-md p, .lexical-paragraph, etc) because that has higher
    specificity than this rule and would silently clobber the spacing. */
