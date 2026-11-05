@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState, type ReactNode } from "react"
+import { useId, useLayoutEffect, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 
 import { placeTypeahead } from "@/features/editor/lib/typeaheadPlacement"
@@ -34,9 +34,12 @@ export function TypeaheadPortal({
   children
 }: Readonly<{ anchor: HTMLElement; children: ReactNode }>) {
   const [host] = useState(createHost)
+  const hostId = useId()
 
   useLayoutEffect(() => {
+    host.id = hostId
     document.body.append(host)
+    anchor.setAttribute("aria-owns", hostId)
     const place = () => placeHost(host, anchor)
     place()
     const anchorMoves = new MutationObserver(place)
@@ -49,9 +52,10 @@ export function TypeaheadPortal({
     return () => {
       anchorMoves.disconnect()
       menuResizes.disconnect()
+      anchor.removeAttribute("aria-owns")
       host.remove()
     }
-  }, [anchor, host])
+  }, [anchor, host, hostId])
 
   return createPortal(children, host)
 }

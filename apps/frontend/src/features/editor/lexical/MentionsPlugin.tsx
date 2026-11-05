@@ -286,7 +286,6 @@ export function MentionsPlugin(): JSX.Element | null {
           <TypeaheadPortal anchor={anchorRef.current}>
             <div
               ref={listRef}
-              role="listbox"
               data-open=""
               className={cn(menuPopupClass, "mt-1 max-h-64 w-80")}
               onScroll={(event) => {
