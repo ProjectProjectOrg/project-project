@@ -20,7 +20,7 @@ import {
   staleEstimateCount,
   staleEstimateCountWaiting
 } from "@/features/tickets/atoms/staleEstimates"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"

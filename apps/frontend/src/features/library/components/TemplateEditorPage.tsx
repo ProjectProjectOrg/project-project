@@ -18,7 +18,7 @@ import { Markdown } from "@/features/editor/components/Markdown"
 import type { EditorBlocks } from "@/features/editor/lexical/blocks/editorBlocks"
 import { LibraryContext } from "@/features/editor/lib/blockChrome"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
-import { useOrgActor } from "@/lib/access"
+import { useOrgActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 

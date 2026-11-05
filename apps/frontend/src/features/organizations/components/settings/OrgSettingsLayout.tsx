@@ -16,7 +16,7 @@ import {
   SettingsRailNav
 } from "@/components/shell/settings/SettingsRail"
 import { useSidebarSlot } from "@/components/shell/SidebarSlot"
-import { useOrgActor } from "@/lib/access"
+import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi("/_authed/orgs/$orgSlug/settings")

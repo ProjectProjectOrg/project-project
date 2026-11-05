@@ -6,7 +6,7 @@ import { useSidebarSlot } from "@/components/shell/SidebarSlot"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { ProjectContext } from "@/features/projects/hooks/useProject"
 import { SprintRail } from "@/features/sprints/components/SprintRail"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 
 const routeApi = getRouteApi(
   "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints"

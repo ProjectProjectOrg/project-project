@@ -34,7 +34,7 @@ import type { EpicSectionsRequest } from "@/features/tickets/atoms/epicSections"
 import type { SprintSectionsRequest } from "@/features/tickets/atoms/sprintSections"
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 

@@ -20,7 +20,7 @@ import { ConnectEverhourInline } from "@/features/everhour/components/ConnectEve
 import { EverhourSetupHint } from "@/features/everhour/components/EverhourSetupHint"
 import { TimeControls } from "@/features/everhour/components/TimeControls"
 import { LogTimeForm } from "@/features/everhour/forms/log-time"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 
 const options = DEFAULT_WORK_TYPES.map((workType) => ({
   key: workType.key,

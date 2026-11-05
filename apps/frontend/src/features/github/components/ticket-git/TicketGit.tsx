@@ -19,7 +19,7 @@ import { useTicketGit } from "@/features/github/hooks/useTicketGit"
 import { checksColor } from "@/features/github/lib/checksColor"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 

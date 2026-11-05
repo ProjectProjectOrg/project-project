@@ -164,7 +164,17 @@ The parts the code doesn't make obvious:
 - Without `github` read access, tickets and the project come back with their git data stripped. Clients never see it.
 - A caller who isn't in the org, or has no access to the project, gets `NotFound`, not `Forbidden`.
 
-**Enforcement.** The `Access` service in `server-core` resolves the caller's roles into an `OrgScope` or `ProjectScope`. Every org and project endpoint in `packages/shared/src/api.ts` declares what it needs with a `RequiresOrg` or `RequiresProject` annotation; the `OrgAccess` / `ProjectAccess` middleware resolves the scope, checks it and hands it to the handler, failing with a tagged `Forbidden`. Tools declare the same requirement. Services read the scope from context, so a service can't run without one, and only data-dependent checks stay in the service.
+**Enforcement.** The `Access` service in `server-core` resolves the caller's roles into an `OrgScope` or `ProjectScope`. Every org and project endpoint declares what it needs with a `RequiresOrg` or `RequiresProject` annotation in its `packages/shared/src/<domain>/*Api.ts` module; the `OrgAccess` / `ProjectAccess` middleware resolves the scope, checks it and hands it to the handler, failing with a tagged `Forbidden`. Tools declare the same requirement. Services read the scope from context, so a service can't run without one, and only data-dependent checks stay in the service.
+
+**Where each piece lives.** Access is one model split by layer, the same way authentication splits contract from implementation:
+
+| Layer | Holds |
+| --- | --- |
+| `packages/access` | The pure role model: statements, org and project roles, the effective role, and the data-dependent policies (`TicketPolicy`, `GroupPolicy`, ...). No HTTP. |
+| `packages/shared/src/access` | The HTTP contract: the `OrgAccess` / `ProjectAccess` middleware tags, the `RequiresOrg` / `RequiresProject` annotations, the scope tags, `Actor`, and `canCall`. |
+| `packages/server-core/src/access` | The `Access` service, which loads roles from Postgres and resolves scopes. |
+| `apps/backend/src/access` | The live middleware layers that implement the contract tags. |
+| `apps/frontend/src/hooks/useActor.ts` | `useProjectActor` and `useOrgActor`, which give components the viewer's actor. |
 
 **The frontend asks the same sources.** `canCallProject` and `canCallOrg` from `@pp/shared` read each endpoint's requirement from `AppApi`, and data-dependent rules call the `@pp/access` policies. Anything the viewer can't do is hidden or read-only; the server still checks every request.
 

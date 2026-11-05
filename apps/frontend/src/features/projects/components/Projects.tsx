@@ -13,7 +13,7 @@ import {
 } from "@/features/projects/atoms/projects"
 import { ProjectRow } from "@/features/projects/components/ProjectRow"
 import { CreateProjectRow } from "@/features/projects/forms/create-project"
-import { useOrgActor } from "@/lib/access"
+import { useOrgActor } from "@/hooks/useActor"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 

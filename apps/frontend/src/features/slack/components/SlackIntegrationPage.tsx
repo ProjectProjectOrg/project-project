@@ -24,7 +24,7 @@ import {
 import { SlackAppSetup } from "@/features/slack/components/AppSetup"
 import { SlackConnectionForm } from "@/features/slack/forms/slack-connection"
 import { useSlackOrgPolling } from "@/features/slack/hooks/useSlackOrgPolling"
-import { useOrgActor } from "@/lib/access"
+import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(

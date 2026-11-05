@@ -15,7 +15,7 @@ import {
 } from "@/features/figma/atoms/figma"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { useOrgActor } from "@/lib/access"
+import { useOrgActor } from "@/hooks/useActor"
 import { figmaStatusErrorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"

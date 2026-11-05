@@ -22,7 +22,7 @@ import {
 } from "@/features/projects/atoms/projects"
 import { ProjectAppearanceSection } from "@/features/projects/components/appearance/ProjectAppearanceSection"
 import { useProject } from "@/features/projects/hooks/useProject"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(

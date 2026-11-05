@@ -20,7 +20,7 @@ import {
   userOrgs
 } from "@/features/organizations/atoms/orgs"
 import { nextActiveOrgSlug } from "@/features/organizations/lib/orgReflow"
-import { useOrgActor } from "@/lib/access"
+import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi("/_authed/orgs/$orgSlug/settings/danger")

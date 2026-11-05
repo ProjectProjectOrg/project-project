@@ -20,7 +20,7 @@ import {
   SlackProjectEvents,
   SlackProjectRow
 } from "@/features/slack/components/ProjectSettings"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(

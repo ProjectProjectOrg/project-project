@@ -36,7 +36,7 @@ import {
 import { useHorizontalAutoScroll } from "@/features/sprints/hooks/useHorizontalAutoScroll"
 import { useReorderMode } from "@/features/sprints/hooks/useReorderMode"
 import { SubTicketExpansionProvider } from "@/features/tickets/components/ticket-list/SubTicketExpansion"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 
 import { useBoardTickets } from "../hooks/useBoardTickets"

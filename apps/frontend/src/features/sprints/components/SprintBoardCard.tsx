@@ -17,7 +17,7 @@ import { SubTicketMarker } from "@/features/tickets/components/ticket-list/SubTi
 import { TypeButton } from "@/features/tickets/components/ticket-list/TypeField"
 import { UpdateFailureMarker } from "@/features/tickets/components/ticket-list/UpdateFailureMarker"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 
 import { BoardCardChildren, BoardCardProgress } from "./BoardCardChildren"
 
