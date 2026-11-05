@@ -150,7 +150,7 @@ export const withEmptyTaskItems = (markdown: string): string => {
 
 const LinkReferencesContext = createContext("")
 
-export type MarkdownSize = "default" | "compact"
+export type MarkdownSize = "default" | "compact" | "large"
 
 export function Markdown({
   children,
@@ -175,6 +175,7 @@ export function Markdown({
         className={cn(
           "prose-md",
           size === "compact" && "prose-compact",
+          size === "large" && "prose-large",
           framed && "block-gutter",
           className
         )}

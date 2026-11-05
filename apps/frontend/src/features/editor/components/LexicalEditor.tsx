@@ -80,12 +80,13 @@ import { MentionsPlugin } from "../lexical/MentionsPlugin"
 import { MENTION_TRANSFORMER } from "../lexical/mentionTransformer"
 import { PaperExtension } from "../lexical/PaperExtension"
 import { PaperPlugin } from "../lexical/PaperPlugin"
+import { PAPER_TRANSFORMER } from "../lexical/paperTransformer"
 import "@/lib/prismLangs"
 
-import { PAPER_TRANSFORMER } from "../lexical/paperTransformer"
 import { createTableTransformer } from "../lexical/tableTransformer"
 import { TicketBlockExtension } from "../lexical/TicketBlockExtension"
 import { createTicketBlockTransformer } from "../lexical/ticketBlockTransformer"
+import type { MarkdownSize } from "./Markdown"
 
 const INLINE_AND_BLOCK_TRANSFORMERS = [
   MENTION_TRANSFORMER,
@@ -276,6 +277,7 @@ export interface LexicalEditorProps {
   placeholder?: string
   autoFocus?: boolean | "start"
   compact?: boolean
+  size?: MarkdownSize
   attachments?: AttachmentsTarget
   blocks?: EditorBlocks
   editorRef?: RefObject<LexicalEditorType | null>
@@ -382,6 +384,7 @@ export function LexicalEditor({
   placeholder = m.editor_placeholder(),
   autoFocus = false,
   compact = false,
+  size = "default",
   attachments,
   blocks,
   editorRef
@@ -553,6 +556,8 @@ export function LexicalEditor({
       ref={wrapperRef}
       className={cn(
         "group/editing prose-md",
+        size === "compact" && "prose-compact",
+        size === "large" && "prose-large",
         hasBlockGutter(blocks) && "block-gutter",
         className
       )}

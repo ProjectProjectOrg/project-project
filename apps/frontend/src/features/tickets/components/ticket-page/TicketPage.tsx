@@ -175,7 +175,7 @@ export function TicketPage({
               onStatusChange={setBodyStatus}
             />
           ) : (
-            <Markdown>{ticket.body}</Markdown>
+            <Markdown size="large">{ticket.body}</Markdown>
           )}
 
           <TicketDiscussion
