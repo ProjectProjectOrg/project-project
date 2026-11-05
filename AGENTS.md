@@ -215,7 +215,7 @@ Effect HttpApi + Drizzle + Better Auth + Postgres. Extend within those choices u
 Every package is organised by domain, and a domain keeps the same folder name across packages: `shared/src/tickets`, `server-core/src/tickets`, `apps/backend/src/tickets`, `frontend/src/features/tickets`.
 
 ```
-packages/shared/src/<domain>/      schemas (Ticket.ts) and the pure logic beside them (blocks.ts); index.ts re-exports
+packages/shared/src/<domain>/      schemas (Ticket.ts), pure logic (blocks.ts) and the HttpApiGroups (TicketsApi.ts); api.ts composes AppApi
 packages/server-core/src/<domain>/ services (TicketQueries.ts), pure helpers, layer.ts, tests
 apps/backend/src/<domain>/
   Handlers.ts        HttpApiBuilder.group for the domain; a second group gets its own file (EmailHandlers.ts)
