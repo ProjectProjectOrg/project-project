@@ -661,6 +661,7 @@
   box-shadow: none;
   padding: 0;
   border-radius: 0;
+  font-size: inherit;
 }
 
 /* Prism tokens — light palette by default, dark swap under `.dark`. The same
@@ -1068,6 +1069,11 @@ html.dark .prose-md .token.coord {
 .prose-md .task-list-item [data-slot="checkbox"][data-unchecked] {
   background-color: transparent;
   box-shadow: inset 0 0 0 1.5px var(--prose-check-ring);
+}
+.prose-md .task-list-item [data-slot="checkbox"][data-unchecked]:focus-visible {
+  box-shadow:
+    inset 0 0 0 1.5px var(--prose-check-ring),
+    0 0 0 1px var(--ring);
 }
 .prose-md
   .task-list-item:has(
