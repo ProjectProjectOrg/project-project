@@ -82,6 +82,11 @@
   --active: rgb(0 0 0 / 0.07);
   --tint: oklch(0 0 0 / 8%);
   --tint-hover: oklch(0 0 0 / 6.5%);
+  --prose-body: oklch(0.145 0 0 / 0.8);
+  --prose-quiet: oklch(0.145 0 0 / 0.42);
+  --prose-code: oklch(0 0 0 / 4.5%);
+  --prose-code-ring: oklch(0 0 0 / 6%);
+  --prose-check-ring: oklch(0 0 0 / 20%);
 }
 
 .dark {
@@ -164,6 +169,11 @@
   --active: rgb(255 255 255 / 0.1);
   --tint: oklch(1 0 0 / 14%);
   --tint-hover: oklch(1 0 0 / 11%);
+  --prose-body: oklch(0.985 0 0 / 0.8);
+  --prose-quiet: oklch(0.985 0 0 / 0.45);
+  --prose-code: oklch(1 0 0 / 6%);
+  --prose-code-ring: oklch(1 0 0 / 7%);
+  --prose-check-ring: oklch(1 0 0 / 22%);
 }
 
 @theme inline {
@@ -344,9 +354,13 @@
    app's typography stays untouched. Tuned to ProjectProject's compact neutral
    aesthetic — narrower line-height than typography plugins default to. */
 .prose-md {
+  font-size: 15px;
+  line-height: 1.6;
+  letter-spacing: -0.006em;
+  color: var(--prose-body);
+}
+.prose-md.text-sm {
   font-size: 14px;
-  line-height: 1.65;
-  color: var(--foreground);
 }
 /* Block spacing — applied to non-first siblings. We avoid `margin: 0` on
    block types (.prose-md p, .lexical-paragraph, etc) because that has higher
@@ -355,7 +369,23 @@
 .prose-md .lexical-content > * + *,
 .prose-md .ticket-block > * + *,
 .prose-md .ticket-block-body > * + * {
-  margin-top: 0.85em;
+  margin-top: 0.75em;
+}
+.prose-md > :is(h1, h2, h3) + *,
+.prose-md
+  :is(.lexical-content, .ticket-block, .ticket-block-body)
+  > :is(h1, h2, h3)
+  + * {
+  margin-top: 0.4em;
+}
+.prose-md > * + :is(h1, h2, h3),
+.prose-md
+  :is(.lexical-content, .ticket-block, .ticket-block-body)
+  > *
+  + :is(h1, h2, h3),
+.prose-md > * + .ticket-block,
+.prose-md .lexical-content > * + .ticket-block {
+  margin-top: 1.4em;
 }
 /* `.block-rail-scope` and `.block-rail-sheet` lend the ticket page's rail to
    another surface (the gallery preview): read-only block icons hang in the
@@ -393,7 +423,7 @@
   left: -26px;
 }
 .prose-md .ticket-block {
-  --block-first-line: calc(1.2rem * 1.3);
+  --block-first-line: calc(1.0625rem * 1.35);
   position: relative;
   padding: 6px 8px;
   margin-inline: -8px;
@@ -404,11 +434,11 @@
   --block-first-line: calc(1.5rem * 1.25);
 }
 .prose-md .ticket-block:has(> .ticket-block-body > h3:first-child) {
-  --block-first-line: 1.35rem;
+  --block-first-line: calc(0.9375rem * 1.35);
 }
 .prose-md
   .ticket-block:has(> .ticket-block-body > :first-child:not(h1, h2, h3)) {
-  --block-first-line: 1.65em;
+  --block-first-line: 1.6em;
 }
 :root {
   --block-editing-fill: color-mix(in oklch, var(--accent) 30%, transparent);
@@ -452,13 +482,6 @@
   .lexical-content
   > .ticket-block:is([data-hovered], [data-active]) {
   background-color: var(--block-editing-fill);
-}
-/* Opaque `--muted` matches the hover fill; a translucent tint stacks on it. */
-.prose-md.block-gutter
-  .lexical-content
-  > .ticket-block:is([data-hovered], [data-active])
-  .lexical-inline-code {
-  background-color: var(--active);
 }
 .prose-md .ticket-block[data-dragging] {
   background-color: color-mix(in oklch, var(--muted) 70%, transparent);
@@ -527,20 +550,24 @@
   font-style: italic;
 }
 .prose-md h1 {
+  color: var(--foreground);
   font-size: 1.5rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.022em;
   line-height: 1.25;
 }
 .prose-md h2 {
-  font-size: 1.2rem;
+  color: var(--foreground);
+  font-size: 1.0625rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.3;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
 }
 .prose-md h3 {
-  font-size: 1rem;
+  color: var(--foreground);
+  font-size: 0.9375rem;
   font-weight: 600;
+  letter-spacing: -0.01em;
   line-height: 1.35;
 }
 /* Tailwind preflight already zeroes UA paragraph margins; the `> * + *` rule
@@ -611,10 +638,13 @@
 }
 .prose-md code {
   font-family: var(--font-mono);
-  font-size: 0.875em;
-  background: var(--muted);
-  padding: 0.1em 0.35em;
-  border-radius: 4px;
+  font-size: 0.82em;
+  letter-spacing: 0;
+  color: var(--foreground);
+  background: var(--prose-code);
+  box-shadow: inset 0 0 0 1px var(--prose-code-ring);
+  padding: 0.12em 0.38em;
+  border-radius: 5px;
 }
 .prose-md pre {
   font-family: var(--font-mono);
@@ -628,8 +658,10 @@
 }
 .prose-md pre code {
   background: transparent;
+  box-shadow: none;
   padding: 0;
   border-radius: 0;
+  font-size: inherit;
 }
 
 /* Prism tokens — light palette by default, dark swap under `.dark`. The same
@@ -778,20 +810,24 @@ html.dark .prose-md .token.coord {
   caret-color: var(--foreground);
 }
 .prose-md .lexical-h1 {
+  color: var(--foreground);
   font-size: 1.5rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.022em;
   line-height: 1.25;
 }
 .prose-md .lexical-h2 {
-  font-size: 1.2rem;
+  color: var(--foreground);
+  font-size: 1.0625rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.3;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
 }
 .prose-md .lexical-h3 {
-  font-size: 1rem;
+  color: var(--foreground);
+  font-size: 0.9375rem;
   font-weight: 600;
+  letter-spacing: -0.01em;
   line-height: 1.35;
 }
 .prose-md .lexical-quote {
@@ -823,7 +859,7 @@ html.dark .prose-md .token.coord {
 .prose-md .lexical-li-checked,
 .prose-md .lexical-li-unchecked {
   position: relative;
-  margin: 0.15em 0;
+  margin: 0.3em 0;
   padding-left: 1.75em;
   list-style: none;
   outline: none;
@@ -834,18 +870,17 @@ html.dark .prose-md .token.coord {
   content: "";
   position: absolute;
   left: 0;
-  top: 0.32em;
-  width: 1.15em;
-  height: 1.15em;
-  border-radius: 3px;
-  background: var(--background);
-  box-shadow: inset 0 0 0 1px var(--border);
+  top: 0.3em;
+  width: 1em;
+  height: 1em;
+  border-radius: 0.3em;
+  box-shadow: inset 0 0 0 1.5px var(--prose-check-ring);
   transition:
     background 100ms,
     box-shadow 100ms;
 }
 .prose-md .lexical-li-unchecked:hover::before {
-  box-shadow: inset 0 0 0 1px var(--muted-foreground);
+  box-shadow: inset 0 0 0 1.5px var(--prose-quiet);
 }
 .prose-md .lexical-li-checked::before {
   background: var(--foreground);
@@ -854,18 +889,19 @@ html.dark .prose-md .token.coord {
 .prose-md .lexical-li-checked::after {
   content: "";
   position: absolute;
-  left: 0.42em;
-  top: 0.48em;
-  width: 0.32em;
-  height: 0.6em;
+  left: 0.36em;
+  top: 0.44em;
+  width: 0.28em;
+  height: 0.52em;
   border-style: solid;
   border-color: var(--background);
-  border-width: 0 1.5px 1.5px 0;
+  border-width: 0 1.75px 1.75px 0;
   transform: rotate(45deg);
 }
 .prose-md .lexical-li-checked {
-  color: var(--muted-foreground);
+  color: var(--prose-quiet);
   text-decoration: line-through;
+  text-decoration-color: var(--prose-check-ring);
 }
 .prose-md .lexical-hr {
   border: 0;
@@ -876,8 +912,10 @@ html.dark .prose-md .token.coord {
 .prose-md .lexical-hr.selected {
   border-top-color: var(--foreground);
 }
-.prose-md .lexical-bold {
+.prose-md .lexical-bold,
+.prose-md strong {
   font-weight: 600;
+  color: var(--foreground);
 }
 .prose-md .lexical-italic {
   font-style: italic;
@@ -890,15 +928,20 @@ html.dark .prose-md .token.coord {
 }
 .prose-md .lexical-inline-code {
   font-family: var(--font-mono);
-  font-size: 0.875em;
-  background: var(--muted);
-  padding: 0.1em 0.35em;
-  border-radius: 4px;
+  font-size: 0.82em;
+  letter-spacing: 0;
+  color: var(--foreground);
+  background: var(--prose-code);
+  box-shadow: inset 0 0 0 1px var(--prose-code-ring);
+  padding: 0.12em 0.38em;
+  border-radius: 5px;
 }
 .prose-md .lexical-code {
   display: block;
   font-family: var(--font-mono);
   font-size: 0.875em;
+  letter-spacing: 0;
+  box-shadow: none;
   background: var(--muted);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -919,6 +962,9 @@ html.dark .prose-md .token.coord {
 }
 .prose-md ul ul {
   list-style: circle;
+}
+.prose-md ul > li::marker {
+  color: var(--prose-quiet);
 }
 .prose-md ol {
   list-style: none;
@@ -1008,24 +1054,35 @@ html.dark .prose-md .token.coord {
 }
 .prose-md .task-list-item {
   position: relative;
-  margin: 0.15em 0;
+  margin: 0.3em 0;
   padding-left: 1.75em;
 }
 .prose-md .task-list-item > [data-slot="checkbox"],
 .prose-md .task-list-item > p:first-child > [data-slot="checkbox"] {
   position: absolute;
   left: 0;
-  top: 0.32em;
-  width: 1.15em;
-  height: 1.15em;
+  top: 0.3em;
+  width: 1em;
+  height: 1em;
+  border-radius: 0.3em;
+}
+.prose-md .task-list-item [data-slot="checkbox"][data-unchecked] {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--prose-check-ring);
+}
+.prose-md .task-list-item [data-slot="checkbox"][data-unchecked]:focus-visible {
+  box-shadow:
+    inset 0 0 0 1.5px var(--prose-check-ring),
+    0 0 0 1px var(--ring);
 }
 .prose-md
   .task-list-item:has(
     > [data-slot="checkbox"][data-checked],
     > p:first-child > [data-slot="checkbox"][data-checked]
   ) {
-  color: var(--muted-foreground);
+  color: var(--prose-quiet);
   text-decoration: line-through;
+  text-decoration-color: var(--prose-check-ring);
 }
 
 [aria-haspopup]:not([aria-haspopup="false"]):active,
