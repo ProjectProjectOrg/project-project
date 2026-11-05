@@ -13,12 +13,16 @@ import {
   FOCUS_COMMAND,
   KEY_BACKSPACE_COMMAND,
   KEY_DELETE_COMMAND,
+  KEY_ENTER_COMMAND,
+  KEY_TAB_COMMAND,
+  COMMAND_PRIORITY_HIGH,
   COMMAND_PRIORITY_LOW,
   type LexicalNode
 } from "lexical"
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -135,6 +139,31 @@ export function MentionsPlugin(): JSX.Element | null {
     [editor]
   )
 
+  const searching = useRef(false)
+  useLayoutEffect(() => {
+    searching.current = queryString !== null && results.status === "searching"
+  }, [queryString, results.status])
+
+  useEffect(() => {
+    const holdWhileSearching = (event: KeyboardEvent | null) => {
+      if (!searching.current) return false
+      event?.preventDefault()
+      return true
+    }
+    return mergeRegister(
+      editor.registerCommand(
+        KEY_ENTER_COMMAND,
+        holdWhileSearching,
+        COMMAND_PRIORITY_HIGH
+      ),
+      editor.registerCommand(
+        KEY_TAB_COMMAND,
+        holdWhileSearching,
+        COMMAND_PRIORITY_HIGH
+      )
+    )
+  }, [editor])
+
   const lastQuery = useRef<string | null>(null)
 
   const onQueryChange = useCallback((next: string | null) => {
@@ -240,6 +269,7 @@ export function MentionsPlugin(): JSX.Element | null {
   return (
     <LexicalTypeaheadMenuPlugin<MentionMenuOption>
       onQueryChange={onQueryChange}
+      onClose={() => setQueryString(null)}
       onSelectOption={onSelectOption}
       triggerFn={checkForTriggerMatch}
       options={options}
