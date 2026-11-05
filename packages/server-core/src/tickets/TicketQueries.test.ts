@@ -75,6 +75,32 @@ it.effect("get uses persisted prState for the fallback git state", () => {
   }).pipe(Effect.provide(layer))
 })
 
+it.effect("get shows the recorded PR base before a git refresh", () => {
+  const docs = makeFakeTicketDocs(["T-1"])
+  docs.documents.set(
+    "T-1",
+    makeTicketDocument("T-1", {
+      branch: "feat/T-1",
+      pr: 81,
+      prState: "open",
+      prBase: "feat/T-0"
+    })
+  )
+  const layer = makeTicketsLayer("T", docs.layer, {
+    projectGithub: makeFakeProjectGithub({
+      integration: () => Effect.succeed(githubIntegration)
+    })
+  })
+
+  return Effect.gen(function* () {
+    const ticket = yield* (yield* TicketQueries.TicketQueries).get("T-1")
+    expect(ticket.gitState).toMatchObject({
+      tag: "pr_pending",
+      baseBranch: "feat/T-0"
+    })
+  }).pipe(Effect.provide(layer))
+})
+
 it.effect("epicSections groups tickets under their epic, then No epic", () => {
   const docs = makeFakeTicketDocs([])
   const add = (id: string, overrides: Partial<TicketDocs.TicketDocument>) =>

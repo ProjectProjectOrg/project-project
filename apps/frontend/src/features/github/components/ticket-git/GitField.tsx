@@ -98,6 +98,13 @@ function StatusLink({
   )
 }
 
+const baseNote = (base: string, defaultBase: string) =>
+  base === defaultBase ? null : (
+    <span className="min-w-0 shrink truncate font-mono" title={base}>
+      {m.git_stack_base({ base })}
+    </span>
+  )
+
 const pendingLabel = (
   state: Extract<GitState, { tag: "branch_pending" }>
 ): string =>
@@ -145,6 +152,7 @@ const fieldView = (
         status: (
           <>
             <PrLink number={s.number} url={s.url} tone="open" />
+            {baseNote(s.baseBranch, defaultBase)}
             <span>{m.git_live_state_pending()}</span>
           </>
         )
@@ -162,6 +170,7 @@ const fieldView = (
               tone={s.draft ? "draft" : "open"}
               checks={s.checks}
             />
+            {baseNote(s.baseBranch, defaultBase)}
             <span className="min-w-0 truncate" title={s.title}>
               {s.title}
             </span>
@@ -176,6 +185,7 @@ const fieldView = (
         status: (
           <>
             <PrLink number={s.number} url={s.url} tone="merged" />
+            {baseNote(s.baseBranch, defaultBase)}
             <span>{m.git_pr_merged_status_note()}</span>
           </>
         )
