@@ -13,7 +13,7 @@ import {
   projectRequest
 } from "@/features/projects/atoms/projects"
 import { useProject } from "@/features/projects/hooks/useProject"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(

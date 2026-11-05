@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema"
 
-import { Slug } from "../schemas/Project"
+import { Slug } from "../projects/Project"
 
 export const TicketIndexDrift = Schema.Struct({
   missing: Schema.Array(Schema.String),

@@ -34,7 +34,7 @@ import {
   statusLabelFor,
   statusMetaFor
 } from "@/features/tickets/lib/ticketMeta"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { statusSaveErrorMessage } from "@/lib/errorMessage"
 import { SURFACE_BG } from "@/lib/surfaceClasses"
 import { useSurface } from "@/lib/surfaceContext"

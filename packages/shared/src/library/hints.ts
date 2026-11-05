@@ -1,4 +1,4 @@
-import { advanceFence, normalizeLineEndings } from "../ticketBlocks"
+import { advanceFence, normalizeLineEndings } from "../tickets/blocks"
 
 export const HINT = /\{\{([^{}\n]{1,200})\}\}\s*$/
 

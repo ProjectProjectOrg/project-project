@@ -45,7 +45,7 @@ import {
   type BacklogValue
 } from "@/features/tickets/atoms/backlog"
 import type { TicketRow } from "@/features/tickets/lib/ticketRows"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 

@@ -43,7 +43,7 @@ import {
   SprintStatusSelect,
   SprintSubtitle
 } from "@/features/sprints/components/SprintHeaderFields"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { springs, transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"

@@ -51,7 +51,7 @@ import {
   useTicketHierarchy,
   type TicketHierarchy
 } from "@/features/tickets/hooks/useTicketHierarchy"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const NO_SPLIT_RESULTS: ReadonlyArray<TicketId> = []

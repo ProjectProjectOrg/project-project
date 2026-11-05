@@ -75,7 +75,7 @@ owns the test projects (`apps/*/vite.config.ts` and
 `packages/*/vite.config.ts`, four workers). `.oxlintrc.json` and
 `.oxfmtrc.json` own lint and format policy. Each workspace's `vite.config.ts`
 owns its root, plugins, build, and named test project. The workspace-only lint
-rule lives in `tools/oxlint-plugin-workspace.js`.
+rule lives in `tools/oxlint/plugin-workspace.js`.
 
 Run one suite with `bunx vitest run --project backend` (or `db`,
 `server-core`, `frontend`, or `shared`), and
@@ -110,7 +110,7 @@ with Bun retained for this project's runtime and package manager.
 
 ProjectProject is **invite-only**. There is no public "first user creates the
 org" flow, and org creation stays gated (`allowUserToCreateOrganization: false`
-in `apps/backend/src/auth.ts`). A fresh instance is seeded once, then grows
+in `apps/backend/src/auth/config.ts`). A fresh instance is seeded once, then grows
 by invitation.
 
 1. **Seed the first org + owner.** Set the `BOOTSTRAP_*` values in `.env` (see
@@ -143,10 +143,10 @@ migrations, reverse proxy) see [`docs/deploy.md`](docs/deploy.md).
 
 ## Conventions
 
-- **Effect v4.** Core APIs come from `effect`; HTTP, SQL, and atom modules live under `effect/http`, `effect/http-api`, `effect/sql`, and `effect/reactivity`. See [the migration handoff](docs/migrations/effect-v4-handoff.md).
+- **Effect v4.** Core APIs come from `effect`; HTTP, SQL, and atom modules live under `effect/http`, `effect/http-api`, `effect/sql`, and `effect/reactivity`. See [the migration handoff](docs/history/migrations/effect-v4-handoff.md).
 - **The shared package is the contract.** Endpoints declared in `packages/shared/src/api.ts` drive both the backend implementation and the frontend's typed client.
 - **Markdown is the source of truth for content.** Postgres holds identity, access, integration state and rebuildable indexes. See [the data model](docs/PROJECTPROJECT.md#data-model).
 
 ## Integrations
 
-Setup guides: [Slack](docs/integrations/slack.md), [Figma](docs/figma-setup.md), [Everhour](packages/integration-everhour/README.md).
+Setup guides: [Slack](docs/integrations/slack.md), [Figma](docs/integrations/figma.md), [Everhour](packages/integration-everhour/README.md).

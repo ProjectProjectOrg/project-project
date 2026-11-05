@@ -1,15 +1,15 @@
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
-import { Page } from "../Pagination"
-import { EstimateFilterValue, EstimateSummary } from "../schemas/Estimate"
-import { GroupId } from "../schemas/Group"
-import { Slug } from "../schemas/Project"
-import { TagName } from "../schemas/Tag"
-import { TicketId, TicketStatus, TicketType } from "../schemas/Ticket"
-import { Ticket, TicketDetail } from "../schemas/Ticket"
-import { TicketActivityActor } from "../schemas/TicketActivity"
-import { UserId } from "../schemas/User"
+import { UserId } from "../auth/User"
+import { EstimateFilterValue, EstimateSummary } from "../estimates/Estimate"
+import { GroupId } from "../groups/Group"
+import { Page } from "../pagination/Pagination"
+import { Slug } from "../projects/Project"
+import { TagName } from "../tags/Tag"
+import { TicketId, TicketStatus, TicketType } from "../tickets/Ticket"
+import { Ticket, TicketDetail } from "../tickets/Ticket"
+import { TicketActivityActor } from "../tickets/TicketActivity"
 
 export const SortKey = Schema.Literals([
   "id",

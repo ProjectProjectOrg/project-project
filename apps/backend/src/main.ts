@@ -8,8 +8,6 @@ import { EverhourRuntimeLive } from "@pp/integration-everhour/Runtime"
 import * as GitHubIntegrations from "@pp/integration-github/GitHubIntegrations"
 import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
 import { SlackRuntimeLive } from "@pp/integration-slack/Runtime"
-// apps/backend/src/main.ts
-//
 // Backend entry point. This file's only job is to wire up the HttpApi from
 // the shared package, attach an implementation, and run the resulting Layer
 // on a Bun HTTP server.
@@ -89,46 +87,46 @@ import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 
+import { TicketActivityHandlerLive } from "./activity/Handlers"
+import { AttachmentsHandlerLive } from "./attachments/Handlers"
+import { attachmentRoutes } from "./attachments/Routes"
+import { attachmentUploadRoute } from "./attachments/UploadRoutes"
+import { AuthHandlerLive } from "./auth/Handlers"
 import { isClosedAuthPath } from "./auth/orgAccess"
+import { CliInstallRouteLive } from "./cli/InstallRoutes"
+import { CommentsHandlerLive } from "./comments/Handlers"
 import { EverhourHandlerLive } from "./everhour/Handlers"
 import { everhourWebhookRoutes } from "./everhour/WebhookRoutes"
-import { TicketActivityHandlerLive } from "./handlers/activity"
-import { AttachmentsHandlerLive } from "./handlers/attachments"
-import { AuthHandlerLive } from "./handlers/auth"
-import { CommentsHandlerLive } from "./handlers/comments"
 import {
   FeedbackHandlerLive,
   FeedbackIntakeHandlerLive
-} from "./handlers/feedback"
-import { FigmaHandlerLive } from "./handlers/figma"
-import { GitAutomationHandlerLive } from "./handlers/gitAutomation"
-import { GroupsHandlerLive } from "./handlers/groups"
-import { InvitationsHandlerLive } from "./handlers/invitations"
-import { LibraryHandlerLive } from "./handlers/library"
-import { LinkPreviewsHandlerLive } from "./handlers/linkPreviews"
-import {
-  OAuthApplicationsHandlerLive,
-  PublicOAuthHandlerLive
-} from "./handlers/oauthApplications"
-import { OrgHandlerLive } from "./handlers/org"
-import { OrgEmailHandlerLive } from "./handlers/orgEmail"
-import { ProjectsHandlerLive } from "./handlers/projects"
-import { StatusesHandlerLive } from "./handlers/statuses"
-import { StorageHandlerLive } from "./handlers/storage"
-import { TagsHandlerLive } from "./handlers/tags"
-import { TicketsHandlerLive } from "./handlers/tickets"
-import { attachmentRoutes } from "./http/attachmentRoutes"
-import { attachmentUploadRoute } from "./http/attachmentUploadRoutes"
-import { figmaOauthRoutes } from "./http/figmaOauthRoutes"
-import { figmaThumbnailRoutes } from "./http/figmaThumbnailRoutes"
+} from "./feedback/Handlers"
+import { FigmaHandlerLive } from "./figma/Handlers"
+import { figmaOauthRoutes } from "./figma/OAuthRoutes"
+import { figmaThumbnailRoutes } from "./figma/ThumbnailRoutes"
+import { GitAutomationHandlerLive } from "./git/Handlers"
+import { GroupsHandlerLive } from "./groups/Handlers"
 import { JiraHandlerLive } from "./jira/Handlers"
 import { JiraMigrationsHandlerLive } from "./jira/MigrationHandlers"
 import { jiraOauthRoutes } from "./jira/OAuthRoutes"
-import { McpLive } from "./Layers/Mcp"
+import { LibraryHandlerLive } from "./library/Handlers"
+import { LinkPreviewsHandlerLive } from "./linkPreviews/Handlers"
+import { McpLive } from "./mcp/Mcp"
+import {
+  OAuthApplicationsHandlerLive,
+  PublicOAuthHandlerLive
+} from "./oauth/Handlers"
+import { OrgEmailHandlerLive } from "./organizations/EmailHandlers"
+import { OrgHandlerLive } from "./organizations/Handlers"
+import { InvitationsHandlerLive } from "./organizations/InvitationHandlers"
+import { ProjectsHandlerLive } from "./projects/Handlers"
 import { BackendHttpServicesLive, BackendInfrastructureLive } from "./runtime"
 import { SlackHandlerLive } from "./slack/Handlers"
 import { slackOAuthRoutes } from "./slack/OAuthRoutes"
-import { CliInstallRouteLive } from "./tools/cliInstall"
+import { StatusesHandlerLive } from "./statuses/Handlers"
+import { StorageHandlerLive } from "./storage/Handlers"
+import { TagsHandlerLive } from "./tags/Handlers"
+import { TicketsHandlerLive } from "./tickets/Handlers"
 import { ToolsRouteLive } from "./tools/http"
 
 // Exported so tests can compose them without booting a real Bun server.

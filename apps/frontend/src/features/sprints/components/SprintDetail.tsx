@@ -14,7 +14,7 @@ import {
   sprintDetail,
   sprintRequest
 } from "@/features/sprints/atoms/sprintDetail"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 import { ignoreReorder, type StatusReorder } from "../hooks/useStatusReorder"

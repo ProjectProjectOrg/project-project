@@ -8,7 +8,7 @@ import * as Effect from "effect/Effect"
 import { inOrg, inProject } from "./access"
 import { toolFailureOf } from "./errorText"
 import { withToolCaller } from "./ToolCaller"
-import type { ToolServices } from "./ToolHandlers"
+import type { ToolServices } from "./toolDependencies"
 
 export const asToolFailure = <A, E, R>(
   effect: Effect.Effect<A, E, R>

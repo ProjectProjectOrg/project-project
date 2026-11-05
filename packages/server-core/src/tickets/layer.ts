@@ -1,7 +1,7 @@
 import * as Layer from "effect/Layer"
 
+import * as TicketGit from "../git/TicketGit"
 import * as TicketCommands from "./TicketCommands"
-import * as TicketGit from "./TicketGit"
 import * as TicketQueries from "./TicketQueries"
 import * as TicketView from "./TicketView"
 

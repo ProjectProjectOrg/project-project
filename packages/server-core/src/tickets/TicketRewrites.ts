@@ -9,17 +9,17 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
+import {
+  clearedPrMetadata,
+  hasPrMetadata,
+  prMetadataOf
+} from "../git/prMetadata"
 import type * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import * as TicketIndex from "./TicketIndex"
 import type { TicketReadError } from "./ticketPresentation"
-import {
-  clearedPrMetadata,
-  hasPrMetadata,
-  prMetadataOf
-} from "./ticketPrMetadata"
 
 const makeTagName = Schema.decodeUnknownSync(TagName)
 

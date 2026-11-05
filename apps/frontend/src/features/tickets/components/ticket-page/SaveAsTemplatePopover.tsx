@@ -18,7 +18,7 @@ import {
   SaveAsTemplateForm,
   type SaveAsTemplateProps
 } from "@/features/tickets/forms/save-as-template"
-import { useOrgActor } from "@/lib/access"
+import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 export function SaveAsTemplatePopover(props: SaveAsTemplateProps) {

@@ -11,7 +11,7 @@ import { useEmailState } from "@/features/integrations/hooks/useOrgIntegrations"
 import { emailRequest, orgEmail } from "@/features/organizations/atoms/email"
 import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import { OrgEmailForm } from "@/features/organizations/forms/org-email"
-import { useOrgActor } from "@/lib/access"
+import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(

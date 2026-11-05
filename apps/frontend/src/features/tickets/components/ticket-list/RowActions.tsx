@@ -32,7 +32,7 @@ import {
   unarchiveTicket
 } from "@/features/tickets/atoms/ticketDetail"
 import { ArchiveForm } from "@/features/tickets/components/ticket-list/ArchiveControl"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 export function TicketRowActions({

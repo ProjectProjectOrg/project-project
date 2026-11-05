@@ -4,7 +4,7 @@ import { getRouteApi } from "@tanstack/react-router"
 import { AsyncView } from "@/components/shell/AsyncView"
 import { AttachmentsBrowser } from "@/features/attachments/components/attachments-browser"
 import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
-import { useOrgActor } from "@/lib/access"
+import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(

@@ -17,7 +17,7 @@ import {
   updateProject
 } from "@/features/projects/atoms/projects"
 import { useProject } from "@/features/projects/hooks/useProject"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 
 const routeApi = getRouteApi(
   "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/about"

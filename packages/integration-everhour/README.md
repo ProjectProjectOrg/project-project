@@ -26,7 +26,7 @@ as a `history` entry, so attribution is keyed by history entry. Members can only
 track time on Everhour projects they are assigned to: syncs add connected
 project members without removing anyone, and a denied member is assigned with
 the key of the manager who last synced the project. See
-[the time tracking plan](../../docs/everhour-time-plan.md).
+[the time tracking plan](../../docs/history/specs/2026-07-04-everhour-time-plan.md).
 
 HTTP handlers, the webhook route and settings UI stay in the applications.
 Database tables and migrations stay in `db`; frontend/backend contracts stay in

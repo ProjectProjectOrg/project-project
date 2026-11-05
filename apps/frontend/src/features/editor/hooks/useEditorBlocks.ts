@@ -9,7 +9,7 @@ import {
   projectLibraryFor,
   projectLibraryRequest
 } from "@/features/library/atoms/library"
-import { useOrgActor } from "@/lib/access"
+import { useOrgActor } from "@/hooks/useActor"
 
 import { useMakeBlockDefinition } from "./useMakeBlockDefinition"
 

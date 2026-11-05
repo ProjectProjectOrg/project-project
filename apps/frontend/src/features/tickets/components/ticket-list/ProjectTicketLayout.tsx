@@ -23,12 +23,12 @@ import {
   type StatusReorder
 } from "@/features/sprints/hooks/useStatusReorder"
 import { viewCounts } from "@/features/tickets/atoms/viewCounts"
+import { useProjectActor } from "@/hooks/useActor"
 import {
   readLocalStorage,
   createLocalStorageCodec,
   useLocalStorageState
 } from "@/hooks/useLocalStorageState"
-import { useProjectActor } from "@/lib/access"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 

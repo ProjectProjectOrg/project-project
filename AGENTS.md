@@ -210,6 +210,25 @@ Effect HttpApi + Drizzle + Better Auth + Postgres. Extend within those choices u
 - Migrations live in `db`, HTTP contracts in `shared`. One SQL workflow engine serves every integration.
 - Don't add a universal integration-driver interface, and don't migrate other integrations as part of an ordinary integration change.
 
+### Backend layout
+
+Every package is organised by domain, and a domain keeps the same folder name across packages: `shared/src/tickets`, `server-core/src/tickets`, `apps/backend/src/tickets`, `frontend/src/features/tickets`.
+
+```
+packages/shared/src/<domain>/      schemas (Ticket.ts), pure logic (blocks.ts) and the HttpApiGroups (TicketsApi.ts); api.ts composes AppApi
+packages/server-core/src/<domain>/ services (TicketQueries.ts), pure helpers, layer.ts, tests
+apps/backend/src/<domain>/
+  Handlers.ts        HttpApiBuilder.group for the domain; a second group gets its own file (EmailHandlers.ts)
+  Routes.ts          raw HttpRouter routes (OAuthRoutes.ts, UploadRoutes.ts, WebhookRoutes.ts)
+  HostLive.ts, *Live.ts  layers that implement an integration's host services
+apps/backend/src/http/  helpers shared by several domains' handlers
+```
+
+- **Naming.** Modules that export a service, layer or handler group are PascalCase (`TicketGit.ts`, `Handlers.ts`); modules of pure functions and types are camelCase (`statePlanner.ts`). Drop the prefix the folder already carries: `tickets/blocks.ts`, not `tickets/ticketBlocks.ts`. Server-side folders are camelCase (`linkPreviews/`).
+- **Service keys follow the path:** `@pp/<package>/<domain>/<Module>/<Name>`. The `deterministicKeys` diagnostic fails typecheck when a moved service keeps its old key.
+- **Moves** update every consumer; no re-export shims.
+- Git and pull-request logic that isn't specific to GitHub lives in `git/`. GitHub-specific code (the client, webhooks, repo connections) lives in `github/`.
+
 ### Backend services
 
 New services, and services you split or substantially rewrite, follow one shape. Older services keep theirs until they are touched; don't rename them in passing.
@@ -226,11 +245,11 @@ Reference: `packages/server-core/src/tickets/` and t3code's `docs/internals/effe
 
 - **Architecture:** `docs/PROJECTPROJECT.md` — workspaces and what each owns.
 - **Domain glossary:** `CONTEXT.md`.
-- **Frontend deep dives:** `docs/frontend/data-layer.md`, `docs/frontend/forms.md`, `docs/data-fetching-policy.md`.
+- **Frontend deep dives:** `docs/frontend/data-layer.md`, `docs/frontend/forms.md`, `docs/frontend/data-fetching-policy.md`.
 - **Tests:** `docs/testing.md`.
 - **Running and deploying:** `README.md`, `docs/deploy.md`.
-- **Decisions:** `docs/superpowers/specs/` — design specs from past features. Context for why something is shaped the way it is, not a description of the current code.
-- **History:** `docs/chapters/` is the Effect curriculum the project started from. Historical; don't treat it as current.
+- **Integrations:** `docs/integrations/` — setup guides and reference material per integration.
+- **History:** `docs/history/` holds dated material that describes the past, not the current code: `specs/` (design specs from past features, the context for why something is shaped the way it is), `research/`, `benchmarks/`, `audits/`, `migrations/`, and `chapters/` (the Effect curriculum the project started from). Living docs stay at the top of `docs/`; new specs and research go in `docs/history/` with a `YYYY-MM-DD-` prefix.
 
 ## Also ask first
 
@@ -264,4 +283,4 @@ npx opensrc <owner>/<repo>      # GitHub repo (e.g., npx opensrc vercel/ai)
 
 ## Learning more about Effect
 
-This repository uses Effect v4. Before writing Effect code, read `node_modules/effect/AGENTS.md` completely and follow its linked guides as needed. Search `node_modules/effect/src` for API definitions. See `docs/migrations/effect-v4-handoff.md` for migration guidance.
+This repository uses Effect v4. Before writing Effect code, read `node_modules/effect/AGENTS.md` completely and follow its linked guides as needed. Search `node_modules/effect/src` for API definitions. See `docs/history/migrations/effect-v4-handoff.md` for migration guidance.

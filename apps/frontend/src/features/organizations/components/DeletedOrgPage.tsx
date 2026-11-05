@@ -15,7 +15,7 @@ import {
   orgRequest,
   restoreOrg
 } from "@/features/organizations/atoms/orgs"
-import { useOrgActor } from "@/lib/access"
+import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 

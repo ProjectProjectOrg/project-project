@@ -1,5 +1,3 @@
-// apps/backend/src/main.test.ts
-//
 // Chapter 0 — backend handler tests.
 // ============================================================================
 // First test (the one you wrote): asserts the happy path of `health.get`.
@@ -50,7 +48,7 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { afterAll, expect, vi } from "vitest"
 
-vi.mock("./auth", () => ({
+vi.mock("./auth/config", () => ({
   auth: {},
   mcpResource: "http://localhost:3000/mcp",
   toolsResource: "http://localhost:3000/api/v1/tools"
@@ -58,7 +56,7 @@ vi.mock("./auth", () => ({
 import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 
-import { AuthHandlerLive } from "./handlers/auth"
+import { AuthHandlerLive } from "./auth/Handlers"
 import {
   ApiRouterLive,
   GITHUB_WEBHOOK_MAX_BODY_BYTES,

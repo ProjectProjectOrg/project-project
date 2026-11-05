@@ -24,7 +24,7 @@ import {
   IntegrationStatus
 } from "@/features/integrations/components/IntegrationDetail"
 import { useGithubAppState } from "@/features/integrations/hooks/useOrgIntegrations"
-import { useOrgActor } from "@/lib/access"
+import { useOrgActor } from "@/hooks/useActor"
 import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"

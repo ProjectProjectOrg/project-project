@@ -2,8 +2,8 @@ import type { Statement } from "@pp/access"
 import type { Project } from "@pp/access/roles"
 import * as Context from "effect/Context"
 
-import type { OrgRole } from "../schemas/Org"
-import type { Role } from "../schemas/Project"
+import type { OrgRole } from "../organizations/Org"
+import type { Role } from "../projects/Project"
 
 /** @effect-leakable-service */
 export class ProjectScope extends Context.Service<

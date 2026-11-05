@@ -14,7 +14,7 @@ import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { StorageConnectedPanel } from "@/features/storage/components/StorageConnectedPanel"
 import { StorageStatusRows } from "@/features/storage/components/StorageStatusRows"
 import { StorageConnectForm } from "@/features/storage/forms/storage-connection"
-import { useOrgActor } from "@/lib/access"
+import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(

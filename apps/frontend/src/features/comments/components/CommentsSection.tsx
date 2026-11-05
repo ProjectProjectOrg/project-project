@@ -20,7 +20,7 @@ import {
   ticketActivityRequest
 } from "@/features/tickets/atoms/ticketActivity"
 import { TicketActivityFeed } from "@/features/tickets/components/TicketActivityFeed"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 

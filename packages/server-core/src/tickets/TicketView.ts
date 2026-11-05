@@ -9,7 +9,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 
 import * as Attachments from "../attachments/Attachments"
-import * as ProjectGithub from "../projects/ProjectGithub"
+import * as ProjectGithub from "../github/ProjectGithub"
 import * as Users from "../users/Users"
 import * as TicketDocs from "./TicketDocs"
 import {

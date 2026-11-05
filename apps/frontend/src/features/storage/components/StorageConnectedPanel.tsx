@@ -16,7 +16,7 @@ import {
 } from "@/features/projects/atoms/storage"
 import { StorageCorsPanel } from "@/features/storage/components/StorageCorsPanel"
 import { StorageStatusRows } from "@/features/storage/components/StorageStatusRows"
-import { useOrgActor } from "@/lib/access"
+import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 export function StorageConnectedPanel({

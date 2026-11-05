@@ -1,0 +1,23 @@
+import * as ProjectGitAutomation from "@pp/server-core/git/ProjectGitAutomation"
+import { AppApi } from "@pp/shared"
+import * as Effect from "effect/Effect"
+import { HttpApiBuilder } from "effect/http-api"
+
+export const GitAutomationHandlerLive = HttpApiBuilder.group(
+  AppApi,
+  "gitAutomation",
+  (handlers) =>
+    handlers
+      .handle("get", () =>
+        Effect.flatMap(
+          ProjectGitAutomation.ProjectGitAutomation,
+          (automation) => automation.get()
+        )
+      )
+      .handle("update", ({ payload }) =>
+        Effect.flatMap(
+          ProjectGitAutomation.ProjectGitAutomation,
+          (automation) => automation.update(payload)
+        )
+      )
+)

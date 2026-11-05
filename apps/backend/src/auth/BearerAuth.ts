@@ -1,0 +1,157 @@
+import { Db } from "@pp/db"
+import { oauthClient, oauthConsent, user } from "@pp/db/auth-schema"
+import { UserId } from "@pp/shared"
+import {
+  createDpopReplayStore,
+  verifyAccessTokenRequest
+} from "better-auth/oauth2"
+import { and, eq, inArray, isNull, or } from "drizzle-orm"
+import * as Data from "effect/Data"
+import * as DateTime from "effect/DateTime"
+import * as Effect from "effect/Effect"
+import type { HttpServerRequest } from "effect/http"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
+
+import type { Caller } from "../tools/ToolCaller"
+import { normalizeEditorPreference } from "./Authentication"
+import { auth } from "./config"
+import { proofUrl } from "./proofUrl"
+
+export class TokenRejected extends Data.TaggedError("TokenRejected")<
+  Readonly<{ cause: unknown }>
+> {}
+
+export class InvalidAccessToken extends Data.TaggedError(
+  "InvalidAccessToken"
+)<{}> {}
+
+export class ConsentRevoked extends Data.TaggedError("ConsentRevoked")<{}> {}
+
+export class UserBanned extends Data.TaggedError("UserBanned")<{}> {}
+
+const AccessTokenClaims = Schema.Struct({
+  sub: Schema.String,
+  client_id: Schema.String,
+  pp_consent_ids: Schema.NonEmptyArray(Schema.String)
+})
+
+const decodeClaims = Schema.decodeUnknownEffect(AccessTokenClaims)
+
+export const bearerVerifier = (resource: string) =>
+  Effect.gen(function* () {
+    const db = yield* Db
+    const { baseURL, internalAdapter } = yield* Effect.promise(
+      () => auth.$context
+    )
+    if (!baseURL) {
+      return yield* Effect.die("BETTER_AUTH_URL is required for bearer auth")
+    }
+    const replayStore = createDpopReplayStore(internalAdapter)
+
+    const verify = Effect.fn("BearerAuth.verify")(function* (
+      request: HttpServerRequest.HttpServerRequest
+    ) {
+      return yield* Effect.tryPromise({
+        try: () =>
+          verifyAccessTokenRequest(
+            {
+              authorizationHeader: request.headers["authorization"],
+              dpopProofJwt: request.headers["dpop"],
+              method: request.method,
+              url: proofUrl(request.url, resource)
+            },
+            {
+              verifyOptions: { issuer: baseURL, audience: resource },
+              jwksUrl: `${baseURL}/jwks`,
+              dpop: { replayStore }
+            }
+          ),
+        catch: (cause) => new TokenRejected({ cause })
+      }).pipe(
+        Effect.flatMap((claims) =>
+          decodeClaims(claims).pipe(
+            Effect.mapError(() => new InvalidAccessToken())
+          )
+        )
+      )
+    })
+
+    const resolveCaller = Effect.fn("BearerAuth.resolveCaller")(function* (
+      decoded: typeof AccessTokenClaims.Type
+    ) {
+      const [consents, [account]] = yield* Effect.all(
+        [
+          db
+            .select({ id: oauthConsent.id, clientName: oauthClient.name })
+            .from(oauthConsent)
+            .innerJoin(
+              oauthClient,
+              eq(oauthClient.clientId, oauthConsent.clientId)
+            )
+            .where(
+              and(
+                eq(oauthConsent.userId, decoded.sub),
+                eq(oauthConsent.clientId, decoded.client_id),
+                inArray(oauthConsent.id, decoded.pp_consent_ids),
+                or(
+                  isNull(oauthClient.disabled),
+                  eq(oauthClient.disabled, false)
+                )
+              )
+            )
+            .limit(1)
+            .pipe(Effect.orDie),
+          db
+            .select({
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              username: user.username,
+              image: user.image,
+              createdAt: user.createdAt,
+              editorPreference: user.editorPreference,
+              banned: user.banned,
+              banExpires: user.banExpires
+            })
+            .from(user)
+            .where(eq(user.id, decoded.sub))
+            .limit(1)
+            .pipe(Effect.orDie)
+        ],
+        { concurrency: "unbounded" }
+      )
+      if (consents.length === 0) {
+        return yield* new ConsentRevoked()
+      }
+      if (!account) {
+        return yield* Effect.die("Token subject is missing from users")
+      }
+      const now = yield* DateTime.nowAsDate
+      if (
+        account.banned &&
+        (account.banExpires === null || account.banExpires > now)
+      ) {
+        return yield* new UserBanned()
+      }
+      const caller: Caller = {
+        user: {
+          id: UserId.make(account.id),
+          email: account.email,
+          name: account.name,
+          username: account.username,
+          image: account.image,
+          createdAt: account.createdAt,
+          editorPreference: normalizeEditorPreference(account.editorPreference)
+        },
+        client: Option.some({
+          id: decoded.client_id,
+          name: consents[0].clientName ?? decoded.client_id
+        })
+      }
+      return caller
+    })
+
+    return (request: HttpServerRequest.HttpServerRequest) =>
+      Effect.flatMap(verify(request), resolveCaller)
+  })

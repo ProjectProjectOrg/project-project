@@ -24,7 +24,7 @@ import {
   countsRequest,
   ticketCounts
 } from "@/features/tickets/atoms/ticketCounts"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const PHASE_LABEL: Readonly<Record<StatusPhase, () => string>> = {

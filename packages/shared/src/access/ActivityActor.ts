@@ -1,6 +1,6 @@
 import * as Context from "effect/Context"
 
-import type { ActivitySystemSource } from "../schemas/TicketActivity"
+import type { ActivitySystemSource } from "../tickets/TicketActivity"
 
 /** @effect-leakable-service */
 export class ActivityActor extends Context.Service<

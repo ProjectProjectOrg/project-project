@@ -7,7 +7,7 @@ import {
 } from "@/features/sprints/hooks/useStatusReorder"
 import { TicketListContent } from "@/features/tickets/components/ticket-list"
 import { BacklogBoard } from "@/features/tickets/components/ticket-list/BacklogBoard"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 
 import { EpicSections } from "./EpicSections"
 import { SprintSections } from "./SprintSections"

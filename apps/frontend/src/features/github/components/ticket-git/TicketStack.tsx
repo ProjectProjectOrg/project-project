@@ -25,7 +25,7 @@ import { unstackBranch } from "@/features/github/atoms/github"
 import { compareUrl } from "@/features/github/lib/branchUrl"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 

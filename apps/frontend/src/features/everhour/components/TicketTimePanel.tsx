@@ -28,7 +28,7 @@ import { LogTimeForm } from "@/features/everhour/forms/log-time"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { formatDuration } from "@/lib/duration"
 import * as m from "@/paraglide/messages"
 

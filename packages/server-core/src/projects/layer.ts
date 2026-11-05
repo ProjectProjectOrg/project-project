@@ -1,7 +1,7 @@
 import * as Layer from "effect/Layer"
 
+import * as ProjectGithub from "../github/ProjectGithub"
 import * as ProjectDetails from "./ProjectDetails"
-import * as ProjectGithub from "./ProjectGithub"
 import * as ProjectMembers from "./ProjectMembers"
 import * as Projects from "./Projects"
 

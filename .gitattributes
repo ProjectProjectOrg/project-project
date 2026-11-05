@@ -1,2 +1,2 @@
-apps/backend/src/db/migrations/meta/*_snapshot.json linguist-generated=true
-apps/backend/src/db/migrations/**/snapshot.json linguist-generated=true
+packages/db/src/migrations/meta/*_snapshot.json linguist-generated=true
+packages/db/src/migrations/**/snapshot.json linguist-generated=true

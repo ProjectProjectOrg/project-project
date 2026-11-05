@@ -8,7 +8,7 @@ import { IncludeDeletedOrg, OrgAccess, RequiresOrg } from "./access/OrgAccess"
 import { ProjectAccess, RequiresProject } from "./access/ProjectAccess"
 import { permits } from "./access/Requirement"
 import { AppApi } from "./api"
-import { Authentication } from "./Authentication"
+import { Authentication } from "./auth/Authentication"
 
 type Route = Readonly<{
   name: string

@@ -1,0 +1,65 @@
+import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
+import * as FigmaLinks from "@pp/server-core/figma/FigmaLinks"
+import * as Users from "@pp/server-core/users/Users"
+import { CurrentUser } from "@pp/shared"
+import * as Effect from "effect/Effect"
+import { HttpServerRequest, HttpServerResponse } from "effect/http"
+
+import { toWebHeaders } from "../http/toWebHeaders"
+
+const notFound = HttpServerResponse.text("Not Found", { status: 404 })
+
+const serveFigmaThumbnail = Effect.gen(function* () {
+  const req = yield* HttpServerRequest.HttpServerRequest
+  const webReq = yield* HttpServerRequest.toWeb(req)
+  const url = new URL(webReq.url)
+  const ref = FigmaLinks.parseFigmaThumbnailUrl(url.pathname)
+  if (!ref) return notFound
+
+  const ba = yield* BetterAuth.BetterAuth
+  const session = yield* ba
+    .getSession(toWebHeaders(req.headers))
+    .pipe(Effect.orElseSucceed(() => null))
+  const [viewer] =
+    session === null
+      ? []
+      : yield* Effect.flatMap(Users.Users, (users) =>
+          users.fullByIds([session.user.id])
+        )
+  if (viewer === undefined) {
+    return HttpServerResponse.text("Unauthorized", { status: 401 })
+  }
+
+  const figmaLinks = yield* FigmaLinks.FigmaLinks
+  const signed = yield* figmaLinks
+    .resolveThumbnailUrl(ref.orgSlug, ref.linkId)
+    .pipe(Effect.provideService(CurrentUser, viewer))
+  return HttpServerResponse.redirect(signed, {
+    status: 302,
+    headers: { "cache-control": "private, no-store" }
+  })
+}).pipe(
+  Effect.catchTags({
+    NotFound: () => Effect.succeed(notFound),
+    Forbidden: () => Effect.succeed(notFound),
+    StorageNotConnected: () => Effect.succeed(notFound),
+    StorageConfigMissing: () =>
+      Effect.succeed(
+        HttpServerResponse.text("Storage unavailable", { status: 503 })
+      ),
+    StorageError: () =>
+      Effect.succeed(
+        HttpServerResponse.text("Storage unavailable", { status: 502 })
+      )
+  }),
+  Effect.catchCause((cause) =>
+    Effect.andThen(
+      Effect.logError("figma thumbnail route failure", cause),
+      Effect.succeed(
+        HttpServerResponse.text("Figma thumbnail failed", { status: 500 })
+      )
+    )
+  )
+)
+
+export const figmaThumbnailRoutes = serveFigmaThumbnail

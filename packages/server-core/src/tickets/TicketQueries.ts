@@ -50,6 +50,7 @@ import * as Schema from "effect/Schema"
 
 import * as Access from "../access/Access"
 import { presentActor } from "../activity/actorRow"
+import * as TicketBranchIndex from "../git/TicketBranchIndex"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import type * as Markdown from "../markdown/Markdown"
@@ -57,7 +58,6 @@ import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import { readProjectDocument } from "../projects/readProjectDocument"
 import * as Users from "../users/Users"
-import * as TicketBranchIndex from "./TicketBranchIndex"
 import * as TicketIndex from "./TicketIndex"
 import {
   type GitView,

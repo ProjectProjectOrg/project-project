@@ -9,7 +9,7 @@ import { projectRequest } from "@/features/projects/atoms/projects"
 import { EstimationSettings } from "@/features/projects/components/settings/EstimationSettings"
 import { useProject } from "@/features/projects/hooks/useProject"
 import { StatusList } from "@/features/statuses/components/StatusList"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(

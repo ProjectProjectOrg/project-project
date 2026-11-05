@@ -7,7 +7,7 @@ import type { GitHubPullRequestWebhookChange } from "@pp/shared"
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 
-import { pullRequestLanded } from "../tickets/ticketGitStatePlanner"
+import { pullRequestLanded } from "../git/statePlanner"
 
 export const rememberPullRequest = (
   db: Db["Service"],

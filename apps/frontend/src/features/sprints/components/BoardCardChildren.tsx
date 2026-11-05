@@ -14,7 +14,7 @@ import { NestToggle } from "@/features/tickets/components/ticket-list/NestTree"
 import { StatusButton } from "@/features/tickets/components/ticket-list/StatusField"
 import { useSubTicketExpansion } from "@/features/tickets/components/ticket-list/SubTicketExpansion"
 import { SubTicketProgress } from "@/features/tickets/components/ticket-list/SubTicketProgress"
-import { useProjectActor } from "@/lib/access"
+import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 

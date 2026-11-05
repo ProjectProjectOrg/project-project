@@ -47,7 +47,7 @@
     "**/.next",
     "**/db/migrations/**/snapshot.json",
     "packages/db/src/migrations/**/snapshot.json",
-    "docs/everhour-api-schema.yml",
+    "docs/integrations/everhour-api-schema.yml",
     "bun.lock",
     "**/routeTree.gen.ts",
     "package-lock.json",

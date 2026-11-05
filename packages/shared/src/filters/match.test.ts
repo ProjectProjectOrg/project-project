@@ -2,11 +2,11 @@ import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { StatusSlug } from "../schemas/Status"
-import { TagName } from "../schemas/Tag"
-import type { Ticket } from "../schemas/Ticket"
-import { TicketId } from "../schemas/Ticket"
-import { UserId } from "../schemas/User"
+import { UserId } from "../auth/User"
+import { StatusSlug } from "../statuses/Status"
+import { TagName } from "../tags/Tag"
+import type { Ticket } from "../tickets/Ticket"
+import { TicketId } from "../tickets/Ticket"
 import {
   matchesTicketFilter,
   matchesTicketQuery,
