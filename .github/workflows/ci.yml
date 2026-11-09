@@ -30,8 +30,6 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-    # Pull requests run only the packages their changes reach, plus dependents;
-    # main runs everything. Turbo diffs against the PR's base branch.
     env:
       AFFECTED: ${{ github.event_name == 'pull_request' && '--affected' || '' }}
     steps:
