@@ -5,6 +5,7 @@ import {
 import { JiraMigrationConfiguration } from "@pp/shared"
 import { Effect, Schema } from "effect"
 
+import { resolveJiraHierarchy } from "./Hierarchy"
 import type { JiraMigrationManifest } from "./Manifest"
 import { JiraMigrationManifestV2 } from "./Manifest"
 import {
@@ -54,7 +55,7 @@ export type JiraPreflightBlockerCode =
 
 export type JiraPreflightWarningCode =
   | "source-visibility-limited"
-  | "subtask-flattened"
+  | "parent-dropped"
   | "restricted-content-included"
 
 export type JiraPreflightFinding<Code extends string> = Readonly<{
@@ -317,13 +318,16 @@ export function preflightJiraMigration(
       )
     }
   }
-  const subtaskTypes = new Set(
-    manifest.issueTypes.filter(({ subtask }) => subtask).map(({ id }) => id)
-  )
-  for (const issue of manifest.issues) {
-    if (subtaskTypes.has(issue.issueTypeId)) {
-      addFinding(warnings, "subtask-flattened", issue.id, issue.parentIssueId)
-    }
+  for (const { issueId, parentIssueId, reason } of resolveJiraHierarchy(
+    manifest,
+    mappings
+  ).dropped) {
+    addFinding(
+      warnings,
+      "parent-dropped",
+      issueId,
+      `${reason}:${parentIssueId}`
+    )
   }
 
   const sortedBlockers = blockers.toSorted(compareFindings)

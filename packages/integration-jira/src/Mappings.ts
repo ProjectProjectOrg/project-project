@@ -521,7 +521,9 @@ export function jiraV2MappingSource(
       parentIssueId:
         manifest.parentsSubtasks.find(
           (parent) => parent.subtaskIssueId === issue.id
-        )?.parentIssueId ?? null,
+        )?.parentIssueId ??
+        manifest.epics.find((epic) => epic.issueIds.includes(issue.id))?.id ??
+        null,
       attachmentIds: manifest.attachments
         .filter((attachment) => attachment.issueId === issue.id)
         .map((attachment) => attachment.id),

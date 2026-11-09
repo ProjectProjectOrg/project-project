@@ -350,7 +350,7 @@ describe("Jira publication references", () => {
 })
 
 describe("createJiraPublicationPlan", () => {
-  it("stages flattened tickets, pending attachments, and all completed sprint history before one atomic exposure", () => {
+  it("stages tickets with their parents, pending attachments, and all completed sprint history before one atomic exposure", () => {
     const source = manifest()
     const result = createJiraPublicationPlan(
       source,
@@ -366,6 +366,10 @@ describe("createJiraPublicationPlan", () => {
     expect(result.plan.createdStatuses).toEqual([])
     expect(result.plan.tickets.map(({ id }) => id)).toEqual(["APP-1", "APP-4"])
     expect(result.plan.tickets[1]).not.toHaveProperty("parentIssueId")
+    expect(result.plan.tickets.map(({ id, parent }) => [id, parent])).toEqual([
+      ["APP-1", null],
+      ["APP-4", "APP-1"]
+    ])
     expect(result.plan.tickets[0]?.tags).toEqual(["component:api", "migration"])
     expect(result.plan.comments[0]?.author).toEqual({
       kind: "jira",

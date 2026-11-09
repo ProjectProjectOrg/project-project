@@ -357,9 +357,11 @@ ${table(
 
 ### Kept in the archive only
 
-Custom fields, workflow metadata, changelogs, worklogs, watchers, voters, issue links and
-parent/subtask hierarchy have no native ProjectProject model. Their original Jira JSON is
-retained beside this report in \`${plan.archivePath}/archive.json\`.
+Custom fields, workflow metadata, changelogs, worklogs, watchers, voters and issue links
+have no native ProjectProject model. Their original Jira JSON is retained beside this
+report in \`${plan.archivePath}/archive.json\`. Epics, issues and subtasks keep their
+hierarchy as epics and sub-tickets; parent links ProjectProject cannot hold are listed as
+\`parent-dropped\` warnings below.
 
 ## Coverage
 
@@ -769,7 +771,7 @@ export function buildJiraReportV2(
     canonicalJiraJson(archive.mappings),
     "",
     "## Transformations",
-    "Subtasks are flattened. Epics, releases, custom fields, links and unsupported products remain archive provenance. Unsupported ADF degrades to readable content; conversion warnings and original allowed ADF are retained with each source record. Source issue-key gaps are preserved.",
+    "Epics, issues and subtasks keep their hierarchy as epics and sub-tickets; parent links ProjectProject cannot hold are reported as parent-dropped warnings. Releases, custom fields, links and unsupported products remain archive provenance. Unsupported ADF degrades to readable content; conversion warnings and original allowed ADF are retained with each source record. Source issue-key gaps are preserved.",
     "",
     "## ADF conversion warnings",
     table(["Source", "Node", "Decision"], degradation),

@@ -162,7 +162,7 @@ describe("Jira migration draft", () => {
     expect(named("Story")).toBeUndefined()
     expect(named("Task")).toBeUndefined()
     expect(named("Subtask")).toBeUndefined()
-    expect(named("Epic")).toBeUndefined()
+    expect(named("Epic")).toBe("epic")
   })
 
   it("prefills every priority from the server suggestion", () => {

@@ -219,7 +219,8 @@ const exactIssueTypeNames = new Map<string, TicketType>([
   ["feature", "feat"],
   ["bug", "bug"],
   ["chore", "chore"],
-  ["other", "other"]
+  ["other", "other"],
+  ["epic", "epic"]
 ])
 
 const exactIssueType = (name: string): TicketType | undefined =>

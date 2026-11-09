@@ -114,13 +114,15 @@ const suggestedKey = (key: string, name: string): string => {
 
 const suggestedIssueType = (name: string) => {
   const lower = name.toLowerCase()
-  return lower.includes("bug") || lower.includes("defect")
-    ? "bug"
-    : lower.includes("task") || lower.includes("chore")
-      ? "chore"
-      : lower.includes("story") || lower.includes("feature")
-        ? "feat"
-        : "other"
+  return lower.includes("epic")
+    ? "epic"
+    : lower.includes("bug") || lower.includes("defect")
+      ? "bug"
+      : lower.includes("task") || lower.includes("chore")
+        ? "chore"
+        : lower.includes("story") || lower.includes("feature")
+          ? "feat"
+          : "other"
 }
 
 const suggestedPriority = (name: string) => {

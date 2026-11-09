@@ -27,6 +27,7 @@ import { generateKeyBetween } from "fractional-indexing"
 import { ulid } from "ulid"
 
 import { rewriteJiraReferences } from "./Adf"
+import { resolveJiraHierarchy, type JiraHierarchy } from "./Hierarchy"
 import { JiraPublicationFormat } from "./Host"
 import type {
   JiraConvertedText,
@@ -91,6 +92,7 @@ export type JiraStagedTicket = Readonly<{
   tags: ReadonlyArray<string>
   assignees: ReadonlyArray<string>
   createdBy: string | null
+  parent: string | null
   body: string
   createdAt: string
   updatedAt: string
@@ -449,6 +451,7 @@ function createJiraPublicationDraft(
     ])
   )
   const tagCandidates = resolveTagDestinations(manifest, mappings)
+  const hierarchy = resolveJiraHierarchy(manifest, mappings)
 
   const tickets = manifest.issues
     .filter((issue) => !excluded.issues.has(issue.id))
@@ -482,6 +485,7 @@ function createJiraPublicationDraft(
         tags: [...new Set(tags)].toSorted(compareStrings),
         assignees: identity?.kind === "link" ? [identity.userId] : [],
         createdBy: reporter?.kind === "link" ? reporter.userId : null,
+        parent: parentTicketId(hierarchy, ticketMappings, issue.id),
         body:
           issue.description === null
             ? ""
@@ -662,6 +666,17 @@ function createJiraPublicationDraft(
       }
     }
   }
+}
+
+function parentTicketId(
+  hierarchy: JiraHierarchy,
+  ticketMappings: ReadonlyMap<string, string>,
+  issueId: string
+): string | null {
+  const parentIssueId = hierarchy.parents.get(issueId)
+  return parentIssueId === undefined
+    ? null
+    : (ticketMappings.get(parentIssueId) ?? null)
 }
 
 function stageJiraInvites(
@@ -1152,6 +1167,7 @@ const PlannedTicket = Schema.Struct({
   tags: Schema.Array(TagName),
   assignees: Schema.Array(Schema.String),
   createdBy: Schema.optional(Schema.NullOr(Schema.String)),
+  parent: Schema.optional(Schema.NullOr(TicketId)),
   body: Schema.String,
   createdAt: Timestamp,
   updatedAt: Timestamp
@@ -1223,6 +1239,7 @@ const TicketRow = Schema.Struct({
   priority: TicketPriority,
   tags: Schema.Array(TagName),
   assignees: Schema.Array(Schema.String),
+  parent: Schema.optional(Schema.NullOr(TicketId)),
   branch: Schema.Null,
   pr: Schema.Null,
   prState: Schema.Null,
@@ -1549,6 +1566,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
             priority: ticket.priority,
             tags: ticket.tags,
             assignees: ticket.assignees,
+            ...(ticket.parent ? { parent: ticket.parent } : {}),
             branch: null,
             pr: null,
             prState: null,
@@ -1705,6 +1723,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
           priority: ticket.priority,
           tags: ticket.tags,
           assignees: ticket.assignees,
+          parent: ticket.parent ?? null,
           branch: null,
           pr: null,
           prState: null,

@@ -13,7 +13,8 @@ const typeOptions: ReadonlyArray<{
   { value: "feat", label: m.jira_migration_type_feature },
   { value: "bug", label: m.jira_migration_type_bug },
   { value: "chore", label: m.jira_migration_type_chore },
-  { value: "other", label: m.jira_migration_type_other }
+  { value: "other", label: m.jira_migration_type_other },
+  { value: "epic", label: m.jira_migration_type_epic }
 ]
 
 export function TypeStep({ form, requirements, ...step }: StepProps) {
@@ -50,6 +51,8 @@ function typeColorClass(type: TicketType) {
       return "text-state-warning"
     case "other":
       return "text-muted-foreground"
+    case "epic":
+      return "text-state-info"
   }
   return "text-muted-foreground"
 }
