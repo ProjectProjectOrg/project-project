@@ -186,7 +186,7 @@ The parts the code doesn't make obvious:
 - **Slack** — workspace per organization, channel notifications per project, ticket link previews. See `packages/integration-slack/README.md`.
 - **Everhour** — per-user time tracking against tickets. See `packages/integration-everhour/README.md`.
 - **Figma** — linked frames on tickets. See `docs/integrations/figma.md`.
-- **Jira Cloud** — a durable, resumable migration of a Jira project into PP. The package owns the migration workflow and planning; backend adapters own writing PP data and the atomic commit that makes it visible.
+- **Jira Cloud** — a durable, resumable migration of a Jira project into PP. The package owns the migration workflow and planning; backend adapters own writing PP data and the atomic commit that makes it visible. Each Jira account is linked to a member, left unlinked, or invited by email. The atomic commit issues those invitations with a project grant and records a `jira_identity_claim` per project and email; when that email accepts an invitation to the org, the claim assigns them their imported tickets, credits their reports and turns their Jira-attributed comments into theirs.
 - **Feedback** — instances send feedback and bug reports to a central instance. See `docs/deploy.md`.
 
 Document writes persist provider-neutral events through the durable outbox; each integration consumes only its own subscribed deliveries. Don't add a universal integration-driver interface.

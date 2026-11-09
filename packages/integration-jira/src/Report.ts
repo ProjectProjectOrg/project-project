@@ -286,12 +286,16 @@ ${table(
     escapeCell(identityNames.get(sourceAccountId) ?? sourceAccountId),
     resolution.kind === "link"
       ? escapeCell(input.userLabelsById[resolution.userId] ?? resolution.userId)
-      : "_not linked_"
+      : resolution.kind === "invite"
+        ? `_invited:_ ${escapeCell(resolution.email)}`
+        : "_not linked_"
   ])
 )}
 
 Work by unlinked accounts keeps its original Jira display name on comments and is
-preserved in the archive. No placeholder accounts were created.
+preserved in the archive. No placeholder accounts were created. Invited people are
+linked to their assigned tickets, reported tickets and comments when they accept
+the invitation.
 
 ### Tags
 

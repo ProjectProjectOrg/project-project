@@ -1,5 +1,6 @@
 import * as Schema from "effect/Schema"
 
+import { EmailAddress } from "../organizations/OrgEmail"
 import { CreatableProjectKey, Slug } from "../projects/Project"
 import {
   StatusColor,
@@ -91,8 +92,15 @@ export const JiraMigrationConfiguration = Schema.Struct({
   identities: Schema.Array(
     Schema.Struct({
       jiraAccountId: Schema.NonEmptyString,
-      projectProjectUserId: Schema.NullOr(Schema.NonEmptyString)
-    })
+      projectProjectUserId: Schema.NullOr(Schema.NonEmptyString),
+      inviteEmail: Schema.optional(EmailAddress)
+    }).check(
+      Schema.makeFilter(
+        (identity) =>
+          identity.inviteEmail === undefined ||
+          identity.projectProjectUserId === null
+      )
+    )
   ),
   statuses: Schema.Array(
     Schema.Struct({

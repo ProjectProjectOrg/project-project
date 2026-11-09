@@ -6,6 +6,7 @@ import {
   attachmentIndex,
   attachmentReference,
   commentIndex,
+  jiraIdentityClaim,
   jiraMigration,
   member,
   organization,
@@ -37,6 +38,7 @@ import {
   type JiraAttachmentOutcome
 } from "@pp/integration-jira/PublicationPlan"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
+import { issueProjectInvite } from "@pp/server-core/projects/projectInvite"
 import type * as S3Storage from "@pp/server-core/storage/S3Storage"
 import {
   BASELINE_STATUS_SEED,
@@ -660,6 +662,26 @@ export const publishJiraMigrationAtomically = Effect.fn(
               createdAt: toDate(row.createdAt)
             }))
           )
+        for (const invite of plan.invites ?? []) {
+          yield* issueProjectInvite(db, {
+            organizationId: migration.organizationId,
+            orgSlug: plan.project.orgSlug,
+            projectId: plannedProject.id,
+            inviterId: migration.initiatedBy,
+            email: invite.email,
+            role: "developer"
+          })
+          yield* tx
+            .insert(jiraIdentityClaim)
+            .values({
+              projectId: plannedProject.id,
+              email: invite.email,
+              jiraAccountIds: [...invite.sourceAccountIds],
+              assigneeTicketIds: [...invite.assigneeTicketIds],
+              reporterTicketIds: [...invite.reporterTicketIds]
+            })
+            .onConflictDoNothing()
+        }
         if (plan.indexes.tickets.length > 0)
           yield* tx.insert(ticketIndex).values(
             plan.indexes.tickets.map(

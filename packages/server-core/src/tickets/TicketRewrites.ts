@@ -1,14 +1,18 @@
 import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
-import { organization, projectIndex } from "@pp/db/schema"
+import { commentIndex, organization, projectIndex } from "@pp/db/schema"
 import { TagName, TicketStatus, type ActivityActor } from "@pp/shared"
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
+import {
+  parseCommentsRegion,
+  serializeCommentsRegion
+} from "../comments/comments-region"
 import {
   clearedPrMetadata,
   hasPrMetadata,
@@ -22,6 +26,13 @@ import * as TicketIndex from "./TicketIndex"
 import type { TicketReadError } from "./ticketPresentation"
 
 const makeTagName = Schema.decodeUnknownSync(TagName)
+
+export type JiraIdentityClaim = Readonly<{
+  userId: string
+  jiraAccountIds: ReadonlyArray<string>
+  assigneeTicketIds: ReadonlyArray<string>
+  reporterTicketIds: ReadonlyArray<string>
+}>
 
 export class TicketRewrites extends Context.Service<
   TicketRewrites,
@@ -47,6 +58,11 @@ export class TicketRewrites extends Context.Service<
     unassignUserFromOrgTickets: (
       orgSlug: string,
       userId: string
+    ) => Effect.Effect<void, never, ActivityActor>
+    claimJiraIdentity: (
+      orgSlug: string,
+      slug: string,
+      claim: JiraIdentityClaim
     ) => Effect.Effect<void, never, ActivityActor>
     withClearedPrMetadata: <A, E, R>(
       orgSlug: string,
@@ -265,6 +281,106 @@ const make = Effect.gen(function* () {
     )
   })
 
+  const claimJiraIdentity = Effect.fn("TicketRewrites.claimJiraIdentity")(
+    function* (orgSlug: string, slug: string, claim: JiraIdentityClaim) {
+      const project = yield* ticketIndex
+        .projectFor(orgSlug, slug)
+        .pipe(Effect.orDie)
+      const accounts = new Set(claim.jiraAccountIds)
+      const assigned = new Set(claim.assigneeTicketIds)
+      const reported = new Set(claim.reporterTicketIds)
+      const commented =
+        accounts.size === 0
+          ? []
+          : yield* db
+              .selectDistinct({ ticketId: commentIndex.ticketId })
+              .from(commentIndex)
+              .where(
+                and(
+                  eq(commentIndex.projectId, project.projectId),
+                  inArray(commentIndex.jiraAccountId, [...accounts])
+                )
+              )
+              .pipe(Effect.orDie)
+      const ticketIds = new Set([
+        ...assigned,
+        ...reported,
+        ...commented.map((row) => row.ticketId)
+      ])
+      yield* Effect.forEach(
+        ticketIds,
+        (id) =>
+          rewrite(
+            orgSlug,
+            slug,
+            id,
+            (existing) => {
+              const blocks = parseCommentsRegion(existing.commentsRegion)
+              const claimedBlocks = blocks.map((block) =>
+                block.author.kind === "jira" &&
+                accounts.has(block.author.accountId)
+                  ? {
+                      ...block,
+                      author: { kind: "user" as const, userId: claim.userId }
+                    }
+                  : block
+              )
+              const commentsChanged = claimedBlocks.some(
+                (block, index) => block !== blocks[index]
+              )
+              const assign =
+                assigned.has(id) && !existing.assignees.includes(claim.userId)
+              const report =
+                reported.has(id) && existing.createdBy !== claim.userId
+              if (!commentsChanged && !assign && !report) return null
+              return Effect.succeed({
+                ...existing,
+                assignees: assign
+                  ? [...existing.assignees, claim.userId]
+                  : existing.assignees,
+                createdBy: report ? claim.userId : existing.createdBy,
+                commentsRegion: commentsChanged
+                  ? serializeCommentsRegion(claimedBlocks)
+                  : existing.commentsRegion
+              })
+            },
+            { silent: true }
+          ).pipe(
+            Effect.catchTags({
+              NotFound: () => Effect.succeed(false),
+              MalformedTicketDocument: (error) =>
+                Effect.logWarning("jira claim skipped a malformed ticket", {
+                  ticketId: id,
+                  error
+                }).pipe(Effect.as(false)),
+              MarkdownError: (error) =>
+                Effect.logWarning("jira claim could not write a ticket", {
+                  ticketId: id,
+                  error
+                }).pipe(Effect.as(false))
+            })
+          ),
+        { concurrency: 8, discard: true }
+      )
+      if (accounts.size === 0) return
+      yield* db
+        .update(commentIndex)
+        .set({
+          authorKind: "user",
+          authorId: claim.userId,
+          jiraDisplayName: null,
+          jiraAccountId: null
+        })
+        .where(
+          and(
+            eq(commentIndex.projectId, project.projectId),
+            inArray(commentIndex.jiraAccountId, [...accounts])
+          )
+        )
+        .pipe(Effect.orDie)
+    }
+  )
+
   const withClearedPrMetadata = Effect.fn(
     "TicketRewrites.withClearedPrMetadata"
   )(function* <A, E, R>(
@@ -365,6 +481,7 @@ const make = Effect.gen(function* () {
     moveToStatus,
     unassignUserFromActiveTickets,
     unassignUserFromOrgTickets,
+    claimJiraIdentity,
     withClearedPrMetadata
   })
 })

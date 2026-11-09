@@ -244,6 +244,7 @@ function ConfiguredJiraMigrationForm({
           {(group) => (
             <PeopleStep
               {...commonProps}
+              orgSlug={orgSlug}
               onNext={() => void group.handleSubmit()}
             />
           )}

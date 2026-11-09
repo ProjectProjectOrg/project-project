@@ -90,9 +90,17 @@ export type JiraStagedTicket = Readonly<{
   priority: "low" | "med" | "high"
   tags: ReadonlyArray<string>
   assignees: ReadonlyArray<string>
+  createdBy: string | null
   body: string
   createdAt: string
   updatedAt: string
+}>
+
+export type JiraStagedInvite = Readonly<{
+  email: string
+  sourceAccountIds: ReadonlyArray<string>
+  assigneeTicketIds: ReadonlyArray<string>
+  reporterTicketIds: ReadonlyArray<string>
 }>
 
 export type JiraStagedComment = Readonly<{
@@ -163,6 +171,7 @@ export type JiraPublicationPlan = Readonly<{
   comments: ReadonlyArray<JiraStagedComment>
   attachments: ReadonlyArray<JiraStagedAttachment>
   groups: ReadonlyArray<JiraStagedGroup>
+  invites: ReadonlyArray<JiraStagedInvite>
   atomicPublication: Readonly<{
     exposeProject: true
     publishIndexes: true
@@ -448,6 +457,11 @@ function createJiraPublicationDraft(
         issue.assigneeAccountId === null
           ? undefined
           : identityMappings.get(issue.assigneeAccountId)
+      const reporter =
+        issue.reporterAccountId === undefined ||
+        issue.reporterAccountId === null
+          ? undefined
+          : identityMappings.get(issue.reporterAccountId)
       const tags = [
         ...issue.labels.map((label) => tagCandidates.get(`label:${label}`)),
         ...issue.componentIds.map((componentId) =>
@@ -467,6 +481,7 @@ function createJiraPublicationDraft(
         ),
         tags: [...new Set(tags)].toSorted(compareStrings),
         assignees: identity?.kind === "link" ? [identity.userId] : [],
+        createdBy: reporter?.kind === "link" ? reporter.userId : null,
         body:
           issue.description === null
             ? ""
@@ -605,6 +620,12 @@ function createJiraPublicationDraft(
     }))
     .toSorted((left, right) => compareStrings(left.name, right.name))
 
+  const invites = stageJiraInvites(
+    mappings.identities,
+    manifest.issues.filter((issue) => !excluded.issues.has(issue.id)),
+    ticketMappings
+  )
+
   return {
     kind: "ready",
     plan: {
@@ -633,6 +654,7 @@ function createJiraPublicationDraft(
       comments,
       attachments,
       groups,
+      invites,
       atomicPublication: {
         exposeProject: true,
         publishIndexes: true,
@@ -640,6 +662,58 @@ function createJiraPublicationDraft(
       }
     }
   }
+}
+
+function stageJiraInvites(
+  identities: JiraMigrationMappings["identities"],
+  issues: ReadonlyArray<
+    Readonly<{
+      id: string
+      assigneeAccountId: string | null
+      reporterAccountId?: string | null
+    }>
+  >,
+  ticketMappings: ReadonlyMap<string, string>
+): ReadonlyArray<JiraStagedInvite> {
+  const accountsByEmail = new Map<string, Array<string>>()
+  for (const { sourceAccountId, resolution } of identities) {
+    if (resolution.kind !== "invite") continue
+    const accounts = accountsByEmail.get(resolution.email)
+    if (accounts) accounts.push(sourceAccountId)
+    else accountsByEmail.set(resolution.email, [sourceAccountId])
+  }
+  const ticketIdsFor = (
+    accounts: ReadonlySet<string>,
+    accountOf: (issue: (typeof issues)[number]) => string | null | undefined
+  ) =>
+    issues
+      .filter((issue) => {
+        const accountId = accountOf(issue)
+        return (
+          accountId !== null &&
+          accountId !== undefined &&
+          accounts.has(accountId)
+        )
+      })
+      .map((issue) => requireMapped(ticketMappings, issue.id))
+      .toSorted(compareStrings)
+  return [...accountsByEmail]
+    .map(([email, sourceAccountIds]) => {
+      const accounts = new Set(sourceAccountIds)
+      return {
+        email,
+        sourceAccountIds: sourceAccountIds.toSorted(compareStrings),
+        assigneeTicketIds: ticketIdsFor(
+          accounts,
+          (issue) => issue.assigneeAccountId
+        ),
+        reporterTicketIds: ticketIdsFor(
+          accounts,
+          (issue) => issue.reporterAccountId
+        )
+      }
+    })
+    .toSorted((left, right) => compareStrings(left.email, right.email))
 }
 
 export function jiraReferenceKey(
@@ -1077,10 +1151,18 @@ const PlannedTicket = Schema.Struct({
   priority: TicketPriority,
   tags: Schema.Array(TagName),
   assignees: Schema.Array(Schema.String),
+  createdBy: Schema.optional(Schema.NullOr(Schema.String)),
   body: Schema.String,
   createdAt: Timestamp,
   updatedAt: Timestamp
 })
+const PlannedInvite = Schema.Struct({
+  email: Schema.NonEmptyString,
+  sourceAccountIds: Schema.Array(Schema.NonEmptyString),
+  assigneeTicketIds: Schema.Array(TicketId),
+  reporterTicketIds: Schema.Array(TicketId)
+})
+export type JiraPlannedInvite = typeof PlannedInvite.Type
 const PlannedComment = Schema.Struct({
   id: Schema.String,
   sourceCommentId: Schema.String,
@@ -1221,6 +1303,7 @@ export const JiraPublicationPlanV1 = Schema.Struct({
   groups: Schema.Array(PlannedGroup),
   tickets: Schema.Array(PlannedTicket),
   comments: Schema.Array(PlannedComment),
+  invites: Schema.optional(Schema.Array(PlannedInvite)),
   attachments: Schema.Array(JiraAttachmentOutcome),
   documents: Schema.Array(PlannedDocument),
   maps: Schema.Struct({
@@ -1471,7 +1554,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
             prState: null,
             lastTransitionedPr: null,
             archivedAt: null,
-            createdBy: prepared.ownerId,
+            createdBy: ticket.createdBy ?? prepared.ownerId,
             updatedBy: prepared.ownerId,
             createdAt: ticket.createdAt,
             updatedAt: ticket.updatedAt
@@ -1573,6 +1656,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
       groups,
       tickets,
       comments,
+      invites: draft.plan.invites,
       attachments: outcomes,
       documents,
       maps: {
@@ -1626,7 +1710,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
           prState: null,
           lastTransitionedPr: null,
           archivedAt: null,
-          createdBy: prepared.ownerId,
+          createdBy: ticket.createdBy ?? prepared.ownerId,
           createdAt: ticket.createdAt,
           updatedAt: ticket.updatedAt
         })),
