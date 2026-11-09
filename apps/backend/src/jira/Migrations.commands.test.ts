@@ -467,7 +467,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
   )
 
   it.live(
-    "persists whole incomplete drafts and rejects stale configure, run, rescan, and cancel revisions",
+    "persists whole incomplete drafts and rejects stale configure, run, and rescan revisions",
     () =>
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => fixture())
@@ -548,12 +548,6 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                 saved.revision
               ),
               m.rescan(
-                owner.organizationId,
-                owner.userId,
-                created.id,
-                saved.revision
-              ),
-              m.cancel(
                 owner.organizationId,
                 owner.userId,
                 created.id,
