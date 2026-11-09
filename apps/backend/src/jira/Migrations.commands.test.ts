@@ -1881,7 +1881,10 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               yield* Deferred.succeed(allowCancel, undefined)
               expect(yield* Fiber.join(cancel)).toMatchObject({
                 _tag: "Failure",
-                failure: { _tag: "Conflict" }
+                failure: {
+                  _tag: "Validation",
+                  reason: "jira_migration_cancel_not_allowed"
+                }
               })
             }
             expect(
