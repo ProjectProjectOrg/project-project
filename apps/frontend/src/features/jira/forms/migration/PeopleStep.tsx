@@ -211,6 +211,7 @@ function PersonChoice({
           onChange={(event) =>
             onChange({ ...choice, inviteEmail: event.target.value })
           }
+          onFocus={() => setEditingInvite(true)}
           onBlur={() => setEditingInvite(false)}
         />
       ) : null}
