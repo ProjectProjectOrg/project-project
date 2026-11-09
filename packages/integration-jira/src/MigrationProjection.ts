@@ -1402,6 +1402,7 @@ const make = Effect.gen(function* () {
                     ...checkpoint,
                     scanPages
                   }),
+                  phase: "scan",
                   progressDone: Object.values(scanPages).reduce(
                     (sum, value) => sum + value,
                     0
