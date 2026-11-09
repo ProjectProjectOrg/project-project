@@ -6,7 +6,7 @@ import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 
 export const JIRA_SCOPES =
-  "read:jira-work read:jira-user read:issue-details:jira read:jql:jira read:project:jira read:board-scope:jira-software read:sprint:jira-software offline_access"
+  "read:jira-work read:jira-user read:issue-details:jira read:jql:jira read:project:jira read:board-scope:jira-software read:board-scope.admin:jira-software read:sprint:jira-software offline_access"
 
 export const JIRA_OAUTH_CALLBACK_PATH = "/api/integrations/jira/oauth/callback"
 
