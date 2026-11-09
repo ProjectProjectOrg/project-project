@@ -35,7 +35,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # One-shot migration runner. Runs `drizzle-kit migrate` against the
+  # One-shot migration runner. Applies the Drizzle migrations to the
   # Postgres container, then exits. The `app` service depends on this
   # completing successfully on every recreation.
   migrations:

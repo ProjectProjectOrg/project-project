@@ -28,11 +28,13 @@ COPY packages/shared/package.json ./packages/shared/
 COPY apps/backend/package.json ./apps/backend/
 COPY apps/frontend/package.json ./apps/frontend/
 
-# Install only what backend + shared need at runtime. `--frozen-lockfile`
-# fails CI if the lockfile drifts from package.jsons.
-RUN bun install --frozen-lockfile
+# Install only the backend's production dependencies. `--omit=peer` skips
+# optional peers (better-auth lists next, react, vitest, ...), which would
+# otherwise add over a gigabyte. `--frozen-lockfile` fails CI if the lockfile
+# drifts from package.jsons.
+RUN bun install --frozen-lockfile --production --omit=peer --filter @pp/backend
 
-FROM oven/bun:1.4.4-slim AS runtime
+FROM oven/bun:1.4.4-alpine AS runtime
 WORKDIR /app
 
 # Bring deps over and then layer in source. Frontend source is omitted since
