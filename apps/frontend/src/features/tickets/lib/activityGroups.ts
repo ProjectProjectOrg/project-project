@@ -19,7 +19,7 @@ export type ActivityDay = Readonly<{
   groups: ReadonlyArray<ActivityGroup>
 }>
 
-const actorKey = (actor: TicketActivityActor | null): string => {
+export const actorKey = (actor: TicketActivityActor | null): string => {
   if (actor === null) return "unknown"
   if (actor.kind === "system") return `system:${actor.source}`
   if (actor.kind === "agent") return `agent:${actor.user.id}:${actor.client.id}`

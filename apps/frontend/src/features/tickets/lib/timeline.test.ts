@@ -24,13 +24,17 @@ const comment = (key: string, time: string) => ({
   value: key
 })
 
-const shape = (
+const rows = (
   activity: ReadonlyArray<TicketActivityEntry>,
   comments: ReadonlyArray<ReturnType<typeof comment>>,
-  hasOlder: boolean
-) =>
-  timelineRows(timelineEvents({ activity, comments, hasOlder })).map((row) =>
-    row.kind === "comment" ? row.comment.key : row.key
+  hasOlder = false
+) => timelineRows(timelineEvents({ activity, comments, hasOlder }))
+
+const shape = (...args: Parameters<typeof rows>) =>
+  rows(...args).map((row) =>
+    row.kind === "comment"
+      ? row.comment.key
+      : row.lines.map((line) => line.key).join(",")
   )
 
 describe("timeline", () => {
@@ -38,10 +42,9 @@ describe("timeline", () => {
     expect(
       shape(
         [entry("c", "10:20"), entry("b", "10:10"), entry("a", "10:00")],
-        [comment("note", "10:05")],
-        false
+        [comment("note", "10:05")]
       )
-    ).toEqual(["a", "note", "b", "c"])
+    ).toEqual(["a:0", "note", "b:0,c:0"])
   })
 
   it("holds back comments older than the loaded activity", () => {
@@ -51,6 +54,31 @@ describe("timeline", () => {
         [comment("old", "09:00"), comment("new", "10:30")],
         true
       )
-    ).toEqual(["b", "new"])
+    ).toEqual(["b:0", "new"])
+  })
+
+  it("folds older runs whole and the newest run up to its last two changes", () => {
+    const entries = (prefix: string, hour: number, count: number) =>
+      Array.from({ length: count }, (_, index) =>
+        entry(`${prefix}${index}`, `${hour}:${10 + index}`)
+      ).toReversed()
+    const folds = rows(
+      [...entries("n", 12, 5), ...entries("m", 11, 4), ...entries("o", 10, 3)],
+      [comment("note", "11:00"), comment("later", "12:00")]
+    ).map((row) => (row.kind === "run" ? row.fold : row.comment.key))
+    expect(folds).toEqual([3, "note", 4, "later", 3])
+  })
+
+  it("keeps a short newest run fully open", () => {
+    const folds = rows(
+      [
+        entry("d", "10:04"),
+        entry("c", "10:03"),
+        entry("b", "10:02"),
+        entry("a", "10:01")
+      ],
+      []
+    ).map((row) => (row.kind === "run" ? row.fold : row.comment.key))
+    expect(folds).toEqual([0])
   })
 })

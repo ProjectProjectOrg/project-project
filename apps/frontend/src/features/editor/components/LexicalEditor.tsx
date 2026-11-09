@@ -30,7 +30,12 @@ import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPl
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
 import { RichTextExtension } from "@lexical/rich-text"
 import { TableExtension } from "@lexical/table"
-import type { TicketId } from "@pp/shared"
+import {
+  EMPTY_LAYER,
+  NO_TEMPLATE_DEFAULTS,
+  resolveLibrary,
+  type TicketId
+} from "@pp/shared"
 import { useDebouncer } from "@tanstack/react-pacer"
 import * as Effect from "effect/Effect"
 import {
@@ -58,6 +63,7 @@ import {
 } from "../lexical/blocks/editorBlocks"
 import { EditorBlocksProvider } from "../lexical/blocks/editorBlocksContext"
 import { HINT_TRANSFORMER } from "../lexical/blocks/HintNode"
+import { SlashMenuPlugin } from "../lexical/blocks/SlashMenuPlugin"
 import { SyncedBlockExtension } from "../lexical/blocks/SyncedBlockNode"
 import { TicketBlocksPlugins } from "../lexical/blocks/TicketBlocksPlugins"
 import { ChecklistClickExtension } from "../lexical/checklistClickExtension"
@@ -68,10 +74,12 @@ import {
 import { FigmaExtension } from "../lexical/FigmaExtension"
 import { FigmaPlugin } from "../lexical/FigmaPlugin"
 import { FIGMA_TRANSFORMER } from "../lexical/figmaTransformer"
+import { FormattingToolbarPlugin } from "../lexical/FormattingToolbarPlugin"
 import {
   HORIZONTAL_RULE,
   HorizontalRuleEnterExtension
 } from "../lexical/horizontalRuleTransformer"
+import { LinePlaceholderPlugin } from "../lexical/LinePlaceholderPlugin"
 import { LinkFaviconsPlugin } from "../lexical/LinkFaviconsPlugin"
 import { ListTabExtension } from "../lexical/listTabExtension"
 import { registerMarkdownPaste } from "../lexical/markdownPaste"
@@ -83,6 +91,7 @@ import { PaperPlugin } from "../lexical/PaperPlugin"
 import { PAPER_TRANSFORMER } from "../lexical/paperTransformer"
 import "@/lib/prismLangs"
 
+import { SubmitOnEnterPlugin } from "../lexical/SubmitOnEnterPlugin"
 import { createTableTransformer } from "../lexical/tableTransformer"
 import { TicketBlockExtension } from "../lexical/TicketBlockExtension"
 import { createTicketBlockTransformer } from "../lexical/ticketBlockTransformer"
@@ -267,10 +276,17 @@ export interface AttachmentsTarget {
   readonly uploadsEnabled: boolean
 }
 
+const NO_LIBRARY = resolveLibrary(
+  { org: EMPTY_LAYER, project: null },
+  { org: NO_TEMPLATE_DEFAULTS, project: null },
+  false
+)
+
 export interface LexicalEditorProps {
   markdown: string
-  onChange: (markdown: string) => Promise<void> | void
+  onChange?: (markdown: string) => Promise<void> | void
   onDraftChange?: (markdown: string) => void
+  onSubmit?: () => void
   onStatusChange?: (status: SaveStatus) => void
   debounceMs?: number
   className?: string
@@ -378,6 +394,7 @@ export function LexicalEditor({
   markdown,
   onChange,
   onDraftChange,
+  onSubmit,
   onStatusChange,
   debounceMs = 600,
   className,
@@ -475,7 +492,7 @@ export function LexicalEditor({
   > | null>(null)
   if (saveQueueRef.current === null) {
     saveQueueRef.current = createCoalescedSaveQueue({
-      save: (next) => onChangeRef.current(next),
+      save: (next) => onChangeRef.current?.(next),
       schedule: () => scheduleRef.current(),
       onStatus: setStatus,
       onError: (error) => {
@@ -580,11 +597,23 @@ export function LexicalEditor({
               ticketId={attachments.ticketId}
             />
           ) : null}
+          {onSubmit !== undefined ? (
+            <SubmitOnEnterPlugin onSubmit={onSubmit} />
+          ) : null}
+          <FormattingToolbarPlugin />
           <LinkBlurActivationPlugin />
           <LinkFaviconsPlugin />
+          {compact ? null : <LinePlaceholderPlugin />}
           {blocks !== undefined ? (
             <TicketBlocksPlugins blocks={blocks} transformers={transformers} />
-          ) : null}
+          ) : (
+            <SlashMenuPlugin
+              library={NO_LIBRARY}
+              ticketType={null}
+              transformers={transformers}
+              mode="basic"
+            />
+          )}
           <MarkdownShortcutPlugin transformers={transformers} />
           <OnChangePlugin
             onChange={(editorState) => {

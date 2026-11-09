@@ -28,7 +28,7 @@ export function TicketPageHeader({
       <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
         <h1 className="w-full">
           {readOnly ? (
-            <span className="block w-full px-2 py-1.5 text-xl font-semibold break-words">
+            <span className="block w-full px-2 py-1.5 text-xl font-semibold wrap-anywhere">
               {ticket.title}
             </span>
           ) : (

@@ -175,11 +175,18 @@ export function MarkTicketCommand({
             aria-disabled={block !== null}
             className={cn(block !== null && "opacity-50")}
           >
-            <TicketStatusIcon status={ticket.status} className="size-4" />
-            <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
-              {ticket.id}
+            <TicketStatusIcon
+              status={ticket.status}
+              orgSlug={orgSlug}
+              slug={slug}
+              className="size-4"
+            />
+            <span className="flex min-w-0 flex-1 items-baseline gap-2">
+              <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+                {ticket.id}
+              </span>
+              <span className="min-w-0 truncate">{ticket.title}</span>
             </span>
-            <span className="min-w-0 flex-1 truncate">{ticket.title}</span>
             {block !== null && (
               <span className="shrink-0 text-xs">{BLOCK_LABELS[block]()}</span>
             )}

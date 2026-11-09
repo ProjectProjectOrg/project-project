@@ -17,6 +17,7 @@ import {
   KEY_TAB_COMMAND,
   COMMAND_PRIORITY_HIGH,
   COMMAND_PRIORITY_LOW,
+  COMMAND_PRIORITY_NORMAL,
   type LexicalNode
 } from "lexical"
 import {
@@ -268,6 +269,7 @@ export function MentionsPlugin(): JSX.Element | null {
 
   return (
     <LexicalTypeaheadMenuPlugin<MentionMenuOption>
+      commandPriority={COMMAND_PRIORITY_NORMAL}
       onQueryChange={onQueryChange}
       onClose={() => setQueryString(null)}
       onSelectOption={onSelectOption}

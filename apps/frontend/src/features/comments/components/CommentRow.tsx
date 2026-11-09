@@ -186,7 +186,7 @@ function EditForm({
       </CommentHeader>
       <LexicalEditor
         markdown={body}
-        onChange={(md) => setBody(md)}
+        onDraftChange={setBody}
         autoFocus
         compact
       />

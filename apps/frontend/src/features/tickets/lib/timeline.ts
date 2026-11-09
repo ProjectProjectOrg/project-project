@@ -1,6 +1,7 @@
 import type { TicketActivityActor, TicketActivityEntry } from "@pp/shared"
 
 import { activityItems, type ActivityItem } from "./activityGroups"
+import { activityLines, type ActivityLine } from "./activityLines"
 
 export type TimelineComment<C> = Readonly<{ key: string; at: Date; value: C }>
 
@@ -8,17 +9,24 @@ export type TimelineEvent<C> =
   | Readonly<{ kind: "activity"; at: Date; entry: TicketActivityEntry }>
   | Readonly<{ kind: "comment"; at: Date; comment: TimelineComment<C> }>
 
+export type TimelineLine = Readonly<{
+  key: string
+  actor: TicketActivityActor | null
+  at: Date
+  line: ActivityLine
+}>
+
 export type TimelineRow<C> =
   | Readonly<{
-      kind: "activity"
+      kind: "run"
       key: string
-      item: ActivityItem
-      actor: TicketActivityActor | null
-      at: Date
-      first: boolean
-      last: boolean
+      lines: ReadonlyArray<TimelineLine>
+      fold: number
     }>
   | Readonly<{ kind: "comment"; key: string; comment: TimelineComment<C> }>
+
+export const FOLD_AT = 3
+export const KEEP_OPEN = 2
 
 export const timelineEvents = <C>({
   activity,
@@ -51,11 +59,13 @@ export const timelineEvents = <C>({
   return events.toSorted((a, b) => a.at.getTime() - b.at.getTime())
 }
 
-const actorOf = (item: ActivityItem) =>
-  item.kind === "entry" ? item.entry.actor : item.actor
-
-const atOf = (item: ActivityItem) =>
-  item.kind === "entry" ? item.entry.occurredAt : item.at
+const itemLines = (item: ActivityItem): ReadonlyArray<TimelineLine> =>
+  activityLines(item).map((line, index) => ({
+    key: `${item.key}:${index}`,
+    actor: item.kind === "entry" ? item.entry.actor : item.actor,
+    at: item.kind === "entry" ? item.entry.occurredAt : item.at,
+    line
+  }))
 
 export const timelineRows = <C>(
   events: ReadonlyArray<TimelineEvent<C>>
@@ -63,18 +73,16 @@ export const timelineRows = <C>(
   const rows: Array<TimelineRow<C>> = []
   let run: Array<TicketActivityEntry> = []
   const flush = () => {
-    const items = activityItems(run)
-    items.forEach((item, index) =>
+    const lines = activityItems(run).flatMap(itemLines)
+    const first = lines[0]
+    if (first !== undefined) {
       rows.push({
-        kind: "activity",
-        key: item.key,
-        item,
-        actor: actorOf(item),
-        at: atOf(item),
-        first: index === 0,
-        last: index === items.length - 1
+        kind: "run",
+        key: first.key,
+        lines,
+        fold: lines.length >= FOLD_AT ? lines.length : 0
       })
-    )
+    }
     run = []
   }
   for (const event of events) {
@@ -90,5 +98,11 @@ export const timelineRows = <C>(
     })
   }
   flush()
+  const newest = rows.findLastIndex((row) => row.kind === "run")
+  const last = rows[newest]
+  if (last?.kind === "run") {
+    const older = last.lines.length - KEEP_OPEN
+    rows[newest] = { ...last, fold: older >= FOLD_AT ? older : 0 }
+  }
   return rows
 }

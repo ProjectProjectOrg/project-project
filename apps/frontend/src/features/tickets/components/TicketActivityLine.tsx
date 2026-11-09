@@ -184,7 +184,7 @@ function ActivityValueView({
 }: Readonly<{ value: ActivityValue; lookups: ActivityLookups }>) {
   switch (value.kind) {
     case "text":
-      return <Value>{value.text}</Value>
+      return <span className="text-foreground">{value.text}</span>
     case "literal": {
       const icon = value.icon === null ? null : LITERAL_ICONS[value.icon]
       return (

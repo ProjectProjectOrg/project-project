@@ -201,7 +201,7 @@ function TicketCrumb({
       params={{ orgSlug, slug }}
       isLast={isLast}
     >
-      <span className="font-mono text-xs">{id}</span>{" "}
+      <span className="font-mono">{id}</span>{" "}
       <span className={Result.isSuccess(result) ? "" : "italic opacity-60"}>
         {Result.isSuccess(result) ? label : m.nav_crumb_loading_placeholder()}
       </span>
@@ -221,8 +221,10 @@ function CrumbText({
   children: React.ReactNode
 }) {
   const className = cn(
-    "max-w-[20ch] truncate",
-    isLast ? "text-foreground" : "transition-colors hover:text-foreground"
+    "truncate",
+    isLast
+      ? "max-w-1/2 min-w-0 text-foreground"
+      : "max-w-[20ch] shrink-0 transition-colors hover:text-foreground"
   )
   if (isLast || !to) {
     return (

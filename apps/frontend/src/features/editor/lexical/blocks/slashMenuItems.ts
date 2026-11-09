@@ -13,6 +13,8 @@ import {
 
 import type { EditorBlocksMode } from "./editorBlocks"
 
+export type SlashMode = EditorBlocksMode | "basic"
+
 export type SlashBasicKind =
   | "heading"
   | "checklist"
@@ -86,7 +88,7 @@ export type SlashMenuInput = Readonly<{
   body: string
   query: string
   basicLabel: (kind: SlashBasicKind) => string
-  mode?: EditorBlocksMode
+  mode?: SlashMode
 }>
 
 const SLASH_QUERY = /^[^\s/]{0,64}$/
@@ -213,9 +215,7 @@ const templateItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> =>
         : []
   )
 
-const basicKindsFor = (
-  mode: EditorBlocksMode
-): ReadonlyArray<SlashBasicKind> =>
+const basicKindsFor = (mode: SlashMode): ReadonlyArray<SlashBasicKind> =>
   mode === "definition" ? [...SLASH_BASIC_KINDS, "hint"] : SLASH_BASIC_KINDS
 
 const basicItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> =>
@@ -230,10 +230,11 @@ const basicItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> =>
         : []
   )
 
-const MODE_SECTIONS: Record<EditorBlocksMode, ReadonlySet<SlashSectionKey>> = {
+const MODE_SECTIONS: Record<SlashMode, ReadonlySet<SlashSectionKey>> = {
   ticket: new Set(["suggested", "blocks", "templates", "basic"]),
   template: new Set(["blocks", "basic"]),
-  definition: new Set(["basic"])
+  definition: new Set(["basic"]),
+  basic: new Set(["basic"])
 }
 
 const TAB_SECTIONS: Record<SlashTab, ReadonlyArray<SlashSectionKey>> = {
@@ -358,7 +359,7 @@ const countOf = (sections: ReadonlyArray<SlashSection>): number =>
     0
   )
 
-export const slashTabsFor = (mode: EditorBlocksMode): ReadonlyArray<SlashTab> =>
+export const slashTabsFor = (mode: SlashMode): ReadonlyArray<SlashTab> =>
   SLASH_TABS.filter(
     (tab) =>
       tab === "all" ||

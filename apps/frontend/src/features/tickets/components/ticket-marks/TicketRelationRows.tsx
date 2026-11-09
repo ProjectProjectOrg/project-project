@@ -123,7 +123,11 @@ function RelationEntry({
             />
           }
         >
-          <TicketStatusIcon status={linked.status} />
+          <TicketStatusIcon
+            status={linked.status}
+            orgSlug={orgSlug}
+            slug={slug}
+          />
           <span
             className={
               linked.archivedAt === null

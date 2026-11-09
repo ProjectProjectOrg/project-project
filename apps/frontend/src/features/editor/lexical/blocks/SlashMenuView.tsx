@@ -86,7 +86,7 @@ const BASIC_LABELS: Record<SlashBasicKind, () => string> = {
   hint: m.editor_slash_basic_hint
 }
 
-const BASIC_ICONS: Record<SlashBasicKind, LucideIcon> = {
+export const BASIC_ICONS: Record<SlashBasicKind, LucideIcon> = {
   heading: Heading2,
   checklist: ListTodo,
   "bullet-list": List,

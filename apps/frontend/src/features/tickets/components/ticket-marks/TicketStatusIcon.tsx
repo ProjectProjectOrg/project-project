@@ -6,7 +6,6 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
-import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import { cn } from "@/lib/utils"
 
@@ -14,9 +13,15 @@ const NO_STATUSES: ReadonlyArray<ProjectStatus> = []
 
 export function TicketStatusIcon({
   status,
+  orgSlug,
+  slug,
   className
-}: Readonly<{ status: string; className?: string }>) {
-  const { orgSlug, slug } = useProjectRoute()
+}: Readonly<{
+  status: string
+  orgSlug: string
+  slug: string
+  className?: string
+}>) {
   const result = useAtomValue(statusesFor(statusesRequest(orgSlug, slug)))
   const meta = statusMetaFor(
     status,

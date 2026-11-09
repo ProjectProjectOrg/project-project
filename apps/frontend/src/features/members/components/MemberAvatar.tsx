@@ -1,5 +1,3 @@
-import { useState } from "react"
-
 import {
   Avatar,
   AvatarFallback,
@@ -15,6 +13,8 @@ export interface AvatarSubject {
   readonly image?: string | null
 }
 
+const fontSize = (size: number) => Math.max(10, Math.round(size * 0.5))
+
 export function MemberAvatar({
   member,
   size = 20,
@@ -24,35 +24,26 @@ export function MemberAvatar({
   size?: number
   className?: string
 }) {
-  const [errored, setErrored] = useState(false)
   const initial = (member.name || member.email || "?").charAt(0).toUpperCase()
-  const showImage = !!member.image && !errored
   return (
-    <span
-      className={cn(
-        "relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full bg-active leading-none font-medium text-muted-foreground",
-        className
-      )}
-      style={{
-        width: size,
-        height: size,
-        fontSize: Math.max(10, Math.round(size * 0.5))
-      }}
+    <Avatar
       aria-hidden
+      className={cn("inline-flex", className)}
+      style={{ width: size, height: size }}
     >
-      {showImage ? (
-        <img
+      {member.image && (
+        <AvatarImage
           src={member.image}
           alt=""
           loading="lazy"
           decoding="async"
-          onError={() => setErrored(true)}
-          className="size-full object-cover"
+          className="object-cover"
         />
-      ) : (
-        initial
       )}
-    </span>
+      <AvatarFallback style={{ fontSize: fontSize(size) }}>
+        {initial}
+      </AvatarFallback>
+    </Avatar>
   )
 }
 
@@ -69,18 +60,11 @@ export function AvatarStack({
 }) {
   const visible = subjects.slice(0, max)
   const overflow = subjects.length - visible.length
-  const fontSize = Math.max(10, Math.round(size * 0.5))
   return (
     <AvatarGroup className={className}>
-      {visible.map((s, i) => {
-        const initial = (s.name || s.email || "?").charAt(0).toUpperCase()
-        return (
-          <Avatar key={i} style={{ width: size, height: size }}>
-            {s.image && <AvatarImage src={s.image} alt="" />}
-            <AvatarFallback style={{ fontSize }}>{initial}</AvatarFallback>
-          </Avatar>
-        )
-      })}
+      {visible.map((subject, index) => (
+        <MemberAvatar key={index} member={subject} size={size} />
+      ))}
       {overflow > 0 && (
         <AvatarGroupCount
           style={{
