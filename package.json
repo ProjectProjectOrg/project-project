@@ -18,7 +18,7 @@
     "test:all": "bun run test:lint && turbo run test --concurrency=1",
     "test:lint": "bun test tools/oxlint/anti-slop/effect",
     "test:cleanup": "bun scripts/setup-test-db.ts --cleanup",
-    "test:isolated": "test_exit=0; bun run test:setup && DATABASE_URL=postgres://projectproject:projectproject_dev@127.0.0.1:5432/$PROJECTPROJECT_TEST_DATABASE_NAME bun run test:migrate && PROJECTPROJECT_TEST_DATABASE_URL=postgres://projectproject:projectproject_dev@127.0.0.1:5432/$PROJECTPROJECT_TEST_DATABASE_NAME BETTER_AUTH_SECRET=isolated-effect-v4-oauth-compatibility-test-secret bun run test:all || test_exit=$?; bun run test:cleanup || { cleanup_exit=$?; if [ $test_exit -eq 0 ]; then test_exit=$cleanup_exit; fi; }; exit $test_exit",
+    "test:isolated": "test_exit=0; bun run test:setup && DATABASE_URL=postgres://projectproject:projectproject_dev@127.0.0.1:5432/$PROJECTPROJECT_TEST_DATABASE_NAME bun run test:migrate && PROJECTPROJECT_TEST_DATABASE_URL=postgres://projectproject:projectproject_dev@127.0.0.1:5432/$PROJECTPROJECT_TEST_DATABASE_NAME BETTER_AUTH_SECRET=isolated-effect-v4-oauth-compatibility-test-secret bun run test:all $TEST_ALL_ARGS || test_exit=$?; bun run test:cleanup || { cleanup_exit=$?; if [ $test_exit -eq 0 ]; then test_exit=$cleanup_exit; fi; }; exit $test_exit",
     "test:migrate": "bun run --filter @pp/db db:migrate",
     "test:setup": "bun scripts/setup-test-db.ts",
     "typecheck": "turbo run typecheck",
@@ -30,6 +30,7 @@
     "format:check": "oxfmt --check .",
     "prepare": "effect-tsgo patch",
     "check": "bun run format:check && bun run lint && bun run typecheck",
+    "check:changed": "bun run format:check && bun run lint --affected && bun run typecheck --affected && TEST_ALL_ARGS=--affected bun run test",
     "test:db": "vitest run --project db --project \"server-core*\" --project integration-everhour --project integration-jira --project backend --no-file-parallelism"
   },
   "devDependencies": {
