@@ -1402,6 +1402,7 @@ const make = Effect.gen(function* () {
                     ...checkpoint,
                     scanPages
                   }),
+                  phase: "scan",
                   progressDone: Object.values(scanPages).reduce(
                     (sum, value) => sum + value,
                     0
@@ -1520,7 +1521,8 @@ const make = Effect.gen(function* () {
     input: TransitionInput
   ) {
     const row = yield* owned(input.owner, input.migrationId)
-    if (row.revision !== input.expectedRevision) return yield* conflict()
+    if (input.action !== "cancel" && row.revision !== input.expectedRevision)
+      return yield* conflict()
     if (input.action === "run") {
       if (!actionsFor(row).canRun)
         return yield* new Validation({
@@ -1577,7 +1579,7 @@ const make = Effect.gen(function* () {
       })
     const active = ["scanning", "migrating", "cancelling"].includes(row.status)
     const now = yield* DateTime.now
-    return yield* updateRevision(row, input.expectedRevision, {
+    return yield* updateRevision(row, row.revision, {
       status: active ? "cancelling" : "cancelled",
       phase: active ? "cancelling" : "cancelled",
       finishedAt: active ? null : DateTime.toDate(now),
