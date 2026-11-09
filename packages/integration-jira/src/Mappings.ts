@@ -30,7 +30,11 @@ export const JiraIdentityResolution = Schema.Union([
     kind: Schema.Literal("link"),
     userId: Schema.NonEmptyString
   }),
-  Schema.Struct({ kind: Schema.Literal("unlinked") })
+  Schema.Struct({ kind: Schema.Literal("unlinked") }),
+  Schema.Struct({
+    kind: Schema.Literal("invite"),
+    email: Schema.NonEmptyString
+  })
 ])
 export type JiraIdentityResolution = typeof JiraIdentityResolution.Type
 
@@ -389,12 +393,17 @@ export function jiraConfigurationToMappings(
       name: configuration.destination.name
     },
     identities: configuration.identities.map(
-      ({ jiraAccountId, projectProjectUserId }) => ({
+      ({ jiraAccountId, projectProjectUserId, inviteEmail }) => ({
         sourceAccountId: jiraAccountId,
         resolution:
-          projectProjectUserId === null
-            ? ({ kind: "unlinked" } as const)
-            : ({ kind: "link", userId: projectProjectUserId } as const)
+          projectProjectUserId !== null
+            ? ({ kind: "link", userId: projectProjectUserId } as const)
+            : inviteEmail === undefined
+              ? ({ kind: "unlinked" } as const)
+              : ({
+                  kind: "invite",
+                  email: inviteEmail.toLowerCase()
+                } as const)
       })
     ),
     statuses: configuration.statuses.map(

@@ -101,6 +101,7 @@ export const JiraManifestIssue = Schema.Struct({
   issueTypeId: Schema.NonEmptyString,
   priorityId: Schema.NullOr(Schema.String),
   assigneeAccountId: Schema.NullOr(Schema.String),
+  reporterAccountId: Schema.optional(Schema.NullOr(Schema.String)),
   labels: Schema.Array(Schema.String),
   componentIds: Schema.Array(Schema.String),
   groupIds: Schema.Array(Schema.String),

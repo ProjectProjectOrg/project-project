@@ -10,7 +10,6 @@ import {
 import {
   AssignableRole,
   Forbidden,
-  INVITATION_VALID_DAYS,
   LastProjectPmBlocked,
   NotFound,
   paginateSorted,
@@ -23,18 +22,17 @@ import {
   type Member,
   type ProjectDetail
 } from "@pp/shared"
-import { and, eq, gt, sql as sqlFragment } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import * as Context from "effect/Context"
-import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
-import { ulid } from "ulid"
 
 import type * as Markdown from "../markdown/Markdown"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import * as Users from "../users/Users"
 import * as ProjectDetails from "./ProjectDetails"
+import { issueProjectInvite } from "./projectInvite"
 import { annotateProjectTelemetry } from "./projectTelemetry"
 import { syncProjectInvite } from "./syncProjectInvite"
 
@@ -147,96 +145,6 @@ const make = Effect.gen(function* () {
       .for("share")
       .pipe(Effect.orDie)
 
-  const attachProjectInviteGrant = (
-    orgSlug: string,
-    inviterId: string,
-    email: string,
-    indexRow: typeof projectIndex.$inferSelect,
-    role: AssignableRole
-  ): Effect.Effect<void> =>
-    db
-      .transaction(() =>
-        Effect.gen(function* () {
-          const organizationId = indexRow.organizationId
-          const normalizedEmail = email.toLowerCase()
-          yield* lockProjectForGrants(indexRow.id)
-          yield* db
-            .execute(
-              sqlFragment`select pg_advisory_xact_lock(hashtextextended(${organizationId} || ':' || ${normalizedEmail}, 0))`
-            )
-            .pipe(Effect.orDie)
-          const now = yield* DateTime.now
-          const [existing] = yield* db
-            .select({
-              id: invitation.id,
-              fromProject: invitation.fromProject
-            })
-            .from(invitation)
-            .where(
-              and(
-                eq(invitation.organizationId, organizationId),
-                eq(invitation.email, normalizedEmail),
-                eq(invitation.status, "pending"),
-                gt(invitation.expiresAt, DateTime.toDate(now))
-              )
-            )
-            .limit(1)
-            .for("update")
-            .pipe(Effect.orDie)
-          const invite =
-            existing ??
-            (yield* Effect.gen(function* () {
-              const orgRole = ProjectPolicy.inviteOrgRole(role)
-              const [created] = yield* db
-                .insert(invitation)
-                .values({
-                  id: yield* Effect.sync(() => ulid()),
-                  organizationId,
-                  email: normalizedEmail,
-                  role: orgRole,
-                  fromProject: true,
-                  status: "pending",
-                  expiresAt: DateTime.toDate(
-                    DateTime.add(now, { days: INVITATION_VALID_DAYS })
-                  ),
-                  inviterId
-                })
-                .returning({
-                  id: invitation.id,
-                  fromProject: invitation.fromProject
-                })
-                .pipe(Effect.orDie)
-              yield* Effect.logInfo("invitation issued").pipe(
-                Effect.annotateLogs({
-                  orgSlug,
-                  role: orgRole,
-                  inviteId: created.id
-                })
-              )
-              return created
-            }))
-          yield* db
-            .insert(projectInviteGrant)
-            .values({
-              invitationId: invite.id,
-              projectId: indexRow.id,
-              roleId: role
-            })
-            .onConflictDoUpdate({
-              target: [
-                projectInviteGrant.invitationId,
-                projectInviteGrant.projectId
-              ],
-              set: { roleId: role }
-            })
-            .pipe(Effect.orDie)
-          if (invite.fromProject) {
-            yield* syncProjectInvite(db, invite.id)
-          }
-        })
-      )
-      .pipe(Effect.catchTag("SqlError", Effect.die))
-
   const pmCount = (projectId: string): Effect.Effect<number> =>
     db.query.projectMember
       .findMany({
@@ -328,13 +236,14 @@ const make = Effect.gen(function* () {
           ) {
             return yield* new Forbidden()
           }
-          yield* attachProjectInviteGrant(
+          yield* issueProjectInvite(db, {
+            organizationId: indexRow.organizationId,
             orgSlug,
-            userId,
+            projectId: indexRow.id,
+            inviterId: userId,
             email,
-            indexRow,
-            input.role
-          )
+            role: input.role
+          })
           return yield* replayDetail
         }
 

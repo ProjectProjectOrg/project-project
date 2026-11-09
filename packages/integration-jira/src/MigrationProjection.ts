@@ -265,12 +265,15 @@ export const isCompleteJiraConfiguration = (
       ({ jiraAccountId }) => jiraAccountId,
       requirements.identities.map(({ jiraAccountId }) => jiraAccountId)
     ) &&
-    configuration.identities.every(
-      ({ projectProjectUserId }) =>
-        projectProjectUserId === null ||
-        requirements.identityOptions.some(
-          ({ id }) => id === projectProjectUserId
-        )
+    configuration.identities.every(({ projectProjectUserId, inviteEmail }) =>
+      projectProjectUserId === null
+        ? inviteEmail === undefined ||
+          !requirements.identityOptions.some(
+            ({ email }) => email.toLowerCase() === inviteEmail.toLowerCase()
+          )
+        : requirements.identityOptions.some(
+            ({ id }) => id === projectProjectUserId
+          )
     )
   const statusesValid =
     exactlyOne(

@@ -9,6 +9,7 @@ import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import {
   AppApi,
   CurrentUser,
+  Forbidden,
   JiraError,
   JiraMigrationUnavailable,
   JiraResourceNotFound,
@@ -166,6 +167,13 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
       .handle("configure", ({ params, payload }) =>
         Effect.gen(function* () {
           const { user, org } = yield* context
+          if (
+            payload.configuration.identities.some(
+              (identity) => identity.inviteEmail !== undefined
+            ) &&
+            !org.permissions.can({ invitation: ["create"] })
+          )
+            return yield* new Forbidden()
           const migrations = yield* Migrations.JiraMigrations
           return yield* migrations.configure(
             org.organizationId,

@@ -1325,6 +1325,26 @@ export const jiraMigration = pgTable(
   ]
 )
 
+export const jiraIdentityClaim = pgTable(
+  "jira_identity_claim",
+  {
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    jiraAccountIds: text("jira_account_ids").array().notNull(),
+    assigneeTicketIds: text("assignee_ticket_ids").array().notNull(),
+    reporterTicketIds: text("reporter_ticket_ids").array().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.email] }),
+    index("jira_identity_claim_email_idx").on(t.email)
+  ]
+)
+
 export const projectFigmaIntegration = pgTable(
   "project_figma_integration",
   {

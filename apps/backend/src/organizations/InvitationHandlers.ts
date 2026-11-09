@@ -10,6 +10,7 @@ import * as Effect from "effect/Effect"
 import { HttpServerRequest } from "effect/http"
 import { HttpApiBuilder } from "effect/http-api"
 
+import { applyJiraIdentityClaims } from "../jira/identityClaims"
 import {
   betterAuthErrorCode,
   betterAuthErrorStatus,
@@ -139,22 +140,34 @@ export const InvitationsHandlerLive = HttpApiBuilder.group(
           const user = yield* CurrentUser
           const ba = yield* BetterAuth.BetterAuth
           const request = yield* webRequest
-          return yield* ba.acceptInvitation(request, params.invitationId).pipe(
-            Effect.catchTag("BetterAuthError", (error) =>
-              Effect.gen(function* () {
-                const state = yield* ba
-                  .getInvitationState(params.invitationId)
-                  .pipe(Effect.orDie)
-                const now = DateTime.toDate(yield* DateTime.now)
-                return yield* acceptErrorToFailure(
-                  error,
-                  state,
-                  now,
-                  user.email
-                )
-              })
+          const org = yield* ba
+            .acceptInvitation(request, params.invitationId)
+            .pipe(
+              Effect.catchTag("BetterAuthError", (error) =>
+                Effect.gen(function* () {
+                  const state = yield* ba
+                    .getInvitationState(params.invitationId)
+                    .pipe(Effect.orDie)
+                  const now = DateTime.toDate(yield* DateTime.now)
+                  return yield* acceptErrorToFailure(
+                    error,
+                    state,
+                    now,
+                    user.email
+                  )
+                })
+              )
+            )
+          yield* applyJiraIdentityClaims({
+            orgSlug: org.slug,
+            userId: user.id,
+            email: user.email
+          }).pipe(
+            Effect.catchCause((cause) =>
+              Effect.logWarning("jira identity claims not applied", cause)
             )
           )
+          return org
         })
       )
       .handle("reject", ({ params }) =>

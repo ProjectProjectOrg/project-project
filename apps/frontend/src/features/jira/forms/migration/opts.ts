@@ -1,4 +1,5 @@
 import {
+  EmailAddress,
   JiraMigrationConfiguration,
   StatusSlug,
   TagName,
@@ -22,6 +23,7 @@ export type JiraMigrationDraft = Readonly<{
     Readonly<{
       jiraAccountId: string
       projectProjectUserId: string | null | undefined
+      inviteEmail?: string
     }>
   >
   statuses: ReadonlyArray<
@@ -84,14 +86,21 @@ const allResolved = <S extends Schema.Top>(
     Schema.check(Schema.makeFilter((items) => items.every(resolved)))
   )
 
+const isEmailAddress = Schema.is(EmailAddress)
+
+export const isPendingInvite = (
+  item: JiraMigrationDraft["identities"][number]
+) => item.inviteEmail !== undefined && !isEmailAddress(item.inviteEmail.trim())
+
 const peopleSchema = allResolved(
   Schema.Struct({
     jiraAccountId: Schema.NonEmptyString,
     projectProjectUserId: Schema.NullOr(
       Schema.UndefinedOr(Schema.NonEmptyString)
-    )
+    ),
+    inviteEmail: Schema.optional(Schema.String)
   }),
-  (item) => item.projectProjectUserId !== undefined
+  (item) => item.projectProjectUserId !== undefined && !isPendingInvite(item)
 )
 
 const statusesSchema = allResolved(
@@ -221,10 +230,7 @@ export function buildJiraMigrationDraft(
   configuration: JiraMigrationConfigurationType | null
 ): JiraMigrationDraft {
   const identities = new Map(
-    configuration?.identities.map((item) => [
-      item.jiraAccountId,
-      item.projectProjectUserId
-    ])
+    configuration?.identities.map((item) => [item.jiraAccountId, item])
   )
   const statuses = new Map(
     configuration?.statuses.map((item) => [item.jiraStatusId, item])
@@ -267,12 +273,16 @@ export function buildJiraMigrationDraft(
       slug: requirements.destination.suggestedSlug,
       key: requirements.destination.suggestedKey
     },
-    identities: requirements.identities.map((identity) => ({
-      jiraAccountId: identity.jiraAccountId,
-      projectProjectUserId: identities.has(identity.jiraAccountId)
-        ? identities.get(identity.jiraAccountId)
-        : undefined
-    })),
+    identities: requirements.identities.map((identity) => {
+      const configured = identities.get(identity.jiraAccountId)
+      return {
+        jiraAccountId: identity.jiraAccountId,
+        projectProjectUserId: configured?.projectProjectUserId,
+        ...(configured?.inviteEmail === undefined
+          ? {}
+          : { inviteEmail: configured.inviteEmail })
+      }
+    }),
     statuses: requirements.statuses.map((status) => {
       const configured = statuses.get(status.jiraStatusId)
       return {
@@ -325,9 +335,16 @@ export function toPartialJiraMigrationConfiguration(
   return decodeUnknownJiraMigrationConfigurationSync({
     ...draft,
     restrictedContent: draft.restrictedContent ?? null,
-    identities: draft.identities.filter(
-      (item) => item.projectProjectUserId !== undefined
-    ),
+    identities: draft.identities
+      .filter(
+        (item) =>
+          item.projectProjectUserId !== undefined && !isPendingInvite(item)
+      )
+      .map(({ inviteEmail, ...item }) =>
+        inviteEmail === undefined
+          ? item
+          : { ...item, inviteEmail: inviteEmail.trim() }
+      ),
     statuses: draft.statuses.filter(
       (item) => item.projectStatusSlug !== undefined
     ),

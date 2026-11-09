@@ -406,6 +406,63 @@ describe("createJiraPublicationPlan", () => {
     })
   })
 
+  it("stages one invite per email and credits a linked reporter as creator", () => {
+    const source = manifest()
+    const result = createJiraPublicationPlan(
+      {
+        ...source,
+        issues: source.issues.map((issue) => ({
+          ...issue,
+          assigneeAccountId:
+            issue.id === "issue-4" ? "account-unlinked" : "account-linked",
+          reporterAccountId:
+            issue.id === "issue-1" ? "account-linked" : "account-unlinked"
+        }))
+      },
+      {
+        ...mappings(),
+        identities: [
+          {
+            sourceAccountId: "account-linked",
+            resolution: { kind: "link", userId: "user-1" }
+          },
+          {
+            sourceAccountId: "account-unlinked",
+            resolution: { kind: "invite", email: "former@example.com" }
+          }
+        ]
+      },
+      readyPreflight,
+      { "attachment-1": "/api/orgs/acme/attachments/A1" }
+    )
+
+    expect(result.kind).toBe("ready")
+    if (result.kind !== "ready") return
+    expect(result.plan.invites).toEqual([
+      {
+        email: "former@example.com",
+        sourceAccountIds: ["account-unlinked"],
+        assigneeTicketIds: ["APP-4"],
+        reporterTicketIds: ["APP-4"]
+      }
+    ])
+    expect(
+      result.plan.tickets.map(({ id, assignees, createdBy }) => ({
+        id,
+        assignees,
+        createdBy
+      }))
+    ).toEqual([
+      { id: "APP-1", assignees: ["user-1"], createdBy: "user-1" },
+      { id: "APP-4", assignees: [], createdBy: null }
+    ])
+    expect(result.plan.comments[0]?.author).toEqual({
+      kind: "jira",
+      accountId: "account-unlinked",
+      displayName: "Former User"
+    })
+  })
+
   it("returns blockers instead of a staging plan when preflight is not ready", () => {
     const blocker = {
       code: "missing-status-mapping" as const,
