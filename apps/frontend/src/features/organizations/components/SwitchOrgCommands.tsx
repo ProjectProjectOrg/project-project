@@ -1,8 +1,8 @@
 import { useAtomValue } from "@effect/atom-react"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Building2, Check } from "lucide-react"
+import { Building2 } from "lucide-react"
 
-import { CommandMenuItem } from "@/components/ui/command-menu"
+import { CommandMenuItem, CommandMenuCheck } from "@/components/ui/command-menu"
 import { setActiveOrganization } from "@/features/auth/atoms/auth"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
@@ -35,9 +35,7 @@ export function SwitchOrgCommands({
       renderItem={(item) => (
         <CommandMenuItem value={item.value}>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          {context.orgSlug === item.value && (
-            <Check className="size-3.5 shrink-0" strokeWidth={1.75} />
-          )}
+          {context.orgSlug === item.value && <CommandMenuCheck />}
         </CommandMenuItem>
       )}
     />

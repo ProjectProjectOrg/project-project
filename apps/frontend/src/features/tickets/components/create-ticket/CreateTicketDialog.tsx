@@ -1,9 +1,4 @@
-import {
-  RegistryContext,
-  useAtom,
-  useAtomSet,
-  useAtomValue
-} from "@effect/atom-react"
+import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import {
   TicketStatus as TicketStatusSchema,
   type Estimate,
@@ -12,12 +7,11 @@ import {
   type TicketStatus,
   type TicketType
 } from "@pp/shared"
-import { useNavigate, useRouterState } from "@tanstack/react-router"
+import { useNavigate } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { ChevronDown, FolderKanban } from "lucide-react"
 import {
   useContext,
   useEffect,
@@ -37,13 +31,15 @@ import {
   DialogFooter,
   DialogTitle
 } from "@/components/ui/dialog"
-import { Select, SelectTrigger } from "@/components/ui/select"
+import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
+import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
   project as projectView,
   projectRequest,
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
+import { ProjectSelect } from "@/features/projects/components/ProjectSelect"
 import { ProjectContext } from "@/features/projects/hooks/useProject"
 import {
   assignTicketToSprint,
@@ -61,43 +57,27 @@ import { SprintSelect } from "@/features/tickets/components/ticket-list/SprintFi
 import { StatusSelect } from "@/features/tickets/components/ticket-list/StatusField"
 import { TypeSelect } from "@/features/tickets/components/ticket-list/TypeField"
 import { useTemplateChoice } from "@/features/tickets/components/ticket-list/useTemplateChoice"
+import { useRouteBoundDialog } from "@/hooks/useRouteBoundDialog"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 const DEFAULT_STATUS = Schema.decodeSync(TicketStatusSchema)("todo")
 
 export function CreateTicketDialogHost() {
-  const [request, setRequest] = useAtom(createTicketDialog)
-  const [shown, setShown] = useState(request)
-  if (request !== null && request !== shown) setShown(request)
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname
-  })
-  const openedAt = useRef<string | null>(null)
-  useEffect(() => {
-    if (request === null) {
-      openedAt.current = null
-      return
-    }
-    if (openedAt.current === null) {
-      openedAt.current = pathname
-      return
-    }
-    if (openedAt.current !== pathname) setRequest(null)
-  }, [request, pathname, setRequest])
+  const { open, shown, close } = useRouteBoundDialog(createTicketDialog)
   return (
     <Dialog
-      open={request !== null}
-      onOpenChange={(open) => {
-        if (!open) setRequest(null)
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) close()
       }}
     >
       <DialogContent size="lg" showCloseButton={false} className="p-0">
         {shown !== null && (
           <CreateTicketForm
-            key={`${shown.orgSlug}:${shown.projectSlug ?? ""}`}
+            key={`${shown.orgSlug}:${shown.projectSlug ?? ""}:${shown.sprint ?? ""}:${shown.title ?? ""}`}
             request={shown}
-            onDone={() => setRequest(null)}
+            onDone={close}
           />
         )}
       </DialogContent>
@@ -115,18 +95,17 @@ function CreateTicketForm({
   const projects = Result.isSuccess(projectsResult) ? projectsResult.value : []
   const [picked, setPicked] = useState(request.projectSlug)
   const slug = picked ?? projects[0]?.slug ?? null
-  const project = projects.find((entry) => entry.slug === slug)
 
   const titleInput = useRef<HTMLInputElement>(null)
   useEffect(() => titleInput.current?.focus(), [])
-  const [title, setTitle] = useState("")
+  const [title, setTitle] = useState(request.title ?? "")
   const [description, setDescription] = useState("")
   const [type, setType] = useState<TicketType>("other")
   const [priority, setPriority] = useState<TicketPriority>("med")
   const [status, setStatus] = useState<TicketStatus | null>(null)
   const [assignees, setAssignees] = useState<ReadonlyArray<string>>([])
   const [estimate, setEstimate] = useState<Estimate | null>(null)
-  const [sprint, setSprint] = useState<GroupId | null>(null)
+  const [sprint, setSprint] = useState<GroupId | null>(request.sprint ?? null)
   const registry = useContext(RegistryContext)
   const [failure, setFailure] = useState<string | null>(null)
   const templateChoice = useTemplateChoice(orgSlug, slug ?? "", type)
@@ -183,34 +162,24 @@ function CreateTicketForm({
   return (
     <form onSubmit={(event) => void submit(event)} className="flex flex-col">
       <div className="flex items-center gap-2 pt-4 pr-4 pl-1.5">
-        <Select
-          items={projects.map((entry) => ({
-            value: entry.slug,
-            textValue: entry.name,
-            label: entry.name
-          }))}
+        <ProjectSelect
+          projects={projects}
           value={slug}
-          onValueChange={(next) => {
+          onChange={(next) => {
             setPicked(next)
             setStatus(null)
             setAssignees([])
             setEstimate(null)
             setSprint(null)
           }}
-          contentProps={{ align: "start", className: "w-56" }}
-        >
-          <SelectTrigger render={<Button type="button" variant="chip" />}>
-            <FolderKanban className="size-3.5" strokeWidth={1.75} />
-            <span>{project?.name ?? m.tickets_create_dialog_project()}</span>
-            <ChevronDown className="size-3" strokeWidth={1.75} />
-          </SelectTrigger>
-        </Select>
+        />
         <DialogTitle className="text-[13px] font-normal text-muted-foreground">
           {m.tickets_create_dialog_title()}
         </DialogTitle>
       </div>
       <input
         aria-label={m.tickets_create_title_aria_label()}
+        aria-required
         placeholder={m.tickets_create_dialog_title_placeholder()}
         value={title}
         maxLength={200}
@@ -222,15 +191,18 @@ function CreateTicketForm({
         className="mt-3 w-full bg-transparent px-4 text-lg font-medium tracking-tight outline-none placeholder:text-muted-foreground/70"
         ref={titleInput}
       />
-      <textarea
-        aria-label={m.tickets_create_dialog_description_label()}
-        placeholder={m.tickets_create_dialog_description_placeholder()}
-        value={description}
-        onKeyDown={onSubmitShortcut}
-        onChange={(event) => setDescription(event.target.value)}
-        rows={4}
-        className="mt-1 w-full resize-none bg-transparent px-4 text-sm text-(--prose-body) outline-none placeholder:text-muted-foreground/70"
-      />
+      <div
+        onKeyDownCapture={onSubmitShortcut}
+        className="mt-1 max-h-[50dvh] overflow-y-auto px-4"
+      >
+        <MentionScopeProvider scope={{ orgSlug, slug: slug ?? "" }}>
+          <LexicalEditor
+            markdown=""
+            onDraftChange={setDescription}
+            placeholder={m.tickets_create_dialog_description_placeholder()}
+          />
+        </MentionScopeProvider>
+      </div>
       <div className="flex flex-wrap items-center gap-1.5 pt-2 pr-4 pl-1.5">
         {slug === null ? (
           <TypeSelect value={type} onChange={setType} />

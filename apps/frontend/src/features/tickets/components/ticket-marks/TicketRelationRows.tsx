@@ -77,6 +77,15 @@ export function TicketRelationRows({
     ))
 }
 
+const focusNeighbour = (entry: HTMLElement | null) => {
+  const links = Array.from(
+    document.querySelectorAll<HTMLElement>("[data-relation-link]")
+  )
+  const own = links.findIndex((link) => entry?.contains(link))
+  if (own === -1) return
+  ;(links[own + 1] ?? links[own - 1])?.focus()
+}
+
 function RelationEntry({
   ticketId,
   linked,
@@ -96,7 +105,9 @@ function RelationEntry({
   const menu = useContextMenu(entry, unmark !== null)
   const [preview, setPreview] = useState(false)
   const unlink = () => {
-    if (unmark !== null) remove({ kind: unmark, target: linked.id })
+    if (unmark === null) return
+    focusNeighbour(entry.current)
+    remove({ kind: unmark, target: linked.id })
   }
 
   return (
@@ -109,10 +120,14 @@ function RelationEntry({
           openOnHover
           delay={550}
           nativeButton={false}
+          aria-haspopup={undefined}
+          aria-expanded={undefined}
+          aria-controls={undefined}
           render={
             <Button
               render={
                 <Link
+                  data-relation-link=""
                   to="/orgs/$orgSlug/projects/$slug/tickets/$id"
                   params={{ orgSlug, slug, id: linked.id }}
                   preload="intent"
@@ -137,6 +152,9 @@ function RelationEntry({
           >
             {linked.title}
           </span>
+          {linked.archivedAt !== null && (
+            <span className="sr-only">{m.tickets_relations_archived()}</span>
+          )}
         </PopoverTrigger>
         {preview && (
           <TicketHoverCard

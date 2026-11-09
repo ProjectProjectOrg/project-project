@@ -7,12 +7,6 @@ import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
-import { InlineForm } from "@/components/ui/inline-form"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   addTicketsToSprint,
@@ -21,9 +15,9 @@ import {
   sprintListRequest,
   sprintMembership
 } from "@/features/sprints/atoms/sprintList"
+import { NewSprintPopover } from "@/features/sprints/components/NewSprintPopover"
 import { SprintAssignMenu } from "@/features/sprints/components/SprintAssignMenu"
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
-import { CreateSprintForm } from "@/features/sprints/forms/create-sprint"
 import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -193,10 +187,15 @@ export function SprintBadgeTrigger({
   if (creating || (!hasAnyEligible && Result.isSuccess(list) && canPlan)) {
     return (
       <NewSprintPopover
-        ticketId={ticketId}
         open={creating}
         onOpenChange={setCreating}
-        className={className}
+        tickets={[ticketId]}
+        trigger={
+          <Button type="button" variant="chip" className={className}>
+            <Plus className="size-3.5" strokeWidth={1.75} />
+            <span>{m.sprints_new_button()}</span>
+          </Button>
+        }
       />
     )
   }
@@ -237,43 +236,5 @@ export function SprintBadgeTrigger({
         }
       />
     </fieldset>
-  )
-}
-
-function NewSprintPopover({
-  ticketId,
-  open,
-  onOpenChange,
-  className
-}: Readonly<{
-  ticketId: TicketId
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  className?: string
-}>) {
-  return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger
-        render={
-          <Button type="button" variant="chip" className={className}>
-            <Plus className="size-3.5" strokeWidth={1.75} />
-            <span>{m.sprints_new_button()}</span>
-          </Button>
-        }
-      />
-      <PopoverContent align="start" sideOffset={6} className="w-72 p-0">
-        <InlineForm.Root
-          actions={["create"]}
-          mode={open ? "create" : "idle"}
-          onModeChange={(mode) => onOpenChange(mode !== "idle")}
-          variant="ghost"
-          className="p-3"
-        >
-          <InlineForm.Form action="create">
-            <CreateSprintForm tickets={[ticketId]} />
-          </InlineForm.Form>
-        </InlineForm.Root>
-      </PopoverContent>
-    </Popover>
   )
 }

@@ -92,7 +92,11 @@ export function SprintDetail({
           setDragOrder={setDragOrder}
         />
       ) : (
-        <SprintTicketList query={listQuery} members={project.members} />
+        <SprintTicketList
+          sprint={value}
+          query={listQuery}
+          members={project.members}
+        />
       )
     }
   })

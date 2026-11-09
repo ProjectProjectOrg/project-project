@@ -1,21 +1,16 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import {
-  daysLeft,
-  pickEarliestPlannedSprint,
-  sprintState,
-  type CompleteSprintDestination,
-  type Group
-} from "@pp/shared"
+import { sprintState, type Group } from "@pp/shared"
 import { Link, useNavigate } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
+  CalendarX,
   MoreHorizontal,
+  Play,
   RotateCcw,
   SlidersHorizontal,
-  Trash2,
-  Trophy
+  Trash2
 } from "lucide-react"
 import { useRef, useState, type KeyboardEvent } from "react"
 import type { DateRange } from "react-day-picker"
@@ -44,14 +39,20 @@ import {
 } from "@/features/sprints/atoms/sprintList"
 import {
   sprintDateDraft,
-  sprintDatesPatch
+  daysBetween,
+  sprintCountdown,
+  sprintDatesPatch,
+  startSprintPatch
 } from "@/features/sprints/lib/sprintDates"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
-import { SprintStateIcon } from "./SprintChip"
+import { CompleteSprintSubmenu } from "./CompleteSprintMenu"
+import { countdownLabel, SprintStateIcon } from "./SprintChip"
 import { SprintEstimateTotals } from "./SprintEstimateTotals"
+
+export const nowDate = () => DateTime.toDate(DateTime.nowUnsafe())
 
 const shortDateFormatter = () =>
   new Intl.DateTimeFormat(getLocale(), {
@@ -68,22 +69,15 @@ export function SprintStatusSelect({
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const req = sprintListRequest(orgSlug, slug)
-  const complete = useAtomSet(completeSprint({ req, groupId: sprint.id }))
   const completeState = useAtomValue(
     completeSprint({ req, groupId: sprint.id })
   )
-  const reopen = useAtomSet(updateSprint({ req, groupId: sprint.id }))
+  const update = useAtomSet(updateSprint({ req, groupId: sprint.id }))
   const reopenState = useAtomValue(updateSprint({ req, groupId: sprint.id }))
   const isCompleted = sprint.completedAt !== null
-  const planned = pickEarliestPlannedSprint(sprints)
-
-  const completing = completeState.waiting
   const reopening = reopenState.waiting
   const failed =
     Result.isFailure(completeState) || Result.isFailure(reopenState)
-
-  const completeTo = (destination: CompleteSprintDestination) =>
-    complete({ destination })
 
   return (
     <DropdownMenu>
@@ -101,51 +95,38 @@ export function SprintStatusSelect({
         }
       />
       <DropdownMenuContent align="start" sideOffset={8} className="w-56">
-        {isCompleted ? (
+        {sprintState(sprint) === "planned" ? (
+          <>
+            <DropdownMenuItem
+              onClick={() => update(startSprintPatch(sprint, nowDate()))}
+              disabled={reopening}
+              className="cursor-pointer"
+            >
+              <Play className="size-4" strokeWidth={1.75} />
+              {m.sprints_start_button()}
+            </DropdownMenuItem>
+            {sprint.startsAt !== null && (
+              <DropdownMenuItem
+                onClick={() => update({ startsAt: null, endsAt: null })}
+                disabled={reopening}
+                className="cursor-pointer"
+              >
+                <CalendarX className="size-4" strokeWidth={1.75} />
+                {m.sprints_unschedule()}
+              </DropdownMenuItem>
+            )}
+          </>
+        ) : isCompleted ? (
           <DropdownMenuItem
-            onClick={() => reopen({ completedAt: null })}
+            onClick={() => update({ completedAt: null })}
             disabled={reopening}
             className="cursor-pointer"
           >
             <RotateCcw className="size-4" strokeWidth={1.75} />
             {m.sprints_reopen_button()}
           </DropdownMenuItem>
-        ) : planned ? (
-          <>
-            <DropdownMenuItem
-              onClick={() =>
-                completeTo({ kind: "sprint", groupId: planned.id })
-              }
-              disabled={completing}
-              className="cursor-pointer"
-            >
-              <Trophy
-                className="size-4 text-state-success"
-                strokeWidth={1.75}
-              />
-              {m.sprints_complete_to_planned({ name: planned.name })}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => completeTo({ kind: "backlog" })}
-              disabled={completing}
-              className="cursor-pointer"
-            >
-              <Trophy
-                className="size-4 text-state-success"
-                strokeWidth={1.75}
-              />
-              {m.sprints_complete_to_backlog()}
-            </DropdownMenuItem>
-          </>
         ) : (
-          <DropdownMenuItem
-            onClick={() => completeTo({ kind: "backlog" })}
-            disabled={completing}
-            className="cursor-pointer"
-          >
-            <Trophy className="size-4 text-state-success" strokeWidth={1.75} />
-            {m.sprints_complete_button()}
-          </DropdownMenuItem>
+          <CompleteSprintSubmenu sprint={sprint} sprints={sprints} />
         )}
         {failed && (
           <div role="alert" className="px-2 py-1.5 text-xs text-destructive">
@@ -248,26 +229,38 @@ export function SprintSubtitle({
   disabled: boolean
 }) {
   const state = sprintState(sprint)
-  const left = daysLeft(sprint.endsAt)
+  const countdown = sprintCountdown(sprint)
+  const status =
+    state === "planned" && sprint.startsAt !== null ? (
+      <span className="font-mono tabular-nums">
+        {m.sprints_starts_in_days({
+          days: daysBetween(nowDate(), sprint.startsAt)
+        })}
+      </span>
+    ) : state === "active" ? (
+      <span
+        className={cn(
+          "font-mono tabular-nums",
+          countdown.kind === "ended" && "text-state-warning"
+        )}
+      >
+        {countdownLabel(countdown)}
+      </span>
+    ) : state === "completed" && sprint.completedAt !== null ? (
+      <span className="font-mono tabular-nums">
+        {m.sprints_completed_at({
+          date: shortDateFormatter().format(sprint.completedAt)
+        })}
+      </span>
+    ) : null
   return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
       <SprintDatesField sprint={sprint} disabled={disabled} />
-      {state === "active" && left !== null && left >= 0 && (
-        <span className="font-mono tabular-nums">
-          {m.sprints_active_with_days_left({ days: left })}
-        </span>
-      )}
-      {state === "active" && left !== null && left < 0 && (
-        <span className="font-mono text-foreground tabular-nums">
-          {m.sprints_overdue_with_days({ days: -left })}
-        </span>
-      )}
-      {state === "completed" && sprint.completedAt && (
-        <span className="font-mono tabular-nums">
-          {m.sprints_completed_at({
-            date: shortDateFormatter().format(sprint.completedAt)
-          })}
-        </span>
+      {status !== null && (
+        <>
+          <span aria-hidden>·</span>
+          {status}
+        </>
       )}
       <SprintEstimateTotals groupId={sprint.id} />
     </div>
@@ -289,9 +282,13 @@ function SprintDatesField({
 
   const fmt = shortDateFormatter()
   const label =
-    sprint.startsAt && sprint.endsAt
-      ? `${fmt.format(sprint.startsAt)} – ${fmt.format(sprint.endsAt)}`
-      : m.sprints_date_range_label()
+    sprint.startsAt === null
+      ? m.sprints_not_scheduled()
+      : sprint.endsAt === null
+        ? sprintState(sprint) === "active"
+          ? m.sprints_started_on({ date: fmt.format(sprint.startsAt) })
+          : m.sprints_starts_on({ date: fmt.format(sprint.startsAt) })
+        : `${fmt.format(sprint.startsAt)} – ${fmt.format(sprint.endsAt)}`
 
   if (disabled) {
     return <span className="font-mono tabular-nums">{label}</span>
@@ -332,31 +329,16 @@ function SprintDatesField({
   )
 }
 
-export function SprintDeleteMenu({
-  sprint,
-  sprints
-}: {
-  sprint: Group
-  sprints: ReadonlyArray<Group>
-}) {
+export function SprintDeleteMenu({ sprint }: { sprint: Group }) {
   const { orgSlug, slug } = useProjectRoute()
   const navigate = useNavigate()
   const req = sprintListRequest(orgSlug, slug)
-  const complete = useAtomSet(completeSprint({ req, groupId: sprint.id }))
-  const completeState = useAtomValue(
-    completeSprint({ req, groupId: sprint.id })
-  )
   const remove = useAtomSet(deleteSprint({ req, groupId: sprint.id }), {
     mode: "promiseExit"
   })
   const removeState = useAtomValue(deleteSprint({ req, groupId: sprint.id }))
   const deleting = removeState.waiting
-  const completing = completeState.waiting
   const deleteFailed = Result.isFailure(removeState)
-  const isCompleted = sprint.completedAt !== null
-  const planned = pickEarliestPlannedSprint(sprints)
-  const completeTo = (destination: CompleteSprintDestination) =>
-    complete({ destination })
   const trigger = useRef<HTMLButtonElement>(null)
 
   async function onDelete() {
@@ -398,47 +380,6 @@ export function SprintDeleteMenu({
             {m.project_detail_tab_settings()}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          {!isCompleted &&
-            (planned ? (
-              <>
-                <DropdownMenuItem
-                  onClick={() =>
-                    completeTo({ kind: "sprint", groupId: planned.id })
-                  }
-                  disabled={completing || deleting}
-                  className="cursor-pointer"
-                >
-                  <Trophy
-                    className="size-4 text-state-success"
-                    strokeWidth={1.75}
-                  />
-                  {m.sprints_complete_to_planned({ name: planned.name })}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => completeTo({ kind: "backlog" })}
-                  disabled={completing || deleting}
-                  className="cursor-pointer"
-                >
-                  <Trophy
-                    className="size-4 text-state-success"
-                    strokeWidth={1.75}
-                  />
-                  {m.sprints_complete_to_backlog()}
-                </DropdownMenuItem>
-              </>
-            ) : (
-              <DropdownMenuItem
-                onClick={() => completeTo({ kind: "backlog" })}
-                disabled={completing || deleting}
-                className="cursor-pointer"
-              >
-                <Trophy
-                  className="size-4 text-state-success"
-                  strokeWidth={1.75}
-                />
-                {m.sprints_complete_button()}
-              </DropdownMenuItem>
-            ))}
           <ConfirmButton.MenuItem
             variant="destructive"
             className="cursor-pointer"

@@ -1,5 +1,7 @@
+import { gitCommands } from "@/features/github/commands"
 import { organizationCommands } from "@/features/organizations/commands"
 import { projectCommands } from "@/features/projects/commands"
+import { sprintCommands } from "@/features/sprints/commands"
 import { ticketCommands } from "@/features/tickets/commands"
 
 import { appCommands } from "./appCommands"
@@ -8,6 +10,8 @@ import { settingsCommands } from "./settingsCommands"
 
 export const commandRegistry: ReadonlyArray<Command> = [
   ...ticketCommands,
+  ...gitCommands,
+  ...sprintCommands,
   ...projectCommands,
   ...organizationCommands,
   ...settingsCommands,

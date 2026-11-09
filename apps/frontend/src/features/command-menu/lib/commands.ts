@@ -1,16 +1,26 @@
-import type { Ticket, Tools } from "@pp/shared"
+import type { ProjectDetail, Ticket, Tools } from "@pp/shared"
 import type * as AsyncResult from "effect/reactivity/AsyncResult"
 import type * as Atom from "effect/reactivity/Atom"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
 
 import type { IconComponent } from "@/lib/icon"
 
-import type { CommandPage, TicketContext } from "./commandMenu"
+import type {
+  CommandPage,
+  ReturnPoint,
+  SprintContext,
+  TicketContext
+} from "./commandMenu"
 
 export type ToolName = keyof (typeof Tools)["tools"]
 
 export const COMMAND_GROUPS = [
   "ticket",
+  "ticketRelations",
+  "ticketGit",
+  "ticketActions",
+  "sprint",
+  "backlog",
   "view",
   "create",
   "navigation",
@@ -26,8 +36,17 @@ export type CommandContext = Readonly<{
   projectSlug: string | null
   ticket: TicketContext | null
   ticketDetail: Ticket | null
+  sprint: SprintContext | null
   viewerId: string | null
   canSeeOrgMembers: boolean
+  canCreateProjects: boolean
+  project: ProjectDetail | null
+  canCreateTickets: boolean
+  canEditTickets: boolean
+  canArchiveTickets: boolean
+  canDeleteTickets: boolean
+  canPlanSprints: boolean
+  canManageProject: boolean
 }>
 
 export type CommandEnv = Readonly<{
@@ -38,7 +57,8 @@ export type CommandEnv = Readonly<{
   ) => void
   navigate: (to: string) => void
   copy: (text: string) => void
-  open: (page: CommandPage) => void
+  open: (page: CommandPage, from?: ReturnPoint) => void
+  actOn: (ticket: TicketContext, from: ReturnPoint) => void
   close: () => void
 }>
 
@@ -49,7 +69,7 @@ type CommandAction =
 export type Command = Readonly<{
   id: string
   group: CommandGroup
-  label: () => string
+  label: (context: CommandContext) => string
   parent?: () => string
   searchOnly?: boolean
   icon: IconComponent

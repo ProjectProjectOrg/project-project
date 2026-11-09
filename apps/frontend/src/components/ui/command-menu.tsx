@@ -1,4 +1,5 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
+import { Check } from "lucide-react"
 import {
   animate,
   motion,
@@ -38,6 +39,7 @@ import {
   type UseFluidHoverReturn
 } from "@/hooks/useFluidHover"
 import type { IconComponent } from "@/lib/icon"
+import { rowScrollTarget, scrollViewportTo } from "@/lib/scrollRowIntoView"
 import { spring } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -47,6 +49,7 @@ export type CommandMenuItemData = Readonly<{
   label: string
   icon?: IconComponent
   group?: string
+  disabled?: boolean
 }>
 
 type CommandMenuSection = Readonly<{
@@ -158,6 +161,9 @@ const subscribeNever = () => () => {}
 const useIsMac = (): boolean =>
   useSyncExternalStore(subscribeNever, readMac, serverMac)
 
+const commandMenuItemId = (listId: string, index: number) =>
+  `${listId}-${index}`
+
 const useIsoLayoutEffect =
   typeof window === "undefined" ? useEffect : useLayoutEffect
 
@@ -200,10 +206,13 @@ type CommandMenuContextValue = Readonly<{
   listHandlers: UseFluidHoverReturn["handlers"]
   highlight: HighlightStore
   select: (item: CommandMenuItemData) => void
-  move: (to: 1 | -1) => void
+  actOn: (item: CommandMenuItemData) => boolean
+  move: (to: 1 | -1, held?: boolean) => void
 }>
 
-const CommandMenuFillContext = createContext<FluidHoverSource | null>(null)
+const CommandMenuFillContext = createContext<
+  (FluidHoverSource & Readonly<{ held: boolean }>) | null
+>(null)
 
 const CommandMenuContext = createContext<CommandMenuContextValue | null>(null)
 
@@ -225,6 +234,9 @@ export type CommandMenuProps = Omit<
   Readonly<{
     items: ReadonlyArray<CommandMenuItemData>
     onSelect?: (item: CommandMenuItemData) => void
+    onActOn?: (item: CommandMenuItemData) => boolean
+    initialValue?: string | null
+    resetKey?: string
     stretch?: boolean
     children: ReactNode
   }>
@@ -232,6 +244,9 @@ export type CommandMenuProps = Omit<
 function CommandMenu({
   items,
   onSelect,
+  onActOn,
+  initialValue = null,
+  resetKey = "",
   stretch = false,
   className,
   children,
@@ -283,9 +298,20 @@ function CommandMenu({
     highlightRef.current = activeIndex
     listenersRef.current.forEach((listener) => listener())
   }, [activeIndex])
-  const fill = useMemo<FluidHoverSource>(
-    () => ({ activeIndex, itemRects, isMeasured, sessionRef }),
-    [activeIndex, itemRects, isMeasured, sessionRef]
+  const [held, setHeld] = useState(false)
+  useEffect(() => {
+    if (!held) return
+    const release = () => setHeld(false)
+    window.addEventListener("keyup", release)
+    window.addEventListener("blur", release)
+    return () => {
+      window.removeEventListener("keyup", release)
+      window.removeEventListener("blur", release)
+    }
+  }, [held])
+  const fill = useMemo(
+    () => ({ activeIndex, itemRects, isMeasured, sessionRef, held }),
+    [activeIndex, itemRects, isMeasured, sessionRef, held]
   )
 
   const reduceMotion = useReducedMotion() ?? false
@@ -297,72 +323,89 @@ function CommandMenu({
         '[data-slot="scroll-area-viewport"]'
       )
       if (!list || !viewport) return
-      scrollAnimationRef.current?.stop()
-      scrollAnimationRef.current = null
       const row = list.querySelector<HTMLElement>(
         `[data-fluid-hover-index="${index}"]`
       )
       if (!row) return
-      const maxScroll = viewport.scrollHeight - viewport.clientHeight
       const margin =
         Number.parseFloat(
           getComputedStyle(viewport).getPropertyValue("--scroll-fade-size")
         ) || 0
-      const rowRect = row.getBoundingClientRect()
-      const viewportTop = viewport.getBoundingClientRect().top
-      const rowTop = rowRect.top - viewportTop + viewport.scrollTop - margin
-      const rowBottom = rowTop + rowRect.height + margin * 2
-      const visibleTop = viewport.scrollTop
-      const visibleBottom = visibleTop + viewport.clientHeight
-      const wanted =
-        rowTop < visibleTop
-          ? rowTop
-          : rowBottom > visibleBottom
-            ? rowBottom - viewport.clientHeight
-            : null
       const target =
         index === 0
           ? 0
-          : wanted === null
-            ? visibleTop
-            : Math.max(0, Math.min(wanted, maxScroll))
-      if (target === visibleTop) return
-      if (instant || reduceMotion) {
-        viewport.scrollTop = target
-        return
-      }
-      scrollAnimationRef.current = animate(viewport.scrollTop, target, {
-        ...spring.fast,
-        onUpdate: (value) => {
-          viewport.scrollTop =
-            Math.round(value * devicePixelRatio) / devicePixelRatio
-        }
-      })
+          : rowScrollTarget(viewport, row, { top: margin, bottom: margin })
+      if (target === null) return
+      const stop = scrollViewportTo(viewport, target, instant || reduceMotion)
+      scrollAnimationRef.current = stop === null ? null : { stop }
     },
     [reduceMotion]
   )
   useEffect(() => () => scrollAnimationRef.current?.stop(), [])
 
   const rowsRef = useRef(rows)
+  const shownRowsRef = useRef<ReadonlyArray<CommandMenuItemData>>([])
+  const shownResetKeyRef = useRef(resetKey)
+  const movedRef = useRef(false)
+  const pendingFocusRef = useRef(initialValue)
   rowsRef.current = rows
   useEffect(() => {
-    setActiveIndex(rowsRef.current.length === 0 ? null : 0)
-    scrollToRow(0, true)
-  }, [rowsKey, setActiveIndex, scrollToRow])
+    const previous = shownRowsRef.current
+    const sameQuery = shownResetKeyRef.current === resetKey
+    shownRowsRef.current = rowsRef.current
+    shownResetKeyRef.current = resetKey
+    if (!sameQuery) pendingFocusRef.current = null
+    const pending = pendingFocusRef.current
+    const restored =
+      pending === null
+        ? -1
+        : rowsRef.current.findIndex((row) => row.value === pending)
+    if (restored !== -1) {
+      pendingFocusRef.current = null
+      movedRef.current = true
+      setActiveIndex(restored)
+      scrollToRow(restored, true)
+      return
+    }
+    const appended =
+      previous.length > 0 &&
+      previous.every(
+        (row, index) => rowsRef.current[index]?.value === row.value
+      )
+    if (sameQuery && appended) return
+    const current = highlightRef.current
+    const kept =
+      sameQuery && movedRef.current && current !== null
+        ? rowsRef.current.findIndex(
+            (row) => row.value === previous[current]?.value
+          )
+        : -1
+    if (kept !== -1) {
+      setActiveIndex(kept)
+      scrollToRow(kept, true)
+      return
+    }
+    movedRef.current = false
+    const first = rowsRef.current.findIndex((row) => row.disabled !== true)
+    setActiveIndex(first === -1 ? null : first)
+    scrollToRow(Math.max(first, 0), true)
+  }, [rowsKey, resetKey, setActiveIndex, scrollToRow])
 
   const move = useCallback(
-    (to: 1 | -1) => {
-      const count = rowsRef.current.length
-      if (count === 0) return
-      const current = highlightRef.current
-      const next =
-        current === null
-          ? to === 1
-            ? 0
-            : count - 1
-          : (current + to + count) % count
+    (to: 1 | -1, repeat = false) => {
+      const rows = rowsRef.current
+      const count = rows.length
+      const start = highlightRef.current ?? (to === 1 ? -1 : count)
+      const next = Array.from(
+        { length: count },
+        (_, step) => (start + to * (step + 1) + count * 2) % count
+      ).find((index) => rows[index]?.disabled !== true)
+      if (next === undefined) return
+      pendingFocusRef.current = null
+      movedRef.current = true
+      setHeld(repeat)
       setActiveIndex(next)
-      scrollToRow(next)
+      scrollToRow(next, repeat)
     },
     [setActiveIndex, scrollToRow]
   )
@@ -370,8 +413,16 @@ function CommandMenu({
   const onSelectRef = useRef(onSelect)
   onSelectRef.current = onSelect
   const select = useCallback((item: CommandMenuItemData) => {
+    if (item.disabled === true) return
     onSelectRef.current?.(item)
   }, [])
+  const onActOnRef = useRef(onActOn)
+  onActOnRef.current = onActOn
+  const actOn = useCallback(
+    (item: CommandMenuItemData) =>
+      item.disabled !== true && (onActOnRef.current?.(item) ?? false),
+    []
+  )
 
   const ctx = useMemo<CommandMenuContextValue>(
     () => ({
@@ -385,6 +436,7 @@ function CommandMenu({
       listHandlers,
       highlight,
       select,
+      actOn,
       move
     }),
     [
@@ -397,6 +449,7 @@ function CommandMenu({
       listHandlers,
       highlight,
       select,
+      actOn,
       move
     ]
   )
@@ -517,7 +570,7 @@ function CommandMenuInput({
   ref,
   ...props
 }: CommandMenuInputProps & Readonly<{ ref?: Ref<HTMLInputElement> }>) {
-  const { move, select, rows, highlight, listId } = useCommandMenu()
+  const { move, select, actOn, rows, highlight, listId } = useCommandMenu()
   const index = useSyncExternalStore(
     highlight.subscribe,
     highlight.get,
@@ -535,20 +588,24 @@ function CommandMenuInput({
         aria-controls={listId}
         aria-autocomplete="list"
         aria-activedescendant={
-          index === null ? undefined : `${listId}-${index}`
+          index === null ? undefined : commandMenuItemId(listId, index)
         }
         onKeyDown={(event) => {
           onKeyDown?.(event)
           if (event.defaultPrevented) return
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
             event.preventDefault()
-            move(event.key === "ArrowDown" ? 1 : -1)
+            move(event.key === "ArrowDown" ? 1 : -1, event.repeat)
             return
           }
-          if (event.key !== "Enter") return
           const current = highlight.get()
           const row = current === null ? undefined : rows[current]
           if (row === undefined) return
+          if (event.key === "Tab" && !event.shiftKey && actOn(row)) {
+            event.preventDefault()
+            return
+          }
+          if (event.key !== "Enter") return
           event.preventDefault()
           select(row)
         }}
@@ -591,7 +648,7 @@ function CommandMenuList({
   return (
     <ScrollArea
       className="scroll-divider flex min-h-0 flex-1 flex-col border-t border-border/60 [&::after]:!hidden [&::before]:!-top-px"
-      viewportClassName="min-h-0 flex-1 [&>div[style]]:!block [&>div[style]]:!min-w-0 ![--scroll-fade-size:12px] scroll-fade"
+      viewportClassName="min-h-0 flex-1 [&>div[style]]:!block [&>div[style]]:!min-w-0 ![--scroll-fade-size:6px] scroll-fade"
     >
       <div
         ref={(node) => {
@@ -615,7 +672,14 @@ function CommandMenuList({
         )}
         {...props}
       >
-        {fill && <FluidHoverHighlight hover={fill} className="rounded-lg" />}
+        {fill && (
+          <FluidHoverHighlight
+            hover={fill}
+            instant={fill.held}
+            fullWidth
+            className="rounded-lg"
+          />
+        )}
         {children}
         {sections.map((section, sectionIndex) => {
           const headingId = section.heading
@@ -754,7 +818,11 @@ const CommandMenuItem = memo(function CommandMenuItem({
   const item = itemsByValue.get(value) ?? { value, label: value }
   const Icon = item.icon
 
-  useRegisterFluidHoverItem(registerItem, index, internalRef)
+  useRegisterFluidHoverItem(
+    registerItem,
+    item.disabled === true ? undefined : index,
+    internalRef
+  )
 
   return (
     <div
@@ -763,9 +831,10 @@ const CommandMenuItem = memo(function CommandMenuItem({
         if (typeof ref === "function") ref(node)
         else if (ref) ref.current = node
       }}
-      id={`${listId}-${index}`}
+      id={commandMenuItemId(listId, index)}
       role="option"
       aria-selected={isActive}
+      aria-disabled={item.disabled === true || undefined}
       data-fluid-hover-index={index}
       data-value={value}
       data-slot="command-menu-item"
@@ -774,7 +843,7 @@ const CommandMenuItem = memo(function CommandMenuItem({
         if (!e.defaultPrevented) select(item)
       }}
       className={cn(
-        "relative z-10 flex shrink-0 cursor-pointer items-center outline-none select-none",
+        "group/command-item relative z-10 flex shrink-0 cursor-pointer items-center outline-none select-none aria-disabled:cursor-default aria-disabled:text-muted-foreground",
         "h-9 gap-2 rounded-lg px-2 text-sm tracking-[-0.006em]",
         "transition-[color] duration-80",
         isActive ? "text-foreground" : "text-(--prose-body)",
@@ -822,6 +891,28 @@ function CommandMenuFooter({
       {children}
     </div>
   )
+}
+
+function CommandMenuFooterHint({
+  label,
+  keys
+}: Readonly<{ label: string; keys: string | ReadonlyArray<string> }>) {
+  return (
+    <span className="flex shrink-0 items-center gap-1.5">
+      <span>{label}</span>
+      <CommandMenuShortcut keys={keys} className="ml-0" />
+    </span>
+  )
+}
+
+function useHighlightedItem(): CommandMenuItemData | undefined {
+  const { rows, highlight } = useCommandMenu()
+  const index = useSyncExternalStore(
+    highlight.subscribe,
+    highlight.get,
+    () => null
+  )
+  return index === null ? undefined : rows[index]
 }
 
 type ParsedShortcut = Readonly<{
@@ -908,14 +999,8 @@ export type CommandMenuDialogProps = Readonly<{
   children: ReactNode
 }>
 
-const PULSE_SCALE = 0.98
+const PULSE_SCALE = 0.99
 const PULSE_PRESS = { duration: 0.09, ease: "linear" } as const
-const PULSE_RELEASE = {
-  type: "spring",
-  stiffness: 1900,
-  damping: 118,
-  restDelta: 0.002
-} as const
 const PANEL_RESIZE = {
   type: "spring",
   stiffness: 3200,
@@ -924,6 +1009,13 @@ const PANEL_RESIZE = {
 } as const
 
 type ContentSize = Readonly<{ height: number; instant: boolean }>
+
+const PULSE_RELEASE = {
+  type: "spring",
+  stiffness: 1900,
+  damping: 118,
+  restDelta: 0.002
+} as const
 
 function CommandMenuDialog({
   open,
@@ -1059,7 +1151,18 @@ function CommandMenuDialog({
   )
 }
 
+function CommandMenuCheck() {
+  return (
+    <>
+      <Check className="size-3.5 shrink-0" strokeWidth={1.75} />
+      <span className="sr-only">{m.chrome_command_menu_selected()}</span>
+    </>
+  )
+}
+
 export {
+  commandMenuItemId,
+  CommandMenuCheck,
   useCommandMenu,
   CommandMenu,
   CommandMenuDialog,
@@ -1069,5 +1172,7 @@ export {
   CommandMenuEmpty,
   CommandMenuItem,
   CommandMenuShortcut,
-  CommandMenuFooter
+  CommandMenuFooter,
+  CommandMenuFooterHint,
+  useHighlightedItem
 }

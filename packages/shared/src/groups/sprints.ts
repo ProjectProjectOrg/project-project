@@ -10,7 +10,7 @@ export type SprintState = typeof SprintState.Type
 
 export function sprintState(sprint: Group, now: Date = nowDate()): SprintState {
   if (sprint.completedAt !== null) return "completed"
-  if (sprint.startsAt !== null && sprint.startsAt > now) return "planned"
+  if (sprint.startsAt === null || sprint.startsAt > now) return "planned"
   return "active"
 }
 
@@ -55,13 +55,4 @@ export function activeAndPlannedCount(
 ): number {
   return onlySprints(groups).filter((g) => sprintState(g, now) !== "completed")
     .length
-}
-
-export function daysLeft(
-  endsAt: Date | null,
-  now: Date = nowDate()
-): number | null {
-  if (endsAt === null) return null
-  const ms = endsAt.getTime() - now.getTime()
-  return Math.ceil(ms / (1000 * 60 * 60 * 24))
 }

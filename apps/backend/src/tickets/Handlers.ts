@@ -54,6 +54,16 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           queries.search(query)
         ).pipe(dieOnMarkdown)
       )
+      .handle("titles", () =>
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.titles()
+        ).pipe(dieOnMarkdown)
+      )
+      .handle("textSearch", ({ query }) =>
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.textSearch(query)
+        ).pipe(dieOnMarkdown)
+      )
       .handle("count", ({ query }) =>
         Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
           queries.count(query)

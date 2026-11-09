@@ -1,6 +1,6 @@
-import { Check, Monitor, Moon, Sun } from "lucide-react"
+import { Monitor, Moon, Sun } from "lucide-react"
 
-import { CommandMenuItem } from "@/components/ui/command-menu"
+import { CommandMenuItem, CommandMenuCheck } from "@/components/ui/command-menu"
 import { useTheme, type ThemePreference } from "@/hooks/useTheme"
 import { getThemeRevealRadius } from "@/lib/themeReveal"
 import { m } from "@/paraglide/messages"
@@ -54,9 +54,7 @@ export function ThemeCommands({ chip, onBack, env }: CommandPageProps) {
         return (
           <CommandMenuItem value={item.value}>
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {preference === theme.value && (
-              <Check className="size-3.5 shrink-0" strokeWidth={1.75} />
-            )}
+            {preference === theme.value && <CommandMenuCheck />}
           </CommandMenuItem>
         )
       }}

@@ -27,7 +27,7 @@ const sprint = (
   })
 const planned = sprint("G-1", "2026-09-20")
 const later = sprint("G-2", "2026-09-27")
-const active = sprint("G-3", null)
+const active = sprint("G-3", "2026-09-01")
 const completed = sprint("G-4", "2026-08-01", "2026-08-15")
 const now = DateTime.toDate(DateTime.makeUnsafe("2026-09-13"))
 

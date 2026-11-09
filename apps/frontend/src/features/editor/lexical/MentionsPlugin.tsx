@@ -3,18 +3,14 @@ import {
   LexicalTypeaheadMenuPlugin,
   MenuOption
 } from "@lexical/react/LexicalTypeaheadMenuPlugin"
-import { mergeRegister } from "@lexical/utils"
 import {
   TextNode,
   $getSelection,
   $isRangeSelection,
   $isElementNode,
-  BLUR_COMMAND,
-  FOCUS_COMMAND,
+  KEY_ARROW_DOWN_COMMAND,
   KEY_BACKSPACE_COMMAND,
   KEY_DELETE_COMMAND,
-  KEY_ENTER_COMMAND,
-  KEY_TAB_COMMAND,
   COMMAND_PRIORITY_HIGH,
   COMMAND_PRIORITY_LOW,
   COMMAND_PRIORITY_NORMAL,
@@ -23,7 +19,6 @@ import {
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -34,13 +29,10 @@ import { MenuHighlight } from "@/components/ui/menu-highlight"
 import { MenuNote } from "@/components/ui/menu-note"
 import { menuItemClass, menuPopupClass } from "@/components/ui/menu-styles"
 import {
-  type MentionResults,
-  useMentionResults
-} from "@/features/editor/hooks/useMentionResults"
-import {
   isProseQuery,
   matchMentionTrigger
 } from "@/features/editor/lib/mentionTrigger"
+import type { MentionSearchFailed } from "@/features/editor/mentions/errors"
 import {
   type MentionCandidate,
   type MentionProvider,
@@ -49,6 +41,11 @@ import {
   providerForType
 } from "@/features/editor/mentions/registry"
 import { useMentionScope } from "@/features/editor/mentions/scope"
+import {
+  type PagedSearchResults,
+  type PagedSearchSource,
+  usePagedSearch
+} from "@/hooks/usePagedSearch"
 import { isNearScrollEnd } from "@/lib/scroll"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -60,13 +57,13 @@ type MenuNoteContent = Readonly<{ text: string; tone: "muted" | "error" }>
 
 const noteFor = (
   provider: MentionProvider,
-  results: MentionResults,
+  results: PagedSearchResults<MentionCandidate>,
   query: string
 ): MenuNoteContent | null => {
   if (results.status === "failed") {
     return { text: provider.notes.failed(), tone: "error" }
   }
-  if (results.candidates.length > 0) return null
+  if (results.items.length > 0) return null
   if (results.status === "loading" || results.status === "searching") {
     return { text: provider.notes.loading(), tone: "muted" }
   }
@@ -86,6 +83,8 @@ class MentionMenuOption extends MenuOption {
 }
 
 const emptyScope = { orgSlug: "", slug: "" }
+
+const MENTION_LISTBOX_ID = "typeahead-menu"
 
 export function MentionsPlugin(): JSX.Element | null {
   const [editor] = useLexicalComposerContext()
@@ -113,57 +112,20 @@ export function MentionsPlugin(): JSX.Element | null {
         : (providerForType(providers, activeType) ?? null),
     [activeType, providers]
   )
-  const results = useMentionResults(activeProvider, queryString)
-  const listRef = useRef<HTMLDivElement>(null)
-  const [blurred, setBlurred] = useState(false)
-
-  useEffect(
-    () =>
-      mergeRegister(
-        editor.registerCommand(
-          BLUR_COMMAND,
-          () => {
-            setBlurred(true)
-            return false
+  const source = useMemo(
+    (): PagedSearchSource<MentionCandidate, MentionSearchFailed> | null =>
+      activeProvider === null
+        ? null
+        : {
+            key: activeProvider.type,
+            search: activeProvider.search,
+            deadEnd: (empty, query) =>
+              isProseQuery(empty) && query.startsWith(empty)
           },
-          COMMAND_PRIORITY_LOW
-        ),
-        editor.registerCommand(
-          FOCUS_COMMAND,
-          () => {
-            setBlurred(false)
-            return false
-          },
-          COMMAND_PRIORITY_LOW
-        )
-      ),
-    [editor]
+    [activeProvider]
   )
-
-  const searching = useRef(false)
-  useLayoutEffect(() => {
-    searching.current = queryString !== null && results.status === "searching"
-  }, [queryString, results.status])
-
-  useEffect(() => {
-    const holdWhileSearching = (event: KeyboardEvent | null) => {
-      if (!searching.current) return false
-      event?.preventDefault()
-      return true
-    }
-    return mergeRegister(
-      editor.registerCommand(
-        KEY_ENTER_COMMAND,
-        holdWhileSearching,
-        COMMAND_PRIORITY_HIGH
-      ),
-      editor.registerCommand(
-        KEY_TAB_COMMAND,
-        holdWhileSearching,
-        COMMAND_PRIORITY_HIGH
-      )
-    )
-  }, [editor])
+  const results = usePagedSearch(source, queryString)
+  const listRef = useRef<HTMLDivElement>(null)
 
   const lastQuery = useRef<string | null>(null)
 
@@ -189,10 +151,10 @@ export function MentionsPlugin(): JSX.Element | null {
     () =>
       activeProvider === null
         ? []
-        : results.candidates.map(
+        : results.items.map(
             (candidate) => new MentionMenuOption(activeProvider, candidate)
           ),
-    [activeProvider, results.candidates]
+    [activeProvider, results.items]
   )
 
   const onSelectOption = useCallback(
@@ -267,11 +229,28 @@ export function MentionsPlugin(): JSX.Element | null {
     }
   }, [editor])
 
+  const { hasMore, loadMore } = results
+  useEffect(
+    () =>
+      editor.registerCommand<KeyboardEvent | null>(
+        KEY_ARROW_DOWN_COMMAND,
+        (event) => {
+          const rows = listRef.current?.querySelectorAll("[role=option]")
+          const last = rows?.[rows.length - 1]
+          if (!hasMore || !last?.hasAttribute("data-highlighted")) return false
+          event?.preventDefault()
+          loadMore()
+          return true
+        },
+        COMMAND_PRIORITY_HIGH
+      ),
+    [editor, hasMore, loadMore]
+  )
+
   return (
     <LexicalTypeaheadMenuPlugin<MentionMenuOption>
       commandPriority={COMMAND_PRIORITY_NORMAL}
       onQueryChange={onQueryChange}
-      onClose={() => setQueryString(null)}
       onSelectOption={onSelectOption}
       triggerFn={checkForTriggerMatch}
       options={options}
@@ -279,9 +258,7 @@ export function MentionsPlugin(): JSX.Element | null {
         anchorRef,
         { selectedIndex, selectOptionAndCleanUp, setHighlightedIndex }
       ) => {
-        if (!anchorRef.current || activeProvider === null || blurred) {
-          return null
-        }
+        if (!anchorRef.current || activeProvider === null) return null
         const note = noteFor(activeProvider, results, queryString ?? "")
         if (options.length === 0 && note === null) return null
         return (
@@ -300,25 +277,31 @@ export function MentionsPlugin(): JSX.Element | null {
               {note !== null && (
                 <MenuNote tone={note.tone}>{note.text}</MenuNote>
               )}
-              {options.map((opt, i) => (
-                <div
-                  key={opt.key}
-                  id={`typeahead-item-${i}`}
-                  ref={(element) => opt.setRefElement(element)}
-                  role="option"
-                  tabIndex={-1}
-                  aria-selected={i === selectedIndex}
-                  data-highlighted={i === selectedIndex ? "" : undefined}
-                  onMouseEnter={() => setHighlightedIndex(i)}
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    selectOptionAndCleanUp(opt)
-                  }}
-                  className={menuItemClass}
-                >
-                  {opt.provider.renderRow(opt.candidate)}
-                </div>
-              ))}
+              <div
+                id={MENTION_LISTBOX_ID}
+                role="listbox"
+                aria-label={m.tickets_mention_list_label()}
+              >
+                {options.map((opt, i) => (
+                  <div
+                    key={opt.key}
+                    id={`typeahead-item-${i}`}
+                    ref={(element) => opt.setRefElement(element)}
+                    role="option"
+                    tabIndex={-1}
+                    aria-selected={i === selectedIndex}
+                    data-highlighted={i === selectedIndex ? "" : undefined}
+                    onMouseEnter={() => setHighlightedIndex(i)}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      selectOptionAndCleanUp(opt)
+                    }}
+                    className={menuItemClass}
+                  >
+                    {opt.provider.renderRow(opt.candidate)}
+                  </div>
+                ))}
+              </div>
               {results.loadingMore && (
                 <MenuNote>{m.tickets_mention_loading_more()}</MenuNote>
               )}

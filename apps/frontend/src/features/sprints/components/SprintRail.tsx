@@ -5,14 +5,15 @@ import {
   sprintState,
   type Group
 } from "@pp/shared"
-import { Link, useNavigate, useParams } from "@tanstack/react-router"
+import { Link, useParams } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Plus } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
+import { useState } from "react"
 
 import { RailBackLink } from "@/components/shell/RailBackLink"
-import { InlineForm } from "@/components/ui/inline-form"
+import { Button } from "@/components/ui/button"
 import {
   project as projectView,
   projectRequest
@@ -23,12 +24,12 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import { CreateSprintForm } from "@/features/sprints/forms/create-sprint"
 import { formatSprintRange } from "@/features/sprints/lib/sprintDates"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+import { NewSprintPopover } from "./NewSprintPopover"
 import { SprintStateIcon } from "./SprintChip"
 
 function formatRange(s: Group): string {
@@ -40,7 +41,10 @@ function sprintProjectLayoutId(orgSlug: string, slug: string) {
 }
 
 function sortByStart(a: Group, b: Group) {
-  return (a.startsAt?.getTime() ?? 0) - (b.startsAt?.getTime() ?? 0)
+  return (
+    (a.startsAt?.getTime() ?? Number.MAX_SAFE_INTEGER) -
+    (b.startsAt?.getTime() ?? Number.MAX_SAFE_INTEGER)
+  )
 }
 
 export function SprintRail({ canPlan }: { canPlan: boolean }) {
@@ -106,7 +110,7 @@ export function SprintRail({ canPlan }: { canPlan: boolean }) {
           {projectName}
         </span>
       </motion.div>
-      {canPlan && <NewSprintForm />}
+      {canPlan && <NewSprintButton />}
       <div className="flex flex-col gap-5 overflow-y-auto">
         <Section
           label={m.sprints_active_label()}
@@ -203,18 +207,15 @@ function pickSprintNavigationTarget(
   return completed[0] ?? null
 }
 
-function NewSprintForm() {
-  const { orgSlug, slug } = useProjectRoute()
-  const navigate = useNavigate()
-  const Root = InlineForm.Root<"create">
+function NewSprintButton() {
+  const [open, setOpen] = useState(false)
   return (
-    <Root
-      actions={["create"]}
-      className="data-[mode=idle]:border-0 data-[mode=idle]:bg-transparent data-[mode=idle]:p-0"
-    >
-      <InlineForm.Idle block>
-        <InlineForm.Trigger
-          action="create"
+    <NewSprintPopover
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <Button
+          type="button"
           variant="dither"
           className="w-full justify-start text-primary-foreground"
           leadingIcon={Plus}
@@ -225,18 +226,8 @@ function NewSprintForm() {
           ditherHoverStops={[0.5, 1]}
         >
           {m.sprints_new_button()}
-        </InlineForm.Trigger>
-      </InlineForm.Idle>
-      <InlineForm.Form action="create">
-        <CreateSprintForm
-          onCreated={(sprint) =>
-            void navigate({
-              to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
-              params: { orgSlug, slug, groupId: sprint.id }
-            })
-          }
-        />
-      </InlineForm.Form>
-    </Root>
+        </Button>
+      }
+    />
   )
 }

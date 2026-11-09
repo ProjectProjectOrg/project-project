@@ -30,6 +30,7 @@ export function TicketStatusIcon({
   const Icon = meta.icon
   return (
     <Icon
+      role="img"
       aria-label={meta.label}
       className={cn("size-3.5 shrink-0", meta.className, className)}
       style={meta.color ? { color: meta.color } : undefined}

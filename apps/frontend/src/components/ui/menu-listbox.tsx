@@ -1,13 +1,15 @@
-import type { ComponentProps, ReactNode } from "react"
+import { useReducedMotion } from "motion/react"
+import { useEffect, useRef, type ComponentProps, type ReactNode } from "react"
 
 import { MenuHighlight } from "@/components/ui/menu-highlight"
 import { menuItemClass, menuPopupClass } from "@/components/ui/menu-styles"
+import { rowScrollTarget, scrollViewportTo } from "@/lib/scrollRowIntoView"
 import { cn } from "@/lib/utils"
 
 export type ListboxState = Readonly<{
   id: string
   open: boolean
-  activeIndex: number | null
+  activeId: string | null
 }>
 
 export const optionId = (listboxId: string, index: number) =>
@@ -19,10 +21,9 @@ export const comboboxProps = (listbox: ListboxState | null) =>
     "aria-autocomplete": "list",
     "aria-expanded": listbox?.open ?? false,
     "aria-controls": listbox?.open ? listbox.id : undefined,
-    "aria-activedescendant":
-      listbox?.open && listbox.activeIndex !== null
-        ? optionId(listbox.id, listbox.activeIndex)
-        : undefined
+    "aria-activedescendant": listbox?.open
+      ? (listbox.activeId ?? undefined)
+      : undefined
   }) as const
 
 export function MenuListbox({
@@ -59,8 +60,24 @@ export function MenuOption({
   onSelect: () => void
   children: ReactNode
 }>) {
+  const ref = useRef<HTMLButtonElement>(null)
+  const hovered = useRef(false)
+  const reduceMotion = useReducedMotion() ?? false
+  useEffect(() => {
+    const row = ref.current
+    const viewport = row?.closest<HTMLElement>("[role=listbox]")
+    if (!highlighted || hovered.current || !row || !viewport) return undefined
+    const style = getComputedStyle(viewport)
+    const target = rowScrollTarget(viewport, row, {
+      top: Number.parseFloat(style.scrollPaddingTop) || 0,
+      bottom: Number.parseFloat(style.scrollPaddingBottom) || 0
+    })
+    if (target === null) return undefined
+    return scrollViewportTo(viewport, target, reduceMotion) ?? undefined
+  }, [highlighted, reduceMotion])
   return (
     <button
+      ref={ref}
       id={id}
       type="button"
       role="option"
@@ -71,7 +88,13 @@ export function MenuOption({
         event.preventDefault()
         onSelect()
       }}
-      onMouseEnter={onHighlight}
+      onMouseEnter={() => {
+        hovered.current = true
+        onHighlight()
+      }}
+      onMouseLeave={() => {
+        hovered.current = false
+      }}
       className={cn(menuItemClass, "w-full text-left")}
     >
       {children}

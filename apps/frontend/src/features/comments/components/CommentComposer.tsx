@@ -61,6 +61,7 @@ function ReadyCommentComposer({
   const { orgSlug, slug } = useProjectRoute()
   const [body, setBody] = useState("")
   const [editorVersion, setEditorVersion] = useState(0)
+  const [focusEditor, setFocusEditor] = useState(false)
   const [identity, setIdentity] = useState(newCommentIdentity)
   const [failed, setFailed] = useState(false)
   const req = commentsRequest(orgSlug, slug, ticketId)
@@ -70,8 +71,9 @@ function ReadyCommentComposer({
 
   const rootRef = useRef<HTMLDivElement>(null)
 
-  const reset = (next: string) => {
+  const reset = (next: string, focus: boolean) => {
     setBody(next)
+    setFocusEditor(focus)
     setEditorVersion((v) => v + 1)
   }
 
@@ -79,14 +81,14 @@ function ReadyCommentComposer({
     if (!body.trim()) return
     const sent = body
     setFailed(false)
-    reset("")
+    reset("", true)
     setIdentity(newCommentIdentity())
     const pending = create({ body: sent })
     keepInView(rootRef.current)
     const exit = await pending
     if (Exit.isFailure(exit)) {
       setFailed(true)
-      reset(sent)
+      reset(sent, rootRef.current?.contains(document.activeElement) ?? false)
     }
   }
 
@@ -101,11 +103,11 @@ function ReadyCommentComposer({
         onDraftChange={setBody}
         onSubmit={submit}
         placeholder={m.comments_composer_placeholder()}
-        autoFocus={editorVersion > 0}
+        autoFocus={focusEditor}
         compact
       />
       {failed && (
-        <p className="mt-2 text-sm text-destructive">
+        <p role="alert" className="mt-2 text-sm text-destructive">
           {m.comments_composer_failed()}
         </p>
       )}

@@ -1,4 +1,4 @@
-import type { CreateTicketInput } from "@pp/shared"
+import type { CreateTicketInput, GroupId } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Atom from "effect/reactivity/Atom"
 import * as Reactivity from "effect/reactivity/Reactivity"
@@ -9,6 +9,8 @@ import { Keys, projectScope } from "@/api/keys"
 export type CreateTicketDialogRequest = Readonly<{
   orgSlug: string
   projectSlug: string | null
+  sprint?: GroupId
+  title?: string
 }>
 
 export const createTicketDialog = Atom.make<CreateTicketDialogRequest | null>(

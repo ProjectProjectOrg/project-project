@@ -1,38 +1,67 @@
 import { useAtomValue } from "@effect/atom-react"
+import type { TicketTextHit } from "@pp/shared"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState } from "react"
 
-import {
-  matches,
-  type CommandFrameItem
-} from "@/features/command-menu/components/CommandFrame"
+import type { CommandFrameItem } from "@/features/command-menu/components/CommandFrame"
 import type { CommandContext } from "@/features/command-menu/lib/commands"
+import { scoreSearch } from "@/features/command-menu/lib/searchScore"
 import {
   recentTickets,
   recentTicketsRequest
 } from "@/features/tickets/atoms/myTickets"
 import {
-  idleTicketSearch,
-  searchRequest,
-  ticketSearch
+  idleTicketTextSearch,
+  idleTicketTitles,
+  ticketTextSearch,
+  ticketTitles
 } from "@/features/tickets/atoms/ticketSearch"
 
 export type TicketTarget = Readonly<{
   id: string
   title: string
   projectSlug: string
+  match?: TicketTextHit["match"]
+  score?: number
 }>
 
-type Settled = Readonly<{
-  source: unknown
+type ShownText = Readonly<{
   query: string
-  targets: ReadonlyArray<TicketTarget>
+  hits: ReadonlyArray<TicketTextHit>
 }>
 
-const EMPTY_SETTLED: Settled = { source: null, query: "", targets: [] }
+const NO_TEXT: ShownText = { query: "", hits: [] }
 
 const RECENT_LIMIT = 6
+const PROJECT_BONUS = 20
+const TITLE_LIMIT = 20
+const TEXT_SEARCH_MIN = 3
+const SEARCHING_DELAY_MS = 120
+
+const matchDetail = (
+  match: TicketTextHit["match"] | undefined
+): CommandFrameItem["detail"] => {
+  if (match === undefined || match.where === "title") return undefined
+  return {
+    author: match.where === "comment" ? match.author : undefined,
+    text: match.snippet.text,
+    ranges: match.snippet.ranges
+  }
+}
+
+const TITLE_RANK = 55
+const DESCRIPTION_RANK = 32
+const COMMENT_RANK = 28
+
+export const SEARCHING_RANK = DESCRIPTION_RANK
+
+const matchRank = (match: TicketTextHit["match"] | undefined) =>
+  match === undefined || match.where === "title"
+    ? TITLE_RANK
+    : match.where === "description"
+      ? DESCRIPTION_RANK
+      : COMMENT_RANK
 
 export const ticketItem = (
   target: TicketTarget,
@@ -42,6 +71,13 @@ export const ticketItem = (
   value: `${options.valuePrefix ?? ""}${target.id}`,
   prefix: target.id,
   label: target.title,
+  detail: matchDetail(target.match),
+  rank:
+    options.inSearch === true
+      ? (target.score ?? matchRank(target.match))
+      : undefined,
+  actionable: options.inSearch,
+  peekable: options.inSearch,
   group,
   searchOnly: options.inSearch,
   prefiltered: options.inSearch
@@ -50,60 +86,115 @@ export const ticketItem = (
 export type TicketCommandSearch = Readonly<{
   recent: ReadonlyArray<TicketTarget>
   found: ReadonlyArray<TicketTarget>
+  searching: boolean
 }>
+
+function useDelayedFlag(on: boolean, wait: number): boolean {
+  const [settled] = useDebouncedValue(on, { wait })
+  return on && settled
+}
+
+const titleScore = (
+  ticket: Readonly<{ id: string; title: string }>,
+  query: string,
+  inProject: boolean
+): number | null => {
+  const score = scoreSearch({ label: ticket.title, prefix: ticket.id }, query)
+  return score === null ? null : score + (inProject ? PROJECT_BONUS : 0)
+}
+
+const titleMatches = (
+  titles: ReadonlyArray<Readonly<{ id: string; title: string }>>,
+  query: string,
+  projectSlug: string
+): ReadonlyArray<TicketTarget> =>
+  titles
+    .flatMap((ticket): ReadonlyArray<TicketTarget> => {
+      const score = titleScore(ticket, query, true)
+      return score === null
+        ? []
+        : [{ id: ticket.id, title: ticket.title, projectSlug, score }]
+    })
+    .toSorted((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    .slice(0, TITLE_LIMIT)
 
 export function useTicketCommandSearch(
   { orgSlug, projectSlug }: CommandContext,
   search: string
 ): TicketCommandSearch {
   const query = search.trim()
-  const [debounced] = useDebouncedValue(query, { wait: 150 })
-  const searching = projectSlug !== null && query !== "" && debounced.length > 0
-  const searchResult = useAtomValue(
-    searching
-      ? ticketSearch(
-          searchRequest(orgSlug, projectSlug, { q: debounced, limit: 20 })
-        )
-      : idleTicketSearch
+  const inProject = projectSlug !== null && query !== ""
+  const textQuery = inProject && query.length >= TEXT_SEARCH_MIN
+  const titlesResult = useAtomValue(
+    inProject ? ticketTitles({ orgSlug, slug: projectSlug }) : idleTicketTitles
   )
-  const [settled, setSettled] = useState<Settled>(EMPTY_SETTLED)
-  if (
-    searching &&
-    Result.isSuccess(searchResult) &&
-    settled.source !== searchResult.value
-  ) {
-    setSettled({
-      source: searchResult.value,
-      query: debounced,
-      targets: searchResult.value.map((ticket) => ({
-        id: ticket.id,
-        title: ticket.title,
-        projectSlug
-      }))
-    })
-  }
-  if (query === "" && settled !== EMPTY_SETTLED) setSettled(EMPTY_SETTLED)
-
+  const textResult = useAtomValue(
+    textQuery
+      ? ticketTextSearch({ params: { orgSlug, slug: projectSlug }, q: query })
+      : idleTicketTextSearch
+  )
   const recentResult = useAtomValue(
     recentTickets(recentTicketsRequest(orgSlug))
   )
-  const shownQuery = projectSlug === null ? query : settled.query
-  if (shownQuery === "") return { recent: [], found: [] }
+  const [shownText, setShownText] = useState<ShownText>(NO_TEXT)
+  if (
+    textQuery &&
+    Result.isSuccess(textResult) &&
+    shownText.hits !== textResult.value
+  ) {
+    setShownText({ query, hits: textResult.value })
+  }
+  const narrowing =
+    textQuery && shownText.query !== "" && query.startsWith(shownText.query)
+  const textHits = Result.isSuccess(textResult)
+    ? textResult.value
+    : narrowing
+      ? shownText.hits
+      : []
+  const searching = useDelayedFlag(
+    textQuery && !Result.isSuccess(textResult) && !narrowing,
+    SEARCHING_DELAY_MS
+  )
+  if (query === "") return { recent: [], found: [], searching: false }
+
   const recent = (
     Result.isSuccess(recentResult) ? recentResult.value.tickets : []
-  ).flatMap((row) => {
-    if (projectSlug !== null && row.project.slug !== projectSlug) return []
-    const target = {
-      id: row.ticket.id,
-      title: row.ticket.title,
-      projectSlug: row.project.slug
-    }
-    return matches(ticketItem(target, ""), shownQuery) ? [target] : []
+  )
+    .flatMap((row) => {
+      if (projectSlug !== null && row.project.slug !== projectSlug) return []
+      const score = titleScore(row.ticket, query, projectSlug !== null)
+      return score === null
+        ? []
+        : [
+            {
+              id: row.ticket.id,
+              title: row.ticket.title,
+              projectSlug: row.project.slug,
+              score
+            }
+          ]
+    })
+    .slice(0, RECENT_LIMIT)
+  if (projectSlug === null) return { recent, found: [], searching: false }
+
+  const titles = titleMatches(
+    Result.isSuccess(titlesResult) ? titlesResult.value : [],
+    query,
+    projectSlug
+  )
+  const text = textHits.map(
+    (hit): TicketTarget => ({
+      id: hit.id,
+      title: hit.title,
+      projectSlug,
+      match: hit.match
+    })
+  )
+  const seen = new Set<string>(recent.map((target) => target.id))
+  const found = [...titles, ...text].filter((target) => {
+    if (seen.has(target.id)) return false
+    seen.add(target.id)
+    return true
   })
-  const recentShown = recent.slice(0, RECENT_LIMIT)
-  const recentIds = new Set<string>(recentShown.map((target) => target.id))
-  return {
-    recent: recentShown,
-    found: settled.targets.filter((target) => !recentIds.has(target.id))
-  }
+  return { recent, found, searching }
 }

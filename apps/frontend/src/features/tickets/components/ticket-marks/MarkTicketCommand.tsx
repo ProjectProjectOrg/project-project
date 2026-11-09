@@ -74,6 +74,7 @@ export function MarkTicketCommand({
   const archive = useAtomSet(archiveTicket(req), { mode: "promiseExit" })
   const [search, setSearch] = useState("")
   const [failure, setFailure] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
   const [debounced] = useDebouncedValue(search.trim(), { wait: 150 })
   const searching = debounced.length > 0
 
@@ -129,11 +130,14 @@ export function MarkTicketCommand({
   })
 
   const pick = async (target: Ticket) => {
+    if (pending) return
+    setPending(true)
     setFailure(null)
     const exit =
       kind === "duplicateOf"
         ? await archive({ duplicateOf: target.id })
         : await mark({ kind, target: target.id })
+    setPending(false)
     if (Exit.isSuccess(exit)) onDone()
     else setFailure(errorMessage(Cause.squash(exit.cause)))
   }
@@ -170,11 +174,7 @@ export function MarkTicketCommand({
         if (!ticket) return null
         const block = pickBlock(relations, kind, ticket.id)
         return (
-          <CommandMenuItem
-            value={row.value}
-            aria-disabled={block !== null}
-            className={cn(block !== null && "opacity-50")}
-          >
+          <CommandMenuItem value={row.value} aria-disabled={block !== null}>
             <TicketStatusIcon
               status={ticket.status}
               orgSlug={orgSlug}
@@ -185,10 +185,19 @@ export function MarkTicketCommand({
               <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
                 {ticket.id}
               </span>
-              <span className="min-w-0 truncate">{ticket.title}</span>
+              <span
+                className={cn(
+                  "min-w-0 truncate",
+                  block !== null && "opacity-50"
+                )}
+              >
+                {ticket.title}
+              </span>
             </span>
             {block !== null && (
-              <span className="shrink-0 text-xs">{BLOCK_LABELS[block]()}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {BLOCK_LABELS[block]()}
+              </span>
             )}
           </CommandMenuItem>
         )

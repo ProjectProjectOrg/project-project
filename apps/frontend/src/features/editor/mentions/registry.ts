@@ -3,6 +3,8 @@ import type * as Effect from "effect/Effect"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
 import type { ReactNode } from "react"
 
+import type { SearchPage } from "@/lib/searchPages"
+
 import type { MentionSearchFailed } from "./errors"
 import type { MentionScope } from "./scope"
 
@@ -13,10 +15,7 @@ export type MentionCandidate = Readonly<{
   image?: string | null
 }>
 
-export type MentionPage = Readonly<{
-  candidates: ReadonlyArray<MentionCandidate>
-  nextCursor: string | null
-}>
+export type MentionPage = SearchPage<MentionCandidate>
 
 export type { MentionScope }
 

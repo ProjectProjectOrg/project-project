@@ -232,7 +232,14 @@ function TargetPicker({
     >
       <SelectTrigger
         render={
-          <Button type="button" variant="tertiary" size="sm">
+          <Button
+            type="button"
+            variant="tertiary"
+            size="sm"
+            aria-label={m.tickets_status_reassign_aria({
+              status: selectedMeta.label
+            })}
+          >
             <SelectedIcon
               className={cn("size-3.5", selectedMeta.className)}
               style={

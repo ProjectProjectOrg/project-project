@@ -11,7 +11,8 @@ export function backlogSprintSections(
     const stateOrder = rank[sprintState(a, now)] - rank[sprintState(b, now)]
     if (stateOrder !== 0) return stateOrder
     const dateOrder =
-      (a.startsAt?.getTime() ?? 0) - (b.startsAt?.getTime() ?? 0)
+      (a.startsAt?.getTime() ?? Number.MAX_SAFE_INTEGER) -
+      (b.startsAt?.getTime() ?? Number.MAX_SAFE_INTEGER)
     return dateOrder || a.id.localeCompare(b.id)
   })
   const sections = [

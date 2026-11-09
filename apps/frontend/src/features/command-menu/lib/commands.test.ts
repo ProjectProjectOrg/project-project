@@ -8,8 +8,17 @@ const context: CommandContext = {
   projectSlug: null,
   ticket: null,
   ticketDetail: null,
+  sprint: null,
   viewerId: null,
-  canSeeOrgMembers: false
+  canSeeOrgMembers: false,
+  canCreateProjects: true,
+  project: null,
+  canCreateTickets: true,
+  canEditTickets: true,
+  canArchiveTickets: true,
+  canDeleteTickets: true,
+  canPlanSprints: true,
+  canManageProject: true
 }
 
 const command = (

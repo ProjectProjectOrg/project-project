@@ -9,7 +9,7 @@ export const organizationCommands: ReadonlyArray<Command> = [
     group: "navigation",
     label: m.chrome_command_menu_go_dashboard,
     icon: LayoutDashboard,
-    keywords: ["home"],
+    keywords: ["home", "my tickets", "assigned", "mine"],
     run: ({ orgSlug }, env) => {
       env.navigate(`/orgs/${orgSlug}`)
       env.close()

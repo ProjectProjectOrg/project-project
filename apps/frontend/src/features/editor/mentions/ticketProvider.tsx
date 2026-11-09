@@ -8,9 +8,9 @@ import {
   openEpicTitles
 } from "@/features/tickets/atoms/epics"
 import {
-  ticketMentionPage,
-  ticketMentionPageRequest
-} from "@/features/tickets/atoms/ticketMentions"
+  ticketPage,
+  ticketPageRequest
+} from "@/features/tickets/atoms/ticketPages"
 import { EpicSeparator } from "@/features/tickets/components/ticket-list/EpicLabel"
 import { m } from "@/paraglide/messages"
 
@@ -18,7 +18,7 @@ import { MentionSearchFailed } from "./errors"
 import type { MentionCandidate, MentionPage, MentionProvider } from "./registry"
 
 const NO_EPICS: ReadonlyMap<TicketId, string> = new Map()
-const NO_PAGE: MentionPage = { candidates: [], nextCursor: null }
+const NO_PAGE: MentionPage = { items: [], nextCursor: null }
 
 const toCandidate =
   (epics: ReadonlyMap<TicketId, string>) =>
@@ -41,9 +41,7 @@ export const ticketProvider = (
     if (!scope.orgSlug || !scope.slug) return Effect.succeed(NO_PAGE)
     return Effect.gen(function* () {
       const page = yield* Atom.getResult(
-        ticketMentionPage(
-          ticketMentionPageRequest(scope.orgSlug, scope.slug, query, cursor)
-        )
+        ticketPage(ticketPageRequest(scope.orgSlug, scope.slug, query, cursor))
       )
       const results = page.items.map((row) => row.ticket)
       const parents = results.flatMap((ticket) =>
@@ -62,7 +60,7 @@ export const ticketProvider = (
           )
         : NO_EPICS
       return {
-        candidates: results.map(toCandidate(new Map([...archived, ...open]))),
+        items: results.map(toCandidate(new Map([...archived, ...open]))),
         nextCursor: page.nextCursor
       }
     }).pipe(Effect.mapError(() => new MentionSearchFailed()))

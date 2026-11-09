@@ -1,8 +1,9 @@
-import type { TicketContext } from "./commandMenu"
+import type { SprintContext, TicketContext } from "./commandMenu"
 import type { Command } from "./commands"
 
 export type CommandScope = Readonly<{
   ticket?: TicketContext
+  sprint?: SprintContext
   commands?: ReadonlyArray<Command>
 }>
 
@@ -10,6 +11,11 @@ export const scopeTicket = (
   scopes: ReadonlyArray<CommandScope>
 ): TicketContext | null =>
   scopes.findLast((scope) => scope.ticket !== undefined)?.ticket ?? null
+
+export const scopeSprint = (
+  scopes: ReadonlyArray<CommandScope>
+): SprintContext | null =>
+  scopes.findLast((scope) => scope.sprint !== undefined)?.sprint ?? null
 
 export const scopeCommands = (
   scopes: ReadonlyArray<CommandScope>

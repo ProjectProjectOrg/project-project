@@ -54,6 +54,9 @@ export const CreateGroupInput = Schema.Struct({
     description: "The name, 1 to 200 characters."
   }),
   kind: Schema.optional(GroupKind),
+  body: Schema.optional(Schema.String).annotate({
+    description: "The markdown description."
+  }),
   color: Schema.optional(GroupColor).annotate({
     description: groupFieldDocs.color
   }),

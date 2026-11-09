@@ -265,6 +265,7 @@ export function TicketRowActions({
           open={savingTemplate}
           onOpenChange={setSavingTemplate}
           anchor={popupAnchor}
+          finalFocus={trigger}
         />
       )}
     </ConfirmButton.Root>

@@ -147,7 +147,7 @@ export function useTemplateSlash({
     listbox: {
       id: listboxId,
       open,
-      activeIndex: options.length === 0 ? null : safeHighlight
+      activeId: options.length === 0 ? null : optionId(listboxId, safeHighlight)
     },
     options,
     highlight: safeHighlight,

@@ -48,7 +48,7 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:bg-destructive/80",
         tertiary:
-          "border border-border text-foreground hover:bg-[image:linear-gradient(var(--hover),var(--hover))] active:bg-[image:linear-gradient(var(--active),var(--active))]",
+          "border border-border text-foreground hover:bg-[image:linear-gradient(var(--hover),var(--hover))] active:bg-[image:linear-gradient(var(--active),var(--active))] aria-[haspopup=menu]:active:bg-[image:linear-gradient(var(--hover),var(--hover))] data-[popup-open]:bg-[image:linear-gradient(var(--hover),var(--hover))]",
         ghost:
           "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active",
         quiet:

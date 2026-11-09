@@ -4,7 +4,12 @@ import * as Match from "effect/Match"
 import { Flag, Trophy, Zap } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
+import {
+  sprintEnded,
+  type SprintCountdown
+} from "@/features/sprints/lib/sprintDates"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
 type SprintStateName = ReturnType<typeof sprintState>
 
@@ -30,22 +35,26 @@ export function SprintStateIcon({
 }) {
   const state = sprintState(sprint, now)
   const { icon: Icon, className: stateClass } = SPRINT_STATE_META[state]
+  const ended = sprintEnded(sprint, now)
   return (
-    <Icon
-      className={cn(
-        "shrink-0",
-        Match.value(size).pipe(
-          Match.when("xs", () => "size-3"),
-          Match.when("sm", () => "size-3.5"),
-          Match.when("lg", () => "size-5"),
-          Match.orElse(() => "size-4")
-        ),
-        stateClass,
-        className
-      )}
-      strokeWidth={1.75}
-      aria-hidden
-    />
+    <>
+      <Icon
+        className={cn(
+          "shrink-0",
+          Match.value(size).pipe(
+            Match.when("xs", () => "size-3"),
+            Match.when("sm", () => "size-3.5"),
+            Match.when("lg", () => "size-5"),
+            Match.orElse(() => "size-4")
+          ),
+          ended ? "text-state-warning" : stateClass,
+          className
+        )}
+        strokeWidth={1.75}
+        aria-hidden
+      />
+      {ended && <span className="sr-only">{m.sprints_state_ended()}</span>}
+    </>
   )
 }
 
@@ -68,3 +77,13 @@ export function SprintChip({
     </span>
   )
 }
+
+export const countdownLabel = (countdown: SprintCountdown): string =>
+  Match.value(countdown).pipe(
+    Match.discriminatorsExhaustive("kind")({
+      noEnd: () => m.sprints_no_end_date(),
+      left: ({ days }) => m.sprints_active_with_days_left({ days }),
+      lastDay: () => m.sprints_last_day(),
+      ended: ({ days }) => m.sprints_ended_days_ago({ days })
+    })
+  )

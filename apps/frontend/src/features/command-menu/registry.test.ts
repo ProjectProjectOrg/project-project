@@ -8,14 +8,12 @@ import { commandRegistry } from "./registry"
 
 const NOT_IN_COMMAND_MENU: Readonly<Partial<Record<ToolName, string>>> = {
   unmark_ticket: "Relations are removed from the ticket's relation rows",
-  restore_ticket: "Restore lives in the archived ticket's menus",
   prepare_ticket_attachment: "Files are attached from the editor",
   create_comment: "Comments are written on the ticket page",
   sync_git_state: "Git state is synced by automation",
   attach_branch: "Branches are attached from the ticket's git panel",
   stack_branch: "Stacks are edited from the ticket's git panel",
   unstack_branch: "Stacks are edited from the ticket's git panel",
-  create_sprint: "Sprints are created on the sprints page",
   update_sprint: "Sprints are edited on the sprints page",
   complete_sprint: "Sprints are completed on the sprints page",
   rebuild_ticket_index: "Index repair is an operator task",

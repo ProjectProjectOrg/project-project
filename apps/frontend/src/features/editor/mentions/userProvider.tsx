@@ -35,7 +35,7 @@ export const userProvider = (scope: MentionScope): MentionProvider => ({
       }
       return [{ id: viewer.id, label, image: null }]
     }).pipe(
-      Effect.map((candidates) => ({ candidates, nextCursor: null })),
+      Effect.map((items) => ({ items, nextCursor: null })),
       Effect.mapError(() => new MentionSearchFailed())
     ),
   notes: {

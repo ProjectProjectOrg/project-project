@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import { daysLeft, pickActiveSprint } from "@pp/shared"
+import { pickActiveSprint } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 
@@ -8,9 +8,10 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
+import { sprintCountdown } from "@/features/sprints/lib/sprintDates"
 import { m } from "@/paraglide/messages"
 
-import { SprintStateIcon } from "./SprintChip"
+import { countdownLabel, SprintStateIcon } from "./SprintChip"
 
 export function ActiveSprintLine() {
   const { orgSlug, slug } = useProjectRoute()
@@ -22,19 +23,14 @@ export function ActiveSprintLine() {
   if (!active) {
     return <p className="font-mono text-xs text-muted-foreground">/{slug}</p>
   }
-  const left = daysLeft(active.endsAt)
+  const countdown = sprintCountdown(active)
   const summary =
-    left === null
+    countdown.kind === "noEnd"
       ? active.name
-      : left >= 0
-        ? m.project_header_active_sprint_summary({
-            name: active.name,
-            days: left
-          })
-        : m.project_header_active_sprint_overdue({
-            name: active.name,
-            days: -left
-          })
+      : m.project_header_active_sprint_status({
+          name: active.name,
+          status: countdownLabel(countdown)
+        })
 
   return (
     <Link

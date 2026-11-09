@@ -276,7 +276,8 @@ export function TicketTimeline<C>({
 
   if (AsyncResult.isInitial(result)) {
     return (
-      <div aria-busy="true" className="space-y-2">
+      <div role="status" aria-busy="true" className="space-y-2">
+        <span className="sr-only">{m.tickets_activity_loading()}</span>
         <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
         <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
       </div>
@@ -313,7 +314,7 @@ export function TicketTimeline<C>({
         )}
       </ol>
       {AsyncResult.isFailure(result) && (
-        <p className="text-sm text-destructive">
+        <p role="alert" className="text-sm text-destructive">
           {m.tickets_activity_load_failed()}
         </p>
       )}

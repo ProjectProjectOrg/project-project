@@ -55,7 +55,7 @@ it.effect("deduplicates identical ticket mention searches", () =>
           concurrency: "unbounded"
         })
         expect(first).toEqual({
-          candidates: [{ id: "WEB-1", label: "Native atom search" }],
+          items: [{ id: "WEB-1", label: "Native atom search" }],
           nextCursor: "next"
         })
         expect(second).toEqual(first)

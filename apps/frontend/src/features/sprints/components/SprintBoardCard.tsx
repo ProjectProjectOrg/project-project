@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router"
 import { memo, type ReactNode } from "react"
 
 import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
+import { usePointedTicket } from "@/features/command-menu/hooks/usePointedTicket"
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
@@ -53,13 +54,17 @@ function BoardCardFields({
   failure: ReactNode
 }>) {
   const { orgSlug, slug } = useProjectRoute()
+  const pointAt = usePointedTicket(orgSlug, slug, ticket.id)
   const actor = useProjectActor()
   const editable = TicketPolicy.canChange(actor, { content: true })
   const canAssign = TicketPolicy.canChange(actor, { assignees: true })
   const estimation = useEstimationMode()
   return (
     <DeferredDropdownMenus>
-      <div className="group/reveal relative isolate flex flex-col gap-2 rounded-sm bg-surface-3 px-1.5 pt-3 pb-1.5 text-left shadow-surface-1 transition outline-none hover:bg-surface-4 hover:shadow-surface-1-hover has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20">
+      <div
+        {...pointAt}
+        className="group/reveal relative isolate flex flex-col gap-2 rounded-sm bg-surface-3 px-1.5 pt-3 pb-1.5 text-left shadow-surface-1 transition outline-none hover:bg-surface-4 hover:shadow-surface-1-hover has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20"
+      >
         {ticket.parent && (
           <EpicLink
             orgSlug={orgSlug}

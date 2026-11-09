@@ -1,10 +1,9 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { Member } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Check } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { CommandMenuItem } from "@/components/ui/command-menu"
+import { CommandMenuItem, CommandMenuCheck } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
@@ -62,9 +61,7 @@ export function TicketAssigneeCommands({
           <CommandMenuItem value={item.value}>
             <MemberAvatar member={member} size={18} />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {assigned.has(item.value) && (
-              <Check className="size-3.5 shrink-0" strokeWidth={1.75} />
-            )}
+            {assigned.has(item.value) && <CommandMenuCheck />}
           </CommandMenuItem>
         )
       }}

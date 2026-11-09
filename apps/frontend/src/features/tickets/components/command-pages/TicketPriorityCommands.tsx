@@ -1,8 +1,7 @@
 import type { TicketPriority } from "@pp/shared"
-import { Check } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { CommandMenuItem } from "@/components/ui/command-menu"
+import { CommandMenuItem, CommandMenuCheck } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
 import {
@@ -56,9 +55,7 @@ export function TicketPriorityCommands({
               strokeWidth={1.75}
             />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {current?.priority === priority && (
-              <Check className="size-3.5 shrink-0" strokeWidth={1.75} />
-            )}
+            {current?.priority === priority && <CommandMenuCheck />}
           </CommandMenuItem>
         )
       }}

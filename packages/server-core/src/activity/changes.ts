@@ -10,6 +10,7 @@ import {
 } from "@pp/shared"
 import * as Schema from "effect/Schema"
 
+import { contentHash } from "../markdown/fileContent"
 import type * as TicketDocs from "../tickets/TicketDocs"
 
 const makeUserId = Schema.decodeUnknownSync(UserId)
@@ -149,7 +150,15 @@ export const ticketChanges = (
       removed: tags.removed
     })
   }
-  if (before.body !== after.body) changes.push({ kind: "description_edited" })
+  const fromBody = before.body.trim()
+  const toBody = after.body.trim()
+  if (fromBody !== toBody) {
+    changes.push({
+      kind: "description_edited",
+      fromHash: contentHash(fromBody),
+      toHash: contentHash(toBody)
+    })
+  }
   if (before.archivedAt === null && after.archivedAt !== null) {
     changes.push(
       archiveReason === undefined

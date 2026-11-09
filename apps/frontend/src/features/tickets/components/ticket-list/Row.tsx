@@ -8,6 +8,7 @@ import { memo, useRef, useState } from "react"
 
 import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
+import { usePointedTicket } from "@/features/command-menu/hooks/usePointedTicket"
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
@@ -82,8 +83,12 @@ function RowImpl({
   const handleTitlePointerLeave = () => {
     onPreviewOpenChange(ticket.id, false)
   }
+  const pointAt = usePointedTicket(orgSlug, slug, ticket.id)
   return (
-    <div className="group/list-row col-span-full grid grid-cols-subgrid">
+    <div
+      className="group/list-row col-span-full grid grid-cols-subgrid"
+      {...pointAt}
+    >
       <DeferredDropdownMenus>
         <Popover
           open={previewOpen}
@@ -146,6 +151,7 @@ function RowImpl({
               </Link>
               {(ticket.openBlockerCount ?? 0) > 0 && (
                 <OctagonMinus
+                  role="img"
                   aria-label={m.tickets_filters_blocked()}
                   className="relative z-20 ml-2 size-3.5 shrink-0 text-state-warning"
                   strokeWidth={1.75}

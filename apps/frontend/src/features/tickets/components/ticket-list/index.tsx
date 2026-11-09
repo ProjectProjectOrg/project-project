@@ -33,6 +33,7 @@ type TicketListProps = Readonly<{
     snapshot: BacklogValue
   }) => ReactNode
   showAlternate?: boolean
+  empty?: ReactNode
 }>
 
 export function TicketList({
@@ -91,7 +92,8 @@ function StatusSections({
   query,
   members,
   alternate,
-  showAlternate = false
+  showAlternate = false,
+  empty
 }: Omit<TicketListProps, "creator" | "toolbar" | "sections">) {
   const { orgSlug, slug } = useProjectRoute()
   const req = backlogRequest(orgSlug, slug, query)
@@ -135,6 +137,7 @@ function StatusSections({
             query={active.query}
             members={members}
             snapshot={active.value}
+            empty={empty}
           />
         </Activity>
         {alternate && (

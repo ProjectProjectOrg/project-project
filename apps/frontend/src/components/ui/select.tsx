@@ -101,7 +101,6 @@ function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
           key={item.value}
           value={item.value}
           label={item.textValue}
-          aria-label={item.textValue}
           separated={item.separated}
           disabled={item.disabled}
           indicator={item.onAction === undefined}

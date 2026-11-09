@@ -1060,6 +1060,7 @@ it.effect("listPaged filters by kind", () =>
 
 it.effect("listPaged active=true keeps only running sprints", () =>
   Effect.gen(function* () {
+    yield* setTestNow
     const groups = yield* Groups.Groups
     const page = yield* groups.listPaged({ active: true }, undefined, 50)
     expect(page.items.map((g) => g.id)).toEqual(["G-1"])
@@ -1068,7 +1069,9 @@ it.effect("listPaged active=true keeps only running sprints", () =>
       makeGroupsLayer(
         {
           groups: {
-            "G-1": makeSprintDoc("G-1"),
+            "G-1": makeSprintDoc("G-1", {
+              startsAt: isoDate("2026-04-01T00:00:00.000Z")
+            }),
             "G-2": makeSprintDoc("G-2", {
               completedAt: isoDate("2026-04-15T00:00:00.000Z")
             }),
@@ -1083,6 +1086,7 @@ it.effect("listPaged active=true keeps only running sprints", () =>
 
 it.effect("listSprintsPaged filters by state=active", () =>
   Effect.gen(function* () {
+    yield* setTestNow
     const groups = yield* Groups.Groups
     const page = yield* groups.listSprintsPaged("active", undefined, 50)
     expect(page.items.map((g) => g.id)).toEqual(["G-1"])
@@ -1091,7 +1095,9 @@ it.effect("listSprintsPaged filters by state=active", () =>
       makeGroupsLayer(
         {
           groups: {
-            "G-1": makeSprintDoc("G-1"),
+            "G-1": makeSprintDoc("G-1", {
+              startsAt: isoDate("2026-04-01T00:00:00.000Z")
+            }),
             "G-2": makeSprintDoc("G-2", {
               completedAt: isoDate("2026-04-15T00:00:00.000Z")
             }),

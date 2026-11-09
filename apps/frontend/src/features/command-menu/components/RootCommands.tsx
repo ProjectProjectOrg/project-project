@@ -1,13 +1,21 @@
 import { useAtomValue } from "@effect/atom-react"
+import { TicketId } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
-import { FolderKanban } from "lucide-react"
+import * as Schema from "effect/Schema"
+import { FolderKanban, Plus, Search } from "lucide-react"
 import { useState } from "react"
 
 import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
+import { createTicketDialog } from "@/features/tickets/atoms/createTicketDialog"
 import {
+  TicketPeek,
+  TicketPrefetch
+} from "@/features/tickets/components/TicketPeek"
+import {
+  SEARCHING_RANK,
   ticketItem,
   useTicketCommandSearch
 } from "@/features/tickets/hooks/useTicketCommandSearch"
@@ -24,6 +32,11 @@ import { CommandFrame, type CommandFrameItem } from "./CommandFrame"
 
 const GROUP_LABELS: Readonly<Record<CommandGroup, () => string>> = {
   ticket: m.tickets_command_group,
+  ticketRelations: m.tickets_command_group_relations,
+  ticketGit: m.tickets_command_group_git,
+  ticketActions: m.tickets_command_group_actions,
+  sprint: m.sprints_command_group,
+  backlog: m.sprints_command_group_backlog,
   view: m.chrome_command_menu_group_view,
   create: m.chrome_command_menu_group_create,
   navigation: m.chrome_command_menu_group_navigation,
@@ -34,10 +47,15 @@ const GROUP_LABELS: Readonly<Record<CommandGroup, () => string>> = {
 
 const TICKET_VALUE = "open-ticket:"
 const PROJECT_VALUE = "open-project:"
+const SEARCHING_VALUE = "searching-tickets"
+const isTicketId = Schema.is(TicketId)
+const PREFETCH_AROUND = 2
 
-function useProjectSearchTargets(orgSlug: string) {
+function useProjectSearchTargets(orgSlug: string, current: string | null) {
   const result = useAtomValue(projectsFor(projectsRequest(orgSlug)))
-  return Result.isSuccess(result) ? result.value : []
+  return Result.isSuccess(result)
+    ? result.value.filter((project) => project.slug !== current)
+    : []
 }
 
 export function RootCommands({
@@ -45,11 +63,18 @@ export function RootCommands({
   chip,
   onBack,
   env,
-  commands
-}: CommandPageProps & Readonly<{ commands: ReadonlyArray<Command> }>) {
-  const [search, setSearch] = useState("")
-  const { recent, found } = useTicketCommandSearch(context, search)
-  const projects = useProjectSearchTargets(context.orgSlug)
+  commands,
+  initialSearch,
+  initialFocus
+}: CommandPageProps &
+  Readonly<{
+    commands: ReadonlyArray<Command>
+    initialSearch: string
+    initialFocus: string | null
+  }>) {
+  const [search, setSearch] = useState(initialSearch)
+  const { recent, found, searching } = useTicketCommandSearch(context, search)
+  const projects = useProjectSearchTargets(context.orgSlug, context.projectSlug)
   const tickets = [...recent, ...found]
   const targets = new Map<string, string>([
     ...tickets.map(
@@ -72,26 +97,46 @@ export function RootCommands({
   const items: ReadonlyArray<CommandFrameItem> = [
     ...visible.map((command) => ({
       value: command.id,
-      label: command.label(),
+      label: command.label(context),
       icon: command.icon,
       group: GROUP_LABELS[command.group](),
       keywords: command.keywords,
       parent: command.parent?.(),
-      searchOnly: command.searchOnly
+      searchOnly: command.searchOnly,
+      enterLabel:
+        "page" in command
+          ? m.chrome_command_menu_select()
+          : m.chrome_command_menu_run()
     })),
     ...projects.map((project) => ({
       value: `${PROJECT_VALUE}${project.slug}`,
       label: project.name,
       icon: FolderKanban,
       group: m.chrome_command_menu_group_projects(),
-      searchOnly: true
+      searchOnly: true,
+      enterLabel: m.chrome_command_menu_open_project()
     })),
-    ...tickets.map((target) =>
-      ticketItem(target, m.tickets_command_group_results(), {
+    ...tickets.map((target) => ({
+      ...ticketItem(target, m.tickets_command_group_results(), {
         valuePrefix: TICKET_VALUE,
         inSearch: true
-      })
-    )
+      }),
+      enterLabel: m.chrome_command_menu_open_ticket()
+    })),
+    ...(searching && tickets.length === 0
+      ? [
+          {
+            value: SEARCHING_VALUE,
+            label: m.tickets_command_searching(),
+            icon: Search,
+            group: m.tickets_command_group_results(),
+            searchOnly: true,
+            prefiltered: true,
+            rank: SEARCHING_RANK,
+            disabled: true
+          }
+        ]
+      : [])
   ]
   return (
     <CommandFrame
@@ -99,7 +144,97 @@ export function RootCommands({
       placeholder={m.chrome_command_menu_placeholder()}
       onBack={onBack}
       items={items}
+      initialSearch={initialSearch}
+      empty={
+        search.trim() !== "" &&
+        context.projectSlug !== null &&
+        context.canCreateTickets
+          ? {
+              icon: Search,
+              title: m.chrome_command_menu_empty_title({
+                query: search.trim()
+              }),
+              description: m.tickets_command_create_from_search_body(),
+              action: {
+                label: m.tickets_command_create_from_search({
+                  title: search.trim()
+                }),
+                icon: Plus,
+                run: () => {
+                  env.close()
+                  env.registry.set(createTicketDialog, {
+                    orgSlug: context.orgSlug,
+                    projectSlug: context.projectSlug,
+                    title: search.trim(),
+                    sprint:
+                      context.sprint?.sprint.completedAt === null
+                        ? context.sprint.sprint.id
+                        : undefined
+                  })
+                }
+              }
+            }
+          : undefined
+      }
+      initialFocus={initialFocus}
+      searchFooter
+      fixedHeight
+      renderPeek={(value) => {
+        const target = tickets.find(
+          (ticket) => `${TICKET_VALUE}${ticket.id}` === value
+        )
+        if (target === undefined || !isTicketId(target.id)) return null
+        const index = tickets.indexOf(target)
+        return (
+          <TicketPeek
+            ticketId={target.id}
+            prefetch={tickets
+              .slice(
+                Math.max(0, index - PREFETCH_AROUND),
+                index + PREFETCH_AROUND + 1
+              )
+              .flatMap((ticket) =>
+                ticket !== target &&
+                ticket.projectSlug === target.projectSlug &&
+                isTicketId(ticket.id)
+                  ? [ticket.id]
+                  : []
+              )}
+            scope={{
+              orgSlug: context.orgSlug,
+              slug: target.projectSlug,
+              members: context.project?.members ?? []
+            }}
+          />
+        )
+      }}
+      warmPeek={(value) => {
+        const target = tickets.find(
+          (ticket) => `${TICKET_VALUE}${ticket.id}` === value
+        )
+        return target === undefined || !isTicketId(target.id) ? null : (
+          <TicketPrefetch
+            ticketId={target.id}
+            scope={{ orgSlug: context.orgSlug, slug: target.projectSlug }}
+          />
+        )
+      }}
       onSearchChange={setSearch}
+      onActOn={(item) => {
+        const target = tickets.find(
+          (ticket) => `${TICKET_VALUE}${ticket.id}` === item.value
+        )
+        if (target === undefined || !isTicketId(target.id)) return false
+        env.actOn(
+          {
+            orgSlug: context.orgSlug,
+            slug: target.projectSlug,
+            ticketId: target.id
+          },
+          { search, value: item.value }
+        )
+        return true
+      }}
       onSelect={(item) => {
         const to = targets.get(item.value)
         if (to !== undefined) {
@@ -108,7 +243,11 @@ export function RootCommands({
           return
         }
         const command = byId.get(item.value)
-        if (command !== undefined) runCommand(command, context, env)
+        if (command === undefined) return
+        runCommand(command, context, {
+          ...env,
+          open: (page) => env.open(page, { search, value: item.value })
+        })
       }}
     />
   )

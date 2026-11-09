@@ -1363,7 +1363,7 @@ html.dark .prose-md .token.coord {
   position: relative;
 }
 .lexical-content:focus p[data-line-placeholder]::before {
-  content: attr(data-line-placeholder);
+  content: attr(data-line-placeholder) / "";
   position: absolute;
   inset-inline-start: 0;
   color: color-mix(in oklch, var(--muted-foreground) 60%, transparent);

@@ -63,6 +63,11 @@ import {
   UpdateTicketInput
 } from "./Ticket"
 import { TicketActivityPage } from "./TicketActivity"
+import {
+  TicketTextHit,
+  TicketTextSearchQuery,
+  TicketTitle
+} from "./TicketTextSearch"
 
 const TicketListHttpQuery = TicketListQuery.pipe(
   Schema.fieldsAssign({
@@ -197,6 +202,33 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: ProjectPath,
         query: TicketSearchQuery,
         success: Schema.Array(Ticket),
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "titles",
+      "/orgs/:orgSlug/projects/:slug/tickets/titles",
+      {
+        params: ProjectPath,
+        success: Schema.Array(TicketTitle),
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "textSearch",
+      "/orgs/:orgSlug/projects/:slug/tickets/text-search",
+      {
+        params: ProjectPath,
+        query: TicketTextSearchQuery,
+        success: Schema.Array(TicketTextHit),
         error: [Unauthorized, NotFound, Forbidden]
       }
     )

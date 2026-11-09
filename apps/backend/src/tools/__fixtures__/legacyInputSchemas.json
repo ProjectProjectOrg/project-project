@@ -1636,6 +1636,16 @@
         "minLength": 1,
         "maxLength": 200
       },
+      "body": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "color": {
         "anyOf": [
           {

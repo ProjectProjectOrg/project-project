@@ -295,8 +295,6 @@
   "project_detail_tab_members": "Members",
   "project_detail_tab_settings": "Settings",
   "project_detail_tab_sprints": "Sprints",
-  "project_header_active_sprint_overdue": "{name} · {days}d overdue",
-  "project_header_active_sprint_summary": "{name} · {days}d left",
   "project_icon_apply": "Apply",
   "project_icon_background_removal": "Background removal",
   "project_icon_background_removal_max": "Aggressive · may eat the subject",
@@ -553,6 +551,7 @@
   "editor_paper_open": "Open in Paper",
   "editor_paper_remove": "Remove",
   "editor_placeholder": "Write a description in markdown…",
+  "editor_submit_hint": "Enter to send, Shift+Enter for a new line",
   "editor_slash_basic_bullet_list": "Bulleted list",
   "editor_slash_basic_checklist": "Checklist",
   "editor_slash_basic_code": "Code block",
@@ -699,5 +698,6 @@
   "attachments_ticket_pick": "Open a referencing ticket",
   "attachments_ticket_unreferenced": "Uploaded here, no longer referenced",
   "attachments_total_bytes": "{bytes} across {count} objects",
-  "attachments_totals_all": "All"
+  "attachments_totals_all": "All",
+  "project_header_active_sprint_status": "{name} · {status}"
 }

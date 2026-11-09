@@ -35,6 +35,9 @@ import {
   type TicketListQuery,
   type TicketPageQuery,
   type TicketSearchQuery,
+  type TicketTextHit,
+  type TicketTextSearchQuery,
+  type TicketTitle,
   type TicketSections,
   type TicketSort,
   type TicketSprintSections,
@@ -46,6 +49,7 @@ import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import * as Access from "../access/Access"
@@ -53,11 +57,13 @@ import { presentActor } from "../activity/actorRow"
 import * as TicketBranchIndex from "../git/TicketBranchIndex"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
+import { parseMarkdownFile } from "../markdown/fileContent"
 import type * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import { readProjectDocument } from "../projects/readProjectDocument"
 import * as Users from "../users/Users"
+import * as TicketDocs from "./TicketDocs"
 import * as TicketIndex from "./TicketIndex"
 import {
   type GitView,
@@ -66,6 +72,7 @@ import {
   type TicketReadError
 } from "./ticketPresentation"
 import type { TicketProject } from "./ticketProject"
+import { matchTicketText, searchWords } from "./ticketTextSearch"
 import * as TicketView from "./TicketView"
 
 const makeUserId = Schema.decodeUnknownSync(UserId)
@@ -234,6 +241,14 @@ export class TicketQueries extends Context.Service<
       NotFound | Markdown.MarkdownError,
       ProjectScope
     >
+    titles: () => Effect.Effect<ReadonlyArray<TicketTitle>, never, ProjectScope>
+    textSearch: (
+      options: TicketTextSearchQuery
+    ) => Effect.Effect<
+      ReadonlyArray<TicketTextHit>,
+      Markdown.MarkdownError,
+      ProjectScope
+    >
     listInGroup: (
       groupId: string
     ) => Effect.Effect<
@@ -252,6 +267,13 @@ export class TicketQueries extends Context.Service<
   }>
 >()("@pp/server-core/tickets/TicketQueries") {}
 
+const decodeTextFrontmatter = Schema.decodeUnknownOption(
+  Schema.Struct({
+    title: Schema.String,
+    archivedAt: Schema.optional(Schema.NullOr(Schema.Unknown))
+  })
+)
+
 const make = Effect.gen(function* () {
   const ticketIndex = yield* TicketIndex.TicketIndex
   const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
@@ -262,6 +284,7 @@ const make = Effect.gen(function* () {
   const library = yield* Library.Library
   const access = yield* Access.Access
   const users = yield* Users.Users
+  const ticketDocs = yield* TicketDocs.TicketDocs
   const { gitViewOf, gitView, readTicket, detailOf, withMissingAttachments } =
     yield* TicketView.TicketView
 
@@ -560,6 +583,87 @@ const make = Effect.gen(function* () {
       }
     )
     return queryEntries.map(({ entry }) => indexEntryToTicket(entry, view))
+  })
+
+  const titles = Effect.fn("TicketQueries.titles")(function* () {
+    const scope = yield* ProjectScope
+    const entries = yield* ticketIndex.list(scope)
+    return entries.flatMap(
+      (entry): ReadonlyArray<TicketTitle> =>
+        entry.archivedAt === null
+          ? [{ id: entry.id, title: entry.title }]
+          : []
+    )
+  })
+
+  const TEXT_SEARCH_DEFAULT_LIMIT = 20
+
+  const textSearch = Effect.fn("TicketQueries.textSearch")(function* (
+    options: TicketTextSearchQuery
+  ) {
+    const { orgSlug, slug } = yield* ProjectScope
+    const words = searchWords(options.q)
+    const ids = yield* ticketDocs.listIds(orgSlug, slug)
+    const files = yield* Effect.forEach(
+      ids,
+      (id) =>
+        ticketDocs.readRaw(orgSlug, slug, id).pipe(
+          Effect.map(({ content }) => ({ id, content })),
+          Effect.catchTag("NotFound", () => Effect.succeed(null))
+        ),
+      { concurrency: 64 }
+    )
+    const hits = files.flatMap((file) => {
+      if (file === null) return []
+      const lower = file.content.toLowerCase()
+      if (!words.every((word) => lower.includes(word))) return []
+      const { data, content } = parseMarkdownFile(file.content)
+      const frontmatter = decodeTextFrontmatter(data)
+      if (Option.isNone(frontmatter) || frontmatter.value.archivedAt != null) {
+        return []
+      }
+      const { title } = frontmatter.value
+      const match = matchTicketText({ title, body: content }, words)
+      return match === null ? [] : [{ id: file.id, title, match }]
+    })
+    const top = hits
+      .toSorted(
+        (a, b) =>
+          b.match.score - a.match.score ||
+          b.id.localeCompare(a.id, undefined, { numeric: true })
+      )
+      .slice(0, options.limit ?? TEXT_SEARCH_DEFAULT_LIMIT)
+    const authorIds = top.flatMap(({ match }) =>
+      match.where === "comment" && match.author.kind === "user"
+        ? [match.author.userId]
+        : []
+    )
+    const names = new Map(
+      (yield* users.findManyByIds(authorIds)).map((user) => [
+        user.id,
+        user.name
+      ])
+    )
+    return top.flatMap(({ id, title, match }): ReadonlyArray<TicketTextHit> => {
+      if (match.where === "title")
+        return [{ id, title, match: { where: "title" } }]
+      if (match.where === "description") {
+        return [
+          { id, title, match: { where: "description", snippet: match.snippet } }
+        ]
+      }
+      const author =
+        match.author.kind === "user"
+          ? (names.get(match.author.userId) ?? "")
+          : match.author.displayName
+      return [
+        {
+          id,
+          title,
+          match: { where: "comment", author, snippet: match.snippet }
+        }
+      ]
+    })
   })
 
   const tagUsageCounts = Effect.fn("TicketQueries.tagUsageCounts")(
@@ -926,6 +1030,8 @@ const make = Effect.gen(function* () {
     list,
     count,
     search,
+    titles,
+    textSearch,
     listInGroup,
     tagUsageCounts,
     get

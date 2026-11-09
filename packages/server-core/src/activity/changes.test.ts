@@ -9,6 +9,7 @@ import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
+import { contentHash } from "../markdown/fileContent"
 import {
   groupMembershipChanges,
   ticketChanges,
@@ -109,8 +110,15 @@ describe("ticketChanges", () => {
     [
       "description",
       { body: "Body, edited\n" },
-      [{ kind: "description_edited" }]
+      [
+        {
+          kind: "description_edited",
+          fromHash: contentHash("Body"),
+          toHash: contentHash("Body, edited")
+        }
+      ]
     ],
+    ["description whitespace", { body: "\nBody" }, []],
     ["archive", { archivedAt }, [{ kind: "archived" }]],
     [
       "branch linked",

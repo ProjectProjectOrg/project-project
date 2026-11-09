@@ -49,12 +49,14 @@ export function SaveAsTemplatePopover({
   open,
   onOpenChange,
   anchor,
+  finalFocus,
   ...props
 }: SaveAsTemplateProps &
   Readonly<{
     open: boolean
     onOpenChange: (open: boolean) => void
     anchor: ComponentProps<typeof PopoverContent>["anchor"]
+    finalFocus: ComponentProps<typeof PopoverContent>["finalFocus"]
   }>) {
   const target = useTemplateLayers()
   if (target === null) return null
@@ -62,6 +64,7 @@ export function SaveAsTemplatePopover({
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverContent
         anchor={anchor}
+        finalFocus={finalFocus}
         align="end"
         className="w-72"
         onClick={(event) => event.stopPropagation()}

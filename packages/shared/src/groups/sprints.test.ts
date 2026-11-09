@@ -56,6 +56,9 @@ describe("sprintState", () => {
     const s = makeSprint("G-1", { completedAt: isoDate("2026-04-01") })
     expect(sprintState(s, NOW)).toBe("completed")
   })
+  it("returns planned when startsAt is null", () => {
+    expect(sprintState(makeSprint("G-1"), NOW)).toBe("planned")
+  })
   it("returns planned when startsAt is in the future", () => {
     const s = makeSprint("G-1", { startsAt: isoDate("2026-06-01") })
     expect(sprintState(s, NOW)).toBe("planned")

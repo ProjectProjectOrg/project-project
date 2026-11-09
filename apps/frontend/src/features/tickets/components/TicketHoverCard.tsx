@@ -238,7 +238,7 @@ function MetaRow({
   )
 }
 
-function BlockedLine({
+export function BlockedLine({
   blockers,
   statuses
 }: {
@@ -266,6 +266,7 @@ function BlockedLine({
         </span>
       ) : (
         <StatusIcon
+          role="img"
           aria-label={meta.label}
           className={cn("size-3.5 shrink-0", meta.className)}
           style={meta.color ? { color: meta.color } : undefined}

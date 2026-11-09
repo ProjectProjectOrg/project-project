@@ -46,7 +46,14 @@ import {
   type ElementNode,
   type LexicalEditor as LexicalEditorType
 } from "lexical"
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react"
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject
+} from "react"
 
 import { figmaTicketLinksRequest } from "@/features/figma/atoms/figma"
 import { cn } from "@/lib/utils"
@@ -534,6 +541,7 @@ export function LexicalEditor({
     }
   }, [])
 
+  const submitHint = useId()
   const [contentEditable] = useState(() => (
     <div className="relative">
       <ContentEditable
@@ -541,6 +549,8 @@ export function LexicalEditor({
           "lexical-content outline-none",
           compact ? "min-h-[1.5rem]" : "min-h-[8rem]"
         )}
+        aria-label={placeholder}
+        aria-describedby={onSubmit === undefined ? undefined : submitHint}
         aria-placeholder={placeholder}
         placeholder={
           <div className="pointer-events-none absolute top-0 left-0 text-muted-foreground select-none">
@@ -598,7 +608,12 @@ export function LexicalEditor({
             />
           ) : null}
           {onSubmit !== undefined ? (
-            <SubmitOnEnterPlugin onSubmit={onSubmit} />
+            <>
+              <SubmitOnEnterPlugin onSubmit={onSubmit} />
+              <span id={submitHint} className="sr-only">
+                {m.editor_submit_hint()}
+              </span>
+            </>
           ) : null}
           <FormattingToolbarPlugin />
           <LinkBlurActivationPlugin />

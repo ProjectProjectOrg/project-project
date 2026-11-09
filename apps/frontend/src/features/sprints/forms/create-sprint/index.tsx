@@ -1,156 +1,271 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { Group, TicketId } from "@pp/shared"
+import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
+import type { Group } from "@pp/shared"
+import { useNavigate } from "@tanstack/react-router"
+import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { CircleCheck } from "lucide-react"
-import { useState } from "react"
+import { ArrowRightLeft, CalendarDays, Info } from "lucide-react"
+import {
+  useContext,
+  useState,
+  type ComponentType,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode
+} from "react"
 
+import { fireMutation } from "@/api/viewMutation"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
-import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
-import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
+import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
-  createSprint,
+  projectsFor,
+  projectsRequest
+} from "@/features/projects/atoms/projects"
+import { ProjectSelect } from "@/features/projects/components/ProjectSelect"
+import {
+  createSprintInProject,
+  type CreateSprintDialogRequest
+} from "@/features/sprints/atoms/createSprintDialog"
+import {
+  completeSprint,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import { formatSprintRange } from "@/features/sprints/lib/sprintDates"
-import { useAppForm } from "@/lib/form"
+import { useUnfinishedCount } from "@/features/sprints/components/CompleteSprintMenu"
+import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
+import {
+  defaultSprintRange,
+  formatSprintRange,
+  type SprintDateDraft
+} from "@/features/sprints/lib/sprintDates"
+import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
+import { getLocale } from "@/paraglide/runtime"
 
-import { createSprintFormOpts } from "./opts"
-
-const NO_TICKETS: ReadonlyArray<TicketId> = []
+const datesLabel = ({ from, to }: SprintDateDraft) => {
+  if (from === undefined) return m.sprints_no_dates()
+  if (to === undefined) {
+    const date = new Intl.DateTimeFormat(getLocale(), {
+      month: "short",
+      day: "numeric"
+    }).format(from)
+    return m.sprints_starts_on({ date })
+  }
+  return formatSprintRange(from, to)
+}
 
 export function CreateSprintForm({
-  tickets = NO_TICKETS,
-  onCreated
+  request,
+  Title,
+  onDone
 }: Readonly<{
-  tickets?: ReadonlyArray<TicketId>
-  onCreated?: (sprint: Group) => void
+  request: CreateSprintDialogRequest
+  Title: ComponentType<{ className?: string; children: ReactNode }>
+  onDone: () => void
 }>) {
-  const { orgSlug, slug } = useProjectRoute()
-  const req = sprintListRequest(orgSlug, slug)
-  const create = useAtomSet(createSprint(req), { mode: "promiseExit" })
-  const state = useAtomValue(createSprint(req))
-  const busy = state.waiting
-  const serverError = Result.isFailure(state)
-    ? m.sprints_create_error_fallback()
-    : null
-  const { close, setBusy } = useInlineForm()
+  const { orgSlug, completeFrom, tickets } = request
+  const registry = useContext(RegistryContext)
+  const navigate = useNavigate()
+  const projectsResult = useAtomValue(projectsFor(projectsRequest(orgSlug)))
+  const projects = Result.isSuccess(projectsResult) ? projectsResult.value : []
+  const [picked, setPicked] = useState(request.projectSlug)
+  const slug = picked ?? projects[0]?.slug ?? null
+  const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
+  const [range, setRange] = useState<SprintDateDraft>({})
   const [pickerOpen, setPickerOpen] = useState(false)
-  const form = useAppForm({
-    ...createSprintFormOpts(),
-    onSubmit: async ({ value }) => {
-      if (!value.range.from || !value.range.to) return
-      setBusy(true)
-      const exit = await create({
-        name: value.name.trim(),
-        startsAt: value.range.from,
-        endsAt: value.range.to,
+  const [failure, setFailure] = useState<string | null>(null)
+  const create = useAtomSet(createSprintInProject, { mode: "promiseExit" })
+  const state = useAtomValue(createSprintInProject)
+  const trimmed = name.trim()
+  const body = description.trim()
+  const canSubmit = slug !== null && trimmed !== "" && !state.waiting
+  const today = DateTime.toDate(DateTime.nowUnsafe())
+  const startsNow = range.from !== undefined && range.from <= today
+
+  const submit = async (event?: FormEvent) => {
+    event?.preventDefault()
+    if (!canSubmit) return
+    setFailure(null)
+    const exit = await create({
+      orgSlug,
+      slug,
+      payload: {
+        name: trimmed,
+        body: body === "" ? undefined : body,
+        startsAt: range.from ?? null,
+        endsAt: range.to ?? null,
         tickets
-      })
-      if (!Exit.isSuccess(exit)) return setBusy(false)
-      close()
-      onCreated?.(exit.value)
+      }
+    })
+    if (Exit.isFailure(exit)) {
+      setFailure(errorMessage(Cause.squash(exit.cause)))
+      return
     }
-  })
+    if (completeFrom !== undefined) {
+      await fireMutation(
+        registry,
+        completeSprint({
+          req: sprintListRequest(orgSlug, slug),
+          groupId: completeFrom.id
+        }),
+        { destination: { kind: "sprint", groupId: exit.value.id } }
+      )
+    }
+    onDone()
+    void navigate({
+      to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
+      params: { orgSlug, slug, groupId: exit.value.id }
+    })
+  }
+
+  const onSubmitShortcut = (event: KeyboardEvent) => {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault()
+      void submit()
+    }
+  }
 
   return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault()
-        if (!busy) void form.handleSubmit()
-      }}
-      className="flex flex-col gap-2"
-    >
-      <form.Field name="name">
-        {(field) => (
-          <input
-            autoFocus
-            value={field.value}
-            onChange={(event) => field.handleChange(event.target.value)}
-            onBlur={field.handleBlur}
-            placeholder={m.sprints_new_name_placeholder()}
-            aria-invalid={field.errors.length > 0}
-            disabled={busy}
-            className="w-full bg-transparent text-sm outline-none"
-            maxLength={120}
+    <form onSubmit={(event) => void submit(event)} className="flex flex-col">
+      <div className="flex items-center gap-2 pt-4 pr-4 pl-1.5">
+        <ProjectSelect
+          projects={projects}
+          value={slug}
+          onChange={setPicked}
+          readOnly={completeFrom !== undefined || tickets !== undefined}
+        />
+        <Title className="text-[13px] font-normal text-muted-foreground">
+          {m.sprints_create_dialog_title()}
+        </Title>
+      </div>
+      <input
+        autoFocus
+        aria-label={m.sprints_new_name_placeholder()}
+        placeholder={m.sprints_new_name_placeholder()}
+        value={name}
+        maxLength={120}
+        onKeyDown={onSubmitShortcut}
+        onChange={(event) => {
+          setName(event.target.value)
+          setFailure(null)
+        }}
+        className="mt-3 w-full bg-transparent px-4 text-lg font-medium tracking-tight outline-none placeholder:text-muted-foreground/70"
+      />
+      <div
+        onKeyDownCapture={onSubmitShortcut}
+        className="mt-1 max-h-[50dvh] overflow-y-auto px-4"
+      >
+        <MentionScopeProvider scope={{ orgSlug, slug: slug ?? "" }}>
+          <LexicalEditor
+            markdown=""
+            onDraftChange={setDescription}
+            placeholder={m.sprints_create_dialog_description_placeholder()}
           />
-        )}
-      </form.Field>
-      <form.Field name="range">
-        {(field) => (
-          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-            <PopoverTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="chip"
-                  disabled={busy}
-                  aria-invalid={field.errors.length > 0}
-                  className="self-start text-muted-foreground hover:text-foreground"
-                >
-                  <span className="font-mono text-[11px] tabular-nums">
-                    {field.value.from && field.value.to
-                      ? formatSprintRange(field.value.from, field.value.to)
-                      : m.sprints_date_range_label()}
-                  </span>
-                </Button>
-              }
+        </MentionScopeProvider>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 pt-2 pr-4 pl-1.5">
+        <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+          <PopoverTrigger render={<Button type="button" variant="chip" />}>
+            <CalendarDays className="size-3.5" strokeWidth={1.75} />
+            <span>{datesLabel(range)}</span>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-auto p-0">
+            <Calendar
+              mode="range"
+              selected={{ from: range.from, to: range.to }}
+              onSelect={(next) => setRange(next ?? {})}
+              disabled={{ before: today }}
+              numberOfMonths={1}
+              defaultMonth={range.from ?? today}
             />
-            <PopoverContent align="start" className="w-auto p-0">
-              <Calendar
-                mode="range"
-                selected={{ from: field.value.from, to: field.value.to }}
-                onSelect={(range) => {
-                  if (range) field.handleChange(range)
+            <div className="flex justify-between gap-2 border-t border-border/60 p-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                onClick={() => {
+                  setRange(defaultSprintRange())
+                  setPickerOpen(false)
                 }}
-                numberOfMonths={1}
-                defaultMonth={
-                  field.value.from ?? DateTime.toDate(DateTime.nowUnsafe())
-                }
-              />
-            </PopoverContent>
-          </Popover>
+              >
+                {m.sprints_start_today()}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                disabled={range.from === undefined}
+                onClick={() => {
+                  setRange({})
+                  setPickerOpen(false)
+                }}
+              >
+                {m.sprints_clear_dates()}
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+        {range.from === undefined && (
+          <span className="flex items-center gap-1 px-1 text-xs text-muted-foreground">
+            <Info className="size-3.5 shrink-0" strokeWidth={1.75} />
+            {m.sprints_no_dates_hint()}
+          </span>
         )}
-      </form.Field>
-      <form.Field name="name">
-        {(nameField) => (
-          <form.Field name="range">
-            {(rangeField) => {
-              const error =
-                nameField.errors.length > 0
-                  ? m.sprints_create_name_required()
-                  : rangeField.errors.length > 0
-                    ? m.sprints_create_dates_required()
-                    : serverError
-              return error ? (
-                <p className="text-xs text-destructive">{error}</p>
-              ) : null
-            }}
-          </form.Field>
-        )}
-      </form.Field>
-      <div className="flex justify-end gap-1">
-        <InlineForm.Cancel size="xs" variant="tertiary" leadingIcon={undefined}>
-          {m.common_cancel_button()}
-        </InlineForm.Cancel>
-        <Button
-          type="submit"
-          variant="primary"
-          size="xs"
-          leadingIcon={CircleCheck}
-          disabled={busy}
+      </div>
+      {completeFrom !== undefined && slug !== null && (
+        <CompleteFromLine orgSlug={orgSlug} slug={slug} sprint={completeFrom} />
+      )}
+      {failure !== null && (
+        <p
+          role="alert"
+          className="mx-4 mt-3 rounded-lg bg-destructive-light px-3 py-2 text-[13px] text-destructive"
         >
-          {busy ? m.sprints_create_in_progress() : m.sprints_create_button()}
+          {failure}
+        </p>
+      )}
+      <div className="mt-4 flex items-center justify-end gap-2 border-t border-border/60 px-4 py-3">
+        <Button type="button" variant="ghost" size="sm" onClick={onDone}>
+          {m.common_cancel_button()}
+        </Button>
+        <Button type="submit" size="sm" disabled={!canSubmit}>
+          {startsNow
+            ? m.sprints_create_dialog_submit_start()
+            : m.sprints_create_dialog_submit()}
         </Button>
       </div>
     </form>
+  )
+}
+
+function CompleteFromLine({
+  orgSlug,
+  slug,
+  sprint
+}: Readonly<{ orgSlug: string; slug: string; sprint: Group }>) {
+  const unfinished = useUnfinishedCount({ orgSlug, slug, sprint })
+  return (
+    <div className="flex items-center pr-4 pl-1.5">
+      <span className="flex h-8 min-w-0 items-center gap-1.5 px-2.5 text-xs text-muted-foreground">
+        <ArrowRightLeft className="size-3.5 shrink-0" strokeWidth={1.75} />
+        {m.sprints_create_dialog_complete_prefix()}
+        <span className="inline-flex h-5 min-w-0 items-center gap-1 rounded-md bg-hover px-1.5 text-foreground">
+          <SprintStateIcon sprint={sprint} size="xs" />
+          <span className="truncate">{sprint.name}</span>
+        </span>
+        {unfinished !== null && unfinished > 0 && (
+          <span className="shrink-0">
+            {m.sprints_create_dialog_complete_moves({ count: unfinished })}
+          </span>
+        )}
+      </span>
+    </div>
   )
 }

@@ -1,6 +1,9 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { GroupPolicy, ProjectPolicy } from "@pp/access/policies"
-import type { ProjectDetail as ProjectDetailType } from "@pp/shared"
+import {
+  sprintState,
+  type ProjectDetail as ProjectDetailType
+} from "@pp/shared"
 import { Link, useMatches } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -37,12 +40,16 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { ActiveSprintLine } from "@/features/sprints/components/ActiveSprintLine"
+import { BacklogCommandScope } from "@/features/sprints/components/BacklogCommandScope"
+import { CompleteSprintButton } from "@/features/sprints/components/CompleteSprintMenu"
+import { SprintCommandScope } from "@/features/sprints/components/SprintCommandScopes"
 import {
   SprintDeleteMenu,
   SprintNameField,
   SprintStatusSelect,
   SprintSubtitle
 } from "@/features/sprints/components/SprintHeaderFields"
+import { SprintStartButton } from "@/features/sprints/components/SprintStartButton"
 import { useProjectActor } from "@/hooks/useActor"
 import { springs, transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
@@ -121,12 +128,33 @@ export function ProjectHeader({
     : undefined
   const sprintMissing = sprintGroupId != null && sprintsLoaded && !sprint
 
+  const onBacklog = matches.some(
+    (mt) =>
+      mt.routeId === "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/"
+  )
+
   const mode = sprintGroupId ? `sprint:${sprintGroupId}` : "project"
   const isCompleted = sprint?.completedAt != null
   const canPlan = GroupPolicy.can(actor, "sprint", "manage")
 
   return (
     <LayoutGroup id={`project-header-${slug}`}>
+      {sprint ? (
+        <SprintCommandScope
+          orgSlug={orgSlug}
+          slug={slug}
+          sprint={sprint}
+          sprints={sprints}
+          canPlan={canPlan}
+        />
+      ) : onBacklog ? (
+        <BacklogCommandScope
+          orgSlug={orgSlug}
+          slug={slug}
+          sprints={sprints}
+          canPlan={canPlan}
+        />
+      ) : null}
       <header className="flex items-start gap-3">
         <MorphSlot
           slotKey={mode}
@@ -235,7 +263,13 @@ export function ProjectHeader({
           {sprintGroupId ? (
             sprint ? (
               canPlan ? (
-                <SprintDeleteMenu sprint={sprint} sprints={sprints} />
+                <div className="flex items-center gap-2">
+                  <SprintStartButton sprint={sprint} />
+                  {sprintState(sprint) === "active" && (
+                    <CompleteSprintButton sprint={sprint} sprints={sprints} />
+                  )}
+                  <SprintDeleteMenu sprint={sprint} />
+                </div>
               ) : null
             ) : sprintMissing ? null : (
               <div className="size-8" />

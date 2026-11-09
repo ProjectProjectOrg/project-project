@@ -1046,6 +1046,7 @@ export const Tools = Toolkit.make(
       orgSlug,
       projectSlug,
       name: CreateGroupInput.fields.name,
+      body: CreateGroupInput.fields.body,
       color: CreateGroupInput.fields.color,
       startsAt: CreateGroupInput.fields.startsAt,
       endsAt: CreateGroupInput.fields.endsAt,

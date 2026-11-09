@@ -164,9 +164,9 @@ export function SlashMenuPlugin({
           KEY_TAB_COMMAND,
           (event) => {
             if (!openRef.current) return false
-            event.preventDefault()
             const tabs = menuRef.current.tabs.map((entry) => entry.tab)
-            if (tabs.length < 2) return true
+            if (tabs.length < 2) return false
+            event.preventDefault()
             switchTab(
               cycleSlashTab(tabs, menuRef.current.tab, event.shiftKey ? -1 : 1)
             )

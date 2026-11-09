@@ -25,10 +25,17 @@ import {
   Unlink,
   type LucideIcon
 } from "lucide-react"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { useEffect, useState, type ReactNode } from "react"
-import { createPortal } from "react-dom"
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject
+} from "react"
 
+import { Popover as PopoverRoot, PopoverContent } from "@/components/ui/popover"
 import {
   Tooltip,
   TooltipContent,
@@ -74,19 +81,14 @@ const LIST_BLOCKS: ReadonlySet<SlashBasicKind> = new Set(
   Object.values(LIST_KINDS)
 )
 
-const TOOLBAR_HEIGHT = 36
-const EDGE = 8
-const HALF_WIDTH = 175
 const DRAG_DISTANCE = 4
 
-type Anchor = Readonly<{ top: number; left: number; side: "top" | "bottom" }>
-
-type Toolbar = Anchor &
-  Readonly<{
-    formats: ReadonlySet<TextFormatType>
-    link: boolean
-    block: SlashBasicKind | null
-  }>
+type Toolbar = Readonly<{
+  rect: DOMRect
+  formats: ReadonlySet<TextFormatType>
+  link: boolean
+  block: SlashBasicKind | null
+}>
 
 function $blockOf(selection: RangeSelection): SlashBasicKind | null {
   const anchor = selection.anchor.getNode()
@@ -99,35 +101,15 @@ function $blockOf(selection: RangeSelection): SlashBasicKind | null {
   return null
 }
 
-function anchorFor(rect: DOMRect, bounds: DOMRect): Anchor {
-  const above = rect.top - TOOLBAR_HEIGHT - EDGE
-  const side = above < EDGE ? "bottom" : "top"
-  return {
-    side,
-    top: side === "top" ? above : rect.bottom + EDGE,
-    left: Math.max(
-      Math.min(rect.left + rect.width / 2, bounds.right - HALF_WIDTH),
-      bounds.left + HALF_WIDTH
-    )
-  }
-}
+type ToolbarState = Omit<Toolbar, "rect">
 
-function readToolbar(editor: LexicalEditor): Toolbar | null {
-  const root = editor.getRootElement()
-  const native = window.getSelection()
-  if (root === null || native === null || native.rangeCount === 0) return null
-  if (!root.contains(native.anchorNode)) return null
-  if (!root.contains(document.activeElement)) return null
+function readState(editor: LexicalEditor): ToolbarState | null {
   return editor.getEditorState().read(() => {
     const selection = $getSelection()
     if (!$isRangeSelection(selection) || selection.isCollapsed()) return null
     if (selection.getTextContent().trim() === "") return null
     const parent = selection.anchor.getNode().getParent()
     return {
-      ...anchorFor(
-        native.getRangeAt(0).getBoundingClientRect(),
-        root.getBoundingClientRect()
-      ),
       formats: new Set(
         TEXT_FORMATS.flatMap(({ format }) =>
           selection.hasFormat(format) ? [format] : []
@@ -139,14 +121,43 @@ function readToolbar(editor: LexicalEditor): Toolbar | null {
   })
 }
 
+function readToolbar(
+  editor: LexicalEditor,
+  focused: Toolbar | null
+): Toolbar | null {
+  if (focused !== null) {
+    const state = readState(editor)
+    return state === null ? focused : { ...focused, ...state }
+  }
+  const root = editor.getRootElement()
+  const native = window.getSelection()
+  if (root === null || native === null || native.rangeCount === 0) return null
+  if (!root.contains(native.anchorNode)) return null
+  if (!root.contains(document.activeElement)) return null
+  const state = readState(editor)
+  if (state === null) return null
+  return { rect: native.getRangeAt(0).getBoundingClientRect(), ...state }
+}
+
+const TOOLBAR_SHORTCUT = "Alt+F10"
+
+const isToolbarShortcut = (event: globalThis.KeyboardEvent) =>
+  event.altKey && event.key === "F10"
+
 function ToolbarButton({
   label,
   active,
+  toggle = true,
+  tabbable,
+  onFocus,
   onPress,
   children
 }: Readonly<{
   label: string
   active: boolean
+  toggle?: boolean
+  tabbable: boolean
+  onFocus: () => void
   onPress: () => void
   children: ReactNode
 }>) {
@@ -157,7 +168,9 @@ function ToolbarButton({
           <button
             type="button"
             aria-label={label}
-            aria-pressed={active}
+            aria-pressed={toggle ? active : undefined}
+            tabIndex={tabbable ? 0 : -1}
+            onFocus={onFocus}
             onMouseDown={(event) => event.preventDefault()}
             onClick={onPress}
             className={cn(
@@ -179,87 +192,110 @@ function ToolbarButton({
   )
 }
 
-const SURFACE =
-  "fixed z-50 -translate-x-1/2 rounded-lg border border-border bg-popover p-1 shadow-md"
+const STAY_ABOVE = {
+  side: "none",
+  align: "shift",
+  fallbackAxisSide: "none"
+} as const
 
 function Popover({
-  anchor,
-  className,
-  children,
-  ...props
+  rect,
+  boundary,
+  open,
+  onEscape,
+  children
 }: Readonly<{
-  anchor: Anchor
-  className?: string
+  rect: DOMRect | null
+  boundary: HTMLElement | null
+  open: boolean
+  onEscape?: () => void
   children: ReactNode
-  role?: string
-  "aria-label"?: string
 }>) {
-  const reduced = useReducedMotion() === true
-  const offset = reduced ? 0 : anchor.side === "top" ? 8 : -8
-  const scale = reduced ? 1 : 0.95
+  const anchor = useMemo(
+    () => (rect === null ? null : { getBoundingClientRect: () => rect }),
+    [rect]
+  )
   return (
-    <motion.div
-      {...props}
-      initial={{ opacity: 0, scale, y: offset }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale }}
-      transition={{ duration: 0.15, ease: "easeOut" }}
-      className={cn(
-        SURFACE,
-        anchor.side === "top" ? "origin-bottom" : "origin-top",
-        className
-      )}
-      style={{ top: anchor.top, left: anchor.left }}
+    <PopoverRoot
+      open={open}
+      onOpenChange={(next, details) => {
+        if (!next && details.reason === "escape-key") onEscape?.()
+      }}
     >
-      {children}
-    </motion.div>
+      <PopoverContent
+        anchor={anchor}
+        side="top"
+        align="center"
+        sideOffset={8}
+        collisionAvoidance={STAY_ABOVE}
+        collisionBoundary={boundary ?? undefined}
+        collisionPadding={0}
+        initialFocus={false}
+        finalFocus={false}
+        className="rounded-lg border-border p-1 shadow-md"
+      >
+        {children}
+      </PopoverContent>
+    </PopoverRoot>
   )
 }
 
 function LinkInput({
-  anchor,
   onApply,
   onCancel
 }: Readonly<{
-  anchor: Anchor
   onApply: (url: string) => void
   onCancel: () => void
 }>) {
   const [url, setUrl] = useState("")
   return (
-    <Popover anchor={anchor}>
-      <input
-        autoFocus
-        value={url}
-        placeholder={m.editor_format_link_placeholder()}
-        aria-label={m.editor_format_link()}
-        onChange={(event) => setUrl(event.target.value)}
-        onBlur={onCancel}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") onCancel()
-          if (event.key !== "Enter") return
+    <input
+      autoFocus
+      value={url}
+      placeholder={m.editor_format_link_placeholder()}
+      aria-label={m.editor_format_link()}
+      onChange={(event) => setUrl(event.target.value)}
+      onBlur={onCancel}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
           event.preventDefault()
-          if (url.trim() === "") onCancel()
-          else onApply(url.trim())
-        }}
-        className="h-7 w-64 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground"
-      />
-    </Popover>
+          event.stopPropagation()
+          onCancel()
+          return
+        }
+        if (event.key !== "Enter") return
+        event.preventDefault()
+        if (url.trim() === "") onCancel()
+        else onApply(url.trim())
+      }}
+      className="h-7 w-64 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground"
+    />
   )
 }
 
 export function FormattingToolbarPlugin() {
   const [editor] = useLexicalComposerContext()
   const [toolbar, setToolbar] = useState<Toolbar | null>(null)
+  const toolbarRef = useRef<HTMLDivElement>(null)
+  const [shown, setShown] = useState<Toolbar | null>(null)
+  const [root, setRoot] = useState<HTMLElement | null>(null)
+  useEffect(() => editor.registerRootListener(setRoot), [editor])
+  if (toolbar !== null && toolbar !== shown) setShown(toolbar)
+  const shownRef = useRef<Toolbar | null>(null)
   const [linking, setLinking] = useState<Readonly<{
-    anchor: Anchor
+    rect: DOMRect
     selection: BaseSelection
   }> | null>(null)
 
   useEffect(() => {
     let press: Readonly<{ x: number; y: number }> | null = null
     const refresh = () => {
-      if (press === null) setToolbar(readToolbar(editor))
+      if (press !== null) return
+      const inToolbar =
+        toolbarRef.current?.contains(document.activeElement) ?? false
+      const next = readToolbar(editor, inToolbar ? shownRef.current : null)
+      shownRef.current = next
+      setToolbar(next)
     }
     const onPointerDown = (event: PointerEvent) => {
       const root = editor.getRootElement()
@@ -270,7 +306,18 @@ export function FormattingToolbarPlugin() {
     const onPointerMove = (event: PointerEvent) => {
       if (press === null) return
       const moved = Math.hypot(event.clientX - press.x, event.clientY - press.y)
-      if (moved > DRAG_DISTANCE) setToolbar(null)
+      if (moved > DRAG_DISTANCE) {
+        shownRef.current = null
+        setToolbar(null)
+      }
+    }
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (!isToolbarShortcut(event)) return
+      const button =
+        toolbarRef.current?.querySelector<HTMLElement>("[tabindex='0']")
+      if (!button) return
+      event.preventDefault()
+      button.focus()
     }
     const onPointerUp = () => {
       if (press === null) return
@@ -285,16 +332,26 @@ export function FormattingToolbarPlugin() {
     document.addEventListener("pointercancel", onPointerUp, true)
     window.addEventListener("scroll", refresh, true)
     window.addEventListener("resize", refresh)
-    return mergeRegister(editor.registerUpdateListener(refresh), () => {
-      document.removeEventListener("selectionchange", refresh)
-      document.removeEventListener("focusin", refresh)
-      document.removeEventListener("pointerdown", onPointerDown, true)
-      document.removeEventListener("pointermove", onPointerMove, true)
-      document.removeEventListener("pointerup", onPointerUp, true)
-      document.removeEventListener("pointercancel", onPointerUp, true)
-      window.removeEventListener("scroll", refresh, true)
-      window.removeEventListener("resize", refresh)
-    })
+    return mergeRegister(
+      editor.registerUpdateListener(refresh),
+      editor.registerRootListener((root, previous) => {
+        previous?.removeEventListener("keydown", onKeyDown)
+        previous?.removeAttribute("aria-keyshortcuts")
+        root?.addEventListener("keydown", onKeyDown)
+        root?.setAttribute("aria-keyshortcuts", TOOLBAR_SHORTCUT)
+      }),
+      () => {
+        document.removeEventListener("selectionchange", refresh)
+        document.removeEventListener("focusin", refresh)
+        document.removeEventListener("pointerdown", onPointerDown, true)
+        document.removeEventListener("pointermove", onPointerMove, true)
+        document.removeEventListener("pointerup", onPointerUp, true)
+        document.removeEventListener("pointercancel", onPointerUp, true)
+        window.removeEventListener("scroll", refresh, true)
+        window.removeEventListener("resize", refresh)
+        editor.getRootElement()?.removeEventListener("keydown", onKeyDown)
+      }
+    )
   }, [editor])
 
   const finishLink = (url: string | null) => {
@@ -314,37 +371,95 @@ export function FormattingToolbarPlugin() {
     }
     const selection = editor.getEditorState().read(() => $getSelection())
     if (selection !== null) {
-      setLinking({ anchor: current, selection: selection.clone() })
+      setLinking({ rect: current.rect, selection: selection.clone() })
     }
   }
 
-  return createPortal(
-    <AnimatePresence>
-      {linking !== null ? (
-        <LinkInput
-          key="link"
-          anchor={linking.anchor}
-          onApply={finishLink}
-          onCancel={() => finishLink(null)}
-        />
-      ) : toolbar !== null ? (
-        <ToolbarPopover
-          key="toolbar"
-          editor={editor}
-          toolbar={toolbar}
-          onLink={() => startLink(toolbar)}
-        />
-      ) : null}
-    </AnimatePresence>,
-    document.body
+  return (
+    <>
+      <Popover
+        rect={linking?.rect ?? null}
+        boundary={root}
+        open={linking !== null}
+      >
+        <LinkInput onApply={finishLink} onCancel={() => finishLink(null)} />
+      </Popover>
+      <Popover
+        rect={shown?.rect ?? null}
+        boundary={root}
+        open={toolbar !== null && linking === null}
+        onEscape={() => {
+          shownRef.current = null
+          setToolbar(null)
+        }}
+      >
+        {shown !== null && (
+          <ToolbarButtons
+            ref={toolbarRef}
+            editor={editor}
+            toolbar={shown}
+            onLink={() => startLink(shown)}
+          />
+        )}
+      </Popover>
+    </>
   )
 }
 
-function ToolbarPopover({
+const toolbarMove = (
+  key: string,
+  index: number,
+  count: number
+): number | null => {
+  switch (key) {
+    case "ArrowRight":
+      return index + 1
+    case "ArrowLeft":
+      return index - 1
+    case "Home":
+      return 0
+    case "End":
+      return count - 1
+    default:
+      return null
+  }
+}
+
+function ToolbarButtons({
+  ref,
   editor,
   toolbar,
   onLink
-}: Readonly<{ editor: LexicalEditor; toolbar: Toolbar; onLink: () => void }>) {
+}: Readonly<{
+  ref: RefObject<HTMLDivElement | null>
+  editor: LexicalEditor
+  toolbar: Toolbar
+  onLink: () => void
+}>) {
+  const [focusIndex, setFocusIndex] = useState(0)
+  const buttonCount = TEXT_FORMATS.length + 1 + BLOCK_KINDS.length
+  const roving = (index: number) => ({
+    tabbable: index === focusIndex,
+    onFocus: () => setFocusIndex(index)
+  })
+  const focusButton = (index: number) => {
+    const buttons = ref.current?.querySelectorAll<HTMLElement>("button")
+    buttons?.[(index + buttonCount) % buttonCount]?.focus()
+  }
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const target = toolbarMove(event.key, focusIndex, buttonCount)
+    if (target !== null) {
+      event.preventDefault()
+      focusButton(target)
+      return
+    }
+    if (event.key === "Escape" || event.key === "Tab") {
+      event.preventDefault()
+      event.stopPropagation()
+      editor.focus()
+    }
+  }
+
   const toggleBlock = (kind: SlashBasicKind) =>
     editor.update(() => {
       const selection = $getSelection()
@@ -357,15 +472,18 @@ function ToolbarPopover({
 
   return (
     <TooltipProvider>
-      <Popover
-        anchor={toolbar}
+      <div
+        ref={ref}
         role="toolbar"
         aria-label={m.editor_format_toolbar()}
+        aria-orientation="horizontal"
+        onKeyDown={onKeyDown}
         className="flex items-center gap-0.5"
       >
-        {TEXT_FORMATS.map(({ format, icon: Icon, label }) => (
+        {TEXT_FORMATS.map(({ format, icon: Icon, label }, index) => (
           <ToolbarButton
             key={format}
+            {...roving(index)}
             label={label()}
             active={toolbar.formats.has(format)}
             onPress={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, format)}
@@ -378,6 +496,8 @@ function ToolbarPopover({
             toolbar.link ? m.editor_format_unlink() : m.editor_format_link()
           }
           active={toolbar.link}
+          toggle={false}
+          {...roving(TEXT_FORMATS.length)}
           onPress={onLink}
         >
           {toolbar.link ? (
@@ -387,11 +507,12 @@ function ToolbarPopover({
           )}
         </ToolbarButton>
         <span aria-hidden className="mx-1 h-4 w-px bg-border" />
-        {BLOCK_KINDS.map((kind) => {
+        {BLOCK_KINDS.map((kind, index) => {
           const Icon = BASIC_ICONS[kind]
           return (
             <ToolbarButton
               key={kind}
+              {...roving(TEXT_FORMATS.length + 1 + index)}
               label={basicLabel(kind)}
               active={toolbar.block === kind}
               onPress={() => toggleBlock(kind)}
@@ -400,7 +521,7 @@ function ToolbarPopover({
             </ToolbarButton>
           )
         })}
-      </Popover>
+      </div>
     </TooltipProvider>
   )
 }
