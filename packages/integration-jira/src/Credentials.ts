@@ -378,6 +378,10 @@ const make = Effect.gen(function* () {
           and(
             eq(userJiraIntegration.userId, userId),
             eq(userJiraIntegration.status, "active"),
+            eq(
+              userJiraIntegration.encryptedRefreshToken,
+              row.encryptedRefreshToken
+            ),
             or(
               isNull(userJiraIntegration.refreshLeaseId),
               lte(
