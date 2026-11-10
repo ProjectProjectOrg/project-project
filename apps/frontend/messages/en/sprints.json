@@ -14,6 +14,8 @@
   "sprints_add_epic_toggle_hint": "toggle",
   "sprints_add_tickets_in_other_sprint": "in {name}",
   "sprints_back_to_tickets": "Back to tickets",
+  "sprints_board_column_collapse": "Collapse {status}",
+  "sprints_board_column_expand": "Expand {status}",
   "sprints_board_reorder_banner_cancel": "Cancel",
   "sprints_board_reorder_banner_message": "Drag column headers to reorder.",
   "sprints_board_reorder_banner_save": "Save order",

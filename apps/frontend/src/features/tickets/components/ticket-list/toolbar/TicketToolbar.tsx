@@ -19,6 +19,7 @@ export function TicketToolbar({
   scopeKey,
   viewControls,
   viewOptionsVariant = "panel",
+  boardScope,
   children
 }: TicketToolbarProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -53,7 +54,9 @@ export function TicketToolbar({
     onQueryChange({ sort: query.sort })
   }
   const hasActiveFilters =
-    !!query.status?.length || activeFilterCount(query, filters) > 0 || !!query.q
+    (!boardScope && !!query.status?.length) ||
+    activeFilterCount(query, filters) > 0 ||
+    !!query.q
 
   return (
     <TicketToolbarContext
@@ -65,6 +68,7 @@ export function TicketToolbar({
         counts,
         filters,
         estimation,
+        boardScope,
         search,
         searchActive,
         controlsCompact,
@@ -82,7 +86,7 @@ export function TicketToolbar({
         {measured && (
           <div className="relative flex flex-wrap items-center gap-2">
             {children}
-            <Status />
+            {!boardScope && <Status />}
             {viewOptionsVariant === "legacy" ? (
               <>
                 <LegacyViewControls showSort={showSort} />

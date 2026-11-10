@@ -28,9 +28,11 @@ import {
 } from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { SprintBoardColumn } from "@/features/sprints/components/SprintBoardColumn"
+import { useBoardColumns } from "@/features/sprints/hooks/useBoardColumns"
 import { useBoardViewport } from "@/features/sprints/hooks/useBoardViewport"
 import { useHorizontalAutoScroll } from "@/features/sprints/hooks/useHorizontalAutoScroll"
 import { useReorderMode } from "@/features/sprints/hooks/useReorderMode"
+import { visibleColumns } from "@/features/sprints/lib/boardColumns"
 import {
   boardStatusesFor,
   isDragData,
@@ -113,13 +115,11 @@ function BacklogBoardContent({
 
   const registry = useContext(RegistryContext)
 
-  const statusSlugs = useMemo(() => {
-    const all = boardStatusesFor(statuses)
-    const requested = query.status
-    return requested !== undefined && requested.length > 0
-      ? all.filter((s) => requested.includes(s))
-      : all
-  }, [statuses, query.status])
+  const layout = useBoardColumns("backlog")
+  const statusSlugs = useMemo(
+    () => visibleColumns(boardStatusesFor(statuses), layout.hidden),
+    [statuses, layout.hidden]
+  )
 
   const order =
     dragOrder === null
@@ -204,6 +204,8 @@ function BacklogBoardContent({
               lastFlash={null}
               reorderMode={reorderMode}
               onActivateReorder={onEnterReorder}
+              collapsed={layout.collapsed.includes(status)}
+              onToggleCollapsed={() => layout.toggleCollapsed(status)}
               footer={
                 column?.nextCursor != null ? (
                   <ColumnLoadMore

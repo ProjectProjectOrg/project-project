@@ -35,11 +35,11 @@ it("adopts an explicit URL view separately when switching scopes", () => {
 })
 
 it("reads the same view outside React that the hook renders", () => {
-  expect(readViewPreference("acme", "project", "sprints")).toBe("list")
+  expect(readViewPreference("acme", "project", "sprints")).toBe("board")
   const { result } = renderHook(() =>
     useProjectView("acme", "project", undefined, "sprints")
   )
-  act(() => result.current.setPreference("board"))
-  expect(readViewPreference("acme", "project", "sprints")).toBe("board")
+  act(() => result.current.setPreference("list"))
+  expect(readViewPreference("acme", "project", "sprints")).toBe("list")
   expect(readViewPreference("acme", "project", "backlog")).toBe("list")
 })

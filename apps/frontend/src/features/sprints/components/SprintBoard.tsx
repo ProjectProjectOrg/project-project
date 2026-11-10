@@ -37,8 +37,10 @@ import { useReorderMode } from "@/features/sprints/hooks/useReorderMode"
 import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 
+import { useBoardColumns } from "../hooks/useBoardColumns"
 import { useBoardTickets } from "../hooks/useBoardTickets"
 import { useBoardViewport } from "../hooks/useBoardViewport"
+import { visibleColumns } from "../lib/boardColumns"
 import {
   boardStatusesFor,
   groupTicketsByStatus,
@@ -130,7 +132,8 @@ function SprintBoardContent({
   const registry = useContext(RegistryContext)
   const statusSlugs = useMemo(() => boardStatusesFor(statuses), [statuses])
 
-  const order = dragOrder ?? statusSlugs
+  const layout = useBoardColumns("sprints")
+  const order = visibleColumns(dragOrder ?? statusSlugs, layout.hidden)
 
   const [lastFlash, setLastFlash] = useState<{
     id: TicketId
@@ -147,12 +150,12 @@ function SprintBoardContent({
   )
 
   const grouped = useMemo(
-    () => groupTicketsByStatus(matchingTickets, order),
-    [matchingTickets, order]
+    () => groupTicketsByStatus(matchingTickets, statusSlugs),
+    [matchingTickets, statusSlugs]
   )
   const unfilteredGrouped = useMemo(
-    () => groupTicketsByStatus(board.tickets, order),
-    [board.tickets, order]
+    () => groupTicketsByStatus(board.tickets, statusSlugs),
+    [board.tickets, statusSlugs]
   )
   const unfilteredGroupedRef = useRef(unfilteredGrouped)
   unfilteredGroupedRef.current = unfilteredGrouped
@@ -231,6 +234,8 @@ function SprintBoardContent({
             lastFlash={lastFlash}
             reorderMode={reorderMode}
             onActivateReorder={onEnterReorder}
+            collapsed={layout.collapsed.includes(status)}
+            onToggleCollapsed={() => layout.toggleCollapsed(status)}
           />
         ))}
       </Reorder.Group>

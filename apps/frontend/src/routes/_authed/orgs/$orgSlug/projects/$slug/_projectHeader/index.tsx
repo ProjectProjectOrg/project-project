@@ -43,6 +43,8 @@ export const Route = createFileRoute(
     registry.mount(openEpicTitles(epicsRequest(orgSlug, slug)))()
     const viewerId = registry.get(currentUserId)
     const view = query.view ?? readViewPreference(orgSlug, slug, "backlog")
+    const { status: _status, ...boardQuery } = query
+    const ticketQuery = view === "board" ? boardQuery : query
     const grouping =
       view === "board"
         ? "status"
@@ -50,11 +52,11 @@ export const Route = createFileRoute(
           ? undefined
           : readBacklogGrouping(viewerId, orgSlug, slug)
     if (grouping !== "sprint") {
-      registry.mount(backlog(backlogRequest(orgSlug, slug, query)))()
+      registry.mount(backlog(backlogRequest(orgSlug, slug, ticketQuery)))()
     }
     if (grouping !== "status") {
       registry.mount(
-        sprintSections(sprintSectionsRequest(orgSlug, slug, query))
+        sprintSections(sprintSectionsRequest(orgSlug, slug, ticketQuery))
       )()
     }
   },

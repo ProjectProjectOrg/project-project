@@ -53,6 +53,7 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { SORT_FIELD_LABELS, sortKeysFor } from "../sort"
+import { BoardColumnsPicker } from "./BoardColumnsPicker"
 import { useTicketToolbar } from "./context"
 import {
   activeFilterCount as countActiveFilters,
@@ -70,11 +71,13 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
     filters,
     members,
     estimation,
+    boardScope,
     searchActive: compact
   } = useTicketToolbar()
   const value = query
   const activeFilterCount =
-    countActiveFilters(value, filters) + (query.status?.length ? 1 : 0)
+    countActiveFilters(value, filters) +
+    (!boardScope && query.status?.length ? 1 : 0)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [anchor, setAnchor] =
     useState<ComponentProps<typeof PopoverContent>["anchor"]>()
@@ -134,8 +137,9 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
           <div className="min-h-0 space-y-3 overflow-y-auto overscroll-contain p-3">
             {viewControls}
             {showSort && <Ordering />}
+            {boardScope && <BoardColumnsPicker scope={boardScope} />}
             <div className="space-y-2">
-              <Status variant="panel" />
+              {!boardScope && <Status variant="panel" />}
               {filters.map((dimension) => {
                 switch (dimension) {
                   case "archived":

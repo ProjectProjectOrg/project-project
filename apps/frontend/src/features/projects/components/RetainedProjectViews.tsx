@@ -21,6 +21,12 @@ const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 const defaultTicketListQuery = Schema.decodeSync(TicketListQuery)({})
 const encodeTicketListQuery = Schema.encodeSync(TicketListQuery)
 
+const forView = (query: TicketListQuery, view: string): TicketListQuery => {
+  if (view !== "board" || query.status === undefined) return query
+  const { status: _status, ...rest } = query
+  return rest
+}
+
 export function RetainedProjectViews() {
   const { orgSlug, slug } = useProjectRoute()
   const { estimation } = useProject()
@@ -137,8 +143,11 @@ export function RetainedProjectViews() {
       ...query,
       sort: normalizeEstimateSort(estimation, query.sort)
     }
-    return normalized === undefined ? next : { ...next, estimate: normalized }
-  }, [lastBacklog, estimation])
+    return forView(
+      normalized === undefined ? next : { ...next, estimate: normalized },
+      backlogView
+    )
+  }, [lastBacklog, estimation, backlogView])
   const sprintId = lastSprint ? decodeGroupId(lastSprint.groupId) : null
   const sprintQuery = useMemo(() => {
     if (!lastSprint) return defaultTicketListQuery
@@ -149,8 +158,11 @@ export function RetainedProjectViews() {
       sort: normalizeEstimateSort(estimation, query.sort),
       groupId: sprintId ? [sprintId] : query.groupId
     }
-    return normalized === undefined ? next : { ...next, estimate: normalized }
-  }, [lastSprint, sprintId, estimation])
+    return forView(
+      normalized === undefined ? next : { ...next, estimate: normalized },
+      sprintView
+    )
+  }, [lastSprint, sprintId, estimation, sprintView])
 
   return (
     <Activity mode={backlog || sprint ? "visible" : "hidden"}>
