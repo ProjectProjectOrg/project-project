@@ -15,6 +15,7 @@ import {
 
 const MAX_HEIGHT = 384
 const IDLE_MS = 2000
+const LIFT = "0 1px 3px oklch(0 0 0 / 18%), 0 0 0 1px oklch(0 0 0 / 6%)"
 
 const REVEAL = "transition-[opacity] duration-150 ease-out"
 const SHOWN = "opacity-100"
@@ -232,6 +233,7 @@ export function AttachmentVideo({
           size="icon-lg"
           aria-label={m.editor_video_play()}
           className="absolute inset-0 m-auto size-12"
+          style={{ boxShadow: LIFT }}
           onClick={actions.toggle}
         >
           <Play className="translate-x-px fill-current" strokeWidth={2.5} />
@@ -250,7 +252,7 @@ export function AttachmentVideo({
           <motion.span
             layoutId={`${layoutId}-surface`}
             transition={transitions.morph}
-            style={{ borderRadius: 0 }}
+            style={{ borderRadius: 0, boxShadow: LIFT }}
             className="absolute inset-0 -z-10 bg-foreground"
           />
           <AttachmentVideoControls
@@ -274,7 +276,7 @@ export function AttachmentVideo({
           <motion.span
             layoutId={`${layoutId}-surface`}
             transition={transitions.morph}
-            style={{ borderRadius: 20 }}
+            style={{ borderRadius: 20, boxShadow: LIFT }}
             className="absolute inset-0 -z-10 bg-foreground"
           />
           <motion.span
