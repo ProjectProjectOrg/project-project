@@ -34,7 +34,18 @@ const PersistedJiraMigrationScanSummary = Schema.Struct({
   scannedAt: Schema.DateTimeUtcFromString
 })
 
+export const JiraMigrationGate = Schema.Union([
+  Schema.TaggedStruct("StartImport", { version: Schema.Literal(1), scanRevision: Schema.Int }),
+  Schema.TaggedStruct("Retry", { version: Schema.Literal(1), failureSequence: Schema.Int, phase: Schema.Literals(["scan", "import"]) })
+])
+export type JiraMigrationGate = typeof JiraMigrationGate.Type
+
 const JiraMigrationCheckpoint = Schema.Struct({
+  currentGate: Schema.optional(JiraMigrationGate),
+  acceptedConfiguration: Schema.optional(Schema.Struct({
+    configurationRevision: Schema.Int,
+    configuration: JiraMigrationConfiguration
+  })),
   scanFailureReceipts: Schema.optional(
     Schema.Record(Schema.String, Schema.Int)
   ),
@@ -62,7 +73,8 @@ export const actionsFor = (row: JiraMigrationRow): JiraMigrationActions => ({
   canRun:
     row.cleanupExecutionId === null &&
     (row.status === "ready" ||
-      (row.status === "failed" && row.failureRetryable === true)),
+      (row.status === "failed" && row.failureRetryable === true) ||
+      row.status === "reconnect_required"),
   canRescan:
     row.cleanupExecutionId === null &&
     [
@@ -250,6 +262,21 @@ export const isCompleteJiraConfiguration = (
   )
 }
 
+export const isAllowedAttachmentCorrection = (
+  accepted: JiraMigrationConfiguration,
+  configuration: JiraMigrationConfiguration,
+  unresolved: ReadonlyArray<string>
+) => {
+  const unchanged = Schema.toEquivalence(JiraMigrationConfiguration)(accepted, {
+    ...configuration,
+    skippedAttachmentIds: accepted.skippedAttachmentIds,
+    attachmentSkipsAccepted: accepted.attachmentSkipsAccepted
+  })
+  return unchanged && configuration.attachmentSkipsAccepted &&
+    accepted.skippedAttachmentIds.every((id) => configuration.skippedAttachmentIds.includes(id)) &&
+    configuration.skippedAttachmentIds.every((id) => accepted.skippedAttachmentIds.includes(id) || unresolved.includes(id))
+}
+
 function enrichPersistedCheckpoint(value: unknown): unknown {
   if (!Predicate.isObject(value) || !Predicate.isObject(value.scan))
     return value
@@ -350,6 +377,7 @@ export interface SaveConfigurationInput {
   readonly migrationId: string
   readonly expectedRevision: number
   readonly configuration: JiraMigrationConfiguration
+  readonly unresolvedFailedAttachmentIds?: ReadonlyArray<string>
 }
 export type ProjectionPatch = Partial<
   Pick<
@@ -381,6 +409,7 @@ export const JiraScanResumeResult = Schema.Union([
 export type JiraScanResumeResult = typeof JiraScanResumeResult.Type
 
 export interface JiraMigrationProjectionShape {
+  readonly finalizeInterrupted: (fence: AttemptFence) => Effect.Effect<boolean, JiraError>
   readonly recordScanFailure: (
     fence: AttemptFence,
     operationKey: string,
@@ -681,7 +710,7 @@ export class JiraMigrationProjection extends Context.Service<
             ...(patch.checkpoint === undefined
               ? {}
               : {
-                  checkpoint: sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) || (coalesce(${patch.checkpoint}::jsonb, '{}'::jsonb) - 'scanFailureReceipts' - 'scanPages')`
+                  checkpoint: sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) || (coalesce(${patch.checkpoint}::jsonb, '{}'::jsonb) - 'scanFailureReceipts' - 'scanPages' - 'currentGate' - 'acceptedConfiguration')`
                 }),
             updatedAt: now,
             revision: sqlFragment`${jiraMigration.revision} + 1`
@@ -710,6 +739,7 @@ export class JiraMigrationProjection extends Context.Service<
                 failureReason: failure.reason,
                 failureRetryable: failure.retryable,
                 failureSequence: sqlFragment`${jiraMigration.failureSequence} + 1`,
+                checkpoint: sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) || case when ${jiraMigration.scanAt} is not null and not (coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) ? 'acceptedConfiguration') then '{}'::jsonb else jsonb_build_object('currentGate', jsonb_build_object('version', 1, '_tag', 'Retry', 'failureSequence', ${jiraMigration.failureSequence} + 1, 'phase', case when ${jiraMigration.scanAt} is null then 'scan' else 'import' end)) end`,
                 revision: sqlFragment`${jiraMigration.revision} + 1`,
                 updatedAt: DateTime.toDate(now),
                 finishedAt: DateTime.toDate(now),
@@ -768,6 +798,7 @@ export class JiraMigrationProjection extends Context.Service<
                       JiraMigrationCheckpoint
                     )({
                       ...checkpoint,
+                      ...(!alreadyFailed ? { currentGate: { version: 1 as const, _tag: "Retry" as const, failureSequence: sequence, phase: "scan" as const } } : {}),
                       scanFailureReceipts: {
                         ...checkpoint.scanFailureReceipts,
                         [operationKey]: sequence
@@ -940,7 +971,7 @@ export class JiraMigrationProjection extends Context.Service<
               if (row.status !== "scanning") return false
               const encoded = yield* Schema.encodeEffect(
                 JiraMigrationCheckpoint
-              )({ ...checkpoint, scan })
+              )({ ...checkpoint, scan, currentGate: { version: 1, _tag: "StartImport", scanRevision: row.scanRevision } })
               const now = yield* DateTime.nowAsDate
               yield* tx
                 .update(jiraMigration)
@@ -963,6 +994,7 @@ export class JiraMigrationProjection extends Context.Service<
         "JiraMigrationProjection.saveConfiguration"
       )(function* (input: SaveConfigurationInput) {
         const row = yield* owned(input.owner, input.migrationId)
+        if (row.revision !== input.expectedRevision) return yield* conflict()
         if (!actionsFor(row).canConfigure)
           return yield* new Validation({
             reason: "jira_migration_not_configurable"
@@ -972,6 +1004,11 @@ export class JiraMigrationProjection extends Context.Service<
           return yield* new Validation({
             reason: "jira_migration_scan_incomplete"
           })
+        if (row.destinationProjectId !== null) {
+          const accepted = checkpoint.acceptedConfiguration?.configuration
+          if (!accepted || !isAllowedAttachmentCorrection(accepted, input.configuration, input.unresolvedFailedAttachmentIds ?? []))
+            return yield* new Validation({ reason: "jira_migration_not_configurable" })
+        }
         const complete = isCompleteJiraConfiguration(
           input.configuration,
           checkpoint.scan.requirements
@@ -992,16 +1029,22 @@ export class JiraMigrationProjection extends Context.Service<
           if (row.revision !== input.expectedRevision) return yield* conflict()
           if (input.action === "run") {
             if (!actionsFor(row).canRun)
-              return yield* new Validation({
-                reason:
-                  row.status === "reconnect_required"
-                    ? "jira_migration_reconnect_required"
-                    : "jira_migration_run_not_allowed"
-              })
-            const scanRetry = row.status === "failed" && row.scanAt === null
+              return yield* new Validation({ reason: "jira_migration_run_not_allowed" })
+            const checkpoint = yield* decodeCheckpoint(row.checkpoint)
+            const gate = checkpoint.currentGate
+            const scanRetry = gate?._tag === "Retry" ? gate.phase === "scan" : row.scanAt === null
+            const configuration = yield* decodeConfiguration(row.configuration)
+            if (!scanRetry && (!configuration || !checkpoint.scan || !isCompleteJiraConfiguration(configuration, checkpoint.scan.requirements)))
+              return yield* new Validation({ reason: "jira_migration_run_not_allowed" })
+            const acceptedConfiguration = scanRetry ? checkpoint.acceptedConfiguration :
+              checkpoint.acceptedConfiguration && Schema.toEquivalence(JiraMigrationConfiguration)(checkpoint.acceptedConfiguration.configuration, configuration!)
+                ? checkpoint.acceptedConfiguration
+                : { configurationRevision: input.expectedRevision + 1, configuration: configuration! }
+            const acceptedCheckpoint = yield* Schema.encodeEffect(JiraMigrationCheckpoint)({ acceptedConfiguration }).pipe(Effect.mapError(databaseError))
             return yield* updateRevision(row, input.expectedRevision, {
               status: scanRetry ? "scanning" : "migrating",
-              phase: scanRetry ? "queued_scan" : row.phase,
+              phase: scanRetry ? "queued_scan" : "migrate",
+              checkpoint: sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) || ${acceptedCheckpoint}::jsonb` as unknown as JiraMigrationRow["checkpoint"],
               failureReason: null,
               failureRetryable: null,
               finishedAt: null,
@@ -1026,6 +1069,15 @@ export class JiraMigrationProjection extends Context.Service<
           })
         }
       )
+      const finalizeInterrupted: JiraMigrationProjectionShape["finalizeInterrupted"] = Effect.fn("JiraMigrationProjection.finalizeInterrupted")(function* (fence) {
+        const now = yield* DateTime.now
+        const rows = yield* db.update(jiraMigration).set({
+          status: "cancelled", phase: "cancelled", finishedAt: DateTime.toDate(now),
+          retainedUntil: DateTime.toDate(DateTime.add(now, { days: 30 })),
+          updatedAt: DateTime.toDate(now), revision: sqlFragment`${jiraMigration.revision} + 1`
+        }).where(and(fenceWhere(fence), eq(jiraMigration.status, "cancelling"), isNull(jiraMigration.cleanupExecutionId))).returning({ id: jiraMigration.id }).pipe(Effect.mapError(databaseError))
+        return rows.length > 0
+      })
       const claimCleanup: JiraMigrationProjectionShape["claimCleanup"] =
         Effect.fn("JiraMigrationProjection.claimCleanup")(
           function* (fence, input) {
@@ -1105,6 +1157,7 @@ export class JiraMigrationProjection extends Context.Service<
         )
       return JiraMigrationProjection.of({
         ensureCreated,
+        finalizeInterrupted,
         beginRescan,
         advance,
         recordFailure,

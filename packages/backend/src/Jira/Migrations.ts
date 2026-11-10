@@ -14,7 +14,9 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schedule from "effect/Schedule"
 import * as WorkflowEngine from "effect/unstable/workflow/WorkflowEngine"
-import { JiraMigrationWorkflow } from "./MigrationWorkflow"
+import { JiraMigrationWorkflow, retryDeferred, startImportDeferred } from "./MigrationWorkflow"
+import * as DurableDeferred from "effect/unstable/workflow/DurableDeferred"
+import * as Option from "effect/Option"
 import * as SqlClient from "effect/unstable/sql/SqlClient"
 import {
   attachmentIndex,
@@ -37,7 +39,9 @@ import {
   type JiraMigrationRow,
   JiraMigrationProjection,
   matchesSource,
-  fenceFor
+  fenceFor,
+  type AttemptFence,
+  type ProjectionOwner
 } from "./MigrationProjection"
 export {
   actionsFor,
@@ -509,7 +513,9 @@ export const JiraMigrationsLive = Layer.effect(
 )
 
 export const JiraMigrationsWorkflowLive = (
-  commands: Pick<JiraMigrationsShape, "run" | "cancel" | "discard">
+  commands: Pick<JiraMigrationsShape, "run" | "cancel" | "discard">,
+  prepareRescan?: (row: JiraMigrationRow) => Effect.Effect<JiraMigrationRow, JiraMigrationMutationError>,
+  configure?: JiraMigrationsShape["configure"]
 ) =>
   Layer.effect(
     JiraMigrations,
@@ -565,7 +571,7 @@ export const JiraMigrationsWorkflowLive = (
           expectedRevision: number
         ) {
           const owner = { organizationId, userId }
-          const row = yield* projection.owned(owner, migrationId)
+          let row = yield* projection.owned(owner, migrationId)
           if (row.revision !== expectedRevision || !fenceFor(row))
             return yield* new Conflict({
               reason: "jira_migration_revision_conflict"
@@ -574,11 +580,15 @@ export const JiraMigrationsWorkflowLive = (
             return yield* new Validation({
               reason: "jira_migration_rescan_not_allowed"
             })
+          if (row.destinationProjectId !== null) {
+            if (!prepareRescan) return yield* new Validation({ reason: "jira_migration_rescan_not_allowed" })
+            row = yield* prepareRescan(row)
+          }
           const command = {
             _tag: "Rescan" as const,
             supersededExecutionId: row.workflowExecutionId!,
             migrationId,
-            expectedRevision,
+            expectedRevision: row.revision,
             workflowAttempt: row.workflowAttempt + 1,
             scanRevision: row.scanRevision + 1
           }
@@ -606,7 +616,7 @@ export const JiraMigrationsWorkflowLive = (
           projection
             .owned({ organizationId, userId }, migrationId)
             .pipe(Effect.flatMap(projection.toDetail)),
-        configure: (
+        configure: configure ?? ((
           organizationId,
           userId,
           migrationId,
@@ -618,7 +628,108 @@ export const JiraMigrationsWorkflowLive = (
             migrationId,
             expectedRevision,
             configuration
-          })
+          }))
       })
     })
   )
+
+export interface JiraMigrationCleanupCommand extends AttemptFence {
+  readonly expectedRevision: number
+  readonly mode: "reset_import" | "discard"
+}
+export interface JiraMigrationCleanupCommands {
+  readonly start: (input: JiraMigrationCleanupCommand) => Effect.Effect<string, JiraMigrationMutationError>
+  readonly awaitReset: (input: JiraMigrationCleanupCommand & { readonly cleanupExecutionId: string }) => Effect.Effect<{ readonly fence: AttemptFence; readonly revision: number }, JiraMigrationMutationError>
+}
+export interface JiraMigrationMaterializationCommands {
+  readonly unresolvedFailedAttachments: (input: AttemptFence & { readonly expectedRevision: number }) => Effect.Effect<ReadonlyArray<string>, JiraMigrationMutationError>
+}
+export interface JiraMigrationRunCommand {
+  readonly owner: ProjectionOwner
+  readonly migrationId: string
+  readonly expectedRevision: number
+}
+export const submitJiraMigrationRun = Effect.fn("submitJiraMigrationRun")(function* (input: JiraMigrationRunCommand) {
+  const projection = yield* JiraMigrationProjection
+  const sql = yield* SqlClient.SqlClient
+  return yield* sql.withTransaction(Effect.gen(function* () {
+    const row = yield* projection.owned(input.owner, input.migrationId)
+    if (row.revision !== input.expectedRevision || !fenceFor(row))
+      return yield* new Conflict({ reason: "jira_migration_revision_conflict" })
+    const checkpoint = yield* decodeCheckpoint(row.checkpoint)
+    const gate = checkpoint.currentGate
+    if (!gate || (gate._tag === "StartImport" ? gate.scanRevision !== row.scanRevision : gate.failureSequence !== row.failureSequence))
+      return yield* new Validation({ reason: "jira_migration_run_not_allowed" })
+    const accepted = yield* projection.transition({ ...input, action: "run" })
+    if (gate._tag === "StartImport") {
+      const deferred = startImportDeferred(gate.scanRevision)
+      const token = DurableDeferred.tokenFromExecutionId(deferred, { workflow: JiraMigrationWorkflow, executionId: row.workflowExecutionId! })
+      yield* DurableDeferred.succeed(deferred, { token, value: { scanRevision: gate.scanRevision } })
+    } else {
+      const deferred = retryDeferred(gate.failureSequence)
+      const token = DurableDeferred.tokenFromExecutionId(deferred, { workflow: JiraMigrationWorkflow, executionId: row.workflowExecutionId! })
+      yield* DurableDeferred.succeed(deferred, { token, value: { failureSequence: gate.failureSequence } })
+    }
+    return accepted
+  })).pipe(Effect.catchTag("SqlError", () => Effect.fail(new JiraError({ reason: "server_error" }))))
+})
+
+export const JiraMigrationsDurableLive = (
+  cleanup: JiraMigrationCleanupCommands,
+  materialization: JiraMigrationMaterializationCommands
+) => Layer.unwrap(Effect.gen(function* () {
+  const projection = yield* JiraMigrationProjection
+  const sql = yield* SqlClient.SqlClient
+  const engine = yield* WorkflowEngine.WorkflowEngine
+  const provide = <A, E>(effect: Effect.Effect<A, E, JiraMigrationProjection | SqlClient.SqlClient | WorkflowEngine.WorkflowEngine>) => effect.pipe(
+    Effect.provideService(JiraMigrationProjection, projection),
+    Effect.provideService(SqlClient.SqlClient, sql),
+    Effect.provideService(WorkflowEngine.WorkflowEngine, engine)
+  )
+  const run: JiraMigrationsShape["run"] = Effect.fn("JiraMigrations.run")(function* (organizationId, userId, migrationId, expectedRevision) {
+    const owner = { organizationId, userId }
+    const accepted = yield* provide(submitJiraMigrationRun({ owner, migrationId, expectedRevision }))
+    const observed = yield* projection.owned(owner, migrationId).pipe(
+      Effect.repeat({ while: (row) => row.revision <= accepted.revision, schedule: Schedule.spaced("20 millis") }),
+      Effect.timeoutOption("2 seconds")
+    )
+    const current = Option.isSome(observed) ? observed.value : yield* projection.owned(owner, migrationId)
+    return yield* projection.toDetail(current)
+  })
+  const cancel: JiraMigrationsShape["cancel"] = Effect.fn("JiraMigrations.cancel")(function* (organizationId, userId, migrationId, expectedRevision) {
+    const owner = { organizationId, userId }
+    const row = yield* projection.owned(owner, migrationId)
+    const fence = fenceFor(row)
+    if (!fence) return yield* new Conflict({ reason: "jira_migration_revision_conflict" })
+    yield* projection.transition({ owner, migrationId, expectedRevision, action: "cancel" })
+    yield* provide(JiraMigrationWorkflow.interrupt(fence.workflowExecutionId))
+    yield* projection.finalizeInterrupted(fence)
+    return yield* projection.owned(owner, migrationId).pipe(Effect.flatMap(projection.toDetail))
+  })
+  const discard: JiraMigrationsShape["discard"] = Effect.fn("JiraMigrations.discard")(function* (organizationId, userId, migrationId) {
+    const row = yield* projection.owned({ organizationId, userId }, migrationId)
+    const fence = fenceFor(row)
+    if (!fence || !projection.actionsFor(row).canDiscard) return yield* new Validation({ reason: "jira_migration_discard_not_allowed" })
+    yield* cleanup.start({ ...fence, expectedRevision: row.revision, mode: "discard" })
+  }, Effect.catchTag("Conflict", () => Effect.fail(new Validation({ reason: "jira_migration_discard_not_allowed" }))), Effect.catchTag("JiraError", (error) => Effect.logError("Jira migration cleanup submission failed", { reason: error.reason }).pipe(Effect.andThen(Effect.fail(new Validation({ reason: "jira_migration_cleanup_failed" }))))))
+  const prepareRescan = Effect.fn("JiraMigrations.prepareRescan")(function* (row: JiraMigrationRow) {
+    const fence = fenceFor(row)
+    if (!fence) return yield* new Conflict({ reason: "jira_migration_revision_conflict" })
+    const command = { ...fence, expectedRevision: row.revision, mode: "reset_import" as const }
+    const cleanupExecutionId = yield* cleanup.start(command)
+    const reset = yield* cleanup.awaitReset({ ...command, cleanupExecutionId })
+    const current = yield* projection.owned({ organizationId: row.organizationId, userId: row.initiatedBy }, row.id)
+    if (current.revision !== reset.revision || current.workflowExecutionId !== reset.fence.workflowExecutionId || current.workflowAttempt !== reset.fence.workflowAttempt || current.id !== reset.fence.migrationId || current.destinationProjectId !== null || current.cleanupExecutionId !== null)
+      return yield* new Conflict({ reason: "jira_migration_revision_conflict" })
+    return current
+  })
+  const configure: JiraMigrationsShape["configure"] = Effect.fn("JiraMigrations.configure")(function* (organizationId, userId, migrationId, expectedRevision, configuration) {
+    const owner = { organizationId, userId }
+    const row = yield* projection.owned(owner, migrationId)
+    const fence = fenceFor(row)
+    if (!fence || row.revision !== expectedRevision) return yield* new Conflict({ reason: "jira_migration_revision_conflict" })
+    const unresolvedFailedAttachmentIds = row.destinationProjectId === null ? undefined : yield* materialization.unresolvedFailedAttachments({ ...fence, expectedRevision })
+    return yield* projection.saveConfiguration({ owner, migrationId, expectedRevision, configuration, unresolvedFailedAttachmentIds })
+  })
+  return JiraMigrationsWorkflowLive({ run, cancel, discard }, prepareRescan, configure)
+}))
