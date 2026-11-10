@@ -32,6 +32,7 @@ jobs:
           --health-retries 10
     env:
       AFFECTED: ${{ github.event_name == 'pull_request' && '--affected' || '' }}
+      TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
