@@ -6,8 +6,8 @@ import type { Command } from "@/features/command-menu/lib/commands"
 import type { BacklogGrouping } from "@/features/tickets/lib/backlogGrouping"
 import { m } from "@/paraglide/messages"
 
-import { GroupingMenu, type GroupingOption } from "./GroupingMenu"
-import { useTicketToolbar } from "./toolbar/context"
+import type { GroupingOption } from "./GroupingMenu"
+import { OptionPicker } from "./toolbar/shared"
 
 const groupingOptions = (): ReadonlyArray<GroupingOption<BacklogGrouping>> => [
   { key: "status", label: m.tickets_grouping_status(), icon: CircleDot },
@@ -23,7 +23,6 @@ export function BacklogGroupingControl({
   value: BacklogGrouping
   onChange: (value: BacklogGrouping) => void
 }>) {
-  const { controlsCompact } = useTicketToolbar()
   const scope = useMemo(
     () => ({
       commands: groupingOptions()
@@ -45,12 +44,25 @@ export function BacklogGroupingControl({
     [value, onChange]
   )
   useCommandScope(scope)
+  const options = groupingOptions()
   return (
-    <GroupingMenu
+    <OptionPicker
+      label={m.tickets_view_options_grouping()}
       value={value}
-      options={groupingOptions()}
-      onChange={onChange}
-      compact={controlsCompact}
+      onValueChange={onChange}
+      displayValue={
+        options.find((option) => option.key === value)?.label ?? value
+      }
+      items={options.map((option) => ({
+        value: option.key,
+        textValue: option.label,
+        label: (
+          <>
+            <option.icon className="size-4" strokeWidth={1.75} />
+            {option.label}
+          </>
+        )
+      }))}
     />
   )
 }

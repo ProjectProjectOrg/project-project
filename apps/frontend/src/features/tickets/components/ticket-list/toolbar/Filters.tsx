@@ -14,10 +14,10 @@ import {
   Archive,
   ChevronDown,
   OctagonMinus,
-  SlidersHorizontal,
+  ListFilter,
   UserRound
 } from "lucide-react"
-import { useRef, useState, type ComponentProps } from "react"
+import { useMemo, useRef, useState, type ComponentProps } from "react"
 
 import { CollapsingLabel } from "@/components/ui/collapsing-label"
 import { CountPill } from "@/components/ui/count-pill"
@@ -63,6 +63,7 @@ import {
   SectionLabel,
   ToolbarButton
 } from "./shared"
+import { sortTagsByColor } from "./tagOrder"
 
 export function Filters() {
   const {
@@ -106,7 +107,7 @@ export function Filters() {
                   : m.tickets_filters_aria_label()
               }
             >
-              <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+              <ListFilter className="size-4" strokeWidth={1.75} />
               <CollapsingLabel show={!compact}>
                 {m.tickets_filters_label()}
               </CollapsingLabel>
@@ -427,7 +428,10 @@ function FilterTags({
   const selectedTags = value ?? []
   const req = tagsRequest(orgSlug, slug)
   const tags = useAtomValue(tagsFor(req))
-  const tagList = Result.isSuccess(tags) ? tags.value : []
+  const tagList = useMemo(
+    () => (Result.isSuccess(tags) ? sortTagsByColor(tags.value) : []),
+    [tags]
+  )
   if (tagList.length === 0) return null
   return (
     <FilterSection>

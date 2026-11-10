@@ -107,11 +107,8 @@ export function ProjectTicketLayout({
       ? ["blocked", "type", "assignee", "tags"]
       : ["blocked", "archived", "type", "assignee", "tags"]
     : ["blocked", "archived", "type", "assignee", "sprint", "tags"]
-  const filters: ReadonlyArray<FilterDimension> = isBoard
-    ? [...scopeFilters, "subTicketExpansion"]
-    : scopeFilters
   const filterDimensions: ReadonlyArray<FilterDimension> =
-    project.estimation === "off" ? filters : [...filters, "estimate"]
+    project.estimation === "off" ? scopeFilters : [...scopeFilters, "estimate"]
   const countsSource = {
     orgSlug,
     slug,
@@ -190,15 +187,18 @@ export function ProjectTicketLayout({
                 boardScope={
                   isBoard ? (groupId ? "sprints" : "backlog") : undefined
                 }
-                viewControls={<ViewSwitcher />}
-              >
-                {!groupId && !isBoard && (
-                  <BacklogGroupingControl
-                    value={grouping}
-                    onChange={setGrouping}
-                  />
-                )}
-              </TicketToolbar>
+                viewControls={
+                  <>
+                    <ViewSwitcher />
+                    {!groupId && !isBoard && (
+                      <BacklogGroupingControl
+                        value={grouping}
+                        onChange={setGrouping}
+                      />
+                    )}
+                  </>
+                }
+              />
               {groupId && isBoard && countError && (
                 <ErrorPage
                   error={countError.error}

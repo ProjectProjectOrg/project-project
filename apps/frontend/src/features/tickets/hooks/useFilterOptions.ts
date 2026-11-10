@@ -153,8 +153,6 @@ export function useFilterOptions(
           label: tag.name,
           icon: Tag
         }))
-      case "subTicketExpansion":
-        return []
     }
   }
 

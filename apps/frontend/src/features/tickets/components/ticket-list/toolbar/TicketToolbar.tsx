@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useState } from "react"
 
 import { useTicketSearch } from "../search"
 import { TicketToolbarContext, type TicketToolbarProps } from "./context"
-import { LegacyViewControls } from "./LegacyViewControls"
+import { Filters } from "./Filters"
 import { activeFilterCount } from "./model"
 import { ClearAll, SearchInput, Status } from "./parts"
 import { ViewOptions } from "./ViewOptions"
@@ -18,9 +18,7 @@ export function TicketToolbar({
   showSort = false,
   scopeKey,
   viewControls,
-  viewOptionsVariant = "panel",
-  boardScope,
-  children
+  boardScope
 }: TicketToolbarProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
@@ -83,16 +81,9 @@ export function TicketToolbar({
         <SearchInput />
         {measured && (
           <div className="relative flex flex-wrap items-center gap-2">
-            {children}
             {!boardScope && <Status />}
-            {viewOptionsVariant === "legacy" ? (
-              <>
-                <LegacyViewControls showSort={showSort} />
-                {viewControls}
-              </>
-            ) : (
-              <ViewOptions showSort={showSort} />
-            )}
+            <Filters />
+            <ViewOptions showSort={showSort} />
             <ClearAll />
           </div>
         )}

@@ -213,13 +213,11 @@
   "tickets_filters_estimate_any": "Estimated",
   "tickets_filters_estimate_none": "Not estimated",
   "tickets_filters_estimate_stale": "Old estimate",
-  "tickets_filters_expand_sub_tickets": "Expand sub-tickets",
   "tickets_filters_label": "Filters",
   "tickets_filters_section_archived": "Archived",
   "tickets_filters_section_assignee": "Assignee",
   "tickets_filters_section_estimate": "Estimate",
   "tickets_filters_section_sprint": "Sprint",
-  "tickets_filters_section_status": "Status",
   "tickets_filters_section_tags": "Tags",
   "tickets_filters_section_type": "Type",
   "tickets_filters_sprint_any": "Any sprint",
@@ -332,13 +330,8 @@
   "tickets_section_create_dismiss_aria_label": "Dismiss ticket creator for {label}",
   "tickets_section_create_placeholder": "Ticket title…",
   "tickets_section_load_more_button": "Load more ({remaining})",
-  "tickets_sort_aria_label": "Sort tickets ({label})",
-  "tickets_sort_created": "Recently created",
-  "tickets_sort_estimate": "Estimate (high to low)",
   "tickets_sort_id": "ID",
-  "tickets_sort_priority": "Priority (high to low)",
   "tickets_sort_title": "Title",
-  "tickets_sort_updated": "Recently updated",
   "tickets_split_action_aria_label": "Split this ticket into multiple tickets",
   "tickets_split_add_hint": "Up to {max} · each new ticket opens with “Split from {id}” as its first line",
   "tickets_split_add_result": "Add ticket",
@@ -461,7 +454,6 @@
   "tickets_unarchive_error_not_archived": "This ticket isn't archived.",
   "tickets_view_board": "Board",
   "tickets_view_list": "List",
-  "tickets_view_options_active_aria_label": "View options ({count} active filters)",
   "tickets_view_options_ascending": "Ascending",
   "tickets_view_options_columns": "Columns",
   "tickets_view_options_columns_all": "All columns",
@@ -586,5 +578,7 @@
         "countPlural=*": "Delete {id} and {count} tickets"
       }
     }
-  ]
+  ],
+  "tickets_view_options_expand_sub_tickets": "Expand sub-tickets",
+  "tickets_view_options_grouping": "Grouping"
 }

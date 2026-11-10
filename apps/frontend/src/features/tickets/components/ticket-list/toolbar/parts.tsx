@@ -1,13 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
-import { type SortKey, NATURAL_SORT_DIR, type TicketStatus } from "@pp/shared"
+import type { TicketStatus } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
-import {
-  ArrowDownAZ,
-  ChevronDown,
-  Circle,
-  Search as SearchIcon,
-  X
-} from "lucide-react"
+import { ChevronDown, Circle, Search as SearchIcon, X } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useRef } from "react"
 
@@ -38,9 +32,8 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { MIN_SEARCH_CHARS } from "../search"
-import { SORT_LABELS, sortKeysFor } from "../sort"
 import { useTicketToolbar } from "./context"
-import { ControlSlot, OptionPicker, ToolbarButton } from "./shared"
+import { ControlSlot, ToolbarButton } from "./shared"
 
 export function SearchInput() {
   const { search, searchActive: compact, setFocused } = useTicketToolbar()
@@ -90,9 +83,7 @@ export function SearchInput() {
   )
 }
 
-export function Status({
-  variant = "toolbar"
-}: Readonly<{ variant?: "toolbar" | "panel" }>) {
+export function Status() {
   const { query, patchFilter, counts, controlsCompact } = useTicketToolbar()
   const { orgSlug, slug } = useProjectRoute()
   const selected = query.status
@@ -143,28 +134,6 @@ export function Status({
       </span>
     ) : null
 
-  if (variant === "panel")
-    return (
-      <OptionPicker
-        label={m.tickets_filters_section_status()}
-        value={status}
-        onValueChange={setStatus}
-        displayValue={currentLabel}
-        items={options.map((option, index) => ({
-          separated: index === 0,
-          value: option.value,
-          textValue: option.label,
-          label: (
-            <>
-              {option.icon}
-              <span className="truncate">{option.label}</span>
-              {countBadge(option.count)}
-            </>
-          )
-        }))}
-      />
-    )
-
   return (
     <ControlSlot>
       <Select
@@ -209,44 +178,6 @@ export function Status({
         />
       </Select>
     </ControlSlot>
-  )
-}
-
-export function Sort() {
-  const { query, onQueryChange, controlsCompact, estimation } =
-    useTicketToolbar()
-  const sortKey = query.sort.key
-  const setSortKey = (key: SortKey) =>
-    onQueryChange({ ...query, sort: { key, dir: NATURAL_SORT_DIR[key] } })
-  return (
-    <motion.div layout="position" transition={transitions.layout}>
-      <Select
-        items={sortKeysFor(estimation).map((k) => ({
-          value: k,
-          textValue: SORT_LABELS[k](),
-          label: SORT_LABELS[k]()
-        }))}
-        value={sortKey}
-        onValueChange={setSortKey}
-        contentProps={{ align: "end", className: "w-44" }}
-      >
-        <SelectTrigger
-          render={
-            <ToolbarButton
-              aria-label={m.tickets_sort_aria_label({
-                label: SORT_LABELS[sortKey]()
-              })}
-            >
-              <ArrowDownAZ className="size-4" strokeWidth={1.75} />
-              <CollapsingLabel show={!controlsCompact}>
-                {SORT_LABELS[sortKey]()}
-              </CollapsingLabel>
-              <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
-            </ToolbarButton>
-          }
-        />
-      </Select>
-    </motion.div>
   )
 }
 
