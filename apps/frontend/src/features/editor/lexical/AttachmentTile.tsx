@@ -77,6 +77,15 @@ const FORMATS: Record<
       </>
     )
   },
+  video: {
+    label: m.editor_attachment_format_video,
+    art: (
+      <>
+        <rect x="1" y="9" width="46" height="38" rx="4" />
+        <path d="M20 21v14l12-7z" />
+      </>
+    )
+  },
   gzip: {
     label: m.editor_attachment_format_gzip,
     art: (

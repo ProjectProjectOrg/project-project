@@ -1,5 +1,5 @@
-import { attachmentDownloadSrc } from "@pp/shared"
-import { Download, FileText, Image as ImageIcon } from "lucide-react"
+import { attachmentDownloadSrc, attachmentFileFormat } from "@pp/shared"
+import { Download, FileText, Film, Image as ImageIcon } from "lucide-react"
 import { motion } from "motion/react"
 import { useState, type ReactNode } from "react"
 
@@ -24,7 +24,12 @@ function ChipBody({
   kind: "image" | "file"
   morphId: string
 }) {
-  const Icon = kind === "image" ? ImageIcon : FileText
+  const Icon =
+    kind === "image"
+      ? ImageIcon
+      : attachmentFileFormat(filename) === "video"
+        ? Film
+        : FileText
   return (
     <>
       <motion.span

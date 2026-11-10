@@ -159,8 +159,14 @@ describe("isAllowedAttachmentContentType", () => {
     expect(isAllowedAttachmentContentType("text/markdown")).toBe(true)
   })
 
-  it("still rejects video attachments", () => {
-    expect(isAllowedAttachmentContentType("video/mp4")).toBe(false)
+  it("accepts mp4, webm and quicktime video", () => {
+    expect(isAllowedAttachmentContentType("video/mp4")).toBe(true)
+    expect(isAllowedAttachmentContentType("video/webm")).toBe(true)
+    expect(isAllowedAttachmentContentType("video/quicktime")).toBe(true)
+  })
+
+  it("rejects other video containers", () => {
+    expect(isAllowedAttachmentContentType("video/x-matroska")).toBe(false)
   })
 
   it("rejects svg", () => {
@@ -187,6 +193,13 @@ describe("attachmentUploadContentType", () => {
     expect(
       attachmentUploadContentType("notes.md", "application/octet-stream")
     ).toBe("text/markdown")
+  })
+
+  it("recognizes video files when the browser omits their type", () => {
+    expect(attachmentUploadContentType("repro.mov", "")).toBe("video/quicktime")
+    expect(
+      attachmentUploadContentType("repro.MP4", "application/octet-stream")
+    ).toBe("video/mp4")
   })
 
   it("does not relabel an explicitly typed video", () => {
@@ -388,6 +401,9 @@ describe("attachmentFileFormat", () => {
     expect(attachmentFileFormat("logs.tar")).toBe("tar")
     expect(attachmentFileFormat("dump.gz")).toBe("gzip")
     expect(attachmentFileFormat("dump.gzip")).toBe("gzip")
+    expect(attachmentFileFormat("repro.mp4")).toBe("video")
+    expect(attachmentFileFormat("repro.webm")).toBe("video")
+    expect(attachmentFileFormat("Screen Recording.MOV")).toBe("video")
   })
 
   it("prefers gzip over tar for double extensions", () => {

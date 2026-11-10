@@ -298,8 +298,8 @@ describe("skippedAttachmentsForArchive", () => {
           {
             id: "attachment-video",
             issueId: "issue-1",
-            filename: "demo.mp4",
-            mimeType: "video/mp4",
+            filename: "demo.mkv",
+            mimeType: "video/x-matroska",
             byteSize: 42
           },
           {
@@ -342,7 +342,7 @@ describe("skippedAttachmentsForArchive", () => {
       },
       {
         sourceAttachmentId: "attachment-video",
-        filename: "demo.mp4",
+        filename: "demo.mkv",
         sourceIssueKey: "APP-1",
         targetTicketId: "APP-1",
         sourceIssueUrl: "https://example.atlassian.net/browse/APP-1",

@@ -17,7 +17,7 @@ import { m } from "@/paraglide/messages"
 import { NodeOverlayAction } from "./NodeOverlayAction"
 
 const INTERACTIVE_SELECTOR =
-  "a, button, [data-attachment-action], [data-attachment-resize]"
+  "a, button, [data-attachment-action], [data-attachment-resize], [data-attachment-player]"
 
 const CONTENT_MORPH = { ...transitions.morph, opacity: transitions.fade }
 
