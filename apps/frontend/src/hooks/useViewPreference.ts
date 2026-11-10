@@ -14,6 +14,11 @@ export type ViewPreference = typeof ViewPreference.Type
 
 type ViewScope = "backlog" | "sprints"
 
+const DEFAULT_VIEW: Record<ViewScope, ViewPreference> = {
+  backlog: "list",
+  sprints: "board"
+}
+
 const viewPreferenceKey = (orgSlug: string, slug: string, scope: ViewScope) =>
   `projectproject:view-preference:${orgSlug}/${slug}/${scope}`
 
@@ -25,7 +30,7 @@ export function readViewPreference(
   return readLocalStorage(
     viewPreferenceKey(orgSlug, slug, scope),
     viewPreferenceCodec,
-    "list"
+    DEFAULT_VIEW[scope]
   )
 }
 
@@ -37,7 +42,7 @@ export function useViewPreference(
   return useLocalStorageState(
     viewPreferenceKey(orgSlug, slug, scope),
     viewPreferenceCodec,
-    "list"
+    DEFAULT_VIEW[scope]
   )
 }
 

@@ -37,14 +37,17 @@ import { useReorderMode } from "@/features/sprints/hooks/useReorderMode"
 import { useProjectActor } from "@/lib/access"
 import { cn } from "@/lib/utils"
 
+import { useBoardColumns } from "../hooks/useBoardColumns"
 import { useBoardTickets } from "../hooks/useBoardTickets"
 import { useBoardViewport } from "../hooks/useBoardViewport"
+import { visibleColumns } from "../lib/boardColumns"
 import {
   boardStatusesFor,
   groupTicketsByStatus,
   isDragData,
   isDropData
 } from "../lib/boardUtils"
+import { HiddenColumnsEmpty } from "./HiddenColumnsEmpty"
 import { SprintBoardColumn } from "./SprintBoardColumn"
 
 type SprintBoardProps = {
@@ -130,7 +133,8 @@ function SprintBoardContent({
   const registry = useContext(RegistryContext)
   const statusSlugs = useMemo(() => boardStatusesFor(statuses), [statuses])
 
-  const order = dragOrder ?? statusSlugs
+  const layout = useBoardColumns("sprints")
+  const order = visibleColumns(dragOrder ?? statusSlugs, layout.hidden)
 
   const [lastFlash, setLastFlash] = useState<{
     id: TicketId
@@ -147,12 +151,12 @@ function SprintBoardContent({
   )
 
   const grouped = useMemo(
-    () => groupTicketsByStatus(matchingTickets, order),
-    [matchingTickets, order]
+    () => groupTicketsByStatus(matchingTickets, statusSlugs),
+    [matchingTickets, statusSlugs]
   )
   const unfilteredGrouped = useMemo(
-    () => groupTicketsByStatus(board.tickets, order),
-    [board.tickets, order]
+    () => groupTicketsByStatus(board.tickets, statusSlugs),
+    [board.tickets, statusSlugs]
   )
   const unfilteredGroupedRef = useRef(unfilteredGrouped)
   unfilteredGroupedRef.current = unfilteredGrouped
@@ -211,29 +215,35 @@ function SprintBoardContent({
           "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
       )}
     >
-      <Reorder.Group
-        ref={groupRef}
-        as="div"
-        axis="x"
-        values={[...order]}
-        onReorder={(next) => setDragOrder(next)}
-        className="flex h-full gap-3"
-      >
-        {order.map((status) => (
-          <SprintBoardColumn
-            key={status}
-            update={boardTicketUpdates(req)}
-            status={status}
-            statuses={statuses}
-            tickets={grouped[status] ?? []}
-            members={members}
-            isDraggable={!isCompleted && canReorder}
-            lastFlash={lastFlash}
-            reorderMode={reorderMode}
-            onActivateReorder={onEnterReorder}
-          />
-        ))}
-      </Reorder.Group>
+      {order.length === 0 && layout.hidden.length > 0 ? (
+        <HiddenColumnsEmpty onShowAll={layout.showAll} />
+      ) : (
+        <Reorder.Group
+          ref={groupRef}
+          as="div"
+          axis="x"
+          values={[...order]}
+          onReorder={(next) => setDragOrder(next)}
+          className="flex h-full gap-3"
+        >
+          {order.map((status) => (
+            <SprintBoardColumn
+              key={status}
+              update={boardTicketUpdates(req)}
+              status={status}
+              statuses={statuses}
+              tickets={grouped[status] ?? []}
+              members={members}
+              isDraggable={!isCompleted && canReorder}
+              lastFlash={lastFlash}
+              reorderMode={reorderMode}
+              onActivateReorder={onEnterReorder}
+              collapsed={layout.collapsed.includes(status)}
+              onToggleCollapsed={() => layout.toggleCollapsed(status)}
+            />
+          ))}
+        </Reorder.Group>
+      )}
     </motion.div>
   )
 }

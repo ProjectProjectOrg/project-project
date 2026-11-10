@@ -53,6 +53,7 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { SORT_FIELD_LABELS, sortKeysFor } from "../sort"
+import { BoardColumnsPicker } from "./BoardColumnsPicker"
 import { useTicketToolbar } from "./context"
 import {
   activeFilterCount as countActiveFilters,
@@ -70,6 +71,7 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
     filters,
     members,
     estimation,
+    boardScope,
     searchActive: compact
   } = useTicketToolbar()
   const value = query
@@ -135,7 +137,11 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
             {viewControls}
             {showSort && <Ordering />}
             <div className="space-y-2">
-              <Status variant="panel" />
+              {boardScope ? (
+                <BoardColumnsPicker scope={boardScope} />
+              ) : (
+                <Status variant="panel" />
+              )}
               {filters.map((dimension) => {
                 switch (dimension) {
                   case "archived":

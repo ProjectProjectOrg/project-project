@@ -10,6 +10,8 @@ import {
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 
+import { boardStatusesFor } from "../lib/boardUtils"
+
 export type StatusReorder = Readonly<{
   reorderMode: boolean
   dragOrder: ReadonlyArray<StatusSlug> | null
@@ -53,6 +55,7 @@ export function useStatusReorder(
     if (!Result.isSuccess(statusesResult)) return
     const statuses = statusesResult.value
     if (dragOrder && statuses.length > 0) {
+      const fullOrder = withHiddenInPlace(boardStatusesFor(statuses), dragOrder)
       const reorders: Array<{
         statusSlug: StatusSlug
         orderKey: ProjectStatus["orderKey"]
@@ -61,8 +64,8 @@ export function useStatusReorder(
         statuses.map((s) => [s.slug as string, s.orderKey as string])
       )
       let lastKey: string | null = null
-      for (let i = 0; i < dragOrder.length; i++) {
-        const columnSlug = dragOrder[i]
+      for (let i = 0; i < fullOrder.length; i++) {
+        const columnSlug = fullOrder[i]
         const status = statuses.find((status) => status.slug === columnSlug)
         if (status === undefined) continue
         const myKey = keys.get(columnSlug)
@@ -72,8 +75,8 @@ export function useStatusReorder(
           continue
         }
         let nextValid: string | null = null
-        for (let j = i + 1; j < dragOrder.length; j++) {
-          const k = keys.get(dragOrder[j])
+        for (let j = i + 1; j < fullOrder.length; j++) {
+          const k = keys.get(fullOrder[j])
           if (k && k > lastKey) {
             nextValid = k
             break
@@ -103,3 +106,14 @@ export function useStatusReorder(
 }
 
 export const ignoreReorder = () => {}
+
+function withHiddenInPlace(
+  all: ReadonlyArray<StatusSlug>,
+  visible: ReadonlyArray<StatusSlug>
+): ReadonlyArray<StatusSlug> {
+  const known = new Set(all)
+  const moved = visible.filter((s) => known.has(s))
+  const movedSet = new Set(moved)
+  let next = 0
+  return all.map((s) => (movedSet.has(s) ? moved[next++] : s))
+}
