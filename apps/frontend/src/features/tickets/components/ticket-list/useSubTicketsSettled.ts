@@ -10,9 +10,10 @@ import {
 } from "@/features/tickets/atoms/childTickets"
 import { useSubTicketsExpanded } from "@/features/tickets/hooks/useSubTicketsExpanded"
 
-// Whether the sub-tickets that open expanded on board cards in `snapshot` have
-// loaded, so the board can leave its loading state with them instead of
-// before them. List rows don't nest, so there's nothing to wait on there.
+// Loads the sub-tickets of every board card in `snapshot`, so turning
+// expansion on later shows them at once. Returns whether they've loaded when
+// cards open expanded, so the board can leave its loading state with them
+// instead of before them. List rows don't nest, so there's nothing to load.
 export function useSubTicketsSettled(
   snapshot: BacklogValue | null,
   statuses: ReadonlyArray<TicketStatus> | undefined,
@@ -21,7 +22,7 @@ export function useSubTicketsSettled(
   const { orgSlug, slug } = useProjectRoute()
   const [expandedByDefault] = useSubTicketsExpanded()
   const tickets =
-    snapshot === null || !board || !expandedByDefault
+    snapshot === null || !board
       ? []
       : Object.entries(snapshot.sections).flatMap(([key, page]) =>
           statuses !== undefined &&
@@ -30,14 +31,16 @@ export function useSubTicketsSettled(
             ? []
             : page.items.map((row) => row.ticket)
         )
-  return useAtomValue(
+  const settled = useAtomValue(
     expandedChildrenSettled(boardRequests(orgSlug, slug, tickets))
   )
+  return !expandedByDefault || settled
 }
 
-// Whether a board's default-expanded sub-tickets have loaded once. Latches so
-// a later refresh that brings in a new parent doesn't send the board back to
-// its loading state.
+// Loads the sub-tickets of every card on a board, so turning expansion on
+// later shows them at once. Returns whether they've loaded once when cards
+// open expanded. Latches so a later refresh that brings in a new parent
+// doesn't send the board back to its loading state.
 export function useBoardSubTicketsSettled(
   tickets: ReadonlyArray<Ticket> | null
 ): boolean {
@@ -45,14 +48,12 @@ export function useBoardSubTicketsSettled(
   const [expandedByDefault] = useSubTicketsExpanded()
   const settled = useAtomValue(
     expandedChildrenSettled(
-      tickets === null || !expandedByDefault
-        ? []
-        : boardRequests(orgSlug, slug, tickets)
+      tickets === null ? [] : boardRequests(orgSlug, slug, tickets)
     )
   )
   const [settledOnce, setSettledOnce] = useState(false)
   if (tickets !== null && settled && !settledOnce) setSettledOnce(true)
-  return settledOnce || (tickets !== null && settled)
+  return !expandedByDefault || settledOnce || (tickets !== null && settled)
 }
 
 const boardRequests = (
