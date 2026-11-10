@@ -218,10 +218,7 @@ function BacklogBoardContent({
                       req={req}
                       status={status}
                       cursor={column.nextCursor}
-                      remaining={Math.max(
-                        0,
-                        column.count - column.rows.length
-                      )}
+                      remaining={Math.max(0, column.count - column.rows.length)}
                     />
                   ) : null
                 }

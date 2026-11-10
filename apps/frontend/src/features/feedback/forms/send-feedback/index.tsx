@@ -181,9 +181,7 @@ export function SendFeedbackForm({
               />
             )}
           </form.Field>
-          <Title className="sr-only">
-            {m.feedback_title()}
-          </Title>
+          <Title className="sr-only">{m.feedback_title()}</Title>
         </div>
         <form.Field name="title">
           {(field) => {

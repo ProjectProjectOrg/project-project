@@ -60,8 +60,6 @@ export function StepFrame({
 
 export function StepNote({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <span className="truncate text-body text-muted-foreground">
-      {children}
-    </span>
+    <span className="truncate text-body text-muted-foreground">{children}</span>
   )
 }

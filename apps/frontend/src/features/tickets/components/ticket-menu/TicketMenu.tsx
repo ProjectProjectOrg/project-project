@@ -217,9 +217,7 @@ function TicketMenuItems({
           <CreateRelatedSubmenu ticket={ticket} canAttach={can.edit} />
         )}
         {!archived && can.edit && <MarkAsSubmenu ticketId={ticket.id} />}
-        {!archived && can.edit && (
-          <RelationsSubmenu ticketId={ticket.id} />
-        )}
+        {!archived && can.edit && <RelationsSubmenu ticketId={ticket.id} />}
         {detachable && (
           <DropdownMenuItem
             onClick={() => onPatch({ parent: null })}

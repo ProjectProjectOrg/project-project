@@ -191,7 +191,9 @@ function StageItem({
       <IconSwap
         showSecond={complete}
         first={
-          <span className="font-mono text-caption tabular-nums">{index + 1}</span>
+          <span className="font-mono text-caption tabular-nums">
+            {index + 1}
+          </span>
         }
         second={<Check className="size-3.5" strokeWidth={1.75} />}
       />

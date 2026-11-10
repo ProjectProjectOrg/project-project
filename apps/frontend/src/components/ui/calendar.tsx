@@ -72,11 +72,7 @@ function addDays(date: Date, days: number) {
 }
 
 const flatMatchers = (matchers: DayPickerProps["disabled"]): Matcher[] =>
-  matchers === undefined
-    ? []
-    : Array.isArray(matchers)
-      ? matchers
-      : [matchers]
+  matchers === undefined ? [] : Array.isArray(matchers) ? matchers : [matchers]
 
 type Band = Readonly<{ from: number; to: number }>
 
@@ -258,13 +254,7 @@ function useRangePreview(
     pickTrack.picking !== picking ||
     (picking && pickTrack.end !== previewEnd)
   ) {
-    if (
-      pickTrack.picking &&
-      !picking &&
-      pickTrack.end !== null &&
-      from &&
-      to
-    ) {
+    if (pickTrack.picking && !picking && pickTrack.end !== null && from && to) {
       const ends = [dayNumber(from), dayNumber(to)]
       if (ends.includes(pickTrack.end)) setCommittedEnd(pickTrack.end)
     }
@@ -272,8 +262,7 @@ function useRangePreview(
   }
 
   const committed =
-    !picking && from && to ? { from: dayNumber(from), to: dayNumber(to) }
-      : null
+    !picking && from && to ? { from: dayNumber(from), to: dayNumber(to) } : null
   const [lastCommitted, setLastCommitted] = useState(committed)
   const [ghost, setGhost] = useState<GridContextValue["ghost"]>(null)
   if (
@@ -459,7 +448,10 @@ function Months({
       {...props}
     >
       <GridContext.Provider value={gridCtx}>
-        <div className="-mx-2 -my-2 flex flex-row gap-x-6 p-2" style={stripMask}>
+        <div
+          className="-mx-2 -my-2 flex flex-row gap-x-6 p-2"
+          style={stripMask}
+        >
           <FluidHoverHighlight
             hover={hover}
             className={cn(
@@ -1092,9 +1084,7 @@ function Calendar(props: CalendarProps) {
   const range = props.mode === "range" ? props.selected : undefined
   const picking = !!range?.from && !range.to
   const selectedDay =
-    props.mode === "single" && props.selected
-      ? dayNumber(props.selected)
-      : null
+    props.mode === "single" && props.selected ? dayNumber(props.selected) : null
   const beforePickRef = useRef<DateRange | undefined>(undefined)
 
   const disabledMatchers = useMemo(() => flatMatchers(disabled), [disabled])

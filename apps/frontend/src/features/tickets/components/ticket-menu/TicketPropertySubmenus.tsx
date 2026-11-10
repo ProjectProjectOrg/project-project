@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenuCheckboxItem,
   DropdownMenuEmpty,
@@ -299,20 +300,26 @@ function TagsSubmenu({
         />
         <DropdownMenuList className="max-h-72 overflow-y-auto">
           {tags.map((tag) => (
-            <DropdownMenuCheckboxItem
+            <DropdownMenuItem
               key={tag.name}
               label={tag.name}
-              closeOnClick={false}
-              checked={applied.includes(tag.name)}
-              onCheckedChange={() => toggle(tag.name)}
+              onClick={() => toggle(tag.name)}
+              className="group cursor-pointer"
             >
+              <Checkbox
+                aria-label={tag.name}
+                className="size-4.5 rounded-[4px] bg-transparent opacity-0 shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--muted-foreground)_55%,transparent)] group-data-[highlighted]:opacity-100 focus-visible:opacity-100 data-[checked]:opacity-100"
+                checked={applied.includes(tag.name)}
+                onCheckedChange={() => toggle(tag.name)}
+                onClick={(event) => event.stopPropagation()}
+              />
               <span
                 aria-hidden
                 className="size-2 shrink-0 rounded-full"
                 style={{ backgroundColor: tag.color }}
               />
               <span className="min-w-0 truncate">{tag.name}</span>
-            </DropdownMenuCheckboxItem>
+            </DropdownMenuItem>
           ))}
           {Option.isSome(newName) && (
             <DropdownMenuItem
