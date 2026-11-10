@@ -14,8 +14,9 @@
     "test": "bun run --bun vitest run --no-file-parallelism",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",
+    "db:check": "drizzle-kit check",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "bun --env-file=../../.env src/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },
