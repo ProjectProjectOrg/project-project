@@ -198,7 +198,6 @@ export function DescriptionField({
                 attachments={attachments}
                 blocks={blocks}
                 editorRef={editorRef}
-                size="large"
               />
             </AttachmentAvailabilityProvider>
           </MentionScopeProvider>

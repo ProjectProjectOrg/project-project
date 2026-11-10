@@ -416,36 +416,9 @@
    app's typography stays untouched. Tuned to ProjectProject's compact neutral
    aesthetic — narrower line-height than typography plugins default to. */
 .prose-md {
-  font-size: 15px;
-  line-height: 1.6;
-  letter-spacing: -0.006em;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
   color: var(--prose-body);
-}
-.prose-md.text-sm {
-  font-size: 14px;
-}
-@media (min-width: 90rem) {
-  .prose-md.prose-large {
-    font-size: 16px;
-    line-height: 1.5;
-  }
-  .prose-md.prose-large :is(h2, .lexical-h2) {
-    font-size: 1.125rem;
-  }
-  .prose-md.prose-large :is(h3, .lexical-h3) {
-    font-size: 1rem;
-  }
-  .prose-md.prose-large .ticket-block {
-    --block-first-line: calc(1.125rem * 1.35);
-  }
-  .prose-md.prose-large
-    .ticket-block:has(> .ticket-block-body > h3:first-child) {
-    --block-first-line: calc(1rem * 1.35);
-  }
-  .prose-md.prose-large
-    .ticket-block:has(> .ticket-block-body > :first-child:not(h1, h2, h3)) {
-    --block-first-line: 1.5em;
-  }
 }
 /* Block spacing — applied to non-first siblings. We avoid `margin: 0` on
    block types (.prose-md p, .lexical-paragraph, etc) because that has higher
@@ -454,23 +427,18 @@
 .prose-md .lexical-content > * + *,
 .prose-md .ticket-block > * + *,
 .prose-md .ticket-block-body > * + * {
-  margin-top: 0.75em;
+  margin-top: 12px;
 }
-.prose-md > :is(h1, h2, h3) + *,
 .prose-md
-  :is(.lexical-content, .ticket-block, .ticket-block-body)
-  > :is(h1, h2, h3)
+  :is(h1, h2, h3, h4, h5, h6, .lexical-h1, .lexical-h2, .lexical-h3)
   + * {
-  margin-top: 0.4em;
+  margin-top: 8px;
 }
-.prose-md > * + :is(h1, h2, h3),
-.prose-md
-  :is(.lexical-content, .ticket-block, .ticket-block-body)
-  > *
-  + :is(h1, h2, h3),
-.prose-md > * + .ticket-block,
-.prose-md .lexical-content > * + .ticket-block {
-  margin-top: 1.4em;
+.prose-md * + :is(h1, h2, .lexical-h1, .lexical-h2) {
+  margin-top: 24px;
+}
+.prose-md * + :is(h3, h4, h5, h6, .lexical-h3) {
+  margin-top: 20px;
 }
 /* `.block-rail-scope` and `.block-rail-sheet` lend the ticket page's rail to
    another surface (the gallery preview): read-only block icons hang in the
@@ -532,7 +500,7 @@
   left: -26px;
 }
 .prose-md .ticket-block {
-  --block-first-line: calc(1.0625rem * 1.35);
+  --block-first-line: var(--lh-title);
   position: relative;
   padding: 6px 8px;
   margin-inline: -8px;
@@ -540,14 +508,14 @@
   transition: background-color 150ms ease-out;
 }
 .prose-md .ticket-block:has(> .ticket-block-body > h1:first-child) {
-  --block-first-line: calc(1.5rem * 1.25);
+  --block-first-line: var(--lh-display);
 }
 .prose-md .ticket-block:has(> .ticket-block-body > h3:first-child) {
-  --block-first-line: calc(0.9375rem * 1.35);
+  --block-first-line: var(--lh-subtitle);
 }
 .prose-md
   .ticket-block:has(> .ticket-block-body > :first-child:not(h1, h2, h3)) {
-  --block-first-line: 1.6em;
+  --block-first-line: var(--lh-body);
 }
 :root {
   --block-editing-fill: color-mix(in oklch, var(--accent) 30%, transparent);
@@ -654,24 +622,21 @@
 }
 .prose-md h1 {
   color: var(--foreground);
-  font-size: 1.5rem;
-  font-weight: 600;
-  letter-spacing: -0.022em;
-  line-height: 1.25;
+  font-size: var(--fs-display);
+  font-weight: 700;
+  line-height: var(--lh-display);
 }
 .prose-md h2 {
   color: var(--foreground);
-  font-size: 1.0625rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.35;
+  font-size: var(--fs-title);
+  font-weight: 550;
+  line-height: var(--lh-title);
 }
 .prose-md h3 {
   color: var(--foreground);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.35;
+  font-size: var(--fs-subtitle);
+  font-weight: 550;
+  line-height: var(--lh-subtitle);
 }
 /* Tailwind preflight already zeroes UA paragraph margins; the `> * + *` rule
    above provides spacing between sibling blocks. No explicit `margin: 0` here
@@ -914,24 +879,21 @@ html.dark .prose-md .token.coord {
 }
 .prose-md .lexical-h1 {
   color: var(--foreground);
-  font-size: 1.5rem;
-  font-weight: 600;
-  letter-spacing: -0.022em;
-  line-height: 1.25;
+  font-size: var(--fs-display);
+  font-weight: 700;
+  line-height: var(--lh-display);
 }
 .prose-md .lexical-h2 {
   color: var(--foreground);
-  font-size: 1.0625rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.35;
+  font-size: var(--fs-title);
+  font-weight: 550;
+  line-height: var(--lh-title);
 }
 .prose-md .lexical-h3 {
   color: var(--foreground);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.35;
+  font-size: var(--fs-subtitle);
+  font-weight: 550;
+  line-height: var(--lh-subtitle);
 }
 .prose-md .lexical-quote {
   border-left: 2px solid var(--border);
@@ -1016,8 +978,8 @@ html.dark .prose-md .token.coord {
   border-top-color: var(--foreground);
 }
 .prose-md .lexical-bold,
-.prose-md strong {
-  font-weight: 600;
+.prose-md :is(strong, b) {
+  font-weight: 550;
   color: var(--foreground);
 }
 .prose-md .lexical-italic {

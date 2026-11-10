@@ -189,7 +189,7 @@ export function TicketPage({
               onStatusChange={setBodyStatus}
             />
           ) : (
-            <Markdown size="large">{ticket.body}</Markdown>
+            <Markdown>{ticket.body}</Markdown>
           )}
 
           <TicketDiscussion

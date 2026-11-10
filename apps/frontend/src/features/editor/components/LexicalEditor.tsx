@@ -569,7 +569,6 @@ export function LexicalEditor({
       className={cn(
         "group/editing prose-md",
         size === "compact" && "prose-compact",
-        size === "large" && "prose-large",
         hasBlockGutter(blocks) && "block-gutter",
         className
       )}

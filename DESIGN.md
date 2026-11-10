@@ -252,7 +252,7 @@ When a new feature needs categorical color the user controls (tags, statuses, la
 - **Headline** (Geist, 600, 1.5rem, 1.25, tracking -0.01em): page H1.
 - **Title** (Geist, 600, 1.125rem, 1.3): section H2; ticket / project titles in a header.
 - **Body** (Geist, 400, 0.875rem (`text-sm`), 1.5): default text. Prose blocks (`.prose-md`) cap line length at 65–75ch; data tables run denser.
-- **Prose** (Geist, 400, 15px, 1.6, tracking -0.006em): long-form markdown (`.prose-md`). Body text sits at 80% foreground (`--prose-body`) so headings, bold and inline code carry the hierarchy at full foreground. Headings hug their section (0.4em below) and get room above (1.4em); prose h2 is 1.0625rem.
+- **Prose** (`.prose-md`): long-form markdown on the type roles. Body text is `body` at 80% foreground (`--prose-body`) so headings, bold and inline code carry the hierarchy at full foreground; h1 is `display`, h2 `title`, h3 `subtitle`. Headings get 8px below and 20–24px above.
 - **Label** (Geist, 500, 0.8125rem (`text-[13px]`), 1.2): nav items, button text, form labels, chip text.
 - **Mono** (Geist Mono, 400, 0.8125rem, 1.4): IDs, branches, slugs, code, anywhere "this is a literal."
 
