@@ -45,6 +45,7 @@ import { ViewSwitcher } from "./ViewSwitcher"
 
 const GroupingSchema = Schema.Literals(["status", "sprint", "epic"])
 const groupingCodec = createLocalStorageCodec(GroupingSchema)
+const DEFAULT_GROUPING: typeof GroupingSchema.Type = "sprint"
 
 const backlogGroupingKey = (preferencesKey: string) =>
   `projectproject:backlog-grouping:${preferencesKey}`
@@ -57,7 +58,7 @@ export const readBacklogGrouping = (
   readLocalStorage(
     backlogGroupingKey(`${viewerId}:${orgSlug}/${slug}`),
     groupingCodec,
-    "status"
+    DEFAULT_GROUPING
   )
 
 type TicketLayoutState = Readonly<{
@@ -90,7 +91,7 @@ export function ProjectTicketLayout({
   const [grouping, setGrouping] = useLocalStorageState(
     backlogGroupingKey(preferencesKey),
     groupingCodec,
-    "status"
+    DEFAULT_GROUPING
   )
   const scope = groupId ?? "backlog"
   const reorder = useStatusReorder(
@@ -177,6 +178,9 @@ export function ProjectTicketLayout({
                 }
                 estimation={project.estimation}
                 showSort={!groupId || !isBoard}
+                boardScope={
+                  isBoard ? (groupId ? "sprints" : "backlog") : undefined
+                }
                 viewControls={<ViewSwitcher />}
               >
                 {!groupId && !isBoard && (

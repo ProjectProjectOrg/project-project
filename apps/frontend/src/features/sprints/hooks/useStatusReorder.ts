@@ -13,6 +13,8 @@ import {
   keepsBaselineOrder
 } from "@/features/statuses/lib/statusPhases"
 
+import { boardStatusesFor } from "../lib/boardUtils"
+
 export type StatusReorder = Readonly<{
   reorderMode: boolean
   dragOrder: ReadonlyArray<StatusSlug> | null
@@ -58,7 +60,12 @@ export function useStatusReorder(
     if (!Result.isSuccess(statusesResult)) return
     const statuses = statusesResult.value
     if (dragOrder && statuses.length > 0)
-      reorderStatuses(boardReorders(dragOrder, statuses))
+      reorderStatuses(
+        boardReorders(
+          withHiddenInPlace(boardStatusesFor(statuses), dragOrder),
+          statuses
+        )
+      )
     setReorder(null)
   }, [dragOrder, reorderStatuses, statusesResult])
 
@@ -73,3 +80,14 @@ export function useStatusReorder(
 }
 
 export const ignoreReorder = () => {}
+
+function withHiddenInPlace(
+  all: ReadonlyArray<StatusSlug>,
+  visible: ReadonlyArray<StatusSlug>
+): ReadonlyArray<StatusSlug> {
+  const known = new Set(all)
+  const moved = visible.filter((s) => known.has(s))
+  const movedSet = new Set(moved)
+  let next = 0
+  return all.map((s) => (movedSet.has(s) ? moved[next++] : s))
+}

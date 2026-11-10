@@ -19,6 +19,7 @@ export function TicketToolbar({
   scopeKey,
   viewControls,
   viewOptionsVariant = "panel",
+  boardScope,
   children
 }: TicketToolbarProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -65,6 +66,7 @@ export function TicketToolbar({
         counts,
         filters,
         estimation,
+        boardScope,
         search,
         searchActive,
         controlsCompact,
@@ -82,7 +84,7 @@ export function TicketToolbar({
         {measured && (
           <div className="relative flex flex-wrap items-center gap-2">
             {children}
-            <Status />
+            {!boardScope && <Status />}
             {viewOptionsVariant === "legacy" ? (
               <>
                 <LegacyViewControls showSort={showSort} />

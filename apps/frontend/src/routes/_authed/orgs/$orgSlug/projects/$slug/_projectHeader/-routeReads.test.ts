@@ -118,6 +118,10 @@ afterEach(() => {
 
 it("starts backlog sections alongside metadata without waiting, even with collapsed sections", async () => {
   localStorage.setItem(
+    "projectproject:backlog-grouping:user-1:org/project",
+    JSON.stringify("status")
+  )
+  localStorage.setItem(
     "projectproject:ticket-list-collapsed:org/project",
     JSON.stringify(["todo", "review"])
   )
