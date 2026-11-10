@@ -21,6 +21,12 @@ const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 const defaultTicketListQuery = Schema.decodeSync(TicketListQuery)({})
 const encodeTicketListQuery = Schema.encodeSync(TicketListQuery)
 
+const forView = (query: TicketListQuery, view: string): TicketListQuery => {
+  if (view !== "board" || query.status === undefined) return query
+  const { status: _status, ...rest } = query
+  return rest
+}
+
 export function RetainedProjectViews() {
   const { orgSlug, slug } = useProjectRoute()
   const { estimation } = useProject()
@@ -56,30 +62,6 @@ export function RetainedProjectViews() {
       lastSprint.search !== sprint.search)
   ) {
     setLastSprint({ groupId: sprint.params.groupId, search: sprint.search })
-  }
-  const updateQuery = (query: TicketListQuery) => {
-    const nextSearch = encodeTicketListQuery(query)
-    void navigate({
-      to: router.state.location.pathname,
-      search: (previous) => ({
-        status: nextSearch.status,
-        type: nextSearch.type,
-        assignee: nextSearch.assignee,
-        tags: nextSearch.tags,
-        groupId: nextSearch.groupId,
-        estimate: normalizeEstimateFilter(estimation, nextSearch.estimate),
-        hasBranch: nextSearch.hasBranch,
-        hasPr: nextSearch.hasPr,
-        updatedAfter: nextSearch.updatedAfter,
-        archived: nextSearch.archived,
-        sort: normalizeEstimateSort(estimation, query.sort),
-        q: nextSearch.q,
-        cursor: undefined,
-        view: previous.view
-      }),
-      replace: true,
-      resetScroll: false
-    })
   }
   const activeSort = (sprint ?? backlog)?.search.sort
   const normalizedSort = activeSort
@@ -129,6 +111,31 @@ export function RetainedProjectViews() {
     lastSprint?.search.view,
     "sprints"
   ).view
+  const boardActive = (sprint ? sprintView : backlogView) === "board"
+  const updateQuery = (query: TicketListQuery) => {
+    const nextSearch = encodeTicketListQuery(query)
+    void navigate({
+      to: router.state.location.pathname,
+      search: (previous) => ({
+        status: boardActive ? previous.status : nextSearch.status,
+        type: nextSearch.type,
+        assignee: nextSearch.assignee,
+        tags: nextSearch.tags,
+        groupId: nextSearch.groupId,
+        estimate: normalizeEstimateFilter(estimation, nextSearch.estimate),
+        hasBranch: nextSearch.hasBranch,
+        hasPr: nextSearch.hasPr,
+        updatedAfter: nextSearch.updatedAfter,
+        archived: nextSearch.archived,
+        sort: normalizeEstimateSort(estimation, query.sort),
+        q: nextSearch.q,
+        cursor: undefined,
+        view: previous.view
+      }),
+      replace: true,
+      resetScroll: false
+    })
+  }
   const backlogQuery = useMemo(() => {
     if (!lastBacklog) return defaultTicketListQuery
     const { view: _view, estimate, ...query } = lastBacklog
@@ -137,8 +144,11 @@ export function RetainedProjectViews() {
       ...query,
       sort: normalizeEstimateSort(estimation, query.sort)
     }
-    return normalized === undefined ? next : { ...next, estimate: normalized }
-  }, [lastBacklog, estimation])
+    return forView(
+      normalized === undefined ? next : { ...next, estimate: normalized },
+      backlogView
+    )
+  }, [lastBacklog, estimation, backlogView])
   const sprintId = lastSprint ? decodeGroupId(lastSprint.groupId) : null
   const sprintQuery = useMemo(() => {
     if (!lastSprint) return defaultTicketListQuery
@@ -149,8 +159,11 @@ export function RetainedProjectViews() {
       sort: normalizeEstimateSort(estimation, query.sort),
       groupId: sprintId ? [sprintId] : query.groupId
     }
-    return normalized === undefined ? next : { ...next, estimate: normalized }
-  }, [lastSprint, sprintId, estimation])
+    return forView(
+      normalized === undefined ? next : { ...next, estimate: normalized },
+      sprintView
+    )
+  }, [lastSprint, sprintId, estimation, sprintView])
 
   return (
     <Activity mode={backlog || sprint ? "visible" : "hidden"}>

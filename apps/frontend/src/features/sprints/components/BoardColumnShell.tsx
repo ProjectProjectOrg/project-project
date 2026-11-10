@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils"
 export const BOARD_COLUMN_CLASS =
   "flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-surface-1"
 
+export const BOARD_COLLAPSED_COLUMN_CLASS =
+  "flex max-h-full w-10 shrink-0 flex-col self-start overflow-hidden rounded-xl border border-border bg-surface-1"
+
 export const BOARD_COLUMN_HEADER_CLASS =
   "relative flex items-center justify-between px-3.5 pt-3 pb-2 select-none"
 

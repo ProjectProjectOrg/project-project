@@ -6,36 +6,41 @@ import {
 import { preserveOffsetOnSource } from "@atlaskit/pragmatic-drag-and-drop/element/preserve-offset-on-source"
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview"
 import type { Member, ProjectStatus, Ticket, TicketId } from "@pp/shared"
-import { GripVertical } from "lucide-react"
 import { motion, Reorder, useDragControls } from "motion/react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
+import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 
 import type { CardDropData, ColumnDropData, DragData } from "../lib/boardUtils"
 import {
+  CollapsedColumnHeader,
+  ColumnHeader,
+  QUICK_S,
+  REORDER_EASE,
+  type HoldHandlers
+} from "./BoardColumnHeader"
+import {
   BOARD_CARD_SLOT_CLASS,
-  BOARD_COLUMN_CLASS,
-  BOARD_COLUMN_HEADER_CLASS,
-  BoardColumnCount,
-  BoardColumnTitle
+  BOARD_COLLAPSED_COLUMN_CLASS,
+  BOARD_COLUMN_CLASS
 } from "./BoardColumnShell"
 import { useLongPress } from "./BoardReorderMode"
 import { SprintBoardCard } from "./SprintBoardCard"
 import { VirtualSprintCards } from "./VirtualSprintCards"
 
 const LONG_PRESS_MS = 500
-const QUICK_S = 0.2
-const REORDER_EASE = [0.32, 0.72, 0, 1] as const
+const EXPANDED_WIDTH = 288
+const COLLAPSED_WIDTH = 40
 
 export function SprintBoardColumn({
   update,
   status,
   statuses,
   tickets,
-  count,
+  count: countOverride,
   members,
   isDraggable,
   pendingId = null,
@@ -45,6 +50,8 @@ export function SprintBoardColumn({
   lastFlash,
   reorderMode,
   onActivateReorder,
+  collapsed = false,
+  onToggleCollapsed,
   footer
 }: {
   update: TicketUpdates
@@ -61,6 +68,8 @@ export function SprintBoardColumn({
   lastFlash: { id: TicketId; tick: number } | null
   reorderMode: boolean
   onActivateReorder: () => void
+  collapsed?: boolean
+  onToggleCollapsed?: () => void
   footer?: ReactNode
 }) {
   const meta = statusMetaFor(status, statuses)
@@ -102,6 +111,15 @@ export function SprintBoardColumn({
   }, [isDraggable, reorderMode, columnEl])
 
   const headerHoldable = isDraggable && !reorderMode
+  const holdHandlers: HoldHandlers = headerHoldable
+    ? {
+        onPointerMove: longPressHandlers.onPointerMove,
+        onPointerUp: longPressHandlers.onPointerUp,
+        onPointerCancel: longPressHandlers.onPointerCancel,
+        onPointerLeave: longPressHandlers.onPointerLeave
+      }
+    : {}
+  const count = countOverride ?? tickets.length
 
   const onHeaderPointerDown = (e: React.PointerEvent) => {
     if (reorderMode) {
@@ -114,6 +132,7 @@ export function SprintBoardColumn({
   return (
     <Reorder.Item
       value={status}
+      initial={false}
       layout="position"
       dragListener={false}
       dragControls={dragControls}
@@ -126,101 +145,87 @@ export function SprintBoardColumn({
           holding || isDragging
             ? "drop-shadow(0 10px 24px rgb(0 0 0 / 0.12))"
             : "drop-shadow(0 0 0 transparent)",
-        zIndex: isDragging ? 20 : 0
+        zIndex: isDragging ? 20 : 0,
+        width: collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH
       }}
       transition={{
+        width: transitions.layout,
+        layout: transitions.layout,
         filter: { duration: QUICK_S, ease: REORDER_EASE },
         zIndex: { duration: 0 }
       }}
-      className={BOARD_COLUMN_CLASS}
+      className={collapsed ? BOARD_COLLAPSED_COLUMN_CLASS : BOARD_COLUMN_CLASS}
     >
-      <div
-        data-column-header
-        onPointerDown={onHeaderPointerDown}
-        onPointerMove={
-          headerHoldable ? longPressHandlers.onPointerMove : undefined
-        }
-        onPointerUp={headerHoldable ? longPressHandlers.onPointerUp : undefined}
-        onPointerCancel={
-          headerHoldable ? longPressHandlers.onPointerCancel : undefined
-        }
-        onPointerLeave={
-          headerHoldable ? longPressHandlers.onPointerLeave : undefined
-        }
-        className={cn(
-          BOARD_COLUMN_HEADER_CLASS,
-          (headerHoldable || reorderMode) &&
-            "cursor-grab touch-none active:cursor-grabbing"
-        )}
-      >
-        <BoardColumnTitle meta={meta} />
-        <span className="grid shrink-0 place-items-center">
-          <motion.span
-            initial={false}
-            animate={{ opacity: reorderMode ? 1 : 0 }}
-            transition={{ duration: QUICK_S, ease: REORDER_EASE }}
-            className="col-start-1 row-start-1 text-muted-foreground"
-            aria-hidden
-          >
-            <GripVertical className="size-4" strokeWidth={1.75} />
-          </motion.span>
-          <motion.span
-            initial={false}
-            animate={{ opacity: reorderMode ? 0 : 1 }}
-            transition={{ duration: QUICK_S, ease: REORDER_EASE }}
-            className="col-start-1 row-start-1"
-            aria-hidden={reorderMode}
-          >
-            <BoardColumnCount value={count ?? tickets.length} />
-          </motion.span>
-        </span>
-      </div>
-      <motion.div
-        animate={{
-          opacity: reorderMode ? 0 : 1
-        }}
-        transition={{
-          opacity: { duration: QUICK_S, ease: REORDER_EASE }
-        }}
-        style={{
-          pointerEvents: reorderMode ? "none" : undefined,
-          transformOrigin: "top center"
-        }}
-        className="relative flex min-h-0 flex-1 flex-col"
-      >
-        <div
-          aria-hidden
-          className={cn(
-            "pointer-events-none absolute inset-x-2 top-0 bottom-2 z-0 rounded-md border border-dashed border-transparent transition-colors duration-150",
-            dragOver && "border-border bg-accent/40"
-          )}
+      {collapsed ? (
+        <CollapsedColumnHeader
+          meta={meta}
+          count={count}
+          highlighted={dragOver}
+          reorderMode={reorderMode}
+          onPointerDown={onHeaderPointerDown}
+          holdHandlers={holdHandlers}
+          onExpand={onToggleCollapsed}
         />
-        <VirtualSprintCards
-          tickets={tickets}
-          isDraggable={isDraggable && !reorderMode}
-          showDropGap={ordered}
-          status={status}
-          footer={footer}
-        >
-          {(ticket) => (
-            <CardSlot
-              update={update}
-              ordered={ordered}
-              ticket={ticket}
-              status={status}
-              members={members}
-              isDraggable={isDraggable && !reorderMode}
-              inert={inertTicketIds?.has(ticket.id) ?? false}
-              pending={
-                ticket.id === pendingId || (overlay?.has(ticket.id) ?? false)
-              }
-              flashKey={
-                lastFlash?.id === ticket.id ? lastFlash.tick : undefined
-              }
+      ) : (
+        <div className="flex min-h-0 w-72 flex-1 shrink-0 flex-col">
+          <ColumnHeader
+            meta={meta}
+            count={count}
+            reorderMode={reorderMode}
+            holdable={headerHoldable}
+            onPointerDown={onHeaderPointerDown}
+            holdHandlers={holdHandlers}
+            onCollapse={onToggleCollapsed}
+          />
+          <motion.div
+            animate={{
+              opacity: reorderMode ? 0 : 1
+            }}
+            transition={{
+              opacity: { duration: QUICK_S, ease: REORDER_EASE }
+            }}
+            style={{
+              pointerEvents: reorderMode ? "none" : undefined,
+              transformOrigin: "top center"
+            }}
+            className="relative flex min-h-0 flex-1 flex-col"
+          >
+            <div
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute inset-x-2 top-0 bottom-2 z-0 rounded-md border border-dashed border-transparent transition-colors duration-150",
+                dragOver && "border-border bg-accent/40"
+              )}
             />
-          )}
-        </VirtualSprintCards>
-      </motion.div>
+            <VirtualSprintCards
+              tickets={tickets}
+              isDraggable={isDraggable && !reorderMode}
+              showDropGap={ordered}
+              status={status}
+              footer={footer}
+            >
+              {(ticket) => (
+                <CardSlot
+                  update={update}
+                  ordered={ordered}
+                  ticket={ticket}
+                  status={status}
+                  members={members}
+                  isDraggable={isDraggable && !reorderMode}
+                  inert={inertTicketIds?.has(ticket.id) ?? false}
+                  pending={
+                    ticket.id === pendingId ||
+                    (overlay?.has(ticket.id) ?? false)
+                  }
+                  flashKey={
+                    lastFlash?.id === ticket.id ? lastFlash.tick : undefined
+                  }
+                />
+              )}
+            </VirtualSprintCards>
+          </motion.div>
+        </div>
+      )}
     </Reorder.Item>
   )
 }

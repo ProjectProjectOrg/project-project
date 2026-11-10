@@ -6,6 +6,8 @@ import type {
 } from "@pp/shared"
 import { createContext, use, type ReactNode } from "react"
 
+import type { BoardScope } from "@/features/sprints/hooks/useBoardColumns"
+
 import type { useTicketSearch } from "../search"
 import type { FilterDimension } from "./model"
 
@@ -20,6 +22,7 @@ export type TicketToolbarProps = Readonly<{
   viewOptionsVariant?: "legacy" | "panel"
   viewControls?: ReactNode
   showSort?: boolean
+  boardScope?: BoardScope
   children?: ReactNode
 }>
 
