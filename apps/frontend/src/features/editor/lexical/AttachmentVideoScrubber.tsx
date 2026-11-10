@@ -91,16 +91,16 @@ export function AttachmentVideoScrubber({
       onPointerLeave={() => setHover(null)}
       onKeyDown={onKeyDown}
     >
-      <span className={cn(BAR, "right-0 bg-background/25")} />
+      <span className={cn(BAR, "right-0 bg-foreground/15")} />
       {buffered === undefined ? null : (
         <span
-          className={cn(BAR, "bg-background/30")}
+          className={cn(BAR, "bg-foreground/20")}
           style={{ width: `${Math.min(Math.max(buffered, 0), 1) * 100}%` }}
         />
       )}
-      <span className={cn(BAR, "bg-background")} style={{ width: percent }} />
+      <span className={cn(BAR, "bg-foreground")} style={{ width: percent }} />
       <span
-        className="absolute top-1/2 -ml-[5.5px] size-[11px] -translate-y-1/2 scale-0 rounded-full bg-background transition-all duration-150 group-hover/reveal:scale-100 group-focus-visible/reveal:scale-100 group-data-[dragging=true]/reveal:scale-100"
+        className="absolute top-1/2 -ml-[5.5px] size-[11px] -translate-y-1/2 scale-0 rounded-full bg-foreground transition-all duration-150 group-hover/reveal:scale-100 group-focus-visible/reveal:scale-100 group-data-[dragging=true]/reveal:scale-100"
         style={{ left: percent }}
       />
       {hoverText === undefined || hover === null ? null : (

@@ -163,7 +163,9 @@ export function AttachmentVideo({
       ref={rootRef}
       className={cn(
         "relative block max-w-full overflow-hidden bg-[oklch(0.145_0_0)]",
-        fullscreen ? "rounded-none" : "rounded-lg",
+        fullscreen
+          ? "rounded-none"
+          : "rounded-lg [clip-path:inset(0_round_var(--radius-lg))]",
         playing && !controlsShown && "cursor-none"
       )}
       style={
@@ -229,7 +231,7 @@ export function AttachmentVideo({
 
       {playing ? null : (
         <Button
-          variant="primary"
+          variant="raised"
           size="icon-lg"
           aria-label={m.editor_video_play()}
           className="absolute inset-0 m-auto size-12"
@@ -244,7 +246,7 @@ export function AttachmentVideo({
         <span
           data-attachment-player="true"
           className={cn(
-            "absolute inset-x-0 bottom-0 isolate flex flex-col px-2 pb-1.5 text-background",
+            "absolute inset-x-0 bottom-0 isolate flex flex-col px-2 pb-1.5 text-foreground",
             REVEAL,
             controlsShown ? SHOWN : "pointer-events-none opacity-0"
           )}
@@ -253,7 +255,7 @@ export function AttachmentVideo({
             layoutId={`${layoutId}-surface`}
             transition={transitions.morph}
             style={{ borderRadius: 0, boxShadow: LIFT }}
-            className="absolute inset-0 -z-10 bg-foreground"
+            className="absolute inset-0 -z-10 bg-surface-5"
           />
           <AttachmentVideoControls
             filename={filename}
@@ -272,12 +274,12 @@ export function AttachmentVideo({
           />
         </span>
       ) : aspect === null ? null : (
-        <span className="pointer-events-none absolute bottom-3 left-1/2 isolate flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 px-2.5 py-1 text-background">
+        <span className="pointer-events-none absolute bottom-3 left-1/2 isolate flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 px-2.5 py-1 text-foreground">
           <motion.span
             layoutId={`${layoutId}-surface`}
             transition={transitions.morph}
             style={{ borderRadius: 20, boxShadow: LIFT }}
-            className="absolute inset-0 -z-10 bg-foreground"
+            className="absolute inset-0 -z-10 bg-surface-5"
           />
           <motion.span
             layoutId={`${layoutId}-filename`}
