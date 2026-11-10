@@ -1,0 +1,87 @@
+{
+  "runId": "ds-build-2026-09-09",
+  "fileKey": "iB7hYWogE88GCIikl1FckT",
+  "phase": "phase2",
+  "step": "BLOCKED: Figma MCP tool-call quota exhausted (Starter plan)",
+  "decisions": {
+    "displayFont": "Inter substitutes Geist Pixel (user choice)",
+    "stateColors": "packages/shared/src/colors.ts wins over DESIGN.md frontmatter (user choice)",
+    "componentScope": [
+      "Button",
+      "Input",
+      "Card",
+      "Chip",
+      "Sidebar link"
+    ],
+    "lightDark": "Light bindable only; dark recorded in variable descriptions + dark spec frame (Starter tier 1-mode limit)"
+  },
+  "entities": {
+    "collections": {
+      "Primitives": "VariableCollectionId:7:2",
+      "Spacing": "VariableCollectionId:9:2",
+      "Radius": "VariableCollectionId:9:3",
+      "Typography": "VariableCollectionId:9:14",
+      "Color": "VariableCollectionId:10:2"
+    },
+    "variables": {},
+    "pages": {
+      "Page 1": "0:1"
+    },
+    "components": {},
+    "styles": {
+      "text": [
+        "Display",
+        "Headline",
+        "Title",
+        "Body",
+        "Label",
+        "Mono"
+      ],
+      "effect": [
+        "shadow-sm",
+        "shadow-md"
+      ]
+    }
+  },
+  "pendingValidations": [],
+  "completedSteps": [
+    "P0.a",
+    "P0.b",
+    "P0.c",
+    "P0.d",
+    "P0.e",
+    "P0.f",
+    "P1.a-primitives",
+    "P1.b",
+    "P1.f-spacing-radius-typography",
+    "P1.c",
+    "P1.d",
+    "P1.e",
+    "P1.f-styles",
+    "P1.g",
+    "P1.h"
+  ],
+  "blockers": [
+    "Starter: addMode limited to 1 mode per collection -> no Light/Dark modes",
+    "Starter: 3 pages max -> one-page-per-component impossible",
+    "Starter: Figma MCP tool-call quota exhausted -> no further calls this session"
+  ],
+  "revisedPagePlan": [
+    "Cover (rename of existing 0:1)",
+    "Foundations",
+    "Components"
+  ],
+  "nextSteps": [
+    "P2.a: rename page 0:1 to Cover; createPage Foundations, Components; remove test card node 5:2 (name 'Hello Card')",
+    "P2.b: foundations docs - colour swatch sheet (light + dark spec), type specimen, spacing/radius bars",
+    "P2.c: screenshot foundations",
+    "P3: Button, Input, Card, Chip, Sidebar link as sectioned frames on the Components page"
+  ],
+  "notDoneYet": [
+    "Page skeleton",
+    "Foundations doc frames",
+    "All 5 components",
+    "Code Connect",
+    "QA pass"
+  ]
+}
