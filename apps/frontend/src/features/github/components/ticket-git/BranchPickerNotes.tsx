@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 import { MenuNote } from "@/components/ui/menu-note"
 import { menuLabelClass } from "@/components/ui/menu-styles"
 import type { BranchResults } from "@/features/github/hooks/useBranchResults"
+import { textLinkClass } from "@/lib/textLink"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -50,7 +51,7 @@ export function BranchPagingNote({
         <button
           type="button"
           onClick={results.refresh}
-          className="text-foreground underline decoration-foreground/30 underline-offset-2 transition-colors hover:decoration-foreground"
+          className={textLinkClass}
         >
           {m.git_branch_picker_retry()}
         </button>

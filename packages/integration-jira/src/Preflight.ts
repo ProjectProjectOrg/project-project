@@ -5,6 +5,7 @@ import {
 import { JiraMigrationConfiguration } from "@pp/shared"
 import { Effect, Schema } from "effect"
 
+import { groupBy } from "./collections"
 import { resolveJiraHierarchy } from "./Hierarchy"
 import type { JiraMigrationManifest } from "./Manifest"
 import { JiraMigrationManifestV2 } from "./Manifest"
@@ -14,6 +15,7 @@ import {
   buildTagCandidates,
   findTagCollisions,
   resolveTagDestinations,
+  skippedTagKeys,
   type JiraMappingSource,
   type JiraMigrationMappings
 } from "./Mappings"
@@ -241,8 +243,12 @@ export function preflightJiraMigration(
 
   const candidates = buildTagCandidates(manifest)
   const resolvedTags = resolveTagDestinations(manifest, mappings)
+  const skippedTags = skippedTagKeys(mappings)
   for (const candidate of candidates) {
-    if ((resolvedTags.get(candidate.sourceId) ?? null) === null) {
+    if (
+      (resolvedTags.get(candidate.sourceId) ?? null) === null &&
+      !skippedTags.has(`${candidate.sourceKind}:${candidate.sourceValue}`)
+    ) {
       addFinding(blockers, "unrepresentable-tag", candidate.sourceId)
     }
   }
@@ -431,20 +437,6 @@ function uniqueMapping<A>(
   return unique
 }
 
-function groupBy<A>(
-  values: ReadonlyArray<A>,
-  key: (value: A) => string
-): Map<string, Array<A>> {
-  const grouped = new Map<string, Array<A>>()
-  for (const value of values) {
-    const mappingKey = key(value)
-    const existing = grouped.get(mappingKey)
-    if (existing) existing.push(value)
-    else grouped.set(mappingKey, [value])
-  }
-  return grouped
-}
-
 function duplicateStrings(
   values: ReadonlyArray<string>
 ): ReadonlyArray<string> {
@@ -565,14 +557,16 @@ export const preflightJiraMigrationV2 = Effect.fn("preflightJiraMigrationV2")(
             .map((restriction) => restriction.targetId)
         : []
     )
+    const attachmentIssues = new Map(
+      manifest.attachments.map((attachment) => [
+        attachment.id,
+        attachment.issueId
+      ])
+    )
     const blockers = result.blockers.filter(
       (blocker) =>
         blocker.code !== "unacknowledged-attachment-skip" ||
-        !manifest.attachments.some(
-          (attachment) =>
-            attachment.id === blocker.subjectId &&
-            excludedIssueIds.has(attachment.issueId)
-        )
+        !excludedIssueIds.has(attachmentIssues.get(blocker.subjectId) ?? "")
     )
     for (const status of manifest.statuses)
       if (!configuration.statuses.some((x) => x.jiraStatusId === status.id))
@@ -599,10 +593,11 @@ export const preflightJiraMigrationV2 = Effect.fn("preflightJiraMigrationV2")(
       )
     const validateChoices = (
       provided: ReadonlyArray<string>,
-      allowed: ReadonlyArray<string>
+      allowedIds: ReadonlyArray<string>
     ) => {
+      const allowed = new Set(allowedIds)
       for (const id of provided)
-        if (!allowed.includes(id))
+        if (!allowed.has(id))
           addFinding(blockers, "foreign-mapping-decision", id)
       for (const id of duplicateStrings(provided))
         addFinding(blockers, "duplicate-mapping-decision", id)
@@ -677,8 +672,9 @@ export const preflightJiraMigrationV2 = Effect.fn("preflightJiraMigrationV2")(
         )
       )
         addFinding(blockers, "created-status-collision", candidate.sourceId)
+    const skippedAttachmentIds = new Set(configuration.skippedAttachmentIds)
     const attachments = result.attachments.map((attachment) =>
-      configuration.skippedAttachmentIds.includes(attachment.sourceAttachmentId)
+      skippedAttachmentIds.has(attachment.sourceAttachmentId)
         ? { ...attachment, action: "skip" as const }
         : attachment
     )

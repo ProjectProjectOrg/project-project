@@ -4,10 +4,18 @@ import { cn } from "@/lib/utils"
 
 export function PageContainer({
   className,
+  width = "full",
   ...props
-}: HTMLAttributes<HTMLDivElement>) {
+}: HTMLAttributes<HTMLDivElement> & Readonly<{ width?: "full" | "focused" }>) {
   return (
-    <div className={cn("flex w-full flex-col gap-6", className)} {...props} />
+    <div
+      className={cn(
+        "flex w-full flex-col gap-6",
+        width === "focused" && "mx-auto max-w-[1020px]",
+        className
+      )}
+      {...props}
+    />
   )
 }
 

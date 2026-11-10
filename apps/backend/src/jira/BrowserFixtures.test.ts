@@ -99,34 +99,44 @@ describe("Jira browser fixtures", () => {
     () =>
       Effect.gen(function* () {
         const { client, fixture } = yield* fixtureClient("happy_path")
-        const issues = yield* client.searchIssues(
-          "fixture-user-1",
-          "fixture-cloud-1",
-          {
-            jql: "project = APP ORDER BY key ASC",
-            fields: ["summary"]
-          }
+        const scope = { userId: "fixture-user-1", cloudId: "fixture-cloud-1" }
+        const firstIssues = yield* client.searchIssuesPage({
+          ...scope,
+          jql: "project = APP ORDER BY key ASC",
+          fields: ["summary"]
+        })
+        const secondIssues = yield* client.searchIssuesPage({
+          ...scope,
+          jql: "project = APP ORDER BY key ASC",
+          fields: ["summary"],
+          nextPageToken: firstIssues.nextPageToken
+        })
+        const issues = [...firstIssues.values, ...secondIssues.values]
+        const bothPages = <A>(
+          page: (
+            startAt: number
+          ) => Effect.Effect<
+            Readonly<{ values: ReadonlyArray<A> }>,
+            Client.JiraCallError
+          >
+        ) =>
+          Effect.all([page(0), page(100)]).pipe(
+            Effect.map((pages) => pages.flatMap(({ values }) => values))
+          )
+        const issue = { ...scope, issueIdOrKey: "APP-1" }
+        const comments = yield* bothPages((startAt) =>
+          client.commentsPage({ ...issue, startAt })
         )
-        const comments = yield* client.comments(
-          "fixture-user-1",
-          "fixture-cloud-1",
-          "APP-1"
+        const worklogs = yield* bothPages((startAt) =>
+          client.worklogsPage({ ...issue, startAt })
         )
-        const worklogs = yield* client.worklogs(
-          "fixture-user-1",
-          "fixture-cloud-1",
-          "APP-1"
+        const changelogs = yield* bothPages((startAt) =>
+          client.changelogsPage({ ...issue, startAt })
         )
-        const changelogs = yield* client.changelogs(
-          "fixture-user-1",
-          "fixture-cloud-1",
-          "APP-1"
-        )
-        const secondIssueComments = yield* client.comments(
-          "fixture-user-1",
-          "fixture-cloud-1",
-          "APP-2"
-        )
+        const secondIssueComments = (yield* client.commentsPage({
+          ...scope,
+          issueIdOrKey: "APP-2"
+        })).values
 
         expect(issues.map(({ key }) => key)).toEqual(["APP-1", "APP-2"])
         expect(issues[0]?.fields.attachment).toMatchObject([
@@ -173,13 +183,13 @@ describe("Jira browser fixtures", () => {
       const { client, fixture } = yield* fixtureClient("happy_path")
       yield* fixture.setScenario("rate_limited_once")
 
-      const first = yield* client
+      const first = yield* client.snapshots
         .currentUser("fixture-user-1", "fixture-cloud-1")
         .pipe(Effect.flip)
-      const second = yield* client.currentUser(
+      const second = (yield* client.snapshots.currentUser(
         "fixture-user-1",
         "fixture-cloud-1"
-      )
+      )).value
 
       expect(first).toMatchObject({
         _tag: "JiraRateLimited",

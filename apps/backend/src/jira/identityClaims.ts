@@ -56,21 +56,33 @@ export const applyJiraIdentityClaims = Effect.fn(
               target: [projectMember.projectId, projectMember.userId]
             })
             .pipe(Effect.orDie)
-          yield* rewrites.claimJiraIdentity(input.orgSlug, claim.slug, {
-            userId: input.userId,
-            jiraAccountIds: claim.jiraAccountIds,
-            assigneeTicketIds: claim.assigneeTicketIds,
-            reporterTicketIds: claim.reporterTicketIds
-          })
-          yield* db
-            .delete(jiraIdentityClaim)
-            .where(
-              and(
-                eq(jiraIdentityClaim.projectId, claim.projectId),
-                eq(jiraIdentityClaim.email, claim.email)
-              )
-            )
-            .pipe(Effect.orDie)
+          const failed = new Set(
+            yield* rewrites.claimJiraIdentity(input.orgSlug, claim.slug, {
+              userId: input.userId,
+              jiraAccountIds: claim.jiraAccountIds,
+              assigneeTicketIds: claim.assigneeTicketIds,
+              reporterTicketIds: claim.reporterTicketIds
+            })
+          )
+          const thisClaim = and(
+            eq(jiraIdentityClaim.projectId, claim.projectId),
+            eq(jiraIdentityClaim.email, claim.email)
+          )
+          yield* (
+            failed.size === 0
+              ? db.delete(jiraIdentityClaim).where(thisClaim)
+              : db
+                  .update(jiraIdentityClaim)
+                  .set({
+                    assigneeTicketIds: claim.assigneeTicketIds.filter((id) =>
+                      failed.has(id)
+                    ),
+                    reporterTicketIds: claim.reporterTicketIds.filter((id) =>
+                      failed.has(id)
+                    )
+                  })
+                  .where(thisClaim)
+          ).pipe(Effect.orDie)
         }),
       { discard: true }
     )

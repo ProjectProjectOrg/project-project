@@ -11,6 +11,10 @@ const decodeUnknownJson = Schema.decodeEffect(
   Schema.fromJsonString(Schema.Json)
 )
 
+export const HEADER_TIMEOUT = "20 seconds"
+const BODY_TIMEOUT = "60 seconds"
+const STREAM_IDLE_TIMEOUT = "60 seconds"
+
 export type JiraTransportRequest = Readonly<{
   method: "GET" | "POST"
   url: string
@@ -52,7 +56,7 @@ const make = Effect.gen(function* () {
       Effect.provideService(FetchHttpClient.RequestInit, {
         redirect: "manual"
       }),
-      Effect.timeout("20 seconds"),
+      Effect.timeout(HEADER_TIMEOUT),
       Effect.mapError((error) =>
         Predicate.isTagged(error, "TimeoutError")
           ? new JiraError({ reason: "timeout" })
@@ -63,15 +67,35 @@ const make = Effect.gen(function* () {
       status: response.status,
       headers: response.headers,
       json: response.text.pipe(
-        Effect.mapError(() => new JiraError({ reason: "network" })),
+        Effect.timeout(BODY_TIMEOUT),
+        Effect.mapError((error) =>
+          Predicate.isTagged(error, "TimeoutError")
+            ? new JiraError({ reason: "timeout", status: response.status })
+            : new JiraError({ reason: "network", status: response.status })
+        ),
         Effect.flatMap((text) =>
           decodeUnknownJson(text).pipe(
-            Effect.mapError(() => new JiraError({ reason: "invalid_response" }))
+            Effect.mapError(
+              () =>
+                new JiraError({
+                  reason: "invalid_json",
+                  status: response.status
+                })
+            )
           )
         )
       ),
       stream: response.stream.pipe(
-        Stream.mapError(() => new JiraError({ reason: "network" }))
+        Stream.mapError(
+          () => new JiraError({ reason: "network", status: response.status })
+        ),
+        Stream.timeoutOrElse({
+          duration: STREAM_IDLE_TIMEOUT,
+          orElse: () =>
+            Stream.fail(
+              new JiraError({ reason: "timeout", status: response.status })
+            )
+        })
       )
     }
   })

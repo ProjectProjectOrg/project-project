@@ -259,7 +259,7 @@ describe.skipIf(!databaseUrl)("JiraMigrations Postgres", () => {
                     workflowExecutionId: executionId,
                     workflowAttempt: 1
                   },
-                  { reason: "old-finalizer", retryable: false }
+                  { reason: "old-finalizer" }
                 )
                 .pipe(
                   Effect.orDie,

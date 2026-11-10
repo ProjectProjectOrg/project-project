@@ -352,7 +352,7 @@ describe("convertAdfToMarkdown", () => {
     expect(markdown).not.toContain("jira-reference:")
   })
 
-  it("preserves readable descendants and fallbacks for unknown nodes with paths", () => {
+  it("keeps a panel as a labelled quote with its inline status text", () => {
     const result = convertAdfToMarkdown({
       version: 1,
       type: "doc",
@@ -374,15 +374,8 @@ describe("convertAdfToMarkdown", () => {
     })
 
     expect(result).toEqual({
-      markdown: "Still readable IN REVIEW",
-      warnings: [
-        { path: ["content", 0], nodeType: "panel", reason: "unsupported-node" },
-        {
-          path: ["content", 0, "content", 0, "content", 1],
-          nodeType: "status",
-          reason: "unsupported-node"
-        }
-      ],
+      markdown: "> **Info**\n> Still readable IN REVIEW",
+      warnings: [],
       references: []
     })
   })
@@ -431,27 +424,12 @@ describe("convertAdfToMarkdown", () => {
 
     expect(result.markdown).toBe(
       "&lt;!-- comments:start --> &lt;!-- comment:c\\_fake --> " +
-        "&lt;!-- comments:end --> <!-- ordinary -->\n\n" +
+        "&lt;!-- comments:end --> \\<!-- ordinary -->\n\n" +
         "```\n&lt;!-- comments:start -->\n<!-- ordinary-code -->\n```"
     )
     expect(result.warnings).toEqual([
       {
         path: ["content", 0, "content", 0],
-        nodeType: "text",
-        reason: "reserved-marker-neutralized"
-      },
-      {
-        path: ["content", 0, "content", 0],
-        nodeType: "text",
-        reason: "reserved-marker-neutralized"
-      },
-      {
-        path: ["content", 0, "content", 0],
-        nodeType: "text",
-        reason: "reserved-marker-neutralized"
-      },
-      {
-        path: ["content", 1, "content", 0],
         nodeType: "text",
         reason: "reserved-marker-neutralized"
       }
@@ -537,8 +515,8 @@ describe("convertAdfToMarkdown", () => {
       result.warnings.filter(
         ({ reason }) => reason === "reserved-marker-neutralized"
       )
-    ).toHaveLength(4)
-    expect(result.warnings).toHaveLength(5)
+    ).toHaveLength(1)
+    expect(result.warnings).toHaveLength(1)
   })
 
   it("preserves consecutive blank lines inside fenced code", () => {
@@ -575,7 +553,7 @@ describe("convertAdfToMarkdown", () => {
     expect(result.markdown).toBe("`a*b` and `` `tick` ``")
   })
 
-  it("uses common readable attributes for unsupported leaves", () => {
+  it("renders an emoji by its short name when it has no text", () => {
     const result = convertAdfToMarkdown({
       version: 1,
       type: "doc",
@@ -588,13 +566,7 @@ describe("convertAdfToMarkdown", () => {
     })
 
     expect(result.markdown).toBe(":wave:")
-    expect(result.warnings).toEqual([
-      {
-        path: ["content", 0, "content", 0],
-        nodeType: "emoji",
-        reason: "unsupported-node"
-      }
-    ])
+    expect(result.warnings).toEqual([])
   })
 
   it("preserves non-link marks on Jira-linked text", () => {
@@ -641,4 +613,135 @@ it("preserves readable text on an unsupported leaf without appending its raw pay
   expect(result.warnings).toEqual([
     { path: ["content", 0], nodeType: "appWidget", reason: "unsupported-node" }
   ])
+})
+
+describe("convertAdfToMarkdown block structure", () => {
+  it("keeps quotes, panels, expands, decisions, cards, dates and header-less tables readable", () => {
+    const text = (value: string, marks?: Schema.Json): Schema.Json =>
+      marks === undefined
+        ? { type: "text", text: value }
+        : { type: "text", text: value, marks }
+    const paragraph = (
+      ...content: ReadonlyArray<Schema.Json>
+    ): Schema.Json => ({
+      type: "paragraph",
+      content
+    })
+    const result = convertAdfToMarkdown({
+      version: 1,
+      type: "doc",
+      content: [
+        { type: "blockquote", content: [paragraph(text("Quoted"))] },
+        {
+          type: "panel",
+          attrs: { panelType: "warning" },
+          content: [paragraph(text("Careful"))]
+        },
+        {
+          type: "expand",
+          attrs: { title: "Details" },
+          content: [paragraph(text("Hidden"))]
+        },
+        {
+          type: "decisionList",
+          content: [
+            {
+              type: "decisionItem",
+              attrs: { state: "DECIDED" },
+              content: [
+                text("Ship "),
+                text("it", [{ type: "strong" }]),
+                text(" now", [{ type: "underline" }]),
+                text(" today", [{ type: "underline" }])
+              ]
+            }
+          ]
+        },
+        {
+          type: "blockCard",
+          attrs: { url: "https://example.com/spec" }
+        },
+        paragraph(
+          { type: "date", attrs: { timestamp: "1767225600000" } },
+          text(" # not a heading")
+        ),
+        paragraph(text("# Not a heading <b>either</b>")),
+        {
+          type: "table",
+          content: [
+            {
+              type: "tableRow",
+              content: [
+                { type: "tableCell", content: [paragraph(text("a"))] },
+                {
+                  type: "tableCell",
+                  content: [paragraph(text("b")), paragraph(text("c"))]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    })
+
+    expect(result.markdown).toBe(
+      [
+        "> Quoted",
+        "> **Warning**\n> Careful",
+        "**Details**\n\nHidden",
+        "- **Decision:** Ship **it** now today",
+        "[https://example.com/spec](https://example.com/spec)",
+        "2026-01-01 # not a heading",
+        "\\# Not a heading \\<b>either\\</b>",
+        "|  |  |\n| --- | --- |\n| a | b&#10;&#10;c |"
+      ].join("\n\n")
+    )
+    expect(result.warnings).toEqual([
+      {
+        path: ["content", 3, "content", 0, "content", 2],
+        nodeType: "underline",
+        reason: "mark-dropped"
+      }
+    ])
+  })
+
+  it("turns plain-text Jira keys into references that can become ticket links", () => {
+    const result = convertAdfToMarkdown({
+      version: 1,
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "See APP-12 and https://x/browse/APP-13, not app-14"
+            }
+          ]
+        }
+      ]
+    })
+
+    expect(result.references).toEqual([
+      expect.objectContaining({
+        kind: "jira-issue",
+        sourceId: "APP-12",
+        originalUrl: null,
+        fallbackText: "APP-12"
+      })
+    ])
+    expect(
+      rewriteJiraReferences(
+        result,
+        new Map([
+          [
+            result.references[0].placeholder,
+            { url: "mention:ticket/OTHER-12", text: "OTHER-12" }
+          ]
+        ])
+      )
+    ).toBe(
+      "See [OTHER-12](mention:ticket/OTHER-12) and https://x/browse/APP-13, not app-14"
+    )
+  })
 })

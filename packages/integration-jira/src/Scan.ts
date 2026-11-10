@@ -2,10 +2,12 @@ import {
   ATTACHMENT_MAX_BYTES,
   JiraMigrationRequirements,
   isAllowedAttachmentContentType,
+  type JiraMigrationFinding,
   type JiraMigrationScanSummary,
+  type TicketType,
   type JiraMigrationUserOption
 } from "@pp/shared"
-import { Option, Stream } from "effect"
+import { Option, Predicate, Stream } from "effect"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
@@ -20,10 +22,18 @@ import type {
   JiraPriority,
   JiraProject,
   JiraSprint,
+  JiraStatus,
   JiraVersion,
   JiraWorklog
 } from "./ClientSchemas"
-import { JiraMigrationManifest, normalizeJiraManifest } from "./Manifest"
+import { countBy, groupBy } from "./collections"
+import { jiraFinding } from "./Findings"
+import { resolveJiraHierarchy } from "./Hierarchy"
+import {
+  isCoverageLimited,
+  JiraMigrationManifest,
+  normalizeJiraManifest
+} from "./Manifest"
 import {
   buildJiraStatusCreateOptions,
   buildOpenSprintConflicts,
@@ -112,9 +122,12 @@ const suggestedKey = (key: string, name: string): string => {
   return (prefixed.slice(0, 10) || "JIRA").padEnd(2, "X")
 }
 
-const suggestedIssueType = (name: string) => {
+const suggestedIssueType = (
+  name: string,
+  hierarchyLevel: number | null
+): TicketType => {
   const lower = name.toLowerCase()
-  return lower.includes("epic")
+  return isJiraEpicLevel({ name, hierarchyLevel })
     ? "epic"
     : lower.includes("bug") || lower.includes("defect")
       ? "bug"
@@ -134,9 +147,101 @@ const suggestedPriority = (name: string) => {
       : "med"
 }
 
+const IssueTypeLevel = Schema.Struct({
+  id: Schema.String,
+  hierarchyLevel: Schema.Int
+})
+const decodeIssueTypeLevel = Schema.decodeUnknownOption(IssueTypeLevel)
+const decodeParentTypeLevel = Schema.decodeUnknownOption(
+  Schema.Struct({ fields: Schema.Struct({ issuetype: IssueTypeLevel }) })
+)
+
+const issueTypeLevels = (issues: ReadonlyArray<JiraIssue>) => {
+  const levels = new Map<string, number>()
+  for (const issue of issues) {
+    const own = decodeIssueTypeLevel(issue.fields.issuetype)
+    if (Option.isSome(own)) levels.set(own.value.id, own.value.hierarchyLevel)
+    const parent = decodeParentTypeLevel(issue.fields.parent)
+    if (Option.isSome(parent))
+      levels.set(
+        parent.value.fields.issuetype.id,
+        parent.value.fields.issuetype.hierarchyLevel
+      )
+  }
+  return levels
+}
+
+export const isJiraEpicLevel = (
+  issueType: Readonly<{ name: string; hierarchyLevel?: number | null }>
+) =>
+  issueType.hierarchyLevel === undefined || issueType.hierarchyLevel === null
+    ? issueType.name.toLowerCase() === "epic"
+    : issueType.hierarchyLevel >= 1
+
 const uniqueBy = <A>(values: ReadonlyArray<A>, key: (value: A) => string) => [
   ...new Map(values.map((value) => [key(value), value])).values()
 ]
+
+const IssueEntityReference = Schema.Struct({
+  id: Schema.NonEmptyString,
+  name: Schema.optional(Schema.String),
+  subtask: Schema.optional(Schema.Boolean),
+  hierarchyLevel: Schema.optional(Schema.Int),
+  statusCategory: Schema.optional(
+    Schema.Struct({
+      id: Schema.optional(Schema.Finite),
+      key: Schema.optional(Schema.String),
+      name: Schema.optional(Schema.String)
+    })
+  )
+})
+const decodeIssueEntityReference =
+  Schema.decodeUnknownOption(IssueEntityReference)
+type IssueEntityReference = typeof IssueEntityReference.Type
+
+const UNKNOWN_SOURCE_ENTITY_ID = "unknown"
+
+const repairedReference = (
+  label: string,
+  id: string,
+  name: string,
+  issueKey: string
+): JiraMigrationFinding =>
+  jiraFinding(
+    "source-reference-repaired",
+    `${label} "${name}"`,
+    id === UNKNOWN_SOURCE_ENTITY_ID
+      ? `${issueKey} had no readable ${label} in Jira, so it uses a placeholder "${name}". Map it in Set up like any other ${label}.`
+      : `Jira's list of this project's ${label}s did not include it, but ${issueKey} uses it, so it was added from that issue. Map it in Set up like any other ${label}.`,
+    id
+  )
+
+const repairEntities = <A extends Readonly<{ id: string }>>(
+  label: string,
+  unknownName: string,
+  listed: ReadonlyArray<A>,
+  references: ReadonlyArray<
+    Readonly<{ issueKey: string; value: unknown; required: boolean }>
+  >,
+  build: (id: string, name: string, reference: IssueEntityReference | null) => A
+) => {
+  const entities = [...listed]
+  const known = new Set(listed.map(({ id }) => id))
+  const findings: Array<JiraMigrationFinding> = []
+  for (const { issueKey, value, required } of references) {
+    const reference = Option.getOrNull(decodeIssueEntityReference(value))
+    if (reference === null && !required) continue
+    const id = reference?.id ?? UNKNOWN_SOURCE_ENTITY_ID
+    if (known.has(id)) continue
+    const name =
+      reference?.name ||
+      (id === UNKNOWN_SOURCE_ENTITY_ID ? unknownName : `${unknownName} ${id}`)
+    known.add(id)
+    entities.push(build(id, name, reference))
+    findings.push(repairedReference(label, id, name, issueKey))
+  }
+  return { entities, findings }
+}
 
 export const buildJiraScanArtifacts = (input: JiraScanInput) =>
   Effect.gen(function* () {
@@ -153,35 +258,129 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
       )
       .filter((value): value is NonNullable<typeof value> => value !== null)
 
-    const statuses = uniqueBy(
-      input.statuses.flatMap(({ statuses }) => statuses),
-      ({ id }) => id
+    const levels = issueTypeLevels(input.issues)
+    const repairedStatuses = repairEntities<JiraStatus>(
+      "status",
+      "Unknown status",
+      uniqueBy(
+        input.statuses.flatMap(({ statuses }) => statuses),
+        ({ id }) => id
+      ),
+      input.issues.map((issue) => ({
+        issueKey: issue.key,
+        value: issue.fields.status,
+        required: true
+      })),
+      (id, name, reference) => ({
+        id,
+        name,
+        ...(reference?.statusCategory === undefined
+          ? {}
+          : { statusCategory: reference.statusCategory })
+      })
     )
-    const issueTypes = uniqueBy(
-      input.statuses.map(({ statuses: _statuses, ...issueType }) => issueType),
-      ({ id }) => id
+    const repairedIssueTypes = repairEntities(
+      "issue type",
+      "Unknown issue type",
+      uniqueBy(
+        input.statuses.map(({ statuses: _statuses, ...issueType }) => ({
+          ...issueType,
+          hierarchyLevel:
+            levels.get(issueType.id) ?? (issueType.subtask === true ? -1 : null)
+        })),
+        ({ id }) => id
+      ),
+      input.issues.map((issue) => ({
+        issueKey: issue.key,
+        value: issue.fields.issuetype,
+        required: true
+      })),
+      (id, name, reference) => ({
+        id,
+        name,
+        subtask: reference?.subtask ?? false,
+        hierarchyLevel:
+          reference?.hierarchyLevel ?? (reference?.subtask === true ? -1 : null)
+      })
+    )
+    const repairedPriorities = repairEntities<JiraPriority>(
+      "priority",
+      "Unknown priority",
+      input.priorities,
+      input.issues.map((issue) => ({
+        issueKey: issue.key,
+        value: issue.fields.priority,
+        required: false
+      })),
+      (id, name) => ({ id, name })
+    )
+    const repairedComponents = repairEntities<JiraComponent>(
+      "component",
+      "Unknown component",
+      input.components,
+      input.issues.flatMap((issue) =>
+        (issue.fields.components ?? []).map((value) => ({
+          issueKey: issue.key,
+          value,
+          required: false
+        }))
+      ),
+      (id, name) => ({ id, name })
+    )
+    const repairedVersions = repairEntities<JiraVersion>(
+      "version",
+      "Unknown version",
+      input.versions,
+      input.issues.flatMap((issue) =>
+        (issue.fields.fixVersions ?? []).map((value) => ({
+          issueKey: issue.key,
+          value,
+          required: false
+        }))
+      ),
+      (id, name) => ({ id, name })
+    )
+    const statuses = repairedStatuses.entities
+    const issueTypes = repairedIssueTypes.entities
+    const priorities = repairedPriorities.entities
+    const components = repairedComponents.entities
+    const versions = repairedVersions.entities
+    const repairs = [
+      ...repairedStatuses.findings,
+      ...repairedIssueTypes.findings,
+      ...repairedPriorities.findings,
+      ...repairedComponents.findings,
+      ...repairedVersions.findings
+    ]
+    const issueTypesById = new Map(issueTypes.map((type) => [type.id, type]))
+    const sprintIdsByIssue = groupBy(
+      input.sprints.flatMap(({ sprint, issueIds }) =>
+        issueIds.map((issueId) => ({ issueId, groupId: `sprint:${sprint.id}` }))
+      ),
+      ({ issueId }) => issueId,
+      ({ groupId }) => groupId
     )
     const issues = input.issues.map((issue) => {
       const fields = issue.fields
+      const parentKey = fields.parent?.key
       return {
         id: issue.id,
         key: issue.key,
         issueNumber: issueNumber(issue.key),
         summary: fields.summary ?? issue.key,
         description: convertedText(fields.description),
-        statusId: fields.status?.id ?? "unknown",
-        issueTypeId: fields.issuetype?.id ?? "unknown",
+        statusId: fields.status?.id ?? UNKNOWN_SOURCE_ENTITY_ID,
+        issueTypeId: fields.issuetype?.id ?? UNKNOWN_SOURCE_ENTITY_ID,
         priorityId: fields.priority?.id ?? null,
         assigneeAccountId: fields.assignee?.accountId ?? null,
         labels: fields.labels ?? [],
         componentIds: (fields.components ?? []).map(({ id }) => id),
         groupIds: [
           ...(fields.fixVersions ?? []).map(({ id }) => `version:${id}`),
-          ...input.sprints.flatMap(({ sprint, issueIds }) =>
-            issueIds.includes(issue.id) ? [`sprint:${sprint.id}`] : []
-          )
+          ...(sprintIdsByIssue.get(issue.id) ?? [])
         ],
         parentIssueId: fields.parent?.id ?? null,
+        parentIssueKey: Predicate.isString(parentKey) ? parentKey : null,
         attachmentIds: (fields.attachment ?? []).map(({ id }) => id),
         restricted: fields.security !== null && fields.security !== undefined,
         createdAt: fields.created ?? DateTime.formatIso(input.scannedAt),
@@ -260,6 +459,18 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
       }))
     ]
     const scannedIssueIds = new Set(issues.map(({ id }) => id))
+    const issueIdsByGroup = groupBy(
+      issues.flatMap((issue) =>
+        [
+          ...issue.groupIds.filter((id) => id.startsWith("version:")),
+          ...(issue.parentIssueId === null
+            ? []
+            : [`epic:${issue.parentIssueId}`])
+        ].map((groupId) => ({ groupId, issueId: issue.id }))
+      ),
+      ({ groupId }) => groupId,
+      ({ issueId }) => issueId
+    )
     const manifestRaw = {
       version: 1,
       migrationId: input.migrationId,
@@ -285,14 +496,15 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
         id: issueType.id,
         name: issueType.name,
         subtask: issueType.subtask ?? false,
+        hierarchyLevel: issueType.hierarchyLevel,
         raw: issueType
       })),
-      priorities: input.priorities.map((priority) => ({
+      priorities: priorities.map((priority) => ({
         id: priority.id,
         name: priority.name,
         raw: priority
       })),
-      components: input.components.map((component) => ({
+      components: components.map((component) => ({
         id: component.id,
         name: component.name,
         description: component.description ?? null,
@@ -302,7 +514,7 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
       comments,
       attachments,
       groups: [
-        ...input.versions.map((version) => ({
+        ...versions.map((version) => ({
           id: `version:${version.id}`,
           kind: "milestone" as const,
           name: version.name,
@@ -310,11 +522,7 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
           state: version.released
             ? ("completed" as const)
             : ("future" as const),
-          issueIds: issues
-            .filter(({ groupIds }) =>
-              groupIds.includes(`version:${version.id}`)
-            )
-            .map(({ id }) => id),
+          issueIds: issueIdsByGroup.get(`version:${version.id}`) ?? [],
           startsAt: version.startDate ?? null,
           endsAt: version.releaseDate ?? null,
           completedAt: version.released ? (version.releaseDate ?? null) : null,
@@ -342,8 +550,8 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
         })),
         ...issues
           .filter((issue) => {
-            const type = issueTypes.find(({ id }) => id === issue.issueTypeId)
-            return type?.name.toLowerCase() === "epic"
+            const type = issueTypesById.get(issue.issueTypeId)
+            return type !== undefined && isJiraEpicLevel(type)
           })
           .map((epic) => ({
             id: `epic:${epic.id}`,
@@ -351,9 +559,7 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
             name: epic.summary,
             description: epic.description?.markdown ?? null,
             state: null,
-            issueIds: issues
-              .filter(({ parentIssueId }) => parentIssueId === epic.id)
-              .map(({ id }) => id),
+            issueIds: issueIdsByGroup.get(`epic:${epic.id}`) ?? [],
             startsAt: null,
             endsAt: null,
             completedAt: null,
@@ -410,6 +616,36 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
         candidate.createOption
       ])
     )
+    const issuesByStatus = countBy(manifest.issues.map((x) => x.statusId))
+    const issuesByType = countBy(manifest.issues.map((x) => x.issueTypeId))
+    const issuesByPriority = countBy(
+      manifest.issues.flatMap((x) =>
+        x.priorityId === null ? [] : [x.priorityId]
+      )
+    )
+    const issuesByTag = countBy(
+      manifest.issues.flatMap((issue) => [
+        ...new Set([
+          ...issue.labels.map((label) => `label:${label}`),
+          ...issue.componentIds.map((id) => `component:${id}`)
+        ])
+      ])
+    )
+    const suggestedTypes = new Map(
+      manifest.issueTypes.map((issueType) => [
+        issueType.id,
+        suggestedIssueType(issueType.name, issueType.hierarchyLevel ?? null)
+      ])
+    )
+    const hierarchy = resolveJiraHierarchy(manifest, {
+      issueTypes: [...suggestedTypes].map(
+        ([sourceIssueTypeId, destinationType]) => ({
+          sourceIssueTypeId,
+          destinationType
+        })
+      ),
+      restrictions: []
+    })
     const requirements = yield* decodeUnknownJiraMigrationRequirements({
       destination: {
         suggestedName: input.project.name,
@@ -435,10 +671,12 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
         suggestedProjectStatusSlug:
           status.categoryKey === "done"
             ? "done"
-            : status.name.toLowerCase().includes("progress")
+            : status.categoryKey === "indeterminate" ||
+                status.name.toLowerCase().includes("progress")
               ? "in_progress"
               : "todo",
-        createOption: statusCreateOptions.get(status.id) ?? null
+        createOption: statusCreateOptions.get(status.id) ?? null,
+        issueCount: issuesByStatus.get(status.id) ?? 0
       })),
       statusOptions: [
         {
@@ -467,12 +705,14 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
         jiraIssueTypeId: issueType.id,
         name: issueType.name,
         isSubtask: issueType.subtask,
-        suggestedProjectType: suggestedIssueType(issueType.name)
+        suggestedProjectType: suggestedTypes.get(issueType.id) ?? null,
+        issueCount: issuesByType.get(issueType.id) ?? 0
       })),
       priorities: manifest.priorities.map((priority) => ({
         jiraPriorityId: priority.id,
         name: priority.name,
-        suggestedProjectPriority: suggestedPriority(priority.name)
+        suggestedProjectPriority: suggestedPriority(priority.name),
+        issueCount: issuesByPriority.get(priority.id) ?? 0
       })),
       tags: tags.map((tag) => ({
         source: { kind: tag.sourceKind, value: tag.sourceValue },
@@ -483,7 +723,8 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
             (id) =>
               tags.find((candidate) => candidate.sourceId === id)
                 ?.sourceValue ?? id
-          )
+          ),
+        issueCount: issuesByTag.get(tag.sourceId) ?? 0
       })),
       activeFutureSprintChoices: buildOpenSprintConflicts(manifest).map(
         (conflict) => {
@@ -515,7 +756,17 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
         ).length,
         worklogCount: manifest.restrictions.filter(
           ({ targetKind }) => targetKind === "worklog"
-        ).length
+        ).length,
+        issues: manifest.issues
+          .filter(({ restricted }) => restricted)
+          .map((issue) => ({
+            jiraIssueId: issue.id,
+            issueKey: issue.key,
+            issueSummary: issue.summary,
+            childIssueKeys: manifest.issues
+              .filter(({ parentIssueId }) => parentIssueId === issue.id)
+              .map(({ key }) => key)
+          }))
       },
       attachments: manifest.attachments.map((attachment) => ({
         jiraAttachmentId: attachment.id,
@@ -542,7 +793,12 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
       comments: manifest.comments.length,
       attachments: manifest.attachments.length,
       groups: manifest.groups.length,
-      restrictions: manifest.restrictions.length
+      sprints: manifest.groups.filter(({ kind }) => kind === "sprint").length,
+      restrictions: manifest.restrictions.length,
+      epics: manifest.issues.filter(
+        (issue) => suggestedTypes.get(issue.issueTypeId) === "epic"
+      ).length,
+      subTickets: hierarchy.parents.size
     }
     const summary = {
       siteName: input.siteName,
@@ -552,14 +808,14 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
       scannedAt: input.scannedAt,
       counts,
       visibilityWarnings: manifest.coverage
-        .filter(({ visibility }) => visibility !== "complete")
+        .filter(({ visibility }) => isCoverageLimited(visibility))
         .map(({ category, reason }) => ({
           category,
           label: category,
           detail: reason
         }))
     } satisfies JiraMigrationScanSummary
-    return { manifest, requirements, summary }
+    return { manifest, requirements, summary, repairs }
   })
 
 export const ISSUE_DEPENDENT_CONCURRENCY = 4

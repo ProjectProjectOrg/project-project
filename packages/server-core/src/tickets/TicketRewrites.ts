@@ -2,7 +2,7 @@ import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
 import { commentIndex, organization, projectIndex } from "@pp/db/schema"
 import { TagName, TicketStatus, type ActivityActor } from "@pp/shared"
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq, inArray, notInArray } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -63,7 +63,7 @@ export class TicketRewrites extends Context.Service<
       orgSlug: string,
       slug: string,
       claim: JiraIdentityClaim
-    ) => Effect.Effect<void, never, ActivityActor>
+    ) => Effect.Effect<ReadonlyArray<string>, never, ActivityActor>
     withClearedPrMetadata: <A, E, R>(
       orgSlug: string,
       slug: string,
@@ -307,6 +307,7 @@ const make = Effect.gen(function* () {
         ...reported,
         ...commented.map((row) => row.ticketId)
       ])
+      const failed: Array<string> = []
       yield* Effect.forEach(
         ticketIds,
         (id) =>
@@ -352,17 +353,23 @@ const make = Effect.gen(function* () {
                 Effect.logWarning("jira claim skipped a malformed ticket", {
                   ticketId: id,
                   error
-                }).pipe(Effect.as(false)),
+                }).pipe(
+                  Effect.andThen(Effect.sync(() => failed.push(id))),
+                  Effect.as(false)
+                ),
               MarkdownError: (error) =>
                 Effect.logWarning("jira claim could not write a ticket", {
                   ticketId: id,
                   error
-                }).pipe(Effect.as(false))
+                }).pipe(
+                  Effect.andThen(Effect.sync(() => failed.push(id))),
+                  Effect.as(false)
+                )
             })
           ),
         { concurrency: 8, discard: true }
       )
-      if (accounts.size === 0) return
+      if (accounts.size === 0) return failed
       yield* db
         .update(commentIndex)
         .set({
@@ -374,10 +381,14 @@ const make = Effect.gen(function* () {
         .where(
           and(
             eq(commentIndex.projectId, project.projectId),
-            inArray(commentIndex.jiraAccountId, [...accounts])
+            inArray(commentIndex.jiraAccountId, [...accounts]),
+            failed.length === 0
+              ? undefined
+              : notInArray(commentIndex.ticketId, failed)
           )
         )
         .pipe(Effect.orDie)
+      return failed
     }
   )
 

@@ -1,68 +1,65 @@
-import type { JiraMigrationStatus } from "@pp/shared"
+import type { JiraMigrationDetail } from "@pp/shared"
 
 import { m } from "@/paraglide/messages"
 
-export type JiraMigrationScreen =
-  | "scan-progress"
-  | "configuration"
-  | "migration-progress"
-  | "reconnect"
-  | "failed"
-  | "cancelled"
-  | "succeeded"
+import {
+  isConfiguringJiraImport,
+  type JiraImportScreen,
+  type JiraImportStage
+} from "./stages"
 
-export function jiraMigrationScreen(
-  status: JiraMigrationStatus
-): JiraMigrationScreen {
-  switch (status) {
-    case "scanning":
-      return "scan-progress"
-    case "needs_configuration":
-    case "ready":
-      return "configuration"
-    case "migrating":
-    case "cancelling":
-      return "migration-progress"
-    case "reconnect_required":
-      return "reconnect"
-    case "failed":
-      return "failed"
-    case "cancelled":
-      return "cancelled"
-    case "succeeded":
-      return "succeeded"
-  }
-  status satisfies never
-  throw new Error("Unreachable Jira migration status")
+type ScreenDetail = Pick<JiraMigrationDetail, "status" | "actions">
+
+const stoppedStatuses: ReadonlySet<JiraMigrationDetail["status"]> = new Set([
+  "failed",
+  "cancelled",
+  "reconnect_required"
+])
+
+export function navigableStages(
+  detail: ScreenDetail,
+  hasScan: boolean
+): ReadonlyArray<JiraImportStage> {
+  if (!hasScan) return []
+  if (isConfiguringJiraImport(detail.status)) return ["scan", "setup", "review"]
+  return detail.actions.canConfigure && stoppedStatuses.has(detail.status)
+    ? ["setup", "review", "import"]
+    : []
 }
 
-export function isActiveJiraMigration(status: JiraMigrationStatus): boolean {
-  return (
-    status === "scanning" || status === "migrating" || status === "cancelling"
-  )
+export const jiraProgressCount = (
+  progress: JiraMigrationDetail["progress"]
+): string | null => {
+  if (progress.total !== null)
+    return m.jira_import_progress_of({
+      done: progress.done,
+      total: progress.total
+    })
+  return progress.done > 0
+    ? m.jira_import_progress_read({ count: progress.done })
+    : null
 }
 
-export function jiraMigrationStatusLabel(status: JiraMigrationStatus): string {
-  switch (status) {
-    case "scanning":
-      return m.jira_migration_status_scanning()
-    case "needs_configuration":
-      return m.jira_migration_status_needs_configuration()
-    case "ready":
-      return m.jira_migration_status_ready()
-    case "migrating":
-      return m.jira_migration_status_migrating()
-    case "cancelling":
-      return m.jira_migration_status_cancelling()
-    case "reconnect_required":
-      return m.jira_migration_status_reconnect_required()
-    case "failed":
-      return m.jira_migration_status_failed()
-    case "cancelled":
-      return m.jira_migration_status_cancelled()
-    case "succeeded":
-      return m.jira_migration_status_succeeded()
-  }
-  status satisfies never
-  throw new Error("Unreachable Jira migration status")
-}
+export type JiraCancelCopy = Readonly<{
+  trigger: string
+  prompt: string
+  label: string
+}>
+
+export const jiraCancelCopy = (screen: JiraImportScreen): JiraCancelCopy =>
+  screen === "scan-progress"
+    ? {
+        trigger: m.jira_import_action_cancel_scan(),
+        prompt: m.jira_import_cancel_scan_prompt(),
+        label: m.jira_import_action_stop()
+      }
+    : {
+        trigger: m.jira_import_action_cancel_import(),
+        prompt: m.jira_import_cancel_import_prompt(),
+        label: m.jira_import_action_stop()
+      }
+
+export type JiraStoppedKind = "failed" | "cancelled" | "unavailable"
+
+export const jiraStoppedKind = (screen: JiraImportScreen): JiraStoppedKind =>
+  screen === "cancelled" || screen === "unavailable" ? screen : "failed"

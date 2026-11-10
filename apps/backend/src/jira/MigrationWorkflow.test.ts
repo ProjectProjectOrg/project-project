@@ -33,7 +33,7 @@ import {
   startImportDeferredName
 } from "@pp/integration-jira/MigrationWorkflow"
 import { scanSnapshot } from "@pp/integration-jira/MigrationWorkflow"
-import { Clock, Deferred } from "effect"
+import { Clock, Deferred, Fiber } from "effect"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -44,13 +44,16 @@ import * as Predicate from "effect/Predicate"
 import * as Ref from "effect/Ref"
 import * as Schema from "effect/Schema"
 import * as TestClock from "effect/testing/TestClock"
-import { DurableDeferred, WorkflowEngine } from "effect/workflow"
+import { Activity, DurableDeferred, WorkflowEngine } from "effect/workflow"
 import { describe, expect } from "vitest"
 
 import {
+  activityDefaults,
   makeScanTestLayer,
   response,
   scanContext,
+  scanDefaults,
+  stageDefaults,
   scanFixtureResponse,
   scanIssue
 } from "./ScanTestSupport"
@@ -195,10 +198,11 @@ describe("Jira migration workflow contracts", () => {
           sha256: "a".repeat(64)
         }
         const layer = makeJiraMigrationWorkflow({
+          ...activityDefaults,
           start: () => Effect.void,
           scan: () => Effect.void,
           finalize: () => Effect.void,
-          materialize: () =>
+          materialize: (_input, unit) =>
             Effect.gen(function* () {
               const preparedRef = yield* prepareJiraPublicationReference(
                 { scanRevision: 1, configurationRevision: 2 },
@@ -215,6 +219,7 @@ describe("Jira migration workflow contracts", () => {
                   attachments: [{ sourceAttachmentId: "attachment-1" }]
                 },
                 {
+                  ...stageDefaults,
                   error: JiraMigrationWorkflowFailure,
                   createHidden: record("hidden").pipe(Effect.as("project-1")),
                   copyAttachment: (attachment) =>
@@ -245,14 +250,19 @@ describe("Jira migration workflow contracts", () => {
                         unresolvedReferenceCount: 0 as const
                       })
                     )
-                }
+                },
+                unit
               )
             }),
-          publish: (_input, ready) =>
-            publishJiraPreparedPublication(ready, {
-              error: JiraMigrationWorkflowFailure,
-              publish: () => record("publish").pipe(Effect.as(true))
-            }).pipe(Effect.asVoid)
+          publish: (_input, ready, unit) =>
+            publishJiraPreparedPublication(
+              ready,
+              {
+                error: JiraMigrationWorkflowFailure,
+                publish: () => record("publish").pipe(Effect.as(true))
+              },
+              unit
+            ).pipe(Effect.asVoid)
         }).pipe(Layer.provideMerge(WorkflowEngine.layerMemory))
         yield* Effect.gen(function* () {
           const executionId = yield* JiraMigrationWorkflow.execute(
@@ -379,6 +389,7 @@ describe("Jira migration workflow contracts", () => {
       const startCalls = yield* Ref.make(0)
       const finalizeCalls = yield* Ref.make(0)
       const layer = makeJiraMigrationWorkflow({
+        ...activityDefaults,
         materialize: () => Effect.succeed(readyPublication),
         publish: () => Effect.void,
         scan: () => Effect.void,
@@ -417,6 +428,7 @@ describe("Jira migration workflow contracts", () => {
         const entered = yield* Deferred.make<void>()
         const finalized = yield* Deferred.make<boolean>()
         const layer = makeJiraMigrationWorkflow({
+          ...activityDefaults,
           start: () => Effect.void,
           scan: () => Effect.void,
           materialize: () =>
@@ -450,20 +462,23 @@ describe("Jira migration workflow contracts", () => {
       const attempts: number[] = []
       let publications = 0
       const layer = makeJiraMigrationWorkflow({
+        ...activityDefaults,
         start: () => Effect.void,
         scan: () => Effect.void,
-        materialize: (_input, operationTry) =>
-          Effect.gen(function* () {
-            attempts.push(operationTry ?? 0)
-            if (operationTry === 0)
-              return yield* Effect.fail(
-                JiraMigrationWorkflowFailure.make({
-                  reason: "transient_import_failure",
-                  retryable: true
-                })
-              )
-            return readyPublication
-          }),
+        materialize: (_input, unit) =>
+          unit("test/import", (operationTry) =>
+            Effect.gen(function* () {
+              attempts.push(operationTry)
+              if (operationTry === 0)
+                return yield* Effect.fail(
+                  JiraMigrationWorkflowFailure.make({
+                    reason: "transient_import_failure",
+                    retryable: true
+                  })
+                )
+              return readyPublication
+            })
+          ),
         publish: () => Effect.sync(() => publications++).pipe(Effect.asVoid),
         recordImportFailure: () => Effect.succeed(1),
         resumeImport: () => Effect.succeed({ _tag: "Resumed" as const }),
@@ -502,22 +517,25 @@ describe("Jira migration workflow contracts", () => {
       const times: number[] = []
       let recordedFailures = 0
       const layer = makeJiraMigrationWorkflow({
+        ...activityDefaults,
         start: () => Effect.void,
         scan: () => Effect.void,
-        materialize: (_input, operationTry) =>
-          Effect.gen(function* () {
-            attempts.push(operationTry ?? 0)
-            times.push(yield* Clock.currentTimeMillis)
-            if (operationTry === 0)
-              return yield* Effect.fail(
-                JiraMigrationWorkflowFailure.make({
-                  reason: "jira_rate_limited",
-                  retryable: true,
-                  retryAfterMillis: 7000
-                })
-              )
-            return readyPublication
-          }),
+        materialize: (_input, unit) =>
+          unit("test/attachment", (operationTry) =>
+            Effect.gen(function* () {
+              attempts.push(operationTry)
+              times.push(yield* Clock.currentTimeMillis)
+              if (operationTry === 0)
+                return yield* Effect.fail(
+                  JiraMigrationWorkflowFailure.make({
+                    reason: "jira_rate_limited",
+                    retryable: true,
+                    retryAfterMillis: 7000
+                  })
+                )
+              return readyPublication
+            })
+          ),
         publish: () => Effect.void,
         recordImportFailure: () =>
           Effect.sync(() => {
@@ -547,9 +565,126 @@ describe("Jira migration workflow contracts", () => {
     }
   )
 
+  it.effect(
+    "retries transient import failures with backoff before asking the user",
+    () => {
+      const attempts: Array<number> = []
+      let recordedFailures = 0
+      const layer = makeJiraMigrationWorkflow({
+        ...activityDefaults,
+        start: () => Effect.void,
+        scan: () => Effect.void,
+        materialize: (_input, unit) =>
+          unit("test/transient", (operationTry) =>
+            Effect.gen(function* () {
+              attempts.push(operationTry)
+              if (operationTry < 2)
+                return yield* Effect.fail(
+                  JiraMigrationWorkflowFailure.make({
+                    reason: "jira_unavailable",
+                    retryable: true,
+                    transient: true
+                  })
+                )
+              return readyPublication
+            })
+          ),
+        publish: () => Effect.void,
+        recordImportFailure: () =>
+          Effect.sync(() => {
+            recordedFailures++
+            return 1
+          }),
+        resumeImport: () => Effect.succeed({ _tag: "Resumed" as const }),
+        finalize: () => Effect.void
+      }).pipe(Layer.provideMerge(WorkflowEngine.layerMemory))
+
+      return Effect.gen(function* () {
+        const id = yield* JiraMigrationWorkflow.execute(createPayload, {
+          discard: true
+        })
+        yield* completeStartImport(id, 1)
+        const result = yield* JiraMigrationWorkflow.execute(createPayload).pipe(
+          Effect.forkChild
+        )
+        for (let step = 0; step < 20 && attempts.length < 3; step++) {
+          yield* Effect.yieldNow
+          yield* TestClock.adjust("10 seconds")
+        }
+        expect(yield* Fiber.join(result)).toEqual({ migrationId: id })
+        expect(attempts).toEqual([0, 1, 2])
+        expect(recordedFailures).toBe(0)
+      }).pipe(Effect.provide(layer))
+    }
+  )
+
+  it.effect(
+    "keeps completed import units completed when a user retry resumes a failed one",
+    () => {
+      let completedUnitRuns = 0
+      const failedUnitAttempts: Array<number> = []
+      const layer = makeJiraMigrationWorkflow({
+        ...activityDefaults,
+        start: () => Effect.void,
+        scan: () => Effect.void,
+        materialize: (_input, unit) =>
+          Effect.gen(function* () {
+            yield* unit("test/first", (operationTry) =>
+              Activity.make({
+                name: `test/first/${operationTry}`,
+                success: Schema.Void,
+                error: JiraMigrationWorkflowFailure,
+                execute: Effect.sync(() => {
+                  completedUnitRuns++
+                })
+              })
+            )
+            return yield* unit("test/second", (operationTry) =>
+              Activity.make({
+                name: `test/second/${operationTry}`,
+                success: Schema.Boolean,
+                error: JiraMigrationWorkflowFailure,
+                execute: Effect.gen(function* () {
+                  failedUnitAttempts.push(operationTry)
+                  if (operationTry === 0)
+                    return yield* Effect.fail(
+                      JiraMigrationWorkflowFailure.make({
+                        reason: "jira_migration_storage_unavailable",
+                        retryable: true
+                      })
+                    )
+                  return true
+                })
+              })
+            ).pipe(Effect.as(readyPublication))
+          }),
+        publish: () => Effect.void,
+        recordImportFailure: () => Effect.succeed(1),
+        resumeImport: () => Effect.succeed({ _tag: "Resumed" as const }),
+        finalize: () => Effect.void
+      }).pipe(Layer.provideMerge(WorkflowEngine.layerMemory))
+
+      return Effect.gen(function* () {
+        const id = yield* JiraMigrationWorkflow.execute(createPayload, {
+          discard: true
+        })
+        yield* completeStartImport(id, 1)
+        yield* waitUntilSuspended(id)
+        expect(failedUnitAttempts).toEqual([0])
+        yield* completeRetry(id, 1)
+        expect(yield* JiraMigrationWorkflow.execute(createPayload)).toEqual({
+          migrationId: id
+        })
+        expect(failedUnitAttempts).toEqual([0, 1])
+        expect(completedUnitRuns).toBe(1)
+      }).pipe(Effect.provide(layer))
+    }
+  )
+
   it.effect("uses the initial scan revision and execution id for create", () =>
     Effect.gen(function* () {
       const layer = makeJiraMigrationWorkflow({
+        ...activityDefaults,
         materialize: () => Effect.succeed(readyPublication),
         publish: () => Effect.void,
         scan: () => Effect.void,
@@ -576,6 +711,7 @@ describe("Jira migration workflow contracts", () => {
     () =>
       Effect.gen(function* () {
         const layer = makeJiraMigrationWorkflow({
+          ...activityDefaults,
           materialize: () => Effect.succeed(readyPublication),
           publish: () => Effect.void,
           scan: () => Effect.void,
@@ -632,6 +768,7 @@ describe("durable snapshot workflow", () => {
         return Effect.succeed(scanFixtureResponse(request))
       })
       const layer = makeJiraMigrationWorkflow({
+        ...activityDefaults,
         materialize: () => Effect.succeed(readyPublication),
         publish: () => Effect.void,
         start: () => Effect.void,
@@ -640,6 +777,7 @@ describe("durable snapshot workflow", () => {
             const client = yield* Client.JiraClient
             const artifacts = yield* MigrationArtifacts.JiraMigrationArtifacts
             const result = yield* scanSnapshot(scanContext, {
+              ...scanDefaults(artifacts),
               client,
               artifacts,
               progress: () => Effect.succeed(true),
@@ -735,6 +873,7 @@ const snapshotHarness = (
   }
   const receipts = new Map<string, number>()
   const layer = makeJiraMigrationWorkflow({
+    ...activityDefaults,
     materialize: () => Effect.succeed(readyPublication),
     publish: () => Effect.void,
     start: () => Effect.void,
@@ -742,9 +881,11 @@ const snapshotHarness = (
     scan: () =>
       Effect.gen(function* () {
         yield* scanSnapshot(scanContext, {
+          ...scanDefaults(yield* MigrationArtifacts.JiraMigrationArtifacts),
           client: yield* Client.JiraClient,
           artifacts: yield* MigrationArtifacts.JiraMigrationArtifacts,
           identityOptions,
+          automaticRetryBudget: 0,
           progress: () => Effect.succeed(true),
           recordFailure: (_fence, key, failure) =>
             Effect.sync(() => {
@@ -856,21 +997,21 @@ describe("scan retry and coverage", () => {
         })
         yield* TestClock.adjust("5 seconds")
         yield* waitUntilSuspended(id)
-        expect(calls).toBe(4)
+        expect(calls).toBe(1)
         expect(harness.state.sequence).toBe(1)
         yield* completeRetry(id, 1)
         yield* TestClock.adjust("5 seconds")
         yield* waitUntilSuspended(id)
-        expect(calls).toBe(8)
+        expect(calls).toBe(2)
         expect(harness.state.sequence).toBe(2)
         yield* completeRetry(id, 1)
         yield* JiraMigrationWorkflow.resume(id)
         yield* waitUntilSuspended(id)
-        expect(calls).toBe(8)
+        expect(calls).toBe(2)
         unavailable = false
         yield* completeRetry(id, 2)
         yield* waitUntilSuspended(id)
-        expect(calls).toBe(9)
+        expect(calls).toBe(3)
         expect(harness.state.sequence).toBe(2)
         expect(harness.state.configured).toBe(1)
       }).pipe(Effect.provide(harness.layer))
@@ -1081,7 +1222,7 @@ describe("scan retry and coverage", () => {
           manifest.rawArtifacts.filter((ref) =>
             ref.key.includes("/raw/attachments/")
           )
-        ).toHaveLength(6)
+        ).toHaveLength(0)
       }).pipe(Effect.provide(harness.layer))
     }
   )
@@ -1134,13 +1275,11 @@ it.effect(
     )
     const harness = snapshotHarness(fixture)
     return Effect.gen(function* () {
-      const result = yield* Effect.result(
-        JiraMigrationWorkflow.execute(createPayload)
-      )
-      expect(result).toMatchObject({
-        _tag: "Failure",
-        failure: { _tag: "JiraMigrationWorkflowFailure", retryable: false }
+      const id = yield* JiraMigrationWorkflow.execute(createPayload, {
+        discard: true
       })
+      yield* waitUntilSuspended(id)
+      expect(harness.state.reasons).toEqual(["jira_project_access_lost"])
       expect(harness.state.configured).toBe(0)
     }).pipe(Effect.provide(harness.layer))
   }
@@ -1151,11 +1290,9 @@ it.effect(
   () => {
     let unavailable = true
     const fixture = makeScanTestLayer((request) =>
-      Effect.succeed(
-        unavailable && /\/(comment|worklog)\?/.test(request.url)
-          ? response({}, 503)
-          : scanFixtureResponse(request)
-      )
+      unavailable && /\/(comment|worklog)\?/.test(request.url)
+        ? Effect.sleep("1 second").pipe(Effect.as(response({}, 503)))
+        : Effect.succeed(scanFixtureResponse(request))
     )
     const harness = snapshotHarness(fixture)
     return Effect.gen(function* () {
@@ -1168,10 +1305,10 @@ it.effect(
       expect(harness.state.reasons).toHaveLength(2)
       expect(
         fixture.requests.filter((request) => request.url.includes("/comment?"))
-      ).toHaveLength(4)
+      ).toHaveLength(1)
       expect(
         fixture.requests.filter((request) => request.url.includes("/worklog?"))
-      ).toHaveLength(4)
+      ).toHaveLength(1)
       unavailable = false
       yield* completeRetry(id, 1)
       yield* waitUntilSuspended(id)
@@ -1278,11 +1415,9 @@ for (const alreadyAccepted of [false, true]) {
         let firstGenerationResumes = 0
         let unavailable = true
         const fixture = makeScanTestLayer((request) =>
-          Effect.succeed(
-            unavailable && /\/(comment|worklog)\?/.test(request.url)
-              ? response({}, 503)
-              : scanFixtureResponse(request)
-          )
+          unavailable && /\/(comment|worklog)\?/.test(request.url)
+            ? Effect.sleep("1 second").pipe(Effect.as(response({}, 503)))
+            : Effect.succeed(scanFixtureResponse(request))
         )
         const harness = snapshotHarness(fixture, Effect.succeed([]), {
           recorded: (sequence) =>

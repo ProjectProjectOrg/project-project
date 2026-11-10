@@ -55,6 +55,7 @@ describe("resolveJiraHierarchy", () => {
       {
         issueId: "epic",
         parentIssueId: "initiative",
+        parentIssueKey: null,
         reason: "epic-cannot-have-parent"
       }
     ])
@@ -74,11 +75,13 @@ describe("resolveJiraHierarchy", () => {
       {
         issueId: "epic",
         parentIssueId: "initiative",
-        reason: "parent-not-imported"
+        parentIssueKey: null,
+        reason: "parent-not-scanned"
       },
       {
         issueId: "subtask",
         parentIssueId: "story",
+        parentIssueKey: null,
         reason: "too-deeply-nested"
       }
     ])
@@ -99,7 +102,8 @@ describe("resolveJiraHierarchy", () => {
     expect(dropped).toContainEqual({
       issueId: "subtask",
       parentIssueId: "story",
-      reason: "parent-not-imported"
+      parentIssueKey: null,
+      reason: "parent-excluded"
     })
   })
 })

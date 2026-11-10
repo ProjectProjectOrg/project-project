@@ -6,13 +6,13 @@ import {
   type ReactNode
 } from "react"
 
-import { fontWeights } from "@/lib/fontWeight"
 import { SURFACE_BG } from "@/lib/surfaceClasses"
 import { useSurface } from "@/lib/surfaceContext"
 import { cn } from "@/lib/utils"
 
 import { CollapsingLabel } from "./collapsing-label"
 import { SegmentedIndicator } from "./segmented-indicator"
+import { WeightLabel } from "./weight-label"
 
 type IconCmp = ComponentType<{ className?: string; strokeWidth?: number }>
 
@@ -224,7 +224,7 @@ function SegmentedTab({
         )}
         <CollapsingLabel show={showLabel} gap={v.innerGapPx}>
           {subtle ? (
-            <WeightShiftLabel label={item.label} bold={active} />
+            <WeightLabel active={active}>{item.label}</WeightLabel>
           ) : (
             item.label
           )}
@@ -279,31 +279,4 @@ function SegmentedTab({
           }
         : { className, children }
   })
-}
-
-function WeightShiftLabel({
-  label,
-  bold
-}: Readonly<{ label: string; bold: boolean }>) {
-  return (
-    <span className="inline-grid whitespace-nowrap">
-      <span
-        aria-hidden
-        className="invisible col-start-1 row-start-1"
-        style={{ fontVariationSettings: fontWeights.semibold }}
-      >
-        {label}
-      </span>
-      <span
-        className="col-start-1 row-start-1 transition-[font-variation-settings] duration-75"
-        style={{
-          fontVariationSettings: bold
-            ? fontWeights.semibold
-            : fontWeights.normal
-        }}
-      >
-        {label}
-      </span>
-    </span>
-  )
 }

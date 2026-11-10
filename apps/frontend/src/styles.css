@@ -178,6 +178,7 @@
 
 @theme inline {
   --color-hover: var(--hover);
+  --color-region: color-mix(in oklch, var(--muted) 60%, var(--background));
   --color-active: var(--active);
   --color-tint: var(--tint);
   --color-tint-hover: var(--tint-hover);

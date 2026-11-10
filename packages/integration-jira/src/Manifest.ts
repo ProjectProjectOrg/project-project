@@ -72,6 +72,7 @@ export const JiraManifestIssueType = Schema.Struct({
   id: Schema.NonEmptyString,
   name: Schema.NonEmptyString,
   subtask: Schema.Boolean,
+  hierarchyLevel: Schema.optional(Schema.NullOr(Schema.Int)),
   raw: Schema.Json
 })
 export type JiraManifestIssueType = typeof JiraManifestIssueType.Type
@@ -106,6 +107,7 @@ export const JiraManifestIssue = Schema.Struct({
   componentIds: Schema.Array(Schema.String),
   groupIds: Schema.Array(Schema.String),
   parentIssueId: Schema.NullOr(Schema.String),
+  parentIssueKey: Schema.optional(Schema.NullOr(Schema.String)),
   attachmentIds: Schema.Array(Schema.String),
   restricted: Schema.Boolean,
   createdAt: Schema.NonEmptyString,
@@ -176,6 +178,16 @@ export const JiraManifestCoverage = Schema.Struct({
   reason: Schema.NullOr(Schema.String)
 })
 export type JiraManifestCoverage = typeof JiraManifestCoverage.Type
+
+export const JiraCustomFieldValues = Schema.Array(
+  Schema.Struct({ issueId: Schema.NonEmptyString, value: Schema.Json })
+)
+export const decodeUnknownJiraCustomFieldValuesSync = Schema.decodeUnknownSync(
+  JiraCustomFieldValues
+)
+
+export const isCoverageLimited = (visibility: string) =>
+  visibility === "partial" || visibility === "unknown"
 
 export const JiraManifestRawPage = Schema.Struct({
   kind: Schema.NonEmptyString,
@@ -259,7 +271,8 @@ export const JiraManifestStatusV2 = Schema.Struct({
 export const JiraManifestIssueTypeV2 = Schema.Struct({
   id: Schema.NonEmptyString,
   name: Schema.NonEmptyString,
-  subtask: Schema.Boolean
+  subtask: Schema.Boolean,
+  hierarchyLevel: Schema.optional(Schema.NullOr(Schema.Int))
 })
 
 export const JiraManifestPriorityV2 = Schema.Struct({
@@ -286,6 +299,12 @@ export const JiraManifestIssueV2 = Schema.Struct({
   reporterAccountId: Schema.NullOr(Schema.String),
   labelIds: Schema.Array(Schema.String),
   componentIds: Schema.Array(Schema.String),
+  parentIssueId: Schema.optional(Schema.NullOr(Schema.String)),
+  parentIssueKey: Schema.optional(Schema.NullOr(Schema.String)),
+  dueDate: Schema.optional(Schema.NullOr(Schema.String)),
+  resolution: Schema.optional(Schema.NullOr(Schema.String)),
+  resolvedAt: Schema.optional(Schema.NullOr(Schema.String)),
+  originalEstimateSeconds: Schema.optional(Schema.NullOr(NonNegativeInt)),
   createdAt: Schema.NonEmptyString,
   updatedAt: Schema.NonEmptyString
 })

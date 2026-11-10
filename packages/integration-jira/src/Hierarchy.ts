@@ -4,12 +4,15 @@ import type { JiraMappingSource, JiraMigrationMappings } from "./Mappings"
 
 export type JiraParentDropReason =
   | "epic-cannot-have-parent"
-  | "parent-not-imported"
+  | "parent-not-scanned"
+  | "parent-excluded"
   | "too-deeply-nested"
+  | "parent-cycle"
 
 export type JiraParentDrop = Readonly<{
   issueId: string
   parentIssueId: string
+  parentIssueKey: string | null
   reason: JiraParentDropReason
 }>
 
@@ -20,7 +23,13 @@ export type JiraHierarchy = Readonly<{
 
 export type JiraHierarchySource = Readonly<{
   issues: ReadonlyArray<
-    Readonly<{ id: string; issueTypeId: string; parentIssueId: string | null }>
+    Readonly<{
+      id: string
+      key?: string
+      issueTypeId: string
+      parentIssueId: string | null
+      parentIssueKey?: string | null | undefined
+    }>
   >
   restrictions: ReadonlyArray<
     Pick<
@@ -54,6 +63,7 @@ export function resolveJiraHierarchy(
       mapping.destinationType
     ])
   )
+  const scanned = new Map(source.issues.map((issue) => [issue.id, issue]))
   const issues = new Map(
     source.issues
       .filter(({ id }) => !excluded.has(id))
@@ -71,22 +81,33 @@ export function resolveJiraHierarchy(
   const parentOf = (issueId: string): string | null => {
     const known = resolved.get(issueId)
     if (known !== undefined) return known
-    const parentIssueId = issues.get(issueId)?.parentIssueId ?? null
+    const issue = issues.get(issueId)
+    const parentIssueId = issue?.parentIssueId ?? null
     if (parentIssueId === null) {
       resolved.set(issueId, null)
       return null
     }
     const drop = (reason: JiraParentDropReason) => {
-      dropped.push({ issueId, parentIssueId, reason })
+      dropped.push({
+        issueId,
+        parentIssueId,
+        parentIssueKey:
+          scanned.get(parentIssueId)?.key ?? issue?.parentIssueKey ?? null,
+        reason
+      })
       resolved.set(issueId, null)
       return null
     }
     if (typeOf(issueId) === "epic") return drop("epic-cannot-have-parent")
-    if (!issues.has(parentIssueId) || resolving.has(issueId))
-      return drop("parent-not-imported")
+    if (excluded.has(parentIssueId)) return drop("parent-excluded")
+    if (!issues.has(parentIssueId)) return drop("parent-not-scanned")
+    if (parentIssueId === issueId || resolving.has(parentIssueId))
+      return drop("parent-cycle")
     resolving.add(issueId)
     const grandparentId = parentOf(parentIssueId)
     resolving.delete(issueId)
+    const settled = resolved.get(issueId)
+    if (settled !== undefined) return settled
     if (
       !canHoldChildren(
         { type: typeOf(parentIssueId) },

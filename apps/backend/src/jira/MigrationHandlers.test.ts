@@ -178,23 +178,6 @@ const dependenciesFor = (
         boardsPage: unused,
         sprintsPage: unused,
         sprintIssuesPage: unused,
-        currentUser: unused,
-        project: unused,
-        projectStatuses: unused,
-        fields: unused,
-        priorities: unused,
-        components: unused,
-        versions: unused,
-        searchIssues: unused,
-        comments: unused,
-        worklogs: unused,
-        changelogs: unused,
-        watchers: unused,
-        votes: unused,
-        boards: unused,
-        boardConfiguration: unused,
-        sprints: unused,
-        sprintIssues: unused,
         attachmentContent: () => Stream.die("unused")
       })
   )
@@ -220,7 +203,7 @@ it.effect(
           source: {},
           restrictionPolicy: "include",
           categories: {
-            issues: [{ id: "issue-1", key: "APP-1" }],
+            issues: [{ id: "issue-1", key: "APP-1", issueNumber: 1 }],
             attachments: [
               {
                 id: "attachment-1",
@@ -232,7 +215,13 @@ it.effect(
             ]
           },
           exclusions: [],
-          mappings: {},
+          mappings: {
+            destination: {
+              name: "Application",
+              slug: "application",
+              key: "APP"
+            }
+          },
           attachmentOutcomes: [
             { kind: "skipped", sourceAttachmentId: "attachment-1" }
           ],
@@ -530,13 +519,6 @@ for (const failureAt of ["sites", "projects"] as const) {
     [
       new JiraTransientFailure({ operation: "projects", reason: "network" }),
       new JiraError({ reason: "network" })
-    ],
-    [
-      new JiraTransientFailure({
-        operation: "projects",
-        reason: "invalid_retry_after"
-      }),
-      new JiraError({ reason: "invalid_response" })
     ]
   ] as const) {
     it.effect(
@@ -606,7 +588,7 @@ for (const failureAt of ["sites", "projects"] as const) {
 }
 
 for (const kind of ["body reset", "malformed JSON"] as const) {
-  it.effect(
+  it.live(
     `preserves public error classification for live ${kind} responses`,
     () =>
       Effect.gen(function* () {
@@ -698,12 +680,12 @@ for (const kind of ["body reset", "malformed JSON"] as const) {
               _tag: "Failure",
               failure: {
                 _tag: "JiraError",
-                reason: kind === "body reset" ? "network" : "invalid_response"
+                reason: kind === "body reset" ? "network" : "invalid_json"
               }
             })
             expect(result).not.toHaveProperty("failure.operation")
           }
-          expect(requests).toBe(2)
+          expect(requests).toBe(kind === "body reset" ? 6 : 2)
         }).pipe(
           Effect.provide(
             Layer.mergeAll(handlers, HttpServer.layerServices).pipe(

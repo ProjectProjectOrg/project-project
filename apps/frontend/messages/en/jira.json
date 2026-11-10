@@ -1,192 +1,706 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
-  "jira_migration_action_back": "Back",
-  "jira_migration_action_cancel": "Cancel migration",
-  "jira_migration_action_connect": "Connect Jira",
-  "jira_migration_action_continue": "Continue",
-  "jira_migration_action_discard": "Discard migration",
-  "jira_migration_action_discard_unavailable": "Can’t discard yet",
-  "jira_migration_action_leave_confirm": "Leave",
-  "jira_migration_action_open_project": "Open project",
-  "jira_migration_action_reconfigure": "Back to mapping",
-  "jira_migration_action_rescan": "Scan again",
-  "jira_migration_action_retry": "Retry",
-  "jira_migration_action_save_leave": "Leave migration",
-  "jira_migration_action_scan": "Scan project",
-  "jira_migration_action_skip_failed_files": "Choose files to leave out",
-  "jira_migration_action_start": "Confirm and migrate",
-  "jira_migration_api_pending": "Project scanning will be available as soon as the migration service is ready.",
-  "jira_migration_attachment_accept": "I understand these attachments will be left out",
-  "jira_migration_attachment_accept_required": "Confirm that these files will be left out before starting.",
-  "jira_migration_attachment_choose_or_retry": "Select a file to leave out, or go back to retry copying them all.",
-  "jira_migration_attachment_forced": "Must be skipped",
-  "jira_migration_attachment_failed_description": "Retry will try these files again. Select any file you want to leave out of the import instead.",
-  "jira_migration_attachment_failed_title": "Files that failed to copy",
-  "jira_migration_attachment_leave_out": "Leave out",
-  "jira_migration_attachments_description": "Unsupported or oversized files stay listed in the migration report.",
-  "jira_migration_attachments_title": "Attachments left behind",
-  "jira_migration_backlog": "Backlog",
-  "jira_migration_cancelled_description": "The migration stopped safely. Its snapshot is normally kept for 30 days.",
-  "jira_migration_cancelled_title": "Migration cancelled",
-  "jira_migration_choose_description": "Choose the Jira site and project to capture in a fixed snapshot.",
-  "jira_migration_choose_title": "Choose a Jira project",
-  "jira_migration_connect_description": "Connect your Jira account to choose a project. ProjectProject only imports data your account can see.",
-  "jira_migration_connect_feature_archive": "Keep the original Jira records and migration report with the new project.",
-  "jira_migration_connect_feature_control": "Review people and mappings before anything is created.",
-  "jira_migration_connect_feature_snapshot": "Capture one fixed snapshot so the source cannot shift during review.",
-  "jira_migration_connect_title": "Bring your Jira project with you",
-  "jira_migration_connected_source_description": "This is the Jira site used for the fixed migration snapshot.",
-  "jira_migration_connected_source_title": "Connected Jira source",
-  "jira_migration_destination_description": "Set the name, URL slug and ticket key. Changing the key renames imported tickets while keeping their Jira issue numbers.",
-  "jira_migration_destination_invalid": "Enter a valid project name, URL slug and ticket key.",
-  "jira_migration_destination_key": "Ticket key",
-  "jira_migration_destination_name": "Project name",
-  "jira_migration_destination_slug": "URL slug",
-  "jira_migration_destination_title": "Name the destination",
-  "jira_migration_discard_unavailable_description": "A file upload or cleanup may still be finishing. We’re keeping this import until it’s safe to discard.",
-  "jira_migration_error_generic": "The Jira migration could not be updated. Try again.",
-  "jira_migration_failed_description": "Nothing has been published. You can retry from the saved checkpoint or scan the source again.",
-  "jira_migration_failed_title": "Migration needs attention",
-  "jira_migration_failure_generic": "The migration stopped with an unexpected error ({reason}).",
-  "jira_migration_failure_internal_error": "The migration stopped on an unexpected error. Nothing was published; discard it and start again.",
-  "jira_migration_failure_preflight_blocked": "Some mappings still need a decision before this project can be migrated.",
-  "jira_migration_failure_preparation_invalid": "A mapping or destination is no longer valid. Return to mapping, correct it, then start again.",
-  "jira_migration_failure_storage_unavailable": "Organization storage was unreachable. Check the connection and try again.",
-  "jira_migration_item_pending_description": "This migration cannot be loaded until the migration service is available. Its identifier has been preserved.",
-  "jira_migration_item_pending_title": "Migration details are not available yet",
-  "jira_migration_leave_question": "Leave? Unsaved changes are lost.",
-  "jira_migration_leave_save_question": "Save your draft and leave?",
-  "jira_migration_mapping_required": "Choose a destination for every row before continuing.",
-  "jira_migration_page_title": "Jira migration",
-  "jira_migration_people_description": "Link each Jira identity to a ProjectProject member, invite them by email, or leave it unlinked. Invited people get their imported tickets and comments when they accept. Suggestions are not applied automatically.",
-  "jira_migration_people_dont_link": "Don’t link",
-  "jira_migration_people_invite": "Invite by email…",
-  "jira_migration_people_invite_email_label": "Email to invite for {name}",
-  "jira_migration_people_invite_placeholder": "name@company.com",
-  "jira_migration_people_invitee": "{email} (invited)",
-  "jira_migration_people_title": "Link people",
-  "jira_migration_phase_cancelling": "Cancelling",
-  "jira_migration_phase_configuration": "Awaiting configuration",
-  "jira_migration_phase_migrate": "Writing records",
-  "jira_migration_phase_queued_scan": "Queued",
-  "jira_migration_phase_ready": "Starting",
-  "jira_migration_phase_scan": "Scanning Jira",
-  "jira_migration_planning_choose_sprint": "Choose a sprint or backlog",
-  "jira_migration_planning_conflicts_title": "Active and future sprint conflicts",
-  "jira_migration_planning_description": "Name imported labels and components, then resolve only issues that belong to competing active or future sprints.",
-  "jira_migration_planning_title": "Tags and planning",
-  "jira_migration_priorities_description": "Translate Jira priorities into ProjectProject’s three priority levels.",
-  "jira_migration_priorities_title": "Map priorities",
-  "jira_migration_priority_high": "High",
-  "jira_migration_priority_low": "Low",
-  "jira_migration_priority_medium": "Medium",
-  "jira_migration_project_empty": "No Jira projects are visible on this site.",
-  "jira_migration_project_label": "Project",
-  "jira_migration_project_loading": "Loading projects…",
-  "jira_migration_project_placeholder": "Choose a project",
-  "jira_migration_project_type_label": "Project type",
-  "jira_migration_projects_entry": "Migrate from Jira",
-  "jira_migration_reconnect_description": "Jira needs permission again before the migration can continue.",
-  "jira_migration_reconnect_title": "Reconnect Jira",
-  "jira_migration_restricted_description": "Restricted Jira content may contain information that is not visible to every destination member.",
-  "jira_migration_restricted_exclude": "Exclude restricted content",
-  "jira_migration_restricted_include": "Include it and accept the disclosure",
-  "jira_migration_restricted_required": "Choose whether to include or exclude restricted content.",
-  "jira_migration_restricted_title": "Restricted content",
-  "jira_migration_resume_description": "Return to a migration you started earlier.",
-  "jira_migration_resume_empty": "No saved Jira migrations yet.",
-  "jira_migration_resume_loading": "Loading saved migrations…",
-  "jira_migration_save_conflict": "This draft changed elsewhere. Reload it before saving again.",
-  "jira_migration_save_timeout": "Saving is taking too long. Try again before leaving this page.",
-  "jira_migration_resume_title": "Saved migrations",
-  "jira_migration_review_conflict_key": "Project key {value} is already used in this organization.",
-  "jira_migration_review_conflict_slug": "Project URL slug {value} is already in use.",
-  "jira_migration_review_conflict_ticket": "Ticket {value} already exists in this organization.",
-  "jira_migration_review_conflicts_checking": "Checking this destination for conflicts…",
-  "jira_migration_review_conflicts_clear": "No destination conflicts found.",
-  "jira_migration_review_conflicts_description": "Change the URL slug or ticket key on the previous step. A new ticket key gives imported tickets new IDs while keeping their Jira issue numbers.",
-  "jira_migration_review_conflicts_title": "Resolve these conflicts before starting",
-  "jira_migration_review_counts": "{issues} issues · {comments} comments · {attachments} attachments",
-  "jira_migration_review_created_statuses": "New destination statuses: {count}",
-  "jira_migration_review_description": "Check the destination and exceptions. The project remains hidden until publication succeeds.",
-  "jira_migration_review_title": "Review migration",
-  "jira_migration_scan_progress_description": "ProjectProject is capturing a fixed snapshot. You can leave this page and return later.",
-  "jira_migration_scan_progress_title": "Scanning Jira project",
-  "jira_migration_scan_queued_description": "Your scan will start automatically. You can leave this page and return later.",
-  "jira_migration_scan_queued_title": "Waiting to scan Jira",
-  "jira_migration_scan_records_captured": "{count} records captured",
-  "jira_migration_selected_source_description": "This is the Jira project captured in the fixed migration snapshot.",
-  "jira_migration_selected_source_title": "Selected Jira project",
-  "jira_migration_skipped_can_replace": "Upload the downloaded file to this ticket. Update old Jira links in the ticket text if needed.",
-  "jira_migration_skipped_jira_issue": "{issueKey} in Jira",
-  "jira_migration_skipped_loading": "Loading skipped files…",
-  "jira_migration_skipped_ticket": "{ticketId} in ProjectProject",
-  "jira_migration_skipped_title": "Attachments left behind",
-  "jira_migration_skipped_too_large": "This file is empty or exceeds the 25 MB upload limit, so it cannot be uploaded to ProjectProject.",
-  "jira_migration_skipped_type_unavailable": "This file type cannot be uploaded to ProjectProject.",
-  "jira_migration_site_empty": "No Jira sites are available for this account.",
-  "jira_migration_site_label": "Jira site",
-  "jira_migration_site_loading": "Loading sites…",
-  "jira_migration_site_placeholder": "Choose a Jira site",
-  "jira_migration_snapshot_attachment_counts": "{attachments} attachments",
-  "jira_migration_snapshot_attachments": "Attachments",
-  "jira_migration_snapshot_comments": "Comments",
-  "jira_migration_snapshot_description": "We found {issues} issues in {project}. Review this fixed snapshot before configuring the migration.",
-  "jira_migration_snapshot_fixed_note": "This snapshot of {projectKey} on {site} will not change while you review the migration.",
-  "jira_migration_snapshot_gaps_description": "Jira denied access to some data or it was unavailable. This snapshot may be incomplete.",
-  "jira_migration_snapshot_gaps_title": "Some Jira data could not be scanned",
-  "jira_migration_snapshot_groups": "Planning groups",
-  "jira_migration_snapshot_issues": "Issues",
-  "jira_migration_snapshot_people": "People",
-  "jira_migration_snapshot_people_data": "People and project data",
-  "jira_migration_snapshot_people_data_counts": "{people} people · {statuses} statuses · {types} issue types · {priorities} priorities",
-  "jira_migration_snapshot_planning": "Planning",
-  "jira_migration_snapshot_planning_counts": "{issues} issues · {comments} comments · {groups} planning groups · {tags} tags",
-  "jira_migration_snapshot_project_destination": "The destination project has not been created yet.",
-  "jira_migration_snapshot_title": "Your snapshot is ready",
-  "jira_migration_snapshot_visibility_description": "This snapshot only includes Jira data your connected account can see. Hidden or restricted content may be missing.",
-  "jira_migration_snapshot_visibility_title": "What this snapshot includes",
-  "jira_migration_source_fixed": "Fixed source",
-  "jira_migration_source_fixed_note": "To migrate a different source, leave this job and start a separate migration.",
-  "jira_migration_stage_choose": "Choose source",
-  "jira_migration_stage_connect": "Connect Jira",
-  "jira_migration_stage_finish": "Finish",
-  "jira_migration_stage_link": "Link accounts",
-  "jira_migration_stage_map": "Map project data",
-  "jira_migration_stage_migrate": "Migrate",
-  "jira_migration_stage_review": "Review migration",
-  "jira_migration_stage_scan": "Scan project",
-  "jira_migration_status_cancelled": "Cancelled",
-  "jira_migration_status_cancelling": "Cancelling",
-  "jira_migration_status_create": "Create status “{status}”",
-  "jira_migration_status_description": "Map every Jira status to an existing ProjectProject status, or create a source-named destination. A created status joins the phase of its Jira category, so Jira done statuses close imported tickets.",
-  "jira_migration_status_failed": "Needs attention",
-  "jira_migration_status_migrating": "Migrating",
-  "jira_migration_status_needs_configuration": "Needs configuration",
-  "jira_migration_status_ready": "Ready",
-  "jira_migration_status_reconnect_required": "Reconnect required",
-  "jira_migration_status_scanning": "Scanning",
-  "jira_migration_status_succeeded": "Complete",
-  "jira_migration_status_title": "Map statuses",
-  "jira_migration_step_destination": "Name destination",
-  "jira_migration_step_people": "Link people",
-  "jira_migration_step_planning": "Tags and planning",
-  "jira_migration_step_priorities": "Map priorities",
-  "jira_migration_step_review": "Review",
-  "jira_migration_step_snapshot": "Snapshot",
-  "jira_migration_step_statuses": "Map statuses",
-  "jira_migration_step_types": "Map issue types",
-  "jira_migration_success_description": "The destination is published and ready to use.",
-  "jira_migration_success_skipped": "These files were not copied. Open each Jira issue to download the attachment.",
-  "jira_migration_success_title": "Migration complete",
-  "jira_migration_tag_destination_label": "Destination tag name",
-  "jira_migration_type_bug": "Bug",
-  "jira_migration_type_chore": "Chore",
-  "jira_migration_type_description": "Jira epics, issues and subtasks keep their hierarchy as epics and sub-tickets. Parent links that ProjectProject cannot hold are listed in the migration report.",
-  "jira_migration_type_epic": "Epic",
-  "jira_migration_type_feature": "Feature",
-  "jira_migration_type_other": "Other",
-  "jira_migration_type_title": "Map issue types",
-  "jira_migration_work_progress_description": "The destination remains hidden until every record is validated and publication succeeds.",
-  "jira_migration_work_progress_title": "Migrating project"
+  "jira_import_action_all_imports": "All imports",
+  "jira_import_action_back": "Back",
+  "jira_import_action_cancel_import": "Stop import",
+  "jira_import_action_cancel_scan": "Stop scan",
+  "jira_import_action_change": "Change",
+  "jira_import_action_connect": "Connect Jira",
+  "jira_import_action_connect_storage": "Set up storage",
+  "jira_import_action_discard": "Delete this import",
+  "jira_import_action_fix_setup": "Go to set up",
+  "jira_import_action_leave_out_files": "Choose files to leave out",
+  "jira_import_action_new": "New import",
+  "jira_import_action_open_existing": "Open that import",
+  "jira_import_action_open_project": "Open project",
+  "jira_import_action_reload": "Reload",
+  "jira_import_action_retry": "Try again",
+  "jira_import_action_scan": "Scan project",
+  "jira_import_action_scan_again": "Scan again",
+  "jira_import_action_start": "Start import",
+  "jira_import_action_stop": "Stop",
+  "jira_import_action_to_review": "Continue to review",
+  "jira_import_action_to_setup": "Continue to set up",
+  "jira_import_attachment_count_empty": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} is empty",
+        "countPlural=*": "{count} are empty"
+      }
+    }
+  ],
+  "jira_import_attachment_count_larger": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} is larger than 25 MB",
+        "countPlural=*": "{count} are larger than 25 MB"
+      }
+    }
+  ],
+  "jira_import_attachment_count_unavailable": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Jira wouldn't hand over {count}",
+        "countPlural=*": "Jira wouldn't hand over {count}"
+      }
+    }
+  ],
+  "jira_import_attachment_count_unsupported": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} is a file type ProjectProject can't store",
+        "countPlural=*": "{count} are a file type ProjectProject can't store"
+      }
+    }
+  ],
+  "jira_import_attachment_empty": "Empty file",
+  "jira_import_attachment_failed_description": "These files could not be copied. Try the import again to retry them, or tick the ones to leave out.",
+  "jira_import_attachment_failed_title": "Files that failed to copy",
+  "jira_import_attachment_hide_files": "Hide the files",
+  "jira_import_attachment_larger": "Larger than 25 MB",
+  "jira_import_attachment_more": "And {count} more.",
+  "jira_import_attachment_show_files": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Show the file",
+        "countPlural=*": "Show the {count} files"
+      }
+    }
+  ],
+  "jira_import_attachment_skipped_summary": [
+    {
+      "declarations": [
+        "input count",
+        "input reasons",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} file can't come across: {reasons}.",
+        "countPlural=*": "{count} files can't come across: {reasons}."
+      }
+    }
+  ],
+  "jira_import_attachment_too_large": "Larger than 25 MB, or empty",
+  "jira_import_attachment_unavailable": "Jira would not hand it over",
+  "jira_import_attachment_unsupported": "File type ProjectProject can't store",
+  "jira_import_cancel_import_prompt": "Stop the import? Nothing is added until it finishes.",
+  "jira_import_cancel_scan_prompt": "Stop the scan? You can start it again later.",
+  "jira_import_cancelled_description": "Nothing was added to ProjectProject. Scan the project again to start over.",
+  "jira_import_cancelled_title": "Import stopped",
+  "jira_import_cancelling_title": "Stopping the import",
+  "jira_import_category_done": "Done in Jira",
+  "jira_import_category_in_progress": "In progress in Jira",
+  "jira_import_category_todo": "To do in Jira",
+  "jira_import_choose": "Choose…",
+  "jira_import_column_activity": "Activity",
+  "jira_import_column_tickets": "Tickets",
+  "jira_import_conflict_key": "Project key {value} is already taken. Pick another.",
+  "jira_import_conflict_slug": "URL slug {value} is already taken.",
+  "jira_import_conflict_tickets": [
+    {
+      "declarations": [
+        "input count",
+        "input keys",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Ticket {keys} already exists. Pick another project key.",
+        "countPlural=*": "{count} tickets with this key already exist: {keys}. Pick another project key."
+      }
+    }
+  ],
+  "jira_import_connect_description": "Sign in to Jira to pick a project. ProjectProject only reads what your Jira account can see, and never changes anything in Jira.",
+  "jira_import_connect_title": "Connect Jira",
+  "jira_import_count": "{count}",
+  "jira_import_destination_checking": "Checking it's free…",
+  "jira_import_destination_key": "Project key",
+  "jira_import_destination_key_hint": "2 to 10 capital letters or digits. Tickets keep their Jira numbers: APP-12 becomes KEY-12.",
+  "jira_import_destination_key_invalid": "Use 2 to 10 capital letters or digits, starting with a letter.",
+  "jira_import_destination_name": "Project name",
+  "jira_import_destination_name_hint": "Shown in the sidebar and on the project page.",
+  "jira_import_destination_name_invalid": "Give the project a name.",
+  "jira_import_destination_slug": "URL slug",
+  "jira_import_destination_slug_hint": "Lowercase letters, digits and dashes.",
+  "jira_import_destination_slug_invalid": "Use lowercase letters, digits and dashes.",
+  "jira_import_destination_summary": "{name} · {key}",
+  "jira_import_destination_title": "New project",
+  "jira_import_discard_later": "Files are still being cleaned up, so this import can't be deleted yet.",
+  "jira_import_discard_prompt": "Delete this import and everything it scanned?",
+  "jira_import_empty_description": "Scan a Jira project, check how it maps, then import it as a new project.",
+  "jira_import_empty_point_people": "Jira people are matched to your members, or invited by email.",
+  "jira_import_empty_point_review": "Nothing is created until you review and start the import.",
+  "jira_import_empty_point_tickets": "Tickets, epics, sub-tickets, estimates, comments, attachments, sprints and tags come across.",
+  "jira_import_empty_title": "Bring a Jira project over",
+  "jira_import_error_access_denied": "Your Jira account can't see this project any more.",
+  "jira_import_error_changed_elsewhere": "This import was changed somewhere else. Reload to see the latest version.",
+  "jira_import_error_moved_on": "This import has moved on since the page loaded. Reload to see where it is.",
+  "jira_import_error_not_connected": "Connect Jira to continue.",
+  "jira_import_error_not_found": "That Jira site or project is gone, or your account can't see it.",
+  "jira_import_error_rate_limited": [
+    {
+      "declarations": [
+        "input seconds",
+        "local secondsPlural = seconds: plural"
+      ],
+      "selectors": ["secondsPlural"],
+      "match": {
+        "secondsPlural=one": "Jira asked us to slow down. Try again in {seconds} second.",
+        "secondsPlural=*": "Jira asked us to slow down. Try again in {seconds} seconds."
+      }
+    }
+  ],
+  "jira_import_error_reconnect": "Jira wants you to sign in again.",
+  "jira_import_error_storage": "Imports keep attachments in your organization's file storage. Set up storage first.",
+  "jira_import_error_unexpected": "Something went wrong. Try again.",
+  "jira_import_error_unreachable": "Jira didn't answer properly. Try again in a moment.",
+  "jira_import_error_worker": "The import service isn't running right now. Try again shortly.",
+  "jira_import_fact_attachments": "Attachments",
+  "jira_import_fact_comments": "Comments",
+  "jira_import_fact_epics_found": "Epics in Jira",
+  "jira_import_fact_found_note": "Counted in Jira before your set up choices.",
+  "jira_import_fact_people": "People",
+  "jira_import_fact_priorities": "Priorities",
+  "jira_import_fact_sprints": "Sprints",
+  "jira_import_fact_statuses": "Statuses",
+  "jira_import_fact_statuses_created": "New statuses",
+  "jira_import_fact_sub_tickets_found": "Sub-tasks in Jira",
+  "jira_import_fact_tags": "Tags",
+  "jira_import_fact_tickets": "Tickets",
+  "jira_import_fact_types": "Issue types",
+  "jira_import_failure_access_description": "Jira stopped accepting your sign-in, or your account lost access to the project. Connect Jira again and the import picks up where it stopped.",
+  "jira_import_failure_access_title": "Jira needs you to sign in again",
+  "jira_import_failure_attachments_description": "Everything else is in place. Try again to copy the missing files, or choose which ones to leave out.",
+  "jira_import_failure_attachments_title": "Some attachments didn't copy",
+  "jira_import_failure_file_write_description": "ProjectProject retried for several minutes, but writing to the organization's file storage kept failing. Check the storage settings, then scan the project again.",
+  "jira_import_failure_file_write_title": "Files couldn't be saved to storage",
+  "jira_import_failure_internal_description": "ProjectProject hit a problem of its own and stopped after retrying. Nothing half-finished is visible. Scan the project again to start over.",
+  "jira_import_failure_internal_title": "The import stopped on our side",
+  "jira_import_failure_paused_description": "The run stopped part way and can carry on from where it paused.",
+  "jira_import_failure_paused_title": "The import paused",
+  "jira_import_failure_project_access_description": "Jira stopped showing this project to the connected account. Ask a Jira admin to restore access, then scan again.",
+  "jira_import_failure_project_access_title": "Your Jira account lost access to the project",
+  "jira_import_failure_project_gone_description": "Jira no longer has this project, or it was moved. Scan again if it was renamed, or delete this import.",
+  "jira_import_failure_project_gone_title": "The Jira project is gone",
+  "jira_import_failure_rate_limited_description": "Jira kept limiting how fast we could read, even after several minutes of retries. Scan again later.",
+  "jira_import_failure_rate_limited_title": "Jira asked us to slow down",
+  "jira_import_failure_response_description": "ProjectProject retried for several minutes, but Jira kept answering in a way we couldn't use. Scan the project again to start fresh.",
+  "jira_import_failure_response_title": "Jira sent something we couldn't read",
+  "jira_import_failure_scan_description": "Part of the project couldn't be read. Scan it again to get a complete picture.",
+  "jira_import_failure_scan_title": "The scan didn't finish",
+  "jira_import_failure_service_description": "ProjectProject retried for several minutes before stopping. Scan again in a little while.",
+  "jira_import_failure_service_title": "The import service was unavailable",
+  "jira_import_failure_setup_description": "Something in the set up no longer fits the project, for example a status or a person that changed. Check the set up and start again.",
+  "jira_import_failure_setup_title": "The set up needs another look",
+  "jira_import_failure_stalled_description": "Nothing moved for 45 minutes, so ProjectProject stopped it. Scan the project again to start over, or delete this import.",
+  "jira_import_failure_stalled_title": "The import stopped making progress",
+  "jira_import_failure_storage_description": "ProjectProject retried for several minutes, but the organization's file storage couldn't be reached. Check the storage settings, then scan again.",
+  "jira_import_failure_storage_title": "File storage is unreachable",
+  "jira_import_failure_subject": "Stopped at: {subject}",
+  "jira_import_failure_superseded_description": "A newer scan of this project replaced this one. Scan again to continue.",
+  "jira_import_failure_superseded_title": "This import was replaced",
+  "jira_import_failure_unknown_description": "The import stopped without a known reason. Nothing half-finished is visible.",
+  "jira_import_failure_unknown_title": "The import stopped",
+  "jira_import_failure_unreachable_description": "ProjectProject retried for several minutes, but Jira kept not answering. Scan the project again once Jira is back.",
+  "jira_import_failure_unreachable_title": "Jira couldn't be reached",
+  "jira_import_failure_verification_description": "Everything was written, but the final check found the new project incomplete, so nothing was made visible. Scan the project again to start a fresh import, or delete this one.",
+  "jira_import_failure_verification_title": "The import couldn't be verified",
+  "jira_import_filter_all": "All",
+  "jira_import_filter_attention": "Needs a decision",
+  "jira_import_filter_empty": "Nothing matches.",
+  "jira_import_filter_label": "Show",
+  "jira_import_finding_archive_only": "Records with no place in ProjectProject",
+  "jira_import_finding_assignee_invited": "Assignees waiting for an invitation",
+  "jira_import_finding_assignee_unlinked": "Assignees not linked to a member",
+  "jira_import_finding_attachment_failed": "Attachments that failed to copy",
+  "jira_import_finding_attachment_skipped": "Attachments not copied",
+  "jira_import_finding_comment_author_unlinked": "Comment authors kept as Jira names",
+  "jira_import_finding_comment_excluded": "Restricted comments left out",
+  "jira_import_finding_due_date_as_text": "Due dates",
+  "jira_import_finding_embedded_file_unresolved": "Embedded files that could not be matched",
+  "jira_import_finding_estimate_not_representable": "Estimates that could not be kept",
+  "jira_import_finding_issue_excluded": "Restricted issues left out",
+  "jira_import_finding_issue_key_changed": "Ticket keys",
+  "jira_import_finding_open_in_jira": "Open in Jira",
+  "jira_import_finding_other": "Other notes",
+  "jira_import_finding_parent_dropped": "Parent links not kept",
+  "jira_import_finding_reporter_replaced": "Reporters recorded as you",
+  "jira_import_finding_resolution_as_text": "Resolutions",
+  "jira_import_finding_restricted_content_included": "Restricted content now visible to the project",
+  "jira_import_finding_source_collection_unreadable": "Jira data that could not be read",
+  "jira_import_finding_source_duplicate_dropped": "Records Jira returned twice",
+  "jira_import_finding_source_reference_repaired": "Jira values added from the issues that use them",
+  "jira_import_finding_source_visibility_limited": "Data Jira returned only in part",
+  "jira_import_finding_tag_renamed": "Labels and components renamed as tags",
+  "jira_import_finding_tags_merged": "Labels and components merged into one tag",
+  "jira_import_finding_text_degraded": "Formatting that did not convert exactly",
+  "jira_import_finding_time_estimates_not_imported": "Time estimates not imported",
+  "jira_import_findings_show_all": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Show the {count} row",
+        "countPlural=*": "Show all {count}"
+      }
+    }
+  ],
+  "jira_import_findings_show_less": "Show fewer",
+  "jira_import_importing_description": "This runs on the server. The new project stays hidden until every ticket is in place.",
+  "jira_import_importing_title": "Importing {project}",
+  "jira_import_leave_note": "You can close this page. The work carries on, and you can come back from Jira imports at any time.",
+  "jira_import_list_description": "Jira projects you are bringing into ProjectProject.",
+  "jira_import_list_finished": "Finished",
+  "jira_import_list_running": "In progress",
+  "jira_import_list_setup": "Being set up",
+  "jira_import_list_title": "Jira imports",
+  "jira_import_people_activity": "{tickets} tickets · {comments} comments",
+  "jira_import_people_activity_title": "{assigned} assigned, {reported} reported, {comments} comments",
+  "jira_import_people_column_jira": "Jira person",
+  "jira_import_people_column_target": "In ProjectProject",
+  "jira_import_people_description": "Linked people keep their tickets and comments. For someone you don't link, comments keep their Jira name, tickets assigned to them arrive unassigned, tickets they reported show you as creator, and each ticket's import note records their name. Invite them and all of this moves to them when they accept.",
+  "jira_import_people_invite": "Invite by email…",
+  "jira_import_people_invite_all": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Invite {count} by email",
+        "countPlural=*": "Invite {count} by email"
+      }
+    }
+  ],
+  "jira_import_people_invite_all_confirm": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Invite {count}",
+        "countPlural=*": "Invite {count}"
+      }
+    }
+  ],
+  "jira_import_people_invite_all_prompt": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Invite {count} person when the import finishes?",
+        "countPlural=*": "Invite {count} people when the import finishes?"
+      }
+    }
+  ],
+  "jira_import_people_invite_email_label": "Email to invite for {name}",
+  "jira_import_people_invite_placeholder": "name@company.com",
+  "jira_import_people_invitee": "Invite {email}",
+  "jira_import_people_leave_rest": "Leave the rest unlinked",
+  "jira_import_people_link_suggested": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Link {count} suggested match",
+        "countPlural=*": "Link {count} suggested matches"
+      }
+    }
+  ],
+  "jira_import_people_search": "Search people",
+  "jira_import_people_summary": "{linked} linked · {invited} invited · {unlinked} not linked",
+  "jira_import_people_title": "People",
+  "jira_import_people_unlinked": "Don't link",
+  "jira_import_people_unlinked_consequence": "Unlinked people: comments keep their Jira name, their tickets arrive unassigned or with you as creator, and the import note records who they were. Inviting someone hands it all over when they accept.",
+  "jira_import_phase_cancelled": "Stopped",
+  "jira_import_phase_cancelling": "Stopping",
+  "jira_import_phase_finished": "Finished",
+  "jira_import_phase_import": "Writing tickets",
+  "jira_import_phase_import_attachments": "Copying attachments",
+  "jira_import_phase_import_documents": "Writing tickets",
+  "jira_import_phase_import_prepare": "Preparing",
+  "jira_import_phase_import_publish": "Making the project visible",
+  "jira_import_phase_import_verify": "Checking everything arrived",
+  "jira_import_phase_queued": "Waiting to start",
+  "jira_import_phase_scan": "Reading Jira",
+  "jira_import_phase_scan_boards": "Reading boards and sprints",
+  "jira_import_phase_scan_details": "Reading comments, attachments and history",
+  "jira_import_phase_scan_finalize": "Putting together what was found",
+  "jira_import_phase_scan_issues": "Finding tickets",
+  "jira_import_phase_setup": "Waiting for set up",
+  "jira_import_phase_starting": "Starting",
+  "jira_import_phase_working": "Working",
+  "jira_import_priorities_column_jira": "Jira priority",
+  "jira_import_priorities_column_target": "Priority",
+  "jira_import_priorities_description": "ProjectProject has three priorities. Pick the one each Jira priority becomes.",
+  "jira_import_priorities_search": "Search priorities",
+  "jira_import_priorities_summary": [
+    {
+      "declarations": ["input total", "local totalPlural = total: plural"],
+      "selectors": ["totalPlural"],
+      "match": {
+        "totalPlural=one": "{total} priority mapped",
+        "totalPlural=*": "{total} priorities mapped"
+      }
+    }
+  ],
+  "jira_import_priorities_title": "Priorities",
+  "jira_import_priority_high": "High",
+  "jira_import_priority_low": "Low",
+  "jira_import_priority_medium": "Medium",
+  "jira_import_progress_of": "{done} of {total}",
+  "jira_import_progress_read": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} record read",
+        "countPlural=*": "{count} records read"
+      }
+    }
+  ],
+  "jira_import_projects_entry": "Import from Jira",
+  "jira_import_projects_many": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} unfinished Jira import",
+        "countPlural=*": "{count} unfinished Jira imports"
+      }
+    }
+  ],
+  "jira_import_projects_one": "Jira import in progress: {source} → {destination} · {status}",
+  "jira_import_reconnect_description": "Jira wants you to sign in again before we can read your projects.",
+  "jira_import_reconnect_title": "Sign in to Jira again",
+  "jira_import_report_close": "Hide the report",
+  "jira_import_report_loading": "Loading the report…",
+  "jira_import_report_open": "Read the full report",
+  "jira_import_restricted_choice": "Restricted content",
+  "jira_import_restricted_description": "Everyone in the new project will be able to see anything you bring over, including content Jira kept to a few people.",
+  "jira_import_restricted_exclude": "Leave it out",
+  "jira_import_restricted_found": "Jira kept {issues} tickets, {comments} comments and {worklogs} work logs to a few people.",
+  "jira_import_restricted_include": "Bring it over",
+  "jira_import_restricted_no_summary": "No summary",
+  "jira_import_restricted_orphans": [
+    {
+      "declarations": [
+        "input count",
+        "input keys",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Its sub-ticket {keys} loses its parent",
+        "countPlural=*": "Its {count} sub-tickets lose their parent: {keys}"
+      }
+    }
+  ],
+  "jira_import_result_attachments_note": "{skipped} left out · {failed} failed to copy",
+  "jira_import_result_description": "Everything below is in the new project now.",
+  "jira_import_result_findings_description": "Grouped by what happened. Each row links to the ticket and the Jira issue.",
+  "jira_import_result_findings_title": "Worth checking",
+  "jira_import_result_imported_title": "What came across",
+  "jira_import_result_left_none": "Everything we found came across.",
+  "jira_import_result_left_title": "What didn't come across",
+  "jira_import_result_open_in_jira": "Open {issue} in Jira",
+  "jira_import_result_open_ticket": "Open {ticket}",
+  "jira_import_result_people": "{linked} linked · {invited} invited",
+  "jira_import_result_report_description": "Everything above in one document, with every row. It is also saved with the project.",
+  "jira_import_result_report_title": "Import report",
+  "jira_import_result_skipped_loading": "Loading the files that were left out…",
+  "jira_import_result_skipped_replace": "Download it from Jira and attach it to the ticket.",
+  "jira_import_result_title": "{project} is ready",
+  "jira_import_review_choices_title": "Your choices",
+  "jira_import_review_created_title": "What will be created",
+  "jira_import_review_description": "Nothing is created until you start. The project stays hidden until the import finishes.",
+  "jira_import_review_left_none": "Everything we found will come across.",
+  "jira_import_review_left_title": "What will not come across",
+  "jira_import_review_more": "{list} and {count} more",
+  "jira_import_review_needs_check": "Checking the project key and URL are free…",
+  "jira_import_review_needs_destination": "Pick a free project key and URL slug to start.",
+  "jira_import_review_needs_failed": "Choose which failed files to leave out to start.",
+  "jira_import_review_tags_skipped": "Tags skipped",
+  "jira_import_review_tickets_excluded": "{found} found · {imported} will be imported",
+  "jira_import_review_title": "Review",
+  "jira_import_row_arrow": "→",
+  "jira_import_row_attention": "Needs a decision",
+  "jira_import_saved": "Saved",
+  "jira_import_saving": "Saving…",
+  "jira_import_scan_again_prompt": "Scan again? Your set up is kept where it still fits.",
+  "jira_import_scan_counts_label": "Read so far",
+  "jira_import_scan_description": "We read the project without changing anything in Jira. Big projects take a few minutes.",
+  "jira_import_scan_findings_description": "Things that will change on the way in. Nothing to do yet; they show up in the report too.",
+  "jira_import_scan_findings_title": "Worth knowing",
+  "jira_import_scan_found_title": "What we found",
+  "jira_import_scan_kind_attachments": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "attachment",
+        "countPlural=*": "attachments"
+      }
+    }
+  ],
+  "jira_import_scan_kind_boards": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "board",
+        "countPlural=*": "boards"
+      }
+    }
+  ],
+  "jira_import_scan_kind_changelogs": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "history entry",
+        "countPlural=*": "history entries"
+      }
+    }
+  ],
+  "jira_import_scan_kind_comments": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "comment",
+        "countPlural=*": "comments"
+      }
+    }
+  ],
+  "jira_import_scan_kind_components": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "component",
+        "countPlural=*": "components"
+      }
+    }
+  ],
+  "jira_import_scan_kind_issues": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "issue",
+        "countPlural=*": "issues"
+      }
+    }
+  ],
+  "jira_import_scan_kind_sprints": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "sprint",
+        "countPlural=*": "sprints"
+      }
+    }
+  ],
+  "jira_import_scan_kind_versions": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "version",
+        "countPlural=*": "versions"
+      }
+    }
+  ],
+  "jira_import_scan_kind_worklogs": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "work log",
+        "countPlural=*": "work logs"
+      }
+    }
+  ],
+  "jira_import_scan_queued_title": "Waiting to start the scan",
+  "jira_import_scan_summary_description": "Read from {site} on {time}. This is what the import will work from.",
+  "jira_import_scan_summary_title": "Here's what's in {project}",
+  "jira_import_scan_title": "Scanning {project}",
+  "jira_import_scan_visibility_account": "The import includes what the connected Jira account can see.",
+  "jira_import_scan_visibility_description": "Your Jira account couldn't see everything. These parts may be incomplete.",
+  "jira_import_scan_visibility_none": "Your Jira account could see everything in the project.",
+  "jira_import_scan_visibility_title": "What we couldn't see",
+  "jira_import_setup_attention": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} needs a decision",
+        "countPlural=*": "{count} need a decision"
+      }
+    }
+  ],
+  "jira_import_setup_description": "We matched everything we could. Open a section to check it; the ones that need you are already open.",
+  "jira_import_setup_title": "Set up",
+  "jira_import_source_description": "Pick the Jira project to bring over. Scanning only reads it.",
+  "jira_import_source_existing": "{project} already has an import that isn't finished.",
+  "jira_import_source_no_projects": "Your Jira account can't see any projects on this site.",
+  "jira_import_source_no_sites": "Your Jira account has no sites.",
+  "jira_import_source_project_label": "Project",
+  "jira_import_source_project_required": "Pick a project to scan.",
+  "jira_import_source_project_search": "Search by name or key",
+  "jira_import_source_project_selected": "Selected",
+  "jira_import_source_site": "From {site}",
+  "jira_import_source_site_label": "Jira site",
+  "jira_import_source_site_placeholder": "Choose a site",
+  "jira_import_source_site_required": "Pick a Jira site.",
+  "jira_import_source_title": "Source",
+  "jira_import_sprints_active": "{name} (active)",
+  "jira_import_sprints_all_backlog": "Put the rest in the backlog",
+  "jira_import_sprints_backlog": "Backlog",
+  "jira_import_sprints_column_jira": "Ticket",
+  "jira_import_sprints_column_target": "Sprint",
+  "jira_import_sprints_description": "A ticket can only be in one sprint. These were in more than one open sprint in Jira; pick where each one goes.",
+  "jira_import_sprints_search": "Search tickets",
+  "jira_import_sprints_summary": [
+    {
+      "declarations": ["input total", "local totalPlural = total: plural"],
+      "selectors": ["totalPlural"],
+      "match": {
+        "totalPlural=one": "{total} ticket placed",
+        "totalPlural=*": "{total} tickets placed"
+      }
+    }
+  ],
+  "jira_import_sprints_title": "Sprint overlaps",
+  "jira_import_stage_import": "Import",
+  "jira_import_stage_position": "Step {position} of {total} · {stage}",
+  "jira_import_stage_review": "Review",
+  "jira_import_stage_scan": "Scan",
+  "jira_import_stage_setup": "Set up",
+  "jira_import_stage_source": "Source",
+  "jira_import_stages_label": "Import steps",
+  "jira_import_status_cancelled": "Stopped",
+  "jira_import_status_cancelling": "Stopping",
+  "jira_import_status_done": "Done",
+  "jira_import_status_failed": "Needs attention",
+  "jira_import_status_importing": "Importing",
+  "jira_import_status_reconnect": "Sign in to Jira again",
+  "jira_import_status_scanning": "Scanning",
+  "jira_import_status_setting_up": "Being set up",
+  "jira_import_statuses_column_jira": "Jira status",
+  "jira_import_statuses_column_target": "Status",
+  "jira_import_statuses_create": "Create “{status}”",
+  "jira_import_statuses_description": "Pick the status each Jira status becomes. A status you create keeps its Jira name, and Jira's done statuses close their tickets.",
+  "jira_import_statuses_keep_jira": "Keep Jira's statuses",
+  "jira_import_statuses_search": "Search statuses",
+  "jira_import_statuses_summary": [
+    {
+      "declarations": [
+        "input total",
+        "input targets",
+        "local totalPlural = total: plural",
+        "local targetsPlural = targets: plural"
+      ],
+      "selectors": ["totalPlural", "targetsPlural"],
+      "match": {
+        "totalPlural=one, targetsPlural=one": "{total} Jira status → {targets} status",
+        "totalPlural=one, targetsPlural=*": "{total} Jira status → {targets} statuses",
+        "totalPlural=*, targetsPlural=one": "{total} Jira statuses → {targets} status",
+        "totalPlural=*, targetsPlural=*": "{total} Jira statuses → {targets} statuses"
+      }
+    }
+  ],
+  "jira_import_statuses_summary_created": "{summary} · {created} created",
+  "jira_import_statuses_title": "Statuses",
+  "jira_import_tags_column_jira": "Jira label or component",
+  "jira_import_tags_column_target": "Tag",
+  "jira_import_tags_description": "Labels and components become tags. Leave a name as suggested or rename it; two that get the same name become one tag.",
+  "jira_import_tags_keep": "Keep {tag}",
+  "jira_import_tags_keep_names": "Use the suggested names",
+  "jira_import_tags_kind_component": "Component",
+  "jira_import_tags_kind_label": "Label",
+  "jira_import_tags_merges": "{kind}, merges with {others}",
+  "jira_import_tags_name_label": "Tag name for {tag}",
+  "jira_import_tags_search": "Search tags",
+  "jira_import_tags_skip": "Skip {tag}",
+  "jira_import_tags_skip_rare": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Skip {count} label used on one ticket",
+        "countPlural=*": "Skip {count} labels used on one ticket"
+      }
+    }
+  ],
+  "jira_import_tags_skipped": "Skipped",
+  "jira_import_tags_summary": [
+    {
+      "declarations": ["input total", "local totalPlural = total: plural"],
+      "selectors": ["totalPlural"],
+      "match": {
+        "totalPlural=one": "{total} becomes a tag",
+        "totalPlural=*": "{total} become tags"
+      }
+    }
+  ],
+  "jira_import_tags_summary_merged": "{total} become tags · {merged} merged",
+  "jira_import_tags_summary_skipped": "{total} become tags · {skipped} skipped",
+  "jira_import_tags_title": "Tags",
+  "jira_import_title": "{source} → {destination}",
+  "jira_import_title_new": "Import from Jira",
+  "jira_import_type_bug": "Bug",
+  "jira_import_type_chore": "Chore",
+  "jira_import_type_epic": "Epic",
+  "jira_import_type_feat": "Feature",
+  "jira_import_type_other": "Other",
+  "jira_import_types_column_jira": "Jira issue type",
+  "jira_import_types_column_target": "Ticket type",
+  "jira_import_types_description": "Pick the ticket type each Jira issue type becomes. Epics keep their sub-tickets either way.",
+  "jira_import_types_search": "Search issue types",
+  "jira_import_types_subtask": "Sub-task in Jira",
+  "jira_import_types_summary": [
+    {
+      "declarations": ["input total", "local totalPlural = total: plural"],
+      "selectors": ["totalPlural"],
+      "match": {
+        "totalPlural=one": "{total} issue type mapped",
+        "totalPlural=*": "{total} issue types mapped"
+      }
+    }
+  ],
+  "jira_import_types_title": "Issue types",
+  "jira_import_unavailable_description": "This import has no scan to work from. Scan the project again, or delete the import.",
+  "jira_import_unavailable_title": "This import can't continue",
+  "jira_import_warning_account": "Account details",
+  "jira_import_warning_attachments": "Attachments",
+  "jira_import_warning_board_configuration": "Board settings",
+  "jira_import_warning_boards": "Boards",
+  "jira_import_warning_changelogs": "History",
+  "jira_import_warning_comments": "Comments",
+  "jira_import_warning_components": "Components",
+  "jira_import_warning_fields": "Fields",
+  "jira_import_warning_issues": "Tickets",
+  "jira_import_warning_other": "Other data",
+  "jira_import_warning_partial": "Some of it couldn't be read.",
+  "jira_import_warning_people": "People",
+  "jira_import_warning_permission": "Jira kept some of it from your account.",
+  "jira_import_warning_priorities": "Priorities",
+  "jira_import_warning_sprints": "Sprints",
+  "jira_import_warning_statuses": "Statuses",
+  "jira_import_warning_unsupported": "Jira doesn't offer it for this project.",
+  "jira_import_warning_versions": "Versions",
+  "jira_import_warning_votes": "Votes",
+  "jira_import_warning_watchers": "Watchers",
+  "jira_import_warning_worklogs": "Work logs"
 }

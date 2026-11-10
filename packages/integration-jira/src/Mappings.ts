@@ -17,6 +17,7 @@ import {
 import type { JiraMigrationConfiguration } from "@pp/shared"
 import * as Schema from "effect/Schema"
 
+import { groupBy } from "./collections"
 import type { JiraMigrationManifest, JiraMigrationManifestV2 } from "./Manifest"
 
 const isStatusSlug = Schema.is(StatusSlug)
@@ -103,6 +104,14 @@ export const JiraMigrationMappings = Schema.Struct({
         destinationTag: Schema.NonEmptyString
       })
     )
+  ),
+  skippedTags: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        sourceKind: Schema.Literals(["label", "component"]),
+        sourceValue: Schema.NonEmptyString
+      })
+    )
   )
 })
 export type JiraMigrationMappings = typeof JiraMigrationMappings.Type
@@ -168,13 +177,10 @@ export function buildJiraStatusCreateOptions(
         }
       }
     })
-  const bySlug = new Map<string, Array<(typeof candidates)[number]>>()
-  for (const candidate of candidates) {
-    if (candidate.baseSlug === null) continue
-    const matching = bySlug.get(candidate.baseSlug)
-    if (matching) matching.push(candidate)
-    else bySlug.set(candidate.baseSlug, [candidate])
-  }
+  const bySlug = groupBy(
+    candidates.filter((candidate) => candidate.baseSlug !== null),
+    (candidate) => candidate.baseSlug ?? ""
+  )
   const resolved = candidates.map(
     ({ sourceStatusId, baseSlug, descriptor }) => {
       if (baseSlug === null) {
@@ -280,13 +286,11 @@ export function buildTagCandidates(
 export function findTagCollisions(
   candidates: ReadonlyArray<JiraTagCandidate>
 ): ReadonlyArray<JiraTagCollision> {
-  const groups = new Map<string, Array<string>>()
-  for (const candidate of candidates) {
-    if (candidate.destinationTag === null) continue
-    const sourceIds = groups.get(candidate.destinationTag)
-    if (sourceIds) sourceIds.push(candidate.sourceId)
-    else groups.set(candidate.destinationTag, [candidate.sourceId])
-  }
+  const groups = groupBy(
+    candidates.filter((candidate) => candidate.destinationTag !== null),
+    (candidate) => candidate.destinationTag ?? "",
+    (candidate) => candidate.sourceId
+  )
   return [...groups]
     .filter(([, sourceIds]) => new Set(sourceIds).size > 1)
     .map(([destinationTag, sourceIds]) => ({
@@ -301,20 +305,19 @@ export function findTagCollisions(
 export function buildOpenSprintConflicts(
   manifest: JiraMappingSource
 ): ReadonlyArray<OpenSprintConflict> {
-  const openMemberships = new Map<string, Array<string>>()
-  for (const group of manifest.groups) {
-    if (
-      group.kind !== "sprint" ||
-      (group.state !== "active" && group.state !== "future")
-    ) {
-      continue
-    }
-    for (const issueId of group.issueIds) {
-      const memberships = openMemberships.get(issueId)
-      if (memberships) memberships.push(group.id)
-      else openMemberships.set(issueId, [group.id])
-    }
-  }
+  const openMemberships = groupBy(
+    manifest.groups
+      .filter(
+        (group) =>
+          group.kind === "sprint" &&
+          (group.state === "active" || group.state === "future")
+      )
+      .flatMap((group) =>
+        group.issueIds.map((issueId) => ({ issueId, groupId: group.id }))
+      ),
+    ({ issueId }) => issueId,
+    ({ groupId }) => groupId
+  )
   return [...openMemberships]
     .filter(([, groupIds]) => new Set(groupIds).size > 1)
     .map(([sourceIssueId, groupIds]) => ({
@@ -461,11 +464,19 @@ export function jiraConfigurationToMappings(
         selectedGroupId: jiraSprintId
       })
     ),
-    tagOverrides: configuration.tags.map(({ source, destinationTagName }) => ({
-      sourceKind: source.kind,
-      sourceValue: source.value,
-      destinationTag: destinationTagName
-    }))
+    tagOverrides: configuration.tags
+      .filter(({ skipped }) => skipped !== true)
+      .map(({ source, destinationTagName }) => ({
+        sourceKind: source.kind,
+        sourceValue: source.value,
+        destinationTag: destinationTagName
+      })),
+    skippedTags: configuration.tags
+      .filter(({ skipped }) => skipped === true)
+      .map(({ source }) => ({
+        sourceKind: source.kind,
+        sourceValue: source.value
+      }))
   }
 }
 
@@ -479,14 +490,28 @@ export function resolveTagDestinations(
       override.destinationTag
     ])
   )
+  const skipped = skippedTagKeys(mappings)
   return new Map(
-    buildTagCandidates(manifest).map((candidate) => [
-      candidate.sourceId,
-      overrides.get(`${candidate.sourceKind}:${candidate.sourceValue}`) ??
-        candidate.destinationTag
-    ])
+    buildTagCandidates(manifest).map((candidate) => {
+      const key = `${candidate.sourceKind}:${candidate.sourceValue}`
+      return [
+        candidate.sourceId,
+        skipped.has(key)
+          ? null
+          : (overrides.get(key) ?? candidate.destinationTag)
+      ]
+    })
   )
 }
+
+export const skippedTagKeys = (
+  mappings: Pick<JiraMigrationMappings, "skippedTags">
+): ReadonlySet<string> =>
+  new Set(
+    (mappings.skippedTags ?? []).map(
+      ({ sourceKind, sourceValue }) => `${sourceKind}:${sourceValue}`
+    )
+  )
 
 export type JiraMappingSource = Pick<
   JiraMigrationManifest,
@@ -505,6 +530,34 @@ export type JiraMappingSource = Pick<
 export function jiraV2MappingSource(
   manifest: JiraMigrationManifestV2
 ): JiraMappingSource {
+  const sprintIds = groupBy(
+    manifest.sprints.flatMap((sprint) =>
+      sprint.issueIds.map((issueId) => ({ issueId, sprintId: sprint.id }))
+    ),
+    ({ issueId }) => issueId,
+    ({ sprintId }) => sprintId
+  )
+  const subtaskParents = new Map(
+    manifest.parentsSubtasks.map((relation) => [
+      relation.subtaskIssueId,
+      relation.parentIssueId
+    ])
+  )
+  const epicParents = new Map(
+    manifest.epics.flatMap((epic) =>
+      epic.issueIds.map((issueId) => [issueId, epic.id] as const)
+    )
+  )
+  const attachmentIds = groupBy(
+    manifest.attachments,
+    (attachment) => attachment.issueId,
+    (attachment) => attachment.id
+  )
+  const restrictedIssues = new Set(
+    manifest.restrictions
+      .filter((restriction) => restriction.targetKind === "issue")
+      .map((restriction) => restriction.targetId)
+  )
   return {
     identities: manifest.identities.map((value) => ({ ...value, raw: null })),
     statuses: manifest.statuses.map((value) => ({ ...value, raw: null })),
@@ -515,23 +568,14 @@ export function jiraV2MappingSource(
       ...issue,
       description: null,
       labels: issue.labelIds,
-      groupIds: manifest.sprints
-        .filter((sprint) => sprint.issueIds.includes(issue.id))
-        .map((sprint) => sprint.id),
+      groupIds: sprintIds.get(issue.id) ?? [],
       parentIssueId:
-        manifest.parentsSubtasks.find(
-          (parent) => parent.subtaskIssueId === issue.id
-        )?.parentIssueId ??
-        manifest.epics.find((epic) => epic.issueIds.includes(issue.id))?.id ??
-        null,
-      attachmentIds: manifest.attachments
-        .filter((attachment) => attachment.issueId === issue.id)
-        .map((attachment) => attachment.id),
-      restricted: manifest.restrictions.some(
-        (restriction) =>
-          restriction.targetKind === "issue" &&
-          restriction.targetId === issue.id
-      ),
+        issue.parentIssueId === undefined
+          ? (subtaskParents.get(issue.id) ?? epicParents.get(issue.id) ?? null)
+          : issue.parentIssueId,
+      parentIssueKey: issue.parentIssueKey ?? null,
+      attachmentIds: attachmentIds.get(issue.id) ?? [],
+      restricted: restrictedIssues.has(issue.id),
       raw: null
     })),
     groups: manifest.sprints.map((sprint) => ({

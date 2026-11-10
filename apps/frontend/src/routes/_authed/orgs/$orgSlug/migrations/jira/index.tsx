@@ -1,15 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { JiraMigrationStartPage } from "@/features/jira/components/JiraMigrationPage"
+import { JiraImportsPage } from "@/features/jira/components/JiraImportsPage"
 import { m } from "@/paraglide/messages"
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/migrations/jira/")(
   {
-    component: JiraMigrationStartRoute,
+    component: JiraImportsRoute,
     loader: ({ params }) => ({
       crumb: {
         type: "static" as const,
-        label: m.jira_migration_page_title(),
+        label: m.jira_import_list_title(),
         to: "/orgs/$orgSlug/migrations/jira",
         params: { orgSlug: params.orgSlug }
       }
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/migrations/jira/")(
   }
 )
 
-function JiraMigrationStartRoute() {
+function JiraImportsRoute() {
   const { orgSlug } = Route.useParams()
-  return <JiraMigrationStartPage orgSlug={orgSlug} />
+  return <JiraImportsPage orgSlug={orgSlug} />
 }

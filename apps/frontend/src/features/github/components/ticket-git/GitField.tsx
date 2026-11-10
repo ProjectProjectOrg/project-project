@@ -13,6 +13,7 @@ import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import { compareUrl } from "@/features/github/lib/branchUrl"
+import { textLinkClass } from "@/lib/textLink"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -90,7 +91,7 @@ function StatusLink({
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex items-center gap-0.5 text-foreground underline decoration-foreground/30 underline-offset-2 transition-colors hover:decoration-foreground"
+      className={cn("inline-flex items-center gap-0.5", textLinkClass)}
     >
       {children}
       <ArrowUpRight className="size-3" strokeWidth={1.75} />

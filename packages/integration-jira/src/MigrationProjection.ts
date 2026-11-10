@@ -5,7 +5,9 @@ import {
   JiraError,
   JiraMigrationConfiguration,
   JiraMigrationDetail,
+  JiraMigrationFinding,
   JiraMigrationRequirements,
+  JiraMigrationResult,
   JiraMigrationScanSummary,
   NotFound,
   Validation,
@@ -34,9 +36,15 @@ import {
 import * as Function from "effect/Function"
 import * as Match from "effect/Match"
 
+import { countBy } from "./collections"
 import { buildJiraStatusCreateOptions } from "./Mappings"
 import * as MigrationArtifacts from "./MigrationArtifacts"
 import type * as Migrations from "./Migrations"
+import {
+  BOARD_SCAN_KINDS,
+  ISSUE_DEPENDENT_SCAN_KINDS,
+  SCAN_COUNT_KINDS
+} from "./scanKinds"
 
 const decodeUnknownJiraMigrationConfiguration = Schema.decodeUnknownEffect(
   JiraMigrationConfiguration
@@ -101,6 +109,14 @@ export const JiraMigrationCheckpoint = Schema.Struct({
     })
   ),
   postSuccessCleanupCompleted: Schema.optional(Schema.Literal(true)),
+  findings: Schema.optional(Schema.Array(JiraMigrationFinding)),
+  lastFailure: Schema.optional(
+    Schema.Struct({
+      subject: Schema.optional(Schema.String),
+      detail: Schema.optional(Schema.String)
+    })
+  ),
+  result: Schema.optional(JiraMigrationResult),
   scan: Schema.optional(
     Schema.Struct({
       manifest: Schema.optional(MigrationArtifacts.JiraArtifactRef),
@@ -163,6 +179,25 @@ export const actionsFor = (row: JiraMigrationRow): JiraMigrationActions => ({
     (row.status === "failed" || row.status === "cancelled")
 })
 
+const decodeConfiguredDestination = Schema.decodeUnknownOption(
+  Schema.Struct({ destination: JiraMigrationConfiguration.fields.destination })
+)
+
+const configuredDestination = (row: JiraMigrationRow) =>
+  Option.match(decodeConfiguredDestination(row.configuration), {
+    onNone: () => null,
+    onSome: ({ destination }) => destination
+  })
+
+const scanCountsOf = (scanPages: Readonly<Record<string, number>>) => {
+  const counts: Record<string, number> = {}
+  for (const [key, count] of Object.entries(scanPages)) {
+    const [kind] = key.split("/", 1)
+    if (SCAN_COUNT_KINDS.has(kind)) counts[kind] = (counts[kind] ?? 0) + count
+  }
+  return counts
+}
+
 export const toSummary = (row: JiraMigrationRow): JiraMigrationSummary => ({
   id: row.id,
   sourceCloudId: row.sourceCloudId,
@@ -178,6 +213,7 @@ export const toSummary = (row: JiraMigrationRow): JiraMigrationSummary => ({
     total: row.progressTotal
   },
   destinationProjectSlug: row.destinationProjectSlug,
+  destination: configuredDestination(row),
   createdAt: dateTime(row.createdAt),
   updatedAt: dateTime(row.updatedAt)
 })
@@ -232,8 +268,21 @@ export const toDetail = (row: JiraMigrationRow) =>
           ? null
           : {
               reason: row.failureReason,
-              retryable: row.failureRetryable === true
+              retryable: row.failureRetryable === true,
+              ...(checkpoint.lastFailure?.subject === undefined
+                ? {}
+                : { subject: checkpoint.lastFailure.subject }),
+              ...(checkpoint.lastFailure?.detail === undefined
+                ? {}
+                : { detail: checkpoint.lastFailure.detail })
             },
+      ...(checkpoint.findings === undefined || checkpoint.findings.length === 0
+        ? {}
+        : { findings: checkpoint.findings }),
+      ...(checkpoint.result === undefined ? {} : { result: checkpoint.result }),
+      ...(row.scanAt === null && checkpoint.scanPages !== undefined
+        ? { scanCounts: scanCountsOf(checkpoint.scanPages) }
+        : {}),
       reportPath: row.reportPath,
       finishedAt: row.finishedAt === null ? null : dateTime(row.finishedAt)
     } satisfies JiraMigrationDetail
@@ -244,11 +293,7 @@ const exactlyOne = <A>(
   key: (value: A) => string,
   required: ReadonlyArray<string>
 ) => {
-  const counts = new Map<string, number>()
-  for (const value of values) {
-    const itemKey = key(value)
-    counts.set(itemKey, (counts.get(itemKey) ?? 0) + 1)
-  }
+  const counts = countBy(values.map(key))
   return (
     counts.size === required.length &&
     required.every((itemKey) => counts.get(itemKey) === 1)
@@ -503,6 +548,41 @@ export type ProjectionPatch = Partial<
     | "finishedAt"
   >
 >
+export type ProjectedFailure = Readonly<{
+  reason: string
+  retryable: boolean
+  reconnect?: boolean
+  subject?: string
+  detail?: string
+}>
+export type TerminalFailure = Readonly<{
+  reason: string
+  subject?: string
+  detail?: string
+}>
+export type ImportProgress =
+  | Readonly<{ phase: string; total: number }>
+  | Readonly<{ increment: number }>
+const MAX_RECORDED_FINDINGS = 1000
+const lastFailureOf = (failure: ProjectedFailure) =>
+  failure.subject === undefined && failure.detail === undefined
+    ? undefined
+    : {
+        ...(failure.subject === undefined ? {} : { subject: failure.subject }),
+        ...(failure.detail === undefined ? {} : { detail: failure.detail })
+      }
+const withLastFailure = (
+  checkpoint: JiraMigrationCheckpoint,
+  failure: ProjectedFailure
+): JiraMigrationCheckpoint => {
+  const {
+    lastFailure: _lastFailure,
+    remoteWritesMayStillCommit: _remoteWrites,
+    ...rest
+  } = checkpoint
+  const lastFailure = lastFailureOf(failure)
+  return lastFailure === undefined ? rest : { ...rest, lastFailure }
+}
 export type TransitionInput = Readonly<{
   owner: ProjectionOwner
   migrationId: string
@@ -547,6 +627,21 @@ const fenceWhere = (fence: AttemptFence) =>
     eq(jiraMigration.workflowExecutionId, fence.workflowExecutionId),
     eq(jiraMigration.workflowAttempt, fence.workflowAttempt)
   )
+const issueDependentScanKinds = new Set<string>(ISSUE_DEPENDENT_SCAN_KINDS)
+const scanProgressDone = (
+  scanPages: Readonly<Record<string, number>>,
+  details: boolean
+) => {
+  let done = 0
+  for (const [key, count] of Object.entries(scanPages)) {
+    const [kind] = key.split("/", 1)
+    if (details) {
+      if (issueDependentScanKinds.has(kind) && key.endsWith("/0")) done++
+    } else if (kind === "issues") done += count
+  }
+  return done
+}
+const withoutRemoteWrites = sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) - 'remoteWritesMayStillCommit'`
 const conflict = () =>
   new Conflict({ reason: "jira_migration_revision_conflict" })
 const databaseError = () => new JiraError({ reason: "server_error" })
@@ -593,11 +688,7 @@ export class JiraMigrationProjection extends Context.Service<
     recordScanFailure: (
       fence: AttemptFence,
       operationKey: string,
-      failure: Readonly<{
-        reason: string
-        retryable: boolean
-        reconnect: boolean
-      }>
+      failure: ProjectedFailure
     ) => Effect.Effect<number | null, JiraError>
     resumeScan: (
       fence: AttemptFence,
@@ -606,12 +697,24 @@ export class JiraMigrationProjection extends Context.Service<
     recordImportFailure: (
       fence: AttemptFence,
       operationKey: string,
-      failure: Readonly<{
-        reason: string
-        retryable: boolean
-        reconnect?: boolean
-      }>
+      failure: ProjectedFailure
     ) => Effect.Effect<number | null, JiraError>
+    recordImportProgress: (
+      fence: AttemptFence,
+      progress: ImportProgress
+    ) => Effect.Effect<boolean, JiraError>
+    recordFinding: (
+      fence: AttemptFence,
+      finding: JiraMigrationFinding
+    ) => Effect.Effect<boolean, JiraError>
+    heartbeat: (fence: AttemptFence) => Effect.Effect<boolean, JiraError>
+    beginScanDetails: (
+      fence: AttemptFence,
+      total: number
+    ) => Effect.Effect<boolean, JiraError>
+    beginScanFinalize: (
+      fence: AttemptFence
+    ) => Effect.Effect<boolean, JiraError>
     resumeImport: (
       fence: AttemptFence,
       failureSequence: number
@@ -642,11 +745,7 @@ export class JiraMigrationProjection extends Context.Service<
     ) => Effect.Effect<boolean, JiraError>
     recordFailure: (
       fence: AttemptFence,
-      failure: Readonly<{
-        reason: string
-        retryable: boolean
-        status?: "failed" | "reconnect_required"
-      }>
+      failure: TerminalFailure
     ) => Effect.Effect<boolean, JiraError>
     saveConfiguration: (
       input: SaveConfigurationInput
@@ -1113,34 +1212,56 @@ const make = Effect.gen(function* () {
   const recordFailure: JiraMigrationProjection["Service"]["recordFailure"] =
     Effect.fn("JiraMigrationProjection.recordFailure")(
       function* (fence, failure) {
-        const now = yield* DateTime.now
-        const rows = yield* db
-          .update(jiraMigration)
-          .set({
-            status: failure.status ?? "failed",
-            failureReason: failure.reason,
-            failureRetryable: failure.retryable,
-            failureSequence: sqlFragment`${jiraMigration.failureSequence} + 1`,
-            checkpoint: sqlFragment`coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) || case when ${jiraMigration.scanAt} is not null and not (coalesce(${jiraMigration.checkpoint}, '{}'::jsonb) ? 'acceptedConfiguration') then '{}'::jsonb else jsonb_build_object('currentGate', jsonb_build_object('version', 1, '_tag', 'Retry', 'failureSequence', ${jiraMigration.failureSequence} + 1, 'phase', case when ${jiraMigration.scanAt} is null then 'scan' else 'import' end)) end`,
-            revision: sqlFragment`${jiraMigration.revision} + 1`,
-            updatedAt: DateTime.toDate(now),
-            finishedAt: DateTime.toDate(now),
-            retainedUntil: DateTime.toDate(DateTime.add(now, { days: 30 }))
-          })
-          .where(
-            and(
-              fenceWhere(fence),
-              isNull(jiraMigration.cleanupExecutionId),
-              ne(jiraMigration.status, "succeeded"),
-              ne(jiraMigration.status, "cancelled"),
-              ne(jiraMigration.status, "cancelling"),
-              ne(jiraMigration.status, "failed"),
-              ne(jiraMigration.status, "reconnect_required")
-            )
+        return yield* db
+          .transaction((tx) =>
+            Effect.gen(function* () {
+              const [row] = yield* tx
+                .select()
+                .from(jiraMigration)
+                .where(
+                  and(
+                    fenceWhere(fence),
+                    isNull(jiraMigration.cleanupExecutionId)
+                  )
+                )
+                .for("update")
+              if (
+                !row ||
+                [
+                  "succeeded",
+                  "cancelled",
+                  "cancelling",
+                  "reconnect_required"
+                ].includes(row.status) ||
+                (row.status === "failed" && row.failureRetryable === false)
+              )
+                return false
+              const checkpoint = yield* decodeCheckpoint(row.checkpoint)
+              const { currentGate: _gate, ...settled } = withLastFailure(
+                checkpoint,
+                { ...failure, retryable: false }
+              )
+              const now = yield* DateTime.now
+              yield* tx
+                .update(jiraMigration)
+                .set({
+                  status: "failed",
+                  failureReason: failure.reason,
+                  failureRetryable: false,
+                  failureSequence: row.failureSequence + 1,
+                  checkpoint: yield* encodeJiraMigrationCheckpoint(settled),
+                  revision: row.revision + 1,
+                  updatedAt: DateTime.toDate(now),
+                  finishedAt: DateTime.toDate(now),
+                  retainedUntil: DateTime.toDate(
+                    DateTime.add(now, { days: 30 })
+                  )
+                })
+                .where(fenceWhere(fence))
+              return true
+            })
           )
-          .returning({ id: jiraMigration.id })
           .pipe(Effect.mapError(databaseError))
-        return rows.length > 0
       }
     )
   const recordScanFailure: JiraMigrationProjection["Service"]["recordScanFailure"] =
@@ -1178,7 +1299,9 @@ const make = Effect.gen(function* () {
                 .update(jiraMigration)
                 .set({
                   checkpoint: yield* encodeJiraMigrationCheckpoint({
-                    ...checkpoint,
+                    ...(alreadyFailed
+                      ? checkpoint
+                      : withLastFailure(checkpoint, failure)),
                     ...(!alreadyFailed
                       ? {
                           currentGate: JiraMigrationGate.cases.Retry.make({
@@ -1238,32 +1361,46 @@ const make = Effect.gen(function* () {
               const checkpoint = yield* decodeCheckpoint(row.checkpoint)
               const receipt = checkpoint.importFailureReceipts?.[operationKey]
               if (receipt !== undefined) return receipt
-              if (row.status !== "migrating") return null
-              const sequence = row.failureSequence + 1
+              const alreadyFailed =
+                row.status === "failed" || row.status === "reconnect_required"
+              if (row.status !== "migrating" && !alreadyFailed) return null
+              const sequence = alreadyFailed
+                ? row.failureSequence
+                : row.failureSequence + 1
               const now = yield* DateTime.now
               yield* tx
                 .update(jiraMigration)
                 .set({
                   checkpoint: yield* encodeJiraMigrationCheckpoint({
-                    ...checkpoint,
-                    currentGate: JiraMigrationGate.cases.Retry.make({
-                      version: 1 as const,
-                      failureSequence: sequence,
-                      phase: "import" as const
-                    }),
+                    ...(alreadyFailed
+                      ? checkpoint
+                      : withLastFailure(checkpoint, failure)),
+                    currentGate: alreadyFailed
+                      ? checkpoint.currentGate
+                      : JiraMigrationGate.cases.Retry.make({
+                          version: 1 as const,
+                          failureSequence: sequence,
+                          phase: "import" as const
+                        }),
                     importFailureReceipts: {
                       ...checkpoint.importFailureReceipts,
                       [operationKey]: sequence
                     }
                   }),
-                  status: failure.reconnect ? "reconnect_required" : "failed",
-                  failureReason: failure.reason,
-                  failureRetryable: failure.retryable,
-                  failureSequence: sequence,
-                  finishedAt: DateTime.toDate(now),
-                  retainedUntil: DateTime.toDate(
-                    DateTime.add(now, { days: 30 })
-                  ),
+                  ...(alreadyFailed
+                    ? {}
+                    : {
+                        status: failure.reconnect
+                          ? ("reconnect_required" as const)
+                          : ("failed" as const),
+                        failureReason: failure.reason,
+                        failureRetryable: failure.retryable,
+                        failureSequence: sequence,
+                        finishedAt: DateTime.toDate(now),
+                        retainedUntil: DateTime.toDate(
+                          DateTime.add(now, { days: 30 })
+                        )
+                      }),
                   updatedAt: DateTime.toDate(now),
                   revision: row.revision + 1
                 })
@@ -1397,6 +1534,7 @@ const make = Effect.gen(function* () {
               const checkpoint = yield* decodeCheckpoint(row.checkpoint)
               if (checkpoint.scanPages?.[pageKey] !== undefined) return true
               const scanPages = { ...checkpoint.scanPages, [pageKey]: count }
+              const details = row.progressTotal !== null
               const now = yield* DateTime.nowAsDate
               yield* tx
                 .update(jiraMigration)
@@ -1405,10 +1543,14 @@ const make = Effect.gen(function* () {
                     ...checkpoint,
                     scanPages
                   }),
-                  phase: "scan",
-                  progressDone: Object.values(scanPages).reduce(
-                    (sum, value) => sum + value,
-                    0
+                  phase: !details
+                    ? "scan_issues"
+                    : BOARD_SCAN_KINDS.has(pageKey.split("/", 1)[0])
+                      ? "scan_boards"
+                      : "scan_details",
+                  progressDone: Math.min(
+                    scanProgressDone(scanPages, details),
+                    row.progressTotal ?? Number.MAX_SAFE_INTEGER
                   ),
                   updatedAt: now,
                   revision: row.revision + 1
@@ -1576,20 +1718,31 @@ const make = Effect.gen(function* () {
         retainedUntil: null
       })
     }
-    if (!actionsFor(row).canCancel)
-      return yield* new Validation({
-        reason: "jira_migration_cancel_not_allowed"
+    return yield* Effect.gen(function* () {
+      const current = yield* owned(input.owner, input.migrationId)
+      if (!actionsFor(current).canCancel)
+        return yield* new Validation({
+          reason: "jira_migration_cancel_not_allowed"
+        })
+      const active = ["scanning", "migrating", "cancelling"].includes(
+        current.status
+      )
+      const now = yield* DateTime.now
+      return yield* updateRevision(current, current.revision, {
+        status: active ? "cancelling" : "cancelled",
+        phase: active ? "cancelling" : "cancelled",
+        finishedAt: active ? null : DateTime.toDate(now),
+        retainedUntil: active
+          ? null
+          : DateTime.toDate(DateTime.add(now, { days: 30 })),
+        ...(active ? {} : { checkpoint: withoutRemoteWrites })
       })
-    const active = ["scanning", "migrating", "cancelling"].includes(row.status)
-    const now = yield* DateTime.now
-    return yield* updateRevision(row, row.revision, {
-      status: active ? "cancelling" : "cancelled",
-      phase: active ? "cancelling" : "cancelled",
-      finishedAt: active ? null : DateTime.toDate(now),
-      retainedUntil: active
-        ? null
-        : DateTime.toDate(DateTime.add(now, { days: 30 }))
-    })
+    }).pipe(
+      Effect.retry({
+        while: (error) => Predicate.isTagged(error, "Conflict"),
+        times: 10
+      })
+    )
   })
   const finalizeInterrupted: JiraMigrationProjection["Service"]["finalizeInterrupted"] =
     Effect.fn("JiraMigrationProjection.finalizeInterrupted")(function* (fence) {
@@ -1599,6 +1752,7 @@ const make = Effect.gen(function* () {
         .set({
           status: "cancelled",
           phase: "cancelled",
+          checkpoint: withoutRemoteWrites,
           finishedAt: DateTime.toDate(now),
           retainedUntil: DateTime.toDate(DateTime.add(now, { days: 30 })),
           updatedAt: DateTime.toDate(now),
@@ -1761,6 +1915,167 @@ const make = Effect.gen(function* () {
         return rows.length > 0
       }
     )
+  const recordImportProgress: JiraMigrationProjection["Service"]["recordImportProgress"] =
+    Effect.fn("JiraMigrationProjection.recordImportProgress")(
+      function* (fence, progress) {
+        const now = yield* DateTime.nowAsDate
+        const rows = yield* db
+          .update(jiraMigration)
+          .set(
+            "phase" in progress
+              ? {
+                  phase: progress.phase,
+                  progressDone: 0,
+                  progressTotal: progress.total,
+                  updatedAt: now
+                }
+              : {
+                  progressDone: sqlFragment`least(${jiraMigration.progressDone} + ${progress.increment}, coalesce(${jiraMigration.progressTotal}, ${jiraMigration.progressDone} + ${progress.increment}))`,
+                  updatedAt: now
+                }
+          )
+          .where(
+            and(
+              fenceWhere(fence),
+              eq(jiraMigration.status, "migrating"),
+              isNull(jiraMigration.cleanupExecutionId)
+            )
+          )
+          .returning({ id: jiraMigration.id })
+          .pipe(Effect.mapError(databaseError))
+        return rows.length > 0
+      }
+    )
+  const recordFinding: JiraMigrationProjection["Service"]["recordFinding"] =
+    Effect.fn("JiraMigrationProjection.recordFinding")(
+      function* (fence, finding) {
+        return yield* db
+          .transaction((tx) =>
+            Effect.gen(function* () {
+              const [row] = yield* tx
+                .select()
+                .from(jiraMigration)
+                .where(
+                  and(
+                    fenceWhere(fence),
+                    isNull(jiraMigration.cleanupExecutionId)
+                  )
+                )
+                .for("update")
+              if (!row) return false
+              const checkpoint = yield* decodeCheckpoint(row.checkpoint)
+              const findings = checkpoint.findings ?? []
+              if (
+                findings.length >= MAX_RECORDED_FINDINGS ||
+                findings.some(
+                  (existing) =>
+                    existing.kind === finding.kind &&
+                    existing.subject === finding.subject
+                )
+              )
+                return true
+              const now = yield* DateTime.nowAsDate
+              yield* tx
+                .update(jiraMigration)
+                .set({
+                  checkpoint: yield* encodeJiraMigrationCheckpoint({
+                    ...checkpoint,
+                    findings: [...findings, finding]
+                  }),
+                  updatedAt: now
+                })
+                .where(fenceWhere(fence))
+              return true
+            })
+          )
+          .pipe(Effect.mapError(databaseError))
+      }
+    )
+  const beginScanDetails: JiraMigrationProjection["Service"]["beginScanDetails"] =
+    Effect.fn("JiraMigrationProjection.beginScanDetails")(
+      function* (fence, total) {
+        return yield* db
+          .transaction((tx) =>
+            Effect.gen(function* () {
+              const [row] = yield* tx
+                .select()
+                .from(jiraMigration)
+                .where(
+                  and(
+                    fenceWhere(fence),
+                    isNull(jiraMigration.cleanupExecutionId)
+                  )
+                )
+                .for("update")
+              if (
+                !row ||
+                !["scanning", "failed", "reconnect_required"].includes(
+                  row.status
+                ) ||
+                row.scanAt !== null
+              )
+                return false
+              const checkpoint = yield* decodeCheckpoint(row.checkpoint)
+              const now = yield* DateTime.nowAsDate
+              yield* tx
+                .update(jiraMigration)
+                .set({
+                  phase: "scan_details",
+                  progressTotal: total,
+                  progressDone: Math.min(
+                    scanProgressDone(checkpoint.scanPages ?? {}, true),
+                    total
+                  ),
+                  updatedAt: now,
+                  revision: row.revision + 1
+                })
+                .where(fenceWhere(fence))
+              return true
+            })
+          )
+          .pipe(Effect.mapError(databaseError))
+      }
+    )
+  const beginScanFinalize: JiraMigrationProjection["Service"]["beginScanFinalize"] =
+    Effect.fn("JiraMigrationProjection.beginScanFinalize")(function* (fence) {
+      const now = yield* DateTime.nowAsDate
+      const rows = yield* db
+        .update(jiraMigration)
+        .set({
+          phase: "scan_finalize",
+          updatedAt: now,
+          revision: sqlFragment`${jiraMigration.revision} + 1`
+        })
+        .where(
+          and(
+            fenceWhere(fence),
+            eq(jiraMigration.status, "scanning"),
+            isNull(jiraMigration.cleanupExecutionId),
+            isNull(jiraMigration.scanAt)
+          )
+        )
+        .returning({ id: jiraMigration.id })
+        .pipe(Effect.mapError(databaseError))
+      return rows.length > 0
+    })
+  const heartbeat: JiraMigrationProjection["Service"]["heartbeat"] = Effect.fn(
+    "JiraMigrationProjection.heartbeat"
+  )(function* (fence) {
+    const now = yield* DateTime.nowAsDate
+    const rows = yield* db
+      .update(jiraMigration)
+      .set({ updatedAt: now })
+      .where(
+        and(
+          fenceWhere(fence),
+          inArray(jiraMigration.status, ["scanning", "migrating"]),
+          isNull(jiraMigration.cleanupExecutionId)
+        )
+      )
+      .returning({ id: jiraMigration.id })
+      .pipe(Effect.mapError(databaseError))
+    return rows.length > 0
+  })
   const listOwned = Effect.fn("JiraMigrationProjection.listOwned")(function* (
     owner: ProjectionOwner
   ) {
@@ -1792,6 +2107,11 @@ const make = Effect.gen(function* () {
     resumeScan,
     resumeImport,
     recordScanProgress,
+    recordImportProgress,
+    recordFinding,
+    heartbeat,
+    beginScanDetails,
+    beginScanFinalize,
     completeScan,
     saveConfiguration,
     claimCleanup,

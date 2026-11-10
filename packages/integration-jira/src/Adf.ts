@@ -1,4 +1,4 @@
-import { Option, Schema } from "effect"
+import { DateTime, Option, Schema } from "effect"
 
 export type AdfConversionWarning = Readonly<{
   path: ReadonlyArray<string | number>
@@ -56,10 +56,45 @@ const AdfNodeSchema: Schema.Codec<AdfNode> = Schema.Struct({
 
 const decodeAdfNode = Schema.decodeUnknownOption(AdfNodeSchema)
 
+type Path = ReadonlyArray<string | number>
+
 type ConversionState = Readonly<{
   warnings: Array<AdfConversionWarning>
+  warned: Set<string>
   references: Array<AdfReference>
 }>
+
+const INLINE_NODES = new Set([
+  "text",
+  "hardBreak",
+  "mention",
+  "emoji",
+  "inlineCard",
+  "date",
+  "status",
+  "mediaInline",
+  "placeholder",
+  "inlineExtension"
+])
+
+const DROPPED_MARKS = new Set([
+  "underline",
+  "textColor",
+  "backgroundColor",
+  "subsup"
+])
+
+const PANEL_LABELS: Readonly<Record<string, string>> = {
+  info: "Info",
+  note: "Note",
+  tip: "Tip",
+  success: "Success",
+  warning: "Warning",
+  error: "Error"
+}
+
+const JIRA_KEY_IN_TEXT =
+  /(?<![\p{L}\p{N}_/-])([A-Z][A-Z0-9_]{1,9}-[1-9][0-9]*)(?![\p{L}\p{N}_])/gu
 
 export function convertAdfToMarkdown(input: Schema.Json): AdfConversionResult {
   const decoded = decodeAdfNode(input)
@@ -71,7 +106,11 @@ export function convertAdfToMarkdown(input: Schema.Json): AdfConversionResult {
     }
   }
 
-  const state: ConversionState = { warnings: [], references: [] }
+  const state: ConversionState = {
+    warnings: [],
+    warned: new Set(),
+    references: []
+  }
   return {
     markdown: renderBlocks(decoded.value.content ?? [], state, ["content"]),
     warnings: state.warnings,
@@ -104,10 +143,14 @@ export function rewriteJiraReferences(
   }, result.markdown)
 }
 
+export function escapeMarkdownText(text: string): string {
+  return escapeLineStarts(escapeText(text))
+}
+
 function renderBlocks(
   nodes: ReadonlyArray<AdfNode>,
   state: ConversionState,
-  path: ReadonlyArray<string | number>
+  path: Path
 ): string {
   return nodes
     .map((node, index) => renderBlock(node, state, [...path, index]))
@@ -119,14 +162,14 @@ function renderBlocks(
 function renderBlock(
   node: AdfNode,
   state: ConversionState,
-  path: ReadonlyArray<string | number>
+  path: Path
 ): string {
   switch (node.type) {
     case "paragraph":
-      return renderInlineChildren(node, state, path)
+      return renderParagraph(node, state, path)
     case "heading": {
       const level = numberAttribute(node, "level") ?? 1
-      return `${"#".repeat(Math.min(6, Math.max(1, level)))} ${renderInlineChildren(node, state, path)}`
+      return `${"#".repeat(Math.min(6, Math.max(1, level)))} ${renderInlineChildren(node, state, path).replaceAll("  \n", " ")}`
     }
     case "bulletList":
       return renderList(node, state, path, "bullet", 0)
@@ -134,6 +177,20 @@ function renderBlock(
       return renderList(node, state, path, "ordered", 0)
     case "taskList":
       return renderTaskList(node, state, path, 0)
+    case "decisionList":
+      return renderDecisionList(node, state, path)
+    case "blockquote":
+      return quote(renderChildBlocks(node, state, path))
+    case "panel":
+      return renderPanel(node, state, path)
+    case "expand":
+    case "nestedExpand":
+      return renderExpand(node, state, path)
+    case "layoutSection":
+      warn(state, path, node.type, "layout-flattened")
+      return renderChildBlocks(node, state, path)
+    case "layoutColumn":
+      return renderChildBlocks(node, state, path)
     case "table":
       return renderTable(node, state, path)
     case "mediaSingle":
@@ -141,23 +198,55 @@ function renderBlock(
       return renderMediaContainer(node, state, path)
     case "media":
       return renderMedia(node, state, path)
+    case "blockCard":
+    case "embedCard":
+      return renderCard(node, state, path)
     case "rule":
       return "---"
     case "codeBlock":
       return renderCodeBlock(node, state, path)
     default: {
-      warnUnsupported(state, path, node.type)
-      return node.content
-        ? renderBlocks(node.content, state, [...path, "content"])
-        : escapeText(safeReadableFallback(node, state, path))
+      if (INLINE_NODES.has(node.type))
+        return escapeLineStarts(renderInline(node, state, path))
+      warn(state, path, node.type, "unsupported-node")
+      return renderUnknownContent(node, state, path)
     }
   }
+}
+
+function renderUnknownContent(
+  node: AdfNode,
+  state: ConversionState,
+  path: Path
+): string {
+  const children = node.content ?? []
+  if (children.length === 0)
+    return escapeMarkdownText(safeReadableFallback(node, state, path))
+  return children.every((child) => INLINE_NODES.has(child.type))
+    ? renderParagraph(node, state, path)
+    : renderChildBlocks(node, state, path)
+}
+
+function renderChildBlocks(
+  node: AdfNode,
+  state: ConversionState,
+  path: Path
+): string {
+  return renderBlocks(node.content ?? [], state, [...path, "content"])
+}
+
+function renderParagraph(
+  node: AdfNode,
+  state: ConversionState,
+  path: Path
+): string {
+  return escapeLineStarts(renderInlineChildren(node, state, path))
 }
 
 function renderInlineChildren(
   node: AdfNode,
   state: ConversionState,
-  path: ReadonlyArray<string | number>
+  path: Path
 ): string {
   return (node.content ?? [])
     .map((child, index) =>
@@ -169,51 +258,55 @@ function renderInlineChildren(
 function renderInline(
   node: AdfNode,
   state: ConversionState,
-  path: ReadonlyArray<string | number>
+  path: Path
 ): string {
-  if (node.type === "hardBreak") return "  \n"
-  if (node.type === "inlineCard") {
-    const url = stringAttribute(node, "url")
-    const sourceId = url === null ? null : jiraIssueId(url)
-    return sourceId === null || url === null
-      ? (url ?? "")
-      : addReference(state, {
-          kind: "jira-issue",
-          sourceId,
-          originalUrl: url,
-          fallbackText: sourceId
-        })
+  switch (node.type) {
+    case "hardBreak":
+      return "  \n"
+    case "inlineCard":
+      return renderCard(node, state, path)
+    case "media":
+    case "mediaInline":
+      return renderMedia(node, state, path)
+    case "mention":
+      return renderMention(node, state, path)
+    case "emoji":
+      return escapeText(
+        safeSourceText(
+          stringAttribute(node, "text") ??
+            stringAttribute(node, "shortName") ??
+            "",
+          state,
+          path
+        )
+      )
+    case "status":
+      return escapeText(
+        safeSourceText(stringAttribute(node, "text") ?? "", state, path)
+      )
+    case "date":
+      return renderDate(node, state, path)
+    case "placeholder":
+      return ""
+    case "text":
+      return renderText(node, state, path)
+    default: {
+      warn(state, path, node.type, "unsupported-node")
+      return node.content
+        ? renderInlineChildren(node, state, path)
+        : escapeText(safeReadableFallback(node, state, path))
+    }
   }
-  if (node.type === "media") {
-    return renderMedia(node, state, path)
-  }
-  if (node.type === "mention") {
-    const sourceId =
-      stringAttribute(node, "id") ?? stringAttribute(node, "accountId")
-    if (sourceId === null) return safeReadableFallback(node, state, path)
-    const fallbackText = safeSourceText(
-      stringAttribute(node, "text") ??
-        stringAttribute(node, "displayName") ??
-        `@${sourceId}`,
-      state,
-      path
-    )
-    return addReference(state, {
-      kind: "jira-user",
-      sourceId,
-      originalUrl: null,
-      fallbackText
-    })
-  }
-  if (node.type !== "text") {
-    warnUnsupported(state, path, node.type)
-    return node.content
-      ? renderInlineChildren(node, state, path)
-      : escapeText(safeReadableFallback(node, state, path))
-  }
+}
 
+function renderText(node: AdfNode, state: ConversionState, path: Path) {
+  const marks = node.marks ?? []
+  for (const mark of marks)
+    if (DROPPED_MARKS.has(mark.type))
+      warn(state, path, mark.type, "mark-dropped")
   const safeText = safeSourceText(node.text ?? "", state, path)
-  const jiraLink = jiraLinkReference(node.marks ?? [])
+  const textMarks = supportedTextMarks(marks)
+  const jiraLink = jiraLinkReference(marks)
   if (jiraLink !== null) {
     return addReference(
       state,
@@ -223,41 +316,136 @@ function renderInline(
         originalUrl: jiraLink.url,
         fallbackText: safeText
       },
-      supportedTextMarks(node.marks ?? [])
+      textMarks
     )
   }
-
-  const rendered = renderMarkedText(
-    safeText,
-    supportedTextMarks(node.marks ?? [])
-  )
-  const link = (node.marks ?? []).find((mark) => mark.type === "link")
+  const link = marks.find((mark) => mark.type === "link")
   const href = link ? stringAttribute(link, "href") : null
+  const rendered =
+    href !== null || textMarks.includes("code")
+      ? renderMarkedText(safeText, textMarks)
+      : wrapMarks(escapeTextWithIssueKeys(safeText, state), textMarks)
   return href === null ? rendered : `[${rendered}](${escapeUrl(href)})`
+}
+
+function escapeTextWithIssueKeys(text: string, state: ConversionState) {
+  let rendered = ""
+  let offset = 0
+  for (const match of text.matchAll(JIRA_KEY_IN_TEXT)) {
+    const key = match[1]
+    const start = match.index ?? 0
+    rendered += escapeText(text.slice(offset, start))
+    rendered += addReference(state, {
+      kind: "jira-issue",
+      sourceId: key,
+      originalUrl: null,
+      fallbackText: key
+    })
+    offset = start + key.length
+  }
+  return rendered + escapeText(text.slice(offset))
+}
+
+function renderMention(node: AdfNode, state: ConversionState, path: Path) {
+  const sourceId =
+    stringAttribute(node, "id") ?? stringAttribute(node, "accountId")
+  if (sourceId === null)
+    return escapeText(safeReadableFallback(node, state, path))
+  const fallbackText = safeSourceText(
+    stringAttribute(node, "text") ??
+      stringAttribute(node, "displayName") ??
+      `@${sourceId}`,
+    state,
+    path
+  )
+  return addReference(state, {
+    kind: "jira-user",
+    sourceId,
+    originalUrl: null,
+    fallbackText
+  })
+}
+
+function renderDate(node: AdfNode, state: ConversionState, path: Path) {
+  const timestamp = Number(stringAttribute(node, "timestamp") ?? Number.NaN)
+  const date = Number.isFinite(timestamp)
+    ? DateTime.make(timestamp)
+    : Option.none()
+  if (Option.isNone(date)) {
+    warn(state, path, node.type, "invalid-date")
+    return ""
+  }
+  return DateTime.formatIsoDate(date.value)
+}
+
+function renderCard(node: AdfNode, state: ConversionState, path: Path) {
+  const url = stringAttribute(node, "url")
+  if (url === null) {
+    warn(state, path, node.type, "card-without-url")
+    return escapeText(safeReadableFallback(node, state, path))
+  }
+  const sourceId = jiraIssueId(url)
+  if (sourceId !== null)
+    return addReference(state, {
+      kind: "jira-issue",
+      sourceId,
+      originalUrl: url,
+      fallbackText: sourceId
+    })
+  return `[${escapeText(safeSourceText(url, state, path))}](${escapeUrl(url)})`
+}
+
+function renderPanel(node: AdfNode, state: ConversionState, path: Path) {
+  const label = PANEL_LABELS[stringAttribute(node, "panelType") ?? ""] ?? "Note"
+  const content = renderChildBlocks(node, state, path)
+  return quote(content ? `**${label}**\n\n${content}` : `**${label}**`)
+}
+
+function renderExpand(node: AdfNode, state: ConversionState, path: Path) {
+  const title = stringAttribute(node, "title")
+  const content = renderChildBlocks(node, state, path)
+  const heading =
+    title === null || title.trim() === ""
+      ? ""
+      : `**${escapeText(safeSourceText(title.trim(), state, path))}**`
+  return [heading, content].filter(Boolean).join("\n\n")
 }
 
 function renderMediaContainer(
   node: AdfNode,
   state: ConversionState,
-  path: ReadonlyArray<string | number>
+  path: Path
 ): string {
-  return (node.content ?? [])
-    .map((child, index) =>
+  const children = node.content ?? []
+  const media = children
+    .flatMap((child, index) =>
       child.type === "media"
-        ? renderMedia(child, state, [...path, "content", index])
-        : renderBlock(child, state, [...path, "content", index])
+        ? [renderMedia(child, state, [...path, "content", index])]
+        : []
+    )
+    .join("\n")
+  const rest = children
+    .flatMap((child, index) =>
+      child.type === "media"
+        ? []
+        : [
+            child.type === "caption"
+              ? renderParagraph(child, state, [...path, "content", index])
+              : renderBlock(child, state, [...path, "content", index])
+          ]
     )
     .filter(Boolean)
-    .join("\n")
+  return [media, ...rest].filter(Boolean).join("\n\n")
 }
 
 function renderMedia(
   node: AdfNode,
   state: ConversionState,
-  path: ReadonlyArray<string | number>
+  path: Path
 ): string {
   const sourceId = stringAttribute(node, "id")
-  if (sourceId === null) return safeReadableFallback(node, state, path)
+  if (sourceId === null)
+    return escapeText(safeReadableFallback(node, state, path))
   const fallbackText = safeSourceText(
     stringAttribute(node, "alt") ??
       stringAttribute(node, "filename") ??
@@ -273,47 +461,51 @@ function renderMedia(
   })
 }
 
+function renderListItemContent(
+  item: AdfNode,
+  state: ConversionState,
+  itemPath: Path,
+  contentIndent: number
+): Readonly<{ label: string; rest: ReadonlyArray<string> }> {
+  const children = item.content ?? []
+  const first = children[0]
+  const labelled = first !== undefined && first.type === "paragraph"
+  const label = labelled
+    ? renderParagraph(first, state, [...itemPath, "content", 0])
+    : ""
+  const rest = children.slice(labelled ? 1 : 0).map((child, childIndex) => {
+    const childPath = [...itemPath, "content", childIndex + (labelled ? 1 : 0)]
+    if (child.type === "bulletList")
+      return renderList(child, state, childPath, "bullet", contentIndent)
+    if (child.type === "orderedList")
+      return renderList(child, state, childPath, "ordered", contentIndent)
+    if (child.type === "taskList")
+      return renderTaskList(child, state, childPath, contentIndent)
+    return indent(renderBlock(child, state, childPath), contentIndent)
+  })
+  return { label, rest }
+}
+
 function renderList(
   node: AdfNode,
   state: ConversionState,
-  path: ReadonlyArray<string | number>,
+  path: Path,
   kind: "bullet" | "ordered",
   indentation: number
 ): string {
   const start = numberAttribute(node, "order") ?? 1
   return (node.content ?? [])
     .map((item, index) => {
-      const itemPath = [...path, "content", index]
-      const children = item.content ?? []
-      const first = children[0]
-      const label = first
-        ? first.type === "paragraph"
-          ? renderInlineChildren(first, state, [...itemPath, "content", 0])
-          : renderInline(first, state, [...itemPath, "content", 0])
-        : ""
       const prefix = kind === "bullet" ? "-" : `${start + index}.`
-      const lines = [`${" ".repeat(indentation)}${prefix} ${label}`]
-
-      children.slice(1).forEach((child, childIndex) => {
-        const childPath = [...itemPath, "content", childIndex + 1]
-        if (child.type === "bulletList") {
-          lines.push(
-            renderList(child, state, childPath, "bullet", indentation + 2)
-          )
-        } else if (child.type === "orderedList") {
-          lines.push(
-            renderList(child, state, childPath, "ordered", indentation + 2)
-          )
-        } else if (child.type === "taskList") {
-          lines.push(renderTaskList(child, state, childPath, indentation + 2))
-        } else {
-          lines.push(
-            indent(renderBlock(child, state, childPath), indentation + 2)
-          )
-        }
-      })
-
-      return lines.filter(Boolean).join("\n")
+      const { label, rest } = renderListItemContent(
+        item,
+        state,
+        [...path, "content", index],
+        indentation + prefix.length + 1
+      )
+      return [`${" ".repeat(indentation)}${prefix} ${label}`, ...rest]
+        .filter(Boolean)
+        .join("\n")
     })
     .join("\n")
 }
@@ -321,35 +513,59 @@ function renderList(
 function renderTaskList(
   node: AdfNode,
   state: ConversionState,
-  path: ReadonlyArray<string | number>,
+  path: Path,
   indentation: number
 ): string {
   return (node.content ?? [])
     .map((item, index) => {
       const itemPath = [...path, "content", index]
+      if (item.type === "taskList")
+        return renderTaskList(item, state, itemPath, indentation + 2)
       const checked = stringAttribute(item, "state")?.toUpperCase() === "DONE"
-      const label = (item.content ?? [])
-        .map((child, childIndex) =>
-          child.type === "paragraph"
-            ? renderInlineChildren(child, state, [
-                ...itemPath,
-                "content",
-                childIndex
-              ])
-            : renderInline(child, state, [...itemPath, "content", childIndex])
-        )
-        .join("")
-      return `${" ".repeat(indentation)}- [${checked ? "x" : " "}] ${label}`
+      return `${" ".repeat(indentation)}- [${checked ? "x" : " "}] ${renderTaskLabel(item, state, itemPath)}`
     })
+    .join("\n")
+}
+
+function renderTaskLabel(item: AdfNode, state: ConversionState, path: Path) {
+  const children = item.content ?? []
+  return escapeLineStarts(
+    children.every((child) => INLINE_NODES.has(child.type))
+      ? renderInlineChildren(item, state, path)
+      : children
+          .map((child, childIndex) =>
+            child.type === "paragraph"
+              ? renderInlineChildren(child, state, [
+                  ...path,
+                  "content",
+                  childIndex
+                ])
+              : renderInline(child, state, [...path, "content", childIndex])
+          )
+          .join(" ")
+  )
+}
+
+function renderDecisionList(
+  node: AdfNode,
+  state: ConversionState,
+  path: Path
+): string {
+  return (node.content ?? [])
+    .map(
+      (item, index) =>
+        `- **Decision:** ${renderTaskLabel(item, state, [...path, "content", index])}`
+    )
     .join("\n")
 }
 
 function renderTable(
   node: AdfNode,
   state: ConversionState,
-  path: ReadonlyArray<string | number>
+  path: Path
 ): string {
-  const rows = (node.content ?? []).map((row, rowIndex) =>
+  const sourceRows = node.content ?? []
+  const rows = sourceRows.map((row, rowIndex) =>
     (row.content ?? []).map((cell, cellIndex) =>
       renderBlocks(cell.content ?? [], state, [
         ...path,
@@ -359,27 +575,33 @@ function renderTable(
         cellIndex,
         "content"
       ])
-        .replace(/\n/g, "<br>")
         .replace(/\|/g, "\\|")
+        .replace(/\n/g, "&#10;")
     )
   )
   if (rows.length === 0) return ""
-  const width = Math.max(...rows.map((row) => row.length))
+  const width = Math.max(1, ...rows.map((row) => row.length))
   const normalized = rows.map((row) =>
     row.concat(Array.from({ length: width - row.length }, () => ""))
   )
-  const header = normalized[0]
+  const firstRow = sourceRows[0]?.content ?? []
+  const hasHeader =
+    firstRow.length > 0 && firstRow.every((cell) => cell.type === "tableHeader")
+  const header = hasHeader
+    ? normalized[0]
+    : Array.from({ length: width }, () => "")
+  const body = hasHeader ? normalized.slice(1) : normalized
   return [
     `| ${header.join(" | ")} |`,
     `| ${header.map(() => "---").join(" | ")} |`,
-    ...normalized.slice(1).map((row) => `| ${row.join(" | ")} |`)
+    ...body.map((row) => `| ${row.join(" | ")} |`)
   ].join("\n")
 }
 
 function renderCodeBlock(
   node: AdfNode,
   state: ConversionState,
-  path: ReadonlyArray<string | number>
+  path: Path
 ): string {
   const text = (node.content ?? [])
     .map((child, index) =>
@@ -389,6 +611,17 @@ function renderCodeBlock(
   const language = stringAttribute(node, "language") ?? ""
   const fence = "`".repeat(Math.max(3, longestRun(text, "`") + 1))
   return `${fence}${language}\n${text.replace(/\n$/, "")}\n${fence}`
+}
+
+function quote(content: string): string {
+  let fenced = false
+  return content
+    .split("\n")
+    .flatMap((line) => {
+      if (/^(`{3,}|~{3,})/.test(line)) fenced = !fenced
+      return line === "" ? (fenced ? [">"] : []) : [`> ${line}`]
+    })
+    .join("\n")
 }
 
 function inlineCode(text: string): string {
@@ -430,8 +663,24 @@ function escapeText(text: string): string {
     .replaceAll("*", "\\*")
     .replaceAll("_", "\\_")
     .replaceAll("~", "\\~")
+    .replaceAll("`", "\\`")
     .replaceAll("[", "\\[")
     .replaceAll("]", "\\]")
+    .replace(/<(?=[A-Za-z/!?])/g, "\\<")
+}
+
+function escapeLineStarts(text: string): string {
+  return text
+    .split("\n")
+    .map((line) =>
+      line
+        .replace(/^(\s{0,3})(#{1,6})(?=\s|$)/, "$1\\$2")
+        .replace(/^(\s{0,3})>/, "$1\\>")
+        .replace(/^(\s{0,3})([+-])(?=\s|$|-{2})/, "$1\\$2")
+        .replace(/^(\s{0,3})(=+)(\s*)$/, "$1\\$2$3")
+        .replace(/^(\s{0,3}\d{1,9})([.)])(?=\s|$)/, "$1\\$2")
+    )
+    .join("\n")
 }
 
 function escapeUrl(url: string): string {
@@ -473,7 +722,7 @@ function addReference(
   marks: ReadonlyArray<TextMark> = []
 ): string {
   const markSuffix = marks.length === 0 ? "" : `:${marks.join(",")}`
-  const placeholder = `\uE000jira-reference:${state.references.length.toString().padStart(6, "0")}${markSuffix}\uE001`
+  const placeholder = `jira-reference:${state.references.length.toString().padStart(6, "0")}${markSuffix}`
   state.references.push({ ...reference, placeholder })
   return placeholder
 }
@@ -481,7 +730,7 @@ function addReference(
 function safeReadableFallback(
   node: AdfNode,
   state: ConversionState,
-  path: ReadonlyArray<string | number>
+  path: Path
 ): string {
   const fallback =
     node.text ??
@@ -497,27 +746,27 @@ function safeReadableFallback(
   return safeSourceText(fallback, state, path)
 }
 
-function warnUnsupported(
+function warn(
   state: ConversionState,
-  path: ReadonlyArray<string | number>,
-  nodeType: string
+  path: Path,
+  nodeType: string,
+  reason: string
 ): void {
-  state.warnings.push({ path, nodeType, reason: "unsupported-node" })
+  const key = `${nodeType}\u0000${reason}`
+  if (state.warned.has(key)) return
+  state.warned.add(key)
+  state.warnings.push({ path, nodeType, reason })
 }
 
 function safeSourceText(
   text: string,
   state: ConversionState,
-  path: ReadonlyArray<string | number>
+  path: Path
 ): string {
   const reservedMarker =
     /<!--\s*(?:comments:(?:start|end)|comment:[A-Za-z0-9_-]+)\s*-->/g
   return text.replace(reservedMarker, (marker) => {
-    state.warnings.push({
-      path,
-      nodeType: "text",
-      reason: "reserved-marker-neutralized"
-    })
+    warn(state, path, "text", "reserved-marker-neutralized")
     return `&lt;${marker.slice(1)}`
   })
 }
@@ -536,9 +785,7 @@ function supportedTextMarks(marks: ReadonlyArray<AdfMark>): Array<TextMark> {
 }
 
 function referenceMarks(placeholder: string): Array<TextMark> {
-  const encoded = /\uE000jira-reference:\d{6}(?::([^\uE001]+))?\uE001/.exec(
-    placeholder
-  )?.[1]
+  const encoded = /jira-reference:\d{6}(?::([^]+))?/.exec(placeholder)?.[1]
   if (!encoded) return []
   return encoded
     .split(",")
@@ -553,19 +800,26 @@ function renderMarkedText(
   text: string,
   marks: ReadonlyArray<TextMark>
 ): string {
-  let rendered = marks.includes("code") ? inlineCode(text) : escapeText(text)
+  return wrapMarks(
+    marks.includes("code") ? inlineCode(text) : escapeText(text),
+    marks
+  )
+}
+
+function wrapMarks(rendered: string, marks: ReadonlyArray<TextMark>): string {
+  let wrapped = rendered
   for (const mark of marks) {
-    if (mark === "strong") rendered = `**${rendered}**`
-    if (mark === "em") rendered = `*${rendered}*`
-    if (mark === "strike") rendered = `~~${rendered}~~`
+    if (mark === "strong") wrapped = `**${wrapped}**`
+    if (mark === "em") wrapped = `*${wrapped}*`
+    if (mark === "strike") wrapped = `~~${wrapped}~~`
   }
-  return rendered
+  return wrapped
 }
 
 function indent(value: string, amount: number): string {
   const prefix = " ".repeat(amount)
   return value
     .split("\n")
-    .map((line) => `${prefix}${line}`)
+    .map((line) => (line === "" ? line : `${prefix}${line}`))
     .join("\n")
 }

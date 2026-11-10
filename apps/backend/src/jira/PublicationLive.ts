@@ -18,20 +18,29 @@ import {
   ticketIndex,
   user as userTable
 } from "@pp/db/schema"
-import { JiraRateLimited } from "@pp/integration-jira/Blocked"
 import type * as Client from "@pp/integration-jira/Client"
+import { groupBy } from "@pp/integration-jira/collections"
 import {
   canonicalJiraJson,
   JiraMigrationManifestV2
 } from "@pp/integration-jira/Manifest"
 import { jiraDestinationTicketId } from "@pp/integration-jira/Mappings"
-import { jiraDocumentBatches } from "@pp/integration-jira/MigrationActivities"
+import {
+  classifyJiraFailure,
+  errorDetail,
+  jiraDocumentBatches
+} from "@pp/integration-jira/MigrationActivities"
 import * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
 import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
-import { JiraMigrationWorkflowFailure } from "@pp/integration-jira/MigrationWorkflow"
+import {
+  JiraMigrationWorkflowFailure,
+  type JiraMigrationWorkflowFailureValue
+} from "@pp/integration-jira/MigrationWorkflow"
 import { JiraPublicationInvalid } from "@pp/integration-jira/Preflight"
 import {
+  jiraArchivePath,
   jiraProjectIdFor,
+  jiraReportPath,
   JiraPreparedPublicationV1,
   JiraPublicationPlanV1,
   prepareJiraPublication,
@@ -45,7 +54,8 @@ import {
   baselineStatusDescription,
   deriveProjectIdentity,
   GIT_AUTOMATION_SEED,
-  JiraMigrationConfiguration
+  JiraMigrationConfiguration,
+  type JiraMigrationResult
 } from "@pp/shared"
 import { and, eq, inArray, sql as drizzleSql } from "drizzle-orm"
 import * as DateTime from "effect/DateTime"
@@ -61,8 +71,6 @@ const decodeUnknownJiraMigrationManifestV2 = Schema.decodeUnknownEffect(
 )
 
 const encodeJiraPublicationPlanV1 = Schema.encodeEffect(JiraPublicationPlanV1)
-
-const isJiraRateLimited = Schema.is(JiraRateLimited)
 
 const isJiraPublicationInvalid = Schema.is(JiraPublicationInvalid)
 
@@ -303,7 +311,7 @@ export const verifyJiraPermanentArchive = Effect.fn(
         return plan.archiveDocument
       })
   if (
-    verifiedArchive.path !== `imports/jira/${migration.id}/archive.json` ||
+    verifiedArchive.path !== jiraArchivePath(migration.id) ||
     !/^[a-f0-9]{64}$/.test(verifiedArchive.sha256)
   )
     return yield* new JiraPublicationInvalid({
@@ -329,6 +337,62 @@ export const verifyJiraPermanentArchive = Effect.fn(
     })
 })
 
+const PER_ATTACHMENT_INVALID_REASONS = new Set(["attachment-size-mismatch"])
+
+const isJiraMigrationWorkflowFailure = Schema.is(JiraMigrationWorkflowFailure)
+
+export const classifyMaterializationError = (
+  error: unknown
+): JiraMigrationWorkflowFailureValue => {
+  if (isJiraMigrationWorkflowFailure(error)) return error
+  const detail = errorDetail(error)
+  const make = (
+    reason: string,
+    retryable: boolean,
+    extra: Partial<JiraMigrationWorkflowFailureValue> = {}
+  ) =>
+    JiraMigrationWorkflowFailure.make({
+      reason,
+      retryable,
+      ...(detail === undefined ? {} : { detail }),
+      ...extra
+    })
+  if (isJiraPublicationInvalid(error))
+    return error.reasons.includes("stale-materialization-attempt")
+      ? make("jira_migration_attempt_paused", true)
+      : make("jira_migration_publication_invalid", false)
+  if (
+    Predicate.isTagged(error, "PlatformError") ||
+    Predicate.isTagged(error, "SystemError")
+  )
+    return make("jira_migration_file_write_failed", true, { transient: true })
+  const classified = classifyJiraFailure(error)
+  return classified === null
+    ? make("jira_migration_materialization_failed", true)
+    : JiraMigrationWorkflowFailure.make(classified)
+}
+
+export const materializationFailure = (error: unknown) => {
+  const failure = classifyMaterializationError(error)
+  return Effect.logWarning("Jira import unit failed", {
+    reason: failure.reason,
+    error
+  }).pipe(Effect.andThen(Effect.fail(failure)))
+}
+
+const isPerAttachmentFailure = (error: unknown) =>
+  Predicate.isTagged(error, "JiraAccessDenied") ||
+  Predicate.isTagged(error, "JiraResourceNotFound") ||
+  (isJiraPublicationInvalid(error) &&
+    error.reasons.some((reason) => PER_ATTACHMENT_INVALID_REASONS.has(reason)))
+
+const perAttachmentFailureReason = (error: unknown) =>
+  Predicate.isTagged(error, "JiraAccessDenied")
+    ? "forbidden"
+    : Predicate.isTagged(error, "JiraResourceNotFound")
+      ? "missing"
+      : "size_mismatch"
+
 export const makeJiraMaterializationDependencies = (
   prepared: JiraPreparedPublicationV1,
   fence: MigrationProjection.AttemptFence,
@@ -337,7 +401,7 @@ export const makeJiraMaterializationDependencies = (
     jira: Pick<Client.JiraClient["Service"], "attachmentContent">
     s3: Pick<
       S3Storage.S3Storage["Service"],
-      "getObject" | "putObject" | "headObject"
+      "getObject" | "putObject" | "headObject" | "deleteObject"
     >
     artifacts: Pick<
       MigrationArtifacts.JiraMigrationArtifacts["Service"],
@@ -361,28 +425,8 @@ export const makeJiraMaterializationDependencies = (
     createdBy: prepared.ownerId,
     createdAt: prepared.migrationCreatedAt
   }
-  const failure = (error: Error) => {
-    if (isJiraRateLimited(error))
-      return JiraMigrationWorkflowFailure.make({
-        reason: "jira_rate_limited",
-        retryable: true,
-        retryAfterMillis: error.retryAfterMillis
-      })
-    const reconnect =
-      Predicate.isTagged(error, "JiraReconnectRequired") ||
-      Predicate.isTagged(error, "JiraNotConnected")
-    return JiraMigrationWorkflowFailure.make({
-      reason: isJiraPublicationInvalid(error)
-        ? "jira_migration_publication_invalid"
-        : reconnect
-          ? "jira_reconnect_required"
-          : "jira_migration_materialization_failed",
-      retryable: !isJiraPublicationInvalid(error),
-      reconnect
-    })
-  }
   const mapFailure = <A, E extends Error, R>(effect: Effect.Effect<A, E, R>) =>
-    effect.pipe(Effect.mapError(failure))
+    effect.pipe(Effect.catch(materializationFailure))
   const load = (ref: MigrationArtifacts.JiraArtifactRef) =>
     loadJiraPublicationPlan(prepared.orgSlug, ref, services.artifacts)
   const write = (documents: JiraPublicationPlanV1["documents"]) =>
@@ -410,7 +454,20 @@ export const makeJiraMaterializationDependencies = (
           cloudId: prepared.manifest.source.cloudId,
           connection: services.connection,
           attachment
-        })
+        }).pipe(
+          Effect.catchIf(isPerAttachmentFailure, (error) =>
+            Effect.logWarning("Jira attachment skipped", {
+              sourceAttachmentId: attachment.sourceAttachmentId,
+              error
+            }).pipe(
+              Effect.as({
+                sourceAttachmentId: attachment.sourceAttachmentId,
+                kind: "failed" as const,
+                reason: perAttachmentFailureReason(error)
+              })
+            )
+          )
+        )
       ),
     finalizePlan: (outcomes: ReadonlyArray<JiraAttachmentOutcome>) =>
       mapFailure(
@@ -494,6 +551,66 @@ export const makeJiraMaterializationDependencies = (
           })
         })
       )
+  }
+}
+
+const INSERT_CHUNK_ROWS = 500
+
+const chunksOf = <A>(
+  rows: ReadonlyArray<A>
+): ReadonlyArray<ReadonlyArray<A>> => {
+  const chunks: Array<ReadonlyArray<A>> = []
+  for (let offset = 0; offset < rows.length; offset += INSERT_CHUNK_ROWS)
+    chunks.push(rows.slice(offset, offset + INSERT_CHUNK_ROWS))
+  return chunks
+}
+
+const insertChunked = <A, B, E, R>(
+  rows: ReadonlyArray<A>,
+  insert: (rows: Array<A>) => Effect.Effect<B, E, R>
+) =>
+  Effect.forEach(chunksOf(rows), (chunk) => insert([...chunk]), {
+    discard: true
+  })
+
+export const jiraMigrationResult = (
+  plan: JiraPublicationPlanV1,
+  checkpoint: MigrationProjection.JiraMigrationCheckpoint
+): JiraMigrationResult => {
+  const identities =
+    checkpoint.acceptedConfiguration?.configuration.identities ?? []
+  const createdStatuses = new Set(
+    (checkpoint.acceptedConfiguration?.configuration.statuses ?? [])
+      .filter((status) => status.createStatus === true)
+      .map((status) => status.projectStatusSlug)
+  )
+  return {
+    tickets: plan.indexes.tickets.length,
+    comments: plan.indexes.comments.length,
+    attachmentsCopied: plan.attachments.filter(
+      (outcome) => outcome.kind === "copied"
+    ).length,
+    attachmentsSkipped: plan.attachments.filter(
+      (outcome) => outcome.kind === "skipped" || outcome.kind === "excluded"
+    ).length,
+    attachmentsFailed: plan.attachments.filter(
+      (outcome) => outcome.kind === "failed"
+    ).length,
+    peopleLinked: identities.filter(
+      (identity) => identity.projectProjectUserId !== null
+    ).length,
+    peopleInvited: identities.filter(
+      (identity) =>
+        identity.projectProjectUserId === null &&
+        identity.inviteEmail !== undefined
+    ).length,
+    peopleUnlinked: identities.filter(
+      (identity) =>
+        identity.projectProjectUserId === null &&
+        identity.inviteEmail === undefined
+    ).length,
+    statusesCreated: createdStatuses.size,
+    findings: [...(checkpoint.findings ?? []), ...(plan.findings ?? [])]
   }
 }
 
@@ -626,14 +743,14 @@ export const publishJiraMigrationAtomically = Effect.fn(
               reasons: ["publication-member-conflict"]
             })
         }
-        if (plan.indexes.statuses.length > 0)
-          yield* tx.insert(projectStatus).values(
-            plan.indexes.statuses.map((row) => ({
-              ...row,
-              description: baselineStatusDescription(row.slug),
-              createdAt: toDate(row.createdAt)
-            }))
-          )
+        yield* insertChunked(
+          plan.indexes.statuses.map((row) => ({
+            ...row,
+            description: baselineStatusDescription(row.slug),
+            createdAt: toDate(row.createdAt)
+          })),
+          (rows) => tx.insert(projectStatus).values(rows)
+        )
         const seededRules = GIT_AUTOMATION_SEED.filter((rule) =>
           plan.indexes.statuses.some((row) => row.slug === rule.statusSlug)
         )
@@ -645,23 +762,24 @@ export const publishJiraMigrationAtomically = Effect.fn(
               statusSlug: rule.statusSlug
             }))
           )
-        if (plan.indexes.tags.length > 0)
-          yield* tx.insert(projectTag).values(
-            plan.indexes.tags.map((row) => ({
-              ...row,
-              createdAt: toDate(row.createdAt)
-            }))
-          )
-        if (plan.indexes.members.length > 0)
-          yield* tx.insert(projectMember).values(
-            plan.indexes.members.map((row) => ({
-              projectId: row.projectId,
-              organizationId: migration.organizationId,
-              userId: row.userId,
-              roleId: row.role === "owner" ? "pm" : "developer",
-              createdAt: toDate(row.createdAt)
-            }))
-          )
+        yield* insertChunked(
+          plan.indexes.tags.map((row) => ({
+            ...row,
+            createdAt: toDate(row.createdAt)
+          })),
+          (rows) => tx.insert(projectTag).values(rows)
+        )
+        yield* insertChunked(
+          plan.indexes.members.map((row) => ({
+            projectId: row.projectId,
+            organizationId: migration.organizationId,
+            userId: row.userId,
+            roleId:
+              row.role === "owner" ? ("pm" as const) : ("developer" as const),
+            createdAt: toDate(row.createdAt)
+          })),
+          (rows) => tx.insert(projectMember).values(rows)
+        )
         for (const invite of plan.invites ?? []) {
           yield* issueProjectInvite(db, {
             organizationId: migration.organizationId,
@@ -682,75 +800,90 @@ export const publishJiraMigrationAtomically = Effect.fn(
             })
             .onConflictDoNothing()
         }
-        if (plan.indexes.tickets.length > 0)
-          yield* tx.insert(ticketIndex).values(
-            plan.indexes.tickets.map(
-              ({ orgSlug: _orgSlug, projectSlug: _projectSlug, ...row }) => ({
-                ...row,
-                tags: [...row.tags],
-                assignees: [...row.assignees],
-                createdAt: toDate(row.createdAt),
-                updatedAt: toDate(row.updatedAt)
-              })
-            )
-          )
-        if (plan.indexes.comments.length > 0)
-          yield* tx.insert(commentIndex).values(
-            plan.indexes.comments.map(
-              ({ projectSlug: _projectSlug, ...row }) => ({
-                ...row,
-                projectId: plannedProject.id,
-                createdAt: toDate(row.createdAt),
-                editedAt: row.editedAt === null ? null : toDate(row.editedAt)
-              })
-            )
-          )
-        if (plan.indexes.attachmentReferences.length > 0)
-          yield* tx.insert(attachmentReference).values(
-            plan.indexes.attachmentReferences.map(
-              ({ orgSlug: _orgSlug, projectSlug: _projectSlug, ...row }) => ({
-                ...row,
-                projectId: plannedProject.id,
-                createdAt: toDate(row.createdAt)
-              })
-            )
-          )
-        for (const planned of plan.indexes.attachments) {
-          const [pending] = yield* tx
+        yield* insertChunked(
+          plan.indexes.tickets.map(
+            ({ orgSlug: _orgSlug, projectSlug: _projectSlug, ...row }) => ({
+              ...row,
+              tags: [...row.tags],
+              assignees: [...row.assignees],
+              createdAt: toDate(row.createdAt),
+              updatedAt: toDate(row.updatedAt)
+            })
+          ),
+          (rows) => tx.insert(ticketIndex).values(rows)
+        )
+        yield* insertChunked(
+          plan.indexes.comments.map(
+            ({ projectSlug: _projectSlug, ...row }) => ({
+              ...row,
+              projectId: plannedProject.id,
+              createdAt: toDate(row.createdAt),
+              editedAt: row.editedAt === null ? null : toDate(row.editedAt)
+            })
+          ),
+          (rows) => tx.insert(commentIndex).values(rows)
+        )
+        yield* insertChunked(
+          plan.indexes.attachmentReferences.map(
+            ({ orgSlug: _orgSlug, projectSlug: _projectSlug, ...row }) => ({
+              ...row,
+              projectId: plannedProject.id,
+              createdAt: toDate(row.createdAt)
+            })
+          ),
+          (rows) => tx.insert(attachmentReference).values(rows)
+        )
+        for (const plannedChunk of chunksOf(plan.indexes.attachments)) {
+          const pendingRows = yield* tx
             .select()
             .from(attachmentIndex)
-            .where(eq(attachmentIndex.id, planned.id))
+            .where(
+              inArray(
+                attachmentIndex.id,
+                plannedChunk.map(({ id }) => id)
+              )
+            )
             .for("update")
-          if (
-            !pending ||
-            pending.status !== "pending" ||
-            pending.organizationId !== planned.organizationId ||
-            pending.orgSlug !== planned.orgSlug ||
-            pending.projectId !== plannedProject.id ||
-            pending.ticketId !== planned.ticketId ||
-            pending.objectKey !== planned.objectKey ||
-            pending.filename !== planned.filename ||
-            pending.contentType !== planned.contentType ||
-            pending.byteSize !== planned.byteSize ||
-            pending.contentHash !== planned.contentHash ||
-            pending.uploadedBy !== planned.uploadedBy ||
-            pending.createdAt.toISOString() !== planned.createdAt
-          )
+          const pendingById = new Map(pendingRows.map((row) => [row.id, row]))
+          const conflicting = plannedChunk.some((planned) => {
+            const pending = pendingById.get(planned.id)
+            return (
+              !pending ||
+              pending.status !== "pending" ||
+              pending.organizationId !== planned.organizationId ||
+              pending.orgSlug !== planned.orgSlug ||
+              pending.projectId !== plannedProject.id ||
+              pending.ticketId !== planned.ticketId ||
+              pending.objectKey !== planned.objectKey ||
+              pending.filename !== planned.filename ||
+              pending.contentType !== planned.contentType ||
+              pending.byteSize !== planned.byteSize ||
+              pending.contentHash !== planned.contentHash ||
+              pending.uploadedBy !== planned.uploadedBy ||
+              pending.createdAt.toISOString() !== planned.createdAt
+            )
+          })
+          if (conflicting)
             return yield* new JiraPublicationInvalid({
               reasons: ["attachment-identity-conflict"]
             })
-          yield* tx
-            .update(attachmentIndex)
-            .set({
-              status: "live",
-              committedAt: toDate(planned.committedAt)
-            })
-            .where(eq(attachmentIndex.id, planned.id))
+          for (const [committedAt, ids] of groupBy(
+            plannedChunk,
+            (planned) => planned.committedAt,
+            (planned) => planned.id
+          ))
+            yield* tx
+              .update(attachmentIndex)
+              .set({ status: "live", committedAt: toDate(committedAt) })
+              .where(inArray(attachmentIndex.id, ids))
         }
         const now = yield* DateTime.nowAsDate
         const published = yield* tx
           .update(projectIndex)
-          .set({ publishedAt: now })
+          .set({
+            publishedAt: now,
+            estimation: plannedProject.estimation ?? "off"
+          })
           .where(
             and(
               eq(projectIndex.id, project.id),
@@ -766,12 +899,15 @@ export const publishJiraMigrationAtomically = Effect.fn(
           .update(jiraMigration)
           .set({
             status: "succeeded",
-            phase: "succeeded",
             destinationProjectId: project.id,
             destinationProjectSlug: project.slug,
             reportPath: plan.reportDocument.path,
+            phase: "succeeded",
+            progressDone: 1,
+            progressTotal: 1,
             checkpoint: yield* encodeJiraMigrationCheckpoint({
               ...checkpoint,
+              result: jiraMigrationResult(plan, checkpoint),
               publishedPlan: {
                 planRef: input.planRef,
                 publicationRevision: input.publicationRevision,
@@ -919,8 +1055,8 @@ export type JiraHiddenDocumentsInput = Readonly<{
 const safeJiraDocumentPath = (relative: string, migrationId: string) =>
   relative === "project.md" ||
   /^(tickets|groups)\/[A-Za-z0-9_-]+\.md$/.test(relative) ||
-  relative === `imports/jira/${migrationId}/archive.json` ||
-  relative === `imports/jira/${migrationId}/report.md`
+  relative === jiraArchivePath(migrationId) ||
+  relative === jiraReportPath(migrationId)
 
 export const writeJiraHiddenDocuments = Effect.fn(
   "JiraImport.writeHiddenDocuments"
@@ -1019,7 +1155,10 @@ export const copyJiraPreparedAttachment = Effect.fn(
   "JiraImport.copyPreparedAttachment"
 )(function* (
   jira: Pick<Client.JiraClient["Service"], "attachmentContent">,
-  s3: Pick<S3Storage.S3Storage["Service"], "getObject" | "putObject">,
+  s3: Pick<
+    S3Storage.S3Storage["Service"],
+    "getObject" | "putObject" | "deleteObject"
+  >,
   input: JiraPreparedAttachmentInput
 ) {
   const { attachment, fence } = input
@@ -1077,6 +1216,7 @@ export const copyJiraPreparedAttachment = Effect.fn(
       reasons: ["stale-materialization-attempt"]
     })
   let bytes = yield* s3.getObject(input.connection, attachment.objectKey)
+  const uploaded = bytes === null
   if (bytes === null) {
     const chunks = yield* Stream.runCollect(
       jira.attachmentContent(
@@ -1108,92 +1248,104 @@ export const copyJiraPreparedAttachment = Effect.fn(
       reasons: ["attachment-size-mismatch"]
     })
   const contentSha256 = createHash("sha256").update(bytes).digest("hex")
-  return yield* db.transaction((tx) =>
-    Effect.gen(function* () {
-      const [migration] = yield* tx
-        .select()
-        .from(jiraMigration)
-        .where(eq(jiraMigration.id, fence.migrationId))
-        .for("update")
-      const [project] = yield* tx
-        .select()
-        .from(projectIndex)
-        .where(eq(projectIndex.id, input.projectId))
-        .limit(1)
-      const checkpoint = migration
-        ? yield* MigrationProjection.decodeCheckpoint(migration.checkpoint)
-        : null
-      if (
-        !migration ||
-        migration.workflowExecutionId !== fence.workflowExecutionId ||
-        migration.workflowAttempt !== fence.workflowAttempt ||
-        migration.status !== "migrating" ||
-        migration.cleanupExecutionId !== null ||
-        migration.organizationId !== input.organizationId ||
-        !project ||
-        project.publishedAt !== null ||
-        project.organizationId !== input.organizationId ||
-        project.slug !== input.projectSlug ||
-        checkpoint?.remoteWritesMayStillCommit?.workflowExecutionId !==
-          fence.workflowExecutionId ||
-        checkpoint.remoteWritesMayStillCommit.workflowAttempt !==
-          fence.workflowAttempt
-      )
-        return yield* new JiraPublicationInvalid({
-          reasons: ["stale-materialization-attempt"]
-        })
-      yield* tx
-        .insert(attachmentIndex)
-        .values({
-          id: attachment.id,
-          organizationId: input.organizationId,
-          orgSlug: input.orgSlug,
-          projectId: input.projectId,
-          ticketId: attachment.ticketId,
+  return yield* db
+    .transaction((tx) =>
+      Effect.gen(function* () {
+        const [migration] = yield* tx
+          .select()
+          .from(jiraMigration)
+          .where(eq(jiraMigration.id, fence.migrationId))
+          .for("update")
+        const [project] = yield* tx
+          .select()
+          .from(projectIndex)
+          .where(eq(projectIndex.id, input.projectId))
+          .limit(1)
+        const checkpoint = migration
+          ? yield* MigrationProjection.decodeCheckpoint(migration.checkpoint)
+          : null
+        if (
+          !migration ||
+          migration.workflowExecutionId !== fence.workflowExecutionId ||
+          migration.workflowAttempt !== fence.workflowAttempt ||
+          migration.status !== "migrating" ||
+          migration.cleanupExecutionId !== null ||
+          migration.organizationId !== input.organizationId ||
+          !project ||
+          project.publishedAt !== null ||
+          project.organizationId !== input.organizationId ||
+          project.slug !== input.projectSlug ||
+          checkpoint?.remoteWritesMayStillCommit?.workflowExecutionId !==
+            fence.workflowExecutionId ||
+          checkpoint.remoteWritesMayStillCommit.workflowAttempt !==
+            fence.workflowAttempt
+        )
+          return yield* new JiraPublicationInvalid({
+            reasons: ["stale-materialization-attempt"]
+          })
+        yield* tx
+          .insert(attachmentIndex)
+          .values({
+            id: attachment.id,
+            organizationId: input.organizationId,
+            orgSlug: input.orgSlug,
+            projectId: input.projectId,
+            ticketId: attachment.ticketId,
+            objectKey: attachment.objectKey,
+            filename: attachment.filename,
+            contentType: attachment.contentType,
+            byteSize: attachment.byteSize,
+            contentHash: contentSha256,
+            status: "pending",
+            uploadedBy: input.uploadedBy,
+            createdAt: migrationCreatedAt
+          })
+          .onConflictDoNothing()
+        const [row] = yield* tx
+          .select()
+          .from(attachmentIndex)
+          .where(eq(attachmentIndex.id, attachment.id))
+          .limit(1)
+        if (
+          !row ||
+          row.organizationId !== input.organizationId ||
+          row.orgSlug !== input.orgSlug ||
+          row.projectId !== input.projectId ||
+          row.ticketId !== attachment.ticketId ||
+          row.objectKey !== attachment.objectKey ||
+          row.filename !== attachment.filename ||
+          row.contentType !== attachment.contentType ||
+          row.byteSize !== attachment.byteSize ||
+          row.contentHash !== contentSha256 ||
+          row.status !== "pending" ||
+          row.uploadedBy !== input.uploadedBy ||
+          row.createdAt.getTime() !== migrationCreatedAt.getTime()
+        )
+          return yield* new JiraPublicationInvalid({
+            reasons: ["attachment-identity-conflict"]
+          })
+        return {
+          sourceAttachmentId: attachment.sourceAttachmentId,
+          kind: "copied",
+          attachmentId: attachment.id,
           objectKey: attachment.objectKey,
-          filename: attachment.filename,
-          contentType: attachment.contentType,
           byteSize: attachment.byteSize,
-          contentHash: contentSha256,
-          status: "pending",
-          uploadedBy: input.uploadedBy,
-          createdAt: migrationCreatedAt
-        })
-        .onConflictDoNothing()
-      const [row] = yield* tx
-        .select()
-        .from(attachmentIndex)
-        .where(eq(attachmentIndex.id, attachment.id))
-        .limit(1)
-      if (
-        !row ||
-        row.organizationId !== input.organizationId ||
-        row.orgSlug !== input.orgSlug ||
-        row.projectId !== input.projectId ||
-        row.ticketId !== attachment.ticketId ||
-        row.objectKey !== attachment.objectKey ||
-        row.filename !== attachment.filename ||
-        row.contentType !== attachment.contentType ||
-        row.byteSize !== attachment.byteSize ||
-        row.contentHash !== contentSha256 ||
-        row.status !== "pending" ||
-        row.uploadedBy !== input.uploadedBy ||
-        row.createdAt.getTime() !== migrationCreatedAt.getTime()
+          contentType: attachment.contentType,
+          contentSha256
+        } satisfies JiraAttachmentOutcome
+      })
+    )
+    .pipe(
+      Effect.tapError((error) =>
+        uploaded &&
+        isJiraPublicationInvalid(error) &&
+        error.reasons.includes("stale-materialization-attempt")
+          ? s3
+              .deleteObject(input.connection, attachment.objectKey)
+              .pipe(Effect.ignore)
+          : Effect.void
       )
-        return yield* new JiraPublicationInvalid({
-          reasons: ["attachment-identity-conflict"]
-        })
-      return {
-        sourceAttachmentId: attachment.sourceAttachmentId,
-        kind: "copied",
-        attachmentId: attachment.id,
-        objectKey: attachment.objectKey,
-        byteSize: attachment.byteSize,
-        contentType: attachment.contentType,
-        contentSha256
-      } satisfies JiraAttachmentOutcome
-    })
-  )
+    )
 })
 
 export type JiraHiddenVerificationInput = Readonly<{

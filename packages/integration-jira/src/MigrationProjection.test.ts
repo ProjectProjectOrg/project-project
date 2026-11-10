@@ -198,8 +198,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
             ))._tag
           ).toBe("Failure")
           yield* p.recordFailure(current, {
-            reason: "jira_migration_materialization_failed",
-            retryable: true
+            reason: "jira_migration_materialization_failed"
           })
           const failed = yield* p.owned(input, created.id)
           expect((yield* p.toDetail(failed)).failedAttachmentIds).toEqual([
@@ -268,8 +267,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
             action: "run"
           })
           yield* p.recordFailure(current, {
-            reason: "jira_migration_preparation_invalid",
-            retryable: true
+            reason: "jira_migration_preparation_invalid"
           })
           const failed = yield* p.owned(input, created.id)
           const detail = yield* p.toDetail(failed)
@@ -298,18 +296,14 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
             created.revision
           )
           yield* p.recordFailure(current, {
-            reason: "ambiguous_upload",
-            retryable: true
+            reason: "ambiguous_upload"
           })
           const failed = yield* p.owned(input, created.id)
-          expect(p.actionsFor(failed).canDiscard).toBe(false)
-          expect(p.actionsFor(failed).canRescan).toBe(false)
-          expect(failed.checkpoint).toMatchObject({
-            remoteWritesMayStillCommit: {
-              workflowExecutionId: current.workflowExecutionId,
-              workflowAttempt: current.workflowAttempt
-            }
-          })
+          expect(p.actionsFor(failed).canDiscard).toBe(true)
+          expect(p.actionsFor(failed).canRescan).toBe(true)
+          expect(failed.checkpoint).not.toHaveProperty(
+            "remoteWritesMayStillCommit"
+          )
           expect(yield* p.beginRemoteWrites(current)).toBe(true)
           expect((yield* p.owned(input, created.id)).revision).toBe(
             failed.revision
@@ -547,8 +541,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           const p = yield* MigrationProjection.JiraMigrationProjection
           const expired = yield* p.ensureCreated(expiredInput)
           yield* p.recordFailure(fence(expired), {
-            reason: "retryable",
-            retryable: true
+            reason: "retryable"
           })
           const failed = yield* p.owned(expiredInput, expired.id)
           expect(
@@ -821,8 +814,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
         ).toBe(false)
         expect(
           yield* p.recordFailure(fence(old), {
-            reason: "old-finalizer",
-            retryable: false
+            reason: "old-finalizer"
           })
         ).toBe(false)
         expect(yield* p.owned(input, old.id)).toMatchObject({
@@ -933,15 +925,13 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
         const p = yield* MigrationProjection.JiraMigrationProjection
         const created = yield* p.ensureCreated(input)
         yield* p.recordFailure(fence(created), {
-          reason: "network_error",
-          retryable: true
+          reason: "network_error"
         })
         const failed = yield* p.owned(input, created.id)
         expect(failed.failureSequence).toBe(1)
         expect(
           yield* p.recordFailure(fence(created), {
-            reason: "duplicate-finalizer",
-            retryable: false
+            reason: "duplicate-finalizer"
           })
         ).toBe(false)
         expect((yield* p.owned(input, created.id)).failureSequence).toBe(1)
@@ -1162,8 +1152,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           expect((yield* p.owned(input, row.id)).status).toBe("migrating")
 
           yield* p.recordFailure(fence(row), {
-            reason: "network",
-            retryable: true
+            reason: "network"
           })
           const failed = yield* p.owned(input, row.id)
           expect(
@@ -1176,8 +1165,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           expect(yield* p.advance(fence(row), { status: "ready" })).toBe(false)
           expect(
             yield* p.recordFailure(fence(row), {
-              reason: "late",
-              retryable: true
+              reason: "late"
             })
           ).toBe(false)
           expect(
@@ -1264,7 +1252,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
             },
             scanFailureReceipts: { "metadata/0": 1 }
           })
-          yield* p.recordFailure(fence(row), {
+          yield* p.recordImportFailure(fence(row), "test/preflight", {
             reason: "preflight_blocked",
             retryable: false
           })
@@ -1305,7 +1293,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
               configuration: corrected
             }
           })
-          yield* p.recordFailure(fence(row), {
+          yield* p.recordImportFailure(fence(row), "test/network", {
             reason: "network",
             retryable: true
           })
@@ -1376,8 +1364,7 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
           yield* p.advance(fence(row), { status: "succeeded", phase: "done" })
           expect(
             yield* p.recordFailure(fence(row), {
-              reason: "late-finalizer",
-              retryable: false
+              reason: "late-finalizer"
             })
           ).toBe(false)
           expect((yield* p.listOwned(input)).map((row) => row.status)).toEqual([
@@ -1473,17 +1460,19 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
               p.advance(current, {
                 checkpoint: { scanFailureReceipts: { stale: 99 } }
               }),
-              p.recordScanProgress(current, "page1", 5)
+              p.recordScanProgress(current, "issues//0", 5)
             ],
             { concurrency: 3 }
           )
-          expect(yield* p.recordScanProgress(current, "page1", 50)).toBe(true)
+          expect(yield* p.recordScanProgress(current, "issues//0", 50)).toBe(
+            true
+          )
           yield* p.advance(current, { checkpoint: null })
           const failed = yield* p.owned(input, row.id)
           expect(failed.progressDone).toBe(5)
           expect(failed.checkpoint).toMatchObject({
             scanFailureReceipts: { "page/0": 1 },
-            scanPages: { page1: 5 }
+            scanPages: { "issues//0": 5 }
           })
           expect(failed.status).toBe("failed")
           yield* p.resumeScan(current, 1)

@@ -17,6 +17,7 @@ import { describe, expect } from "vitest"
 import {
   makeScanTestLayer,
   scanContext,
+  scanDefaults,
   scanIssue,
   withScanTestWorkflow
 } from "./ScanTestSupport"
@@ -155,6 +156,94 @@ describe("buildJiraScanArtifacts", () => {
     })
   )
   it.effect(
+    "adds entities missing from the project lists from the issues that use them",
+    () =>
+      Effect.gen(function* () {
+        const issue = (
+          id: string,
+          fields: Readonly<Record<string, Schema.Json>>
+        ) => ({
+          id,
+          key: `APP-${id}`,
+          fields: {
+            summary: `Issue ${id}`,
+            issuetype: { id: "type-1" },
+            created: "2026-01-01T00:00:00Z",
+            updated: "2026-01-02T00:00:00Z",
+            ...fields
+          }
+        })
+        const artifacts = yield* buildJiraScanArtifacts({
+          migrationId: "migration-1",
+          cloudId: "cloud-1",
+          siteName: "Example",
+          siteUrl: "https://example.atlassian.net",
+          project: { id: "10000", key: "APP", name: "Application" },
+          statuses: [
+            {
+              id: "type-1",
+              name: "Task",
+              subtask: false,
+              statuses: [{ id: "status-1", name: "To Do" }]
+            }
+          ],
+          priorities: [],
+          components: [],
+          versions: [],
+          issues: [
+            issue("1", {
+              status: {
+                id: "status-9",
+                name: "Legacy review",
+                statusCategory: { key: "indeterminate" }
+              },
+              priority: { id: "priority-9", name: "Urgent" },
+              components: [{ id: "component-9", name: "Billing" }]
+            }),
+            issue("2", { status: null })
+          ],
+          commentsByIssue: {},
+          worklogsByIssue: {},
+          sprints: [],
+          identityOptions: [],
+          scannedAt: DateTime.makeUnsafe("2026-09-14T20:00:00Z")
+        })
+        expect(
+          artifacts.manifest.statuses.map(({ id, name, categoryKey }) => ({
+            id,
+            name,
+            categoryKey
+          }))
+        ).toEqual(
+          expect.arrayContaining([
+            {
+              id: "status-9",
+              name: "Legacy review",
+              categoryKey: "indeterminate"
+            },
+            { id: "unknown", name: "Unknown status", categoryKey: null }
+          ])
+        )
+        expect(
+          artifacts.requirements.statuses.find(
+            ({ jiraStatusId }) => jiraStatusId === "status-9"
+          )?.suggestedProjectStatusSlug
+        ).toBe("in_progress")
+        expect(artifacts.manifest.priorities.map(({ id }) => id)).toEqual([
+          "priority-9"
+        ])
+        expect(artifacts.manifest.components.map(({ name }) => name)).toEqual([
+          "Billing"
+        ])
+        expect(artifacts.repairs.map(({ subject }) => subject)).toEqual([
+          'status "Legacy review"',
+          'status "Unknown status"',
+          'priority "Urgent"',
+          'component "Billing"'
+        ])
+      })
+  )
+  it.effect(
     "records restricted worklogs so the review step can report them",
     () =>
       Effect.gen(function* () {
@@ -269,6 +358,7 @@ describe("durable scan page", () => {
             operationTry: 0
           }
           const activity = defineScanPageActivity(input, {
+            ...scanDefaults(artifacts),
             client,
             artifacts,
             progress: (fence, page) =>
@@ -306,7 +396,12 @@ describe("durable scan page", () => {
           ).toBe(true)
           const again = yield* defineScanPageActivity(
             { ...input, operationTry: 1 },
-            { client, artifacts, progress: () => Effect.succeed(true) }
+            {
+              ...scanDefaults(artifacts),
+              client,
+              artifacts,
+              progress: () => Effect.succeed(true)
+            }
           )
           expect(again.raw).toEqual(result.raw)
           expect(fixture.objects.size).toBe(2)
@@ -424,6 +519,7 @@ describe("scan collection pagination", () => {
             { ...scanContext, kind, parentId: "1" },
             (input) =>
               defineScanPageActivity(input, {
+                ...scanDefaults(artifacts),
                 client,
                 artifacts,
                 progress: () => Effect.succeed(true)
@@ -466,6 +562,7 @@ it.effect(
             operationTry: 0
           },
           {
+            ...scanDefaults(artifacts),
             client: yield* Client.JiraClient,
             artifacts,
             progress: () => Effect.succeed(true)
@@ -500,7 +597,12 @@ it.effect(
             pageOrdinal: 0,
             operationTry: 0
           },
-          { client, artifacts, progress: () => Effect.succeed(true) }
+          {
+            ...scanDefaults(artifacts),
+            client,
+            artifacts,
+            progress: () => Effect.succeed(true)
+          }
         )
         fixture.objects.delete(`tenant/${page.raw.key}`)
         const result = yield* Effect.result(
@@ -527,6 +629,7 @@ it.effect(
               []
             ),
             {
+              ...scanDefaults(artifacts),
               client,
               artifacts,
               progress: () => Effect.succeed(true),
@@ -635,7 +738,7 @@ it.effect("keeps ordinary epic children out of subtask relationships", () =>
         relationshipArtifact(`${document.kind}/${document.id}`)
       ])
     )
-    const manifest = yield* buildScanManifestV2(prepared, refs)
+    const { manifest } = yield* buildScanManifestV2(prepared, refs)
     expect(manifest.parentsSubtasks).toEqual([
       { id: "3", parentIssueId: "2", subtaskIssueId: "3" }
     ])
@@ -684,7 +787,12 @@ it.effect(
             pageOrdinal: 0,
             operationTry: 0
           },
-          { client, artifacts, progress: () => Effect.succeed(true) }
+          {
+            ...scanDefaults(artifacts),
+            client,
+            artifacts,
+            progress: () => Effect.succeed(true)
+          }
         )
         expect(
           yield* artifacts.readJson("acme", page.raw, decodeUnknown)
@@ -749,7 +857,7 @@ it.effect(
           })
         )
         const prepared = yield* prepareScanV2(scanContext, chunks, [])
-        const manifest = yield* buildScanManifestV2(
+        const { manifest } = yield* buildScanManifestV2(
           prepared,
           new Map(
             prepared.documents.map((document) => [
@@ -823,7 +931,7 @@ it.effect(
       }).pipe(Effect.provide(fixture.layer))
       expect(result).toMatchObject({
         _tag: "Failure",
-        failure: { _tag: "JiraError", reason: "invalid_response" }
+        failure: { _tag: "JiraError", reason: "decode_failed" }
       })
     })
 )
