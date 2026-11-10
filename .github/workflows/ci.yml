@@ -54,6 +54,9 @@ jobs:
           bun run lint $AFFECTED
           bun run typecheck $AFFECTED
 
+      - name: Check migration conflicts
+        run: bun run --filter @pp/db db:check
+
       - name: Migrate test database
         run: bun run test:migrate
         env:
