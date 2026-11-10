@@ -2,7 +2,7 @@ import { JiraManifestSourceV2 } from "@pp/integration-jira/Manifest"
 import * as OAuth from "@pp/integration-jira/OAuth"
 import type * as TokenEndpoint from "@pp/integration-jira/TokenEndpoint"
 import type * as Transport from "@pp/integration-jira/Transport"
-import { JiraReconnectRequired } from "@pp/shared"
+import { JiraError, JiraReconnectRequired } from "@pp/shared"
 import {
   DateTime,
   Deferred,
@@ -13,6 +13,13 @@ import {
   Stream
 } from "effect"
 import * as Match from "effect/Match"
+
+import {
+  defaultJiraFixtureScale,
+  fixtureUnit,
+  buildGeneratedSite,
+  type JiraFixtureScale
+} from "./generatedSite"
 
 export const JiraBrowserScenario = Schema.Literals([
   "happy_path",
@@ -38,6 +45,7 @@ export type JiraBrowserFixture = Readonly<{
   source: typeof JiraManifestSourceV2.Type
   categories: ReadonlyArray<string>
   setScenario: (scenario: JiraBrowserScenario) => Effect.Effect<void>
+  setRevoked: (revoked: boolean) => Effect.Effect<void>
   releaseAttachment: Effect.Effect<void>
   calls: Effect.Effect<ReadonlyArray<JiraFixtureCall>>
   callCounts: Effect.Effect<Readonly<Record<string, number>>>
@@ -47,7 +55,21 @@ type FixtureState = Readonly<{
   scenario: JiraBrowserScenario
   rateLimited: boolean
   reconnectExpired: boolean
+  revoked: boolean
+  calls: number
 }>
+
+const RECORDED_CALL_LIMIT = 2000
+
+const appProjectChoice = {
+  id: "10000",
+  key: "APP",
+  name: "Fixture Application",
+  projectTypeKey: "software",
+  simplified: false,
+  style: "classic",
+  avatarUrls: { "48x48": "https://fixture.atlassian.net/avatar/project.png" }
+}
 
 const source = {
   cloudId: "fixture-cloud-1",
@@ -229,7 +251,7 @@ const response = (
   body: Schema.Json,
   status = 200,
   headers: Readonly<Record<string, string>> = {},
-  stream: Stream.Stream<Uint8Array> = Stream.empty
+  stream: Stream.Stream<Uint8Array, JiraError> = Stream.empty
 ): Transport.JiraTransportResponse => ({
   status,
   headers,
@@ -317,24 +339,6 @@ const jsonForRequest = (
       }
     ]
   if (path.endsWith("/myself")) return user
-  if (path.endsWith("/project/search"))
-    return {
-      values: [
-        {
-          id: source.projectId,
-          key: source.projectKey,
-          name: source.projectName,
-          projectTypeKey: "software",
-          simplified: false,
-          style: "classic",
-          avatarUrls: { "48x48": `${source.siteUrl}/avatar/project.png` }
-        }
-      ],
-      startAt,
-      maxResults: 100,
-      total: 1,
-      isLast: true
-    }
   if (
     path.endsWith(`/project/${source.projectId}`) ||
     path.endsWith("/project/APP")
@@ -623,21 +627,64 @@ const jsonForRequest = (
   )
 }
 
+const failureStatus = (
+  status: number,
+  headers: Readonly<Record<string, string>> = {}
+) => response({ errorMessages: [`Fixture failure ${status}`] }, status, headers)
+
 export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
   function* (
-    initialScenario: JiraBrowserScenario
+    initialScenario: JiraBrowserScenario,
+    scale: JiraFixtureScale = defaultJiraFixtureScale
   ): Effect.fn.Return<JiraBrowserFixture> {
     const state = yield* Ref.make<FixtureState>({
       scenario: initialScenario,
       rateLimited: false,
-      reconnectExpired: false
+      reconnectExpired: false,
+      revoked: false,
+      calls: 0
     })
+    const site = buildGeneratedSite(scale, source.siteUrl, source.cloudId)
     const recordedCalls = yield* Ref.make<ReadonlyArray<JiraFixtureCall>>([])
+    const recordedCounts = yield* Ref.make<Readonly<Record<string, number>>>({})
     const initialAttachmentRelease = yield* Deferred.make<void>()
     const attachmentRelease = yield* Ref.make(initialAttachmentRelease)
 
     const record = (call: JiraFixtureCall) =>
-      Ref.update(recordedCalls, (calls) => [...calls, call])
+      Effect.all([
+        Ref.update(recordedCalls, (calls) =>
+          calls.length >= RECORDED_CALL_LIMIT
+            ? [...calls.slice(calls.length - RECORDED_CALL_LIMIT + 1), call]
+            : [...calls, call]
+        ),
+        Ref.update(recordedCounts, (counts) => {
+          const key = `${call.operation}:${call.page}`
+          return { ...counts, [key]: (counts[key] ?? 0) + 1 }
+        })
+      ])
+
+    const injectedFault = Effect.fn("JiraBrowserFixture.injectedFault")(
+      function* (call: number, operation: string) {
+        const faults = scale.faults
+        const draw = (kind: string) =>
+          fixtureUnit(scale.seed, `fault:${kind}:${call}`)
+        if (scale.latencyMs > 0) yield* Effect.sleep(scale.latencyMs)
+        if (draw("slow") < faults.slow) yield* Effect.sleep(faults.slowMs)
+        if (draw("drop") < faults.drop && operation !== "attachmentContent")
+          return yield* new JiraError({ reason: "network" })
+        if (draw("429") < faults.rateLimit)
+          return failureStatus(429, { "retry-after": "2" })
+        if (draw("429-bare") < faults.bareRateLimit) return failureStatus(429)
+        if (draw("5xx") < faults.serverError)
+          return draw("5xx-header") < 0.5
+            ? failureStatus(503, { "retry-after": "3" })
+            : failureStatus(500)
+        return null
+      }
+    )
+
+    const attachmentDropped = (call: number) =>
+      fixtureUnit(scale.seed, `fault:drop:${call}`) < scale.faults.drop
 
     const transport = {
       execute: Effect.fn("JiraBrowserFixture.transport.execute")(function* (
@@ -651,9 +698,24 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
           method: request.method,
           url: request.url
         })
-        const current = yield* Ref.get(state)
+        const counted = yield* Ref.updateAndGet(state, (current) => ({
+          ...current,
+          calls: current.calls + 1,
+          revoked:
+            current.revoked ||
+            (scale.faults.revokeAfterCalls > 0 &&
+              current.calls + 1 === scale.faults.revokeAfterCalls)
+        }))
+        if (counted.revoked && logicalPage.operation !== "sites")
+          return failureStatus(401)
+        const fault = yield* injectedFault(counted.calls, logicalPage.operation)
+        if (fault !== null) return fault
+        const current = counted
         if (current.scenario === "rate_limited_once" && !current.rateLimited) {
-          yield* Ref.set(state, { ...current, rateLimited: true })
+          yield* Ref.update(state, (latest) => ({
+            ...latest,
+            rateLimited: true
+          }))
           return response({ errorMessages: ["Fixture rate limit"] }, 429, {
             "retry-after": "1"
           })
@@ -663,6 +725,40 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
           logicalPage.operation === "issues"
         )
           return yield* Effect.never
+        const generated = site.route(
+          request.method,
+          new URL(request.url),
+          request.body,
+          {
+            id: source.projectId,
+            key: source.projectKey,
+            body: appProjectChoice
+          }
+        )
+        if (generated?.kind === "json")
+          return response(generated.body, generated.status)
+        if (generated?.kind === "bytes") {
+          if (generated.missing) return failureStatus(404)
+          const dropped = attachmentDropped(counted.calls)
+          const content = dropped
+            ? generated
+                .bytes(Math.floor(generated.byteSize / 2))
+                .pipe(
+                  Stream.concat(
+                    Stream.fail(new JiraError({ reason: "network" }))
+                  )
+                )
+            : generated.bytes(generated.byteSize)
+          return response(
+            {},
+            200,
+            {
+              "content-length": String(generated.byteSize),
+              "content-type": generated.contentType
+            },
+            content
+          )
+        }
         if (logicalPage.operation === "attachmentContent") {
           const supported = logicalPage.page === "attachment-2"
           const bytes = supported
@@ -692,14 +788,19 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
       })
     } satisfies Transport.JiraTransport["Service"]
 
-    const tokenGrant = {
-      accessToken: "fixture-access-token-2",
-      refreshToken: "fixture-refresh-token-2",
-      expiresAt: DateTime.toDate(
-        DateTime.makeUnsafe("2026-09-22T11:00:00.000Z")
-      ),
-      grantedScopes: OAuth.JIRA_SCOPES.split(" ")
-    }
+    const tokenGrant = Effect.gen(function* () {
+      const now = yield* DateTime.now
+      return {
+        accessToken: "fixture-access-token-2",
+        refreshToken: "fixture-refresh-token-2",
+        expiresAt: DateTime.toDate(
+          scale.rollingGrant
+            ? DateTime.add(now, { hours: 1 })
+            : DateTime.makeUnsafe("2026-09-22T11:00:00.000Z")
+        ),
+        grantedScopes: OAuth.JIRA_SCOPES.split(" ")
+      }
+    })
     const tokenEndpoint = {
       exchange: Effect.fn("JiraBrowserFixture.tokenEndpoint.exchange")(
         function* (_code: string, _codeVerifier: string | null) {
@@ -710,7 +811,11 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
             method: "POST",
             url: "https://auth.atlassian.com/oauth/token"
           })
-          return tokenGrant
+          yield* Ref.update(state, (current) => ({
+            ...current,
+            revoked: false
+          }))
+          return yield* tokenGrant
         }
       ),
       refresh: Effect.fn("JiraBrowserFixture.tokenEndpoint.refresh")(function* (
@@ -724,6 +829,8 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
           url: "https://auth.atlassian.com/oauth/token"
         })
         const current = yield* Ref.get(state)
+        if (current.revoked)
+          return yield* new JiraReconnectRequired({ reason: "invalid_grant" })
         if (
           current.scenario === "reconnect_once" &&
           !current.reconnectExpired
@@ -731,7 +838,7 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
           yield* Ref.set(state, { ...current, reconnectExpired: true })
           return yield* new JiraReconnectRequired({ reason: "invalid_grant" })
         }
-        return tokenGrant
+        return yield* tokenGrant
       })
     } satisfies TokenEndpoint.JiraTokenEndpoint["Service"]
 
@@ -742,28 +849,23 @@ export const createJiraBrowserFixture = Effect.fn("createJiraBrowserFixture")(
       categories,
       setScenario: (scenario) =>
         Effect.gen(function* () {
-          yield* Ref.set(state, {
+          yield* Ref.update(state, (current) => ({
+            ...current,
             scenario,
             rateLimited: false,
             reconnectExpired: false
-          })
+          }))
           const release = yield* Deferred.make<void>()
           yield* Ref.set(attachmentRelease, release)
         }),
+      setRevoked: (revoked) =>
+        Ref.update(state, (current) => ({ ...current, revoked })),
       releaseAttachment: Ref.get(attachmentRelease).pipe(
         Effect.flatMap((release) => Deferred.succeed(release, undefined)),
         Effect.asVoid
       ),
       calls: Ref.get(recordedCalls),
-      callCounts: Ref.get(recordedCalls).pipe(
-        Effect.map((calls) =>
-          calls.reduce<Record<string, number>>((counts, call) => {
-            const key = `${call.operation}:${call.page}`
-            counts[key] = (counts[key] ?? 0) + 1
-            return counts
-          }, {})
-        )
-      )
+      callCounts: Ref.get(recordedCounts)
     }
   }
 )

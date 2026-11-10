@@ -7,16 +7,22 @@ import {
 } from "@pp/db/schema"
 import {
   JiraMigrationCleanupFailure,
+  type JiraCleanupActivities,
   type JiraMigrationCleanupPayload
 } from "@pp/integration-jira/CleanupWorkflow"
 import * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
 import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
+import * as MigrationWorkflow from "@pp/integration-jira/MigrationWorkflow"
+import type * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as ProjectDocs from "@pp/server-core/projects/ProjectDocs"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import { and, eq, isNull } from "drizzle-orm"
 import * as Effect from "effect/Effect"
+import type * as FileSystem from "effect/FileSystem"
 import * as Match from "effect/Match"
+import type * as Path from "effect/Path"
+import type * as WorkflowEngine from "effect/workflow/WorkflowEngine"
 
 import { verifyJiraPermanentArchive } from "./PublicationLive"
 
@@ -97,13 +103,28 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
         .pipe(Effect.mapError(() => cleanupFailure("cleanup-read-failed")))
       const fence = row && MigrationProjection.fenceFor(row)
       if (!fence) return false
-      return yield* projection
+      const claimed = yield* projection
         .claimCleanup(fence, {
           expectedRevision: payload.cleanupGeneration - 1,
           executionId,
           mode: payload.mode
         })
         .pipe(Effect.mapError(() => cleanupFailure("cleanup-claim-failed")))
+      if (claimed && (payload.mode === "discard" || payload.mode === "expire"))
+        yield* MigrationWorkflow.JiraMigrationWorkflow.interrupt(
+          fence.workflowExecutionId
+        ).pipe(
+          Effect.catchCause((cause) =>
+            Effect.logWarning(
+              "Jira migration interrupt before cleanup failed",
+              {
+                migrationId: payload.migrationId,
+                cause
+              }
+            )
+          )
+        )
+      return claimed
     })
 
   const deleteCopiedObjects = (
@@ -293,7 +314,12 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
       )
     )
 
-  return {
+  const activities: JiraCleanupActivities<
+    | WorkflowEngine.WorkflowEngine
+    | FileSystem.FileSystem
+    | Markdown.Markdown
+    | Path.Path
+  > = {
     claim,
     verifyPermanentArchive,
     deleteHiddenProject,
@@ -304,4 +330,5 @@ export const makeJiraCleanupActivities = Effect.gen(function* () {
     complete,
     release
   }
+  return activities
 })

@@ -6,7 +6,6 @@ import { userJiraIntegration, userJiraOauthState } from "@pp/db/schema"
 import {
   JiraError,
   JiraNotConnected,
-  JiraRateLimited,
   JiraReconnectRequired,
   type JiraConnection,
   type JiraReconnectReason
@@ -21,6 +20,7 @@ import * as Layer from "effect/Layer"
 import * as Match from "effect/Match"
 import * as Redacted from "effect/Redacted"
 
+import type { JiraRateLimited } from "./Blocked"
 import { JiraHost } from "./Host"
 import * as OAuth from "./OAuth"
 import * as OAuthConfig from "./OAuthConfig"
@@ -69,6 +69,9 @@ export class JiraCredentials extends Context.Service<
     ) => Effect.Effect<void>
   }>
 >()("@pp/integration-jira/Credentials/JiraCredentials") {}
+
+const REFRESH_LEASE_MILLIS = 90_000
+const REFRESH_WAIT_MILLIS = 60_000
 
 const hashState = (state: string) =>
   createHash("sha256").update(state).digest("hex")
@@ -127,7 +130,7 @@ const make = Effect.gen(function* () {
   ) {
     const safeReturnPath = OAuth.validateReturnPath(returnPath)
     if (safeReturnPath === null) {
-      return yield* new JiraError({ reason: "invalid_response" })
+      return yield* new JiraError({ reason: "invalid_return_path" })
     }
     const state = Base64Url.encode(
       yield* crypto.randomBytes(32).pipe(Effect.orDie)
@@ -183,12 +186,16 @@ const make = Effect.gen(function* () {
     const access = yield* secrets
       .seal(grant.accessToken)
       .pipe(
-        Effect.mapError(() => new JiraError({ reason: "invalid_response" }))
+        Effect.mapError(
+          () => new JiraError({ reason: "credential_unreadable" })
+        )
       )
     const refresh = yield* secrets
       .seal(grant.refreshToken)
       .pipe(
-        Effect.mapError(() => new JiraError({ reason: "invalid_response" }))
+        Effect.mapError(
+          () => new JiraError({ reason: "credential_unreadable" })
+        )
       )
     const now = DateTime.toDate(yield* DateTime.now)
     yield* db
@@ -254,7 +261,7 @@ const make = Effect.gen(function* () {
       .pipe(Effect.mapError(() => new JiraError({ reason: "server_error" })))
     const consumedState = consumed[0]
     if (!consumedState) {
-      return yield* new JiraError({ reason: "invalid_response" })
+      return yield* new JiraError({ reason: "oauth_state_invalid" })
     }
     const grant = yield* tokens.exchange(code, consumedState.codeVerifier).pipe(
       Effect.catchTag("JiraRateLimited", () =>
@@ -300,7 +307,7 @@ const make = Effect.gen(function* () {
       const row = rows[0]
       return row
         ? row.returnPath
-        : yield* new JiraError({ reason: "invalid_response" })
+        : yield* new JiraError({ reason: "oauth_state_invalid" })
     }
   )
 
@@ -328,7 +335,7 @@ const make = Effect.gen(function* () {
     JiraNotConnected | JiraReconnectRequired | JiraRateLimited | JiraError
   > {
     const startedAt = yield* DateTime.now
-    const deadline = DateTime.toEpochMillis(startedAt) + 35_000
+    const deadline = DateTime.toEpochMillis(startedAt) + REFRESH_WAIT_MILLIS
     let forceRefresh = options?.forceRefresh === true
     let forcedBaselineAccessToken: string | null = null
 
@@ -361,13 +368,17 @@ const make = Effect.gen(function* () {
             tag: row.accessTokenTag
           })
           .pipe(
-            Effect.mapError(() => new JiraError({ reason: "invalid_response" }))
+            Effect.mapError(
+              () => new JiraError({ reason: "credential_unreadable" })
+            )
           )
         return { token: Redacted.make(opened) }
       }
 
       const leaseId = yield* crypto.randomUUIDv4().pipe(Effect.orDie)
-      const leaseExpiresAt = DateTime.toDate(DateTime.add(now, { seconds: 30 }))
+      const leaseExpiresAt = DateTime.toDate(
+        DateTime.add(now, { milliseconds: REFRESH_LEASE_MILLIS })
+      )
       const claimed = yield* db
         .update(userJiraIntegration)
         .set({
@@ -409,7 +420,9 @@ const make = Effect.gen(function* () {
           tag: row.refreshTokenTag
         })
         .pipe(
-          Effect.mapError(() => new JiraError({ reason: "invalid_response" })),
+          Effect.mapError(
+            () => new JiraError({ reason: "credential_unreadable" })
+          ),
           Effect.tapError(() => clearLease(userId, leaseId))
         )
 
@@ -464,26 +477,33 @@ const make = Effect.gen(function* () {
       }
 
       const access = yield* secrets.seal(grant.accessToken).pipe(
-        Effect.mapError(() => new JiraError({ reason: "invalid_response" })),
+        Effect.mapError(
+          () => new JiraError({ reason: "credential_unreadable" })
+        ),
         Effect.tapError(() => clearLease(userId, leaseId))
       )
       const refresh = yield* secrets.seal(grant.refreshToken).pipe(
-        Effect.mapError(() => new JiraError({ reason: "invalid_response" })),
+        Effect.mapError(
+          () => new JiraError({ reason: "credential_unreadable" })
+        ),
         Effect.tapError(() => clearLease(userId, leaseId))
       )
       const persistedAt = yield* DateTime.now
+      const rotatedGrant = {
+        encryptedAccessToken: access.ciphertext,
+        accessTokenNonce: access.nonce,
+        accessTokenTag: access.tag,
+        encryptedRefreshToken: refresh.ciphertext,
+        refreshTokenNonce: refresh.nonce,
+        refreshTokenTag: refresh.tag,
+        expiresAt: grant.expiresAt,
+        grantedScopes: grant.grantedScopes,
+        updatedAt: DateTime.toDate(persistedAt)
+      }
       const persisted = yield* db
         .update(userJiraIntegration)
         .set({
-          encryptedAccessToken: access.ciphertext,
-          accessTokenNonce: access.nonce,
-          accessTokenTag: access.tag,
-          encryptedRefreshToken: refresh.ciphertext,
-          refreshTokenNonce: refresh.nonce,
-          refreshTokenTag: refresh.tag,
-          expiresAt: grant.expiresAt,
-          grantedScopes: grant.grantedScopes,
-          updatedAt: DateTime.toDate(persistedAt),
+          ...rotatedGrant,
           refreshLeaseId: null,
           refreshLeaseExpiresAt: null
         })
@@ -495,10 +515,24 @@ const make = Effect.gen(function* () {
         )
         .returning({ userId: userJiraIntegration.userId })
         .pipe(Effect.orDie)
-      if (persisted.length === 0) {
-        continue
-      }
-      return { token: Redacted.make(grant.accessToken) }
+      if (persisted.length > 0)
+        return { token: Redacted.make(grant.accessToken) }
+      const rescued = yield* db
+        .update(userJiraIntegration)
+        .set(rotatedGrant)
+        .where(
+          and(
+            eq(userJiraIntegration.userId, userId),
+            eq(userJiraIntegration.status, "active"),
+            eq(
+              userJiraIntegration.encryptedRefreshToken,
+              row.encryptedRefreshToken
+            )
+          )
+        )
+        .returning({ userId: userJiraIntegration.userId })
+        .pipe(Effect.orDie)
+      if (rescued.length > 0) return { token: Redacted.make(grant.accessToken) }
     }
   })
 

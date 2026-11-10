@@ -34,6 +34,13 @@ import type {
   GitHubScopeInsufficient,
   GitHubTokenExpired,
   InvitationNotAcceptable,
+  JiraAccessDenied,
+  JiraError,
+  JiraMigrationUnavailable,
+  JiraNotConnected,
+  JiraRateLimited,
+  JiraReconnectRequired,
+  JiraResourceNotFound,
   LastProjectPmBlocked,
   MentionInvalid,
   RateLimited,
@@ -50,7 +57,6 @@ import * as Match from "effect/Match"
 import type * as Atom from "effect/reactivity/Atom"
 import * as Schema from "effect/Schema"
 
-import type { configureJiraMigration } from "@/features/jira/atoms/jiraMigration"
 import type { submitConsentAtom } from "@/features/oauth/atoms/oauthConsent"
 import type { InviteAcceptError } from "@/features/organizations/lib/invitations"
 import type { createStatus } from "@/features/projects/atoms/projectStatuses"
@@ -97,6 +103,13 @@ export type AppError =
   | FigmaRateLimited
   | FigmaFileNotFound
   | FigmaError
+  | JiraNotConnected
+  | JiraReconnectRequired
+  | JiraAccessDenied
+  | JiraResourceNotFound
+  | JiraRateLimited
+  | JiraError
+  | JiraMigrationUnavailable
   | Validation
 
 const invitationNotAcceptableMessage = (
@@ -158,6 +171,13 @@ const validationMessage = (reason: string): string => {
       return invalidBlocksMessage(detail)
     case "unknown_template":
       return m.templates_error_unknown_template({ key: detail })
+    case "jira_migration_not_configurable":
+    case "jira_migration_run_not_allowed":
+    case "jira_migration_rescan_not_allowed":
+    case "jira_migration_cancel_not_allowed":
+    case "jira_migration_discard_not_allowed":
+    case "jira_migration_scan_incomplete":
+      return m.jira_import_error_moved_on()
     default:
       return m.error_unknown()
   }
@@ -177,6 +197,9 @@ const conflictMessage = (reason: string): string => {
       return m.tickets_archive_error_already_archived()
     case "ticket_not_archived":
       return m.tickets_unarchive_error_not_archived()
+    case "jira_migration_revision_conflict":
+    case "jira_migration_request_conflict":
+      return m.jira_import_error_changed_elsewhere()
     default:
       return m.error_unknown()
   }
@@ -200,6 +223,14 @@ const isEverhourErrorDetail = Schema.is(
 )
 const isOrgEmailErrorDetail = Schema.is(
   Schema.TaggedStruct("OrgEmailError", { reason: EmailFailureReason })
+)
+const isJiraRateLimitedDetail = Schema.is(
+  Schema.TaggedStruct("JiraRateLimited", { retryAfterSeconds: Schema.Finite })
+)
+export const isJiraUnavailableDetail = Schema.is(
+  Schema.TaggedStruct("JiraMigrationUnavailable", {
+    reason: Schema.Literals(["worker_unavailable", "storage_unavailable"])
+  })
 )
 const isSlackRateLimitedDetail = Schema.is(
   Schema.TaggedStruct("SlackRateLimited", { retryAfterSeconds: Schema.Finite })
@@ -314,7 +345,27 @@ export const errorMessage = Match.type<unknown>()
     Match.when({ _tag: "FigmaFileNotFound" }, () =>
       m.figma_error_file_not_found()
     ),
-    Match.when({ _tag: "FigmaError" }, () => m.figma_error_generic()),
+    Match.when({ _tag: "FigmaError" }, () => m.figma_error_generic())
+  )
+  .pipe(
+    Match.when({ _tag: "JiraNotConnected" }, m.jira_import_error_not_connected),
+    Match.when(
+      { _tag: "JiraReconnectRequired" },
+      m.jira_import_error_reconnect
+    ),
+    Match.when({ _tag: "JiraAccessDenied" }, m.jira_import_error_access_denied),
+    Match.when({ _tag: "JiraResourceNotFound" }, m.jira_import_error_not_found),
+    Match.when(isJiraRateLimitedDetail, ({ retryAfterSeconds }) =>
+      m.jira_import_error_rate_limited({
+        seconds: String(Math.max(1, Math.ceil(retryAfterSeconds)))
+      })
+    ),
+    Match.when({ _tag: "JiraError" }, () => m.jira_import_error_unreachable()),
+    Match.when(isJiraUnavailableDetail, ({ reason }) =>
+      reason === "storage_unavailable"
+        ? m.jira_import_error_storage()
+        : m.jira_import_error_worker()
+    ),
     Match.when(isValidationDetail, (error) => validationMessage(error.reason)),
     Match.orElse(() => m.error_unknown())
   )
@@ -338,9 +389,6 @@ export const figmaStatusErrorMessage = (reason: string): string => {
 }
 
 type StatusSaveFailure = Atom.Failure<ReturnType<typeof createStatus>>
-type JiraMigrationSaveFailure = Atom.Failure<
-  ReturnType<typeof configureJiraMigration>
->
 type OAuthConsentFailure = Atom.Failure<ReturnType<typeof submitConsentAtom>>
 
 export const statusSaveErrorMessage = (
@@ -362,19 +410,6 @@ export const statusSaveErrorMessage = (
     }),
     Match.orElse(fallback)
   )
-
-export const jiraMigrationSaveErrorMessage = (
-  error: JiraMigrationSaveFailure | undefined
-): string =>
-  error === undefined
-    ? m.jira_migration_error_generic()
-    : Match.value(error).pipe(
-        Match.tag("Conflict", () => m.jira_migration_save_conflict()),
-        Match.tag("JiraReconnectRequired", () =>
-          m.jira_migration_reconnect_description()
-        ),
-        Match.orElse(() => m.jira_migration_error_generic())
-      )
 
 export const oauthConsentErrorMessage = (error: OAuthConsentFailure): string =>
   Match.value(error).pipe(

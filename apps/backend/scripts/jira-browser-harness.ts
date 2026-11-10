@@ -17,6 +17,7 @@ import {
   createJiraBrowserFixture,
   type JiraBrowserFixture
 } from "../src/jira/BrowserFixtures"
+import { jiraFixtureScaleConfig } from "../src/jira/generatedSite"
 
 const decodeUnknownJiraBrowserScenarioInputExit = Schema.decodeUnknownExit(
   Schema.Struct({ scenario: JiraBrowserScenario })
@@ -138,6 +139,16 @@ export const makeJiraBrowserControlRoutes = (fixture: JiraBrowserFixture) =>
         fixture.releaseAttachment.pipe(Effect.as(response({ released: true })))
       ),
       HttpRouter.route(
+        "POST",
+        "/revoke",
+        fixture.setRevoked(true).pipe(Effect.as(response({ revoked: true })))
+      ),
+      HttpRouter.route(
+        "POST",
+        "/restore",
+        fixture.setRevoked(false).pipe(Effect.as(response({ revoked: false })))
+      ),
+      HttpRouter.route(
         "GET",
         "/calls",
         fixture.calls.pipe(Effect.map((calls) => response(calls)))
@@ -146,7 +157,36 @@ export const makeJiraBrowserControlRoutes = (fixture: JiraBrowserFixture) =>
     { prefix: "/__jira-harness" }
   )
 
-const provisionResources = (input: JiraBrowserResources) =>
+export const browserResourcesFromEnv = (): JiraBrowserResources => ({
+  databaseUrl: process.env.PROJECTPROJECT_TEST_DATABASE_URL ?? "",
+  s3Endpoint: process.env.JIRA_BROWSER_S3_ENDPOINT ?? "",
+  bucket: process.env.JIRA_BROWSER_BUCKET ?? "",
+  hostname: "127.0.0.1"
+})
+
+export const prepareBrowserEnvironment = (resources: JiraBrowserResources) => {
+  assertBrowserResources(resources)
+  process.env.DATABASE_URL = resources.databaseUrl
+  process.env.PROJECTS_DIR = `${import.meta.dirname}/../.tmp/jira-browser-projects`
+  process.env.BETTER_AUTH_URL = browserFrontendOrigin
+  process.env.BETTER_AUTH_SECRET = createHash("sha256")
+    .update("projectproject-t172-local-browser-auth")
+    .digest("hex")
+  process.env.USER_SECRET_ENCRYPTION_KEY = createHash("sha256")
+    .update("projectproject-t172-local-browser")
+    .digest("base64")
+  process.env.GITHUB_APP_ID = "1"
+  process.env.GITHUB_APP_PRIVATE_KEY = generateKeyPairSync("rsa", {
+    modulusLength: 2048
+  })
+    .privateKey.export({ type: "pkcs1", format: "pem" })
+    .toString()
+  process.env.GITHUB_APP_CLIENT_ID = "fixture-client"
+  process.env.GITHUB_APP_CLIENT_SECRET = "fixture-secret"
+  process.env.GITHUB_APP_WEBHOOK_SECRET = "fixture-webhook-secret"
+}
+
+export const provisionResources = (input: JiraBrowserResources) =>
   Effect.tryPromise(async () => {
     const pool = new Pool({ connectionString: input.databaseUrl })
     try {
@@ -178,14 +218,8 @@ const provisionResources = (input: JiraBrowserResources) =>
     }
   })
 
-export const makeJiraBrowserHarnessLive = async (
-  fixture: JiraBrowserFixture
-) => {
-  const [
-    { RouteLive },
-    { BackendInfrastructureLive, makeBackendHttpServicesLive }
-  ] = await Promise.all([import("../src/main"), import("../src/runtime")])
-  const services = makeBackendHttpServicesLive(
+export const jiraFixtureLayers = (fixture: JiraBrowserFixture) =>
+  [
     Layer.succeed(Transport.JiraTransport, fixture.transport),
     Layer.succeed(TokenEndpoint.JiraTokenEndpoint, fixture.tokenEndpoint),
     Layer.succeed(OAuthConfig.JiraOAuthConfig, {
@@ -194,7 +228,16 @@ export const makeJiraBrowserHarnessLive = async (
       publicBaseUrl: browserFrontendOrigin,
       authorizationEndpoint: `http://127.0.0.1:${browserBackendPort}/__jira-harness/authorize`
     })
-  )
+  ] as const
+
+export const makeJiraBrowserHarnessLive = async (
+  fixture: JiraBrowserFixture
+) => {
+  const [
+    { RouteLive },
+    { BackendInfrastructureLive, makeBackendHttpServicesLive }
+  ] = await Promise.all([import("../src/main"), import("../src/runtime")])
+  const services = makeBackendHttpServicesLive(...jiraFixtureLayers(fixture))
   return HttpRouter.serve(
     Layer.mergeAll(RouteLive, makeJiraBrowserControlRoutes(fixture))
   ).pipe(Layer.provide(services), Layer.provide(BackendInfrastructureLive))
@@ -203,41 +246,21 @@ export const makeJiraBrowserHarnessLive = async (
 if (import.meta.main) {
   const BunHttpServer = await import("@effect/platform-bun/BunHttpServer")
   const BunRuntime = await import("@effect/platform-bun/BunRuntime")
-  const resources = {
-    databaseUrl: process.env.PROJECTPROJECT_TEST_DATABASE_URL ?? "",
-    s3Endpoint: process.env.JIRA_BROWSER_S3_ENDPOINT ?? "",
-    bucket: process.env.JIRA_BROWSER_BUCKET ?? "",
-    hostname: "127.0.0.1"
-  }
+  const resources = browserResourcesFromEnv()
   if (
     !Number.isInteger(browserBackendPort) ||
     browserBackendPort < 1 ||
     browserBackendPort > 65535
   )
     throw new Error("Invalid Jira browser API port")
-  assertBrowserResources(resources)
-  process.env.DATABASE_URL = resources.databaseUrl
-  process.env.PROJECTS_DIR = `${import.meta.dirname}/../.tmp/jira-browser-projects`
-  process.env.BETTER_AUTH_URL = browserFrontendOrigin
-  process.env.BETTER_AUTH_SECRET = createHash("sha256")
-    .update("projectproject-t172-local-browser-auth")
-    .digest("hex")
-  process.env.USER_SECRET_ENCRYPTION_KEY = createHash("sha256")
-    .update("projectproject-t172-local-browser")
-    .digest("base64")
-  process.env.GITHUB_APP_ID = "1"
-  process.env.GITHUB_APP_PRIVATE_KEY = generateKeyPairSync("rsa", {
-    modulusLength: 2048
-  })
-    .privateKey.export({ type: "pkcs1", format: "pem" })
-    .toString()
-  process.env.GITHUB_APP_CLIENT_ID = "fixture-client"
-  process.env.GITHUB_APP_CLIENT_SECRET = "fixture-secret"
-  process.env.GITHUB_APP_WEBHOOK_SECRET = "fixture-webhook-secret"
+  prepareBrowserEnvironment(resources)
   BunRuntime.runMain(
     Effect.gen(function* () {
       yield* provisionResources(resources)
-      const fixture = yield* createJiraBrowserFixture("happy_path")
+      const fixture = yield* createJiraBrowserFixture(
+        "happy_path",
+        yield* jiraFixtureScaleConfig
+      )
       const harness = yield* Effect.promise(() =>
         makeJiraBrowserHarnessLive(fixture)
       )

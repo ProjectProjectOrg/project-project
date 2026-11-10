@@ -1,6 +1,10 @@
 import * as Client from "@pp/integration-jira/Client"
 import * as Migrations from "@pp/integration-jira/Migrations"
 import {
+  jiraArchivePath,
+  jiraReportPath
+} from "@pp/integration-jira/PublicationPlan"
+import {
   JiraPlannedArchive,
   skippedAttachmentsForArchive
 } from "@pp/integration-jira/Report"
@@ -138,10 +142,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
           const path = yield* Path.Path
           const archivePath = path.join(
             markdown.projectDir(org.orgSlug, projectSlug),
-            "imports",
-            "jira",
-            detail.id,
-            "archive.json"
+            jiraArchivePath(detail.id)
           )
           const contents = yield* fs
             .readFileString(archivePath)
@@ -162,6 +163,42 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
               }),
             catch: () => new JiraError({ reason: "invalid_response" })
           })
+        })
+      )
+      .handle("report", ({ params }) =>
+        Effect.gen(function* () {
+          const { user, org } = yield* context
+          const migrations = yield* Migrations.JiraMigrations
+          const detail = yield* migrations.get(
+            org.organizationId,
+            user.id,
+            params.migrationId
+          )
+          const projectSlug = detail.destinationProjectSlug
+          const reportPath = jiraReportPath(detail.id)
+          if (
+            detail.status !== "succeeded" ||
+            !/^[A-Za-z0-9_-]+$/.test(detail.id) ||
+            projectSlug === null ||
+            detail.reportPath !== reportPath
+          )
+            return yield* new NotFound()
+          const markdown = yield* Markdown.Markdown
+          const fs = yield* FileSystem.FileSystem
+          const path = yield* Path.Path
+          const contents = yield* fs
+            .readFileString(
+              path.join(
+                markdown.projectDir(org.orgSlug, projectSlug),
+                reportPath
+              )
+            )
+            .pipe(Effect.mapError(() => new NotFound()))
+          return {
+            migrationId: detail.id,
+            path: reportPath,
+            markdown: contents
+          }
         })
       )
       .handle("configure", ({ params, payload }) =>

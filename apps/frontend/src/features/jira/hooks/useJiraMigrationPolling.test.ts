@@ -9,12 +9,14 @@ vi.mock("@effect/atom-react", () => ({
   useAtomRefresh: (atom: string) =>
     atom === "migration:org/migration" ? state.refresh : undefined,
   useAtomSet: (atom: string) =>
-    atom === "invalidate-projects:org" ? state.invalidate : undefined
+    atom === "invalidate:org" ? state.invalidate : undefined
 }))
 
 vi.mock("@/features/jira/atoms/jiraMigration", () => ({
-  invalidateJiraProjects: (req: { params: { orgSlug: string } }) =>
-    `invalidate-projects:${req.params.orgSlug}`,
+  invalidateAfterImport: (req: { params: { orgSlug: string } }) =>
+    `invalidate:${req.params.orgSlug}`,
+  jiraMigrations: (req: { params: { orgSlug: string } }) =>
+    `migrations:${req.params.orgSlug}`,
   jiraMigration: (req: { params: { orgSlug: string; migrationId: string } }) =>
     `migration:${req.params.orgSlug}/${req.params.migrationId}`,
   jiraMigrationRequest: (orgSlug: string, migrationId: string) => ({
@@ -69,5 +71,10 @@ describe("useJiraMigrationPolling", () => {
     expect(state.invalidate).not.toHaveBeenCalled()
     rerender({ status: "succeeded" })
     expect(state.invalidate).toHaveBeenCalledOnce()
+  })
+
+  it("does not refresh the project list when opening a finished import", () => {
+    renderHook(() => useJiraMigrationPolling("org", "migration", "succeeded"))
+    expect(state.invalidate).not.toHaveBeenCalled()
   })
 })

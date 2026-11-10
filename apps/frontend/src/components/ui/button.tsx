@@ -53,7 +53,6 @@ const buttonVariants = cva(
           "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active",
         quiet:
           "rounded-md bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground",
-        step: "w-full justify-start rounded-xl bg-transparent text-left text-muted-foreground hover:bg-hover hover:text-foreground",
         raised:
           "bg-surface-5 text-foreground shadow-surface-1 hover:bg-surface-7 hover:shadow-surface-1-hover active:bg-surface-6",
         "sidebar-link":
@@ -82,7 +81,6 @@ const buttonVariants = cva(
         "image-option": "aspect-[3/1] h-auto w-full p-0",
         "image-strip": "h-12 w-full p-0",
         "banner-add": "h-12 w-full justify-start gap-1.5 px-4 text-[13px]",
-        step: "h-auto min-h-8 gap-3 px-3 text-[13px]",
         xs: "h-5 gap-1 px-1.5 text-[11px]",
         sm: "h-7 gap-1 px-3 text-[12px]",
         md: "h-8 gap-1.5 px-4 text-[13px]",
@@ -97,7 +95,8 @@ const buttonVariants = cva(
         "square-9": "size-9 shrink-0 p-0"
       },
       iconLeft: { true: "" },
-      iconRight: { true: "" }
+      iconRight: { true: "" },
+      bleed: { start: "", end: "" }
     },
     compoundVariants: [
       { size: "banner-add", className: "text-muted-foreground" },
@@ -106,6 +105,12 @@ const buttonVariants = cva(
       { size: "sm", iconLeft: true, className: "pl-[6px]" },
       { size: "md", iconLeft: true, className: "pl-[10px]" },
       { size: "lg", iconLeft: true, className: "pl-[14px]" },
+      { size: "xs", bleed: "start", className: "-ml-1.5" },
+      { size: "xs", bleed: "end", className: "-mr-1.5" },
+      { size: "sm", bleed: "start", className: "-ml-3" },
+      { size: "sm", bleed: "end", className: "-mr-3" },
+      { size: "md", bleed: "start", className: "-ml-4" },
+      { size: "md", bleed: "end", className: "-mr-4" },
       { size: "xs", iconRight: true, className: "pr-1" },
       { size: "sm", iconRight: true, className: "pr-[6px]" },
       { size: "md", iconRight: true, className: "pr-[10px]" },
@@ -152,6 +157,7 @@ function Button({
   className,
   variant,
   size,
+  bleed,
   render,
   ref,
   loading = false,
@@ -222,6 +228,7 @@ function Button({
     buttonVariants({
       variant,
       size,
+      bleed,
       iconLeft: !isIconOnly && !!LeadingIcon,
       iconRight: !isIconOnly && !!TrailingIcon
     }),

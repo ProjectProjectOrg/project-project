@@ -5,13 +5,19 @@ import {
   ATTACHMENT_MAX_BYTES,
   attachmentUploadContentType,
   isAllowedAttachmentContentType,
+  type JiraMigrationFinding,
   type JiraSkippedAttachment
 } from "@pp/shared"
 import { Option, Predicate, Schema } from "effect"
 
+import { rewriteJiraReferences } from "./Adf"
+import { countBy } from "./collections"
+import { ATTACHMENT_MAX_LABEL, jiraIssueUrl } from "./Findings"
 import type { JiraMigrationManifest } from "./Manifest"
 import {
-  JiraConvertedText as ArchivedConvertedText,
+  decodeUnknownJiraCustomFieldValuesSync,
+  isCoverageLimited,
+  JiraConvertedText,
   JiraManifestSourceV2,
   canonicalJiraJson
 } from "./Manifest"
@@ -22,6 +28,20 @@ import type {
   JiraPreparedPublicationV1,
   JiraAttachmentOutcome
 } from "./PublicationPlan"
+
+const decodeConvertedTextOption = Schema.decodeUnknownOption(JiraConvertedText)
+
+const archivedText = <A extends Schema.Json | null>(value: A): A => {
+  const text = decodeConvertedTextOption(value)
+  return Option.isSome(text) && Predicate.isObject(value)
+    ? (Object.assign({}, value, {
+        markdown: rewriteJiraReferences(text.value, new Map()),
+        references: text.value.references.map(
+          ({ placeholder: _placeholder, ...reference }) => reference
+        )
+      }) as A)
+    : value
+}
 
 const decodeUnknownAttachmentOutcomesSync = Schema.decodeUnknownSync(
   Schema.Array(Schema.Struct({ kind: Schema.String }))
@@ -79,19 +99,13 @@ const excludedRestrictionTargets = (input: JiraMigrationOutcomeInput) => {
 }
 
 const adfWarningCounts = (manifest: JiraMigrationManifest) => {
-  const counts = new Map<string, number>()
-  const add = (nodeType: string) =>
-    counts.set(nodeType, (counts.get(nodeType) ?? 0) + 1)
-  for (const issue of manifest.issues) {
-    for (const warning of issue.description?.warnings ?? [])
-      add(warning.nodeType)
-  }
-  for (const comment of manifest.comments) {
-    for (const warning of comment.body.warnings) add(warning.nodeType)
-  }
-  for (const warning of manifest.source.description?.warnings ?? []) {
-    add(warning.nodeType)
-  }
+  const counts = countBy(
+    [
+      ...manifest.issues.flatMap((issue) => issue.description?.warnings ?? []),
+      ...manifest.comments.flatMap((comment) => comment.body.warnings),
+      ...(manifest.source.description?.warnings ?? [])
+    ].map((warning) => warning.nodeType)
+  )
   return [...counts.entries()].toSorted(
     (left, right) => right[1] - left[1] || (left[0] < right[0] ? -1 : 1)
   )
@@ -357,9 +371,11 @@ ${table(
 
 ### Kept in the archive only
 
-Custom fields, workflow metadata, changelogs, worklogs, watchers, voters, issue links and
-parent/subtask hierarchy have no native ProjectProject model. Their original Jira JSON is
-retained beside this report in \`${plan.archivePath}/archive.json\`.
+Custom fields, workflow metadata, changelogs, worklogs, watchers, voters and issue links
+have no native ProjectProject model. Their original Jira JSON is retained beside this
+report in \`${plan.archivePath}/archive.json\`. Epics, issues and subtasks keep their
+hierarchy as epics and sub-tickets; parent links ProjectProject cannot hold are listed as
+\`parent-dropped\` warnings below.
 
 ## Coverage
 
@@ -418,8 +434,13 @@ const decodeUnknownJiraPlannedArchiveSync =
 
 const ArchivedIssueLink = Schema.Struct({
   id: Schema.NonEmptyString,
-  key: Schema.NonEmptyString
+  key: Schema.NonEmptyString,
+  issueNumber: Schema.Int
 })
+
+const decodeUnknownArchivedDestinationKeySync = Schema.decodeUnknownSync(
+  Schema.Struct({ destination: Schema.Struct({ key: Schema.NonEmptyString }) })
+)
 
 const decodeUnknownArchivedIssueLinkSync =
   Schema.decodeUnknownSync(ArchivedIssueLink)
@@ -441,6 +462,15 @@ const ArchivedSkippedOutcome = Schema.Struct({
   kind: Schema.Literal("skipped")
 })
 
+const recordsById = (records: ReadonlyArray<Schema.Json>) =>
+  new Map(
+    records.flatMap((item) =>
+      Predicate.isObject(item) && Predicate.isString(item.id)
+        ? [[item.id, item] as const]
+        : []
+    )
+  )
+
 export const skippedAttachmentsForArchive = (
   archive: typeof JiraPlannedArchive.Type,
   destination: Readonly<{
@@ -451,22 +481,21 @@ export const skippedAttachmentsForArchive = (
 ): ReadonlyArray<JiraSkippedAttachment> => {
   const site = new URL(destination.siteUrl)
   if (site.protocol !== "https:") throw new Error("Invalid Jira site URL")
-  const issues = archive.categories.issues ?? []
-  const attachments = archive.categories.attachments ?? []
+  const issues = recordsById(archive.categories.issues ?? [])
+  const attachments = recordsById(archive.categories.attachments ?? [])
+  const destinationKey = decodeUnknownArchivedDestinationKeySync(
+    archive.mappings
+  ).destination.key
   return archive.attachmentOutcomes
     .filter(Schema.is(ArchivedSkippedOutcome))
     .map((outcome) => {
       const attachment = decodeUnknownArchivedAttachmentLinkSync(
-        attachments.find(
-          (item) =>
-            Predicate.isObject(item) && item.id === outcome.sourceAttachmentId
-        )
+        attachments.get(outcome.sourceAttachmentId)
       )
       const issue = decodeUnknownArchivedIssueLinkSync(
-        issues.find(
-          (item) => Predicate.isObject(item) && item.id === attachment.issueId
-        )
+        issues.get(attachment.issueId)
       )
+      const ticketId = `${destinationKey}-${issue.issueNumber}`
       const contentType = attachmentUploadContentType(
         attachment.filename,
         attachment.mimeType
@@ -480,12 +509,9 @@ export const skippedAttachmentsForArchive = (
         sourceAttachmentId: outcome.sourceAttachmentId,
         filename: attachment.filename,
         sourceIssueKey: issue.key,
-        targetTicketId: issue.key,
-        sourceIssueUrl: new URL(
-          `browse/${encodeURIComponent(issue.key)}`,
-          `${site.origin}/`
-        ).href,
-        targetTicketUrl: `/orgs/${encodeURIComponent(destination.orgSlug)}/projects/${encodeURIComponent(destination.projectSlug)}/tickets/${encodeURIComponent(issue.key)}`,
+        targetTicketId: ticketId,
+        sourceIssueUrl: jiraIssueUrl(site.origin, issue.key),
+        targetTicketUrl: `/orgs/${encodeURIComponent(destination.orgSlug)}/projects/${encodeURIComponent(destination.projectSlug)}/tickets/${encodeURIComponent(ticketId)}`,
         replacement
       }
     })
@@ -500,25 +526,18 @@ export const JiraPlannedReport = Schema.Struct({
 
 const decodeUnknownJiraPlannedReportSync =
   Schema.decodeUnknownSync(JiraPlannedReport)
-const CustomFieldValues = Schema.Array(
-  Schema.Struct({ issueId: Schema.NonEmptyString, value: Schema.Json })
-)
-
-const decodeUnknownCustomFieldValuesSync =
-  Schema.decodeUnknownSync(CustomFieldValues)
-
 export function buildJiraArchiveV2(
   prepared: JiraPreparedPublicationV1,
-  outcomes: ReadonlyArray<JiraAttachmentOutcome>
+  outcomes: ReadonlyArray<JiraAttachmentOutcome>,
+  findings: ReadonlyArray<JiraMigrationFinding> = []
 ) {
   const manifest = prepared.manifest
   const exclude = jiraRestrictionPolicy(prepared.configuration) === "exclude"
+  const restrictions = new Map(
+    manifest.restrictions.map((x) => [`${x.targetKind}:${x.targetId}`, x])
+  )
   const restriction = (kind: string, id: string) =>
-    exclude
-      ? manifest.restrictions.find(
-          (x) => x.targetKind === kind && x.targetId === id
-        )
-      : undefined
+    exclude ? restrictions.get(`${kind}:${id}`) : undefined
   const excludedIssue = (id: string) => restriction("issue", id)
   const values = new Map(
     prepared.source.artifacts.map((x) => [x.ref.key, x.value])
@@ -556,7 +575,7 @@ export function buildJiraArchiveV2(
             ...issue,
             description
           })
-        : { ...issue, description }
+        : { ...issue, description: archivedText(description) }
     }
   )
   categories.comments = manifest.comments.map(
@@ -569,7 +588,7 @@ export function buildJiraArchiveV2(
             ...comment,
             body
           })
-        : { ...comment, body }
+        : { ...comment, body: archivedText(body) }
     }
   )
   categories.worklogs = manifest.worklogs.map(
@@ -582,7 +601,7 @@ export function buildJiraArchiveV2(
             ...worklog,
             body
           })
-        : { ...worklog, body }
+        : { ...worklog, body: archivedText(body) }
     }
   )
   categories.attachments = manifest.attachments.map(
@@ -599,7 +618,7 @@ export function buildJiraArchiveV2(
   categories.customFields = manifest.customFields.map(
     ({ valuesArtifact, ...field }) => ({
       ...field,
-      values: decodeUnknownCustomFieldValuesSync(
+      values: decodeUnknownJiraCustomFieldValuesSync(
         values.get(valuesArtifact.key)
       ).map((value) =>
         excludedIssue(value.issueId)
@@ -662,13 +681,14 @@ export function buildJiraArchiveV2(
   }
   for (const [category, records] of Object.entries(metadata))
     categories[category] = records
+  categories.findings = findings
   return decodeUnknownJiraPlannedArchiveSync({
     version: 1,
     manifestVersion: 2,
     migrationId: manifest.migrationId,
     source: {
       ...manifest.source,
-      description: prepared.source.projectDescription
+      description: archivedText(prepared.source.projectDescription)
     },
     restrictionPolicy: jiraRestrictionPolicy(prepared.configuration),
     categories,
@@ -689,22 +709,246 @@ export function buildJiraArchiveV2(
   })
 }
 
+export type JiraReportCount = Readonly<{
+  label: string
+  found: number
+  imported: number
+}>
+
+export type JiraReportSummary = Readonly<{
+  destination: Readonly<{
+    orgSlug: string
+    slug: string
+    key: string
+    name: string
+  }>
+  counts: ReadonlyArray<JiraReportCount>
+}>
+
+type JiraFindingSection = "attention" | "left-out" | "changed" | "archive"
+
+type JiraFindingKindInfo = Readonly<{
+  section: JiraFindingSection
+  title: string
+  guidance: string
+}>
+
+const ATTACH_BY_HAND =
+  "Download each file from its Jira issue and attach it to the ticket if you still need it."
+
+const JIRA_FINDING_KINDS: Readonly<Record<string, JiraFindingKindInfo>> = {
+  "attachment-skipped": {
+    section: "attention",
+    title: "Attachments not copied",
+    guidance: `${ATTACH_BY_HAND} Files must be between 1 byte and ${ATTACHMENT_MAX_LABEL} and of a supported type.`
+  },
+  "attachment-failed": {
+    section: "attention",
+    title: "Attachments that failed to copy",
+    guidance: ATTACH_BY_HAND
+  },
+  "embedded-file-unresolved": {
+    section: "attention",
+    title: "Embedded files that could not be matched",
+    guidance:
+      "The file name is shown in the text where the file was. Find the file on the Jira issue and add it by hand."
+  },
+  "source-reference-repaired": {
+    section: "attention",
+    title: "Jira values added from the issues that use them",
+    guidance:
+      "Jira's project lists did not include these statuses, types, priorities, components or versions, so they were taken from the issues themselves. Check how they were mapped in set up."
+  },
+  "source-duplicate-dropped": {
+    section: "attention",
+    title: "Records Jira returned twice",
+    guidance:
+      "Only the first copy of each was imported. Nothing is missing unless the copies differed in Jira."
+  },
+  "source-collection-unreadable": {
+    section: "attention",
+    title: "Jira data that could not be read",
+    guidance:
+      "Jira returned this data in a form that could not be read, so it was skipped. Check the Jira issue and add anything important by hand."
+  },
+  "source-visibility-limited": {
+    section: "attention",
+    title: "Data Jira returned only in part",
+    guidance:
+      "Check what the connected Jira account may see, then scan again if the missing data matters."
+  },
+  "assignee-unlinked": {
+    section: "attention",
+    title: "Assignees not linked to a member",
+    guidance:
+      "Assign these tickets by hand, or invite the person and assign them once they join."
+  },
+  "issue-excluded": {
+    section: "left-out",
+    title: "Restricted issues left out",
+    guidance:
+      "These stay in Jira only. Their sub-tickets were imported without a parent (see Parent links not kept)."
+  },
+  "comment-excluded": {
+    section: "left-out",
+    title: "Restricted comments left out",
+    guidance: "These comments stay in Jira only."
+  },
+  "tag-skipped": {
+    section: "left-out",
+    title: "Labels and components skipped",
+    guidance:
+      "You chose not to import these as tags. They are still on the Jira issues and in archive.json."
+  },
+  "estimate-not-representable": {
+    section: "left-out",
+    title: "Estimates that could not be kept",
+    guidance: "Set these estimates by hand if you need them."
+  },
+  "time-estimates-not-imported": {
+    section: "left-out",
+    title: "Time estimates not imported",
+    guidance: "The original values are in archive.json."
+  },
+  "issue-key-changed": {
+    section: "changed",
+    title: "Ticket keys",
+    guidance: ""
+  },
+  "parent-dropped": {
+    section: "changed",
+    title: "Parent links not kept",
+    guidance: "Set a parent by hand where one should exist."
+  },
+  "restricted-content-included": {
+    section: "changed",
+    title: "Restricted content now visible to the project",
+    guidance:
+      "Everyone with access to the project can read these. Remove them if that is not intended."
+  },
+  "assignee-invited": {
+    section: "changed",
+    title: "Assignees waiting for an invitation",
+    guidance: ""
+  },
+  "reporter-replaced": {
+    section: "changed",
+    title: "Reporters recorded as you",
+    guidance: ""
+  },
+  "comment-author-unlinked": {
+    section: "changed",
+    title: "Comment authors kept as Jira names",
+    guidance: ""
+  },
+  "tag-renamed": {
+    section: "changed",
+    title: "Labels and components renamed as tags",
+    guidance: ""
+  },
+  "tags-merged": {
+    section: "changed",
+    title: "Labels and components merged into one tag",
+    guidance: ""
+  },
+  "due-date-as-text": {
+    section: "changed",
+    title: "Due dates",
+    guidance: ""
+  },
+  "resolution-as-text": {
+    section: "changed",
+    title: "Resolutions",
+    guidance: ""
+  },
+  "text-degraded": {
+    section: "changed",
+    title: "Formatting that did not convert exactly",
+    guidance:
+      "The text is all there; only the formatting named here changed. The original Jira document is in archive.json."
+  },
+  "archive-only": {
+    section: "archive",
+    title: "Records with no place in ProjectProject",
+    guidance: ""
+  }
+}
+
+const SECTION_HEADINGS: ReadonlyArray<readonly [JiraFindingSection, string]> = [
+  ["attention", "Needs your attention"],
+  ["left-out", "Left out"],
+  ["changed", "Changed on the way in"],
+  ["archive", "Kept only in the archive"]
+]
+
+const REPORT_ROW_LIMIT = 200
+
+const ticketLink = (summary: JiraReportSummary, ticketId: string | null) =>
+  ticketId === null
+    ? ""
+    : `[${escapeCell(ticketId)}](/orgs/${encodeURIComponent(summary.destination.orgSlug)}/projects/${encodeURIComponent(summary.destination.slug)}/tickets/${encodeURIComponent(ticketId)})`
+
+const kindInfo = (kind: string): JiraFindingKindInfo =>
+  JIRA_FINDING_KINDS[kind] ?? {
+    section: "attention",
+    title: kind,
+    guidance: ""
+  }
+
+function renderFindingSection(
+  summary: JiraReportSummary,
+  findings: ReadonlyArray<JiraMigrationFinding>,
+  section: JiraFindingSection,
+  heading: string
+): ReadonlyArray<string> {
+  const kinds = [
+    ...new Set(
+      findings
+        .filter((finding) => kindInfo(finding.kind).section === section)
+        .map((finding) => finding.kind)
+    )
+  ]
+  if (kinds.length === 0) return []
+  return [
+    `## ${heading}`,
+    "",
+    ...kinds.flatMap((kind) => {
+      const info = kindInfo(kind)
+      const rows = findings.filter((finding) => finding.kind === kind)
+      const withTickets = rows.some((row) => row.ticketId !== null)
+      const shown = rows.slice(0, REPORT_ROW_LIMIT)
+      return [
+        `### ${info.title}`,
+        "",
+        ...(info.guidance === "" ? [] : [info.guidance, ""]),
+        table(
+          withTickets
+            ? ["Subject", "What happened", "Ticket"]
+            : ["Subject", "What happened"],
+          shown.map((row) => [
+            row.jiraUrl === null
+              ? escapeCell(row.subject)
+              : `[${escapeCell(row.subject).replace(/[[\]]/g, "\\$&")}](${row.jiraUrl})`,
+            escapeCell(row.consequence),
+            ...(withTickets ? [ticketLink(summary, row.ticketId)] : [])
+          ])
+        ),
+        ...(rows.length > shown.length
+          ? [
+              "",
+              `…and ${rows.length - shown.length} more. The full list is under \`findings\` in archive.json.`
+            ]
+          : []),
+        ""
+      ]
+    })
+  ]
+}
+
 export function buildJiraReportV2(
   archive: typeof JiraPlannedArchive.Type,
-  nativeCounts: Readonly<Record<string, number>>,
-  manualAttachments: ReadonlyArray<
-    Readonly<{
-      sourceAttachmentId: string
-      filename: string
-      sourceIssueKey: string
-      targetTicketId: string
-      sourceIssueUrl: string
-      targetTicketUrl: string
-    }>
-  > = [],
-  unresolvedMedia: ReadonlyArray<
-    Readonly<{ source: string; mediaId: string; filename: string }>
-  > = []
+  summary: JiraReportSummary,
+  findings: ReadonlyArray<JiraMigrationFinding>
 ) {
   const archivedCounts = Object.fromEntries(
     Object.entries(archive.categories).map(([category, values]) => [
@@ -712,52 +956,62 @@ export function buildJiraReportV2(
       values.length
     ])
   )
+  const nativeCounts = Object.fromEntries(
+    summary.counts.map(({ label, imported }) => [label, imported])
+  )
   const outcomes = decodeUnknownAttachmentOutcomesSync(
     archive.attachmentOutcomes
   )
   const coverage = decodeUnknownCoverageEntriesSync(
     archive.categories.coverage ?? []
   )
+  const source = decodeUnknownJiraManifestSourceV2Sync(archive.source)
   const partialSuccess =
     outcomes.some((x) => x.kind !== "copied") ||
     archive.exclusions.some((x) => x.excludedReason === "excluded_by_user") ||
-    coverage.some((x) => x.visibility !== "complete") ||
-    unresolvedMedia.length > 0
-  const decodeTextRecord = Schema.decodeUnknownOption(
-    Schema.Struct({
-      id: Schema.String,
-      description: Schema.optional(Schema.NullOr(ArchivedConvertedText)),
-      body: Schema.optional(ArchivedConvertedText)
+    coverage.some((x) => isCoverageLimited(x.visibility)) ||
+    findings.some((finding) => {
+      const section = kindInfo(finding.kind).section
+      return section === "attention" || section === "left-out"
     })
-  )
-  const degradation = [
-    ...(archive.categories.issues ?? []),
-    ...(archive.categories.comments ?? [])
-  ].flatMap((record) => {
-    const decoded = decodeTextRecord(record)
-    if (Option.isNone(decoded)) return []
-    return [
-      ...(decoded.value.description?.warnings ?? []),
-      ...(decoded.value.body?.warnings ?? [])
-    ].map((warning) => [decoded.value.id, warning.nodeType, warning.reason])
-  })
+  const { destination } = summary
   const markdown = [
-    "# Jira migration report",
+    "# Jira import report",
     "",
-    `Migration: ${archive.migrationId}`,
-    canonicalJiraJson(decodeUnknownJiraManifestSourceV2Sync(archive.source)),
-    "Only data visible to the connected Jira account was scanned. Inaccessible data may be absent.",
+    `**${escapeCell(source.projectKey)} · ${escapeCell(source.projectName)}** from ${source.siteUrl} was imported into **${escapeCell(destination.key)} · ${escapeCell(destination.name)}** (\`${destination.orgSlug}/${destination.slug}\`).`,
     "",
-    `Partial success: ${partialSuccess ? "yes" : "no"}`,
-    `Restriction policy: ${archive.restrictionPolicy}`,
+    `Scanned ${source.scannedAt} as ${escapeCell(source.visibleAccount.displayName)}. Only what that Jira account could see was scanned; anything it could not see is not in ProjectProject and is not listed below.`,
     "",
-    "## Native records",
+    `Restricted content was **${archive.restrictionPolicy === "exclude" ? "left out" : "included"}**.`,
+    "",
+    "## At a glance",
+    "",
     table(
-      ["Category", "Count"],
-      Object.entries(nativeCounts).map(([key, count]) => [key, `${count}`])
+      ["", "In Jira", "In ProjectProject"],
+      summary.counts.map(({ label, found, imported }) => [
+        label,
+        `${found}`,
+        `${imported}`
+      ])
     ),
     "",
-    "## Archived categories",
+    findings.length === 0
+      ? "Nothing was left out or changed beyond the mappings you chose."
+      : "Differences are explained below, most urgent first.",
+    "",
+    ...SECTION_HEADINGS.flatMap(([section, heading]) =>
+      renderFindingSection(summary, findings, section, heading)
+    ),
+    "## What came across as is",
+    "",
+    "Summaries, descriptions and comments as markdown; statuses, issue types and priorities through your mappings; labels and components as tags; sprints with their dates; epics and sub-tickets where ProjectProject can hold them; assignees, reporters and comment authors you linked to members; created and updated times; and the attachments not listed above. Jira issue keys in text link to the imported tickets, and every ticket ends with a note linking back to its Jira issue.",
+    "",
+    "## Technical details",
+    "",
+    `Migration \`${archive.migrationId}\`. The original Jira data, including every record listed here, is in \`archive.json\` beside this report.`,
+    "",
+    "### Archived records",
+    "",
     table(
       ["Category", "Count"],
       Object.entries(archivedCounts)
@@ -765,67 +1019,8 @@ export function buildJiraReportV2(
         .map(([key, count]) => [key, `${count}`])
     ),
     "",
-    "## Mapping decisions",
-    canonicalJiraJson(archive.mappings),
+    "### Coverage",
     "",
-    "## Transformations",
-    "Subtasks are flattened. Epics, releases, custom fields, links and unsupported products remain archive provenance. Unsupported ADF degrades to readable content; conversion warnings and original allowed ADF are retained with each source record. Source issue-key gaps are preserved.",
-    "",
-    "## ADF conversion warnings",
-    table(["Source", "Node", "Decision"], degradation),
-    "",
-    "## Attachment outcomes",
-    canonicalJiraJson(archive.attachmentOutcomes),
-    "",
-    ...(unresolvedMedia.length === 0
-      ? []
-      : [
-          "## Embedded files needing attention",
-          "These media references could not be matched safely to a copied Jira attachment. Their original text remains in the destination. Open the source issue to locate the file and add it manually if needed.",
-          "",
-          table(
-            ["Source", "File label", "Jira media ID"],
-            unresolvedMedia.map(({ source, filename, mediaId }) => [
-              escapeCell(source),
-              escapeCell(filename),
-              escapeCell(mediaId)
-            ])
-          ),
-          ""
-        ]),
-    ...(manualAttachments.length === 0
-      ? []
-      : [
-          "## Manual attachment replacement",
-          "Download each skipped attachment from Jira. Upload it to the destination ticket only if its type is supported and its size is between 1 byte and 25 MB. Otherwise it cannot be replaced in ProjectProject. Update any old Jira link in the ticket text if the new file should appear there.",
-          "",
-          table(
-            [
-              "File",
-              "Jira issue",
-              "ProjectProject ticket",
-              "Jira attachment ID"
-            ],
-            manualAttachments.map((attachment) => [
-              escapeCell(attachment.filename),
-              `[${escapeCell(attachment.sourceIssueKey)}](${attachment.sourceIssueUrl})`,
-              `[${escapeCell(attachment.targetTicketId)}](${attachment.targetTicketUrl})`,
-              escapeCell(attachment.sourceAttachmentId)
-            ])
-          ),
-          ""
-        ]),
-    "## Exclusions and skips",
-    table(
-      ["Category", "Source", "Reason"],
-      archive.exclusions.map((x) => [
-        escapeCell(x.category),
-        escapeCell(x.sourceId),
-        x.excludedReason
-      ])
-    ),
-    "",
-    "## Coverage and warnings",
     table(
       ["Category", "Visibility", "Reason"],
       coverage.map((x) => [
@@ -834,11 +1029,13 @@ export function buildJiraReportV2(
         escapeCell(x.reason ?? "")
       ])
     ),
-    canonicalJiraJson(archive.categories.warnings ?? []),
     "",
-    "## Schema and converter versions",
-    canonicalJiraJson(archive.schemaVersions),
-    canonicalJiraJson(archive.converterVersions)
+    "### Schema and converter versions",
+    "",
+    `\`${canonicalJiraJson(archive.schemaVersions)}\``,
+    "",
+    `\`${canonicalJiraJson(archive.converterVersions)}\``,
+    ""
   ].join("\n")
   return decodeUnknownJiraPlannedReportSync({
     version: 1,

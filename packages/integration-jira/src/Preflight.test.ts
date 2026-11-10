@@ -224,7 +224,7 @@ describe("preflightJiraMigration", () => {
       }
     ])
     expect(result.warnings.map(({ code }) => code)).toEqual(
-      expect.arrayContaining(["source-visibility-limited", "subtask-flattened"])
+      expect.arrayContaining(["source-visibility-limited"])
     )
   })
 

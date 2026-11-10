@@ -66,7 +66,17 @@ export const JiraFailureReason = Schema.Literals([
   "timeout",
   "invalid_response",
   "server_error",
-  "refresh_contention"
+  "refresh_contention",
+  "bad_request",
+  "cursor_expired",
+  "unexpected_status",
+  "decode_failed",
+  "invalid_json",
+  "invalid_redirect",
+  "repeated_cursor",
+  "oauth_state_invalid",
+  "invalid_return_path",
+  "credential_unreadable"
 ])
 export type JiraFailureReason = typeof JiraFailureReason.Type
 
@@ -127,7 +137,8 @@ export const JiraMigrationConfiguration = Schema.Struct({
         kind: Schema.Literals(["label", "component"]),
         value: Schema.NonEmptyString
       }),
-      destinationTagName: TagName
+      destinationTagName: TagName,
+      skipped: Schema.optional(Schema.Literal(true))
     })
   ),
   activeFutureSprintChoices: Schema.Array(
@@ -164,7 +175,10 @@ export const JiraMigrationCounts = Schema.Struct({
   comments: JiraMigrationCount,
   attachments: JiraMigrationCount,
   groups: JiraMigrationCount,
-  restrictions: JiraMigrationCount
+  restrictions: JiraMigrationCount,
+  epics: Schema.optional(JiraMigrationCount),
+  subTickets: Schema.optional(JiraMigrationCount),
+  sprints: Schema.optional(JiraMigrationCount)
 })
 export type JiraMigrationCounts = typeof JiraMigrationCounts.Type
 
@@ -213,7 +227,10 @@ export const JiraMigrationRequirements = Schema.Struct({
       jiraAccountId: Schema.NonEmptyString,
       displayName: Schema.NonEmptyString,
       email: Schema.NullOr(Schema.String),
-      suggestedProjectProjectUserId: Schema.NullOr(Schema.NonEmptyString)
+      suggestedProjectProjectUserId: Schema.NullOr(Schema.NonEmptyString),
+      assignedIssueCount: Schema.optional(JiraMigrationCount),
+      reportedIssueCount: Schema.optional(JiraMigrationCount),
+      commentCount: Schema.optional(JiraMigrationCount)
     })
   ),
   identityOptions: Schema.Array(JiraMigrationUserOption),
@@ -223,6 +240,7 @@ export const JiraMigrationRequirements = Schema.Struct({
       name: Schema.NonEmptyString,
       categoryKey: Schema.NullOr(Schema.String),
       suggestedProjectStatusSlug: Schema.NullOr(StatusSlug),
+      issueCount: Schema.optional(JiraMigrationCount),
       createOption: Schema.NullOr(
         Schema.Struct({
           slug: StatusSlug,
@@ -240,14 +258,16 @@ export const JiraMigrationRequirements = Schema.Struct({
       jiraIssueTypeId: Schema.NonEmptyString,
       name: Schema.NonEmptyString,
       isSubtask: Schema.Boolean,
-      suggestedProjectType: Schema.NullOr(TicketType)
+      suggestedProjectType: Schema.NullOr(TicketType),
+      issueCount: Schema.optional(JiraMigrationCount)
     })
   ),
   priorities: Schema.Array(
     Schema.Struct({
       jiraPriorityId: Schema.NonEmptyString,
       name: Schema.NonEmptyString,
-      suggestedProjectPriority: Schema.NullOr(TicketPriority)
+      suggestedProjectPriority: Schema.NullOr(TicketPriority),
+      issueCount: Schema.optional(JiraMigrationCount)
     })
   ),
   tags: Schema.Array(
@@ -257,7 +277,8 @@ export const JiraMigrationRequirements = Schema.Struct({
         value: Schema.NonEmptyString
       }),
       suggestedDestinationTagName: Schema.NullOr(TagName),
-      collisionSourceValues: Schema.Array(Schema.NonEmptyString)
+      collisionSourceValues: Schema.Array(Schema.NonEmptyString),
+      issueCount: Schema.optional(JiraMigrationCount)
     })
   ),
   activeFutureSprintChoices: Schema.Array(
@@ -277,7 +298,17 @@ export const JiraMigrationRequirements = Schema.Struct({
   restrictedContent: Schema.Struct({
     issueCount: JiraMigrationCount,
     commentCount: JiraMigrationCount,
-    worklogCount: JiraMigrationCount
+    worklogCount: JiraMigrationCount,
+    issues: Schema.optional(
+      Schema.Array(
+        Schema.Struct({
+          jiraIssueId: Schema.NonEmptyString,
+          issueKey: Schema.NonEmptyString,
+          issueSummary: Schema.String,
+          childIssueKeys: Schema.Array(Schema.NonEmptyString)
+        })
+      )
+    )
   }),
   attachments: Schema.Array(
     Schema.Struct({
@@ -311,9 +342,35 @@ export type JiraMigrationActions = typeof JiraMigrationActions.Type
 
 export const JiraMigrationFailure = Schema.Struct({
   reason: Schema.NonEmptyString,
-  retryable: Schema.Boolean
+  retryable: Schema.Boolean,
+  subject: Schema.optional(Schema.String),
+  detail: Schema.optional(Schema.String)
 })
 export type JiraMigrationFailure = typeof JiraMigrationFailure.Type
+
+export const JiraMigrationFinding = Schema.Struct({
+  kind: Schema.NonEmptyString,
+  subject: Schema.String,
+  sourceId: Schema.NullOr(Schema.String),
+  ticketId: Schema.NullOr(Schema.String),
+  jiraUrl: Schema.NullOr(Schema.String),
+  consequence: Schema.String
+})
+export type JiraMigrationFinding = typeof JiraMigrationFinding.Type
+
+export const JiraMigrationResult = Schema.Struct({
+  tickets: JiraMigrationCount,
+  comments: JiraMigrationCount,
+  attachmentsCopied: JiraMigrationCount,
+  attachmentsSkipped: JiraMigrationCount,
+  attachmentsFailed: JiraMigrationCount,
+  peopleLinked: JiraMigrationCount,
+  peopleInvited: JiraMigrationCount,
+  peopleUnlinked: JiraMigrationCount,
+  statusesCreated: JiraMigrationCount,
+  findings: Schema.Array(JiraMigrationFinding)
+})
+export type JiraMigrationResult = typeof JiraMigrationResult.Type
 
 export const JiraMigrationSummary = Schema.Struct({
   id: Schema.NonEmptyString,
@@ -326,10 +383,26 @@ export const JiraMigrationSummary = Schema.Struct({
   revision: JiraMigrationCount,
   progress: JiraMigrationProgress,
   destinationProjectSlug: Schema.NullOr(Slug),
+  destination: Schema.optional(
+    Schema.NullOr(
+      Schema.Struct({
+        name: Schema.NonEmptyString,
+        slug: Slug,
+        key: Schema.NonEmptyString
+      })
+    )
+  ),
   createdAt: Schema.DateTimeUtc,
   updatedAt: Schema.DateTimeUtc
 })
 export type JiraMigrationSummary = typeof JiraMigrationSummary.Type
+
+export const JiraMigrationReport = Schema.Struct({
+  migrationId: Schema.NonEmptyString,
+  path: Schema.NonEmptyString,
+  markdown: Schema.String
+})
+export type JiraMigrationReport = typeof JiraMigrationReport.Type
 
 export const JiraMigrationDetail = Schema.Struct({
   ...JiraMigrationSummary.fields,
@@ -339,6 +412,9 @@ export const JiraMigrationDetail = Schema.Struct({
   failedAttachmentIds: Schema.Array(Schema.NonEmptyString),
   actions: JiraMigrationActions,
   failure: Schema.NullOr(JiraMigrationFailure),
+  findings: Schema.optional(Schema.Array(JiraMigrationFinding)),
+  result: Schema.optional(JiraMigrationResult),
+  scanCounts: Schema.optional(Schema.Record(Schema.String, JiraMigrationCount)),
   reportPath: Schema.NullOr(Schema.String),
   finishedAt: Schema.NullOr(Schema.DateTimeUtc)
 })

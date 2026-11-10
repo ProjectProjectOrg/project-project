@@ -1,4 +1,4 @@
-import { EmailAddress } from "@pp/shared"
+import { EmailAddress, type JiraMigrationRequirements } from "@pp/shared"
 import * as Schema from "effect/Schema"
 
 export type PeopleChoice = Readonly<{
@@ -58,3 +58,36 @@ export function invitedEmails(
     )
   ].toSorted()
 }
+
+type Identity = JiraMigrationRequirements["identities"][number]
+
+export const personActivity = (
+  identity: Identity | undefined
+): number | undefined =>
+  identity === undefined
+    ? undefined
+    : (identity.assignedIssueCount ?? 0) +
+      (identity.reportedIssueCount ?? 0) +
+      (identity.commentCount ?? 0)
+
+export const hasActivity = (requirements: JiraMigrationRequirements): boolean =>
+  requirements.identities.some(
+    (identity) =>
+      identity.assignedIssueCount !== undefined ||
+      identity.reportedIssueCount !== undefined ||
+      identity.commentCount !== undefined
+  )
+
+export const changedCount = (
+  before: ReadonlyArray<PeopleChoice>,
+  after: ReadonlyArray<PeopleChoice>
+): number =>
+  after.reduce(
+    (total, choice, index) =>
+      total +
+      (choice.projectProjectUserId !== before[index]?.projectProjectUserId ||
+      choice.inviteEmail !== before[index]?.inviteEmail
+        ? 1
+        : 0),
+    0
+  )

@@ -31,6 +31,7 @@ type SelectBaseProps<Value extends string> = Readonly<{
   required?: boolean
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  size?: "default" | "compact"
 }>
 
 type SingleSelectProps<Value extends string> = SelectBaseProps<Value> &
@@ -64,7 +65,8 @@ function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
     name,
     required,
     open,
-    onOpenChange
+    onOpenChange,
+    size = "default"
   } = props
   const shared = {
     items,
@@ -78,7 +80,10 @@ function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
     modal: false
   }
   const content = (
-    <SelectContent {...contentProps}>
+    <SelectContent
+      {...(size === "compact" ? compactContentProps : undefined)}
+      {...contentProps}
+    >
       {items.map((item) => (
         <SelectItem
           key={item.value}
@@ -124,10 +129,15 @@ function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
   )
 }
 
+const compactContentProps = {
+  sideOffset: 4,
+  className: "w-[var(--anchor-width)]"
+} as const
+
 const triggerVariants = cva(
   [
     "group inline-flex cursor-pointer items-center justify-between gap-2 outline-none",
-    "h-9 min-w-[160px] px-3 text-[13px] text-foreground",
+    "text-foreground",
     "transition-all duration-80",
     "disabled:pointer-events-none disabled:opacity-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
     "focus-visible:ring-1 focus-visible:ring-[#6B97FF]"
@@ -137,10 +147,15 @@ const triggerVariants = cva(
       variant: {
         bordered: "border border-border bg-transparent hover:bg-hover",
         borderless: "border border-transparent bg-transparent hover:bg-hover"
+      },
+      size: {
+        default: "h-9 min-w-[160px] px-3 text-[13px]",
+        compact: "h-7 min-w-0 px-2.5 text-[12px]"
       }
     },
     defaultVariants: {
-      variant: "bordered"
+      variant: "bordered",
+      size: "default"
     }
   }
 )
@@ -162,6 +177,7 @@ type SelectTriggerProps = Omit<
 function SelectTrigger({
   className,
   variant,
+  size,
   icon: Icon,
   placeholder = "Select…",
   selectedLabel,
@@ -183,7 +199,7 @@ function SelectTrigger({
       <SelectPrimitive.Trigger
         aria-invalid={error ? true : undefined}
         className={cn(
-          triggerVariants({ variant }),
+          triggerVariants({ variant, size }),
           "rounded-[20px]",
           error && "border-destructive/50 hover:border-destructive/50",
           className

@@ -7,6 +7,7 @@ import { useState } from "react"
 
 import { PageContainer, PageHeader } from "@/components/shell/Page"
 import { Button } from "@/components/ui/button"
+import { ActiveImports } from "@/features/jira/components/ActiveImports"
 import {
   projectsFor,
   projectsRequest
@@ -90,6 +91,7 @@ export function Projects() {
               ? m.projects_page_subtitle()
               : m.projects_page_subtitle_invited()}
           </p>
+          {canMigrate ? <ActiveImports orgSlug={orgSlug} /> : null}
         </PageHeader>
         {canMigrate && (
           <Button
@@ -100,7 +102,7 @@ export function Projects() {
               <Link to="/orgs/$orgSlug/migrations/jira" params={{ orgSlug }} />
             }
           >
-            {m.jira_migration_projects_entry()}
+            {m.jira_import_projects_entry()}
           </Button>
         )}
       </div>

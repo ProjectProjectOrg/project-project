@@ -429,6 +429,7 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
           }
         }
         const s3 = {
+          deleteObject: () => Effect.void,
           getObject: (_connection: S3Storage.S3Connection, key: string) =>
             Effect.succeed(stored.get(key) ?? null),
           headObject: (_connection: S3Storage.S3Connection, key: string) =>
@@ -694,6 +695,7 @@ describe.skipIf(!databaseUrl)("hidden Jira destination", () => {
               attachmentContent: () => Stream.fromIterable([attachmentBytes])
             },
             s3: {
+              deleteObject: () => Effect.void,
               getObject: (_connection, key) =>
                 Effect.succeed(storedAttachments.get(key) ?? null),
               putObject: (_connection, key, _contentType, bytes) =>

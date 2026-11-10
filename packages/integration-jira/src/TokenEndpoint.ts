@@ -1,4 +1,5 @@
-import { JiraError, JiraRateLimited, JiraReconnectRequired } from "@pp/shared"
+import { JiraError, JiraReconnectRequired } from "@pp/shared"
+import * as Clock from "effect/Clock"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -8,8 +9,10 @@ import * as Predicate from "effect/Predicate"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 
+import { rateLimitFromHeaders, type JiraRateLimited } from "./Blocked"
 import * as OAuth from "./OAuth"
 import * as OAuthConfig from "./OAuthConfig"
+import { HEADER_TIMEOUT } from "./Transport"
 
 export class JiraTokenEndpoint extends Context.Service<
   JiraTokenEndpoint,
@@ -43,25 +46,40 @@ const requestGrant = Effect.fn("JiraTokenEndpoint.requestGrant")(function* (
     })
   )
   const response = yield* client.execute(request).pipe(
-    Effect.timeout("20 seconds"),
+    Effect.timeout(HEADER_TIMEOUT),
     Effect.mapError((error) =>
       Predicate.isTagged(error, "TimeoutError")
         ? new JiraError({ reason: "timeout" })
         : new JiraError({ reason: "network" })
     )
   )
-  if (response.status === 429) {
-    const retryAfter = Number(response.headers["retry-after"] ?? "0")
-    return yield* new JiraRateLimited({
-      retryAfterSeconds: Number.isFinite(retryAfter) ? retryAfter : 0
-    })
-  }
+  if (response.status === 429)
+    return yield* rateLimitFromHeaders(
+      "oauth.token",
+      response.headers,
+      yield* Clock.currentTimeMillis
+    )
   if (response.status >= 500) {
-    return yield* new JiraError({ reason: "server_error" })
+    return yield* new JiraError({
+      reason: "server_error",
+      status: response.status,
+      operation: "oauth.token"
+    })
   }
   const body = yield* HttpClientResponse.schemaBodyJson(Schema.Json)(
     response
-  ).pipe(Effect.mapError(() => new JiraError({ reason: "invalid_response" })))
+  ).pipe(
+    Effect.timeout(HEADER_TIMEOUT),
+    Effect.mapError((error) =>
+      Predicate.isTagged(error, "TimeoutError")
+        ? new JiraError({ reason: "timeout", operation: "oauth.token" })
+        : new JiraError({
+            reason: "invalid_json",
+            status: response.status,
+            operation: "oauth.token"
+          })
+    )
+  )
   if (response.status < 200 || response.status >= 300) {
     const classification = OAuth.classifyTokenRejection(body)
     if (classification === "invalid_grant") {
@@ -69,12 +87,18 @@ const requestGrant = Effect.fn("JiraTokenEndpoint.requestGrant")(function* (
     }
     return yield* new JiraError({
       reason:
-        classification === "transient" ? "server_error" : "invalid_response"
+        classification === "transient" ? "server_error" : "invalid_response",
+      status: response.status,
+      operation: "oauth.token"
     })
   }
   const grant = OAuth.parseTokenGrant(body, yield* DateTime.now)
   return grant === null
-    ? yield* new JiraError({ reason: "invalid_response" })
+    ? yield* new JiraError({
+        reason: "decode_failed",
+        status: response.status,
+        operation: "oauth.token"
+      })
     : grant
 })
 

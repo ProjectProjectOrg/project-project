@@ -303,13 +303,16 @@ export class JiraReconnectRequired extends Schema.TaggedError<JiraReconnectRequi
 
 export class JiraAccessDenied extends Schema.TaggedError<JiraAccessDenied>()(
   "JiraAccessDenied",
-  {},
+  {
+    status: Schema.optional(Schema.Int),
+    operation: Schema.optional(Schema.String)
+  },
   { httpApiStatus: 403 }
 ) {}
 
 export class JiraResourceNotFound extends Schema.TaggedError<JiraResourceNotFound>()(
   "JiraResourceNotFound",
-  {},
+  { operation: Schema.optional(Schema.String) },
   { httpApiStatus: 404 }
 ) {}
 
@@ -321,7 +324,13 @@ export class JiraRateLimited extends Schema.TaggedError<JiraRateLimited>()(
 
 export class JiraError extends Schema.TaggedError<JiraError>()(
   "JiraError",
-  { reason: JiraFailureReason },
+  {
+    reason: JiraFailureReason,
+    status: Schema.optional(Schema.Int),
+    operation: Schema.optional(Schema.String),
+    errorMessages: Schema.optional(Schema.Array(Schema.String)),
+    path: Schema.optional(Schema.String)
+  },
   { httpApiStatus: 502 }
 ) {}
 

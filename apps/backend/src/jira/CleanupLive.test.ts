@@ -239,8 +239,7 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
           expect(resetResult.revision).toBeGreaterThan(ready.revision)
           const reset = yield* projection.owned(owner, created.id)
           yield* projection.recordFailure(fence, {
-            reason: "discard-after-reset",
-            retryable: false
+            reason: "discard-after-reset"
           })
           const failed = yield* projection.owned(owner, created.id)
           const discard = {
@@ -260,7 +259,7 @@ describe.skipIf(!databaseUrl)("Jira cleanup operations", () => {
             row: reset,
             remainingProject: yield* db.select().from(projectIndex)
           }
-        }).pipe(Effect.provide(layer))
+        }).pipe(Effect.provide(Layer.merge(layer, WorkflowEngine.layerMemory)))
         expect(result.row.destinationProjectId).toBeNull()
         expect(result.row.cleanupExecutionId).toBeNull()
         expect(

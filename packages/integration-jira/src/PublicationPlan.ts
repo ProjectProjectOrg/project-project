@@ -8,8 +8,16 @@ import {
   attachmentUrl,
   BASELINE_STATUS_SEED,
   deriveProjectIdentity,
+  Estimate,
+  ESTIMATE_MAX_MINUTES,
+  ESTIMATE_MAX_POINTS,
+  estimateRank,
+  estimateToken,
+  EstimateUnit,
+  EstimationMode,
   GroupId,
   JiraMigrationConfiguration,
+  JiraMigrationFinding,
   phaseEndNeighbors,
   pickStatusColor,
   ProjectKey,
@@ -21,12 +29,19 @@ import {
   TicketType,
   type StatusPhase
 } from "@pp/shared"
-import { DateTime, Effect, Schema } from "effect"
-import * as Match from "effect/Match"
+import { DateTime, Effect, Option, Schema } from "effect"
 import { generateKeyBetween } from "fractional-indexing"
 import { ulid } from "ulid"
 
-import { rewriteJiraReferences } from "./Adf"
+import { escapeMarkdownText, rewriteJiraReferences } from "./Adf"
+import { groupBy } from "./collections"
+import {
+  attachmentFailedFinding,
+  buildJiraFindings,
+  jiraIssueUrl,
+  type JiraEstimateDrop
+} from "./Findings"
+import { resolveJiraHierarchy, type JiraHierarchy } from "./Hierarchy"
 import { JiraPublicationFormat } from "./Host"
 import type {
   JiraConvertedText,
@@ -35,7 +50,9 @@ import type {
   JiraMigrationManifest
 } from "./Manifest"
 import {
+  decodeUnknownJiraCustomFieldValuesSync,
   JiraConvertedText as ConvertedTextSchema,
+  JiraCustomFieldValues,
   JiraMigrationManifestV2,
   normalizeJiraMigrationManifestV2,
   canonicalJiraJson
@@ -43,8 +60,11 @@ import {
 import {
   buildOpenSprintConflicts,
   buildJiraStatusCreateOptions,
+  buildTagCandidates,
+  jiraDestinationTicketId,
   jiraRestrictionPolicy,
   resolveTagDestinations,
+  skippedTagKeys,
   type JiraMappingSource,
   type JiraStatusCreateOption,
   type JiraMigrationMappings
@@ -91,6 +111,7 @@ export type JiraStagedTicket = Readonly<{
   tags: ReadonlyArray<string>
   assignees: ReadonlyArray<string>
   createdBy: string | null
+  parent: string | null
   body: string
   createdAt: string
   updatedAt: string
@@ -270,13 +291,22 @@ export function aliasJiraMediaReferences(
   urlsByAttachmentId: Readonly<Record<string, string>>
 ): Readonly<Record<string, string>> {
   const aliased: Record<string, string> = { ...urlsByAttachmentId }
+  const byFilename = groupBy(
+    manifest.attachments,
+    (attachment) => attachment.filename,
+    (attachment) => attachment.id
+  )
+  const byIssueFilename = groupBy(
+    manifest.attachments,
+    (attachment) => `${attachment.issueId}\u0000${attachment.filename}`,
+    (attachment) => attachment.id
+  )
   const resolve = (issueId: string | null, filename: string) => {
-    const matches = manifest.attachments.filter(
-      (attachment) =>
-        attachment.filename === filename &&
-        (issueId === null || attachment.issueId === issueId)
-    )
-    return matches.length === 1 ? matches[0].id : null
+    const matches =
+      (issueId === null
+        ? byFilename.get(filename)
+        : byIssueFilename.get(`${issueId}\u0000${filename}`)) ?? []
+    return matches.length === 1 ? matches[0] : null
   }
   const apply = (issueId: string | null, text: JiraConvertedText) => {
     for (const reference of text.references) {
@@ -303,6 +333,7 @@ function unresolvedJiraMediaReferences(
 ) {
   const aliases = aliasJiraMediaReferences(manifest, urlsByAttachmentId)
   const excluded = excludedSourceRecords(manifest, mappings)
+  const keys = new Map(manifest.issues.map((issue) => [issue.id, issue.key]))
   const unresolved: Array<
     Readonly<{ source: string; mediaId: string; filename: string }>
   > = []
@@ -331,8 +362,7 @@ function unresolvedJiraMediaReferences(
       excluded.comments.has(comment.id)
     )
       continue
-    const issue = manifest.issues.find((item) => item.id === comment.issueId)
-    collect(issue?.key ?? comment.issueId, comment.body)
+    collect(keys.get(comment.issueId) ?? comment.issueId, comment.body)
   }
   return unresolved
 }
@@ -352,8 +382,8 @@ export function rewriteJiraPublicationText(
   for (const reference of text.references) {
     if (
       reference.kind === "jira-issue" &&
-      (reference.originalUrl === null ||
-        !isSourceJiraIssueUrl(reference.originalUrl, sourceSiteUrl))
+      reference.originalUrl !== null &&
+      !isSourceJiraIssueUrl(reference.originalUrl, sourceSiteUrl)
     )
       continue
     const target = targets[jiraReferenceKey(reference.kind, reference.sourceId)]
@@ -449,6 +479,7 @@ function createJiraPublicationDraft(
     ])
   )
   const tagCandidates = resolveTagDestinations(manifest, mappings)
+  const hierarchy = resolveJiraHierarchy(manifest, mappings)
 
   const tickets = manifest.issues
     .filter((issue) => !excluded.issues.has(issue.id))
@@ -482,6 +513,7 @@ function createJiraPublicationDraft(
         tags: [...new Set(tags)].toSorted(compareStrings),
         assignees: identity?.kind === "link" ? [identity.userId] : [],
         createdBy: reporter?.kind === "link" ? reporter.userId : null,
+        parent: parentTicketId(hierarchy, ticketMappings, issue.id),
         body:
           issue.description === null
             ? ""
@@ -521,11 +553,13 @@ function createJiraPublicationDraft(
           manifest.source.siteUrl
         ),
         createdAt: comment.createdAt,
-        editedAt: comment.updatedAt
+        editedAt: jiraEditedAt(comment.createdAt, comment.updatedAt)
       }
     })
-    .toSorted((left, right) =>
-      compareStrings(left.sourceCommentId, right.sourceCommentId)
+    .toSorted(
+      (left, right) =>
+        compareInstants(left.createdAt, right.createdAt) ||
+        compareJiraIds(left.sourceCommentId, right.sourceCommentId)
     )
 
   const attachmentPreflight = new Map(
@@ -592,7 +626,6 @@ function createJiraPublicationDraft(
       compareStrings(left.sourceGroupId, right.sourceGroupId)
     )
 
-  const groupedTags = new Map<string, Array<string>>()
   const includedTagSourceIds = new Set(
     manifest.issues
       .filter((issue) => !excluded.issues.has(issue.id))
@@ -604,15 +637,16 @@ function createJiraPublicationDraft(
           )
       )
   )
-  for (const [sourceId, destinationTag] of resolveTagDestinations(
-    manifest,
-    mappings
-  )) {
-    if (destinationTag === null || !includedTagSourceIds.has(sourceId)) continue
-    const sources = groupedTags.get(destinationTag)
-    if (sources) sources.push(sourceId)
-    else groupedTags.set(destinationTag, [sourceId])
-  }
+  const groupedTags = groupBy(
+    [...resolveTagDestinations(manifest, mappings)].flatMap(
+      ([sourceId, destinationTag]) =>
+        destinationTag === null || !includedTagSourceIds.has(sourceId)
+          ? []
+          : [{ sourceId, destinationTag }]
+    ),
+    ({ destinationTag }) => destinationTag,
+    ({ sourceId }) => sourceId
+  )
   const tags = [...groupedTags]
     .map(([name, sourceIds]) => ({
       name,
@@ -632,7 +666,7 @@ function createJiraPublicationDraft(
       migrationId: manifest.migrationId,
       manifestVersion: manifest.version,
       visibility: "hidden",
-      archivePath: `imports/jira/${manifest.migrationId}`,
+      archivePath: jiraImportPath(manifest.migrationId),
       project: {
         slug: mappings.project.slug,
         key: mappings.project.key,
@@ -646,7 +680,10 @@ function createJiraPublicationDraft(
                 targets,
                 manifest.source.siteUrl
               ),
-        jiraSourceUrl: `${manifest.source.siteUrl.replace(/\/$/, "")}/browse/${manifest.source.projectKey}`
+        jiraSourceUrl: jiraIssueUrl(
+          manifest.source.siteUrl,
+          manifest.source.projectKey
+        )
       },
       tags,
       createdStatuses,
@@ -664,6 +701,17 @@ function createJiraPublicationDraft(
   }
 }
 
+function parentTicketId(
+  hierarchy: JiraHierarchy,
+  ticketMappings: ReadonlyMap<string, string>,
+  issueId: string
+): string | null {
+  const parentIssueId = hierarchy.parents.get(issueId)
+  return parentIssueId === undefined
+    ? null
+    : (ticketMappings.get(parentIssueId) ?? null)
+}
+
 function stageJiraInvites(
   identities: JiraMigrationMappings["identities"],
   issues: ReadonlyArray<
@@ -675,13 +723,15 @@ function stageJiraInvites(
   >,
   ticketMappings: ReadonlyMap<string, string>
 ): ReadonlyArray<JiraStagedInvite> {
-  const accountsByEmail = new Map<string, Array<string>>()
-  for (const { sourceAccountId, resolution } of identities) {
-    if (resolution.kind !== "invite") continue
-    const accounts = accountsByEmail.get(resolution.email)
-    if (accounts) accounts.push(sourceAccountId)
-    else accountsByEmail.set(resolution.email, [sourceAccountId])
-  }
+  const accountsByEmail = groupBy(
+    identities.flatMap(({ sourceAccountId, resolution }) =>
+      resolution.kind === "invite"
+        ? [{ sourceAccountId, email: resolution.email }]
+        : []
+    ),
+    ({ email }) => email,
+    ({ sourceAccountId }) => sourceAccountId
+  )
   const ticketIdsFor = (
     accounts: ReadonlySet<string>,
     accountOf: (issue: (typeof issues)[number]) => string | null | undefined
@@ -760,6 +810,27 @@ function excludedSourceRecords(
     if (restriction.targetKind === "comment") comments.add(restriction.targetId)
   }
   return { issues, comments }
+}
+
+function jiraEditedAt(createdAt: string, updatedAt: string | null) {
+  return updatedAt === null || compareInstants(createdAt, updatedAt) === 0
+    ? null
+    : updatedAt
+}
+
+function compareInstants(left: string, right: string): number {
+  const leftTime = DateTime.make(left)
+  const rightTime = DateTime.make(right)
+  return Option.isSome(leftTime) && Option.isSome(rightTime)
+    ? DateTime.toEpochMillis(leftTime.value) -
+        DateTime.toEpochMillis(rightTime.value)
+    : compareStrings(left, right)
+}
+
+export function compareJiraIds(left: string, right: string): number {
+  return /^\d+$/.test(left) && /^\d+$/.test(right)
+    ? left.length - right.length || compareStrings(left, right)
+    : compareStrings(left, right)
 }
 
 function requireMapped<K extends string, V>(
@@ -875,6 +946,11 @@ export const JiraAttachmentOutcome = Schema.Union([
   Schema.Struct({
     sourceAttachmentId: Schema.NonEmptyString,
     kind: Schema.Literals(["skipped", "excluded"])
+  }),
+  Schema.Struct({
+    sourceAttachmentId: Schema.NonEmptyString,
+    kind: Schema.Literal("failed"),
+    reason: Schema.NonEmptyString
   })
 ])
 
@@ -1006,15 +1082,14 @@ export const prepareJiraPublication = Effect.fn("prepareJiraPublication")(
       return yield* new JiraPublicationInvalid({
         reasons: reasons.toSorted(compareStrings)
       })
+    const values = sourceValues(input)
     for (const ref of [
       ...input.manifest.issues.flatMap((x) =>
         x.descriptionArtifact === null ? [] : [x.descriptionArtifact]
       ),
       ...input.manifest.comments.map((x) => x.bodyArtifact)
     ])
-      yield* decodeUnknownJiraResolvedConvertedText(
-        sourceValues(input).get(ref.key)
-      ).pipe(
+      yield* decodeUnknownJiraResolvedConvertedText(values.get(ref.key)).pipe(
         Effect.mapError(
           () =>
             new JiraPublicationInvalid({
@@ -1029,6 +1104,10 @@ export const prepareJiraPublication = Effect.fn("prepareJiraPublication")(
             .map((x) => x.targetId)
         : []
     )
+    const issueNumbers = new Map(
+      input.manifest.issues.map((issue) => [issue.id, issue.issueNumber])
+    )
+    const skipped = new Set(input.configuration.skippedAttachmentIds)
     const attachments = input.manifest.attachments
       .map((attachment): typeof PreparedAttachment.Encoded => {
         const id = jiraAttachmentId(
@@ -1036,9 +1115,10 @@ export const prepareJiraPublication = Effect.fn("prepareJiraPublication")(
           attachment.id,
           input.migrationCreatedAt
         )
-        const ticketId = input.manifest.issues.find(
-          (issue) => issue.id === attachment.issueId
-        )!.key
+        const ticketId = jiraDestinationTicketId(
+          input.configuration.destination.key,
+          issueNumbers.get(attachment.issueId)!
+        )
         return {
           sourceAttachmentId: attachment.id,
           id,
@@ -1058,7 +1138,7 @@ export const prepareJiraPublication = Effect.fn("prepareJiraPublication")(
           url: attachmentUrl(input.orgSlug, id),
           decision: excluded.has(attachment.issueId)
             ? "exclude"
-            : input.configuration.skippedAttachmentIds.includes(attachment.id)
+            : skipped.has(attachment.id)
               ? "skip"
               : "copy"
         }
@@ -1152,6 +1232,8 @@ const PlannedTicket = Schema.Struct({
   tags: Schema.Array(TagName),
   assignees: Schema.Array(Schema.String),
   createdBy: Schema.optional(Schema.NullOr(Schema.String)),
+  parent: Schema.optional(Schema.NullOr(TicketId)),
+  estimate: Schema.optional(Estimate),
   body: Schema.String,
   createdAt: Timestamp,
   updatedAt: Timestamp
@@ -1206,6 +1288,7 @@ const ProjectRow = Schema.Struct({
   color: Schema.String,
   banner: Schema.Null,
   iconImage: Schema.Null,
+  estimation: Schema.optional(EstimationMode),
   nextTicketNumber: Count,
   createdBy: Schema.String,
   createdAt: Timestamp,
@@ -1223,6 +1306,9 @@ const TicketRow = Schema.Struct({
   priority: TicketPriority,
   tags: Schema.Array(TagName),
   assignees: Schema.Array(Schema.String),
+  parent: Schema.optional(Schema.NullOr(TicketId)),
+  estimateUnit: Schema.optional(Schema.NullOr(EstimateUnit)),
+  estimateValue: Schema.optional(Schema.NullOr(Schema.Int)),
   branch: Schema.Null,
   pr: Schema.Null,
   prState: Schema.Null,
@@ -1305,6 +1391,7 @@ export const JiraPublicationPlanV1 = Schema.Struct({
   comments: Schema.Array(PlannedComment),
   invites: Schema.optional(Schema.Array(PlannedInvite)),
   attachments: Schema.Array(JiraAttachmentOutcome),
+  findings: Schema.optional(Schema.Array(JiraMigrationFinding)),
   documents: Schema.Array(PlannedDocument),
   maps: Schema.Struct({
     issues: Schema.Array(
@@ -1353,6 +1440,119 @@ const markdownDocument = (
   body: string
 ) => documentFor(path, `---\n${canonicalJiraJson(frontmatter)}\n---\n${body}`)
 
+const STORY_POINT_FIELDS = new Set(["story points", "story point estimate"])
+
+type JiraEstimatePlan = Readonly<{
+  mode: EstimationMode
+  byIssue: ReadonlyMap<string, Estimate>
+  drops: ReadonlyArray<JiraEstimateDrop>
+  ignoredTimeEstimates: number
+  found: number
+}>
+
+function planJiraEstimates(
+  manifest: JiraMigrationManifestV2,
+  values: ReadonlyMap<string, Schema.Json>,
+  importedIssueIds: ReadonlySet<string>
+): JiraEstimatePlan {
+  const points = new Map<string, number>()
+  for (const field of manifest.customFields) {
+    if (!STORY_POINT_FIELDS.has(field.name.trim().toLowerCase())) continue
+    for (const row of decodeUnknownJiraCustomFieldValuesSync(
+      values.get(field.valuesArtifact.key)
+    ))
+      if (
+        typeof row.value === "number" &&
+        importedIssueIds.has(row.issueId) &&
+        !points.has(row.issueId)
+      )
+        points.set(row.issueId, row.value)
+  }
+  const seconds = new Map(
+    manifest.issues.flatMap((issue) =>
+      importedIssueIds.has(issue.id) &&
+      issue.originalEstimateSeconds !== undefined &&
+      issue.originalEstimateSeconds !== null
+        ? [[issue.id, issue.originalEstimateSeconds] as const]
+        : []
+    )
+  )
+  const mode: EstimationMode =
+    points.size > 0 ? "points" : seconds.size > 0 ? "time" : "off"
+  const byIssue = new Map<string, Estimate>()
+  const drops: Array<JiraEstimateDrop> = []
+  if (mode === "points")
+    for (const [issueId, value] of points)
+      if (Number.isInteger(value) && value >= 1 && value <= ESTIMATE_MAX_POINTS)
+        byIssue.set(issueId, { unit: "points", value })
+      else drops.push({ issueId, unit: "points", value })
+  if (mode === "time")
+    for (const [issueId, value] of seconds) {
+      const minutes = value / 60
+      if (
+        Number.isInteger(minutes) &&
+        minutes >= 1 &&
+        minutes <= ESTIMATE_MAX_MINUTES
+      )
+        byIssue.set(issueId, { unit: "time", minutes })
+      else drops.push({ issueId, unit: "time", value })
+    }
+  return {
+    mode,
+    byIssue,
+    drops: drops.toSorted((left, right) =>
+      compareStrings(left.issueId, right.issueId)
+    ),
+    ignoredTimeEstimates:
+      mode === "points"
+        ? [...seconds.keys()].filter((issueId) => !points.has(issueId)).length
+        : 0,
+    found: new Set([...points.keys(), ...seconds.keys()]).size
+  }
+}
+
+const isoDay = (value: string | null | undefined) => {
+  if (value === null || value === undefined) return null
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  return Option.getOrNull(
+    Option.map(DateTime.make(value), DateTime.formatIsoDate)
+  )
+}
+
+export function jiraImportNote(
+  input: Readonly<{
+    siteUrl: string
+    key: string
+    assignee: string | null
+    reporter: string | null
+    dueDate: string | null
+    resolution: string | null
+    resolvedAt: string | null
+  }>
+): string {
+  const url = jiraIssueUrl(input.siteUrl, input.key)
+  const resolvedOn = isoDay(input.resolvedAt)
+  const dueDate = isoDay(input.dueDate)
+  return [
+    `Imported from Jira [${escapeMarkdownText(input.key)}](${url})`,
+    ...(input.assignee === null
+      ? []
+      : [`Assignee in Jira: ${escapeMarkdownText(input.assignee)}`]),
+    ...(input.reporter === null
+      ? []
+      : [`Reporter in Jira: ${escapeMarkdownText(input.reporter)}`]),
+    ...(dueDate === null ? [] : [`Due: ${dueDate}`]),
+    ...(input.resolution === null
+      ? []
+      : [
+          `Resolution: ${escapeMarkdownText(input.resolution)}${resolvedOn === null ? "" : ` (${resolvedOn})`}`
+        ])
+  ].join(" · ")
+}
+
+const withImportNote = (body: string, note: string) =>
+  body.trim() === "" ? note : `${body.trimEnd()}\n\n---\n\n${note}`
+
 export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
   function* (
     rawPrepared: JiraPreparedPublicationV1,
@@ -1375,13 +1575,14 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
     )
     const seen = new Set<string>()
     const reasons: Array<string> = []
+    const preparedAttachments = new Map(
+      prepared.attachments.map((x) => [x.sourceAttachmentId, x])
+    )
     for (const outcome of outcomes) {
       if (seen.has(outcome.sourceAttachmentId))
         reasons.push("duplicate-attachment-outcome")
       seen.add(outcome.sourceAttachmentId)
-      const expected = prepared.attachments.find(
-        (x) => x.sourceAttachmentId === outcome.sourceAttachmentId
-      )
+      const expected = preparedAttachments.get(outcome.sourceAttachmentId)
       if (!expected) {
         reasons.push("foreign-attachment-outcome")
         continue
@@ -1389,6 +1590,8 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
       if (outcome.kind === "skipped" && expected.decision !== "skip")
         reasons.push("unaccepted-attachment-skip")
       else if (outcome.kind === "excluded" && expected.decision !== "exclude")
+        reasons.push("contradictory-attachment-outcome")
+      else if (outcome.kind === "failed" && expected.decision !== "copy")
         reasons.push("contradictory-attachment-outcome")
       else if (
         outcome.kind === "copied" &&
@@ -1417,6 +1620,10 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
             .map((x) => x.targetId)
         : []
     )
+    const manifestIssues = new Map(manifest.issues.map((x) => [x.id, x]))
+    const displayNames = new Map(
+      manifest.identities.map((x) => [x.accountId, x.displayName])
+    )
     const source: JiraPublicationSource = {
       ...check.source,
       version: 2,
@@ -1430,16 +1637,14 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
         ...issue,
         description: sourceText(
           values,
-          manifest.issues.find((x) => x.id === issue.id)!.descriptionArtifact
+          manifestIssues.get(issue.id)!.descriptionArtifact
         )
       })),
       comments: manifest.comments.map((comment) => ({
         ...comment,
         body: sourceText(values, comment.bodyArtifact)!,
         authorDisplayName:
-          manifest.identities.find(
-            (x) => x.accountId === comment.authorAccountId
-          )?.displayName ?? comment.authorAccountId,
+          displayNames.get(comment.authorAccountId) ?? comment.authorAccountId,
         raw: null
       }))
     }
@@ -1496,11 +1701,43 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
       id: `G-${index + 1}`,
       color: "#777777"
     }))
-    const tickets = draft.plan.tickets
+    const estimates = planJiraEstimates(
+      manifest,
+      values,
+      new Set(draft.plan.tickets.map((ticket) => ticket.sourceIssueId))
+    )
+    const resolutions = new Map(
+      check.mappings.identities.map((x) => [x.sourceAccountId, x.resolution])
+    )
+    const unlinkedName = (accountId: string | null) =>
+      accountId === null || resolutions.get(accountId)?.kind === "link"
+        ? null
+        : (displayNames.get(accountId) ?? accountId)
+    const tickets = draft.plan.tickets.map((ticket) => {
+      const issue = manifestIssues.get(ticket.sourceIssueId)!
+      const estimate = estimates.byIssue.get(ticket.sourceIssueId)
+      return {
+        ...ticket,
+        ...(estimate === undefined ? {} : { estimate }),
+        body: withImportNote(
+          ticket.body,
+          jiraImportNote({
+            siteUrl: manifest.source.siteUrl,
+            key: issue.key,
+            assignee: unlinkedName(issue.assigneeAccountId),
+            reporter: unlinkedName(issue.reporterAccountId),
+            dueDate: issue.dueDate ?? null,
+            resolution: issue.resolution ?? null,
+            resolvedAt: issue.resolvedAt ?? null
+          })
+        )
+      }
+    })
     const comments = draft.plan.comments.map((comment) => ({
       ...comment,
       id: `c_jira_${digest(JSON.stringify([manifest.migrationId, comment.sourceCommentId])).slice(0, 32)}`
     }))
+    const commentsByTicket = groupBy(comments, (comment) => comment.ticketId)
     const documents = [
       markdownDocument(
         "project.md",
@@ -1513,6 +1750,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
           color: identity.color,
           createdBy: prepared.ownerId,
           createdAt: project.createdAt,
+          ...(estimates.mode === "off" ? {} : { estimation: estimates.mode }),
           setup: {
             workflowReviewedAt: null,
             invitePeopleDismissedAt: null,
@@ -1523,21 +1761,17 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
       ),
       ...tickets.map((ticket) => {
         const region = format.serializeCommentsRegion(
-          comments
-            .filter((comment) => comment.ticketId === ticket.id)
-            .map((comment) => ({
-              id: comment.id,
-              author: comment.author,
-              origin: "jira",
-              createdAt: DateTime.toDate(
-                DateTime.makeUnsafe(comment.createdAt)
-              ),
-              editedAt:
-                comment.editedAt === null
-                  ? null
-                  : DateTime.toDate(DateTime.makeUnsafe(comment.editedAt)),
-              body: comment.body
-            }))
+          (commentsByTicket.get(ticket.id) ?? []).map((comment) => ({
+            id: comment.id,
+            author: comment.author,
+            origin: "jira",
+            createdAt: DateTime.toDate(DateTime.makeUnsafe(comment.createdAt)),
+            editedAt:
+              comment.editedAt === null
+                ? null
+                : DateTime.toDate(DateTime.makeUnsafe(comment.editedAt)),
+            body: comment.body
+          }))
         )
         return markdownDocument(
           `tickets/${ticket.id}.md`,
@@ -1549,6 +1783,10 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
             priority: ticket.priority,
             tags: ticket.tags,
             assignees: ticket.assignees,
+            ...(ticket.parent ? { parent: ticket.parent } : {}),
+            ...(ticket.estimate
+              ? { estimate: estimateToken(ticket.estimate) }
+              : {}),
             branch: null,
             pr: null,
             prState: null,
@@ -1589,9 +1827,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
     }
     const attachments = outcomes.flatMap((outcome) => {
       if (outcome.kind !== "copied") return []
-      const attachment = prepared.attachments.find(
-        (x) => x.sourceAttachmentId === outcome.sourceAttachmentId
-      )!
+      const attachment = preparedAttachments.get(outcome.sourceAttachmentId)!
       return [
         {
           id: attachment.id,
@@ -1612,38 +1848,111 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
         }
       ]
     })
-    const archive = buildJiraArchiveV2(prepared, outcomes)
+    const ticketIdsByIssue = new Map(
+      tickets.map((ticket) => [ticket.sourceIssueId, ticket.id])
+    )
+    const excludedRecords = excludedSourceRecords(source, safeMappings)
+    const tagCandidates = buildTagCandidates(source)
+    const findings = [
+      ...buildJiraFindings({
+        manifest,
+        restrictionPolicy: jiraRestrictionPolicy(prepared.configuration),
+        destinationKey: project.key,
+        ticketIds: ticketIdsByIssue,
+        identities: resolutions,
+        parentDrops: resolveJiraHierarchy(source, safeMappings).dropped,
+        attachments: prepared.attachments,
+        unresolvedMedia: unresolvedJiraMediaReferences(
+          source,
+          safeMappings,
+          urls
+        ),
+        tags: tagCandidates,
+        tagDestinations: resolveTagDestinations(source, safeMappings),
+        skippedTags: skippedTagKeys(safeMappings),
+        textWarnings: [
+          ...source.issues.map((issue) => ({
+            issueId: issue.id,
+            commentId: null,
+            warnings: issue.description?.warnings ?? []
+          })),
+          ...source.comments
+            .filter((comment) => !excludedRecords.comments.has(comment.id))
+            .map((comment) => ({
+              issueId: comment.issueId,
+              commentId: comment.id,
+              warnings: comment.body.warnings
+            }))
+        ],
+        estimateDrops: estimates.drops,
+        ignoredTimeEstimates: estimates.ignoredTimeEstimates
+      }),
+      ...outcomes.flatMap((outcome) => {
+        if (outcome.kind !== "failed") return []
+        const attachment = preparedAttachments.get(outcome.sourceAttachmentId)!
+        return [
+          attachmentFailedFinding(
+            {
+              sourceAttachmentId: outcome.sourceAttachmentId,
+              filename: attachment.filename,
+              issueKey:
+                manifestIssues.get(attachment.issueId)?.key ??
+                attachment.issueId,
+              ticketId: attachment.ticketId,
+              siteUrl: manifest.source.siteUrl
+            },
+            outcome.reason
+          )
+        ]
+      })
+    ]
+    const copiedAttachmentIds = new Set(
+      attachments.map((attachment) => attachment.id)
+    )
+    const archive = buildJiraArchiveV2(prepared, outcomes, findings)
     const report = buildJiraReportV2(
       archive,
       {
-        tickets: tickets.length,
-        comments: comments.length,
-        groups: groups.length,
-        tags: tags.length,
-        statuses: statuses.length,
-        attachments: attachments.length,
-        members: members.length
-      },
-      outcomes.flatMap((outcome) => {
-        if (outcome.kind !== "skipped") return []
-        const attachment = prepared.attachments.find(
-          (item) => item.sourceAttachmentId === outcome.sourceAttachmentId
-        )!
-        const issue = prepared.manifest.issues.find(
-          (item) => item.id === attachment.issueId
-        )!
-        return [
+        destination: {
+          orgSlug: prepared.orgSlug,
+          slug: project.slug,
+          key: project.key,
+          name: project.name
+        },
+        counts: [
           {
-            sourceAttachmentId: outcome.sourceAttachmentId,
-            filename: attachment.filename,
-            sourceIssueKey: issue.key,
-            targetTicketId: attachment.ticketId,
-            sourceIssueUrl: `${prepared.manifest.source.siteUrl.replace(/\/$/, "")}/browse/${encodeURIComponent(issue.key)}`,
-            targetTicketUrl: `/orgs/${encodeURIComponent(prepared.orgSlug)}/projects/${encodeURIComponent(project.slug)}/tickets/${encodeURIComponent(attachment.ticketId)}`
+            label: "Issues",
+            found: manifest.issues.length,
+            imported: tickets.length
+          },
+          {
+            label: "Comments",
+            found: manifest.comments.length,
+            imported: comments.length
+          },
+          {
+            label: "Attachments",
+            found: manifest.attachments.length,
+            imported: attachments.length
+          },
+          {
+            label: "Sprints",
+            found: manifest.sprints.length,
+            imported: groups.length
+          },
+          {
+            label: "Labels and components",
+            found: tagCandidates.length,
+            imported: tags.length
+          },
+          {
+            label: "Estimates",
+            found: estimates.found,
+            imported: estimates.byIssue.size
           }
         ]
-      }),
-      unresolvedJiraMediaReferences(source, safeMappings, urls)
+      },
+      findings
     )
     const plan = yield* decodeUnknownJiraPublicationPlanV1({
       version: 1,
@@ -1658,6 +1967,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
       comments,
       invites: draft.plan.invites,
       attachments: outcomes,
+      findings,
       documents,
       maps: {
         issues: tickets.map((x) => ({
@@ -1687,6 +1997,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
           color: identity.color,
           banner: null,
           iconImage: null,
+          estimation: estimates.mode,
           nextTicketNumber:
             Math.max(0, ...manifest.issues.map((x) => x.issueNumber)) + 1,
           createdBy: prepared.ownerId,
@@ -1705,6 +2016,9 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
           priority: ticket.priority,
           tags: ticket.tags,
           assignees: ticket.assignees,
+          parent: ticket.parent ?? null,
+          estimateUnit: ticket.estimate?.unit ?? null,
+          estimateValue: ticket.estimate ? estimateRank(ticket.estimate) : null,
           branch: null,
           pr: null,
           prState: null,
@@ -1733,9 +2047,9 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
         attachmentReferences: tickets.flatMap((ticket) => {
           const body = [
             ticket.body,
-            ...comments
-              .filter((comment) => comment.ticketId === ticket.id)
-              .map((comment) => comment.body)
+            ...(commentsByTicket.get(ticket.id) ?? []).map(
+              (comment) => comment.body
+            )
           ].join("\n")
           return [
             ...new Set(
@@ -1743,7 +2057,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
                 .filter(
                   (ref) =>
                     ref.orgSlug === prepared.orgSlug &&
-                    attachments.some((attachment) => attachment.id === ref.id)
+                    copiedAttachmentIds.has(ref.id)
                 )
                 .map((ref) => ref.id)
             )
@@ -1781,11 +2095,11 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
       archive,
       report,
       archiveDocument: documentFor(
-        `imports/jira/${manifest.migrationId}/archive.json`,
+        jiraArchivePath(manifest.migrationId),
         canonicalJiraJson(archive)
       ),
       reportDocument: documentFor(
-        `imports/jira/${manifest.migrationId}/report.md`,
+        jiraReportPath(manifest.migrationId),
         report.markdown
       )
     })
@@ -1800,6 +2114,13 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
   }
 )
 
+export const jiraImportPath = (migrationId: string) =>
+  `imports/jira/${migrationId}`
+export const jiraArchivePath = (migrationId: string) =>
+  `${jiraImportPath(migrationId)}/archive.json`
+export const jiraReportPath = (migrationId: string) =>
+  `${jiraImportPath(migrationId)}/report.md`
+
 const freezeJiraValue = <A>(value: A): A => {
   if (value !== null && typeof value === "object") {
     for (const child of Object.values(value)) freezeJiraValue(child)
@@ -1807,12 +2128,8 @@ const freezeJiraValue = <A>(value: A): A => {
   }
   return value
 }
-const CustomFieldValuesSchema = Schema.Array(
-  Schema.Struct({ issueId: Schema.NonEmptyString, value: Schema.Json })
-)
-
 const decodeUnknownCustomFieldValuesSchema = Schema.decodeUnknownEffect(
-  CustomFieldValuesSchema
+  JiraCustomFieldValues
 )
 const validatePublicationSource = Effect.fn("validatePublicationSource")(
   function* (input: typeof JiraPreparationInput.Type) {
@@ -1848,6 +2165,24 @@ const validatePublicationSource = Effect.fn("validatePublicationSource")(
         reasons.push("duplicate-source-id")
     const issueIds = new Set(manifest.issues.map((x) => x.id))
     const accountIds = new Set(manifest.identities.map((x) => x.accountId))
+    const statusIds = new Set(manifest.statuses.map((x) => x.id))
+    const typeIds = new Set(manifest.issueTypes.map((x) => x.id))
+    const subtaskTypeIds = new Set(
+      manifest.issueTypes.filter((x) => x.subtask).map((x) => x.id)
+    )
+    const priorityIds = new Set(manifest.priorities.map((x) => x.id))
+    const componentIds = new Set(manifest.components.map((x) => x.id))
+    const issueTypeById = new Map(
+      manifest.issues.map((x) => [x.id, x.issueTypeId])
+    )
+    const restrictionTargets = new Set(
+      manifest.restrictions.map((x) => `${x.targetKind}:${x.targetId}`)
+    )
+    const targetIds = {
+      issue: issueIds,
+      comment: new Set(manifest.comments.map((x) => x.id)),
+      worklog: new Set(manifest.worklogs.map((x) => x.id))
+    }
     const owned = [
       ...manifest.comments,
       ...manifest.worklogs,
@@ -1862,13 +2197,10 @@ const validatePublicationSource = Effect.fn("validatePublicationSource")(
         reasons.push("invalid-source-reference")
     for (const issue of manifest.issues)
       if (
-        !manifest.statuses.some((x) => x.id === issue.statusId) ||
-        !manifest.issueTypes.some((x) => x.id === issue.issueTypeId) ||
-        (issue.priorityId !== null &&
-          !manifest.priorities.some((x) => x.id === issue.priorityId)) ||
-        issue.componentIds.some(
-          (id) => !manifest.components.some((x) => x.id === id)
-        ) ||
+        !statusIds.has(issue.statusId) ||
+        !typeIds.has(issue.issueTypeId) ||
+        (issue.priorityId !== null && !priorityIds.has(issue.priorityId)) ||
+        issue.componentIds.some((id) => !componentIds.has(id)) ||
         [issue.assigneeAccountId, issue.reporterAccountId].some(
           (id) => id !== null && !accountIds.has(id)
         )
@@ -1897,32 +2229,14 @@ const validatePublicationSource = Effect.fn("validatePublicationSource")(
     for (const relation of manifest.parentsSubtasks)
       if (
         !issueIds.has(relation.parentIssueId) ||
-        !manifest.issues.some(
-          (issue) =>
-            issue.id === relation.subtaskIssueId &&
-            manifest.issueTypes.some(
-              (type) => type.id === issue.issueTypeId && type.subtask
-            )
-        )
+        !subtaskTypeIds.has(issueTypeById.get(relation.subtaskIssueId) ?? "")
       )
         reasons.push("invalid-source-reference")
     for (const workflow of manifest.workflows)
-      if (
-        workflow.statusIds.some(
-          (id) => !manifest.statuses.some((x) => x.id === id)
-        )
-      )
+      if (workflow.statusIds.some((id) => !statusIds.has(id)))
         reasons.push("invalid-source-reference")
     for (const restriction of manifest.restrictions)
-      if (
-        !Match.value(restriction.targetKind)
-          .pipe(
-            Match.when("issue", () => manifest.issues),
-            Match.when("comment", () => manifest.comments),
-            Match.orElse(() => manifest.worklogs)
-          )
-          .some((x) => x.id === restriction.targetId)
-      )
+      if (!targetIds[restriction.targetKind].has(restriction.targetId))
         reasons.push("invalid-source-reference")
     for (const [kind, records] of [
       ["comment", manifest.comments],
@@ -1931,9 +2245,7 @@ const validatePublicationSource = Effect.fn("validatePublicationSource")(
       for (const record of records)
         if (
           record.restricted &&
-          !manifest.restrictions.some(
-            (x) => x.targetKind === kind && x.targetId === record.id
-          )
+          !restrictionTargets.has(`${kind}:${record.id}`)
         )
           reasons.push("missing-restriction-metadata")
     const timestamps = [

@@ -98,12 +98,11 @@ describe.skipIf(!databaseUrl)("Jira migration retention", () => {
               workflowExecutionId: row.workflowExecutionId!,
               workflowAttempt: row.workflowAttempt
             }
+            yield* projection.recordFailure(fence, {
+              reason: "retryable"
+            })
             if (row.id === uncertain.id)
               yield* projection.beginRemoteWrites(fence)
-            yield* projection.recordFailure(fence, {
-              reason: "retryable",
-              retryable: true
-            })
           }
           return { eligible, future, active, uncertain }
         }).pipe(Effect.provide(layer))

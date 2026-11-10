@@ -1,50 +1,58 @@
-import { JiraMigrationStatus } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
-import {
-  isActiveJiraMigration,
-  jiraMigrationScreen,
-  jiraMigrationStatusLabel
-} from "./screen"
+import { jiraProgressCount, jiraStoppedKind, navigableStages } from "./screen"
 
-describe("jiraMigrationStatusLabel", () => {
-  it.each<readonly [JiraMigrationStatus, string]>([
-    ["scanning", "Scanning"],
-    ["needs_configuration", "Needs configuration"],
-    ["ready", "Ready"],
-    ["migrating", "Migrating"],
-    ["cancelling", "Cancelling"],
-    ["reconnect_required", "Reconnect required"],
-    ["failed", "Needs attention"],
-    ["cancelled", "Cancelled"],
-    ["succeeded", "Complete"]
-  ])("labels %s as %s", (status, expected) => {
-    expect(jiraMigrationStatusLabel(status)).toBe(expected)
-  })
-})
+const actions = {
+  canConfigure: true,
+  canRun: false,
+  canRescan: true,
+  canCancel: false,
+  canRetry: false,
+  canDiscard: true
+}
 
-describe("jiraMigrationScreen", () => {
-  it.each<readonly [JiraMigrationStatus, string]>([
-    ["scanning", "scan-progress"],
-    ["needs_configuration", "configuration"],
-    ["ready", "configuration"],
-    ["migrating", "migration-progress"],
-    ["cancelling", "migration-progress"],
-    ["reconnect_required", "reconnect"],
-    ["failed", "failed"],
-    ["cancelled", "cancelled"],
-    ["succeeded", "succeeded"]
-  ])("routes %s to %s", (status, expected) => {
-    expect(jiraMigrationScreen(status)).toBe(expected)
-  })
-})
-
-describe("isActiveJiraMigration", () => {
-  it("polls only work that can still make server-side progress", () => {
-    expect(JiraMigrationStatus.literals.filter(isActiveJiraMigration)).toEqual([
-      "scanning",
-      "migrating",
-      "cancelling"
+describe("navigableStages", () => {
+  it("lets set up move between its steps and a stopped import return to them", () => {
+    expect(navigableStages({ status: "ready", actions }, true)).toEqual([
+      "scan",
+      "setup",
+      "review"
     ])
+    expect(navigableStages({ status: "failed", actions }, true)).toEqual([
+      "setup",
+      "review",
+      "import"
+    ])
+  })
+
+  it("offers nothing without a scan, while running or when the server says no", () => {
+    expect(navigableStages({ status: "ready", actions }, false)).toEqual([])
+    expect(navigableStages({ status: "migrating", actions }, true)).toEqual([])
+    expect(
+      navigableStages(
+        { status: "failed", actions: { ...actions, canConfigure: false } },
+        true
+      )
+    ).toEqual([])
+  })
+})
+
+describe("jiraProgressCount", () => {
+  it("shows done of total, a running count, or nothing yet", () => {
+    expect(jiraProgressCount({ phase: "x", done: 3, total: 10 })).toBe(
+      "3 of 10"
+    )
+    expect(jiraProgressCount({ phase: "x", done: 4, total: null })).toBe(
+      "4 records read"
+    )
+    expect(jiraProgressCount({ phase: "x", done: 0, total: null })).toBeNull()
+  })
+})
+
+describe("jiraStoppedKind", () => {
+  it("treats every other stopped screen as a failure", () => {
+    expect(jiraStoppedKind("cancelled")).toBe("cancelled")
+    expect(jiraStoppedKind("unavailable")).toBe("unavailable")
+    expect(jiraStoppedKind("reconnect")).toBe("failed")
   })
 })

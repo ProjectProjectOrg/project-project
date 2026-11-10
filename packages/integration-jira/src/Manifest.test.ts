@@ -451,7 +451,6 @@ it("requires scan attachment metadata rather than claiming downloaded binary con
 })
 
 it.effect.each([
-  { ...manifestV2, issues: [...manifestV2.issues, manifestV2.issues[0]] },
   {
     ...manifestV2,
     comments: manifestV2.comments.map((comment) => ({
@@ -477,17 +476,15 @@ it.effect.each([
       }
     ]
   }
-])(
-  "rejects duplicate identities and dangling internal manifest references",
-  (manifest) =>
-    Effect.gen(function* () {
-      expect(
-        yield* Effect.result(validateScanManifestV2(manifest))
-      ).toMatchObject({
-        _tag: "Failure",
-        failure: { _tag: "JiraScanFailure", retryable: false }
-      })
+])("rejects dangling internal manifest references", (manifest) =>
+  Effect.gen(function* () {
+    expect(
+      yield* Effect.result(validateScanManifestV2(manifest))
+    ).toMatchObject({
+      _tag: "Failure",
+      failure: { _tag: "JiraScanFailure", retryable: false }
     })
+  })
 )
 
 it.effect(

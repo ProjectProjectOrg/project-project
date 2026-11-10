@@ -1,19 +1,30 @@
-import type { JiraMigrationUserOption } from "@pp/shared"
-import { DateTime, Effect, Option, Result, Schema, SchemaIssue } from "effect"
+import type { JiraMigrationFinding, JiraMigrationUserOption } from "@pp/shared"
+import {
+  DateTime,
+  Effect,
+  Option,
+  Predicate,
+  Result,
+  Schema,
+  SchemaIssue
+} from "effect"
 import * as Match from "effect/Match"
 
 import * as C from "./ClientSchemas"
+import { countBy, groupBy } from "./collections"
+import { jiraFinding } from "./Findings"
 import {
   JiraMigrationManifestV2,
   normalizeJiraMigrationManifestV2
 } from "./Manifest"
 import {
+  JiraScanFailure,
   scanFailure,
-  type JiraScanContext,
-  type JiraScanKind
+  type JiraScanContext
 } from "./MigrationActivities"
 import type * as MigrationArtifacts from "./MigrationArtifacts"
 import { buildJiraScanArtifacts } from "./Scan"
+import { ISSUE_DEPENDENT_SCAN_KINDS, type JiraScanKind } from "./scanKinds"
 
 const decodeUnknownJiraProjectArray = Schema.decodeUnknownEffect(
   Schema.Array(C.JiraProject)
@@ -100,6 +111,28 @@ const customFieldText = (value: Schema.Json | undefined) =>
 const unique = <A>(values: ReadonlyArray<A>, key: (value: A) => string) => [
   ...new Map(values.map((value) => [key(value), value])).values()
 ]
+const IssueDetails = Schema.Struct({
+  duedate: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  resolution: Schema.optionalKey(
+    Schema.NullOr(Schema.Struct({ name: Schema.optionalKey(Schema.String) }))
+  ),
+  resolutiondate: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  timeoriginalestimate: Schema.optionalKey(Schema.NullOr(Schema.Finite))
+})
+const decodeIssueDetails = Schema.decodeUnknownOption(IssueDetails)
+const issueDetails = (fields: Schema.Json) => {
+  const details = Option.getOrNull(decodeIssueDetails(fields))
+  const estimate = details?.timeoriginalestimate ?? null
+  return {
+    dueDate: details?.duedate || null,
+    resolution: details?.resolution?.name || null,
+    resolvedAt: details?.resolutiondate || null,
+    originalEstimateSeconds:
+      estimate !== null && Number.isInteger(estimate) && estimate > 0
+        ? estimate
+        : null
+  }
+}
 const ScanValueIdentity = Schema.Struct({
   id: Schema.optionalKey(Schema.Union([Schema.String, Schema.Finite])),
   accountId: Schema.optionalKey(Schema.String)
@@ -137,6 +170,51 @@ const checkFieldMetadata = Schema.decodeUnknownResult(StrictFieldMetadata, {
   errors: "all"
 })
 const formatMetadataIssue = SchemaIssue.makeFormatterStandardSchemaV1()
+
+const decodeEmbeddedComments = Schema.decodeUnknownOption(
+  Schema.Struct({ comments: Schema.Array(C.JiraComment), total: Schema.Finite })
+)
+const decodeEmbeddedWorklogs = Schema.decodeUnknownOption(
+  Schema.Struct({ worklogs: Schema.Array(C.JiraWorklog), total: Schema.Finite })
+)
+const decodeWatchCount = Schema.decodeUnknownOption(
+  Schema.Struct({ watchCount: Schema.Finite })
+)
+const decodeVoteCount = Schema.decodeUnknownOption(
+  Schema.Struct({ votes: Schema.Finite })
+)
+
+const embeddedComments = (issue: C.JiraIssue) =>
+  decodeEmbeddedComments(issue.fields["comment"]).pipe(
+    Option.filter(({ comments, total }) => total <= comments.length),
+    Option.map(({ comments }) => comments)
+  )
+
+const embeddedWorklogs = (issue: C.JiraIssue) =>
+  decodeEmbeddedWorklogs(issue.fields["worklog"]).pipe(
+    Option.filter(({ worklogs, total }) => total <= worklogs.length),
+    Option.map(({ worklogs }) => worklogs)
+  )
+
+export const issueDetailKinds = (
+  issue: C.JiraIssue
+): ReadonlyArray<JiraScanKind> => [
+  ...(Option.isSome(embeddedComments(issue)) ? [] : ["comments" as const]),
+  "changelogs",
+  ...(Option.isSome(embeddedWorklogs(issue)) ? [] : ["worklogs" as const]),
+  ...(Option.exists(
+    decodeWatchCount(issue.fields["watches"]),
+    ({ watchCount }) => watchCount === 0
+  )
+    ? []
+    : ["watchers" as const]),
+  ...(Option.exists(
+    decodeVoteCount(issue.fields["votes"]),
+    ({ votes }) => votes === 0
+  )
+    ? []
+    : ["votes" as const])
+]
 
 export const prepareScanV2 = Effect.fn("prepareScanV2")(function* (
   context: JiraScanContext,
@@ -199,25 +277,49 @@ export const prepareScanV2 = Effect.fn("prepareScanV2")(function* (
           )
         )
     ).pipe(Effect.map((values) => values.flat()))
-  const comments = yield* nested("comments", decodeUnknownJiraCommentArray)
+  const embedded = <A>(
+    kind: JiraScanKind,
+    select: (issue: C.JiraIssue) => Option.Option<ReadonlyArray<A>>
+  ) => {
+    const fetched = new Set(
+      chunks
+        .filter((chunk) => chunk.kind === kind)
+        .map((chunk) => chunk.parentId)
+    )
+    return issues.flatMap((issue) =>
+      fetched.has(issue.id)
+        ? []
+        : Option.getOrElse(select(issue), (): ReadonlyArray<A> => []).map(
+            (value) => ({ issueId: issue.id, value })
+          )
+    )
+  }
+  const comments = [
+    ...(yield* nested("comments", decodeUnknownJiraCommentArray)),
+    ...embedded("comments", embeddedComments)
+  ]
   const changelogs = yield* nested(
     "changelogs",
     decodeUnknownJiraChangelogArray
   )
-  const worklogs = yield* nested("worklogs", decodeUnknownJiraWorklogArray)
+  const worklogs = [
+    ...(yield* nested("worklogs", decodeUnknownJiraWorklogArray)),
+    ...embedded("worklogs", embeddedWorklogs)
+  ]
   const watchers = yield* nested("watchers", decodeUnknownJiraWatchersArray)
   const votes = yield* nested("votes", decodeUnknownJiraVotesArray)
   const byIssue = <A>(
     values: ReadonlyArray<Readonly<{ issueId: string; value: A }>>
-  ) =>
-    Object.fromEntries(
-      issues.map((issue) => [
-        issue.id,
-        values
-          .filter((item) => item.issueId === issue.id)
-          .map((item) => item.value)
-      ])
+  ) => {
+    const grouped = groupBy(
+      values,
+      (item) => item.issueId,
+      (item) => item.value
     )
+    return Object.fromEntries(
+      issues.map((issue) => [issue.id, grouped.get(issue.id) ?? []])
+    )
+  }
   const sprintMembership = yield* Effect.forEach(sprints, (sprint) =>
     Effect.gen(function* () {
       const memberships = chunks
@@ -268,9 +370,23 @@ export const prepareScanV2 = Effect.fn("prepareScanV2")(function* (
     ],
     (user) => user.accountId
   )
+  const tally = (accountIds: ReadonlyArray<string | null | undefined>) =>
+    countBy(accountIds.filter(Predicate.isString))
+  const assigned = tally(
+    legacy.manifest.issues.map((issue) => issue.assigneeAccountId)
+  )
+  const reported = tally(
+    issues.map((issue) => issue.fields.reporter?.accountId)
+  )
+  const commented = tally(
+    legacy.manifest.comments.map((comment) => comment.authorAccountId)
+  )
   const requirements = {
     ...legacy.requirements,
     identities: identities.map((identity) => ({
+      assignedIssueCount: assigned.get(identity.accountId) ?? 0,
+      reportedIssueCount: reported.get(identity.accountId) ?? 0,
+      commentCount: commented.get(identity.accountId) ?? 0,
       jiraAccountId: identity.accountId,
       displayName: identity.displayName,
       email: identity.emailAddress,
@@ -344,6 +460,15 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
 ) {
   const { context, legacy, issues, fields } = data
   const ref = (kind: string, id: string) => refs.get(`${kind}:${id}`)
+  const sourceIssues = new Map(issues.map((issue) => [issue.id, issue]))
+  const subtaskTypes = new Set(
+    legacy.manifest.issueTypes
+      .filter((type) => type.subtask)
+      .map(({ id }) => id)
+  )
+  const keysById = new Map(
+    legacy.manifest.issues.map((issue) => [issue.id, issue.key])
+  )
   const manifest = yield* decodeUnknownJiraMigrationManifestV2({
     version: 2,
     migrationId: context.migrationId,
@@ -381,14 +506,16 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
     issueTypes: legacy.manifest.issueTypes,
     priorities: legacy.manifest.priorities,
     components: legacy.manifest.components,
-    issues: legacy.manifest.issues.map((issue) => ({
-      ...issue,
-      descriptionArtifact: ref("description", issue.id) ?? null,
-      reporterAccountId:
-        issues.find((source) => source.id === issue.id)?.fields.reporter
-          ?.accountId ?? null,
-      labelIds: issue.labels
-    })),
+    issues: legacy.manifest.issues.map((issue) => {
+      const source = sourceIssues.get(issue.id)
+      return {
+        ...issue,
+        ...(source === undefined ? {} : issueDetails(source.fields)),
+        descriptionArtifact: ref("description", issue.id) ?? null,
+        reporterAccountId: source?.fields.reporter?.accountId ?? null,
+        labelIds: issue.labels
+      }
+    }),
     comments: legacy.manifest.comments.map((comment) => ({
       ...comment,
       bodyArtifact: ref("comment", comment.id)
@@ -435,9 +562,8 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
       .filter(
         (issue) =>
           issue.parentIssueId !== null &&
-          legacy.manifest.issueTypes.some(
-            (type) => type.id === issue.issueTypeId && type.subtask
-          )
+          keysById.has(issue.parentIssueId) &&
+          subtaskTypes.has(issue.issueTypeId)
       )
       .map((issue) => ({
         id: issue.id,
@@ -448,9 +574,7 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
       .filter((group) => group.kind === "epic")
       .map((group) => ({
         id: group.id.slice(5),
-        key: legacy.manifest.issues.find(
-          (issue) => `epic:${issue.id}` === group.id
-        )?.key,
+        key: keysById.get(group.id.slice(5)),
         name: group.name,
         issueIds: group.issueIds
       })),
@@ -464,15 +588,15 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
         startsAt: group.startsAt,
         endsAt: group.endsAt
       })),
-    versionsReleases: data.versions.map((version) => ({
-      id: version.id,
-      name: version.name,
-      released: version.released ?? false,
-      releaseDate: version.releaseDate ?? null,
-      issueIds: legacy.manifest.issues
-        .filter((issue) => issue.groupIds.includes(`version:${version.id}`))
-        .map((issue) => issue.id)
-    })),
+    versionsReleases: legacy.manifest.groups
+      .filter((group) => group.kind === "milestone")
+      .map((group) => ({
+        id: group.id.slice("version:".length),
+        name: group.name,
+        released: group.state === "completed",
+        releaseDate: group.endsAt,
+        issueIds: group.issueIds
+      })),
     ranks: issues.flatMap((issue) =>
       fields
         .filter(
@@ -533,28 +657,31 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
         type: field.schema?.type ?? "unknown",
         valuesArtifact: ref("custom-field", field.id)
       })),
-    coverage: [...new Set(data.chunks.map((chunk) => chunk.kind))].map(
-      (category) => {
-        const warnings = [
-          ...data.chunks
-            .filter((chunk) => chunk.kind === category)
-            .flatMap((chunk) => chunk.warnings),
-          ...(category === "issues"
-            ? issues.flatMap((issue) => issue.normalizationWarnings ?? [])
-            : []),
-          ...(category === "fields"
-            ? fields.flatMap((field) => field.normalizationWarnings)
-            : [])
-        ]
-        return {
-          category,
-          visibility: warnings.length > 0 ? "partial" : "visible-only",
-          reason: warnings.includes("permission_denied")
-            ? "permission_denied"
-            : (warnings[0] ?? "jira-permissions")
-        }
+    coverage: [
+      ...new Set([
+        ...data.chunks.map((chunk) => chunk.kind),
+        ...(issues.length === 0 ? [] : ISSUE_DEPENDENT_SCAN_KINDS)
+      ])
+    ].map((category) => {
+      const warnings = [
+        ...data.chunks
+          .filter((chunk) => chunk.kind === category)
+          .flatMap((chunk) => chunk.warnings),
+        ...(category === "issues"
+          ? issues.flatMap((issue) => issue.normalizationWarnings ?? [])
+          : []),
+        ...(category === "fields"
+          ? fields.flatMap((field) => field.normalizationWarnings)
+          : [])
+      ]
+      return {
+        category,
+        visibility: warnings.length > 0 ? "partial" : "visible-only",
+        reason: warnings.includes("permission_denied")
+          ? "permission_denied"
+          : (warnings[0] ?? "jira-permissions")
       }
-    ),
+    }),
     warnings: [
       ...fields.flatMap((field) =>
         field.normalizationWarnings.map((message, index) => ({
@@ -588,26 +715,76 @@ export const buildScanManifestV2 = Effect.fn("buildScanManifestV2")(function* (
     schemaVersions: [{ id: "jira-manifest", version: "2" }],
     converterVersions: [{ id: "jira-adf", version: "1" }]
   })
-  yield* validateScanManifestV2(manifest)
-  return normalizeJiraMigrationManifestV2(manifest)
+  const deduped = dedupeScanManifestV2(manifest)
+  yield* validateScanManifestV2(deduped.manifest)
+  return {
+    manifest: normalizeJiraMigrationManifestV2(deduped.manifest),
+    repairs: [...legacy.repairs, ...deduped.findings]
+  }
 })
+const decodeManifestRecordIdentity = Schema.decodeUnknownOption(
+  Schema.Struct({
+    id: Schema.optional(Schema.String),
+    accountId: Schema.optional(Schema.String),
+    key: Schema.optional(Schema.String)
+  })
+)
+const manifestRecordId = (value: unknown): string | null =>
+  decodeManifestRecordIdentity(value).pipe(
+    Option.flatMap((identity) =>
+      Option.fromNullishOr(identity.id ?? identity.accountId ?? identity.key)
+    ),
+    Option.getOrNull
+  )
+
+export const dedupeScanManifestV2 = (manifest: JiraMigrationManifestV2) => {
+  const findings: Array<JiraMigrationFinding> = []
+  const deduped: Record<string, unknown> = {}
+  for (const [name, values] of Object.entries(manifest)) {
+    if (!Array.isArray(values)) {
+      deduped[name] = values
+      continue
+    }
+    const seen = new Set<string>()
+    deduped[name] = values.filter((value) => {
+      const id = manifestRecordId(value)
+      if (id === null) return true
+      if (!seen.has(id)) {
+        seen.add(id)
+        return true
+      }
+      findings.push(
+        jiraFinding(
+          "source-duplicate-dropped",
+          `${name} ${id}`,
+          "Jira returned this record more than once; the first copy was kept and the others were ignored.",
+          id
+        )
+      )
+      return false
+    })
+  }
+  return { manifest: deduped as JiraMigrationManifestV2, findings }
+}
+
+const invalidManifest = (reason: string, subject: string, detail: string) =>
+  new JiraScanFailure({
+    reason,
+    retryable: false,
+    reconnect: false,
+    subject,
+    detail
+  })
+const invalidReference = (subject: string, detail: string) =>
+  invalidManifest("jira_migration_invalid_reference", subject, detail)
+
 export const validateScanManifestV2 = Effect.fn("validateScanManifestV2")(
   function* (manifest: JiraMigrationManifestV2) {
-    for (const [name, values] of Object.entries(manifest)) {
-      if (!Array.isArray(values)) continue
-      const ids = values.flatMap((value) => {
-        const id = Match.value(value).pipe(
-          Match.when({ id: Match.string }, ({ id }) => id),
-          Match.when({ accountId: Match.string }, ({ accountId }) => accountId),
-          Match.when({ key: Match.string }, ({ key }) => key),
-          Match.orElse(() => null)
-        )
-        return id === null ? [] : [id]
-      })
-      if (new Set(ids).size !== ids.length)
-        return yield* scanFailure(`jira_migration_duplicate_${name}`)
-    }
     const issues = new Set(manifest.issues.map((issue) => issue.id))
+    const issueKeys = new Map(
+      manifest.issues.map((issue) => [issue.id, issue.key])
+    )
+    const keyOf = (issueId: string) => issueKeys.get(issueId) ?? issueId
     const statuses = new Set(manifest.statuses.map((status) => status.id))
     const types = new Set(manifest.issueTypes.map((type) => type.id))
     const priorities = new Set(manifest.priorities.map((value) => value.id))
@@ -624,45 +801,76 @@ export const validateScanManifestV2 = Effect.fn("validateScanManifestV2")(
         Match.orElse(() => worklogIds)
       )
       if (!targets.has(restriction.targetId))
-        return yield* scanFailure("jira_migration_invalid_reference")
+        return yield* invalidReference(
+          `restriction ${restriction.id}`,
+          `restricted ${restriction.targetKind} ${restriction.targetId} is not in the scan`
+        )
     }
-    for (const workflow of manifest.workflows)
-      if (workflow.statusIds.some((id) => !statuses.has(id)))
-        return yield* scanFailure("jira_migration_invalid_reference")
+    for (const workflow of manifest.workflows) {
+      const missing = workflow.statusIds.find((id) => !statuses.has(id))
+      if (missing !== undefined)
+        return yield* invalidReference(
+          `workflow ${workflow.name}`,
+          `status ${missing} is not in the scan`
+        )
+    }
     for (const group of [
       ...manifest.epics,
       ...manifest.sprints,
       ...manifest.versionsReleases
-    ])
-      if (group.issueIds.some((id) => !issues.has(id)))
-        return yield* scanFailure("jira_migration_invalid_reference")
+    ]) {
+      const missing = group.issueIds.find((id) => !issues.has(id))
+      if (missing !== undefined)
+        return yield* invalidReference(
+          `group ${group.id}`,
+          `issue ${missing} is not in the scan`
+        )
+    }
     for (const value of [...manifest.watchers, ...manifest.votes])
       if (!identities.has(value.accountId))
-        return yield* scanFailure("jira_migration_invalid_reference")
-    for (const relation of manifest.parentsSubtasks) {
-      const child = manifest.issues.find(
-        (issue) => issue.id === relation.subtaskIssueId
-      )
-      if (child === undefined)
-        return yield* scanFailure("jira_migration_invalid_reference")
-      if (
-        !manifest.issueTypes.some(
-          (type) => type.id === child.issueTypeId && type.subtask
+        return yield* invalidReference(
+          `${keyOf(value.issueId)} watcher or vote`,
+          `account ${value.accountId} is not in the scan`
         )
-      )
-        return yield* scanFailure("jira_migration_invalid_subtask")
+    const issueTypeIds = new Map(
+      manifest.issues.map((issue) => [issue.id, issue.issueTypeId])
+    )
+    const subtaskTypes = new Set(
+      manifest.issueTypes.filter((type) => type.subtask).map(({ id }) => id)
+    )
+    for (const relation of manifest.parentsSubtasks) {
+      const childType = issueTypeIds.get(relation.subtaskIssueId)
+      if (childType === undefined)
+        return yield* invalidReference(
+          `sub-task ${relation.subtaskIssueId}`,
+          `issue ${relation.subtaskIssueId} is not in the scan`
+        )
+      if (!subtaskTypes.has(childType))
+        return yield* invalidManifest(
+          "jira_migration_invalid_subtask",
+          keyOf(relation.subtaskIssueId),
+          `issue type ${childType} is not a sub-task type`
+        )
     }
     for (const issue of manifest.issues) {
-      if (
-        !statuses.has(issue.statusId) ||
-        !types.has(issue.issueTypeId) ||
-        (issue.priorityId !== null && !priorities.has(issue.priorityId)) ||
-        issue.componentIds.some((id) => !components.has(id)) ||
-        [issue.assigneeAccountId, issue.reporterAccountId].some(
-          (id) => id !== null && !identities.has(id)
+      const problem = !statuses.has(issue.statusId)
+        ? `status ${issue.statusId}`
+        : !types.has(issue.issueTypeId)
+          ? `issue type ${issue.issueTypeId}`
+          : issue.priorityId !== null && !priorities.has(issue.priorityId)
+            ? `priority ${issue.priorityId}`
+            : issue.componentIds.find((id) => !components.has(id)) !== undefined
+              ? `component ${issue.componentIds.find((id) => !components.has(id))}`
+              : [issue.assigneeAccountId, issue.reporterAccountId].find(
+                    (id) => id !== null && !identities.has(id)
+                  ) !== undefined
+                ? "assignee or reporter account"
+                : null
+      if (problem !== null)
+        return yield* invalidReference(
+          issue.key,
+          `${problem} is not in the scan`
         )
-      )
-        return yield* scanFailure("jira_migration_invalid_reference")
     }
     for (const value of [
       ...manifest.comments,
@@ -674,7 +882,10 @@ export const validateScanManifestV2 = Effect.fn("validateScanManifestV2")(
       ...manifest.ranks
     ]) {
       if (!issues.has(value.issueId))
-        return yield* scanFailure("jira_migration_invalid_reference")
+        return yield* invalidReference(
+          `record ${value.id}`,
+          `issue ${value.issueId} is not in the scan`
+        )
     }
     for (const value of [
       ...manifest.comments,
@@ -685,7 +896,10 @@ export const validateScanManifestV2 = Effect.fn("validateScanManifestV2")(
         value.authorAccountId !== null &&
         !identities.has(value.authorAccountId)
       )
-        return yield* scanFailure("jira_migration_invalid_reference")
+        return yield* invalidReference(
+          `${keyOf(value.issueId)} record ${value.id}`,
+          `author ${value.authorAccountId} is not in the scan`
+        )
     }
     return undefined
   }

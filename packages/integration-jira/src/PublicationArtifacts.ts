@@ -51,6 +51,8 @@ const encodeJiraPreparedPublicationV1 = Schema.encodeEffect(
 
 const encodeJiraPublicationPlanV1 = Schema.encodeEffect(JiraPublicationPlanV1)
 
+const JIRA_SOURCE_READ_CONCURRENCY = 16
+
 export const buildJiraImportContext = (
   manifest: JiraMigrationManifest,
   configuration: JiraMigrationConfiguration,
@@ -104,10 +106,13 @@ export const resolveJiraPublicationSource = Effect.fn(
     ...manifest.customFields.map((field) => field.valuesArtifact)
   ]
   const unique = [...new Map(refs.map((ref) => [ref.key, ref])).values()]
-  const resolved = yield* Effect.forEach(unique, (ref) =>
-    artifacts
-      .readJson(orgSlug, ref, decodeUnknownJson)
-      .pipe(Effect.map((value) => ({ ref, value })))
+  const resolved = yield* Effect.forEach(
+    unique,
+    (ref) =>
+      artifacts
+        .readJson(orgSlug, ref, decodeUnknownJson)
+        .pipe(Effect.map((value) => ({ ref, value }))),
+    { concurrency: JIRA_SOURCE_READ_CONCURRENCY }
   )
   const projectRefs = manifest.rawArtifacts.filter((ref) =>
     ref.key.includes("/raw/project/")

@@ -1,9 +1,8 @@
 import { it } from "@effect/vitest"
-import { assertFailure, assertTrue } from "@effect/vitest/utils"
-import { JiraError, JiraRateLimited as PublicJiraRateLimited } from "@pp/shared"
+import { assertFailure } from "@effect/vitest/utils"
+import { JiraError } from "@pp/shared"
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
-import * as Exit from "effect/Exit"
 import * as Fiber from "effect/Fiber"
 import { FetchHttpClient } from "effect/http"
 import * as Layer from "effect/Layer"
@@ -11,7 +10,6 @@ import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import * as Redacted from "effect/Redacted"
 import * as Ref from "effect/Ref"
-import * as Result from "effect/Result"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 import * as TestClock from "effect/testing/TestClock"
@@ -45,44 +43,6 @@ const stubCredentials = Credentials.JiraCredentials.of({
 })
 
 describe("Jira client", () => {
-  it.effect(
-    "continues cursor pagination through an empty intermediate page",
-    () =>
-      Effect.gen(function* () {
-        const seen: Array<string | null> = []
-        const values = yield* Client.paginateCursor((cursor) => {
-          seen.push(cursor)
-          return Effect.succeed(
-            Match.value(cursor).pipe(
-              Match.when(null, () => ({
-                values: ["a"],
-                nextPageToken: "next"
-              })),
-              Match.when("next", () => ({ values: [], nextPageToken: "last" })),
-              Match.orElse(() => ({ values: ["b"], nextPageToken: null }))
-            )
-          )
-        })
-        expect(values).toEqual(["a", "b"])
-        expect(seen).toEqual([null, "next", "last"])
-      })
-  )
-
-  it.effect("rejects a repeated cursor", () =>
-    Effect.gen(function* () {
-      const result = yield* Effect.result(
-        Client.paginateCursor(() =>
-          Effect.succeed({ values: [], nextPageToken: "repeat" })
-        )
-      )
-      assertTrue(Result.isFailure(result))
-      expect(result.failure).toMatchObject({
-        _tag: "JiraError",
-        reason: "invalid_response"
-      })
-    })
-  )
-
   it.effect(
     "uses server offset metadata and terminates an empty final page",
     () =>
@@ -237,7 +197,8 @@ describe("Jira client", () => {
       })
       const result = yield* Effect.gen(function* () {
         const client = yield* Client.JiraClient
-        return yield* client.projectStatuses("user", "cloud", "APP")
+        return (yield* client.snapshots.projectStatuses("user", "cloud", "APP"))
+          .value
       }).pipe(Effect.provide(clientLayer(transport, credentials)))
       expect(result).toEqual([
         {
@@ -285,12 +246,14 @@ describe("Jira client", () => {
       })
       const issues = yield* Effect.gen(function* () {
         const client = yield* Client.JiraClient
-        return yield* client.searchIssues("user", "cloud", {
+        return yield* client.searchIssuesPage({
+          userId: "user",
+          cloudId: "cloud",
           jql: 'project = "APP"',
           fields: ["summary"]
         })
       }).pipe(Effect.provide(clientLayer(transport, credentials)))
-      expect(issues.map(({ key }) => key)).toEqual(["APP-1"])
+      expect(issues.values.map(({ key }) => key)).toEqual(["APP-1"])
       expect(requests[0]?.body).toEqual({
         jql: 'project = "APP"',
         fields: ["summary"],
@@ -351,14 +314,26 @@ describe("Jira client", () => {
         disconnect: () => Effect.die("unused"),
         markReconnectRequired: () => Effect.void
       })
-      const exit = yield* Effect.gen(function* () {
+      const pages = yield* Effect.gen(function* () {
         const client = yield* Client.JiraClient
-        return yield* Effect.exit(
-          client.sprintIssues("user", "cloud", 84, 37, ["id"])
-        )
+        const input = {
+          userId: "user",
+          cloudId: "cloud",
+          boardId: 84,
+          sprintId: 37,
+          fields: ["id"]
+        }
+        const first = yield* client.sprintIssuesPage(input)
+        const second = yield* client.sprintIssuesPage({
+          ...input,
+          nextPageToken: first.nextPageToken
+        })
+        return [first, second]
       }).pipe(Effect.provide(clientLayer(transport, credentials)))
-      assertTrue(Exit.isSuccess(exit))
-      expect(exit.value.map(({ key }) => key)).toEqual(["APP-1", "APP-2"])
+      expect(
+        pages.flatMap(({ values }) => values.map(({ key }) => key))
+      ).toEqual(["APP-1", "APP-2"])
+      expect(pages[1]?.nextPageToken).toBeNull()
       expect(
         requests.map(({ url }) => {
           const parsed = new URL(url)
@@ -413,7 +388,7 @@ describe("Jira client", () => {
       })
       const result = yield* Effect.gen(function* () {
         const client = yield* Client.JiraClient
-        return yield* Effect.result(client.fields("user", "cloud"))
+        return yield* Effect.result(client.snapshots.fields("user", "cloud"))
       }).pipe(Effect.provide(clientLayer(transport, credentials)))
       expect(result).toMatchObject({
         _tag: "Failure",
@@ -675,22 +650,22 @@ describe("Jira one-page boundary", () => {
         })
     )
   }
-  for (const [header, expected] of [
-    ["15", 15000],
-    ["0", 0],
-    ["86400", 86400000],
-    ["Thu, 01 Jan 1970 00:00:15 GMT", 15000],
-    ["Fri, 02 Jan 1970 00:00:00 GMT", 86400000],
-    [undefined, null],
-    ["", null],
-    ["-1", null],
-    ["1.5", null],
-    ["1e2", null],
-    ["garbage", null],
-    ["86401", null],
-    ["Fri, 02 Jan 1970 00:00:01 GMT", null],
-    ["Wed, 31 Dec 1969 23:59:59 GMT", null],
-    ["2026-01-01", null]
+  for (const [header, expected, source] of [
+    ["15", 15000, "header"],
+    ["0", 1000, "header"],
+    ["86400", 86400000, "header"],
+    ["Thu, 01 Jan 1970 00:00:15 GMT", 15000, "header"],
+    ["Fri, 02 Jan 1970 00:00:00 GMT", 86400000, "header"],
+    [undefined, 15000, "default"],
+    ["", 15000, "default"],
+    ["-1", 15000, "default"],
+    ["1.5", 15000, "default"],
+    ["1e2", 15000, "default"],
+    ["garbage", 15000, "default"],
+    ["86401", 86400000, "header"],
+    ["Fri, 02 Jan 1970 00:00:01 GMT", 86400000, "header"],
+    ["Wed, 31 Dec 1969 23:59:59 GMT", 1000, "header"],
+    ["2026-01-01", 15000, "default"]
   ] as const) {
     it.effect(
       `returns immediately for Retry-After ${JSON.stringify(header)}`,
@@ -712,23 +687,19 @@ describe("Jira one-page boundary", () => {
           })
           const fiber = yield* Effect.gen(function* () {
             const client = yield* Client.JiraClient
-            return yield* Effect.result(client.fields("user", "cloud"))
+            return yield* Effect.result(
+              client.snapshots.fields("user", "cloud")
+            )
           }).pipe(Effect.provide(clientLayer(transport)), Effect.forkChild)
           yield* TestClock.adjust(Duration.days(2))
           expect(yield* Fiber.join(fiber)).toMatchObject({
             _tag: "Failure",
-            failure:
-              expected === null
-                ? {
-                    _tag: "JiraTransientFailure",
-                    operation: "fields",
-                    reason: "invalid_retry_after"
-                  }
-                : {
-                    _tag: "JiraRateLimited",
-                    operation: "fields",
-                    retryAfterMillis: expected
-                  }
+            failure: {
+              _tag: "JiraRateLimited",
+              operation: "fields",
+              retryAfterMillis: expected,
+              retryAfterSource: source
+            }
           })
           expect(requests).toBe(1)
         })
@@ -749,7 +720,7 @@ describe("Jira one-page boundary", () => {
         })
         const fiber = yield* Effect.gen(function* () {
           const client = yield* Client.JiraClient
-          return yield* Effect.result(client.fields("user", "cloud"))
+          return yield* Effect.result(client.snapshots.fields("user", "cloud"))
         }).pipe(Effect.provide(clientLayer(transport)), Effect.forkChild)
         yield* TestClock.adjust(Duration.seconds(10))
         expect(yield* Fiber.join(fiber)).toMatchObject({
@@ -791,21 +762,22 @@ describe("Jira one-page boundary", () => {
         })
         const result = yield* Effect.gen(function* () {
           const client = yield* Client.JiraClient
-          return yield* Effect.result(client.fields("user", "cloud"))
+          return yield* Effect.result(client.snapshots.fields("user", "cloud"))
         }).pipe(Effect.provide(clientLayer(transport, credentials)))
         expect(result).toMatchObject(
           secondStatus === 200
-            ? { _tag: "Success", success: [] }
+            ? { _tag: "Success", success: { value: [] } }
             : {
                 _tag: "Failure",
                 failure: {
-                  _tag: "JiraReconnectRequired",
-                  reason: "invalid_grant"
+                  _tag: "JiraAccessDenied",
+                  status: 401,
+                  operation: "fields"
                 }
               }
         )
         expect(refreshes).toEqual([undefined, true])
-        expect(reconnects).toBe(secondStatus === 401 ? 1 : 0)
+        expect(reconnects).toBe(0)
         expect(requests.map(({ headers }) => headers.authorization)).toEqual([
           "Bearer initial",
           "Bearer rotated"
@@ -929,14 +901,19 @@ describe("Jira boundary edge cases", () => {
     )
   }
 
-  const malformedOffsetPages: ReadonlyArray<Schema.Json> = [
-    { values: [], startAt: 99, maxResults: 100 },
-    { values: [], startAt: 0, maxResults: 0 },
-    { values: [], startAt: 0, maxResults: 1.5 },
-    { values: [], startAt: 0, maxResults: 100, total: -1 },
-    { values: [{ id: "1" }], startAt: 0, maxResults: 100 }
+  const malformedOffsetPages: ReadonlyArray<
+    readonly [Schema.Json, "invalid_response" | "decode_failed"]
+  > = [
+    [{ values: [], startAt: 99, maxResults: 100 }, "invalid_response"],
+    [{ values: [], startAt: 0, maxResults: 0 }, "decode_failed"],
+    [{ values: [], startAt: 0, maxResults: 1.5 }, "decode_failed"],
+    [{ values: [], startAt: 0, maxResults: 100, total: -1 }, "decode_failed"],
+    [
+      { values: [{ name: "API" }], startAt: 0, maxResults: 100 },
+      "decode_failed"
+    ]
   ]
-  for (const body of malformedOffsetPages) {
+  for (const [body, reason] of malformedOffsetPages) {
     it.effect(`rejects malformed offset page ${JSON.stringify(body)}`, () =>
       Effect.gen(function* () {
         const result = yield* Effect.gen(function* () {
@@ -955,7 +932,7 @@ describe("Jira boundary edge cases", () => {
         )
         expect(result).toMatchObject({
           _tag: "Failure",
-          failure: { _tag: "JiraError", reason: "invalid_response" }
+          failure: { _tag: "JiraError", reason, operation: "components" }
         })
       })
     )
@@ -990,61 +967,44 @@ describe("Jira boundary edge cases", () => {
         )
         expect(result).toMatchObject({
           _tag: "Failure",
-          failure: { _tag: "JiraError", reason: "invalid_response" }
+          failure: { _tag: "JiraError", reason: "repeated_cursor" }
         })
       })
     )
   }
 
-  for (const seconds of [15, 86400, 86401, -1]) {
-    it.effect(
-      `normalizes credential rate limit ${seconds} without sending Jira request`,
-      () =>
-        Effect.gen(function* () {
-          const result = yield* Effect.gen(function* () {
-            const client = yield* Client.JiraClient
-            return yield* Effect.result(client.fields("user", "cloud"))
-          }).pipe(
-            Effect.provide(
-              clientLayer(
-                Transport.JiraTransport.of({
-                  execute: () => Effect.die("must not request Jira")
-                }),
-                {
-                  ...stubCredentials,
-                  accessTokenFor: () =>
-                    Effect.fail(
-                      new PublicJiraRateLimited({ retryAfterSeconds: seconds })
-                    )
-                }
-              )
+  it.effect(
+    "passes credential rate limits through without sending Jira request",
+    () =>
+      Effect.gen(function* () {
+        const limited = new JiraRateLimited({
+          operation: "oauth.token",
+          retryAfterMillis: 15000,
+          retryAfterSource: "header"
+        })
+        const result = yield* Effect.gen(function* () {
+          const client = yield* Client.JiraClient
+          return yield* Effect.result(client.snapshots.fields("user", "cloud"))
+        }).pipe(
+          Effect.provide(
+            clientLayer(
+              Transport.JiraTransport.of({
+                execute: () => Effect.die("must not request Jira")
+              }),
+              { ...stubCredentials, accessTokenFor: () => Effect.fail(limited) }
             )
           )
-          expect(result).toMatchObject({
-            _tag: "Failure",
-            failure:
-              seconds === 15 || seconds === 86400
-                ? {
-                    _tag: "JiraRateLimited",
-                    operation: "fields",
-                    retryAfterMillis: seconds === 15 ? 15000 : 86400000
-                  }
-                : {
-                    _tag: "JiraTransientFailure",
-                    operation: "fields",
-                    reason: "invalid_retry_after"
-                  }
-          })
-        })
-    )
-  }
+        )
+        assertFailure(result, limited)
+      })
+  )
 
   it.effect("uses the current Effect clock for HTTP date rate limits", () =>
     Effect.gen(function* () {
       yield* TestClock.setTime(10000)
       const result = yield* Effect.gen(function* () {
         const client = yield* Client.JiraClient
-        return yield* Effect.result(client.fields("user", "cloud"))
+        return yield* Effect.result(client.snapshots.fields("user", "cloud"))
       }).pipe(
         Effect.provide(
           clientLayer(
@@ -1074,15 +1034,17 @@ describe("Jira boundary edge cases", () => {
       "15",
       new JiraRateLimited({
         operation: "attachmentContent",
-        retryAfterMillis: 15000
+        retryAfterMillis: 15000,
+        retryAfterSource: "header"
       })
     ],
     [
       429,
       "-1",
-      new JiraTransientFailure({
+      new JiraRateLimited({
         operation: "attachmentContent",
-        reason: "invalid_retry_after"
+        retryAfterMillis: 15000,
+        retryAfterSource: "default"
       })
     ],
     [
@@ -1090,7 +1052,18 @@ describe("Jira boundary edge cases", () => {
       "",
       new JiraTransientFailure({
         operation: "attachmentContent",
-        reason: "server_error"
+        reason: "server_error",
+        status: 503
+      })
+    ],
+    [
+      503,
+      "30",
+      new JiraTransientFailure({
+        operation: "attachmentContent",
+        reason: "server_error",
+        status: 503,
+        retryAfterMillis: 30000
       })
     ]
   ] as const) {
@@ -1232,7 +1205,7 @@ it.effect("rejects attachment responses without content", () =>
     )
     expect(result).toMatchObject({
       _tag: "Failure",
-      failure: { _tag: "JiraError", reason: "invalid_response" }
+      failure: { _tag: "JiraError", reason: "unexpected_status", status: 204 }
     })
   })
 )
@@ -1254,7 +1227,7 @@ describe("Retry-After HTTP-date formats", () => {
         yield* TestClock.setTime(now)
         const result = yield* Effect.gen(function* () {
           const client = yield* Client.JiraClient
-          return yield* Effect.result(client.fields("user", "cloud"))
+          return yield* Effect.result(client.snapshots.fields("user", "cloud"))
         }).pipe(
           Effect.provide(
             clientLayer(
@@ -1267,10 +1240,11 @@ describe("Retry-After HTTP-date formats", () => {
         )
         expect(result).toMatchObject({
           _tag: "Failure",
-          failure:
-            expected === null
-              ? { _tag: "JiraTransientFailure", reason: "invalid_retry_after" }
-              : { _tag: "JiraRateLimited", retryAfterMillis: expected }
+          failure: {
+            _tag: "JiraRateLimited",
+            retryAfterMillis: expected ?? 15000,
+            retryAfterSource: expected === null ? "default" : "header"
+          }
         })
       })
     )
@@ -1281,10 +1255,16 @@ describe("Jira live JSON response transport", () => {
   for (const [kind, expected] of [
     [
       "body reset",
-      new JiraTransientFailure({ operation: "fields", reason: "network" })
+      { _tag: "JiraTransientFailure", operation: "fields", reason: "network" }
     ],
-    ["malformed JSON", new JiraError({ reason: "invalid_response" })],
-    ["invalid schema", new JiraError({ reason: "invalid_response" })]
+    [
+      "malformed JSON",
+      { _tag: "JiraError", reason: "invalid_json", operation: "fields" }
+    ],
+    [
+      "invalid schema",
+      { _tag: "JiraError", reason: "decode_failed", operation: "fields" }
+    ]
   ] as const) {
     it.effect(`classifies ${kind} after successful response headers`, () =>
       Effect.gen(function* () {
@@ -1335,9 +1315,9 @@ describe("Jira live JSON response transport", () => {
         )
         const result = yield* Effect.gen(function* () {
           const client = yield* Client.JiraClient
-          return yield* Effect.result(client.fields("user", "cloud"))
+          return yield* Effect.result(client.snapshots.fields("user", "cloud"))
         }).pipe(Effect.provide(live))
-        assertFailure(result, expected)
+        expect(result).toMatchObject({ _tag: "Failure", failure: expected })
         expect(requests).toBe(1)
       })
     )
@@ -1430,7 +1410,7 @@ describe("Jira client tracing", () => {
     const { spans, tracer } = recordSpans()
     return Effect.gen(function* () {
       const client = yield* Client.JiraClient
-      yield* client.fields("user", "cloud")
+      yield* client.snapshots.fields("user", "cloud")
     }).pipe(
       Effect.withTracer(tracer),
       Effect.provide(
@@ -1458,7 +1438,7 @@ describe("Jira client tracing", () => {
     const { tracer, tree } = recordSpans()
     return Effect.gen(function* () {
       const client = yield* Client.JiraClient
-      yield* client.fields("user", "cloud")
+      yield* client.snapshots.fields("user", "cloud")
       yield* Stream.runDrain(client.attachmentContent("user", "cloud", "10"))
     }).pipe(
       Effect.withTracer(tracer),
@@ -1472,15 +1452,10 @@ describe("Jira client tracing", () => {
       Effect.map(() =>
         expect(tree()).toEqual([
           {
-            name: "JiraClient.fields",
+            name: "JiraClient.snapshots.fields",
             children: [
-              {
-                name: "JiraClient.snapshots.fields",
-                children: [
-                  { name: "JiraClient.authorize", children: [] },
-                  { name: "JiraClient.checkResponse", children: [] }
-                ]
-              }
+              { name: "JiraClient.authorize", children: [] },
+              { name: "JiraClient.checkResponse", children: [] }
             ]
           },
           {

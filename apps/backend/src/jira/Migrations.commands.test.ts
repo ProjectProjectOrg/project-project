@@ -6,7 +6,10 @@ import { PgClient } from "@effect/sql-pg"
 import { it } from "@effect/vitest"
 import { DbLive } from "@pp/db"
 import { Db } from "@pp/db"
-import { JiraScanFailure } from "@pp/integration-jira/MigrationActivities"
+import {
+  AUTOMATIC_RETRY_BUDGET,
+  JiraScanFailure
+} from "@pp/integration-jira/MigrationActivities"
 import * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
 import * as MigrationProjection from "@pp/integration-jira/MigrationProjection"
 import * as Migrations from "@pp/integration-jira/Migrations"
@@ -38,6 +41,7 @@ import {
   Redacted,
   Schedule,
   Schema,
+  Semaphore,
   Tracer
 } from "effect"
 import {
@@ -714,11 +718,18 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                     name: "test/configuration-failure",
                     success: Schema.Boolean,
                     execute: p
-                      .recordFailure(MigrationProjection.fenceFor(row)!, {
-                        reason: "configuration_blocked",
-                        retryable: false
-                      })
-                      .pipe(Effect.orDie)
+                      .recordImportFailure(
+                        MigrationProjection.fenceFor(row)!,
+                        "test/configuration",
+                        {
+                          reason: "configuration_blocked",
+                          retryable: false
+                        }
+                      )
+                      .pipe(
+                        Effect.map((sequence) => sequence !== null),
+                        Effect.orDie
+                      )
                   })
                   yield* Deferred.succeed(firstFailure, undefined)
                   yield* DurableDeferred.await(retryDeferred(1))
@@ -726,12 +737,19 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                     name: "test/reconnect-failure",
                     success: Schema.Boolean,
                     execute: p
-                      .recordFailure(MigrationProjection.fenceFor(row)!, {
-                        reason: "reconnect_required",
-                        retryable: true,
-                        status: "reconnect_required"
-                      })
-                      .pipe(Effect.orDie)
+                      .recordImportFailure(
+                        MigrationProjection.fenceFor(row)!,
+                        "test/reconnect",
+                        {
+                          reason: "reconnect_required",
+                          retryable: true,
+                          reconnect: true
+                        }
+                      )
+                      .pipe(
+                        Effect.map((sequence) => sequence !== null),
+                        Effect.orDie
+                      )
                   })
                   yield* Deferred.succeed(secondFailure, undefined)
                   yield* DurableDeferred.await(retryDeferred(2))
@@ -872,10 +890,14 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               destinationProjectId: randomUUID(),
               destinationProjectSlug: "application"
             })
-            yield* p.recordFailure(MigrationProjection.fenceFor(row)!, {
-              reason: "attachment_failed",
-              retryable: true
-            })
+            yield* p.recordImportFailure(
+              MigrationProjection.fenceFor(row)!,
+              "test/attachment",
+              {
+                reason: "attachment_failed",
+                retryable: true
+              }
+            )
             const failed = yield* p.owned(owner, created.id)
             const corrected = {
               ...accepted,
@@ -964,8 +986,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             const created = yield* createScanned(m, p, owner)
             const row = yield* p.owned(owner, created.id)
             yield* p.recordFailure(MigrationProjection.fenceFor(row)!, {
-              reason: "failed",
-              retryable: true
+              reason: "failed"
             })
             expect(
               yield* Effect.result(
@@ -1003,7 +1024,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
   )
 
   it.live(
-    "rejects discard while an attachment write can still finish",
+    "settles remote-write intent when an import attempt fails so it can be discarded",
     () =>
       Effect.gen(function* () {
         const owner = yield* Effect.promise(() => fixture())
@@ -1022,20 +1043,17 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             ).toBe(true)
             expect(yield* p.beginRemoteWrites(current)).toBe(true)
             yield* p.recordFailure(current, {
-              reason: "ambiguous_upload",
-              retryable: true
+              reason: "ambiguous_upload"
             })
-            expect(
-              yield* Effect.result(
-                m.discard(owner.organizationId, owner.userId, created.id)
-              )
-            ).toMatchObject({
-              _tag: "Failure",
-              failure: {
-                _tag: "Validation",
-                reason: "jira_migration_discard_not_allowed"
-              }
+            const failed = yield* p.owned(owner, created.id)
+            expect(failed.checkpoint).not.toHaveProperty(
+              "remoteWritesMayStillCommit"
+            )
+            expect(p.actionsFor(failed)).toMatchObject({
+              canDiscard: true,
+              canRun: false
             })
+            expect(yield* p.beginRemoteWrites(current)).toBe(false)
           }).pipe(
             Effect.provide(
               Layer.merge(commandLayer(), scanningWorkflow(p, owner))
@@ -1160,11 +1178,15 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               destinationProjectId: randomUUID(),
               destinationProjectSlug: "application"
             })
-            yield* p.recordFailure(MigrationProjection.fenceFor(running)!, {
-              reason: "attachment_failed",
-              retryable: true,
-              status: status === "ready" ? "failed" : "reconnect_required"
-            })
+            yield* p.recordImportFailure(
+              MigrationProjection.fenceFor(running)!,
+              "test/attachment",
+              {
+                reason: "attachment_failed",
+                retryable: true,
+                reconnect: status !== "ready"
+              }
+            )
             let current = yield* p.owned(owner, created.id)
             if (status === "ready") {
               yield* m.configure(
@@ -1323,8 +1345,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               destinationProjectId: randomUUID()
             })
             yield* p.recordFailure(MigrationProjection.fenceFor(running)!, {
-              reason: "failed",
-              retryable: true
+              reason: "failed"
             })
             const failed = yield* p.owned(owner, created.id)
             expect(
@@ -1416,8 +1437,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
               destinationProjectId: randomUUID()
             })
             yield* p.recordFailure(MigrationProjection.fenceFor(running)!, {
-              reason: "attachment_failed",
-              retryable: true
+              reason: "attachment_failed"
             })
             const failed = yield* p.owned(owner, created.id)
             const pending = yield* m
@@ -1507,6 +1527,9 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                   yield* runScanUnit(
                     context,
                     {
+                      heartbeat: () => Effect.succeed(true),
+                      gate: Semaphore.makeUnsafe(64),
+                      automaticRetryBudget: AUTOMATIC_RETRY_BUDGET,
                       recordFailure: (fence, operationKey, failure) =>
                         Effect.gen(function* () {
                           const sequence = yield* p.recordScanFailure(
@@ -1662,6 +1685,9 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                   yield* runScanUnit(
                     context,
                     {
+                      heartbeat: () => Effect.succeed(true),
+                      gate: Semaphore.makeUnsafe(64),
+                      automaticRetryBudget: AUTOMATIC_RETRY_BUDGET,
                       recordFailure: (fence, key, failure) =>
                         p
                           .recordScanFailure(fence, key, failure)

@@ -25,6 +25,7 @@ import {
   JiraConnection,
   JiraMigrationDestinationConflict,
   JiraMigrationDetail,
+  JiraMigrationReport,
   JiraMigrationRevisionInput,
   JiraMigrationSummary,
   JiraProjectChoice,
@@ -157,6 +158,19 @@ export const JiraMigrationsGroup = HttpApiGroup.make("jiraMigrations")
       {
         params: JiraMigrationPath,
         success: Schema.Array(JiraSkippedAttachment),
+        error: JiraMigrationReadErrors
+      }
+    )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "report",
+      "/orgs/:orgSlug/jira-migrations/:migrationId/report",
+      {
+        params: JiraMigrationPath,
+        success: JiraMigrationReport,
         error: JiraMigrationReadErrors
       }
     )

@@ -40,8 +40,8 @@ const detail = (id: string): JiraMigrationDetail => ({
   reportPath: null,
   finishedAt: null
 })
-const encoded = (id: string) =>
-  Response.json(encodeJiraMigrationDetailSync(detail(id)))
+const encoded = (id: string, revision = 1) =>
+  Response.json(encodeJiraMigrationDetailSync({ ...detail(id), revision }))
 
 describe("Jira migration atoms", () => {
   it("shares structurally equal view requests and isolates migration mutations", () => {
@@ -110,7 +110,12 @@ describe("Jira migration atoms", () => {
     }
   })
 })
-import { JiraMigrationDetail } from "@pp/shared"
+import {
+  CreatableProjectKey,
+  JiraMigrationDetail,
+  Slug,
+  type JiraMigrationConfiguration
+} from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
@@ -119,3 +124,95 @@ import { vi } from "vitest"
 import { stubFetch } from "@/api/testFetch"
 
 const encodeJiraMigrationDetailSync = Schema.encodeSync(JiraMigrationDetail)
+
+const configuration = (name: string): JiraMigrationConfiguration => ({
+  destination: {
+    name,
+    slug: Slug.make("engineering"),
+    key: CreatableProjectKey.make("ENG")
+  },
+  identities: [],
+  statuses: [],
+  issueTypes: [],
+  priorities: [],
+  tags: [],
+  activeFutureSprintChoices: [],
+  restrictedContent: { policy: "exclude" },
+  skippedAttachmentIds: [],
+  attachmentSkipsAccepted: false
+})
+
+const decodeConfigureBody = Schema.decodeUnknownSync(
+  Schema.Struct({
+    expectedRevision: Schema.Number,
+    configuration: Schema.Struct({
+      destination: Schema.Struct({ name: Schema.String })
+    })
+  })
+)
+
+describe("configureJiraMigration", () => {
+  it("sends rapid saves one at a time, each on the revision the last one returned", async () => {
+    let revision = 1
+    let inFlight = 0
+    let maxInFlight = 0
+    const sent: Array<number> = []
+    const names: Array<string> = []
+    const held: Array<() => void> = []
+    const releaseNext = () => held.shift()?.()
+    fetchStub.set(async (input, init) => {
+      const request =
+        input instanceof Request ? input : new Request(input, init)
+      if (request.method !== "PUT") return encoded("migration-a", revision)
+      inFlight += 1
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      const body = decodeConfigureBody(await request.json())
+      sent.push(body.expectedRevision)
+      names.push(body.configuration.destination.name)
+      await new Promise<void>((resolve) => {
+        held.push(resolve)
+      })
+      inFlight -= 1
+      if (body.expectedRevision !== revision)
+        return new Response(null, { status: 409 })
+      revision += 1
+      return encoded("migration-a", revision)
+    })
+
+    const registry = Registry.make()
+    const req = jiraMigrationRequest("org", "migration-a")
+    const view = jiraMigration(req)
+    const save = configureJiraMigration(req)
+    registry.mount(view)
+    registry.mount(save)
+
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({ value: { revision: 1 } })
+      )
+      registry.set(save, { configuration: configuration("One") })
+      await vi.waitFor(() => expect(held).toHaveLength(1))
+      registry.set(save, { configuration: configuration("Two") })
+      registry.set(save, { configuration: configuration("Three") })
+      releaseNext()
+      await vi.waitFor(() => expect(held).toHaveLength(1))
+      registry.set(save, { configuration: configuration("Four") })
+      releaseNext()
+      await vi.waitFor(() => expect(held).toHaveLength(1))
+      releaseNext()
+      await vi.waitFor(() => {
+        expect(registry.get(save).waiting).toBe(false)
+        expect(inFlight).toBe(0)
+      })
+
+      expect(maxInFlight).toBe(1)
+      expect(sent).toEqual([1, 2, 3])
+      expect(names).toEqual(["One", "Three", "Four"])
+      expect(registry.get(save)._tag).toBe("Success")
+      expect(registry.get(view)).toMatchObject({ value: { revision: 4 } })
+    } finally {
+      held.forEach((release) => release())
+      registry.dispose()
+    }
+  })
+})

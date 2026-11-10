@@ -1,9 +1,15 @@
 import * as Client from "@pp/integration-jira/Client"
 import * as Credentials from "@pp/integration-jira/Credentials"
+import { AUTOMATIC_RETRY_BUDGET } from "@pp/integration-jira/MigrationActivities"
+import type * as MigrationArtifacts from "@pp/integration-jira/MigrationArtifacts"
+import {
+  JiraMigrationWorkflowFailure,
+  type JiraMigrationWorkflowFailureValue
+} from "@pp/integration-jira/MigrationWorkflow"
 import * as Transport from "@pp/integration-jira/Transport"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
-import { Effect, Layer, Redacted, Stream, Schema } from "effect"
+import { Effect, Layer, Redacted, Semaphore, Stream, Schema } from "effect"
 import { Workflow, WorkflowEngine } from "effect/workflow"
 
 import { JiraMigrationArtifactsLive } from "./ArtifactsLive"
@@ -203,3 +209,47 @@ export const withScanTestWorkflow = <E, R>(
       )
     )
 }
+
+export const activityDefaults = {
+  heartbeat: () => Effect.void,
+  recordImportFailure: (
+    _input: unknown,
+    _operationKey: string,
+    failure: JiraMigrationWorkflowFailureValue
+  ) => Effect.fail(failure),
+  resumeImport: () =>
+    Effect.fail(
+      JiraMigrationWorkflowFailure.make({
+        reason: "jira_migration_superseded",
+        retryable: false
+      })
+    )
+}
+
+export const stageDefaults = {
+  beginStage: () => Effect.void,
+  resumeWrites: () => Effect.void
+}
+
+export const scanDefaults = (
+  artifacts: MigrationArtifacts.JiraMigrationArtifacts["Service"]
+) => ({
+  finding: () => Effect.succeed(true),
+  heartbeat: () => Effect.succeed(true),
+  gate: Semaphore.makeUnsafe(64),
+  automaticRetryBudget: AUTOMATIC_RETRY_BUDGET,
+  beginScanDetails: () => Effect.succeed(true),
+  beginScanFinalize: () => Effect.succeed(true),
+  writeJsonBatch: (
+    orgSlug: string,
+    items: ReadonlyArray<
+      Readonly<{
+        coordinates: MigrationArtifacts.JiraArtifactCoordinates
+        value: Schema.Json
+      }>
+    >
+  ) =>
+    Effect.forEach(items, ({ coordinates, value }) =>
+      artifacts.writeJson(orgSlug, coordinates, value)
+    )
+})

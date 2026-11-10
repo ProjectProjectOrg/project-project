@@ -22,6 +22,7 @@ const make = Effect.gen(function* () {
           key: projectIndex.key
         })
         .from(projectIndex)
+        .where(eq(projectIndex.organizationId, organizationId))
       const batches = Array.from(
         { length: Math.ceil(destinationTicketIds.length / 1000) },
         (_, index) =>

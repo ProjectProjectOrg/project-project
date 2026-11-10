@@ -261,6 +261,7 @@ type ActionProps<E> = Readonly<{
   waiting?: boolean
   error?: ReactNode
   typed?: string
+  tone?: "destructive" | "neutral"
   children?: ReactNode
 }>
 
@@ -278,6 +279,7 @@ function Action<E = unknown>({
   waiting,
   error: externalError,
   typed,
+  tone = "destructive",
   children
 }: ActionProps<E>) {
   const { close, busy: internalBusy, setBusy } = useConfirmButton()
@@ -308,7 +310,7 @@ function Action<E = unknown>({
     <Button
       type="button"
       size={layout === "inline" ? size : "sm"}
-      variant="destructive"
+      variant={tone === "destructive" ? "destructive" : "primary"}
       disabled={blocked}
       onClick={() => void run()}
       className={layout === "menu" ? "flex-1" : undefined}

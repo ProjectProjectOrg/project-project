@@ -65,7 +65,12 @@ export type CoalescingMutation<V, Patch, A, E> = Readonly<{
   idleTTL: Duration.Input
   merge?: (pending: NoInfer<Patch>, next: NoInfer<Patch>) => NoInfer<Patch>
   predict: (value: V, patch: Patch) => V
-  call: (client: ApiClient, payload: Patch) => Effect.Effect<A, E, CallContext>
+  call: (
+    client: ApiClient,
+    payload: Patch,
+    get: Atom.FnContext,
+    previous: A | undefined
+  ) => Effect.Effect<A, E, CallContext>
   confirm: (value: V, confirmed: A, payload: Patch) => V
   publish?: (confirmed: A, payload: Patch) => ReadonlyArray<ReactivityKey>
 }>
@@ -82,12 +87,17 @@ export const coalescingMutation = <V, VE, Patch extends object, A, E>(
   }).pipe(Atom.setIdleTTL(mutation.idleTTL))
   const gate = Atom.make((get) => {
     let active = true
+    let previous: A | undefined
     get.addFinalizer(() => {
       active = false
     })
     return {
       semaphore: Semaphore.makeUnsafe(1),
       isActive: () => active,
+      previous: () => previous,
+      remember: (confirmed: A) => {
+        previous = confirmed
+      },
       registry: get.registry
     }
   }).pipe(Atom.setIdleTTL(mutation.idleTTL))
@@ -117,8 +127,9 @@ export const coalescingMutation = <V, VE, Patch extends object, A, E>(
                   return yield* Effect.interrupt
                 get.registry.set(pending, { token, patch: undefined })
                 const confirmed = yield* Api.use((client) =>
-                  mutation.call(client, payload)
+                  mutation.call(client, payload, get, queue.previous())
                 )
+                queue.remember(confirmed)
                 if (!queue.isActive()) return confirmed
                 if (get.registry.get(pending).token === token) {
                   set(

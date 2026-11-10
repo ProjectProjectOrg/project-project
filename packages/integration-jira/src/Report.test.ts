@@ -286,7 +286,7 @@ describe("skippedAttachmentsForArchive", () => {
       source: {},
       restrictionPolicy: "include",
       categories: {
-        issues: [{ id: "issue-1", key: "APP-1" }],
+        issues: [{ id: "issue-1", key: "APP-1", issueNumber: 1 }],
         attachments: [
           {
             id: "attachment-text",
@@ -312,7 +312,9 @@ describe("skippedAttachmentsForArchive", () => {
         ]
       },
       exclusions: [],
-      mappings: {},
+      mappings: {
+        destination: { name: "Application", slug: "application", key: "APP" }
+      },
       attachmentOutcomes: [
         { kind: "skipped", sourceAttachmentId: "attachment-text" },
         { kind: "skipped", sourceAttachmentId: "attachment-video" },

@@ -350,7 +350,7 @@ describe("Jira publication references", () => {
 })
 
 describe("createJiraPublicationPlan", () => {
-  it("stages flattened tickets, pending attachments, and all completed sprint history before one atomic exposure", () => {
+  it("stages tickets with their parents, pending attachments, and all completed sprint history before one atomic exposure", () => {
     const source = manifest()
     const result = createJiraPublicationPlan(
       source,
@@ -366,6 +366,10 @@ describe("createJiraPublicationPlan", () => {
     expect(result.plan.createdStatuses).toEqual([])
     expect(result.plan.tickets.map(({ id }) => id)).toEqual(["APP-1", "APP-4"])
     expect(result.plan.tickets[1]).not.toHaveProperty("parentIssueId")
+    expect(result.plan.tickets.map(({ id, parent }) => [id, parent])).toEqual([
+      ["APP-1", null],
+      ["APP-4", "APP-1"]
+    ])
     expect(result.plan.tickets[0]?.tags).toEqual(["component:api", "migration"])
     expect(result.plan.comments[0]?.author).toEqual({
       kind: "jira",
@@ -695,6 +699,7 @@ describe("immutable v2 publication", () => {
           },
           jira: { attachmentContent: () => Stream.empty },
           s3: {
+            deleteObject: () => Effect.void,
             getObject: () => Effect.succeed(null),
             putObject: () => Effect.void,
             headObject: () => Effect.succeed(null)
@@ -1103,7 +1108,7 @@ it.effect(
       expect(partial.plan.indexes.attachments).toEqual([])
       expect(partial.plan.report.partialSuccess).toBe(true)
       expect(partial.plan.report.markdown).toContain(
-        "Upload it to the destination ticket only if its type is supported and its size is between 1 byte and 25 MB."
+        "Files must be between 1 byte and 25 MB and of a supported type."
       )
       expect(partial.plan.report.markdown).toContain("image.png")
       expect(partial.plan.report.markdown).toContain(
@@ -1463,7 +1468,7 @@ it.effect(
       ])
         expect(result.plan.report.archivedCounts[category]).toBeGreaterThan(0)
       expect(result.plan.report.markdown).toContain(
-        "Inaccessible data may be absent"
+        "Only what that Jira account could see was scanned"
       )
       expect(
         result.plan.documents.find(
@@ -1588,7 +1593,7 @@ it.effect(
       expect(unmatchedFinal.plan.tickets[1].body).toContain("unmatched.png")
       expect(unmatchedFinal.plan.report.partialSuccess).toBe(true)
       expect(unmatchedFinal.plan.report.markdown).toContain(
-        "Embedded files needing attention"
+        "Embedded files that could not be matched"
       )
       expect(unmatchedFinal.plan.report.markdown).toContain(
         "unmatched-media-uuid"
@@ -1914,6 +1919,135 @@ it.effect(
       expect(final.plan.project.body).toBe("Original project description")
       expect(final.plan.archive.source.description).toEqual(description)
     })
+)
+
+it.effect(
+  "carries story points, the Jira link and Jira-only facts, and lists what was left out",
+  () =>
+    Effect.gen(function* () {
+      const input = preparationInput()
+      const points = artifact("custom-field/points", [
+        { issueId: "issue-4", value: 3 }
+      ])
+      const description = artifact("description/issue-4", {
+        markdown: "See jira-reference:000000.",
+        references: [
+          {
+            kind: "jira-issue",
+            sourceId: "APP-4",
+            placeholder: "jira-reference:000000",
+            originalUrl: null,
+            fallbackText: "APP-4"
+          }
+        ],
+        warnings: [],
+        adf: {}
+      })
+      const final = yield* finalizeJiraPublication(
+        yield* prepareJiraPublication({
+          ...input,
+          manifest: {
+            ...input.manifest,
+            issues: input.manifest.issues.map((issue) =>
+              issue.id === "issue-4"
+                ? {
+                    ...issue,
+                    descriptionArtifact: description.ref,
+                    assigneeAccountId: "account-unlinked",
+                    dueDate: "2026-10-01"
+                  }
+                : issue
+            ),
+            restrictions: [
+              {
+                id: "issue:issue-1",
+                targetKind: "issue",
+                targetId: "issue-1",
+                source: "issue-security"
+              }
+            ],
+            customFields: [
+              {
+                id: "customfield_10016",
+                name: "Story Points",
+                type: "number",
+                valuesArtifact: points.ref
+              }
+            ]
+          },
+          configuration: {
+            ...input.configuration,
+            destination: { ...input.configuration.destination, key: "OTHER" }
+          },
+          source: { ...input.source, artifacts: [description, points] }
+        }),
+        []
+      )
+      const { plan } = final
+      expect(plan.tickets.map(({ id }) => id)).toEqual(["OTHER-4"])
+      expect(plan.tickets[0]?.estimate).toEqual({ unit: "points", value: 3 })
+      expect(plan.indexes.project.estimation).toBe("points")
+      expect(plan.indexes.tickets[0]).toMatchObject({
+        estimateUnit: "points",
+        estimateValue: 3
+      })
+      const ticket = plan.documents.find(
+        ({ path }) => path === "tickets/OTHER-4.md"
+      )?.content
+      expect(ticket).toContain('"estimate":3')
+      expect(ticket).toContain("See [OTHER-4](")
+      expect(ticket).toContain(
+        "Imported from Jira [APP-4](https://example.atlassian.net/browse/APP-4)"
+      )
+      expect(ticket).toContain("Assignee in Jira: Former User")
+      expect(ticket).toContain("Due: 2026-10-01")
+      expect(
+        plan.findings?.map(({ kind, subject }) => `${kind}:${subject}`)
+      ).toEqual(
+        expect.arrayContaining([
+          "issue-key-changed:APP → OTHER",
+          "issue-excluded:APP-1",
+          "parent-dropped:APP-4",
+          "assignee-unlinked:Former User",
+          "due-date-as-text:1 ticket"
+        ])
+      )
+      expect(plan.report.markdown).toContain("Restricted issues left out")
+      expect(plan.report.markdown).toMatch(/\| Issues \| 2 \| 1 \|/)
+    })
+)
+
+it.effect("leaves a skipped label off every ticket and reports it", () =>
+  Effect.gen(function* () {
+    const input = preparationInput()
+    const { plan } = yield* finalizeJiraPublication(
+      yield* prepareJiraPublication({
+        ...input,
+        configuration: {
+          ...input.configuration,
+          tags: [
+            {
+              source: { kind: "label", value: "Migration" },
+              destinationTagName: "migration",
+              skipped: true
+            }
+          ]
+        }
+      }),
+      []
+    )
+    expect(plan.tags.map(({ name }) => name)).toEqual(["component:api"])
+    expect(
+      plan.tickets.every(({ tags }) => !tags.some((tag) => tag === "migration"))
+    ).toBe(true)
+    expect(plan.findings).toContainEqual(
+      expect.objectContaining({
+        kind: "tag-skipped",
+        subject: 'label "Migration"'
+      })
+    )
+    expect(plan.report.markdown).toContain("Labels and components skipped")
+  })
 )
 
 const prepareJiraPublication = (
