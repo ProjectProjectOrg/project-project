@@ -50,10 +50,15 @@ export function useStatusReorder(
 
   const setDragOrder = useCallback(
     (next: ReadonlyArray<StatusSlug> | null) => {
-      if (next !== null && !keepsBaselineOrder(next)) return
+      if (next !== null) {
+        const all = Result.isSuccess(statusesResult)
+          ? boardStatusesFor(statusesResult.value)
+          : next
+        if (!keepsBaselineOrder(withHiddenInPlace(all, next))) return
+      }
       setReorder({ key: scopeKey, order: next })
     },
-    [scopeKey]
+    [scopeKey, statusesResult]
   )
 
   const saveReorder = useCallback(() => {
