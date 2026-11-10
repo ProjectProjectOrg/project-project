@@ -274,7 +274,7 @@ function TagChips({
       {tags.map((tag) => (
         <span
           key={tag}
-          className="inline-flex h-6 items-center gap-1 rounded-md bg-muted px-1.5 text-xs text-foreground"
+          className="inline-flex h-6 items-center gap-1 rounded-md bg-muted px-1.5 text-caption text-foreground"
         >
           {tag}
           {onRemove === null ? null : (
@@ -325,7 +325,7 @@ function ProjectTagPicker({
       />
       <DropdownMenuContent align="start" sideOffset={6} className="w-48">
         {names.length === 0 ? (
-          <p className="px-2 py-1.5 text-xs text-muted-foreground">
+          <p className="px-2 py-1.5 text-caption text-muted-foreground">
             {m.templates_editor_tags_empty()}
           </p>
         ) : (
@@ -374,7 +374,7 @@ function FreeTagInput({
         if (!value.includes(next)) onChange([...value, next])
         setDraft("")
       }}
-      className="-mx-2 w-32 text-xs"
+      className="-mx-2 w-32 text-caption"
     />
   )
 }
@@ -393,7 +393,7 @@ export function TemplateTagsField({
   return (
     <div className="flex flex-wrap items-center gap-1">
       {value.length === 0 && disabled ? (
-        <span className="text-[13px] text-muted-foreground">{noneLabel()}</span>
+        <span className="text-body text-muted-foreground">{noneLabel()}</span>
       ) : null}
       <TagChips
         tags={value}
@@ -446,15 +446,13 @@ export function DefaultForField({
         )}
       >
         {current.length === 0 && !library.canEdit ? (
-          <span className="text-[13px] text-muted-foreground">
-            {noneLabel()}
-          </span>
+          <span className="text-body text-muted-foreground">{noneLabel()}</span>
         ) : null}
         {current.map((type) => (
           <span
             key={type}
             data-default-for={type}
-            className="inline-flex h-6 items-center gap-1 rounded-md bg-muted px-1.5 text-xs text-foreground"
+            className="inline-flex h-6 items-center gap-1 rounded-md bg-muted px-1.5 text-caption text-foreground"
           >
             {TYPE_LABELS[type]()}
             {library.canEdit ? (
@@ -503,7 +501,7 @@ export function DefaultForField({
         ) : null}
       </div>
       {error === null ? null : (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-caption text-destructive">
           {error}
         </p>
       )}
@@ -519,4 +517,4 @@ const ORIGIN_LABELS: Record<LibraryOrigin, () => string> = {
 export const originLabel = (origin: LibraryOrigin): string =>
   ORIGIN_LABELS[origin]()
 
-export const MUTED_VALUE_CLASS = "text-[13px] text-muted-foreground"
+export const MUTED_VALUE_CLASS = "text-body text-muted-foreground"

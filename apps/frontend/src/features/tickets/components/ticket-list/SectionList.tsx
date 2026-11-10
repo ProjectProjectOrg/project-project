@@ -42,7 +42,6 @@ import { SectionBody } from "./SectionBody"
 import { SectionHeader, type SectionHeading } from "./SectionHeader"
 import { SectionRows } from "./SectionRows"
 import { SectionTicketCreator } from "./SectionTicketCreator"
-import { SubTicketExpansionProvider } from "./SubTicketExpansion"
 import { AutoLoad } from "./VirtualRows"
 
 type CreatingSections = Readonly<{
@@ -178,37 +177,37 @@ export function SectionList({
         }
       />
 
-      <SubTicketExpansionProvider>
-        <SectionBody collapsed={collapsed}>
-          {items.length === 0 ? (
-            <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-              {emptyMessage ?? "—"}
-            </div>
-          ) : (
-            <SectionRows
-              items={items}
-              update={update}
-              members={members}
-              editable={editable}
-              showParent={snapshotReq?._view !== "epicSections"}
-              showSprint={!inOneSprint}
-              activePreviewId={activePreviewId}
-              onPreviewPointerEnter={onPreviewPointerEnter}
-              onPreviewOpenChange={onPreviewOpenChange}
-            />
-          )}
+      <SectionBody collapsed={collapsed}>
+        {items.length === 0 ? (
+          <div className="px-3 py-4 text-center text-caption text-muted-foreground">
+            {emptyMessage ?? "—"}
+          </div>
+        ) : (
+          <SectionRows
+            items={items}
+            update={update}
+            members={members}
+            editable={editable}
+            contextParent={
+              query.parent?.length === 1 ? query.parent[0] : undefined
+            }
+            showSprint={!inOneSprint}
+            activePreviewId={activePreviewId}
+            onPreviewPointerEnter={onPreviewPointerEnter}
+            onPreviewOpenChange={onPreviewOpenChange}
+          />
+        )}
 
-          {pagination ?? (
-            <SectionPagination
-              req={req}
-              collapsed={collapsed}
-              status={status}
-              page={page}
-              count={count}
-            />
-          )}
-        </SectionBody>
-      </SubTicketExpansionProvider>
+        {pagination ?? (
+          <SectionPagination
+            req={req}
+            collapsed={collapsed}
+            status={status}
+            page={page}
+            count={count}
+          />
+        )}
+      </SectionBody>
     </div>
   )
 }
@@ -295,7 +294,7 @@ export function TicketPagination({
             <div
               role="status"
               className={cn(
-                "flex h-7 items-center gap-2 text-xs text-muted-foreground",
+                "flex h-7 items-center gap-2 text-caption text-muted-foreground",
                 !loadingMore && "invisible"
               )}
             >

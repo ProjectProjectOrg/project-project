@@ -147,14 +147,14 @@ function GithubAccount({
                 label={m.org_integrations_github_account_label()}
                 error={installError ?? status.lastCheckError}
               >
-                <span className="text-[13px] text-muted-foreground">
+                <span className="text-body text-muted-foreground">
                   {status.accountLogin ?? "—"}
                 </span>
               </SettingsRow>
               <SettingsRow
                 label={m.org_integrations_github_account_type_label()}
               >
-                <span className="text-[13px] text-muted-foreground">
+                <span className="text-body text-muted-foreground">
                   {status.accountType === "Organization"
                     ? m.org_integrations_github_account_type_org()
                     : m.org_integrations_github_account_type_user()}
@@ -164,7 +164,7 @@ function GithubAccount({
                 <SettingsRow
                   label={m.org_integrations_github_last_checked_label()}
                 >
-                  <span className="text-[13px] text-muted-foreground">
+                  <span className="text-body text-muted-foreground">
                     {status.lastCheckedAt.toLocaleDateString(getLocale())}
                   </span>
                 </SettingsRow>
@@ -172,7 +172,7 @@ function GithubAccount({
             </SettingsGroup>
           </SettingsSection>
         ) : installError ? (
-          <p role="alert" className="text-xs text-destructive">
+          <p role="alert" className="text-caption text-destructive">
             {installError}
           </p>
         ) : null

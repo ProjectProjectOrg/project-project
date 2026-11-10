@@ -148,7 +148,7 @@ export function TicketCreatorShell({
           <span
             id={errorId}
             role="alert"
-            className="shrink-0 text-xs text-destructive"
+            className="shrink-0 text-caption text-destructive"
           >
             {error}
           </span>

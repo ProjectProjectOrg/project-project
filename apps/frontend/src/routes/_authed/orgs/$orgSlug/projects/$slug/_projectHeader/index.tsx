@@ -61,8 +61,10 @@ export const Route = createFileRoute(
         sprintSections(sprintSectionsRequest(orgSlug, slug, query))
       )()
     }
-    if (grouping === "epic") {
-      registry.mount(epicSections(epicSectionsRequest(orgSlug, slug, query)))()
+    if (grouping === "epic" || grouping === "parent") {
+      registry.mount(
+        epicSections(epicSectionsRequest(orgSlug, slug, query, grouping))
+      )()
     }
   },
   validateSearch: Schema.toStandardSchemaV1(BacklogRouteSearchSchema)

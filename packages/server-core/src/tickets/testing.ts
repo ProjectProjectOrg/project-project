@@ -1,5 +1,6 @@
 import {
   ActivityActor,
+  EPIC_SECTION_NONE,
   Group,
   matchesTicketQuery,
   NotFound,
@@ -427,6 +428,9 @@ export const entryFromDocument = (document: TicketDocs.TicketDocument) => {
     subTicketCount: 0,
     subTicketDoneCount: 0,
     openBlockerCount: 0,
+    openBlockingCount: 0,
+    relatedCount: 0,
+    duplicateCount: 0,
     prDraft: entry.prDraft ?? false,
     prBase: entry.prBase ?? null,
     ignoredBranches: entry.ignoredBranches ?? [],
@@ -484,7 +488,7 @@ export const decodeStatusSlug = Schema.decodeSync(StatusSlug)
 
 export const querySectionsVia =
   (
-    index: Pick<TicketIndex.TicketIndex["Service"], "query" | "count">
+    index: Pick<TicketIndex.TicketIndex["Service"], "list" | "query" | "count">
   ): TicketIndex.TicketIndex["Service"]["querySections"] =>
   (project, query, options) =>
     Effect.gen(function* () {
@@ -516,16 +520,34 @@ export const querySectionsVia =
         }
         return out
       }
-      if (options.sections === "parent") {
-        for (const parent of query.parent ?? []) {
-          const scopedQuery = { ...query, parent: [parent] }
-          const counts = yield* index.count(
-            project,
-            { ...scopedQuery, status: undefined },
-            options
-          )
-          const entries = yield* index.query(project, scopedQuery, options)
-          out.set(parent, { counts, entries })
+      if (
+        options.sections === "parent" ||
+        options.sections === "ticketParent"
+      ) {
+        const all = yield* index.list(project)
+        const byId = new Map(all.map((entry) => [entry.id, entry]))
+        const byEpic = options.sections === "parent"
+        const sectionOf = (entry: TicketIndex.TicketIndexEntry): string => {
+          const parent =
+            entry.parent === null ? undefined : byId.get(entry.parent)
+          if (parent === undefined) return EPIC_SECTION_NONE
+          if (!byEpic) {
+            return parent.type === "epic" ? EPIC_SECTION_NONE : parent.id
+          }
+          return parent.type === "epic"
+            ? parent.id
+            : (parent.parent ?? EPIC_SECTION_NONE)
+        }
+        for (const key of new Set(all.map(sectionOf))) {
+          const scoped = {
+            ...options,
+            ticketIds: all
+              .filter((entry) => sectionOf(entry) === key)
+              .map((entry) => entry.id)
+          }
+          const counts = yield* index.count(project, countQuery, scoped)
+          const entries = yield* index.query(project, query, scoped)
+          if (counts.total > 0) out.set(key, { counts, entries })
         }
         return out
       }

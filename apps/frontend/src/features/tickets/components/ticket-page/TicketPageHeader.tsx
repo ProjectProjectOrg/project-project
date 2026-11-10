@@ -17,7 +17,7 @@ export function TicketPageHeader({
 }) {
   return (
     <header className="flex items-start gap-(--ticket-title-gap)">
-      <div className="mt-1.5 flex h-[1lh] w-(--ticket-status-column) shrink-0 items-center justify-center text-xl">
+      <div className="mt-1.5 flex h-[1lh] w-(--ticket-status-column) shrink-0 items-center justify-center text-display">
         <StatusButton
           ticket={ticket}
           size="lg"
@@ -28,15 +28,15 @@ export function TicketPageHeader({
       <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
         <h1 className="w-full">
           {readOnly ? (
-            <span className="block w-full px-2 py-1.5 text-xl font-semibold wrap-anywhere">
+            <span className="block w-full px-2 py-1.5 text-display font-bold wrap-anywhere">
               {ticket.title}
             </span>
           ) : (
             <TitleField key={ticket.id} ticket={ticket} />
           )}
         </h1>
-        <div className="flex min-h-8 items-center gap-1.5 px-2">
-          <span className="font-mono text-xs text-muted-foreground tabular-nums">
+        <div className="flex min-h-8 items-center gap-3 px-2">
+          <span className="text-body text-muted-foreground tabular-nums">
             {ticket.id}
           </span>
           {meta}

@@ -114,24 +114,24 @@ function CommentHeader({
 }) {
   const author = comment.author
   return (
-    <header className="flex min-h-8 items-center justify-between gap-2 text-sm">
+    <header className="flex min-h-8 items-center justify-between gap-2 text-body">
       <div className="flex items-center gap-2">
         {author.kind === "user" && (
           <MemberAvatar member={author.user} size={20} />
         )}
-        <span className="font-medium">
+        <span className="font-semibold">
           {author.kind === "user"
             ? (author.user.name ?? author.user.email)
             : author.displayName}
         </span>
         <TimelineTime at={comment.createdAt} />
         {comment.editedAt && (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-caption text-muted-foreground">
             {m.comments_edited_marker()}
           </span>
         )}
         {comment.origin === "jira" && (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-caption text-muted-foreground">
             {m.comments_imported_from_jira()}
           </span>
         )}
@@ -180,7 +180,7 @@ function EditForm({
   return (
     <>
       <CommentHeader comment={comment}>
-        <span className="text-sm text-muted-foreground">
+        <span className="text-body text-muted-foreground">
           {m.comments_editing_marker()}
         </span>
       </CommentHeader>
@@ -190,7 +190,7 @@ function EditForm({
         autoFocus
         compact
       />
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-body text-destructive">{error}</p>}
       <div className="flex justify-end gap-2">
         <InlineForm.Cancel />
         <Button size="sm" onClick={save} disabled={busy || !body.trim()}>

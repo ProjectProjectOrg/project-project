@@ -170,7 +170,7 @@ export function TemplateSlashList({
       aria-label={m.templates_creator_list_label()}
     >
       {slash.options.length === 0 ? (
-        <p className="px-2 py-2 text-[13px] leading-5 text-muted-foreground">
+        <p className="px-2 py-2 text-body leading-5 text-muted-foreground">
           {m.templates_creator_no_match()}
         </p>
       ) : (
@@ -189,7 +189,7 @@ export function TemplateSlashList({
                 {templateLabel(template)}
               </span>
               {meta ? (
-                <span className="shrink-0 text-xs text-muted-foreground">
+                <span className="shrink-0 text-caption text-muted-foreground">
                   {meta}
                 </span>
               ) : null}

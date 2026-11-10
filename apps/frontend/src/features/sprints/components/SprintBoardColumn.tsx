@@ -314,7 +314,7 @@ function CardSlot({
       <div
         ref={cardRef}
         className={cn(
-          "rounded-md",
+          "rounded-lg",
           dragging && "opacity-40",
           (pending || inert) && "animate-pulse"
         )}
@@ -326,7 +326,7 @@ function CardSlot({
           }
           animate={{ boxShadow: "0 0 0 0px transparent" }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="rounded-md"
+          className="rounded-lg"
         >
           <SprintBoardCard update={update} ticket={ticket} members={members} />
         </motion.div>

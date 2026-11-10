@@ -46,8 +46,8 @@ function FindingGroup({
   const unknownKind = group.title === null
   return (
     <section className="flex flex-col gap-2">
-      <h4 className="flex items-baseline gap-2 text-[13px]">
-        <span className="font-medium text-foreground">
+      <h4 className="flex items-baseline gap-2 text-body">
+        <span className="font-semibold text-foreground">
           {group.title ?? m.jira_import_finding_other()}
         </span>
         <span className="text-muted-foreground tabular-nums">

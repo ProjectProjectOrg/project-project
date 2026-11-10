@@ -25,7 +25,7 @@ export function SettingsDisclosureItem({
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-[13px] font-medium transition-colors hover:bg-hover active:bg-active"
+        className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-body font-semibold transition-colors hover:bg-hover active:bg-active"
       >
         <ChevronRight
           className={cn(

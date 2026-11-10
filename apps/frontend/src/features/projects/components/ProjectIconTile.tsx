@@ -11,12 +11,14 @@ import { cn } from "@/lib/utils"
 
 type TileSize = "xs" | "sm" | "md" | "lg"
 
+/* oxlint-disable workspace/type-scale -- glyph sizes for the tile's emoji or letter, not text on the scale */
 const SIZE_TO_CLASS: Record<TileSize, string> = {
   xs: "size-4 rounded-md text-[10px]",
   sm: "size-9 rounded-2xl text-lg",
   md: "size-10 rounded-2xl text-xl",
   lg: "size-12 rounded-2xl text-2xl"
 }
+/* oxlint-enable workspace/type-scale */
 
 const SIZE_TO_PX: Record<TileSize, number> = {
   xs: 16,

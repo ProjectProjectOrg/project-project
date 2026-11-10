@@ -149,7 +149,9 @@ export function BranchMenu({
   )
 }
 
-function RemoveBranchAction({ ticket }: Readonly<{ ticket: TicketDetail }>) {
+export function RemoveBranchAction({
+  ticket
+}: Readonly<{ ticket: Pick<TicketDetail, "id"> }>) {
   const { orgSlug, slug } = useProjectRoute()
   const atom = clearBranch({
     req: projectRequest(orgSlug, slug),

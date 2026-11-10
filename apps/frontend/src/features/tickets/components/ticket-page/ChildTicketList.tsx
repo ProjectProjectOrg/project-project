@@ -67,7 +67,7 @@ export function ChildTicketList({
                 update={childTicketUpdates(req)}
                 ticket={row.ticket}
                 members={members}
-                showParent={false}
+                contextParent={parent.id}
                 pending={row.pending}
                 editable={editable}
                 previewOpen={preview.activePreviewId === row.ticket.id}

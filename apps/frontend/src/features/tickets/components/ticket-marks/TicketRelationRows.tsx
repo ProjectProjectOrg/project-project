@@ -1,4 +1,4 @@
-import { useAtomSet } from "@effect/atom-react"
+import { RegistryContext } from "@effect/atom-react"
 import type {
   LinkedTicket,
   MarkKind,
@@ -8,14 +8,16 @@ import type {
 } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import { Unlink, X } from "lucide-react"
-import { useRef, useState } from "react"
+import { useContext, useRef, useState } from "react"
 
+import { fireMutation } from "@/api/viewMutation"
 import { Button } from "@/components/ui/button"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem
-} from "@/components/ui/dropdown-menu"
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger
+} from "@/components/ui/context-menu"
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
@@ -28,7 +30,6 @@ import {
   relationGroups,
   type RelationGroupKey
 } from "@/features/tickets/lib/relationGroups"
-import { useContextMenu } from "@/hooks/useContextMenu"
 import { m } from "@/paraglide/messages"
 
 import { TicketStatusIcon } from "./TicketStatusIcon"
@@ -98,19 +99,20 @@ function RelationEntry({
   members: ReadonlyArray<Member>
 }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const remove = useAtomSet(
-    unmarkTicket(ticketRequest(orgSlug, slug, ticketId))
-  )
+  const registry = useContext(RegistryContext)
   const entry = useRef<HTMLDivElement>(null)
-  const menu = useContextMenu(entry, unmark !== null)
   const [preview, setPreview] = useState(false)
   const unlink = () => {
     if (unmark === null) return
     focusNeighbour(entry.current)
-    remove({ kind: unmark, target: linked.id })
+    void fireMutation(
+      registry,
+      unmarkTicket(ticketRequest(orgSlug, slug, ticketId)),
+      { kind: unmark, target: linked.id }
+    )
   }
 
-  return (
+  const content = (
     <div
       ref={entry}
       className="group/reveal relative flex max-w-full min-w-0 items-center"
@@ -134,7 +136,7 @@ function RelationEntry({
                 />
               }
               variant="chip"
-              className="max-w-full min-w-0 pr-7"
+              className="max-w-full min-w-0 pr-9 group-hover/reveal:bg-hover"
             />
           }
         >
@@ -166,33 +168,32 @@ function RelationEntry({
         )}
       </Popover>
       {unmark !== null && (
-        <>
-          <Button
-            type="button"
-            variant="quiet"
-            size="square-7"
-            aria-label={m.tickets_relations_remove_aria_label({
-              title: linked.title
-            })}
-            onClick={unlink}
-            className="absolute right-0 size-6 opacity-0 transition-opacity group-hover/reveal:opacity-100 focus-visible:opacity-100"
-          >
-            <X className="size-3.5" strokeWidth={1.75} />
-          </Button>
-          <DropdownMenu open={menu.open} onOpenChange={menu.onOpenChange}>
-            <DropdownMenuContent
-              anchor={menu.anchor ?? entry}
-              align="start"
-              className="w-48"
-            >
-              <DropdownMenuItem onClick={unlink} className="cursor-pointer">
-                <Unlink className="size-4" strokeWidth={1.75} />
-                {REMOVE_LABELS[unmark]()}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </>
+        <Button
+          type="button"
+          variant="quiet"
+          size="square-7"
+          aria-label={m.tickets_relations_remove_aria_label({
+            title: linked.title
+          })}
+          onClick={unlink}
+          className="absolute right-1 size-6 opacity-0 transition-opacity group-hover/reveal:opacity-100 focus-visible:opacity-100"
+        >
+          <X className="size-3.5" strokeWidth={1.75} />
+        </Button>
       )}
     </div>
+  )
+
+  if (unmark === null) return content
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger render={content} />
+      <ContextMenuContent className="w-48">
+        <DropdownMenuItem onClick={unlink} className="cursor-pointer">
+          <Unlink className="size-4" strokeWidth={1.75} />
+          {REMOVE_LABELS[unmark]()}
+        </DropdownMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }

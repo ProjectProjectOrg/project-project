@@ -22,7 +22,11 @@ type HighlightState = Readonly<{
 const HIGHLIGHTED = "[data-highlighted]:not(input)"
 const OPEN_SUBMENU_TRIGGER =
   "[data-slot=dropdown-menu-sub-trigger][data-popup-open]"
+const MENU_ROW =
+  "[role^=menuitem]:not([data-disabled]), [role=option]:not([data-disabled])"
 const HIGHLIGHT_INSET = 1
+
+type Point = Readonly<{ x: number; y: number }>
 
 const toneOf = (element: HTMLElement): HighlightTone =>
   element.dataset.variant === "destructive" ? "destructive" : "default"
@@ -35,14 +39,35 @@ const firstOwned = (
     (candidate) => candidate.closest("[data-menu-highlight-host]") === container
   )
 
-export const measureHighlight = (
+const ownedRowAt = (
   container: HTMLElement,
-  selector: string = HIGHLIGHTED
+  pointer: Point
+): HTMLElement | undefined =>
+  Array.from(container.querySelectorAll<HTMLElement>(MENU_ROW)).find((row) => {
+    if (row.closest("[data-menu-highlight-host]") !== container) return false
+    const box = row.getBoundingClientRect()
+    return (
+      pointer.x >= box.left &&
+      pointer.x <= box.right &&
+      pointer.y >= box.top &&
+      pointer.y <= box.bottom
+    )
+  })
+
+// Base UI ignores the pointer on a menu while one of its submenus is open,
+// and marks no row as highlighted until the pointer moves again after the
+// submenu closes. The row under the pointer bridges that handoff, so the
+// highlight slides on instead of fading out and in.
+const measureHighlight = (
+  container: HTMLElement,
+  selector: string,
+  pointer: Point | null
 ): HighlightRect | null => {
   const element =
     firstOwned(container, selector) ??
     (selector === HIGHLIGHTED
-      ? firstOwned(container, OPEN_SUBMENU_TRIGGER)
+      ? (firstOwned(container, OPEN_SUBMENU_TRIGGER) ??
+        (pointer === null ? undefined : ownedRowAt(container, pointer)))
       : undefined)
   if (element === undefined) return null
   return {
@@ -73,10 +98,22 @@ export const nextHighlight = (
   return { rect, session: fresh ? previous.session + 1 : previous.session }
 }
 
-function observeHighlight(container: HTMLElement, measure: () => void) {
+function observeHighlight(
+  container: HTMLElement,
+  measure: (pointer: Point | null) => void
+) {
   container.setAttribute("data-menu-highlight-host", "")
-  measure()
-  const mutations = new MutationObserver(measure)
+  let pointer: Point | null = null
+  const remeasure = () => measure(pointer)
+  const track = (event: PointerEvent) => {
+    pointer = { x: event.clientX, y: event.clientY }
+  }
+  document.addEventListener("pointermove", track, {
+    capture: true,
+    passive: true
+  })
+  remeasure()
+  const mutations = new MutationObserver(remeasure)
   mutations.observe(container, {
     subtree: true,
     childList: true,
@@ -84,9 +121,10 @@ function observeHighlight(container: HTMLElement, measure: () => void) {
     attributeFilter: ["data-highlighted", "data-popup-open"]
   })
   const resizes =
-    typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure)
+    typeof ResizeObserver === "undefined" ? null : new ResizeObserver(remeasure)
   resizes?.observe(container)
   return () => {
+    document.removeEventListener("pointermove", track, { capture: true })
     mutations.disconnect()
     resizes?.disconnect()
     container.removeAttribute("data-menu-highlight-host")
@@ -105,9 +143,12 @@ function useHighlightRect(
   useLayoutEffect(() => {
     const container = anchorRef.current?.parentElement
     return container
-      ? observeHighlight(container, () =>
+      ? observeHighlight(container, (pointer) =>
           setState((previous) =>
-            nextHighlight(previous, measureHighlight(container, selector))
+            nextHighlight(
+              previous,
+              measureHighlight(container, selector, pointer)
+            )
           )
         )
       : undefined

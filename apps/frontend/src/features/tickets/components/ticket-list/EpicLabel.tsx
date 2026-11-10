@@ -78,7 +78,7 @@ export function EpicSeparator({ className }: Readonly<{ className?: string }>) {
     <span
       aria-hidden
       className={cn(
-        "mx-1.5 text-muted-foreground/60 before:content-['/']",
+        "mx-1.5 text-muted-foreground before:content-['/']",
         className
       )}
     />

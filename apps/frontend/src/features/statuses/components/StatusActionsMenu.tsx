@@ -120,13 +120,13 @@ function AutomationConfirmBody(props: Props) {
         contained
         reset={refresh}
         onInitial={() => (
-          <output className="text-xs text-muted-foreground">
+          <output className="text-caption text-muted-foreground">
             {m.tickets_status_loading()}
           </output>
         )}
         onSuccess={({ value }) =>
           Object.values(value.rules).includes(props.status.slug) ? (
-            <span className="inline-flex h-8 items-center text-xs text-muted-foreground">
+            <span className="inline-flex h-8 items-center text-caption text-muted-foreground">
               {m.tickets_status_delete_resets_git_automation()}
             </span>
           ) : null

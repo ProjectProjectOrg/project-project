@@ -237,11 +237,11 @@ const describeFailure = (cause: Cause.Cause<unknown>): string =>
 
 const CONFIRM_SIZES = {
   sm: {
-    prompt: "text-[13px] whitespace-nowrap",
+    prompt: "text-body whitespace-nowrap",
     cancel: { size: "sm", variant: "ghost", leadingIcon: X }
   },
   xs: {
-    prompt: "min-w-0 flex-1 truncate text-xs",
+    prompt: "min-w-0 flex-1 truncate text-caption",
     cancel: { size: "xs", variant: "raised" }
   }
 } as const
@@ -359,7 +359,7 @@ function Action<E = unknown>({
     error === null || error === undefined ? null : (
       <p
         role="alert"
-        className={cn("text-xs text-destructive", menu && "px-2")}
+        className={cn("text-caption", "text-destructive", menu && "px-2")}
       >
         {error}
       </p>
@@ -374,7 +374,10 @@ function Action<E = unknown>({
           void run()
         }}
       >
-        <label htmlFor={typedId} className="text-xs text-muted-foreground">
+        <label
+          htmlFor={typedId}
+          className={"text-caption text-muted-foreground"}
+        >
           {prompt}
         </label>
         <div className="flex items-center gap-2">
@@ -401,13 +404,15 @@ function Action<E = unknown>({
       <div className={cn("flex flex-col gap-1", menu && "px-2 pt-1")}>
         <p
           className={
-            menu ? "text-xs text-muted-foreground" : "text-sm font-medium"
+            menu
+              ? "text-caption text-muted-foreground"
+              : "text-subtitle font-semibold"
           }
         >
           {prompt}
         </p>
         {description === undefined ? null : (
-          <p className="text-xs text-muted-foreground">{description}</p>
+          <p className={"text-caption text-muted-foreground"}>{description}</p>
         )}
       </div>
       {children}

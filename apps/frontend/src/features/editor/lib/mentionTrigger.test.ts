@@ -25,6 +25,11 @@ describe("matchMentionTrigger", () => {
     expect(matchMentionTrigger("#merge\nnext", "@#")).toBeNull()
   })
 
+  it("leaves markdown headings alone", () => {
+    expect(matchMentionTrigger("## ", "@#")).toBeNull()
+    expect(matchMentionTrigger("### Plan", "@#")).toBeNull()
+  })
+
   it("ignores triggers inside words", () => {
     expect(matchMentionTrigger("mail luuk@igne", "@#")).toBeNull()
   })

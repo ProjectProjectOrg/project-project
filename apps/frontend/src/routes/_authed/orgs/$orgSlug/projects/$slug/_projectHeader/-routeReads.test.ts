@@ -54,6 +54,7 @@ const projectDetail = Schema.decodeSync(ProjectDetail)({
     connectGithubDismissedAt: null
   },
   body: "",
+  nextTicketNumber: 1,
   members: [],
   pendingMembers: [],
   permissions: Project.pm.grants

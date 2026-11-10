@@ -9,15 +9,24 @@ const context: CommandContext = {
   ticket: null,
   ticketDetail: null,
   sprint: null,
+  view: null,
   viewerId: null,
   canSeeOrgMembers: false,
   canCreateProjects: true,
+  canSendFeedback: true,
+  canHoldChildren: true,
   project: null,
-  canCreateTickets: true,
-  canEditTickets: true,
-  canArchiveTickets: true,
-  canDeleteTickets: true,
-  canPlanSprints: true,
+  tickets: {
+    create: true,
+    edit: true,
+    assign: true,
+    split: true,
+    archive: true,
+    delete: true,
+    stackBranch: true,
+    clearBranch: true,
+    planSprints: true
+  },
   canManageProject: true
 }
 

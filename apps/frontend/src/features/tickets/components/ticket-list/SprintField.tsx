@@ -74,10 +74,10 @@ export function SprintField({
           >
             <span
               className={cn(
-                "inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs transition-colors group-hover/hitbox:bg-foreground/5",
+                "inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-caption transition-colors hitbox-hover:bg-foreground/5",
                 failed
                   ? "text-destructive"
-                  : "text-muted-foreground group-hover/hitbox:text-foreground"
+                  : "text-muted-foreground hitbox-hover:text-foreground"
               )}
             >
               <SprintStateIcon sprint={membership} size="xs" />
@@ -138,7 +138,7 @@ export function SprintSelect({
           }
           className="min-w-0"
         >
-          <span className="inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
+          <span className="inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-caption text-muted-foreground transition-colors hitbox-hover:bg-foreground/5 hitbox-hover:text-foreground">
             {current ? (
               <SprintStateIcon sprint={current} size="xs" />
             ) : (

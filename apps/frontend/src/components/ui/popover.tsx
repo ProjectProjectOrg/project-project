@@ -81,4 +81,10 @@ function PopoverTitle(
   return <PopoverPrimitive.Title data-slot="popover-title" {...props} />
 }
 
-export { Popover, PopoverTrigger, PopoverContent, PopoverTitle }
+function PopoverClose(
+  props: React.ComponentProps<typeof PopoverPrimitive.Close>
+) {
+  return <PopoverPrimitive.Close data-slot="popover-close" {...props} />
+}
+
+export { Popover, PopoverTrigger, PopoverContent, PopoverTitle, PopoverClose }

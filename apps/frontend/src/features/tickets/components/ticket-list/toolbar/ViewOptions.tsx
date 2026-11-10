@@ -22,6 +22,7 @@ import { useMemo, useRef, useState, type ComponentProps } from "react"
 
 import { Button } from "@/components/ui/button"
 import { CollapsingLabel } from "@/components/ui/collapsing-label"
+import { CountPill } from "@/components/ui/count-pill"
 import {
   Popover,
   PopoverContent,
@@ -113,11 +114,7 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
               <CollapsingLabel show={!compact}>
                 {m.tickets_view_options_label()}
               </CollapsingLabel>
-              {active && (
-                <span className="rounded-full bg-foreground/10 px-1.5 font-mono text-[10px] text-foreground tabular-nums">
-                  {activeFilterCount}
-                </span>
-              )}
+              {active && <CountPill active>{activeFilterCount}</CountPill>}
               <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
             </ToolbarButton>
           }
@@ -189,7 +186,7 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
                 return null
               })}
               {filters.includes("blocked") && (
-                <label className="flex min-h-8 items-center justify-between gap-3 text-[13px] text-muted-foreground">
+                <label className="flex min-h-8 items-center justify-between gap-3 text-body text-muted-foreground">
                   {m.tickets_filters_blocked_only()}
                   <Switch
                     checked={value?.blocked === true}
@@ -230,7 +227,7 @@ function FilterArchived({
   const archivedFilter = value === true
   const setArchivedFilter = (on: boolean) => onChange(on ? true : undefined)
   return (
-    <label className="flex min-h-8 items-center justify-between gap-3 text-[13px] text-muted-foreground">
+    <label className="flex min-h-8 items-center justify-between gap-3 text-body text-muted-foreground">
       {m.tickets_filters_archived_show()}
       <Switch checked={archivedFilter} onCheckedChange={setArchivedFilter} />
     </label>
@@ -240,7 +237,7 @@ function FilterArchived({
 function ExpandSubTickets() {
   const [expanded, setExpanded] = useSubTicketsExpanded()
   return (
-    <label className="flex min-h-8 items-center justify-between gap-3 text-[13px] text-muted-foreground">
+    <label className="flex min-h-8 items-center justify-between gap-3 text-body text-muted-foreground">
       {m.tickets_filters_expand_sub_tickets()}
       <Switch checked={expanded} onCheckedChange={setExpanded} />
     </label>
@@ -459,7 +456,7 @@ function FilterTags({
   if (tagList.length === 0) return null
   return (
     <div className="-mx-3 space-y-2 border-t border-border/60 px-3 pt-3">
-      <div className="text-[13px] text-muted-foreground">
+      <div className="text-body text-muted-foreground">
         {m.tickets_filters_section_tags()}
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -474,7 +471,7 @@ function FilterTags({
                 onChange(toggledTags(selectedTags, tag.name))
               }}
               aria-pressed={selected}
-              className="rounded-md ring-offset-background transition-transform duration-100 outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+              className="rounded-md transition-transform duration-100 outline-none focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]"
             >
               <TagChip
                 name={tag.name}

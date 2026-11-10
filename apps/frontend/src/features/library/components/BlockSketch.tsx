@@ -25,7 +25,7 @@ function SketchRow({
   index
 }: Readonly<{ line: SketchLine; index: number }>) {
   return (
-    <span className="flex h-2 items-center gap-1.5 text-muted-foreground/45">
+    <span className="flex h-2 items-center gap-1.5 text-muted-foreground">
       <SketchMarker line={line} />
       <span
         className={cn(
@@ -83,7 +83,7 @@ export function BlockSketch({
       {blocks.map((block) => (
         <div key={block.key} className="flex flex-col gap-1">
           {names ? (
-            <span className="flex items-center gap-1.5 text-[11px] leading-4 font-medium text-foreground/80">
+            <span className="flex items-center gap-1.5 text-micro leading-4 text-muted-foreground">
               <BlockIconGlyph
                 icon={block.icon}
                 color={block.color}
@@ -110,7 +110,7 @@ export function BlockStrip({
   return (
     <MarqueeIfOverflow
       variant="strip"
-      className={cn("text-xs text-muted-foreground", className)}
+      className={cn("text-caption text-muted-foreground", className)}
     >
       {blocks.map((block) => (
         <span key={block.key} className="flex shrink-0 items-center gap-1">

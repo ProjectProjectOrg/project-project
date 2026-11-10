@@ -54,3 +54,6 @@ export const spring = {
     exit: { duration: 0.16 }
   }
 } as const
+
+export const exitFallbackMs = (tier: { exit: { duration: number } }) =>
+  Math.round(tier.exit.duration * 1000) + 100

@@ -120,7 +120,7 @@ const people = (lines: ReadonlyArray<TimelineLine>) => {
 function ActorName({ actor }: Readonly<{ actor: TicketActivityActor | null }>) {
   if (actor === null || actor.kind === "system") {
     return (
-      <span className="font-medium">
+      <span className="font-semibold">
         {actor === null
           ? m.tickets_activity_actor_unknown()
           : SYSTEM_NAMES[actor.source]()}
@@ -129,10 +129,10 @@ function ActorName({ actor }: Readonly<{ actor: TicketActivityActor | null }>) {
   }
   const name = actor.user.name || actor.user.email
   if (actor.kind === "user") {
-    return <span className="font-medium">{name}</span>
+    return <span className="font-semibold">{name}</span>
   }
   return (
-    <span className="font-medium">
+    <span className="font-semibold">
       {name}{" "}
       <span className="font-normal text-muted-foreground">
         {m.tickets_activity_actor_via({ client: actor.client.name })}
@@ -171,7 +171,7 @@ function EventRow({
       <span className="relative z-10 grid h-5 place-items-center">
         <ActorMark actor={actor} />
       </span>
-      <p className="min-w-0 text-sm leading-5 wrap-anywhere text-muted-foreground">
+      <p className="min-w-0 text-body leading-5 wrap-anywhere text-muted-foreground">
         <ActorName actor={actor} />{" "}
         <ActivityLineView line={line} lookups={lookups} />
         <span aria-hidden> · </span>
@@ -224,7 +224,7 @@ function RunRows({
           type="button"
           aria-expanded={open}
           onClick={() => setOpen(!open)}
-          className="group flex min-w-0 items-center gap-1 text-left text-sm leading-5 text-muted-foreground"
+          className="group flex min-w-0 items-center gap-1 text-left text-body leading-5 text-muted-foreground"
         >
           <span className="min-w-0">
             <ActorName actor={lead} />
@@ -314,7 +314,7 @@ export function TicketTimeline<C>({
         )}
       </ol>
       {AsyncResult.isFailure(result) && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-body text-destructive">
           {m.tickets_activity_load_failed()}
         </p>
       )}

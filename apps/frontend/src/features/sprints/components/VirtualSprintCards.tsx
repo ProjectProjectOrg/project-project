@@ -16,6 +16,8 @@ import { useSprintEdgeScroll } from "../hooks/useSprintEdgeScroll"
 import { BOARD_CARD_LIST_CLASS } from "./BoardColumnShell"
 import { SprintCardMotion } from "./SprintCardMotion"
 
+const ESTIMATED_CARD_HEIGHT = 120
+
 export function VirtualSprintCards({
   tickets,
   isDraggable,
@@ -53,7 +55,7 @@ export function VirtualSprintCards({
     count: tickets.length,
     getScrollElement,
     getItemKey,
-    estimateSize: () => 96,
+    estimateSize: () => ESTIMATED_CARD_HEIGHT,
     overscan,
     rangeExtractor: useCallback(
       (range) => {
@@ -96,7 +98,7 @@ export function VirtualSprintCards({
                 (target.data.edge === "bottom" ? 1 : 0)
       const height =
         source.element.closest("[data-ticket-id]")?.getBoundingClientRect()
-          .height ?? 96
+          .height ?? ESTIMATED_CARD_HEIGHT
       const id = source.data.id
       setDrag((current) =>
         current?.id === id &&
@@ -151,7 +153,7 @@ export function VirtualSprintCards({
           <div
             aria-hidden
             data-sprint-drop-gap
-            className="pointer-events-none absolute inset-x-2 top-0 rounded-md bg-accent/40"
+            className="pointer-events-none absolute inset-x-2 top-0 rounded-lg bg-accent/40"
             style={{
               height: drag.height - 8,
               transform: `translateY(${gapStart === 0 ? 0 : gapStart + 4}px)`
@@ -165,13 +167,11 @@ export function VirtualSprintCards({
             data-index={row.index}
             data-ticket-id={tickets[row.index].id}
             className="absolute top-0 left-0 w-full"
-            style={{
-              transform: `translateY(${row.start}px)`,
-              minHeight: 96
-            }}
+            style={{ transform: `translateY(${row.start}px)` }}
             onFocusCapture={() => setFocusedId(tickets[row.index].id)}
           >
             <SprintCardMotion
+              index={row.index}
               start={row.start}
               offset={
                 showDropGap && drag && row.index !== sourceIndex

@@ -286,6 +286,8 @@ export function AttachmentsPlugin({
   if (rejection === null) return null
 
   return (
-    <span className="mt-1 block text-xs text-destructive">{rejection}</span>
+    <span className="mt-1 block text-caption text-destructive">
+      {rejection}
+    </span>
   )
 }

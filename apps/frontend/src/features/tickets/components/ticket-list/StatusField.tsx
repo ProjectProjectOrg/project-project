@@ -63,7 +63,7 @@ function StatusTrigger({
       <SelectTrigger
         render={<Hitbox mode="inline" margin="1" {...triggerProps} />}
       >
-        <span className="grid size-10 place-items-center rounded-lg bg-muted transition-colors group-hover/hitbox:bg-foreground/5">
+        <span className="grid size-10 place-items-center rounded-lg bg-muted transition-colors hitbox-hover:bg-foreground/5">
           {icon}
         </span>
       </SelectTrigger>

@@ -128,7 +128,11 @@ export type TicketIndexEntry = Readonly<{
   parent: TicketId | null
   subTicketCount: number
   subTicketDoneCount: number
+  subTicketsInSection?: number
   openBlockerCount: number
+  openBlockingCount: number
+  relatedCount: number
+  duplicateCount: number
   archivedAt: Date | null
   createdBy: string
   createdAt: Date
@@ -144,7 +148,11 @@ export type TicketIndexSection = Readonly<{
 export type TicketIndexSectionsOptions = TicketIndexCountOptions &
   Readonly<{
     limit: number
-    sections: "status" | "parent" | ReadonlyArray<TicketIndexSection>
+    sections:
+      | "status"
+      | "parent"
+      | "ticketParent"
+      | ReadonlyArray<TicketIndexSection>
   }>
 
 export type TicketIndexSections = ReadonlyMap<
@@ -571,6 +579,33 @@ const finishedStatus = (
     and s.order_key collate "C" > anchor.order_key collate "C"
 ))`
 
+const parentTicketRow = drizzleSql`${drizzleSql.identifier("parent_ticket")}`
+
+const epicSection = drizzleSql`coalesce((
+  select case when ${columnOf(parentTicketRow, ticketIndex.type)} = 'epic'
+    then ${columnOf(parentTicketRow, ticketIndex.ticketId)}
+    else ${columnOf(parentTicketRow, ticketIndex.parent)} end
+  from ${ticketIndex} as ${parentTicketRow}
+  where ${columnOf(parentTicketRow, ticketIndex.projectId)} = ${columnOf(parentRow, ticketIndex.projectId)}
+    and ${columnOf(parentTicketRow, ticketIndex.ticketId)} = ${columnOf(parentRow, ticketIndex.parent)}
+), ${EPIC_SECTION_NONE}::text)`
+
+const epicSectionCondition = (epics: ReadonlyArray<ParentFilter>): SQL =>
+  drizzleSql`${epicSection} = any(${drizzleSql.param([...epics])}::text[])`
+
+const ticketParentSection = drizzleSql`coalesce((
+  select ${columnOf(parentTicketRow, ticketIndex.ticketId)}
+  from ${ticketIndex} as ${parentTicketRow}
+  where ${columnOf(parentTicketRow, ticketIndex.projectId)} = ${columnOf(parentRow, ticketIndex.projectId)}
+    and ${columnOf(parentTicketRow, ticketIndex.ticketId)} = ${columnOf(parentRow, ticketIndex.parent)}
+    and ${columnOf(parentTicketRow, ticketIndex.type)} <> 'epic'
+), ${EPIC_SECTION_NONE}::text)`
+
+const ticketParentSectionCondition = (
+  parents: ReadonlyArray<ParentFilter>
+): SQL =>
+  drizzleSql`${ticketParentSection} = any(${drizzleSql.param([...parents])}::text[])`
+
 const childTicketCount = (condition: SQL) =>
   drizzleSql<number>`(
   select count(*) from ${ticketIndex} as ${childRow}
@@ -579,18 +614,55 @@ const childTicketCount = (condition: SQL) =>
     and ${condition}
 )`.mapWith(Number)
 
-const blockerRow = drizzleSql`${drizzleSql.identifier("blocker_tickets")}`
+const linkedRow = drizzleSql`${drizzleSql.identifier("linked_tickets")}`
 
-const openBlockerCountOf = (row: SQL) => drizzleSql<number>`(
+const relationEnds = {
+  out: { self: "from_ticket_id", other: "to_ticket_id" },
+  in: { self: "to_ticket_id", other: "from_ticket_id" }
+} as const
+
+const directedCountOf = (
+  row: SQL,
+  direction: keyof typeof relationEnds,
+  kind: "blocked_by" | "duplicate_of",
+  condition: SQL
+) => {
+  const { self, other } = relationEnds[direction]
+  return drizzleSql<number>`(
   select count(*) from ${ticketRelationIndex} r
-  join ${ticketIndex} as ${blockerRow}
-    on ${columnOf(blockerRow, ticketIndex.projectId)} = r.project_id
-    and ${columnOf(blockerRow, ticketIndex.ticketId)} = r.to_ticket_id
+  join ${ticketIndex} as ${linkedRow}
+    on ${columnOf(linkedRow, ticketIndex.projectId)} = r.project_id
+    and ${columnOf(linkedRow, ticketIndex.ticketId)} = r.${drizzleSql.identifier(other)}
   where r.project_id = ${columnOf(row, ticketIndex.projectId)}
-    and r.from_ticket_id = ${columnOf(row, ticketIndex.ticketId)}
-    and r.kind = 'blocked_by'
-    and ${columnOf(blockerRow, ticketIndex.archivedAt)} is null
-    and not ${finishedStatus(blockerRow)}
+    and r.${drizzleSql.identifier(self)} = ${columnOf(row, ticketIndex.ticketId)}
+    and r.kind = ${kind}
+    and ${condition}
+)`
+}
+
+const isOpenLinked = drizzleSql`${columnOf(linkedRow, ticketIndex.archivedAt)} is null
+    and not ${finishedStatus(linkedRow)}`
+
+const openBlockerCountOf = (row: SQL) =>
+  directedCountOf(row, "out", "blocked_by", isOpenLinked)
+
+const relatedCountOf = (row: SQL) => drizzleSql<number>`(
+  select count(distinct ${columnOf(linkedRow, ticketIndex.ticketId)})
+  from ${ticketRelationIndex} r
+  join ${ticketIndex} as ${linkedRow}
+    on ${columnOf(linkedRow, ticketIndex.projectId)} = r.project_id
+    and ${columnOf(linkedRow, ticketIndex.ticketId)} = case
+      when r.from_ticket_id = ${columnOf(row, ticketIndex.ticketId)}
+      then r.to_ticket_id
+      else r.from_ticket_id
+    end
+  where r.project_id = ${columnOf(row, ticketIndex.projectId)}
+    and (
+      r.from_ticket_id = ${columnOf(row, ticketIndex.ticketId)}
+      or r.to_ticket_id = ${columnOf(row, ticketIndex.ticketId)}
+    )
+    and r.kind = 'related'
+    and ${columnOf(linkedRow, ticketIndex.archivedAt)} is null
 )`
 
 const entryColumns = {
@@ -601,14 +673,35 @@ const entryColumns = {
   ),
   openBlockerCount: openBlockerCountOf(parentRow)
     .mapWith(Number)
-    .as("open_blocker_count")
+    .as("open_blocker_count"),
+  openBlockingCount: directedCountOf(
+    parentRow,
+    "in",
+    "blocked_by",
+    isOpenLinked
+  )
+    .mapWith(Number)
+    .as("open_blocking_count"),
+  relatedCount: relatedCountOf(parentRow).mapWith(Number).as("related_count"),
+  duplicateCount: directedCountOf(
+    parentRow,
+    "in",
+    "duplicate_of",
+    drizzleSql`true`
+  )
+    .mapWith(Number)
+    .as("duplicate_count")
 }
 
 type EntryRow = typeof ticketIndex.$inferSelect &
   Readonly<{
     subTicketCount: number
     subTicketDoneCount: number
+    subTicketsInSection?: number | null
     openBlockerCount: number
+    openBlockingCount: number
+    relatedCount: number
+    duplicateCount: number
   }>
 
 const attachableConditions = (
@@ -656,7 +749,12 @@ const sectionConditions = (
   sectionTicketIds: ReadonlyArray<string> | undefined
 ): ReadonlyArray<SQL> => [
   ...(section?.status === undefined ? [] : [statusCondition(section.status)]),
-  ...(section?.parent === undefined ? [] : [parentCondition(section.parent)]),
+  ...(section?.parent === undefined
+    ? []
+    : [epicSectionCondition(section.parent)]),
+  ...(section?.ticketParent === undefined
+    ? []
+    : [ticketParentSectionCondition(section.ticketParent)]),
   ...(sectionTicketIds === undefined
     ? []
     : [ticketIdsCondition(sectionTicketIds)])
@@ -666,7 +764,34 @@ interface TicketWhereOptions {
   readonly viewerId: string
   readonly ticketIds?: ReadonlyArray<string>
   readonly excludeTicketIds?: ReadonlyArray<string>
+  readonly nestWithin?: NestWithin
 }
+
+type NestWithin = (row: SQL) => SQL
+
+const nestKey = (within: NestWithin, row: SQL): SQL =>
+  drizzleSql`coalesce((${within(row)})::text, '')`
+
+const pageNestWithin = (
+  section: TicketSection | undefined,
+  sectionTicketIds: ReadonlyArray<string> | undefined
+): NestWithin | undefined => {
+  if (section?.status !== undefined) {
+    return (row) => columnOf(row, ticketIndex.status)
+  }
+  if (section?.groupId !== undefined && sectionTicketIds !== undefined) {
+    return (row) =>
+      drizzleSql`${columnOf(row, ticketIndex.ticketId)} = any(${drizzleSql.param([...sectionTicketIds])}::text[])`
+  }
+  return undefined
+}
+
+const subTicketsInSection = (within: NestWithin | undefined) =>
+  within === undefined
+    ? drizzleSql<number | null>`null`.as("sub_tickets_in_section")
+    : childTicketCount(
+        drizzleSql`${nestKey(within, childRow)} = ${nestKey(within, parentRow)}`
+      ).as("sub_tickets_in_section")
 
 const ticketWhereConditions = (
   project: TicketProject,
@@ -758,10 +883,15 @@ const ticketWhereConditions = (
         options
       )
     )
+    const within = options.nestWithin
     conditions.push(
-      drizzleSql`not (${ticketIndex.parent} is not null and ${ticketIndex.parent} in (
-        select ${ticketIndex.ticketId} from ${ticketIndex} where ${matchingParents}
-      ))`
+      within === undefined
+        ? drizzleSql`not (${ticketIndex.parent} is not null and ${ticketIndex.parent} in (
+            select ${ticketIndex.ticketId} from ${ticketIndex} where ${matchingParents}
+          ))`
+        : drizzleSql`not (${ticketIndex.parent} is not null and (${ticketIndex.parent}, ${nestKey(within, parentRow)}) in (
+            select ${ticketIndex.ticketId}, ${nestKey(within, parentRow)} from ${ticketIndex} where ${matchingParents}
+          ))`
     )
   }
   if (filter?.updatedAfter !== undefined) {
@@ -841,7 +971,14 @@ const make = Effect.gen(function* () {
     parent: row.parent === null ? null : makeTicketId(row.parent),
     subTicketCount: row.subTicketCount,
     subTicketDoneCount: row.subTicketDoneCount,
+    subTicketsInSection:
+      row.subTicketsInSection === undefined || row.subTicketsInSection === null
+        ? undefined
+        : row.subTicketsInSection,
     openBlockerCount: row.openBlockerCount,
+    openBlockingCount: row.openBlockingCount,
+    relatedCount: row.relatedCount,
+    duplicateCount: row.duplicateCount,
     archivedAt: row.archivedAt,
     createdBy: row.createdBy,
     createdAt: row.createdAt,
@@ -879,8 +1016,15 @@ const make = Effect.gen(function* () {
   ) {
     if (options.ticketIds?.length === 0) return []
     const expression = ticketSortExpression(ticketQuery.sort)
+    const nestWithin = pageNestWithin(
+      ticketQuery.section,
+      options.sectionTicketIds
+    )
     const conditions = [
-      ...ticketWhereConditions(project, ticketQuery, options),
+      ...ticketWhereConditions(project, ticketQuery, {
+        ...options,
+        nestWithin
+      }),
       ...sectionConditions(ticketQuery.section, options.sectionTicketIds),
       ...attachableConditions(options.attachableTo),
       ticketCursorCondition(ticketQuery, expression)
@@ -888,6 +1032,7 @@ const make = Effect.gen(function* () {
     return yield* db
       .select({
         ...entryColumns,
+        subTicketsInSection: subTicketsInSection(nestWithin),
         sortValue: expression
       })
       .from(ticketIndex)
@@ -914,20 +1059,20 @@ const make = Effect.gen(function* () {
   })
 
   const sectionExpression = (
-    sections: TicketIndexSectionsOptions["sections"]
+    sections: TicketIndexSectionsOptions["sections"],
+    row: SQL = parentRow
   ): SQL => {
-    if (sections === "status") return drizzleSql`${ticketIndex.status}`
-    if (sections === "parent") {
-      return drizzleSql`coalesce(${ticketIndex.parent}, ${EPIC_SECTION_NONE}::text)`
-    }
+    if (sections === "status") return columnOf(row, ticketIndex.status)
+    if (sections === "parent") return epicSection
+    if (sections === "ticketParent") return ticketParentSection
     const rest = sections.find((section) => section.ticketIds === undefined)
     const branches = sections.flatMap((section) =>
       section.ticketIds === undefined
         ? []
         : [
-            drizzleSql`when ${ticketIndex.ticketId} = any(${drizzleSql.param([
-              ...section.ticketIds
-            ])}::text[]) then ${section.key}::text`
+            drizzleSql`when ${columnOf(row, ticketIndex.ticketId)} = any(${drizzleSql.param(
+              [...section.ticketIds]
+            )}::text[]) then ${section.key}::text`
           ]
     )
     const fallback =
@@ -944,6 +1089,12 @@ const make = Effect.gen(function* () {
   ) {
     if (options.ticketIds?.length === 0) return new Map()
     const section = sectionExpression(options.sections)
+    const sections = options.sections
+    const nestWithin: NestWithin | undefined =
+      sections === "parent" || sections === "ticketParent"
+        ? undefined
+        : (row) => sectionExpression(sections, row)
+    const whereOptions = { ...options, nestWithin }
     const explicitIds =
       typeof options.sections !== "string" &&
       options.sections.every((entry) => entry.ticketIds !== undefined)
@@ -959,6 +1110,7 @@ const make = Effect.gen(function* () {
       .select({
         ...entryColumns,
         sortValue: drizzleSql<string | Date>`${expression}`.as("sort_value"),
+        subTicketsInSection: subTicketsInSection(nestWithin),
         section: drizzleSql<string | null>`${section}`.as("section"),
         rank: drizzleSql<number>`row_number() over (
           partition by ${section}
@@ -971,7 +1123,7 @@ const make = Effect.gen(function* () {
       .from(ticketIndex)
       .where(
         and(
-          ...ticketWhereConditions(project, ticketQuery, options),
+          ...ticketWhereConditions(project, ticketQuery, whereOptions),
           ...explicitIds
         )
       )
@@ -998,7 +1150,7 @@ const make = Effect.gen(function* () {
           ...ticketWhereConditions(
             project,
             { ...ticketQuery, status: undefined },
-            options
+            whereOptions
           ),
           ...explicitIds
         )

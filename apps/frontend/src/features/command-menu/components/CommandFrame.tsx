@@ -1,5 +1,6 @@
 import type { TextRange } from "@pp/shared"
 import { Search } from "lucide-react"
+import { motion } from "motion/react"
 import { useEffect, useId, useRef, useState, type ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -92,6 +93,9 @@ const rankItems = (items: ReadonlyArray<CommandFrameItem>, query: string) => {
     )
 }
 
+const keyWidth = (items: ReadonlyArray<CommandFrameItem>) =>
+  `${Math.max(0, ...items.map((item) => item.prefix?.length ?? 0))}ch`
+
 export type CommandFrameProps = Readonly<{
   chip: ReactNode
   placeholder: string
@@ -159,9 +163,10 @@ export function CommandFrame({
 
   return (
     <CommandMenu
+      style={{ "--row-key-width": keyWidth(visible) }}
       stretch
       className={cn(
-        "flex min-h-0 flex-col",
+        "flex min-h-0 flex-col [&_.scroll-divider]:border-t-0",
         fixedHeight ? "h-[min(440px,76dvh)] flex-none" : "flex-1"
       )}
       items={visible}
@@ -237,15 +242,17 @@ export function CommandFrame({
       />
       <div className="relative flex min-h-0 flex-1">
         {renderPeek !== undefined && peek.mounted && (
-          <CommandPeekPane render={renderPeek} />
+          <CommandPeekPane open={peek.active} render={renderPeek} />
         )}
         {warmPeek !== undefined && !peek.mounted && (
           <PeekWarmer warm={warmPeek} />
         )}
-        <div
+        <motion.div
           style={peek.style}
-          onTransitionEnd={peek.onTransitionEnd}
-          className="relative z-10 flex min-h-0 min-w-0 shrink-0 flex-col bg-popover"
+          className={cn(
+            "relative z-10 flex min-h-0 min-w-0 shrink-0 flex-col bg-popover",
+            peek.mounted && "border-r border-border/60"
+          )}
         >
           <CommandMenuList
             className="min-h-0 flex-1 p-1.5"
@@ -273,7 +280,7 @@ export function CommandFrame({
               />
             </CommandMenuEmpty>
           </CommandMenuList>
-        </div>
+        </motion.div>
       </div>
       {searchFooter && query !== "" && (
         <SearchFooter decorations={decorations} peekOpen={peek.active} />
@@ -281,7 +288,7 @@ export function CommandFrame({
       {notice !== null && (
         <p
           role="alert"
-          className="mx-2 mb-2 rounded-lg bg-destructive-light px-3 py-2 text-[13px] text-destructive"
+          className="mx-2 mb-2 rounded-lg bg-destructive-light px-3 py-2 text-body text-destructive"
         >
           {notice}
         </p>

@@ -44,14 +44,14 @@ export function SetupStep({
       </SettingsSection>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p
-          className="font-mono text-xs text-muted-foreground"
+          className="font-mono text-caption text-muted-foreground"
           aria-live="polite"
         >
           {frame.progress}
         </p>
         <div className="flex items-center gap-2">
           {frame.error ? (
-            <p role="alert" className="text-xs text-destructive">
+            <p role="alert" className="text-caption text-destructive">
               {frame.error}
             </p>
           ) : null}

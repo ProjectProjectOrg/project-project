@@ -4,6 +4,7 @@
 @plugin "@toolwind/corner-shape";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant hitbox-hover (&:is(:where(.group\/hitbox):hover *, :where(.group\/hitbox)[data-popup-open] *));
 
 @font-face {
   font-family: "Geist";
@@ -50,12 +51,41 @@
      used for hover) so the active state has a stronger visual presence. */
   --selected: oklch(0.9 0 0);
   --destructive: oklch(0.577 0.245 27.325);
+  --state-success: oklch(0.5 0.15 135);
+  --state-warning: oklch(0.5 0.16 75);
+  --state-info: oklch(0.5 0.18 255);
+  --state-merged: oklch(0.5 0.18 285);
+  --state-danger: var(--destructive);
   --destructive-light: oklch(0.95 0.02 27);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
   --radius: 1rem;
+  --fs-display: 28px;
+  --lh-display: 34px;
+  --fs-display-compact: 24px;
+  --lh-display-compact: 30px;
+  --fs-title: 16px;
+  --lh-title: 22px;
+  --fs-title-compact: 15px;
+  --lh-title-compact: 20px;
+  --fs-subtitle: 14px;
+  --lh-subtitle: 20px;
+  --fs-subtitle-compact: 13px;
+  --lh-subtitle-compact: 18px;
+  --fs-body: 13px;
+  --lh-body: 20px;
+  --fs-body-compact: 12px;
+  --lh-body-compact: 18px;
+  --fs-caption: 12px;
+  --lh-caption: 16px;
+  --fs-caption-compact: 11px;
+  --lh-caption-compact: 14px;
+  --fs-micro: 11px;
+  --lh-micro: 14px;
+  --fs-micro-compact: 10px;
+  --lh-micro-compact: 12px;
   --dither-front: var(--ring);
   --dither-back: color-mix(in oklch, var(--background) 45%, var(--muted) 55%);
   --focus-ring: oklch(0.693 0.161 265.2);
@@ -107,6 +137,11 @@
   --accent-foreground: oklch(0.985 0 0);
   --selected: oklch(0.4 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  --state-success: oklch(0.78 0.07 135);
+  --state-warning: oklch(0.78 0.07 75);
+  --state-info: oklch(0.78 0.07 255);
+  --state-merged: oklch(0.78 0.07 285);
+  --state-danger: var(--destructive);
   --destructive-light: oklch(0.3 0.05 22);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(1 0 0 / 10%);
@@ -178,6 +213,31 @@
 }
 
 @theme inline {
+  --font-weight-semibold: 550;
+  --text-display: var(--fs-display);
+  --text-display--line-height: var(--lh-display);
+  --text-display-compact: var(--fs-display-compact);
+  --text-display-compact--line-height: var(--lh-display-compact);
+  --text-title: var(--fs-title);
+  --text-title--line-height: var(--lh-title);
+  --text-title-compact: var(--fs-title-compact);
+  --text-title-compact--line-height: var(--lh-title-compact);
+  --text-subtitle: var(--fs-subtitle);
+  --text-subtitle--line-height: var(--lh-subtitle);
+  --text-subtitle-compact: var(--fs-subtitle-compact);
+  --text-subtitle-compact--line-height: var(--lh-subtitle-compact);
+  --text-body: var(--fs-body);
+  --text-body--line-height: var(--lh-body);
+  --text-body-compact: var(--fs-body-compact);
+  --text-body-compact--line-height: var(--lh-body-compact);
+  --text-caption: var(--fs-caption);
+  --text-caption--line-height: var(--lh-caption);
+  --text-caption-compact: var(--fs-caption-compact);
+  --text-caption-compact--line-height: var(--lh-caption-compact);
+  --text-micro: var(--fs-micro);
+  --text-micro--line-height: var(--lh-micro);
+  --text-micro-compact: var(--fs-micro-compact);
+  --text-micro-compact--line-height: var(--lh-micro-compact);
   --color-hover: var(--hover);
   --color-region: color-mix(in oklch, var(--muted) 60%, var(--background));
   --color-active: var(--active);
@@ -563,16 +623,17 @@
   }
 }
 .prose-md.prose-compact {
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: var(--fs-body-compact);
+  line-height: var(--lh-body-compact);
 }
 .prose-md.prose-compact h1,
 .prose-md.prose-compact h2 {
-  font-size: 13px;
-  line-height: 1.35;
+  font-size: var(--fs-subtitle-compact);
+  line-height: var(--lh-subtitle-compact);
 }
 .prose-md.prose-compact h3 {
-  font-size: 12px;
+  font-size: var(--fs-body-compact);
+  line-height: var(--lh-body-compact);
 }
 .prose-md.prose-compact em {
   color: var(--muted-foreground);
@@ -879,7 +940,7 @@ html.dark .prose-md .token.coord {
   font-style: italic;
 }
 .prose-md .lexical-li {
-  margin-top: 0.25em;
+  margin-top: 4px;
 }
 .prose-md .lexical-li-nested {
   list-style: none;
@@ -948,7 +1009,7 @@ html.dark .prose-md .token.coord {
 .prose-md .lexical-hr {
   border: 0;
   border-top: 1px solid var(--border);
-  margin: 1.5em 0;
+  margin: 24px 0;
   cursor: text;
 }
 .prose-md .lexical-hr.selected {
@@ -977,6 +1038,12 @@ html.dark .prose-md .token.coord {
   box-shadow: inset 0 0 0 1px var(--prose-code-ring);
   padding: 0.12em 0.38em;
   border-radius: 5px;
+}
+.prose-md code:has(> .lexical-inline-code) {
+  font-size: inherit;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
 }
 .prose-md .lexical-code {
   display: block;
@@ -1032,19 +1099,19 @@ html.dark .prose-md .token.coord {
   padding-left: 1.4em;
 }
 .prose-md li + li {
-  margin-top: 0.25em;
+  margin-top: 4px;
 }
 .prose-md li > p {
   margin: 0;
 }
 .prose-md li > ul,
 .prose-md li > ol {
-  margin-top: 0.25em;
+  margin-top: 4px;
 }
 .prose-md hr {
   border: 0;
   border-top: 1px solid var(--border);
-  margin: 1.5em 0;
+  margin: 24px 0;
 }
 .prose-md table {
   border-collapse: collapse;
@@ -1321,6 +1388,31 @@ html.dark .prose-md .token.coord {
     animation-range-end: var(--scroll-fade-size), 100%;
   }
 }
+@supports (animation-timeline: scroll()) {
+  .scroll-fade-x {
+    --scroll-fade-size: 48px;
+    -webkit-mask-image: linear-gradient(
+      to right,
+      rgba(0, 0, 0, var(--sf-start)) 0,
+      #000 var(--scroll-fade-size),
+      #000 calc(100% - var(--scroll-fade-size)),
+      rgba(0, 0, 0, var(--sf-end)) 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      rgba(0, 0, 0, var(--sf-start)) 0,
+      #000 var(--scroll-fade-size),
+      #000 calc(100% - var(--scroll-fade-size)),
+      rgba(0, 0, 0, var(--sf-end)) 100%
+    );
+    animation:
+      sf-reveal-start both linear,
+      sf-reveal-end both linear;
+    animation-timeline: scroll(self inline), scroll(self inline);
+    animation-range-start: 0, calc(100% - var(--scroll-fade-size));
+    animation-range-end: var(--scroll-fade-size), 100%;
+  }
+}
 @supports (timeline-scope: --sf) {
   .scroll-divider {
     position: relative;
@@ -1369,4 +1461,11 @@ html.dark .prose-md .token.coord {
   color: color-mix(in oklch, var(--muted-foreground) 60%, transparent);
   pointer-events: none;
   user-select: none;
+}
+
+/* Base UI renders an unnamed select's hidden input as `position: fixed`, which
+   gives every backlog row its own compositor layer and makes each animation
+   frame re-layerize the page. `absolute` keeps it hidden without the layer. */
+input[aria-hidden="true"][tabindex="-1"][style*="position: fixed"] {
+  position: absolute !important;
 }

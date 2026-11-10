@@ -20,6 +20,7 @@ import {
   projectEstimation,
   projectRequest
 } from "@/features/projects/atoms/projects"
+import type { ParentGrouping } from "@/features/tickets/lib/backlogGrouping"
 import {
   patchEpicSectionsRow,
   replaceEpicSectionsRow,
@@ -44,6 +45,7 @@ import {
 
 export type EpicSectionsRequest = Readonly<{
   _view: "epicSections"
+  by: ParentGrouping
   params: Readonly<{ orgSlug: string; slug: string }>
   query: TicketListQuery
 }>
@@ -51,9 +53,11 @@ export type EpicSectionsRequest = Readonly<{
 export const epicSectionsRequest = (
   orgSlug: string,
   slug: string,
-  query: QueryWithView
+  query: QueryWithView,
+  by: ParentGrouping
 ): EpicSectionsRequest => ({
   _view: "epicSections",
+  by,
   params: { orgSlug, slug },
   query: {
     ...viewQuery(query),
@@ -65,7 +69,7 @@ const scopeOf = (req: EpicSectionsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 const snapshotQuery = (req: EpicSectionsRequest) =>
-  query("tickets", "epicSections", {
+  query("tickets", req.by === "epic" ? "epicSections" : "parentSections", {
     params: req.params,
     query: req.query,
     timeToLive: "2 minutes",
@@ -91,7 +95,7 @@ const pageQuery = (
     query: {
       ...req.query,
       type: req.query.type?.filter((type) => type !== "epic"),
-      section: { parent: [key] },
+      section: req.by === "epic" ? { parent: [key] } : { ticketParent: [key] },
       cursor
     },
     timeToLive: "2 minutes",

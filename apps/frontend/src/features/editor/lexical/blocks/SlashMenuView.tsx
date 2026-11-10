@@ -355,15 +355,17 @@ function SlashMenuRow({
     >
       <span className="min-w-0 flex-1 truncate">{itemName(item)}</span>
       {meta ? (
-        <span className="shrink-0 text-xs text-muted-foreground">{meta}</span>
+        <span className="shrink-0 text-caption text-muted-foreground">
+          {meta}
+        </span>
       ) : null}
       {literal ? (
-        <code className="shrink-0 font-mono text-[11px] text-muted-foreground/70">
+        <code className="shrink-0 font-mono text-micro text-muted-foreground">
           {literal}
         </code>
       ) : null}
       {shortcut ? (
-        <span className="shrink-0 text-xs text-muted-foreground/70">
+        <span className="shrink-0 text-caption text-muted-foreground">
           {shortcut}
         </span>
       ) : null}
@@ -490,7 +492,7 @@ export function SlashMenuList({
                   )
                 }}
               >
-                <CommandMenuEmpty className="py-2 text-left text-[13px]">
+                <CommandMenuEmpty className="py-2 text-left text-body">
                   {m.editor_slash_empty({ query })}
                 </CommandMenuEmpty>
               </CommandMenuList>

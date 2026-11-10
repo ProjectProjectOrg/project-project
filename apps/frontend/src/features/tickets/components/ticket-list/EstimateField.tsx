@@ -51,7 +51,7 @@ export function EstimateChip({
       title={m.tickets_estimate_chip_aria_label({ label })}
       aria-label={m.tickets_estimate_chip_aria_label({ label })}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground tabular-nums",
+        "inline-flex shrink-0 items-center gap-1 text-caption text-muted-foreground tabular-nums",
         className
       )}
     >
@@ -266,7 +266,7 @@ function EstimateInputForm({
   }
   return (
     <form onSubmit={submit} className="flex flex-col gap-2">
-      <label htmlFor={inputId} className="text-xs text-muted-foreground">
+      <label htmlFor={inputId} className="text-caption text-muted-foreground">
         {copy.label()}
       </label>
       <Input
@@ -282,7 +282,7 @@ function EstimateInputForm({
         }}
       />
       {invalid && (
-        <p id={errorId} role="alert" className="text-xs text-destructive">
+        <p id={errorId} role="alert" className="text-caption text-destructive">
           {copy.invalid()}
         </p>
       )}

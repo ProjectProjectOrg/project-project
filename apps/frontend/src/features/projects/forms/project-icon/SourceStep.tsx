@@ -125,10 +125,10 @@ export function SourceStep({
                             strokeWidth={1.75}
                           />
                           <div className="flex flex-col items-start gap-2">
-                            <span className="text-[13px] font-medium">
+                            <span className="text-body font-semibold">
                               {m.project_icon_storage_title()}
                             </span>
-                            <span className="text-[13px] text-muted-foreground">
+                            <span className="text-body text-muted-foreground">
                               {m.project_icon_storage_body()}
                             </span>
                             <Button
@@ -171,10 +171,10 @@ export function SourceStep({
                             className="mb-1 size-4 text-muted-foreground"
                             strokeWidth={1.75}
                           />
-                          <span className="text-[13px] font-medium">
+                          <span className="text-body font-semibold">
                             {m.project_icon_dropzone_title()}
                           </span>
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-caption text-muted-foreground">
                             {m.project_icon_dropzone_hint()}
                           </span>
                         </Button>
@@ -188,10 +188,10 @@ export function SourceStep({
             <group.Subscribe selector={(state) => state.values.emoji}>
               {(emoji) => (
                 <div className="flex items-start gap-2.5 rounded-md bg-muted p-2.5">
-                  <span className="grid size-6 shrink-0 place-items-center rounded-[6px] bg-background text-[13px] leading-none corner-squircle">
+                  <span className="grid size-6 shrink-0 place-items-center rounded-[6px] bg-background text-body leading-none corner-squircle">
                     {emoji}
                   </span>
-                  <span className="text-[13px] text-muted-foreground">
+                  <span className="text-body text-muted-foreground">
                     {m.project_icon_emoji_fallback_hint()}
                   </span>
                 </div>
@@ -199,7 +199,7 @@ export function SourceStep({
             </group.Subscribe>
 
             {error ? (
-              <p role="alert" className="text-[13px] text-destructive">
+              <p role="alert" className="text-body text-destructive">
                 {m.project_identity_error()}
               </p>
             ) : null}

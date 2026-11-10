@@ -88,7 +88,7 @@ export function DestinationSection({
                   ? invalid()
                   : conflictFor(name, conflicts)
               return (
-                <label className="grid gap-1.5 text-[13px] font-medium">
+                <label className="grid gap-1.5 text-body font-semibold">
                   <span>{label()}</span>
                   <Input
                     value={field.value}
@@ -107,7 +107,7 @@ export function DestinationSection({
                   <span
                     role={error === null ? undefined : "alert"}
                     className={cn(
-                      "min-h-4 text-xs font-normal",
+                      "min-h-4 text-caption font-normal",
                       error === null
                         ? "text-muted-foreground"
                         : "text-destructive"

@@ -44,6 +44,11 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           queries.epicSections(query)
         ).pipe(dieOnMarkdown)
       )
+      .handle("parentSections", ({ query }) =>
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.parentSections(query)
+        ).pipe(dieOnMarkdown)
+      )
       .handle("list", ({ query }) =>
         Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
           queries.list(query)

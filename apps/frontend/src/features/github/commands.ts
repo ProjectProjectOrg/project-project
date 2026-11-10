@@ -14,6 +14,7 @@ import type {
 import { clearBranch } from "@/features/github/atoms/github"
 import { repoUrl } from "@/features/github/lib/branchUrl"
 import { projectRequest } from "@/features/projects/atoms/projects"
+import { onLiveTicket } from "@/features/tickets/commands"
 import { m } from "@/paraglide/messages"
 
 const repoOf = ({ project }: CommandContext) => project?.github ?? null
@@ -48,9 +49,10 @@ export const gitCommands: ReadonlyArray<Command> = [
     icon: GitBranch,
     keywords: ["git", "github"],
     when: (context) =>
+      onLiveTicket(context) &&
       context.ticketDetail !== null &&
       context.ticketDetail.branch === null &&
-      context.canEditTickets &&
+      context.tickets.edit &&
       repoOf(context) !== null,
     page: "ticketBranch"
   },
@@ -61,9 +63,10 @@ export const gitCommands: ReadonlyArray<Command> = [
     icon: GitBranch,
     keywords: ["git", "github", "attach", "existing"],
     when: (context) =>
+      onLiveTicket(context) &&
       context.ticketDetail !== null &&
       context.ticketDetail.branch === null &&
-      context.canEditTickets &&
+      context.tickets.edit &&
       repoOf(context) !== null,
     page: "ticketLinkBranch"
   },
@@ -74,8 +77,9 @@ export const gitCommands: ReadonlyArray<Command> = [
     icon: Layers,
     keywords: ["git", "github", "stack"],
     when: (context) =>
+      onLiveTicket(context) &&
       context.ticketDetail?.branch != null &&
-      context.canEditTickets &&
+      context.tickets.stackBranch &&
       repoOf(context) !== null,
     page: "ticketStackBranch"
   },
@@ -86,7 +90,9 @@ export const gitCommands: ReadonlyArray<Command> = [
     icon: Unlink,
     keywords: ["git", "github", "detach", "clear"],
     when: (context) =>
-      context.ticketDetail?.branch != null && context.canEditTickets,
+      onLiveTicket(context) &&
+      context.ticketDetail?.branch != null &&
+      context.tickets.clearBranch,
     run: ({ ticket }, env) => {
       if (ticket === null) return
       env.execute(

@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import { TicketId } from "@pp/shared"
+import { useParams } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { FolderKanban, Plus, Search } from "lucide-react"
@@ -17,7 +18,8 @@ import {
 import {
   SEARCHING_RANK,
   ticketItem,
-  useTicketCommandSearch
+  useTicketCommandSearch,
+  type TicketTarget
 } from "@/features/tickets/hooks/useTicketCommandSearch"
 import { m } from "@/paraglide/messages"
 
@@ -26,6 +28,7 @@ import {
   runCommand,
   visibleCommands,
   type Command,
+  type CommandContext,
   type CommandGroup
 } from "../lib/commands"
 import { CommandFrame, type CommandFrameItem } from "./CommandFrame"
@@ -58,6 +61,21 @@ function useProjectSearchTargets(orgSlug: string, current: string | null) {
     : []
 }
 
+const isContextTicket = (
+  self: CommandContext["ticket"],
+  target: TicketTarget
+) =>
+  self !== null &&
+  target.id === self.ticketId &&
+  target.projectSlug === self.slug
+
+function useIsOnTicketPage(self: CommandContext["ticket"]) {
+  const params = useParams({ strict: false })
+  return (
+    self !== null && params.id === self.ticketId && params.slug === self.slug
+  )
+}
+
 export function RootCommands({
   context,
   chip,
@@ -75,7 +93,11 @@ export function RootCommands({
   const [search, setSearch] = useState(initialSearch)
   const { recent, found, searching } = useTicketCommandSearch(context, search)
   const projects = useProjectSearchTargets(context.orgSlug, context.projectSlug)
-  const tickets = [...recent, ...found]
+  const self = context.ticket
+  const onOwnPage = useIsOnTicketPage(self)
+  const tickets = [...recent, ...found].filter(
+    (target) => !(onOwnPage && isContextTicket(self, target))
+  )
   const targets = new Map<string, string>([
     ...tickets.map(
       (target) =>
@@ -121,6 +143,7 @@ export function RootCommands({
         valuePrefix: TICKET_VALUE,
         inSearch: true
       }),
+      actionable: !isContextTicket(self, target),
       enterLabel: m.chrome_command_menu_open_ticket()
     })),
     ...(searching && tickets.length === 0
@@ -148,7 +171,7 @@ export function RootCommands({
       empty={
         search.trim() !== "" &&
         context.projectSlug !== null &&
-        context.canCreateTickets
+        context.tickets.create
           ? {
               icon: Search,
               title: m.chrome_command_menu_empty_title({
@@ -225,6 +248,7 @@ export function RootCommands({
           (ticket) => `${TICKET_VALUE}${ticket.id}` === item.value
         )
         if (target === undefined || !isTicketId(target.id)) return false
+        if (isContextTicket(self, target)) return false
         env.actOn(
           {
             orgSlug: context.orgSlug,

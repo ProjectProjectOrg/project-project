@@ -5,14 +5,34 @@ export type Searchable = Readonly<{
   keywords?: ReadonlyArray<string>
 }>
 
-const isWordStart = (text: string, index: number) =>
-  index === 0 || !/[\p{L}\p{N}]/u.test(text[index - 1] ?? "")
+const WORD_CHAR = /[\p{L}\p{N}]/u
+const SHAPE_CACHE_LIMIT = 4000
 
-const wordStarts = (text: string): ReadonlyArray<number> =>
-  Array.from({ length: text.length }, (_, index) => index).filter(
-    (index) =>
-      /[\p{L}\p{N}]/u.test(text[index] ?? "") && isWordStart(text, index)
-  )
+const isWordStart = (text: string, index: number) =>
+  index === 0 || !WORD_CHAR.test(text[index - 1] ?? "")
+
+type Shape = Readonly<{ starts: ReadonlyArray<number>; initials: string }>
+
+const shapes = new Map<string, Shape>()
+
+const shapeOf = (text: string): Shape => {
+  const cached = shapes.get(text)
+  if (cached !== undefined) return cached
+  const starts: Array<number> = []
+  let previousIsWord = false
+  for (let index = 0; index < text.length; index += 1) {
+    const isWord = WORD_CHAR.test(text[index] ?? "")
+    if (isWord && !previousIsWord) starts.push(index)
+    previousIsWord = isWord
+  }
+  const shape = {
+    starts,
+    initials: starts.map((index) => text[index]).join("")
+  }
+  if (shapes.size >= SHAPE_CACHE_LIMIT) shapes.clear()
+  shapes.set(text, shape)
+  return shape
+}
 
 const findWordStart = (text: string, word: string): number => {
   let index = text.indexOf(word)
@@ -35,10 +55,7 @@ const textScore = (
 
 const acronymScore = (label: string, word: string): number | null => {
   if (word.length < 2) return null
-  const initials = wordStarts(label)
-    .map((index) => label[index])
-    .join("")
-  return initials.startsWith(word) ? 70 : null
+  return shapeOf(label).initials.startsWith(word) ? 70 : null
 }
 
 const fuzzyFrom = (label: string, word: string, start: number): boolean => {
@@ -52,7 +69,7 @@ const fuzzyFrom = (label: string, word: string, start: number): boolean => {
 }
 
 const fuzzyScore = (label: string, word: string): number | null =>
-  wordStarts(label).some(
+  shapeOf(label).starts.some(
     (start) => label[start] === word[0] && fuzzyFrom(label, word, start)
   )
     ? 5

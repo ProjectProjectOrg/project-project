@@ -101,7 +101,7 @@ function AttachTicketList({
               )
             }
           >
-            <span className="shrink-0 font-mono text-xs text-muted-foreground">
+            <span className="shrink-0 font-mono text-caption text-muted-foreground">
               {ticket.id}
             </span>
             <span className="min-w-0 truncate">{ticket.title}</span>

@@ -13,6 +13,7 @@ import { useRef } from "react"
 
 import { Button } from "@/components/ui/button"
 import { CollapsingLabel } from "@/components/ui/collapsing-label"
+import { CountPill } from "@/components/ui/count-pill"
 import {
   InputGroup,
   InputGroupAddon,
@@ -67,7 +68,7 @@ export function SearchInput() {
         aria-keyshortcuts="/"
       />
       {searchBelowMinChars ? (
-        <span className="shrink-0 text-xs text-muted-foreground">
+        <span className="shrink-0 text-caption text-muted-foreground">
           {m.tickets_search_min_hint()}
         </span>
       ) : null}
@@ -199,16 +200,9 @@ export function Status({
               <CollapsingLabel show={!controlsCompact}>
                 {currentLabel}
               </CollapsingLabel>
-              <span
-                className={cn(
-                  "min-h-4 min-w-6 rounded-full px-1.5 text-center font-mono text-[10px] tabular-nums",
-                  active
-                    ? "bg-foreground/10 text-foreground"
-                    : "bg-muted text-muted-foreground"
-                )}
-              >
+              <CountPill active={active} className="min-w-6 text-center">
                 {counts ? (counts[status] ?? 0) : null}
-              </span>
+              </CountPill>
               <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
             </ToolbarButton>
           }
@@ -272,7 +266,7 @@ export function ClearAll() {
           className={cn(
             "grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-colors duration-100 active:scale-[0.97]",
             "hover:border-destructive/60 hover:bg-destructive/15",
-            "ring-offset-background outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            "outline-none focus-visible:ring-1 focus-visible:ring-ring"
           )}
           title={m.tickets_filters_clear_all()}
           aria-label={m.tickets_filters_clear_all()}

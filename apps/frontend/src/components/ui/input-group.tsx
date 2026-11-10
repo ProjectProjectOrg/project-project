@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { fieldTouchClass } from "@/lib/typeScale"
 import { cn } from "@/lib/utils"
 
 function InputGroup({
@@ -53,7 +54,9 @@ function InputGroupInput({
     <input
       data-slot="input-group-input"
       className={cn(
-        "min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed",
+        "min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed",
+        "text-body",
+        fieldTouchClass,
         className
       )}
       {...props}
@@ -78,7 +81,11 @@ function InputGroupHint({ className, ...props }: React.ComponentProps<"span">) {
   return (
     <span
       data-slot="input-group-hint"
-      className={cn("shrink-0 text-xs text-muted-foreground", className)}
+      className={cn(
+        "shrink-0 text-muted-foreground",
+        "text-caption",
+        className
+      )}
       {...props}
     />
   )

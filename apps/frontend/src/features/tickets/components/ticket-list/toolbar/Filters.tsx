@@ -20,6 +20,7 @@ import {
 import { useRef, useState, type ComponentProps } from "react"
 
 import { CollapsingLabel } from "@/components/ui/collapsing-label"
+import { CountPill } from "@/components/ui/count-pill"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -109,11 +110,7 @@ export function Filters() {
               <CollapsingLabel show={!compact}>
                 {m.tickets_filters_label()}
               </CollapsingLabel>
-              {active && (
-                <span className="rounded-full bg-foreground/10 px-1.5 font-mono text-[10px] text-foreground tabular-nums">
-                  {activeFilterCount}
-                </span>
-              )}
+              {active && <CountPill active>{activeFilterCount}</CountPill>}
               <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
             </ToolbarButton>
           }
@@ -447,7 +444,7 @@ function FilterTags({
                 onChange(toggledTags(selectedTags, tag.name))
               }}
               aria-pressed={selected}
-              className="rounded-md ring-offset-background transition-transform duration-100 outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+              className="rounded-md transition-transform duration-100 outline-none focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]"
             >
               <TagChip
                 name={tag.name}

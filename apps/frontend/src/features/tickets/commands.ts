@@ -1,41 +1,84 @@
+import type { TicketDetail } from "@pp/shared"
 import {
   Archive,
   ArchiveRestore,
+  Bot,
   CircleDot,
   Copy,
-  Flag,
+  FileText,
   Gauge,
-  Layers,
   Link2,
   Plus,
   Shapes,
   SignalHigh,
+  Split,
   Tag,
   Timer,
   Trash2,
+  Type,
   UserCheck,
   UserMinus,
   UserRound
 } from "lucide-react"
 
+import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
 import type {
   Command,
   CommandContext
 } from "@/features/command-menu/lib/commands"
 import { createTicketDialog } from "@/features/tickets/atoms/createTicketDialog"
 import {
-  archiveTicket,
   ticketRequest,
   unarchiveTicket,
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
-import { MARK_KINDS } from "@/features/tickets/components/ticket-marks/markKinds"
+import {
+  ticketMarkdown,
+  ticketPrompt
+} from "@/features/tickets/lib/ticketClipboard"
+import type { IconComponent } from "@/lib/icon"
 import { m } from "@/paraglide/messages"
 
 const onTicket = (context: CommandContext) => context.ticket !== null
 
-const editable = (context: CommandContext) =>
-  context.ticket !== null && context.canEditTickets
+export const onLiveTicket = ({ ticket, ticketDetail }: CommandContext) =>
+  ticket !== null && (ticketDetail === null || ticketDetail.archivedAt === null)
+
+export const editable = (context: CommandContext) =>
+  onLiveTicket(context) && context.tickets.edit
+
+const assignable = (context: CommandContext) =>
+  onLiveTicket(context) && context.tickets.assign
+
+const COPY_FORMATS: ReadonlyArray<
+  Readonly<{
+    id: string
+    label: () => string
+    icon: IconComponent
+    keywords?: ReadonlyArray<string>
+    text: (detail: TicketDetail, ticket: TicketContext, url: string) => string
+  }>
+> = [
+  {
+    id: "title",
+    label: m.tickets_menu_copy_title,
+    icon: Type,
+    text: (detail) => detail.title
+  },
+  {
+    id: "markdown",
+    label: m.tickets_menu_copy_markdown,
+    icon: FileText,
+    text: (detail, _ticket, url) => ticketMarkdown(detail, url)
+  },
+  {
+    id: "prompt",
+    label: m.tickets_menu_copy_prompt,
+    icon: Bot,
+    keywords: ["agent", "ai"],
+    text: (detail, ticket, url) => ticketPrompt(detail, url, ticket)
+  }
+]
 
 const ticketLink = (context: CommandContext) =>
   context.ticket === null
@@ -49,7 +92,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
     label: m.tickets_command_change_status,
     icon: CircleDot,
     tool: "update_ticket",
-    when: onTicket,
+    when: editable,
     page: "ticketStatus"
   },
   {
@@ -58,7 +101,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
     label: m.tickets_command_set_priority,
     icon: SignalHigh,
     tool: "update_ticket",
-    when: onTicket,
+    when: editable,
     page: "ticketPriority"
   },
   {
@@ -67,7 +110,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
     label: m.tickets_command_assign,
     icon: UserRound,
     tool: "update_ticket",
-    when: onTicket,
+    when: assignable,
     page: "ticketAssignee"
   },
   {
@@ -76,10 +119,11 @@ export const ticketCommands: ReadonlyArray<Command> = [
     label: m.tickets_command_assign_me,
     icon: UserCheck,
     tool: "update_ticket",
-    when: ({ ticketDetail, viewerId }) =>
-      ticketDetail !== null &&
-      viewerId !== null &&
-      !ticketDetail.assignees.includes(viewerId),
+    when: (context) =>
+      assignable(context) &&
+      context.ticketDetail !== null &&
+      context.viewerId !== null &&
+      !context.ticketDetail.assignees.includes(context.viewerId),
     run: ({ ticket, ticketDetail, viewerId }, env) => {
       if (ticket === null || ticketDetail === null || viewerId === null) return
       env.execute(
@@ -97,10 +141,11 @@ export const ticketCommands: ReadonlyArray<Command> = [
     label: m.tickets_command_unassign_me,
     icon: UserMinus,
     tool: "update_ticket",
-    when: ({ ticketDetail, viewerId }) =>
-      ticketDetail !== null &&
-      viewerId !== null &&
-      ticketDetail.assignees.includes(viewerId),
+    when: (context) =>
+      assignable(context) &&
+      context.ticketDetail !== null &&
+      context.viewerId !== null &&
+      context.ticketDetail.assignees.includes(context.viewerId),
     run: ({ ticket, ticketDetail, viewerId }, env) => {
       if (ticket === null || ticketDetail === null || viewerId === null) return
       env.execute(
@@ -119,8 +164,10 @@ export const ticketCommands: ReadonlyArray<Command> = [
     icon: Timer,
     keywords: ["sprint", "cycle", "iteration", "remove"],
     tool: "update_ticket",
-    when: ({ ticket, ticketDetail, canPlanSprints }) =>
-      ticket !== null && canPlanSprints && ticketDetail?.type !== "epic",
+    when: (context) =>
+      onLiveTicket(context) &&
+      context.tickets.planSprints &&
+      context.ticketDetail?.type !== "epic",
     page: "ticketSprint"
   },
   {
@@ -130,11 +177,10 @@ export const ticketCommands: ReadonlyArray<Command> = [
     icon: Gauge,
     keywords: ["points", "size", "time"],
     tool: "update_ticket",
-    when: ({ ticket, project, canEditTickets }) =>
-      ticket !== null &&
-      canEditTickets &&
-      project !== null &&
-      project.estimation !== "off",
+    when: (context) =>
+      editable(context) &&
+      context.project !== null &&
+      context.project.estimation !== "off",
     page: "ticketEstimate"
   },
   {
@@ -158,49 +204,6 @@ export const ticketCommands: ReadonlyArray<Command> = [
     page: "ticketTags"
   },
   {
-    id: "ticket.parent",
-    group: "ticketRelations",
-    label: ({ ticketDetail }) =>
-      ticketDetail?.parent
-        ? m.tickets_command_change_epic()
-        : m.tickets_command_add_to_epic(),
-    icon: Layers,
-    keywords: ["epic"],
-    tool: "update_ticket",
-    when: (context) =>
-      editable(context) && context.ticketDetail?.type !== "epic",
-    page: "ticketParent"
-  },
-  {
-    id: "ticket.mark",
-    group: "ticketRelations",
-    label: m.tickets_command_mark_as,
-    icon: Flag,
-    keywords: [
-      "relation",
-      "link",
-      "blocked",
-      "blocking",
-      "related",
-      "duplicate"
-    ],
-    when: onTicket,
-    page: "ticketMarkAs"
-  },
-  ...MARK_KINDS.map(
-    ({ kind, icon, command }): Command => ({
-      id: `ticket.mark.${kind}`,
-      group: "ticketRelations",
-      searchOnly: true,
-      label: command,
-      icon,
-      keywords: ["relation", "link"],
-      tool: kind === "duplicateOf" ? "archive_ticket" : "mark_ticket",
-      when: onTicket,
-      page: `mark:${kind}`
-    })
-  ),
-  {
     id: "ticket.copy-id",
     group: "ticketActions",
     label: m.tickets_command_copy_id,
@@ -222,27 +225,51 @@ export const ticketCommands: ReadonlyArray<Command> = [
       env.close()
     }
   },
+  ...COPY_FORMATS.map(
+    ({ id, label, icon, keywords, text }): Command => ({
+      id: `ticket.copy-${id}`,
+      group: "ticketActions",
+      label,
+      icon,
+      keywords,
+      searchOnly: true,
+      when: ({ ticketDetail }) => ticketDetail !== null,
+      run: (context, env) => {
+        const { ticket, ticketDetail } = context
+        if (ticket !== null && ticketDetail !== null) {
+          env.copy(text(ticketDetail, ticket, ticketLink(context)))
+        }
+        env.close()
+      }
+    })
+  ),
+  {
+    id: "ticket.split",
+    group: "ticketActions",
+    label: m.tickets_split_menu_item,
+    icon: Split,
+    keywords: ["break up", "divide"],
+    when: ({ ticket, tickets }) => ticket !== null && tickets.split,
+    run: ({ ticket }, env) => {
+      if (ticket === null) return
+      env.close()
+      env.navigate(
+        `/orgs/${ticket.orgSlug}/projects/${ticket.slug}/tickets/${ticket.ticketId}/split`
+      )
+    }
+  },
   {
     id: "ticket.archive",
     group: "ticketActions",
     label: m.tickets_command_archive,
     icon: Archive,
     tool: "archive_ticket",
-    when: ({ ticket, ticketDetail, canArchiveTickets }) =>
+    when: ({ ticket, ticketDetail, tickets }) =>
       ticket !== null &&
-      canArchiveTickets &&
+      tickets.archive &&
       ticketDetail !== null &&
       ticketDetail.archivedAt === null,
-    run: ({ ticket }, env) => {
-      if (ticket === null) return
-      env.execute(
-        archiveTicket(
-          ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
-        ),
-        {}
-      )
-      env.close()
-    }
+    page: "ticketArchive"
   },
   {
     id: "ticket.unarchive",
@@ -250,9 +277,9 @@ export const ticketCommands: ReadonlyArray<Command> = [
     label: m.tickets_command_unarchive,
     icon: ArchiveRestore,
     tool: "restore_ticket",
-    when: ({ ticket, ticketDetail, canArchiveTickets }) =>
+    when: ({ ticket, ticketDetail, tickets }) =>
       ticket !== null &&
-      canArchiveTickets &&
+      tickets.archive &&
       ticketDetail !== null &&
       ticketDetail.archivedAt !== null,
     run: ({ ticket }, env) => {
@@ -273,7 +300,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
     icon: Trash2,
     keywords: ["remove"],
     searchOnly: true,
-    when: ({ ticket, canDeleteTickets }) => ticket !== null && canDeleteTickets,
+    when: ({ ticket, tickets }) => ticket !== null && tickets.delete,
     page: "ticketDelete"
   },
   {
@@ -283,9 +310,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
     icon: Plus,
     keywords: ["new", "add", "issue"],
     tool: "create_ticket",
-    when: ({ sprint, canCreateTickets }) =>
-      canCreateTickets &&
-      (sprint === null || sprint.sprint.completedAt !== null),
+    when: ({ sprint, tickets }) =>
+      tickets.create && (sprint === null || sprint.sprint.completedAt !== null),
     run: ({ orgSlug, projectSlug }, env) => {
       env.close()
       env.registry.set(createTicketDialog, { orgSlug, projectSlug })

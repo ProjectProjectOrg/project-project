@@ -332,14 +332,14 @@ function SectionCreatorForm({
         readOnly={submitting}
         aria-disabled={submitting || undefined}
         maxLength={200}
-        className="min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground read-only:cursor-wait"
+        className="min-w-0 flex-1 bg-transparent text-body font-semibold text-foreground outline-none placeholder:text-muted-foreground read-only:cursor-wait"
       />
 
       {error && (
         <span
           id={errorId}
           role="alert"
-          className="shrink-0 text-xs text-destructive"
+          className="shrink-0 text-caption text-destructive"
         >
           {error}
         </span>

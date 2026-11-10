@@ -35,7 +35,8 @@ import {
 } from "@/features/sprints/atoms/sprintBoard"
 import { useHorizontalAutoScroll } from "@/features/sprints/hooks/useHorizontalAutoScroll"
 import { useReorderMode } from "@/features/sprints/hooks/useReorderMode"
-import { SubTicketExpansionProvider } from "@/features/tickets/components/ticket-list/SubTicketExpansion"
+import { useExpandSubTicketsCommand } from "@/features/tickets/components/ticket-list/useExpandSubTicketsCommand"
+import { useBoardSubTicketsSettled } from "@/features/tickets/components/ticket-list/useSubTicketsSettled"
 import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 
@@ -76,6 +77,14 @@ export function SprintBoard(props: SprintBoardProps) {
   const statuses = useAtomValue(statusesFor(statusReq))
   const refreshBoard = useAtomRefresh(sprintBoard(req))
   const refreshStatuses = useAtomRefresh(statusesFor(statusReq))
+  const subTicketsSettled = useBoardSubTicketsSettled(
+    Result.isSuccess(board) ? board.value.tickets : null
+  )
+  const loading = (
+    <DitherShell contained animated>
+      {null}
+    </DitherShell>
+  )
   const refresh = () => {
     if (Result.isFailure(board)) refreshBoard()
     if (Result.isFailure(statuses)) refreshStatuses()
@@ -86,20 +95,20 @@ export function SprintBoard(props: SprintBoardProps) {
       result={Result.all({ board, statuses })}
       contained
       reset={refresh}
-      onInitial={() => (
-        <DitherShell contained animated>
-          {null}
-        </DitherShell>
-      )}
-      onSuccess={({ value, waiting }) => (
-        <SprintBoardContent
-          {...props}
-          req={req}
-          board={value.board}
-          statuses={value.statuses}
-          waiting={waiting}
-        />
-      )}
+      onInitial={() => loading}
+      onSuccess={({ value, waiting }) =>
+        subTicketsSettled ? (
+          <SprintBoardContent
+            {...props}
+            req={req}
+            board={value.board}
+            statuses={value.statuses}
+            waiting={waiting}
+          />
+        ) : (
+          loading
+        )
+      }
     />
   )
 }
@@ -123,6 +132,7 @@ function SprintBoardContent({
   statuses: ReadonlyArray<ProjectStatus>
   waiting: boolean
 }) {
+  useExpandSubTicketsCommand()
   const { orgSlug, slug } = useProjectRoute()
   const ref = useRef<HTMLDivElement>(null)
   const groupRef = useReorderMode(reorderMode, onExitReorder)
@@ -206,48 +216,46 @@ function SprintBoardContent({
   }, [canReorder, canTransition, isCompleted, reorderMode, req, registry])
 
   return (
-    <SubTicketExpansionProvider>
-      <motion.div
-        ref={ref}
-        layoutScroll
-        aria-busy={waiting}
-        style={{ height: height ?? 240 }}
-        className={cn(
-          "overflow-x-auto overscroll-x-contain",
-          hasRightOverflow &&
-            "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
-        )}
-      >
-        {order.length === 0 && layout.hidden.length > 0 ? (
-          <HiddenColumnsEmpty onShowAll={layout.showAll} />
-        ) : (
-          <Reorder.Group
-            ref={groupRef}
-            as="div"
-            axis="x"
-            values={[...order]}
-            onReorder={(next) => setDragOrder(next)}
-            className="flex h-full gap-3"
-          >
-            {order.map((status) => (
-              <SprintBoardColumn
-                key={status}
-                update={boardTicketUpdates(req)}
-                status={status}
-                statuses={statuses}
-                tickets={grouped[status] ?? []}
-                members={members}
-                isDraggable={!isCompleted && canReorder}
-                lastFlash={lastFlash}
-                reorderMode={reorderMode}
-                onActivateReorder={onEnterReorder}
-                collapsed={layout.collapsed.includes(status)}
-                onToggleCollapsed={() => layout.toggleCollapsed(status)}
-              />
-            ))}
-          </Reorder.Group>
-        )}
-      </motion.div>
-    </SubTicketExpansionProvider>
+    <motion.div
+      ref={ref}
+      layoutScroll
+      aria-busy={waiting}
+      style={{ height: height ?? 240 }}
+      className={cn(
+        "overflow-x-auto overscroll-x-contain",
+        hasRightOverflow &&
+          "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
+      )}
+    >
+      {order.length === 0 && layout.hidden.length > 0 ? (
+        <HiddenColumnsEmpty onShowAll={layout.showAll} />
+      ) : (
+        <Reorder.Group
+          ref={groupRef}
+          as="div"
+          axis="x"
+          values={[...order]}
+          onReorder={(next) => setDragOrder(next)}
+          className="flex h-full gap-3"
+        >
+          {order.map((status) => (
+            <SprintBoardColumn
+              key={status}
+              update={boardTicketUpdates(req)}
+              status={status}
+              statuses={statuses}
+              tickets={grouped[status] ?? []}
+              members={members}
+              isDraggable={!isCompleted && canReorder}
+              lastFlash={lastFlash}
+              reorderMode={reorderMode}
+              onActivateReorder={onEnterReorder}
+              collapsed={layout.collapsed.includes(status)}
+              onToggleCollapsed={() => layout.toggleCollapsed(status)}
+            />
+          ))}
+        </Reorder.Group>
+      )}
+    </motion.div>
   )
 }

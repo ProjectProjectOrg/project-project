@@ -68,7 +68,7 @@ export function SprintChip({
   return (
     <span
       className={cn(
-        "inline-flex max-w-[14ch] items-center gap-1.5 truncate text-xs text-muted-foreground transition-colors group-hover/hitbox:text-foreground",
+        "inline-flex max-w-[14ch] items-center gap-1.5 truncate text-caption text-muted-foreground transition-colors hitbox-hover:text-foreground",
         className
       )}
     >

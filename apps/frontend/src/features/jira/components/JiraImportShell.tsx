@@ -69,7 +69,7 @@ export function JiraImportShell({
           </header>
 
           <div className="flex min-h-0 w-full flex-1 flex-col gap-5 pt-3 md:flex-row md:gap-10">
-            <p className="shrink-0 text-[13px] text-muted-foreground md:hidden">
+            <p className="shrink-0 text-body text-muted-foreground md:hidden">
               {m.jira_import_stage_position({
                 position: String(currentIndex + 1),
                 total: String(jiraImportStages.length),
@@ -191,7 +191,7 @@ function StageItem({
       <IconSwap
         showSecond={complete}
         first={
-          <span className="font-mono text-xs tabular-nums">{index + 1}</span>
+          <span className="font-mono text-caption tabular-nums">{index + 1}</span>
         }
         second={<Check className="size-3.5" strokeWidth={1.75} />}
       />
@@ -201,7 +201,7 @@ function StageItem({
     </>
   )
   const className = cn(
-    "relative z-10 flex h-9 w-full items-center gap-3 rounded-lg px-3 text-left text-[13px] transition-colors duration-80",
+    "relative z-10 flex h-9 w-full items-center gap-3 rounded-lg px-3 text-left text-body transition-colors duration-80",
     current ? "text-foreground" : "text-muted-foreground"
   )
   return (

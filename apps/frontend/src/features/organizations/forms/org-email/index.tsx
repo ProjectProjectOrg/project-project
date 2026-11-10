@@ -270,14 +270,14 @@ export function OrgEmailForm({
           <form.Subscribe selector={(state) => state.isValid}>
             {(valid) =>
               !valid && (
-                <p role="alert" className="text-xs text-destructive">
+                <p role="alert" className="text-caption text-destructive">
                   {m.org_email_invalid()}
                 </p>
               )
             }
           </form.Subscribe>
           {actionError && (
-            <p role="alert" className="text-xs text-destructive">
+            <p role="alert" className="text-caption text-destructive">
               {actionError}
             </p>
           )}

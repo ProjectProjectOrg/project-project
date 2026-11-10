@@ -1,17 +1,9 @@
 import { TicketId, TicketStatus, type Ticket } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import {
-  childrenSettled,
-  expandedParents,
-  type ChildRowsResult,
-  withExpandedChildren,
-  withoutNestedChildren
-} from "./nestedRows"
-import type { TicketRow } from "./ticketRows"
+import { withoutNestedChildren } from "./nestedRows"
 
 const ticketId = Schema.decodeSync(TicketId)
 const todo = Schema.decodeSync(TicketStatus)("todo")
@@ -39,45 +31,6 @@ const ticket = (id: string, fields: Partial<Ticket> = {}): Ticket => ({
   ...fields
 })
 
-const row = (id: string, fields: Partial<Ticket> = {}): TicketRow => ({
-  ticket: ticket(id, fields),
-  key: id,
-  orderKey: id,
-  pending: false
-})
-
-const keys = (entries: ReturnType<typeof withExpandedChildren>) =>
-  entries.map(({ key }) => key)
-
-describe("withExpandedChildren", () => {
-  const rows = [row("T-1"), row("T-2")]
-  const children = [row("T-3", { parent: ticketId("T-1") })]
-
-  it("inserts loaded children right after their expanded parent", () => {
-    const entries = withExpandedChildren(rows, new Set([ticketId("T-1")]), () =>
-      AsyncResult.success(children)
-    )
-    expect(keys(entries)).toEqual(["T-1", "T-1/T-3", "T-2"])
-    expect(entries[1]).toMatchObject({ parent: "T-1", last: true })
-  })
-
-  it("marks an expanded parent's children as loading or failed", () => {
-    const expanded = new Set([ticketId("T-1")])
-    const loading = withExpandedChildren(rows, expanded, () => undefined)
-    const failed = withExpandedChildren(rows, expanded, () =>
-      AsyncResult.fail("boom")
-    )
-    expect(loading[1]).toMatchObject({ kind: "children", state: "loading" })
-    expect(failed[1]).toMatchObject({ kind: "children", state: "failed" })
-  })
-
-  it("leaves collapsed parents alone", () => {
-    expect(
-      keys(withExpandedChildren(rows, new Set(), () => undefined))
-    ).toEqual(["T-1", "T-2"])
-  })
-})
-
 describe("withoutNestedChildren", () => {
   it("drops children whose ticket parent is present, keeps epic children and orphans", () => {
     const tickets = [
@@ -91,40 +44,5 @@ describe("withoutNestedChildren", () => {
       "T-2",
       "T-4"
     ])
-  })
-})
-
-describe("expandedParents", () => {
-  it("keeps expanded rows that have sub-tickets", () => {
-    const rows = [
-      row("T-1", { subTicketCount: 2 }),
-      row("T-2", { subTicketCount: 0 }),
-      row("T-3", { subTicketCount: 1 })
-    ]
-    expect([...expandedParents(rows, (id) => id !== ticketId("T-3"))]).toEqual([
-      "T-1"
-    ])
-  })
-})
-
-describe("childrenSettled", () => {
-  it("is false while any parent's sub-tickets are still loading", () => {
-    const loaded: ChildRowsResult = AsyncResult.success([row("T-2")])
-    expect(
-      childrenSettled(
-        new Map<TicketId, ChildRowsResult>([
-          [ticketId("T-1"), loaded],
-          [ticketId("T-3"), AsyncResult.initial(true)]
-        ])
-      )
-    ).toBe(false)
-    expect(
-      childrenSettled(
-        new Map<TicketId, ChildRowsResult>([
-          [ticketId("T-1"), loaded],
-          [ticketId("T-3"), AsyncResult.fail("boom")]
-        ])
-      )
-    ).toBe(true)
   })
 })

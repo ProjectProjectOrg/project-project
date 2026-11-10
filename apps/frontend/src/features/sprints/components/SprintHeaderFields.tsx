@@ -13,8 +13,8 @@ import {
   Trash2
 } from "lucide-react"
 import { useRef, useState, type KeyboardEvent } from "react"
-import type { DateRange } from "react-day-picker"
 
+import type { DateRange } from "@/components/ui/calendar"
 import { Calendar } from "@/components/ui/calendar"
 import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
@@ -88,7 +88,7 @@ export function SprintStatusSelect({
             margin="1"
             aria-label={m.sprints_status_aria_label()}
           >
-            <span className="-mt-1 grid size-10 place-items-center rounded-lg bg-muted transition-colors group-hover/hitbox:bg-foreground/5">
+            <span className="-mt-1 grid size-10 place-items-center rounded-lg bg-muted transition-colors hitbox-hover:bg-foreground/5">
               <SprintStateIcon sprint={sprint} size="lg" />
             </span>
           </Hitbox>
@@ -129,7 +129,10 @@ export function SprintStatusSelect({
           <CompleteSprintSubmenu sprint={sprint} sprints={sprints} />
         )}
         {failed && (
-          <div role="alert" className="px-2 py-1.5 text-xs text-destructive">
+          <div
+            role="alert"
+            className="px-2 py-1.5 text-caption text-destructive"
+          >
             {m.sprints_status_error_fallback()}
           </div>
         )}
@@ -189,7 +192,7 @@ export function SprintNameField({
         }}
         disabled={disabled}
         className={cn(
-          "-mx-1 truncate rounded px-1 text-left text-2xl font-semibold tracking-tight transition-colors transition-transform duration-100 active:scale-[0.97]",
+          "-mx-1 truncate rounded px-1 text-left text-display font-bold transition-colors transition-transform duration-100 active:scale-[0.97]",
           !disabled && "hover:bg-hover"
         )}
       >
@@ -206,13 +209,13 @@ export function SprintNameField({
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void commit()}
         onKeyDown={handleKey}
-        className="-mx-1 w-full rounded bg-transparent px-1 text-2xl font-semibold tracking-tight ring-2 ring-ring/50 outline-none"
+        className="-mx-1 w-full rounded bg-transparent px-1 text-display font-bold ring-2 ring-ring/50 outline-none"
         maxLength={120}
       />
       {failed && (
         <p
           role="alert"
-          className="absolute top-full left-0 mt-1 text-xs text-destructive"
+          className="absolute top-full left-0 mt-1 text-caption text-destructive"
         >
           {m.sprints_name_error()}
         </p>
@@ -254,7 +257,7 @@ export function SprintSubtitle({
       </span>
     ) : null
   return (
-    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+    <div className="flex items-center gap-2 text-caption text-muted-foreground">
       <SprintDatesField sprint={sprint} disabled={disabled} />
       {status !== null && (
         <>
@@ -316,12 +319,11 @@ function SprintDatesField({
           </button>
         }
       />
-      <PopoverContent align="start" className="w-auto p-0">
+      <PopoverContent align="start" initialFocus={false} className="w-auto p-0">
         <Calendar
           mode="range"
           selected={draft}
           onSelect={(r) => setDraft(r ?? { from: undefined, to: undefined })}
-          numberOfMonths={1}
           defaultMonth={draft.from ?? DateTime.toDate(DateTime.nowUnsafe())}
         />
       </PopoverContent>

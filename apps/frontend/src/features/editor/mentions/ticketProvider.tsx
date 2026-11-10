@@ -35,7 +35,6 @@ export const ticketProvider = (
     slug: string
   }>
 ): MentionProvider => ({
-  trigger: "#",
   type: "ticket",
   search: (query, cursor) => {
     if (!scope.orgSlug || !scope.slug) return Effect.succeed(NO_PAGE)
@@ -65,22 +64,17 @@ export const ticketProvider = (
       }
     }).pipe(Effect.mapError(() => new MentionSearchFailed()))
   },
-  notes: {
-    loading: () => m.tickets_mention_tickets_loading(),
-    empty: () => m.tickets_mention_tickets_empty(),
-    failed: () => m.tickets_mention_tickets_failed()
-  },
+  heading: () => m.tickets_mention_tickets_heading(),
+  failed: () => m.tickets_mention_tickets_failed(),
   renderRow: (candidate) => (
     <div className="flex min-w-0 items-center gap-2">
-      <span className="shrink-0 font-mono whitespace-nowrap">
+      <span className="min-w-(--row-key-width) shrink-0 font-mono whitespace-nowrap">
         {candidate.id}
       </span>
       <span className="truncate text-muted-foreground">
         {candidate.secondary && (
           <>
-            <span className="text-muted-foreground/80">
-              {candidate.secondary}
-            </span>
+            <span className="text-muted-foreground">{candidate.secondary}</span>
             <EpicSeparator />
           </>
         )}

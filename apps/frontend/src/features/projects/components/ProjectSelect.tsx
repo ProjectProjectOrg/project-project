@@ -19,7 +19,7 @@ export function ProjectSelect({
   const label = project?.name ?? m.tickets_create_dialog_project()
   if (readOnly) {
     return (
-      <span className="inline-flex h-8 items-center gap-1.5 px-2.5 text-[13px] text-foreground">
+      <span className="inline-flex h-8 items-center gap-1.5 px-2.5 text-body text-foreground">
         <FolderKanban className="size-3.5" strokeWidth={1.75} />
         <span>{label}</span>
       </span>

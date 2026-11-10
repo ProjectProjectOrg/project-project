@@ -1,8 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { Member, Ticket, TicketId } from "@pp/shared"
+import type { Member, ParentFilter, Ticket, TicketId } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { OctagonMinus } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { memo, useRef, useState } from "react"
 
@@ -16,22 +15,25 @@ import {
   sprintMembership
 } from "@/features/sprints/atoms/sprintList"
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
+import {
+  TicketContextMenu,
+  TicketMenuButton
+} from "@/features/tickets/components/ticket-menu/TicketMenu"
+import {
+  RelationChips,
+  SubTicketsChip
+} from "@/features/tickets/components/ticket-preview/PreviewChips"
 import { TicketHoverCard } from "@/features/tickets/components/TicketHoverCard"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
-import { m } from "@/paraglide/messages"
 
 import { AssigneeField } from "./AssigneeField"
-import { EpicLink, EpicSeparator, useParentLabel } from "./EpicLabel"
 import { EstimateChip } from "./EstimateField"
-import { NestTree, type RowNest } from "./NestTree"
+import { ParentPrefix } from "./ParentPrefix"
 import { PriorityButton } from "./PriorityField"
-import { TicketRowActions } from "./RowActions"
 import { SprintField } from "./SprintField"
 import { StatusButton } from "./StatusField"
-import { SubTicketMarker } from "./SubTicketMarker"
-import { SubTicketProgress } from "./SubTicketProgress"
 import { UpdateFailureMarker } from "./UpdateFailureMarker"
 
 const TICKET_PREVIEW_DELAY_MS = 550
@@ -44,9 +46,8 @@ export type RowProps = Readonly<{
   variant?: "standalone" | "embedded"
   ticket: Ticket
   members: ReadonlyArray<Member>
-  showParent?: boolean
+  contextParent?: ParentFilter
   showSprint?: boolean
-  nest?: RowNest
   pending?: boolean
   editable?: boolean
   previewOpen: boolean
@@ -59,9 +60,8 @@ function RowImpl({
   variant = "standalone",
   ticket,
   members,
-  showParent = true,
+  contextParent,
   showSprint = true,
-  nest,
   pending,
   editable = true,
   previewOpen,
@@ -75,7 +75,6 @@ function RowImpl({
   const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
   const rowElement = useRef<HTMLDivElement>(null)
   const estimation = useEstimationMode()
-  const isChild = nest?.role === "child"
   const [previewMounted, setPreviewMounted] = useState(false)
   const handleTitlePointerEnter = () => {
     onPreviewPointerEnter(ticket.id)
@@ -97,125 +96,128 @@ function RowImpl({
             onPreviewOpenChange(ticket.id, nextOpen)
           }}
         >
-          <div
-            ref={rowElement}
-            className={cn(
-              "col-span-full grid grid-cols-subgrid items-center gap-x-1.5 px-3 py-2.5 text-left outline-none [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20",
-              variant === "standalone" &&
-                "relative isolate rounded-lg transition-colors hover:bg-hover has-[[data-popup-open]]:bg-hover"
-            )}
+          <TicketContextMenu
+            ticket={ticket}
+            members={members}
+            onPatch={onPatch}
+            fromList
           >
-            <NestTree nest={nest} />
-            <div className="col-start-4 row-start-1 flex min-w-0 items-center self-stretch pl-1.5">
-              {!isChild && showParent && ticket.parent && (
-                <EpicPrefix epicId={ticket.parent} />
+            <div
+              ref={rowElement}
+              className={cn(
+                "col-span-full grid grid-cols-subgrid items-center gap-x-1.5 px-3 py-2.5 text-left outline-none [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20",
+                variant === "standalone" &&
+                  "relative isolate rounded-lg transition-colors hover:bg-hover has-[[data-popup-open]]:bg-hover data-[popup-open]:bg-hover"
               )}
-              <Link
-                to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-                params={{ orgSlug, slug, id: ticket.id }}
-                preload="intent"
-                data-row-link
-                className="flex min-w-0 items-center self-stretch outline-none after:absolute after:inset-0 after:z-10 after:rounded-lg after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
-              >
-                <PopoverTrigger
-                  openOnHover
-                  delay={TICKET_PREVIEW_DELAY_MS}
-                  nativeButton={false}
-                  onPointerEnter={handleTitlePointerEnter}
-                  onPointerLeave={handleTitlePointerLeave}
-                  render={(triggerProps) => (
-                    <div
-                      {...triggerProps}
-                      role={undefined}
-                      tabIndex={undefined}
-                      aria-controls={undefined}
-                      aria-expanded={undefined}
-                      aria-haspopup={undefined}
-                      onClick={undefined}
-                      onKeyDown={undefined}
-                      onKeyUp={undefined}
-                      onPointerDown={undefined}
-                      className="relative z-20 flex min-w-0 flex-1 items-center self-stretch"
-                    />
-                  )}
+            >
+              <div className="col-start-4 row-start-1 flex min-w-0 items-center self-stretch pl-1.5">
+                {ticket.parent && ticket.parent !== contextParent && (
+                  <ParentPrefix parentId={ticket.parent} />
+                )}
+                <Link
+                  to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+                  params={{ orgSlug, slug, id: ticket.id }}
+                  preload="intent"
+                  data-row-link
+                  className="flex min-w-0 items-center self-stretch outline-none after:absolute after:inset-0 after:z-10 after:rounded-lg after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
                 >
-                  <span
-                    className={cn(
-                      "min-w-0 truncate text-sm font-medium",
-                      isChild && "text-foreground/65"
+                  <PopoverTrigger
+                    openOnHover
+                    delay={TICKET_PREVIEW_DELAY_MS}
+                    nativeButton={false}
+                    onPointerEnter={handleTitlePointerEnter}
+                    onPointerLeave={handleTitlePointerLeave}
+                    render={(triggerProps) => (
+                      <div
+                        {...triggerProps}
+                        role={undefined}
+                        tabIndex={undefined}
+                        aria-controls={undefined}
+                        aria-expanded={undefined}
+                        aria-haspopup={undefined}
+                        onClick={undefined}
+                        onKeyDown={undefined}
+                        onKeyUp={undefined}
+                        onPointerDown={undefined}
+                        className="relative z-20 flex min-w-0 flex-1 items-center self-stretch"
+                      />
                     )}
                   >
-                    {ticket.title}
-                  </span>
-                </PopoverTrigger>
-              </Link>
-              {(ticket.openBlockerCount ?? 0) > 0 && (
-                <OctagonMinus
-                  role="img"
-                  aria-label={m.tickets_filters_blocked()}
-                  className="relative z-20 ml-2 size-3.5 shrink-0 text-state-warning"
-                  strokeWidth={1.75}
+                    <span className="min-w-0 truncate text-body font-semibold">
+                      {ticket.title}
+                    </span>
+                  </PopoverTrigger>
+                </Link>
+                <SubTicketsChip
+                  ticket={ticket}
+                  className="ml-1 inline-flex h-6 items-center rounded-full px-1.5 text-muted-foreground transition-colors hover:bg-hover hover:text-foreground data-[popup-open]:bg-hover data-[popup-open]:text-foreground"
                 />
-              )}
-              <SubTicketProgress
-                ticket={ticket}
-                className="relative z-20 ml-2"
-              />
-              {!isChild && ticket.parent && (
-                <SubTicketMarker parentId={ticket.parent} />
-              )}
-            </div>
-            <fieldset disabled={!editable} className="contents">
-              <StatusButton ticket={ticket} stopPropagation onPatch={onPatch} />
-              <PriorityButton
-                ticket={ticket}
-                stopPropagation
-                onPatch={onPatch}
-              />
-              <span className="inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums">
-                <span>{idPrefix}-</span>
-                <AnimatePresence initial={false} mode="popLayout">
-                  {!pending && (
-                    <motion.span
-                      key={idTail}
-                      initial={{ opacity: 0, filter: "blur(4px)" }}
-                      animate={{ opacity: 1, filter: "blur(0px)" }}
-                      exit={{ opacity: 0, filter: "blur(4px)" }}
-                      transition={transitions.presence}
-                      className="inline-block"
-                    >
-                      {idTail}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </span>
-              <div className="flex shrink-0 items-center justify-end gap-2">
-                <UpdateFailureMarker update={update(ticket.id)} />
-                <TicketGitChip orgSlug={orgSlug} slug={slug} ticket={ticket} />
-                <EstimateChip ticket={ticket} mode={estimation} />
-                {showSprint && <RowSprint ticketId={ticket.id} />}
-                <AssigneeField
+                <RelationChips
+                  ticket={ticket}
+                  className="ml-1 inline-flex h-6 items-center gap-0.5 rounded-full px-1.5 text-caption text-muted-foreground transition-colors hover:bg-hover data-[popup-open]:bg-hover"
+                />
+              </div>
+              <fieldset disabled={!editable} className="contents">
+                <span className="relative z-20 inline-flex">
+                  <StatusButton
+                    ticket={ticket}
+                    stopPropagation
+                    onPatch={onPatch}
+                  />
+                </span>
+                <span className="relative z-20 inline-flex">
+                  <PriorityButton
+                    ticket={ticket}
+                    stopPropagation
+                    onPatch={onPatch}
+                  />
+                </span>
+                <span className="shrink-0 text-body">
+                  <span className="inline-flex min-w-(--ticket-key-width) items-center font-mono text-caption text-muted-foreground tabular-nums">
+                    <span>{idPrefix}-</span>
+                    <AnimatePresence initial={false} mode="popLayout">
+                      {!pending && (
+                        <motion.span
+                          key={idTail}
+                          initial={{ opacity: 0, filter: "blur(4px)" }}
+                          animate={{ opacity: 1, filter: "blur(0px)" }}
+                          exit={{ opacity: 0, filter: "blur(4px)" }}
+                          transition={transitions.presence}
+                          className="inline-block"
+                        >
+                          {idTail}
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </span>
+                </span>
+                <div className="flex shrink-0 items-center justify-end gap-2">
+                  <UpdateFailureMarker update={update(ticket.id)} />
+                  <TicketGitChip
+                    orgSlug={orgSlug}
+                    slug={slug}
+                    ticket={ticket}
+                  />
+                  <EstimateChip ticket={ticket} mode={estimation} />
+                  {showSprint && <RowSprint ticketId={ticket.id} />}
+                  <AssigneeField
+                    ticket={ticket}
+                    members={members}
+                    onPatch={onPatch}
+                    className="hidden sm:inline-flex"
+                  />
+                </div>
+              </fieldset>
+              <span className="relative z-20 inline-flex shrink-0 items-center">
+                <TicketMenuButton
                   ticket={ticket}
                   members={members}
                   onPatch={onPatch}
-                  className="hidden sm:inline-flex"
+                  fromList
                 />
-              </div>
-            </fieldset>
-            <span className="relative z-20 inline-flex shrink-0 items-center">
-              <TicketRowActions
-                id={ticket.id}
-                archived={ticket.archivedAt !== null}
-                parent={ticket.parent ?? null}
-                contextTarget={rowElement}
-                subTickets={ticket.subTicketCount}
-                epic={ticket.type === "epic"}
-                onDetach={
-                  editable ? () => onPatch({ parent: null }) : undefined
-                }
-              />
-            </span>
-          </div>
+              </span>
+            </div>
+          </TicketContextMenu>
           {previewMounted && (
             <TicketHoverCard
               ticketId={ticket.id}
@@ -242,18 +244,6 @@ function RowSprint({ ticketId }: Readonly<{ ticketId: TicketId }>) {
       ticketId={ticketId}
       membership={membership.value.get(ticketId) ?? null}
     />
-  )
-}
-
-function EpicPrefix({ epicId }: Readonly<{ epicId: TicketId }>) {
-  const { orgSlug, slug } = useProjectRoute()
-  const ref = { orgSlug, slug, epicId }
-  if (useParentLabel(ref)?.epic !== true) return null
-  return (
-    <>
-      <EpicLink {...ref} className="text-sm" />
-      <EpicSeparator className="shrink-0 text-sm" />
-    </>
   )
 }
 

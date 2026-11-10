@@ -228,7 +228,7 @@ export function ProjectHeader({
                   </Button>
                 </>
               ) : sprintMissing ? (
-                <span className="truncate text-2xl font-semibold tracking-tight text-muted-foreground">
+                <span className="truncate text-display font-bold text-muted-foreground">
                   {m.sprints_not_found_title()}
                 </span>
               ) : (
@@ -331,7 +331,7 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
         }}
         disabled={!canEdit}
         className={cn(
-          "-mx-1 truncate rounded px-1 text-left text-2xl font-semibold tracking-tight transition-colors transition-transform duration-100 active:scale-[0.97]",
+          "-mx-1 truncate rounded px-1 text-left text-display font-bold transition-colors transition-transform duration-100 active:scale-[0.97]",
           canEdit && "hover:bg-hover"
         )}
       >
@@ -348,14 +348,14 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void commit()}
         onKeyDown={handleKey}
-        className="-mx-1 w-full rounded bg-transparent px-1 text-2xl font-semibold tracking-tight ring-2 ring-ring/50 outline-none"
+        className="-mx-1 w-full rounded bg-transparent px-1 text-display font-bold ring-2 ring-ring/50 outline-none"
         maxLength={120}
         aria-label={m.project_detail_name_aria_label()}
       />
       {failed && (
         <p
           role="alert"
-          className="absolute top-full left-0 mt-1 text-xs text-destructive"
+          className="absolute top-full left-0 mt-1 text-caption text-destructive"
         >
           {m.project_detail_name_error()}
         </p>

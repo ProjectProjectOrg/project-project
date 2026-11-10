@@ -1,6 +1,5 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { useDebouncedValue } from "@tanstack/react-pacer"
-import * as Result from "effect/reactivity/AsyncResult"
 import { GitBranch } from "lucide-react"
 import { useContext, useState } from "react"
 
@@ -14,6 +13,7 @@ import {
 } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import type { TicketPageProps } from "@/features/tickets/components/command-pages/TicketFieldCommands"
+import { useSettledValue } from "@/hooks/useSettledValue"
 import { m } from "@/paraglide/messages"
 
 export function TicketBranchPickCommand({
@@ -31,11 +31,13 @@ export function TicketBranchPickCommand({
     branches(branchesRequest(ticket.orgSlug, ticket.slug, debounced))
   )
   const current = context.ticketDetail?.branch ?? null
-  const items = Result.isSuccess(result)
-    ? result.value.items.filter((branch) => branch.name !== current)
-    : []
+  const items =
+    useSettledValue(result, null)?.items.filter(
+      (branch) => branch.name !== current
+    ) ?? []
   return (
     <CommandFrame
+      fixedHeight
       chip={chip}
       placeholder={
         mode === "link"

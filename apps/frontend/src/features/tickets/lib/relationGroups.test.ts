@@ -9,7 +9,7 @@ import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { openBlockers, pickBlock } from "./relationGroups"
+import { openBlockers, pickBlock, removableRelations } from "./relationGroups"
 
 const archivedOn = DateTime.toDate(DateTime.makeUnsafe("2026-04-02T00:00:00Z"))
 const ticketId = Schema.decodeSync(TicketId)
@@ -56,5 +56,24 @@ describe("openBlockers", () => {
     expect(
       openBlockers(relations, new Set(["done"])).map((ticket) => ticket.id)
     ).toEqual(["T-2"])
+  })
+})
+
+describe("removableRelations", () => {
+  it("lists marked relations but not duplicates, which only archiving undoes", () => {
+    const removable = removableRelations({
+      ...relations,
+      duplicateOf: linked("T-7"),
+      duplicates: [linked("T-8")]
+    })
+    expect(removable.map(({ kind, linked }) => `${kind}:${linked.id}`)).toEqual(
+      [
+        "blockedBy:T-2",
+        "blockedBy:T-3",
+        "blockedBy:T-4",
+        "blocking:T-5",
+        "related:T-6"
+      ]
+    )
   })
 })

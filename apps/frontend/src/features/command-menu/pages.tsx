@@ -18,6 +18,7 @@ import {
 } from "@/features/sprints/components/SprintCommandPages"
 import { TicketAssigneeCommands } from "@/features/tickets/components/command-pages/TicketAssigneeCommands"
 import {
+  TicketArchivePage,
   TicketDeletePage,
   TicketEstimatePage,
   TicketParentPage,
@@ -26,8 +27,17 @@ import {
   type TicketPageProps
 } from "@/features/tickets/components/command-pages/TicketFieldCommands"
 import { TicketPriorityCommands } from "@/features/tickets/components/command-pages/TicketPriorityCommands"
+import {
+  TicketCreateRelatedPage,
+  TicketRemoveRelationPage
+} from "@/features/tickets/components/command-pages/TicketRelationCommands"
 import { TicketSprintCommands } from "@/features/tickets/components/command-pages/TicketSprintCommands"
 import { TicketStatusCommands } from "@/features/tickets/components/command-pages/TicketStatusCommands"
+import { TicketSubTicketPage } from "@/features/tickets/components/command-pages/TicketSubTicketPage"
+import {
+  viewFilterDimensionPage,
+  ViewFilterPage
+} from "@/features/tickets/components/command-pages/ViewFilterCommands"
 import { MarkAsCommands } from "@/features/tickets/components/ticket-marks/MarkAsCommands"
 import { MarkTicketCommand } from "@/features/tickets/components/ticket-marks/MarkTicketCommand"
 import type { MarkPickKind } from "@/features/tickets/lib/relationGroups"
@@ -119,6 +129,10 @@ export const COMMAND_PAGES: Readonly<
   ticketType: ticketPage(TicketTypePage),
   ticketTags: ticketPage(TicketTagsPage),
   ticketParent: ticketPage(TicketParentPage),
+  ticketSubTicket: ticketPage(TicketSubTicketPage),
+  ticketCreateRelated: ticketPage(TicketCreateRelatedPage),
+  ticketRemoveRelation: ticketPage(TicketRemoveRelationPage),
+  ticketArchive: ticketPage(TicketArchivePage),
   ticketDelete: ticketPage(TicketDeletePage),
   ticketBranch: ticketPage(TicketBranchCommand),
   ticketLinkBranch: ticketPage((props) => (
@@ -131,6 +145,12 @@ export const COMMAND_PAGES: Readonly<
   switchProject: SwitchProjectPage,
   createProject: CreateProjectPage,
   theme: ThemeCommands,
+  viewFilter: ViewFilterPage,
+  "filter:type": viewFilterDimensionPage("type"),
+  "filter:assignee": viewFilterDimensionPage("assignee"),
+  "filter:sprint": viewFilterDimensionPage("sprint"),
+  "filter:estimate": viewFilterDimensionPage("estimate"),
+  "filter:tags": viewFilterDimensionPage("tags"),
   sprintSchedule: sprintPage(SprintSchedulePage),
   sprintComplete: sprintPage(SprintCompletePage),
   sprintLength: sprintPage(SprintLengthPage),

@@ -34,3 +34,14 @@ export function activeFilterCount(
     return Array.isArray(value) ? value.length > 0 : value === true
   }).length
 }
+
+export function clearedFilters(
+  dimensions: ReadonlyArray<FilterDimension>
+): Partial<TicketFilter> {
+  return Object.fromEntries(
+    dimensions.flatMap((dimension) => {
+      const key = FILTER_KEYS[dimension]
+      return key === null ? [] : [[key, undefined]]
+    })
+  )
+}

@@ -106,7 +106,8 @@ function StatusSections({
   } | null>(null)
   const subTicketsSettled = useSubTicketsSettled(
     Result.isSuccess(result) ? result.value : null,
-    query.status
+    query.status,
+    showAlternate
   )
   const current =
     Result.isSuccess(result) && subTicketsSettled ? result.value : null

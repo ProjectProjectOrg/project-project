@@ -1,13 +1,9 @@
-import {
-  Copy,
-  Link2,
-  OctagonAlert,
-  OctagonMinus,
-  type LucideIcon
-} from "lucide-react"
+import { Link2, OctagonMinus, SquareEqual, type LucideIcon } from "lucide-react"
 
 import type { MarkPickKind } from "@/features/tickets/lib/relationGroups"
 import { m } from "@/paraglide/messages"
+
+import { SquareOctagonMinus } from "./blockingIcon"
 
 export const MARK_KINDS: ReadonlyArray<
   Readonly<{
@@ -25,7 +21,7 @@ export const MARK_KINDS: ReadonlyArray<
   },
   {
     kind: "blocking",
-    icon: OctagonAlert,
+    icon: SquareOctagonMinus,
     label: m.tickets_mark_blocking,
     command: m.tickets_command_mark_blocking
   },
@@ -37,7 +33,7 @@ export const MARK_KINDS: ReadonlyArray<
   },
   {
     kind: "duplicateOf",
-    icon: Copy,
+    icon: SquareEqual,
     label: m.tickets_mark_duplicate_of,
     command: m.tickets_command_mark_duplicate_of
   }

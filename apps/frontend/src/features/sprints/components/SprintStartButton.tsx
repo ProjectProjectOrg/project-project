@@ -53,8 +53,8 @@ export function SprintStartButton({ sprint }: { sprint: Group }) {
             </Button>
           }
         />
-        <PopoverContent align="end" className="w-auto p-0">
-          <p className="px-3 pt-3 text-xs text-muted-foreground">
+        <PopoverContent align="end" initialFocus={false} className="w-auto p-0">
+          <p className="px-3 pt-3 text-caption text-muted-foreground">
             {m.sprints_schedule_pick_hint()}
           </p>
           <Calendar
@@ -66,7 +66,6 @@ export function SprintStartButton({ sprint }: { sprint: Group }) {
               setScheduling(false)
             }}
             disabled={{ before: today }}
-            numberOfMonths={1}
             defaultMonth={sprint.startsAt ?? today}
           />
           {sprint.startsAt !== null && (

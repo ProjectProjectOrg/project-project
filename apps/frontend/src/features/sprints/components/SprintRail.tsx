@@ -91,12 +91,12 @@ export function SprintRail({ canPlan }: { canPlan: boolean }) {
           reduceMotion ? undefined : sprintProjectLayoutId(orgSlug, slug)
         }
         transition={transitions.layout}
-        className="flex items-center gap-2.5 rounded-lg bg-accent/60 px-3 py-2 text-[13px] text-foreground"
+        className="flex items-center gap-2.5 rounded-lg bg-accent/60 px-3 py-2 text-body text-foreground"
       >
         {projectIcon ? (
           <span
             aria-hidden
-            className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-[13px] leading-none corner-squircle"
+            className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-body leading-none corner-squircle"
           >
             <ProjectIconDisplay
               orgSlug={orgSlug}
@@ -106,7 +106,7 @@ export function SprintRail({ canPlan }: { canPlan: boolean }) {
             />
           </span>
         ) : null}
-        <span className="min-w-0 flex-1 truncate font-medium">
+        <span className="min-w-0 flex-1 truncate font-semibold">
           {projectName}
         </span>
       </motion.div>
@@ -153,9 +153,9 @@ function Section({
   if (count === 0) return null
   return (
     <section className="flex flex-col gap-1">
-      <header className="flex items-center justify-between px-2 text-[11px] text-muted-foreground">
+      <header className="flex items-center justify-between px-2 text-micro text-muted-foreground">
         <span>{label}</span>
-        <span className="font-mono text-[10px] tabular-nums">{count}</span>
+        <span className="font-mono text-micro tabular-nums">{count}</span>
       </header>
       <ul className={cn("flex flex-col", dim && "opacity-80")}>
         {sprints.map((s) => (
@@ -175,16 +175,16 @@ function RailRow({ sprint, selected }: { sprint: Group; selected: boolean }) {
       to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
       params={{ orgSlug, slug, groupId: sprint.id }}
       className={cn(
-        "group/list-row flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
+        "group/list-row flex items-center gap-2.5 rounded-lg px-3 py-2 text-body transition-colors",
         selected
-          ? "bg-accent font-medium text-foreground"
+          ? "bg-accent font-semibold text-foreground"
           : "text-muted-foreground hover:bg-hover hover:text-foreground"
       )}
       aria-current={selected ? "page" : undefined}
     >
       <SprintStateIcon sprint={sprint} />
       <span className="min-w-0 flex-1 truncate">{sprint.name}</span>
-      <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
+      <span className="font-mono text-micro text-muted-foreground tabular-nums">
         {formatRange(sprint)}
       </span>
     </Link>

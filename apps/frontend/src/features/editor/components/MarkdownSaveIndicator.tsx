@@ -19,7 +19,7 @@ export function MarkdownSaveIndicator({
   if (!label) return null
 
   return (
-    <span className={cn("text-xs text-muted-foreground", className)}>
+    <span className={cn("text-caption text-muted-foreground", className)}>
       {label}
     </span>
   )

@@ -83,12 +83,16 @@ const LIST_BLOCKS: ReadonlySet<SlashBasicKind> = new Set(
 
 const DRAG_DISTANCE = 4
 
-type Toolbar = Readonly<{
-  rect: DOMRect
-  formats: ReadonlySet<TextFormatType>
-  link: boolean
-  block: SlashBasicKind | null
-}>
+type ToolbarAlign = "start" | "center"
+
+type SelectionAnchor = Readonly<{ rect: DOMRect; align: ToolbarAlign }>
+
+type Toolbar = SelectionAnchor &
+  Readonly<{
+    formats: ReadonlySet<TextFormatType>
+    link: boolean
+    block: SlashBasicKind | null
+  }>
 
 function $blockOf(selection: RangeSelection): SlashBasicKind | null {
   const anchor = selection.anchor.getNode()
@@ -101,7 +105,18 @@ function $blockOf(selection: RangeSelection): SlashBasicKind | null {
   return null
 }
 
-type ToolbarState = Omit<Toolbar, "rect">
+type ToolbarState = Omit<Toolbar, keyof SelectionAnchor>
+
+const selectionAnchor = (range: Range): SelectionAnchor => {
+  const lines = [...range.getClientRects()].filter((line) => line.width > 0)
+  const [first] = lines
+  const multiline =
+    first !== undefined &&
+    lines.some((line) => line.top > first.top + first.height / 2)
+  return multiline
+    ? { rect: first, align: "start" }
+    : { rect: range.getBoundingClientRect(), align: "center" }
+}
 
 function readState(editor: LexicalEditor): ToolbarState | null {
   return editor.getEditorState().read(() => {
@@ -136,7 +151,7 @@ function readToolbar(
   if (!root.contains(document.activeElement)) return null
   const state = readState(editor)
   if (state === null) return null
-  return { rect: native.getRangeAt(0).getBoundingClientRect(), ...state }
+  return { ...selectionAnchor(native.getRangeAt(0)), ...state }
 }
 
 const TOOLBAR_SHORTCUT = "Alt+F10"
@@ -174,7 +189,7 @@ function ToolbarButton({
             onMouseDown={(event) => event.preventDefault()}
             onClick={onPress}
             className={cn(
-              "grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground",
+              "grid size-7 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
               active && "bg-hover text-foreground"
             )}
           />
@@ -182,12 +197,7 @@ function ToolbarButton({
       >
         {children}
       </TooltipTrigger>
-      <TooltipContent
-        sideOffset={10}
-        className="rounded-sm border border-border bg-popover text-popover-foreground"
-      >
-        {label}
-      </TooltipContent>
+      <TooltipContent sideOffset={10}>{label}</TooltipContent>
     </Tooltip>
   )
 }
@@ -200,12 +210,14 @@ const STAY_ABOVE = {
 
 function Popover({
   rect,
+  align,
   boundary,
   open,
   onEscape,
   children
 }: Readonly<{
   rect: DOMRect | null
+  align: ToolbarAlign
   boundary: HTMLElement | null
   open: boolean
   onEscape?: () => void
@@ -225,7 +237,7 @@ function Popover({
       <PopoverContent
         anchor={anchor}
         side="top"
-        align="center"
+        align={align}
         sideOffset={8}
         collisionAvoidance={STAY_ABOVE}
         collisionBoundary={boundary ?? undefined}
@@ -268,7 +280,7 @@ function LinkInput({
         if (url.trim() === "") onCancel()
         else onApply(url.trim())
       }}
-      className="h-7 w-64 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground"
+      className="h-7 w-64 bg-transparent px-2 text-body outline-none placeholder:text-muted-foreground"
     />
   )
 }
@@ -282,10 +294,9 @@ export function FormattingToolbarPlugin() {
   useEffect(() => editor.registerRootListener(setRoot), [editor])
   if (toolbar !== null && toolbar !== shown) setShown(toolbar)
   const shownRef = useRef<Toolbar | null>(null)
-  const [linking, setLinking] = useState<Readonly<{
-    rect: DOMRect
-    selection: BaseSelection
-  }> | null>(null)
+  const [linking, setLinking] = useState<
+    (SelectionAnchor & Readonly<{ selection: BaseSelection }>) | null
+  >(null)
 
   useEffect(() => {
     let press: Readonly<{ x: number; y: number }> | null = null
@@ -371,7 +382,11 @@ export function FormattingToolbarPlugin() {
     }
     const selection = editor.getEditorState().read(() => $getSelection())
     if (selection !== null) {
-      setLinking({ rect: current.rect, selection: selection.clone() })
+      setLinking({
+        rect: current.rect,
+        align: current.align,
+        selection: selection.clone()
+      })
     }
   }
 
@@ -379,6 +394,7 @@ export function FormattingToolbarPlugin() {
     <>
       <Popover
         rect={linking?.rect ?? null}
+        align={linking?.align ?? "center"}
         boundary={root}
         open={linking !== null}
       >
@@ -386,6 +402,7 @@ export function FormattingToolbarPlugin() {
       </Popover>
       <Popover
         rect={shown?.rect ?? null}
+        align={shown?.align ?? "center"}
         boundary={root}
         open={toolbar !== null && linking === null}
         onEscape={() => {

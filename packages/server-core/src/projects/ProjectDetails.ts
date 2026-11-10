@@ -374,6 +374,7 @@ const make = Effect.gen(function* () {
           setup: file.setup,
           estimation: file.estimation,
           body: file.body,
+          nextTicketNumber: indexRow.nextTicketNumber,
           members,
           pendingMembers
         })

@@ -4,7 +4,15 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import { expect } from "vitest"
 
-import { makeTicketDocument, makeTicketsFixture, ticketId } from "./testing"
+import {
+  entryFromDocument,
+  makeFakeTicketDocs,
+  makeFakeTicketIndex,
+  makeTicketDocument,
+  makeTicketsFixture,
+  makeTicketsLayer,
+  ticketId
+} from "./testing"
 import * as TicketCommands from "./TicketCommands"
 
 const archivedOn = DateTime.toDate(DateTime.makeUnsafe("2026-04-02T00:00:00Z"))
@@ -211,5 +219,31 @@ it.effect("duplicate chains are rejected from both ends", () => {
       })
       expect(documents.get("T-1")?.archivedAt).toBeNull()
     })
+  )
+})
+
+it.effect("an update returns the ticket's relation counts", () => {
+  const docs = makeFakeTicketDocs(["T-1"])
+  const counts = {
+    openBlockerCount: 1,
+    openBlockingCount: 2,
+    relatedCount: 3,
+    duplicateCount: 4
+  }
+  const layer = makeTicketsLayer("T", docs.layer, {
+    ticketIndex: makeFakeTicketIndex(docs.documents, {
+      list: () =>
+        Effect.sync(() =>
+          [...docs.documents.values()].map((document) => ({
+            ...entryFromDocument(document),
+            ...counts
+          }))
+        )
+    })
+  })
+  return run(layer, (commands) =>
+    commands
+      .update("T-1", { priority: "high" })
+      .pipe(Effect.map(({ ticket }) => expect(ticket).toMatchObject(counts)))
   )
 })

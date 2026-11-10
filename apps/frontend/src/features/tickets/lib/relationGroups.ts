@@ -33,6 +33,11 @@ export const relationGroups = (
     { key: "duplicates", unmark: null, tickets: relations.duplicates }
   ] satisfies ReadonlyArray<RelationGroup>
 
+export const removableRelations = (relations: TicketRelations) =>
+  relationGroups(relations).flatMap(({ unmark, tickets }) =>
+    unmark === null ? [] : tickets.map((linked) => ({ kind: unmark, linked }))
+  )
+
 const MARK_GROUPS: Readonly<
   Record<MarkKind, "blockedBy" | "blocking" | "related">
 > = {

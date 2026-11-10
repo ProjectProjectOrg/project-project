@@ -525,7 +525,7 @@ function ExistingOption({
         className="size-4"
       />
       <span className="flex min-w-0 flex-1 items-baseline gap-2">
-        <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+        <span className="shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
           {ticket.id}
         </span>
         <span className="min-w-0 truncate">
@@ -540,13 +540,13 @@ function ExistingOption({
         </span>
       </span>
       {added ? (
-        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+        <span className="flex shrink-0 items-center gap-1 text-caption text-muted-foreground">
           <Check strokeWidth={1.75} className="size-3" />
           {m.sprints_combobox_added()}
         </span>
       ) : (
         otherSprintName && (
-          <span className="shrink-0 text-xs text-muted-foreground">
+          <span className="shrink-0 text-caption text-muted-foreground">
             {m.sprints_add_tickets_in_other_sprint({ name: otherSprintName })}
           </span>
         )

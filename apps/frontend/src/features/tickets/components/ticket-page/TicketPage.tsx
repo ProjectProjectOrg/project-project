@@ -10,7 +10,7 @@ import type {
 import { useNavigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Archive } from "lucide-react"
-import { useCallback, useRef, useState } from "react"
+import { useState } from "react"
 
 import { type SaveStatus } from "@/features/editor/components/LexicalEditor"
 import { Markdown } from "@/features/editor/components/Markdown"
@@ -30,11 +30,14 @@ import { ArchiveTicketControl } from "@/features/tickets/components/ticket-list/
 import { AssigneePicker } from "@/features/tickets/components/ticket-list/AssigneeField"
 import { EstimateBadgeTrigger } from "@/features/tickets/components/ticket-list/EstimateField"
 import { PriorityBadgeTrigger } from "@/features/tickets/components/ticket-list/PriorityField"
-import { TicketRowActions } from "@/features/tickets/components/ticket-list/RowActions"
 import { SprintBadgeTrigger } from "@/features/tickets/components/ticket-list/SprintField"
 import { TypeBadgeTrigger } from "@/features/tickets/components/ticket-list/TypeField"
 import { BlockedByNote } from "@/features/tickets/components/ticket-marks/BlockedByNote"
 import { TicketRelationRows } from "@/features/tickets/components/ticket-marks/TicketRelationRows"
+import {
+  TicketContextMenu,
+  TicketMenuButton
+} from "@/features/tickets/components/ticket-menu/TicketMenu"
 import { DescriptionField } from "@/features/tickets/components/ticket-page/DescriptionField"
 import { EpicField } from "@/features/tickets/components/ticket-page/EpicField"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
@@ -87,16 +90,12 @@ export function TicketPage({
   const estimation = useEstimationMode()
   const canEdit = TicketPolicy.canChange(actor, { content: true })
   const hierarchy = useTicketHierarchy(ticket)
-  const sidebar = useRef<HTMLElement>(null)
   const navigate = useNavigate()
-  const inSidebarColumn = useCallback((event: MouseEvent) => {
-    const column = sidebar.current?.getBoundingClientRect()
-    return (
-      column !== undefined &&
-      event.clientX >= column.left &&
-      event.clientY >= column.top
-    )
-  }, [])
+  const goToProject = () =>
+    void navigate({
+      to: "/orgs/$orgSlug/projects/$slug",
+      params: { orgSlug, slug }
+    })
   const {
     descriptionRef,
     onTypePatch,
@@ -130,21 +129,12 @@ export function TicketPage({
               }
             />
           )}
-          <TicketRowActions
-            id={ticket.id}
-            archived={ticket.archivedAt !== null}
-            parent={null}
-            contextTarget={sidebar}
-            contextRegion={inSidebarColumn}
-            subTickets={ticket.subTicketCount}
-            epic={ticket.type === "epic"}
+          <TicketMenuButton
+            ticket={ticket}
+            members={members}
+            onPatch={updateTicket}
             template={{ ticket, body: bodyDraft ?? ticket.body }}
-            onDeleted={() =>
-              void navigate({
-                to: "/orgs/$orgSlug/projects/$slug",
-                params: { orgSlug, slug }
-              })
-            }
+            onDeleted={goToProject}
           />
         </>
       }
@@ -156,12 +146,19 @@ export function TicketPage({
           meta={
             <>
               <fieldset disabled={!canEdit} className="contents">
-                <TypeBadgeTrigger ticket={ticket} onPatch={onTypePatch} />
+                <TypeBadgeTrigger
+                  ticket={ticket}
+                  onPatch={onTypePatch}
+                  className="-mx-2 px-2"
+                />
               </fieldset>
               {hierarchy.subTicketOf !== null && (
-                <span className="inline-flex min-w-0 items-center gap-1 text-[13px] text-muted-foreground">
+                <span className="inline-flex min-w-0 items-center gap-1 text-body text-muted-foreground">
                   {m.tickets_header_sub_ticket_of()}
-                  <ParentTicketLink parent={hierarchy.subTicketOf} />
+                  <ParentTicketLink
+                    parent={hierarchy.subTicketOf}
+                    variant="inline"
+                  />
                 </span>
               )}
               <BlockedByNote relations={ticket.relations} />
@@ -169,7 +166,7 @@ export function TicketPage({
                 <TemplateSwapNote name={swapNote.name} onUndo={undoSwap} />
               )}
               {ticket.archivedAt !== null && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-micro text-muted-foreground">
                   <Archive className="size-3" strokeWidth={1.75} />
                   {m.tickets_archived_badge()}
                 </span>
@@ -203,63 +200,69 @@ export function TicketPage({
           />
         </main>
 
-        <aside
-          ref={sidebar}
-          className="flex min-w-0 flex-col gap-4 sm:pl-(--ticket-rail-inset) lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:pr-1 lg:pl-5"
+        <TicketContextMenu
+          ticket={ticket}
+          members={members}
+          onPatch={updateTicket}
+          template={{ ticket, body: bodyDraft ?? ticket.body }}
+          onDeleted={goToProject}
         >
-          <fieldset disabled={!canEdit} className="contents">
-            <MetaRow controls label={m.tickets_page_meta_priority()}>
-              <PriorityBadgeTrigger ticket={ticket} onPatch={updateTicket} />
-            </MetaRow>
-            {estimation !== "off" && (
-              <MetaRow controls label={m.tickets_page_meta_estimate()}>
-                <EstimateBadgeTrigger
+          <aside className="flex min-w-0 flex-col gap-4 sm:pl-(--ticket-rail-inset) lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:pr-1 lg:pl-5">
+            <fieldset disabled={!canEdit} className="contents">
+              <MetaRow controls label={m.tickets_page_meta_priority()}>
+                <PriorityBadgeTrigger ticket={ticket} onPatch={updateTicket} />
+              </MetaRow>
+              {estimation !== "off" && (
+                <MetaRow controls label={m.tickets_page_meta_estimate()}>
+                  <EstimateBadgeTrigger
+                    ticket={ticket}
+                    mode={estimation}
+                    onPatch={updateTicket}
+                  />
+                </MetaRow>
+              )}
+              <PlanningMetaRows
+                ticket={ticket}
+                hierarchy={hierarchy}
+                editable={canEdit}
+                onPatch={updateTicket}
+              />
+              <TicketRelationRows
+                ticketId={ticket.id}
+                relations={ticket.relations}
+                members={members}
+                editable={canEdit}
+              />
+              <MetaRow controls label={m.tickets_page_meta_assignees()}>
+                <AssigneePicker
                   ticket={ticket}
-                  mode={estimation}
+                  members={members}
                   onPatch={updateTicket}
                 />
               </MetaRow>
+              <MetaRow controls label={m.tickets_page_meta_tags()}>
+                <TagEditor
+                  ticket={ticket}
+                  canManageTags={actor.call("tags", "create")}
+                />
+              </MetaRow>
+            </fieldset>
+            {github && (
+              <MetaRow controls label={m.tickets_page_meta_git()}>
+                <TicketGitPanel
+                  ticket={ticket}
+                  github={github}
+                  branchTemplate={null}
+                  variant="ghost"
+                />
+              </MetaRow>
             )}
-            <PlanningMetaRows
-              ticket={ticket}
-              hierarchy={hierarchy}
-              onPatch={updateTicket}
-            />
-            <TicketRelationRows
-              ticketId={ticket.id}
-              relations={ticket.relations}
-              members={members}
-              editable={canEdit}
-            />
-            <MetaRow controls label={m.tickets_page_meta_assignees()}>
-              <AssigneePicker
-                ticket={ticket}
-                members={members}
-                onPatch={updateTicket}
-              />
-            </MetaRow>
-            <MetaRow controls label={m.tickets_page_meta_tags()}>
-              <TagEditor
-                ticket={ticket}
-                canManageTags={actor.call("tags", "create")}
-              />
-            </MetaRow>
-          </fieldset>
-          {github && (
-            <MetaRow controls label={m.tickets_page_meta_git()}>
-              <TicketGitPanel
-                ticket={ticket}
-                github={github}
-                branchTemplate={null}
-                variant="ghost"
-              />
-            </MetaRow>
-          )}
-          <TicketDesignLinks ticket={ticket} />
-          {actor.call("everhour", "ticketTime") && (
-            <TicketTimeSection ticket={ticket} />
-          )}
-        </aside>
+            <TicketDesignLinks ticket={ticket} />
+            {actor.call("everhour", "ticketTime") && (
+              <TicketTimeSection ticket={ticket} />
+            )}
+          </aside>
+        </TicketContextMenu>
       </div>
     </TicketPageShell>
   )
@@ -268,10 +271,12 @@ export function TicketPage({
 function PlanningMetaRows({
   ticket,
   hierarchy,
+  editable,
   onPatch
 }: Readonly<{
   ticket: TicketDetail
   hierarchy: TicketHierarchy
+  editable: boolean
   onPatch: (patch: UpdateTicketInput) => void
 }>) {
   if (ticket.type === "epic") return null
@@ -281,13 +286,13 @@ function PlanningMetaRows({
         <SprintBadgeTrigger ticketId={ticket.id} />
       </MetaRow>
       {hierarchy.subTicketOf !== null ? (
-        <MetaRow label={m.tickets_page_meta_sub_ticket_of()}>
+        <MetaRow controls label={m.tickets_page_meta_sub_ticket_of()}>
           <ParentTicketLink parent={hierarchy.subTicketOf} />
         </MetaRow>
       ) : (
         hierarchy.loaded && (
           <MetaRow controls label={m.tickets_page_meta_epic()}>
-            <EpicField ticket={ticket} onPatch={onPatch} />
+            <EpicField ticket={ticket} editable={editable} onPatch={onPatch} />
           </MetaRow>
         )
       )}

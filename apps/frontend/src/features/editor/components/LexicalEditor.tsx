@@ -1,9 +1,5 @@
 import { CodeExtension, registerCodeHighlighting } from "@lexical/code"
-import {
-  AutoFocusExtension,
-  HorizontalRuleExtension,
-  TabIndentationExtension
-} from "@lexical/extension"
+import { AutoFocusExtension, HorizontalRuleExtension } from "@lexical/extension"
 import { HistoryExtension } from "@lexical/history"
 import {
   AutoLinkExtension,
@@ -12,11 +8,7 @@ import {
   createLinkMatcherWithRegExp,
   formatUrl
 } from "@lexical/link"
-import {
-  CheckListExtension,
-  ListExtension,
-  $isListItemNode
-} from "@lexical/list"
+import { CheckListExtension, ListExtension } from "@lexical/list"
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
@@ -43,7 +35,6 @@ import {
   defineExtension,
   $createParagraphNode,
   $getRoot,
-  type ElementNode,
   type LexicalEditor as LexicalEditorType
 } from "lexical"
 import {
@@ -272,8 +263,6 @@ const CodeHighlightExtension = defineExtension({
   register: (editor: LexicalEditorType) => registerCodeHighlighting(editor)
 })
 
-const $canIndentInsideLists = (node: ElementNode) => $isListItemNode(node)
-
 export type SaveStatus = "idle" | "dirty" | "saving" | "saved"
 
 export interface AttachmentsTarget {
@@ -470,10 +459,6 @@ export function LexicalEditor({
         SyncedBlockExtension,
         ...(attachmentNodesEnabled ? [AttachmentExtension] : []),
         ...(hintNodesEnabled ? [HintExtension] : []),
-        configExtension(TabIndentationExtension, {
-          $canIndent: $canIndentInsideLists,
-          maxIndent: 4
-        }),
         configExtension(AutoFocusExtension, {
           defaultSelection:
             initialAutoFocus === "start" ? "rootStart" : "rootEnd",

@@ -558,7 +558,7 @@ export function BlockGutterPlugin({
           <span
             aria-hidden
             data-block-shortcut-hint
-            className="absolute flex h-6 animate-in items-center rounded-md border border-border bg-popover px-1.5 text-xs whitespace-nowrap text-muted-foreground shadow-sm duration-150 select-none fade-in"
+            className="absolute flex h-6 animate-in items-center rounded-md border border-border bg-popover px-1.5 text-caption whitespace-nowrap text-muted-foreground shadow-sm duration-150 select-none fade-in"
             style={{
               top: hintItem.blockTop - HINT_LIFT,
               right: hintItem.right + 8

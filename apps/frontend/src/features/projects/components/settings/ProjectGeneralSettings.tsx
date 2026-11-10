@@ -74,7 +74,7 @@ export function ProjectGeneralSettings() {
             label={m.project_settings_key_label()}
             description={m.project_settings_key_description()}
           >
-            <span className="font-mono text-[13px] text-muted-foreground">
+            <span className="font-mono text-body text-muted-foreground">
               {project.key}
             </span>
           </SettingsRow>

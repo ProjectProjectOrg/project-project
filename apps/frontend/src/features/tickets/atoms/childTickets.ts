@@ -116,6 +116,17 @@ export const expandedChildTickets = Atom.family(
     )
 )
 
+export const expandedChildrenSettled = Atom.family(
+  (reqs: ReadonlyArray<ExpandedChildrenRequest>) =>
+    Atom.readable((get) =>
+      reqs.every((req) =>
+        [...get(expandedChildTickets(req)).values()].every(
+          (result) => !AsyncResult.isInitial(result)
+        )
+      )
+    )
+)
+
 export const quickCreateChildTicket = Atom.family((req: ChildTicketsRequest) =>
   viewMutation(childTickets(req), {
     name: "quickCreateChildTicket",

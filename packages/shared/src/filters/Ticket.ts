@@ -135,7 +135,8 @@ export type TicketListQuery = typeof TicketListQuery.Type
 export const TicketSection = Schema.Struct({
   status: TicketFilterFields.status,
   groupId: TicketFilterFields.groupId,
-  parent: TicketFilterFields.parent
+  parent: TicketFilterFields.parent,
+  ticketParent: TicketFilterFields.parent
 })
 export type TicketSection = typeof TicketSection.Type
 

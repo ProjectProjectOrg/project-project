@@ -95,10 +95,10 @@ export function WelcomeInviteList({
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-normal text-foreground">
+        <h1 className="text-display font-bold text-foreground">
           {m.auth_invites_title()}
         </h1>
-        <p className="text-sm leading-6 text-muted-foreground">
+        <p className="text-body leading-6 text-muted-foreground">
           {m.auth_invites_body()}
         </p>
       </div>
@@ -114,7 +114,7 @@ export function WelcomeInviteList({
         ))}
       </ul>
       {pageError ? (
-        <p className="text-sm text-destructive">{pageError}</p>
+        <p className="text-body text-destructive">{pageError}</p>
       ) : null}
       <div className="flex flex-wrap gap-2">
         {invites.length > 1 ? (
@@ -202,29 +202,29 @@ function InviteRow({
         aria-hidden
         className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted ring-1 ring-border ring-inset"
       >
-        <span className="font-mono text-[15px] leading-none font-medium text-foreground">
+        <span className="font-mono text-title leading-none font-semibold text-foreground">
           {initial}
         </span>
       </div>
       <div className="min-w-0 flex-1 space-y-0.5">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 truncate text-[14px] leading-5 font-medium text-foreground">
+          <span className="min-w-0 truncate text-body leading-5 font-semibold text-foreground">
             {invite.orgName}
           </span>
-          <span className="inline-flex shrink-0 items-center rounded bg-muted px-1.5 py-px text-[10.5px] leading-[1.5] font-medium text-muted-foreground capitalize">
+          <span className="inline-flex shrink-0 items-center rounded bg-muted px-1.5 py-px text-micro leading-[1.5] text-muted-foreground capitalize">
             {invitationRoleLabel(invite.role)}
           </span>
         </div>
-        <div className="truncate text-[12.5px] leading-5 text-muted-foreground">
+        <div className="truncate text-caption leading-5 text-muted-foreground">
           {invitationInviterDetail(invite.inviterEmail)}
         </div>
         {acceptError ? (
-          <div className="pt-1 text-[12.5px] leading-5 text-destructive">
+          <div className="pt-1 text-caption leading-5 text-destructive">
             {acceptError}
           </div>
         ) : null}
         {declineFailed ? (
-          <div className="pt-1 text-[12.5px] leading-5 text-destructive">
+          <div className="pt-1 text-caption leading-5 text-destructive">
             {m.auth_invites_decline_row_error()}
           </div>
         ) : null}

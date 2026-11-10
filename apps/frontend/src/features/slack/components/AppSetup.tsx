@@ -48,7 +48,7 @@ export function SlackAppSetup({
             label={m.slack_callback_label()}
             description={m.slack_callback_hint()}
           >
-            <code className="block w-full rounded-md bg-muted px-2.5 py-1.5 font-mono text-xs break-all text-muted-foreground">
+            <code className="block w-full rounded-md bg-muted px-2.5 py-1.5 font-mono text-caption break-all text-muted-foreground">
               {value.redirectUri}
             </code>
           </SettingsRow>
@@ -109,7 +109,7 @@ export function SlackAppSetup({
             open={manifestOpen}
             onToggle={() => setManifestOpen((open) => !open)}
           >
-            <pre className="max-h-64 overflow-auto rounded-md bg-muted p-3 font-mono text-xs">
+            <pre className="max-h-64 overflow-auto rounded-md bg-muted p-3 font-mono text-caption">
               {value.manifest}
             </pre>
           </SettingsDisclosureItem>

@@ -100,7 +100,7 @@ export function SaveAsTemplateForm({
     return (
       <p
         data-save-as-template-saved
-        className="flex items-center gap-1.5 text-[13px]"
+        className="flex items-center gap-1.5 text-body"
       >
         <span>{m.templates_save_as_saved()}</span>
         <span aria-hidden className="text-muted-foreground">
@@ -136,11 +136,14 @@ export function SaveAsTemplateForm({
       className="flex flex-col gap-3"
       aria-label={m.templates_save_as_action()}
     >
-      <p className="text-[13px] font-medium">{m.templates_save_as_action()}</p>
+      <p className="text-body font-semibold">{m.templates_save_as_action()}</p>
       <form.Field name="name">
         {(field) => (
           <div className="flex flex-col gap-1">
-            <label htmlFor={nameId} className="text-xs text-muted-foreground">
+            <label
+              htmlFor={nameId}
+              className="text-caption text-muted-foreground"
+            >
               {m.templates_save_as_name_label()}
             </label>
             <Input
@@ -152,7 +155,7 @@ export function SaveAsTemplateForm({
               onBlur={field.handleBlur}
             />
             {field.errors.length > 0 ? (
-              <p role="alert" className="text-xs text-destructive">
+              <p role="alert" className="text-caption text-destructive">
                 {m.validation_required()}
               </p>
             ) : null}
@@ -192,7 +195,7 @@ export function SaveAsTemplateForm({
           )}
         </form.Field>
       </div>
-      <p data-save-as-summary className="text-xs text-muted-foreground">
+      <p data-save-as-summary className="text-caption text-muted-foreground">
         {m.templates_save_as_summary({
           blocks:
             summary.blocks === 1
@@ -202,7 +205,7 @@ export function SaveAsTemplateForm({
         })}
       </p>
       {error === null ? null : (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-caption text-destructive">
           {error}
         </p>
       )}
@@ -228,7 +231,7 @@ function IncludeToggle({
   onChange: (checked: boolean) => void
 }>) {
   return (
-    <label className="flex items-center gap-2 text-[13px]">
+    <label className="flex items-center gap-2 text-body">
       <Checkbox checked={checked} onCheckedChange={onChange} />
       {label}
     </label>

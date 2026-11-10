@@ -6,12 +6,14 @@ function translateYOf(node: HTMLElement) {
 }
 
 export function SprintCardMotion({
+  index,
   start,
   offset,
   hidden,
   reducedMotion,
   children
 }: {
+  index: number
   start: number
   offset: number
   hidden: boolean
@@ -20,6 +22,7 @@ export function SprintCardMotion({
 }) {
   const element = useRef<HTMLDivElement>(null)
   const previous = useRef<Readonly<{
+    index: number
     start: number
     offset: number
     hidden: boolean
@@ -46,9 +49,12 @@ export function SprintCardMotion({
     const from = before ? before.start + currentOffset - start : offset
     animation.current?.cancel()
     node.style.transform = `translateY(${offset}px)`
-    previous.current = { start, offset, hidden }
+    previous.current = { index, start, offset, hidden }
     if (
       !before ||
+      (before.index === index &&
+        before.offset === offset &&
+        before.hidden === hidden) ||
       before.hidden ||
       hidden ||
       reducedMotion ||
@@ -62,7 +68,7 @@ export function SprintCardMotion({
       ],
       { duration: 180, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
     )
-  }, [start, offset, hidden, reducedMotion])
+  }, [index, start, offset, hidden, reducedMotion])
 
   useLayoutEffect(() => () => animation.current?.cancel(), [])
 

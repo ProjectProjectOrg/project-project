@@ -185,6 +185,20 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       .middleware(ProjectAccess)
   )
   .add(
+    HttpApiEndpoint.get(
+      "parentSections",
+      "/orgs/:orgSlug/projects/:slug/tickets/parent-sections",
+      {
+        params: ProjectPath,
+        query: TicketListHttpQuery,
+        success: TicketEpicSections,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tickets", {
       params: ProjectPath,
       query: TicketPageHttpQuery,

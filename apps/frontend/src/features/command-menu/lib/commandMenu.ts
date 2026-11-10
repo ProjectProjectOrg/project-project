@@ -1,5 +1,10 @@
 import type { Group, TicketId } from "@pp/shared"
 
+import type { FilterOption } from "@/features/tickets/hooks/useFilterOptions"
+import type {
+  FilterChoice,
+  ValueFilterDimension
+} from "@/features/tickets/lib/filterChoices"
 import type { MarkPickKind } from "@/features/tickets/lib/relationGroups"
 
 export type TicketContext = Readonly<{
@@ -14,6 +19,12 @@ export type SprintContext = Readonly<{
   sprint: Group
   sprints: ReadonlyArray<Group>
   canPlan: boolean
+}>
+
+export type ViewContext = Readonly<{
+  options: ReadonlyArray<FilterOption>
+  toggle: (choice: FilterChoice) => void
+  prefetch: (choice: FilterChoice) => void
 }>
 
 export type SprintPage =
@@ -36,6 +47,10 @@ export type CommandPage =
   | "ticketType"
   | "ticketTags"
   | "ticketParent"
+  | "ticketSubTicket"
+  | "ticketCreateRelated"
+  | "ticketRemoveRelation"
+  | "ticketArchive"
   | "ticketDelete"
   | "ticketBranch"
   | "ticketLinkBranch"
@@ -44,20 +59,30 @@ export type CommandPage =
   | "switchProject"
   | "createProject"
   | "theme"
+  | "viewFilter"
+  | FilterPage
   | MarkPage
+
+export type FilterPage = `filter:${ValueFilterDimension}`
 
 export type MarkPage = `mark:${MarkPickKind}`
 
 export type ReturnPoint = Readonly<{ search: string; value: string }>
 
-export type CommandMenuState = Readonly<{
-  open: boolean
+type Frame = Readonly<{
   ticket: TicketContext | null
   pages: readonly [CommandPage, ...ReadonlyArray<CommandPage>]
-  trail: ReadonlyArray<ReturnPoint | null>
-  search: string
-  focus: string | null
 }>
+
+type Step = Frame & Readonly<{ from: ReturnPoint | null }>
+
+export type CommandMenuState = Frame &
+  Readonly<{
+    open: boolean
+    trail: ReadonlyArray<Step>
+    search: string
+    focus: string | null
+  }>
 
 export const CLOSED_COMMAND_MENU: CommandMenuState = {
   open: false,
@@ -83,7 +108,7 @@ const deeper = (
   from: ReturnPoint | null
 ): CommandMenuState => ({
   ...state,
-  trail: [...state.trail, from],
+  trail: [...state.trail, { ticket: state.ticket, pages: state.pages, from }],
   search: "",
   focus: null
 })
@@ -106,21 +131,26 @@ export const pushCommandPage = (
 export const currentCommandPage = (state: CommandMenuState): CommandPage =>
   state.pages.at(-1) ?? "root"
 
-const stepBack = (state: CommandMenuState): CommandMenuState | null => {
-  const [first, ...rest] = state.pages
-  if (rest.length > 0) return { ...state, pages: [first, ...rest.slice(0, -1)] }
-  if (first !== "root") return { ...state, pages: ["root"] }
-  return state.ticket === null ? null : { ...state, ticket: null }
+const stepBack = (state: CommandMenuState): Step | null => {
+  const last = state.trail.at(-1)
+  if (last !== undefined) return last
+  if (state.pages[0] !== "root") {
+    return { ticket: state.ticket, pages: ["root"], from: null }
+  }
+  return state.ticket === null
+    ? null
+    : { ticket: null, pages: ["root"], from: null }
 }
 
 export const backCommandMenu = (state: CommandMenuState): CommandMenuState => {
-  const previous = stepBack(state)
-  if (previous === null) return state
-  const from = state.trail.at(-1) ?? null
+  const step = stepBack(state)
+  if (step === null) return state
   return {
-    ...previous,
+    ...state,
+    ticket: step.ticket,
+    pages: step.pages,
     trail: state.trail.slice(0, -1),
-    search: from?.search ?? "",
-    focus: from?.value ?? null
+    search: step.from?.search ?? "",
+    focus: step.from?.value ?? null
   }
 }

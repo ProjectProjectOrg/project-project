@@ -46,17 +46,25 @@ export const viewMutation = <V, VE, Input, A, E>(
     fn: (set) =>
       Api.runtime.fn(
         Effect.fn(mutation.name)(function* (input: Input, get) {
+          let superseded = false
+          get.addFinalizer(() => {
+            superseded = true
+          })
           const confirmed = yield* Api.use((client) =>
             mutation.call(client, input, get)
           )
-          set(
-            AsyncResult.map(get(view), (value) =>
-              mutation.confirm(value, confirmed, input)
+          if (superseded) {
+            get.registry.refresh(view)
+          } else {
+            set(
+              AsyncResult.map(get(view), (value) =>
+                mutation.confirm(value, confirmed, input)
+              )
             )
-          )
+          }
           yield* publish(mutation.publish?.(confirmed, input))
           return confirmed
-        })
+        }, Effect.uninterruptible)
       )
   })
 

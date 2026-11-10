@@ -22,7 +22,7 @@ export function ReadFailure<E>({
       role="alert"
       className={cn("flex items-center justify-between gap-3", className)}
     >
-      <span className="min-w-0 text-[13px] text-muted-foreground">
+      <span className="min-w-0 text-body text-muted-foreground">
         {message}
       </span>
       <Button variant="tertiary" size="sm" onClick={onRetry}>

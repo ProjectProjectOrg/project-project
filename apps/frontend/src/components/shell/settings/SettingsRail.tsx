@@ -118,9 +118,9 @@ export function SettingsRailLink({
       {...linkProps}
       ref={ref}
       className={cn(
-        "relative z-10 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-[color,transform] duration-100 active:scale-[0.97]",
+        "relative z-10 flex items-center gap-2.5 rounded-lg px-3 py-2 text-body transition-[color,transform] duration-100 active:scale-[0.97]",
         active
-          ? "font-medium text-foreground"
+          ? "font-semibold text-foreground"
           : "text-muted-foreground hover:text-foreground data-[fluid-hover-active]:text-foreground",
         className
       )}

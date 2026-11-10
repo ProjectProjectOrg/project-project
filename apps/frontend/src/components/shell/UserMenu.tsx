@@ -34,8 +34,8 @@ export function UserMenu({ user }: { user: User }) {
         <div className="flex items-center gap-3 p-2">
           <MemberAvatar member={user} size={40} />
           <div className="min-w-0 leading-tight">
-            <div className="truncate text-sm font-medium">{user.name}</div>
-            <div className="truncate text-xs text-muted-foreground">
+            <div className="truncate text-body font-semibold">{user.name}</div>
+            <div className="truncate text-caption text-muted-foreground">
               {user.email}
             </div>
           </div>

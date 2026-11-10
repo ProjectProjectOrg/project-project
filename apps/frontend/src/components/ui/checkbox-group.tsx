@@ -208,7 +208,7 @@ export function CheckboxItem({
         toggle()
       }}
       className={cn(
-        "relative z-10 flex min-h-8 items-center gap-2 rounded-lg px-2 py-2 text-[13px] outline-none",
+        "relative z-10 flex min-h-8 items-center gap-2 rounded-lg px-2 py-2 text-body outline-none",
         disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
         className
       )}

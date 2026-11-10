@@ -49,7 +49,7 @@ export function BotStep({
               )}
             </group.Field>
           </SettingsGroup>
-          <p className="px-0.5 text-xs text-muted-foreground">
+          <p className="px-0.5 text-caption text-muted-foreground">
             {m.slack_credential_types_notice()}
           </p>
         </SetupStep>

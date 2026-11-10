@@ -23,7 +23,7 @@ export function SplitResultBanner({
         strokeWidth={1.75}
       />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <p className="text-[13px]">
+        <p className="text-body">
           {m.tickets_split_result_banner({ count: created.length })}
         </p>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -32,7 +32,7 @@ export function SplitResultBanner({
               key={id}
               to="/orgs/$orgSlug/projects/$slug/tickets/$id"
               params={{ orgSlug, slug, id }}
-              className="rounded-md bg-foreground/5 px-2 py-0.5 font-mono text-[11px] tabular-nums transition-colors hover:bg-foreground/10"
+              className="rounded-md bg-foreground/5 px-2 py-0.5 font-mono text-micro tabular-nums transition-colors hover:bg-foreground/10"
             >
               {id}
             </Link>

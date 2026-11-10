@@ -32,6 +32,7 @@ import {
   type MarkPickKind,
   type PickBlock
 } from "@/features/tickets/lib/relationGroups"
+import { useSettledValue } from "@/hooks/useSettledValue"
 import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -51,6 +52,8 @@ const BLOCK_LABELS: Readonly<Record<Exclude<PickBlock, null>, () => string>> = {
   linked: m.tickets_mark_reason_linked,
   loop: m.tickets_mark_reason_loop
 }
+
+const NO_TICKETS: ReadonlyArray<Ticket> = []
 
 export function MarkTicketCommand({
   ticket: { orgSlug, slug, ticketId },
@@ -101,11 +104,9 @@ export function MarkTicketCommand({
       })
     )
   )
-  const found: ReadonlyArray<Ticket> = Result.isSuccess(searchResult)
-    ? searchResult.value.filter(
-        (ticket) => ticket.id !== ticketId && !recentIds.has(ticket.id)
-      )
-    : []
+  const found = useSettledValue(searchResult, NO_TICKETS).filter(
+    (ticket) => ticket.id !== ticketId && !recentIds.has(ticket.id)
+  )
 
   const byId = new Map<string, Ticket>(
     [...recent, ...found].map((ticket) => [ticket.id, ticket])
@@ -144,6 +145,7 @@ export function MarkTicketCommand({
 
   return (
     <CommandFrame
+      fixedHeight
       chip={chip}
       placeholder={PLACEHOLDERS[kind]()}
       onBack={onBack}
@@ -155,11 +157,13 @@ export function MarkTicketCommand({
         ...recent.map((ticket) => ({
           value: ticket.id,
           label: `${ticket.id} ${ticket.title}`,
+          prefix: ticket.id,
           group: m.tickets_mark_group_recent()
         })),
         ...found.map((ticket) => ({
           value: ticket.id,
           label: `${ticket.id} ${ticket.title}`,
+          prefix: ticket.id,
           group: m.tickets_mark_group_results()
         }))
       ]}
@@ -182,7 +186,7 @@ export function MarkTicketCommand({
               className="size-4"
             />
             <span className="flex min-w-0 flex-1 items-baseline gap-2">
-              <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+              <span className="min-w-(--row-key-width) shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
                 {ticket.id}
               </span>
               <span
@@ -195,7 +199,7 @@ export function MarkTicketCommand({
               </span>
             </span>
             {block !== null && (
-              <span className="shrink-0 text-xs text-muted-foreground">
+              <span className="shrink-0 text-caption text-muted-foreground">
                 {BLOCK_LABELS[block]()}
               </span>
             )}

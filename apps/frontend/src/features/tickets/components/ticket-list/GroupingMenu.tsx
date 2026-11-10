@@ -1,7 +1,8 @@
-import { ChevronDown, Layers } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 
 import { CollapsingLabel } from "@/components/ui/collapsing-label"
 import { Select, SelectTrigger } from "@/components/ui/select"
+import type { IconComponent } from "@/lib/icon"
 import { m } from "@/paraglide/messages"
 
 import { ToolbarButton } from "./toolbar/shared"
@@ -9,6 +10,7 @@ import { ToolbarButton } from "./toolbar/shared"
 export type GroupingOption<K extends string> = Readonly<{
   key: K
   label: string
+  icon: IconComponent
 }>
 
 type GroupingMenuProps<K extends string> = Readonly<{
@@ -31,7 +33,8 @@ export function GroupingMenu<K extends string>({
       items={options.map((option) => ({
         value: option.key,
         textValue: option.label,
-        label: option.label
+        label: option.label,
+        icon: option.icon
       }))}
       value={value}
       onValueChange={onChange}
@@ -40,7 +43,7 @@ export function GroupingMenu<K extends string>({
       <SelectTrigger
         render={
           <ToolbarButton aria-label={label}>
-            <Layers className="size-4" />
+            {current && <current.icon className="size-4" />}
             <CollapsingLabel show={!compact}>{label}</CollapsingLabel>
             <ChevronDown className="size-3.5 opacity-60" />
           </ToolbarButton>

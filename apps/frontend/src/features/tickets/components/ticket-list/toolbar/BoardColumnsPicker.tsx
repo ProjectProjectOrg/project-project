@@ -49,7 +49,7 @@ export function BoardColumnsPicker({ scope }: Readonly<{ scope: BoardScope }>) {
         })
   return (
     <div className="flex min-h-8 items-center justify-between gap-3">
-      <span className="text-[13px] text-muted-foreground">{label}</span>
+      <span className="text-body text-muted-foreground">{label}</span>
       <Popover>
         <PopoverTrigger
           aria-label={m.tickets_view_options_picker_aria_label({
@@ -90,7 +90,7 @@ export function BoardColumnsPicker({ scope }: Readonly<{ scope: BoardScope }>) {
                   }
                   meta={
                     counts ? (
-                      <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                      <span className="font-mono text-caption text-muted-foreground tabular-nums">
                         {counts[status] ?? 0}
                       </span>
                     ) : null

@@ -12,7 +12,7 @@ export const sprintCommands: ReadonlyArray<Command> = [
     icon: Timer,
     keywords: ["new", "add", "iteration", "cycle"],
     tool: "create_sprint",
-    when: ({ canPlanSprints }) => canPlanSprints,
+    when: ({ tickets }) => tickets.planSprints,
     run: ({ orgSlug, projectSlug }, env) => {
       env.close()
       env.registry.set(createSprintDialog, { orgSlug, projectSlug })

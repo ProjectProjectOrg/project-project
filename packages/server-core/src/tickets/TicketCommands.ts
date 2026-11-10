@@ -779,7 +779,7 @@ const make = Effect.gen(function* () {
             ).pipe(Effect.andThen(ticketIndex.upsertTicket(scope, next)))
         )
 
-        const [ticket, orderKey] = yield* Effect.all(
+        const [detail, orderKey, entries] = yield* Effect.all(
           [
             detailOf(next, view).pipe(
               Effect.flatMap((detail) =>
@@ -788,10 +788,24 @@ const make = Effect.gen(function* () {
             ),
             sort === undefined
               ? Effect.succeed(null)
-              : ticketIndex.orderKeyFor(scope, id, sort)
+              : ticketIndex.orderKeyFor(scope, id, sort),
+            ticketIndex.list(scope, [id])
           ],
-          { concurrency: 2 }
+          { concurrency: "unbounded" }
         )
+        const entry = entries[0]
+        const ticket =
+          entry === undefined
+            ? detail
+            : {
+                ...detail,
+                subTicketCount: entry.subTicketCount,
+                subTicketDoneCount: entry.subTicketDoneCount,
+                openBlockerCount: entry.openBlockerCount,
+                openBlockingCount: entry.openBlockingCount,
+                relatedCount: entry.relatedCount,
+                duplicateCount: entry.duplicateCount
+              }
         return { ticket, orderKey }
       })
     )

@@ -73,19 +73,19 @@ function DeletedBody({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
   return (
     <DitherShell contained animated>
       <div className="relative flex max-w-[42ch] flex-col items-center gap-3 px-8 pt-10 text-center">
-        <span className="font-mono text-sm text-muted-foreground">
+        <span className="font-mono text-body text-muted-foreground">
           {org.slug}
         </span>
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+        <h1 className="text-display font-bold text-foreground">
           {m.org_deleted_page_title()}
         </h1>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="text-body leading-relaxed text-muted-foreground">
           {org.deletedAt
             ? m.org_deleted_page_body({ date: formatDate(org.deletedAt) })
             : m.org_deleted_page_title()}
         </p>
         {org.purgeAt ? (
-          <p className="text-sm leading-relaxed text-muted-foreground">
+          <p className="text-body leading-relaxed text-muted-foreground">
             {m.org_deleted_purge_notice({ date: formatDate(org.purgeAt) })}
           </p>
         ) : null}
@@ -105,7 +105,7 @@ function DeletedBody({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
               : m.org_deleted_restore_button()}
           </Button>
           {error ? (
-            <p className="text-center text-sm text-destructive">{error}</p>
+            <p className="text-center text-body text-destructive">{error}</p>
           ) : null}
         </div>
       ) : null}

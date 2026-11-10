@@ -5,7 +5,7 @@ import type { ComponentProps } from "react"
 import { cn } from "@/lib/utils"
 
 const chipVariants = cva(
-  "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 align-baseline text-xs duration-100 group-focus-within/editing:hover:bg-hover",
+  "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-card px-2 py-0.5 align-baseline text-caption duration-100 group-focus-within/editing:hover:bg-hover",
   {
     variants: {
       press: {

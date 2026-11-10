@@ -32,13 +32,43 @@ export const searchWords = (query: string): ReadonlyArray<string> => [
   ...new Set(query.trim().toLowerCase().split(/\s+/).filter(Boolean))
 ]
 
+const plainProse = (text: string): string =>
+  text
+    .replace(/\[([^\]]*)\]\(mention:[^)]*\)/g, "@$1")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/(\*\*|__)/g, "")
+
 const plainLine = (line: string): string =>
   line
     .replace(/^\s*(#{1,6}\s+|>\s+|[-*+]\s+(\[[ xX]\]\s+)?|\d+\.\s+)/, "")
-    .replace(/\[([^\]]*)\]\(mention:[^)]*\)/g, "@$1")
-    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/(\*\*|__|`)/g, "")
+    .split(/(`[^`]+`)/)
+    .map((part) =>
+      part.startsWith("`") ? part.slice(1, -1) : plainProse(part)
+    )
+    .join("")
     .trim()
+
+const linkKey = (url: string): string =>
+  url
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "")
+
+const linkTargets = (line: string): ReadonlyArray<string> =>
+  [...line.matchAll(/\]\((?!mention:)([^)\s]+)[^)]*\)/g)].map(([, target]) =>
+    linkKey(target ?? "")
+  )
+
+const linkedCount = (
+  links: ReadonlyArray<string>,
+  words: ReadonlyArray<string>
+): number =>
+  words.filter((word) => {
+    const key = word.includes("://") ? linkKey(word) : ""
+    return key !== "" && links.some((link) => link.startsWith(key))
+  }).length
+
+const isFence = (line: string) => /^\s*(```|~~~)/.test(line)
 
 const isNoise = (line: string) =>
   line === "" || /^<\/?block\b/.test(line) || line.startsWith("<!--")
@@ -88,29 +118,61 @@ const clip = (
   }
 }
 
-type Candidate = Readonly<{
-  line: string
-  ranges: ReadonlyArray<TextRange>
-  weight: number
+type Line = Readonly<{
+  text: string
+  links: ReadonlyArray<string>
+  heading: boolean
   author: CommentBlockAuthor | null
 }>
 
-const better = (a: Candidate | null, b: Candidate | null) =>
-  b !== null && (a === null || b.weight > a.weight) ? b : a
+const visibleLines = (
+  text: string,
+  author: CommentBlockAuthor | null
+): ReadonlyArray<Line> => {
+  const lines: Array<Line> = []
+  let fenced = false
+  for (const raw of text.split("\n")) {
+    if (isFence(raw)) {
+      fenced = !fenced
+      continue
+    }
+    if (fenced) {
+      const code = raw.trim()
+      if (code !== "") {
+        lines.push({ text: code, links: [], heading: false, author })
+      }
+      continue
+    }
+    const line = plainLine(raw)
+    if (isNoise(line)) continue
+    lines.push({
+      text: line,
+      links: linkTargets(raw),
+      heading: /^\s*#{1,6}\s/.test(raw),
+      author
+    })
+  }
+  return lines
+}
+
+type Candidate = Readonly<{
+  line: Line
+  ranges: ReadonlyArray<TextRange>
+  weight: number
+}>
 
 const bestLine = (
-  text: string,
-  words: ReadonlyArray<string>,
-  author: CommentBlockAuthor | null
+  lines: ReadonlyArray<Line>,
+  words: ReadonlyArray<string>
 ): Candidate | null =>
-  text.split("\n").reduce<Candidate | null>((best, raw) => {
-    const line = plainLine(raw)
-    if (isNoise(line)) return best
-    const ranges = rangesIn(line, words)
-    if (ranges.length === 0) return best
-    const heading = /^\s*#{1,6}\s/.test(raw)
-    const weight = ranges.length * 2 - (heading ? 1 : 0)
-    return better(best, { line, ranges, weight, author })
+  lines.reduce<Candidate | null>((best, line) => {
+    const ranges = rangesIn(line.text, words)
+    const linked = linkedCount(line.links, words)
+    if (ranges.length === 0 && linked === 0) return best
+    const weight = ranges.length * 4 + linked - (line.heading ? 1 : 0)
+    return best === null || weight > best.weight
+      ? { line, ranges, weight }
+      : best
   }, null)
 
 export const matchTicketText = (
@@ -119,30 +181,33 @@ export const matchTicketText = (
 ): TicketTextMatch | null => {
   if (words.length === 0) return null
   const { description, region } = splitDescriptionAndCommentsRegion(source.body)
-  const comments = parseCommentsRegion(region)
-  const haystack = [
-    source.title,
-    description,
-    ...comments.map((comment) => comment.body)
+  const lines = [
+    ...visibleLines(description, null),
+    ...parseCommentsRegion(region).flatMap((comment) =>
+      visibleLines(comment.body, comment.author)
+    )
   ]
+  const haystack = [source.title, ...lines.map((line) => line.text)]
     .join("\n")
     .toLowerCase()
-  if (!words.every((word) => wordStartIndex(haystack, word) !== -1)) {
-    return null
-  }
+  const links = lines.flatMap((line) => line.links)
+  const found = (word: string) =>
+    wordStartIndex(haystack, word) !== -1 || linkedCount(links, [word]) === 1
+  if (!words.every(found)) return null
 
   const inTitle = rangesIn(source.title, words).length
   if (inTitle === words.length) return { where: "title", score: 300 }
 
-  const candidates = [
-    bestLine(description, words, null),
-    ...comments.map((comment) => bestLine(comment.body, words, comment.author))
-  ]
-  const best = candidates.reduce<Candidate | null>(better, null)
-  if (best === null) return { where: "title", score: 100 + inTitle }
+  const best = bestLine(lines, words)
+  if (best === null) return null
   const score = best.ranges.length * 10 + inTitle
-  const snippet = clip(best.line, best.ranges)
-  return best.author === null
+  const snippet = clip(best.line.text, best.ranges)
+  return best.line.author === null
     ? { where: "description", score: 200 + score, snippet }
-    : { where: "comment", score: 100 + score, author: best.author, snippet }
+    : {
+        where: "comment",
+        score: 100 + score,
+        author: best.line.author,
+        snippet
+      }
 }

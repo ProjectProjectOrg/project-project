@@ -1,15 +1,17 @@
-import type { ProjectDetail, Ticket, Tools } from "@pp/shared"
+import type { ProjectDetail, TicketDetail, Tools } from "@pp/shared"
 import type * as AsyncResult from "effect/reactivity/AsyncResult"
 import type * as Atom from "effect/reactivity/Atom"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
 
+import type { TicketPermissions } from "@/features/tickets/lib/ticketPermissions"
 import type { IconComponent } from "@/lib/icon"
 
 import type {
   CommandPage,
   ReturnPoint,
   SprintContext,
-  TicketContext
+  TicketContext,
+  ViewContext
 } from "./commandMenu"
 
 export type ToolName = keyof (typeof Tools)["tools"]
@@ -35,17 +37,16 @@ export type CommandContext = Readonly<{
   orgSlug: string
   projectSlug: string | null
   ticket: TicketContext | null
-  ticketDetail: Ticket | null
+  ticketDetail: TicketDetail | null
   sprint: SprintContext | null
+  view: ViewContext | null
   viewerId: string | null
   canSeeOrgMembers: boolean
   canCreateProjects: boolean
+  canSendFeedback: boolean
+  canHoldChildren: boolean
   project: ProjectDetail | null
-  canCreateTickets: boolean
-  canEditTickets: boolean
-  canArchiveTickets: boolean
-  canDeleteTickets: boolean
-  canPlanSprints: boolean
+  tickets: TicketPermissions
   canManageProject: boolean
 }>
 

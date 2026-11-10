@@ -232,7 +232,7 @@ export function CropWindow({
         ) : null}
       </div>
       {caption ? (
-        <span className="text-xs text-muted-foreground">{caption}</span>
+        <span className={"text-caption text-muted-foreground"}>{caption}</span>
       ) : null}
     </div>
   )

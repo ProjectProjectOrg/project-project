@@ -141,13 +141,13 @@ export function ArchiveForm({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium">{m.tickets_archive_confirm()}</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-body font-semibold">{m.tickets_archive_confirm()}</p>
+        <p className="text-caption text-muted-foreground">
           {m.tickets_archive_description()}
         </p>
       </div>
       <label className="flex flex-col gap-1.5">
-        <span className="text-xs text-muted-foreground">
+        <span className="text-caption text-muted-foreground">
           {m.tickets_archive_reason_label()}
         </span>
         <textarea
@@ -155,11 +155,11 @@ export function ArchiveForm({
           onChange={(e) => onReasonChange(e.target.value)}
           placeholder={m.tickets_archive_reason_placeholder()}
           rows={3}
-          className="w-full resize-none rounded-md border border-border bg-background px-2.5 py-1.5 text-sm ring-offset-background transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full resize-none rounded-md border border-border bg-background px-2.5 py-1.5 text-body ring-offset-background transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </label>
       {failed && (
-        <p className="text-xs text-destructive">
+        <p className="text-caption text-destructive">
           {m.tickets_archive_error_fallback()}
         </p>
       )}

@@ -93,12 +93,12 @@ function ProjectSettingsRail() {
             reduceMotion ? undefined : projectSettingsLayoutId(orgSlug, slug)
           }
           transition={transitions.layout}
-          className="flex items-center gap-2.5 rounded-lg bg-accent/60 px-3 py-2 text-[13px] text-foreground"
+          className="flex items-center gap-2.5 rounded-lg bg-accent/60 px-3 py-2 text-body text-foreground"
         >
           {projectIcon ? (
             <span
               aria-hidden
-              className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-[13px] leading-none corner-squircle"
+              className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-body leading-none corner-squircle"
             >
               <ProjectIconDisplay
                 orgSlug={orgSlug}
@@ -108,7 +108,7 @@ function ProjectSettingsRail() {
               />
             </span>
           ) : null}
-          <span className="min-w-0 flex-1 truncate font-medium">
+          <span className="min-w-0 flex-1 truncate font-semibold">
             {projectName}
           </span>
         </motion.div>

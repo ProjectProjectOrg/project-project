@@ -118,7 +118,7 @@ export function CreateProjectPage({
       renderItem={(item) => (
         <CommandMenuItem value={item.value}>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          <span className="shrink-0 font-mono text-xs text-muted-foreground">
+          <span className="shrink-0 font-mono text-caption text-muted-foreground">
             {key}
           </span>
         </CommandMenuItem>

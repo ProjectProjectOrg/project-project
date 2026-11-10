@@ -52,7 +52,7 @@ import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import { SubTicketExpansionProvider } from "./SubTicketExpansion"
+import { useExpandSubTicketsCommand } from "./useExpandSubTicketsCommand"
 import { AutoLoad } from "./VirtualRows"
 
 const COLUMN_SCROLL_SELECTOR = "[data-virtual-sprint-column]"
@@ -104,6 +104,7 @@ function BacklogBoardContent({
   dragOrder,
   setDragOrder
 }: BacklogBoardProps & { statuses: ReadonlyArray<ProjectStatus> }) {
+  useExpandSubTicketsCommand()
   const { orgSlug, slug } = useProjectRoute()
   const req = useMemo(
     () => backlogRequest(orgSlug, slug, query),
@@ -171,67 +172,65 @@ function BacklogBoardContent({
   }, [canMove, reorderMode, req, registry])
 
   return (
-    <SubTicketExpansionProvider>
-      <motion.div
-        ref={ref}
-        layoutScroll
-        style={{ height: height ?? 240 }}
-        className={cn(
-          "overflow-x-auto overscroll-x-contain",
-          hasRightOverflow &&
-            "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
-        )}
-      >
-        {order.length === 0 && layout.hidden.length > 0 ? (
-          <HiddenColumnsEmpty onShowAll={layout.showAll} />
-        ) : (
-          <Reorder.Group
-            ref={groupRef}
-            as="div"
-            axis="x"
-            values={[...order]}
-            onReorder={(next) => setDragOrder(next)}
-            className="flex h-full gap-3"
-          >
-            {order.map((status) => {
-              const column = columns.find((c) => c.status === status)
-              return (
-                <SprintBoardColumn
-                  key={status}
-                  update={backlogTicketUpdates(req)}
-                  status={status}
-                  statuses={statuses}
-                  tickets={column?.tickets ?? NO_TICKETS}
-                  count={column?.count ?? 0}
-                  members={members}
-                  isDraggable={canMove}
-                  ordered={false}
-                  inertTicketIds={inertTicketIds}
-                  lastFlash={null}
-                  reorderMode={reorderMode}
-                  onActivateReorder={onEnterReorder}
-                  collapsed={layout.collapsed.includes(status)}
-                  onToggleCollapsed={() => layout.toggleCollapsed(status)}
-                  footer={
-                    column?.nextCursor != null ? (
-                      <ColumnLoadMore
-                        req={req}
-                        status={status}
-                        cursor={column.nextCursor}
-                        remaining={Math.max(
-                          0,
-                          column.count - column.rows.length
-                        )}
-                      />
-                    ) : null
-                  }
-                />
-              )
-            })}
-          </Reorder.Group>
-        )}
-      </motion.div>
-    </SubTicketExpansionProvider>
+    <motion.div
+      ref={ref}
+      layoutScroll
+      style={{ height: height ?? 240 }}
+      className={cn(
+        "overflow-x-auto overscroll-x-contain",
+        hasRightOverflow &&
+          "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
+      )}
+    >
+      {order.length === 0 && layout.hidden.length > 0 ? (
+        <HiddenColumnsEmpty onShowAll={layout.showAll} />
+      ) : (
+        <Reorder.Group
+          ref={groupRef}
+          as="div"
+          axis="x"
+          values={[...order]}
+          onReorder={(next) => setDragOrder(next)}
+          className="flex h-full gap-3"
+        >
+          {order.map((status) => {
+            const column = columns.find((c) => c.status === status)
+            return (
+              <SprintBoardColumn
+                key={status}
+                update={backlogTicketUpdates(req)}
+                status={status}
+                statuses={statuses}
+                tickets={column?.tickets ?? NO_TICKETS}
+                count={column?.count ?? 0}
+                members={members}
+                isDraggable={canMove}
+                ordered={false}
+                inertTicketIds={inertTicketIds}
+                lastFlash={null}
+                reorderMode={reorderMode}
+                onActivateReorder={onEnterReorder}
+                collapsed={layout.collapsed.includes(status)}
+                onToggleCollapsed={() => layout.toggleCollapsed(status)}
+                footer={
+                  column?.nextCursor != null ? (
+                    <ColumnLoadMore
+                      req={req}
+                      status={status}
+                      cursor={column.nextCursor}
+                      remaining={Math.max(
+                        0,
+                        column.count - column.rows.length
+                      )}
+                    />
+                  ) : null
+                }
+              />
+            )
+          })}
+        </Reorder.Group>
+      )}
+    </motion.div>
   )
 }
 
@@ -304,7 +303,7 @@ function ColumnLoadMore({
           <div
             role="status"
             className={cn(
-              "flex h-7 items-center gap-2 text-xs text-muted-foreground",
+              "flex h-7 items-center gap-2 text-caption text-muted-foreground",
               !loadMoreState.waiting && "invisible"
             )}
           >

@@ -100,10 +100,10 @@ function NewProjectCTA({ orgSlug }: { orgSlug: string }) {
         <Plus className="size-5" strokeWidth={1.75} />
       </div>
       <div>
-        <div className="text-sm font-medium">
+        <div className="text-body font-semibold">
           {m.org_dashboard_first_project_cta_title()}
         </div>
-        <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+        <p className="mt-1 max-w-sm text-caption text-muted-foreground">
           {m.org_dashboard_first_project_cta_body()}
         </p>
       </div>

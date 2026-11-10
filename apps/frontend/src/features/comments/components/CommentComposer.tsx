@@ -107,7 +107,7 @@ function ReadyCommentComposer({
         compact
       />
       {failed && (
-        <p role="alert" className="mt-2 text-sm text-destructive">
+        <p role="alert" className="mt-2 text-body text-destructive">
           {m.comments_composer_failed()}
         </p>
       )}

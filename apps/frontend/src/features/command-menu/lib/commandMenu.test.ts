@@ -16,6 +16,8 @@ const ticket = {
   ticketId: Schema.decodeSync(TicketId)("T-1")
 }
 
+const other = { ...ticket, ticketId: Schema.decodeSync(TicketId)("T-5") }
+
 describe("backCommandMenu", () => {
   it("steps back through pages, then to the root, then out of the ticket", () => {
     const opened = openCommandMenu(ticket, "ticketStatus")
@@ -51,5 +53,20 @@ describe("backCommandMenu", () => {
       search: "align",
       focus: "open-ticket:T-1"
     })
+  })
+
+  it("returns to the ticket in context before acting on a search result", () => {
+    const picked = actOnTicket(openCommandMenu(ticket), other, {
+      search: "foo",
+      value: "open-ticket:T-5"
+    })
+    const back = backCommandMenu(picked)
+    expect(back).toMatchObject({
+      ticket,
+      pages: ["root"],
+      search: "foo",
+      focus: "open-ticket:T-5"
+    })
+    expect(backCommandMenu(back).ticket).toBeNull()
   })
 })

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { transitions } from "@/lib/springs"
 
 const OVERLAY_REVEAL =
-  "invisible opacity-0 transition-opacity group-focus-within/editing:visible group-hover/hitbox:opacity-100 group-focus-within/hitbox:opacity-100"
+  "invisible opacity-0 transition-opacity group-focus-within/editing:visible hitbox-hover:opacity-100 group-focus-within/hitbox:opacity-100"
 
 export function NodeOverlayAction({
   morphId,

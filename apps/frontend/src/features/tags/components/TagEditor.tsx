@@ -183,16 +183,16 @@ export function TagEditor({ ticket, canManageTags }: Props) {
           {showValidationError ? (
             <p
               id="tag-name-error"
-              className="px-2 pb-1 text-[11px] leading-tight text-destructive"
+              className="px-2 pb-1 text-micro leading-tight text-destructive"
             >
               {m.tags_name_validation_hint()}
             </p>
           ) : null}
           {showEmpty ? (
             <div className="flex min-h-16 flex-col items-center justify-center px-3 py-2 text-center">
-              <p className="text-[13px] font-medium">{m.tags_empty_title()}</p>
+              <p className="text-body font-semibold">{m.tags_empty_title()}</p>
               {canManageTags ? (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-caption text-muted-foreground">
                   {m.tags_empty_create_hint()}
                 </p>
               ) : null}
@@ -270,7 +270,7 @@ function AppliedTagChip({
   }
   const hex = color ?? NEUTRAL
   const wrapperClass = cn(
-    "inline-flex h-5 w-fit shrink-0 items-center gap-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors",
+    "inline-flex h-5 w-fit shrink-0 items-center gap-1 rounded-md text-micro whitespace-nowrap transition-colors",
     waiting && "animate-pulse"
   )
   const wrapperStyle = { backgroundColor: `${hex}1a`, color: hex }

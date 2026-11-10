@@ -52,10 +52,10 @@ function Total({
 }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-caption text-muted-foreground">{label}</span>
       <span
         className={
-          muted ? "text-sm text-muted-foreground" : "text-sm font-medium"
+          muted ? "text-body text-muted-foreground" : "text-body font-semibold"
         }
       >
         {m.attachments_total_bytes({

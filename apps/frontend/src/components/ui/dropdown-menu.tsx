@@ -11,9 +11,11 @@ import {
   menuItemClass,
   menuLabelClass,
   menuPopupClass,
-  menuSeparatorClass
+  menuSeparatorClass,
+  menuSurfaceClass
 } from "@/components/ui/menu-styles"
 import { useActivityHiddenPortalRef } from "@/hooks/useActivityHiddenPortalRef"
+import { fieldTouchClass } from "@/lib/typeScale"
 import { cn } from "@/lib/utils"
 
 const DeferMenusContext = React.createContext(false)
@@ -360,7 +362,9 @@ function DropdownMenuInput({
       <MenuPrimitive.Input
         data-slot="dropdown-menu-input"
         className={cn(
-          "h-9 w-full shrink-0 rounded-md bg-transparent px-2 text-[13px] leading-5 text-foreground outline-none placeholder:text-muted-foreground",
+          "h-9 w-full shrink-0 rounded-md bg-transparent px-2 text-foreground outline-none placeholder:text-muted-foreground",
+          "text-body",
+          fieldTouchClass,
           className
         )}
         {...props}
@@ -395,7 +399,8 @@ function DropdownMenuEmpty({
     <MenuPrimitive.Empty
       data-slot="dropdown-menu-empty"
       className={cn(
-        "px-2 py-2 text-[13px] text-muted-foreground empty:hidden",
+        "px-2 py-2 text-muted-foreground empty:hidden",
+        "text-body",
         className
       )}
       {...props}
@@ -440,14 +445,14 @@ function DropdownMenuShortcut({
   return (
     <span
       data-slot="dropdown-menu-shortcut"
-      className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground",
-        className
-      )}
+      className={cn("ml-auto text-muted-foreground", "text-caption", className)}
       {...props}
     />
   )
 }
+
+const SUBMENU_SIDE_OFFSET = 6
+const SUBMENU_ALIGN_OFFSET = -5
 
 function DropdownMenuSub({
   filterable = false,
@@ -477,9 +482,9 @@ function DropdownMenuSubTrigger({
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "relative flex cursor-pointer items-center gap-2 rounded-md border-y border-transparent bg-clip-padding px-2 py-[7px] text-[13px] leading-5 text-muted-foreground outline-hidden transition-colors",
+        "relative flex cursor-pointer items-center gap-2 rounded-md border-y border-transparent bg-clip-padding px-2 py-[7px] text-body text-muted-foreground outline-hidden transition-colors",
         "data-[highlighted]:text-foreground",
-        "data-[popup-open]:bg-active data-[popup-open]:text-foreground data-[popup-open]:transition-none",
+        "data-[popup-open]:text-foreground",
         "data-[inset]:pl-8",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
@@ -503,9 +508,9 @@ type DropdownMenuSubContentProps = React.ComponentProps<
 function DropdownMenuSubContent({
   className,
   align,
-  alignOffset,
+  alignOffset = SUBMENU_ALIGN_OFFSET,
   side,
-  sideOffset,
+  sideOffset = SUBMENU_SIDE_OFFSET,
   children,
   ...props
 }: DropdownMenuSubContentProps) {
@@ -519,7 +524,7 @@ function DropdownMenuSubContent({
       >
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-sub-content"
-          className={cn(menuPopupClass, className)}
+          className={cn(menuSurfaceClass, className)}
           {...props}
         >
           <MenuHighlight />

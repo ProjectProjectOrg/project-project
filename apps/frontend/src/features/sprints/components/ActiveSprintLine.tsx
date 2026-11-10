@@ -21,7 +21,9 @@ export function ActiveSprintLine() {
   const active = pickActiveSprint(sprints)
 
   if (!active) {
-    return <p className="font-mono text-xs text-muted-foreground">/{slug}</p>
+    return (
+      <p className="font-mono text-caption text-muted-foreground">/{slug}</p>
+    )
   }
   const countdown = sprintCountdown(active)
   const summary =
@@ -36,7 +38,7 @@ export function ActiveSprintLine() {
     <Link
       to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
       params={{ orgSlug, slug, groupId: active.id }}
-      className="-mx-1 inline-flex w-fit items-center gap-1.5 rounded px-1 text-xs text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+      className="-mx-1 inline-flex w-fit items-center gap-1.5 rounded px-1 text-caption text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
     >
       <SprintStateIcon sprint={active} size="xs" />
       <span className="font-mono">{summary}</span>

@@ -241,7 +241,7 @@ function GroupSection({
       />
       <SectionBody collapsed={collapsed}>
         {group.tickets.length === 0 ? (
-          <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+          <div className="px-3 py-4 text-center text-caption text-muted-foreground">
             —
           </div>
         ) : (

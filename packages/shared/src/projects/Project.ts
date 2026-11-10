@@ -255,6 +255,9 @@ export const ProjectDetail = Schema.Struct({
     Schema.withDecodingDefaultTypeKey(Effect.succeed("off" as const))
   ),
   body: Schema.String,
+  nextTicketNumber: Schema.Int.pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(1))
+  ),
   members: Schema.Array(Member),
   pendingMembers: Schema.Array(PendingProjectMember),
   permissions: ProjectPermissions

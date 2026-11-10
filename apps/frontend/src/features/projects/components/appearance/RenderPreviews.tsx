@@ -48,7 +48,7 @@ export function RenderPreviews({
   const sidebar = (
     <span
       aria-hidden
-      className="relative inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-[13px] leading-none corner-squircle"
+      className="relative inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-body leading-none corner-squircle"
     >
       {live?.kind === "image" ? (
         <LiveIconImage live={live} />
@@ -80,10 +80,8 @@ export function RenderPreviews({
         <div className="relative flex items-center gap-3 p-4 pt-10">
           {header}
           <span className="flex min-w-0 flex-col">
-            <span className="truncate text-lg font-semibold tracking-tight">
-              {name}
-            </span>
-            <span className="truncate font-mono text-[13px] text-muted-foreground">
+            <span className="truncate text-title font-semibold">{name}</span>
+            <span className="truncate font-mono text-body text-muted-foreground">
               {projectKey}
             </span>
           </span>
@@ -92,10 +90,10 @@ export function RenderPreviews({
 
       <div className="flex items-center gap-2.5 rounded-lg border border-border bg-card p-3">
         {sidebar}
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
+        <span className="min-w-0 flex-1 truncate text-body font-semibold">
           {name}
         </span>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-caption text-muted-foreground">
           {m.project_appearance_renders_sidebar()}
         </span>
       </div>

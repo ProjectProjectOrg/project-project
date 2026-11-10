@@ -56,8 +56,8 @@ export function IntegrationCard({
         />
       </span>
       <span className="flex flex-1 flex-col gap-1">
-        <span className="text-sm font-medium">{name}</span>
-        <span className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+        <span className="text-body font-semibold">{name}</span>
+        <span className="line-clamp-2 text-caption leading-relaxed text-muted-foreground">
           {description}
         </span>
       </span>
@@ -106,7 +106,7 @@ export function IntegrationDetail({
         <Link
           to="/orgs/$orgSlug/settings/integrations"
           params={{ orgSlug }}
-          className="-ml-1 inline-flex w-fit items-center gap-1 rounded-md px-1 py-0.5 text-xs text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          className="-ml-1 inline-flex w-fit items-center gap-1 rounded-md px-1 py-0.5 text-caption text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
           <ChevronLeft className="size-3.5" strokeWidth={1.75} />
           {m.org_settings_integrations_tab()}
@@ -114,8 +114,8 @@ export function IntegrationDetail({
         <header className="flex flex-wrap items-center gap-4">
           <IntegrationLogo kind={kind} size="lg" />
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <h1 className="text-2xl font-semibold tracking-tight">{name}</h1>
-            <p className="text-sm text-muted-foreground">{description}</p>
+            <h1 className="text-display font-bold">{name}</h1>
+            <p className="text-body text-muted-foreground">{description}</p>
           </div>
           {actions ? (
             <div className="flex shrink-0 items-center gap-2">{actions}</div>
@@ -125,13 +125,13 @@ export function IntegrationDetail({
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_13rem]">
         <div className="flex min-w-0 flex-col gap-8">
           {about ? (
-            <p className="max-w-prose text-[13px] leading-6 text-muted-foreground">
+            <p className="max-w-prose text-body leading-6 text-muted-foreground">
               {about}
             </p>
           ) : null}
           {children}
         </div>
-        <aside className="flex flex-col gap-4 text-xs lg:pt-0.5">
+        <aside className="flex flex-col gap-4 text-caption lg:pt-0.5">
           {meta.map((item) => (
             <MetaEntry key={item.label} label={item.label}>
               {item.value}

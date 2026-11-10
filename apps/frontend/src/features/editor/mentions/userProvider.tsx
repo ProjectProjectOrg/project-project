@@ -10,7 +10,6 @@ import { MentionSearchFailed } from "./errors"
 import type { MentionProvider, MentionScope } from "./registry"
 
 export const userProvider = (scope: MentionScope): MentionProvider => ({
-  trigger: "@",
   type: "user",
   search: (query) =>
     Effect.gen(function* () {
@@ -38,11 +37,8 @@ export const userProvider = (scope: MentionScope): MentionProvider => ({
       Effect.map((items) => ({ items, nextCursor: null })),
       Effect.mapError(() => new MentionSearchFailed())
     ),
-  notes: {
-    loading: () => m.tickets_mention_people_loading(),
-    empty: () => m.tickets_mention_people_empty(),
-    failed: () => m.tickets_mention_people_failed()
-  },
+  heading: () => m.tickets_mention_people_heading(),
+  failed: () => m.tickets_mention_people_failed(),
   renderRow: (candidate) => (
     <div className="flex min-w-0 items-center gap-2">
       <MemberAvatar
@@ -53,9 +49,9 @@ export const userProvider = (scope: MentionScope): MentionProvider => ({
         }}
         size={20}
       />
-      <span className="truncate font-medium">{candidate.label}</span>
+      <span className="truncate font-semibold">{candidate.label}</span>
       {candidate.secondary && (
-        <span className="truncate text-xs text-muted-foreground">
+        <span className="truncate text-caption text-muted-foreground">
           {candidate.secondary}
         </span>
       )}

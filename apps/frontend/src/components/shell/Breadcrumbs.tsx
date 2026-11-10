@@ -51,7 +51,7 @@ export function Breadcrumbs({ className }: { className?: string }) {
     <nav
       aria-label={m.nav_breadcrumb_label()}
       className={cn(
-        "flex min-w-0 items-center gap-1 text-sm text-muted-foreground",
+        "flex min-w-0 items-center gap-1 text-body text-muted-foreground",
         className
       )}
     >
@@ -61,7 +61,7 @@ export function Breadcrumbs({ className }: { className?: string }) {
           <Fragment key={crumbKey(c, i)}>
             {i > 0 && (
               <ChevronRight
-                className="size-3.5 shrink-0 text-muted-foreground/60"
+                className="size-3.5 shrink-0 text-muted-foreground"
                 strokeWidth={1.75}
                 aria-hidden
               />

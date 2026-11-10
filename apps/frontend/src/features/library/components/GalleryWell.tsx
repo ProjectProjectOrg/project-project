@@ -169,7 +169,7 @@ function GalleryWell({
 
   if (tiles.length === 0)
     return (
-      <p className="flex items-center gap-3 px-3 text-xs text-muted-foreground">
+      <p className="flex items-center gap-3 px-3 text-caption text-muted-foreground">
         <DitheredBlocks size={28} />
         {allAdded}
       </p>

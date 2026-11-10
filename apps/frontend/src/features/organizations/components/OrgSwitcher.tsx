@@ -73,7 +73,7 @@ export function OrgSwitcher() {
           <button
             type="button"
             aria-label={m.org_switcher_trigger_aria_label()}
-            className="ml-auto flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground transition-all duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+            className="ml-auto flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-body text-muted-foreground transition-all duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
           />
         }
       >

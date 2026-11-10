@@ -120,7 +120,7 @@ export function TypeBadgeTrigger({
         />
       }
     >
-      <Icon className="size-3.5" strokeWidth={1.75} />
+      <Icon className="size-3" strokeWidth={1.75} />
       <span>{typeLabel}</span>
     </TypePicker>
   )

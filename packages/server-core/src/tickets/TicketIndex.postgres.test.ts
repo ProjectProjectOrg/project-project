@@ -13,6 +13,7 @@ import {
   TagName,
   TicketId,
   TicketStatus,
+  type ParentFilter,
   type TicketFilter,
   type TicketSort
 } from "@pp/shared"
@@ -735,6 +736,53 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
     )
   )
 
+  it.effect("rebuilds a project too large for one bound statement", () => {
+    const ids = Array.from({ length: 3000 }, (_, i) => ticketId(`T-${i + 1}`))
+    return Effect.gen(function* () {
+      const organizationId = yield* seedRebuildProject
+      const index = yield* TicketIndex.TicketIndex
+      const maintenance = yield* TicketIndexMaintenance.TicketIndexMaintenance
+      const project = yield* index.projectFor(organizationId, organizationId)
+      yield* maintenance.rebuildProject(project)
+
+      const { rows } = yield* withClient((client) =>
+        client.query<{ count: string; tags: Array<string> }>(
+          `select count(*) as count,
+                  (select tags from ticket_index
+                     where project_id = $1 and ticket_id = 'T-3000') as tags
+             from ticket_index where project_id = $1`,
+          [project.projectId]
+        )
+      )
+      expect(rows[0]).toEqual({ count: "3000", tags: ["perf", "load"] })
+      const waiting = yield* index.relationsOf(project, "T-3000")
+      expect(waiting.blockedBy.map((ticket) => ticket.id)).toEqual(["T-1"])
+    }).pipe(
+      Effect.provide(
+        TicketIndexServices.layer.pipe(
+          Layer.provide(
+            Layer.succeed(TicketDocs.TicketDocs, {
+              listIds: () => Effect.succeed(ids),
+              read: (_org, _slug, id) =>
+                Effect.succeed(
+                  indexedDocument(id, {
+                    tags: [tagName("perf"), tagName("load")],
+                    blockedBy: id === "T-1" ? [] : [ticketId("T-1")]
+                  })
+                ),
+              create: () => unexpected("TicketDocs.create"),
+              write: () => unexpected("TicketDocs.write"),
+              update: () => unexpected("TicketDocs.update"),
+              remove: () => unexpected("TicketDocs.remove"),
+              readRaw: () => unexpected("TicketDocs.readRaw")
+            } satisfies TicketDocs.TicketDocs["Service"])
+          ),
+          Layer.provide(DatabaseLive)
+        )
+      )
+    )
+  })
+
   it.effect("restores canonical comments as listable index rows", () => {
     const suffix = randomUUID()
     const organizationId = `ticket-index-comments-${suffix}`
@@ -1373,7 +1421,11 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       expect(byStatus.get("todo")?.entries).toEqual(
         yield* index.query(
           project,
-          { sort: titleSort, status: [ticketStatus("todo")] },
+          {
+            sort: titleSort,
+            status: [ticketStatus("todo")],
+            section: { status: [ticketStatus("todo")] }
+          },
           { viewerId: "viewer", limit: 2 }
         )
       )
@@ -1502,6 +1554,98 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
     }).pipe(Effect.provide(TestLayer))
   )
 
+  it.effect("sections sub-tickets under their parent ticket", () =>
+    Effect.gen(function* () {
+      const organizationId = yield* seedRebuildProject
+      const index = yield* TicketIndex.TicketIndex
+      const project = yield* index.projectFor(organizationId, organizationId)
+      const epic = ticketId("T-1")
+      const parent = ticketId("T-2")
+      yield* Effect.forEach(
+        [
+          indexedDocument("T-1", { type: "epic" }),
+          indexedDocument("T-2", { parent: epic }),
+          indexedDocument("T-3", { parent }),
+          indexedDocument("T-4", {})
+        ],
+        (document) => index.upsertTicket(project, document)
+      )
+
+      const query = {
+        type: ["feat", "bug", "chore", "other"],
+        sort: { key: "id", dir: "asc" }
+      } as const
+      const options = { viewerId: "viewer", limit: 10 }
+      const grouped = yield* index.querySections(project, query, {
+        ...options,
+        sections: "ticketParent"
+      })
+      const page = (key: ParentFilter) =>
+        index
+          .query(
+            project,
+            { ...query, section: { ticketParent: [key] } },
+            options
+          )
+          .pipe(Effect.map((rows) => rows.map(({ entry }) => entry.id)))
+
+      expect(grouped.get(parent)?.entries.map(({ entry }) => entry.id)).toEqual(
+        ["T-3"]
+      )
+      expect(grouped.get("none")?.entries.map(({ entry }) => entry.id)).toEqual(
+        ["T-2", "T-4"]
+      )
+      expect(yield* page(parent)).toEqual(["T-3"])
+      expect(yield* page("none")).toEqual(["T-2", "T-4"])
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("sections a lone sub-ticket under its parent's epic", () =>
+    Effect.gen(function* () {
+      const organizationId = yield* seedRebuildProject
+      const index = yield* TicketIndex.TicketIndex
+      const project = yield* index.projectFor(organizationId, organizationId)
+      const epic = ticketId("T-1")
+      yield* Effect.forEach(
+        [
+          indexedDocument("T-1", { type: "epic" }),
+          indexedDocument("T-2", { parent: epic }),
+          indexedDocument("T-3", {
+            parent: ticketId("T-2"),
+            assignees: ["viewer"]
+          }),
+          indexedDocument("T-4", { assignees: ["viewer"] })
+        ],
+        (document) => index.upsertTicket(project, document)
+      )
+
+      const mine = {
+        type: ["feat", "bug", "chore", "other"],
+        assignee: ["mine"],
+        subTickets: "nested",
+        sort: { key: "id", dir: "asc" }
+      } as const
+      const options = { viewerId: "viewer", limit: 10 }
+      const grouped = yield* index.querySections(project, mine, {
+        ...options,
+        sections: "parent"
+      })
+      const page = (key: ParentFilter) =>
+        index
+          .query(project, { ...mine, section: { parent: [key] } }, options)
+          .pipe(Effect.map((rows) => rows.map(({ entry }) => entry.id)))
+
+      expect(grouped.get(epic)?.entries.map(({ entry }) => entry.id)).toEqual([
+        "T-3"
+      ])
+      expect(grouped.get("none")?.entries.map(({ entry }) => entry.id)).toEqual(
+        ["T-4"]
+      )
+      expect(yield* page(epic)).toEqual(["T-3"])
+      expect(yield* page("none")).toEqual(["T-4"])
+    }).pipe(Effect.provide(TestLayer))
+  )
+
   it.effect("counts sub-tickets and nests them under a matching parent", () =>
     Effect.gen(function* () {
       const suffix = randomUUID()
@@ -1584,8 +1728,41 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
             { viewerId: "viewer", limit: 10 }
           )
           .pipe(Effect.map((rows) => rows.map(({ entry }) => entry.id)))
-      expect(yield* doneSection("nested")).toEqual([])
+      expect(yield* doneSection("nested")).toEqual(["T-5"])
       expect(yield* doneSection("flat")).toEqual(["T-5"])
+
+      const todoSection = yield* index
+        .query(
+          project,
+          {
+            subTickets: "nested",
+            section: { status: [ticketStatus("todo")] },
+            sort: { key: "id", dir: "asc" }
+          },
+          { viewerId: "viewer", limit: 10 }
+        )
+        .pipe(Effect.map((rows) => rows.map(({ entry }) => entry.id)))
+      expect(todoSection).toEqual(["T-1", "T-2"])
+
+      const byStatus = yield* index.querySections(
+        project,
+        { subTickets: "nested", sort: { key: "id", dir: "asc" } },
+        { viewerId: "viewer", limit: 10, sections: "status" }
+      )
+      expect(
+        byStatus.get("todo")?.entries.map(({ entry }) => entry.id)
+      ).toEqual(["T-1", "T-2"])
+      expect(
+        byStatus.get("done")?.entries.map(({ entry }) => entry.id)
+      ).toEqual(["T-5"])
+      expect(
+        byStatus
+          .get("todo")
+          ?.entries.map(({ entry }) => [entry.id, entry.subTicketsInSection])
+      ).toEqual([
+        ["T-1", 1],
+        ["T-2", 1]
+      ])
     }).pipe(Effect.provide(TestLayer))
   )
 
@@ -1653,6 +1830,14 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         expect(yield* blocked(false)).toEqual(["T-2", "T-3", "T-5", "T-7"])
         const [t1] = yield* index.list(project, ["T-1"])
         expect(t1?.openBlockerCount).toBe(1)
+        expect(t1?.relatedCount).toBe(1)
+        expect(t1?.duplicateCount).toBe(1)
+        const [t6] = yield* index.list(project, ["T-6"])
+        expect(t6?.duplicateCount).toBe(0)
+        const [t2] = yield* index.list(project, ["T-2"])
+        expect(t2?.openBlockingCount).toBe(1)
+        const [t5] = yield* index.list(project, ["T-5"])
+        expect(t5?.relatedCount).toBe(1)
 
         const relations = yield* index.relationsOf(project, "T-1")
         expect(ids(relations.blockedBy)).toEqual(["T-2", "T-3", "T-4"])

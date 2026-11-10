@@ -25,7 +25,7 @@ type BoardColumnTitleProps = Readonly<{
 export function BoardColumnTitle({ meta }: BoardColumnTitleProps) {
   const Icon = meta.icon
   return (
-    <span className="inline-flex items-center gap-1.5 text-[13px] font-medium">
+    <span className="inline-flex items-center gap-1.5 text-body font-semibold">
       <span className="grid size-6 shrink-0 place-items-center">
         <Icon
           className={cn("size-4", meta.className)}
@@ -45,7 +45,7 @@ export function BoardColumnCount({ value }: Readonly<{ value: number }>) {
       transformTiming={{ duration: 180, easing: "ease-out" }}
       spinTiming={{ duration: 180, easing: "ease-out" }}
       opacityTiming={{ duration: 180, easing: "ease-out" }}
-      className="font-mono text-xs text-muted-foreground tabular-nums"
+      className="font-mono text-caption text-muted-foreground tabular-nums"
     />
   )
 }

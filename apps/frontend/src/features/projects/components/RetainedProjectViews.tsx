@@ -112,28 +112,37 @@ export function RetainedProjectViews() {
     "sprints"
   ).view
   const boardActive = (sprint ? sprintView : backlogView) === "board"
-  const updateQuery = (query: TicketListQuery) => {
+  const querySearch = (
+    query: TicketListQuery,
+    previous: Pick<ReturnType<typeof encodeTicketListQuery>, "status">
+  ) => {
     const nextSearch = encodeTicketListQuery(query)
+    return {
+      ...nextSearch,
+      status: boardActive ? previous.status : nextSearch.status,
+      estimate: normalizeEstimateFilter(estimation, nextSearch.estimate),
+      sort: normalizeEstimateSort(estimation, query.sort),
+      cursor: undefined
+    }
+  }
+  const updateQuery = (query: TicketListQuery) => {
     void navigate({
       to: router.state.location.pathname,
       search: (previous) => ({
-        status: boardActive ? previous.status : nextSearch.status,
-        type: nextSearch.type,
-        assignee: nextSearch.assignee,
-        tags: nextSearch.tags,
-        groupId: nextSearch.groupId,
-        estimate: normalizeEstimateFilter(estimation, nextSearch.estimate),
-        hasBranch: nextSearch.hasBranch,
-        hasPr: nextSearch.hasPr,
-        updatedAfter: nextSearch.updatedAfter,
-        archived: nextSearch.archived,
-        sort: normalizeEstimateSort(estimation, query.sort),
-        q: nextSearch.q,
-        cursor: undefined,
+        ...querySearch(query, previous),
         view: previous.view
       }),
       replace: true,
       resetScroll: false
+    })
+  }
+  const prefetchQuery = (query: TicketListQuery) => {
+    void router.preloadRoute({
+      to: router.state.location.pathname,
+      search: (previous) => ({
+        ...querySearch(query, previous),
+        view: previous.view
+      })
     })
   }
   const backlogQuery = useMemo(() => {
@@ -173,6 +182,7 @@ export function RetainedProjectViews() {
           view={sprint ? sprintView : backlogView}
           query={sprint ? sprintQuery : backlogQuery}
           onQueryChange={updateQuery}
+          onQueryPrefetch={prefetchQuery}
         >
           {({ grouping, preferencesKey, reorder }) => (
             <>

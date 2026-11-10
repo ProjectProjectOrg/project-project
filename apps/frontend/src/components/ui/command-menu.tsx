@@ -1,5 +1,18 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import { Check } from "lucide-react"
+import {
+  ArrowBigUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowRightToLine,
+  ArrowUp,
+  Check,
+  ChevronUp,
+  Command,
+  CornerDownLeft,
+  Delete,
+  Option
+} from "lucide-react"
 import {
   animate,
   motion,
@@ -41,6 +54,7 @@ import {
 import type { IconComponent } from "@/lib/icon"
 import { rowScrollTarget, scrollViewportTo } from "@/lib/scrollRowIntoView"
 import { spring } from "@/lib/springs"
+import { fieldTouchClass } from "@/lib/typeScale"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -59,33 +73,33 @@ type CommandMenuSection = Readonly<{
   start: number
 }>
 
-const MODIFIER_TOKENS: Readonly<Record<string, string>> = {
-  mod: "mod",
-  cmd: "meta",
-  command: "meta",
-  meta: "meta",
-  win: "meta",
-  super: "meta",
-  ctrl: "ctrl",
-  control: "ctrl",
-  alt: "alt",
-  option: "alt",
-  opt: "alt",
-  shift: "shift"
-}
+const MODIFIER_TOKENS: ReadonlyMap<string, string> = new Map([
+  ["mod", "mod"],
+  ["cmd", "meta"],
+  ["command", "meta"],
+  ["meta", "meta"],
+  ["win", "meta"],
+  ["super", "meta"],
+  ["ctrl", "ctrl"],
+  ["control", "ctrl"],
+  ["alt", "alt"],
+  ["option", "alt"],
+  ["opt", "alt"],
+  ["shift", "shift"]
+])
 
-const KEY_ALIASES: Readonly<Record<string, string>> = {
-  esc: "escape",
-  return: "enter",
-  space: " ",
-  spacebar: " ",
-  up: "arrowup",
-  down: "arrowdown",
-  left: "arrowleft",
-  right: "arrowright",
-  del: "delete",
-  plus: "+"
-}
+const KEY_ALIASES: ReadonlyMap<string, string> = new Map([
+  ["esc", "escape"],
+  ["return", "enter"],
+  ["space", " "],
+  ["spacebar", " "],
+  ["up", "arrowup"],
+  ["down", "arrowdown"],
+  ["left", "arrowleft"],
+  ["right", "arrowright"],
+  ["del", "delete"],
+  ["plus", "+"]
+])
 
 const shortcutTokens = (shortcut: string): ReadonlyArray<string> => {
   const trimmed = shortcut.trim()
@@ -106,23 +120,23 @@ type CapLabel = Readonly<{ mac: () => string; other: () => string }>
 
 const glyph = (label: string) => () => label
 
-const CAP_LABELS: Readonly<Record<string, CapLabel>> = {
-  mod: { mac: glyph("⌘"), other: m.common_key_ctrl },
-  meta: { mac: glyph("⌘"), other: m.common_key_win },
-  ctrl: { mac: glyph("⌃"), other: m.common_key_ctrl },
-  alt: { mac: glyph("⌥"), other: m.common_key_alt },
-  shift: { mac: glyph("⇧"), other: m.common_key_shift },
-  enter: { mac: glyph("↵"), other: m.common_key_enter },
-  escape: { mac: m.common_key_escape, other: m.common_key_escape },
-  backspace: { mac: glyph("⌫"), other: m.common_key_backspace },
-  delete: { mac: glyph("⌦"), other: m.common_key_delete },
-  tab: { mac: glyph("⇥"), other: m.common_key_tab },
-  " ": { mac: m.common_key_space, other: m.common_key_space },
-  arrowup: { mac: glyph("↑"), other: glyph("↑") },
-  arrowdown: { mac: glyph("↓"), other: glyph("↓") },
-  arrowleft: { mac: glyph("←"), other: glyph("←") },
-  arrowright: { mac: glyph("→"), other: glyph("→") }
-}
+const CAP_LABELS: ReadonlyMap<string, CapLabel> = new Map([
+  ["mod", { mac: glyph("⌘"), other: m.common_key_ctrl }],
+  ["meta", { mac: glyph("⌘"), other: m.common_key_win }],
+  ["ctrl", { mac: glyph("⌃"), other: m.common_key_ctrl }],
+  ["alt", { mac: glyph("⌥"), other: m.common_key_alt }],
+  ["shift", { mac: glyph("⇧"), other: m.common_key_shift }],
+  ["enter", { mac: glyph("↵"), other: m.common_key_enter }],
+  ["escape", { mac: m.common_key_escape, other: m.common_key_escape }],
+  ["backspace", { mac: glyph("⌫"), other: m.common_key_backspace }],
+  ["delete", { mac: glyph("⌦"), other: m.common_key_delete }],
+  ["tab", { mac: glyph("⇥"), other: m.common_key_tab }],
+  [" ", { mac: m.common_key_space, other: m.common_key_space }],
+  ["arrowup", { mac: glyph("↑"), other: glyph("↑") }],
+  ["arrowdown", { mac: glyph("↓"), other: glyph("↓") }],
+  ["arrowleft", { mac: glyph("←"), other: glyph("←") }],
+  ["arrowright", { mac: glyph("→"), other: glyph("→") }]
+])
 
 const PREFORMATTED = /^[⌘⌃⌥⇧↵⌫⌦⇥↑↓←→]+[A-Za-z0-9]?$/
 
@@ -137,8 +151,8 @@ export function formatShortcut(
       continue
     }
     const lower = token.toLowerCase()
-    const name = MODIFIER_TOKENS[lower] ?? KEY_ALIASES[lower] ?? lower
-    const cap = CAP_LABELS[name]
+    const name = MODIFIER_TOKENS.get(lower) ?? KEY_ALIASES.get(lower) ?? lower
+    const cap = CAP_LABELS.get(name)
     if (cap) caps.push(mac ? cap.mac() : cap.other())
     else if (name.length === 1) caps.push(name.toUpperCase())
     else caps.push(name.charAt(0).toUpperCase() + name.slice(1))
@@ -161,8 +175,26 @@ const subscribeNever = () => () => {}
 const useIsMac = (): boolean =>
   useSyncExternalStore(subscribeNever, readMac, serverMac)
 
+const fadeSizes = new WeakMap<HTMLElement, number>()
+
+const fadeSizeOf = (viewport: HTMLElement): number => {
+  const cached = fadeSizes.get(viewport)
+  if (cached !== undefined) return cached
+  const size =
+    Number.parseFloat(
+      getComputedStyle(viewport).getPropertyValue("--scroll-fade-size")
+    ) || 0
+  fadeSizes.set(viewport, size)
+  return size
+}
+
 const commandMenuItemId = (listId: string, index: number) =>
   `${listId}-${index}`
+
+const assignRef = <T,>(ref: Ref<T> | undefined, node: T | null) => {
+  if (ref && "current" in ref) ref.current = node
+  else ref?.(node)
+}
 
 const useIsoLayoutEffect =
   typeof window === "undefined" ? useEffect : useLayoutEffect
@@ -241,6 +273,97 @@ export type CommandMenuProps = Omit<
     children: ReactNode
   }>
 
+function useLatest<T>(value: T): RefObject<T> {
+  const ref = useRef(value)
+  useIsoLayoutEffect(() => {
+    ref.current = value
+  })
+  return ref
+}
+
+function useHighlightStore(activeIndex: number | null) {
+  const highlightRef = useRef<number | null>(null)
+  const listenersRef = useRef(new Set<() => void>())
+  const highlight = useMemo<HighlightStore>(
+    () => ({
+      get: () => highlightRef.current,
+      subscribe: (listener) => {
+        listenersRef.current.add(listener)
+        return () => {
+          listenersRef.current.delete(listener)
+        }
+      }
+    }),
+    []
+  )
+  useIsoLayoutEffect(() => {
+    highlightRef.current = activeIndex
+    listenersRef.current.forEach((listener) => listener())
+  }, [activeIndex])
+  return { highlight, highlightRef }
+}
+
+function useHeldUntilKeyUp() {
+  const [held, setHeld] = useState(false)
+  useEffect(() => {
+    if (!held) return undefined
+    const release = () => setHeld(false)
+    window.addEventListener("keyup", release)
+    window.addEventListener("blur", release)
+    return () => {
+      window.removeEventListener("keyup", release)
+      window.removeEventListener("blur", release)
+    }
+  }, [held])
+  return [held, setHeld] as const
+}
+
+function useScrollToRow(
+  listRef: RefObject<HTMLDivElement | null>,
+  reduceMotion: boolean
+) {
+  const scrollAnimationRef = useRef<{ stop: () => void } | null>(null)
+  const scrollToRow = useCallback(
+    (index: number, instant = false) => {
+      const list = listRef.current
+      const viewport = list?.closest<HTMLElement>(
+        '[data-slot="scroll-area-viewport"]'
+      )
+      if (!list || !viewport) return
+      const row = list.querySelector<HTMLElement>(
+        `[data-fluid-hover-index="${index}"]`
+      )
+      if (!row) return
+      const margin = fadeSizeOf(viewport)
+      const target =
+        index === 0
+          ? 0
+          : rowScrollTarget(viewport, row, { top: margin, bottom: margin })
+      if (target === null) return
+      const stop = scrollViewportTo(viewport, target, instant || reduceMotion)
+      scrollAnimationRef.current = stop === null ? null : { stop }
+    },
+    [listRef, reduceMotion]
+  )
+  useEffect(() => () => scrollAnimationRef.current?.stop(), [])
+  return scrollToRow
+}
+
+function useObservedHeight() {
+  const columnRef = useRef<HTMLDivElement | null>(null)
+  const [height, setHeight] = useState<number | null>(null)
+  useEffect(() => {
+    const el = columnRef.current
+    if (!el || typeof ResizeObserver === "undefined") return undefined
+    const update = () => setHeight(el.offsetHeight)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return { columnRef, height }
+}
+
 function CommandMenu({
   items,
   onSelect,
@@ -280,75 +403,21 @@ function CommandMenu({
     [onMouseEnter, onMouseMove, onMouseLeave, onClick]
   )
 
-  const highlightRef = useRef<number | null>(null)
-  const listenersRef = useRef(new Set<() => void>())
-  const highlight = useMemo<HighlightStore>(
-    () => ({
-      get: () => highlightRef.current,
-      subscribe: (listener) => {
-        listenersRef.current.add(listener)
-        return () => {
-          listenersRef.current.delete(listener)
-        }
-      }
-    }),
-    []
-  )
-  useIsoLayoutEffect(() => {
-    highlightRef.current = activeIndex
-    listenersRef.current.forEach((listener) => listener())
-  }, [activeIndex])
-  const [held, setHeld] = useState(false)
-  useEffect(() => {
-    if (!held) return
-    const release = () => setHeld(false)
-    window.addEventListener("keyup", release)
-    window.addEventListener("blur", release)
-    return () => {
-      window.removeEventListener("keyup", release)
-      window.removeEventListener("blur", release)
-    }
-  }, [held])
+  const { highlight, highlightRef } = useHighlightStore(activeIndex)
+  const [held, setHeld] = useHeldUntilKeyUp()
   const fill = useMemo(
     () => ({ activeIndex, itemRects, isMeasured, sessionRef, held }),
     [activeIndex, itemRects, isMeasured, sessionRef, held]
   )
 
   const reduceMotion = useReducedMotion() ?? false
-  const scrollAnimationRef = useRef<{ stop: () => void } | null>(null)
-  const scrollToRow = useCallback(
-    (index: number, instant = false) => {
-      const list = listRef.current
-      const viewport = list?.closest<HTMLElement>(
-        '[data-slot="scroll-area-viewport"]'
-      )
-      if (!list || !viewport) return
-      const row = list.querySelector<HTMLElement>(
-        `[data-fluid-hover-index="${index}"]`
-      )
-      if (!row) return
-      const margin =
-        Number.parseFloat(
-          getComputedStyle(viewport).getPropertyValue("--scroll-fade-size")
-        ) || 0
-      const target =
-        index === 0
-          ? 0
-          : rowScrollTarget(viewport, row, { top: margin, bottom: margin })
-      if (target === null) return
-      const stop = scrollViewportTo(viewport, target, instant || reduceMotion)
-      scrollAnimationRef.current = stop === null ? null : { stop }
-    },
-    [reduceMotion]
-  )
-  useEffect(() => () => scrollAnimationRef.current?.stop(), [])
+  const scrollToRow = useScrollToRow(listRef, reduceMotion)
 
-  const rowsRef = useRef(rows)
+  const rowsRef = useLatest(rows)
   const shownRowsRef = useRef<ReadonlyArray<CommandMenuItemData>>([])
   const shownResetKeyRef = useRef(resetKey)
   const movedRef = useRef(false)
   const pendingFocusRef = useRef(initialValue)
-  rowsRef.current = rows
   useEffect(() => {
     const previous = shownRowsRef.current
     const sameQuery = shownResetKeyRef.current === resetKey
@@ -389,7 +458,7 @@ function CommandMenu({
     const first = rowsRef.current.findIndex((row) => row.disabled !== true)
     setActiveIndex(first === -1 ? null : first)
     scrollToRow(Math.max(first, 0), true)
-  }, [rowsKey, resetKey, setActiveIndex, scrollToRow])
+  }, [rowsKey, resetKey, rowsRef, highlightRef, setActiveIndex, scrollToRow])
 
   const move = useCallback(
     (to: 1 | -1, repeat = false) => {
@@ -407,21 +476,22 @@ function CommandMenu({
       setActiveIndex(next)
       scrollToRow(next, repeat)
     },
-    [setActiveIndex, scrollToRow]
+    [rowsRef, highlightRef, setHeld, setActiveIndex, scrollToRow]
   )
 
-  const onSelectRef = useRef(onSelect)
-  onSelectRef.current = onSelect
-  const select = useCallback((item: CommandMenuItemData) => {
-    if (item.disabled === true) return
-    onSelectRef.current?.(item)
-  }, [])
-  const onActOnRef = useRef(onActOn)
-  onActOnRef.current = onActOn
+  const onSelectRef = useLatest(onSelect)
+  const select = useCallback(
+    (item: CommandMenuItemData) => {
+      if (item.disabled === true) return
+      onSelectRef.current?.(item)
+    },
+    [onSelectRef]
+  )
+  const onActOnRef = useLatest(onActOn)
   const actOn = useCallback(
     (item: CommandMenuItemData) =>
       item.disabled !== true && (onActOnRef.current?.(item) ?? false),
-    []
+    [onActOnRef]
   )
 
   const ctx = useMemo<CommandMenuContextValue>(
@@ -454,17 +524,7 @@ function CommandMenu({
     ]
   )
 
-  const columnRef = useRef<HTMLDivElement | null>(null)
-  const [height, setHeight] = useState<number | null>(null)
-  useEffect(() => {
-    const el = columnRef.current
-    if (!el || typeof ResizeObserver === "undefined") return
-    const update = () => setHeight(el.offsetHeight)
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
+  const { columnRef, height } = useObservedHeight()
 
   return (
     <CommandMenuContext.Provider value={ctx}>
@@ -542,6 +602,7 @@ function CommandMenuTabs({
       {...props}
     >
       <div
+        role="presentation"
         onMouseDown={(e) => e.preventDefault()}
         className="flex min-w-0 flex-1 items-center"
       >
@@ -610,7 +671,9 @@ function CommandMenuInput({
           select(row)
         }}
         className={cn(
-          "h-9 w-full min-w-0 bg-transparent text-sm outline-hidden placeholder:text-muted-foreground",
+          "h-9 w-full min-w-0 bg-transparent outline-hidden placeholder:text-muted-foreground",
+          "text-body",
+          fieldTouchClass,
           className
         )}
         {...props}
@@ -638,8 +701,10 @@ function CommandMenuList({
   const empty = rows.length === 0
 
   const lastActiveRef = useRef<number | null>(null)
-  if (fill && fill.activeIndex !== null)
-    lastActiveRef.current = fill.activeIndex
+  const activeIndex = fill?.activeIndex ?? null
+  useIsoLayoutEffect(() => {
+    if (activeIndex !== null) lastActiveRef.current = activeIndex
+  }, [activeIndex])
   const handleMouseLeave = () => {
     listHandlers.onMouseLeave()
     setActiveIndex(lastActiveRef.current)
@@ -653,8 +718,7 @@ function CommandMenuList({
       <div
         ref={(node) => {
           listRef.current = node
-          if (typeof ref === "function") ref(node)
-          else if (ref) ref.current = node
+          assignRef(ref, node)
         }}
         id={listId}
         role="listbox"
@@ -697,7 +761,8 @@ function CommandMenuList({
                   id={headingId}
                   role="presentation"
                   className={cn(
-                    "flex shrink-0 items-center text-xs font-medium text-(--prose-quiet)",
+                    "flex shrink-0 items-center text-(--prose-quiet)",
+                    "text-caption",
                     "h-7 px-2"
                   )}
                 >
@@ -740,7 +805,7 @@ function CommandMenuEmpty({
       data-slot="command-menu-empty"
       className={cn(
         "px-3 py-6 text-center text-muted-foreground",
-        "text-[13px]",
+        "text-body",
         className
       )}
       {...props}
@@ -753,6 +818,34 @@ export type CommandMenuShortcutProps = HTMLAttributes<HTMLElement> &
     keys: string | ReadonlyArray<string>
   }>
 
+const GLYPH_ICONS = {
+  "↵": CornerDownLeft,
+  "⇥": ArrowRightToLine,
+  "←": ArrowLeft,
+  "→": ArrowRight,
+  "↑": ArrowUp,
+  "↓": ArrowDown,
+  "⌫": Delete,
+  "⌘": Command,
+  "⇧": ArrowBigUp,
+  "⌥": Option,
+  "⌃": ChevronUp
+} satisfies Readonly<Record<string, IconComponent>>
+
+const isGlyph = (cap: string): cap is keyof typeof GLYPH_ICONS =>
+  Object.hasOwn(GLYPH_ICONS, cap)
+
+function CapLabel({ cap }: Readonly<{ cap: string }>) {
+  if (!isGlyph(cap)) return cap
+  const Icon = GLYPH_ICONS[cap]
+  return (
+    <>
+      <Icon aria-hidden className="size-[1em]" strokeWidth={2} />
+      <span className="sr-only">{cap}</span>
+    </>
+  )
+}
+
 function CommandMenuShortcut({
   keys,
   className,
@@ -760,9 +853,7 @@ function CommandMenuShortcut({
   ...props
 }: CommandMenuShortcutProps & Readonly<{ ref?: Ref<HTMLElement> }>) {
   const mac = useIsMac()
-  const caps = (typeof keys === "string" ? [keys] : keys).flatMap((k) =>
-    formatShortcut(k, mac)
-  )
+  const caps = [keys].flat().flatMap((k) => formatShortcut(k, mac))
   return (
     <kbd
       ref={ref}
@@ -778,10 +869,11 @@ function CommandMenuShortcut({
           key={`${cap}-${i}`}
           className={cn(
             "flex items-center justify-center rounded-[5px] bg-hover text-muted-foreground",
-            "h-5 min-w-5 px-1 text-[11px]"
+            "h-5 min-w-5 px-1",
+            "text-micro"
           )}
         >
-          {cap}
+          <CapLabel cap={cap} />
         </span>
       ))}
     </kbd>
@@ -828,8 +920,7 @@ const CommandMenuItem = memo(function CommandMenuItem({
     <div
       ref={(node) => {
         internalRef.current = node
-        if (typeof ref === "function") ref(node)
-        else if (ref) ref.current = node
+        assignRef(ref, node)
       }}
       id={commandMenuItemId(listId, index)}
       role="option"
@@ -844,7 +935,8 @@ const CommandMenuItem = memo(function CommandMenuItem({
       }}
       className={cn(
         "group/command-item relative z-10 flex shrink-0 cursor-pointer items-center outline-none select-none aria-disabled:cursor-default aria-disabled:text-muted-foreground",
-        "h-9 gap-2 rounded-lg px-2 text-sm tracking-[-0.006em]",
+        "h-9 gap-2 rounded-lg px-2",
+        "text-body",
         "transition-[color] duration-80",
         isActive ? "text-foreground" : "text-(--prose-body)",
         className
@@ -883,7 +975,8 @@ function CommandMenuFooter({
       data-slot="command-menu-footer"
       className={cn(
         "flex shrink-0 items-center overflow-hidden text-muted-foreground",
-        "h-10 gap-4 px-4 text-[12px]",
+        "h-10 gap-4 px-4",
+        "text-caption",
         className
       )}
       {...props}
@@ -929,9 +1022,9 @@ const parseShortcut = (shortcut: string): ParsedShortcut => {
   let key = ""
   for (const token of shortcutTokens(shortcut)) {
     const lower = token.toLowerCase()
-    const modifier = MODIFIER_TOKENS[lower]
+    const modifier = MODIFIER_TOKENS.get(lower)
     if (modifier) modifiers.add(modifier)
-    else key = KEY_ALIASES[lower] ?? lower
+    else key = KEY_ALIASES.get(lower) ?? lower
   }
   return {
     mod: modifiers.has("mod"),

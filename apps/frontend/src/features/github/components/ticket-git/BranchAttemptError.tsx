@@ -33,7 +33,7 @@ export function BranchAttemptError({ id }: Readonly<{ id: TicketId }>) {
         )
   if (text === null) return null
   return (
-    <p role="alert" className="text-xs text-destructive">
+    <p role="alert" className="text-caption text-destructive">
       {text}
     </p>
   )

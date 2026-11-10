@@ -29,6 +29,15 @@ export const mentionsTicket = (branch: string, ticketId: string): boolean =>
     branch
   )
 
+export const withoutTicketId = (branch: string, ticketId: string): string => {
+  const id = escapeRegExp(ticketId)
+  const stripped = branch.replace(
+    new RegExp(`(?<=^|[/_-])${id}[/_-]|[/_-]${id}$`, "i"),
+    ""
+  )
+  return stripped === "" ? branch : stripped
+}
+
 const toEntry = (branch: BranchListItem): BranchPickerEntry => ({
   kind: "branch",
   branch

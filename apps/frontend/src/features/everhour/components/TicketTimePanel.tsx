@@ -93,7 +93,7 @@ export function TicketTimePanel({ ticket }: { ticket: TicketDetail }) {
         const options = panel.workTypes
         if (options.length === 0) {
           return (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-caption text-muted-foreground">
               {m.time_no_sprint_hint()}
             </p>
           )
@@ -130,7 +130,7 @@ export function TicketTimePanel({ ticket }: { ticket: TicketDetail }) {
                 >
                   <Info className="h-4 w-4" />
                 </PopoverTrigger>
-                <PopoverContent className="w-72 text-xs text-muted-foreground">
+                <PopoverContent className="w-72 text-caption text-muted-foreground">
                   {m.time_sync_explainer()}
                 </PopoverContent>
               </Popover>
@@ -204,8 +204,8 @@ function EstimatedFigure({ ticket }: Readonly<{ ticket: TicketDetail }>) {
 function TrackedFigure({ label, seconds }: { label: string; seconds: number }) {
   return (
     <div className="flex min-w-20 flex-col">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium tabular-nums">
+      <span className="text-caption text-muted-foreground">{label}</span>
+      <span className="text-body font-semibold tabular-nums">
         {formatDuration(seconds)}
       </span>
     </div>

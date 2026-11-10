@@ -1,4 +1,5 @@
 import { Db } from "@pp/db"
+import { jsonRecordset } from "@pp/db/jsonRecordset"
 import { publishedProject } from "@pp/db/projectVisibility"
 import {
   commentIndex,
@@ -375,97 +376,95 @@ const make = Effect.gen(function* () {
               ref.updatedAt.getTime() >
               (documentUpdatedAt.get(ref.ticketId) ?? Infinity)
           )
-          const removed =
-            missing.length === 0
-              ? []
-              : yield* db
-                  .delete(ticketIndex)
-                  .where(
-                    and(
-                      eq(ticketIndex.projectId, project.projectId),
-                      or(
-                        ...missing.map((ref) =>
-                          and(
-                            eq(ticketIndex.ticketId, ref.ticketId),
-                            eq(ticketIndex.updatedAt, ref.updatedAt)
-                          )
-                        )
-                      )
-                    )
-                  )
-                  .returning({ ticketId: ticketIndex.ticketId })
+          const missingSet = jsonRecordset(ticketIndex, "missing", missing)
+          const removed = yield* db
+            .delete(ticketIndex)
+            .where(
+              and(
+                eq(ticketIndex.projectId, project.projectId),
+                drizzleSql`(${ticketIndex.ticketId}, ${ticketIndex.updatedAt}) in (select ${missingSet.rows.ticketId}, ${missingSet.rows.updatedAt} from ${missingSet.from})`
+              )
+            )
+            .returning({ ticketId: ticketIndex.ticketId })
+          const ticketSet = jsonRecordset(ticketIndex, "tickets", tickets)
+          const aheadSet = jsonRecordset(ticketIndex, "ahead", aheadOfDisk)
           const written =
             tickets.length === 0
               ? []
               : yield* db
                   .insert(ticketIndex)
-                  .values([...tickets])
+                  .select(() => ticketSet.select)
                   .onConflictDoUpdate({
                     target: [ticketIndex.projectId, ticketIndex.ticketId],
                     set: excludedTicketIndexColumns(tickets[0]),
                     setWhere: or(
                       drizzleSql`${ticketIndex.updatedAt} <= excluded.updated_at`,
-                      ...aheadOfDisk.map((ref) =>
-                        and(
-                          eq(ticketIndex.ticketId, ref.ticketId),
-                          eq(ticketIndex.updatedAt, ref.updatedAt)
-                        )
-                      )
+                      drizzleSql`(${ticketIndex.ticketId}, ${ticketIndex.updatedAt}) in (select ${aheadSet.rows.ticketId}, ${aheadSet.rows.updatedAt} from ${aheadSet.from})`
                     )
                   })
                   .returning({ ticketId: ticketIndex.ticketId })
           const writtenIds = new Set(written.map((row) => row.ticketId))
           const touchedIds = [...removed, ...written].map((row) => row.ticketId)
-          if (writtenIds.size > 0) {
-            yield* db
-              .delete(ticketBranch)
-              .where(
-                and(
-                  eq(ticketBranch.projectId, project.projectId),
-                  inArray(ticketBranch.ticketId, [...writtenIds])
-                )
+          const writtenSet = jsonRecordset(
+            ticketIndex,
+            "written",
+            [...writtenIds].map((ticketId) => ({ ticketId }))
+          )
+          yield* db
+            .delete(ticketBranch)
+            .where(
+              and(
+                eq(ticketBranch.projectId, project.projectId),
+                drizzleSql`${ticketBranch.ticketId} in (select ${writtenSet.rows.ticketId} from ${writtenSet.from})`
               )
-            const branches = documents
+            )
+          const branchSet = jsonRecordset(
+            ticketBranch,
+            "branches",
+            documents
               .filter((document) => writtenIds.has(document.id))
               .flatMap((document) =>
                 TicketIndex.ticketBranchRowsFor(project, document)
               )
-            if (branches.length > 0) {
-              yield* db.insert(ticketBranch).values(branches)
-            }
-            yield* db
-              .delete(ticketRelationIndex)
-              .where(
-                and(
-                  eq(ticketRelationIndex.projectId, project.projectId),
-                  inArray(ticketRelationIndex.fromTicketId, [...writtenIds])
-                )
+          )
+          yield* db.insert(ticketBranch).select(() => branchSet.select)
+          yield* db
+            .delete(ticketRelationIndex)
+            .where(
+              and(
+                eq(ticketRelationIndex.projectId, project.projectId),
+                drizzleSql`${ticketRelationIndex.fromTicketId} in (select ${writtenSet.rows.ticketId} from ${writtenSet.from})`
               )
-            const relations = documents
+            )
+          const relationSet = jsonRecordset(
+            ticketRelationIndex,
+            "relations",
+            documents
               .filter((document) => writtenIds.has(document.id))
               .flatMap((document) =>
                 TicketIndex.ticketRelationRowsFor(project, document)
               )
-            if (relations.length > 0) {
-              yield* db.insert(ticketRelationIndex).values(relations)
-            }
-          }
-          if (touchedIds.length > 0) {
-            yield* db
-              .delete(commentIndex)
-              .where(
-                and(
-                  eq(commentIndex.projectId, project.projectId),
-                  inArray(commentIndex.ticketId, touchedIds)
-                )
-              )
-          }
-          const writtenComments = comments.filter((comment) =>
-            writtenIds.has(comment.ticketId)
           )
-          if (writtenComments.length > 0) {
-            yield* db.insert(commentIndex).values(writtenComments)
-          }
+          yield* db.insert(ticketRelationIndex).select(() => relationSet.select)
+          const touchedSet = jsonRecordset(
+            ticketIndex,
+            "touched",
+            touchedIds.map((ticketId) => ({ ticketId }))
+          )
+          yield* db
+            .delete(commentIndex)
+            .where(
+              and(
+                eq(commentIndex.projectId, project.projectId),
+                drizzleSql`${commentIndex.ticketId} in (select ${touchedSet.rows.ticketId} from ${touchedSet.from})`
+              )
+            )
+          const commentSet = jsonRecordset(
+            commentIndex,
+            "comments",
+            comments.filter((comment) => writtenIds.has(comment.ticketId))
+          )
+          yield* db.insert(commentIndex).select(() => commentSet.select)
           yield* db
             .update(projectIndex)
             .set({

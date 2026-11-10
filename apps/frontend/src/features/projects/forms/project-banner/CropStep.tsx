@@ -79,7 +79,7 @@ export function BannerCropStep({
                     m.project_icon_crop_zoom_max()
                   ]}
                 />
-                <p className="text-[13px] text-muted-foreground">
+                <p className="text-body text-muted-foreground">
                   {m.project_banner_crop_hint()}
                 </p>
               </>
@@ -87,13 +87,13 @@ export function BannerCropStep({
           </group.Subscribe>
 
           {rejected ? (
-            <p role="alert" className="text-[13px] text-destructive">
+            <p role="alert" className="text-body text-destructive">
               {m.project_banner_settings_load_error()}
             </p>
           ) : null}
 
           {error ? (
-            <p role="alert" className="text-[13px] text-destructive">
+            <p role="alert" className="text-body text-destructive">
               {m.project_banner_settings_save_error()}
             </p>
           ) : null}

@@ -35,7 +35,7 @@ function ChildrenDiscussion({
   members: ReadonlyArray<Member>
   editable: boolean
 }>) {
-  const count = useChildTicketCount(parent.id)
+  const count = useChildTicketCount(parent)
   return (
     <CommentsSection
       ticketId={parent.id}

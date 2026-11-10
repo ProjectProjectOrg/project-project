@@ -35,11 +35,11 @@ export function DescriptionTemplateStarts({
       role="group"
       aria-label={m.templates_starts_label()}
       className={cn(
-        "pointer-events-none flex flex-col gap-2 text-xs leading-6 text-muted-foreground",
+        "pointer-events-none flex flex-col gap-2 text-caption leading-6 text-muted-foreground",
         className
       )}
     >
-      <p className="text-muted-foreground/70">{m.templates_starts_teaser()}</p>
+      <p className="text-muted-foreground">{m.templates_starts_teaser()}</p>
       {starts.templates.length === 0 ? (
         <p className="pointer-events-auto flex flex-wrap items-center gap-1.5">
           <span>{m.templates_starts_empty()}</span>

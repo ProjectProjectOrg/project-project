@@ -47,15 +47,36 @@ export function SubTicketProgress({
   const total = ticket.subTicketCount ?? 0
   const done = ticket.subTicketDoneCount ?? 0
   return (
-    <span
+    <SubTicketCount
+      done={done}
+      total={total}
       title={m.tickets_sub_tickets_progress({ done, total })}
+      className={className}
+    />
+  )
+}
+
+export function SubTicketCount({
+  done,
+  total,
+  title,
+  className
+}: Readonly<{
+  done: number
+  total: number
+  title?: string
+  className?: string
+}>) {
+  return (
+    <span
+      title={title}
       className={cn(
         "inline-flex shrink-0 items-center gap-1 text-muted-foreground",
         className
       )}
     >
       <ProgressPie done={done} total={total} />
-      <span className="font-mono text-xs tabular-nums">
+      <span className="font-mono text-caption tabular-nums">
         {done}/{total}
       </span>
     </span>

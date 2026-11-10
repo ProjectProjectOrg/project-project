@@ -20,12 +20,15 @@ import {
   ticketSearch
 } from "@/features/tickets/atoms/ticketSearch"
 import { TicketStatusIcon } from "@/features/tickets/components/ticket-marks/TicketStatusIcon"
+import { useSettledValue } from "@/hooks/useSettledValue"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { SprintContextChip, type SprintPageProps } from "./SprintCommandPages"
 
 const RECENT_LIMIT = 5
+
+const NO_TICKETS: ReadonlyArray<Ticket> = []
 
 export function SprintAddTicketsPage({ sprint, onBack }: SprintPageProps) {
   const { orgSlug, slug, sprints } = sprint
@@ -50,9 +53,9 @@ export function SprintAddTicketsPage({ sprint, onBack }: SprintPageProps) {
       })
     )
   )
-  const found: ReadonlyArray<Ticket> = Result.isSuccess(searchResult)
-    ? searchResult.value.filter((ticket) => !recentIds.has(ticket.id))
-    : []
+  const found = useSettledValue(searchResult, NO_TICKETS).filter(
+    (ticket) => !recentIds.has(ticket.id)
+  )
   const candidates = [...recent, ...found].filter(
     (ticket) => ticket.type !== "epic"
   )
@@ -69,6 +72,7 @@ export function SprintAddTicketsPage({ sprint, onBack }: SprintPageProps) {
   const registry = useContext(RegistryContext)
   return (
     <CommandFrame
+      fixedHeight
       chip={<SprintContextChip sprint={sprint} />}
       placeholder={m.sprints_add_tickets_placeholder({
         name: sprint.sprint.name
@@ -79,6 +83,7 @@ export function SprintAddTicketsPage({ sprint, onBack }: SprintPageProps) {
       items={candidates.map((ticket) => ({
         value: ticket.id,
         label: `${ticket.id} ${ticket.title}`,
+        prefix: ticket.id,
         group: recentIds.has(ticket.id)
           ? m.tickets_mark_group_recent()
           : m.tickets_mark_group_results()
@@ -112,18 +117,18 @@ export function SprintAddTicketsPage({ sprint, onBack }: SprintPageProps) {
               className="size-4"
             />
             <span className="flex min-w-0 flex-1 items-baseline gap-2">
-              <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+              <span className="min-w-(--row-key-width) shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
                 {ticket.id}
               </span>
               <span className="min-w-0 truncate">{ticket.title}</span>
             </span>
             {inSprint ? (
-              <span className="flex shrink-0 items-center gap-1 text-xs">
+              <span className="flex shrink-0 items-center gap-1 text-caption">
                 <Check className="size-3.5" strokeWidth={1.75} />
                 {m.sprints_add_epic_in_sprint()}
               </span>
             ) : elsewhere !== null ? (
-              <span className="shrink-0 text-xs text-muted-foreground">
+              <span className="shrink-0 text-caption text-muted-foreground">
                 {m.sprints_add_tickets_in_other_sprint({
                   name: elsewhere.name
                 })}

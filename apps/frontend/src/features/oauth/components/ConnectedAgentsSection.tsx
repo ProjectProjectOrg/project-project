@@ -232,7 +232,7 @@ function ConnectMcpDisclosure() {
           />
         ))}
       </SettingsGroup>
-      <p className="px-0.5 text-xs text-muted-foreground">
+      <p className="px-0.5 text-caption text-muted-foreground">
         {m.profile_connect_mcp_caveat()}
       </p>
     </SettingsSection>
@@ -260,8 +260,10 @@ function ProviderItem({
       open={open}
       onToggle={onToggle}
     >
-      <p className="text-xs text-muted-foreground">{provider.description}</p>
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-caption text-muted-foreground">
+        {provider.description}
+      </p>
+      <p className="text-micro text-muted-foreground">
         {m.profile_connect_mcp_revision({ revision: provider.revision })}
       </p>
       <CodeSnippet code={snippet} language={provider.language} />

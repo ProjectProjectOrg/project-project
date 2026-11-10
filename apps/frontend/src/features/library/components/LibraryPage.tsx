@@ -63,7 +63,7 @@ function LibraryContent({
     <MotionConfig transition={transitions.layout} reducedMotion="user">
       <div className="flex flex-col gap-10">
         {library.canEdit ? null : (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-caption text-muted-foreground">
             {m.templates_settings_read_only()}
           </p>
         )}

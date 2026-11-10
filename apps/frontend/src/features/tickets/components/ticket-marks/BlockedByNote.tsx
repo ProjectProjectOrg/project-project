@@ -26,13 +26,13 @@ export function BlockedByNote({
   const [first] = blockers
   if (first === undefined) return null
   return (
-    <span className="inline-flex min-w-0 items-center gap-1 text-[13px] text-muted-foreground">
+    <span className="inline-flex min-w-0 items-center gap-1 text-body text-muted-foreground">
       <OctagonMinus
         className="size-3.5 shrink-0 text-state-warning"
         strokeWidth={1.75}
       />
       {m.tickets_header_blocked_by()}
-      <ParentTicketLink parent={first} />
+      <ParentTicketLink parent={first} variant="inline" />
       {blockers.length > 1 && (
         <span>
           {m.tickets_hover_blocked_more({ count: blockers.length - 1 })}

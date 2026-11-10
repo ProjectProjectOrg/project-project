@@ -20,6 +20,10 @@ import {
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import {
+  childTickets,
+  childTicketsRequest
+} from "@/features/tickets/atoms/childTickets"
+import {
   ticketDetail,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
@@ -93,58 +97,60 @@ export function TicketPeek({
   })
   const body = ticket.body.trim()
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 p-4">
+    <div className="flex h-full min-h-0 flex-col gap-4 px-4 pt-4 [&>:last-child]:pb-4">
       {prefetch.map((id) => (
         <TicketPrefetch key={id} ticketId={id} scope={scope} />
       ))}
-      <div className="flex flex-col gap-1.5">
-        <span className="font-mono text-xs text-muted-foreground tabular-nums">
-          {ticket.id}
-        </span>
-        <h2 className="line-clamp-2 text-[15px] leading-snug font-medium">
-          {ticket.parent !== undefined && ticket.parent !== null && (
-            <EpicTextPrefix
-              orgSlug={scope.orgSlug}
-              slug={scope.slug}
-              epicId={ticket.parent}
+      <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-1.5">
+          <span className="font-mono text-caption text-muted-foreground tabular-nums">
+            {ticket.id}
+          </span>
+          <h2 className="line-clamp-2 text-title leading-snug font-semibold">
+            {ticket.parent !== undefined && ticket.parent !== null && (
+              <EpicTextPrefix
+                orgSlug={scope.orgSlug}
+                slug={scope.slug}
+                epicId={ticket.parent}
+              />
+            )}
+            {ticket.title}
+          </h2>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-body">
+          <Meta>
+            <StatusIcon
+              className={cn("size-3.5", status.className)}
+              style={status.color ? { color: status.color } : undefined}
+              strokeWidth={1.75}
+            />
+            {statusLabelFor(ticket.status, statuses)}
+          </Meta>
+          <Meta>
+            <PriorityIcon
+              className={cn("size-3.5", priority.className)}
+              strokeWidth={1.75}
+            />
+            {PRIORITY_LABELS[ticket.priority]()}
+          </Meta>
+          <Meta>
+            <TypeIcon className="size-3.5" strokeWidth={1.75} />
+            {TYPE_LABELS[ticket.type]()}
+          </Meta>
+          {estimation !== "off" && ticket.estimate !== null && (
+            <EstimateChip
+              ticket={ticket}
+              mode={estimation}
+              className="text-body text-foreground"
             />
           )}
-          {ticket.title}
-        </h2>
-      </div>
-      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-[13px]">
-        <Meta>
-          <StatusIcon
-            className={cn("size-3.5", status.className)}
-            style={status.color ? { color: status.color } : undefined}
-            strokeWidth={1.75}
-          />
-          {statusLabelFor(ticket.status, statuses)}
-        </Meta>
-        <Meta>
-          <PriorityIcon
-            className={cn("size-3.5", priority.className)}
-            strokeWidth={1.75}
-          />
-          {PRIORITY_LABELS[ticket.priority]()}
-        </Meta>
-        <Meta>
-          <TypeIcon className="size-3.5" strokeWidth={1.75} />
-          {TYPE_LABELS[ticket.type]()}
-        </Meta>
-        {estimation !== "off" && ticket.estimate !== null && (
-          <EstimateChip
-            ticket={ticket}
-            mode={estimation}
-            className="text-[13px] text-foreground"
-          />
-        )}
-        {assignees.map((member) => (
-          <Meta key={member.id}>
-            <MemberAvatar member={member} size={16} />
-            {member.name}
-          </Meta>
-        ))}
+          {assignees.map((member) => (
+            <Meta key={member.id}>
+              <MemberAvatar member={member} size={16} />
+              {member.name}
+            </Meta>
+          ))}
+        </div>
       </div>
       <BlockedLine
         blockers={openBlockers(
@@ -153,9 +159,9 @@ export function TicketPeek({
         )}
         statuses={statuses}
       />
-      <div className="min-h-0 flex-1 overflow-hidden border-t border-border/60 [mask-image:linear-gradient(to_bottom,black_calc(100%-3rem),transparent)] pt-4">
+      <div className="min-h-0 flex-1 overflow-hidden [mask-image:linear-gradient(to_bottom,black_calc(100%-2rem),transparent)]">
         {body === "" ? (
-          <p className="text-[13px] text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             {m.tickets_peek_no_description()}
           </p>
         ) : (
@@ -170,6 +176,14 @@ export function TicketPeek({
           </Suspense>
         )}
       </div>
+      {(ticket.subTicketCount ?? 0) > 0 && (
+        <SubTickets
+          parent={ticket.id}
+          count={ticket.subTicketCount ?? 0}
+          scope={scope}
+          statuses={statuses}
+        />
+      )}
       {ticket.branch !== null && (
         <TicketGitChip
           orgSlug={scope.orgSlug}
@@ -192,9 +206,74 @@ export function TicketPrefetch({
   return null
 }
 
+const SUB_TICKET_LIMIT = 5
+
+function SubTickets({
+  parent,
+  count,
+  scope,
+  statuses
+}: Readonly<{
+  parent: TicketId
+  count: number
+  scope: TicketPeekScope
+  statuses: ReadonlyArray<ProjectStatus>
+}>) {
+  const result = useAtomValue(
+    childTickets(childTicketsRequest(scope.orgSlug, scope.slug, parent))
+  )
+  const rows = Result.isSuccess(result)
+    ? result.value.slice(0, SUB_TICKET_LIMIT)
+    : null
+  return (
+    <section className="flex flex-col gap-1">
+      <h3 className="text-caption text-muted-foreground">
+        {m.tickets_peek_sub_tickets()}
+      </h3>
+      <ul className="flex flex-col">
+        {rows === null
+          ? Array.from(
+              { length: Math.min(count, SUB_TICKET_LIMIT) },
+              (_, index) => (
+                <li key={index} className="flex h-7 items-center">
+                  <span className="h-3 w-2/3 rounded bg-muted" />
+                </li>
+              )
+            )
+          : rows.map(({ ticket }) => {
+              const meta = statusMetaFor(ticket.status, statuses)
+              const StatusIcon = meta.icon
+              return (
+                <li
+                  key={ticket.id}
+                  className="flex h-7 min-w-0 items-center gap-2 text-body"
+                >
+                  <StatusIcon
+                    className={cn("size-3.5 shrink-0", meta.className)}
+                    style={meta.color ? { color: meta.color } : undefined}
+                    strokeWidth={1.75}
+                  />
+                  <span className="min-w-0 flex-1 truncate">
+                    {ticket.title}
+                  </span>
+                </li>
+              )
+            })}
+      </ul>
+      {count > SUB_TICKET_LIMIT && (
+        <p className="text-caption text-muted-foreground">
+          {m.tickets_peek_more_sub_tickets({ count: count - SUB_TICKET_LIMIT })}
+        </p>
+      )}
+    </section>
+  )
+}
+
 function Meta({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <span className="inline-flex min-w-0 items-center gap-1.5">{children}</span>
+    <span className="inline-flex min-w-0 items-center gap-1.5 [&>svg]:-translate-y-[0.5px]">
+      {children}
+    </span>
   )
 }
 

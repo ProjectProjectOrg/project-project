@@ -27,7 +27,7 @@ export function PageHeader({
     <div
       data-page-header
       className={cn(
-        "flex flex-col gap-1 [&>h1]:text-2xl [&>h1]:font-semibold [&>h1]:tracking-tight [&>p]:text-sm [&>p]:text-muted-foreground",
+        "flex flex-col gap-1 [&>h1]:text-display [&>h1]:font-bold [&>p]:text-body [&>p]:text-muted-foreground",
         className
       )}
       {...props}

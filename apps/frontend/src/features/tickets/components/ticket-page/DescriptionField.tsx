@@ -217,7 +217,7 @@ export function DescriptionField({
       {definitionError !== null && (
         <p
           role="alert"
-          className="mt-2 flex items-center gap-2 px-3 text-xs text-destructive"
+          className="mt-2 flex items-center gap-2 px-3 text-caption text-destructive"
         >
           {m.editor_block_make_definition_failed({ reason: definitionError })}
           <button
@@ -234,7 +234,7 @@ export function DescriptionField({
           <Link
             to="/orgs/$orgSlug/settings/integrations/storage"
             params={{ orgSlug }}
-            className="text-xs text-muted-foreground underline-offset-2 transition-colors duration-100 hover:text-foreground hover:underline"
+            className="text-caption text-muted-foreground underline-offset-2 transition-colors duration-100 hover:text-foreground hover:underline"
           >
             {m.editor_attachment_connect_prompt()}
           </Link>

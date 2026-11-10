@@ -18,7 +18,7 @@ export type CreateBranchInput = Readonly<{
   status: TicketStatus
 }>
 
-export function useCreateBranch(ticket: TicketDetail) {
+export function useCreateBranch(ticket: Pick<TicketDetail, "id" | "status">) {
   const { orgSlug, slug } = useProjectRoute()
   const registry = useContext(RegistryContext)
   const setAttempt = useAtomSet(branchAttempt(ticket.id))

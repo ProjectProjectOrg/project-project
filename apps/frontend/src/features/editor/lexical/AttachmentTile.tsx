@@ -14,7 +14,7 @@ import { m } from "@/paraglide/messages"
 
 export const ATTACHMENT_TILE_MIN_WIDTH = 148
 export const ATTACHMENT_TILE_PREVIEW_HEIGHT = 176
-// The filename row: text-xs on a 16px line box, py-2, over a 1px top border.
+// The filename row: text-caption on a 16px line box, py-2, over a 1px top border.
 export const ATTACHMENT_TILE_FOOTER_HEIGHT = 33
 
 const PREVIEW_BOX =
@@ -105,7 +105,7 @@ function FormatPreview({ format }: { format: AttachmentFileFormat }) {
       <svg {...GLYPH} aria-hidden="true">
         {FORMATS[format].art}
       </svg>
-      <span className="text-[11px] font-medium">{FORMATS[format].label()}</span>
+      <span className="text-micro">{FORMATS[format].label()}</span>
     </span>
   )
 }
@@ -196,7 +196,7 @@ export function AttachmentTile({
       ) : (
         <FormatPreview format={format} />
       )}
-      <span className="flex w-full items-center gap-3 border-t border-border px-3 py-2 text-xs">
+      <span className="flex w-full items-center gap-3 border-t border-border px-3 py-2 text-caption">
         <motion.span
           layoutId={`${morphId}-filename`}
           layout="position"

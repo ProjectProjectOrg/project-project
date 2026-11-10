@@ -1,4 +1,4 @@
-import type { CreateTicketInput, GroupId } from "@pp/shared"
+import type { CreateTicketInput, GroupId, MarkKind, TicketId } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Atom from "effect/reactivity/Atom"
 import * as Reactivity from "effect/reactivity/Reactivity"
@@ -11,7 +11,26 @@ export type CreateTicketDialogRequest = Readonly<{
   projectSlug: string | null
   sprint?: GroupId
   title?: string
+  related?: RelatedTo
 }>
+
+export type RelatedKind = MarkKind | "subTicket"
+
+export type RelatedTo = Readonly<{ kind: RelatedKind; ticketId: TicketId }>
+
+const RELATED_PAYLOADS: Readonly<
+  Record<RelatedKind, (id: TicketId) => Partial<CreateTicketInput>>
+> = {
+  subTicket: (id) => ({ parent: id }),
+  blocking: (id) => ({ blockedBy: [id] }),
+  related: (id) => ({ relatedTo: [id] }),
+  blockedBy: () => ({})
+}
+
+export const relatedPayload = (
+  related: RelatedTo | null
+): Partial<CreateTicketInput> =>
+  related === null ? {} : RELATED_PAYLOADS[related.kind](related.ticketId)
 
 export const createTicketDialog = Atom.make<CreateTicketDialogRequest | null>(
   null

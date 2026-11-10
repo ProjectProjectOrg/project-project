@@ -38,6 +38,7 @@ const PROJECT_BONUS = 20
 const TITLE_LIMIT = 20
 const TEXT_SEARCH_MIN = 3
 const SEARCHING_DELAY_MS = 120
+const TEXT_SEARCH_WAIT_MS = 150
 
 const matchDetail = (
   match: TicketTextHit["match"] | undefined
@@ -125,12 +126,17 @@ export function useTicketCommandSearch(
   const query = search.trim()
   const inProject = projectSlug !== null && query !== ""
   const textQuery = inProject && query.length >= TEXT_SEARCH_MIN
+  const [debounced] = useDebouncedValue(query, { wait: TEXT_SEARCH_WAIT_MS })
+  const textSearch = textQuery && debounced.length >= TEXT_SEARCH_MIN
   const titlesResult = useAtomValue(
     inProject ? ticketTitles({ orgSlug, slug: projectSlug }) : idleTicketTitles
   )
   const textResult = useAtomValue(
-    textQuery
-      ? ticketTextSearch({ params: { orgSlug, slug: projectSlug }, q: query })
+    textSearch
+      ? ticketTextSearch({
+          params: { orgSlug, slug: projectSlug },
+          q: debounced
+        })
       : idleTicketTextSearch
   )
   const recentResult = useAtomValue(
@@ -138,21 +144,21 @@ export function useTicketCommandSearch(
   )
   const [shownText, setShownText] = useState<ShownText>(NO_TEXT)
   if (
-    textQuery &&
+    textSearch &&
     Result.isSuccess(textResult) &&
     shownText.hits !== textResult.value
   ) {
-    setShownText({ query, hits: textResult.value })
+    setShownText({ query: debounced, hits: textResult.value })
   }
-  const narrowing =
-    textQuery && shownText.query !== "" && query.startsWith(shownText.query)
-  const textHits = Result.isSuccess(textResult)
-    ? textResult.value
-    : narrowing
-      ? shownText.hits
-      : []
+  const current = textQuery && shownText.query === query
+  const held =
+    textQuery &&
+    !current &&
+    shownText.query !== "" &&
+    (query.startsWith(shownText.query) || shownText.query.startsWith(query))
+  const textHits = current || held ? shownText.hits : []
   const searching = useDelayedFlag(
-    textQuery && !Result.isSuccess(textResult) && !narrowing,
+    textQuery && !current && !held,
     SEARCHING_DELAY_MS
   )
   if (query === "") return { recent: [], found: [], searching: false }

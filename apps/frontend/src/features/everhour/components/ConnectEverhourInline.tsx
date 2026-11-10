@@ -33,7 +33,9 @@ export function ConnectEverhourInline({
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-sm text-muted-foreground">{m.time_connect_prompt()}</p>
+      <p className="text-body text-muted-foreground">
+        {m.time_connect_prompt()}
+      </p>
       <form className="flex flex-col gap-2 sm:flex-row" onSubmit={submit}>
         <Input
           type="password"
@@ -48,7 +50,7 @@ export function ConnectEverhourInline({
         </Button>
       </form>
       {error ? (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-body text-destructive">
           {error}
         </p>
       ) : null}

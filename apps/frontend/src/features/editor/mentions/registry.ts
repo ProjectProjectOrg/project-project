@@ -20,38 +20,12 @@ export type MentionPage = SearchPage<MentionCandidate>
 export type { MentionScope }
 
 export type MentionProvider = Readonly<{
-  trigger: string
   type: MentionType
   search: (
     query: string,
     cursor: string | null
   ) => Effect.Effect<MentionPage, MentionSearchFailed, AtomRegistry>
   renderRow: (candidate: MentionCandidate) => ReactNode
-  notes: Readonly<{
-    loading: () => string
-    empty: () => string
-    failed: () => string
-  }>
+  heading: () => string
+  failed: () => string
 }>
-
-import { ticketProvider } from "./ticketProvider"
-import { userProvider } from "./userProvider"
-
-export const mentionProviders = (
-  scope: MentionScope
-): ReadonlyArray<MentionProvider> => [
-  userProvider(scope),
-  ticketProvider(scope)
-]
-
-export const providerForTrigger = (
-  providers: ReadonlyArray<MentionProvider>,
-  trigger: string
-): MentionProvider | undefined =>
-  providers.find((provider) => provider.trigger === trigger)
-
-export const providerForType = (
-  providers: ReadonlyArray<MentionProvider>,
-  type: MentionType
-): MentionProvider | undefined =>
-  providers.find((provider) => provider.type === type)

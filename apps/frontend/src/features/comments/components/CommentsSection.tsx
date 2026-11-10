@@ -132,7 +132,7 @@ export function CommentsSection({
                     )}
                   />
                   {Result.isFailure(result) && (
-                    <p className="text-sm text-destructive">
+                    <p className="text-body text-destructive">
                       {m.comments_load_failed()}
                     </p>
                   )}

@@ -48,26 +48,27 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:bg-destructive/80",
         tertiary:
-          "border border-border text-foreground hover:bg-[image:linear-gradient(var(--hover),var(--hover))] active:bg-[image:linear-gradient(var(--active),var(--active))] aria-[haspopup=menu]:active:bg-[image:linear-gradient(var(--hover),var(--hover))] data-[popup-open]:bg-[image:linear-gradient(var(--hover),var(--hover))]",
+          "border border-border text-foreground hover:bg-[image:linear-gradient(var(--hover),var(--hover))] active:bg-[image:linear-gradient(var(--active),var(--active))] data-[popup-open]:bg-[image:linear-gradient(var(--hover),var(--hover))] [&[aria-haspopup]]:active:bg-[image:linear-gradient(var(--hover),var(--hover))]",
         ghost:
-          "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active",
+          "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
         quiet:
-          "rounded-md bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground",
+          "rounded-md bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
+        step: "w-full justify-start rounded-xl bg-transparent text-left text-muted-foreground hover:bg-hover hover:text-foreground data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
         raised:
           "bg-surface-5 text-foreground shadow-surface-1 hover:bg-surface-7 hover:shadow-surface-1-hover active:bg-surface-6",
         "sidebar-link":
-          "w-fit max-w-full justify-start bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-accent",
+          "w-fit max-w-full justify-start bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-accent data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
         "inline-help":
-          "bg-transparent align-middle text-[11px] font-medium text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active data-[popup-open]:bg-active data-[popup-open]:text-foreground",
-        chip: "bg-transparent text-foreground hover:bg-hover active:bg-accent/80",
+          "bg-transparent align-middle text-micro text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active data-[popup-open]:bg-active data-[popup-open]:text-foreground",
+        chip: "bg-transparent text-foreground hover:bg-hover active:bg-accent/80 data-[popup-open]:bg-hover [&[aria-haspopup]]:active:bg-hover",
         "block-grip":
-          "bg-transparent text-muted-foreground hover:bg-hover active:bg-accent/80",
+          "bg-transparent text-muted-foreground hover:bg-hover active:bg-accent/80 data-[popup-open]:bg-hover [&[aria-haspopup]]:active:bg-hover",
         "template-start":
-          "border border-border/70 bg-background/60 text-foreground hover:border-border hover:bg-hover active:bg-accent/80",
+          "border border-border/70 bg-background/60 text-foreground hover:border-border hover:bg-hover active:bg-accent/80 data-[popup-open]:bg-hover [&[aria-haspopup]]:active:bg-hover",
         "template-more":
-          "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-accent/80",
+          "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-accent/80 data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
         overlay:
-          "bg-background text-muted-foreground shadow-sm hover:bg-[image:linear-gradient(var(--hover),var(--hover))] hover:text-foreground active:bg-[image:linear-gradient(var(--active),var(--active))]",
+          "bg-background text-muted-foreground shadow-sm hover:bg-[image:linear-gradient(var(--hover),var(--hover))] hover:text-foreground active:bg-[image:linear-gradient(var(--active),var(--active))] data-[popup-open]:bg-[image:linear-gradient(var(--hover),var(--hover))] data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-[image:linear-gradient(var(--hover),var(--hover))]",
         media: "bg-transparent text-foreground hover:bg-hover active:bg-active",
         "overlay-destructive":
           "bg-background text-muted-foreground shadow-sm hover:bg-destructive-light hover:text-destructive active:bg-destructive-light",
@@ -81,11 +82,12 @@ const buttonVariants = cva(
 
         "image-option": "aspect-[3/1] h-auto w-full p-0",
         "image-strip": "h-12 w-full p-0",
-        "banner-add": "h-12 w-full justify-start gap-1.5 px-4 text-[13px]",
-        xs: "h-5 gap-1 px-1.5 text-[11px]",
-        sm: "h-7 gap-1 px-3 text-[12px]",
-        md: "h-8 gap-1.5 px-4 text-[13px]",
-        lg: "h-9 gap-1.5 px-5 text-[14px]",
+        "banner-add": "h-12 w-full justify-start gap-1.5 px-4 text-body",
+        step: "h-auto min-h-8 gap-3 px-3 text-body",
+        xs: "h-5 gap-1 px-1.5 text-micro",
+        sm: "h-7 gap-1 px-3 text-caption",
+        md: "h-8 gap-1.5 px-4 text-body",
+        lg: "h-9 gap-1.5 px-5 text-body",
         "icon-xs": "h-5 w-5 p-0 [&_svg]:h-3 [&_svg]:w-3",
         "block-grip": "size-5 p-0",
         "icon-sm": "h-8 w-8 p-0 [&_svg]:h-3.5 [&_svg]:w-3.5",
@@ -118,7 +120,7 @@ const buttonVariants = cva(
       { size: "lg", iconRight: true, className: "pr-[14px]" },
       {
         variant: "chip",
-        className: "h-8 gap-1.5 px-2.5 text-[13px]"
+        className: "h-8 gap-1.5 px-2.5 text-body"
       },
       {
         variant: "chip",
@@ -127,7 +129,7 @@ const buttonVariants = cva(
       },
       {
         variant: ["template-start", "template-more"],
-        className: "h-6 gap-1.5 px-2 text-xs"
+        className: "h-6 gap-1.5 px-2 text-caption"
       }
     ],
     defaultVariants: {

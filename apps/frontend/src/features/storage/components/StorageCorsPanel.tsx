@@ -155,7 +155,7 @@ export function StorageCorsPanel() {
           />
         ))}
       </SettingsGroup>
-      <p className="px-0.5 text-xs text-muted-foreground">
+      <p className="px-0.5 text-caption text-muted-foreground">
         {m.storage_cors_caveat()}
       </p>
     </SettingsSection>
@@ -184,7 +184,9 @@ function ProviderItem({
       open={open}
       onToggle={onToggle}
     >
-      <p className="text-xs text-muted-foreground">{provider.description}</p>
+      <p className="text-caption text-muted-foreground">
+        {provider.description}
+      </p>
       <CodeSnippet code={snippet} language={provider.language} />
     </SettingsDisclosureItem>
   )

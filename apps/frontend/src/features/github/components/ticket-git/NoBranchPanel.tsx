@@ -25,7 +25,7 @@ export function NoBranchPanel({ frame }: Readonly<{ frame: GitPanelFrame }>) {
           }
         />
       ) : (
-        <span className="text-xs text-muted-foreground">
+        <span className="text-caption text-muted-foreground">
           {m.git_no_branch_yet()}
         </span>
       )}

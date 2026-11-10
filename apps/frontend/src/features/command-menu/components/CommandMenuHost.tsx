@@ -1,14 +1,20 @@
 import { RegistryContext, useAtom, useAtomValue } from "@effect/atom-react"
-import { GroupPolicy, ProjectPolicy } from "@pp/access/policies"
-import type { ProjectActor, ProjectDetail, TicketDetail } from "@pp/shared"
+import { ProjectPolicy } from "@pp/access/policies"
+import {
+  canHoldChildren,
+  type ProjectActor,
+  type ProjectDetail,
+  type TicketDetail
+} from "@pp/shared"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import { useContext, useState } from "react"
+import { useContext, useEffect, useState } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
 import { CommandMenuDialog } from "@/components/ui/command-menu"
 import { currentUserId } from "@/features/auth/atoms/auth"
+import { feedbackStatus } from "@/features/feedback/atoms/feedback"
 import {
   project,
   projectActor,
@@ -19,6 +25,10 @@ import {
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import { TicketContextChip } from "@/features/tickets/components/command-pages/TicketContextChip"
+import {
+  ticketPermissions,
+  type TicketPermissions
+} from "@/features/tickets/lib/ticketPermissions"
 import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
@@ -42,6 +52,7 @@ import {
   scopeCommands,
   scopeSprint,
   scopeTicket,
+  scopeView,
   type CommandScope
 } from "../lib/commandScopes"
 import { COMMAND_PAGES } from "../pages"
@@ -61,32 +72,80 @@ export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
   const [shownScopes, setShownScopes] = useState(scopes)
   if (state.open && scopes !== shownScopes) setShownScopes(scopes)
   return (
-    <CommandMenuDialog
-      open={state.open}
-      onOpenChange={(open) => {
-        setState(
-          open
-            ? openCommandMenu(
-                scopeTicket(scopes) ?? registry.get(pointedTicket)
-              )
-            : CLOSED_COMMAND_MENU
-        )
-      }}
-      title={m.chrome_command_menu_title()}
-      pulseKey={`${state.ticket?.ticketId ?? ""}:${state.pages.join("/")}`}
-    >
-      {shown.open && (
-        <CommandMenuPage
-          key={`${shown.ticket?.ticketId ?? ""}:${shown.pages.join("/")}`}
-          orgSlug={orgSlug}
-          state={shown}
-          scopes={shownScopes}
-          onChange={setState}
-        />
-      )}
-    </CommandMenuDialog>
+    <>
+      <CommandMenuDialog
+        open={state.open}
+        onOpenChange={(open) => {
+          setState(
+            open
+              ? openCommandMenu(
+                  scopeTicket(scopes) ?? registry.get(pointedTicket)
+                )
+              : CLOSED_COMMAND_MENU
+          )
+        }}
+        title={m.chrome_command_menu_title()}
+        pulseKey={`${state.ticket?.ticketId ?? ""}:${state.pages.join("/")}`}
+      >
+        {shown.open && (
+          <CommandMenuPage
+            key={`${shown.ticket?.ticketId ?? ""}:${shown.pages.join("/")}`}
+            orgSlug={orgSlug}
+            state={shown}
+            scopes={shownScopes}
+            onChange={setState}
+          />
+        )}
+      </CommandMenuDialog>
+      {!state.open && <CommandMenuPrewarm orgSlug={orgSlug} scopes={scopes} />}
+    </>
   )
 }
+
+type PrewarmPhase = "waiting" | "warming" | "done"
+
+const PREWARM_STATE = openCommandMenu(null)
+
+function CommandMenuPrewarm({
+  orgSlug,
+  scopes
+}: Readonly<{ orgSlug: string; scopes: ReadonlyArray<CommandScope> }>) {
+  const [phase, setPhase] = useState<PrewarmPhase>("waiting")
+  useEffect(() => {
+    if (phase === "warming") {
+      const frame = requestAnimationFrame(() => setPhase("done"))
+      return () => cancelAnimationFrame(frame)
+    }
+    if (phase !== "waiting") return undefined
+    if (typeof requestIdleCallback === "undefined") {
+      const frame = requestAnimationFrame(() => setPhase("warming"))
+      return () => cancelAnimationFrame(frame)
+    }
+    const idle = requestIdleCallback(() => setPhase("warming"), {
+      timeout: PREWARM_TIMEOUT_MS
+    })
+    return () => cancelIdleCallback(idle)
+  }, [phase])
+  if (phase !== "warming") return null
+  return (
+    <div
+      aria-hidden
+      inert
+      className="pointer-events-none invisible fixed top-0 -left-[200vw] flex h-[440px] w-[640px] flex-col overflow-hidden"
+    >
+      <CommandMenuPage
+        orgSlug={orgSlug}
+        state={PREWARM_STATE}
+        scopes={scopes}
+        onChange={ignoreChange}
+      />
+    </div>
+  )
+}
+
+const PREWARM_TIMEOUT_MS = 3000
+
+const ignoreChange = () => {}
 
 const noProject: Atom.Atom<AsyncResult.AsyncResult<
   ProjectDetail,
@@ -100,24 +159,28 @@ function useProjectContext(orgSlug: string, projectSlug: string | null) {
   if (actor === null) {
     return {
       project: null,
-      canCreateTickets: true,
-      canEditTickets: false,
-      canArchiveTickets: false,
-      canDeleteTickets: false,
-      canPlanSprints: true,
+      tickets: NO_PROJECT_TICKETS,
       canManageProject: false
     }
   }
   return {
     project:
       detail !== null && AsyncResult.isSuccess(detail) ? detail.value : null,
-    canCreateTickets: actor.call("tickets", "create"),
-    canEditTickets: actor.call("tickets", "update"),
-    canArchiveTickets: actor.call("tickets", "archive"),
-    canDeleteTickets: actor.call("tickets", "delete"),
-    canPlanSprints: GroupPolicy.can(actor, "sprint", "manage"),
+    tickets: ticketPermissions(actor),
     canManageProject: ProjectPolicy.canUpdate(actor, { settings: true })
   }
+}
+
+const NO_PROJECT_TICKETS: TicketPermissions = {
+  create: true,
+  edit: false,
+  assign: false,
+  split: false,
+  archive: false,
+  delete: false,
+  stackBranch: false,
+  clearBranch: false,
+  planSprints: true
 }
 
 const noActor: Atom.Atom<ProjectActor | null> = Atom.make(null)
@@ -131,6 +194,21 @@ function useTicketDetail(ticket: TicketContext | null): TicketDetail | null {
         )
   )
   return AsyncResult.isSuccess(result) ? result.value : null
+}
+
+function useCanHoldChildren(
+  ticket: TicketContext | null,
+  detail: TicketDetail | null
+): boolean {
+  const parentId = detail?.parent ?? null
+  const parent = useTicketDetail(
+    ticket === null || parentId === null
+      ? null
+      : { ...ticket, ticketId: parentId }
+  )
+  if (detail === null) return false
+  if (parentId !== null && parent === null) return false
+  return canHoldChildren(detail, parent)
 }
 
 function useCommandEnv(
@@ -166,15 +244,20 @@ function CommandMenuPage({
   const viewerId = useAtomValue(currentUserId) ?? null
   const projectSlug = params.slug ?? ticket?.slug ?? null
   const orgActor = useOrgActor(orgSlug)
+  const detail = useTicketDetail(ticket)
+  const feedback = useAtomValue(feedbackStatus(orgSlug))
   const context: CommandContext = {
     orgSlug,
     projectSlug,
     ticket,
-    ticketDetail: useTicketDetail(ticket),
+    ticketDetail: detail,
+    canHoldChildren: useCanHoldChildren(ticket, detail),
     sprint: scopeSprint(scopes),
+    view: scopeView(scopes),
     viewerId,
     canSeeOrgMembers: orgActor.call("org", "members"),
     canCreateProjects: orgActor.call("projects", "create"),
+    canSendFeedback: AsyncResult.isSuccess(feedback) && feedback.value.enabled,
     ...useProjectContext(orgSlug, projectSlug)
   }
   const env = useCommandEnv(state, onChange)

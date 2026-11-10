@@ -7,7 +7,6 @@ import type { ToolName } from "./lib/commands"
 import { commandRegistry } from "./registry"
 
 const NOT_IN_COMMAND_MENU: Readonly<Partial<Record<ToolName, string>>> = {
-  unmark_ticket: "Relations are removed from the ticket's relation rows",
   prepare_ticket_attachment: "Files are attached from the editor",
   create_comment: "Comments are written on the ticket page",
   sync_git_state: "Git state is synced by automation",

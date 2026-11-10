@@ -3,12 +3,14 @@ import type { ReactElement } from "react"
 
 import {
   Popover,
+  PopoverClose,
   PopoverContent,
   PopoverTitle,
   PopoverTrigger
 } from "@/components/ui/popover"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { CreateSprintForm } from "@/features/sprints/forms/create-sprint"
+import { m } from "@/paraglide/messages"
 
 export function NewSprintPopover({
   trigger,
@@ -23,7 +25,7 @@ export function NewSprintPopover({
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
+    <Popover open={open} onOpenChange={onOpenChange} modal="trap-focus">
       <PopoverTrigger render={trigger} />
       <PopoverContent
         align="start"
@@ -35,6 +37,9 @@ export function NewSprintPopover({
           Title={PopoverTitle}
           onDone={() => onOpenChange(false)}
         />
+        <PopoverClose tabIndex={-1} className="sr-only">
+          {m.common_close()}
+        </PopoverClose>
       </PopoverContent>
     </Popover>
   )

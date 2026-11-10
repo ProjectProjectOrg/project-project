@@ -246,7 +246,7 @@ export function ProjectAppearanceSection({
           </AppearanceCard>
 
           {AsyncResult.isFailure(updateState) ? (
-            <p role="alert" className="text-[13px] text-destructive">
+            <p role="alert" className="text-body text-destructive">
               {m.project_identity_error()}
             </p>
           ) : null}
@@ -254,10 +254,10 @@ export function ProjectAppearanceSection({
 
         <div className="flex flex-col gap-2.5">
           <div className="flex items-baseline justify-between gap-4">
-            <span className="text-[13px] text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {m.project_appearance_renders_heading()}
             </span>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-caption text-muted-foreground">
               {m.project_appearance_renders_live()}
             </span>
           </div>
@@ -274,7 +274,7 @@ export function ProjectAppearanceSection({
             />
           </div>
           <details className="lg:hidden">
-            <summary className="cursor-pointer text-[13px] text-muted-foreground">
+            <summary className="cursor-pointer text-body text-muted-foreground">
               {m.project_appearance_renders_heading()}
             </summary>
             <div className="pt-3">

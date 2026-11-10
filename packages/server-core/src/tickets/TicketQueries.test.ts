@@ -133,6 +133,39 @@ it.effect("epicSections groups tickets under their epic, then No epic", () => {
   }).pipe(Effect.provide(layer))
 })
 
+it.effect(
+  "parentSections groups sub-tickets under their parent ticket, then No parent",
+  () => {
+    const docs = makeFakeTicketDocs([])
+    const add = (id: string, overrides: Partial<TicketDocs.TicketDocument>) =>
+      docs.documents.set(id, makeTicketDocument(id, overrides))
+    add("T-1", { type: "epic", title: "Estimation" })
+    add("T-2", { title: "Estimate field", parent: ticketId("T-1") })
+    add("T-3", { title: "Field validation", parent: ticketId("T-2") })
+    add("T-4", { title: "Passkeys" })
+    const layer = makeTicketsLayer("T", docs.layer, {
+      ticketIndex: makeFakeTicketIndex(docs.documents)
+    })
+    return Effect.gen(function* () {
+      const queries = yield* TicketQueries.TicketQueries
+      const result = yield* queries.parentSections({
+        sort: { key: "id", dir: "asc" }
+      })
+
+      expect(
+        result.sections.map((section) => ({
+          key: section.key,
+          title: section.title,
+          ids: section.page.items.map((row) => row.ticket.id)
+        }))
+      ).toEqual([
+        { key: "T-2", title: "Estimate field", ids: ["T-3"] },
+        { key: "none", title: null, ids: ["T-2", "T-4"] }
+      ])
+    }).pipe(Effect.provide(layer))
+  }
+)
+
 it.effect("list reads ticket index rows", () => {
   const docs = makeFakeTicketDocs(["T-1"])
 

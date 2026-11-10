@@ -341,9 +341,9 @@ function ConnectedProjectTimerIndicator({
         transition={transitions.fade}
         className="flex min-w-0 items-center gap-2"
       >
-        <span className="max-w-40 truncate text-[13px]">{label}</span>
+        <span className="max-w-40 truncate text-body">{label}</span>
         {timer ? (
-          <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+          <span className="shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
             {formatClock(elapsed)}
           </span>
         ) : null}
@@ -368,26 +368,26 @@ function ConnectedProjectTimerIndicator({
         <div className="flex flex-col gap-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-sm font-medium">
+              <div className="text-body font-semibold">
                 {m.time_timer_popover_title()}
               </div>
-              <div className="truncate text-xs text-muted-foreground">
+              <div className="truncate text-caption text-muted-foreground">
                 {timer ? label : m.time_timer_idle()}
               </div>
             </div>
             {timer ? (
-              <div className="font-mono text-xs text-muted-foreground tabular-nums">
+              <div className="font-mono text-caption text-muted-foreground tabular-nums">
                 {formatClock(elapsed)}
               </div>
             ) : null}
           </div>
 
           {ticketId !== null ? (
-            <div className="rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+            <div className="rounded-lg bg-muted/60 px-3 py-2 text-caption text-muted-foreground">
               {m.time_ticket_context({ id: ticketId })}
             </div>
           ) : routeGroupId ? null : (
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            <label className="flex flex-col gap-1 text-caption text-muted-foreground">
               {m.time_sprint_label()}
               <SprintSelect
                 value={effectiveGroupId}
@@ -428,7 +428,7 @@ function ConnectedProjectTimerIndicator({
               />
             </TimeControls>
           ) : (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-caption text-muted-foreground">
               {m.time_no_sprints_hint()}
             </p>
           )}

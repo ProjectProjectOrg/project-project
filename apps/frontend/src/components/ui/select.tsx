@@ -18,6 +18,7 @@ export type SelectOption<Value extends string> = Readonly<{
   value: Value
   label: ReactNode
   textValue?: string
+  icon?: IconComponent
   separated?: boolean
   disabled?: boolean
   onAction?: () => void
@@ -101,6 +102,7 @@ function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
           key={item.value}
           value={item.value}
           label={item.textValue}
+          icon={item.icon}
           separated={item.separated}
           disabled={item.disabled}
           indicator={item.onAction === undefined}
@@ -167,7 +169,7 @@ const triggerVariants = cva(
     "text-foreground",
     "transition-all duration-80",
     "disabled:pointer-events-none disabled:opacity-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-    "focus-visible:ring-1 focus-visible:ring-[#6B97FF]"
+    "focus-visible:ring-1 focus-visible:ring-ring"
   ],
   {
     variants: {
@@ -176,8 +178,8 @@ const triggerVariants = cva(
         borderless: "border border-transparent bg-transparent hover:bg-hover"
       },
       size: {
-        default: "h-9 min-w-[160px] px-3 text-[13px]",
-        compact: "h-7 min-w-0 px-2.5 text-[12px]"
+        default: "h-9 min-w-[160px] px-3 text-body",
+        compact: "h-7 min-w-0 px-2.5 text-caption"
       }
     },
     defaultVariants: {
@@ -256,7 +258,7 @@ function SelectTrigger({
         />
       </SelectPrimitive.Trigger>
       {error ? (
-        <span className="pl-3 text-[12px] text-destructive">{error}</span>
+        <span className={"pl-3 text-caption text-destructive"}>{error}</span>
       ) : null}
     </div>
   )

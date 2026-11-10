@@ -5,7 +5,7 @@ import { DitherBackdrop } from "@/components/ui/button-dither"
 
 export function OnboardingGateStatus({ children }: { children: ReactNode }) {
   return (
-    <main className="grid min-h-screen place-items-center text-sm text-muted-foreground">
+    <main className="grid min-h-screen place-items-center text-body text-muted-foreground">
       {children}
     </main>
   )

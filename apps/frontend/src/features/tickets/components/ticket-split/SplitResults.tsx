@@ -80,7 +80,7 @@ function Row({
         <Rail shape={shape} connectUp={connectUp} />
         {status}
         {priority}
-        <span className="inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums">
+        <span className="inline-flex shrink-0 items-center font-mono text-caption text-muted-foreground tabular-nums">
           {ticketId}
         </span>
         <div className="flex min-w-0 items-center">{title}</div>
@@ -121,7 +121,7 @@ function Add({ onClick, hint }: { onClick: () => void; hint: string }) {
       >
         {m.tickets_split_add_result()}
       </Button>
-      <p className="text-xs text-muted-foreground">{hint}</p>
+      <p className="text-caption text-muted-foreground">{hint}</p>
     </div>
   )
 }

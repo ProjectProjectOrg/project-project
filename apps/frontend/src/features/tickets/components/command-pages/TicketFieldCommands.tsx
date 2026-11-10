@@ -1,30 +1,28 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import {
-  ESTIMATE_SIZES,
-  TicketType,
-  type Estimate,
-  type Ticket
-} from "@pp/shared"
-import { useDebouncedValue } from "@tanstack/react-pacer"
+import { ESTIMATE_SIZES, TagName, TicketType, type Estimate } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
+import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
-import { CircleSlash, Layers, Trash2 } from "lucide-react"
+import * as Schema from "effect/Schema"
+import { Archive, CircleSlash, Layers, Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
 
 import { CommandMenuCheck, CommandMenuItem } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
-import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import {
+  projectActor,
+  projectRequest
+} from "@/features/projects/atoms/projects"
+import { createTag, tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
+import { epicsRequest, projectEpics } from "@/features/tickets/atoms/epics"
+import {
+  archiveTicket,
   deleteTicket,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
-import {
-  searchRequest,
-  ticketSearch
-} from "@/features/tickets/atoms/ticketSearch"
 import {
   formatEstimate,
   parseEstimateMinutes,
@@ -41,8 +39,14 @@ export type TicketPageProps = CommandPageProps &
   Readonly<{ ticket: TicketContext }>
 
 const CLEAR = "clear"
+const CREATE_TAG = "create-tag"
+const ARCHIVE = "archive"
+const DELETE = "delete"
+const DELETE_CASCADE = "delete-cascade"
 const POINT_PRESETS = [1, 2, 3, 5, 8, 13] as const
 const MINUTE_PRESETS = [30, 60, 120, 240, 480] as const
+
+const decodeTagName = Schema.decodeUnknownOption(TagName)
 
 const sameEstimate = (a: Estimate | null, b: Estimate) =>
   a !== null && formatEstimate(a) === formatEstimate(b) && a.unit === b.unit
@@ -165,16 +169,57 @@ export function TicketTypePage({ ticket, chip, onBack, env }: TicketPageProps) {
 
 export function TicketTagsPage({ ticket, chip, onBack }: TicketPageProps) {
   const { current, update } = useTicketMutation(ticket)
-  const result = useAtomValue(tagsFor(tagsRequest(ticket.orgSlug, ticket.slug)))
+  const req = tagsRequest(ticket.orgSlug, ticket.slug)
+  const result = useAtomValue(tagsFor(req))
+  const create = useAtomSet(createTag(req), { mode: "promiseExit" })
+  const canCreate = useAtomValue(
+    projectActor(projectRequest(ticket.orgSlug, ticket.slug))
+  ).call("tags", "create")
+  const [query, setQuery] = useState("")
+  const [failure, setFailure] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
   const tags = Result.isSuccess(result) ? result.value : []
   const applied = current?.tags ?? []
+  const newName = Option.filter(
+    decodeTagName(query.trim().toLowerCase()),
+    (name) => canCreate && !tags.some((tag) => tag.name === name)
+  )
   return (
     <CommandFrame
       chip={chip}
-      placeholder={m.tickets_command_tags_placeholder()}
+      placeholder={
+        canCreate
+          ? m.tags_search_or_create_placeholder()
+          : m.tickets_command_tags_placeholder()
+      }
       onBack={onBack}
-      items={tags.map((tag) => ({ value: tag.name, label: tag.name }))}
-      onSelect={(item) => {
+      onSearchChange={setQuery}
+      notice={failure}
+      items={[
+        ...tags.map((tag) => ({ value: tag.name, label: tag.name })),
+        ...(Option.isSome(newName)
+          ? [
+              {
+                value: CREATE_TAG,
+                label: m.tags_create_button({ name: newName.value }),
+                icon: Plus,
+                prefiltered: true
+              }
+            ]
+          : [])
+      ]}
+      onSelect={async (item) => {
+        if (item.value === CREATE_TAG) {
+          if (Option.isNone(newName) || pending) return
+          setPending(true)
+          setFailure(null)
+          const exit = await create({ name: newName.value })
+          setPending(false)
+          if (Exit.isSuccess(exit))
+            update({ tags: [...applied, newName.value] })
+          else setFailure(errorMessage(Cause.squash(exit.cause)))
+          return
+        }
         const tag = tags.find((candidate) => candidate.name === item.value)
         if (tag === undefined) return
         update({
@@ -210,34 +255,24 @@ export function TicketParentPage({
   env
 }: TicketPageProps) {
   const { current, update } = useTicketMutation(ticket)
-  const [search, setSearch] = useState("")
-  const [debounced] = useDebouncedValue(search.trim(), { wait: 150 })
   const result = useAtomValue(
-    ticketSearch(
-      searchRequest(ticket.orgSlug, ticket.slug, {
-        q: debounced === "" ? undefined : debounced,
-        limit: 40
-      })
-    )
+    projectEpics(epicsRequest(ticket.orgSlug, ticket.slug))
   )
-  const epics: ReadonlyArray<Ticket> = Result.isSuccess(result)
-    ? result.value.filter(
-        (candidate) =>
-          candidate.type === "epic" && candidate.id !== ticket.ticketId
-      )
-    : []
+  const epics = (Result.isSuccess(result) ? result.value : []).filter(
+    (epic) => epic.id !== ticket.ticketId
+  )
   const parent = current?.parent ?? null
   return (
     <CommandFrame
+      fixedHeight
       chip={chip}
       placeholder={m.tickets_command_parent_placeholder()}
       onBack={onBack}
-      filter={false}
-      onSearchChange={setSearch}
       items={[
         ...epics.map((epic) => ({
           value: epic.id,
           label: `${epic.id} ${epic.title}`,
+          prefix: epic.id,
           icon: Layers
         })),
         ...(parent === null
@@ -266,7 +301,7 @@ export function TicketParentPage({
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
             ) : (
               <span className="flex min-w-0 flex-1 items-baseline gap-2">
-                <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+                <span className="min-w-(--row-key-width) shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
                   {epic.id}
                 </span>
                 <span className="min-w-0 truncate">{epic.title}</span>
@@ -280,8 +315,57 @@ export function TicketParentPage({
   )
 }
 
+export function TicketArchivePage({
+  ticket,
+  chip,
+  onBack,
+  env
+}: TicketPageProps) {
+  const archive = useAtomSet(
+    archiveTicket(ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)),
+    { mode: "promiseExit" }
+  )
+  const [reason, setReason] = useState("")
+  const [failure, setFailure] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+  const trimmed = reason.trim()
+  return (
+    <CommandFrame
+      chip={chip}
+      placeholder={m.tickets_archive_reason_placeholder()}
+      onBack={onBack}
+      filter={false}
+      onSearchChange={setReason}
+      notice={failure}
+      items={[
+        {
+          value: ARCHIVE,
+          label:
+            trimmed === ""
+              ? m.tickets_command_archive_action({ id: ticket.ticketId })
+              : m.tickets_command_archive_with_reason({ id: ticket.ticketId }),
+          icon: Archive
+        }
+      ]}
+      onSelect={async () => {
+        if (pending) return
+        setPending(true)
+        setFailure(null)
+        const exit = await archive(trimmed === "" ? {} : { reason: trimmed })
+        setPending(false)
+        if (Exit.isFailure(exit)) {
+          setFailure(errorMessage(Cause.squash(exit.cause)))
+          return
+        }
+        env.close()
+      }}
+    />
+  )
+}
+
 export function TicketDeletePage({
   ticket,
+  context,
   chip,
   onBack,
   env
@@ -291,7 +375,9 @@ export function TicketDeletePage({
     { mode: "promiseExit" }
   )
   const [failure, setFailure] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
   const description = m.tickets_command_delete_description()
+  const count = context.ticketDetail?.subTicketCount ?? 0
   return (
     <CommandFrame
       chip={chip}
@@ -301,14 +387,37 @@ export function TicketDeletePage({
       notice={failure}
       items={[
         {
-          value: "delete",
+          value: DELETE,
           label: m.tickets_command_delete_action({ id: ticket.ticketId }),
           icon: Trash2
-        }
+        },
+        ...(count === 0
+          ? []
+          : [
+              {
+                value: DELETE_CASCADE,
+                label:
+                  context.ticketDetail?.type === "epic"
+                    ? m.tickets_command_delete_epic_cascade_action({
+                        id: ticket.ticketId,
+                        count
+                      })
+                    : m.tickets_command_delete_cascade_action({
+                        id: ticket.ticketId,
+                        count
+                      }),
+                icon: Trash2
+              }
+            ])
       ]}
-      onSelect={async () => {
+      onSelect={async (item) => {
+        if (pending) return
+        setPending(true)
         setFailure(null)
-        const exit = await remove({})
+        const exit = await remove({
+          cascadeSubTickets: item.value === DELETE_CASCADE
+        })
+        setPending(false)
         if (Exit.isFailure(exit)) {
           setFailure(errorMessage(Cause.squash(exit.cause)))
           return

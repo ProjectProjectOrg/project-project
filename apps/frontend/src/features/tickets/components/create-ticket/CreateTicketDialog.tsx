@@ -4,6 +4,7 @@ import {
   type Estimate,
   type GroupId,
   type TicketPriority,
+  type TicketId,
   type TicketStatus,
   type TicketType
 } from "@pp/shared"
@@ -23,6 +24,7 @@ import {
   type ReactNode
 } from "react"
 
+import { fireMutation } from "@/api/viewMutation"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -48,8 +50,14 @@ import {
 import {
   createTicketDialog,
   createTicketInProject,
-  type CreateTicketDialogRequest
+  relatedPayload,
+  type CreateTicketDialogRequest,
+  type RelatedKind
 } from "@/features/tickets/atoms/createTicketDialog"
+import {
+  markTicket,
+  ticketRequest
+} from "@/features/tickets/atoms/ticketDetail"
 import { AssigneeSelect } from "@/features/tickets/components/ticket-list/AssigneeField"
 import { EstimateBadgeTrigger } from "@/features/tickets/components/ticket-list/EstimateField"
 import { PrioritySelect } from "@/features/tickets/components/ticket-list/PriorityField"
@@ -63,6 +71,15 @@ import { m } from "@/paraglide/messages"
 
 const DEFAULT_STATUS = Schema.decodeSync(TicketStatusSchema)("todo")
 
+const RELATED_LABELS: Readonly<
+  Record<RelatedKind, (args: { id: string }) => string>
+> = {
+  subTicket: m.tickets_create_related_sub_ticket,
+  blockedBy: m.tickets_create_related_blocks,
+  blocking: m.tickets_create_related_blocked_by,
+  related: m.tickets_create_related_related
+}
+
 export function CreateTicketDialogHost() {
   const { open, shown, close } = useRouteBoundDialog(createTicketDialog)
   return (
@@ -75,7 +92,7 @@ export function CreateTicketDialogHost() {
       <DialogContent size="lg" showCloseButton={false} className="p-0">
         {shown !== null && (
           <CreateTicketForm
-            key={`${shown.orgSlug}:${shown.projectSlug ?? ""}:${shown.sprint ?? ""}:${shown.title ?? ""}`}
+            key={`${shown.orgSlug}:${shown.projectSlug ?? ""}:${shown.sprint ?? ""}:${shown.title ?? ""}:${shown.related?.kind ?? ""}:${shown.related?.ticketId ?? ""}`}
             request={shown}
             onDone={close}
           />
@@ -95,6 +112,10 @@ function CreateTicketForm({
   const projects = Result.isSuccess(projectsResult) ? projectsResult.value : []
   const [picked, setPicked] = useState(request.projectSlug)
   const slug = picked ?? projects[0]?.slug ?? null
+  const related =
+    request.related !== undefined && slug === request.projectSlug
+      ? request.related
+      : null
 
   const titleInput = useRef<HTMLInputElement>(null)
   useEffect(() => titleInput.current?.focus(), [])
@@ -108,17 +129,15 @@ function CreateTicketForm({
   const [sprint, setSprint] = useState<GroupId | null>(request.sprint ?? null)
   const registry = useContext(RegistryContext)
   const [failure, setFailure] = useState<string | null>(null)
+  const [created, setCreated] = useState<TicketId | null>(null)
+  const [pending, setPending] = useState(false)
   const templateChoice = useTemplateChoice(orgSlug, slug ?? "", type)
   const create = useAtomSet(createTicketInProject, { mode: "promiseExit" })
-  const state = useAtomValue(createTicketInProject)
   const trimmed = title.trim()
   const body = description.trim()
-  const canSubmit = slug !== null && trimmed !== "" && !state.waiting
+  const canSubmit = slug !== null && trimmed !== "" && !pending
 
-  const submit = async (event?: FormEvent) => {
-    event?.preventDefault()
-    if (!canSubmit) return
-    setFailure(null)
+  const createTicket = async () => {
     const exit = await create({
       orgSlug,
       slug,
@@ -129,25 +148,50 @@ function CreateTicketForm({
         status: status ?? undefined,
         assignees: assignees.length === 0 ? undefined : assignees,
         estimate: estimate ?? undefined,
-        ...(body === "" ? templateChoice.payload : { body })
+        ...(body === "" ? templateChoice.payload : { body }),
+        ...relatedPayload(related)
       }
     })
-    if (Exit.isFailure(exit)) {
-      setFailure(errorMessage(Cause.squash(exit.cause)))
+    if (Exit.isSuccess(exit)) return exit.value.id
+    setFailure(errorMessage(Cause.squash(exit.cause)))
+    return null
+  }
+
+  const submit = async (event?: FormEvent) => {
+    event?.preventDefault()
+    if (!canSubmit) return
+    setFailure(null)
+    setPending(true)
+    const id = created ?? (await createTicket())
+    if (id === null) {
+      setPending(false)
       return
+    }
+    setCreated(id)
+    if (related?.kind === "blockedBy") {
+      const marked = await fireMutation(
+        registry,
+        markTicket(ticketRequest(orgSlug, slug, related.ticketId)),
+        { kind: "blockedBy", target: id }
+      )
+      if (Result.isFailure(marked)) {
+        setPending(false)
+        setFailure(errorMessage(Cause.squash(marked.cause)))
+        return
+      }
     }
     if (sprint !== null && type !== "epic") {
       assignTicketToSprint(
         registry,
         sprintListRequest(orgSlug, slug),
-        exit.value.id,
+        id,
         sprint
       )
     }
     onDone()
     void navigate({
       to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
-      params: { orgSlug, slug, id: exit.value.id },
+      params: { orgSlug, slug, id },
       search: body === "" ? { focusBody: 1 } : {}
     })
   }
@@ -167,15 +211,21 @@ function CreateTicketForm({
           value={slug}
           onChange={(next) => {
             setPicked(next)
+            setCreated(null)
             setStatus(null)
             setAssignees([])
             setEstimate(null)
             setSprint(null)
           }}
         />
-        <DialogTitle className="text-[13px] font-normal text-muted-foreground">
+        <DialogTitle className="text-body font-normal text-muted-foreground">
           {m.tickets_create_dialog_title()}
         </DialogTitle>
+        {related !== null && (
+          <span className="truncate text-body text-muted-foreground">
+            · {RELATED_LABELS[related.kind]({ id: related.ticketId })}
+          </span>
+        )}
       </div>
       <input
         aria-label={m.tickets_create_title_aria_label()}
@@ -188,7 +238,7 @@ function CreateTicketForm({
           setTitle(event.target.value)
           setFailure(null)
         }}
-        className="mt-3 w-full bg-transparent px-4 text-lg font-medium tracking-tight outline-none placeholder:text-muted-foreground/70"
+        className="mt-3 w-full bg-transparent px-4 text-title font-semibold outline-none placeholder:text-muted-foreground"
         ref={titleInput}
       />
       <div
@@ -231,7 +281,7 @@ function CreateTicketForm({
       {failure !== null && (
         <p
           role="alert"
-          className="mx-4 mt-3 rounded-lg bg-destructive-light px-3 py-2 text-[13px] text-destructive"
+          className="mx-4 mt-3 rounded-lg bg-destructive-light px-3 py-2 text-body text-destructive"
         >
           {failure}
         </p>

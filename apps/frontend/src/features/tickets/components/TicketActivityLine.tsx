@@ -78,7 +78,7 @@ function Value({
 }
 
 function Literal({ children }: Readonly<{ children: ReactNode }>) {
-  return <span className="font-mono text-[13px]">{children}</span>
+  return <span className="font-mono text-body">{children}</span>
 }
 
 function StatusValue({

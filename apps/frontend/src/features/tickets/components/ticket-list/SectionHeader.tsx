@@ -3,6 +3,7 @@ import { ChevronDown, Plus } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { forwardRef, type ReactNode, type Ref } from "react"
 
+import { CountPill } from "@/components/ui/count-pill"
 import { Hitbox } from "@/components/ui/hitbox"
 import {
   statusLabelFor,
@@ -51,15 +52,15 @@ function HeadingContent(props: HeadingSource & { count: number }): ReactNode {
       <span className="grid size-6 shrink-0 place-items-center">
         {heading ? heading.icon : <StatusHeadingIcon {...props} />}
       </span>
-      <span className="truncate text-sm font-medium">{label}</span>
+      <span className="truncate text-body font-semibold">{label}</span>
       <span
-        className="rounded-full bg-active px-1.5 font-mono text-[10px] text-muted-foreground tabular-nums"
+        className="flex"
         aria-label={m.tickets_section_count_aria_label({ count })}
       >
-        {count}
+        <CountPill active={false}>{count}</CountPill>
       </span>
       {heading?.detail && (
-        <span className="ml-auto hidden text-xs text-muted-foreground sm:block">
+        <span className="ml-auto hidden text-caption text-muted-foreground sm:block">
           {heading.detail}
         </span>
       )}

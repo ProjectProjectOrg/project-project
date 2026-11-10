@@ -7,6 +7,7 @@ import {
 import { LoaderIcon, SearchIcon } from "lucide-react"
 import type * as React from "react"
 
+import { fieldTouchClass } from "@/lib/typeScale"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -44,7 +45,11 @@ function EmojiPickerSearch({
     >
       <SearchIcon className="size-4 shrink-0 opacity-50" />
       <EmojiPickerPrimitive.Search
-        className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        className={cn(
+          "flex h-10 w-full rounded-md bg-transparent py-3 outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+          "text-body",
+          fieldTouchClass
+        )}
         data-slot="emoji-picker-search"
         {...props}
       />
@@ -78,6 +83,7 @@ function EmojiPickerEmoji({
     <button
       {...props}
       className={cn(
+        // oxlint-disable-next-line workspace/type-scale -- emoji glyph size, not text on the scale
         "flex h-7 w-full items-center justify-center rounded-sm text-base data-[active]:bg-accent",
         className
       )}
@@ -95,7 +101,11 @@ function EmojiPickerCategoryHeader({
   return (
     <div
       {...props}
-      className="bg-popover px-3 pt-3.5 pb-2 text-xs leading-none text-muted-foreground"
+      className={cn(
+        "bg-popover px-3 pt-3.5 pb-2 text-muted-foreground",
+        "text-caption",
+        "leading-none"
+      )}
       data-slot="emoji-picker-category-header"
     >
       {category.label}
@@ -120,7 +130,10 @@ function EmojiPickerContent({
         <LoaderIcon className="size-4 animate-spin" />
       </EmojiPickerPrimitive.Loading>
       <EmojiPickerPrimitive.Empty
-        className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground"
+        className={cn(
+          "absolute inset-0 flex items-center justify-center text-muted-foreground",
+          "text-body"
+        )}
         data-slot="emoji-picker-empty"
       >
         {m.project_identity_emoji_empty()}
@@ -155,15 +168,26 @@ function EmojiPickerFooter({
         {({ emoji }) =>
           emoji ? (
             <>
+              {/* oxlint-disable-next-line workspace/type-scale -- emoji glyph size, not text on the scale */}
               <div className="flex size-7 flex-none items-center justify-center text-lg">
                 {emoji.emoji}
               </div>
-              <span className="truncate text-xs text-secondary-foreground">
+              <span
+                className={cn(
+                  "truncate text-secondary-foreground",
+                  "text-caption"
+                )}
+              >
                 {emoji.label}
               </span>
             </>
           ) : (
-            <span className="ml-1.5 flex h-7 items-center truncate text-xs text-muted-foreground">
+            <span
+              className={cn(
+                "ml-1.5 flex h-7 items-center truncate text-muted-foreground",
+                "text-caption"
+              )}
+            >
               {m.project_identity_emoji_select_placeholder()}
             </span>
           )

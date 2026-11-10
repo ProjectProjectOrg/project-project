@@ -93,9 +93,9 @@ export function SprintContextChip({
   sprint
 }: Readonly<{ sprint: SprintContext }>) {
   return (
-    <span className="inline-flex h-6 max-w-full min-w-0 items-center gap-1.5 overflow-hidden rounded-[7px] bg-hover px-2 text-[13px]">
+    <span className="inline-flex h-6 max-w-full min-w-0 items-center gap-1.5 overflow-hidden rounded-[7px] bg-hover px-2 text-body">
       <SprintStateIcon sprint={sprint.sprint} size="xs" />
-      <span className="min-w-0 truncate font-medium text-foreground">
+      <span className="min-w-0 truncate font-semibold text-foreground">
         {sprint.sprint.name}
       </span>
     </span>
@@ -124,7 +124,7 @@ function DateRow({
   return (
     <CommandMenuItem value={value} className={cn(dimmed && "opacity-50")}>
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="shrink-0 text-[13px] text-muted-foreground tabular-nums">
+      <span className="shrink-0 text-body text-muted-foreground tabular-nums">
         {detail}
       </span>
       {current !== undefined && (

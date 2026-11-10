@@ -23,10 +23,12 @@ export function LibrarySectionHeader({
       )}
     >
       <div className="min-w-0 px-0.5">
-        <h2 id={id} className="text-[13px] font-medium">
+        <h2 id={id} className="text-body font-semibold">
           {title}
         </h2>
-        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+        <p className="mt-0.5 text-caption text-muted-foreground">
+          {description}
+        </p>
       </div>
       {action}
     </div>

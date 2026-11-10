@@ -214,9 +214,9 @@ Never use `--muted` or `--accent` as a hover fill: on a raised surface they land
 A scarce vocabulary, used only when state needs to read at a glance.
 
 - **Destructive** (`oklch(0.577 0.245 27.325)`): delete actions, validation failures, irreversible-action confirmations.
-- **State Success** (`oklch(0.5 0.15 135)`): merged PRs, completed checks.
+- **State Success** (`oklch(0.5 0.15 135)`): open PRs, passing checks.
 - **State Warning** (`oklch(0.5 0.16 75)`): pending review, attention-required.
-- **State Info** (`oklch(0.5 0.18 255)`): open PRs, in-flight branches.
+- **State Info** (`oklch(0.5 0.18 255)`): in-flight branches, active sprints.
 - **State Merged** (`oklch(0.5 0.18 285)`): merged-and-closed state.
 
 In dark mode the state hues collapse to a single quiet treatment (`oklch(0.78 0.07 <hue>)`) so they stay legible without burning through the dim surface.
@@ -327,7 +327,7 @@ The single primitive lives in `components/ui/button.tsx`, exposing variants `pri
 
 **Press feel:** every button scales to **97%** on `:active` with a **100–150ms** transform transition. Icon-only buttons compress the icon, not the chrome.
 
-**Focus:** `focus-visible:ring-1 focus-visible:ring-[#6B97FF]` — the single intentional chromatic accent in chrome.
+**Focus:** `focus-visible:ring-1 focus-visible:ring-ring` — a 1px `--ring` stroke, no offset, no glow.
 
 ### Inputs
 
