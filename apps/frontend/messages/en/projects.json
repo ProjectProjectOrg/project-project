@@ -447,6 +447,7 @@
   "project_sidebar_settings_aria_label": "Project settings for {name}",
   "members_action_error": "Couldn't update this member.",
   "members_actions_aria_label": "Member actions",
+  "members_add_button": "Add or invite",
   "members_add_email_aria_label": "Email to add or invite",
   "members_add_email_placeholder": "Email to add or invite…",
   "members_add_error_fallback": "Couldn't add or invite member.",
