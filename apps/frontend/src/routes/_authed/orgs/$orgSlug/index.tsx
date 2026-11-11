@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema"
 
 import { Dashboard } from "@/features/dashboard/components/Dashboard"
 import { preloadDashboard } from "@/features/dashboard/lib/preloadDashboard"
+import { m } from "@/paraglide/messages"
 
 const DashboardSearchSchema = Schema.Struct({
   view: Schema.optional(Schema.Literals(["list", "board"]))
@@ -21,7 +22,11 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/")({
       signal: abortController.signal
     })
     return {
-      crumb: { type: "static" as const, label: "Dashboard", to: "/" }
+      crumb: {
+        type: "static" as const,
+        label: m.chrome_sidebar_dashboard(),
+        to: "/"
+      }
     }
   }
 })
