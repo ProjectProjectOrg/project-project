@@ -352,9 +352,15 @@ describe("MARKDOWN_TRANSFORMERS", () => {
   it.each([
     ["- Parent\n  - Child", "- Parent\n    - Child"],
     ["1. Parent\n   1. Child", "1. Parent\n    1. Child"],
-    ["- [ ] Parent\n  - [x] Child", "- [ ] Parent\n    - [x] Child"]
+    ["- [ ] Parent\n  - [x] Child", "- [ ] Parent\n    - [x] Child"],
+    [
+      "- Parent\n  - [x] Done\n  - Plain",
+      "- Parent\n    - [x] Done\n    - Plain"
+    ]
   ])("preserves nesting when importing %s", (markdown, expected) => {
-    expect(roundTripMarkdown(markdown)).toBe(expected)
+    const saved = roundTripMarkdown(markdown)
+    expect(saved).toBe(expected)
+    expect(roundTripMarkdown(saved)).toBe(saved)
   })
 
   it("preserves block structure inside a quote", () => {

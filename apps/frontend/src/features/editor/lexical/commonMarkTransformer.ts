@@ -275,7 +275,8 @@ function exportList(
     const first = item.getFirstChild()
     const content = traverseChildren(item)
     if ($isListNode(first)) {
-      output.push(exportList(first, traverseChildren, depth + 1))
+      for (const nested of item.getChildren().filter($isListNode))
+        output.push(exportList(nested, traverseChildren, depth + 1))
       if (content !== "")
         output.push(
           `\n${indent}    ${content.replace(/\n/g, `\n${indent}    `)}`
