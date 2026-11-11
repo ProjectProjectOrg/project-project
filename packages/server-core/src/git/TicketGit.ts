@@ -976,7 +976,13 @@ const make = Effect.gen(function* () {
               gitAutomation,
               ticketDocumentLock: { withTicketDocumentLock }
             },
-            { ...project, ticketId, branch }
+            {
+              ...project,
+              ticketId,
+              branch,
+              repoId: projectGithub.repoId,
+              isDefault: projectGithub.isDefault
+            }
           )
         }
         yield* ticketBranchIndex.markBranchStale(

@@ -230,6 +230,7 @@ const make = Effect.gen(function* () {
         {
           tokenSource: "app",
           operation: "getInstallationAccount",
+          scopeKey: appId,
           installationId
         },
         (signal) =>

@@ -741,7 +741,7 @@ const make = Effect.gen(function* () {
                   ticketDocumentLock,
                   gitAutomation
                 },
-                match
+                { ...match, repoId: link.repoId, isDefault: link.isDefault }
               ),
             { concurrency: 1, discard: true }
           )

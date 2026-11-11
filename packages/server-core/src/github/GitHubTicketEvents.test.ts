@@ -492,12 +492,13 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
   )
 
   it.effect(
-    "moveForDeletedBranch moves only tickets still on the deleted branch",
+    "moveForDeletedBranch checks the current branch and repository",
     () =>
       Effect.gen(function* () {
         const docs = makeFakeDocs([
           baseDocument(),
-          baseDocument({ id: ticketId("T-2"), branch: "feat/T-2" })
+          baseDocument({ id: ticketId("T-2"), branch: "feat/T-2" }),
+          baseDocument({ id: ticketId("T-4"), repo: "other-repo" })
         ])
         const deps = {
           ticketDocs: docs.shape,
@@ -517,7 +518,8 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           [
             baseMatch(),
             baseMatch({ ticketId: "T-2" }),
-            baseMatch({ ticketId: "T-3" })
+            baseMatch({ ticketId: "T-3" }),
+            baseMatch({ ticketId: "T-4" })
           ],
           (match) => moveForDeletedBranch(deps, match)
         )

@@ -81,7 +81,7 @@ beforeEach(() => {
 
 describe("GitHub installation authentication", () => {
   it.effect(
-    "shares the app budget without blocking installation requests",
+    "shares each app budget without blocking other apps or installations",
     () =>
       Effect.gen(function* () {
         const appLimited = json({ message: "API rate limit exceeded" }, 429)
@@ -94,6 +94,12 @@ describe("GitHub installation authentication", () => {
         })
         fetch
           .mockResolvedValueOnce(appLimited)
+          .mockResolvedValueOnce(
+            json({
+              id: 789,
+              account: { id: 9, login: "other", type: "Organization" }
+            })
+          )
           .mockResolvedValueOnce(installationResponse)
         const github = yield* GitHub.GitHub
 
@@ -107,13 +113,22 @@ describe("GitHub installation authentication", () => {
           .pipe(Effect.flip)
         expect(secondAppCall._tag).toBe("RateLimited")
 
+        const otherAppCall = yield* github.getInstallationAccount(
+          "other-app",
+          "789"
+        )
+        expect(otherAppCall).toMatchObject({
+          installationId: "789",
+          accountLogin: "other"
+        })
+
         const installationCall = yield* github.verifyInstallationRepo(
           "123",
           "acme",
           "app"
         )
         expect(installationCall.repoId).toBe("1")
-        expect(fetch).toHaveBeenCalledTimes(2)
+        expect(fetch).toHaveBeenCalledTimes(3)
       }).pipe(Effect.provide(layer))
   )
 
