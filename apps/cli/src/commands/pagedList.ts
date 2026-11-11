@@ -1,6 +1,12 @@
 import * as Effect from "effect/Effect"
 
-import { isRows, printResult, tableLayout } from "../output/format"
+import {
+  human,
+  isRows,
+  printResult,
+  tableLayout,
+  type ResultLayout
+} from "../output/format"
 import { withLoading } from "../output/loading"
 import { type PagerSink, withPager } from "../output/pager"
 
@@ -20,7 +26,7 @@ const rowsText = (items: ReadonlyArray<unknown>, layout: Layout) =>
 const streamRest = <E, R>(
   fetch: (cursor: string) => Effect.Effect<Page, E, R>,
   sink: PagerSink,
-  layout: Layout,
+  pageText: (page: Page) => string,
   cursor: string | null,
   count: number
 ): Effect.Effect<number, E, R> =>
@@ -28,31 +34,39 @@ const streamRest = <E, R>(
     ? Effect.succeed(count)
     : Effect.gen(function* () {
         const page = yield* fetch(cursor)
-        const open = yield* sink.write(rowsText(page.items, layout))
+        const open = yield* sink.write(pageText(page))
         const total = count + page.items.length
         return open
-          ? yield* streamRest(fetch, sink, layout, page.nextCursor, total)
+          ? yield* streamRest(fetch, sink, pageText, page.nextCursor, total)
           : -1
       })
 
 export const pagedList = <E, R>(
   fetch: (cursor: string | undefined) => Effect.Effect<Page, E, R>,
-  noun: string
+  noun: string,
+  format: ResultLayout = "table"
 ) =>
   Effect.gen(function* () {
     const first = yield* fetch(undefined).pipe(withLoading(`Loading ${noun}`))
     const layout = isRows(first.items) ? tableLayout(first.items) : undefined
-    if (layout === undefined) return yield* printResult(first, false)
+    if (layout === undefined && format === "table")
+      return yield* printResult(first, false)
+    const pageText = (page: Page) =>
+      format === "details"
+        ? `${human({ ...page, nextCursor: null }, format)}\n\n`
+        : layout === undefined
+          ? ""
+          : rowsText(page.items, layout)
     yield* withPager((sink) =>
       Effect.gen(function* () {
         const open = yield* sink.write(
-          `${layout.header}\n${rowsText(first.items, layout)}`
+          `${format === "table" && layout !== undefined ? `${layout.header}\n` : ""}${pageText(first)}`
         )
         if (!open) return undefined
         const total = yield* streamRest(
           fetch,
           sink,
-          layout,
+          pageText,
           first.nextCursor,
           first.items.length
         )

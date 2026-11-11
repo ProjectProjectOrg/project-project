@@ -1,4 +1,4 @@
-import { ToolCli, type ToolName, Tools } from "@pp/shared"
+import { TicketActivityPage, ToolCli, type ToolName, Tools } from "@pp/shared"
 import type { Tool } from "effect/ai"
 import { Argument, Command, Flag } from "effect/cli"
 import * as Context from "effect/Context"
@@ -114,7 +114,7 @@ export type CatalogEntry = Readonly<{
 const UnknownPage = Schema.Struct({
   items: Schema.Array(Schema.Unknown),
   nextCursor: Schema.NullOr(Schema.String)
-})
+}).annotate({ parseOptions: { onExcessProperty: "preserve" } })
 
 const allFlag = Flag.Boolean("all").pipe(
   Flag.withDescription("Follow every page and print all results."),
@@ -165,6 +165,13 @@ export const commandFor = (entry: CatalogEntry) => {
   const decodeInput = Schema.decodeUnknownEffect(
     Tools.tools[entry.name].parametersSchema
   )
+  const layout = [
+    "search_tickets",
+    "list_comments",
+    "list_ticket_activity"
+  ].includes(entry.name)
+    ? "details"
+    : "table"
   const shaping = shapings[entry.name]
   const inputFields = entry.fields.filter(
     (field) => !shaping?.hides.includes(field.name)
@@ -203,13 +210,28 @@ export const commandFor = (entry: CatalogEntry) => {
         Effect.mapError((error) => usage(flagPath(error.message)))
       )
       const firstCursor = input["cursor"]
-      const page = (cursor: string | undefined) =>
-        callToolAs(
-          server,
-          entry.name,
-          { limit: 200, ...input, cursor },
-          UnknownPage
-        )
+      const people = new Map<
+        string,
+        (typeof TicketActivityPage.Encoded)["people"][number]
+      >()
+      const page = (cursor: string | undefined) => {
+        const pageInput = { limit: 200, ...input, cursor }
+        return entry.name === "list_ticket_activity"
+          ? callToolAs(
+              server,
+              entry.name,
+              pageInput,
+              Schema.toEncoded(TicketActivityPage)
+            ).pipe(
+              Effect.tap((page) =>
+                Effect.sync(() => {
+                  for (const person of page.people)
+                    people.set(person.id, person)
+                })
+              )
+            )
+          : callToolAs(server, entry.name, pageInput, UnknownPage)
+      }
       if (
         paginated &&
         !flags.json &&
@@ -220,7 +242,7 @@ export const commandFor = (entry: CatalogEntry) => {
         pagingEnabled(process.env) &&
         stdoutTerminal().fancy
       ) {
-        return yield* pagedList(page, entry.command[0]).pipe(
+        return yield* pagedList(page, entry.command[0], layout).pipe(
           explainDefault(scope)
         )
       }
@@ -229,7 +251,10 @@ export const commandFor = (entry: CatalogEntry) => {
           page,
           Predicate.isString(firstCursor) ? firstCursor : undefined
         ),
-        (items) => ({ items, nextCursor: null })
+        (items) =>
+          entry.name === "list_ticket_activity"
+            ? { items, nextCursor: null, people: [...people.values()] }
+            : { items, nextCursor: null }
       )
       const result =
         raw["all"] === true
@@ -237,7 +262,7 @@ export const commandFor = (entry: CatalogEntry) => {
           : yield* callTool(server, entry.name, input).pipe(
               explainDefault(scope)
             )
-      yield* printResult(result, flags.json)
+      yield* printResult(result, flags.json, layout)
     })
   ).pipe(
     Command.withDescription(entry.description),
