@@ -211,7 +211,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
     icon: FolderInput,
     keywords: ["project", "transfer", "inbox"],
     tool: "move_ticket",
-    when: (context) => context.ticket !== null && context.tickets.move,
+    when: (context) => onLiveTicket(context) && context.tickets.move,
     page: "ticketMove"
   },
   {
