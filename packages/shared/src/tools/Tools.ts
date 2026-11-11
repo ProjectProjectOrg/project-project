@@ -872,7 +872,8 @@ export const Tools = Toolkit.make(
       "has tickets can't be moved and fails with `Validation`.\n\n" +
       "What the destination doesn't have is dropped: tags it doesn't " +
       "define, assignees who aren't members there, an estimate in another " +
-      "unit, sprint and epic membership, and the branch link unless both " +
+      "unit, sprint and epic membership, relations to tickets that stay " +
+      "behind, and the branch link unless both " +
       "projects use the same repository. `status` picks the destination " +
       "status; without it the ticket keeps its status when the destination " +
       "has it and takes the destination's first status otherwise.\n\n" +

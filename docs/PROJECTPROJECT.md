@@ -126,7 +126,7 @@ Code blocks, lists, tables, the works.
 
 Ticket IDs are sequential per project.
 
-**Moving a ticket to another project** in the same org gives it a new ID there; its sub-tickets move with it, and an epic that still has tickets can't be moved. The file, its comments, attachments and activity move; the ticket leaves its sprint and epic. The moved ticket lists every earlier location in its frontmatter, oldest first:
+**Moving a ticket to another project** in the same org gives it a new ID there; its sub-tickets move with it, and an epic that still has tickets can't be moved. The file, its comments, attachments and activity move; the ticket leaves its sprint and epic, and keeps only the relations to tickets that move with it. The moved ticket lists every earlier location in its frontmatter, oldest first:
 
 ```yaml
 movedFrom:

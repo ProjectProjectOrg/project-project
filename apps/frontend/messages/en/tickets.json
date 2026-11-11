@@ -273,7 +273,7 @@
   "tickets_move_error_epic_has_tickets": "Move or detach this epic's tickets before moving the epic.",
   "tickets_move_error_no_statuses": "That project has no statuses yet.",
   "tickets_move_error_same_project": "The ticket is already in that project.",
-  "tickets_move_groups_note": "The ticket leaves its sprint and epic.",
+  "tickets_move_groups_note": "The ticket leaves its sprint and epic, and loses its relations to tickets that stay behind.",
   "tickets_move_menu_item": "Move to project",
   "tickets_move_no_projects": "There is no other project to move this ticket to.",
   "tickets_move_project_label": "Project",
