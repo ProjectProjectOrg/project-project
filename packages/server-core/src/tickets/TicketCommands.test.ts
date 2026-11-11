@@ -163,6 +163,8 @@ const FakeTicketIndex = Layer.sync(TicketIndex.TicketIndex, () => {
     count: () => Effect.succeed({ total: 0, byStatus: {} }),
     listIds: () => Effect.succeed([]),
     existingIds: () => Effect.succeed(new Set()),
+    mentionableIds: () => Effect.succeed(new Set()),
+    movedTo: () => Effect.succeed(null),
     reserveTicketNumber: () => Effect.sync(() => ++reserved),
     tagUsageCounts: () => Effect.succeed({}),
     findTicketIdsByTag: () => Effect.succeed([]),

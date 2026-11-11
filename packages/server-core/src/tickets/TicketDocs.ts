@@ -66,6 +66,7 @@ const TicketFrontmatterOnDisk = Schema.Struct({
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
   splitFrom: Schema.optionalKey(TicketId),
+  movedFrom: Schema.optionalKey(Schema.Array(Schema.String)),
   blockedBy: Schema.optionalKey(Schema.Array(TicketId)),
   relatedTo: Schema.optionalKey(Schema.Array(TicketId)),
   duplicateOf: Schema.optionalKey(TicketId),
@@ -306,6 +307,8 @@ export type TicketActivityOptions = Readonly<{
   archiveReason?: string
 }>
 
+export type TicketRemoveOptions = Readonly<{ writeLockHeld?: boolean }>
+
 export class TicketDocs extends Context.Service<
   TicketDocs,
   Readonly<{
@@ -351,7 +354,8 @@ export class TicketDocs extends Context.Service<
       orgSlug: string,
       slug: string,
       id: string,
-      onPersist?: Effect.Effect<void>
+      onPersist?: Effect.Effect<void>,
+      options?: TicketRemoveOptions
     ) => Effect.Effect<void, NotFound | Markdown.MarkdownError>
     readRaw: (
       orgSlug: string,
@@ -617,24 +621,23 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     id: string,
-    onPersist: Effect.Effect<void> = Effect.void
+    onPersist: Effect.Effect<void> = Effect.void,
+    options: TicketRemoveOptions = {}
   ) {
+    const removal = markdown
+      .removeTicketFile(orgSlug, slug, id)
+      .pipe(
+        Effect.andThen(ticketActivity.removeTicket(orgSlug, slug, id)),
+        Effect.andThen(onPersist)
+      )
     return yield* annotateTicketDoc(
       "remove",
       orgSlug,
       slug,
       { ticketId: id },
-      withMutationLock(
-        orgSlug,
-        slug,
-        id,
-        markdown
-          .removeTicketFile(orgSlug, slug, id)
-          .pipe(
-            Effect.andThen(ticketActivity.removeTicket(orgSlug, slug, id)),
-            Effect.andThen(onPersist)
-          )
-      )
+      options.writeLockHeld
+        ? removal
+        : withMutationLock(orgSlug, slug, id, removal)
     )
   })
 

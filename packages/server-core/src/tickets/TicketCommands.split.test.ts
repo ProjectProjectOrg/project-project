@@ -25,6 +25,7 @@ import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
 import { databaseLayer } from "../../test/database"
+import * as Access from "../access/Access"
 import { projectScope } from "../access/testing"
 import {
   recordingActivityLayer,
@@ -228,6 +229,8 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   count: () => Effect.succeed({ total: 0, byStatus: {} }),
   listIds: () => Effect.succeed([]),
   existingIds: () => Effect.succeed(new Set()),
+  mentionableIds: () => Effect.succeed(new Set()),
+  movedTo: () => Effect.succeed(null),
   reserveTicketNumber: () => Effect.sync(() => nextTicketNumber++),
   tagUsageCounts: () => Effect.succeed({}),
   findTicketIdsByTag: () => Effect.succeed([]),
@@ -311,6 +314,7 @@ const TestLayer = Layer.unwrap(
     return TicketCommands.layer.pipe(
       Layer.provide(TicketView.layer),
       Layer.provide(Layer.mock(ProjectDocs.ProjectDocs, {})),
+      Layer.provide(Layer.mock(Access.Access, {})),
       Layer.provide(PassthroughLibrary),
       Layer.provideMerge(TicketDocs.layer),
       Layer.provideMerge(recordingActivityLayer(recordedActivity)),

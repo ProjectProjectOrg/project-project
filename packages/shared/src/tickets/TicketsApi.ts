@@ -52,6 +52,7 @@ import {
 } from "../github/GitState"
 import { OrgPath, ProjectPath, TicketPath } from "../http/paths"
 import { BulkUpdateTicketsInput, BulkUpdateTicketsResult } from "./BulkTickets"
+import { MovedTicketLocation, MoveTicketInput, MoveTicketResult } from "./move"
 import {
   ArchiveTicketInput,
   CreateTicketInput,
@@ -499,6 +500,33 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       }
     )
       .annotate(RequiresProject, { ticket: ["create"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "move",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/move",
+      {
+        params: TicketPath,
+        payload: MoveTicketInput,
+        success: MoveTicketResult,
+        error: [Unauthorized, NotFound, Forbidden, Conflict, Validation]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["delete"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "movedTo",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/moved-to",
+      {
+        params: TicketPath,
+        success: MovedTicketLocation,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
       .middleware(ProjectAccess)
   )
   .add(

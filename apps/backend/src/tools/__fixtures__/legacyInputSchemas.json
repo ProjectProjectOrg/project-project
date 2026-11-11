@@ -1438,6 +1438,49 @@
     "additionalProperties": true,
     "$defs": {}
   },
+  "move_ticket": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+      },
+      "toProject": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "status": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "id", "toProject"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
   "prepare_ticket_attachment": {
     "type": "object",
     "properties": {

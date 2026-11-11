@@ -1,4 +1,4 @@
-import { TicketId, type MentionType } from "@pp/shared"
+import { parseTicketMentionId, TicketId, type MentionType } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 
@@ -8,7 +8,7 @@ import { useInAppLink } from "@/features/editor/hooks/useInAppLink"
 import { useMentionScope } from "@/features/editor/mentions/scope"
 import { TicketHoverCard } from "@/features/tickets/components/TicketHoverCard"
 
-const makeTicketId = Schema.decodeUnknownSync(TicketId)
+const isTicketId = Schema.is(TicketId)
 
 export function MentionChip({
   type,
@@ -47,7 +47,9 @@ export function MentionChip({
     )
   }
 
-  if (!scope) {
+  const target = parseTicketMentionId(id)
+  const ticketId = target.ticketId
+  if (!scope || !isTicketId(ticketId)) {
     return (
       <Badge
         tone="muted"
@@ -55,10 +57,14 @@ export function MentionChip({
         className="align-baseline font-mono"
         contentEditable={false}
       >
-        {id}
+        {ticketId}
       </Badge>
     )
   }
+  const ticketScope =
+    target.projectSlug === null || target.projectSlug === scope.slug
+      ? scope
+      : { orgSlug: scope.orgSlug, slug: target.projectSlug }
 
   return (
     <Popover>
@@ -71,7 +77,11 @@ export function MentionChip({
             render={
               <Link
                 to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-                params={{ orgSlug: scope.orgSlug, slug: scope.slug, id }}
+                params={{
+                  orgSlug: ticketScope.orgSlug,
+                  slug: ticketScope.slug,
+                  id: ticketId
+                }}
                 ref={linkRef}
                 onMouseDown={(e) => e.preventDefault()}
               />
@@ -81,9 +91,9 @@ export function MentionChip({
         openOnHover
         contentEditable={false}
       >
-        {id}
+        {ticketId}
       </PopoverTrigger>
-      <TicketHoverCard ticketId={makeTicketId(id)} scope={scope} />
+      <TicketHoverCard ticketId={ticketId} scope={ticketScope} />
     </Popover>
   )
 }

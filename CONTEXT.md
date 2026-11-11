@@ -45,6 +45,10 @@ A ticket of type `epic`. It can hold sub-tickets of any type.
 A ticket with a parent. An epic, a ticket with no parent, or a child of an epic can be a parent, so nesting stops two levels below an epic.
 _Avoid_: Child issue, subtask
 
+**Move**:
+Taking a ticket, with its sub-tickets, to another project in the same org. It gets a new id there and remembers the old ones in `movedFrom`, so old links and mentions keep resolving.
+_Avoid_: Transfer, migrate (that is the Jira import)
+
 **Relation**:
 A link between two tickets in one project: **blocked by** (and its reverse, **blocking**), **related**, or **duplicate of** (and its reverse, **duplicates**). The ticket that waits stores `blockedBy`, a duplicate stores `duplicateOf`, and `relatedTo` stays on the ticket it was added from. A ticket is **blocked** while any blocker is unarchived and not finished. The UI calls setting one a **mark** ("Mark as blocked by…").
 _Avoid_: Link (for relations), dependency (except "blocked by"), issue link

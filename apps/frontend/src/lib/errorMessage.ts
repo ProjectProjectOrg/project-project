@@ -167,6 +167,12 @@ const validationMessage = (reason: string): string => {
       return m.tickets_error_invalid_parent()
     case "ticket_has_sub_tickets":
       return m.tickets_error_ticket_has_sub_tickets()
+    case "move_epic_has_tickets":
+      return m.tickets_move_error_epic_has_tickets()
+    case "move_same_project":
+      return m.tickets_move_error_same_project()
+    case "move_destination_no_statuses":
+      return m.tickets_move_error_no_statuses()
     case "invalid_blocks":
       return invalidBlocksMessage(detail)
     case "relation_self":
@@ -203,6 +209,9 @@ const validationMessage = (reason: string): string => {
 
 const conflictMessage = (reason: string): string => {
   switch (reason) {
+    case "move_ticket_changed":
+    case "move_id_taken":
+      return m.tickets_move_error_changed()
     case "project_key_taken":
       return m.projects_create_key_taken_error()
     case "key_taken":

@@ -1,5 +1,6 @@
 import { GroupPolicy, TicketPolicy } from "@pp/access/policies"
 import { Db } from "@pp/db"
+import * as schema from "@pp/db/schema"
 import {
   type BulkUpdateTicketsInput,
   Conflict,
@@ -35,14 +36,27 @@ import {
   type TicketUpdateResult,
   type UpdateTicketInput,
   type UpdateTicketOrderInput,
-  type Forbidden
+  Forbidden,
+  formatMovedFrom,
+  planTicketMove,
+  rewriteMentionsInMovedTicket,
+  rewriteMentionsOfMovedTickets,
+  Slug,
+  type CurrentUser,
+  type MovedTicket,
+  type MoveDestination,
+  type MoveMentionContext,
+  type MoveTicketInput,
+  type MoveTicketResult
 } from "@pp/shared"
+import { and, asc, eq } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
+import * as Access from "../access/Access"
 import { ticketChanges } from "../activity/changes"
 import * as TicketActivity from "../activity/TicketActivity"
 import * as Attachments from "../attachments/Attachments"
@@ -96,6 +110,10 @@ import {
 import * as TicketView from "./TicketView"
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
+const makeOptionalTicketId = (id: string | undefined) =>
+  id === undefined ? undefined : makeTicketId(id)
+const makeTicketStatus = Schema.decodeSync(TicketStatus)
+const makeSlug = Schema.decodeSync(Slug)
 const DEFAULT_STATUS = Schema.decodeSync(TicketStatus)("todo")
 
 const requireTicketChange = (change: TicketPolicy.Change) =>
@@ -192,6 +210,14 @@ export class TicketCommands extends Context.Service<
       TicketReadError | Validation | Forbidden | SprintCompletedImmutable,
       ProjectScope | ActivityActor
     >
+    move: (
+      id: string,
+      input: MoveTicketInput
+    ) => Effect.Effect<
+      MoveTicketResult,
+      Conflict | Forbidden | TicketReadError | Validation,
+      ProjectScope | ActivityActor | CurrentUser
+    >
     remove: (
       id: string,
       options?: DeleteTicketQuery
@@ -242,7 +268,7 @@ export class TicketCommands extends Context.Service<
 const make = Effect.gen(function* () {
   const ticketDocs = yield* TicketDocs.TicketDocs
   const ticketActivity = yield* TicketActivity.TicketActivity
-  const { withTicketDocumentLock } =
+  const { withTicketDocumentLock, withTicketWriteLocks } =
     yield* TicketDocumentLock.TicketDocumentLock
   const projects = yield* Projects.Projects
   const projectMembers = yield* ProjectMembers.ProjectMembers
@@ -251,6 +277,7 @@ const make = Effect.gen(function* () {
   const groups = yield* Groups.Groups
   const db = yield* Db
   const attachments = yield* Attachments.Attachments
+  const access = yield* Access.Access
   const figmaLinks = yield* FigmaLinks.FigmaLinks
   const library = yield* Library.Library
   const { withTicketRelationsLock } =
@@ -370,7 +397,7 @@ const make = Effect.gen(function* () {
   ): Effect.Effect<void, NotFound | MentionInvalid, ProjectScope> =>
     validateBodyMentionsWithLookups(body, {
       existingTicketIds: (ticketIds) =>
-        ticketIndex.existingIds(project, ticketIds),
+        ticketIndex.mentionableIds(project, ticketIds),
       memberIds: () => projectMembers.memberIds()
     })
 
@@ -948,7 +975,8 @@ const make = Effect.gen(function* () {
 
   const discardSplitResult = (
     project: TicketProject,
-    document: TicketDocs.TicketDocument
+    document: TicketDocs.TicketDocument,
+    options?: TicketDocs.TicketRemoveOptions
   ) =>
     ticketDocs
       .remove(
@@ -968,7 +996,8 @@ const make = Effect.gen(function* () {
               )
             ),
             Effect.andThen(ticketIndex.deleteTicket(project, document.id))
-          )
+          ),
+        options
       )
       .pipe(Effect.ignore)
 
@@ -1251,6 +1280,438 @@ const make = Effect.gen(function* () {
       },
       { concurrency: 2 }
     )
+  })
+
+  const moveDestinationOf = Effect.fnUntraced(function* (
+    source: ProjectScope["Service"],
+    destination: ProjectScope["Service"]
+  ) {
+    const [statuses, tags, memberIds, sourceDoc, destinationDoc, projectKey] =
+      yield* Effect.all(
+        [
+          db
+            .select({ slug: schema.projectStatus.slug })
+            .from(schema.projectStatus)
+            .where(eq(schema.projectStatus.projectId, destination.projectId))
+            .orderBy(asc(schema.projectStatus.orderKey))
+            .pipe(Effect.orDie),
+          db.query.projectTag
+            .findMany({
+              columns: { name: true },
+              where: { projectId: destination.projectId }
+            })
+            .pipe(Effect.orDie),
+          projectMembers.memberIds(),
+          readProjectDocument({ db, docs: projectDocs, project: source }),
+          readProjectDocument({ db, docs: projectDocs, project: destination }),
+          projects.key()
+        ],
+        { concurrency: 6 }
+      ).pipe(Effect.provideService(ProjectScope, destination))
+    const sameRepository =
+      sourceDoc.github !== null &&
+      destinationDoc.github !== null &&
+      sourceDoc.github.repoOwner.toLowerCase() ===
+        destinationDoc.github.repoOwner.toLowerCase() &&
+      sourceDoc.github.repoName.toLowerCase() ===
+        destinationDoc.github.repoName.toLowerCase()
+    return {
+      projectKey,
+      sameRepository,
+      plan: {
+        statuses: statuses.map((row) => row.slug),
+        tags: tags.map((row) => row.name),
+        memberIds,
+        estimation: destinationDoc.estimation
+      } satisfies MoveDestination
+    }
+  })
+
+  const reserveFreeTicketId = (
+    project: TicketProject,
+    projectKey: ProjectKey
+  ): Effect.Effect<TicketId, Markdown.MarkdownError> =>
+    Effect.gen(function* () {
+      while (true) {
+        const candidate = makeTicketId(
+          `${projectKey}-${yield* ticketIndex.reserveTicketNumber(project)}`
+        )
+        const taken = yield* ticketDocs
+          .readRaw(project.orgSlug, project.slug, candidate)
+          .pipe(
+            Effect.as(true),
+            Effect.catchTag("NotFound", () => Effect.succeed(false))
+          )
+        if (!taken) return candidate
+      }
+    })
+
+  const withoutGitLink = (
+    document: TicketDocs.TicketDocument
+  ): TicketDocs.TicketDocument => ({
+    ...document,
+    branch: null,
+    branchAutoLinkDisabled: undefined,
+    pr: null,
+    prState: null,
+    prDraft: undefined,
+    prBase: undefined,
+    lastTransitionedPr: null,
+    stack: undefined,
+    ignoredBranches: undefined
+  })
+
+  const rehomeTicketRows = (
+    source: TicketProject,
+    destination: TicketProject,
+    moved: ReadonlyArray<MovedTicket>
+  ): Effect.Effect<void> =>
+    db
+      .transaction(() =>
+        Effect.forEach(
+          moved,
+          ({ from, to }) =>
+            Effect.gen(function* () {
+              const target = { projectId: destination.projectId, ticketId: to }
+              yield* db
+                .update(schema.attachmentIndex)
+                .set(target)
+                .where(
+                  and(
+                    eq(schema.attachmentIndex.projectId, source.projectId),
+                    eq(schema.attachmentIndex.ticketId, from)
+                  )
+                )
+              yield* db
+                .delete(schema.attachmentReference)
+                .where(
+                  and(
+                    eq(schema.attachmentReference.projectId, source.projectId),
+                    eq(schema.attachmentReference.ticketId, from)
+                  )
+                )
+              yield* db
+                .update(schema.commentIndex)
+                .set(target)
+                .where(
+                  and(
+                    eq(schema.commentIndex.projectId, source.projectId),
+                    eq(schema.commentIndex.ticketId, from)
+                  )
+                )
+              yield* db
+                .update(schema.ticketActivity)
+                .set(target)
+                .where(
+                  and(
+                    eq(schema.ticketActivity.projectId, source.projectId),
+                    eq(schema.ticketActivity.ticketId, from)
+                  )
+                )
+            }),
+          { discard: true }
+        )
+      )
+      .pipe(Effect.orDie)
+
+  const repointMentionsOfMovedTickets = (
+    source: TicketProject,
+    context: MoveMentionContext
+  ) =>
+    Effect.gen(function* () {
+      const ids = yield* ticketDocs.listIds(source.orgSlug, source.slug)
+      const needles = [...context.moved.keys()].map(
+        (id) => `](${formatMentionHref("ticket", id)})`
+      )
+      yield* Effect.forEach(
+        ids,
+        (id) =>
+          Effect.gen(function* () {
+            const raw = yield* ticketDocs.readRaw(
+              source.orgSlug,
+              source.slug,
+              id
+            )
+            if (!needles.some((needle) => raw.content.includes(needle))) return
+            yield* withTicketDocumentLock(
+              source.orgSlug,
+              source.slug,
+              id,
+              ticketDocs.update(
+                source.orgSlug,
+                source.slug,
+                id,
+                (existing) => {
+                  const body = rewriteMentionsOfMovedTickets(
+                    existing.body,
+                    context,
+                    source.slug
+                  )
+                  const commentsRegion = rewriteMentionsOfMovedTickets(
+                    existing.commentsRegion,
+                    context,
+                    source.slug
+                  )
+                  return Effect.succeed(
+                    body === existing.body &&
+                      commentsRegion === existing.commentsRegion
+                      ? existing
+                      : { ...existing, body, commentsRegion }
+                  )
+                },
+                undefined,
+                { silent: true }
+              )
+            )
+          }).pipe(
+            Effect.catchCause((cause) =>
+              Effect.logError("move: repointing a mention failed", {
+                orgSlug: source.orgSlug,
+                slug: source.slug,
+                ticketId: id,
+                cause
+              })
+            )
+          ),
+        { concurrency: 8, discard: true }
+      )
+    }).pipe(
+      Effect.catchCause((cause) =>
+        Effect.logError("move: repointing mentions failed", cause)
+      )
+    )
+
+  const move = Effect.fn("TicketCommands.move")(function* (
+    id: string,
+    input: MoveTicketInput
+  ) {
+    const source = yield* ProjectScope
+    const { orgSlug, userId } = source
+    if (input.toProject === source.slug) {
+      return yield* new Validation({ reason: "move_same_project" })
+    }
+    const destination = yield* access.project(orgSlug, input.toProject)
+    if (!destination.permissions.can({ ticket: ["create"] })) {
+      return yield* new Forbidden()
+    }
+    const { projectKey, sameRepository, plan } = yield* moveDestinationOf(
+      source,
+      destination
+    )
+    if (plan.statuses.length === 0) {
+      return yield* new Validation({ reason: "move_destination_no_statuses" })
+    }
+    if (input.status !== undefined && !plan.statuses.includes(input.status)) {
+      return yield* new Validation({
+        reason: `unknown_status:${input.status}`
+      })
+    }
+
+    const rootId = makeTicketId(id)
+    const root = yield* readTicket(source, id)
+    const children = yield* childIds(source, userId, id)
+    if (root.type === "epic" && children.length > 0) {
+      return yield* new Validation({ reason: "move_epic_has_tickets" })
+    }
+    const sourceIds = [rootId, ...children.map((child) => makeTicketId(child))]
+
+    const result = yield* withTicketLocks(
+      source,
+      sourceIds,
+      Effect.gen(function* () {
+        const originals = yield* Effect.forEach(sourceIds, (sourceId) =>
+          ticketDocs.read(orgSlug, source.slug, sourceId)
+        )
+        const childrenNow = yield* childIds(source, userId, id)
+        if (
+          childrenNow.length !== children.length ||
+          childrenNow.some((child) => !children.includes(child))
+        ) {
+          return yield* new Conflict({ reason: "move_ticket_changed" })
+        }
+        if (originals[0].type === "epic" && children.length > 0) {
+          return yield* new Validation({ reason: "move_epic_has_tickets" })
+        }
+        const moved: Array<MovedTicket> = []
+        for (const original of originals) {
+          moved.push({
+            from: original.id,
+            to: yield* reserveFreeTicketId(destination, projectKey)
+          })
+        }
+        const mentions: MoveMentionContext = {
+          fromProject: source.slug,
+          toProject: destination.slug,
+          moved: new Map(moved.map(({ from, to }) => [from, to]))
+        }
+        const newIdOf = (sourceId: TicketId | undefined) =>
+          sourceId === undefined ? undefined : mentions.moved.get(sourceId)
+        const movedAlong = (ids: ReadonlyArray<TicketId> | undefined) =>
+          (ids ?? []).flatMap((sourceId) => {
+            const next = mentions.moved.get(sourceId)
+            return next === undefined ? [] : [makeTicketId(next)]
+          })
+        const now = yield* DateTime.nowAsDate
+        const documents = originals.map((original, index) => {
+          const fields = planTicketMove(
+            original,
+            plan,
+            original.id === rootId ? input.status : undefined
+          )
+          const linked = sameRepository ? original : withoutGitLink(original)
+          return {
+            ...linked,
+            id: moved[index].to,
+            status: makeTicketStatus(fields.status ?? plan.statuses[0]),
+            tags: fields.tags,
+            assignees: [...fields.assignees],
+            estimate: fields.keepsEstimate ? original.estimate : undefined,
+            parent:
+              original.id === rootId
+                ? undefined
+                : makeOptionalTicketId(newIdOf(original.parent)),
+            splitFrom: makeOptionalTicketId(newIdOf(original.splitFrom)),
+            blockedBy: movedAlong(original.blockedBy),
+            relatedTo: movedAlong(original.relatedTo),
+            duplicateOf: makeOptionalTicketId(newIdOf(original.duplicateOf)),
+            movedFrom: [
+              ...(original.movedFrom ?? []),
+              formatMovedFrom(source.slug, original.id)
+            ],
+            updatedBy: userId,
+            updatedAt: now,
+            body: rewriteMentionsInMovedTicket(original.body, mentions),
+            commentsRegion: rewriteMentionsInMovedTicket(
+              original.commentsRegion,
+              mentions
+            )
+          } satisfies TicketDocs.TicketDocument
+        })
+
+        const created: Array<TicketDocs.TicketDocument> = []
+        yield* Effect.forEach(
+          documents,
+          (document) =>
+            ticketDocs
+              .create(orgSlug, destination.slug, document, (persisted) =>
+                Effect.sync(() => created.push(persisted)).pipe(
+                  Effect.andThen(
+                    Effect.all(
+                      [
+                        attachments.reconcileTicket(
+                          orgSlug,
+                          destination.slug,
+                          persisted.id,
+                          persisted.body
+                        ),
+                        figmaLinks.reconcileTicket(
+                          orgSlug,
+                          destination.slug,
+                          persisted.id,
+                          persisted.title,
+                          persisted.body
+                        )
+                      ],
+                      { concurrency: 2, discard: true }
+                    )
+                  ),
+                  Effect.andThen(
+                    ticketIndex.upsertTicket(destination, persisted)
+                  )
+                )
+              )
+              .pipe(
+                Effect.catchTag("TicketIdTaken", () =>
+                  Effect.fail(new Conflict({ reason: "move_id_taken" }))
+                )
+              ),
+          { discard: true }
+        ).pipe(
+          Effect.onError(() =>
+            Effect.forEach(
+              created,
+              (document) => discardSplitResult(destination, document),
+              { discard: true }
+            )
+          )
+        )
+
+        yield* Effect.forEach(
+          sourceIds,
+          (sourceId) =>
+            groups.removeTicketFromAllGroups(orgSlug, source.slug, sourceId),
+          { discard: true }
+        ).pipe(
+          Effect.andThen(rehomeTicketRows(source, destination, moved)),
+          Effect.onError(() =>
+            Effect.forEach(
+              created,
+              (document) => discardSplitResult(destination, document),
+              { discard: true }
+            )
+          )
+        )
+
+        yield* Effect.gen(function* () {
+          yield* Effect.forEach(
+            documents,
+            (document, index) =>
+              ticketActivity.record(
+                orgSlug,
+                destination.slug,
+                {
+                  kind: "ticket",
+                  id: document.id,
+                  content: TicketDocs.ticketFileContent(document)
+                },
+                [
+                  {
+                    ticketId: document.id,
+                    change: {
+                      kind: "moved" as const,
+                      fromProject: source.slug,
+                      fromId: moved[index].from
+                    }
+                  }
+                ],
+                null,
+                Effect.void
+              ),
+            { discard: true }
+          )
+        }).pipe(
+          Effect.catchCause((cause) =>
+            Effect.logError("move: recording the move failed", {
+              orgSlug,
+              from: source.slug,
+              to: destination.slug,
+              moved,
+              cause
+            })
+          )
+        )
+        yield* Effect.forEach(
+          originals,
+          (original) =>
+            discardSplitResult(source, original, { writeLockHeld: true }),
+          { discard: true }
+        )
+
+        return { moved, mentions }
+      }).pipe(
+        (effect) =>
+          withTicketWriteLocks(orgSlug, source.slug, sourceIds, effect),
+        Effect.uninterruptible
+      )
+    )
+
+    yield* repointMentionsOfMovedTickets(source, result.mentions)
+
+    return {
+      projectSlug: makeSlug(destination.slug),
+      id: result.moved[0].to,
+      moved: result.moved
+    } satisfies MoveTicketResult
   })
 
   const remove = Effect.fn("TicketCommands.remove")(function* (
@@ -1773,6 +2234,7 @@ const make = Effect.gen(function* () {
     clearStaleEstimates,
     split,
     moveInGroup,
+    move,
     remove,
     archive,
     unarchive

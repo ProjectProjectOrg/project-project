@@ -101,6 +101,7 @@ describe("ticketIndexRowsFor", () => {
             tags: [tagName("backend"), tagName("urgent")],
             assignees: ["user-2", "user-3"],
             parent: ticketId("T-9"),
+            movedFrom: [],
             branch: "chore/T-27-index-builders",
             pr: 172,
             prState: "open",

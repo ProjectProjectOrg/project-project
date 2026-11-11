@@ -21,6 +21,8 @@ import {
   EPIC_SECTION_NONE,
   Estimate,
   estimateRank,
+  formatMovedFrom,
+  parseTicketMentionId,
   NotFound,
   TagName,
   TicketActivityChange,
@@ -231,6 +233,11 @@ export type TicketIndexTouchedOptions = Readonly<{
   limit: number
 }>
 
+export type MovedTicketRow = Readonly<{
+  projectSlug: string
+  ticketId: string
+}>
+
 export type TicketIndexMatch = TicketProject &
   Readonly<{
     ticketId: string
@@ -339,6 +346,14 @@ export class TicketIndex extends Context.Service<
       project: TicketProject,
       ticketIds: ReadonlyArray<string>
     ) => Effect.Effect<ReadonlySet<string>>
+    mentionableIds: (
+      project: TicketProject,
+      mentionIds: ReadonlyArray<string>
+    ) => Effect.Effect<ReadonlySet<string>>
+    movedTo: (
+      project: TicketProject,
+      ticketId: string
+    ) => Effect.Effect<MovedTicketRow | null>
     reserveTicketNumber: (project: TicketProject) => Effect.Effect<number>
     tagUsageCounts: (
       project: TicketProject
@@ -429,6 +444,7 @@ export const ticketIndexRowFor = (
   tags: [...document.tags],
   assignees: [...document.assignees],
   parent: document.parent ?? null,
+  movedFrom: [...(document.movedFrom ?? [])],
   branch: document.branch,
   pr: document.pr,
   prState: document.prState,
@@ -1725,6 +1741,100 @@ const make = Effect.gen(function* () {
       )
   })
 
+  const mentionableIds = Effect.fn("TicketIndex.mentionableIds")(function* (
+    project: TicketProject,
+    mentionIds: ReadonlyArray<string>
+  ) {
+    if (mentionIds.length === 0) return new Set<string>()
+    const targets = mentionIds.map((mentionId) => {
+      const target = parseTicketMentionId(mentionId)
+      return {
+        mentionId,
+        projectSlug: target.projectSlug ?? project.slug,
+        ticketId: target.ticketId
+      }
+    })
+    const keyOf = (target: (typeof targets)[number]) =>
+      formatMovedFrom(target.projectSlug, target.ticketId)
+    const keys = [...new Set(targets.map(keyOf))]
+    const slugs = [...new Set(targets.map((target) => target.projectSlug))]
+    const projectRows = yield* db
+      .select({ id: projectIndex.id, slug: projectIndex.slug })
+      .from(projectIndex)
+      .where(
+        and(
+          eq(projectIndex.organizationId, project.organizationId),
+          inArray(projectIndex.slug, slugs)
+        )
+      )
+      .pipe(Effect.orDie)
+    const slugById = new Map(projectRows.map((row) => [row.id, row.slug]))
+    const inProjects = projectRows.map((row) =>
+      and(
+        eq(ticketIndex.projectId, row.id),
+        inArray(
+          ticketIndex.ticketId,
+          targets
+            .filter((target) => target.projectSlug === row.slug)
+            .map((target) => target.ticketId)
+        )
+      )
+    )
+    const rows = yield* db
+      .select({
+        projectId: ticketIndex.projectId,
+        ticketId: ticketIndex.ticketId,
+        movedFrom: ticketIndex.movedFrom
+      })
+      .from(ticketIndex)
+      .where(
+        and(
+          eq(ticketIndex.organizationId, project.organizationId),
+          or(...inProjects, arrayOverlaps(ticketIndex.movedFrom, keys))
+        )
+      )
+      .pipe(Effect.orDie)
+    const known = new Set(
+      rows.flatMap((row) => {
+        const slug = slugById.get(row.projectId)
+        return [
+          ...(slug === undefined ? [] : [formatMovedFrom(slug, row.ticketId)]),
+          ...row.movedFrom
+        ]
+      })
+    )
+    return new Set(
+      targets
+        .filter((target) => known.has(keyOf(target)))
+        .map((target) => target.mentionId)
+    )
+  })
+
+  const movedTo = Effect.fn("TicketIndex.movedTo")(function* (
+    project: TicketProject,
+    ticketId: string
+  ) {
+    const rows = yield* db
+      .select({
+        projectSlug: projectIndex.slug,
+        ticketId: ticketIndex.ticketId
+      })
+      .from(ticketIndex)
+      .innerJoin(projectIndex, eq(projectIndex.id, ticketIndex.projectId))
+      .where(
+        and(
+          eq(ticketIndex.organizationId, project.organizationId),
+          arrayContains(ticketIndex.movedFrom, [
+            formatMovedFrom(project.slug, ticketId)
+          ]),
+          publishedProject()
+        )
+      )
+      .limit(1)
+      .pipe(Effect.orDie)
+    return rows[0] ?? null
+  })
+
   const reserveTicketNumber = Effect.fn("TicketIndex.reserveTicketNumber")(
     function* (project: TicketProject) {
       return yield* db
@@ -2032,6 +2142,8 @@ const make = Effect.gen(function* () {
     count,
     listIds,
     existingIds,
+    mentionableIds,
+    movedTo,
     reserveTicketNumber,
     tagUsageCounts,
     findTicketIdsByTag,

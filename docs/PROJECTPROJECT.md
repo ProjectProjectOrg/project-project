@@ -126,6 +126,17 @@ Code blocks, lists, tables, the works.
 
 Ticket IDs are sequential per project.
 
+**Moving a ticket to another project** in the same org gives it a new ID there; its sub-tickets move with it, and an epic that still has tickets can't be moved. The file, its comments, attachments and activity move; the ticket leaves its sprint and epic, and keeps only the relations to tickets that move with it. The moved ticket lists every earlier location in its frontmatter, oldest first:
+
+```yaml
+movedFrom:
+  - feedback/FB-12 # <project-slug>/<ticket-id>
+```
+
+The ticket index mirrors `movedFrom`, so an old URL redirects to the ticket and an old mention still resolves. Status, tags, assignees and the estimate are kept where the destination has them, and the branch link is kept when both projects use the same repository. Only a PM of the ticket's project can move it, into a project where they can create tickets.
+
+A ticket mention is `mention:ticket/<id>` inside its own project and `mention:ticket/<project-slug>/<id>` across projects. A move rewrites the mentions in the moved ticket and the mentions of it in its old project.
+
 Relations live in the frontmatter of one ticket: the waiting ticket stores `blockedBy`, a duplicate stores `duplicateOf` (set when it is archived as a duplicate), and `relatedTo` stays on the ticket it was added from. The reverse directions ("blocking", "duplicates", the other side of "related") come from the `ticket_relation_index` table, which is rebuilt from frontmatter with the ticket index. Deleting a ticket leaves links to it in other files; reads hide them, and the next relation edit on the referencing ticket drops them.
 
 ### What lives in Postgres

@@ -6,6 +6,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import {
   Archive,
   ArchiveRestore,
+  FolderInput,
   MoreHorizontal,
   Split,
   Timer,
@@ -45,6 +46,7 @@ import {
   unarchiveTicket
 } from "@/features/tickets/atoms/ticketDetail"
 import { ArchiveForm } from "@/features/tickets/components/ticket-list/ArchiveControl"
+import { MoveTicketForm } from "@/features/tickets/components/ticket-list/MoveControl"
 import {
   MarkAsSubmenu,
   RelationsSubmenu
@@ -93,7 +95,7 @@ export type TicketMenuProps = Readonly<{
   fromList?: boolean
 }>
 
-type Flow = "archive" | "template" | null
+type Flow = "archive" | "move" | "template" | null
 
 type ContextTarget = Readonly<{
   "data-popup-open"?: string
@@ -245,7 +247,7 @@ function TicketMenuItems({
         canUnlink={!archived && can.clearBranch}
       />
     </Fragment>,
-    (can.split || template !== undefined || can.archive) && (
+    (can.split || can.move || template !== undefined || can.archive) && (
       <Fragment key="actions">
         {can.split && (
           <DropdownMenuItem
@@ -260,6 +262,15 @@ function TicketMenuItems({
           >
             <Split className="size-4" strokeWidth={1.75} />
             {m.tickets_split_menu_item()}
+          </DropdownMenuItem>
+        )}
+        {can.move && (
+          <DropdownMenuItem
+            onClick={() => onFlow("move")}
+            className="cursor-pointer"
+          >
+            <FolderInput className="size-4" strokeWidth={1.75} />
+            {m.tickets_move_menu_item()}
           </DropdownMenuItem>
         )}
         {template !== undefined && (
@@ -375,6 +386,22 @@ function TicketMenuFlowPopovers({
             failed={Result.isFailure(archiveState)}
             onClose={() => onFlow(null)}
           />
+        </PopoverContent>
+      </Popover>
+      <Popover
+        open={flow === "move"}
+        onOpenChange={(open) => onFlow(open ? "move" : null)}
+      >
+        <PopoverContent
+          anchor={popupAnchor}
+          align="end"
+          sideOffset={6}
+          className="w-80"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {flow === "move" && (
+            <MoveTicketForm id={ticket.id} onClose={() => onFlow(null)} />
+          )}
         </PopoverContent>
       </Popover>
       <ConfirmButton.Popover anchor={popupAnchor} className="w-72">

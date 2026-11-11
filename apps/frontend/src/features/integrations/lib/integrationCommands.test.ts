@@ -33,6 +33,7 @@ const context: CommandContext = {
     edit: false,
     assign: false,
     split: false,
+    move: false,
     archive: false,
     delete: false,
     stackBranch: false,

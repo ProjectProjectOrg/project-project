@@ -708,6 +708,11 @@ export const makeFakeTicketIndex = (
       Effect.sync(
         () => new Set(ticketIds.filter((ticketId) => documents.has(ticketId)))
       ),
+    mentionableIds: (_project, ticketIds) =>
+      Effect.sync(
+        () => new Set(ticketIds.filter((ticketId) => documents.has(ticketId)))
+      ),
+    movedTo: () => Effect.succeed(null),
     reserveTicketNumber: () => Effect.sync(() => nextTicketNumber++),
     tagUsageCounts: () =>
       Effect.sync(() => {

@@ -21,6 +21,7 @@ const context: CommandContext = {
     edit: true,
     assign: true,
     split: true,
+    move: true,
     archive: true,
     delete: true,
     stackBranch: true,

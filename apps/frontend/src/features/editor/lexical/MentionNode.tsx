@@ -1,6 +1,7 @@
 import {
   formatMentionHref,
   parseMentionHref,
+  parseTicketMentionId,
   type MentionType
 } from "@pp/shared"
 import {
@@ -75,7 +76,7 @@ export class MentionNode extends DecoratorNode<ReactElement> {
   getTextContent(): string {
     return this.__mentionType === "user"
       ? `@${this.__mentionLabel}`
-      : this.__mentionId
+      : parseTicketMentionId(this.__mentionId).ticketId
   }
 
   exportDOM(): DOMExportOutput {

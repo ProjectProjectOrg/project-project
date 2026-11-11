@@ -189,6 +189,13 @@ const changeBodies = (
       return [plain(m.tickets_activity_unarchived())]
     case "split":
       return [verb(m.tickets_activity_split(), literal(change.into.join(", ")))]
+    case "moved":
+      return [
+        verb(
+          m.tickets_activity_moved(),
+          literal(`${change.fromProject} / ${change.fromId}`)
+        )
+      ]
     case "relation_added":
       return [
         verb(RELATION_ADDED[change.relation](), {

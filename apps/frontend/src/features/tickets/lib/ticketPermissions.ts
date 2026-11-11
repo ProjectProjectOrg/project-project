@@ -8,6 +8,7 @@ export const ticketPermissions = (actor: ProjectActor) => {
     edit,
     assign: TicketPolicy.canChange(actor, { assignees: true }),
     split: edit && actor.call("tickets", "split"),
+    move: actor.call("tickets", "move"),
     archive: actor.call("tickets", "archive"),
     delete: actor.call("tickets", "delete"),
     stackBranch: actor.call("tickets", "stackBranch"),

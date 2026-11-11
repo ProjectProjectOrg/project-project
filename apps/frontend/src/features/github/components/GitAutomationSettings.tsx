@@ -37,8 +37,7 @@ import {
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
-import { cn } from "@/lib/utils"
+import { StatusOption } from "@/features/statuses/components/StatusOption"
 import { m } from "@/paraglide/messages"
 
 const DONT_MOVE = ""
@@ -228,24 +227,6 @@ function DontMoveOption() {
     <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
       <Minus className="size-4 shrink-0" strokeWidth={1.75} />
       <span className="truncate">{m.git_automation_dont_move()}</span>
-    </span>
-  )
-}
-
-function StatusOption({
-  slug,
-  statuses
-}: Readonly<{ slug: string; statuses: ReadonlyArray<ProjectStatus> }>) {
-  const meta = statusMetaFor(slug, statuses)
-  const Icon = meta.icon
-  return (
-    <span className="flex min-w-0 items-center gap-2">
-      <Icon
-        className={cn("size-4 shrink-0", meta.className)}
-        style={meta.color ? { color: meta.color } : undefined}
-        strokeWidth={1.75}
-      />
-      <span className="truncate">{meta.label}</span>
     </span>
   )
 }

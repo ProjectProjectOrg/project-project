@@ -2874,4 +2874,95 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
       }).pipe(Effect.provide(TestLayer))
     )
   })
+  it.effect(
+    "resolves mentions across projects and finds a ticket by any id it has moved from",
+    () =>
+      Effect.gen(function* () {
+        const suffix = randomUUID()
+        const organizationId = `moved-${suffix}`
+        const otherOrganizationId = `moved-other-${suffix}`
+        yield* withClient(async (client) => {
+          for (const id of [organizationId, otherOrganizationId]) {
+            await client.query(
+              "insert into organization (id, name, slug, created_at) values ($1, $1, $1, now())",
+              [id]
+            )
+          }
+          await client.query(
+            `insert into project_index
+               (id, slug, organization_id, key, name, icon, color, created_by, created_at)
+             values
+               ($1, 'inbox', $4, 'T', 'Inbox', 'folder', 'blue', 'test-user', now()),
+               ($2, 'product', $4, 'PRD', 'Product', 'folder', 'blue', 'test-user', now()),
+               ($3, 'product', $5, 'PRD', 'Elsewhere', 'folder', 'blue', 'test-user', now())`,
+            [
+              randomUUID(),
+              randomUUID(),
+              randomUUID(),
+              organizationId,
+              otherOrganizationId
+            ]
+          )
+        })
+        yield* Effect.addFinalizer(() =>
+          withClient((client) =>
+            client.query("delete from organization where id = any($1)", [
+              [organizationId, otherOrganizationId]
+            ])
+          )
+        )
+
+        const index = yield* TicketIndex.TicketIndex
+        const inbox = yield* index.projectFor(organizationId, "inbox")
+        const product = yield* index.projectFor(organizationId, "product")
+        const elsewhere = yield* index.projectFor(
+          otherOrganizationId,
+          "product"
+        )
+        yield* index.upsertTicket(inbox, indexedDocument("T-1"))
+        yield* index.upsertTicket(inbox, indexedDocument("T-50"))
+        yield* index.upsertTicket(
+          product,
+          indexedDocument("PRD-7", {
+            movedFrom: ["inbox/T-5", "product/PRD-2"]
+          })
+        )
+        yield* index.upsertTicket(elsewhere, indexedDocument("PRD-9"))
+
+        expect(
+          yield* index.mentionableIds(inbox, [
+            "T-1",
+            "T-5",
+            "T-2",
+            "product/PRD-7",
+            "product/PRD-2",
+            "product/PRD-9",
+            "inbox/T-50",
+            "nowhere/T-1"
+          ])
+        ).toEqual(
+          new Set([
+            "T-1",
+            "T-5",
+            "product/PRD-7",
+            "product/PRD-2",
+            "inbox/T-50"
+          ])
+        )
+        expect(yield* index.mentionableIds(product, ["PRD-7", "T-1"])).toEqual(
+          new Set(["PRD-7"])
+        )
+
+        expect(yield* index.movedTo(inbox, "T-5")).toEqual({
+          projectSlug: "product",
+          ticketId: "PRD-7"
+        })
+        expect(yield* index.movedTo(product, "PRD-2")).toEqual({
+          projectSlug: "product",
+          ticketId: "PRD-7"
+        })
+        expect(yield* index.movedTo(inbox, "T-50")).toBeNull()
+        expect(yield* index.movedTo(elsewhere, "PRD-2")).toBeNull()
+      }).pipe(Effect.provide(TestLayer))
+  )
 })

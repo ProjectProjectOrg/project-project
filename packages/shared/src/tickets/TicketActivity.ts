@@ -85,6 +85,11 @@ export const TicketActivityChange = Schema.Union([
     kind: Schema.Literal("split"),
     into: Schema.Array(TicketId)
   }),
+  Schema.Struct({
+    kind: Schema.Literal("moved"),
+    fromProject: Schema.String,
+    fromId: TicketId
+  }),
   relationChange("relation_added"),
   relationChange("relation_removed"),
   groupChange("group_added"),

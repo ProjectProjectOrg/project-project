@@ -177,6 +177,7 @@ const NO_PROJECT_TICKETS: TicketPermissions = {
   edit: false,
   assign: false,
   split: false,
+  move: false,
   archive: false,
   delete: false,
   stackBranch: false,

@@ -57,6 +57,7 @@ import { Member, Project, ProjectDetail, Slug } from "../projects/Project"
 import { ProjectStatus } from "../statuses/Status"
 import { Tag, TagName } from "../tags/Tag"
 import { TicketBodyEdits } from "../tickets/bodyEdits"
+import { MoveTicketInput, MoveTicketResult } from "../tickets/move"
 import {
   ArchiveTicketInput,
   MarkTicketInput,
@@ -107,7 +108,9 @@ const BLOCK_FORMAT_POINTER =
 const MENTION_GUIDE =
   "Mentions are markdown links: `[Label](mention:user/<userId>)` for a " +
   "project member (ids from `list_members`) and " +
-  "`[Label](mention:ticket/<T-N>)` for a ticket in the same project; " +
+  "`[Label](mention:ticket/<T-N>)` for a ticket in the same project, or " +
+  "`[Label](mention:ticket/<project-slug>/<T-N>)` for one in another " +
+  "project of the organization; " +
   "unknown or malformed mentions fail with `MentionInvalid`."
 
 const orgSlug = Slug.annotate({
@@ -918,6 +921,47 @@ export const Tools = Toolkit.make(
     },
     parameters: Schema.Struct({ orgSlug, projectSlug, id: ticketId }),
     success: TicketDetail
+  }),
+  defineTool("move_ticket", {
+    title: "Move ticket to another project",
+    hints: {
+      readOnly: false,
+      destructive: false,
+      idempotent: false,
+      openWorld: false
+    },
+    description:
+      "Move a ticket to another project in the same organization, for " +
+      "example out of an inbox project into the project that will do the " +
+      "work. The ticket gets a new id in the destination and keeps its " +
+      "description, comments, attachments and history; its old id and URL " +
+      "keep resolving to it. Sub-tickets move with it. An epic that still " +
+      "has tickets can't be moved and fails with `Validation`.\n\n" +
+      "What the destination doesn't have is dropped: tags it doesn't " +
+      "define, assignees who aren't members there, an estimate in another " +
+      "unit, sprint and epic membership, relations to tickets that stay " +
+      "behind, and the branch link unless both " +
+      "projects use the same repository. `status` picks the destination " +
+      "status; without it the ticket keeps its status when the destination " +
+      "has it and takes the destination's first status otherwise.\n\n" +
+      "Mentions are kept: those in the ticket that point at the old " +
+      "project become cross-project mentions, and mentions of the ticket " +
+      "in its old project are repointed. Only a PM of the ticket's project " +
+      "can move it, and you need to be able to create tickets in the " +
+      "destination. Returns the destination project and " +
+      "the new id, with `moved` listing every old and new id.",
+    cli: {
+      command: ["tickets", "move"],
+      args: ["id"],
+      summary: "Move a ticket to another project."
+    },
+    parameters: Schema.Struct({
+      orgSlug,
+      projectSlug,
+      id: ticketId,
+      ...MoveTicketInput.fields
+    }),
+    success: MoveTicketResult
   }),
   defineTool("prepare_ticket_attachment", {
     title: "Prepare attachment upload",
