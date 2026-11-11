@@ -84,6 +84,7 @@ Edit `.env` and fill in:
 - `GITHUB_APP_WEBHOOK_SECRET` — the secret configured on the GitHub App webhook.
 - `BOOTSTRAP_ORG_SLUG` / `BOOTSTRAP_ORG_NAME` — the first organization to create.
 - `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_NAME` / `BOOTSTRAP_OWNER_USERNAME` — the initial owner identity. Use the same email and username as the GitHub account that will sign in.
+- `USER_SECRET_ENCRYPTION_KEY` — a base64-encoded 32-byte key that encrypts saved integration, email and storage credentials. Generate with `openssl rand -base64 32`.
 
 The GitHub OAuth app's "Authorization callback URL" must be:
 
