@@ -42,7 +42,7 @@ import {
   $selectFirstHint,
   missingBlocksMarkdown
 } from "./blockCommands"
-import { $runSlashItem } from "./slashCommands"
+import { $insertBasic, $runSlashItem } from "./slashCommands"
 import { slashMenuSections } from "./slashMenuItems"
 
 const lookup = lookupFor(BUILTIN_LIBRARY)
@@ -364,6 +364,34 @@ describe("$selectFirstHint", () => {
 })
 
 describe("markdown slash actions", () => {
+  it.each([
+    [
+      "- [x] Before\n  - [ ] Nested\n- [ ] Example\n- [x] After",
+      "- [x] Before\n    - [ ] Nested\n\nExample\n\n- [x] After"
+    ],
+    [
+      "- [x] Before\n- [ ] Example\n- [x] After",
+      "- [x] Before\n\nExample\n\n- [x] After"
+    ],
+    ["> Before\n>\n> Example\n>\n> After", "> Before\n\nExample\n\n> After"]
+  ])("converts only the selected block to Text: %s", (body, expected) => {
+    const editor = editorWith(body)
+    run(editor, () => {
+      $caretAfter("Example")
+      $insertBasic(editor, "paragraph")
+    })
+    expect(markdown(editor)).toBe(expected)
+  })
+
+  it("converts an editor-created quote back to Text", () => {
+    const editor = editorWith("Example")
+    run(editor, () => {
+      $caretAfter("Example")
+      $insertBasic(editor, "quote")
+      $insertBasic(editor, "paragraph")
+    })
+    expect(markdown(editor)).toBe("Example")
+  })
   it.each([
     ["h1", "Example", "# Example"],
     ["h2", "Example", "## Example"],

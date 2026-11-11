@@ -1,6 +1,7 @@
 import {
   $applyNodeReplacement,
   DecoratorNode,
+  type DOMExportOutput,
   type NodeKey,
   type SerializedLexicalNode,
   type Spread
@@ -41,6 +42,15 @@ export class ImageNode extends DecoratorNode<ReactElement> {
 
   exportJSON(): SerializedImageNode {
     return { ...super.exportJSON(), ...this.__image }
+  }
+
+  exportDOM(): DOMExportOutput {
+    const { url, alt, title } = this.getImage()
+    const element = document.createElement("img")
+    element.setAttribute("src", defaultUrlTransform(url))
+    element.setAttribute("alt", alt ?? "")
+    if (title != null) element.setAttribute("title", title)
+    return { element }
   }
 
   createDOM(): HTMLElement {

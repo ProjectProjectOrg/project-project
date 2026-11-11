@@ -4,7 +4,7 @@ import { isIP } from "node:net"
 import { Db } from "@pp/db"
 import { linkPreview } from "@pp/db/schema"
 import type { LinkPreview } from "@pp/shared"
-import { eq } from "drizzle-orm"
+import { and, eq, isNull } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -270,7 +270,19 @@ const make = Effect.gen(function* () {
           row.faviconRendering ??
           (yield* resolveFaviconRendering(row.faviconUrl))
         if (row.faviconRendering === null)
-          yield* store({ ...row, faviconRendering: rendering })
+          yield* db
+            .update(linkPreview)
+            .set({ faviconRendering: rendering })
+            .where(
+              and(
+                eq(linkPreview.url, url),
+                isNull(linkPreview.faviconRendering),
+                row.faviconUrl === null
+                  ? isNull(linkPreview.faviconUrl)
+                  : eq(linkPreview.faviconUrl, row.faviconUrl)
+              )
+            )
+            .pipe(Effect.ignore)
         return {
           url,
           title: row.title,

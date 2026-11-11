@@ -1,3 +1,4 @@
+import { $getHtmlContent } from "@lexical/clipboard"
 import { CodeNode } from "@lexical/code"
 import { HorizontalRuleNode } from "@lexical/extension"
 import { LinkNode } from "@lexical/link"
@@ -350,6 +351,26 @@ describe("AUTO_LINK_MATCHERS", () => {
 
 describe("MARKDOWN_TRANSFORMERS", () => {
   it.each([
+    ["\\# Literal", "\\# Literal"],
+    [
+      "\\[label\\](https://example.com)",
+      "\\[label]\\([https://example.com](https://example.com))"
+    ],
+    ["> > - Item", "> > - Item"],
+    ["Note[^n]\n\n[^n]: **bold**", "Note\\[^n]\n\n\\[^n]: \\*\\*bold\\*\\*"],
+    ["[doc][id]\n\n[id]: /first\n[id]: /second", "[doc](/first)"],
+    ["> [doc][id]\n>\n> [id]: /guide", "> [doc](/guide)"],
+    ["[docs](<docs/my file.md>)", "[docs](<docs/my file.md>)"],
+    ["- Item\n\n  ```\n  x()\n  ```", "- Item\n\n    ```\n    x()\n    ```"]
+  ])(
+    "preserves markdown semantics through save and reload: %s",
+    (source, expected) => {
+      const saved = roundTripMarkdown(source)
+      expect(saved).toBe(expected)
+      expect(roundTripMarkdown(saved)).toBe(saved)
+    }
+  )
+  it.each([
     ["- Parent\n  - Child", "- Parent\n    - Child"],
     ["1. Parent\n   1. Child", "1. Parent\n    1. Child"],
     ["- [ ] Parent\n  - [x] Child", "- [ ] Parent\n    - [x] Child"],
@@ -574,6 +595,32 @@ it("saves an ordinary image after restoring the editor's serialized state", () =
   expect(
     editor.read(() => $convertToMarkdownString(MARKDOWN_TRANSFORMERS))
   ).toBe(markdown)
+})
+
+it("copies an ordinary image to the HTML clipboard with its source and description", () => {
+  const editor = createEditor({
+    nodes: [ImageNode],
+    onError: (error) => {
+      throw error
+    }
+  })
+  let html = ""
+  editor.update(
+    () => {
+      $convertFromMarkdownString(
+        '![ProjectProject icon](https://example.com/icon.png "Icon")',
+        MARKDOWN_TRANSFORMERS
+      )
+      $getRoot().select(0, $getRoot().getChildrenSize())
+      html = $getHtmlContent(editor)
+    },
+    { discrete: true }
+  )
+  const document = new DOMParser().parseFromString(html, "text/html")
+  const image = document.querySelector("img")
+  expect(image?.getAttribute("src")).toBe("https://example.com/icon.png")
+  expect(image?.getAttribute("alt")).toBe("ProjectProject icon")
+  expect(image?.getAttribute("title")).toBe("Icon")
 })
 
 describe("figma links in the assembled transformer pipeline", () => {
@@ -876,7 +923,7 @@ describe("ticket blocks", () => {
     const markdown = '<block type="notes">\n\nstill typing'
     expect(importedRootTypes(markdown).types).not.toContain("ticket-block")
     expect(roundTripMarkdown(markdown)).toBe(
-      '&lt;block type="notes"&gt;\n\nstill typing'
+      '\\<block type="notes">\n\nstill typing'
     )
   })
 
@@ -954,7 +1001,7 @@ describe("checklist markers in markdown", () => {
 
   it("keeps a task item whose text starts with a marker a single task", () => {
     expect(roundTripMarkdown("- [ ] [ ] nested marker")).toBe(
-      "- [ ] [ ] nested marker"
+      "- [ ] \\[ ] nested marker"
     )
   })
 })

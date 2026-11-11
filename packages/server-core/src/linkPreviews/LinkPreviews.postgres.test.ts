@@ -227,4 +227,41 @@ describe.skipIf(!databaseUrl)("LinkPreviews", () => {
         expect(network.requested).toEqual([favicon])
       })
   )
+
+  it.effect(
+    "keeps a concurrently refreshed preview when an older icon classification finishes",
+    () =>
+      Effect.gen(function* () {
+        const page = `${origin}/${randomUUID()}`
+        const favicon = `${origin}/${randomUUID()}.svg`
+        yield* Effect.promise(() =>
+          pool.query(
+            "INSERT INTO link_preview (url, title, favicon_url, fetched_at) VALUES ($1, $2, $3, now())",
+            [page, "Cached", favicon]
+          )
+        )
+        const network = fakeFetch(
+          () =>
+            new Response(
+              new ReadableStream({
+                async start(controller) {
+                  await pool.query(
+                    "UPDATE link_preview SET title = 'Refreshed', favicon_url = $2, favicon_rendering = 'original', fetched_at = now() + interval '1 minute' WHERE url = $1",
+                    [page, `${origin}/new.svg`]
+                  )
+                  controller.enqueue(new Uint8Array(await icon().arrayBuffer()))
+                  controller.close()
+                }
+              })
+            )
+        )
+        yield* preview(page, network.fetch)
+        const current = yield* preview(page, network.fetch)
+        expect(current).toMatchObject({
+          title: "Refreshed",
+          faviconUrl: `${origin}/new.svg`,
+          faviconRendering: "original"
+        })
+      })
+  )
 })

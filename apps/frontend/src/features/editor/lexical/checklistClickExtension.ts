@@ -13,6 +13,7 @@ function isCheckboxClick(
 ): HTMLLIElement | null {
   const target = event.target
   if (!(target instanceof HTMLLIElement)) return null
+  if (target.classList.contains("lexical-li-nested")) return null
   if (
     !target.classList.contains("lexical-li-unchecked") &&
     !target.classList.contains("lexical-li-checked")

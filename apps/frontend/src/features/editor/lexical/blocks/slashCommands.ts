@@ -1,7 +1,6 @@
 import { $createCodeNode } from "@lexical/code"
 import { INSERT_HORIZONTAL_RULE_COMMAND } from "@lexical/extension"
 import {
-  REMOVE_LIST_COMMAND,
   INSERT_CHECK_LIST_COMMAND,
   INSERT_ORDERED_LIST_COMMAND,
   INSERT_UNORDERED_LIST_COMMAND
@@ -14,7 +13,6 @@ import {
 } from "@lexical/rich-text"
 import { $setBlocksType } from "@lexical/selection"
 import { INSERT_TABLE_COMMAND } from "@lexical/table"
-import { $unwrapNode } from "@lexical/utils"
 import {
   expandTemplate,
   formatTicketBlock,
@@ -24,6 +22,7 @@ import {
 } from "@pp/shared"
 import {
   $createParagraphNode,
+  $copyNode,
   $getRoot,
   $getSelection,
   $isRangeSelection,
@@ -73,15 +72,24 @@ export function $insertBasic(editor: LexicalEditor, kind: SlashBasicKind) {
   const selection = $getSelection()
   switch (kind) {
     case "paragraph": {
-      editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined)
-      const current = $getSelection()
-      if ($isRangeSelection(current)) {
-        for (const quote of current.anchor
-          .getNode()
-          .getParents()
-          .filter($isQuoteNode))
-          $unwrapNode(quote)
-        $setBlocksType(current, () => $createParagraphNode())
+      if (!$isRangeSelection(selection)) return
+      const paragraphs: ReturnType<typeof $createParagraphNode>[] = []
+      $setBlocksType(selection, () => {
+        const paragraph = $createParagraphNode()
+        paragraphs.push(paragraph)
+        return paragraph
+      })
+      for (const paragraph of paragraphs) {
+        paragraph.setIndent(0)
+        let parent = paragraph.getParent()
+        while ($isQuoteNode(parent)) {
+          const after = paragraph.getNextSiblings()
+          if (after.length > 0)
+            parent.insertAfter($copyNode(parent).append(...after))
+          parent.insertAfter(paragraph)
+          if (parent.isEmpty()) parent.remove()
+          parent = paragraph.getParent()
+        }
       }
       return
     }

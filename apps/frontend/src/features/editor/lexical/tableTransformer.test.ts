@@ -15,7 +15,7 @@ import { $getRoot, createEditor } from "lexical"
 import { expect, it } from "vitest"
 
 import {
-  createCommonMarkTransformer,
+  commonMarkTransformers,
   INLINE_MARKDOWN_TRANSFORMER
 } from "./commonMarkTransformer"
 import { TABLE_TRANSFORMER } from "./tableTransformer"
@@ -29,7 +29,7 @@ const exports = [
   )
 ]
 
-const transformers = [createCommonMarkTransformer(exports), ...exports]
+const transformers = commonMarkTransformers(exports)
 
 it("imports editable cells and preserves a GFM table through export", () => {
   const editor = createEditor({

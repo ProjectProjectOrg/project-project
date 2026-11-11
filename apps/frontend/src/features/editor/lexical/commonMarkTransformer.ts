@@ -1,6 +1,6 @@
 import { $createCodeNode } from "@lexical/code"
 import { $createHorizontalRuleNode } from "@lexical/extension"
-import { $createLinkNode } from "@lexical/link"
+import { $createLinkNode, $isAutoLinkNode, $isLinkNode } from "@lexical/link"
 import {
   $createListItemNode,
   $createListNode,
@@ -60,21 +60,35 @@ export const INLINE_MARKDOWN_TRANSFORMER: TextMatchTransformer = {
     if (!node.hasFormat("code")) node.toggleFormat("code")
     return node
   },
-  export: (node, _children, exportFormat) => {
+  export: (node, children, exportFormat) => {
     if ($isListNode(node)) return ""
     if ($isLineBreakNode(node)) return "  \n"
     if (node instanceof ImageNode)
       return toMarkdown({ type: "image", ...node.getImage() }).trimEnd()
+    if ($isLinkNode(node) && !$isAutoLinkNode(node)) {
+      const destination = toMarkdown({
+        type: "link",
+        url: node.getURL(),
+        title: node.getTitle(),
+        children: []
+      })
+        .trimEnd()
+        .slice(2)
+      return `[${children(node)}]${destination}`
+    }
     if (!$isTextNode(node)) return null
-    if (!node.hasFormat("code"))
-      return exportFormat(
-        node,
-        node
-          .getTextContent()
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
+    if (!node.hasFormat("code")) {
+      const [, leading, value, trailing] = /^(\s*)(.*?)(\s*)$/s.exec(
+        node.getTextContent()
+      ) ?? ["", "", "", ""]
+      const escaped = toMarkdown({ type: "text", value })
+        .replace(/\n$/, "")
+        .replace(/\\([*_`~])/g, "$1")
+      return exportFormat(node, leading + escaped + trailing).replace(
+        /\\\\/g,
+        "\\"
       )
+    }
     return exportFormat(
       node,
       toMarkdown({ type: "inlineCode", value: node.getTextContent() }).trimEnd()
@@ -82,10 +96,45 @@ export const INLINE_MARKDOWN_TRANSFORMER: TextMatchTransformer = {
   }
 }
 
-export function createCommonMarkTransformer(
+export function commonMarkTransformers(
+  transformers: ReadonlyArray<Transformer>
+): Array<Transformer> {
+  const content = [...transformers]
+  const commonMark = createCommonMarkTransformer(content)
+  const nestedBlocks: TextMatchTransformer = {
+    type: "text-match",
+    dependencies: [],
+    regExp: /$^/,
+    export: (node, traverseChildren) => {
+      if (
+        node.isInline() ||
+        !$isListItemNode(node.getParent()) ||
+        $isListNode(node) ||
+        $isTextNode(node) ||
+        $isLineBreakNode(node)
+      )
+        return null
+      for (const transformer of [commonMark, ...content]) {
+        if (
+          transformer.type !== "element" &&
+          transformer.type !== "multiline-element"
+        )
+          continue
+        const result = transformer.export?.(node, traverseChildren)
+        if (result != null)
+          return `\n\n${result}${node.getNextSibling() === null ? "" : "\n\n"}`
+      }
+      return null
+    }
+  }
+  content.unshift(nestedBlocks)
+  return [commonMark, ...content]
+}
+
+function createCommonMarkTransformer(
   transformers: ReadonlyArray<Transformer>
 ): MultilineElementTransformer {
-  return {
+  const transformer: MultilineElementTransformer = {
     type: "multiline-element",
     dependencies: [],
     regExpStart: /^/,
@@ -96,7 +145,7 @@ export function createCommonMarkTransformer(
       if (!$isQuoteNode(node)) return null
       if (!node.getChildren().some($isElementNode))
         return QUOTE.export(node, traverseChildren)
-      return $convertToMarkdownString([...transformers], node)
+      return $convertToMarkdownString([transformer, ...transformers], node)
         .split("\n")
         .map((line) => (line === "" ? ">" : `> ${line}`))
         .join("\n")
@@ -104,11 +153,7 @@ export function createCommonMarkTransformer(
     handleImportAfterStartMatch: ({ lines, rootNode, startLineIndex }) => {
       const source = lines.slice(startLineIndex).join("\n")
       const tree = parseMarkdown(source)
-      const definitions = new Map(
-        tree.children.flatMap((node) =>
-          node.type === "definition" ? [[node.identifier, node] as const] : []
-        )
-      )
+      const definitions = definitionsIn(tree.children)
       const context = {
         source,
         lines: source.split("\n"),
@@ -120,6 +165,20 @@ export function createCommonMarkTransformer(
       return [true, lines.length - 1]
     }
   }
+  return transformer
+}
+
+function definitionsIn(
+  nodes: ReadonlyArray<Nodes>
+): Map<string, Extract<Nodes, { type: "definition" }>> {
+  const definitions = new Map<string, Extract<Nodes, { type: "definition" }>>()
+  const visit = (node: Nodes): void => {
+    if (node.type === "definition" && !definitions.has(node.identifier))
+      definitions.set(node.identifier, node)
+    if ("children" in node) node.children.forEach(visit)
+  }
+  nodes.forEach(visit)
+  return definitions
 }
 
 type ImportContext = Readonly<{
@@ -171,14 +230,7 @@ function appendBlocks(
           ...context,
           source,
           lines: source.split("\n"),
-          definitions: new Map([
-            ...context.definitions,
-            ...tree.children.flatMap((child) =>
-              child.type === "definition"
-                ? [[child.identifier, child] as const]
-                : []
-            )
-          ])
+          definitions: definitionsIn(tree.children)
         })
         return
       }
@@ -317,7 +369,9 @@ function exportList(
         : content
             .replace(/^(\[[ xX]?\])(?=\s|$)/, "\\$1")
             .replace(/^(\s{0,3}\d+)(\.\s)/, "$1\\$2")
-    output.push(indent + prefix + escaped)
+    output.push(
+      indent + prefix + escaped.replace(/\n(?=.)/g, `\n${indent}    `)
+    )
   }
   return output.join("\n")
 }
@@ -325,11 +379,13 @@ function exportList(
 function hasListContinuation(list: ListNode): boolean {
   return list.getChildren().some((item) => {
     if (!$isListItemNode(item)) return false
-    const first = item.getFirstChild()
-    return (
-      $isListNode(first) &&
-      (item.getChildrenSize() > 1 || hasListContinuation(first))
-    )
+    return item
+      .getChildren()
+      .some((child) =>
+        $isListNode(child)
+          ? item.getChildrenSize() > 1 || hasListContinuation(child)
+          : !child.isInline() && !$isTextNode(child) && !$isLineBreakNode(child)
+      )
   })
 }
 

@@ -72,7 +72,7 @@ import {
 } from "../lexical/checklistMarkdown"
 import {
   INLINE_MARKDOWN_TRANSFORMER,
-  createCommonMarkTransformer
+  commonMarkTransformers
 } from "../lexical/commonMarkTransformer"
 import { FigmaExtension } from "../lexical/FigmaExtension"
 import { FigmaPlugin } from "../lexical/FigmaPlugin"
@@ -120,13 +120,12 @@ function createMarkdownTransformers(
     mode === "definition"
       ? [HINT_TRANSFORMER, ...content]
       : [
-          createTicketBlockTransformer(
-            [createCommonMarkTransformer(content), ...content],
-            { emptyAsReference: mode === "template" }
-          ),
+          createTicketBlockTransformer(commonMarkTransformers(content), {
+            emptyAsReference: mode === "template"
+          }),
           ...content
         ]
-  return [createCommonMarkTransformer(transformers), ...transformers]
+  return commonMarkTransformers(transformers)
 }
 
 export const MARKDOWN_TRANSFORMERS = createMarkdownTransformers(
