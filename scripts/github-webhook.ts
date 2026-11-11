@@ -14,7 +14,7 @@ Common options:
   --default-branch <ref> repository default branch (default main)
   --url <url>            webhook endpoint (default $GITHUB_WEBHOOK_URL or http://localhost:3000/api/integrations/github/webhook)
 
-Signs with $GITHUB_APP_WEBHOOK_SECRET.`
+Signs with $GITHUB_APP_WEBHOOK_SECRET, which must be the webhook secret of the stored GitHub App that owns the installation.`
 
 const { positionals, values } = parseArgs({
   allowPositionals: true,

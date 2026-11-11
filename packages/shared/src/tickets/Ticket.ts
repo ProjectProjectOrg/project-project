@@ -84,6 +84,7 @@ export const Ticket = Schema.Struct({
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
   tags: Schema.Array(TagName),
+  repoId: Schema.optional(Schema.NullOr(Schema.String)),
   branch: Schema.NullOr(Schema.String),
   // The PR number observed for this ticket's branch. Updated by the server
   // whenever a `git_states` fetch sees a PR for `branch`. Null while the

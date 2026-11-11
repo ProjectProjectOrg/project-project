@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef } from "react"
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
+import { ticketRepo } from "@/features/github/lib/repos"
 import { useProject } from "@/features/projects/hooks/useProject"
 import {
   movedTicket,
@@ -97,7 +98,7 @@ export function TicketDetail() {
         key={value.id}
         ticket={value}
         members={project.members}
-        github={project.github}
+        github={ticketRepo(project, value.repoId)}
         autoFocusBody={autoFocusBody}
         splitInto={search.splitInto ?? []}
         from={from}

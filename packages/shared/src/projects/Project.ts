@@ -83,8 +83,6 @@ export const PendingProjectMember = Schema.Struct({
 })
 export type PendingProjectMember = typeof PendingProjectMember.Type
 
-// GitHub connection on a project. `null` means no repo connected.
-// `defaultBaseBranch` overrides the repo's default branch when set.
 export const GithubConnection = Schema.Struct({
   repoId: Schema.String,
   repoOwner: Schema.String,
@@ -93,16 +91,72 @@ export const GithubConnection = Schema.Struct({
 })
 export type GithubConnection = typeof GithubConnection.Type
 
-export const GithubOrgIntegrationStatus = Schema.Struct({
-  status: Schema.Literals(["not_connected", "active", "broken"]),
-  accountLogin: Schema.NullOr(Schema.String),
-  accountType: Schema.NullOr(Schema.Literals(["User", "Organization"])),
+export const GithubApp = Schema.Struct({
+  id: Schema.String,
+  githubAppId: Schema.String,
+  name: Schema.String,
+  slug: Schema.String,
+  ownerLogin: Schema.NullOr(Schema.String),
+  createdAt: Schema.DateFromString
+})
+export type GithubApp = typeof GithubApp.Type
+
+export const GithubInstallationProjectAccess = Schema.Literals([
+  "all",
+  "selected"
+])
+export type GithubInstallationProjectAccess =
+  typeof GithubInstallationProjectAccess.Type
+
+export const GithubInstallation = Schema.Struct({
+  id: Schema.String,
+  appId: Schema.NullOr(Schema.String),
+  status: Schema.Literals(["active", "broken"]),
+  accountLogin: Schema.String,
+  accountType: Schema.Literals(["User", "Organization"]),
+  projectAccess: GithubInstallationProjectAccess,
+  projectSlugs: Schema.Array(Slug),
   lastCheckedAt: Schema.NullOr(Schema.DateFromString),
   lastCheckError: Schema.NullOr(Schema.String)
 })
+export type GithubInstallation = typeof GithubInstallation.Type
+
+export const GithubOrgIntegrationStatus = Schema.Struct({
+  status: Schema.Literals(["not_connected", "active", "broken"]),
+  apps: Schema.Array(GithubApp),
+  installations: Schema.Array(GithubInstallation)
+})
 export type GithubOrgIntegrationStatus = typeof GithubOrgIntegrationStatus.Type
 
+export const StartGithubAppManifestInput = Schema.Struct({
+  returnProjectSlug: Schema.optional(Schema.NullOr(Slug))
+})
+export type StartGithubAppManifestInput =
+  typeof StartGithubAppManifestInput.Type
+
+export const StartGithubAppManifestResponse = Schema.Struct({
+  action: Schema.String,
+  manifest: Schema.String
+})
+export type StartGithubAppManifestResponse =
+  typeof StartGithubAppManifestResponse.Type
+
+export const UpdateGithubInstallationInput = Schema.Struct({
+  projectAccess: GithubInstallationProjectAccess,
+  projectSlugs: Schema.Array(Slug)
+})
+export type UpdateGithubInstallationInput =
+  typeof UpdateGithubInstallationInput.Type
+
+export const ProjectGithubInstallation = Schema.Struct({
+  id: Schema.String,
+  accountLogin: Schema.String,
+  accountType: Schema.Literals(["User", "Organization"])
+})
+export type ProjectGithubInstallation = typeof ProjectGithubInstallation.Type
+
 export const StartGithubInstallInput = Schema.Struct({
+  appId: Schema.String,
   returnProjectSlug: Schema.optional(Schema.NullOr(Slug))
 })
 export type StartGithubInstallInput = typeof StartGithubInstallInput.Type
@@ -245,11 +299,12 @@ export type CreateProjectInput = typeof CreateProjectInput.Type
 // body); this one carries the markdown body so the detail view can render it
 // without a second round trip. `createdBy` is the immutable creator of the
 // project, kept for audit only.
-// `github` is the connection block from project.md; null when no repo is
-// connected.
 export const ProjectDetail = Schema.Struct({
   ...Project.fields,
   github: Schema.NullOr(GithubConnection),
+  githubRepos: Schema.Array(GithubConnection).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
+  ),
   setup: ProjectSetup,
   estimation: EstimationMode.pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed("off" as const))
@@ -322,7 +377,8 @@ export const ConnectGithubInput = Schema.Struct({
     Schema.check(Schema.isMinLength(1)),
     Schema.check(Schema.isMaxLength(120))
   ),
-  defaultBaseBranch: Schema.optional(Schema.NullOr(Schema.String))
+  defaultBaseBranch: Schema.optional(Schema.NullOr(Schema.String)),
+  installationId: Schema.optional(Schema.String)
 })
 export type ConnectGithubInput = typeof ConnectGithubInput.Type
 

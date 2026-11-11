@@ -12,9 +12,11 @@ import { fireMutation } from "@/api/viewMutation"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuInput,
   DropdownMenuItem,
   DropdownMenuList,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { MiddleTruncate } from "@/components/ui/middle-truncate"
@@ -30,17 +32,19 @@ import {
   usePreloadBranches
 } from "@/features/github/hooks/useBranchResults"
 import { useCanCreateBranches } from "@/features/github/hooks/useCanCreateBranches"
+import { useProjectRepos } from "@/features/github/hooks/useProjectRepos"
 import {
   branchMenuFilter,
   branchPickerEntries,
   defaultBranchName
 } from "@/features/github/lib/branchPicker"
+import { branchListRepoId } from "@/features/github/lib/repos"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { m } from "@/paraglide/messages"
 
 import { BranchPagingNote, BranchResultsFrame } from "./BranchPickerNotes"
-import { BranchBadge } from "./BranchPickerOptions"
+import { BranchBadge, RepoSubmenu } from "./BranchPickerOptions"
 import { CreateBranchSubmenu } from "./CreateBranchSubmenu"
 
 export type BranchPickerMode = "link" | "stack"
@@ -65,8 +69,16 @@ type BranchPickerPlacement = Readonly<{
   )
 
 export function BranchPicker(props: BranchPickerProps & BranchPickerPlacement) {
-  usePreloadBranches()
-  const { ticket, github, align = "end" } = props
+  const { ticket, align = "end" } = props
+  const repos = useProjectRepos()
+  const choosesRepo = props.mode === "link" && repos.length > 1
+  const [pickedRepoId, setPickedRepoId] = useState<string | null>(null)
+  const github =
+    (choosesRepo
+      ? repos.find((repo) => repo.repoId === pickedRepoId)
+      : undefined) ?? props.github
+  const repoId = branchListRepoId(repos, github)
+  usePreloadBranches(repoId)
   const setAttempt = useAtomSet(branchAttempt(ticket.id))
   const [ownOpen, setOwnOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -102,6 +114,8 @@ export function BranchPicker(props: BranchPickerProps & BranchPickerPlacement) {
         <BranchPickerList
           ticket={ticket}
           github={github}
+          repoId={repoId}
+          repoChoice={choosesRepo ? { repos, onChange: setPickedRepoId } : null}
           branchTemplate={props.branchTemplate}
           mode={props.mode}
           query={query}
@@ -112,16 +126,29 @@ export function BranchPicker(props: BranchPickerProps & BranchPickerPlacement) {
   )
 }
 
+type RepoChoice = Readonly<{
+  repos: ReadonlyArray<GithubConnection>
+  onChange: (repoId: string) => void
+}>
+
 function BranchPickerList({
   ticket,
   github,
+  repoId,
+  repoChoice,
   branchTemplate = null,
   mode,
   query,
   onDone
-}: BranchPickerProps & Readonly<{ query: string; onDone: () => void }>) {
+}: BranchPickerProps &
+  Readonly<{
+    repoId: string | undefined
+    repoChoice: RepoChoice | null
+    query: string
+    onDone: () => void
+  }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const results = useBranchResults(query)
+  const results = useBranchResults(query, repoId)
   const defaultBase = github.defaultBaseBranch ?? "main"
   const registry = useContext(RegistryContext)
   const setAttempt = useAtomSet(branchAttempt(ticket.id))
@@ -148,14 +175,18 @@ function BranchPickerList({
     setAttempt({ action: mode === "stack" ? "stack" : "attach", name })
     onDone()
     const atom = mode === "stack" ? stackBranch(request) : attachBranch(request)
-    const result = await fireMutation(registry, atom, { name })
+    const result = await fireMutation(
+      registry,
+      atom,
+      mode === "stack" || repoId === undefined ? { name } : { name, repoId }
+    )
     if (!AsyncResult.isFailure(result)) return
     const failure = Cause.findErrorOption(result.cause)
     if (
       Option.isSome(failure) &&
       Predicate.isTagged(failure.value, "BranchNotFound")
     ) {
-      registry.refresh(branches(branchesRequest(orgSlug, slug, "")))
+      registry.refresh(branches(branchesRequest(orgSlug, slug, "", repoId)))
     }
   }
 
@@ -187,9 +218,10 @@ function BranchPickerList({
           {entries.map((entry) =>
             entry.kind === "create" ? (
               <CreateBranchSubmenu
-                key={`create:${entry.name}`}
+                key={`create:${github.repoId}:${entry.name}`}
                 ticket={ticket}
                 github={github}
+                repoId={repoId}
                 suggestedName={entry.name}
                 onDone={onDone}
               />
@@ -211,6 +243,18 @@ function BranchPickerList({
         </DropdownMenuList>
       </BranchResultsFrame>
       <BranchPagingNote results={results} />
+      {repoChoice === null ? null : (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <RepoSubmenu
+              repos={repoChoice.repos}
+              value={github}
+              onChange={repoChoice.onChange}
+            />
+          </DropdownMenuGroup>
+        </>
+      )}
     </>
   )
 }

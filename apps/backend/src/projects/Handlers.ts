@@ -61,7 +61,27 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
       )
       .handle("startGithubInstall", ({ payload }) =>
         Effect.flatMap(GitHubIntegrations.GitHubIntegrations, (integrations) =>
-          integrations.startInstall(payload.returnProjectSlug)
+          integrations.startInstall(payload.appId, payload.returnProjectSlug)
+        )
+      )
+      .handle("startGithubAppManifest", ({ payload }) =>
+        Effect.flatMap(GitHubIntegrations.GitHubIntegrations, (integrations) =>
+          integrations.startAppManifest(payload)
+        )
+      )
+      .handle("deleteGithubApp", ({ params }) =>
+        Effect.flatMap(GitHubIntegrations.GitHubIntegrations, (integrations) =>
+          integrations.removeApp(params.appId)
+        )
+      )
+      .handle("updateGithubInstallation", ({ params, payload }) =>
+        Effect.flatMap(GitHubIntegrations.GitHubIntegrations, (integrations) =>
+          integrations.updateInstallation(params.installationId, payload)
+        )
+      )
+      .handle("deleteGithubInstallation", ({ params }) =>
+        Effect.flatMap(GitHubIntegrations.GitHubIntegrations, (integrations) =>
+          integrations.removeInstallation(params.installationId)
         )
       )
       .handle("githubInstallationChoices", ({ query }) =>
@@ -76,13 +96,18 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
       )
       .handle("listGithubInstallationRepos", ({ query }) =>
         Effect.flatMap(GitHubIntegrations.GitHubIntegrations, (integrations) =>
-          integrations.listRepos(query.q, query.page ?? 1)
+          integrations.listRepos(query.installationId, query.q, query.page ?? 1)
         )
       )
       .handle("listGithubRepos", ({ query }) =>
         Effect.flatMap(ProjectGithub.ProjectGithub, (github) =>
-          github.repos(query.q, query.page ?? 1)
+          github.repos(query.installationId, query.q, query.page ?? 1)
         ).pipe(dieOnMarkdown)
+      )
+      .handle("listGithubInstallations", () =>
+        Effect.flatMap(ProjectGithub.ProjectGithub, (github) =>
+          github.installations()
+        )
       )
       .handle("addMember", ({ payload }) =>
         Effect.flatMap(ProjectMembers.ProjectMembers, (members) =>
@@ -114,9 +139,9 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
           github.connect(payload)
         ).pipe(dieOnMarkdown)
       )
-      .handle("disconnectGithub", () =>
+      .handle("disconnectGithub", ({ params }) =>
         Effect.flatMap(ProjectGithub.ProjectGithub, (github) =>
-          github.disconnect()
+          github.disconnect(params.repoId)
         ).pipe(dieOnMarkdown)
       )
       .handle("gitStates", () =>
@@ -126,7 +151,7 @@ export const ProjectsHandlerLive = HttpApiBuilder.group(
       )
       .handle("listBranches", ({ query }) =>
         Effect.flatMap(ProjectGithub.ProjectGithub, (github) =>
-          github.branches(query.q, query.first ?? 30, query.after)
+          github.branches(query.repoId, query.q, query.first ?? 30, query.after)
         ).pipe(dieOnMarkdown)
       )
 )

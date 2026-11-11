@@ -20,8 +20,8 @@ import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Predicate from "effect/Predicate"
+import { Octokit } from "octokit"
 
-import { appAuth } from "./appAuth"
 import { octokitFor } from "./clients"
 import {
   githubErrorMessage,
@@ -29,6 +29,7 @@ import {
   narrow,
   type TaggedFailure
 } from "./errors"
+import * as GitHubApps from "./GitHubApps"
 import { GitHubHost } from "./Host"
 import * as ProjectState from "./projectState"
 import * as ProjectStateCache from "./projectStateCache"
@@ -48,6 +49,7 @@ export class GitHub extends Context.Service<
   GitHub,
   Readonly<{
     getInstallationAccount: (
+      appId: string,
       installationId: string
     ) => Effect.Effect<
       GitHubInstallationAccount,
@@ -66,7 +68,13 @@ export class GitHub extends Context.Service<
       VerifiedInstallationRepo,
       RepoGone | RateLimited | GitHubError
     >
-    exchangeAppUserCode: (code: string) => Effect.Effect<string, GitHubError>
+    exchangeAppUserCode: (
+      appId: string,
+      code: string
+    ) => Effect.Effect<string, GitHubError>
+    convertAppManifest: (
+      code: string
+    ) => Effect.Effect<GitHubApps.NewGitHubApp, GitHubError>
     listAppUserInstallations: (
       userAccessToken: string
     ) => Effect.Effect<
@@ -173,7 +181,7 @@ const installationAccount = (
 
 const make = Effect.gen(function* () {
   const host = yield* GitHubHost
-  const auth = yield* appAuth()
+  const apps = yield* GitHubApps.GitHubApps
   const projectStateCache = yield* ProjectStateCache.ProjectStateCache
   const requestState = yield* GitHubRequest.GitHubRequestState
 
@@ -190,6 +198,7 @@ const make = Effect.gen(function* () {
 
   const installationTokenFor = Effect.fn("GitHub.installationTokenFor")(
     function* (installationId: string) {
+      const auth = yield* apps.authForInstallation(installationId)
       const result = yield* Effect.tryPromise({
         try: () =>
           auth({
@@ -203,8 +212,9 @@ const make = Effect.gen(function* () {
     }
   )
 
-  const appToken = (): Effect.Effect<string, GitHubError> =>
+  const appToken = (appId: string): Effect.Effect<string, GitHubError> =>
     Effect.gen(function* () {
+      const auth = yield* apps.auth(appId)
       const result = yield* Effect.tryPromise({
         try: () => auth({ type: "app" }),
         catch: (cause) => new GitHubError({ message: String(cause) })
@@ -213,8 +223,8 @@ const make = Effect.gen(function* () {
     })
 
   const getInstallationAccount = Effect.fn("GitHub.getInstallationAccount")(
-    function* (installationId: string) {
-      const token = yield* appToken()
+    function* (appId: string, installationId: string) {
+      const token = yield* appToken(appId)
       const octokit = octokitFor(token)
       const result = yield* request(
         {
@@ -309,7 +319,8 @@ const make = Effect.gen(function* () {
   )
 
   const exchangeAppUserCode = Effect.fn("GitHub.exchangeAppUserCode")(
-    function* (code: string) {
+    function* (appId: string, code: string) {
+      const auth = yield* apps.auth(appId)
       const result = yield* Effect.tryPromise({
         try: () => auth({ type: "oauth-user", code }),
         catch: (cause) => new GitHubError({ message: String(cause) })
@@ -323,6 +334,32 @@ const make = Effect.gen(function* () {
       return result.token
     }
   )
+
+  const convertAppManifest = Effect.fn("GitHub.convertAppManifest")(function* (
+    code: string
+  ) {
+    const octokit = new Octokit({ retry: { enabled: false } })
+    const response = yield* Effect.tryPromise({
+      try: (signal) =>
+        octokit.rest.apps.createFromManifest({ code, request: { signal } }),
+      catch: (cause) => new GitHubError({ message: githubErrorMessage(cause) })
+    })
+    const app = response.data
+    if (!app.client_secret || !app.pem || !app.webhook_secret || !app.slug) {
+      return yield* new GitHubError({ message: "incomplete GitHub App" })
+    }
+    return {
+      githubAppId: String(app.id),
+      slug: app.slug,
+      name: app.name,
+      ownerLogin:
+        app.owner && "login" in app.owner ? (app.owner.login ?? null) : null,
+      clientId: app.client_id,
+      privateKey: app.pem,
+      clientSecret: app.client_secret,
+      webhookSecret: app.webhook_secret
+    } satisfies GitHubApps.NewGitHubApp
+  })
 
   const listAppUserInstallations = Effect.fn("GitHub.listAppUserInstallations")(
     function* (userAccessToken: string) {
@@ -599,6 +636,7 @@ const make = Effect.gen(function* () {
     listInstallationRepos,
     verifyInstallationRepo,
     exchangeAppUserCode,
+    convertAppManifest,
     listAppUserInstallations,
     createBranchAsUser,
     openPullRequestAsUser,

@@ -5,7 +5,9 @@ import * as Schema from "effect/Schema"
 import { Octokit } from "octokit"
 import { beforeEach, describe, expect, vi } from "vitest"
 
+import type { GitHubAppAuth } from "./appAuth"
 import * as GitHub from "./GitHub"
+import * as GitHubApps from "./GitHubApps"
 import { GitHubHost } from "./Host"
 import * as ProjectStateCache from "./projectStateCache"
 import * as GitHubRequest from "./request"
@@ -23,10 +25,6 @@ const { authenticate, fetch } = vi.hoisted(() => ({
       }) => Promise<{ token: string }>
     >(),
   fetch: vi.fn<typeof globalThis.fetch>()
-}))
-
-vi.mock("./appAuth", () => ({
-  appAuth: () => Effect.succeed(authenticate)
 }))
 
 vi.mock("./clients", () => ({
@@ -47,6 +45,11 @@ const layer = GitHub.layer.pipe(
   Layer.provide(
     Layer.mergeAll(
       Layer.mock(GitHubHost, fakeHost),
+      Layer.mock(GitHubApps.GitHubApps, {
+        auth: () => Effect.succeed(authenticate as unknown as GitHubAppAuth),
+        authForInstallation: () =>
+          Effect.succeed(authenticate as unknown as GitHubAppAuth)
+      }),
       GitHubRequest.layer,
       ProjectStateCache.layer
     )
@@ -95,12 +98,12 @@ describe("GitHub installation authentication", () => {
         const github = yield* GitHub.GitHub
 
         const firstAppCall = yield* github
-          .getInstallationAccount("123")
+          .getInstallationAccount("app", "123")
           .pipe(Effect.flip)
         expect(firstAppCall._tag).toBe("RateLimited")
 
         const secondAppCall = yield* github
-          .getInstallationAccount("456")
+          .getInstallationAccount("app", "456")
           .pipe(Effect.flip)
         expect(secondAppCall._tag).toBe("RateLimited")
 

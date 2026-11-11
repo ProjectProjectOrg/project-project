@@ -653,6 +653,14 @@ it.effect(
           repoName: "project",
           defaultBaseBranch: null
         },
+        githubRepos: [
+          {
+            repoId: "repo-1",
+            repoOwner: "wouter",
+            repoName: "project",
+            defaultBaseBranch: null
+          }
+        ],
         estimation: "off",
         setup: {
           workflowReviewedAt: null,

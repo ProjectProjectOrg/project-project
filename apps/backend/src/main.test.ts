@@ -39,7 +39,6 @@ import { createHmac } from "node:crypto"
 
 import { it } from "@effect/vitest"
 import { AppApi, Authentication, Unauthorized } from "@pp/shared"
-import * as ConfigProvider from "effect/ConfigProvider"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import { FetchHttpClient, HttpRouter, HttpServer } from "effect/http"
@@ -53,6 +52,7 @@ vi.mock("./auth/config", () => ({
   mcpResource: "http://localhost:3000/mcp",
   toolsResource: "http://localhost:3000/api/v1/tools"
 }))
+import * as GitHubApps from "@pp/integration-github/GitHubApps"
 import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 
@@ -200,13 +200,26 @@ it.effect("HttpApiClient.health.get() returns the status and version", () =>
 )
 
 const webhookSecret = "test-webhook-secret"
+const webhookApps = {
+  list: () => Effect.succeed([]),
+  find: () => Effect.succeed(null),
+  byId: () => Effect.succeed(null),
+  create: () => Effect.die("not used"),
+  remove: () => Effect.void,
+  auth: () => Effect.die("not used"),
+  authForInstallation: () => Effect.die("not used"),
+  webhookSecrets: () =>
+    Effect.succeed([{ githubAppId: "1", secret: webhookSecret }]),
+  installationOwner: () => Effect.succeed("1")
+} satisfies GitHubApps.GitHubApps["Service"]
 const jsonBody = (value: Schema.Json) => encodeUnknownJsonSync(value)
 
 const signWebhookBody = (body: string) =>
   `sha256=${createHmac("sha256", webhookSecret).update(body).digest("hex")}`
 
 const makeWebhookHandler = (
-  service: GitHubWebhooks.GitHubWebhooks["Service"]
+  service: GitHubWebhooks.GitHubWebhooks["Service"],
+  apps: GitHubApps.GitHubApps["Service"] = webhookApps
 ) =>
   (() => {
     const web = HttpRouter.toWebHandler(
@@ -216,23 +229,12 @@ const makeWebhookHandler = (
         githubWebhookRoute
       ).pipe(
         Layer.provide(Layer.succeed(GitHubWebhooks.GitHubWebhooks, service)),
-        Layer.provide(
-          ConfigProvider.layer(
-            ConfigProvider.fromUnknown({
-              GITHUB_APP_WEBHOOK_SECRET: webhookSecret
-            })
-          )
-        )
+        Layer.provide(Layer.succeed(GitHubApps.GitHubApps, apps))
       )
     )
     const context = Context.merge(
       Context.make(GitHubWebhooks.GitHubWebhooks, service),
-      Context.make(
-        ConfigProvider.ConfigProvider,
-        ConfigProvider.fromUnknown({
-          GITHUB_APP_WEBHOOK_SECRET: webhookSecret
-        })
-      )
+      Context.make(GitHubApps.GitHubApps, apps)
     )
     return {
       handler: (request: Request) => web.handler(request, context),
@@ -289,6 +291,38 @@ it.effect(
         await dispose()
       }
     })
+)
+
+it.effect("github webhook route ignores an installation another app owns", () =>
+  Effect.promise(async () => {
+    let handled = 0
+    const { handler, dispose } = makeWebhookHandler(
+      {
+        handle: () =>
+          Effect.sync(() => {
+            handled += 1
+          })
+      },
+      { ...webhookApps, installationOwner: () => Effect.succeed("2") }
+    )
+    try {
+      const body = jsonBody({ action: "deleted", installation: { id: 7 } })
+      const response = await handler(
+        new Request("http://localhost/api/integrations/github/webhook", {
+          method: "POST",
+          body,
+          headers: {
+            "x-hub-signature-256": signWebhookBody(body),
+            "x-github-event": "installation"
+          }
+        })
+      )
+      expect(response.status).toBe(200)
+      expect(handled).toBe(0)
+    } finally {
+      await dispose()
+    }
+  })
 )
 
 it.effect("github webhook route rejects invalid signatures", () =>

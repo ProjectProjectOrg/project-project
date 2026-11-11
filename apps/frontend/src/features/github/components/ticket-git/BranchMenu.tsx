@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { clearBranch } from "@/features/github/atoms/github"
+import { repoSlug } from "@/features/github/lib/repos"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/hooks/useActor"
@@ -53,10 +54,7 @@ export function BranchMenu({
   canStack?: boolean
   trigger?: ReactElement
 }>) {
-  const link = usePreferredBranchLink(
-    `${github.repoOwner}/${github.repoName}`,
-    branch
-  )
+  const link = usePreferredBranchLink(repoSlug(github), branch)
   const actor = useProjectActor()
   const canClear = actor.call("tickets", "clearBranch")
   const canStackBranch = canStack && actor.call("tickets", "stackBranch")

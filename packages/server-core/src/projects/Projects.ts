@@ -369,7 +369,7 @@ const make = Effect.gen(function* () {
           createdAt,
           key,
           `# ${input.name}\n`,
-          null,
+          [],
           defaultSetup(),
           "off"
         ).pipe(

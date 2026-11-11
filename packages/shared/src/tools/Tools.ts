@@ -285,8 +285,9 @@ export const Tools = Toolkit.make(
     hints: reads,
     description:
       "Fetch one project: its name and ticket `key`, the GitHub " +
-      "connection (`github`, null when no repository is connected, in " +
-      "which case git automation never runs), the estimation unit " +
+      "connections (`githubRepos`, every connected repository, and " +
+      "`github`, the default one; null when no repository is connected, " +
+      "in which case git automation never runs), the estimation unit " +
       "(`estimation`, see `create_ticket`), members, your `permissions`, " +
       "and `body`, the project's own markdown description. Read `body` " +
       "for background before writing or refining tickets.",
@@ -1054,8 +1055,10 @@ export const Tools = Toolkit.make(
     description:
       "Link a GitHub branch to a ticket as the ticket's own branch. " +
       "Create and push the branch with your own git tooling first: the " +
-      "name is checked against the project's connected repository, and a " +
-      "branch that doesn't exist fails with `BranchNotFound`. Put the " +
+      "name is checked against a connected repository (`repoId`, default: " +
+      "the ticket's repository, then the project's default one), and a " +
+      "branch that doesn't exist fails with `BranchNotFound`. A ticket " +
+      "lives in one repository. Put the " +
       "ticket id in the branch name (e.g. `feat/T-12-short-description`).\n\n" +
       "Opening a pull request also links its branch automatically when " +
       "the PR mentions exactly one ticket, through the branch name, the " +

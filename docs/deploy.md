@@ -81,7 +81,7 @@ Edit `.env` and fill in:
 - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — from your GitHub OAuth app.
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional, from a Google OAuth client. Redirect URI: `https://<your-public-host>/api/auth/callback/google`.
 - `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` / `MICROSOFT_TENANT_ID` — optional, from a Microsoft Entra ID app registration. Redirect URI (Web platform): `https://<your-public-host>/api/auth/callback/microsoft`. `MICROSOFT_TENANT_ID` defaults to `common`; set your tenant ID to allow only your organization. Under _Token configuration_, add the `xms_edov` optional ID token claim: without it Microsoft emails count as unverified, so those users can't accept invites or sign in to an account that already exists.
-- `GITHUB_APP_WEBHOOK_SECRET` — the secret configured on the GitHub App webhook.
+- `USER_SECRET_ENCRYPTION_KEY` — `openssl rand -base64 32`. Encrypts stored credentials, including GitHub App keys.
 - `BOOTSTRAP_ORG_SLUG` / `BOOTSTRAP_ORG_NAME` — the first organization to create.
 - `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_NAME` / `BOOTSTRAP_OWNER_USERNAME` — the initial owner identity. Use the same email and username as the GitHub account that will sign in.
 
@@ -91,14 +91,25 @@ The GitHub OAuth app's "Authorization callback URL" must be:
 https://<your-public-host>/api/auth/callback/github
 ```
 
-The GitHub App webhook URL must be:
+GitHub Apps are not configured on the deployment. An org owner or admin adds
+one under **Settings → Integrations → GitHub → Add GitHub App**, which creates
+the App on GitHub with the right permissions, callback URLs and webhook, and
+stores its credentials encrypted. Each App is then installed on the GitHub
+accounts whose repositories projects should connect.
+
+The App's webhook points at:
 
 ```txt
 https://<your-public-host>/api/integrations/github/webhook
 ```
 
-Subscribe the GitHub App webhook to `installation`,
-`installation_repositories`, and `pull_request` events.
+Deployments that still set `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`,
+`GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, `GITHUB_APP_INSTALL_URL`
+and `GITHUB_APP_WEBHOOK_SECRET` have that App imported once at startup into
+every organization that already has a GitHub connection. The import needs
+`USER_SECRET_ENCRYPTION_KEY`; without it existing connections stop working
+until the key is set and the backend restarts. Remove the `GITHUB_APP_*`
+variables after the first successful start on this version.
 
 ### 3. First boot
 

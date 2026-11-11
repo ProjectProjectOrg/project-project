@@ -48,7 +48,9 @@ outside ProjectProject match too (`feat/pp-123-add-search`, `Pp-123/add-search`)
 IDs must be separated from surrounding letters and digits, so slashes, dashes,
 dots, and brackets all count as boundaries. Only branches carrying a well-formed
 ID are fetched for pull-request state. Matching is scoped to the project and
-repository; the default branch is excluded. Multiple candidate branches,
+repository; the default branch is excluded. In a project with several connected
+repositories every repository is searched, the default one first, and the
+ticket then belongs to the repository its branch was found in. Multiple candidate branches,
 multiple ticket IDs in one branch, and branches already attached to any ticket
 in another connected project require manual attachment. Repository ownership
 uses GitHub's stable repository ID across organizations. Broken connections

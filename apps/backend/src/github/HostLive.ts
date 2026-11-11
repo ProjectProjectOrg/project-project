@@ -5,6 +5,7 @@ import { member, organization } from "@pp/db/schema"
 import { GitHubHost } from "@pp/integration-github/Host"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as GitHubTicketEvents from "@pp/server-core/github/GitHubTicketEvents"
+import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import {
   Forbidden,
   GitHubError,
@@ -16,6 +17,7 @@ import { and, eq, isNull } from "drizzle-orm"
 import * as Config from "effect/Config"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 export const GitHubHostLive = Layer.effect(
@@ -24,12 +26,16 @@ export const GitHubHostLive = Layer.effect(
     const auth = yield* BetterAuth.BetterAuth
     const db = yield* Db
     const events = yield* GitHubTicketEvents.GitHubTicketEvents
+    const secrets = yield* SecretCrypto.SecretCrypto
     const decodeOrgRole = Schema.decodeUnknownEffect(OrgRole)
     const publicBaseUrl = Config.String("BETTER_AUTH_URL").pipe(
       Config.withDefault("http://localhost:5173")
     )
     const configError = new GitHubError({
       message: "missing GitHub App configuration"
+    })
+    const encryptionError = new GitHubError({
+      message: "secret encryption is not configured"
     })
     const requireInstallPermission = Effect.fn(
       "GitHubHost.requireInstallPermission"
@@ -107,7 +113,21 @@ export const GitHubHostLive = Layer.effect(
       url.searchParams.set("installChoice", state)
       return url.toString()
     })
+    const webhookUrl = Effect.fn("GitHubHost.webhookUrl")(function* () {
+      const override = yield* Config.option(
+        Config.String("GITHUB_WEBHOOK_URL")
+      ).pipe(Effect.mapError(() => configError))
+      return Option.isSome(override) && override.value.length > 0
+        ? override.value
+        : `${yield* baseUrl}/api/integrations/github/webhook`
+    })
     return GitHubHost.of({
+      publicBaseUrl: () => baseUrl,
+      webhookUrl,
+      seal: (plaintext) =>
+        secrets.seal(plaintext).pipe(Effect.mapError(() => encryptionError)),
+      open: (sealed) =>
+        secrets.open(sealed).pipe(Effect.mapError(() => encryptionError)),
       pullRequestChanged: (change, deliveryId) =>
         events
           .pullRequestChanged(change, deliveryId)

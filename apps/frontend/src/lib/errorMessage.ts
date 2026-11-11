@@ -224,6 +224,10 @@ const conflictMessage = (reason: string): string => {
       return m.tickets_archive_error_already_archived()
     case "ticket_not_archived":
       return m.tickets_unarchive_error_not_archived()
+    case "github_installation_not_available":
+      return m.github_chip_connect_installation_unavailable_error()
+    case "no_github_app":
+      return m.github_chip_connect_no_app_error()
     case "jira_migration_revision_conflict":
     case "jira_migration_request_conflict":
       return m.jira_import_error_changed_elsewhere()

@@ -26,11 +26,13 @@ import { BaseBranchSubmenu, StatusSubmenu } from "./BranchPickerOptions"
 export function CreateBranchSubmenu({
   ticket,
   github,
+  repoId,
   suggestedName,
   onDone
 }: Readonly<{
   ticket: Pick<TicketDetail, "id" | "status">
   github: GithubConnection
+  repoId: string | undefined
   suggestedName: string
   onDone: () => void
 }>) {
@@ -44,7 +46,7 @@ export function CreateBranchSubmenu({
   function submit() {
     if (branchName === "") return
     onDone()
-    void createBranch({ name: branchName, base, status })
+    void createBranch({ name: branchName, base, status, repoId })
   }
 
   return (
@@ -85,6 +87,7 @@ export function CreateBranchSubmenu({
             onChange={setBase}
             ticketId={ticket.id}
             defaultBase={defaultBase}
+            repoId={repoId}
           />
           <StatusSubmenu value={status} onChange={setStatus} />
         </DropdownMenuGroup>

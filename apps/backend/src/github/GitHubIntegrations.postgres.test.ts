@@ -8,6 +8,7 @@ import { Org } from "@pp/access/roles"
 import { migrationsFolder } from "@pp/db"
 import { DbLive } from "@pp/db"
 import * as GitHub from "@pp/integration-github/GitHub"
+import * as GitHubApps from "@pp/integration-github/GitHubApps"
 import * as GitHubIntegrations from "@pp/integration-github/GitHubIntegrations"
 import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
 import { ProjectStateCache } from "@pp/integration-github/projectStateCache"
@@ -15,6 +16,7 @@ import * as ProjectStateCacheLayer from "@pp/integration-github/projectStateCach
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as GitHubTicketEvents from "@pp/server-core/github/GitHubTicketEvents"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
+import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import { OrgScope } from "@pp/shared"
 import type { GitHubInstallationAccount, RawProjectStates } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
@@ -48,20 +50,20 @@ const installationAccount = (
 })
 
 const githubConfig = ConfigProvider.fromUnknown({
-  GITHUB_APP_CLIENT_ID: "client-id",
-  GITHUB_APP_INSTALL_URL: "https://github.test/apps/pp/installations/new",
   BETTER_AUTH_URL: "https://pp.test"
 })
 
 const makeGithub = (
   exchangeAppUserCode: GitHub.GitHub["Service"]["exchangeAppUserCode"] = (
+    _appId,
     code
   ) => Effect.succeed(`token-${code}`),
   listAppUserInstallations: GitHub.GitHub["Service"]["listAppUserInstallations"] = () =>
     Effect.succeed(accessibleInstallations)
 ): GitHub.GitHub["Service"] => ({
-  getInstallationAccount: (installationId) =>
+  getInstallationAccount: (_appId, installationId) =>
     Effect.succeed(installationAccount(installationId)),
+  convertAppManifest: () => Effect.die("not used in callback tests"),
   listInstallationRepos: () => Effect.die("not used in callback tests"),
   verifyInstallationRepo: () => Effect.die("not used in callback tests"),
   exchangeAppUserCode,
@@ -72,6 +74,17 @@ const makeGithub = (
     Effect.die("not used in callback tests"),
   listInstallationBranches: () => Effect.die("not used in callback tests"),
   branchExistsInstallation: () => Effect.die("not used in callback tests")
+})
+
+const fakeSecrets = Layer.succeed(SecretCrypto.SecretCrypto, {
+  seal: (plaintext) =>
+    Effect.succeed({
+      ciphertext: Buffer.from(plaintext).toString("base64"),
+      nonce: "nonce",
+      tag: "tag"
+    }),
+  open: (sealed) =>
+    Effect.succeed(Buffer.from(sealed.ciphertext, "base64").toString("utf8"))
 })
 
 describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
@@ -88,7 +101,8 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       Layer.provide(
         Layer.mergeAll(
           Layer.mock(BetterAuth.BetterAuth, {}),
-          Layer.mock(GitHubTicketEvents.GitHubTicketEvents, events)
+          Layer.mock(GitHubTicketEvents.GitHubTicketEvents, events),
+          fakeSecrets
         )
       ),
       Layer.provideMerge(ProjectStateCacheLayer.layer),
@@ -97,11 +111,13 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
   const integrationLayerWith = (github: GitHub.GitHub["Service"]) =>
     GitHubIntegrations.layer.pipe(
       Layer.provide(Layer.succeed(GitHub.GitHub, github)),
+      Layer.provide(GitHubApps.layer),
       Layer.provide(GitHubHostLive),
       Layer.provide(
         Layer.mergeAll(
           Layer.mock(BetterAuth.BetterAuth, {}),
-          Layer.mock(GitHubTicketEvents.GitHubTicketEvents, {})
+          Layer.mock(GitHubTicketEvents.GitHubTicketEvents, {}),
+          fakeSecrets
         )
       ),
       Layer.provide(BunCrypto.layer),
@@ -109,14 +125,27 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
     )
   const integrationLayer = GitHubIntegrations.layer.pipe(
     Layer.provide(Layer.succeed(GitHub.GitHub, makeGithub())),
+    Layer.provide(GitHubApps.layer),
     Layer.provide(GitHubHostLive),
     Layer.provide(
       Layer.mergeAll(
         Layer.mock(BetterAuth.BetterAuth, {}),
-        Layer.mock(GitHubTicketEvents.GitHubTicketEvents, {})
+        Layer.mock(GitHubTicketEvents.GitHubTicketEvents, {}),
+        fakeSecrets
       )
     ),
     Layer.provide(BunCrypto.layer),
+    Layer.provide(databaseLayer)
+  )
+  const appsLayer = GitHubApps.layer.pipe(
+    Layer.provide(GitHubHostLive),
+    Layer.provide(
+      Layer.mergeAll(
+        Layer.mock(BetterAuth.BetterAuth, {}),
+        Layer.mock(GitHubTicketEvents.GitHubTicketEvents, {}),
+        fakeSecrets
+      )
+    ),
     Layer.provide(databaseLayer)
   )
   let pool: Pool
@@ -159,6 +188,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
     const userId = randomUUID()
     const organizationId = randomUUID()
     const sessionId = randomUUID()
+    const appId = randomUUID()
     const state = randomUUID()
     const installationId = `installation-${sessionId}`
     const now = date("2026-09-07T12:00:00.000Z")
@@ -186,19 +216,52 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       [randomUUID(), organizationId, userId, role, now]
     )
     await pool.query(
+      `INSERT INTO organization_github_app
+       (id, organization_id, github_app_id, slug, name, client_id, ciphertext, nonce, tag)
+       VALUES ($1, $2, $3, 'pp', 'PP', 'client-id', '', '', '')`,
+      [appId, organizationId, `app-${appId}`]
+    )
+    await pool.query(
       `INSERT INTO github_app_install_session
-       (id, organization_id, user_id, state_hash, installation_id, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+       (id, organization_id, user_id, github_app_id, state_hash, installation_id, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         sessionId,
         organizationId,
         userId,
+        appId,
         createHash("sha256").update(state).digest("hex"),
         withInstallation ? installationId : null,
         date("2099-09-07T12:10:00.000Z")
       ]
     )
-    return { userId, organizationId, sessionId, state, installationId }
+    return { userId, organizationId, sessionId, appId, state, installationId }
+  }
+
+  const insertFollowUpSession = async (
+    fixture: Readonly<{ userId: string; organizationId: string }>,
+    appId: string | null,
+    installationId: string | null
+  ) => {
+    const state = randomUUID()
+    if (installationId !== null) {
+      accessibleInstallations.push(installationAccount(installationId))
+    }
+    await pool.query(
+      `INSERT INTO github_app_install_session
+       (id, organization_id, user_id, github_app_id, state_hash, installation_id, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        randomUUID(),
+        fixture.organizationId,
+        fixture.userId,
+        appId,
+        createHash("sha256").update(state).digest("hex"),
+        installationId,
+        date("2099-09-07T12:10:00.000Z")
+      ]
+    )
+    return state
   }
 
   const callback = (state: string, code: string) =>
@@ -267,7 +330,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
         )
         const url = new URL(redirectUrl)
         expect(`${url.origin}${url.pathname}`).toBe(
-          "https://github.test/apps/pp/installations/new"
+          "https://github.com/apps/pp/installations/new"
         )
         expect(url.searchParams.get("state")).toBe(fixture.state)
         const result = yield* Effect.promise(() =>
@@ -424,7 +487,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       const bothEntered = new Promise<void>((resolve) => {
         release = resolve
       })
-      const raceGithub = makeGithub((code) =>
+      const raceGithub = makeGithub((_appId, code) =>
         Effect.promise(async () => {
           entered += 1
           if (entered === 2) release()
@@ -434,11 +497,13 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       )
       const raceLayer = GitHubIntegrations.layer.pipe(
         Layer.provide(Layer.succeed(GitHub.GitHub, raceGithub)),
+        Layer.provide(GitHubApps.layer),
         Layer.provide(GitHubHostLive),
         Layer.provide(
           Layer.mergeAll(
             Layer.mock(BetterAuth.BetterAuth, {}),
-            Layer.mock(GitHubTicketEvents.GitHubTicketEvents, {})
+            Layer.mock(GitHubTicketEvents.GitHubTicketEvents, {}),
+            fakeSecrets
           )
         ),
         Layer.provide(BunCrypto.layer),
@@ -476,7 +541,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
   )
 
   it.effect(
-    "rolls back the state claim when integration replacement fails",
+    "refuses an installation another organization claimed mid-flow and allows a retry",
     () =>
       Effect.gen(function* () {
         const fixture = yield* Effect.promise(() => insertSession())
@@ -671,6 +736,119 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       })
   )
 
+  it.effect("keeps the first installation when a second is connected", () =>
+    Effect.gen(function* () {
+      const fixture = yield* Effect.promise(() => insertSession())
+      yield* callback(fixture.state, "first")
+      const secondInstallation = `installation-${randomUUID()}`
+      const secondState = yield* Effect.promise(() =>
+        insertFollowUpSession(fixture, fixture.appId, secondInstallation)
+      )
+      yield* callback(secondState, "second")
+      const status = yield* Effect.flatMap(
+        GitHubIntegrations.GitHubIntegrations,
+        (integrations) => integrations.getStatus()
+      ).pipe(asMember(fixture), Effect.provide(integrationLayer))
+      expect(status.status).toBe("active")
+      expect(
+        status.installations.map((installation) => ({
+          appId: installation.appId,
+          status: installation.status,
+          accountLogin: installation.accountLogin,
+          projectAccess: installation.projectAccess
+        }))
+      ).toEqual([
+        {
+          appId: fixture.appId,
+          status: "active",
+          accountLogin: `account-${fixture.installationId}`,
+          projectAccess: "all"
+        },
+        {
+          appId: fixture.appId,
+          status: "active",
+          accountLogin: `account-${secondInstallation}`,
+          projectAccess: "all"
+        }
+      ])
+    }).pipe(Effect.provideService(ConfigProvider.ConfigProvider, githubConfig))
+  )
+
+  it.effect(
+    "stores an app from the manifest flow encrypted and sends the admin to install it",
+    () =>
+      Effect.gen(function* () {
+        const fixture = yield* Effect.promise(() => insertSession())
+        const state = yield* Effect.promise(() =>
+          insertFollowUpSession(fixture, null, null)
+        )
+        const githubAppId = `manifest-${randomUUID()}`
+        const github: GitHub.GitHub["Service"] = {
+          ...makeGithub(),
+          convertAppManifest: () =>
+            Effect.succeed({
+              githubAppId,
+              slug: "pp-manifest",
+              name: "PP manifest",
+              ownerLogin: "acme",
+              clientId: "manifest-client",
+              privateKey: "manifest-private-key",
+              clientSecret: "manifest-client-secret",
+              webhookSecret: "manifest-webhook-secret"
+            })
+        }
+        const { redirectUrl } = yield* Effect.flatMap(
+          GitHubIntegrations.GitHubIntegrations,
+          (integrations) => integrations.completeAppManifest(state, "code")
+        ).pipe(Effect.provide(integrationLayerWith(github)))
+        const url = new URL(redirectUrl)
+        expect(`${url.origin}${url.pathname}`).toBe(
+          "https://github.com/apps/pp-manifest/installations/new"
+        )
+        expect(url.searchParams.get("state")).toBe(state)
+        const stored = yield* Effect.promise(() =>
+          pool.query(
+            `SELECT ciphertext, owner_login FROM organization_github_app
+             WHERE organization_id = $1 AND github_app_id = $2`,
+            [fixture.organizationId, githubAppId]
+          )
+        )
+        expect(stored.rows[0]?.owner_login).toBe("acme")
+        expect(stored.rows[0]?.ciphertext).not.toContain("manifest")
+        const secrets = yield* Effect.flatMap(GitHubApps.GitHubApps, (apps) =>
+          apps.webhookSecrets(githubAppId)
+        ).pipe(Effect.provide(appsLayer))
+        expect(secrets).toEqual([
+          { githubAppId, secret: "manifest-webhook-secret" }
+        ])
+      }).pipe(
+        Effect.provideService(ConfigProvider.ConfigProvider, githubConfig)
+      )
+  )
+
+  it.effect("removing an app disconnects its installations", () =>
+    Effect.gen(function* () {
+      const fixture = yield* Effect.promise(() => insertSession())
+      yield* callback(fixture.state, "install")
+      const status = yield* Effect.flatMap(
+        GitHubIntegrations.GitHubIntegrations,
+        (integrations) => integrations.removeApp(fixture.appId)
+      ).pipe(asMember(fixture), Effect.provide(integrationLayer))
+      expect(status).toEqual({
+        status: "not_connected",
+        apps: [],
+        installations: []
+      })
+      const result = yield* Effect.promise(() =>
+        pool.query(
+          "SELECT status FROM organization_integration WHERE organization_id = $1",
+          [fixture.organizationId]
+        )
+      )
+      expect(result.rows.map((row) => row.status)).toEqual(["disconnected"])
+    }).pipe(Effect.provideService(ConfigProvider.ConfigProvider, githubConfig))
+  )
+
   it.effect("traces each call under one GitHubIntegrations span", () => {
     const spans: Array<Tracer.NativeSpan> = []
     const tracer = Tracer.make({
@@ -692,11 +870,17 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
           .chooseInstallation(fixture.state, fixture.installationId)
           .pipe(asMember(fixture))
         yield* integrations.getStatus().pipe(asMember(fixture))
-        yield* integrations.startInstall(null).pipe(asMember(fixture))
+        yield* integrations
+          .startInstall(fixture.appId, null)
+          .pipe(asMember(fixture))
       }).pipe(Effect.withTracer(tracer), Effect.provide(integrationLayer))
       expect(
         spans
-          .filter((span) => span.name.startsWith("GitHub"))
+          .filter(
+            (span) =>
+              span.name.startsWith("GitHub") &&
+              !span.name.startsWith("GitHubApps.")
+          )
           .map((span) => ({
             name: span.name,
             parent: Option.map(span.parent, (parent) =>
@@ -720,7 +904,15 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
           parent: "GitHubIntegrations.chooseInstallation"
         },
         { name: "GitHubIntegrations.getStatus", parent: null },
-        { name: "GitHubIntegrations.startInstall", parent: null }
+        {
+          name: "GitHubIntegrations.statusOf",
+          parent: "GitHubIntegrations.getStatus"
+        },
+        { name: "GitHubIntegrations.startInstall", parent: null },
+        {
+          name: "GitHubIntegrations.createSession",
+          parent: "GitHubIntegrations.startInstall"
+        }
       ])
     }).pipe(Effect.provideService(ConfigProvider.ConfigProvider, githubConfig))
   })

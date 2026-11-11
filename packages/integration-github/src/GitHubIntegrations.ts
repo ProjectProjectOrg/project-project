@@ -2,10 +2,14 @@
 import { createHash } from "node:crypto"
 
 import { Db } from "@pp/db"
+import { publishedProject } from "@pp/db/projectVisibility"
 import {
   githubAppInstallSession,
   organizationGithubIntegration,
+  organizationGithubIntegrationProject,
   organizationIntegration,
+  projectGithubRepository,
+  projectIndex,
   projectIntegrationLink
 } from "@pp/db/schema"
 import {
@@ -20,26 +24,55 @@ import {
   RateLimited,
   type RepoGone,
   type GithubOrgIntegrationStatus,
-  type Slug
+  type Slug,
+  type StartGithubAppManifestInput,
+  type StartGithubAppManifestResponse,
+  type UpdateGithubInstallationInput
 } from "@pp/shared"
-import { and, eq, gt, inArray, isNull, ne, or } from "drizzle-orm"
-import * as Config from "effect/Config"
+import { and, asc, eq, gt, inArray, isNull, ne, or } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as Crypto from "effect/Crypto"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Base64Url from "effect/encoding/Base64Url"
 import * as Layer from "effect/Layer"
+import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
 import * as GitHub from "./GitHub"
+import * as GitHubApps from "./GitHubApps"
 import { GitHubHost } from "./Host"
 
 export class GitHubIntegrations extends Context.Service<
   GitHubIntegrations,
   Readonly<{
     getStatus: () => Effect.Effect<GithubOrgIntegrationStatus, never, OrgScope>
+    startAppManifest: (
+      input: StartGithubAppManifestInput
+    ) => Effect.Effect<
+      StartGithubAppManifestResponse,
+      NotFound | GitHubError,
+      OrgScope
+    >
+    completeAppManifest: (
+      state: string,
+      code: string
+    ) => Effect.Effect<
+      Readonly<{ redirectUrl: string }>,
+      NotFound | Forbidden | GitHubError
+    >
+    removeApp: (
+      appId: string
+    ) => Effect.Effect<GithubOrgIntegrationStatus, NotFound, OrgScope>
+    updateInstallation: (
+      installationId: string,
+      input: UpdateGithubInstallationInput
+    ) => Effect.Effect<GithubOrgIntegrationStatus, NotFound, OrgScope>
+    removeInstallation: (
+      installationId: string
+    ) => Effect.Effect<GithubOrgIntegrationStatus, NotFound, OrgScope>
     startInstall: (
+      appId: string,
       returnProjectSlug: Slug | null | undefined
     ) => Effect.Effect<
       Readonly<{ installUrl: string }>,
@@ -72,6 +105,7 @@ export class GitHubIntegrations extends Context.Service<
       OrgScope
     >
     listRepos: (
+      installationId: string | undefined,
       query: string | undefined,
       page: number
     ) => Effect.Effect<
@@ -85,48 +119,84 @@ export class GitHubIntegrations extends Context.Service<
 const hashState = (state: string) =>
   createHash("sha256").update(state).digest("hex")
 
-const configError = new GitHubError({
-  message: "missing GitHub App configuration"
-})
+const encodeManifest = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))
 
 type InstallSession = typeof githubAppInstallSession.$inferSelect
 
-const githubAuthorizeUrl = (
-  state: string
-): Effect.Effect<string, GitHubError> =>
-  Effect.gen(function* () {
-    const clientId = yield* Config.String("GITHUB_APP_CLIENT_ID")
-    const url = new URL("https://github.com/login/oauth/authorize")
-    url.searchParams.set("client_id", clientId)
-    url.searchParams.set("state", state)
-    return url.toString()
-  }).pipe(Effect.mapError(() => configError))
+const githubAuthorizeUrl = (clientId: string, state: string): string => {
+  const url = new URL("https://github.com/login/oauth/authorize")
+  url.searchParams.set("client_id", clientId)
+  url.searchParams.set("state", state)
+  return url.toString()
+}
 
-const githubInstallUrl = (state: string): Effect.Effect<string, GitHubError> =>
-  Effect.gen(function* () {
-    const raw = yield* Config.String("GITHUB_APP_INSTALL_URL")
-    const url = new URL(raw)
-    url.searchParams.set("state", state)
-    return url.toString()
-  }).pipe(Effect.mapError(() => configError))
+const githubInstallUrl = (slug: string, state: string): string => {
+  const url = new URL(`https://github.com/apps/${slug}/installations/new`)
+  url.searchParams.set("state", state)
+  return url.toString()
+}
+
+const isLocalUrl = (raw: string): boolean => {
+  const { hostname } = new URL(raw)
+  return hostname === "localhost" || hostname === "127.0.0.1"
+}
+
+export const appManifest = (
+  organizationName: string,
+  baseUrl: string,
+  webhookUrl: string
+) => {
+  const manifest = {
+    name: `ProjectProject ${organizationName}`.slice(0, 34).trim(),
+    url: baseUrl,
+    redirect_url: `${baseUrl}/api/integrations/github/manifest`,
+    callback_urls: [`${baseUrl}/api/integrations/github/callback`],
+    setup_url: `${baseUrl}/api/integrations/github/setup`,
+    public: true,
+    request_oauth_on_install: false,
+    default_permissions: {
+      metadata: "read",
+      contents: "read",
+      pull_requests: "read",
+      checks: "read",
+      statuses: "read"
+    }
+  }
+  return isLocalUrl(webhookUrl)
+    ? { ...manifest, default_events: [] }
+    : {
+        ...manifest,
+        hook_attributes: { url: webhookUrl, active: true },
+        default_events: [
+          "pull_request",
+          "repository",
+          "delete",
+          "check_suite",
+          "status"
+        ]
+      }
+}
 
 const make = Effect.gen(function* () {
   const db = yield* Db
   const crypto = yield* Crypto.Crypto
   const sql = yield* SqlClient.SqlClient
   const github = yield* GitHub.GitHub
+  const apps = yield* GitHubApps.GitHubApps
   const host = yield* GitHubHost
 
-  const connectedOrgGithub = (organizationId: string) =>
+  const installationRows = (organizationId: string) =>
     db
       .select({
-        integrationId: organizationIntegration.id,
+        id: organizationIntegration.id,
+        appId: organizationGithubIntegration.githubAppId,
         status: organizationIntegration.status,
         lastCheckedAt: organizationIntegration.lastCheckedAt,
         lastCheckError: organizationIntegration.lastCheckError,
         installationId: organizationGithubIntegration.installationId,
         accountLogin: organizationGithubIntegration.githubAccountLogin,
-        accountType: organizationGithubIntegration.githubAccountType
+        accountType: organizationGithubIntegration.githubAccountType,
+        projectAccess: organizationGithubIntegration.projectAccess
       })
       .from(organizationIntegration)
       .innerJoin(
@@ -143,74 +213,113 @@ const make = Effect.gen(function* () {
           inArray(organizationIntegration.status, ["active", "broken"])
         )
       )
-      .limit(1)
-      .pipe(
-        Effect.orDie,
-        Effect.map((rows) => rows[0] ?? null)
-      )
+      .orderBy(asc(organizationIntegration.connectedAt))
+      .pipe(Effect.orDie)
 
-  const getStatus = Effect.fn("GitHubIntegrations.getStatus")(
-    function* (): Effect.fn.Return<
-      GithubOrgIntegrationStatus,
-      never,
-      OrgScope
-    > {
-      const org = yield* OrgScope
-      const row = yield* connectedOrgGithub(org.organizationId)
-      if (!row) {
-        return {
-          status: "not_connected",
-          accountLogin: null,
-          accountType: null,
-          lastCheckedAt: null,
-          lastCheckError: null
-        }
-      }
-      return {
+  const statusOf = Effect.fn("GitHubIntegrations.statusOf")(function* (
+    organizationId: string
+  ): Effect.fn.Return<GithubOrgIntegrationStatus> {
+    const [appRows, rows, allowed] = yield* Effect.all(
+      [
+        apps.list(organizationId),
+        installationRows(organizationId),
+        db
+          .select({
+            integrationId:
+              organizationGithubIntegrationProject.organizationIntegrationId,
+            slug: projectIndex.slug
+          })
+          .from(organizationGithubIntegrationProject)
+          .innerJoin(
+            projectIndex,
+            eq(projectIndex.id, organizationGithubIntegrationProject.projectId)
+          )
+          .where(eq(projectIndex.organizationId, organizationId))
+          .orderBy(asc(projectIndex.slug))
+          .pipe(Effect.orDie)
+      ],
+      { concurrency: 3 }
+    )
+    return {
+      status:
+        rows.length === 0
+          ? "not_connected"
+          : rows.some((row) => row.status === "active")
+            ? "active"
+            : "broken",
+      apps: appRows,
+      installations: rows.map((row) => ({
+        id: row.id,
+        appId: row.appId,
         status: row.status === "active" ? "active" : "broken",
         accountLogin: row.accountLogin,
         accountType: row.accountType,
+        projectAccess: row.projectAccess,
+        projectSlugs: allowed.flatMap((project) =>
+          project.integrationId === row.id ? [project.slug] : []
+        ),
         lastCheckedAt: row.lastCheckedAt,
         lastCheckError: row.lastCheckError
+      }))
+    }
+  })
+
+  const getStatus = Effect.fn("GitHubIntegrations.getStatus")(function* () {
+    const org = yield* OrgScope
+    return yield* statusOf(org.organizationId)
+  })
+
+  const createSession = Effect.fn("GitHubIntegrations.createSession")(
+    function* (
+      appId: string | null,
+      returnProjectSlug: Slug | null | undefined
+    ): Effect.fn.Return<string, NotFound, OrgScope> {
+      const org = yield* OrgScope
+      const returnProject =
+        returnProjectSlug == null
+          ? null
+          : yield* host.installationProject(
+              org.organizationId,
+              returnProjectSlug
+            )
+      if (returnProjectSlug != null && !returnProject) {
+        return yield* new NotFound()
       }
+      const state = Base64Url.encode(
+        yield* crypto.randomBytes(32).pipe(Effect.orDie)
+      )
+      const now = yield* DateTime.now
+      const expiresAt = DateTime.toDate(DateTime.add(now, { minutes: 10 }))
+      yield* db
+        .insert(githubAppInstallSession)
+        .values({
+          organizationId: org.organizationId,
+          userId: org.userId,
+          githubAppId: appId,
+          returnProjectId: returnProject?.id ?? null,
+          returnProjectOrgId: returnProject?.organizationId ?? null,
+          stateHash: hashState(state),
+          expiresAt
+        })
+        .pipe(Effect.orDie)
+      return state
     }
   )
 
-  const startInstall = Effect.fn("GitHubIntegrations.startInstall")(function* (
-    returnProjectSlug: Slug | null | undefined
-  ): Effect.fn.Return<
-    Readonly<{ installUrl: string }>,
-    NotFound | GitHubError,
-    OrgScope
-  > {
-    const org = yield* OrgScope
-    const returnProject =
-      returnProjectSlug == null
-        ? null
-        : yield* host.installationProject(org.organizationId, returnProjectSlug)
-    if (returnProjectSlug != null && !returnProject) {
-      return yield* new NotFound()
+  const startAppManifest = Effect.fn("GitHubIntegrations.startAppManifest")(
+    function* (input: StartGithubAppManifestInput) {
+      const org = yield* OrgScope
+      const baseUrl = yield* host.publicBaseUrl()
+      const webhookUrl = yield* host.webhookUrl()
+      const state = yield* createSession(null, input.returnProjectSlug)
+      const action = new URL("https://github.com/settings/apps/new")
+      action.searchParams.set("state", state)
+      return {
+        action: action.toString(),
+        manifest: encodeManifest(appManifest(org.orgSlug, baseUrl, webhookUrl))
+      }
     }
-
-    const state = Base64Url.encode(
-      yield* crypto.randomBytes(32).pipe(Effect.orDie)
-    )
-    const now = yield* DateTime.now
-    const expiresAt = DateTime.toDate(DateTime.add(now, { minutes: 10 }))
-    yield* db
-      .insert(githubAppInstallSession)
-      .values({
-        organizationId: org.organizationId,
-        userId: org.userId,
-        returnProjectId: returnProject?.id ?? null,
-        returnProjectOrgId: returnProject?.organizationId ?? null,
-        stateHash: hashState(state),
-        expiresAt
-      })
-      .pipe(Effect.orDie)
-
-    return { installUrl: yield* githubAuthorizeUrl(state) }
-  })
+  )
 
   const sessionForState = (
     state: string
@@ -231,6 +340,57 @@ const make = Effect.gen(function* () {
       return session
     })
 
+  const sessionApp = (session: InstallSession) =>
+    Effect.gen(function* () {
+      const app =
+        session.githubAppId === null
+          ? null
+          : yield* apps.find(session.organizationId, session.githubAppId)
+      if (!app) return yield* new NotFound()
+      return app
+    })
+
+  const completeAppManifest = Effect.fn(
+    "GitHubIntegrations.completeAppManifest"
+  )(function* (state: string, code: string) {
+    const session = yield* sessionForState(state)
+    if (session.githubAppId !== null) return yield* new NotFound()
+    yield* host.requireInstallPermission(session.organizationId, session.userId)
+    const converted = yield* github.convertAppManifest(code)
+    const app = yield* apps.create(session.organizationId, converted)
+    const now = yield* DateTime.nowAsDate
+    yield* db
+      .update(githubAppInstallSession)
+      .set({ githubAppId: app.id })
+      .where(
+        and(
+          eq(githubAppInstallSession.id, session.id),
+          isNull(githubAppInstallSession.completedAt),
+          isNull(githubAppInstallSession.githubAppId),
+          gt(githubAppInstallSession.expiresAt, now)
+        )
+      )
+      .returning({ id: githubAppInstallSession.id })
+      .pipe(
+        Effect.orDie,
+        Effect.flatMap((rows) =>
+          rows[0] ? Effect.void : Effect.fail(new NotFound())
+        )
+      )
+    return { redirectUrl: githubInstallUrl(app.slug, state) }
+  })
+
+  const startInstall = Effect.fn("GitHubIntegrations.startInstall")(function* (
+    appId: string,
+    returnProjectSlug: Slug | null | undefined
+  ) {
+    const org = yield* OrgScope
+    const app = yield* apps.find(org.organizationId, appId)
+    if (!app) return yield* new NotFound()
+    const state = yield* createSession(app.id, returnProjectSlug)
+    return { installUrl: githubAuthorizeUrl(app.clientId, state) }
+  })
+
   const completeSetup = Effect.fn("GitHubIntegrations.completeSetup")(
     function* (
       state: string,
@@ -240,6 +400,7 @@ const make = Effect.gen(function* () {
       NotFound | GitHubError
     > {
       const session = yield* sessionForState(state)
+      const app = yield* sessionApp(session)
       const now = yield* DateTime.nowAsDate
       yield* db
         .update(githubAppInstallSession)
@@ -262,12 +423,45 @@ const make = Effect.gen(function* () {
             rows[0] ? Effect.void : Effect.fail(new NotFound())
           )
         )
-      return { authorizeUrl: yield* githubAuthorizeUrl(state) }
+      return { authorizeUrl: githubAuthorizeUrl(app.clientId, state) }
     }
   )
 
+  const installationsConnectedElsewhere = (
+    organizationId: string,
+    installationIds: ReadonlyArray<string>
+  ) =>
+    installationIds.length === 0
+      ? Effect.succeed(new Set<string>())
+      : db
+          .select({
+            installationId: organizationGithubIntegration.installationId
+          })
+          .from(organizationGithubIntegration)
+          .innerJoin(
+            organizationIntegration,
+            eq(
+              organizationIntegration.id,
+              organizationGithubIntegration.organizationIntegrationId
+            )
+          )
+          .where(
+            and(
+              inArray(
+                organizationGithubIntegration.installationId,
+                installationIds
+              ),
+              ne(organizationIntegration.organizationId, organizationId)
+            )
+          )
+          .pipe(
+            Effect.orDie,
+            Effect.map((rows) => new Set(rows.map((row) => row.installationId)))
+          )
+
   const connectInstallation = (
     session: InstallSession,
+    appId: string,
     account: GitHubInstallationAccount
   ): Effect.Effect<
     Readonly<{ redirectUrl: string }>,
@@ -282,6 +476,13 @@ const make = Effect.gen(function* () {
               session.organizationId,
               session.userId
             )
+            const elsewhere = yield* installationsConnectedElsewhere(
+              session.organizationId,
+              [account.installationId]
+            )
+            if (elsewhere.has(account.installationId)) {
+              return yield* new Forbidden()
+            }
 
             const [claimed] = yield* db
               .update(githubAppInstallSession)
@@ -307,61 +508,51 @@ const make = Effect.gen(function* () {
               .pipe(Effect.orDie)
             if (!claimed) return yield* new NotFound()
 
-            const previousGithubIntegrations = yield* db
-              .select({ id: organizationIntegration.id })
-              .from(organizationIntegration)
-              .innerJoin(
-                organizationGithubIntegration,
-                eq(
-                  organizationGithubIntegration.organizationIntegrationId,
-                  organizationIntegration.id
-                )
-              )
-              .where(
-                and(
-                  eq(
-                    organizationIntegration.organizationId,
-                    session.organizationId
-                  ),
-                  eq(organizationIntegration.provider, "github")
-                )
-              )
-              .pipe(Effect.orDie)
-            const previousIntegrationIds = previousGithubIntegrations.map(
-              (integration) => integration.id
-            )
-
-            yield* db
-              .update(organizationIntegration)
-              .set({
-                status: "disconnected",
-                disconnectedAt: now,
-                updatedAt: now
+            const [existing] = yield* db
+              .select({
+                id: organizationGithubIntegration.organizationIntegrationId
               })
+              .from(organizationGithubIntegration)
               .where(
-                and(
-                  eq(
-                    organizationIntegration.organizationId,
-                    session.organizationId
-                  ),
-                  eq(organizationIntegration.provider, "github"),
-                  inArray(organizationIntegration.status, ["active", "broken"])
+                eq(
+                  organizationGithubIntegration.installationId,
+                  account.installationId
                 )
               )
+              .limit(1)
               .pipe(Effect.orDie)
-
-            yield* previousIntegrationIds.length === 0
-              ? Effect.void
-              : db
-                  .delete(organizationGithubIntegration)
-                  .where(
-                    inArray(
-                      organizationGithubIntegration.organizationIntegrationId,
-                      previousIntegrationIds
-                    )
+            const github = {
+              githubAppId: appId,
+              installationId: account.installationId,
+              githubAccountId: account.accountId,
+              githubAccountLogin: account.accountLogin,
+              githubAccountType: account.accountType
+            }
+            if (existing) {
+              yield* db
+                .update(organizationIntegration)
+                .set({
+                  status: "active",
+                  disconnectedAt: null,
+                  lastCheckedAt: now,
+                  lastCheckStatus: "ok",
+                  lastCheckError: null,
+                  updatedAt: now
+                })
+                .where(eq(organizationIntegration.id, existing.id))
+                .pipe(Effect.orDie)
+              yield* db
+                .update(organizationGithubIntegration)
+                .set(github)
+                .where(
+                  eq(
+                    organizationGithubIntegration.organizationIntegrationId,
+                    existing.id
                   )
-                  .pipe(Effect.orDie)
-
+                )
+                .pipe(Effect.orDie)
+              return undefined
+            }
             const [created] = yield* db
               .insert(organizationIntegration)
               .values({
@@ -373,44 +564,11 @@ const make = Effect.gen(function* () {
               })
               .returning()
               .pipe(Effect.orDie)
-
             yield* db
               .insert(organizationGithubIntegration)
-              .values({
-                organizationIntegrationId: created.id,
-                installationId: account.installationId,
-                githubAccountId: account.accountId,
-                githubAccountLogin: account.accountLogin,
-                githubAccountType: account.accountType
-              })
+              .values({ organizationIntegrationId: created.id, ...github })
               .pipe(Effect.orDie)
-
-            yield* previousIntegrationIds.length === 0
-              ? Effect.void
-              : db
-                  .update(projectIntegrationLink)
-                  .set({
-                    organizationIntegrationId: created.id,
-                    updatedAt: now
-                  })
-                  .where(
-                    and(
-                      eq(
-                        projectIntegrationLink.organizationId,
-                        session.organizationId
-                      ),
-                      eq(projectIntegrationLink.provider, "github"),
-                      inArray(projectIntegrationLink.status, [
-                        "active",
-                        "broken"
-                      ]),
-                      inArray(
-                        projectIntegrationLink.organizationIntegrationId,
-                        previousIntegrationIds
-                      )
-                    )
-                  )
-                  .pipe(Effect.orDie)
+            return undefined
           })
         )
         .pipe(Effect.catchTag("SqlError", Effect.die))
@@ -431,7 +589,8 @@ const make = Effect.gen(function* () {
       NotFound | Forbidden | RateLimited | GitHubError
     > {
       const session = yield* sessionForState(state)
-      const userToken = yield* github.exchangeAppUserCode(code)
+      const app = yield* sessionApp(session)
+      const userToken = yield* github.exchangeAppUserCode(app.id, code)
       const installations = yield* github.listAppUserInstallations(userToken)
       const installationId = session.installationId
       if (installationId) {
@@ -440,7 +599,7 @@ const make = Effect.gen(function* () {
         )
         if (!canAccess) return yield* new Forbidden()
         const account = yield* github
-          .getInstallationAccount(installationId)
+          .getInstallationAccount(app.id, installationId)
           .pipe(
             Effect.catchTag("RepoGone", () =>
               Effect.fail(
@@ -448,10 +607,10 @@ const make = Effect.gen(function* () {
               )
             )
           )
-        return yield* connectInstallation(session, account)
+        return yield* connectInstallation(session, app.id, account)
       }
       if (installations.length === 0) {
-        return { redirectUrl: yield* githubInstallUrl(state) }
+        return { redirectUrl: githubInstallUrl(app.slug, state) }
       }
       const now = yield* DateTime.nowAsDate
       yield* db
@@ -493,40 +652,9 @@ const make = Effect.gen(function* () {
       ) {
         return yield* new NotFound()
       }
-      return { session, candidates: session.candidateInstallations }
+      const app = yield* sessionApp(session)
+      return { session, app, candidates: session.candidateInstallations }
     })
-
-  const installationsConnectedElsewhere = (
-    organizationId: string,
-    installationIds: ReadonlyArray<string>
-  ) =>
-    installationIds.length === 0
-      ? Effect.succeed(new Set<string>())
-      : db
-          .select({
-            installationId: organizationGithubIntegration.installationId
-          })
-          .from(organizationGithubIntegration)
-          .innerJoin(
-            organizationIntegration,
-            eq(
-              organizationIntegration.id,
-              organizationGithubIntegration.organizationIntegrationId
-            )
-          )
-          .where(
-            and(
-              inArray(
-                organizationGithubIntegration.installationId,
-                installationIds
-              ),
-              ne(organizationIntegration.organizationId, organizationId)
-            )
-          )
-          .pipe(
-            Effect.orDie,
-            Effect.map((rows) => new Set(rows.map((row) => row.installationId)))
-          )
 
   const installationChoices = Effect.fn(
     "GitHubIntegrations.installationChoices"
@@ -557,9 +685,9 @@ const make = Effect.gen(function* () {
       NotFound | Forbidden | Conflict | GitHubError,
       OrgScope
     > {
-      const { session, candidates } = yield* choiceSession(state)
+      const { session, app, candidates } = yield* choiceSession(state)
       if (installationId === null) {
-        return { redirectUrl: yield* githubInstallUrl(state) }
+        return { redirectUrl: githubInstallUrl(app.slug, state) }
       }
       const account = candidates.find(
         (candidate) => candidate.installationId === installationId
@@ -574,19 +702,172 @@ const make = Effect.gen(function* () {
           reason: "installation_connected_elsewhere"
         })
       }
-      return yield* connectInstallation(session, account)
+      return yield* connectInstallation(session, app.id, account)
+    }
+  )
+
+  const disconnectInstallations = (integrationIds: ReadonlyArray<string>) =>
+    integrationIds.length === 0
+      ? Effect.void
+      : sql
+          .withTransaction(
+            Effect.gen(function* () {
+              const now = yield* DateTime.nowAsDate
+              yield* db
+                .update(organizationIntegration)
+                .set({
+                  status: "disconnected",
+                  disconnectedAt: now,
+                  updatedAt: now
+                })
+                .where(inArray(organizationIntegration.id, [...integrationIds]))
+                .pipe(Effect.orDie)
+              const links = yield* db
+                .update(projectIntegrationLink)
+                .set({
+                  status: "disconnected",
+                  disconnectedAt: now,
+                  updatedAt: now
+                })
+                .where(
+                  and(
+                    eq(projectIntegrationLink.provider, "github"),
+                    inArray(projectIntegrationLink.status, [
+                      "active",
+                      "broken"
+                    ]),
+                    inArray(projectIntegrationLink.organizationIntegrationId, [
+                      ...integrationIds
+                    ])
+                  )
+                )
+                .returning({ id: projectIntegrationLink.id })
+                .pipe(Effect.orDie)
+              yield* links.length === 0
+                ? Effect.void
+                : db
+                    .update(projectGithubRepository)
+                    .set({ status: "disconnected" })
+                    .where(
+                      inArray(
+                        projectGithubRepository.projectIntegrationLinkId,
+                        links.map((link) => link.id)
+                      )
+                    )
+                    .pipe(Effect.orDie)
+              yield* db
+                .delete(organizationGithubIntegration)
+                .where(
+                  inArray(
+                    organizationGithubIntegration.organizationIntegrationId,
+                    [...integrationIds]
+                  )
+                )
+                .pipe(Effect.orDie)
+            })
+          )
+          .pipe(Effect.catchTag("SqlError", Effect.die))
+
+  const removeInstallation = Effect.fn("GitHubIntegrations.removeInstallation")(
+    function* (installationId: string) {
+      const org = yield* OrgScope
+      const rows = yield* installationRows(org.organizationId)
+      if (!rows.some((row) => row.id === installationId)) {
+        return yield* new NotFound()
+      }
+      yield* disconnectInstallations([installationId])
+      return yield* statusOf(org.organizationId)
+    }
+  )
+
+  const removeApp = Effect.fn("GitHubIntegrations.removeApp")(function* (
+    appId: string
+  ) {
+    const org = yield* OrgScope
+    const app = yield* apps.find(org.organizationId, appId)
+    if (!app) return yield* new NotFound()
+    const rows = yield* installationRows(org.organizationId)
+    yield* disconnectInstallations(
+      rows.flatMap((row) => (row.appId === app.id ? [row.id] : []))
+    )
+    yield* apps.remove(app.id)
+    return yield* statusOf(org.organizationId)
+  })
+
+  const updateInstallation = Effect.fn("GitHubIntegrations.updateInstallation")(
+    function* (installationId: string, input: UpdateGithubInstallationInput) {
+      const org = yield* OrgScope
+      const rows = yield* installationRows(org.organizationId)
+      if (!rows.some((row) => row.id === installationId)) {
+        return yield* new NotFound()
+      }
+      const projects =
+        input.projectAccess === "all" || input.projectSlugs.length === 0
+          ? []
+          : yield* db
+              .select({ id: projectIndex.id })
+              .from(projectIndex)
+              .where(
+                and(
+                  eq(projectIndex.organizationId, org.organizationId),
+                  inArray(projectIndex.slug, [...input.projectSlugs]),
+                  publishedProject()
+                )
+              )
+              .pipe(Effect.orDie)
+      yield* sql
+        .withTransaction(
+          Effect.gen(function* () {
+            yield* db
+              .update(organizationGithubIntegration)
+              .set({ projectAccess: input.projectAccess })
+              .where(
+                eq(
+                  organizationGithubIntegration.organizationIntegrationId,
+                  installationId
+                )
+              )
+              .pipe(Effect.orDie)
+            yield* db
+              .delete(organizationGithubIntegrationProject)
+              .where(
+                eq(
+                  organizationGithubIntegrationProject.organizationIntegrationId,
+                  installationId
+                )
+              )
+              .pipe(Effect.orDie)
+            yield* projects.length === 0
+              ? Effect.void
+              : db
+                  .insert(organizationGithubIntegrationProject)
+                  .values(
+                    projects.map((project) => ({
+                      organizationIntegrationId: installationId,
+                      projectId: project.id
+                    }))
+                  )
+                  .pipe(Effect.orDie)
+          })
+        )
+        .pipe(Effect.catchTag("SqlError", Effect.die))
+      return yield* statusOf(org.organizationId)
     }
   )
 
   const listRepos = Effect.fn("GitHubIntegrations.listRepos")(function* (
+    installationId: string | undefined,
     query: string | undefined,
     page: number
   ) {
     const org = yield* OrgScope
-    const integration = yield* connectedOrgGithub(org.organizationId)
-    if (!integration || integration.status !== "active") {
-      return yield* new NotFound()
-    }
+    const rows = yield* installationRows(org.organizationId)
+    const integration = rows.find(
+      (row) =>
+        row.status === "active" &&
+        (installationId === undefined || row.id === installationId)
+    )
+    if (!integration) return yield* new NotFound()
     return yield* github.listInstallationRepos(
       integration.installationId,
       query,
@@ -596,6 +877,11 @@ const make = Effect.gen(function* () {
 
   return GitHubIntegrations.of({
     getStatus,
+    startAppManifest,
+    completeAppManifest,
+    removeApp,
+    updateInstallation,
+    removeInstallation,
     startInstall,
     completeSetup,
     completeCallback,
