@@ -1,13 +1,22 @@
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { describe, expect, it } from "@effect/vitest"
 import { Tools } from "@pp/shared"
+import { Command } from "effect/cli"
+import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
+import * as Layer from "effect/Layer"
 import * as Option from "effect/Option"
 
+import { Browser } from "../auth/Browser"
+import { Loopback } from "../auth/Loopback"
+import { ServerStore } from "../servers/ServerStore"
+import { fakeHttp, jsonBody } from "../testing"
+import { UpdateNotice } from "../update/UpdateNotice"
 import { catalogEntries } from "./catalog"
 import { toolInput } from "./input"
 import { groupFilter, parseSort } from "./shaping"
+import { pp } from "./tree"
 
 const entry = (name: string) => {
   const found = catalogEntries.find((candidate) => candidate.name === name)
@@ -129,3 +138,70 @@ describe("generated commands", () => {
     }).pipe(Effect.provide(BunServices.layer))
   )
 })
+
+it.effect.each([
+  {
+    args: ["search", "retry upload", "--limit", "7"],
+    tool: "search_tickets",
+    input: { q: "retry upload", limit: 7 }
+  },
+  { args: ["comments", "T-1"], tool: "list_comments", input: { id: "T-1" } },
+  {
+    args: ["activity", "T-1", "--cursor", "older-page"],
+    tool: "list_ticket_activity",
+    input: { id: "T-1", cursor: "older-page" }
+  }
+])(
+  "routes tickets $tool arguments through the generated command to the server",
+  ({ args, tool, input }) =>
+    Effect.gen(function* () {
+      const sent: Array<unknown> = []
+      const printed: Array<string> = []
+      yield* Command.runWith(pp, { version: "test" })([
+        "tickets",
+        ...args,
+        "--org",
+        "acme",
+        "--project",
+        "demo",
+        "--json"
+      ]).pipe(
+        Effect.provideService(Console.Console, {
+          ...globalThis.console,
+          log: (...parts: ReadonlyArray<unknown>) => {
+            printed.push(parts.join(" "))
+          }
+        }),
+        Effect.provide(
+          Layer.mergeAll(
+            Browser.layer,
+            Loopback.layer,
+            Layer.mock(ServerStore, {
+              file: "unused-test-store.json",
+              select: () =>
+                Effect.succeed({
+                  origin: "https://pp.example.com",
+                  user: { id: "u-1", name: "Ada", email: "ada@example.com" },
+                  endpoints: {
+                    token: "https://pp.example.com/api/auth/oauth2/token"
+                  },
+                  tokens: {
+                    accessToken: "test-access",
+                    refreshToken: "test-refresh",
+                    expiresAt: Number.MAX_SAFE_INTEGER
+                  }
+                })
+            }),
+            Layer.mock(UpdateNotice, { check: () => Effect.void }),
+            fakeHttp((url, request) => {
+              expect(url.pathname).toBe(`/api/v1/tools/${tool}`)
+              sent.push(jsonBody(request))
+              return Response.json([])
+            })
+          ).pipe(Layer.provideMerge(BunServices.layer))
+        )
+      )
+      expect(sent).toEqual([{ orgSlug: "acme", projectSlug: "demo", ...input }])
+      expect(printed.join("\n")).toBe("[]")
+    })
+)

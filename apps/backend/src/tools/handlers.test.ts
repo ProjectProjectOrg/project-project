@@ -5,6 +5,7 @@ import {
   projectScope,
   testUser
 } from "@pp/server-core/access/testing"
+import * as TicketActivityFeed from "@pp/server-core/activity/TicketActivityFeed"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as Comments from "@pp/server-core/comments/Comments"
@@ -304,6 +305,7 @@ const ProjectGitAutomationStub = Layer.mock(
 
 const TestLayer = Layer.mergeAll(
   AccessStub,
+  Layer.mock(TicketActivityFeed.TicketActivityFeed, {}),
   Layer.mock(AttachmentUploads.AttachmentUploads, {}),
   Layer.mock(OrgStorage.OrgStorage, {}),
   TicketsStub,
@@ -1819,5 +1821,215 @@ describe("MCP handlers → NotFound retained", () => {
         expect(result.isError).toBe(true)
         expect(result.content[0].text).toBe("Not found.")
       }).pipe(Effect.provide(HiddenLayer))
+  )
+})
+
+describe("MCP ticket discovery and history", () => {
+  const input = { orgSlug: "acme", projectSlug: "demo", id: "T-1" }
+
+  it.effect(
+    "returns ranked text matches from the scoped project with a numeric limit",
+    () =>
+      Effect.gen(function* () {
+        const registered = register(yield* Effect.context<HandlerServices>())
+        const result = yield* registered.get("search_tickets")!({
+          orgSlug: "acme",
+          projectSlug: "demo",
+          q: "retry upload",
+          limit: 7
+        })
+        expect(result.isError).toBeUndefined()
+        expect(parseJson(result.content[0].text)).toEqual([
+          {
+            id: "T-2",
+            title: "Upload failure",
+            match: {
+              where: "comment",
+              author: "Ada",
+              snippet: {
+                text: "retry upload",
+                ranges: [
+                  [0, 5],
+                  [6, 12]
+                ]
+              }
+            }
+          }
+        ])
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            TestLayer,
+            Layer.mock(TicketQueries.TicketQueries, {
+              textSearch: (query) =>
+                Effect.gen(function* () {
+                  const scope = yield* ProjectScope
+                  expect(scope.orgSlug).toBe("acme")
+                  expect(scope.slug).toBe("demo")
+                  expect(query.q).toBe("retry upload")
+                  expect(query.limit).toBe(7)
+                  return [
+                    {
+                      id: decodeTicketId("T-2"),
+                      title: "Upload failure",
+                      match: {
+                        where: "comment",
+                        author: "Ada",
+                        snippet: {
+                          text: "retry upload",
+                          ranges: [
+                            [0, 5],
+                            [6, 12]
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                })
+            })
+          )
+        )
+      )
+  )
+
+  it.effect(
+    "returns discussion bodies, attribution and encoded timestamps",
+    () =>
+      Effect.gen(function* () {
+        const registered = register(yield* Effect.context<HandlerServices>())
+        const result = yield* registered.get("list_comments")!(input)
+        expect(result.isError).toBeUndefined()
+        expect(parseJson(result.content[0].text)).toEqual([
+          {
+            id: "c_imported",
+            ticketId: "T-1",
+            projectSlug: "demo",
+            origin: "jira",
+            author: { kind: "jira", displayName: "Ada", accountId: "jira-ada" },
+            body: "Try **retrying** the upload.",
+            createdAt: "2026-05-01T00:00:00.000Z",
+            editedAt: null
+          }
+        ])
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            TestLayer,
+            Layer.mock(Comments.Comments, {
+              list: (id) =>
+                Effect.gen(function* () {
+                  expect(id).toBe("T-1")
+                  expect((yield* ProjectScope).slug).toBe("demo")
+                  return [
+                    {
+                      id: CommentId.make("c_imported"),
+                      ticketId: decodeTicketId(id),
+                      projectSlug: "demo",
+                      origin: "jira",
+                      author: {
+                        kind: "jira",
+                        displayName: "Ada",
+                        accountId: "jira-ada"
+                      },
+                      body: "Try **retrying** the upload.",
+                      createdAt: isoDate("2026-05-01T00:00:00.000Z"),
+                      editedAt: null
+                    }
+                  ]
+                })
+            })
+          )
+        )
+      )
+  )
+
+  it.effect(
+    "returns activity and referenced people while forwarding the older-page cursor",
+    () =>
+      Effect.gen(function* () {
+        const registered = register(yield* Effect.context<HandlerServices>())
+        const result = yield* registered.get("list_ticket_activity")!({
+          ...input,
+          cursor: "older-page"
+        })
+        expect(result.isError).toBeUndefined()
+        expect(parseJson(result.content[0].text)).toMatchObject({
+          items: [
+            {
+              kind: "change",
+              occurredAt: "2026-05-01T00:00:00.000Z",
+              change: { kind: "assignees_changed", added: ["u-1"], removed: [] }
+            }
+          ],
+          people: [{ id: "u-1" }],
+          nextCursor: "next-page"
+        })
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            TestLayer,
+            Layer.mock(TicketActivityFeed.TicketActivityFeed, {
+              list: (id, cursor) =>
+                Effect.gen(function* () {
+                  expect(id).toBe("T-1")
+                  expect(cursor).toBe("older-page")
+                  expect((yield* ProjectScope).slug).toBe("demo")
+                  return {
+                    items: [
+                      {
+                        kind: "change",
+                        id: "activity-1",
+                        occurredAt: isoDate("2026-05-01T00:00:00.000Z"),
+                        actor: { kind: "user", user: fakeUser },
+                        cause: null,
+                        change: {
+                          kind: "assignees_changed",
+                          added: [fakeUser.id],
+                          removed: []
+                        }
+                      }
+                    ],
+                    people: [fakeUser],
+                    nextCursor: "next-page"
+                  }
+                })
+            })
+          )
+        )
+      )
+  )
+
+  const invalidQueries: ReadonlyArray<Readonly<Record<string, Schema.Json>>> = [
+    {},
+    { q: "" },
+    { q: "retry", limit: 0 },
+    { q: "retry", limit: 51 },
+    { q: "retry", limit: 1.5 },
+    { q: "retry", limit: "7" }
+  ]
+  it.effect.each(invalidQueries)(
+    "rejects invalid search input %j before querying",
+    (query) =>
+      Effect.gen(function* () {
+        const registered = register(yield* Effect.context<HandlerServices>())
+        const result = yield* registered.get("search_tickets")!({
+          orgSlug: "acme",
+          projectSlug: "demo",
+          ...query
+        })
+        expect(result.isError).toBe(true)
+        expect(result.content[0].text).toContain("Validation error:")
+      }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect.each(["search_tickets", "list_comments", "list_ticket_activity"])(
+    "%s hides inaccessible projects before reading their content",
+    (name) =>
+      Effect.gen(function* () {
+        const registered = register(yield* Effect.context<HandlerServices>())
+        const result = yield* registered.get(name)!({ ...input, q: "retry" })
+        expect(result.isError).toBe(true)
+        expect(result.content[0].text).toBe("Not found.")
+      }).pipe(Effect.provide(Layer.mergeAll(TestLayer, accessAs(null))))
   )
 })

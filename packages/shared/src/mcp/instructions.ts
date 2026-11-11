@@ -19,6 +19,12 @@ export const agentGuide = {
     "take, a `label` to use in conversation, an optional `description` " +
     "of what it means for the team, and `setBy`, the git events that " +
     "move a ticket into it automatically.",
+  findingTickets:
+    "Find existing work with `search_tickets`, which searches titles, " +
+    "descriptions and comments of unarchived tickets. Use `list_tickets` " +
+    "for structured filters; its `q` searches titles and ticket IDs only. Read a found " +
+    "ticket with `get_ticket`, its discussion with `list_comments` and " +
+    "its change history with `list_ticket_activity`.",
   workingOnTicket:
     "Working on a ticket:\n" +
     "1. Read it with `get_ticket`. If its status says it isn't ready to " +
@@ -50,7 +56,7 @@ export const agentGuide = {
     "ticket.",
   writing:
     "Writing a ticket: first look for an existing one with " +
-    "`list_tickets` and `q`. Start from a template when one fits " +
+    "`search_tickets`. Start from a template when one fits " +
     "(`list_templates`, then `create_ticket` with `template`). Write " +
     "for someone who wasn't in your conversation: a title that names " +
     "the outcome, one or two plain sentences at the top saying what and " +
@@ -85,6 +91,7 @@ export const agentGuide = {
 export const MCP_INSTRUCTIONS = [
   `${agentGuide.product} ${agentGuide.slugs}`,
   agentGuide.statuses,
+  agentGuide.findingTickets,
   agentGuide.workingOnTicket,
   agentGuide.refining,
   agentGuide.writing,

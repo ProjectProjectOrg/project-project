@@ -35,12 +35,12 @@ describe("Tools", () => {
   })
 
   test("input schemas are structurally identical to the legacy schemas", () => {
-    for (const tool of tools) {
-      const { $defs, ...before } = legacy[tool.name]
+    for (const [name, { $defs, ...before }] of Record.toEntries(legacy)) {
       expect($defs).toEqual({})
-      expect(withoutDescriptions(Tool.getJsonSchema(tool)), tool.name).toEqual(
-        before
-      )
+      expect(
+        withoutDescriptions(Tool.getJsonSchema(Tools.tools[name])),
+        name
+      ).toEqual(before)
     }
   })
 
