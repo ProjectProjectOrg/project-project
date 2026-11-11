@@ -27,6 +27,7 @@ import {
   transferOwnership,
   updateMemberRole
 } from "@/features/organizations/atoms/orgs"
+import { invitationUrl } from "@/features/organizations/lib/invitations"
 import { useOrgActor } from "@/hooks/useActor"
 import {
   mutationFailure,
@@ -267,11 +268,15 @@ function OrgInvitationRow({
   const key = { req: orgRequest(scope.orgSlug), invitationId: invitation.id }
   const cancel = useAtomSet(cancelInvitation(key), { mode: "promiseExit" })
   const state = useAtomValue(cancelInvitation(key))
+  const optimistic = invitation.id.startsWith("pending-invitation:")
   return (
     <PendingRowView
       roles={ROLE_META}
       email={invitation.email}
       role={invitation.role}
+      inviteLink={
+        scope.canManage && !optimistic ? invitationUrl(invitation.id) : null
+      }
       cancel={
         scope.canManage
           ? {
