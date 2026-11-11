@@ -240,9 +240,9 @@ function TicketMenuItems({
         canUnlink={!archived && can.clearBranch}
       />
     </Fragment>,
-    (can.split || template !== undefined || can.archive) && (
+    ((!archived && can.split) || template !== undefined || can.archive) && (
       <Fragment key="actions">
-        {can.split && (
+        {!archived && can.split && (
           <DropdownMenuItem
             render={
               <Link

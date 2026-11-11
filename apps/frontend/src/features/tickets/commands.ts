@@ -293,7 +293,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
     label: m.tickets_split_menu_item,
     icon: Split,
     keywords: ["break up", "divide"],
-    when: ({ ticket, tickets }) => ticket !== null && tickets.split,
+    when: (context) => onLiveTicket(context) && context.tickets.split,
     run: ({ ticket }, env) => {
       if (ticket === null) return
       env.close()
