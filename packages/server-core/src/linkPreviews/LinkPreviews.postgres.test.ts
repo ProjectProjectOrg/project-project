@@ -36,6 +36,12 @@ const html = (body: string) =>
     headers: { "content-type": "text/html; charset=utf-8" }
   })
 
+const icon = () =>
+  new Response(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="12" fill="#24292e"/></svg>',
+    { headers: { "content-type": "image/svg+xml" } }
+  )
+
 describe.skipIf(!databaseUrl)("LinkPreviews", () => {
   const origin = "http://93.184.216.34"
   let pool: Pool
@@ -90,7 +96,12 @@ describe.skipIf(!databaseUrl)("LinkPreviews", () => {
         const result = yield* preview(page, network.fetch)
 
         expect(network.requested).toEqual([page])
-        expect(result).toEqual({ url: page, title: null, faviconUrl: null })
+        expect(result).toEqual({
+          url: page,
+          title: null,
+          faviconUrl: null,
+          faviconRendering: "original"
+        })
       })
   )
 
@@ -119,10 +130,12 @@ describe.skipIf(!databaseUrl)("LinkPreviews", () => {
   it.effect("serves a cached preview without fetching the page again", () =>
     Effect.gen(function* () {
       const page = `${origin}/${randomUUID()}`
-      const network = fakeFetch(() =>
-        html(
-          `<head><title>Example</title><link rel="icon" href="/icon.png"></head>`
-        )
+      const network = fakeFetch((url) =>
+        url === page
+          ? html(
+              `<head><title>Example</title><link rel="icon" href="/icon.svg"></head>`
+            )
+          : icon()
       )
 
       const first = yield* preview(page, network.fetch)
@@ -131,10 +144,87 @@ describe.skipIf(!databaseUrl)("LinkPreviews", () => {
       expect(first).toEqual({
         url: page,
         title: "Example",
-        faviconUrl: `${origin}/icon.png`
+        faviconUrl: `${origin}/icon.svg`,
+        faviconRendering: "monochrome"
       })
       expect(second).toEqual(first)
-      expect(network.requested).toEqual([page])
+      expect(network.requested).toEqual([page, `${origin}/icon.svg`])
     })
+  )
+  it.effect("never follows a favicon redirect to a private address", () =>
+    Effect.gen(function* () {
+      const page = `${origin}/${randomUUID()}`
+      const favicon = `${origin}/${randomUUID()}.svg`
+      const network = fakeFetch((url) =>
+        url === page
+          ? html(`<title>Example</title><link rel="icon" href="${favicon}">`)
+          : new Response(null, {
+              status: 302,
+              headers: { location: "http://169.254.169.254/icon.svg" }
+            })
+      )
+      const result = yield* preview(page, network.fetch)
+      expect(result).toEqual({
+        url: page,
+        title: "Example",
+        faviconUrl: favicon,
+        faviconRendering: "original"
+      })
+      expect(network.requested).toEqual([page, favicon])
+    })
+  )
+
+  it.effect("stops reading oversized favicons and keeps the page preview", () =>
+    Effect.gen(function* () {
+      const page = `${origin}/${randomUUID()}`
+      let cancelled = false
+      const network = fakeFetch((url) =>
+        url === page
+          ? html('<title>Example</title><link rel="icon" href="/large.svg">')
+          : new Response(
+              new ReadableStream({
+                pull: (controller) =>
+                  controller.enqueue(new Uint8Array(256 * 1024 + 1)),
+                cancel: () => {
+                  cancelled = true
+                }
+              })
+            )
+      )
+      const result = yield* preview(page, network.fetch)
+      expect(result).toEqual({
+        url: page,
+        title: "Example",
+        faviconUrl: `${origin}/large.svg`,
+        faviconRendering: "original"
+      })
+      expect(cancelled).toBe(true)
+    })
+  )
+
+  it.effect(
+    "classifies an existing cached icon once without refetching its page",
+    () =>
+      Effect.gen(function* () {
+        const page = `${origin}/${randomUUID()}`
+        const favicon = `${origin}/${randomUUID()}.svg`
+        yield* Effect.promise(() =>
+          pool.query(
+            "INSERT INTO link_preview (url, title, favicon_url, fetched_at) VALUES ($1, $2, $3, now())",
+            [page, "Cached", favicon]
+          )
+        )
+        const network = fakeFetch(() => icon())
+        const first = yield* preview(page, network.fetch)
+        const second = yield* preview(page, network.fetch)
+        expect(first).toEqual({
+          url: page,
+          title: "Cached",
+          faviconUrl: favicon,
+          faviconRendering: "monochrome"
+        })
+        expect(second).toEqual(first)
+        expect(network.requested).toEqual([favicon])
+      })
   )
 })

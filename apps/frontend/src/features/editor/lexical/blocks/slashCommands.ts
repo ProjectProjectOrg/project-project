@@ -1,14 +1,20 @@
 import { $createCodeNode } from "@lexical/code"
 import { INSERT_HORIZONTAL_RULE_COMMAND } from "@lexical/extension"
 import {
+  REMOVE_LIST_COMMAND,
   INSERT_CHECK_LIST_COMMAND,
   INSERT_ORDERED_LIST_COMMAND,
   INSERT_UNORDERED_LIST_COMMAND
 } from "@lexical/list"
 import type { Transformer } from "@lexical/markdown"
-import { $createHeadingNode, $createQuoteNode } from "@lexical/rich-text"
+import {
+  $createHeadingNode,
+  $createQuoteNode,
+  $isQuoteNode
+} from "@lexical/rich-text"
 import { $setBlocksType } from "@lexical/selection"
 import { INSERT_TABLE_COMMAND } from "@lexical/table"
+import { $unwrapNode } from "@lexical/utils"
 import {
   expandTemplate,
   formatTicketBlock,
@@ -17,6 +23,7 @@ import {
   type BlockLookup
 } from "@pp/shared"
 import {
+  $createParagraphNode,
   $getRoot,
   $getSelection,
   $isRangeSelection,
@@ -65,10 +72,39 @@ function $insertHint() {
 export function $insertBasic(editor: LexicalEditor, kind: SlashBasicKind) {
   const selection = $getSelection()
   switch (kind) {
-    case "heading":
-      if ($isRangeSelection(selection))
-        $setBlocksType(selection, () => $createHeadingNode("h2"))
+    case "paragraph": {
+      editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined)
+      const current = $getSelection()
+      if ($isRangeSelection(current)) {
+        for (const quote of current.anchor
+          .getNode()
+          .getParents()
+          .filter($isQuoteNode))
+          $unwrapNode(quote)
+        $setBlocksType(current, () => $createParagraphNode())
+      }
       return
+    }
+    case "heading-1":
+    case "heading":
+    case "heading-3":
+    case "heading-4":
+    case "heading-5":
+    case "heading-6": {
+      const tags = {
+        "heading-1": "h1",
+        heading: "h2",
+        "heading-3": "h3",
+        "heading-4": "h4",
+        "heading-5": "h5",
+        "heading-6": "h6"
+      } satisfies Readonly<
+        Record<string, Parameters<typeof $createHeadingNode>[0]>
+      >
+      if ($isRangeSelection(selection))
+        $setBlocksType(selection, () => $createHeadingNode(tags[kind]))
+      return
+    }
     case "quote":
       if ($isRangeSelection(selection))
         $setBlocksType(selection, () => $createQuoteNode())

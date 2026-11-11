@@ -42,6 +42,8 @@ import {
   $selectFirstHint,
   missingBlocksMarkdown
 } from "./blockCommands"
+import { $runSlashItem } from "./slashCommands"
+import { slashMenuSections } from "./slashMenuItems"
 
 const lookup = lookupFor(BUILTIN_LIBRARY)
 
@@ -359,4 +361,44 @@ describe("$selectFirstHint", () => {
     })
     expect(landed).toBe(false)
   })
+})
+
+describe("markdown slash actions", () => {
+  it.each([
+    ["h1", "Example", "# Example"],
+    ["h2", "Example", "## Example"],
+    ["h3", "Example", "### Example"],
+    ["h4", "Example", "#### Example"],
+    ["h5", "Example", "##### Example"],
+    ["h6", "Example", "###### Example"],
+    ["text", "## Example", "Example"],
+    ["text", "- Example", "Example"],
+    ["text", "- [ ] Example", "Example"],
+    ["text", "> Example", "Example"],
+    ["text", "```\nExample\n```", "Example"]
+  ])(
+    "finds /%s and converts the current line without losing its text",
+    (query, body, expected) => {
+      const item = slashMenuSections({
+        library: BUILTIN_LIBRARY,
+        lookup,
+        ticketType: null,
+        body,
+        query,
+        basicLabel: (kind) => kind,
+        mode: "basic"
+      }).flatMap((section) => section.items)[0]
+      if (item === undefined) throw new Error(`No slash action for ${query}`)
+      const editor = editorWith(body)
+      run(editor, () => {
+        $caretAfter("Example")
+        $runSlashItem(editor, item, {
+          transformers: MARKDOWN_TRANSFORMERS,
+          lookup,
+          detach: false
+        })
+      })
+      expect(markdown(editor)).toBe(expected)
+    }
+  )
 })

@@ -508,7 +508,7 @@
   transition: background-color 150ms ease-out;
 }
 .prose-md .ticket-block:has(> .ticket-block-body > h1:first-child) {
-  --block-first-line: var(--lh-display);
+  --block-first-line: var(--lh-display-compact);
 }
 .prose-md .ticket-block:has(> .ticket-block-body > h3:first-child) {
   --block-first-line: var(--lh-subtitle);
@@ -622,9 +622,9 @@
 }
 .prose-md h1 {
   color: var(--foreground);
-  font-size: var(--fs-display);
+  font-size: var(--fs-display-compact);
   font-weight: 700;
-  line-height: var(--lh-display);
+  line-height: var(--lh-display-compact);
 }
 .prose-md h2 {
   color: var(--foreground);
@@ -668,7 +668,6 @@
 }
 .prose-md a:not([data-slot="button"], [data-tone]):hover,
 .prose-md .lexical-link:hover {
-  background-color: color-mix(in oklch, var(--foreground) 6%, transparent);
   text-decoration-color: var(--foreground);
 }
 .prose-md a:not([data-slot="button"], [data-tone]):focus-visible,
@@ -693,6 +692,13 @@
 [data-link-favicon="image"]::before {
   opacity: 1;
 }
+[data-link-favicon="image"][data-link-favicon-rendering="monochrome"]::before {
+  filter: brightness(0);
+}
+.dark
+  [data-link-favicon="image"][data-link-favicon-rendering="monochrome"]::before {
+  filter: brightness(0) invert(1);
+}
 [data-link-favicon-animate="false"]::before {
   transition: none;
 }
@@ -716,6 +722,8 @@
   box-shadow: inset 0 0 0 1px var(--prose-code-ring);
   padding: 0.12em 0.38em;
   border-radius: 5px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 .prose-md pre {
   font-family: var(--font-mono);
@@ -882,9 +890,9 @@ html.dark .prose-md .token.coord {
 }
 .prose-md .lexical-h1 {
   color: var(--foreground);
-  font-size: var(--fs-display);
+  font-size: var(--fs-display-compact);
   font-weight: 700;
-  line-height: var(--lh-display);
+  line-height: var(--lh-display-compact);
 }
 .prose-md .lexical-h2 {
   color: var(--foreground);
@@ -993,22 +1001,6 @@ html.dark .prose-md .token.coord {
 }
 .prose-md .lexical-underline {
   text-decoration: underline;
-}
-.prose-md .lexical-inline-code {
-  font-family: var(--font-mono);
-  font-size: 0.82em;
-  letter-spacing: 0;
-  color: var(--foreground);
-  background: var(--prose-code);
-  box-shadow: inset 0 0 0 1px var(--prose-code-ring);
-  padding: 0.12em 0.38em;
-  border-radius: 5px;
-}
-.prose-md code:has(> .lexical-inline-code) {
-  font-size: inherit;
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
 }
 .prose-md .lexical-code {
   display: block;

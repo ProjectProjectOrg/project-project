@@ -20,8 +20,6 @@ import ReactMarkdown, { defaultUrlTransform } from "react-markdown"
 import rehypePrismPlus from "rehype-prism-plus/common"
 
 import "@/lib/prismLangs"
-import remarkGfm from "remark-gfm"
-
 import { Checkbox } from "@/components/ui/checkbox"
 import { AttachmentChip } from "@/features/attachments/components/AttachmentChip"
 import { BlockFrame } from "@/features/editor/components/BlockFrame"
@@ -47,6 +45,8 @@ import {
 import { PreviewLink } from "@/features/link-previews/components/PreviewLink"
 import { previewableUrl } from "@/features/link-previews/lib/linkPreviewUrl"
 import { cn } from "@/lib/utils"
+
+import { markdownPlugins } from "../lib/markdownParser"
 
 const prismPlugin = [
   rehypePrismPlus,
@@ -271,7 +271,7 @@ export function MarkdownSegment({
   const body = withEmptyTaskItems(text)
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={markdownPlugins}
       rehypePlugins={[prismPlugin]}
       urlTransform={allowMentionUrls}
       components={{

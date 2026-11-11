@@ -37,6 +37,7 @@ import {
 import { MARKDOWN_TRANSFORMERS } from "../components/LexicalEditor"
 import { AttachmentNode } from "./AttachmentNode"
 import { ATTACHMENT_TRANSFORMER } from "./attachmentTransformer"
+import { ImageNode } from "./ImageNode"
 import { registerMarkdownPaste } from "./markdownPaste"
 import { MentionNode } from "./MentionNode"
 
@@ -68,6 +69,7 @@ function pasteEvent(text: string, html = "", files: File[] = []) {
 function createPasteEditor(text = "", code = false) {
   const editor = createEditor({
     nodes: [
+      ImageNode,
       TableNode,
       TableRowNode,
       TableCellNode,

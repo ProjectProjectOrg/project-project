@@ -39,6 +39,7 @@
 // `bun run db:migrate` to apply it against the running Postgres.
 
 import type {
+  LinkPreview,
   GitAutomationEvent,
   GitHubInstallationAccount,
   ProjectEvent,
@@ -1463,6 +1464,8 @@ export const linkPreview = pgTable("link_preview", {
   url: text("url").primaryKey(),
   title: text("title"),
   faviconUrl: text("favicon_url"),
+  faviconRendering:
+    text("favicon_rendering").$type<LinkPreview["faviconRendering"]>(),
   fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull()
 })
 

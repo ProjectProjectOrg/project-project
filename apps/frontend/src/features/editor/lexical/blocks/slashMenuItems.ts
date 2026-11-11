@@ -16,7 +16,13 @@ import type { EditorBlocksMode } from "./editorBlocks"
 export type SlashMode = EditorBlocksMode | "basic"
 
 export type SlashBasicKind =
+  | "paragraph"
+  | "heading-1"
   | "heading"
+  | "heading-3"
+  | "heading-4"
+  | "heading-5"
+  | "heading-6"
   | "checklist"
   | "bullet-list"
   | "numbered-list"
@@ -27,7 +33,13 @@ export type SlashBasicKind =
   | "hint"
 
 export const SLASH_BASIC_KINDS: ReadonlyArray<SlashBasicKind> = [
+  "paragraph",
+  "heading-1",
   "heading",
+  "heading-3",
+  "heading-4",
+  "heading-5",
+  "heading-6",
   "checklist",
   "bullet-list",
   "numbered-list",
@@ -38,6 +50,12 @@ export const SLASH_BASIC_KINDS: ReadonlyArray<SlashBasicKind> = [
 ]
 
 const BASIC_ALIASES: Record<SlashBasicKind, ReadonlyArray<string>> = {
+  paragraph: ["text", "plain", "normal", "body"],
+  "heading-1": ["h1"],
+  "heading-3": ["h3"],
+  "heading-4": ["h4"],
+  "heading-5": ["h5"],
+  "heading-6": ["h6"],
   heading: ["h2", "title"],
   checklist: ["todo", "task"],
   "bullet-list": ["ul", "unordered"],

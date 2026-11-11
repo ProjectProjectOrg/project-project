@@ -7,10 +7,10 @@ import { HeadingNode, QuoteNode } from "@lexical/rich-text"
 import { $getRoot, createEditor } from "lexical"
 import { describe, expect, it } from "vitest"
 
-import { MARKDOWN_TRANSFORMERS } from "../../components/LexicalEditor"
-import { $isHintNode, HINT_TRANSFORMER, HintNode } from "./HintNode"
+import { transformersForMode } from "../../components/LexicalEditor"
+import { $isHintNode, HintNode } from "./HintNode"
 
-const TRANSFORMERS = [HINT_TRANSFORMER, ...MARKDOWN_TRANSFORMERS]
+const TRANSFORMERS = transformersForMode("definition", undefined)
 
 function importDefinition(markdown: string) {
   const editor = createEditor({

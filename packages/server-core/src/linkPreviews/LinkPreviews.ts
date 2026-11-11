@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
 import * as Layer from "effect/Layer"
 
+import { faviconRendering } from "./faviconRendering"
 import {
   defaultFaviconUrl,
   parsePageMetadata,
@@ -35,6 +36,7 @@ const FRESH_MS = 7 * DAY_MS
 const RETRY_MS = DAY_MS
 const FETCH_TIMEOUT = "5 seconds"
 const MAX_REDIRECTS = 5
+const MAX_ICON_BYTES = 256 * 1024
 const MAX_HTML_BYTES = 1024 * 1024
 const USER_AGENT = "Mozilla/5.0 (compatible; ProjectProject link preview)"
 const PRIVATE_HOST_SUFFIX = /\.(localhost|local|internal|lan|home|corp)$/i
@@ -119,39 +121,100 @@ const isHtml = (response: Response): boolean =>
     response.headers.get("content-type") ?? ""
   )
 
-const fetchPageMetadata = Effect.fnUntraced(function* (start: URL) {
+const fetchPublicResponse = Effect.fnUntraced(function* (
+  start: URL,
+  accept: string
+) {
   const fetch = yield* Effect.service(Fetch)
   let url = start
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    if (!(yield* isPublicHost(url))) return UNAVAILABLE
-    const target = url
+    if (!(yield* isPublicHost(url))) return null
     const response = yield* Effect.tryPromise((signal) =>
-      fetch(target.href, {
+      fetch(url.href, {
         redirect: "manual",
         signal,
-        headers: {
-          "user-agent": USER_AGENT,
-          accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1"
-        }
+        headers: { "user-agent": USER_AGENT, accept }
       })
     )
     const location = response.headers.get("location")
     if (response.status >= 300 && response.status < 400 && location !== null) {
       yield* discardBody(response)
       const next = previewTarget(location, url)
-      if (next === null) return UNAVAILABLE
+      if (next === null) return null
       url = next
       continue
     }
-    if (!response.ok || !isHtml(response)) {
-      yield* discardBody(response)
-      return { title: null, faviconUrl: defaultFaviconUrl(url) }
-    }
-    const html = yield* readHtmlHead(response)
-    return parsePageMetadata(html, url)
+    return { response, url }
   }
-  return UNAVAILABLE
+  return null
 })
+
+const fetchPageMetadata = Effect.fnUntraced(function* (start: URL) {
+  const result = yield* fetchPublicResponse(
+    start,
+    "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1"
+  )
+  if (result === null) return UNAVAILABLE
+  const { response, url } = result
+  if (!response.ok || !isHtml(response)) {
+    yield* discardBody(response)
+    return { title: null, faviconUrl: defaultFaviconUrl(url) }
+  }
+  const html = yield* readHtmlHead(response)
+  return parsePageMetadata(html, url)
+})
+
+const readIcon = (response: Response) =>
+  Effect.tryPromise(async (signal) => {
+    const reader = response.body?.getReader()
+    if (reader === undefined) return null
+    const cancel = () => {
+      void reader.cancel().catch(() => undefined)
+    }
+    signal.addEventListener("abort", cancel, { once: true })
+    const chunks: Uint8Array[] = []
+    let size = 0
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        size += value.byteLength
+        if (size > MAX_ICON_BYTES) return null
+        chunks.push(value)
+      }
+    } finally {
+      signal.removeEventListener("abort", cancel)
+      await reader.cancel().catch(() => undefined)
+    }
+    const bytes = new Uint8Array(size)
+    let offset = 0
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset)
+      offset += chunk.byteLength
+    }
+    return bytes
+  })
+
+const resolveFaviconRendering = Effect.fnUntraced(
+  function* (
+    src: string | null
+  ): Effect.fn.Return<LinkPreview["faviconRendering"], unknown> {
+    const target = src === null ? null : previewTarget(src)
+    if (target === null) return "original"
+    const result = yield* fetchPublicResponse(target, "image/*")
+    if (result === null) return "original"
+    if (!result.response.ok) {
+      yield* discardBody(result.response)
+      return "original"
+    }
+    const bytes = yield* readIcon(result.response)
+    return bytes === null
+      ? "original"
+      : yield* Effect.promise(() => faviconRendering(bytes))
+  },
+  Effect.timeout(FETCH_TIMEOUT),
+  Effect.orElseSucceed((): LinkPreview["faviconRendering"] => "original")
+)
 
 const resolvePageMetadata = (target: URL): Effect.Effect<PageMetadata> =>
   fetchPageMetadata(target).pipe(
@@ -185,6 +248,7 @@ const make = Effect.gen(function* () {
         set: {
           title: row.title,
           faviconUrl: row.faviconUrl,
+          faviconRendering: row.faviconRendering,
           fetchedAt: row.fetchedAt
         }
       })
@@ -194,19 +258,36 @@ const make = Effect.gen(function* () {
     raw: string
   ): Effect.fn.Return<LinkPreview> {
     const target = previewTarget(raw)
-    if (target === null) return { url: raw, ...UNAVAILABLE }
+    if (target === null)
+      return { url: raw, ...UNAVAILABLE, faviconRendering: "original" }
     const url = target.href
     const now = yield* DateTime.nowAsDate
     const row = yield* cached(url)
     if (row !== null) {
       const maxAge = row.title === null ? RETRY_MS : FRESH_MS
       if (now.getTime() - row.fetchedAt.getTime() < maxAge) {
-        return { url, title: row.title, faviconUrl: row.faviconUrl }
+        const rendering =
+          row.faviconRendering ??
+          (yield* resolveFaviconRendering(row.faviconUrl))
+        if (row.faviconRendering === null)
+          yield* store({ ...row, faviconRendering: rendering })
+        return {
+          url,
+          title: row.title,
+          faviconUrl: row.faviconUrl,
+          faviconRendering: rendering
+        }
       }
     }
     const metadata = yield* resolvePageMetadata(target)
-    yield* store({ url, ...metadata, fetchedAt: now })
-    return { url, ...metadata }
+    const rendering = yield* resolveFaviconRendering(metadata.faviconUrl)
+    yield* store({
+      url,
+      ...metadata,
+      faviconRendering: rendering,
+      fetchedAt: now
+    })
+    return { url, ...metadata, faviconRendering: rendering }
   })
 
   return LinkPreviews.of({ get })
