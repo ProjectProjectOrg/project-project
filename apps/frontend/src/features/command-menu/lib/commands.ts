@@ -1,7 +1,8 @@
-import type { ProjectDetail, TicketDetail, Tools } from "@pp/shared"
+import type { Group, ProjectDetail, TicketDetail, Tools } from "@pp/shared"
 import type * as AsyncResult from "effect/reactivity/AsyncResult"
 import type * as Atom from "effect/reactivity/Atom"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
+import type { ReactNode } from "react"
 
 import type { TicketPermissions } from "@/features/tickets/lib/ticketPermissions"
 import type { IconComponent } from "@/lib/icon"
@@ -39,6 +40,7 @@ export type CommandContext = Readonly<{
   projectSlug: string | null
   ticket: TicketContext | null
   ticketDetail: TicketDetail | null
+  ticketSprint: Group | null
   sprint: SprintContext | null
   view: ViewContext | null
   viewerId: string | null
@@ -72,6 +74,7 @@ export type Command = Readonly<{
   id: string
   group: CommandGroup
   label: (context: CommandContext) => string
+  aside?: (context: CommandContext) => ReactNode
   parent?: () => string
   searchOnly?: boolean
   icon: IconComponent
