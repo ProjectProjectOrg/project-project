@@ -43,6 +43,7 @@ export type CommandPage =
   | "ticketPriority"
   | "ticketAssignee"
   | "ticketSprint"
+  | "ticketMove"
   | "ticketMarkAs"
   | "ticketEstimate"
   | "ticketType"

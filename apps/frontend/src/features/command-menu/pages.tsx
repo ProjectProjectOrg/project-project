@@ -28,6 +28,7 @@ import {
   TicketTypePage,
   type TicketPageProps
 } from "@/features/tickets/components/command-pages/TicketFieldCommands"
+import { TicketMovePage } from "@/features/tickets/components/command-pages/TicketMoveCommands"
 import { TicketPriorityCommands } from "@/features/tickets/components/command-pages/TicketPriorityCommands"
 import {
   TicketCreateRelatedPage,
@@ -126,6 +127,7 @@ export const COMMAND_PAGES: Readonly<
   ticketPriority: TicketPriorityPage,
   ticketAssignee: TicketAssigneePage,
   ticketSprint: TicketSprintPage,
+  ticketMove: ticketPage(TicketMovePage),
   ticketMarkAs: MarkAsCommands,
   ticketEstimate: ticketPage(TicketEstimatePage),
   ticketType: ticketPage(TicketTypePage),
