@@ -47,7 +47,7 @@ export function BacklogCommandScope({
       })
     }
     const commands: Array<Command> = []
-    if (planned !== null) {
+    if (canPlan && planned !== null) {
       commands.push({
         id: "backlog.plan",
         group: "backlog",
