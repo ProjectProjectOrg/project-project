@@ -162,10 +162,22 @@ function appendBlocks(
         const remaining = context.lines
           .slice(consumedLine, nodes.at(-1)?.position?.end.line)
           .join("\n")
-        appendBlocks(parent, parseMarkdown(remaining).children, {
+        const definitions = [...context.definitions.values()]
+          .map((definition) => toMarkdown(definition))
+          .join("\n")
+        const tree = parseMarkdown(`${remaining}\n\n${definitions}`)
+        appendBlocks(parent, tree.children, {
           ...context,
           source: remaining,
-          lines: remaining.split("\n")
+          lines: remaining.split("\n"),
+          definitions: new Map([
+            ...context.definitions,
+            ...tree.children.flatMap((child) =>
+              child.type === "definition"
+                ? [[child.identifier, child] as const]
+                : []
+            )
+          ])
         })
         return
       }

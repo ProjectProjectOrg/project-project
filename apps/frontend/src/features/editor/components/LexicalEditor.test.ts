@@ -791,6 +791,21 @@ describe("ticket blocks", () => {
     }
   )
 
+  it.each(["\n", "\n\n"])(
+    "resolves earlier link definitions after a block separated by %j",
+    (separator) => {
+      const markdown =
+        '[ref]: /example "Docs"\n\n<block type="notes">\n\nBody\n\n</block>' +
+        separator +
+        "[linked][ref]"
+      const saved = roundTripMarkdown(markdown)
+      expect(saved).toBe(
+        '<block type="notes">\n\nBody\n\n</block>\n\n[linked](/example "Docs")'
+      )
+      expect(roundTripMarkdown(saved)).toBe(saved)
+    }
+  )
+
   it("imports a block as one node holding its markdown as children", () => {
     expect(importedRootTypes(CRITERIA_BLOCK)).toEqual({
       types: ["ticket-block"],
