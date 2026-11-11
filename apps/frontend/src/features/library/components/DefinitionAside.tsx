@@ -23,11 +23,11 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { IconGridPicker } from "@/components/ui/icon-grid-picker"
 import { Input } from "@/components/ui/input"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import {
   PRIORITY_LABELS,
@@ -179,22 +179,22 @@ function ChoiceTrigger({
   ariaLabel: string
 }>) {
   return (
-    <DropdownMenuTrigger
+    <SelectTrigger
       disabled={disabled}
       aria-label={ariaLabel}
       render={
-        <Button type="button" variant="chip" size="sm" className="-ml-1.5">
-          {icon}
-          <span>{label}</span>
-          {disabled ? null : (
-            <ChevronDown
-              className="size-3.5 text-muted-foreground"
-              strokeWidth={1.75}
-            />
-          )}
-        </Button>
+        <Button type="button" variant="chip" size="sm" className="-ml-1.5" />
       }
-    />
+    >
+      {icon}
+      <span>{label}</span>
+      {disabled ? null : (
+        <ChevronDown
+          className="size-3.5 text-muted-foreground"
+          strokeWidth={1.75}
+        />
+      )}
+    </SelectTrigger>
   )
 }
 
@@ -213,7 +213,36 @@ export function NullablePriorityField({
   const label = value === null ? noneLabel() : PRIORITY_LABELS[value]()
   const Icon = meta?.icon ?? null
   return (
-    <DropdownMenu>
+    <Select
+      items={[null, ...PRIORITY_ORDER].map((priority) => {
+        const itemMeta = priority === null ? null : PRIORITY_META[priority]
+        const ItemIcon = itemMeta?.icon ?? null
+        const itemLabel =
+          priority === null ? noneLabel() : PRIORITY_LABELS[priority]()
+        return {
+          value: priority ?? NO_PRIORITY,
+          textValue: itemLabel,
+          separated: priority === null,
+          label: (
+            <>
+              {ItemIcon === null ? (
+                <span className="size-4" aria-hidden />
+              ) : (
+                <ItemIcon
+                  className={cn("size-4", itemMeta?.className)}
+                  strokeWidth={1.75}
+                />
+              )}
+              {itemLabel}
+            </>
+          )
+        }
+      })}
+      value={value ?? NO_PRIORITY}
+      disabled={disabled}
+      onValueChange={(next) => onChange(next === NO_PRIORITY ? null : next)}
+      contentProps={{ align: "start", className: "w-44" }}
+    >
       <ChoiceTrigger
         label={label}
         disabled={disabled}
@@ -227,37 +256,7 @@ export function NullablePriorityField({
           )
         }
       />
-      <DropdownMenuContent align="start" sideOffset={6} className="w-44">
-        <DropdownMenuRadioGroup
-          value={value ?? NO_PRIORITY}
-          onValueChange={(next) => onChange(next === NO_PRIORITY ? null : next)}
-          items={[null, ...PRIORITY_ORDER].map((priority) => {
-            const itemMeta = priority === null ? null : PRIORITY_META[priority]
-            const ItemIcon = itemMeta?.icon ?? null
-            return {
-              value: priority ?? NO_PRIORITY,
-              closeOnClick: true,
-              separated: priority === null,
-              label: (
-                <>
-                  {ItemIcon === null ? (
-                    <span className="size-4" aria-hidden />
-                  ) : (
-                    <ItemIcon
-                      className={cn("size-4", itemMeta?.className)}
-                      strokeWidth={1.75}
-                    />
-                  )}
-                  {priority === null
-                    ? noneLabel()
-                    : PRIORITY_LABELS[priority]()}
-                </>
-              )
-            }
-          })}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    </Select>
   )
 }
 
@@ -275,7 +274,7 @@ function TagChips({
       {tags.map((tag) => (
         <span
           key={tag}
-          className="inline-flex h-6 items-center gap-1 rounded-md bg-muted px-1.5 text-xs text-foreground"
+          className="inline-flex h-6 items-center gap-1 rounded-md bg-muted px-1.5 text-caption text-foreground"
         >
           {tag}
           {onRemove === null ? null : (
@@ -326,7 +325,7 @@ function ProjectTagPicker({
       />
       <DropdownMenuContent align="start" sideOffset={6} className="w-48">
         {names.length === 0 ? (
-          <p className="px-2 py-1.5 text-xs text-muted-foreground">
+          <p className="px-2 py-1.5 text-caption text-muted-foreground">
             {m.templates_editor_tags_empty()}
           </p>
         ) : (
@@ -375,7 +374,7 @@ function FreeTagInput({
         if (!value.includes(next)) onChange([...value, next])
         setDraft("")
       }}
-      className="-mx-2 w-32 text-xs"
+      className="-mx-2 w-32 text-caption"
     />
   )
 }
@@ -394,7 +393,7 @@ export function TemplateTagsField({
   return (
     <div className="flex flex-wrap items-center gap-1">
       {value.length === 0 && disabled ? (
-        <span className="text-[13px] text-muted-foreground">{noneLabel()}</span>
+        <span className="text-body text-muted-foreground">{noneLabel()}</span>
       ) : null}
       <TagChips
         tags={value}
@@ -447,15 +446,13 @@ export function DefaultForField({
         )}
       >
         {current.length === 0 && !library.canEdit ? (
-          <span className="text-[13px] text-muted-foreground">
-            {noneLabel()}
-          </span>
+          <span className="text-body text-muted-foreground">{noneLabel()}</span>
         ) : null}
         {current.map((type) => (
           <span
             key={type}
             data-default-for={type}
-            className="inline-flex h-6 items-center gap-1 rounded-md bg-muted px-1.5 text-xs text-foreground"
+            className="inline-flex h-6 items-center gap-1 rounded-md bg-muted px-1.5 text-caption text-foreground"
           >
             {TYPE_LABELS[type]()}
             {library.canEdit ? (
@@ -504,7 +501,7 @@ export function DefaultForField({
         ) : null}
       </div>
       {error === null ? null : (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-caption text-destructive">
           {error}
         </p>
       )}
@@ -520,4 +517,4 @@ const ORIGIN_LABELS: Record<LibraryOrigin, () => string> = {
 export const originLabel = (origin: LibraryOrigin): string =>
   ORIGIN_LABELS[origin]()
 
-export const MUTED_VALUE_CLASS = "text-[13px] text-muted-foreground"
+export const MUTED_VALUE_CLASS = "text-body text-muted-foreground"

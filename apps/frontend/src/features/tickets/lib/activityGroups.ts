@@ -19,7 +19,7 @@ export type ActivityDay = Readonly<{
   groups: ReadonlyArray<ActivityGroup>
 }>
 
-const actorKey = (actor: TicketActivityActor | null): string => {
+export const actorKey = (actor: TicketActivityActor | null): string => {
   if (actor === null) return "unknown"
   if (actor.kind === "system") return `system:${actor.source}`
   if (actor.kind === "agent") return `agent:${actor.user.id}:${actor.client.id}`
@@ -89,6 +89,8 @@ export type ActivityItem =
   | Readonly<{
       kind: "sprint_moved"
       key: string
+      actor: TicketActivityActor | null
+      at: Date
       from: string
       to: string
       cause: ActivityCause | null
@@ -150,6 +152,8 @@ export const activityItems = (
     items.push({
       kind: "sprint_moved",
       key: `${removed.entry.id}:${added.entry.id}`,
+      actor: added.entry.actor,
+      at: added.entry.occurredAt,
       from: removed.name,
       to: added.name,
       cause: own.entry.cause

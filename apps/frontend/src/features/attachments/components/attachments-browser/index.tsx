@@ -161,10 +161,10 @@ function AttachmentStorageGate({
             variant="inline"
             className="border border-dashed border-border"
           >
-            <EmptyTitle className="text-sm font-medium">
+            <EmptyTitle className="text-body font-semibold">
               {m.attachments_empty_no_storage_title()}
             </EmptyTitle>
-            <EmptyDescription className="max-w-sm text-xs">
+            <EmptyDescription className="max-w-sm text-caption">
               {m.attachments_empty_no_storage_body()}
             </EmptyDescription>
           </Empty>
@@ -227,7 +227,7 @@ function AttachmentsTable({
       <div className="max-h-[calc(100vh-24rem)] min-h-64 overflow-auto rounded-lg border border-border">
         <table className="w-full min-w-[720px] table-auto border-collapse text-left">
           <thead className="sticky top-0 z-10 bg-background">
-            <tr className="border-b border-border text-xs text-muted-foreground">
+            <tr className="border-b border-border text-caption text-muted-foreground">
               <th scope="col" className="w-6 px-2 py-2 font-normal">
                 <Checkbox
                   checked={allDeletableSelected(selected, rows)}
@@ -307,12 +307,12 @@ function AttachmentsTable({
 function EmptyRows({ filtered }: { filtered: boolean }) {
   return (
     <Empty variant="inline" className="border border-dashed border-border">
-      <EmptyTitle className="text-sm font-medium">
+      <EmptyTitle className="text-body font-semibold">
         {filtered
           ? m.attachments_empty_filtered_title()
           : m.attachments_empty_none_title()}
       </EmptyTitle>
-      <EmptyDescription className="max-w-sm text-xs">
+      <EmptyDescription className="max-w-sm text-caption">
         {filtered
           ? m.attachments_empty_filtered_body()
           : m.attachments_empty_none_body()}

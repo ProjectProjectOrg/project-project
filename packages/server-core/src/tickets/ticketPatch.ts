@@ -14,6 +14,11 @@ const listChanged = (
   next.length !== current.length ||
   next.some((value, index) => value !== current[index])
 
+const uniqueOrUndefined = <A>(
+  values: ReadonlyArray<A>
+): ReadonlyArray<A> | undefined =>
+  values.length === 0 ? undefined : [...new Set(values)]
+
 export const applyTicketPatch = (
   existing: TicketDocs.TicketDocument,
   patch: TicketPatch,
@@ -34,6 +39,14 @@ export const applyTicketPatch = (
   tags: patch.tags === undefined ? existing.tags : [...patch.tags],
   assignees:
     patch.assignees === undefined ? existing.assignees : [...patch.assignees],
+  blockedBy:
+    patch.blockedBy === undefined
+      ? existing.blockedBy
+      : uniqueOrUndefined(patch.blockedBy),
+  relatedTo:
+    patch.relatedTo === undefined
+      ? existing.relatedTo
+      : uniqueOrUndefined(patch.relatedTo),
   updatedBy: actor,
   updatedAt: now,
   body: patch.body ?? existing.body
@@ -50,7 +63,9 @@ export const fieldChangesOf = (
     next.parent !== existing.parent ||
     !Equal.equals(next.estimate, existing.estimate) ||
     next.body !== existing.body ||
-    listChanged(next.tags, existing.tags),
+    listChanged(next.tags, existing.tags) ||
+    listChanged(next.blockedBy ?? [], existing.blockedBy ?? []) ||
+    listChanged(next.relatedTo ?? [], existing.relatedTo ?? []),
   status: next.status !== existing.status,
   assignees: listChanged(next.assignees, existing.assignees)
 })

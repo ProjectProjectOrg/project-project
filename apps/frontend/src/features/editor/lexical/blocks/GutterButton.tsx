@@ -70,9 +70,10 @@ export function GutterButton({
             data-grip={grip ? "" : undefined}
             data-hovered={grip ? "" : undefined}
             className={cn(
-              "pointer-events-auto absolute touch-none",
+              "pointer-events-auto absolute touch-none motion-safe:transition-[color,background-color,scale]",
               grip && "cursor-grab",
-              dragging && "cursor-grabbing",
+              dragging &&
+                "cursor-grabbing motion-safe:transition-[color,background-color,scale,top]",
               source && "opacity-0",
               landOrder !== undefined && "block-rail-landing"
             )}

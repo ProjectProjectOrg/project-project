@@ -135,19 +135,19 @@ export function JiraSourceForm({
     >
       <div className="flex flex-col gap-6">
         {sites.length === 0 ? (
-          <p className="text-[13px] text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             {m.jira_import_source_no_sites()}
           </p>
         ) : null}
         {singleSite === undefined ? null : (
-          <p className="text-[13px] text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             {m.jira_import_source_site({ site: singleSite.name })}
           </p>
         )}
         {sites.length > 1 ? (
           <form.Field name="cloudId">
             {(field) => (
-              <label className="flex max-w-sm flex-col gap-2 text-[13px] font-medium">
+              <label className="flex max-w-sm flex-col gap-2 text-body font-semibold">
                 <span>{m.jira_import_source_site_label()}</span>
                 <Select
                   value={field.value === "" ? null : field.value}
@@ -187,7 +187,7 @@ export function JiraSourceForm({
           </form.Field>
         )}
         {existing === undefined ? null : (
-          <p className="text-[13px] text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             {m.jira_import_source_existing({
               project: existing.sourceProjectName
             })}

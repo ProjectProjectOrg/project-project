@@ -63,7 +63,7 @@ export function TemplateDefaultsRow({
         ))}
       </SettingsGroup>
       {error === null ? null : (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-caption text-destructive">
           {error}
         </p>
       )}
@@ -109,7 +109,7 @@ function DefaultRow({
   const value = (
     <span
       className={cn(
-        "inline-flex min-w-0 items-center gap-2 text-sm",
+        "inline-flex min-w-0 items-center gap-2 text-body",
         current === undefined ? "text-muted-foreground" : "text-foreground",
         waiting && "animate-pulse"
       )}
@@ -131,7 +131,7 @@ function DefaultRow({
       data-default-state={state}
       className="flex min-h-11 items-center justify-between gap-4 px-3 py-1.5"
     >
-      <span className="flex items-center gap-2 text-sm">
+      <span className="flex items-center gap-2 text-body">
         <TypeIcon
           aria-hidden
           className="size-4 shrink-0 text-muted-foreground"
@@ -141,7 +141,7 @@ function DefaultRow({
       </span>
       <span className="flex min-w-0 items-center gap-2">
         {state === "inherited" ? (
-          <span className="shrink-0 text-xs text-muted-foreground">
+          <span className="shrink-0 text-caption text-muted-foreground">
             {m.templates_settings_defaults_inherited()}
           </span>
         ) : null}

@@ -29,6 +29,7 @@ import {
   type RailShape
 } from "@/features/tickets/components/ticket-split/SplitResults"
 import { SplitWarnings } from "@/features/tickets/components/ticket-split/SplitWarnings"
+import { TicketIdText } from "@/features/tickets/components/TicketIdText"
 import { useAppForm } from "@/lib/form"
 import { m } from "@/paraglide/messages"
 
@@ -193,10 +194,14 @@ export function TicketSplitForm({
               {field.value.length < SPLIT_TICKET_MAX_RESULTS && (
                 <SplitResults.Add
                   onClick={() => field.pushValue(splitResultDefaults(defaults))}
-                  hint={m.tickets_split_add_hint({
-                    max: SPLIT_TICKET_MAX_RESULTS,
-                    id: ticket.id
-                  })}
+                  hint={
+                    <TicketIdText id={ticket.id}>
+                      {m.tickets_split_add_hint({
+                        max: SPLIT_TICKET_MAX_RESULTS,
+                        id: ticket.id
+                      })}
+                    </TicketIdText>
+                  }
                 />
               )}
             </SplitResults>

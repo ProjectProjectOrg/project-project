@@ -45,12 +45,12 @@ export function ProjectTile({
         />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{project.name}</div>
-        <div className="truncate font-mono text-xs text-muted-foreground">
+        <div className="truncate text-body font-semibold">{project.name}</div>
+        <div className="truncate font-mono text-caption text-muted-foreground">
           /{project.slug}
         </div>
       </div>
-      <div className="text-xs text-muted-foreground">
+      <div className="text-caption text-muted-foreground">
         {m.org_dashboard_project_created_label({
           when: formatRelative(project.createdAt)
         })}

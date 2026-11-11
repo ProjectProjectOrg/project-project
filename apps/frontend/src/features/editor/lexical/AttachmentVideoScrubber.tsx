@@ -105,7 +105,7 @@ export function AttachmentVideoScrubber({
       />
       {hoverText === undefined || hover === null ? null : (
         <span
-          className="pointer-events-none absolute bottom-5 -translate-x-1/2 rounded-md bg-foreground px-1.5 py-0.5 text-[11px] text-background tabular-nums"
+          className="pointer-events-none absolute bottom-5 -translate-x-1/2 rounded-md bg-foreground px-1.5 py-0.5 text-micro text-background tabular-nums"
           style={{ left: `${Math.min(Math.max(hover, 0.04), 0.96) * 100}%` }}
         >
           {hoverText(hover)}

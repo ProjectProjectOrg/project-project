@@ -41,6 +41,7 @@ const ticket = {
   pr: null,
   prState: null,
   lastTransitionedPr: null,
+  parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
   assignees: [],
   archivedAt: null,
@@ -234,6 +235,7 @@ describe("ticket sprint sections", () => {
             snapshot([ticket], null, {
               unit: "points",
               committed: 0,
+              started: 0,
               done: 0,
               unestimated: 1
             })
@@ -261,6 +263,7 @@ describe("ticket sprint sections", () => {
       expect(sprintSection(registry.get(view), groupId)?.estimates).toEqual({
         unit: "points",
         committed: 5,
+        started: 0,
         done: 5,
         unestimated: 0
       })

@@ -8,6 +8,7 @@ import {
   groupJiraFindings,
   type JiraFindingGroup
 } from "@/features/jira/lib/findings"
+import { TicketIdText } from "@/features/tickets/components/TicketIdText"
 import { textLinkClass } from "@/lib/textLink"
 import { m } from "@/paraglide/messages"
 
@@ -46,8 +47,8 @@ function FindingGroup({
   const unknownKind = group.title === null
   return (
     <section className="flex flex-col gap-2">
-      <h4 className="flex items-baseline gap-2 text-[13px]">
-        <span className="font-medium text-foreground">
+      <h4 className="flex items-baseline gap-2 text-body">
+        <span className="font-semibold text-foreground">
           {group.title ?? m.jira_import_finding_other()}
         </span>
         <span className="text-muted-foreground tabular-nums">
@@ -113,7 +114,9 @@ function FindingLinks({
           }}
           className={textLinkClass}
         >
-          {m.jira_import_result_open_ticket({ ticket: ticketId })}
+          <TicketIdText id={ticketId}>
+            {m.jira_import_result_open_ticket({ ticket: ticketId })}
+          </TicketIdText>
         </Link>
       ) : null}
       {finding.jiraUrl === null ? null : (

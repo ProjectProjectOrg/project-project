@@ -1,9 +1,9 @@
 import type {
   ArchiveTicketInput,
   DeleteTicketQuery,
+  MarkTicketInput,
   SplitTicketInput,
-  TicketId,
-  UpdateTicketInput
+  TicketId
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -15,7 +15,8 @@ import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 
-import { applyTicketDetailPatch } from "../lib/ticketPatch"
+import { withoutRelation } from "../lib/relationGroups"
+import { applyTicketDetailPatch, type TicketEdit } from "../lib/ticketPatch"
 import { coalescingTicketUpdate } from "./ticketRows"
 
 export type TicketRequest = Readonly<{
@@ -57,7 +58,7 @@ export const ticketBodyDraft = Atom.family((_req: TicketRequest) =>
   Atom.make<string | null>(null).pipe(Atom.setIdleTTL("10 minutes"))
 )
 
-const publishFor = (req: TicketRequest, patch: UpdateTicketInput) => {
+const publishFor = (req: TicketRequest, patch: TicketEdit) => {
   const scope = scopeOf(req)
   const fields = Object.keys(patch)
   const contentOnly = fields.every((f) => f === "title" || f === "body")
@@ -89,6 +90,31 @@ export const archiveTicket = Atom.family((req: TicketRequest) =>
         : ticket,
     call: (client, input) =>
       client.tickets.archive({ params: req.params, payload: input }),
+    confirm: replaceWith,
+    publish: () => Keys.ticketsChanged(scopeOf(req))
+  })
+)
+
+export const markTicket = Atom.family((req: TicketRequest) =>
+  viewMutation(ticketDetail(req), {
+    name: "markTicket",
+    predict: (ticket, _input: MarkTicketInput) => ticket,
+    call: (client, input) =>
+      client.tickets.mark({ params: req.params, payload: input }),
+    confirm: replaceWith,
+    publish: () => Keys.ticketsChanged(scopeOf(req))
+  })
+)
+
+export const unmarkTicket = Atom.family((req: TicketRequest) =>
+  viewMutation(ticketDetail(req), {
+    name: "unmarkTicket",
+    predict: (ticket, input: MarkTicketInput) => ({
+      ...ticket,
+      relations: withoutRelation(ticket.relations, input)
+    }),
+    call: (client, input) =>
+      client.tickets.unmark({ params: req.params, payload: input }),
     confirm: replaceWith,
     publish: () => Keys.ticketsChanged(scopeOf(req))
   })

@@ -19,7 +19,8 @@ export type MatchableTicket = Readonly<{
   prState?: PullRequestState | null
   assignees: ReadonlyArray<string>
   estimate: Estimate | null
-  parent?: string | null
+  parent?: Readonly<{ id: string }> | null
+  openBlockerCount?: number
   archivedAt: Date | null
   updatedAt: Date
 }>
@@ -35,6 +36,13 @@ export const matchesTicketFilter = (
   if (filter.status !== undefined) {
     if (filter.status.length === 0) return false
     if (!filter.status.includes(ticket.status)) return false
+  }
+
+  if (
+    filter.blocked !== undefined &&
+    (ticket.openBlockerCount ?? 0) > 0 !== filter.blocked
+  ) {
+    return false
   }
 
   if (filter.type !== undefined) {
@@ -78,7 +86,7 @@ export const matchesTicketFilter = (
   }
 
   if (filter.parent !== undefined) {
-    const parent = ticket.parent ?? null
+    const parent = ticket.parent?.id ?? null
     if (
       !filter.parent.some((wanted) =>
         wanted === "none" ? parent === null : wanted === parent

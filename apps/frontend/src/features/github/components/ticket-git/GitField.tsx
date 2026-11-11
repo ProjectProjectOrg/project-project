@@ -13,6 +13,7 @@ import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import { compareUrl } from "@/features/github/lib/branchUrl"
+import { canStackOn } from "@/features/github/lib/stacking"
 import { textLinkClass } from "@/lib/textLink"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -46,7 +47,7 @@ export function GitField({
         branch={view.branch}
         openPr={view.openPr}
         removal={{ kind: "ticket" }}
-        canStack={!view.busy && state.tag !== "stale_branch"}
+        canStack={canStackOn(state)}
         trigger={
           <Button
             variant="chip"
@@ -61,7 +62,10 @@ export function GitField({
               )}
               strokeWidth={1.75}
             />
-            <MiddleTruncate value={view.branch} className="font-mono text-xs" />
+            <MiddleTruncate
+              value={view.branch}
+              className="font-mono text-caption"
+            />
             <ChevronDown
               className="size-3 shrink-0 text-muted-foreground"
               strokeWidth={1.75}
@@ -72,7 +76,7 @@ export function GitField({
       <div
         aria-live="polite"
         className={cn(
-          "flex min-w-0 items-center gap-1.5 pl-2.5 text-[11px] text-muted-foreground",
+          "flex min-w-0 items-center gap-1.5 pl-2.5 text-micro text-muted-foreground",
           pulse
         )}
       >
@@ -106,7 +110,7 @@ const baseNote = (base: string, defaultBase: string) =>
     </span>
   )
 
-const pendingLabel = (
+export const pendingLabel = (
   state: Extract<GitState, { tag: "branch_pending" }>
 ): string =>
   Match.value(state.pendingOperation).pipe(

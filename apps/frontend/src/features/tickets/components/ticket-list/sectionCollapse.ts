@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema"
 import { useCallback, useMemo, useRef, useSyncExternalStore } from "react"
 
+import type { ParentGrouping } from "@/features/tickets/lib/backlogGrouping"
 import {
   createLocalStorageCodec,
   useLocalStorageSelect
@@ -19,8 +20,8 @@ export const statusCollapseKey = (orgSlug: string, slug: string) =>
 export const sprintCollapseKey = (preferencesKey: string) =>
   `projectproject:sprint-sections-collapsed:${preferencesKey}`
 
-export const epicCollapseKey = (preferencesKey: string) =>
-  `projectproject:epic-sections-collapsed:${preferencesKey}`
+export const parentCollapseKey = (preferencesKey: string, by: ParentGrouping) =>
+  `projectproject:${by}-sections-collapsed:${preferencesKey}`
 
 type MemorySnapshot = Readonly<{
   q: string | undefined

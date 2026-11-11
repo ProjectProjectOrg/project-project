@@ -11,6 +11,11 @@ import {
   normalizeEstimateFilter,
   normalizeEstimateSort
 } from "@/features/tickets/lib/estimateMeta"
+import {
+  ticketQueryFromSearch,
+  ticketSearchFromQuery,
+  type TicketListSearch
+} from "@/features/tickets/lib/ticketSearch"
 import { useProjectView } from "@/hooks/useViewPreference"
 
 import { SprintDetail } from "../../sprints/components/SprintDetail"
@@ -19,7 +24,6 @@ import { ProjectTicketLayout } from "../../tickets/components/ticket-list/Projec
 
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 const defaultTicketListQuery = Schema.decodeSync(TicketListQuery)({})
-const encodeTicketListQuery = Schema.encodeSync(TicketListQuery)
 
 const forView = (query: TicketListQuery, view: string): TicketListQuery => {
   if (view !== "board" || query.status === undefined) return query
@@ -63,7 +67,12 @@ export function RetainedProjectViews() {
   ) {
     setLastSprint({ groupId: sprint.params.groupId, search: sprint.search })
   }
-  const activeSort = (sprint ?? backlog)?.search.sort
+  const activeSearch = (sprint ?? backlog)?.search
+  const activeQuery = useMemo(
+    () => activeSearch && ticketQueryFromSearch(activeSearch),
+    [activeSearch]
+  )
+  const activeSort = activeQuery?.sort
   const normalizedSort = activeSort
     ? normalizeEstimateSort(estimation, activeSort)
     : undefined
@@ -73,6 +82,7 @@ export function RetainedProjectViews() {
     [estimation, activeEstimate]
   )
   useEffect(() => {
+    if (!activeQuery) return
     if (
       (!activeEstimate?.length ||
         normalizedEstimate?.length === activeEstimate.length) &&
@@ -82,16 +92,19 @@ export function RetainedProjectViews() {
     void navigate({
       to: router.state.location.pathname,
       search: (previous) => ({
-        ...previous,
-        updatedAfter: previous.updatedAfter?.toISOString(),
-        estimate: normalizedEstimate,
-        sort: normalizedSort,
-        cursor: undefined
+        ...ticketSearchFromQuery({
+          ...activeQuery,
+          estimate: normalizedEstimate,
+          sort: normalizedSort ?? activeQuery.sort,
+          cursor: undefined
+        }),
+        view: previous.view
       }),
       replace: true,
       resetScroll: false
     })
   }, [
+    activeQuery,
     normalizedEstimate,
     activeEstimate,
     normalizedSort,
@@ -112,57 +125,64 @@ export function RetainedProjectViews() {
     "sprints"
   ).view
   const boardActive = (sprint ? sprintView : backlogView) === "board"
+  const querySearch = (
+    query: TicketListQuery,
+    previous: Pick<TicketListSearch, "status">
+  ) => {
+    const nextSearch = ticketSearchFromQuery({
+      ...query,
+      estimate: normalizeEstimateFilter(estimation, query.estimate),
+      sort: normalizeEstimateSort(estimation, query.sort)
+    })
+    return {
+      ...nextSearch,
+      status: boardActive ? previous.status : nextSearch.status,
+      cursor: undefined
+    }
+  }
   const updateQuery = (query: TicketListQuery) => {
-    const nextSearch = encodeTicketListQuery(query)
     void navigate({
       to: router.state.location.pathname,
       search: (previous) => ({
-        status: boardActive ? previous.status : nextSearch.status,
-        type: nextSearch.type,
-        assignee: nextSearch.assignee,
-        tags: nextSearch.tags,
-        groupId: nextSearch.groupId,
-        estimate: normalizeEstimateFilter(estimation, nextSearch.estimate),
-        hasBranch: nextSearch.hasBranch,
-        hasPr: nextSearch.hasPr,
-        updatedAfter: nextSearch.updatedAfter,
-        archived: nextSearch.archived,
-        sort: normalizeEstimateSort(estimation, query.sort),
-        q: nextSearch.q,
-        cursor: undefined,
+        ...querySearch(query, previous),
         view: previous.view
       }),
       replace: true,
       resetScroll: false
     })
   }
+  const prefetchQuery = (query: TicketListQuery) => {
+    void router.preloadRoute({
+      to: router.state.location.pathname,
+      search: (previous) => ({
+        ...querySearch(query, previous),
+        view: previous.view
+      })
+    })
+  }
   const backlogQuery = useMemo(() => {
     if (!lastBacklog) return defaultTicketListQuery
-    const { view: _view, estimate, ...query } = lastBacklog
-    const normalized = normalizeEstimateFilter(estimation, estimate)
+    const query = ticketQueryFromSearch(lastBacklog)
+    const normalized = normalizeEstimateFilter(estimation, query.estimate)
     const next = {
       ...query,
+      estimate: normalized,
       sort: normalizeEstimateSort(estimation, query.sort)
     }
-    return forView(
-      normalized === undefined ? next : { ...next, estimate: normalized },
-      backlogView
-    )
+    return forView(next, backlogView)
   }, [lastBacklog, estimation, backlogView])
   const sprintId = lastSprint ? decodeGroupId(lastSprint.groupId) : null
   const sprintQuery = useMemo(() => {
     if (!lastSprint) return defaultTicketListQuery
-    const { view: _view, estimate, ...query } = lastSprint.search
-    const normalized = normalizeEstimateFilter(estimation, estimate)
+    const query = ticketQueryFromSearch(lastSprint.search)
+    const normalized = normalizeEstimateFilter(estimation, query.estimate)
     const next = {
       ...query,
+      estimate: normalized,
       sort: normalizeEstimateSort(estimation, query.sort),
       groupId: sprintId ? [sprintId] : query.groupId
     }
-    return forView(
-      normalized === undefined ? next : { ...next, estimate: normalized },
-      sprintView
-    )
+    return forView(next, sprintView)
   }, [lastSprint, sprintId, estimation, sprintView])
 
   return (
@@ -173,6 +193,7 @@ export function RetainedProjectViews() {
           view={sprint ? sprintView : backlogView}
           query={sprint ? sprintQuery : backlogQuery}
           onQueryChange={updateQuery}
+          onQueryPrefetch={prefetchQuery}
         >
           {({ grouping, preferencesKey, reorder }) => (
             <>
@@ -181,6 +202,7 @@ export function RetainedProjectViews() {
                   <BacklogView
                     view={backlogView === "board" ? "board" : "list"}
                     query={backlogQuery}
+                    onQueryChange={updateQuery}
                     grouping={grouping}
                     preferencesKey={preferencesKey}
                     reorder={reorder}

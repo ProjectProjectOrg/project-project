@@ -1,20 +1,13 @@
 import { sprintState, type Group } from "@pp/shared"
 
-export const singleFilterValue = <A>(
-  values: ReadonlyArray<A> | undefined
-): A | "all" => (values?.length === 1 ? values[0] : "all")
-
-export const singleFilter = <A extends string>(
-  value: A | "all"
-): ReadonlyArray<A> | undefined => (value === "all" ? undefined : [value])
-
-export const toggledTags = <A>(
-  selected: ReadonlyArray<A>,
-  name: A
+export const toggled = <A>(
+  selected: ReadonlyArray<A> | undefined,
+  value: A
 ): ReadonlyArray<A> | undefined => {
-  const next = selected.includes(name)
-    ? selected.filter((tag) => tag !== name)
-    : [...selected, name]
+  const current = selected ?? []
+  const next = current.includes(value)
+    ? current.filter((entry) => entry !== value)
+    : [...current, value]
   return next.length ? next : undefined
 }
 

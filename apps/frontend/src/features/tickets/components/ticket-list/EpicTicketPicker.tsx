@@ -157,7 +157,7 @@ export function EpicTicketPicker({
             className="my-1 h-7 animate-pulse rounded-md bg-muted/60 motion-reduce:animate-none"
           />
         ) : tickets.length === 0 ? (
-          <p className="px-2 py-1.5 text-sm text-muted-foreground">
+          <p className="px-2 py-1.5 text-body text-muted-foreground">
             {m.sprints_add_epic_empty()}
           </p>
         ) : (
@@ -177,7 +177,7 @@ export function EpicTicketPicker({
                 onMouseEnter={() => onHover(ticket.id)}
                 onClick={() => onToggle(ticket.id)}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
+                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body transition-colors",
                   ticket.id === cursorId
                     ? "bg-accent text-foreground"
                     : "text-muted-foreground",
@@ -196,23 +196,25 @@ export function EpicTicketPicker({
                 >
                   {checked && <Check className="size-3" strokeWidth={2.5} />}
                 </span>
-                <span className="font-mono text-[11px] tabular-nums">
-                  {ticket.id}
-                </span>
-                <span
-                  className={cn(
-                    "min-w-0 flex-1 truncate transition-colors",
-                    locked
-                      ? "text-muted-foreground"
-                      : checked
-                        ? "text-foreground"
-                        : "text-muted-foreground line-through decoration-muted-foreground/40"
-                  )}
-                >
-                  {ticket.title}
+                <span className="flex min-w-0 flex-1 items-baseline gap-2">
+                  <span className="font-mono text-micro tabular-nums">
+                    {ticket.id}
+                  </span>
+                  <span
+                    className={cn(
+                      "min-w-0 flex-1 truncate transition-colors",
+                      locked
+                        ? "text-muted-foreground"
+                        : checked
+                          ? "text-foreground"
+                          : "text-muted-foreground line-through decoration-muted-foreground/40"
+                    )}
+                  >
+                    {ticket.title}
+                  </span>
                 </span>
                 {locked && (
-                  <span className="shrink-0 text-[11px] text-muted-foreground">
+                  <span className="shrink-0 text-micro text-muted-foreground">
                     {m.sprints_add_epic_in_sprint()}
                   </span>
                 )}
@@ -221,7 +223,7 @@ export function EpicTicketPicker({
           })
         )}
         <div className="flex items-center justify-between gap-2 px-2 pt-2 pb-1">
-          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1 text-micro text-muted-foreground">
             <Kbd size="sm">↑↓</Kbd>
             <Kbd size="sm">{m.sprints_add_epic_key_space()}</Kbd>
             <span className="ml-0.5">{m.sprints_add_epic_toggle_hint()}</span>

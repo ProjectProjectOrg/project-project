@@ -39,7 +39,7 @@ export function ProjectPicker({
   const refresh = useAtomRefresh(atom)
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-[13px] font-medium text-foreground">
+      <span className="text-body font-semibold text-foreground">
         {m.jira_import_source_project_label()}
       </span>
       <AsyncView
@@ -105,7 +105,7 @@ function ProjectList({
             const project = byId.get(item.value)
             return (
               <CommandMenuItem value={item.value}>
-                <span className="w-16 shrink-0 truncate font-mono text-[12px] text-muted-foreground">
+                <span className="w-16 shrink-0 truncate font-mono text-caption text-muted-foreground">
                   {project?.key}
                 </span>
                 <span className="flex min-w-0 flex-1">

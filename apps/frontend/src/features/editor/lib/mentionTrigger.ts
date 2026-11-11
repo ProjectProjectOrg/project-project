@@ -23,7 +23,7 @@ export const matchMentionTrigger = (
     if (!triggers.includes(ch)) continue
     if (i > 0 && !/\s/.test(text[i - 1])) continue
     const query = text.slice(i + 1)
-    return isQuery(query)
+    return isQuery(query) && !query.startsWith(ch)
       ? {
           trigger: ch,
           leadOffset: i,

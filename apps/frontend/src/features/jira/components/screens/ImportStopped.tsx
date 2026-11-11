@@ -210,12 +210,12 @@ export function ImportStopped({
     >
       <div className="flex flex-col gap-6">
         {subject === null ? null : (
-          <p className="text-[13px] text-foreground">
+          <p className="text-body text-foreground">
             {m.jira_import_failure_subject({ subject })}
           </p>
         )}
         {failed && !detail.actions.canDiscard ? (
-          <p className="max-w-[65ch] text-xs text-muted-foreground">
+          <p className="max-w-[65ch] text-caption text-muted-foreground">
             {m.jira_import_discard_later()}
           </p>
         ) : null}

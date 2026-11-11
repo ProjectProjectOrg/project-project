@@ -3,7 +3,7 @@ import {
   useAtomRefresh,
   useAtomValue
 } from "@effect/atom-react"
-import type { Group, Ticket, TicketId, TicketType } from "@pp/shared"
+import type { Group, Ticket, TicketParent, TicketType } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Random from "effect/Random"
@@ -40,7 +40,7 @@ type CreatorError = Readonly<{ _tag: string }>
 
 export type TicketComposerProps = Readonly<{
   types: ReadonlyArray<TicketType>
-  parent?: TicketId
+  parent?: TicketParent
   create: (input: QuickCreateInput) => Promise<Exit.Exit<Ticket, CreatorError>>
   createState: Result.AsyncResult<unknown, CreatorError>
   onCreated?: (ticket: Ticket) => void
@@ -110,7 +110,8 @@ export function TicketComposer({
     inputRef.current?.blur()
     leave()
     const exit = await create({
-      payload: { title: trimmed, type, parent, ...templateChoice.payload },
+      payload: { title: trimmed, type, ...templateChoice.payload },
+      parent,
       prediction: {
         clientId: Effect.runSync(Random.next).toString(36),
         createdBy: viewerId ?? "",

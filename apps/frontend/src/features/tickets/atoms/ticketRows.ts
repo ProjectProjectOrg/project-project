@@ -1,21 +1,16 @@
-import type {
-  TicketId,
-  TicketSort,
-  TicketUpdateResult,
-  UpdateTicketInput
-} from "@pp/shared"
+import type { TicketId, TicketSort, TicketUpdateResult } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
 import { coalescingMutation, type OptimisticView } from "@/api/viewMutation"
+import {
+  type TicketEdit,
+  toUpdateInput
+} from "@/features/tickets/lib/ticketPatch"
 
-export type TicketUpdateAtom = Atom.AtomResultFn<
-  UpdateTicketInput,
-  unknown,
-  unknown
->
+export type TicketUpdateAtom = Atom.AtomResultFn<TicketEdit, unknown, unknown>
 
 export type TicketUpdates = (id: TicketId) => TicketUpdateAtom
 
@@ -129,9 +124,9 @@ export type CoalescingTicketUpdate<V> = Readonly<{
   path: TicketPath
   sort?: TicketSort
   idleTTL?: "2 minutes" | "10 minutes"
-  predict: (value: V, patch: UpdateTicketInput) => V
+  predict: (value: V, patch: TicketEdit) => V
   confirm: (value: V, confirmed: TicketUpdateResult) => V
-  publish?: (patch: UpdateTicketInput) => ReadonlyArray<ReactivityKey>
+  publish?: (patch: TicketEdit) => ReadonlyArray<ReactivityKey>
 }>
 
 export const coalescingTicketUpdate = <V, VE>(
@@ -142,11 +137,11 @@ export const coalescingTicketUpdate = <V, VE>(
     name: update.name,
     idleTTL: update.idleTTL ?? "2 minutes",
     predict: update.predict,
-    call: (client, payload: UpdateTicketInput) =>
+    call: (client, edit: TicketEdit) =>
       client.tickets.update({
         params: update.path,
         query: update.sort === undefined ? {} : { sort: update.sort },
-        payload
+        payload: toUpdateInput(edit)
       }),
     confirm: (value, confirmed) => update.confirm(value, confirmed),
     publish: (_confirmed, payload) =>

@@ -23,7 +23,7 @@ export function RailBackLink({
       {...linkProps}
       state={{ keepSidebarDrawer: true }}
       className={cn(
-        "group/rail-back flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] leading-none text-muted-foreground transition-colors hover:text-foreground",
+        "group/rail-back flex items-center gap-2 rounded-md px-2 py-1.5 text-micro leading-none text-muted-foreground transition-colors hover:text-foreground",
         className
       )}
     >

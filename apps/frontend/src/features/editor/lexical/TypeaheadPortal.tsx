@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useState, type ReactNode } from "react"
+import { useLayoutEffect, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 
 import { placeTypeahead } from "@/features/editor/lib/typeaheadPlacement"
@@ -8,6 +8,12 @@ const createHost = (): HTMLDivElement => {
   host.style.position = "absolute"
   host.style.zIndex = "50"
   return host
+}
+
+const LEXICAL_LISTBOX_ATTRIBUTES = ["id", "role", "aria-label"]
+
+const releaseAnchor = (anchor: HTMLElement) => {
+  for (const name of LEXICAL_LISTBOX_ATTRIBUTES) anchor.removeAttribute(name)
 }
 
 const placeHost = (host: HTMLElement, anchor: HTMLElement) => {
@@ -34,28 +40,27 @@ export function TypeaheadPortal({
   children
 }: Readonly<{ anchor: HTMLElement; children: ReactNode }>) {
   const [host] = useState(createHost)
-  const hostId = useId()
 
   useLayoutEffect(() => {
-    host.id = hostId
     document.body.append(host)
-    anchor.setAttribute("aria-owns", hostId)
-    const place = () => placeHost(host, anchor)
+    const place = () => {
+      releaseAnchor(anchor)
+      placeHost(host, anchor)
+    }
     place()
     const anchorMoves = new MutationObserver(place)
     anchorMoves.observe(anchor, {
       attributes: true,
-      attributeFilter: ["style"]
+      attributeFilter: ["style", ...LEXICAL_LISTBOX_ATTRIBUTES]
     })
     const menuResizes = new ResizeObserver(place)
     menuResizes.observe(host)
     return () => {
       anchorMoves.disconnect()
       menuResizes.disconnect()
-      anchor.removeAttribute("aria-owns")
       host.remove()
     }
-  }, [anchor, host, hostId])
+  }, [anchor, host])
 
   return createPortal(children, host)
 }

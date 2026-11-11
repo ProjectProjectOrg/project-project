@@ -66,7 +66,7 @@ export function EstimationSettings({
             onValueChange={(next) => update({ estimation: next })}
           />
         ) : (
-          <span className="text-[13px] text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {ESTIMATION_MODE_LABELS[estimation]()}
           </span>
         )}

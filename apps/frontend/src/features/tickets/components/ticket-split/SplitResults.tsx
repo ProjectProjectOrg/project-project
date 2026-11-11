@@ -80,7 +80,7 @@ function Row({
         <Rail shape={shape} connectUp={connectUp} />
         {status}
         {priority}
-        <span className="inline-flex shrink-0 items-center font-mono text-xs text-muted-foreground tabular-nums">
+        <span className="inline-flex shrink-0 items-center font-mono text-caption text-muted-foreground tabular-nums">
           {ticketId}
         </span>
         <div className="flex min-w-0 items-center">{title}</div>
@@ -109,7 +109,7 @@ function Row({
   )
 }
 
-function Add({ onClick, hint }: { onClick: () => void; hint: string }) {
+function Add({ onClick, hint }: { onClick: () => void; hint: ReactNode }) {
   return (
     <div className="col-span-full flex items-center gap-3 pt-2 pl-6">
       <Button
@@ -121,7 +121,7 @@ function Add({ onClick, hint }: { onClick: () => void; hint: string }) {
       >
         {m.tickets_split_add_result()}
       </Button>
-      <p className="text-xs text-muted-foreground">{hint}</p>
+      <p className="text-caption text-muted-foreground">{hint}</p>
     </div>
   )
 }

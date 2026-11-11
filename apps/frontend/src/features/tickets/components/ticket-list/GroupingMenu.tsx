@@ -1,12 +1,8 @@
-import { ChevronDown, Layers } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 
 import { CollapsingLabel } from "@/components/ui/collapsing-label"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+import { Select, SelectTrigger } from "@/components/ui/select"
+import type { IconComponent } from "@/lib/icon"
 import { m } from "@/paraglide/messages"
 
 import { ToolbarButton } from "./toolbar/shared"
@@ -14,6 +10,7 @@ import { ToolbarButton } from "./toolbar/shared"
 export type GroupingOption<K extends string> = Readonly<{
   key: K
   label: string
+  icon: IconComponent
 }>
 
 type GroupingMenuProps<K extends string> = Readonly<{
@@ -32,27 +29,26 @@ export function GroupingMenu<K extends string>({
   const current = options.find((option) => option.key === value)
   const label = m.tickets_grouping_label({ label: current?.label ?? value })
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
+    <Select
+      items={options.map((option) => ({
+        value: option.key,
+        textValue: option.label,
+        label: option.label,
+        icon: option.icon
+      }))}
+      value={value}
+      onValueChange={onChange}
+      contentProps={{ align: "end" }}
+    >
+      <SelectTrigger
         render={
           <ToolbarButton aria-label={label}>
-            <Layers className="size-4" />
+            {current && <current.icon className="size-4" />}
             <CollapsingLabel show={!compact}>{label}</CollapsingLabel>
             <ChevronDown className="size-3.5 opacity-60" />
           </ToolbarButton>
         }
       />
-      <DropdownMenuContent align="end">
-        <DropdownMenuRadioGroup
-          value={value}
-          onValueChange={onChange}
-          items={options.map((option) => ({
-            value: option.key,
-            closeOnClick: true,
-            label: option.label
-          }))}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    </Select>
   )
 }

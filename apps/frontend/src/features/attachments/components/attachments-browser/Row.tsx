@@ -67,11 +67,11 @@ export function Row({
       <td className="w-full max-w-0 px-2 py-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <Thumbnail row={row} />
-          <span className="truncate font-mono text-[13px]">{row.filename}</span>
+          <span className="truncate font-mono text-body">{row.filename}</span>
         </div>
       </td>
 
-      <td className="max-w-[180px] truncate px-2 py-2 text-sm text-muted-foreground">
+      <td className="max-w-[180px] truncate px-2 py-2 text-body text-muted-foreground">
         {row.projectSlug ?? m.attachments_project_deleted()}
       </td>
 
@@ -79,13 +79,13 @@ export function Row({
         <TicketCell orgSlug={orgSlug} row={row} onOpen={openTicket} />
       </td>
 
-      <td className="px-2 py-2 text-right text-sm whitespace-nowrap text-muted-foreground tabular-nums">
+      <td className="px-2 py-2 text-right text-body whitespace-nowrap text-muted-foreground tabular-nums">
         {formatBytes(row.byteSize, locale)}
       </td>
 
       <td
         className={cn(
-          "px-2 py-2 text-sm whitespace-nowrap",
+          "px-2 py-2 text-body whitespace-nowrap",
           row.status === "orphaned"
             ? "text-foreground"
             : "text-muted-foreground"
@@ -94,7 +94,7 @@ export function Row({
         {STATUS_LABEL[row.status]()}
       </td>
 
-      <td className="px-2 py-2 text-sm whitespace-nowrap text-muted-foreground">
+      <td className="px-2 py-2 text-body whitespace-nowrap text-muted-foreground">
         {row.createdAt.toLocaleDateString(locale)}
       </td>
 
@@ -157,7 +157,7 @@ function TicketCell({
   if (row.ticketId === null) {
     if (row.projectSlug === null) {
       return (
-        <span className="text-[13px] text-muted-foreground/70">
+        <span className="text-body text-muted-foreground">
           {m.attachments_project_image()}
         </span>
       )
@@ -166,7 +166,7 @@ function TicketCell({
       <Link
         to="/orgs/$orgSlug/projects/$slug/settings/general"
         params={{ orgSlug, slug: row.projectSlug }}
-        className="text-[13px] transition-colors hover:text-foreground"
+        className="text-body transition-colors hover:text-foreground"
       >
         {m.attachments_project_image()}
       </Link>
@@ -175,7 +175,7 @@ function TicketCell({
   if (row.tickets.length === 0) {
     return (
       <span
-        className="font-mono text-[13px] text-muted-foreground/70"
+        className="font-mono text-body text-muted-foreground"
         title={m.attachments_ticket_unreferenced()}
       >
         {row.ticketId}
@@ -191,7 +191,7 @@ function TicketCell({
         to="/orgs/$orgSlug/projects/$slug/tickets/$id"
         params={{ orgSlug, slug: first.projectSlug, id: first.ticketId }}
         onClick={(event) => event.stopPropagation()}
-        className="font-mono text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+        className="font-mono text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         {first.ticketId}
       </Link>
@@ -212,7 +212,7 @@ function TicketCell({
         }))}
       >
         <SelectTrigger
-          className="h-7 w-auto gap-1.5 px-2 font-mono text-[13px]"
+          className="h-7 w-auto gap-1.5 px-2 font-mono text-body"
           placeholder={m.attachments_ticket_count({
             count: row.tickets.length
           })}

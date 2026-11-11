@@ -29,7 +29,7 @@ export function CreateBranchSubmenu({
   suggestedName,
   onDone
 }: Readonly<{
-  ticket: TicketDetail
+  ticket: Pick<TicketDetail, "id" | "status">
   github: GithubConnection
   suggestedName: string
   onDone: () => void

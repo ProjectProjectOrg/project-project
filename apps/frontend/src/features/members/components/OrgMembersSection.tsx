@@ -118,7 +118,7 @@ export function OrgMembersSection({
       }
       footer={
         isLastOwner ? (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-caption text-muted-foreground">
             {m.org_members_last_owner_note()}
           </p>
         ) : null

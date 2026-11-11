@@ -80,7 +80,7 @@ function ProjectSetupRail({ project }: { project: ProjectDetailType }) {
 
   return (
     <div className="flex flex-col gap-1 px-3 pt-6">
-      <div className="px-3 pb-1 text-xs font-medium text-muted-foreground">
+      <div className="px-3 pb-1 text-caption font-semibold text-muted-foreground">
         {m.project_setup_section_label()}
       </div>
       <nav className="flex flex-col gap-1">
@@ -91,7 +91,7 @@ function ProjectSetupRail({ project }: { project: ProjectDetailType }) {
               <Link
                 to={item.to}
                 params={{ orgSlug, slug }}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2 pr-8 text-[13px] text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 pr-8 text-body text-muted-foreground transition-colors group-hover/setup-row:bg-hover group-hover/setup-row:text-foreground"
               >
                 <Icon className="size-4" strokeWidth={1.75} />
                 <span className="min-w-0 flex-1 truncate">{item.label}</span>
@@ -103,7 +103,7 @@ function ProjectSetupRail({ project }: { project: ProjectDetailType }) {
                     item: item.label
                   })}
                   onClick={item.dismiss}
-                  className="absolute top-1/2 right-1.5 grid size-6 -translate-y-1/2 place-items-center rounded-md text-muted-foreground opacity-0 transition-colors transition-transform duration-100 group-hover/setup-row:opacity-100 hover:bg-background hover:text-foreground active:scale-[0.97]"
+                  className="absolute top-1/2 right-1.5 grid size-6 -translate-y-1/2 cursor-pointer place-items-center rounded-md text-muted-foreground opacity-0 transition-colors transition-transform duration-100 group-hover/setup-row:opacity-100 hover:bg-surface-3 hover:text-foreground active:scale-[0.97]"
                 >
                   <X className="size-3.5" strokeWidth={1.75} />
                 </button>

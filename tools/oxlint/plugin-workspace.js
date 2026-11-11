@@ -50,8 +50,72 @@ function reportIfCrossPackage(context, node) {
   }
 }
 
+const FIELD_TOUCH_SIZE = "pointer-coarse:text-[16px]"
+
+function utilityOf(token) {
+  let depth = 0
+  let cut = -1
+  for (let i = 0; i < token.length; i++) {
+    const char = token[i]
+    if (char === "[") depth++
+    else if (char === "]") depth--
+    else if (char === ":" && depth === 0) cut = i
+  }
+  return token.slice(cut + 1).replace(/^!/, "")
+}
+
+function typeScaleProblem(token) {
+  if (token === FIELD_TOUCH_SIZE) return undefined
+  const utility = utilityOf(token)
+  if (
+    /^text-(xs|sm|base|lg|[2-9]?xl)(\/.+)?$/.test(utility) ||
+    /^text-\[\d+(\.\d+)?(px|rem|em)\]$/.test(utility)
+  ) {
+    return `Use a type role (text-display, text-title, text-subtitle, text-body, text-caption, text-micro) instead of \`${token}\`.`
+  }
+  if (utility === "uppercase" || utility.startsWith("tracking-")) {
+    return `Hierarchy comes from size and weight, not case or letter-spacing: drop \`${token}\`.`
+  }
+  if (/^text-(muted-)?foreground\/\d+$/.test(utility)) {
+    return `Text is text-foreground or text-muted-foreground, never an opacity step: replace \`${token}\`.`
+  }
+  if (/^font-(thin|extralight|light|medium|extrabold|black)$/.test(utility)) {
+    return `Text uses font-normal, font-semibold or font-bold (display only): replace \`${token}\`.`
+  }
+  return undefined
+}
+
+function reportTypeScale(context, node, text) {
+  for (const token of text.split(/\s+/)) {
+    const message = token && typeScaleProblem(token)
+    if (message) context.report({ node, message })
+  }
+}
+
 export default {
   rules: {
+    "type-scale": {
+      meta: {
+        type: "problem",
+        docs: {
+          description:
+            "keep text on the Fluid type scale: roles, three weights, two colors"
+        },
+        schema: []
+      },
+      create(context) {
+        return {
+          Literal(node) {
+            if (typeof node.value === "string") {
+              reportTypeScale(context, node, node.value)
+            }
+          },
+          TemplateElement(node) {
+            reportTypeScale(context, node, node.value.cooked ?? node.value.raw)
+          }
+        }
+      }
+    },
     "no-raw-api-query": {
       meta: {
         type: "problem",

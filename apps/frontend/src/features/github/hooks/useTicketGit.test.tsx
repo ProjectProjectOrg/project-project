@@ -22,6 +22,7 @@ const ticket = Schema.decodeSync(TicketDetail)({
   pr: 80,
   prState: "closed",
   lastTransitionedPr: null,
+  parent: null,
   gitState: { tag: "no_branch" },
   assignees: [],
   archivedAt: null,

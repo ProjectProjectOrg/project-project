@@ -56,7 +56,7 @@
     "@pp/frontend#typecheck": {
       "dependsOn": ["^typecheck"],
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/tsconfig.base.json"],
-      "outputs": ["src/paraglide/**"],
+      "outputs": [".cache/paraglide/typecheck/**"],
       "outputLogs": "new-only"
     }
   }

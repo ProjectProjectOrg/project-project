@@ -1,10 +1,10 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import {
   estimationUnit,
-  finishedStatusSlugs,
+  statusPhaseLookup,
   summarizeEstimates,
   type EstimateUnit,
-  type GroupId
+  type Group
 } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 
@@ -16,11 +16,13 @@ import {
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { boardRequest, sprintBoard } from "@/features/sprints/atoms/sprintBoard"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
-import { formatEstimateSummary } from "@/features/tickets/lib/estimateMeta"
+import { isEmptyEstimateSummary } from "@/features/tickets/lib/estimateMeta"
 import { cn } from "@/lib/utils"
 
+import { SprintProgress } from "./SprintProgress"
+
 type SprintEstimateTotalsProps = Readonly<{
-  groupId: GroupId
+  sprint: Group
 }>
 
 export function SprintEstimateTotals(props: SprintEstimateTotalsProps) {
@@ -29,15 +31,15 @@ export function SprintEstimateTotals(props: SprintEstimateTotalsProps) {
 }
 
 function SprintEstimateSummary({
-  groupId,
+  sprint,
   unit
 }: SprintEstimateTotalsProps & Readonly<{ unit: EstimateUnit }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const req = boardRequest(orgSlug, slug, groupId)
+  const req = boardRequest(orgSlug, slug, sprint.id)
   const board = useAtomValue(sprintBoard(req))
   const refresh = useAtomRefresh(sprintBoard(req))
   const statuses = useAtomValue(statusesFor(statusesRequest(orgSlug, slug)))
-  const finished = finishedStatusSlugs(
+  const phaseOf = statusPhaseLookup(
     Result.isSuccess(statuses) ? statuses.value : []
   )
   return (
@@ -47,12 +49,10 @@ function SprintEstimateSummary({
       reset={refresh}
       onInitial={() => null}
       onSuccess={({ value, waiting }) => {
-        const text = formatEstimateSummary(
-          summarizeEstimates(value.tickets, unit, finished)
-        )
-        return text === null ? null : (
-          <span className={cn("tabular-nums", waiting && "animate-pulse")}>
-            {text}
+        const summary = summarizeEstimates(value.tickets, unit, phaseOf)
+        return isEmptyEstimateSummary(summary) ? null : (
+          <span className={cn(waiting && "animate-pulse")}>
+            <SprintProgress sprint={sprint} summary={summary} />
           </span>
         )
       }}

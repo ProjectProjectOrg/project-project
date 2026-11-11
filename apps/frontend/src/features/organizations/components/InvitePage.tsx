@@ -156,10 +156,10 @@ function InviteAccept({ invite }: { invite: UserInvitation }) {
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-normal text-foreground">
+        <h1 className="text-display font-bold text-foreground">
           {m.auth_invite_title()}
         </h1>
-        <p className="text-sm leading-6 text-muted-foreground">
+        <p className="text-body leading-6 text-muted-foreground">
           {m.auth_invite_body({ org: invite.orgName })}
         </p>
       </div>
@@ -173,26 +173,26 @@ function InviteAccept({ invite }: { invite: UserInvitation }) {
           aria-hidden
           className="flex size-11 shrink-0 items-center justify-center rounded-md bg-muted ring-1 ring-border ring-inset"
         >
-          <span className="font-mono text-base leading-none font-medium text-foreground">
+          <span className="font-mono text-title leading-none text-foreground">
             {initial}
           </span>
         </div>
         <div className="min-w-0 flex-1 space-y-0.5">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="min-w-0 truncate text-sm leading-5 font-medium text-foreground">
+            <span className="min-w-0 truncate text-body leading-5 font-semibold text-foreground">
               {invite.orgName}
             </span>
-            <span className="inline-flex shrink-0 items-center rounded bg-muted px-1.5 py-px text-[10.5px] leading-[1.5] font-medium text-muted-foreground capitalize">
+            <span className="inline-flex shrink-0 items-center rounded bg-muted px-1.5 py-px text-micro leading-[1.5] text-muted-foreground capitalize">
               {invitationRoleLabel(invite.role)}
             </span>
           </div>
-          <div className="truncate text-[12.5px] leading-5 text-muted-foreground">
+          <div className="truncate text-caption leading-5 text-muted-foreground">
             {invitationInviterDetail(invite.inviterEmail)}
           </div>
         </div>
       </div>
       {(error ?? acceptError) ? (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-body text-destructive">
           {error ?? acceptError}
         </p>
       ) : null}
@@ -227,10 +227,10 @@ function InviteUnavailable() {
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-normal text-foreground">
+        <h1 className="text-display font-bold text-foreground">
           {m.auth_invite_unavailable_title()}
         </h1>
-        <p className="text-sm leading-6 text-muted-foreground">
+        <p className="text-body leading-6 text-muted-foreground">
           {m.auth_invite_unavailable_body()}
         </p>
       </div>

@@ -38,12 +38,12 @@ export function ProjectRow({
         seed={project.slug}
       />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{project.name}</div>
-        <div className="truncate font-mono text-xs text-muted-foreground">
+        <div className="truncate text-body font-semibold">{project.name}</div>
+        <div className="truncate font-mono text-caption text-muted-foreground">
           {project.key} /{project.slug}
         </div>
       </div>
-      <div className="hidden shrink-0 text-xs text-muted-foreground sm:block">
+      <div className="hidden shrink-0 text-caption text-muted-foreground sm:block">
         {formatRelative(project.createdAt)}
       </div>
       <ChevronRight

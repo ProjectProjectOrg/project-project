@@ -34,13 +34,15 @@ import {
   TicketEpicSections,
   TicketListPage,
   TicketListQuery,
+  TicketNeighbors,
   TicketOrderKeyQuery,
   TicketSearchQuery,
   TicketSection,
   TicketSections,
   TicketSort,
   TicketSprintSections,
-  TicketUpdateResult
+  TicketUpdateResult,
+  TicketViewSource
 } from "../filters/Ticket"
 import {
   AttachBranchInput,
@@ -54,6 +56,7 @@ import {
   ArchiveTicketInput,
   CreateTicketInput,
   DeleteTicketQuery,
+  MarkTicketInput,
   QuickCreateTicketInput,
   SplitTicketInput,
   SplitTicketResult,
@@ -62,6 +65,11 @@ import {
   UpdateTicketInput
 } from "./Ticket"
 import { TicketActivityPage } from "./TicketActivity"
+import {
+  TicketTextHit,
+  TicketTextSearchQuery,
+  TicketTitle
+} from "./TicketTextSearch"
 
 const TicketListHttpQuery = TicketListQuery.pipe(
   Schema.fieldsAssign({
@@ -179,6 +187,20 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       .middleware(ProjectAccess)
   )
   .add(
+    HttpApiEndpoint.get(
+      "parentSections",
+      "/orgs/:orgSlug/projects/:slug/tickets/parent-sections",
+      {
+        params: ProjectPath,
+        query: TicketListHttpQuery,
+        success: TicketEpicSections,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/projects/:slug/tickets", {
       params: ProjectPath,
       query: TicketPageHttpQuery,
@@ -196,6 +218,33 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: ProjectPath,
         query: TicketSearchQuery,
         success: Schema.Array(Ticket),
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "titles",
+      "/orgs/:orgSlug/projects/:slug/tickets/titles",
+      {
+        params: ProjectPath,
+        success: Schema.Array(TicketTitle),
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "textSearch",
+      "/orgs/:orgSlug/projects/:slug/tickets/text-search",
+      {
+        params: ProjectPath,
+        query: TicketTextSearchQuery,
+        success: Schema.Array(TicketTextHit),
         error: [Unauthorized, NotFound, Forbidden]
       }
     )
@@ -263,6 +312,20 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       .middleware(ProjectAccess)
   )
   .add(
+    HttpApiEndpoint.get(
+      "neighbors",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/neighbors",
+      {
+        params: TicketPath,
+        query: Schema.Struct({ from: Schema.fromJsonString(TicketViewSource) }),
+        success: Schema.NullOr(TicketNeighbors),
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
     HttpApiEndpoint.patch(
       "update",
       "/orgs/:orgSlug/projects/:slug/tickets/:id",
@@ -319,6 +382,34 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         params: TicketPath,
         success: TicketDetail,
         error: [Unauthorized, NotFound, Forbidden, Conflict]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["update"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "mark",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/mark",
+      {
+        params: TicketPath,
+        payload: MarkTicketInput,
+        success: TicketDetail,
+        error: [Unauthorized, NotFound, Forbidden, Validation]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["update"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "unmark",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/unmark",
+      {
+        params: TicketPath,
+        payload: MarkTicketInput,
+        success: TicketDetail,
+        error: [Unauthorized, NotFound, Forbidden]
       }
     )
       .annotate(RequiresProject, { ticket: ["update"] })

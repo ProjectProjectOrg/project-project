@@ -57,6 +57,7 @@ const ticketJson = (id: string, status: string) => ({
   pr: null,
   prState: null,
   lastTransitionedPr: null,
+  parent: null,
   gitState: { tag: "no_branch" as const, baseBranch: "main" },
   assignees: ["user-1"],
   archivedAt: null,

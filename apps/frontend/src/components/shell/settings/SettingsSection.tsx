@@ -31,12 +31,12 @@ export function SettingsSection({
       {title || description ? (
         <header className="px-0.5">
           {title ? (
-            <h2 id={titleId} className="text-[13px] font-medium">
+            <h2 id={titleId} className="text-body font-semibold">
               {title}
             </h2>
           ) : null}
           {description ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <p className="mt-0.5 text-caption text-muted-foreground">
               {description}
             </p>
           ) : null}
@@ -118,19 +118,19 @@ export function SettingsRow({
         <div className="flex min-w-0 flex-1 items-center gap-3">
           {icon}
           <div className="min-w-0">
-            <p id={labelId} className="text-[13px] leading-tight font-medium">
+            <p id={labelId} className="text-body leading-tight font-semibold">
               {label}
             </p>
             {description ? (
               <p
                 id={descriptionId}
-                className="mt-0.5 text-xs text-muted-foreground"
+                className="mt-0.5 text-caption text-muted-foreground"
               >
                 {description}
               </p>
             ) : null}
             {error ? (
-              <p role="alert" className="mt-1 text-xs text-destructive">
+              <p role="alert" className="mt-1 text-caption text-destructive">
                 {error}
               </p>
             ) : null}

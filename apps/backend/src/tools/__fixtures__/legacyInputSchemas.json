@@ -419,8 +419,8 @@
       "subTickets": {
         "anyOf": [
           {
-            "enum": ["nested", "flat"],
-            "type": "string"
+            "type": "string",
+            "enum": ["nested", "flat"]
           },
           {
             "type": "null"
@@ -428,6 +428,16 @@
         ]
       },
       "archived": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "blocked": {
         "anyOf": [
           {
             "type": "boolean"
@@ -981,6 +991,34 @@
           }
         ]
       },
+      "blockedBy": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "relatedTo": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "template": {
         "anyOf": [
           {
@@ -1191,6 +1229,34 @@
           }
         ]
       },
+      "blockedBy": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "relatedTo": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "template": {
         "anyOf": [
           {
@@ -1326,6 +1392,17 @@
           {
             "type": "string",
             "maxLength": 20000
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "duplicateOf": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
           },
           {
             "type": "null"
@@ -1558,6 +1635,16 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 200
+      },
+      "body": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "color": {
         "anyOf": [
@@ -1816,6 +1903,70 @@
       }
     },
     "required": ["orgSlug", "projectSlug", "groupId", "ticketIds"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "mark_ticket": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+      },
+      "kind": {
+        "type": "string",
+        "enum": ["blockedBy", "blocking", "related"]
+      },
+      "target": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "id", "kind", "target"],
+    "additionalProperties": true,
+    "$defs": {}
+  },
+  "unmark_ticket": {
+    "type": "object",
+    "properties": {
+      "orgSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "projectSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+      },
+      "kind": {
+        "type": "string",
+        "enum": ["blockedBy", "blocking", "related"]
+      },
+      "target": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+      }
+    },
+    "required": ["orgSlug", "projectSlug", "id", "kind", "target"],
     "additionalProperties": true,
     "$defs": {}
   }

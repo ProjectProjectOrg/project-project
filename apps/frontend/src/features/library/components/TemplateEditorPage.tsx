@@ -182,10 +182,10 @@ function TemplateEditor({
               ariaLabel={m.templates_editor_name_aria()}
               maxLength={60}
               required
-              className="text-xl font-semibold"
+              className="text-display font-bold"
             />
           ) : (
-            <h2 className="text-xl font-semibold">{template.name}</h2>
+            <h2 className="text-display font-bold">{template.name}</h2>
           )}
         </div>
       }
@@ -215,11 +215,11 @@ function TemplateEditor({
           {showPreview ? (
             <div data-template-preview className="ml-7 px-3 py-2">
               {preview.trim() === "" ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-body text-muted-foreground">
                   {m.templates_editor_preview_empty()}
                 </p>
               ) : (
-                <Markdown className="text-sm">{preview}</Markdown>
+                <Markdown className="text-body">{preview}</Markdown>
               )}
             </div>
           ) : null}

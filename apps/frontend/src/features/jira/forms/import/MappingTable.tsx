@@ -18,7 +18,7 @@ export function MappingTable({
 }>) {
   const counted = countLabel !== undefined
   return (
-    <table className="-ml-7 w-[calc(100%+1.75rem)] table-fixed border-separate border-spacing-y-1 text-[13px]">
+    <table className="-ml-7 w-[calc(100%+1.75rem)] table-fixed border-separate border-spacing-y-1 text-body">
       <colgroup>
         <col className="w-7" />
         <col />
@@ -26,7 +26,7 @@ export function MappingTable({
         <col className="w-60" />
       </colgroup>
       <thead className="sticky top-11 z-10 bg-region">
-        <tr className="h-7 text-left text-xs text-muted-foreground">
+        <tr className="h-7 text-left text-caption text-muted-foreground">
           <th aria-hidden />
           <th className="pr-3 font-normal">{sourceLabel}</th>
           {counted ? (
@@ -86,7 +86,7 @@ export function MappingTableRow({
         <span className="flex min-w-0 items-baseline gap-2 text-foreground">
           <span className="truncate">{name}</span>
           {context === undefined || context === null ? null : (
-            <span className="truncate text-xs text-muted-foreground">
+            <span className="truncate text-caption text-muted-foreground">
               {context}
             </span>
           )}
@@ -95,7 +95,7 @@ export function MappingTableRow({
       {count === undefined ? null : (
         <td
           title={countTitle}
-          className="truncate pr-3 text-right align-middle text-xs text-muted-foreground tabular-nums"
+          className="truncate pr-3 text-right align-middle text-caption text-muted-foreground tabular-nums"
         >
           {count}
         </td>

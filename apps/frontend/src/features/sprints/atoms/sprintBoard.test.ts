@@ -1,4 +1,5 @@
 import {
+  EMPTY_TICKET_RELATIONS,
   Group,
   GroupDetail,
   GroupId,
@@ -47,6 +48,7 @@ const makeTicket = (id: TicketId, status: TicketStatus): Ticket => ({
   pr: null,
   prState: null,
   lastTransitionedPr: null,
+  parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
   assignees: [],
   archivedAt: null,
@@ -79,6 +81,7 @@ const encodeTicketUpdate = (ticket: TicketDetail) =>
 const asGroupDetail = (g: Group): GroupDetail => ({ ...g, body: "" })
 const asTicketDetail = (t: Ticket): TicketDetail => ({
   ...t,
+  relations: EMPTY_TICKET_RELATIONS,
   creator: null,
   updater: null,
   body: ""

@@ -46,7 +46,7 @@ it.effect(
           userProvider({ ...scope, members })
             .search(q, null)
             .pipe(
-              Effect.map((page) => page.candidates),
+              Effect.map((page) => page.items),
               Effect.provideService(Registry.AtomRegistry, registry)
             )
         const member = {

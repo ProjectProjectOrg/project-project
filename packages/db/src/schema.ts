@@ -751,6 +751,29 @@ export const ticketBranch = pgTable(
   ]
 )
 
+export const ticketRelationIndex = pgTable(
+  "ticket_relation_index",
+  {
+    projectId: uuid("project_id").notNull(),
+    fromTicketId: text("from_ticket_id").notNull(),
+    toTicketId: text("to_ticket_id").notNull(),
+    kind: text("kind", {
+      enum: ["blocked_by", "related", "duplicate_of"]
+    }).notNull()
+  },
+  (t) => [
+    primaryKey({
+      columns: [t.projectId, t.fromTicketId, t.toTicketId, t.kind]
+    }),
+    foreignKey({
+      name: "ticket_relation_index_from_ticket_fkey",
+      columns: [t.projectId, t.fromTicketId],
+      foreignColumns: [ticketIndex.projectId, ticketIndex.ticketId]
+    }).onDelete("cascade"),
+    index("ticket_relation_index_to_idx").on(t.projectId, t.toTicketId)
+  ]
+)
+
 export const commentIndex = pgTable(
   "comment_index",
   {
@@ -1470,6 +1493,7 @@ export const relations = defineRelations(
     everhourTimeAttribution,
     ticketIndex,
     ticketBranch,
+    ticketRelationIndex,
     commentIndex,
     ticketActivity,
     ticketActivityOutbox,

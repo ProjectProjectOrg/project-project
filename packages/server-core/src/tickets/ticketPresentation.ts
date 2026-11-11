@@ -1,8 +1,11 @@
 import {
+  EMPTY_TICKET_RELATIONS,
+  type TicketRelations,
   Forbidden,
   type NotFound,
   ProjectScope,
   type Ticket,
+  type TicketParent,
   type TicketDetail,
   type User
 } from "@pp/shared"
@@ -88,16 +91,17 @@ export function pendingGitState(
   }
 }
 
-export function documentToTicket(
+function documentToTicket(
   document: TicketDocs.TicketDocument,
   view: GitView,
-  branchDeletedAt: Date | null = null
+  parent: TicketParent | null,
+  branchDeletedAt: Date | null
 ): Ticket {
   const { body: _body, commentsRegion: _commentsRegion, ...ticket } = document
   return presentTicket(view, {
     ...ticket,
     estimate: document.estimate ?? null,
-    parent: document.parent ?? null,
+    parent,
     gitState: pendingGitState(document, view.integration, branchDeletedAt)
   })
 }
@@ -118,14 +122,17 @@ export function documentToDetail(
   view: GitView,
   creator: User | null,
   updater: User | null,
-  branchDeletedAt: Date | null = null
+  parent: TicketParent | null,
+  branchDeletedAt: Date | null = null,
+  relations: TicketRelations = EMPTY_TICKET_RELATIONS
 ): TicketDetail {
   return {
-    ...documentToTicket(document, view, branchDeletedAt),
+    ...documentToTicket(document, view, parent, branchDeletedAt),
     stack: view.visible
       ? stackLayerStates(document.branch, document.stack, view.integration)
       : [],
     splitFrom: document.splitFrom ?? null,
+    relations,
     creator,
     updater,
     body: document.body

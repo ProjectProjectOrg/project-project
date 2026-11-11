@@ -153,7 +153,7 @@ export function TagsSection({
                   >
                     <span className="flex items-center gap-1">
                       {skipped ? (
-                        <span className="flex h-7 min-w-0 flex-1 items-center px-2.5 text-[12px] text-muted-foreground">
+                        <span className="flex h-7 min-w-0 flex-1 items-center px-2.5 text-caption text-muted-foreground">
                           {m.jira_import_tags_skipped()}
                         </span>
                       ) : (

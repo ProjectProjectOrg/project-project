@@ -5,14 +5,15 @@ import {
   sprintState,
   type Group
 } from "@pp/shared"
-import { Link, useNavigate, useParams } from "@tanstack/react-router"
+import { Link, useParams } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Plus } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
+import { useState } from "react"
 
 import { RailBackLink } from "@/components/shell/RailBackLink"
-import { InlineForm } from "@/components/ui/inline-form"
+import { Button } from "@/components/ui/button"
 import {
   project as projectView,
   projectRequest
@@ -23,12 +24,12 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import { CreateSprintForm } from "@/features/sprints/forms/create-sprint"
 import { formatSprintRange } from "@/features/sprints/lib/sprintDates"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+import { NewSprintPopover } from "./NewSprintPopover"
 import { SprintStateIcon } from "./SprintChip"
 
 function formatRange(s: Group): string {
@@ -40,7 +41,10 @@ function sprintProjectLayoutId(orgSlug: string, slug: string) {
 }
 
 function sortByStart(a: Group, b: Group) {
-  return (a.startsAt?.getTime() ?? 0) - (b.startsAt?.getTime() ?? 0)
+  return (
+    (a.startsAt?.getTime() ?? Number.MAX_SAFE_INTEGER) -
+    (b.startsAt?.getTime() ?? Number.MAX_SAFE_INTEGER)
+  )
 }
 
 export function SprintRail({ canPlan }: { canPlan: boolean }) {
@@ -87,12 +91,12 @@ export function SprintRail({ canPlan }: { canPlan: boolean }) {
           reduceMotion ? undefined : sprintProjectLayoutId(orgSlug, slug)
         }
         transition={transitions.layout}
-        className="flex items-center gap-2.5 rounded-lg bg-accent/60 px-3 py-2 text-[13px] text-foreground"
+        className="flex items-center gap-2.5 rounded-lg bg-accent/60 px-3 py-2 text-body text-foreground"
       >
         {projectIcon ? (
           <span
             aria-hidden
-            className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-[13px] leading-none corner-squircle"
+            className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-body leading-none corner-squircle"
           >
             <ProjectIconDisplay
               orgSlug={orgSlug}
@@ -102,11 +106,11 @@ export function SprintRail({ canPlan }: { canPlan: boolean }) {
             />
           </span>
         ) : null}
-        <span className="min-w-0 flex-1 truncate font-medium">
+        <span className="min-w-0 flex-1 truncate font-semibold">
           {projectName}
         </span>
       </motion.div>
-      {canPlan && <NewSprintForm />}
+      {canPlan && <NewSprintButton />}
       <div className="flex flex-col gap-5 overflow-y-auto">
         <Section
           label={m.sprints_active_label()}
@@ -149,9 +153,9 @@ function Section({
   if (count === 0) return null
   return (
     <section className="flex flex-col gap-1">
-      <header className="flex items-center justify-between px-2 text-[11px] text-muted-foreground">
+      <header className="flex items-center justify-between px-2 text-micro text-muted-foreground">
         <span>{label}</span>
-        <span className="font-mono text-[10px] tabular-nums">{count}</span>
+        <span className="font-mono text-micro tabular-nums">{count}</span>
       </header>
       <ul className={cn("flex flex-col", dim && "opacity-80")}>
         {sprints.map((s) => (
@@ -171,16 +175,16 @@ function RailRow({ sprint, selected }: { sprint: Group; selected: boolean }) {
       to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
       params={{ orgSlug, slug, groupId: sprint.id }}
       className={cn(
-        "group/list-row flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
+        "group/list-row flex items-center gap-2.5 rounded-lg px-3 py-2 text-body transition-colors",
         selected
-          ? "bg-accent font-medium text-foreground"
+          ? "bg-accent font-semibold text-foreground"
           : "text-muted-foreground hover:bg-hover hover:text-foreground"
       )}
       aria-current={selected ? "page" : undefined}
     >
       <SprintStateIcon sprint={sprint} />
       <span className="min-w-0 flex-1 truncate">{sprint.name}</span>
-      <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
+      <span className="font-mono text-micro text-muted-foreground tabular-nums">
         {formatRange(sprint)}
       </span>
     </Link>
@@ -203,18 +207,15 @@ function pickSprintNavigationTarget(
   return completed[0] ?? null
 }
 
-function NewSprintForm() {
-  const { orgSlug, slug } = useProjectRoute()
-  const navigate = useNavigate()
-  const Root = InlineForm.Root<"create">
+function NewSprintButton() {
+  const [open, setOpen] = useState(false)
   return (
-    <Root
-      actions={["create"]}
-      className="data-[mode=idle]:border-0 data-[mode=idle]:bg-transparent data-[mode=idle]:p-0"
-    >
-      <InlineForm.Idle block>
-        <InlineForm.Trigger
-          action="create"
+    <NewSprintPopover
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <Button
+          type="button"
           variant="dither"
           className="w-full justify-start text-primary-foreground"
           leadingIcon={Plus}
@@ -225,18 +226,8 @@ function NewSprintForm() {
           ditherHoverStops={[0.5, 1]}
         >
           {m.sprints_new_button()}
-        </InlineForm.Trigger>
-      </InlineForm.Idle>
-      <InlineForm.Form action="create">
-        <CreateSprintForm
-          onCreated={(sprint) =>
-            void navigate({
-              to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
-              params: { orgSlug, slug, groupId: sprint.id }
-            })
-          }
-        />
-      </InlineForm.Form>
-    </Root>
+        </Button>
+      }
+    />
   )
 }

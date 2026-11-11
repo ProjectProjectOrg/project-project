@@ -22,7 +22,7 @@ export function AttachmentUnavailable({
   return (
     <span
       className={cn(
-        "items-center justify-center border border-dashed border-border text-center text-xs text-muted-foreground",
+        "items-center justify-center border border-dashed border-border text-center text-caption text-muted-foreground",
         inline
           ? "mx-0.5 inline-flex rounded-md px-2 align-baseline whitespace-nowrap"
           : "flex rounded-xl px-3 text-balance"

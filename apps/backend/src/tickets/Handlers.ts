@@ -44,6 +44,11 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           queries.epicSections(query)
         ).pipe(dieOnMarkdown)
       )
+      .handle("parentSections", ({ query }) =>
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.parentSections(query)
+        ).pipe(dieOnMarkdown)
+      )
       .handle("list", ({ query }) =>
         Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
           queries.list(query)
@@ -52,6 +57,16 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
       .handle("search", ({ query }) =>
         Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
           queries.search(query)
+        ).pipe(dieOnMarkdown)
+      )
+      .handle("titles", () =>
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.titles()
+        ).pipe(dieOnMarkdown)
+      )
+      .handle("textSearch", ({ query }) =>
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.textSearch(query)
         ).pipe(dieOnMarkdown)
       )
       .handle("count", ({ query }) =>
@@ -79,6 +94,11 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           queries.get(params.id)
         ).pipe(dieOnMarkdown)
       )
+      .handle("neighbors", ({ params, query }) =>
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.neighbors(params.id, query.from)
+        ).pipe(dieOnMarkdown)
+      )
       .handle("update", ({ params, payload, query }) =>
         Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
           commands.update(params.id, payload, query.sort)
@@ -101,13 +121,23 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
       )
       .handle("archive", ({ params, payload }) =>
         Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
-          commands.archive(params.id, payload.reason)
+          commands.archive(params.id, payload)
         ).pipe(
           Effect.catchTag("InvalidCommentBody", (error) =>
             Effect.fail(new Validation({ reason: error.reason }))
           ),
           dieOnMarkdown
         )
+      )
+      .handle("mark", ({ params, payload }) =>
+        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+          commands.mark(params.id, payload)
+        ).pipe(dieOnMarkdown)
+      )
+      .handle("unmark", ({ params, payload }) =>
+        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+          commands.unmark(params.id, payload)
+        ).pipe(dieOnMarkdown)
       )
       .handle("unarchive", ({ params }) =>
         Effect.flatMap(TicketCommands.TicketCommands, (commands) =>

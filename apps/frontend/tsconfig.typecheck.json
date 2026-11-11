@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/paraglide/*": ["./.cache/paraglide/typecheck/*"],
+      "@/*": ["./src/*"]
+    }
+  },
+  "exclude": ["src/paraglide"]
+}

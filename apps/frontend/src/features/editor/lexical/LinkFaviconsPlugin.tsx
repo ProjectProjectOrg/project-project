@@ -2,7 +2,7 @@ import { $isLinkNode, AutoLinkNode, LinkNode } from "@lexical/link"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { mergeRegister } from "@lexical/utils"
 import { $getNodeByKey, type NodeKey, type NodeMutation } from "lexical"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useLayoutEffect, useRef, useState } from "react"
 
 import {
   paintLinkFavicon,
@@ -16,6 +16,7 @@ const SETTLE_MS = 400
 
 export function LinkFaviconsPlugin() {
   const [editor] = useLexicalComposerContext()
+  const initialLinks = useRef(new Set<NodeKey>())
   const [links, setLinks] = useState<ReadonlyMap<NodeKey, string>>(
     () => new Map()
   )
@@ -23,7 +24,7 @@ export function LinkFaviconsPlugin() {
     () => new Map()
   )
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const pending = new Map<NodeKey, string | null>()
     let timer: number | undefined
     let registered = false
@@ -44,6 +45,7 @@ export function LinkFaviconsPlugin() {
       editor.getEditorState().read(() => {
         for (const [key, mutation] of mutations) {
           const node = mutation === "destroyed" ? null : $getNodeByKey(key)
+          if (!registered) initialLinks.current.add(key)
           pending.set(
             key,
             $isLinkNode(node) ? previewableUrl(node.getURL()) : null
@@ -65,18 +67,22 @@ export function LinkFaviconsPlugin() {
     }
   }, [editor])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const paint = () => {
       for (const [key, url] of links) {
         const element = editor.getElementByKey(key)
         if (element !== null) {
-          paintLinkFavicon(element, favicons.get(url) ?? PENDING)
+          paintLinkFavicon(
+            element,
+            favicons.get(url) ?? PENDING,
+            initialLinks.current.has(key) ? false : undefined
+          )
         }
       }
     }
     paint()
     return editor.registerUpdateListener(paint)
-  }, [editor, links, favicons])
+  }, [editor, links, favicons, initialLinks])
 
   const report = useCallback((url: string, favicon: LinkFavicon) => {
     setFavicons((current) =>
@@ -99,6 +105,6 @@ function FaviconSource({
   onResolve: (url: string, favicon: LinkFavicon) => void
 }>) {
   const { favicon } = useLinkPreview(url)
-  useEffect(() => onResolve(url, favicon), [url, favicon, onResolve])
+  useLayoutEffect(() => onResolve(url, favicon), [url, favicon, onResolve])
   return null
 }

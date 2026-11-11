@@ -65,7 +65,7 @@ export function MagicLinkForm({
               {field.errors.length > 0 ? (
                 <p
                   role="alert"
-                  className="text-center text-xs leading-5 text-destructive"
+                  className="text-center text-caption leading-5 text-destructive"
                 >
                   {m.auth_email_invalid()}
                 </p>
@@ -86,12 +86,12 @@ export function MagicLinkForm({
       </form>
 
       {sent ? (
-        <p className="text-center text-xs leading-5 text-muted-foreground">
+        <p className="text-center text-caption leading-5 text-muted-foreground">
           {m.auth_magic_link_sent()}
         </p>
       ) : null}
       {error ? (
-        <p className="text-center text-xs leading-5 text-destructive">
+        <p className="text-center text-caption leading-5 text-destructive">
           {error}
         </p>
       ) : null}

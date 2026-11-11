@@ -7,13 +7,14 @@ import { preserveOffsetOnSource } from "@atlaskit/pragmatic-drag-and-drop/elemen
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview"
 import type { Member, ProjectStatus, Ticket, TicketId } from "@pp/shared"
 import { motion, Reorder, useDragControls } from "motion/react"
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useContext, useEffect, useRef, useState, type ReactNode } from "react"
 
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 
+import { BoardKeyboardContext } from "../hooks/useBoardKeyboardNavigation"
 import type { CardDropData, ColumnDropData, DragData } from "../lib/boardUtils"
 import {
   CollapsedColumnHeader,
@@ -37,9 +38,11 @@ const COLLAPSED_WIDTH = 40
 
 export function SprintBoardColumn({
   update,
+  columnIndex,
   status,
   statuses,
   tickets,
+  filterKey,
   count: countOverride,
   members,
   isDraggable,
@@ -55,9 +58,11 @@ export function SprintBoardColumn({
   footer
 }: {
   update: TicketUpdates
+  columnIndex: number
   status: Ticket["status"]
   statuses: ReadonlyArray<ProjectStatus>
   tickets: ReadonlyArray<Ticket>
+  filterKey: string
   count?: number
   members: ReadonlyArray<Member>
   isDraggable: boolean
@@ -70,8 +75,9 @@ export function SprintBoardColumn({
   onActivateReorder: () => void
   collapsed?: boolean
   onToggleCollapsed?: () => void
-  footer?: ReactNode
+  footer?: (nearEnd: boolean) => ReactNode
 }) {
+  const keyboard = useContext(BoardKeyboardContext)
   const meta = statusMetaFor(status, statuses)
   const [columnEl, setColumnEl] = useState<HTMLElement | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -140,6 +146,10 @@ export function SprintBoardColumn({
       onDragStart={() => setIsDragging(true)}
       onDragEnd={() => setIsDragging(false)}
       ref={setColumnEl}
+      role={keyboard ? "gridcell" : undefined}
+      aria-colindex={keyboard ? columnIndex + 1 : undefined}
+      aria-label={meta.label}
+      data-board-column={status}
       animate={{
         filter:
           holding || isDragging
@@ -199,8 +209,10 @@ export function SprintBoardColumn({
             />
             <VirtualSprintCards
               tickets={tickets}
+              total={count}
               isDraggable={isDraggable && !reorderMode}
               showDropGap={ordered}
+              filterKey={filterKey}
               status={status}
               footer={footer}
             >
@@ -314,7 +326,7 @@ function CardSlot({
       <div
         ref={cardRef}
         className={cn(
-          "rounded-md",
+          "rounded-lg",
           dragging && "opacity-40",
           (pending || inert) && "animate-pulse"
         )}
@@ -326,7 +338,7 @@ function CardSlot({
           }
           animate={{ boxShadow: "0 0 0 0px transparent" }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="rounded-md"
+          className="rounded-lg"
         >
           <SprintBoardCard update={update} ticket={ticket} members={members} />
         </motion.div>

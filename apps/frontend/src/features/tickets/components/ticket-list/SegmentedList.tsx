@@ -9,7 +9,7 @@ import type {
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { FilterX, ListChecks } from "lucide-react"
-import { useMemo } from "react"
+import { useMemo, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
@@ -46,11 +46,13 @@ const EMPTY_PAGE: TicketRowPage = { items: [], nextCursor: null }
 export function SegmentedList({
   query,
   members,
-  snapshot
+  snapshot,
+  empty
 }: {
   query: TicketListQuery
   members: ReadonlyArray<Member>
   snapshot: BacklogValue
+  empty?: ReactNode
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const router = useRouter()
@@ -69,6 +71,7 @@ export function SegmentedList({
         updatedAfter: undefined,
         archived: undefined,
         sort: undefined,
+        dir: undefined,
         q: undefined,
         cursor: undefined,
         view: previous.view
@@ -97,7 +100,7 @@ export function SegmentedList({
     (query.type?.length ?? 0) > 0 ||
     (query.assignee?.length ?? 0) > 0 ||
     (query.tags?.length ?? 0) > 0 ||
-    (query.groupId?.length ?? 0) > 0 ||
+    (empty === undefined && (query.groupId?.length ?? 0) > 0) ||
     query.hasBranch !== undefined ||
     query.hasPr !== undefined ||
     query.updatedAfter !== undefined ||
@@ -133,6 +136,7 @@ export function SegmentedList({
   }
 
   if (counts.total === 0 && !hasActiveFilter) {
+    if (empty !== undefined) return empty
     return (
       <Empty>
         <EmptyHeader>

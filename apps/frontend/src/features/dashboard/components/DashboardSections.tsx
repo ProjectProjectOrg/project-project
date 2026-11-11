@@ -1,6 +1,6 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import * as Schema from "effect/Schema"
-import { Columns3, Rows3 } from "lucide-react"
+import { CircleDot, Columns3, FolderKanban, Rows3 } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
@@ -60,9 +60,9 @@ const GroupingSchema = Schema.Literals(["project", "status", "none"])
 const groupingCodec = createLocalStorageCodec(GroupingSchema)
 
 const GROUPING_OPTIONS = [
-  { key: "project", label: m.tickets_grouping_project() },
-  { key: "status", label: m.tickets_grouping_status() },
-  { key: "none", label: m.tickets_grouping_none() }
+  { key: "project", label: m.tickets_grouping_project(), icon: FolderKanban },
+  { key: "status", label: m.tickets_grouping_status(), icon: CircleDot },
+  { key: "none", label: m.tickets_grouping_none(), icon: Rows3 }
 ] as const
 
 const VIEW_ITEMS: ReadonlyArray<SegmentedItem<MyTicketsView>> = [
@@ -84,8 +84,8 @@ export function MyTicketsSection({
   )
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold tracking-tight">
+      <div className="flex h-9 items-center justify-between gap-3">
+        <h2 className="text-title font-semibold">
           {m.org_dashboard_my_tickets_heading()}
         </h2>
         <div className="flex items-center gap-2">
@@ -230,7 +230,7 @@ export function RecentTicketsSection({
   const refresh = useAtomRefresh(recentTickets(req))
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold tracking-tight">
+      <h2 className="flex h-9 items-center text-title font-semibold">
         {m.org_dashboard_recent_heading()}
       </h2>
       <AsyncView
@@ -264,7 +264,7 @@ function TicketBoard({
   columns: ReadonlyArray<CountedColumn>
 }>) {
   return (
-    <div className="-mx-4 h-[min(40rem,70vh)] overflow-x-auto px-4">
+    <div className="scroll-fade-x -mx-4 h-[min(40rem,70vh)] overflow-x-auto px-4">
       <div className="flex h-full gap-3">
         {columns.map((column) => (
           <BoardColumnShell
@@ -295,10 +295,10 @@ function TicketBoard({
 function EmptyTickets() {
   return (
     <div className="rounded-lg border border-dashed border-border px-6 py-10 text-center">
-      <div className="text-sm font-medium">
+      <div className="text-body font-semibold">
         {m.org_dashboard_my_tickets_empty_title()}
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">
+      <p className="mt-1 text-caption text-muted-foreground">
         {m.org_dashboard_my_tickets_empty_body()}
       </p>
     </div>
@@ -306,7 +306,7 @@ function EmptyTickets() {
 }
 
 function EmptyNote({ children }: Readonly<{ children: ReactNode }>) {
-  return <p className="px-3 text-xs text-muted-foreground">{children}</p>
+  return <p className="px-3 text-caption text-muted-foreground">{children}</p>
 }
 
 function RowsSkeleton({ count }: Readonly<{ count: number }>) {

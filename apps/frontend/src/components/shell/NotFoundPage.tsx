@@ -22,13 +22,14 @@ export function NotFoundPage({
   return (
     <DitherShell animated contained={contained}>
       <div className="relative flex flex-col items-center gap-3 px-8 pt-10 pb-8 text-center">
-        <span className="font-mono text-5xl font-medium tracking-tight text-muted-foreground">
+        {/* oxlint-disable-next-line workspace/type-scale -- a decorative numeral, not text on the scale */}
+        <span className="font-mono text-5xl text-muted-foreground">
           {code ?? m.common_not_found_code()}
         </span>
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+        <h1 className="text-display font-bold text-foreground">
           {title ?? m.common_not_found_title()}
         </h1>
-        <p className="max-w-[28ch] text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[28ch] text-body leading-relaxed text-muted-foreground">
           {body ?? m.common_not_found_body()}
         </p>
         <Button

@@ -127,7 +127,7 @@ function ListSkeleton() {
 
 function ListMessage({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+    <div className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-body text-muted-foreground">
       {children}
     </div>
   )
@@ -139,8 +139,8 @@ function EmptyProjects({ canCreate }: Readonly<{ canCreate: boolean }>) {
       <div className="grid size-10 place-items-center rounded-lg bg-muted text-muted-foreground">
         <FolderKanban className="size-5" strokeWidth={1.75} />
       </div>
-      <div className="text-sm font-medium">{m.projects_list_empty()}</div>
-      <p className="max-w-xs text-xs text-muted-foreground">
+      <div className="text-body font-semibold">{m.projects_list_empty()}</div>
+      <p className="max-w-xs text-caption text-muted-foreground">
         {canCreate
           ? m.projects_list_empty_body()
           : m.projects_list_empty_body_invited()}

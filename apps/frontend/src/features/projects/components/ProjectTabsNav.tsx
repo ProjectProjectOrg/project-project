@@ -250,7 +250,7 @@ function BadgeStat({
   color?: string
 }) {
   return (
-    <span className="inline-flex items-center gap-0.5 font-mono text-[10px] font-medium text-foreground tabular-nums">
+    <span className="inline-flex items-center gap-0.5 font-mono text-micro text-foreground tabular-nums">
       <Icon
         className={`size-3 ${className}`}
         style={color ? { color } : undefined}

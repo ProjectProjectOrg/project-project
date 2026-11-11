@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils"
 
 const KBD_SIZES = {
-  default: "h-5 min-w-5 text-xs",
-  sm: "h-4 min-w-4 text-[10px] leading-none"
+  default: "h-5 min-w-5 text-micro",
+  sm: "h-4 min-w-4 text-micro-compact leading-none"
 } as const
 
 function Kbd({
@@ -14,9 +14,9 @@ function Kbd({
     <kbd
       data-slot="kbd"
       className={cn(
-        "pointer-events-none inline-flex w-fit items-center justify-center gap-1 rounded-sm bg-muted px-1 font-sans font-medium text-muted-foreground select-none",
+        "pointer-events-none inline-flex w-fit items-center justify-center gap-1 rounded-sm bg-muted px-1 font-sans text-muted-foreground select-none",
         KBD_SIZES[size],
-        "[&_svg:not([class*='size-'])]:size-3",
+        "[&_svg:not([class*='size-'])]:size-[1em]",
         "[[data-slot=tooltip-content]_&]:bg-background/20 [[data-slot=tooltip-content]_&]:text-background dark:[[data-slot=tooltip-content]_&]:bg-background/10",
         className
       )}

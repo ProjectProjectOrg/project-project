@@ -99,6 +99,7 @@ const ticketDetail = {
   pr: null,
   prState: null,
   lastTransitionedPr: null,
+  parent: null,
   gitState: { tag: "branch_no_pr", name: "feat/T-1", baseBranch: "main" },
   assignees: [],
   archivedAt: null,

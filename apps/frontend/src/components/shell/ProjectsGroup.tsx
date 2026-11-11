@@ -126,17 +126,17 @@ function ProjectsGroupRow({
         to="/orgs/$orgSlug/projects/$slug"
         params={{ orgSlug, slug }}
         className={cn(
-          "flex min-w-0 flex-1 items-center gap-2.5 rounded-sm py-2 pr-1 pl-3 text-[13px] transition-colors",
+          "flex min-w-0 flex-1 items-center gap-2.5 rounded-sm py-2 pr-1 pl-3 text-body transition-colors",
           navFocusRing,
           active
-            ? "font-medium text-foreground"
+            ? "font-semibold text-foreground"
             : "text-muted-foreground group-data-[fluid-hover-active]/project-row:text-foreground"
         )}
       >
         <span
           aria-hidden
           className={cn(
-            "inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-[13px] leading-none transition-[filter,opacity] duration-150 corner-squircle",
+            "inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-body leading-none transition-[filter,opacity] duration-150 corner-squircle",
             !active && "opacity-60 grayscale"
           )}
         >

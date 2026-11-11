@@ -2,7 +2,6 @@ import { useAtomValue } from "@effect/atom-react"
 import {
   sprintState,
   type AssigneeFilter,
-  type EstimateFilterValue,
   type EstimationMode,
   TicketType,
   type TicketFilter,
@@ -13,54 +12,86 @@ import * as Result from "effect/reactivity/AsyncResult"
 import {
   Archive,
   ChevronDown,
-  SlidersHorizontal,
-  UserRound
+  CircleDot,
+  Gauge,
+  ListFilter,
+  OctagonMinus,
+  Shapes,
+  Tag,
+  Timer,
+  UserRound,
+  X,
+  type LucideIcon
 } from "lucide-react"
-import { useRef, useState, type ComponentProps } from "react"
+import {
+  Fragment,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode
+} from "react"
 
+import { CheckboxMenuItem } from "@/components/ui/checkbox-menu-item"
 import { CollapsingLabel } from "@/components/ui/collapsing-label"
+import { CountPill } from "@/components/ui/count-pill"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuRadioGroup,
+  DropdownMenuEmpty,
+  DropdownMenuInput,
+  DropdownMenuItem,
+  DropdownMenuList,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { menuItemMetaClass } from "@/components/ui/menu-styles"
 import { currentUserId } from "@/features/auth/atoms/auth"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
+import {
+  statusesFor,
+  statusesRequest
+} from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { SPRINT_STATE_META } from "@/features/sprints/components/SprintChip"
+import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
-import { TagChip } from "@/features/tags/components/TagChip"
+import { TagMenuItem } from "@/features/tags/components/TagMenuItem"
 import {
   estimateFilterLabel,
   estimateFilterValues
 } from "@/features/tickets/lib/estimateMeta"
 import {
   filterableSprints,
-  singleFilter,
-  singleFilterValue,
-  toggledTags
+  toggled
 } from "@/features/tickets/lib/ticketFilters"
-import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import {
+  statusLabelFor,
+  statusMetaFor,
+  TYPE_LABELS,
+  TYPE_META
+} from "@/features/tickets/lib/ticketMeta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useTicketToolbar } from "./context"
 import {
   activeFilterCount as countActiveFilters,
-  type SprintFilterValue
+  clearedFilters,
+  type FilterDimension
 } from "./model"
-import {
-  ControlSlot,
-  FilterSection,
-  SectionLabel,
-  ToolbarButton
-} from "./shared"
+import { ToolbarButton } from "./shared"
+import { sortTagsByColor } from "./tagOrder"
+
+const TOGGLES: ReadonlySet<FilterDimension> = new Set(["archived", "blocked"])
 
 export function Filters() {
   const {
@@ -69,182 +100,296 @@ export function Filters() {
     filters,
     members,
     estimation,
+    counts,
+    boardScope,
     searchActive: compact
   } = useTicketToolbar()
   const value = query
-  const activeFilterCount = countActiveFilters(value, filters)
+  const showStatus = !boardScope
+  const activeFilterCount =
+    countActiveFilters(value, filters) +
+    (showStatus && value.status?.length ? 1 : 0)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [anchor, setAnchor] =
     useState<ComponentProps<typeof DropdownMenuContent>["anchor"]>()
   const active = activeFilterCount > 0
+  const [shownCount, setShownCount] = useState(activeFilterCount)
+  if (active && activeFilterCount !== shownCount) {
+    setShownCount(activeFilterCount)
+  }
+  const hasToggles = filters.some((dimension) => TOGGLES.has(dimension))
+  const hasSubmenus =
+    showStatus || filters.some((dimension) => !TOGGLES.has(dimension))
 
   return (
-    <ControlSlot>
-      <DropdownMenu
-        onOpenChange={(open) => {
-          const trigger = triggerRef.current
-          if (!open || !trigger) return
-          const bounds = trigger.getBoundingClientRect()
-          setAnchor({
-            getBoundingClientRect: () => bounds,
-            contextElement: trigger
-          })
-        }}
-      >
-        <DropdownMenuTrigger
-          ref={triggerRef}
-          render={
-            <ToolbarButton
-              active={active}
-              aria-label={
-                compact && active
-                  ? m.tickets_filters_active_aria_label({
-                      count: activeFilterCount
-                    })
-                  : m.tickets_filters_aria_label()
-              }
-            >
-              <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-              <CollapsingLabel show={!compact}>
-                {m.tickets_filters_label()}
-              </CollapsingLabel>
-              {active && (
-                <span className="rounded-full bg-foreground/10 px-1.5 font-mono text-[10px] text-foreground tabular-nums">
-                  {activeFilterCount}
-                </span>
-              )}
-              <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
-            </ToolbarButton>
-          }
-        />
-        <DropdownMenuContent
-          anchor={anchor}
-          align="end"
-          sideOffset={6}
-          className="w-56"
-          finalFocus={false}
-        >
-          {filters.map((dimension) => {
-            switch (dimension) {
-              case "archived":
-                return (
-                  <FilterArchived
-                    key={dimension}
-                    value={value?.archived}
-                    onChange={(archived) => onChange({ archived })}
-                  />
-                )
-              case "type":
-                return (
-                  <FilterType
-                    key={dimension}
-                    value={value?.type}
-                    onChange={(type) => onChange({ type })}
-                  />
-                )
-              case "assignee":
-                return (
-                  <FilterAssignee
-                    key={dimension}
-                    value={value?.assignee}
-                    onChange={(assignee) => onChange({ assignee })}
-                    members={members}
-                  />
-                )
-              case "sprint":
-                return (
-                  <FilterSprint
-                    key={dimension}
-                    value={value?.groupId}
-                    onChange={(groupId) => onChange({ groupId })}
-                  />
-                )
-              case "estimate":
-                return (
-                  <FilterEstimate
-                    key={dimension}
-                    value={value?.estimate}
-                    onChange={(estimate) => onChange({ estimate })}
-                    estimation={estimation}
-                  />
-                )
-              case "tags":
-                return (
-                  <FilterTags
-                    key={dimension}
-                    value={value?.tags}
-                    onChange={(tags) => onChange({ tags })}
-                  />
-                )
+    <DropdownMenu
+      onOpenChange={(open) => {
+        const trigger = triggerRef.current
+        if (!open || !trigger) return
+        const bounds = trigger.getBoundingClientRect()
+        setAnchor({
+          getBoundingClientRect: () => bounds,
+          contextElement: trigger
+        })
+      }}
+    >
+      <DropdownMenuTrigger
+        ref={triggerRef}
+        render={
+          <ToolbarButton
+            active={active}
+            aria-label={
+              compact && active
+                ? m.tickets_filters_active_aria_label({
+                    count: activeFilterCount
+                  })
+                : m.tickets_filters_aria_label()
             }
-            return null
-          })}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </ControlSlot>
+          >
+            <ListFilter className="size-4" strokeWidth={1.75} />
+            <CollapsingLabel show={!compact}>
+              {m.tickets_filters_label()}
+            </CollapsingLabel>
+            <CollapsingLabel show={active} contentKey={shownCount}>
+              <CountPill active>{shownCount}</CountPill>
+            </CollapsingLabel>
+            <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
+          </ToolbarButton>
+        }
+      />
+      <DropdownMenuContent
+        anchor={anchor}
+        align="start"
+        sideOffset={6}
+        className="w-52"
+        finalFocus={false}
+      >
+        {showStatus && (
+          <FilterStatus
+            value={value.status}
+            onChange={(status) => onChange({ status })}
+            counts={counts}
+          />
+        )}
+        {filters.includes("type") && (
+          <FilterType
+            value={value?.type}
+            onChange={(type) => onChange({ type })}
+          />
+        )}
+        {filters.includes("assignee") && (
+          <FilterAssignee
+            value={value?.assignee}
+            onChange={(assignee) => onChange({ assignee })}
+            members={members}
+          />
+        )}
+        {filters.includes("sprint") && (
+          <FilterSprint
+            value={value?.groupId}
+            onChange={(groupId) => onChange({ groupId })}
+          />
+        )}
+        {filters.includes("estimate") && (
+          <FilterEstimate
+            value={value?.estimate}
+            onChange={(estimate) => onChange({ estimate })}
+            estimation={estimation}
+          />
+        )}
+        {filters.includes("tags") && (
+          <FilterTags
+            value={value?.tags}
+            onChange={(tags) => onChange({ tags })}
+          />
+        )}
+        {hasSubmenus && hasToggles && <DropdownMenuSeparator />}
+        {filters.includes("blocked") && (
+          <DropdownMenuCheckboxItem
+            checked={value?.blocked === true}
+            onCheckedChange={(on) =>
+              onChange({ blocked: on ? true : undefined })
+            }
+          >
+            <OctagonMinus className="size-4" strokeWidth={1.75} />
+            {m.tickets_filters_blocked_only()}
+          </DropdownMenuCheckboxItem>
+        )}
+        {filters.includes("archived") && (
+          <DropdownMenuCheckboxItem
+            checked={value?.archived === true}
+            onCheckedChange={(on) =>
+              onChange({ archived: on ? true : undefined })
+            }
+          >
+            <Archive className="size-4" strokeWidth={1.75} />
+            {m.tickets_filters_archived_show()}
+          </DropdownMenuCheckboxItem>
+        )}
+        {active && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() =>
+                onChange({
+                  ...clearedFilters(filters),
+                  status: showStatus ? undefined : value.status
+                })
+              }
+              className="cursor-pointer"
+            >
+              <X className="size-4" strokeWidth={1.75} />
+              {m.tickets_filters_clear_all()}
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
-function FilterArchived({
-  value,
-  onChange
-}: {
-  value: TicketFilter["archived"]
-  onChange: (value: TicketFilter["archived"]) => void
-}) {
-  const archivedFilter = value === true
-  const setArchivedFilter = (on: boolean) => onChange(on ? true : undefined)
+function FilterSubmenu({
+  icon: Icon,
+  label,
+  filterable = false,
+  className = "w-48",
+  children
+}: Readonly<{
+  icon: LucideIcon
+  label: string
+  filterable?: boolean
+  className?: string
+  children: ReactNode
+}>) {
   return (
-    <FilterSection>
-      <SectionLabel>{m.tickets_filters_section_archived()}</SectionLabel>
-      <DropdownMenuCheckboxItem
-        checked={archivedFilter}
-        onCheckedChange={setArchivedFilter}
-      >
-        <Archive className="size-4" strokeWidth={1.75} />
-        {m.tickets_filters_archived_show()}
-      </DropdownMenuCheckboxItem>
-    </FilterSection>
+    <DropdownMenuSub filterable={filterable}>
+      <DropdownMenuSubTrigger>
+        <Icon className="size-4" strokeWidth={1.75} />
+        {label}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className={className}>
+        {children}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  )
+}
+
+type CheckOption<A extends string> = Readonly<{
+  value: A
+  label: string
+  content: ReactNode
+  separated?: boolean
+}>
+
+function CheckboxOptions<A extends string>({
+  options,
+  selected,
+  onChange
+}: Readonly<{
+  options: ReadonlyArray<CheckOption<A>>
+  selected: ReadonlyArray<A> | undefined
+  onChange: (next: ReadonlyArray<A> | undefined) => void
+}>) {
+  return (
+    <>
+      {options.map((option) => (
+        <Fragment key={option.value}>
+          <CheckboxMenuItem
+            label={option.label}
+            checked={selected?.includes(option.value) === true}
+            onToggle={() => onChange(toggled(selected, option.value))}
+          >
+            {option.content}
+          </CheckboxMenuItem>
+          {option.separated && <DropdownMenuSeparator />}
+        </Fragment>
+      ))}
+    </>
+  )
+}
+
+const text = (label: string) => (
+  <span className="min-w-0 truncate">{label}</span>
+)
+
+function FilterStatus({
+  value,
+  onChange,
+  counts
+}: Readonly<{
+  value: TicketFilter["status"]
+  onChange: (value: TicketFilter["status"]) => void
+  counts: Record<string, number> | null
+}>) {
+  const { orgSlug, slug } = useProjectRoute()
+  const result = useAtomValue(statusesFor(statusesRequest(orgSlug, slug)))
+  const statuses = Result.isSuccess(result) ? result.value : []
+  return (
+    <FilterSubmenu
+      icon={CircleDot}
+      label={m.tickets_filters_section_status()}
+      className="w-52"
+    >
+      <CheckboxOptions
+        selected={value}
+        onChange={onChange}
+        options={boardStatusesFor(statuses).map((status) => {
+          const meta = statusMetaFor(status, statuses)
+          const SIcon = meta.icon
+          const label = statusLabelFor(status, statuses)
+          return {
+            value: status,
+            label,
+            content: (
+              <>
+                <SIcon
+                  className={cn("size-4", meta.className)}
+                  style={meta.color ? { color: meta.color } : undefined}
+                  strokeWidth={1.75}
+                />
+                {text(label)}
+                {counts && (
+                  <span data-menu-meta className={menuItemMetaClass}>
+                    {counts[status] ?? 0}
+                  </span>
+                )}
+              </>
+            )
+          }
+        })}
+      />
+    </FilterSubmenu>
   )
 }
 
 function FilterType({
   value,
   onChange
-}: {
+}: Readonly<{
   value: TicketFilter["type"]
   onChange: (value: TicketFilter["type"]) => void
-}) {
-  const typeFilter = singleFilterValue(value)
-  const setTypeFilter = (type: TicketType | "all") =>
-    onChange(singleFilter(type))
+}>) {
   return (
-    <FilterSection>
-      <SectionLabel>{m.tickets_filters_section_type()}</SectionLabel>
-      <DropdownMenuRadioGroup
-        value={typeFilter}
-        onValueChange={setTypeFilter}
-        items={[
-          {
-            separated: true,
-            value: "all",
-            label: m.tickets_filters_all_types()
-          },
-          ...TicketType.literals.map((t) => {
-            const TIcon = TYPE_META[t].icon
-            return {
-              value: t,
-              label: (
-                <>
-                  <TIcon className="size-4" strokeWidth={1.75} />
-                  {TYPE_LABELS[t]()}
-                </>
-              )
-            }
-          })
-        ]}
+    <FilterSubmenu icon={Shapes} label={m.tickets_filters_section_type()}>
+      <CheckboxOptions
+        selected={value}
+        onChange={onChange}
+        options={TicketType.literals.map((type) => {
+          const TIcon = TYPE_META[type].icon
+          const label = TYPE_LABELS[type]()
+          return {
+            value: type,
+            label,
+            content: (
+              <>
+                <TIcon className="size-4" strokeWidth={1.75} />
+                {text(label)}
+              </>
+            )
+          }
+        })}
       />
-    </FilterSection>
+    </FilterSubmenu>
   )
 }
 
@@ -252,53 +397,66 @@ function FilterAssignee({
   value,
   onChange,
   members
-}: {
+}: Readonly<{
   value: TicketFilter["assignee"]
   onChange: (value: TicketFilter["assignee"]) => void
   members: ReadonlyArray<Member>
-}) {
+}>) {
   const viewerId = useAtomValue(currentUserId)
-  const assigneeFilter = singleFilterValue(value)
-  const setAssigneeFilter = (assignee: AssigneeFilter | "all") =>
-    onChange(singleFilter(assignee))
-  return (
-    <FilterSection>
-      <SectionLabel>{m.tickets_filters_section_assignee()}</SectionLabel>
-      <DropdownMenuRadioGroup
-        value={assigneeFilter}
-        onValueChange={setAssigneeFilter}
-        items={[
-          { value: "all", label: m.tickets_filters_assignee_anyone() },
-          ...(viewerId
-            ? [
-                {
-                  value: "mine" as const,
-                  label: (
-                    <>
-                      <UserRound className="size-4" strokeWidth={1.75} />
-                      {m.tickets_filters_assignee_mine()}
-                    </>
-                  )
-                }
-              ]
-            : []),
+  const options: ReadonlyArray<CheckOption<AssigneeFilter>> = [
+    ...(viewerId
+      ? [
           {
-            separated: members.length > 0,
-            value: "unassigned",
-            label: m.tickets_filters_assignee_unassigned()
-          },
-          ...members.map((member) => ({
-            value: member.id,
-            label: (
+            value: "mine" as const,
+            label: m.tickets_filters_assignee_mine(),
+            content: (
               <>
-                <MemberAvatar member={member} size={20} />
-                <span className="truncate">{member.name}</span>
+                <UserRound className="size-4" strokeWidth={1.75} />
+                {text(m.tickets_filters_assignee_mine())}
               </>
             )
-          }))
-        ]}
+          }
+        ]
+      : []),
+    {
+      value: "unassigned",
+      label: m.tickets_filters_assignee_unassigned(),
+      content: text(m.tickets_filters_assignee_unassigned()),
+      separated: members.length > 0
+    },
+    ...members.map((member) => ({
+      value: member.id,
+      label: member.username
+        ? `${member.name} ${member.username}`
+        : member.name,
+      content: (
+        <>
+          <MemberAvatar member={member} size={20} />
+          {text(member.name)}
+        </>
+      )
+    }))
+  ]
+  return (
+    <FilterSubmenu
+      icon={UserRound}
+      label={m.tickets_filters_section_assignee()}
+      filterable
+      className="w-56"
+    >
+      <DropdownMenuInput
+        placeholder={m.tickets_assignee_search_placeholder()}
+        aria-label={m.tickets_assignee_search_placeholder()}
       />
-    </FilterSection>
+      <DropdownMenuList className="max-h-72 overflow-y-auto">
+        <CheckboxOptions
+          selected={value}
+          onChange={onChange}
+          options={options}
+        />
+      </DropdownMenuList>
+      <DropdownMenuEmpty>{m.tickets_assignee_search_empty()}</DropdownMenuEmpty>
+    </FilterSubmenu>
   )
 }
 
@@ -313,123 +471,108 @@ function FilterEstimate({
 }>) {
   const options = estimateFilterValues(estimation)
   if (options.length === 0) return null
-  const selected = singleFilterValue(value)
-  const select = (next: EstimateFilterValue | "all") =>
-    onChange(singleFilter(next))
   return (
-    <FilterSection>
-      <SectionLabel>{m.tickets_filters_section_estimate()}</SectionLabel>
-      <DropdownMenuRadioGroup
-        value={selected}
-        onValueChange={select}
-        items={[
-          {
-            separated: true,
-            value: "all",
-            label: m.tickets_filters_estimate_all()
-          },
-          ...options.map((option) => ({
-            value: option,
-            label: estimateFilterLabel(option)
-          }))
-        ]}
+    <FilterSubmenu icon={Gauge} label={m.tickets_filters_section_estimate()}>
+      <CheckboxOptions
+        selected={value}
+        onChange={onChange}
+        options={options.map((option) => ({
+          value: option,
+          label: estimateFilterLabel(option),
+          content: text(estimateFilterLabel(option))
+        }))}
       />
-    </FilterSection>
+    </FilterSubmenu>
   )
 }
 
 function FilterSprint({
   value,
   onChange
-}: {
+}: Readonly<{
   value: TicketFilter["groupId"]
   onChange: (value: TicketFilter["groupId"]) => void
-}) {
+}>) {
   const { orgSlug, slug } = useProjectRoute()
-  const sprintFilter = singleFilterValue(value)
-  const setSprintFilter = (sprint: SprintFilterValue) =>
-    onChange(singleFilter(sprint))
-  const sprintReq = sprintListRequest(orgSlug, slug)
-  const sprintsList = useAtomValue(sprintList(sprintReq))
+  const sprintsList = useAtomValue(sprintList(sprintListRequest(orgSlug, slug)))
   const allSprints = Result.isSuccess(sprintsList) ? sprintsList.value : []
   const now = DateTime.toDate(DateTime.nowUnsafe())
   const sprintOptions = filterableSprints(allSprints, now)
   return (
-    <FilterSection>
-      <SectionLabel>{m.tickets_filters_section_sprint()}</SectionLabel>
-      <DropdownMenuRadioGroup
-        value={sprintFilter}
-        onValueChange={setSprintFilter}
-        items={[
-          { value: "all", label: m.tickets_filters_sprint_any() },
+    <FilterSubmenu
+      icon={Timer}
+      label={m.tickets_filters_section_sprint()}
+      className="w-56"
+    >
+      <CheckboxOptions
+        selected={value}
+        onChange={onChange}
+        options={[
           {
-            separated: sprintOptions.length > 0,
             value: "ungrouped",
-            label: m.tickets_filters_sprint_none()
+            label: m.tickets_filters_sprint_none(),
+            content: text(m.tickets_filters_sprint_none()),
+            separated: sprintOptions.length > 0
           },
-          ...sprintOptions.map((s) => {
-            const meta = SPRINT_STATE_META[sprintState(s, now)]
+          ...sprintOptions.map((sprint) => {
+            const meta = SPRINT_STATE_META[sprintState(sprint, now)]
             const SIcon = meta.icon
             return {
-              value: s.id,
-              label: (
+              value: sprint.id,
+              label: sprint.name,
+              content: (
                 <>
                   <SIcon
                     className={cn("size-4", meta.className)}
                     strokeWidth={1.75}
                   />
-                  <span className="truncate">{s.name}</span>
+                  {text(sprint.name)}
                 </>
               )
             }
           })
         ]}
       />
-    </FilterSection>
+    </FilterSubmenu>
   )
 }
 
 function FilterTags({
   value,
   onChange
-}: {
+}: Readonly<{
   value: TicketFilter["tags"]
   onChange: (value: TicketFilter["tags"]) => void
-}) {
+}>) {
   const { orgSlug, slug } = useProjectRoute()
-  const selectedTags = value ?? []
-  const req = tagsRequest(orgSlug, slug)
-  const tags = useAtomValue(tagsFor(req))
-  const tagList = Result.isSuccess(tags) ? tags.value : []
+  const tags = useAtomValue(tagsFor(tagsRequest(orgSlug, slug)))
+  const tagList = useMemo(
+    () => (Result.isSuccess(tags) ? sortTagsByColor(tags.value) : []),
+    [tags]
+  )
   if (tagList.length === 0) return null
   return (
-    <FilterSection>
-      <SectionLabel>{m.tickets_filters_section_tags()}</SectionLabel>
-      <div className="flex flex-wrap gap-1 px-2 pt-0.5 pb-1.5">
-        {tagList.map((tag) => {
-          const selected = selectedTags.includes(tag.name)
-          return (
-            <button
-              key={tag.name}
-              type="button"
-              onClick={(e) => {
-                e.preventDefault()
-                onChange(toggledTags(selectedTags, tag.name))
-              }}
-              aria-pressed={selected}
-              className="rounded-md ring-offset-background transition-transform duration-100 outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
-            >
-              <TagChip
-                name={tag.name}
-                color={tag.color ?? null}
-                size="xs"
-                intensity={selected ? "strong" : "soft"}
-                className={cn(!selected && "opacity-60")}
-              />
-            </button>
-          )
-        })}
-      </div>
-    </FilterSection>
+    <FilterSubmenu
+      icon={Tag}
+      label={m.tickets_filters_section_tags()}
+      filterable
+      className="w-56"
+    >
+      <DropdownMenuInput
+        placeholder={m.tickets_filters_tags_search_placeholder()}
+        aria-label={m.tickets_filters_tags_search_placeholder()}
+      />
+      <DropdownMenuList className="max-h-72 overflow-y-auto">
+        {tagList.map((tag) => (
+          <TagMenuItem
+            key={tag.name}
+            tag={tag}
+            checked={value?.includes(tag.name) === true}
+            onToggle={() => onChange(toggled(value, tag.name))}
+          />
+        ))}
+      </DropdownMenuList>
+      <DropdownMenuEmpty>{m.tickets_command_tags_empty()}</DropdownMenuEmpty>
+    </FilterSubmenu>
   )
 }

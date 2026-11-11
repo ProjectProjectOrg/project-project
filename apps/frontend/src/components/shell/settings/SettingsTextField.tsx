@@ -68,7 +68,7 @@ export function SettingsTextField({
       placeholder={placeholder}
       aria-labelledby={labelId}
       aria-describedby={descriptionId}
-      className={cn("w-64 text-[13px]", waiting && "animate-pulse", className)}
+      className={cn("w-64 text-body", waiting && "animate-pulse", className)}
     />
   )
 }
@@ -82,7 +82,7 @@ export function SettingsInput({
     <Input
       aria-labelledby={labelId}
       aria-describedby={descriptionId}
-      className={cn("w-64 text-[13px]", className)}
+      className={cn("w-64 text-body", className)}
       {...props}
     />
   )

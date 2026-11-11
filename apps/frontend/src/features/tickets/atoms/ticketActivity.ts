@@ -38,10 +38,6 @@ const pageQuery = (req: TicketActivityRequest, cursor: string | null) =>
     ]
   })
 
-export const olderActivityPages = Atom.family((_req: TicketActivityRequest) =>
-  Atom.make(0).pipe(Atom.setIdleTTL("5 minutes"))
-)
-
 export const ticketActivity = Atom.family((req: TicketActivityRequest) =>
   Atom.readable(
     (get) => {
@@ -55,8 +51,7 @@ export const ticketActivity = Atom.family((req: TicketActivityRequest) =>
       const items = [...first.value.items]
       let nextCursor = first.value.nextCursor
       let waiting = first.waiting
-      const depth = get(olderActivityPages(req))
-      for (let index = 0; index < depth && nextCursor !== null; index++) {
+      while (nextCursor !== null) {
         const page = get(pageQuery(req, nextCursor))
         waiting ||= page.waiting
         if (!AsyncResult.isSuccess(page)) break

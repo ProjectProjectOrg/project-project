@@ -39,7 +39,9 @@ export function CreatorChip({
     >
       {icon}
       <CollapsingLabel show={expanded} contentKey={contentKey} gap={6}>
-        <span className={cn("truncate text-xs", labelClassName)}>{label}</span>
+        <span className={cn("truncate text-caption", labelClassName)}>
+          {label}
+        </span>
       </CollapsingLabel>
     </button>
   )

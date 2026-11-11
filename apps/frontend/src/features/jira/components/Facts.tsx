@@ -15,9 +15,9 @@ export function FactBlock({
     <section className="flex flex-col gap-2">
       <header className="flex items-baseline justify-between gap-4">
         <div className="min-w-0">
-          <h3 className="text-[13px] font-medium text-foreground">{title}</h3>
+          <h3 className="text-body font-semibold text-foreground">{title}</h3>
           {description === undefined ? null : (
-            <p className="mt-0.5 max-w-[65ch] text-xs text-muted-foreground">
+            <p className="mt-0.5 max-w-[65ch] text-caption text-muted-foreground">
               {description}
             </p>
           )}
@@ -45,12 +45,12 @@ export function FactRow({
   children: ReactNode
 }>) {
   return (
-    <div className="grid min-h-9 grid-cols-[12rem_minmax(0,1fr)_auto] items-baseline gap-x-4 border-b border-border py-2 text-[13px]">
+    <div className="grid min-h-9 grid-cols-[12rem_minmax(0,1fr)_auto] items-baseline gap-x-4 border-b border-border py-2 text-body">
       <dt className="truncate text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-foreground">
         {children}
         {note === undefined ? null : (
-          <p className="mt-0.5 text-xs text-muted-foreground">{note}</p>
+          <p className="mt-0.5 text-caption text-muted-foreground">{note}</p>
         )}
       </dd>
       {action === undefined ? <span aria-hidden /> : action}

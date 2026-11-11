@@ -132,7 +132,7 @@ export function StatusEditorForm({
         </Button>
       </div>
       {error ? (
-        <p className="pt-1.5 pl-16 text-xs text-destructive" role="alert">
+        <p className="pt-1.5 pl-16 text-caption text-destructive" role="alert">
           {error}
         </p>
       ) : null}

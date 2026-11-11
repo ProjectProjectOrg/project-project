@@ -88,11 +88,11 @@ function BlockMenuItems({
       <div className="flex items-center gap-2 px-2 pt-1.5 pb-1">
         <BlockIconGlyph icon={model.icon} color={model.color} />
         <div className="min-w-0">
-          <p className="truncate text-[13px] font-medium text-foreground">
+          <p className="truncate text-body font-semibold text-foreground">
             {model.name}
           </p>
           {model.subtitle !== null && (
-            <p className="truncate text-xs text-muted-foreground">
+            <p className="truncate text-caption text-muted-foreground">
               {model.subtitle}
             </p>
           )}
@@ -105,7 +105,7 @@ function BlockMenuItems({
       >
         <ArrowUp strokeWidth={1.75} />
         {m.editor_block_menu_move_up()}
-        <DropdownMenuShortcut className="tracking-normal">
+        <DropdownMenuShortcut className="">
           {MOVE_UP_SHORTCUT}
         </DropdownMenuShortcut>
       </DropdownMenuItem>
@@ -115,7 +115,7 @@ function BlockMenuItems({
       >
         <ArrowDown strokeWidth={1.75} />
         {m.editor_block_menu_move_down()}
-        <DropdownMenuShortcut className="tracking-normal">
+        <DropdownMenuShortcut className="">
           {MOVE_DOWN_SHORTCUT}
         </DropdownMenuShortcut>
       </DropdownMenuItem>

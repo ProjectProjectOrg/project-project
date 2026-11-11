@@ -1,9 +1,12 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import {
   $applyNodeReplacement,
+  $createNodeSelection,
   $getNodeByKey,
   $isRootNode,
+  $setSelection,
   DecoratorNode,
+  SKIP_DOM_SELECTION_TAG,
   createCommand,
   defineExtension,
   type LexicalCommand,
@@ -30,7 +33,10 @@ import {
   syncedChipLabel,
   syncedEditAction
 } from "@/features/editor/components/SyncedBlock"
-import { useDecoratorSelection } from "@/features/editor/hooks/useDecoratorSelection"
+import {
+  isInteractiveTarget,
+  useDecoratorSelection
+} from "@/features/editor/hooks/useDecoratorSelection"
 import { useBlockLookup } from "@/features/editor/lib/blockChrome"
 import {
   splitLeadingHeading,
@@ -60,7 +66,7 @@ export type SerializedSyncedBlockNode = Spread<
   SerializedLexicalNode
 >
 
-const INTERACTIVE_SELECTOR = "a, button, input, label"
+const INTERACTIVE_SELECTOR = "a, button, input, label, [role=checkbox]"
 
 export class SyncedBlockNode extends DecoratorNode<ReactElement> {
   __blockType: string
@@ -173,6 +179,8 @@ export function $isSyncedBlockNode(
   return node instanceof SyncedBlockNode
 }
 
+const CLICK_DISTANCE = 4
+
 function SyncedBlockView({
   nodeKey,
   blockType,
@@ -192,7 +200,7 @@ function SyncedBlockView({
     node.remove()
     return true
   }, [nodeKey])
-  const { isSelected, selectOnPointer } = useDecoratorSelection(nodeKey, {
+  useDecoratorSelection(nodeKey, {
     interactive: INTERACTIVE_SELECTOR,
     onRemove: $removeBlock
   })
@@ -203,19 +211,37 @@ function SyncedBlockView({
   useEffect(() => {
     const element = editor.getElementByKey(nodeKey)
     if (element === null) return
-    const select = (event: MouseEvent) => {
-      if (editor.isEditable()) selectOnPointer(event)
+    let start: Readonly<{ x: number; y: number }> | null = null
+    const press = (event: MouseEvent) => {
+      if (isInteractiveTarget(event.target, INTERACTIVE_SELECTOR)) return
+      start = { x: event.clientX, y: event.clientY }
+      editor.update(() => $setSelection(null), {
+        tag: SKIP_DOM_SELECTION_TAG,
+        discrete: true
+      })
     }
-    element.addEventListener("mousedown", select)
-    return () => element.removeEventListener("mousedown", select)
-  }, [editor, nodeKey, selectOnPointer])
-
-  useEffect(() => {
-    const element = editor.getElementByKey(nodeKey)
-    if (element === null) return
-    if (isSelected) element.dataset.selected = ""
-    else delete element.dataset.selected
-  }, [editor, isSelected, nodeKey])
+    const release = (event: MouseEvent) => {
+      if (start === null) return
+      const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y)
+      start = null
+      if (moved >= CLICK_DISTANCE || event.detail !== 1) return
+      window.getSelection()?.removeAllRanges()
+      editor.update(
+        () => {
+          const selection = $createNodeSelection()
+          selection.add(nodeKey)
+          $setSelection(selection)
+        },
+        { discrete: true }
+      )
+    }
+    element.addEventListener("mousedown", press)
+    element.addEventListener("mouseup", release)
+    return () => {
+      element.removeEventListener("mousedown", press)
+      element.removeEventListener("mouseup", release)
+    }
+  }, [editor, nodeKey])
 
   if (view.kind === "removed") {
     const { heading, rest } = splitLeadingHeading(view.content)
@@ -247,10 +273,7 @@ function SyncedBlockView({
         morphId={morphId}
         onToggleTask={toggleTask}
       />
-      <SyncedChip
-        label={syncedChipLabel(mode, view.definition.origin)}
-        visible={isSelected}
-      >
+      <SyncedChip label={syncedChipLabel(mode, view.definition.origin)}>
         {scope !== null && (
           <SyncedActions
             scope={scope}

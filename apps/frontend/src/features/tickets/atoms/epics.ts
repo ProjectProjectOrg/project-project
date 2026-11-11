@@ -1,4 +1,4 @@
-import type { TicketId, TicketListRow, TicketSort } from "@pp/shared"
+import type { TicketSort } from "@pp/shared"
 import * as Atom from "effect/reactivity/Atom"
 
 import { Keys, projectScope } from "@/api/keys"
@@ -16,16 +16,12 @@ export const epicsRequest = (orgSlug: string, slug: string): EpicsRequest => ({
 
 const EPIC_SORT: TicketSort = { key: "title", dir: "asc" }
 
-const epicsPage = (
-  req: EpicsRequest,
-  archived: boolean,
-  cursor: string | undefined
-) =>
+const epicsPage = (req: EpicsRequest, cursor: string | undefined) =>
   query("tickets", "list", {
     params: req.params,
     query: {
       type: ["epic"],
-      archived,
+      archived: false,
       sort: EPIC_SORT,
       cursor
     },
@@ -35,25 +31,12 @@ const epicsPage = (
     ]
   })
 
-const epicRows = (req: EpicsRequest, archived: boolean) =>
+const epicRows = (req: EpicsRequest) =>
   Atom.readable(
-    (get) => allPages(get, (cursor) => epicsPage(req, archived, cursor)),
-    (refresh) => refresh(epicsPage(req, archived, undefined))
+    (get) => allPages(get, (cursor) => epicsPage(req, cursor)),
+    (refresh) => refresh(epicsPage(req, undefined))
   )
 
 export const projectEpics = Atom.family((req: EpicsRequest) =>
-  Atom.mapResult(epicRows(req, false), (rows) => rows.map((row) => row.ticket))
-)
-
-const titlesOf = (
-  rows: ReadonlyArray<TicketListRow>
-): ReadonlyMap<TicketId, string> =>
-  new Map(rows.map(({ ticket }) => [ticket.id, ticket.title]))
-
-export const openEpicTitles = Atom.family((req: EpicsRequest) =>
-  Atom.mapResult(epicRows(req, false), titlesOf)
-)
-
-export const archivedEpicTitles = Atom.family((req: EpicsRequest) =>
-  Atom.mapResult(epicRows(req, true), titlesOf)
+  Atom.mapResult(epicRows(req), (rows) => rows.map((row) => row.ticket))
 )

@@ -5,7 +5,9 @@ import { useEffect, useMemo, useState } from "react"
 import { linkPreview, linkPreviewRequest } from "../atoms/linkPreviews"
 
 export type LinkFavicon = Readonly<
-  { kind: "pending" } | { kind: "image"; src: string } | { kind: "fallback" }
+  | { kind: "pending" }
+  | { kind: "image"; src: string; cached: boolean }
+  | { kind: "fallback"; cached: boolean }
 >
 
 export type LinkPreviewView = Readonly<{
@@ -14,7 +16,6 @@ export type LinkPreviewView = Readonly<{
 }>
 
 const PENDING: LinkFavicon = { kind: "pending" }
-const FALLBACK: LinkFavicon = { kind: "fallback" }
 
 const settledImages = new Map<string, boolean>()
 
@@ -37,6 +38,7 @@ const loadImage = (src: string, onSettled: (ok: boolean) => void) => {
 }
 
 const useFaviconImage = (src: string | null | undefined): LinkFavicon => {
+  const [initialSrc] = useState(src)
   const [settled, setSettled] = useState<Readonly<{
     src: string
     ok: boolean
@@ -53,12 +55,14 @@ const useFaviconImage = (src: string | null | undefined): LinkFavicon => {
       : (settledImages.get(src) ??
         (settled?.src === src ? settled.ok : undefined))
 
+  const cached = src === null ? initialSrc === null : settled?.src !== src
+
   return useMemo(() => {
     if (src === undefined) return PENDING
-    if (src === null) return FALLBACK
+    if (src === null) return { kind: "fallback", cached }
     if (ok === undefined) return PENDING
-    return ok ? { kind: "image", src } : FALLBACK
-  }, [src, ok])
+    return ok ? { kind: "image", src, cached } : { kind: "fallback", cached }
+  }, [src, ok, cached])
 }
 
 export const useLinkPreview = (url: string): LinkPreviewView => {
@@ -78,9 +82,11 @@ export const useLinkPreview = (url: string): LinkPreviewView => {
 
 export const paintLinkFavicon = (
   element: HTMLElement,
-  favicon: LinkFavicon
+  favicon: LinkFavicon,
+  animate = favicon.kind !== "pending" && !favicon.cached
 ): void => {
   element.dataset["linkFavicon"] = favicon.kind
+  element.dataset["linkFaviconAnimate"] = String(animate)
   if (favicon.kind === "image") {
     element.style.setProperty(
       "--link-favicon",

@@ -64,11 +64,11 @@ export function AppearanceRow({
         <motion.span
           layoutId={shareId && `${shareId}-label`}
           transition={shared}
-          className="w-fit truncate text-[13px] font-medium"
+          className="w-fit truncate text-body font-semibold"
         >
           {label}
         </motion.span>
-        <span className="truncate text-[13px] text-muted-foreground">
+        <span className="truncate text-body text-muted-foreground">
           {detail}
         </span>
       </span>
@@ -115,7 +115,7 @@ export function EditorHeader({
       <motion.span
         layoutId={shareId && `${shareId}-label`}
         transition={shared}
-        className="w-fit text-[13px] font-medium"
+        className="w-fit text-body font-semibold"
       >
         {title}
       </motion.span>
@@ -161,14 +161,14 @@ export function StepSummaryRow({
         <motion.span
           layoutId={shareId && `${shareId}-eyebrow`}
           transition={shared}
-          className="w-fit text-xs text-muted-foreground"
+          className="w-fit text-caption text-muted-foreground"
         >
           {label}
         </motion.span>
         <motion.span
           layoutId={shareId && `${shareId}-title`}
           transition={shared}
-          className="truncate text-[13px]"
+          className="truncate text-body"
         >
           {value}
         </motion.span>
@@ -203,7 +203,7 @@ export function StepHeading({
       <motion.span
         layoutId={shareId && `${shareId}-eyebrow`}
         transition={shared}
-        className="w-fit text-xs text-muted-foreground"
+        className="w-fit text-caption text-muted-foreground"
       >
         {m.project_appearance_step_of({ current, total })}
       </motion.span>
@@ -212,7 +212,7 @@ export function StepHeading({
         layoutId={shareId && `${shareId}-title`}
         transition={shared}
         tabIndex={-1}
-        className="text-[13px] font-medium outline-none"
+        className="text-body font-semibold outline-none"
       >
         {children}
       </motion.h3>

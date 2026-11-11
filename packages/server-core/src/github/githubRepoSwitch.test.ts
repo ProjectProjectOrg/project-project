@@ -191,6 +191,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
         const sql = yield* SqlClient.SqlClient
         const delegate = TicketDocumentLock.make(yield* KeyedLock.KeyedLock)
         return TicketDocumentLock.TicketDocumentLock.of({
+          withTicketRelationsLock: (_org, _project, effect) => effect,
           withRepositoryBranchLock: delegate.withRepositoryBranchLock,
           withTicketDocumentLock: (org, project, id, effect) =>
             Effect.gen(function* () {

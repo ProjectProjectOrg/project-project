@@ -92,14 +92,14 @@ function ConsentForm({
 
   return (
     <OauthShell title={m.auth_oauth_consent_title()}>
-      <p className="text-center text-sm wrap-anywhere text-muted-foreground">
+      <p className="text-center text-body wrap-anywhere text-muted-foreground">
         {m.auth_oauth_consent_subtitle({ client: displayName })}
       </p>
       <div className="flex w-full flex-col gap-2">
-        <p className="text-sm font-medium text-foreground">
+        <p className="text-body font-semibold text-foreground">
           {m.auth_oauth_consent_capabilities_heading()}
         </p>
-        <ul className="w-full space-y-1.5 rounded-xl bg-background/60 p-3 text-[13px] text-foreground">
+        <ul className="w-full space-y-1.5 rounded-xl bg-background/60 p-3 text-body text-foreground">
           {capabilities.map((label) => (
             <li key={label} className="flex items-start gap-2">
               <span aria-hidden className="mt-[5px] text-muted-foreground">
@@ -138,12 +138,12 @@ function ConsentForm({
       {error ? (
         <p
           role="alert"
-          className="text-center text-xs leading-relaxed text-destructive"
+          className="text-center text-caption leading-relaxed text-destructive"
         >
           {error}
         </p>
       ) : (
-        <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
+        <p className="text-center text-micro leading-relaxed text-muted-foreground">
           {m.auth_oauth_consent_footnote()}
         </p>
       )}

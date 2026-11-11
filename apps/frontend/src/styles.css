@@ -4,6 +4,7 @@
 @plugin "@toolwind/corner-shape";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant hitbox-hover (&:is(:where(.group\/hitbox):hover *, :where(.group\/hitbox)[data-popup-open] *));
 
 @font-face {
   font-family: "Geist";
@@ -50,12 +51,41 @@
      used for hover) so the active state has a stronger visual presence. */
   --selected: oklch(0.9 0 0);
   --destructive: oklch(0.577 0.245 27.325);
+  --state-success: oklch(0.5 0.15 135);
+  --state-warning: oklch(0.5 0.16 75);
+  --state-info: oklch(0.5 0.18 255);
+  --state-merged: oklch(0.5 0.18 285);
+  --state-danger: var(--destructive);
   --destructive-light: oklch(0.95 0.02 27);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
   --radius: 1rem;
+  --fs-display: 28px;
+  --lh-display: 34px;
+  --fs-display-compact: 24px;
+  --lh-display-compact: 30px;
+  --fs-title: 16px;
+  --lh-title: 22px;
+  --fs-title-compact: 15px;
+  --lh-title-compact: 20px;
+  --fs-subtitle: 14px;
+  --lh-subtitle: 20px;
+  --fs-subtitle-compact: 13px;
+  --lh-subtitle-compact: 18px;
+  --fs-body: 13px;
+  --lh-body: 20px;
+  --fs-body-compact: 12px;
+  --lh-body-compact: 18px;
+  --fs-caption: 12px;
+  --lh-caption: 16px;
+  --fs-caption-compact: 11px;
+  --lh-caption-compact: 14px;
+  --fs-micro: 11px;
+  --lh-micro: 14px;
+  --fs-micro-compact: 10px;
+  --lh-micro-compact: 12px;
   --dither-front: var(--ring);
   --dither-back: color-mix(in oklch, var(--background) 45%, var(--muted) 55%);
   --focus-ring: oklch(0.693 0.161 265.2);
@@ -80,6 +110,7 @@
   --shadow-8: var(--shadow-7), 0 96px 96px -48px var(--shadow-color);
   --hover: rgb(0 0 0 / 0.04);
   --active: rgb(0 0 0 / 0.07);
+  --avatar-cutout: var(--background);
   --tint: oklch(0 0 0 / 8%);
   --tint-hover: oklch(0 0 0 / 6.5%);
   --prose-body: oklch(0.145 0 0 / 0.8);
@@ -106,6 +137,11 @@
   --accent-foreground: oklch(0.985 0 0);
   --selected: oklch(0.4 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  --state-success: oklch(0.78 0.07 135);
+  --state-warning: oklch(0.78 0.07 75);
+  --state-info: oklch(0.78 0.07 255);
+  --state-merged: oklch(0.78 0.07 285);
+  --state-danger: var(--destructive);
   --destructive-light: oklch(0.3 0.05 22);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(1 0 0 / 10%);
@@ -177,6 +213,31 @@
 }
 
 @theme inline {
+  --font-weight-semibold: 550;
+  --text-display: var(--fs-display);
+  --text-display--line-height: var(--lh-display);
+  --text-display-compact: var(--fs-display-compact);
+  --text-display-compact--line-height: var(--lh-display-compact);
+  --text-title: var(--fs-title);
+  --text-title--line-height: var(--lh-title);
+  --text-title-compact: var(--fs-title-compact);
+  --text-title-compact--line-height: var(--lh-title-compact);
+  --text-subtitle: var(--fs-subtitle);
+  --text-subtitle--line-height: var(--lh-subtitle);
+  --text-subtitle-compact: var(--fs-subtitle-compact);
+  --text-subtitle-compact--line-height: var(--lh-subtitle-compact);
+  --text-body: var(--fs-body);
+  --text-body--line-height: var(--lh-body);
+  --text-body-compact: var(--fs-body-compact);
+  --text-body-compact--line-height: var(--lh-body-compact);
+  --text-caption: var(--fs-caption);
+  --text-caption--line-height: var(--lh-caption);
+  --text-caption-compact: var(--fs-caption-compact);
+  --text-caption-compact--line-height: var(--lh-caption-compact);
+  --text-micro: var(--fs-micro);
+  --text-micro--line-height: var(--lh-micro);
+  --text-micro-compact: var(--fs-micro-compact);
+  --text-micro-compact--line-height: var(--lh-micro-compact);
   --color-hover: var(--hover);
   --color-region: color-mix(in oklch, var(--muted) 60%, var(--background));
   --color-active: var(--active);
@@ -355,36 +416,9 @@
    app's typography stays untouched. Tuned to ProjectProject's compact neutral
    aesthetic — narrower line-height than typography plugins default to. */
 .prose-md {
-  font-size: 15px;
-  line-height: 1.6;
-  letter-spacing: -0.006em;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
   color: var(--prose-body);
-}
-.prose-md.text-sm {
-  font-size: 14px;
-}
-@media (min-width: 90rem) {
-  .prose-md.prose-large {
-    font-size: 16px;
-    line-height: 1.5;
-  }
-  .prose-md.prose-large :is(h2, .lexical-h2) {
-    font-size: 1.125rem;
-  }
-  .prose-md.prose-large :is(h3, .lexical-h3) {
-    font-size: 1rem;
-  }
-  .prose-md.prose-large .ticket-block {
-    --block-first-line: calc(1.125rem * 1.35);
-  }
-  .prose-md.prose-large
-    .ticket-block:has(> .ticket-block-body > h3:first-child) {
-    --block-first-line: calc(1rem * 1.35);
-  }
-  .prose-md.prose-large
-    .ticket-block:has(> .ticket-block-body > :first-child:not(h1, h2, h3)) {
-    --block-first-line: 1.5em;
-  }
 }
 /* Block spacing — applied to non-first siblings. We avoid `margin: 0` on
    block types (.prose-md p, .lexical-paragraph, etc) because that has higher
@@ -393,32 +427,31 @@
 .prose-md .lexical-content > * + *,
 .prose-md .ticket-block > * + *,
 .prose-md .ticket-block-body > * + * {
-  margin-top: 0.75em;
+  margin-top: 12px;
 }
-.prose-md > :is(h1, h2, h3) + *,
 .prose-md
-  :is(.lexical-content, .ticket-block, .ticket-block-body)
-  > :is(h1, h2, h3)
+  :is(h1, h2, h3, h4, h5, h6, .lexical-h1, .lexical-h2, .lexical-h3)
   + * {
-  margin-top: 0.4em;
+  margin-top: 8px;
 }
-.prose-md > * + :is(h1, h2, h3),
-.prose-md
-  :is(.lexical-content, .ticket-block, .ticket-block-body)
-  > *
-  + :is(h1, h2, h3),
-.prose-md > * + .ticket-block,
-.prose-md .lexical-content > * + .ticket-block {
-  margin-top: 1.4em;
+.prose-md * + :is(h1, h2, .lexical-h1, .lexical-h2) {
+  margin-top: 24px;
+}
+.prose-md * + :is(h3, h4, h5, h6, .lexical-h3) {
+  margin-top: 20px;
 }
 /* `.block-rail-scope` and `.block-rail-sheet` lend the ticket page's rail to
    another surface (the gallery preview): read-only block icons hang in the
    margin left of the padded sheet, like they do next to a comment. */
+@property --block-rail-gap {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 4px;
+}
 .ticket-page,
 .block-rail-scope {
   --ticket-status-column: 2.5rem;
   --block-rail-size: 20px;
-  --block-rail-gap: 4px;
   --ticket-rail-inset: calc(
     var(--ticket-status-column) / 2 + var(--block-rail-gap) +
       var(--block-rail-size) / 2
@@ -427,11 +460,31 @@
 .block-rail-scope {
   --ticket-status-column: 1rem;
 }
+/* One text edge for the ticket page: the title's (status column, its gap and
+   the title's hover padding). Boxed fields (description, comments) sit their
+   border and padding outside it, and the block rail stretches its gap so its
+   icons stay centred under the status icon. */
+.ticket-page {
+  --ticket-title-gap: 0.25rem;
+  --ticket-text-inset: calc(
+    var(--ticket-status-column) + var(--ticket-title-gap) + 0.5rem
+  );
+  --ticket-box-offset: calc(0.75rem + 1px);
+  --ticket-rail-inset: calc(
+    var(--ticket-text-inset) - var(--ticket-box-offset)
+  );
+  --block-rail-gap: calc(
+    var(--ticket-rail-inset) - var(--ticket-status-column) / 2 -
+      var(--block-rail-size) / 2
+  );
+}
 .ticket-comment,
 .block-rail-sheet {
   --ticket-comment-pad: 0.75rem;
 }
-.ticket-page .ticket-comment .prose-md .ticket-block > .ticket-block-icon,
+.ticket-page .ticket-comment .prose-md .ticket-block > .ticket-block-icon {
+  display: none;
+}
 .block-rail-scope
   .block-rail-sheet
   .prose-md
@@ -447,7 +500,7 @@
   left: -26px;
 }
 .prose-md .ticket-block {
-  --block-first-line: calc(1.0625rem * 1.35);
+  --block-first-line: var(--lh-title);
   position: relative;
   padding: 6px 8px;
   margin-inline: -8px;
@@ -455,23 +508,20 @@
   transition: background-color 150ms ease-out;
 }
 .prose-md .ticket-block:has(> .ticket-block-body > h1:first-child) {
-  --block-first-line: calc(1.5rem * 1.25);
+  --block-first-line: var(--lh-display);
 }
 .prose-md .ticket-block:has(> .ticket-block-body > h3:first-child) {
-  --block-first-line: calc(0.9375rem * 1.35);
+  --block-first-line: var(--lh-subtitle);
 }
 .prose-md
   .ticket-block:has(> .ticket-block-body > :first-child:not(h1, h2, h3)) {
-  --block-first-line: 1.6em;
+  --block-first-line: var(--lh-body);
 }
 :root {
   --block-editing-fill: color-mix(in oklch, var(--accent) 30%, transparent);
 }
 .dark {
   --block-editing-fill: color-mix(in oklch, var(--accent) 20%, transparent);
-}
-.prose-md .ticket-block[data-sync][data-selected] {
-  outline: 1px solid var(--ring);
 }
 .prose-md .ticket-block[data-source-removed] > :first-child::after {
   content: var(--source-removed-note);
@@ -498,10 +548,6 @@
   background-color: var(--hover);
   transition-duration: 0ms;
 }
-[data-editing]
-  .prose-md.block-gutter
-  .lexical-content
-  > .ticket-block:is([data-hovered], [data-active]),
 .prose-md.block-gutter:has(.lexical-content:focus)
   .lexical-content
   > .ticket-block:is([data-hovered], [data-active]) {
@@ -545,16 +591,17 @@
   }
 }
 .prose-md.prose-compact {
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: var(--fs-body-compact);
+  line-height: var(--lh-body-compact);
 }
 .prose-md.prose-compact h1,
 .prose-md.prose-compact h2 {
-  font-size: 13px;
-  line-height: 1.35;
+  font-size: var(--fs-subtitle-compact);
+  line-height: var(--lh-subtitle-compact);
 }
 .prose-md.prose-compact h3 {
-  font-size: 12px;
+  font-size: var(--fs-body-compact);
+  line-height: var(--lh-body-compact);
 }
 .prose-md.prose-compact em {
   color: var(--muted-foreground);
@@ -575,29 +622,26 @@
 }
 .prose-md h1 {
   color: var(--foreground);
-  font-size: 1.5rem;
-  font-weight: 600;
-  letter-spacing: -0.022em;
-  line-height: 1.25;
+  font-size: var(--fs-display);
+  font-weight: 700;
+  line-height: var(--lh-display);
 }
 .prose-md h2 {
   color: var(--foreground);
-  font-size: 1.0625rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.35;
+  font-size: var(--fs-title);
+  font-weight: 550;
+  line-height: var(--lh-title);
 }
 .prose-md h3 {
   color: var(--foreground);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.35;
+  font-size: var(--fs-subtitle);
+  font-weight: 550;
+  line-height: var(--lh-subtitle);
 }
 /* Tailwind preflight already zeroes UA paragraph margins; the `> * + *` rule
    above provides spacing between sibling blocks. No explicit `margin: 0` here
    — that would override the spacing rule via specificity. */
-.prose-md a:not([data-slot="button"]),
+.prose-md a:not([data-slot="button"], [data-tone]),
 .prose-md .lexical-link {
   color: var(--foreground);
   text-decoration: underline;
@@ -622,12 +666,12 @@
 .prose-md .lexical-link {
   cursor: pointer;
 }
-.prose-md a:not([data-slot="button"]):hover,
+.prose-md a:not([data-slot="button"], [data-tone]):hover,
 .prose-md .lexical-link:hover {
   background-color: color-mix(in oklch, var(--foreground) 6%, transparent);
   text-decoration-color: var(--foreground);
 }
-.prose-md a:not([data-slot="button"]):focus-visible,
+.prose-md a:not([data-slot="button"], [data-tone]):focus-visible,
 .prose-md .lexical-link:focus-visible {
   outline: none;
   background-color: color-mix(in oklch, var(--foreground) 8%, transparent);
@@ -648,6 +692,9 @@
 }
 [data-link-favicon="image"]::before {
   opacity: 1;
+}
+[data-link-favicon-animate="false"]::before {
+  transition: none;
 }
 [data-link-favicon="fallback"]::before {
   background: currentColor;
@@ -835,24 +882,21 @@ html.dark .prose-md .token.coord {
 }
 .prose-md .lexical-h1 {
   color: var(--foreground);
-  font-size: 1.5rem;
-  font-weight: 600;
-  letter-spacing: -0.022em;
-  line-height: 1.25;
+  font-size: var(--fs-display);
+  font-weight: 700;
+  line-height: var(--lh-display);
 }
 .prose-md .lexical-h2 {
   color: var(--foreground);
-  font-size: 1.0625rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.35;
+  font-size: var(--fs-title);
+  font-weight: 550;
+  line-height: var(--lh-title);
 }
 .prose-md .lexical-h3 {
   color: var(--foreground);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.35;
+  font-size: var(--fs-subtitle);
+  font-weight: 550;
+  line-height: var(--lh-subtitle);
 }
 .prose-md .lexical-quote {
   border-left: 2px solid var(--border);
@@ -861,7 +905,7 @@ html.dark .prose-md .token.coord {
   font-style: italic;
 }
 .prose-md .lexical-li {
-  margin-top: 0.25em;
+  margin-top: 4px;
 }
 .prose-md .lexical-li-nested {
   list-style: none;
@@ -930,15 +974,15 @@ html.dark .prose-md .token.coord {
 .prose-md .lexical-hr {
   border: 0;
   border-top: 1px solid var(--border);
-  margin: 1.5em 0;
+  margin: 24px 0;
   cursor: text;
 }
 .prose-md .lexical-hr.selected {
   border-top-color: var(--foreground);
 }
 .prose-md .lexical-bold,
-.prose-md strong {
-  font-weight: 600;
+.prose-md :is(strong, b) {
+  font-weight: 550;
   color: var(--foreground);
 }
 .prose-md .lexical-italic {
@@ -959,6 +1003,12 @@ html.dark .prose-md .token.coord {
   box-shadow: inset 0 0 0 1px var(--prose-code-ring);
   padding: 0.12em 0.38em;
   border-radius: 5px;
+}
+.prose-md code:has(> .lexical-inline-code) {
+  font-size: inherit;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
 }
 .prose-md .lexical-code {
   display: block;
@@ -1014,19 +1064,19 @@ html.dark .prose-md .token.coord {
   padding-left: 1.4em;
 }
 .prose-md li + li {
-  margin-top: 0.25em;
+  margin-top: 4px;
 }
 .prose-md li > p {
   margin: 0;
 }
 .prose-md li > ul,
 .prose-md li > ol {
-  margin-top: 0.25em;
+  margin-top: 4px;
 }
 .prose-md hr {
   border: 0;
   border-top: 1px solid var(--border);
-  margin: 1.5em 0;
+  margin: 24px 0;
 }
 .prose-md table {
   border-collapse: collapse;
@@ -1115,11 +1165,21 @@ html.dark .prose-md .token.coord {
 }
 
 @layer base {
+  .lucide:not([stroke-width="0"]) {
+    stroke-width: 1.5;
+  }
+
   * {
     @apply border-border;
 
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
+    outline-width: 1px;
+    outline-color: var(--ring);
+    outline-offset: -1px;
+  }
+  :focus-visible {
+    outline-style: solid;
   }
   body {
     @apply bg-muted text-foreground antialiased;
@@ -1303,6 +1363,31 @@ html.dark .prose-md .token.coord {
     animation-range-end: var(--scroll-fade-size), 100%;
   }
 }
+@supports (animation-timeline: scroll()) {
+  .scroll-fade-x {
+    --scroll-fade-size: 48px;
+    -webkit-mask-image: linear-gradient(
+      to right,
+      rgba(0, 0, 0, var(--sf-start)) 0,
+      #000 var(--scroll-fade-size),
+      #000 calc(100% - var(--scroll-fade-size)),
+      rgba(0, 0, 0, var(--sf-end)) 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      rgba(0, 0, 0, var(--sf-start)) 0,
+      #000 var(--scroll-fade-size),
+      #000 calc(100% - var(--scroll-fade-size)),
+      rgba(0, 0, 0, var(--sf-end)) 100%
+    );
+    animation:
+      sf-reveal-start both linear,
+      sf-reveal-end both linear;
+    animation-timeline: scroll(self inline), scroll(self inline);
+    animation-range-start: 0, calc(100% - var(--scroll-fade-size));
+    animation-range-end: var(--scroll-fade-size), 100%;
+  }
+}
 @supports (timeline-scope: --sf) {
   .scroll-divider {
     position: relative;
@@ -1339,4 +1424,23 @@ html.dark .prose-md .token.coord {
     animation-timeline: --sf-scroller;
     animation-range: calc(100% - var(--scroll-divider-size)) 100%;
   }
+}
+
+.lexical-content:focus p[data-line-placeholder] {
+  position: relative;
+}
+.lexical-content:focus p[data-line-placeholder]::before {
+  content: attr(data-line-placeholder) / "";
+  position: absolute;
+  inset-inline-start: 0;
+  color: color-mix(in oklch, var(--muted-foreground) 60%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Base UI renders an unnamed select's hidden input as `position: fixed`, which
+   gives every backlog row its own compositor layer and makes each animation
+   frame re-layerize the page. `absolute` keeps it hidden without the layer. */
+input[aria-hidden="true"][tabindex="-1"][style*="position: fixed"] {
+  position: absolute !important;
 }

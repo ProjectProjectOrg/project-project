@@ -100,7 +100,7 @@ export function LibraryCard({
         kind={kind}
         entryKey={entry.key}
         aria-label={entry.name}
-        className="absolute inset-0 rounded-lg focus-visible:ring-1 focus-visible:ring-[#6B97FF] focus-visible:outline-none"
+        className="absolute inset-0 rounded-lg focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
       />
       <motion.div
         layout="position"
@@ -110,7 +110,7 @@ export function LibraryCard({
         )}
       >
         <BlockIconGlyph icon={entry.icon} color={entry.color} />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+        <span className="min-w-0 flex-1 truncate text-body font-semibold">
           {entry.name}
         </span>
         {badge}
@@ -122,7 +122,7 @@ export function LibraryCard({
       </motion.div>
       <motion.p
         layout="position"
-        className="pointer-events-none truncate text-xs text-muted-foreground"
+        className="pointer-events-none truncate text-caption text-muted-foreground"
       >
         {entry.description === "" ? "\u00a0" : entry.description}
       </motion.p>
@@ -132,7 +132,7 @@ export function LibraryCard({
         </motion.div>
       )}
       {error === null ? null : (
-        <p role="alert" className="relative text-xs text-destructive">
+        <p role="alert" className="relative text-caption text-destructive">
           {error}
         </p>
       )}
@@ -204,7 +204,7 @@ export function UnhideButton({
   return (
     <span className="flex items-center gap-2">
       {error === null ? null : (
-        <span role="alert" className="text-xs text-destructive">
+        <span role="alert" className="text-caption text-destructive">
           {error}
         </span>
       )}
@@ -265,13 +265,13 @@ export function HiddenEntries<Key extends string>({
                   color={null}
                   className="opacity-60"
                 />
-                <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                <span className="min-w-0 flex-1 truncate text-body text-muted-foreground">
                   {entry.name}
                 </span>
                 {entry.unhide ? (
                   renderUnhide(entry.key)
                 ) : (
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-caption text-muted-foreground">
                     {m.templates_settings_hidden_in({
                       origin: ORIGIN_LABELS[entry.origin]()
                     })}

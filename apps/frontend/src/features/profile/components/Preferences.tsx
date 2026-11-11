@@ -13,17 +13,8 @@ import {
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { SettingsSegmented } from "@/components/shell/settings/SettingsTextField"
 import { me, updateEditorPreference } from "@/features/auth/atoms/auth"
+import { EDITOR_OPTIONS } from "@/features/profile/lib/editorOptions"
 import { m } from "@/paraglide/messages"
-
-const EDITOR_OPTIONS: ReadonlyArray<{
-  key: EditorPreference
-  label: () => string
-}> = [
-  { key: "github", label: m.profile_editor_option_github },
-  { key: "github_dev", label: m.profile_editor_option_github_dev },
-  { key: "vscode", label: m.profile_editor_option_vscode },
-  { key: "cursor", label: m.profile_editor_option_cursor }
-]
 
 function editorHint(preference: EditorPreference): string {
   switch (preference) {

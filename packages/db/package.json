@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./auth-schema": "./src/auth-schema.ts",
+    "./jsonRecordset": "./src/jsonRecordset.ts",
     "./projectVisibility": "./src/projectVisibility.ts",
     "./schema": "./src/schema.ts"
   },

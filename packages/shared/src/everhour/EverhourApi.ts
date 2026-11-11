@@ -26,6 +26,7 @@ import {
   ActiveTimer,
   LogTimeInput,
   StartSprintTimerInput,
+  SprintTimeSummary,
   StartTimerInput,
   TicketTimeSummary,
   WorkTypeOption
@@ -261,6 +262,19 @@ export const EverhourGroup = HttpApiGroup.make("everhour")
       {
         params: TicketPath,
         success: TicketTimeSummary,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { time: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "sprintTime",
+      "/orgs/:orgSlug/projects/:slug/groups/:id/everhour/time",
+      {
+        params: GroupPath,
+        success: Schema.NullOr(SprintTimeSummary),
         error: [Unauthorized, NotFound, Forbidden]
       }
     )

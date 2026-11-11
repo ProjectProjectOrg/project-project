@@ -14,7 +14,7 @@ const EMPTY_WARP_ZONES: TimeWarpZone[] = [
   }
 ]
 
-type EmptyVariant = "default" | "inline"
+type EmptyVariant = "default" | "inline" | "compact"
 
 function Empty({
   className,
@@ -22,6 +22,21 @@ function Empty({
   children,
   ...props
 }: React.ComponentProps<"div"> & { variant?: EmptyVariant }) {
+  if (variant === "compact") {
+    return (
+      <div
+        data-slot="empty"
+        data-variant="compact"
+        className={cn(
+          "group/empty flex min-w-0 flex-col items-center justify-center gap-1 px-6 py-8 text-center text-balance",
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </div>
+    )
+  }
   if (variant === "inline") {
     return (
       <div
@@ -109,7 +124,7 @@ const emptyMediaVariants = cva(
     variants: {
       variant: {
         default: "bg-transparent",
-        icon: "flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground [&_svg:not([class*='size-'])]:size-6"
+        icon: "flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground group-data-[variant=compact]/empty:size-8 group-data-[variant=compact]/empty:text-muted-foreground [&_svg:not([class*='size-'])]:size-6 group-data-[variant=compact]/empty:[&_svg:not([class*='size-'])]:size-4"
       }
     },
     defaultVariants: {
@@ -137,7 +152,11 @@ function EmptyTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="empty-title"
-      className={cn("text-lg font-medium tracking-tight", className)}
+      className={cn(
+        "text-title",
+        "font-semibold group-data-[variant=compact]/empty:text-subtitle",
+        className
+      )}
       {...props}
     />
   )
@@ -148,7 +167,8 @@ function EmptyDescription({ className, ...props }: React.ComponentProps<"p">) {
     <div
       data-slot="empty-description"
       className={cn(
-        "text-sm/relaxed text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
+        "text-body",
+        "text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
         className
       )}
       {...props}
@@ -161,7 +181,8 @@ function EmptyContent({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="empty-content"
       className={cn(
-        "flex w-full max-w-sm min-w-0 flex-col items-center gap-4 text-sm text-balance",
+        "flex w-full max-w-sm min-w-0 flex-col items-center gap-4 text-balance",
+        "text-body",
         className
       )}
       {...props}

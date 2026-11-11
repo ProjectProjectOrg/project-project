@@ -6,29 +6,40 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode
 } from "react"
 
+import { cn } from "@/lib/utils"
+
 import { useDeferredOverscan } from "../../tickets/components/ticket-list/useDeferredOverscan"
+import { useBoardColumnKeyboard } from "../hooks/useBoardKeyboardNavigation"
 import { useSprintEdgeScroll } from "../hooks/useSprintEdgeScroll"
-import { BOARD_CARD_LIST_CLASS } from "./BoardColumnShell"
+import { BOARD_CARD_SLOT_CLASS, BoardCardList } from "./BoardColumnShell"
 import { SprintCardMotion } from "./SprintCardMotion"
+
+const ESTIMATED_CARD_HEIGHT = 104
+const LOAD_AHEAD = 10
 
 export function VirtualSprintCards({
   tickets,
+  total = tickets.length,
   isDraggable,
   status,
   showDropGap = true,
+  filterKey,
   footer,
   children
 }: {
   tickets: ReadonlyArray<Ticket>
+  total?: number
   isDraggable: boolean
   status: string
   showDropGap?: boolean
-  footer?: ReactNode
+  filterKey: string
+  footer?: (nearEnd: boolean) => ReactNode
   children: (ticket: Ticket) => ReactNode
 }) {
   "use no memo"
@@ -44,16 +55,17 @@ export function VirtualSprintCards({
   const overscan = useDeferredOverscan(getScrollElement, 4)
   const [focusedId, setFocusedId] = useState<string | null>(null)
   const focusedIndex = tickets.findIndex((ticket) => ticket.id === focusedId)
+  const count = Math.max(total, tickets.length)
   const getItemKey = useCallback(
-    (index: number) => tickets[index].id,
+    (index: number) => tickets[index]?.id ?? `placeholder-${index}`,
     [tickets]
   )
   // oxlint-disable-next-line react/incompatible-library -- This component opts out of React Compiler.
-  const virtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
-    count: tickets.length,
+  const virtualizer = useVirtualizer<HTMLDivElement, HTMLLIElement>({
+    count,
     getScrollElement,
     getItemKey,
-    estimateSize: () => 96,
+    estimateSize: () => ESTIMATED_CARD_HEIGHT,
     overscan,
     rangeExtractor: useCallback(
       (range) => {
@@ -65,6 +77,16 @@ export function VirtualSprintCards({
       [focusedIndex]
     )
   })
+
+  const ticketIds = useMemo(() => tickets.map((ticket) => ticket.id), [tickets])
+  const reveal = useCallback(
+    (index: number) => {
+      setFocusedId(tickets[index]?.id ?? null)
+      virtualizer.scrollToIndex(index, { align: "auto" })
+    },
+    [tickets, virtualizer]
+  )
+  useBoardColumnKeyboard(status, ticketIds, reveal)
 
   useSprintEdgeScroll(scrollRef, isDraggable)
 
@@ -96,7 +118,7 @@ export function VirtualSprintCards({
                 (target.data.edge === "bottom" ? 1 : 0)
       const height =
         source.element.closest("[data-ticket-id]")?.getBoundingClientRect()
-          .height ?? 96
+          .height ?? ESTIMATED_CARD_HEIGHT
       const id = source.data.id
       setDrag((current) =>
         current?.id === id &&
@@ -118,6 +140,9 @@ export function VirtualSprintCards({
     ? tickets.findIndex((ticket) => ticket.id === drag.id)
     : -1
   const rows = virtualizer.getVirtualItems()
+  const nearEnd =
+    tickets.length < count &&
+    (rows.at(-1)?.index ?? 0) >= tickets.length - LOAD_AHEAD
   const gapStart =
     showDropGap && drag?.index != null
       ? (rows.find((row) => row.index === drag.index)?.start ??
@@ -125,19 +150,20 @@ export function VirtualSprintCards({
         (sourceIndex >= 0 && sourceIndex < drag.index ? drag.height : 0)
       : null
   return (
-    <div
-      ref={scrollRef}
-      data-virtual-sprint-column={status}
-      data-loaded-cards={tickets.length}
-      data-mounted-cards={rows.length}
-      className={BOARD_CARD_LIST_CLASS}
-      style={{ overflowAnchor: "none" }}
-      onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget))
-          setFocusedId(null)
+    <BoardCardList
+      viewportProps={{
+        ref: scrollRef,
+        "data-virtual-sprint-column": status,
+        "data-loaded-cards": tickets.length,
+        "data-mounted-cards": rows.length,
+        style: { overflowAnchor: "none" },
+        onBlurCapture: (event) => {
+          if (!event.currentTarget.contains(event.relatedTarget))
+            setFocusedId(null)
+        }
       }}
     >
-      <div
+      <ul
         className="relative w-full overflow-clip"
         style={{
           height:
@@ -151,47 +177,68 @@ export function VirtualSprintCards({
           <div
             aria-hidden
             data-sprint-drop-gap
-            className="pointer-events-none absolute inset-x-2 top-0 rounded-md bg-accent/40"
+            className="pointer-events-none absolute inset-x-2 top-0 rounded-lg bg-accent/40"
             style={{
               height: drag.height - 8,
               transform: `translateY(${gapStart === 0 ? 0 : gapStart + 4}px)`
             }}
           />
         )}
-        {rows.map((row) => (
-          <div
-            key={row.key}
-            ref={virtualizer.measureElement}
-            data-index={row.index}
-            data-ticket-id={tickets[row.index].id}
-            className="absolute top-0 left-0 w-full"
-            style={{
-              transform: `translateY(${row.start}px)`,
-              minHeight: 96
-            }}
-            onFocusCapture={() => setFocusedId(tickets[row.index].id)}
-          >
-            <SprintCardMotion
-              start={row.start}
-              offset={
-                showDropGap && drag && row.index !== sourceIndex
-                  ? (sourceIndex >= 0 && row.index > sourceIndex
-                      ? -drag.height
-                      : 0) +
-                    (drag.index !== null && row.index >= drag.index
-                      ? drag.height
-                      : 0)
-                  : 0
-              }
-              hidden={drag?.id === tickets[row.index].id}
-              reducedMotion={Boolean(reducedMotion) || virtualizer.isScrolling}
+        {rows.map((row) =>
+          row.index >= tickets.length ? (
+            <li
+              key={row.key}
+              data-index={row.index}
+              aria-hidden
+              className={cn(
+                BOARD_CARD_SLOT_CLASS,
+                "absolute top-0 left-0 w-full"
+              )}
+              style={{
+                height: ESTIMATED_CARD_HEIGHT,
+                transform: `translateY(${row.start}px)`
+              }}
             >
-              {children(tickets[row.index])}
-            </SprintCardMotion>
-          </div>
-        ))}
-      </div>
-      {footer}
-    </div>
+              <div className="size-full animate-pulse rounded-lg bg-surface-3/60 motion-reduce:animate-none" />
+            </li>
+          ) : (
+            <li
+              key={row.key}
+              ref={virtualizer.measureElement}
+              aria-setsize={count}
+              aria-posinset={row.index + 1}
+              data-index={row.index}
+              data-ticket-id={tickets[row.index].id}
+              className="absolute top-0 left-0 w-full"
+              style={{ transform: `translateY(${row.start}px)` }}
+              onFocusCapture={() => setFocusedId(tickets[row.index].id)}
+            >
+              <SprintCardMotion
+                index={row.index}
+                start={row.start}
+                offset={
+                  showDropGap && drag && row.index !== sourceIndex
+                    ? (sourceIndex >= 0 && row.index > sourceIndex
+                        ? -drag.height
+                        : 0) +
+                      (drag.index !== null && row.index >= drag.index
+                        ? drag.height
+                        : 0)
+                    : 0
+                }
+                hidden={drag?.id === tickets[row.index].id}
+                reducedMotion={
+                  Boolean(reducedMotion) || virtualizer.isScrolling
+                }
+                filterKey={filterKey}
+              >
+                {children(tickets[row.index])}
+              </SprintCardMotion>
+            </li>
+          )
+        )}
+      </ul>
+      {footer?.(nearEnd)}
+    </BoardCardList>
   )
 }

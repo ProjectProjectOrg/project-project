@@ -5,6 +5,7 @@ import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import { it } from "@effect/vitest"
 import { DbLive, migrationsFolder, PgLive } from "@pp/db"
 import { commentIndex } from "@pp/db/schema"
+import { EMPTY_TICKET_RELATIONS } from "@pp/shared"
 import {
   ActivityActor,
   CommentId,
@@ -110,6 +111,7 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   list: () => unexpected("TicketIndex.list"),
   query: () => unexpected("TicketIndex.query"),
   querySections: () => unexpected("TicketIndex.querySections"),
+  neighbors: () => unexpected("TicketIndex.neighbors"),
   orderKeyFor: () => unexpected("TicketIndex.orderKeyFor"),
   count: () => unexpected("TicketIndex.count"),
   listIds: () => unexpected("TicketIndex.listIds"),
@@ -119,6 +121,9 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   findTicketIdsByTag: () => unexpected("TicketIndex.findTicketIdsByTag"),
   findTicketIdsByStatus: () => unexpected("TicketIndex.findTicketIdsByStatus"),
   upsertTicket: () => unexpected("TicketIndex.upsertTicket"),
+  parentOf: () => Effect.succeed(null),
+  relationsOf: () => Effect.succeed(EMPTY_TICKET_RELATIONS),
+  relationEdges: () => Effect.succeed([]),
   deleteTicket: () => unexpected("TicketIndex.deleteTicket")
 } satisfies TicketIndex.TicketIndex["Service"])
 

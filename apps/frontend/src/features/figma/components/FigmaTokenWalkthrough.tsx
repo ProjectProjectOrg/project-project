@@ -80,10 +80,10 @@ export function FigmaTokenWalkthrough() {
       >
         <div className="flex flex-col gap-4 p-4">
           <div className="space-y-1">
-            <h3 className="text-sm font-semibold">
+            <h3 className="text-body font-semibold">
               {m.figma_project_help_title()}
             </h3>
-            <p className="text-xs leading-5 text-muted-foreground">
+            <p className="text-caption leading-5 text-muted-foreground">
               {m.figma_project_help_subtitle()}
             </p>
           </div>
@@ -107,8 +107,10 @@ export function FigmaTokenWalkthrough() {
             </div>
           </div>
           <div className="min-h-[5.5rem]">
-            <p className="text-sm font-medium">{slides[selectedIndex].title}</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            <p className="text-body font-semibold">
+              {slides[selectedIndex].title}
+            </p>
+            <p className="mt-1 text-caption leading-5 text-muted-foreground">
               {slides[selectedIndex].body}
             </p>
           </div>

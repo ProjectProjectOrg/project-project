@@ -30,7 +30,7 @@ export const navFocusRing =
   "outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
 
 const navRowClass =
-  "relative z-10 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors"
+  "relative z-10 flex items-center gap-2.5 rounded-lg px-3 py-2 text-body transition-colors"
 
 type NavItemProps = (
   | {
@@ -80,7 +80,7 @@ export function NavItem({
       }}
       activeProps={{
         className: cn(
-          "font-medium text-foreground",
+          "font-semibold text-foreground",
           fillWhenActive && "bg-accent"
         )
       }}

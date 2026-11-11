@@ -50,6 +50,7 @@ import {
   CommentId,
   type GroupDetail,
   type TicketListQuery,
+  EMPTY_TICKET_RELATIONS,
   ProjectScope,
   Validation
 } from "@pp/shared"
@@ -141,6 +142,7 @@ const fakeTicket = {
   lastTransitionedPr: null,
   gitState: { tag: "no_branch" as const },
   assignees: [],
+  parent: null,
   archivedAt: null,
   createdBy: "u-1",
   createdAt: isoDate("2026-05-01T00:00:00.000Z"),
@@ -633,6 +635,7 @@ describe("MCP handlers → list_templates size", () => {
 describe("MCP handlers → write tools", () => {
   const fakeTicketDetail = {
     ...fakeTicket,
+    relations: EMPTY_TICKET_RELATIONS,
     creator: null,
     updater: null,
     body: "## Steps\n- repro\n"
@@ -650,7 +653,7 @@ describe("MCP handlers → write tools", () => {
     Layer.mock(TicketCommands.TicketCommands, {
       create: (input) => {
         captured.create = input
-        return Effect.succeed({ ...fakeTicketDetail, ...input })
+        return Effect.succeed({ ...fakeTicketDetail, ...input, parent: null })
       },
       update: (_id, input) => {
         captured.update = input
@@ -663,8 +666,8 @@ describe("MCP handlers → write tools", () => {
           orderKey: null
         })
       },
-      archive: (id, reason) => {
-        captured.archive = { id, reason }
+      archive: (id, input) => {
+        captured.archive = { id, ...input }
         if (id === "T-2") {
           return Effect.fail(
             new Conflict({ reason: "ticket_already_archived" })
@@ -1141,6 +1144,7 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
       create: (input) =>
         Effect.succeed({
           ...fakeTicket,
+          relations: EMPTY_TICKET_RELATIONS,
           creator: null,
           updater: null,
           title: input.title,
@@ -1157,6 +1161,7 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
         return Effect.succeed({
           ticket: {
             ...fakeTicket,
+            relations: EMPTY_TICKET_RELATIONS,
             creator: null,
             updater: null,
             body: input.body ?? state.currentBody
@@ -1174,6 +1179,7 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
         }
         return Effect.succeed({
           ...fakeTicket,
+          relations: EMPTY_TICKET_RELATIONS,
           creator: null,
           updater: null,
           body
@@ -1424,6 +1430,7 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
             return Effect.succeed({
               ticket: {
                 ...fakeTicket,
+                relations: EMPTY_TICKET_RELATIONS,
                 creator: null,
                 updater: null,
                 body: input.body ?? ""

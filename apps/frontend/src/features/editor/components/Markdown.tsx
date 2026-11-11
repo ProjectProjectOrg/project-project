@@ -150,7 +150,7 @@ export const withEmptyTaskItems = (markdown: string): string => {
 
 const LinkReferencesContext = createContext("")
 
-export type MarkdownSize = "default" | "compact" | "large"
+export type MarkdownSize = "default" | "compact"
 
 export function Markdown({
   children,
@@ -175,7 +175,6 @@ export function Markdown({
         className={cn(
           "prose-md",
           size === "compact" && "prose-compact",
-          size === "large" && "prose-large",
           framed && "block-gutter",
           className
         )}
@@ -276,13 +275,16 @@ export function MarkdownSegment({
       rehypePlugins={[prismPlugin]}
       urlTransform={allowMentionUrls}
       components={{
-        ...(onToggleTask === undefined
-          ? {}
-          : {
-              li: ({ node, ...rest }) => (
-                <li {...rest} data-task-line={node?.position?.start.line} />
-              )
-            }),
+        li: ({ node, ...rest }) => (
+          <li
+            {...rest}
+            data-task-line={
+              onToggleTask === undefined
+                ? undefined
+                : node?.position?.start.line
+            }
+          />
+        ),
         input: ({ node: _node, type, checked, ...rest }) =>
           type === "checkbox" ? (
             <Checkbox
@@ -345,8 +347,7 @@ export function MarkdownSegment({
           const label = typeof linkChildren === "string" ? linkChildren : ref.id
           return <MentionChip type={ref.type} id={ref.id} label={label} />
         },
-        img: ({ src, alt, node, ...rest }) => {
-          const url = typeof src === "string" ? src : undefined
+        img: ({ src: url, alt, node, ...rest }) => {
           if (
             url &&
             parseAttachmentUrl(url) &&

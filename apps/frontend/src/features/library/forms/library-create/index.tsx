@@ -155,7 +155,7 @@ function CreateFields({
         </form.Field>
         <form.Field name="key">
           {(field) => (
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <label className="flex items-center gap-1.5 text-caption text-muted-foreground">
               {m.templates_settings_key_label()}
               <Input
                 value={effectiveLibraryKey(values)}
@@ -165,7 +165,7 @@ function CreateFields({
                 aria-invalid={field.errors.length > 0}
                 onChange={(event) => field.handleChange(event.target.value)}
                 onBlur={field.handleBlur}
-                className="h-8 w-48 rounded-md font-mono text-xs"
+                className="h-8 w-48 rounded-md font-mono text-caption"
               />
             </label>
           )}
@@ -196,7 +196,7 @@ function CreateFields({
             trimmed.length > 0 && !busy ? field.errors[0]?.message : undefined
           const error = problem ?? failure
           return error === null ? null : (
-            <p className="text-xs text-destructive" role="alert">
+            <p className="text-caption text-destructive" role="alert">
               {error}
             </p>
           )

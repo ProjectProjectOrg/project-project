@@ -34,6 +34,7 @@ const baseTicket = (overrides: Partial<Ticket> = {}): Ticket => ({
   lastTransitionedPr: null,
   gitState: { tag: "no_branch" },
   assignees: [],
+  parent: null,
   archivedAt: null,
   createdBy: "user-1",
   createdAt: isoDate("2026-05-01T00:00:00.000Z"),

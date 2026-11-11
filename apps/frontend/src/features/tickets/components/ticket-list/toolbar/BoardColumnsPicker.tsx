@@ -2,13 +2,13 @@ import { useAtomValue } from "@effect/atom-react"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronDown } from "lucide-react"
 
-import { CheckboxGroup, CheckboxItem } from "@/components/ui/checkbox-group"
-import { menuPopupClass } from "@/components/ui/menu-styles"
+import { CheckboxMenuItem } from "@/components/ui/checkbox-menu-item"
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
+import { menuItemMetaClass } from "@/components/ui/menu-styles"
 import { triggerVariants } from "@/components/ui/select"
 import {
   statusesFor,
@@ -34,24 +34,20 @@ export function BoardColumnsPicker({ scope }: Readonly<{ scope: BoardScope }>) {
   const order = boardStatusesFor(statuses)
   const layout = useBoardColumns(scope)
   if (order.length === 0) return null
-  const checkedIndices = new Set(
-    order.flatMap((status, index) =>
-      layout.hidden.includes(status) ? [] : [index]
-    )
-  )
+  const visible = order.filter((status) => !layout.hidden.includes(status))
   const label = m.tickets_view_options_columns()
   const displayValue =
-    checkedIndices.size === order.length
+    visible.length === order.length
       ? m.tickets_view_options_columns_all()
       : m.tickets_view_options_columns_count({
-          visible: checkedIndices.size,
+          visible: visible.length,
           total: order.length
         })
   return (
     <div className="flex min-h-8 items-center justify-between gap-3">
-      <span className="text-[13px] text-muted-foreground">{label}</span>
-      <Popover>
-        <PopoverTrigger
+      <span className="text-body text-muted-foreground">{label}</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger
           aria-label={m.tickets_view_options_picker_aria_label({
             label,
             value: displayValue
@@ -68,39 +64,34 @@ export function BoardColumnsPicker({ scope }: Readonly<{ scope: BoardScope }>) {
             className="size-4 shrink-0 text-muted-foreground transition-colors duration-80 group-hover:text-foreground"
             strokeWidth={2}
           />
-        </PopoverTrigger>
-        <PopoverContent align="end" className={cn(menuPopupClass, "w-56")}>
-          <CheckboxGroup checkedIndices={checkedIndices} aria-label={label}>
-            {order.map((status, index) => {
-              const meta = statusMetaFor(status, statuses)
-              const Icon = meta.icon
-              return (
-                <CheckboxItem
-                  key={status}
-                  index={index}
-                  label={meta.label}
-                  checked={checkedIndices.has(index)}
-                  onToggle={() => layout.toggleHidden(status)}
-                  icon={
-                    <Icon
-                      className={cn("size-4 shrink-0", meta.className)}
-                      style={meta.color ? { color: meta.color } : undefined}
-                      strokeWidth={1.75}
-                    />
-                  }
-                  meta={
-                    counts ? (
-                      <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                        {counts[status] ?? 0}
-                      </span>
-                    ) : null
-                  }
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56" highlightFirst>
+          {order.map((status) => {
+            const meta = statusMetaFor(status, statuses)
+            const Icon = meta.icon
+            return (
+              <CheckboxMenuItem
+                key={status}
+                label={meta.label}
+                checked={visible.includes(status)}
+                onToggle={() => layout.toggleHidden(status)}
+              >
+                <Icon
+                  className={cn("size-4", meta.className)}
+                  style={meta.color ? { color: meta.color } : undefined}
+                  strokeWidth={1.75}
                 />
-              )
-            })}
-          </CheckboxGroup>
-        </PopoverContent>
-      </Popover>
+                <span className="min-w-0 truncate">{meta.label}</span>
+                {counts && (
+                  <span data-menu-meta className={menuItemMetaClass}>
+                    {counts[status] ?? 0}
+                  </span>
+                )}
+              </CheckboxMenuItem>
+            )
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }

@@ -1,5 +1,24 @@
-import { SearchIcon } from "lucide-react"
-import { animate, motion, useReducedMotion } from "motion/react"
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
+import {
+  ArrowBigUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowRightToLine,
+  ArrowUp,
+  Check,
+  ChevronUp,
+  Command,
+  CornerDownLeft,
+  Delete,
+  Option
+} from "lucide-react"
+import {
+  animate,
+  motion,
+  useReducedMotion,
+  type AnimationPlaybackControls
+} from "motion/react"
 import {
   createContext,
   memo,
@@ -33,7 +52,9 @@ import {
   type UseFluidHoverReturn
 } from "@/hooks/useFluidHover"
 import type { IconComponent } from "@/lib/icon"
+import { rowScrollTarget, scrollViewportTo } from "@/lib/scrollRowIntoView"
 import { spring } from "@/lib/springs"
+import { fieldTouchClass } from "@/lib/typeScale"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -42,6 +63,7 @@ export type CommandMenuItemData = Readonly<{
   label: string
   icon?: IconComponent
   group?: string
+  disabled?: boolean
 }>
 
 type CommandMenuSection = Readonly<{
@@ -51,33 +73,33 @@ type CommandMenuSection = Readonly<{
   start: number
 }>
 
-const MODIFIER_TOKENS: Readonly<Record<string, string>> = {
-  mod: "mod",
-  cmd: "meta",
-  command: "meta",
-  meta: "meta",
-  win: "meta",
-  super: "meta",
-  ctrl: "ctrl",
-  control: "ctrl",
-  alt: "alt",
-  option: "alt",
-  opt: "alt",
-  shift: "shift"
-}
+const MODIFIER_TOKENS: ReadonlyMap<string, string> = new Map([
+  ["mod", "mod"],
+  ["cmd", "meta"],
+  ["command", "meta"],
+  ["meta", "meta"],
+  ["win", "meta"],
+  ["super", "meta"],
+  ["ctrl", "ctrl"],
+  ["control", "ctrl"],
+  ["alt", "alt"],
+  ["option", "alt"],
+  ["opt", "alt"],
+  ["shift", "shift"]
+])
 
-const KEY_ALIASES: Readonly<Record<string, string>> = {
-  esc: "escape",
-  return: "enter",
-  space: " ",
-  spacebar: " ",
-  up: "arrowup",
-  down: "arrowdown",
-  left: "arrowleft",
-  right: "arrowright",
-  del: "delete",
-  plus: "+"
-}
+const KEY_ALIASES: ReadonlyMap<string, string> = new Map([
+  ["esc", "escape"],
+  ["return", "enter"],
+  ["space", " "],
+  ["spacebar", " "],
+  ["up", "arrowup"],
+  ["down", "arrowdown"],
+  ["left", "arrowleft"],
+  ["right", "arrowright"],
+  ["del", "delete"],
+  ["plus", "+"]
+])
 
 const shortcutTokens = (shortcut: string): ReadonlyArray<string> => {
   const trimmed = shortcut.trim()
@@ -98,23 +120,23 @@ type CapLabel = Readonly<{ mac: () => string; other: () => string }>
 
 const glyph = (label: string) => () => label
 
-const CAP_LABELS: Readonly<Record<string, CapLabel>> = {
-  mod: { mac: glyph("⌘"), other: m.common_key_ctrl },
-  meta: { mac: glyph("⌘"), other: m.common_key_win },
-  ctrl: { mac: glyph("⌃"), other: m.common_key_ctrl },
-  alt: { mac: glyph("⌥"), other: m.common_key_alt },
-  shift: { mac: glyph("⇧"), other: m.common_key_shift },
-  enter: { mac: glyph("↵"), other: m.common_key_enter },
-  escape: { mac: m.common_key_escape, other: m.common_key_escape },
-  backspace: { mac: glyph("⌫"), other: m.common_key_backspace },
-  delete: { mac: glyph("⌦"), other: m.common_key_delete },
-  tab: { mac: glyph("⇥"), other: m.common_key_tab },
-  " ": { mac: m.common_key_space, other: m.common_key_space },
-  arrowup: { mac: glyph("↑"), other: glyph("↑") },
-  arrowdown: { mac: glyph("↓"), other: glyph("↓") },
-  arrowleft: { mac: glyph("←"), other: glyph("←") },
-  arrowright: { mac: glyph("→"), other: glyph("→") }
-}
+const CAP_LABELS: ReadonlyMap<string, CapLabel> = new Map([
+  ["mod", { mac: glyph("⌘"), other: m.common_key_ctrl }],
+  ["meta", { mac: glyph("⌘"), other: m.common_key_win }],
+  ["ctrl", { mac: glyph("⌃"), other: m.common_key_ctrl }],
+  ["alt", { mac: glyph("⌥"), other: m.common_key_alt }],
+  ["shift", { mac: glyph("⇧"), other: m.common_key_shift }],
+  ["enter", { mac: glyph("↵"), other: m.common_key_enter }],
+  ["escape", { mac: m.common_key_escape, other: m.common_key_escape }],
+  ["backspace", { mac: glyph("⌫"), other: m.common_key_backspace }],
+  ["delete", { mac: glyph("⌦"), other: m.common_key_delete }],
+  ["tab", { mac: glyph("⇥"), other: m.common_key_tab }],
+  [" ", { mac: m.common_key_space, other: m.common_key_space }],
+  ["arrowup", { mac: glyph("↑"), other: glyph("↑") }],
+  ["arrowdown", { mac: glyph("↓"), other: glyph("↓") }],
+  ["arrowleft", { mac: glyph("←"), other: glyph("←") }],
+  ["arrowright", { mac: glyph("→"), other: glyph("→") }]
+])
 
 const PREFORMATTED = /^[⌘⌃⌥⇧↵⌫⌦⇥↑↓←→]+[A-Za-z0-9]?$/
 
@@ -129,8 +151,8 @@ export function formatShortcut(
       continue
     }
     const lower = token.toLowerCase()
-    const name = MODIFIER_TOKENS[lower] ?? KEY_ALIASES[lower] ?? lower
-    const cap = CAP_LABELS[name]
+    const name = MODIFIER_TOKENS.get(lower) ?? KEY_ALIASES.get(lower) ?? lower
+    const cap = CAP_LABELS.get(name)
     if (cap) caps.push(mac ? cap.mac() : cap.other())
     else if (name.length === 1) caps.push(name.toUpperCase())
     else caps.push(name.charAt(0).toUpperCase() + name.slice(1))
@@ -152,6 +174,27 @@ const subscribeNever = () => () => {}
 
 const useIsMac = (): boolean =>
   useSyncExternalStore(subscribeNever, readMac, serverMac)
+
+const fadeSizes = new WeakMap<HTMLElement, number>()
+
+const fadeSizeOf = (viewport: HTMLElement): number => {
+  const cached = fadeSizes.get(viewport)
+  if (cached !== undefined) return cached
+  const size =
+    Number.parseFloat(
+      getComputedStyle(viewport).getPropertyValue("--scroll-fade-size")
+    ) || 0
+  fadeSizes.set(viewport, size)
+  return size
+}
+
+const commandMenuItemId = (listId: string, index: number) =>
+  `${listId}-${index}`
+
+const assignRef = <T,>(ref: Ref<T> | undefined, node: T | null) => {
+  if (ref && "current" in ref) ref.current = node
+  else ref?.(node)
+}
 
 const useIsoLayoutEffect =
   typeof window === "undefined" ? useEffect : useLayoutEffect
@@ -195,10 +238,13 @@ type CommandMenuContextValue = Readonly<{
   listHandlers: UseFluidHoverReturn["handlers"]
   highlight: HighlightStore
   select: (item: CommandMenuItemData) => void
-  move: (to: 1 | -1) => void
+  actOn: (item: CommandMenuItemData) => boolean
+  move: (to: 1 | -1, held?: boolean) => void
 }>
 
-const CommandMenuFillContext = createContext<FluidHoverSource | null>(null)
+const CommandMenuFillContext = createContext<
+  (FluidHoverSource & Readonly<{ held: boolean }>) | null
+>(null)
 
 const CommandMenuContext = createContext<CommandMenuContextValue | null>(null)
 
@@ -220,12 +266,111 @@ export type CommandMenuProps = Omit<
   Readonly<{
     items: ReadonlyArray<CommandMenuItemData>
     onSelect?: (item: CommandMenuItemData) => void
+    onActOn?: (item: CommandMenuItemData) => boolean
+    initialValue?: string | null
+    resetKey?: string
+    stretch?: boolean
     children: ReactNode
   }>
+
+function useLatest<T>(value: T): RefObject<T> {
+  const ref = useRef(value)
+  useIsoLayoutEffect(() => {
+    ref.current = value
+  })
+  return ref
+}
+
+function useHighlightStore(activeIndex: number | null) {
+  const highlightRef = useRef<number | null>(null)
+  const listenersRef = useRef(new Set<() => void>())
+  const highlight = useMemo<HighlightStore>(
+    () => ({
+      get: () => highlightRef.current,
+      subscribe: (listener) => {
+        listenersRef.current.add(listener)
+        return () => {
+          listenersRef.current.delete(listener)
+        }
+      }
+    }),
+    []
+  )
+  useIsoLayoutEffect(() => {
+    highlightRef.current = activeIndex
+    listenersRef.current.forEach((listener) => listener())
+  }, [activeIndex])
+  return { highlight, highlightRef }
+}
+
+function useHeldUntilKeyUp() {
+  const [held, setHeld] = useState(false)
+  useEffect(() => {
+    if (!held) return undefined
+    const release = () => setHeld(false)
+    window.addEventListener("keyup", release)
+    window.addEventListener("blur", release)
+    return () => {
+      window.removeEventListener("keyup", release)
+      window.removeEventListener("blur", release)
+    }
+  }, [held])
+  return [held, setHeld] as const
+}
+
+function useScrollToRow(
+  listRef: RefObject<HTMLDivElement | null>,
+  reduceMotion: boolean
+) {
+  const scrollAnimationRef = useRef<{ stop: () => void } | null>(null)
+  const scrollToRow = useCallback(
+    (index: number, instant = false) => {
+      const list = listRef.current
+      const viewport = list?.closest<HTMLElement>(
+        '[data-slot="scroll-area-viewport"]'
+      )
+      if (!list || !viewport) return
+      const row = list.querySelector<HTMLElement>(
+        `[data-fluid-hover-index="${index}"]`
+      )
+      if (!row) return
+      const margin = fadeSizeOf(viewport)
+      const target =
+        index === 0
+          ? 0
+          : rowScrollTarget(viewport, row, { top: margin, bottom: margin })
+      if (target === null) return
+      const stop = scrollViewportTo(viewport, target, instant || reduceMotion)
+      scrollAnimationRef.current = stop === null ? null : { stop }
+    },
+    [listRef, reduceMotion]
+  )
+  useEffect(() => () => scrollAnimationRef.current?.stop(), [])
+  return scrollToRow
+}
+
+function useObservedHeight() {
+  const columnRef = useRef<HTMLDivElement | null>(null)
+  const [height, setHeight] = useState<number | null>(null)
+  useEffect(() => {
+    const el = columnRef.current
+    if (!el || typeof ResizeObserver === "undefined") return undefined
+    const update = () => setHeight(el.offsetHeight)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return { columnRef, height }
+}
 
 function CommandMenu({
   items,
   onSelect,
+  onActOn,
+  initialValue = null,
+  resetKey = "",
+  stretch = false,
   className,
   children,
   ref,
@@ -258,100 +403,96 @@ function CommandMenu({
     [onMouseEnter, onMouseMove, onMouseLeave, onClick]
   )
 
-  const highlightRef = useRef<number | null>(null)
-  const listenersRef = useRef(new Set<() => void>())
-  const highlight = useMemo<HighlightStore>(
-    () => ({
-      get: () => highlightRef.current,
-      subscribe: (listener) => {
-        listenersRef.current.add(listener)
-        return () => {
-          listenersRef.current.delete(listener)
-        }
-      }
-    }),
-    []
-  )
-  useIsoLayoutEffect(() => {
-    highlightRef.current = activeIndex
-    listenersRef.current.forEach((listener) => listener())
-  }, [activeIndex])
-  const fill = useMemo<FluidHoverSource>(
-    () => ({ activeIndex, itemRects, isMeasured, sessionRef }),
-    [activeIndex, itemRects, isMeasured, sessionRef]
+  const { highlight, highlightRef } = useHighlightStore(activeIndex)
+  const [held, setHeld] = useHeldUntilKeyUp()
+  const fill = useMemo(
+    () => ({ activeIndex, itemRects, isMeasured, sessionRef, held }),
+    [activeIndex, itemRects, isMeasured, sessionRef, held]
   )
 
   const reduceMotion = useReducedMotion() ?? false
-  const scrollAnimationRef = useRef<{ stop: () => void } | null>(null)
-  const scrollToRow = useCallback(
-    (index: number) => {
-      const list = listRef.current
-      const viewport = list?.closest<HTMLElement>(
-        '[data-slot="scroll-area-viewport"]'
-      )
-      if (!list || !viewport) return
-      scrollAnimationRef.current?.stop()
-      scrollAnimationRef.current = null
-      if (index === 0) {
-        viewport.scrollTop = 0
-        return
-      }
-      const row = list.querySelector<HTMLElement>(
-        `[data-fluid-hover-index="${index}"]`
-      )
-      if (!row) return
-      const rowTop = row.offsetTop + list.offsetTop
-      const target = Math.max(
-        0,
-        Math.min(
-          rowTop + row.offsetHeight / 2 - viewport.clientHeight / 2,
-          viewport.scrollHeight - viewport.clientHeight
-        )
-      )
-      if (reduceMotion) {
-        viewport.scrollTop = target
-        return
-      }
-      scrollAnimationRef.current = animate(viewport.scrollTop, target, {
-        ...spring.fast,
-        onUpdate: (value) => {
-          viewport.scrollTop = value
-        }
-      })
-    },
-    [reduceMotion]
-  )
-  useEffect(() => () => scrollAnimationRef.current?.stop(), [])
+  const scrollToRow = useScrollToRow(listRef, reduceMotion)
 
-  const rowsRef = useRef(rows)
-  rowsRef.current = rows
+  const rowsRef = useLatest(rows)
+  const shownRowsRef = useRef<ReadonlyArray<CommandMenuItemData>>([])
+  const shownResetKeyRef = useRef(resetKey)
+  const movedRef = useRef(false)
+  const pendingFocusRef = useRef(initialValue)
   useEffect(() => {
-    setActiveIndex(rowsRef.current.length === 0 ? null : 0)
-    scrollToRow(0)
-  }, [rowsKey, setActiveIndex, scrollToRow])
+    const previous = shownRowsRef.current
+    const sameQuery = shownResetKeyRef.current === resetKey
+    shownRowsRef.current = rowsRef.current
+    shownResetKeyRef.current = resetKey
+    if (!sameQuery) pendingFocusRef.current = null
+    const pending = pendingFocusRef.current
+    const restored =
+      pending === null
+        ? -1
+        : rowsRef.current.findIndex((row) => row.value === pending)
+    if (restored !== -1) {
+      pendingFocusRef.current = null
+      movedRef.current = true
+      setActiveIndex(restored)
+      scrollToRow(restored, true)
+      return
+    }
+    const appended =
+      previous.length > 0 &&
+      previous.every(
+        (row, index) => rowsRef.current[index]?.value === row.value
+      )
+    if (sameQuery && appended) return
+    const current = highlightRef.current
+    const kept =
+      sameQuery && movedRef.current && current !== null
+        ? rowsRef.current.findIndex(
+            (row) => row.value === previous[current]?.value
+          )
+        : -1
+    if (kept !== -1) {
+      setActiveIndex(kept)
+      scrollToRow(kept, true)
+      return
+    }
+    movedRef.current = false
+    const first = rowsRef.current.findIndex((row) => row.disabled !== true)
+    setActiveIndex(first === -1 ? null : first)
+    scrollToRow(Math.max(first, 0), true)
+  }, [rowsKey, resetKey, rowsRef, highlightRef, setActiveIndex, scrollToRow])
 
   const move = useCallback(
-    (to: 1 | -1) => {
-      const count = rowsRef.current.length
-      if (count === 0) return
-      const current = highlightRef.current
-      const next =
-        current === null
-          ? to === 1
-            ? 0
-            : count - 1
-          : (current + to + count) % count
+    (to: 1 | -1, repeat = false) => {
+      const rows = rowsRef.current
+      const count = rows.length
+      const start = highlightRef.current ?? (to === 1 ? -1 : count)
+      const next = Array.from(
+        { length: count },
+        (_, step) => (start + to * (step + 1) + count * 2) % count
+      ).find((index) => rows[index]?.disabled !== true)
+      if (next === undefined) return
+      pendingFocusRef.current = null
+      movedRef.current = true
+      setHeld(repeat)
       setActiveIndex(next)
-      scrollToRow(next)
+      scrollToRow(next, repeat)
     },
-    [setActiveIndex, scrollToRow]
+    [rowsRef, highlightRef, setHeld, setActiveIndex, scrollToRow]
   )
 
-  const onSelectRef = useRef(onSelect)
-  onSelectRef.current = onSelect
-  const select = useCallback((item: CommandMenuItemData) => {
-    onSelectRef.current?.(item)
-  }, [])
+  const onSelectRef = useLatest(onSelect)
+  const select = useCallback(
+    (item: CommandMenuItemData) => {
+      if (item.disabled === true) return
+      onSelectRef.current?.(item)
+    },
+    [onSelectRef]
+  )
+  const onActOnRef = useLatest(onActOn)
+  const actOn = useCallback(
+    (item: CommandMenuItemData) =>
+      item.disabled !== true && (onActOnRef.current?.(item) ?? false),
+    [onActOnRef]
+  )
 
   const ctx = useMemo<CommandMenuContextValue>(
     () => ({
@@ -365,6 +506,7 @@ function CommandMenu({
       listHandlers,
       highlight,
       select,
+      actOn,
       move
     }),
     [
@@ -377,21 +519,12 @@ function CommandMenu({
       listHandlers,
       highlight,
       select,
+      actOn,
       move
     ]
   )
 
-  const columnRef = useRef<HTMLDivElement | null>(null)
-  const [height, setHeight] = useState<number | null>(null)
-  useEffect(() => {
-    const el = columnRef.current
-    if (!el || typeof ResizeObserver === "undefined") return
-    const update = () => setHeight(el.offsetHeight)
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
+  const { columnRef, height } = useObservedHeight()
 
   return (
     <CommandMenuContext.Provider value={ctx}>
@@ -406,14 +539,20 @@ function CommandMenu({
           {...props}
         >
           <motion.div
-            className="max-h-[inherit] overflow-hidden"
+            className={cn(
+              "max-h-[inherit] overflow-hidden",
+              stretch && "flex min-h-0 flex-1 flex-col"
+            )}
             initial={false}
-            animate={height === null ? {} : { height }}
+            animate={stretch || height === null ? {} : { height }}
             transition={reduceMotion ? { duration: 0 } : spring.moderate}
           >
             <div
               ref={columnRef}
-              className="flex max-h-[inherit] min-h-0 flex-col"
+              className={cn(
+                "flex max-h-[inherit] min-h-0 flex-col",
+                stretch && "flex-1"
+              )}
             >
               {children}
             </div>
@@ -463,6 +602,7 @@ function CommandMenuTabs({
       {...props}
     >
       <div
+        role="presentation"
         onMouseDown={(e) => e.preventDefault()}
         className="flex min-w-0 flex-1 items-center"
       >
@@ -491,7 +631,7 @@ function CommandMenuInput({
   ref,
   ...props
 }: CommandMenuInputProps & Readonly<{ ref?: Ref<HTMLInputElement> }>) {
-  const { move, select, rows, highlight, listId } = useCommandMenu()
+  const { move, select, actOn, rows, highlight, listId } = useCommandMenu()
   const index = useSyncExternalStore(
     highlight.subscribe,
     highlight.get,
@@ -500,9 +640,8 @@ function CommandMenuInput({
   return (
     <div
       data-slot="command-menu-input"
-      className="flex h-9 shrink-0 items-center gap-2 px-3"
+      className="flex h-9 shrink-0 items-center px-2"
     >
-      <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
       <input
         ref={ref}
         role="combobox"
@@ -510,25 +649,31 @@ function CommandMenuInput({
         aria-controls={listId}
         aria-autocomplete="list"
         aria-activedescendant={
-          index === null ? undefined : `${listId}-${index}`
+          index === null ? undefined : commandMenuItemId(listId, index)
         }
         onKeyDown={(event) => {
           onKeyDown?.(event)
           if (event.defaultPrevented) return
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
             event.preventDefault()
-            move(event.key === "ArrowDown" ? 1 : -1)
+            move(event.key === "ArrowDown" ? 1 : -1, event.repeat)
             return
           }
-          if (event.key !== "Enter") return
           const current = highlight.get()
           const row = current === null ? undefined : rows[current]
           if (row === undefined) return
+          if (event.key === "Tab" && !event.shiftKey && actOn(row)) {
+            event.preventDefault()
+            return
+          }
+          if (event.key !== "Enter") return
           event.preventDefault()
           select(row)
         }}
         className={cn(
-          "h-9 w-full min-w-0 bg-transparent text-sm outline-hidden placeholder:text-muted-foreground",
+          "h-9 w-full min-w-0 bg-transparent outline-hidden placeholder:text-muted-foreground",
+          "text-body",
+          fieldTouchClass,
           className
         )}
         {...props}
@@ -556,8 +701,10 @@ function CommandMenuList({
   const empty = rows.length === 0
 
   const lastActiveRef = useRef<number | null>(null)
-  if (fill && fill.activeIndex !== null)
-    lastActiveRef.current = fill.activeIndex
+  const activeIndex = fill?.activeIndex ?? null
+  useIsoLayoutEffect(() => {
+    if (activeIndex !== null) lastActiveRef.current = activeIndex
+  }, [activeIndex])
   const handleMouseLeave = () => {
     listHandlers.onMouseLeave()
     setActiveIndex(lastActiveRef.current)
@@ -565,14 +712,13 @@ function CommandMenuList({
 
   return (
     <ScrollArea
-      className="scroll-divider flex min-h-0 flex-1 flex-col border-t border-border/60 [&::before]:!-top-px"
-      viewportClassName="min-h-0 flex-1 [&>div[style]]:!block [&>div[style]]:!min-w-0 [--scroll-fade-size:32px] scroll-fade"
+      className="scroll-divider flex min-h-0 flex-1 flex-col border-t border-border/60 [&::after]:!hidden [&::before]:!-top-px"
+      viewportClassName="min-h-0 flex-1 [&>div[style]]:!block [&>div[style]]:!min-w-0 ![--scroll-fade-size:6px] scroll-fade"
     >
       <div
         ref={(node) => {
           listRef.current = node
-          if (typeof ref === "function") ref(node)
-          else if (ref) ref.current = node
+          assignRef(ref, node)
         }}
         id={listId}
         role="listbox"
@@ -590,7 +736,14 @@ function CommandMenuList({
         )}
         {...props}
       >
-        {fill && <FluidHoverHighlight hover={fill} className="rounded-lg" />}
+        {fill && (
+          <FluidHoverHighlight
+            hover={fill}
+            instant={fill.held}
+            fullWidth
+            className="rounded-lg"
+          />
+        )}
         {children}
         {sections.map((section, sectionIndex) => {
           const headingId = section.heading
@@ -608,7 +761,8 @@ function CommandMenuList({
                   id={headingId}
                   role="presentation"
                   className={cn(
-                    "flex shrink-0 items-center text-xs text-muted-foreground",
+                    "flex shrink-0 items-center text-(--prose-quiet)",
+                    "text-caption",
                     "h-7 px-2"
                   )}
                 >
@@ -651,7 +805,7 @@ function CommandMenuEmpty({
       data-slot="command-menu-empty"
       className={cn(
         "px-3 py-6 text-center text-muted-foreground",
-        "text-[13px]",
+        "text-body",
         className
       )}
       {...props}
@@ -664,6 +818,34 @@ export type CommandMenuShortcutProps = HTMLAttributes<HTMLElement> &
     keys: string | ReadonlyArray<string>
   }>
 
+const GLYPH_ICONS = {
+  "↵": CornerDownLeft,
+  "⇥": ArrowRightToLine,
+  "←": ArrowLeft,
+  "→": ArrowRight,
+  "↑": ArrowUp,
+  "↓": ArrowDown,
+  "⌫": Delete,
+  "⌘": Command,
+  "⇧": ArrowBigUp,
+  "⌥": Option,
+  "⌃": ChevronUp
+} satisfies Readonly<Record<string, IconComponent>>
+
+const isGlyph = (cap: string): cap is keyof typeof GLYPH_ICONS =>
+  Object.hasOwn(GLYPH_ICONS, cap)
+
+function CapLabel({ cap }: Readonly<{ cap: string }>) {
+  if (!isGlyph(cap)) return cap
+  const Icon = GLYPH_ICONS[cap]
+  return (
+    <>
+      <Icon aria-hidden className="size-[1em]" strokeWidth={2} />
+      <span className="sr-only">{cap}</span>
+    </>
+  )
+}
+
 function CommandMenuShortcut({
   keys,
   className,
@@ -671,9 +853,7 @@ function CommandMenuShortcut({
   ...props
 }: CommandMenuShortcutProps & Readonly<{ ref?: Ref<HTMLElement> }>) {
   const mac = useIsMac()
-  const caps = (typeof keys === "string" ? [keys] : keys).flatMap((k) =>
-    formatShortcut(k, mac)
-  )
+  const caps = [keys].flat().flatMap((k) => formatShortcut(k, mac))
   return (
     <kbd
       ref={ref}
@@ -689,10 +869,11 @@ function CommandMenuShortcut({
           key={`${cap}-${i}`}
           className={cn(
             "flex items-center justify-center rounded-[5px] bg-hover text-muted-foreground",
-            "h-5 min-w-5 px-1 text-[11px]"
+            "h-5 min-w-5 px-1",
+            "text-micro"
           )}
         >
-          {cap}
+          <CapLabel cap={cap} />
         </span>
       ))}
     </kbd>
@@ -729,18 +910,22 @@ const CommandMenuItem = memo(function CommandMenuItem({
   const item = itemsByValue.get(value) ?? { value, label: value }
   const Icon = item.icon
 
-  useRegisterFluidHoverItem(registerItem, index, internalRef)
+  useRegisterFluidHoverItem(
+    registerItem,
+    item.disabled === true ? undefined : index,
+    internalRef
+  )
 
   return (
     <div
       ref={(node) => {
         internalRef.current = node
-        if (typeof ref === "function") ref(node)
-        else if (ref) ref.current = node
+        assignRef(ref, node)
       }}
-      id={`${listId}-${index}`}
+      id={commandMenuItemId(listId, index)}
       role="option"
       aria-selected={isActive}
+      aria-disabled={item.disabled === true || undefined}
       data-fluid-hover-index={index}
       data-value={value}
       data-slot="command-menu-item"
@@ -749,10 +934,11 @@ const CommandMenuItem = memo(function CommandMenuItem({
         if (!e.defaultPrevented) select(item)
       }}
       className={cn(
-        "relative z-10 flex shrink-0 cursor-pointer items-center outline-none select-none",
-        "h-9 gap-2 rounded-lg px-2 text-[13px]",
+        "group/command-item relative z-10 flex shrink-0 cursor-pointer items-center outline-none select-none aria-disabled:cursor-default aria-disabled:text-muted-foreground",
+        "h-9 gap-2 rounded-lg px-2",
+        "text-body",
         "transition-[color] duration-80",
-        isActive ? "text-foreground" : "text-muted-foreground",
+        isActive ? "text-foreground" : "text-(--prose-body)",
         className
       )}
       {...props}
@@ -760,8 +946,11 @@ const CommandMenuItem = memo(function CommandMenuItem({
       {Icon && (
         <Icon
           size={16}
-          strokeWidth={isActive ? 2 : 1.5}
-          className="shrink-0 transition-[color,stroke-width] duration-80"
+          strokeWidth={1.75}
+          className={cn(
+            "shrink-0 transition-[color] duration-80",
+            isActive ? "text-foreground" : "text-muted-foreground"
+          )}
         />
       )}
       {children}
@@ -786,7 +975,8 @@ function CommandMenuFooter({
       data-slot="command-menu-footer"
       className={cn(
         "flex shrink-0 items-center overflow-hidden text-muted-foreground",
-        "h-10 gap-4 px-4 text-[12px]",
+        "h-10 gap-4 px-4",
+        "text-caption",
         className
       )}
       {...props}
@@ -796,14 +986,286 @@ function CommandMenuFooter({
   )
 }
 
+function CommandMenuFooterHint({
+  label,
+  keys
+}: Readonly<{ label: string; keys: string | ReadonlyArray<string> }>) {
+  return (
+    <span className="flex shrink-0 items-center gap-1.5">
+      <span>{label}</span>
+      <CommandMenuShortcut keys={keys} className="ml-0" />
+    </span>
+  )
+}
+
+function useHighlightedItem(): CommandMenuItemData | undefined {
+  const { rows, highlight } = useCommandMenu()
+  const index = useSyncExternalStore(
+    highlight.subscribe,
+    highlight.get,
+    () => null
+  )
+  return index === null ? undefined : rows[index]
+}
+
+type ParsedShortcut = Readonly<{
+  mod: boolean
+  meta: boolean
+  ctrl: boolean
+  alt: boolean
+  shift: boolean
+  key: string
+}>
+
+const parseShortcut = (shortcut: string): ParsedShortcut => {
+  const modifiers = new Set<string>()
+  let key = ""
+  for (const token of shortcutTokens(shortcut)) {
+    const lower = token.toLowerCase()
+    const modifier = MODIFIER_TOKENS.get(lower)
+    if (modifier) modifiers.add(modifier)
+    else key = KEY_ALIASES.get(lower) ?? lower
+  }
+  return {
+    mod: modifiers.has("mod"),
+    meta: modifiers.has("meta"),
+    ctrl: modifiers.has("ctrl"),
+    alt: modifiers.has("alt"),
+    shift: modifiers.has("shift"),
+    key
+  }
+}
+
+const matchesShortcut = (
+  event: KeyboardEvent,
+  parsed: ParsedShortcut
+): boolean => {
+  if (parsed.key === "") return false
+  const key = event.key.toLowerCase()
+  const byCode =
+    parsed.key.length === 1 &&
+    /[a-z0-9]/.test(parsed.key) &&
+    (event.altKey || !/^[a-z0-9]$/i.test(event.key)) &&
+    event.code.toLowerCase() ===
+      (/[a-z]/.test(parsed.key) ? `key${parsed.key}` : `digit${parsed.key}`)
+  if (key !== parsed.key && !byCode) return false
+  if (parsed.mod) {
+    if (!event.metaKey && !event.ctrlKey) return false
+  } else if (event.metaKey !== parsed.meta || event.ctrlKey !== parsed.ctrl) {
+    return false
+  }
+  if (event.altKey !== parsed.alt) return false
+  return !parsed.shift || event.shiftKey
+}
+
+const hasModifier = (parsed: ParsedShortcut): boolean =>
+  parsed.mod || parsed.meta || parsed.ctrl || parsed.alt
+
+const isEditable = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+
+const comboKey = (parsed: ParsedShortcut): string =>
+  [
+    parsed.mod && "mod",
+    parsed.meta && "meta",
+    parsed.ctrl && "ctrl",
+    parsed.alt && "alt",
+    parsed.shift && "shift",
+    parsed.key
+  ]
+    .filter(Boolean)
+    .join("+")
+
+const mountedDialogs: Array<
+  Readonly<{ combo: string; isOpen: () => boolean }>
+> = []
+
+export type CommandMenuDialogProps = Readonly<{
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  pulseKey?: string
+  shortcut?: string | null
+  title: string
+  className?: string
+  children: ReactNode
+}>
+
+const PULSE_SCALE = 0.99
+const PULSE_PRESS = { duration: 0.09, ease: "linear" } as const
+const PANEL_RESIZE = {
+  type: "spring",
+  stiffness: 3200,
+  damping: 118,
+  restDelta: 0.5
+} as const
+
+type ContentSize = Readonly<{ height: number; instant: boolean }>
+
+const PULSE_RELEASE = {
+  type: "spring",
+  stiffness: 1900,
+  damping: 118,
+  restDelta: 0.002
+} as const
+
+function CommandMenuDialog({
+  open,
+  onOpenChange,
+  pulseKey,
+  shortcut = "mod+k",
+  title,
+  className,
+  children
+}: CommandMenuDialogProps) {
+  const openRef = useRef(open)
+  const onOpenChangeRef = useRef(onOpenChange)
+  const popupRef = useRef<HTMLDivElement | null>(null)
+  const lastPulseRef = useRef(pulseKey)
+  const pulseOpenRef = useRef(open)
+  const pulseRef = useRef<AnimationPlaybackControls | null>(null)
+  const reduceMotion = useReducedMotion() ?? false
+  useEffect(() => {
+    const popup = popupRef.current
+    const changed = lastPulseRef.current !== pulseKey
+    const wasOpen = pulseOpenRef.current
+    lastPulseRef.current = pulseKey
+    pulseOpenRef.current = open
+    if (!changed || !wasOpen || !open || popup === null || reduceMotion) return
+    pulseRef.current?.stop()
+    popup.style.transformOrigin = "center"
+    const press = animate(popup, { scale: PULSE_SCALE }, PULSE_PRESS)
+    pulseRef.current = press
+    void press.then(() => {
+      if (pulseRef.current !== press) return
+      const release = animate(popup, { scale: 1 }, PULSE_RELEASE)
+      pulseRef.current = release
+      void release.then(() => {
+        if (pulseRef.current !== release) return
+        pulseRef.current = null
+        popup.style.transformOrigin = ""
+      })
+    })
+  }, [pulseKey, open, reduceMotion])
+  useEffect(() => () => pulseRef.current?.stop(), [])
+  const [content, setContent] = useState<ContentSize | null>(null)
+  const observeContent = useCallback((node: HTMLDivElement | null) => {
+    if (node === null) return undefined
+    const measure = () => {
+      node.style.height = "auto"
+      const height = node.offsetHeight
+      node.style.height = ""
+      if (height === 0) return
+      setContent((previous) =>
+        previous?.height === height
+          ? previous
+          : { height, instant: previous === null }
+      )
+    }
+    const resizes = new ResizeObserver(measure)
+    resizes.observe(node)
+    const mutations = new MutationObserver(measure)
+    mutations.observe(node, { childList: true, subtree: true })
+    return () => {
+      resizes.disconnect()
+      mutations.disconnect()
+      setContent(null)
+    }
+  }, [])
+  useIsoLayoutEffect(() => {
+    openRef.current = open
+    onOpenChangeRef.current = onOpenChange
+  })
+
+  useEffect(() => {
+    if (!shortcut) return undefined
+    const parsed = parseShortcut(shortcut)
+    if (parsed.key === "") return undefined
+    const entry = { combo: comboKey(parsed), isOpen: () => openRef.current }
+    mountedDialogs.push(entry)
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat || event.defaultPrevented) return
+      if (!matchesShortcut(event, parsed)) return
+      if (!hasModifier(parsed) && isEditable(event.target)) return
+      const peers = mountedDialogs.filter((d) => d.combo === entry.combo)
+      const answers = peers.find((d) => d.isOpen()) ?? peers.at(-1)
+      if (answers !== entry) return
+      event.preventDefault()
+      onOpenChangeRef.current(!openRef.current)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => {
+      window.removeEventListener("keydown", onKeyDown)
+      const index = mountedDialogs.indexOf(entry)
+      if (index !== -1) mountedDialogs.splice(index, 1)
+    }
+  }, [shortcut])
+
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Backdrop
+          data-slot="command-menu-backdrop"
+          className="fixed inset-0 bg-black/15 data-[closed]:animate-out data-[closed]:fade-out-0 data-[open]:animate-in data-[open]:fade-in-0 motion-reduce:animate-none dark:bg-black/40"
+        />
+        <DialogPrimitive.Popup
+          ref={popupRef}
+          data-slot="command-menu-dialog"
+          className={cn(
+            "fixed inset-x-0 top-[round(down,max(12dvh,calc(50dvh-220px)),1px)] mx-auto flex w-[min(40rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-border/60 bg-popover text-foreground shadow-[0_16px_48px_rgba(0,0,0,0.12)] outline-none dark:shadow-[0_16px_48px_rgba(0,0,0,0.6)]",
+            "origin-top data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-[0.98] data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-[0.98] motion-reduce:animate-none",
+            className
+          )}
+        >
+          <DialogPrimitive.Title className="sr-only">
+            {title}
+          </DialogPrimitive.Title>
+          <motion.div
+            className="overflow-hidden"
+            initial={false}
+            animate={content === null ? {} : { height: content.height }}
+            transition={
+              reduceMotion || content === null || content.instant
+                ? { duration: 0 }
+                : PANEL_RESIZE
+            }
+          >
+            <div
+              ref={observeContent}
+              className="flex h-full max-h-[min(440px,76dvh)] flex-col"
+            >
+              {children}
+            </div>
+          </motion.div>
+        </DialogPrimitive.Popup>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  )
+}
+
+function CommandMenuCheck() {
+  return (
+    <>
+      <Check className="size-3.5 shrink-0" strokeWidth={1.75} />
+      <span className="sr-only">{m.chrome_command_menu_selected()}</span>
+    </>
+  )
+}
+
 export {
+  commandMenuItemId,
+  CommandMenuCheck,
   useCommandMenu,
   CommandMenu,
+  CommandMenuDialog,
   CommandMenuTabs,
   CommandMenuInput,
   CommandMenuList,
   CommandMenuEmpty,
   CommandMenuItem,
   CommandMenuShortcut,
-  CommandMenuFooter
+  CommandMenuFooter,
+  CommandMenuFooterHint,
+  useHighlightedItem
 }

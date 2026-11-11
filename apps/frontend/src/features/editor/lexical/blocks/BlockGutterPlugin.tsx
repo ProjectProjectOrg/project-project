@@ -18,7 +18,6 @@ import {
 } from "react"
 import { createPortal } from "react-dom"
 
-import { Kbd } from "@/components/ui/kbd"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { blockChrome, lookupFor } from "@/features/editor/lib/blockChrome"
 import { m } from "@/paraglide/messages"
@@ -71,7 +70,7 @@ type GutterItem = Readonly<{
 
 type Announcement = Readonly<{ id: number; text: string }>
 
-const HINT_LIFT = 12
+const HINT_LIFT = 16
 
 const firstLineOffset = (block: HTMLElement): number => {
   const line =
@@ -515,9 +514,10 @@ export function BlockGutterPlugin({
     menu === null
       ? null
       : anchor.querySelector(`[data-block-key="${menu.key}"]`)
+  const hintKey = hovered ?? (focused ? active : null)
   const hintItem =
-    focused && dragKey === null && menu === null
-      ? items.find((item) => item.key === active && !item.synced)
+    dragKey === null && menu === null
+      ? items.find((item) => item.key === hintKey && !item.synced)
       : undefined
 
   return createPortal(
@@ -555,17 +555,17 @@ export function BlockGutterPlugin({
             />
           ))}
         {hintItem !== undefined && (
-          <Kbd
-            size="sm"
+          <span
+            aria-hidden
             data-block-shortcut-hint
-            className="absolute animate-in opacity-70 duration-150 fade-in"
+            className="absolute flex h-6 animate-in items-center rounded-md border border-border bg-popover px-1.5 text-caption whitespace-nowrap text-muted-foreground shadow-sm duration-150 select-none fade-in"
             style={{
               top: hintItem.blockTop - HINT_LIFT,
               right: hintItem.right + 8
             }}
           >
             {OPEN_MENU_SHORTCUT}
-          </Kbd>
+          </span>
         )}
         {drag !== null && <BlockDragPreview drag={drag} y={previewY} />}
       </div>

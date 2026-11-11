@@ -1,6 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import type {
   Estimate,
+  LinkedTicket,
   Member,
   ProjectStatus,
   TicketId,
@@ -8,9 +9,10 @@ import type {
   TicketStatus,
   TicketType
 } from "@pp/shared"
-import { flattenTicketBlocks } from "@pp/shared"
+import { finishedStatusSlugs, flattenTicketBlocks } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
+import { OctagonMinus } from "lucide-react"
 import type { ComponentProps } from "react"
 import { lazy, Suspense } from "react"
 
@@ -35,6 +37,7 @@ import {
   PRIORITY_LABELS,
   PRIORITY_META
 } from "@/features/tickets/lib/priorityMeta"
+import { openBlockers } from "@/features/tickets/lib/relationGroups"
 import {
   statusMetaFor,
   statusLabelFor,
@@ -44,10 +47,18 @@ import {
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-const Markdown = lazy(() =>
-  import("@/features/editor/components/Markdown").then((mod) => ({
-    default: mod.Markdown
-  }))
+type MarkdownModule = typeof import("@/features/editor/components/Markdown")
+
+let loadedMarkdown: MarkdownModule | null = null
+
+export const loadMarkdown = () =>
+  import("@/features/editor/components/Markdown").then((mod) => {
+    loadedMarkdown = mod
+    return mod
+  })
+
+const LazyMarkdown = lazy(() =>
+  loadMarkdown().then((mod) => ({ default: mod.Markdown }))
 )
 
 const EMPTY_STATUSES: ReadonlyArray<ProjectStatus> = []
@@ -64,7 +75,7 @@ type TicketHoverCardScope = {
 }
 
 const TicketHoverCardError = () => (
-  <div className="text-xs text-muted-foreground">
+  <div className="text-caption text-muted-foreground">
     {m.tickets_mention_card_not_available()}
   </div>
 )
@@ -80,6 +91,31 @@ export function TicketHoverCard({
   anchor?: ComponentProps<typeof PopoverContent>["anchor"]
   interactive?: boolean
 }) {
+  return (
+    <PopoverContent
+      className={cn("w-80", !interactive && "pointer-events-none")}
+      align="start"
+      anchor={anchor}
+      inert={interactive ? undefined : true}
+    >
+      <TicketPreviewBody
+        ticketId={ticketId}
+        scope={scope}
+        interactive={interactive}
+      />
+    </PopoverContent>
+  )
+}
+
+export function TicketPreviewBody({
+  ticketId,
+  scope,
+  interactive
+}: {
+  ticketId: TicketId
+  scope: TicketHoverCardScope
+  interactive: boolean
+}) {
   const req = ticketRequest(scope.orgSlug, scope.slug, ticketId)
   const result = useAtomValue(ticketDetail(req))
   const statusesReq = statusesRequest(scope.orgSlug, scope.slug)
@@ -90,79 +126,72 @@ export function TicketHoverCard({
     ? statusesResult.value
     : EMPTY_STATUSES
 
-  return (
-    <PopoverContent
-      className={cn("w-80", !interactive && "pointer-events-none")}
-      align="start"
-      anchor={anchor}
-      inert={interactive ? undefined : true}
-    >
-      {Result.matchWithError(result, {
-        onInitial: () => <CardSkeleton />,
-        onError: () => <TicketHoverCardError />,
-        onDefect: () => <TicketHoverCardError />,
-        onSuccess: ({ value: ticket }) => {
-          const body = ticket.body.trim()
-          const isOverflowing = previewOverflows(body)
-          return (
-            <div className="space-y-2">
-              <div className="line-clamp-2 text-sm leading-snug font-medium">
-                {ticket.parent && (
-                  <EpicTextPrefix
-                    orgSlug={scope.orgSlug}
-                    slug={scope.slug}
-                    epicId={ticket.parent}
+  return Result.matchWithError(result, {
+    onInitial: () => <CardSkeleton />,
+    onError: () => <TicketHoverCardError />,
+    onDefect: () => <TicketHoverCardError />,
+    onSuccess: ({ value: ticket }) => {
+      const body = ticket.body.trim()
+      const isOverflowing = previewOverflows(body)
+      const Markdown = loadedMarkdown?.Markdown ?? LazyMarkdown
+      return (
+        <div className="space-y-2">
+          <div className="line-clamp-2 text-body leading-snug font-semibold">
+            <EpicTextPrefix parent={ticket.parent} />
+            {ticket.title}
+          </div>
+          <MetaRow ticket={ticket} scope={scope} statuses={statuses} />
+          <BlockedLine
+            blockers={openBlockers(
+              ticket.relations,
+              new Set(finishedStatusSlugs(statuses))
+            )}
+            statuses={statuses}
+          />
+          {body.length > 0 && (
+            <div className="relative">
+              <Suspense fallback={null}>
+                <Markdown
+                  className="line-clamp-6 text-caption leading-relaxed text-muted-foreground [&_*]:!my-0 [&_pre]:!my-1"
+                  blocks="flat"
+                >
+                  {body}
+                </Markdown>
+              </Suspense>
+              {isOverflowing && interactive && (
+                <>
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-popover via-popover/90 to-transparent"
                   />
-                )}
-                {ticket.title}
-              </div>
-              <MetaRow ticket={ticket} scope={scope} statuses={statuses} />
-              {body.length > 0 && (
-                <div className="relative">
-                  <Suspense fallback={null}>
-                    <Markdown
-                      className="line-clamp-6 text-xs leading-relaxed text-muted-foreground [&_*]:!my-0 [&_pre]:!my-1"
-                      blocks="flat"
-                    >
-                      {body}
-                    </Markdown>
-                  </Suspense>
-                  {isOverflowing && interactive && (
-                    <>
-                      <div
-                        aria-hidden
-                        className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-popover via-popover/90 to-transparent"
-                      />
-                      <Link
-                        to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-                        params={{
-                          orgSlug: scope.orgSlug,
-                          slug: scope.slug,
-                          id: ticketId
-                        }}
-                        className="absolute right-0 bottom-0 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        {m.tickets_mention_card_read_more()} →
-                      </Link>
-                    </>
-                  )}
-                </div>
-              )}
-              {ticket.branch && (
-                <div>
-                  <TicketGitChip
-                    orgSlug={scope.orgSlug}
-                    slug={scope.slug}
-                    ticket={ticket}
-                  />
-                </div>
+                  <Link
+                    to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+                    params={{
+                      orgSlug: scope.orgSlug,
+                      slug: scope.slug,
+                      id: ticketId
+                    }}
+                    className="absolute right-0 bottom-0 text-caption text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {m.tickets_mention_card_read_more()} →
+                  </Link>
+                </>
               )}
             </div>
-          )
-        }
-      })}
-    </PopoverContent>
-  )
+          )}
+          {ticket.branch && (
+            <div>
+              <TicketGitChip
+                orgSlug={scope.orgSlug}
+                slug={scope.slug}
+                ticket={ticket}
+              />
+            </div>
+          )}
+        </div>
+      )
+    }
+  })
 }
 
 function MetaRow({
@@ -196,7 +225,7 @@ function MetaRow({
         .slice(0, 3)
     : []
   return (
-    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+    <div className="flex items-center gap-3 text-caption text-muted-foreground">
       <span className="inline-flex items-center gap-1">
         <StatusIcon
           className={cn("size-3.5", statusMeta.className)}
@@ -223,6 +252,47 @@ function MetaRow({
             <MemberAvatar key={member.id} member={member} size={16} />
           ))}
         </span>
+      )}
+    </div>
+  )
+}
+
+export function BlockedLine({
+  blockers,
+  statuses
+}: {
+  blockers: ReadonlyArray<LinkedTicket>
+  statuses: ReadonlyArray<ProjectStatus>
+}) {
+  const [first] = blockers
+  if (first === undefined) return null
+  const meta = statusMetaFor(first.status, statuses)
+  const StatusIcon = meta.icon
+  return (
+    <div className="flex min-w-0 items-center gap-1.5 rounded-md bg-hover px-2 py-1.5 text-caption">
+      <OctagonMinus
+        className="size-3.5 shrink-0 text-state-warning"
+        strokeWidth={1.75}
+      />
+      <span className="flex min-w-0 flex-1 items-baseline gap-2">
+        <span className="shrink-0 text-muted-foreground">
+          {m.tickets_hover_blocked_by()}
+        </span>
+        <span className="shrink-0 font-mono text-foreground">{first.id}</span>
+        <span className="min-w-0 flex-1 truncate">{first.title}</span>
+      </span>
+      {blockers.length > 1 ? (
+        <span className="shrink-0 text-muted-foreground">
+          {m.tickets_hover_blocked_more({ count: blockers.length - 1 })}
+        </span>
+      ) : (
+        <StatusIcon
+          role="img"
+          aria-label={meta.label}
+          className={cn("size-3.5 shrink-0", meta.className)}
+          style={meta.color ? { color: meta.color } : undefined}
+          strokeWidth={1.75}
+        />
       )}
     </div>
   )

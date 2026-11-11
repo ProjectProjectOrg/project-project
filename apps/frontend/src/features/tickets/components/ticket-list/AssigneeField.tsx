@@ -1,4 +1,4 @@
-import type { Member, TicketId, UpdateTicketInput } from "@pp/shared"
+import type { Member, TicketId } from "@pp/shared"
 import * as Match from "effect/Match"
 import { UserRound } from "lucide-react"
 import type { ReactNode } from "react"
@@ -18,7 +18,7 @@ import {
   AvatarStack,
   MemberAvatar
 } from "@/features/members/components/MemberAvatar"
-import { cn } from "@/lib/utils"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { m } from "@/paraglide/messages"
 
 type AssigneeVariant = "row" | "card" | "chip"
@@ -96,8 +96,8 @@ function TriggerVisual({
     return (
       <>
         {empty && (
-          <span className="grid size-6 place-items-center rounded-full text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
-            <UserRound className="size-4" strokeWidth={1.75} />
+          <span className="grid size-5 place-items-center rounded-full text-muted-foreground shadow-[inset_0_0_0_1px_var(--border)] transition-colors hitbox-hover:bg-hover hitbox-hover:text-foreground">
+            <UserRound className="size-3" strokeWidth={1.75} />
           </span>
         )}
         <Avatars resolved={resolved} size={20} />
@@ -105,7 +105,7 @@ function TriggerVisual({
     )
   }
   return (
-    <span className="inline-flex items-center text-muted-foreground transition-colors group-hover/hitbox:text-foreground">
+    <span className="inline-flex items-center text-muted-foreground transition-colors hitbox-hover:text-foreground">
       {empty && (
         <span className="grid size-5 shrink-0 place-items-center rounded-full bg-foreground/15">
           <UserRound className="size-3" strokeWidth={1.75} />
@@ -186,16 +186,7 @@ export function AssigneeSelect({
 
   return (
     <DropdownMenu filterable>
-      <Trigger
-        variant={variant}
-        label={label}
-        className={cn(
-          variant === "card" &&
-            resolved.length === 0 &&
-            "opacity-0 group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100",
-          className
-        )}
-      >
+      <Trigger variant={variant} label={label} className={className}>
         <TriggerVisual variant={variant} resolved={resolved} />
       </Trigger>
       <DropdownMenuContent
@@ -231,9 +222,9 @@ export function AssigneeSelect({
             >
               <MemberAvatar member={member} size={20} />
               <div className="min-w-0 leading-tight">
-                <div className="truncate text-sm">{member.name}</div>
+                <div className="truncate text-body">{member.name}</div>
                 {member.username && (
-                  <div className="truncate font-mono text-[10px] text-muted-foreground">
+                  <div className="truncate font-mono text-micro text-muted-foreground">
                     @{member.username}
                   </div>
                 )}
@@ -258,7 +249,7 @@ export function AssigneeField({
 }: {
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
   variant?: AssigneeVariant
   className?: string
 }) {
@@ -276,7 +267,7 @@ export function AssigneeField({
 export function AssigneePicker(props: {
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
 }) {
   return <AssigneeField {...props} variant="chip" />
 }

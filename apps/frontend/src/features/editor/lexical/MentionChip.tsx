@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { useInAppLink } from "@/features/editor/hooks/useInAppLink"
 import { useMentionScope } from "@/features/editor/mentions/scope"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { TicketHoverCard } from "@/features/tickets/components/TicketHoverCard"
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
@@ -41,10 +40,9 @@ export function MentionChip({
         className="align-middle"
         contentEditable={false}
       >
-        {member && (
-          <MemberAvatar member={member} size={12} className="-ml-0.5" />
-        )}
-        <span>@{member?.name ?? label}</span>
+        <span className="underline decoration-current/40 underline-offset-[0.18em]">
+          @{member?.name ?? label}
+        </span>
       </Badge>
     )
   }
@@ -54,7 +52,7 @@ export function MentionChip({
       <Badge
         tone="muted"
         size="xs"
-        className="align-middle font-mono"
+        className="align-baseline font-mono"
         contentEditable={false}
       >
         {id}
@@ -66,24 +64,24 @@ export function MentionChip({
     <Popover>
       <PopoverTrigger
         render={
-          <Link
-            to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-            params={{ orgSlug: scope.orgSlug, slug: scope.slug, id }}
-            ref={linkRef}
-            onMouseDown={(e) => e.preventDefault()}
+          <Badge
+            tone="muted"
+            size="xs"
+            className="align-baseline font-mono"
+            render={
+              <Link
+                to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+                params={{ orgSlug: scope.orgSlug, slug: scope.slug, id }}
+                ref={linkRef}
+                onMouseDown={(e) => e.preventDefault()}
+              />
+            }
           />
         }
         openOnHover
         contentEditable={false}
       >
-        <Badge
-          tone="muted"
-          size="xs"
-          className="align-middle font-mono"
-          contentEditable={false}
-        >
-          {id}
-        </Badge>
+        {id}
       </PopoverTrigger>
       <TicketHoverCard ticketId={makeTicketId(id)} scope={scope} />
     </Popover>

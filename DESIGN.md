@@ -214,9 +214,9 @@ Never use `--muted` or `--accent` as a hover fill: on a raised surface they land
 A scarce vocabulary, used only when state needs to read at a glance.
 
 - **Destructive** (`oklch(0.577 0.245 27.325)`): delete actions, validation failures, irreversible-action confirmations.
-- **State Success** (`oklch(0.5 0.15 135)`): merged PRs, completed checks.
+- **State Success** (`oklch(0.5 0.15 135)`): open PRs, passing checks.
 - **State Warning** (`oklch(0.5 0.16 75)`): pending review, attention-required.
-- **State Info** (`oklch(0.5 0.18 255)`): open PRs, in-flight branches.
+- **State Info** (`oklch(0.5 0.18 255)`): in-flight branches, active sprints.
 - **State Merged** (`oklch(0.5 0.18 285)`): merged-and-closed state.
 
 In dark mode the state hues collapse to a single quiet treatment (`oklch(0.78 0.07 <hue>)`) so they stay legible without burning through the dim surface.
@@ -252,7 +252,7 @@ When a new feature needs categorical color the user controls (tags, statuses, la
 - **Headline** (Geist, 600, 1.5rem, 1.25, tracking -0.01em): page H1.
 - **Title** (Geist, 600, 1.125rem, 1.3): section H2; ticket / project titles in a header.
 - **Body** (Geist, 400, 0.875rem (`text-sm`), 1.5): default text. Prose blocks (`.prose-md`) cap line length at 65–75ch; data tables run denser.
-- **Prose** (Geist, 400, 15px, 1.6, tracking -0.006em): long-form markdown (`.prose-md`). Body text sits at 80% foreground (`--prose-body`) so headings, bold and inline code carry the hierarchy at full foreground. Headings hug their section (0.4em below) and get room above (1.4em); prose h2 is 1.0625rem.
+- **Prose** (`.prose-md`): long-form markdown on the type roles. Body text is `body` at 80% foreground (`--prose-body`) so headings, bold and inline code carry the hierarchy at full foreground; h1 is `display`, h2 `title`, h3 `subtitle`. Headings get 8px below and 20–24px above.
 - **Label** (Geist, 500, 0.8125rem (`text-[13px]`), 1.2): nav items, button text, form labels, chip text.
 - **Mono** (Geist Mono, 400, 0.8125rem, 1.4): IDs, branches, slugs, code, anywhere "this is a literal."
 
@@ -311,6 +311,8 @@ Everything that only changes state on hover or press uses the overlays instead a
 
 ## 5. Components
 
+Lucide icons use a 1.5 stroke width, applied centrally in `styles.css`. Filled status dots keep their zero-width stroke.
+
 ### Buttons
 
 The single primitive lives in `components/ui/button.tsx`, exposing variants `primary | secondary | destructive | tertiary | ghost | raised | chip | dither` and sizes `xs | sm | md | lg | icon-*`. Shape is the app's pill radius (`rounded-[20px]`), baked into the primitive so callsites never set it.
@@ -327,7 +329,7 @@ The single primitive lives in `components/ui/button.tsx`, exposing variants `pri
 
 **Press feel:** every button scales to **97%** on `:active` with a **100–150ms** transform transition. Icon-only buttons compress the icon, not the chrome.
 
-**Focus:** `focus-visible:ring-1 focus-visible:ring-[#6B97FF]` — the single intentional chromatic accent in chrome.
+**Focus:** `focus-visible:ring-1 focus-visible:ring-ring` — a 1px `--ring` stroke, no offset, no glow.
 
 ### Inputs
 
@@ -343,6 +345,10 @@ The single primitive lives in `components/ui/button.tsx`, exposing variants `pri
 - **Border:** 1px `--border`.
 - **Internal Padding:** `16px` for content cards, `8–12px` for list rows.
 - **Shadow:** none at rest. Never nest cards.
+
+### Board keyboard navigation
+
+Sprint and backlog boards have one Tab entry point and remember the last focused card. Up and Down move within a column; Up from the first card reaches its header. Left and Right move between columns, including empty and collapsed columns. Home and End reach the first and last loaded cards in a column. Enter opens the focused ticket or activates the header action. F2 enters the card’s controls, where Tab follows their visual order; Escape returns to the card. Column retry actions are available through F2 on the header. Shift+F10 opens the ticket context menu. Popup controls keep their own keyboard behavior, and leaving the board never traps focus. Reorder mode keeps its existing controls.
 
 ### Menus and Pickers
 
@@ -417,7 +423,7 @@ It never appears on functional controls.
 
 **The Hide-or-Disable Rule.** A control the viewer's role can never use is not rendered. A control the viewer may use in principle but that the current state blocks (a completed sprint, the last PM, a pending save) is rendered disabled. Role gates read from `useProjectActor` / `useOrgActor`; nothing else decides who may do what.
 
-**The One Ticket Row Rule.** A ticket in a list is always the shared ticket row, wherever the list lives — backlog, sprint, epic grouping, an epic's sub-tickets, the dashboard. It looks and behaves the same everywhere: status, priority, ID, epic prefix and title, git, estimate, sprint, assignee, actions menu. A list may leave out only what its container already says (the epic prefix inside that epic's own list or section); it never drops a control or builds its own row. New row behaviour goes into the row, so every list gets it at once.
+**The One Ticket Row Rule.** A ticket in a list is always the shared ticket row, wherever the list lives — backlog, sprint, epic grouping, an epic's sub-tickets, the dashboard. It looks and behaves the same everywhere: status, priority, ID, epic prefix and title, git, estimate, sprint, assignee, context menu (right-click or Shift+F10). Keyboard focus starts on the whole row, then follows its controls from left to right. A list may leave out only what its container already says (the epic prefix inside that epic's own list or section); it never drops a control or builds its own row. New row behaviour goes into the row, so every list gets it at once.
 
 ## 6. Do's and Don'ts
 

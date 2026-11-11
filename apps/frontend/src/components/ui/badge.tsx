@@ -15,14 +15,14 @@ export const BADGE_TONES = {
 } as const
 
 const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center gap-1 rounded-md font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&>svg]:pointer-events-none [&>svg]:size-3",
+  "inline-flex w-fit shrink-0 items-center gap-1 rounded-md whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&>svg]:pointer-events-none [&>svg]:size-3",
   {
     variants: {
       tone: BADGE_TONES,
       size: {
-        xs: "h-5 px-1.5 text-[11px]",
-        sm: "h-6 px-2 py-0.5 text-xs",
-        md: "h-7 px-2.5 py-1 text-xs"
+        xs: "h-5 px-1.5 text-micro",
+        sm: "h-6 px-2 py-0.5 text-caption",
+        md: "h-7 px-2.5 py-1 text-caption"
       }
     },
     defaultVariants: {

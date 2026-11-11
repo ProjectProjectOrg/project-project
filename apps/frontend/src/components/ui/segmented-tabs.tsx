@@ -6,6 +6,7 @@ import {
   type ReactNode
 } from "react"
 
+import { CountPill } from "@/components/ui/count-pill"
 import { SURFACE_BG } from "@/lib/surfaceClasses"
 import { useSurface } from "@/lib/surfaceContext"
 import { cn } from "@/lib/utils"
@@ -44,7 +45,7 @@ const VARIANTS: Readonly<Record<SegmentedVariant, VariantTokens>> = {
     innerGapPx: 6,
     iconSize: "size-3.5",
     pillRounding: "rounded-lg",
-    itemBase: "h-7 rounded-lg px-2.5 text-sm"
+    itemBase: "h-7 rounded-lg px-2.5 text-body"
   },
   view: {
     container: "flex w-full items-center gap-0.5 rounded-xl p-0.5",
@@ -52,7 +53,7 @@ const VARIANTS: Readonly<Record<SegmentedVariant, VariantTokens>> = {
     innerGapPx: 4,
     iconSize: "size-3.5",
     pillRounding: "rounded-lg",
-    itemBase: "h-7 flex-1 justify-center rounded-lg px-2.5 text-xs"
+    itemBase: "h-7 flex-1 justify-center rounded-lg px-2.5 text-caption"
   },
   rail: {
     container: "inline-flex items-center gap-0.5 rounded-lg bg-tint p-0.5",
@@ -60,7 +61,7 @@ const VARIANTS: Readonly<Record<SegmentedVariant, VariantTokens>> = {
     innerGapPx: 4,
     iconSize: "size-3",
     pillRounding: "rounded-md",
-    itemBase: "h-6 rounded-md px-2 text-xs"
+    itemBase: "h-6 rounded-md px-2 text-caption"
   },
   inline: {
     container: "inline-flex items-center gap-0.5",
@@ -68,7 +69,7 @@ const VARIANTS: Readonly<Record<SegmentedVariant, VariantTokens>> = {
     innerGapPx: 4,
     iconSize: "size-3",
     pillRounding: "rounded-md",
-    itemBase: "h-6 rounded-md px-1.5 text-xs"
+    itemBase: "h-6 rounded-md px-1.5 text-caption"
   },
   subtle: {
     container: "inline-flex items-center gap-0.5",
@@ -76,7 +77,7 @@ const VARIANTS: Readonly<Record<SegmentedVariant, VariantTokens>> = {
     innerGapPx: 8,
     iconSize: "size-4",
     pillRounding: "rounded-[20px]",
-    itemBase: "h-8 rounded-[20px] px-3 text-[13px]"
+    itemBase: "h-8 rounded-[20px] px-3 text-body"
   }
 }
 
@@ -229,23 +230,15 @@ function SegmentedTab({
             item.label
           )}
         </CollapsingLabel>
-        {item.badge !== undefined && item.badge !== null && (
-          <span
-            className={cn(
-              "tabular-nums",
-              subtle
-                ? "text-xs text-muted-foreground"
-                : cn(
-                    "inline-block rounded-full px-1.5 py-1 font-mono text-[10px] leading-none [text-box:trim-both_cap_alphabetic]",
-                    active
-                      ? "bg-foreground/10 text-foreground"
-                      : "bg-muted text-muted-foreground"
-                  )
-            )}
-          >
-            {item.badge}
-          </span>
-        )}
+        {item.badge !== undefined &&
+          item.badge !== null &&
+          (subtle ? (
+            <span className="text-caption text-muted-foreground tabular-nums">
+              {item.badge}
+            </span>
+          ) : (
+            <CountPill active={active}>{item.badge}</CountPill>
+          ))}
       </span>
       {hovers && (
         <span className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 whitespace-nowrap opacity-0 transition-opacity group-hover/seg-item:opacity-100 group-hover/seg-item:duration-0">
@@ -255,11 +248,10 @@ function SegmentedTab({
     </>
   )
   const className = cn(
-    "group/seg-item relative inline-flex items-center transition-all duration-100 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50",
+    "group/seg-item relative inline-flex items-center transition-all duration-100 outline-none focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50",
     v.itemBase,
     v.innerGap,
-    active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-    subtle && "outline-none focus-visible:ring-1 focus-visible:ring-ring"
+    active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
   )
   return useRender({
     defaultTagName: "button",

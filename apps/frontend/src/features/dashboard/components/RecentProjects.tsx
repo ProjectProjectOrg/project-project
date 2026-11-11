@@ -24,13 +24,13 @@ export function RecentProjects({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold tracking-tight">
+        <h2 className="text-title font-semibold">
           {m.org_dashboard_recent_projects_heading()}
         </h2>
         <Link
           to="/orgs/$orgSlug/projects"
           params={{ orgSlug }}
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-caption text-muted-foreground transition-colors hover:text-foreground"
         >
           {m.org_dashboard_all_projects_link()}
           <ArrowRight className="size-3.5" strokeWidth={1.75} />
@@ -47,7 +47,7 @@ export function RecentProjects({
       </div>
 
       {hasMore && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-caption text-muted-foreground">
           {m.org_dashboard_more_projects_prefix({
             count: sorted.length - top.length
           })}{" "}
@@ -86,10 +86,10 @@ function NewProjectTile({
         <Plus className="size-4" strokeWidth={1.75} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">
+        <div className="truncate text-body font-semibold">
           {m.org_dashboard_new_project_tile_title()}
         </div>
-        <div className="truncate text-xs text-muted-foreground">
+        <div className="truncate text-caption text-muted-foreground">
           {m.org_dashboard_new_project_tile_subtitle()}
         </div>
       </div>

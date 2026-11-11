@@ -25,7 +25,7 @@ export function AttachmentsSettings() {
         canList ? (
           <AttachmentsBrowser orgSlug={orgSlug} />
         ) : (
-          <p className="text-sm text-destructive">
+          <p className="text-body text-destructive">
             {m.attachments_error_forbidden()}
           </p>
         )

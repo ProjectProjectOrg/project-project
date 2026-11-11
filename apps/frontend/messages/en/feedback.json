@@ -8,7 +8,6 @@
   "feedback_title_label": "Title",
   "feedback_title_placeholder_bug": "What went wrong?",
   "feedback_title_placeholder_feature": "What would you like?",
-  "feedback_description_label": "Details",
   "feedback_description_placeholder": "Steps, what you expected, anything that helps",
   "feedback_submit": "Send",
   "feedback_sending": "Sending…",

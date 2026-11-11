@@ -5,8 +5,7 @@ import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Random from "effect/Random"
 import * as Result from "effect/reactivity/AsyncResult"
-import { motion, AnimatePresence } from "motion/react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { me } from "@/features/auth/atoms/auth"
@@ -16,13 +15,35 @@ import {
 } from "@/features/comments/atoms/comments"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 const newCommentIdentity = () => ({
   clientId: Effect.runSync(Random.next).toString(36),
   createdAt: DateTime.toDate(DateTime.nowUnsafe())
 })
+
+const SETTLE_FRAMES = 30
+
+const scrollParent = (element: HTMLElement): HTMLElement | null => {
+  for (let node = element.parentElement; node; node = node.parentElement) {
+    if (/auto|scroll/.test(getComputedStyle(node).overflowY)) return node
+  }
+  return null
+}
+
+const keepInView = (element: HTMLElement | null) => {
+  const scroller = element === null ? null : scrollParent(element)
+  if (element === null || scroller === null) return
+  let frames = 0
+  const tick = () => {
+    const hidden =
+      element.getBoundingClientRect().bottom >
+      scroller.getBoundingClientRect().bottom
+    if (hidden) scroller.scrollTop = scroller.scrollHeight
+    if (++frames < SETTLE_FRAMES) requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
+}
 
 export function CommentComposer({ ticketId }: { ticketId: TicketId }) {
   const viewer = useAtomValue(me())
@@ -39,76 +60,62 @@ function ReadyCommentComposer({
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const [body, setBody] = useState("")
-  const [expanded, setExpanded] = useState(false)
   const [editorVersion, setEditorVersion] = useState(0)
+  const [focusEditor, setFocusEditor] = useState(false)
   const [identity, setIdentity] = useState(newCommentIdentity)
+  const [failed, setFailed] = useState(false)
   const req = commentsRequest(orgSlug, slug, ticketId)
-  const createAtom = createComment({ req, author, ...identity })
-  const create = useAtomSet(createAtom, { mode: "promiseExit" })
-  const createState = useAtomValue(createAtom)
-  const submitting = createState.waiting
-  const error = Result.isFailure(createState)
-    ? m.comments_composer_failed()
-    : null
+  const create = useAtomSet(createComment({ req, author, ...identity }), {
+    mode: "promiseExit"
+  })
+
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  const reset = (next: string, focus: boolean) => {
+    setBody(next)
+    setFocusEditor(focus)
+    setEditorVersion((v) => v + 1)
+  }
 
   const submit = async () => {
-    if (!body.trim() || submitting) return
-    const exit = await create({ body })
-    if (Exit.isSuccess(exit)) {
-      setBody("")
-      setEditorVersion((v) => v + 1)
-      setExpanded(false)
-      setIdentity(newCommentIdentity())
+    if (!body.trim()) return
+    const sent = body
+    setFailed(false)
+    reset("", true)
+    setIdentity(newCommentIdentity())
+    const pending = create({ body: sent })
+    keepInView(rootRef.current)
+    const exit = await pending
+    if (Exit.isFailure(exit)) {
+      setFailed(true)
+      reset(sent, rootRef.current?.contains(document.activeElement) ?? false)
     }
   }
 
-  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
-    if (e.currentTarget.contains(e.relatedTarget)) return
-    if (!body.trim()) setExpanded(false)
-  }
-
   return (
-    <motion.div
-      onFocus={() => setExpanded(true)}
-      onBlur={handleBlur}
-      animate={{
-        paddingTop: expanded ? 12 : 6,
-        paddingBottom: expanded ? 12 : 6
-      }}
-      transition={transitions.layout}
-      className="rounded-md border border-border bg-background px-3"
+    <div
+      ref={rootRef}
+      className="rounded-md border border-border bg-background px-3 py-3"
     >
       <LexicalEditor
         key={editorVersion}
         markdown={body}
-        onChange={(md) => setBody(md)}
+        onDraftChange={setBody}
+        onSubmit={submit}
         placeholder={m.comments_composer_placeholder()}
+        autoFocus={focusEditor}
         compact
       />
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            key="actions"
-            initial={{ opacity: 0, height: 0, marginTop: 0 }}
-            animate={{ opacity: 1, height: "auto", marginTop: 8 }}
-            exit={{ opacity: 0, height: 0, marginTop: 0 }}
-            transition={transitions.presence}
-            className="overflow-hidden"
-          >
-            {error && <p className="mb-2 text-sm text-destructive">{error}</p>}
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                onClick={submit}
-                disabled={submitting || !body.trim()}
-                className={submitting ? "animate-pulse" : undefined}
-              >
-                {m.comments_composer_submit()}
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+      {failed && (
+        <p role="alert" className="mt-2 text-body text-destructive">
+          {m.comments_composer_failed()}
+        </p>
+      )}
+      <div className="mt-2 flex justify-end">
+        <Button size="sm" onClick={submit} disabled={!body.trim()}>
+          {m.comments_composer_submit()}
+        </Button>
+      </div>
+    </div>
   )
 }

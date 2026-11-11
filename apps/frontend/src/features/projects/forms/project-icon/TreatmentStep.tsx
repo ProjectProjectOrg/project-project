@@ -40,8 +40,8 @@ function TreatmentChoice({
     >
       {preview}
       <span className="flex min-w-0 flex-col">
-        <span className="text-[13px] font-medium">{title}</span>
-        <span className="text-xs text-muted-foreground">{hint}</span>
+        <span className="text-body font-semibold">{title}</span>
+        <span className="text-caption text-muted-foreground">{hint}</span>
       </span>
     </Button>
   )
@@ -159,10 +159,10 @@ export function TreatmentStep({
                 strokeWidth={1.75}
               />
               <div className="flex flex-col items-start gap-2">
-                <span className="text-[13px] font-medium">
+                <span className="text-body font-semibold">
                   {m.project_icon_cutout_failed_title()}
                 </span>
-                <span className="text-[13px] text-muted-foreground">
+                <span className="text-body text-muted-foreground">
                   {preview?.reason === "too_small"
                     ? m.project_icon_cutout_too_small()
                     : m.project_icon_cutout_failed_body()}
@@ -219,13 +219,13 @@ export function TreatmentStep({
           </group.Subscribe>
 
           {blocked ? (
-            <p role="alert" className="text-[13px] text-destructive">
+            <p role="alert" className="text-body text-destructive">
               {m.project_icon_treatment_needs_image()}
             </p>
           ) : null}
 
           {error ? (
-            <p role="alert" className="text-[13px] text-destructive">
+            <p role="alert" className="text-body text-destructive">
               {m.project_identity_error()}
             </p>
           ) : null}

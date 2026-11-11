@@ -24,11 +24,12 @@ import {
   searchRequest,
   ticketSearch
 } from "@/features/tickets/atoms/ticketSearch"
+import { parentRef } from "@/features/tickets/lib/ticketPatch"
 import { m } from "@/paraglide/messages"
 
 export function AttachTicketPicker({
   parent
-}: Readonly<{ parent: Pick<Ticket, "id"> }>) {
+}: Readonly<{ parent: Pick<Ticket, "id" | "title" | "type"> }>) {
   const [query, setQuery] = useState("")
 
   return (
@@ -61,7 +62,10 @@ export function AttachTicketPicker({
 function AttachTicketList({
   parent,
   query
-}: Readonly<{ parent: Pick<Ticket, "id">; query: string }>) {
+}: Readonly<{
+  parent: Pick<Ticket, "id" | "title" | "type">
+  query: string
+}>) {
   const { orgSlug, slug } = useProjectRoute()
   const registry = useContext(RegistryContext)
   const [debounced] = useDebouncedValue(query.trim(), { wait: 200 })
@@ -97,14 +101,17 @@ function AttachTicketList({
               attachToParent(
                 registry,
                 childTicketsRequest(orgSlug, slug, parent.id),
+                parentRef(parent),
                 ticket
               )
             }
           >
-            <span className="shrink-0 font-mono text-xs text-muted-foreground">
-              {ticket.id}
+            <span className="flex min-w-0 flex-1 items-baseline gap-2">
+              <span className="shrink-0 font-mono text-caption text-muted-foreground">
+                {ticket.id}
+              </span>
+              <span className="min-w-0 truncate">{ticket.title}</span>
             </span>
-            <span className="min-w-0 truncate">{ticket.title}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuList>

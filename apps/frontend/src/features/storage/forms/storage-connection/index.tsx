@@ -131,7 +131,7 @@ export function StorageConnectForm({
         </SettingsSection>
         <div className="flex items-center justify-end gap-3">
           {error ? (
-            <p role="alert" className="text-xs text-destructive">
+            <p role="alert" className="text-caption text-destructive">
               {error}
             </p>
           ) : null}

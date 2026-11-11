@@ -30,6 +30,8 @@ type PopoverContentProps = React.ComponentProps<typeof PopoverPrimitive.Popup> &
     | "sideOffset"
     | "anchor"
     | "collisionAvoidance"
+    | "collisionBoundary"
+    | "collisionPadding"
   > & {
     keepMounted?: boolean
   }
@@ -42,6 +44,8 @@ function PopoverContent({
   sideOffset = 4,
   anchor,
   collisionAvoidance,
+  collisionBoundary,
+  collisionPadding,
   keepMounted,
   ...props
 }: PopoverContentProps) {
@@ -54,6 +58,8 @@ function PopoverContent({
         sideOffset={sideOffset}
         anchor={anchor}
         collisionAvoidance={collisionAvoidance}
+        collisionBoundary={collisionBoundary}
+        collisionPadding={collisionPadding}
       >
         <PopoverPrimitive.Popup
           data-slot="popover-content"
@@ -69,4 +75,16 @@ function PopoverContent({
   )
 }
 
-export { Popover, PopoverTrigger, PopoverContent }
+function PopoverTitle(
+  props: React.ComponentProps<typeof PopoverPrimitive.Title>
+) {
+  return <PopoverPrimitive.Title data-slot="popover-title" {...props} />
+}
+
+function PopoverClose(
+  props: React.ComponentProps<typeof PopoverPrimitive.Close>
+) {
+  return <PopoverPrimitive.Close data-slot="popover-close" {...props} />
+}
+
+export { Popover, PopoverTrigger, PopoverContent, PopoverTitle, PopoverClose }

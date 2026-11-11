@@ -43,7 +43,7 @@ export function ConfirmMenuItem({
           transition={transitions.fade}
           className="flex min-w-0 flex-1 items-center gap-2"
         >
-          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+          <span className="min-w-0 flex-1 truncate text-caption text-muted-foreground">
             {message}
           </span>
           <Button size="xs" variant="destructive" render={<span />}>

@@ -1,5 +1,5 @@
 import { RegistryContext, useAtomSet } from "@effect/atom-react"
-import type { GithubConnection, TicketDetail } from "@pp/shared"
+import type { GithubConnection, Ticket } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Option from "effect/Option"
@@ -46,7 +46,7 @@ import { CreateBranchSubmenu } from "./CreateBranchSubmenu"
 export type BranchPickerMode = "link" | "stack"
 
 type BranchPickerProps = Readonly<{
-  ticket: TicketDetail
+  ticket: Pick<Ticket, "id" | "type" | "title" | "status">
   github: GithubConnection
   branchTemplate?: string | null
   mode: BranchPickerMode

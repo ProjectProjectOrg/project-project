@@ -44,7 +44,7 @@ export function StatusList() {
       contained
       onInitial={() => (
         <SettingsGroup>
-          <p className="px-4 py-3 text-[13px] text-muted-foreground">
+          <p className="px-4 py-3 text-body text-muted-foreground">
             {m.tickets_status_loading()}
           </p>
         </SettingsGroup>

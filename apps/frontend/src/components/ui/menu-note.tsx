@@ -8,9 +8,10 @@ export function MenuNote({
 }: Readonly<{ tone?: "muted" | "error"; children: ReactNode }>) {
   return (
     <p
-      role={tone === "error" ? "alert" : undefined}
+      role={tone === "error" ? "alert" : "status"}
       className={cn(
-        "px-2 py-1.5 text-[13px] leading-5",
+        "px-2 py-1.5",
+        "text-body",
         tone === "error" ? "text-destructive" : "text-muted-foreground"
       )}
     >

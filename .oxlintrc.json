@@ -151,6 +151,7 @@
       "files": ["apps/frontend/src/**/*.{ts,tsx}"],
       "rules": {
         "workspace/no-raw-api-query": "error",
+        "workspace/type-scale": "error",
         "eslint/max-lines": [
           "warn",
           {
@@ -178,7 +179,19 @@
       ],
       "rules": {
         "eslint/max-lines": "off",
-        "eslint/max-lines-per-function": "off"
+        "eslint/max-lines-per-function": "off",
+        "workspace/type-scale": "off"
+      }
+    },
+    {
+      "files": [
+        "apps/frontend/src/features/**/commands.ts",
+        "apps/frontend/src/features/**/*Commands.ts",
+        "apps/frontend/src/features/command-menu/pages.tsx",
+        "apps/frontend/src/features/*/components/command-pages/**"
+      ],
+      "rules": {
+        "eslint/max-lines": "off"
       }
     },
     {

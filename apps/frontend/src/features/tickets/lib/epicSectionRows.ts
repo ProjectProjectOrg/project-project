@@ -7,11 +7,13 @@ import {
   type TicketCounts,
   type TicketId,
   type TicketListQuery,
+  type TicketParent,
   type TicketSort,
   type TicketStatus,
-  type UpdateTicketInput,
   type UserId
 } from "@pp/shared"
+
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 
 import {
   insertByOrderKey,
@@ -22,7 +24,7 @@ import {
 
 export type EpicSectionValue = Readonly<{
   key: EpicSectionKey
-  title: string | null
+  parent: TicketParent | null
   count: number
   page: TicketRowPage
 }>
@@ -38,7 +40,7 @@ export type EpicSectionsValue = Readonly<{
 }>
 
 const sectionOf = (ticket: Ticket): EpicSectionKey =>
-  ticket.parent ?? EPIC_SECTION_NONE
+  ticket.parent?.id ?? EPIC_SECTION_NONE
 
 const moveRow = (
   sections: ReadonlyArray<EpicSectionValue>,
@@ -80,7 +82,7 @@ const moveRow = (
 export const patchEpicSectionsRow = (
   value: EpicSectionsValue,
   id: TicketId,
-  patch: UpdateTicketInput,
+  patch: TicketEdit,
   query: TicketListQuery,
   now: Date
 ): EpicSectionsValue => {

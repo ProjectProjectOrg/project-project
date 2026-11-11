@@ -18,6 +18,7 @@ import {
 
 const ticketId = Schema.decodeSync(TicketId)
 const epicId = ticketId("T-9")
+const epic = { id: epicId, title: "Launch", type: "epic" } as const
 const now = DateTime.toDate(DateTime.makeUnsafe("2026-01-02T00:00:00.000Z"))
 const query = { sort: { key: "id", dir: "asc" } } as const
 
@@ -47,7 +48,7 @@ const section = (
   tickets: ReadonlyArray<Ticket>
 ): EpicSectionValue => ({
   key,
-  title: null,
+  parent: null,
   count: tickets.length,
   page: {
     items: tickets.map((t) => ({
@@ -86,7 +87,7 @@ describe("epic grouping rows", () => {
     const patched = patchEpicSectionsRow(
       value,
       ticket.id,
-      { parent: epicId },
+      { parent: epic },
       query,
       now
     )
@@ -122,7 +123,7 @@ describe("epic grouping rows", () => {
 
     const replaced = replaceEpicSectionsRow(
       value,
-      { ...ticket, parent: epicId },
+      { ...ticket, parent: epic },
       null,
       query.sort
     )

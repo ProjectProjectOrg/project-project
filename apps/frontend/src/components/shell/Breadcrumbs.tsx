@@ -51,7 +51,7 @@ export function Breadcrumbs({ className }: { className?: string }) {
     <nav
       aria-label={m.nav_breadcrumb_label()}
       className={cn(
-        "flex min-w-0 items-center gap-1 text-sm text-muted-foreground",
+        "flex min-w-0 items-center gap-1 text-body text-muted-foreground",
         className
       )}
     >
@@ -61,7 +61,7 @@ export function Breadcrumbs({ className }: { className?: string }) {
           <Fragment key={crumbKey(c, i)}>
             {i > 0 && (
               <ChevronRight
-                className="size-3.5 shrink-0 text-muted-foreground/60"
+                className="size-3.5 shrink-0 text-muted-foreground"
                 strokeWidth={1.75}
                 aria-hidden
               />
@@ -201,7 +201,7 @@ function TicketCrumb({
       params={{ orgSlug, slug }}
       isLast={isLast}
     >
-      <span className="font-mono text-xs">{id}</span>{" "}
+      <span className="font-mono">{id}</span>{" "}
       <span className={Result.isSuccess(result) ? "" : "italic opacity-60"}>
         {Result.isSuccess(result) ? label : m.nav_crumb_loading_placeholder()}
       </span>
@@ -221,8 +221,10 @@ function CrumbText({
   children: React.ReactNode
 }) {
   const className = cn(
-    "max-w-[20ch] truncate",
-    isLast ? "text-foreground" : "transition-colors hover:text-foreground"
+    "truncate",
+    isLast
+      ? "max-w-1/2 min-w-0 text-foreground"
+      : "max-w-[20ch] shrink-0 transition-colors hover:text-foreground"
   )
   if (isLast || !to) {
     return (

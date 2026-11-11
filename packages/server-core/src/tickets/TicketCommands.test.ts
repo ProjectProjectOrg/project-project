@@ -1,5 +1,6 @@
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { it } from "@effect/vitest"
+import { EMPTY_TICKET_RELATIONS } from "@pp/shared"
 import { Slug } from "@pp/shared"
 import {
   BlockDraft,
@@ -157,6 +158,7 @@ const FakeTicketIndex = Layer.sync(TicketIndex.TicketIndex, () => {
     list: () => Effect.succeed([]),
     query: () => Effect.succeed([]),
     querySections: () => Effect.succeed(new Map()),
+    neighbors: () => Effect.succeed(null),
     orderKeyFor: () => Effect.succeed(null),
     count: () => Effect.succeed({ total: 0, byStatus: {} }),
     listIds: () => Effect.succeed([]),
@@ -166,6 +168,9 @@ const FakeTicketIndex = Layer.sync(TicketIndex.TicketIndex, () => {
     findTicketIdsByTag: () => Effect.succeed([]),
     findTicketIdsByStatus: () => Effect.succeed([]),
     upsertTicket: () => Effect.void,
+    parentOf: () => Effect.succeed(null),
+    relationsOf: () => Effect.succeed(EMPTY_TICKET_RELATIONS),
+    relationEdges: () => Effect.succeed([]),
     deleteTicket: () => Effect.void
   } satisfies TicketIndex.TicketIndex["Service"]
 })
@@ -379,7 +384,9 @@ it.effect("archiving records the trimmed reason on the activity entry", () =>
     })
     expect(created.archivedAt).toBeNull()
 
-    const archived = yield* tickets.archive(created.id, "  no longer relevant ")
+    const archived = yield* tickets.archive(created.id, {
+      reason: "  no longer relevant "
+    })
     expect(archived.archivedAt).not.toBeNull()
     expect(archiveChanges(created.id)).toEqual([
       { kind: "archived", reason: "no longer relevant" }
@@ -401,7 +408,7 @@ it.effect("archiving with a blank reason records no reason", () =>
     const created = yield* tickets.quickCreate({
       title: "silent archive"
     })
-    yield* tickets.archive(created.id, "   ")
+    yield* tickets.archive(created.id, { reason: "   " })
     expect(archiveChanges(created.id)).toEqual([{ kind: "archived" }])
   }).pipe(Effect.provide(TestLayer))
 )
@@ -422,7 +429,7 @@ it.effect(
 
       const archived = yield* tickets.archive(created.id)
       const again = yield* Effect.flip(
-        tickets.archive(created.id, "late reason")
+        tickets.archive(created.id, { reason: "late reason" })
       )
       expect(again).toEqual(new Conflict({ reason: "ticket_already_archived" }))
       expect(archiveChanges(created.id)).toEqual([{ kind: "archived" }])

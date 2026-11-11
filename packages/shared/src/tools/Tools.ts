@@ -59,6 +59,7 @@ import { Tag, TagName } from "../tags/Tag"
 import { TicketBodyEdits } from "../tickets/bodyEdits"
 import {
   ArchiveTicketInput,
+  MarkTicketInput,
   CreateTicketInput,
   Ticket,
   TicketDetail,
@@ -351,7 +352,8 @@ export const Tools = Toolkit.make(
       "List a project's tickets, newest first unless `sort` says " +
       "otherwise. Items are summaries without the body; use `get_ticket` " +
       "for a ticket's description. Filters combine with AND, and a list " +
-      "filter matches any of its values. Items carry `parent`, " +
+      "filter matches any of its values. Items carry `parent` (the " +
+      "epic or ticket above it as `{ id, title, type }`, or `null`), " +
       "`subTicketCount` and `subTicketDoneCount`. Ticket `status` values " +
       "are slugs; use the label from `list_statuses` in conversation. " +
       "Paginated: pass `nextCursor` back as `cursor`.",
@@ -379,7 +381,9 @@ export const Tools = Toolkit.make(
       "per ticket), and `blocks` splits `body` into its named blocks by " +
       "`type`, so you can read one section without parsing the markdown. " +
       "Read a ticket before updating it: `update_ticket` replaces the " +
-      "whole body. Use the label from `list_statuses` when naming its " +
+      "whole body. `relations` lists the tickets it is blocked by, is " +
+      "blocking, is related to, duplicates and is duplicated by, in both " +
+      "directions. Use the label from `list_statuses` when naming its " +
       "status in conversation.",
     cli: {
       command: ["tickets", "get"],
@@ -747,7 +751,9 @@ export const Tools = Toolkit.make(
       "parent.\n\n" +
       "`reason` is recorded on the ticket's activity, attributed to you; " +
       "name the ticket that replaces it, e.g. " +
-      "`Folded into [T-238](mention:ticket/T-238)`. " +
+      "`Folded into [T-238](mention:ticket/T-238)`. Pass `duplicateOf` " +
+      "when the ticket repeats another one: it links the two and archives " +
+      "this one in one step, and restoring it later drops the link. " +
       MENTION_GUIDE +
       " Archiving an archived ticket fails with `Conflict`. Returns the " +
       "ticket with `archivedAt` set.",
@@ -763,7 +769,63 @@ export const Tools = Toolkit.make(
       reason: ArchiveTicketInput.fields.reason.annotate({
         description:
           "Why the ticket is archived, as markdown up to 20,000 characters."
-      })
+      }),
+      duplicateOf: ArchiveTicketInput.fields.duplicateOf
+    }),
+    success: TicketDetail
+  }),
+  defineTool("mark_ticket", {
+    title: "Mark ticket",
+    hints: {
+      readOnly: false,
+      destructive: false,
+      idempotent: true,
+      openWorld: false
+    },
+    description:
+      "Link a ticket to another ticket in the same project: `blockedBy` " +
+      "(this ticket can't start until `target` is done), `blocking` (the " +
+      "reverse) or `related`. The link is stored on the ticket that waits, " +
+      "so `blocking` writes `target`. A blocker that would make a loop " +
+      "fails with `Validation` naming the chain, for example " +
+      "`blocking_cycle:T-1,T-2,T-1`; remove one of those links first. To " +
+      "mark a duplicate, use `archive_ticket` with `duplicateOf`. Returns " +
+      "the ticket with its `relations`.",
+    cli: {
+      command: ["tickets", "mark"],
+      args: ["id", "kind", "target"],
+      summary: "Mark a ticket as blocked by, blocking or related to another."
+    },
+    parameters: Schema.Struct({
+      orgSlug,
+      projectSlug,
+      id: ticketId,
+      ...MarkTicketInput.fields
+    }),
+    success: TicketDetail
+  }),
+  defineTool("unmark_ticket", {
+    title: "Unmark ticket",
+    hints: {
+      readOnly: false,
+      destructive: false,
+      idempotent: true,
+      openWorld: false
+    },
+    description:
+      "Remove a `blockedBy`, `blocking` or `related` link between two " +
+      "tickets, whichever ticket stores it. Removing a link that doesn't " +
+      "exist does nothing. Returns the ticket with its `relations`.",
+    cli: {
+      command: ["tickets", "unmark"],
+      args: ["id", "kind", "target"],
+      summary: "Remove a blocked by, blocking or related link."
+    },
+    parameters: Schema.Struct({
+      orgSlug,
+      projectSlug,
+      id: ticketId,
+      ...MarkTicketInput.fields
     }),
     success: TicketDetail
   }),
@@ -985,6 +1047,7 @@ export const Tools = Toolkit.make(
       orgSlug,
       projectSlug,
       name: CreateGroupInput.fields.name,
+      body: CreateGroupInput.fields.body,
       color: CreateGroupInput.fields.color,
       startsAt: CreateGroupInput.fields.startsAt,
       endsAt: CreateGroupInput.fields.endsAt,

@@ -74,7 +74,7 @@ export function GalleryTile({
           animate={{ fontSize: expanded ? "1.25rem" : "0.875rem" }}
           className={cn(
             "min-w-0 flex-1 truncate leading-snug",
-            expanded ? "font-semibold tracking-[-0.01em]" : "font-medium"
+            expanded ? "font-semibold" : undefined
           )}
         >
           {item.name}
@@ -84,7 +84,7 @@ export function GalleryTile({
       <motion.p
         layout="position"
         className={cn(
-          "text-xs text-foreground/80",
+          "text-caption text-muted-foreground",
           expanded && "-mt-1 text-muted-foreground"
         )}
       >
@@ -98,7 +98,7 @@ export function GalleryTile({
           data-gallery-preview
           className="block-rail-sheet ml-(--ticket-rail-inset) px-(--ticket-comment-pad)"
         >
-          <Markdown className="text-sm">{preview}</Markdown>
+          <Markdown className="text-body">{preview}</Markdown>
         </motion.div>
       ) : (
         <motion.div layout="position">
@@ -113,7 +113,7 @@ export function GalleryTile({
         <motion.p
           layout="position"
           role="alert"
-          className="text-xs text-destructive"
+          className="text-caption text-destructive"
         >
           {error}
         </motion.p>

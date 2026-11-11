@@ -6,6 +6,7 @@ import {
   type Estimate,
   type EstimateFilterValue,
   type EstimateSummary,
+  type EstimateTotals,
   type EstimateUnit,
   type TicketSort,
   type EstimationMode
@@ -90,29 +91,29 @@ export const estimateFilterLabel = (value: EstimateFilterValue): string => {
   }
 }
 
-const formatTotal = (unit: "points" | "time", amount: number): string =>
-  unit === "points" ? String(amount) : formatWorkDuration(amount * 60)
+export const formatEstimateAmount = (
+  unit: EstimateTotals["unit"],
+  amount: number
+): string =>
+  unit === "points"
+    ? m.tickets_estimate_total_points({ total: amount })
+    : formatWorkDuration(amount * 60)
 
-export const formatEstimateSummary = (
-  summary: EstimateSummary
-): string | null => {
-  const parts: Array<string> = []
-  if (summary.unit === "tshirt") {
-    for (const size of ESTIMATE_SIZES) {
-      const count = summary.sizes[size]
-      if (count > 0) parts.push(m.tickets_estimate_size_count({ count, size }))
-    }
-  } else if (summary.committed > 0) {
-    const done = formatTotal(summary.unit, summary.done)
-    const committed = formatTotal(summary.unit, summary.committed)
-    parts.push(
-      summary.unit === "points"
-        ? m.tickets_estimate_totals_points({ done, committed })
-        : m.tickets_estimate_totals_time({ done, committed })
-    )
+export const formatEstimateProgress = (totals: EstimateTotals): string => {
+  if (totals.unit === "points") {
+    return m.tickets_estimate_progress_points({
+      done: totals.done,
+      committed: totals.committed
+    })
   }
-  if (summary.unestimated > 0) {
-    parts.push(m.tickets_estimate_unestimated({ count: summary.unestimated }))
-  }
-  return parts.length > 0 ? parts.join(" · ") : null
+  return m.tickets_estimate_progress_time({
+    done: formatWorkDuration(totals.done * 60),
+    committed: formatWorkDuration(totals.committed * 60)
+  })
 }
+
+export const isEmptyEstimateSummary = (summary: EstimateSummary): boolean =>
+  summary.unestimated === 0 &&
+  (summary.unit === "tshirt"
+    ? ESTIMATE_SIZES.every((size) => summary.sizes[size] === 0)
+    : summary.committed === 0)

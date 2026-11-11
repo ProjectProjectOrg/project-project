@@ -1,12 +1,13 @@
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
+import { statusPhaseLookup } from "../statuses/phase"
 import { StatusSlug } from "../statuses/Status"
 import type { Estimate } from "./Estimate"
 import { summarizeEstimates, type EstimatedTicket } from "./estimates"
 
 const s = Schema.decodeUnknownSync(StatusSlug)
-const FINISHED: ReadonlySet<string> = new Set(["done"])
+const PHASES = statusPhaseLookup([])
 
 const ticket = (
   status: string,
@@ -17,16 +18,18 @@ const ticket = (
 })
 
 describe("summarizeEstimates", () => {
-  it("sums points into committed and done, counting other units as unestimated", () => {
+  it("sums points into committed, started and done, counting other units as unestimated", () => {
     const tickets = [
       ticket("todo", { unit: "points", value: 5 }),
+      ticket("in_progress", { unit: "points", value: 2 }),
       ticket("done", { unit: "points", value: 3 }),
       ticket("in_progress", null),
       ticket("done", { unit: "tshirt", value: "M" })
     ]
-    expect(summarizeEstimates(tickets, "points", FINISHED)).toEqual({
+    expect(summarizeEstimates(tickets, "points", PHASES)).toEqual({
       unit: "points",
-      committed: 8,
+      committed: 10,
+      started: 2,
       done: 3,
       unestimated: 2
     })
@@ -37,9 +40,10 @@ describe("summarizeEstimates", () => {
       ticket("done", { unit: "time", minutes: 90 }),
       ticket("todo", { unit: "time", minutes: 30 })
     ]
-    expect(summarizeEstimates(tickets, "time", FINISHED)).toEqual({
+    expect(summarizeEstimates(tickets, "time", PHASES)).toEqual({
       unit: "time",
       committed: 120,
+      started: 0,
       done: 90,
       unestimated: 0
     })
@@ -52,7 +56,7 @@ describe("summarizeEstimates", () => {
       ticket("todo", { unit: "tshirt", value: "XL" }),
       ticket("todo", { unit: "points", value: 5 })
     ]
-    expect(summarizeEstimates(tickets, "tshirt", FINISHED)).toEqual({
+    expect(summarizeEstimates(tickets, "tshirt", PHASES)).toEqual({
       unit: "tshirt",
       sizes: { XS: 0, S: 0, M: 2, L: 0, XL: 1 },
       unestimated: 1

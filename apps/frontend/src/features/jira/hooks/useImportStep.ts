@@ -26,7 +26,7 @@ export function useImportStep(reconfiguring: boolean): ImportStepControls {
         search: {
           step,
           section,
-          reconfigure: step !== undefined && reconfiguring ? true : undefined
+          reconfigure: step !== undefined && reconfiguring ? "true" : undefined
         }
       }),
     [navigate, reconfiguring]
@@ -47,7 +47,7 @@ export function useImportStep(reconfiguring: boolean): ImportStepControls {
   return {
     step: search.step,
     section: search.section,
-    reconfigure: search.reconfigure === true,
+    reconfigure: search.reconfigure === "true",
     goTo,
     clear,
     openSection

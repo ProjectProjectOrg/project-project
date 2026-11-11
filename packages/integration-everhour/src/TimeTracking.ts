@@ -21,6 +21,7 @@ import {
   type LogTimeInput,
   OrgEverhourConfig,
   type StartSprintTimerInput,
+  type SprintTimeSummary,
   type StartTimerInput,
   type TicketTimeSummary,
   type WorkTypeOption,
@@ -86,6 +87,9 @@ export class EverhourTimeTracking extends Context.Service<
     ticketTimeSummary: (
       ticketId: string
     ) => Effect.Effect<TicketTimeSummary, NotFound, ProjectScope>
+    sprintTimeSummary: (
+      groupId: string
+    ) => Effect.Effect<SprintTimeSummary | null, never, ProjectScope>
     applyWebhookTimeEvent: (
       projectIntegrationLinkId: string,
       record: Client.EverhourTimeRecord
@@ -693,21 +697,14 @@ const make = Effect.gen(function* () {
     return yield* ticketTimeSummary(ticketId)
   })
 
-  const ticketTimeSummary = Effect.fn("EverhourTimeTracking.ticketTimeSummary")(
-    function* (ticketId: string) {
+  const attributedTime = (column: "ticketId" | "groupId", id: string) =>
+    Effect.gen(function* () {
       const project = yield* ProjectScope
-      const { userId } = project
       const [link, everhourUserId] = yield* Effect.all(
-        [activeLink(project.projectId), everhourUserIdFor(userId)],
+        [activeLink(project.projectId), everhourUserIdFor(project.userId)],
         { concurrency: 2 }
       )
-      if (!link) {
-        return {
-          ticketId: makeTicketId(ticketId),
-          totalSeconds: 0,
-          userSeconds: 0
-        } satisfies TicketTimeSummary
-      }
+      if (!link) return null
       const rows = yield* db.query.everhourTimeAttribution
         .findMany({
           columns: { everhourUserId: true, seconds: true },
@@ -715,20 +712,34 @@ const make = Effect.gen(function* () {
             RAW: (table, _operators) =>
               _operators.and(
                 _operators.eq(table.projectIntegrationLinkId, link.linkId),
-                _operators.eq(table.ticketId, ticketId)
+                _operators.eq(table[column], id)
               )!
           }
         })
         .pipe(Effect.orDie)
-      const { totalSeconds, userSeconds } = summariseAttribution(
-        rows,
-        everhourUserId
-      )
+      return summariseAttribution(rows, everhourUserId)
+    })
+
+  const ticketTimeSummary = Effect.fn("EverhourTimeTracking.ticketTimeSummary")(
+    function* (ticketId: string) {
+      const time = yield* attributedTime("ticketId", ticketId)
       return {
         ticketId: makeTicketId(ticketId),
-        totalSeconds,
-        userSeconds
+        totalSeconds: time?.totalSeconds ?? 0,
+        userSeconds: time?.userSeconds ?? 0
       } satisfies TicketTimeSummary
+    }
+  )
+
+  const sprintTimeSummary = Effect.fn("EverhourTimeTracking.sprintTimeSummary")(
+    function* (groupId: string) {
+      const time = yield* attributedTime("groupId", groupId)
+      return time === null
+        ? null
+        : ({
+            groupId: makeGroupId(groupId),
+            ...time
+          } satisfies SprintTimeSummary)
     }
   )
 
@@ -782,6 +793,7 @@ const make = Effect.gen(function* () {
     currentTimer,
     logTime,
     ticketTimeSummary,
+    sprintTimeSummary,
     applyWebhookTimeEvent
   })
 })

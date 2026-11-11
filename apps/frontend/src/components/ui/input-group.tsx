@@ -1,5 +1,6 @@
 import * as React from "react"
 
+import { fieldTouchClass } from "@/lib/typeScale"
 import { cn } from "@/lib/utils"
 
 function InputGroup({
@@ -24,10 +25,12 @@ function InputGroup({
         ) {
           return
         }
-        const input = e.currentTarget.querySelector<HTMLInputElement>("input")
-        if (!input || input === document.activeElement) return
+        const input = e.currentTarget.querySelector<HTMLInputElement>(
+          "[data-slot='input-group-input']"
+        )
+        if (!input) return
         e.preventDefault()
-        input.focus()
+        if (input !== document.activeElement) input.focus()
       }}
       className={cn(
         "group/input-group relative flex h-9 w-full cursor-text items-center gap-2 rounded-xl border border-border bg-background px-3 transition-[color,box-shadow] has-[>[data-slot=input-group-control]:last-child]:pr-[5px] has-[>[data-slot=kbd]:last-child]:pr-[7px] [&>[data-slot=kbd]]:rounded-full",
@@ -51,7 +54,9 @@ function InputGroupInput({
     <input
       data-slot="input-group-input"
       className={cn(
-        "min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed",
+        "min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed",
+        "text-body",
+        fieldTouchClass,
         className
       )}
       {...props}
@@ -76,7 +81,11 @@ function InputGroupHint({ className, ...props }: React.ComponentProps<"span">) {
   return (
     <span
       data-slot="input-group-hint"
-      className={cn("shrink-0 text-xs text-muted-foreground", className)}
+      className={cn(
+        "shrink-0 text-muted-foreground",
+        "text-caption",
+        className
+      )}
       {...props}
     />
   )

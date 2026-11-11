@@ -3,17 +3,13 @@ import { MoreHorizontal, Plus } from "lucide-react"
 import type { FormEvent, ReactNode } from "react"
 
 import { Badge, type BadgeTone } from "@/components/ui/badge"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput
 } from "@/components/ui/input-group"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -47,8 +43,25 @@ export function RoleSelect<R extends string>({
   const current = meta[value]
   const Icon = current.icon
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
+    <Select
+      items={roles.map((role) => {
+        const RoleIcon = meta[role].icon
+        return {
+          value: role,
+          textValue: meta[role].label(),
+          label: (
+            <>
+              <RoleIcon className="size-4" strokeWidth={1.75} />
+              {meta[role].label()}
+            </>
+          )
+        }
+      })}
+      value={value}
+      onValueChange={onChange}
+      contentProps={{ align: "end", className: "w-32" }}
+    >
+      <SelectTrigger
         render={
           <Badge
             tone={current.tone}
@@ -69,26 +82,7 @@ export function RoleSelect<R extends string>({
           </Badge>
         }
       />
-      <DropdownMenuContent align="end" sideOffset={6} className="w-32">
-        <DropdownMenuRadioGroup
-          value={value}
-          onValueChange={onChange}
-          items={roles.map((role) => {
-            const RoleIcon = meta[role].icon
-            return {
-              value: role,
-              closeOnClick: true,
-              label: (
-                <>
-                  <RoleIcon className="size-4" strokeWidth={1.75} />
-                  {meta[role].label()}
-                </>
-              )
-            }
-          })}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    </Select>
   )
 }
 
@@ -131,11 +125,13 @@ export function AddMemberForm({
         />
         {roleSelect}
         {error ? (
-          <span className="shrink-0 text-xs text-destructive">{error}</span>
+          <span className="shrink-0 text-caption text-destructive">
+            {error}
+          </span>
         ) : null}
         {!error && submitted ? (
           <span
-            className="shrink-0 text-xs text-muted-foreground"
+            className="shrink-0 text-caption text-muted-foreground"
             role="status"
           >
             {m.members_add_success()}
@@ -176,20 +172,22 @@ export function MemberRowLayout({
       <div className="min-w-0 flex-1 leading-tight">
         <div
           className={cn(
-            "truncate text-sm font-medium",
+            "truncate text-body font-semibold",
             titleMuted && "text-muted-foreground"
           )}
         >
           {title}
           {isSelf && (
-            <span className="ml-2 text-[10px] text-muted-foreground">
+            <span className="ml-2 text-micro text-muted-foreground">
               {m.members_self_indicator()}
             </span>
           )}
         </div>
-        <div className="truncate text-xs text-muted-foreground">{subtitle}</div>
+        <div className="truncate text-caption text-muted-foreground">
+          {subtitle}
+        </div>
         {error ? (
-          <div className="text-xs text-destructive" role="alert">
+          <div className="text-caption text-destructive" role="alert">
             {error}
           </div>
         ) : null}
@@ -214,7 +212,7 @@ export function PendingInviteRow({
   return (
     <MemberRowLayout
       leading={
-        <div className="grid size-8 shrink-0 place-items-center rounded-full border border-dashed border-border font-mono text-xs text-muted-foreground">
+        <div className="grid size-8 shrink-0 place-items-center rounded-full border border-dashed border-border font-mono text-caption text-muted-foreground">
           {initial}
         </div>
       }

@@ -58,12 +58,12 @@ export function SetupSection({
           >
             <ChevronRight className="size-4" strokeWidth={1.75} />
           </motion.span>
-          <span className="text-[13px] font-medium text-foreground">
+          <span className="text-body font-semibold text-foreground">
             {jiraSectionTitle(section)}
           </span>
           <span
             className={cn(
-              "flex min-w-0 items-center gap-1.5 pl-2 text-[13px]",
+              "flex min-w-0 items-center gap-1.5 pl-2 text-body",
               attention > 0 ? "text-foreground" : "text-muted-foreground"
             )}
           >
@@ -82,7 +82,7 @@ export function SetupSection({
         {open ? (
           <div id={bodyId} className="flex flex-col gap-3 pt-1 pb-5 pl-7">
             {description === undefined ? null : (
-              <p className="max-w-[65ch] text-xs text-muted-foreground">
+              <p className="max-w-[65ch] text-caption text-muted-foreground">
                 {description}
               </p>
             )}

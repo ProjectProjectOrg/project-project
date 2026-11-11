@@ -1,4 +1,5 @@
 import {
+  EMPTY_TICKET_RELATIONS,
   TicketDetail,
   TicketId,
   TicketStatus,
@@ -12,11 +13,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
 
-import {
-  olderActivityPages,
-  ticketActivity,
-  ticketActivityRequest
-} from "./ticketActivity"
+import { ticketActivity, ticketActivityRequest } from "./ticketActivity"
 import { ticketRequest, updateTicketDetail } from "./ticketDetail"
 
 const encodeTicketUpdateResultSync = Schema.encodeSync(TicketUpdateResult)
@@ -39,12 +36,14 @@ const ticket = {
   pr: null,
   prState: null,
   lastTransitionedPr: null,
+  parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
   assignees: [],
   archivedAt: null,
   createdBy: "user-1",
   createdAt: created,
   updatedAt: created,
+  relations: EMPTY_TICKET_RELATIONS,
   creator: null,
   updater: null,
   body: "Before"
@@ -87,16 +86,12 @@ const ids = (registry: AtomRegistry.AtomRegistry) => {
 }
 
 describe("ticketActivity", () => {
-  it("appends older pages behind the cursor", async () => {
+  it("loads every page behind the cursor", async () => {
     const fetched: Array<string | null> = []
     serve(fetched)
     const registry = AtomRegistry.make()
     registry.mount(ticketActivity(req))
     try {
-      await vi.waitFor(() =>
-        expect(ids(registry)).toEqual({ ids: ["newest"], hasOlder: true })
-      )
-      registry.set(olderActivityPages(req), 1)
       await vi.waitFor(() =>
         expect(ids(registry)).toEqual({
           ids: ["newest", "oldest"],

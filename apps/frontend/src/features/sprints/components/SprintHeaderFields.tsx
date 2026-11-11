@@ -1,25 +1,20 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import {
-  daysLeft,
-  pickEarliestPlannedSprint,
-  sprintState,
-  type CompleteSprintDestination,
-  type Group
-} from "@pp/shared"
+import { sprintState, type Group } from "@pp/shared"
 import { Link, useNavigate } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
+  CalendarX,
   MoreHorizontal,
+  Play,
   RotateCcw,
   SlidersHorizontal,
-  Trash2,
-  Trophy
+  Trash2
 } from "lucide-react"
 import { useRef, useState, type KeyboardEvent } from "react"
-import type { DateRange } from "react-day-picker"
 
+import type { DateRange } from "@/components/ui/calendar"
 import { Calendar } from "@/components/ui/calendar"
 import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
@@ -44,20 +39,22 @@ import {
 } from "@/features/sprints/atoms/sprintList"
 import {
   sprintDateDraft,
-  sprintDatesPatch
+  sprintEnded,
+  sprintDatesPatch,
+  startSprintPatch
 } from "@/features/sprints/lib/sprintDates"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import { getLocale } from "@/paraglide/runtime"
 
-import { SprintStateIcon } from "./SprintChip"
+import { CompleteSprintSubmenu } from "./CompleteSprintMenu"
+import {
+  shortDateFormatter,
+  sprintStatusText,
+  SprintStateIcon
+} from "./SprintChip"
 import { SprintEstimateTotals } from "./SprintEstimateTotals"
 
-const shortDateFormatter = () =>
-  new Intl.DateTimeFormat(getLocale(), {
-    month: "short",
-    day: "numeric"
-  })
+export const nowDate = () => DateTime.toDate(DateTime.nowUnsafe())
 
 export function SprintStatusSelect({
   sprint,
@@ -68,22 +65,15 @@ export function SprintStatusSelect({
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const req = sprintListRequest(orgSlug, slug)
-  const complete = useAtomSet(completeSprint({ req, groupId: sprint.id }))
   const completeState = useAtomValue(
     completeSprint({ req, groupId: sprint.id })
   )
-  const reopen = useAtomSet(updateSprint({ req, groupId: sprint.id }))
+  const update = useAtomSet(updateSprint({ req, groupId: sprint.id }))
   const reopenState = useAtomValue(updateSprint({ req, groupId: sprint.id }))
   const isCompleted = sprint.completedAt !== null
-  const planned = pickEarliestPlannedSprint(sprints)
-
-  const completing = completeState.waiting
   const reopening = reopenState.waiting
   const failed =
     Result.isFailure(completeState) || Result.isFailure(reopenState)
-
-  const completeTo = (destination: CompleteSprintDestination) =>
-    complete({ destination })
 
   return (
     <DropdownMenu>
@@ -94,61 +84,51 @@ export function SprintStatusSelect({
             margin="1"
             aria-label={m.sprints_status_aria_label()}
           >
-            <span className="-mt-1 grid size-10 place-items-center rounded-lg bg-muted transition-colors group-hover/hitbox:bg-foreground/5">
+            <span className="-mt-1 grid size-10 place-items-center rounded-lg bg-muted transition-colors hitbox-hover:bg-foreground/5">
               <SprintStateIcon sprint={sprint} size="lg" />
             </span>
           </Hitbox>
         }
       />
       <DropdownMenuContent align="start" sideOffset={8} className="w-56">
-        {isCompleted ? (
+        {sprintState(sprint) === "planned" ? (
+          <>
+            <DropdownMenuItem
+              onClick={() => update(startSprintPatch(sprint, nowDate()))}
+              disabled={reopening}
+              className="cursor-pointer"
+            >
+              <Play className="size-4" strokeWidth={1.75} />
+              {m.sprints_start_button()}
+            </DropdownMenuItem>
+            {sprint.startsAt !== null && (
+              <DropdownMenuItem
+                onClick={() => update({ startsAt: null, endsAt: null })}
+                disabled={reopening}
+                className="cursor-pointer"
+              >
+                <CalendarX className="size-4" strokeWidth={1.75} />
+                {m.sprints_unschedule()}
+              </DropdownMenuItem>
+            )}
+          </>
+        ) : isCompleted ? (
           <DropdownMenuItem
-            onClick={() => reopen({ completedAt: null })}
+            onClick={() => update({ completedAt: null })}
             disabled={reopening}
             className="cursor-pointer"
           >
             <RotateCcw className="size-4" strokeWidth={1.75} />
             {m.sprints_reopen_button()}
           </DropdownMenuItem>
-        ) : planned ? (
-          <>
-            <DropdownMenuItem
-              onClick={() =>
-                completeTo({ kind: "sprint", groupId: planned.id })
-              }
-              disabled={completing}
-              className="cursor-pointer"
-            >
-              <Trophy
-                className="size-4 text-state-success"
-                strokeWidth={1.75}
-              />
-              {m.sprints_complete_to_planned({ name: planned.name })}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => completeTo({ kind: "backlog" })}
-              disabled={completing}
-              className="cursor-pointer"
-            >
-              <Trophy
-                className="size-4 text-state-success"
-                strokeWidth={1.75}
-              />
-              {m.sprints_complete_to_backlog()}
-            </DropdownMenuItem>
-          </>
         ) : (
-          <DropdownMenuItem
-            onClick={() => completeTo({ kind: "backlog" })}
-            disabled={completing}
-            className="cursor-pointer"
-          >
-            <Trophy className="size-4 text-state-success" strokeWidth={1.75} />
-            {m.sprints_complete_button()}
-          </DropdownMenuItem>
+          <CompleteSprintSubmenu sprint={sprint} sprints={sprints} />
         )}
         {failed && (
-          <div role="alert" className="px-2 py-1.5 text-xs text-destructive">
+          <div
+            role="alert"
+            className="px-2 py-1.5 text-caption text-destructive"
+          >
             {m.sprints_status_error_fallback()}
           </div>
         )}
@@ -208,7 +188,7 @@ export function SprintNameField({
         }}
         disabled={disabled}
         className={cn(
-          "-mx-1 truncate rounded px-1 text-left text-2xl font-semibold tracking-tight transition-colors transition-transform duration-100 active:scale-[0.97]",
+          "-mx-1 truncate rounded px-1 text-left text-display font-bold transition-colors transition-transform duration-100 active:scale-[0.97]",
           !disabled && "hover:bg-hover"
         )}
       >
@@ -225,13 +205,13 @@ export function SprintNameField({
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void commit()}
         onKeyDown={handleKey}
-        className="-mx-1 w-full rounded bg-transparent px-1 text-2xl font-semibold tracking-tight ring-2 ring-ring/50 outline-none"
+        className="-mx-1 w-full rounded bg-transparent px-1 text-display font-bold ring-2 ring-ring/50 outline-none"
         maxLength={120}
       />
       {failed && (
         <p
           role="alert"
-          className="absolute top-full left-0 mt-1 text-xs text-destructive"
+          className="absolute top-full left-0 mt-1 text-caption text-destructive"
         >
           {m.sprints_name_error()}
         </p>
@@ -247,29 +227,24 @@ export function SprintSubtitle({
   sprint: Group
   disabled: boolean
 }) {
-  const state = sprintState(sprint)
-  const left = daysLeft(sprint.endsAt)
+  const status = sprintStatusText(sprint, nowDate())
   return (
-    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+    <div className="flex items-center gap-2 text-caption text-muted-foreground">
       <SprintDatesField sprint={sprint} disabled={disabled} />
-      {state === "active" && left !== null && left >= 0 && (
-        <span className="font-mono tabular-nums">
-          {m.sprints_active_with_days_left({ days: left })}
-        </span>
+      {status !== null && (
+        <>
+          <span aria-hidden>·</span>
+          <span
+            className={cn(
+              "font-mono tabular-nums",
+              sprintEnded(sprint) && "text-state-warning"
+            )}
+          >
+            {status}
+          </span>
+        </>
       )}
-      {state === "active" && left !== null && left < 0 && (
-        <span className="font-mono text-foreground tabular-nums">
-          {m.sprints_overdue_with_days({ days: -left })}
-        </span>
-      )}
-      {state === "completed" && sprint.completedAt && (
-        <span className="font-mono tabular-nums">
-          {m.sprints_completed_at({
-            date: shortDateFormatter().format(sprint.completedAt)
-          })}
-        </span>
-      )}
-      <SprintEstimateTotals groupId={sprint.id} />
+      <SprintEstimateTotals sprint={sprint} />
     </div>
   )
 }
@@ -289,9 +264,13 @@ function SprintDatesField({
 
   const fmt = shortDateFormatter()
   const label =
-    sprint.startsAt && sprint.endsAt
-      ? `${fmt.format(sprint.startsAt)} – ${fmt.format(sprint.endsAt)}`
-      : m.sprints_date_range_label()
+    sprint.startsAt === null
+      ? m.sprints_not_scheduled()
+      : sprint.endsAt === null
+        ? sprintState(sprint) === "active"
+          ? m.sprints_started_on({ date: fmt.format(sprint.startsAt) })
+          : m.sprints_starts_on({ date: fmt.format(sprint.startsAt) })
+        : `${fmt.format(sprint.startsAt)} – ${fmt.format(sprint.endsAt)}`
 
   if (disabled) {
     return <span className="font-mono tabular-nums">{label}</span>
@@ -319,12 +298,11 @@ function SprintDatesField({
           </button>
         }
       />
-      <PopoverContent align="start" className="w-auto p-0">
+      <PopoverContent align="start" initialFocus={false} className="w-auto p-0">
         <Calendar
           mode="range"
           selected={draft}
           onSelect={(r) => setDraft(r ?? { from: undefined, to: undefined })}
-          numberOfMonths={1}
           defaultMonth={draft.from ?? DateTime.toDate(DateTime.nowUnsafe())}
         />
       </PopoverContent>
@@ -332,31 +310,16 @@ function SprintDatesField({
   )
 }
 
-export function SprintDeleteMenu({
-  sprint,
-  sprints
-}: {
-  sprint: Group
-  sprints: ReadonlyArray<Group>
-}) {
+export function SprintDeleteMenu({ sprint }: { sprint: Group }) {
   const { orgSlug, slug } = useProjectRoute()
   const navigate = useNavigate()
   const req = sprintListRequest(orgSlug, slug)
-  const complete = useAtomSet(completeSprint({ req, groupId: sprint.id }))
-  const completeState = useAtomValue(
-    completeSprint({ req, groupId: sprint.id })
-  )
   const remove = useAtomSet(deleteSprint({ req, groupId: sprint.id }), {
     mode: "promiseExit"
   })
   const removeState = useAtomValue(deleteSprint({ req, groupId: sprint.id }))
   const deleting = removeState.waiting
-  const completing = completeState.waiting
   const deleteFailed = Result.isFailure(removeState)
-  const isCompleted = sprint.completedAt !== null
-  const planned = pickEarliestPlannedSprint(sprints)
-  const completeTo = (destination: CompleteSprintDestination) =>
-    complete({ destination })
   const trigger = useRef<HTMLButtonElement>(null)
 
   async function onDelete() {
@@ -398,47 +361,6 @@ export function SprintDeleteMenu({
             {m.project_detail_tab_settings()}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          {!isCompleted &&
-            (planned ? (
-              <>
-                <DropdownMenuItem
-                  onClick={() =>
-                    completeTo({ kind: "sprint", groupId: planned.id })
-                  }
-                  disabled={completing || deleting}
-                  className="cursor-pointer"
-                >
-                  <Trophy
-                    className="size-4 text-state-success"
-                    strokeWidth={1.75}
-                  />
-                  {m.sprints_complete_to_planned({ name: planned.name })}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => completeTo({ kind: "backlog" })}
-                  disabled={completing || deleting}
-                  className="cursor-pointer"
-                >
-                  <Trophy
-                    className="size-4 text-state-success"
-                    strokeWidth={1.75}
-                  />
-                  {m.sprints_complete_to_backlog()}
-                </DropdownMenuItem>
-              </>
-            ) : (
-              <DropdownMenuItem
-                onClick={() => completeTo({ kind: "backlog" })}
-                disabled={completing || deleting}
-                className="cursor-pointer"
-              >
-                <Trophy
-                  className="size-4 text-state-success"
-                  strokeWidth={1.75}
-                />
-                {m.sprints_complete_button()}
-              </DropdownMenuItem>
-            ))}
           <ConfirmButton.MenuItem
             variant="destructive"
             className="cursor-pointer"
