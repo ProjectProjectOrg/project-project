@@ -48,7 +48,7 @@ import {
 import { m } from "@/paraglide/messages"
 
 type TicketPreview =
-  | Readonly<{ kind: "ticket"; id: TicketId }>
+  | Readonly<{ kind: "ticket"; id: TicketId; shortcut?: string }>
   | Readonly<{ kind: "relations"; id: TicketId; relation: RelationPreviewKind }>
   | Readonly<{ kind: "subTickets"; id: TicketId; label: string }>
 
@@ -141,6 +141,7 @@ function PreviewContent({ preview }: Readonly<{ preview: TicketPreview }>) {
           ticketId={preview.id}
           scope={{ orgSlug, slug }}
           interactive
+          shortcut={preview.shortcut}
         />
       )
     case "relations":

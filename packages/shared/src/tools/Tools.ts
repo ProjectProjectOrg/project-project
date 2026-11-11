@@ -69,6 +69,11 @@ import {
   TicketType,
   UpdateTicketInput
 } from "../tickets/Ticket"
+import { TicketActivityPage } from "../tickets/TicketActivity"
+import {
+  TicketTextHit,
+  TicketTextSearchQuery
+} from "../tickets/TicketTextSearch"
 import { DocFile } from "./DocFile"
 import { MeOutput } from "./MeOutput"
 import { RebuildTicketIndexOutput } from "./RebuildTicketIndexOutput"
@@ -355,7 +360,8 @@ export const Tools = Toolkit.make(
       "List a project's tickets, newest first unless `sort` says " +
       "otherwise. Items are summaries without the body; use `get_ticket` " +
       "for a ticket's description. Filters combine with AND, and a list " +
-      "filter matches any of its values. Items carry `parent` (the " +
+      "filter matches any of its values. `q` searches titles and ticket IDs only; use " +
+      "`search_tickets` for descriptions and comments too. Items carry `parent` (the " +
       "epic or ticket above it as `{ id, title, type }`, or `null`), " +
       "`subTicketCount` and `subTicketDoneCount`. Ticket `status` values " +
       "are slugs; use the label from `list_statuses` in conversation. " +
@@ -372,6 +378,67 @@ export const Tools = Toolkit.make(
       })
     ),
     success: Page(Ticket)
+  }),
+  defineTool("search_tickets", {
+    title: "Search tickets",
+    hints: reads,
+    description:
+      "Search unarchived tickets in one project across titles, descriptions " +
+      "and comments. Returns ranked matches with the ticket id, title and " +
+      "match location; description and comment matches include a snippet " +
+      "with highlight ranges, and comment matches include the author. " +
+      "Returns up to `limit` results (default 20, maximum 50), without " +
+      "pagination. Use `get_ticket` for the full description and " +
+      "`list_comments` for the discussion. For structured filters, use " +
+      "`list_tickets`; its `q` only searches titles and ticket IDs.",
+    cli: {
+      command: ["tickets", "search"],
+      args: ["q"],
+      summary: "Search ticket titles, descriptions and comments."
+    },
+    parameters: TicketTextSearchQuery.pipe(
+      Schema.fieldsAssign({ orgSlug, projectSlug }),
+      Schema.toType
+    ),
+    success: Schema.Array(TicketTextHit)
+  }),
+  defineTool("list_comments", {
+    title: "List ticket comments",
+    hints: reads,
+    description:
+      "Read a ticket's comments, including their markdown bodies, authors " +
+      "and timestamps. Returns all comments, including imported Jira " +
+      "comments. Use `list_ticket_activity` for changes to the ticket.",
+    cli: {
+      command: ["tickets", "comments"],
+      args: ["id"],
+      summary: "Read a ticket's discussion."
+    },
+    parameters: Schema.Struct({ orgSlug, projectSlug, id: ticketId }),
+    success: Schema.Array(Comment)
+  }),
+  defineTool("list_ticket_activity", {
+    title: "List ticket activity",
+    hints: reads,
+    description:
+      "Read a ticket's change history, newest first, including status, " +
+      "property and relation changes. Git activity is included only when " +
+      "you can read GitHub data. Returns up to 50 stored events per page, " +
+      "with consecutive changes coalesced, actors and referenced people. " +
+      "Pass `nextCursor` back as `cursor` for older history. Comments are " +
+      "separate: use `list_comments` to read the discussion.",
+    cli: {
+      command: ["tickets", "activity"],
+      args: ["id"],
+      summary: "Read a ticket's change history."
+    },
+    parameters: Schema.Struct({
+      orgSlug,
+      projectSlug,
+      id: ticketId,
+      cursor: Pagination.fields.cursor
+    }),
+    success: TicketActivityPage
   }),
   defineTool("get_ticket", {
     title: "Get ticket",

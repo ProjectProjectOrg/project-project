@@ -134,22 +134,43 @@ export const isRows = (
 ): value is ReadonlyArray<Readonly<Record<string, unknown>>> =>
   Array.isArray(value) && value.every(Predicate.isObject)
 
-export const human = (value: unknown): string => {
-  if (isRows(value)) return table(value)
+export type ResultLayout = "table" | "details"
+
+export const human = (
+  value: unknown,
+  layout: ResultLayout = "table"
+): string => {
+  const renderRows = (rows: ReadonlyArray<Row>) =>
+    layout === "table"
+      ? table(rows)
+      : rows.length === 0
+        ? "No results."
+        : rows.map(details).join("\n\n")
+  if (isRows(value)) return renderRows(value)
   if (Predicate.isObject(value)) {
     if ("items" in value && isRows(value.items)) {
       const more =
         "nextCursor" in value && Predicate.isString(value.nextCursor)
           ? `\n\nMore results: pass --cursor ${value.nextCursor}`
           : ""
-      return `${table(value.items)}${more}`
+      const { items, nextCursor, ...context } = value
+      const contextText = layout === "details" ? details(context) : ""
+      return (
+        [renderRows(items), contextText]
+          .filter((text) => text !== "")
+          .join("\n\n") + more
+      )
     }
     return details(value)
   }
   return cell(value)
 }
 
-export const printResult = (value: unknown, json: boolean) =>
+export const printResult = (
+  value: unknown,
+  json: boolean,
+  layout: ResultLayout = "table"
+) =>
   json
     ? Effect.flatMap(encodeJson(value).pipe(Effect.orDie), Console.log)
-    : Console.log(human(value))
+    : Console.log(human(value, layout))

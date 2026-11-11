@@ -22,6 +22,7 @@ import {
 } from "@pp/db/schema"
 import * as Access from "@pp/server-core/access/Access"
 import { accessLayer, projectScope } from "@pp/server-core/access/testing"
+import * as TicketActivityFeed from "@pp/server-core/activity/TicketActivityFeed"
 import * as Attachments from "@pp/server-core/attachments/Attachments"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
@@ -289,6 +290,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
       Layer.mock(BetterAuth.BetterAuth, {}),
       Layer.mock(ProjectDocs.ProjectDocs, {}),
       Layer.mock(GroupDocs.GroupDocs, {}),
+      Layer.mock(TicketActivityFeed.TicketActivityFeed, {}),
       Layer.mock(TicketIndex.TicketIndex, {}),
       Layer.mock(TicketIndexMaintenance.TicketIndexMaintenance, {}),
       Layer.mock(ProjectStatuses.ProjectStatuses, {}),
@@ -966,6 +968,7 @@ describe("MCP attachment contracts", () => {
             Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {}),
             Layer.mock(Tags.Tags, {}),
             Layer.mock(TicketDocs.TicketDocs, {}),
+            Layer.mock(TicketActivityFeed.TicketActivityFeed, {}),
             Layer.mock(TicketIndex.TicketIndex, {}),
             Layer.mock(TicketIndexMaintenance.TicketIndexMaintenance, {}),
             Layer.mergeAll(

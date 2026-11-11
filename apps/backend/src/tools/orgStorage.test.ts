@@ -1,5 +1,6 @@
 import { it } from "@effect/vitest"
 import { accessLayer, orgScope } from "@pp/server-core/access/testing"
+import * as TicketActivityFeed from "@pp/server-core/activity/TicketActivityFeed"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as Comments from "@pp/server-core/comments/Comments"
@@ -93,6 +94,7 @@ const unused = Layer.mergeAll(
   Layer.mock(ProjectDocs.ProjectDocs, {}),
   Layer.mock(GroupDocs.GroupDocs, {}),
   Layer.mock(TicketDocs.TicketDocs, {}),
+  Layer.mock(TicketActivityFeed.TicketActivityFeed, {}),
   Layer.mock(TicketIndex.TicketIndex, {}),
   Layer.mock(TicketIndexMaintenance.TicketIndexMaintenance, {}),
   Layer.mock(ProjectStatuses.ProjectStatuses, {}),
