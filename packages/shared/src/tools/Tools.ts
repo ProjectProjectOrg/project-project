@@ -879,8 +879,9 @@ export const Tools = Toolkit.make(
       "has it and takes the destination's first status otherwise.\n\n" +
       "Mentions are kept: those in the ticket that point at the old " +
       "project become cross-project mentions, and mentions of the ticket " +
-      "in its old project are repointed. You need to be able to create " +
-      "tickets in the destination. Returns the destination project and " +
+      "in its old project are repointed. Only a PM of the ticket's project " +
+      "can move it, and you need to be able to create tickets in the " +
+      "destination. Returns the destination project and " +
       "the new id, with `moved` listing every old and new id.",
     cli: {
       command: ["tickets", "move"],

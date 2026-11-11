@@ -717,7 +717,7 @@ export const ToolHandlersLive = Tools.toLayer(
       update_ticket: run.project("membership", update_ticket),
       archive_ticket: run.project({ ticket: ["update"] }, archive_ticket),
       restore_ticket: run.project({ ticket: ["update"] }, restore_ticket),
-      move_ticket: run.project({ ticket: ["update"] }, move_ticket),
+      move_ticket: run.project({ ticket: ["delete"] }, move_ticket),
       mark_ticket: run.project({ ticket: ["update"] }, mark_ticket),
       unmark_ticket: run.project({ ticket: ["update"] }, unmark_ticket),
       prepare_ticket_attachment: run.project(

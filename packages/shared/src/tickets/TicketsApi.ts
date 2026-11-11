@@ -513,7 +513,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         error: [Unauthorized, NotFound, Forbidden, Conflict, Validation]
       }
     )
-      .annotate(RequiresProject, { ticket: ["update"] })
+      .annotate(RequiresProject, { ticket: ["delete"] })
       .middleware(ProjectAccess)
   )
   .add(
