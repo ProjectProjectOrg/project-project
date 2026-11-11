@@ -16,7 +16,7 @@ This file describes the system as it is. Keep it current in the same PR as the c
 | Backend            | Effect `HttpApi`, schema-first, sharing one contract with the frontend |
 | Database           | Postgres via Drizzle and Effect SQL                                    |
 | Durable work       | Effect workflows on the Postgres-backed SQL workflow engine            |
-| Auth               | Better Auth: GitHub, Google and magic-link sign-in, organizations, admin, JWT, OAuth provider for MCP and the CLI |
+| Auth               | Better Auth: GitHub, Google, Microsoft and magic-link sign-in, organizations, admin, JWT, OAuth provider for MCP and the CLI |
 | Markdown storage   | `PROJECTS_DIR` on disk (bind-mounted in production)                    |
 | Object storage     | Per-organization S3 connection for attachments and images              |
 | Frontend           | React SPA on TanStack Router (Vite plugin), `@effect/atom-react`, TanStack Form |

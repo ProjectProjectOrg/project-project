@@ -124,7 +124,7 @@ by invitation.
    It creates the organization, the owner identity, and their `owner`
    membership. The command is repeat-safe: re-running reports the existing
    records instead of creating duplicates. Use the same email the owner will
-   sign in with (magic link or Google).
+   sign in with (magic link, Google or Microsoft).
 
 2. **Owner signs in and invites the team.** The owner signs in with the
    configured email, opens org settings → members, and invites teammates by

@@ -45,7 +45,7 @@ export function LoginPage() {
     redirectTarget.startsWith("/api/integrations/slack/oauth/start?")
       ? redirectTarget
       : null)
-  const [googleError, setGoogleError] = useState<string | null>(null)
+  const [providerError, setProviderError] = useState<string | null>(null)
   const cardRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -59,15 +59,19 @@ export function LoginPage() {
     return <Navigate to="/" href={redirectTarget} />
   }
 
-  async function handleGoogleSignIn() {
-    setGoogleError(null)
+  async function handleSocialSignIn(
+    provider: "google" | "microsoft",
+    errorMessage: () => string
+  ) {
+    setProviderError(null)
     try {
-      await authClient.signIn.social({
-        provider: "google",
+      const { error } = await authClient.signIn.social({
+        provider,
         callbackURL: oauthContinuationTarget ?? redirectTarget
       })
+      if (error) setProviderError(errorMessage())
     } catch {
-      setGoogleError(m.auth_google_sign_in_error())
+      setProviderError(errorMessage())
     }
   }
 
@@ -111,8 +115,8 @@ export function LoginPage() {
         <div className="flex w-full flex-col gap-3 px-8 pb-8">
           <MagicLinkForm
             callbackURL={oauthContinuationTarget ?? redirectTarget}
-            otherError={googleError}
-            onSubmitStart={() => setGoogleError(null)}
+            otherError={providerError}
+            onSubmitStart={() => setProviderError(null)}
           />
 
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
@@ -123,12 +127,26 @@ export function LoginPage() {
 
           <Button
             variant="tertiary"
-            onClick={handleGoogleSignIn}
+            onClick={() =>
+              handleSocialSignIn("google", m.auth_google_sign_in_error)
+            }
             leadingIcon={GoogleMark}
             size="lg"
             className="w-full"
           >
             {m.auth_continue_with_google_button()}
+          </Button>
+
+          <Button
+            variant="tertiary"
+            onClick={() =>
+              handleSocialSignIn("microsoft", m.auth_microsoft_sign_in_error)
+            }
+            leadingIcon={MicrosoftMark}
+            size="lg"
+            className="w-full"
+          >
+            {m.auth_continue_with_microsoft_button()}
           </Button>
         </div>
 
@@ -172,6 +190,30 @@ function GoogleMark({
         fill="#EA4335"
         d="M12 5.99c1.47 0 2.78.5 3.82 1.49l2.87-2.87C16.96 3 14.7 2 12 2a10 10 0 0 0-8.94 5.51l3.35 2.6C7.2 7.75 9.4 5.99 12 5.99Z"
       />
+    </svg>
+  )
+}
+
+function MicrosoftMark({
+  size = 16,
+  className
+}: {
+  size?: number
+  className?: string
+}) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden="true"
+    >
+      <path fill="#F25022" d="M2 2h9.5v9.5H2z" />
+      <path fill="#7FBA00" d="M12.5 2H22v9.5h-9.5z" />
+      <path fill="#00A4EF" d="M2 12.5h9.5V22H2z" />
+      <path fill="#FFB900" d="M12.5 12.5H22V22h-9.5z" />
     </svg>
   )
 }

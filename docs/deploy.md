@@ -79,6 +79,8 @@ Edit `.env` and fill in:
 - `BETTER_AUTH_SECRET` — `openssl rand -hex 32`.
 - `BETTER_AUTH_URL` — the public HTTPS URL you'll point at this VM.
 - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — from your GitHub OAuth app.
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — optional, from a Google OAuth client. Redirect URI: `https://<your-public-host>/api/auth/callback/google`.
+- `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` / `MICROSOFT_TENANT_ID` — optional, from a Microsoft Entra ID app registration. Redirect URI (Web platform): `https://<your-public-host>/api/auth/callback/microsoft`. `MICROSOFT_TENANT_ID` defaults to `common`; set your tenant ID to allow only your organization. Under _Token configuration_, add the `xms_edov` optional ID token claim: without it Microsoft emails count as unverified, so those users can't accept invites or sign in to an account that already exists.
 - `GITHUB_APP_WEBHOOK_SECRET` — the secret configured on the GitHub App webhook.
 - `BOOTSTRAP_ORG_SLUG` / `BOOTSTRAP_ORG_NAME` — the first organization to create.
 - `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_NAME` / `BOOTSTRAP_OWNER_USERNAME` — the initial owner identity. Use the same email and username as the GitHub account that will sign in.
@@ -136,7 +138,7 @@ docker compose run --rm app bun run bootstrap:org
 
 The command is repeat-safe. Re-running it reports the existing org, owner,
 and membership instead of creating duplicates. After bootstrap, the owner signs
-in with the configured email (magic link or Google), then invites teammates
+in with the configured email (magic link, Google or Microsoft), then invites teammates
 from org settings. Invited users open their invite link (or `/welcome`), sign
 in with the invited email, and land inside the org. Connecting a personal
 GitHub account for branch automation happens later, from the profile page.
