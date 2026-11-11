@@ -369,6 +369,13 @@ describe("MARKDOWN_TRANSFORMERS", () => {
   })
 
   it.each([
+    ["**outer __inner__ outer**", "**outer inner outer**"],
+    ["*outer _inner_ outer*", "*outer inner outer*"]
+  ])("preserves repeated nested formatting in %s", (markdown, expected) => {
+    expect(roundTripMarkdown(markdown)).toBe(expected)
+  })
+
+  it.each([
     "Code: ``const marker = `value` ``.",
     "Code: ```one `` two ` three```.",
     "Code: `**literal** [link](https://example.com)`.",
@@ -546,6 +553,28 @@ it.each([
     expect(roundTripAttachmentMarkdown(saved)).toBe(saved)
   }
 )
+
+it("saves an ordinary image after restoring the editor's serialized state", () => {
+  const editor = createEditor({
+    nodes: [ImageNode],
+    onError: (error) => {
+      throw error
+    }
+  })
+  const markdown = '![ProjectProject icon](/icon/icon-192.png "Icon")'
+  editor.update(
+    () => {
+      $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS)
+    },
+    { discrete: true }
+  )
+  editor.setEditorState(
+    editor.parseEditorState(editor.getEditorState().toJSON())
+  )
+  expect(
+    editor.read(() => $convertToMarkdownString(MARKDOWN_TRANSFORMERS))
+  ).toBe(markdown)
+})
 
 describe("figma links in the assembled transformer pipeline", () => {
   it("round-trips a figma design link with a node id", () => {
@@ -752,10 +781,15 @@ describe("ticket blocks", () => {
     return { types, blockChildren }
   }
 
-  it("round-trips a block with loose text around it", () => {
-    const markdown = ["Intro.", "", CRITERIA_BLOCK, "", "Outro."].join("\n")
-    expect(roundTripMarkdown(markdown)).toBe(markdown)
-  })
+  it.each(["\n", "\n\n"])(
+    "preserves prose around a block separated by %j",
+    (separator) => {
+      const markdown = "Intro.\n\n" + CRITERIA_BLOCK + separator + "Outro."
+      expect(roundTripMarkdown(markdown)).toBe(
+        "Intro.\n\n" + CRITERIA_BLOCK + "\n\nOutro."
+      )
+    }
+  )
 
   it("imports a block as one node holding its markdown as children", () => {
     expect(importedRootTypes(CRITERIA_BLOCK)).toEqual({

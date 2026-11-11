@@ -26,7 +26,8 @@ export class ImageNode extends DecoratorNode<ReactElement> {
   }
 
   static importJSON(serialized: SerializedImageNode): ImageNode {
-    return $createImageNode(serialized)
+    const { url, alt, title } = serialized
+    return $createImageNode({ url, alt, title })
   }
 
   constructor(image: ImagePayload, key?: NodeKey) {

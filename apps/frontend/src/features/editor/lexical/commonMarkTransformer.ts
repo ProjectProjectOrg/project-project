@@ -134,12 +134,11 @@ function appendBlocks(
   nodes: ReadonlyArray<Nodes>,
   context: ImportContext
 ): void {
-  let consumedLine = 0
   for (const node of nodes) {
-    if ((node.position?.start.line ?? 0) <= consumedLine) continue
     if (node.type === "html" && node.position !== undefined) {
       const startLineIndex = node.position.start.line - 1
       const line = context.lines[startLineIndex]
+      let consumedLine = 0
       const handled = context.transformers.some((transformer) => {
         if (
           transformer.type !== "multiline-element" ||
@@ -159,7 +158,17 @@ function appendBlocks(
         consumedLine = result[1] + 1
         return true
       })
-      if (handled) continue
+      if (handled) {
+        const remaining = context.lines
+          .slice(consumedLine, nodes.at(-1)?.position?.end.line)
+          .join("\n")
+        appendBlocks(parent, parseMarkdown(remaining).children, {
+          ...context,
+          source: remaining,
+          lines: remaining.split("\n")
+        })
+        return
+      }
     }
     parent.append(...importNode(node, context))
   }
@@ -184,7 +193,7 @@ function inlineNodes(
     }
     if (node.type === "text" || node.type === "inlineCode") {
       const text = $createTextNode(node.value)
-      for (const format of formats) text.toggleFormat(format)
+      for (const format of new Set(formats)) text.toggleFormat(format)
       if (node.type === "inlineCode") text.toggleFormat("code")
       if (node.type === "text") {
         for (const transformer of context.transformers) {
