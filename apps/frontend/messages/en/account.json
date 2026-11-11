@@ -65,7 +65,6 @@
   "auth_welcome_body": "This instance is invite-only. Sign out and open an invitation sent to this email address, or try another account.",
   "auth_welcome_sign_out_button": "Sign out",
   "auth_welcome_title": "Waiting for an invite",
-  "auth_welcome_try_another_account_button": "Try another account",
   "profile_cli_install_description": "Paste this into Terminal on macOS or Linux. It installs pp to ~/.local/bin and signs you in through your browser. Open a new Terminal window afterwards.",
   "profile_cli_install_title": "Install the CLI",
   "profile_command_cli": "CLI setup and usage",
