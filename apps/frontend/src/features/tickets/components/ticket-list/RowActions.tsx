@@ -7,6 +7,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import {
   Archive,
   ArchiveRestore,
+  FolderInput,
   MoreHorizontal,
   Split,
   Trash2,
@@ -32,6 +33,7 @@ import {
   unarchiveTicket
 } from "@/features/tickets/atoms/ticketDetail"
 import { ArchiveForm } from "@/features/tickets/components/ticket-list/ArchiveControl"
+import { MoveTicketForm } from "@/features/tickets/components/ticket-list/MoveControl"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
@@ -49,6 +51,7 @@ export function TicketRowActions({
   const { orgSlug, slug } = useProjectRoute()
   const [archiving, setArchiving] = useState(false)
   const [reason, setReason] = useState("")
+  const [moving, setMoving] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
   const req = ticketRequest(orgSlug, slug, id)
   const archive = useAtomSet(archiveTicket(req), { mode: "promiseExit" })
@@ -60,6 +63,7 @@ export function TicketRowActions({
   const actor = useProjectActor()
   const canArchive = actor.call("tickets", "archive")
   const canDelete = actor.call("tickets", "delete")
+  const canMove = actor.call("tickets", "move")
   const detachFrom =
     onDetach !== undefined && TicketPolicy.canChange(actor, { content: true })
       ? parent
@@ -121,6 +125,15 @@ export function TicketRowActions({
                 <Split className="size-4" strokeWidth={1.75} />
                 {m.tickets_split_menu_item()}
               </DropdownMenuItem>
+              {canMove && (
+                <DropdownMenuItem
+                  onClick={() => setMoving(true)}
+                  className="cursor-pointer"
+                >
+                  <FolderInput className="size-4" strokeWidth={1.75} />
+                  {m.tickets_move_menu_item()}
+                </DropdownMenuItem>
+              )}
               {archived ? (
                 <DropdownMenuItem
                   disabled={unarchiveState.waiting}
@@ -177,6 +190,19 @@ export function TicketRowActions({
             failed={Result.isFailure(archiveState)}
             onClose={() => setArchiving(false)}
           />
+        </PopoverContent>
+      </Popover>
+      <Popover open={moving} onOpenChange={setMoving}>
+        <PopoverContent
+          anchor={trigger}
+          align="end"
+          sideOffset={6}
+          className="w-80"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {moving && (
+            <MoveTicketForm id={id} onClose={() => setMoving(false)} />
+          )}
         </PopoverContent>
       </Popover>
       <ConfirmButton.Popover anchor={trigger} className="w-72">

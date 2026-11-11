@@ -99,6 +99,16 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           commands.split(params.id, payload)
         ).pipe(dieOnMarkdown)
       )
+      .handle("move", ({ params, payload }) =>
+        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+          commands.move(params.id, payload)
+        ).pipe(dieOnMarkdown)
+      )
+      .handle("movedTo", ({ params }) =>
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.movedTo(params.id)
+        )
+      )
       .handle("archive", ({ params, payload }) =>
         Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
           commands.archive(params.id, payload.reason)

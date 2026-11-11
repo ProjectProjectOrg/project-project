@@ -1,6 +1,7 @@
 import type {
   ArchiveTicketInput,
   DeleteTicketQuery,
+  MoveTicketInput,
   SplitTicketInput,
   TicketId,
   UpdateTicketInput
@@ -51,6 +52,17 @@ export const ticketQuery = (req: TicketRequest) =>
 
 export const ticketDetail = Atom.family((req: TicketRequest) =>
   Atom.optimistic(ticketQuery(req))
+)
+
+const movedTicketQuery = (req: TicketRequest) =>
+  query("tickets", "movedTo", {
+    params: req.params,
+    timeToLive: "2 minutes",
+    reactivityKeys: [Keys.ticket(scopeOf(req), req.params.id)]
+  })
+
+export const movedTicket = Atom.family((req: TicketRequest) =>
+  Atom.optimistic(movedTicketQuery(req))
 )
 
 export const ticketBodyDraft = Atom.family((_req: TicketRequest) =>
@@ -111,6 +123,24 @@ export const deleteTicket = Atom.family((req: TicketRequest) =>
         client.tickets.delete({ params: req.params, query })
       )
       yield* Reactivity.invalidate(Keys.ticketsChanged(scopeOf(req)))
+    })
+  )
+)
+
+export const moveTicket = Atom.family((req: TicketRequest) =>
+  Api.runtime.fn(
+    Effect.fn("moveTicket")(function* (input: MoveTicketInput) {
+      const result = yield* Api.use((client) =>
+        client.tickets.move({ params: req.params, payload: input })
+      )
+      yield* Reactivity.invalidate([
+        ...Keys.ticketChanged(scopeOf(req), req.params.id),
+        Keys.sprintMembership(scopeOf(req)),
+        ...Keys.ticketsChanged(
+          projectScope(req.params.orgSlug, result.projectSlug)
+        )
+      ])
+      return result
     })
   )
 )

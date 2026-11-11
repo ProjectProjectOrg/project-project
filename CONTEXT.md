@@ -45,6 +45,10 @@ A ticket of type `epic`. It can hold sub-tickets of any type.
 A ticket with a parent. An epic, a ticket with no parent, or a child of an epic can be a parent, so nesting stops two levels below an epic.
 _Avoid_: Child issue, subtask
 
+**Move**:
+Taking a ticket, with its sub-tickets, to another project in the same org. It gets a new id there and remembers the old ones in `movedFrom`, so old links and mentions keep resolving.
+_Avoid_: Transfer, migrate (that is the Jira import)
+
 **Status**:
 A project-defined column a ticket moves through. Projects start with `todo`, `in_progress` and `done` and can add their own.
 

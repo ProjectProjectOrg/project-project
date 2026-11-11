@@ -687,6 +687,10 @@ export const ticketIndex = pgTable(
       .notNull()
       .default(sql`'{}'::text[]`),
     parent: text("parent"),
+    movedFrom: text("moved_from")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     branch: text("branch"),
     pr: integer("pr"),
     prState: text("pr_state", { enum: ["open", "closed", "merged"] }),
@@ -722,6 +726,7 @@ export const ticketIndex = pgTable(
     index("ticket_index_branch_idx").on(t.projectId, t.branch),
     index("ticket_index_updated_idx").on(t.projectId, t.updatedAt),
     index("ticket_index_assignees_idx").using("gin", t.assignees),
+    index("ticket_index_moved_from_idx").using("gin", t.movedFrom),
     index("ticket_index_parent_idx").on(t.projectId, t.parent)
   ]
 )

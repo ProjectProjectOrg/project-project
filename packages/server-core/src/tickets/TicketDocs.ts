@@ -66,6 +66,7 @@ const TicketFrontmatterOnDisk = Schema.Struct({
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
   splitFrom: Schema.optionalKey(TicketId),
+  movedFrom: Schema.optionalKey(Schema.Array(Schema.String)),
   createdBy: Schema.String,
   createdAt: Schema.DateFromString,
   updatedBy: Schema.optionalKey(Schema.String),

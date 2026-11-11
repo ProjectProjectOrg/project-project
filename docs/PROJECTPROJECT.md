@@ -122,6 +122,17 @@ Code blocks, lists, tables, the works.
 
 Ticket IDs are sequential per project.
 
+**Moving a ticket to another project** in the same org gives it a new ID there; its sub-tickets move with it, and an epic that still has tickets can't be moved. The file, its comments, attachments and activity move; the ticket leaves its sprint and epic. The moved ticket lists every earlier location in its frontmatter, oldest first:
+
+```yaml
+movedFrom:
+  - feedback/FB-12 # <project-slug>/<ticket-id>
+```
+
+The ticket index mirrors `movedFrom`, so an old URL redirects to the ticket and an old mention still resolves. Status, tags, assignees and the estimate are kept where the destination has them, and the branch link is kept when both projects use the same repository.
+
+A ticket mention is `mention:ticket/<id>` inside its own project and `mention:ticket/<project-slug>/<id>` across projects. A move rewrites the mentions in the moved ticket and the mentions of it in its old project.
+
 ### What lives in Postgres
 
 - **Identity and access:** Better Auth's tables, plus project membership, roles and invite grants.

@@ -128,6 +128,8 @@ const makeFakeIndex = (overrides: Partial<FakeIndexShape> = {}) => {
     count: () => Effect.succeed({ total: 0, byStatus: {} }),
     listIds: () => Effect.succeed([]),
     existingIds: () => Effect.succeed(new Set()),
+    mentionableIds: () => Effect.succeed(new Set()),
+    movedTo: () => Effect.succeed(null),
     reserveTicketNumber: () => Effect.succeed(1),
     tagUsageCounts: () => Effect.succeed({}),
     findTicketIdsByTag: () => Effect.succeed([]),

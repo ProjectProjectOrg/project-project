@@ -487,6 +487,14 @@ const restore_ticket = (
     commands.unarchive(input.id)
   )
 
+const move_ticket = (input: Tool.Parameters<typeof Tools.tools.move_ticket>) =>
+  Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+    commands.move(input.id, {
+      toProject: input.toProject,
+      status: input.status
+    })
+  )
+
 const prepare_ticket_attachment = (
   input: Tool.Parameters<typeof Tools.tools.prepare_ticket_attachment>
 ) =>
@@ -694,6 +702,7 @@ export const ToolHandlersLive = Tools.toLayer(
       update_ticket: run.project("membership", update_ticket),
       archive_ticket: run.project({ ticket: ["update"] }, archive_ticket),
       restore_ticket: run.project({ ticket: ["update"] }, restore_ticket),
+      move_ticket: run.project({ ticket: ["update"] }, move_ticket),
       prepare_ticket_attachment: run.project(
         { attachment: ["upload"] },
         prepare_ticket_attachment

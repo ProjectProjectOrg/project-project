@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import { TicketId } from "@pp/shared"
-import { getRouteApi } from "@tanstack/react-router"
+import { getRouteApi, Navigate } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
@@ -10,8 +10,10 @@ import { ErrorPage } from "@/components/shell/ErrorPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
 import { useProject } from "@/features/projects/hooks/useProject"
 import {
+  movedTicket,
   ticketDetail,
-  ticketRequest
+  ticketRequest,
+  type TicketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import {
   TicketPage,
@@ -24,6 +26,31 @@ const routeApi = getRouteApi(
 )
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
+
+function MovedTicketRedirect({ req }: Readonly<{ req: TicketRequest }>) {
+  const result = useAtomValue(movedTicket(req))
+  if (Result.isInitial(result)) return <TicketPageSkeleton />
+  if (!Result.isSuccess(result)) {
+    return (
+      <NotFoundPage
+        contained
+        title={m.tickets_not_found_title()}
+        body={m.tickets_not_found_body()}
+      />
+    )
+  }
+  return (
+    <Navigate
+      to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+      params={{
+        orgSlug: req.params.orgSlug,
+        slug: result.value.projectSlug,
+        id: result.value.id
+      }}
+      replace
+    />
+  )
+}
 
 export function TicketDetail() {
   const { orgSlug, slug, id } = routeApi.useParams()
@@ -49,13 +76,7 @@ export function TicketDetail() {
     onInitial: () => <TicketPageSkeleton />,
     onError: (error) =>
       Match.value(error).pipe(
-        Match.tag("NotFound", () => (
-          <NotFoundPage
-            contained
-            title={m.tickets_not_found_title()}
-            body={m.tickets_not_found_body()}
-          />
-        )),
+        Match.tag("NotFound", () => <MovedTicketRedirect req={req} />),
         Match.orElse((error) => <ErrorPage contained error={error} />)
       ),
     onDefect: (defect) => <ErrorPage contained error={defect} />,

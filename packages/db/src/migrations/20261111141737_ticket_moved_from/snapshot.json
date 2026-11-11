@@ -1,0 +1,91 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "58b6d86e-a855-496e-a524-5996db2fbacd",
+  "prevIds": [
+    "7bff1243-807e-411c-9447-d5e2e0469903"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_index",
+        "moved_from"
+      ],
+      "writes": [
+        "s|col|public.ticket_index.moved_from",
+        "n|col|public.ticket_index.moved_from",
+        "e|col|public.ticket_index.moved_from"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_index",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "ticket_index",
+        "ticket_index_moved_from_idx"
+      ],
+      "writes": [
+        "s|idx|public.ticket_index_moved_from_idx",
+        "n|idx|public.ticket_index_moved_from_idx",
+        "e|idx|public.ticket_index_moved_from_idx",
+        "n|rel|public.ticket_index_moved_from_idx"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_index",
+        "n|sch|public",
+        "n|col|public.ticket_index.moved_from"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_index",
+        "name": "moved_from",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 1,
+        "default": "'{}'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_index",
+        "name": "ticket_index_moved_from_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "moved_from",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "gin",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    }
+  ]
+}

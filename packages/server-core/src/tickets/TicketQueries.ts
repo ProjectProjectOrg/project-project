@@ -12,7 +12,9 @@ import {
   MY_TICKETS_PAGE_SIZE,
   MY_TICKETS_PER_PROJECT,
   type MyTicketsQuery,
-  type NotFound,
+  NotFound,
+  MovedTicketLocation,
+  type CurrentUser,
   OrgScope,
   type OrgTicketPage,
   type OrgTicketRow,
@@ -249,8 +251,17 @@ export class TicketQueries extends Context.Service<
     get: (
       id: string
     ) => Effect.Effect<TicketDetail, TicketReadError, ProjectScope>
+    movedTo: (
+      id: string
+    ) => Effect.Effect<
+      MovedTicketLocation,
+      NotFound,
+      ProjectScope | CurrentUser
+    >
   }>
 >()("@pp/server-core/tickets/TicketQueries") {}
+
+const decodeMovedTicketLocation = Schema.decodeUnknownSync(MovedTicketLocation)
 
 const make = Effect.gen(function* () {
   const ticketIndex = yield* TicketIndex.TicketIndex
@@ -916,7 +927,22 @@ const make = Effect.gen(function* () {
     })
   })
 
+  const movedTo = Effect.fn("TicketQueries.movedTo")(function* (id: string) {
+    const scope = yield* ProjectScope
+    const found = yield* ticketIndex.movedTo(scope, id)
+    if (found === null) return yield* new NotFound()
+    const destination = yield* access.project(scope.orgSlug, found.projectSlug)
+    if (!destination.permissions.can({ ticket: ["read"] })) {
+      return yield* new NotFound()
+    }
+    return decodeMovedTicketLocation({
+      projectSlug: found.projectSlug,
+      id: found.ticketId
+    })
+  })
+
   return TicketQueries.of({
+    movedTo,
     mine,
     mineByProject,
     recent,

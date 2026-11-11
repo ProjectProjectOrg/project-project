@@ -149,7 +149,7 @@ const make = Effect.gen(function* () {
   const validateBody = (project: TicketProject, body: string) =>
     validateBodyMentionsWithLookups(body, {
       existingTicketIds: (ticketIds) =>
-        ticketIndex.existingIds(project, ticketIds),
+        ticketIndex.mentionableIds(project, ticketIds),
       memberIds: () => projectMembers.memberIds()
     })
 

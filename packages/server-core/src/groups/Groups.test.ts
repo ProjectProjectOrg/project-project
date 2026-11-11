@@ -236,6 +236,11 @@ function makeFakeDocs(initial?: {
       Effect.succeed(
         new Set(ticketIds.filter((ticketId) => ticketsById.has(ticketId)))
       ),
+    mentionableIds: (_project, ticketIds) =>
+      Effect.succeed(
+        new Set(ticketIds.filter((ticketId) => ticketsById.has(ticketId)))
+      ),
+    movedTo: () => Effect.succeed(null),
     reserveTicketNumber: () =>
       Effect.sync(
         () =>

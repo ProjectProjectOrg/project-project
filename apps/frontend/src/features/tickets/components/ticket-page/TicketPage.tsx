@@ -7,6 +7,7 @@ import type {
   TicketId,
   UpdateTicketInput
 } from "@pp/shared"
+import { useNavigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Archive } from "lucide-react"
 import { useState } from "react"
@@ -28,6 +29,7 @@ import {
 import { ArchiveTicketControl } from "@/features/tickets/components/ticket-list/ArchiveControl"
 import { AssigneePicker } from "@/features/tickets/components/ticket-list/AssigneeField"
 import { EstimateBadgeTrigger } from "@/features/tickets/components/ticket-list/EstimateField"
+import { MoveTicketControl } from "@/features/tickets/components/ticket-list/MoveControl"
 import { PriorityBadgeTrigger } from "@/features/tickets/components/ticket-list/PriorityField"
 import { SplitTicketControl } from "@/features/tickets/components/ticket-list/SplitControl"
 import { SprintBadgeTrigger } from "@/features/tickets/components/ticket-list/SprintField"
@@ -70,6 +72,7 @@ export function TicketPage({
   splitInto?: ReadonlyArray<TicketId>
 }) {
   const { orgSlug, slug } = useProjectRoute()
+  const navigate = useNavigate()
   const req = ticketRequest(orgSlug, slug, ticket.id)
   const updateTicket = useAtomSet(updateTicketDetail(req))
   const patchTicket = useAtomSet(updateTicketDetail(req), {
@@ -109,6 +112,17 @@ export function TicketPage({
           />
           {canEdit && actor.call("tickets", "split") && (
             <SplitTicketControl id={ticket.id} />
+          )}
+          {actor.call("tickets", "move") && (
+            <MoveTicketControl
+              id={ticket.id}
+              onMoved={(moved) =>
+                void navigate({
+                  to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
+                  params: { orgSlug, slug: moved.projectSlug, id: moved.id }
+                })
+              }
+            />
           )}
           {actor.call("tickets", "archive") && (
             <ArchiveTicketControl

@@ -48,3 +48,36 @@ export function extractMentionLinks(body: string): ReadonlyArray<MentionLink> {
   }
   return out
 }
+
+export type TicketMentionTarget = Readonly<{
+  projectSlug: string | null
+  ticketId: string
+}>
+
+export const parseTicketMentionId = (id: string): TicketMentionTarget => {
+  const slash = id.indexOf("/")
+  return slash < 0
+    ? { projectSlug: null, ticketId: id }
+    : { projectSlug: id.slice(0, slash), ticketId: id.slice(slash + 1) }
+}
+
+export const formatTicketMentionId = (target: TicketMentionTarget): string =>
+  target.projectSlug === null
+    ? target.ticketId
+    : `${target.projectSlug}/${target.ticketId}`
+
+export const rewriteTicketMentions = (
+  text: string,
+  rewrite: (target: TicketMentionTarget) => TicketMentionTarget | null
+): string =>
+  text.includes("](mention:ticket/")
+    ? text.replace(MENTION_LINK_RE, (match, label: string, href: string) => {
+        const parsed = parseMentionHref(href)
+        if (parsed?.type !== "ticket") return match
+        const current = parseTicketMentionId(parsed.id)
+        const next = rewrite(current)
+        if (next === null) return match
+        const relabelled = label === current.ticketId ? next.ticketId : label
+        return `[${relabelled}](${formatMentionHref("ticket", formatTicketMentionId(next))})`
+      })
+    : text
