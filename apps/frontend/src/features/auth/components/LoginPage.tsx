@@ -65,10 +65,11 @@ export function LoginPage() {
   ) {
     setProviderError(null)
     try {
-      await authClient.signIn.social({
+      const { error } = await authClient.signIn.social({
         provider,
         callbackURL: oauthContinuationTarget ?? redirectTarget
       })
+      if (error) setProviderError(errorMessage())
     } catch {
       setProviderError(errorMessage())
     }

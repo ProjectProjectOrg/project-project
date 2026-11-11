@@ -260,6 +260,11 @@ export const toolsResource = new URL(
 
 const DAY_SECONDS = 24 * 60 * 60
 
+// Entra's `xms_edov` optional claim: the tenant proved it owns the email's domain.
+const microsoftDomainVerified = (claims: {
+  readonly xms_edov?: boolean | number | string
+}) => [true, 1, "1", "true"].includes(claims.xms_edov ?? false)
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -312,7 +317,10 @@ export const auth = betterAuth({
     microsoft: {
       clientId: process.env.MICROSOFT_CLIENT_ID!,
       clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-      tenantId: process.env.MICROSOFT_TENANT_ID ?? "common"
+      tenantId: process.env.MICROSOFT_TENANT_ID ?? "common",
+      disableProfilePhoto: true,
+      mapProfileToUser: (profile) =>
+        microsoftDomainVerified(profile) ? { emailVerified: true } : {}
     }
   },
   session: {
