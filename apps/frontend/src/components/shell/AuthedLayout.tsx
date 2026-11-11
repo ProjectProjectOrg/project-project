@@ -23,6 +23,7 @@ import { RunningTimerIndicator } from "@/features/everhour/components/RunningTim
 import { SendFeedbackDialogHost } from "@/features/feedback/components/SendFeedbackDialog"
 import { CreateSprintDialogHost } from "@/features/sprints/components/CreateSprintDialog"
 import { CreateTicketDialogHost } from "@/features/tickets/components/create-ticket/CreateTicketDialog"
+import { TicketPreviewRoot } from "@/features/tickets/components/ticket-preview/TicketPreview"
 import { PageBackdropContext } from "@/lib/pageBackdrop"
 
 export function AuthedLayout() {
@@ -87,6 +88,7 @@ function Shell({ user }: { user: User }) {
       {user.activeOrgSlug ? (
         <CommandMenuHost orgSlug={user.activeOrgSlug} />
       ) : null}
+      <TicketPreviewRoot />
       <CreateTicketDialogHost />
       <CreateSprintDialogHost />
       <SendFeedbackDialogHost />

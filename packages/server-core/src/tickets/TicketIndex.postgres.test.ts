@@ -2815,6 +2815,48 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
       }).pipe(Effect.provide(TestLayer))
     )
 
+    it.effect(
+      "nests manual board children across statuses without hiding children of filtered parents",
+      () =>
+        Effect.gen(function* () {
+          const { index, project } = yield* seedStatusProject
+          yield* index.upsertTicket(
+            project,
+            indexedDocument("T-5", {
+              parent: ticketId("T-1"),
+              type: "bug",
+              status: ticketStatus("todo")
+            })
+          )
+          const ticketIds = ["T-1", "T-5", "T-2", "T-4", "T-3"]
+          const find = (id: string, status?: TicketFilter["status"]) =>
+            index.neighbors(
+              project,
+              { ...byId, subTickets: "nested", status },
+              {
+                viewerId: "viewer",
+                ticketId: id,
+                ticketIds,
+                sections: { kind: "status" },
+                within: { kind: "manual", ticketIds }
+              }
+            )
+          expect(yield* find("T-3")).toEqual({
+            prev: { id: "T-2", title: "T-2" },
+            next: { id: "T-1", title: "T-1" },
+            position: 2,
+            total: 4
+          })
+          expect(yield* find("T-5")).toBeNull()
+          expect(yield* find("T-5", [ticketStatus("todo")])).toEqual({
+            prev: null,
+            next: { id: "T-2", title: "T-2" },
+            position: 1,
+            total: 3
+          })
+        }).pipe(Effect.provide(TestLayer))
+    )
+
     it.effect("returns null for a ticket the view filters out", () =>
       Effect.gen(function* () {
         const { index, project } = yield* seedStatusProject

@@ -1259,7 +1259,9 @@ const make = Effect.gen(function* () {
     const order = options.sections
     const sections = order.kind === "explicit" ? order.sections : order.kind
     const nestWithin: NestWithin | undefined =
-      sections === "parent" || sections === "ticketParent"
+      options.within.kind === "manual" ||
+      sections === "parent" ||
+      sections === "ticketParent"
         ? undefined
         : (row) => sectionExpression(sections, row)
     const ordinal =

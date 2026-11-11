@@ -2,7 +2,6 @@ import { PreviewCard } from "@base-ui/react/preview-card"
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import {
   finishedStatusSlugs,
-  type LinkedTicket,
   type TicketId,
   type TicketStatus
 } from "@pp/shared"
@@ -18,11 +17,16 @@ import {
 } from "react"
 
 import { PreviewCardContent } from "@/components/ui/preview-card"
+import type { ProjectRequest } from "@/features/projects/atoms/projects"
 import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
-import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import {
+  ProjectContext,
+  useProjectRequest,
+  useProjectRoute
+} from "@/features/projects/hooks/useProject"
 import {
   childTickets,
   childTicketsRequest
@@ -37,23 +41,23 @@ import {
   TicketPreviewBody
 } from "@/features/tickets/components/TicketHoverCard"
 import {
-  relationGroups,
-  type RelationGroupKey
+  previewRelationGroups,
+  type RelationGroupKey,
+  type RelationPreviewKind
 } from "@/features/tickets/lib/relationGroups"
 import { m } from "@/paraglide/messages"
-
-export type RelationPreviewKind =
-  | "blockedBy"
-  | "blocking"
-  | "related"
-  | "duplicates"
 
 type TicketPreview =
   | Readonly<{ kind: "ticket"; id: TicketId }>
   | Readonly<{ kind: "relations"; id: TicketId; relation: RelationPreviewKind }>
   | Readonly<{ kind: "subTickets"; id: TicketId; label: string }>
 
-const ticketPreview = PreviewCard.createHandle<TicketPreview>()
+type TicketPreviewPayload = Readonly<{
+  project: ProjectRequest
+  preview: TicketPreview
+}>
+
+const ticketPreview = PreviewCard.createHandle<TicketPreviewPayload>()
 
 const PREVIEW_DELAY_MS = 400
 
@@ -65,11 +69,12 @@ export function TicketPreviewTrigger({
     ComponentProps<typeof PreviewCard.Trigger>,
     "handle" | "payload" | "delay" | "onPointerEnter"
   >) {
+  const project = useProjectRequest()
   const warm = useWarmPreview()
   return (
     <PreviewCard.Trigger
       handle={ticketPreview}
-      payload={preview}
+      payload={{ project, preview }}
       delay={PREVIEW_DELAY_MS}
       onPointerEnter={() => warm(preview)}
       onClick={
@@ -113,9 +118,13 @@ export function TicketPreviewRoot() {
       {({ payload }) =>
         payload !== undefined && (
           <PreviewCardContent
-            className={payload.kind === "ticket" ? "w-80" : "w-72 p-1.5"}
+            className={
+              payload.preview.kind === "ticket" ? "w-80" : "w-72 p-1.5"
+            }
           >
-            <PreviewContent preview={payload} />
+            <ProjectContext value={payload.project}>
+              <PreviewContent preview={payload.preview} />
+            </ProjectContext>
           </PreviewCardContent>
         )
       }
@@ -140,20 +149,6 @@ function PreviewContent({ preview }: Readonly<{ preview: TicketPreview }>) {
   return <SubTicketsPreview id={preview.id} label={preview.label} />
 }
 
-const RELATION_GROUPS: Readonly<
-  Record<RelationPreviewKind, ReadonlyArray<RelationGroupKey>>
-> = {
-  blockedBy: ["blockedBy"],
-  blocking: ["blocking"],
-  related: ["related"],
-  duplicates: ["duplicateOf", "duplicates"]
-}
-
-const OPEN_ONLY: ReadonlySet<RelationGroupKey> = new Set([
-  "blockedBy",
-  "blocking"
-])
-
 export const RELATION_PREVIEW_LABELS: Readonly<
   Record<RelationGroupKey, () => string>
 > = {
@@ -175,16 +170,11 @@ function RelationsPreview({
     return <ListSkeleton />
   }
   const finished = new Set(finishedStatusSlugs(statuses.value))
-  const shown = (group: RelationGroupKey, ticket: LinkedTicket) =>
-    ticket.archivedAt === null &&
-    !(OPEN_ONLY.has(group) && finished.has(ticket.status))
-  const groups = relationGroups(detail.value.relations)
-    .filter((group) => RELATION_GROUPS[relation].includes(group.key))
-    .map((group) => ({
-      key: group.key,
-      tickets: group.tickets.filter((ticket) => shown(group.key, ticket))
-    }))
-    .filter((group) => group.tickets.length > 0)
+  const groups = previewRelationGroups(
+    detail.value.relations,
+    relation,
+    finished
+  )
   if (groups.length === 0) return <PreviewEmpty />
   return groups.map((group) => (
     <PreviewList key={group.key} label={RELATION_PREVIEW_LABELS[group.key]()}>

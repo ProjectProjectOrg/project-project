@@ -15,12 +15,13 @@ import {
   TicketPeek,
   TicketPrefetch
 } from "@/features/tickets/components/TicketPeek"
+import { useTicketCommandSearch } from "@/features/tickets/hooks/useTicketCommandSearch"
 import {
   SEARCHING_RANK,
+  ticketCommandValue,
   ticketItem,
-  useTicketCommandSearch,
   type TicketTarget
-} from "@/features/tickets/hooks/useTicketCommandSearch"
+} from "@/features/tickets/lib/ticketCommandTargets"
 import { m } from "@/paraglide/messages"
 
 import type { CommandPageProps } from "../lib/commandPages"
@@ -66,7 +67,6 @@ export const commandItem = (
       : m.chrome_command_menu_run()
 })
 
-const TICKET_VALUE = "open-ticket:"
 const PROJECT_VALUE = "open-project:"
 const SEARCHING_VALUE = "searching-tickets"
 const isTicketId = Schema.is(TicketId)
@@ -126,11 +126,14 @@ export function RootCommands({
   const tickets = [...recent, ...found].filter(
     (target) => !(onOwnPage && isContextTicket(self, target))
   )
+  const ticketsByValue = new Map(
+    tickets.map((target) => [ticketCommandValue(target), target])
+  )
   const targets = new Map<string, string>([
     ...tickets.map(
       (target) =>
         [
-          `${TICKET_VALUE}${target.id}`,
+          ticketCommandValue(target),
           `/orgs/${context.orgSlug}/projects/${target.projectSlug}/tickets/${target.id}`
         ] as const
     ),
@@ -156,7 +159,6 @@ export function RootCommands({
     })),
     ...tickets.map((target) => ({
       ...ticketItem(target, m.tickets_command_group_results(), {
-        valuePrefix: TICKET_VALUE,
         inSearch: true
       }),
       actionable: !isContextTicket(self, target),
@@ -216,9 +218,7 @@ export function RootCommands({
       searchFooter
       fixedHeight
       renderPeek={(value) => {
-        const target = tickets.find(
-          (ticket) => `${TICKET_VALUE}${ticket.id}` === value
-        )
+        const target = ticketsByValue.get(value)
         if (target === undefined || !isTicketId(target.id)) return null
         const index = tickets.indexOf(target)
         return (
@@ -245,9 +245,7 @@ export function RootCommands({
         )
       }}
       warmPeek={(value) => {
-        const target = tickets.find(
-          (ticket) => `${TICKET_VALUE}${ticket.id}` === value
-        )
+        const target = ticketsByValue.get(value)
         return target === undefined || !isTicketId(target.id) ? null : (
           <TicketPrefetch
             ticketId={target.id}
@@ -257,9 +255,7 @@ export function RootCommands({
       }}
       onSearchChange={setSearch}
       onActOn={(item) => {
-        const target = tickets.find(
-          (ticket) => `${TICKET_VALUE}${ticket.id}` === item.value
-        )
+        const target = ticketsByValue.get(item.value)
         if (target === undefined || !isTicketId(target.id)) return false
         if (isContextTicket(self, target)) return false
         env.actOn(

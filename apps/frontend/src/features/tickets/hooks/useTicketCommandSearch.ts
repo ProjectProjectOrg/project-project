@@ -4,7 +4,6 @@ import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState } from "react"
 
-import type { CommandFrameItem } from "@/features/command-menu/components/CommandFrame"
 import type { CommandContext } from "@/features/command-menu/lib/commands"
 import { scoreSearch } from "@/features/command-menu/lib/searchScore"
 import {
@@ -17,14 +16,10 @@ import {
   ticketTextSearch,
   ticketTitles
 } from "@/features/tickets/atoms/ticketSearch"
-
-export type TicketTarget = Readonly<{
-  id: string
-  title: string
-  projectSlug: string
-  match?: TicketTextHit["match"]
-  score?: number
-}>
+import {
+  ticketCommandValue,
+  type TicketTarget
+} from "@/features/tickets/lib/ticketCommandTargets"
 
 type ShownText = Readonly<{
   query: string
@@ -39,50 +34,6 @@ const TITLE_LIMIT = 20
 const TEXT_SEARCH_MIN = 3
 const SEARCHING_DELAY_MS = 120
 const TEXT_SEARCH_WAIT_MS = 150
-
-const matchDetail = (
-  match: TicketTextHit["match"] | undefined
-): CommandFrameItem["detail"] => {
-  if (match === undefined || match.where === "title") return undefined
-  return {
-    author: match.where === "comment" ? match.author : undefined,
-    text: match.snippet.text,
-    ranges: match.snippet.ranges
-  }
-}
-
-const TITLE_RANK = 55
-const DESCRIPTION_RANK = 32
-const COMMENT_RANK = 28
-
-export const SEARCHING_RANK = DESCRIPTION_RANK
-
-const matchRank = (match: TicketTextHit["match"] | undefined) =>
-  match === undefined || match.where === "title"
-    ? TITLE_RANK
-    : match.where === "description"
-      ? DESCRIPTION_RANK
-      : COMMENT_RANK
-
-export const ticketItem = (
-  target: TicketTarget,
-  group: string,
-  options: Readonly<{ valuePrefix?: string; inSearch?: boolean }> = {}
-): CommandFrameItem => ({
-  value: `${options.valuePrefix ?? ""}${target.id}`,
-  prefix: target.id,
-  label: target.title,
-  detail: matchDetail(target.match),
-  rank:
-    options.inSearch === true
-      ? (target.score ?? matchRank(target.match))
-      : undefined,
-  actionable: options.inSearch,
-  peekable: options.inSearch,
-  group,
-  searchOnly: options.inSearch,
-  prefiltered: options.inSearch
-})
 
 export type TicketCommandSearch = Readonly<{
   recent: ReadonlyArray<TicketTarget>
@@ -196,10 +147,11 @@ export function useTicketCommandSearch(
       match: hit.match
     })
   )
-  const seen = new Set<string>(recent.map((target) => target.id))
+  const seen = new Set<string>(recent.map(ticketCommandValue))
   const found = [...titles, ...text].filter((target) => {
-    if (seen.has(target.id)) return false
-    seen.add(target.id)
+    const value = ticketCommandValue(target)
+    if (seen.has(value)) return false
+    seen.add(value)
     return true
   })
   return { recent, found, searching }

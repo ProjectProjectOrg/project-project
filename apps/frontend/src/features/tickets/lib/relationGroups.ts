@@ -33,6 +33,40 @@ export const relationGroups = (
     { key: "duplicates", unmark: null, tickets: relations.duplicates }
   ] satisfies ReadonlyArray<RelationGroup>
 
+export type RelationPreviewKind = Exclude<RelationGroupKey, "duplicateOf">
+
+const PREVIEW_GROUPS: Readonly<
+  Record<RelationPreviewKind, ReadonlyArray<RelationGroupKey>>
+> = {
+  blockedBy: ["blockedBy"],
+  blocking: ["blocking"],
+  related: ["related"],
+  duplicates: ["duplicateOf", "duplicates"]
+}
+
+const OPEN_ONLY: ReadonlySet<RelationGroupKey> = new Set([
+  "blockedBy",
+  "blocking"
+])
+
+export function previewRelationGroups(
+  relations: TicketRelations,
+  relation: RelationPreviewKind,
+  finished: ReadonlySet<string>
+): ReadonlyArray<RelationGroup> {
+  return relationGroups(relations).flatMap((group) => {
+    if (!PREVIEW_GROUPS[relation].includes(group.key)) return []
+    const tickets = group.tickets.filter(
+      (ticket) =>
+        group.key === "duplicateOf" ||
+        group.key === "duplicates" ||
+        (ticket.archivedAt === null &&
+          !(OPEN_ONLY.has(group.key) && finished.has(ticket.status)))
+    )
+    return tickets.length === 0 ? [] : [{ ...group, tickets }]
+  })
+}
+
 export const removableRelations = (relations: TicketRelations) =>
   relationGroups(relations).flatMap(({ unmark, tickets }) =>
     unmark === null ? [] : tickets.map((linked) => ({ kind: unmark, linked }))

@@ -9,7 +9,12 @@ import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { openBlockers, pickBlock, removableRelations } from "./relationGroups"
+import {
+  openBlockers,
+  pickBlock,
+  previewRelationGroups,
+  removableRelations
+} from "./relationGroups"
 
 const archivedOn = DateTime.toDate(DateTime.makeUnsafe("2026-04-02T00:00:00Z"))
 const ticketId = Schema.decodeSync(TicketId)
@@ -76,4 +81,25 @@ describe("removableRelations", () => {
       ]
     )
   })
+})
+
+it("keeps archived originals and duplicates visible in duplicate previews", () => {
+  const shown = previewRelationGroups(
+    {
+      ...EMPTY_TICKET_RELATIONS,
+      duplicateOf: linked("T-7", "done", archivedOn),
+      duplicates: [linked("T-8", "todo", archivedOn)]
+    },
+    "duplicates",
+    new Set(["done"])
+  )
+  expect(
+    shown.map(({ key, tickets }) => ({
+      key,
+      ids: tickets.map((ticket) => ticket.id)
+    }))
+  ).toEqual([
+    { key: "duplicateOf", ids: ["T-7"] },
+    { key: "duplicates", ids: ["T-8"] }
+  ])
 })
