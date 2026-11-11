@@ -86,7 +86,7 @@ function BoardCardFields({
             className="absolute inset-0 z-10 rounded-lg outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
           />
           <div className="flex min-w-0 flex-col gap-2.5 pb-1">
-            <div className="flex min-w-0 flex-col gap-0.5">
+            <div className="flex min-w-0 flex-col gap-1">
               <div className="flex h-5 min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
                 <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
                   <span className="shrink-0 font-mono tabular-nums">
