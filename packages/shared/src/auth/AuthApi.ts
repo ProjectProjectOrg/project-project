@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema"
 import { NotFound, Unauthorized, Validation } from "../errors"
 import { Authentication } from "./Authentication"
 import { OAuthApplication } from "./OAuthApplication"
+import { SignInProvider } from "./SignInProvider"
 import { User } from "./User"
 
 export const AuthGroup = HttpApiGroup.make("auth")
@@ -14,6 +15,12 @@ export const AuthGroup = HttpApiGroup.make("auth")
     })
   )
   .middleware(Authentication)
+
+export const PublicAuthGroup = HttpApiGroup.make("publicAuth").add(
+  HttpApiEndpoint.get("signInProviders", "/sign-in-providers", {
+    success: Schema.Struct({ providers: Schema.Array(SignInProvider) })
+  })
+)
 
 export const OAuthApplicationsGroup = HttpApiGroup.make("oauthApplications")
   .add(

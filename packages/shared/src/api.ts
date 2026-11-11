@@ -10,6 +10,7 @@ import { AttachmentsGroup } from "./attachments/AttachmentsApi"
 import {
   AuthGroup,
   OAuthApplicationsGroup,
+  PublicAuthGroup,
   PublicOAuthGroup
 } from "./auth/AuthApi"
 import { TicketCommentsGroup } from "./comments/CommentsApi"
@@ -84,6 +85,7 @@ export const AppApi = HttpApi.make("projectproject")
   .add(LibraryGroup)
   .add(OAuthApplicationsGroup)
   .add(PublicOAuthGroup)
+  .add(PublicAuthGroup)
   .add(FeedbackGroup)
   .add(FeedbackIntakeGroup)
   .annotateMerge(OpenApi.annotations({ servers: [{ url: "/api" }] }))

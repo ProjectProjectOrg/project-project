@@ -20,6 +20,7 @@ export * from "./attachments/urls"
 
 export * from "./auth/Authentication"
 export * from "./auth/OAuthApplication"
+export * from "./auth/SignInProvider"
 export * from "./auth/User"
 
 export * from "./comments/Comment"
