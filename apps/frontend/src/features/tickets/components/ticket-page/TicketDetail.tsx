@@ -31,27 +31,32 @@ const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 
 function MovedTicketRedirect({ req }: Readonly<{ req: TicketRequest }>) {
   const result = useAtomValue(movedTicket(req))
-  if (Result.isInitial(result)) return <TicketPageSkeleton />
-  if (!Result.isSuccess(result)) {
-    return (
-      <NotFoundPage
-        contained
-        title={m.tickets_not_found_title()}
-        body={m.tickets_not_found_body()}
+  return Result.matchWithError(result, {
+    onInitial: () => <TicketPageSkeleton />,
+    onError: (error) =>
+      Match.value(error).pipe(
+        Match.tag("NotFound", () => (
+          <NotFoundPage
+            contained
+            title={m.tickets_not_found_title()}
+            body={m.tickets_not_found_body()}
+          />
+        )),
+        Match.orElse((error) => <ErrorPage contained error={error} />)
+      ),
+    onDefect: (defect) => <ErrorPage contained error={defect} />,
+    onSuccess: ({ value }) => (
+      <Navigate
+        to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+        params={{
+          orgSlug: req.params.orgSlug,
+          slug: value.projectSlug,
+          id: value.id
+        }}
+        replace
       />
     )
-  }
-  return (
-    <Navigate
-      to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-      params={{
-        orgSlug: req.params.orgSlug,
-        slug: result.value.projectSlug,
-        id: result.value.id
-      }}
-      replace
-    />
-  )
+  })
 }
 
 export function TicketDetail() {

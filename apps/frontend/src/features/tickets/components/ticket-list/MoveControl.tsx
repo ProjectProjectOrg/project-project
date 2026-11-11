@@ -76,7 +76,13 @@ export function MoveTicketForm({
           {m.tickets_move_description()}
         </p>
       </div>
-      {Result.isSuccess(projectsResult) && destinations.length === 0 ? (
+      {Result.isInitial(projectsResult) ? (
+        <div className="h-8 animate-pulse rounded-md bg-muted" />
+      ) : Result.isFailure(projectsResult) ? (
+        <p className="text-caption text-destructive">
+          {m.tickets_move_projects_error()}
+        </p>
+      ) : destinations.length === 0 ? (
         <p className="text-caption text-muted-foreground">
           {m.tickets_move_no_projects()}
         </p>

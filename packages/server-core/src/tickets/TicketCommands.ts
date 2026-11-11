@@ -268,7 +268,7 @@ export class TicketCommands extends Context.Service<
 const make = Effect.gen(function* () {
   const ticketDocs = yield* TicketDocs.TicketDocs
   const ticketActivity = yield* TicketActivity.TicketActivity
-  const { withTicketDocumentLock } =
+  const { withTicketDocumentLock, withTicketWriteLocks } =
     yield* TicketDocumentLock.TicketDocumentLock
   const projects = yield* Projects.Projects
   const projectMembers = yield* ProjectMembers.ProjectMembers
@@ -975,7 +975,8 @@ const make = Effect.gen(function* () {
 
   const discardSplitResult = (
     project: TicketProject,
-    document: TicketDocs.TicketDocument
+    document: TicketDocs.TicketDocument,
+    options?: TicketDocs.TicketRemoveOptions
   ) =>
     ticketDocs
       .remove(
@@ -995,7 +996,8 @@ const make = Effect.gen(function* () {
               )
             ),
             Effect.andThen(ticketIndex.deleteTicket(project, document.id))
-          )
+          ),
+        options
       )
       .pipe(Effect.ignore)
 
@@ -1520,6 +1522,16 @@ const make = Effect.gen(function* () {
         const originals = yield* Effect.forEach(sourceIds, (sourceId) =>
           ticketDocs.read(orgSlug, source.slug, sourceId)
         )
+        const childrenNow = yield* childIds(source, userId, id)
+        if (
+          childrenNow.length !== children.length ||
+          childrenNow.some((child) => !children.includes(child))
+        ) {
+          return yield* new Conflict({ reason: "move_ticket_changed" })
+        }
+        if (originals[0].type === "epic" && children.length > 0) {
+          return yield* new Validation({ reason: "move_epic_has_tickets" })
+        }
         const moved: Array<MovedTicket> = []
         for (const original of originals) {
           moved.push({
@@ -1624,14 +1636,23 @@ const make = Effect.gen(function* () {
           )
         )
 
-        yield* Effect.gen(function* () {
-          yield* Effect.forEach(
-            sourceIds,
-            (sourceId) =>
-              groups.removeTicketFromAllGroups(orgSlug, source.slug, sourceId),
-            { discard: true }
+        yield* Effect.forEach(
+          sourceIds,
+          (sourceId) =>
+            groups.removeTicketFromAllGroups(orgSlug, source.slug, sourceId),
+          { discard: true }
+        ).pipe(
+          Effect.andThen(rehomeTicketRows(source, destination, moved)),
+          Effect.onError(() =>
+            Effect.forEach(
+              created,
+              (document) => discardSplitResult(destination, document),
+              { discard: true }
+            )
           )
-          yield* rehomeTicketRows(source, destination, moved)
+        )
+
+        yield* Effect.gen(function* () {
           yield* Effect.forEach(
             documents,
             (document, index) =>
@@ -1658,26 +1679,30 @@ const make = Effect.gen(function* () {
               ),
             { discard: true }
           )
-          yield* Effect.forEach(
-            originals,
-            (original) => discardSplitResult(source, original),
-            { discard: true }
-          )
         }).pipe(
           Effect.catchCause((cause) =>
-            Effect.logError("move: leaving the source project failed", {
+            Effect.logError("move: recording the move failed", {
               orgSlug,
               from: source.slug,
               to: destination.slug,
               moved,
               cause
             })
-          ),
-          Effect.uninterruptible
+          )
+        )
+        yield* Effect.forEach(
+          originals,
+          (original) =>
+            discardSplitResult(source, original, { writeLockHeld: true }),
+          { discard: true }
         )
 
         return { moved, mentions }
-      })
+      }).pipe(
+        (effect) =>
+          withTicketWriteLocks(orgSlug, source.slug, sourceIds, effect),
+        Effect.uninterruptible
+      )
     )
 
     yield* repointMentionsOfMovedTickets(source, result.mentions)

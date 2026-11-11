@@ -209,6 +209,9 @@ const validationMessage = (reason: string): string => {
 
 const conflictMessage = (reason: string): string => {
   switch (reason) {
+    case "move_ticket_changed":
+    case "move_id_taken":
+      return m.tickets_move_error_changed()
     case "project_key_taken":
       return m.projects_create_key_taken_error()
     case "key_taken":

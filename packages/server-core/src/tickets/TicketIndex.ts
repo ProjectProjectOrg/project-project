@@ -1746,43 +1746,67 @@ const make = Effect.gen(function* () {
     mentionIds: ReadonlyArray<string>
   ) {
     if (mentionIds.length === 0) return new Set<string>()
-    const keyOf = (mentionId: string) => {
+    const targets = mentionIds.map((mentionId) => {
       const target = parseTicketMentionId(mentionId)
-      return formatMovedFrom(
-        target.projectSlug ?? project.slug,
-        target.ticketId
+      return {
+        mentionId,
+        projectSlug: target.projectSlug ?? project.slug,
+        ticketId: target.ticketId
+      }
+    })
+    const keyOf = (target: (typeof targets)[number]) =>
+      formatMovedFrom(target.projectSlug, target.ticketId)
+    const keys = [...new Set(targets.map(keyOf))]
+    const slugs = [...new Set(targets.map((target) => target.projectSlug))]
+    const projectRows = yield* db
+      .select({ id: projectIndex.id, slug: projectIndex.slug })
+      .from(projectIndex)
+      .where(
+        and(
+          eq(projectIndex.organizationId, project.organizationId),
+          inArray(projectIndex.slug, slugs)
+        )
       )
-    }
-    const keys = [...new Set(mentionIds.map(keyOf))]
+      .pipe(Effect.orDie)
+    const slugById = new Map(projectRows.map((row) => [row.id, row.slug]))
+    const inProjects = projectRows.map((row) =>
+      and(
+        eq(ticketIndex.projectId, row.id),
+        inArray(
+          ticketIndex.ticketId,
+          targets
+            .filter((target) => target.projectSlug === row.slug)
+            .map((target) => target.ticketId)
+        )
+      )
+    )
     const rows = yield* db
       .select({
-        slug: projectIndex.slug,
+        projectId: ticketIndex.projectId,
         ticketId: ticketIndex.ticketId,
         movedFrom: ticketIndex.movedFrom
       })
       .from(ticketIndex)
-      .innerJoin(projectIndex, eq(projectIndex.id, ticketIndex.projectId))
       .where(
         and(
           eq(ticketIndex.organizationId, project.organizationId),
-          or(
-            inArray(
-              drizzleSql<string>`${projectIndex.slug} || '/' || ${ticketIndex.ticketId}`,
-              keys
-            ),
-            arrayOverlaps(ticketIndex.movedFrom, keys)
-          )
+          or(...inProjects, arrayOverlaps(ticketIndex.movedFrom, keys))
         )
       )
       .pipe(Effect.orDie)
     const known = new Set(
-      rows.flatMap((row) => [
-        formatMovedFrom(row.slug, row.ticketId),
-        ...row.movedFrom
-      ])
+      rows.flatMap((row) => {
+        const slug = slugById.get(row.projectId)
+        return [
+          ...(slug === undefined ? [] : [formatMovedFrom(slug, row.ticketId)]),
+          ...row.movedFrom
+        ]
+      })
     )
     return new Set(
-      mentionIds.filter((mentionId) => known.has(keyOf(mentionId)))
+      targets
+        .filter((target) => known.has(keyOf(target)))
+        .map((target) => target.mentionId)
     )
   })
 

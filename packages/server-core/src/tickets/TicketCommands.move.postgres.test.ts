@@ -15,6 +15,7 @@ import {
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
 import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
@@ -29,6 +30,7 @@ import {
 import * as ProjectDocs from "../projects/ProjectDocs"
 import {
   FakeGroups,
+  makeFakeGroups,
   FakeUsers,
   PassthroughLibrary,
   isoDate,
@@ -115,7 +117,7 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
     await pool.end()
   })
 
-  const fixture = (destinationScope = destination) => {
+  const fixture = (destinationScope = destination, groups = FakeGroups) => {
     const docs = makeFakeTicketDocs([])
     const put = (document: TicketDocs.TicketDocument) =>
       docs.documents.set(document.id, document)
@@ -182,7 +184,7 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
         })
       ),
       Layer.provide(makeFakeProjectGithub()),
-      Layer.provide(FakeGroups),
+      Layer.provide(groups),
       Layer.provide(FakeUsers),
       Layer.provide(makeFakeTicketIndex(docs.documents)),
       Layer.provide(
@@ -337,6 +339,30 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
       })
     )
   })
+
+  it.effect(
+    "leaves the ticket where it was when it can't be taken out of its sprint",
+    () => {
+      const { documents, put, layer } = fixture(
+        destination,
+        makeFakeGroups({
+          removeTicketFromAllGroups: () => Effect.die(new Error("disk full"))
+        })
+      )
+      put(makeTicketDocument("T-1"))
+      return run(
+        layer,
+        Effect.gen(function* () {
+          const commands = yield* TicketCommands.TicketCommands
+          const exit = yield* Effect.exit(
+            commands.move("T-1", { toProject: slug("product") })
+          )
+          expect(Exit.isFailure(exit)).toBe(true)
+          expect([...documents.keys()]).toEqual(["T-1"])
+        })
+      )
+    }
+  )
 
   it.effect(
     "is forbidden for someone who can't create tickets in the destination",
