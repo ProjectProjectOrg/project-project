@@ -409,12 +409,19 @@ function AttachmentSettled({
   const resolves = useAttachmentResolves(url)
   const missing = broken || !resolves
   const morphId = `attachment-${nodeKey}`
+  const video =
+    kind === "file" &&
+    attachmentFileFormat(filename) === "video" &&
+    !missing &&
+    !unplayable
+  const clipRadius = density === "compact" ? 6 : 8
 
   return (
     <AttachmentSelectable
       nodeKey={nodeKey}
       deletable
       density={density}
+      clipRadius={video ? clipRadius : undefined}
       onToggleDensity={() =>
         editor.update(() => {
           const node = $getNodeByKey(nodeKey)
@@ -444,7 +451,7 @@ function AttachmentSettled({
           nodeKey={nodeKey}
           onBroken={() => setBroken(true)}
         />
-      ) : attachmentFileFormat(filename) === "video" && !unplayable ? (
+      ) : video ? (
         <AttachmentVideo
           src={url}
           filename={filename}

@@ -17,6 +17,8 @@ const MAX_HEIGHT = 384
 const IDLE_MS = 2000
 const LIFT = "0 1px 3px oklch(0 0 0 / 18%), 0 0 0 1px oklch(0 0 0 / 6%)"
 
+const knownAspects = new Map<string, number>()
+
 const REVEAL = "transition-[opacity] duration-150 ease-out"
 const SHOWN = "opacity-100"
 
@@ -64,7 +66,7 @@ export function AttachmentVideo({
   const videoRef = useRef<HTMLVideoElement>(null)
   const { active, poke, rest } = useIdle()
 
-  const [aspect, setAspect] = useState<number | null>(null)
+  const [aspect, setAspect] = useState(() => knownAspects.get(src) ?? null)
   const [duration, setDuration] = useState(Number.NaN)
   const [time, setTime] = useState(0)
   const [buffered, setBuffered] = useState(0)
@@ -194,8 +196,10 @@ export function AttachmentVideo({
         onLoadedMetadata={(event) => {
           const video = event.currentTarget
           setDuration(video.duration)
-          if (video.videoWidth > 0 && video.videoHeight > 0)
-            setAspect(video.videoWidth / video.videoHeight)
+          if (video.videoWidth === 0 || video.videoHeight === 0) return
+          const measured = video.videoWidth / video.videoHeight
+          knownAspects.set(src, measured)
+          setAspect(measured)
         }}
         onDurationChange={(event) => setDuration(event.currentTarget.duration)}
         onTimeUpdate={(event) => setTime(event.currentTarget.currentTime)}
