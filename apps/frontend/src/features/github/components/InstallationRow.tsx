@@ -89,8 +89,8 @@ export function InstallationRow({
       }
       description={
         installation.accountType === "Organization"
-          ? m.org_integrations_github_account_type_org()
-          : m.org_integrations_github_account_type_user()
+          ? m.github_installation_account_org()
+          : m.github_installation_account_personal()
       }
       error={broken ?? accessError}
     >

@@ -348,6 +348,37 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       )
   )
 
+  it.effect(
+    "skips installations already connected when adding repository access",
+    () =>
+      Effect.gen(function* () {
+        const fixture = yield* Effect.promise(() => insertSession())
+        yield* callback(fixture.state, "initial")
+        const state = yield* Effect.promise(() =>
+          insertFollowUpSession(fixture, fixture.appId, null)
+        )
+        const { redirectUrl } = yield* Effect.flatMap(
+          GitHubIntegrations.GitHubIntegrations,
+          (integrations) => integrations.completeCallback(state, "existing")
+        ).pipe(
+          Effect.provide(
+            integrationLayerWith(
+              makeGithub(undefined, () =>
+                Effect.succeed([installationAccount(fixture.installationId)])
+              )
+            )
+          )
+        )
+        const url = new URL(redirectUrl)
+        expect(`${url.origin}${url.pathname}`).toBe(
+          "https://github.com/apps/pp/installations/new"
+        )
+        expect(url.searchParams.get("state")).toBe(state)
+      }).pipe(
+        Effect.provideService(ConfigProvider.ConfigProvider, githubConfig)
+      )
+  )
+
   it.effect("connects an existing installation the user picks", () =>
     Effect.gen(function* () {
       const fixture = yield* Effect.promise(() => insertSession("owner", false))

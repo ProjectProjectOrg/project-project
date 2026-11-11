@@ -67,6 +67,10 @@ export function IntegrationsSettings() {
               </Button>
             </SettingsRow>
           ) : null}
+        </SettingsGroup>
+      </SettingsSection>
+      <SettingsSection>
+        <SettingsGroup>
           {actor.call("everhour", "projectStatus") && (
             <EverhourSettingsRow
               canManage={actor.call("everhour", "connectProject")}

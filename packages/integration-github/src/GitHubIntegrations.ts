@@ -609,13 +609,20 @@ const make = Effect.gen(function* () {
           )
         return yield* connectInstallation(session, app.id, account)
       }
-      if (installations.length === 0) {
+      const connected = yield* installationRows(session.organizationId)
+      const candidates = installations.filter(
+        (installation) =>
+          !connected.some(
+            (current) => current.installationId === installation.installationId
+          )
+      )
+      if (candidates.length === 0) {
         return { redirectUrl: githubInstallUrl(app.slug, state) }
       }
       const now = yield* DateTime.nowAsDate
       yield* db
         .update(githubAppInstallSession)
-        .set({ candidateInstallations: installations })
+        .set({ candidateInstallations: candidates })
         .where(
           and(
             eq(githubAppInstallSession.id, session.id),

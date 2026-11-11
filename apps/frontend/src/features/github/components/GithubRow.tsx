@@ -15,9 +15,8 @@ import { m } from "@/paraglide/messages"
 
 export function GithubRow({
   connected,
-  email,
   oauthError
-}: Readonly<{ connected: boolean; email: string; oauthError: string | null }>) {
+}: Readonly<{ connected: boolean; oauthError: string | null }>) {
   const connect = useAtomSet(connectPersonalGithub, { mode: "promiseExit" })
   const disconnect = useAtomSet(disconnectPersonalGithub, {
     mode: "promiseExit"
@@ -37,7 +36,9 @@ export function GithubRow({
       label={m.profile_github_title()}
       description={
         <span className={cn(waiting && "animate-pulse")}>
-          {connected ? email : m.profile_github_description()}
+          {connected
+            ? m.profile_github_connected_description()
+            : m.profile_github_description()}
         </span>
       }
       error={error}
