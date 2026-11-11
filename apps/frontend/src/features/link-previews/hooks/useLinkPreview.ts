@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import type { LinkPreview } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useEffect, useMemo, useState } from "react"
 
@@ -6,7 +7,12 @@ import { linkPreview, linkPreviewRequest } from "../atoms/linkPreviews"
 
 export type LinkFavicon = Readonly<
   | { kind: "pending" }
-  | { kind: "image"; src: string; cached: boolean }
+  | {
+      kind: "image"
+      src: string
+      cached: boolean
+      rendering: LinkPreview["faviconRendering"]
+    }
   | { kind: "fallback"; cached: boolean }
 >
 
@@ -37,7 +43,10 @@ const loadImage = (src: string, onSettled: (ok: boolean) => void) => {
   }
 }
 
-const useFaviconImage = (src: string | null | undefined): LinkFavicon => {
+const useFaviconImage = (
+  src: string | null | undefined,
+  rendering: LinkPreview["faviconRendering"]
+): LinkFavicon => {
   const [initialSrc] = useState(src)
   const [settled, setSettled] = useState<Readonly<{
     src: string
@@ -61,8 +70,10 @@ const useFaviconImage = (src: string | null | undefined): LinkFavicon => {
     if (src === undefined) return PENDING
     if (src === null) return { kind: "fallback", cached }
     if (ok === undefined) return PENDING
-    return ok ? { kind: "image", src, cached } : { kind: "fallback", cached }
-  }, [src, ok, cached])
+    return ok
+      ? { kind: "image", src, cached, rendering }
+      : { kind: "fallback", cached }
+  }, [src, ok, cached, rendering])
 }
 
 export const useLinkPreview = (url: string): LinkPreviewView => {
@@ -76,7 +87,10 @@ export const useLinkPreview = (url: string): LinkPreviewView => {
         : null
   return {
     title: preview?.title ?? null,
-    favicon: useFaviconImage(faviconUrl)
+    favicon: useFaviconImage(
+      faviconUrl,
+      preview?.faviconRendering ?? "original"
+    )
   }
 }
 
@@ -86,6 +100,8 @@ export const paintLinkFavicon = (
   animate = favicon.kind !== "pending" && !favicon.cached
 ): void => {
   element.dataset["linkFavicon"] = favicon.kind
+  element.dataset["linkFaviconRendering"] =
+    favicon.kind === "image" ? favicon.rendering : "original"
   element.dataset["linkFaviconAnimate"] = String(animate)
   if (favicon.kind === "image") {
     element.style.setProperty(

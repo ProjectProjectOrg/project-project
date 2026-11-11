@@ -9,13 +9,16 @@ import {
 } from "@lexical/markdown"
 import { HeadingNode, QuoteNode, registerRichText } from "@lexical/rich-text"
 import { TableNode, TableRowNode, TableCellNode } from "@lexical/table"
+import { TicketId } from "@pp/shared"
 import * as Match from "effect/Match"
+import * as Schema from "effect/Schema"
 import {
   $createParagraphNode,
   $createTextNode,
   $getRoot,
   $getSelection,
   $isRangeSelection,
+  $nodesOfType,
   COMMAND_PRIORITY_HIGH,
   COMMAND_PRIORITY_LOW,
   createEditor,
@@ -34,9 +37,9 @@ import {
   vi
 } from "vitest"
 
-import { MARKDOWN_TRANSFORMERS } from "../components/LexicalEditor"
+import { transformersForAttachments } from "../components/LexicalEditor"
 import { AttachmentNode } from "./AttachmentNode"
-import { ATTACHMENT_TRANSFORMER } from "./attachmentTransformer"
+import { ImageNode } from "./ImageNode"
 import { registerMarkdownPaste } from "./markdownPaste"
 import { MentionNode } from "./MentionNode"
 
@@ -46,7 +49,12 @@ beforeAll(() => {
 })
 afterAll(() => vi.unstubAllGlobals())
 
-const transformers = [ATTACHMENT_TRANSFORMER, ...MARKDOWN_TRANSFORMERS]
+const transformers = transformersForAttachments({
+  orgSlug: "acme",
+  slug: "web",
+  ticketId: Schema.decodeUnknownSync(TicketId)("T-1"),
+  uploadsEnabled: true
+})
 
 function pasteEvent(text: string, html = "", files: File[] = []) {
   const event = new ClipboardEvent("paste", { cancelable: true })
@@ -68,6 +76,7 @@ function pasteEvent(text: string, html = "", files: File[] = []) {
 function createPasteEditor(text = "", code = false) {
   const editor = createEditor({
     nodes: [
+      ImageNode,
       TableNode,
       TableRowNode,
       TableCellNode,
@@ -149,6 +158,10 @@ describe("Markdown paste", () => {
     expect(pasted.getEditorState().toJSON()).toEqual(
       loaded.getEditorState().toJSON()
     )
+    if (source.includes("/api/attachments/"))
+      expect(
+        pasted.getEditorState().read(() => $nodesOfType(AttachmentNode))
+      ).toHaveLength(1)
   })
 
   it("continues typing with the pasted text's formatting", () => {

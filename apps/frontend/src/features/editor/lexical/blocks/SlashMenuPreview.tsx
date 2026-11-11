@@ -14,6 +14,12 @@ import { m } from "@/paraglide/messages"
 import type { SlashBasicKind, SlashItem } from "./slashMenuItems"
 
 export const BASIC_LITERALS: Readonly<Record<SlashBasicKind, string>> = {
+  paragraph: "¶",
+  "heading-1": "#",
+  "heading-3": "###",
+  "heading-4": "####",
+  "heading-5": "#####",
+  "heading-6": "######",
   heading: "##",
   checklist: "- [ ]",
   "bullet-list": "-",
@@ -27,8 +33,15 @@ export const BASIC_LITERALS: Readonly<Record<SlashBasicKind, string>> = {
 
 const basicSample = (kind: SlashBasicKind, label: string): string => {
   switch (kind) {
+    case "paragraph":
+      return label
+    case "heading-1":
+    case "heading-3":
+    case "heading-4":
+    case "heading-5":
+    case "heading-6":
     case "heading":
-      return `## ${label}`
+      return `${BASIC_LITERALS[kind]} ${label}`
     case "checklist":
       return `- [x] ${label}\n- [ ] ${label}`
     case "bullet-list":

@@ -107,7 +107,17 @@ function $blockOf(selection: RangeSelection): SlashBasicKind | null {
   const list = $getNearestNodeOfType(anchor, ListNode)
   if ($isListNode(list)) return LIST_KINDS[list.getListType()]
   const top = anchor.getTopLevelElement()
-  if ($isHeadingNode(top)) return "heading"
+  if ($isHeadingNode(top))
+    return (
+      {
+        h1: "heading-1",
+        h2: "heading",
+        h3: "heading-3",
+        h4: "heading-4",
+        h5: "heading-5",
+        h6: "heading-6"
+      } satisfies Readonly<Record<string, SlashBasicKind>>
+    )[top.getTag()]
   if ($isQuoteNode(top)) return "quote"
   if ($isCodeNode(top)) return "code"
   return null

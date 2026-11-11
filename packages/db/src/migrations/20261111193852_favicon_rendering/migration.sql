@@ -1,0 +1,1 @@
+ALTER TABLE "link_preview" ADD COLUMN "favicon_rendering" text;

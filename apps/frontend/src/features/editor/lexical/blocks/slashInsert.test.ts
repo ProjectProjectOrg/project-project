@@ -42,6 +42,8 @@ import {
   $selectFirstHint,
   missingBlocksMarkdown
 } from "./blockCommands"
+import { $insertBasic, $runSlashItem } from "./slashCommands"
+import { slashMenuSections } from "./slashMenuItems"
 
 const lookup = lookupFor(BUILTIN_LIBRARY)
 
@@ -359,4 +361,72 @@ describe("$selectFirstHint", () => {
     })
     expect(landed).toBe(false)
   })
+})
+
+describe("markdown slash actions", () => {
+  it.each([
+    [
+      "- [x] Before\n  - [ ] Nested\n- [ ] Example\n- [x] After",
+      "- [x] Before\n    - [ ] Nested\n\nExample\n\n- [x] After"
+    ],
+    [
+      "- [x] Before\n- [ ] Example\n- [x] After",
+      "- [x] Before\n\nExample\n\n- [x] After"
+    ],
+    ["> Before\n>\n> Example\n>\n> After", "> Before\n\nExample\n\n> After"]
+  ])("converts only the selected block to Text: %s", (body, expected) => {
+    const editor = editorWith(body)
+    run(editor, () => {
+      $caretAfter("Example")
+      $insertBasic(editor, "paragraph")
+    })
+    expect(markdown(editor)).toBe(expected)
+  })
+
+  it("converts an editor-created quote back to Text", () => {
+    const editor = editorWith("Example")
+    run(editor, () => {
+      $caretAfter("Example")
+      $insertBasic(editor, "quote")
+      $insertBasic(editor, "paragraph")
+    })
+    expect(markdown(editor)).toBe("Example")
+  })
+  it.each([
+    ["h1", "Example", "# Example"],
+    ["h2", "Example", "## Example"],
+    ["h3", "Example", "### Example"],
+    ["h4", "Example", "#### Example"],
+    ["h5", "Example", "##### Example"],
+    ["h6", "Example", "###### Example"],
+    ["text", "## Example", "Example"],
+    ["text", "- Example", "Example"],
+    ["text", "- [ ] Example", "Example"],
+    ["text", "> Example", "Example"],
+    ["text", "```\nExample\n```", "Example"]
+  ])(
+    "finds /%s and converts the current line without losing its text",
+    (query, body, expected) => {
+      const item = slashMenuSections({
+        library: BUILTIN_LIBRARY,
+        lookup,
+        ticketType: null,
+        body,
+        query,
+        basicLabel: (kind) => kind,
+        mode: "basic"
+      }).flatMap((section) => section.items)[0]
+      if (item === undefined) throw new Error(`No slash action for ${query}`)
+      const editor = editorWith(body)
+      run(editor, () => {
+        $caretAfter("Example")
+        $runSlashItem(editor, item, {
+          transformers: MARKDOWN_TRANSFORMERS,
+          lookup,
+          detach: false
+        })
+      })
+      expect(markdown(editor)).toBe(expected)
+    }
+  )
 })

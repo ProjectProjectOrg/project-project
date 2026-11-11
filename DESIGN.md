@@ -252,9 +252,11 @@ When a new feature needs categorical color the user controls (tags, statuses, la
 - **Headline** (Geist, 600, 1.5rem, 1.25, tracking -0.01em): page H1.
 - **Title** (Geist, 600, 1.125rem, 1.3): section H2; ticket / project titles in a header.
 - **Body** (Geist, 400, 0.875rem (`text-sm`), 1.5): default text. Prose blocks (`.prose-md`) cap line length at 65–75ch; data tables run denser.
-- **Prose** (`.prose-md`): long-form markdown on the type roles. Body text is `body` at 80% foreground (`--prose-body`) so headings, bold and inline code carry the hierarchy at full foreground; h1 is `display`, h2 `title`, h3 `subtitle`. Headings get 8px below and 20–24px above.
+- **Prose** (`.prose-md`): long-form markdown on the type roles. Body text is `body` at 80% foreground (`--prose-body`) so headings, bold and inline code carry the hierarchy at full foreground; h1 is `display-compact`, h2 `title`, h3 `subtitle`. Headings get 8px below and 20–24px above.
 - **Label** (Geist, 500, 0.8125rem (`text-[13px]`), 1.2): nav items, button text, form labels, chip text.
 - **Mono** (Geist Mono, 400, 0.8125rem, 1.4): IDs, branches, slugs, code, anywhere "this is a literal."
+
+Inline links strengthen their underline on hover without a background fill; keyboard focus retains a visible outline. Favicons keep their original colors. Confirmed transparent monochrome symbols follow the active theme with a dark silhouette in light mode and a light silhouette in dark mode. Favicons have no backing tile or added padding.
 
 ### Named Rules
 

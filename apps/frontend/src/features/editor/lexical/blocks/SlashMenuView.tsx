@@ -13,7 +13,13 @@ import {
   type LexicalEditor
 } from "lexical"
 import {
+  Heading1,
   Heading2,
+  Heading3,
+  Heading4,
+  Heading5,
+  Heading6,
+  Pilcrow,
   LibraryBig,
   List,
   ListOrdered,
@@ -76,6 +82,12 @@ import type {
 import { BASIC_LITERALS, SlashMenuPreview } from "./SlashMenuPreview"
 
 const BASIC_LABELS: Record<SlashBasicKind, () => string> = {
+  paragraph: m.editor_slash_basic_paragraph,
+  "heading-1": m.editor_slash_basic_heading_1,
+  "heading-3": m.editor_slash_basic_heading_3,
+  "heading-4": m.editor_slash_basic_heading_4,
+  "heading-5": m.editor_slash_basic_heading_5,
+  "heading-6": m.editor_slash_basic_heading_6,
   heading: m.editor_slash_basic_heading,
   checklist: m.editor_slash_basic_checklist,
   "bullet-list": m.editor_slash_basic_bullet_list,
@@ -88,6 +100,12 @@ const BASIC_LABELS: Record<SlashBasicKind, () => string> = {
 }
 
 export const BASIC_ICONS: Record<SlashBasicKind, LucideIcon> = {
+  paragraph: Pilcrow,
+  "heading-1": Heading1,
+  "heading-3": Heading3,
+  "heading-4": Heading4,
+  "heading-5": Heading5,
+  "heading-6": Heading6,
   heading: Heading2,
   checklist: ListTodo,
   "bullet-list": List,
