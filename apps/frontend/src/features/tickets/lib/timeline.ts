@@ -1,4 +1,5 @@
 import type { TicketActivityActor, TicketActivityEntry } from "@pp/shared"
+import * as Schema from "effect/Schema"
 
 import { activityItems, type ActivityItem } from "./activityGroups"
 import { activityLines, type ActivityLine } from "./activityLines"
@@ -24,6 +25,9 @@ export type TimelineRow<C> =
       fold: number
     }>
   | Readonly<{ kind: "comment"; key: string; comment: TimelineComment<C> }>
+
+export const TimelineOrder = Schema.Literals(["asc", "desc"])
+export type TimelineOrder = typeof TimelineOrder.Type
 
 export const FOLD_AT = 3
 export const KEEP_OPEN = 2
@@ -68,7 +72,8 @@ const itemLines = (item: ActivityItem): ReadonlyArray<TimelineLine> =>
   }))
 
 export const timelineRows = <C>(
-  events: ReadonlyArray<TimelineEvent<C>>
+  events: ReadonlyArray<TimelineEvent<C>>,
+  order: TimelineOrder
 ): ReadonlyArray<TimelineRow<C>> => {
   const rows: Array<TimelineRow<C>> = []
   let run: Array<TicketActivityEntry> = []
@@ -104,5 +109,5 @@ export const timelineRows = <C>(
     const older = last.lines.length - KEEP_OPEN
     rows[newest] = { ...last, fold: older >= FOLD_AT ? older : 0 }
   }
-  return rows
+  return order === "asc" ? rows : rows.toReversed()
 }

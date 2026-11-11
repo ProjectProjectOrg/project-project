@@ -1,10 +1,15 @@
 import { useAtomMount, useAtomValue } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronRight } from "lucide-react"
+import {
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
+  ChevronRight
+} from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import { useState, type ReactNode } from "react"
 
+import { Button } from "@/components/ui/button"
 import {
   SegmentedTabs,
   type SegmentedItem
@@ -20,6 +25,7 @@ import {
   ticketActivityRequest
 } from "@/features/tickets/atoms/ticketActivity"
 import { TicketTimeline } from "@/features/tickets/components/TicketTimeline"
+import { useActivityOrder } from "@/features/tickets/hooks/useActivityOrder"
 import { useTicketParticipants } from "@/features/tickets/hooks/useTicketParticipants"
 import { useProjectActor } from "@/hooks/useActor"
 import { transitions } from "@/lib/springs"
@@ -49,6 +55,7 @@ export function CommentsSection({
   const involved = useTicketParticipants(ticketId)
   const canComment = useProjectActor().call("ticketComments", "create")
   const [collapsed, setCollapsed] = useState(false)
+  const [order, setOrder] = useActivityOrder()
   const [tab, setTab] = useState<DiscussionTab>(
     extraTab?.placement === "first" ? "extra" : "activity"
   )
@@ -64,6 +71,12 @@ export function CommentsSection({
     { key: "activity", label: m.tickets_activity_tab() },
     ...(extraTab?.placement === "last" ? extraItems : [])
   ]
+
+  const orderLabel =
+    order === "asc"
+      ? m.tickets_activity_order_oldest()
+      : m.tickets_activity_order_newest()
+  const OrderIcon = order === "asc" ? ArrowUpNarrowWide : ArrowDownWideNarrow
 
   const headingLabel =
     total > 0
@@ -99,6 +112,19 @@ export function CommentsSection({
               setCollapsed(false)
             }}
           />
+          {tab === "activity" && !collapsed && (
+            <Button
+              type="button"
+              variant="quiet"
+              size="square-7"
+              onClick={() => setOrder(order === "asc" ? "desc" : "asc")}
+              aria-label={orderLabel}
+              title={orderLabel}
+              className="ml-auto"
+            >
+              <OrderIcon className="size-4" strokeWidth={1.75} />
+            </Button>
+          )}
         </div>
         <AnimatePresence initial={false}>
           {!collapsed && (
@@ -113,9 +139,10 @@ export function CommentsSection({
               {tab === "extra" && extraTab ? (
                 extraTab.content
               ) : (
-                <div className="space-y-4">
+                <div className="flex flex-col gap-4">
                   <TicketTimeline
                     ticketId={ticketId}
+                    order={order}
                     comments={rows.map((row) => ({
                       key: row.key,
                       at: row.comment.createdAt,
@@ -136,7 +163,13 @@ export function CommentsSection({
                       {m.comments_load_failed()}
                     </p>
                   )}
-                  {canComment && <CommentComposer ticketId={ticketId} />}
+                  {canComment && (
+                    <div
+                      className={order === "desc" ? "order-first" : undefined}
+                    >
+                      <CommentComposer ticketId={ticketId} />
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>
