@@ -77,6 +77,7 @@ export function AttachmentVideo({
   const [fullscreen, setFullscreen] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [started, setStarted] = useState(false)
+  const [keyboardFocus, setKeyboardFocus] = useState(false)
 
   const actions = useMemo<AttachmentVideoActions>(
     () => ({
@@ -158,7 +159,8 @@ export function AttachmentVideo({
     return () => root.removeEventListener("keydown", onKeyDown)
   }, [actions, poke])
 
-  const controlsShown = started && (active || (hovered && !playing))
+  const controlsShown =
+    started && (active || keyboardFocus || (hovered && !playing))
 
   return (
     <span
@@ -183,7 +185,17 @@ export function AttachmentVideo({
         setHovered(false)
         rest()
       }}
-      onFocus={poke}
+      onFocus={(event) => {
+        setKeyboardFocus(event.target.matches(":focus-visible"))
+        poke()
+      }}
+      onBlur={(event) => {
+        if (
+          !(event.relatedTarget instanceof Node) ||
+          !event.currentTarget.contains(event.relatedTarget)
+        )
+          setKeyboardFocus(false)
+      }}
     >
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <video
@@ -196,7 +208,10 @@ export function AttachmentVideo({
         onLoadedMetadata={(event) => {
           const video = event.currentTarget
           setDuration(video.duration)
-          if (video.videoWidth === 0 || video.videoHeight === 0) return
+          if (video.videoWidth === 0 || video.videoHeight === 0) {
+            onUnplayable()
+            return
+          }
           const measured = video.videoWidth / video.videoHeight
           knownAspects.set(src, measured)
           setAspect(measured)
