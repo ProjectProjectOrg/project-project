@@ -235,6 +235,9 @@ export const isJiraUnavailableDetail = Schema.is(
 const isSlackRateLimitedDetail = Schema.is(
   Schema.TaggedStruct("SlackRateLimited", { retryAfterSeconds: Schema.Finite })
 )
+const isAttachmentTooLargeDetail = Schema.is(
+  Schema.TaggedStruct("AttachmentTooLarge", { maxBytes: Schema.Finite })
+)
 const isSlackErrorDetail = Schema.is(
   Schema.TaggedStruct("SlackError", { reason: Schema.String })
 )
@@ -309,8 +312,10 @@ export const errorMessage = Match.type<unknown>()
     Match.when({ _tag: "StorageNotConnected" }, () =>
       m.storage_error_unreachable()
     ),
-    Match.when({ _tag: "AttachmentTooLarge" }, () =>
-      m.editor_attachment_too_large()
+    Match.when(isAttachmentTooLargeDetail, ({ maxBytes }) =>
+      m.editor_attachment_too_large({
+        limit: Math.round(maxBytes / (1024 * 1024))
+      })
     ),
     Match.when({ _tag: "AttachmentTypeRejected" }, () =>
       m.editor_attachment_type_rejected()

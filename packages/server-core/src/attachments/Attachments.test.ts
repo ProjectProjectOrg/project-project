@@ -2,6 +2,7 @@ import { it } from "@effect/vitest"
 import { attachmentIndex } from "@pp/db/schema"
 import {
   ATTACHMENT_MAX_BYTES,
+  ATTACHMENT_VIDEO_MAX_BYTES,
   CurrentUser,
   isAttachmentDeletable,
   OrgScope,
@@ -75,6 +76,21 @@ describe("validateUploadRequest", () => {
         byteSize: ATTACHMENT_MAX_BYTES + 1
       })
     ).toEqual({ kind: "size", maxBytes: ATTACHMENT_MAX_BYTES })
+  })
+
+  it("gives video its own, larger cap", () => {
+    expect(
+      Attachments.validateUploadRequest({
+        contentType: "video/mp4",
+        byteSize: ATTACHMENT_VIDEO_MAX_BYTES
+      })
+    ).toBeNull()
+    expect(
+      Attachments.validateUploadRequest({
+        contentType: "video/mp4",
+        byteSize: ATTACHMENT_VIDEO_MAX_BYTES + 1
+      })
+    ).toEqual({ kind: "size", maxBytes: ATTACHMENT_VIDEO_MAX_BYTES })
   })
 
   it("accepts a file exactly at the cap", () => {
@@ -901,6 +917,23 @@ describe("attachmentPageOffset", () => {
 
   it("never offsets backwards", () => {
     expect(Attachments.attachmentPageOffset(0, 50)).toBe(0)
+  })
+})
+
+describe("attachmentOpensInline", () => {
+  it("plays a video in the page without proxying it", () => {
+    const video = { contentType: "video/mp4", download: false }
+    expect(Attachments.attachmentOpensInline(video)).toBe(true)
+    expect(Attachments.attachmentServesInline(video)).toBe(false)
+  })
+
+  it("downloads a video when the caller asked for a download", () => {
+    expect(
+      Attachments.attachmentOpensInline({
+        contentType: "video/mp4",
+        download: true
+      })
+    ).toBe(false)
   })
 })
 

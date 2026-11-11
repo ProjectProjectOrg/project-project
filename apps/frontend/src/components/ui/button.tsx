@@ -67,9 +67,10 @@ const buttonVariants = cva(
         "template-more":
           "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-accent/80",
         overlay:
-          "bg-background text-muted-foreground shadow-sm hover:bg-hover hover:text-foreground active:bg-accent/80",
+          "bg-background text-muted-foreground shadow-sm hover:bg-[image:linear-gradient(var(--hover),var(--hover))] hover:text-foreground active:bg-[image:linear-gradient(var(--active),var(--active))]",
+        media: "bg-transparent text-foreground hover:bg-hover active:bg-active",
         "overlay-destructive":
-          "bg-background text-muted-foreground shadow-sm hover:bg-destructive-light hover:text-destructive active:bg-destructive-light/80",
+          "bg-background text-muted-foreground shadow-sm hover:bg-destructive-light hover:text-destructive active:bg-destructive-light",
         dither: "overflow-hidden bg-transparent"
       },
       size: {

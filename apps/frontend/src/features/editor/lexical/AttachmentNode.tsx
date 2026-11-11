@@ -1,6 +1,8 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import {
   ATTACHMENT_MIN_WIDTH,
+  attachmentDownloadSrc,
+  attachmentFileFormat,
   clampAttachmentWidth,
   type AttachmentDensity
 } from "@pp/shared"
@@ -29,6 +31,7 @@ import { m } from "@/paraglide/messages"
 import { useAttachmentResolves } from "./attachmentAvailability"
 import { AttachmentSelectable } from "./AttachmentSelectable"
 import { AttachmentUnavailable } from "./AttachmentUnavailable"
+import { AttachmentVideo } from "./AttachmentVideo"
 
 export type AttachmentKind = "image" | "file"
 
@@ -402,15 +405,23 @@ function AttachmentSettled({
 }) {
   const [editor] = useLexicalComposerContext()
   const [broken, setBroken] = useState(false)
+  const [unplayable, setUnplayable] = useState(false)
   const resolves = useAttachmentResolves(url)
   const missing = broken || !resolves
   const morphId = `attachment-${nodeKey}`
+  const video =
+    kind === "file" &&
+    attachmentFileFormat(filename) === "video" &&
+    !missing &&
+    !unplayable
+  const clipRadius = density === "compact" ? 6 : 8
 
   return (
     <AttachmentSelectable
       nodeKey={nodeKey}
       deletable
       density={density}
+      clipRadius={video ? clipRadius : undefined}
       onToggleDensity={() =>
         editor.update(() => {
           const node = $getNodeByKey(nodeKey)
@@ -439,6 +450,13 @@ function AttachmentSettled({
           width={width}
           nodeKey={nodeKey}
           onBroken={() => setBroken(true)}
+        />
+      ) : video ? (
+        <AttachmentVideo
+          src={url}
+          filename={filename}
+          downloadHref={attachmentDownloadSrc(url)}
+          onUnplayable={() => setUnplayable(true)}
         />
       ) : (
         <AttachmentTile

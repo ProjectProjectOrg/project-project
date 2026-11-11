@@ -7,10 +7,11 @@ import {
   projectIndex
 } from "@pp/db/schema"
 import {
-  ATTACHMENT_MAX_BYTES,
   ATTACHMENT_PAGE_SIZE,
+  attachmentMaxBytes,
   isAllowedAttachmentContentType,
   isRasterImageContentType,
+  isVideoContentType,
   type Attachment,
   type AttachmentListParams,
   type AttachmentListPage,
@@ -87,6 +88,19 @@ export const attachmentServesInline = (input: {
   readonly contentType: string
   readonly download: boolean
 }): boolean => !input.download && isRasterImageContentType(input.contentType)
+
+export const attachmentOpensInline = (input: {
+  readonly contentType: string
+  readonly download: boolean
+}): boolean =>
+  attachmentServesInline(input) ||
+  (!input.download && isVideoContentType(input.contentType))
+
+const PROXIED_URL_SECONDS = 60
+const STREAMED_URL_SECONDS = 6 * 60 * 60
+
+export const attachmentSignedUrlSeconds = (contentType: string): number =>
+  isVideoContentType(contentType) ? STREAMED_URL_SECONDS : PROXIED_URL_SECONDS
 
 export const deriveAttachmentEtag = (
   upstreamEtag: string | null,
@@ -208,11 +222,12 @@ export const validateUploadRequest = (input: {
   if (!isAllowedAttachmentContentType(input.contentType)) {
     return { kind: "type", contentType: input.contentType }
   }
+  const maxBytes = attachmentMaxBytes(input.contentType)
   if (
     input.byteSize !== undefined &&
-    (input.byteSize <= 0 || input.byteSize > ATTACHMENT_MAX_BYTES)
+    (input.byteSize <= 0 || input.byteSize > maxBytes)
   ) {
-    return { kind: "size", maxBytes: ATTACHMENT_MAX_BYTES }
+    return { kind: "size", maxBytes }
   }
   return null
 }
@@ -559,7 +574,9 @@ const make = Effect.gen(function* () {
       }
       return yield* new AttachmentTooLarge({
         maxBytes:
-          invalid?.kind === "size" ? invalid.maxBytes : ATTACHMENT_MAX_BYTES
+          invalid?.kind === "size"
+            ? invalid.maxBytes
+            : attachmentMaxBytes(observedContentType)
       })
     }
 
@@ -695,11 +712,11 @@ const make = Effect.gen(function* () {
           connection,
           row.objectKey,
           row.filename,
-          attachmentServesInline({
+          attachmentOpensInline({
             contentType: row.contentType,
             download: options?.download ?? false
           }),
-          60
+          attachmentSignedUrlSeconds(row.contentType)
         )
         .pipe(
           Effect.catchTag("S3Unavailable", (error) =>
