@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { BranchListItem, TicketStatus } from "@pp/shared"
+import type { BranchListItem, GithubConnection, TicketStatus } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { GitBranch } from "lucide-react"
 import { useState } from "react"
@@ -18,6 +18,7 @@ import {
   baseBranchOrder,
   branchMenuFilter
 } from "@/features/github/lib/branchPicker"
+import { repoSlug } from "@/features/github/lib/repos"
 import {
   statusesFor,
   statusesRequest
@@ -41,6 +42,7 @@ type BaseBranchProps = Readonly<{
   onChange: (next: string) => void
   ticketId: string
   defaultBase: string
+  repoId: string | undefined
 }>
 
 export function BaseBranchSubmenu(props: BaseBranchProps) {
@@ -69,9 +71,10 @@ function BaseBranchOptions({
   value,
   onChange,
   ticketId,
-  defaultBase
+  defaultBase,
+  repoId
 }: BaseBranchProps & Readonly<{ query: string }>) {
-  const results = useBranchResults(query)
+  const results = useBranchResults(query, repoId)
   const items = baseBranchOrder({
     items: results.view?.items ?? [],
     ticketId,
@@ -110,6 +113,55 @@ function BaseBranchOptions({
       </BranchResultsFrame>
       <BranchPagingNote results={results} />
     </>
+  )
+}
+
+export function RepoSubmenu({
+  repos,
+  value,
+  onChange
+}: Readonly<{
+  repos: ReadonlyArray<GithubConnection>
+  value: GithubConnection
+  onChange: (repoId: string) => void
+}>) {
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger openOnHover={false}>
+        <span className="shrink-0 whitespace-nowrap">
+          {m.git_branch_picker_repo_label()}
+        </span>
+        <span data-menu-meta className={OPTION_VALUE}>
+          <MiddleTruncate value={repoSlug(value)} />
+        </span>
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="w-72">
+        <DropdownMenuRadioGroup
+          value={value.repoId}
+          onValueChange={onChange}
+          items={repos.map((repo, index) => ({
+            value: repo.repoId,
+            textValue: repoSlug(repo),
+            label: (
+              <>
+                <MiddleTruncate
+                  value={repoSlug(repo)}
+                  className="flex-1 text-foreground"
+                />
+                {index === 0 ? (
+                  <span
+                    data-menu-meta
+                    className="ml-auto text-[11px] text-muted-foreground"
+                  >
+                    {m.git_branch_default_pill()}
+                  </span>
+                ) : null}
+              </>
+            )
+          }))}
+        />
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
   )
 }
 

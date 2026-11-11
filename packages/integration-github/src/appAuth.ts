@@ -1,11 +1,9 @@
 import { createAppAuth } from "@octokit/auth-app"
 import { GitHubError } from "@pp/shared"
-import * as Config from "effect/Config"
 import * as Context from "effect/Context"
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
-import * as Redacted from "effect/Redacted"
 import { Octokit } from "octokit"
 
 import { GITHUB_REQUEST_TIMEOUT } from "./request"
@@ -37,13 +35,18 @@ const normalizePrivateKey = (raw: string): string => {
   return Buffer.from(normalized, "base64").toString("utf8")
 }
 
-export const appAuth = (): Effect.Effect<GitHubAppAuth, GitHubError> =>
+export type GitHubAppCredentials = Readonly<{
+  githubAppId: string
+  privateKey: string
+  clientId: string
+  clientSecret: string
+}>
+
+export const appAuth = (
+  credentials: GitHubAppCredentials
+): Effect.Effect<GitHubAppAuth, GitHubError> =>
   Effect.gen(function* () {
     const fetch = yield* Effect.service(Fetch)
-    const appId = yield* Config.String("GITHUB_APP_ID")
-    const privateKey = yield* Config.Redacted("GITHUB_APP_PRIVATE_KEY")
-    const clientId = yield* Config.String("GITHUB_APP_CLIENT_ID")
-    const clientSecret = yield* Config.Redacted("GITHUB_APP_CLIENT_SECRET")
     const githubAuthRequest = new Octokit({
       retry: { enabled: false }
     }).request.defaults({
@@ -55,20 +58,12 @@ export const appAuth = (): Effect.Effect<GitHubAppAuth, GitHubError> =>
     return yield* Effect.try({
       try: () =>
         createAppAuth({
-          appId,
-          privateKey: normalizePrivateKey(Redacted.value(privateKey)),
-          clientId,
-          clientSecret: Redacted.value(clientSecret),
+          appId: credentials.githubAppId,
+          privateKey: normalizePrivateKey(credentials.privateKey),
+          clientId: credentials.clientId,
+          clientSecret: credentials.clientSecret,
           request: githubAuthRequest
         }),
       catch: (cause) => new GitHubError({ message: String(cause) })
     })
-  }).pipe(
-    Effect.catchTag("ConfigError", () =>
-      Effect.fail(
-        new GitHubError({
-          message: "missing GitHub App configuration"
-        })
-      )
-    )
-  )
+  })

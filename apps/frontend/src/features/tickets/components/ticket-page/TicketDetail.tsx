@@ -8,6 +8,7 @@ import { useEffect, useRef } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
+import { ticketRepo } from "@/features/github/lib/repos"
 import { useProject } from "@/features/projects/hooks/useProject"
 import {
   ticketDetail,
@@ -63,7 +64,7 @@ export function TicketDetail() {
       <TicketPage
         ticket={value}
         members={project.members}
-        github={project.github}
+        github={ticketRepo(project, value.repoId)}
         autoFocusBody={autoFocusBody}
         splitInto={search.splitInto ?? []}
       />

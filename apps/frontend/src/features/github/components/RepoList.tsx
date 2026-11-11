@@ -3,7 +3,7 @@ import type { GithubRepo } from "@pp/shared"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Lock } from "lucide-react"
+import { ChevronLeft, Lock } from "lucide-react"
 import { useState } from "react"
 
 import {
@@ -18,6 +18,7 @@ import {
   githubReposRequest
 } from "@/features/github/atoms/github"
 import { useConnectGithubError } from "@/features/github/hooks/useConnectGithubError"
+import { useProjectRepos } from "@/features/github/hooks/useProjectRepos"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { cn } from "@/lib/utils"
@@ -25,9 +26,13 @@ import { m } from "@/paraglide/messages"
 
 export function RepoList({
   query,
+  installationId,
+  account,
   onConnected
 }: Readonly<{
   query: string
+  installationId: string
+  account: Readonly<{ login: string; onChange: () => void }> | null
   onConnected: () => void
 }>) {
   const { orgSlug, slug } = useProjectRoute()
@@ -35,8 +40,14 @@ export function RepoList({
   const connect = useAtomSet(connectGithub(req), { mode: "promiseExit" })
   const [pending, setPending] = useState<string | null>(null)
   const [debouncedQuery] = useDebouncedValue(query, { wait: 300 })
-  const reposReq = githubReposRequest(orgSlug, slug, debouncedQuery)
+  const reposReq = githubReposRequest(
+    orgSlug,
+    slug,
+    debouncedQuery,
+    installationId
+  )
   const repos = useAtomValue(githubRepos(reposReq))
+  const connectedIds = new Set(useProjectRepos().map((repo) => repo.repoId))
   const connectError = useConnectGithubError(orgSlug, slug)
   const error = pending === null ? connectError : null
 
@@ -48,7 +59,8 @@ export function RepoList({
       repoId: repo.id,
       repoOwner: repo.owner,
       repoName: repo.name,
-      defaultBaseBranch: repo.defaultBranch
+      defaultBaseBranch: repo.defaultBranch,
+      installationId
     })
     setPending(null)
     if (Exit.isSuccess(exit)) onConnected()
@@ -60,6 +72,21 @@ export function RepoList({
         placeholder={m.github_chip_search_repos_placeholder()}
         aria-label={m.github_chip_search_repos_placeholder()}
       />
+      {account === null ? null : (
+        <DropdownMenuItem
+          label={account.login}
+          closeOnClick={false}
+          onClick={account.onChange}
+        >
+          <ChevronLeft strokeWidth={1.75} />
+          <span className="min-w-0 flex-1 truncate text-foreground">
+            {account.login}
+          </span>
+          <span data-menu-meta className="text-[11px] text-muted-foreground">
+            {m.github_chip_change_account()}
+          </span>
+        </DropdownMenuItem>
+      )}
       {error ? <MenuNote tone="error">{error}</MenuNote> : null}
       {Result.matchWithError(repos, {
         onInitial: () => <MenuNote>{m.chrome_loading()}</MenuNote>,
@@ -69,12 +96,15 @@ export function RepoList({
         onDefect: () => (
           <MenuNote tone="error">{m.github_chip_load_repos_error()}</MenuNote>
         ),
-        onSuccess: ({ value }) =>
-          value.repos.length === 0 ? (
+        onSuccess: ({ value }) => {
+          const available = value.repos.filter(
+            (repo) => !connectedIds.has(repo.id)
+          )
+          return available.length === 0 ? (
             <MenuNote>{m.github_chip_no_repos()}</MenuNote>
           ) : (
             <DropdownMenuList className="max-h-72 overflow-y-auto">
-              {value.repos.map((repo) => {
+              {available.map((repo) => {
                 const key = `${repo.owner}/${repo.name}`
                 return (
                   <DropdownMenuItem
@@ -106,6 +136,7 @@ export function RepoList({
               })}
             </DropdownMenuList>
           )
+        }
       })}
     </>
   )

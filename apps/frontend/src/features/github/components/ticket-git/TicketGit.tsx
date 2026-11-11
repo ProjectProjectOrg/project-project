@@ -17,6 +17,7 @@ import {
 } from "@/features/github/components/ticket-git/TicketStack"
 import { useTicketGit } from "@/features/github/hooks/useTicketGit"
 import { checksColor } from "@/features/github/lib/checksColor"
+import { repoSlug, ticketRepo } from "@/features/github/lib/repos"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/hooks/useActor"
@@ -41,11 +42,11 @@ export function TicketGitChip({
 }: {
   orgSlug: string
   slug: string
-  ticket: Pick<Ticket, "id" | "gitState">
+  ticket: Pick<Ticket, "id" | "gitState" | "repoId">
 }) {
   const projectResult = useAtomValue(project(projectRequest(orgSlug, slug)))
   const github = Result.isSuccess(projectResult)
-    ? projectResult.value.github
+    ? ticketRepo(projectResult.value, ticket.repoId)
     : null
   if (!github) return <span aria-hidden />
   return (
@@ -66,14 +67,13 @@ function ConnectedGitChip({
 }: Readonly<{
   orgSlug: string
   slug: string
-  ticket: Pick<Ticket, "id" | "gitState">
+  ticket: Pick<Ticket, "id" | "gitState" | "repoId">
   github: GithubConnection
 }>) {
   const { state, waiting, stack } = useTicketGit(orgSlug, slug, ticket)
   if (!state || state.tag === "no_branch") return <span aria-hidden />
   const pending = state.tag === "branch_pending" || state.tag === "pr_pending"
   const pulse = (waiting || pending) && "animate-pulse"
-  const repoSlug = `${github.repoOwner}/${github.repoName}`
 
   if (stack.length > 0) {
     return (
@@ -103,7 +103,7 @@ function ConnectedGitChip({
         className={cn("inline-flex max-w-full min-w-0 items-center", pulse)}
       >
         <BranchChip
-          slug={repoSlug}
+          slug={repoSlug(github)}
           name={state.name}
           displayName={truncate(state.name)}
         />
@@ -229,7 +229,7 @@ function PanelForState({
     branchTemplate,
     variant,
     canWrite,
-    repoSlug: `${github.repoOwner}/${github.repoName}`,
+    repoSlug: repoSlug(github),
     pulse: (waiting || pending) && "animate-pulse",
     panelChrome: variant === "bordered" ? PANEL_CHROME : undefined
   }

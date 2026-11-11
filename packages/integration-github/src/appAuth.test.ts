@@ -1,6 +1,5 @@
 import { it } from "@effect/vitest"
 import { GitHubError } from "@pp/shared"
-import * as ConfigProvider from "effect/ConfigProvider"
 import * as Duration from "effect/Duration"
 import * as Effect from "effect/Effect"
 import * as FetchHttpClient from "effect/http/FetchHttpClient"
@@ -9,14 +8,13 @@ import { afterEach, describe, expect, vi } from "vitest"
 import { appAuth, fetchWithTimeout } from "./appAuth"
 import { GITHUB_REQUEST_TIMEOUT } from "./request"
 
-const configValues = {
-  GITHUB_APP_ID: "123",
-  GITHUB_APP_PRIVATE_KEY:
+const credentials = {
+  githubAppId: "123",
+  privateKey:
     "-----BEGIN RSA PRIVATE KEY-----\\nfake\\n-----END RSA PRIVATE KEY-----",
-  GITHUB_APP_CLIENT_ID: "client-id",
-  GITHUB_APP_CLIENT_SECRET: "client-secret"
+  clientId: "client-id",
+  clientSecret: "client-secret"
 }
-const config = ConfigProvider.fromUnknown(configValues)
 
 describe("appAuth", () => {
   afterEach(() => {
@@ -59,8 +57,7 @@ describe("appAuth", () => {
         )
         vi.stubGlobal("fetch", fetchMock)
 
-        const auth = yield* appAuth().pipe(
-          Effect.provideService(ConfigProvider.ConfigProvider, config),
+        const auth = yield* appAuth(credentials).pipe(
           Effect.provideService(FetchHttpClient.Fetch, fetchMock)
         )
         const exchange = auth({ type: "oauth-user", code: "code" })
@@ -84,28 +81,18 @@ describe("appAuth", () => {
       })
   )
 
-  it.effect(
-    "maps missing configuration while preserving auth setup failures",
-    () =>
-      Effect.gen(function* () {
-        for (const { values, message } of [
-          { values: {}, message: "missing GitHub App configuration" },
-          {
-            values: { ...configValues, GITHUB_APP_ID: "" },
-            message: "Error: [@octokit/auth-app] appId option is required"
-          }
-        ]) {
-          const error = yield* appAuth().pipe(
-            Effect.provideService(
-              ConfigProvider.ConfigProvider,
-              ConfigProvider.fromUnknown(values)
-            ),
-            Effect.provideService(FetchHttpClient.Fetch, globalThis.fetch),
-            Effect.flip
-          )
-          expect(error).toEqual(new GitHubError({ message }))
-        }
-      })
+  it.effect("preserves auth setup failures", () =>
+    Effect.gen(function* () {
+      const error = yield* appAuth({ ...credentials, githubAppId: "" }).pipe(
+        Effect.provideService(FetchHttpClient.Fetch, globalThis.fetch),
+        Effect.flip
+      )
+      expect(error).toEqual(
+        new GitHubError({
+          message: "Error: [@octokit/auth-app] appId option is required"
+        })
+      )
+    })
   )
 
   it("merges a caller signal with the shared deadline", async () => {

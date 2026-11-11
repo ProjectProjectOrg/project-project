@@ -507,7 +507,8 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
   const linkPullRequest = (
     documents: ReadonlyArray<TicketDocs.TicketDocument>,
     change: Partial<GitHubPullRequestWebhookChange>,
-    indexOverrides: Partial<FakeIndexShape> = {}
+    indexOverrides: Partial<FakeIndexShape> = {},
+    isDefaultRepository = true
   ) =>
     Effect.gen(function* () {
       const docs = makeFakeDocs(documents)
@@ -526,7 +527,8 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
         },
         project,
         { ...openChange, branch: "fix-login", title: "Fix login", ...change },
-        "delivery-1"
+        "delivery-1",
+        isDefaultRepository
       )
       return docs
     })
@@ -733,6 +735,63 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
       })
     )
   }
+
+  it.effect("records the repository of a newly linked pull request", () =>
+    Effect.gen(function* () {
+      const docs = yield* linkPullRequest([unlinked()], {
+        branch: "feat/T-1-login",
+        repositoryId: "repo-b"
+      })
+
+      expect(docs.writes[0]?.document).toMatchObject({
+        repo: "repo-b",
+        branch: "feat/T-1-login",
+        pr: 80
+      })
+    })
+  )
+
+  for (const { name, document, isDefaultRepository } of [
+    {
+      name: "a ticket whose branch lives in another repository",
+      document: baseDocument({ repo: "repo-a" }),
+      isDefaultRepository: true
+    },
+    {
+      name: "a ticket in the default repository when it comes from another one",
+      document: baseDocument(),
+      isDefaultRepository: false
+    }
+  ]) {
+    it.effect(`doesn't stack a pull request onto ${name}`, () =>
+      Effect.gen(function* () {
+        const docs = yield* linkPullRequest(
+          [document],
+          { branch: "feat/T-1-ui", repositoryId: "repo-b" },
+          {},
+          isDefaultRepository
+        )
+
+        expect(docs.writes).toEqual([])
+      })
+    )
+  }
+
+  it.effect("stacks a pull request from the ticket's own repository", () =>
+    Effect.gen(function* () {
+      const docs = yield* linkPullRequest(
+        [baseDocument({ repo: "repo-b" })],
+        { branch: "feat/T-1-ui", repositoryId: "repo-b" },
+        {},
+        false
+      )
+
+      expect(docs.writes[0]?.document.stack?.at(-1)).toMatchObject({
+        branch: "feat/T-1-ui",
+        pr: 80
+      })
+    })
+  )
 
   const stackedMatch = baseMatch({ branch: "feat/T-1-ui" })
   const stackedChange: GitHubPullRequestWebhookChange = {
@@ -978,7 +1037,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
               }))
           ])
         const index = makeFakeIndex({
-          findMergesAwaiting: (_projectId, base) =>
+          findMergesAwaiting: (_projectId, _repository, base) =>
             Effect.sync(() => awaiting(base))
         })
 
@@ -991,6 +1050,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
             gitAutomation: gitAutomationTestService()
           },
           "project-1",
+          { repoId: "repo-1", isDefault: true },
           "feat/base",
           "delivery-1",
           DateTime.toDate(DateTime.makeUnsafe("2026-05-01T12:00:00Z")),

@@ -1,6 +1,7 @@
 import { Db } from "@pp/db"
 import {
   organizationGithubIntegration,
+  organizationGithubIntegrationProject,
   organizationIntegration,
   projectGithubRepository,
   projectIntegrationLink
@@ -16,12 +17,12 @@ import {
   type GitHubError,
   type GitHubScopeInsufficient,
   type GitHubTokenExpired,
-  type GithubConnection,
   type GithubRepoPage,
   type ProjectDetail,
+  type ProjectGithubInstallation,
   type RateLimited
 } from "@pp/shared"
-import { and, eq } from "drizzle-orm"
+import { and, asc, eq, exists, or } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -35,17 +36,26 @@ import { uniqueConstraint } from "../projects/uniqueConstraint"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import * as GitHub from "./GitHub"
 
-export interface ProjectGithubIntegration {
-  readonly projectIntegrationLinkId: string
-  readonly organizationId: string
-  readonly projectId: string
-  readonly projectSlug: string
-  readonly installationId: string
-  readonly repoId: string
-  readonly repoOwner: string
-  readonly repoName: string
-  readonly defaultBaseBranch: string
-}
+export type ProjectGithubIntegration = Readonly<{
+  projectIntegrationLinkId: string
+  organizationId: string
+  projectId: string
+  projectSlug: string
+  installationId: string
+  repoId: string
+  repoOwner: string
+  repoName: string
+  defaultBaseBranch: string
+  isDefault: boolean
+}>
+
+export const integrationForRepo = (
+  integrations: ReadonlyArray<ProjectGithubIntegration>,
+  repoId: string | null | undefined
+): ProjectGithubIntegration | null =>
+  (repoId == null
+    ? integrations.find((integration) => integration.isDefault)
+    : integrations.find((integration) => integration.repoId === repoId)) ?? null
 
 export class ProjectGithub extends Context.Service<
   ProjectGithub,
@@ -55,7 +65,13 @@ export class ProjectGithub extends Context.Service<
       never,
       ProjectScope
     >
+    integrations: () => Effect.Effect<
+      ReadonlyArray<ProjectGithubIntegration>,
+      never,
+      ProjectScope
+    >
     branches: (
+      repoId: string | undefined,
       query: string | undefined,
       first: number,
       after: string | undefined
@@ -64,7 +80,13 @@ export class ProjectGithub extends Context.Service<
       RepoGone | RateLimited | GitHubError,
       ProjectScope
     >
+    installations: () => Effect.Effect<
+      ReadonlyArray<ProjectGithubInstallation>,
+      never,
+      ProjectScope
+    >
     repos: (
+      installationId: string | undefined,
       query: string | undefined,
       page: number
     ) => Effect.Effect<
@@ -86,7 +108,9 @@ export class ProjectGithub extends Context.Service<
       | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
-    disconnect: () => Effect.Effect<
+    disconnect: (
+      repoId: string
+    ) => Effect.Effect<
       ProjectDetail,
       NotFound | Markdown.MarkdownError,
       ProjectScope
@@ -101,16 +125,17 @@ const make = Effect.gen(function* () {
   const rewrites = yield* TicketRewrites.TicketRewrites
   const {
     current: inScope,
-    githubIntegration: loadGithubIntegration,
-    githubConnection: loadGithubConnection,
+    githubIntegrations: loadGithubIntegrations,
     replay: replayDetail
   } = yield* ProjectDetails.ProjectDetails
 
-  const activeOrganizationGithub = (organizationId: string) =>
+  const availableInstallations = (organizationId: string, projectId: string) =>
     db
       .select({
         integrationId: organizationIntegration.id,
-        installationId: organizationGithubIntegration.installationId
+        installationId: organizationGithubIntegration.installationId,
+        accountLogin: organizationGithubIntegration.githubAccountLogin,
+        accountType: organizationGithubIntegration.githubAccountType
       })
       .from(organizationIntegration)
       .innerJoin(
@@ -124,29 +149,54 @@ const make = Effect.gen(function* () {
         and(
           eq(organizationIntegration.organizationId, organizationId),
           eq(organizationIntegration.provider, "github"),
-          eq(organizationIntegration.status, "active")
+          eq(organizationIntegration.status, "active"),
+          or(
+            eq(organizationGithubIntegration.projectAccess, "all"),
+            exists(
+              db
+                .select({
+                  projectId: organizationGithubIntegrationProject.projectId
+                })
+                .from(organizationGithubIntegrationProject)
+                .where(
+                  and(
+                    eq(
+                      organizationGithubIntegrationProject.organizationIntegrationId,
+                      organizationIntegration.id
+                    ),
+                    eq(
+                      organizationGithubIntegrationProject.projectId,
+                      projectId
+                    )
+                  )
+                )
+            )
+          )
         )
       )
-      .limit(1)
-      .pipe(
-        Effect.map((rows) => rows[0] ?? null),
-        Effect.orDie
-      )
+      .orderBy(asc(organizationIntegration.connectedAt))
+      .pipe(Effect.orDie)
+
+  const githubIntegrations = Effect.fn("ProjectGithub.integrations")(
+    function* () {
+      const scope = yield* ProjectScope
+      return yield* loadGithubIntegrations(scope.projectId)
+    }
+  )
 
   const githubIntegration = Effect.fn("ProjectGithub.integration")(
     function* () {
-      const scope = yield* ProjectScope
-      return yield* loadGithubIntegration(scope.projectId)
+      return integrationForRepo(yield* githubIntegrations(), null)
     }
   )
 
   const githubBranches = Effect.fn("ProjectGithub.branches")(function* (
+    repoId: string | undefined,
     query: string | undefined,
     first: number,
     after: string | undefined
   ) {
-    const { projectId } = yield* ProjectScope
-    const integration = yield* loadGithubIntegration(projectId)
+    const integration = integrationForRepo(yield* githubIntegrations(), repoId)
     if (!integration) return { items: [], nextCursor: null, totalCount: 0 }
     return yield* github.listInstallationBranches(
       integration.installationId,
@@ -158,12 +208,29 @@ const make = Effect.gen(function* () {
     )
   })
 
+  const githubInstallations = Effect.fn("ProjectGithub.installations")(
+    function* () {
+      const { organizationId, projectId } = yield* ProjectScope
+      const rows = yield* availableInstallations(organizationId, projectId)
+      return rows.map((row) => ({
+        id: row.integrationId,
+        accountLogin: row.accountLogin,
+        accountType: row.accountType
+      }))
+    }
+  )
+
   const githubRepos = Effect.fn("ProjectGithub.repos")(function* (
+    installationId: string | undefined,
     query: string | undefined,
     page: number
   ) {
-    const { organizationId } = yield* ProjectScope
-    const installation = yield* activeOrganizationGithub(organizationId)
+    const { organizationId, projectId } = yield* ProjectScope
+    const rows = yield* availableInstallations(organizationId, projectId)
+    const installation =
+      installationId === undefined
+        ? rows[0]
+        : rows.find((row) => row.integrationId === installationId)
     if (!installation) return yield* new NotFound()
     return yield* github.listInstallationRepos(
       installation.installationId,
@@ -171,6 +238,28 @@ const make = Effect.gen(function* () {
       page
     )
   })
+
+  const disconnectLink = (linkId: string, now: Date) =>
+    sql
+      .withTransaction(
+        Effect.gen(function* () {
+          yield* db
+            .update(projectIntegrationLink)
+            .set({
+              status: "disconnected",
+              disconnectedAt: now,
+              updatedAt: now
+            })
+            .where(eq(projectIntegrationLink.id, linkId))
+            .pipe(Effect.orDie)
+          yield* db
+            .update(projectGithubRepository)
+            .set({ status: "disconnected" })
+            .where(eq(projectGithubRepository.projectIntegrationLinkId, linkId))
+            .pipe(Effect.orDie)
+        })
+      )
+      .pipe(Effect.catchTag("SqlError", Effect.die))
 
   const connectGithub = Effect.fn("ProjectGithub.connect")(function* (
     input: ConnectGithubInput
@@ -187,11 +276,53 @@ const make = Effect.gen(function* () {
       },
       Effect.gen(function* () {
         const { indexRow } = yield* inScope
-        const orgGithub = yield* activeOrganizationGithub(
-          indexRow.organizationId
+        const connected = yield* loadGithubIntegrations(indexRow.id)
+        const current = connected.find(
+          (integration) => integration.repoId === input.repoId
         )
-        if (!orgGithub) return yield* new NotFound()
-        const currentConnection = yield* loadGithubConnection(indexRow)
+        if (current) {
+          const verified = yield* github.verifyInstallationRepo(
+            current.installationId,
+            input.repoOwner,
+            input.repoName
+          )
+          if (verified.repoId !== input.repoId) return yield* new RepoGone()
+          yield* db
+            .update(projectGithubRepository)
+            .set({
+              repoOwner: verified.owner,
+              repoName: verified.name,
+              defaultBranch: input.defaultBaseBranch ?? verified.defaultBranch
+            })
+            .where(
+              eq(
+                projectGithubRepository.projectIntegrationLinkId,
+                current.projectIntegrationLinkId
+              )
+            )
+            .pipe(Effect.orDie)
+          return yield* replayDetail
+        }
+
+        const available = yield* availableInstallations(
+          indexRow.organizationId,
+          indexRow.id
+        )
+        if (available.length === 0) return yield* new NotFound()
+        const orgGithub =
+          input.installationId === undefined
+            ? available.length === 1
+              ? available[0]
+              : undefined
+            : available.find(
+                (installation) =>
+                  installation.integrationId === input.installationId
+              )
+        if (!orgGithub) {
+          return yield* new Conflict({
+            reason: "github_installation_not_available"
+          })
+        }
 
         const verified = yield* github.verifyInstallationRepo(
           orgGithub.installationId,
@@ -202,58 +333,15 @@ const make = Effect.gen(function* () {
           return yield* new RepoGone()
         }
 
-        const next: GithubConnection = {
-          repoId: verified.repoId,
-          repoOwner: verified.owner,
-          repoName: verified.name,
-          defaultBaseBranch:
-            input.defaultBaseBranch === undefined
-              ? verified.defaultBranch
-              : input.defaultBaseBranch
+        const defaultRepo = integrationForRepo(connected, null)
+        if (defaultRepo) {
+          yield* rewrites.stampRepository(orgSlug, slug, defaultRepo.repoId)
         }
 
         const now = yield* DateTime.nowAsDate
-        const repoChanged =
-          currentConnection !== null &&
-          (currentConnection.repoId !== next.repoId ||
-            currentConnection.repoOwner !== next.repoOwner ||
-            currentConnection.repoName !== next.repoName)
-        const switchRepository = sql
+        yield* sql
           .withTransaction(
             Effect.gen(function* () {
-              const activeLinks = yield* db
-                .update(projectIntegrationLink)
-                .set({
-                  status: "disconnected",
-                  disconnectedAt: now,
-                  updatedAt: now
-                })
-                .where(
-                  and(
-                    eq(projectIntegrationLink.projectId, indexRow.id),
-                    eq(projectIntegrationLink.provider, "github"),
-                    eq(projectIntegrationLink.status, "active")
-                  )
-                )
-                .returning({ id: projectIntegrationLink.id })
-                .pipe(Effect.orDie)
-
-              yield* Effect.forEach(
-                activeLinks,
-                (link) =>
-                  db
-                    .update(projectGithubRepository)
-                    .set({ status: "disconnected" })
-                    .where(
-                      eq(
-                        projectGithubRepository.projectIntegrationLinkId,
-                        link.id
-                      )
-                    )
-                    .pipe(Effect.asVoid, Effect.orDie),
-                { concurrency: 1 }
-              )
-
               const [link] = yield* db
                 .insert(projectIntegrationLink)
                 .values({
@@ -266,20 +354,7 @@ const make = Effect.gen(function* () {
                   lastCheckStatus: "ok"
                 })
                 .returning()
-                .pipe(
-                  Effect.catch((cause) =>
-                    uniqueConstraint(
-                      cause,
-                      "project_integration_link_active_provider_uidx"
-                    )
-                      ? Effect.fail(
-                          new Conflict({
-                            reason: "github_repo_already_connected"
-                          })
-                        )
-                      : Effect.die(cause)
-                  )
-                )
+                .pipe(Effect.orDie)
 
               yield* db
                 .insert(projectGithubRepository)
@@ -291,7 +366,7 @@ const make = Effect.gen(function* () {
                   repoOwner: verified.owner,
                   repoName: verified.name,
                   defaultBranch:
-                    next.defaultBaseBranch ?? verified.defaultBranch
+                    input.defaultBaseBranch ?? verified.defaultBranch
                 })
                 .pipe(
                   Effect.catch((cause) =>
@@ -311,16 +386,14 @@ const make = Effect.gen(function* () {
           )
           .pipe(Effect.catchTag("SqlError", Effect.die))
 
-        yield* repoChanged
-          ? rewrites.withClearedPrMetadata(orgSlug, slug, switchRepository)
-          : switchRepository
-
         return yield* replayDetail
       })
     )
   })
 
-  const disconnectGithub = Effect.fn("ProjectGithub.disconnect")(function* () {
+  const disconnectGithub = Effect.fn("ProjectGithub.disconnect")(function* (
+    repoId: string
+  ) {
     const { orgSlug, slug, userId } = yield* ProjectScope
     return yield* annotateProjectTelemetry(
       "disconnectGithub",
@@ -328,44 +401,15 @@ const make = Effect.gen(function* () {
       { slug, userId },
       Effect.gen(function* () {
         const { indexRow } = yield* inScope
-        const now = yield* DateTime.nowAsDate
-        yield* sql
-          .withTransaction(
-            Effect.gen(function* () {
-              const activeLinks = yield* db
-                .update(projectIntegrationLink)
-                .set({
-                  status: "disconnected",
-                  disconnectedAt: now,
-                  updatedAt: now
-                })
-                .where(
-                  and(
-                    eq(projectIntegrationLink.projectId, indexRow.id),
-                    eq(projectIntegrationLink.provider, "github"),
-                    eq(projectIntegrationLink.status, "active")
-                  )
-                )
-                .returning({ id: projectIntegrationLink.id })
-                .pipe(Effect.orDie)
-              yield* Effect.forEach(
-                activeLinks,
-                (link) =>
-                  db
-                    .update(projectGithubRepository)
-                    .set({ status: "disconnected" })
-                    .where(
-                      eq(
-                        projectGithubRepository.projectIntegrationLinkId,
-                        link.id
-                      )
-                    )
-                    .pipe(Effect.asVoid, Effect.orDie),
-                { concurrency: 1 }
-              )
-            })
-          )
-          .pipe(Effect.catchTag("SqlError", Effect.die))
+        const connected = yield* loadGithubIntegrations(indexRow.id)
+        const current = connected.find(
+          (integration) => integration.repoId === repoId
+        )
+        if (!current) return yield* new NotFound()
+        yield* disconnectLink(
+          current.projectIntegrationLinkId,
+          yield* DateTime.nowAsDate
+        )
         return yield* replayDetail
       })
     )
@@ -373,7 +417,9 @@ const make = Effect.gen(function* () {
 
   return ProjectGithub.of({
     integration: githubIntegration,
+    integrations: githubIntegrations,
     branches: githubBranches,
+    installations: githubInstallations,
     repos: githubRepos,
     connect: connectGithub,
     disconnect: disconnectGithub

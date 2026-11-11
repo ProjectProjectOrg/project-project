@@ -149,6 +149,7 @@ const projectDetail = (
   createdBy: "user-1",
   createdAt: "2026-01-01T00:00:00.000Z",
   github,
+  githubRepos: github === null ? [] : [github],
   setup: {
     workflowReviewedAt: null,
     invitePeopleDismissedAt: null,
@@ -176,10 +177,20 @@ const repoB = {
 
 const integration = {
   status: "active",
-  accountLogin: "acme",
-  accountType: "Organization",
-  lastCheckedAt: null,
-  lastCheckError: null
+  apps: [],
+  installations: [
+    {
+      id: "installation-1",
+      appId: null,
+      status: "active",
+      accountLogin: "acme",
+      accountType: "Organization",
+      projectAccess: "all",
+      projectSlugs: [],
+      lastCheckedAt: null,
+      lastCheckError: null
+    }
+  ]
 }
 
 describe("createBranch", () => {

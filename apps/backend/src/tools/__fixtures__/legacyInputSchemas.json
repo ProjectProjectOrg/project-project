@@ -1475,6 +1475,16 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 255
+      },
+      "repoId": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
     "required": ["orgSlug", "projectSlug", "id", "name"],
@@ -1504,6 +1514,16 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 255
+      },
+      "repoId": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
     "required": ["orgSlug", "projectSlug", "id", "name"],
@@ -1533,6 +1553,16 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 255
+      },
+      "repoId": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
     "required": ["orgSlug", "projectSlug", "id", "name"],

@@ -106,6 +106,7 @@ export type TicketIndexEntry = Readonly<{
   priority: TicketPriority
   estimate: Estimate | null
   tags: ReadonlyArray<TagName>
+  repoId: string | null
   branch: string | null
   pr: number | null
   prState: PullRequestState | null
@@ -372,6 +373,7 @@ export const ticketIndexRowFor = (
   tags: [...document.tags],
   assignees: [...document.assignees],
   parent: document.parent ?? null,
+  repoId: document.branch === null ? null : (document.repo ?? null),
   branch: document.branch,
   pr: document.pr,
   prState: document.prState,
@@ -750,6 +752,7 @@ const make = Effect.gen(function* () {
     priority: row.priority,
     estimate: estimateFromIndex(row.estimateUnit, row.estimateValue),
     tags: row.tags.map((tag) => makeTagName(tag)),
+    repoId: row.repoId,
     branch: row.branch,
     pr: row.pr,
     prState: row.prState,

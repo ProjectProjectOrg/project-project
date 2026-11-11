@@ -17,6 +17,7 @@ import { testUser } from "../access/testing"
 import { asUser } from "../activity/testing"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import { projectsOnPostgres } from "../projects/projectsOnPostgres"
+import { makeFakeTicketDocs, makeTicketDocument } from "../tickets/testing"
 import * as ProjectGithub from "./ProjectGithub"
 
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
@@ -34,6 +35,9 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
   const projectId = randomUUID()
   const integrationId = randomUUID()
   const installationId = `installation-${integrationId}`
+  const restrictedIntegrationId = randomUUID()
+  const restrictedInstallationId = `installation-${restrictedIntegrationId}`
+  const ticketDocs = makeFakeTicketDocs([])
   const slug = `github-${projectId}`
   const repoCalls: Array<[string, string | undefined, number]> = []
   const branchCalls: Array<ReadonlyArray<unknown>> = []
@@ -108,6 +112,7 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
             DateTime.makeUnsafe("2026-09-24T00:00:00Z")
           ),
           github: null,
+          githubRepos: [],
           estimation: "off",
           setup: {
             workflowReviewedAt: null,
@@ -127,25 +132,31 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
       removeDir: unused,
       readRaw: unused
     })
-    layer = projectsOnPostgres(databaseUrl, [userId], {}, projectDocs, {
-      verifyInstallationRepo: (_installation, owner, name) =>
-        Effect.succeed({
-          repoId: `${name}-repo`,
-          owner,
-          name,
-          defaultBranch: "main"
-        }),
-      listInstallationRepos: (installation, query, page) =>
-        Effect.sync(() => {
-          repoCalls.push([installation, query, page])
-          return { repos: [], hasMore: false }
-        }),
-      listInstallationBranches: (...args) =>
-        Effect.sync(() => {
-          branchCalls.push(args)
-          return { items: [], nextCursor: "next", totalCount: 3 }
-        })
-    })
+    layer = projectsOnPostgres(
+      databaseUrl,
+      [userId],
+      ticketDocs.service,
+      projectDocs,
+      {
+        verifyInstallationRepo: (_installation, owner, name) =>
+          Effect.succeed({
+            repoId: `${name}-repo`,
+            owner,
+            name,
+            defaultBranch: "main"
+          }),
+        listInstallationRepos: (installation, query, page) =>
+          Effect.sync(() => {
+            repoCalls.push([installation, query, page])
+            return { repos: [], hasMore: false }
+          }),
+        listInstallationBranches: (...args) =>
+          Effect.sync(() => {
+            branchCalls.push(args)
+            return { items: [], nextCursor: "next", totalCount: 3 }
+          })
+      }
+    )
   })
 
   afterAll(async () => {
@@ -158,7 +169,7 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
 
   it.effect("lists repositories from the org's GitHub installation", () =>
     Effect.gen(function* () {
-      yield* run((github) => github.repos("web", 2))
+      yield* run((github) => github.repos(undefined, "web", 2))
       expect(repoCalls).toEqual([[installationId, "web", 2]])
     })
   )
@@ -166,7 +177,7 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
   it.effect("has no branches before a repository is connected", () =>
     Effect.gen(function* () {
       const branches = yield* run((github) =>
-        github.branches(undefined, 20, undefined)
+        github.branches(undefined, undefined, 20, undefined)
       )
       expect(branches).toEqual({ items: [], nextCursor: null, totalCount: 0 })
       expect(branchCalls).toEqual([])
@@ -199,7 +210,7 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
   it.effect("lists branches of the connected repository", () =>
     Effect.gen(function* () {
       const branches = yield* run((github) =>
-        github.branches("feat", 20, "cursor")
+        github.branches(undefined, "feat", 20, "cursor")
       )
       expect(branches).toEqual({ items: [], nextCursor: "next", totalCount: 3 })
       expect(branchCalls).toEqual([
@@ -231,26 +242,169 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
     })
   )
 
+  it.effect("adds a second repository and keeps the first as the default", () =>
+    Effect.gen(function* () {
+      ticketDocs.documents.set(
+        "GH-1",
+        makeTicketDocument("GH-1", { branch: "feat/GH-1" })
+      )
+      ticketDocs.documents.set("GH-2", makeTicketDocument("GH-2"))
+
+      const detail = yield* run((github) => github.connect(repo("api")))
+
+      expect(detail.github?.repoId).toBe("app-repo")
+      expect(detail.githubRepos.map((connected) => connected.repoId)).toEqual([
+        "app-repo",
+        "api-repo"
+      ])
+      expect(
+        (yield* run((github) => github.integrations())).map((integration) => [
+          integration.repoId,
+          integration.isDefault
+        ])
+      ).toEqual([
+        ["app-repo", true],
+        ["api-repo", false]
+      ])
+      expect(ticketDocs.documents.get("GH-1")?.repo).toBe("app-repo")
+      expect(ticketDocs.documents.get("GH-2")?.repo).toBeUndefined()
+      const indexed = yield* Effect.promise(() =>
+        pool.query(
+          "SELECT ticket_id, repo_id FROM ticket_index WHERE project_id=$1",
+          [projectId]
+        )
+      )
+      expect(indexed.rows).toEqual([{ ticket_id: "GH-1", repo_id: "app-repo" }])
+    })
+  )
+
+  it.effect("lists branches of the repository that was asked for", () =>
+    Effect.gen(function* () {
+      branchCalls.length = 0
+      yield* run((github) => github.branches("api-repo", "feat", 20, undefined))
+      expect(branchCalls).toEqual([
+        [installationId, "acme", "api", "feat", 20, undefined]
+      ])
+    })
+  )
+
+  it.effect("disconnects one repository and leaves the other connected", () =>
+    Effect.gen(function* () {
+      const missing = yield* Effect.flip(
+        run((github) => github.disconnect("missing-repo"))
+      )
+      expect(missing._tag).toBe("NotFound")
+
+      const detail = yield* run((github) => github.disconnect("app-repo"))
+
+      expect(detail.githubRepos.map((connected) => connected.repoId)).toEqual([
+        "api-repo"
+      ])
+      expect(yield* run((github) => github.integration())).toMatchObject({
+        repoId: "api-repo",
+        isDefault: true
+      })
+    })
+  )
+
   it.effect("disconnects and clears the project file's repository", () =>
     Effect.gen(function* () {
       writtenConnections.length = 0
-      const detail = yield* run((github) => github.disconnect())
+      const detail = yield* run((github) => github.disconnect("api-repo"))
       expect(detail.github).toBeNull()
       expect(writtenConnections).toEqual([null])
       expect(yield* run((github) => github.integration())).toBeNull()
     })
   )
 
+  it.effect(
+    "offers an installation limited to selected projects only to those projects",
+    () =>
+      Effect.gen(function* () {
+        yield* Effect.promise(async () => {
+          await pool.query(
+            "INSERT INTO organization_integration (id,organization_id,provider,status,connected_at) VALUES ($1,$2,'github','active',now() + interval '1 minute')",
+            [restrictedIntegrationId, organizationId]
+          )
+          await pool.query(
+            "INSERT INTO organization_github_integration (organization_integration_id,installation_id,github_account_id,github_account_login,github_account_type,project_access) VALUES ($1,$2,'other-account','other','User','selected')",
+            [restrictedIntegrationId, restrictedInstallationId]
+          )
+        })
+
+        expect(yield* run((github) => github.installations())).toEqual([
+          {
+            id: integrationId,
+            accountLogin: "acme",
+            accountType: "Organization"
+          }
+        ])
+        const refused = yield* Effect.flip(
+          run((github) =>
+            github.connect({
+              ...repo("private"),
+              installationId: restrictedIntegrationId
+            })
+          )
+        )
+        expect(refused).toMatchObject({
+          _tag: "Conflict",
+          reason: "github_installation_not_available"
+        })
+        const hidden = yield* Effect.flip(
+          run((github) => github.repos(restrictedIntegrationId, undefined, 1))
+        )
+        expect(hidden._tag).toBe("NotFound")
+
+        yield* Effect.promise(() =>
+          pool.query(
+            "INSERT INTO organization_github_integration_project (organization_integration_id,project_id) VALUES ($1,$2)",
+            [restrictedIntegrationId, projectId]
+          )
+        )
+
+        expect(yield* run((github) => github.installations())).toEqual([
+          {
+            id: integrationId,
+            accountLogin: "acme",
+            accountType: "Organization"
+          },
+          {
+            id: restrictedIntegrationId,
+            accountLogin: "other",
+            accountType: "User"
+          }
+        ])
+        const ambiguous = yield* Effect.flip(
+          run((github) => github.connect(repo("private")))
+        )
+        expect(ambiguous).toMatchObject({
+          _tag: "Conflict",
+          reason: "github_installation_not_available"
+        })
+        yield* run((github) =>
+          github.connect({
+            ...repo("private"),
+            installationId: restrictedIntegrationId
+          })
+        )
+        expect(yield* run((github) => github.integration())).toMatchObject({
+          repoId: "private-repo",
+          installationId: restrictedInstallationId
+        })
+      })
+  )
+
   it.effect("needs the org's GitHub installation to list or connect", () =>
     Effect.gen(function* () {
       yield* Effect.promise(() =>
         pool.query(
-          "UPDATE organization_integration SET status='disconnected' WHERE id=$1",
-          [integrationId]
+          "UPDATE organization_integration SET status='disconnected' WHERE organization_id=$1",
+          [organizationId]
         )
       )
       const repos = yield* Effect.flip(
-        run((github) => github.repos(undefined, 1))
+        run((github) => github.repos(undefined, undefined, 1))
       )
       const connect = yield* Effect.flip(
         run((github) => github.connect(repo("app")))

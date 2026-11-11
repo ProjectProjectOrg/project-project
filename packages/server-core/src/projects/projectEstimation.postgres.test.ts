@@ -64,6 +64,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
     color: "#3b82f6",
     createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-01-01T00:00:00Z")),
     github: null,
+    githubRepos: [],
     estimation: "points",
     templateDefaults: {},
     body: "Project body",

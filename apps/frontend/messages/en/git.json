@@ -33,6 +33,7 @@
   "git_branch_picker_load_more_error": "Couldn't load more branches.",
   "git_branch_picker_loading_more": "Loading more…",
   "git_branch_picker_placeholder": "Search or create a branch…",
+  "git_branch_picker_repo_label": "Repository",
   "git_branch_picker_retry": "Retry",
   "git_branch_picker_searching": "Searching…",
   "git_branch_picker_status_label": "Move ticket to",
@@ -95,7 +96,26 @@
   "git_stale_branch_status": "Branch not on remote.",
   "git_stale_branch_suffix": "not on remote.",
   "git_stale_branch_title": "Branch \"{name}\" not on remote",
+  "github_apps_add_description": "Creates the App under your GitHub account. You can then install it on any GitHub account or organization you manage.",
+  "github_apps_add_error": "Couldn't start creating the GitHub App.",
+  "github_apps_add_label": "Add GitHub App",
+  "github_apps_add_submit": "Continue on GitHub",
+  "github_apps_description": "Each App is registered on GitHub by this organization and installed on the accounts whose repositories projects connect.",
+  "github_apps_empty": "No GitHub App yet. Add one first, then install it on a GitHub account so projects can connect its repositories.",
+  "github_apps_heading": "GitHub Apps",
+  "github_apps_install_button": "Install on an account",
+  "github_apps_no_installations": "Not installed on any account yet.",
+  "github_apps_other_installations_description": "Not linked to an App listed here.",
+  "github_apps_other_installations_label": "Other installations",
+  "github_apps_owner": "Owned by {owner}",
+  "github_apps_remove_button": "Remove",
+  "github_apps_remove_confirm": "Remove {name} and its installations?",
+  "github_apps_remove_error": "Couldn't remove the GitHub App.",
+  "github_chip_change_account": "Change account",
+  "github_chip_choose_account": "Choose a GitHub account",
   "github_chip_connect_failed_error": "Couldn't connect repo.",
+  "github_chip_connect_installation_unavailable_error": "That GitHub installation isn't available to this project.",
+  "github_chip_connect_no_app_error": "This organization has no GitHub App yet.",
   "github_chip_connect_repo_button": "Connect repo",
   "github_chip_connect_repo_taken_error": "Another project already uses this repo.",
   "github_chip_connect_scope_insufficient_error": "Insufficient scope on GitHub token.",
@@ -104,16 +124,50 @@
   "github_chip_default_base_branch_label": "Default base branch",
   "github_chip_disconnect_button": "Disconnect",
   "github_chip_disconnect_confirm": "Disconnect {repo}?",
+  "github_chip_disconnect_error": "Couldn't disconnect the repo.",
   "github_chip_install_app_ask_admin": "Ask an organization owner or admin to install the GitHub App.",
   "github_chip_install_app_button": "Install GitHub App",
   "github_chip_install_app_failed_error": "Couldn't start GitHub App install.",
   "github_chip_install_app_forbidden_error": "Only an organization owner can install the GitHub App.",
   "github_chip_install_app_loading": "Opening GitHub…",
   "github_chip_install_app_required": "Install the GitHub App for this organization before connecting a repo.",
+  "github_chip_load_accounts_error": "Couldn't load GitHub accounts.",
   "github_chip_load_repos_error": "Couldn't load repos.",
+  "github_chip_more_repos": "+{count}",
+  "github_chip_no_accounts": "No GitHub installation is available to this project.",
+  "github_chip_no_accounts_ask_admin": "Ask an organization owner or admin to allow this project on a GitHub installation.",
   "github_chip_no_repos": "No repos.",
   "github_chip_open_on_github": "Open on GitHub",
+  "github_chip_open_org_settings": "Open GitHub settings",
   "github_chip_repo_private": "private",
   "github_chip_repository_settings": "Repository settings",
-  "github_chip_search_repos_placeholder": "Search repos…"
+  "github_chip_search_repos_placeholder": "Search repos…",
+  "github_installation_access_all": "All projects",
+  "github_installation_access_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} project",
+        "countPlural=*": "{count} projects"
+      }
+    }
+  ],
+  "github_installation_access_error": "Couldn't save project access.",
+  "github_installation_access_label": "Project access for {account}: {access}",
+  "github_installation_access_selected": "Selected projects",
+  "github_installation_remove_button": "Remove",
+  "github_installation_remove_confirm": "Remove {account}?",
+  "github_installation_remove_error": "Couldn't remove the installation.",
+  "github_repos_connected_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} repository connected",
+        "countPlural=*": "{count} repositories connected"
+      }
+    }
+  ],
+  "github_repos_default": "Default repository"
 }

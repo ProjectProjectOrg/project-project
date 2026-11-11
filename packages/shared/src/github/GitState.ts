@@ -146,7 +146,8 @@ export const CreateBranchInput = Schema.Struct({
     Schema.check(Schema.isMinLength(1)),
     Schema.check(Schema.isMaxLength(255))
   ),
-  baseBranch: Schema.optional(Schema.String)
+  baseBranch: Schema.optional(Schema.String),
+  repoId: Schema.optional(Schema.String)
 })
 export type CreateBranchInput = typeof CreateBranchInput.Type
 
@@ -174,6 +175,10 @@ export const AttachBranchInput = Schema.Struct({
     Schema.check(Schema.isMaxLength(255))
   ).annotate({
     description: "The branch name as it exists on the connected repository."
+  }),
+  repoId: Schema.optional(Schema.String).annotate({
+    description:
+      "The connected repository that holds the branch. Defaults to the ticket's repository, then the project's default repository."
   })
 })
 export type AttachBranchInput = typeof AttachBranchInput.Type

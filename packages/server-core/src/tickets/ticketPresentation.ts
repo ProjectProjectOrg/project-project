@@ -9,7 +9,7 @@ import {
 import * as Effect from "effect/Effect"
 
 import { stackLayerStates } from "../git/stackLayerStates"
-import type * as ProjectGithub from "../github/ProjectGithub"
+import * as ProjectGithub from "../github/ProjectGithub"
 import type * as Markdown from "../markdown/Markdown"
 import type * as TicketDocs from "./TicketDocs"
 import type * as TicketIndex from "./TicketIndex"
@@ -20,12 +20,19 @@ export type TicketReadError =
   | TicketDocs.MalformedTicketDocument
 
 export type GitView = Readonly<{
-  integration: ProjectGithub.ProjectGithubIntegration | null
+  integrations: ReadonlyArray<ProjectGithub.ProjectGithubIntegration>
   visible: boolean
 }>
 
+export const repositoryOf = (
+  view: GitView,
+  repoId: string | null | undefined
+): ProjectGithub.ProjectGithubIntegration | null =>
+  ProjectGithub.integrationForRepo(view.integrations, repoId)
+
 const withoutGit = <T extends Ticket>(ticket: T): T => ({
   ...ticket,
+  repoId: null,
   branch: null,
   pr: null,
   prState: null,
@@ -93,12 +100,22 @@ export function documentToTicket(
   view: GitView,
   branchDeletedAt: Date | null = null
 ): Ticket {
-  const { body: _body, commentsRegion: _commentsRegion, ...ticket } = document
+  const {
+    body: _body,
+    commentsRegion: _commentsRegion,
+    repo,
+    ...ticket
+  } = document
   return presentTicket(view, {
     ...ticket,
+    repoId: document.branch === null ? null : (repo ?? null),
     estimate: document.estimate ?? null,
     parent: document.parent ?? null,
-    gitState: pendingGitState(document, view.integration, branchDeletedAt)
+    gitState: pendingGitState(
+      document,
+      repositoryOf(view, repo),
+      branchDeletedAt
+    )
   })
 }
 
@@ -109,7 +126,11 @@ export function indexEntryToTicket(
   const { branchDeletedAt: _branchDeletedAt, ...ticket } = entry
   return presentTicket(view, {
     ...ticket,
-    gitState: pendingGitState(entry, view.integration, entry.branchDeletedAt)
+    gitState: pendingGitState(
+      entry,
+      repositoryOf(view, entry.repoId),
+      entry.branchDeletedAt
+    )
   })
 }
 
@@ -123,7 +144,11 @@ export function documentToDetail(
   return {
     ...documentToTicket(document, view, branchDeletedAt),
     stack: view.visible
-      ? stackLayerStates(document.branch, document.stack, view.integration)
+      ? stackLayerStates(
+          document.branch,
+          document.stack,
+          repositoryOf(view, document.repo)
+        )
       : [],
     splitFrom: document.splitFrom ?? null,
     creator,

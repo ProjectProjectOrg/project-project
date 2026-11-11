@@ -41,15 +41,24 @@ const stackEntryFromRow = (
     row.landed ? { landed: true } : {}
   )
 
+export type BranchRepository = Readonly<{ repoId: string; isDefault: boolean }>
+
+const inRepository = (repository: BranchRepository): SQL | undefined =>
+  repository.isDefault
+    ? or(eq(ticketIndex.repoId, repository.repoId), isNull(ticketIndex.repoId))
+    : eq(ticketIndex.repoId, repository.repoId)
+
 export class TicketBranchIndex extends Context.Service<
   TicketBranchIndex,
   Readonly<{
     findTicketsByBranch: (
       projectId: string,
+      repository: BranchRepository,
       branch: string
     ) => Effect.Effect<ReadonlyArray<TicketIndex.TicketIndexMatch>>
     findStackLayers: (
       projectId: string,
+      repository: BranchRepository,
       branch: string
     ) => Effect.Effect<ReadonlyArray<TicketIndex.TicketIndexMatch>>
     stacksFor: (
@@ -58,6 +67,7 @@ export class TicketBranchIndex extends Context.Service<
     ) => Effect.Effect<ReadonlyMap<string, ReadonlyArray<TicketBranchEntry>>>
     findMergesAwaiting: (
       projectId: string,
+      repository: BranchRepository,
       base: string
     ) => Effect.Effect<
       ReadonlyArray<
@@ -75,6 +85,7 @@ export class TicketBranchIndex extends Context.Service<
     ) => Effect.Effect<Date | null>
     markBranchStale: (
       projectId: string,
+      repository: BranchRepository,
       branch: string,
       deletedAt: Date
     ) => Effect.Effect<ReadonlyArray<string>>
@@ -84,6 +95,7 @@ export class TicketBranchIndex extends Context.Service<
     ) => Effect.Effect<void>
     updateBranchChecks: (
       projectId: string,
+      repository: BranchRepository,
       branch: string,
       checks: ChecksStatus,
       headSha: string,
@@ -97,7 +109,11 @@ const make = Effect.gen(function* () {
 
   const findTicketsByBranch = Effect.fn(
     "TicketBranchIndex.findTicketsByBranch"
-  )(function* (projectId: string, branch: string) {
+  )(function* (
+    projectId: string,
+    repository: BranchRepository,
+    branch: string
+  ) {
     return yield* db
       .select({
         orgSlug: organization.slug,
@@ -113,6 +129,7 @@ const make = Effect.gen(function* () {
       .where(
         and(
           eq(ticketIndex.projectId, projectId),
+          inRepository(repository),
           eq(ticketIndex.branch, branch)
         )
       )
@@ -137,15 +154,27 @@ const make = Effect.gen(function* () {
         branch: ticketBranch.branch
       })
       .from(ticketBranch)
+      .innerJoin(
+        ticketIndex,
+        and(
+          eq(ticketIndex.projectId, ticketBranch.projectId),
+          eq(ticketIndex.ticketId, ticketBranch.ticketId)
+        )
+      )
       .innerJoin(projectIndex, eq(projectIndex.id, ticketBranch.projectId))
       .innerJoin(organization, eq(organization.id, projectIndex.organizationId))
       .where(where)
 
   const findStackLayers = Effect.fn("TicketBranchIndex.findStackLayers")(
-    function* (projectId: string, branch: string) {
+    function* (
+      projectId: string,
+      repository: BranchRepository,
+      branch: string
+    ) {
       return yield* stackLayerMatches(
         and(
           eq(ticketBranch.projectId, projectId),
+          inRepository(repository),
           eq(ticketBranch.branch, branch)
         )
       ).pipe(Effect.orDie)
@@ -185,7 +214,7 @@ const make = Effect.gen(function* () {
   })
 
   const findMergesAwaiting = Effect.fn("TicketBranchIndex.findMergesAwaiting")(
-    function* (projectId: string, base: string) {
+    function* (projectId: string, repository: BranchRepository, base: string) {
       return yield* Effect.all(
         [
           db
@@ -206,6 +235,7 @@ const make = Effect.gen(function* () {
             .where(
               and(
                 eq(ticketIndex.projectId, projectId),
+                inRepository(repository),
                 eq(ticketIndex.prBase, base),
                 eq(ticketIndex.prState, "merged"),
                 isNotNull(ticketIndex.pr),
@@ -218,6 +248,7 @@ const make = Effect.gen(function* () {
           stackLayerMatches(
             and(
               eq(ticketBranch.projectId, projectId),
+              inRepository(repository),
               eq(ticketBranch.base, base),
               eq(ticketBranch.prState, "merged"),
               eq(ticketBranch.landed, false)
@@ -259,6 +290,7 @@ const make = Effect.gen(function* () {
       .where(
         and(
           eq(projectGithubRepository.repoId, repoId),
+          or(eq(ticketIndex.repoId, repoId), isNull(ticketIndex.repoId)),
           eq(projectIntegrationLink.provider, "github"),
           inArray(projectIntegrationLink.status, ["active", "broken"]),
           inArray(projectGithubRepository.status, ["active", "broken"]),
@@ -313,13 +345,19 @@ const make = Effect.gen(function* () {
   )
 
   const markBranchStale = Effect.fn("TicketBranchIndex.markBranchStale")(
-    function* (projectId: string, branch: string, deletedAt: Date) {
+    function* (
+      projectId: string,
+      repository: BranchRepository,
+      branch: string,
+      deletedAt: Date
+    ) {
       return yield* db
         .update(ticketIndex)
         .set({ branchDeletedAt: deletedAt })
         .where(
           and(
             eq(ticketIndex.projectId, projectId),
+            inRepository(repository),
             eq(ticketIndex.branch, branch),
             isNull(ticketIndex.branchDeletedAt)
           )
@@ -351,6 +389,7 @@ const make = Effect.gen(function* () {
   const updateBranchChecks = Effect.fn("TicketBranchIndex.updateBranchChecks")(
     function* (
       projectId: string,
+      repository: BranchRepository,
       branch: string,
       checks: ChecksStatus,
       headSha: string,
@@ -362,6 +401,7 @@ const make = Effect.gen(function* () {
         .where(
           and(
             eq(ticketIndex.projectId, projectId),
+            inRepository(repository),
             eq(ticketIndex.branch, branch),
             or(
               isNull(ticketIndex.checksUpdatedAt),

@@ -23,6 +23,7 @@ import { useMemo, useState } from "react"
 import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import { unstackBranch } from "@/features/github/atoms/github"
 import { compareUrl } from "@/features/github/lib/branchUrl"
+import { repoSlug } from "@/features/github/lib/repos"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/hooks/useActor"
@@ -223,7 +224,7 @@ export function StackedBranches({
               last={index === rows.length - 1}
               own={layer === bottom}
               pulse={layer === bottom && pulse}
-              repoSlug={`${github.repoOwner}/${github.repoName}`}
+              repoSlug={repoSlug(github)}
               canWrite={canWrite}
             />
           ))}

@@ -73,9 +73,15 @@ function makeTicketDocument(
 }
 
 function ticketIndexEntryFromDocument(ticket: TicketDocs.TicketDocument) {
-  const { body: _body, commentsRegion: _commentsRegion, ...entry } = ticket
+  const {
+    body: _body,
+    commentsRegion: _commentsRegion,
+    repo,
+    ...entry
+  } = ticket
   return {
     ...entry,
+    repoId: entry.branch === null ? null : (repo ?? null),
     estimate: entry.estimate ?? null,
     prDraft: entry.prDraft ?? false,
     prBase: entry.prBase ?? null,

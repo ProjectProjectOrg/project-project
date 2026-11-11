@@ -78,7 +78,16 @@ export const githubIntegration = {
   repoId: "repo-1",
   repoOwner: "acme",
   repoName: "app",
-  defaultBaseBranch: "main"
+  defaultBaseBranch: "main",
+  isDefault: true
+} satisfies ProjectGithub.ProjectGithubIntegration
+
+export const secondGithubIntegration = {
+  ...githubIntegration,
+  projectIntegrationLinkId: "link-2",
+  repoId: "repo-2",
+  repoName: "api",
+  isDefault: false
 } satisfies ProjectGithub.ProjectGithubIntegration
 
 export const ticketIndexProject = {
@@ -216,15 +225,29 @@ export const makeFakeProjectMembers = (
 
 export const makeFakeProjectGithub = (
   overrides: Partial<ProjectGithub.ProjectGithub["Service"]> = {}
-) =>
-  Layer.succeed(ProjectGithub.ProjectGithub, {
-    integration: () => Effect.succeed(null),
+) => {
+  const integrations: ProjectGithub.ProjectGithub["Service"]["integrations"] =
+    overrides.integrations ??
+    (() =>
+      (overrides.integration?.() ?? Effect.succeed(null)).pipe(
+        Effect.map((integration) => (integration === null ? [] : [integration]))
+      ))
+  return Layer.succeed(ProjectGithub.ProjectGithub, {
+    integration: () =>
+      integrations().pipe(
+        Effect.map((connected) =>
+          ProjectGithub.integrationForRepo(connected, null)
+        )
+      ),
     branches: () => unexpected("ProjectGithub.branches"),
+    installations: () => unexpected("ProjectGithub.installations"),
     repos: () => unexpected("ProjectGithub.repos"),
     connect: () => unexpected("ProjectGithub.connect"),
     disconnect: () => unexpected("ProjectGithub.disconnect"),
-    ...overrides
+    ...overrides,
+    integrations
   })
+}
 
 export const scopeIn = (orgSlug: string, slug: string) =>
   projectScope("member", "developer", {
@@ -247,6 +270,7 @@ export const testInfra = (scope = defaultScope) =>
           color: "#3b82f6",
           createdAt: isoDate("2026-01-01T00:00:00Z"),
           github: null,
+          githubRepos: [],
           estimation: "points",
           templateDefaults: {},
           body: "",
@@ -414,9 +438,15 @@ export const makeFakeGitHub = (
   } satisfies GitHub.GitHub["Service"])
 
 export const entryFromDocument = (document: TicketDocs.TicketDocument) => {
-  const { body: _body, commentsRegion: _commentsRegion, ...entry } = document
+  const {
+    body: _body,
+    commentsRegion: _commentsRegion,
+    repo,
+    ...entry
+  } = document
   return {
     ...entry,
+    repoId: entry.branch === null ? null : (repo ?? null),
     estimate: entry.estimate ?? null,
     parent: entry.parent ?? null,
     subTicketCount: 0,
@@ -538,6 +568,14 @@ export const querySectionsVia =
       return out
     })
 
+const inRepository = (
+  document: TicketDocs.TicketDocument,
+  repository: TicketBranchIndex.BranchRepository
+) =>
+  document.repo === undefined
+    ? repository.isDefault
+    : document.repo === repository.repoId
+
 export type FakeTicketIndexShape = TicketIndex.TicketIndex["Service"] &
   TicketBranchIndex.TicketBranchIndex["Service"]
 
@@ -649,10 +687,10 @@ export const makeFakeTicketIndex = (
           .filter((document) => document.status === status)
           .map((document) => document.id)
       ),
-    findTicketsByBranch: (projectId, branch) =>
+    findTicketsByBranch: (projectId, repository, branch) =>
       Effect.sync(() =>
         [...documents.values()].flatMap((document) =>
-          document.branch === branch
+          document.branch === branch && inRepository(document, repository)
             ? [
                 {
                   ...ticketIndexProject,
@@ -664,9 +702,10 @@ export const makeFakeTicketIndex = (
             : []
         )
       ),
-    findStackLayers: (projectId, branch) =>
+    findStackLayers: (projectId, repository, branch) =>
       Effect.sync(() =>
         [...documents.values()].flatMap((document) =>
+          inRepository(document, repository) &&
           (document.stack ?? []).some((layer) => layer.branch === branch)
             ? [
                 {
@@ -691,12 +730,13 @@ export const makeFakeTicketIndex = (
           )
       ),
     findMergesAwaiting: () => Effect.succeed([]),
-    isRepositoryBranchAttached: (_repoId, branch, stackedOnly) =>
+    isRepositoryBranchAttached: (repoId, branch, stackedOnly) =>
       Effect.sync(() =>
         [...documents.values()].some(
           (document) =>
-            (!stackedOnly && document.branch === branch) ||
-            (document.stack ?? []).some((layer) => layer.branch === branch)
+            (document.repo === undefined || document.repo === repoId) &&
+            ((!stackedOnly && document.branch === branch) ||
+              (document.stack ?? []).some((layer) => layer.branch === branch))
         )
       ),
     getBranchDeletedAt: () => Effect.succeed(null),

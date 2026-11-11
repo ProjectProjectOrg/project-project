@@ -382,7 +382,7 @@ const make = Effect.gen(function* () {
       { concurrency: 8 }
     ).pipe(Effect.map((views) => new Map(views)))
 
-  const hiddenGit: GitView = { integration: null, visible: false }
+  const hiddenGit: GitView = { integrations: [], visible: false }
 
   const orgTicketRows = (
     scopeOf: ReadonlyMap<string, ProjectScope["Service"]>,

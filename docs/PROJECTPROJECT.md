@@ -74,9 +74,14 @@ The rule: markdown holds what is **portable and cheap** — anything a human wou
 slug: design-system
 name: Design System Rewrite
 createdBy: github_42 # users.id from postgres, audit only
-github:
+github: # the default repository, the first one connected
   repoOwner: woutervh
   repoName: design-system
+githubRepos: # every connected repository, written when there is more than one
+  - repoOwner: woutervh
+    repoName: design-system
+  - repoOwner: woutervh
+    repoName: design-system-docs
 branchTemplate: "{type}/{id}-{slug}" # default: feat/T-12-add-button
 createdAt: 2025-11-04T10:00:00Z
 ---
@@ -182,7 +187,7 @@ The parts the code doesn't make obvious:
 
 ## Integrations
 
-- **GitHub** — a GitHub App per organization. Repos connect per project; tickets link branches and stacked PRs, and status automation runs on PR events through webhooks. Ticket ownership, stack reconciliation and status automation stay in core.
+- **GitHub** — an organization owns any number of GitHub Apps, created from org settings through GitHub's app-manifest flow and stored encrypted (`organization_github_app`). Each App can be installed on several GitHub accounts, and org admins choose per installation which projects may use it. A project connects any number of repositories; the first is its default. A ticket lives in one repository (`repo` in its frontmatter): it links a branch and stacked PRs there, and status automation runs on PR events through webhooks. A webhook is accepted only for installations of the App whose secret signed it. Ticket ownership, stack reconciliation and status automation stay in core.
 - **Slack** — workspace per organization, channel notifications per project, ticket link previews. See `packages/integration-slack/README.md`.
 - **Everhour** — per-user time tracking against tickets. See `packages/integration-everhour/README.md`.
 - **Figma** — linked frames on tickets. See `docs/integrations/figma.md`.

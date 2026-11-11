@@ -31,19 +31,24 @@ export type BranchResults = Readonly<{
   onScroll: (event: UIEvent<HTMLDivElement>) => void
 }>
 
-export function usePreloadBranches() {
+export function usePreloadBranches(repoId?: string) {
   const { orgSlug, slug } = useProjectRoute()
-  useAtomMount(branches(branchesRequest(orgSlug, slug, "")))
+  useAtomMount(branches(branchesRequest(orgSlug, slug, "", repoId)))
 }
 
-export function useBranchResults(query: string): BranchResults {
+export function useBranchResults(
+  query: string,
+  repoId?: string
+): BranchResults {
   const { orgSlug, slug } = useProjectRoute()
   const term = sanitizeBranchName(query)
   const [debounced] = useDebouncedValue(term, { wait: SEARCH_DEBOUNCE_MS })
-  const baseResult = useAtomValue(branches(branchesRequest(orgSlug, slug, "")))
+  const baseResult = useAtomValue(
+    branches(branchesRequest(orgSlug, slug, "", repoId))
+  )
   const base = Result.isSuccess(baseResult) ? baseResult.value : null
   const complete = base !== null && !base.hasMore
-  const req = branchesRequest(orgSlug, slug, complete ? "" : debounced)
+  const req = branchesRequest(orgSlug, slug, complete ? "" : debounced, repoId)
   const result = useAtomValue(branches(req))
   const refresh = useAtomRefresh(branches(req))
   const [pages, setPages] = useAtom(moreBranchPages(req))

@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { GithubChip } from "@/features/github/components/GithubChip"
+import { connectedRepos } from "@/features/github/lib/repos"
 import {
   projectRequest,
   updateProject
@@ -243,7 +244,7 @@ export function ProjectHeader({
           ) : (
             <div className="flex items-center gap-3">
               {actor.call("projects", "gitStates") && (
-                <GithubChip github={project.github} />
+                <GithubChip repos={connectedRepos(project)} />
               )}
               <ProjectMenu />
             </div>

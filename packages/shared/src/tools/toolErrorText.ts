@@ -102,7 +102,7 @@ const messages: Messages<ToolError> = {
       : "Branch not found on remote.",
   GitHubTokenExpired: () => "GitHub token expired — reconnect GitHub.",
   GitHubScopeInsufficient: () => "GitHub token is missing required scopes.",
-  RepoGone: () => "Connected GitHub repository is gone.",
+  RepoGone: () => "A connected GitHub repository is gone.",
   RateLimited: () => "Rate limited by GitHub — retry later.",
   GitHubError: ({ message }) =>
     message ? `GitHub error: ${message}.` : "GitHub error."

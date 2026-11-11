@@ -97,7 +97,7 @@ const FakeProjects = Layer.mergeAll(
     remove: () => unexpected("Projects.remove")
   } satisfies Projects.Projects["Service"]),
   Layer.mock(ProjectGithub.ProjectGithub, {
-    integration: () => Effect.succeed(null)
+    integrations: () => Effect.succeed([])
   }),
   Layer.mock(ProjectMembers.ProjectMembers, {
     memberIds: () => Effect.succeed(new Set(["user-1", "user-2"]))

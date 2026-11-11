@@ -50,12 +50,12 @@ const make = Effect.gen(function* () {
     scope: ProjectScope["Service"]
   ) {
     if (!scope.permissions.can({ github: ["read"] })) {
-      return { integration: null, visible: false } satisfies GitView
+      return { integrations: [], visible: false } satisfies GitView
     }
-    const integration = yield* projectGithubLinks
-      .integration()
+    const integrations = yield* projectGithubLinks
+      .integrations()
       .pipe(Effect.provideService(ProjectScope, scope))
-    return { integration, visible: true } satisfies GitView
+    return { integrations, visible: true } satisfies GitView
   })
 
   const gitView = Effect.flatMap(ProjectScope, gitViewOf)

@@ -86,6 +86,7 @@ export const projectsOnPostgres = (
                 DateTime.makeUnsafe("2026-09-24T00:00:00Z")
               ),
               github: null,
+              githubRepos: [],
               estimation: "off",
               setup: {
                 workflowReviewedAt: null,
