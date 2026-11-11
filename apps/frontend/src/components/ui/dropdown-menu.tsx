@@ -513,7 +513,7 @@ function DropdownMenuSubTrigger({
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "relative flex cursor-pointer items-center gap-2 rounded-md border-y border-transparent bg-clip-padding px-2 py-[7px] text-body text-foreground/70 outline-hidden transition-colors",
+        "relative flex cursor-pointer items-center gap-2 rounded-md border-y border-transparent bg-clip-padding px-2 py-[7px] text-body text-muted-foreground outline-hidden transition-colors",
         "data-[highlighted]:text-foreground",
         "data-[popup-open]:text-foreground",
         "data-[inset]:pl-8",

@@ -73,7 +73,7 @@ function typeScaleProblem(token) {
   ) {
     return `Use a type role (text-display, text-title, text-subtitle, text-body, text-caption, text-micro) instead of \`${token}\`.`
   }
-  if (utility === "uppercase" || /^tracking-/.test(utility)) {
+  if (utility === "uppercase" || utility.startsWith("tracking-")) {
     return `Hierarchy comes from size and weight, not case or letter-spacing: drop \`${token}\`.`
   }
   if (/^text-(muted-)?foreground\/\d+$/.test(utility)) {

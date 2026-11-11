@@ -114,7 +114,7 @@ export function AttachmentVideoControls({
               <Play className="size-4 fill-current" strokeWidth={1.25} />
             )}
           </Button>
-          <span className="px-1.5 text-xs whitespace-nowrap tabular-nums">
+          <span className="px-1.5 text-caption whitespace-nowrap tabular-nums">
             {formatVideoTime(time)}{" "}
             <span className="opacity-60">/ {formatVideoTime(duration)}</span>
           </span>
@@ -124,7 +124,7 @@ export function AttachmentVideoControls({
             layoutId={filenameLayoutId}
             layout="position"
             transition={transitions.morph}
-            className="truncate font-mono text-[11px]"
+            className="truncate font-mono text-micro"
           >
             {filename}
           </motion.span>
