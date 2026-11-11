@@ -28,6 +28,7 @@ import {
 import { useMemo } from "react"
 
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
+import type { SprintContext } from "@/features/command-menu/lib/commandMenu"
 import type { Command } from "@/features/command-menu/lib/commands"
 import {
   completeSprint,
@@ -179,21 +180,12 @@ const lifecycleCommands = (
   return commands
 }
 
-export function SprintCommandScope({
+export function useSprintActions({
   orgSlug,
   slug,
-  sprints,
-  canPlan,
-  sprint
-}: ScopeProps & Readonly<{ sprint: Group }>) {
-  const navigate = useNavigate()
-  const match = useMatch({ from: SPRINT_ROUTE, shouldThrow: false })
-  const { view, setPreference } = useProjectView(
-    orgSlug,
-    slug,
-    match?.search.view,
-    "sprints"
-  )
+  sprint,
+  canPlan
+}: SprintContext): ReadonlyArray<Command> {
   const update = useAtomSet(
     updateSprint({ req: sprintListRequest(orgSlug, slug), groupId: sprint.id })
   )
@@ -204,23 +196,9 @@ export function SprintCommandScope({
     })
   )
   const unfinished = useUnfinishedCount({ orgSlug, slug, sprint })
-  const scope = useMemo(() => {
+  return useMemo(() => {
     const state = sprintState(sprint)
     const planning = canPlan && state !== "completed"
-    const { previous, next } = sprintNeighbours(sprints, sprint.id)
-    const active = pickActiveSprint(sprints)
-    const show = (next: ProjectView) => {
-      if (next !== "description") setPreference(next)
-      void navigate({
-        to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
-        params: { orgSlug, slug, groupId: sprint.id },
-        search: (prev) => ({
-          ...prev,
-          updatedAfter: prev.updatedAfter?.toISOString(),
-          view: next
-        })
-      })
-    }
     const commands: Array<Command> = [
       ...lifecycleCommands(
         sprint,
@@ -273,6 +251,57 @@ export function SprintCommandScope({
         page: "sprintRename"
       })
     }
+    if (canPlan) {
+      commands.push({
+        id: "sprint.delete",
+        group: "sprint",
+        label: m.sprints_command_delete,
+        icon: Trash2,
+        searchOnly: true,
+        keywords: ["remove"],
+        page: "sprintDelete"
+      })
+    }
+    return commands
+  }, [orgSlug, slug, sprint, canPlan, update, complete, unfinished])
+}
+
+export function SprintCommandScope({
+  orgSlug,
+  slug,
+  sprints,
+  canPlan,
+  sprint
+}: ScopeProps & Readonly<{ sprint: Group }>) {
+  const navigate = useNavigate()
+  const match = useMatch({ from: SPRINT_ROUTE, shouldThrow: false })
+  const { view, setPreference } = useProjectView(
+    orgSlug,
+    slug,
+    match?.search.view,
+    "sprints"
+  )
+  const context = useMemo(
+    () => ({ orgSlug, slug, sprint, sprints, canPlan }),
+    [orgSlug, slug, sprint, sprints, canPlan]
+  )
+  const actions = useSprintActions(context)
+  const scope = useMemo(() => {
+    const planning = canPlan && sprintState(sprint) !== "completed"
+    const { previous, next } = sprintNeighbours(sprints, sprint.id)
+    const active = pickActiveSprint(sprints)
+    const show = (next: ProjectView) => {
+      if (next !== "description") setPreference(next)
+      void navigate({
+        to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
+        params: { orgSlug, slug, groupId: sprint.id },
+        search: (prev) => ({
+          ...prev,
+          view: next
+        })
+      })
+    }
+    const commands: Array<Command> = [...actions]
     if (view !== "description") {
       commands.push({
         id: "sprint.goal",
@@ -330,22 +359,10 @@ export function SprintCommandScope({
         env.close()
       }
     })
-    if (canPlan) {
-      commands.push({
-        id: "sprint.delete",
-        group: "sprint",
-        label: m.sprints_command_delete,
-        icon: Trash2,
-        searchOnly: true,
-        keywords: ["remove"],
-        page: "sprintDelete"
-      })
-    }
-    return {
-      sprint: { orgSlug, slug, sprint, sprints, canPlan },
-      commands
-    }
+    return { sprint: context, commands }
   }, [
+    context,
+    actions,
     orgSlug,
     slug,
     sprint,
@@ -353,10 +370,7 @@ export function SprintCommandScope({
     canPlan,
     view,
     setPreference,
-    navigate,
-    update,
-    complete,
-    unfinished
+    navigate
   ])
   useCommandScope(scope)
   return null

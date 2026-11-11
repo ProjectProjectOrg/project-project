@@ -14,6 +14,8 @@ import {
   sprintDetail,
   sprintRequest
 } from "@/features/sprints/atoms/sprintDetail"
+import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
+import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
@@ -80,17 +82,25 @@ export function SprintDetail({
       return isDescription ? (
         <SprintDescription sprint={value} disabled={isCompleted || !canPlan} />
       ) : isBoard ? (
-        <SprintBoard
-          groupId={value.id}
-          query={listQuery}
-          members={project.members}
-          isCompleted={isCompleted}
-          reorderMode={reorderMode}
-          onEnterReorder={canReorder ? enterReorder : ignoreReorder}
-          onExitReorder={cancelReorder}
-          dragOrder={dragOrder}
-          setDragOrder={setDragOrder}
-        />
+        <TicketViewSourceContext
+          value={ticketSearchFromSource({
+            kind: "sprintBoard",
+            groupId,
+            query: listQuery
+          })}
+        >
+          <SprintBoard
+            groupId={value.id}
+            query={listQuery}
+            members={project.members}
+            isCompleted={isCompleted}
+            reorderMode={reorderMode}
+            onEnterReorder={canReorder ? enterReorder : ignoreReorder}
+            onExitReorder={cancelReorder}
+            dragOrder={dragOrder}
+            setDragOrder={setDragOrder}
+          />
+        </TicketViewSourceContext>
       ) : (
         <SprintTicketList
           sprint={value}

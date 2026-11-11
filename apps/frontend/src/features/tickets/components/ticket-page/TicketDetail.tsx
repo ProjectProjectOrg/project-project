@@ -18,6 +18,7 @@ import {
   TicketPage,
   TicketPageSkeleton
 } from "@/features/tickets/components/ticket-page"
+import { ticketSourceFromSearch } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(
@@ -29,6 +30,7 @@ const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 export function TicketDetail() {
   const { orgSlug, slug, id } = routeApi.useParams()
   const search = routeApi.useSearch()
+  const from = useMemo(() => ticketSourceFromSearch(search), [search])
   const navigate = routeApi.useNavigate()
   const ticketId = decodeTicketId(id)
   const req = ticketRequest(orgSlug, slug, ticketId)
@@ -39,14 +41,13 @@ export function TicketDetail() {
   useCommandScope(commandScope)
   const result = useAtomValue(ticketDetail(req))
   const project = useProject()
-  const autoFocusBody = useRef(search.focusBody === 1).current
+  const autoFocusBody = useRef(search.focusBody === "1").current
 
   useEffect(() => {
     if (!autoFocusBody) return
     void navigate({
       to: ".",
-      search: ({ splitInto }) =>
-        splitInto && splitInto.length > 0 ? { splitInto } : {},
+      search: ({ focusBody: _focusBody, ...previous }) => previous,
       replace: true
     })
   }, [autoFocusBody, navigate])
@@ -73,6 +74,7 @@ export function TicketDetail() {
         github={project.github}
         autoFocusBody={autoFocusBody}
         splitInto={search.splitInto ?? []}
+        from={from}
       />
     )
   })

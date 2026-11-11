@@ -128,25 +128,22 @@ export function SprintSelect({
       onSelect={(sprint) => onChange(sprint.id)}
       onClear={value !== null ? () => onChange(null) : undefined}
       trigger={
-        <Hitbox
-          mode="inline"
-          margin="2"
+        <Button
+          type="button"
+          variant="chip"
           aria-label={
             current
               ? m.tickets_sprint_chip_aria({ name: current.name })
               : m.tickets_assign_sprint_chip()
           }
-          className="min-w-0"
         >
-          <span className="inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-caption text-muted-foreground transition-colors hitbox-hover:bg-foreground/5 hitbox-hover:text-foreground">
-            {current ? (
-              <SprintStateIcon sprint={current} size="xs" />
-            ) : (
-              <Plus className="size-3.5" strokeWidth={1.75} />
-            )}
-            <span className="truncate">{label}</span>
-          </span>
-        </Hitbox>
+          {current ? (
+            <SprintStateIcon sprint={current} size="xs" />
+          ) : (
+            <Plus className="size-3.5" strokeWidth={1.75} />
+          )}
+          <span className="max-w-[14ch] truncate">{label}</span>
+        </Button>
       }
     />
   )

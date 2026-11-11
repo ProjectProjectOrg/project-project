@@ -24,6 +24,7 @@ const OPEN_SUBMENU_TRIGGER =
   "[data-slot=dropdown-menu-sub-trigger][data-popup-open]"
 const MENU_ROW =
   "[role^=menuitem]:not([data-disabled]), [role=option]:not([data-disabled])"
+const RESTING = "data-menu-resting"
 const HIGHLIGHT_INSET = 1
 
 type Point = Readonly<{ x: number; y: number }>
@@ -39,36 +40,58 @@ const firstOwned = (
     (candidate) => candidate.closest("[data-menu-highlight-host]") === container
   )
 
+const contains = (element: HTMLElement, pointer: Point): boolean => {
+  const box = element.getBoundingClientRect()
+  return (
+    pointer.x >= box.left &&
+    pointer.x <= box.right &&
+    pointer.y >= box.top &&
+    pointer.y <= box.bottom
+  )
+}
+
 const ownedRowAt = (
   container: HTMLElement,
   pointer: Point
 ): HTMLElement | undefined =>
-  Array.from(container.querySelectorAll<HTMLElement>(MENU_ROW)).find((row) => {
-    if (row.closest("[data-menu-highlight-host]") !== container) return false
-    const box = row.getBoundingClientRect()
-    return (
-      pointer.x >= box.left &&
-      pointer.x <= box.right &&
-      pointer.y >= box.top &&
-      pointer.y <= box.bottom
-    )
-  })
+  Array.from(container.querySelectorAll<HTMLElement>(MENU_ROW)).find(
+    (row) =>
+      row.closest("[data-menu-highlight-host]") === container &&
+      contains(row, pointer)
+  )
 
 // Base UI ignores the pointer on a menu while one of its submenus is open,
 // and marks no row as highlighted until the pointer moves again after the
 // submenu closes. The row under the pointer bridges that handoff, so the
 // highlight slides on instead of fading out and in.
+// With `restOnFirst`, a menu with no highlighted row shows the highlight on
+// its first row, so a submenu opened by hover shows what its rows offer.
+// While the pointer crosses a gap between rows (a separator, the padding) the
+// highlight keeps its last spot (`"hold"`) instead of fading out or jumping to
+// rest, so it slides straight on to the next row.
 const measureHighlight = (
   container: HTMLElement,
   selector: string,
-  pointer: Point | null
-): HighlightRect | null => {
-  const element =
+  pointer: Point | null,
+  restOnFirst: boolean
+): HighlightRect | null | "hold" => {
+  const active =
     firstOwned(container, selector) ??
     (selector === HIGHLIGHTED
       ? (firstOwned(container, OPEN_SUBMENU_TRIGGER) ??
         (pointer === null ? undefined : ownedRowAt(container, pointer)))
       : undefined)
+  if (active === undefined && pointer !== null && contains(container, pointer))
+    return "hold"
+  const resting =
+    active === undefined && restOnFirst
+      ? firstOwned(container, MENU_ROW)
+      : undefined
+  for (const row of container.querySelectorAll(`[${RESTING}]`)) {
+    if (row !== resting) row.removeAttribute(RESTING)
+  }
+  resting?.setAttribute(RESTING, "")
+  const element = active ?? resting
   if (element === undefined) return null
   return {
     top: element.offsetTop + HIGHLIGHT_INSET,
@@ -104,7 +127,14 @@ function observeHighlight(
 ) {
   container.setAttribute("data-menu-highlight-host", "")
   let pointer: Point | null = null
-  const remeasure = () => measure(pointer)
+  let frame = 0
+  const remeasure = () => {
+    if (frame !== 0) return
+    frame = requestAnimationFrame(() => {
+      frame = 0
+      measure(pointer)
+    })
+  }
   const track = (event: PointerEvent) => {
     pointer = { x: event.clientX, y: event.clientY }
   }
@@ -112,7 +142,7 @@ function observeHighlight(
     capture: true,
     passive: true
   })
-  remeasure()
+  measure(pointer)
   const mutations = new MutationObserver(remeasure)
   mutations.observe(container, {
     subtree: true,
@@ -124,6 +154,7 @@ function observeHighlight(
     typeof ResizeObserver === "undefined" ? null : new ResizeObserver(remeasure)
   resizes?.observe(container)
   return () => {
+    cancelAnimationFrame(frame)
     document.removeEventListener("pointermove", track, { capture: true })
     mutations.disconnect()
     resizes?.disconnect()
@@ -133,7 +164,8 @@ function observeHighlight(
 
 function useHighlightRect(
   anchorRef: React.RefObject<HTMLElement | null>,
-  selector: string
+  selector: string,
+  restOnFirst: boolean
 ): HighlightState {
   const [state, setState] = useState<HighlightState>({
     rect: null,
@@ -144,15 +176,18 @@ function useHighlightRect(
     const container = anchorRef.current?.parentElement
     return container
       ? observeHighlight(container, (pointer) =>
-          setState((previous) =>
-            nextHighlight(
-              previous,
-              measureHighlight(container, selector, pointer)
+          setState((previous) => {
+            const rect = measureHighlight(
+              container,
+              selector,
+              pointer,
+              restOnFirst
             )
-          )
+            return rect === "hold" ? previous : nextHighlight(previous, rect)
+          })
         )
       : undefined
-  }, [anchorRef, selector])
+  }, [anchorRef, selector, restOnFirst])
 
   return state
 }
@@ -164,10 +199,11 @@ const TONES: Record<HighlightTone, string> = {
 
 export function MenuHighlight({
   selector = HIGHLIGHTED,
+  restOnFirst = false,
   className
-}: Readonly<{ selector?: string; className?: string }>) {
+}: Readonly<{ selector?: string; restOnFirst?: boolean; className?: string }>) {
   const anchorRef = useRef<HTMLSpanElement>(null)
-  const { rect, session } = useHighlightRect(anchorRef, selector)
+  const { rect, session } = useHighlightRect(anchorRef, selector, restOnFirst)
   const reduceMotion = useReducedMotion() ?? false
 
   return (
@@ -197,7 +233,10 @@ export function MenuHighlight({
               width: rect.width,
               height: rect.height
             }}
-            exit={{ opacity: 0, transition: { duration: 0.15 } }}
+            exit={{
+              opacity: 0,
+              transition: { duration: restOnFirst ? 0 : 0.15 }
+            }}
             transition={reduceMotion ? { duration: 0 } : springs.fast}
           />
         )}

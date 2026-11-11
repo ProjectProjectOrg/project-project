@@ -248,11 +248,10 @@ function SegmentedTab({
     </>
   )
   const className = cn(
-    "group/seg-item relative inline-flex items-center transition-all duration-100 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50",
+    "group/seg-item relative inline-flex items-center transition-all duration-100 outline-none focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50",
     v.itemBase,
     v.innerGap,
-    active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-    subtle && "outline-none focus-visible:ring-1 focus-visible:ring-ring"
+    active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
   )
   return useRender({
     defaultTagName: "button",

@@ -47,7 +47,7 @@ export function SplitResultBanner({
         onClick={() =>
           void navigate({
             to: ".",
-            search: ({ focusBody }) => (focusBody === 1 ? { focusBody } : {}),
+            search: ({ focusBody }) => (focusBody === "1" ? { focusBody } : {}),
             replace: true
           })
         }

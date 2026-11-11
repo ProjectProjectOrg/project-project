@@ -34,13 +34,15 @@ import {
   TicketEpicSections,
   TicketListPage,
   TicketListQuery,
+  TicketNeighbors,
   TicketOrderKeyQuery,
   TicketSearchQuery,
   TicketSection,
   TicketSections,
   TicketSort,
   TicketSprintSections,
-  TicketUpdateResult
+  TicketUpdateResult,
+  TicketViewSource
 } from "../filters/Ticket"
 import {
   AttachBranchInput,
@@ -306,6 +308,20 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       success: TicketDetail,
       error: [Unauthorized, NotFound, Forbidden]
     })
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "neighbors",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/neighbors",
+      {
+        params: TicketPath,
+        query: Schema.Struct({ from: Schema.fromJsonString(TicketViewSource) }),
+        success: Schema.NullOr(TicketNeighbors),
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
       .annotate(RequiresProject, { ticket: ["read"] })
       .middleware(ProjectAccess)
   )

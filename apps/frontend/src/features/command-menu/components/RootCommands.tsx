@@ -42,11 +42,29 @@ const GROUP_LABELS: Readonly<Record<CommandGroup, () => string>> = {
   backlog: m.sprints_command_group_backlog,
   view: m.chrome_command_menu_group_view,
   create: m.chrome_command_menu_group_create,
+  setup: m.chrome_command_menu_group_setup,
   navigation: m.chrome_command_menu_group_navigation,
   miscellaneous: m.chrome_command_menu_group_miscellaneous,
   settings: m.chrome_command_menu_group_settings,
   account: m.chrome_command_menu_group_account
 }
+
+export const commandItem = (
+  command: Command,
+  context: CommandContext
+): CommandFrameItem => ({
+  value: command.id,
+  label: command.label(context),
+  icon: command.icon,
+  group: GROUP_LABELS[command.group](),
+  keywords: command.keywords,
+  parent: command.parent?.(),
+  searchOnly: command.searchOnly,
+  enterLabel:
+    "page" in command
+      ? m.chrome_command_menu_select()
+      : m.chrome_command_menu_run()
+})
 
 const TICKET_VALUE = "open-ticket:"
 const PROJECT_VALUE = "open-project:"
@@ -68,6 +86,15 @@ const isContextTicket = (
   self !== null &&
   target.id === self.ticketId &&
   target.projectSlug === self.slug
+
+function useSprintToCreateIn(sprint: CommandContext["sprint"]) {
+  const params = useParams({ strict: false })
+  return sprint !== null &&
+    sprint.sprint.completedAt === null &&
+    params.groupId === sprint.sprint.id
+    ? sprint.sprint.id
+    : undefined
+}
 
 function useIsOnTicketPage(self: CommandContext["ticket"]) {
   const params = useParams({ strict: false })
@@ -95,6 +122,7 @@ export function RootCommands({
   const projects = useProjectSearchTargets(context.orgSlug, context.projectSlug)
   const self = context.ticket
   const onOwnPage = useIsOnTicketPage(self)
+  const createIn = useSprintToCreateIn(context.sprint)
   const tickets = [...recent, ...found].filter(
     (target) => !(onOwnPage && isContextTicket(self, target))
   )
@@ -117,19 +145,7 @@ export function RootCommands({
   const visible = visibleCommands(commands, context)
   const byId = new Map(visible.map((command) => [command.id, command]))
   const items: ReadonlyArray<CommandFrameItem> = [
-    ...visible.map((command) => ({
-      value: command.id,
-      label: command.label(context),
-      icon: command.icon,
-      group: GROUP_LABELS[command.group](),
-      keywords: command.keywords,
-      parent: command.parent?.(),
-      searchOnly: command.searchOnly,
-      enterLabel:
-        "page" in command
-          ? m.chrome_command_menu_select()
-          : m.chrome_command_menu_run()
-    })),
+    ...visible.map((command) => commandItem(command, context)),
     ...projects.map((project) => ({
       value: `${PROJECT_VALUE}${project.slug}`,
       label: project.name,
@@ -189,10 +205,7 @@ export function RootCommands({
                     orgSlug: context.orgSlug,
                     projectSlug: context.projectSlug,
                     title: search.trim(),
-                    sprint:
-                      context.sprint?.sprint.completedAt === null
-                        ? context.sprint.sprint.id
-                        : undefined
+                    sprint: createIn
                   })
                 }
               }

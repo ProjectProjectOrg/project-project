@@ -189,7 +189,7 @@ it.effect("create files a sub-ticket under an epic", () => {
       parent: ticketId("T-1")
     })
 
-    expect(created.parent).toBe("T-1")
+    expect(created.parent?.id).toBe("T-1")
     expect(docs.documents.get(created.id)?.parent).toBe("T-1")
   }).pipe(Effect.provide(layer))
 })
@@ -317,7 +317,7 @@ it.effect(
         _tag: "Validation",
         reason: "ticket_has_sub_tickets"
       })
-      expect(underEpic.ticket.parent).toBe("T-1")
+      expect(underEpic.ticket.parent?.id).toBe("T-1")
     }).pipe(Effect.provide(layer))
   }
 )

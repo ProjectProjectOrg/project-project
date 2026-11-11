@@ -1,7 +1,7 @@
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 
-import type { Group } from "./Group"
+import type { Group, GroupId } from "./Group"
 
 const nowDate = (): Date => DateTime.toDate(DateTime.nowUnsafe())
 
@@ -55,4 +55,28 @@ export function activeAndPlannedCount(
 ): number {
   return onlySprints(groups).filter((g) => sprintState(g, now) !== "completed")
     .length
+}
+
+export function backlogSprintSections(
+  sprints: ReadonlyArray<Group>,
+  selected?: ReadonlyArray<GroupId | "ungrouped">,
+  now: Date = nowDate()
+): ReadonlyArray<Group | null> {
+  const rank = { planned: 0, active: 1, completed: 2 }
+  const ordered = sprints.toSorted((a, b) => {
+    const stateOrder = rank[sprintState(a, now)] - rank[sprintState(b, now)]
+    if (stateOrder !== 0) return stateOrder
+    const dateOrder =
+      (a.startsAt?.getTime() ?? Number.MAX_SAFE_INTEGER) -
+      (b.startsAt?.getTime() ?? Number.MAX_SAFE_INTEGER)
+    return dateOrder || a.id.localeCompare(b.id)
+  })
+  const sections = [
+    ...ordered.filter((sprint) => sprintState(sprint, now) === "planned"),
+    null,
+    ...ordered.filter((sprint) => sprintState(sprint, now) !== "planned")
+  ]
+  return selected?.length
+    ? sections.filter((sprint) => selected.includes(sprint?.id ?? "ungrouped"))
+    : sections
 }

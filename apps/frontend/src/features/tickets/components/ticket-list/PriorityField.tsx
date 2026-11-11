@@ -1,12 +1,19 @@
-import type { TicketId, TicketPriority, UpdateTicketInput } from "@pp/shared"
+import type { TicketId, TicketPriority } from "@pp/shared"
+import type { ReactElement } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Select, SelectTrigger } from "@/components/ui/select"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import {
   PRIORITY_LABELS,
   PRIORITY_META,
   PRIORITY_ORDER
 } from "@/features/tickets/lib/priorityMeta"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -17,6 +24,7 @@ export const priorityOptions = () =>
     return {
       value: p,
       textValue: PRIORITY_LABELS[p](),
+      closeOnClick: true,
       label: (
         <>
           <PIcon className={cn("size-4", pMeta.className)} strokeWidth={1.75} />
@@ -25,6 +33,40 @@ export const priorityOptions = () =>
       )
     }
   })
+
+export function PriorityMenu({
+  value,
+  onChange,
+  trigger,
+  disabled = false,
+  className = "w-44"
+}: Readonly<{
+  value: TicketPriority
+  onChange: (priority: TicketPriority) => void
+  trigger: ReactElement
+  disabled?: boolean
+  className?: string
+}>) {
+  return (
+    <DropdownMenu disabled={disabled}>
+      <DropdownMenuTrigger render={trigger} />
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className={className}
+        finalFocus={false}
+      >
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(next) => {
+            if (next !== value) onChange(next)
+          }}
+          items={priorityOptions()}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 export function PrioritySelect({
   value,
@@ -41,31 +83,26 @@ export function PrioritySelect({
   const Icon = meta.icon
   const priorityLabel = PRIORITY_LABELS[value]()
   return (
-    <Select
-      items={priorityOptions()}
+    <PriorityMenu
       value={value}
-      onValueChange={(next) => {
-        if (next !== value) onChange(next)
-      }}
-      contentProps={{ align: "start", className: "w-44" }}
-    >
-      <SelectTrigger
-        render={
-          <Button
-            type="button"
-            variant="chip"
-            size={showLabel ? undefined : "icon-sm"}
-            onClick={(e) => stopPropagation && e.stopPropagation()}
-            aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
-            title={priorityLabel}
-            className={meta.className}
-          />
-        }
-      >
-        <Icon className="size-3.5" strokeWidth={1.75} />
-        {showLabel && <span className="text-foreground">{priorityLabel}</span>}
-      </SelectTrigger>
-    </Select>
+      onChange={onChange}
+      trigger={
+        <Button
+          type="button"
+          variant="chip"
+          size={showLabel ? undefined : "icon-sm"}
+          onClick={(e) => stopPropagation && e.stopPropagation()}
+          aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
+          title={priorityLabel}
+          className={meta.className}
+        >
+          <Icon className="size-3.5" strokeWidth={1.75} />
+          {showLabel && (
+            <span className="text-foreground">{priorityLabel}</span>
+          )}
+        </Button>
+      }
+    />
   )
 }
 
@@ -76,7 +113,7 @@ export function PriorityButton({
 }: {
   ticket: { id: TicketId; priority: TicketPriority }
   stopPropagation?: boolean
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
 }) {
   return (
     <PrioritySelect
@@ -93,35 +130,29 @@ export function PriorityBadgeTrigger({
   className
 }: {
   ticket: { id: TicketId; priority: TicketPriority }
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
   className?: string
 }) {
   const meta = PRIORITY_META[ticket.priority]
   const Icon = meta.icon
   const priorityLabel = PRIORITY_LABELS[ticket.priority]()
   return (
-    <Select
-      items={priorityOptions()}
+    <PriorityMenu
       value={ticket.priority}
-      onValueChange={(priority) => {
-        if (priority !== ticket.priority) onPatch({ priority })
-      }}
-      contentProps={{ align: "start", className: "w-40", finalFocus: false }}
-    >
-      <SelectTrigger
-        render={
-          <Button
-            type="button"
-            variant="chip"
-            onClick={(e) => e.stopPropagation()}
-            aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
-            className={className}
-          />
-        }
-      >
-        <Icon className={cn("size-3.5", meta.className)} strokeWidth={1.75} />
-        <span>{priorityLabel}</span>
-      </SelectTrigger>
-    </Select>
+      onChange={(priority) => onPatch({ priority })}
+      className="w-40"
+      trigger={
+        <Button
+          type="button"
+          variant="chip"
+          onClick={(e) => e.stopPropagation()}
+          aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
+          className={className}
+        >
+          <Icon className={cn("size-3.5", meta.className)} strokeWidth={1.75} />
+          <span>{priorityLabel}</span>
+        </Button>
+      }
+    />
   )
 }

@@ -109,7 +109,7 @@ function Row({
   )
 }
 
-function Add({ onClick, hint }: { onClick: () => void; hint: string }) {
+function Add({ onClick, hint }: { onClick: () => void; hint: ReactNode }) {
   return (
     <div className="col-span-full flex items-center gap-3 pt-2 pl-6">
       <Button

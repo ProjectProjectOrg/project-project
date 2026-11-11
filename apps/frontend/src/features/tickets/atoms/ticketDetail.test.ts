@@ -15,6 +15,7 @@ import { describe, expect, it, vi } from "vitest"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { stubFetch } from "@/api/testFetch"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 
 import { ticketDetail, ticketRequest, updateTicketDetail } from "./ticketDetail"
 
@@ -35,6 +36,7 @@ const ticket = {
   pr: null,
   prState: null,
   lastTransitionedPr: null,
+  parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
   assignees: [],
   archivedAt: null,
@@ -305,7 +307,7 @@ describe("ticket detail invalidation keys", () => {
     })
 
     const publishedBy = async (
-      patch: UpdateTicketInput,
+      patch: TicketEdit,
       expected: ReadonlyArray<ProbeName>
     ) => {
       fetched.clear()

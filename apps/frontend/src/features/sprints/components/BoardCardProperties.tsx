@@ -1,10 +1,9 @@
 import { useAtomValue } from "@effect/atom-react"
 import {
   hasSubTickets,
-  type TicketId,
   type Ticket,
-  type TicketPriority,
-  type UpdateTicketInput
+  type TicketParent,
+  type TicketPriority
 } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -12,16 +11,10 @@ import { ChevronRight, Layers } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { MiddleTruncate } from "@/components/ui/middle-truncate"
-import { Select, SelectTrigger } from "@/components/ui/select"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
-import {
-  ticketDetail,
-  ticketRequest
-} from "@/features/tickets/atoms/ticketDetail"
-import { useParentLabel } from "@/features/tickets/components/ticket-list/EpicLabel"
 import { EstimateBadgeTrigger } from "@/features/tickets/components/ticket-list/EstimateField"
-import { priorityOptions } from "@/features/tickets/components/ticket-list/PriorityField"
+import { PriorityMenu } from "@/features/tickets/components/ticket-list/PriorityField"
 import { SubTicketCount } from "@/features/tickets/components/ticket-list/SubTicketProgress"
 import {
   RelationChips,
@@ -34,6 +27,7 @@ import {
   PRIORITY_LABELS,
   PRIORITY_META
 } from "@/features/tickets/lib/priorityMeta"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -55,7 +49,7 @@ export function BoardCardProperties({
 }: Readonly<{
   ticket: Ticket
   editable: boolean
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
   failure: ReactNode
 }>) {
   const estimation = useEstimationMode()
@@ -75,7 +69,7 @@ export function BoardCardProperties({
           "min-w-[22px] justify-center px-[5px] [&_svg]:size-3"
         )}
       />
-      {ticket.parent && <EpicChip epicId={ticket.parent} />}
+      {ticket.parent?.type === "epic" && <EpicChip epic={ticket.parent} />}
       {ticket.estimate !== null && estimation !== "off" && (
         <fieldset disabled={!editable} className="contents">
           <EstimateBadgeTrigger
@@ -109,36 +103,31 @@ function PriorityChip({
   const Icon = meta.icon
   const label = PRIORITY_LABELS[priority]()
   return (
-    <Select
-      items={priorityOptions()}
+    <PriorityMenu
       value={priority}
       disabled={!editable}
-      onValueChange={(next) => {
-        if (next !== priority) onChange(next)
-      }}
-      contentProps={{ align: "start", className: "w-40", finalFocus: false }}
-    >
-      <SelectTrigger
-        render={
-          <button
-            type="button"
-            onClick={(event) => event.stopPropagation()}
-            aria-label={m.tickets_priority_aria_label({ label })}
-            title={label}
-            className={cn(
-              boardChipClass,
-              interactiveChipClass,
-              "w-[22px] justify-center px-0"
-            )}
+      onChange={onChange}
+      className="w-40"
+      trigger={
+        <button
+          type="button"
+          disabled={!editable}
+          onClick={(event) => event.stopPropagation()}
+          aria-label={m.tickets_priority_aria_label({ label })}
+          title={label}
+          className={cn(
+            boardChipClass,
+            interactiveChipClass,
+            "w-[22px] justify-center px-0"
+          )}
+        >
+          <Icon
+            className={cn("size-3 shrink-0", meta.className)}
+            strokeWidth={1.75}
           />
-        }
-      >
-        <Icon
-          className={cn("size-3 shrink-0", meta.className)}
-          strokeWidth={1.75}
-        />
-      </SelectTrigger>
-    </Select>
+        </button>
+      }
+    />
   )
 }
 
@@ -169,17 +158,15 @@ function BoardSubTicketsChip({
   )
 }
 
-function EpicChip({ epicId }: Readonly<{ epicId: TicketId }>) {
+function EpicChip({ epic }: Readonly<{ epic: TicketParent }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const label = useParentLabel({ orgSlug, slug, epicId })
-  if (label?.epic !== true) return null
   return (
     <TicketPreviewTrigger
-      preview={{ kind: "ticket", id: epicId }}
+      preview={{ kind: "ticket", id: epic.id }}
       render={
         <Link
           to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-          params={{ orgSlug, slug, id: epicId }}
+          params={{ orgSlug, slug, id: epic.id }}
           preload="intent"
           draggable={false}
           className={cn(boardChipClass, interactiveChipClass)}
@@ -187,51 +174,37 @@ function EpicChip({ epicId }: Readonly<{ epicId: TicketId }>) {
       }
     >
       <Layers className="size-3 shrink-0" strokeWidth={1.75} />
-      <MiddleTruncate value={label.title} />
+      <MiddleTruncate value={epic.title} />
     </TicketPreviewTrigger>
   )
 }
 
 export function ParentTicketCrumb({
-  parentId
-}: Readonly<{ parentId: TicketId }>) {
+  parent
+}: Readonly<{ parent: TicketParent }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const label = useParentLabel({ orgSlug, slug, epicId: parentId })
-  if (label === null || label.epic) return null
   return (
     <>
       <ChevronRight
         aria-hidden
-        className="-mx-0.5 size-3.5 shrink-0"
+        className="-mx-0.5 size-3.5 shrink-0 self-center"
         strokeWidth={1.75}
       />
       <TicketPreviewTrigger
-        preview={{ kind: "ticket", id: parentId }}
+        preview={{ kind: "ticket", id: parent.id }}
         render={
           <Link
             to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-            params={{ orgSlug, slug, id: parentId }}
+            params={{ orgSlug, slug, id: parent.id }}
             preload="intent"
             draggable={false}
-            className="relative z-20 flex min-w-0 transition-colors hover:text-foreground"
+            className="relative z-20 -mx-1.5 -my-1 flex min-w-0 rounded-md px-1.5 py-1 transition-colors outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
           />
         }
       >
-        <ParentTitle parentId={parentId} />
+        <span className="min-w-0 truncate">{parent.title}</span>
       </TicketPreviewTrigger>
     </>
-  )
-}
-
-function ParentTitle({ parentId }: Readonly<{ parentId: TicketId }>) {
-  const { orgSlug, slug } = useProjectRoute()
-  const parent = useAtomValue(
-    ticketDetail(ticketRequest(orgSlug, slug, parentId))
-  )
-  return (
-    <span className="min-w-0 truncate">
-      {Result.isSuccess(parent) ? parent.value.title : parentId}
-    </span>
   )
 }
 

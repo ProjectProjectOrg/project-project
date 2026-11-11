@@ -51,6 +51,13 @@ export const TicketType = Schema.Literals([
 ])
 export type TicketType = typeof TicketType.Type
 
+export const TicketParent = Schema.Struct({
+  id: TicketId,
+  title: Schema.String,
+  type: TicketType
+})
+export type TicketParent = typeof TicketParent.Type
+
 export const TicketPriority = Schema.Literals(["low", "med", "high"])
 export type TicketPriority = typeof TicketPriority.Type
 
@@ -89,7 +96,11 @@ export const Ticket = Schema.Struct({
   lastTransitionedPr: Schema.NullOr(Schema.Finite),
   gitState: GitState,
   assignees: Schema.Array(Schema.String),
-  parent: Schema.optional(Schema.NullOr(TicketId)),
+  parent: Schema.NullOr(TicketParent).annotate({
+    description:
+      "The epic or ticket this ticket sits under, or `null`. Inputs take " +
+      "only its `id`."
+  }),
   subTicketCount: Schema.optional(Schema.Number),
   subTicketDoneCount: Schema.optional(Schema.Number),
   subTicketsInSection: Schema.optional(Schema.Number),

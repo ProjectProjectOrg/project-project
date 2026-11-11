@@ -76,7 +76,7 @@ import {
   ticketChangeOf
 } from "./ticketPatch"
 import {
-  documentToTicket,
+  indexEntryToTicket,
   requirePolicy,
   type TicketReadError
 } from "./ticketPresentation"
@@ -397,7 +397,10 @@ const make = Effect.gen(function* () {
         found.has(id)
           ? Effect.succeed(found.get(id))
           : ticketIndex.list(project, [id]).pipe(
-              Effect.map(([entry]) => entry),
+              Effect.map(
+                ([entry]) =>
+                  entry && { ...entry, parent: entry.parent?.id ?? null }
+              ),
               Effect.tap((entry) => Effect.sync(() => found.set(id, entry)))
             ),
       hasChildren: (id) => hasChildren(project, viewerId, id)
@@ -1539,8 +1542,16 @@ const make = Effect.gen(function* () {
       Effect.onError(() => withTicketLocks(scope, ids, revertWritten))
     )
 
+    const entries = yield* ticketIndex.list(
+      scope,
+      nexts.map((next) => next.id)
+    )
+    const byId = new Map(entries.map((entry) => [entry.id, entry]))
     return {
-      tickets: nexts.map((next) => documentToTicket(next, view)),
+      tickets: nexts.flatMap((next) => {
+        const entry = byId.get(next.id)
+        return entry ? [indexEntryToTicket(entry, view)] : []
+      }),
       sprint: sprintChange
     }
   })

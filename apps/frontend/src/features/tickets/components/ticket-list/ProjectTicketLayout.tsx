@@ -1,6 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { GroupPolicy } from "@pp/access/policies"
 import type { GroupId, TicketListQuery } from "@pp/shared"
+import { BacklogGrouping } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { motion } from "motion/react"
 import { Activity, type ReactNode } from "react"
@@ -22,7 +23,6 @@ import {
   type StatusReorder
 } from "@/features/sprints/hooks/useStatusReorder"
 import { viewCounts } from "@/features/tickets/atoms/viewCounts"
-import { BacklogGrouping } from "@/features/tickets/lib/backlogGrouping"
 import { useProjectActor } from "@/hooks/useActor"
 import {
   readLocalStorage,

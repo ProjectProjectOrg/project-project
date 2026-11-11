@@ -213,7 +213,6 @@ export function ProjectHeader({
                         params={{ orgSlug, slug, groupId: sprint.id }}
                         search={(previous) => ({
                           ...previous,
-                          updatedAfter: previous.updatedAfter?.toISOString(),
                           view:
                             previous.view === "description"
                               ? undefined
@@ -331,7 +330,7 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
         }}
         disabled={!canEdit}
         className={cn(
-          "-mx-1 truncate rounded px-1 text-left text-display font-bold transition-colors transition-transform duration-100 active:scale-[0.97]",
+          "-mx-1 truncate rounded px-1 text-left text-display font-bold transition-colors transition-transform duration-100 outline-none focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]",
           canEdit && "hover:bg-hover"
         )}
       >
@@ -348,7 +347,7 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void commit()}
         onKeyDown={handleKey}
-        className="-mx-1 w-full rounded bg-transparent px-1 text-display font-bold ring-2 ring-ring/50 outline-none"
+        className="-mx-1 w-full rounded bg-transparent px-1 text-display font-bold ring-1 ring-ring outline-none"
         maxLength={120}
         aria-label={m.project_detail_name_aria_label()}
       />

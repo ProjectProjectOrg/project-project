@@ -52,7 +52,7 @@ export function MentionChip({
       <Badge
         tone="muted"
         size="xs"
-        className="align-middle font-mono"
+        className="align-baseline font-mono"
         contentEditable={false}
       >
         {id}
@@ -64,24 +64,24 @@ export function MentionChip({
     <Popover>
       <PopoverTrigger
         render={
-          <Link
-            to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-            params={{ orgSlug: scope.orgSlug, slug: scope.slug, id }}
-            ref={linkRef}
-            onMouseDown={(e) => e.preventDefault()}
+          <Badge
+            tone="muted"
+            size="xs"
+            className="align-baseline font-mono"
+            render={
+              <Link
+                to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+                params={{ orgSlug: scope.orgSlug, slug: scope.slug, id }}
+                ref={linkRef}
+                onMouseDown={(e) => e.preventDefault()}
+              />
+            }
           />
         }
         openOnHover
         contentEditable={false}
       >
-        <Badge
-          tone="muted"
-          size="xs"
-          className="align-middle font-mono"
-          contentEditable={false}
-        >
-          {id}
-        </Badge>
+        {id}
       </PopoverTrigger>
       <TicketHoverCard ticketId={makeTicketId(id)} scope={scope} />
     </Popover>

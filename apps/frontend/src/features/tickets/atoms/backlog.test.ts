@@ -20,6 +20,7 @@ import * as Schema from "effect/Schema"
 import { describe, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 
 import { applyTicketPatch } from "../lib/ticketPatch"
 import {
@@ -56,6 +57,7 @@ const ticket = {
   pr: null,
   prState: null,
   lastTransitionedPr: null,
+  parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
   assignees: [],
   archivedAt: null,
@@ -1604,7 +1606,7 @@ const orderAfterFieldEdit = async (
   query: TicketListQuery,
   items: ReadonlyArray<ServedRow>,
   editedId: TicketId,
-  patch: UpdateTicketInput,
+  patch: TicketEdit,
   response: (edited: Ticket) => TicketUpdateResult
 ): Promise<EditOutcome> => {
   let sectionsServed = 0

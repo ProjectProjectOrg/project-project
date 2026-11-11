@@ -3,12 +3,7 @@ import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import {
-  filterableSprints,
-  singleFilter,
-  singleFilterValue,
-  toggledTags
-} from "./ticketFilters"
+import { filterableSprints, toggled } from "./ticketFilters"
 
 const date = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
 const NOW = date("2026-05-09T00:00:00.000Z")
@@ -30,42 +25,17 @@ const sprint = (id: string, overrides: Partial<Group> = {}): Group => ({
   ...overrides
 })
 
-describe("singleFilterValue", () => {
-  it("reads the only selected value", () => {
-    expect(singleFilterValue(["bug"])).toBe("bug")
+describe("toggled", () => {
+  it("adds an unselected value at the end", () => {
+    expect(toggled(["a"], "b")).toEqual(["a", "b"])
   })
 
-  it("reads no selection as all", () => {
-    expect(singleFilterValue(undefined)).toBe("all")
-    expect(singleFilterValue([])).toBe("all")
+  it("removes a selected value", () => {
+    expect(toggled(["a", "b"], "a")).toEqual(["b"])
   })
 
-  it("reads a multi-value selection as all", () => {
-    expect(singleFilterValue(["bug", "chore"])).toBe("all")
-  })
-})
-
-describe("singleFilter", () => {
-  it("clears the filter for all", () => {
-    expect(singleFilter("all")).toBeUndefined()
-  })
-
-  it("selects exactly one value", () => {
-    expect(singleFilter("bug")).toEqual(["bug"])
-  })
-})
-
-describe("toggledTags", () => {
-  it("adds an unselected tag at the end", () => {
-    expect(toggledTags(["a"], "b")).toEqual(["a", "b"])
-  })
-
-  it("removes a selected tag", () => {
-    expect(toggledTags(["a", "b"], "a")).toEqual(["b"])
-  })
-
-  it("clears the filter when the last tag is removed", () => {
-    expect(toggledTags(["a"], "a")).toBeUndefined()
+  it("clears the filter when the last value is removed", () => {
+    expect(toggled(["a"], "a")).toBeUndefined()
   })
 })
 

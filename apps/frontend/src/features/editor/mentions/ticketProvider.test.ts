@@ -30,6 +30,7 @@ it.effect("deduplicates identical ticket mention searches", () =>
                   pr: null,
                   prState: null,
                   lastTransitionedPr: null,
+                  parent: null,
                   gitState: { tag: "no_branch" },
                   assignees: [],
                   archivedAt: null,

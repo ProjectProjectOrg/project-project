@@ -10,14 +10,17 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   backlog,
   backlogRequest,
-  encodeTicketListQuery,
   type BacklogRequest,
   type BacklogValue
 } from "@/features/tickets/atoms/backlog"
+import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
+import { viewQuery } from "@/features/tickets/lib/ticketRows"
+import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
 
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { SegmentedList } from "./SegmentedList"
 import { CreatorActiveScope, DimWhileCreating } from "./TicketCreatorShell"
+import { useDeferredOnRequestChange } from "./useDeferredOnRequestChange"
 import { useSubTicketsSettled } from "./useSubTicketsSettled"
 
 type TicketListProps = Readonly<{
@@ -118,7 +121,7 @@ function StatusSections({
     setPrevious({ req, query, value: current })
   }
   const retainedResult = useAtomValue(backlog(previous?.req ?? req))
-  const active = current
+  const latest = current
     ? { req, query, value: current }
     : Result.isFailure(result) && !Equal.equals(previous?.req, req)
       ? null
@@ -129,9 +132,16 @@ function StatusSections({
             () => previous.value
           )
         }
+  const active = useDeferredOnRequestChange(latest)
   const renderSections = () =>
     active ? (
-      <>
+      <TicketViewSourceContext
+        value={ticketSearchFromSource({
+          kind: "sections",
+          grouping: "status",
+          query: viewQuery(active.query)
+        })}
+      >
         <Activity mode={showAlternate ? "hidden" : "visible"}>
           <SegmentedList
             key={`${orgSlug}/${slug}`}
@@ -144,13 +154,13 @@ function StatusSections({
         {alternate && (
           <Activity mode={showAlternate ? "visible" : "hidden"}>
             {alternate({
-              key: `${orgSlug}/${slug}/${encodeTicketListQuery(active.query)}`,
+              key: `${orgSlug}/${slug}`,
               query: active.query,
               snapshot: active.value
             })}
           </Activity>
         )}
-      </>
+      </TicketViewSourceContext>
     ) : (
       <div
         aria-busy="true"

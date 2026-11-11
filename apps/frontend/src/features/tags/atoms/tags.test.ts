@@ -54,6 +54,7 @@ const ticket = {
   pr: null,
   prState: null,
   lastTransitionedPr: null,
+  parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
   assignees: [],
   archivedAt: null,

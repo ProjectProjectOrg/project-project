@@ -65,6 +65,7 @@ import { SprintSelect } from "@/features/tickets/components/ticket-list/SprintFi
 import { StatusSelect } from "@/features/tickets/components/ticket-list/StatusField"
 import { TypeSelect } from "@/features/tickets/components/ticket-list/TypeField"
 import { useTemplateChoice } from "@/features/tickets/components/ticket-list/useTemplateChoice"
+import { TicketIdText } from "@/features/tickets/components/TicketIdText"
 import { useRouteBoundDialog } from "@/hooks/useRouteBoundDialog"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
@@ -192,7 +193,7 @@ function CreateTicketForm({
     void navigate({
       to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
       params: { orgSlug, slug, id },
-      search: body === "" ? { focusBody: 1 } : {}
+      search: body === "" ? { focusBody: "1" } : {}
     })
   }
 
@@ -223,7 +224,10 @@ function CreateTicketForm({
         </DialogTitle>
         {related !== null && (
           <span className="truncate text-body text-muted-foreground">
-            · {RELATED_LABELS[related.kind]({ id: related.ticketId })}
+            ·{" "}
+            <TicketIdText id={related.ticketId}>
+              {RELATED_LABELS[related.kind]({ id: related.ticketId })}
+            </TicketIdText>
           </span>
         )}
       </div>

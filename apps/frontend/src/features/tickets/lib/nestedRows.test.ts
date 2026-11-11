@@ -31,13 +31,19 @@ const ticket = (id: string, fields: Partial<Ticket> = {}): Ticket => ({
   ...fields
 })
 
+const parentOf = (id: string, type: Ticket["type"]) => ({
+  id: ticketId(id),
+  title: id,
+  type
+})
+
 describe("withoutNestedChildren", () => {
   it("drops children whose ticket parent is present, keeps epic children and orphans", () => {
     const tickets = [
       ticket("T-1", { type: "epic" }),
-      ticket("T-2", { parent: ticketId("T-1") }),
-      ticket("T-3", { parent: ticketId("T-2") }),
-      ticket("T-4", { parent: ticketId("T-9") })
+      ticket("T-2", { parent: parentOf("T-1", "epic") }),
+      ticket("T-3", { parent: parentOf("T-2", "feat") }),
+      ticket("T-4", { parent: parentOf("T-9", "feat") })
     ]
     expect(withoutNestedChildren(tickets).map(({ id }) => id)).toEqual([
       "T-1",

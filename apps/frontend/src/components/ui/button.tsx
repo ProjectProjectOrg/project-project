@@ -51,6 +51,8 @@ const buttonVariants = cva(
           "border border-border text-foreground hover:bg-[image:linear-gradient(var(--hover),var(--hover))] active:bg-[image:linear-gradient(var(--active),var(--active))] data-[popup-open]:bg-[image:linear-gradient(var(--hover),var(--hover))] [&[aria-haspopup]]:active:bg-[image:linear-gradient(var(--hover),var(--hover))]",
         ghost:
           "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
+        toolbar:
+          "rounded-md bg-transparent text-muted-foreground hover:text-foreground aria-pressed:bg-active aria-pressed:text-foreground data-fluid-hover-active:text-foreground motion-safe:active:scale-100 [&>svg]:transition-transform [&>svg]:duration-100 motion-safe:active:[&>svg]:scale-[0.97] motion-reduce:[&>svg]:transition-none",
         quiet:
           "rounded-md bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
         step: "w-full justify-start rounded-xl bg-transparent text-left text-muted-foreground hover:bg-hover hover:text-foreground data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
@@ -85,6 +87,7 @@ const buttonVariants = cva(
         "banner-add": "h-12 w-full justify-start gap-1.5 px-4 text-body",
         step: "h-auto min-h-8 gap-3 px-3 text-body",
         xs: "h-5 gap-1 px-1.5 text-micro",
+        compact: "h-6 gap-0.5 px-1.5 text-caption",
         sm: "h-7 gap-1 px-3 text-caption",
         md: "h-8 gap-1.5 px-4 text-body",
         lg: "h-9 gap-1.5 px-5 text-body",
@@ -236,7 +239,7 @@ function Button({
       iconRight: !isIconOnly && !!TrailingIcon
     }),
     variant === "tertiary" && SURFACE_BG[Math.min(surface + 2, 8)],
-    variant !== "quiet" && "rounded-[20px]",
+    variant !== "quiet" && variant !== "toolbar" && "rounded-[20px]",
     className
   )
   const leadingIconNode = LeadingIcon && (

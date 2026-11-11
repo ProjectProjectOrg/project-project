@@ -7,7 +7,12 @@ import { GroupId } from "../groups/Group"
 import { Page } from "../pagination/Pagination"
 import { Slug } from "../projects/Project"
 import { TagName } from "../tags/Tag"
-import { TicketId, TicketStatus, TicketType } from "../tickets/Ticket"
+import {
+  TicketId,
+  TicketParent,
+  TicketStatus,
+  TicketType
+} from "../tickets/Ticket"
 import { Ticket, TicketDetail } from "../tickets/Ticket"
 import { TicketActivityActor } from "../tickets/TicketActivity"
 
@@ -301,7 +306,7 @@ export type EpicSectionKey = typeof EpicSectionKey.Type
 
 export const TicketEpicSection = Schema.Struct({
   key: EpicSectionKey,
-  title: Schema.NullOr(Schema.String),
+  parent: Schema.NullOr(TicketParent),
   count: Schema.Finite,
   page: TicketListPage
 })
@@ -313,3 +318,39 @@ export const TicketEpicSections = Schema.Struct({
   sections: Schema.Array(TicketEpicSection)
 })
 export type TicketEpicSections = typeof TicketEpicSections.Type
+
+export const BacklogGrouping = Schema.Literals([
+  "status",
+  "sprint",
+  "epic",
+  "parent"
+])
+export type BacklogGrouping = typeof BacklogGrouping.Type
+
+export const TicketViewSource = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("sections"),
+    grouping: BacklogGrouping,
+    query: TicketListQuery
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("sprintBoard"),
+    groupId: GroupId,
+    query: TicketListQuery
+  })
+])
+export type TicketViewSource = typeof TicketViewSource.Type
+
+export const TicketNeighbor = Schema.Struct({
+  id: Ticket.fields.id,
+  title: Ticket.fields.title
+})
+export type TicketNeighbor = typeof TicketNeighbor.Type
+
+export const TicketNeighbors = Schema.Struct({
+  prev: Schema.NullOr(TicketNeighbor),
+  next: Schema.NullOr(TicketNeighbor),
+  position: Schema.Finite,
+  total: Schema.Finite
+})
+export type TicketNeighbors = typeof TicketNeighbors.Type

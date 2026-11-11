@@ -3,7 +3,8 @@ import * as Option from "effect/Option"
 import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
 
-import { isCarryover, type TicketStatus } from "../tickets/Ticket"
+import type { StatusPhaseOf } from "../statuses/phase"
+import type { TicketStatus } from "../tickets/Ticket"
 import {
   ESTIMATE_SIZES,
   Estimate,
@@ -91,10 +92,10 @@ const emptySizes = (): Record<EstimateSize, number> => ({
 export const summarizeEstimates = (
   tickets: ReadonlyArray<EstimatedTicket>,
   unit: EstimateUnit,
-  finished: ReadonlySet<string>
+  phaseOf: StatusPhaseOf
 ): EstimateSummary => {
   const active = tickets.map((ticket) => ({
-    done: !isCarryover(ticket.status, finished),
+    phase: phaseOf(ticket.status),
     estimate: activeEstimate(ticket.estimate, unit)
   }))
   const unestimated = active.filter((t) => t.estimate === null).length
@@ -106,12 +107,14 @@ export const summarizeEstimates = (
     return { unit, sizes, unestimated }
   }
   let committed = 0
+  let started = 0
   let done = 0
   for (const ticket of active) {
     if (ticket.estimate === null) continue
     const amount = estimateRank(ticket.estimate)
     committed += amount
-    if (ticket.done) done += amount
+    if (ticket.phase === "started") started += amount
+    if (ticket.phase === "finished") done += amount
   }
-  return { unit, committed, done, unestimated }
+  return { unit, committed, started, done, unestimated }
 }

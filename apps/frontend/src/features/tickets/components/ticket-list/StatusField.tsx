@@ -1,13 +1,20 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { Ticket, TicketStatus, UpdateTicketInput } from "@pp/shared"
+import type { Ticket, TicketStatus } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ArrowRight } from "lucide-react"
 import { type MouseEvent } from "react"
 
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import { Hitbox } from "@/components/ui/hitbox"
-import { Select, SelectTrigger } from "@/components/ui/select"
 import {
   statusesFor,
   statusesRequest
@@ -18,6 +25,7 @@ import {
   statusMetaFor,
   statusLabelFor
 } from "@/features/tickets/lib/ticketMeta"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -60,17 +68,17 @@ function StatusTrigger({
   }
   if (size === "lg") {
     return (
-      <SelectTrigger
+      <DropdownMenuTrigger
         render={<Hitbox mode="inline" margin="1" {...triggerProps} />}
       >
         <span className="grid size-10 place-items-center rounded-lg bg-muted transition-colors hitbox-hover:bg-foreground/5">
           {icon}
         </span>
-      </SelectTrigger>
+      </DropdownMenuTrigger>
     )
   }
   return (
-    <SelectTrigger
+    <DropdownMenuTrigger
       render={
         <Button
           type="button"
@@ -82,11 +90,9 @@ function StatusTrigger({
     >
       {icon}
       {showLabel && <span>{label}</span>}
-    </SelectTrigger>
+    </DropdownMenuTrigger>
   )
 }
-
-const MANAGE_STATUSES = "__manage-statuses"
 
 export function StatusSelect({
   value,
@@ -112,13 +118,13 @@ export function StatusSelect({
   const meta = statusMetaFor(value, statuses)
   const statusLabel = statusLabelFor(value, statuses)
   const navigate = useNavigate()
-  const statusOptions = boardStatusesFor(statuses).map((status, index, all) => {
+  const statusOptions = boardStatusesFor(statuses).map((status) => {
     const sMeta = statusMetaFor(status, statuses)
     const SIcon = sMeta.icon
     return {
       value: status,
       textValue: sMeta.label,
-      separated: manageAction && index === all.length - 1,
+      closeOnClick: true,
       label: (
         <>
           <SIcon
@@ -131,36 +137,8 @@ export function StatusSelect({
       )
     }
   })
-  const manageOptions = manageAction
-    ? [
-        {
-          value: MANAGE_STATUSES,
-          textValue: m.tickets_status_manage_link(),
-          label: (
-            <>
-              {m.tickets_status_manage_link()}
-              <ArrowRight className="ml-auto size-3.5" />
-            </>
-          ),
-          onAction: () =>
-            void navigate({
-              to: "/orgs/$orgSlug/projects/$slug/settings/workflow",
-              params: { orgSlug, slug }
-            })
-        }
-      ]
-    : []
-  const items = [...statusOptions, ...manageOptions]
   return (
-    <Select
-      value={value}
-      disabled={disabled}
-      onValueChange={(next) => {
-        if (next !== value) onChange(next)
-      }}
-      items={items}
-      contentProps={{ className: "w-44" }}
-    >
+    <DropdownMenu disabled={disabled}>
       <StatusTrigger
         meta={meta}
         label={statusLabel}
@@ -169,7 +147,38 @@ export function StatusSelect({
         stopPropagation={stopPropagation}
         showLabel={showLabel}
       />
-    </Select>
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="w-44"
+        finalFocus={false}
+      >
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(next) => {
+            if (next !== value) onChange(next)
+          }}
+          items={statusOptions}
+        />
+        {manageAction && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() =>
+                void navigate({
+                  to: "/orgs/$orgSlug/projects/$slug/settings/workflow",
+                  params: { orgSlug, slug }
+                })
+              }
+              className="cursor-pointer"
+            >
+              {m.tickets_status_manage_link()}
+              <ArrowRight className="ml-auto size-3.5" />
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -183,7 +192,7 @@ export function StatusButton({
   ticket: Ticket
   stopPropagation?: boolean
   size?: "sm" | "lg"
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
   disabled?: boolean
 }) {
   return (

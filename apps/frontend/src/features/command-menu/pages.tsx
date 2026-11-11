@@ -3,6 +3,7 @@ import type { ComponentType } from "react"
 import { TicketBranchCommand } from "@/features/github/components/TicketBranchCommand"
 import { TicketBranchPickCommand } from "@/features/github/components/TicketBranchPickCommand"
 import { SwitchOrgCommands } from "@/features/organizations/components/SwitchOrgCommands"
+import { EditorPreferenceCommands } from "@/features/profile/components/EditorPreferenceCommands"
 import {
   CreateProjectPage,
   SwitchProjectPage
@@ -16,6 +17,7 @@ import {
   SprintSchedulePage,
   type SprintPageProps
 } from "@/features/sprints/components/SprintCommandPages"
+import { SprintPlanPage } from "@/features/sprints/components/SprintPlanPage"
 import { TicketAssigneeCommands } from "@/features/tickets/components/command-pages/TicketAssigneeCommands"
 import {
   TicketArchivePage,
@@ -145,6 +147,7 @@ export const COMMAND_PAGES: Readonly<
   switchProject: SwitchProjectPage,
   createProject: CreateProjectPage,
   theme: ThemeCommands,
+  editorPreference: EditorPreferenceCommands,
   viewFilter: ViewFilterPage,
   "filter:type": viewFilterDimensionPage("type"),
   "filter:assignee": viewFilterDimensionPage("assignee"),
@@ -157,6 +160,7 @@ export const COMMAND_PAGES: Readonly<
   sprintRename: sprintPage(SprintRenamePage),
   sprintAddTickets: sprintPage(SprintAddTicketsPage),
   sprintDelete: sprintPage(SprintDeletePage),
+  sprintPlan: sprintPage(SprintPlanPage),
   "mark:blockedBy": markPage("blockedBy"),
   "mark:blocking": markPage("blocking"),
   "mark:related": markPage("related"),

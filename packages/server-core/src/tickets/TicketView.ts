@@ -71,15 +71,22 @@ const make = Effect.gen(function* () {
       ...new Set([document.createdBy, document.updatedBy])
     ])
     const byId = new Map<string, User>(found.map((user) => [user.id, user]))
-    const relations = yield* ticketIndex.relationsOf(
-      yield* ProjectScope,
-      document.id
+    const scope = yield* ProjectScope
+    const [relations, parent] = yield* Effect.all(
+      [
+        ticketIndex.relationsOf(scope, document.id),
+        document.parent
+          ? ticketIndex.parentOf(scope, document.parent)
+          : Effect.succeed(null)
+      ],
+      { concurrency: "unbounded" }
     )
     return documentToDetail(
       document,
       view,
       byId.get(document.createdBy) ?? null,
       byId.get(document.updatedBy) ?? null,
+      parent,
       branchDeletedAt,
       relations
     )

@@ -15,6 +15,7 @@ import {
   menuSurfaceClass
 } from "@/components/ui/menu-styles"
 import { useActivityHiddenPortalRef } from "@/hooks/useActivityHiddenPortalRef"
+import { forwardThroughMenuBackdrop, isMenuBackdrop } from "@/lib/menuBackdrop"
 import { fieldTouchClass } from "@/lib/typeScale"
 import { cn } from "@/lib/utils"
 
@@ -79,6 +80,28 @@ function DeferredDropdownMenu({
   const [mounted, setMounted] = React.useState(
     Boolean(rootProps.open ?? rootProps.defaultOpen)
   )
+  React.useEffect(() => {
+    if (!mounted) return undefined
+    const onContextMenu = (event: MouseEvent) => {
+      if (!handle.isOpen) return
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[data-slot="dropdown-menu-content"]')
+      ) {
+        return
+      }
+      const backdrop = isMenuBackdrop(event.target)
+      flushSync(() => handle.close())
+      if (backdrop) {
+        event.preventDefault()
+        event.stopPropagation()
+        forwardThroughMenuBackdrop(event)
+      }
+    }
+    document.addEventListener("contextmenu", onContextMenu, true)
+    return () =>
+      document.removeEventListener("contextmenu", onContextMenu, true)
+  }, [handle, mounted])
   const activate = React.useCallback(() => {
     if (!mounted) flushSync(() => setMounted(true))
   }, [mounted])
@@ -133,8 +156,13 @@ type DropdownMenuContentProps = React.ComponentProps<
 > &
   Pick<
     React.ComponentProps<typeof MenuPrimitive.Positioner>,
-    "align" | "alignOffset" | "side" | "sideOffset" | "anchor"
-  >
+    | "align"
+    | "alignOffset"
+    | "side"
+    | "sideOffset"
+    | "anchor"
+    | "collisionAvoidance"
+  > & { highlightFirst?: boolean }
 
 function DropdownMenuContent(props: DropdownMenuContentProps) {
   const deferred = React.useContext(DeferredMenuContext)
@@ -152,12 +180,14 @@ function DropdownMenuContent(props: DropdownMenuContentProps) {
 }
 
 function DropdownMenuPopup({
+  highlightFirst = false,
   className,
   align,
   alignOffset,
   side,
   sideOffset = 4,
   anchor,
+  collisionAvoidance,
   onClick,
   onKeyDown,
   children,
@@ -171,6 +201,7 @@ function DropdownMenuPopup({
         side={side}
         sideOffset={sideOffset}
         anchor={anchor}
+        collisionAvoidance={collisionAvoidance}
       >
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
@@ -185,7 +216,7 @@ function DropdownMenuPopup({
           className={cn(menuPopupClass, className)}
           {...props}
         >
-          <MenuHighlight />
+          <MenuHighlight restOnFirst={highlightFirst} />
           {children}
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>
@@ -482,7 +513,7 @@ function DropdownMenuSubTrigger({
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "relative flex cursor-pointer items-center gap-2 rounded-md border-y border-transparent bg-clip-padding px-2 py-[7px] text-body text-muted-foreground outline-hidden transition-colors",
+        "relative flex cursor-pointer items-center gap-2 rounded-md border-y border-transparent bg-clip-padding px-2 py-[7px] text-body text-foreground/70 outline-hidden transition-colors",
         "data-[highlighted]:text-foreground",
         "data-[popup-open]:text-foreground",
         "data-[inset]:pl-8",
@@ -527,7 +558,7 @@ function DropdownMenuSubContent({
           className={cn(menuSurfaceClass, className)}
           {...props}
         >
-          <MenuHighlight />
+          <MenuHighlight restOnFirst />
           {children}
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>

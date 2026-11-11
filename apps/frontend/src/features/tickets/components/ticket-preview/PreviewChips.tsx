@@ -1,6 +1,7 @@
 import { hasSubTickets, type Ticket } from "@pp/shared"
 import { Link2, OctagonMinus, SquareEqual } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
 import { SubTicketCount } from "@/features/tickets/components/ticket-list/SubTicketProgress"
 import { SquareOctagonMinus } from "@/features/tickets/components/ticket-marks/blockingIcon"
 import type { IconComponent } from "@/lib/icon"
@@ -59,7 +60,10 @@ export function RelationChips({
         preview={{ kind: "relations", id: ticket.id, relation }}
         aria-label={RELATION_PREVIEW_LABELS[relation]()}
         render={
-          <span
+          <Button
+            type="button"
+            variant="ghost"
+            size="compact"
             className={cn(
               "relative z-20",
               className,
@@ -90,7 +94,14 @@ export function SubTicketsChip({
     <TicketPreviewTrigger
       preview={{ kind: "subTickets", id: ticket.id, label }}
       aria-label={label}
-      render={<span className={cn("relative z-20", className)} />}
+      render={
+        <Button
+          type="button"
+          variant="ghost"
+          size="compact"
+          className={cn("relative z-20", className)}
+        />
+      }
     >
       <SubTicketCount done={done} total={total} className="text-inherit" />
     </TicketPreviewTrigger>

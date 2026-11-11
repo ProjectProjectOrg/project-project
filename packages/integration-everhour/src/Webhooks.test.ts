@@ -32,6 +32,7 @@ const recordingTimeTracking = (
     currentTimer: () => unexpected("currentTimer"),
     logTime: () => unexpected("logTime"),
     ticketTimeSummary: () => unexpected("ticketTimeSummary"),
+    sprintTimeSummary: () => unexpected("sprintTimeSummary"),
     applyWebhookTimeEvent: (linkId, record) =>
       Effect.sync(() => {
         calls.push({ linkId, record })

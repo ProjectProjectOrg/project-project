@@ -1,6 +1,5 @@
-import type { GroupId, TicketFilter } from "@pp/shared"
+import type { TicketFilter } from "@pp/shared"
 
-export type SprintFilterValue = "all" | "ungrouped" | GroupId
 export type FilterDimension =
   | "type"
   | "assignee"

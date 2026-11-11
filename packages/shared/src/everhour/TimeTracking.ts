@@ -54,3 +54,10 @@ export const TicketTimeSummary = Schema.Struct({
   userSeconds: Schema.Finite
 })
 export type TicketTimeSummary = typeof TicketTimeSummary.Type
+
+export const SprintTimeSummary = Schema.Struct({
+  groupId: GroupId,
+  totalSeconds: Schema.Finite,
+  userSeconds: Schema.Finite
+})
+export type SprintTimeSummary = typeof SprintTimeSummary.Type

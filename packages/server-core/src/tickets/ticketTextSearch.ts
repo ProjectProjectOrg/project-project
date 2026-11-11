@@ -32,21 +32,28 @@ export const searchWords = (query: string): ReadonlyArray<string> => [
   ...new Set(query.trim().toLowerCase().split(/\s+/).filter(Boolean))
 ]
 
-const plainProse = (text: string): string =>
-  text
+const plainProse = (text: string): string => {
+  if (!/\[|\*\*|__/.test(text)) return text
+  return text
     .replace(/\[([^\]]*)\]\(mention:[^)]*\)/g, "@$1")
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/(\*\*|__)/g, "")
+}
 
-const plainLine = (line: string): string =>
-  line
-    .replace(/^\s*(#{1,6}\s+|>\s+|[-*+]\s+(\[[ xX]\]\s+)?|\d+\.\s+)/, "")
+const plainLine = (line: string): string => {
+  const text = line.replace(
+    /^\s*(#{1,6}\s+|>\s+|[-*+]\s+(\[[ xX]\]\s+)?|\d+\.\s+)/,
+    ""
+  )
+  if (!text.includes("`")) return plainProse(text).trim()
+  return text
     .split(/(`[^`]+`)/)
     .map((part) =>
       part.startsWith("`") ? part.slice(1, -1) : plainProse(part)
     )
     .join("")
     .trim()
+}
 
 const linkKey = (url: string): string =>
   url
@@ -127,7 +134,8 @@ type Line = Readonly<{
 
 const visibleLines = (
   text: string,
-  author: CommentBlockAuthor | null
+  author: CommentBlockAuthor | null,
+  searchLinks: boolean
 ): ReadonlyArray<Line> => {
   const lines: Array<Line> = []
   let fenced = false
@@ -147,7 +155,7 @@ const visibleLines = (
     if (isNoise(line)) continue
     lines.push({
       text: line,
-      links: linkTargets(raw),
+      links: searchLinks ? linkTargets(raw) : [],
       heading: /^\s*#{1,6}\s/.test(raw),
       author
     })
@@ -180,11 +188,30 @@ export const matchTicketText = (
   words: ReadonlyArray<string>
 ): TicketTextMatch | null => {
   if (words.length === 0) return null
+  const inTitle = rangesIn(source.title, words).length
+  if (inTitle === words.length) return { where: "title", score: 300 }
+
+  const lower = `${source.title}\n${source.body}`.toLowerCase()
+  let missing = words.filter(
+    (word) => !word.includes("://") && !lower.includes(word)
+  )
+  if (missing.length > 0) {
+    if (!/`|\[|\*\*|__/.test(source.body)) return null
+    for (const line of source.body.split("\n")) {
+      if (!/`|\[|\*\*|__/.test(line)) continue
+      const visible = plainLine(line).toLowerCase()
+      missing = missing.filter((word) => !visible.includes(word))
+      if (missing.length === 0) break
+    }
+    if (missing.length > 0) return null
+  }
+
+  const searchLinks = words.some((word) => word.includes("://"))
   const { description, region } = splitDescriptionAndCommentsRegion(source.body)
   const lines = [
-    ...visibleLines(description, null),
+    ...visibleLines(description, null, searchLinks),
     ...parseCommentsRegion(region).flatMap((comment) =>
-      visibleLines(comment.body, comment.author)
+      visibleLines(comment.body, comment.author, searchLinks)
     )
   ]
   const haystack = [source.title, ...lines.map((line) => line.text)]
@@ -194,9 +221,6 @@ export const matchTicketText = (
   const found = (word: string) =>
     wordStartIndex(haystack, word) !== -1 || linkedCount(links, [word]) === 1
   if (!words.every(found)) return null
-
-  const inTitle = rangesIn(source.title, words).length
-  if (inTitle === words.length) return { where: "title", score: 300 }
 
   const best = bestLine(lines, words)
   if (best === null) return null

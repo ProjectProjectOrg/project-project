@@ -15,6 +15,7 @@ import { fireMutation } from "@/api/viewMutation"
 import { CommandMenuDialog } from "@/components/ui/command-menu"
 import { currentUserId } from "@/features/auth/atoms/auth"
 import { feedbackStatus } from "@/features/feedback/atoms/feedback"
+import { useIntegrationCommands } from "@/features/integrations/hooks/useIntegrationCommands"
 import {
   project,
   projectActor,
@@ -196,21 +197,6 @@ function useTicketDetail(ticket: TicketContext | null): TicketDetail | null {
   return AsyncResult.isSuccess(result) ? result.value : null
 }
 
-function useCanHoldChildren(
-  ticket: TicketContext | null,
-  detail: TicketDetail | null
-): boolean {
-  const parentId = detail?.parent ?? null
-  const parent = useTicketDetail(
-    ticket === null || parentId === null
-      ? null
-      : { ...ticket, ticketId: parentId }
-  )
-  if (detail === null) return false
-  if (parentId !== null && parent === null) return false
-  return canHoldChildren(detail, parent)
-}
-
 function useCommandEnv(
   state: CommandMenuState,
   onChange: (state: CommandMenuState) => void
@@ -251,7 +237,7 @@ function CommandMenuPage({
     projectSlug,
     ticket,
     ticketDetail: detail,
-    canHoldChildren: useCanHoldChildren(ticket, detail),
+    canHoldChildren: detail !== null && canHoldChildren(detail, detail.parent),
     sprint: scopeSprint(scopes),
     view: scopeView(scopes),
     viewerId,
@@ -260,6 +246,7 @@ function CommandMenuPage({
     canSendFeedback: AsyncResult.isSuccess(feedback) && feedback.value.enabled,
     ...useProjectContext(orgSlug, projectSlug)
   }
+  const integrations = useIntegrationCommands(context)
   const env = useCommandEnv(state, onChange)
   const props = {
     context,
@@ -274,7 +261,11 @@ function CommandMenuPage({
         {...props}
         initialSearch={state.search}
         initialFocus={state.focus}
-        commands={[...scopeCommands(scopes), ...commandRegistry]}
+        commands={[
+          ...scopeCommands(scopes),
+          ...commandRegistry,
+          ...integrations
+        ]}
       />
     )
   }

@@ -5,8 +5,7 @@ import {
   isStaleEstimate,
   type Estimate,
   type EstimateUnit,
-  type EstimationMode,
-  type UpdateTicketInput
+  type EstimationMode
 } from "@pp/shared"
 import { Plus, X } from "lucide-react"
 import { useId, useState, type FormEvent, type ReactElement } from "react"
@@ -26,6 +25,7 @@ import {
   parseEstimateMinutes,
   parseEstimatePoints
 } from "@/features/tickets/lib/estimateMeta"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -69,7 +69,7 @@ export function EstimateBadgeTrigger({
 }: Readonly<{
   ticket: EstimateTicket
   mode: EstimationMode
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
   className?: string
 }>) {
   const unit = estimationUnit(mode)
@@ -212,7 +212,7 @@ function EstimateInputPopover({
 }: Readonly<{
   unit: TypedUnit
   ticket: EstimateTicket
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
   trigger: ReactElement
 }>) {
   const [open, setOpen] = useState(false)

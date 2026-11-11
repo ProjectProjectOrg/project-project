@@ -6,17 +6,12 @@ import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Schema from "effect/Schema"
 import { Plus, X } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState, type ComponentProps } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuEmpty,
-  DropdownMenuInput,
-  DropdownMenuItem,
-  DropdownMenuList,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -32,7 +27,7 @@ import {
   type TagEditorRequest
 } from "@/features/tags/atoms/tags"
 import { TagAdminPopover } from "@/features/tags/components/TagAdminPopover"
-import { TagChip } from "@/features/tags/components/TagChip"
+import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -41,11 +36,8 @@ type Props = {
   canManageTags: boolean
 }
 
-const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
 const NEUTRAL = "#94a3b8"
 const makeTagName = Schema.decodeUnknownSync(TagName)
-const matchesTag = (text: string, query: string) =>
-  text.includes(query.toLowerCase())
 const idleUsageCountsAtom = Atom.make(Result.initial<Record<string, number>>())
 
 export function TagEditor({ ticket, canManageTags }: Props) {
@@ -64,6 +56,9 @@ export function TagEditor({ ticket, canManageTags }: Props) {
     mode: "promiseExit"
   })
   const [draft, setDraft] = useState("")
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const [anchor, setAnchor] =
+    useState<ComponentProps<typeof DropdownMenuContent>["anchor"]>()
 
   const registry = useMemo<ReadonlyArray<Tag>>(
     () => (Result.isSuccess(editorResult) ? editorResult.value.tags : []),
@@ -80,21 +75,6 @@ export function TagEditor({ ticket, canManageTags }: Props) {
     return map
   }, [registry])
 
-  const lowered = draft.trim().toLowerCase()
-  const exactRegistered = registry.find((t) => t.name === lowered)
-  const isValidNewName = VALID.test(lowered)
-  const showEmpty =
-    Result.isSuccess(editorResult) &&
-    registry.length === 0 &&
-    lowered.length === 0
-  const showValidationError =
-    canManageTags && lowered.length > 0 && !exactRegistered && !isValidNewName
-  const canCreate =
-    canManageTags && lowered.length > 0 && !exactRegistered && isValidNewName
-  const ordered = exactRegistered
-    ? [exactRegistered, ...registry.filter((t) => t !== exactRegistered)]
-    : registry
-
   const apply = (next: ReadonlyArray<string>) =>
     updateTags({ tags: next.map((name) => makeTagName(name)) })
 
@@ -107,10 +87,9 @@ export function TagEditor({ ticket, canManageTags }: Props) {
     apply(displayedNames.filter((tagName) => tagName !== name))
   }
 
-  const createAndApply = async () => {
-    if (!isValidNewName || exactRegistered) return
-    const name = lowered
-    const exit = await create({ name: makeTagName(name) })
+  const createAndApply = async (name: TagName) => {
+    setDraft("")
+    const exit = await create({ name })
     if (Exit.isSuccess(exit)) addTag(name)
   }
 
@@ -125,7 +104,12 @@ export function TagEditor({ ticket, canManageTags }: Props) {
         : 0
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-1",
+        displayed.length > 0 && "ml-2.5"
+      )}
+    >
       {displayed.map(({ key, name }) => {
         const tag = tagByName.get(name)
         return (
@@ -150,84 +134,52 @@ export function TagEditor({ ticket, canManageTags }: Props) {
       <DropdownMenu
         filterable={{
           value: draft,
-          onValueChange: (next) => setDraft(next.toLowerCase()),
-          filter: matchesTag
+          onValueChange: (next) => setDraft(next.toLowerCase())
+        }}
+        onOpenChange={(open) => {
+          const trigger = triggerRef.current
+          if (!open || !trigger) return
+          const bounds = trigger.getBoundingClientRect()
+          setAnchor({
+            getBoundingClientRect: () => bounds,
+            contextElement: trigger
+          })
         }}
         onOpenChangeComplete={(open) => {
           if (!open) setDraft("")
         }}
       >
         <DropdownMenuTrigger
+          ref={triggerRef}
           render={
             <Button
               type="button"
               variant="chip"
+              size={displayed.length === 0 ? undefined : "icon-sm"}
+              className="motion-safe:transition-[background-color,color,scale]"
               aria-label={m.tags_add_button()}
             >
               <Plus className="size-3.5" strokeWidth={1.75} />
-              {displayedNames.length === 0 ? (
-                <span>{m.tags_add_button()}</span>
-              ) : null}
+              {displayed.length === 0 ? m.tags_add_button() : null}
             </Button>
           }
         />
-        <DropdownMenuContent align="start" sideOffset={6} className="w-60">
-          <DropdownMenuInput
-            placeholder={m.tags_search_or_create_placeholder()}
-            aria-label={m.tags_search_or_create_placeholder()}
-            aria-invalid={showValidationError || undefined}
-            aria-describedby={
-              showValidationError ? "tag-name-error" : undefined
+        <DropdownMenuContent
+          anchor={anchor}
+          align="start"
+          sideOffset={6}
+          className="w-56"
+        >
+          <TagMenuBody
+            tags={registry}
+            applied={displayedNames}
+            draft={draft}
+            canCreate={canManageTags}
+            onToggle={(name) =>
+              ticketHasTag(name) ? removeFromTicket(name) : addTag(name)
             }
+            onCreate={(name) => void createAndApply(name)}
           />
-          {showValidationError ? (
-            <p
-              id="tag-name-error"
-              className="px-2 pb-1 text-micro leading-tight text-destructive"
-            >
-              {m.tags_name_validation_hint()}
-            </p>
-          ) : null}
-          {showEmpty ? (
-            <div className="flex min-h-16 flex-col items-center justify-center px-3 py-2 text-center">
-              <p className="text-body font-semibold">{m.tags_empty_title()}</p>
-              {canManageTags ? (
-                <p className="text-caption text-muted-foreground">
-                  {m.tags_empty_create_hint()}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-          <DropdownMenuList className="max-h-56 overflow-y-auto">
-            {ordered.map((tag) => {
-              const isApplied = ticketHasTag(tag.name)
-              return (
-                <DropdownMenuCheckboxItem
-                  key={tag.name}
-                  label={tag.name}
-                  checked={isApplied}
-                  closeOnClick={!isApplied}
-                  onCheckedChange={() =>
-                    isApplied ? removeFromTicket(tag.name) : addTag(tag.name)
-                  }
-                >
-                  <TagChip name={tag.name} color={tag.color} size="xs" />
-                </DropdownMenuCheckboxItem>
-              )
-            })}
-            {canCreate ? (
-              <DropdownMenuItem
-                label={lowered}
-                onClick={() => void createAndApply()}
-              >
-                <Plus strokeWidth={1.75} />
-                {m.tags_create_button({ name: lowered })}
-              </DropdownMenuItem>
-            ) : null}
-          </DropdownMenuList>
-          {canManageTags || showEmpty ? null : (
-            <DropdownMenuEmpty>{m.tags_no_matches()}</DropdownMenuEmpty>
-          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -270,7 +222,7 @@ function AppliedTagChip({
   }
   const hex = color ?? NEUTRAL
   const wrapperClass = cn(
-    "inline-flex h-5 w-fit shrink-0 items-center gap-1 rounded-md text-micro whitespace-nowrap transition-colors",
+    "inline-flex h-6 w-fit shrink-0 items-center gap-1.5 rounded-md px-2 text-caption whitespace-nowrap transition-colors",
     waiting && "animate-pulse"
   )
   const wrapperStyle = { backgroundColor: `${hex}1a`, color: hex }
@@ -282,19 +234,15 @@ function AppliedTagChip({
         e.stopPropagation()
         onRemove()
       }}
-      className="inline-grid size-3.5 place-items-center rounded-full bg-transparent transition-colors duration-100 hover:bg-black/15 active:scale-[0.9] dark:hover:bg-white/20"
+      className="-mr-0.5 inline-grid size-4 place-items-center rounded-sm bg-transparent opacity-60 transition-[opacity,background-color] duration-100 hover:bg-black/15 hover:opacity-100 focus-visible:opacity-100 active:scale-[0.9] dark:hover:bg-white/20"
     >
-      <X className="size-2.5" strokeWidth={2.25} />
+      <X className="size-3" strokeWidth={2} />
     </button>
   )
 
   if (!canManage || !tag) {
     return (
-      <span
-        data-slot="tag-chip"
-        className={cn(wrapperClass, "pr-1 pl-1.5")}
-        style={wrapperStyle}
-      >
+      <span data-slot="tag-chip" className={wrapperClass} style={wrapperStyle}>
         {name}
         {removeButton}
       </span>
@@ -302,11 +250,7 @@ function AppliedTagChip({
   }
 
   return (
-    <span
-      data-slot="tag-chip"
-      className={cn(wrapperClass, "pr-1 pl-1.5")}
-      style={wrapperStyle}
-    >
+    <span data-slot="tag-chip" className={wrapperClass} style={wrapperStyle}>
       <TagAdminPopover
         tag={tag}
         usageCount={usageCount}
@@ -317,7 +261,7 @@ function AppliedTagChip({
         <button
           type="button"
           aria-label={m.tags_edit_aria_label({ name })}
-          className="-ml-0.5 cursor-pointer rounded transition-transform duration-100 active:scale-[0.97]"
+          className="cursor-pointer rounded transition-transform duration-100 active:scale-[0.97]"
         >
           {name}
         </button>

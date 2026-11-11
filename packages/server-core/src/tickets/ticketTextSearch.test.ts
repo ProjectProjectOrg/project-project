@@ -82,10 +82,12 @@ describe("matchTicketText", () => {
   })
 
   it("finds a ticket by the start of a link's url and shows the link's line", () => {
-    expect(matchMarkup("http://GitHub.com/")).toMatchObject({
-      where: "description",
-      snippet: { text: "See PR from @Wouter.", ranges: [] }
-    })
+    for (const query of ["http://GitHub.com/", "polish http://GitHub.com/"]) {
+      expect(matchMarkup(query)).toMatchObject({
+        where: "description",
+        snippet: { text: "See PR from @Wouter.", ranges: [] }
+      })
+    }
   })
 
   it("ranks visible text above a link url", () => {
@@ -108,6 +110,14 @@ describe("matchTicketText", () => {
     })
     expect(code("```py\ndef __init__(self):\n```")).toMatchObject({
       snippet: { text: "def __init__(self):" }
+    })
+    expect(
+      matchTicketText(
+        { title: "", body: "prefix`__init__`suffix" },
+        searchWords("prefix__init__suffix")
+      )
+    ).toMatchObject({
+      snippet: { text: "prefix__init__suffix" }
     })
   })
 

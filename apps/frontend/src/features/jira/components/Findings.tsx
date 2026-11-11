@@ -8,6 +8,7 @@ import {
   groupJiraFindings,
   type JiraFindingGroup
 } from "@/features/jira/lib/findings"
+import { TicketIdText } from "@/features/tickets/components/TicketIdText"
 import { textLinkClass } from "@/lib/textLink"
 import { m } from "@/paraglide/messages"
 
@@ -113,7 +114,9 @@ function FindingLinks({
           }}
           className={textLinkClass}
         >
-          {m.jira_import_result_open_ticket({ ticket: ticketId })}
+          <TicketIdText id={ticketId}>
+            {m.jira_import_result_open_ticket({ ticket: ticketId })}
+          </TicketIdText>
         </Link>
       ) : null}
       {finding.jiraUrl === null ? null : (

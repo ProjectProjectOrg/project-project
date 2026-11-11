@@ -1,5 +1,6 @@
 import { useAtomRefresh, useAtomValue, useAtomSet } from "@effect/atom-react"
 import {
+  backlogSprintSections,
   sprintSectionKey,
   sprintState,
   type Group,
@@ -9,7 +10,6 @@ import {
   TicketStatus
 } from "@pp/shared"
 import * as Equal from "effect/Equal"
-import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
@@ -22,7 +22,8 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
-import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
+import { SprintStateHint } from "@/features/sprints/components/SprintChip"
+import { SprintProgress } from "@/features/sprints/components/SprintProgress"
 import { encodeTicketListQuery } from "@/features/tickets/atoms/backlog"
 import {
   loadMoreSprintSections,
@@ -33,8 +34,12 @@ import {
   type SprintSectionValue,
   type SprintSectionsValue
 } from "@/features/tickets/atoms/sprintSections"
-import { formatEstimateSummary } from "@/features/tickets/lib/estimateMeta"
-import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
+import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
+import {
+  viewQuery,
+  type TicketRowPage
+} from "@/features/tickets/lib/ticketRows"
+import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -44,15 +49,17 @@ import {
   SectionList,
   TicketPagination
 } from "./SectionList"
-import { backlogSprintSections } from "./sprintGrouping"
 import { useTicketPreview } from "./useTicketPreview"
 
 const defaultCreateStatus = Schema.decodeSync(TicketStatus)("todo")
 const EMPTY_PAGE: TicketRowPage = { items: [], nextCursor: null }
 
+import { useDeferredOnRequestChange } from "./useDeferredOnRequestChange"
+
 type Props = Readonly<{
   preferencesKey: string
   query: TicketListQuery
+  onQueryChange: (query: TicketListQuery) => void
   members: ReadonlyArray<Member>
 }>
 
@@ -99,7 +106,7 @@ export function SprintSections(props: Props) {
   const retainedResult = useAtomValue(
     sprintSections(previous?.req ?? snapshotReq)
   )
-  const active = Result.isSuccess(snapshotResult)
+  const latest = Result.isSuccess(snapshotResult)
     ? { req: snapshotReq, query: props.query, value: snapshotResult.value }
     : previous?.req.params.orgSlug === orgSlug &&
         previous.req.params.slug === slug &&
@@ -112,35 +119,46 @@ export function SprintSections(props: Props) {
           )
         }
       : null
+  const active = useDeferredOnRequestChange(latest)
   const waiting = groupsResult.waiting || snapshotResult.waiting
   const renderSections = () =>
     groups && active ? (
       <div style={{ overflowAnchor: "none" }} className="flex flex-col gap-1">
-        <CreatingSectionsProvider>
-          {backlogSprintSections(groups, active.query.groupId).map((sprint) => {
-            const id = sprintSectionKey(sprint?.id ?? null)
-            const section = active.value.sections.find(
-              (entry) => entry.key === id
-            )
-            return (
-              <SprintSection
-                key={id}
-                {...props}
-                persistKey={persistKey}
-                query={active.query}
-                snapshotReq={active.req}
-                sprint={sprint}
-                page={section?.page ?? EMPTY_PAGE}
-                count={section?.count ?? 0}
-                estimates={section?.estimates ?? null}
-                waiting={waiting}
-                activePreviewId={preview.activePreviewId}
-                onPreviewPointerEnter={preview.onPreviewPointerEnter}
-                onPreviewOpenChange={preview.onPreviewOpenChange}
-              />
-            )
+        <TicketViewSourceContext
+          value={ticketSearchFromSource({
+            kind: "sections",
+            grouping: "sprint",
+            query: viewQuery(active.query)
           })}
-        </CreatingSectionsProvider>
+        >
+          <CreatingSectionsProvider>
+            {backlogSprintSections(groups, active.query.groupId).map(
+              (sprint) => {
+                const id = sprintSectionKey(sprint?.id ?? null)
+                const section = active.value.sections.find(
+                  (entry) => entry.key === id
+                )
+                return (
+                  <SprintSection
+                    key={id}
+                    {...props}
+                    persistKey={persistKey}
+                    query={active.query}
+                    snapshotReq={active.req}
+                    sprint={sprint}
+                    page={section?.page ?? EMPTY_PAGE}
+                    count={section?.count ?? 0}
+                    estimates={section?.estimates ?? null}
+                    waiting={waiting}
+                    activePreviewId={preview.activePreviewId}
+                    onPreviewPointerEnter={preview.onPreviewPointerEnter}
+                    onPreviewOpenChange={preview.onPreviewOpenChange}
+                  />
+                )
+              }
+            )}
+          </CreatingSectionsProvider>
+        </TicketViewSourceContext>
       </div>
     ) : (
       <div
@@ -214,11 +232,6 @@ function SprintSection({
   }
   const label = sprint?.name ?? m.tickets_grouping_unscheduled()
   const state = sprint ? sprintState(sprint) : null
-  const stateLabel = Match.value(state).pipe(
-    Match.when("planned", () => m.tickets_grouping_planned()),
-    Match.when("active", () => m.tickets_grouping_active()),
-    Match.orElse(() => m.tickets_grouping_completed())
-  )
   const dates =
     sprint &&
     [sprint.startsAt, sprint.endsAt]
@@ -244,22 +257,27 @@ function SprintSection({
         heading={{
           label,
           icon: sprint ? (
-            <SprintStateIcon sprint={sprint} size="md" />
+            <SprintStateHint sprint={sprint} />
           ) : (
             <Inbox
               className="size-4 text-muted-foreground"
               strokeWidth={1.75}
             />
           ),
-          detail: sprint
-            ? [
-                stateLabel,
-                dates,
-                estimates === null ? null : formatEstimateSummary(estimates)
-              ]
-                .filter(Boolean)
-                .join(" · ")
-            : undefined
+          detail: sprint ? (
+            <span className="flex items-center gap-3.5">
+              {dates && <span>{dates}</span>}
+              {estimates && (
+                <SprintProgress
+                  sprint={sprint}
+                  summary={estimates}
+                  onShowUnestimated={() =>
+                    props.onQueryChange({ ...props.query, estimate: ["none"] })
+                  }
+                />
+              )}
+            </span>
+          ) : undefined
         }}
         canCreate={state !== "completed"}
         emptyMessage={

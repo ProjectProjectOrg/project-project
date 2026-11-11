@@ -1,10 +1,5 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
-import type {
-  ArchiveTicketInput,
-  Member,
-  Ticket,
-  UpdateTicketInput
-} from "@pp/shared"
+import type { ArchiveTicketInput, Member, Ticket } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -18,11 +13,14 @@ import {
   Unlink
 } from "lucide-react"
 import {
+  cloneElement,
   Fragment,
   useContext,
   useId,
   useRef,
   useState,
+  type KeyboardEvent,
+  type MouseEvent,
   type ReactElement,
   type RefObject
 } from "react"
@@ -30,12 +28,7 @@ import {
 import { fireMutation } from "@/api/viewMutation"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuTrigger
-} from "@/components/ui/context-menu"
+import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,7 +53,9 @@ import {
   SaveAsTemplateMenuItem,
   SaveAsTemplatePopover
 } from "@/features/tickets/components/ticket-page/SaveAsTemplatePopover"
+import { TicketIdText } from "@/features/tickets/components/TicketIdText"
 import type { SaveAsTemplateProps } from "@/features/tickets/forms/save-as-template"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { ticketPermissions } from "@/features/tickets/lib/ticketPermissions"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
@@ -71,6 +66,7 @@ import { CreateRelatedSubmenu } from "./CreateRelatedSubmenu"
 import { MorePropertiesSubmenu } from "./MorePropertiesSubmenu"
 import { TicketPropertySubmenus } from "./TicketPropertySubmenus"
 import { useOpenTicketPage } from "./useOpenTicketPage"
+import { type Anchor, useTicketContextMenu } from "./useTicketContextMenu"
 
 export type TicketMenuTicket = Pick<
   Ticket,
@@ -91,7 +87,7 @@ export type TicketMenuTicket = Pick<
 export type TicketMenuProps = Readonly<{
   ticket: TicketMenuTicket
   members: ReadonlyArray<Member>
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
   onDeleted?: () => void
   template?: SaveAsTemplateProps
   fromList?: boolean
@@ -99,40 +95,50 @@ export type TicketMenuProps = Readonly<{
 
 type Flow = "archive" | "template" | null
 
-type Anchor = Readonly<{ getBoundingClientRect: () => DOMRect }>
-
-const pointAnchor = (x: number, y: number): Anchor => ({
-  getBoundingClientRect: () => DOMRect.fromRect({ x, y, width: 0, height: 0 })
-})
-
-const opensMenu = (target: EventTarget, trigger: Element): boolean =>
-  target instanceof Element &&
-  trigger.contains(target) &&
-  target.closest("input, textarea, select, [contenteditable='true']") === null
+type ContextTarget = Readonly<{
+  "data-popup-open"?: string
+  onContextMenu?: (event: MouseEvent<HTMLElement>) => void
+  onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void
+}>
 
 export function TicketContextMenu({
   children,
   ...menu
-}: TicketMenuProps & Readonly<{ children: ReactElement }>) {
-  const [anchor, setAnchor] = useState<Anchor | null>(null)
+}: TicketMenuProps & Readonly<{ children: ReactElement<ContextTarget> }>) {
+  const {
+    anchor,
+    open,
+    instant,
+    openAt,
+    onKeyDown,
+    onOpenChange,
+    suppressNativeMenu
+  } = useTicketContextMenu()
   const [flow, setFlow] = useState<Flow>(null)
   return (
     <ConfirmButton.Root bare>
-      <ContextMenu>
-        <ContextMenuTrigger
-          render={children}
-          onContextMenu={(event) => {
-            if (!opensMenu(event.target, event.currentTarget)) {
-              event.preventBaseUIHandler()
-              return
-            }
-            setAnchor(pointAnchor(event.clientX, event.clientY))
-          }}
-        />
-        <ContextMenuContent className="w-52">
+      {cloneElement(children, {
+        "data-popup-open": open ? "" : undefined,
+        onContextMenu: openAt,
+        onKeyDown: (event) => {
+          children.props.onKeyDown?.(event)
+          onKeyDown(event)
+        }
+      })}
+      <DropdownMenu open={open} onOpenChange={onOpenChange}>
+        <DropdownMenuContent
+          anchor={anchor ?? undefined}
+          side="bottom"
+          align="start"
+          sideOffset={2}
+          collisionAvoidance={{ side: "shift", align: "shift" }}
+          className="w-52"
+          style={instant ? { animation: "none" } : undefined}
+          onContextMenu={suppressNativeMenu}
+        >
           <TicketMenuItems {...menu} onFlow={setFlow} />
-        </ContextMenuContent>
-      </ContextMenu>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <TicketMenuFlows {...menu} flow={flow} onFlow={setFlow} anchor={anchor} />
     </ConfirmButton.Root>
   )
@@ -224,7 +230,9 @@ function TicketMenuItems({
             className="cursor-pointer"
           >
             <Unlink className="size-4" strokeWidth={1.75} />
-            {m.tickets_row_detach_action({ id: parent })}
+            <TicketIdText id={parent.id}>
+              {m.tickets_row_detach_action({ id: parent.id })}
+            </TicketIdText>
           </DropdownMenuItem>
         )}
       </Fragment>
@@ -302,19 +310,29 @@ function TicketMenuItems({
   ))
 }
 
-function TicketMenuFlows({
+type TicketMenuFlowsProps = TicketMenuProps &
+  Readonly<{
+    flow: Flow
+    onFlow: (flow: Flow) => void
+    anchor: Anchor | RefObject<HTMLElement | null> | null
+  }>
+
+function TicketMenuFlows(props: TicketMenuFlowsProps) {
+  const { active } = useConfirmButton()
+  const needed = props.flow !== null || active !== null
+  const [used, setUsed] = useState(needed)
+  if (needed && !used) setUsed(true)
+  return used ? <TicketMenuFlowPopovers {...props} /> : null
+}
+
+function TicketMenuFlowPopovers({
   ticket,
   onDeleted,
   template,
   flow,
   onFlow,
   anchor
-}: TicketMenuProps &
-  Readonly<{
-    flow: Flow
-    onFlow: (flow: Flow) => void
-    anchor: Anchor | RefObject<HTMLElement | null> | null
-  }>) {
+}: TicketMenuFlowsProps) {
   const { orgSlug, slug } = useProjectRoute()
   const req = ticketRequest(orgSlug, slug, ticket.id)
   const archive = useAtomSet(archiveTicket(req), { mode: "promiseExit" })

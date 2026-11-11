@@ -137,13 +137,7 @@ export function TicketPreviewBody({
       return (
         <div className="space-y-2">
           <div className="line-clamp-2 text-body leading-snug font-semibold">
-            {ticket.parent && (
-              <EpicTextPrefix
-                orgSlug={scope.orgSlug}
-                slug={scope.slug}
-                epicId={ticket.parent}
-              />
-            )}
+            <EpicTextPrefix parent={ticket.parent} />
             {ticket.title}
           </div>
           <MetaRow ticket={ticket} scope={scope} statuses={statuses} />
@@ -280,11 +274,13 @@ export function BlockedLine({
         className="size-3.5 shrink-0 text-state-warning"
         strokeWidth={1.75}
       />
-      <span className="shrink-0 text-muted-foreground">
-        {m.tickets_hover_blocked_by()}
+      <span className="flex min-w-0 flex-1 items-baseline gap-2">
+        <span className="shrink-0 text-muted-foreground">
+          {m.tickets_hover_blocked_by()}
+        </span>
+        <span className="shrink-0 font-mono text-foreground">{first.id}</span>
+        <span className="min-w-0 flex-1 truncate">{first.title}</span>
       </span>
-      <span className="shrink-0 font-mono text-foreground">{first.id}</span>
-      <span className="min-w-0 flex-1 truncate">{first.title}</span>
       {blockers.length > 1 ? (
         <span className="shrink-0 text-muted-foreground">
           {m.tickets_hover_blocked_more({ count: blockers.length - 1 })}

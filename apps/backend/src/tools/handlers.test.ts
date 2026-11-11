@@ -142,6 +142,7 @@ const fakeTicket = {
   lastTransitionedPr: null,
   gitState: { tag: "no_branch" as const },
   assignees: [],
+  parent: null,
   archivedAt: null,
   createdBy: "u-1",
   createdAt: isoDate("2026-05-01T00:00:00.000Z"),
@@ -652,7 +653,7 @@ describe("MCP handlers → write tools", () => {
     Layer.mock(TicketCommands.TicketCommands, {
       create: (input) => {
         captured.create = input
-        return Effect.succeed({ ...fakeTicketDetail, ...input })
+        return Effect.succeed({ ...fakeTicketDetail, ...input, parent: null })
       },
       update: (_id, input) => {
         captured.update = input

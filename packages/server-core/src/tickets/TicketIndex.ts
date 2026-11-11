@@ -15,6 +15,7 @@ import {
   type ChecksStatus,
   type PullRequestState,
   type TicketPriority,
+  type TicketParent,
   type TicketType,
   ESTIMATE_SIZES,
   EPIC_SECTION_NONE,
@@ -29,6 +30,8 @@ import {
   type TicketCountQuery,
   type TicketFilter,
   type TicketListQuery,
+  type TicketNeighbor,
+  type TicketNeighbors,
   type TicketPageQuery,
   type TicketSection,
   type TicketSort,
@@ -125,7 +128,7 @@ export type TicketIndexEntry = Readonly<{
   checksHeadSha: string | null
   checksUpdatedAt: Date | null
   assignees: ReadonlyArray<string>
-  parent: TicketId | null
+  parent: TicketParent | null
   subTicketCount: number
   subTicketDoneCount: number
   subTicketsInSection?: number
@@ -162,6 +165,22 @@ export type TicketIndexSections = ReadonlyMap<
     entries: ReadonlyArray<TicketIndexQueryEntry>
   }>
 >
+
+export type TicketIndexSectionOrder =
+  | Readonly<{ kind: "status" }>
+  | Readonly<{ kind: "parent" | "ticketParent"; keys: ReadonlyArray<string> }>
+  | Readonly<{ kind: "explicit"; sections: ReadonlyArray<TicketIndexSection> }>
+
+export type TicketIndexWithinOrder =
+  | Readonly<{ kind: "sort"; sort: TicketSort }>
+  | Readonly<{ kind: "manual"; ticketIds: ReadonlyArray<string> }>
+
+export type TicketIndexNeighborsOptions = TicketIndexCountOptions &
+  Readonly<{
+    ticketId: string
+    sections: TicketIndexSectionOrder
+    within: TicketIndexWithinOrder
+  }>
 
 export type TicketIndexQueryEntry = Readonly<{
   entry: TicketIndexEntry
@@ -300,6 +319,11 @@ export class TicketIndex extends Context.Service<
       query: TicketListQuery,
       options: TicketIndexSectionsOptions
     ) => Effect.Effect<TicketIndexSections>
+    neighbors: (
+      project: TicketProject,
+      query: TicketListQuery,
+      options: TicketIndexNeighborsOptions
+    ) => Effect.Effect<TicketNeighbors | null>
     orderKeyFor: (
       project: TicketProject,
       ticketId: string,
@@ -335,6 +359,10 @@ export class TicketIndex extends Context.Service<
       project: TicketProject,
       ticketId: string
     ) => Effect.Effect<void>
+    parentOf: (
+      project: TicketProject,
+      ticketId: string
+    ) => Effect.Effect<TicketParent | null>
     relationsOf: (
       project: TicketProject,
       ticketId: string
@@ -349,6 +377,12 @@ const makeTicketId = Schema.decodeUnknownSync(TicketId)
 const makeTagName = Schema.decodeUnknownSync(TagName)
 const decodeEstimate = Schema.decodeUnknownOption(Estimate)
 const decodeActivityChange = Schema.decodeUnknownSync(TicketActivityChange)
+
+const neighborOf = (
+  id: string | null,
+  title: string | null
+): TicketNeighbor | null =>
+  id === null || title === null ? null : { id: makeTicketId(id), title }
 
 const touchedEventOf = (
   row:
@@ -665,8 +699,20 @@ const relatedCountOf = (row: SQL) => drizzleSql<number>`(
     and ${columnOf(linkedRow, ticketIndex.archivedAt)} is null
 )`
 
+const parentColumn = (column: AnyPgColumn) => drizzleSql`(
+  select ${columnOf(parentTicketRow, column)} from ${ticketIndex} as ${parentTicketRow}
+  where ${columnOf(parentTicketRow, ticketIndex.projectId)} = ${columnOf(parentRow, ticketIndex.projectId)}
+    and ${columnOf(parentTicketRow, ticketIndex.ticketId)} = ${columnOf(parentRow, ticketIndex.parent)}
+)`
+
 const entryColumns = {
   ...getTableColumns(ticketIndex),
+  parentTitle: parentColumn(ticketIndex.title)
+    .mapWith(ticketIndex.title)
+    .as("parent_title"),
+  parentType: parentColumn(ticketIndex.type)
+    .mapWith(ticketIndex.type)
+    .as("parent_type"),
   subTicketCount: childTicketCount(drizzleSql`true`).as("sub_ticket_count"),
   subTicketDoneCount: childTicketCount(finishedStatus(childRow)).as(
     "sub_ticket_done_count"
@@ -693,8 +739,12 @@ const entryColumns = {
     .as("duplicate_count")
 }
 
-type EntryRow = typeof ticketIndex.$inferSelect &
+type TicketIndexRow = typeof ticketIndex.$inferSelect
+
+type EntryRow = TicketIndexRow &
   Readonly<{
+    parentTitle: TicketIndexRow["title"] | null
+    parentType: TicketIndexRow["type"] | null
     subTicketCount: number
     subTicketDoneCount: number
     subTicketsInSection?: number | null
@@ -968,7 +1018,14 @@ const make = Effect.gen(function* () {
     checksHeadSha: row.checksHeadSha,
     checksUpdatedAt: row.checksUpdatedAt,
     assignees: row.assignees,
-    parent: row.parent === null ? null : makeTicketId(row.parent),
+    parent:
+      row.parent === null || row.parentTitle === null || row.parentType === null
+        ? null
+        : {
+            id: makeTicketId(row.parent),
+            title: row.parentTitle,
+            type: row.parentType
+          },
     subTicketCount: row.subTicketCount,
     subTicketDoneCount: row.subTicketDoneCount,
     subTicketsInSection:
@@ -1192,6 +1249,91 @@ const make = Effect.gen(function* () {
       }),
       Effect.orDie
     )
+  })
+
+  const neighbors = Effect.fn("TicketIndex.neighbors")(function* (
+    project: TicketProject,
+    ticketQuery: TicketListQuery,
+    options: TicketIndexNeighborsOptions
+  ) {
+    const order = options.sections
+    const sections = order.kind === "explicit" ? order.sections : order.kind
+    const nestWithin: NestWithin | undefined =
+      sections === "parent" || sections === "ticketParent"
+        ? undefined
+        : (row) => sectionExpression(sections, row)
+    const ordinal =
+      order.kind === "status"
+        ? drizzleSql`coalesce((
+            select ${projectStatus.orderKey} from ${projectStatus}
+            where ${projectStatus.projectId} = ${ticketIndex.projectId}
+              and ${projectStatus.slug} = ${ticketIndex.status}
+          ), '') collate "C"`
+        : drizzleSql`array_position(${drizzleSql.param(
+            order.kind === "explicit"
+              ? order.sections.map((section) => section.key)
+              : [...order.keys]
+          )}::text[], ${sectionExpression(sections)})`
+    const within = options.within
+    const ascending = within.kind === "manual" || within.sort.dir === "asc"
+    const dir = ascending ? drizzleSql`asc` : drizzleSql`desc`
+    const withinExpression =
+      within.kind === "manual"
+        ? drizzleSql`array_position(${drizzleSql.param([
+            ...within.ticketIds
+          ])}::text[], ${ticketIndex.ticketId})`
+        : ticketSortExpression(within.sort)
+    const window = drizzleSql`order by ${ordinal} asc, ${withinExpression} ${dir}, ${ticketIndex.ticketId} ${dir}`
+    const ordered = db
+      .select({
+        ticketId: ticketIndex.ticketId,
+        prevId: drizzleSql<
+          string | null
+        >`lag(${ticketIndex.ticketId}) over (${window})`.as("prev_id"),
+        prevTitle: drizzleSql<
+          string | null
+        >`lag(${ticketIndex.title}) over (${window})`.as("prev_title"),
+        nextId: drizzleSql<
+          string | null
+        >`lead(${ticketIndex.ticketId}) over (${window})`.as("next_id"),
+        nextTitle: drizzleSql<
+          string | null
+        >`lead(${ticketIndex.title}) over (${window})`.as("next_title"),
+        position: drizzleSql<number>`row_number() over (${window})`
+          .mapWith(Number)
+          .as("position"),
+        total: drizzleSql<number>`count(*) over ()`.mapWith(Number).as("total")
+      })
+      .from(ticketIndex)
+      .where(
+        and(
+          ...ticketWhereConditions(project, ticketQuery, {
+            ...options,
+            nestWithin
+          }),
+          drizzleSql`${ordinal} is not null`
+        )
+      )
+      .as("ordered")
+    return yield* db
+      .select()
+      .from(ordered)
+      .where(eq(ordered.ticketId, options.ticketId))
+      .limit(1)
+      .pipe(
+        Effect.map((rows): TicketNeighbors | null => {
+          const row = rows[0]
+          return row === undefined
+            ? null
+            : {
+                prev: neighborOf(row.prevId, row.prevTitle),
+                next: neighborOf(row.nextId, row.nextTitle),
+                position: row.position,
+                total: row.total
+              }
+        }),
+        Effect.orDie
+      )
   })
 
   const projectsFor = Effect.fn("TicketIndex.projectsFor")(function* (
@@ -1777,6 +1919,27 @@ const make = Effect.gen(function* () {
       .pipe(Effect.asVoid, Effect.orDie)
   })
 
+  const parentOf = Effect.fn("TicketIndex.parentOf")(function* (
+    project: TicketProject,
+    ticketId: string
+  ) {
+    const [row] = yield* db
+      .select({
+        id: ticketIndex.ticketId,
+        title: ticketIndex.title,
+        type: ticketIndex.type
+      })
+      .from(ticketIndex)
+      .where(
+        and(
+          eq(ticketIndex.projectId, project.projectId),
+          eq(ticketIndex.ticketId, ticketId)
+        )
+      )
+      .pipe(Effect.orDie)
+    return row ? { ...row, id: makeTicketId(row.id) } : null
+  })
+
   const relationsOf = Effect.fn("TicketIndex.relationsOf")(function* (
     project: TicketProject,
     ticketId: string
@@ -1850,6 +2013,7 @@ const make = Effect.gen(function* () {
   })
 
   return TicketIndex.of({
+    parentOf,
     relationsOf,
     relationEdges,
     projectFor,
@@ -1861,6 +2025,7 @@ const make = Effect.gen(function* () {
     list,
     query,
     querySections,
+    neighbors,
     orderKeyFor,
     count,
     listIds,

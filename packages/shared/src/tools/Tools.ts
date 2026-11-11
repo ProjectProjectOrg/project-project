@@ -352,7 +352,8 @@ export const Tools = Toolkit.make(
       "List a project's tickets, newest first unless `sort` says " +
       "otherwise. Items are summaries without the body; use `get_ticket` " +
       "for a ticket's description. Filters combine with AND, and a list " +
-      "filter matches any of its values. Items carry `parent`, " +
+      "filter matches any of its values. Items carry `parent` (the " +
+      "epic or ticket above it as `{ id, title, type }`, or `null`), " +
       "`subTicketCount` and `subTicketDoneCount`. Ticket `status` values " +
       "are slugs; use the label from `list_statuses` in conversation. " +
       "Paginated: pass `nextCursor` back as `cursor`.",

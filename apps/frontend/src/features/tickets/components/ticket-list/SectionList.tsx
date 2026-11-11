@@ -5,7 +5,8 @@ import type {
   ProjectStatus,
   TicketId,
   TicketListQuery,
-  TicketStatus
+  TicketStatus,
+  TicketParent
 } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Loader2 } from "lucide-react"
@@ -94,13 +95,15 @@ export function SectionList({
   pagination,
   update,
   emptyMessage,
-  snapshotReq
+  snapshotReq,
+  parent
 }: {
   heading?: SectionHeading
   canCreate?: boolean
   pagination?: ReactNode
   update: TicketUpdates
   snapshotReq?: SprintSectionsRequest | EpicSectionsRequest
+  parent?: TicketParent
   emptyMessage?: string
   status: TicketStatus
   statuses: ReadonlyArray<ProjectStatus>
@@ -169,6 +172,7 @@ export function SectionList({
         creator={
           <SectionTicketCreator
             status={status}
+            parent={parent}
             query={query}
             snapshotReq={snapshotReq}
             containerRef={shellRef}

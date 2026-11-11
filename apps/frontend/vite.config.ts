@@ -20,6 +20,7 @@ const domTests = [
   "src/features/projects/lib/bannerRenderCache.test.ts",
   "src/features/projects/lib/imageCompression.test.ts",
   "src/features/projects/lib/imagePreload.test.ts",
+  "src/features/sprints/lib/boardKeyboard.test.ts",
   "src/features/tickets/components/ticket-list/search.test.tsx",
   "src/features/tickets/components/ticket-list/sectionCollapse.test.ts",
   "src/features/tickets/components/ticket-list/toolbar/counts.test.tsx",
@@ -61,6 +62,10 @@ export default defineConfig(({ mode }) => ({
   root: __dirname,
   resolve: {
     alias: {
+      "@/paraglide": path.resolve(
+        __dirname,
+        mode === "test" ? ".cache/paraglide/test" : "src/paraglide"
+      ),
       "@": path.resolve(__dirname, "src")
     }
   },
@@ -89,11 +94,10 @@ export default defineConfig(({ mode }) => ({
     ...(mode === "test" ? [] : [tailwindcss()]),
     paraglideVitePlugin({
       project: path.resolve(__dirname, "project.inlang"),
-      outdir: path.resolve(__dirname, "src/paraglide"),
-      strategy: ["cookie", "preferredLanguage", "baseLocale"],
-      cookieName: "pp_locale",
-      cookieMaxAge: 60 * 60 * 24 * 365,
-      emitTsDeclarations: true
+      outdir: path.resolve(
+        __dirname,
+        mode === "test" ? ".cache/paraglide/test" : "src/paraglide"
+      )
     })
   ],
   test: {

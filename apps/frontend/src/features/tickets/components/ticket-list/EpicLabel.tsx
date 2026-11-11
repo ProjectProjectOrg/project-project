@@ -1,76 +1,33 @@
-import { useAtomValue } from "@effect/atom-react"
-import type { TicketId } from "@pp/shared"
+import type { TicketParent } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
-import * as Atom from "effect/reactivity/Atom"
 
 import { MiddleTruncate } from "@/components/ui/middle-truncate"
-import {
-  archivedEpicTitles,
-  epicsRequest,
-  openEpicTitles
-} from "@/features/tickets/atoms/epics"
 import { cn } from "@/lib/utils"
 
-type EpicRef = Readonly<{ orgSlug: string; slug: string; epicId: TicketId }>
-
-const noTitles = Atom.make(Result.initial<ReadonlyMap<TicketId, string>>())
-
-type ParentLabel = Readonly<{ title: string; epic: boolean }>
-
-export function useParentLabel({
+export function EpicLink({
   orgSlug,
   slug,
-  epicId
-}: EpicRef): ParentLabel | null {
-  const req = epicsRequest(orgSlug, slug)
-  const open = useAtomValue(openEpicTitles(req))
-  const archived = useAtomValue(
-    Result.isSuccess(open) && !open.value.has(epicId)
-      ? archivedEpicTitles(req)
-      : noTitles
-  )
-  if (!Result.isSuccess(open)) return null
-  const title =
-    open.value.get(epicId) ??
-    (Result.isSuccess(archived) ? archived.value.get(epicId) : undefined)
-  if (title !== undefined) return { title, epic: true }
-  return Result.isInitial(archived) ? null : { title: epicId, epic: false }
-}
-
-export function useEpicTitle(ref: EpicRef) {
-  const label = useParentLabel(ref)
-  return label?.epic === true ? label.title : null
-}
-
-export function EpicLink({
-  className,
-  ...ref
-}: EpicRef & Readonly<{ className?: string }>) {
-  const label = useParentLabel(ref)
-  if (label?.epic !== true) return null
+  parent,
+  className
+}: Readonly<{
+  orgSlug: string
+  slug: string
+  parent: TicketParent
+  className?: string
+}>) {
   return (
     <Link
       to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-      params={{ orgSlug: ref.orgSlug, slug: ref.slug, id: ref.epicId }}
+      params={{ orgSlug, slug, id: parent.id }}
       preload="intent"
       className={cn(
-        "flex max-w-[24ch] min-w-0 shrink-0 text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline",
+        "-mx-1.5 -my-1 flex max-w-[24ch] min-w-0 shrink-0 rounded-md px-1.5 py-1 text-muted-foreground underline-offset-4 transition-colors outline-none hover:text-foreground hover:underline focus-visible:ring-1 focus-visible:ring-ring",
         className
       )}
     >
-      <MiddleTruncate value={label.title} />
+      <MiddleTruncate value={parent.title} />
     </Link>
   )
-}
-
-export function EpicName({
-  className,
-  ...ref
-}: EpicRef & Readonly<{ className?: string }>) {
-  const title = useEpicTitle(ref)
-  if (title === null) return null
-  return <span className={cn("text-muted-foreground", className)}>{title}</span>
 }
 
 export function EpicSeparator({ className }: Readonly<{ className?: string }>) {
@@ -85,11 +42,13 @@ export function EpicSeparator({ className }: Readonly<{ className?: string }>) {
   )
 }
 
-export function EpicTextPrefix(ref: EpicRef) {
-  if (useEpicTitle(ref) === null) return null
+export function EpicTextPrefix({
+  parent
+}: Readonly<{ parent: TicketParent | null }>) {
+  if (parent?.type !== "epic") return null
   return (
     <>
-      <EpicName {...ref} />
+      <span className="text-muted-foreground">{parent.title}</span>
       <EpicSeparator />
     </>
   )

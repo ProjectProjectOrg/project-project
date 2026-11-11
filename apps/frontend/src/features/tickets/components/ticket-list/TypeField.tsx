@@ -1,9 +1,10 @@
-import { TicketType, type TicketId, type UpdateTicketInput } from "@pp/shared"
+import { TicketType, type TicketId } from "@pp/shared"
 import type { ComponentProps, ReactElement, ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger } from "@/components/ui/select"
 import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -99,7 +100,7 @@ export function TypeBadgeTrigger({
   className
 }: {
   ticket: { id: TicketId; type: TicketType }
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
   className?: string
 }) {
   const Icon = TYPE_META[ticket.type].icon
@@ -135,7 +136,7 @@ export function TypeButton({
   ticket: { id: TicketId; type: TicketType }
   className?: string
   iconOnly?: boolean
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
 }) {
   const Icon = TYPE_META[ticket.type].icon
   const typeLabel = TYPE_LABELS[ticket.type]()

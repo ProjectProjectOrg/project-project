@@ -17,10 +17,11 @@ import {
 import { TicketComposer } from "@/features/tickets/components/ticket-list/TicketComposer"
 import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
 import { NON_EPIC_TYPES } from "@/features/tickets/lib/ticketMeta"
+import { parentRef } from "@/features/tickets/lib/ticketPatch"
 
 import { AttachTicketPicker } from "./AttachTicketPicker"
 
-type Parent = Pick<Ticket, "id" | "type">
+type Parent = Pick<Ticket, "id" | "title" | "type">
 
 export function ChildTicketList({
   parent,
@@ -47,7 +48,7 @@ export function ChildTicketList({
           <div className="min-w-0 flex-1">
             <TicketComposer
               types={NON_EPIC_TYPES}
-              parent={parent.id}
+              parent={parentRef(parent)}
               create={create}
               createState={createState}
             />

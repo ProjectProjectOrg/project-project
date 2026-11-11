@@ -5,8 +5,7 @@ import {
   type TicketId,
   TicketListQuery,
   type TicketSort,
-  TicketStatus,
-  type UpdateTicketInput
+  TicketStatus
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -18,6 +17,7 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { bindRowMutation, viewMutation } from "@/api/viewMutation"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import {
   insertByOrderKey,
   patchTicketRow,
@@ -28,7 +28,8 @@ import {
   type QuickCreateInput,
   type TicketRow,
   type TicketRowPage,
-  viewQuery
+  viewQuery,
+  quickCreatePayload
 } from "@/features/tickets/lib/ticketRows"
 
 import {
@@ -190,7 +191,7 @@ export const loadMoreBacklog = Atom.family(
 const patchRow = (
   value: BacklogValue,
   id: TicketId,
-  patch: UpdateTicketInput,
+  patch: TicketEdit,
   sort: TicketSort,
   now: Date
 ): BacklogValue => {
@@ -354,7 +355,7 @@ export const quickCreateBacklogTicket = Atom.family((req: BacklogRequest) =>
       client.tickets
         .quickCreate({
           params: req.params,
-          payload: input.payload
+          payload: quickCreatePayload(input)
         })
         .pipe(
           Effect.tap((created) =>

@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import * as Result from "effect/reactivity/AsyncResult"
+import * as Atom from "effect/reactivity/Atom"
 
 import {
   githubIntegration,
@@ -17,6 +18,8 @@ export type IntegrationState = Readonly<{
   connected: boolean
   loading: boolean
 }>
+
+const disabledState = Atom.make(Result.initial())
 
 const loadingState: IntegrationState = {
   tone: "idle",
@@ -53,8 +56,13 @@ const connected = (): IntegrationState => ({
   loading: false
 })
 
-export function useGithubAppState(orgSlug: string): IntegrationState {
-  const result = useAtomValue(githubIntegration(githubOrgRequest(orgSlug)))
+export function useGithubAppState(
+  orgSlug: string,
+  enabled = true
+): IntegrationState {
+  const result = useAtomValue(
+    enabled ? githubIntegration(githubOrgRequest(orgSlug)) : disabledState
+  )
   if (Result.isInitial(result)) return loadingState
   if (!Result.isSuccess(result)) return unavailable()
   const { status } = result.value
@@ -62,8 +70,13 @@ export function useGithubAppState(orgSlug: string): IntegrationState {
   return status === "broken" ? attention() : notSetUp()
 }
 
-export function useStorageState(orgSlug: string): IntegrationState {
-  const result = useAtomValue(orgStorage(storageRequest(orgSlug)))
+export function useStorageState(
+  orgSlug: string,
+  enabled = true
+): IntegrationState {
+  const result = useAtomValue(
+    enabled ? orgStorage(storageRequest(orgSlug)) : disabledState
+  )
   if (Result.isInitial(result)) return loadingState
   if (!Result.isSuccess(result)) return unavailable()
   const { status } = result.value
@@ -71,8 +84,13 @@ export function useStorageState(orgSlug: string): IntegrationState {
   return status === "broken" ? attention() : notSetUp()
 }
 
-export function useEmailState(orgSlug: string): IntegrationState {
-  const result = useAtomValue(orgEmail(emailRequest(orgSlug)))
+export function useEmailState(
+  orgSlug: string,
+  enabled = true
+): IntegrationState {
+  const result = useAtomValue(
+    enabled ? orgEmail(emailRequest(orgSlug)) : disabledState
+  )
   if (Result.isInitial(result)) return loadingState
   if (!Result.isSuccess(result)) return unavailable()
   const { settings, lastTest } = result.value
@@ -81,8 +99,13 @@ export function useEmailState(orgSlug: string): IntegrationState {
   return connected()
 }
 
-export function useSlackState(orgSlug: string): IntegrationState {
-  const result = useAtomValue(slackOrg(slackOrgRequest(orgSlug)))
+export function useSlackState(
+  orgSlug: string,
+  enabled = true
+): IntegrationState {
+  const result = useAtomValue(
+    enabled ? slackOrg(slackOrgRequest(orgSlug)) : disabledState
+  )
   if (Result.isInitial(result)) return loadingState
   if (!Result.isSuccess(result)) return unavailable()
   const { connection } = result.value

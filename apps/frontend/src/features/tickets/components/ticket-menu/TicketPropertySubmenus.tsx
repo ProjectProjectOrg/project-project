@@ -1,18 +1,10 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import {
-  TagName,
-  TicketType,
-  type Member,
-  type UpdateTicketInput
-} from "@pp/shared"
+import { TagName, TicketType, type Member } from "@pp/shared"
 import * as Exit from "effect/Exit"
-import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
-import * as Schema from "effect/Schema"
 import {
   CircleDot,
   Gauge,
-  Plus,
   Shapes,
   SignalHigh,
   Tag,
@@ -20,7 +12,6 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenuCheckboxItem,
   DropdownMenuEmpty,
@@ -43,7 +34,9 @@ import {
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import { createTag, tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
+import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
 import { typeOptions } from "@/features/tickets/components/ticket-list/TypeField"
+import { useApplyCreatedTag } from "@/features/tickets/hooks/useApplyCreatedTag"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import {
   PRIORITY_LABELS,
@@ -51,13 +44,12 @@ import {
   PRIORITY_ORDER
 } from "@/features/tickets/lib/priorityMeta"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import type { TicketMenuTicket } from "./TicketMenu"
-
-const decodeTagName = Schema.decodeUnknownOption(TagName)
 
 const viewerFirst = (
   members: ReadonlyArray<Member>,
@@ -80,7 +72,7 @@ export function TicketPropertySubmenus({
   members: ReadonlyArray<Member>
   editable: boolean
   canAssign: boolean
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const statusesResult = useAtomValue(
@@ -251,7 +243,7 @@ function TagsSubmenu({
   onPatch
 }: Readonly<{
   tags: TicketMenuTicket["tags"]
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const req = tagsRequest(orgSlug, slug)
@@ -259,11 +251,8 @@ function TagsSubmenu({
   const create = useAtomSet(createTag(req), { mode: "promiseExit" })
   const canCreate = useProjectActor().call("tags", "create")
   const [draft, setDraft] = useState("")
+  const applyCreatedTag = useApplyCreatedTag(applied, onPatch)
   const tags = Result.isSuccess(result) ? result.value : []
-  const newName = Option.filter(
-    decodeTagName(draft.trim()),
-    (name) => canCreate && !tags.some((tag) => tag.name === name)
-  )
   const toggle = (name: TagName) =>
     onPatch({
       tags: applied.includes(name)
@@ -273,7 +262,7 @@ function TagsSubmenu({
   const createAndApply = async (name: TagName) => {
     setDraft("")
     const exit = await create({ name })
-    if (Exit.isSuccess(exit)) onPatch({ tags: [...applied, name] })
+    if (Exit.isSuccess(exit)) applyCreatedTag(name)
   }
   return (
     <DropdownMenuSub
@@ -290,50 +279,14 @@ function TagsSubmenu({
         {m.tickets_command_tags()}
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-56">
-        <DropdownMenuInput
-          placeholder={
-            canCreate
-              ? m.tags_search_or_create_placeholder()
-              : m.tickets_command_tags_placeholder()
-          }
-          aria-label={m.tickets_command_tags_placeholder()}
+        <TagMenuBody
+          tags={tags}
+          applied={applied}
+          draft={draft}
+          canCreate={canCreate}
+          onToggle={toggle}
+          onCreate={(name) => void createAndApply(name)}
         />
-        <DropdownMenuList className="max-h-72 overflow-y-auto">
-          {tags.map((tag) => (
-            <DropdownMenuItem
-              key={tag.name}
-              label={tag.name}
-              onClick={() => toggle(tag.name)}
-              className="group cursor-pointer"
-            >
-              <Checkbox
-                aria-label={tag.name}
-                className="size-4.5 rounded-[4px] bg-transparent opacity-0 shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--muted-foreground)_55%,transparent)] group-data-[highlighted]:opacity-100 focus-visible:opacity-100 data-[checked]:opacity-100"
-                checked={applied.includes(tag.name)}
-                onCheckedChange={() => toggle(tag.name)}
-                onClick={(event) => event.stopPropagation()}
-              />
-              <span
-                aria-hidden
-                className="size-2 shrink-0 rounded-full"
-                style={{ backgroundColor: tag.color }}
-              />
-              <span className="min-w-0 truncate">{tag.name}</span>
-            </DropdownMenuItem>
-          ))}
-          {Option.isSome(newName) && (
-            <DropdownMenuItem
-              label={newName.value}
-              closeOnClick={false}
-              onClick={() => void createAndApply(newName.value)}
-              className="cursor-pointer"
-            >
-              <Plus className="size-4" strokeWidth={1.75} />
-              {m.tags_create_button({ name: newName.value })}
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuList>
-        <DropdownMenuEmpty>{m.tickets_command_tags_empty()}</DropdownMenuEmpty>
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   )

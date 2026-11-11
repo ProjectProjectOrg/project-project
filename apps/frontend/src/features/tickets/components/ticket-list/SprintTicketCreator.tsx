@@ -204,7 +204,7 @@ export function SprintTicketCreator({
     void navigate({
       to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
       params: { orgSlug, slug, id },
-      search: { focusBody: 1 }
+      search: { focusBody: "1" }
     })
   }
 
@@ -529,13 +529,7 @@ function ExistingOption({
           {ticket.id}
         </span>
         <span className="min-w-0 truncate">
-          {ticket.parent && (
-            <EpicTextPrefix
-              orgSlug={orgSlug}
-              slug={slug}
-              epicId={ticket.parent}
-            />
-          )}
+          <EpicTextPrefix parent={ticket.parent} />
           {ticket.title}
         </span>
       </span>

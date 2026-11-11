@@ -9,6 +9,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { stubFetch } from "@/api/testFetch"
 import { me } from "@/features/auth/atoms/auth"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
+import { ticketSearchFromQuery } from "@/features/tickets/lib/ticketSearch"
 import { Route as BacklogRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/index"
 import { Route as SprintRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId"
 import { Route as SprintIndexRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/index"
@@ -117,6 +118,13 @@ afterEach(() => {
   localStorage.clear()
 })
 
+const started = (suffix: string) =>
+  vi.waitFor(() => {
+    const url = requests.find((request) => request.pathname.endsWith(suffix))
+    if (url === undefined) throw new Error(`${suffix} not requested`)
+    return url
+  })
+
 it("starts backlog sections alongside metadata without waiting, even with collapsed sections", async () => {
   localStorage.setItem(
     "projectproject:backlog-grouping:user-1:org/project",
@@ -136,32 +144,17 @@ it("starts backlog sections alongside metadata without waiting, even with collap
       ...loaderDefaults(BacklogRoute),
       context: { registry },
       params,
-      deps: query
+      deps: ticketSearchFromQuery(query)
     })
   ).toBeUndefined()
-  await vi.waitFor(() => expect(requests).toHaveLength(6))
-  expect(
-    requests.some(
-      (url) =>
-        url.pathname.endsWith("/tickets") &&
-        url.searchParams.get("type") === "epic"
-    )
-  ).toBe(true)
-  const sections = requests.find((url) =>
-    url.pathname.endsWith("/tickets/sections")
-  )
-  expect(sections?.searchParams.get("q")).toBe("search")
-  expect(sections?.searchParams.has("status")).toBe(false)
-  expect(sections?.searchParams.get("sort")).toBe(
-    '{"key":"title","dir":"desc"}'
-  )
-  expect(requests.map((url) => url.pathname)).toContain(
-    "/api/orgs/org/projects/project/statuses"
-  )
+  const sections = await started("/tickets/sections")
+  await started("/statuses")
+  expect(sections.searchParams.get("q")).toBe("search")
+  expect(sections.searchParams.has("status")).toBe(false)
+  expect(sections.searchParams.get("sort")).toBe('{"key":"title","dir":"desc"}')
   expect(
     requests.some((url) => url.pathname.endsWith("/tickets/sprint-sections"))
   ).toBe(false)
-  expect(requests.map((url) => url.pathname)).toContain("/api/me")
 })
 
 it("starts only sprint sections when the viewer groups the list by sprint", async () => {
@@ -178,14 +171,11 @@ it("starts only sprint sections when the viewer groups the list by sprint", asyn
     ...loaderDefaults(BacklogRoute),
     context: { registry },
     params,
-    deps: query
+    deps: ticketSearchFromQuery(query)
   })
-  await vi.waitFor(() => expect(requests).toHaveLength(6))
-  const sprintSections = requests.find((url) =>
-    url.pathname.endsWith("/tickets/sprint-sections")
-  )
-  expect(sprintSections?.searchParams.get("q")).toBe("search")
-  expect(sprintSections?.searchParams.get("status")).toBe("review")
+  const sprintSections = await started("/tickets/sprint-sections")
+  expect(sprintSections.searchParams.get("q")).toBe("search")
+  expect(sprintSections.searchParams.get("status")).toBe("review")
   expect(
     requests.some((url) => url.pathname.endsWith("/tickets/sections"))
   ).toBe(false)
@@ -200,18 +190,18 @@ it.each(["board", "list", "description"] as const)(
         context: { registry },
         params,
         deps: {
-          ...decodeTicketListQuery({
-            q: "needle",
-            status: ["review"],
-            groupId: ["G-2"]
-          }),
+          ...ticketSearchFromQuery(
+            decodeTicketListQuery({
+              q: "needle",
+              status: ["review"],
+              groupId: ["G-2"]
+            })
+          ),
           view
         }
       })
     ).toMatchObject({ crumb: { groupId: "G-1" } })
-    await vi.waitFor(() =>
-      expect(requests).toHaveLength(view === "description" ? 3 : 4)
-    )
+    await started("/groups/G-1")
     const ticketRequests = requests.filter((url) =>
       url.pathname.includes("/tickets")
     )

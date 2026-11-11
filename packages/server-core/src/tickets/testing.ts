@@ -390,7 +390,7 @@ export const fakeUser = (id: string): User => ({
 
 export const FakeUsers = Layer.succeed(Users.Users, {
   findByEmail: () => unexpected("Users.findByEmail"),
-  findManyByIds: () => unexpected("Users.findManyByIds"),
+  findManyByIds: (ids) => Effect.succeed(ids.map(fakeUser)),
   fullByIds: (ids) => Effect.succeed(ids.map(fakeUser))
 } satisfies Users.Users["Service"])
 
@@ -419,12 +419,20 @@ export const makeFakeGitHub = (
     ...overrides
   } satisfies GitHub.GitHub["Service"])
 
-export const entryFromDocument = (document: TicketDocs.TicketDocument) => {
+export const entryFromDocument = (
+  document: TicketDocs.TicketDocument,
+  parentOf: (id: string) => TicketDocs.TicketDocument | undefined = () =>
+    undefined
+) => {
   const { body: _body, commentsRegion: _commentsRegion, ...entry } = document
+  const parent = entry.parent === undefined ? undefined : parentOf(entry.parent)
   return {
     ...entry,
     estimate: entry.estimate ?? null,
-    parent: entry.parent ?? null,
+    parent:
+      parent === undefined
+        ? null
+        : { id: parent.id, title: parent.title, type: parent.type },
     subTicketCount: 0,
     subTicketDoneCount: 0,
     openBlockerCount: 0,
@@ -476,7 +484,11 @@ export const matchingDocuments = (
       (included === null || included.has(document.id)) &&
       !excluded.has(document.id) &&
       matchesTicketQuery(
-        { ...document, estimate: document.estimate ?? null },
+        {
+          ...document,
+          estimate: document.estimate ?? null,
+          parent: document.parent ? { id: document.parent } : null
+        },
         query,
         userId(viewerId),
         "points"
@@ -529,14 +541,14 @@ export const querySectionsVia =
         const byEpic = options.sections === "parent"
         const sectionOf = (entry: TicketIndex.TicketIndexEntry): string => {
           const parent =
-            entry.parent === null ? undefined : byId.get(entry.parent)
+            entry.parent === null ? undefined : byId.get(entry.parent.id)
           if (parent === undefined) return EPIC_SECTION_NONE
           if (!byEpic) {
             return parent.type === "epic" ? EPIC_SECTION_NONE : parent.id
           }
           return parent.type === "epic"
             ? parent.id
-            : (parent.parent ?? EPIC_SECTION_NONE)
+            : (parent.parent?.id ?? EPIC_SECTION_NONE)
         }
         for (const key of new Set(all.map(sectionOf))) {
           const scoped = {
@@ -632,7 +644,9 @@ export const makeFakeTicketIndex = (
         const wanted = ticketIds === undefined ? null : new Set(ticketIds)
         return [...documents.values()]
           .filter((document) => wanted === null || wanted.has(document.id))
-          .map(entryFromDocument)
+          .map((document) =>
+            entryFromDocument(document, (id) => documents.get(id))
+          )
       }),
     query: (_project, query, options) =>
       Effect.sync(() => {
@@ -661,7 +675,7 @@ export const makeFakeTicketIndex = (
         }).items.map((document) => {
           const sortValue = ticketSortValue(document, query)
           return {
-            entry: entryFromDocument(document),
+            entry: entryFromDocument(document, (id) => documents.get(id)),
             sortValue,
             orderKey: `${sortValue}${TicketIndex.TICKET_ORDER_KEY_SEPARATOR}${document.id}`
           }
@@ -781,6 +795,14 @@ export const makeFakeTicketIndex = (
       }),
     querySections: (project, query, options) =>
       querySectionsVia(index)(project, query, options),
+    neighbors: () => Effect.die(new Error("unexpected TicketIndex.neighbors")),
+    parentOf: (_project, ticketId) =>
+      Effect.sync(() => {
+        const parent = documents.get(ticketId)
+        return parent
+          ? { id: parent.id, title: parent.title, type: parent.type }
+          : null
+      }),
     relationsOf: (_project, ticketId) =>
       Effect.sync(() => relationsOfDocuments(documents, ticketId)),
     relationEdges: () => Effect.sync(() => relationEdgesOfDocuments(documents)),

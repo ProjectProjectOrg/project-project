@@ -20,7 +20,7 @@ import { m } from "@/paraglide/messages"
 import { SORT_FIELD_LABELS, sortKeysFor } from "../sort"
 import { BoardColumnsPicker } from "./BoardColumnsPicker"
 import { useTicketToolbar } from "./context"
-import { ControlSlot, OptionPicker, ToolbarButton } from "./shared"
+import { OptionPicker, ToolbarButton } from "./shared"
 
 export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
   const { viewControls, boardScope, searchActive: compact } = useTicketToolbar()
@@ -29,55 +29,53 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
     useState<ComponentProps<typeof PopoverContent>["anchor"]>()
 
   return (
-    <ControlSlot>
-      <Popover
-        onOpenChange={(open) => {
-          const trigger = triggerRef.current
-          if (!open || !trigger) return
-          const bounds = trigger.getBoundingClientRect()
-          setAnchor({
-            getBoundingClientRect: () => bounds,
-            contextElement: trigger
-          })
+    <Popover
+      onOpenChange={(open) => {
+        const trigger = triggerRef.current
+        if (!open || !trigger) return
+        const bounds = trigger.getBoundingClientRect()
+        setAnchor({
+          getBoundingClientRect: () => bounds,
+          contextElement: trigger
+        })
+      }}
+    >
+      <PopoverTrigger
+        ref={triggerRef}
+        render={
+          <ToolbarButton aria-label={m.tickets_view_options_label()}>
+            <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+            <CollapsingLabel show={!compact}>
+              {m.tickets_view_options_label()}
+            </CollapsingLabel>
+            <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
+          </ToolbarButton>
+        }
+      />
+      <PopoverContent
+        aria-label={m.tickets_view_options_label()}
+        anchor={anchor}
+        align="end"
+        side="bottom"
+        collisionAvoidance={{
+          side: "none",
+          align: "shift",
+          fallbackAxisSide: "none"
         }}
+        className="flex max-h-[var(--available-height)] w-80 max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0"
       >
-        <PopoverTrigger
-          ref={triggerRef}
-          render={
-            <ToolbarButton aria-label={m.tickets_view_options_label()}>
-              <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-              <CollapsingLabel show={!compact}>
-                {m.tickets_view_options_label()}
-              </CollapsingLabel>
-              <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
-            </ToolbarButton>
-          }
-        />
-        <PopoverContent
-          aria-label={m.tickets_view_options_label()}
-          anchor={anchor}
-          align="end"
-          side="bottom"
-          collisionAvoidance={{
-            side: "none",
-            align: "shift",
-            fallbackAxisSide: "none"
-          }}
-          className="flex max-h-[var(--available-height)] w-80 max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0"
-        >
-          <div className="min-h-0 space-y-2 overflow-y-auto overscroll-contain p-3">
-            {viewControls}
-            {showSort && <Ordering />}
-            {boardScope && (
-              <>
-                <BoardColumnsPicker scope={boardScope} />
-                <ExpandSubTickets />
-              </>
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
-    </ControlSlot>
+        <div className="min-h-0 space-y-2 overflow-y-auto overscroll-contain p-3">
+          {viewControls}
+          {showSort && <Ordering />}
+          {boardScope && (
+            <>
+              <BoardColumnsPicker scope={boardScope} />
+              <ExpandSubTickets />
+            </>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 

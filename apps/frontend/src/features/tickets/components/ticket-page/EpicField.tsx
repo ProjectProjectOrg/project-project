@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { Ticket, UpdateTicketInput } from "@pp/shared"
+import type { Ticket } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ArrowUpRight, Layers, Plus, X } from "lucide-react"
@@ -20,6 +20,7 @@ import {
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { epicsRequest, projectEpics } from "@/features/tickets/atoms/epics"
 import { ParentTicketLink } from "@/features/tickets/components/ticket-page/ParentTicketLink"
+import { parentRef, type TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { m } from "@/paraglide/messages"
 
 export function EpicField({
@@ -29,14 +30,12 @@ export function EpicField({
 }: Readonly<{
   ticket: Ticket
   editable: boolean
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const result = useAtomValue(projectEpics(epicsRequest(orgSlug, slug)))
   const epics = Result.isSuccess(result) ? result.value : []
-  const parent = ticket.parent ?? null
-  const parentEpic = epics.find((epic) => epic.id === parent)
-  const parentTitle = parent === null ? null : (parentEpic?.title ?? parent)
+  const parent = ticket.parent
   const [query, setQuery] = useState("")
   const emptyMessage = Result.matchWithError(result, {
     onInitial: () => m.tickets_epic_loading(),
@@ -46,13 +45,7 @@ export function EpicField({
       value.length === 0 ? m.tickets_epic_empty() : m.tickets_epic_no_match()
   })
 
-  if (!editable && parent !== null) {
-    return (
-      <ParentTicketLink
-        parent={{ id: parent, title: parentEpic?.title ?? "" }}
-      />
-    )
-  }
+  if (!editable && parent !== null) return <ParentTicketLink parent={parent} />
 
   return (
     <DropdownMenu
@@ -68,12 +61,12 @@ export function EpicField({
             variant="chip"
             className="min-w-0"
             aria-label={
-              parentTitle === null
+              parent === null
                 ? m.tickets_epic_add_chip()
                 : m.tickets_epic_change_aria_label()
             }
           >
-            {parentTitle === null ? (
+            {parent === null ? (
               <>
                 <Plus className="size-3.5" strokeWidth={1.75} />
                 <span>{m.tickets_epic_add_chip()}</span>
@@ -81,7 +74,7 @@ export function EpicField({
             ) : (
               <>
                 <Layers className="size-3.5" strokeWidth={1.75} />
-                <span className="max-w-[18ch] truncate">{parentTitle}</span>
+                <span className="max-w-[18ch] truncate">{parent.title}</span>
               </>
             )}
           </Button>
@@ -94,9 +87,11 @@ export function EpicField({
         />
         <DropdownMenuList className="max-h-64 overflow-y-auto">
           <DropdownMenuRadioGroup
-            value={parent}
+            value={parent?.id ?? null}
             onValueChange={(id) => {
-              if (id !== parent) onPatch({ parent: id })
+              const epic = epics.find((candidate) => candidate.id === id)
+              if (epic !== undefined && id !== parent?.id)
+                onPatch({ parent: parentRef(epic) })
             }}
             items={epics.map((epic) => ({
               value: epic.id,
@@ -116,7 +111,7 @@ export function EpicField({
                 render={
                   <Link
                     to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-                    params={{ orgSlug, slug, id: parent }}
+                    params={{ orgSlug, slug, id: parent.id }}
                     preload="intent"
                   />
                 }

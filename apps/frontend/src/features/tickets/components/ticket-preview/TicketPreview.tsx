@@ -72,6 +72,15 @@ export function TicketPreviewTrigger({
       payload={preview}
       delay={PREVIEW_DELAY_MS}
       onPointerEnter={() => warm(preview)}
+      onClick={
+        preview.kind === "ticket"
+          ? undefined
+          : (event) => {
+              event.stopPropagation()
+              warm(preview)
+              ticketPreview.open(event.currentTarget.id)
+            }
+      }
       {...props}
     />
   )
@@ -232,10 +241,12 @@ function PreviewTicketRow({
       className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-body text-muted-foreground transition-colors outline-none hover:bg-hover focus-visible:bg-hover"
     >
       <TicketStatusIcon status={ticket.status} orgSlug={orgSlug} slug={slug} />
-      <span className="shrink-0 font-mono text-caption tabular-nums">
-        {ticket.id}
+      <span className="flex min-w-0 flex-1 items-baseline gap-2">
+        <span className="shrink-0 font-mono text-caption tabular-nums">
+          {ticket.id}
+        </span>
+        <span className="min-w-0 truncate text-foreground">{ticket.title}</span>
       </span>
-      <span className="min-w-0 truncate text-foreground">{ticket.title}</span>
     </Link>
   )
 }

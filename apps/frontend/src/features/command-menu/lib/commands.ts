@@ -25,6 +25,7 @@ export const COMMAND_GROUPS = [
   "backlog",
   "view",
   "create",
+  "setup",
   "navigation",
   "miscellaneous",
   "settings",

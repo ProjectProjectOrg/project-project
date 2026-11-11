@@ -5,7 +5,7 @@ import type {
   Member,
   TicketDetail,
   TicketId,
-  UpdateTicketInput
+  TicketViewSource
 } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -48,12 +48,14 @@ import { TicketDesignLinks } from "@/features/tickets/components/ticket-page/Tic
 import { TicketDiscussion } from "@/features/tickets/components/ticket-page/TicketDiscussion"
 import { TicketPageHeader } from "@/features/tickets/components/ticket-page/TicketPageHeader"
 import { TicketPageShell } from "@/features/tickets/components/ticket-page/TicketPageShell"
+import { TicketStepper } from "@/features/tickets/components/ticket-page/TicketStepper"
 import { useTemplateSwap } from "@/features/tickets/components/ticket-page/useTemplateSwap"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import {
-  useTicketHierarchy,
-  type TicketHierarchy
-} from "@/features/tickets/hooks/useTicketHierarchy"
+  type TicketHierarchy,
+  ticketHierarchy
+} from "@/features/tickets/lib/ticketHierarchy"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
@@ -64,13 +66,15 @@ export function TicketPage({
   members,
   github,
   autoFocusBody = false,
-  splitInto = NO_SPLIT_RESULTS
+  splitInto = NO_SPLIT_RESULTS,
+  from
 }: {
   ticket: TicketDetail
   members: ReadonlyArray<Member>
   github: GithubConnection | null
   autoFocusBody?: boolean
   splitInto?: ReadonlyArray<TicketId>
+  from?: TicketViewSource
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const req = ticketRequest(orgSlug, slug, ticket.id)
@@ -89,7 +93,7 @@ export function TicketPage({
   const actor = useProjectActor()
   const estimation = useEstimationMode()
   const canEdit = TicketPolicy.canChange(actor, { content: true })
-  const hierarchy = useTicketHierarchy(ticket)
+  const hierarchy = ticketHierarchy(ticket)
   const navigate = useNavigate()
   const goToProject = () =>
     void navigate({
@@ -112,6 +116,7 @@ export function TicketPage({
       actions={
         <>
           <MarkdownSaveIndicator status={bodyStatus} />
+          {from && <TicketStepper ticketId={ticket.id} from={from} />}
           {actor.call("tickets", "archive") && (
             <ArchiveTicketControl
               archived={ticket.archivedAt !== null}
@@ -153,13 +158,11 @@ export function TicketPage({
                 />
               </fieldset>
               {hierarchy.subTicketOf !== null && (
-                <span className="inline-flex min-w-0 items-center gap-1 text-body text-muted-foreground">
-                  {m.tickets_header_sub_ticket_of()}
-                  <ParentTicketLink
-                    parent={hierarchy.subTicketOf}
-                    variant="inline"
-                  />
-                </span>
+                <ParentTicketLink
+                  parent={hierarchy.subTicketOf}
+                  variant="inline"
+                  label={m.tickets_header_sub_ticket_of()}
+                />
               )}
               <BlockedByNote relations={ticket.relations} />
               {swapNote !== null && (
@@ -277,7 +280,7 @@ function PlanningMetaRows({
   ticket: TicketDetail
   hierarchy: TicketHierarchy
   editable: boolean
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
 }>) {
   if (ticket.type === "epic") return null
   return (
@@ -290,11 +293,9 @@ function PlanningMetaRows({
           <ParentTicketLink parent={hierarchy.subTicketOf} />
         </MetaRow>
       ) : (
-        hierarchy.loaded && (
-          <MetaRow controls label={m.tickets_page_meta_epic()}>
-            <EpicField ticket={ticket} editable={editable} onPatch={onPatch} />
-          </MetaRow>
-        )
+        <MetaRow controls label={m.tickets_page_meta_epic()}>
+          <EpicField ticket={ticket} editable={editable} onPatch={onPatch} />
+        </MetaRow>
       )}
     </>
   )

@@ -3,17 +3,20 @@ import * as Exit from "effect/Exit"
 import { Trash2, X } from "lucide-react"
 import { motion } from "motion/react"
 import {
-  createContext,
   useCallback,
   useId,
   useMemo,
   useState,
-  use,
   type ComponentProps,
   type ReactNode
 } from "react"
 
 import { Button, type ButtonProps } from "@/components/ui/button"
+import {
+  ConfirmButtonContext,
+  type ConfirmButtonContextValue,
+  useConfirmButton
+} from "@/components/ui/confirm-button-context"
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent } from "@/components/ui/popover"
@@ -24,26 +27,7 @@ import { m } from "@/paraglide/messages"
 
 const DEFAULT_KEY = "default"
 
-type ConfirmButtonContextValue = Readonly<{
-  state: "idle" | "confirming"
-  active: string | null
-  open: (key?: string) => void
-  close: () => void
-  busy: boolean
-  setBusy: (b: boolean) => void
-}>
-
-const ConfirmButtonContext = createContext<ConfirmButtonContextValue | null>(
-  null
-)
-
-export function useConfirmButton() {
-  const ctx = use(ConfirmButtonContext)
-  if (!ctx) {
-    throw new Error("useConfirmButton must be used inside <ConfirmButton.Root>")
-  }
-  return ctx
-}
+export { useConfirmButton }
 
 function Root({
   className,

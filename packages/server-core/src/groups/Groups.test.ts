@@ -25,6 +25,7 @@ import * as TicketBranchIndex from "../git/TicketBranchIndex"
 import * as KeyedLock from "../locks/KeyedLock"
 import * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
+import { entryFromDocument } from "../tickets/testing"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as TicketIndex from "../tickets/TicketIndex"
@@ -70,28 +71,6 @@ function makeTicketDocument(
     updatedAt: now,
     body: "",
     commentsRegion: ""
-  }
-}
-
-function ticketIndexEntryFromDocument(ticket: TicketDocs.TicketDocument) {
-  const { body: _body, commentsRegion: _commentsRegion, ...entry } = ticket
-  return {
-    ...entry,
-    estimate: entry.estimate ?? null,
-    prDraft: entry.prDraft ?? false,
-    prBase: entry.prBase ?? null,
-    ignoredBranches: entry.ignoredBranches ?? [],
-    parent: entry.parent ?? null,
-    subTicketCount: 0,
-    subTicketDoneCount: 0,
-    openBlockerCount: 0,
-    openBlockingCount: 0,
-    relatedCount: 0,
-    duplicateCount: 0,
-    branchDeletedAt: null,
-    checks: null,
-    checksHeadSha: null,
-    checksUpdatedAt: null
   }
 }
 
@@ -228,11 +207,12 @@ function makeFakeDocs(initial?: {
           requestedIds === undefined ? null : new Set(requestedIds)
         return [...ticketsById.values()]
           .filter((ticket) => requested === null || requested.has(ticket.id))
-          .map(ticketIndexEntryFromDocument)
+          .map((ticket) => entryFromDocument(ticket))
       }),
     query: () => Effect.die(new Error("unexpected TicketIndex.query")),
     querySections: () =>
       Effect.die(new Error("unexpected TicketIndex.querySections")),
+    neighbors: () => Effect.die(new Error("unexpected TicketIndex.neighbors")),
     orderKeyFor: () =>
       Effect.die(new Error("unexpected TicketIndex.orderKeyFor")),
     count: () => Effect.die(new Error("unexpected TicketIndex.count")),
@@ -256,6 +236,7 @@ function makeFakeDocs(initial?: {
       Effect.sync(() => {
         ticketsById.set(document.id, document)
       }),
+    parentOf: () => Effect.succeed(null),
     relationsOf: () => Effect.succeed(EMPTY_TICKET_RELATIONS),
     relationEdges: () => Effect.succeed([]),
     deleteTicket: (_project, id) =>

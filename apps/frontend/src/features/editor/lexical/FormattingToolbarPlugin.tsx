@@ -1,3 +1,4 @@
+import { Toolbar as ToolbarPrimitive } from "@base-ui/react/toolbar"
 import { $isCodeNode } from "@lexical/code"
 import { $isLinkNode, $toggleLink } from "@lexical/link"
 import { $isListNode, ListNode, REMOVE_LIST_COMMAND } from "@lexical/list"
@@ -30,19 +31,26 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent,
+  type ReactElement,
   type ReactNode,
   type RefObject
 } from "react"
 
+import { Button } from "@/components/ui/button"
+import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
 import { Popover as PopoverRoot, PopoverContent } from "@/components/ui/popover"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { cn } from "@/lib/utils"
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+  type UseFluidHoverReturn
+} from "@/hooks/useFluidHover"
 import { m } from "@/paraglide/messages"
 
 import { $insertBasic } from "./blocks/slashCommands"
@@ -161,37 +169,32 @@ const isToolbarShortcut = (event: globalThis.KeyboardEvent) =>
 
 function ToolbarButton({
   label,
-  active,
-  toggle = true,
-  tabbable,
-  onFocus,
+  index,
+  hover,
+  render,
   onPress,
   children
 }: Readonly<{
   label: string
-  active: boolean
-  toggle?: boolean
-  tabbable: boolean
-  onFocus: () => void
-  onPress: () => void
+  index: number
+  hover: UseFluidHoverReturn
+  render: ReactElement
+  onPress?: () => void
   children: ReactNode
 }>) {
+  const ref = useRef<HTMLButtonElement>(null)
+  useRegisterFluidHoverItem(hover.registerItem, index, ref)
   return (
     <Tooltip>
       <TooltipTrigger
         render={
-          <button
-            type="button"
+          <ToolbarPrimitive.Button
+            ref={ref}
+            render={render}
             aria-label={label}
-            aria-pressed={toggle ? active : undefined}
-            tabIndex={tabbable ? 0 : -1}
-            onFocus={onFocus}
+            onFocus={() => hover.setActiveIndex(index)}
             onMouseDown={(event) => event.preventDefault()}
             onClick={onPress}
-            className={cn(
-              "grid size-7 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring",
-              active && "bg-hover text-foreground"
-            )}
           />
         }
       >
@@ -423,25 +426,6 @@ export function FormattingToolbarPlugin() {
   )
 }
 
-const toolbarMove = (
-  key: string,
-  index: number,
-  count: number
-): number | null => {
-  switch (key) {
-    case "ArrowRight":
-      return index + 1
-    case "ArrowLeft":
-      return index - 1
-    case "Home":
-      return 0
-    case "End":
-      return count - 1
-    default:
-      return null
-  }
-}
-
 function ToolbarButtons({
   ref,
   editor,
@@ -453,29 +437,7 @@ function ToolbarButtons({
   toolbar: Toolbar
   onLink: () => void
 }>) {
-  const [focusIndex, setFocusIndex] = useState(0)
-  const buttonCount = TEXT_FORMATS.length + 1 + BLOCK_KINDS.length
-  const roving = (index: number) => ({
-    tabbable: index === focusIndex,
-    onFocus: () => setFocusIndex(index)
-  })
-  const focusButton = (index: number) => {
-    const buttons = ref.current?.querySelectorAll<HTMLElement>("button")
-    buttons?.[(index + buttonCount) % buttonCount]?.focus()
-  }
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const target = toolbarMove(event.key, focusIndex, buttonCount)
-    if (target !== null) {
-      event.preventDefault()
-      focusButton(target)
-      return
-    }
-    if (event.key === "Escape" || event.key === "Tab") {
-      event.preventDefault()
-      event.stopPropagation()
-      editor.focus()
-    }
-  }
+  const hover = useFluidHover(ref, { axis: "x" })
 
   const toggleBlock = (kind: SlashBasicKind) =>
     editor.update(() => {
@@ -489,32 +451,61 @@ function ToolbarButtons({
 
   return (
     <TooltipProvider>
-      <div
+      <ToolbarPrimitive.Root
         ref={ref}
-        role="toolbar"
+        loopFocus
         aria-label={m.editor_format_toolbar()}
-        aria-orientation="horizontal"
-        onKeyDown={onKeyDown}
-        className="flex items-center gap-0.5"
+        {...hover.handlers}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget))
+            hover.setActiveIndex(null)
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Home" || event.key === "End") {
+            event.preventDefault()
+            const buttons = event.currentTarget.querySelectorAll("button")
+            buttons[event.key === "Home" ? 0 : buttons.length - 1]?.focus()
+            return
+          }
+          if (event.key !== "Escape" && event.key !== "Tab") return
+          event.preventDefault()
+          event.stopPropagation()
+          editor.focus()
+        }}
+        className="relative flex items-center gap-0.5"
       >
-        {TEXT_FORMATS.map(({ format, icon: Icon, label }, index) => (
-          <ToolbarButton
-            key={format}
-            {...roving(index)}
-            label={label()}
-            active={toolbar.formats.has(format)}
-            onPress={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, format)}
-          >
-            <Icon className="size-3.5" />
-          </ToolbarButton>
-        ))}
+        <FluidHoverHighlight hover={hover} className="rounded-md" />
+        <ToggleGroup
+          multiple
+          value={[...toolbar.formats]}
+          aria-label={m.editor_format_text()}
+        >
+          {TEXT_FORMATS.map(({ format, icon: Icon, label }, index) => (
+            <ToolbarButton
+              key={format}
+              index={index}
+              hover={hover}
+              label={label()}
+              render={
+                <ToggleGroupItem
+                  value={format}
+                  onPressedChange={() =>
+                    editor.dispatchCommand(FORMAT_TEXT_COMMAND, format)
+                  }
+                />
+              }
+            >
+              <Icon className="size-3.5" />
+            </ToolbarButton>
+          ))}
+        </ToggleGroup>
         <ToolbarButton
           label={
             toolbar.link ? m.editor_format_unlink() : m.editor_format_link()
           }
-          active={toolbar.link}
-          toggle={false}
-          {...roving(TEXT_FORMATS.length)}
+          index={TEXT_FORMATS.length}
+          hover={hover}
+          render={<Button variant="toolbar" size="square-7" />}
           onPress={onLink}
         >
           {toolbar.link ? (
@@ -523,22 +514,32 @@ function ToolbarButtons({
             <Link className="size-3.5" />
           )}
         </ToolbarButton>
-        <span aria-hidden className="mx-1 h-4 w-px bg-border" />
-        {BLOCK_KINDS.map((kind, index) => {
-          const Icon = BASIC_ICONS[kind]
-          return (
-            <ToolbarButton
-              key={kind}
-              {...roving(TEXT_FORMATS.length + 1 + index)}
-              label={basicLabel(kind)}
-              active={toolbar.block === kind}
-              onPress={() => toggleBlock(kind)}
-            >
-              <Icon className="size-3.5" />
-            </ToolbarButton>
-          )
-        })}
-      </div>
+        <ToolbarPrimitive.Separator className="mx-1 h-4 w-px bg-border" />
+        <ToggleGroup
+          value={toolbar.block === null ? [] : [toolbar.block]}
+          aria-label={m.editor_format_block()}
+        >
+          {BLOCK_KINDS.map((kind, index) => {
+            const Icon = BASIC_ICONS[kind]
+            return (
+              <ToolbarButton
+                key={kind}
+                index={TEXT_FORMATS.length + 1 + index}
+                hover={hover}
+                label={basicLabel(kind)}
+                render={
+                  <ToggleGroupItem
+                    value={kind}
+                    onPressedChange={() => toggleBlock(kind)}
+                  />
+                }
+              >
+                <Icon className="size-3.5" />
+              </ToolbarButton>
+            )
+          })}
+        </ToggleGroup>
+      </ToolbarPrimitive.Root>
     </TooltipProvider>
   )
 }

@@ -7,7 +7,8 @@ import {
   type Group,
   type TicketId,
   type TicketListQuery,
-  type TicketStatus
+  type TicketStatus,
+  type TicketParent
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -67,6 +68,7 @@ const isGroupId = Schema.is(GroupId)
 
 type CreatorProps = Readonly<{
   status: TicketStatus
+  parent?: TicketParent
   query: TicketListQuery
   containerRef: RefObject<HTMLDivElement | null>
   onDone: () => void
@@ -162,7 +164,6 @@ function EpicSectionTicketCreator(
   return (
     <SectionCreatorForm
       {...props}
-      parent={key === EPIC_SECTION_NONE ? undefined : key}
       create={create}
       submitting={state.waiting}
       error={mutationErrorText(
@@ -191,7 +192,6 @@ function SectionCreatorForm({
     submitting: boolean
     error: string | null
     assignsSprint: boolean
-    parent?: TicketId
   }>) {
   const { orgSlug, slug } = useProjectRoute()
   const registry = useContext(RegistryContext)
@@ -267,9 +267,9 @@ function SectionCreatorForm({
         title: submittedTitle,
         type,
         status,
-        parent,
         ...templateChoice.payload
       },
+      parent,
       prediction: {
         clientId: Effect.runSync(Random.next).toString(36),
         createdBy: viewerId ?? "",

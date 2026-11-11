@@ -196,20 +196,14 @@
   "tickets_estimate_time_label": "Duration",
   "tickets_estimate_time_placeholder": "2w 4d 6h 45m",
   "tickets_estimate_time_save": "Save",
-  "tickets_estimate_totals_points": "{done} of {committed} pts done",
-  "tickets_estimate_totals_time": "{done} of {committed} done",
-  "tickets_estimate_unestimated": "{count} unestimated",
   "tickets_filters_active_aria_label": "Filters ({count} active)",
-  "tickets_filters_all_types": "All types",
   "tickets_filters_archived_show": "Show archived",
   "tickets_filters_aria_label": "Filters",
-  "tickets_filters_assignee_anyone": "Anyone",
   "tickets_filters_assignee_mine": "Mine",
   "tickets_filters_assignee_unassigned": "Unassigned",
   "tickets_filters_blocked": "Blocked",
   "tickets_filters_blocked_only": "Only blocked tickets",
   "tickets_filters_clear_all": "Clear all filters",
-  "tickets_filters_estimate_all": "All estimates",
   "tickets_filters_estimate_any": "Estimated",
   "tickets_filters_estimate_none": "Not estimated",
   "tickets_filters_estimate_stale": "Old estimate",
@@ -220,17 +214,13 @@
   "tickets_filters_section_sprint": "Sprint",
   "tickets_filters_section_tags": "Tags",
   "tickets_filters_section_type": "Type",
-  "tickets_filters_sprint_any": "Any sprint",
   "tickets_filters_sprint_none": "Not in a sprint",
-  "tickets_grouping_active": "Active",
-  "tickets_grouping_completed": "Completed",
   "tickets_grouping_epic": "Epic",
   "tickets_grouping_label": "Group by: {label}",
   "tickets_grouping_no_epic": "No epic",
   "tickets_grouping_no_parent": "No parent",
   "tickets_grouping_none": "None",
   "tickets_grouping_parent": "Parent",
-  "tickets_grouping_planned": "Planned",
   "tickets_grouping_project": "Project",
   "tickets_grouping_sprint": "Sprint",
   "tickets_grouping_status": "Status",
@@ -383,7 +373,6 @@
   "tickets_sprint_popover_no_assignment_action": "Don't assign to a sprint",
   "tickets_sprint_popover_remove_action": "Remove from sprint",
   "tickets_status_actions_aria": "Actions for {label}",
-  "tickets_status_all": "All",
   "tickets_status_aria_label": "Status: {label}. Click to change.",
   "tickets_status_chip_aria_label": "{label} ({count})",
   "tickets_status_color_picker_aria": "Pick status color",
@@ -580,5 +569,62 @@
     }
   ],
   "tickets_view_options_expand_sub_tickets": "Expand sub-tickets",
-  "tickets_view_options_grouping": "Grouping"
+  "tickets_view_options_grouping": "Grouping",
+  "tickets_board_aria_label": "Ticket board",
+  "tickets_filters_section_status": "Status",
+  "tickets_filters_tags_search_placeholder": "Search tags…",
+  "tickets_estimate_breakdown_done": "Done",
+  "tickets_estimate_breakdown_started": "In progress",
+  "tickets_estimate_breakdown_tickets": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} ticket",
+        "countPlural=*": "{count} tickets"
+      }
+    }
+  ],
+  "tickets_estimate_breakdown_unestimated": "Unestimated",
+  "tickets_estimate_breakdown_unstarted": "To do",
+  "tickets_estimate_progress_points": [
+    {
+      "declarations": [
+        "input done",
+        "input committed",
+        "local committedPlural = committed: plural"
+      ],
+      "selectors": ["committedPlural"],
+      "match": {
+        "committedPlural=one": "{done} / {committed} pt",
+        "committedPlural=*": "{done} / {committed} pts"
+      }
+    }
+  ],
+  "tickets_estimate_progress_time": "{done} / {committed}",
+  "tickets_estimate_total_points": [
+    {
+      "declarations": ["input total", "local totalPlural = total: plural"],
+      "selectors": ["totalPlural"],
+      "match": {
+        "totalPlural=one": "{total} pt",
+        "totalPlural=*": "{total} pts"
+      }
+    }
+  ],
+  "tickets_estimate_unestimated_filter": "Show tickets without an estimate",
+  "tickets_estimate_unestimated_hint": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} ticket without an estimate",
+        "countPlural=*": "{count} tickets without an estimate"
+      }
+    }
+  ],
+  "tickets_estimate_breakdown_total": "Estimated",
+  "tickets_stepper_previous": "Previous ticket",
+  "tickets_stepper_next": "Next ticket",
+  "tickets_stepper_position": "{position} of {total}"
 }

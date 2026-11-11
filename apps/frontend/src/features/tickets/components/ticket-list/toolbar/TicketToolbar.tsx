@@ -5,7 +5,7 @@ import { useTicketSearch } from "../search"
 import { TicketToolbarContext, type TicketToolbarProps } from "./context"
 import { Filters } from "./Filters"
 import { activeFilterCount } from "./model"
-import { ClearAll, SearchInput, Status } from "./parts"
+import { ClearAll, SearchInput } from "./parts"
 import { ViewOptions } from "./ViewOptions"
 
 export function TicketToolbar({
@@ -81,7 +81,6 @@ export function TicketToolbar({
         <SearchInput />
         {measured && (
           <div className="relative flex flex-wrap items-center gap-2">
-            {!boardScope && <Status />}
             <Filters />
             <ViewOptions showSort={showSort} />
             <ClearAll />

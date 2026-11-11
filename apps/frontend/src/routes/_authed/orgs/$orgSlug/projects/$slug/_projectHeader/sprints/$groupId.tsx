@@ -1,4 +1,4 @@
-import { GroupId, TicketListQuery } from "@pp/shared"
+import { GroupId } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 
@@ -16,22 +16,19 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { backlog, backlogRequest } from "@/features/tickets/atoms/backlog"
+import {
+  SprintSearch,
+  ticketQueryFromSearch
+} from "@/features/tickets/lib/ticketSearch"
 import { readViewPreference } from "@/hooks/useViewPreference"
 
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)
-
-const SprintRouteSearchSchema = TicketListQuery.pipe(
-  Schema.fieldsAssign({
-    view: Schema.optional(Schema.Literals(["list", "board", "description"]))
-  })
-)
-type SprintRouteSearch = typeof SprintRouteSearchSchema.Type
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId"
 )({
   component: () => null,
-  validateSearch: Schema.toStandardSchemaV1(SprintRouteSearchSchema),
+  validateSearch: Schema.toStandardSchemaV1(SprintSearch),
   loaderDeps: ({ search }) => search,
   loader: ({
     context: { registry },
@@ -39,7 +36,7 @@ export const Route = createFileRoute(
     deps: search
   }) => {
     const id = decodeGroupId(groupId)
-    const query = sprintListQuery(search, id)
+    const query = { ...ticketQueryFromSearch(search), groupId: [id] }
     const view = search.view ?? readViewPreference(orgSlug, slug, "sprints")
     registry.mount(sprintDetail(sprintRequest(orgSlug, slug, id)))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
@@ -55,11 +52,3 @@ export const Route = createFileRoute(
     }
   }
 })
-
-function sprintListQuery(
-  search: SprintRouteSearch,
-  id: GroupId
-): TicketListQuery {
-  const { view: _view, ...query } = search
-  return { ...query, groupId: [id] }
-}

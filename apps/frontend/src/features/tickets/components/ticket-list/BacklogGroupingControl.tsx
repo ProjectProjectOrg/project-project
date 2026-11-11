@@ -1,9 +1,9 @@
+import type { BacklogGrouping } from "@pp/shared"
 import { CircleDot, Layers, ListTree, Timer } from "lucide-react"
 import { useMemo } from "react"
 
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
 import type { Command } from "@/features/command-menu/lib/commands"
-import type { BacklogGrouping } from "@/features/tickets/lib/backlogGrouping"
 import { m } from "@/paraglide/messages"
 
 import type { GroupingOption } from "./GroupingMenu"

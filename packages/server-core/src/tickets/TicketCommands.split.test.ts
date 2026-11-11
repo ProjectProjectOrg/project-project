@@ -43,6 +43,7 @@ import * as ProjectDocs from "../projects/ProjectDocs"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
 import * as Users from "../users/Users"
+import { entryFromDocument } from "./testing"
 import * as TicketCommands from "./TicketCommands"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
@@ -75,6 +76,7 @@ const sprintAssignments: Array<{
 const sprintAssignmentAnchors: Array<string | null> = []
 const sprintMemberships = new Map<string, string>()
 const sprintTicketOrders = new Map<string, Array<string>>()
+const indexed = new Map<string, TicketDocs.TicketDocument>()
 const groupTimestamp = DateTime.toDate(
   DateTime.makeUnsafe("2026-09-13T00:00:00.000Z")
 )
@@ -213,9 +215,15 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   countAssignedByStatus: () => Effect.succeed([]),
   assignedPerProject: () => Effect.succeed([]),
   projectFor: () => Effect.succeed(ticketIndexProject),
-  list: () => Effect.succeed([]),
+  list: (_project, ids) =>
+    Effect.sync(() =>
+      [...indexed.values()]
+        .filter((document) => ids === undefined || ids.includes(document.id))
+        .map((document) => entryFromDocument(document, (id) => indexed.get(id)))
+    ),
   query: () => Effect.succeed([]),
   querySections: () => Effect.succeed(new Map()),
+  neighbors: () => Effect.succeed(null),
   orderKeyFor: () => Effect.succeed(null),
   count: () => Effect.succeed({ total: 0, byStatus: {} }),
   listIds: () => Effect.succeed([]),
@@ -224,12 +232,20 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   tagUsageCounts: () => Effect.succeed({}),
   findTicketIdsByTag: () => Effect.succeed([]),
   findTicketIdsByStatus: () => Effect.succeed([]),
-  upsertTicket: () =>
+  upsertTicket: (_project, document) =>
     Effect.suspend(() => {
       upserts += 1
-      return upserts > failUpsertAfter
-        ? Effect.die(new Error("index write failed"))
-        : Effect.void
+      if (upserts > failUpsertAfter)
+        return Effect.die(new Error("index write failed"))
+      indexed.set(document.id, document)
+      return Effect.void
+    }),
+  parentOf: (_project, id) =>
+    Effect.sync(() => {
+      const parent = indexed.get(id)
+      return parent
+        ? { id: parent.id, title: parent.title, type: parent.type }
+        : null
     }),
   relationsOf: () => Effect.succeed(EMPTY_TICKET_RELATIONS),
   relationEdges: () => Effect.succeed([]),
@@ -348,6 +364,7 @@ const resetFakes = Effect.sync(() => {
   nextTicketNumber = 1
   upserts = 0
   failUpsertAfter = Number.POSITIVE_INFINITY
+  indexed.clear()
 })
 
 const ticketFile = (root: string, path: Path.Path, id: string) =>
@@ -446,6 +463,12 @@ it.effect("split keeps the new tickets in the original's epic", () =>
     const original = yield* seedOriginal
     const epicId = decodeTicketId("T-99")
     const stored = yield* docs.read("org", "p", original.id)
+    indexed.set(epicId, {
+      ...stored,
+      id: epicId,
+      title: "Launch",
+      type: "epic"
+    })
     yield* docs.write("org", "p", original.id, { ...stored, parent: epicId })
 
     const outcome = yield* tickets.split(original.id, {
@@ -455,8 +478,10 @@ it.effect("split keeps the new tickets in the original's epic", () =>
       ]
     })
 
-    expect(outcome.retained.parent).toBe(epicId)
-    expect(outcome.created.map((created) => created.parent)).toEqual([epicId])
+    expect(outcome.retained.parent?.id).toBe(epicId)
+    expect(outcome.created.map((created) => created.parent?.id)).toEqual([
+      epicId
+    ])
   }).pipe(Effect.provide(TestLayer))
 )
 

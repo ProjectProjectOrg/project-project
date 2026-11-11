@@ -1,11 +1,3 @@
-import * as Schema from "effect/Schema"
-
-export const BacklogGrouping = Schema.Literals([
-  "status",
-  "sprint",
-  "epic",
-  "parent"
-])
-export type BacklogGrouping = typeof BacklogGrouping.Type
+import type { BacklogGrouping } from "@pp/shared"
 
 export type ParentGrouping = Extract<BacklogGrouping, "epic" | "parent">

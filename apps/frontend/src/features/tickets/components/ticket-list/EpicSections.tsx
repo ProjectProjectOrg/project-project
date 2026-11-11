@@ -24,12 +24,15 @@ import {
   loadMoreEpicSections,
   type EpicSectionsRequest
 } from "@/features/tickets/atoms/epicSections"
+import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import type { ParentGrouping } from "@/features/tickets/lib/backlogGrouping"
 import type {
   EpicSectionsValue,
   EpicSectionValue
 } from "@/features/tickets/lib/epicSectionRows"
 import { TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import { viewQuery } from "@/features/tickets/lib/ticketRows"
+import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 
 import { parentCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
@@ -93,22 +96,30 @@ export function EpicSections(props: Props) {
   const renderSections = () =>
     active ? (
       <div style={{ overflowAnchor: "none" }} className="flex flex-col gap-1">
-        <CreatingSectionsProvider>
-          {active.value.sections.map((section) => (
-            <EpicSection
-              key={section.key}
-              {...props}
-              persistKey={persistKey}
-              query={active.query}
-              snapshotReq={active.req}
-              section={section}
-              waiting={snapshotResult.waiting}
-              activePreviewId={preview.activePreviewId}
-              onPreviewPointerEnter={preview.onPreviewPointerEnter}
-              onPreviewOpenChange={preview.onPreviewOpenChange}
-            />
-          ))}
-        </CreatingSectionsProvider>
+        <TicketViewSourceContext
+          value={ticketSearchFromSource({
+            kind: "sections",
+            grouping: active.req.by,
+            query: viewQuery(active.query)
+          })}
+        >
+          <CreatingSectionsProvider>
+            {active.value.sections.map((section) => (
+              <EpicSection
+                key={section.key}
+                {...props}
+                persistKey={persistKey}
+                query={active.query}
+                snapshotReq={active.req}
+                section={section}
+                waiting={snapshotResult.waiting}
+                activePreviewId={preview.activePreviewId}
+                onPreviewPointerEnter={preview.onPreviewPointerEnter}
+                onPreviewOpenChange={preview.onPreviewOpenChange}
+              />
+            ))}
+          </CreatingSectionsProvider>
+        </TicketViewSourceContext>
       </div>
     ) : (
       <div
@@ -173,6 +184,7 @@ function EpicSection({
     <div aria-busy={waiting}>
       <SectionList
         query={query}
+        parent={section.parent ?? undefined}
         status={
           selectedStatuses?.length === 1
             ? selectedStatuses[0]
@@ -181,7 +193,7 @@ function EpicSection({
         statuses={[]}
         heading={{
           label:
-            section.title ??
+            section.parent?.title ??
             (props.by === "epic"
               ? m.tickets_grouping_no_epic()
               : m.tickets_grouping_no_parent()),

@@ -87,4 +87,9 @@ export const EverhourHandlerLive = HttpApiBuilder.group(
           time.ticketTimeSummary(params.id)
         ).pipe(dieOnMarkdown)
       )
+      .handle("sprintTime", ({ params }) =>
+        Effect.flatMap(TimeTracking.EverhourTimeTracking, (time) =>
+          time.sprintTimeSummary(params.id)
+        ).pipe(dieOnMarkdown)
+      )
 )

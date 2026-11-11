@@ -39,26 +39,22 @@ import {
 } from "@/features/sprints/atoms/sprintList"
 import {
   sprintDateDraft,
-  daysBetween,
-  sprintCountdown,
+  sprintEnded,
   sprintDatesPatch,
   startSprintPatch
 } from "@/features/sprints/lib/sprintDates"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-import { getLocale } from "@/paraglide/runtime"
 
 import { CompleteSprintSubmenu } from "./CompleteSprintMenu"
-import { countdownLabel, SprintStateIcon } from "./SprintChip"
+import {
+  shortDateFormatter,
+  sprintStatusText,
+  SprintStateIcon
+} from "./SprintChip"
 import { SprintEstimateTotals } from "./SprintEstimateTotals"
 
 export const nowDate = () => DateTime.toDate(DateTime.nowUnsafe())
-
-const shortDateFormatter = () =>
-  new Intl.DateTimeFormat(getLocale(), {
-    month: "short",
-    day: "numeric"
-  })
 
 export function SprintStatusSelect({
   sprint,
@@ -231,41 +227,24 @@ export function SprintSubtitle({
   sprint: Group
   disabled: boolean
 }) {
-  const state = sprintState(sprint)
-  const countdown = sprintCountdown(sprint)
-  const status =
-    state === "planned" && sprint.startsAt !== null ? (
-      <span className="font-mono tabular-nums">
-        {m.sprints_starts_in_days({
-          days: daysBetween(nowDate(), sprint.startsAt)
-        })}
-      </span>
-    ) : state === "active" ? (
-      <span
-        className={cn(
-          "font-mono tabular-nums",
-          countdown.kind === "ended" && "text-state-warning"
-        )}
-      >
-        {countdownLabel(countdown)}
-      </span>
-    ) : state === "completed" && sprint.completedAt !== null ? (
-      <span className="font-mono tabular-nums">
-        {m.sprints_completed_at({
-          date: shortDateFormatter().format(sprint.completedAt)
-        })}
-      </span>
-    ) : null
+  const status = sprintStatusText(sprint, nowDate())
   return (
     <div className="flex items-center gap-2 text-caption text-muted-foreground">
       <SprintDatesField sprint={sprint} disabled={disabled} />
       {status !== null && (
         <>
           <span aria-hidden>·</span>
-          {status}
+          <span
+            className={cn(
+              "font-mono tabular-nums",
+              sprintEnded(sprint) && "text-state-warning"
+            )}
+          >
+            {status}
+          </span>
         </>
       )}
-      <SprintEstimateTotals groupId={sprint.id} />
+      <SprintEstimateTotals sprint={sprint} />
     </div>
   )
 }

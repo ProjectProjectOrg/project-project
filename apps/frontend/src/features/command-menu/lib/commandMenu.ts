@@ -34,6 +34,7 @@ export type SprintPage =
   | "sprintRename"
   | "sprintAddTickets"
   | "sprintDelete"
+  | "sprintPlan"
 
 export type CommandPage =
   | "root"
@@ -59,6 +60,7 @@ export type CommandPage =
   | "switchProject"
   | "createProject"
   | "theme"
+  | "editorPreference"
   | "viewFilter"
   | FilterPage
   | MarkPage

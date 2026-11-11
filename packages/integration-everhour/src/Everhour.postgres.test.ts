@@ -307,6 +307,11 @@ const ticketSeconds = (ticketId: string) =>
     time.ticketTimeSummary(ticketId)
   ).pipe(Effect.map((summary) => summary.totalSeconds))
 
+const sprintTime = (groupId: string) =>
+  Effect.flatMap(TimeTracking.EverhourTimeTracking, (time) =>
+    time.sprintTimeSummary(groupId)
+  )
+
 const recordFor = (fixture: Fixture) =>
   withClient((client) =>
     client.query<{ everhour_time_id: string }>(
@@ -332,6 +337,20 @@ describe.skipIf(!databaseUrl)("Everhour time tracking", () => {
           expect(yield* developer(ticketSeconds("T-2"))).toBe(300)
         }).pipe(Effect.provide(servicesLayer(fixture, everhour)))
       }).pipe(Effect.scoped)
+  )
+
+  it.live("sums a sprint's logged time across its tickets, per viewer", () =>
+    Effect.gen(function* () {
+      const fixture = yield* seed
+      const everhour = fakeEverhour([fixture.manager, fixture.developer])
+      yield* Effect.gen(function* () {
+        yield* as(fixture, fixture.developer)(logTime("T-1", 600))
+        yield* as(fixture, fixture.manager)(logTime("T-2", 300))
+        expect(
+          yield* as(fixture, fixture.developer)(sprintTime("G-1"))
+        ).toEqual({ groupId: "G-1", totalSeconds: 900, userSeconds: 600 })
+      }).pipe(Effect.provide(servicesLayer(fixture, everhour)))
+    }).pipe(Effect.scoped)
   )
 
   it.live(

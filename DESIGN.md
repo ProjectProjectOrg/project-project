@@ -311,6 +311,8 @@ Everything that only changes state on hover or press uses the overlays instead a
 
 ## 5. Components
 
+Lucide icons use a 1.5 stroke width, applied centrally in `styles.css`. Filled status dots keep their zero-width stroke.
+
 ### Buttons
 
 The single primitive lives in `components/ui/button.tsx`, exposing variants `primary | secondary | destructive | tertiary | ghost | raised | chip | dither` and sizes `xs | sm | md | lg | icon-*`. Shape is the app's pill radius (`rounded-[20px]`), baked into the primitive so callsites never set it.
@@ -343,6 +345,10 @@ The single primitive lives in `components/ui/button.tsx`, exposing variants `pri
 - **Border:** 1px `--border`.
 - **Internal Padding:** `16px` for content cards, `8–12px` for list rows.
 - **Shadow:** none at rest. Never nest cards.
+
+### Board keyboard navigation
+
+Sprint and backlog boards have one Tab entry point and remember the last focused card. Up and Down move within a column; Up from the first card reaches its header. Left and Right move between columns, including empty and collapsed columns. Home and End reach the first and last loaded cards in a column. Enter opens the focused ticket or activates the header action. F2 enters the card’s controls, where Tab follows their visual order; Escape returns to the card. Column retry actions are available through F2 on the header. Shift+F10 opens the ticket context menu. Popup controls keep their own keyboard behavior, and leaving the board never traps focus. Reorder mode keeps its existing controls.
 
 ### Menus and Pickers
 
@@ -417,7 +423,7 @@ It never appears on functional controls.
 
 **The Hide-or-Disable Rule.** A control the viewer's role can never use is not rendered. A control the viewer may use in principle but that the current state blocks (a completed sprint, the last PM, a pending save) is rendered disabled. Role gates read from `useProjectActor` / `useOrgActor`; nothing else decides who may do what.
 
-**The One Ticket Row Rule.** A ticket in a list is always the shared ticket row, wherever the list lives — backlog, sprint, epic grouping, an epic's sub-tickets, the dashboard. It looks and behaves the same everywhere: status, priority, ID, epic prefix and title, git, estimate, sprint, assignee, actions menu. A list may leave out only what its container already says (the epic prefix inside that epic's own list or section); it never drops a control or builds its own row. New row behaviour goes into the row, so every list gets it at once.
+**The One Ticket Row Rule.** A ticket in a list is always the shared ticket row, wherever the list lives — backlog, sprint, epic grouping, an epic's sub-tickets, the dashboard. It looks and behaves the same everywhere: status, priority, ID, epic prefix and title, git, estimate, sprint, assignee, context menu (right-click or Shift+F10). Keyboard focus starts on the whole row, then follows its controls from left to right. A list may leave out only what its container already says (the epic prefix inside that epic's own list or section); it never drops a control or builds its own row. New row behaviour goes into the row, so every list gets it at once.
 
 ## 6. Do's and Don'ts
 

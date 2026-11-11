@@ -6,6 +6,7 @@ import {
   type TicketListQuery,
   type TicketStatus
 } from "@pp/shared"
+import type { BacklogGrouping } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
@@ -19,7 +20,6 @@ import {
   sprintBoard,
   type BoardRequest
 } from "@/features/sprints/atoms/sprintBoard"
-import type { BacklogGrouping } from "@/features/tickets/lib/backlogGrouping"
 
 import { backlog, backlogRequest, type BacklogRequest } from "./backlog"
 import {

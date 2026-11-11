@@ -7,6 +7,8 @@ import type {
   TicketType
 } from "@pp/shared"
 
+import { toggled } from "./ticketFilters"
+
 export type FilterChoice =
   | Readonly<{ dimension: "blocked" }>
   | Readonly<{ dimension: "archived" }>
@@ -22,17 +24,6 @@ export type ValueFilterDimension = Extract<
   FilterChoice,
   Readonly<{ value: unknown }>
 >["dimension"]
-
-const toggled = <A>(
-  values: ReadonlyArray<A> | undefined,
-  value: A,
-  multiple: boolean
-): ReadonlyArray<A> | undefined => {
-  const current = values ?? []
-  if (!current.includes(value)) return multiple ? [...current, value] : [value]
-  const next = current.filter((entry) => entry !== value)
-  return next.length > 0 ? next : undefined
-}
 
 export const isChosen = (
   filter: TicketFilter,
@@ -66,15 +57,15 @@ export const toggleChoice = (
     case "archived":
       return { archived: filter.archived === true ? undefined : true }
     case "type":
-      return { type: toggled(filter.type, choice.value, false) }
+      return { type: toggled(filter.type, choice.value) }
     case "assignee":
-      return { assignee: toggled(filter.assignee, choice.value, false) }
+      return { assignee: toggled(filter.assignee, choice.value) }
     case "sprint":
-      return { groupId: toggled(filter.groupId, choice.value, false) }
+      return { groupId: toggled(filter.groupId, choice.value) }
     case "estimate":
-      return { estimate: toggled(filter.estimate, choice.value, false) }
+      return { estimate: toggled(filter.estimate, choice.value) }
     case "tags":
-      return { tags: toggled(filter.tags, choice.value, true) }
+      return { tags: toggled(filter.tags, choice.value) }
   }
 }
 

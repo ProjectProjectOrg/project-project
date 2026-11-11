@@ -23,12 +23,15 @@ import {
   deleteTicket,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
+import { TicketIdText } from "@/features/tickets/components/TicketIdText"
+import { useApplyCreatedTag } from "@/features/tickets/hooks/useApplyCreatedTag"
 import {
   formatEstimate,
   parseEstimateMinutes,
   parseEstimatePoints
 } from "@/features/tickets/lib/estimateMeta"
 import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import { parentRef } from "@/features/tickets/lib/ticketPatch"
 import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -180,6 +183,7 @@ export function TicketTagsPage({ ticket, chip, onBack }: TicketPageProps) {
   const [pending, setPending] = useState(false)
   const tags = Result.isSuccess(result) ? result.value : []
   const applied = current?.tags ?? []
+  const applyCreatedTag = useApplyCreatedTag(applied, update)
   const newName = Option.filter(
     decodeTagName(query.trim().toLowerCase()),
     (name) => canCreate && !tags.some((tag) => tag.name === name)
@@ -215,8 +219,7 @@ export function TicketTagsPage({ ticket, chip, onBack }: TicketPageProps) {
           setFailure(null)
           const exit = await create({ name: newName.value })
           setPending(false)
-          if (Exit.isSuccess(exit))
-            update({ tags: [...applied, newName.value] })
+          if (Exit.isSuccess(exit)) applyCreatedTag(newName.value)
           else setFailure(errorMessage(Cause.squash(exit.cause)))
           return
         }
@@ -261,7 +264,7 @@ export function TicketParentPage({
   const epics = (Result.isSuccess(result) ? result.value : []).filter(
     (epic) => epic.id !== ticket.ticketId
   )
-  const parent = current?.parent ?? null
+  const parent = current?.parent?.id ?? null
   return (
     <CommandFrame
       fixedHeight
@@ -289,7 +292,7 @@ export function TicketParentPage({
         if (item.value === CLEAR) update({ parent: null })
         else {
           const epic = epics.find((candidate) => candidate.id === item.value)
-          if (epic !== undefined) update({ parent: epic.id })
+          if (epic !== undefined) update({ parent: parentRef(epic) })
         }
         env.close()
       }}
@@ -347,6 +350,13 @@ export function TicketArchivePage({
           icon: Archive
         }
       ]}
+      renderItem={(item) => (
+        <CommandMenuItem value={item.value}>
+          <span className="min-w-0 flex-1 truncate">
+            <TicketIdText id={ticket.ticketId}>{item.label}</TicketIdText>
+          </span>
+        </CommandMenuItem>
+      )}
       onSelect={async () => {
         if (pending) return
         setPending(true)
@@ -429,7 +439,9 @@ export function TicketDeletePage({
       }}
       renderItem={(item) => (
         <CommandMenuItem value={item.value} className={cn("text-destructive")}>
-          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          <span className="min-w-0 flex-1 truncate">
+            <TicketIdText id={ticket.ticketId}>{item.label}</TicketIdText>
+          </span>
         </CommandMenuItem>
       )}
     />

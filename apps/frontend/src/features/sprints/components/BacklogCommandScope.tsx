@@ -42,22 +42,20 @@ export function BacklogCommandScope({
         params: { orgSlug, slug },
         search: (prev) => ({
           ...prev,
-          updatedAfter: prev.updatedAfter?.toISOString(),
           view: next
         })
       })
     }
     const commands: Array<Command> = []
     if (planned !== null) {
-      commands.push(
-        goTo(
-          "backlog.plan",
-          () => m.sprints_command_plan({ name: planned.name }),
-          Flag,
-          sprintPath(orgSlug, slug, planned),
-          "backlog"
-        )
-      )
+      commands.push({
+        id: "backlog.plan",
+        group: "backlog",
+        label: () => m.sprints_command_plan({ name: planned.name }),
+        icon: Flag,
+        keywords: ["sprint"],
+        page: "sprintPlan"
+      })
     } else if (canPlan) {
       commands.push({
         id: "backlog.plan-new",
@@ -82,7 +80,13 @@ export function BacklogCommandScope({
       )
     }
     commands.push(...viewCommands(view, show))
-    return { commands }
+    return {
+      sprint:
+        planned === null
+          ? undefined
+          : { orgSlug, slug, sprint: planned, sprints, canPlan },
+      commands
+    }
   }, [orgSlug, slug, sprints, canPlan, view, setPreference, navigate])
   useCommandScope(scope)
   return null

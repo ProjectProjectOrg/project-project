@@ -1,8 +1,8 @@
 import { useAtomSet } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
-import type { Member, Ticket, UpdateTicketInput } from "@pp/shared"
+import type { Member, Ticket } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
-import { memo, type ReactNode } from "react"
+import { memo, type ReactNode, use } from "react"
 
 import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { usePointedTicket } from "@/features/command-menu/hooks/usePointedTicket"
@@ -11,6 +11,8 @@ import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { AssigneeField } from "@/features/tickets/components/ticket-list/AssigneeField"
 import { UpdateFailureMarker } from "@/features/tickets/components/ticket-list/UpdateFailureMarker"
 import { TicketContextMenu } from "@/features/tickets/components/ticket-menu/TicketMenu"
+import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { useProjectActor } from "@/hooks/useActor"
 
 import { BoardCardChildren, useChildTicketsPreload } from "./BoardCardChildren"
@@ -44,10 +46,11 @@ function BoardCardFields({
 }: Readonly<{
   ticket: Ticket
   members: ReadonlyArray<Member>
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
   failure: ReactNode
 }>) {
   const { orgSlug, slug } = useProjectRoute()
+  const from = use(TicketViewSourceContext)
   const pointAt = usePointedTicket(orgSlug, slug, ticket.id)
   const preloadChildren = useChildTicketsPreload(ticket)
   const actor = useProjectActor()
@@ -63,19 +66,36 @@ function BoardCardFields({
       >
         <div
           {...pointAt}
+          data-board-card={ticket.id}
           onPointerEnter={() => {
             pointAt.onPointerEnter()
             preloadChildren()
           }}
           className="relative isolate flex flex-col rounded-lg bg-surface-3 px-2.5 pt-2 pb-1 text-left shadow-surface-1 transition outline-none hover:bg-surface-4 hover:shadow-surface-1-hover has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover data-[popup-open]:bg-surface-4 data-[popup-open]:shadow-surface-1-hover [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20"
         >
+          <Link
+            to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+            params={{ orgSlug, slug, id: ticket.id }}
+            search={from ?? {}}
+            preload="intent"
+            draggable={false}
+            data-row-link
+            aria-label={`${ticket.id} ${ticket.title}`}
+            aria-haspopup="menu"
+            aria-keyshortcuts="Shift+F10"
+            className="absolute inset-0 z-10 rounded-lg outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+          />
           <div className="flex min-w-0 flex-col gap-2.5 pb-1">
             <div className="flex min-w-0 flex-col gap-0.5">
               <div className="flex h-5 min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
-                <span className="shrink-0 tabular-nums">{ticket.id}</span>
-                {ticket.parent && (
-                  <ParentTicketCrumb parentId={ticket.parent} />
-                )}
+                <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+                  <span className="shrink-0 font-mono tabular-nums">
+                    {ticket.id}
+                  </span>
+                  {ticket.parent && ticket.parent.type !== "epic" && (
+                    <ParentTicketCrumb parent={ticket.parent} />
+                  )}
+                </span>
                 <span className="ml-auto flex shrink-0 items-center">
                   <fieldset disabled={!canAssign} className="contents">
                     <AssigneeField
@@ -87,16 +107,9 @@ function BoardCardFields({
                   </fieldset>
                 </span>
               </div>
-              <Link
-                to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-                params={{ orgSlug, slug, id: ticket.id }}
-                preload="intent"
-                draggable={false}
-                data-row-link
-                className="min-w-0 text-subtitle leading-snug font-semibold outline-none after:absolute after:inset-0 after:z-10 after:rounded-lg after:content-[''] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
-              >
+              <div className="min-w-0 text-subtitle leading-snug font-semibold">
                 <span className="line-clamp-2">{ticket.title}</span>
-              </Link>
+              </div>
             </div>
             <BoardCardProperties
               ticket={ticket}

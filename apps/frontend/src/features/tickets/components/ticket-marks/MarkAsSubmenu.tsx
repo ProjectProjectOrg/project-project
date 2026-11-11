@@ -89,13 +89,15 @@ export function RelationsSubmenu({
                 className="size-4 text-muted-foreground"
                 strokeWidth={1.75}
               />
-              <span className="shrink-0 text-muted-foreground">
-                {mark?.label()}
+              <span className="flex min-w-0 flex-1 items-baseline gap-2">
+                <span className="shrink-0 text-muted-foreground">
+                  {mark?.label()}
+                </span>
+                <span className="shrink-0 font-mono text-muted-foreground tabular-nums">
+                  {linked.id}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{linked.title}</span>
               </span>
-              <span className="shrink-0 text-muted-foreground tabular-nums">
-                {linked.id}
-              </span>
-              <span className="min-w-0 flex-1 truncate">{linked.title}</span>
               <X
                 className="size-3.5 shrink-0 text-muted-foreground opacity-0 group-data-[highlighted]:opacity-100"
                 strokeWidth={1.75}

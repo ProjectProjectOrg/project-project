@@ -29,6 +29,8 @@ This file describes the system as it is. Keep it current in the same PR as the c
 
 ## Workspaces
 
+Frontend Paraglide generation uses `src/paraglide` for Vite dev/build, `.cache/paraglide/typecheck` for typecheck and `.cache/paraglide/test` for tests. Compiler options live in `apps/frontend/project.inlang/paraglide.config.ts`; checks use separate outputs so they do not overwrite a running dev server's messages.
+
 Packages use the `@pp/*` namespace.
 
 | Workspace                       | Owns                                                                                           |
@@ -144,7 +146,7 @@ Adding a column for content a human writes is still a smell; it belongs in markd
 
 One set of services in `server-core` serves every surface. Handlers and tools stay thin.
 
-- **Web app.** The SPA calls `/api/*` through the client derived from `AppApi`, with a Better Auth session cookie.
+- **Web app.** Cmd K composes the command registry with integration-owned commands derived from existing connection reads. Integration settings remain searchable; missing object storage and confirmed broken connections appear as setup suggestions, gated by the viewer's permissions. Organization, project and personal destinations keep their own scope. Cmd K also changes the preferred editor through the existing account mutation and links to personal connection setup and CLI/MCP instructions. The SPA calls `/api/*` through the client derived from `AppApi`, with a Better Auth session cookie. Sprint and backlog boards share keyboard navigation: Tab enters or leaves the board, arrows move among cards and column headers, F2 enters a card’s controls, and Escape returns to card navigation. Virtualized columns reveal a target before focus moves to it. The backlog retains the displayed view and grouping until the requested view’s query settles, so switching from the board to a cold list does not expose a loading placeholder. The router adapters in `apps/frontend/src/lib/searchParams.ts` delegate URL parsing and serialization to `URLSearchParams` and Effect `UrlParams`. Filters use repeated keys, while route-owned schemas in `features/tickets/lib/ticketSearch.ts` validate flat search state and convert it to the existing domain queries at the feature boundary. Router values stay strings or arrays of strings; default sorting is omitted from links. A ticket opened from a list or board carries its source in `from=sections` or `from=sprintBoard`, alongside that view's grouping, sprint and filters. Legacy JSON navigation context is discarded locally by the ticket search schema, so an old link can still open its ticket. Ticket links take their navigation context from the displayed result, including retained rows shown while a new filter request is pending. The ticket page asks the `neighbors` endpoint for the previous and next ticket in that view's order (section order, then the view's sort, or the sprint's manual order on a sprint board) and steps to them with the stepper or J and K.
 - **MCP.** A Streamable HTTP endpoint on the backend, authenticated through Better Auth's OAuth provider so each client acts as the consenting user. It serves the tool catalog, defined in `packages/shared/src/tools`.
 - **CLI.** `pp` calls the same tool catalog over an HTTP tool route, with its own OAuth client, token audience and DPoP-bound tokens. It picks a default org and project, and keeps itself in step with the server's release.
 

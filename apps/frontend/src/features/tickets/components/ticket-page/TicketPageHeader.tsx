@@ -1,8 +1,9 @@
-import type { TicketDetail, UpdateTicketInput } from "@pp/shared"
+import type { TicketDetail } from "@pp/shared"
 import type { ReactNode } from "react"
 
 import { StatusButton } from "@/features/tickets/components/ticket-list/StatusField"
 import { TitleField } from "@/features/tickets/components/ticket-page/TitleField"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 
 export function TicketPageHeader({
   ticket,
@@ -12,7 +13,7 @@ export function TicketPageHeader({
 }: {
   ticket: TicketDetail
   readOnly?: boolean
-  onPatch?: (patch: UpdateTicketInput) => void
+  onPatch?: (patch: TicketEdit) => void
   meta?: ReactNode
 }) {
   return (
@@ -35,8 +36,8 @@ export function TicketPageHeader({
             <TitleField key={ticket.id} ticket={ticket} />
           )}
         </h1>
-        <div className="flex min-h-8 items-center gap-3 px-2">
-          <span className="text-body text-muted-foreground tabular-nums">
+        <div className="flex min-h-8 items-center gap-4 px-2">
+          <span className="font-mono text-body text-muted-foreground tabular-nums">
             {ticket.id}
           </span>
           {meta}
@@ -46,4 +47,4 @@ export function TicketPageHeader({
   )
 }
 
-const noopPatch = (_patch: UpdateTicketInput) => {}
+const noopPatch = (_patch: TicketEdit) => {}

@@ -196,20 +196,22 @@ export function EpicTicketPicker({
                 >
                   {checked && <Check className="size-3" strokeWidth={2.5} />}
                 </span>
-                <span className="font-mono text-micro tabular-nums">
-                  {ticket.id}
-                </span>
-                <span
-                  className={cn(
-                    "min-w-0 flex-1 truncate transition-colors",
-                    locked
-                      ? "text-muted-foreground"
-                      : checked
-                        ? "text-foreground"
-                        : "text-muted-foreground line-through decoration-muted-foreground/40"
-                  )}
-                >
-                  {ticket.title}
+                <span className="flex min-w-0 flex-1 items-baseline gap-2">
+                  <span className="font-mono text-micro tabular-nums">
+                    {ticket.id}
+                  </span>
+                  <span
+                    className={cn(
+                      "min-w-0 flex-1 truncate transition-colors",
+                      locked
+                        ? "text-muted-foreground"
+                        : checked
+                          ? "text-foreground"
+                          : "text-muted-foreground line-through decoration-muted-foreground/40"
+                    )}
+                  >
+                    {ticket.title}
+                  </span>
                 </span>
                 {locked && (
                   <span className="shrink-0 text-micro text-muted-foreground">

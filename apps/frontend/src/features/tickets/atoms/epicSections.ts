@@ -32,7 +32,8 @@ import {
   withCreatedKeys,
   viewQuery,
   type QueryWithView,
-  type QuickCreateInput
+  type QuickCreateInput,
+  quickCreatePayload
 } from "@/features/tickets/lib/ticketRows"
 
 import {
@@ -143,7 +144,7 @@ const epicSectionsView = (req: EpicSectionsRequest) =>
         waiting = waiting || pages.waiting
         return {
           key: section.key,
-          title: section.title,
+          parent: section.parent,
           count: section.count,
           page: {
             items: withCreatedKeys(pages.items.map(toRow), created),
@@ -307,7 +308,10 @@ export const quickCreateEpicSectionsTicket = Atom.family(
         insertCreated(req, key, value, input),
       call: (client, input, get) =>
         client.tickets
-          .quickCreate({ params: req.params, payload: input.payload })
+          .quickCreate({
+            params: req.params,
+            payload: quickCreatePayload(input)
+          })
           .pipe(
             Effect.tap((created) =>
               Effect.sync(() =>

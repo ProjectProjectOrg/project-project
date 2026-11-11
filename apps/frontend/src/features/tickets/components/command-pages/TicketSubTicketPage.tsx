@@ -17,6 +17,7 @@ import {
   searchRequest,
   ticketSearch
 } from "@/features/tickets/atoms/ticketSearch"
+import { parentRef } from "@/features/tickets/lib/ticketPatch"
 import { useSettledValue } from "@/hooks/useSettledValue"
 import { m } from "@/paraglide/messages"
 
@@ -46,7 +47,9 @@ export function TicketSubTicketPage({
     )
   )
   const candidates = useSettledValue(result, NO_TICKETS)
-  const isEpic = context.ticketDetail?.type === "epic"
+  const detail = context.ticketDetail
+  const parent = detail === null ? null : parentRef(detail)
+  const isEpic = detail?.type === "epic"
   const req = childTicketsRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
   return (
     <CommandFrame
@@ -80,9 +83,11 @@ export function TicketSubTicketPage({
         }))
       ]}
       onSelect={(item) => {
+        if (parent === null) return
         if (item.value === CREATE) {
           void fireMutation(registry, quickCreateChildTicket(req), {
-            payload: { title, parent: ticket.ticketId },
+            payload: { title },
+            parent,
             prediction: {
               clientId: Effect.runSync(Random.next).toString(36),
               createdBy: context.viewerId ?? "",
@@ -94,7 +99,8 @@ export function TicketSubTicketPage({
           const picked = candidates.find(
             (candidate) => candidate.id === item.value
           )
-          if (picked !== undefined) attachToParent(registry, req, picked)
+          if (picked !== undefined)
+            attachToParent(registry, req, parent, picked)
         }
         env.close()
       }}

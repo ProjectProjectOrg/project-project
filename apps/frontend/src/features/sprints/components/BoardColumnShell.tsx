@@ -1,6 +1,7 @@
 import NumberFlow from "@number-flow/react"
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 
+import { ScrollArea, type ScrollAreaProps } from "@/components/ui/scroll-area"
 import type { StatusMeta } from "@/features/tickets/lib/ticketMeta"
 import { cn } from "@/lib/utils"
 
@@ -13,8 +14,23 @@ export const BOARD_COLLAPSED_COLUMN_CLASS =
 export const BOARD_COLUMN_HEADER_CLASS =
   "relative flex items-center justify-between px-3.5 pt-3 pb-2 select-none"
 
-export const BOARD_CARD_LIST_CLASS =
-  "relative z-10 min-h-0 flex-1 overflow-y-auto pb-2"
+export function BoardCardList({
+  viewportProps,
+  children
+}: Readonly<{
+  viewportProps?: ScrollAreaProps["viewportProps"]
+  children: ReactNode
+}>) {
+  return (
+    <ScrollArea
+      className="relative z-10 flex min-h-0 flex-1 flex-col [&>[data-slot=scroll-area-scrollbar]]:pb-2"
+      viewportClassName="min-h-0 flex-1 pb-2 outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset [&>div[style]]:!block [&>div[style]]:!min-w-0 ![--scroll-fade-size:6px] scroll-fade"
+      viewportProps={viewportProps}
+    >
+      {children}
+    </ScrollArea>
+  )
+}
 
 export const BOARD_CARD_SLOT_CLASS = "relative px-3 py-1"
 
@@ -39,9 +55,16 @@ export function BoardColumnTitle({ meta }: BoardColumnTitleProps) {
 }
 
 export function BoardColumnCount({ value }: Readonly<{ value: number }>) {
+  const [previous, setPrevious] = useState(value)
+  const [animated, setAnimated] = useState(false)
+  if (value !== previous) {
+    setPrevious(value)
+    setAnimated(Math.abs(value - previous) === 1)
+  }
   return (
     <NumberFlow
       value={value}
+      animated={animated}
       transformTiming={{ duration: 180, easing: "ease-out" }}
       spinTiming={{ duration: 180, easing: "ease-out" }}
       opacityTiming={{ duration: 180, easing: "ease-out" }}
@@ -67,7 +90,7 @@ export function BoardColumnShell({
         <BoardColumnTitle meta={meta} />
         <BoardColumnCount value={count} />
       </div>
-      <div className={BOARD_CARD_LIST_CLASS}>{children}</div>
+      <BoardCardList>{children}</BoardCardList>
     </section>
   )
 }

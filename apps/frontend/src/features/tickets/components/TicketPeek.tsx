@@ -107,13 +107,7 @@ export function TicketPeek({
             {ticket.id}
           </span>
           <h2 className="line-clamp-2 text-title leading-snug font-semibold">
-            {ticket.parent !== undefined && ticket.parent !== null && (
-              <EpicTextPrefix
-                orgSlug={scope.orgSlug}
-                slug={scope.slug}
-                epicId={ticket.parent}
-              />
-            )}
+            <EpicTextPrefix parent={ticket.parent} />
             {ticket.title}
           </h2>
         </div>

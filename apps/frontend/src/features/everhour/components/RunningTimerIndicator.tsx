@@ -44,6 +44,7 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
+import { TicketIdText } from "@/features/tickets/components/TicketIdText"
 import { transitions } from "@/lib/springs"
 import * as m from "@/paraglide/messages"
 
@@ -323,6 +324,11 @@ function ConnectedProjectTimerIndicator({
   if (!connected) return null
 
   const label = timer ? timerLabel(timer) : m.time_timer_idle()
+  const visibleLabel = timer?.ticketId ? (
+    <TicketIdText id={timer.ticketId}>{label}</TicketIdText>
+  ) : (
+    label
+  )
   const trigger = (
     <button
       type="button"
@@ -341,7 +347,7 @@ function ConnectedProjectTimerIndicator({
         transition={transitions.fade}
         className="flex min-w-0 items-center gap-2"
       >
-        <span className="max-w-40 truncate text-body">{label}</span>
+        <span className="max-w-40 truncate text-body">{visibleLabel}</span>
         {timer ? (
           <span className="shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
             {formatClock(elapsed)}
@@ -372,7 +378,7 @@ function ConnectedProjectTimerIndicator({
                 {m.time_timer_popover_title()}
               </div>
               <div className="truncate text-caption text-muted-foreground">
-                {timer ? label : m.time_timer_idle()}
+                {visibleLabel}
               </div>
             </div>
             {timer ? (
@@ -384,7 +390,9 @@ function ConnectedProjectTimerIndicator({
 
           {ticketId !== null ? (
             <div className="rounded-lg bg-muted/60 px-3 py-2 text-caption text-muted-foreground">
-              {m.time_ticket_context({ id: ticketId })}
+              <TicketIdText id={ticketId}>
+                {m.time_ticket_context({ id: ticketId })}
+              </TicketIdText>
             </div>
           ) : routeGroupId ? null : (
             <label className="flex flex-col gap-1 text-caption text-muted-foreground">

@@ -7,8 +7,7 @@ export const withoutNestedChildren = <
 ): ReadonlyArray<T> => {
   const typeOf = new Map(tickets.map(({ id, type }) => [id, type]))
   return tickets.filter(({ parent }) => {
-    const parentType =
-      parent === undefined || parent === null ? undefined : typeOf.get(parent)
+    const parentType = parent === null ? undefined : typeOf.get(parent.id)
     return parentType === undefined || parentType === "epic"
   })
 }

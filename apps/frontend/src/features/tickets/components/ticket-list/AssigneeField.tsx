@@ -1,4 +1,4 @@
-import type { Member, TicketId, UpdateTicketInput } from "@pp/shared"
+import type { Member, TicketId } from "@pp/shared"
 import * as Match from "effect/Match"
 import { UserRound } from "lucide-react"
 import type { ReactNode } from "react"
@@ -18,6 +18,7 @@ import {
   AvatarStack,
   MemberAvatar
 } from "@/features/members/components/MemberAvatar"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { m } from "@/paraglide/messages"
 
 type AssigneeVariant = "row" | "card" | "chip"
@@ -248,7 +249,7 @@ export function AssigneeField({
 }: {
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
   variant?: AssigneeVariant
   className?: string
 }) {
@@ -266,7 +267,7 @@ export function AssigneeField({
 export function AssigneePicker(props: {
   ticket: { id: TicketId; assignees: ReadonlyArray<string> }
   members: ReadonlyArray<Member>
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
 }) {
   return <AssigneeField {...props} variant="chip" />
 }

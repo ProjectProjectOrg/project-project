@@ -3,8 +3,7 @@ import type {
   DeleteTicketQuery,
   MarkTicketInput,
   SplitTicketInput,
-  TicketId,
-  UpdateTicketInput
+  TicketId
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -17,7 +16,7 @@ import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
 
 import { withoutRelation } from "../lib/relationGroups"
-import { applyTicketDetailPatch } from "../lib/ticketPatch"
+import { applyTicketDetailPatch, type TicketEdit } from "../lib/ticketPatch"
 import { coalescingTicketUpdate } from "./ticketRows"
 
 export type TicketRequest = Readonly<{
@@ -59,7 +58,7 @@ export const ticketBodyDraft = Atom.family((_req: TicketRequest) =>
   Atom.make<string | null>(null).pipe(Atom.setIdleTTL("10 minutes"))
 )
 
-const publishFor = (req: TicketRequest, patch: UpdateTicketInput) => {
+const publishFor = (req: TicketRequest, patch: TicketEdit) => {
   const scope = scopeOf(req)
   const fields = Object.keys(patch)
   const contentOnly = fields.every((f) => f === "title" || f === "body")

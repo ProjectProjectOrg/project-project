@@ -4,6 +4,7 @@ import {
   TicketId,
   type EstimationMode,
   type QuickCreateTicketInput,
+  type TicketParent,
   type TagName,
   type Ticket,
   type TicketFilter,
@@ -11,10 +12,10 @@ import {
   type TicketListRow,
   type TicketPriority,
   type TicketSort,
-  type TicketStatus,
-  type UpdateTicketInput
+  type TicketStatus
 } from "@pp/shared"
 
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { compareCodePoints } from "@/lib/orderKey"
 
 import { PRIORITY_META } from "./priorityMeta"
@@ -101,7 +102,7 @@ export const insertByOrderKey = (
 }
 
 export const patchesSortedField = (
-  patch: UpdateTicketInput,
+  patch: TicketEdit,
   key: TicketSort["key"]
 ): boolean => {
   if (key === "updated") return true
@@ -165,9 +166,16 @@ export type QuickCreatePrediction = Partial<TemplatePrediction> &
   }>
 
 export type QuickCreateInput = Readonly<{
-  payload: QuickCreateTicketInput
+  payload: Omit<QuickCreateTicketInput, "parent">
+  parent?: TicketParent
   prediction: QuickCreatePrediction
 }>
+
+export const quickCreatePayload = ({
+  payload,
+  parent
+}: QuickCreateInput): QuickCreateTicketInput =>
+  parent === undefined ? payload : { ...payload, parent: parent.id }
 
 export const predictedTicket = (
   input: QuickCreateInput,
@@ -188,7 +196,7 @@ export const predictedTicket = (
   lastTransitionedPr: null,
   gitState: { tag: "no_branch", baseBranch: "" },
   assignees: [],
-  parent: input.payload.parent ?? null,
+  parent: input.parent ?? null,
   archivedAt: null,
   createdBy: input.prediction.createdBy,
   createdAt: now,
@@ -214,7 +222,7 @@ export const placeholderRow = (
 
 export const patchTicketRow = (
   row: TicketRow,
-  patch: UpdateTicketInput,
+  patch: TicketEdit,
   sort: TicketSort,
   now: Date
 ): TicketRow => {

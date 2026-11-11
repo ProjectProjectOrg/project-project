@@ -15,7 +15,6 @@ import type {
   TicketStatus
 } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Loader2 } from "lucide-react"
 import { motion, Reorder } from "motion/react"
 import { useContext, useEffect, useMemo, useRef } from "react"
 
@@ -30,6 +29,10 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { HiddenColumnsEmpty } from "@/features/sprints/components/HiddenColumnsEmpty"
 import { SprintBoardColumn } from "@/features/sprints/components/SprintBoardColumn"
 import { useBoardColumns } from "@/features/sprints/hooks/useBoardColumns"
+import {
+  BoardKeyboardContext,
+  useBoardKeyboardNavigation
+} from "@/features/sprints/hooks/useBoardKeyboardNavigation"
 import { useBoardViewport } from "@/features/sprints/hooks/useBoardViewport"
 import { useHorizontalAutoScroll } from "@/features/sprints/hooks/useHorizontalAutoScroll"
 import { useReorderMode } from "@/features/sprints/hooks/useReorderMode"
@@ -45,6 +48,7 @@ import {
   updateBacklogTicket,
   type BacklogRequest,
   backlogTicketUpdates,
+  encodeTicketListQuery,
   type BacklogValue
 } from "@/features/tickets/atoms/backlog"
 import type { TicketRow } from "@/features/tickets/lib/ticketRows"
@@ -53,9 +57,6 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useExpandSubTicketsCommand } from "./useExpandSubTicketsCommand"
-import { AutoLoad } from "./VirtualRows"
-
-const COLUMN_SCROLL_SELECTOR = "[data-virtual-sprint-column]"
 
 const NO_TICKETS: ReadonlyArray<Ticket> = []
 
@@ -171,63 +172,81 @@ function BacklogBoardContent({
     })
   }, [canMove, reorderMode, req, registry])
 
+  const keyboard = useBoardKeyboardNavigation(
+    ref,
+    !reorderMode && order.length > 0
+  )
+
   return (
-    <motion.div
-      ref={ref}
-      layoutScroll
-      style={{ height: height ?? 240 }}
-      className={cn(
-        "overflow-x-auto overscroll-x-contain",
-        hasRightOverflow &&
-          "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
-      )}
-    >
-      {order.length === 0 && layout.hidden.length > 0 ? (
-        <HiddenColumnsEmpty onShowAll={layout.showAll} />
-      ) : (
-        <Reorder.Group
-          ref={groupRef}
-          as="div"
-          axis="x"
-          values={[...order]}
-          onReorder={(next) => setDragOrder(next)}
-          className="flex h-full gap-3"
-        >
-          {order.map((status) => {
-            const column = columns.find((c) => c.status === status)
-            return (
-              <SprintBoardColumn
-                key={status}
-                update={backlogTicketUpdates(req)}
-                status={status}
-                statuses={statuses}
-                tickets={column?.tickets ?? NO_TICKETS}
-                count={column?.count ?? 0}
-                members={members}
-                isDraggable={canMove}
-                ordered={false}
-                inertTicketIds={inertTicketIds}
-                lastFlash={null}
-                reorderMode={reorderMode}
-                onActivateReorder={onEnterReorder}
-                collapsed={layout.collapsed.includes(status)}
-                onToggleCollapsed={() => layout.toggleCollapsed(status)}
-                footer={
-                  column?.nextCursor != null ? (
-                    <ColumnLoadMore
-                      req={req}
-                      status={status}
-                      cursor={column.nextCursor}
-                      remaining={Math.max(0, column.count - column.rows.length)}
-                    />
-                  ) : null
-                }
-              />
-            )
-          })}
-        </Reorder.Group>
-      )}
-    </motion.div>
+    <BoardKeyboardContext value={keyboard.context}>
+      <motion.div
+        ref={ref}
+        role={keyboard.context ? "grid" : undefined}
+        aria-label={m.tickets_board_aria_label()}
+        aria-colcount={keyboard.context ? order.length : undefined}
+        aria-rowcount={keyboard.context ? 1 : undefined}
+        onKeyDown={keyboard.onKeyDown}
+        layoutScroll
+        style={{ height: height ?? 240 }}
+        className={cn(
+          "overflow-x-auto overscroll-x-contain",
+          hasRightOverflow &&
+            "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
+        )}
+      >
+        {order.length === 0 && layout.hidden.length > 0 ? (
+          <HiddenColumnsEmpty onShowAll={layout.showAll} />
+        ) : (
+          <Reorder.Group
+            ref={groupRef}
+            as="div"
+            role={keyboard.context ? "row" : undefined}
+            axis="x"
+            values={[...order]}
+            onReorder={(next) => setDragOrder(next)}
+            className="flex h-full gap-3"
+          >
+            {order.map((status, columnIndex) => {
+              const column = columns.find((c) => c.status === status)
+              return (
+                <SprintBoardColumn
+                  key={status}
+                  columnIndex={columnIndex}
+                  update={backlogTicketUpdates(req)}
+                  status={status}
+                  statuses={statuses}
+                  tickets={column?.tickets ?? NO_TICKETS}
+                  filterKey={encodeTicketListQuery(query)}
+                  count={column?.count ?? 0}
+                  members={members}
+                  isDraggable={canMove}
+                  ordered={false}
+                  inertTicketIds={inertTicketIds}
+                  lastFlash={null}
+                  reorderMode={reorderMode}
+                  onActivateReorder={onEnterReorder}
+                  collapsed={layout.collapsed.includes(status)}
+                  onToggleCollapsed={() => layout.toggleCollapsed(status)}
+                  footer={(nearEnd) =>
+                    column?.nextCursor != null ? (
+                      <ColumnLoadMore
+                        req={req}
+                        status={status}
+                        nearEnd={nearEnd}
+                        remaining={Math.max(
+                          0,
+                          column.count - column.rows.length
+                        )}
+                      />
+                    ) : null
+                  }
+                />
+              )
+            })}
+          </Reorder.Group>
+        )}
+      </motion.div>
+    </BoardKeyboardContext>
   )
 }
 
@@ -259,17 +278,22 @@ function buildColumns(
 function ColumnLoadMore({
   req,
   status,
-  cursor,
+  nearEnd,
   remaining
-}: {
+}: Readonly<{
   req: BacklogRequest
   status: TicketStatus
-  cursor: string
+  nearEnd: boolean
   remaining: number
-}) {
+}>) {
   const loadMore = useAtomSet(loadMoreBacklog({ req, status }))
   const loadMoreState = useAtomValue(loadMoreBacklog({ req, status }))
   const failed = Result.isFailure(loadMoreState)
+  const idle = !loadMoreState.waiting && !failed
+
+  useEffect(() => {
+    if (nearEnd && idle) loadMore()
+  }, [nearEnd, idle, loadMore])
 
   return (
     <>
@@ -280,38 +304,16 @@ function ColumnLoadMore({
         onInitial={() => null}
         onSuccess={() => null}
       />
-      <AutoLoad
-        key={cursor}
-        cursor={cursor}
-        enabled={!loadMoreState.waiting && !failed}
-        loadMore={() => loadMore()}
-        rootSelector={COLUMN_SCROLL_SELECTOR}
-      >
-        {failed ? (
-          <Button
-            type="button"
-            variant="tertiary"
-            size="sm"
-            onClick={() => loadMore()}
-          >
-            {m.tickets_section_load_more_button({ remaining })}
-          </Button>
-        ) : (
-          <div
-            role="status"
-            className={cn(
-              "flex h-7 items-center gap-2 text-caption text-muted-foreground",
-              !loadMoreState.waiting && "invisible"
-            )}
-          >
-            <Loader2
-              className="size-4 animate-spin motion-reduce:animate-none"
-              strokeWidth={1.75}
-            />
-            {m.tickets_load_more_loading()}
-          </div>
-        )}
-      </AutoLoad>
+      {failed && (
+        <Button
+          type="button"
+          variant="tertiary"
+          size="sm"
+          onClick={() => loadMore()}
+        >
+          {m.tickets_section_load_more_button({ remaining })}
+        </Button>
+      )}
     </>
   )
 }

@@ -33,12 +33,18 @@ import {
   type BoardRequest,
   type BoardValue
 } from "@/features/sprints/atoms/sprintBoard"
+import {
+  BoardKeyboardContext,
+  useBoardKeyboardNavigation
+} from "@/features/sprints/hooks/useBoardKeyboardNavigation"
 import { useHorizontalAutoScroll } from "@/features/sprints/hooks/useHorizontalAutoScroll"
 import { useReorderMode } from "@/features/sprints/hooks/useReorderMode"
+import { encodeTicketListQuery } from "@/features/tickets/atoms/backlog"
 import { useExpandSubTicketsCommand } from "@/features/tickets/components/ticket-list/useExpandSubTicketsCommand"
 import { useBoardSubTicketsSettled } from "@/features/tickets/components/ticket-list/useSubTicketsSettled"
 import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
 import { useBoardColumns } from "../hooks/useBoardColumns"
 import { useBoardTickets } from "../hooks/useBoardTickets"
@@ -215,47 +221,62 @@ function SprintBoardContent({
     })
   }, [canReorder, canTransition, isCompleted, reorderMode, req, registry])
 
+  const keyboard = useBoardKeyboardNavigation(
+    ref,
+    !reorderMode && order.length > 0
+  )
+
   return (
-    <motion.div
-      ref={ref}
-      layoutScroll
-      aria-busy={waiting}
-      style={{ height: height ?? 240 }}
-      className={cn(
-        "overflow-x-auto overscroll-x-contain",
-        hasRightOverflow &&
-          "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
-      )}
-    >
-      {order.length === 0 && layout.hidden.length > 0 ? (
-        <HiddenColumnsEmpty onShowAll={layout.showAll} />
-      ) : (
-        <Reorder.Group
-          ref={groupRef}
-          as="div"
-          axis="x"
-          values={[...order]}
-          onReorder={(next) => setDragOrder(next)}
-          className="flex h-full gap-3"
-        >
-          {order.map((status) => (
-            <SprintBoardColumn
-              key={status}
-              update={boardTicketUpdates(req)}
-              status={status}
-              statuses={statuses}
-              tickets={grouped[status] ?? []}
-              members={members}
-              isDraggable={!isCompleted && canReorder}
-              lastFlash={lastFlash}
-              reorderMode={reorderMode}
-              onActivateReorder={onEnterReorder}
-              collapsed={layout.collapsed.includes(status)}
-              onToggleCollapsed={() => layout.toggleCollapsed(status)}
-            />
-          ))}
-        </Reorder.Group>
-      )}
-    </motion.div>
+    <BoardKeyboardContext value={keyboard.context}>
+      <motion.div
+        ref={ref}
+        role={keyboard.context ? "grid" : undefined}
+        aria-label={m.tickets_board_aria_label()}
+        aria-colcount={keyboard.context ? order.length : undefined}
+        aria-rowcount={keyboard.context ? 1 : undefined}
+        onKeyDown={keyboard.onKeyDown}
+        layoutScroll
+        aria-busy={waiting}
+        style={{ height: height ?? 240 }}
+        className={cn(
+          "overflow-x-auto overscroll-x-contain",
+          hasRightOverflow &&
+            "[mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)]"
+        )}
+      >
+        {order.length === 0 && layout.hidden.length > 0 ? (
+          <HiddenColumnsEmpty onShowAll={layout.showAll} />
+        ) : (
+          <Reorder.Group
+            ref={groupRef}
+            as="div"
+            role={keyboard.context ? "row" : undefined}
+            axis="x"
+            values={[...order]}
+            onReorder={(next) => setDragOrder(next)}
+            className="flex h-full gap-3"
+          >
+            {order.map((status, columnIndex) => (
+              <SprintBoardColumn
+                key={status}
+                columnIndex={columnIndex}
+                update={boardTicketUpdates(req)}
+                status={status}
+                statuses={statuses}
+                tickets={grouped[status] ?? []}
+                filterKey={encodeTicketListQuery(query)}
+                members={members}
+                isDraggable={!isCompleted && canReorder}
+                lastFlash={lastFlash}
+                reorderMode={reorderMode}
+                onActivateReorder={onEnterReorder}
+                collapsed={layout.collapsed.includes(status)}
+                onToggleCollapsed={() => layout.toggleCollapsed(status)}
+              />
+            ))}
+          </Reorder.Group>
+        )}
+      </motion.div>
+    </BoardKeyboardContext>
   )
 }

@@ -71,6 +71,7 @@ export function SegmentedList({
         updatedAfter: undefined,
         archived: undefined,
         sort: undefined,
+        dir: undefined,
         q: undefined,
         cursor: undefined,
         view: previous.view

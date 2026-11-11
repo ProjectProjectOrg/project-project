@@ -64,6 +64,7 @@ const Count = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
 export const EstimateTotals = Schema.Struct({
   unit: Schema.Literals(["points", "time"]),
   committed: Count,
+  started: Count,
   done: Count,
   unestimated: Count
 })

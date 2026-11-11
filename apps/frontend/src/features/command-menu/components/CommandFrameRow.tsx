@@ -30,26 +30,28 @@ export function CommandFrameRow({
   }
   return (
     <CommandMenuItem value={item.value}>
-      {prefix !== undefined && (
-        <span className="flex min-w-0 flex-1 items-baseline gap-2">
-          <span className="min-w-(--row-key-width) shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
-            {prefix}
+      <span className="flex min-w-0 flex-1 items-center gap-1">
+        {prefix !== undefined && (
+          <span className="flex min-w-0 flex-1 items-baseline gap-2">
+            <span className="min-w-(--row-key-width) shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
+              {prefix}
+            </span>
+            <span className="min-w-0 truncate">{item.label}</span>
           </span>
-          <span className="min-w-0 truncate">{item.label}</span>
-        </span>
-      )}
-      {parent !== undefined && (
-        <>
-          <span className="shrink-0 text-muted-foreground">{parent}</span>
-          <ChevronRight
-            className="size-3.5 shrink-0 text-muted-foreground"
-            strokeWidth={1.75}
-          />
-        </>
-      )}
-      {prefix === undefined && (
-        <span className="min-w-0 flex-1 truncate">{item.label}</span>
-      )}
+        )}
+        {parent !== undefined && (
+          <>
+            <span className="shrink-0 text-muted-foreground">{parent}</span>
+            <ChevronRight
+              className="size-3.5 shrink-0 text-muted-foreground"
+              strokeWidth={1.75}
+            />
+          </>
+        )}
+        {prefix === undefined && (
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+        )}
+      </span>
     </CommandMenuItem>
   )
 }
