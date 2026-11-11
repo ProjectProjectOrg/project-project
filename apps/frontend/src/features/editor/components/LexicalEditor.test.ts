@@ -813,6 +813,15 @@ describe("ticket blocks", () => {
     })
   })
 
+  it("keeps earlier reference definitions out of an unfinished fenced example after a block", () => {
+    const block = '<block type="notes">\n\nBody\n\n</block>'
+    const markdown =
+      '[ref]: /example "Docs"\n\n' + block + "\n\n```js\nconst x = 1"
+    const saved = roundTripMarkdown(markdown)
+    expect(saved).toBe(block + "\n\n```js\nconst x = 1\n```")
+    expect(roundTripMarkdown(saved)).toBe(saved)
+  })
+
   it("normalises a block written without blank lines", () => {
     expect(
       roundTripMarkdown(

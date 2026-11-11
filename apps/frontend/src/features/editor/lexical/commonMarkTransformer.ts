@@ -165,11 +165,12 @@ function appendBlocks(
         const definitions = [...context.definitions.values()]
           .map((definition) => toMarkdown(definition))
           .join("\n")
-        const tree = parseMarkdown(`${remaining}\n\n${definitions}`)
+        const source = `${definitions}\n\n${remaining}`
+        const tree = parseMarkdown(source)
         appendBlocks(parent, tree.children, {
           ...context,
-          source: remaining,
-          lines: remaining.split("\n"),
+          source,
+          lines: source.split("\n"),
           definitions: new Map([
             ...context.definitions,
             ...tree.children.flatMap((child) =>
