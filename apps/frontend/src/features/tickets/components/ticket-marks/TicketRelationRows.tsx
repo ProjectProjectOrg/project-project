@@ -1,4 +1,4 @@
-import { RegistryContext } from "@effect/atom-react"
+import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type {
   LinkedTicket,
   MarkKind,
@@ -30,6 +30,7 @@ import {
   relationGroups,
   type RelationGroupKey
 } from "@/features/tickets/lib/relationGroups"
+import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
 import { TicketStatusIcon } from "./TicketStatusIcon"
@@ -59,23 +60,36 @@ export function TicketRelationRows({
   members: ReadonlyArray<Member>
   editable: boolean
 }>) {
-  return relationGroups(relations)
-    .filter((group) => group.tickets.length > 0)
-    .map((group) => (
-      <MetaRow controls key={group.key} label={GROUP_LABELS[group.key]()}>
-        <div className="flex flex-col items-start">
-          {group.tickets.map((linked) => (
-            <RelationEntry
-              key={linked.id}
-              ticketId={ticketId}
-              linked={linked}
-              unmark={editable ? group.unmark : null}
-              members={members}
-            />
-          ))}
-        </div>
-      </MetaRow>
-    ))
+  const { orgSlug, slug } = useProjectRoute()
+  const failure = mutationErrorText(
+    useAtomValue(unmarkTicket(ticketRequest(orgSlug, slug, ticketId)))
+  )
+  return (
+    <>
+      {relationGroups(relations)
+        .filter((group) => group.tickets.length > 0)
+        .map((group) => (
+          <MetaRow controls key={group.key} label={GROUP_LABELS[group.key]()}>
+            <div className="flex flex-col items-start">
+              {group.tickets.map((linked) => (
+                <RelationEntry
+                  key={linked.id}
+                  ticketId={ticketId}
+                  linked={linked}
+                  unmark={editable ? group.unmark : null}
+                  members={members}
+                />
+              ))}
+            </div>
+          </MetaRow>
+        ))}
+      {failure && (
+        <p role="alert" className="text-caption text-destructive">
+          {failure}
+        </p>
+      )}
+    </>
+  )
 }
 
 const focusNeighbour = (entry: HTMLElement | null) => {
