@@ -138,9 +138,11 @@ docker compose run --rm app bun packages/backend/scripts/bootstrap-org.ts
 The command is repeat-safe. Re-running it reports the existing org, owner,
 and membership instead of creating duplicates. After bootstrap, the owner signs
 in with the configured email (magic link, Google or Microsoft), then invites teammates
-from org settings. Invited users open their invite link (or `/welcome`), sign
-in with the invited email, and land inside the org. Connecting a personal
-GitHub account for branch automation happens later, from the profile page.
+from org settings. No email is sent: the magic link appears in the backend log
+as a `[magic-link] email=... url=...` line (`docker compose logs app`).
+Invited users open their invite link (or `/welcome`), sign in with the
+invited email, and land inside the org. Connecting a personal GitHub account
+for branch automation happens later, from the profile page.
 
 ### 6. nginx-proxy-manager
 
