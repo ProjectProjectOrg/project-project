@@ -6,17 +6,12 @@ import { ChevronDown, ChevronUp } from "lucide-react"
 import { useEffect, useMemo } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Kbd } from "@/components/ui/kbd"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   ticketNeighbors,
   ticketNeighborsRequest
 } from "@/features/tickets/atoms/ticketNeighbors"
+import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
 import {
   ticketSearchFromSource,
   type TicketNavigationSearch
@@ -126,36 +121,28 @@ function StepButton({
     )
   }
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={label}
-            aria-keyshortcuts={shortcut}
-            render={
-              <Link
-                to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-                params={{ orgSlug, slug, id: neighbor.id }}
-                search={search}
-                replace
-                preload="intent"
-              />
-            }
-          />
-        }
-      >
-        {icon}
-      </TooltipTrigger>
-      <TooltipContent className="flex max-w-80 items-center gap-2">
-        <span className="font-mono text-muted-foreground tabular-nums">
-          {neighbor.id}
-        </span>
-        <span className="truncate">{neighbor.title}</span>
-        <Kbd size="sm">{shortcut.toUpperCase()}</Kbd>
-      </TooltipContent>
-    </Tooltip>
+    <TicketPreviewTrigger
+      preview={{ kind: "ticket", id: neighbor.id, shortcut }}
+      render={
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={label}
+          aria-keyshortcuts={shortcut}
+          render={
+            <Link
+              to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+              params={{ orgSlug, slug, id: neighbor.id }}
+              search={search}
+              replace
+              preload="intent"
+            />
+          }
+        />
+      }
+    >
+      {icon}
+    </TicketPreviewTrigger>
   )
 }
 

@@ -16,6 +16,7 @@ import { OctagonMinus } from "lucide-react"
 import type { ComponentProps } from "react"
 import { lazy, Suspense } from "react"
 
+import { Kbd } from "@/components/ui/kbd"
 import { PopoverContent } from "@/components/ui/popover"
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
@@ -110,11 +111,13 @@ export function TicketHoverCard({
 export function TicketPreviewBody({
   ticketId,
   scope,
-  interactive
+  interactive,
+  shortcut
 }: {
   ticketId: TicketId
   scope: TicketHoverCardScope
   interactive: boolean
+  shortcut?: string
 }) {
   const req = ticketRequest(scope.orgSlug, scope.slug, ticketId)
   const result = useAtomValue(ticketDetail(req))
@@ -136,9 +139,14 @@ export function TicketPreviewBody({
       const Markdown = loadedMarkdown?.Markdown ?? LazyMarkdown
       return (
         <div className="space-y-2">
-          <div className="line-clamp-2 text-body leading-snug font-semibold">
-            <EpicTextPrefix parent={ticket.parent} />
-            {ticket.title}
+          <div className="flex items-start gap-2">
+            <div className="line-clamp-2 min-w-0 flex-1 text-body leading-snug font-semibold">
+              <EpicTextPrefix parent={ticket.parent} />
+              {ticket.title}
+            </div>
+            {shortcut !== undefined && (
+              <Kbd aria-hidden>{shortcut.toUpperCase()}</Kbd>
+            )}
           </div>
           <MetaRow ticket={ticket} scope={scope} statuses={statuses} />
           <BlockedLine
