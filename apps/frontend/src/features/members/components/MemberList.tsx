@@ -3,6 +3,7 @@ import { MoreHorizontal, Plus } from "lucide-react"
 import type { FormEvent, ReactNode } from "react"
 
 import { Badge, type BadgeTone } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   InputGroup,
@@ -108,8 +109,11 @@ export function AddMemberForm({
   onFocusChange?: (focused: boolean) => void
 }>) {
   return (
-    <form onSubmit={onSubmit}>
-      <InputGroup>
+    <form
+      onSubmit={onSubmit}
+      className="flex flex-wrap items-center justify-end gap-2"
+    >
+      <InputGroup className="min-w-0 flex-1 max-[480px]:basis-full">
         <InputGroupAddon>
           <Plus className="size-4" strokeWidth={1.75} />
         </InputGroupAddon>
@@ -138,6 +142,15 @@ export function AddMemberForm({
           </span>
         ) : null}
       </InputGroup>
+      <Button
+        type="submit"
+        variant="tertiary"
+        size="lg"
+        disabled={submitting || !email.trim()}
+        loading={submitting}
+      >
+        {m.members_add_button()}
+      </Button>
     </form>
   )
 }
