@@ -6,6 +6,7 @@ import {
   CircleDot,
   Copy,
   FileText,
+  FolderInput,
   Gauge,
   Link2,
   Plus,
@@ -169,6 +170,16 @@ export const ticketCommands: ReadonlyArray<Command> = [
       context.tickets.planSprints &&
       context.ticketDetail?.type !== "epic",
     page: "ticketSprint"
+  },
+  {
+    id: "ticket.move",
+    group: "ticket",
+    label: m.tickets_command_move_to_project,
+    icon: FolderInput,
+    keywords: ["project", "transfer", "inbox"],
+    tool: "move_ticket",
+    when: (context) => context.ticket !== null && context.tickets.move,
+    page: "ticketMove"
   },
   {
     id: "ticket.estimate",

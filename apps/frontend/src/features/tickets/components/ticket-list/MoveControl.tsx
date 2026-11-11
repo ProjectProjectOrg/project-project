@@ -1,13 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import {
-  defaultMoveStatus,
-  planTicketMove,
-  type Member,
-  type Project,
-  type StatusSlug,
-  type TicketDetail,
-  type TicketId
-} from "@pp/shared"
+import type { Project, StatusSlug, TicketDetail, TicketId } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState } from "react"
@@ -15,26 +7,19 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger } from "@/components/ui/select"
 import {
-  project as projectDetail,
-  projectRequest,
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
-import {
-  statusesFor,
-  statusesRequest
-} from "@/features/projects/atoms/projectStatuses"
 import { ProjectIconDisplay } from "@/features/projects/components/ProjectIconDisplay"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { StatusOption } from "@/features/statuses/components/StatusOption"
-import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import {
   moveTicket,
   ticketDetail,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
+import { useMoveDestination } from "@/features/tickets/hooks/useMoveDestination"
 import { mutationErrorText } from "@/lib/mutationError"
-import { compareByOrderKey } from "@/lib/orderKey"
 import { m } from "@/paraglide/messages"
 
 export function MoveTicketForm({
@@ -169,8 +154,6 @@ function ProjectOption({
   )
 }
 
-const EMPTY_MEMBERS: ReadonlyArray<Member> = []
-
 function MoveDestinationFields({
   ticket,
   destination,
@@ -182,26 +165,10 @@ function MoveDestinationFields({
   status: StatusSlug | null
   onStatusChange: (status: StatusSlug) => void
 }>) {
-  const { orgSlug, projectReq } = useProjectRoute()
-  const sourceResult = useAtomValue(projectDetail(projectReq))
-  const sourceMembers = Result.isSuccess(sourceResult)
-    ? sourceResult.value.members
-    : EMPTY_MEMBERS
-  const statusesResult = useAtomValue(
-    statusesFor(statusesRequest(orgSlug, destination))
-  )
-  const tagsResult = useAtomValue(tagsFor(tagsRequest(orgSlug, destination)))
-  const projectResult = useAtomValue(
-    projectDetail(projectRequest(orgSlug, destination))
-  )
-  if (
-    !Result.isSuccess(statusesResult) ||
-    !Result.isSuccess(tagsResult) ||
-    !Result.isSuccess(projectResult)
-  ) {
-    return Result.isFailure(statusesResult) ||
-      Result.isFailure(tagsResult) ||
-      Result.isFailure(projectResult) ? (
+  const { orgSlug, slug } = useProjectRoute()
+  const target = useMoveDestination(orgSlug, slug, ticket, destination)
+  if (target.state !== "ready") {
+    return target.state === "failed" ? (
       <p className="text-caption text-destructive">
         {m.tickets_move_destination_error()}
       </p>
@@ -209,42 +176,8 @@ function MoveDestinationFields({
       <div className="h-8 animate-pulse rounded-md bg-muted" />
     )
   }
-
-  const statuses = statusesResult.value.toSorted(compareByOrderKey)
-  const plan = planTicketMove(ticket, {
-    statuses: statuses.map((item) => item.slug),
-    tags: tagsResult.value.map((tag) => tag.name),
-    memberIds: new Set(projectResult.value.members.map((member) => member.id)),
-    estimation: projectResult.value.estimation
-  })
-  const selectedStatus =
-    status ??
-    statuses.find(
-      (item) =>
-        item.slug ===
-        defaultMoveStatus(
-          ticket.status,
-          statuses.map((entry) => entry.slug)
-        )
-    )?.slug ??
-    null
-  const droppedAssignees = plan.dropped.assignees.map(
-    (id) => sourceMembers.find((member) => member.id === id)?.name ?? id
-  )
-  const notes = [
-    plan.dropped.tags.length > 0
-      ? m.tickets_move_drops_tags({ tags: plan.dropped.tags.join(", ") })
-      : null,
-    droppedAssignees.length > 0
-      ? m.tickets_move_drops_assignees({ names: droppedAssignees.join(", ") })
-      : null,
-    plan.dropped.estimate ? m.tickets_move_drops_estimate() : null,
-    ticket.branch !== null ? m.tickets_move_branch_note() : null,
-    (ticket.subTicketCount ?? 0) > 0
-      ? m.tickets_move_sub_tickets_note({ count: ticket.subTicketCount ?? 0 })
-      : null,
-    m.tickets_move_groups_note()
-  ].filter((note) => note !== null)
+  const { statuses, notes } = target
+  const selectedStatus = status ?? target.defaultStatus
 
   return (
     <>
