@@ -1,3 +1,4 @@
+import { OrgActor } from "@pp/shared"
 import { Settings } from "lucide-react"
 import { describe, expect, it } from "vitest"
 
@@ -5,6 +6,8 @@ import { visibleCommands, type Command, type CommandContext } from "./commands"
 
 const context: CommandContext = {
   orgSlug: "acme",
+  orgActor: OrgActor.none,
+  projectActor: null,
   projectSlug: null,
   ticket: null,
   ticketDetail: null,

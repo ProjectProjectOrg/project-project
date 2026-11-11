@@ -302,7 +302,9 @@ const make = Effect.gen(function* () {
         : ProjectGithub.integrationForRepo(integrations, ticket.repo)
     const repository =
       requested === undefined
-        ? (current ?? ProjectGithub.integrationForRepo(integrations, null))
+        ? ticket.branch === null
+          ? ProjectGithub.integrationForRepo(integrations, null)
+          : current
         : ProjectGithub.integrationForRepo(integrations, requested)
     if (!repository) {
       return yield* new Conflict({ reason: "no_github_connection" })

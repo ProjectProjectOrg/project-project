@@ -82,7 +82,7 @@ export function InstallationRow({
           {installation.accountLogin}
           <ExternalLink
             className="size-3 text-muted-foreground"
-            strokeWidth={1.75}
+
             aria-label={m.github_chip_open_on_github()}
           />
         </a>
@@ -118,7 +118,7 @@ export function InstallationRow({
           </ConfirmButton.Root>
         </>
       ) : (
-        <span className="text-[13px] text-muted-foreground">
+        <span className="text-body text-muted-foreground">
           {accessLabel(installation)}
         </span>
       )}

@@ -57,7 +57,7 @@ export function CreateBranchSubmenu({
       }}
     >
       <DropdownMenuSubTrigger openOnHover={false} label={suggestedName}>
-        <Plus strokeWidth={1.75} />
+        <Plus />
         <span className="shrink-0">{m.git_branch_picker_create()}</span>
         <MiddleTruncate
           value={suggestedName}
@@ -97,7 +97,7 @@ export function CreateBranchSubmenu({
           onClick={submit}
           className="text-foreground"
         >
-          <Plus strokeWidth={1.75} />
+          <Plus />
           <span className="flex-1">{m.git_branch_create_submit()}</span>
           <KbdGroup data-menu-meta aria-hidden>
             <Kbd size="sm">{m.git_branch_create_key_shift()}</Kbd>

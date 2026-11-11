@@ -78,11 +78,11 @@ export function RepoList({
           closeOnClick={false}
           onClick={account.onChange}
         >
-          <ChevronLeft strokeWidth={1.75} />
+          <ChevronLeft />
           <span className="min-w-0 flex-1 truncate text-foreground">
             {account.login}
           </span>
-          <span data-menu-meta className="text-[11px] text-muted-foreground">
+          <span data-menu-meta className="text-micro text-muted-foreground">
             {m.github_chip_change_account()}
           </span>
         </DropdownMenuItem>
@@ -128,7 +128,6 @@ export function RepoList({
                       <Lock
                         aria-label={m.github_chip_repo_private()}
                         className="ml-auto size-3.5 text-muted-foreground"
-                        strokeWidth={1.75}
                       />
                     ) : null}
                   </DropdownMenuItem>

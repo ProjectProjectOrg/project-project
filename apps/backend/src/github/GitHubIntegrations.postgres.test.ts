@@ -16,7 +16,17 @@ import * as ProjectStateCacheLayer from "@pp/integration-github/projectStateCach
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as GitHubTicketEvents from "@pp/server-core/github/GitHubTicketEvents"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
+import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
+import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
+import {
+  makeFakeTicketDocs,
+  makeTicketDocument
+} from "@pp/server-core/tickets/testing"
+import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
+import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
+import { reconcileTicketIndexOnBoot } from "@pp/server-core/tickets/TicketIndexReconcilerLive"
+import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
 import { OrgScope } from "@pp/shared"
 import type { GitHubInstallationAccount, RawProjectStates } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
@@ -93,11 +103,28 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
   const databaseLayer = DbLive.pipe(
     Layer.provideMerge(PgClient.layer({ url: Redacted.make(databaseUrl!) }))
   )
+  const ticketDocs = makeFakeTicketDocs([])
+  const ticketProjectSlugs = new Set<string>()
+  const scopedTicketDocs: TicketDocs.TicketDocs["Service"] = {
+    ...ticketDocs.service,
+    listIds: (orgSlug, slug) =>
+      ticketProjectSlugs.has(slug)
+        ? ticketDocs.service.listIds(orgSlug, slug)
+        : Effect.succeed([])
+  }
+  const ticketRewritesLayer = TicketRewrites.layer.pipe(
+    Layer.provideMerge(TicketIndexServices.layer),
+    Layer.provide(Layer.succeed(TicketDocs.TicketDocs, scopedTicketDocs)),
+    Layer.provide(TicketDocumentLock.layer),
+    Layer.provide(FinishedStatuses.baseline),
+    Layer.provide(databaseLayer)
+  )
   const webhookLayer = (
     events: Partial<GitHubTicketEvents.GitHubTicketEvents["Service"]> = {}
   ) =>
     GitHubWebhooks.layer.pipe(
       Layer.provide(GitHubHostLive),
+      Layer.provide(ticketRewritesLayer),
       Layer.provide(
         Layer.mergeAll(
           Layer.mock(BetterAuth.BetterAuth, {}),
@@ -113,6 +140,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       Layer.provide(Layer.succeed(GitHub.GitHub, github)),
       Layer.provide(GitHubApps.layer),
       Layer.provide(GitHubHostLive),
+      Layer.provide(ticketRewritesLayer),
       Layer.provide(
         Layer.mergeAll(
           Layer.mock(BetterAuth.BetterAuth, {}),
@@ -127,6 +155,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
     Layer.provide(Layer.succeed(GitHub.GitHub, makeGithub())),
     Layer.provide(GitHubApps.layer),
     Layer.provide(GitHubHostLive),
+    Layer.provide(ticketRewritesLayer),
     Layer.provide(
       Layer.mergeAll(
         Layer.mock(BetterAuth.BetterAuth, {}),
@@ -139,6 +168,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
   )
   const appsLayer = GitHubApps.layer.pipe(
     Layer.provide(GitHubHostLive),
+    Layer.provide(ticketRewritesLayer),
     Layer.provide(
       Layer.mergeAll(
         Layer.mock(BetterAuth.BetterAuth, {}),
@@ -530,6 +560,7 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
         Layer.provide(Layer.succeed(GitHub.GitHub, raceGithub)),
         Layer.provide(GitHubApps.layer),
         Layer.provide(GitHubHostLive),
+        Layer.provide(ticketRewritesLayer),
         Layer.provide(
           Layer.mergeAll(
             Layer.mock(BetterAuth.BetterAuth, {}),
@@ -857,27 +888,152 @@ describe.skipIf(!databaseUrl)("GitHub integration callback", () => {
       )
   )
 
-  it.effect("removing an app disconnects its installations", () =>
-    Effect.gen(function* () {
-      const fixture = yield* Effect.promise(() => insertSession())
-      yield* callback(fixture.state, "install")
-      const status = yield* Effect.flatMap(
-        GitHubIntegrations.GitHubIntegrations,
-        (integrations) => integrations.removeApp(fixture.appId)
-      ).pipe(asMember(fixture), Effect.provide(integrationLayer))
-      expect(status).toEqual({
-        status: "not_connected",
-        apps: [],
-        installations: []
-      })
-      const result = yield* Effect.promise(() =>
-        pool.query(
-          "SELECT status FROM organization_integration WHERE organization_id = $1",
-          [fixture.organizationId]
+  const insertLegacyTicketProject = async (
+    fixture: Awaited<ReturnType<typeof insertSession>>
+  ) => {
+    const projectId = randomUUID()
+    const linkId = randomUUID()
+    const ticketId = "GH-77"
+    ticketDocs.documents.set(
+      ticketId,
+      makeTicketDocument(ticketId, { branch: "feat/legacy" })
+    )
+    await pool.query(
+      "INSERT INTO project_index (id,slug,organization_id,key,name,icon,color,created_by) VALUES ($1,$4,$2,'GH','GitHub','folder','#3b82f6',$3)",
+      [projectId, fixture.organizationId, fixture.userId, projectId]
+    )
+    await pool.query(
+      "INSERT INTO project_integration_link (id,organization_id,project_id,organization_integration_id,provider,status) SELECT $1,$2,$3,id,'github','active' FROM organization_integration WHERE organization_id=$2",
+      [linkId, fixture.organizationId, projectId]
+    )
+    await pool.query(
+      "INSERT INTO project_github_repository (project_integration_link_id,organization_id,repo_id,repo_owner,repo_name,default_branch,status) VALUES ($1,$2,'legacy-repo','acme','legacy','main','active')",
+      [linkId, fixture.organizationId]
+    )
+    ticketProjectSlugs.add(projectId)
+    return { projectId, ticketId }
+  }
+
+  it.effect.each(["app", "installation", "webhook"])(
+    "preserves ticket repositories before %s removal",
+    (removal) =>
+      Effect.gen(function* () {
+        const fixture = yield* Effect.promise(() => insertSession())
+        yield* callback(fixture.state, "install")
+        const { projectId, ticketId } = yield* Effect.promise(() =>
+          insertLegacyTicketProject(fixture)
         )
+        if (removal === "webhook") {
+          yield* Effect.flatMap(GitHubWebhooks.GitHubWebhooks, (webhooks) =>
+            webhooks.handle({
+              event: "installation",
+              deliveryId: "legacy-removal",
+              body: JSON.stringify({
+                action: "deleted",
+                installation: { id: fixture.installationId }
+              })
+            })
+          ).pipe(Effect.provide(webhookLayer()))
+        } else {
+          yield* Effect.flatMap(
+            GitHubIntegrations.GitHubIntegrations,
+            (integrations) =>
+              removal === "app"
+                ? integrations.removeApp(fixture.appId)
+                : integrations.getStatus().pipe(
+                    Effect.flatMap((status) => {
+                      const installation = status.installations[0]
+                      if (!installation)
+                        return Effect.die("Expected connected installation")
+                      return integrations.removeInstallation(installation.id)
+                    })
+                  )
+          ).pipe(asMember(fixture), Effect.provide(integrationLayer))
+        }
+        const status = yield* Effect.flatMap(
+          GitHubIntegrations.GitHubIntegrations,
+          (integrations) => integrations.getStatus()
+        ).pipe(asMember(fixture), Effect.provide(integrationLayer))
+        expect(status.status).toBe("not_connected")
+        expect(status.installations).toEqual([])
+        expect(status.apps).toHaveLength(removal === "app" ? 0 : 1)
+        const result = yield* Effect.promise(() =>
+          pool.query(
+            "SELECT status FROM organization_integration WHERE organization_id = $1",
+            [fixture.organizationId]
+          )
+        )
+        expect(result.rows.map((row) => row.status)).toEqual(["disconnected"])
+        expect(ticketDocs.documents.get(ticketId)?.repo).toBe("legacy-repo")
+        const indexed = yield* Effect.promise(() =>
+          pool.query(
+            "SELECT repo_id FROM ticket_index WHERE project_id=$1 AND ticket_id=$2",
+            [projectId, ticketId]
+          )
+        )
+        expect(indexed.rows).toEqual([{ repo_id: "legacy-repo" }])
+        ticketDocs.documents.delete(ticketId)
+        ticketProjectSlugs.delete(projectId)
+      }).pipe(
+        Effect.provideService(ConfigProvider.ConfigProvider, githubConfig)
       )
-      expect(result.rows.map((row) => row.status)).toEqual(["disconnected"])
-    }).pipe(Effect.provideService(ConfigProvider.ConfigProvider, githubConfig))
+  )
+
+  it.effect.each(["active", "broken"])(
+    "startup backfills %s legacy repositories and repairs a partial previous run",
+    (status) =>
+      Effect.gen(function* () {
+        const fixture = yield* Effect.promise(() => insertSession())
+        yield* callback(fixture.state, "install")
+        const { projectId, ticketId } = yield* Effect.promise(() =>
+          insertLegacyTicketProject(fixture)
+        )
+        if (status === "broken") {
+          yield* Effect.promise(async () => {
+            await pool.query(
+              "UPDATE organization_integration SET status='broken' WHERE organization_id=$1",
+              [fixture.organizationId]
+            )
+            await pool.query(
+              "UPDATE project_integration_link SET status='broken' WHERE project_id=$1",
+              [projectId]
+            )
+            await pool.query(
+              "UPDATE project_github_repository SET status='broken' WHERE organization_id=$1",
+              [fixture.organizationId]
+            )
+          })
+        }
+        const updatedAt = ticketDocs.documents.get(ticketId)?.updatedAt
+        const boot = reconcileTicketIndexOnBoot.pipe(
+          Effect.provide(Layer.mergeAll(ticketRewritesLayer, databaseLayer))
+        )
+        yield* boot
+        expect(ticketDocs.documents.get(ticketId)?.repo).toBe("legacy-repo")
+        expect(ticketDocs.documents.get(ticketId)?.updatedAt).toEqual(updatedAt)
+        yield* Effect.promise(() =>
+          pool.query(
+            "UPDATE ticket_index SET repo_id='interrupted-repo' WHERE project_id=$1 AND ticket_id=$2",
+            [projectId, ticketId]
+          )
+        )
+        yield* boot
+        const indexed = yield* Effect.promise(() =>
+          pool.query(
+            "SELECT repo_id, updated_at FROM ticket_index WHERE project_id=$1 AND ticket_id=$2",
+            [projectId, ticketId]
+          )
+        )
+        expect(indexed.rows).toEqual([
+          { repo_id: "legacy-repo", updated_at: updatedAt }
+        ])
+        expect(ticketDocs.documents.get(ticketId)?.repo).toBe("legacy-repo")
+        expect(ticketDocs.documents.get(ticketId)?.updatedAt).toEqual(updatedAt)
+        ticketDocs.documents.delete(ticketId)
+        ticketProjectSlugs.delete(projectId)
+      }).pipe(
+        Effect.provideService(ConfigProvider.ConfigProvider, githubConfig)
+      )
   )
 
   it.effect("traces each call under one GitHubIntegrations span", () => {

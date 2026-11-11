@@ -52,7 +52,7 @@ export function AddGithubApp({
       <div className="flex flex-col items-end gap-1">
         {button}
         {error ? (
-          <p role="alert" className="text-xs text-destructive">
+          <p role="alert" className="text-caption text-destructive">
             {error}
           </p>
         ) : null}

@@ -1758,6 +1758,59 @@ it.effect("createBranch creates the branch in the repository asked for", () => {
   }).pipe(Effect.provide(layer))
 })
 
+it.effect.each(["createBranch", "attachBranch"] as const)(
+  "%s requires an explicit repository when the ticket repository is disconnected",
+  (operation) => {
+    const docs = makeFakeTicketDocs([])
+    const original = makeTicketDocument("T-1", {
+      repo: "repo-gone",
+      branch: "feat/T-1-old",
+      stack: [{ branch: "feat/T-1-ui", base: "feat/T-1-old" }]
+    })
+    docs.documents.set("T-1", original)
+    const requested: Array<string> = []
+    const layer = makeTicketsLayer("T", docs.layer, {
+      projects: makeFakeProjects("T"),
+      projectGithub: makeFakeProjectGithub({
+        integrations: () => Effect.succeed([githubIntegration])
+      }),
+      github: makeFakeGitHub({
+        createBranchAsUser: (owner, repo, branch) =>
+          Effect.sync(() => {
+            requested.push(`${owner}/${repo}`)
+            return { name: branch, sha: "sha-1" }
+          }),
+        branchExistsInstallation: (_installation, owner, repo) =>
+          Effect.sync(() => {
+            requested.push(`${owner}/${repo}`)
+            return true
+          })
+      }),
+      ticketIndex: makeFakeTicketIndex(docs.documents)
+    })
+    return Effect.gen(function* () {
+      const git = yield* TicketGit.TicketGit
+      const error =
+        operation === "createBranch"
+          ? yield* Effect.flip(
+              git.createBranch("T-1", { name: "feat/T-1-new" })
+            )
+          : yield* Effect.flip(
+              git.attachBranch("T-1", { name: "feat/T-1-new" })
+            )
+      expect(error).toMatchObject({
+        _tag: "Conflict",
+        reason: "no_github_connection"
+      })
+      expect(requested).toEqual([])
+      expect(docs.documents.get("T-1")).toEqual(original)
+      yield* git[operation]("T-1", { name: "feat/T-1-new", repoId: "repo-1" })
+      expect(requested).toEqual(["acme/app"])
+      expect(docs.documents.get("T-1")?.repo).toBe("repo-1")
+    }).pipe(Effect.provide(layer))
+  }
+)
+
 it.effect(
   "createBranch drops the stack when the ticket moves to another repository",
   () => {

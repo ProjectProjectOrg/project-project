@@ -32,6 +32,26 @@ ProjectProject keeps its Octokit REST/GraphQL transport and GitHub App
 installation authentication. User-initiated branch and PR creation retains the
 existing user-token attribution. No GitHub CLI dependency is introduced.
 
+## Upgrading existing ticket repositories
+
+On startup, the existing ticket index reconciliation first writes the project's
+oldest retained repository ID into legacy tickets that have a branch but no
+`repo` in their markdown. It then reconciles the derived ticket index. Repository
+mismatches count as drift even when timestamps match, so the next startup can
+repair an interrupted previous run.
+
+Existing repository values, ticket timestamps and activity stay unchanged. This
+runs safely on every startup, with no manual command or migration flag. Backfill
+failures are logged per project and do not prevent other projects or index
+reconciliation from running. Projects without a connected repository are reported
+and left untouched; a new default cannot recover a disconnected repository's
+historical identity. Retained broken connections remain eligible for backfill;
+disconnected history is excluded. Connecting another repository also preserves
+that legacy identity before a new default can take over.
+
+Repository disconnection and App or installation removal also stamp legacy
+tickets before removing the current default repository's connection.
+
 Automatic matching applies to a ticket's attached branch in its connected
 repository. A PR created directly on GitHub can be discovered without creating
 it through ProjectProject. Forks with the same branch name are excluded.

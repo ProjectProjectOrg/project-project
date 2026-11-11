@@ -5,7 +5,9 @@ import { member, organization } from "@pp/db/schema"
 import { GitHubHost } from "@pp/integration-github/Host"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as GitHubTicketEvents from "@pp/server-core/github/GitHubTicketEvents"
+import { backfillRepositories } from "@pp/server-core/github/repositoryBackfill"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
+import * as TicketRewrites from "@pp/server-core/tickets/TicketRewrites"
 import {
   Forbidden,
   GitHubError,
@@ -27,6 +29,7 @@ export const GitHubHostLive = Layer.effect(
     const db = yield* Db
     const events = yield* GitHubTicketEvents.GitHubTicketEvents
     const secrets = yield* SecretCrypto.SecretCrypto
+    const rewrites = yield* TicketRewrites.TicketRewrites
     const decodeOrgRole = Schema.decodeUnknownEffect(OrgRole)
     const publicBaseUrl = Config.String("BETTER_AUTH_URL").pipe(
       Config.withDefault("http://localhost:5173")
@@ -124,6 +127,13 @@ export const GitHubHostLive = Layer.effect(
     return GitHubHost.of({
       publicBaseUrl: () => baseUrl,
       webhookUrl,
+      preserveInstallationRepositories: (integrationIds) =>
+        backfillRepositories(integrationIds).pipe(
+          Effect.provideService(Db, db),
+          Effect.provideService(TicketRewrites.TicketRewrites, rewrites),
+          Effect.orDie,
+          Effect.asVoid
+        ),
       seal: (plaintext) =>
         secrets.seal(plaintext).pipe(Effect.mapError(() => encryptionError)),
       open: (sealed) =>

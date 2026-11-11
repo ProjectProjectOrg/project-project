@@ -73,6 +73,7 @@ export type TicketMenuTicket = Pick<
   | "id"
   | "title"
   | "branch"
+  | "repoId"
   | "pr"
   | "status"
   | "priority"

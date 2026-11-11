@@ -22,7 +22,9 @@ export const ticketRepo = (
   detail: ProjectRepos,
   repoId: string | null | undefined
 ): GithubConnection | null =>
-  connectedRepos(detail).find((repo) => repo.repoId === repoId) ?? detail.github
+  repoId == null
+    ? detail.github
+    : (connectedRepos(detail).find((repo) => repo.repoId === repoId) ?? null)
 
 export const repoSlug = (
   repo: Readonly<{ repoOwner: string; repoName: string }>

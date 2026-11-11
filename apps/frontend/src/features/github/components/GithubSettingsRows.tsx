@@ -97,7 +97,7 @@ function RepoRow({
             <span className="truncate font-mono">{repoSlug(repo)}</span>
             <ExternalLink
               className="size-3 text-muted-foreground"
-              strokeWidth={1.75}
+
               aria-label={m.github_chip_open_on_github()}
             />
           </a>
@@ -146,13 +146,13 @@ function RepoRow({
                       repo: repoSlug(repo)
                     })}
                   >
-                    <MoreHorizontal className="size-4" strokeWidth={1.75} />
+                    <MoreHorizontal className="size-4" />
                   </Button>
                 }
               />
               <DropdownMenuContent align="end">
                 <ConfirmButton.MenuItem variant="destructive">
-                  <Unplug strokeWidth={1.75} />
+                  <Unplug />
                   {m.github_chip_disconnect_button()}
                 </ConfirmButton.MenuItem>
               </DropdownMenuContent>

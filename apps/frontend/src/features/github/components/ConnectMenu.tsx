@@ -127,7 +127,7 @@ function AccountList({
           <span className="min-w-0 flex-1 truncate text-foreground">
             {account.accountLogin}
           </span>
-          <span data-menu-meta className="text-[11px] text-muted-foreground">
+          <span data-menu-meta className="text-micro text-muted-foreground">
             {account.accountType === "Organization"
               ? m.org_integrations_github_account_type_org()
               : m.org_integrations_github_account_type_user()}
@@ -176,7 +176,7 @@ function SetupNote() {
             void install({ appId: onlyApp.id, returnProjectSlug: slug })
           }
         >
-          <GithubIcon strokeWidth={1.75} />
+          <GithubIcon />
           <span className={cn(waiting && "animate-pulse")}>
             {waiting
               ? m.github_chip_install_app_loading()
@@ -192,7 +192,7 @@ function SetupNote() {
             />
           }
         >
-          <Settings2 strokeWidth={1.75} />
+          <Settings2 />
           {m.github_chip_open_org_settings()}
         </DropdownMenuItem>
       )}

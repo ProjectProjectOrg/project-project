@@ -63,7 +63,7 @@ export class TicketRewrites extends Context.Service<
       orgSlug: string,
       slug: string,
       repoId: string
-    ) => Effect.Effect<void, Markdown.MarkdownError, ActivityActor>
+    ) => Effect.Effect<number, Markdown.MarkdownError, ActivityActor>
   }>
 >()("@pp/server-core/tickets/TicketRewrites") {}
 
@@ -390,30 +390,28 @@ const make = Effect.gen(function* () {
   const stampRepository = Effect.fn("TicketRewrites.stampRepository")(
     function* (orgSlug: string, slug: string, repoId: string) {
       const ids = yield* ticketDocs.listIds(orgSlug, slug)
-      yield* Effect.forEach(
-        ids,
-        (id) =>
-          rewrite(
-            orgSlug,
-            slug,
-            id,
-            (existing) =>
-              existing.branch === null || existing.repo !== undefined
-                ? null
-                : Effect.succeed({ ...existing, repo: repoId }),
-            { silent: true }
-          ).pipe(
-            Effect.catchTags({
-              NotFound: () => Effect.succeed(false),
-              MalformedTicketDocument: (error) =>
-                Effect.logWarning("Skipping unreadable ticket repository").pipe(
-                  Effect.annotateLogs({ orgSlug, slug, ticketId: id, error }),
-                  Effect.as(false)
-                )
-            })
-          ),
-        { discard: true }
+      const stamped = yield* Effect.forEach(ids, (id) =>
+        rewrite(
+          orgSlug,
+          slug,
+          id,
+          (existing) =>
+            existing.branch === null || existing.repo !== undefined
+              ? null
+              : Effect.succeed({ ...existing, repo: repoId }),
+          { silent: true }
+        ).pipe(
+          Effect.catchTags({
+            NotFound: () => Effect.succeed(false),
+            MalformedTicketDocument: (error) =>
+              Effect.logWarning("Skipping unreadable ticket repository").pipe(
+                Effect.annotateLogs({ orgSlug, slug, ticketId: id, error }),
+                Effect.as(false)
+              )
+          })
+        )
       )
+      return stamped.filter(Boolean).length
     }
   )
 

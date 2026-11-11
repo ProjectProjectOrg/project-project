@@ -67,7 +67,7 @@ export function GithubApps({
         ) : canManage ? (
           <AddGithubApp orgSlug={orgSlug} />
         ) : (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-caption text-muted-foreground">
             {m.github_apps_no_registrations()}
           </p>
         )}
@@ -170,7 +170,7 @@ function AppInstallations({
   return (
     <SettingsSection title={app.name}>
       {installations.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-caption text-muted-foreground">
           {m.github_apps_no_installations()}
         </p>
       ) : (
@@ -238,7 +238,7 @@ function ConnectGithubAccount({
         </DropdownMenu>
       )}
       {error ? (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-caption text-destructive">
           {error}
         </p>
       ) : null}

@@ -55,7 +55,7 @@ export function BaseBranchSubmenu(props: BaseBranchProps) {
           {m.git_branch_picker_base_label()}
         </span>
         <span data-menu-meta className={OPTION_VALUE}>
-          <GitBranch className="size-3.5" strokeWidth={1.75} />
+          <GitBranch className="size-3.5" />
           <MiddleTruncate value={value} className="font-mono" />
         </span>
       </DropdownMenuSubTrigger>
@@ -151,7 +151,7 @@ export function RepoSubmenu({
                 {index === 0 ? (
                   <span
                     data-menu-meta
-                    className="ml-auto text-[11px] text-muted-foreground"
+                    className="ml-auto text-micro text-muted-foreground"
                   >
                     {m.git_branch_default_pill()}
                   </span>
@@ -189,7 +189,6 @@ export function StatusSubmenu({
           <CurrentIcon
             className={cn("size-3.5", current.className)}
             style={current.color ? { color: current.color } : undefined}
-            strokeWidth={1.75}
           />
           <span className="truncate">{statusLabelFor(value, statuses)}</span>
         </span>
@@ -209,7 +208,6 @@ export function StatusSubmenu({
                   <Icon
                     className={meta.className}
                     style={meta.color ? { color: meta.color } : undefined}
-                    strokeWidth={1.75}
                   />
                   {statusLabelFor(key, statuses)}
                 </>

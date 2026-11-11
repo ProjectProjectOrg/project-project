@@ -713,67 +713,66 @@ const make = Effect.gen(function* () {
     }
   )
 
-  const disconnectInstallations = (integrationIds: ReadonlyArray<string>) =>
-    integrationIds.length === 0
-      ? Effect.void
-      : sql
-          .withTransaction(
-            Effect.gen(function* () {
-              const now = yield* DateTime.nowAsDate
-              yield* db
-                .update(organizationIntegration)
-                .set({
-                  status: "disconnected",
-                  disconnectedAt: now,
-                  updatedAt: now
-                })
-                .where(inArray(organizationIntegration.id, [...integrationIds]))
-                .pipe(Effect.orDie)
-              const links = yield* db
-                .update(projectIntegrationLink)
-                .set({
-                  status: "disconnected",
-                  disconnectedAt: now,
-                  updatedAt: now
-                })
-                .where(
-                  and(
-                    eq(projectIntegrationLink.provider, "github"),
-                    inArray(projectIntegrationLink.status, [
-                      "active",
-                      "broken"
-                    ]),
-                    inArray(projectIntegrationLink.organizationIntegrationId, [
-                      ...integrationIds
-                    ])
-                  )
-                )
-                .returning({ id: projectIntegrationLink.id })
-                .pipe(Effect.orDie)
-              yield* links.length === 0
-                ? Effect.void
-                : db
-                    .update(projectGithubRepository)
-                    .set({ status: "disconnected" })
-                    .where(
-                      inArray(
-                        projectGithubRepository.projectIntegrationLinkId,
-                        links.map((link) => link.id)
-                      )
-                    )
-                    .pipe(Effect.orDie)
-              yield* db
-                .delete(organizationGithubIntegration)
+  const disconnectInstallations = Effect.fn(
+    "GitHubIntegrations.disconnectInstallations"
+  )(function* (integrationIds: ReadonlyArray<string>) {
+    if (integrationIds.length === 0) return
+    yield* host.preserveInstallationRepositories(integrationIds)
+    yield* sql
+      .withTransaction(
+        Effect.gen(function* () {
+          const now = yield* DateTime.nowAsDate
+          yield* db
+            .update(organizationIntegration)
+            .set({
+              status: "disconnected",
+              disconnectedAt: now,
+              updatedAt: now
+            })
+            .where(inArray(organizationIntegration.id, [...integrationIds]))
+            .pipe(Effect.orDie)
+          const links = yield* db
+            .update(projectIntegrationLink)
+            .set({
+              status: "disconnected",
+              disconnectedAt: now,
+              updatedAt: now
+            })
+            .where(
+              and(
+                eq(projectIntegrationLink.provider, "github"),
+                inArray(projectIntegrationLink.status, ["active", "broken"]),
+                inArray(projectIntegrationLink.organizationIntegrationId, [
+                  ...integrationIds
+                ])
+              )
+            )
+            .returning({ id: projectIntegrationLink.id })
+            .pipe(Effect.orDie)
+          yield* links.length === 0
+            ? Effect.void
+            : db
+                .update(projectGithubRepository)
+                .set({ status: "disconnected" })
                 .where(
                   inArray(
-                    organizationGithubIntegration.organizationIntegrationId,
-                    [...integrationIds]
+                    projectGithubRepository.projectIntegrationLinkId,
+                    links.map((link) => link.id)
                   )
                 )
                 .pipe(Effect.orDie)
-            })
-          )
-          .pipe(Effect.catchTag("SqlError", Effect.die))
+          yield* db
+            .delete(organizationGithubIntegration)
+            .where(
+              inArray(organizationGithubIntegration.organizationIntegrationId, [
+                ...integrationIds
+              ])
+            )
+            .pipe(Effect.orDie)
+        })
+      )
+      .pipe(Effect.catchTag("SqlError", Effect.die))
+  })
 
   const removeInstallation = Effect.fn("GitHubIntegrations.removeInstallation")(
     function* (installationId: string) {

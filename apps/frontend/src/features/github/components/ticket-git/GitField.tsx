@@ -39,6 +39,7 @@ export function GitField({
   const { ticket, github, repoSlug, pulse, panelChrome } = frame
   const view = fieldView(state, repoSlug, github.defaultBaseBranch ?? "main")
   const Icon = view.icon
+  const hasPullRequest = "number" in state
   return (
     <div className={cn(panelChrome, "flex min-w-0 flex-col gap-0.5")}>
       <BranchMenu
@@ -76,7 +77,8 @@ export function GitField({
       <div
         aria-live="polite"
         className={cn(
-          "flex min-w-0 items-center gap-1.5 pl-2.5 text-micro text-muted-foreground",
+          "flex min-w-0 items-center gap-1.5 text-micro text-muted-foreground",
+          hasPullRequest ? "pl-1" : "pl-2.5",
           pulse
         )}
       >

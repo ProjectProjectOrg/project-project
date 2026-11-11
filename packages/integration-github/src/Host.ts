@@ -41,6 +41,9 @@ export class GitHubHost extends Context.Service<
     ) => Effect.Effect<string, NotFound | GitHubError>
     publicBaseUrl: () => Effect.Effect<string, GitHubError>
     webhookUrl: () => Effect.Effect<string, GitHubError>
+    preserveInstallationRepositories: (
+      integrationIds: ReadonlyArray<string>
+    ) => Effect.Effect<void>
     seal: (plaintext: string) => Effect.Effect<SealedSecret, GitHubError>
     open: (sealed: SealedSecret) => Effect.Effect<string, GitHubError>
     pullRequestChanged: (

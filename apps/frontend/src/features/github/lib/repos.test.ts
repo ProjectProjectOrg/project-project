@@ -38,8 +38,8 @@ describe("ticketRepo", () => {
     expect(ticketRepo(both, undefined)).toBe(app)
   })
 
-  it("falls back to the default repo when the ticket's repo is gone", () => {
-    expect(ticketRepo(both, "removed")).toBe(app)
+  it("does not redirect a disconnected repository to the default", () => {
+    expect(ticketRepo(both, "removed")).toBeNull()
   })
 
   it("is null when the project has no repo", () => {

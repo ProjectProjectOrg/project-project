@@ -258,7 +258,7 @@ export function StackedBranches({
           className="inline-flex items-center gap-1 text-micro text-muted-foreground"
           title={m.git_stack_count_title(count)}
         >
-          <Layers className="size-3" strokeWidth={1.75} aria-hidden />
+          <Layers className="size-3" aria-hidden />
           {m.git_stack_count(count)}
         </span>
       </section>
@@ -342,7 +342,7 @@ function StackLayerRow({
       <span title={label} className="mt-0.5">
         <Icon
           className={cn("size-3.5 shrink-0", className)}
-          strokeWidth={1.75}
+
           aria-hidden
         />
         <span className="sr-only">{label}</span>

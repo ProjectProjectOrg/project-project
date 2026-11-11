@@ -75,7 +75,7 @@ export function BranchMenu({
                   size="square-7"
                   aria-label={m.git_stack_branch_menu_label({ branch })}
                 >
-                  <MoreHorizontal className="size-4" strokeWidth={1.75} />
+                  <MoreHorizontal className="size-4" />
                 </Button>
               )
             }
@@ -90,23 +90,23 @@ export function BranchMenu({
             <DropdownMenuItem
               render={<a href={openPr.href} target="_blank" rel="noreferrer" />}
             >
-              <GitPullRequestCreateArrow strokeWidth={1.75} />
+              <GitPullRequestCreateArrow />
               {openPr.label}
             </DropdownMenuItem>
           )}
           <DropdownMenuItem render={<a {...link} />}>
-            <ArrowUpRight strokeWidth={1.75} />
+            <ArrowUpRight />
             {m.git_open_branch_item()}
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => void navigator.clipboard.writeText(branch)}
           >
-            <Copy strokeWidth={1.75} />
+            <Copy />
             {m.git_copy_branch_name_label()}
           </DropdownMenuItem>
           {canStackBranch && (
             <DropdownMenuItem onClick={() => setStacking(true)}>
-              <Layers strokeWidth={1.75} />
+              <Layers />
               {m.git_stack_add_button()}
             </DropdownMenuItem>
           )}
@@ -116,12 +116,12 @@ export function BranchMenu({
               disabled={removal.busy}
               onClick={removal.onRemove}
             >
-              <X strokeWidth={1.75} />
+              <X />
               {m.git_stack_remove_item()}
             </DropdownMenuItem>
           ) : canClear ? (
             <ConfirmButton.MenuItem variant="destructive">
-              <Unlink strokeWidth={1.75} />
+              <Unlink />
               {m.git_branch_remove_item()}
             </ConfirmButton.MenuItem>
           ) : null}

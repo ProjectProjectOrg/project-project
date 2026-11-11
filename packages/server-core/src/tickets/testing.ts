@@ -448,7 +448,12 @@ export const entryFromDocument = (
   parentOf: (id: string) => TicketDocs.TicketDocument | undefined = () =>
     undefined
 ) => {
-  const { body: _body, commentsRegion: _commentsRegion, repo, ...entry } = document
+  const {
+    body: _body,
+    commentsRegion: _commentsRegion,
+    repo,
+    ...entry
+  } = document
   const parent = entry.parent === undefined ? undefined : parentOf(entry.parent)
   return {
     ...entry,

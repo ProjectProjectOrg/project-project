@@ -90,7 +90,7 @@ function ConnectedGitChip({
         className={cn(pulse)}
         title={m.git_stale_branch_title({ name: state.name })}
       >
-        <AlertTriangle strokeWidth={1.75} />
+        <AlertTriangle />
         {m.git_stale_branch_pill()}
       </Badge>
     )
@@ -251,7 +251,7 @@ function StackChip({
       size="xs"
       title={m.git_stack_count_title(count)}
     >
-      <Layers strokeWidth={1.75} />
+      <Layers />
       {m.git_stack_count(count)}
       {worst && (
         <Circle

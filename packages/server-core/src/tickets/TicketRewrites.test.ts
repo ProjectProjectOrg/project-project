@@ -137,13 +137,28 @@ describe("stamping a project's tickets with their repository", () => {
           makeTicketDocument("T-2", { branch: "feat/T-2", repo: "repo-2" })
         )
 
-        yield* Effect.flatMap(TicketRewrites.TicketRewrites, (rewrites) =>
-          rewrites.stampRepository("org", "p", "repo-1")
+        const counts = yield* Effect.flatMap(
+          TicketRewrites.TicketRewrites,
+          (rewrites) =>
+            Effect.gen(function* () {
+              const first = yield* rewrites.stampRepository(
+                "org",
+                "p",
+                "repo-1"
+              )
+              const second = yield* rewrites.stampRepository(
+                "org",
+                "p",
+                "repo-2"
+              )
+              return [first, second]
+            })
         ).pipe(
           Effect.provideService(ActivityActor, ActivityActor.user("user-pm")),
           Effect.provide(layer)
         )
 
+        expect(counts).toEqual([1, 0])
         expect(documents.get("T-1")).toMatchObject({
           repo: "repo-1",
           updatedAt: before

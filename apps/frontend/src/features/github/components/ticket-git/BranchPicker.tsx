@@ -211,7 +211,7 @@ function BranchPickerList({
               label={m.git_branch_picker_connect_github()}
               render={<Link to="/profile/connections" />}
             >
-              <Plus strokeWidth={1.75} />
+              <Plus />
               {m.git_branch_picker_connect_github()}
             </DropdownMenuItem>
           ) : null}
@@ -231,7 +231,7 @@ function BranchPickerList({
                 label={entry.branch.name}
                 onClick={() => void connect(entry.branch.name)}
               >
-                <GitBranch strokeWidth={1.75} />
+                <GitBranch />
                 <MiddleTruncate
                   value={entry.branch.name}
                   className="flex-1 font-mono text-foreground"

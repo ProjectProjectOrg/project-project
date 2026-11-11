@@ -85,7 +85,7 @@ export function GithubChip({
             key={repo.repoId}
             render={
               <a href={repoUrl(repo)} target="_blank" rel="noreferrer">
-                <ExternalLink strokeWidth={1.75} />
+                <ExternalLink />
                 {more > 0 ? (
                   <RepoName owner={repo.repoOwner} name={repo.repoName} />
                 ) : (
@@ -102,7 +102,7 @@ export function GithubChip({
                 to="/orgs/$orgSlug/projects/$slug/settings/integrations"
                 params={{ orgSlug, slug }}
               >
-                <Settings2 strokeWidth={1.75} />
+                <Settings2 />
                 {m.github_chip_repository_settings()}
               </Link>
             }

@@ -35,6 +35,7 @@ import { annotateProjectTelemetry } from "../projects/projectTelemetry"
 import { uniqueConstraint } from "../projects/uniqueConstraint"
 import * as TicketRewrites from "../tickets/TicketRewrites"
 import * as GitHub from "./GitHub"
+import { legacyRepositoryForProject } from "./repositoryBackfill"
 
 export type ProjectGithubIntegration = Readonly<{
   projectIntegrationLinkId: string
@@ -113,7 +114,7 @@ export class ProjectGithub extends Context.Service<
     ) => Effect.Effect<
       ProjectDetail,
       NotFound | Markdown.MarkdownError,
-      ProjectScope
+      ProjectScope | ActivityActor
     >
   }>
 >()("@pp/server-core/github/ProjectGithub") {}
@@ -333,7 +334,9 @@ const make = Effect.gen(function* () {
           return yield* new RepoGone()
         }
 
-        const defaultRepo = integrationForRepo(connected, null)
+        const defaultRepo = yield* legacyRepositoryForProject(indexRow.id).pipe(
+          Effect.provideService(Db, db)
+        )
         if (defaultRepo) {
           yield* rewrites.stampRepository(orgSlug, slug, defaultRepo.repoId)
         }
@@ -406,6 +409,14 @@ const make = Effect.gen(function* () {
           (integration) => integration.repoId === repoId
         )
         if (!current) return yield* new NotFound()
+        if (current.isDefault) {
+          const legacy = yield* legacyRepositoryForProject(indexRow.id).pipe(
+            Effect.provideService(Db, db)
+          )
+          if (legacy) {
+            yield* rewrites.stampRepository(orgSlug, slug, legacy.repoId)
+          }
+        }
         yield* disconnectLink(
           current.projectIntegrationLinkId,
           yield* DateTime.nowAsDate

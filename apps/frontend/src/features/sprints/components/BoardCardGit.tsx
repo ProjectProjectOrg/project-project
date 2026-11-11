@@ -19,6 +19,7 @@ import { pendingLabel } from "@/features/github/components/ticket-git/GitField"
 import { ownLayer } from "@/features/github/components/ticket-git/TicketStack"
 import { useTicketGit } from "@/features/github/hooks/useTicketGit"
 import { withoutTicketId } from "@/features/github/lib/branchPicker"
+import { ticketRepo } from "@/features/github/lib/repos"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { formatRelative } from "@/lib/relativeTime"
@@ -49,14 +50,20 @@ export function BoardCardGit({
 }: Readonly<{
   ticket: Pick<
     Ticket,
-    "id" | "gitState" | "type" | "title" | "status" | "lastTransitionedPr"
+    | "id"
+    | "gitState"
+    | "type"
+    | "title"
+    | "status"
+    | "lastTransitionedPr"
+    | "repoId"
   >
   chipClassName: string
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const projectResult = useAtomValue(project(projectRequest(orgSlug, slug)))
   const github = Result.isSuccess(projectResult)
-    ? projectResult.value.github
+    ? ticketRepo(projectResult.value, ticket.repoId)
     : null
   if (!github) return null
   return (

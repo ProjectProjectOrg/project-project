@@ -288,6 +288,42 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
     })
   )
 
+  it.effect(
+    "preserves a legacy ticket's broken repository before connecting another",
+    () =>
+      Effect.gen(function* () {
+        ticketDocs.documents.set(
+          "GH-9",
+          makeTicketDocument("GH-9", { branch: "feat/GH-9" })
+        )
+        yield* Effect.promise(async () => {
+          await pool.query(
+            "UPDATE project_integration_link SET status='broken' WHERE project_id=$1 AND id IN (SELECT project_integration_link_id FROM project_github_repository WHERE repo_id='app-repo')",
+            [projectId]
+          )
+          await pool.query(
+            "UPDATE project_github_repository SET status='broken' WHERE organization_id=$1 AND repo_id='app-repo'",
+            [organizationId]
+          )
+        })
+        yield* run((github) => github.connect(repo("temporary")))
+        expect(ticketDocs.documents.get("GH-9")?.repo).toBe("app-repo")
+      }).pipe(
+        Effect.ensuring(
+          Effect.promise(async () => {
+            await pool.query(
+              "UPDATE project_integration_link SET status=CASE WHEN id IN (SELECT project_integration_link_id FROM project_github_repository WHERE repo_id='app-repo') THEN 'active' ELSE 'disconnected' END WHERE project_id=$1 AND id IN (SELECT project_integration_link_id FROM project_github_repository WHERE repo_id IN ('app-repo','temporary-repo'))",
+              [projectId]
+            )
+            await pool.query(
+              "UPDATE project_github_repository SET status=CASE WHEN repo_id='app-repo' THEN 'active' ELSE 'disconnected' END WHERE organization_id=$1 AND repo_id IN ('app-repo','temporary-repo')",
+              [organizationId]
+            )
+          })
+        )
+      )
+  )
+
   it.effect("disconnects one repository and leaves the other connected", () =>
     Effect.gen(function* () {
       const missing = yield* Effect.flip(
@@ -309,11 +345,25 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
 
   it.effect("disconnects and clears the project file's repository", () =>
     Effect.gen(function* () {
+      ticketDocs.documents.set(
+        "GH-3",
+        makeTicketDocument("GH-3", { branch: "feat/GH-3" })
+      )
       writtenConnections.length = 0
       const detail = yield* run((github) => github.disconnect("api-repo"))
       expect(detail.github).toBeNull()
       expect(writtenConnections).toEqual([null])
       expect(yield* run((github) => github.integration())).toBeNull()
+      yield* run((github) => github.connect(repo("replacement")))
+      expect(ticketDocs.documents.get("GH-3")?.repo).toBe("api-repo")
+      const indexed = yield* Effect.promise(() =>
+        pool.query(
+          "SELECT repo_id FROM ticket_index WHERE project_id=$1 AND ticket_id='GH-3'",
+          [projectId]
+        )
+      )
+      expect(indexed.rows).toEqual([{ repo_id: "api-repo" }])
+      yield* run((github) => github.disconnect("replacement-repo"))
     })
   )
 

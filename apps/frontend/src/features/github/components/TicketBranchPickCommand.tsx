@@ -1,5 +1,7 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
+import type { GithubConnection } from "@pp/shared"
 import { useDebouncedValue } from "@tanstack/react-pacer"
+import * as Result from "effect/reactivity/AsyncResult"
 import { GitBranch } from "lucide-react"
 import { useContext, useState } from "react"
 
@@ -11,24 +13,76 @@ import {
   branchesRequest,
   stackBranch
 } from "@/features/github/atoms/github"
+import { TicketRepositoryCommand } from "@/features/github/components/TicketRepositoryCommand"
+import {
+  connectedRepos,
+  repoSlug,
+  ticketRepo
+} from "@/features/github/lib/repos"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import type { TicketPageProps } from "@/features/tickets/components/command-pages/TicketFieldCommands"
 import { useSettledValue } from "@/hooks/useSettledValue"
 import { m } from "@/paraglide/messages"
 
-export function TicketBranchPickCommand({
+type BranchPickProps = TicketPageProps & Readonly<{ mode: "link" | "stack" }>
+
+export function TicketBranchPickCommand(props: BranchPickProps) {
+  const [repoId, setRepoId] = useState<string | null>(null)
+  const project = props.context.project
+  if (
+    project === null ||
+    props.context.projectActor?.call(
+      "tickets",
+      props.mode === "link" ? "attachBranch" : "stackBranch"
+    ) !== true
+  )
+    return null
+  const repos = connectedRepos(project)
+  const github =
+    props.mode === "stack"
+      ? ticketRepo(project, props.context.ticketDetail?.repoId)
+      : repos.length === 1
+        ? repos[0]
+        : repos.find((repo) => repo.repoId === repoId)
+  if (github == null)
+    return (
+      <TicketRepositoryCommand
+        repos={repos}
+        chip={props.chip}
+        onBack={props.onBack}
+        onPick={setRepoId}
+      />
+    )
+  return (
+    <PickBranch
+      key={github.repoId}
+      {...props}
+      github={github}
+      onBack={
+        props.mode === "link" && repos.length > 1
+          ? () => setRepoId(null)
+          : props.onBack
+      }
+    />
+  )
+}
+
+function PickBranch({
   ticket,
   mode,
   context,
   chip,
   onBack,
-  env
-}: TicketPageProps & Readonly<{ mode: "link" | "stack" }>) {
+  env,
+  github
+}: BranchPickProps & Readonly<{ github: GithubConnection }>) {
   const registry = useContext(RegistryContext)
   const [query, setQuery] = useState("")
   const [debounced] = useDebouncedValue(query, { wait: 150 })
   const result = useAtomValue(
-    branches(branchesRequest(ticket.orgSlug, ticket.slug, debounced))
+    branches(
+      branchesRequest(ticket.orgSlug, ticket.slug, debounced, github.repoId)
+    )
   )
   const current = context.ticketDetail?.branch ?? null
   const items =
@@ -45,6 +99,16 @@ export function TicketBranchPickCommand({
           : m.tickets_command_stack_branch_placeholder()
       }
       onBack={onBack}
+      description={m.github_command_branch_repository({
+        repo: repoSlug(github)
+      })}
+      notice={
+        Result.isFailure(result)
+          ? m.git_load_branches_error()
+          : Result.isInitial(result)
+            ? m.git_branches_loading()
+            : null
+      }
       filter={false}
       onSearchChange={setQuery}
       items={items.map((branch) => ({
@@ -60,7 +124,9 @@ export function TicketBranchPickCommand({
         void fireMutation(
           registry,
           mode === "link" ? attachBranch(request) : stackBranch(request),
-          { name: item.value }
+          mode === "link"
+            ? { name: item.value, repoId: github.repoId }
+            : { name: item.value }
         )
         env.close()
       }}

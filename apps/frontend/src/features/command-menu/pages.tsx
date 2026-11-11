@@ -1,5 +1,9 @@
 import type { ComponentType } from "react"
 
+import {
+  GithubRegisterAppCommand,
+  GithubInstallAppCommand
+} from "@/features/github/components/GithubSetupCommands"
 import { TicketBranchCommand } from "@/features/github/components/TicketBranchCommand"
 import { TicketBranchPickCommand } from "@/features/github/components/TicketBranchPickCommand"
 import { SwitchOrgCommands } from "@/features/organizations/components/SwitchOrgCommands"
@@ -138,6 +142,8 @@ export const COMMAND_PAGES: Readonly<
   ticketRemoveRelation: ticketPage(TicketRemoveRelationPage),
   ticketArchive: ticketPage(TicketArchivePage),
   ticketDelete: ticketPage(TicketDeletePage),
+  githubRegisterApp: GithubRegisterAppCommand,
+  githubInstallApp: GithubInstallAppCommand,
   ticketBranch: ticketPage(TicketBranchCommand),
   ticketLinkBranch: ticketPage((props) => (
     <TicketBranchPickCommand {...props} mode="link" />

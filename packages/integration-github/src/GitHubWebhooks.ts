@@ -796,6 +796,9 @@ const make = Effect.gen(function* () {
         )
         return
       }
+      if (status !== "active") {
+        yield* host.preserveInstallationRepositories([row.integrationId])
+      }
       const now = yield* DateTime.nowAsDate
       const lastCheckStatus = status === "broken" ? "error" : "ok"
       yield* sql
@@ -861,6 +864,7 @@ const make = Effect.gen(function* () {
         )
         return
       }
+      yield* host.preserveInstallationRepositories([row.integrationId])
       const now = yield* DateTime.nowAsDate
       yield* sql
         .withTransaction(
@@ -987,6 +991,9 @@ const make = Effect.gen(function* () {
       )
       return
     }
+    if (status !== "active") {
+      yield* host.preserveInstallationRepositories([row.integrationId])
+    }
     const now = yield* DateTime.nowAsDate
     const lastCheckStatus = status === "broken" ? "error" : "ok"
     yield* sql
@@ -1056,6 +1063,9 @@ const make = Effect.gen(function* () {
     _deliveryId: string | null
   ) {
     const row = yield* installationRow(change.installationId)
+    if (row) {
+      yield* host.preserveInstallationRepositories([row.integrationId])
+    }
     const now = yield* DateTime.nowAsDate
     yield* sql
       .withTransaction(
