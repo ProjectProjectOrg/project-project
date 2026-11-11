@@ -451,6 +451,9 @@ export function SlashMenuList({
         }
         className={cn(
           "fixed top-0 left-0 z-50 flex w-[28rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-border/60 bg-card text-foreground shadow-[0_4px_12px_rgba(0,0,0,0.02)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]",
+          "data-[slash-menu-side=above]:slide-in-from-bottom-2 data-[slash-menu-side=below]:slide-in-from-top-2",
+          layout !== null &&
+            "animate-in duration-150 ease-out fade-in-0 motion-reduce:animate-none",
           !hasTabs && "[&_.scroll-divider]:border-t-0"
         )}
       >
