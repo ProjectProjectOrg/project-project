@@ -190,7 +190,7 @@ function RelationEntry({
             title: linked.title
           })}
           onClick={unlink}
-          className="absolute right-1 size-6 opacity-0 transition-opacity group-hover/reveal:opacity-100 focus-visible:opacity-100"
+          className="absolute right-1 size-6 opacity-0 transition-opacity group-hover/reveal:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
         >
           <X className="size-3.5" strokeWidth={1.75} />
         </Button>
