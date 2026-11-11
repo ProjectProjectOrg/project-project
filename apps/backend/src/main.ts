@@ -91,7 +91,7 @@ import { TicketActivityHandlerLive } from "./activity/Handlers"
 import { AttachmentsHandlerLive } from "./attachments/Handlers"
 import { attachmentRoutes } from "./attachments/Routes"
 import { attachmentUploadRoute } from "./attachments/UploadRoutes"
-import { AuthHandlerLive } from "./auth/Handlers"
+import { AuthHandlerLive, PublicAuthHandlerLive } from "./auth/Handlers"
 import { isClosedAuthPath } from "./auth/orgAccess"
 import { CliInstallRouteLive } from "./cli/InstallRoutes"
 import { CommentsHandlerLive } from "./comments/Handlers"
@@ -195,7 +195,7 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(GroupsHandlerLive),
   Layer.provide(LibraryHandlerLive),
   Layer.provide(OAuthApplicationsHandlerLive),
-  Layer.provide(PublicOAuthHandlerLive),
+  Layer.provide(Layer.mergeAll(PublicOAuthHandlerLive, PublicAuthHandlerLive)),
   Layer.provide(
     Layer.mergeAll(
       StorageHandlerLive,

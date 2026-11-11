@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react"
 import { Logo, Wordmark } from "@/components/shell/Logo"
 import { Button } from "@/components/ui/button"
 import { Dither, type TimeWarpZone } from "@/components/ui/dither"
-import { me } from "@/features/auth/atoms/auth"
+import { me, signInProviders } from "@/features/auth/atoms/auth"
 import { MagicLinkForm } from "@/features/auth/forms/magic-link"
 import { safeInternalPath } from "@/features/auth/lib/safeRedirect"
 import {
@@ -30,6 +30,10 @@ const DITHER_TIME_WARP_ZONES: TimeWarpZone[] = [
 
 export function LoginPage() {
   const viewer = useAtomValue(me())
+  const providersResult = useAtomValue(signInProviders)
+  const providers = Result.isSuccess(providersResult)
+    ? providersResult.value.providers
+    : []
   const { redirect } = routeApi.useSearch()
   const signedOauthQuery =
     typeof window === "undefined"
@@ -119,35 +123,41 @@ export function LoginPage() {
             onSubmitStart={() => setProviderError(null)}
           />
 
-          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-            <div className="h-px flex-1 bg-border" />
-            <span>{m.auth_provider_divider()}</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
+          {providers.length > 0 && (
+            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+              <div className="h-px flex-1 bg-border" />
+              <span>{m.auth_provider_divider()}</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+          )}
 
-          <Button
-            variant="tertiary"
-            onClick={() =>
-              handleSocialSignIn("google", m.auth_google_sign_in_error)
-            }
-            leadingIcon={GoogleMark}
-            size="lg"
-            className="w-full"
-          >
-            {m.auth_continue_with_google_button()}
-          </Button>
+          {providers.includes("google") && (
+            <Button
+              variant="tertiary"
+              onClick={() =>
+                handleSocialSignIn("google", m.auth_google_sign_in_error)
+              }
+              leadingIcon={GoogleMark}
+              size="lg"
+              className="w-full"
+            >
+              {m.auth_continue_with_google_button()}
+            </Button>
+          )}
 
-          <Button
-            variant="tertiary"
-            onClick={() =>
-              handleSocialSignIn("microsoft", m.auth_microsoft_sign_in_error)
-            }
-            leadingIcon={MicrosoftMark}
-            size="lg"
-            className="w-full"
-          >
-            {m.auth_continue_with_microsoft_button()}
-          </Button>
+          {providers.includes("microsoft") && (
+            <Button
+              variant="tertiary"
+              onClick={() =>
+                handleSocialSignIn("microsoft", m.auth_microsoft_sign_in_error)
+              }
+              leadingIcon={MicrosoftMark}
+              size="lg"
+              className="w-full"
+            >
+              {m.auth_continue_with_microsoft_button()}
+            </Button>
+          )}
         </div>
 
         <p className="px-8 pb-8 text-center text-[11px] leading-relaxed text-muted-foreground">

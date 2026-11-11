@@ -29,6 +29,7 @@ import { fetchClientMetadataResource } from "./cimdTransport"
 import { legacyMcpResources } from "./legacyMcpResources"
 import { orgAccessControl, orgRoles, requireSingleOrgRole } from "./orgAccess"
 import { protectedResourceMetadata } from "./protectedResourceMetadata"
+import { isSignInProviderConfigured } from "./signInProviders"
 
 const db = drizzle(process.env.DATABASE_URL!, { relations: schema.relations })
 
@@ -311,10 +312,12 @@ export const auth = betterAuth({
       disableSignUp: true
     },
     google: {
+      enabled: isSignInProviderConfigured("google"),
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET
     },
     microsoft: {
+      enabled: isSignInProviderConfigured("microsoft"),
       clientId: process.env.MICROSOFT_CLIENT_ID!,
       clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
       tenantId: process.env.MICROSOFT_TENANT_ID ?? "common",
