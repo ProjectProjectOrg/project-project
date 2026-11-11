@@ -1,6 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 
 import { AsyncView, type AsyncFailure } from "@/components/shell/AsyncView"
+import { ReadFailure } from "@/components/shell/ReadFailure"
 import { Button } from "@/components/ui/button"
 import { jiraProfile, jiraSites } from "@/features/jira/atoms/jiraMigration"
 import { JiraSourceForm } from "@/features/jira/forms/jira-source"
@@ -9,7 +10,6 @@ import { m } from "@/paraglide/messages"
 
 import { ImportPoints } from "./ImportPoints"
 import { JiraImportShell } from "./JiraImportShell"
-import { ReadFailure } from "./ReadFailure"
 import { StepFrame } from "./StepFrame"
 import { StepSkeleton } from "./StepSkeleton"
 

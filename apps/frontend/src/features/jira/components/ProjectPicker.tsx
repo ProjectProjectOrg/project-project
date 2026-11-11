@@ -4,6 +4,7 @@ import { Check } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
+import { ReadFailure } from "@/components/shell/ReadFailure"
 import {
   CommandMenu,
   CommandMenuEmpty,
@@ -19,8 +20,6 @@ import {
 import { filterJiraProjects } from "@/features/jira/lib/source"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-
-import { ReadFailure } from "./ReadFailure"
 
 export const pickerHeightClass = "h-[296px]"
 const pickerMaxHeightClass = "max-h-[296px]"
