@@ -91,6 +91,11 @@ const LIST_BLOCKS: ReadonlySet<SlashBasicKind> = new Set(
 
 const DRAG_DISTANCE = 4
 
+const STARTS_WITH_HOSTNAME = /^[a-z\d-]+(\.[a-z\d-]+)+(:\d+)?([/?#]|$)/i
+
+const withHttps = (url: string) =>
+  STARTS_WITH_HOSTNAME.test(url) && !/\s/.test(url) ? `https://${url}` : url
+
 type ToolbarAlign = "start" | "center"
 
 type SelectionAnchor = Readonly<{ rect: DOMRect; align: ToolbarAlign }>
@@ -382,7 +387,7 @@ export function FormattingToolbarPlugin() {
     if (linking === null) return
     editor.update(() => {
       $setSelection(linking.selection.clone())
-      if (url !== null) $toggleLink(url)
+      if (url !== null) $toggleLink(withHttps(url))
     })
     setLinking(null)
     editor.focus()
