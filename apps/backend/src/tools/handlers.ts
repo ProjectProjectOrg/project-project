@@ -1,3 +1,4 @@
+import * as TicketActivityFeed from "@pp/server-core/activity/TicketActivityFeed"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as Comments from "@pp/server-core/comments/Comments"
@@ -219,6 +220,24 @@ const list_tickets = (
       nextCursor: page.nextCursor
     }
   })
+
+const search_tickets = (
+  input: typeof Tools.tools.search_tickets.parametersSchema.Type
+) =>
+  Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+    queries.textSearch(input)
+  )
+
+const list_comments = (
+  input: typeof Tools.tools.list_comments.parametersSchema.Type
+) => Effect.flatMap(Comments.Comments, (comments) => comments.list(input.id))
+
+const list_ticket_activity = (
+  input: typeof Tools.tools.list_ticket_activity.parametersSchema.Type
+) =>
+  Effect.flatMap(TicketActivityFeed.TicketActivityFeed, (feed) =>
+    feed.list(input.id, input.cursor)
+  )
 
 const get_ticket = (input: {
   orgSlug: string
@@ -688,6 +707,12 @@ export const ToolHandlersLive = Tools.toLayer(
       list_sprints: run.project({ ticket: ["read"] }, list_sprints),
       get_group: run.project({ ticket: ["read"] }, get_group),
       list_tickets: run.project({ ticket: ["read"] }, list_tickets),
+      search_tickets: run.project({ ticket: ["read"] }, search_tickets),
+      list_comments: run.project({ ticket: ["read"] }, list_comments),
+      list_ticket_activity: run.project(
+        { ticket: ["read"] },
+        list_ticket_activity
+      ),
       get_ticket: run.project({ ticket: ["read"] }, get_ticket),
       list_statuses: run.project({ ticket: ["read"] }, list_statuses),
       list_tags: run.project({ ticket: ["read"] }, list_tags),

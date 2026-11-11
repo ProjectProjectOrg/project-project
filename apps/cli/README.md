@@ -89,11 +89,16 @@ Every tool has a command, generated from the same catalog as the MCP server:
 
 ```sh
 pp tickets list --status todo --assignee mine
+pp tickets search "upload retry" --limit 10
 pp tickets get T-80
+pp tickets comments T-80
+pp tickets activity T-80 --all
 pp tickets update T-80 --status in_progress
 pp tickets comment T-80 --body @notes.md
 pp tickets attach T-130 ./screenshot.png
 ```
+
+`pp tickets search` searches unarchived ticket titles, descriptions and comments and returns ranked matches with snippets. It returns up to 20 results by default (`--limit` accepts 1 to 50), without pagination. `pp tickets list --q` searches titles and ticket IDs only and supports structured filters. `pp tickets comments` reads the full discussion; `pp tickets activity` reads changes, newest first, and supports `--cursor` and `--all`.
 
 - Flags that take several values are repeated: `--status todo --status in_progress`. Yes/no flags turn off with `--no-`, as in `--no-has-branch`.
 - `pp tickets list --sort updated` sorts by a key in its natural direction; add `:asc` or `:desc` to choose.

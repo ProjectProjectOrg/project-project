@@ -1,4 +1,5 @@
 import * as Access from "@pp/server-core/access/Access"
+import * as TicketActivityFeed from "@pp/server-core/activity/TicketActivityFeed"
 import * as AttachmentUploads from "@pp/server-core/attachments/AttachmentUploads"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as Comments from "@pp/server-core/comments/Comments"
@@ -21,6 +22,7 @@ import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 
 export const toolDependencies = [
   Access.Access,
+  TicketActivityFeed.TicketActivityFeed,
   AttachmentUploads.AttachmentUploads,
   BetterAuth.BetterAuth,
   Comments.Comments,
