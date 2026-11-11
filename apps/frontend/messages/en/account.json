@@ -27,7 +27,7 @@
   "auth_invites_accept_all_button": "Accept all",
   "auth_invites_accept_all_error": "Couldn't accept the invitations. Try again or sign out.",
   "auth_invites_accept_button": "Accept",
-  "auth_invites_accept_error_email_verification_required": "Verify your email before accepting this invite.",
+  "auth_invites_accept_error_email_verification_required": "Your email isn't verified yet. Sign out, then sign in with a magic link sent to this email to accept the invite.",
   "auth_invites_accept_error_expired": "This invite has expired.",
   "auth_invites_accept_error_membership_limit_reached": "This organization has reached its member limit.",
   "auth_invites_accept_error_not_found": "This invite is no longer available.",
