@@ -2,9 +2,11 @@ import { RegistryContext, useAtom, useAtomValue } from "@effect/atom-react"
 import { ProjectPolicy } from "@pp/access/policies"
 import {
   canHoldChildren,
+  type Group,
   type ProjectActor,
   type ProjectDetail,
-  type TicketDetail
+  type TicketDetail,
+  type TicketId
 } from "@pp/shared"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -13,6 +15,7 @@ import { useContext, useEffect, useState } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
 import { CommandMenuDialog } from "@/components/ui/command-menu"
+import { Freeze } from "@/components/ui/freeze"
 import { currentUserId } from "@/features/auth/atoms/auth"
 import { feedbackStatus } from "@/features/feedback/atoms/feedback"
 import { useIntegrationCommands } from "@/features/integrations/hooks/useIntegrationCommands"
@@ -21,6 +24,10 @@ import {
   projectActor,
   projectRequest
 } from "@/features/projects/atoms/projects"
+import {
+  sprintListRequest,
+  sprintMembership
+} from "@/features/sprints/atoms/sprintList"
 import {
   ticketDetail,
   ticketRequest
@@ -89,13 +96,15 @@ export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
         pulseKey={`${state.ticket?.ticketId ?? ""}:${state.pages.join("/")}`}
       >
         {shown.open && (
-          <CommandMenuPage
-            key={`${shown.ticket?.ticketId ?? ""}:${shown.pages.join("/")}`}
-            orgSlug={orgSlug}
-            state={shown}
-            scopes={shownScopes}
-            onChange={setState}
-          />
+          <Freeze frozen={!state.open}>
+            <CommandMenuPage
+              key={`${shown.ticket?.ticketId ?? ""}:${shown.pages.join("/")}`}
+              orgSlug={orgSlug}
+              state={shown}
+              scopes={shownScopes}
+              onChange={setState}
+            />
+          </Freeze>
         )}
       </CommandMenuDialog>
       {!state.open && <CommandMenuPrewarm orgSlug={orgSlug} scopes={scopes} />}
@@ -198,6 +207,21 @@ function useTicketDetail(ticket: TicketContext | null): TicketDetail | null {
   return AsyncResult.isSuccess(result) ? result.value : null
 }
 
+const noSprintMembership: Atom.Atom<
+  AsyncResult.AsyncResult<ReadonlyMap<TicketId, Group>, unknown>
+> = Atom.make(AsyncResult.initial())
+
+function useTicketSprint(ticket: TicketContext | null): Group | null {
+  const result = useAtomValue(
+    ticket === null
+      ? noSprintMembership
+      : sprintMembership(sprintListRequest(ticket.orgSlug, ticket.slug))
+  )
+  return ticket !== null && AsyncResult.isSuccess(result)
+    ? (result.value.get(ticket.ticketId) ?? null)
+    : null
+}
+
 function useCommandEnv(
   state: CommandMenuState,
   onChange: (state: CommandMenuState) => void
@@ -238,6 +262,7 @@ function CommandMenuPage({
     projectSlug,
     ticket,
     ticketDetail: detail,
+    ticketSprint: useTicketSprint(ticket),
     canHoldChildren: detail !== null && canHoldChildren(detail, detail.parent),
     sprint: scopeSprint(scopes),
     view: scopeView(scopes),

@@ -96,7 +96,11 @@ export const relationCommands: ReadonlyArray<Command> = [
     id: "ticket.detach",
     group: "ticketRelations",
     label: ({ ticketDetail }) =>
-      m.tickets_row_detach_action({ id: ticketDetail?.parent?.id ?? "" }),
+      ticketDetail?.parent?.type === "epic"
+        ? m.tickets_row_detach_epic_action({ id: ticketDetail.parent.id })
+        : ticketDetail?.parent
+          ? m.tickets_row_detach_parent_action({ id: ticketDetail.parent.id })
+          : m.tickets_command_remove_parent(),
     icon: Unlink,
     keywords: ["parent", "epic", "detach"],
     tool: "update_ticket",

@@ -4,6 +4,7 @@ import {
   ArchiveRestore,
   Bot,
   CircleDot,
+  CircleSlash,
   Copy,
   FileText,
   FolderInput,
@@ -21,12 +22,18 @@ import {
   UserMinus,
   UserRound
 } from "lucide-react"
+import { createElement } from "react"
 
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
 import type {
   Command,
   CommandContext
 } from "@/features/command-menu/lib/commands"
+import {
+  removeTicketFromSprint,
+  sprintListRequest
+} from "@/features/sprints/atoms/sprintList"
+import { SprintChip } from "@/features/sprints/components/SprintChip"
 import { createTicketDialog } from "@/features/tickets/atoms/createTicketDialog"
 import {
   ticketRequest,
@@ -170,6 +177,32 @@ export const ticketCommands: ReadonlyArray<Command> = [
       context.tickets.planSprints &&
       context.ticketDetail?.type !== "epic",
     page: "ticketSprint"
+  },
+  {
+    id: "ticket.unplan",
+    group: "ticket",
+    label: m.tickets_command_remove_from_sprint,
+    aside: ({ ticketSprint }) =>
+      ticketSprint === null
+        ? null
+        : createElement(SprintChip, { sprint: ticketSprint }),
+    icon: CircleSlash,
+    keywords: ["sprint", "cycle", "iteration", "unplan"],
+    tool: "update_ticket",
+    when: (context) =>
+      onLiveTicket(context) &&
+      context.tickets.planSprints &&
+      context.ticketSprint !== null,
+    run: ({ ticket, ticketSprint }, env) => {
+      if (ticket === null || ticketSprint === null) return
+      removeTicketFromSprint(
+        env.registry,
+        sprintListRequest(ticket.orgSlug, ticket.slug),
+        ticket.ticketId,
+        ticketSprint.id
+      )
+      env.close()
+    }
   },
   {
     id: "ticket.move",

@@ -19,6 +19,7 @@ const context: CommandContext = {
   projectSlug: null,
   ticket: null,
   ticketDetail: null,
+  ticketSprint: null,
   sprint: null,
   view: null,
   viewerId: null,

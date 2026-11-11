@@ -1,15 +1,15 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { ArchiveTicketInput, Member, Ticket } from "@pp/shared"
+import type { ArchiveTicketInput, Member, Ticket, TicketId } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   Archive,
   ArchiveRestore,
+  CircleSlash,
   MoreHorizontal,
   Split,
-  Trash2,
-  Unlink
+  Trash2
 } from "lucide-react"
 import {
   cloneElement,
@@ -38,6 +38,11 @@ import {
 import { Popover, PopoverContent } from "@/components/ui/popover"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
+  removeTicketFromSprint,
+  sprintListRequest,
+  sprintMembership
+} from "@/features/sprints/atoms/sprintList"
+import {
   archiveTicket,
   deleteTicket,
   ticketRequest,
@@ -52,7 +57,6 @@ import {
   SaveAsTemplateMenuItem,
   SaveAsTemplatePopover
 } from "@/features/tickets/components/ticket-page/SaveAsTemplatePopover"
-import { TicketIdText } from "@/features/tickets/components/TicketIdText"
 import type { SaveAsTemplateProps } from "@/features/tickets/forms/save-as-template"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { ticketPermissions } from "@/features/tickets/lib/ticketPermissions"
@@ -209,6 +213,7 @@ function TicketMenuItems({
           onSprint={canPlan ? () => openPage("ticketSprint") : undefined}
           onProject={can.move ? () => openPage("ticketMove") : undefined}
         />
+        {canPlan && <RemoveFromSprintItem ticketId={ticket.id} />}
         {can.edit && <MorePropertiesSubmenu ticket={ticket} />}
       </Fragment>
     ),
@@ -218,18 +223,13 @@ function TicketMenuItems({
           <CreateRelatedSubmenu ticket={ticket} canAttach={can.edit} />
         )}
         {!archived && can.edit && <MarkAsSubmenu ticketId={ticket.id} />}
-        {!archived && can.edit && <RelationsSubmenu ticketId={ticket.id} />}
-        {detachable && (
-          <DropdownMenuItem
-            onClick={() => onPatch({ parent: null })}
-            className="cursor-pointer"
-          >
-            <Unlink className="size-4" strokeWidth={1.75} />
-            <TicketIdText id={parent.id}>
-              {m.tickets_row_detach_action({ id: parent.id })}
-            </TicketIdText>
-          </DropdownMenuItem>
-        )}
+        <RelationsSubmenu
+          ticketId={ticket.id}
+          parent={parent}
+          canDetach={can.edit}
+          canUnmark={!archived && can.edit}
+          onPatch={onPatch}
+        />
       </Fragment>
     ),
     <Fragment key="copy">
@@ -303,6 +303,26 @@ function TicketMenuItems({
       {section}
     </Fragment>
   ))
+}
+
+function RemoveFromSprintItem({ ticketId }: Readonly<{ ticketId: TicketId }>) {
+  const { orgSlug, slug } = useProjectRoute()
+  const registry = useContext(RegistryContext)
+  const req = sprintListRequest(orgSlug, slug)
+  const membership = useAtomValue(sprintMembership(req))
+  const sprint = Result.isSuccess(membership)
+    ? membership.value.get(ticketId)
+    : undefined
+  if (sprint === undefined) return null
+  return (
+    <DropdownMenuItem
+      onClick={() => removeTicketFromSprint(registry, req, ticketId, sprint.id)}
+      className="cursor-pointer"
+    >
+      <CircleSlash className="size-4" strokeWidth={1.75} />
+      {m.tickets_command_remove_from_sprint()}
+    </DropdownMenuItem>
+  )
 }
 
 type TicketMenuFlowsProps = TicketMenuProps &

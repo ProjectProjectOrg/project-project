@@ -2,13 +2,14 @@ import type { TextRange } from "@pp/shared"
 import { ChevronRight } from "lucide-react"
 
 import { CommandMenuItem } from "@/components/ui/command-menu"
+import { cn } from "@/lib/utils"
 
 import type { CommandFrameItem } from "./CommandFrame"
 
 export function CommandFrameRow({
   item
 }: Readonly<{ item: CommandFrameItem }>) {
-  const { prefix, parent, detail } = item
+  const { prefix, parent, aside, detail } = item
   if (detail !== undefined) {
     return (
       <CommandMenuItem
@@ -49,7 +50,14 @@ export function CommandFrameRow({
           </>
         )}
         {prefix === undefined && (
-          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          <span className={cn("min-w-0 truncate", aside == null && "flex-1")}>
+            {item.label}
+          </span>
+        )}
+        {aside != null && (
+          <span className="ml-1 flex min-w-0 group-aria-selected/command-item:[&_.text-muted-foreground]:text-foreground">
+            {aside}
+          </span>
         )}
       </span>
     </CommandMenuItem>

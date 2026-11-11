@@ -86,6 +86,27 @@ export function EpicField({
           aria-label={m.tickets_epic_search_placeholder()}
         />
         <DropdownMenuList className="max-h-64 overflow-y-auto">
+          {parent !== null && query === "" && (
+            <>
+              <DropdownMenuItem
+                render={
+                  <Link
+                    to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+                    params={{ orgSlug, slug, id: parent.id }}
+                    preload="intent"
+                  />
+                }
+              >
+                <ArrowUpRight strokeWidth={1.75} />
+                {m.tickets_epic_open_action()}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onPatch({ parent: null })}>
+                <X strokeWidth={1.75} />
+                {m.tickets_epic_remove_action()}
+              </DropdownMenuItem>
+              {epics.length > 0 && <DropdownMenuSeparator />}
+            </>
+          )}
           <DropdownMenuRadioGroup
             value={parent?.id ?? null}
             onValueChange={(id) => {
@@ -104,27 +125,6 @@ export function EpicField({
               )
             }))}
           />
-          {parent !== null && query === "" && (
-            <>
-              {epics.length > 0 && <DropdownMenuSeparator />}
-              <DropdownMenuItem
-                render={
-                  <Link
-                    to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-                    params={{ orgSlug, slug, id: parent.id }}
-                    preload="intent"
-                  />
-                }
-              >
-                <ArrowUpRight strokeWidth={1.75} />
-                {m.tickets_epic_open_action()}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onPatch({ parent: null })}>
-                <X strokeWidth={1.75} />
-                {m.tickets_epic_remove_action()}
-              </DropdownMenuItem>
-            </>
-          )}
         </DropdownMenuList>
         <DropdownMenuEmpty
           className={Result.isInitial(result) ? "animate-pulse" : undefined}

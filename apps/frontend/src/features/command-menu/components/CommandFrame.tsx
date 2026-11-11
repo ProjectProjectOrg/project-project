@@ -39,6 +39,7 @@ export type CommandFrameItem = CommandMenuItemData &
     keywords?: ReadonlyArray<string>
     parent?: string
     prefix?: string
+    aside?: ReactNode
     searchOnly?: boolean
     prefiltered?: boolean
     rank?: number

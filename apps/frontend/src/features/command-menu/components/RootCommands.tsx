@@ -60,6 +60,7 @@ export const commandItem = (
   group: GROUP_LABELS[command.group](),
   keywords: command.keywords,
   parent: command.parent?.(),
+  aside: command.aside?.(context),
   searchOnly: command.searchOnly,
   enterLabel:
     "page" in command
