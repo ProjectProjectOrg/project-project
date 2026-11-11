@@ -1,11 +1,12 @@
 import { pickActiveSprint, pickEarliestPlannedSprint } from "@pp/shared"
 import { useMatch, useNavigate } from "@tanstack/react-router"
-import { Flag, Zap } from "lucide-react"
+import { Flag, Plus, Zap } from "lucide-react"
 import { useMemo } from "react"
 
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
 import type { Command } from "@/features/command-menu/lib/commands"
 import { createSprintDialog } from "@/features/sprints/atoms/createSprintDialog"
+import { createTicketDialog } from "@/features/tickets/atoms/createTicketDialog"
 import { useProjectView } from "@/hooks/useViewPreference"
 import { m } from "@/paraglide/messages"
 
@@ -78,6 +79,20 @@ export function BacklogCommandScope({
           "backlog"
         )
       )
+    }
+    if (planned !== null) {
+      commands.push({
+        id: "backlog.create-ticket",
+        group: "create",
+        label: m.tickets_command_create,
+        icon: Plus,
+        keywords: ["new", "add", "issue"],
+        when: ({ tickets }) => tickets.create,
+        run: (_context, env) => {
+          env.close()
+          env.registry.set(createTicketDialog, { orgSlug, projectSlug: slug })
+        }
+      })
     }
     commands.push(...viewCommands(view, show))
     return {
