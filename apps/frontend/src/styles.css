@@ -925,7 +925,7 @@ html.dark .prose-md .token.coord {
 }
 .prose-md .lexical-li-nested.lexical-li-checked,
 .prose-md .lexical-li-nested.lexical-li-unchecked {
-  padding-left: 0;
+  padding-left: 1.75em;
   cursor: auto;
 }
 .prose-md .lexical-checklist {
