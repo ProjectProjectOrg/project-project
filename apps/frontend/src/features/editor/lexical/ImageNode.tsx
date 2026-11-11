@@ -43,7 +43,9 @@ export class ImageNode extends DecoratorNode<ReactElement> {
   }
 
   createDOM(): HTMLElement {
-    return document.createElement("span")
+    const element = document.createElement("span")
+    element.className = "inline-block align-top"
+    return element
   }
 
   updateDOM(): false {

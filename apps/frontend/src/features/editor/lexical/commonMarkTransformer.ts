@@ -1,9 +1,16 @@
 import { $createCodeNode } from "@lexical/code"
 import { $createHorizontalRuleNode } from "@lexical/extension"
 import { $createLinkNode } from "@lexical/link"
-import { $createListItemNode, $createListNode } from "@lexical/list"
+import {
+  $createListItemNode,
+  $createListNode,
+  $isListItemNode,
+  $isListNode,
+  type ListNode
+} from "@lexical/list"
 import {
   $convertToMarkdownString,
+  LINK,
   QUOTE,
   type MultilineElementTransformer,
   type TextMatchTransformer,
@@ -54,10 +61,20 @@ export const INLINE_MARKDOWN_TRANSFORMER: TextMatchTransformer = {
     return node
   },
   export: (node, _children, exportFormat) => {
+    if ($isListNode(node)) return ""
     if ($isLineBreakNode(node)) return "  \n"
     if (node instanceof ImageNode)
       return toMarkdown({ type: "image", ...node.getImage() }).trimEnd()
-    if (!$isTextNode(node) || !node.hasFormat("code")) return null
+    if (!$isTextNode(node)) return null
+    if (!node.hasFormat("code"))
+      return exportFormat(
+        node,
+        node
+          .getTextContent()
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+      )
     return exportFormat(
       node,
       toMarkdown({ type: "inlineCode", value: node.getTextContent() }).trimEnd()
@@ -74,6 +91,8 @@ export function createCommonMarkTransformer(
     regExpStart: /^/,
     replace: () => false,
     export: (node, traverseChildren) => {
+      if ($isListNode(node) && hasListContinuation(node))
+        return exportList(node, traverseChildren)
       if (!$isQuoteNode(node)) return null
       if (!node.getChildren().some($isElementNode))
         return QUOTE.export(node, traverseChildren)
@@ -201,6 +220,7 @@ function inlineNodes(
       for (const transformer of context.transformers) {
         if (
           transformer.type !== "text-match" ||
+          transformer === LINK ||
           transformer.importRegExp === undefined ||
           transformer.replace === undefined
         )
@@ -240,6 +260,54 @@ function taskChecked(item: ListItem, context: ImportContext): boolean | null {
   if (item.checked !== null && item.checked !== undefined) return item.checked
   const marker = /^[-*+]\s+\[([ xX])\][ \t]+$/.exec(sourceOf(item, context))
   return marker === null ? null : marker[1].toLowerCase() === "x"
+}
+
+function exportList(
+  list: ListNode,
+  traverseChildren: (node: ElementNode) => string,
+  depth = 0
+): string {
+  const output: string[] = []
+  const indent = " ".repeat(depth * 4)
+  let index = list.getStart()
+  for (const item of list.getChildren()) {
+    if (!$isListItemNode(item)) continue
+    const first = item.getFirstChild()
+    const content = traverseChildren(item)
+    if ($isListNode(first)) {
+      output.push(exportList(first, traverseChildren, depth + 1))
+      if (content !== "")
+        output.push(
+          `\n${indent}    ${content.replace(/\n/g, `\n${indent}    `)}`
+        )
+      continue
+    }
+    const prefix =
+      list.getListType() === "number"
+        ? `${index++}. `
+        : list.getListType() === "check"
+          ? `- [${item.getChecked() ? "x" : " "}] `
+          : "- "
+    const escaped =
+      list.getListType() === "check"
+        ? content
+        : content
+            .replace(/^(\[[ xX]?\])(?=\s|$)/, "\\$1")
+            .replace(/^(\s{0,3}\d+)(\.\s)/, "$1\\$2")
+    output.push(indent + prefix + escaped)
+  }
+  return output.join("\n")
+}
+
+function hasListContinuation(list: ListNode): boolean {
+  return list.getChildren().some((item) => {
+    if (!$isListItemNode(item)) return false
+    const first = item.getFirstChild()
+    return (
+      $isListNode(first) &&
+      (item.getChildrenSize() > 1 || hasListContinuation(first))
+    )
+  })
 }
 
 function importNode(
@@ -282,15 +350,15 @@ function importNode(
           list = $createListNode(listType, (node.start ?? 1) + index)
           lists.push(list)
         }
-        const entry = $createListItemNode(checked ?? undefined)
+        let entry = $createListItemNode(checked ?? undefined)
         list.append(entry)
         for (const child of item.children) {
           if (child.type === "list") {
-            list.append(
-              $createListItemNode().append(...importNode(child, context))
-            )
+            entry = $createListItemNode().append(...importNode(child, context))
+            list.append(entry)
           } else if (child.type === "paragraph") {
-            if (!entry.isEmpty()) entry.append($createLineBreakNode())
+            if (!entry.isEmpty() && !$isListNode(entry.getLastChild()))
+              entry.append($createLineBreakNode())
             if (
               item.checked == null &&
               checked !== null &&

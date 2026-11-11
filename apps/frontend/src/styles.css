@@ -425,6 +425,7 @@
    specificity than this rule and would silently clobber the spacing. */
 .prose-md > * + *,
 .prose-md .lexical-content > * + *,
+.prose-md blockquote > * + *,
 .prose-md .ticket-block > * + *,
 .prose-md .ticket-block-body > * + * {
   margin-top: 12px;
@@ -912,12 +913,9 @@ html.dark .prose-md .token.coord {
   color: var(--muted-foreground);
   font-style: italic;
 }
-.prose-md .lexical-li {
-  margin-top: 4px;
-}
 .prose-md .lexical-li-nested {
   list-style: none;
-  margin: 0;
+  margin: 4px 0 0;
 }
 .prose-md .lexical-li-nested::before,
 .prose-md .lexical-li-nested::after {
@@ -1103,7 +1101,6 @@ html.dark .prose-md .token.coord {
 }
 .lexical-table-scroll {
   overflow-x: auto;
-  margin-block: 1.25rem;
 }
 .prose-md :is(th, td) > p {
   margin: 0;

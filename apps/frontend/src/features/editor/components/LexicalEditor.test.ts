@@ -463,6 +463,55 @@ describe("MARKDOWN_TRANSFORMERS", () => {
     )
   })
 
+  it.each([
+    ["[**bold**](https://example.com)", "[**bold**](https://example.com)"],
+    ["[`code`](https://example.com)", "[`code`](https://example.com)"],
+    [
+      "**before [link](https://example.com) after**",
+      "**before** [**link**](https://example.com) **after**"
+    ]
+  ])("preserves formatting in links: %s", (markdown, expected) => {
+    const saved = roundTripMarkdown(markdown)
+    expect(saved).toBe(expected)
+    expect(roundTripMarkdown(saved)).toBe(saved)
+  })
+
+  it("preserves literal entities and HTML delimiters after saving", () => {
+    const markdown = "Write &amp;copy; and &lt;tag&gt; literally."
+    const saved = roundTripMarkdown(markdown)
+    expect(parseMarkdown(saved).children).toMatchObject([
+      {
+        type: "paragraph",
+        children: [{ type: "text", value: "Write &copy; and <tag> literally." }]
+      }
+    ])
+    expect(roundTripMarkdown(saved)).toBe(saved)
+  })
+
+  it("preserves a continuation paragraph after a nested list", () => {
+    const markdown = "- Parent\n  - Child\n\n  After child"
+    const saved = roundTripMarkdown(markdown)
+    expect(parseMarkdown(saved).children).toMatchObject([
+      {
+        type: "list",
+        children: [
+          {
+            type: "listItem",
+            children: [
+              { type: "paragraph", children: [{ value: "Parent" }] },
+              {
+                type: "list",
+                children: [{ children: [{ children: [{ value: "Child" }] }] }]
+              },
+              { type: "paragraph", children: [{ value: "After child" }] }
+            ]
+          }
+        ]
+      }
+    ])
+    expect(roundTripMarkdown(saved)).toBe(saved)
+  })
+
   it("round-trips mention links as mentions", () => {
     expect(roundTripMarkdown("See [Wouter](mention:user/github_42).")).toBe(
       "See [Wouter](mention:user/github_42)."
@@ -762,7 +811,9 @@ describe("ticket blocks", () => {
   it("keeps an unclosed block as plain text", () => {
     const markdown = '<block type="notes">\n\nstill typing'
     expect(importedRootTypes(markdown).types).not.toContain("ticket-block")
-    expect(roundTripMarkdown(markdown)).toBe(markdown)
+    expect(roundTripMarkdown(markdown)).toBe(
+      '&lt;block type="notes"&gt;\n\nstill typing'
+    )
   })
 
   it("round-trips a table inside a block", () => {
