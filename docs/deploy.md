@@ -114,15 +114,13 @@ and `web` exposing `:8080` on the VM.
 
 ### 4. Rebuild the ticket index
 
-The release that adds migration `0015` creates an empty `ticket_index` table.
-Existing ticket lists, counts, search results, and tag usage counts stay empty
-until the markdown tickets are indexed.
-
-Run this once after migrations:
+The backend checks the `ticket_index` table against the markdown tickets on
+every start and rebuilds any project that is out of date, so this step is
+optional. To force a full rebuild:
 
 ```sh
 cd /srv/projectproject
-docker compose run --rm app bun run ticket-index:rebuild
+docker compose run --rm app bun packages/backend/scripts/rebuild-ticket-index.ts
 ```
 
 ### 5. Bootstrap the first organization
@@ -133,7 +131,7 @@ from the VM:
 
 ```sh
 cd /srv/projectproject
-docker compose run --rm app bun run bootstrap:org
+docker compose run --rm app bun packages/backend/scripts/bootstrap-org.ts
 ```
 
 The command is repeat-safe. Re-running it reports the existing org, owner,
