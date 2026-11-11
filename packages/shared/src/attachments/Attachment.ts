@@ -2,6 +2,8 @@ import * as Schema from "effect/Schema"
 
 export const ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024
 
+export const ATTACHMENT_VIDEO_MAX_BYTES = 200 * 1024 * 1024
+
 export const ATTACHMENT_PAGE_SIZE = 50
 
 export const isAttachmentDeletable = (row: {
@@ -52,8 +54,15 @@ export const PROJECT_ICON_CONTENT_TYPES = [
   "image/avif"
 ] as const
 
+export const VIDEO_CONTENT_TYPES = [
+  "video/mp4",
+  "video/webm",
+  "video/quicktime"
+] as const
+
 export const ATTACHMENT_CONTENT_TYPES = [
   ...RASTER_IMAGE_CONTENT_TYPES,
+  ...VIDEO_CONTENT_TYPES,
   "application/pdf",
   "application/zip",
   "application/gzip",
@@ -81,6 +90,9 @@ export const attachmentUploadContentType = (
   const extension = filename.toLowerCase().split(".").at(-1)
   if (extension === "md" || extension === "markdown") return "text/markdown"
   if (extension === "txt") return "text/plain"
+  if (extension === "mp4" || extension === "m4v") return "video/mp4"
+  if (extension === "webm") return "video/webm"
+  if (extension === "mov") return "video/quicktime"
   return contentType
 }
 
@@ -93,6 +105,16 @@ export const isRasterImageContentType = (value: string): boolean =>
   (RASTER_IMAGE_CONTENT_TYPES as readonly string[]).includes(
     normalizeContentType(value)
   )
+
+export const isVideoContentType = (value: string): boolean =>
+  (VIDEO_CONTENT_TYPES as readonly string[]).includes(
+    normalizeContentType(value)
+  )
+
+export const attachmentMaxBytes = (contentType: string): number =>
+  isVideoContentType(contentType)
+    ? ATTACHMENT_VIDEO_MAX_BYTES
+    : ATTACHMENT_MAX_BYTES
 
 export const isProjectIconContentType = (value: string): boolean =>
   (PROJECT_ICON_CONTENT_TYPES as readonly string[]).includes(
@@ -130,7 +152,7 @@ export const PrepareAttachmentInput = Schema.Struct({
   contentType: Schema.String.pipe(Schema.check(Schema.isMinLength(1))).annotate(
     {
       description:
-        "The MIME type: PNG, JPEG, GIF, WebP, AVIF, PDF, ZIP, gzip or tar."
+        "The MIME type: PNG, JPEG, GIF, WebP, AVIF, MP4, WebM, QuickTime, PDF, ZIP, gzip or tar."
     }
   ),
   byteSize: Schema.Finite.pipe(Schema.check(Schema.isInt()))

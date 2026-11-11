@@ -174,7 +174,13 @@ export const extractAttachmentRefs = (
   return out
 }
 
-export type AttachmentFileFormat = "pdf" | "zip" | "tar" | "gzip" | "generic"
+export type AttachmentFileFormat =
+  | "pdf"
+  | "zip"
+  | "tar"
+  | "gzip"
+  | "video"
+  | "generic"
 
 const FORMAT_SUFFIXES: ReadonlyArray<
   readonly [suffix: string, format: AttachmentFileFormat]
@@ -185,7 +191,11 @@ const FORMAT_SUFFIXES: ReadonlyArray<
   [".tgz", "gzip"],
   [".gz", "gzip"],
   [".gzip", "gzip"],
-  [".tar", "tar"]
+  [".tar", "tar"],
+  [".mp4", "video"],
+  [".m4v", "video"],
+  [".webm", "video"],
+  [".mov", "video"]
 ]
 
 export const attachmentFileFormat = (

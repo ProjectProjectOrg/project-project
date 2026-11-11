@@ -17,23 +17,39 @@ import { m } from "@/paraglide/messages"
 import { NodeOverlayAction } from "./NodeOverlayAction"
 
 const INTERACTIVE_SELECTOR =
-  "a, button, [data-attachment-action], [data-attachment-resize]"
+  "a, button, [data-attachment-action], [data-attachment-resize], [data-attachment-player]"
 
 const CONTENT_MORPH = { ...transitions.morph, opacity: transitions.fade }
 
 const morphSizes = new WeakMap<HTMLElement, { width: number; height: number }>()
+
+const pendingMedia = (element: HTMLElement) => {
+  const image = element.querySelector("img")
+  if (image !== null && !image.complete)
+    return { target: image, ready: "load", rendersLater: false } as const
+  const video = element.querySelector("video")
+  if (video !== null && video.getBoundingClientRect().height === 0)
+    return {
+      target: video,
+      ready: "loadedmetadata",
+      rendersLater: true
+    } as const
+  return null
+}
 
 export function AttachmentSelectable({
   nodeKey,
   deletable,
   density,
   onToggleDensity,
+  clipRadius,
   children
 }: Readonly<{
   nodeKey: NodeKey
   deletable: boolean
   density: AttachmentDensity
   onToggleDensity?: () => void
+  clipRadius?: number
   children: ReactNode
 }>) {
   const { isSelected, remove, selectOnPointer } = useDecoratorSelection(
@@ -89,17 +105,20 @@ export function AttachmentSelectable({
       animation.addEventListener("finish", unpin, { once: true })
     }
 
-    const image = element.querySelector("img")
-    if (previous !== undefined && image !== null && !image.complete) {
+    const media = pendingMedia(element)
+    if (previous !== undefined && media !== null) {
       element.style.width = `${previous.width}px`
       element.style.height = `${previous.height}px`
       element.style.overflow = "hidden"
-      image.addEventListener("load", settle, { once: true })
-      image.addEventListener("error", settle, { once: true })
+      const onReady = media.rendersLater
+        ? () => requestAnimationFrame(() => requestAnimationFrame(settle))
+        : settle
+      media.target.addEventListener(media.ready, onReady, { once: true })
+      media.target.addEventListener("error", settle, { once: true })
       return () => {
         cancelled = true
-        image.removeEventListener("load", settle)
-        image.removeEventListener("error", settle)
+        media.target.removeEventListener(media.ready, onReady)
+        media.target.removeEventListener("error", settle)
         animation?.cancel()
         unpin()
       }
@@ -146,6 +165,11 @@ export function AttachmentSelectable({
               key={compact ? "compact" : "expanded"}
               layoutId={morphId}
               transition={CONTENT_MORPH}
+              style={
+                clipRadius === undefined
+                  ? undefined
+                  : { borderRadius: clipRadius, overflow: "hidden" }
+              }
               className="block"
             >
               {children}

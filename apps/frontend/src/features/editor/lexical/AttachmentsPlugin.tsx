@@ -1,7 +1,7 @@
 import { useAtomSet } from "@effect/atom-react"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import {
-  ATTACHMENT_MAX_BYTES,
+  attachmentMaxBytes,
   attachmentUploadContentType,
   attachmentSrc,
   attachmentViewParams,
@@ -119,8 +119,13 @@ export function AttachmentsPlugin({
           setRejection(m.editor_attachment_type_rejected())
           continue
         }
-        if (file.size > ATTACHMENT_MAX_BYTES) {
-          setRejection(m.editor_attachment_too_large())
+        const maxBytes = attachmentMaxBytes(contentType)
+        if (file.size > maxBytes) {
+          setRejection(
+            m.editor_attachment_too_large({
+              limit: Math.round(maxBytes / (1024 * 1024))
+            })
+          )
           continue
         }
         // @effect-diagnostics-next-line cryptoRandomUUID:off

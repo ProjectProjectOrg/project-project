@@ -22,6 +22,10 @@ const contentTypes: Readonly<Record<string, AttachmentContentType>> = {
   gif: "image/gif",
   webp: "image/webp",
   avif: "image/avif",
+  mp4: "video/mp4",
+  m4v: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
   pdf: "application/pdf",
   zip: "application/zip",
   gz: "application/gzip",
@@ -47,7 +51,7 @@ export const attachFile = Effect.fn("attachFile")(function* (
   const contentType = contentTypeFor(filename)
   if (contentType === undefined) {
     return yield* usage(
-      `pp can't attach ${filename}: use PNG, JPEG, GIF, WebP, AVIF, PDF, ZIP, gzip, tar, text or markdown.`
+      `pp can't attach ${filename}: use PNG, JPEG, GIF, WebP, AVIF, MP4, WebM, MOV, PDF, ZIP, gzip, tar, text or markdown.`
     )
   }
   const bytes = yield* fs

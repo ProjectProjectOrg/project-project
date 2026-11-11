@@ -88,7 +88,7 @@ const makeManifest = (): JiraMigrationManifest => ({
       id: "attachment-type",
       issueId: "issue-1",
       filename: "notes.txt",
-      mimeType: "video/mp4",
+      mimeType: "video/x-matroska",
       byteSize: 20,
       downloadUrl: "https://example.atlassian.net/notes.txt",
       jiraUrl: null,
