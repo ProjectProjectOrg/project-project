@@ -737,7 +737,8 @@ const make = Effect.gen(function* () {
       project: TicketProject,
       projectGithub: ProjectGithub.ProjectGithubIntegration,
       tickets: ReadonlyArray<StackedTicketEntry>,
-      raw: GitHub.RawProjectStates
+      raw: GitHub.RawProjectStates,
+      knownIds: ReadonlySet<string>
     ): Effect.fn.Return<GitStatesResponse, Markdown.MarkdownError> {
       const { orgSlug, slug } = project
       const automaticLinks = planAutomaticBranchLinks(
@@ -745,7 +746,8 @@ const make = Effect.gen(function* () {
         raw.existingBranches,
         projectGithub.defaultBaseBranch,
         raw.openPullRequestText,
-        raw.prByBranch
+        raw.prByBranch,
+        knownIds
       )
       const automaticStacks = planAutomaticStacks(
         tickets,
@@ -753,7 +755,8 @@ const make = Effect.gen(function* () {
         raw.existingBranches,
         projectGithub.defaultBaseBranch,
         raw.openPullRequestText,
-        raw.prByBranch
+        raw.prByBranch,
+        knownIds
       )
       const stackedTicketIds = tickets.flatMap((ticket) =>
         automaticStacks.has(ticket.id) ||
@@ -1001,7 +1004,8 @@ const make = Effect.gen(function* () {
       scope: ProjectScope["Service"],
       projectGithub: ProjectGithub.ProjectGithubIntegration,
       tickets: ReadonlyArray<StackedTicketEntry>,
-      options: GitStateOptions
+      options: GitStateOptions,
+      knownIds: ReadonlySet<string>
     ): Effect.fn.Return<GitStatesResponse, Markdown.MarkdownError> {
       const result = yield* fetchGitSnapshot(projectGithub, tickets)
 
@@ -1079,7 +1083,8 @@ const make = Effect.gen(function* () {
         scope,
         projectGithub,
         tickets,
-        result.raw
+        result.raw,
+        knownIds
       )
     }
   )
@@ -1111,6 +1116,7 @@ const make = Effect.gen(function* () {
       (ticket): StackedTicketEntry =>
         Object.assign({ stack: stacks.get(ticket.id) ?? [] }, ticket)
     )
+    const knownIds = new Set<string>(tickets.map((ticket) => ticket.id))
     const repositoryOf = (ticket: StackedTicketEntry) =>
       ProjectGithub.integrationForRepo(repositories, ticket.repoId)
     const orphaned = tickets.filter(
@@ -1127,7 +1133,8 @@ const make = Effect.gen(function* () {
               ticket.branch === null ||
               repositoryOf(ticket)?.repoId === repository.repoId
           ),
-          options
+          options,
+          knownIds
         ),
       { concurrency: 1 }
     )

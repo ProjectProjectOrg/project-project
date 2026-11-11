@@ -427,7 +427,8 @@ export const startGithubAppManifest = Atom.family((req: GithubOrgRequest) =>
 )
 
 const integrationKeys = (req: GithubOrgRequest) => [
-  Keys.githubIntegration(req.params.orgSlug)
+  Keys.githubIntegration(req.params.orgSlug),
+  Keys.githubAuth(req.params.orgSlug)
 ]
 
 export const deleteGithubApp = Atom.family(

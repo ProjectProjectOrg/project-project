@@ -59,9 +59,9 @@ export function planAutomaticBranchLinks(
     string,
     GitHub.RawPullRequestText
   > = new Map(),
-  prByBranch: ReadonlyMap<string, GitHub.RawBranchEntry> = new Map()
+  prByBranch: ReadonlyMap<string, GitHub.RawBranchEntry> = new Map(),
+  knownIds: ReadonlySet<string> = new Set(tickets.map((ticket) => ticket.id))
 ): ReadonlyMap<TicketId, string> {
-  const knownIds = new Set<string>(tickets.map((ticket) => ticket.id))
   const attachedBranches = new Set(
     tickets.flatMap((ticket) => [...ticketBranches(ticket)])
   )
@@ -100,10 +100,10 @@ export function planAutomaticStacks(
     string,
     GitHub.RawPullRequestText
   > = new Map(),
-  prByBranch: ReadonlyMap<string, GitHub.RawBranchEntry> = new Map()
+  prByBranch: ReadonlyMap<string, GitHub.RawBranchEntry> = new Map(),
+  knownIds: ReadonlySet<string> = new Set(tickets.map((ticket) => ticket.id))
 ): ReadonlyMap<TicketId, ReadonlyArray<TicketBranchEntry>> {
   const byId = new Map(tickets.map((ticket) => [ticket.id, ticket]))
-  const knownIds = new Set<string>(byId.keys())
   const attached = new Set([
     ...ownLinks.values(),
     ...tickets.flatMap((ticket) => [...ticketBranches(ticket)])

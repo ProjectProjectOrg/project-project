@@ -110,7 +110,8 @@ export const confirmedProject = (req: ProjectRequest) =>
       timeToLive: "2 minutes",
       reactivityKeys: [
         Keys.project(scopeOf(req)),
-        Keys.orgMembers(req.params.orgSlug)
+        Keys.orgMembers(req.params.orgSlug),
+        Keys.githubIntegration(req.params.orgSlug)
       ]
     }),
     (result) => {

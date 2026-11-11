@@ -73,14 +73,15 @@ export class GitHubTicketEvents extends Context.Service<
   }>
 >()("@pp/server-core/github/GitHubTicketEvents") {}
 
-export type PullRequestWebhookMatch = Readonly<{
-  orgSlug: string
-  organizationId: string
-  projectId: string
-  slug: string
-  ticketId: string
-  branch: string
-}>
+export type PullRequestWebhookMatch = TicketBranchIndex.BranchRepository &
+  Readonly<{
+    orgSlug: string
+    organizationId: string
+    projectId: string
+    slug: string
+    ticketId: string
+    branch: string
+  }>
 
 type PullRequestWebhookDeps = Readonly<{
   ticketDocs: TicketDocs.TicketDocs["Service"]
@@ -146,6 +147,14 @@ const writePullRequestWebhook = (
         match.ticketId,
         (ticket) =>
           Effect.gen(function* () {
+            if (
+              ticket.branch !== null &&
+              (ticket.repo === undefined
+                ? !match.isDefault
+                : ticket.repo !== match.repoId)
+            ) {
+              return ticket
+            }
             const patch = yield* patchFor(ticket)
             if (!patch) return ticket
             changed = true
@@ -340,7 +349,7 @@ export const landMergesInto = Effect.fn("GitHubWebhooks.landMergesInto")(
           if (visited.has(match.branch)) continue
           const landedAt = yield* landAwaitingMerge(
             deps,
-            match,
+            { ...match, ...repository },
             deliveryId,
             base,
             mergedAtByPr
@@ -414,7 +423,13 @@ export const linkPullRequestWebhookToTicket = Effect.fn(
     return
   }
   const { ticketId, source } = pick.value
-  const match = { ...project, ticketId, branch: change.branch }
+  const match = {
+    ...project,
+    ticketId,
+    branch: change.branch,
+    repoId: change.repositoryId,
+    isDefault: isDefaultRepository
+  }
   yield* deps.ticketDocumentLock.withTicketDocumentLock(
     project.orgSlug,
     project.slug,
@@ -647,7 +662,7 @@ const make = Effect.gen(function* () {
               (match) =>
                 applyPullRequestWebhookToTicket(
                   deps,
-                  match,
+                  { ...match, repoId: link.repoId, isDefault: link.isDefault },
                   linkChange,
                   deliveryId
                 ),
@@ -658,7 +673,7 @@ const make = Effect.gen(function* () {
               (match) =>
                 applyPullRequestWebhookToLayer(
                   deps,
-                  match,
+                  { ...match, repoId: link.repoId, isDefault: link.isDefault },
                   linkChange,
                   deliveryId
                 ),

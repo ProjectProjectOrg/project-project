@@ -66,6 +66,8 @@ const baseMatch = (
   slug: "p",
   ticketId: "T-1",
   branch: "feat/T-1",
+  repoId: "456",
+  isDefault: true,
   ...overrides
 })
 
@@ -322,6 +324,31 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           "delivery-1"
         )
 
+        expect(docs.writes).toEqual([])
+        expect(index.upserts).toEqual([])
+      })
+  )
+
+  it.effect(
+    "ignores a stale webhook after a same-named branch moves to another repository",
+    () =>
+      Effect.gen(function* () {
+        const original = baseDocument({ repo: "new-repo" })
+        const docs = makeFakeDocs([original])
+        const index = makeFakeIndex()
+        yield* GitHubTicketEvents.applyPullRequestWebhookToTicket(
+          {
+            ticketDocs: docs.shape,
+            ticketIndex: index.shape,
+            ticketBranchIndex: index.shape,
+            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+            gitAutomation: gitAutomationTestService()
+          },
+          baseMatch(),
+          openChange,
+          "stale-repository"
+        )
+        expect(docs.documents.get("T-1")).toEqual(original)
         expect(docs.writes).toEqual([])
         expect(index.upserts).toEqual([])
       })

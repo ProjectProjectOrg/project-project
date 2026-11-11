@@ -904,7 +904,9 @@ it.effect("manual unlink waits for a webhook write and remains unlinked", () =>
             organizationId: "org-1",
             projectId: "project-1",
             ticketId: "T-1",
-            branch: "feat/T-1"
+            branch: "feat/T-1",
+            repoId: "repo-1",
+            isDefault: true
           },
           {
             installationId: "123",
@@ -1985,6 +1987,45 @@ it.effect(
         tag: "branch_no_pr",
         name: "feat/T-1-external"
       })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "branch discovery keeps ambiguous references to tickets in other repositories",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    docs.documents.set(
+      "T-2",
+      makeTicketDocument("T-2", { branch: "feat/T-2", repo: "repo-1" })
+    )
+    const layer = makeTicketsLayer("T", docs.layer, {
+      projects: makeFakeProjects("T"),
+      projectGithub: twoRepositories,
+      ticketIndex: makeFakeTicketIndex(docs.documents),
+      github: makeFakeGitHub({
+        fetchInstallationProjectStates: (_installation, _owner, repo) =>
+          Effect.succeed({
+            defaultBranch: "main",
+            fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+            existingBranches: new Set(
+              repo === "api" ? ["checkout"] : ["feat/T-2"]
+            ),
+            openPullRequestText: new Map(
+              repo === "api"
+                ? [["checkout", { title: "T-1 T-2", body: "" }]]
+                : []
+            ),
+            prByBranch: new Map(),
+            mergedPrsByBranch: new Map()
+          })
+      })
+    })
+    return Effect.gen(function* () {
+      const git = yield* TicketGit.TicketGit
+      yield* git.listGitStates()
+      expect(docs.documents.get("T-1")?.branch).toBeNull()
+      expect(docs.documents.get("T-2")?.repo).toBe("repo-1")
     }).pipe(Effect.provide(layer))
   }
 )
