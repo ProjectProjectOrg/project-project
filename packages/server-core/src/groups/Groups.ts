@@ -449,7 +449,7 @@ const make = Effect.gen(function* () {
           createdBy: userId,
           createdAt: now,
           updatedAt: now,
-          body: `# ${input.name}\n`
+          body: input.body ?? `# ${input.name}\n`
         }
 
         const evictions =

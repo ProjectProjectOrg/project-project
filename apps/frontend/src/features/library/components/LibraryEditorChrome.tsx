@@ -37,7 +37,7 @@ export function LibraryEditorHeader({
       <LibraryBackLink
         scope={scope}
         kind={kind}
-        className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[13px] text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
+        className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-body text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
       >
         <ArrowLeft className="size-3.5" strokeWidth={1.75} />
         {kind === "template"
@@ -76,7 +76,7 @@ export function LibraryEditorLayout({
       {header}
       {title}
       {error === null ? null : (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-caption text-destructive">
           {error}
         </p>
       )}
@@ -101,7 +101,7 @@ export function LibraryEditorSkeleton() {
 
 export function LibraryEntryMissing() {
   return (
-    <p className="text-sm text-muted-foreground">
+    <p className="text-body text-muted-foreground">
       {m.templates_settings_entry_missing()}
     </p>
   )

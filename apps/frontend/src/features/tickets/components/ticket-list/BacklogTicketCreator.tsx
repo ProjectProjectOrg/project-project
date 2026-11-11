@@ -28,7 +28,7 @@ export function BacklogTicketCreator({ query }: { query: TicketListQuery }) {
         void navigate({
           to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
           params: { orgSlug, slug, id: ticket.id },
-          search: { focusBody: 1 }
+          search: { focusBody: "1" }
         })
       }
     />

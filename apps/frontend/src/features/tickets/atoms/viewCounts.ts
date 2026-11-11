@@ -6,6 +6,7 @@ import {
   type TicketListQuery,
   type TicketStatus
 } from "@pp/shared"
+import type { BacklogGrouping } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
@@ -37,7 +38,7 @@ export type ViewCountsSource = Readonly<{
   slug: string
   groupId: GroupId | null
   view: "list" | "board" | "description"
-  grouping: "status" | "sprint" | "epic"
+  grouping: BacklogGrouping
   query: TicketListQuery
 }>
 
@@ -104,7 +105,13 @@ export const viewCounts = ({
     })
   if (!groupId && view === "list" && grouping === "sprint")
     return sprintSectionsCounts(sprintSectionsRequest(orgSlug, slug, query))
-  if (!groupId && view === "list" && grouping === "epic")
-    return epicSectionsCounts(epicSectionsRequest(orgSlug, slug, query))
+  if (
+    !groupId &&
+    view === "list" &&
+    (grouping === "epic" || grouping === "parent")
+  )
+    return epicSectionsCounts(
+      epicSectionsRequest(orgSlug, slug, query, grouping)
+    )
   return backlogCounts(backlogRequest(orgSlug, slug, query))
 }

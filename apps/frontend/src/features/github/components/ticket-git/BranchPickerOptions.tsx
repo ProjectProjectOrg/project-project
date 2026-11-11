@@ -182,7 +182,7 @@ export function BranchBadge({
         : null
   if (badge === null) return null
   return (
-    <span data-menu-meta className="ml-auto text-[11px] text-muted-foreground">
+    <span data-menu-meta className="ml-auto text-micro text-muted-foreground">
       {badge}
     </span>
   )

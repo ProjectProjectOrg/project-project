@@ -1,10 +1,27 @@
-import type { Ticket, TicketDetail, UpdateTicketInput } from "@pp/shared"
+import type {
+  Ticket,
+  TicketDetail,
+  TicketParent,
+  UpdateTicketInput
+} from "@pp/shared"
+
+export const parentRef = ({
+  id,
+  title,
+  type
+}: Pick<Ticket, "id" | "title" | "type">): TicketParent => ({ id, title, type })
+
+export type TicketEdit = Omit<UpdateTicketInput, "parent"> &
+  Readonly<{ parent?: TicketParent | null }>
+
+export const toUpdateInput = ({
+  parent,
+  ...edit
+}: TicketEdit): UpdateTicketInput =>
+  parent === undefined ? edit : { ...edit, parent: parent?.id ?? null }
 
 /** Apply a server patch to a list row. Fields absent from the patch are kept. */
-export function applyTicketPatch(
-  ticket: Ticket,
-  patch: UpdateTicketInput
-): Ticket {
+export function applyTicketPatch(ticket: Ticket, patch: TicketEdit): Ticket {
   return {
     ...ticket,
     title: patch.title ?? ticket.title,
@@ -21,7 +38,7 @@ export function applyTicketPatch(
 /** Same, for the detail view, which also owns `body`. */
 export function applyTicketDetailPatch(
   ticket: TicketDetail,
-  patch: UpdateTicketInput
+  patch: TicketEdit
 ): TicketDetail {
   return {
     ...ticket,

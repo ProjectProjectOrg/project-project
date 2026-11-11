@@ -122,7 +122,18 @@ export function TicketCreatorShell({
           onPointerEnter={onPointerEnter}
           onFocus={onFocus}
           onBlur={onBlur}
-          onKeyDown={onKeyDown}
+          onKeyDown={(e) => {
+            onKeyDown?.(e)
+            if (
+              e.key !== "Enter" ||
+              e.defaultPrevented ||
+              e.nativeEvent.isComposing
+            ) {
+              return
+            }
+            e.preventDefault()
+            formRef.current?.requestSubmit()
+          }}
           placeholder={placeholder}
           aria-label={ariaLabel}
           aria-keyshortcuts={shortcut}
@@ -137,7 +148,7 @@ export function TicketCreatorShell({
           <span
             id={errorId}
             role="alert"
-            className="shrink-0 text-xs text-destructive"
+            className="shrink-0 text-caption text-destructive"
           >
             {error}
           </span>

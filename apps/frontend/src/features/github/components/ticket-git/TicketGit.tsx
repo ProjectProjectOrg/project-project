@@ -11,9 +11,8 @@ import { AlertTriangle, Circle, Layers } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import {
-  layerTone,
   StackedBranches,
-  stackPullRequestCount
+  stackSummary
 } from "@/features/github/components/ticket-git/TicketStack"
 import { useTicketGit } from "@/features/github/hooks/useTicketGit"
 import { checksColor } from "@/features/github/lib/checksColor"
@@ -245,23 +244,7 @@ function StackChip({
   own,
   stack
 }: Readonly<{ own: GitState; stack: ReadonlyArray<StackLayerState> }>) {
-  const count = stackPullRequestCount(own, stack)
-  const checks = [
-    ...(own.tag === "pr_open" ? [own.checks] : []),
-    ...stack.flatMap((layer) =>
-      layer.pr?.checks && layerTone(layer) !== "merged" ? [layer.pr.checks] : []
-    )
-  ]
-  const worst =
-    checks.find((check) => check === "failing") ??
-    checks.find((check) => check === "pending") ??
-    checks.find((check) => check === "passing")
-  const anyOpen =
-    own.tag === "pr_open" ||
-    stack.some((layer) => {
-      const tone = layerTone(layer)
-      return tone === "open" || tone === "draft"
-    })
+  const { count, worstChecks: worst, anyOpen } = stackSummary(own, stack)
   return (
     <Badge
       tone={anyOpen ? "emerald" : count.merged > 0 ? "violet" : "muted"}

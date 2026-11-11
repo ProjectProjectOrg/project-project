@@ -67,7 +67,7 @@ function FigmaEmbedContent({
   return (
     <span className="block w-[38rem] max-w-full overflow-hidden rounded-xl border border-border bg-card">
       <span
-        className="flex items-center gap-1.5 border-b border-border px-2.5 py-1.5 text-xs"
+        className="flex items-center gap-1.5 border-b border-border px-2.5 py-1.5 text-caption"
         title={metadata?.fileName ?? resolvedName}
       >
         <motion.span

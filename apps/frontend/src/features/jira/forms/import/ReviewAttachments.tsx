@@ -53,7 +53,7 @@ export function SkippedAttachments({
   return (
     <div className="flex flex-col gap-2 border-t border-border pt-3">
       <div className="flex items-baseline justify-between gap-4">
-        <p className="max-w-[65ch] text-[13px] text-foreground">
+        <p className="max-w-[65ch] text-body text-foreground">
           {skipSummary(forced)}
         </p>
         <Button
@@ -89,7 +89,7 @@ export function SkippedAttachments({
               })}
             </FactList>
             {forced.length > listed.length ? (
-              <p className="text-[13px] text-muted-foreground">
+              <p className="text-body text-muted-foreground">
                 {m.jira_import_attachment_more({
                   count: forced.length - listed.length
                 })}
@@ -113,10 +113,10 @@ export function FailedAttachments({
 }>) {
   return (
     <div className="flex flex-col gap-2 border-t border-border pt-3">
-      <p className="text-[13px] text-foreground">
+      <p className="text-body text-foreground">
         {m.jira_import_attachment_failed_title()}
       </p>
-      <p className="max-w-[65ch] text-xs text-muted-foreground">
+      <p className="max-w-[65ch] text-caption text-muted-foreground">
         {m.jira_import_attachment_failed_description()}
       </p>
       <form.Field name="review.skippedAttachmentIds">
@@ -124,7 +124,7 @@ export function FailedAttachments({
           <ul className="flex flex-col">
             {failed.map((attachment) => (
               <li key={attachment.jiraAttachmentId}>
-                <label className="flex h-9 cursor-pointer items-center gap-3 text-[13px]">
+                <label className="flex h-9 cursor-pointer items-center gap-3 text-body">
                   <Checkbox
                     checked={field.value.includes(attachment.jiraAttachmentId)}
                     onCheckedChange={(checked) => {

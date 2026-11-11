@@ -4,11 +4,13 @@ import {
   UserId,
   type GroupDetail,
   type TicketActivityChange,
+  type RelationSide,
   type TicketBranchEntry,
   type TicketId
 } from "@pp/shared"
 import * as Schema from "effect/Schema"
 
+import { contentHash } from "../markdown/fileContent"
 import type * as TicketDocs from "../tickets/TicketDocs"
 
 const makeUserId = Schema.decodeUnknownSync(UserId)
@@ -148,7 +150,15 @@ export const ticketChanges = (
       removed: tags.removed
     })
   }
-  if (before.body !== after.body) changes.push({ kind: "description_edited" })
+  const fromBody = before.body.trim()
+  const toBody = after.body.trim()
+  if (fromBody !== toBody) {
+    changes.push({
+      kind: "description_edited",
+      fromHash: contentHash(fromBody),
+      toHash: contentHash(toBody)
+    })
+  }
   if (before.archivedAt === null && after.archivedAt !== null) {
     changes.push(
       archiveReason === undefined
@@ -183,6 +193,72 @@ export type TicketScopedChange = Readonly<{
   change: TicketActivityChange
   cause?: ActivityCause
 }>
+
+export type RelationChangeSource = Pick<
+  TicketDocs.TicketDocument,
+  "id" | "blockedBy" | "relatedTo" | "duplicateOf"
+>
+
+type RelationPair = Readonly<{
+  own: RelationSide
+  other: RelationSide
+}>
+
+const relationSides = {
+  blockedBy: { own: "blockedBy", other: "blocking" },
+  relatedTo: { own: "related", other: "related" },
+  duplicateOf: { own: "duplicateOf", other: "duplicates" }
+} as const satisfies Record<string, RelationPair>
+
+const relationPairChanges = (
+  ticket: TicketId,
+  sides: RelationPair,
+  diff: Readonly<{
+    added: ReadonlyArray<TicketId>
+    removed: ReadonlyArray<TicketId>
+  }>
+): ReadonlyArray<TicketScopedChange> => {
+  const both = (
+    kind: "relation_added" | "relation_removed",
+    other: TicketId
+  ): ReadonlyArray<TicketScopedChange> => [
+    { ticketId: ticket, change: { kind, relation: sides.own, ticket: other } },
+    { ticketId: other, change: { kind, relation: sides.other, ticket } }
+  ]
+  return [
+    ...diff.added.flatMap((other) => both("relation_added", other)),
+    ...diff.removed.flatMap((other) => both("relation_removed", other))
+  ]
+}
+
+const optionalId = (id: TicketId | undefined): ReadonlyArray<TicketId> =>
+  id === undefined ? [] : [id]
+
+export const relationChanges = (
+  before: RelationChangeSource | null,
+  after: RelationChangeSource
+): ReadonlyArray<TicketScopedChange> => {
+  const pairs = [
+    {
+      sides: relationSides.blockedBy,
+      diff: listDiff(before?.blockedBy ?? [], after.blockedBy ?? [])
+    },
+    {
+      sides: relationSides.relatedTo,
+      diff: listDiff(before?.relatedTo ?? [], after.relatedTo ?? [])
+    },
+    {
+      sides: relationSides.duplicateOf,
+      diff: listDiff(
+        optionalId(before?.duplicateOf),
+        optionalId(after.duplicateOf)
+      )
+    }
+  ]
+  return pairs.flatMap(({ sides, diff }) =>
+    diff === null ? [] : relationPairChanges(after.id, sides, diff)
+  )
+}
 
 export const groupMembershipChanges = (
   before: GroupMembershipSource | null,

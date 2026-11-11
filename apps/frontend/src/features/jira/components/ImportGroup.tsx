@@ -27,7 +27,7 @@ export function ImportGroup({
   const hover = useFluidHover(listRef)
   return (
     <section className="flex flex-col gap-1">
-      <h2 className="px-3 text-[13px] font-medium text-foreground">{title}</h2>
+      <h2 className="px-3 text-body font-semibold text-foreground">{title}</h2>
       <div
         ref={listRef}
         role="presentation"
@@ -75,11 +75,11 @@ function ImportRow({
   const projectSlug =
     summary.status === "succeeded" ? summary.destinationProjectSlug : null
   const className =
-    "relative z-10 grid h-9 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 rounded-lg px-3 text-[13px] text-foreground transition-transform duration-100 active:scale-[0.97]"
+    "relative z-10 grid h-9 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 rounded-lg px-3 text-body text-foreground transition-transform duration-100 active:scale-[0.97]"
   const content = (
     <>
       <span className="flex min-w-0 items-baseline gap-2">
-        <span className="shrink-0 font-mono text-[12px] text-muted-foreground">
+        <span className="shrink-0 font-mono text-caption text-muted-foreground">
           {summary.sourceProjectKey}
         </span>
         <span className="truncate">{summary.sourceProjectName}</span>
@@ -88,7 +88,7 @@ function ImportRow({
             <span aria-hidden className="shrink-0 text-muted-foreground">
               {m.jira_import_row_arrow()}
             </span>
-            <span className="shrink-0 font-mono text-[12px] text-muted-foreground">
+            <span className="shrink-0 font-mono text-caption text-muted-foreground">
               {destination.key}
             </span>
             <span className="truncate text-muted-foreground">

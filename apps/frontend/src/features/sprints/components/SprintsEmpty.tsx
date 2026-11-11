@@ -14,10 +14,10 @@ export function SprintsEmpty() {
       <EmptyMedia variant="icon" className="mb-1 bg-transparent">
         <DitheredCalendar size={120} />
       </EmptyMedia>
-      <EmptyTitle className="text-sm font-medium">
+      <EmptyTitle className="text-body font-semibold">
         {m.sprints_empty_no_sprints_title()}
       </EmptyTitle>
-      <EmptyDescription className="max-w-sm text-xs">
+      <EmptyDescription className="max-w-sm text-caption">
         {m.sprints_empty_no_sprints_body()}
       </EmptyDescription>
     </Empty>

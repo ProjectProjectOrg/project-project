@@ -73,7 +73,7 @@ export function CropStep({
                     m.project_icon_crop_zoom_max()
                   ]}
                 />
-                <p className="text-[13px] text-muted-foreground">
+                <p className="text-body text-muted-foreground">
                   {m.project_icon_crop_hint()}
                 </p>
               </>

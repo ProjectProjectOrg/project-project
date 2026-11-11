@@ -10,6 +10,7 @@ import { useRouter } from "@tanstack/react-router"
 import {
   COMMAND_PRIORITY_CRITICAL,
   COMMAND_PRIORITY_EDITOR,
+  COMMAND_PRIORITY_NORMAL,
   createCommand,
   $setSelection,
   KEY_TAB_COMMAND,
@@ -28,13 +29,13 @@ import { createPortal } from "react-dom"
 
 import { lookupFor } from "@/features/editor/lib/blockChrome"
 
-import type { EditorBlocksMode } from "./editorBlocks"
 import { $runSlashItem, $typeSlashTrigger } from "./slashCommands"
 import {
   cycleSlashTab,
   slashMenuView,
   slashTriggerMatch,
   type SlashItem,
+  type SlashMode,
   type SlashTab
 } from "./slashMenuItems"
 import { basicLabel, SlashMenuList, type SlashMenuModel } from "./SlashMenuView"
@@ -98,7 +99,7 @@ export function SlashMenuPlugin({
   library: Library
   ticketType: TicketType | null
   transformers: ReadonlyArray<Transformer>
-  mode?: EditorBlocksMode
+  mode?: SlashMode
 }>) {
   const [editor] = useLexicalComposerContext()
   const [query, setQuery] = useState<string | null>(null)
@@ -162,8 +163,9 @@ export function SlashMenuPlugin({
         editor.registerCommand(
           KEY_TAB_COMMAND,
           (event) => {
+            if (!openRef.current) return false
             const tabs = menuRef.current.tabs.map((entry) => entry.tab)
-            if (!openRef.current || tabs.length < 2) return false
+            if (tabs.length < 2) return false
             event.preventDefault()
             switchTab(
               cycleSlashTab(tabs, menuRef.current.tab, event.shiftKey ? -1 : 1)
@@ -215,7 +217,7 @@ export function SlashMenuPlugin({
           transformers,
           lookup,
           detach,
-          mode
+          mode: mode === "basic" ? undefined : mode
         })
         closeMenu()
       })
@@ -225,6 +227,7 @@ export function SlashMenuPlugin({
 
   return (
     <LexicalTypeaheadMenuPlugin<SlashMenuOption>
+      commandPriority={COMMAND_PRIORITY_NORMAL}
       onQueryChange={changeQuery}
       onOpen={() => setOpen(true)}
       onClose={() => {

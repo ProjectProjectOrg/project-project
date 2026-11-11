@@ -83,7 +83,7 @@ export function LogTimeForm({
     >
       <form.Field name="duration">
         {(field) => (
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+          <label className="flex flex-col gap-1 text-caption text-muted-foreground">
             {m.time_log_duration_label()}
             <Input
               autoFocus
@@ -98,7 +98,7 @@ export function LogTimeForm({
       </form.Field>
       <form.Field name="date">
         {(field) => (
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+          <label className="flex flex-col gap-1 text-caption text-muted-foreground">
             {m.time_log_date_label()}
             <Input
               type="date"
@@ -113,7 +113,7 @@ export function LogTimeForm({
       </form.Field>
       <form.Field name="workType">
         {(field) => (
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground sm:col-span-2">
+          <label className="flex flex-col gap-1 text-caption text-muted-foreground sm:col-span-2">
             {m.time_work_type_label()}
             <WorkTypeSelect
               value={field.value}
@@ -125,7 +125,7 @@ export function LogTimeForm({
       </form.Field>
       <form.Field name="note">
         {(field) => (
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground sm:col-span-2">
+          <label className="flex flex-col gap-1 text-caption text-muted-foreground sm:col-span-2">
             {m.time_log_note_label()}
             <Input
               value={field.value}
@@ -155,11 +155,17 @@ export function LogTimeForm({
       <form.Field name="duration">
         {(field) =>
           field.errors.length > 0 ? (
-            <p role="alert" className="text-xs text-destructive sm:col-span-2">
+            <p
+              role="alert"
+              className="text-caption text-destructive sm:col-span-2"
+            >
               {m.time_log_duration_invalid()}
             </p>
           ) : serverError ? (
-            <p role="alert" className="text-xs text-destructive sm:col-span-2">
+            <p
+              role="alert"
+              className="text-caption text-destructive sm:col-span-2"
+            >
               {serverError}
             </p>
           ) : null

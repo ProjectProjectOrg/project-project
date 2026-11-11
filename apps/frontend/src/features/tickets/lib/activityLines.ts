@@ -1,5 +1,6 @@
 import type {
   ActivityCause,
+  RelationSide,
   Estimate,
   GroupKind,
   TicketActivityChange,
@@ -32,6 +33,7 @@ export type ActivityValue =
   | Readonly<{ kind: "group"; groupKind: GroupKind; name: string }>
   | Readonly<{ kind: "people"; ids: ReadonlyArray<string> }>
   | Readonly<{ kind: "tags"; names: ReadonlyArray<string> }>
+  | Readonly<{ kind: "ticket"; id: string }>
 
 export type ActivityLineBody =
   | Readonly<{ kind: "plain"; text: string }>
@@ -95,6 +97,22 @@ const listLines = (
   ...(added.length > 0 ? [verb(addedVerb, value(added))] : []),
   ...(removed.length > 0 ? [verb(removedVerb, value(removed))] : [])
 ]
+
+const RELATION_ADDED: Readonly<Record<RelationSide, () => string>> = {
+  blockedBy: () => m.tickets_activity_relation_added_blocked_by(),
+  blocking: () => m.tickets_activity_relation_added_blocking(),
+  related: () => m.tickets_activity_relation_added_related(),
+  duplicateOf: () => m.tickets_activity_relation_added_duplicate_of(),
+  duplicates: () => m.tickets_activity_relation_added_duplicates()
+}
+
+const RELATION_REMOVED: Readonly<Record<RelationSide, () => string>> = {
+  blockedBy: () => m.tickets_activity_relation_removed_blocked_by(),
+  blocking: () => m.tickets_activity_relation_removed_blocking(),
+  related: () => m.tickets_activity_relation_removed_related(),
+  duplicateOf: () => m.tickets_activity_relation_removed_duplicate_of(),
+  duplicates: () => m.tickets_activity_relation_removed_duplicates()
+}
 
 const changeBodies = (
   change: TicketActivityChange
@@ -177,6 +195,20 @@ const changeBodies = (
           m.tickets_activity_moved(),
           literal(`${change.fromProject} / ${change.fromId}`)
         )
+      ]
+    case "relation_added":
+      return [
+        verb(RELATION_ADDED[change.relation](), {
+          kind: "ticket",
+          id: change.ticket
+        })
+      ]
+    case "relation_removed":
+      return [
+        verb(RELATION_REMOVED[change.relation](), {
+          kind: "ticket",
+          id: change.ticket
+        })
       ]
     case "group_added":
       return [

@@ -20,7 +20,9 @@ import {
   TicketType,
   ProjectScope,
   ActivityActor,
+  type ArchiveTicketInput,
   type DeleteTicketQuery,
+  type MarkTicketInput,
   type BulkUpdateTicketsResult,
   type ClearStaleEstimatesResult,
   type SprintCompletedImmutable,
@@ -88,11 +90,23 @@ import {
   ticketChangeOf
 } from "./ticketPatch"
 import {
-  documentToTicket,
+  indexEntryToTicket,
   requirePolicy,
   type TicketReadError
 } from "./ticketPresentation"
 import type { TicketProject } from "./ticketProject"
+import {
+  isRelated,
+  markWrite,
+  relationTargetFailure,
+  unmarkWrites,
+  validateBlockers,
+  validateDuplicate,
+  validateMark,
+  withoutRelation,
+  withRelation,
+  type RelationWrite
+} from "./ticketRelations"
 import * as TicketView from "./TicketView"
 
 const makeTicketId = Schema.decodeUnknownSync(TicketId)
@@ -214,14 +228,31 @@ export class TicketCommands extends Context.Service<
     >
     archive: (
       id: string,
-      reason?: string
+      input?: ArchiveTicketInput
     ) => Effect.Effect<
       TicketDetail,
       | Forbidden
       | Conflict
+      | Validation
       | TicketReadError
       | MentionInvalid
       | Comments.InvalidCommentBody,
+      ProjectScope | ActivityActor
+    >
+    mark: (
+      id: string,
+      input: MarkTicketInput
+    ) => Effect.Effect<
+      TicketDetail,
+      Forbidden | Validation | TicketReadError,
+      ProjectScope | ActivityActor
+    >
+    unmark: (
+      id: string,
+      input: MarkTicketInput
+    ) => Effect.Effect<
+      TicketDetail,
+      Forbidden | TicketReadError,
       ProjectScope | ActivityActor
     >
     unarchive: (
@@ -249,6 +280,53 @@ const make = Effect.gen(function* () {
   const access = yield* Access.Access
   const figmaLinks = yield* FigmaLinks.FigmaLinks
   const library = yield* Library.Library
+  const { withTicketRelationsLock } =
+    yield* TicketDocumentLock.TicketDocumentLock
+
+  const withRelationsLock = <A, E, R>(
+    project: TicketProject,
+    effect: Effect.Effect<A, E, R>
+  ): Effect.Effect<A, E, R> =>
+    withTicketRelationsLock(project.orgSlug, project.slug, effect)
+
+  const validateRelationTargets = (
+    project: TicketProject,
+    ticket: TicketId | null,
+    targets: ReadonlyArray<TicketId>
+  ): Effect.Effect<void, Validation> =>
+    targets.length === 0
+      ? Effect.void
+      : ticketIndex.existingIds(project, targets).pipe(
+          Effect.flatMap((existing) => {
+            const failure = relationTargetFailure(ticket, targets, existing)
+            return failure === null ? Effect.void : Effect.fail(failure)
+          })
+        )
+
+  const validateOwnedRelations = (
+    project: TicketProject,
+    ticket: TicketId,
+    input: Readonly<{
+      blockedBy?: ReadonlyArray<TicketId>
+      relatedTo?: ReadonlyArray<TicketId>
+    }>
+  ): Effect.Effect<void, Validation> =>
+    Effect.gen(function* () {
+      yield* validateRelationTargets(project, ticket, [
+        ...(input.blockedBy ?? []),
+        ...(input.relatedTo ?? [])
+      ])
+      const blockers = input.blockedBy ?? []
+      const failure =
+        blockers.length === 0
+          ? null
+          : validateBlockers(
+              yield* ticketIndex.relationEdges(project),
+              ticket,
+              blockers
+            )
+      yield* failure === null ? Effect.void : Effect.fail(failure)
+    })
 
   const { gitView, detailOf, readTicket, withMissingAttachments } =
     yield* TicketView.TicketView
@@ -346,7 +424,10 @@ const make = Effect.gen(function* () {
         found.has(id)
           ? Effect.succeed(found.get(id))
           : ticketIndex.list(project, [id]).pipe(
-              Effect.map(([entry]) => entry),
+              Effect.map(
+                ([entry]) =>
+                  entry && { ...entry, parent: entry.parent?.id ?? null }
+              ),
               Effect.tap((entry) => Effect.sync(() => found.set(id, entry)))
             ),
       hasChildren: (id) => hasChildren(project, viewerId, id)
@@ -564,7 +645,11 @@ const make = Effect.gen(function* () {
               body === "" ? Effect.void : validateBody(body, scope)
             )
           ),
-        validateNewParent(scope, ownerId, type, input.parent)
+        validateNewParent(scope, ownerId, type, input.parent),
+        validateRelationTargets(scope, null, [
+          ...(input.blockedBy ?? []),
+          ...(input.relatedTo ?? [])
+        ])
       ],
       { concurrency: "unbounded" }
     )
@@ -583,6 +668,12 @@ const make = Effect.gen(function* () {
       lastTransitionedPr: null,
       assignees: input.assignees !== undefined ? [...input.assignees] : [],
       parent: input.parent,
+      blockedBy: input.blockedBy?.length
+        ? [...new Set(input.blockedBy)]
+        : undefined,
+      relatedTo: input.relatedTo?.length
+        ? [...new Set(input.relatedTo)]
+        : undefined,
       archivedAt: null,
       createdBy: ownerId,
       createdAt: now,
@@ -613,11 +704,16 @@ const make = Effect.gen(function* () {
       ],
       { concurrency: 2, discard: true }
     )
-    return yield* withTicketDocumentLock(
+    const changesRelations =
+      input.blockedBy !== undefined || input.relatedTo !== undefined
+    const locked = withTicketDocumentLock(
       orgSlug,
       slug,
       id,
       Effect.gen(function* () {
+        if (changesRelations) {
+          yield* validateOwnedRelations(scope, makeTicketId(id), input)
+        }
         const [, , view, body] = yield* Effect.all(
           [
             input.status === undefined
@@ -713,7 +809,7 @@ const make = Effect.gen(function* () {
             ).pipe(Effect.andThen(ticketIndex.upsertTicket(scope, next)))
         )
 
-        const [ticket, orderKey] = yield* Effect.all(
+        const [detail, orderKey, entries] = yield* Effect.all(
           [
             detailOf(next, view).pipe(
               Effect.flatMap((detail) =>
@@ -722,13 +818,28 @@ const make = Effect.gen(function* () {
             ),
             sort === undefined
               ? Effect.succeed(null)
-              : ticketIndex.orderKeyFor(scope, id, sort)
+              : ticketIndex.orderKeyFor(scope, id, sort),
+            ticketIndex.list(scope, [id])
           ],
-          { concurrency: 2 }
+          { concurrency: "unbounded" }
         )
+        const entry = entries[0]
+        const ticket =
+          entry === undefined
+            ? detail
+            : {
+                ...detail,
+                subTicketCount: entry.subTicketCount,
+                subTicketDoneCount: entry.subTicketDoneCount,
+                openBlockerCount: entry.openBlockerCount,
+                openBlockingCount: entry.openBlockingCount,
+                relatedCount: entry.relatedCount,
+                duplicateCount: entry.duplicateCount
+              }
         return { ticket, orderKey }
       })
     )
+    return yield* changesRelations ? withRelationsLock(scope, locked) : locked
   })
 
   const clearStaleEstimates = Effect.fn("TicketCommands.clearStaleEstimates")(
@@ -1423,6 +1534,11 @@ const make = Effect.gen(function* () {
         }
         const newIdOf = (sourceId: TicketId | undefined) =>
           sourceId === undefined ? undefined : mentions.moved.get(sourceId)
+        const movedAlong = (ids: ReadonlyArray<TicketId> | undefined) =>
+          (ids ?? []).flatMap((sourceId) => {
+            const next = mentions.moved.get(sourceId)
+            return next === undefined ? [] : [makeTicketId(next)]
+          })
         const now = yield* DateTime.nowAsDate
         const documents = originals.map((original, index) => {
           const fields = planTicketMove(
@@ -1443,6 +1559,9 @@ const make = Effect.gen(function* () {
                 ? undefined
                 : makeOptionalTicketId(newIdOf(original.parent)),
             splitFrom: makeOptionalTicketId(newIdOf(original.splitFrom)),
+            blockedBy: movedAlong(original.blockedBy),
+            relatedTo: movedAlong(original.relatedTo),
+            duplicateOf: makeOptionalTicketId(newIdOf(original.duplicateOf)),
             movedFrom: [
               ...(original.movedFrom ?? []),
               formatMovedFrom(source.slug, original.id)
@@ -1859,19 +1978,28 @@ const make = Effect.gen(function* () {
       Effect.onError(() => withTicketLocks(scope, ids, revertWritten))
     )
 
+    const entries = yield* ticketIndex.list(
+      scope,
+      nexts.map((next) => next.id)
+    )
+    const byId = new Map(entries.map((entry) => [entry.id, entry]))
     return {
-      tickets: nexts.map((next) => documentToTicket(next, view)),
+      tickets: nexts.flatMap((next) => {
+        const entry = byId.get(next.id)
+        return entry ? [indexEntryToTicket(entry, view)] : []
+      }),
       sprint: sprintChange
     }
   })
 
   const archive = Effect.fn("TicketCommands.archive")(function* (
     id: string,
-    reason?: string
+    input: ArchiveTicketInput = {}
   ) {
     const scope = yield* ProjectScope
     const { orgSlug, slug } = scope
-    return yield* withTicketDocumentLock(
+    const original = input.duplicateOf
+    const locked = withTicketDocumentLock(
       orgSlug,
       slug,
       id,
@@ -1880,7 +2008,19 @@ const make = Effect.gen(function* () {
         if (current.archivedAt !== null) {
           return yield* new Conflict({ reason: "ticket_already_archived" })
         }
-        const trimmed = reason?.trim()
+        if (original !== undefined) {
+          yield* validateRelationTargets(scope, current.id, [original])
+          const failure = validateDuplicate(
+            yield* ticketIndex.relationEdges(scope),
+            current.id,
+            original
+          )
+          if (failure !== null) return yield* failure
+        }
+        const trimmed = input.reason?.trim()
+        const reason =
+          trimmed ||
+          (original === undefined ? undefined : `duplicate of ${original}`)
         const next = yield* ticketDocs.update(
           orgSlug,
           slug,
@@ -1889,16 +2029,20 @@ const make = Effect.gen(function* () {
             DateTime.nowAsDate.pipe(
               Effect.map((now) => ({
                 ...existing,
+                duplicateOf: original ?? existing.duplicateOf,
                 archivedAt: existing.archivedAt ?? now,
                 updatedAt: now
               }))
             ),
           (next) => ticketIndex.upsertTicket(scope, next),
-          trimmed ? { archiveReason: trimmed } : {}
+          reason ? { archiveReason: reason } : {}
         )
         return yield* detailOf(next, yield* gitView)
       })
     )
+    return yield* original === undefined
+      ? locked
+      : withRelationsLock(scope, locked)
   })
 
   const unarchive = Effect.fn("TicketCommands.unarchive")(function* (
@@ -1921,11 +2065,10 @@ const make = Effect.gen(function* () {
           id,
           (existing) =>
             DateTime.nowAsDate.pipe(
-              Effect.map((updatedAt) => ({
-                ...existing,
-                archivedAt: null,
-                updatedAt
-              }))
+              Effect.map((updatedAt) => {
+                const { duplicateOf: _duplicateOf, ...rest } = existing
+                return { ...rest, archivedAt: null, updatedAt }
+              })
             ),
           (next) => ticketIndex.upsertTicket(scope, next)
         )
@@ -1934,7 +2077,131 @@ const make = Effect.gen(function* () {
     )
   })
 
+  const withoutDeletedTargets = (
+    project: TicketProject,
+    document: TicketDocs.TicketDocument
+  ) =>
+    Effect.gen(function* () {
+      const targets = [
+        ...(document.blockedBy ?? []),
+        ...(document.relatedTo ?? [])
+      ]
+      if (targets.length === 0) return document
+      const indexed = yield* ticketIndex.existingIds(project, targets)
+      const deleted = new Set<string>()
+      for (const target of targets.filter((id) => !indexed.has(id))) {
+        const gone = yield* ticketDocs
+          .read(project.orgSlug, project.slug, target)
+          .pipe(
+            Effect.as(false),
+            Effect.catchTag("NotFound", () => Effect.succeed(true)),
+            Effect.orElseSucceed(() => false)
+          )
+        if (gone) deleted.add(target)
+      }
+      if (deleted.size === 0) return document
+      const keep = (list: ReadonlyArray<TicketId> | undefined) => {
+        const rest = (list ?? []).filter((id) => !deleted.has(id))
+        return rest.length === 0 ? undefined : rest
+      }
+      return {
+        ...document,
+        blockedBy: keep(document.blockedBy),
+        relatedTo: keep(document.relatedTo)
+      }
+    })
+
+  const editRelations = (
+    project: TicketProject,
+    write: RelationWrite,
+    apply: typeof withRelation | typeof withoutRelation
+  ) =>
+    withTicketDocumentLock(
+      project.orgSlug,
+      project.slug,
+      write.owner,
+      ticketDocs.update(
+        project.orgSlug,
+        project.slug,
+        write.owner,
+        (existing) =>
+          Effect.gen(function* () {
+            const edited = yield* withoutDeletedTargets(project, {
+              ...existing,
+              [write.field]: apply(existing[write.field], write.id)
+            })
+            const unchanged =
+              (edited.blockedBy ?? []).join() ===
+                (existing.blockedBy ?? []).join() &&
+              (edited.relatedTo ?? []).join() ===
+                (existing.relatedTo ?? []).join()
+            if (unchanged) return existing
+            yield* requireTicketChange({
+              content: true,
+              status: false,
+              assignees: false
+            })
+            return { ...edited, updatedAt: yield* DateTime.nowAsDate }
+          }),
+        (next) => ticketIndex.upsertTicket(project, next)
+      )
+    )
+
+  const mark = Effect.fn("TicketCommands.mark")(function* (
+    id: string,
+    input: MarkTicketInput
+  ) {
+    const scope = yield* ProjectScope
+    const ticket = makeTicketId(id)
+    yield* withRelationsLock(
+      scope,
+      Effect.gen(function* () {
+        yield* readTicket(scope, id)
+        yield* validateRelationTargets(scope, ticket, [input.target])
+        const edges = yield* ticketIndex.relationEdges(scope)
+        const failure = validateMark(edges, ticket, input)
+        if (failure !== null) return yield* failure
+        if (
+          input.kind === "related" &&
+          isRelated(edges, ticket, input.target)
+        ) {
+          return yield* Effect.void
+        }
+        return yield* editRelations(
+          scope,
+          markWrite(ticket, input),
+          withRelation
+        )
+      })
+    )
+    return yield* detailOf(yield* readTicket(scope, id), yield* gitView)
+  })
+
+  const unmark = Effect.fn("TicketCommands.unmark")(function* (
+    id: string,
+    input: MarkTicketInput
+  ) {
+    const scope = yield* ProjectScope
+    const ticket = makeTicketId(id)
+    yield* withRelationsLock(
+      scope,
+      Effect.forEach(
+        unmarkWrites(ticket, input),
+        (write) => {
+          const edit = editRelations(scope, write, withoutRelation)
+          return write.owner === ticket
+            ? edit
+            : edit.pipe(Effect.catchTag("NotFound", () => Effect.void))
+        },
+        { discard: true }
+      )
+    )
+    return yield* detailOf(yield* readTicket(scope, id), yield* gitView)
+  })
+
   return TicketCommands.of({
+    mark,
+    unmark,
     bulkUpdate,
     quickCreate,
     create,

@@ -220,7 +220,7 @@ export function ProjectIconForm({
         radius={8}
       />
     ) : (
-      <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-muted text-sm leading-none corner-squircle">
+      <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-muted text-body leading-none corner-squircle">
         {values.source.emoji}
       </span>
     )
@@ -284,7 +284,7 @@ export function ProjectIconForm({
   return (
     <form.AppForm>
       {draft.rejected ? (
-        <p role="alert" className="px-3 pt-3 text-[13px] text-destructive">
+        <p role="alert" className="px-3 pt-3 text-body text-destructive">
           {m.project_icon_file_rejected()}
         </p>
       ) : null}

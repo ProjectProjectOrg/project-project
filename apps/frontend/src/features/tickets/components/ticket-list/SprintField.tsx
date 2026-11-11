@@ -7,12 +7,6 @@ import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
-import { InlineForm } from "@/components/ui/inline-form"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   addTicketsToSprint,
@@ -21,9 +15,9 @@ import {
   sprintListRequest,
   sprintMembership
 } from "@/features/sprints/atoms/sprintList"
+import { NewSprintPopover } from "@/features/sprints/components/NewSprintPopover"
 import { SprintAssignMenu } from "@/features/sprints/components/SprintAssignMenu"
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
-import { CreateSprintForm } from "@/features/sprints/forms/create-sprint"
 import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -80,10 +74,10 @@ export function SprintField({
           >
             <span
               className={cn(
-                "inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs transition-colors group-hover/hitbox:bg-foreground/5",
+                "inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-caption transition-colors hitbox-hover:bg-foreground/5",
                 failed
                   ? "text-destructive"
-                  : "text-muted-foreground group-hover/hitbox:text-foreground"
+                  : "text-muted-foreground hitbox-hover:text-foreground"
               )}
             >
               <SprintStateIcon sprint={membership} size="xs" />
@@ -134,25 +128,22 @@ export function SprintSelect({
       onSelect={(sprint) => onChange(sprint.id)}
       onClear={value !== null ? () => onChange(null) : undefined}
       trigger={
-        <Hitbox
-          mode="inline"
-          margin="2"
+        <Button
+          type="button"
+          variant="chip"
           aria-label={
             current
               ? m.tickets_sprint_chip_aria({ name: current.name })
               : m.tickets_assign_sprint_chip()
           }
-          className="min-w-0"
         >
-          <span className="inline-flex max-w-[14ch] items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition-colors group-hover/hitbox:bg-foreground/5 group-hover/hitbox:text-foreground">
-            {current ? (
-              <SprintStateIcon sprint={current} size="xs" />
-            ) : (
-              <Plus className="size-3.5" strokeWidth={1.75} />
-            )}
-            <span className="truncate">{label}</span>
-          </span>
-        </Hitbox>
+          {current ? (
+            <SprintStateIcon sprint={current} size="xs" />
+          ) : (
+            <Plus className="size-3.5" strokeWidth={1.75} />
+          )}
+          <span className="max-w-[14ch] truncate">{label}</span>
+        </Button>
       }
     />
   )
@@ -193,10 +184,15 @@ export function SprintBadgeTrigger({
   if (creating || (!hasAnyEligible && Result.isSuccess(list) && canPlan)) {
     return (
       <NewSprintPopover
-        ticketId={ticketId}
         open={creating}
         onOpenChange={setCreating}
-        className={className}
+        tickets={[ticketId]}
+        trigger={
+          <Button type="button" variant="chip" className={className}>
+            <Plus className="size-3.5" strokeWidth={1.75} />
+            <span>{m.sprints_new_button()}</span>
+          </Button>
+        }
       />
     )
   }
@@ -237,43 +233,5 @@ export function SprintBadgeTrigger({
         }
       />
     </fieldset>
-  )
-}
-
-function NewSprintPopover({
-  ticketId,
-  open,
-  onOpenChange,
-  className
-}: Readonly<{
-  ticketId: TicketId
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  className?: string
-}>) {
-  return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger
-        render={
-          <Button type="button" variant="chip" className={className}>
-            <Plus className="size-3.5" strokeWidth={1.75} />
-            <span>{m.sprints_new_button()}</span>
-          </Button>
-        }
-      />
-      <PopoverContent align="start" sideOffset={6} className="w-72 p-0">
-        <InlineForm.Root
-          actions={["create"]}
-          mode={open ? "create" : "idle"}
-          onModeChange={(mode) => onOpenChange(mode !== "idle")}
-          variant="ghost"
-          className="p-3"
-        >
-          <InlineForm.Form action="create">
-            <CreateSprintForm tickets={[ticketId]} />
-          </InlineForm.Form>
-        </InlineForm.Root>
-      </PopoverContent>
-    </Popover>
   )
 }

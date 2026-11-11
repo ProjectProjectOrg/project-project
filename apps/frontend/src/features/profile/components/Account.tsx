@@ -45,12 +45,12 @@ function AccountDetails({ user }: Readonly<{ user: User }>) {
           }
         />
         <SettingsRow label={m.profile_user_id_label()}>
-          <span className="font-mono text-[13px] text-muted-foreground">
+          <span className="font-mono text-body text-muted-foreground">
             {user.id}
           </span>
         </SettingsRow>
         <SettingsRow label={m.profile_joined_label()}>
-          <span className="text-[13px] text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {user.createdAt.toLocaleDateString(getLocale())}
           </span>
         </SettingsRow>

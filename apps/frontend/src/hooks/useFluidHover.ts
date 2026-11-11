@@ -31,39 +31,55 @@ export type UseFluidHoverReturn = Readonly<{
   registerItem: (index: number, element: HTMLElement | null) => void
 }>
 
+type Axis = "x" | "y" | "xy"
+
+type UseFluidHoverOptions = Readonly<{
+  axis?: Axis
+  isItemDisabled?: (element: HTMLElement) => boolean
+}>
+
 type PickNearestInput = Readonly<{
-  pointY: number
+  axis: Axis
+  point: Readonly<{ x: number; y: number }>
   rects: ReadonlyArray<ItemRect | undefined>
-  containerTop: number
-  containerHeight: number
-  scrollTop: number
-  borderTop: number
-  layoutHeight: number
+  container: HTMLElement
+  isDisabled: (index: number) => boolean
 }>
 
 const pickNearest = ({
-  pointY,
+  axis,
+  point,
   rects,
-  containerTop,
-  containerHeight,
-  scrollTop,
-  borderTop,
-  layoutHeight
+  container,
+  isDisabled
 }: PickNearestInput): number | null => {
-  const scale = layoutHeight > 0 ? containerHeight / layoutHeight : 1
+  const bounds = container.getBoundingClientRect()
+  const scaleX =
+    container.offsetWidth > 0 ? bounds.width / container.offsetWidth : 1
+  const scaleY =
+    container.offsetHeight > 0 ? bounds.height / container.offsetHeight : 1
   let closestIndex: number | null = null
   let closestDistance = Infinity
   let containingIndex: number | null = null
 
   for (let index = 0; index < rects.length; index++) {
     const r = rects[index]
-    if (!r) continue
-    const itemStart = containerTop + (borderTop + r.top - scrollTop) * scale
-    const itemSize = r.height * scale
-    if (pointY >= itemStart && pointY <= itemStart + itemSize) {
-      containingIndex = index
-    }
-    const distance = Math.abs(pointY - (itemStart + itemSize / 2))
+    if (!r || isDisabled(index)) continue
+    const left =
+      bounds.left +
+      (container.clientLeft + r.left - container.scrollLeft) * scaleX
+    const top =
+      bounds.top + (container.clientTop + r.top - container.scrollTop) * scaleY
+    const width = r.width * scaleX
+    const height = r.height * scaleY
+    const insideX = point.x >= left && point.x <= left + width
+    const insideY = point.y >= top && point.y <= top + height
+    const dx = point.x - (left + width / 2)
+    const dy = point.y - (top + height / 2)
+    const inside = { xy: insideX && insideY, x: insideX, y: insideY }[axis]
+    if (inside) containingIndex = index
+    const distance =
+      axis === "xy" ? Math.hypot(dx, dy) : Math.abs(axis === "x" ? dx : dy)
     if (distance < closestDistance) {
       closestDistance = distance
       closestIndex = index
@@ -138,7 +154,8 @@ const sameRects = (
 }
 
 export function useFluidHover<T extends HTMLElement>(
-  containerRef: RefObject<T | null>
+  containerRef: RefObject<T | null>,
+  { axis = "y", isItemDisabled }: UseFluidHoverOptions = {}
 ): UseFluidHoverReturn {
   const itemsRef = useRef(new Map<number, HTMLElement>())
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
@@ -240,7 +257,7 @@ export function useFluidHover<T extends HTMLElement>(
 
   const handleMouseMove = useCallback(
     (e: ReactMouseEvent) => {
-      const pointY = e.clientY
+      const point = { x: e.clientX, y: e.clientY }
 
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current)
@@ -250,21 +267,23 @@ export function useFluidHover<T extends HTMLElement>(
         rafIdRef.current = null
         const container = containerRef.current
         if (!container) return
-        const bounds = container.getBoundingClientRect()
         setActiveIndex(
           pickNearest({
-            pointY,
+            axis,
+            point,
             rects: itemRectsRef.current,
-            containerTop: bounds.top,
-            containerHeight: bounds.height,
-            scrollTop: container.scrollTop,
-            borderTop: container.clientTop,
-            layoutHeight: container.offsetHeight
+            container,
+            isDisabled: (index) => {
+              const element = itemsRef.current.get(index)
+              return (
+                element !== undefined && (isItemDisabled?.(element) ?? false)
+              )
+            }
           })
         )
       })
     },
-    [containerRef]
+    [axis, containerRef, isItemDisabled]
   )
 
   const handleMouseEnter = useCallback(() => {
@@ -297,7 +316,7 @@ export function useFluidHover<T extends HTMLElement>(
 
   useEffect(() => {
     const container = containerRef.current
-    if (!container || typeof ResizeObserver === "undefined") return
+    if (!container || typeof ResizeObserver === "undefined") return undefined
     const ro = new ResizeObserver(() =>
       scheduleMeasurement(measurementAttempts)
     )
@@ -342,7 +361,7 @@ export function useRegisterFluidHoverItem(
   ref: RefObject<HTMLElement | null>
 ) {
   useEffect(() => {
-    if (!registerItem || index === undefined) return
+    if (!registerItem || index === undefined) return undefined
     registerItem(index, ref.current)
     return () => registerItem(index, null)
   }, [index, registerItem, ref])

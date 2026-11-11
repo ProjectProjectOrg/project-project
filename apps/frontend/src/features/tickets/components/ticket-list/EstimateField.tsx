@@ -5,27 +5,19 @@ import {
   isStaleEstimate,
   type Estimate,
   type EstimateUnit,
-  type EstimationMode,
-  type UpdateTicketInput
+  type EstimationMode
 } from "@pp/shared"
 import { Plus, X } from "lucide-react"
 import { useId, useState, type FormEvent, type ReactElement } from "react"
 
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import {
   ESTIMATE_UNIT_ICON,
   formatEstimate,
@@ -33,8 +25,11 @@ import {
   parseEstimateMinutes,
   parseEstimatePoints
 } from "@/features/tickets/lib/estimateMeta"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+
+const NO_ESTIMATE = "__no-estimate"
 
 type EstimateTicket = Readonly<{ estimate: Estimate | null }>
 
@@ -56,7 +51,7 @@ export function EstimateChip({
       title={m.tickets_estimate_chip_aria_label({ label })}
       aria-label={m.tickets_estimate_chip_aria_label({ label })}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground tabular-nums",
+        "inline-flex shrink-0 items-center gap-1 text-caption text-muted-foreground tabular-nums",
         className
       )}
     >
@@ -74,7 +69,7 @@ export function EstimateBadgeTrigger({
 }: Readonly<{
   ticket: EstimateTicket
   mode: EstimationMode
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
   className?: string
 }>) {
   const unit = estimationUnit(mode)
@@ -90,46 +85,47 @@ export function EstimateBadgeTrigger({
       />
     )
   }
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger render={trigger} />
-      <DropdownMenuContent
-        align="start"
-        sideOffset={6}
-        className="w-40"
-        finalFocus={false}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <DropdownMenuRadioGroup
-          value={
-            ticket.estimate?.unit === "tshirt" ? ticket.estimate.value : null
+  const current =
+    ticket.estimate?.unit === "tshirt" ? ticket.estimate.value : null
+  const sizeOptions = ESTIMATE_SIZES.map((value, index) => ({
+    value,
+    textValue: value,
+    label: value,
+    separated: index === ESTIMATE_SIZES.length - 1 && ticket.estimate !== null
+  }))
+  const clearOptions =
+    ticket.estimate === null
+      ? []
+      : [
+          {
+            value: NO_ESTIMATE,
+            textValue: m.tickets_estimate_clear(),
+            label: (
+              <>
+                <X className="size-4" strokeWidth={1.75} />
+                {m.tickets_estimate_clear()}
+              </>
+            )
           }
-          onValueChange={(value) => {
-            const selected =
-              ticket.estimate?.unit === "tshirt" &&
-              ticket.estimate.value === value
-            if (!selected) onPatch({ estimate: { unit, value } })
-          }}
-          items={ESTIMATE_SIZES.map((value) => ({
-            value,
-            closeOnClick: true,
-            label: value
-          }))}
-        />
-        {ticket.estimate !== null && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => onPatch({ estimate: null })}
-              className="cursor-pointer text-muted-foreground"
-            >
-              <X className="size-4" strokeWidth={1.75} />
-              {m.tickets_estimate_clear()}
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+        ]
+  return (
+    <Select
+      items={[...sizeOptions, ...clearOptions]}
+      value={current}
+      onValueChange={(value) => {
+        if (value === NO_ESTIMATE) {
+          onPatch({ estimate: null })
+          return
+        }
+        const size = ESTIMATE_SIZES.find((entry) => entry === value)
+        if (size !== undefined && size !== current) {
+          onPatch({ estimate: { unit, value: size } })
+        }
+      }}
+      contentProps={{ align: "start", className: "w-40", finalFocus: false }}
+    >
+      <SelectTrigger render={trigger} />
+    </Select>
   )
 }
 
@@ -216,7 +212,7 @@ function EstimateInputPopover({
 }: Readonly<{
   unit: TypedUnit
   ticket: EstimateTicket
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
   trigger: ReactElement
 }>) {
   const [open, setOpen] = useState(false)
@@ -270,7 +266,7 @@ function EstimateInputForm({
   }
   return (
     <form onSubmit={submit} className="flex flex-col gap-2">
-      <label htmlFor={inputId} className="text-xs text-muted-foreground">
+      <label htmlFor={inputId} className="text-caption text-muted-foreground">
         {copy.label()}
       </label>
       <Input
@@ -286,7 +282,7 @@ function EstimateInputForm({
         }}
       />
       {invalid && (
-        <p id={errorId} role="alert" className="text-xs text-destructive">
+        <p id={errorId} role="alert" className="text-caption text-destructive">
           {copy.invalid()}
         </p>
       )}

@@ -2,14 +2,16 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { ATTACHMENT_CONTENT_TYPES, type FeedbackKind } from "@pp/shared"
 import { useLocation } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
-import { CircleCheck, Paperclip, Send } from "lucide-react"
+import { CircleCheck, Info, Paperclip } from "lucide-react"
 import { AnimatePresence, motion, type Variants } from "motion/react"
 import {
   useRef,
   useState,
   type ClipboardEvent,
+  type ComponentType,
   type DragEvent,
-  type KeyboardEvent
+  type KeyboardEvent,
+  type ReactNode
 } from "react"
 import { flushSync } from "react-dom"
 
@@ -19,6 +21,7 @@ import {
   SegmentedTabs,
   type SegmentedItem
 } from "@/components/ui/segmented-tabs"
+import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { submitFeedback } from "@/features/feedback/atoms/feedback"
 import { FeedbackFileList } from "@/features/feedback/components/FeedbackFileList"
 import { useFeedbackFiles } from "@/features/feedback/hooks/useFeedbackFiles"
@@ -81,10 +84,18 @@ const rejectionText: Readonly<Record<FileRejection, () => string>> = {
 
 export function SendFeedbackForm({
   orgSlug,
-  attachments
-}: Readonly<{ orgSlug: string; attachments: boolean }>) {
+  attachments,
+  Title,
+  onDone
+}: Readonly<{
+  orgSlug: string
+  attachments: boolean
+  Title: ComponentType<{ className?: string; children: ReactNode }>
+  onDone: () => void
+}>) {
   const { pathname } = useLocation()
   const [sent, setSent] = useState(false)
+  const [round, setRound] = useState(0)
   const titleRef = useRef<HTMLInputElement>(null)
   const files = useFeedbackFiles(orgSlug)
   const submit = useAtomSet(submitFeedback(orgSlug), { mode: "promiseExit" })
@@ -111,6 +122,7 @@ export function SendFeedbackForm({
   const sendAnother = () => {
     form.reset()
     files.reset()
+    setRound((current) => current + 1)
     flushSync(() => setSent(false))
     titleRef.current?.focus()
   }
@@ -122,6 +134,7 @@ export function SendFeedbackForm({
     )
       return
     event.preventDefault()
+    event.stopPropagation()
     files.add([...event.clipboardData.files])
   }
   const allowDrop = (event: DragEvent) => {
@@ -132,6 +145,7 @@ export function SendFeedbackForm({
   const attachDropped = (event: DragEvent) => {
     if (!attachments || event.dataTransfer.files.length === 0) return
     event.preventDefault()
+    event.stopPropagation()
     files.add([...event.dataTransfer.files])
   }
   const sendOnModEnter = (event: KeyboardEvent) => {
@@ -155,12 +169,11 @@ export function SendFeedbackForm({
         className="col-start-1 row-start-1 flex flex-col"
         aria-label={m.feedback_title()}
       >
-        <div className="flex flex-col gap-3 px-4 pt-4 pb-3">
+        <div className="flex items-center gap-2 pt-4 pr-4 pl-3">
           <form.Field name="kind">
             {(field) => (
               <SegmentedTabs
                 variant="rail"
-                className="self-start"
                 aria-label={m.feedback_kind_aria_label()}
                 items={kindItems()}
                 value={field.value}
@@ -168,70 +181,61 @@ export function SendFeedbackForm({
               />
             )}
           </form.Field>
-          <form.Field name="title">
-            {(field) => {
-              const placeholder =
-                values.kind === "bug"
-                  ? m.feedback_title_placeholder_bug()
-                  : m.feedback_title_placeholder_feature()
-              return (
-                <div className="grid text-[15px] leading-6 font-medium">
-                  <Input
-                    ref={titleRef}
-                    variant="bare"
-                    autoFocus
-                    value={field.value}
-                    maxLength={200}
-                    aria-label={m.feedback_title_label()}
-                    aria-placeholder={placeholder}
-                    aria-invalid={field.errors.length > 0}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    onBlur={field.handleBlur}
-                    onKeyDown={sendOnModEnter}
-                    onPaste={attachPasted}
-                    className="col-start-1 row-start-1 text-[15px] leading-6"
+          <Title className="sr-only">{m.feedback_title()}</Title>
+        </div>
+        <form.Field name="title">
+          {(field) => {
+            const placeholder =
+              values.kind === "bug"
+                ? m.feedback_title_placeholder_bug()
+                : m.feedback_title_placeholder_feature()
+            return (
+              <div className="mt-3 grid px-4 text-title leading-6 font-semibold">
+                <Input
+                  ref={titleRef}
+                  variant="bare"
+                  autoFocus
+                  value={field.value}
+                  maxLength={200}
+                  aria-label={m.feedback_title_label()}
+                  aria-placeholder={placeholder}
+                  aria-invalid={field.errors.length > 0}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  onBlur={field.handleBlur}
+                  onKeyDown={sendOnModEnter}
+                  onPaste={attachPasted}
+                  className="col-start-1 row-start-1 text-title leading-6"
+                />
+                {field.value === "" ? (
+                  <TitlePlaceholder
+                    placeholder={placeholder}
+                    kind={values.kind}
                   />
-                  {field.value === "" ? (
-                    <span
-                      aria-hidden
-                      className="pointer-events-none col-start-1 row-start-1 grid text-muted-foreground"
-                    >
-                      <AnimatePresence initial={false}>
-                        <motion.span
-                          key={values.kind}
-                          variants={placeholderSwap}
-                          initial="hidden"
-                          animate="shown"
-                          exit="hidden"
-                          className="col-start-1 row-start-1 whitespace-nowrap"
-                        >
-                          {placeholder}
-                        </motion.span>
-                      </AnimatePresence>
-                    </span>
-                  ) : null}
-                </div>
-              )
-            }}
-          </form.Field>
-          <form.Field name="description">
-            {(field) => (
-              <textarea
-                value={field.value}
-                maxLength={20_000}
-                rows={5}
-                aria-label={m.feedback_description_label()}
+                ) : null}
+              </div>
+            )
+          }}
+        </form.Field>
+        <form.Field name="description">
+          {(field) => (
+            <div
+              onKeyDownCapture={sendOnModEnter}
+              onPasteCapture={attachPasted}
+              onDragOverCapture={allowDrop}
+              onDropCapture={attachDropped}
+              className="mt-1 max-h-[50dvh] overflow-y-auto px-4"
+            >
+              <LexicalEditor
+                key={round}
+                markdown=""
+                onDraftChange={field.handleChange}
                 placeholder={m.feedback_description_placeholder()}
-                onChange={(event) => field.handleChange(event.target.value)}
-                onBlur={field.handleBlur}
-                onKeyDown={sendOnModEnter}
-                onPaste={attachPasted}
-                onDragOver={allowDrop}
-                onDrop={attachDropped}
-                className="w-full resize-none bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
               />
-            )}
-          </form.Field>
+            </div>
+          )}
+        </form.Field>
+        <AttachRow attachments={attachments} onFiles={files.add} />
+        <div className="px-4 pt-2 empty:hidden">
           <FeedbackFileList drafts={files.drafts} onRemove={files.remove} />
         </div>
         <form.Field name="title">
@@ -243,25 +247,22 @@ export function SendFeedbackForm({
                   ? rejectionText[files.rejection]()
                   : error
             return message === null ? null : (
-              <p role="alert" className="px-4 pb-3 text-xs text-destructive">
+              <p
+                role="alert"
+                className="mx-4 mt-3 rounded-lg bg-destructive-light px-3 py-2 text-body text-destructive"
+              >
                 {message}
               </p>
             )
           }}
         </form.Field>
-        <div className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-2.5">
-          <div className="flex min-w-0 items-center gap-2">
-            {attachments ? <AttachButton onFiles={files.add} /> : null}
-            <p className="truncate text-xs text-muted-foreground">
-              {attachments
-                ? m.feedback_attach_hint()
-                : m.feedback_attach_unavailable()}
-            </p>
-          </div>
+        <div className="mt-4 flex items-center justify-end gap-2 border-t border-border/60 px-4 py-3">
+          <Button type="button" variant="ghost" size="sm" onClick={onDone}>
+            {m.common_cancel_button()}
+          </Button>
           <Button
             type="submit"
-            size="xs"
-            leadingIcon={Send}
+            size="sm"
             disabled={busy}
             className={cn(state.waiting && "animate-pulse")}
           >
@@ -277,6 +278,51 @@ export function SendFeedbackForm({
   )
 }
 
+function TitlePlaceholder({
+  placeholder,
+  kind
+}: Readonly<{ placeholder: string; kind: FeedbackKind }>) {
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none col-start-1 row-start-1 grid text-muted-foreground"
+    >
+      <AnimatePresence initial={false}>
+        <motion.span
+          key={kind}
+          variants={placeholderSwap}
+          initial="hidden"
+          animate="shown"
+          exit="hidden"
+          className="col-start-1 row-start-1 whitespace-nowrap"
+        >
+          {placeholder}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  )
+}
+
+function AttachRow({
+  attachments,
+  onFiles
+}: Readonly<{
+  attachments: boolean
+  onFiles: (files: ReadonlyArray<File>) => void
+}>) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 pt-2 pr-4 pl-1.5">
+      {attachments ? <AttachButton onFiles={onFiles} /> : null}
+      <span className="flex items-center gap-1 px-1 text-caption text-muted-foreground">
+        <Info className="size-3.5 shrink-0" strokeWidth={1.75} />
+        {attachments
+          ? m.feedback_attach_hint()
+          : m.feedback_attach_unavailable()}
+      </span>
+    </div>
+  )
+}
+
 function AttachButton({
   onFiles
 }: Readonly<{ onFiles: (files: ReadonlyArray<File>) => void }>) {
@@ -285,13 +331,11 @@ function AttachButton({
     <>
       <Button
         type="button"
-        variant="quiet"
-        size="square-7"
-        aria-label={m.feedback_attach()}
-        title={m.feedback_attach()}
+        variant="chip"
         onClick={() => inputRef.current?.click()}
       >
-        <Paperclip className="size-4" strokeWidth={1.75} />
+        <Paperclip className="size-3.5" strokeWidth={1.75} />
+        <span>{m.feedback_attach()}</span>
       </Button>
       <input
         ref={inputRef}
@@ -322,7 +366,7 @@ function FeedbackSent({
       className="col-start-1 row-start-1 flex flex-col items-center justify-center gap-3 p-4 text-center"
     >
       <CircleCheck className="size-6 text-muted-foreground" strokeWidth={1.5} />
-      <p className="text-[13px]">{m.feedback_sent()}</p>
+      <p className="text-body">{m.feedback_sent()}</p>
       <Button
         type="button"
         variant="tertiary"

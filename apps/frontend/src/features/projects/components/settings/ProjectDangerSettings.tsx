@@ -62,7 +62,7 @@ export function ProjectDangerSettings() {
               </ConfirmButton.Confirm>
             </ConfirmButton.Root>
           ) : (
-            <span className="text-[13px] text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {m.project_settings_delete_forbidden()}
             </span>
           )}

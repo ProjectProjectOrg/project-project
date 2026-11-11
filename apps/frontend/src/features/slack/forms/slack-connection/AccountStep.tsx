@@ -72,7 +72,7 @@ export function AccountStep({
               )}
             </group.Field>
           </SettingsGroup>
-          <p className="px-0.5 text-xs text-muted-foreground">
+          <p className="px-0.5 text-caption text-muted-foreground">
             {m.slack_credential_notice()}
           </p>
         </SetupStep>

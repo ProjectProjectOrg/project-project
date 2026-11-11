@@ -434,6 +434,7 @@ const make = Effect.gen(function* () {
           setup: file.setup,
           estimation: file.estimation,
           body: file.body,
+          nextTicketNumber: indexRow.nextTicketNumber,
           members,
           pendingMembers
         })
@@ -564,6 +565,7 @@ const make = Effect.gen(function* () {
           setup: file.setup,
           estimation: nextEstimation,
           body: nextBody,
+          nextTicketNumber: indexRow.nextTicketNumber,
           members,
           pendingMembers
         })
@@ -621,6 +623,7 @@ const make = Effect.gen(function* () {
           banner: indexRow.banner ?? null,
           iconImage: indexRow.iconImage ?? null,
           body: file.body,
+          nextTicketNumber: indexRow.nextTicketNumber,
           members,
           pendingMembers
         })

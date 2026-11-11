@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode
 } from "react"
+import { flushSync } from "react-dom"
 
 import { useDeferredOverscan } from "./useDeferredOverscan"
 
@@ -88,7 +89,7 @@ export function VirtualRows({
       updateNearViewport()
     }
     measure()
-    const observer = new ResizeObserver(measure)
+    const observer = new ResizeObserver(() => flushSync(measure))
     observer.observe(content)
     observer.observe(root)
     root.addEventListener("scroll", updateNearViewport, { passive: true })

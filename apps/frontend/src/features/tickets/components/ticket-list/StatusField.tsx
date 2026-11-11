@@ -1,11 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
-import type {
-  ProjectStatus,
-  Ticket,
-  TicketStatus,
-  UpdateTicketInput
-} from "@pp/shared"
-import { Link } from "@tanstack/react-router"
+import type { Ticket, TicketStatus } from "@pp/shared"
+import { useNavigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ArrowRight } from "lucide-react"
 import { type MouseEvent } from "react"
@@ -30,80 +25,35 @@ import {
   statusMetaFor,
   statusLabelFor
 } from "@/features/tickets/lib/ticketMeta"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
-
-function StatusMenuItems({
-  current,
-  statuses,
-  onSelect
-}: {
-  current: TicketStatus
-  statuses: ReadonlyArray<ProjectStatus>
-  onSelect: (next: TicketStatus) => void
-}) {
-  const { orgSlug, slug } = useProjectRoute()
-  const slugs = boardStatusesFor(statuses)
-  return (
-    <>
-      <DropdownMenuRadioGroup
-        value={current}
-        onValueChange={(next) => {
-          if (next !== current) onSelect(next)
-        }}
-        items={slugs.map((status) => {
-          const sMeta = statusMetaFor(status, statuses)
-          const SIcon = sMeta.icon
-          return {
-            value: status,
-            closeOnClick: true,
-            label: (
-              <>
-                <SIcon
-                  className={cn("size-4", sMeta.className)}
-                  style={sMeta.color ? { color: sMeta.color } : undefined}
-                  strokeWidth={1.75}
-                />
-                {sMeta.label}
-              </>
-            )
-          }
-        })}
-      />
-      <DropdownMenuSeparator />
-      <DropdownMenuItem
-        render={
-          <Link
-            to="/orgs/$orgSlug/projects/$slug/settings/workflow"
-            params={{ orgSlug, slug }}
-            className="cursor-pointer"
-          />
-        }
-      >
-        {m.tickets_status_manage_link()}
-        <ArrowRight className="ml-auto size-3.5" />
-      </DropdownMenuItem>
-    </>
-  )
-}
 
 function StatusTrigger({
   meta,
   label,
   size,
   disabled,
-  stopPropagation
+  stopPropagation,
+  showLabel
 }: Readonly<{
   meta: ReturnType<typeof statusMetaFor>
   label: string
   size: "sm" | "lg"
   disabled: boolean
   stopPropagation?: boolean
+  showLabel?: boolean
 }>) {
   const Icon = meta.icon
   const icon = (
     <Icon
-      className={size === "lg" ? cn("size-5", meta.className) : meta.className}
+      className={
+        size === "lg"
+          ? cn("size-5", meta.className)
+          : showLabel
+            ? cn("size-3.5", meta.className)
+            : meta.className
+      }
       style={meta.color ? { color: meta.color } : undefined}
       strokeWidth={1.75}
     />
@@ -116,22 +66,31 @@ function StatusTrigger({
     title: label,
     disabled
   }
+  if (size === "lg") {
+    return (
+      <DropdownMenuTrigger
+        render={<Hitbox mode="inline" margin="1" {...triggerProps} />}
+      >
+        <span className="grid size-10 place-items-center rounded-lg bg-muted transition-colors hitbox-hover:bg-foreground/5">
+          {icon}
+        </span>
+      </DropdownMenuTrigger>
+    )
+  }
   return (
     <DropdownMenuTrigger
       render={
-        size === "lg" ? (
-          <Hitbox mode="inline" margin="1" {...triggerProps}>
-            <span className="grid size-10 place-items-center rounded-lg bg-muted transition-colors group-hover/hitbox:bg-foreground/5">
-              {icon}
-            </span>
-          </Hitbox>
-        ) : (
-          <Button type="button" variant="chip" size="icon-sm" {...triggerProps}>
-            {icon}
-          </Button>
-        )
+        <Button
+          type="button"
+          variant="chip"
+          size={showLabel ? undefined : "icon-sm"}
+          {...triggerProps}
+        />
       }
-    />
+    >
+      {icon}
+      {showLabel && <span>{label}</span>}
+    </DropdownMenuTrigger>
   )
 }
 
@@ -140,13 +99,17 @@ export function StatusSelect({
   onChange,
   size = "sm",
   stopPropagation,
-  disabled = false
+  disabled = false,
+  showLabel = false,
+  manageAction = true
 }: {
   value: TicketStatus
   onChange: (status: TicketStatus) => void
   size?: "sm" | "lg"
   stopPropagation?: boolean
   disabled?: boolean
+  showLabel?: boolean
+  manageAction?: boolean
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const req = statusesRequest(orgSlug, slug)
@@ -154,26 +117,66 @@ export function StatusSelect({
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
   const meta = statusMetaFor(value, statuses)
   const statusLabel = statusLabelFor(value, statuses)
+  const navigate = useNavigate()
+  const statusOptions = boardStatusesFor(statuses).map((status) => {
+    const sMeta = statusMetaFor(status, statuses)
+    const SIcon = sMeta.icon
+    return {
+      value: status,
+      textValue: sMeta.label,
+      closeOnClick: true,
+      label: (
+        <>
+          <SIcon
+            className={cn("size-4", sMeta.className)}
+            style={sMeta.color ? { color: sMeta.color } : undefined}
+            strokeWidth={1.75}
+          />
+          {sMeta.label}
+        </>
+      )
+    }
+  })
   return (
-    <DropdownMenu>
+    <DropdownMenu disabled={disabled}>
       <StatusTrigger
         meta={meta}
         label={statusLabel}
         size={size}
         disabled={disabled}
         stopPropagation={stopPropagation}
+        showLabel={showLabel}
       />
       <DropdownMenuContent
         align="start"
         sideOffset={6}
         className="w-44"
-        onClick={(e) => e.stopPropagation()}
+        finalFocus={false}
       >
-        <StatusMenuItems
-          current={value}
-          statuses={statuses}
-          onSelect={onChange}
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(next) => {
+            if (next !== value) onChange(next)
+          }}
+          items={statusOptions}
         />
+        {manageAction && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() =>
+                void navigate({
+                  to: "/orgs/$orgSlug/projects/$slug/settings/workflow",
+                  params: { orgSlug, slug }
+                })
+              }
+              className="cursor-pointer"
+            >
+              {m.tickets_status_manage_link()}
+              <ArrowRight className="ml-auto size-3.5" />
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -189,7 +192,7 @@ export function StatusButton({
   ticket: Ticket
   stopPropagation?: boolean
   size?: "sm" | "lg"
-  onPatch: (patch: UpdateTicketInput) => void
+  onPatch: (patch: TicketEdit) => void
   disabled?: boolean
 }) {
   return (

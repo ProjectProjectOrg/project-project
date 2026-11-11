@@ -42,7 +42,7 @@ export const layerTone = (layer: StackLayerState): LayerTone => {
   return layer.pr.draft ? "draft" : "open"
 }
 
-const TONES: Readonly<
+export const TONES: Readonly<
   Record<
     LayerTone,
     Readonly<{ icon: LucideIcon; className: string; label: () => string }>
@@ -120,6 +120,31 @@ export const stackPullRequestCount = (
   }
 }
 
+export const stackSummary = (
+  own: GitState,
+  stack: ReadonlyArray<StackLayerState>
+) => {
+  const checks = [
+    ...(own.tag === "pr_open" ? [own.checks] : []),
+    ...stack.flatMap((layer) =>
+      layer.pr?.checks && layerTone(layer) !== "merged" ? [layer.pr.checks] : []
+    )
+  ]
+  return {
+    count: stackPullRequestCount(own, stack),
+    worstChecks:
+      checks.find((check) => check === "failing") ??
+      checks.find((check) => check === "pending") ??
+      checks.find((check) => check === "passing"),
+    anyOpen:
+      own.tag === "pr_open" ||
+      stack.some((layer) => {
+        const tone = layerTone(layer)
+        return tone === "open" || tone === "draft"
+      })
+  }
+}
+
 const pendingPr = (number: number, url: string) => ({
   number,
   url,
@@ -136,9 +161,9 @@ const ownRow = (
   pr: StackLayerState["pr"]
 ): StackLayerState => ({ branch, base, depth: 0, pr, deleted: false })
 
-const ownLayer = (
+export const ownLayer = (
   state: GitState,
-  ticket: TicketDetail,
+  ticket: Pick<TicketDetail, "lastTransitionedPr">,
   defaultBase: string
 ): StackLayerState | null =>
   Match.value(state).pipe(
@@ -229,7 +254,7 @@ export function StackedBranches({
           ))}
         </ul>
         <span
-          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"
+          className="inline-flex items-center gap-1 text-micro text-muted-foreground"
           title={m.git_stack_count_title(count)}
         >
           <Layers className="size-3" strokeWidth={1.75} aria-hidden />
@@ -322,13 +347,13 @@ function StackLayerRow({
         <span className="sr-only">{label}</span>
       </span>
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-baseline gap-1.5 text-xs">
+        <div className="flex min-w-0 items-baseline gap-1.5 text-caption">
           {layer.pr !== null && (
             <a
               href={layer.pr.url}
               target="_blank"
               rel="noreferrer"
-              className="shrink-0 font-medium hover:underline"
+              className="shrink-0 font-semibold hover:underline"
             >
               #{layer.pr.number}
             </a>
@@ -341,7 +366,7 @@ function StackLayerRow({
           </span>
         </div>
         {hasMeta && (
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[11px] text-muted-foreground">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-micro text-muted-foreground">
             {title !== "" && (
               <MiddleTruncate value={layer.branch} className="font-mono" />
             )}
@@ -358,7 +383,7 @@ function StackLayerRow({
           </div>
         )}
         {failed && (
-          <p role="alert" className="text-[11px] text-destructive">
+          <p role="alert" className="text-micro text-destructive">
             {m.git_stack_remove_error()}
           </p>
         )}

@@ -159,10 +159,10 @@ function BlockEditor({
               ariaLabel={m.templates_editor_name_aria()}
               maxLength={60}
               required
-              className="text-xl font-semibold"
+              className="text-display font-bold"
             />
           ) : (
-            <h2 className="text-xl font-semibold">{block.name}</h2>
+            <h2 className="text-display font-bold">{block.name}</h2>
           )}
         </div>
       }
@@ -185,13 +185,13 @@ function BlockEditor({
             </div>
           ) : (
             <div data-block-preview className="px-3 py-2">
-              <Markdown className="text-sm">
+              <Markdown className="text-body">
                 {stripHints(block.content)}
               </Markdown>
             </div>
           )}
           {editable ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-caption text-muted-foreground">
               {m.templates_editor_block_help()}
             </p>
           ) : null}
@@ -230,13 +230,13 @@ function BlockEditor({
                   disabled={!editable}
                   onCheckedChange={(sync) => patch({ sync })}
                 />
-                <label htmlFor={syncId} className="text-[13px]">
+                <label htmlFor={syncId} className="text-body">
                   {block.sync
                     ? m.templates_editor_synced_on()
                     : m.templates_editor_synced_off()}
                 </label>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-caption text-muted-foreground">
                 {m.templates_editor_synced_help()}
               </p>
             </div>
@@ -270,7 +270,7 @@ function BlockEditor({
                       scope={scope}
                       kind="template"
                       entryKey={template.key}
-                      className="-mx-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[13px] transition-colors hover:bg-hover"
+                      className="-mx-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-body transition-colors hover:bg-hover"
                     >
                       <BlockIconGlyph
                         icon={template.icon}

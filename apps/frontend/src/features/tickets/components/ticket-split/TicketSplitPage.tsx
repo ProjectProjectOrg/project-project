@@ -88,7 +88,7 @@ export function TicketSplitPage({
           ticket={ticket}
           readOnly
           meta={
-            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-micro text-muted-foreground">
               {m.tickets_split_eyebrow()}
             </span>
           }

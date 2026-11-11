@@ -112,6 +112,14 @@ export const ticketTimeAtom = Atom.family((req: TicketTimeRequest) =>
   Atom.optimistic(ticketTimeQuery(req))
 )
 
+export const sprintTimeAtom = Atom.family((req: SprintTimerRequest) =>
+  query("everhour", "sprintTime", {
+    params: req.params,
+    timeToLive: "30 seconds",
+    reactivityKeys: [Keys.sprintTime(scopeOf(req), req.params.id)]
+  })
+)
+
 export type TicketTimePanelValue = Readonly<{
   profile: PersonalEverhour
   workTypes: ReadonlyArray<WorkTypeOption>

@@ -467,3 +467,14 @@ export const quickCreateInSprint = Atom.family(({ req, groupId }: SprintKey) =>
     ]
   })
 )
+
+export const removeTicketFromSprint = (
+  registry: Registry.AtomRegistry,
+  req: SprintListRequest,
+  ticketId: TicketId,
+  groupId: GroupId
+): void => {
+  void fireMutation(registry, removeTicketsFromSprint({ req, ticketId }), {
+    groupId
+  })
+}

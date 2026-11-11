@@ -634,6 +634,66 @@ describe("TicketDocs activity capture", () => {
     })
   )
 
+  it.effect("records a relation change on both tickets from one write", () =>
+    Effect.gen(function* () {
+      const { recorded, result } = yield* capture((docs) =>
+        Effect.gen(function* () {
+          yield* docs.update("acme", "project", "T-1", (ticket) =>
+            Effect.succeed({
+              ...ticket,
+              blockedBy: [ticketId("T-2")],
+              updatedAt: later
+            })
+          )
+          yield* docs.update("acme", "project", "T-1", (ticket) => {
+            const { blockedBy: _blockedBy, ...rest } = ticket
+            return Effect.succeed({ ...rest, updatedAt: later })
+          })
+          return yield* docs.readRaw("acme", "project", "T-1")
+        })
+      )
+      expect(recorded.map((entry) => entry.changes)).toEqual([
+        [
+          {
+            ticketId: "T-1",
+            change: {
+              kind: "relation_added",
+              relation: "blockedBy",
+              ticket: "T-2"
+            }
+          },
+          {
+            ticketId: "T-2",
+            change: {
+              kind: "relation_added",
+              relation: "blocking",
+              ticket: "T-1"
+            }
+          }
+        ],
+        [
+          {
+            ticketId: "T-1",
+            change: {
+              kind: "relation_removed",
+              relation: "blockedBy",
+              ticket: "T-2"
+            }
+          },
+          {
+            ticketId: "T-2",
+            change: {
+              kind: "relation_removed",
+              relation: "blocking",
+              ticket: "T-1"
+            }
+          }
+        ]
+      ])
+      expect(result.content).not.toMatch(/^blockedBy:/m)
+    })
+  )
+
   it.effect("records the diff as the acting user and stamps updatedBy", () =>
     Effect.gen(function* () {
       const { recorded, result } = yield* capture((docs) =>

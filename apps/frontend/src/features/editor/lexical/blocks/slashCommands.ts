@@ -62,7 +62,7 @@ function $insertHint() {
   hint.select(2, text.length - 2)
 }
 
-function $insertBasic(editor: LexicalEditor, kind: SlashBasicKind) {
+export function $insertBasic(editor: LexicalEditor, kind: SlashBasicKind) {
   const selection = $getSelection()
   switch (kind) {
     case "heading":

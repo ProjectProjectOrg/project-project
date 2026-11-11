@@ -68,7 +68,7 @@ export function ScanSummary({
             ))}
           </FactList>
           {visibility.kind === "limited" ? null : (
-            <p className="pt-1 text-[13px] text-muted-foreground">
+            <p className="pt-1 text-body text-muted-foreground">
               {visibility.kind === "complete"
                 ? m.jira_import_scan_visibility_none()
                 : m.jira_import_scan_visibility_account()}

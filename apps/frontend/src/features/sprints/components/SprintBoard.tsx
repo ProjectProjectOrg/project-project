@@ -33,11 +33,18 @@ import {
   type BoardRequest,
   type BoardValue
 } from "@/features/sprints/atoms/sprintBoard"
+import {
+  BoardKeyboardContext,
+  useBoardKeyboardNavigation
+} from "@/features/sprints/hooks/useBoardKeyboardNavigation"
 import { useHorizontalAutoScroll } from "@/features/sprints/hooks/useHorizontalAutoScroll"
 import { useReorderMode } from "@/features/sprints/hooks/useReorderMode"
-import { SubTicketExpansionProvider } from "@/features/tickets/components/ticket-list/SubTicketExpansion"
+import { encodeTicketListQuery } from "@/features/tickets/atoms/backlog"
+import { useExpandSubTicketsCommand } from "@/features/tickets/components/ticket-list/useExpandSubTicketsCommand"
+import { useBoardSubTicketsSettled } from "@/features/tickets/components/ticket-list/useSubTicketsSettled"
 import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
 import { useBoardColumns } from "../hooks/useBoardColumns"
 import { useBoardTickets } from "../hooks/useBoardTickets"
@@ -76,6 +83,14 @@ export function SprintBoard(props: SprintBoardProps) {
   const statuses = useAtomValue(statusesFor(statusReq))
   const refreshBoard = useAtomRefresh(sprintBoard(req))
   const refreshStatuses = useAtomRefresh(statusesFor(statusReq))
+  const subTicketsSettled = useBoardSubTicketsSettled(
+    Result.isSuccess(board) ? board.value.tickets : null
+  )
+  const loading = (
+    <DitherShell contained animated>
+      {null}
+    </DitherShell>
+  )
   const refresh = () => {
     if (Result.isFailure(board)) refreshBoard()
     if (Result.isFailure(statuses)) refreshStatuses()
@@ -86,20 +101,20 @@ export function SprintBoard(props: SprintBoardProps) {
       result={Result.all({ board, statuses })}
       contained
       reset={refresh}
-      onInitial={() => (
-        <DitherShell contained animated>
-          {null}
-        </DitherShell>
-      )}
-      onSuccess={({ value, waiting }) => (
-        <SprintBoardContent
-          {...props}
-          req={req}
-          board={value.board}
-          statuses={value.statuses}
-          waiting={waiting}
-        />
-      )}
+      onInitial={() => loading}
+      onSuccess={({ value, waiting }) =>
+        subTicketsSettled ? (
+          <SprintBoardContent
+            {...props}
+            req={req}
+            board={value.board}
+            statuses={value.statuses}
+            waiting={waiting}
+          />
+        ) : (
+          loading
+        )
+      }
     />
   )
 }
@@ -123,6 +138,7 @@ function SprintBoardContent({
   statuses: ReadonlyArray<ProjectStatus>
   waiting: boolean
 }) {
+  useExpandSubTicketsCommand()
   const { orgSlug, slug } = useProjectRoute()
   const ref = useRef<HTMLDivElement>(null)
   const groupRef = useReorderMode(reorderMode, onExitReorder)
@@ -205,10 +221,20 @@ function SprintBoardContent({
     })
   }, [canReorder, canTransition, isCompleted, reorderMode, req, registry])
 
+  const keyboard = useBoardKeyboardNavigation(
+    ref,
+    !reorderMode && order.length > 0
+  )
+
   return (
-    <SubTicketExpansionProvider>
+    <BoardKeyboardContext value={keyboard.context}>
       <motion.div
         ref={ref}
+        role={keyboard.context ? "grid" : undefined}
+        aria-label={m.tickets_board_aria_label()}
+        aria-colcount={keyboard.context ? order.length : undefined}
+        aria-rowcount={keyboard.context ? 1 : undefined}
+        onKeyDown={keyboard.onKeyDown}
         layoutScroll
         aria-busy={waiting}
         style={{ height: height ?? 240 }}
@@ -224,18 +250,21 @@ function SprintBoardContent({
           <Reorder.Group
             ref={groupRef}
             as="div"
+            role={keyboard.context ? "row" : undefined}
             axis="x"
             values={[...order]}
             onReorder={(next) => setDragOrder(next)}
             className="flex h-full gap-3"
           >
-            {order.map((status) => (
+            {order.map((status, columnIndex) => (
               <SprintBoardColumn
                 key={status}
+                columnIndex={columnIndex}
                 update={boardTicketUpdates(req)}
                 status={status}
                 statuses={statuses}
                 tickets={grouped[status] ?? []}
+                filterKey={encodeTicketListQuery(query)}
                 members={members}
                 isDraggable={!isCompleted && canReorder}
                 lastFlash={lastFlash}
@@ -248,6 +277,6 @@ function SprintBoardContent({
           </Reorder.Group>
         )}
       </motion.div>
-    </SubTicketExpansionProvider>
+    </BoardKeyboardContext>
   )
 }

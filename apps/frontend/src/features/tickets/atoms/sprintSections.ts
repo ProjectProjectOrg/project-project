@@ -1,11 +1,12 @@
 import {
   matchesTicketQuery,
   SPRINT_SECTION_UNSCHEDULED,
-  finishedStatusSlugs,
+  statusPhaseLookup,
   summarizeEstimates,
   type EstimateSummary,
   type EstimationMode,
   type GroupId,
+  type StatusPhaseOf,
   type GroupIdFilter,
   type SprintSectionKey,
   type Ticket,
@@ -14,7 +15,6 @@ import {
   type TicketListQuery,
   type TicketSort,
   TicketStatus,
-  type UpdateTicketInput,
   type UserId
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -39,6 +39,7 @@ import {
   createInSprint,
   sprintAssignmentKeys
 } from "@/features/sprints/atoms/sprintList"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import {
   insertByOrderKey,
   patchTicketRow,
@@ -49,7 +50,8 @@ import {
   type QuickCreateInput,
   type TicketRow,
   type TicketRowPage,
-  viewQuery
+  viewQuery,
+  quickCreatePayload
 } from "@/features/tickets/lib/ticketRows"
 
 import {
@@ -96,7 +98,7 @@ export type SprintSectionsValue = Readonly<{
   viewer: Readonly<{
     id: UserId | undefined
     estimation: EstimationMode
-    finished: ReadonlySet<string>
+    phaseOf: StatusPhaseOf
   }>
 }>
 
@@ -151,7 +153,7 @@ const viewerOf = (get: Atom.AtomContext, req: SprintSectionsRequest) => {
     estimation: get(
       projectEstimation(projectRequest(req.params.orgSlug, req.params.slug))
     ),
-    finished: finishedStatusSlugs(
+    phaseOf: statusPhaseLookup(
       AsyncResult.isSuccess(statuses) ? statuses.value : []
     )
   }
@@ -259,15 +261,15 @@ const shiftEstimates = (
   summary: EstimateSummary | null,
   removed: Ticket | null,
   added: Ticket | null,
-  finished: ReadonlySet<string>
+  phaseOf: StatusPhaseOf
 ): EstimateSummary | null => {
   if (summary === null) return null
   const minus = summarizeEstimates(
     removed ? [removed] : [],
     summary.unit,
-    finished
+    phaseOf
   )
-  const plus = summarizeEstimates(added ? [added] : [], summary.unit, finished)
+  const plus = summarizeEstimates(added ? [added] : [], summary.unit, phaseOf)
   const unestimated = shift(
     summary.unestimated,
     minus.unestimated,
@@ -292,6 +294,7 @@ const shiftEstimates = (
     ...summary,
     unestimated,
     committed: shift(summary.committed, minus.committed, plus.committed),
+    started: shift(summary.started, minus.started, plus.started),
     done: shift(summary.done, minus.done, plus.done)
   }
 }
@@ -299,7 +302,7 @@ const shiftEstimates = (
 const patchRow = (
   value: SprintSectionsValue,
   id: TicketId,
-  patch: UpdateTicketInput,
+  patch: TicketEdit,
   query: TicketListQuery,
   now: Date
 ): SprintSectionsValue => {
@@ -341,7 +344,7 @@ const patchRow = (
         section.estimates,
         before,
         found.ticket,
-        value.viewer.finished
+        value.viewer.phaseOf
       ),
       page: {
         ...section.page,
@@ -471,7 +474,7 @@ const insertCreated = (
       existing?.estimates ?? null,
       null,
       row.ticket,
-      value.viewer.finished
+      value.viewer.phaseOf
     ),
     page: { ...page, items: [row, ...page.items] }
   }
@@ -524,7 +527,11 @@ export const quickCreateSprintSectionsTicket = Atom.family(
       predict: (value, input: QuickCreateInput) =>
         insertCreated(req, key, value, input),
       call: (_client, input, get) =>
-        createInSprint(req.params, input.payload, assignedSprintId(key)).pipe(
+        createInSprint(
+          req.params,
+          quickCreatePayload(input),
+          assignedSprintId(key)
+        ).pipe(
           Effect.tap((created) =>
             Effect.sync(() =>
               recordCreatedKey(

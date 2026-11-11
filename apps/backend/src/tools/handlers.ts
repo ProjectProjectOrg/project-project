@@ -473,11 +473,26 @@ const archive_ticket = (
   input: Tool.Parameters<typeof Tools.tools.archive_ticket>
 ) =>
   Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
-    commands.archive(input.id, input.reason)
+    commands.archive(input.id, {
+      reason: input.reason,
+      duplicateOf: input.duplicateOf
+    })
   ).pipe(
     Effect.catchTag("InvalidCommentBody", (error) =>
       Effect.fail(new Validation({ reason: error.reason }))
     )
+  )
+
+const mark_ticket = (input: Tool.Parameters<typeof Tools.tools.mark_ticket>) =>
+  Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+    commands.mark(input.id, { kind: input.kind, target: input.target })
+  )
+
+const unmark_ticket = (
+  input: Tool.Parameters<typeof Tools.tools.unmark_ticket>
+) =>
+  Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+    commands.unmark(input.id, { kind: input.kind, target: input.target })
   )
 
 const restore_ticket = (
@@ -703,6 +718,8 @@ export const ToolHandlersLive = Tools.toLayer(
       archive_ticket: run.project({ ticket: ["update"] }, archive_ticket),
       restore_ticket: run.project({ ticket: ["update"] }, restore_ticket),
       move_ticket: run.project({ ticket: ["update"] }, move_ticket),
+      mark_ticket: run.project({ ticket: ["update"] }, mark_ticket),
+      unmark_ticket: run.project({ ticket: ["update"] }, unmark_ticket),
       prepare_ticket_attachment: run.project(
         { attachment: ["upload"] },
         prepare_ticket_attachment

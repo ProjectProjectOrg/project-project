@@ -138,7 +138,7 @@ function AttachmentImage({
         style={attachmentWidthStyle(effectiveWidth)}
         className={cn(
           ATTACHMENT_IMAGE_CLASS,
-          "border border-transparent transition-colors group-focus-within/editing:group-hover/hitbox:border-border"
+          "border border-transparent transition-colors group-focus-within/editing:hitbox-hover:border-border"
         )}
         onError={onBroken}
       />
@@ -149,7 +149,7 @@ function AttachmentImage({
         onPanStart={onPanStart}
         onPan={onPan}
         onPanEnd={onPanEnd}
-        className="invisible absolute top-1/2 right-0 hidden h-8 max-h-[60%] w-1.5 translate-x-1/2 -translate-y-1/2 cursor-ew-resize touch-none rounded-full bg-foreground/40 opacity-0 transition-all group-focus-within/editing:visible group-hover/hitbox:opacity-100 before:absolute before:-inset-x-2 before:inset-y-0 before:content-[''] hover:bg-foreground/80 sm:block"
+        className="invisible absolute top-1/2 right-0 hidden h-8 max-h-[60%] w-1.5 translate-x-1/2 -translate-y-1/2 cursor-ew-resize touch-none rounded-full bg-foreground/40 opacity-0 transition-all group-focus-within/editing:visible before:absolute before:-inset-x-2 before:inset-y-0 before:content-[''] hover:bg-foreground/80 sm:block hitbox-hover:opacity-100"
       />
     </span>
   )
@@ -157,7 +157,7 @@ function AttachmentImage({
 
 function AttachmentFailed({ uploadId }: { uploadId: string | undefined }) {
   return (
-    <span className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs">
+    <span className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-caption">
       <span className="flex-1 truncate text-destructive">
         {m.editor_attachment_upload_failed()}
       </span>
@@ -185,7 +185,7 @@ function AttachmentUploading({ progress }: { progress: number }) {
   const percent = Math.round(Math.min(Math.max(progress, 0), 1) * 100)
   return (
     <span className="flex min-h-[8rem] w-[20rem] max-w-full flex-col justify-center gap-2 rounded-lg border border-dashed px-3 py-2">
-      <span className="truncate text-xs text-muted-foreground">
+      <span className="truncate text-caption text-muted-foreground">
         {m.editor_attachment_uploading()}
       </span>
       <span className="h-1 w-full overflow-hidden rounded-full bg-muted">

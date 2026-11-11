@@ -1,5 +1,6 @@
 import {
   ActivityActor,
+  EPIC_SECTION_NONE,
   Group,
   matchesTicketQuery,
   NotFound,
@@ -49,6 +50,11 @@ import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import * as TicketIndex from "./TicketIndex"
 import type { TicketProject } from "./ticketProject"
+import {
+  relationsFromRows,
+  type RelationEdge,
+  type RelationRow
+} from "./ticketRelations"
 import * as TicketRewrites from "./TicketRewrites"
 
 export const decodeGroupSync = Schema.decodeSync(Group)
@@ -384,7 +390,7 @@ export const fakeUser = (id: string): User => ({
 
 export const FakeUsers = Layer.succeed(Users.Users, {
   findByEmail: () => unexpected("Users.findByEmail"),
-  findManyByIds: () => unexpected("Users.findManyByIds"),
+  findManyByIds: (ids) => Effect.succeed(ids.map(fakeUser)),
   fullByIds: (ids) => Effect.succeed(ids.map(fakeUser))
 } satisfies Users.Users["Service"])
 
@@ -413,14 +419,26 @@ export const makeFakeGitHub = (
     ...overrides
   } satisfies GitHub.GitHub["Service"])
 
-export const entryFromDocument = (document: TicketDocs.TicketDocument) => {
+export const entryFromDocument = (
+  document: TicketDocs.TicketDocument,
+  parentOf: (id: string) => TicketDocs.TicketDocument | undefined = () =>
+    undefined
+) => {
   const { body: _body, commentsRegion: _commentsRegion, ...entry } = document
+  const parent = entry.parent === undefined ? undefined : parentOf(entry.parent)
   return {
     ...entry,
     estimate: entry.estimate ?? null,
-    parent: entry.parent ?? null,
+    parent:
+      parent === undefined
+        ? null
+        : { id: parent.id, title: parent.title, type: parent.type },
     subTicketCount: 0,
     subTicketDoneCount: 0,
+    openBlockerCount: 0,
+    openBlockingCount: 0,
+    relatedCount: 0,
+    duplicateCount: 0,
     prDraft: entry.prDraft ?? false,
     prBase: entry.prBase ?? null,
     ignoredBranches: entry.ignoredBranches ?? [],
@@ -466,7 +484,11 @@ export const matchingDocuments = (
       (included === null || included.has(document.id)) &&
       !excluded.has(document.id) &&
       matchesTicketQuery(
-        { ...document, estimate: document.estimate ?? null },
+        {
+          ...document,
+          estimate: document.estimate ?? null,
+          parent: document.parent ? { id: document.parent } : null
+        },
         query,
         userId(viewerId),
         "points"
@@ -478,7 +500,7 @@ export const decodeStatusSlug = Schema.decodeSync(StatusSlug)
 
 export const querySectionsVia =
   (
-    index: Pick<TicketIndex.TicketIndex["Service"], "query" | "count">
+    index: Pick<TicketIndex.TicketIndex["Service"], "list" | "query" | "count">
   ): TicketIndex.TicketIndex["Service"]["querySections"] =>
   (project, query, options) =>
     Effect.gen(function* () {
@@ -510,16 +532,34 @@ export const querySectionsVia =
         }
         return out
       }
-      if (options.sections === "parent") {
-        for (const parent of query.parent ?? []) {
-          const scopedQuery = { ...query, parent: [parent] }
-          const counts = yield* index.count(
-            project,
-            { ...scopedQuery, status: undefined },
-            options
-          )
-          const entries = yield* index.query(project, scopedQuery, options)
-          out.set(parent, { counts, entries })
+      if (
+        options.sections === "parent" ||
+        options.sections === "ticketParent"
+      ) {
+        const all = yield* index.list(project)
+        const byId = new Map(all.map((entry) => [entry.id, entry]))
+        const byEpic = options.sections === "parent"
+        const sectionOf = (entry: TicketIndex.TicketIndexEntry): string => {
+          const parent =
+            entry.parent === null ? undefined : byId.get(entry.parent.id)
+          if (parent === undefined) return EPIC_SECTION_NONE
+          if (!byEpic) {
+            return parent.type === "epic" ? EPIC_SECTION_NONE : parent.id
+          }
+          return parent.type === "epic"
+            ? parent.id
+            : (parent.parent?.id ?? EPIC_SECTION_NONE)
+        }
+        for (const key of new Set(all.map(sectionOf))) {
+          const scoped = {
+            ...options,
+            ticketIds: all
+              .filter((entry) => sectionOf(entry) === key)
+              .map((entry) => entry.id)
+          }
+          const counts = yield* index.count(project, countQuery, scoped)
+          const entries = yield* index.query(project, query, scoped)
+          if (counts.total > 0) out.set(key, { counts, entries })
         }
         return out
       }
@@ -537,6 +577,46 @@ export const querySectionsVia =
       }
       return out
     })
+
+export const relationEdgesOfDocuments = (
+  documents: Map<string, TicketDocs.TicketDocument>
+): ReadonlyArray<RelationEdge> =>
+  [...documents.values()].flatMap((document) =>
+    TicketIndex.ticketRelationRowsFor(
+      { orgSlug: "", organizationId: "", projectId: "", slug: "" },
+      document
+    ).map((row) => ({
+      from: document.id,
+      to: ticketId(row.toTicketId),
+      kind: row.kind
+    }))
+  )
+
+export const relationsOfDocuments = (
+  documents: Map<string, TicketDocs.TicketDocument>,
+  ticketId: string
+) =>
+  relationsFromRows(
+    relationEdgesOfDocuments(documents).flatMap((edge): Array<RelationRow> => {
+      const direction =
+        edge.from === ticketId ? "out" : edge.to === ticketId ? "in" : null
+      if (direction === null) return []
+      const other = documents.get(direction === "out" ? edge.to : edge.from)
+      if (other === undefined) return []
+      return [
+        {
+          direction,
+          kind: edge.kind,
+          other: {
+            id: other.id,
+            title: other.title,
+            status: other.status,
+            archivedAt: other.archivedAt
+          }
+        }
+      ]
+    })
+  )
 
 export type FakeTicketIndexShape = TicketIndex.TicketIndex["Service"] &
   TicketBranchIndex.TicketBranchIndex["Service"]
@@ -564,7 +644,9 @@ export const makeFakeTicketIndex = (
         const wanted = ticketIds === undefined ? null : new Set(ticketIds)
         return [...documents.values()]
           .filter((document) => wanted === null || wanted.has(document.id))
-          .map(entryFromDocument)
+          .map((document) =>
+            entryFromDocument(document, (id) => documents.get(id))
+          )
       }),
     query: (_project, query, options) =>
       Effect.sync(() => {
@@ -593,7 +675,7 @@ export const makeFakeTicketIndex = (
         }).items.map((document) => {
           const sortValue = ticketSortValue(document, query)
           return {
-            entry: entryFromDocument(document),
+            entry: entryFromDocument(document, (id) => documents.get(id)),
             sortValue,
             orderKey: `${sortValue}${TicketIndex.TICKET_ORDER_KEY_SEPARATOR}${document.id}`
           }
@@ -718,6 +800,17 @@ export const makeFakeTicketIndex = (
       }),
     querySections: (project, query, options) =>
       querySectionsVia(index)(project, query, options),
+    neighbors: () => Effect.die(new Error("unexpected TicketIndex.neighbors")),
+    parentOf: (_project, ticketId) =>
+      Effect.sync(() => {
+        const parent = documents.get(ticketId)
+        return parent
+          ? { id: parent.id, title: parent.title, type: parent.type }
+          : null
+      }),
+    relationsOf: (_project, ticketId) =>
+      Effect.sync(() => relationsOfDocuments(documents, ticketId)),
+    relationEdges: () => Effect.sync(() => relationEdgesOfDocuments(documents)),
     ...overrides
   }
   return Layer.mergeAll(

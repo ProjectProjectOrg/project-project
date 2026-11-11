@@ -1,4 +1,9 @@
-import { TicketId, TicketStatus, type TicketDetail } from "@pp/shared"
+import {
+  EMPTY_TICKET_RELATIONS,
+  TicketId,
+  TicketStatus,
+  type TicketDetail
+} from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
@@ -17,12 +22,14 @@ const base = {
   pr: null,
   prState: null,
   lastTransitionedPr: null,
+  parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
   assignees: [],
   archivedAt: null,
   createdBy: "user-1",
   createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
   updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
+  relations: EMPTY_TICKET_RELATIONS,
   creator: null,
   updater: null,
   body: "Before"

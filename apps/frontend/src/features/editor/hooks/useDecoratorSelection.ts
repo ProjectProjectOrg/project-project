@@ -87,6 +87,13 @@ export function useDecoratorSelection(
           if (!element || !(target instanceof Node)) return false
           if (!element.contains(target)) return false
           if (isInteractiveTarget(target, interactive)) return false
+          const native = window.getSelection()
+          if (
+            native !== null &&
+            !native.isCollapsed &&
+            element.contains(native.anchorNode)
+          )
+            return false
           event.preventDefault()
           select()
           return true

@@ -7,11 +7,18 @@ import { m } from "@/paraglide/messages"
 
 const ScrollAreaContext = createContext<boolean>(false)
 
+const VIEWPORT_FOCUS =
+  "outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+
 type Orientation = "vertical" | "horizontal" | "both"
+
+type ViewportProps = ComponentProps<"div"> &
+  Readonly<Record<`data-${string}`, string | number>>
 
 type ScrollAreaProps = ComponentProps<"div"> &
   Readonly<{
     viewportClassName?: string
+    viewportProps?: ViewportProps
     orientation?: Orientation
   }>
 
@@ -19,6 +26,7 @@ function ScrollArea({
   className,
   children,
   viewportClassName,
+  viewportProps,
   orientation = "vertical",
   ref,
   ...props
@@ -37,9 +45,11 @@ function ScrollArea({
           {...props}
         >
           <div
+            {...viewportProps}
             data-slot="scroll-area-viewport"
             className={cn(
               "size-full rounded-[inherit]",
+              VIEWPORT_FOCUS,
               orientation === "vertical" && "overflow-y-auto",
               orientation === "horizontal" && "overflow-x-auto",
               orientation === "both" && "overflow-auto",
@@ -59,8 +69,13 @@ function ScrollArea({
           {...props}
         >
           <ScrollAreaPrimitive.Viewport
+            {...viewportProps}
             data-slot="scroll-area-viewport"
-            className={cn("size-full rounded-[inherit]", viewportClassName)}
+            className={cn(
+              "size-full rounded-[inherit]",
+              VIEWPORT_FOCUS,
+              viewportClassName
+            )}
           >
             <ScrollAreaPrimitive.Content>
               {children}
@@ -105,8 +120,8 @@ function ScrollBar({
       <ScrollAreaPrimitive.Thumb
         data-slot="scroll-area-thumb"
         className={cn(
-          "relative bg-[rgb(var(--overlay)/0.08)] transition-[background-color,width,height] duration-160 ease-in-out",
-          "group-hover/scrollbar:bg-[rgb(var(--overlay)/0.12)] active:!bg-[rgb(var(--overlay)/0.16)]",
+          "relative bg-foreground/15 transition-[background-color,width,height] duration-160 ease-in-out",
+          "group-hover/scrollbar:bg-foreground/25 active:!bg-foreground/35",
           "rounded-[20px]",
           orientation === "vertical" &&
             "mx-auto my-1 h-[var(--scroll-area-thumb-height)] w-1 -translate-x-0.5 group-hover/scrollbar:w-1.5",

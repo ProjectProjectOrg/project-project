@@ -83,7 +83,7 @@ export function TitleField({ ticket }: { ticket: TicketDetail }) {
           editing.current = true
           setDraft(ticket.title)
         }}
-        className="line-clamp-5 w-full rounded-md px-2 py-1.5 text-left text-xl font-semibold break-words transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none aria-busy:animate-pulse motion-reduce:animate-none"
+        className="line-clamp-5 w-full rounded-md px-2 py-1.5 text-left text-display font-bold wrap-anywhere transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none aria-busy:animate-pulse motion-reduce:animate-none"
       >
         {ticket.title}
       </button>
@@ -114,13 +114,13 @@ export function TitleField({ ticket }: { ticket: TicketDetail }) {
             if (!saving.current && !pending) close(true)
           }
         }}
-        className="block field-sizing-content max-h-[calc(5lh+0.75rem)] min-h-[1lh] w-full min-w-0 resize-none overflow-y-auto rounded-md bg-accent/40 px-2 py-1.5 text-xl font-semibold [overflow-wrap:anywhere] ring-2 ring-ring/50 outline-none aria-busy:animate-pulse motion-reduce:animate-none"
+        className="block field-sizing-content max-h-[calc(5lh+0.75rem)] min-h-[1lh] w-full min-w-0 resize-none overflow-y-auto rounded-md bg-accent/40 px-2 py-1.5 text-display font-bold wrap-anywhere ring-2 ring-ring/50 outline-none aria-busy:animate-pulse motion-reduce:animate-none"
       />
       {error && (
         <span
           id={errorId}
           role="alert"
-          className="mt-1 block text-xs font-normal text-destructive"
+          className="mt-1 block text-caption font-normal text-destructive"
         >
           {error}
         </span>

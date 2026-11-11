@@ -19,6 +19,7 @@ import {
   ProjectContext,
   useProjectRoute
 } from "@/features/projects/hooks/useProject"
+import { ticketKeyWidth } from "@/features/tickets/lib/ticketKeyWidth"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -69,6 +70,7 @@ export function ProjectLayout() {
         <div
           data-page-banner={value.banner ? "" : undefined}
           className={cn("relative isolate flex flex-1 flex-col gap-3")}
+          style={{ "--ticket-key-width": ticketKeyWidth(value) }}
         >
           <ProjectBanner
             orgSlug={orgSlug}

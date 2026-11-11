@@ -38,8 +38,90 @@ import {
   as
 } from "./testing"
 import * as TicketCommands from "./TicketCommands"
-import type * as TicketDocs from "./TicketDocs"
+import * as TicketDocs from "./TicketDocs"
 import * as TicketQueries from "./TicketQueries"
+
+it.effect(
+  "textSearch finds rendered words across markdown and decoded titles",
+  () => {
+    const files = new Map([
+      ["T-1", "---\ntitle: Formatting\n---\n**perf**authentication"],
+      ["T-2", "---\ntitle: Mention\n---\nAsk [Luuk](mention:user/u_1)."],
+      ["T-3", "---\ntitle: Link\n---\nperf[render](https://example.com)ing"],
+      ["T-4", '---\ntitle: "\\u0063ache"\n---\nDescription']
+    ])
+    const docs = makeFakeTicketDocs([...files.keys()])
+    const layer = makeTicketsLayer(
+      "T",
+      Layer.succeed(TicketDocs.TicketDocs, {
+        ...docs.service,
+        readRaw: (_org, _slug, id) => {
+          const content = files.get(id)
+          return content === undefined
+            ? Effect.fail(new NotFound())
+            : Effect.succeed({ path: id, content })
+        }
+      })
+    )
+
+    return Effect.gen(function* () {
+      const queries = yield* TicketQueries.TicketQueries
+      const results = yield* Effect.forEach(
+        ["perfauthentication", "@Luuk", "perfrendering", "cache"],
+        (q) => queries.textSearch({ q })
+      )
+      expect(results.map((hits) => hits.map((hit) => hit.id))).toEqual([
+        ["T-1"],
+        ["T-2"],
+        ["T-3"],
+        ["T-4"]
+      ])
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "textSearch keeps the best matches when stronger hits finish later",
+  () => {
+    const files = new Map([
+      ["T-2", "---\ntitle: needle\n---\n"],
+      ["T-100", "---\ntitle: Body\n---\nneedle"],
+      ["T-1", "---\ntitle: needle\n---\n"],
+      ["T-200", "---\ntitle: Another body\n---\nneedle"],
+      ["T-10", "---\ntitle: needle\n---\n"]
+    ])
+    const docs = makeFakeTicketDocs([...files.keys()])
+    const layer = makeTicketsLayer(
+      "T",
+      Layer.succeed(TicketDocs.TicketDocs, {
+        ...docs.service,
+        readRaw: (_org, _slug, id) => {
+          const content = files.get(id)
+          if (content === undefined) return Effect.fail(new NotFound())
+          const file = Effect.succeed({ path: id, content })
+          return id === "T-10"
+            ? Effect.yieldNow.pipe(Effect.andThen(file))
+            : file
+        }
+      })
+    )
+
+    return Effect.gen(function* () {
+      const queries = yield* TicketQueries.TicketQueries
+      const limited = yield* queries.textSearch({ q: "needle", limit: 3 })
+      expect(limited.map((hit) => hit.id)).toEqual(["T-10", "T-2", "T-1"])
+
+      const all = yield* queries.textSearch({ q: "needle", limit: 50 })
+      expect(all.map((hit) => hit.id)).toEqual([
+        "T-10",
+        "T-2",
+        "T-1",
+        "T-200",
+        "T-100"
+      ])
+    }).pipe(Effect.provide(layer))
+  }
+)
 
 it.effect("get uses persisted prState for the fallback git state", () => {
   const docs = makeFakeTicketDocs(["T-1"])
@@ -121,7 +203,7 @@ it.effect("epicSections groups tickets under their epic, then No epic", () => {
     expect(
       result.sections.map((section) => ({
         key: section.key,
-        title: section.title,
+        title: section.parent?.title ?? null,
         ids: section.page.items.map((row) => row.ticket.id)
       }))
     ).toEqual([
@@ -132,6 +214,39 @@ it.effect("epicSections groups tickets under their epic, then No epic", () => {
     expect(result.total).toBe(2)
   }).pipe(Effect.provide(layer))
 })
+
+it.effect(
+  "parentSections groups sub-tickets under their parent ticket, then No parent",
+  () => {
+    const docs = makeFakeTicketDocs([])
+    const add = (id: string, overrides: Partial<TicketDocs.TicketDocument>) =>
+      docs.documents.set(id, makeTicketDocument(id, overrides))
+    add("T-1", { type: "epic", title: "Estimation" })
+    add("T-2", { title: "Estimate field", parent: ticketId("T-1") })
+    add("T-3", { title: "Field validation", parent: ticketId("T-2") })
+    add("T-4", { title: "Passkeys" })
+    const layer = makeTicketsLayer("T", docs.layer, {
+      ticketIndex: makeFakeTicketIndex(docs.documents)
+    })
+    return Effect.gen(function* () {
+      const queries = yield* TicketQueries.TicketQueries
+      const result = yield* queries.parentSections({
+        sort: { key: "id", dir: "asc" }
+      })
+
+      expect(
+        result.sections.map((section) => ({
+          key: section.key,
+          title: section.parent?.title ?? null,
+          ids: section.page.items.map((row) => row.ticket.id)
+        }))
+      ).toEqual([
+        { key: "T-2", title: "Estimate field", ids: ["T-3"] },
+        { key: "none", title: null, ids: ["T-2", "T-4"] }
+      ])
+    }).pipe(Effect.provide(layer))
+  }
+)
 
 it.effect("list reads ticket index rows", () => {
   const docs = makeFakeTicketDocs(["T-1"])
@@ -858,6 +973,27 @@ it.effect(
     }).pipe(Effect.provide(layer))
   }
 )
+
+it.effect("sprintSections lists sections in backlog order", () => {
+  const docs = makeFakeTicketDocs([])
+  const completed = sprintGroup("G-1", [], isoDate("2026-04-01T00:00:00.000Z"))
+  const planned = sprintGroup("G-2", [])
+  const layer = makeTicketsLayer("T", docs.layer, {
+    ticketIndex: makeFakeTicketIndex(docs.documents),
+    groups: makeFakeSprintGroups([completed, planned])
+  })
+  return Effect.gen(function* () {
+    const queries = yield* TicketQueries.TicketQueries
+    const snapshot = yield* queries.sprintSections({
+      sort: { key: "id", dir: "asc" }
+    })
+    expect(snapshot.sections.map(({ key }) => key)).toEqual([
+      planned.id,
+      "unscheduled",
+      completed.id
+    ])
+  }).pipe(Effect.provide(layer))
+})
 
 it.effect("sprintSections assigns each ticket to one section", () => {
   const docs = makeFakeTicketDocs([])

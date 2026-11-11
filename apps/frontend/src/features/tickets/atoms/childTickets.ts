@@ -2,7 +2,8 @@ import {
   TicketStatus,
   type Ticket,
   type TicketId,
-  type TicketSort
+  type TicketSort,
+  type TicketParent
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -21,7 +22,8 @@ import {
   toRow,
   withCreatedKeys,
   type QuickCreateInput,
-  type TicketRow
+  type TicketRow,
+  quickCreatePayload
 } from "@/features/tickets/lib/ticketRows"
 
 import { allPages } from "./allPages"
@@ -116,6 +118,17 @@ export const expandedChildTickets = Atom.family(
     )
 )
 
+export const expandedChildrenSettled = Atom.family(
+  (reqs: ReadonlyArray<ExpandedChildrenRequest>) =>
+    Atom.readable((get) =>
+      reqs.every((req) =>
+        [...get(expandedChildTickets(req)).values()].every(
+          (result) => !AsyncResult.isInitial(result)
+        )
+      )
+    )
+)
+
 export const quickCreateChildTicket = Atom.family((req: ChildTicketsRequest) =>
   viewMutation(childTickets(req), {
     name: "quickCreateChildTicket",
@@ -130,7 +143,7 @@ export const quickCreateChildTicket = Atom.family((req: ChildTicketsRequest) =>
     ],
     call: (client, input, get) =>
       client.tickets
-        .quickCreate({ params: req.params, payload: input.payload })
+        .quickCreate({ params: req.params, payload: quickCreatePayload(input) })
         .pipe(
           Effect.tap((created) =>
             Effect.sync(() =>
@@ -168,13 +181,13 @@ export const updateChildTicket = Atom.family(({ req, id }: ChildTicketKey) =>
           CHILD_TICKET_SORT,
           DateTime.toDate(DateTime.nowUnsafe())
         )
-        return next.ticket.parent === req.parent ? [next] : []
+        return next.ticket.parent?.id === req.parent ? [next] : []
       }),
     confirm: (rows, { ticket }) =>
       rows.flatMap((row) =>
         row.ticket.id !== id
           ? [row]
-          : ticket.parent === req.parent
+          : ticket.parent?.id === req.parent
             ? [{ ...row, ticket }]
             : []
       )
@@ -190,13 +203,15 @@ const attachedRow = (ticket: Ticket): TicketRow => ({
   pending: false
 })
 
+type AttachInput = Readonly<{ ticket: Ticket; parent: TicketParent }>
+
 export const attachChildTicket = Atom.family(({ req, id }: ChildTicketKey) =>
   viewMutation(childTickets(req), {
     name: "attachChildTicket",
-    predict: (rows, ticket: Ticket) =>
+    predict: (rows, { ticket, parent }: AttachInput) =>
       insertByOrderKey(
         rows.filter((row) => row.ticket.id !== id),
-        attachedRow({ ...ticket, parent: req.parent }),
+        attachedRow({ ...ticket, parent }),
         CHILD_TICKET_SORT.dir
       ),
     call: (client) =>
@@ -214,7 +229,11 @@ export const attachChildTicket = Atom.family(({ req, id }: ChildTicketKey) =>
 export const attachToParent = (
   registry: Registry.AtomRegistry,
   req: ChildTicketsRequest,
+  parent: TicketParent,
   ticket: Ticket
 ): void => {
-  void fireMutation(registry, attachChildTicket({ req, id: ticket.id }), ticket)
+  void fireMutation(registry, attachChildTicket({ req, id: ticket.id }), {
+    ticket,
+    parent
+  })
 }

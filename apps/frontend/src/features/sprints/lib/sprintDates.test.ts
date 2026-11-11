@@ -5,7 +5,10 @@ import {
   defaultSprintRange,
   formatSprintRange,
   sprintDateDraft,
-  sprintDatesPatch
+  sprintCountdown,
+  sprintDatesPatch,
+  startPresets,
+  startSprintPatch
 } from "./sprintDates"
 
 const date = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
@@ -71,12 +74,87 @@ describe("formatSprintRange", () => {
   })
 })
 
+const localDay = (value: Date | null | undefined) =>
+  value == null
+    ? null
+    : `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`
+
+const noon = (day: string) => date(`${day}T12:00:00.000Z`)
+
 describe("defaultSprintRange", () => {
-  it("runs two weeks from now", () => {
-    const now = DateTime.makeUnsafe("2026-05-01T00:00:00.000Z")
-    expect(defaultSprintRange(now)).toEqual({
-      from: may1,
-      to: date("2026-05-15T00:00:00.000Z")
-    })
+  it("runs fourteen days, today included", () => {
+    const range = defaultSprintRange(
+      DateTime.makeUnsafe("2026-05-01T12:00:00.000Z")
+    )
+    expect([localDay(range.from), localDay(range.to)]).toEqual([
+      "2026-05-01",
+      "2026-05-14"
+    ])
+  })
+})
+
+describe("startSprintPatch", () => {
+  it("keeps the planned number of days when moving the start", () => {
+    const patch = startSprintPatch(
+      { startsAt: noon("2026-05-14"), endsAt: noon("2026-05-21") },
+      noon("2026-05-01")
+    )
+    expect([localDay(patch.startsAt), localDay(patch.endsAt)]).toEqual([
+      "2026-05-01",
+      "2026-05-08"
+    ])
+  })
+
+  it("runs fourteen days when the sprint has no range", () => {
+    const patch = startSprintPatch(
+      { startsAt: null, endsAt: null },
+      noon("2026-05-01")
+    )
+    expect([localDay(patch.startsAt), localDay(patch.endsAt)]).toEqual([
+      "2026-05-01",
+      "2026-05-14"
+    ])
+  })
+})
+
+describe("sprintCountdown", () => {
+  const endsAt = noon("2026-05-14")
+  it.each([
+    ["2026-05-12", { kind: "left", days: 2 }],
+    ["2026-05-14", { kind: "lastDay" }],
+    ["2026-05-16", { kind: "ended", days: 2 }]
+  ])("on %s", (today, expected) => {
+    expect(sprintCountdown({ endsAt }, noon(today))).toEqual(expected)
+  })
+})
+
+describe("startPresets", () => {
+  it("offers each day once, starting now", () => {
+    const monday = DateTime.makeUnsafe("2026-11-09T12:00:00.000Z")
+    const presets = startPresets({ now: monday, activeEnd: null })
+    expect(presets.map((preset) => preset.key)).toEqual([
+      "now",
+      "tomorrow",
+      "monday",
+      "mondayAfter"
+    ])
+    expect(presets[2]?.date.getDate()).toBe(16)
+  })
+
+  it("starts the day after the active sprint ends, over a Monday on that day", () => {
+    const monday = DateTime.makeUnsafe("2026-11-09T12:00:00.000Z")
+    const activeEnd = noon("2026-11-22")
+    expect(
+      startPresets({ now: monday, activeEnd }).map((preset) => preset.key)
+    ).toEqual(["now", "tomorrow", "monday", "afterActive"])
+  })
+
+  it("drops a preset that lands on a day already offered", () => {
+    const sunday = DateTime.makeUnsafe("2026-11-08T12:00:00.000Z")
+    expect(startPresets({ now: sunday }).map((preset) => preset.key)).toEqual([
+      "now",
+      "tomorrow",
+      "mondayAfter"
+    ])
   })
 })

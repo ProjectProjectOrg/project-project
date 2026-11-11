@@ -126,7 +126,7 @@ export function CreatedBlock({
       {conflicts.length > 0 ? (
         <ul role="alert" className="flex flex-col gap-1 pt-2">
           {conflictMessages(conflicts).map((message) => (
-            <li key={message} className="text-[13px] text-destructive">
+            <li key={message} className="text-body text-destructive">
               {message}
             </li>
           ))}
@@ -231,14 +231,14 @@ function RestrictedChoice({
   const excluded = excludedIssues(requirements, draft)
   return (
     <div className="flex flex-col gap-2 border-t border-border pt-3">
-      <p className="text-[13px] text-foreground">
+      <p className="text-body text-foreground">
         {m.jira_import_restricted_found({
           issues: restricted.issueCount,
           comments: restricted.commentCount,
           worklogs: restricted.worklogCount
         })}
       </p>
-      <p className="max-w-[65ch] text-xs text-muted-foreground">
+      <p className="max-w-[65ch] text-caption text-muted-foreground">
         {m.jira_import_restricted_description()}
       </p>
       <form.Field name="review.restrictedContent">

@@ -35,7 +35,7 @@ function SheetOverlay({
     <SheetPrimitive.Backdrop
       data-slot="sheet-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/50 data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:fill-mode-forwards data-[open]:animate-in data-[open]:fade-in-0",
+        "fixed inset-0 bg-black/50 data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:fill-mode-forwards data-[open]:animate-in data-[open]:fade-in-0",
         className
       )}
       {...props}
@@ -70,7 +70,7 @@ function SheetContent({
       <SheetPrimitive.Popup
         data-slot="sheet-content"
         className={cn(
-          "fixed z-50 flex flex-col bg-background shadow-lg duration-200 outline-none data-[closed]:animate-out data-[closed]:fill-mode-forwards data-[open]:animate-in",
+          "fixed flex flex-col bg-background shadow-lg duration-200 outline-none data-[closed]:animate-out data-[closed]:fill-mode-forwards data-[open]:animate-in",
           sheetSideClasses[side],
           className
         )}
@@ -98,7 +98,7 @@ function SheetTitle({
   return (
     <SheetPrimitive.Title
       data-slot="sheet-title"
-      className={cn("text-lg leading-none font-semibold", className)}
+      className={cn("text-title", "font-semibold", className)}
       {...props}
     />
   )
@@ -111,7 +111,7 @@ function SheetDescription({
   return (
     <SheetPrimitive.Description
       data-slot="sheet-description"
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-body", "text-muted-foreground", className)}
       {...props}
     />
   )

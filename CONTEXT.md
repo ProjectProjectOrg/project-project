@@ -49,6 +49,10 @@ _Avoid_: Child issue, subtask
 Taking a ticket, with its sub-tickets, to another project in the same org. It gets a new id there and remembers the old ones in `movedFrom`, so old links and mentions keep resolving.
 _Avoid_: Transfer, migrate (that is the Jira import)
 
+**Relation**:
+A link between two tickets in one project: **blocked by** (and its reverse, **blocking**), **related**, or **duplicate of** (and its reverse, **duplicates**). The ticket that waits stores `blockedBy`, a duplicate stores `duplicateOf`, and `relatedTo` stays on the ticket it was added from. A ticket is **blocked** while any blocker is unarchived and not finished. The UI calls setting one a **mark** ("Mark as blocked by…").
+_Avoid_: Link (for relations), dependency (except "blocked by"), issue link
+
 **Status**:
 A project-defined column a ticket moves through. Projects start with `todo`, `in_progress` and `done` and can add their own.
 
@@ -129,6 +133,8 @@ _Avoid_: PP CLI (except on the OAuth consent screen)
 - A **Ticket** is in at most one **Sprint**; otherwise it is in the **Backlog**.
 - A **Ticket** has at most one parent: an **Epic**, a ticket without a parent, or a child of an **Epic**.
 - A **Ticket** can have several **linked branches**, forming **stacks**.
+- A **Ticket** can have any number of **Relations** to other tickets in its project. A blocking relation can't form a loop, and a duplicate can't point at another duplicate.
+- Marking a **Ticket** a duplicate archives it; restoring it drops the duplicate relation.
 
 ## Example Dialogue
 

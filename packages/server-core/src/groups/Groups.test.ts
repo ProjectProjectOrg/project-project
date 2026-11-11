@@ -1,5 +1,6 @@
 import { it } from "@effect/vitest"
 import { assertTrue } from "@effect/vitest/utils"
+import { EMPTY_TICKET_RELATIONS } from "@pp/shared"
 import { GroupColor } from "@pp/shared"
 import {
   ActivityActor,
@@ -24,6 +25,7 @@ import * as TicketBranchIndex from "../git/TicketBranchIndex"
 import * as KeyedLock from "../locks/KeyedLock"
 import * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
+import { entryFromDocument } from "../tickets/testing"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as TicketDocumentLock from "../tickets/ticketDocumentLock"
 import * as TicketIndex from "../tickets/TicketIndex"
@@ -69,24 +71,6 @@ function makeTicketDocument(
     updatedAt: now,
     body: "",
     commentsRegion: ""
-  }
-}
-
-function ticketIndexEntryFromDocument(ticket: TicketDocs.TicketDocument) {
-  const { body: _body, commentsRegion: _commentsRegion, ...entry } = ticket
-  return {
-    ...entry,
-    estimate: entry.estimate ?? null,
-    prDraft: entry.prDraft ?? false,
-    prBase: entry.prBase ?? null,
-    ignoredBranches: entry.ignoredBranches ?? [],
-    parent: entry.parent ?? null,
-    subTicketCount: 0,
-    subTicketDoneCount: 0,
-    branchDeletedAt: null,
-    checks: null,
-    checksHeadSha: null,
-    checksUpdatedAt: null
   }
 }
 
@@ -223,11 +207,12 @@ function makeFakeDocs(initial?: {
           requestedIds === undefined ? null : new Set(requestedIds)
         return [...ticketsById.values()]
           .filter((ticket) => requested === null || requested.has(ticket.id))
-          .map(ticketIndexEntryFromDocument)
+          .map((ticket) => entryFromDocument(ticket))
       }),
     query: () => Effect.die(new Error("unexpected TicketIndex.query")),
     querySections: () =>
       Effect.die(new Error("unexpected TicketIndex.querySections")),
+    neighbors: () => Effect.die(new Error("unexpected TicketIndex.neighbors")),
     orderKeyFor: () =>
       Effect.die(new Error("unexpected TicketIndex.orderKeyFor")),
     count: () => Effect.die(new Error("unexpected TicketIndex.count")),
@@ -256,6 +241,9 @@ function makeFakeDocs(initial?: {
       Effect.sync(() => {
         ticketsById.set(document.id, document)
       }),
+    parentOf: () => Effect.succeed(null),
+    relationsOf: () => Effect.succeed(EMPTY_TICKET_RELATIONS),
+    relationEdges: () => Effect.succeed([]),
     deleteTicket: (_project, id) =>
       Effect.sync(() => {
         ticketsById.delete(id)
@@ -1061,6 +1049,7 @@ it.effect("listPaged filters by kind", () =>
 
 it.effect("listPaged active=true keeps only running sprints", () =>
   Effect.gen(function* () {
+    yield* setTestNow
     const groups = yield* Groups.Groups
     const page = yield* groups.listPaged({ active: true }, undefined, 50)
     expect(page.items.map((g) => g.id)).toEqual(["G-1"])
@@ -1069,7 +1058,9 @@ it.effect("listPaged active=true keeps only running sprints", () =>
       makeGroupsLayer(
         {
           groups: {
-            "G-1": makeSprintDoc("G-1"),
+            "G-1": makeSprintDoc("G-1", {
+              startsAt: isoDate("2026-04-01T00:00:00.000Z")
+            }),
             "G-2": makeSprintDoc("G-2", {
               completedAt: isoDate("2026-04-15T00:00:00.000Z")
             }),
@@ -1084,6 +1075,7 @@ it.effect("listPaged active=true keeps only running sprints", () =>
 
 it.effect("listSprintsPaged filters by state=active", () =>
   Effect.gen(function* () {
+    yield* setTestNow
     const groups = yield* Groups.Groups
     const page = yield* groups.listSprintsPaged("active", undefined, 50)
     expect(page.items.map((g) => g.id)).toEqual(["G-1"])
@@ -1092,7 +1084,9 @@ it.effect("listSprintsPaged filters by state=active", () =>
       makeGroupsLayer(
         {
           groups: {
-            "G-1": makeSprintDoc("G-1"),
+            "G-1": makeSprintDoc("G-1", {
+              startsAt: isoDate("2026-04-01T00:00:00.000Z")
+            }),
             "G-2": makeSprintDoc("G-2", {
               completedAt: isoDate("2026-04-15T00:00:00.000Z")
             }),

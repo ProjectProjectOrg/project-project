@@ -1,6 +1,5 @@
-import type { GroupId, TicketFilter } from "@pp/shared"
+import type { TicketFilter } from "@pp/shared"
 
-export type SprintFilterValue = "all" | "ungrouped" | GroupId
 export type FilterDimension =
   | "type"
   | "assignee"
@@ -8,18 +7,16 @@ export type FilterDimension =
   | "sprint"
   | "estimate"
   | "archived"
-  | "subTicketExpansion"
+  | "blocked"
 
-const FILTER_KEYS: Readonly<
-  Record<FilterDimension, keyof TicketFilter | null>
-> = {
+const FILTER_KEYS: Readonly<Record<FilterDimension, keyof TicketFilter>> = {
   type: "type",
   assignee: "assignee",
   tags: "tags",
   sprint: "groupId",
   estimate: "estimate",
   archived: "archived",
-  subTicketExpansion: null
+  blocked: "blocked"
 }
 
 export function activeFilterCount(
@@ -27,8 +24,15 @@ export function activeFilterCount(
   dimensions: ReadonlyArray<FilterDimension>
 ) {
   return dimensions.filter((dimension) => {
-    const key = FILTER_KEYS[dimension]
-    const value = key === null ? undefined : filter?.[key]
+    const value = filter?.[FILTER_KEYS[dimension]]
     return Array.isArray(value) ? value.length > 0 : value === true
   }).length
+}
+
+export function clearedFilters(
+  dimensions: ReadonlyArray<FilterDimension>
+): Partial<TicketFilter> {
+  return Object.fromEntries(
+    dimensions.map((dimension) => [FILTER_KEYS[dimension], undefined])
+  )
 }

@@ -130,7 +130,7 @@ Each UI pattern has exactly one primitive. Reach for it (or add a variant to it)
 
 ### Ticket rows are one component
 
-Render every ticket in a list with `Row` (`apps/frontend/src/features/tickets/components/ticket-list/Row.tsx`) inside a `rowGridClassName` grid. `Row` owns its columns — sprint chip, actions menu, epic prefix — and reads the data it needs itself, so callsites pass the ticket and its mutation, nothing about which columns to show. Don't hand-build a ticket row, and add new row behaviour to `Row` rather than to a list. The visual rule is "The One Ticket Row Rule" in `DESIGN.md`.
+Render every ticket in a list with `Row` (`apps/frontend/src/features/tickets/components/ticket-list/Row.tsx`) inside a `rowGridClassName` grid. `Row` owns its fields and context menu and reads the data it needs itself, so callsites pass the ticket and its mutation, nothing about which columns to show. Don't hand-build a ticket row, and add new row behaviour to `Row` rather than to a list. The visual rule is "The One Ticket Row Rule" in `DESIGN.md`.
 
 ## i18n
 

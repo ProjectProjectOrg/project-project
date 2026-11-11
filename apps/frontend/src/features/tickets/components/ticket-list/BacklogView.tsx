@@ -1,10 +1,18 @@
+import { useAtomValue } from "@effect/atom-react"
 import type { TicketListQuery } from "@pp/shared"
+import type { BacklogGrouping } from "@pp/shared"
+import * as Result from "effect/reactivity/AsyncResult"
+import { useState } from "react"
 
-import { useProject } from "@/features/projects/hooks/useProject"
+import {
+  useProject,
+  useProjectRoute
+} from "@/features/projects/hooks/useProject"
 import {
   ignoreReorder,
   type StatusReorder
 } from "@/features/sprints/hooks/useStatusReorder"
+import { viewCounts } from "@/features/tickets/atoms/viewCounts"
 import { TicketListContent } from "@/features/tickets/components/ticket-list"
 import { BacklogBoard } from "@/features/tickets/components/ticket-list/BacklogBoard"
 import { useProjectActor } from "@/hooks/useActor"
@@ -15,13 +23,15 @@ import { SprintSections } from "./SprintSections"
 export function BacklogView({
   view,
   query,
+  onQueryChange,
   grouping,
   preferencesKey,
   reorder
 }: Readonly<{
   view: "list" | "board"
   query: TicketListQuery
-  grouping: "status" | "sprint" | "epic"
+  onQueryChange: (query: TicketListQuery) => void
+  grouping: BacklogGrouping
   preferencesKey: string
   reorder: StatusReorder
 }>) {
@@ -29,7 +39,8 @@ export function BacklogView({
   const canReorder = useProjectActor().call("statuses", "reorder")
   const { reorderMode, dragOrder, enterReorder, cancelReorder, setDragOrder } =
     reorder
-  const isBoard = view === "board"
+  const shown = useLoadedView(grouping, view, query)
+  const isBoard = shown.view === "board"
   return (
     <TicketListContent
       query={query}
@@ -48,11 +59,12 @@ export function BacklogView({
           setDragOrder={setDragOrder}
         />
       )}
-      showSections={!isBoard && grouping !== "status"}
+      showSections={!isBoard && shown.grouping !== "status"}
       sections={
-        grouping === "epic" ? (
+        shown.grouping === "epic" || shown.grouping === "parent" ? (
           <EpicSections
             key={preferencesKey}
+            by={shown.grouping}
             preferencesKey={preferencesKey}
             query={query}
             members={project.members}
@@ -62,10 +74,30 @@ export function BacklogView({
             key={preferencesKey}
             preferencesKey={preferencesKey}
             query={query}
+            onQueryChange={onQueryChange}
             members={project.members}
           />
         )
       }
     />
   )
+}
+
+function useLoadedView(
+  grouping: BacklogGrouping,
+  view: "list" | "board",
+  query: TicketListQuery
+): Readonly<{ grouping: BacklogGrouping; view: "list" | "board" }> {
+  const { orgSlug, slug } = useProjectRoute()
+  const [shown, setShown] = useState({ grouping, view })
+  const target = useAtomValue(
+    viewCounts({ orgSlug, slug, groupId: null, view, grouping, query })
+  )
+  if (
+    (shown.grouping !== grouping || shown.view !== view) &&
+    !Result.isInitial(target)
+  ) {
+    setShown({ grouping, view })
+  }
+  return shown
 }

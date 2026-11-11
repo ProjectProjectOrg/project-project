@@ -175,6 +175,24 @@ const validationMessage = (reason: string): string => {
       return m.tickets_move_error_no_statuses()
     case "invalid_blocks":
       return invalidBlocksMessage(detail)
+    case "relation_self":
+      return m.tickets_error_relation_self()
+    case "unknown_tickets":
+      return m.tickets_error_unknown_tickets({
+        ids: detail.replaceAll(",", ", ")
+      })
+    case "blocking_cycle":
+      return m.tickets_error_blocking_cycle({
+        chain: detail.replaceAll(",", " → ")
+      })
+    case "duplicate_of_duplicate": {
+      const [ticket = "", original = ""] = detail.split(",")
+      return m.tickets_error_duplicate_of_duplicate({ ticket, original })
+    }
+    case "has_duplicates":
+      return m.tickets_error_has_duplicates({
+        ids: detail.replaceAll(",", ", ")
+      })
     case "unknown_template":
       return m.templates_error_unknown_template({ key: detail })
     case "jira_migration_not_configurable":

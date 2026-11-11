@@ -31,7 +31,7 @@ export function PreviewLink({
   const ref = useRef<HTMLAnchorElement>(null)
 
   useLayoutEffect(() => {
-    if (ref.current !== null) paintLinkFavicon(ref.current, favicon)
+    if (ref.current !== null) paintLinkFavicon(ref.current, favicon, false)
   }, [favicon])
 
   const showTitle =

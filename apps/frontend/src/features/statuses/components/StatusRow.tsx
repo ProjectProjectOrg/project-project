@@ -209,10 +209,10 @@ export function StatusRow({
               dataWaiting && "animate-pulse"
             )}
           >
-            <span className="truncate text-sm">{displayLabel}</span>
+            <span className="truncate text-body">{displayLabel}</span>
             <span
               title={status.description ?? undefined}
-              className="truncate text-xs text-muted-foreground"
+              className="truncate text-caption text-muted-foreground"
             >
               <span className="tabular-nums">
                 {m.tickets_status_phase_ticket_count({ count })}
@@ -267,7 +267,7 @@ function DragHandle({
         }
       }}
       className={cn(
-        "flex h-8 w-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground/60 hover:text-foreground focus-visible:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none active:cursor-grabbing",
+        "flex h-8 w-5 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none active:cursor-grabbing",
         REVEAL
       )}
     >

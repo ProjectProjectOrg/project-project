@@ -18,7 +18,12 @@ import { SidebarSlotProvider } from "@/components/shell/SidebarSlot"
 import { UserMenu } from "@/components/shell/UserMenu"
 import { me } from "@/features/auth/atoms/auth"
 import { authedRouteRedirect } from "@/features/auth/lib/authRedirect"
+import { CommandMenuHost } from "@/features/command-menu/components/CommandMenuHost"
 import { RunningTimerIndicator } from "@/features/everhour/components/RunningTimerIndicator"
+import { SendFeedbackDialogHost } from "@/features/feedback/components/SendFeedbackDialog"
+import { CreateSprintDialogHost } from "@/features/sprints/components/CreateSprintDialog"
+import { CreateTicketDialogHost } from "@/features/tickets/components/create-ticket/CreateTicketDialog"
+import { TicketPreviewRoot } from "@/features/tickets/components/ticket-preview/TicketPreview"
 import { PageBackdropContext } from "@/lib/pageBackdrop"
 
 export function AuthedLayout() {
@@ -53,11 +58,11 @@ function Shell({ user }: { user: User }) {
   const [backdrop, setBackdrop] = useState<HTMLDivElement | null>(null)
   return (
     <div className="h-full transition-[padding] duration-300 ease-out motion-reduce:transition-none lg:p-3">
-      <div className="grid h-full grid-cols-1 grid-rows-[3.5rem_1fr] overflow-hidden bg-background transition-[border-radius,box-shadow] duration-300 ease-out motion-reduce:transition-none lg:grid-cols-[14rem_1fr] lg:rounded-2xl lg:shadow-sm lg:ring-1 lg:ring-border/60">
+      <div className="grid h-full grid-cols-1 grid-rows-[3.5rem_1fr] overflow-hidden bg-background transition-[border-radius,box-shadow] duration-300 ease-out motion-reduce:transition-none lg:grid-cols-[14rem_minmax(0,1fr)] lg:rounded-2xl lg:shadow-sm lg:ring-1 lg:ring-border/60">
         <Sidebar user={user} />
         <Topbar user={user} />
         <main className="flex min-h-0 overflow-hidden p-2 pt-0">
-          <div className="relative isolate flex min-w-0 flex-1 overflow-hidden rounded-xl bg-region">
+          <div className="relative isolate flex min-w-0 flex-1 overflow-hidden rounded-xl bg-region [--avatar-cutout:var(--color-region)]">
             <PageBackdropContext value={backdrop}>
               <div
                 data-scroll-root
@@ -80,6 +85,13 @@ function Shell({ user }: { user: User }) {
           </div>
         </main>
       </div>
+      {user.activeOrgSlug ? (
+        <CommandMenuHost orgSlug={user.activeOrgSlug} />
+      ) : null}
+      <TicketPreviewRoot />
+      <CreateTicketDialogHost />
+      <CreateSprintDialogHost />
+      <SendFeedbackDialogHost />
     </div>
   )
 }

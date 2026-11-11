@@ -87,6 +87,20 @@ describe("coalesceActivity", () => {
     expect(coalesceActivity(newestFirst([first, second]))).toEqual([])
   })
 
+  it("drops description edits that end where they started", () => {
+    const typed = entry(0, {
+      kind: "description_edited",
+      fromHash: "empty",
+      toHash: "draft"
+    })
+    const cleared = entry(20, {
+      kind: "description_edited",
+      fromHash: "draft",
+      toHash: "empty"
+    })
+    expect(coalesceActivity(newestFirst([typed, cleared]))).toEqual([])
+  })
+
   it("collapses a burst of description edits by one person", () => {
     const first = entry(0, edited)
     const second = entry(5 * 60, edited)

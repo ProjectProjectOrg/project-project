@@ -54,7 +54,6 @@ export function ViewSwitcher() {
               params: { orgSlug, slug, groupId },
               search: (prev) => ({
                 ...prev,
-                updatedAfter: prev.updatedAfter?.toISOString(),
                 view: next
               })
             })
@@ -80,7 +79,6 @@ export function ViewSwitcher() {
             params: { orgSlug, slug },
             search: (prev) => ({
               ...prev,
-              updatedAfter: prev.updatedAfter?.toISOString(),
               view: next
             })
           })

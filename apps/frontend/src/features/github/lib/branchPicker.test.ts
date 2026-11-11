@@ -7,7 +7,8 @@ import {
   branchSearchView,
   defaultBranchName,
   mentionsTicket,
-  sanitizeBranchName
+  sanitizeBranchName,
+  withoutTicketId
 } from "./branchPicker"
 
 const branch = (name: string): BranchListItem => ({ name, isProtected: false })
@@ -146,5 +147,25 @@ describe("branchSearchView", () => {
 
   it("has nothing to show before any branches load", () => {
     expect(branchSearchView({ term: "x", exact: null, base: null })).toBeNull()
+  })
+})
+
+describe("withoutTicketId", () => {
+  it("drops the ticket's own id and the separator next to it", () => {
+    expect(withoutTicketId("feat/T-290-ticket-relations", "T-290")).toBe(
+      "feat/ticket-relations"
+    )
+    expect(withoutTicketId("t-290/fix-login", "T-290")).toBe("fix-login")
+    expect(withoutTicketId("fix/login-T-290", "T-290")).toBe("fix/login")
+  })
+
+  it("keeps names that only mention another ticket or nothing else", () => {
+    expect(withoutTicketId("feat/T-2900-other", "T-290")).toBe(
+      "feat/T-2900-other"
+    )
+    expect(withoutTicketId("fix-login-redirect", "T-290")).toBe(
+      "fix-login-redirect"
+    )
+    expect(withoutTicketId("T-290", "T-290")).toBe("T-290")
   })
 })

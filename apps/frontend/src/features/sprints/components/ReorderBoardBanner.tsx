@@ -12,7 +12,7 @@ export function ReorderBoardBanner({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl bg-foreground/5 px-4 py-2">
-      <span className="inline-flex items-center gap-2 text-sm">
+      <span className="inline-flex items-center gap-2 text-body">
         <ArrowLeftRight
           className="size-4 text-muted-foreground"
           strokeWidth={1.75}

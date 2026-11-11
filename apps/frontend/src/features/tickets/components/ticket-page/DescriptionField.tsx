@@ -18,7 +18,6 @@ import {
 import {
   useEffect,
   useImperativeHandle,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -34,10 +33,6 @@ import {
 import { useEditorBlocks } from "@/features/editor/hooks/useEditorBlocks"
 import { AttachmentAvailabilityProvider } from "@/features/editor/lexical/attachmentAvailability"
 import { $selectFirstHint } from "@/features/editor/lexical/blocks/blockCommands"
-import {
-  entersEditing,
-  keepsEditing
-} from "@/features/editor/lexical/blocks/editingFocus"
 import { OPEN_SLASH_MENU_COMMAND } from "@/features/editor/lexical/blocks/SlashMenuPlugin"
 import { lookupFor } from "@/features/editor/lib/blockChrome"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
@@ -76,9 +71,6 @@ export type DescriptionHandle = Readonly<{
 }>
 
 const sameBody = (a: string, b: string): boolean => a.trim() === b.trim()
-
-const COLLAPSE_THRESHOLD_VH = 0.5
-const DESCRIPTION_REGION_ID = "ticket-description-region"
 
 export function DescriptionField({
   ticket,
@@ -180,47 +172,6 @@ export function DescriptionField({
     })
   }, [autoFocus, library, lookup])
 
-  const wrapperRef = useRef<HTMLDivElement>(null)
-  const contentRef = useRef<HTMLDivElement>(null)
-  const [collapsedPx, setCollapsedPx] = useState(0)
-  const [overflows, setOverflows] = useState(false)
-  const [expanded, setExpanded] = useState(false)
-  const [focused, setFocused] = useState(false)
-
-  useLayoutEffect(() => {
-    const inner = contentRef.current
-    if (!inner) return
-
-    let frame = 0
-    let lastVh = 0
-    let lastH = 0
-    const measure = () => {
-      frame = 0
-      const vh = window.innerHeight
-      const h = inner.getBoundingClientRect().height
-      if (vh === lastVh && Math.abs(h - lastH) < 0.5) return
-      lastVh = vh
-      lastH = h
-      setCollapsedPx(Math.round(vh * COLLAPSE_THRESHOLD_VH))
-      setOverflows(h > vh * COLLAPSE_THRESHOLD_VH)
-    }
-    const schedule = () => {
-      if (frame !== 0) return
-      frame = requestAnimationFrame(measure)
-    }
-
-    measure()
-    const ro = new ResizeObserver(schedule)
-    ro.observe(inner)
-    window.addEventListener("resize", schedule)
-    return () => {
-      if (frame !== 0) cancelAnimationFrame(frame)
-      ro.disconnect()
-      window.removeEventListener("resize", schedule)
-    }
-  }, [])
-
-  const collapsed = overflows && !expanded && !focused
   const offersStarts =
     library !== null &&
     (bodyDraft ?? ticket.body).trim() === "" &&
@@ -228,30 +179,8 @@ export function DescriptionField({
 
   return (
     <div>
-      <div
-        ref={wrapperRef}
-        id={DESCRIPTION_REGION_ID}
-        data-block-rail-host
-        data-editing={focused ? "" : undefined}
-        className={cn(
-          "relative rounded-lg border border-transparent px-3 py-2 transition-colors duration-150 data-editing:border-border data-editing:bg-background",
-          collapsed && "overflow-y-clip"
-        )}
-        style={{
-          maxHeight:
-            collapsed && collapsedPx > 0 ? `${collapsedPx}px` : undefined
-        }}
-        onFocus={(e) => {
-          if (entersEditing(e.currentTarget, e.target)) setFocused(true)
-        }}
-        onBlur={(e) => {
-          if (!keepsEditing(e.currentTarget, e.relatedTarget)) setFocused(false)
-        }}
-      >
-        <div
-          ref={contentRef}
-          className={cn("relative", offersStarts && "min-h-56")}
-        >
+      <div data-block-rail-host className="relative px-3 py-2">
+        <div className={cn("relative", offersStarts && "min-h-56")}>
           <MentionScopeProvider scope={{ orgSlug, slug, members, involved }}>
             <AttachmentAvailabilityProvider missing={ticket.missingAttachments}>
               <LexicalEditor
@@ -269,7 +198,6 @@ export function DescriptionField({
                 attachments={attachments}
                 blocks={blocks}
                 editorRef={editorRef}
-                size="large"
               />
             </AttachmentAvailabilityProvider>
           </MentionScopeProvider>
@@ -284,17 +212,11 @@ export function DescriptionField({
             />
           )}
         </div>
-        <div
-          className={cn(
-            "pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-muted transition-opacity duration-200",
-            collapsed ? "opacity-100" : "opacity-0"
-          )}
-        />
       </div>
       {definitionError !== null && (
         <p
           role="alert"
-          className="mt-2 flex items-center gap-2 px-3 text-xs text-destructive"
+          className="mt-2 flex items-center gap-2 px-3 text-caption text-destructive"
         >
           {m.editor_block_make_definition_failed({ reason: definitionError })}
           <button
@@ -311,25 +233,10 @@ export function DescriptionField({
           <Link
             to="/orgs/$orgSlug/settings/integrations/storage"
             params={{ orgSlug }}
-            className="text-xs text-muted-foreground underline-offset-2 transition-colors duration-100 hover:text-foreground hover:underline"
+            className="text-caption text-muted-foreground underline-offset-2 transition-colors duration-100 hover:text-foreground hover:underline"
           >
             {m.editor_attachment_connect_prompt()}
           </Link>
-        </div>
-      )}
-      {overflows && (
-        <div className="mt-2 flex justify-center">
-          <button
-            type="button"
-            onClick={() => setExpanded(collapsed)}
-            aria-expanded={!collapsed}
-            aria-controls={DESCRIPTION_REGION_ID}
-            className="rounded-md px-3 py-1.5 text-xs text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
-          >
-            {collapsed
-              ? m.tickets_page_read_more()
-              : m.tickets_page_show_less()}
-          </button>
         </div>
       )}
     </div>

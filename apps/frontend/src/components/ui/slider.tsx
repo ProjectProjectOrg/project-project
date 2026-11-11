@@ -108,14 +108,19 @@ function ValueDisplay({
   isInteracting
 }: ValueDisplayProps) {
   const [inputValue, setInputValue] = useState("")
+  const [shownEditingIndex, setShownEditingIndex] = useState<number | null>(
+    null
+  )
   const inputRef = useRef<HTMLInputElement>(null)
 
+  if (shownEditingIndex !== editingIndex) {
+    setShownEditingIndex(editingIndex)
+    if (editingIndex !== null) setInputValue(String(values[editingIndex]))
+  }
+
   useEffect(() => {
-    if (editingIndex !== null) {
-      setInputValue(String(values[editingIndex]))
+    if (editingIndex !== null)
       requestAnimationFrame(() => inputRef.current?.select())
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingIndex])
 
   const commitEdit = useCallback(
@@ -137,10 +142,10 @@ function ValueDisplay({
   const renderValue = (index: number) => {
     if (editingIndex === index) {
       return (
-        <span className="inline-grid text-[13px]">
+        <span className={"inline-grid text-body"}>
           <span
             className="invisible col-start-1 row-start-1"
-            style={{ fontVariationSettings: fontWeights.medium }}
+            style={{ fontVariationSettings: fontWeights.semibold }}
             aria-hidden="true"
           >
             {label ? `${label}: ` : ""}
@@ -166,7 +171,7 @@ function ValueDisplay({
                 "w-[5ch] border-b border-border bg-transparent text-center text-foreground outline-none",
                 "rounded-[20px]"
               )}
-              style={{ fontVariationSettings: fontWeights.medium }}
+              style={{ fontVariationSettings: fontWeights.semibold }}
             />
           </span>
         </span>
@@ -190,18 +195,20 @@ function ValueDisplay({
   return (
     <span
       className={cn(
-        "inline-grid shrink-0 text-[13px] leading-none text-muted-foreground transition-[font-variation-settings] duration-100",
+        "inline-grid shrink-0 text-muted-foreground transition-[font-variation-settings] duration-100",
+        "text-body",
+        "leading-none",
         "tabular-nums"
       )}
       style={{
         fontVariationSettings: isInteracting
-          ? fontWeights.medium
+          ? fontWeights.semibold
           : fontWeights.normal
       }}
     >
       <span
         className="invisible col-start-1 row-start-1 whitespace-nowrap"
-        style={{ fontVariationSettings: fontWeights.medium }}
+        style={{ fontVariationSettings: fontWeights.semibold }}
         aria-hidden="true"
       >
         {widestValue}
@@ -213,7 +220,7 @@ function ValueDisplay({
         {isRange ? (
           <>
             {renderValue(0)}
-            <span className="mx-1 text-muted-foreground/50">—</span>
+            <span className="mx-1 text-muted-foreground">—</span>
             {renderValue(1)}
           </>
         ) : (
@@ -246,10 +253,11 @@ function TooltipValue({ value, formatValue, motionX }: TooltipValueProps) {
     >
       <span
         className={cn(
-          "bg-foreground px-2 py-1 text-[12px] whitespace-nowrap text-background tabular-nums",
+          "bg-foreground px-2 py-1 whitespace-nowrap text-background tabular-nums",
+          "text-caption",
           "rounded-[20px]"
         )}
-        style={{ fontVariationSettings: fontWeights.medium }}
+        style={{ fontVariationSettings: fontWeights.normal }}
       >
         {formatValue(value)}
       </span>
@@ -289,9 +297,9 @@ function Slider({
   const stepsKey = steps ? steps.join(",") : ""
   const stepValues = useMemo(() => {
     if (!stepsKey) return null
-    const parsed = Array.from(new Set(stepsKey.split(",").map(Number))).sort(
-      (a, b) => a - b
-    )
+    const parsed = Array.from(
+      new Set(stepsKey.split(",").map(Number))
+    ).toSorted((a, b) => a - b)
     return parsed.length > 1 ? parsed : null
   }, [stepsKey])
   const min = stepValues ? stepValues[0] : minProp
@@ -424,7 +432,7 @@ function Slider({
 
   useEffect(() => {
     const el = trackRef.current
-    if (!el) return
+    if (!el) return undefined
     const ro = new ResizeObserver(([entry]) => {
       const w = entry.contentRect.width
       trackWidthRef.current = w
@@ -721,7 +729,7 @@ function Slider({
           }}
         />
         <motion.span
-          className="pointer-events-none absolute rounded-full border border-[color:var(--focus-ring,#6B97FF)]"
+          className="pointer-events-none absolute rounded-full border border-ring"
           initial={false}
           animate={{
             opacity: focusedThumb === index ? 1 : 0,
@@ -890,10 +898,11 @@ function Slider({
                 >
                   <span
                     className={cn(
-                      "bg-foreground px-2 py-1 text-[12px] whitespace-nowrap text-background tabular-nums",
+                      "bg-foreground px-2 py-1 whitespace-nowrap text-background tabular-nums",
+                      "text-caption",
                       "rounded-[20px]"
                     )}
-                    style={{ fontVariationSettings: fontWeights.medium }}
+                    style={{ fontVariationSettings: fontWeights.normal }}
                   >
                     {formatValue(hoverPreview.snappedValue)}
                   </span>
@@ -1001,7 +1010,10 @@ function Slider({
         {endLabels && (
           <div
             data-slot="slider-end-labels"
-            className="mt-1 flex items-baseline justify-between gap-3 text-[11px] leading-4 text-muted-foreground"
+            className={cn(
+              "mt-1 flex items-baseline justify-between gap-3 text-muted-foreground",
+              "text-caption"
+            )}
           >
             <span>{endLabels[0]}</span>
             <span className="text-right">{endLabels[1]}</span>

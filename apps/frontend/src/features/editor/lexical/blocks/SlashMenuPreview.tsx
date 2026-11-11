@@ -97,20 +97,20 @@ export function SlashMenuPreview({
       className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden p-3"
     >
       <div className="flex flex-col gap-1">
-        <span className="flex items-center gap-2 text-[13px] font-medium">
+        <span className="flex items-center gap-2 text-body font-semibold">
           {icon}
           <span className="min-w-0 flex-1 truncate">{name}</span>
           {item.kind === "basic" ? (
-            <code className="shrink-0 rounded bg-muted px-1 font-mono text-[11px] text-muted-foreground">
+            <code className="shrink-0 rounded bg-muted px-1 font-mono text-micro text-muted-foreground">
               {BASIC_LITERALS[item.basic]}
             </code>
           ) : null}
         </span>
         {description === null ? null : (
-          <p className="text-xs text-muted-foreground">{description}</p>
+          <p className="text-caption text-muted-foreground">{description}</p>
         )}
         {meta === null ? null : (
-          <p className="text-[11px] text-muted-foreground/80">{meta}</p>
+          <p className="text-micro text-muted-foreground">{meta}</p>
         )}
       </div>
       {markdown === null ? (

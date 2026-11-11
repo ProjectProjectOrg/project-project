@@ -11,7 +11,7 @@ import * as Equal from "effect/Equal"
 import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { Inbox } from "lucide-react"
+import { Inbox, ListTree } from "lucide-react"
 import { useState } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
@@ -24,14 +24,18 @@ import {
   loadMoreEpicSections,
   type EpicSectionsRequest
 } from "@/features/tickets/atoms/epicSections"
+import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
+import type { ParentGrouping } from "@/features/tickets/lib/backlogGrouping"
 import type {
   EpicSectionsValue,
   EpicSectionValue
 } from "@/features/tickets/lib/epicSectionRows"
 import { TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import { viewQuery } from "@/features/tickets/lib/ticketRows"
+import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 
-import { epicCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
+import { parentCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
 import {
   CreatingSectionsProvider,
   SectionList,
@@ -44,6 +48,7 @@ const defaultCreateStatus = Schema.decodeSync(TicketStatus)("todo")
 const EpicIcon = TYPE_META.epic.icon
 
 type Props = Readonly<{
+  by: ParentGrouping
   preferencesKey: string
   query: TicketListQuery
   members: ReadonlyArray<Member>
@@ -51,8 +56,8 @@ type Props = Readonly<{
 
 export function EpicSections(props: Props) {
   const { orgSlug, slug } = useProjectRoute()
-  const persistKey = epicCollapseKey(props.preferencesKey)
-  const snapshotReq = epicSectionsRequest(orgSlug, slug, props.query)
+  const persistKey = parentCollapseKey(props.preferencesKey, props.by)
+  const snapshotReq = epicSectionsRequest(orgSlug, slug, props.query, props.by)
   const preview = useTicketPreview()
   const snapshotResult = useAtomValue(epicSections(snapshotReq))
   const refresh = useAtomRefresh(epicSections(snapshotReq))
@@ -91,22 +96,30 @@ export function EpicSections(props: Props) {
   const renderSections = () =>
     active ? (
       <div style={{ overflowAnchor: "none" }} className="flex flex-col gap-1">
-        <CreatingSectionsProvider>
-          {active.value.sections.map((section) => (
-            <EpicSection
-              key={section.key}
-              {...props}
-              persistKey={persistKey}
-              query={active.query}
-              snapshotReq={active.req}
-              section={section}
-              waiting={snapshotResult.waiting}
-              activePreviewId={preview.activePreviewId}
-              onPreviewPointerEnter={preview.onPreviewPointerEnter}
-              onPreviewOpenChange={preview.onPreviewOpenChange}
-            />
-          ))}
-        </CreatingSectionsProvider>
+        <TicketViewSourceContext
+          value={ticketSearchFromSource({
+            kind: "sections",
+            grouping: active.req.by,
+            query: viewQuery(active.query)
+          })}
+        >
+          <CreatingSectionsProvider>
+            {active.value.sections.map((section) => (
+              <EpicSection
+                key={section.key}
+                {...props}
+                persistKey={persistKey}
+                query={active.query}
+                snapshotReq={active.req}
+                section={section}
+                waiting={snapshotResult.waiting}
+                activePreviewId={preview.activePreviewId}
+                onPreviewPointerEnter={preview.onPreviewPointerEnter}
+                onPreviewOpenChange={preview.onPreviewOpenChange}
+              />
+            ))}
+          </CreatingSectionsProvider>
+        </TicketViewSourceContext>
       </div>
     ) : (
       <div
@@ -161,10 +174,17 @@ function EpicSection({
     cursor: undefined
   }
   const selectedStatuses = query.status
+  const SectionIcon =
+    section.key === EPIC_SECTION_NONE
+      ? Inbox
+      : props.by === "epic"
+        ? EpicIcon
+        : ListTree
   return (
     <div aria-busy={waiting}>
       <SectionList
         query={query}
+        parent={section.parent ?? undefined}
         status={
           selectedStatuses?.length === 1
             ? selectedStatuses[0]
@@ -172,19 +192,17 @@ function EpicSection({
         }
         statuses={[]}
         heading={{
-          label: section.title ?? m.tickets_grouping_no_epic(),
-          icon:
-            section.key === EPIC_SECTION_NONE ? (
-              <Inbox
-                className="size-4 text-muted-foreground"
-                strokeWidth={1.75}
-              />
-            ) : (
-              <EpicIcon
-                className="size-4 text-muted-foreground"
-                strokeWidth={1.75}
-              />
-            )
+          label:
+            section.parent?.title ??
+            (props.by === "epic"
+              ? m.tickets_grouping_no_epic()
+              : m.tickets_grouping_no_parent()),
+          icon: (
+            <SectionIcon
+              className="size-4 text-muted-foreground"
+              strokeWidth={1.75}
+            />
+          )
         }}
         emptyMessage={
           queryHasActiveFilter(props.query)

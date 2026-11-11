@@ -70,6 +70,24 @@ const messages: Messages<ToolError> = {
     if (editFailed) {
       return `edits[${editFailed[1]}] failed: ${editFailureMessage(editFailed[2] ?? "")} Nothing was saved.`
     }
+    const relation = reason?.match(
+      /^(relation_self|unknown_tickets|blocking_cycle|duplicate_of_duplicate|has_duplicates):(.*)$/s
+    )
+    if (relation) {
+      const ids = (relation[2] ?? "").split(",")
+      switch (relation[1]) {
+        case "relation_self":
+          return `${ids[0]} can't be linked to itself.`
+        case "unknown_tickets":
+          return `No ticket ${ids.join(", ")} in this project; check the ids with list_tickets.`
+        case "blocking_cycle":
+          return `That would make a blocking loop (${ids.join(" → ")}). Remove one of those links first, or link the tickets as related instead.`
+        case "duplicate_of_duplicate":
+          return `${ids[0]} is itself a duplicate of ${ids[1]}; mark this ticket a duplicate of ${ids[1]} instead.`
+        case "has_duplicates":
+          return `${ids.join(", ")} ${ids.length === 1 ? "is a duplicate" : "are duplicates"} of this ticket. Archive them as duplicates of the new original first.`
+      }
+    }
     if (reason === "edits_with_body_or_template") {
       return (
         "Pass edits on its own: it can't be combined with body or " +

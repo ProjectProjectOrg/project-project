@@ -61,7 +61,7 @@ function EmailContent() {
         canManage ? (
           <EmailConnection key={orgSlug} orgSlug={orgSlug} />
         ) : (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             {m.org_email_forbidden()}
           </p>
         )

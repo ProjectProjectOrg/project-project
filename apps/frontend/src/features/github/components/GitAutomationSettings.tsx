@@ -149,7 +149,7 @@ function Rules({
         </SettingsRow>
       </SettingsGroup>
       {failed ? (
-        <p role="alert" className="px-0.5 text-xs text-destructive">
+        <p role="alert" className="px-0.5 text-caption text-destructive">
           {m.git_automation_save_error()}
         </p>
       ) : null}

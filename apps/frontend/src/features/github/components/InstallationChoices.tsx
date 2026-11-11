@@ -111,7 +111,7 @@ export function InstallationChoices({
           </SettingsRow>
         </SettingsGroup>
         {chooseError ? (
-          <p role="alert" className="text-xs text-destructive">
+          <p role="alert" className="text-caption text-destructive">
             {chooseError}
           </p>
         ) : null}
@@ -122,7 +122,7 @@ export function InstallationChoices({
 
 function ChoiceNote({ children }: Readonly<{ children: string }>) {
   return (
-    <p role="alert" className="text-xs text-destructive">
+    <p role="alert" className="text-caption text-destructive">
       {children}
     </p>
   )

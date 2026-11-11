@@ -24,11 +24,11 @@ export function StepFrame({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="-mx-3 min-h-0 flex-1 [scrollbar-gutter:stable] overflow-y-auto overscroll-y-contain px-3">
         <header className="max-w-[65ch] pb-6">
-          <h2 className="text-lg font-semibold tracking-tight text-balance text-foreground">
+          <h2 className="text-title font-semibold text-balance text-foreground">
             {title}
           </h2>
           {description === undefined ? null : (
-            <div className="mt-1.5 text-sm leading-[21px] text-pretty text-muted-foreground">
+            <div className="mt-1.5 text-body leading-[21px] text-pretty text-muted-foreground">
               {description}
             </div>
           )}
@@ -45,7 +45,7 @@ export function StepFrame({
               <span
                 role="alert"
                 title={error}
-                className="truncate text-[13px] text-destructive"
+                className="truncate text-body text-destructive"
               >
                 {error}
               </span>
@@ -60,8 +60,6 @@ export function StepFrame({
 
 export function StepNote({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <span className="truncate text-[13px] text-muted-foreground">
-      {children}
-    </span>
+    <span className="truncate text-body text-muted-foreground">{children}</span>
   )
 }

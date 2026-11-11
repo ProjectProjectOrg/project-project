@@ -50,7 +50,26 @@ const startingFrom = (
   if (newer.kind === "estimate_changed" && older.kind === "estimate_changed") {
     return { ...newer, from: older.from }
   }
+  if (
+    newer.kind === "description_edited" &&
+    older.kind === "description_edited"
+  ) {
+    const { fromHash: _, ...rest } = newer
+    return older.fromHash === undefined
+      ? rest
+      : { ...rest, fromHash: older.fromHash }
+  }
   return newer
+}
+
+const isNoOp = (change: TicketActivityChange): boolean => {
+  if (change.kind === "estimate_changed") {
+    return sameEstimate(change.from, change.to)
+  }
+  if (change.kind === "description_edited") {
+    return change.fromHash !== undefined && change.fromHash === change.toHash
+  }
+  return isValueChange(change) && change.from === change.to
 }
 
 type Run = {
@@ -90,11 +109,5 @@ export const coalesceActivity = (
     openRuns.set(key, next)
     output.push(next)
   }
-  return output
-    .map((run) => run.entry)
-    .filter((entry) =>
-      entry.change.kind === "estimate_changed"
-        ? !sameEstimate(entry.change.from, entry.change.to)
-        : !isValueChange(entry.change) || entry.change.from !== entry.change.to
-    )
+  return output.map((run) => run.entry).filter((entry) => !isNoOp(entry.change))
 }

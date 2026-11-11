@@ -1,0 +1,220 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "a738d5e8-dbd2-44f2-9aec-7f062b4e2fba",
+  "prevIds": [
+    "c4960949-7391-4c02-a03e-af8d2f726b68"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "ticket_relation_index"
+      ],
+      "writes": [
+        "s|tbl|public.ticket_relation_index",
+        "n|tbl|public.ticket_relation_index",
+        "e|tbl|public.ticket_relation_index",
+        "n|rel|public.ticket_relation_index",
+        "n|type|public.ticket_relation_index",
+        "n|rel|public.ticket_relation_index_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "ticket_relation_index",
+        "ticket_relation_index_to_idx"
+      ],
+      "writes": [
+        "s|idx|public.ticket_relation_index_to_idx",
+        "n|idx|public.ticket_relation_index_to_idx",
+        "e|idx|public.ticket_relation_index_to_idx",
+        "n|rel|public.ticket_relation_index_to_idx"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_relation_index",
+        "n|sch|public",
+        "n|col|public.ticket_relation_index.project_id",
+        "n|col|public.ticket_relation_index.to_ticket_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "ticket_relation_index"
+      ],
+      "writes": [
+        "s|fk|public.ticket_relation_index.ticket_relation_index_from_ticket_fkey",
+        "n|fk|public.ticket_relation_index.ticket_relation_index_from_ticket_fkey",
+        "e|fk|public.ticket_relation_index.ticket_relation_index_from_ticket_fkey",
+        "n|con|public.ticket_relation_index.ticket_relation_index_from_ticket_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_relation_index",
+        "n|sch|public",
+        "n|tbl|public.ticket_index",
+        "n|sch|public",
+        "n|col|public.ticket_relation_index.project_id",
+        "n|col|public.ticket_relation_index.from_ticket_id",
+        "n|col|public.ticket_index.project_id",
+        "n|col|public.ticket_index.ticket_id",
+        "e|uniqueness|public.ticket_index.project_id.ticket_id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "ticket_relation_index",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_relation_index",
+        "name": "project_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_relation_index",
+        "name": "from_ticket_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_relation_index",
+        "name": "to_ticket_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_relation_index",
+        "name": "kind",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_relation_index",
+        "name": "ticket_relation_index_to_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "project_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "to_ticket_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_relation_index",
+        "name": "ticket_relation_index_from_ticket_fkey",
+        "nameExplicit": true,
+        "columns": [
+          "project_id",
+          "from_ticket_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "ticket_index",
+        "columnsTo": [
+          "project_id",
+          "ticket_id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_relation_index",
+        "name": "ticket_relation_index_pkey",
+        "columns": [
+          "project_id",
+          "from_ticket_id",
+          "to_ticket_id",
+          "kind"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

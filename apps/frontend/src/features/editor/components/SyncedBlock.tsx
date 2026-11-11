@@ -62,7 +62,7 @@ export function SyncedChip({
     <span
       data-synced-chip
       className={cn(
-        "pointer-events-none absolute right-2 bottom-[calc(100%-0.5rem)] z-10 flex h-6 items-center gap-1 rounded-md border border-border bg-popover pl-1.5 text-xs whitespace-nowrap text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 select-none group-focus-within/reveal:pointer-events-auto group-focus-within/reveal:opacity-100 group-hover/reveal:pointer-events-auto group-hover/reveal:opacity-100",
+        "pointer-events-none absolute right-2 bottom-[calc(100%-0.5rem)] z-10 flex h-6 items-center gap-1 rounded-md border border-border bg-popover pl-1.5 text-caption whitespace-nowrap text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 select-none group-focus-within/reveal:pointer-events-auto group-focus-within/reveal:opacity-100 group-hover/reveal:pointer-events-auto group-hover/reveal:opacity-100",
         visible && "pointer-events-auto",
         visible && "opacity-100"
       )}
@@ -97,7 +97,7 @@ export function SyncedChipNote({ label }: Readonly<{ label: string }>) {
 
 export function SourceRemovedNote() {
   return (
-    <p className="text-xs text-muted-foreground">
+    <p className="text-caption text-muted-foreground">
       {m.editor_synced_source_removed()}
     </p>
   )

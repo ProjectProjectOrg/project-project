@@ -32,7 +32,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type RefObject
 } from "react"
 
@@ -40,11 +39,13 @@ import {
   CommandMenu,
   CommandMenuEmpty,
   CommandMenuFooter,
+  CommandMenuFooterHint,
   CommandMenuItem,
   CommandMenuList,
   CommandMenuShortcut,
   CommandMenuTabs,
   useCommandMenu,
+  useHighlightedItem,
   type CommandMenuItemData
 } from "@/components/ui/command-menu"
 import { blockIconComponent } from "@/features/editor/lib/blockIcons"
@@ -86,7 +87,7 @@ const BASIC_LABELS: Record<SlashBasicKind, () => string> = {
   hint: m.editor_slash_basic_hint
 }
 
-const BASIC_ICONS: Record<SlashBasicKind, LucideIcon> = {
+export const BASIC_ICONS: Record<SlashBasicKind, LucideIcon> = {
   heading: Heading2,
   checklist: ListTodo,
   "bullet-list": List,
@@ -222,16 +223,6 @@ export type SlashMenuModel = Readonly<{
 const showsSectionLabel = (menu: SlashMenuModel): boolean =>
   menu.tab === "all" || menu.sections.length > 1
 
-const useHighlighted = (): CommandMenuItemData | undefined => {
-  const { rows, highlight } = useCommandMenu()
-  const index = useSyncExternalStore(
-    highlight.subscribe,
-    highlight.get,
-    () => null
-  )
-  return index === null ? undefined : rows[index]
-}
-
 function SlashMenuKeys({
   editor,
   detachRef
@@ -252,7 +243,7 @@ function SlashMenuKeys({
           KEY_ARROW_DOWN_COMMAND,
           (event) => {
             event.preventDefault()
-            move(1)
+            move(1, event.repeat)
             return true
           },
           COMMAND_PRIORITY_CRITICAL
@@ -261,7 +252,7 @@ function SlashMenuKeys({
           KEY_ARROW_UP_COMMAND,
           (event) => {
             event.preventDefault()
-            move(-1)
+            move(-1, event.repeat)
             return true
           },
           COMMAND_PRIORITY_CRITICAL
@@ -306,7 +297,7 @@ function SlashMenuPreviewPane({
   library: Library
   lookup: BlockLookup
 }>) {
-  const row = useHighlighted()
+  const row = useHighlightedItem()
   const item = row === undefined ? undefined : items.get(row.value)
   return (
     <div
@@ -327,28 +318,16 @@ function SlashMenuPreviewPane({
   )
 }
 
-function FooterHint({
-  label,
-  keys
-}: Readonly<{ label: string; keys: string | ReadonlyArray<string> }>) {
-  return (
-    <span className="flex shrink-0 items-center gap-1.5">
-      <span>{label}</span>
-      <CommandMenuShortcut keys={keys} className="ml-0" />
-    </span>
-  )
-}
-
 function SlashMenuFooter({ tabs }: Readonly<{ tabs: boolean }>) {
-  const row = useHighlighted()
+  const row = useHighlightedItem()
   return (
     <CommandMenuFooter>
-      <FooterHint
+      <CommandMenuFooterHint
         label={m.editor_slash_footer_select()}
         keys={["up", "down"]}
       />
       {tabs ? (
-        <FooterHint label={m.editor_slash_tabs_label()} keys="tab" />
+        <CommandMenuFooterHint label={m.editor_slash_tabs_label()} keys="tab" />
       ) : null}
       {row === undefined ? null : (
         <span className="ml-auto flex min-w-0 items-center gap-1.5 text-foreground">
@@ -376,15 +355,17 @@ function SlashMenuRow({
     >
       <span className="min-w-0 flex-1 truncate">{itemName(item)}</span>
       {meta ? (
-        <span className="shrink-0 text-xs text-muted-foreground">{meta}</span>
+        <span className="shrink-0 text-caption text-muted-foreground">
+          {meta}
+        </span>
       ) : null}
       {literal ? (
-        <code className="shrink-0 font-mono text-[11px] text-muted-foreground/70">
+        <code className="shrink-0 font-mono text-micro text-muted-foreground">
           {literal}
         </code>
       ) : null}
       {shortcut ? (
-        <span className="shrink-0 text-xs text-muted-foreground/70">
+        <span className="shrink-0 text-caption text-muted-foreground">
           {shortcut}
         </span>
       ) : null}
@@ -511,7 +492,7 @@ export function SlashMenuList({
                   )
                 }}
               >
-                <CommandMenuEmpty className="py-2 text-left text-[13px]">
+                <CommandMenuEmpty className="py-2 text-left text-body">
                   {m.editor_slash_empty({ query })}
                 </CommandMenuEmpty>
               </CommandMenuList>

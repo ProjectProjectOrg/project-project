@@ -1,13 +1,15 @@
-import type { TicketType, UpdateTicketInput } from "@pp/shared"
+import type { TicketType } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import { useEffect, useRef, useState } from "react"
+
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 
 import type { DescriptionHandle, TemplateSwapNote } from "./DescriptionField"
 
 export const TEMPLATE_SWAP_NOTE_MS = 4000
 
 export type TypePatch = (
-  patch: UpdateTicketInput
+  patch: TicketEdit
 ) => Promise<Exit.Exit<unknown, unknown>>
 
 export function useTemplateSwap(ticketType: TicketType, onPatch: TypePatch) {
@@ -32,7 +34,7 @@ export function useTemplateSwap(ticketType: TicketType, onPatch: TypePatch) {
     setNote((current) => (current === swap ? null : current))
   }
 
-  const onTypePatch = (patch: UpdateTicketInput) => {
+  const onTypePatch = (patch: TicketEdit) => {
     const nextType =
       patch.type !== undefined && patch.type !== ticketType ? patch.type : null
     const swap =

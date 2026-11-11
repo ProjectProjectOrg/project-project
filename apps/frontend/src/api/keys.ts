@@ -122,6 +122,9 @@ export const Keys = {
   /** Tracked time for one ticket. */
   ticketTime: (scope: string, ticketId: TicketId): ReactivityKey =>
     key(`ticket-time/${scope}/${ticketId}`),
+  /** Tracked time for one sprint. */
+  sprintTime: (scope: string, groupId: GroupId): ReactivityKey =>
+    key(`sprint-time/${scope}/${groupId}`),
   /** Work types available to tickets in this project. */
   workTypes: (scope: string): ReactivityKey => key(`work-types/${scope}`),
   /** OAuth applications managed by the current user. */

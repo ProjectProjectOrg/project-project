@@ -16,11 +16,13 @@ export function LibraryEmpty({
       <EmptyMedia className="mb-1">
         <DitheredBlocks size={88} />
       </EmptyMedia>
-      <EmptyTitle className="font-['Geist_Pixel'] text-base font-normal">
+      <EmptyTitle className="font-['Geist_Pixel'] text-title font-normal">
         {caption}
       </EmptyTitle>
       {hint === undefined ? null : (
-        <EmptyDescription className="max-w-xs text-xs">{hint}</EmptyDescription>
+        <EmptyDescription className="max-w-xs text-caption">
+          {hint}
+        </EmptyDescription>
       )}
     </Empty>
   )

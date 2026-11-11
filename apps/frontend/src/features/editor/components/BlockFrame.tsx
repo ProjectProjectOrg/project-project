@@ -32,7 +32,7 @@ export function BlockFrame({
       <div className="ticket-block-body">
         {children}
         {blank && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             {m.editor_block_not_filled_in()}
           </p>
         )}

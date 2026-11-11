@@ -24,7 +24,7 @@ export function Pagination({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 pt-3">
-      <span className="text-xs text-muted-foreground">
+      <span className="text-caption text-muted-foreground">
         {m.attachments_page_range({ from, to, total })}
       </span>
 
@@ -46,7 +46,7 @@ export function Pagination({
               <span
                 key={`gap-${index}`}
                 aria-hidden
-                className="px-1 text-xs text-muted-foreground"
+                className="px-1 text-caption text-muted-foreground"
               >
                 …
               </span>
@@ -61,7 +61,7 @@ export function Pagination({
                 onClick={() => onPageChange(slot)}
                 className={cn(
                   "min-w-8 tabular-nums",
-                  slot === page && "bg-accent font-medium text-foreground"
+                  slot === page && "bg-accent font-semibold text-foreground"
                 )}
               >
                 {slot}

@@ -112,7 +112,9 @@ export function LoginPage() {
           </div>
           <div className="relative flex flex-col items-center gap-4">
             <Wordmark className="h-5 w-auto" />
-            <p className="text-sm text-muted-foreground">{m.auth_tagline()}</p>
+            <p className="text-body text-muted-foreground">
+              {m.auth_tagline()}
+            </p>
           </div>
         </div>
 
@@ -124,7 +126,7 @@ export function LoginPage() {
           />
 
           {providers.length > 0 && (
-            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-3 text-micro text-muted-foreground">
               <div className="h-px flex-1 bg-border" />
               <span>{m.auth_provider_divider()}</span>
               <div className="h-px flex-1 bg-border" />
@@ -160,7 +162,7 @@ export function LoginPage() {
           )}
         </div>
 
-        <p className="px-8 pb-8 text-center text-[11px] leading-relaxed text-muted-foreground">
+        <p className="px-8 pb-8 text-center text-micro leading-relaxed text-muted-foreground">
           {m.auth_consent_notice()}
         </p>
       </div>

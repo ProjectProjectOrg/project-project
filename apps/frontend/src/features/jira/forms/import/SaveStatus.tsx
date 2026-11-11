@@ -18,7 +18,7 @@ export function SaveStatus({
         <span
           role="alert"
           title={draft.failure.message}
-          className="truncate text-[13px] text-destructive"
+          className="truncate text-body text-destructive"
         >
           {draft.failure.message}
         </span>
@@ -44,7 +44,7 @@ export function SaveStatus({
       </span>
     )
   return (
-    <output className="truncate text-[13px] text-muted-foreground">
+    <output className="truncate text-body text-muted-foreground">
       {draft.saving ? m.jira_import_saving() : m.jira_import_saved()}
     </output>
   )

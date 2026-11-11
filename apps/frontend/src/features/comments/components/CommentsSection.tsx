@@ -19,7 +19,7 @@ import {
   ticketActivity,
   ticketActivityRequest
 } from "@/features/tickets/atoms/ticketActivity"
-import { TicketActivityFeed } from "@/features/tickets/components/TicketActivityFeed"
+import { TicketTimeline } from "@/features/tickets/components/TicketTimeline"
 import { useTicketParticipants } from "@/features/tickets/hooks/useTicketParticipants"
 import { useProjectActor } from "@/hooks/useActor"
 import { transitions } from "@/lib/springs"
@@ -28,9 +28,7 @@ import { m } from "@/paraglide/messages"
 import { CommentComposer } from "./CommentComposer"
 import { CommentRow } from "./CommentRow"
 
-const INITIAL_VISIBLE = 3
-
-type DiscussionTab = "extra" | "comments" | "activity"
+type DiscussionTab = "extra" | "activity"
 
 export type ExtraTab = Readonly<{
   label: string
@@ -51,30 +49,18 @@ export function CommentsSection({
   const involved = useTicketParticipants(ticketId)
   const canComment = useProjectActor().call("ticketComments", "create")
   const [collapsed, setCollapsed] = useState(false)
-  const [showAll, setShowAll] = useState(false)
   const [tab, setTab] = useState<DiscussionTab>(
-    extraTab?.placement === "first" ? "extra" : "comments"
+    extraTab?.placement === "first" ? "extra" : "activity"
   )
 
   const rows = Result.isSuccess(result) ? result.value : []
   const total = rows.length
-  const ordered = rows.toReversed()
-  const visibleSlice =
-    showAll || total <= INITIAL_VISIBLE
-      ? ordered
-      : ordered.slice(0, INITIAL_VISIBLE)
-  const hidden = total - visibleSlice.length
 
   const extraItems: ReadonlyArray<SegmentedItem<DiscussionTab>> = extraTab
     ? [{ key: "extra", label: extraTab.label, badge: extraTab.badge }]
     : []
   const tabs: ReadonlyArray<SegmentedItem<DiscussionTab>> = [
     ...(extraTab?.placement === "first" ? extraItems : []),
-    {
-      key: "comments",
-      label: m.tickets_activity_tab_comments(),
-      badge: total > 0 ? total : null
-    },
     { key: "activity", label: m.tickets_activity_tab() },
     ...(extraTab?.placement === "last" ? extraItems : [])
   ]
@@ -89,11 +75,11 @@ export function CommentsSection({
       scope={{ orgSlug, slug, members: project.members, involved }}
     >
       <section className="mt-8 space-y-4">
-        <div className="flex items-center gap-1">
+        <div className="relative flex items-center gap-1">
           <button
             type="button"
             onClick={() => setCollapsed((c) => !c)}
-            className="-ml-1.5 grid size-7 place-items-center rounded-md text-muted-foreground transition-[color,transform] duration-100 hover:text-foreground active:scale-[0.97]"
+            className="-ml-1.5 grid size-7 place-items-center rounded-md text-muted-foreground transition-[color,transform] duration-100 hover:text-foreground active:scale-[0.97] sm:absolute sm:top-1/2 sm:left-[calc(var(--ticket-status-column)/2-var(--ticket-rail-inset))] sm:ml-0 sm:-translate-1/2"
             aria-expanded={!collapsed}
             aria-label={headingLabel}
           >
@@ -126,48 +112,32 @@ export function CommentsSection({
             >
               {tab === "extra" && extraTab ? (
                 extraTab.content
-              ) : tab === "activity" ? (
-                <TicketActivityFeed ticketId={ticketId} />
               ) : (
-                <>
-                  {canComment && (
-                    <div className="mb-3">
-                      <CommentComposer ticketId={ticketId} />
-                    </div>
-                  )}
-                  <div className="space-y-3">
-                    {Result.isSuccess(result) && total === 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        {m.comments_empty()}
-                      </p>
-                    )}
-                    {visibleSlice.map((row) => (
-                      <AnimatePresence key={row.key} initial={true}>
+                <div className="space-y-4">
+                  <TicketTimeline
+                    ticketId={ticketId}
+                    comments={rows.map((row) => ({
+                      key: row.key,
+                      at: row.comment.createdAt,
+                      value: row
+                    }))}
+                    renderComment={({ value: row }) => (
+                      <AnimatePresence initial={true}>
                         <CommentRow
                           comment={row.comment}
                           pending={row.pending}
                           ticketId={ticketId}
                         />
                       </AnimatePresence>
-                    ))}
-                    {hidden > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAll(true)}
-                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        {hidden === 1
-                          ? m.comments_show_older_one()
-                          : m.comments_show_older_many({ count: hidden })}
-                      </button>
                     )}
-                    {Result.isFailure(result) && (
-                      <p className="text-sm text-destructive">
-                        {m.comments_load_failed()}
-                      </p>
-                    )}
-                  </div>
-                </>
+                  />
+                  {Result.isFailure(result) && (
+                    <p className="text-body text-destructive">
+                      {m.comments_load_failed()}
+                    </p>
+                  )}
+                  {canComment && <CommentComposer ticketId={ticketId} />}
+                </div>
               )}
             </motion.div>
           )}

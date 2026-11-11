@@ -11,9 +11,12 @@ import {
   menuItemClass,
   menuLabelClass,
   menuPopupClass,
-  menuSeparatorClass
+  menuSeparatorClass,
+  menuSurfaceClass
 } from "@/components/ui/menu-styles"
 import { useActivityHiddenPortalRef } from "@/hooks/useActivityHiddenPortalRef"
+import { forwardThroughMenuBackdrop, isMenuBackdrop } from "@/lib/menuBackdrop"
+import { fieldTouchClass } from "@/lib/typeScale"
 import { cn } from "@/lib/utils"
 
 const DeferMenusContext = React.createContext(false)
@@ -42,7 +45,7 @@ function FilterableRoot({
   if (!filterable) return children
   const options = filterable === true ? {} : filterable
   return (
-    <MenuPrimitive.FilterProvider autoHighlight {...options}>
+    <MenuPrimitive.FilterProvider autoHighlight="always" {...options}>
       {children}
     </MenuPrimitive.FilterProvider>
   )
@@ -77,6 +80,28 @@ function DeferredDropdownMenu({
   const [mounted, setMounted] = React.useState(
     Boolean(rootProps.open ?? rootProps.defaultOpen)
   )
+  React.useEffect(() => {
+    if (!mounted) return undefined
+    const onContextMenu = (event: MouseEvent) => {
+      if (!handle.isOpen) return
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[data-slot="dropdown-menu-content"]')
+      ) {
+        return
+      }
+      const backdrop = isMenuBackdrop(event.target)
+      flushSync(() => handle.close())
+      if (backdrop) {
+        event.preventDefault()
+        event.stopPropagation()
+        forwardThroughMenuBackdrop(event)
+      }
+    }
+    document.addEventListener("contextmenu", onContextMenu, true)
+    return () =>
+      document.removeEventListener("contextmenu", onContextMenu, true)
+  }, [handle, mounted])
   const activate = React.useCallback(() => {
     if (!mounted) flushSync(() => setMounted(true))
   }, [mounted])
@@ -131,8 +156,13 @@ type DropdownMenuContentProps = React.ComponentProps<
 > &
   Pick<
     React.ComponentProps<typeof MenuPrimitive.Positioner>,
-    "align" | "alignOffset" | "side" | "sideOffset" | "anchor"
-  >
+    | "align"
+    | "alignOffset"
+    | "side"
+    | "sideOffset"
+    | "anchor"
+    | "collisionAvoidance"
+  > & { highlightFirst?: boolean }
 
 function DropdownMenuContent(props: DropdownMenuContentProps) {
   const deferred = React.useContext(DeferredMenuContext)
@@ -150,12 +180,14 @@ function DropdownMenuContent(props: DropdownMenuContentProps) {
 }
 
 function DropdownMenuPopup({
+  highlightFirst = false,
   className,
   align,
   alignOffset,
   side,
   sideOffset = 4,
   anchor,
+  collisionAvoidance,
   onClick,
   onKeyDown,
   children,
@@ -169,6 +201,7 @@ function DropdownMenuPopup({
         side={side}
         sideOffset={sideOffset}
         anchor={anchor}
+        collisionAvoidance={collisionAvoidance}
       >
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
@@ -183,7 +216,7 @@ function DropdownMenuPopup({
           className={cn(menuPopupClass, className)}
           {...props}
         >
-          <MenuHighlight />
+          <MenuHighlight restOnFirst={highlightFirst} />
           {children}
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>
@@ -360,7 +393,9 @@ function DropdownMenuInput({
       <MenuPrimitive.Input
         data-slot="dropdown-menu-input"
         className={cn(
-          "h-9 w-full shrink-0 rounded-md bg-transparent px-2 text-[13px] leading-5 text-foreground outline-none placeholder:text-muted-foreground",
+          "h-9 w-full shrink-0 rounded-md bg-transparent px-2 text-foreground outline-none placeholder:text-muted-foreground",
+          "text-body",
+          fieldTouchClass,
           className
         )}
         {...props}
@@ -395,7 +430,8 @@ function DropdownMenuEmpty({
     <MenuPrimitive.Empty
       data-slot="dropdown-menu-empty"
       className={cn(
-        "px-2 py-2 text-[13px] text-muted-foreground empty:hidden",
+        "px-2 py-2 text-muted-foreground empty:hidden",
+        "text-body",
         className
       )}
       {...props}
@@ -440,14 +476,14 @@ function DropdownMenuShortcut({
   return (
     <span
       data-slot="dropdown-menu-shortcut"
-      className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground",
-        className
-      )}
+      className={cn("ml-auto text-muted-foreground", "text-caption", className)}
       {...props}
     />
   )
 }
+
+const SUBMENU_SIDE_OFFSET = 6
+const SUBMENU_ALIGN_OFFSET = -5
 
 function DropdownMenuSub({
   filterable = false,
@@ -465,6 +501,7 @@ function DropdownMenuSub({
 function DropdownMenuSubTrigger({
   className,
   inset,
+  delay = 0,
   children,
   ...props
 }: React.ComponentProps<typeof MenuPrimitive.SubmenuTrigger> & {
@@ -472,12 +509,13 @@ function DropdownMenuSubTrigger({
 }) {
   return (
     <MenuPrimitive.SubmenuTrigger
+      delay={delay}
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "relative flex cursor-pointer items-center gap-2 rounded-md border-y border-transparent bg-clip-padding px-2 py-[7px] text-[13px] leading-5 text-muted-foreground outline-hidden transition-colors",
+        "relative flex cursor-pointer items-center gap-2 rounded-md border-y border-transparent bg-clip-padding px-2 py-[7px] text-body text-muted-foreground outline-hidden transition-colors",
         "data-[highlighted]:text-foreground",
-        "data-[popup-open]:bg-active data-[popup-open]:text-foreground data-[popup-open]:transition-none",
+        "data-[popup-open]:text-foreground",
         "data-[inset]:pl-8",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
@@ -501,9 +539,9 @@ type DropdownMenuSubContentProps = React.ComponentProps<
 function DropdownMenuSubContent({
   className,
   align,
-  alignOffset,
+  alignOffset = SUBMENU_ALIGN_OFFSET,
   side,
-  sideOffset,
+  sideOffset = SUBMENU_SIDE_OFFSET,
   children,
   ...props
 }: DropdownMenuSubContentProps) {
@@ -517,13 +555,10 @@ function DropdownMenuSubContent({
       >
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-sub-content"
-          className={cn(
-            "relative z-50 min-w-[8rem] origin-[var(--transform-origin)] overflow-hidden rounded-xl border border-border/60 bg-card p-1 text-foreground shadow-[0_4px_12px_rgba(0,0,0,0.02)] data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-95 data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 motion-reduce:data-[closed]:animate-none motion-reduce:data-[open]:animate-none dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]",
-            className
-          )}
+          className={cn(menuSurfaceClass, className)}
           {...props}
         >
-          <MenuHighlight />
+          <MenuHighlight restOnFirst />
           {children}
         </MenuPrimitive.Popup>
       </MenuPrimitive.Positioner>

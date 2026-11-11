@@ -11,10 +11,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import {
   gitAutomationFor,
   gitAutomationRequest
@@ -120,13 +120,13 @@ function AutomationConfirmBody(props: Props) {
         contained
         reset={refresh}
         onInitial={() => (
-          <output className="text-xs text-muted-foreground">
+          <output className="text-caption text-muted-foreground">
             {m.tickets_status_loading()}
           </output>
         )}
         onSuccess={({ value }) =>
           Object.values(value.rules).includes(props.status.slug) ? (
-            <span className="inline-flex h-8 items-center text-xs text-muted-foreground">
+            <span className="inline-flex h-8 items-center text-caption text-muted-foreground">
               {m.tickets_status_delete_resets_git_automation()}
             </span>
           ) : null
@@ -207,10 +207,39 @@ function TargetPicker({
   const selectedMeta = statusMetaFor(value ?? "", statuses)
   const SelectedIcon = selectedMeta.icon
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
+    <Select
+      items={targets.map((s) => {
+        const meta = statusMetaFor(s.slug, statuses)
+        const Icon = meta.icon
+        return {
+          value: s.slug,
+          textValue: meta.label,
+          label: (
+            <>
+              <Icon
+                className={cn("size-4", meta.className)}
+                style={meta.color ? { color: meta.color } : undefined}
+                strokeWidth={1.75}
+              />
+              {meta.label}
+            </>
+          )
+        }
+      })}
+      value={value}
+      onValueChange={onChange}
+      contentProps={{ align: "start", className: "w-44" }}
+    >
+      <SelectTrigger
         render={
-          <Button type="button" variant="tertiary" size="sm">
+          <Button
+            type="button"
+            variant="tertiary"
+            size="sm"
+            aria-label={m.tickets_status_reassign_aria({
+              status: selectedMeta.label
+            })}
+          >
             <SelectedIcon
               className={cn("size-3.5", selectedMeta.className)}
               style={
@@ -223,30 +252,6 @@ function TargetPicker({
           </Button>
         }
       />
-      <DropdownMenuContent align="start" sideOffset={6} className="w-44">
-        <DropdownMenuRadioGroup
-          value={value}
-          onValueChange={onChange}
-          items={targets.map((s) => {
-            const meta = statusMetaFor(s.slug, statuses)
-            const Icon = meta.icon
-            return {
-              value: s.slug,
-              closeOnClick: true,
-              label: (
-                <>
-                  <Icon
-                    className={cn("size-4", meta.className)}
-                    style={meta.color ? { color: meta.color } : undefined}
-                    strokeWidth={1.75}
-                  />
-                  {meta.label}
-                </>
-              )
-            }
-          })}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    </Select>
   )
 }

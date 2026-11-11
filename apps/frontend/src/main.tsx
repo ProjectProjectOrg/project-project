@@ -9,6 +9,7 @@ import { StrictMode, useSyncExternalStore } from "react"
 import ReactDOM from "react-dom/client"
 
 import { createSessionCache } from "./features/auth/lib/sessionCache"
+import { parseSearch, stringifySearch } from "./lib/searchParams"
 import { routeTree } from "./routeTree.gen"
 import { authClient } from "./services/AuthClient"
 
@@ -29,6 +30,8 @@ const sessions = createSessionCache((registry) =>
   createRouter({
     routeTree,
     history,
+    parseSearch,
+    stringifySearch,
     defaultPreload: "intent",
     scrollRestoration: true,
     scrollToTopSelectors: ["[data-scroll-root]"],

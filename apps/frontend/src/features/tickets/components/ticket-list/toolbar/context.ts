@@ -19,17 +19,12 @@ export type TicketToolbarProps = Readonly<{
   filters: ReadonlyArray<FilterDimension>
   estimation: EstimationMode
   scopeKey?: string
-  viewOptionsVariant?: "legacy" | "panel"
   viewControls?: ReactNode
   showSort?: boolean
   boardScope?: BoardScope
-  children?: ReactNode
 }>
 
-type TicketToolbarContextValue = Omit<
-  TicketToolbarProps,
-  "showSort" | "children" | "viewOptionsVariant"
-> &
+type TicketToolbarContextValue = Omit<TicketToolbarProps, "showSort"> &
   Readonly<{
     search: ReturnType<typeof useTicketSearch>
     searchActive: boolean

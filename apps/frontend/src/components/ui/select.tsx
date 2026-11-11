@@ -18,19 +18,24 @@ export type SelectOption<Value extends string> = Readonly<{
   value: Value
   label: ReactNode
   textValue?: string
+  icon?: IconComponent
   separated?: boolean
   disabled?: boolean
+  onAction?: () => void
 }>
 
 type SelectBaseProps<Value extends string> = Readonly<{
-  items: ReadonlyArray<SelectOption<Value>>
+  items: ReadonlyArray<SelectOption<Value> | SelectOption<string>>
   children: ReactNode
   contentProps?: Omit<SelectContentProps, "children">
   disabled?: boolean
   name?: string
   required?: boolean
   open?: boolean
-  onOpenChange?: (open: boolean) => void
+  onOpenChange?: (
+    open: boolean,
+    details: SelectPrimitive.Root.OpenChangeEventDetails
+  ) => void
   size?: "default" | "compact"
 }>
 
@@ -54,8 +59,13 @@ export type SelectProps<Value extends string = string> =
   | SingleSelectProps<Value>
   | MultipleSelectProps<Value>
 
+type ChoiceValue<Items extends ReadonlyArray<SelectOption<string>>> = Exclude<
+  Items[number],
+  Readonly<{ onAction: () => void }>
+>["value"]
+
 function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
-  props: SelectProps<Items[number]["value"]> & Readonly<{ items: Items }>
+  props: SelectProps<ChoiceValue<Items>> & Readonly<{ items: Items }>
 ) {
   const {
     items,
@@ -75,10 +85,13 @@ function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
     required,
     open,
     onOpenChange: onOpenChange
-      ? (next: boolean) => onOpenChange(next)
+      ? (next: boolean, details: SelectPrimitive.Root.OpenChangeEventDetails) =>
+          onOpenChange(next, details)
       : undefined,
     modal: false
   }
+  const actionFor = (value: string) =>
+    items.find((item) => item.value === value)?.onAction
   const content = (
     <SelectContent
       {...(size === "compact" ? compactContentProps : undefined)}
@@ -89,9 +102,10 @@ function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
           key={item.value}
           value={item.value}
           label={item.textValue}
-          aria-label={item.textValue}
+          icon={item.icon}
           separated={item.separated}
           disabled={item.disabled}
+          indicator={item.onAction === undefined}
         >
           {item.label}
         </SelectItem>
@@ -106,7 +120,15 @@ function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
         multiple
         value={props.value}
         defaultValue={props.defaultValue}
-        onValueChange={(next) => props.onValueChange?.(next)}
+        onValueChange={(next, details) => {
+          const action = next.map(actionFor).find(Boolean)
+          if (action) {
+            details.cancel()
+            action()
+            return
+          }
+          props.onValueChange?.(next)
+        }}
       >
         {children}
         {content}
@@ -119,8 +141,15 @@ function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
       {...shared}
       value={props.value}
       defaultValue={props.defaultValue}
-      onValueChange={(next) => {
-        if (next !== null) props.onValueChange?.(next)
+      onValueChange={(next, details) => {
+        if (next === null) return
+        const action = actionFor(next)
+        if (action) {
+          details.cancel()
+          action()
+          return
+        }
+        props.onValueChange?.(next)
       }}
     >
       {children}
@@ -140,7 +169,7 @@ const triggerVariants = cva(
     "text-foreground",
     "transition-all duration-80",
     "disabled:pointer-events-none disabled:opacity-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-    "focus-visible:ring-1 focus-visible:ring-[#6B97FF]"
+    "focus-visible:ring-1 focus-visible:ring-ring"
   ],
   {
     variants: {
@@ -149,8 +178,8 @@ const triggerVariants = cva(
         borderless: "border border-transparent bg-transparent hover:bg-hover"
       },
       size: {
-        default: "h-9 min-w-[160px] px-3 text-[13px]",
-        compact: "h-7 min-w-0 px-2.5 text-[12px]"
+        default: "h-9 min-w-[160px] px-3 text-body",
+        compact: "h-7 min-w-0 px-2.5 text-caption"
       }
     },
     defaultVariants: {
@@ -229,7 +258,7 @@ function SelectTrigger({
         />
       </SelectPrimitive.Trigger>
       {error ? (
-        <span className="pl-3 text-[12px] text-destructive">{error}</span>
+        <span className={"pl-3 text-caption text-destructive"}>{error}</span>
       ) : null}
     </div>
   )
@@ -243,6 +272,7 @@ type SelectContentProps = Readonly<{
   align?: "start" | "center" | "end"
   side?: "top" | "bottom" | "left" | "right"
   sideOffset?: number
+  finalFocus?: ComponentProps<typeof SelectPrimitive.Popup>["finalFocus"]
 }>
 
 function SelectContent({
@@ -250,7 +280,8 @@ function SelectContent({
   children,
   align = "start",
   side = "bottom",
-  sideOffset = 6
+  sideOffset = 6,
+  finalFocus
 }: SelectContentProps) {
   return (
     <SelectPrimitive.Portal>
@@ -262,6 +293,8 @@ function SelectContent({
         className="z-50 outline-none"
       >
         <SelectPrimitive.Popup
+          finalFocus={finalFocus}
+          onClick={(event) => event.stopPropagation()}
           className={cn(
             menuPopupClass,
             "min-w-[var(--anchor-width)]",
@@ -285,6 +318,7 @@ type SelectItemProps = Omit<
     label?: string
     icon?: IconComponent
     separated?: boolean
+    indicator?: boolean
   }>
 
 function SelectItem({
@@ -294,6 +328,7 @@ function SelectItem({
   label,
   icon: Icon,
   separated = false,
+  indicator = true,
   ...props
 }: SelectItemProps) {
   const item = (
@@ -307,12 +342,14 @@ function SelectItem({
       <SelectPrimitive.ItemText className="flex min-w-0 flex-1 items-center gap-2 truncate">
         {children}
       </SelectPrimitive.ItemText>
-      <SelectPrimitive.ItemIndicator
-        keepMounted
-        className={menuChoiceIndicatorClass}
-      >
-        <CheckIcon className="size-3.5" strokeWidth={2} />
-      </SelectPrimitive.ItemIndicator>
+      {indicator ? (
+        <SelectPrimitive.ItemIndicator
+          keepMounted
+          className={menuChoiceIndicatorClass}
+        >
+          <CheckIcon className="size-3.5" strokeWidth={2} />
+        </SelectPrimitive.ItemIndicator>
+      ) : null}
     </SelectPrimitive.Item>
   )
   if (!separated) return item

@@ -38,13 +38,14 @@ export function ErrorPage({
   return (
     <DitherShell animated contained={contained}>
       <div className="relative flex flex-col items-center gap-3 px-8 pt-10 text-center">
-        <span className="font-mono text-5xl font-medium tracking-tight text-muted-foreground">
+        {/* oxlint-disable-next-line workspace/type-scale -- a decorative numeral, not text on the scale */}
+        <span className="font-mono text-5xl text-muted-foreground">
           {code ?? m.error_page_code()}
         </span>
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+        <h1 className="text-display font-bold text-foreground">
           {title ?? m.error_page_title()}
         </h1>
-        <p className="max-w-[30ch] text-sm leading-relaxed text-muted-foreground">
+        <p className="max-w-[30ch] text-body leading-relaxed text-muted-foreground">
           {body ?? m.error_page_body()}
         </p>
       </div>
@@ -68,7 +69,7 @@ export function ErrorPage({
         </Button>
 
         {detail ? (
-          <p className="mt-1 text-center font-mono text-[11px] leading-relaxed break-words text-muted-foreground/80">
+          <p className="mt-1 text-center font-mono text-micro leading-relaxed break-words text-muted-foreground">
             {detail}
           </p>
         ) : null}

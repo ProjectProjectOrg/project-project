@@ -1,7 +1,9 @@
 import {
   pickActiveSprint,
   pickEarliestPlannedSprint,
-  type Group
+  sprintState,
+  type Group,
+  type GroupId
 } from "@pp/shared"
 
 export function pickSprintNavigationTarget(
@@ -34,4 +36,30 @@ export function pickRedirectTarget(
         (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0)
     )
   return completed[0] ?? null
+}
+
+const STATE_ORDER = { completed: 0, active: 1, planned: 2 } as const
+
+const timeOf = (date: Date | null) => date?.getTime() ?? Number.MAX_SAFE_INTEGER
+
+export function sprintNeighbours(
+  sprints: ReadonlyArray<Group>,
+  id: GroupId,
+  now?: Date
+) {
+  const ordered = sprints.toSorted((a, b) => {
+    const stateA = sprintState(a, now)
+    const byState = STATE_ORDER[stateA] - STATE_ORDER[sprintState(b, now)]
+    if (byState !== 0) return byState
+    const byTime =
+      stateA === "completed"
+        ? timeOf(a.completedAt) - timeOf(b.completedAt)
+        : timeOf(a.startsAt) - timeOf(b.startsAt)
+    return byTime || a.createdAt.getTime() - b.createdAt.getTime()
+  })
+  const index = ordered.findIndex((sprint) => sprint.id === id)
+  return {
+    previous: index > 0 ? ordered[index - 1] : null,
+    next: index >= 0 ? (ordered[index + 1] ?? null) : null
+  }
 }

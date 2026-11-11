@@ -3,7 +3,6 @@ import type { User } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import { LogOut, Settings, UserRound } from "lucide-react"
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,11 +11,11 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { logout } from "@/features/auth/atoms/auth"
+import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { m } from "@/paraglide/messages"
 
 export function UserMenu({ user }: { user: User }) {
   const signOut = useAtomSet(logout)
-  const initial = (user.name?.charAt(0) ?? user.email.charAt(0)).toUpperCase()
 
   return (
     <DropdownMenu>
@@ -27,22 +26,16 @@ export function UserMenu({ user }: { user: User }) {
             aria-label={m.chrome_user_menu_open()}
             className="rounded-full ring-offset-background outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <Avatar className="size-9">
-              {user.image ? <AvatarImage src={user.image} alt="" /> : null}
-              <AvatarFallback>{initial}</AvatarFallback>
-            </Avatar>
+            <MemberAvatar member={user} size={36} />
           </button>
         }
       />
       <DropdownMenuContent align="end" sideOffset={8} className="w-64">
         <div className="flex items-center gap-3 p-2">
-          <Avatar className="size-10">
-            {user.image ? <AvatarImage src={user.image} alt="" /> : null}
-            <AvatarFallback>{initial}</AvatarFallback>
-          </Avatar>
+          <MemberAvatar member={user} size={40} />
           <div className="min-w-0 leading-tight">
-            <div className="truncate text-sm font-medium">{user.name}</div>
-            <div className="truncate text-xs text-muted-foreground">
+            <div className="truncate text-body font-semibold">{user.name}</div>
+            <div className="truncate text-caption text-muted-foreground">
               {user.email}
             </div>
           </div>

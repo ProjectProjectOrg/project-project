@@ -93,7 +93,7 @@ export function BannerSourceStep({
                           strokeWidth={1.75}
                         />
                         <div className="flex flex-col items-start gap-2">
-                          <span className="text-[13px] font-medium">
+                          <span className="text-body font-semibold">
                             {m.project_banner_settings_storage_required()}
                           </span>
                           <Button
@@ -134,10 +134,10 @@ export function BannerSourceStep({
                           className="mb-1 size-4 text-muted-foreground"
                           strokeWidth={1.75}
                         />
-                        <span className="text-[13px] font-medium">
+                        <span className="text-body font-semibold">
                           {m.project_icon_dropzone_title()}
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-caption text-muted-foreground">
                           {m.project_icon_dropzone_hint()}
                         </span>
                       </Button>
@@ -189,7 +189,7 @@ export function BannerSourceStep({
                           }}
                         />
                       </motion.span>
-                      <span className="truncate text-xs text-muted-foreground">
+                      <span className="truncate text-caption text-muted-foreground">
                         {entry.label()}
                       </span>
                     </Button>
@@ -200,7 +200,7 @@ export function BannerSourceStep({
           </group.Subscribe>
 
           {rejected ? (
-            <p role="alert" className="text-[13px] text-destructive">
+            <p role="alert" className="text-body text-destructive">
               {m.project_banner_settings_load_error()}
             </p>
           ) : null}

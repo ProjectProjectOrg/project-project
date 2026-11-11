@@ -37,6 +37,20 @@ export const statusPhaseOf = (
   return "unstarted"
 }
 
+export type StatusPhaseOf = (slug: string) => StatusPhase
+
+export const statusPhaseLookup = (
+  statuses: ReadonlyArray<OrderedStatus>
+): StatusPhaseOf => {
+  const phases = new Map(
+    statuses.map((s): [string, StatusPhase] => [
+      s.slug,
+      statusPhaseOf(statuses, s.slug)
+    ])
+  )
+  return (slug) => phases.get(slug) ?? statusPhaseOf(statuses, slug)
+}
+
 export const finishedStatusSlugs = (
   statuses: ReadonlyArray<OrderedStatus>
 ): ReadonlySet<string> =>

@@ -3,7 +3,6 @@ import {
   defaultMoveStatus,
   planTicketMove,
   type Member,
-  type MoveTicketResult,
   type Project,
   type StatusSlug,
   type TicketDetail,
@@ -11,15 +10,9 @@ import {
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { FolderInput } from "lucide-react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
 import { Select, SelectTrigger } from "@/components/ui/select"
 import {
   project as projectDetail,
@@ -44,50 +37,11 @@ import { mutationErrorText } from "@/lib/mutationError"
 import { compareByOrderKey } from "@/lib/orderKey"
 import { m } from "@/paraglide/messages"
 
-export function MoveTicketControl({
-  id,
-  onMoved
-}: Readonly<{
-  id: TicketId
-  onMoved: (result: MoveTicketResult) => void
-}>) {
-  const [open, setOpen] = useState(false)
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={m.tickets_move_action_aria_label()}
-            title={m.tickets_move_action_aria_label()}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <FolderInput strokeWidth={1.75} />
-          </Button>
-        }
-      />
-      <PopoverContent align="end" className="w-80">
-        {open && (
-          <MoveTicketForm
-            id={id}
-            onMoved={onMoved}
-            onClose={() => setOpen(false)}
-          />
-        )}
-      </PopoverContent>
-    </Popover>
-  )
-}
-
 export function MoveTicketForm({
   id,
-  onMoved,
   onClose
 }: Readonly<{
   id: TicketId
-  onMoved?: (result: MoveTicketResult) => void
   onClose: () => void
 }>) {
   const { orgSlug, slug } = useProjectRoute()
@@ -109,29 +63,26 @@ export function MoveTicketForm({
     if (selected === undefined) return
     const exit = await move({
       toProject: selected.slug,
-      ...(status === null ? {} : { status })
+      status: status ?? undefined
     })
-    if (Exit.isSuccess(exit)) {
-      onClose()
-      onMoved?.(exit.value)
-    }
+    if (Exit.isSuccess(exit)) onClose()
   }
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium">{m.tickets_move_title()}</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-body font-semibold">{m.tickets_move_title()}</p>
+        <p className="text-caption text-muted-foreground">
           {m.tickets_move_description()}
         </p>
       </div>
       {Result.isSuccess(projectsResult) && destinations.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-caption text-muted-foreground">
           {m.tickets_move_no_projects()}
         </p>
       ) : (
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs text-muted-foreground">
+          <span className="text-caption text-muted-foreground">
             {m.tickets_move_project_label()}
           </span>
           <Select
@@ -167,7 +118,9 @@ export function MoveTicketForm({
           onStatusChange={setStatus}
         />
       )}
-      {error !== null && <p className="text-xs text-destructive">{error}</p>}
+      {error !== null && (
+        <p className="text-caption text-destructive">{error}</p>
+      )}
       <div className="flex items-center justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={onClose}>
           {m.tickets_move_cancel()}
@@ -196,7 +149,7 @@ function ProjectOption({
     <span className="flex min-w-0 items-center gap-2">
       <span
         aria-hidden
-        className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-[13px] leading-none corner-squircle"
+        className="inline-flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-[4px] text-body leading-none corner-squircle"
       >
         <ProjectIconDisplay
           orgSlug={orgSlug}
@@ -243,7 +196,7 @@ function MoveDestinationFields({
     return Result.isFailure(statusesResult) ||
       Result.isFailure(tagsResult) ||
       Result.isFailure(projectResult) ? (
-      <p className="text-xs text-destructive">
+      <p className="text-caption text-destructive">
         {m.tickets_move_destination_error()}
       </p>
     ) : (
@@ -290,7 +243,7 @@ function MoveDestinationFields({
   return (
     <>
       <label className="flex flex-col gap-1.5">
-        <span className="text-xs text-muted-foreground">
+        <span className="text-caption text-muted-foreground">
           {m.tickets_move_status_label()}
         </span>
         <Select
@@ -312,7 +265,7 @@ function MoveDestinationFields({
           />
         </Select>
       </label>
-      <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
+      <ul className="flex flex-col gap-1 text-caption text-muted-foreground">
         {notes.map((note) => (
           <li key={note}>{note}</li>
         ))}

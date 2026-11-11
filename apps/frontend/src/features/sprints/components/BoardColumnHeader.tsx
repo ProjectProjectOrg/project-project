@@ -112,7 +112,7 @@ export function CollapsedColumnHeader({
       aria-label={label}
       title={label}
       className={cn(
-        "flex w-full flex-col items-center gap-[13px] rounded-xl px-2 py-3 text-[13px] font-medium transition-colors duration-150 outline-none select-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring",
+        "flex w-full flex-col items-center gap-[13px] rounded-xl px-2 py-3 text-body font-semibold transition-colors duration-150 outline-none select-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring",
         highlighted && "bg-accent/40",
         reorderMode && "cursor-grab touch-none active:cursor-grabbing"
       )}

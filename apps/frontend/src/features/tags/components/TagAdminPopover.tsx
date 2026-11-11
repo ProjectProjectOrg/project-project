@@ -157,7 +157,7 @@ function Editor({
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? "tag-rename-error" : undefined}
           className={cn(
-            "h-7 min-w-0 flex-1 rounded-md border bg-transparent px-2 text-xs transition-colors outline-none",
+            "h-7 min-w-0 flex-1 rounded-md border bg-transparent px-2 text-caption transition-colors outline-none",
             invalid
               ? "border-destructive/60 focus-visible:border-destructive"
               : "border-border focus-visible:border-foreground/40"
@@ -175,12 +175,12 @@ function Editor({
       {invalid ? (
         <p
           id="tag-rename-error"
-          className="px-0.5 text-[11px] leading-tight text-destructive"
+          className="px-0.5 text-micro leading-tight text-destructive"
         >
           {m.tags_name_validation_hint()}
         </p>
       ) : (
-        <p className="px-0.5 text-[11px] text-muted-foreground">
+        <p className="px-0.5 text-micro text-muted-foreground">
           {usageCount === 1
             ? m.tags_usage_one()
             : m.tags_usage_many({ count: usageCount })}
@@ -209,7 +209,7 @@ function Confirm({
     }
   }
   return (
-    <div className="flex flex-col gap-2 text-xs">
+    <div className="flex flex-col gap-2 text-caption">
       <p>
         {usageCount === 1
           ? m.tags_delete_confirm_one({ name: tag.name })

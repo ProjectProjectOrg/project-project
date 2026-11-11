@@ -1,7 +1,7 @@
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 
-import type { Group } from "./Group"
+import type { Group, GroupId } from "./Group"
 
 const nowDate = (): Date => DateTime.toDate(DateTime.nowUnsafe())
 
@@ -10,7 +10,7 @@ export type SprintState = typeof SprintState.Type
 
 export function sprintState(sprint: Group, now: Date = nowDate()): SprintState {
   if (sprint.completedAt !== null) return "completed"
-  if (sprint.startsAt !== null && sprint.startsAt > now) return "planned"
+  if (sprint.startsAt === null || sprint.startsAt > now) return "planned"
   return "active"
 }
 
@@ -57,11 +57,26 @@ export function activeAndPlannedCount(
     .length
 }
 
-export function daysLeft(
-  endsAt: Date | null,
+export function backlogSprintSections(
+  sprints: ReadonlyArray<Group>,
+  selected?: ReadonlyArray<GroupId | "ungrouped">,
   now: Date = nowDate()
-): number | null {
-  if (endsAt === null) return null
-  const ms = endsAt.getTime() - now.getTime()
-  return Math.ceil(ms / (1000 * 60 * 60 * 24))
+): ReadonlyArray<Group | null> {
+  const rank = { planned: 0, active: 1, completed: 2 }
+  const ordered = sprints.toSorted((a, b) => {
+    const stateOrder = rank[sprintState(a, now)] - rank[sprintState(b, now)]
+    if (stateOrder !== 0) return stateOrder
+    const dateOrder =
+      (a.startsAt?.getTime() ?? Number.MAX_SAFE_INTEGER) -
+      (b.startsAt?.getTime() ?? Number.MAX_SAFE_INTEGER)
+    return dateOrder || a.id.localeCompare(b.id)
+  })
+  const sections = [
+    ...ordered.filter((sprint) => sprintState(sprint, now) === "planned"),
+    null,
+    ...ordered.filter((sprint) => sprintState(sprint, now) !== "planned")
+  ]
+  return selected?.length
+    ? sections.filter((sprint) => selected.includes(sprint?.id ?? "ungrouped"))
+    : sections
 }

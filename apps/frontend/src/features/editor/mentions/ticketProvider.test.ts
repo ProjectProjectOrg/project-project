@@ -30,6 +30,7 @@ it.effect("deduplicates identical ticket mention searches", () =>
                   pr: null,
                   prState: null,
                   lastTransitionedPr: null,
+                  parent: null,
                   gitState: { tag: "no_branch" },
                   assignees: [],
                   archivedAt: null,
@@ -55,7 +56,7 @@ it.effect("deduplicates identical ticket mention searches", () =>
           concurrency: "unbounded"
         })
         expect(first).toEqual({
-          candidates: [{ id: "WEB-1", label: "Native atom search" }],
+          items: [{ id: "WEB-1", label: "Native atom search" }],
           nextCursor: "next"
         })
         expect(second).toEqual(first)

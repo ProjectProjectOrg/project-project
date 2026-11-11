@@ -113,7 +113,7 @@ function SkippedAttachments({
     <AsyncView
       result={result}
       onInitial={() => (
-        <p className="animate-pulse text-[13px] text-muted-foreground">
+        <p className="animate-pulse text-body text-muted-foreground">
           {m.jira_import_result_skipped_loading()}
         </p>
       )}
@@ -132,7 +132,7 @@ function SkippedAttachments({
                 <span className="font-mono break-all">
                   {attachment.filename}
                 </span>
-                <span className="flex flex-wrap gap-x-4 text-[12px]">
+                <span className="flex flex-wrap gap-x-4 text-caption">
                   <a
                     href={attachment.sourceIssueUrl}
                     target="_blank"
@@ -298,7 +298,7 @@ function ReportBody({
     <AsyncView
       result={result}
       onInitial={() => (
-        <p className="animate-pulse text-[13px] text-muted-foreground">
+        <p className="animate-pulse text-body text-muted-foreground">
           {m.jira_import_report_loading()}
         </p>
       )}

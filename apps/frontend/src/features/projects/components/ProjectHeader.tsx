@@ -1,6 +1,9 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { GroupPolicy, ProjectPolicy } from "@pp/access/policies"
-import type { ProjectDetail as ProjectDetailType } from "@pp/shared"
+import {
+  sprintState,
+  type ProjectDetail as ProjectDetailType
+} from "@pp/shared"
 import { Link, useMatches } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -37,12 +40,16 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { ActiveSprintLine } from "@/features/sprints/components/ActiveSprintLine"
+import { BacklogCommandScope } from "@/features/sprints/components/BacklogCommandScope"
+import { CompleteSprintButton } from "@/features/sprints/components/CompleteSprintMenu"
+import { SprintCommandScope } from "@/features/sprints/components/SprintCommandScopes"
 import {
   SprintDeleteMenu,
   SprintNameField,
   SprintStatusSelect,
   SprintSubtitle
 } from "@/features/sprints/components/SprintHeaderFields"
+import { SprintStartButton } from "@/features/sprints/components/SprintStartButton"
 import { useProjectActor } from "@/hooks/useActor"
 import { springs, transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
@@ -121,12 +128,33 @@ export function ProjectHeader({
     : undefined
   const sprintMissing = sprintGroupId != null && sprintsLoaded && !sprint
 
+  const onBacklog = matches.some(
+    (mt) =>
+      mt.routeId === "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/"
+  )
+
   const mode = sprintGroupId ? `sprint:${sprintGroupId}` : "project"
   const isCompleted = sprint?.completedAt != null
   const canPlan = GroupPolicy.can(actor, "sprint", "manage")
 
   return (
     <LayoutGroup id={`project-header-${slug}`}>
+      {sprint ? (
+        <SprintCommandScope
+          orgSlug={orgSlug}
+          slug={slug}
+          sprint={sprint}
+          sprints={sprints}
+          canPlan={canPlan}
+        />
+      ) : onBacklog ? (
+        <BacklogCommandScope
+          orgSlug={orgSlug}
+          slug={slug}
+          sprints={sprints}
+          canPlan={canPlan}
+        />
+      ) : null}
       <header className="flex items-start gap-3">
         <MorphSlot
           slotKey={mode}
@@ -185,7 +213,6 @@ export function ProjectHeader({
                         params={{ orgSlug, slug, groupId: sprint.id }}
                         search={(previous) => ({
                           ...previous,
-                          updatedAfter: previous.updatedAfter?.toISOString(),
                           view:
                             previous.view === "description"
                               ? undefined
@@ -200,7 +227,7 @@ export function ProjectHeader({
                   </Button>
                 </>
               ) : sprintMissing ? (
-                <span className="truncate text-2xl font-semibold tracking-tight text-muted-foreground">
+                <span className="truncate text-display font-bold text-muted-foreground">
                   {m.sprints_not_found_title()}
                 </span>
               ) : (
@@ -235,7 +262,13 @@ export function ProjectHeader({
           {sprintGroupId ? (
             sprint ? (
               canPlan ? (
-                <SprintDeleteMenu sprint={sprint} sprints={sprints} />
+                <div className="flex items-center gap-2">
+                  <SprintStartButton sprint={sprint} />
+                  {sprintState(sprint) === "active" && (
+                    <CompleteSprintButton sprint={sprint} sprints={sprints} />
+                  )}
+                  <SprintDeleteMenu sprint={sprint} />
+                </div>
               ) : null
             ) : sprintMissing ? null : (
               <div className="size-8" />
@@ -297,7 +330,7 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
         }}
         disabled={!canEdit}
         className={cn(
-          "-mx-1 truncate rounded px-1 text-left text-2xl font-semibold tracking-tight transition-colors transition-transform duration-100 active:scale-[0.97]",
+          "-mx-1 truncate rounded px-1 text-left text-display font-bold transition-colors transition-transform duration-100 outline-none focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]",
           canEdit && "hover:bg-hover"
         )}
       >
@@ -314,14 +347,14 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void commit()}
         onKeyDown={handleKey}
-        className="-mx-1 w-full rounded bg-transparent px-1 text-2xl font-semibold tracking-tight ring-2 ring-ring/50 outline-none"
+        className="-mx-1 w-full rounded bg-transparent px-1 text-display font-bold ring-1 ring-ring outline-none"
         maxLength={120}
         aria-label={m.project_detail_name_aria_label()}
       />
       {failed && (
         <p
           role="alert"
-          className="absolute top-full left-0 mt-1 text-xs text-destructive"
+          className="absolute top-full left-0 mt-1 text-caption text-destructive"
         >
           {m.project_detail_name_error()}
         </p>

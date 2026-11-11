@@ -4,10 +4,11 @@ import { getRouteApi, Navigate } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { useEffect, useRef } from "react"
+import { useEffect, useMemo, useRef } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
+import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
 import { useProject } from "@/features/projects/hooks/useProject"
 import {
   movedTicket,
@@ -19,6 +20,7 @@ import {
   TicketPage,
   TicketPageSkeleton
 } from "@/features/tickets/components/ticket-page"
+import { ticketSourceFromSearch } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(
@@ -55,19 +57,24 @@ function MovedTicketRedirect({ req }: Readonly<{ req: TicketRequest }>) {
 export function TicketDetail() {
   const { orgSlug, slug, id } = routeApi.useParams()
   const search = routeApi.useSearch()
+  const from = useMemo(() => ticketSourceFromSearch(search), [search])
   const navigate = routeApi.useNavigate()
   const ticketId = decodeTicketId(id)
   const req = ticketRequest(orgSlug, slug, ticketId)
+  const commandScope = useMemo(
+    () => ({ ticket: { orgSlug, slug, ticketId } }),
+    [orgSlug, slug, ticketId]
+  )
+  useCommandScope(commandScope)
   const result = useAtomValue(ticketDetail(req))
   const project = useProject()
-  const autoFocusBody = useRef(search.focusBody === 1).current
+  const autoFocusBody = useRef(search.focusBody === "1").current
 
   useEffect(() => {
     if (!autoFocusBody) return
     void navigate({
       to: ".",
-      search: ({ splitInto }) =>
-        splitInto && splitInto.length > 0 ? { splitInto } : {},
+      search: ({ focusBody: _focusBody, ...previous }) => previous,
       replace: true
     })
   }, [autoFocusBody, navigate])
@@ -82,11 +89,13 @@ export function TicketDetail() {
     onDefect: (defect) => <ErrorPage contained error={defect} />,
     onSuccess: ({ value }) => (
       <TicketPage
+        key={value.id}
         ticket={value}
         members={project.members}
         github={project.github}
         autoFocusBody={autoFocusBody}
         splitInto={search.splitInto ?? []}
+        from={from}
       />
     )
   })

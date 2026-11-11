@@ -2,23 +2,16 @@ import type { Group, TicketType } from "@pp/shared"
 import { Plus } from "lucide-react"
 import { useRef, type ComponentProps, type RefObject } from "react"
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+import { Select, SelectTrigger } from "@/components/ui/select"
 import { SprintAssignMenu } from "@/features/sprints/components/SprintAssignMenu"
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
 import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
 import { m } from "@/paraglide/messages"
 
 import { CreatorChip } from "./CreatorChip"
-import { typeRadioItems } from "./TypeField"
+import { typeOptions } from "./TypeField"
 
-type OnOpenChange = NonNullable<
-  ComponentProps<typeof DropdownMenu>["onOpenChange"]
->
+type OnOpenChange = NonNullable<ComponentProps<typeof Select>["onOpenChange"]>
 type CloseReason = Parameters<OnOpenChange>[1]["reason"]
 
 type CreatorMenuProps = Readonly<{
@@ -60,8 +53,18 @@ export function CreatorTypeMenu({
   const TypeIcon = TYPE_META[type].icon
   const focus = useCreatorMenuFocus(inputRef)
   return (
-    <DropdownMenu onOpenChange={focus.onOpenChange}>
-      <DropdownMenuTrigger
+    <Select
+      items={typeOptions(types)}
+      value={type}
+      onValueChange={onTypeChange}
+      onOpenChange={focus.onOpenChange}
+      contentProps={{
+        align: "start",
+        className: "w-40",
+        finalFocus: focus.finalFocus
+      }}
+    >
+      <SelectTrigger
         render={
           <CreatorChip
             expanded={expanded}
@@ -75,19 +78,7 @@ export function CreatorTypeMenu({
           />
         }
       />
-      <DropdownMenuContent
-        align="start"
-        sideOffset={6}
-        className="w-40"
-        finalFocus={focus.finalFocus}
-      >
-        <DropdownMenuRadioGroup
-          value={type}
-          onValueChange={onTypeChange}
-          items={typeRadioItems(types)}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    </Select>
   )
 }
 

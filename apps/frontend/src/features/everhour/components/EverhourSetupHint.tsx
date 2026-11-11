@@ -7,11 +7,13 @@ export function EverhourSetupHint() {
   const { orgSlug, slug } = useProjectRoute()
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-xs text-muted-foreground">{m.time_setup_hint()}</p>
+      <p className="text-caption text-muted-foreground">
+        {m.time_setup_hint()}
+      </p>
       <Link
         to="/orgs/$orgSlug/projects/$slug/settings/integrations"
         params={{ orgSlug, slug }}
-        className="w-fit text-xs font-medium text-foreground underline-offset-2 transition-colors hover:underline"
+        className="w-fit text-caption font-semibold text-foreground underline-offset-2 transition-colors hover:underline"
       >
         {m.time_setup_cta()}
       </Link>
