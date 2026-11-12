@@ -1,3 +1,4 @@
+import { TypeKey } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
@@ -24,7 +25,7 @@ const baseTicket = (overrides: Partial<Ticket> = {}): Ticket => ({
   id: decodeTicketId("T-1"),
   title: "Test",
   status: s("todo"),
-  type: "feat",
+  type: TypeKey.make("feat"),
   priority: "med",
   estimate: null,
   tags: [],
@@ -87,9 +88,28 @@ describe("matchesTicketFilter", () => {
   })
 
   it("type filter ORs across entries", () => {
-    const f: TicketFilter = { type: ["bug"] }
-    expect(matchesTicketFilter(baseTicket({ type: "bug" }), f)).toBe(true)
-    expect(matchesTicketFilter(baseTicket({ type: "feat" }), f)).toBe(false)
+    const f: TicketFilter = { type: [TypeKey.make("bug")] }
+    expect(
+      matchesTicketFilter(baseTicket({ type: TypeKey.make("bug") }), f)
+    ).toBe(true)
+    expect(
+      matchesTicketFilter(baseTicket({ type: TypeKey.make("feat") }), f)
+    ).toBe(false)
+  })
+
+  it("type filter matches custom keys and tickets without a type", () => {
+    const custom = baseTicket({ type: TypeKey.make("incident-lite") })
+    const untyped = baseTicket({ type: null })
+    expect(
+      matchesTicketFilter(custom, { type: [TypeKey.make("incident-lite")] })
+    ).toBe(true)
+    expect(matchesTicketFilter(custom, { type: ["none"] })).toBe(false)
+    expect(matchesTicketFilter(untyped, { type: ["none"] })).toBe(true)
+    expect(
+      matchesTicketFilter(untyped, {
+        type: [TypeKey.make("incident-lite"), "none"]
+      })
+    ).toBe(true)
   })
 
   it("assignee: unassigned entry matches unassigned tickets", () => {
@@ -168,12 +188,21 @@ describe("matchesTicketFilter", () => {
   })
 
   it("ANDs across fields", () => {
-    const t = baseTicket({ status: s("in_progress"), type: "bug" })
+    const t = baseTicket({
+      status: s("in_progress"),
+      type: TypeKey.make("bug")
+    })
     expect(
-      matchesTicketFilter(t, { status: [s("in_progress")], type: ["bug"] })
+      matchesTicketFilter(t, {
+        status: [s("in_progress")],
+        type: [TypeKey.make("bug")]
+      })
     ).toBe(true)
     expect(
-      matchesTicketFilter(t, { status: [s("in_progress")], type: ["feat"] })
+      matchesTicketFilter(t, {
+        status: [s("in_progress")],
+        type: [TypeKey.make("feat")]
+      })
     ).toBe(false)
   })
 })
@@ -309,7 +338,7 @@ describe("matchesTicketQuery", () => {
       id: "",
       title: "new ticket",
       status: s("todo"),
-      type: "feat",
+      type: TypeKey.make("feat"),
       tags: [],
       branch: null,
       pr: null,

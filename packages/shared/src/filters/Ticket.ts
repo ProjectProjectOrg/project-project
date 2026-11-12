@@ -4,15 +4,11 @@ import * as Schema from "effect/Schema"
 import { UserId } from "../auth/User"
 import { EstimateFilterValue, EstimateSummary } from "../estimates/Estimate"
 import { GroupId } from "../groups/Group"
+import { NO_TYPE_FILTER, TypeKey } from "../library/LibraryKey"
 import { Page } from "../pagination/Pagination"
 import { Slug } from "../projects/Project"
 import { TagName } from "../tags/Tag"
-import {
-  TicketId,
-  TicketParent,
-  TicketStatus,
-  TicketType
-} from "../tickets/Ticket"
+import { TicketId, TicketParent, TicketStatus } from "../tickets/Ticket"
 import { Ticket, TicketDetail } from "../tickets/Ticket"
 import { TicketActivityActor } from "../tickets/TicketActivity"
 
@@ -55,6 +51,12 @@ export const AssigneeFilter = Schema.Union([
 ])
 export type AssigneeFilter = typeof AssigneeFilter.Type
 
+export const TypeFilter = Schema.Union([
+  Schema.Literal(NO_TYPE_FILTER),
+  TypeKey
+])
+export type TypeFilter = typeof TypeFilter.Type
+
 export const GroupIdFilter = Schema.Union([
   Schema.Literal("ungrouped"),
   GroupId
@@ -71,8 +73,9 @@ const TicketFilterFields = {
   status: Schema.optional(Schema.Array(TicketStatus)).annotate({
     description: "Status slugs from `list_statuses`."
   }),
-  type: Schema.optional(Schema.Array(TicketType)).annotate({
-    description: "Ticket types."
+  type: Schema.optional(Schema.Array(TypeFilter)).annotate({
+    description:
+      "Type keys the project has (`list_templates`), or `none` for tickets without a type."
   }),
   assignee: Schema.optional(Schema.Array(AssigneeFilter)).annotate({
     description: "User ids, `mine` for yourself, or `unassigned`."

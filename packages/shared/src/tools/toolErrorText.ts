@@ -57,6 +57,13 @@ const messages: Messages<ToolError> = {
         "ticket."
       )
     }
+    const unknownType = reason?.match(/^unknown_type:(.*)$/s)
+    if (unknownType) {
+      return (
+        `Unknown type "${unknownType[1]}". Discover the project's type ` +
+        "keys via list_templates, or pass null for no type."
+      )
+    }
     const needsBody = reason?.match(/^template_needs_body:(.*)$/s)
     if (needsBody) {
       return (

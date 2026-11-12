@@ -1,18 +1,15 @@
 import type { UserId } from "../auth/User"
 import type { Estimate, EstimationMode } from "../estimates/Estimate"
 import { matchesEstimateFilter } from "../estimates/estimates"
-import type {
-  PullRequestState,
-  TicketStatus,
-  TicketType
-} from "../tickets/Ticket"
+import { NO_TYPE_FILTER } from "../library/LibraryKey"
+import type { PullRequestState, TicketStatus } from "../tickets/Ticket"
 import type { TicketFilter, TicketListQuery } from "./Ticket"
 
 export type MatchableTicket = Readonly<{
   id: string
   title: string
   status: TicketStatus
-  type: TicketType
+  type: string | null
   tags: ReadonlyArray<string>
   branch: string | null
   pr: number | null
@@ -47,7 +44,8 @@ export const matchesTicketFilter = (
 
   if (filter.type !== undefined) {
     if (filter.type.length === 0) return false
-    if (!filter.type.includes(ticket.type)) return false
+    const wanted: ReadonlyArray<string> = filter.type
+    if (!wanted.includes(ticket.type ?? NO_TYPE_FILTER)) return false
   }
 
   if (filter.assignee !== undefined) {

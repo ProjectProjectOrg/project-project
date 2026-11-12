@@ -12,6 +12,7 @@ export {
   BlockKey,
   isReservedTypeKey,
   LIBRARY_KEY_MAX_LENGTH,
+  NO_TYPE_FILTER,
   RESERVED_TYPE_KEYS,
   TypeKey
 } from "./LibraryKey"

@@ -6,9 +6,12 @@ export const LIBRARY_KEY_MAX_LENGTH = 48
 
 export const BLANK_TYPE_KEY = "blank"
 
+export const NO_TYPE_FILTER = "none"
+
 export const RESERVED_TYPE_KEYS: ReadonlyArray<string> = [
   "other",
-  BLANK_TYPE_KEY
+  BLANK_TYPE_KEY,
+  NO_TYPE_FILTER
 ]
 
 export const isReservedTypeKey = (key: string): boolean =>

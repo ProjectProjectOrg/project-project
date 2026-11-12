@@ -66,7 +66,6 @@ import {
   TicketDetail,
   TicketId,
   TicketPriority,
-  TicketType,
   UpdateTicketInput
 } from "../tickets/Ticket"
 import { TicketActivityPage } from "../tickets/TicketActivity"
@@ -666,11 +665,10 @@ export const Tools = Toolkit.make(
       "you can see what to fill in. Pass the same `key` as `template` to " +
       "`create_ticket` to have the server do the expansion (with hints " +
       "stripped) when it creates the ticket; the server never applies it " +
-      "on its own, so pass `template` explicitly. `isDefaultFor` names " +
-      "the ticket type the entry defines (`feat`, `bug`, `chore` or " +
-      "`epic`) and is empty for any other entry; creating from an entry " +
-      "that names a type without an explicit `type` gives the ticket " +
-      "that type. Hidden entries are omitted. " +
+      "on its own, so pass `template` explicitly. An entry's `key` is " +
+      "also the value a ticket's `type` takes, and `isDefaultFor` repeats " +
+      "it; creating from an entry without an explicit `type` gives the " +
+      "ticket that type. Hidden entries are omitted. " +
       BLOCK_FORMAT_POINTER,
     cli: {
       command: ["templates", "list"],
@@ -685,7 +683,7 @@ export const Tools = Toolkit.make(
         priority: Schema.NullOr(TicketPriority),
         tags: Schema.Array(TagName),
         body: Schema.String,
-        isDefaultFor: Schema.Array(TicketType)
+        isDefaultFor: Schema.Array(TypeKey)
       })
     )
   }),
@@ -709,9 +707,10 @@ export const Tools = Toolkit.make(
       "\n\n" +
       "With a template and no `body`, the server expands the template " +
       "into the body with hints stripped. With both, `body` wins and the " +
-      "template only supplies defaults: its priority and tags, and its " +
-      "type when `isDefaultFor` names exactly one (an explicit `type` " +
-      "always wins).\n\n" +
+      "template only supplies defaults: its priority, tags and type (an " +
+      "explicit `type` always wins). A `type` without a `template` and " +
+      "without a `body` starts the ticket from that type's description " +
+      "the same way.\n\n" +
       "A malformed block in `body` fails with `Validation` naming the " +
       "line. " +
       BLOCK_FORMAT_POINTER +
@@ -727,7 +726,11 @@ export const Tools = Toolkit.make(
     parameters: Schema.Struct({
       orgSlug,
       projectSlug,
-      ...CreateTicketInput.fields
+      ...CreateTicketInput.fields,
+      template: Schema.optional(Schema.NullOr(TypeKey)).annotate({
+        description:
+          "A template key from `list_templates` to expand into the body; omit or pass `null` for a blank ticket."
+      })
     }),
     success: TicketDetailWithBlocks
   }),
@@ -744,7 +747,9 @@ export const Tools = Toolkit.make(
       "left unchanged. " +
       PARENT_GUIDE +
       " A ticket with children can't switch between epic and another " +
-      "type. " +
+      "type. Changing `type` replaces the description with the new " +
+      "type's starting description only while the description is empty " +
+      "or still an untouched starting description. " +
       ESTIMATE_GUIDE +
       "\n\n" +
       "`edits` changes part of the description without resending it, and " +
