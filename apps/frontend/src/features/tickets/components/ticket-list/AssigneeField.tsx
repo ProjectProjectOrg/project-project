@@ -203,14 +203,14 @@ export function AssigneeSelect({
   members,
   variant = "row",
   className
-}: {
+}: Readonly<{
   value: ReadonlyArray<string>
   onChange: (assignees: ReadonlyArray<string>) => void
   onClear?: () => void
   members: ReadonlyArray<Member>
   variant?: AssigneeVariant
   className?: string
-}) {
+}>) {
   const resolved = resolveAssignees(value, members)
   const toggle = (memberId: string) => onChange(toggleAssignee(value, memberId))
   const clear = () => {

@@ -22,6 +22,7 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
 import { query } from "@/api/query"
 import { fireMutation, keepPredicted, viewMutation } from "@/api/viewMutation"
+import { bulkBatches } from "@/features/tickets/atoms/bulkTickets"
 
 import { applySprintPatch } from "./sprintPatch"
 
@@ -362,23 +363,31 @@ export const bulkAddTicketsToSprint = Atom.family((req: SprintListRequest) =>
       })
     },
     call: (client, input) =>
-      client.tickets.bulkUpdate({
-        params: req.params,
-        payload: { tickets: input.tickets, patch: { sprint: input.groupId } }
-      }),
-    confirm: (sprints, result, input) =>
-      result.sprint === null
-        ? sprints
-        : confirmAddedTickets(
-            sprints,
-            input.groupId,
-            input.tickets,
-            result.sprint
-          ),
-    publish: (result, input) =>
-      result.sprint === null
-        ? Keys.ticketsChanged(scopeOf(req))
-        : membershipKeys(scopeOf(req), input.groupId, result.sprint)
+      Effect.forEach(bulkBatches(input.tickets), (tickets) =>
+        client.tickets.bulkUpdate({
+          params: req.params,
+          payload: { tickets, patch: { sprint: input.groupId } }
+        })
+      ),
+    confirm: (sprints, results, input) =>
+      results.reduce(
+        (current, { sprint }) =>
+          sprint === null
+            ? current
+            : confirmAddedTickets(
+                current,
+                input.groupId,
+                input.tickets,
+                sprint
+              ),
+        sprints
+      ),
+    publish: (results, input) =>
+      results.flatMap(({ sprint }) =>
+        sprint === null
+          ? Keys.ticketsChanged(scopeOf(req))
+          : membershipKeys(scopeOf(req), input.groupId, sprint)
+      )
   })
 )
 

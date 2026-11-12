@@ -101,7 +101,7 @@ export function SectionList({
   emptyMessage,
   snapshotReq,
   parent
-}: {
+}: Readonly<{
   heading?: SectionHeading
   canCreate?: boolean
   pagination?: ReactNode
@@ -121,7 +121,7 @@ export function SectionList({
   activePreviewId: TicketId | null
   onPreviewPointerEnter: (ticketId: TicketId) => void
   onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
-}) {
+}>) {
   const { orgSlug, slug } = useProjectRoute()
   const actor = useProjectActor()
   const editable = TicketPolicy.canChange(actor, { content: true })

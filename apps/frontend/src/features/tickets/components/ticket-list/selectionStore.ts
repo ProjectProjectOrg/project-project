@@ -40,7 +40,8 @@ export const updateSelected = (
   const byView = new Map<BulkTicketUpdateAtom, Array<TicketId>>()
   for (const id of tickets) {
     const view = store.views.get(selectionKey(slug, id))
-    if (view !== undefined) byView.set(view, [...(byView.get(view) ?? []), id])
+    if (view === undefined) return Promise.resolve(false)
+    byView.set(view, [...(byView.get(view) ?? []), id])
   }
   registry.set(store.failure, null)
   return Promise.all(
