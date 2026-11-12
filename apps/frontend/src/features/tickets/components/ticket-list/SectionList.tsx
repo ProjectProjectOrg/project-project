@@ -38,6 +38,7 @@ import type {
   TicketUpdates
 } from "@/features/tickets/atoms/ticketRows"
 import type { ListDropTarget } from "@/features/tickets/lib/listDrop"
+import { statusLabelFor } from "@/features/tickets/lib/ticketMeta"
 import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
 import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
@@ -154,6 +155,7 @@ export function SectionList({
   const sectionRef = useRef<HTMLDivElement>(null)
   const { drop, over, landed, settle } = useSectionDrop(sectionRef, {
     target: dropTarget,
+    label: heading?.label ?? statusLabelFor(status, statuses),
     tickets: items.map((row) => row.ticket),
     update,
     ordered: query.sort.key === "manual" && editable,

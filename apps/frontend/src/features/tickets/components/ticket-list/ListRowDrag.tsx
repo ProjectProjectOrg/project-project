@@ -4,10 +4,10 @@ import {
   draggable,
   dropTargetForElements
 } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
-import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview"
+import { disableNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/disable-native-drag-preview"
 import type { ElementDragType } from "@atlaskit/pragmatic-drag-and-drop/types"
 import { RegistryContext } from "@effect/atom-react"
-import { TicketId, TicketType, type Ticket } from "@pp/shared"
+import { TicketId, TicketPriority, TicketType, type Ticket } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { motion } from "motion/react"
 import {
@@ -21,8 +21,6 @@ import {
   type ReactNode,
   type RefObject
 } from "react"
-import { flushSync } from "react-dom"
-import { createRoot } from "react-dom/client"
 
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import {
@@ -36,16 +34,24 @@ import {
 import { cn } from "@/lib/utils"
 
 import { useIgnoreListHover } from "./ListKeyboard"
-import { RowDragPreview } from "./RowDragPreview"
 
 const RowDragData = Schema.Struct({
   type: Schema.Literal("list-row"),
   id: TicketId,
   ticketType: TicketType,
+  title: Schema.String,
+  priority: TicketPriority,
   subTicketCount: Schema.Number,
   section: Schema.String
 })
-const isRowDragData = Schema.is(RowDragData)
+export const isRowDragData = Schema.is(RowDragData)
+
+const SectionDropData = Schema.Struct({
+  type: Schema.Literal("list-section"),
+  section: Schema.String,
+  label: Schema.String
+})
+export const isSectionDropData = Schema.is(SectionDropData)
 
 const RowDropData = Schema.Struct({
   type: Schema.Literal("list-row-target"),
@@ -68,7 +74,6 @@ const draggedRow = (data: DragPayload): DraggedRow | null =>
 type Landing = Readonly<{ id: TicketId; at: number }>
 
 const LANDING_MS = 900
-const PREVIEW_GRAB_X = 24
 
 export type SectionDrop = Readonly<{
   section: string
@@ -83,6 +88,7 @@ const SectionDropContext = createContext<SectionDrop | null>(null)
 
 type SectionDropOptions = Readonly<{
   target: ListDropTarget | undefined
+  label: string
   tickets: ReadonlyArray<Ticket>
   update: TicketUpdates
   ordered: boolean
@@ -118,7 +124,11 @@ export function useSectionDrop(
     return dropTargetForElements({
       element,
       canDrop: ({ source }) => acceptsRow(source.data, latest.current),
-      getData: () => ({ type: "list-section" }),
+      getData: () => ({
+        type: "list-section",
+        section: key,
+        label: latest.current.label
+      }),
       onDragEnter: ({ source }) =>
         setOver(draggedRow(source.data)?.section !== key),
       onDrag: ({ source, location }) => {
@@ -216,29 +226,13 @@ export function DraggableRow({
           type: "list-row",
           id,
           ticketType: type,
+          title,
+          priority,
           subTicketCount,
           section
         }),
-        onGenerateDragPreview: ({ nativeSetDragImage, location }) => {
-          const grabY =
-            location.current.input.clientY - element.getBoundingClientRect().top
-          setCustomNativeDragPreview({
-            nativeSetDragImage,
-            getOffset: ({ container }) => ({
-              x: PREVIEW_GRAB_X,
-              y: Math.min(grabY, container.getBoundingClientRect().height - 8)
-            }),
-            render: ({ container }) => {
-              const root = createRoot(container)
-              flushSync(() =>
-                root.render(
-                  <RowDragPreview ticket={{ id, type, title, priority }} />
-                )
-              )
-              return () => root.unmount()
-            }
-          })
-        },
+        onGenerateDragPreview: ({ nativeSetDragImage }) =>
+          disableNativeDragPreview({ nativeSetDragImage }),
         onDragStart: () => setDragging(true),
         onDrop: () => {
           setDragging(false)
