@@ -1,7 +1,7 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import * as Atom from "effect/reactivity/Atom"
 import { X } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, motion, useIsPresent } from "motion/react"
 import {
   createContext,
   use,
@@ -13,6 +13,7 @@ import {
 } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Freeze } from "@/components/ui/freeze"
 import {
   emptySelection,
   toggleSelection,
@@ -88,11 +89,7 @@ export function TicketSelectionProvider({
 
   return (
     <SelectionContext value={store}>
-      <div
-        ref={root}
-        data-selecting={selecting || undefined}
-        className="group/selection contents"
-      >
+      <div ref={root} className="contents">
         {children}
         <AnimatePresence>
           {selecting && (
@@ -112,27 +109,30 @@ function SelectionBar({
   onClear
 }: Readonly<{ store: SelectionStore; onClear: () => void }>) {
   const count = useAtomValue(store.count)
+  const present = useIsPresent()
   return (
-    <div className="pointer-events-none sticky bottom-6 z-30 flex h-0 justify-center">
+    <div className="pointer-events-none sticky bottom-6 z-30 flex h-0 items-end justify-center">
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 8 }}
         transition={transitions.presence}
-        className="pointer-events-auto flex -translate-y-full items-center gap-2 rounded-xl border border-border bg-card py-1.5 pr-1.5 pl-4 shadow-md"
+        className="pointer-events-auto flex h-11 shrink-0 items-center gap-2 rounded-2xl bg-surface-5 pr-1.5 pl-4 shadow-surface-6"
       >
-        <output className="text-body whitespace-nowrap text-foreground tabular-nums">
-          {m.tickets_selection_count({ count })}
-        </output>
+        <Freeze frozen={!present}>
+          <output className="text-body whitespace-nowrap text-foreground tabular-nums">
+            {m.tickets_selection_count({ count })}
+          </output>
+        </Freeze>
         <Button
           type="button"
-          variant="quiet"
-          size="square-7"
+          variant="ghost"
+          size="icon-sm"
           onClick={onClear}
           aria-label={m.tickets_selection_clear_aria_label()}
           title={m.tickets_selection_clear_aria_label()}
         >
-          <X className="size-4" strokeWidth={1.75} />
+          <X strokeWidth={1.75} />
         </Button>
       </motion.div>
     </div>

@@ -115,7 +115,7 @@ function RowImpl({
               className={cn(
                 "group/reveal relative col-span-full grid grid-cols-subgrid items-center gap-x-1.5 px-3 py-2.5 text-left outline-none [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20",
                 variant === "standalone" &&
-                  "isolate rounded-lg transition-colors hover:bg-hover has-[[data-popup-open]]:bg-hover data-selected:bg-active data-[popup-open]:bg-hover"
+                  "isolate rounded-lg transition-colors hover:bg-hover not-data-selected:has-[[data-popup-open]]:bg-hover data-selected:bg-foreground/6 not-data-selected:data-[popup-open]:bg-hover"
               )}
             >
               <Link
@@ -263,7 +263,8 @@ function RowCheckbox({
         if (event.shiftKey) event.preventDefault()
       }}
       aria-label={m.tickets_row_select_aria_label({ id: ticketId })}
-      className="opacity-0 transition-opacity group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 group-data-selecting/selection:opacity-100 data-checked:opacity-100"
+      variant="quiet"
+      className="opacity-0 transition-opacity group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 before:absolute before:-inset-y-[17px] before:-right-[9px] before:-left-[15px] before:content-[''] data-checked:opacity-100"
     />
   )
 }
