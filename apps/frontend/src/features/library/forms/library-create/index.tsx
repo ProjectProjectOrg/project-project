@@ -25,6 +25,7 @@ import {
   LibraryListLink,
   useOpenEntry
 } from "@/features/library/components/LibraryEntryLink"
+import { useScopeProjectName } from "@/features/library/hooks/useLibraryPermissions"
 import type { LibraryKind } from "@/features/library/lib/libraryModel"
 import {
   exampleSections,
@@ -70,6 +71,7 @@ export function LibraryCreateForm({
 }: LibraryCreateProps) {
   const registry = useContext(RegistryContext)
   const openEntry = useOpenEntry()
+  const projectName = useScopeProjectName(scope)
   const nameId = useId()
   const keyId = useId()
   const [failure, setFailure] = useState<string | null>(null)
@@ -125,7 +127,7 @@ export function LibraryCreateForm({
       key: layer,
       label:
         layer === "project"
-          ? m.templates_new_for_project()
+          ? m.templates_new_for_project({ project: projectName })
           : m.templates_new_for_org({ org: orgName })
     })
   )

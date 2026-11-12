@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { orgScope, type LibraryScope } from "../atoms/libraryScope"
+import { useScopeProjectName } from "../hooks/useLibraryPermissions"
 import type { EntryNotice, EntryView } from "../lib/entryStanding"
 import type { LibraryKind } from "../lib/libraryModel"
 import { LibraryEntryLink } from "./LibraryEntryLink"
@@ -61,41 +62,44 @@ const upstreamNotice = ({
   return noticeText(view.notice, kind)
 }
 
-const sharedBody = (view: EntryView): string => {
-  if (view.canEditUpstream) return m.templates_types_shared_body()
+const sharedBody = (view: EntryView, project: string): string => {
+  if (view.canEditUpstream) return m.templates_types_shared_body({ project })
   return view.canFork
-    ? m.templates_types_shared_body_fork_only()
+    ? m.templates_types_shared_body_fork_only({ project })
     : m.templates_types_shared_body_read_only()
 }
 
-const copyFor = ({ scope, kind, entry, view }: ScopeBoxProps): Copy => {
+const copyFor = (
+  { scope, kind, entry, view }: ScopeBoxProps,
+  project: string
+): Copy => {
   const name = entry.name
   const quiet = "mt-0.5 size-4 shrink-0 text-muted-foreground"
   const changed = "mt-0.5 size-4 shrink-0 text-state-warning"
   if (view.standing === "hidden")
     return {
       icon: <EyeOff aria-hidden className={quiet} />,
-      title: m.templates_types_hidden_title(),
+      title: m.templates_types_hidden_title({ project }),
       body:
         kind === "type"
-          ? m.templates_types_hidden_body()
-          : m.templates_sections_hidden_body()
+          ? m.templates_types_hidden_body({ project })
+          : m.templates_sections_hidden_body({ project })
     }
   if (scope.layer === "project") {
     if (view.standing === "shared")
       return {
         icon: <Lock aria-hidden className={quiet} />,
-        title: m.templates_types_shared_title({ name }),
-        body: sharedBody(view)
+        title: m.templates_types_shared_title({ name, project }),
+        body: sharedBody(view, project)
       }
     if (view.standing === "changed")
       return {
         icon: <Folder aria-hidden className={changed} />,
-        title: m.templates_types_changed_title(),
+        title: m.templates_types_changed_title({ project }),
         body:
           kind === "type"
-            ? m.templates_types_changed_body({ name })
-            : m.templates_sections_changed_body()
+            ? m.templates_types_changed_body({ name, project })
+            : m.templates_sections_changed_body({ project })
       }
     return {
       icon: <Folder aria-hidden className={quiet} />,
@@ -129,7 +133,8 @@ const copyFor = ({ scope, kind, entry, view }: ScopeBoxProps): Copy => {
 
 export function ScopeBox(props: ScopeBoxProps) {
   const { scope, kind, entry, view, actions } = props
-  const copy = copyFor(props)
+  const project = useScopeProjectName(scope)
+  const copy = copyFor(props, project)
   const notice = upstreamNotice(props)
   const hasActions =
     view.canFork || view.canEditUpstream || view.canRevert || view.canShow
@@ -167,7 +172,7 @@ export function ScopeBox(props: ScopeBoxProps) {
                 onClick={() => void actions.fork()}
               >
                 {scope.layer === "project"
-                  ? m.templates_types_fork_project()
+                  ? m.templates_types_fork_project({ project })
                   : m.templates_types_fork_org()}
               </Button>
             ) : null}
@@ -212,7 +217,7 @@ export function ScopeBox(props: ScopeBoxProps) {
                   <ConfirmButton.Action
                     prompt={
                       scope.layer === "project"
-                        ? m.templates_types_revert_project_confirm()
+                        ? m.templates_types_revert_project_confirm({ project })
                         : m.templates_types_revert_org_confirm()
                     }
                     label={m.templates_types_revert_confirm_label()}

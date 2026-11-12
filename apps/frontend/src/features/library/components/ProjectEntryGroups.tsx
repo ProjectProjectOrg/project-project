@@ -12,6 +12,11 @@ import { Building2, Folder } from "lucide-react"
 import { useMemo, type ReactNode } from "react"
 
 import { Switch } from "@/components/ui/switch"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -26,6 +31,7 @@ import {
   removeTypeAtom,
   type LibraryScope
 } from "../atoms/libraryScope"
+import { useScopeProjectName } from "../hooks/useLibraryPermissions"
 import { templateSketch } from "../lib/blockSketchModel"
 import {
   groupEntries,
@@ -42,6 +48,7 @@ import {
   SameOnEveryTicketBadge
 } from "./EntryBadges"
 import { ENTRY_GRID_CLASS, EntryCard, NewEntryCard } from "./EntryCard"
+import { ProjectChip } from "./ProjectChip"
 
 type ProjectScope = Extract<LibraryScope, { layer: "project" }>
 
@@ -77,7 +84,11 @@ export function ProjectTypeGroups({
         entry={type}
         off={standing === "hidden"}
         badges={
-          <StandingBadge standing={standing} switched={permissions.project} />
+          <StandingBadge
+            scope={scope}
+            standing={standing}
+            switched={permissions.project}
+          />
         }
         control={
           permissions.project && isSwitchable(standing) ? (
@@ -124,7 +135,11 @@ export function ProjectSectionGroups({
         badges={
           <>
             {section.sync ? <SameOnEveryTicketBadge /> : null}
-            <StandingBadge standing={standing} switched={permissions.project} />
+            <StandingBadge
+              scope={scope}
+              standing={standing}
+              switched={permissions.project}
+            />
           </>
         }
         control={
@@ -164,10 +179,16 @@ const isSwitchable = (standing: EntryStanding): boolean =>
   standing === "shared" || standing === "hidden"
 
 function StandingBadge({
+  scope,
   standing,
   switched
-}: Readonly<{ standing: EntryStanding; switched: boolean }>) {
-  if (standing === "changed") return <ChangedHereBadge />
+}: Readonly<{
+  scope: ProjectScope
+  standing: EntryStanding
+  switched: boolean
+}>) {
+  const project = useScopeProjectName(scope)
+  if (standing === "changed") return <ChangedHereBadge project={project} />
   return standing === "hidden" && !switched ? <OffHereBadge /> : null
 }
 
@@ -185,6 +206,7 @@ function EntryGroups({
   own: ReadonlyArray<ReactNode>
 }>) {
   const canCreate = permissions.project || permissions.org
+  const project = useScopeProjectName(scope)
   return (
     <div className="flex flex-col gap-8">
       <section className="flex flex-col gap-3">
@@ -193,7 +215,7 @@ function EntryGroups({
           title={m.templates_types_group_shared()}
           note={
             permissions.project
-              ? m.templates_types_group_shared_note_switch()
+              ? m.templates_types_group_shared_note_switch({ project })
               : m.templates_types_group_shared_note()
           }
           action={
@@ -214,7 +236,12 @@ function EntryGroups({
       <section className="flex flex-col gap-3">
         <GroupHeading
           icon={<Folder aria-hidden className="size-3.5" />}
-          title={m.templates_types_group_own()}
+          title={
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              {m.templates_types_group_own()}
+              <ProjectChip scope={scope} />
+            </span>
+          }
         />
         {own.length === 0 && !canCreate ? (
           <p className="px-0.5 text-caption text-muted-foreground">
@@ -240,7 +267,7 @@ function GroupHeading({
   action
 }: Readonly<{
   icon: ReactNode
-  title: string
+  title: ReactNode
   note?: string
   action?: ReactNode
 }>) {
@@ -259,13 +286,15 @@ function GroupHeading({
 }
 
 function UseSwitch({
-  name,
+  label,
+  hint,
   on,
   waiting,
   error,
   onChange
 }: Readonly<{
-  name: string
+  label: string
+  hint: string
   on: boolean
   waiting: boolean
   error: string | null
@@ -278,12 +307,19 @@ function UseSwitch({
           {error}
         </span>
       )}
-      <Switch
-        checked={on}
-        aria-label={m.templates_types_use_aria({ name })}
-        onCheckedChange={onChange}
-        className={cn(waiting && "animate-pulse")}
-      />
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Switch
+              checked={on}
+              aria-label={label}
+              onCheckedChange={onChange}
+              className={cn(waiting && "animate-pulse")}
+            />
+          }
+        />
+        <TooltipContent className="max-w-64">{hint}</TooltipContent>
+      </Tooltip>
     </>
   )
 }
@@ -305,9 +341,15 @@ function TypeSwitch({
   const show = useAtomSet(showAtom, { mode: "promiseExit" })
   const hiding = useAtomValue(hideAtom)
   const showing = useAtomValue(showAtom)
+  const project = useScopeProjectName({ layer: "project", req })
   return (
     <UseSwitch
-      name={name}
+      label={m.templates_types_use_aria({ name, project })}
+      hint={
+        on
+          ? m.templates_types_use_type_on({ name, project })
+          : m.templates_types_use_type_off({ name, project })
+      }
       on={on}
       waiting={hiding.waiting || showing.waiting}
       error={mutationErrorText(hiding) ?? mutationErrorText(showing)}
@@ -333,9 +375,15 @@ function SectionSwitch({
   const show = useAtomSet(showAtom, { mode: "promiseExit" })
   const hiding = useAtomValue(hideAtom)
   const showing = useAtomValue(showAtom)
+  const project = useScopeProjectName({ layer: "project", req })
   return (
     <UseSwitch
-      name={name}
+      label={m.templates_types_use_aria({ name, project })}
+      hint={
+        on
+          ? m.templates_types_use_section_on({ name, project })
+          : m.templates_types_use_section_off({ name, project })
+      }
       on={on}
       waiting={hiding.waiting || showing.waiting}
       error={mutationErrorText(hiding) ?? mutationErrorText(showing)}

@@ -35,6 +35,7 @@ import {
   type TicketMoveFailed
 } from "../atoms/deleteType"
 import type { ProjectLibraryRequest } from "../atoms/library"
+import { useScopeProjectName } from "../hooks/useLibraryPermissions"
 import {
   NO_TYPE,
   replacementKey,
@@ -57,10 +58,10 @@ type Tagged = Readonly<{ _tag: string }>
 const isMoveFailure = (error: Tagged): error is TicketMoveFailed =>
   Predicate.isTagged(error, "TicketMoveFailed")
 
-const usedText = (count: number, name: string): string => {
-  if (count === 0) return m.templates_types_delete_unused()
-  if (count === 1) return m.templates_types_delete_used_one({ name })
-  return m.templates_types_delete_used({ count, name })
+const usedText = (count: number, name: string, project: string): string => {
+  if (count === 0) return m.templates_types_delete_unused({ project })
+  if (count === 1) return m.templates_types_delete_used_one({ name, project })
+  return m.templates_types_delete_used({ count, name, project })
 }
 
 const deleteFailureText =
@@ -85,6 +86,7 @@ export function DeleteTypeDialog({
   const run = useAtomSet(mutation, { mode: "promiseExit" })
   const state = useAtomValue(mutation)
   const { orgSlug, slug } = req.params
+  const project = useScopeProjectName({ layer: "project", req })
   const openCounts = ticketCounts(
     countsRequest(orgSlug, slug, { type: [type.key] })
   )
@@ -160,7 +162,7 @@ export function DeleteTypeDialog({
             return (
               <div className={cn("flex flex-col", busy && "animate-pulse")}>
                 <DialogDescription>
-                  {usedText(count, type.name)}
+                  {usedText(count, type.name, project)}
                 </DialogDescription>
                 {count === 0 ? null : (
                   <div className="mt-4 flex flex-col gap-1.5">
