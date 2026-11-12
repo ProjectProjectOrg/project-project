@@ -157,12 +157,12 @@ export const placeholderId = (
   return TicketId.make(`${prefix}-${n}`)
 }
 
-export type TemplatePrediction = Readonly<{
+export type TypePrediction = Readonly<{
   priority: TicketPriority | null
   tags: ReadonlyArray<TagName>
 }>
 
-export type QuickCreatePrediction = Partial<TemplatePrediction> &
+export type QuickCreatePrediction = Partial<TypePrediction> &
   Readonly<{
     clientId: string
     createdBy: string

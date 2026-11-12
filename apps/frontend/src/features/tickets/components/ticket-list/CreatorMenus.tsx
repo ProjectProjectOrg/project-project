@@ -2,12 +2,14 @@ import type { Group, TypeKey } from "@pp/shared"
 import { Plus } from "lucide-react"
 import { useRef, type ComponentProps, type RefObject } from "react"
 
+import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger } from "@/components/ui/select"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { SprintAssignMenu } from "@/features/sprints/components/SprintAssignMenu"
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
 import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
+import { useTypeEditing } from "@/features/tickets/hooks/useTypeEditing"
 import {
   resolveType,
   typeKeyOfOption,
@@ -17,7 +19,7 @@ import {
 import { m } from "@/paraglide/messages"
 
 import { CreatorChip } from "./CreatorChip"
-import { typeMenuItems } from "./TypeField"
+import { typeActionItems, typeMenuItems } from "./TypeField"
 
 type OnOpenChange = NonNullable<ComponentProps<typeof Select>["onOpenChange"]>
 type CloseReason = Parameters<OnOpenChange>[1]["reason"]
@@ -46,8 +48,37 @@ function useCreatorMenuFocus(inputRef: RefObject<HTMLInputElement | null>) {
   return { onOpenChange: handleOpenChange, finalFocus }
 }
 
+export function useCreatorTypeItems(
+  orgSlug: string,
+  slug: string,
+  epics: boolean,
+  lastUsed: TypeKey | null | undefined
+) {
+  const types = useTicketTypes(orgSlug, slug)
+  const editing = useTypeEditing(orgSlug, slug)
+  return {
+    types,
+    items: [
+      ...typeMenuItems(types, {
+        epics,
+        lastUsed,
+        separateNone: editing.canEdit
+      }),
+      ...typeActionItems(
+        editing.canEdit
+          ? {
+              label: m.tickets_create_type_edit_types(),
+              onAction: editing.openTypes
+            }
+          : null
+      )
+    ]
+  }
+}
+
 export function CreatorTypeMenu({
   type,
+  lastUsed,
   epics,
   onTypeChange,
   expanded,
@@ -55,23 +86,24 @@ export function CreatorTypeMenu({
 }: CreatorMenuProps &
   Readonly<{
     type: TypeKey | null
+    lastUsed: TypeKey | null | undefined
     epics: boolean
     onTypeChange: (type: TypeKey | null) => void
   }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const types = useTicketTypes(orgSlug, slug)
+  const { types, items } = useCreatorTypeItems(orgSlug, slug, epics, lastUsed)
   const shown = resolveType(types, type)
   const label = typeName(shown)
   const focus = useCreatorMenuFocus(inputRef)
   return (
     <Select
-      items={typeMenuItems(types, epics)}
+      items={items}
       value={typeOptionValue(type)}
       onValueChange={(next) => onTypeChange(typeKeyOfOption(next))}
       onOpenChange={focus.onOpenChange}
       contentProps={{
         align: "start",
-        className: "w-44",
+        className: "w-56",
         finalFocus: focus.finalFocus
       }}
     >
@@ -80,7 +112,6 @@ export function CreatorTypeMenu({
           <CreatorChip
             expanded={expanded}
             tone="muted"
-            tint={shown?.color}
             icon={<TypeGlyph type={shown} />}
             label={label}
             contentKey={typeOptionValue(type)}
@@ -88,6 +119,47 @@ export function CreatorTypeMenu({
           />
         }
       />
+    </Select>
+  )
+}
+
+export function CreatorTypeSelect({
+  orgSlug,
+  slug,
+  type,
+  lastUsed,
+  epics,
+  onTypeChange
+}: Readonly<{
+  orgSlug: string
+  slug: string
+  type: TypeKey | null
+  lastUsed: TypeKey | null | undefined
+  epics: boolean
+  onTypeChange: (type: TypeKey | null) => void
+}>) {
+  const { types, items } = useCreatorTypeItems(orgSlug, slug, epics, lastUsed)
+  const shown = resolveType(types, type)
+  const label = typeName(shown)
+  return (
+    <Select
+      items={items}
+      value={typeOptionValue(type)}
+      onValueChange={(next) => onTypeChange(typeKeyOfOption(next))}
+      contentProps={{ align: "start", className: "w-56" }}
+    >
+      <SelectTrigger
+        render={
+          <Button
+            type="button"
+            variant="chip"
+            aria-label={m.tickets_type_aria_label({ label })}
+          />
+        }
+      >
+        <TypeGlyph type={shown} className="size-3.5" />
+        <span>{label}</span>
+      </SelectTrigger>
     </Select>
   )
 }
