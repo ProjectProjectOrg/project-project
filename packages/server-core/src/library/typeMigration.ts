@@ -39,6 +39,7 @@ export type MigrationStep =
     }>
   | Readonly<{ _tag: "raw"; template: string; key: string; content: string }>
   | Readonly<{ _tag: "tombstone"; template: string; key: string }>
+  | Readonly<{ _tag: "unhidden"; template: string; key: string }>
 
 const Step = Data.taggedEnum<MigrationStep>()
 
@@ -337,7 +338,9 @@ export const planProjectLayer = (
     .toSorted()
     .flatMap((template) =>
       (orgPlan.targets.get(template) ?? []).map((key) =>
-        Step.tombstone({ template, key })
+        builtinType(key) === undefined
+          ? Step.tombstone({ template, key })
+          : Step.unhidden({ template, key })
       )
     )
     .filter((step) => !defined.has(stepKey(step)))

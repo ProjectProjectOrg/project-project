@@ -73,7 +73,8 @@ const stepOutcome = (step: MigrationStep): string =>
     Match.tagsExhaustive({
       type: () => "type",
       raw: () => "unreadable type file",
-      tombstone: () => "hidden type"
+      tombstone: () => "hidden type",
+      unhidden: () => "built-in type, no longer hidden"
     })
   )
 
@@ -156,6 +157,7 @@ const make = Effect.gen(function* () {
         type: (typed) => docs.writeType(orgSlug, projectSlug, typed.draft),
         tombstone: (hidden) =>
           docs.writeTombstone(orgSlug, projectSlug, "types", hidden.key),
+        unhidden: () => Effect.void,
         raw: (raw) =>
           markdown.writeLibraryFile(
             orgSlug,
@@ -181,6 +183,12 @@ const make = Effect.gen(function* () {
         type,
         became: stepOutcome(step),
         renamed: type !== step.template
+      }
+      if (step._tag === "unhidden") {
+        yield* Effect.logInfo(
+          "library migration: hidden template is a built-in type, hide dropped"
+        ).pipe(Effect.annotateLogs(annotations))
+        return false
       }
       if (yield* docs.hasFile(orgSlug, projectSlug, "types", type)) {
         yield* Effect.logInfo(

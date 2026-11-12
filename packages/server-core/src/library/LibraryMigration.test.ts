@@ -283,7 +283,6 @@ describe("LibraryMigration (real fs)", () => {
       expect(yield* list("acme", "projects", "web", "types")).toEqual([
         "bug.md",
         "chore.md",
-        "feat.md",
         "retro.md",
         "triage.md"
       ])
@@ -327,7 +326,7 @@ describe("LibraryMigration (real fs)", () => {
         chore: "project/org",
         epic: "builtin/-",
         "epic-2": "org/-",
-        feat: "project/org/hidden",
+        feat: "org/builtin",
         retro: "project/-",
         spike: "org/-",
         triage: "project/org/hidden"

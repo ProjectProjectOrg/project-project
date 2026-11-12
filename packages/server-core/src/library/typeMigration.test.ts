@@ -219,9 +219,9 @@ describe("planProjectLayer", () => {
     ])
   })
 
-  it("turns a tombstone into tombstones for what the template became", () => {
+  it("keeps a hide for a custom type and drops it for a built-in type", () => {
     expect(plan({ hidden: ["feature", "spike", "ghost"] })).toEqual([
-      "feature -> feat [tombstone]",
+      "feature -> feat [unhidden]",
       "spike -> spike [tombstone]"
     ])
   })
