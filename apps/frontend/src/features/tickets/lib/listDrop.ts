@@ -1,6 +1,7 @@
 import {
   EPIC_SECTION_NONE,
   hasSubTickets,
+  isEpic,
   SPRINT_SECTION_UNSCHEDULED,
   type EpicSectionKey,
   type SprintSectionKey,
@@ -34,12 +35,12 @@ export function sectionEdit(
   if (to.grouping === "sprint") {
     if (to.completed) return null
     if (to.key === SPRINT_SECTION_UNSCHEDULED) return { sprint: null }
-    return row.type === "epic" ? null : { sprint: to.key }
+    return isEpic(row) ? null : { sprint: to.key }
   }
   const { parent } = to
   if (parent === null || to.key === EPIC_SECTION_NONE) return { parent: null }
-  if (row.type === "epic" || parent.id === row.id) return null
-  if (parent.type !== "epic" && hasSubTickets(row)) return null
+  if (isEpic(row) || parent.id === row.id) return null
+  if (!isEpic(parent) && hasSubTickets(row)) return null
   return { parent }
 }
 

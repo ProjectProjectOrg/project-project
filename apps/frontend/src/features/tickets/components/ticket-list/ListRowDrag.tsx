@@ -7,7 +7,7 @@ import {
 import { disableNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/disable-native-drag-preview"
 import type { ElementDragType } from "@atlaskit/pragmatic-drag-and-drop/types"
 import { RegistryContext } from "@effect/atom-react"
-import { TicketId, TicketPriority, TicketType, type Ticket } from "@pp/shared"
+import { TicketId, TicketPriority, TypeKey, type Ticket } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { motion } from "motion/react"
 import {
@@ -38,7 +38,7 @@ import { useIgnoreListHover } from "./ListKeyboard"
 const RowDragData = Schema.Struct({
   type: Schema.Literal("list-row"),
   id: TicketId,
-  ticketType: TicketType,
+  ticketType: Schema.NullOr(TypeKey),
   title: Schema.String,
   priority: TicketPriority,
   subTicketCount: Schema.Number,

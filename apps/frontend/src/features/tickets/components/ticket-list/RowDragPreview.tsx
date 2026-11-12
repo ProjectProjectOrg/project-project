@@ -1,13 +1,17 @@
 import type { Ticket } from "@pp/shared"
 
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { PRIORITY_META } from "@/features/tickets/lib/priorityMeta"
-import { TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import { resolveType } from "@/features/tickets/lib/ticketTypes"
 import { cn } from "@/lib/utils"
 
 export function RowDragPreview({
   ticket
 }: Readonly<{ ticket: Pick<Ticket, "id" | "type" | "title" | "priority"> }>) {
-  const TypeIcon = TYPE_META[ticket.type].icon
+  const { orgSlug, slug } = useProjectRoute()
+  const type = resolveType(useTicketTypes(orgSlug, slug), ticket.type)
   const priority = PRIORITY_META[ticket.priority]
   const PriorityIcon = priority.icon
   return (
@@ -17,11 +21,7 @@ export function RowDragPreview({
         strokeWidth={1.75}
         className={cn("size-4 shrink-0", priority.className)}
       />
-      <TypeIcon
-        aria-hidden
-        strokeWidth={1.75}
-        className="size-4 shrink-0 text-muted-foreground"
-      />
+      <TypeGlyph type={type} />
       <span className="shrink-0 font-mono text-caption text-muted-foreground">
         {ticket.id}
       </span>

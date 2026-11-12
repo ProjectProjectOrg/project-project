@@ -4,7 +4,8 @@ import {
   SPRINT_SECTION_UNSCHEDULED,
   TicketId,
   TicketRank,
-  TicketStatus
+  TicketStatus,
+  TypeKey
 } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
@@ -23,7 +24,7 @@ const status = Schema.decodeSync(TicketStatus)
 
 const row = (fields: Partial<DraggedRow> = {}): DraggedRow => ({
   id: ticketId("T-1"),
-  type: "feat",
+  type: TypeKey.make("feat"),
   subTicketCount: 0,
   section: "todo",
   ...fields
@@ -38,7 +39,7 @@ const sprint = (id: string, completed = false): ListDropTarget => ({
 const under = (id: string, type: "epic" | "feat"): ListDropTarget => ({
   grouping: "parent",
   key: ticketId(id),
-  parent: { id: ticketId(id), title: id, type }
+  parent: { id: ticketId(id), title: id, type: TypeKey.make(type) }
 })
 
 describe("sectionEdit", () => {
@@ -64,7 +65,9 @@ describe("sectionEdit", () => {
 
   it("refuses a completed sprint, and an epic in any sprint", () => {
     expect(sectionEdit(row(), sprint("G-2", true))).toBeNull()
-    expect(sectionEdit(row({ type: "epic" }), sprint("G-2"))).toBeNull()
+    expect(
+      sectionEdit(row({ type: TypeKey.make("epic") }), sprint("G-2"))
+    ).toBeNull()
   })
 
   it("sets the parent of the section it lands in, and the no-parent section clears it", () => {
@@ -81,7 +84,9 @@ describe("sectionEdit", () => {
   })
 
   it("keeps the epic > ticket > sub-ticket hierarchy", () => {
-    expect(sectionEdit(row({ type: "epic" }), under("T-9", "epic"))).toBeNull()
+    expect(
+      sectionEdit(row({ type: TypeKey.make("epic") }), under("T-9", "epic"))
+    ).toBeNull()
     expect(sectionEdit(row(), under("T-1", "feat"))).toBeNull()
     expect(
       sectionEdit(row({ subTicketCount: 2 }), under("T-9", "feat"))
