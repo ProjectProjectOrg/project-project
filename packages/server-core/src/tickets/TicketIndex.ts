@@ -106,7 +106,6 @@ export interface TicketIndexCountOptions {
   readonly viewerId: string
   readonly ticketIds?: ReadonlyArray<string>
   readonly excludeTicketIds?: ReadonlyArray<string>
-  readonly excludeEpics?: boolean
 }
 
 export interface TicketIndexCounts {
@@ -844,7 +843,6 @@ interface TicketWhereOptions {
   readonly viewerId: string
   readonly ticketIds?: ReadonlyArray<string>
   readonly excludeTicketIds?: ReadonlyArray<string>
-  readonly excludeEpics?: boolean
   readonly nestWithin?: NestWithin
 }
 
@@ -902,7 +900,11 @@ const ticketWhereConditions = (
   if (filter?.type !== undefined) {
     conditions.push(typeCondition(filter.type))
   }
-  if (options.excludeEpics) conditions.push(notEpic)
+  if (filter?.excludeType !== undefined && filter.excludeType.length > 0) {
+    conditions.push(
+      drizzleSql`(${typeCondition(filter.excludeType)}) is not true`
+    )
+  }
   if (filter?.assignee !== undefined) {
     const assignees = filter.assignee.map((assignee) =>
       assignee === "mine" ? options.viewerId : assignee

@@ -112,6 +112,30 @@ describe("matchesTicketFilter", () => {
     ).toBe(true)
   })
 
+  it("excludeType leaves out listed types and keeps every other ticket", () => {
+    const custom = baseTicket({ type: TypeKey.make("incident-lite") })
+    const untyped = baseTicket({ type: null })
+    const epic = baseTicket({ type: TypeKey.make("epic") })
+    const noEpics: TicketFilter = { excludeType: [TypeKey.make("epic")] }
+    expect(matchesTicketFilter(custom, noEpics)).toBe(true)
+    expect(matchesTicketFilter(untyped, noEpics)).toBe(true)
+    expect(matchesTicketFilter(epic, noEpics)).toBe(false)
+    expect(matchesTicketFilter(untyped, { excludeType: ["none"] })).toBe(false)
+    expect(matchesTicketFilter(epic, { excludeType: [] })).toBe(true)
+    expect(
+      matchesTicketFilter(epic, {
+        type: [TypeKey.make("epic"), "none"],
+        excludeType: [TypeKey.make("epic")]
+      })
+    ).toBe(false)
+    expect(
+      matchesTicketFilter(untyped, {
+        type: [TypeKey.make("epic"), "none"],
+        excludeType: [TypeKey.make("epic")]
+      })
+    ).toBe(true)
+  })
+
   it("assignee: unassigned entry matches unassigned tickets", () => {
     const t = baseTicket({ assignees: [] })
     expect(matchesTicketFilter(t, { assignee: ["unassigned"] })).toBe(true)

@@ -557,11 +557,7 @@ export const querySectionsVia =
           const scoped = {
             ...options,
             ticketIds: all
-              .filter(
-                (entry) =>
-                  sectionOf(entry) === key &&
-                  !(options.excludeEpics === true && isEpic(entry))
-              )
+              .filter((entry) => sectionOf(entry) === key)
               .map((entry) => entry.id)
           }
           const counts = yield* index.count(project, countQuery, scoped)

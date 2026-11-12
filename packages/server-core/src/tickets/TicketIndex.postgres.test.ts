@@ -16,7 +16,8 @@ import {
   type ParentFilter,
   type TicketFilter,
   type TicketSort,
-  TypeKey
+  TypeKey,
+  EPIC_TYPE
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Deferred from "effect/Deferred"
@@ -1699,10 +1700,32 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           yield* index.count(project, { type: ["none"] }, options)
         ).toEqual({ total: 1, byStatus: { todo: 1 } })
 
+        const idsWithout = (
+          excludeType: TicketFilter["type"],
+          type?: TicketFilter["type"]
+        ) =>
+          index
+            .query(project, { type, excludeType, sort }, options)
+            .pipe(Effect.map((rows) => rows.map(({ entry }) => entry.id)))
+        expect(yield* idsWithout([EPIC_TYPE])).toEqual([
+          "T-2",
+          "T-3",
+          "T-4",
+          "T-5"
+        ])
+        expect(yield* idsWithout(["none", incident])).toEqual(["T-1", "T-4"])
+        expect(yield* idsWithout([])).toHaveLength(5)
+        expect(
+          yield* idsWithout([incident], [incident, "none", EPIC_TYPE])
+        ).toEqual(["T-1", "T-3"])
+        expect(
+          yield* index.count(project, { excludeType: [EPIC_TYPE] }, options)
+        ).toEqual({ total: 4, byStatus: { in_progress: 1, todo: 3 } })
+
         const sections = yield* index.querySections(
           project,
-          { sort },
-          { ...options, excludeEpics: true, sections: "ticketParent" }
+          { excludeType: [EPIC_TYPE], sort },
+          { ...options, sections: "ticketParent" }
         )
         expect(
           sections.get("none")?.entries.map(({ entry }) => entry.id)

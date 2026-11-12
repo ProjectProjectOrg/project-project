@@ -939,6 +939,7 @@ const make = Effect.gen(function* () {
   const parentSectionQuery = (query: TicketListQuery): TicketListQuery => ({
     ...query,
     type: query.type?.length ? query.type : undefined,
+    excludeType: [...(query.excludeType ?? []), EPIC_TYPE],
     parent: undefined,
     groupId: undefined,
     cursor: undefined
@@ -956,7 +957,6 @@ const make = Effect.gen(function* () {
         parentSectionQuery(query),
         {
           viewerId: scope.userId,
-          excludeEpics: true,
           ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet],
           limit: TICKET_LIST_LIMIT + 1,
           sections
@@ -1195,7 +1195,6 @@ const make = Effect.gen(function* () {
           { concurrency: "unbounded" }
         )
         return yield* find(parentSectionQuery(query), {
-          excludeEpics: true,
           ticketIds: members === null ? undefined : [...members],
           sections: { kind: "parent", keys: wanted.map(({ key }) => key) },
           within
@@ -1208,7 +1207,6 @@ const make = Effect.gen(function* () {
           yield* parentSectionsOf(scope, query, "ticketParent", members)
         )
         return yield* find(parentSectionQuery(query), {
-          excludeEpics: true,
           ticketIds: members === null ? undefined : [...members],
           sections: {
             kind: "ticketParent",

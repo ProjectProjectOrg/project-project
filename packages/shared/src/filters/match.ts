@@ -48,6 +48,11 @@ export const matchesTicketFilter = (
     if (!wanted.includes(ticket.type ?? NO_TYPE_FILTER)) return false
   }
 
+  if (filter.excludeType !== undefined) {
+    const unwanted: ReadonlyArray<string> = filter.excludeType
+    if (unwanted.includes(ticket.type ?? NO_TYPE_FILTER)) return false
+  }
+
   if (filter.assignee !== undefined) {
     if (filter.assignee.length === 0) return false
     const wantsUnassigned = filter.assignee.includes("unassigned")

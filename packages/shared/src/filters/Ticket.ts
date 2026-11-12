@@ -77,6 +77,10 @@ const TicketFilterFields = {
     description:
       "Type keys the project has (`list_templates`), or `none` for tickets without a type."
   }),
+  excludeType: Schema.optional(Schema.Array(TypeFilter)).annotate({
+    description:
+      "Type keys, or `none`, to leave out; every other ticket matches, also one whose type is hidden or no longer defined."
+  }),
   assignee: Schema.optional(Schema.Array(AssigneeFilter)).annotate({
     description: "User ids, `mine` for yourself, or `unassigned`."
   }),
