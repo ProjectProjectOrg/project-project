@@ -38,7 +38,7 @@ describe("resolveType", () => {
       key: "feat",
       name: "Feature",
       icon: "Sparkles",
-      color: "#00bc85",
+      color: "#70b445",
       known: true,
       hidden: false
     })
