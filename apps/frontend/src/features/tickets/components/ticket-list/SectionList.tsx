@@ -1,12 +1,13 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { TicketPolicy } from "@pp/access/policies"
-import type {
-  Member,
-  ProjectStatus,
-  TicketId,
-  TicketListQuery,
-  TicketStatus,
-  TicketParent
+import { GroupPolicy, TicketPolicy } from "@pp/access/policies"
+import {
+  SPRINT_SECTION_UNSCHEDULED,
+  type Member,
+  type ProjectStatus,
+  type TicketId,
+  type TicketListQuery,
+  type TicketStatus,
+  type TicketParent
 } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Loader2 } from "lucide-react"
@@ -33,12 +34,18 @@ import {
 } from "@/features/tickets/atoms/backlog"
 import type { EpicSectionsRequest } from "@/features/tickets/atoms/epicSections"
 import type { SprintSectionsRequest } from "@/features/tickets/atoms/sprintSections"
-import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
+import type {
+  BulkTicketMoveAtom,
+  BulkTicketUpdateAtom,
+  TicketUpdates
+} from "@/features/tickets/atoms/ticketRows"
+import type { ListDropTarget } from "@/features/tickets/lib/listDrop"
 import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
 import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+import { LandingFlash, useSectionDrop } from "./ListRowDrag"
 import { SectionBody } from "./SectionBody"
 import { SectionHeader, type SectionHeading } from "./SectionHeader"
 import { SectionRows } from "./SectionRows"
@@ -94,16 +101,22 @@ export function SectionList({
   canCreate = true,
   pagination,
   update,
+  bulkUpdate,
   emptyMessage,
   snapshotReq,
-  parent
-}: {
+  parent,
+  dropTarget,
+  bulkMove
+}: Readonly<{
   heading?: SectionHeading
   canCreate?: boolean
   pagination?: ReactNode
   update: TicketUpdates
+  bulkUpdate: BulkTicketUpdateAtom
   snapshotReq?: SprintSectionsRequest | EpicSectionsRequest
   parent?: TicketParent
+  dropTarget?: ListDropTarget
+  bulkMove?: BulkTicketMoveAtom
   emptyMessage?: string
   status: TicketStatus
   statuses: ReadonlyArray<ProjectStatus>
@@ -116,7 +129,7 @@ export function SectionList({
   activePreviewId: TicketId | null
   onPreviewPointerEnter: (ticketId: TicketId) => void
   onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
-}) {
+}>) {
   const { orgSlug, slug } = useProjectRoute()
   const actor = useProjectActor()
   const editable = TicketPolicy.canChange(actor, { content: true })
@@ -142,6 +155,17 @@ export function SectionList({
     query.groupId[0] !== "ungrouped"
 
   const shellRef = useRef<HTMLDivElement>(null)
+  const sectionRef = useRef<HTMLDivElement>(null)
+  const { drop, over, landed, settle } = useSectionDrop(sectionRef, {
+    target: dropTarget,
+    tickets: items.map((row) => row.ticket),
+    update,
+    bulkMove,
+    ordered:
+      query.sort.key === "manual" && query.sort.dir === "asc" && editable,
+    canRegroup: canRegroup(actor, dropTarget, editable),
+    canLeaveSprint: GroupPolicy.can(actor, "sprint", "remove_ticket")
+  })
 
   const onStartCreate = () => {
     if (collapsed) onToggleCollapsed()
@@ -151,12 +175,17 @@ export function SectionList({
 
   return (
     <div
+      ref={sectionRef}
       className={cn(
-        "flex flex-col transition-opacity duration-200 ease-out",
-        dimmed && "opacity-35"
+        "relative isolate flex flex-col rounded-lg transition-[opacity,background-color] duration-200 ease-out",
+        dimmed && "opacity-35",
+        over && "bg-accent/40"
       )}
       data-creating={creating || undefined}
     >
+      {collapsed && landed !== null && (
+        <LandingFlash at={landed.at} className="rounded-lg" onDone={settle} />
+      )}
       <SectionHeader
         ref={shellRef}
         heading={heading}
@@ -189,7 +218,9 @@ export function SectionList({
         ) : (
           <SectionRows
             items={items}
+            drop={drop}
             update={update}
+            bulkUpdate={bulkUpdate}
             members={members}
             editable={editable}
             contextParent={
@@ -214,6 +245,25 @@ export function SectionList({
       </SectionBody>
     </div>
   )
+}
+
+function canRegroup(
+  actor: ReturnType<typeof useProjectActor>,
+  target: ListDropTarget | undefined,
+  editable: boolean
+): boolean {
+  if (target === undefined) return false
+  if (target.grouping === "status") {
+    return TicketPolicy.canChange(actor, { status: true })
+  }
+  if (target.grouping === "sprint") {
+    return GroupPolicy.can(
+      actor,
+      "sprint",
+      target.key === SPRINT_SECTION_UNSCHEDULED ? "remove_ticket" : "add_ticket"
+    )
+  }
+  return editable
 }
 
 function SectionPagination({

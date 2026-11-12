@@ -459,7 +459,7 @@ export const makeSlackIntegrations = Effect.gen(function* () {
         projectIntegrationLinkId: link.id,
         payload: {
           kind: "test",
-          title: "ProjectProject notifications are connected."
+          title: "ProjectProject notifications"
         },
         actorId: scope.userId
       })

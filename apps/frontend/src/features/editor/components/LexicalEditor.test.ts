@@ -1,10 +1,12 @@
+import { $getHtmlContent } from "@lexical/clipboard"
 import { CodeNode } from "@lexical/code"
 import { HorizontalRuleNode } from "@lexical/extension"
 import { LinkNode } from "@lexical/link"
 import { ListItemNode, ListNode } from "@lexical/list"
 import {
   $convertFromMarkdownString,
-  $convertToMarkdownString
+  $convertToMarkdownString,
+  registerMarkdownShortcuts
 } from "@lexical/markdown"
 import { HeadingNode, QuoteNode } from "@lexical/rich-text"
 import { TableNode, TableRowNode, TableCellNode } from "@lexical/table"
@@ -12,6 +14,8 @@ import { TicketId } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import {
   $getRoot,
+  $getSelection,
+  $isRangeSelection,
   $isElementNode,
   createEditor,
   type LexicalNode
@@ -19,9 +23,12 @@ import {
 import { describe, expect, it, vi } from "vitest"
 
 import { AttachmentNode } from "../lexical/AttachmentNode"
+import { INLINE_MARKDOWN_TRANSFORMER } from "../lexical/commonMarkTransformer"
 import { FigmaNode } from "../lexical/FigmaNode"
+import { ImageNode } from "../lexical/ImageNode"
 import { MentionNode } from "../lexical/MentionNode"
 import { $isTicketBlockNode, TicketBlockNode } from "../lexical/TicketBlockNode"
+import { parseMarkdown } from "../lib/markdownParser"
 import {
   attachmentsForDescription,
   AUTO_LINK_MATCHERS,
@@ -48,6 +55,7 @@ function roundTripMarkdown(markdown: string) {
       TableNode,
       TableRowNode,
       TableCellNode,
+      ImageNode,
       CodeNode,
       FigmaNode,
       HeadingNode,
@@ -101,6 +109,7 @@ function inAttachmentEditor<A>(
       TableRowNode,
       TableCellNode,
       AttachmentNode,
+      ImageNode,
       CodeNode,
       HeadingNode,
       HorizontalRuleNode,
@@ -139,6 +148,7 @@ function roundTripAttachmentMarkdown(markdown: string) {
       TableRowNode,
       TableCellNode,
       AttachmentNode,
+      ImageNode,
       CodeNode,
       FigmaNode,
       HeadingNode,
@@ -182,6 +192,7 @@ function markdownNodeTypes(
       TableRowNode,
       TableCellNode,
       AttachmentNode,
+      ImageNode,
       CodeNode,
       FigmaNode,
       HeadingNode,
@@ -296,7 +307,7 @@ describe("createCoalescedSaveQueue", () => {
     await queue.flush()
 
     expect(onError).toHaveBeenCalledOnce()
-    expect(onStatus).toHaveBeenLastCalledWith("dirty")
+    expect(onStatus).toHaveBeenLastCalledWith("failed")
     expect(schedule).not.toHaveBeenCalled()
 
     await queue.flush()
@@ -339,10 +350,200 @@ describe("AUTO_LINK_MATCHERS", () => {
 })
 
 describe("MARKDOWN_TRANSFORMERS", () => {
+  it.each([
+    ["\\# Literal", "\\# Literal"],
+    [
+      "\\[label\\](https://example.com)",
+      "\\[label]\\([https://example.com](https://example.com))"
+    ],
+    ["> > - Item", "> > - Item"],
+    ["Note[^n]\n\n[^n]: **bold**", "Note\\[^n]\n\n\\[^n]: \\*\\*bold\\*\\*"],
+    ["[doc][id]\n\n[id]: /first\n[id]: /second", "[doc](/first)"],
+    ["> [doc][id]\n>\n> [id]: /guide", "> [doc](/guide)"],
+    ["[docs](<docs/my file.md>)", "[docs](<docs/my file.md>)"],
+    ["- Item\n\n  ```\n  x()\n  ```", "- Item\n\n    ```\n    x()\n    ```"]
+  ])(
+    "preserves markdown semantics through save and reload: %s",
+    (source, expected) => {
+      const saved = roundTripMarkdown(source)
+      expect(saved).toBe(expected)
+      expect(roundTripMarkdown(saved)).toBe(saved)
+    }
+  )
+  it.each([
+    ["- Parent\n  - Child", "- Parent\n    - Child"],
+    ["1. Parent\n   1. Child", "1. Parent\n    1. Child"],
+    ["- [ ] Parent\n  - [x] Child", "- [ ] Parent\n    - [x] Child"],
+    [
+      "- Parent\n  - [x] Done\n  - Plain",
+      "- Parent\n    - [x] Done\n    - Plain"
+    ]
+  ])("preserves nesting when importing %s", (markdown, expected) => {
+    const saved = roundTripMarkdown(markdown)
+    expect(saved).toBe(expected)
+    expect(roundTripMarkdown(saved)).toBe(saved)
+  })
+
+  it("preserves block structure inside a quote", () => {
+    const markdown = "> Intro\n>\n> - Item\n>\n> > Nested quote"
+    expect(roundTripMarkdown(markdown)).toBe(markdown)
+  })
+
+  it.each([
+    ["**outer __inner__ outer**", "**outer inner outer**"],
+    ["*outer _inner_ outer*", "*outer inner outer*"]
+  ])("preserves repeated nested formatting in %s", (markdown, expected) => {
+    expect(roundTripMarkdown(markdown)).toBe(expected)
+  })
+
+  it.each([
+    "Code: ``const marker = `value` ``.",
+    "Code: ```one `` two ` three```.",
+    "Code: `**literal** [link](https://example.com)`.",
+    "**Bold with ``a `backtick` `` inside**.",
+    "Code: ``a ` backtick`` and `` `edge` ``.",
+    "Code: `a\\b &amp; **literal**`."
+  ])("preserves code spans in %s", (markdown) => {
+    const exported = roundTripMarkdown(markdown)
+    expect(exported).toBe(markdown)
+    expect(roundTripMarkdown(exported)).toBe(exported)
+  })
+
+  it("preserves a code span after formatting part of its content", () => {
+    const editor = createEditor({
+      onError: (error) => {
+        throw error
+      }
+    })
+    let code = ""
+    editor.update(
+      () => {
+        $convertFromMarkdownString(
+          "Code: ``a `backtick` value``.",
+          MARKDOWN_TRANSFORMERS
+        )
+        const text = $getRoot()
+          .getAllTextNodes()
+          .find((node) => node.hasFormat("code"))
+        if (text === undefined) throw new Error("missing code span")
+        text.splitText(2, 12)[1].toggleFormat("bold")
+        const saved = $convertToMarkdownString(MARKDOWN_TRANSFORMERS)
+        $convertFromMarkdownString(saved, MARKDOWN_TRANSFORMERS)
+        code = $getRoot()
+          .getAllTextNodes()
+          .filter((node) => node.hasFormat("code"))
+          .map((node) => node.getTextContent())
+          .join("")
+      },
+      { discrete: true }
+    )
+    expect(code).toBe("a `backtick` value")
+  })
+
+  it("preserves an explicit line break through saving and reloading", () => {
+    const markdown = "First line.  \nSecond line."
+    expect(roundTripMarkdown(markdown)).toBe(markdown)
+  })
+
+  it.each([
+    ["`inline code", "`", "inline code"],
+    ["`` a `tick` ", "``", "a `tick`"]
+  ])(
+    "formats a code span when its closing delimiter is typed: %s",
+    (initial, closing, expected) => {
+      const editor = createEditor({
+        onError: (error) => {
+          throw error
+        }
+      })
+      editor.update(
+        () => {
+          $convertFromMarkdownString("", MARKDOWN_TRANSFORMERS)
+          $getRoot().selectEnd()
+        },
+        { discrete: true }
+      )
+      const unregister = registerMarkdownShortcuts(editor, [
+        INLINE_MARKDOWN_TRANSFORMER
+      ])
+      try {
+        for (const character of initial + closing) {
+          editor.update(
+            () => {
+              const selection = $getSelection()
+              if ($isRangeSelection(selection)) selection.insertText(character)
+            },
+            { discrete: true }
+          )
+        }
+        expect(
+          editor.read(() =>
+            $getRoot()
+              .getAllTextNodes()
+              .filter((node) => node.hasFormat("code"))
+              .map((node) => node.getTextContent())
+              .join("")
+          )
+        ).toBe(expected)
+      } finally {
+        unregister()
+      }
+    }
+  )
+
   it("round-trips markdown links", () => {
     expect(roundTripMarkdown("See [docs](https://example.com).")).toBe(
       "See [docs](https://example.com)."
     )
+  })
+
+  it.each([
+    ["[**bold**](https://example.com)", "[**bold**](https://example.com)"],
+    ["[`code`](https://example.com)", "[`code`](https://example.com)"],
+    [
+      "**before [link](https://example.com) after**",
+      "**before** [**link**](https://example.com) **after**"
+    ]
+  ])("preserves formatting in links: %s", (markdown, expected) => {
+    const saved = roundTripMarkdown(markdown)
+    expect(saved).toBe(expected)
+    expect(roundTripMarkdown(saved)).toBe(saved)
+  })
+
+  it("preserves literal entities and HTML delimiters after saving", () => {
+    const markdown = "Write &amp;copy; and &lt;tag&gt; literally."
+    const saved = roundTripMarkdown(markdown)
+    expect(parseMarkdown(saved).children).toMatchObject([
+      {
+        type: "paragraph",
+        children: [{ type: "text", value: "Write &copy; and <tag> literally." }]
+      }
+    ])
+    expect(roundTripMarkdown(saved)).toBe(saved)
+  })
+
+  it("preserves a continuation paragraph after a nested list", () => {
+    const markdown = "- Parent\n  - Child\n\n  After child"
+    const saved = roundTripMarkdown(markdown)
+    expect(parseMarkdown(saved).children).toMatchObject([
+      {
+        type: "list",
+        children: [
+          {
+            type: "listItem",
+            children: [
+              { type: "paragraph", children: [{ value: "Parent" }] },
+              {
+                type: "list",
+                children: [{ children: [{ children: [{ value: "Child" }] }] }]
+              },
+              { type: "paragraph", children: [{ value: "After child" }] }
+            ]
+          }
+        ]
+      }
+    ])
+    expect(roundTripMarkdown(saved)).toBe(saved)
   })
 
   it("round-trips mention links as mentions", () => {
@@ -350,6 +551,76 @@ describe("MARKDOWN_TRANSFORMERS", () => {
       "See [Wouter](mention:user/github_42)."
     )
   })
+})
+
+it.each([
+  "/icon/icon-192.png",
+  "https://example.com/image.png",
+  "https://example.com/image.png?token=one&size=two#preview"
+])(
+  "imports an ordinary image at %s as an image and preserves its markdown",
+  (url) => {
+    const markdown = `![ProjectProject icon](${url})`
+    const transformers = transformersForAttachments(
+      descriptionAttachments(true)
+    )
+    expect(markdownNodeTypes(markdown, transformers)).toContain(
+      "markdown-image"
+    )
+    const saved = roundTripAttachmentMarkdown(markdown)
+    expect(parseMarkdown(saved).children).toMatchObject([
+      { type: "paragraph", children: [{ type: "image", url }] }
+    ])
+    expect(roundTripAttachmentMarkdown(saved)).toBe(saved)
+  }
+)
+
+it("saves an ordinary image after restoring the editor's serialized state", () => {
+  const editor = createEditor({
+    nodes: [ImageNode],
+    onError: (error) => {
+      throw error
+    }
+  })
+  const markdown = '![ProjectProject icon](/icon/icon-192.png "Icon")'
+  editor.update(
+    () => {
+      $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS)
+    },
+    { discrete: true }
+  )
+  editor.setEditorState(
+    editor.parseEditorState(editor.getEditorState().toJSON())
+  )
+  expect(
+    editor.read(() => $convertToMarkdownString(MARKDOWN_TRANSFORMERS))
+  ).toBe(markdown)
+})
+
+it("copies an ordinary image to the HTML clipboard with its source and description", () => {
+  const editor = createEditor({
+    nodes: [ImageNode],
+    onError: (error) => {
+      throw error
+    }
+  })
+  let html = ""
+  editor.update(
+    () => {
+      $convertFromMarkdownString(
+        '![ProjectProject icon](https://example.com/icon.png "Icon")',
+        MARKDOWN_TRANSFORMERS
+      )
+      $getRoot().select(0, $getRoot().getChildrenSize())
+      html = $getHtmlContent(editor)
+    },
+    { discrete: true }
+  )
+  const document = new DOMParser().parseFromString(html, "text/html")
+  const image = document.querySelector("img")
+  expect(image?.getAttribute("src")).toBe("https://example.com/icon.png")
+  expect(image?.getAttribute("alt")).toBe("ProjectProject icon")
+  expect(image?.getAttribute("title")).toBe("Icon")
 })
 
 describe("figma links in the assembled transformer pipeline", () => {
@@ -526,6 +797,7 @@ describe("ticket blocks", () => {
     const editor = createEditor({
       namespace: "lexical-editor-test",
       nodes: [
+        ImageNode,
         CodeNode,
         HeadingNode,
         LinkNode,
@@ -556,16 +828,45 @@ describe("ticket blocks", () => {
     return { types, blockChildren }
   }
 
-  it("round-trips a block with loose text around it", () => {
-    const markdown = ["Intro.", "", CRITERIA_BLOCK, "", "Outro."].join("\n")
-    expect(roundTripMarkdown(markdown)).toBe(markdown)
-  })
+  it.each(["\n", "\n\n"])(
+    "preserves prose around a block separated by %j",
+    (separator) => {
+      const markdown = "Intro.\n\n" + CRITERIA_BLOCK + separator + "Outro."
+      expect(roundTripMarkdown(markdown)).toBe(
+        "Intro.\n\n" + CRITERIA_BLOCK + "\n\nOutro."
+      )
+    }
+  )
+
+  it.each(["\n", "\n\n"])(
+    "resolves earlier link definitions after a block separated by %j",
+    (separator) => {
+      const markdown =
+        '[ref]: /example "Docs"\n\n<block type="notes">\n\nBody\n\n</block>' +
+        separator +
+        "[linked][ref]"
+      const saved = roundTripMarkdown(markdown)
+      expect(saved).toBe(
+        '<block type="notes">\n\nBody\n\n</block>\n\n[linked](/example "Docs")'
+      )
+      expect(roundTripMarkdown(saved)).toBe(saved)
+    }
+  )
 
   it("imports a block as one node holding its markdown as children", () => {
     expect(importedRootTypes(CRITERIA_BLOCK)).toEqual({
       types: ["ticket-block"],
       blockChildren: ["heading", "list"]
     })
+  })
+
+  it("keeps earlier reference definitions out of an unfinished fenced example after a block", () => {
+    const block = '<block type="notes">\n\nBody\n\n</block>'
+    const markdown =
+      '[ref]: /example "Docs"\n\n' + block + "\n\n```js\nconst x = 1"
+    const saved = roundTripMarkdown(markdown)
+    expect(saved).toBe(block + "\n\n```js\nconst x = 1\n```")
+    expect(roundTripMarkdown(saved)).toBe(saved)
   })
 
   it("normalises a block written without blank lines", () => {
@@ -621,7 +922,9 @@ describe("ticket blocks", () => {
   it("keeps an unclosed block as plain text", () => {
     const markdown = '<block type="notes">\n\nstill typing'
     expect(importedRootTypes(markdown).types).not.toContain("ticket-block")
-    expect(roundTripMarkdown(markdown)).toBe(markdown)
+    expect(roundTripMarkdown(markdown)).toBe(
+      '\\<block type="notes">\n\nstill typing'
+    )
   })
 
   it("round-trips a table inside a block", () => {
@@ -698,7 +1001,7 @@ describe("checklist markers in markdown", () => {
 
   it("keeps a task item whose text starts with a marker a single task", () => {
     expect(roundTripMarkdown("- [ ] [ ] nested marker")).toBe(
-      "- [ ] [ ] nested marker"
+      "- [ ] \\[ ] nested marker"
     )
   })
 })

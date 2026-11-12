@@ -17,7 +17,9 @@ import {
   ProjectKey,
   TagName,
   TicketId,
-  TicketStatus
+  TicketStatus,
+  TypeKey,
+  TicketRank
 } from "@pp/shared"
 
 import { testActivityLayer } from "../activity/testing"
@@ -53,6 +55,7 @@ function makeMarkdown(overrides: Partial<Markdown.Markdown["Service"]>) {
     readTicketFileRaw: () => unexpectedMarkdownCall("readTicketFileRaw"),
     createTicketFile: () => unexpectedMarkdownCall("createTicketFile"),
     writeTicketFile: () => unexpectedMarkdownCall("writeTicketFile"),
+    writeTicketFileRaw: () => unexpectedMarkdownCall("writeTicketFileRaw"),
     writeTicketWithRegion: () =>
       unexpectedMarkdownCall("writeTicketWithRegion"),
     removeTicketFile: () => unexpectedMarkdownCall("removeTicketFile"),
@@ -70,7 +73,14 @@ function makeMarkdown(overrides: Partial<Markdown.Markdown["Service"]>) {
     writeLibraryFile: () => unexpectedMarkdownCall("writeLibraryFile"),
     readOrgLibraryFile: () => unexpectedMarkdownCall("readOrgLibraryFile"),
     writeOrgLibraryFile: () => unexpectedMarkdownCall("writeOrgLibraryFile"),
+    removeOrgLibraryFile: () => unexpectedMarkdownCall("removeOrgLibraryFile"),
     removeLibraryFile: () => unexpectedMarkdownCall("removeLibraryFile"),
+    listOrgSlugs: () => unexpectedMarkdownCall("listOrgSlugs"),
+    listProjectSlugs: () => unexpectedMarkdownCall("listProjectSlugs"),
+    listLegacyTemplateFiles: () =>
+      unexpectedMarkdownCall("listLegacyTemplateFiles"),
+    removeLegacyTemplatesDir: () =>
+      unexpectedMarkdownCall("removeLegacyTemplatesDir"),
     ...overrides
   } satisfies Markdown.Markdown["Service"]
 
@@ -86,7 +96,7 @@ it.effect("TicketDocs reads ticket frontmatter as a typed document", () =>
       id: "T-1",
       title: "Fix auth",
       status: ticketStatus("todo"),
-      type: "bug",
+      type: TypeKey.make("bug"),
       priority: "med",
       tags: [],
       branch: null,
@@ -115,7 +125,8 @@ it.effect("TicketDocs reads ticket frontmatter as a typed document", () =>
                   id: "T-1",
                   title: "Fix auth",
                   status: ticketStatus("todo"),
-                  type: "bug",
+                  type: TypeKey.make("bug"),
+                  rank: "a0",
                   branch: null,
                   assignees: ["user-1"],
                   createdBy: "user-2",
@@ -143,8 +154,9 @@ it.effect(
         id: ticketId("T-2"),
         title: "Write tests",
         status: ticketStatus("todo"),
-        type: "chore",
+        type: TypeKey.make("chore"),
         priority: "med",
+        rank: TicketRank.make("a0"),
         tags: [],
         branch: null,
         pr: null,
@@ -207,8 +219,9 @@ it.effect(
         id: ticketId("T-2"),
         title: "Write tests",
         status: ticketStatus("in_progress"),
-        type: "chore",
+        type: TypeKey.make("chore"),
         priority: "high",
+        rank: TicketRank.make("a0"),
         tags: [tagName("backend")],
         branch: "chore/T-2-write-tests",
         pr: 42,
@@ -230,8 +243,9 @@ it.effect(
           id: "T-2",
           title: "Write tests",
           status: ticketStatus("in_progress"),
-          type: "chore",
+          type: TypeKey.make("chore"),
           priority: "high",
+          rank: "a0",
           tags: ["backend"],
           branches: [
             { branch: "chore/T-2-write-tests", pr: 42, prState: "open" }
@@ -286,8 +300,9 @@ it.effect("TicketDocs serializes concurrent document updates", () => {
       id: "T-1",
       title: "Concurrent updates",
       status: "todo",
-      type: "chore",
+      type: TypeKey.make("chore"),
       priority: "med",
+      rank: "a0",
       tags: [],
       branch: null,
       pr: null,
@@ -375,8 +390,9 @@ it.effect(
         id: "T-1",
         title: "Concurrent updates",
         status: "todo",
-        type: "chore",
+        type: TypeKey.make("chore"),
         priority: "med",
+        rank: "a0",
         tags: [],
         branch: null,
         pr: null,

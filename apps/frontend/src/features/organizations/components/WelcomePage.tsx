@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { UserInvitation } from "@pp/shared"
 import { Navigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Inbox, LogOut, UserRound } from "lucide-react"
+import { Inbox, LogOut } from "lucide-react"
 import { useRef, useState } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
@@ -83,14 +83,6 @@ function WelcomeNoAccess() {
           onClick={() => signOut()}
         >
           {m.auth_welcome_sign_out_button()}
-        </Button>
-        <Button
-          type="button"
-          variant="tertiary"
-          leadingIcon={UserRound}
-          onClick={() => signOut()}
-        >
-          {m.auth_welcome_try_another_account_button()}
         </Button>
       </div>
     </>

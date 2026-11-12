@@ -5,7 +5,10 @@ import {
   type TicketMentionTarget
 } from "../comments/mentions"
 import type { Estimate, EstimationMode } from "../estimates/Estimate"
+import { TypeKey } from "../library/LibraryKey"
 import { Slug } from "../projects/Project"
+import { TagName } from "../tags/Tag"
+import { isEpicType } from "./hierarchy"
 import { TicketId, TicketStatus } from "./Ticket"
 
 export const MoveTicketInput = Schema.Struct({
@@ -20,9 +23,21 @@ export const MoveTicketInput = Schema.Struct({
 })
 export type MoveTicketInput = typeof MoveTicketInput.Type
 
+export const MoveDrops = Schema.Struct({
+  type: Schema.NullOr(TypeKey).annotate({
+    description:
+      "The type the destination doesn't have, so the moved ticket has no type; null when the type was kept."
+  }),
+  tags: Schema.Array(TagName),
+  assignees: Schema.Array(Schema.String),
+  estimate: Schema.Boolean
+})
+export type MoveDrops = typeof MoveDrops.Type
+
 export const MovedTicket = Schema.Struct({
   from: TicketId,
-  to: TicketId
+  to: TicketId,
+  dropped: MoveDrops
 })
 export type MovedTicket = typeof MovedTicket.Type
 
@@ -44,12 +59,14 @@ export const formatMovedFrom = (projectSlug: string, ticketId: string) =>
 
 export type MoveDestination = Readonly<{
   statuses: ReadonlyArray<string>
+  types: ReadonlySet<string>
   tags: ReadonlyArray<string>
   memberIds: ReadonlySet<string>
   estimation: EstimationMode
 }>
 
 export type MovableTicket = Readonly<{
+  type: string | null
   status: string
   tags: ReadonlyArray<string>
   assignees: ReadonlyArray<string>
@@ -57,11 +74,13 @@ export type MovableTicket = Readonly<{
 }>
 
 export type TicketMovePlan<T extends MovableTicket> = Readonly<{
+  type: T["type"] | null
   status: string | null
   tags: ReadonlyArray<T["tags"][number]>
   assignees: ReadonlyArray<string>
   keepsEstimate: boolean
   dropped: Readonly<{
+    type: T["type"] | null
     tags: ReadonlyArray<T["tags"][number]>
     assignees: ReadonlyArray<string>
     estimate: boolean
@@ -74,6 +93,11 @@ export const defaultMoveStatus = (
 ): string | null =>
   statuses.includes(current) ? current : (statuses[0] ?? null)
 
+export const keepsTypeIn = (
+  type: string | null,
+  types: ReadonlySet<string>
+): boolean => type === null || isEpicType(type) || types.has(type)
+
 export const planTicketMove = <T extends MovableTicket>(
   ticket: T,
   destination: MoveDestination,
@@ -83,13 +107,16 @@ export const planTicketMove = <T extends MovableTicket>(
   const hasEstimate = ticket.estimate !== undefined && ticket.estimate !== null
   const keepsEstimate =
     hasEstimate && ticket.estimate?.unit === destination.estimation
+  const keepsType = keepsTypeIn(ticket.type, destination.types)
   return {
+    type: keepsType ? ticket.type : null,
     status:
       requestedStatus ?? defaultMoveStatus(ticket.status, destination.statuses),
     tags: ticket.tags.filter((tag) => knownTags.has(tag)),
     assignees: ticket.assignees.filter((id) => destination.memberIds.has(id)),
     keepsEstimate,
     dropped: {
+      type: keepsType ? null : ticket.type,
       tags: ticket.tags.filter((tag) => !knownTags.has(tag)),
       assignees: ticket.assignees.filter(
         (id) => !destination.memberIds.has(id)

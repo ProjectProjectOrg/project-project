@@ -4,19 +4,16 @@ import * as Schema from "effect/Schema"
 import { UserId } from "../auth/User"
 import { EstimateFilterValue, EstimateSummary } from "../estimates/Estimate"
 import { GroupId } from "../groups/Group"
+import { NO_TYPE_FILTER, TypeKey } from "../library/LibraryKey"
 import { Page } from "../pagination/Pagination"
 import { Slug } from "../projects/Project"
 import { TagName } from "../tags/Tag"
-import {
-  TicketId,
-  TicketParent,
-  TicketStatus,
-  TicketType
-} from "../tickets/Ticket"
+import { TicketId, TicketParent, TicketStatus } from "../tickets/Ticket"
 import { Ticket, TicketDetail } from "../tickets/Ticket"
 import { TicketActivityActor } from "../tickets/TicketActivity"
 
 export const SortKey = Schema.Literals([
+  "manual",
   "id",
   "created",
   "updated",
@@ -36,11 +33,12 @@ export const TicketSort = Schema.Struct({
 export type TicketSort = typeof TicketSort.Type
 
 export const DEFAULT_TICKET_SORT: TicketSort = {
-  key: "created",
-  dir: "desc"
+  key: "manual",
+  dir: "asc"
 }
 
 export const NATURAL_SORT_DIR: Record<SortKey, SortDir> = {
+  manual: "asc",
   id: "asc",
   created: "desc",
   updated: "desc",
@@ -54,6 +52,12 @@ export const AssigneeFilter = Schema.Union([
   UserId
 ])
 export type AssigneeFilter = typeof AssigneeFilter.Type
+
+export const TypeFilter = Schema.Union([
+  Schema.Literal(NO_TYPE_FILTER),
+  TypeKey
+])
+export type TypeFilter = typeof TypeFilter.Type
 
 export const GroupIdFilter = Schema.Union([
   Schema.Literal("ungrouped"),
@@ -71,8 +75,13 @@ const TicketFilterFields = {
   status: Schema.optional(Schema.Array(TicketStatus)).annotate({
     description: "Status slugs from `list_statuses`."
   }),
-  type: Schema.optional(Schema.Array(TicketType)).annotate({
-    description: "Ticket types."
+  type: Schema.optional(Schema.Array(TypeFilter)).annotate({
+    description:
+      "Type keys the project has (`list_types`), or `none` for tickets without a type."
+  }),
+  excludeType: Schema.optional(Schema.Array(TypeFilter)).annotate({
+    description:
+      "Type keys, or `none`, to leave out; every other ticket matches, also one whose type is hidden or no longer defined."
   }),
   assignee: Schema.optional(Schema.Array(AssigneeFilter)).annotate({
     description: "User ids, `mine` for yourself, or `unassigned`."
@@ -111,6 +120,10 @@ const TicketFilterFields = {
   blocked: Schema.optional(Schema.Boolean).annotate({
     description:
       "`true` lists only tickets blocked by an unfinished, unarchived ticket; `false` only tickets that aren't."
+  }),
+  flagged: Schema.optional(Schema.Boolean).annotate({
+    description:
+      "`true` lists only flagged tickets; `false` only tickets that aren't."
   })
 } as const
 
@@ -123,7 +136,7 @@ export const TicketListQuery = TicketFilter.pipe(
   Schema.fieldsAssign({
     sort: TicketSort.annotate({
       description:
-        "`{ key, dir }` with `key` one of `id`, `created`, `updated`, `title`, `priority` or `estimate` and `dir` `asc` or `desc` (default newest first)."
+        "`{ key, dir }` with `key` one of `manual`, `id`, `created`, `updated`, `title`, `priority` or `estimate` and `dir` `asc` or `desc`. The default is `manual`: the project's hand-ranked order, top first."
     }).pipe(
       Schema.withDecodingDefaultType(Effect.succeed(DEFAULT_TICKET_SORT))
     ),

@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema"
 import { LoginPage } from "@/features/auth/components/LoginPage"
 
 const LoginSearch = Schema.Struct({
+  error: Schema.optional(Schema.NonEmptyString),
   redirect: Schema.optional(Schema.String)
 })
 

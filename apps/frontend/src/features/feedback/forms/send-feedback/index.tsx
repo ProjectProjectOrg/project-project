@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { ATTACHMENT_CONTENT_TYPES, type FeedbackKind } from "@pp/shared"
 import { useLocation } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
-import { CircleCheck, Info, Paperclip } from "lucide-react"
+import { CircleCheck, Paperclip } from "lucide-react"
 import { AnimatePresence, motion, type Variants } from "motion/react"
 import {
   useRef,
@@ -16,6 +16,7 @@ import {
 import { flushSync } from "react-dom"
 
 import { Button } from "@/components/ui/button"
+import { Composer } from "@/components/ui/composer"
 import { Input } from "@/components/ui/input"
 import {
   SegmentedTabs,
@@ -169,7 +170,7 @@ export function SendFeedbackForm({
         className="col-start-1 row-start-1 flex flex-col"
         aria-label={m.feedback_title()}
       >
-        <div className="flex items-center gap-2 pt-4 pr-4 pl-3">
+        <Composer.Header className="pl-3">
           <form.Field name="kind">
             {(field) => (
               <SegmentedTabs
@@ -182,7 +183,7 @@ export function SendFeedbackForm({
             )}
           </form.Field>
           <Title className="sr-only">{m.feedback_title()}</Title>
-        </div>
+        </Composer.Header>
         <form.Field name="title">
           {(field) => {
             const placeholder =
@@ -190,10 +191,10 @@ export function SendFeedbackForm({
                 ? m.feedback_title_placeholder_bug()
                 : m.feedback_title_placeholder_feature()
             return (
-              <div className="mt-3 grid px-4 text-title leading-6 font-semibold">
+              <Composer.Title className="grid leading-6">
                 <Input
                   ref={titleRef}
-                  variant="bare"
+                  variant="composer-title"
                   autoFocus
                   value={field.value}
                   maxLength={200}
@@ -204,7 +205,7 @@ export function SendFeedbackForm({
                   onBlur={field.handleBlur}
                   onKeyDown={sendOnModEnter}
                   onPaste={attachPasted}
-                  className="col-start-1 row-start-1 text-title leading-6"
+                  className="col-start-1 row-start-1 leading-6"
                 />
                 {field.value === "" ? (
                   <TitlePlaceholder
@@ -212,18 +213,17 @@ export function SendFeedbackForm({
                     kind={values.kind}
                   />
                 ) : null}
-              </div>
+              </Composer.Title>
             )
           }}
         </form.Field>
         <form.Field name="description">
           {(field) => (
-            <div
+            <Composer.Body
               onKeyDownCapture={sendOnModEnter}
               onPasteCapture={attachPasted}
               onDragOverCapture={allowDrop}
               onDropCapture={attachDropped}
-              className="mt-1 max-h-[50dvh] overflow-y-auto px-4"
             >
               <LexicalEditor
                 key={round}
@@ -231,7 +231,7 @@ export function SendFeedbackForm({
                 onDraftChange={field.handleChange}
                 placeholder={m.feedback_description_placeholder()}
               />
-            </div>
+            </Composer.Body>
           )}
         </form.Field>
         <AttachRow attachments={attachments} onFiles={files.add} />
@@ -246,17 +246,10 @@ export function SendFeedbackForm({
                 : files.rejection !== null
                   ? rejectionText[files.rejection]()
                   : error
-            return message === null ? null : (
-              <p
-                role="alert"
-                className="mx-4 mt-3 rounded-lg bg-destructive-light px-3 py-2 text-body text-destructive"
-              >
-                {message}
-              </p>
-            )
+            return <Composer.Error>{message}</Composer.Error>
           }}
         </form.Field>
-        <div className="mt-4 flex items-center justify-end gap-2 border-t border-border/60 px-4 py-3">
+        <Composer.Footer>
           <Button type="button" variant="ghost" size="sm" onClick={onDone}>
             {m.common_cancel_button()}
           </Button>
@@ -268,7 +261,7 @@ export function SendFeedbackForm({
           >
             {state.waiting ? m.feedback_sending() : m.feedback_submit()}
           </Button>
-        </div>
+        </Composer.Footer>
       </motion.form>
       <FeedbackSent sent={sent} onSendAnother={sendAnother} />
       <span aria-live="polite" className="sr-only">
@@ -311,15 +304,14 @@ function AttachRow({
   onFiles: (files: ReadonlyArray<File>) => void
 }>) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5 pt-2 pr-4 pl-1.5">
+    <Composer.Chips>
       {attachments ? <AttachButton onFiles={onFiles} /> : null}
-      <span className="flex items-center gap-1 px-1 text-caption text-muted-foreground">
-        <Info className="size-3.5 shrink-0" strokeWidth={1.75} />
+      <Composer.Hint>
         {attachments
           ? m.feedback_attach_hint()
           : m.feedback_attach_unavailable()}
-      </span>
-    </div>
+      </Composer.Hint>
+    </Composer.Chips>
   )
 }
 

@@ -14,12 +14,20 @@ export function MarkdownSaveIndicator({
       ? m.tickets_save_status_dirty()
       : status === "saved"
         ? m.tickets_save_status_saved()
-        : null
+        : status === "failed"
+          ? m.editor_save_failed()
+          : null
 
   if (!label) return null
 
   return (
-    <span className={cn("text-caption text-muted-foreground", className)}>
+    <span
+      className={cn(
+        "text-caption",
+        status === "failed" ? "text-destructive" : "text-muted-foreground",
+        className
+      )}
+    >
       {label}
     </span>
   )

@@ -3,7 +3,7 @@ import {
   type FeedbackReport,
   formatAttachmentMarkdown,
   stripMentionLinks,
-  type TicketType
+  TypeKey
 } from "@pp/shared"
 
 export type StoredFeedbackAttachment = Readonly<{
@@ -28,8 +28,8 @@ export const singleLine = (text: string, max: number): string =>
 export const singleLineFilename = (name: string): string =>
   singleLine(name, 255) || "file"
 
-export const feedbackTicketType = (report: FeedbackReport): TicketType =>
-  report.kind === "bug" ? "bug" : "feat"
+export const feedbackTicketType = (report: FeedbackReport): TypeKey =>
+  TypeKey.make(report.kind === "bug" ? "bug" : "feat")
 
 const longestBacktickRun = (text: string) =>
   Math.max(0, ...Array.from(text.matchAll(/`+/gu), ([run]) => run.length))

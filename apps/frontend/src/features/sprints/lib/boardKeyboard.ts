@@ -1,3 +1,21 @@
+import { ownsKeystrokes } from "@/lib/keyboard"
+
+const letterArrows = new Map([
+  ["h", "ArrowLeft"],
+  ["j", "ArrowDown"],
+  ["k", "ArrowUp"],
+  ["l", "ArrowRight"]
+])
+
+export const isBoardKey = (key: string): boolean =>
+  letterArrows.has(key) || key.startsWith("Arrow")
+
+const navigationKey = (event: KeyboardEvent) => {
+  const arrow = letterArrows.get(event.key)
+  if (arrow === undefined) return event.key
+  return event.shiftKey || ownsKeystrokes(event.target) ? null : arrow
+}
+
 export type BoardKeyboardColumn = Readonly<{
   ticketIds: ReadonlyArray<string>
   reveal: (index: number) => void
@@ -11,6 +29,16 @@ type Position = Readonly<{
 const focusableSelector =
   'a[href], button, input, select, textarea, [tabindex], [contenteditable="true"]'
 
+const focusables = (board: HTMLElement) =>
+  Array.from(board.querySelectorAll<HTMLElement>(focusableSelector))
+
+const observedChanges: MutationObserverInit = {
+  childList: true,
+  subtree: true,
+  attributes: true,
+  attributeFilter: ["tabindex", "disabled", "inert", "hidden"]
+}
+
 const cardSelector = "[data-board-card]"
 const primarySelector = "[data-board-card] > [data-row-link]"
 
@@ -20,6 +48,9 @@ const available = (element: HTMLElement): boolean =>
 
 const columnElements = (board: HTMLElement) =>
   Array.from(board.querySelectorAll<HTMLElement>("[data-board-column]"))
+
+const statusesOf = (board: HTMLElement) =>
+  columnElements(board).flatMap((element) => element.dataset.boardColumn ?? [])
 
 const columnElement = (board: HTMLElement, status: string) =>
   columnElements(board).find(
@@ -56,17 +87,14 @@ const positionOf = (element: HTMLElement): Position | null => {
   }
 }
 
-function nextPosition({
-  key,
-  position,
-  statuses,
-  columns
-}: Readonly<{
-  key: string
+function nextPosition(
+  board: HTMLElement,
+  columns: ReadonlyMap<string, BoardKeyboardColumn>,
+  letterOrArrow: string,
   position: Position
-  statuses: ReadonlyArray<string>
-  columns: ReadonlyMap<string, BoardKeyboardColumn>
-}>): Position | null | undefined {
+): Position | null | undefined {
+  const key = letterArrows.get(letterOrArrow) ?? letterOrArrow
+  const statuses = statusesOf(board)
   const columnIndex = statuses.indexOf(position.status)
   const ticketIds = columns.get(position.status)?.ticketIds ?? []
   const index =
@@ -112,6 +140,16 @@ const firstPosition = (board: HTMLElement): Position | null => {
   }
 }
 
+export const ticketPosition = (
+  columns: ReadonlyMap<string, BoardKeyboardColumn>,
+  ticketId: string
+): Position | null => {
+  const status = [...columns].find(([, column]) =>
+    column.ticketIds.includes(ticketId)
+  )?.[0]
+  return status === undefined ? null : { status, ticketId }
+}
+
 export function createBoardKeyboardNavigation(
   board: HTMLElement,
   columns: ReadonlyMap<string, BoardKeyboardColumn>
@@ -148,9 +186,6 @@ export function createBoardKeyboardNavigation(
     }
   }
 
-  const elements = () =>
-    Array.from(board.querySelectorAll<HTMLElement>(focusableSelector))
-
   const isControl = (element: HTMLElement, entry: HTMLElement | null) =>
     controls !== null &&
     controls.contains(element) &&
@@ -163,7 +198,7 @@ export function createBoardKeyboardNavigation(
     if (disposed) return
     reconcile()
     const entry = active === null ? null : primary(board, active)
-    for (const element of elements()) {
+    for (const element of focusables(board)) {
       if (!originalTabIndexes.has(element)) {
         originalTabIndexes.set(element, element.getAttribute("tabindex"))
       }
@@ -191,16 +226,16 @@ export function createBoardKeyboardNavigation(
     }
   }
 
-  const focusPosition = (position: Position) => {
+  const focusPosition = (position: Position, moveFocus = true) => {
     active = position
     visited = true
     controls = null
-    pendingFocus = true
+    pendingFocus = moveFocus
     const index =
       position.ticketId === null
         ? -1
         : ids(position.status).indexOf(position.ticketId)
-    if (index >= 0) columns.get(position.status)?.reveal(index)
+    if (index >= 0 && moveFocus) columns.get(position.status)?.reveal(index)
     sync()
   }
 
@@ -247,6 +282,8 @@ export function createBoardKeyboardNavigation(
       return
     if (!(event.target instanceof HTMLElement) || !board.contains(event.target))
       return
+    const key = navigationKey(event)
+    if (key === null) return
     const position = positionOf(event.target)
     if (!position) return
     if (event.key === "Escape" && controls !== null) {
@@ -276,14 +313,7 @@ export function createBoardKeyboardNavigation(
       first.focus()
       return
     }
-    const next = nextPosition({
-      key: event.key,
-      position,
-      statuses: columnElements(board).flatMap(
-        (element) => element.dataset.boardColumn ?? []
-      ),
-      columns
-    })
+    const next = nextPosition(board, columns, key, position)
     if (next === undefined) return
     event.preventDefault()
     event.stopPropagation()
@@ -291,12 +321,7 @@ export function createBoardKeyboardNavigation(
   }
 
   const observer = new MutationObserver(sync)
-  observer.observe(board, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ["tabindex", "disabled", "inert", "hidden"]
-  })
+  observer.observe(board, observedChanges)
   board.addEventListener("focusin", onFocus)
   board.addEventListener("focusout", onBlur)
   sync()
@@ -304,6 +329,24 @@ export function createBoardKeyboardNavigation(
   return {
     refresh: sync,
     onKeyDown,
+    enter: (key: string) => {
+      reconcile()
+      if (!active) return
+      const next = visited && nextPosition(board, columns, key, active)
+      focusPosition(next || active)
+    },
+    focus: focusPosition,
+    point: (element: HTMLElement) => {
+      const position = positionOf(element)
+      if (position?.ticketId != null && !board.contains(document.activeElement))
+        focusPosition(position, false)
+    },
+    release: () => {
+      const focused = document.activeElement
+      if (!(focused instanceof HTMLElement) || !board.contains(focused)) return
+      focused.blur()
+      hadFocus = false
+    },
     dispose: () => {
       disposed = true
       observer.disconnect()

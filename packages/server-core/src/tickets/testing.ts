@@ -11,6 +11,7 @@ import {
   GroupId,
   ProjectKey,
   TicketId,
+  TicketRank,
   TicketStatus,
   UserId,
   tryDecodeCursor,
@@ -19,7 +20,11 @@ import {
   type TicketListQuery,
   type User,
   ProjectScope,
-  StatusSlug
+  StatusSlug,
+  Validation,
+  BUILTIN_TYPE_KEYS,
+  isBuiltinTypeKey,
+  isEpic
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -116,8 +121,9 @@ export function makeTicketDocument(
     id: ticketId(id),
     title: id,
     status: ticketStatus("todo"),
-    type: "other",
+    type: null,
     priority: "med",
+    rank: TicketRank.make("a0"),
     tags: [],
     branch: null,
     pr: null,
@@ -278,7 +284,6 @@ export const testInfra = (scope = defaultScope) =>
           github: null,
           githubRepos: [],
           estimation: "points",
-          templateDefaults: {},
           body: "",
           setup: {
             workflowReviewedAt: null,
@@ -315,7 +320,6 @@ export const makeFakeGroups = (
     updateTickets: () => unexpected("Groups.updateTickets"),
     addTickets: () => unexpected("Groups.addTickets"),
     removeTickets: () => unexpected("Groups.removeTickets"),
-    updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
     complete: () => unexpected("Groups.complete"),
     remove: () => unexpected("Groups.remove"),
     ensureSprintAssignable: () => Effect.void,
@@ -459,6 +463,7 @@ export const entryFromDocument = (
     ...entry,
     repoId: entry.branch === null ? null : (repo ?? null),
     estimate: entry.estimate ?? null,
+    flag: entry.flag ?? null,
     parent:
       parent === undefined
         ? null
@@ -486,6 +491,8 @@ export const ticketSortValue = (
   query: TicketListQuery
 ): string => {
   switch (query.sort.key) {
+    case "manual":
+      return document.rank
     case "id":
       return padNumericIdSort(document.id) ?? document.id
     case "created":
@@ -574,9 +581,9 @@ export const querySectionsVia =
             entry.parent === null ? undefined : byId.get(entry.parent.id)
           if (parent === undefined) return EPIC_SECTION_NONE
           if (!byEpic) {
-            return parent.type === "epic" ? EPIC_SECTION_NONE : parent.id
+            return isEpic(parent) ? EPIC_SECTION_NONE : parent.id
           }
-          return parent.type === "epic"
+          return isEpic(parent)
             ? parent.id
             : (parent.parent?.id ?? EPIC_SECTION_NONE)
         }
@@ -656,6 +663,37 @@ const inRepository = (
     ? repository.isDefault
     : document.repo === repository.repoId
 
+export const fakeRanks = (
+  documents: ReadonlyMap<string, TicketDocs.TicketDocument>
+): Pick<TicketIndex.TicketIndex["Service"], "topRank" | "rankGap"> => ({
+  topRank: () =>
+    Effect.sync(
+      () =>
+        [...documents.values()]
+          .map((document) => document.rank)
+          .toSorted()[0] ?? null
+    ),
+  rankGap: (_project, anchorId, side, excludeId) =>
+    Effect.sync(() => {
+      const anchor = documents.get(anchorId)
+      if (anchor === undefined) return null
+      const others = [...documents.values()].flatMap((document) =>
+        document.id === excludeId ? [] : [document.rank]
+      )
+      if (side === "after") {
+        const upper =
+          others.filter((rank) => rank > anchor.rank).toSorted()[0] ?? null
+        return { lower: anchor.rank, upper }
+      }
+      const lower =
+        others
+          .filter((rank) => rank < anchor.rank)
+          .toSorted()
+          .at(-1) ?? null
+      return { lower, upper: anchor.rank }
+    })
+})
+
 export type FakeTicketIndexShape = TicketIndex.TicketIndex["Service"] &
   TicketBranchIndex.TicketBranchIndex["Service"]
 
@@ -719,6 +757,7 @@ export const makeFakeTicketIndex = (
           }
         })
       }),
+    ...fakeRanks(documents),
     orderKeyFor: (_project, ticketId, sort) =>
       Effect.sync(() => {
         const document = documents.get(ticketId)
@@ -891,7 +930,13 @@ export const makeRecordingTicketIndex = (
 }
 
 export const PassthroughLibrary = Layer.mock(Library.Library, {
-  resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body)
+  resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body),
+  typeKeys: () => Effect.succeed(new Set<string>(BUILTIN_TYPE_KEYS)),
+  untouchedBodyCheck: () => Effect.succeed((body) => body.trim() === ""),
+  expandForCreate: (_orgSlug, _slug, key) =>
+    isBuiltinTypeKey(key)
+      ? Effect.succeed({ body: "", priority: null, tags: [] })
+      : Effect.fail(new Validation({ reason: `unknown_type:${key}` }))
 })
 
 export type TicketsLayerOptions = Readonly<{

@@ -3,7 +3,10 @@ import type { ReactNode } from "react"
 
 import { CommandMenuItem, CommandMenuCheck } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
-import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
+import type {
+  SelectedTicket,
+  TicketContext
+} from "@/features/command-menu/lib/commandMenu"
 import {
   PRIORITY_LABELS,
   PRIORITY_META,
@@ -16,16 +19,18 @@ import { useTicketMutation } from "./useTicketMutation"
 
 export function TicketPriorityCommands({
   ticket,
+  selection,
   chip,
   onBack,
   onClose
 }: Readonly<{
   ticket: TicketContext
+  selection: ReadonlyArray<SelectedTicket>
   chip: ReactNode
   onBack: () => void
   onClose: () => void
 }>) {
-  const { current, update } = useTicketMutation(ticket)
+  const { current, update } = useTicketMutation(ticket, selection)
   const byValue = new Map<string, TicketPriority>(
     PRIORITY_ORDER.map((priority) => [priority, priority])
   )

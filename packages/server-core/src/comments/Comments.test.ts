@@ -5,14 +5,15 @@ import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import { it } from "@effect/vitest"
 import { DbLive, migrationsFolder, PgLive } from "@pp/db"
 import { commentIndex } from "@pp/db/schema"
-import { EMPTY_TICKET_RELATIONS } from "@pp/shared"
+import { EMPTY_TICKET_RELATIONS, TypeKey } from "@pp/shared"
 import {
   ActivityActor,
   CommentId,
   TicketId,
   TicketStatus,
   UserId,
-  ProjectScope
+  ProjectScope,
+  TicketRank
 } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
@@ -66,8 +67,9 @@ const document: TicketDocs.TicketDocument = {
   id: ticketId("T-1"),
   title: "Comments",
   status: ticketStatus("todo"),
-  type: "chore",
+  type: TypeKey.make("chore"),
   priority: "med",
+  rank: TicketRank.make("a0"),
   tags: [],
   branch: null,
   pr: null,
@@ -113,6 +115,8 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   querySections: () => unexpected("TicketIndex.querySections"),
   neighbors: () => unexpected("TicketIndex.neighbors"),
   orderKeyFor: () => unexpected("TicketIndex.orderKeyFor"),
+  topRank: () => unexpected("TicketIndex.topRank"),
+  rankGap: () => unexpected("TicketIndex.rankGap"),
   count: () => unexpected("TicketIndex.count"),
   listIds: () => unexpected("TicketIndex.listIds"),
   existingIds: () => unexpected("TicketIndex.existingIds"),

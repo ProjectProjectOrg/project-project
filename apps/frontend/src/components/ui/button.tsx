@@ -63,6 +63,8 @@ const buttonVariants = cva(
         "inline-help":
           "bg-transparent align-middle text-micro text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active data-[popup-open]:bg-active data-[popup-open]:text-foreground",
         chip: "bg-transparent text-foreground hover:bg-hover active:bg-accent/80 data-[popup-open]:bg-hover [&[aria-haspopup]]:active:bg-hover",
+        "chip-toggle":
+          "bg-transparent text-muted-foreground inset-ring inset-ring-border/60 hover:bg-hover hover:text-foreground active:bg-accent/80 aria-pressed:bg-active aria-pressed:text-foreground aria-pressed:inset-ring-transparent",
         "block-grip":
           "bg-transparent text-muted-foreground hover:bg-hover active:bg-accent/80 data-[popup-open]:bg-hover [&[aria-haspopup]]:active:bg-hover",
         "template-start":
@@ -96,6 +98,7 @@ const buttonVariants = cva(
         "icon-sm": "h-8 w-8 p-0 [&_svg]:h-3.5 [&_svg]:w-3.5",
         icon: "h-9 w-9 p-0 [&_svg]:h-4 [&_svg]:w-4",
         "icon-lg": "h-10 w-10 p-0 [&_svg]:h-5 [&_svg]:w-5",
+        "square-6": "size-6 shrink-0 p-0",
         "square-7": "size-7 shrink-0 p-0",
         "square-8": "size-8 shrink-0 p-0",
         "square-9": "size-9 shrink-0 p-0"
@@ -129,6 +132,12 @@ const buttonVariants = cva(
         variant: "chip",
         size: "icon-sm",
         className: "w-8 px-0 [&_svg]:size-4"
+      },
+      {
+        variant: "chip",
+        size: "square-6",
+        className:
+          "relative h-6 w-6 px-0 before:absolute before:-inset-x-0.5 before:-inset-y-2 before:content-[''] [&_svg]:size-4"
       },
       {
         variant: ["template-start", "template-more"],

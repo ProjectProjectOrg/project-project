@@ -2,15 +2,12 @@ import type {
   BlockDefinition,
   BlockKey,
   CreateBlockInput,
-  CreateTemplateInput,
+  CreateTypeInput,
   Library,
-  LibraryDefaults,
-  TemplateDefinition,
-  TemplateKey,
-  TicketType,
+  TypeDefinition,
+  TypeKey,
   UpdateBlockInput,
-  UpdateTemplateDefaultsInput,
-  UpdateTemplateInput
+  UpdateTypeInput
 } from "@pp/shared"
 import type * as Effect from "effect/Effect"
 import * as Atom from "effect/reactivity/Atom"
@@ -26,12 +23,11 @@ import {
   applyBlockRemove,
   applyBlockUpdate,
   applyBlockUpsert,
-  applyTemplateCreate,
-  applyTemplateDefaults,
-  applyTemplateHide,
-  applyTemplateRemove,
-  applyTemplateUpdate,
-  applyTemplateUpsert
+  applyTypeCreate,
+  applyTypeHide,
+  applyTypeRemove,
+  applyTypeUpdate,
+  applyTypeUpsert
 } from "../lib/libraryPatch"
 
 export type OrgLibraryRequest = Readonly<{
@@ -121,8 +117,8 @@ type ProjectKeyed<Key> = Readonly<{ req: ProjectLibraryRequest; key: Key }>
 const upsertBlock = (library: Library, block: BlockDefinition) =>
   applyBlockUpsert(library, block)
 
-const upsertTemplate = (library: Library, template: TemplateDefinition) =>
-  applyTemplateUpsert(library, template)
+const upsertType = (library: Library, template: TypeDefinition) =>
+  applyTypeUpsert(library, template)
 
 export const createOrgBlock = Atom.family(
   ({ req }: Readonly<{ req: OrgLibraryRequest }>) =>
@@ -189,54 +185,51 @@ export const removeOrgBlock = Atom.family(({ req, key }: OrgKeyed<BlockKey>) =>
   )
 )
 
-export const createOrgTemplate = Atom.family(
+export const createOrgType = Atom.family(
   ({ req }: Readonly<{ req: OrgLibraryRequest }>) =>
     libraryMutation(
-      "createOrgTemplate",
+      "createOrgType",
       orgTarget(req),
-      (library, input: CreateTemplateInput) =>
-        applyTemplateCreate(library, input, "org"),
+      (library, input: CreateTypeInput) =>
+        applyTypeCreate(library, input, "org"),
       (input) =>
         Api.use((client) =>
-          client.library.createOrgTemplate({
+          client.library.createOrgType({
             params: req.params,
             payload: input
           })
         ),
-      upsertTemplate
+      upsertType
     )
 )
 
-export const updateOrgTemplate = Atom.family(
-  ({ req, key }: OrgKeyed<TemplateKey>) =>
-    libraryMutation(
-      "updateOrgTemplate",
-      orgTarget(req),
-      (library, patch: UpdateTemplateInput) =>
-        applyTemplateUpdate(library, key, patch),
-      (patch) =>
-        Api.use((client) =>
-          client.library.updateOrgTemplate({
-            params: { ...req.params, key },
-            payload: patch
-          })
-        ),
-      upsertTemplate
-    )
+export const updateOrgType = Atom.family(({ req, key }: OrgKeyed<TypeKey>) =>
+  libraryMutation(
+    "updateOrgType",
+    orgTarget(req),
+    (library, patch: UpdateTypeInput) => applyTypeUpdate(library, key, patch),
+    (patch) =>
+      Api.use((client) =>
+        client.library.updateOrgType({
+          params: { ...req.params, key },
+          payload: patch
+        })
+      ),
+    upsertType
+  )
 )
 
-export const removeOrgTemplate = Atom.family(
-  ({ req, key }: OrgKeyed<TemplateKey>) =>
-    libraryMutation(
-      "removeOrgTemplate",
-      orgTarget(req),
-      (library, _input: void) => applyTemplateRemove(library, key, "org"),
-      () =>
-        Api.use((client) =>
-          client.library.removeOrgTemplate({ params: { ...req.params, key } })
-        ),
-      (library) => applyTemplateRemove(library, key, "org")
-    )
+export const removeOrgType = Atom.family(({ req, key }: OrgKeyed<TypeKey>) =>
+  libraryMutation(
+    "removeOrgType",
+    orgTarget(req),
+    (library, _input: void) => applyTypeRemove(library, key, "org"),
+    () =>
+      Api.use((client) =>
+        client.library.removeOrgType({ params: { ...req.params, key } })
+      ),
+    (library) => applyTypeRemove(library, key, "org")
+  )
 )
 
 export const createProjectBlock = Atom.family(
@@ -303,104 +296,67 @@ export const hideProjectBlock = Atom.family(
     )
 )
 
-export const createProjectTemplate = Atom.family(
+export const createProjectType = Atom.family(
   ({ req }: Readonly<{ req: ProjectLibraryRequest }>) =>
     libraryMutation(
-      "createProjectTemplate",
+      "createProjectType",
       projectTarget(req),
-      (library, input: CreateTemplateInput) =>
-        applyTemplateCreate(library, input, "project"),
+      (library, input: CreateTypeInput) =>
+        applyTypeCreate(library, input, "project"),
       (input) =>
         Api.use((client) =>
-          client.library.createProjectTemplate({
+          client.library.createProjectType({
             params: req.params,
             payload: input
           })
         ),
-      upsertTemplate
+      upsertType
     )
 )
 
-export const updateProjectTemplate = Atom.family(
-  ({ req, key }: ProjectKeyed<TemplateKey>) =>
+export const updateProjectType = Atom.family(
+  ({ req, key }: ProjectKeyed<TypeKey>) =>
     libraryMutation(
-      "updateProjectTemplate",
+      "updateProjectType",
       projectTarget(req),
-      (library, patch: UpdateTemplateInput) =>
-        applyTemplateUpdate(library, key, patch),
+      (library, patch: UpdateTypeInput) => applyTypeUpdate(library, key, patch),
       (patch) =>
         Api.use((client) =>
-          client.library.updateProjectTemplate({
+          client.library.updateProjectType({
             params: { ...req.params, key },
             payload: patch
           })
         ),
-      upsertTemplate
+      upsertType
     )
 )
 
-export const removeProjectTemplate = Atom.family(
-  ({ req, key }: ProjectKeyed<TemplateKey>) =>
+export const removeProjectType = Atom.family(
+  ({ req, key }: ProjectKeyed<TypeKey>) =>
     libraryMutation(
-      "removeProjectTemplate",
+      "removeProjectType",
       projectTarget(req),
-      (library, _input: void) => applyTemplateRemove(library, key, "project"),
+      (library, _input: void) => applyTypeRemove(library, key, "project"),
       () =>
         Api.use((client) =>
-          client.library.removeProjectTemplate({
+          client.library.removeProjectType({
             params: { ...req.params, key }
           })
         ),
-      (library) => applyTemplateRemove(library, key, "project")
+      (library) => applyTypeRemove(library, key, "project")
     )
 )
 
-export const hideProjectTemplate = Atom.family(
-  ({ req, key }: ProjectKeyed<TemplateKey>) =>
+export const hideProjectType = Atom.family(
+  ({ req, key }: ProjectKeyed<TypeKey>) =>
     libraryMutation(
-      "hideProjectTemplate",
+      "hideProjectType",
       projectTarget(req),
-      (library, _input: void) => applyTemplateHide(library, key),
+      (library, _input: void) => applyTypeHide(library, key),
       () =>
         Api.use((client) =>
-          client.library.hideProjectTemplate({ params: { ...req.params, key } })
+          client.library.hideProjectType({ params: { ...req.params, key } })
         ),
-      (library) => applyTemplateHide(library, key)
-    )
-)
-
-export const setOrgTemplateDefaults = Atom.family(
-  ({ req }: Readonly<{ req: OrgLibraryRequest; type?: TicketType }>) =>
-    libraryMutation(
-      "setOrgTemplateDefaults",
-      orgTarget(req),
-      (library, input: UpdateTemplateDefaultsInput) =>
-        applyTemplateDefaults(library, input),
-      (input) =>
-        Api.use((client) =>
-          client.library.setOrgTemplateDefaults({
-            params: req.params,
-            payload: input
-          })
-        ),
-      (library, defaults: LibraryDefaults) => ({ ...library, ...defaults })
-    )
-)
-
-export const setTemplateDefaults = Atom.family(
-  ({ req }: Readonly<{ req: ProjectLibraryRequest; type?: TicketType }>) =>
-    libraryMutation(
-      "setTemplateDefaults",
-      projectTarget(req),
-      (library, input: UpdateTemplateDefaultsInput) =>
-        applyTemplateDefaults(library, input),
-      (input) =>
-        Api.use((client) =>
-          client.library.setTemplateDefaults({
-            params: req.params,
-            payload: input
-          })
-        ),
-      (library, defaults: LibraryDefaults) => ({ ...library, ...defaults })
+      (library) => applyTypeHide(library, key)
     )
 )

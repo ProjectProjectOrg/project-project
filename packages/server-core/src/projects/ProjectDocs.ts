@@ -3,7 +3,6 @@ import {
   EstimationMode,
   type GithubConnection,
   NotFound,
-  type PartialTemplateDefaults,
   ProjectKey,
   type ProjectSetup,
   Slug
@@ -17,10 +16,6 @@ import * as Schema from "effect/Schema"
 import * as SchemaTransformation from "effect/SchemaTransformation"
 import * as Struct from "effect/Struct"
 
-import {
-  templateDefaultsFrom,
-  withTemplateDefaults
-} from "../library/templateDefaultsFrontmatter"
 import * as Markdown from "../markdown/Markdown"
 import {
   type SystemProjectRole,
@@ -41,7 +36,6 @@ export type ProjectDocument = Readonly<{
   githubRepos: ReadonlyArray<GithubConnection>
   estimation: EstimationMode
   setup: ProjectSetup
-  templateDefaults: PartialTemplateDefaults
   body: string
 }>
 
@@ -73,11 +67,6 @@ export class ProjectDocs extends Context.Service<
       slug: string,
       document: ProjectDocumentWrite
     ) => Effect.Effect<void, Markdown.MarkdownError>
-    writeTemplateDefaults: (
-      orgSlug: string,
-      slug: string,
-      defaults: PartialTemplateDefaults
-    ) => Effect.Effect<void, NotFound | Markdown.MarkdownError>
     systemRole: (
       orgSlug: string,
       slug: string
@@ -248,7 +237,6 @@ const make = Effect.gen(function* () {
           ...frontmatter,
           icon: frontmatter.icon ?? fallback.icon,
           color: frontmatter.color ?? fallback.color,
-          templateDefaults: templateDefaultsFrom(file.data),
           body: file.body
         }
       })
@@ -266,52 +254,18 @@ const make = Effect.gen(function* () {
       slug,
       Effect.gen(function* () {
         const existing = yield* markdown.readProjectFile(orgSlug, slug).pipe(
-          Effect.map((file) => ({
-            templateDefaults: templateDefaultsFrom(file.data),
-            system: systemRoleFrom(file.data)
-          })),
-          Effect.catchTag("NotFound", () =>
-            Effect.succeed({ templateDefaults: {}, system: Option.none() })
-          )
+          Effect.map((file) => systemRoleFrom(file.data)),
+          Effect.catchTag("NotFound", () => Effect.succeed(Option.none()))
         )
         yield* markdown.writeProjectFile(
           orgSlug,
           slug,
-          withSystemRole(
-            withTemplateDefaults(
-              encodeProjectFrontmatter(document),
-              existing.templateDefaults
-            ),
-            existing.system
-          ),
+          withSystemRole(encodeProjectFrontmatter(document), existing),
           document.body
         )
       })
     )
   })
-
-  const writeTemplateDefaults = Effect.fn("ProjectDocs.writeTemplateDefaults")(
-    function* (
-      orgSlug: string,
-      slug: string,
-      defaults: PartialTemplateDefaults
-    ) {
-      return yield* annotateProjectDoc(
-        "writeTemplateDefaults",
-        orgSlug,
-        slug,
-        Effect.gen(function* () {
-          const file = yield* markdown.readProjectFile(orgSlug, slug)
-          yield* markdown.writeProjectFile(
-            orgSlug,
-            slug,
-            withTemplateDefaults(file.data, defaults),
-            file.body
-          )
-        })
-      )
-    }
-  )
 
   const systemRole = Effect.fn("ProjectDocs.systemRole")(function* (
     orgSlug: string,
@@ -375,7 +329,6 @@ const make = Effect.gen(function* () {
   return ProjectDocs.of({
     read,
     write,
-    writeTemplateDefaults,
     systemRole,
     markSystem,
     removeDir,

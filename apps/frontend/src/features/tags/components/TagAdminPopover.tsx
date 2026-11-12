@@ -23,6 +23,7 @@ const makeTagColor = Schema.decodeUnknownSync(TagColor)
 type Props = {
   tag: Tag
   usageCount: number
+  updateError: string | null
   onPatch: (patch: { nextName?: TagName; color?: Tag["color"] }) => void
   onDelete: () => Promise<void> | void
   onOpenChange?: (open: boolean) => void
@@ -32,6 +33,7 @@ type Props = {
 export function TagAdminPopover({
   tag,
   usageCount,
+  updateError,
   onPatch,
   onDelete,
   onOpenChange,
@@ -55,6 +57,7 @@ export function TagAdminPopover({
           <Body
             tag={tag}
             usageCount={usageCount}
+            updateError={updateError}
             onPatch={onPatch}
             onConfirmDelete={async () => {
               await onDelete()
@@ -71,12 +74,14 @@ export function TagAdminPopover({
 function Body({
   tag,
   usageCount,
+  updateError,
   onPatch,
   onConfirmDelete,
   onDismiss
 }: {
   tag: Tag
   usageCount: number
+  updateError: string | null
   onPatch: (patch: { nextName?: TagName; color?: Tag["color"] }) => void
   onConfirmDelete: () => Promise<void>
   onDismiss: () => void
@@ -94,6 +99,7 @@ function Body({
           <Editor
             tag={tag}
             usageCount={usageCount}
+            error={updateError}
             onPatch={onPatch}
             onDismiss={onDismiss}
           />
@@ -112,11 +118,13 @@ function Body({
 function Editor({
   tag,
   usageCount,
+  error,
   onPatch,
   onDismiss
 }: {
   tag: Tag
   usageCount: number
+  error: string | null
   onPatch: (patch: { nextName?: TagName; color?: Tag["color"] }) => void
   onDismiss: () => void
 }) {
@@ -178,6 +186,13 @@ function Editor({
           className="px-0.5 text-micro leading-tight text-destructive"
         >
           {m.tags_name_validation_hint()}
+        </p>
+      ) : error ? (
+        <p
+          role="alert"
+          className="px-0.5 text-micro leading-tight text-destructive"
+        >
+          {error}
         </p>
       ) : (
         <p className="px-0.5 text-micro text-muted-foreground">

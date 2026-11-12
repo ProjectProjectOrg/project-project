@@ -216,6 +216,7 @@ export function useSprintActions({
         label: () => m.sprints_command_create_ticket({ name: sprint.name }),
         icon: Plus,
         keywords: ["new", "add", "issue", "ticket"],
+        when: ({ tickets }) => tickets.create,
         run: (_context, env) => {
           env.close()
           env.registry.set(createTicketDialog, {

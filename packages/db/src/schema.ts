@@ -39,6 +39,7 @@
 // `bun run db:migrate` to apply it against the running Postgres.
 
 import type {
+  LinkPreview,
   GitAutomationEvent,
   GitHubInstallationAccount,
   ProjectEvent,
@@ -49,7 +50,8 @@ import type {
   OrgEverhourConfig,
   ProjectBanner,
   ProjectIconImage,
-  TicketActivityChangeEncoded
+  TicketActivityChangeEncoded,
+  TypeKey
 } from "@pp/shared"
 import { defineRelations, sql } from "drizzle-orm"
 import {
@@ -729,12 +731,11 @@ export const ticketIndex = pgTable(
     ticketId: text("ticket_id").notNull(),
     title: text("title").notNull(),
     status: text("status").notNull(),
-    type: text("type", {
-      enum: ["feat", "bug", "chore", "other", "epic"]
-    }).notNull(),
+    type: text("type").$type<TypeKey>(),
     priority: text("priority", {
       enum: ["low", "med", "high"]
     }).notNull(),
+    rank: text("rank").notNull(),
     estimateUnit: text("estimate_unit", {
       enum: ["points", "tshirt", "time"]
     }),
@@ -771,6 +772,9 @@ export const ticketIndex = pgTable(
     checksHeadSha: text("checks_head_sha"),
     checksUpdatedAt: timestamp("checks_updated_at", { withTimezone: true }),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
+    flagReason: text("flag_reason"),
+    flaggedBy: text("flagged_by"),
+    flaggedAt: timestamp("flagged_at", { withTimezone: true }),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull()
@@ -789,7 +793,8 @@ export const ticketIndex = pgTable(
     index("ticket_index_updated_idx").on(t.projectId, t.updatedAt),
     index("ticket_index_assignees_idx").using("gin", t.assignees),
     index("ticket_index_moved_from_idx").using("gin", t.movedFrom),
-    index("ticket_index_parent_idx").on(t.projectId, t.parent)
+    index("ticket_index_parent_idx").on(t.projectId, t.parent),
+    index("ticket_index_rank_idx").on(t.projectId, sql`${t.rank} collate "C"`)
   ]
 )
 
@@ -1525,6 +1530,8 @@ export const linkPreview = pgTable("link_preview", {
   url: text("url").primaryKey(),
   title: text("title"),
   faviconUrl: text("favicon_url"),
+  faviconRendering:
+    text("favicon_rendering").$type<LinkPreview["faviconRendering"]>(),
   fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull()
 })
 

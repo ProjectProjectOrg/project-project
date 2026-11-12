@@ -126,5 +126,5 @@ export function parseStartDate(
   const date = text === "" ? null : parse(text, today)
   return date === null || DateTime.isLessThan(date, today)
     ? null
-    : DateTime.toDate(date)
+    : DateTime.toDateUtc(date)
 }

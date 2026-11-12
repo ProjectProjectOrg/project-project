@@ -4,7 +4,8 @@ import type {
   ProjectStatus,
   Tag,
   TicketPriority,
-  TicketType
+  TypeDefinition,
+  TypeKey
 } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import {
@@ -18,9 +19,11 @@ import {
 } from "lucide-react"
 import type { ReactNode } from "react"
 
+import { Markdown } from "@/features/editor/components/Markdown"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TagChip } from "@/features/tags/components/TagChip"
+import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
 import type {
   ActivityLine,
   ActivityLineBody,
@@ -31,11 +34,8 @@ import {
   PRIORITY_LABELS,
   PRIORITY_META
 } from "@/features/tickets/lib/priorityMeta"
-import {
-  statusMetaFor,
-  TYPE_LABELS,
-  TYPE_META
-} from "@/features/tickets/lib/ticketMeta"
+import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
+import { resolveType, typeName } from "@/features/tickets/lib/ticketTypes"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -50,6 +50,7 @@ export type ActivityLookups = Readonly<{
   members: ReadonlyArray<Member>
   statuses: ReadonlyArray<ProjectStatus>
   tags: ReadonlyArray<Tag>
+  types: ReadonlyArray<TypeDefinition>
 }>
 
 function Value({
@@ -108,8 +109,20 @@ function PriorityValue({ priority }: Readonly<{ priority: TicketPriority }>) {
   )
 }
 
-function TypeValue({ type }: Readonly<{ type: TicketType }>) {
-  return <Value icon={TYPE_META[type].icon}>{TYPE_LABELS[type]()}</Value>
+function TypeValue({
+  type,
+  types
+}: Readonly<{
+  type: TypeKey | null
+  types: ReadonlyArray<TypeDefinition>
+}>) {
+  const shown = resolveType(types, type)
+  return (
+    <span className="inline-flex items-center gap-1 align-bottom whitespace-nowrap text-foreground">
+      {shown !== null && <TypeGlyph type={shown} className="size-3.5" />}
+      {typeName(shown)}
+    </span>
+  )
 }
 
 function People({
@@ -198,7 +211,7 @@ function ActivityValueView({
     case "priority":
       return <PriorityValue priority={value.priority} />
     case "type":
-      return <TypeValue type={value.type} />
+      return <TypeValue type={value.type} types={lookups.types} />
     case "group":
       return <Value icon={GROUP_ICONS[value.groupKind]}>{value.name}</Value>
     case "people":
@@ -237,9 +250,13 @@ function ActivityLineBodyView({
   return (
     <>
       {body.text}{" "}
-      <span className="mt-1 block border-l-2 border-border pl-2.5 whitespace-pre-line text-foreground">
+      <Markdown
+        size="compact"
+        blocks="flat"
+        className="mt-1 border-l-2 border-border pl-2.5 text-foreground"
+      >
         {body.quote}
-      </span>
+      </Markdown>
     </>
   )
 }

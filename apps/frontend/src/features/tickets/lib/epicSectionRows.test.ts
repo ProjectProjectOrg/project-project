@@ -1,9 +1,11 @@
 import {
+  TicketRank,
   EPIC_SECTION_NONE,
   TicketId,
   TicketStatus,
   type EpicSectionKey,
-  type Ticket
+  type Ticket,
+  TypeKey
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
@@ -18,7 +20,11 @@ import {
 
 const ticketId = Schema.decodeSync(TicketId)
 const epicId = ticketId("T-9")
-const epic = { id: epicId, title: "Launch", type: "epic" } as const
+const epic = {
+  id: epicId,
+  title: "Launch",
+  type: TypeKey.make("epic")
+} as const
 const now = DateTime.toDate(DateTime.makeUnsafe("2026-01-02T00:00:00.000Z"))
 const query = { sort: { key: "id", dir: "asc" } } as const
 
@@ -26,15 +32,17 @@ const ticket = {
   id: ticketId("T-1"),
   title: "Estimate field",
   status: Schema.decodeSync(TicketStatus)("todo"),
-  type: "feat",
+  type: TypeKey.make("feat"),
   priority: "med",
   tags: [],
   branch: null,
   pr: null,
   prState: null,
+  rank: TicketRank.make("a0"),
   lastTransitionedPr: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
   estimate: null,
+  flag: null,
   assignees: [],
   parent: null,
   archivedAt: null,

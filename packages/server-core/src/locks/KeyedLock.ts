@@ -14,6 +14,8 @@ export const LockKey = {
     JSON.stringify(["ticket-document", orgSlug, projectSlug, ticketId]),
   ticketRelations: (orgSlug: string, projectSlug: string) =>
     JSON.stringify(["ticket-relations", orgSlug, projectSlug]),
+  ticketRanks: (orgSlug: string, projectSlug: string) =>
+    JSON.stringify(["ticket-ranks", orgSlug, projectSlug]),
   ticketWrite: (orgSlug: string, projectSlug: string, ticketId: string) =>
     JSON.stringify(["ticket-write", orgSlug, projectSlug, ticketId]),
   repositoryBranch: (repoId: string) =>

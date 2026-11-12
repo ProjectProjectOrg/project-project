@@ -35,7 +35,12 @@ export function SprintDescription({
   const [status, setStatus] = useState<SaveStatus>("idle")
 
   if (disabled) {
-    if (sprint.body.trim().length === 0) return null
+    if (sprint.body.trim().length === 0)
+      return (
+        <p className="text-body text-muted-foreground">
+          {m.sprints_description_empty()}
+        </p>
+      )
     return (
       <Markdown className="rounded-lg border border-border bg-background px-3 py-2">
         {sprint.body}

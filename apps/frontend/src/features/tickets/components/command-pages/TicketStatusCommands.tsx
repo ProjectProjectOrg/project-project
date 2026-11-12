@@ -5,7 +5,10 @@ import type { ReactNode } from "react"
 
 import { CommandMenuItem, CommandMenuCheck } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
-import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
+import type {
+  SelectedTicket,
+  TicketContext
+} from "@/features/command-menu/lib/commandMenu"
 import {
   statusesFor,
   statusesRequest
@@ -20,11 +23,13 @@ const NO_STATUSES: ReadonlyArray<ProjectStatus> = []
 
 export function TicketStatusCommands({
   ticket,
+  selection,
   chip,
   onBack,
   onClose
 }: Readonly<{
   ticket: TicketContext
+  selection: ReadonlyArray<SelectedTicket>
   chip: ReactNode
   onBack: () => void
   onClose: () => void
@@ -33,7 +38,7 @@ export function TicketStatusCommands({
     statusesFor(statusesRequest(ticket.orgSlug, ticket.slug))
   )
   const statuses = Result.isSuccess(result) ? result.value : NO_STATUSES
-  const { current, update } = useTicketMutation(ticket)
+  const { current, update } = useTicketMutation(ticket, selection)
   const bySlug = new Map<string, ProjectStatus>(
     statuses.map((status) => [status.slug, status])
   )

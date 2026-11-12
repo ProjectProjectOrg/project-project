@@ -1,4 +1,5 @@
 import {
+  TicketRank,
   type EstimateSummary,
   GroupId,
   padNumericIdSort,
@@ -6,7 +7,8 @@ import {
   Ticket,
   TicketId,
   TicketStatus,
-  UserId
+  UserId,
+  TypeKey
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -33,13 +35,15 @@ const ticket = {
   id: Schema.decodeSync(TicketId)("T-1"),
   title: "Before",
   status: Schema.decodeSync(TicketStatus)("todo"),
-  type: "chore",
+  type: TypeKey.make("chore"),
   priority: "med",
   estimate: null,
+  flag: null,
   tags: [],
   branch: null,
   pr: null,
   prState: null,
+  rank: TicketRank.make("a0"),
   lastTransitionedPr: null,
   parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
@@ -226,6 +230,42 @@ describe("ticket sprint sections", () => {
     }
   })
 
+  it("moves a row to the backlog section with an optimistic sprint change", async () => {
+    fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) =>
+      init?.method === "PATCH"
+        ? new Promise<Response>(() => {})
+        : Promise.resolve(snapshot([ticket]))
+    )
+    const registry = AtomRegistry.make()
+    const view = sprintSections(req)
+    const mutation = updateSprintSectionsTicket({ req, id: ticket.id })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(mutation, { sprint: null })
+      const moved = registry.get(view)
+      if (!AsyncResult.isSuccess(moved)) throw new Error("no optimistic value")
+      expect(
+        moved.value.sections.map((section) => [
+          section.key,
+          section.count,
+          section.page.items.map((row) => row.ticket.id)
+        ])
+      ).toEqual([
+        [groupId, 0, []],
+        [SPRINT_SECTION_UNSCHEDULED, 1, [ticket.id]]
+      ])
+    } finally {
+      registry.dispose()
+    }
+  })
+
   it("shifts the section's estimate totals with an optimistic estimate and status change", async () => {
     const done = decodeTicketStatusSync("done")
     fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) =>
@@ -311,8 +351,8 @@ describe("ticket sprint sections", () => {
 
   it.each([
     {
-      filter: { type: ["chore"] },
-      patch: { type: "bug" },
+      filter: { type: [TypeKey.make("chore")] },
+      patch: { type: TypeKey.make("bug") },
       count: 0
     },
     {
@@ -395,7 +435,7 @@ describe("ticket sprint sections", () => {
         expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
       )
       registry.set(mutation, {
-        payload: { title: "New", type: "chore", status: doing },
+        payload: { title: "New", type: TypeKey.make("chore"), status: doing },
         prediction: {
           clientId: "new-ticket",
           createdBy: "user-1",
@@ -440,7 +480,7 @@ describe("ticket sprint sections", () => {
         expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
       )
       registry.set(mutation, {
-        payload: { title: "New", type: "chore" },
+        payload: { title: "New", type: TypeKey.make("chore") },
         prediction: {
           clientId: "new-ticket",
           createdBy: "user-1",

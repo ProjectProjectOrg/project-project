@@ -23,19 +23,7 @@ export function RecentProjects({
 
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-title font-semibold">
-          {m.org_dashboard_recent_projects_heading()}
-        </h2>
-        <Link
-          to="/orgs/$orgSlug/projects"
-          params={{ orgSlug }}
-          className="inline-flex items-center gap-1 text-caption text-muted-foreground transition-colors hover:text-foreground"
-        >
-          {m.org_dashboard_all_projects_link()}
-          <ArrowRight className="size-3.5" strokeWidth={1.75} />
-        </Link>
-      </div>
+      <RecentProjectsHeading orgSlug={orgSlug} />
 
       <div className="@container grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {top.map((p) => (
@@ -62,6 +50,26 @@ export function RecentProjects({
         </p>
       )}
     </section>
+  )
+}
+
+export function RecentProjectsHeading({
+  orgSlug
+}: Readonly<{ orgSlug: string }>) {
+  return (
+    <div className="flex items-baseline justify-between">
+      <h2 className="text-title font-semibold">
+        {m.org_dashboard_recent_projects_heading()}
+      </h2>
+      <Link
+        to="/orgs/$orgSlug/projects"
+        params={{ orgSlug }}
+        className="inline-flex items-center gap-1 text-caption text-muted-foreground transition-colors hover:text-foreground"
+      >
+        {m.org_dashboard_all_projects_link()}
+        <ArrowRight className="size-3.5" strokeWidth={1.75} />
+      </Link>
+    </div>
   )
 }
 

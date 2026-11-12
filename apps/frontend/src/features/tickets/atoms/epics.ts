@@ -1,3 +1,4 @@
+import { EPIC_TYPE } from "@pp/shared"
 import type { TicketSort } from "@pp/shared"
 import * as Atom from "effect/reactivity/Atom"
 
@@ -20,7 +21,7 @@ const epicsPage = (req: EpicsRequest, cursor: string | undefined) =>
   query("tickets", "list", {
     params: req.params,
     query: {
-      type: ["epic"],
+      type: [EPIC_TYPE],
       archived: false,
       sort: EPIC_SORT,
       cursor

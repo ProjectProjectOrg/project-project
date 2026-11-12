@@ -1,5 +1,11 @@
 import { it } from "@effect/vitest"
-import { TagName, TicketId, TicketStatus } from "@pp/shared"
+import {
+  TagName,
+  TicketId,
+  TicketStatus,
+  TypeKey,
+  TicketRank
+} from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
@@ -37,8 +43,9 @@ const doc = (
   id: ticketId(id),
   title: `Ticket ${id}`,
   status: ticketStatus("todo"),
-  type: "feat",
+  type: TypeKey.make("feat"),
   priority: "med",
+  rank: TicketRank.make("a0"),
   tags: [],
   branch: null,
   pr: null,
@@ -68,7 +75,7 @@ describe("ticketIndexRowsFor", () => {
         const document = doc("T-27", updatedAt.toISOString(), {
           title: "Ship pure index builders",
           status: ticketStatus("in_progress"),
-          type: "chore",
+          type: TypeKey.make("chore"),
           priority: "high",
           estimate: { unit: "tshirt", value: "L" },
           tags,
@@ -82,6 +89,7 @@ describe("ticketIndexRowsFor", () => {
           prBase: "main",
           lastTransitionedPr: 171,
           archivedAt,
+          flag: { reason: "Needs a decision", by: "user-2", at: archivedAt },
           createdBy: "user-4",
           createdAt,
           updatedAt
@@ -96,8 +104,9 @@ describe("ticketIndexRowsFor", () => {
             ticketId: ticketId("T-27"),
             title: "Ship pure index builders",
             status: ticketStatus("in_progress"),
-            type: "chore",
+            type: TypeKey.make("chore"),
             priority: "high",
+            rank: "a0",
             estimateUnit: "tshirt",
             estimateValue: 4,
             tags: [tagName("backend"), tagName("urgent")],
@@ -113,6 +122,9 @@ describe("ticketIndexRowsFor", () => {
             lastTransitionedPr: 171,
             ignoredBranches: [],
             archivedAt,
+            flagReason: "Needs a decision",
+            flaggedBy: "user-2",
+            flaggedAt: archivedAt,
             createdBy: "user-4",
             createdAt,
             updatedAt

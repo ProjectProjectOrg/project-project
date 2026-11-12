@@ -1,5 +1,10 @@
 import type { TicketPolicy } from "@pp/access/policies"
-import type { UpdateTicketInput } from "@pp/shared"
+import {
+  applyListEdit,
+  isEpic,
+  type TicketFlag,
+  type UpdateTicketInput
+} from "@pp/shared"
 import * as Equal from "effect/Equal"
 
 import type * as TicketDocs from "./TicketDocs"
@@ -19,38 +24,74 @@ const uniqueOrUndefined = <A>(
 ): ReadonlyArray<A> | undefined =>
   values.length === 0 ? undefined : [...new Set(values)]
 
+const flagOf = (
+  existing: TicketFlag | undefined,
+  patch: TicketPatch["flag"],
+  actor: string,
+  now: Date
+): TicketFlag | undefined => {
+  if (patch === undefined) return existing
+  if (patch === null) return undefined
+  const reason = patch.reason?.trim() || undefined
+  if (existing !== undefined && existing.reason === reason) return existing
+  return reason === undefined
+    ? { by: actor, at: now }
+    : { reason, by: actor, at: now }
+}
+
+export const clearFlagWhenFinished = (
+  current: TicketDocs.TicketDocument,
+  next: TicketDocs.TicketDocument,
+  finished: ReadonlySet<string>
+): TicketDocs.TicketDocument => {
+  if (current.status === next.status || !finished.has(next.status)) return next
+  const { flag: _flag, ...unflagged } = next
+  return unflagged
+}
+
 export const applyTicketPatch = (
-  existing: TicketDocs.TicketDocument,
+  { flag: currentFlag, ...existing }: TicketDocs.TicketDocument,
   patch: TicketPatch,
   actor: string,
   now: Date
-): TicketDocs.TicketDocument => ({
-  ...existing,
-  title: patch.title ?? existing.title,
-  status: patch.status ?? existing.status,
-  type: patch.type ?? existing.type,
-  parent:
-    patch.parent === undefined ? existing.parent : (patch.parent ?? undefined),
-  priority: patch.priority ?? existing.priority,
-  estimate:
-    patch.estimate === undefined
-      ? existing.estimate
-      : (patch.estimate ?? undefined),
-  tags: patch.tags === undefined ? existing.tags : [...patch.tags],
-  assignees:
-    patch.assignees === undefined ? existing.assignees : [...patch.assignees],
-  blockedBy:
-    patch.blockedBy === undefined
-      ? existing.blockedBy
-      : uniqueOrUndefined(patch.blockedBy),
-  relatedTo:
-    patch.relatedTo === undefined
-      ? existing.relatedTo
-      : uniqueOrUndefined(patch.relatedTo),
-  updatedBy: actor,
-  updatedAt: now,
-  body: patch.body ?? existing.body
-})
+): TicketDocs.TicketDocument => {
+  const flag = flagOf(currentFlag, patch.flag, actor, now)
+  return {
+    ...existing,
+    title: patch.title ?? existing.title,
+    status: patch.status ?? existing.status,
+    type: patch.type === undefined ? existing.type : patch.type,
+    parent:
+      patch.parent === undefined
+        ? existing.parent
+        : (patch.parent ?? undefined),
+    priority: patch.priority ?? existing.priority,
+    estimate:
+      patch.estimate === undefined
+        ? existing.estimate
+        : (patch.estimate ?? undefined),
+    tags:
+      patch.tags === undefined
+        ? existing.tags
+        : [...applyListEdit(existing.tags, patch.tags)],
+    assignees:
+      patch.assignees === undefined
+        ? existing.assignees
+        : [...applyListEdit(existing.assignees, patch.assignees)],
+    blockedBy:
+      patch.blockedBy === undefined
+        ? existing.blockedBy
+        : uniqueOrUndefined(patch.blockedBy),
+    relatedTo:
+      patch.relatedTo === undefined
+        ? existing.relatedTo
+        : uniqueOrUndefined(patch.relatedTo),
+    ...(flag === undefined ? {} : { flag }),
+    updatedBy: actor,
+    updatedAt: now,
+    body: patch.body ?? existing.body
+  }
+}
 
 export const fieldChangesOf = (
   existing: TicketDocs.TicketDocument,
@@ -62,6 +103,7 @@ export const fieldChangesOf = (
     next.priority !== existing.priority ||
     next.parent !== existing.parent ||
     !Equal.equals(next.estimate, existing.estimate) ||
+    next.flag !== existing.flag ||
     next.body !== existing.body ||
     listChanged(next.tags, existing.tags) ||
     listChanged(next.blockedBy ?? [], existing.blockedBy ?? []) ||
@@ -119,10 +161,9 @@ export const breaksEpicSprintRule = (
   sprintsBefore: ReadonlyArray<string>,
   sprintsAfter: ReadonlyArray<string>
 ) =>
-  next.type === "epic" &&
+  isEpic(next) &&
   sprintsAfter.length > 0 &&
-  (existing.type !== "epic" ||
-    sprintsAfter.some((id) => !sprintsBefore.includes(id)))
+  (!isEpic(existing) || sprintsAfter.some((id) => !sprintsBefore.includes(id)))
 
 const patchableKeys = [
   "title",
@@ -133,7 +174,9 @@ const patchableKeys = [
   "estimate",
   "tags",
   "assignees",
-  "body"
+  "body",
+  "flag",
+  "rank"
 ] as const
 
 type PatchableKey = (typeof patchableKeys)[number]
@@ -170,8 +213,11 @@ export const revertTicketPatch = (
   if (reverted.size === 0) return null
   const pick = <K extends PatchableKey>(key: K) =>
     reverted.has(key) ? original[key] : current[key]
+  const { flag: _flag, ...unflagged } = current
+  const flag = pick("flag")
   const restored: TicketDocs.TicketDocument = {
-    ...current,
+    ...unflagged,
+    ...(flag === undefined ? {} : { flag }),
     title: pick("title"),
     status: pick("status"),
     type: pick("type"),
@@ -180,7 +226,8 @@ export const revertTicketPatch = (
     estimate: pick("estimate"),
     tags: pick("tags"),
     assignees: pick("assignees"),
-    body: pick("body")
+    body: pick("body"),
+    rank: pick("rank")
   }
   if (current.updatedAt.getTime() !== written.updatedAt.getTime()) {
     return restored

@@ -1,8 +1,18 @@
-import { OrgActor } from "@pp/shared"
+import {
+  OrgActor,
+  TicketId,
+  TicketRank,
+  TicketStatus,
+  TypeKey
+} from "@pp/shared"
+import * as Schema from "effect/Schema"
 import { Settings } from "lucide-react"
 import { describe, expect, it } from "vitest"
 
 import { visibleCommands, type Command, type CommandContext } from "./commands"
+
+const decodeTicketId = Schema.decodeSync(TicketId)
+const decodeStatus = Schema.decodeSync(TicketStatus)
 
 const context: CommandContext = {
   orgSlug: "acme",
@@ -10,7 +20,9 @@ const context: CommandContext = {
   projectActor: null,
   projectSlug: null,
   ticket: null,
+  selection: [],
   ticketDetail: null,
+  ticketSprint: null,
   sprint: null,
   view: null,
   viewerId: null,
@@ -67,5 +79,33 @@ describe("visibleCommands", () => {
         (c) => c.id
       )
     ).toEqual(["backlog", "dashboard", "theme", "log-out"])
+  })
+
+  it("keeps only bulk ticket commands while several tickets are selected", () => {
+    const commands = [
+      { ...command("status", "ticket"), bulk: true },
+      command("copy-id", "ticket"),
+      command("theme", "settings")
+    ]
+    const tickets = [
+      { id: "T-1", title: "a" },
+      { id: "T-2", title: "b" }
+    ].map(({ id, title }) => ({
+      id: decodeTicketId(id),
+      title,
+      status: decodeStatus("todo"),
+      priority: "med" as const,
+      type: TypeKey.make("feat"),
+      estimate: null,
+      tags: [],
+      assignees: [],
+      flag: null,
+      rank: TicketRank.make("a0")
+    }))
+    expect(
+      visibleCommands(commands, { ...context, selection: tickets }).map(
+        (c) => c.id
+      )
+    ).toEqual(["status", "theme"])
   })
 })

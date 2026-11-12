@@ -23,22 +23,30 @@ export type Checks = "passing" | "failing" | "pending"
 export const CHECKS: Readonly<
   Record<
     Checks,
-    Readonly<{ icon: LucideIcon; tone: string; label: () => string }>
+    Readonly<{
+      icon: LucideIcon
+      tone: string
+      motion: string
+      label: () => string
+    }>
   >
 > = {
   passing: {
     icon: Check,
     tone: "text-state-success",
+    motion: "",
     label: m.git_stack_checks_passing
   },
   failing: {
     icon: X,
     tone: "text-state-danger",
+    motion: "",
     label: m.git_stack_checks_failing
   },
   pending: {
     icon: LoaderCircle,
     tone: "text-state-warning",
+    motion: "motion-safe:animate-spin",
     label: m.git_stack_checks_pending
   }
 }

@@ -51,11 +51,21 @@ export function InvitePage() {
       />
     ),
     onDefect: (defect) => <ErrorPage error={defect} />,
-    onSuccess: () => <InviteResolver invitationId={invitationId} />
+    onSuccess: ({ value }) => (
+      <InviteResolver
+        invitationId={invitationId}
+        activeOrgSlug={value.activeOrgSlug}
+      />
+    )
   })
 }
 
-function InviteResolver({ invitationId }: { invitationId: string }) {
+type InviteResolverProps = Readonly<{
+  invitationId: string
+  activeOrgSlug: string | null
+}>
+
+function InviteResolver({ invitationId, activeOrgSlug }: InviteResolverProps) {
   const pending = useAtomValue(invitations())
   const resolved = useRef<UserInvitation | null>(null)
 
@@ -67,7 +77,10 @@ function InviteResolver({ invitationId }: { invitationId: string }) {
     ),
     onError: () => (
       <OnboardingShell icon={MailCheck}>
-        <InviteUnavailable />
+        <InviteUnavailable
+          activeOrgSlug={activeOrgSlug}
+          canViewInvitations={false}
+        />
       </OnboardingShell>
     ),
     onDefect: (defect) => <ErrorPage error={defect} />,
@@ -78,7 +91,14 @@ function InviteResolver({ invitationId }: { invitationId: string }) {
       resolved.current = invite
       return (
         <OnboardingShell icon={MailCheck}>
-          {invite ? <InviteAccept invite={invite} /> : <InviteUnavailable />}
+          {invite ? (
+            <InviteAccept invite={invite} />
+          ) : (
+            <InviteUnavailable
+              activeOrgSlug={activeOrgSlug}
+              canViewInvitations={activeOrgSlug === null && value.length > 0}
+            />
+          )}
         </OnboardingShell>
       )
     }
@@ -221,7 +241,15 @@ function InviteAccept({ invite }: { invite: UserInvitation }) {
   )
 }
 
-function InviteUnavailable() {
+type InviteUnavailableProps = Readonly<{
+  activeOrgSlug: string | null
+  canViewInvitations: boolean
+}>
+
+function InviteUnavailable({
+  activeOrgSlug,
+  canViewInvitations
+}: InviteUnavailableProps) {
   const signOut = useAtomSet(logout)
 
   return (
@@ -231,13 +259,32 @@ function InviteUnavailable() {
           {m.auth_invite_unavailable_title()}
         </h1>
         <p className="text-body leading-6 text-muted-foreground">
-          {m.auth_invite_unavailable_body()}
+          {canViewInvitations
+            ? m.auth_invite_unavailable_body()
+            : m.auth_invite_unavailable_body_sign_in()}
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="primary" render={<Link to="/welcome" />}>
-          {m.auth_invite_unavailable_cta()}
-        </Button>
+        {canViewInvitations ? (
+          <Button
+            type="button"
+            variant="primary"
+            render={<Link to="/welcome" />}
+          >
+            {m.auth_invite_unavailable_cta()}
+          </Button>
+        ) : null}
+        {activeOrgSlug === null ? null : (
+          <Button
+            type="button"
+            variant="primary"
+            render={
+              <Link to="/orgs/$orgSlug" params={{ orgSlug: activeOrgSlug }} />
+            }
+          >
+            {m.auth_invite_unavailable_dashboard_cta()}
+          </Button>
+        )}
         <Button
           type="button"
           variant="tertiary"

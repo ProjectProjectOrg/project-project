@@ -1,6 +1,10 @@
-import { Flag, Layers, ListPlus, Unlink } from "lucide-react"
+import { isEpic } from "@pp/shared"
+import { Flag, FlagOff, Layers, ListPlus, Stamp, Unlink } from "lucide-react"
 
+import { commandScopes } from "@/features/command-menu/atoms/commandMenu"
 import type { Command } from "@/features/command-menu/lib/commands"
+import { scopeSelectionUpdate } from "@/features/command-menu/lib/commandScopes"
+import { openFlagDialog } from "@/features/tickets/atoms/flagTicketDialog"
 import {
   ticketRequest,
   updateTicketDetail
@@ -23,15 +27,14 @@ export const relationCommands: ReadonlyArray<Command> = [
     icon: Layers,
     keywords: ["epic"],
     tool: "update_ticket",
-    when: (context) =>
-      editable(context) && context.ticketDetail?.type !== "epic",
+    when: (context) => editable(context) && !isEpic(context.ticketDetail),
     page: "ticketParent"
   },
   {
     id: "ticket.add-sub-ticket",
     group: "ticketRelations",
     label: ({ ticketDetail }) =>
-      ticketDetail?.type === "epic"
+      isEpic(ticketDetail)
         ? m.tickets_command_add_ticket_to_epic()
         : m.tickets_command_add_sub_ticket(),
     icon: ListPlus,
@@ -51,10 +54,69 @@ export const relationCommands: ReadonlyArray<Command> = [
     page: "ticketCreateRelated"
   },
   {
+    id: "ticket.flag",
+    bulk: true,
+    group: "ticketRelations",
+    label: m.tickets_command_flag,
+    icon: Flag,
+    keywords: ["attention", "mark"],
+    tool: "update_ticket",
+    when: (context) =>
+      editable(context) &&
+      (context.selection.length > 1
+        ? context.selection.some((each) => each.flag === null)
+        : context.ticketDetail !== null && context.ticketDetail.flag === null),
+    run: ({ ticket, ticketDetail, selection }, env) => {
+      if (ticket === null || ticketDetail === null) return
+      openFlagDialog(
+        env,
+        ticket,
+        ticketDetail.title,
+        selection.map((each) => each.id)
+      )
+    }
+  },
+  {
+    id: "ticket.unflag",
+    bulk: true,
+    group: "ticketRelations",
+    label: m.tickets_mark_remove_flag,
+    icon: FlagOff,
+    keywords: ["attention", "unflag"],
+    tool: "update_ticket",
+    when: (context) =>
+      editable(context) &&
+      (context.selection.length > 1
+        ? context.selection.some((each) => each.flag !== null)
+        : context.ticketDetail !== null && context.ticketDetail.flag !== null),
+    run: ({ ticket, selection }, env) => {
+      if (ticket === null) return
+      const updateSelection = scopeSelectionUpdate(
+        env.registry.get(commandScopes)
+      )
+      if (selection.length > 1 && updateSelection !== null) {
+        void updateSelection(
+          ticket.slug,
+          selection.map((each) => each.id),
+          { flag: null }
+        )
+        env.close()
+        return
+      }
+      env.execute(
+        updateTicketDetail(
+          ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
+        ),
+        { flag: null }
+      )
+      env.close()
+    }
+  },
+  {
     id: "ticket.mark",
     group: "ticketRelations",
     label: m.tickets_command_mark_as,
-    icon: Flag,
+    icon: Stamp,
     keywords: [
       "relation",
       "link",
@@ -96,7 +158,11 @@ export const relationCommands: ReadonlyArray<Command> = [
     id: "ticket.detach",
     group: "ticketRelations",
     label: ({ ticketDetail }) =>
-      m.tickets_row_detach_action({ id: ticketDetail?.parent?.id ?? "" }),
+      isEpic(ticketDetail?.parent)
+        ? m.tickets_row_detach_epic_action({ id: ticketDetail.parent.id })
+        : ticketDetail?.parent
+          ? m.tickets_row_detach_parent_action({ id: ticketDetail.parent.id })
+          : m.tickets_command_remove_parent(),
     icon: Unlink,
     keywords: ["parent", "epic", "detach"],
     tool: "update_ticket",

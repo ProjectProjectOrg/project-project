@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
+import { isEpic } from "@pp/shared"
 import type {
   GithubConnection,
   Member,
@@ -10,11 +11,8 @@ import type {
 import { useNavigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Archive } from "lucide-react"
-import { useState } from "react"
 
-import { type SaveStatus } from "@/features/editor/components/LexicalEditor"
 import { Markdown } from "@/features/editor/components/Markdown"
-import { MarkdownSaveIndicator } from "@/features/editor/components/MarkdownSaveIndicator"
 import { TicketTimeSection } from "@/features/everhour/components/TicketTimePanel"
 import { TicketGitPanel } from "@/features/github/components/ticket-git/TicketGit"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -50,7 +48,9 @@ import { TicketPageHeader } from "@/features/tickets/components/ticket-page/Tick
 import { TicketPageShell } from "@/features/tickets/components/ticket-page/TicketPageShell"
 import { TicketStepper } from "@/features/tickets/components/ticket-page/TicketStepper"
 import { useTemplateSwap } from "@/features/tickets/components/ticket-page/useTemplateSwap"
+import { FlagChip } from "@/features/tickets/components/ticket-preview/PreviewChips"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
+import { useRememberViewedTicket } from "@/features/tickets/hooks/useReturnToTicket"
 import {
   type TicketHierarchy,
   ticketHierarchy
@@ -77,6 +77,7 @@ export function TicketPage({
   from?: TicketViewSource
 }) {
   const { orgSlug, slug } = useProjectRoute()
+  useRememberViewedTicket(ticket.id, from)
   const req = ticketRequest(orgSlug, slug, ticket.id)
   const updateTicket = useAtomSet(updateTicketDetail(req))
   const patchTicket = useAtomSet(updateTicketDetail(req), {
@@ -88,7 +89,6 @@ export function TicketPage({
   const archiveState = useAtomValue(archiveTicket(req))
   const unarchiveTicketSet = useAtomSet(unarchiveTicket(req))
   const unarchiveState = useAtomValue(unarchiveTicket(req))
-  const [bodyStatus, setBodyStatus] = useState<SaveStatus>("idle")
   const bodyDraft = useAtomValue(ticketBodyDraft(req))
   const actor = useProjectActor()
   const estimation = useEstimationMode()
@@ -115,10 +115,10 @@ export function TicketPage({
       }}
       actions={
         <>
-          <MarkdownSaveIndicator status={bodyStatus} />
           {from && <TicketStepper ticketId={ticket.id} from={from} />}
           {actor.call("tickets", "archive") && (
             <ArchiveTicketControl
+              ticket={ticket}
               archived={ticket.archivedAt !== null}
               onArchive={archiveTicketSet}
               onUnarchive={unarchiveTicketSet}
@@ -164,6 +164,10 @@ export function TicketPage({
                   label={m.tickets_header_sub_ticket_of()}
                 />
               )}
+              <FlagChip
+                ticket={ticket}
+                className="size-6 justify-center px-0"
+              />
               <BlockedByNote relations={ticket.relations} />
               {swapNote !== null && (
                 <TemplateSwapNote name={swapNote.name} onUndo={undoSwap} />
@@ -185,11 +189,12 @@ export function TicketPage({
         <main className="flex min-w-0 flex-col gap-6 sm:pl-(--ticket-rail-inset)">
           {canEdit ? (
             <DescriptionField
+              key={ticket.id}
               ref={descriptionRef}
               ticket={ticket}
               members={members}
               autoFocus={autoFocusBody}
-              onStatusChange={setBodyStatus}
+              onStartType={(type) => onTypePatch({ type })}
             />
           ) : (
             <Markdown>{ticket.body}</Markdown>
@@ -282,7 +287,7 @@ function PlanningMetaRows({
   editable: boolean
   onPatch: (patch: TicketEdit) => void
 }>) {
-  if (ticket.type === "epic") return null
+  if (isEpic(ticket)) return null
   return (
     <>
       <MetaRow controls label={m.tickets_page_meta_sprint()}>

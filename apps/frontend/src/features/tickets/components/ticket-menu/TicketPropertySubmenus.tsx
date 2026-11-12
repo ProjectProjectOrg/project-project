@@ -1,6 +1,5 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { TagName, TicketType, type Member } from "@pp/shared"
-import * as Exit from "effect/Exit"
+import { useAtomValue } from "@effect/atom-react"
+import { listEditBetween, type Member, type TicketId } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   CircleDot,
@@ -10,7 +9,6 @@ import {
   Tag,
   UserRound
 } from "lucide-react"
-import { useState } from "react"
 
 import {
   DropdownMenuCheckboxItem,
@@ -24,8 +22,6 @@ import {
   DropdownMenuSubTrigger
 } from "@/components/ui/dropdown-menu"
 import { currentUserId } from "@/features/auth/atoms/auth"
-import { commandMenuState } from "@/features/command-menu/atoms/commandMenu"
-import { openCommandMenu } from "@/features/command-menu/lib/commandMenu"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {
   statusesFor,
@@ -33,23 +29,30 @@ import {
 } from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
-import { createTag, tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
-import { typeOptions } from "@/features/tickets/components/ticket-list/TypeField"
-import { useApplyCreatedTag } from "@/features/tickets/hooks/useApplyCreatedTag"
+import { AssignMeItem } from "@/features/tickets/components/ticket-list/AssigneeField"
+import { typeMenuItems } from "@/features/tickets/components/ticket-list/TypeField"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
+import { useTicketTagMenu } from "@/features/tickets/hooks/useTicketTagMenu"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
+import { toggleAssignee } from "@/features/tickets/lib/assignees"
 import {
   PRIORITY_LABELS,
   PRIORITY_META,
   PRIORITY_ORDER
 } from "@/features/tickets/lib/priorityMeta"
+import type { SharedTicketFields } from "@/features/tickets/lib/sharedTicketFields"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
-import { useProjectActor } from "@/hooks/useActor"
+import {
+  typeKeyOfOption,
+  typeOptionValue
+} from "@/features/tickets/lib/ticketTypes"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import type { TicketMenuTicket } from "./TicketMenu"
+import { useOpenTicketPage } from "./useOpenTicketPage"
 
 const viewerFirst = (
   members: ReadonlyArray<Member>,
@@ -63,12 +66,18 @@ const viewerFirst = (
 
 export function TicketPropertySubmenus({
   ticket,
+  unassigned,
   members,
   editable,
   canAssign,
   onPatch
 }: Readonly<{
-  ticket: TicketMenuTicket
+  ticket: Pick<
+    SharedTicketFields,
+    "status" | "priority" | "type" | "tags" | "assignees"
+  > &
+    Readonly<{ id: TicketId }>
+  unassigned: boolean
   members: ReadonlyArray<Member>
   editable: boolean
   canAssign: boolean
@@ -81,7 +90,7 @@ export function TicketPropertySubmenus({
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
   const estimation = useEstimationMode()
   const viewerId = useAtomValue(currentUserId)
-  const setCommandMenu = useAtomSet(commandMenuState)
+  const openPage = useOpenTicketPage(ticket.id)
   const statusItems = boardStatusesFor(statuses).map((status) => {
     const meta = statusMetaFor(status, statuses)
     const Icon = meta.icon
@@ -115,16 +124,13 @@ export function TicketPropertySubmenus({
       )
     }
   })
-  const typeItems = typeOptions(TicketType.literals).map((item) => ({
+  const types = useTicketTypes(orgSlug, slug)
+  const typeItems = typeMenuItems(types).map((item) => ({
     ...item,
     closeOnClick: true
   }))
-  const toggleAssignee = (memberId: string) =>
-    onPatch({
-      assignees: ticket.assignees.includes(memberId)
-        ? ticket.assignees.filter((id) => id !== memberId)
-        : [...ticket.assignees, memberId]
-    })
+  const setAssignees = (assignees: ReadonlyArray<string>) =>
+    onPatch({ assignees: listEditBetween(ticket.assignees, assignees) })
 
   return (
     <>
@@ -138,7 +144,7 @@ export function TicketPropertySubmenus({
             <DropdownMenuSubContent className="w-48">
               <DropdownMenuRadioGroup
                 items={statusItems}
-                value={ticket.status}
+                value={ticket.status ?? null}
                 onValueChange={(status) => onPatch({ status })}
               />
             </DropdownMenuSubContent>
@@ -151,7 +157,7 @@ export function TicketPropertySubmenus({
             <DropdownMenuSubContent className="w-40">
               <DropdownMenuRadioGroup
                 items={priorityItems}
-                value={ticket.priority}
+                value={ticket.priority ?? null}
                 onValueChange={(priority) => onPatch({ priority })}
               />
             </DropdownMenuSubContent>
@@ -161,11 +167,17 @@ export function TicketPropertySubmenus({
               <Shapes className="size-4" strokeWidth={1.75} />
               {m.tickets_command_change_type()}
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-40">
+            <DropdownMenuSubContent className="w-44">
               <DropdownMenuRadioGroup
                 items={typeItems}
-                value={ticket.type}
-                onValueChange={(type) => onPatch({ type })}
+                value={
+                  ticket.type === undefined
+                    ? null
+                    : typeOptionValue(ticket.type)
+                }
+                onValueChange={(type) =>
+                  onPatch({ type: typeKeyOfOption(type) })
+                }
               />
             </DropdownMenuSubContent>
           </DropdownMenuSub>
@@ -184,12 +196,17 @@ export function TicketPropertySubmenus({
               aria-label={m.tickets_assignee_search_placeholder()}
             />
             <DropdownMenuList className="max-h-72 overflow-y-auto">
+              <AssignMeItem
+                assignees={ticket.assignees}
+                members={members}
+                onChange={setAssignees}
+              />
               <DropdownMenuCheckboxItem
                 label={m.tickets_assignee_unassigned()}
                 closeOnClick={false}
-                checked={ticket.assignees.length === 0}
+                checked={unassigned}
                 onCheckedChange={() => {
-                  if (ticket.assignees.length > 0) onPatch({ assignees: [] })
+                  if (!unassigned) onPatch({ assignees: [] })
                 }}
               >
                 <UserRound className="size-4" strokeWidth={1.75} />
@@ -205,7 +222,9 @@ export function TicketPropertySubmenus({
                   }
                   closeOnClick={false}
                   checked={ticket.assignees.includes(member.id)}
-                  onCheckedChange={() => toggleAssignee(member.id)}
+                  onCheckedChange={() =>
+                    setAssignees(toggleAssignee(ticket.assignees, member.id))
+                  }
                 >
                   <MemberAvatar member={member} size={20} />
                   <span className="min-w-0 truncate">{member.name}</span>
@@ -220,14 +239,7 @@ export function TicketPropertySubmenus({
       )}
       {editable && estimation !== "off" && (
         <DropdownMenuItem
-          onClick={() =>
-            setCommandMenu(
-              openCommandMenu(
-                { orgSlug, slug, ticketId: ticket.id },
-                "ticketEstimate"
-              )
-            )
-          }
+          onClick={() => openPage("ticketEstimate")}
           className="cursor-pointer"
         >
           <Gauge className="size-4" strokeWidth={1.75} />
@@ -245,48 +257,18 @@ function TagsSubmenu({
   tags: TicketMenuTicket["tags"]
   onPatch: (patch: TicketEdit) => void
 }>) {
-  const { orgSlug, slug } = useProjectRoute()
-  const req = tagsRequest(orgSlug, slug)
-  const result = useAtomValue(tagsFor(req))
-  const create = useAtomSet(createTag(req), { mode: "promiseExit" })
-  const canCreate = useProjectActor().call("tags", "create")
-  const [draft, setDraft] = useState("")
-  const applyCreatedTag = useApplyCreatedTag(applied, onPatch)
-  const tags = Result.isSuccess(result) ? result.value : []
-  const toggle = (name: TagName) =>
-    onPatch({
-      tags: applied.includes(name)
-        ? applied.filter((tag) => tag !== name)
-        : [...applied, name]
-    })
-  const createAndApply = async (name: TagName) => {
-    setDraft("")
-    const exit = await create({ name })
-    if (Exit.isSuccess(exit)) applyCreatedTag(name)
-  }
+  const menu = useTicketTagMenu(applied, onPatch)
   return (
     <DropdownMenuSub
-      filterable={{
-        value: draft,
-        onValueChange: (next) => setDraft(next.toLowerCase())
-      }}
-      onOpenChange={(open) => {
-        if (!open) setDraft("")
-      }}
+      filterable={menu.filterable}
+      onOpenChange={menu.onOpenChange}
     >
       <DropdownMenuSubTrigger>
         <Tag className="size-4" strokeWidth={1.75} />
         {m.tickets_command_tags()}
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-56">
-        <TagMenuBody
-          tags={tags}
-          applied={applied}
-          draft={draft}
-          canCreate={canCreate}
-          onToggle={toggle}
-          onCreate={(name) => void createAndApply(name)}
-        />
+        <TagMenuBody {...menu.body} />
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   )

@@ -1,5 +1,7 @@
 import { useEffect, type RefObject } from "react"
 
+import { ownsKeystrokes } from "@/lib/keyboard"
+
 export function useGlobalShortcut(
   key: string,
   ref: RefObject<HTMLInputElement | null>,
@@ -16,14 +18,7 @@ export function useGlobalShortcut(
         return
       }
       if (e.key !== key) return
-      const t = e.target
-      if (
-        t instanceof HTMLInputElement ||
-        t instanceof HTMLTextAreaElement ||
-        (t instanceof HTMLElement && t.isContentEditable)
-      ) {
-        return
-      }
+      if (ownsKeystrokes(e.target)) return
       e.preventDefault()
       el.focus()
       if (selectOnFocus) el.select?.()

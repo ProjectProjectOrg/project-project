@@ -107,9 +107,11 @@ export function useTicketCommandSearch(
     !current &&
     shownText.query !== "" &&
     (query.startsWith(shownText.query) || shownText.query.startsWith(query))
+  const failed =
+    textSearch && debounced === query && Result.isFailure(textResult)
   const textHits = current || held ? shownText.hits : []
   const searching = useDelayedFlag(
-    textQuery && !current && !held,
+    textQuery && !current && !held && !failed,
     SEARCHING_DELAY_MS
   )
   if (query === "") return { recent: [], found: [], searching: false }

@@ -13,6 +13,7 @@ export type LinkPreviewQuery = typeof LinkPreviewQuery.Type
 export const LinkPreview = Schema.Struct({
   url: Schema.String,
   title: Schema.NullOr(Schema.String),
-  faviconUrl: Schema.NullOr(Schema.String)
+  faviconUrl: Schema.NullOr(Schema.String),
+  faviconRendering: Schema.Literals(["original", "monochrome"])
 })
 export type LinkPreview = typeof LinkPreview.Type

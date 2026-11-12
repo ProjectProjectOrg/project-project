@@ -252,9 +252,12 @@ When a new feature needs categorical color the user controls (tags, statuses, la
 - **Headline** (Geist, 600, 1.5rem, 1.25, tracking -0.01em): page H1.
 - **Title** (Geist, 600, 1.125rem, 1.3): section H2; ticket / project titles in a header.
 - **Body** (Geist, 400, 0.875rem (`text-sm`), 1.5): default text. Prose blocks (`.prose-md`) cap line length at 65–75ch; data tables run denser.
-- **Prose** (`.prose-md`): long-form markdown on the type roles. Body text is `body` at 80% foreground (`--prose-body`) so headings, bold and inline code carry the hierarchy at full foreground; h1 is `display`, h2 `title`, h3 `subtitle`. Headings get 8px below and 20–24px above.
+- **Prose** (`.prose-md`): long-form markdown on the type roles. Body text is `body` at 80% foreground (`--prose-body`) so headings, bold and inline code carry the hierarchy at full foreground; h1 is `display-compact`, h2 `title`, h3 `subtitle`. Headings get 8px below and 20–24px above.
+- **Description prose** (`[data-description]`): the ticket description is read more than anything else on the page, so it re-scales the same type roles instead of using new ones: body 16px / 26px, h1 26px, h2 20px, h3 18px. The empty state (placeholder, "Start as" and its type buttons) follows at 16px. Comments and other markdown stay on the standard roles.
 - **Label** (Geist, 500, 0.8125rem (`text-[13px]`), 1.2): nav items, button text, form labels, chip text.
 - **Mono** (Geist Mono, 400, 0.8125rem, 1.4): IDs, branches, slugs, code, anywhere "this is a literal."
+
+Inline links strengthen their underline on hover without a background fill; keyboard focus retains a visible outline. Favicons keep their original colors. Confirmed transparent monochrome symbols follow the active theme with a dark silhouette in light mode and a light silhouette in dark mode. Favicons have no backing tile or added padding.
 
 ### Named Rules
 
@@ -387,8 +390,8 @@ Shared rules, all from `components/ui/menu-styles.ts`:
 **A setting lives where its scope is.**
 
 - **Profile** is just you, everywhere: account, preferences, connections that act as you, agent tokens.
-- **Organization** is shared setup every project relies on, managed by admins: members, integrations (GitHub App, storage with its files, email), the template library.
-- **Project** is how this project works, managed by PMs: appearance, team, workflow, project templates on top of the organization's, and integration *links* (which repo, which board). A project screen never sets up a shared service; when a prerequisite is missing it points to where that service is set up.
+- **Organization** is shared setup every project relies on, managed by admins: members, integrations (GitHub App, storage with its files, email), the ticket types every project shares.
+- **Project** is how this project works, managed by PMs: appearance, team, workflow, ticket types on top of the organization's, and integration *links* (which repo, which board). A project screen never sets up a shared service; when a prerequisite is missing it points to where that service is set up.
 
 Every settings area — organization, project, profile — uses the same rail and the same page anatomy (`components/shell/settings/`):
 

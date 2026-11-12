@@ -1,4 +1,5 @@
 import {
+  TicketRank,
   OrgTicketPage,
   OrgTicketRow,
   Project,
@@ -56,6 +57,7 @@ const ticketJson = (id: string, status: string) => ({
   branch: null,
   pr: null,
   prState: null,
+  rank: TicketRank.make("a0"),
   lastTransitionedPr: null,
   parent: null,
   gitState: { tag: "no_branch" as const, baseBranch: "main" },

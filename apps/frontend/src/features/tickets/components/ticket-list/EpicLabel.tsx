@@ -1,3 +1,4 @@
+import { isEpic } from "@pp/shared"
 import type { TicketParent } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 
@@ -45,7 +46,7 @@ export function EpicSeparator({ className }: Readonly<{ className?: string }>) {
 export function EpicTextPrefix({
   parent
 }: Readonly<{ parent: TicketParent | null }>) {
-  if (parent?.type !== "epic") return null
+  if (!isEpic(parent)) return null
   return (
     <>
       <span className="text-muted-foreground">{parent.title}</span>

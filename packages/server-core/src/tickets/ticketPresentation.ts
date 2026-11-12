@@ -114,6 +114,7 @@ function documentToTicket(
     ...ticket,
     repoId: document.branch === null ? null : (repo ?? null),
     estimate: document.estimate ?? null,
+    flag: document.flag ?? null,
     parent,
     gitState: pendingGitState(
       document,

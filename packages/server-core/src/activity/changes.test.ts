@@ -3,7 +3,8 @@ import {
   TagName,
   TicketId,
   TicketStatus,
-  type Estimate
+  type Estimate,
+  TypeKey
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
@@ -26,7 +27,7 @@ const base: TicketChangeSource = {
   title: "Add button",
   status: status("todo"),
   priority: "med",
-  type: "feat",
+  type: TypeKey.make("feat"),
   assignees: ["user-1"],
   tags: [tag("core")],
   body: "Body\n",
@@ -87,8 +88,18 @@ describe("ticketChanges", () => {
     ],
     [
       "type",
-      { type: "bug" as const },
+      { type: TypeKey.make("bug") },
       [{ kind: "type_changed", from: "feat", to: "bug" }]
+    ],
+    [
+      "type to a custom type",
+      { type: TypeKey.make("incident-lite") },
+      [{ kind: "type_changed", from: "feat", to: "incident-lite" }]
+    ],
+    [
+      "type to no type",
+      { type: null },
+      [{ kind: "type_changed", from: "feat", to: null }]
     ],
     [
       "assignees added and removed in one write",
@@ -133,6 +144,23 @@ describe("ticketChanges", () => {
     expect(ticketChanges({ ...base, archivedAt }, base)).toEqual([
       { kind: "unarchived" }
     ])
+  })
+
+  it("records flagging, a new reason and removing the flag", () => {
+    const at = DateTime.toDate(DateTime.makeUnsafe("2026-11-12T09:00:00Z"))
+    const bare = { ...base, flag: { by: "user-1", at } }
+    const reasoned = {
+      ...base,
+      flag: { reason: "Waiting on API key", by: "user-1", at }
+    }
+    expect(ticketChanges(base, bare)).toEqual([{ kind: "flagged" }])
+    expect(ticketChanges(bare, reasoned)).toEqual([
+      { kind: "flagged", reason: "Waiting on API key" }
+    ])
+    expect(
+      ticketChanges(reasoned, { ...reasoned, flag: { ...reasoned.flag } })
+    ).toEqual([])
+    expect(ticketChanges(reasoned, base)).toEqual([{ kind: "unflagged" }])
   })
 
   it("records a branch swap as unlinked then linked", () => {

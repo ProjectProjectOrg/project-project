@@ -283,8 +283,40 @@
           {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": ["feat", "bug", "chore", "other", "epic"]
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["none"]
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                  "maxLength": 48
+                }
+              ]
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "excludeType": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["none"]
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                  "maxLength": 48
+                }
+              ]
             }
           },
           {
@@ -447,6 +479,16 @@
           }
         ]
       },
+      "flagged": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "sort": {
         "anyOf": [
           {
@@ -455,6 +497,7 @@
               "key": {
                 "type": "string",
                 "enum": [
+                  "manual",
                   "id",
                   "created",
                   "updated",
@@ -803,7 +846,7 @@
     "additionalProperties": true,
     "$defs": {}
   },
-  "list_templates": {
+  "list_types": {
     "type": "object",
     "properties": {
       "orgSlug": {
@@ -859,8 +902,16 @@
       "type": {
         "anyOf": [
           {
-            "type": "string",
-            "enum": ["feat", "bug", "chore", "other", "epic"]
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                "maxLength": 48
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           {
             "type": "null"
@@ -1020,23 +1071,7 @@
         ]
       },
       "template": {
-        "anyOf": [
-          {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-                "maxLength": 48
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          {
-            "type": "null"
-          }
-        ]
+        "not": {}
       }
     },
     "required": ["orgSlug", "projectSlug", "title"],
@@ -1090,8 +1125,16 @@
       "type": {
         "anyOf": [
           {
-            "type": "string",
-            "enum": ["feat", "bug", "chore", "other", "epic"]
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                "maxLength": 48
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           {
             "type": "null"
@@ -1177,11 +1220,49 @@
       "tags": {
         "anyOf": [
           {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "pattern": "^(?:[a-z0-9][a-z0-9 -]{0,30}|component:[a-z0-9][a-z0-9-]{0,20})$"
-            }
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^(?:[a-z0-9][a-z0-9 -]{0,30}|component:[a-z0-9][a-z0-9-]{0,20})$"
+                }
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "add": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^(?:[a-z0-9][a-z0-9 -]{0,30}|component:[a-z0-9][a-z0-9-]{0,20})$"
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "remove": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^(?:[a-z0-9][a-z0-9 -]{0,30}|component:[a-z0-9][a-z0-9-]{0,20})$"
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": true
+              }
+            ]
           },
           {
             "type": "null"
@@ -1191,10 +1272,46 @@
       "assignees": {
         "anyOf": [
           {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "add": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "remove": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": true
+              }
+            ]
           },
           {
             "type": "null"
@@ -1257,14 +1374,26 @@
           }
         ]
       },
-      "template": {
+      "flag": {
         "anyOf": [
           {
             "anyOf": [
               {
-                "type": "string",
-                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-                "maxLength": 48
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 20000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": true
               },
               {
                 "type": "null"
@@ -1275,6 +1404,60 @@
             "type": "null"
           }
         ]
+      },
+      "position": {
+        "anyOf": [
+          {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "after": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+                  }
+                },
+                "required": ["after"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "before": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+                  }
+                },
+                "required": ["before"],
+                "additionalProperties": true
+              }
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "sprint": {
+        "anyOf": [
+          {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^G-[1-9][0-9]*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "template": {
+        "not": {}
       },
       "edits": {
         "anyOf": [

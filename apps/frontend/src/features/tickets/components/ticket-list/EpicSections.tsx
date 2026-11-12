@@ -1,6 +1,7 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import {
   EPIC_SECTION_NONE,
+  EPIC_TYPE,
   type EpicSectionKey,
   type Member,
   type TicketId,
@@ -21,20 +22,25 @@ import {
   epicSections,
   epicSectionsRequest,
   epicSectionsTicketUpdates,
+  bulkMoveEpicSectionsTickets,
+  bulkUpdateEpicSectionsTickets,
   loadMoreEpicSections,
   type EpicSectionsRequest
 } from "@/features/tickets/atoms/epicSections"
+import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import type { ParentGrouping } from "@/features/tickets/lib/backlogGrouping"
 import type {
   EpicSectionsValue,
   EpicSectionValue
 } from "@/features/tickets/lib/epicSectionRows"
-import { TYPE_META } from "@/features/tickets/lib/ticketMeta"
 import { viewQuery } from "@/features/tickets/lib/ticketRows"
 import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
+import { resolveType } from "@/features/tickets/lib/ticketTypes"
 import { m } from "@/paraglide/messages"
 
+import { useListRowAutoScroll } from "./ListRowDrag"
 import { parentCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
 import {
   CreatingSectionsProvider,
@@ -45,7 +51,6 @@ import { queryHasActiveFilter } from "./SprintSections"
 import { useTicketPreview } from "./useTicketPreview"
 
 const defaultCreateStatus = Schema.decodeSync(TicketStatus)("todo")
-const EpicIcon = TYPE_META.epic.icon
 
 type Props = Readonly<{
   by: ParentGrouping
@@ -57,6 +62,8 @@ type Props = Readonly<{
 export function EpicSections(props: Props) {
   const { orgSlug, slug } = useProjectRoute()
   const persistKey = parentCollapseKey(props.preferencesKey, props.by)
+  const [listElement, setListElement] = useState<HTMLDivElement | null>(null)
+  useListRowAutoScroll(listElement)
   const snapshotReq = epicSectionsRequest(orgSlug, slug, props.query, props.by)
   const preview = useTicketPreview()
   const snapshotResult = useAtomValue(epicSections(snapshotReq))
@@ -95,7 +102,11 @@ export function EpicSections(props: Props) {
       : null
   const renderSections = () =>
     active ? (
-      <div style={{ overflowAnchor: "none" }} className="flex flex-col gap-1">
+      <div
+        ref={setListElement}
+        style={{ overflowAnchor: "none" }}
+        className="flex flex-col gap-1"
+      >
         <TicketViewSourceContext
           value={ticketSearchFromSource({
             kind: "sections",
@@ -174,17 +185,19 @@ function EpicSection({
     cursor: undefined
   }
   const selectedStatuses = query.status
-  const SectionIcon =
-    section.key === EPIC_SECTION_NONE
-      ? Inbox
-      : props.by === "epic"
-        ? EpicIcon
-        : ListTree
+  const { orgSlug, slug } = useProjectRoute()
+  const epicType = resolveType(useTicketTypes(orgSlug, slug), EPIC_TYPE)
+  const SectionIcon = section.key === EPIC_SECTION_NONE ? Inbox : ListTree
   return (
     <div aria-busy={waiting}>
       <SectionList
         query={query}
         parent={section.parent ?? undefined}
+        dropTarget={{
+          grouping: "parent",
+          key: section.key,
+          parent: section.parent
+        }}
         status={
           selectedStatuses?.length === 1
             ? selectedStatuses[0]
@@ -197,12 +210,15 @@ function EpicSection({
             (props.by === "epic"
               ? m.tickets_grouping_no_epic()
               : m.tickets_grouping_no_parent()),
-          icon: (
-            <SectionIcon
-              className="size-4 text-muted-foreground"
-              strokeWidth={1.75}
-            />
-          )
+          icon:
+            section.key !== EPIC_SECTION_NONE && props.by === "epic" ? (
+              <TypeGlyph type={epicType} />
+            ) : (
+              <SectionIcon
+                className="size-4 text-muted-foreground"
+                strokeWidth={1.75}
+              />
+            )
         }}
         emptyMessage={
           queryHasActiveFilter(props.query)
@@ -222,6 +238,8 @@ function EpicSection({
           />
         }
         update={epicSectionsTicketUpdates(snapshotReq)}
+        bulkUpdate={bulkUpdateEpicSectionsTickets(snapshotReq)}
+        bulkMove={bulkMoveEpicSectionsTickets(snapshotReq)}
         snapshotReq={snapshotReq}
         collapsed={collapsed}
         onToggleCollapsed={onToggleCollapsed}

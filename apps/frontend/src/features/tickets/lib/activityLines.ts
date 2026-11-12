@@ -6,7 +6,7 @@ import type {
   TicketActivityChange,
   TicketActivityEntry,
   TicketPriority,
-  TicketType
+  TypeKey
 } from "@pp/shared"
 
 import type { ActivityItem } from "@/features/tickets/lib/activityGroups"
@@ -29,7 +29,7 @@ export type ActivityValue =
     }>
   | Readonly<{ kind: "status"; slug: string }>
   | Readonly<{ kind: "priority"; priority: TicketPriority }>
-  | Readonly<{ kind: "type"; type: TicketType }>
+  | Readonly<{ kind: "type"; type: TypeKey | null }>
   | Readonly<{ kind: "group"; groupKind: GroupKind; name: string }>
   | Readonly<{ kind: "people"; ids: ReadonlyArray<string> }>
   | Readonly<{ kind: "tags"; names: ReadonlyArray<string> }>
@@ -187,6 +187,18 @@ const changeBodies = (
       ]
     case "unarchived":
       return [plain(m.tickets_activity_unarchived())]
+    case "flagged":
+      return [
+        change.reason === undefined
+          ? plain(m.tickets_activity_flagged())
+          : {
+              kind: "quoted",
+              text: m.tickets_activity_flagged(),
+              quote: change.reason
+            }
+      ]
+    case "unflagged":
+      return [plain(m.tickets_activity_unflagged())]
     case "split":
       return [verb(m.tickets_activity_split(), literal(change.into.join(", ")))]
     case "moved":

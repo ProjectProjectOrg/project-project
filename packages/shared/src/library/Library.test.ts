@@ -6,23 +6,21 @@ import {
   BlockDraft,
   BlockKey,
   LibraryColor,
-  TemplateDraft,
-  TemplateKey,
-  UpdateTemplateDefaultsInput,
-  UpdateTemplateInput
+  TypeDraft,
+  TypeKey,
+  UpdateTypeInput
 } from "./Library"
 
 const decodeBlockDraftSync = Schema.decodeSync(BlockDraft)
 
-const decodeUnknownTemplateDraftSync = Schema.decodeUnknownSync(TemplateDraft)
+const decodeUnknownTypeDraftSync = Schema.decodeUnknownSync(TypeDraft)
 
-const decodeUnknownUpdateTemplateInputSync =
-  Schema.decodeUnknownSync(UpdateTemplateInput)
+const decodeUnknownUpdateTypeInputSync =
+  Schema.decodeUnknownSync(UpdateTypeInput)
 
 const decodeBlockKey = Schema.decodeUnknownExit(BlockKey)
-const decodeTemplateKey = Schema.decodeUnknownExit(TemplateKey)
+const decodeTypeKey = Schema.decodeUnknownExit(TypeKey)
 const decodeColor = Schema.decodeUnknownExit(LibraryColor)
-const decodeDefaults = Schema.decodeUnknownExit(UpdateTemplateDefaultsInput)
 
 describe("library keys", () => {
   it("accepts kebab-case keys up to 48 characters", () => {
@@ -33,7 +31,7 @@ describe("library keys", () => {
       "a".repeat(48)
     ]) {
       expect(decodeBlockKey(key)._tag).toBe("Success")
-      expect(decodeTemplateKey(key)._tag).toBe("Success")
+      expect(decodeTypeKey(key)._tag).toBe("Success")
     }
   })
 
@@ -51,9 +49,12 @@ describe("library keys", () => {
     }
   })
 
-  it("reserves blank for templates only", () => {
-    expect(decodeTemplateKey("blank")._tag).toBe("Failure")
-    expect(decodeBlockKey("blank")._tag).toBe("Success")
+  it("reserves blank and other for types only", () => {
+    for (const key of ["blank", "other"]) {
+      expect(decodeTypeKey(key)._tag).toBe("Failure")
+      expect(decodeBlockKey(key)._tag).toBe("Success")
+    }
+    expect(decodeTypeKey("other-work")._tag).toBe("Success")
   })
 })
 
@@ -82,31 +83,9 @@ describe("LibraryColor", () => {
   })
 })
 
-describe("UpdateTemplateDefaultsInput", () => {
-  it("accepts a partial mapping with explicit blanks", () => {
-    expect(
-      decodeDefaults({ defaults: { bug: "bug-report", other: null } })._tag
-    ).toBe("Success")
-    expect(decodeDefaults({ defaults: {} })._tag).toBe("Success")
-  })
-
-  it("accepts types to reset to the inherited default", () => {
-    expect(decodeDefaults({ defaults: {}, reset: ["bug", "feat"] })._tag).toBe(
-      "Success"
-    )
-    expect(decodeDefaults({ defaults: {}, reset: ["nope"] })._tag).toBe(
-      "Failure"
-    )
-  })
-
-  it("rejects the reserved blank key", () => {
-    expect(decodeDefaults({ defaults: { bug: "blank" } })._tag).toBe("Failure")
-  })
-})
-
-describe("TemplateDraft", () => {
+describe("TypeDraft", () => {
   it("drops the retired type field that older clients still send", () => {
-    const draft = decodeUnknownTemplateDraftSync({
+    const draft = decodeUnknownTypeDraftSync({
       key: "bug-report",
       name: "Bug report",
       icon: "Bug",
@@ -117,8 +96,15 @@ describe("TemplateDraft", () => {
       body: ""
     })
     expect("type" in draft).toBe(false)
+    expect("type" in decodeUnknownUpdateTypeInputSync({ type: "bug" })).toBe(
+      false
+    )
+  })
+
+  it("has no key in an update, so a key can't change", () => {
     expect(
-      "type" in decodeUnknownUpdateTemplateInputSync({ type: "bug" })
+      "key" in
+        decodeUnknownUpdateTypeInputSync({ key: "defect", name: "Defect" })
     ).toBe(false)
   })
 })

@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { ESTIMATE_SIZES, TagName, TicketType, type Estimate } from "@pp/shared"
+import { isEpic, ESTIMATE_SIZES, TagName, type Estimate } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
@@ -9,14 +9,21 @@ import { Archive, CircleSlash, Layers, Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
 
 import { CommandMenuCheck, CommandMenuItem } from "@/components/ui/command-menu"
+import { commandScopes } from "@/features/command-menu/atoms/commandMenu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
+import { scopeSelectionClear } from "@/features/command-menu/lib/commandScopes"
+import { blockIconComponent } from "@/features/editor/lib/blockIcons"
 import {
   projectActor,
   projectRequest
 } from "@/features/projects/atoms/projects"
 import { createTag, tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
+import {
+  bulkArchiveTickets,
+  bulkDeleteTickets
+} from "@/features/tickets/atoms/bulkTickets"
 import { epicsRequest, projectEpics } from "@/features/tickets/atoms/epics"
 import {
   archiveTicket,
@@ -24,14 +31,20 @@ import {
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
-import { useApplyCreatedTag } from "@/features/tickets/hooks/useApplyCreatedTag"
+import { NoTypeIcon } from "@/features/tickets/components/TypeGlyph"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import {
   formatEstimate,
   parseEstimateMinutes,
   parseEstimatePoints
 } from "@/features/tickets/lib/estimateMeta"
-import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
 import { parentRef } from "@/features/tickets/lib/ticketPatch"
+import {
+  typeKeyOfOption,
+  typeName,
+  typeOptions,
+  typeOptionValue
+} from "@/features/tickets/lib/ticketTypes"
 import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -86,7 +99,7 @@ export function TicketEstimatePage({
   onBack,
   env
 }: TicketPageProps) {
-  const { current, update } = useTicketMutation(ticket)
+  const { current, update } = useTicketMutation(ticket, context.selection)
   const [query, setQuery] = useState("")
   const mode = context.project?.estimation ?? "off"
   if (mode === "off") return null
@@ -95,6 +108,10 @@ export function TicketEstimatePage({
     options.map((estimate) => [formatEstimate(estimate), estimate])
   )
   const estimate = current?.estimate ?? null
+  const clearable =
+    context.selection.length > 1
+      ? context.selection.some((each) => each.estimate !== null)
+      : estimate !== null
   return (
     <CommandFrame
       chip={chip}
@@ -107,7 +124,7 @@ export function TicketEstimatePage({
           label: formatEstimate(option),
           prefiltered: mode !== "tshirt"
         })),
-        ...(estimate === null
+        ...(!clearable
           ? []
           : [
               {
@@ -142,36 +159,58 @@ export function TicketEstimatePage({
   )
 }
 
-export function TicketTypePage({ ticket, chip, onBack, env }: TicketPageProps) {
-  const { current, update } = useTicketMutation(ticket)
-  const types = TicketType.literals
+export function TicketTypePage({
+  ticket,
+  context,
+  chip,
+  onBack,
+  env
+}: TicketPageProps) {
+  const { current, update } = useTicketMutation(ticket, context.selection)
+  const options = typeOptions(useTicketTypes(ticket.orgSlug, ticket.slug))
   return (
     <CommandFrame
       chip={chip}
       placeholder={m.tickets_command_type_placeholder()}
       onBack={onBack}
-      items={types.map((type) => ({
-        value: type,
-        label: TYPE_LABELS[type](),
-        icon: TYPE_META[type].icon
+      items={options.map((option) => ({
+        value: option.value,
+        label: typeName(option.type),
+        icon:
+          option.type === null
+            ? NoTypeIcon
+            : blockIconComponent(option.type.icon)
       }))}
       onSelect={(item) => {
-        const type = types.find((candidate) => candidate === item.value)
-        if (type !== undefined) update({ type })
+        const option = options.find(
+          (candidate) => candidate.value === item.value
+        )
+        if (option !== undefined) {
+          update({ type: typeKeyOfOption(option.value) })
+        }
         env.close()
       }}
       renderItem={(item) => (
         <CommandMenuItem value={item.value}>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          {current?.type === item.value && <CommandMenuCheck />}
+          {current !== null &&
+            current.type !== undefined &&
+            typeOptionValue(current.type) === item.value && (
+              <CommandMenuCheck />
+            )}
         </CommandMenuItem>
       )}
     />
   )
 }
 
-export function TicketTagsPage({ ticket, chip, onBack }: TicketPageProps) {
-  const { current, update } = useTicketMutation(ticket)
+export function TicketTagsPage({
+  ticket,
+  context,
+  chip,
+  onBack
+}: TicketPageProps) {
+  const { current, update } = useTicketMutation(ticket, context.selection)
   const req = tagsRequest(ticket.orgSlug, ticket.slug)
   const result = useAtomValue(tagsFor(req))
   const create = useAtomSet(createTag(req), { mode: "promiseExit" })
@@ -183,7 +222,6 @@ export function TicketTagsPage({ ticket, chip, onBack }: TicketPageProps) {
   const [pending, setPending] = useState(false)
   const tags = Result.isSuccess(result) ? result.value : []
   const applied = current?.tags ?? []
-  const applyCreatedTag = useApplyCreatedTag(applied, update)
   const newName = Option.filter(
     decodeTagName(query.trim().toLowerCase()),
     (name) => canCreate && !tags.some((tag) => tag.name === name)
@@ -219,7 +257,7 @@ export function TicketTagsPage({ ticket, chip, onBack }: TicketPageProps) {
           setFailure(null)
           const exit = await create({ name: newName.value })
           setPending(false)
-          if (Exit.isSuccess(exit)) applyCreatedTag(newName.value)
+          if (Exit.isSuccess(exit)) update({ tags: { add: [newName.value] } })
           else setFailure(errorMessage(Cause.squash(exit.cause)))
           return
         }
@@ -227,8 +265,8 @@ export function TicketTagsPage({ ticket, chip, onBack }: TicketPageProps) {
         if (tag === undefined) return
         update({
           tags: applied.includes(tag.name)
-            ? applied.filter((name) => name !== tag.name)
-            : [...applied, tag.name]
+            ? { remove: [tag.name] }
+            : { add: [tag.name] }
         })
       }}
       renderItem={(item) => {
@@ -318,8 +356,12 @@ export function TicketParentPage({
   )
 }
 
+const failureOf = <A, E>(exit: Exit.Exit<A, E>): string | null =>
+  Exit.isFailure(exit) ? errorMessage(Cause.squash(exit.cause)) : null
+
 export function TicketArchivePage({
   ticket,
+  context,
   chip,
   onBack,
   env
@@ -328,6 +370,12 @@ export function TicketArchivePage({
     archiveTicket(ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)),
     { mode: "promiseExit" }
   )
+  const archiveMany = useAtomSet(
+    bulkArchiveTickets({ orgSlug: ticket.orgSlug, slug: ticket.slug }),
+    { mode: "promiseExit" }
+  )
+  const clearSelection = scopeSelectionClear(useAtomValue(commandScopes))
+  const many = context.selection.length > 1
   const [reason, setReason] = useState("")
   const [failure, setFailure] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -343,8 +391,11 @@ export function TicketArchivePage({
       items={[
         {
           value: ARCHIVE,
-          label:
-            trimmed === ""
+          label: many
+            ? m.tickets_row_archive_many_menu_item({
+                count: context.selection.length
+              })
+            : trimmed === ""
               ? m.tickets_command_archive_action({ id: ticket.ticketId })
               : m.tickets_command_archive_with_reason({ id: ticket.ticketId }),
           icon: Archive
@@ -353,7 +404,11 @@ export function TicketArchivePage({
       renderItem={(item) => (
         <CommandMenuItem value={item.value}>
           <span className="min-w-0 flex-1 truncate">
-            <TicketIdText id={ticket.ticketId}>{item.label}</TicketIdText>
+            {many ? (
+              item.label
+            ) : (
+              <TicketIdText id={ticket.ticketId}>{item.label}</TicketIdText>
+            )}
           </span>
         </CommandMenuItem>
       )}
@@ -361,12 +416,21 @@ export function TicketArchivePage({
         if (pending) return
         setPending(true)
         setFailure(null)
-        const exit = await archive(trimmed === "" ? {} : { reason: trimmed })
+        const reasonInput = trimmed === "" ? {} : { reason: trimmed }
+        const failed = many
+          ? failureOf(
+              await archiveMany({
+                tickets: context.selection.map((each) => each.id),
+                ...reasonInput
+              })
+            )
+          : failureOf(await archive(reasonInput))
         setPending(false)
-        if (Exit.isFailure(exit)) {
-          setFailure(errorMessage(Cause.squash(exit.cause)))
+        if (failed !== null) {
+          setFailure(failed)
           return
         }
+        if (many) clearSelection?.()
         env.close()
       }}
     />
@@ -384,10 +448,16 @@ export function TicketDeletePage({
     deleteTicket(ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)),
     { mode: "promiseExit" }
   )
+  const removeMany = useAtomSet(
+    bulkDeleteTickets({ orgSlug: ticket.orgSlug, slug: ticket.slug }),
+    { mode: "promiseExit" }
+  )
+  const clearSelection = scopeSelectionClear(useAtomValue(commandScopes))
+  const many = context.selection.length > 1
   const [failure, setFailure] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const description = m.tickets_command_delete_description()
-  const count = context.ticketDetail?.subTicketCount ?? 0
+  const count = many ? 0 : (context.ticketDetail?.subTicketCount ?? 0)
   return (
     <CommandFrame
       chip={chip}
@@ -398,7 +468,11 @@ export function TicketDeletePage({
       items={[
         {
           value: DELETE,
-          label: m.tickets_command_delete_action({ id: ticket.ticketId }),
+          label: many
+            ? m.tickets_row_delete_many_menu_item({
+                count: context.selection.length
+              })
+            : m.tickets_command_delete_action({ id: ticket.ticketId }),
           icon: Trash2
         },
         ...(count === 0
@@ -406,16 +480,15 @@ export function TicketDeletePage({
           : [
               {
                 value: DELETE_CASCADE,
-                label:
-                  context.ticketDetail?.type === "epic"
-                    ? m.tickets_command_delete_epic_cascade_action({
-                        id: ticket.ticketId,
-                        count
-                      })
-                    : m.tickets_command_delete_cascade_action({
-                        id: ticket.ticketId,
-                        count
-                      }),
+                label: isEpic(context.ticketDetail)
+                  ? m.tickets_command_delete_epic_cascade_action({
+                      id: ticket.ticketId,
+                      count
+                    })
+                  : m.tickets_command_delete_cascade_action({
+                      id: ticket.ticketId,
+                      count
+                    }),
                 icon: Trash2
               }
             ])
@@ -424,14 +497,21 @@ export function TicketDeletePage({
         if (pending) return
         setPending(true)
         setFailure(null)
-        const exit = await remove({
-          cascadeSubTickets: item.value === DELETE_CASCADE
-        })
+        const failed = many
+          ? failureOf(
+              await removeMany({
+                tickets: context.selection.map((each) => each.id)
+              })
+            )
+          : failureOf(
+              await remove({ cascadeSubTickets: item.value === DELETE_CASCADE })
+            )
         setPending(false)
-        if (Exit.isFailure(exit)) {
-          setFailure(errorMessage(Cause.squash(exit.cause)))
+        if (failed !== null) {
+          setFailure(failed)
           return
         }
+        if (many) clearSelection?.()
         env.close()
         if (window.location.pathname.endsWith(`/tickets/${ticket.ticketId}`)) {
           env.navigate(`/orgs/${ticket.orgSlug}/projects/${ticket.slug}`)

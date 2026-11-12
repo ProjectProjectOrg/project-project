@@ -12,6 +12,7 @@ import { CheckListExtension, ListExtension } from "@lexical/list"
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
+  INLINE_CODE,
   TRANSFORMERS
 } from "@lexical/markdown"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
@@ -22,12 +23,7 @@ import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPl
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
 import { RichTextExtension } from "@lexical/rich-text"
 import { TableExtension } from "@lexical/table"
-import {
-  EMPTY_LAYER,
-  NO_TEMPLATE_DEFAULTS,
-  resolveLibrary,
-  type TicketId
-} from "@pp/shared"
+import { EMPTY_LAYER, resolveLibrary, type TicketId } from "@pp/shared"
 import { useDebouncer } from "@tanstack/react-pacer"
 import * as Effect from "effect/Effect"
 import {
@@ -40,6 +36,7 @@ import {
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -69,6 +66,10 @@ import {
   ChecklistShortcutExtension,
   ESCAPED_CHECK_LIST
 } from "../lexical/checklistMarkdown"
+import {
+  INLINE_MARKDOWN_TRANSFORMER,
+  commonMarkTransformers
+} from "../lexical/commonMarkTransformer"
 import { FigmaExtension } from "../lexical/FigmaExtension"
 import { FigmaPlugin } from "../lexical/FigmaPlugin"
 import { FIGMA_TRANSFORMER } from "../lexical/figmaTransformer"
@@ -77,6 +78,7 @@ import {
   HORIZONTAL_RULE,
   HorizontalRuleEnterExtension
 } from "../lexical/horizontalRuleTransformer"
+import { ImageNode } from "../lexical/ImageNode"
 import { LinePlaceholderPlugin } from "../lexical/LinePlaceholderPlugin"
 import { LinkFaviconsPlugin } from "../lexical/LinkFaviconsPlugin"
 import { ListTabExtension } from "../lexical/listTabExtension"
@@ -90,55 +92,57 @@ import { PAPER_TRANSFORMER } from "../lexical/paperTransformer"
 import "@/lib/prismLangs"
 
 import { SubmitOnEnterPlugin } from "../lexical/SubmitOnEnterPlugin"
-import { createTableTransformer } from "../lexical/tableTransformer"
+import { TABLE_TRANSFORMER } from "../lexical/tableTransformer"
 import { TicketBlockExtension } from "../lexical/TicketBlockExtension"
 import { createTicketBlockTransformer } from "../lexical/ticketBlockTransformer"
 import type { MarkdownSize } from "./Markdown"
 
 const INLINE_AND_BLOCK_TRANSFORMERS = [
+  INLINE_MARKDOWN_TRANSFORMER,
   MENTION_TRANSFORMER,
   ESCAPED_CHECK_LIST,
   HORIZONTAL_RULE,
   PAPER_TRANSFORMER,
   FIGMA_TRANSFORMER,
-  ...TRANSFORMERS
+  ...TRANSFORMERS.filter((transformer) => transformer !== INLINE_CODE)
 ]
 
-const BLOCK_CONTENT_TRANSFORMERS = [
-  createTableTransformer(INLINE_AND_BLOCK_TRANSFORMERS),
-  ...INLINE_AND_BLOCK_TRANSFORMERS
-]
+function createMarkdownTransformers(
+  inline: ReadonlyArray<(typeof INLINE_AND_BLOCK_TRANSFORMERS)[number]>,
+  mode: EditorBlocksMode | undefined
+) {
+  const content = [TABLE_TRANSFORMER, ...inline]
+  const transformers =
+    mode === "definition"
+      ? [HINT_TRANSFORMER, ...content]
+      : [
+          createTicketBlockTransformer(commonMarkTransformers(content), {
+            emptyAsReference: mode === "template"
+          }),
+          ...content
+        ]
+  return commonMarkTransformers(transformers)
+}
 
-export const MARKDOWN_TRANSFORMERS = [
-  createTicketBlockTransformer(BLOCK_CONTENT_TRANSFORMERS),
-  ...BLOCK_CONTENT_TRANSFORMERS
-]
+export const MARKDOWN_TRANSFORMERS = createMarkdownTransformers(
+  INLINE_AND_BLOCK_TRANSFORMERS,
+  undefined
+)
 
-const ATTACHMENT_BLOCK_CONTENT_TRANSFORMERS = [
-  createTableTransformer([
-    ATTACHMENT_TRANSFORMER,
-    ...INLINE_AND_BLOCK_TRANSFORMERS
-  ]),
-  ATTACHMENT_TRANSFORMER,
-  ...INLINE_AND_BLOCK_TRANSFORMERS
-]
+const ATTACHMENT_MARKDOWN_TRANSFORMERS = createMarkdownTransformers(
+  [ATTACHMENT_TRANSFORMER, ...INLINE_AND_BLOCK_TRANSFORMERS],
+  undefined
+)
 
-const ATTACHMENT_MARKDOWN_TRANSFORMERS = [
-  createTicketBlockTransformer(ATTACHMENT_BLOCK_CONTENT_TRANSFORMERS),
-  ...ATTACHMENT_BLOCK_CONTENT_TRANSFORMERS
-]
+const TEMPLATE_MARKDOWN_TRANSFORMERS = createMarkdownTransformers(
+  INLINE_AND_BLOCK_TRANSFORMERS,
+  "template"
+)
 
-const TEMPLATE_MARKDOWN_TRANSFORMERS = [
-  createTicketBlockTransformer(BLOCK_CONTENT_TRANSFORMERS, {
-    emptyAsReference: true
-  }),
-  ...BLOCK_CONTENT_TRANSFORMERS
-]
-
-const DEFINITION_MARKDOWN_TRANSFORMERS = [
-  HINT_TRANSFORMER,
-  ...BLOCK_CONTENT_TRANSFORMERS
-]
+const DEFINITION_MARKDOWN_TRANSFORMERS = createMarkdownTransformers(
+  INLINE_AND_BLOCK_TRANSFORMERS,
+  "definition"
+)
 
 export const transformersForMode = (
   mode: EditorBlocksMode | undefined,
@@ -210,7 +214,6 @@ const lexicalTheme = {
   text: {
     bold: "lexical-bold",
     italic: "lexical-italic",
-    code: "lexical-inline-code",
     strikethrough: "lexical-strike",
     underline: "lexical-underline"
   },
@@ -263,7 +266,7 @@ const CodeHighlightExtension = defineExtension({
   register: (editor: LexicalEditorType) => registerCodeHighlighting(editor)
 })
 
-export type SaveStatus = "idle" | "dirty" | "saving" | "saved"
+export type SaveStatus = "idle" | "dirty" | "saving" | "saved" | "failed"
 
 export interface AttachmentsTarget {
   readonly orgSlug: string
@@ -274,8 +277,8 @@ export interface AttachmentsTarget {
 
 const NO_LIBRARY = resolveLibrary(
   { org: EMPTY_LAYER, project: null },
-  { org: NO_TEMPLATE_DEFAULTS, project: null },
-  false
+  false,
+  EMPTY_LAYER
 )
 
 export interface LexicalEditorProps {
@@ -293,6 +296,7 @@ export interface LexicalEditorProps {
   attachments?: AttachmentsTarget
   blocks?: EditorBlocks
   editorRef?: RefObject<LexicalEditorType | null>
+  editable?: boolean
 }
 
 export function nextMarkdownChange(
@@ -336,7 +340,7 @@ export function createCoalescedSaveQueue<A>(options: {
           retainedFailure = true
         }
         options.onError(error)
-        if (notify) options.onStatus("dirty")
+        if (notify) options.onStatus("failed")
       })
       .finally(() => {
         inflight = false
@@ -386,6 +390,16 @@ function LinkBlurActivationPlugin() {
   return null
 }
 
+function EditablePlugin({ editable }: Readonly<{ editable: boolean }>) {
+  const [editor] = useLexicalComposerContext()
+
+  useLayoutEffect(() => {
+    editor.setEditable(editable)
+  }, [editor, editable])
+
+  return null
+}
+
 export function LexicalEditor({
   markdown,
   onChange,
@@ -400,7 +414,8 @@ export function LexicalEditor({
   size = "default",
   attachments,
   blocks,
-  editorRef
+  editorRef,
+  editable = true
 }: LexicalEditorProps) {
   const [transformers] = useState(() =>
     transformersForMode(blocks?.mode, attachments)
@@ -414,6 +429,7 @@ export function LexicalEditor({
       name: "@pp/body-editor",
       namespace: "ProjectBody",
       theme: lexicalTheme,
+      nodes: [ImageNode],
       register: (editor: LexicalEditorType) =>
         registerMarkdownPaste(editor, transformers),
       onError: (error) => {
@@ -507,16 +523,14 @@ export function LexicalEditor({
   useEffect(() => {
     const wrapper = wrapperRef.current
     if (!wrapper) return
-    const editable = wrapper.querySelector<HTMLElement>(
-      '[contenteditable="true"]'
-    )
-    if (!editable) return
-    editable.spellcheck = false
+    const content = wrapper.querySelector<HTMLElement>(".lexical-content")
+    if (!content) return
+    content.spellcheck = false
     const focusIn = () => {
-      editable.spellcheck = true
+      content.spellcheck = true
     }
     const focusOut = () => {
-      editable.spellcheck = false
+      content.spellcheck = false
     }
     wrapper.addEventListener("focusin", focusIn)
     wrapper.addEventListener("focusout", focusOut)
@@ -599,6 +613,7 @@ export function LexicalEditor({
               </span>
             </>
           ) : null}
+          <EditablePlugin editable={editable} />
           <FormattingToolbarPlugin />
           <LinkBlurActivationPlugin />
           <LinkFaviconsPlugin />

@@ -1,5 +1,6 @@
 import { useAtomSet } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
+import { isEpic } from "@pp/shared"
 import type { Member, Ticket } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import { memo, type ReactNode, use } from "react"
@@ -12,6 +13,7 @@ import { AssigneeField } from "@/features/tickets/components/ticket-list/Assigne
 import { UpdateFailureMarker } from "@/features/tickets/components/ticket-list/UpdateFailureMarker"
 import { TicketContextMenu } from "@/features/tickets/components/ticket-menu/TicketMenu"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
+import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { useProjectActor } from "@/hooks/useActor"
 
@@ -56,6 +58,7 @@ function BoardCardFields({
   const actor = useProjectActor()
   const editable = TicketPolicy.canChange(actor, { content: true })
   const canAssign = TicketPolicy.canChange(actor, { assignees: true })
+  const { shows } = useDisplayProperties()
   return (
     <DeferredDropdownMenus>
       <TicketContextMenu
@@ -67,11 +70,11 @@ function BoardCardFields({
         <div
           {...pointAt}
           data-board-card={ticket.id}
-          onPointerEnter={() => {
-            pointAt.onPointerEnter()
+          onPointerEnter={(event) => {
+            pointAt.onPointerEnter(event)
             preloadChildren()
           }}
-          className="relative isolate flex flex-col rounded-lg bg-surface-3 px-2.5 pt-2 pb-1 text-left shadow-surface-1 transition outline-none hover:bg-surface-4 hover:shadow-surface-1-hover has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover data-[popup-open]:bg-surface-4 data-[popup-open]:shadow-surface-1-hover [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20"
+          className="relative isolate flex flex-col rounded-lg bg-surface-3 px-2.5 pt-2 pb-1 text-left shadow-surface-1 transition outline-none not-in-data-keyboard-navigation:hover:bg-surface-4 not-in-data-keyboard-navigation:hover:shadow-surface-1-hover in-data-keyboard-navigation:duration-0 has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover has-[[data-row-link]:focus-visible]:bg-surface-4 has-[[data-row-link]:focus-visible]:shadow-surface-1-hover has-[[data-row-link]:focus-visible]:duration-0 data-[popup-open]:bg-surface-4 data-[popup-open]:shadow-surface-1-hover [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20"
         >
           <Link
             to="/orgs/$orgSlug/projects/$slug/tickets/$id"
@@ -86,26 +89,28 @@ function BoardCardFields({
             className="absolute inset-0 z-10 rounded-lg outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
           />
           <div className="flex min-w-0 flex-col gap-2.5 pb-1">
-            <div className="flex min-w-0 flex-col gap-0.5">
+            <div className="flex min-w-0 flex-col gap-1">
               <div className="flex h-5 min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
                 <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
                   <span className="shrink-0 font-mono tabular-nums">
                     {ticket.id}
                   </span>
-                  {ticket.parent && ticket.parent.type !== "epic" && (
+                  {ticket.parent && !isEpic(ticket.parent) && (
                     <ParentTicketCrumb parent={ticket.parent} />
                   )}
                 </span>
-                <span className="ml-auto flex shrink-0 items-center">
-                  <fieldset disabled={!canAssign} className="contents">
-                    <AssigneeField
-                      ticket={ticket}
-                      members={members}
-                      variant="card"
-                      onPatch={onPatch}
-                    />
-                  </fieldset>
-                </span>
+                {shows("assignee") && (
+                  <span className="ml-auto flex shrink-0 items-center">
+                    <fieldset disabled={!canAssign} className="contents">
+                      <AssigneeField
+                        ticket={ticket}
+                        members={members}
+                        variant="card"
+                        onPatch={onPatch}
+                      />
+                    </fieldset>
+                  </span>
+                )}
               </div>
               <div className="min-w-0 text-subtitle leading-snug font-semibold">
                 <span className="line-clamp-2">{ticket.title}</span>

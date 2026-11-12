@@ -37,12 +37,14 @@ import {
   type ActivityLookups
 } from "@/features/tickets/components/TicketActivityLine"
 import { TimelineTime } from "@/features/tickets/components/TimelineTime"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { actorKey } from "@/features/tickets/lib/activityGroups"
 import {
   timelineEvents,
   timelineRows,
   type TimelineComment,
-  type TimelineLine
+  type TimelineLine,
+  type TimelineOrder
 } from "@/features/tickets/lib/timeline"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -61,7 +63,9 @@ const SYSTEM_NAMES: Readonly<Record<ActivitySystemSource, () => string>> = {
 
 const AGENT_LOGOS = [
   { match: "claude", light: claudeLogo, dark: claudeLogo },
-  { match: "codex", light: codexLightLogo, dark: codexDarkLogo }
+  { match: "codex", light: codexLightLogo, dark: codexDarkLogo },
+  { match: "chatgpt", light: codexLightLogo, dark: codexDarkLogo },
+  { match: "openai", light: codexLightLogo, dark: codexDarkLogo }
 ] as const
 
 const agentLogo = (actor: TicketActivityActor | null) =>
@@ -79,16 +83,8 @@ function ActorMark({ actor }: Readonly<{ actor: TicketActivityActor | null }>) {
     return (
       <Avatar aria-hidden className="size-5">
         <AvatarFallback>
-          <img
-            src={logo.light}
-            alt=""
-            className="size-3 opacity-70 grayscale dark:hidden"
-          />
-          <img
-            src={logo.dark}
-            alt=""
-            className="hidden size-3 opacity-70 grayscale dark:block"
-          />
+          <img src={logo.light} alt="" className="size-3 dark:hidden" />
+          <img src={logo.dark} alt="" className="hidden size-3 dark:block" />
         </AvatarFallback>
       </Avatar>
     )
@@ -171,12 +167,12 @@ function EventRow({
       <span className="relative z-10 grid h-5 place-items-center">
         <ActorMark actor={actor} />
       </span>
-      <p className="min-w-0 text-body leading-5 wrap-anywhere text-muted-foreground">
+      <div className="min-w-0 text-body leading-5 wrap-anywhere text-muted-foreground">
         <ActorName actor={actor} />{" "}
         <ActivityLineView line={line} lookups={lookups} />
         <span aria-hidden> · </span>
         <TimelineTime at={at} />
-      </p>
+      </div>
     </li>
   )
 }
@@ -184,21 +180,24 @@ function EventRow({
 function RunRows({
   lines,
   fold,
+  order,
   lookups
 }: Readonly<{
   lines: ReadonlyArray<TimelineLine>
   fold: number
+  order: TimelineOrder
   lookups: ActivityLookups
 }>) {
   const [open, setOpen] = useState(false)
   const visible = open ? lines : lines.slice(fold)
-  const events = visible.map((line, index) => (
+  const ordered = order === "asc" ? visible : visible.toReversed()
+  const events = ordered.map((line, index) => (
     <EventRow
       key={line.key}
       line={line}
       lookups={lookups}
-      first={fold === 0 && index === 0}
-      last={index === visible.length - 1}
+      first={index === 0 && (order === "desc" || fold === 0)}
+      last={index === ordered.length - 1 && (order === "asc" || fold === 0)}
     />
   ))
   if (fold === 0) return events
@@ -206,52 +205,61 @@ function RunRows({
   const [lead = null, ...rest] = people(folded)
   const others = rest.length
   const newest = folded.at(-1)
-  return (
-    <>
-      <li
-        className={cn(
-          railClass(true, visible.length === 0),
-          "grid-cols-[auto_minmax(0,1fr)]"
-        )}
+  const empty = visible.length === 0
+  const summary = (
+    <li
+      className={cn(
+        order === "asc" ? railClass(true, empty) : railClass(empty, true),
+        "grid-cols-[auto_minmax(0,1fr)]"
+      )}
+    >
+      <AvatarGroup className="relative z-10 h-5 items-center -space-x-1.5">
+        <ActorMark actor={lead} />
+        {rest.slice(0, 3).map((actor) => (
+          <ActorMark key={personKey(actor)} actor={actor} />
+        ))}
+      </AvatarGroup>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className="group flex min-w-0 items-center gap-1 text-left text-body leading-5 text-muted-foreground"
       >
-        <AvatarGroup className="relative z-10 h-5 items-center -space-x-1.5">
-          <ActorMark actor={lead} />
-          {rest.slice(0, 3).map((actor) => (
-            <ActorMark key={personKey(actor)} actor={actor} />
-          ))}
-        </AvatarGroup>
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
-          className="group flex min-w-0 items-center gap-1 text-left text-body leading-5 text-muted-foreground"
-        >
-          <span className="min-w-0">
-            <ActorName actor={lead} />
-            {others > 0 &&
-              ` ${
-                others === 1
-                  ? m.tickets_activity_run_others_one()
-                  : m.tickets_activity_run_others_many({ count: others })
-              }`}{" "}
-            {m.tickets_activity_run_changes({ count: fold })}
-            {newest && (
-              <>
-                <span aria-hidden> · </span>
-                <TimelineTime at={newest.at} />
-              </>
-            )}
-          </span>
-          <ChevronRight
-            aria-hidden
-            className={cn(
-              "size-3.5 shrink-0 transition-transform group-hover:text-foreground",
-              open && "rotate-90"
-            )}
-          />
-        </button>
-      </li>
+        <span className="min-w-0">
+          <ActorName actor={lead} />
+          {others > 0 &&
+            ` ${
+              others === 1
+                ? m.tickets_activity_run_others_one()
+                : m.tickets_activity_run_others_many({ count: others })
+            }`}{" "}
+          {m.tickets_activity_run_changes({ count: fold })}
+          {newest && (
+            <>
+              <span aria-hidden> · </span>
+              <TimelineTime at={newest.at} />
+            </>
+          )}
+        </span>
+        <ChevronRight
+          aria-hidden
+          className={cn(
+            "size-3.5 shrink-0 transition-transform group-hover:text-foreground",
+            open && "rotate-90"
+          )}
+        />
+      </button>
+    </li>
+  )
+  return order === "asc" ? (
+    <>
+      {summary}
       {events}
+    </>
+  ) : (
+    <>
+      {events}
+      {summary}
     </>
   )
 }
@@ -259,10 +267,12 @@ function RunRows({
 export function TicketTimeline<C>({
   ticketId,
   comments,
+  order,
   renderComment
 }: Readonly<{
   ticketId: TicketId
   comments: ReadonlyArray<TimelineComment<C>>
+  order: TimelineOrder
   renderComment: (comment: TimelineComment<C>) => ReactNode
 }>) {
   const { orgSlug, slug } = useProjectRoute()
@@ -273,6 +283,7 @@ export function TicketTimeline<C>({
   )
   const tagsResult = useAtomValue(tagsFor(tagsRequest(orgSlug, slug)))
   const project = useProject()
+  const types = useTicketTypes(orgSlug, slug)
 
   if (AsyncResult.isInitial(result)) {
     return (
@@ -287,13 +298,14 @@ export function TicketTimeline<C>({
   const lookups: ActivityLookups = {
     members: project.members,
     statuses: AsyncResult.isSuccess(statusesResult) ? statusesResult.value : [],
-    tags: AsyncResult.isSuccess(tagsResult) ? tagsResult.value : []
+    tags: AsyncResult.isSuccess(tagsResult) ? tagsResult.value : [],
+    types
   }
   const { items, hasOlder } = AsyncResult.isSuccess(result)
     ? result.value
     : { items: [], hasOlder: false }
   const events = timelineEvents({ activity: items, comments, hasOlder })
-  const rows = timelineRows(events)
+  const rows = timelineRows(events, order)
 
   return (
     <div className="space-y-3">
@@ -308,6 +320,7 @@ export function TicketTimeline<C>({
               key={row.key}
               lines={row.lines}
               fold={row.fold}
+              order={order}
               lookups={lookups}
             />
           )

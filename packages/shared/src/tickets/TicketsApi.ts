@@ -51,7 +51,13 @@ import {
   OpenPrResult
 } from "../github/GitState"
 import { OrgPath, ProjectPath, TicketPath } from "../http/paths"
-import { BulkUpdateTicketsInput, BulkUpdateTicketsResult } from "./BulkTickets"
+import {
+  BulkArchiveTicketsInput,
+  BulkDeleteTicketsInput,
+  BulkTicketsResult,
+  BulkUpdateTicketsInput,
+  BulkUpdateTicketsResult
+} from "./BulkTickets"
 import { MovedTicketLocation, MoveTicketInput, MoveTicketResult } from "./move"
 import {
   ArchiveTicketInput,
@@ -171,6 +177,41 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       }
     )
       .annotate(RequiresProject, "membership")
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "bulkArchive",
+      "/orgs/:orgSlug/projects/:slug/tickets/bulk/archive",
+      {
+        params: ProjectPath,
+        payload: BulkArchiveTicketsInput,
+        success: BulkTicketsResult,
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Conflict,
+          Validation,
+          MentionInvalid
+        ]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["update"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
+      "bulkDelete",
+      "/orgs/:orgSlug/projects/:slug/tickets/bulk/delete",
+      {
+        params: ProjectPath,
+        payload: BulkDeleteTicketsInput,
+        success: BulkTicketsResult,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["delete"] })
       .middleware(ProjectAccess)
   )
   .add(
@@ -335,7 +376,14 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         query: TicketOrderKeyHttpQuery,
         payload: UpdateTicketInput,
         success: TicketUpdateResult,
-        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Validation,
+          MentionInvalid,
+          SprintCompletedImmutable
+        ]
       }
     )
       .annotate(RequiresProject, "membership")

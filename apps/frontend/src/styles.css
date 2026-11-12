@@ -335,6 +335,10 @@
 
 :root {
   --page-surface: color-mix(in srgb, var(--muted) 60%, var(--background));
+  --list-lead: 1.5rem;
+  --list-lead-gap: 0.75rem;
+  --list-icon: 1.5rem;
+  --list-row-gap: 0.25rem;
 }
 [data-page-banner] [data-page-header] {
   text-shadow:
@@ -425,6 +429,7 @@
    specificity than this rule and would silently clobber the spacing. */
 .prose-md > * + *,
 .prose-md .lexical-content > * + *,
+.prose-md blockquote > * + *,
 .prose-md .ticket-block > * + *,
 .prose-md .ticket-block-body > * + * {
   margin-top: 12px;
@@ -459,6 +464,19 @@
 }
 .block-rail-scope {
   --ticket-status-column: 1rem;
+}
+[data-description] {
+  --fs-body: 1rem;
+  --lh-body: 1.625rem;
+  --fs-subtitle: 1.125rem;
+  --lh-subtitle: 1.625rem;
+  --fs-title: 1.25rem;
+  --lh-title: 1.75rem;
+  --fs-display-compact: 1.625rem;
+  --lh-display-compact: 2.125rem;
+}
+[data-description] .lexical-content > :first-child {
+  padding-inline-end: 11rem;
 }
 /* One text edge for the ticket page: the title's (status column, its gap and
    the title's hover padding). Boxed fields (description, comments) sit their
@@ -508,7 +526,7 @@
   transition: background-color 150ms ease-out;
 }
 .prose-md .ticket-block:has(> .ticket-block-body > h1:first-child) {
-  --block-first-line: var(--lh-display);
+  --block-first-line: var(--lh-display-compact);
 }
 .prose-md .ticket-block:has(> .ticket-block-body > h3:first-child) {
   --block-first-line: var(--lh-subtitle);
@@ -543,7 +561,7 @@
   margin: 0;
 }
 .prose-md.block-gutter
-  .lexical-content
+  .lexical-content[contenteditable="true"]
   > .ticket-block:is([data-hovered], [data-active]) {
   background-color: var(--hover);
   transition-duration: 0ms;
@@ -622,9 +640,9 @@
 }
 .prose-md h1 {
   color: var(--foreground);
-  font-size: var(--fs-display);
+  font-size: var(--fs-display-compact);
   font-weight: 700;
-  line-height: var(--lh-display);
+  line-height: var(--lh-display-compact);
 }
 .prose-md h2 {
   color: var(--foreground);
@@ -668,7 +686,6 @@
 }
 .prose-md a:not([data-slot="button"], [data-tone]):hover,
 .prose-md .lexical-link:hover {
-  background-color: color-mix(in oklch, var(--foreground) 6%, transparent);
   text-decoration-color: var(--foreground);
 }
 .prose-md a:not([data-slot="button"], [data-tone]):focus-visible,
@@ -693,6 +710,13 @@
 [data-link-favicon="image"]::before {
   opacity: 1;
 }
+[data-link-favicon="image"][data-link-favicon-rendering="monochrome"]::before {
+  filter: brightness(0);
+}
+.dark
+  [data-link-favicon="image"][data-link-favicon-rendering="monochrome"]::before {
+  filter: brightness(0) invert(1);
+}
 [data-link-favicon-animate="false"]::before {
   transition: none;
 }
@@ -716,6 +740,8 @@
   box-shadow: inset 0 0 0 1px var(--prose-code-ring);
   padding: 0.12em 0.38em;
   border-radius: 5px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 .prose-md pre {
   font-family: var(--font-mono);
@@ -882,9 +908,9 @@ html.dark .prose-md .token.coord {
 }
 .prose-md .lexical-h1 {
   color: var(--foreground);
-  font-size: var(--fs-display);
+  font-size: var(--fs-display-compact);
   font-weight: 700;
-  line-height: var(--lh-display);
+  line-height: var(--lh-display-compact);
 }
 .prose-md .lexical-h2 {
   color: var(--foreground);
@@ -904,12 +930,9 @@ html.dark .prose-md .token.coord {
   color: var(--muted-foreground);
   font-style: italic;
 }
-.prose-md .lexical-li {
-  margin-top: 4px;
-}
 .prose-md .lexical-li-nested {
   list-style: none;
-  margin: 0;
+  margin: 4px 0 0;
 }
 .prose-md .lexical-li-nested::before,
 .prose-md .lexical-li-nested::after {
@@ -917,7 +940,7 @@ html.dark .prose-md .token.coord {
 }
 .prose-md .lexical-li-nested.lexical-li-checked,
 .prose-md .lexical-li-nested.lexical-li-unchecked {
-  padding-left: 0;
+  padding-left: 1.75em;
   cursor: auto;
 }
 .prose-md .lexical-checklist {
@@ -993,22 +1016,6 @@ html.dark .prose-md .token.coord {
 }
 .prose-md .lexical-underline {
   text-decoration: underline;
-}
-.prose-md .lexical-inline-code {
-  font-family: var(--font-mono);
-  font-size: 0.82em;
-  letter-spacing: 0;
-  color: var(--foreground);
-  background: var(--prose-code);
-  box-shadow: inset 0 0 0 1px var(--prose-code-ring);
-  padding: 0.12em 0.38em;
-  border-radius: 5px;
-}
-.prose-md code:has(> .lexical-inline-code) {
-  font-size: inherit;
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
 }
 .prose-md .lexical-code {
   display: block;
@@ -1111,7 +1118,6 @@ html.dark .prose-md .token.coord {
 }
 .lexical-table-scroll {
   overflow-x: auto;
-  margin-block: 1.25rem;
 }
 .prose-md :is(th, td) > p {
   margin: 0;

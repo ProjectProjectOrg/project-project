@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
+import { ReadFailure } from "@/components/shell/ReadFailure"
 import { Button } from "@/components/ui/button"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import { getStatusIcon } from "@/features/statuses/lib/statusIcons"
@@ -59,8 +60,9 @@ export function ProjectGroupedList(props: GroupedListProps) {
   return (
     <AsyncView
       result={result}
-      contained
-      reset={refresh}
+      onFailure={(failure) => (
+        <ReadFailure failure={failure} onRetry={refresh} />
+      )}
       onInitial={() => props.loading}
       onSuccess={({ value }) => (
         <GroupedSections
@@ -101,8 +103,9 @@ export function StatusGroupedList(props: GroupedListProps) {
   return (
     <AsyncView
       result={result}
-      contained
-      reset={refresh}
+      onFailure={(failure) => (
+        <ReadFailure failure={failure} onRetry={refresh} />
+      )}
       onInitial={() => props.loading}
       onSuccess={({ value }) => (
         <GroupedSections

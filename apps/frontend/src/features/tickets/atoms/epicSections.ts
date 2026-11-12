@@ -30,6 +30,7 @@ import {
   placeholderRow,
   toRow,
   withCreatedKeys,
+  withoutEpics,
   viewQuery,
   type QueryWithView,
   type QuickCreateInput,
@@ -37,6 +38,8 @@ import {
 } from "@/features/tickets/lib/ticketRows"
 
 import {
+  bulkTicketMove,
+  bulkTicketUpdate,
   coalescingTicketUpdate,
   createdKeys,
   loadNextPage,
@@ -94,8 +97,7 @@ const pageQuery = (
   query("tickets", "list", {
     params: req.params,
     query: {
-      ...req.query,
-      type: req.query.type?.filter((type) => type !== "epic"),
+      ...withoutEpics(req.query),
       section: req.by === "epic" ? { parent: [key] } : { ticketParent: [key] },
       cursor
     },
@@ -224,6 +226,38 @@ export const updateEpicSectionsTicket = Atom.family(
 
 export const epicSectionsTicketUpdates = bindRowMutation(
   updateEpicSectionsTicket
+)
+
+export const bulkUpdateEpicSectionsTickets = Atom.family(
+  (req: EpicSectionsRequest) =>
+    bulkTicketUpdate(epicSections(req), {
+      name: "bulkUpdateEpicSectionsTickets",
+      path: req.params,
+      predict: (value, id, edit) =>
+        patchEpicSectionsRow(
+          value,
+          id,
+          edit,
+          req.query,
+          DateTime.toDate(DateTime.nowUnsafe())
+        )
+    })
+)
+
+export const bulkMoveEpicSectionsTickets = Atom.family(
+  (req: EpicSectionsRequest) =>
+    bulkTicketMove(epicSections(req), {
+      name: "bulkMoveEpicSectionsTickets",
+      path: req.params,
+      predict: (value, id, edit) =>
+        patchEpicSectionsRow(
+          value,
+          id,
+          edit,
+          req.query,
+          DateTime.toDate(DateTime.nowUnsafe())
+        )
+    })
 )
 
 const insertCreated = (

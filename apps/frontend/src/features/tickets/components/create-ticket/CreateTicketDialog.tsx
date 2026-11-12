@@ -6,7 +6,7 @@ import {
   type TicketPriority,
   type TicketId,
   type TicketStatus,
-  type TicketType
+  isEpicType
 } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
@@ -26,13 +26,14 @@ import {
 
 import { fireMutation } from "@/api/viewMutation"
 import { Button } from "@/components/ui/button"
+import { Composer } from "@/components/ui/composer"
 import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogFooter,
   DialogTitle
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
@@ -59,13 +60,17 @@ import {
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import { AssigneeSelect } from "@/features/tickets/components/ticket-list/AssigneeField"
+import { CreatorTypeSelect } from "@/features/tickets/components/ticket-list/CreatorMenus"
 import { EstimateBadgeTrigger } from "@/features/tickets/components/ticket-list/EstimateField"
 import { PrioritySelect } from "@/features/tickets/components/ticket-list/PriorityField"
 import { SprintSelect } from "@/features/tickets/components/ticket-list/SprintField"
+import { StartsWithLine } from "@/features/tickets/components/ticket-list/StartsWithLine"
 import { StatusSelect } from "@/features/tickets/components/ticket-list/StatusField"
-import { TypeSelect } from "@/features/tickets/components/ticket-list/TypeField"
-import { useTemplateChoice } from "@/features/tickets/components/ticket-list/useTemplateChoice"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
+import {
+  useCreatorType,
+  type CreatorType
+} from "@/features/tickets/hooks/useCreatorType"
 import { useRouteBoundDialog } from "@/hooks/useRouteBoundDialog"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
@@ -122,8 +127,12 @@ function CreateTicketForm({
   useEffect(() => titleInput.current?.focus(), [])
   const [title, setTitle] = useState(request.title ?? "")
   const [description, setDescription] = useState("")
-  const [type, setType] = useState<TicketType>("other")
-  const [priority, setPriority] = useState<TicketPriority>("med")
+  const creatorType = useCreatorType({
+    orgSlug,
+    slug: slug ?? "",
+    epics: related?.kind !== "subTicket"
+  })
+  const [priority, setPriority] = useState<TicketPriority | null>(null)
   const [status, setStatus] = useState<TicketStatus | null>(null)
   const [assignees, setAssignees] = useState<ReadonlyArray<string>>([])
   const [estimate, setEstimate] = useState<Estimate | null>(null)
@@ -132,7 +141,6 @@ function CreateTicketForm({
   const [failure, setFailure] = useState<string | null>(null)
   const [created, setCreated] = useState<TicketId | null>(null)
   const [pending, setPending] = useState(false)
-  const templateChoice = useTemplateChoice(orgSlug, slug ?? "", type)
   const create = useAtomSet(createTicketInProject, { mode: "promiseExit" })
   const trimmed = title.trim()
   const body = description.trim()
@@ -144,15 +152,16 @@ function CreateTicketForm({
       slug,
       payload: {
         title: trimmed,
-        type,
-        priority,
+        priority: priority ?? undefined,
         status: status ?? undefined,
         assignees: assignees.length === 0 ? undefined : assignees,
         estimate: estimate ?? undefined,
-        ...(body === "" ? templateChoice.payload : { body }),
+        ...creatorType.payload,
+        body: body === "" ? undefined : body,
         ...relatedPayload(related)
       }
     })
+    creatorType.settle(exit)
     if (Exit.isSuccess(exit)) return exit.value.id
     setFailure(errorMessage(Cause.squash(exit.cause)))
     return null
@@ -181,7 +190,7 @@ function CreateTicketForm({
         return
       }
     }
-    if (sprint !== null && type !== "epic") {
+    if (sprint !== null && !isEpicType(creatorType.type)) {
       assignTicketToSprint(
         registry,
         sprintListRequest(orgSlug, slug),
@@ -206,12 +215,14 @@ function CreateTicketForm({
 
   return (
     <form onSubmit={(event) => void submit(event)} className="flex flex-col">
-      <div className="flex items-center gap-2 pt-4 pr-4 pl-1.5">
+      <Composer.Header>
         <ProjectSelect
           projects={projects}
           value={slug}
           onChange={(next) => {
             setPicked(next)
+            creatorType.reset()
+            setPriority(null)
             setCreated(null)
             setStatus(null)
             setAssignees([])
@@ -230,25 +241,24 @@ function CreateTicketForm({
             </TicketIdText>
           </span>
         )}
-      </div>
-      <input
-        aria-label={m.tickets_create_title_aria_label()}
-        aria-required
-        placeholder={m.tickets_create_dialog_title_placeholder()}
-        value={title}
-        maxLength={200}
-        onKeyDown={onSubmitShortcut}
-        onChange={(event) => {
-          setTitle(event.target.value)
-          setFailure(null)
-        }}
-        className="mt-3 w-full bg-transparent px-4 text-title font-semibold outline-none placeholder:text-muted-foreground"
-        ref={titleInput}
-      />
-      <div
-        onKeyDownCapture={onSubmitShortcut}
-        className="mt-1 max-h-[50dvh] overflow-y-auto px-4"
-      >
+      </Composer.Header>
+      <Composer.Title>
+        <Input
+          variant="composer-title"
+          aria-label={m.tickets_create_title_aria_label()}
+          aria-required
+          placeholder={m.tickets_create_dialog_title_placeholder()}
+          value={title}
+          maxLength={200}
+          onKeyDown={onSubmitShortcut}
+          onChange={(event) => {
+            setTitle(event.target.value)
+            setFailure(null)
+          }}
+          ref={titleInput}
+        />
+      </Composer.Title>
+      <Composer.Body onKeyDownCapture={onSubmitShortcut}>
         <MentionScopeProvider scope={{ orgSlug, slug: slug ?? "" }}>
           <LexicalEditor
             markdown=""
@@ -256,11 +266,9 @@ function CreateTicketForm({
             placeholder={m.tickets_create_dialog_description_placeholder()}
           />
         </MentionScopeProvider>
-      </div>
-      <div className="flex flex-wrap items-center gap-1.5 pt-2 pr-4 pl-1.5">
-        {slug === null ? (
-          <TypeSelect value={type} onChange={setType} />
-        ) : (
+      </Composer.Body>
+      <Composer.Chips>
+        {slug === null ? null : (
           <ProjectScope orgSlug={orgSlug} slug={slug}>
             <CreateTicketChips
               key={slug}
@@ -268,9 +276,8 @@ function CreateTicketForm({
               slug={slug}
               status={status}
               onStatus={setStatus}
-              type={type}
-              onType={setType}
-              priority={priority}
+              creatorType={creatorType}
+              priority={priority ?? creatorType.prediction?.priority ?? "med"}
               onPriority={setPriority}
               assignees={assignees}
               onAssignees={setAssignees}
@@ -281,16 +288,12 @@ function CreateTicketForm({
             />
           </ProjectScope>
         )}
-      </div>
-      {failure !== null && (
-        <p
-          role="alert"
-          className="mx-4 mt-3 rounded-lg bg-destructive-light px-3 py-2 text-body text-destructive"
-        >
-          {failure}
-        </p>
+      </Composer.Chips>
+      {body === "" && (
+        <StartsWithLine start={creatorType.start} className="px-4 pt-2" />
       )}
-      <DialogFooter className="border-t border-border/60 px-4 py-3">
+      <Composer.Error>{failure}</Composer.Error>
+      <Composer.Footer>
         <DialogClose
           render={<Button type="button" variant="ghost" size="sm" />}
         >
@@ -299,7 +302,7 @@ function CreateTicketForm({
         <Button type="submit" size="sm" disabled={!canSubmit}>
           {m.tickets_create_dialog_submit()}
         </Button>
-      </DialogFooter>
+      </Composer.Footer>
     </form>
   )
 }
@@ -309,8 +312,7 @@ function CreateTicketChips({
   slug,
   status,
   onStatus,
-  type,
-  onType,
+  creatorType,
   priority,
   onPriority,
   assignees,
@@ -324,8 +326,7 @@ function CreateTicketChips({
   slug: string
   status: TicketStatus | null
   onStatus: (status: TicketStatus) => void
-  type: TicketType
-  onType: (type: TicketType) => void
+  creatorType: CreatorType
   priority: TicketPriority
   onPriority: (priority: TicketPriority) => void
   assignees: ReadonlyArray<string>
@@ -346,7 +347,14 @@ function CreateTicketChips({
         onChange={onStatus}
         showLabel
       />
-      <TypeSelect value={type} onChange={onType} />
+      <CreatorTypeSelect
+        orgSlug={orgSlug}
+        slug={slug}
+        type={creatorType.type}
+        lastUsed={creatorType.lastUsed}
+        epics={creatorType.epics}
+        onTypeChange={creatorType.pick}
+      />
       <PrioritySelect value={priority} onChange={onPriority} showLabel />
       <AssigneeSelect
         value={assignees}
@@ -359,7 +367,9 @@ function CreateTicketChips({
         mode={estimation}
         onPatch={(patch) => onEstimate(patch.estimate ?? null)}
       />
-      {type !== "epic" && <SprintSelect value={sprint} onChange={onSprint} />}
+      {!isEpicType(creatorType.type) && (
+        <SprintSelect value={sprint} onChange={onSprint} />
+      )}
     </>
   )
 }

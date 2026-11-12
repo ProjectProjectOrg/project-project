@@ -2,8 +2,10 @@ import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type {
   JiraMigrationDetail,
   JiraMigrationRequirements,
-  JiraMigrationScanSummary
+  JiraMigrationScanSummary,
+  TypeDefinition
 } from "@pp/shared"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
@@ -28,6 +30,7 @@ import {
 } from "@/features/jira/hooks/useJiraImportLifecycle"
 import { useJiraMigrationPolling } from "@/features/jira/hooks/useJiraMigrationPolling"
 import { jiraProgressRatio } from "@/features/jira/lib/imports"
+import { jiraTypeOptions } from "@/features/jira/lib/issueTypes"
 import { jiraImportLanding, jiraImportTitle } from "@/features/jira/lib/landing"
 import {
   jiraImportPhases,
@@ -47,6 +50,10 @@ import {
   jiraImportStage,
   type JiraImportScreen
 } from "@/features/jira/lib/stages"
+import {
+  orgLibraryFor,
+  orgLibraryRequest
+} from "@/features/library/atoms/library"
 import { m } from "@/paraglide/messages"
 
 import { JiraImportShell } from "./JiraImportShell"
@@ -61,12 +68,19 @@ export function JiraImportPage({
   migrationId
 }: Readonly<{ orgSlug: string; migrationId: string }>) {
   const atom = jiraMigration(jiraMigrationRequest(orgSlug, migrationId))
+  const library = orgLibraryFor(orgLibraryRequest(orgSlug))
   const result = useAtomValue(atom)
-  const refresh = useAtomRefresh(atom)
+  const libraryResult = useAtomValue(library)
+  const refreshMigration = useAtomRefresh(atom)
+  const refreshLibrary = useAtomRefresh(library)
+  const refresh = () => {
+    refreshMigration()
+    refreshLibrary()
+  }
   const [generation, setGeneration] = useState(0)
   return (
     <AsyncView
-      result={result}
+      result={AsyncResult.all([result, libraryResult])}
       reset={refresh}
       onInitial={() => (
         <JiraImportShell
@@ -78,14 +92,15 @@ export function JiraImportPage({
           <StepSkeleton />
         </JiraImportShell>
       )}
-      onSuccess={({ value }) => (
+      onSuccess={({ value: [detail, orgLibrary] }) => (
         <JiraImportView
-          key={`${value.id}:${value.requirements === null}:${generation}`}
+          key={`${detail.id}:${detail.requirements === null}:${generation}`}
           orgSlug={orgSlug}
-          detail={value}
+          detail={detail}
+          types={jiraTypeOptions(orgLibrary.types)}
           onReload={() => {
             setGeneration((current) => current + 1)
-            refresh()
+            refreshMigration()
           }}
         />
       )}
@@ -96,17 +111,19 @@ export function JiraImportPage({
 function JiraImportView({
   orgSlug,
   detail,
+  types,
   onReload
 }: Readonly<{
   orgSlug: string
   detail: JiraMigrationDetail
+  types: ReadonlyArray<TypeDefinition>
   onReload: () => void
 }>) {
   useJiraMigrationPolling(orgSlug, detail.id, detail.status)
   const navigation = useImportStep(!isConfiguringJiraImport(detail.status))
   const lifecycle = useJiraImportLifecycle(orgSlug, detail, navigation.clear)
   const draft = useJiraImportDraft(orgSlug, detail.id)
-  const [landing] = useState(() => jiraImportLanding(detail))
+  const [landing] = useState(() => jiraImportLanding(detail, types))
   const requirements = detail.requirements
   const summary = detail.scanSummary
   const hasScan = requirements !== null && summary !== null
@@ -162,6 +179,7 @@ function JiraImportView({
     <JiraImportFormScope
       requirements={requirements}
       configuration={detail.configuration}
+      types={types}
       onStart={lifecycle.run}
       onInvalid={() => navigation.goTo("setup")}
     >
@@ -172,6 +190,7 @@ function JiraImportView({
             detail={detail}
             requirements={requirements}
             summary={summary}
+            types={types}
             screen={screen}
             form={form}
             lifecycle={lifecycle}
@@ -190,6 +209,7 @@ function ConfiguredScreen({
   detail,
   requirements,
   summary,
+  types,
   screen,
   form,
   lifecycle,
@@ -201,6 +221,7 @@ function ConfiguredScreen({
   detail: JiraMigrationDetail
   requirements: JiraMigrationRequirements
   summary: JiraMigrationScanSummary
+  types: ReadonlyArray<TypeDefinition>
   screen: JiraImportScreen
   form: JiraImportForm
   lifecycle: JiraImportLifecycle
@@ -229,6 +250,7 @@ function ConfiguredScreen({
           orgSlug={orgSlug}
           detail={detail}
           requirements={requirements}
+          types={types}
           draft={draft}
           focusSection={navigation.section}
           onFocusSection={navigation.openSection}

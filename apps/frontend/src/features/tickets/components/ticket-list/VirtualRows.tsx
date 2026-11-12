@@ -19,11 +19,13 @@ export function VirtualRows({
   rowKeys,
   className,
   activeIndex,
+  reveal,
   children
 }: {
   rowKeys: ReadonlyArray<string>
   className: string
   activeIndex: number
+  reveal: Readonly<{ index: number }> | null
   children: (index: number) => ReactNode
 }) {
   "use no memo"
@@ -32,6 +34,8 @@ export function VirtualRows({
   const [scrollMargin, setScrollMargin] = useState<number | null>(null)
   const [nearViewport, setNearViewport] = useState(false)
   const [focusedIndex, setFocusedIndex] = useState(-1)
+  const revealed = useRef<Readonly<{ index: number }> | null>(null)
+  const revealIndex = reveal?.index ?? -1
   const getScrollElement = useCallback(
     () => listRef.current?.closest<HTMLElement>("[data-scroll-root]") ?? null,
     []
@@ -53,12 +57,12 @@ export function VirtualRows({
         const indexes = new Set(
           nearViewport ? defaultRangeExtractor(range) : []
         )
-        for (const index of [focusedIndex, activeIndex]) {
+        for (const index of [focusedIndex, activeIndex, revealIndex]) {
           if (index >= 0 && index < rowKeys.length) indexes.add(index)
         }
         return [...indexes].toSorted((a, b) => a - b)
       },
-      [focusedIndex, activeIndex, rowKeys.length, nearViewport]
+      [focusedIndex, activeIndex, revealIndex, rowKeys.length, nearViewport]
     )
   })
 
@@ -98,6 +102,17 @@ export function VirtualRows({
       root.removeEventListener("scroll", updateNearViewport)
     }
   }, [getScrollElement])
+
+  useLayoutEffect(() => {
+    if (reveal === null || reveal === revealed.current) return
+    const link = listRef.current?.querySelector<HTMLElement>(
+      `:scope > [aria-posinset="${reveal.index + 1}"] [data-row-link]`
+    )
+    if (!link) return
+    revealed.current = reveal
+    link.focus({ preventScroll: true })
+    link.scrollIntoView({ block: "nearest" })
+  })
 
   const rows = virtualizer.getVirtualItems()
   return (

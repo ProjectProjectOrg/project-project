@@ -47,22 +47,38 @@ describe("generated commands", () => {
     })
   })
 
+  it("keep list flags for fields that also accept { add, remove }", () => {
+    const kinds = Object.fromEntries(
+      entry("update_ticket").fields.map((field) => [field.name, field.kind])
+    )
+    expect(kinds).toMatchObject({ tags: "strings", assignees: "strings" })
+  })
+
   it("offer enum values as choices and describe each flag", () => {
     const fields = Object.fromEntries(
       entry("list_tickets").fields.map((field) => [field.name, field])
     )
-    expect(fields["type"]?.choices).toEqual([
-      "feat",
-      "bug",
-      "chore",
-      "other",
-      "epic"
-    ])
+    expect(fields["type"]?.choices).toBeUndefined()
     expect(fields["estimate"]?.choices).toContain("stale")
     expect(fields["assignee"]?.choices).toBeUndefined()
     expect(fields["sort"]?.description).toContain("`key`")
     for (const field of entry("create_ticket").fields) {
       expect(field.description, field.name).toBeDefined()
+    }
+  })
+
+  it("list a project's types and take any type key, with no template flag", () => {
+    expect(entry("list_types").command).toEqual(["types", "list"])
+    for (const name of ["create_ticket", "update_ticket"]) {
+      const fields = Object.fromEntries(
+        entry(name).fields.map((field) => [field.name, field])
+      )
+      expect(fields["template"], name).toBeUndefined()
+      expect(fields["type"], name).toMatchObject({
+        kind: "string",
+        nullable: true,
+        choices: undefined
+      })
     }
   })
 
@@ -129,12 +145,13 @@ describe("generated commands", () => {
         {
           id: "T-1",
           parent: Option.some("null"),
+          type: Option.some("null"),
           tags: [""],
           title: Option.some("null")
         },
         { orgSlug: Option.some("acme"), projectSlug: Option.some("web") }
       )
-      expect(input).toMatchObject({ parent: null, tags: [] })
+      expect(input).toMatchObject({ parent: null, type: null, tags: [] })
       expect(input).toMatchObject({ title: "null" })
     }).pipe(Effect.provide(BunServices.layer))
   )

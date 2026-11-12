@@ -4,6 +4,7 @@ import { CircleDot, Columns3, FolderKanban, Rows3 } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
+import { ReadFailure } from "@/components/shell/ReadFailure"
 import {
   SegmentedTabs,
   type SegmentedItem
@@ -26,6 +27,7 @@ import {
   type MyTicketsRequest
 } from "@/features/tickets/atoms/myTickets"
 import { GroupingMenu } from "@/features/tickets/components/ticket-list/GroupingMenu"
+import { useClearSelectionWhen } from "@/features/tickets/components/ticket-list/TicketSelection"
 import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
 import {
   createLocalStorageCodec,
@@ -82,6 +84,7 @@ export function MyTicketsSection({
     groupingCodec,
     "project"
   )
+  useClearSelectionWhen(grouping)
   return (
     <section className="flex flex-col gap-3">
       <div className="flex h-9 items-center justify-between gap-3">
@@ -146,8 +149,9 @@ function FlatTicketList({ req }: Readonly<{ req: MyTicketsRequest }>) {
   return (
     <AsyncView
       result={result}
-      contained
-      reset={refresh}
+      onFailure={(failure) => (
+        <ReadFailure failure={failure} onRetry={refresh} />
+      )}
       onInitial={() => <RowsSkeleton count={4} />}
       onSuccess={({ value }) =>
         value.tickets.length === 0 ? (
@@ -196,8 +200,9 @@ function MyTicketsBoard({ orgSlug }: Readonly<{ orgSlug: string }>) {
   return (
     <AsyncView
       result={result}
-      contained
-      reset={refresh}
+      onFailure={(failure) => (
+        <ReadFailure failure={failure} onRetry={refresh} />
+      )}
       onInitial={() => <BoardSkeleton />}
       onSuccess={({ value }) =>
         value.columns.every((column) => column.items.length === 0) ? (
@@ -235,8 +240,9 @@ export function RecentTicketsSection({
       </h2>
       <AsyncView
         result={result}
-        contained
-        reset={refresh}
+        onFailure={(failure) => (
+          <ReadFailure failure={failure} onRetry={refresh} />
+        )}
         onInitial={() => <RowsSkeleton count={3} />}
         onSuccess={({ value }) =>
           value.tickets.length === 0 ? (

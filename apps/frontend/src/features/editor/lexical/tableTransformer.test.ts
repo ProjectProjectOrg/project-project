@@ -2,6 +2,7 @@ import { LinkNode } from "@lexical/link"
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
+  INLINE_CODE,
   TRANSFORMERS
 } from "@lexical/markdown"
 import {
@@ -13,14 +14,22 @@ import {
 import { $getRoot, createEditor } from "lexical"
 import { expect, it } from "vitest"
 
-import { createTableTransformer } from "./tableTransformer"
+import {
+  commonMarkTransformers,
+  INLINE_MARKDOWN_TRANSFORMER
+} from "./commonMarkTransformer"
+import { TABLE_TRANSFORMER } from "./tableTransformer"
 
-const transformers = [
-  createTableTransformer(TRANSFORMERS),
+const exports = [
+  TABLE_TRANSFORMER,
+  INLINE_MARKDOWN_TRANSFORMER,
   ...TRANSFORMERS.filter(
-    (t) => t.type === "text-format" || t.type === "text-match"
+    (t) =>
+      t !== INLINE_CODE && (t.type === "text-format" || t.type === "text-match")
   )
 ]
+
+const transformers = commonMarkTransformers(exports)
 
 it("imports editable cells and preserves a GFM table through export", () => {
   const editor = createEditor({
@@ -130,7 +139,7 @@ it.each([
   String.raw`| \`foo\` | kept |`.replace(/\\`/g, "\\`"),
   "| ``a`b`` | kept |"
 ])(
-  "does not interpret escaped or unsupported code delimiters during repeated saves: %s",
+  "does not interpret escaped or multi-backtick code delimiters during repeated saves: %s",
   (row) => {
     const editor = createEditor({
       nodes: [TableNode, TableRowNode, TableCellNode, LinkNode],

@@ -95,6 +95,7 @@ function StatusLink({
   return (
     <a
       href={href}
+      draggable={false}
       target="_blank"
       rel="noreferrer"
       className={cn("inline-flex items-center gap-0.5", textLinkClass)}

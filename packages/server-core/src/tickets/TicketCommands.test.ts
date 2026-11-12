@@ -5,13 +5,12 @@ import { Slug } from "@pp/shared"
 import {
   BlockDraft,
   BUILTIN_BLOCKS,
-  BUILTIN_TEMPLATE_DEFAULTS,
-  BUILTIN_TEMPLATES,
   Conflict,
   formatMentionHref,
   ProjectKey,
-  TemplateDraft,
-  TemplateKey,
+  TypeDraft,
+  TypeKey,
+  TagName,
   TicketStatus,
   type User,
   UserId,
@@ -83,7 +82,7 @@ const FakeProjects = Layer.mergeAll(
 )
 
 const FakeGroups = Layer.succeed(Groups.Groups, {
-  list: () => unexpected("Groups.list"),
+  list: () => Effect.succeed([]),
   listPaged: () => unexpected("Groups.listPaged"),
   listSprintsPaged: () => unexpected("Groups.listSprintsPaged"),
   get: () => unexpected("Groups.get"),
@@ -92,7 +91,6 @@ const FakeGroups = Layer.succeed(Groups.Groups, {
   updateTickets: () => unexpected("Groups.updateTickets"),
   addTickets: () => unexpected("Groups.addTickets"),
   removeTickets: () => unexpected("Groups.removeTickets"),
-  updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
   complete: () => unexpected("Groups.complete"),
   remove: () => unexpected("Groups.remove"),
   ensureSprintAssignable: () => Effect.void,
@@ -160,6 +158,8 @@ const FakeTicketIndex = Layer.sync(TicketIndex.TicketIndex, () => {
     querySections: () => Effect.succeed(new Map()),
     neighbors: () => Effect.succeed(null),
     orderKeyFor: () => Effect.succeed(null),
+    topRank: () => Effect.succeed(null),
+    rankGap: () => Effect.succeed(null),
     count: () => Effect.succeed({ total: 0, byStatus: {} }),
     listIds: () => Effect.succeed([]),
     existingIds: () => Effect.succeed(new Set()),
@@ -215,7 +215,7 @@ const FakeFigmaLinks = Layer.succeed(FigmaLinks.FigmaLinks, {
 
 const FakeDb = databaseLayer(({ sql }) =>
   Effect.sync(() => {
-    if (sql.includes('from "project_tag"')) return [["frontend"]]
+    if (sql.includes('from "project_tag"')) return [["frontend"], ["backend"]]
     if (sql.includes('from "project_index"')) return [["project-1"]]
     if (sql.includes('from "project_status"'))
       return [["todo"], ["in_progress"], ["done"]]
@@ -255,7 +255,6 @@ const TestLayer = Layer.unwrap(
                   invitePeopleDismissedAt: null,
                   connectGithubDismissedAt: null
                 },
-                templateDefaults: {},
                 body: ""
               })
           })
@@ -404,6 +403,43 @@ it.effect("archiving records the trimmed reason on the activity entry", () =>
   }).pipe(Effect.provide(TestLayer))
 )
 
+it.effect("bulk archive skips tickets that are already archived", () =>
+  Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    const first = yield* tickets.quickCreate({ title: "first" })
+    const second = yield* tickets.quickCreate({ title: "second" })
+    yield* tickets.archive(first.id)
+
+    const result = yield* tickets.bulkArchive({
+      tickets: [first.id, second.id]
+    })
+
+    expect(result.tickets).toEqual([second.id])
+    const stored = yield* (yield* TicketDocs.TicketDocs).read(
+      "org",
+      "p",
+      second.id
+    )
+    expect(stored.archivedAt).not.toBeNull()
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("bulk delete ignores tickets that are already gone", () =>
+  Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    const first = yield* tickets.quickCreate({ title: "first" })
+    const second = yield* tickets.quickCreate({ title: "second" })
+    yield* tickets.remove(first.id)
+
+    yield* tickets.bulkDelete({ tickets: [first.id, second.id] })
+
+    const read = yield* Effect.exit(
+      (yield* TicketDocs.TicketDocs).read("org", "p", second.id)
+    )
+    expect(read._tag).toBe("Failure")
+  }).pipe(Effect.provide(TestLayer))
+)
+
 it.effect("archiving with a blank reason records no reason", () =>
   Effect.gen(function* () {
     recordedActivity.length = 0
@@ -466,8 +502,8 @@ it.effect(
     }).pipe(Effect.provide(TestLayer))
 )
 
-const templateKey = Schema.decodeUnknownSync(TemplateKey)
-const decodeTemplateDraft = Schema.decodeUnknownSync(TemplateDraft)
+const typeKey = Schema.decodeUnknownSync(TypeKey)
+const decodeTypeDraft = Schema.decodeUnknownSync(TypeDraft)
 const decodeBlockDraft = Schema.decodeUnknownSync(BlockDraft)
 
 const SYNCED_DONE = [
@@ -481,14 +517,13 @@ const SYNCED_DONE = [
   "</block>"
 ].join("\n")
 
-const projectTemplate = (overrides: Readonly<Record<string, unknown>>) =>
-  decodeTemplateDraft({
+const projectType = (overrides: Readonly<Record<string, unknown>>) =>
+  decodeTypeDraft({
     key: "incident-lite",
     name: "Incident lite",
     icon: "Siren",
     color: null,
     description: "",
-    type: "bug",
     priority: "high",
     tags: ["frontend", "ghost"],
     body: '<block type="context">\n\n</block>',
@@ -517,154 +552,283 @@ const adoptAtOrg = (keys: ReadonlyArray<string>) =>
       keys.includes(draft.key)
     ))
       yield* docs.writeBlock("org", null, block)
-    for (const template of BUILTIN_TEMPLATES.filter((draft) =>
-      keys.includes(draft.key)
-    ))
-      yield* docs.writeTemplate("org", null, template)
-    yield* docs.writeOrgDefaults(
-      "org",
-      Object.fromEntries(
-        Object.entries(BUILTIN_TEMPLATE_DEFAULTS).filter(
-          ([, key]) => key !== null && keys.includes(key)
-        )
-      )
-    )
   })
 
-const BUG_REPORT_KIT = [
-  "bug-report",
-  "expected-vs-actual",
-  "steps-to-reproduce",
-  "environment",
-  "definition-of-done"
-]
+it.effect(
+  "quickCreate with a type writes its starting description, hints stripped",
+  () =>
+    Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      const queries = yield* TicketQueries.TicketQueries
+      const created = yield* tickets.quickCreate({
+        title: "login loops",
+        type: typeKey("bug")
+      })
+      expect(created.type).toBe("bug")
+      expect(created.priority).toBe("med")
+      expect(created.body).toContain('<block type="expected-vs-actual">')
+      expect(created.body).toContain('<block type="definition-of-done" sync>')
+      expect(created.body).toContain("**Expected:**")
+      expect(created.body).not.toContain("{{")
 
-it.effect("quickCreate with a template writes its expanded body and type", () =>
-  Effect.gen(function* () {
-    yield* adoptAtOrg(BUG_REPORT_KIT)
-    const tickets = yield* TicketCommands.TicketCommands
-    const queries = yield* TicketQueries.TicketQueries
-    const created = yield* tickets.quickCreate({
-      title: "login loops",
-      template: templateKey("bug-report")
-    })
-    expect(created.type).toBe("bug")
-    expect(created.priority).toBe("med")
-    expect(created.body).toContain('<block type="expected-vs-actual">')
-    expect(created.body).toContain('<block type="definition-of-done" sync>')
-    expect(created.body).toContain("**Expected:**")
-    expect(created.body).not.toContain("{{")
-
-    const fetched = yield* queries.get(created.id)
-    expect(fetched.body).toBe(created.body)
-  }).pipe(Effect.provide(TestLayer))
+      const fetched = yield* queries.get(created.id)
+      expect(fetched.body).toBe(created.body)
+    }).pipe(Effect.provide(TestLayer))
 )
 
-it.effect("quickCreate keeps an explicit type over the template's", () =>
-  Effect.gen(function* () {
-    yield* adoptAtOrg(BUG_REPORT_KIT)
-    const tickets = yield* TicketCommands.TicketCommands
-    const created = yield* tickets.quickCreate({
-      title: "typed",
-      type: "chore",
-      template: templateKey("bug-report")
-    })
-    expect(created.type).toBe("chore")
-    expect(created.body).toContain('<block type="expected-vs-actual">')
-  }).pipe(Effect.provide(TestLayer))
-)
-
-it.effect("no template or a null template creates a blank ticket", () =>
+it.effect("a ticket without a type is created blank and reads as null", () =>
   Effect.gen(function* () {
     const tickets = yield* TicketCommands.TicketCommands
-    const omitted = yield* tickets.quickCreate({
-      title: "bug without template",
-      type: "bug"
-    })
-    const blank = yield* tickets.create({
-      title: "explicit blank",
-      type: "feat",
-      template: null
-    })
+    const omitted = yield* tickets.quickCreate({ title: "no type" })
+    const explicit = yield* tickets.create({ title: "no type", type: null })
+    expect(omitted.type).toBeNull()
     expect(omitted.body).toBe("")
-    expect(blank.body).toBe("")
-    expect(blank.type).toBe("feat")
+    expect(explicit.type).toBeNull()
+    expect(explicit.body).toBe("")
+    expect(explicit.priority).toBe("med")
   }).pipe(Effect.provide(TestLayer))
 )
 
-it.effect("create lets explicit fields win and filters template tags", () =>
+it.effect(
+  "create with a custom type applies its description, priority and tags unless passed",
+  () =>
+    Effect.gen(function* () {
+      yield* adoptAtOrg(["context"])
+      yield* (yield* LibraryDocs.LibraryDocs).writeType(
+        "org",
+        "p",
+        projectType({})
+      )
+      const tickets = yield* TicketCommands.TicketCommands
+      const defaults = yield* tickets.create({
+        title: "from type",
+        type: typeKey("incident-lite")
+      })
+      expect(defaults.type).toBe("incident-lite")
+      expect(defaults.priority).toBe("high")
+      expect(defaults.tags).toEqual(["frontend"])
+      expect(defaults.body).toContain('<block type="context">')
+
+      const explicit = yield* tickets.create({
+        title: "explicit fields",
+        type: typeKey("incident-lite"),
+        priority: "low",
+        tags: [],
+        body: "my own body"
+      })
+      expect(explicit.type).toBe("incident-lite")
+      expect(explicit.priority).toBe("low")
+      expect(explicit.tags).toEqual([])
+      expect(explicit.body).toBe("my own body")
+    }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("an unknown type fails with Validation naming the key", () =>
+  Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    const existing = yield* tickets.quickCreate({ title: "existing" })
+    const reason = "unknown_type:nope"
+    expect(
+      yield* Effect.flip(
+        tickets.quickCreate({ title: "nope", type: typeKey("nope") })
+      )
+    ).toMatchObject({ _tag: "Validation", reason })
+    expect(
+      yield* Effect.flip(
+        tickets.create({
+          title: "nope",
+          body: "a body does not skip the check",
+          type: typeKey("nope")
+        })
+      )
+    ).toMatchObject({ _tag: "Validation", reason })
+    expect(
+      yield* Effect.flip(tickets.update(existing.id, { type: typeKey("nope") }))
+    ).toMatchObject({ _tag: "Validation", reason })
+    expect(
+      yield* Effect.flip(
+        tickets.bulkUpdate({
+          tickets: [existing.id],
+          patch: { type: typeKey("nope") }
+        })
+      )
+    ).toMatchObject({ _tag: "Validation", reason })
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect(
+  "a hidden type can't be assigned but stays on tickets that have it",
+  () =>
+    Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      const typed = yield* tickets.quickCreate({
+        title: "typed before hiding",
+        type: typeKey("chore")
+      })
+      const untyped = yield* tickets.quickCreate({ title: "untyped" })
+      yield* (yield* LibraryDocs.LibraryDocs).writeTombstone(
+        "org",
+        "p",
+        "types",
+        "chore"
+      )
+      const reason = "unknown_type:chore"
+
+      expect(
+        yield* Effect.flip(
+          tickets.quickCreate({ title: "new", type: typeKey("chore") })
+        )
+      ).toMatchObject({ _tag: "Validation", reason })
+      expect(
+        yield* Effect.flip(
+          tickets.update(untyped.id, { type: typeKey("chore") })
+        )
+      ).toMatchObject({ _tag: "Validation", reason })
+      expect(
+        yield* Effect.flip(
+          tickets.bulkUpdate({
+            tickets: [typed.id, untyped.id],
+            patch: { type: typeKey("chore") }
+          })
+        )
+      ).toMatchObject({ _tag: "Validation", reason })
+
+      const renamed = yield* tickets.update(typed.id, {
+        title: "still a chore",
+        type: typeKey("chore")
+      })
+      expect(renamed.ticket.type).toBe("chore")
+      expect(renamed.ticket.title).toBe("still a chore")
+      yield* tickets.bulkUpdate({
+        tickets: [typed.id],
+        patch: { type: typeKey("chore"), priority: "high" }
+      })
+      expect(
+        yield* (yield* TicketDocs.TicketDocs).read("org", "p", typed.id)
+      ).toMatchObject({ type: "chore", priority: "high" })
+    }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect(
+  "changing the type replaces only an empty or untouched description",
+  () =>
+    Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      const empty = yield* tickets.quickCreate({ title: "empty" })
+      const untouched = yield* tickets.quickCreate({
+        title: "untouched",
+        type: typeKey("bug")
+      })
+      const written = yield* tickets.create({
+        title: "written",
+        type: typeKey("bug"),
+        body: "Steps I wrote myself."
+      })
+
+      const filled = yield* tickets.update(empty.id, { type: typeKey("bug") })
+      expect(filled.ticket.body).toBe(untouched.body)
+
+      const swapped = yield* tickets.update(untouched.id, {
+        type: typeKey("chore")
+      })
+      expect(swapped.ticket.type).toBe("chore")
+      expect(swapped.ticket.body).toContain('<block type="context">')
+      expect(swapped.ticket.body).not.toContain("expected-vs-actual")
+
+      const kept = yield* tickets.update(written.id, { type: typeKey("chore") })
+      expect(kept.ticket.type).toBe("chore")
+      expect(kept.ticket.body.trim()).toBe("Steps I wrote myself.")
+
+      const explicit = yield* tickets.update(empty.id, {
+        type: typeKey("feat"),
+        body: "Passed along with the type."
+      })
+      expect(explicit.ticket.body).toBe("Passed along with the type.")
+
+      const cleared = yield* tickets.update(swapped.ticket.id, { type: null })
+      expect(cleared.ticket.type).toBeNull()
+      expect(cleared.ticket.body.trim()).toBe(swapped.ticket.body.trim())
+    }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("bulk edits set a custom type and no type like a single edit", () =>
   Effect.gen(function* () {
     yield* adoptAtOrg(["context"])
-    yield* (yield* LibraryDocs.LibraryDocs).writeTemplate(
+    yield* (yield* LibraryDocs.LibraryDocs).writeType(
       "org",
       "p",
-      projectTemplate({})
+      projectType({})
     )
     const tickets = yield* TicketCommands.TicketCommands
-    const defaults = yield* tickets.create({
-      title: "from template",
-      template: templateKey("incident-lite")
+    const empty = yield* tickets.quickCreate({ title: "empty" })
+    const written = yield* tickets.create({
+      title: "written",
+      type: typeKey("bug"),
+      body: "Steps I wrote myself."
     })
-    expect(defaults.type).toBe("other")
-    expect(defaults.priority).toBe("high")
-    expect(defaults.tags).toEqual(["frontend"])
-    expect(defaults.body).toContain('<block type="context">')
+    const ids = [empty.id, written.id]
 
-    const explicit = yield* tickets.create({
-      title: "explicit fields",
-      type: "chore",
-      priority: "low",
-      tags: [],
-      body: "my own body",
-      template: templateKey("incident-lite")
+    const docs = yield* TicketDocs.TicketDocs
+    const stored = Effect.forEach(ids, (id) => docs.read("org", "p", id))
+
+    yield* tickets.bulkUpdate({
+      tickets: ids,
+      patch: { type: typeKey("incident-lite") }
     })
-    expect(explicit.type).toBe("chore")
-    expect(explicit.priority).toBe("low")
-    expect(explicit.tags).toEqual([])
-    expect(explicit.body).toBe("my own body")
+    const custom = yield* stored
+    expect(custom.map((ticket) => ticket.type)).toEqual([
+      "incident-lite",
+      "incident-lite"
+    ])
+    expect(custom[0].body).toContain('<block type="context">')
+    expect(custom[1].body.trim()).toBe("Steps I wrote myself.")
+
+    yield* tickets.bulkUpdate({ tickets: ids, patch: { type: null } })
+    expect((yield* stored).map((ticket) => ticket.type)).toEqual([null, null])
   }).pipe(Effect.provide(TestLayer))
 )
 
-it.effect("an unknown template fails with Validation", () =>
-  Effect.gen(function* () {
-    const tickets = yield* TicketCommands.TicketCommands
-    const quick = yield* Effect.flip(
-      tickets.quickCreate({
-        title: "nope",
-        template: templateKey("nope")
-      })
-    )
-    const full = yield* Effect.flip(
-      tickets.create({
-        title: "nope",
-        body: "body wins but the key is still checked",
-        template: templateKey("nope")
-      })
-    )
-    expect(quick).toMatchObject({
-      _tag: "Validation",
-      reason: "unknown_template:nope"
-    })
-    expect(full).toMatchObject({
-      _tag: "Validation",
-      reason: "unknown_template:nope"
-    })
-  }).pipe(Effect.provide(TestLayer))
+it.effect(
+  "type changes to and from a custom type and no type are recorded",
+  () =>
+    Effect.gen(function* () {
+      yield* (yield* LibraryDocs.LibraryDocs).writeType(
+        "org",
+        "p",
+        projectType({ body: "" })
+      )
+      const tickets = yield* TicketCommands.TicketCommands
+      const created = yield* tickets.quickCreate({ title: "retyped" })
+      recordedActivity.length = 0
+      yield* tickets.update(created.id, { type: typeKey("incident-lite") })
+      yield* tickets.update(created.id, { type: null })
+
+      expect(
+        recordedActivity.flatMap((record) =>
+          record.changes.flatMap(({ change }) =>
+            change.kind === "type_changed" ? [[change.from, change.to]] : []
+          )
+        )
+      ).toEqual([
+        [null, "incident-lite"],
+        ["incident-lite", null]
+      ])
+    }).pipe(Effect.provide(TestLayer))
 )
 
 it.effect("unresolvable template mentions become plain text on create", () =>
   Effect.gen(function* () {
-    yield* (yield* LibraryDocs.LibraryDocs).writeTemplate(
+    yield* (yield* LibraryDocs.LibraryDocs).writeType(
       "org",
       "p",
-      projectTemplate({
+      projectType({
         body: `Follow up on [T-99](${formatMentionHref("ticket", "T-99")})`
       })
     )
     const tickets = yield* TicketCommands.TicketCommands
     const created = yield* tickets.quickCreate({
       title: "mentions",
-      template: templateKey("incident-lite")
+      type: typeKey("incident-lite")
     })
     expect(created.body).toBe("Follow up on T-99")
   }).pipe(Effect.provide(TestLayer))
@@ -725,6 +889,28 @@ it.effect("update refreshes the stored synced snapshot", () =>
     expect(stored.body).toContain("- [x] Reviewed and merged")
     expect(stored.body).toContain("- [ ] Released")
     expect(stored.body).not.toContain("Tests cover the change")
+  }).pipe(Effect.provide(TestLayer))
+)
+
+const tag = Schema.decodeSync(TagName)
+
+it.effect("concurrent tag adds on one ticket keep both tags", () =>
+  Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    const created = yield* tickets.quickCreate({ title: "two taggers" })
+    yield* Effect.all(
+      [
+        tickets.update(created.id, { tags: { add: [tag("frontend")] } }),
+        tickets.update(created.id, { tags: { add: [tag("backend")] } })
+      ],
+      { concurrency: "unbounded", discard: true }
+    )
+    const stored = yield* (yield* TicketDocs.TicketDocs).read(
+      "org",
+      "p",
+      created.id
+    )
+    expect(stored.tags.toSorted()).toEqual(["backend", "frontend"])
   }).pipe(Effect.provide(TestLayer))
 )
 

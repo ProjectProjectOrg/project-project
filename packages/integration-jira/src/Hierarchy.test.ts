@@ -1,4 +1,4 @@
-import type { TicketType } from "@pp/shared"
+import { TypeKey } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
 import { resolveJiraHierarchy } from "./Hierarchy"
@@ -14,13 +14,14 @@ const issue = (
 })
 
 const mappings = (
-  types: Readonly<Record<string, TicketType>>,
+  types: Readonly<Record<string, string | null>>,
   excludedRestrictions: ReadonlyArray<string> = []
 ) => ({
   issueTypes: Object.entries(types).map(
     ([sourceIssueTypeId, destinationType]) => ({
       sourceIssueTypeId,
-      destinationType
+      destinationType:
+        destinationType === null ? null : TypeKey.make(destinationType)
     })
   ),
   restrictions: excludedRestrictions.map((restrictionId) => ({
@@ -41,7 +42,7 @@ describe("resolveJiraHierarchy", () => {
     const { parents, dropped } = resolveJiraHierarchy(
       { issues: tree, restrictions: [] },
       mappings({
-        "type-initiative": "other",
+        "type-initiative": null,
         "type-epic": "epic",
         "type-story": "feat",
         "type-subtask": "chore"

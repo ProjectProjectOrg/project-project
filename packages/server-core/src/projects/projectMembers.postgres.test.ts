@@ -497,7 +497,7 @@ describe.skipIf(!databaseUrl)("project members", () => {
     Effect.gen(function* () {
       yield* Effect.promise(() =>
         pool.query(
-          "INSERT INTO ticket_index (organization_id,project_id,ticket_id,title,status,type,priority,assignees,created_by,created_at,updated_at) VALUES ($1,$2,'MEM-901','Broken','todo','feat','med',ARRAY[$3],$3,now(),now()), ($1,$2,'MEM-902','Fine','todo','feat','med',ARRAY[$3],$3,now(),now())",
+          "INSERT INTO ticket_index (organization_id,project_id,ticket_id,title,status,type,priority,rank,assignees,created_by,created_at,updated_at) VALUES ($1,$2,'MEM-901','Broken','todo','feat','med','a0',ARRAY[$3],$3,now(),now()), ($1,$2,'MEM-902','Fine','todo','feat','med','a0',ARRAY[$3],$3,now(),now())",
           [organizationId, projectId, developer]
         )
       )

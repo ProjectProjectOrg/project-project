@@ -1,6 +1,6 @@
 import { TagName } from "@pp/shared"
 import {
-  BUILTIN_BLOCKS,
+  GALLERY_BLOCKS,
   blockLookupFor,
   formatTicketBlock,
   stripHints,
@@ -19,7 +19,7 @@ const definition = (
   key: string,
   origin: BlockDefinition["origin"] = "project"
 ): BlockDefinition => ({
-  ...BUILTIN_BLOCKS.find((block) => block.key === key)!,
+  ...GALLERY_BLOCKS.find((block) => block.key === key)!,
   origin,
   shadows: null,
   hidden: false
@@ -30,16 +30,7 @@ const steps = definition("steps-to-reproduce", "org")
 
 const lookup = blockLookupFor({
   blocks: [context, steps],
-  templates: [],
-  defaults: { feat: null, bug: null, chore: null, other: null, epic: null },
-  ownDefaults: {},
-  inheritedDefaults: {
-    feat: null,
-    bug: null,
-    chore: null,
-    other: null,
-    epic: null
-  },
+  types: [],
   canEdit: true
 })
 

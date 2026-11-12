@@ -1,9 +1,10 @@
 import { hasSubTickets, type Ticket } from "@pp/shared"
-import { Link2, OctagonMinus, SquareEqual } from "lucide-react"
+import { Flag, Link2, OctagonMinus, SquareEqual } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { SubTicketCount } from "@/features/tickets/components/ticket-list/SubTicketProgress"
 import { SquareOctagonMinus } from "@/features/tickets/components/ticket-marks/blockingIcon"
+import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import type { RelationPreviewKind } from "@/features/tickets/lib/relationGroups"
 import type { IconComponent } from "@/lib/icon"
 import { cn } from "@/lib/utils"
@@ -47,10 +48,11 @@ export function RelationChips({
   ticket,
   className
 }: Readonly<{ ticket: RelationCounts; className?: string }>) {
+  const { shows } = useDisplayProperties()
   return RELATION_CHIPS.map((chip) => {
     const { relation, field, icon: Icon } = chip
     const n = ticket[field] ?? 0
-    if (n === 0) return null
+    if (n === 0 || !shows(relation)) return null
     return (
       <TicketPreviewTrigger
         key={relation}
@@ -101,6 +103,33 @@ export function SubTicketsChip({
       }
     >
       <SubTicketCount done={done} total={total} className="text-inherit" />
+    </TicketPreviewTrigger>
+  )
+}
+
+export function FlagChip({
+  ticket,
+  className
+}: Readonly<{ ticket: Pick<Ticket, "id" | "flag">; className?: string }>) {
+  if (ticket.flag === null) return null
+  return (
+    <TicketPreviewTrigger
+      preview={{ kind: "flag", id: ticket.id, flag: ticket.flag }}
+      aria-label={m.tickets_flag_indicator_aria_label()}
+      render={
+        <Button
+          type="button"
+          variant="ghost"
+          size="compact"
+          className={cn(
+            "relative z-20",
+            className,
+            "text-state-danger hover:text-state-danger data-[popup-open]:text-state-danger"
+          )}
+        />
+      }
+    >
+      <Flag className="size-3.5 shrink-0" strokeWidth={1.75} />
     </TicketPreviewTrigger>
   )
 }

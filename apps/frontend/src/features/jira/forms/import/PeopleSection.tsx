@@ -242,6 +242,7 @@ function personItems(
           icon={
             <MemberAvatar
               member={{
+                id: option.id,
                 name: option.name,
                 email: option.email,
                 image: option.imageUrl
@@ -326,6 +327,7 @@ function PersonChoice({
               icon={
                 <MemberAvatar
                   member={{
+                    id: selected.id,
                     name: selected.name,
                     email: selected.email,
                     image: selected.imageUrl

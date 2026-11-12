@@ -49,21 +49,11 @@ const messages: Messages<ToolError> = {
         "update_ticket descriptions for the format."
       )
     }
-    const unknownTemplate = reason?.match(/^unknown_template:(.*)$/s)
-    if (unknownTemplate) {
+    const unknownType = reason?.match(/^unknown_type:(.*)$/s)
+    if (unknownType) {
       return (
-        `Unknown template "${unknownTemplate[1]}". Discover the project's ` +
-        "template keys via list_templates, or omit template for a blank " +
-        "ticket."
-      )
-    }
-    const needsBody = reason?.match(/^template_needs_body:(.*)$/s)
-    if (needsBody) {
-      return (
-        `Template "${needsBody[1]}" can only fill an empty or untouched ` +
-        "description, and this ticket already has content. Read the " +
-        "template's body from list_templates, fill it in around the " +
-        "existing content, and pass it to update_ticket as body."
+        `Unknown type "${unknownType[1]}". Discover the project's type ` +
+        "keys via list_types, or pass null for no type."
       )
     }
     const editFailed = reason?.match(/^edit_failed:(\d+):(.*)$/s)
@@ -88,11 +78,8 @@ const messages: Messages<ToolError> = {
           return `${ids.join(", ")} ${ids.length === 1 ? "is a duplicate" : "are duplicates"} of this ticket. Archive them as duplicates of the new original first.`
       }
     }
-    if (reason === "edits_with_body_or_template") {
-      return (
-        "Pass edits on its own: it can't be combined with body or " +
-        "template in one update_ticket call."
-      )
+    if (reason === "edits_with_body") {
+      return "Pass edits on its own: it can't be combined with body in one update_ticket call."
     }
     return reason ? `Validation error (${reason}).` : "Validation error."
   },

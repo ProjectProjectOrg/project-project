@@ -4,7 +4,7 @@ import {
   useAtomValue,
   useAtomRefresh
 } from "@effect/atom-react"
-import { GroupPolicy, TicketPolicy } from "@pp/access/policies"
+import { TicketPolicy } from "@pp/access/policies"
 import type {
   GroupId,
   Member,
@@ -17,7 +17,6 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { motion, Reorder } from "motion/react"
 import { useContext, useEffect, useMemo, useRef, useState } from "react"
 
-import { fireMutation } from "@/api/viewMutation"
 import { AsyncView } from "@/components/shell/AsyncView"
 import { DitherShell } from "@/components/ui/dither-shell"
 import {
@@ -28,8 +27,8 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   boardRequest,
   boardTicketUpdates,
-  placeBoardTicket,
   sprintBoard,
+  updateBoardTicket,
   type BoardRequest,
   type BoardValue
 } from "@/features/sprints/atoms/sprintBoard"
@@ -52,6 +51,8 @@ import { useBoardViewport } from "../hooks/useBoardViewport"
 import { visibleColumns } from "../lib/boardColumns"
 import {
   boardStatusesFor,
+  boardEdit,
+  boardMove,
   groupTicketsByStatus,
   isDragData,
   isDropData
@@ -143,7 +144,7 @@ function SprintBoardContent({
   const ref = useRef<HTMLDivElement>(null)
   const groupRef = useReorderMode(reorderMode, onExitReorder)
   const actor = useProjectActor()
-  const canReorder = GroupPolicy.can(actor, "sprint", "reorder")
+  const canReorder = TicketPolicy.canChange(actor, { content: true })
   const canTransition = TicketPolicy.canChange(actor, { status: true })
   const { height, hasRightOverflow } = useBoardViewport(ref)
   useHorizontalAutoScroll(ref, !isCompleted && !reorderMode && canReorder)
@@ -178,6 +179,8 @@ function SprintBoardContent({
   )
   const unfilteredGroupedRef = useRef(unfilteredGrouped)
   unfilteredGroupedRef.current = unfilteredGrouped
+  const boardTicketsRef = useRef(board.tickets)
+  boardTicketsRef.current = board.tickets
 
   useEffect(() => {
     const el = ref.current
@@ -191,31 +194,17 @@ function SprintBoardContent({
         if (!isDragData(src) || !isDropData(dst)) return
         if (dst.type === "card" && dst.id === src.id) return
 
-        const current = unfilteredGroupedRef.current
-        let after: TicketId | null
-        let nextStatus: TicketStatus
-        if (dst.type === "card") {
-          nextStatus = dst.status
-          const inColumn = current[dst.status] ?? []
-          const idx = inColumn.findIndex((t) => t.id === dst.id)
-          if (dst.edge === "bottom") {
-            after = dst.id
-          } else {
-            after = idx > 0 ? inColumn[idx - 1].id : null
-          }
-        } else {
-          nextStatus = dst.status
-          const inColumn = current[dst.status] ?? []
-          after = inColumn.length > 0 ? inColumn[inColumn.length - 1].id : null
-        }
-        if (after === src.id) return
-        const status = nextStatus !== src.status ? nextStatus : undefined
+        const status = dst.status !== src.status ? dst.status : undefined
         if (status !== undefined && !canTransition) return
-        void fireMutation(registry, placeBoardTicket({ req, id: src.id }), {
-          ticketId: src.id,
-          status,
-          after
-        })
+        const position = boardMove(
+          boardTicketsRef.current,
+          unfilteredGroupedRef.current[dst.status] ?? [],
+          src.id,
+          dst
+        )
+        const edit = boardEdit(status, position)
+        if (edit === null) return
+        registry.set(updateBoardTicket({ req, id: src.id }), edit)
         flash(src.id)
       }
     })

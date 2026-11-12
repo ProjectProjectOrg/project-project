@@ -17,7 +17,6 @@ import {
   type UpdateGroupInput,
   type UpdateGroupTicketsInput,
   UpdateGroupTicketsOutput,
-  type UpdateTicketOrderInput,
   Validation,
   ProjectScope,
   Forbidden,
@@ -27,7 +26,8 @@ import {
   paginateSorted,
   padNumericIdSort,
   sprintState,
-  TAG_DEFAULT_PALETTE
+  TAG_DEFAULT_PALETTE,
+  isEpic
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
@@ -43,7 +43,6 @@ import * as TicketIndex from "../tickets/TicketIndex"
 import * as GroupDocs from "./GroupDocs"
 
 export type SprintMembershipOptions = Readonly<{
-  after?: TicketId | null
   from?: GroupId | null
 }>
 
@@ -126,20 +125,6 @@ export class Groups extends Context.Service<
       UpdateGroupTicketsOutput,
       Forbidden | NotFound | SprintCompletedImmutable | Markdown.MarkdownError,
       ProjectScope | ActivityActor
-    >
-    updateTicketOrder: <E = never, R = never>(
-      id: string,
-      input: Omit<UpdateTicketOrderInput, "status">,
-      beforeWrite?: Effect.Effect<void, E, R>
-    ) => Effect.Effect<
-      GroupDetail,
-      | Forbidden
-      | NotFound
-      | SprintCompletedImmutable
-      | Validation
-      | Markdown.MarkdownError
-      | E,
-      ProjectScope | ActivityActor | R
     >
     complete: (
       id: string,
@@ -263,7 +248,7 @@ const make = Effect.gen(function* () {
     Effect.gen(function* () {
       if (kind !== "sprint" || ticketIds.length === 0) return
       const entries = yield* ticketIndex.list(scope, ticketIds)
-      if (entries.some((entry) => entry.type === "epic")) {
+      if (entries.some((entry) => isEpic(entry))) {
         return yield* new Validation({ reason: "epic_in_sprint" })
       }
     })
@@ -721,56 +706,6 @@ const make = Effect.gen(function* () {
     )
   })
 
-  const updateTicketOrder = Effect.fn("Groups.updateTicketOrder")(function* <
-    E = never,
-    R = never
-  >(
-    id: string,
-    input: Omit<UpdateTicketOrderInput, "status">,
-    beforeWrite: Effect.Effect<void, E, R> = Effect.void
-  ) {
-    return yield* lockedInScope(({ orgSlug, slug }) =>
-      Effect.gen(function* () {
-        const existing = yield* groupDocs.read(orgSlug, slug, id)
-        yield* requireGroupAction(existing.kind, "reorder")
-        if (existing.completedAt !== null) {
-          return yield* new SprintCompletedImmutable()
-        }
-        if (input.after !== null && input.after === input.ticketId) {
-          return yield* new Validation({ reason: "after_is_self" })
-        }
-        if (!existing.tickets.includes(input.ticketId)) {
-          return yield* new NotFound()
-        }
-        if (input.after !== null && !existing.tickets.includes(input.after)) {
-          return yield* new NotFound()
-        }
-
-        const filtered = existing.tickets.filter(
-          (tid) => tid !== input.ticketId
-        )
-        const insertAt =
-          input.after === null ? 0 : filtered.indexOf(input.after) + 1
-        const nextTickets: ReadonlyArray<TicketId> = [
-          ...filtered.slice(0, insertAt),
-          input.ticketId,
-          ...filtered.slice(insertAt)
-        ]
-
-        const now = yield* DateTime.nowAsDate
-
-        const target: GroupDocs.GroupDocument = {
-          ...existing,
-          tickets: nextTickets,
-          updatedAt: now
-        }
-        yield* beforeWrite
-        yield* groupDocs.write(orgSlug, slug, id, target)
-        return target
-      })
-    )
-  })
-
   const complete = Effect.fn("Groups.complete")(function* (
     id: string,
     input: CompleteSprintInput
@@ -933,24 +868,9 @@ const make = Effect.gen(function* () {
                 if (present === wanted) return
 
                 const remaining = group.tickets.filter((t) => t !== ticketId)
-                const after = options?.after
-                const anchor =
-                  after === undefined || after === null
-                    ? -1
-                    : remaining.indexOf(after)
                 const next: GroupDocs.GroupDocument = {
                   ...group,
-                  tickets: wanted
-                    ? after === null
-                      ? [ticketId, ...remaining]
-                      : anchor >= 0
-                        ? [
-                            ...remaining.slice(0, anchor + 1),
-                            ticketId,
-                            ...remaining.slice(anchor + 1)
-                          ]
-                        : [...remaining, ticketId]
-                    : remaining,
+                  tickets: wanted ? [...remaining, ticketId] : remaining,
                   updatedAt: yield* DateTime.nowAsDate
                 }
                 yield* groupDocs
@@ -1012,7 +932,6 @@ const make = Effect.gen(function* () {
     updateTickets,
     addTickets,
     removeTickets,
-    updateTicketOrder,
     complete,
     remove,
     ensureSprintAssignable,

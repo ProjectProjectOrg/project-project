@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "8d976d6c-6ab0-4345-b434-0fd1fc0e3e41",
+  "prevIds": [
+    "62be7d27-f94e-43b6-aa4e-b9e8542623e2"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "link_preview",
+        "favicon_rendering"
+      ],
+      "writes": [
+        "s|col|public.link_preview.favicon_rendering",
+        "n|col|public.link_preview.favicon_rendering",
+        "e|col|public.link_preview.favicon_rendering"
+      ],
+      "reads": [
+        "n|tbl|public.link_preview",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "link_preview",
+        "name": "favicon_rendering",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

@@ -1,26 +1,36 @@
 import {
+  TicketRank,
   EMPTY_TICKET_RELATIONS,
+  TagName,
   TicketId,
   TicketStatus,
-  type TicketDetail
+  type TicketDetail,
+  TypeKey
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { applyTicketDetailPatch, applyTicketPatch } from "./ticketPatch"
+import {
+  applyTicketDetailPatch,
+  applyTicketPatch,
+  fromBulkPatch,
+  mergeTicketEdit
+} from "./ticketPatch"
 
 const base = {
   id: Schema.decodeSync(TicketId)("T-1"),
   title: "Before",
   status: Schema.decodeSync(TicketStatus)("todo"),
-  type: "chore",
+  type: TypeKey.make("chore"),
   priority: "med",
   estimate: null,
+  flag: null,
   tags: [],
   branch: null,
   pr: null,
   prState: null,
+  rank: TicketRank.make("a0"),
   lastTransitionedPr: null,
   parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
@@ -65,5 +75,23 @@ describe("applyTicketDetailPatch", () => {
     const next = applyTicketDetailPatch(base, { body: "After", title: "Next" })
     expect(next.body).toBe("After")
     expect(next.title).toBe("Next")
+  })
+})
+
+describe("mergeTicketEdit", () => {
+  it("keeps every queued tag change instead of the last one", () => {
+    const tag = Schema.decodeSync(TagName)
+    const merged = mergeTicketEdit(
+      { tags: { add: [tag("a")] }, priority: "low" },
+      { tags: { add: [tag("b")] }, priority: "high" }
+    )
+    expect(merged.priority).toBe("high")
+    expect(applyTicketPatch(base, merged).tags).toEqual(["a", "b"])
+  })
+})
+
+describe("fromBulkPatch", () => {
+  it("predicts a cleared flag", () => {
+    expect(fromBulkPatch({ flag: null })).toEqual({ flag: null })
   })
 })

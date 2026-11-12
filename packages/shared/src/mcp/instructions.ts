@@ -56,8 +56,11 @@ export const agentGuide = {
     "ticket.",
   writing:
     "Writing a ticket: first look for an existing one with " +
-    "`search_tickets`. Start from a template when one fits " +
-    "(`list_templates`, then `create_ticket` with `template`). Write " +
+    "`search_tickets`. Ticket types are defined per project, so call " +
+    "`list_types` and pass the key that fits as `type` to " +
+    "`create_ticket`, or `null` for a ticket without a type. Without a " +
+    "`body` the ticket starts from that type's starting description; " +
+    "a `body` you pass wins over it. Write " +
     "for someone who wasn't in your conversation: a title that names " +
     "the outcome, one or two plain sentences at the top saying what and " +
     "why, then the details. Spell out project-specific terms, mention " +
@@ -72,7 +75,7 @@ export const agentGuide = {
     "the content, a blank line, then `</block>`, for example:",
   blockExample: BLOCK_FORMAT_EXAMPLE,
   blockRules:
-    "Call `list_blocks` and `list_templates` to see what a project " +
+    "Call `list_blocks` and `list_types` to see what a project " +
     "defines before writing blocks by hand. Fill blocks in rather than " +
     "replacing them: keep the `<block>` tags and headings, and replace " +
     "each trailing `{{hint}}` placeholder with real content or leave " +

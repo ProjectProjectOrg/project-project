@@ -1,23 +1,11 @@
 import * as Schema from "effect/Schema"
 
 import { formatTicketBlock } from "../tickets/blocks"
-import {
-  BlockDraft,
-  type BlockIcon,
-  TemplateDefaults,
-  TemplateDraft
-} from "./Library"
+import { BUILTIN_BLOCKS } from "./builtins"
+import { type BlockDraft, type BlockIcon, TypeDraft } from "./Library"
+import { blockDraftsFrom, type BlockSource, lines, references } from "./sources"
 
-type BlockSource = Readonly<{
-  key: string
-  name: string
-  icon: BlockIcon
-  description: string
-  sync: boolean
-  content: string
-}>
-
-type TemplateSource = Readonly<{
+type TypeSource = Readonly<{
   key: string
   name: string
   icon: BlockIcon
@@ -25,29 +13,12 @@ type TemplateSource = Readonly<{
   body: string
 }>
 
-const lines = (...parts: ReadonlyArray<string>): string => parts.join("\n")
-
-const references = (...keys: ReadonlyArray<string>): string =>
-  keys.map((key) => formatTicketBlock(key, "")).join("\n\n")
-
 const customized = (key: string, content: string): string =>
   formatTicketBlock(key, content)
 
 const body = (...parts: ReadonlyArray<string>): string => parts.join("\n\n")
 
 const BLOCK_SOURCES: ReadonlyArray<BlockSource> = [
-  {
-    key: "context",
-    name: "Context",
-    icon: "FileText",
-    description: "Why this ticket exists",
-    sync: false,
-    content: lines(
-      "## Context",
-      "",
-      "{{Why this ticket exists: the problem, what triggered it, links to earlier discussion.}}"
-    )
-  },
   {
     key: "user-story",
     name: "User story",
@@ -61,78 +32,6 @@ const BLOCK_SOURCES: ReadonlyArray<BlockSource> = [
     )
   },
   {
-    key: "acceptance-criteria",
-    name: "Acceptance criteria",
-    icon: "ListChecks",
-    description: "What must be true for this to be done",
-    sync: false,
-    content: lines(
-      "## Acceptance criteria",
-      "",
-      "- [ ] {{Given a starting state, when something happens, then this is true}}",
-      "- [ ] {{Another observable outcome}}"
-    )
-  },
-  {
-    key: "definition-of-done",
-    name: "Definition of done",
-    icon: "CircleCheckBig",
-    description: "The team's bar for done",
-    sync: true,
-    content: lines(
-      "## Definition of done",
-      "",
-      "- [ ] Reviewed and merged",
-      "- [ ] Tests cover the change",
-      "- [ ] Docs updated where behaviour changed",
-      "- [ ] Verified in the target environment"
-    )
-  },
-  {
-    key: "steps-to-reproduce",
-    name: "Steps to reproduce",
-    icon: "Footprints",
-    description: "How someone else can see the bug",
-    sync: false,
-    content: lines(
-      "## Steps to reproduce",
-      "",
-      "1. {{Where you start}}",
-      "2. {{What you do}}",
-      "3. {{What you see}}",
-      "",
-      "{{How often: always, sometimes, only when…}}"
-    )
-  },
-  {
-    key: "expected-vs-actual",
-    name: "Expected vs actual",
-    icon: "GitCompareArrows",
-    description: "What should happen and what happens instead",
-    sync: false,
-    content: lines(
-      "## Expected vs actual",
-      "",
-      "**Expected:** {{what should happen}}",
-      "",
-      "**Actual:** {{what happens instead}}"
-    )
-  },
-  {
-    key: "environment",
-    name: "Environment",
-    icon: "MonitorSmartphone",
-    description: "Where it happens",
-    sync: false,
-    content: lines(
-      "## Environment",
-      "",
-      "- **Where:** {{production, staging or local}}",
-      "- **Version:** {{release or commit}}",
-      "- **Platform:** {{OS, browser, device}}"
-    )
-  },
-  {
     key: "approach",
     name: "Approach",
     icon: "Compass",
@@ -142,18 +41,6 @@ const BLOCK_SOURCES: ReadonlyArray<BlockSource> = [
       "## Approach",
       "",
       "{{How you'll solve it, and the alternatives you ruled out.}}"
-    )
-  },
-  {
-    key: "out-of-scope",
-    name: "Out of scope",
-    icon: "Ban",
-    description: "What this deliberately leaves out",
-    sync: false,
-    content: lines(
-      "## Out of scope",
-      "",
-      "- {{Something this ticket won't do, and where it goes instead}}"
     )
   },
   {
@@ -238,38 +125,7 @@ const BLOCK_SOURCES: ReadonlyArray<BlockSource> = [
   }
 ]
 
-const TEMPLATE_SOURCES: ReadonlyArray<TemplateSource> = [
-  {
-    key: "bug-report",
-    name: "Bug report",
-    icon: "Bug",
-    description: "Something is broken",
-    body: references(
-      "expected-vs-actual",
-      "steps-to-reproduce",
-      "environment",
-      "definition-of-done"
-    )
-  },
-  {
-    key: "feature",
-    name: "Feature",
-    icon: "Sparkles",
-    description: "New behaviour users will notice",
-    body: references(
-      "context",
-      "acceptance-criteria",
-      "out-of-scope",
-      "definition-of-done"
-    )
-  },
-  {
-    key: "chore",
-    name: "Chore",
-    icon: "Wrench",
-    description: "Upkeep, upgrades and cleanup",
-    body: references("context", "acceptance-criteria")
-  },
+const TYPE_SOURCES: ReadonlyArray<TypeSource> = [
   {
     key: "spike",
     name: "Spike",
@@ -360,37 +216,22 @@ const TEMPLATE_SOURCES: ReadonlyArray<TemplateSource> = [
   }
 ]
 
-const decodeBlockDrafts = Schema.decodeUnknownSync(Schema.Array(BlockDraft))
+const decodeTypeDrafts = Schema.decodeUnknownSync(Schema.Array(TypeDraft))
 
-const decodeTemplateDrafts = Schema.decodeUnknownSync(
-  Schema.Array(TemplateDraft)
+export const GALLERY_BLOCKS: ReadonlyArray<BlockDraft> = [
+  ...BUILTIN_BLOCKS,
+  ...blockDraftsFrom(BLOCK_SOURCES)
+]
+
+export const GALLERY_TYPES: ReadonlyArray<TypeDraft> = decodeTypeDrafts(
+  TYPE_SOURCES.map(({ key, name, icon, description, body }) => ({
+    key,
+    name,
+    icon,
+    color: null,
+    description,
+    priority: null,
+    tags: [],
+    body
+  }))
 )
-
-const decodeTemplateDefaults = Schema.decodeUnknownSync(TemplateDefaults)
-
-export const BUILTIN_BLOCKS: ReadonlyArray<BlockDraft> = decodeBlockDrafts(
-  BLOCK_SOURCES.map((source) => ({ ...source, color: null }))
-)
-
-export const BUILTIN_TEMPLATES: ReadonlyArray<TemplateDraft> =
-  decodeTemplateDrafts(
-    TEMPLATE_SOURCES.map(({ key, name, icon, description, body }) => ({
-      key,
-      name,
-      icon,
-      color: null,
-      description,
-      priority: null,
-      tags: [],
-      body
-    }))
-  )
-
-export const BUILTIN_TEMPLATE_DEFAULTS: TemplateDefaults =
-  decodeTemplateDefaults({
-    feat: "feature",
-    bug: "bug-report",
-    chore: "chore",
-    other: null,
-    epic: null
-  })

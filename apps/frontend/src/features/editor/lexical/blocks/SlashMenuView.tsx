@@ -1,10 +1,5 @@
 import { mergeRegister } from "@lexical/utils"
-import type {
-  BlockDefinition,
-  BlockIconName,
-  BlockLookup,
-  Library
-} from "@pp/shared"
+import type { BlockDefinition, BlockIconName, Library } from "@pp/shared"
 import {
   COMMAND_PRIORITY_CRITICAL,
   KEY_ARROW_DOWN_COMMAND,
@@ -13,7 +8,13 @@ import {
   type LexicalEditor
 } from "lexical"
 import {
+  Heading1,
   Heading2,
+  Heading3,
+  Heading4,
+  Heading5,
+  Heading6,
+  Pilcrow,
   LibraryBig,
   List,
   ListOrdered,
@@ -76,6 +77,12 @@ import type {
 import { BASIC_LITERALS, SlashMenuPreview } from "./SlashMenuPreview"
 
 const BASIC_LABELS: Record<SlashBasicKind, () => string> = {
+  paragraph: m.editor_slash_basic_paragraph,
+  "heading-1": m.editor_slash_basic_heading_1,
+  "heading-3": m.editor_slash_basic_heading_3,
+  "heading-4": m.editor_slash_basic_heading_4,
+  "heading-5": m.editor_slash_basic_heading_5,
+  "heading-6": m.editor_slash_basic_heading_6,
   heading: m.editor_slash_basic_heading,
   checklist: m.editor_slash_basic_checklist,
   "bullet-list": m.editor_slash_basic_bullet_list,
@@ -88,6 +95,12 @@ const BASIC_LABELS: Record<SlashBasicKind, () => string> = {
 }
 
 export const BASIC_ICONS: Record<SlashBasicKind, LucideIcon> = {
+  paragraph: Pilcrow,
+  "heading-1": Heading1,
+  "heading-3": Heading3,
+  "heading-4": Heading4,
+  "heading-5": Heading5,
+  "heading-6": Heading6,
   heading: Heading2,
   checklist: ListTodo,
   "bullet-list": List,
@@ -102,23 +115,17 @@ export const BASIC_ICONS: Record<SlashBasicKind, LucideIcon> = {
 const SECTION_LABELS: Record<SlashSectionKey, () => string> = {
   suggested: m.editor_slash_section_suggested,
   blocks: m.editor_slash_section_blocks,
-  templates: m.editor_slash_section_templates,
   basic: m.editor_slash_section_basic
 }
 
 const TAB_LABELS: Record<SlashTab, () => string> = {
   all: m.editor_slash_tab_all,
   blocks: m.editor_slash_section_blocks,
-  templates: m.editor_slash_section_templates,
   markdown: m.editor_slash_section_basic
 }
 
-const GALLERY_LABELS = {
-  block: m.editor_slash_gallery_blocks,
-  template: m.editor_slash_gallery_templates
-}
-
 const ORIGIN_LABELS = {
+  builtin: m.editor_block_origin_builtin,
   org: m.editor_block_origin_org,
   project: m.editor_block_origin_project
 }
@@ -132,10 +139,6 @@ function ItemIcon({ item }: Readonly<{ item: SlashItem }>) {
         icon={item.definition.icon}
         color={item.definition.color}
       />
-    )
-  if (item.kind === "template")
-    return (
-      <BlockIconGlyph icon={item.template.icon} color={item.template.color} />
     )
   const Icon = item.kind === "gallery" ? LibraryBig : BASIC_ICONS[item.basic]
   return (
@@ -174,15 +177,12 @@ const glyphIcon = (
 const itemIcon = (item: SlashItem): IconComponent => {
   if (item.kind === "block")
     return glyphIcon(item.definition.icon, item.definition.color)
-  if (item.kind === "template")
-    return glyphIcon(item.template.icon, item.template.color)
   return item.kind === "gallery" ? LibraryBig : BASIC_ICONS[item.basic]
 }
 
 const itemName = (item: SlashItem): string => {
   if (item.kind === "block") return item.definition.name
-  if (item.kind === "template") return item.template.name
-  if (item.kind === "gallery") return GALLERY_LABELS[item.entry]()
+  if (item.kind === "gallery") return m.editor_slash_gallery_blocks()
   return basicLabel(item.basic)
 }
 
@@ -191,17 +191,9 @@ const blockMeta = (definition: BlockDefinition): string | null => {
   return ORIGIN_LABELS[definition.origin]()
 }
 
-const templateMeta = (adds: number): string => {
-  if (adds === 0) return m.editor_slash_template_applied()
-  return adds === 1
-    ? m.editor_slash_template_adds_one()
-    : m.editor_slash_template_adds({ count: adds })
-}
-
 const itemMeta = (item: SlashItem): string | null => {
   if (item.kind === "block")
     return item.suggestedBy ?? blockMeta(item.definition)
-  if (item.kind === "template") return templateMeta(item.adds)
   if (item.kind === "gallery") return m.editor_slash_gallery_browse()
   return null
 }
@@ -290,12 +282,10 @@ function SlashMenuKeys({
 
 function SlashMenuPreviewPane({
   items,
-  library,
-  lookup
+  library
 }: Readonly<{
   items: ReadonlyMap<string, SlashItem>
   library: Library
-  lookup: BlockLookup
 }>) {
   const row = useHighlightedItem()
   const item = row === undefined ? undefined : items.get(row.value)
@@ -311,7 +301,6 @@ function SlashMenuPreviewPane({
           name={itemName(item)}
           meta={itemMeta(item)}
           library={library}
-          lookup={lookup}
         />
       )}
     </div>
@@ -378,7 +367,6 @@ export function SlashMenuList({
   menu,
   query,
   library,
-  lookup,
   detachRef,
   onPick,
   onTab
@@ -387,7 +375,6 @@ export function SlashMenuList({
   menu: SlashMenuModel
   query: string
   library: Library
-  lookup: BlockLookup
   detachRef: RefObject<boolean>
   onPick: (key: string) => void
   onTab: (tab: SlashTab) => void
@@ -451,6 +438,9 @@ export function SlashMenuList({
         }
         className={cn(
           "fixed top-0 left-0 z-50 flex w-[28rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-border/60 bg-card text-foreground shadow-[0_4px_12px_rgba(0,0,0,0.02)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]",
+          "data-[slash-menu-side=above]:slide-in-from-bottom-2 data-[slash-menu-side=below]:slide-in-from-top-2",
+          layout !== null &&
+            "animate-in transition-none duration-150 ease-out fade-in-0 motion-reduce:animate-none",
           !hasTabs && "[&_.scroll-divider]:border-t-0"
         )}
       >
@@ -498,11 +488,7 @@ export function SlashMenuList({
               </CommandMenuList>
             </div>
             {layout?.fit.preview === true ? (
-              <SlashMenuPreviewPane
-                items={itemsByKey}
-                library={library}
-                lookup={lookup}
-              />
+              <SlashMenuPreviewPane items={itemsByKey} library={library} />
             ) : null}
           </div>
           <SlashMenuFooter tabs={hasTabs} />

@@ -1,46 +1,34 @@
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { formatTicketBlock } from "../tickets/blocks"
+import { formatTicketBlock, parseTicketBlocks } from "../tickets/blocks"
+import { BUILTIN_BLOCKS, BUILTIN_TYPES } from "./builtins"
+import { GALLERY_BLOCKS, GALLERY_TYPES } from "./gallery"
+import { BlockDraft, Library, TypeDraft } from "./Library"
 import {
-  BUILTIN_BLOCKS,
-  BUILTIN_TEMPLATE_DEFAULTS,
-  BUILTIN_TEMPLATES
-} from "./gallery"
-import {
-  BlockDraft,
-  Library,
-  PartialTemplateDefaults,
-  TemplateDefaults
-} from "./Library"
-import {
+  BASE_LAYER,
   EMPTY_LAYER,
   GALLERY_LAYER,
   blockLookupFor,
   blockMatchesDefinition,
-  expandTemplate,
-  expandTemplateKeepingHints,
+  expandType,
+  expandTypeKeepingHints,
   galleryBlocksFor,
   galleryBlocksToAdopt,
-  galleryTemplatesFor,
-  isPristineTemplateBody,
+  galleryTypesFor,
+  isPristineTypeBody,
   type Layer,
+  type LibraryLayers,
   mergeChecklistTicks,
-  mergeTemplateInto,
+  mergeTypeInto,
   resolveLibrary,
   resolveSyncedBlocks,
-  templateBodyFromTicket,
-  templateFor,
-  ticketTypeForTemplate,
-  typesDefaultingTo,
-  withDefaultsUpdate
+  typeBodyFromTicket,
+  typeFor
 } from "./resolve"
 
-const decodeUnknownTemplateDefaultsSync =
-  Schema.decodeUnknownSync(TemplateDefaults)
-
 const blockDraft = Schema.decodeUnknownSync(BlockDraft)
-const templateDefaults = Schema.decodeUnknownSync(PartialTemplateDefaults)
+const typeDraft = Schema.decodeUnknownSync(TypeDraft)
 const isLibrary = Schema.is(Library)
 
 const layer = (overrides: Partial<Layer>): Layer => ({
@@ -48,28 +36,33 @@ const layer = (overrides: Partial<Layer>): Layer => ({
   ...overrides
 })
 
-const NO_DEFAULTS = {
-  org: { feat: null, bug: null, chore: null, other: null, epic: null },
-  project: null
-} as const
+const withoutBuiltins = (layers: LibraryLayers, canEdit: boolean): Library =>
+  resolveLibrary(layers, canEdit, EMPTY_LAYER)
 
-const adoptedAll = resolveLibrary(
-  { org: GALLERY_LAYER, project: null },
-  { org: BUILTIN_TEMPLATE_DEFAULTS, project: null },
+const resolveBase = (layers: LibraryLayers): Library =>
+  resolveLibrary(layers, false)
+
+const adoptedAll = withoutBuiltins(
+  {
+    org: { ...GALLERY_LAYER, types: [...BUILTIN_TYPES, ...GALLERY_TYPES] },
+    project: null
+  },
   false
 )
 const lookup = blockLookupFor(adoptedAll)
 
-const builtinTemplate = (key: string) => {
-  const template = BUILTIN_TEMPLATES.find((candidate) => candidate.key === key)
-  if (template === undefined) throw new Error(`no built-in template ${key}`)
-  return template
+const knownType = (key: string) => {
+  const type = [...BUILTIN_TYPES, ...GALLERY_TYPES].find(
+    (candidate) => candidate.key === key
+  )
+  if (type === undefined) throw new Error(`no type ${key}`)
+  return type
 }
 
 const blockOf = (library: Library, key: string) =>
   library.blocks.find((block) => block.key === key)
-const templateOf = (library: Library, key: string) =>
-  library.templates.find((template) => template.key === key)
+const typeOf = (library: Library, key: string) =>
+  library.types.find((type) => type.key === key)
 
 const orgDone = blockDraft({
   key: "definition-of-done",
@@ -92,21 +85,13 @@ const DONE_SNAPSHOT =
 
 describe("resolveLibrary", () => {
   it("serves nothing until a layer adopts or creates an entry", () => {
-    const empty = resolveLibrary(
+    const empty = withoutBuiltins(
       { org: EMPTY_LAYER, project: EMPTY_LAYER },
-      NO_DEFAULTS,
       false
     )
 
     expect(empty.blocks).toEqual([])
-    expect(empty.templates).toEqual([])
-    expect(empty.defaults).toEqual({
-      feat: null,
-      bug: null,
-      chore: null,
-      other: null,
-      epic: null
-    })
+    expect(empty.types).toEqual([])
     expect(isLibrary(empty)).toBe(true)
   })
 
@@ -117,22 +102,20 @@ describe("resolveLibrary", () => {
         (block) => block.origin === "org" && block.shadows === null
       )
     ).toBe(true)
-    expect(templateOf(adoptedAll, "incident")?.origin).toBe("org")
+    expect(typeOf(adoptedAll, "incident")?.origin).toBe("org")
     expect(blockOf(adoptedAll, "definition-of-done")?.sync).toBe(true)
   })
 
   it("lets a project file shadow the org one", () => {
-    const library = resolveLibrary(
+    const library = withoutBuiltins(
       {
         org: layer({ blocks: [orgDone] }),
         project: layer({ blocks: [projectDone] })
       },
-      NO_DEFAULTS,
       true
     )
-    const orgOnly = resolveLibrary(
+    const orgOnly = withoutBuiltins(
       { org: layer({ blocks: [orgDone] }), project: null },
-      NO_DEFAULTS,
       true
     )
 
@@ -151,12 +134,11 @@ describe("resolveLibrary", () => {
   })
 
   it("lets a project hide an org entry and keeps the content it hides", () => {
-    const library = resolveLibrary(
+    const library = withoutBuiltins(
       {
         org: layer({ blocks: [orgDone] }),
         project: layer({ hiddenBlocks: ["definition-of-done"] })
       },
-      NO_DEFAULTS,
       false
     )
 
@@ -169,181 +151,280 @@ describe("resolveLibrary", () => {
   })
 
   it("drops a tombstone that hides nothing, built-in keys included", () => {
-    const library = resolveLibrary(
+    const library = withoutBuiltins(
       {
         org: layer({
           hiddenBlocks: ["ghost"],
-          hiddenTemplates: ["bug-report"]
+          hiddenTypes: ["bug"]
         }),
         project: layer({ hiddenBlocks: ["notes"] })
       },
-      NO_DEFAULTS,
       false
     )
 
     expect(library.blocks).toEqual([])
-    expect(library.templates).toEqual([])
+    expect(library.types).toEqual([])
   })
 })
 
-describe("template defaults", () => {
-  const bug = builtinTemplate("bug-report")
-  const spike = builtinTemplate("spike")
-  const chore = builtinTemplate("chore")
-  const org = layer({ templates: [bug, spike, chore] })
-
-  it("resolves org defaults to adopted templates only", () => {
-    const library = resolveLibrary(
-      { org, project: null },
-      {
-        org: templateDefaults({ bug: "bug-report", feat: "feature" }),
-        project: null
-      },
-      false
-    )
-
-    expect(library.defaults).toEqual({
-      feat: null,
-      bug: "bug-report",
-      chore: null,
-      other: null,
-      epic: null
-    })
-    expect(library.ownDefaults).toEqual({ bug: "bug-report", feat: "feature" })
-    expect(library.inheritedDefaults).toEqual(NO_DEFAULTS.org)
+describe("built-in base layer", () => {
+  const orgBug = typeDraft({
+    ...knownType("bug"),
+    name: "Defect",
+    body: "Org bug body"
   })
-
-  it("lets a project override the org default per type", () => {
-    const library = resolveLibrary(
-      { org, project: EMPTY_LAYER },
-      {
-        org: templateDefaults({ bug: "bug-report", chore: "chore" }),
-        project: templateDefaults({ bug: "spike", chore: null })
-      },
-      false
-    )
-
-    expect(library.defaults).toEqual({
-      feat: null,
-      bug: "spike",
-      chore: null,
-      other: null,
-      epic: null
-    })
-    expect(library.inheritedDefaults).toEqual({
-      feat: null,
-      bug: "bug-report",
-      chore: "chore",
-      other: null,
-      epic: null
-    })
-    expect(library.ownDefaults).toEqual({ bug: "spike", chore: null })
+  const projectBug = typeDraft({ ...orgBug, name: "Project defect" })
+  const orgContext = blockDraft({
+    ...BUILTIN_BLOCKS.find((block) => block.key === "context"),
+    description: "Org context"
   })
+  const spike = knownType("spike")
 
-  it("inherits nothing a project has hidden", () => {
-    const library = resolveLibrary(
-      { org, project: layer({ hiddenTemplates: ["bug-report"] }) },
-      { org: templateDefaults({ bug: "bug-report" }), project: {} },
-      false
-    )
+  it("serves the built-in types and sections to an organization that added nothing", () => {
+    const library = resolveBase({ org: EMPTY_LAYER, project: null })
 
-    expect(library.inheritedDefaults.bug).toBeNull()
-    expect(library.defaults.bug).toBeNull()
-  })
-
-  it("merges an update and drops reset types", () => {
-    expect(
-      withDefaultsUpdate(templateDefaults({ bug: "spike", chore: null }), {
-        defaults: templateDefaults({ feat: "feature" }),
-        reset: ["bug"]
+    expect(library.types.map((type) => type.key).toSorted()).toEqual([
+      "bug",
+      "chore",
+      "epic",
+      "feat"
+    ])
+    expect(library.blocks.map((block) => block.key).toSorted()).toEqual([
+      "acceptance-criteria",
+      "context",
+      "definition-of-done",
+      "environment",
+      "expected-vs-actual",
+      "out-of-scope",
+      "steps-to-reproduce"
+    ])
+    for (const entry of [...library.types, ...library.blocks])
+      expect(entry).toMatchObject({
+        origin: "builtin",
+        shadows: null,
+        hidden: false
       })
-    ).toEqual({ feat: "feature", chore: null })
+    expect(isLibrary(library)).toBe(true)
+  })
+
+  it.each(BUILTIN_TYPES.map((type) => [type.key, type] as const))(
+    "expands %s to a non-empty starting description from built-in sections",
+    (_key, type) => {
+      const library = resolveBase({ org: EMPTY_LAYER, project: null })
+      const expanded = expandType(type, blockLookupFor(library))
+
+      expect(expanded.trim()).not.toBe("")
+      expect(
+        parseTicketBlocks(expanded).flatMap((segment) =>
+          segment.kind === "block" ? [segment.type] : []
+        )
+      ).toEqual(
+        parseTicketBlocks(type.body).flatMap((segment) =>
+          segment.kind === "block" ? [segment.type] : []
+        )
+      )
+    }
+  )
+
+  it("starts an epic from context and out of scope", () => {
+    expect(knownType("epic").body).toBe(
+      [
+        formatTicketBlock("context", ""),
+        formatTicketBlock("out-of-scope", "")
+      ].join("\n\n")
+    )
+  })
+
+  it.each([
+    {
+      name: "org copy of a built-in",
+      layers: { org: layer({ types: [orgBug] }), project: null },
+      expected: {
+        name: "Defect",
+        origin: "org",
+        shadows: "builtin",
+        hidden: false
+      }
+    },
+    {
+      name: "project copy of an unedited built-in",
+      layers: { org: EMPTY_LAYER, project: layer({ types: [projectBug] }) },
+      expected: {
+        name: "Project defect",
+        origin: "project",
+        shadows: "builtin",
+        hidden: false
+      }
+    },
+    {
+      name: "project copy over an org copy",
+      layers: {
+        org: layer({ types: [orgBug] }),
+        project: layer({ types: [projectBug] })
+      },
+      expected: {
+        name: "Project defect",
+        origin: "project",
+        shadows: "org",
+        hidden: false
+      }
+    },
+    {
+      name: "project hides an unedited built-in",
+      layers: { org: EMPTY_LAYER, project: layer({ hiddenTypes: ["bug"] }) },
+      expected: {
+        name: "Bug",
+        origin: "project",
+        shadows: "builtin",
+        hidden: true
+      }
+    },
+    {
+      name: "project hides an org copy",
+      layers: {
+        org: layer({ types: [orgBug] }),
+        project: layer({ hiddenTypes: ["bug"] })
+      },
+      expected: {
+        name: "Defect",
+        origin: "project",
+        shadows: "org",
+        hidden: true
+      }
+    },
+    {
+      name: "project reset to the org copy",
+      layers: { org: layer({ types: [orgBug] }), project: EMPTY_LAYER },
+      expected: {
+        name: "Defect",
+        origin: "org",
+        shadows: "builtin",
+        hidden: false
+      }
+    },
+    {
+      name: "both layers reset to the built-in",
+      layers: { org: EMPTY_LAYER, project: EMPTY_LAYER },
+      expected: { name: "Bug", origin: "builtin", shadows: null, hidden: false }
+    }
+  ] as const)("resolves a type: $name", ({ layers, expected }) => {
+    expect(typeOf(resolveBase(layers), "bug")).toMatchObject(expected)
+  })
+
+  it("resolves custom types beside the built-in ones", () => {
+    const library = resolveBase({
+      org: layer({ types: [spike] }),
+      project: layer({ types: [typeDraft({ ...spike, key: "research" })] })
+    })
+
+    expect(typeOf(library, "spike")).toMatchObject({
+      origin: "org",
+      shadows: null
+    })
+    expect(typeOf(library, "research")).toMatchObject({
+      origin: "project",
+      shadows: null
+    })
+    expect(library.types).toHaveLength(6)
+  })
+
+  it("layers sections the same way as types", () => {
+    expect(
+      blockOf(
+        resolveBase({ org: layer({ blocks: [orgContext] }), project: null }),
+        "context"
+      )
+    ).toMatchObject({
+      description: "Org context",
+      origin: "org",
+      shadows: "builtin"
+    })
+    expect(
+      blockOf(
+        resolveBase({
+          org: EMPTY_LAYER,
+          project: layer({ hiddenBlocks: ["context"] })
+        }),
+        "context"
+      )
+    ).toMatchObject({
+      description: "Why this ticket exists",
+      origin: "project",
+      shadows: "builtin",
+      hidden: true
+    })
+  })
+
+  it("keeps the base layer to the seven built-in sections", () => {
+    expect(BASE_LAYER.blocks).toHaveLength(7)
+    expect(GALLERY_BLOCKS).toHaveLength(16)
   })
 })
 
 describe("gallery", () => {
   it("offers every built-in until it is adopted", () => {
-    const empty = resolveLibrary(
-      { org: EMPTY_LAYER, project: null },
-      NO_DEFAULTS,
-      false
-    )
-    expect(galleryTemplatesFor(empty)).toEqual(BUILTIN_TEMPLATES)
-    expect(galleryBlocksFor(empty)).toEqual(BUILTIN_BLOCKS)
-    expect(galleryTemplatesFor(adoptedAll)).toEqual([])
+    const empty = withoutBuiltins({ org: EMPTY_LAYER, project: null }, false)
+    expect(galleryTypesFor(empty)).toEqual(GALLERY_TYPES)
+    expect(galleryBlocksFor(empty)).toEqual(GALLERY_BLOCKS)
+    expect(galleryTypesFor(adoptedAll)).toEqual([])
     expect(galleryBlocksFor(adoptedAll)).toEqual([])
   })
 
   it("keeps a hidden key out of the gallery", () => {
-    const library = resolveLibrary(
+    const library = withoutBuiltins(
       {
-        org: layer({ templates: [builtinTemplate("incident")] }),
-        project: layer({ hiddenTemplates: ["incident"] })
+        org: layer({ types: [knownType("incident")] }),
+        project: layer({ hiddenTypes: ["incident"] })
       },
-      NO_DEFAULTS,
       false
     )
-    expect(
-      galleryTemplatesFor(library).map((template) => template.key)
-    ).not.toContain("incident")
+    expect(galleryTypesFor(library).map((type) => type.key)).not.toContain(
+      "incident"
+    )
   })
 
-  it("adopts the built-in blocks a template references and lacks", () => {
-    const context = BUILTIN_BLOCKS.find((block) => block.key === "context")!
-    const library = resolveLibrary(
+  it("adopts the gallery blocks a type references and lacks", () => {
+    const context = GALLERY_BLOCKS.find((block) => block.key === "context")!
+    const library = withoutBuiltins(
       { org: layer({ blocks: [context] }), project: null },
-      NO_DEFAULTS,
       false
     )
 
     expect(
-      galleryBlocksToAdopt(library, builtinTemplate("feature")).map(
-        (block) => block.key
-      )
-    ).toEqual(["acceptance-criteria", "definition-of-done", "out-of-scope"])
+      galleryBlocksToAdopt(library, knownType("feat")).map((block) => block.key)
+    ).toEqual(["acceptance-criteria", "out-of-scope", "definition-of-done"])
     expect(
-      galleryBlocksToAdopt(library, builtinTemplate("spike")).map(
+      galleryBlocksToAdopt(library, knownType("spike")).map(
         (block) => block.key
       )
     ).toEqual(["approach", "open-questions", "findings"])
     expect(
-      galleryBlocksToAdopt(library, builtinTemplate("incident")).map(
+      galleryBlocksToAdopt(library, knownType("incident")).map(
         (block) => block.key
       )
     ).toEqual(["acceptance-criteria", "findings", "notes"])
   })
 })
 
-describe("templateFor", () => {
-  it("returns the default template for a type, or null for blank", () => {
-    expect(templateFor(adoptedAll, "bug")?.key).toBe("bug-report")
-    expect(templateFor(adoptedAll, "other")).toBeNull()
+describe("typeFor", () => {
+  it("returns the visible type with that key, or null", () => {
+    expect(typeFor(adoptedAll, "bug")?.name).toBe("Bug")
+    expect(typeFor(adoptedAll, "other")).toBeNull()
+    expect(
+      typeFor(
+        resolveBase({
+          org: EMPTY_LAYER,
+          project: layer({ hiddenTypes: ["bug"] })
+        }),
+        "bug"
+      )
+    ).toBeNull()
   })
 })
 
-describe("ticketTypeForTemplate", () => {
-  const defaults = decodeUnknownTemplateDefaultsSync({
-    feat: "feature",
-    bug: "bug-report",
-    chore: "bug-report",
-    other: null,
-    epic: null
-  })
-
-  it("is the one type a template is the default for", () => {
-    expect(ticketTypeForTemplate(defaults, "feature")).toBe("feat")
-  })
-
-  it("is null when the template is the default for several types or none", () => {
-    expect(typesDefaultingTo(defaults, "bug-report")).toEqual(["bug", "chore"])
-    expect(ticketTypeForTemplate(defaults, "bug-report")).toBeNull()
-    expect(ticketTypeForTemplate(defaults, "spike")).toBeNull()
-  })
-})
-
-describe("expandTemplate", () => {
+describe("expandType", () => {
   it("expands references with hints stripped and synced blocks tagged", () => {
-    const expanded = expandTemplate(builtinTemplate("bug-report"), lookup)
+    const expanded = expandType(knownType("bug"), lookup)
 
     expect(expanded).toContain(
       formatTicketBlock(
@@ -356,15 +437,14 @@ describe("expandTemplate", () => {
   })
 
   it("uses customizations verbatim minus hints", () => {
-    expect(expandTemplate(builtinTemplate("spike"), lookup)).toContain(
+    expect(expandType(knownType("spike"), lookup)).toContain(
       formatTicketBlock("approach", "## Approach")
     )
   })
 
   it("drops missing and hidden references but keeps loose markdown and customized unknown blocks", () => {
-    const hidden = resolveLibrary(
+    const hidden = withoutBuiltins(
       { org: GALLERY_LAYER, project: layer({ hiddenBlocks: ["notes"] }) },
-      NO_DEFAULTS,
       false
     )
     const body = [
@@ -374,7 +454,7 @@ describe("expandTemplate", () => {
       formatTicketBlock("custom", "## Custom {{fill me}}")
     ].join("\n\n")
 
-    expect(expandTemplate({ body }, blockLookupFor(hidden))).toBe(
+    expect(expandType({ body }, blockLookupFor(hidden))).toBe(
       ["Read this first.", formatTicketBlock("custom", "## Custom")].join(
         "\n\n"
       )
@@ -383,29 +463,25 @@ describe("expandTemplate", () => {
 
   it("keeps the trailing space of an empty last task item", () => {
     expect(
-      expandTemplate({ body: formatTicketBlock("open-questions", "") }, lookup)
+      expandType({ body: formatTicketBlock("open-questions", "") }, lookup)
     ).toBe(
       '<block type="open-questions">\n\n## Open questions\n\n- [ ] \n\n</block>'
     )
   })
 })
 
-describe("expandTemplateKeepingHints", () => {
-  it("expands references but keeps hints, unlike expandTemplate", () => {
-    const expanded = expandTemplateKeepingHints(
-      builtinTemplate("bug-report"),
-      lookup
-    )
+describe("expandTypeKeepingHints", () => {
+  it("expands references but keeps hints, unlike expandType", () => {
+    const expanded = expandTypeKeepingHints(knownType("bug"), lookup)
     expect(expanded).toContain("{{")
-    expect(
-      expandTemplateKeepingHints(builtinTemplate("bug-report"), lookup)
-    ).not.toBe(expandTemplate(builtinTemplate("bug-report"), lookup))
+    expect(expandTypeKeepingHints(knownType("bug"), lookup)).not.toBe(
+      expandType(knownType("bug"), lookup)
+    )
   })
 
   it("still drops missing references and keeps loose markdown verbatim", () => {
-    const hidden = resolveLibrary(
+    const hidden = withoutBuiltins(
       { org: GALLERY_LAYER, project: layer({ hiddenBlocks: ["notes"] }) },
-      NO_DEFAULTS,
       false
     )
     const body = [
@@ -415,7 +491,7 @@ describe("expandTemplateKeepingHints", () => {
       formatTicketBlock("custom", "## Custom {{fill me}}")
     ].join("\n\n")
 
-    expect(expandTemplateKeepingHints({ body }, blockLookupFor(hidden))).toBe(
+    expect(expandTypeKeepingHints({ body }, blockLookupFor(hidden))).toBe(
       [
         "Read this first. {{Say why}}",
         formatTicketBlock("custom", "## Custom {{fill me}}")
@@ -424,11 +500,11 @@ describe("expandTemplateKeepingHints", () => {
   })
 })
 
-describe("mergeTemplateInto", () => {
-  const expanded = expandTemplate(builtinTemplate("bug-report"), lookup)
+describe("mergeTypeInto", () => {
+  const expanded = expandType(knownType("bug"), lookup)
 
-  it("uses the expanded template for a blank body", () => {
-    expect(mergeTemplateInto("  \n", expanded)).toEqual({
+  it("uses the expanded type for a blank body", () => {
+    expect(mergeTypeInto("  \n", expanded)).toEqual({
       body: expanded,
       added: [
         "expected-vs-actual",
@@ -439,10 +515,10 @@ describe("mergeTemplateInto", () => {
     })
   })
 
-  it("appends only the block types the body lacks, in template order", () => {
+  it("appends only the block types the body lacks, in type order", () => {
     const body = `Intro   \n\n${formatTicketBlock("environment", "## Env\n\n- mine")}\n`
 
-    const merged = mergeTemplateInto(body, expanded)
+    const merged = mergeTypeInto(body, expanded)
 
     expect(merged.added).toEqual([
       "expected-vs-actual",
@@ -456,7 +532,7 @@ describe("mergeTemplateInto", () => {
   it("leaves a body that already has every block untouched", () => {
     const body = `${expanded}\n\nMy notes`
 
-    expect(mergeTemplateInto(body, expanded)).toEqual({ body, added: [] })
+    expect(mergeTypeInto(body, expanded)).toEqual({ body, added: [] })
   })
 })
 
@@ -561,12 +637,11 @@ describe("resolveSyncedBlocks", () => {
   })
 
   it("follows the effective layer", () => {
-    const library = resolveLibrary(
+    const library = withoutBuiltins(
       {
         org: layer({ blocks: [orgDone] }),
         project: null
       },
-      NO_DEFAULTS,
       false
     )
 
@@ -580,9 +655,8 @@ describe("resolveSyncedBlocks", () => {
   })
 
   it("treats a synced built-in nobody adopted as deleted", () => {
-    const empty = resolveLibrary(
+    const empty = withoutBuiltins(
       { org: EMPTY_LAYER, project: EMPTY_LAYER },
-      NO_DEFAULTS,
       false
     )
 
@@ -596,12 +670,11 @@ describe("resolveSyncedBlocks", () => {
   })
 
   it("turns a block with a missing or unsynced definition into a copy", () => {
-    const unsynced = resolveLibrary(
+    const unsynced = withoutBuiltins(
       {
         org: layer({ blocks: [blockDraft({ ...orgDone, sync: false })] }),
         project: null
       },
-      NO_DEFAULTS,
       false
     )
     const ghost = formatTicketBlock("ghost", "## Ghost\n\n- [x] kept", {
@@ -642,15 +715,17 @@ describe("blockMatchesDefinition", () => {
   })
 })
 
-describe("templateBodyFromTicket", () => {
+describe("typeBodyFromTicket", () => {
   it.each(
-    BUILTIN_TEMPLATES.map((template) => [template.key, template] as const)
-  )("round-trips %s through a ticket", (_key, template) => {
-    const expanded = expandTemplate(template, lookup)
+    [...BUILTIN_TYPES, ...GALLERY_TYPES].map(
+      (type) => [type.key, type] as const
+    )
+  )("round-trips %s through a ticket", (_key, type) => {
+    const expanded = expandType(type, lookup)
 
-    expect(
-      expandTemplate(templateBodyFromTicket(expanded, lookup), lookup)
-    ).toBe(expanded)
+    expect(expandType(typeBodyFromTicket(expanded, lookup), lookup)).toBe(
+      expanded
+    )
   })
 
   it("references pristine and synced blocks and keeps edits inline", () => {
@@ -668,7 +743,7 @@ describe("templateBodyFromTicket", () => {
       formatTicketBlock("ghost", "## Ghost", { sync: true })
     ].join("\n\n")
 
-    expect(templateBodyFromTicket(ticket, lookup)).toEqual({
+    expect(typeBodyFromTicket(ticket, lookup)).toEqual({
       body: [
         "Intro.",
         formatTicketBlock(
@@ -684,36 +759,32 @@ describe("templateBodyFromTicket", () => {
   })
 })
 
-describe("isPristineTemplateBody", () => {
-  const template = builtinTemplate("feature")
-  const expanded = expandTemplate(template, lookup)
+describe("isPristineTypeBody", () => {
+  const type = knownType("feat")
+  const expanded = expandType(type, lookup)
 
   it("is true for the untouched expansion, even reformatted", () => {
-    expect(isPristineTemplateBody(expanded, template, lookup)).toBe(true)
+    expect(isPristineTypeBody(expanded, type, lookup)).toBe(true)
     expect(
-      isPristineTemplateBody(
-        `${expanded.replaceAll("\n\n", "\n")}\n`,
-        template,
-        lookup
-      )
+      isPristineTypeBody(`${expanded.replaceAll("\n\n", "\n")}\n`, type, lookup)
     ).toBe(true)
   })
 
   it("is false once anything is typed or ticked", () => {
     expect(
-      isPristineTemplateBody(
+      isPristineTypeBody(
         expanded.replace("## Context", "## Context\n\nWhy"),
-        template,
+        type,
         lookup
       )
     ).toBe(false)
     expect(
-      isPristineTemplateBody(
+      isPristineTypeBody(
         expanded.replace("- [ ] Reviewed", "- [x] Reviewed"),
-        template,
+        type,
         lookup
       )
     ).toBe(false)
-    expect(isPristineTemplateBody("", template, lookup)).toBe(false)
+    expect(isPristineTypeBody("", type, lookup)).toBe(false)
   })
 })

@@ -1,12 +1,12 @@
 import {
+  TicketRank,
   EMPTY_TICKET_RELATIONS,
-  DEFAULT_TICKET_SORT,
   GroupId,
   padNumericIdSort,
   Ticket,
   TicketDetail,
   TagName,
-  TemplateKey,
+  TypeKey,
   TicketId,
   type TicketListQuery,
   TicketStatus,
@@ -26,6 +26,7 @@ import { applyTicketPatch } from "../lib/ticketPatch"
 import {
   backlog,
   backlogRequest,
+  bulkUpdateBacklogTickets,
   encodeTicketListQuery,
   loadMoreBacklog,
   quickCreateBacklogTicket,
@@ -41,21 +42,21 @@ const decodeTicketIdSync = Schema.decodeSync(TicketId)
 
 const decodeGroupIdSync = Schema.decodeSync(GroupId)
 
-const decodeTemplateKeySync = Schema.decodeSync(TemplateKey)
-
 const decodeTagNameSync = Schema.decodeSync(TagName)
 
 const ticket = {
   id: Schema.decodeSync(TicketId)("T-1"),
   title: "Before",
   status: Schema.decodeSync(TicketStatus)("todo"),
-  type: "chore",
+  type: TypeKey.make("chore"),
   priority: "med",
   estimate: null,
+  flag: null,
   tags: [],
   branch: null,
   pr: null,
   prState: null,
+  rank: TicketRank.make("a0"),
   lastTransitionedPr: null,
   parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
@@ -185,19 +186,23 @@ describe("backlog optimistic update", () => {
       )
       registry.set(mutation, { priority: "high" })
       await vi.waitFor(() => expect(bodies).toHaveLength(1))
-      registry.set(mutation, { type: "bug" })
+      registry.set(mutation, { type: TypeKey.make("bug") })
       pending[0](
         Response.json(
           encodeUpdateResponse(asUpdateResult({ ...ticket, priority: "high" }))
         )
       )
       await vi.waitFor(() => expect(bodies).toHaveLength(2))
-      expect(bodies[1]).toEqual({ type: "bug" })
+      expect(bodies[1]).toEqual({ type: TypeKey.make("bug") })
 
       pending[1](
         Response.json(
           encodeUpdateResponse(
-            asUpdateResult({ ...ticket, priority: "high", type: "bug" })
+            asUpdateResult({
+              ...ticket,
+              priority: "high",
+              type: TypeKey.make("bug")
+            })
           )
         )
       )
@@ -342,13 +347,19 @@ describe("backlog optimistic update", () => {
   })
 
   it("shares one atom between structurally equal requests", () => {
-    const a = backlogRequest("acme", "web", { sort: { key: "id", dir: "asc" } })
-    const b = backlogRequest("acme", "web", { sort: { key: "id", dir: "asc" } })
+    const a = backlogRequest("acme", "web", {
+      sort: { key: "id", dir: "asc" }
+    })
+    const b = backlogRequest("acme", "web", {
+      sort: { key: "id", dir: "asc" }
+    })
     expect(backlog(a)).toBe(backlog(b))
   })
 
   it("shares one atom when the search includes a view field", () => {
-    const a = backlogRequest("acme", "web", { sort: { key: "id", dir: "asc" } })
+    const a = backlogRequest("acme", "web", {
+      sort: { key: "id", dir: "asc" }
+    })
     const b = backlogRequest("acme", "web", {
       sort: { key: "id", dir: "asc" },
       view: "board"
@@ -356,6 +367,57 @@ describe("backlog optimistic update", () => {
     expect(backlog(a)).toBe(backlog(b))
     expect(a.query).not.toHaveProperty("view")
     expect(b.query).not.toHaveProperty("view")
+  })
+})
+
+const urlOf = (input: RequestInfo | URL) =>
+  input instanceof Request ? input.url : new URL(input, "http://test").href
+
+describe("backlog bulk update", () => {
+  const second = { ...ticket, id: decodeTicketIdSync("T-2") }
+
+  const run = async (respond: () => Response) => {
+    const resolvers: Array<(response: Response) => void> = []
+    fetchStub.set((input: RequestInfo | URL) =>
+      urlOf(input).endsWith("/tickets/bulk")
+        ? new Promise<Response>((resolve) => {
+            resolvers.push(resolve)
+          })
+        : Promise.resolve(sections([ticket, second]))
+    )
+    const registry = AtomRegistry.make()
+    const view = backlog(req)
+    const mutation = bulkUpdateBacklogTickets(req)
+    registry.mount(view)
+    registry.mount(mutation)
+    await vi.waitFor(() =>
+      expect(registry.get(view)).toMatchObject({ waiting: false })
+    )
+    registry.set(mutation, {
+      tickets: [ticket.id, second.id],
+      patch: { priority: "high" }
+    })
+    const priorities = () => {
+      const value = registry.get(view)
+      if (!AsyncResult.isSuccess(value)) throw new Error("no value")
+      return value.value.sections.todo.items.map((row) => row.ticket.priority)
+    }
+    const previewed = priorities()
+    resolvers[0]?.(respond())
+    await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+    const settled = priorities()
+    registry.dispose()
+    return { previewed, settled }
+  }
+
+  it("previews the edit on every selected row at once", async () => {
+    const { previewed } = await run(() => new Response("nope", { status: 500 }))
+    expect(previewed).toEqual(["high", "high"])
+  })
+
+  it("reverts every selected row when the request fails", async () => {
+    const { settled } = await run(() => new Response("nope", { status: 500 }))
+    expect(settled).toEqual(["med", "med"])
   })
 })
 
@@ -917,7 +979,7 @@ describe("backlog pagination", () => {
 describe("backlog quick create", () => {
   it.each([
     { filter: { q: "missing" } },
-    { filter: { type: ["bug"] } },
+    { filter: { type: [TypeKey.make("bug")] } },
     { filter: { assignee: ["mine"] } },
     { filter: { groupId: [decodeGroupIdSync("G-1")] } }
   ] as const)(
@@ -942,7 +1004,7 @@ describe("backlog quick create", () => {
           expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
         )
         registry.set(create, {
-          payload: { title: "Created", type: "chore" },
+          payload: { title: "Created", type: TypeKey.make("chore") },
           prediction: {
             clientId: "creation-filtered",
             createdBy: "user-1",
@@ -964,7 +1026,7 @@ describe("backlog quick create", () => {
     }
   )
 
-  it("sends the template and predicts the template's priority and tags", async () => {
+  it("sends the type and predicts the type's priority and tags", async () => {
     const payloads: Array<unknown> = []
     fetchStub.set(async (_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "POST") {
@@ -985,8 +1047,7 @@ describe("backlog quick create", () => {
       registry.set(create, {
         payload: {
           title: "Login loops",
-          type: "bug",
-          template: decodeTemplateKeySync("bug-report")
+          type: TypeKey.make("bug")
         },
         prediction: {
           clientId: "creation-1",
@@ -1007,9 +1068,7 @@ describe("backlog quick create", () => {
         ticket: { type: "bug", priority: "high", tags: ["auth"] }
       })
       await vi.waitFor(() =>
-        expect(payloads).toEqual([
-          { title: "Login loops", type: "bug", template: "bug-report" }
-        ])
+        expect(payloads).toEqual([{ title: "Login loops", type: "bug" }])
       )
     } finally {
       registry.dispose()
@@ -1390,7 +1449,7 @@ const titleRow = (t: Ticket): ServedRow => [t, titleKey(t)]
 const idRow = (t: Ticket): ServedRow => [t, idKey(t)]
 
 describe("backlog status round trip keeps the section's sort order", () => {
-  it("returns the oldest row to the bottom under the default `created desc` sort", async () => {
+  it("returns the oldest row to the bottom under `created desc`", async () => {
     const items = [
       withTicket("T-1", {
         title: "Alpha",
@@ -1406,7 +1465,7 @@ describe("backlog status round trip keeps the section's sort order", () => {
       })
     ]
     const order = await orderAfterRoundTrip(
-      { sort: DEFAULT_TICKET_SORT },
+      { sort: { key: "created", dir: "desc" } },
       items.map(createdRow),
       items[2].id
     )

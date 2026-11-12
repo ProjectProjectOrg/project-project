@@ -91,6 +91,11 @@ const LIST_BLOCKS: ReadonlySet<SlashBasicKind> = new Set(
 
 const DRAG_DISTANCE = 4
 
+const STARTS_WITH_HOSTNAME = /^[a-z\d-]+(\.[a-z\d-]+)+(:\d+)?([/?#]|$)/i
+
+const withHttps = (url: string) =>
+  STARTS_WITH_HOSTNAME.test(url) && !/\s/.test(url) ? `https://${url}` : url
+
 type ToolbarAlign = "start" | "center"
 
 type SelectionAnchor = Readonly<{ rect: DOMRect; align: ToolbarAlign }>
@@ -107,7 +112,17 @@ function $blockOf(selection: RangeSelection): SlashBasicKind | null {
   const list = $getNearestNodeOfType(anchor, ListNode)
   if ($isListNode(list)) return LIST_KINDS[list.getListType()]
   const top = anchor.getTopLevelElement()
-  if ($isHeadingNode(top)) return "heading"
+  if ($isHeadingNode(top))
+    return (
+      {
+        h1: "heading-1",
+        h2: "heading",
+        h3: "heading-3",
+        h4: "heading-4",
+        h5: "heading-5",
+        h6: "heading-6"
+      } satisfies Readonly<Record<string, SlashBasicKind>>
+    )[top.getTag()]
   if ($isQuoteNode(top)) return "quote"
   if ($isCodeNode(top)) return "code"
   return null
@@ -372,7 +387,7 @@ export function FormattingToolbarPlugin() {
     if (linking === null) return
     editor.update(() => {
       $setSelection(linking.selection.clone())
-      if (url !== null) $toggleLink(url)
+      if (url !== null) $toggleLink(withHttps(url))
     })
     setLinking(null)
     editor.focus()

@@ -2,10 +2,16 @@ import { GroupPolicy, TicketPolicy } from "@pp/access/policies"
 import { Db } from "@pp/db"
 import * as schema from "@pp/db/schema"
 import {
+  type BulkArchiveTicketsInput,
+  type BulkDeleteTicketsInput,
+  type BulkTicketsResult,
   type BulkUpdateTicketsInput,
+  type Group,
+  type GroupId,
   Conflict,
   DEFAULT_TICKET_SORT,
   isStaleEstimate,
+  listEditAdds,
   MentionInvalid,
   NotFound,
   formatMentionHref,
@@ -15,9 +21,8 @@ import {
   type ProjectKey,
   type Estimate,
   type SplitTicketResultInput,
-  type TemplateKey,
+  type TypeKey,
   TicketStatus,
-  TicketType,
   ProjectScope,
   ActivityActor,
   type ArchiveTicketInput,
@@ -27,15 +32,15 @@ import {
   type ClearStaleEstimatesResult,
   type SprintCompletedImmutable,
   type CreateTicketInput,
-  type GroupDetail,
   type QuickCreateTicketInput,
   type SplitTicketInput,
   type SplitTicketResult,
   type TicketDetail,
+  type TicketPosition,
+  type TicketRank,
   type TicketSort,
   type TicketUpdateResult,
   type UpdateTicketInput,
-  type UpdateTicketOrderInput,
   Forbidden,
   formatMovedFrom,
   planTicketMove,
@@ -47,7 +52,8 @@ import {
   type MoveDestination,
   type MoveMentionContext,
   type MoveTicketInput,
-  type MoveTicketResult
+  type MoveTicketResult,
+  isEpic
 } from "@pp/shared"
 import { and, asc, eq } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -66,10 +72,12 @@ import * as FigmaLinks from "../figma/FigmaLinks"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import type * as Markdown from "../markdown/Markdown"
+import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
 import { readProjectDocument } from "../projects/readProjectDocument"
+import { compareByRank, rankBetween, ranksBetween } from "./ranks"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
 import {
@@ -80,6 +88,7 @@ import {
 import * as TicketIndex from "./TicketIndex"
 import {
   applyTicketPatch,
+  clearFlagWhenFinished,
   batchChangeOf,
   breaksEpicSprintRule,
   fieldChangesOf,
@@ -115,6 +124,17 @@ const makeOptionalTicketId = (id: string | undefined) =>
 const makeTicketStatus = Schema.decodeSync(TicketStatus)
 const makeSlug = Schema.decodeSync(Slug)
 const DEFAULT_STATUS = Schema.decodeSync(TicketStatus)("todo")
+
+const openSprintsOf = (groups: ReadonlyArray<Group>) =>
+  groups.filter(
+    (group) => group.kind === "sprint" && group.completedAt === null
+  )
+
+const sprintIdsAfter = (
+  before: ReadonlyArray<string>,
+  sprint: GroupId | null | undefined
+): ReadonlyArray<string> =>
+  sprint === undefined ? before : sprint === null ? [] : [sprint]
 
 const requireTicketChange = (change: TicketPolicy.Change) =>
   requirePolicy((scope) => TicketPolicy.canChange(scope, change))
@@ -170,24 +190,17 @@ export class TicketCommands extends Context.Service<
       expected?: TicketUpdateExpectation
     ) => Effect.Effect<
       TicketUpdateResult,
-      Forbidden | TicketReadError | Validation | MentionInvalid | Conflict,
+      | Forbidden
+      | TicketReadError
+      | Validation
+      | MentionInvalid
+      | Conflict
+      | SprintCompletedImmutable,
       ProjectScope | ActivityActor
     >
     clearStaleEstimates: () => Effect.Effect<
       ClearStaleEstimatesResult,
       Forbidden | TicketReadError,
-      ProjectScope | ActivityActor
-    >
-    moveInGroup: (
-      groupId: string,
-      input: UpdateTicketOrderInput
-    ) => Effect.Effect<
-      GroupDetail,
-      | NotFound
-      | Forbidden
-      | SprintCompletedImmutable
-      | Validation
-      | Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     split: (
@@ -208,6 +221,25 @@ export class TicketCommands extends Context.Service<
     ) => Effect.Effect<
       BulkUpdateTicketsResult,
       TicketReadError | Validation | Forbidden | SprintCompletedImmutable,
+      ProjectScope | ActivityActor
+    >
+    bulkArchive: (
+      input: BulkArchiveTicketsInput
+    ) => Effect.Effect<
+      BulkTicketsResult,
+      | Forbidden
+      | Conflict
+      | Validation
+      | TicketReadError
+      | MentionInvalid
+      | Comments.InvalidCommentBody,
+      ProjectScope | ActivityActor
+    >
+    bulkDelete: (
+      input: BulkDeleteTicketsInput
+    ) => Effect.Effect<
+      BulkTicketsResult,
+      Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     move: (
@@ -267,6 +299,7 @@ export class TicketCommands extends Context.Service<
 
 const make = Effect.gen(function* () {
   const ticketDocs = yield* TicketDocs.TicketDocs
+  const finishedStatuses = yield* FinishedStatuses
   const ticketActivity = yield* TicketActivity.TicketActivity
   const { withTicketDocumentLock, withTicketWriteLocks } =
     yield* TicketDocumentLock.TicketDocumentLock
@@ -280,8 +313,14 @@ const make = Effect.gen(function* () {
   const access = yield* Access.Access
   const figmaLinks = yield* FigmaLinks.FigmaLinks
   const library = yield* Library.Library
-  const { withTicketRelationsLock } =
+  const { withTicketRelationsLock, withTicketRanksLock } =
     yield* TicketDocumentLock.TicketDocumentLock
+
+  const withRanksLock = <A, E, R>(
+    project: Readonly<{ orgSlug: string; slug: string }>,
+    effect: Effect.Effect<A, E, R>
+  ): Effect.Effect<A, E, R> =>
+    withTicketRanksLock(project.orgSlug, project.slug, effect)
 
   const withRelationsLock = <A, E, R>(
     project: TicketProject,
@@ -437,7 +476,7 @@ const make = Effect.gen(function* () {
   const validateNewParent = (
     project: TicketProject,
     viewerId: string,
-    type: TicketType,
+    type: TypeKey | null,
     parent: TicketId | undefined
   ): Effect.Effect<void, Validation> =>
     validateHierarchy(hierarchyLookups(project, viewerId), {
@@ -536,16 +575,136 @@ const make = Effect.gen(function* () {
       }
     })
 
+  const reconcileBodyLinks = (
+    project: TicketProject,
+    document: TicketDocs.TicketDocument
+  ) =>
+    Effect.all(
+      [
+        attachments.reconcileTicket(
+          project.orgSlug,
+          project.slug,
+          document.id,
+          document.body
+        ),
+        figmaLinks.reconcileTicket(
+          project.orgSlug,
+          project.slug,
+          document.id,
+          document.title,
+          document.body
+        )
+      ],
+      { concurrency: 2, discard: true }
+    )
+
+  const rankAtTop = (project: TicketProject) =>
+    ticketIndex
+      .topRank(project)
+      .pipe(Effect.map((upper) => rankBetween({ lower: null, upper })))
+
+  const writeAtTop = (
+    project: TicketProject,
+    projectKey: ProjectKey,
+    buildDocument: (id: TicketId, rank: TicketRank) => TicketDocs.TicketDocument
+  ) =>
+    withRanksLock(
+      project,
+      rankAtTop(project).pipe(
+        Effect.flatMap((rank) =>
+          writeWithIdAllocation(project, projectKey, (id) =>
+            buildDocument(id, rank)
+          )
+        )
+      )
+    )
+
+  const rankAt = (
+    project: TicketProject,
+    ticketId: string,
+    position: TicketPosition
+  ): Effect.Effect<TicketRank, NotFound | Validation> =>
+    Effect.gen(function* () {
+      const [anchor, side] =
+        "after" in position
+          ? ([position.after, "after"] as const)
+          : ([position.before, "before"] as const)
+      if (anchor === ticketId) {
+        return yield* new Validation({ reason: "position_is_self" })
+      }
+      const gap = yield* ticketIndex.rankGap(project, anchor, side, ticketId)
+      if (gap === null) return yield* new NotFound()
+      return rankBetween(gap)
+    })
+
+  const ranksAt = Effect.fnUntraced(function* (
+    project: TicketProject,
+    tickets: ReadonlyArray<TicketDocs.TicketDocument>,
+    position: TicketPosition
+  ) {
+    const [anchor, side] =
+      "after" in position
+        ? ([position.after, "after"] as const)
+        : ([position.before, "before"] as const)
+    if (tickets.some((ticket) => ticket.id === anchor)) {
+      return yield* new Validation({ reason: "position_is_self" })
+    }
+    const ordered = tickets.toSorted(compareByRank)
+    const gap = yield* ticketIndex.rankGap(project, anchor, side, ordered[0].id)
+    if (gap === null) return yield* new NotFound()
+    const ranks = ranksBetween(gap, ordered.length)
+    return new Map(ordered.map((ticket, index) => [ticket.id, ranks[index]]))
+  })
+
   const expansionFor = (
     project: TicketProject,
-    template: TemplateKey | null | undefined
+    type: TypeKey | null
   ): Effect.Effect<
-    Library.TemplateExpansion | null,
+    Library.TypeExpansion | null,
     NotFound | Validation | Markdown.MarkdownError
   > =>
-    template === undefined || template === null
+    type === null
       ? Effect.succeed(null)
-      : library.expandForCreate(project.orgSlug, project.slug, template)
+      : library.expandForCreate(project.orgSlug, project.slug, type)
+
+  const validateTypesExist = (
+    project: TicketProject,
+    types: ReadonlyArray<TypeKey | null>
+  ): Effect.Effect<void, Validation | Markdown.MarkdownError> => {
+    const wanted = types.filter((type) => type !== null)
+    if (wanted.length === 0) return Effect.void
+    return library.typeKeys(project.orgSlug, project.slug).pipe(
+      Effect.flatMap((known) => {
+        const unknown = wanted.find((type) => !known.has(type))
+        return unknown === undefined
+          ? Effect.void
+          : Effect.fail(new Validation({ reason: `unknown_type:${unknown}` }))
+      })
+    )
+  }
+
+  const bodyAfterTypeChange = (
+    project: TicketProject,
+    type: TypeKey | null
+  ): Effect.Effect<
+    (body: string) => string,
+    NotFound | Validation | Markdown.MarkdownError
+  > =>
+    type === null
+      ? Effect.succeed((body) => body)
+      : Effect.all(
+          [
+            library.expandForCreate(project.orgSlug, project.slug, type),
+            library.untouchedBodyCheck(project.orgSlug, project.slug)
+          ],
+          { concurrency: 2 }
+        ).pipe(
+          Effect.map(
+            ([expansion, isUntouched]) =>
+              (body) =>
+                isUntouched(body) ? expansion.body : body
+          )
+        )
 
   const quickCreate = Effect.fn("TicketCommands.quickCreate")(function* (
     input: QuickCreateTicketInput
@@ -557,12 +716,13 @@ const make = Effect.gen(function* () {
       status: input.status !== undefined && input.status !== DEFAULT_STATUS,
       assignees: false
     })
+    const type = input.type ?? null
     const [, expansion, projectKey, view] = yield* Effect.all(
       [
         input.status === undefined
           ? Effect.void
           : validateStatusExists(projectId, input.status),
-        expansionFor(scope, input.template),
+        expansionFor(scope, type),
         projects.key(),
         gitView
       ],
@@ -570,7 +730,6 @@ const make = Effect.gen(function* () {
     )
     const tags = expansion?.tags ?? []
     const body = expansion?.body ?? ""
-    const type = input.type ?? expansion?.type ?? "other"
     yield* Effect.all(
       [
         validateTagsExist(projectId, tags),
@@ -580,12 +739,13 @@ const make = Effect.gen(function* () {
       { concurrency: "unbounded", discard: true }
     )
     const now = yield* DateTime.nowAsDate
-    const document = yield* writeWithIdAllocation(scope, projectKey, (id) => ({
+    const document = yield* writeAtTop(scope, projectKey, (id, rank) => ({
       id,
       title: input.title,
       status: input.status ?? DEFAULT_STATUS,
       type,
       priority: expansion?.priority ?? "med",
+      rank,
       tags: [...tags],
       branch: null,
       pr: null,
@@ -614,6 +774,7 @@ const make = Effect.gen(function* () {
       status: input.status !== undefined && input.status !== DEFAULT_STATUS,
       assignees: (input.assignees ?? []).length > 0
     })
+    const type = input.type ?? null
     const [, , , expansion, projectKey, view] = yield* Effect.all(
       [
         input.status === undefined
@@ -623,14 +784,13 @@ const make = Effect.gen(function* () {
           ? Effect.void
           : validateAssigneesAreMembers(input.assignees),
         validateEstimate(scope, input.estimate),
-        expansionFor(scope, input.template),
+        expansionFor(scope, type),
         projects.key(),
         gitView
       ],
       { concurrency: "unbounded" }
     )
     const tags = input.tags ?? expansion?.tags ?? []
-    const type = input.type ?? expansion?.type ?? "other"
     const [, body] = yield* Effect.all(
       [
         validateTagsExist(projectId, tags),
@@ -654,12 +814,13 @@ const make = Effect.gen(function* () {
       { concurrency: "unbounded" }
     )
     const now = yield* DateTime.nowAsDate
-    const document = yield* writeWithIdAllocation(scope, projectKey, (id) => ({
+    const document = yield* writeAtTop(scope, projectKey, (id, rank) => ({
       id,
       title: input.title,
       status: input.status ?? DEFAULT_STATUS,
       type,
       priority: input.priority ?? expansion?.priority ?? "med",
+      rank,
       ...(input.estimate ? { estimate: input.estimate } : {}),
       tags: [...tags],
       branch: null,
@@ -693,17 +854,32 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* ProjectScope
     const { orgSlug, slug, userId, projectId } = scope
+    const { sprint, ...fields } = input
+    const touchesTicket = Object.keys(fields).length > 0
     const readsProjectDocument =
       input.estimate !== undefined && input.estimate !== null
     yield* Effect.all(
       [
         validateEstimate(scope, input.estimate),
+        sprint === undefined || sprint === null
+          ? Effect.void
+          : groups.ensureSprintAssignable([sprint]),
         sort?.key === "estimate" && !readsProjectDocument
           ? readProjectDocument({ db, docs: projectDocs, project: scope })
           : Effect.void
       ],
-      { concurrency: 2, discard: true }
+      { concurrency: 3, discard: true }
     )
+    if (
+      sprint !== undefined &&
+      openSprintIdsOf(yield* groups.list(), id).some(
+        (sprintId) => sprintId !== sprint
+      )
+    ) {
+      yield* requirePolicy((scope) =>
+        GroupPolicy.can(scope, "sprint", "remove_ticket")
+      )
+    }
     const changesRelations =
       input.blockedBy !== undefined || input.relatedTo !== undefined
     const locked = withTicketDocumentLock(
@@ -714,15 +890,18 @@ const make = Effect.gen(function* () {
         if (changesRelations) {
           yield* validateOwnedRelations(scope, makeTicketId(id), input)
         }
-        const [, , view, body] = yield* Effect.all(
+        const [, , view, , body, rank] = yield* Effect.all(
           [
             input.status === undefined
               ? Effect.void
               : validateStatusExists(projectId, input.status),
             input.tags === undefined
               ? Effect.void
-              : validateTagsExist(projectId, input.tags),
+              : validateTagsExist(projectId, listEditAdds(input.tags)),
             gitView,
+            input.flag?.reason === undefined
+              ? Effect.void
+              : validateBody(input.flag.reason, scope),
             input.body === undefined
               ? Effect.succeed(undefined)
               : library
@@ -731,83 +910,143 @@ const make = Effect.gen(function* () {
                     slug,
                     normalizeLineEndings(input.body)
                   )
-                  .pipe(Effect.tap((body) => validateBody(body, scope)))
+                  .pipe(Effect.tap((body) => validateBody(body, scope))),
+            input.position === undefined
+              ? Effect.succeed(undefined)
+              : rankAt(scope, id, input.position)
           ],
           { concurrency: "unbounded" }
         )
 
-        const next = yield* ticketDocs.update(
-          orgSlug,
-          slug,
-          id,
-          (existing) =>
-            Effect.gen(function* () {
-              if (
-                expected?.updatedAt !== undefined &&
-                existing.updatedAt.getTime() !== expected.updatedAt.getTime()
-              ) {
-                return yield* new Conflict({
-                  reason: "ticket_updated_since_read"
-                })
-              }
-              if (
-                expected?.body !== undefined &&
-                (yield* library.resolveSynced(orgSlug, slug, existing.body)) !==
-                  expected.body
-              ) {
-                return yield* new Validation({
-                  reason: "ticket_body_changed"
-                })
-              }
-              const next = applyTicketPatch(
-                existing,
-                { ...input, body },
-                userId,
-                existing.updatedAt
-              )
-              yield* requireTicketChange(ticketChangeOf(existing, next))
-              if (input.assignees !== undefined) {
-                const existingSet = new Set(existing.assignees)
-                const newcomers = input.assignees.filter(
-                  (assigneeId) => !existingSet.has(assigneeId)
-                )
-                if (newcomers.length > 0) {
-                  yield* validateAssigneesAreMembers(newcomers)
-                }
-              }
-              yield* validateHierarchy(
-                hierarchyLookups(scope, userId),
-                hierarchyChangeOf(existing, next)
-              )
-              if (next.type === "epic" && existing.type !== "epic") {
-                const sprints = openSprintIdsOf(
-                  yield* groups.list(),
-                  existing.id
-                )
-                if (breaksEpicSprintRule(existing, next, sprints, sprints)) {
-                  return yield* new Validation({ reason: "epic_in_sprint" })
-                }
-              }
-              return { ...next, updatedAt: yield* DateTime.nowAsDate }
-            }),
-          (next) =>
-            (input.body === undefined
-              ? Effect.void
-              : Effect.all(
-                  [
-                    attachments.reconcileTicket(orgSlug, slug, id, next.body),
-                    figmaLinks.reconcileTicket(
-                      orgSlug,
-                      slug,
-                      id,
-                      next.title,
-                      next.body
+        let bodyChanged = input.body !== undefined
+        const checkExpected = Effect.fnUntraced(function* (
+          existing: TicketDocs.TicketDocument
+        ) {
+          if (
+            expected?.updatedAt !== undefined &&
+            existing.updatedAt.getTime() !== expected.updatedAt.getTime()
+          ) {
+            return yield* new Conflict({ reason: "ticket_updated_since_read" })
+          }
+          if (
+            expected?.body !== undefined &&
+            (yield* library.resolveSynced(orgSlug, slug, existing.body)) !==
+              expected.body
+          ) {
+            return yield* new Validation({ reason: "ticket_body_changed" })
+          }
+        })
+        const original =
+          sprint === undefined
+            ? undefined
+            : yield* ticketDocs.read(orgSlug, slug, id)
+        if (original !== undefined && !touchesTicket) {
+          yield* checkExpected(original)
+        }
+        const next =
+          original !== undefined && !touchesTicket
+            ? original
+            : yield* ticketDocs.update(
+                orgSlug,
+                slug,
+                id,
+                (existing) =>
+                  Effect.gen(function* () {
+                    yield* checkExpected(existing)
+                    const now = yield* DateTime.nowAsDate
+                    const patched = {
+                      ...applyTicketPatch(
+                        existing,
+                        { ...input, body },
+                        userId,
+                        now
+                      ),
+                      rank: rank ?? existing.rank
+                    }
+                    yield* requireTicketChange(
+                      ticketChangeOf(existing, patched)
                     )
-                  ],
-                  { concurrency: 2, discard: true }
-                )
-            ).pipe(Effect.andThen(ticketIndex.upsertTicket(scope, next)))
-        )
+                    const retyped =
+                      patched.type === existing.type
+                        ? null
+                        : yield* bodyAfterTypeChange(scope, patched.type)
+                    const next =
+                      retyped === null || input.body !== undefined
+                        ? patched
+                        : { ...patched, body: retyped(existing.body) }
+                    if (next.body !== existing.body) bodyChanged = true
+                    if (input.assignees !== undefined) {
+                      const existingSet = new Set(existing.assignees)
+                      const newcomers = next.assignees.filter(
+                        (assigneeId) => !existingSet.has(assigneeId)
+                      )
+                      if (newcomers.length > 0) {
+                        yield* validateAssigneesAreMembers(newcomers)
+                      }
+                    }
+                    yield* validateHierarchy(
+                      hierarchyLookups(scope, userId),
+                      hierarchyChangeOf(existing, next)
+                    )
+                    if (
+                      isEpic(next) &&
+                      (!isEpic(existing) ||
+                        (sprint !== undefined && sprint !== null))
+                    ) {
+                      const before = openSprintIdsOf(
+                        yield* groups.list(),
+                        existing.id
+                      )
+                      const after = sprintIdsAfter(before, sprint)
+                      if (breaksEpicSprintRule(existing, next, before, after)) {
+                        return yield* new Validation({
+                          reason: "epic_in_sprint"
+                        })
+                      }
+                    }
+                    return next
+                  }),
+                (next) =>
+                  (!bodyChanged
+                    ? Effect.void
+                    : Effect.all(
+                        [
+                          attachments.reconcileTicket(
+                            orgSlug,
+                            slug,
+                            id,
+                            next.body
+                          ),
+                          figmaLinks.reconcileTicket(
+                            orgSlug,
+                            slug,
+                            id,
+                            next.title,
+                            next.body
+                          )
+                        ],
+                        { concurrency: 2, discard: true }
+                      )
+                  ).pipe(Effect.andThen(ticketIndex.upsertTicket(scope, next)))
+              )
+
+        if (sprint !== undefined && original !== undefined) {
+          const open = openSprintsOf(yield* groups.list())
+          yield* changeSprint([makeTicketId(id)], sprint, open).pipe(
+            Effect.onError(() =>
+              next === original
+                ? Effect.void
+                : restoreTicket(scope, id, original).pipe(
+                    Effect.andThen(
+                      bodyChanged
+                        ? reconcileBodyLinks(scope, original)
+                        : Effect.void
+                    ),
+                    Effect.ignore
+                  )
+            )
+          )
+        }
 
         const [detail, orderKey, entries] = yield* Effect.all(
           [
@@ -839,7 +1078,10 @@ const make = Effect.gen(function* () {
         return { ticket, orderKey }
       })
     )
-    return yield* changesRelations ? withRelationsLock(scope, locked) : locked
+    const related = changesRelations ? withRelationsLock(scope, locked) : locked
+    return yield* input.position === undefined
+      ? related
+      : withRanksLock(scope, related)
   })
 
   const clearStaleEstimates = Effect.fn("TicketCommands.clearStaleEstimates")(
@@ -911,58 +1153,6 @@ const make = Effect.gen(function* () {
       return { cleared }
     }
   )
-
-  const moveInGroup = Effect.fn("TicketCommands.moveInGroup")(function* (
-    groupId: string,
-    { status, ...position }: UpdateTicketOrderInput
-  ) {
-    const scope = yield* ProjectScope
-    const { orgSlug, slug, userId, projectId } = scope
-    if (status !== undefined) {
-      yield* requireTicketChange({
-        content: false,
-        status: true,
-        assignees: false
-      })
-      yield* validateStatusExists(projectId, status)
-    }
-    if (status === undefined) {
-      return yield* groups.updateTicketOrder(groupId, position)
-    }
-    return yield* groups.updateTicketOrder(
-      groupId,
-      position,
-      withTicketDocumentLock(
-        orgSlug,
-        slug,
-        position.ticketId,
-        ticketDocs
-          .update(
-            orgSlug,
-            slug,
-            position.ticketId,
-            (existing) =>
-              existing.status === status
-                ? Effect.succeed(existing)
-                : DateTime.nowAsDate.pipe(
-                    Effect.map((now) => ({
-                      ...existing,
-                      status,
-                      updatedBy: userId,
-                      updatedAt: now
-                    }))
-                  ),
-            (next) => ticketIndex.upsertTicket(scope, next)
-          )
-          .pipe(
-            Effect.asVoid,
-            Effect.catchTag("MalformedTicketDocument", () =>
-              Effect.fail(new NotFound())
-            )
-          )
-      )
-    )
-  })
 
   const restoreTicket = (
     project: TicketProject,
@@ -1044,9 +1234,7 @@ const make = Effect.gen(function* () {
 
     const originalId = makeTicketId(id)
     if (
-      input.results.some(
-        (result) => result.type === "epic" && result.sprintId !== null
-      )
+      input.results.some((result) => isEpic(result) && result.sprintId !== null)
     ) {
       return yield* new Validation({ reason: "epic_in_sprint" })
     }
@@ -1072,100 +1260,106 @@ const make = Effect.gen(function* () {
     if (sprintTargets.length > 0) {
       yield* groups.ensureSprintAssignable(sprintTargets)
     }
-    const originalSprintIndex =
-      originalSprint?.tickets.indexOf(originalId) ?? -1
-    const originalSprintAnchor = originalSprint
-      ? originalSprintIndex === 0
-        ? null
-        : originalSprint.tickets[originalSprintIndex - 1]
-      : undefined
+    const written = yield* withRanksLock(
+      scope,
+      withTicketDocumentLock(
+        orgSlug,
+        slug,
+        id,
+        Effect.gen(function* () {
+          const original = yield* ticketDocs.read(orgSlug, slug, id)
+          yield* requireSplit(original, retainedInput, newInputs)
+          yield* validateTypesExist(
+            scope,
+            input.results
+              .map((result) => result.type)
+              .filter((type) => type !== original.type)
+          )
+          yield* validateHierarchy(hierarchyLookups(scope, userId), {
+            id: original.id,
+            fromType: original.type,
+            type: retainedInput.type,
+            parent: original.parent,
+            parentChanged: false
+          })
+          const now = yield* DateTime.nowAsDate
+          const gap = yield* ticketIndex.rankGap(scope, id, "after", id)
+          const ranks = ranksBetween(
+            gap ?? { lower: original.rank, upper: null },
+            newInputs.length
+          )
+          const persisted: Array<TicketDocs.TicketDocument> = []
 
-    const written = yield* withTicketDocumentLock(
-      orgSlug,
-      slug,
-      id,
-      Effect.gen(function* () {
-        const original = yield* ticketDocs.read(orgSlug, slug, id)
-        yield* requireSplit(original, retainedInput, newInputs)
-        yield* validateHierarchy(hierarchyLookups(scope, userId), {
-          id: original.id,
-          fromType: original.type,
-          type: retainedInput.type,
-          parent: original.parent,
-          parentChanged: false
-        })
-        const now = yield* DateTime.nowAsDate
-        const persisted: Array<TicketDocs.TicketDocument> = []
-
-        const run = Effect.gen(function* () {
-          const createdDocuments: Array<TicketDocs.TicketDocument> = []
-          for (const result of newInputs) {
-            createdDocuments.push(
-              yield* writeWithIdAllocation(
-                scope,
-                projectKey,
-                (newId) => ({
-                  id: newId,
-                  title: result.title,
-                  status: result.status,
-                  type: result.type,
-                  priority: result.priority,
-                  tags: original.tags,
-                  branch: null,
-                  branchAutoLinkDisabled: true,
-                  pr: null,
-                  prState: null,
-                  lastTransitionedPr: null,
-                  splitFrom: originalId,
-                  parent: result.type === "epic" ? undefined : original.parent,
-                  assignees: [...result.assignees],
-                  archivedAt: original.archivedAt,
-                  createdBy: userId,
-                  createdAt: now,
-                  updatedBy: userId,
-                  updatedAt: now,
-                  body: `Split from [${originalId}](${formatMentionHref("ticket", originalId)})
+          const run = Effect.gen(function* () {
+            const createdDocuments: Array<TicketDocs.TicketDocument> = []
+            for (const [index, result] of newInputs.entries()) {
+              createdDocuments.push(
+                yield* writeWithIdAllocation(
+                  scope,
+                  projectKey,
+                  (newId) => ({
+                    id: newId,
+                    title: result.title,
+                    status: result.status,
+                    type: result.type,
+                    priority: result.priority,
+                    rank: ranks[index],
+                    tags: original.tags,
+                    branch: null,
+                    branchAutoLinkDisabled: true,
+                    pr: null,
+                    prState: null,
+                    lastTransitionedPr: null,
+                    splitFrom: originalId,
+                    parent: isEpic(result) ? undefined : original.parent,
+                    assignees: [...result.assignees],
+                    archivedAt: original.archivedAt,
+                    createdBy: userId,
+                    createdAt: now,
+                    updatedBy: userId,
+                    updatedAt: now,
+                    body: `Split from [${originalId}](${formatMentionHref("ticket", originalId)})
 `,
-                  commentsRegion: ""
+                    commentsRegion: ""
+                  }),
+                  (document) => persisted.push(document)
+                )
+              )
+            }
+
+            const retained = yield* ticketDocs.update(
+              orgSlug,
+              slug,
+              id,
+              (existing) =>
+                Effect.succeed({
+                  ...existing,
+                  title: retainedInput.title,
+                  type: retainedInput.type,
+                  status: retainedInput.status,
+                  priority: retainedInput.priority,
+                  assignees: [...retainedInput.assignees],
+                  updatedBy: userId,
+                  updatedAt: now
                 }),
-                (document) => persisted.push(document)
+              (next) => ticketIndex.upsertTicket(scope, next),
+              { silent: true }
+            )
+
+            return { original, retained, createdDocuments }
+          })
+
+          return yield* run.pipe(
+            Effect.onError(() =>
+              restoreSplitDocuments(scope, id, original, persisted).pipe(
+                Effect.ignoreCause
               )
             )
-          }
-
-          const retained = yield* ticketDocs.update(
-            orgSlug,
-            slug,
-            id,
-            (existing) =>
-              Effect.succeed({
-                ...existing,
-                title: retainedInput.title,
-                type: retainedInput.type,
-                status: retainedInput.status,
-                priority: retainedInput.priority,
-                assignees: [...retainedInput.assignees],
-                updatedBy: userId,
-                updatedAt: now
-              }),
-            (next) => ticketIndex.upsertTicket(scope, next),
-            { silent: true }
           )
-
-          return { original, retained, createdDocuments }
         })
-
-        return yield* run.pipe(
-          Effect.onError(() =>
-            restoreSplitDocuments(scope, id, original, persisted).pipe(
-              Effect.ignoreCause
-            )
-          )
-        )
-      })
+      )
     )
 
-    let sprintAnchor = originalId
     const sprintAssignments = [
       ...(retainedMoves
         ? [
@@ -1185,18 +1379,9 @@ const make = Effect.gen(function* () {
     yield* Effect.forEach(
       sprintAssignments,
       ({ ticketId, sprintId, from }) =>
-        groups
-          .setSprintMembership(orgSlug, slug, ticketId, sprintId, {
-            after: sprintAnchor,
-            from
-          })
-          .pipe(
-            Effect.tap(() =>
-              Effect.sync(() => {
-                sprintAnchor = ticketId
-              })
-            )
-          ),
+        groups.setSprintMembership(orgSlug, slug, ticketId, sprintId, {
+          from
+        }),
       { discard: true }
     ).pipe(
       Effect.onError(() =>
@@ -1219,8 +1404,7 @@ const make = Effect.gen(function* () {
                     orgSlug,
                     slug,
                     originalId,
-                    originalSprintId,
-                    { after: originalSprintAnchor }
+                    originalSprintId
                   )
                   .pipe(
                     Effect.catchCause((cause) =>
@@ -1286,28 +1470,36 @@ const make = Effect.gen(function* () {
     source: ProjectScope["Service"],
     destination: ProjectScope["Service"]
   ) {
-    const [statuses, tags, memberIds, sourceDoc, destinationDoc, projectKey] =
-      yield* Effect.all(
-        [
-          db
-            .select({ slug: schema.projectStatus.slug })
-            .from(schema.projectStatus)
-            .where(eq(schema.projectStatus.projectId, destination.projectId))
-            .orderBy(asc(schema.projectStatus.orderKey))
-            .pipe(Effect.orDie),
-          db.query.projectTag
-            .findMany({
-              columns: { name: true },
-              where: { projectId: destination.projectId }
-            })
-            .pipe(Effect.orDie),
-          projectMembers.memberIds(),
-          readProjectDocument({ db, docs: projectDocs, project: source }),
-          readProjectDocument({ db, docs: projectDocs, project: destination }),
-          projects.key()
-        ],
-        { concurrency: 6 }
-      ).pipe(Effect.provideService(ProjectScope, destination))
+    const [
+      statuses,
+      types,
+      tags,
+      memberIds,
+      sourceDoc,
+      destinationDoc,
+      projectKey
+    ] = yield* Effect.all(
+      [
+        db
+          .select({ slug: schema.projectStatus.slug })
+          .from(schema.projectStatus)
+          .where(eq(schema.projectStatus.projectId, destination.projectId))
+          .orderBy(asc(schema.projectStatus.orderKey))
+          .pipe(Effect.orDie),
+        library.typeKeys(destination.orgSlug, destination.slug),
+        db.query.projectTag
+          .findMany({
+            columns: { name: true },
+            where: { projectId: destination.projectId }
+          })
+          .pipe(Effect.orDie),
+        projectMembers.memberIds(),
+        readProjectDocument({ db, docs: projectDocs, project: source }),
+        readProjectDocument({ db, docs: projectDocs, project: destination }),
+        projects.key()
+      ],
+      { concurrency: 7 }
+    ).pipe(Effect.provideService(ProjectScope, destination))
     const sameRepository =
       sourceDoc.github !== null &&
       destinationDoc.github !== null &&
@@ -1320,6 +1512,7 @@ const make = Effect.gen(function* () {
       sameRepository,
       plan: {
         statuses: statuses.map((row) => row.slug),
+        types,
         tags: tags.map((row) => row.name),
         memberIds,
         estimation: destinationDoc.estimation
@@ -1510,198 +1703,213 @@ const make = Effect.gen(function* () {
     const rootId = makeTicketId(id)
     const root = yield* readTicket(source, id)
     const children = yield* childIds(source, userId, id)
-    if (root.type === "epic" && children.length > 0) {
+    if (isEpic(root) && children.length > 0) {
       return yield* new Validation({ reason: "move_epic_has_tickets" })
     }
     const sourceIds = [rootId, ...children.map((child) => makeTicketId(child))]
 
-    const result = yield* withTicketLocks(
-      source,
-      sourceIds,
-      Effect.gen(function* () {
-        const originals = yield* Effect.forEach(sourceIds, (sourceId) =>
-          ticketDocs.read(orgSlug, source.slug, sourceId)
-        )
-        const childrenNow = yield* childIds(source, userId, id)
-        if (
-          childrenNow.length !== children.length ||
-          childrenNow.some((child) => !children.includes(child))
-        ) {
-          return yield* new Conflict({ reason: "move_ticket_changed" })
-        }
-        if (originals[0].type === "epic" && children.length > 0) {
-          return yield* new Validation({ reason: "move_epic_has_tickets" })
-        }
-        const moved: Array<MovedTicket> = []
-        for (const original of originals) {
-          moved.push({
-            from: original.id,
-            to: yield* reserveFreeTicketId(destination, projectKey)
-          })
-        }
-        const mentions: MoveMentionContext = {
-          fromProject: source.slug,
-          toProject: destination.slug,
-          moved: new Map(moved.map(({ from, to }) => [from, to]))
-        }
-        const newIdOf = (sourceId: TicketId | undefined) =>
-          sourceId === undefined ? undefined : mentions.moved.get(sourceId)
-        const movedAlong = (ids: ReadonlyArray<TicketId> | undefined) =>
-          (ids ?? []).flatMap((sourceId) => {
-            const next = mentions.moved.get(sourceId)
-            return next === undefined ? [] : [makeTicketId(next)]
-          })
-        const now = yield* DateTime.nowAsDate
-        const documents = originals.map((original, index) => {
-          const fields = planTicketMove(
-            original,
-            plan,
-            original.id === rootId ? input.status : undefined
+    const result = yield* withRanksLock(
+      destination,
+      withTicketLocks(
+        source,
+        sourceIds,
+        Effect.gen(function* () {
+          const originals = yield* Effect.forEach(sourceIds, (sourceId) =>
+            ticketDocs.read(orgSlug, source.slug, sourceId)
           )
-          const linked = sameRepository ? original : withoutGitLink(original)
-          return {
-            ...linked,
-            id: moved[index].to,
-            status: makeTicketStatus(fields.status ?? plan.statuses[0]),
-            tags: fields.tags,
-            assignees: [...fields.assignees],
-            estimate: fields.keepsEstimate ? original.estimate : undefined,
-            parent:
-              original.id === rootId
-                ? undefined
-                : makeOptionalTicketId(newIdOf(original.parent)),
-            splitFrom: makeOptionalTicketId(newIdOf(original.splitFrom)),
-            blockedBy: movedAlong(original.blockedBy),
-            relatedTo: movedAlong(original.relatedTo),
-            duplicateOf: makeOptionalTicketId(newIdOf(original.duplicateOf)),
-            movedFrom: [
-              ...(original.movedFrom ?? []),
-              formatMovedFrom(source.slug, original.id)
-            ],
-            updatedBy: userId,
-            updatedAt: now,
-            body: rewriteMentionsInMovedTicket(original.body, mentions),
-            commentsRegion: rewriteMentionsInMovedTicket(
-              original.commentsRegion,
-              mentions
+          const childrenNow = yield* childIds(source, userId, id)
+          if (
+            childrenNow.length !== children.length ||
+            childrenNow.some((child) => !children.includes(child))
+          ) {
+            return yield* new Conflict({ reason: "move_ticket_changed" })
+          }
+          if (isEpic(originals[0]) && children.length > 0) {
+            return yield* new Validation({ reason: "move_epic_has_tickets" })
+          }
+          const fieldsOf = originals.map((original) =>
+            planTicketMove(
+              original,
+              plan,
+              original.id === rootId ? input.status : undefined
             )
-          } satisfies TicketDocs.TicketDocument
-        })
-
-        const created: Array<TicketDocs.TicketDocument> = []
-        yield* Effect.forEach(
-          documents,
-          (document) =>
-            ticketDocs
-              .create(orgSlug, destination.slug, document, (persisted) =>
-                Effect.sync(() => created.push(persisted)).pipe(
-                  Effect.andThen(
-                    Effect.all(
-                      [
-                        attachments.reconcileTicket(
-                          orgSlug,
-                          destination.slug,
-                          persisted.id,
-                          persisted.body
-                        ),
-                        figmaLinks.reconcileTicket(
-                          orgSlug,
-                          destination.slug,
-                          persisted.id,
-                          persisted.title,
-                          persisted.body
-                        )
-                      ],
-                      { concurrency: 2, discard: true }
-                    )
-                  ),
-                  Effect.andThen(
-                    ticketIndex.upsertTicket(destination, persisted)
-                  )
-                )
+          )
+          const moved: Array<MovedTicket> = []
+          for (const [index, original] of originals.entries()) {
+            const { dropped } = fieldsOf[index]
+            moved.push({
+              from: original.id,
+              to: yield* reserveFreeTicketId(destination, projectKey),
+              dropped
+            })
+          }
+          const mentions: MoveMentionContext = {
+            fromProject: source.slug,
+            toProject: destination.slug,
+            moved: new Map(moved.map(({ from, to }) => [from, to]))
+          }
+          const newIdOf = (sourceId: TicketId | undefined) =>
+            sourceId === undefined ? undefined : mentions.moved.get(sourceId)
+          const movedAlong = (ids: ReadonlyArray<TicketId> | undefined) =>
+            (ids ?? []).flatMap((sourceId) => {
+              const next = mentions.moved.get(sourceId)
+              return next === undefined ? [] : [makeTicketId(next)]
+            })
+          const now = yield* DateTime.nowAsDate
+          const topRanks = ranksBetween(
+            { lower: null, upper: yield* ticketIndex.topRank(destination) },
+            originals.length
+          )
+          const byRank = originals.toSorted(compareByRank)
+          const documents = originals.map((original, index) => {
+            const fields = fieldsOf[index]
+            const linked = sameRepository ? original : withoutGitLink(original)
+            return {
+              ...linked,
+              id: moved[index].to,
+              type: fields.type,
+              status: makeTicketStatus(fields.status ?? plan.statuses[0]),
+              rank: topRanks[byRank.indexOf(original)],
+              tags: fields.tags,
+              assignees: [...fields.assignees],
+              estimate: fields.keepsEstimate ? original.estimate : undefined,
+              parent:
+                original.id === rootId
+                  ? undefined
+                  : makeOptionalTicketId(newIdOf(original.parent)),
+              splitFrom: makeOptionalTicketId(newIdOf(original.splitFrom)),
+              blockedBy: movedAlong(original.blockedBy),
+              relatedTo: movedAlong(original.relatedTo),
+              duplicateOf: makeOptionalTicketId(newIdOf(original.duplicateOf)),
+              movedFrom: [
+                ...(original.movedFrom ?? []),
+                formatMovedFrom(source.slug, original.id)
+              ],
+              updatedBy: userId,
+              updatedAt: now,
+              body: rewriteMentionsInMovedTicket(original.body, mentions),
+              commentsRegion: rewriteMentionsInMovedTicket(
+                original.commentsRegion,
+                mentions
               )
-              .pipe(
-                Effect.catchTag("TicketIdTaken", () =>
-                  Effect.fail(new Conflict({ reason: "move_id_taken" }))
-                )
-              ),
-          { discard: true }
-        ).pipe(
-          Effect.onError(() =>
-            Effect.forEach(
-              created,
-              (document) => discardSplitResult(destination, document),
-              { discard: true }
-            )
-          )
-        )
+            } satisfies TicketDocs.TicketDocument
+          })
 
-        yield* Effect.forEach(
-          sourceIds,
-          (sourceId) =>
-            groups.removeTicketFromAllGroups(orgSlug, source.slug, sourceId),
-          { discard: true }
-        ).pipe(
-          Effect.andThen(rehomeTicketRows(source, destination, moved)),
-          Effect.onError(() =>
-            Effect.forEach(
-              created,
-              (document) => discardSplitResult(destination, document),
-              { discard: true }
-            )
-          )
-        )
-
-        yield* Effect.gen(function* () {
+          const created: Array<TicketDocs.TicketDocument> = []
           yield* Effect.forEach(
             documents,
-            (document, index) =>
-              ticketActivity.record(
-                orgSlug,
-                destination.slug,
-                {
-                  kind: "ticket",
-                  id: document.id,
-                  content: TicketDocs.ticketFileContent(document)
-                },
-                [
+            (document) =>
+              ticketDocs
+                .create(orgSlug, destination.slug, document, (persisted) =>
+                  Effect.sync(() => created.push(persisted)).pipe(
+                    Effect.andThen(
+                      Effect.all(
+                        [
+                          attachments.reconcileTicket(
+                            orgSlug,
+                            destination.slug,
+                            persisted.id,
+                            persisted.body
+                          ),
+                          figmaLinks.reconcileTicket(
+                            orgSlug,
+                            destination.slug,
+                            persisted.id,
+                            persisted.title,
+                            persisted.body
+                          )
+                        ],
+                        { concurrency: 2, discard: true }
+                      )
+                    ),
+                    Effect.andThen(
+                      ticketIndex.upsertTicket(destination, persisted)
+                    )
+                  )
+                )
+                .pipe(
+                  Effect.catchTag("TicketIdTaken", () =>
+                    Effect.fail(new Conflict({ reason: "move_id_taken" }))
+                  )
+                ),
+            { discard: true }
+          ).pipe(
+            Effect.onError(() =>
+              Effect.forEach(
+                created,
+                (document) => discardSplitResult(destination, document),
+                { discard: true }
+              )
+            )
+          )
+
+          yield* Effect.forEach(
+            sourceIds,
+            (sourceId) =>
+              groups.removeTicketFromAllGroups(orgSlug, source.slug, sourceId),
+            { discard: true }
+          ).pipe(
+            Effect.andThen(rehomeTicketRows(source, destination, moved)),
+            Effect.onError(() =>
+              Effect.forEach(
+                created,
+                (document) => discardSplitResult(destination, document),
+                { discard: true }
+              )
+            )
+          )
+
+          yield* Effect.gen(function* () {
+            yield* Effect.forEach(
+              documents,
+              (document, index) =>
+                ticketActivity.record(
+                  orgSlug,
+                  destination.slug,
                   {
-                    ticketId: document.id,
-                    change: {
-                      kind: "moved" as const,
-                      fromProject: source.slug,
-                      fromId: moved[index].from
+                    kind: "ticket",
+                    id: document.id,
+                    content: TicketDocs.ticketFileContent(document)
+                  },
+                  [
+                    {
+                      ticketId: document.id,
+                      change: {
+                        kind: "moved" as const,
+                        fromProject: source.slug,
+                        fromId: moved[index].from
+                      }
                     }
-                  }
-                ],
-                null,
-                Effect.void
-              ),
+                  ],
+                  null,
+                  Effect.void
+                ),
+              { discard: true }
+            )
+          }).pipe(
+            Effect.catchCause((cause) =>
+              Effect.logError("move: recording the move failed", {
+                orgSlug,
+                from: source.slug,
+                to: destination.slug,
+                moved,
+                cause
+              })
+            )
+          )
+          yield* Effect.forEach(
+            originals,
+            (original) =>
+              discardSplitResult(source, original, { writeLockHeld: true }),
             { discard: true }
           )
-        }).pipe(
-          Effect.catchCause((cause) =>
-            Effect.logError("move: recording the move failed", {
-              orgSlug,
-              from: source.slug,
-              to: destination.slug,
-              moved,
-              cause
-            })
-          )
-        )
-        yield* Effect.forEach(
-          originals,
-          (original) =>
-            discardSplitResult(source, original, { writeLockHeld: true }),
-          { discard: true }
-        )
 
-        return { moved, mentions }
-      }).pipe(
-        (effect) =>
-          withTicketWriteLocks(orgSlug, source.slug, sourceIds, effect),
-        Effect.uninterruptible
+          return { moved, mentions }
+        }).pipe(
+          (effect) =>
+            withTicketWriteLocks(orgSlug, source.slug, sourceIds, effect),
+          Effect.uninterruptible
+        )
       )
     )
 
@@ -1813,14 +2021,68 @@ const make = Effect.gen(function* () {
         effect
       )
 
+  const leaveOpenSprints = (
+    ids: ReadonlyArray<TicketId>,
+    openSprints: ReadonlyArray<Group>
+  ) => {
+    const left: Array<
+      Readonly<{ group: Group; leaving: ReadonlyArray<TicketId> }>
+    > = []
+    const rejoin = Effect.suspend(() =>
+      Effect.forEach(
+        left,
+        ({ group, leaving }) =>
+          Effect.forEach(
+            leaving,
+            (ticketId) =>
+              ProjectScope.pipe(
+                Effect.flatMap(({ orgSlug, slug }) =>
+                  groups.setSprintMembership(
+                    orgSlug,
+                    slug,
+                    ticketId,
+                    group.id,
+                    { from: null }
+                  )
+                ),
+                Effect.catchCause((cause) =>
+                  Effect.logError("sprint rollback failed", cause)
+                )
+              ),
+            { discard: true }
+          ),
+        { discard: true }
+      )
+    )
+    return Effect.gen(function* () {
+      for (const group of openSprints) {
+        const leaving = group.tickets.filter((id) => ids.includes(id))
+        if (leaving.length === 0) continue
+        yield* groups.removeTickets(group.id, leaving)
+        left.push({ group, leaving })
+      }
+    }).pipe(Effect.onError(() => rejoin))
+  }
+
+  const changeSprint = Effect.fnUntraced(function* (
+    ids: ReadonlyArray<TicketId>,
+    sprint: GroupId | null,
+    openSprints: ReadonlyArray<Group>
+  ) {
+    if (sprint !== null) return yield* groups.addTickets(sprint, ids)
+    yield* leaveOpenSprints(ids, openSprints)
+    return null
+  })
+
   const bulkUpdate = Effect.fn("TicketCommands.bulkUpdate")(function* (
     input: BulkUpdateTicketsInput
   ) {
     const scope = yield* ProjectScope
     const { orgSlug, slug, userId, projectId } = scope
     const ids = [...new Set(input.tickets)]
-    const { sprint, ...fields } = input.patch
-    const touchesTickets = Object.keys(fields).length > 0
+    const { sprint, position, ...fields } = input.patch
+    const touchesTickets =
+      Object.keys(fields).length > 0 || position !== undefined
     const [, , , , allGroups, view] = yield* Effect.all(
       [
         fields.status === undefined
@@ -1828,7 +2090,7 @@ const make = Effect.gen(function* () {
           : validateStatusExists(projectId, fields.status),
         fields.tags === undefined
           ? Effect.void
-          : validateTagsExist(projectId, fields.tags),
+          : validateTagsExist(projectId, listEditAdds(fields.tags)),
         validateEstimate(scope, fields.estimate),
         sprint === undefined || sprint === null
           ? Effect.void
@@ -1838,9 +2100,7 @@ const make = Effect.gen(function* () {
       ],
       { concurrency: "unbounded" }
     )
-    const openSprints = allGroups.filter(
-      (group) => group.kind === "sprint" && group.completedAt === null
-    )
+    const openSprints = openSprintsOf(allGroups)
 
     const written: Array<
       Readonly<{
@@ -1862,66 +2122,11 @@ const make = Effect.gen(function* () {
         { discard: true }
       )
     )
-    const rejoinSprints = (
-      left: ReadonlyArray<
-        Readonly<{
-          group: (typeof openSprints)[number]
-          leaving: ReadonlyArray<string>
-        }>
-      >
-    ) =>
-      Effect.forEach(
-        left,
-        ({ group, leaving }) =>
-          Effect.forEach(
-            group.tickets.flatMap((ticketId, index) =>
-              leaving.includes(ticketId)
-                ? [
-                    {
-                      ticketId,
-                      after: index === 0 ? null : group.tickets[index - 1]
-                    }
-                  ]
-                : []
-            ),
-            ({ ticketId, after }) =>
-              groups
-                .setSprintMembership(orgSlug, slug, ticketId, group.id, {
-                  after,
-                  from: null
-                })
-                .pipe(
-                  Effect.catchCause((cause) =>
-                    Effect.logError(
-                      "bulk update: sprint rollback failed",
-                      cause
-                    )
-                  )
-                ),
-            { discard: true }
-          ),
-        { discard: true }
-      )
-    const planSprint = Effect.gen(function* () {
-      if (sprint === undefined) return null
-      if (sprint !== null) return yield* groups.addTickets(sprint, ids)
-      const left: Array<
-        Readonly<{
-          group: (typeof openSprints)[number]
-          leaving: ReadonlyArray<string>
-        }>
-      > = []
-      yield* Effect.gen(function* () {
-        for (const group of openSprints) {
-          const leaving = group.tickets.filter((id) => ids.includes(id))
-          if (leaving.length === 0) continue
-          yield* groups.removeTickets(group.id, leaving)
-          left.push({ group, leaving })
-        }
-      }).pipe(Effect.onError(() => rejoinSprints(left)))
-      return null
-    })
-    const nexts = yield* withTicketLocks(
+    const planSprint =
+      sprint === undefined
+        ? Effect.succeed(null)
+        : changeSprint(ids, sprint, openSprints)
+    const write = withTicketLocks(
       scope,
       ids,
       Effect.gen(function* () {
@@ -1931,14 +2136,32 @@ const make = Effect.gen(function* () {
           { concurrency: 8 }
         )
         const now = yield* DateTime.nowAsDate
-        const patched = originals.map((existing) =>
-          applyTicketPatch(existing, fields, userId, now)
-        )
+        const finished = yield* finishedStatuses.forProject(orgSlug, slug)
+        const retyped =
+          fields.type === undefined ||
+          originals.every((existing) => existing.type === fields.type)
+            ? null
+            : yield* bodyAfterTypeChange(scope, fields.type)
+        const ranks =
+          position === undefined
+            ? null
+            : yield* ranksAt(scope, originals, position)
+        const patched = originals.map((existing) => {
+          const next = applyTicketPatch(existing, fields, userId, now)
+          const rank = ranks?.get(existing.id)
+          const ranked = rank === undefined ? next : { ...next, rank }
+          return retyped === null || next.type === existing.type
+            ? ranked
+            : { ...ranked, body: retyped(existing.body) }
+        })
         const changes = originals.map((existing, index) =>
           fieldChangesOf(existing, patched[index])
         )
         if (touchesTickets) {
-          yield* requireTicketChange(batchChangeOf(changes))
+          const change = batchChangeOf(changes)
+          yield* requireTicketChange(
+            ranks === null ? change : { ...change, content: true }
+          )
         }
         const newcomers = [
           ...new Set(
@@ -1959,12 +2182,7 @@ const make = Effect.gen(function* () {
             hierarchyChangeOf(existing, patched[index])
           )
           const sprintsBefore = openSprintIdsOf(openSprints, existing.id)
-          const sprintsAfter =
-            sprint === undefined
-              ? sprintsBefore
-              : sprint === null
-                ? []
-                : [sprint]
+          const sprintsAfter = sprintIdsAfter(sprintsBefore, sprint)
           if (
             breaksEpicSprintRule(
               existing,
@@ -1977,8 +2195,8 @@ const make = Effect.gen(function* () {
           }
         }
         const nexts = originals.map((existing, index) =>
-          touchesTickets && !isUnchanged(changes[index])
-            ? patched[index]
+          touchesTickets && (ranks !== null || !isUnchanged(changes[index]))
+            ? clearFlagWhenFinished(existing, patched[index], finished)
             : existing
         )
 
@@ -1987,11 +2205,12 @@ const make = Effect.gen(function* () {
             for (const next of nexts.filter(
               (next, index) => next !== originals[index]
             )) {
+              const original = originals[nexts.indexOf(next)]
               yield* ticketDocs.write(orgSlug, slug, next.id, next)
-              written.push({
-                original: originals[nexts.indexOf(next)],
-                next
-              })
+              written.push({ original, next })
+              if (next.body !== original.body) {
+                yield* reconcileBodyLinks(scope, next)
+              }
               yield* ticketIndex.upsertTicket(scope, next)
             }
           }).pipe(Effect.onError(() => revertWritten))
@@ -1999,9 +2218,16 @@ const make = Effect.gen(function* () {
         return nexts
       })
     )
-    const sprintChange = yield* planSprint.pipe(
-      Effect.onError(() => withTicketLocks(scope, ids, revertWritten))
-    )
+    const writeAndPlan = Effect.gen(function* () {
+      const nexts = yield* write
+      const sprintChange = yield* planSprint.pipe(
+        Effect.onError(() => withTicketLocks(scope, ids, revertWritten))
+      )
+      return { nexts, sprintChange }
+    })
+    const { nexts, sprintChange } = yield* position === undefined
+      ? writeAndPlan
+      : withRanksLock(scope, writeAndPlan)
 
     const entries = yield* ticketIndex.list(
       scope,
@@ -2068,6 +2294,37 @@ const make = Effect.gen(function* () {
     return yield* original === undefined
       ? locked
       : withRelationsLock(scope, locked)
+  })
+
+  const bulkArchive = Effect.fn("TicketCommands.bulkArchive")(function* (
+    input: BulkArchiveTicketsInput
+  ) {
+    const archived = yield* Effect.forEach([...new Set(input.tickets)], (id) =>
+      archive(id, { reason: input.reason }).pipe(
+        Effect.as([id]),
+        Effect.catchTag("Conflict", (error) =>
+          error.reason === "ticket_already_archived"
+            ? Effect.succeed([])
+            : Effect.fail(error)
+        )
+      )
+    )
+    return { tickets: archived.flat() }
+  })
+
+  const bulkDelete = Effect.fn("TicketCommands.bulkDelete")(function* (
+    input: BulkDeleteTicketsInput
+  ) {
+    const ids = [...new Set(input.tickets)]
+    yield* Effect.forEach(
+      ids,
+      (id) =>
+        remove(id, { cascadeSubTickets: input.cascadeSubTickets }).pipe(
+          Effect.catchTag("NotFound", () => Effect.void)
+        ),
+      { discard: true }
+    )
+    return { tickets: ids }
   })
 
   const unarchive = Effect.fn("TicketCommands.unarchive")(function* (
@@ -2233,10 +2490,11 @@ const make = Effect.gen(function* () {
     update,
     clearStaleEstimates,
     split,
-    moveInGroup,
     move,
     remove,
     archive,
+    bulkArchive,
+    bulkDelete,
     unarchive
   })
 })

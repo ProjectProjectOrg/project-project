@@ -1,7 +1,7 @@
 import type { TicketActivityEntry } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
-import { timelineEvents, timelineRows } from "./timeline"
+import { timelineEvents, timelineRows, type TimelineOrder } from "./timeline"
 
 const at = (time: string): Date => {
   const [hour, minute] = time.split(":").map(Number)
@@ -27,8 +27,9 @@ const comment = (key: string, time: string) => ({
 const rows = (
   activity: ReadonlyArray<TicketActivityEntry>,
   comments: ReadonlyArray<ReturnType<typeof comment>>,
-  hasOlder = false
-) => timelineRows(timelineEvents({ activity, comments, hasOlder }))
+  hasOlder = false,
+  order: TimelineOrder = "asc"
+) => timelineRows(timelineEvents({ activity, comments, hasOlder }), order)
 
 const shape = (...args: Parameters<typeof rows>) =>
   rows(...args).map((row) =>
@@ -45,6 +46,17 @@ describe("timeline", () => {
         [comment("note", "10:05")]
       )
     ).toEqual(["a:0", "note", "b:0,c:0"])
+  })
+
+  it("lists rows newest first when descending", () => {
+    expect(
+      shape(
+        [entry("c", "10:20"), entry("b", "10:10"), entry("a", "10:00")],
+        [comment("note", "10:05")],
+        false,
+        "desc"
+      )
+    ).toEqual(["b:0,c:0", "note", "a:0"])
   })
 
   it("holds back comments older than the loaded activity", () => {

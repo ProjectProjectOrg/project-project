@@ -63,8 +63,8 @@ it("converts all filter fields at the domain boundary while route state stays UR
 it("omits default sorting and restores it for the domain query", () => {
   expect(stringifySearch(ticketSearchFromQuery(decodeQuery({})))).toBe("")
   expect(ticketQueryFromSearch(decodeBacklog({})).sort).toEqual({
-    key: "created",
-    dir: "desc"
+    key: "manual",
+    dir: "asc"
   })
 })
 
@@ -117,7 +117,7 @@ it.each([
 )
 
 it.each([
-  "?type=invalid",
+  "?type=Not%20a%20key",
   "?sort=invalid",
   "?hasPr=invalid",
   "?updatedAfter=invalid"
@@ -125,9 +125,23 @@ it.each([
   expect(() => decodeBacklog(parseSearch(url))).toThrow()
 })
 
+it("reads the old type value other in a URL as no type", () => {
+  const search = decodeBacklog(
+    parseSearch("?type=other&type=bug&excludeType=other")
+  )
+  expect(search).toMatchObject({
+    type: ["none", "bug"],
+    excludeType: ["none"]
+  })
+  expect(ticketQueryFromSearch(search)).toMatchObject({
+    type: ["none", "bug"],
+    excludeType: ["none"]
+  })
+})
+
 it("drops malformed flat navigation context as a unit", () => {
   const search = decodeTicket(
-    parseSearch("?from=sections&group=status&type=invalid&focusBody=1")
+    parseSearch("?from=sections&group=status&type=Not%20a%20key&focusBody=1")
   )
   expect(search).toEqual({ focusBody: "1", from: undefined })
   expect(ticketSourceFromSearch(search)).toBeUndefined()

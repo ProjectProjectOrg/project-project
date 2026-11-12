@@ -2,7 +2,7 @@ import type { PolicyActor } from "./actor"
 
 export type Kind = "sprint" | "milestone" | "epic" | "other"
 
-export type Action = "manage" | "add_ticket" | "remove_ticket" | "reorder"
+export type Action = "manage" | "add_ticket" | "remove_ticket"
 
 export type TicketsChange = Readonly<{
   current: ReadonlyArray<string>
@@ -23,13 +23,10 @@ export const ticketActions = (
 ) => {
   const before = new Set(current)
   const after = new Set(next)
-  const kept = current.filter((id) => after.has(id))
-  const keptOrder = next.filter((id) => before.has(id))
   return [
     ...(next.some((id) => !before.has(id)) ? (["add_ticket"] as const) : []),
-    ...(kept.length < current.length ? (["remove_ticket"] as const) : []),
-    ...(kept.some((id, index) => keptOrder[index] !== id)
-      ? (["reorder"] as const)
+    ...(current.some((id) => !after.has(id))
+      ? (["remove_ticket"] as const)
       : [])
   ]
 }

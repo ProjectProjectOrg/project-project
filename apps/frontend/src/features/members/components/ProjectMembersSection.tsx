@@ -21,6 +21,7 @@ import {
   MembersSection,
   PendingRowView
 } from "@/features/members/components/MembersSection"
+import { invitationUrl } from "@/features/organizations/lib/invitations"
 import {
   addMember,
   cancelPendingMember,
@@ -266,12 +267,18 @@ function ProjectPendingRow({
   })
   const cancel = useAtomSet(mutation, { mode: "promiseExit" })
   const state = useAtomValue(mutation)
+  const optimistic = pending.invitationId.startsWith("optimistic:")
   return (
     <PendingRowView
       roles={ROLE_META}
       email={pending.email}
       role={pending.role}
-      pulsing={scope.waiting && pending.invitationId.startsWith("optimistic:")}
+      pulsing={scope.waiting && optimistic}
+      inviteLink={
+        scope.canManage && !optimistic
+          ? invitationUrl(pending.invitationId)
+          : null
+      }
       cancel={
         scope.canManage
           ? {

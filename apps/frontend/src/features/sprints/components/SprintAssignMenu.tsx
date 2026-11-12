@@ -32,7 +32,7 @@ function rangeText(s: Group): string {
 export type SprintAssignMenuProps = {
   trigger: ReactElement
   sprints: ReadonlyArray<Group>
-  selectedId: Group["id"] | null
+  selectedId: Group["id"] | null | undefined
   onSelect: (sprint: Group) => void
   onClear?: () => void
   onRequestNewSprint?: () => void
@@ -83,8 +83,7 @@ export function SprintAssignMenu({
     value: s.id,
     textValue: s.name,
     separated:
-      index === eligible.length - 1 &&
-      (onClear !== undefined || onRequestNewSprint !== undefined),
+      index === eligible.length - 1 && onRequestNewSprint !== undefined,
     label: (
       <>
         <SprintStateIcon sprint={s} size="xs" />
@@ -103,6 +102,7 @@ export function SprintAssignMenu({
           {
             value: NO_SPRINT,
             textValue: clearText,
+            separated: eligible.length > 0,
             label: (
               <>
                 <X strokeWidth={1.75} />
@@ -128,11 +128,15 @@ export function SprintAssignMenu({
             onAction: onRequestNewSprint
           }
         ]
-  const items = [...sprintOptions, ...clearOptions, ...actionOptions]
+  const items = [...clearOptions, ...sprintOptions, ...actionOptions]
   return (
     <Select
       items={items}
-      value={selectedId ?? (onClear === undefined ? null : NO_SPRINT)}
+      value={
+        selectedId === undefined
+          ? null
+          : (selectedId ?? (onClear === undefined ? null : NO_SPRINT))
+      }
       open={open}
       onOpenChange={onOpenChange}
       onValueChange={(id) => {

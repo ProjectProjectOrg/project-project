@@ -1,6 +1,7 @@
 import {
   matchesTicketQuery,
   SPRINT_SECTION_UNSCHEDULED,
+  sprintSectionKey,
   statusPhaseLookup,
   summarizeEstimates,
   type EstimateSummary,
@@ -55,6 +56,8 @@ import {
 } from "@/features/tickets/lib/ticketRows"
 
 import {
+  bulkTicketMove,
+  bulkTicketUpdate,
   coalescingTicketUpdate,
   createdKeys,
   loadNextPage,
@@ -299,6 +302,46 @@ const shiftEstimates = (
   }
 }
 
+const moveSprintRow = (
+  sections: ReadonlyArray<SprintSectionValue>,
+  row: TicketRow,
+  from: SprintSectionKey,
+  to: SprintSectionKey,
+  dir: TicketSort["dir"],
+  phaseOf: StatusPhaseOf
+): ReadonlyArray<SprintSectionValue> => {
+  if (from === to || !sections.some((section) => section.key === to)) {
+    return sections
+  }
+  return sections.map((section) => {
+    if (section.key === from) {
+      return {
+        ...section,
+        count: Math.max(0, section.count - 1),
+        estimates: shiftEstimates(section.estimates, row.ticket, null, phaseOf),
+        page: {
+          ...section.page,
+          items: section.page.items.filter(
+            (item) => item.ticket.id !== row.ticket.id
+          )
+        }
+      }
+    }
+    if (section.key === to) {
+      return {
+        ...section,
+        count: section.count + 1,
+        estimates: shiftEstimates(section.estimates, null, row.ticket, phaseOf),
+        page: {
+          ...section.page,
+          items: insertByOrderKey(section.page.items, row, dir)
+        }
+      }
+    }
+    return section
+  })
+}
+
 const patchRow = (
   value: SprintSectionsValue,
   id: TicketId,
@@ -308,9 +351,10 @@ const patchRow = (
 ): SprintSectionsValue => {
   let patched: TicketRow | undefined
   let from: TicketStatus | undefined
+  let fromSection: SprintSectionKey | undefined
   let staysCounted = true
   let staysVisible = true
-  const sections = value.sections.map((section) => {
+  const patchedSections = value.sections.map((section) => {
     const items: Array<TicketRow> = []
     let found: TicketRow | undefined
     let before: Ticket | undefined
@@ -321,6 +365,7 @@ const patchRow = (
       }
       before = row.ticket
       from = row.ticket.status
+      fromSection = section.key
       found = patchTicketRow(row, patch, query.sort, now)
       patched = found
       staysCounted = matchesTicketQuery(
@@ -354,7 +399,18 @@ const patchRow = (
       }
     }
   })
-  if (!patched || from === undefined) return value
+  if (!patched || from === undefined || fromSection === undefined) return value
+  const sections =
+    patch.sprint === undefined || !staysVisible
+      ? patchedSections
+      : moveSprintRow(
+          patchedSections,
+          patched,
+          fromSection,
+          sprintSectionKey(patch.sprint),
+          query.sort.dir,
+          value.viewer.phaseOf
+        )
   const to = patched.ticket.status
   if (to === from && staysCounted && staysVisible) return { ...value, sections }
   const byStatus = { ...value.counts.byStatus }
@@ -428,6 +484,38 @@ export const updateSprintSectionsTicket = Atom.family(
 
 export const sprintSectionsTicketUpdates = bindRowMutation(
   updateSprintSectionsTicket
+)
+
+export const bulkUpdateSprintSectionsTickets = Atom.family(
+  (req: SprintSectionsRequest) =>
+    bulkTicketUpdate(sprintSections(req), {
+      name: "bulkUpdateSprintSectionsTickets",
+      path: req.params,
+      predict: (value, id, edit) =>
+        patchRow(
+          value,
+          id,
+          edit,
+          req.query,
+          DateTime.toDate(DateTime.nowUnsafe())
+        )
+    })
+)
+
+export const bulkMoveSprintSectionsTickets = Atom.family(
+  (req: SprintSectionsRequest) =>
+    bulkTicketMove(sprintSections(req), {
+      name: "bulkMoveSprintSectionsTickets",
+      path: req.params,
+      predict: (value, id, edit) =>
+        patchRow(
+          value,
+          id,
+          edit,
+          req.query,
+          DateTime.toDate(DateTime.nowUnsafe())
+        )
+    })
 )
 
 const assignedSprintId = (key: SprintSectionKey): GroupId | undefined =>

@@ -7,6 +7,7 @@ import { MotionConfig } from "motion/react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { PageContainer, PageHeader } from "@/components/shell/Page"
+import { ReadFailure } from "@/components/shell/ReadFailure"
 import { Button } from "@/components/ui/button"
 import {
   Empty,
@@ -28,7 +29,6 @@ import { m } from "@/paraglide/messages"
 
 import { ImportGroup } from "./ImportGroup"
 import { ImportPoints } from "./ImportPoints"
-import { ReadFailure } from "./ReadFailure"
 
 export function JiraImportsPage({ orgSlug }: Readonly<{ orgSlug: string }>) {
   const atom = jiraMigrations(jiraOrgRequest(orgSlug))

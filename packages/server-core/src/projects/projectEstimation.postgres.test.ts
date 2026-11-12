@@ -66,7 +66,6 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
     github: null,
     githubRepos: [],
     estimation: "points",
-    templateDefaults: {},
     body: "Project body",
     setup: {
       workflowReviewedAt: null,
@@ -78,7 +77,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
     read: () => Effect.sync(() => document),
     write: (_org, _slug, next) =>
       Effect.sync(() => {
-        document = { ...next, templateDefaults: {} }
+        document = next
       })
   })
 
@@ -114,7 +113,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
       [id, id, id]
     )
     await pool.query(
-      "INSERT INTO ticket_index (organization_id,project_id,ticket_id,title,status,type,priority,estimate_unit,estimate_value,created_by,created_at,updated_at) VALUES ($1,$2,'T-1','Estimated','todo','other','med','points',5,$1,now(),now()), ($1,$2,'T-2','Unestimated','todo','other','med',null,null,$1,now(),now())",
+      "INSERT INTO ticket_index (organization_id,project_id,ticket_id,title,status,type,priority,rank,estimate_unit,estimate_value,created_by,created_at,updated_at) VALUES ($1,$2,'T-1','Estimated','todo','other','med','a0','points',5,$1,now(),now()), ($1,$2,'T-2','Unestimated','todo','other','med','a0',null,null,$1,now(),now())",
       [id, id]
     )
     const db = DbLive.pipe(

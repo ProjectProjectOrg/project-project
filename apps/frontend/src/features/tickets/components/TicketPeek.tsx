@@ -30,6 +30,8 @@ import {
 import { EpicTextPrefix } from "@/features/tickets/components/ticket-list/EpicLabel"
 import { EstimateChip } from "@/features/tickets/components/ticket-list/EstimateField"
 import { BlockedLine } from "@/features/tickets/components/TicketHoverCard"
+import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import {
   PRIORITY_LABELS,
   PRIORITY_META
@@ -37,10 +39,9 @@ import {
 import { openBlockers } from "@/features/tickets/lib/relationGroups"
 import {
   statusLabelFor,
-  statusMetaFor,
-  TYPE_LABELS,
-  TYPE_META
+  statusMetaFor
 } from "@/features/tickets/lib/ticketMeta"
+import { resolveType } from "@/features/tickets/lib/ticketTypes"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -83,14 +84,21 @@ export function TicketPeek({
   const statuses = Result.isSuccess(statusesResult)
     ? statusesResult.value
     : NO_STATUSES
+  const types = useTicketTypes(scope.orgSlug, scope.slug)
+  if (Result.isFailure(result)) {
+    return (
+      <p role="alert" className="p-4 text-body text-destructive">
+        {m.tickets_peek_load_failed()}
+      </p>
+    )
+  }
   const ticket = Result.isSuccess(result) ? result.value : shown
   if (ticket === null) return <PeekSkeleton />
   const status = statusMetaFor(ticket.status, statuses)
   const priority = PRIORITY_META[ticket.priority]
-  const type = TYPE_META[ticket.type]
+  const type = resolveType(types, ticket.type)
   const StatusIcon = status.icon
   const PriorityIcon = priority.icon
-  const TypeIcon = type.icon
   const assignees = ticket.assignees.flatMap((id) => {
     const member = scope.members.find((candidate) => candidate.id === id)
     return member === undefined ? [] : [member]
@@ -127,10 +135,12 @@ export function TicketPeek({
             />
             {PRIORITY_LABELS[ticket.priority]()}
           </Meta>
-          <Meta>
-            <TypeIcon className="size-3.5" strokeWidth={1.75} />
-            {TYPE_LABELS[ticket.type]()}
-          </Meta>
+          {type !== null && (
+            <Meta>
+              <TypeGlyph type={type} className="size-3.5" />
+              {type.name}
+            </Meta>
+          )}
           {estimation !== "off" && ticket.estimate !== null && (
             <EstimateChip
               ticket={ticket}

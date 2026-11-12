@@ -30,6 +30,7 @@ import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { useProjectActor } from "@/hooks/useActor"
 import { formatDuration } from "@/lib/duration"
+import { mutationErrorText } from "@/lib/mutationError"
 import * as m from "@/paraglide/messages"
 
 export function TicketTimeSection({ ticket }: { ticket: TicketDetail }) {
@@ -78,6 +79,8 @@ export function TicketTimePanel({ ticket }: { ticket: TicketDetail }) {
   const startState = useAtomValue(startTicketTimerAtom(req))
   const stop = useAtomSet(stopTicketTimerAtom(req), { mode: "promiseExit" })
   const stopState = useAtomValue(stopTicketTimerAtom(req))
+  const timerError =
+    mutationErrorText(startState) ?? mutationErrorText(stopState)
   const [workType, setWorkType] = useState<string | null>(null)
   const [showLog, setShowLog] = useState(false)
 
@@ -142,6 +145,7 @@ export function TicketTimePanel({ ticket }: { ticket: TicketDetail }) {
               options={options}
               running={running}
               busy={busy}
+              error={timerError}
               onStart={() => void start({ workTypeKey: effectiveWorkType })}
               onStop={() => void stop()}
               logOpen={showLog}

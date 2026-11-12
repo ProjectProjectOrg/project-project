@@ -3,6 +3,16 @@ export type PageSlot = number | "gap"
 export const pageCount = (total: number, pageSize: number): number =>
   total <= 0 ? 1 : Math.ceil(total / pageSize)
 
+export const pageAfterRemoval = (
+  input: Readonly<{
+    page: number
+    pageSize: number
+    total: number
+    removed: number
+  }>
+): number =>
+  Math.min(input.page, pageCount(input.total - input.removed, input.pageSize))
+
 export const pageRange = (input: {
   readonly page: number
   readonly pageSize: number

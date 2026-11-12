@@ -1,5 +1,7 @@
 import {
+  applyListEdit,
   TagColor,
+  type ListEdit,
   type CreateTagInput,
   type Tag,
   type TagName,
@@ -163,14 +165,20 @@ const createEditorTag = (
 
 const applyEditorTags = (
   value: TagEditorValue,
-  tags: ReadonlyArray<TagName>
+  edit: ListEdit<TagName>
 ): TagEditorValue => ({
   ...value,
-  applied: tags.map((name) => ({ key: name, name }))
+  applied: applyListEdit(
+    value.applied.map((tag) => tag.name),
+    edit
+  ).map(
+    (name) =>
+      value.applied.find((tag) => tag.name === name) ?? { key: name, name }
+  )
 })
 
 type ApplyTagsInput = Readonly<{
-  tags: ReadonlyArray<TagName>
+  tags: ListEdit<TagName>
 }>
 
 const confirmEditorUpdate = (

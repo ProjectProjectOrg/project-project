@@ -1,3 +1,4 @@
+import { isEpic } from "@pp/shared"
 import { Flag, ListPlus } from "lucide-react"
 
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
@@ -42,10 +43,9 @@ export function TicketCreateRelatedPage({
           ? [
               {
                 value: "subTicket",
-                label:
-                  context.ticketDetail?.type === "epic"
-                    ? m.tickets_menu_related_epic_ticket()
-                    : m.tickets_menu_related_sub_ticket(),
+                label: isEpic(context.ticketDetail)
+                  ? m.tickets_menu_related_epic_ticket()
+                  : m.tickets_menu_related_sub_ticket(),
                 icon: ListPlus
               }
             ]

@@ -1,18 +1,151 @@
-import type { TicketId, TicketSort, TicketUpdateResult } from "@pp/shared"
+import type {
+  BulkUpdateTicketsInput,
+  TicketId,
+  TicketSort,
+  TicketUpdateResult
+} from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
+import * as Reactivity from "effect/reactivity/Reactivity"
+import * as Semaphore from "effect/Semaphore"
 
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
-import { coalescingMutation, type OptimisticView } from "@/api/viewMutation"
 import {
+  coalescingMutation,
+  keepPredicted,
+  viewMutation,
+  type OptimisticView
+} from "@/api/viewMutation"
+import type { BulkDrop } from "@/features/tickets/lib/listDrop"
+import {
+  fromBulkPatch,
+  mergeTicketEdit,
   type TicketEdit,
+  toBulkPatch,
   toUpdateInput
 } from "@/features/tickets/lib/ticketPatch"
+
+import { bulkBatches, bulkChangedKeys } from "./bulkTickets"
 
 export type TicketUpdateAtom = Atom.AtomResultFn<TicketEdit, unknown, unknown>
 
 export type TicketUpdates = (id: TicketId) => TicketUpdateAtom
+
+export type BulkTicketUpdateAtom = Atom.AtomResultFn<
+  BulkUpdateTicketsInput,
+  unknown,
+  unknown
+>
+
+type BulkTicketUpdate<V> = Readonly<{
+  name: string
+  path: Readonly<{ orgSlug: string; slug: string }>
+  predict: (value: V, id: TicketId, edit: TicketEdit) => V
+}>
+
+export const bulkTicketUpdate = <V, VE>(
+  view: OptimisticView<V, VE>,
+  update: BulkTicketUpdate<V>
+) => {
+  const writes = Semaphore.makeUnsafe(1)
+  return viewMutation(view, {
+    name: update.name,
+    predict: (value, input: BulkUpdateTicketsInput) => {
+      const edit = fromBulkPatch(input.patch)
+      return input.tickets.reduce(
+        (current, id) => update.predict(current, id, edit),
+        value
+      )
+    },
+    call: (client, input) =>
+      Effect.forEach(bulkBatches(input.tickets), (tickets) =>
+        client.tickets.bulkUpdate({
+          params: update.path,
+          payload: { tickets, patch: input.patch }
+        })
+      ).pipe(
+        (effect) => writes.withPermit(effect),
+        Effect.onError(() =>
+          Reactivity.invalidate(
+            bulkChangedKeys(
+              update.path,
+              input.tickets,
+              input.patch.sprint !== undefined
+            )
+          )
+        )
+      ),
+    confirm: keepPredicted,
+    publish: (_result, input) =>
+      bulkChangedKeys(
+        update.path,
+        input.tickets,
+        input.patch.sprint !== undefined
+      )
+  })
+}
+
+export type BulkTicketMoveAtom = Atom.AtomResultFn<BulkDrop, unknown, unknown>
+
+export const bulkTicketMove = <V, VE>(
+  view: OptimisticView<V, VE>,
+  update: BulkTicketUpdate<V>
+) =>
+  viewMutation(view, {
+    name: update.name,
+    predict: (value, input: BulkDrop) =>
+      input.tickets.reduce(
+        (current, id, index) =>
+          update.predict(
+            current,
+            id,
+            input.position === null
+              ? input.edit
+              : {
+                  ...input.edit,
+                  position: {
+                    to: input.position.to,
+                    rank: input.position.ranks[index] ?? null
+                  }
+                }
+          ),
+        value
+      ),
+    call: (client, input) =>
+      client.tickets
+        .bulkUpdate({
+          params: update.path,
+          payload: {
+            tickets: input.tickets,
+            patch:
+              input.position === null
+                ? toBulkPatch(input.edit)
+                : {
+                    ...toBulkPatch(input.edit),
+                    position: input.position.to
+                  }
+          }
+        })
+        .pipe(
+          Effect.onError(() =>
+            Reactivity.invalidate(
+              bulkChangedKeys(
+                update.path,
+                input.tickets,
+                input.edit.sprint !== undefined
+              )
+            )
+          )
+        ),
+    confirm: keepPredicted,
+    publish: (_result, input) =>
+      bulkChangedKeys(
+        update.path,
+        input.tickets,
+        input.edit.sprint !== undefined
+      )
+  })
 
 export const createdKeys = Atom.family((_scope: string) =>
   Atom.make<ReadonlyMap<TicketId, string>>(new Map()).pipe(
@@ -137,6 +270,7 @@ export const coalescingTicketUpdate = <V, VE>(
     name: update.name,
     idleTTL: update.idleTTL ?? "2 minutes",
     predict: update.predict,
+    merge: mergeTicketEdit,
     call: (client, edit: TicketEdit) =>
       client.tickets.update({
         params: update.path,
@@ -146,8 +280,10 @@ export const coalescingTicketUpdate = <V, VE>(
     confirm: (value, confirmed) => update.confirm(value, confirmed),
     publish: (_confirmed, payload) =>
       update.publish?.(payload) ??
-      Keys.ticketChanged(
-        projectScope(update.path.orgSlug, update.path.slug),
-        update.path.id
-      )
+      (payload.sprint === undefined
+        ? Keys.ticketChanged(
+            projectScope(update.path.orgSlug, update.path.slug),
+            update.path.id
+          )
+        : bulkChangedKeys(update.path, [update.path.id], true))
   })

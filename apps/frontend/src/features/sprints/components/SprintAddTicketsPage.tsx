@@ -1,4 +1,5 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
+import { canJoinSprint } from "@pp/shared"
 import type { Ticket } from "@pp/shared"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -56,8 +57,8 @@ export function SprintAddTicketsPage({ sprint, onBack }: SprintPageProps) {
   const found = useSettledValue(searchResult, NO_TICKETS).filter(
     (ticket) => !recentIds.has(ticket.id)
   )
-  const candidates = [...recent, ...found].filter(
-    (ticket) => ticket.type !== "epic"
+  const candidates = [...recent, ...found].filter((ticket) =>
+    canJoinSprint(ticket.type)
   )
   const byId = new Map<string, Ticket>(
     candidates.map((ticket) => [ticket.id, ticket])

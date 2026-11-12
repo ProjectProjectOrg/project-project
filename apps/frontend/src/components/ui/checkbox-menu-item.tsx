@@ -23,7 +23,8 @@ export function CheckboxMenuItem({
     >
       <Checkbox
         aria-label={label}
-        className="size-4.5 rounded-[4px] bg-transparent opacity-0 shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--muted-foreground)_55%,transparent)] group-data-[highlighted]:opacity-100 group-data-[menu-resting]:opacity-100 focus-visible:opacity-100 data-[checked]:opacity-100"
+        variant="quiet"
+        className="opacity-0 group-data-[highlighted]:opacity-100 group-data-[menu-resting]:opacity-100 focus-visible:opacity-100 data-[checked]:opacity-100"
         checked={checked}
         onCheckedChange={onToggle}
         onClick={(event) => event.stopPropagation()}

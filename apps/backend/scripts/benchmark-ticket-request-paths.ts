@@ -40,6 +40,7 @@ import {
   ProjectKey,
   TagName,
   TicketStatus,
+  TypeKey,
   ProjectScope
 } from "@pp/shared"
 import * as Cause from "effect/Cause"
@@ -236,7 +237,7 @@ const fixtureFor = (index: number, ticketCount: number) => {
       Match.when(0, () => "bug" as const),
       Match.when(1, () => "feat" as const),
       Match.when(2, () => "chore" as const),
-      Match.orElse(() => "other" as const)
+      Match.orElse(() => null)
     ),
     priority: Match.value(number % 3).pipe(
       Match.when(0, () => "high" as const),
@@ -399,7 +400,6 @@ const makeFakeGroups = (ticketCount: number) => {
     updateTickets: () => unexpected("Groups.updateTickets"),
     addTickets: () => unexpected("Groups.addTickets"),
     removeTickets: () => unexpected("Groups.removeTickets"),
-    updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
     complete: () => unexpected("Groups.complete"),
     remove: () => unexpected("Groups.remove"),
     ensureSprintAssignable: () => Effect.void,
@@ -482,8 +482,7 @@ const BenchmarkLive = (options: Options) =>
         FakeProjects,
         Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {}),
         Layer.mock(ProjectDocs.ProjectDocs, {
-          read: (_org, slug) =>
-            Effect.succeed({ ...benchmarkProject, slug, templateDefaults: {} })
+          read: (_org, slug) => Effect.succeed({ ...benchmarkProject, slug })
         }),
         makeFakeGroups(options.ticketCount),
         FakeGitHub,
@@ -523,7 +522,7 @@ const seedFixture = async (
     await client.query(
       `insert into ticket_index
          (organization_id, project_id, ticket_id,
-          title, status, type, priority, tags, assignees, branch, pr,
+          title, status, type, priority, rank, tags, assignees, branch, pr,
           pr_state, last_transitioned_pr, archived_at, created_by, created_at,
           updated_at)
        select $1, $2, 'T-' || value,
@@ -541,13 +540,14 @@ const seedFixture = async (
             when value % 4 = 0 then 'bug'
             when value % 4 = 1 then 'feat'
             when value % 4 = 2 then 'chore'
-            else 'other'
+            else null
           end,
           case
             when value % 3 = 0 then 'high'
             when value % 3 = 1 then 'med'
             else 'low'
           end,
+          'a' || lpad(value::text, 8, '0') || 'V',
           case
             when value % 10 = 0 then array['performance', 'backend']::text[]
             when value % 2 = 0 then array['backend']::text[]
@@ -819,7 +819,7 @@ const benchmarkProgram = (
     yield* measure("count-filtered", () =>
       verify(
         queries.count({
-          type: ["bug"]
+          type: [TypeKey.make("bug")]
         }),
         (counts) =>
           counts.total === activeBugCount &&

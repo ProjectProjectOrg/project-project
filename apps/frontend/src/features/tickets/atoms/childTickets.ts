@@ -28,6 +28,7 @@ import {
 
 import { allPages } from "./allPages"
 import {
+  bulkTicketUpdate,
   coalescingTicketUpdate,
   createdKeys,
   recordCreatedKey
@@ -195,6 +196,24 @@ export const updateChildTicket = Atom.family(({ req, id }: ChildTicketKey) =>
 )
 
 export const childTicketUpdates = bindRowMutation(updateChildTicket)
+
+export const bulkUpdateChildTickets = Atom.family((req: ChildTicketsRequest) =>
+  bulkTicketUpdate(childTickets(req), {
+    name: "bulkUpdateChildTickets",
+    path: req.params,
+    predict: (rows, id, edit) =>
+      rows.flatMap((row) => {
+        if (row.ticket.id !== id) return [row]
+        const next = patchTicketRow(
+          row,
+          edit,
+          CHILD_TICKET_SORT,
+          DateTime.toDate(DateTime.nowUnsafe())
+        )
+        return next.ticket.parent?.id === req.parent ? [next] : []
+      })
+  })
+)
 
 const attachedRow = (ticket: Ticket): TicketRow => ({
   ticket,

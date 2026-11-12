@@ -1,9 +1,11 @@
+import { isEpic } from "@pp/shared"
 import type { TicketDetail } from "@pp/shared"
 import {
   Archive,
   ArchiveRestore,
   Bot,
   CircleDot,
+  CircleSlash,
   Copy,
   FileText,
   FolderInput,
@@ -21,12 +23,18 @@ import {
   UserMinus,
   UserRound
 } from "lucide-react"
+import { createElement } from "react"
 
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
 import type {
   Command,
   CommandContext
 } from "@/features/command-menu/lib/commands"
+import {
+  removeTicketFromSprint,
+  sprintListRequest
+} from "@/features/sprints/atoms/sprintList"
+import { SprintChip } from "@/features/sprints/components/SprintChip"
 import { createTicketDialog } from "@/features/tickets/atoms/createTicketDialog"
 import {
   ticketRequest,
@@ -89,6 +97,7 @@ const ticketLink = (context: CommandContext) =>
 export const ticketCommands: ReadonlyArray<Command> = [
   {
     id: "ticket.status",
+    bulk: true,
     group: "ticket",
     label: m.tickets_command_change_status,
     icon: CircleDot,
@@ -98,6 +107,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.priority",
+    bulk: true,
     group: "ticket",
     label: m.tickets_command_set_priority,
     icon: SignalHigh,
@@ -107,6 +117,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.assign",
+    bulk: true,
     group: "ticket",
     label: m.tickets_command_assign,
     icon: UserRound,
@@ -131,7 +142,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
         updateTicketDetail(
           ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
         ),
-        { assignees: [...ticketDetail.assignees, viewerId] }
+        { assignees: { add: [viewerId] } }
       )
       env.close()
     }
@@ -153,13 +164,14 @@ export const ticketCommands: ReadonlyArray<Command> = [
         updateTicketDetail(
           ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
         ),
-        { assignees: ticketDetail.assignees.filter((id) => id !== viewerId) }
+        { assignees: { remove: [viewerId] } }
       )
       env.close()
     }
   },
   {
     id: "ticket.sprint",
+    bulk: true,
     group: "ticket",
     label: m.tickets_command_move_to_sprint,
     icon: Timer,
@@ -168,8 +180,34 @@ export const ticketCommands: ReadonlyArray<Command> = [
     when: (context) =>
       onLiveTicket(context) &&
       context.tickets.planSprints &&
-      context.ticketDetail?.type !== "epic",
+      !isEpic(context.ticketDetail),
     page: "ticketSprint"
+  },
+  {
+    id: "ticket.unplan",
+    group: "ticket",
+    label: m.tickets_command_remove_from_sprint,
+    aside: ({ ticketSprint }) =>
+      ticketSprint === null
+        ? null
+        : createElement(SprintChip, { sprint: ticketSprint }),
+    icon: CircleSlash,
+    keywords: ["sprint", "cycle", "iteration", "unplan"],
+    tool: "update_ticket",
+    when: (context) =>
+      onLiveTicket(context) &&
+      context.tickets.planSprints &&
+      context.ticketSprint !== null,
+    run: ({ ticket, ticketSprint }, env) => {
+      if (ticket === null || ticketSprint === null) return
+      removeTicketFromSprint(
+        env.registry,
+        sprintListRequest(ticket.orgSlug, ticket.slug),
+        ticket.ticketId,
+        ticketSprint.id
+      )
+      env.close()
+    }
   },
   {
     id: "ticket.move",
@@ -178,11 +216,12 @@ export const ticketCommands: ReadonlyArray<Command> = [
     icon: FolderInput,
     keywords: ["project", "transfer", "inbox"],
     tool: "move_ticket",
-    when: (context) => context.ticket !== null && context.tickets.move,
+    when: (context) => onLiveTicket(context) && context.tickets.move,
     page: "ticketMove"
   },
   {
     id: "ticket.estimate",
+    bulk: true,
     group: "ticket",
     label: m.tickets_command_set_estimate,
     icon: Gauge,
@@ -196,6 +235,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.type",
+    bulk: true,
     group: "ticket",
     label: m.tickets_command_change_type,
     icon: Shapes,
@@ -206,6 +246,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.tags",
+    bulk: true,
     group: "ticket",
     label: m.tickets_command_tags,
     icon: Tag,
@@ -260,7 +301,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
     label: m.tickets_split_menu_item,
     icon: Split,
     keywords: ["break up", "divide"],
-    when: ({ ticket, tickets }) => ticket !== null && tickets.split,
+    when: (context) => onLiveTicket(context) && context.tickets.split,
     run: ({ ticket }, env) => {
       if (ticket === null) return
       env.close()
@@ -271,6 +312,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.archive",
+    bulk: true,
     group: "ticketActions",
     label: m.tickets_command_archive,
     icon: Archive,
@@ -306,6 +348,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.delete",
+    bulk: true,
     group: "ticketActions",
     label: m.tickets_command_delete,
     icon: Trash2,

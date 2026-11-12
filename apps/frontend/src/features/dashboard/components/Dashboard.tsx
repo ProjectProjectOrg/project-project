@@ -1,10 +1,12 @@
-import { useAtomValue } from "@effect/atom-react"
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Plus } from "lucide-react"
 
+import { AsyncView } from "@/components/shell/AsyncView"
 import { PageContainer, PageHeader } from "@/components/shell/Page"
+import { ReadFailure } from "@/components/shell/ReadFailure"
 import { me } from "@/features/auth/atoms/auth"
 import { DashboardGitSync } from "@/features/dashboard/components/DashboardGitSync"
 import {
@@ -12,11 +14,15 @@ import {
   RecentTicketsSection,
   type MyTicketsView
 } from "@/features/dashboard/components/DashboardSections"
-import { RecentProjects } from "@/features/dashboard/components/RecentProjects"
+import {
+  RecentProjects,
+  RecentProjectsHeading
+} from "@/features/dashboard/components/RecentProjects"
 import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
+import { TicketSelectionProvider } from "@/features/tickets/components/ticket-list/TicketSelection"
 import { useOrgActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -32,6 +38,7 @@ export function Dashboard() {
   }
   const viewer = useAtomValue(me())
   const list = useAtomValue(projectsFor(projectsRequest(orgSlug)))
+  const refreshList = useAtomRefresh(projectsFor(projectsRequest(orgSlug)))
   const canCreate = useOrgActor(orgSlug).call("projects", "create")
   const createCta = canCreate ? <NewProjectCTA orgSlug={orgSlug} /> : null
   const name = Result.isSuccess(viewer)
@@ -48,11 +55,16 @@ export function Dashboard() {
 
       <div className="@container/dashboard">
         <div className="flex flex-col gap-6 @5xl/dashboard:gap-12">
-          {Result.matchWithError(list, {
-            onInitial: () => <TilesSkeleton />,
-            onError: () => createCta,
-            onDefect: () => createCta,
-            onSuccess: ({ value }) =>
+          <AsyncView
+            result={list}
+            onFailure={(failure) => (
+              <section className="flex flex-col gap-3">
+                <RecentProjectsHeading orgSlug={orgSlug} />
+                <ReadFailure failure={failure} onRetry={refreshList} />
+              </section>
+            )}
+            onInitial={() => <TilesSkeleton />}
+            onSuccess={({ value }) =>
               value.length === 0 ? (
                 createCta
               ) : (
@@ -62,15 +74,18 @@ export function Dashboard() {
                   canCreate={canCreate}
                 />
               )
-          })}
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-6 @5xl/dashboard:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @5xl/dashboard:items-start @5xl/dashboard:gap-12">
-            <MyTicketsSection
-              orgSlug={orgSlug}
-              view={view}
-              onViewChange={setView}
-            />
-            <RecentTicketsSection orgSlug={orgSlug} />
-          </div>
+            }
+          />
+          <TicketSelectionProvider resetKey={`${orgSlug}:${view}`}>
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-6 @5xl/dashboard:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @5xl/dashboard:items-start @5xl/dashboard:gap-12">
+              <MyTicketsSection
+                orgSlug={orgSlug}
+                view={view}
+                onViewChange={setView}
+              />
+              <RecentTicketsSection orgSlug={orgSlug} />
+            </div>
+          </TicketSelectionProvider>
         </div>
       </div>
       <DashboardGitSync orgSlug={orgSlug} />

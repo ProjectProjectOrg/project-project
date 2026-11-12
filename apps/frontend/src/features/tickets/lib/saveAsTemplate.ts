@@ -1,17 +1,17 @@
 import {
-  BLANK_TEMPLATE_KEY,
+  isReservedTypeKey,
   LIBRARY_KEY_MAX_LENGTH,
   parseTicketBlocks,
-  templateBodyFromTicket,
+  typeBodyFromTicket,
   type BlockLookup,
   type TagName,
-  type TemplateDraft,
-  TemplateKey,
+  type TypeDraft,
+  TypeKey,
   type TicketPriority
 } from "@pp/shared"
 
 import type { LibraryLayer } from "@/features/library/atoms/libraryScope"
-import { keyFromName } from "@/features/library/lib/libraryModel"
+import { keyFromName, NEW_ENTRY_KEY } from "@/features/library/lib/libraryModel"
 
 export type SaveAsTemplateOptions = Readonly<{
   name: string
@@ -48,7 +48,7 @@ export const saveAsTemplateSummary = (
   body: string,
   lookup: BlockLookup
 ): SaveAsTemplateSummary => {
-  const template = templateBodyFromTicket(body, lookup)
+  const template = typeBodyFromTicket(body, lookup)
   return {
     body: template.body,
     blocks: parseTicketBlocks(template.body).filter(
@@ -61,14 +61,15 @@ export const saveAsTemplateSummary = (
 export const freeTemplateKey = (
   name: string,
   taken: ReadonlySet<string>
-): TemplateKey => {
+): TypeKey => {
   const base = keyFromName(name) || FALLBACK_KEY
-  const free = (key: string) => key !== BLANK_TEMPLATE_KEY && !taken.has(key)
-  if (free(base)) return TemplateKey.make(base)
+  const free = (key: string) =>
+    key !== NEW_ENTRY_KEY && !isReservedTypeKey(key) && !taken.has(key)
+  if (free(base)) return TypeKey.make(base)
   for (let index = 2; ; index++) {
     const suffix = `-${index}`
     const candidate = `${base.slice(0, LIBRARY_KEY_MAX_LENGTH - suffix.length).replace(/-+$/, "")}${suffix}`
-    if (free(candidate)) return TemplateKey.make(candidate)
+    if (free(candidate)) return TypeKey.make(candidate)
   }
 }
 
@@ -77,7 +78,7 @@ export const saveAsTemplateDraft = (
   options: SaveAsTemplateOptions,
   lookup: BlockLookup,
   taken: ReadonlySet<string>
-): TemplateDraft => {
+): TypeDraft => {
   const name = options.name.trim()
   return {
     key: freeTemplateKey(name, taken),

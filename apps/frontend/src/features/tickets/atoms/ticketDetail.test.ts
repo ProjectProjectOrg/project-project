@@ -1,10 +1,12 @@
 import {
+  TicketRank,
   EMPTY_TICKET_RELATIONS,
   TicketDetail,
   TicketId,
   TicketStatus,
   TicketUpdateResult,
-  UpdateTicketInput
+  UpdateTicketInput,
+  TypeKey
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -28,13 +30,15 @@ const ticket = {
   id: Schema.decodeSync(TicketId)("T-1"),
   title: "Before",
   status: Schema.decodeSync(TicketStatus)("todo"),
-  type: "chore",
+  type: TypeKey.make("chore"),
   priority: "med",
   estimate: null,
+  flag: null,
   tags: [],
   branch: null,
   pr: null,
   prState: null,
+  rank: TicketRank.make("a0"),
   lastTransitionedPr: null,
   parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
@@ -188,7 +192,7 @@ describe("ticket detail optimistic update", () => {
     const confirmed = {
       ...ticket,
       priority: "high" as const,
-      type: "bug" as const
+      type: TypeKey.make("bug")
     }
     fetchStub.set(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "PATCH") {
@@ -219,19 +223,22 @@ describe("ticket detail optimistic update", () => {
         })
       )
       registry.set(mutation, { priority: "high" })
-      registry.set(mutation, { type: "bug" })
+      registry.set(mutation, { type: TypeKey.make("bug") })
       expect(registry.get(view)).toMatchObject({
-        value: { priority: "high", type: "bug" }
+        value: { priority: "high", type: TypeKey.make("bug") }
       })
       await vi.waitFor(() => expect(payloads).toHaveLength(1))
       served = { ...ticket, priority: "high" }
       finishFirst?.(Response.json(encodeUpdate(served)))
       await vi.waitFor(() =>
-        expect(payloads).toEqual([{ priority: "high" }, { type: "bug" }])
+        expect(payloads).toEqual([
+          { priority: "high" },
+          { type: TypeKey.make("bug") }
+        ])
       )
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
       expect(registry.get(view)).toMatchObject({
-        value: { priority: "high", type: "bug" }
+        value: { priority: "high", type: TypeKey.make("bug") }
       })
     } finally {
       registry.dispose()

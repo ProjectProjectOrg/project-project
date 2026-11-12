@@ -8,17 +8,21 @@ import {
   JiraPlannedArchive,
   skippedAttachmentsForArchive
 } from "@pp/integration-jira/Report"
+import * as Library from "@pp/server-core/library/Library"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import {
   AppApi,
   CurrentUser,
   Forbidden,
+  isBuiltinTypeKey,
   JiraError,
   JiraMigrationUnavailable,
   JiraResourceNotFound,
   NotFound,
-  OrgScope
+  OrgScope,
+  Validation,
+  type JiraMigrationConfiguration
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
@@ -26,9 +30,26 @@ import { HttpApiBuilder } from "effect/http-api"
 import * as Path from "effect/Path"
 import * as Schema from "effect/Schema"
 
+import { dieOnMarkdown } from "../http/dieOnMarkdown"
+
 const decodeJiraPlannedArchiveJson = Schema.decodeEffect(
   Schema.fromJsonString(JiraPlannedArchive)
 )
+
+const requireOrgTypes = Effect.fn("JiraMigrations.requireOrgTypes")(function* (
+  configuration: JiraMigrationConfiguration
+) {
+  const custom = configuration.issueTypes.flatMap(({ projectType }) =>
+    projectType === null || isBuiltinTypeKey(projectType) ? [] : [projectType]
+  )
+  if (custom.length === 0) return
+  const library = yield* Library.Library
+  const { types } = yield* dieOnMarkdown(library.orgLibrary())
+  const known = new Set(types.map(({ key }) => key))
+  const unknown = custom.find((key) => !known.has(key))
+  if (unknown !== undefined)
+    return yield* new Validation({ reason: `unknown_type:${unknown}` })
+})
 
 const context = Effect.gen(function* () {
   const user = yield* CurrentUser
@@ -211,6 +232,7 @@ export const JiraMigrationsHandlerLive = HttpApiBuilder.group(
             !org.permissions.can({ invitation: ["create"] })
           )
             return yield* new Forbidden()
+          yield* requireOrgTypes(payload.configuration)
           const migrations = yield* Migrations.JiraMigrations
           return yield* migrations.configure(
             org.organizationId,

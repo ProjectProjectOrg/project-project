@@ -1,3 +1,4 @@
+import { isEpic } from "@pp/shared"
 import type { Member, Ticket } from "@pp/shared"
 
 import { CommentsSection } from "@/features/comments/components/CommentsSection"
@@ -40,11 +41,10 @@ function ChildrenDiscussion({
     <CommentsSection
       ticketId={parent.id}
       extraTab={{
-        placement: parent.type === "epic" ? "first" : "last",
-        label:
-          parent.type === "epic"
-            ? m.tickets_epic_tickets_heading()
-            : m.tickets_sub_tickets_heading(),
+        placement: isEpic(parent) ? "first" : "last",
+        label: isEpic(parent)
+          ? m.tickets_epic_tickets_heading()
+          : m.tickets_sub_tickets_heading(),
         badge: count > 0 ? count : null,
         content: (
           <ChildTicketList

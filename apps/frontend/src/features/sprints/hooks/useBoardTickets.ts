@@ -41,6 +41,7 @@ export function useBoardTickets(
       archived: _archived,
       cursor: _cursor,
       sort: _sort,
+      status: _status,
       ...filter
     } = query
     return filter

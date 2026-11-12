@@ -9,7 +9,7 @@ import type {
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { FilterX, ListChecks } from "lucide-react"
-import { useMemo, type ReactNode } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
@@ -30,12 +30,19 @@ import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import {
   backlogRequest,
   backlogTicketUpdates,
+  bulkMoveBacklogTickets,
+  bulkUpdateBacklogTickets,
   type BacklogValue
 } from "@/features/tickets/atoms/backlog"
-import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
+import type {
+  BulkTicketMoveAtom,
+  BulkTicketUpdateAtom,
+  TicketUpdates
+} from "@/features/tickets/atoms/ticketRows"
 import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
 import { m } from "@/paraglide/messages"
 
+import { useListRowAutoScroll } from "./ListRowDrag"
 import { statusCollapseKey, useCollapsedInSet } from "./sectionCollapse"
 import { CreatingSectionsProvider, SectionList } from "./SectionList"
 import { useTicketPreview } from "./useTicketPreview"
@@ -55,6 +62,8 @@ export function SegmentedList({
   empty?: ReactNode
 }) {
   const { orgSlug, slug } = useProjectRoute()
+  const [listElement, setListElement] = useState<HTMLDivElement | null>(null)
+  useListRowAutoScroll(listElement)
   const router = useRouter()
   const navigate = useNavigate()
   const resetFilters = () => {
@@ -82,6 +91,10 @@ export function SegmentedList({
   }
   const preview = useTicketPreview()
   const update = backlogTicketUpdates(backlogRequest(orgSlug, slug, query))
+  const bulkUpdate = bulkUpdateBacklogTickets(
+    backlogRequest(orgSlug, slug, query)
+  )
+  const bulkMove = bulkMoveBacklogTickets(backlogRequest(orgSlug, slug, query))
 
   const statusReq = statusesRequest(orgSlug, slug)
   const statusesResult = useAtomValue(statusesFor(statusReq))
@@ -181,6 +194,7 @@ export function SegmentedList({
   return (
     <div
       key="sections"
+      ref={setListElement}
       style={{ overflowAnchor: "none" }}
       className="flex flex-col gap-1"
     >
@@ -194,6 +208,8 @@ export function SegmentedList({
             statuses={statuses}
             query={query}
             update={update}
+            bulkUpdate={bulkUpdate}
+            bulkMove={bulkMove}
             count={byStatus[status] ?? 0}
             page={sections[status] ?? EMPTY_PAGE}
             members={members}
@@ -215,6 +231,8 @@ function StatusSection({
   statuses,
   query,
   update,
+  bulkUpdate,
+  bulkMove,
   count,
   page,
   members,
@@ -228,6 +246,8 @@ function StatusSection({
   statuses: ReadonlyArray<ProjectStatus>
   query: TicketListQuery
   update: TicketUpdates
+  bulkUpdate: BulkTicketUpdateAtom
+  bulkMove: BulkTicketMoveAtom
   count: number
   page: TicketRowPage
   members: ReadonlyArray<Member>
@@ -244,8 +264,11 @@ function StatusSection({
     <SectionList
       status={status}
       statuses={statuses}
+      dropTarget={{ grouping: "status", key: status }}
       query={query}
       update={update}
+      bulkUpdate={bulkUpdate}
+      bulkMove={bulkMove}
       count={count}
       page={page}
       collapsed={collapsed}

@@ -26,11 +26,12 @@ import {
   TagName,
   TicketId,
   TicketPriority,
-  TicketType,
+  StoredTicketType,
+  type TypeKey,
   type StatusPhase
 } from "@pp/shared"
 import { DateTime, Effect, Option, Schema } from "effect"
-import { generateKeyBetween } from "fractional-indexing"
+import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing"
 import { ulid } from "ulid"
 
 import { escapeMarkdownText, rewriteJiraReferences } from "./Adf"
@@ -106,7 +107,7 @@ export type JiraStagedTicket = Readonly<{
   id: string
   title: string
   status: string
-  type: TicketType
+  type: TypeKey | null
   priority: "low" | "med" | "high"
   tags: ReadonlyArray<string>
   assignees: ReadonlyArray<string>
@@ -773,6 +774,25 @@ export function jiraReferenceKey(
   return `${kind}:${sourceId}`
 }
 
+function publicationRanks(
+  tickets: ReadonlyArray<JiraStagedTicket>,
+  jiraRanks: ReadonlyArray<Readonly<{ issueId: string; rank: string }>>
+): ReadonlyMap<string, string> {
+  const jiraRank = new Map(
+    jiraRanks.map(({ issueId, rank }) => [issueId, rank])
+  )
+  const ordered = tickets.toSorted((left, right) => {
+    const a = jiraRank.get(left.sourceIssueId)
+    const b = jiraRank.get(right.sourceIssueId)
+    if (a !== undefined && b !== undefined) return compareStrings(a, b)
+    if (a !== undefined) return -1
+    if (b !== undefined) return 1
+    return compareStrings(right.createdAt, left.createdAt)
+  })
+  const keys = generateNKeysBetween(null, null, ordered.length)
+  return new Map(ordered.map((ticket, index) => [ticket.id, keys[index]]))
+}
+
 function publicationGroupTicketIds(
   group: JiraManifestGroup,
   excludedIssueIds: ReadonlySet<string>,
@@ -1227,7 +1247,7 @@ const PlannedTicket = Schema.Struct({
   id: TicketId,
   title: Schema.String,
   status: StatusSlug,
-  type: TicketType,
+  type: StoredTicketType,
   priority: TicketPriority,
   tags: Schema.Array(TagName),
   assignees: Schema.Array(Schema.String),
@@ -1302,8 +1322,9 @@ const TicketRow = Schema.Struct({
   ticketId: TicketId,
   title: Schema.String,
   status: StatusSlug,
-  type: TicketType,
+  type: StoredTicketType,
   priority: TicketPriority,
+  rank: Schema.NonEmptyString,
   tags: Schema.Array(TagName),
   assignees: Schema.Array(Schema.String),
   parent: Schema.optional(Schema.NullOr(TicketId)),
@@ -1713,11 +1734,13 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
       accountId === null || resolutions.get(accountId)?.kind === "link"
         ? null
         : (displayNames.get(accountId) ?? accountId)
+    const ranks = publicationRanks(draft.plan.tickets, manifest.ranks)
     const tickets = draft.plan.tickets.map((ticket) => {
       const issue = manifestIssues.get(ticket.sourceIssueId)!
       const estimate = estimates.byIssue.get(ticket.sourceIssueId)
       return {
         ...ticket,
+        rank: requireMapped(ranks, ticket.id),
         ...(estimate === undefined ? {} : { estimate }),
         body: withImportNote(
           ticket.body,
@@ -1781,6 +1804,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
             status: ticket.status,
             type: ticket.type,
             priority: ticket.priority,
+            rank: ticket.rank,
             tags: ticket.tags,
             assignees: ticket.assignees,
             ...(ticket.parent ? { parent: ticket.parent } : {}),
@@ -2014,6 +2038,7 @@ export const finalizeJiraPublication = Effect.fn("finalizeJiraPublication")(
           status: ticket.status,
           type: ticket.type,
           priority: ticket.priority,
+          rank: ticket.rank,
           tags: ticket.tags,
           assignees: ticket.assignees,
           parent: ticket.parent ?? null,

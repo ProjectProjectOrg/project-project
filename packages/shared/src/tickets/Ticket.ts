@@ -7,15 +7,17 @@
 
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
+import * as SchemaTransformation from "effect/SchemaTransformation"
 
 import { User } from "../auth/User"
 import { Estimate, ESTIMATE_MAX_MINUTES } from "../estimates/Estimate"
 import { GitState, StackLayerState } from "../github/GitState"
 import { GroupId } from "../groups/GroupId"
-import { TemplateKey } from "../library/LibraryKey"
+import { TypeKey } from "../library/LibraryKey"
 import { ProjectKey } from "../projects/Project"
 import { StatusSlug } from "../statuses/Status"
 import { TagName } from "../tags/Tag"
+import { ListEdit } from "./listEdit"
 
 const isProjectKey = Schema.is(ProjectKey)
 
@@ -32,6 +34,18 @@ export const TicketId = Schema.String.pipe(
 )
 export type TicketId = typeof TicketId.Type
 
+export const TicketRank = Schema.String.pipe(
+  Schema.check(Schema.isMinLength(1)),
+  Schema.brand("TicketRank")
+)
+export type TicketRank = typeof TicketRank.Type
+
+export const TicketPosition = Schema.Union([
+  Schema.Struct({ after: TicketId }),
+  Schema.Struct({ before: TicketId })
+])
+export type TicketPosition = typeof TicketPosition.Type
+
 export const TicketStatus = StatusSlug
 export type TicketStatus = typeof TicketStatus.Type
 
@@ -42,19 +56,25 @@ export function isCarryover(
   return !finished.has(status)
 }
 
-export const TicketType = Schema.Literals([
-  "feat",
-  "bug",
-  "chore",
-  "other",
-  "epic"
-])
-export type TicketType = typeof TicketType.Type
+export const LEGACY_NO_TYPE = "other"
+
+export const StoredTicketType = Schema.Union([
+  Schema.Literal(LEGACY_NO_TYPE),
+  Schema.NullOr(TypeKey)
+]).pipe(
+  Schema.decodeTo(
+    Schema.toType(Schema.NullOr(TypeKey)),
+    SchemaTransformation.transform({
+      decode: (stored) => (stored === LEGACY_NO_TYPE ? null : stored),
+      encode: (type) => type
+    })
+  )
+)
 
 export const TicketParent = Schema.Struct({
   id: TicketId,
   title: Schema.String,
-  type: TicketType
+  type: Schema.NullOr(TypeKey)
 })
 export type TicketParent = typeof TicketParent.Type
 
@@ -74,13 +94,26 @@ export const TicketBranchEntry = Schema.Struct({
 })
 export type TicketBranchEntry = typeof TicketBranchEntry.Type
 
+export const FLAG_REASON_MAX_LENGTH = 20_000
+
+export const TicketFlag = Schema.Struct({
+  reason: Schema.optionalKey(Schema.String),
+  by: Schema.String,
+  at: Schema.DateFromString
+})
+export type TicketFlag = typeof TicketFlag.Type
+
 export const Ticket = Schema.Struct({
   id: TicketId,
   title: Schema.String,
   status: TicketStatus,
-  type: TicketType,
+  type: Schema.NullOr(TypeKey),
   priority: TicketPriority,
+  rank: TicketRank,
   estimate: Schema.NullOr(Estimate).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
+  flag: Schema.NullOr(TicketFlag).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
   tags: Schema.Array(TagName),
@@ -174,16 +207,17 @@ export const QuickCreateTicketInput = Schema.Struct({
     Schema.check(Schema.isMinLength(1)),
     Schema.check(Schema.isMaxLength(200))
   ),
-  type: Schema.optional(TicketType),
+  type: Schema.optional(Schema.NullOr(TypeKey)),
   status: Schema.optional(TicketStatus),
-  parent: Schema.optional(TicketId),
-  template: Schema.optional(Schema.NullOr(TemplateKey))
+  parent: Schema.optional(TicketId)
 })
 export type QuickCreateTicketInput = typeof QuickCreateTicketInput.Type
 
 const ticketFieldDocs = {
   status: "A status slug from `list_statuses` (default `todo`).",
-  type: "The ticket type (default `other`).",
+  type:
+    "A type key from `list_types`: built in (`feat`, `bug`, `chore`, `epic`) or one of the project's own. " +
+    "`null` means no type.",
   priority: "The priority (default `med`).",
   estimate:
     "An estimate in the project's estimation unit (`estimation` in `get_project`): " +
@@ -209,7 +243,7 @@ export const CreateTicketInput = Schema.Struct({
   status: Schema.optional(TicketStatus).annotate({
     description: ticketFieldDocs.status
   }),
-  type: Schema.optional(TicketType).annotate({
+  type: Schema.optional(Schema.NullOr(TypeKey)).annotate({
     description: ticketFieldDocs.type
   }),
   priority: Schema.optional(TicketPriority).annotate({
@@ -235,10 +269,6 @@ export const CreateTicketInput = Schema.Struct({
   }),
   relatedTo: Schema.optional(Schema.Array(TicketId)).annotate({
     description: ticketFieldDocs.relatedTo
-  }),
-  template: Schema.optional(Schema.NullOr(TemplateKey)).annotate({
-    description:
-      "A template key from `list_templates` to expand into the body; omit or pass `null` for a blank ticket."
   })
 })
 export type CreateTicketInput = typeof CreateTicketInput.Type
@@ -259,6 +289,15 @@ export const ArchiveTicketInput = Schema.Struct({
 })
 export type ArchiveTicketInput = typeof ArchiveTicketInput.Type
 
+export const FlagTicketInput = Schema.Struct({
+  reason: Schema.optional(
+    Schema.String.pipe(Schema.check(Schema.isMaxLength(FLAG_REASON_MAX_LENGTH)))
+  ).annotate({
+    description: `Why the ticket needs attention, as markdown up to ${FLAG_REASON_MAX_LENGTH.toLocaleString("en")} characters.`
+  })
+})
+export type FlagTicketInput = typeof FlagTicketInput.Type
+
 export const UpdateTicketInput = Schema.Struct({
   title: Schema.optional(
     Schema.String.pipe(
@@ -270,7 +309,7 @@ export const UpdateTicketInput = Schema.Struct({
     description:
       "A status slug from `list_statuses`; don't set one that git automation sets (`setBy`)."
   }),
-  type: Schema.optional(TicketType).annotate({
+  type: Schema.optional(Schema.NullOr(TypeKey)).annotate({
     description: ticketFieldDocs.type
   }),
   priority: Schema.optional(TicketPriority).annotate({
@@ -279,11 +318,11 @@ export const UpdateTicketInput = Schema.Struct({
   estimate: Schema.optional(Schema.NullOr(Estimate)).annotate({
     description: ticketFieldDocs.estimate
   }),
-  tags: Schema.optional(Schema.Array(TagName)).annotate({
-    description: `${ticketFieldDocs.tags} Pass an empty list to clear.`
+  tags: Schema.optional(ListEdit(TagName)).annotate({
+    description: `${ticketFieldDocs.tags} A list replaces the tags (an empty list clears them); \`{ add, remove }\` changes the current tags.`
   }),
-  assignees: Schema.optional(Schema.Array(Schema.String)).annotate({
-    description: `${ticketFieldDocs.assignees} Pass an empty list to clear.`
+  assignees: Schema.optional(ListEdit(Schema.String)).annotate({
+    description: `${ticketFieldDocs.assignees} A list replaces the assignees (an empty list clears them); \`{ add, remove }\` changes the current assignees.`
   }),
   body: Schema.optional(Schema.String).annotate({
     description: `${ticketFieldDocs.body} Replaces the whole description.`
@@ -296,6 +335,18 @@ export const UpdateTicketInput = Schema.Struct({
   }),
   relatedTo: Schema.optional(Schema.Array(TicketId)).annotate({
     description: `${ticketFieldDocs.relatedTo} Replaces the list stored on this ticket; pass an empty list to clear.`
+  }),
+  flag: Schema.optional(Schema.NullOr(FlagTicketInput)).annotate({
+    description:
+      "Flags the ticket as needing attention, with an optional reason; `null` removes the flag. A flag doesn't change the status, and moving the ticket to a finished status removes it."
+  }),
+  position: Schema.optional(TicketPosition).annotate({
+    description:
+      "Moves the ticket in the project's manual order: `{ after: id }` places it right below that ticket, `{ before: id }` right above it. The order is shared by every view, sprint and board."
+  }),
+  sprint: Schema.optional(Schema.NullOr(GroupId)).annotate({
+    description:
+      "Moves the ticket into this planned or active sprint, out of any other open sprint; `null` takes it out of its open sprint, back to the backlog. Epics can't be in a sprint."
   })
 })
 export type UpdateTicketInput = typeof UpdateTicketInput.Type
@@ -305,7 +356,7 @@ export const SplitTicketResultInput = Schema.Struct({
     Schema.check(Schema.isMinLength(1)),
     Schema.check(Schema.isMaxLength(200))
   ),
-  type: TicketType,
+  type: Schema.NullOr(TypeKey),
   status: TicketStatus,
   priority: TicketPriority,
   sprintId: Schema.NullOr(GroupId),

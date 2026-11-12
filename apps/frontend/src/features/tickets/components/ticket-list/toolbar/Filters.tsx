@@ -3,7 +3,6 @@ import {
   sprintState,
   type AssigneeFilter,
   type EstimationMode,
-  TicketType,
   type TicketFilter,
   type Member
 } from "@pp/shared"
@@ -13,6 +12,7 @@ import {
   Archive,
   ChevronDown,
   CircleDot,
+  Flag,
   Gauge,
   ListFilter,
   OctagonMinus,
@@ -65,6 +65,8 @@ import { SPRINT_STATE_META } from "@/features/sprints/components/SprintChip"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagMenuItem } from "@/features/tags/components/TagMenuItem"
+import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import {
   estimateFilterLabel,
   estimateFilterValues
@@ -75,10 +77,9 @@ import {
 } from "@/features/tickets/lib/ticketFilters"
 import {
   statusLabelFor,
-  statusMetaFor,
-  TYPE_LABELS,
-  TYPE_META
+  statusMetaFor
 } from "@/features/tickets/lib/ticketMeta"
+import { typeName, typeOptions } from "@/features/tickets/lib/ticketTypes"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -91,7 +92,11 @@ import {
 import { ToolbarButton } from "./shared"
 import { sortTagsByColor } from "./tagOrder"
 
-const TOGGLES: ReadonlySet<FilterDimension> = new Set(["archived", "blocked"])
+const TOGGLES: ReadonlySet<FilterDimension> = new Set([
+  "archived",
+  "blocked",
+  "flagged"
+])
 
 export function Filters() {
   const {
@@ -213,6 +218,17 @@ export function Filters() {
           >
             <OctagonMinus className="size-4" strokeWidth={1.75} />
             {m.tickets_filters_blocked_only()}
+          </DropdownMenuCheckboxItem>
+        )}
+        {filters.includes("flagged") && (
+          <DropdownMenuCheckboxItem
+            checked={value?.flagged === true}
+            onCheckedChange={(on) =>
+              onChange({ flagged: on ? true : undefined })
+            }
+          >
+            <Flag className="size-4" strokeWidth={1.75} />
+            {m.tickets_filters_flagged_only()}
           </DropdownMenuCheckboxItem>
         )}
         {filters.includes("archived") && (
@@ -369,20 +385,21 @@ function FilterType({
   value: TicketFilter["type"]
   onChange: (value: TicketFilter["type"]) => void
 }>) {
+  const { orgSlug, slug } = useProjectRoute()
+  const types = useTicketTypes(orgSlug, slug)
   return (
     <FilterSubmenu icon={Shapes} label={m.tickets_filters_section_type()}>
       <CheckboxOptions
         selected={value}
         onChange={onChange}
-        options={TicketType.literals.map((type) => {
-          const TIcon = TYPE_META[type].icon
-          const label = TYPE_LABELS[type]()
+        options={typeOptions(types).map((option) => {
+          const label = typeName(option.type)
           return {
-            value: type,
+            value: option.value,
             label,
             content: (
               <>
-                <TIcon className="size-4" strokeWidth={1.75} />
+                <TypeGlyph type={option.type} />
                 {text(label)}
               </>
             )

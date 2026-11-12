@@ -1,5 +1,4 @@
 import type { ArchiveTicketInput } from "@pp/shared"
-import * as Exit from "effect/Exit"
 import { Archive, ArchiveRestore } from "lucide-react"
 import { useState } from "react"
 
@@ -9,17 +8,22 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
+import {
+  ArchiveForm,
+  type ArchiveExit,
+  type ArchiveTicket
+} from "@/features/tickets/forms/archive-ticket"
 import { m } from "@/paraglide/messages"
 
-type ArchiveExit = Exit.Exit<unknown, unknown>
-
 export function ArchiveTicketControl({
+  ticket,
   archived,
   onArchive,
   onUnarchive,
   waiting,
   failed
 }: {
+  ticket: ArchiveTicket
   archived: boolean
   onArchive: (input: ArchiveTicketInput) => Promise<ArchiveExit>
   onUnarchive: () => void
@@ -33,7 +37,12 @@ export function ArchiveTicketControl({
       failed={failed}
     />
   ) : (
-    <ArchivePopover onArchive={onArchive} waiting={waiting} failed={failed} />
+    <ArchivePopover
+      ticket={ticket}
+      onArchive={onArchive}
+      waiting={waiting}
+      failed={failed}
+    />
   )
 }
 
@@ -71,16 +80,17 @@ function UnarchiveButton({
 }
 
 function ArchivePopover({
+  ticket,
   onArchive,
   waiting,
   failed
 }: {
+  ticket: ArchiveTicket
   onArchive: (input: ArchiveTicketInput) => Promise<ArchiveExit>
   waiting: boolean
   failed: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const [reason, setReason] = useState("")
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -98,10 +108,12 @@ function ArchivePopover({
           </Button>
         }
       />
-      <PopoverContent align="end" className="w-72">
+      <PopoverContent
+        align="end"
+        className="w-[min(32rem,calc(100vw-2rem))] p-0"
+      >
         <ArchiveForm
-          reason={reason}
-          onReasonChange={setReason}
+          ticket={ticket}
           onArchive={onArchive}
           waiting={waiting}
           failed={failed}
@@ -109,73 +121,5 @@ function ArchivePopover({
         />
       </PopoverContent>
     </Popover>
-  )
-}
-
-export function ArchiveForm({
-  reason,
-  onReasonChange,
-  onArchive,
-  waiting,
-  failed,
-  onClose
-}: {
-  reason: string
-  onReasonChange: (reason: string) => void
-  onArchive: (input: ArchiveTicketInput) => Promise<ArchiveExit>
-  waiting: boolean
-  failed: boolean
-  onClose: () => void
-}) {
-  const submit = async () => {
-    const trimmed = reason.trim()
-    const exit = await onArchive({
-      reason: trimmed.length > 0 ? trimmed : undefined
-    })
-    if (Exit.isSuccess(exit)) {
-      onReasonChange("")
-      onClose()
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <p className="text-body font-semibold">{m.tickets_archive_confirm()}</p>
-        <p className="text-caption text-muted-foreground">
-          {m.tickets_archive_description()}
-        </p>
-      </div>
-      <label className="flex flex-col gap-1.5">
-        <span className="text-caption text-muted-foreground">
-          {m.tickets_archive_reason_label()}
-        </span>
-        <textarea
-          value={reason}
-          onChange={(e) => onReasonChange(e.target.value)}
-          placeholder={m.tickets_archive_reason_placeholder()}
-          rows={3}
-          className="w-full resize-none rounded-md border border-border bg-background px-2.5 py-1.5 text-body ring-offset-background transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
-      </label>
-      {failed && (
-        <p className="text-caption text-destructive">
-          {m.tickets_archive_error_fallback()}
-        </p>
-      )}
-      <div className="flex items-center justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-          {m.tickets_archive_cancel()}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          disabled={waiting}
-          onClick={() => void submit()}
-        >
-          {m.tickets_archive_submit()}
-        </Button>
-      </div>
-    </div>
   )
 }
