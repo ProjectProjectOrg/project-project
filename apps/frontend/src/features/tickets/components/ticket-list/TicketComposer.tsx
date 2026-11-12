@@ -11,6 +11,7 @@ import * as Random from "effect/Random"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useContext, useMemo, useRef, useState, type FormEvent } from "react"
 
+import { AutoHeight } from "@/components/ui/auto-height"
 import { currentUserId } from "@/features/auth/atoms/auth"
 import { projectGitStates } from "@/features/github/atoms/github"
 import {
@@ -24,6 +25,7 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { pickDefaultSprint } from "@/features/sprints/components/SprintAssignMenu"
+import { useCreatorType } from "@/features/tickets/hooks/useCreatorType"
 import type { QuickCreateInput } from "@/features/tickets/lib/ticketRows"
 import {
   mutationErrorText,
@@ -32,10 +34,9 @@ import {
 import { m } from "@/paraglide/messages"
 
 import { CreatorSprintMenu, CreatorTypeMenu } from "./CreatorMenus"
-import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
+import { StartsWithLine } from "./StartsWithLine"
 import { TicketCreatorShell } from "./TicketCreatorShell"
 import { useCreatorFocus } from "./useCreatorFocus"
-import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 
 type CreatorError = Readonly<{ _tag: string }>
 
@@ -82,23 +83,13 @@ export function TicketComposer({
   const hasSprints = sprints.some((s) => s.completedAt === null)
 
   const [title, setTitle] = useState("")
-  const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
+  const creatorType = useCreatorType({ orgSlug, slug, epics })
+  const { type } = creatorType
   const [pickedSprint, setPickedSprint] = useState<Group | null>()
   const inputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const { active: expanded, leave } = useCreatorFocus(formRef)
   const trimmed = title.trim()
-  const templateChoice = useTemplateChoice(orgSlug, slug, type)
-  const slash = useTemplateSlash({
-    title,
-    choice: templateChoice,
-    onChoose: (_template, ticketType) => {
-      setTitle("")
-      if (ticketType !== null && (epics || !isEpicType(ticketType))) {
-        applyTemplateDefault(ticketType)
-      }
-    }
-  })
 
   const selectedSprint =
     pickedSprint === undefined
@@ -111,17 +102,17 @@ export function TicketComposer({
     inputRef.current?.blur()
     leave()
     const exit = await create({
-      payload: { title: trimmed, ...templateChoice.payload },
+      payload: { title: trimmed, ...creatorType.payload },
       parent,
       prediction: {
         clientId: Effect.runSync(Random.next).toString(36),
         createdBy: viewerId ?? "",
         projectPrefix,
         estimation,
-        ...templateChoice.prediction
+        ...creatorType.prediction
       }
     })
-    templateChoice.recover(exit)
+    creatorType.settle(exit)
     if (Exit.isSuccess(exit)) {
       const ticket = exit.value
       if (selectedSprint && !isEpic(ticket)) {
@@ -136,8 +127,9 @@ export function TicketComposer({
   const typeAddon = (
     <CreatorTypeMenu
       type={type}
+      lastUsed={creatorType.lastUsed}
       epics={epics}
-      onTypeChange={setType}
+      onTypeChange={creatorType.pick}
       expanded={expanded}
       inputRef={inputRef}
     />
@@ -160,14 +152,7 @@ export function TicketComposer({
       formRef={formRef}
       shortcut="c"
       value={title}
-      onValueChange={(next) => {
-        slash.onTitleChange(title, next)
-        setTitle(next)
-      }}
-      onBlur={slash.close}
-      onKeyDown={(e) => {
-        slash.onKeyDown(e)
-      }}
+      onValueChange={setTitle}
       onSubmit={onSubmit}
       expanded={expanded}
       placeholder={m.tickets_create_title_placeholder()}
@@ -175,9 +160,15 @@ export function TicketComposer({
       busy={submitting}
       maxLength={200}
       error={error}
-      listbox={slash.listbox}
+      listbox={null}
       leadingAddons={[typeAddon, sprintAddon].filter((addon) => addon !== null)}
-      belowInput={<TemplateSlashList slash={slash} choice={templateChoice} />}
+      belowInput={
+        <AutoHeight>
+          {expanded && (
+            <StartsWithLine start={creatorType.start} className="px-3 pt-1.5" />
+          )}
+        </AutoHeight>
+      }
     />
   )
 }
