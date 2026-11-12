@@ -4,8 +4,7 @@ import {
   type Ticket,
   type TicketId,
   type TicketListQuery,
-  TicketStatus,
-  isEpicType
+  TicketStatus
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -31,6 +30,7 @@ import {
   placeholderRow,
   toRow,
   withCreatedKeys,
+  withoutEpics,
   viewQuery,
   type QueryWithView,
   type QuickCreateInput,
@@ -95,8 +95,7 @@ const pageQuery = (
   query("tickets", "list", {
     params: req.params,
     query: {
-      ...req.query,
-      type: req.query.type?.filter((type) => !isEpicType(type)),
+      ...withoutEpics(req.query),
       section: req.by === "epic" ? { parent: [key] } : { ticketParent: [key] },
       cursor
     },

@@ -124,9 +124,6 @@ export const typeFilterOf = (type: PickableType): TypeFilter =>
 export const NON_EPIC_TYPES: ReadonlyArray<PickableType> =
   PICKABLE_TYPES.filter((type) => !isEpicType(type))
 
-export const NON_EPIC_TYPE_FILTERS: ReadonlyArray<TypeFilter> =
-  NON_EPIC_TYPES.map(typeFilterOf)
-
 export const TYPE_LABELS: Record<PickableType, () => string> = {
   feat: () => m.tickets_type_feat(),
   bug: () => m.tickets_type_bug(),
