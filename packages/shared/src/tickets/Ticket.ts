@@ -12,7 +12,7 @@ import { User } from "../auth/User"
 import { Estimate, ESTIMATE_MAX_MINUTES } from "../estimates/Estimate"
 import { GitState, StackLayerState } from "../github/GitState"
 import { GroupId } from "../groups/GroupId"
-import { TemplateKey } from "../library/LibraryKey"
+import { TypeKey } from "../library/LibraryKey"
 import { ProjectKey } from "../projects/Project"
 import { StatusSlug } from "../statuses/Status"
 import { TagName } from "../tags/Tag"
@@ -176,7 +176,7 @@ export const QuickCreateTicketInput = Schema.Struct({
   type: Schema.optional(TicketType),
   status: Schema.optional(TicketStatus),
   parent: Schema.optional(TicketId),
-  template: Schema.optional(Schema.NullOr(TemplateKey))
+  template: Schema.optional(Schema.NullOr(TypeKey))
 })
 export type QuickCreateTicketInput = typeof QuickCreateTicketInput.Type
 
@@ -235,7 +235,7 @@ export const CreateTicketInput = Schema.Struct({
   relatedTo: Schema.optional(Schema.Array(TicketId)).annotate({
     description: ticketFieldDocs.relatedTo
   }),
-  template: Schema.optional(Schema.NullOr(TemplateKey)).annotate({
+  template: Schema.optional(Schema.NullOr(TypeKey)).annotate({
     description:
       "A template key from `list_templates` to expand into the body; omit or pass `null` for a blank ticket."
   })
