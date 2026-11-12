@@ -113,7 +113,7 @@ function RowImpl({
               data-selected={selection?.selected || undefined}
               data-selection-key={selection ? key : undefined}
               className={cn(
-                "group/reveal relative col-span-full grid grid-cols-subgrid items-center gap-x-1.5 px-3 py-2.5 text-left outline-none [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20",
+                "group/reveal relative col-span-full grid grid-cols-subgrid items-center gap-x-(--list-row-gap) px-3 py-2.5 text-left outline-none [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20",
                 variant === "standalone" &&
                   "isolate rounded-lg transition-colors hover:bg-hover not-data-selected:has-[[data-popup-open]]:bg-hover data-selected:bg-foreground/6 not-data-selected:data-[popup-open]:bg-hover"
               )}
@@ -129,7 +129,7 @@ function RowImpl({
                 aria-keyshortcuts="Shift+F10"
                 className="absolute inset-0 z-10 rounded-lg outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
               />
-              <span className="relative z-20 box-content flex w-(--list-lead) justify-center pr-[calc(var(--list-lead-gap)-0.375rem)]">
+              <span className="relative z-20 box-content flex w-(--list-lead) justify-center pr-[calc(var(--list-lead-gap)-var(--list-row-gap))]">
                 {selection && (
                   <RowCheckbox ticketId={ticket.id} selection={selection} />
                 )}
@@ -169,7 +169,7 @@ function RowImpl({
                   </span>
                 </span>
               </fieldset>
-              <div className="col-start-5 row-start-1 flex min-w-0 items-center self-stretch pl-1.5">
+              <div className="col-start-5 row-start-1 flex min-w-0 items-center self-stretch pl-1">
                 {ticket.parent && ticket.parent.id !== contextParent && (
                   <ParentPrefix parent={ticket.parent} />
                 )}
@@ -213,7 +213,7 @@ function RowImpl({
                 <RelationChips ticket={ticket} className="ml-1" />
               </div>
               <fieldset disabled={!editable} className="contents">
-                <div className="flex shrink-0 items-center justify-end gap-2">
+                <div className="flex shrink-0 items-center justify-end gap-1">
                   <UpdateFailureMarker update={update(ticket.id)} />
                   <TicketGitChip
                     orgSlug={orgSlug}
@@ -264,7 +264,7 @@ function RowCheckbox({
       }}
       aria-label={m.tickets_row_select_aria_label({ id: ticketId })}
       variant="quiet"
-      className="opacity-0 transition-opacity group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 before:absolute before:-inset-y-[17px] before:-right-[9px] before:-left-[15px] before:content-[''] data-checked:opacity-100"
+      className="opacity-0 transition-opacity group-hover/reveal:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 group-data-[popup-open]/reveal:opacity-100 before:absolute before:-inset-y-[17px] before:-right-[11px] before:-left-[15px] before:content-[''] data-checked:opacity-100"
     />
   )
 }

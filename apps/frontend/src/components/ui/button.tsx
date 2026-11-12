@@ -98,6 +98,7 @@ const buttonVariants = cva(
         "icon-sm": "h-8 w-8 p-0 [&_svg]:h-3.5 [&_svg]:w-3.5",
         icon: "h-9 w-9 p-0 [&_svg]:h-4 [&_svg]:w-4",
         "icon-lg": "h-10 w-10 p-0 [&_svg]:h-5 [&_svg]:w-5",
+        "square-6": "size-6 shrink-0 p-0",
         "square-7": "size-7 shrink-0 p-0",
         "square-8": "size-8 shrink-0 p-0",
         "square-9": "size-9 shrink-0 p-0"
@@ -131,6 +132,12 @@ const buttonVariants = cva(
         variant: "chip",
         size: "icon-sm",
         className: "w-8 px-0 [&_svg]:size-4"
+      },
+      {
+        variant: "chip",
+        size: "square-6",
+        className:
+          "relative h-6 w-6 px-0 before:absolute before:-inset-x-0.5 before:-inset-y-2 before:content-[''] [&_svg]:size-4"
       },
       {
         variant: ["template-start", "template-more"],
