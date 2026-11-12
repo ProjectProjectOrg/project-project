@@ -17,6 +17,7 @@ import {
   type TicketNavigationSearch
 } from "@/features/tickets/lib/ticketSearch"
 import type { IconComponent } from "@/lib/icon"
+import { hasModifier, ownsKeystrokes } from "@/lib/keyboard"
 import { m } from "@/paraglide/messages"
 
 const PREVIOUS_KEY = "k"
@@ -54,10 +55,12 @@ export function TicketStepper({
       if (neighbor !== null) void router.preloadRoute(options(neighbor))
     }
     function onKey(event: KeyboardEvent) {
-      if (event.repeat || event.defaultPrevented || isTyping(event.target)) {
-        return
-      }
-      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+      if (
+        event.repeat ||
+        event.defaultPrevented ||
+        hasModifier(event) ||
+        ownsKeystrokes(event.target)
+      ) {
         return
       }
       const target =
@@ -145,8 +148,3 @@ function StepButton({
     </TicketPreviewTrigger>
   )
 }
-
-const isTyping = (target: EventTarget | null) =>
-  target instanceof HTMLInputElement ||
-  target instanceof HTMLTextAreaElement ||
-  (target instanceof HTMLElement && target.isContentEditable)

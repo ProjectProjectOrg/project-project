@@ -33,6 +33,7 @@ import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { sharedTicketFields } from "@/features/tickets/lib/sharedTicketFields"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
+import { hasModifier, isKeyboardNavigating } from "@/lib/keyboard"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -88,11 +89,18 @@ function RowImpl({
   const estimation = useEstimationMode()
   const { shows } = useDisplayProperties()
   const [previewMounted, setPreviewMounted] = useState(false)
+  const navigating = () => isKeyboardNavigating(rowElement.current)
   const handleTitlePointerEnter = () => {
+    if (navigating()) return
     onPreviewPointerEnter(ticket.id)
   }
   const handleTitlePointerLeave = () => {
+    if (navigating()) return
     onPreviewOpenChange(ticket.id, false)
+  }
+  const togglePreview = () => {
+    if (!previewOpen) setPreviewMounted(true)
+    onPreviewOpenChange(ticket.id, !previewOpen)
   }
   const pointAt = usePointedTicket(orgSlug, slug, ticket.id)
   const key = selectionKey(slug, ticket.id)
@@ -109,12 +117,15 @@ function RowImpl({
   return (
     <div
       className="group/list-row col-span-full grid grid-cols-subgrid"
+      data-ticket-id={ticket.id}
       {...pointAt}
     >
       <DeferredDropdownMenus>
         <Popover
           open={previewOpen}
-          onOpenChange={(nextOpen) => {
+          onOpenChange={(nextOpen, details) => {
+            if (nextOpen && details.reason === "trigger-hover" && navigating())
+              return
             if (nextOpen) setPreviewMounted(true)
             onPreviewOpenChange(ticket.id, nextOpen)
           }}
@@ -132,7 +143,7 @@ function RowImpl({
               className={cn(
                 "group/reveal relative col-span-full grid grid-cols-subgrid items-center gap-x-(--list-row-gap) px-3 py-2.5 text-left outline-none [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20",
                 variant === "standalone" &&
-                  "isolate rounded-lg transition-colors hover:bg-hover not-data-selected:has-[[data-popup-open]]:bg-hover data-selected:bg-foreground/6 not-data-selected:data-[popup-open]:bg-hover"
+                  "isolate rounded-lg transition-colors not-in-data-keyboard-navigation:hover:bg-hover in-data-keyboard-navigation:duration-0 not-data-selected:has-[[data-popup-open]]:bg-hover has-[[data-row-link]:focus-visible]:duration-0 not-data-selected:has-[[data-row-link]:focus-visible]:bg-hover data-selected:bg-foreground/6 not-data-selected:data-[popup-open]:bg-hover"
               )}
             >
               <Link
@@ -143,7 +154,13 @@ function RowImpl({
                 data-row-link
                 aria-label={`${ticket.id} ${ticket.title}`}
                 aria-haspopup="menu"
-                aria-keyshortcuts="Shift+F10"
+                aria-keyshortcuts="Shift+F10 Space"
+                onKeyDown={(event) => {
+                  if (event.key !== " " || hasModifier(event.nativeEvent))
+                    return
+                  event.preventDefault()
+                  togglePreview()
+                }}
                 className="absolute inset-0 z-10 rounded-lg outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
               />
               <span className="relative z-20 box-content flex w-(--list-lead) justify-center pr-[calc(var(--list-lead-gap)-var(--list-row-gap))]">
@@ -313,7 +330,7 @@ function RowCheckbox({
       }}
       aria-label={m.tickets_row_select_aria_label({ id: ticketId })}
       variant="quiet"
-      className="opacity-0 transition-opacity group-hover/reveal:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 group-data-[popup-open]/reveal:opacity-100 before:absolute before:-inset-y-[17px] before:-right-[11px] before:-left-[15px] before:content-[''] data-checked:opacity-100"
+      className="opacity-0 transition-opacity not-in-data-keyboard-navigation:group-hover/reveal:opacity-100 group-has-[:focus-visible]/reveal:opacity-100 group-has-[:focus-visible]/reveal:duration-0 group-has-[[data-popup-open]]/reveal:opacity-100 group-data-[popup-open]/reveal:opacity-100 before:absolute before:-inset-y-[17px] before:-right-[11px] before:-left-[15px] before:content-[''] in-data-keyboard-navigation:duration-0 data-checked:opacity-100"
     />
   )
 }

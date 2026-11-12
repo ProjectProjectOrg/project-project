@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest"
 
 import {
   createBoardKeyboardNavigation,
+  ticketPosition,
   type BoardKeyboardColumn
 } from "./boardKeyboard"
 
@@ -211,4 +212,51 @@ it("makes column retry actions reachable through the header controls", () => {
   expect(document.activeElement).toBe(retry)
   press("Escape")
   expect(document.activeElement).toBe(todo.header)
+})
+
+it("moves with h, j, k and l like the arrow keys", () => {
+  const { first, second, third } = setup()
+  first.link.focus()
+  press("j")
+  expect(document.activeElement).toBe(second.link)
+  press("k")
+  expect(document.activeElement).toBe(first.link)
+  press("l")
+  expect(document.activeElement).toBe(third.link)
+  press("h")
+  expect(document.activeElement).toBe(first.link)
+})
+
+it("steps from the last focused card when entering from outside", () => {
+  const { navigation, first, second, after } = setup()
+  first.link.focus()
+  after.focus()
+  navigation.enter("j")
+  expect(document.activeElement).toBe(second.link)
+})
+
+it("steps from the card under the mouse after it is pointed at", () => {
+  const { navigation, first, second } = setup()
+  navigation.point(first.element)
+  navigation.enter("j")
+  expect(document.activeElement).toBe(second.link)
+})
+
+it("releases focus without pulling it back and keeps the card as the tab stop", async () => {
+  const { board, navigation, second } = setup()
+  second.link.focus()
+  navigation.release()
+  board.append(document.createElement("div"))
+  await Promise.resolve()
+  expect(document.activeElement).toBe(document.body)
+  expect(tabStops(board)).toEqual([second.link])
+})
+
+it("finds a ticket's position on the board", () => {
+  const { columns } = setup()
+  expect(ticketPosition(columns, "T-3")).toEqual({
+    status: "done",
+    ticketId: "T-3"
+  })
+  expect(ticketPosition(columns, "T-9")).toBeNull()
 })

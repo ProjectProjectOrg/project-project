@@ -35,6 +35,7 @@ import { m } from "@/paraglide/messages"
 
 import { BacklogGroupingControl } from "./BacklogGroupingControl"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
+import { ListKeyboardProvider } from "./ListKeyboard"
 import { SprintTicketCreator } from "./SprintTicketCreator"
 import { CreatorActiveScope, DimWhileCreating } from "./TicketCreatorShell"
 import { TicketSelectionProvider } from "./TicketSelection"
@@ -213,7 +214,9 @@ export function ProjectTicketLayout({
           <TicketSelectionProvider
             resetKey={`${orgSlug}/${slug}:${scope}:${view}:${grouping}:${encodeTicketListQuery(query)}`}
           >
-            {children({ grouping, preferencesKey, reorder })}
+            <ListKeyboardProvider>
+              {children({ grouping, preferencesKey, reorder })}
+            </ListKeyboardProvider>
           </TicketSelectionProvider>
         </DimWhileCreating>
       </PageContainer>
