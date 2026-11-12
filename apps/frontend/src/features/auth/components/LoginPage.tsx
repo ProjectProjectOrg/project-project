@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Dither, type TimeWarpZone } from "@/components/ui/dither"
 import { me, signInProviders } from "@/features/auth/atoms/auth"
 import { MagicLinkForm } from "@/features/auth/forms/magic-link"
+import {
+  signInErrorCallbackURL,
+  signInOAuthErrorMessage
+} from "@/features/auth/lib/oauthErrors"
 import { safeInternalPath } from "@/features/auth/lib/safeRedirect"
 import {
   hasSignedOAuthQuery,
@@ -34,7 +38,7 @@ export function LoginPage() {
   const providers = Result.isSuccess(providersResult)
     ? providersResult.value.providers
     : []
-  const { redirect } = routeApi.useSearch()
+  const { redirect, error: oauthError } = routeApi.useSearch()
   const signedOauthQuery =
     typeof window === "undefined"
       ? ""
@@ -49,7 +53,9 @@ export function LoginPage() {
     redirectTarget.startsWith("/api/integrations/slack/oauth/start?")
       ? redirectTarget
       : null)
-  const [providerError, setProviderError] = useState<string | null>(null)
+  const [providerError, setProviderError] = useState(() =>
+    signInOAuthErrorMessage(oauthError)
+  )
   const cardRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -71,7 +77,8 @@ export function LoginPage() {
     try {
       const { error } = await authClient.signIn.social({
         provider,
-        callbackURL: oauthContinuationTarget ?? redirectTarget
+        callbackURL: oauthContinuationTarget ?? redirectTarget,
+        errorCallbackURL: signInErrorCallbackURL(window.location.search)
       })
       if (error) setProviderError(errorMessage())
     } catch {
