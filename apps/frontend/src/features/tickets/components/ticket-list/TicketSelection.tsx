@@ -170,8 +170,12 @@ export function useClearSelectionWhen(value: string) {
 export function useForgetTicket(key: string) {
   const store = use(SelectionContext)
   const registry = use(RegistryContext)
-  return () => {
+  return (withDescendants: boolean) => {
     if (store === null) return
+    if (withDescendants) {
+      registry.set(store.selection, emptySelection)
+      return
+    }
     const current = registry.get(store.selection)
     if (!current.keys.has(key)) return
     const keys = new Set(current.keys)

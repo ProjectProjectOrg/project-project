@@ -211,7 +211,7 @@ export function ProjectTicketLayout({
             </motion.div>
           </Activity>
           <TicketSelectionProvider
-            resetKey={`${scope}:${view}:${grouping}:${encodeTicketListQuery(query)}`}
+            resetKey={`${orgSlug}/${slug}:${scope}:${view}:${grouping}:${encodeTicketListQuery(query)}`}
           >
             {children({ grouping, preferencesKey, reorder })}
           </TicketSelectionProvider>

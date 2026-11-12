@@ -382,7 +382,7 @@ function TicketMenuFlowPopovers({
   const archiveAndClose = async (input: ArchiveTicketInput) => {
     const exit = await archive(input)
     if (Exit.isSuccess(exit)) {
-      forget()
+      forget(false)
       onFlow(null)
     }
     return exit
@@ -425,7 +425,7 @@ function TicketMenuFlowPopovers({
           onConfirm={async () => {
             const exit = await remove({ cascadeSubTickets: cascade })
             if (Exit.isSuccess(exit)) {
-              forget()
+              forget(cascade)
               onDeleted?.()
             }
             return exit
