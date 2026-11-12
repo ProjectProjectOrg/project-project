@@ -20,13 +20,13 @@ import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMain
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import {
   blockLookupFor,
-  expandTemplateKeepingHints,
+  expandTypeKeepingHints,
   applyTicketBodyEdits,
   formatAttachmentMarkdown,
   formatBlockIssue,
   formatTicketBodyEditFailure,
   GIT_AUTOMATION_EVENTS,
-  isPristineTemplateBody,
+  isPristineTypeBody,
   isRasterImageContentType,
   parseTicketBlocks,
   permits,
@@ -51,7 +51,7 @@ import {
   type Library as LibraryValue,
   type ProjectStatus,
   type SprintState,
-  type TemplateKey,
+  type TypeKey,
   type TicketBodyEdit,
   type TicketId,
   type TicketType,
@@ -111,8 +111,8 @@ const isUntouchedBody = (body: string, library: LibraryValue): boolean => {
   if (body.trim() === "") return true
   const lookup = blockLookupFor(library)
   const comparable = stripHints(body)
-  return library.templates.some((template) =>
-    isPristineTemplateBody(comparable, template, lookup)
+  return library.types.some((type) =>
+    isPristineTypeBody(comparable, type, lookup)
   )
 }
 
@@ -353,17 +353,17 @@ const list_templates = (_input: { orgSlug: string; projectSlug: string }) =>
     const library = yield* Library.Library
     const result = yield* library.projectLibrary()
     const lookup = blockLookupFor(result)
-    return result.templates
-      .filter((template) => !template.hidden)
-      .map((template) => ({
-        key: template.key,
-        name: template.name,
-        description: template.description,
-        priority: template.priority,
-        tags: template.tags,
-        body: expandTemplateKeepingHints(template, lookup),
+    return result.types
+      .filter((type) => !type.hidden)
+      .map((type) => ({
+        key: type.key,
+        name: type.name,
+        description: type.description,
+        priority: type.priority,
+        tags: type.tags,
+        body: expandTypeKeepingHints(type, lookup),
         isDefaultFor: TICKET_TYPES.filter(
-          (type) => result.defaults[type] === template.key
+          (ticketType) => ticketType === type.key
         )
       }))
   })
@@ -388,7 +388,7 @@ const create_ticket = (
     return withBlocks(created)
   })
 
-const templateBodyFor = (id: TicketId, template: TemplateKey) =>
+const templateBodyFor = (id: TicketId, template: TypeKey) =>
   Effect.gen(function* () {
     const { orgSlug, slug } = yield* ProjectScope
     const queries = yield* TicketQueries.TicketQueries
@@ -426,7 +426,7 @@ const update_ticket = (
     orgSlug: string
     projectSlug: string
     id: TicketId
-    template?: TemplateKey | null
+    template?: TypeKey | null
     edits?: ReadonlyArray<TicketBodyEdit>
     expectedUpdatedAt?: Date
   } & UpdateTicketInput

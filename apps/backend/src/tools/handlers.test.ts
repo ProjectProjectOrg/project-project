@@ -29,7 +29,7 @@ import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import * as Users from "@pp/server-core/users/Users"
 import {
   blockLookupFor,
-  expandTemplate,
+  expandType,
   formatTicketBlock,
   Library as LibrarySchema,
   Tools,
@@ -488,8 +488,8 @@ const hiddenBlock = {
 }
 
 const bugReportTemplate = {
-  key: "bug-report",
-  name: "Bug report",
+  key: "bug",
+  name: "Bug",
   icon: "Bug" as const,
   color: null,
   description: "Something is broken",
@@ -510,22 +510,7 @@ const hiddenTemplate = {
 
 const fakeLibrary = Schema.decodeUnknownSync(LibrarySchema)({
   blocks: [acceptanceCriteriaBlock, hiddenBlock],
-  templates: [bugReportTemplate, hiddenTemplate],
-  defaults: {
-    feat: null,
-    bug: "bug-report",
-    chore: null,
-    other: null,
-    epic: null
-  },
-  ownDefaults: { bug: "bug-report" },
-  inheritedDefaults: {
-    feat: null,
-    bug: null,
-    chore: null,
-    other: null,
-    epic: null
-  },
+  types: [bugReportTemplate, hiddenTemplate],
   canEdit: true
 })
 
@@ -569,7 +554,7 @@ describe("MCP handlers → list_blocks / list_templates", () => {
         expect(result.isError).toBeUndefined()
         const payload = parseJson(result.content[0].text)
         expect(payload).toHaveLength(1)
-        expect(payload[0].key).toBe("bug-report")
+        expect(payload[0].key).toBe("bug")
         expect(payload[0].body).toContain("{{")
         expect(payload[0].body).toContain('<block type="acceptance-criteria">')
         expect(payload[0].isDefaultFor).toEqual(["bug"])
@@ -590,7 +575,7 @@ const BigLibraryStub = Layer.mock(Library.Library, {
     Effect.succeed(
       decodeUnknownLibrarySchemaSync({
         blocks: [bigBlock("a"), bigBlock("b")],
-        templates: [
+        types: [
           {
             ...bugReportTemplate,
             body: [formatTicketBlock("a", ""), formatTicketBlock("b", "")].join(
@@ -598,21 +583,6 @@ const BigLibraryStub = Layer.mock(Library.Library, {
             )
           }
         ],
-        defaults: {
-          feat: null,
-          bug: null,
-          chore: null,
-          other: null,
-          epic: null
-        },
-        ownDefaults: {},
-        inheritedDefaults: {
-          feat: null,
-          bug: null,
-          chore: null,
-          other: null,
-          epic: null
-        },
         canEdit: true
       })
     )
@@ -1131,7 +1101,7 @@ describe("MCP handlers → write tools", () => {
 })
 
 describe("MCP handlers → update_ticket with a template or edits", () => {
-  const expandedBody = expandTemplate(
+  const expandedBody = expandType(
     bugReportTemplate,
     blockLookupFor(fakeLibrary)
   )
@@ -1193,7 +1163,7 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
   const TemplateLibraryStub = Layer.mock(Library.Library, {
     projectLibrary: () => Effect.succeed(fakeLibrary),
     expandForCreate: (_o: string, _s: string, key: string) =>
-      key === "bug-report"
+      key === "bug"
         ? Effect.succeed({
             body: expandedBody,
             type: "bug",
@@ -1231,7 +1201,7 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
 
   it.effect("expands the template into an empty description, body only", () =>
     Effect.gen(function* () {
-      const result = yield* updateWith("", { template: "bug-report" })
+      const result = yield* updateWith("", { template: "bug" })
 
       expect(result.isError).toBeUndefined()
       expect(state.update).toEqual({ body: expandedBody })
@@ -1245,7 +1215,7 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
   it.effect("replaces a description that is still an untouched template", () =>
     Effect.gen(function* () {
       const result = yield* updateWith(expandedBody, {
-        template: "bug-report",
+        template: "bug",
         priority: "low"
       })
 
@@ -1257,7 +1227,7 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
   it.effect("refuses to overwrite a description with written content", () =>
     Effect.gen(function* () {
       const result = yield* updateWith("Some context worth keeping.", {
-        template: "bug-report"
+        template: "bug"
       })
 
       expect(result.isError).toBe(true)
@@ -1271,7 +1241,7 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
     Effect.gen(function* () {
       const result = yield* updateWith(
         "",
-        { template: "bug-report" },
+        { template: "bug" },
         "A concurrent edit"
       )
 
@@ -1320,7 +1290,7 @@ describe("MCP handlers → update_ticket with a template or edits", () => {
   it.effect("lets an explicit body win over the template", () =>
     Effect.gen(function* () {
       const result = yield* updateWith("Some context worth keeping.", {
-        template: "bug-report",
+        template: "bug",
         body: "Filled in by hand."
       })
 

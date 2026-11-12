@@ -49,7 +49,7 @@ import {
   LibraryDescription,
   LibraryName,
   LibraryOrigin,
-  TemplateKey
+  TypeKey
 } from "../library/Library"
 import { Org } from "../organizations/Org"
 import { Page, Pagination } from "../pagination/Pagination"
@@ -658,18 +658,19 @@ export const Tools = Toolkit.make(
     title: "List templates",
     hints: reads,
     description:
-      "List the templates available to a project: the org's and the " +
-      "project's own, with project overriding org. Each entry's `body` is " +
-      "the template fully expanded, its block references resolved to " +
-      "their current definitions, with `{{hint}}` placeholders kept so " +
+      "List the ticket types a project can start a ticket from, as " +
+      "templates: the built-in ones, the org's and the project's own, " +
+      "with project overriding org. Each entry's `body` is the type's " +
+      "starting description fully expanded, its block references resolved " +
+      "to their current definitions, with `{{hint}}` placeholders kept so " +
       "you can see what to fill in. Pass the same `key` as `template` to " +
       "`create_ticket` to have the server do the expansion (with hints " +
-      "stripped) when it creates the ticket. `isDefaultFor` lists the " +
-      "ticket types the app preselects this template for; the server " +
-      "never applies it on its own, so pass `template` explicitly. When " +
-      "`isDefaultFor` names exactly one type, creating from the template " +
-      "without an explicit `type` gives the ticket that type. Hidden " +
-      "templates are omitted. " +
+      "stripped) when it creates the ticket; the server never applies it " +
+      "on its own, so pass `template` explicitly. `isDefaultFor` names " +
+      "the ticket type the entry defines (`feat`, `bug`, `chore` or " +
+      "`epic`) and is empty for any other entry; creating from an entry " +
+      "that names a type without an explicit `type` gives the ticket " +
+      "that type. Hidden entries are omitted. " +
       BLOCK_FORMAT_POINTER,
     cli: {
       command: ["templates", "list"],
@@ -678,7 +679,7 @@ export const Tools = Toolkit.make(
     parameters: Schema.Struct({ orgSlug, projectSlug }),
     success: Schema.Array(
       Schema.Struct({
-        key: TemplateKey,
+        key: TypeKey,
         name: LibraryName,
         description: LibraryDescription,
         priority: Schema.NullOr(TicketPriority),
@@ -786,7 +787,7 @@ export const Tools = Toolkit.make(
       projectSlug,
       id: ticketId,
       ...UpdateTicketInput.fields,
-      template: Schema.optional(Schema.NullOr(TemplateKey)).annotate({
+      template: Schema.optional(Schema.NullOr(TypeKey)).annotate({
         description:
           "A template key from `list_templates` to expand into the body."
       }),
