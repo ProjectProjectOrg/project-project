@@ -9,6 +9,7 @@ import { disableNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/elem
 import type { ElementDragType } from "@atlaskit/pragmatic-drag-and-drop/types"
 import { RegistryContext } from "@effect/atom-react"
 import {
+  BULK_TICKETS_MAX,
   SPRINT_SECTION_UNSCHEDULED,
   TicketId,
   TicketPriority,
@@ -109,6 +110,7 @@ const acceptsRows = (data: DragPayload, options: SectionDropOptions) => {
   const { target } = options
   if (rows === null || target === undefined) return false
   if (rows.length > 1 && options.bulkMove === undefined) return false
+  if (rows.length > BULK_TICKETS_MAX) return false
   if (rows.every((row) => row.section === target.key)) return options.ordered
   const leavesSprint = (row: DraggedRow) =>
     target.grouping === "sprint" &&

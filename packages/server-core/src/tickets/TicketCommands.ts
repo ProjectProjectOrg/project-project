@@ -2218,12 +2218,16 @@ const make = Effect.gen(function* () {
         return nexts
       })
     )
-    const nexts = yield* position === undefined
-      ? write
-      : withRanksLock(scope, write)
-    const sprintChange = yield* planSprint.pipe(
-      Effect.onError(() => withTicketLocks(scope, ids, revertWritten))
-    )
+    const writeAndPlan = Effect.gen(function* () {
+      const nexts = yield* write
+      const sprintChange = yield* planSprint.pipe(
+        Effect.onError(() => withTicketLocks(scope, ids, revertWritten))
+      )
+      return { nexts, sprintChange }
+    })
+    const { nexts, sprintChange } = yield* position === undefined
+      ? writeAndPlan
+      : withRanksLock(scope, writeAndPlan)
 
     const entries = yield* ticketIndex.list(
       scope,
