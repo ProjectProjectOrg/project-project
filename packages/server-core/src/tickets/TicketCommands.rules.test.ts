@@ -1010,6 +1010,66 @@ it.effect(
   }
 )
 
+it.effect("update edits a ticket and plans it into a sprint", () => {
+  const added: Array<ReadonlyArray<string>> = []
+  const { docs, layer } = makeBulkFixture((_id, ids) =>
+    Effect.sync(() => {
+      added.push(ids)
+      return {
+        target: { ...bulkSprint, tickets: [...ids], body: "" },
+        evicted: []
+      }
+    })
+  )
+  return Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    yield* tickets.update("T-1", { priority: "high", sprint: bulkSprint.id })
+
+    expect(docs.documents.get("T-1")?.priority).toBe("high")
+    expect(added).toEqual([["T-1"]])
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect(
+  "update with a null sprint takes the ticket out of its sprint",
+  () => {
+    const removed: Array<readonly [string, ReadonlyArray<string>]> = []
+    const sprint = inSprint(["T-1", "T-2"])
+    const { layer } = makeRulesFixture(
+      [makeTicketDocument("T-1"), makeTicketDocument("T-2")],
+      {
+        list: () => Effect.succeed([sprint]),
+        removeTickets: (id, ids) =>
+          Effect.sync(() => {
+            removed.push([id, ids])
+            return { target: { ...sprint, body: "" }, evicted: [] }
+          })
+      }
+    )
+    return Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      yield* tickets.update("T-1", { sprint: null })
+
+      expect(removed).toEqual([["G-1", ["T-1"]]])
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect("update restores the ticket when planning fails", () => {
+  const { docs, layer } = makeBulkFixture(() =>
+    Effect.fail(new SprintCompletedImmutable())
+  )
+  return Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    const error = yield* tickets
+      .update("T-1", { priority: "high", sprint: bulkSprint.id })
+      .pipe(Effect.flip)
+
+    expect(error._tag).toBe("SprintCompletedImmutable")
+    expect(docs.documents.get("T-1")?.priority).toBe("med")
+  }).pipe(Effect.provide(layer))
+})
+
 it.effect("ticket mention validation trusts the ticket index", () => {
   const docs = makeFakeTicketDocs(["T-1"])
   const layer = makeTicketsLayer("T", docs.layer, {

@@ -376,7 +376,14 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
         query: TicketOrderKeyHttpQuery,
         payload: UpdateTicketInput,
         success: TicketUpdateResult,
-        error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Validation,
+          MentionInvalid,
+          SprintCompletedImmutable
+        ]
       }
     )
       .annotate(RequiresProject, "membership")
