@@ -70,6 +70,7 @@ type TicketPreview =
   | Readonly<{ kind: "subTickets"; id: TicketId; label: string }>
   | Readonly<{ kind: "flag"; id: TicketId; flag: TicketFlag }>
   | Readonly<{ kind: "tag"; name: TagName }>
+  | Readonly<{ kind: "tags"; names: ReadonlyArray<TagName> }>
 
 type TicketPreviewPayload = Readonly<{
   project: ProjectRequest
@@ -116,7 +117,7 @@ function useWarmPreview() {
   const registry = useContext(RegistryContext)
   const { orgSlug, slug } = useProjectRoute()
   return (preview: TicketPreview) => {
-    if (preview.kind === "flag") return
+    if (preview.kind === "flag" || preview.kind === "tags") return
     const loaded =
       preview.kind === "tag"
         ? Registry.getResult(registry, tagUsage(tagsRequest(orgSlug, slug)))
@@ -157,7 +158,8 @@ const PREVIEW_WIDTHS: Readonly<Record<TicketPreview["kind"], string>> = {
   relations: "w-72 p-1.5",
   subTickets: "w-72 p-1.5",
   flag: "w-72 p-1.5",
-  tag: "w-64 p-0"
+  tag: "w-64 p-0",
+  tags: "w-56 p-1.5"
 }
 
 function PreviewContent({ preview }: Readonly<{ preview: TicketPreview }>) {
@@ -178,6 +180,8 @@ function PreviewContent({ preview }: Readonly<{ preview: TicketPreview }>) {
       return <FlagPreview flag={preview.flag} />
     case "tag":
       return <TagPreview name={preview.name} />
+    case "tags":
+      return <TagListPreview names={preview.names} />
   }
   return <SubTicketsPreview id={preview.id} label={preview.label} />
 }
@@ -292,6 +296,33 @@ function TagPreview({ name }: Readonly<{ name: TagName }>) {
         />
       </div>
     </div>
+  )
+}
+
+function TagListPreview({
+  names
+}: Readonly<{ names: ReadonlyArray<TagName> }>) {
+  const { orgSlug, slug } = useProjectRoute()
+  const tags = useAtomValue(tagsFor(tagsRequest(orgSlug, slug)))
+  const colors = new Map(
+    Result.isSuccess(tags) ? tags.value.map((tag) => [tag.name, tag.color]) : []
+  )
+  return (
+    <ul className="flex flex-col">
+      {names.map((name) => (
+        <li
+          key={name}
+          className="flex min-w-0 items-center gap-2 px-2 py-1.5 text-body text-foreground"
+        >
+          <span
+            aria-hidden
+            className="size-2 shrink-0 rounded-full bg-muted-foreground"
+            style={{ backgroundColor: colors.get(name) }}
+          />
+          <span className="min-w-0 truncate">{name}</span>
+        </li>
+      ))}
+    </ul>
   )
 }
 

@@ -223,10 +223,11 @@ function RowImpl({
               <div className="flex shrink-0 items-center justify-end gap-1 [&>fieldset>span:empty]:hidden">
                 <UpdateFailureMarker update={update(ticket.id)} />
                 {shows("tags") && (
-                  <span className="flex max-w-60 min-w-0 items-center gap-1.5 *:shrink empty:hidden">
+                  <span className="flex items-center gap-1.5 *:max-w-32 empty:hidden">
                     <TagChips
                       names={ticket.tags}
                       onPatch={editable ? onPatch : undefined}
+                      max={3}
                     />
                   </span>
                 )}

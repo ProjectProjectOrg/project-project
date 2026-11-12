@@ -238,10 +238,12 @@ export function ParentTicketCrumb({
 
 export function TagChips({
   names,
-  onPatch
+  onPatch,
+  max
 }: Readonly<{
   names: Ticket["tags"]
   onPatch?: (patch: TicketEdit) => void
+  max?: number
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const tags = useAtomValue(tagsFor(tagsRequest(orgSlug, slug)))
@@ -249,43 +251,70 @@ export function TagChips({
   const colors = new Map(
     Result.isSuccess(tags) ? tags.value.map((tag) => [tag.name, tag.color]) : []
   )
-  return names.map((name) => {
-    const content = (
-      <>
-        <span
-          aria-hidden
-          className="size-2 shrink-0 rounded-full bg-muted-foreground"
-          style={{ backgroundColor: colors.get(name) ?? undefined }}
-        />
-        <span className="truncate">{name}</span>
-      </>
-    )
-    const chip = (
+  const shown = max === undefined ? names : names.slice(0, max)
+  const hidden = names.slice(shown.length)
+  const chip = (
+    key: string,
+    preview: ComponentProps<typeof TicketPreviewTrigger>["preview"],
+    content: ReactNode,
+    label?: string
+  ) => {
+    const button = (
       <button
         type="button"
         className={cn(boardChipClass, interactiveChipClass)}
       />
     )
     return onPatch ? (
-      <TagChipMenu key={name} applied={names} onPatch={onPatch}>
+      <TagChipMenu key={key} applied={names} onPatch={onPatch}>
         <TicketPreviewTrigger
-          preview={{ kind: "tag", name }}
+          preview={preview}
+          aria-label={label}
+          aria-haspopup="menu"
           onClick={undefined}
-          render={<DropdownMenuTrigger render={chip} />}
+          render={<DropdownMenuTrigger render={button} />}
         >
           {content}
         </TicketPreviewTrigger>
       </TagChipMenu>
     ) : (
       <TicketPreviewTrigger
-        key={name}
-        preview={{ kind: "tag", name }}
-        render={chip}
+        key={key}
+        preview={preview}
+        aria-label={label}
+        render={button}
       >
         {content}
       </TicketPreviewTrigger>
     )
-  })
+  }
+  return (
+    <>
+      {shown.map((name) =>
+        chip(
+          name,
+          { kind: "tag", name },
+          <>
+            <span
+              aria-hidden
+              className="size-2 shrink-0 rounded-full bg-muted-foreground"
+              style={{ backgroundColor: colors.get(name) ?? undefined }}
+            />
+            <span className="truncate">{name}</span>
+          </>
+        )
+      )}
+      {hidden.length > 0 &&
+        chip(
+          "more",
+          { kind: "tags", names: hidden },
+          <span className="tabular-nums">
+            {m.tags_more({ count: hidden.length })}
+          </span>,
+          m.tags_more_aria_label({ count: hidden.length })
+        )}
+    </>
+  )
 }
 
 function TagChipMenu({
