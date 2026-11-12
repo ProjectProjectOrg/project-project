@@ -20,7 +20,6 @@ export type EntryView = Readonly<{
   canFork: boolean
   canEditUpstream: boolean
   canRevert: boolean
-  canHide: boolean
   canShow: boolean
   canDelete: boolean
   notice: EntryNotice
@@ -81,7 +80,6 @@ export const entryView = (
     canEditUpstream:
       layer === "project" && permissions.org && standing === "shared",
     canRevert: mayEdit && standing === "changed",
-    canHide: mayEdit && layer === "project" && standing === "shared",
     canShow: mayEdit && standing === "hidden",
     canDelete: mayEdit && standing === "own",
     notice: noticeFor(standing, layer, permissions)

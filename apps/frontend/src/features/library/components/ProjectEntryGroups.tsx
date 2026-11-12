@@ -11,12 +11,16 @@ import { Link } from "@tanstack/react-router"
 import { Building2, Folder } from "lucide-react"
 import { useMemo, type ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import type { ProjectLibraryRequest } from "../atoms/library"
+import {
+  hideProjectBlock,
+  hideProjectType,
+  type ProjectLibraryRequest
+} from "../atoms/library"
 import {
   removeBlockAtom,
   removeTypeAtom,
@@ -26,13 +30,17 @@ import { templateSketch } from "../lib/blockSketchModel"
 import {
   groupEntries,
   standingOf,
+  type EntryStanding,
   type LibraryPermissions
 } from "../lib/entryStanding"
 import type { LibraryKind } from "../lib/libraryModel"
 import { usageBySection } from "../lib/sectionUsage"
-import { BlockIconGlyph } from "./BlockIconGlyph"
 import { BlockStrip } from "./BlockSketch"
-import { ChangedHereBadge, SameOnEveryTicketBadge } from "./EntryBadges"
+import {
+  ChangedHereBadge,
+  OffHereBadge,
+  SameOnEveryTicketBadge
+} from "./EntryBadges"
 import { ENTRY_GRID_CLASS, EntryCard, NewEntryCard } from "./EntryCard"
 
 type ProjectScope = Extract<LibraryScope, { layer: "project" }>
@@ -58,36 +66,41 @@ export function ProjectTypeGroups({
   permissions
 }: GroupsProps) {
   const lookup = useMemo(() => blockLookupFor(library), [library])
-  const groups = groupEntries(library.types, scope.layer)
-  const card = (type: TypeDefinition) => (
-    <EntryCard
-      key={type.key}
-      scope={scope}
-      kind="type"
-      entry={type}
-      badges={
-        standingOf(type, scope.layer) === "changed" ? (
-          <ChangedHereBadge />
-        ) : null
-      }
-      detail={type.description}
-      strip={<BlockStrip blocks={templateSketch(type.body, lookup, 0)} />}
-    />
-  )
+  const { shared, own } = splitByOwner(library.types, scope.layer)
+  const card = (type: TypeDefinition) => {
+    const standing = standingOf(type, scope.layer)
+    return (
+      <EntryCard
+        key={type.key}
+        scope={scope}
+        kind="type"
+        entry={type}
+        off={standing === "hidden"}
+        badges={
+          <StandingBadge standing={standing} switched={permissions.project} />
+        }
+        control={
+          permissions.project && isSwitchable(standing) ? (
+            <TypeSwitch
+              req={scope.req}
+              typeKey={type.key}
+              name={type.name}
+              on={standing === "shared"}
+            />
+          ) : null
+        }
+        detail={type.description}
+        strip={<BlockStrip blocks={templateSketch(type.body, lookup, 0)} />}
+      />
+    )
+  }
   return (
     <EntryGroups
       scope={scope}
       kind="type"
       permissions={permissions}
-      shared={groups.shared.map(card)}
-      own={groups.own.map(card)}
-      hidden={groups.hidden.map((type) => (
-        <HiddenEntry key={type.key} entry={type}>
-          {permissions.project ? (
-            <ShowTypeAgain req={scope.req} typeKey={type.key} />
-          ) : null}
-        </HiddenEntry>
-      ))}
+      shared={shared.map(card)}
+      own={own.map(card)}
     />
   )
 }
@@ -98,40 +111,64 @@ export function ProjectSectionGroups({
   permissions
 }: GroupsProps) {
   const usage = useMemo(() => usageBySection(library), [library])
-  const groups = groupEntries(library.blocks, scope.layer)
-  const card = (section: BlockDefinition) => (
-    <EntryCard
-      key={section.key}
-      scope={scope}
-      kind="section"
-      entry={section}
-      badges={
-        <>
-          {section.sync ? <SameOnEveryTicketBadge /> : null}
-          {standingOf(section, scope.layer) === "changed" ? (
-            <ChangedHereBadge />
-          ) : null}
-        </>
-      }
-      detail={sectionUseText(usage.get(section.key) ?? [])}
-    />
-  )
+  const { shared, own } = splitByOwner(library.blocks, scope.layer)
+  const card = (section: BlockDefinition) => {
+    const standing = standingOf(section, scope.layer)
+    return (
+      <EntryCard
+        key={section.key}
+        scope={scope}
+        kind="section"
+        entry={section}
+        off={standing === "hidden"}
+        badges={
+          <>
+            {section.sync ? <SameOnEveryTicketBadge /> : null}
+            <StandingBadge standing={standing} switched={permissions.project} />
+          </>
+        }
+        control={
+          permissions.project && isSwitchable(standing) ? (
+            <SectionSwitch
+              req={scope.req}
+              sectionKey={section.key}
+              name={section.name}
+              on={standing === "shared"}
+            />
+          ) : null
+        }
+        detail={sectionUseText(usage.get(section.key) ?? [])}
+      />
+    )
+  }
   return (
     <EntryGroups
       scope={scope}
       kind="section"
       permissions={permissions}
-      shared={groups.shared.map(card)}
-      own={groups.own.map(card)}
-      hidden={groups.hidden.map((section) => (
-        <HiddenEntry key={section.key} entry={section}>
-          {permissions.project ? (
-            <ShowSectionAgain req={scope.req} sectionKey={section.key} />
-          ) : null}
-        </HiddenEntry>
-      ))}
+      shared={shared.map(card)}
+      own={own.map(card)}
     />
   )
+}
+
+const splitByOwner = <A extends Parameters<typeof standingOf>[0]>(
+  entries: ReadonlyArray<A>,
+  layer: LibraryScope["layer"]
+) => {
+  const { own } = groupEntries(entries, layer)
+  return { shared: entries.filter((entry) => !own.includes(entry)), own }
+}
+
+const isSwitchable = (standing: EntryStanding): boolean =>
+  standing === "shared" || standing === "hidden"
+
+function StandingBadge({
+  standing,
+  switched
+}: Readonly<{ standing: EntryStanding; switched: boolean }>) {
+  if (standing === "changed") return <ChangedHereBadge />
+  return standing === "hidden" && !switched ? <OffHereBadge /> : null
 }
 
 function EntryGroups({
@@ -139,15 +176,13 @@ function EntryGroups({
   kind,
   permissions,
   shared,
-  own,
-  hidden
+  own
 }: Readonly<{
   scope: ProjectScope
   kind: LibraryKind
   permissions: LibraryPermissions
   shared: ReadonlyArray<ReactNode>
   own: ReadonlyArray<ReactNode>
-  hidden: ReadonlyArray<ReactNode>
 }>) {
   const canCreate = permissions.project || permissions.org
   return (
@@ -156,7 +191,11 @@ function EntryGroups({
         <GroupHeading
           icon={<Building2 aria-hidden className="size-3.5" />}
           title={m.templates_types_group_shared()}
-          note={m.templates_types_group_shared_note()}
+          note={
+            permissions.project
+              ? m.templates_types_group_shared_note_switch()
+              : m.templates_types_group_shared_note()
+          }
           action={
             permissions.org ? (
               <Link
@@ -171,19 +210,6 @@ function EntryGroups({
           }
         />
         <ul className={ENTRY_GRID_CLASS}>{shared}</ul>
-        {hidden.length === 0 ? null : (
-          <div
-            data-hidden-entries
-            className="flex flex-wrap items-center gap-x-3 gap-y-1 px-0.5 text-caption text-muted-foreground"
-          >
-            <span>
-              {hidden.length === 1
-                ? m.templates_types_hidden_one()
-                : m.templates_types_hidden_count({ count: hidden.length })}
-            </span>
-            {hidden}
-          </div>
-        )}
       </section>
       <section className="flex flex-col gap-3">
         <GroupHeading
@@ -232,82 +258,88 @@ function GroupHeading({
   )
 }
 
-function HiddenEntry({
-  entry,
-  children
-}: Readonly<{
-  entry: Readonly<{
-    key: string
-    name: string
-    icon: TypeDefinition["icon"]
-  }>
-  children: ReactNode
-}>) {
-  return (
-    <span
-      data-hidden-entry={entry.key}
-      className="inline-flex items-center gap-1.5"
-    >
-      <BlockIconGlyph icon={entry.icon} className="size-3.5 opacity-70" />
-      <span className="text-foreground">{entry.name}</span>
-      {children}
-    </span>
-  )
-}
-
-function ShowAgainButton({
+function UseSwitch({
+  name,
+  on,
   waiting,
   error,
-  onShow
-}: Readonly<{ waiting: boolean; error: string | null; onShow: () => void }>) {
+  onChange
+}: Readonly<{
+  name: string
+  on: boolean
+  waiting: boolean
+  error: string | null
+  onChange: (on: boolean) => void
+}>) {
   return (
     <>
-      <Button
-        type="button"
-        variant="ghost"
-        size="xs"
-        className={cn(waiting && "animate-pulse")}
-        onClick={onShow}
-      >
-        {m.templates_types_show_again()}
-      </Button>
       {error === null ? null : (
-        <span role="alert" className="text-destructive">
+        <span role="alert" className="mr-2 text-caption text-destructive">
           {error}
         </span>
       )}
+      <Switch
+        checked={on}
+        aria-label={m.templates_types_use_aria({ name })}
+        onCheckedChange={onChange}
+        className={cn(waiting && "animate-pulse")}
+      />
     </>
   )
 }
 
-function ShowTypeAgain({
+function TypeSwitch({
   req,
-  typeKey
-}: Readonly<{ req: ProjectLibraryRequest; typeKey: TypeKey }>) {
-  const mutation = removeTypeAtom({ layer: "project", req }, typeKey)
-  const show = useAtomSet(mutation, { mode: "promiseExit" })
-  const state = useAtomValue(mutation)
+  typeKey,
+  name,
+  on
+}: Readonly<{
+  req: ProjectLibraryRequest
+  typeKey: TypeKey
+  name: string
+  on: boolean
+}>) {
+  const hideAtom = hideProjectType({ req, key: typeKey })
+  const showAtom = removeTypeAtom({ layer: "project", req }, typeKey)
+  const hide = useAtomSet(hideAtom, { mode: "promiseExit" })
+  const show = useAtomSet(showAtom, { mode: "promiseExit" })
+  const hiding = useAtomValue(hideAtom)
+  const showing = useAtomValue(showAtom)
   return (
-    <ShowAgainButton
-      waiting={state.waiting}
-      error={mutationErrorText(state)}
-      onShow={() => void show()}
+    <UseSwitch
+      name={name}
+      on={on}
+      waiting={hiding.waiting || showing.waiting}
+      error={mutationErrorText(hiding) ?? mutationErrorText(showing)}
+      onChange={(next) => void (next ? show() : hide())}
     />
   )
 }
 
-function ShowSectionAgain({
+function SectionSwitch({
   req,
-  sectionKey
-}: Readonly<{ req: ProjectLibraryRequest; sectionKey: BlockKey }>) {
-  const mutation = removeBlockAtom({ layer: "project", req }, sectionKey)
-  const show = useAtomSet(mutation, { mode: "promiseExit" })
-  const state = useAtomValue(mutation)
+  sectionKey,
+  name,
+  on
+}: Readonly<{
+  req: ProjectLibraryRequest
+  sectionKey: BlockKey
+  name: string
+  on: boolean
+}>) {
+  const hideAtom = hideProjectBlock({ req, key: sectionKey })
+  const showAtom = removeBlockAtom({ layer: "project", req }, sectionKey)
+  const hide = useAtomSet(hideAtom, { mode: "promiseExit" })
+  const show = useAtomSet(showAtom, { mode: "promiseExit" })
+  const hiding = useAtomValue(hideAtom)
+  const showing = useAtomValue(showAtom)
   return (
-    <ShowAgainButton
-      waiting={state.waiting}
-      error={mutationErrorText(state)}
-      onShow={() => void show()}
+    <UseSwitch
+      name={name}
+      on={on}
+      waiting={hiding.waiting || showing.waiting}
+      error={mutationErrorText(hiding) ?? mutationErrorText(showing)}
+      onChange={(next) => void (next ? show() : hide())}
     />
   )
 }

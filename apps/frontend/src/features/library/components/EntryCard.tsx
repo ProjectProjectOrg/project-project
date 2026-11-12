@@ -2,6 +2,7 @@ import type { BlockIconName } from "@pp/shared"
 import { Plus } from "lucide-react"
 import type { ReactNode } from "react"
 
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import type { LibraryScope } from "../atoms/libraryScope"
@@ -24,6 +25,8 @@ type EntryCardProps = Readonly<{
   badges?: ReactNode
   detail: string
   strip?: ReactNode
+  control?: ReactNode
+  off?: boolean
 }>
 
 export function EntryCard({
@@ -32,11 +35,14 @@ export function EntryCard({
   entry,
   badges,
   detail,
-  strip
+  strip,
+  control,
+  off = false
 }: EntryCardProps) {
   return (
     <li
       data-entry-card={entry.key}
+      data-off={off ? "" : undefined}
       className="group/reveal relative flex min-w-0 list-none flex-col gap-1.5 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-hover"
     >
       <LibraryEntryLink
@@ -47,17 +53,34 @@ export function EntryCard({
         className="absolute inset-0 rounded-lg focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
       />
       <div className="pointer-events-none flex min-w-0 items-center gap-2">
-        <BlockIconGlyph icon={entry.icon} color={entry.color} />
-        <span className="min-w-0 flex-1 truncate text-body font-semibold">
-          {entry.name}
+        <span
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-2",
+            off && "opacity-50"
+          )}
+        >
+          <BlockIconGlyph icon={entry.icon} color={entry.color} />
+          <span className="min-w-0 truncate text-body font-semibold">
+            {entry.name}
+          </span>
+          {badges}
         </span>
-        {badges}
+        {control === undefined || control === null ? null : (
+          <span className="pointer-events-auto relative flex">{control}</span>
+        )}
       </div>
-      <p className="pointer-events-none truncate text-caption text-muted-foreground">
-        {detail === "" ? " " : detail}
+      <p
+        className={cn(
+          "pointer-events-none truncate text-caption text-muted-foreground",
+          off && "opacity-50"
+        )}
+      >
+        {detail === "" ? " " : detail}
       </p>
       {strip === undefined ? null : (
-        <div className="pointer-events-none min-w-0">{strip}</div>
+        <div className={cn("pointer-events-none min-w-0", off && "opacity-50")}>
+          {strip}
+        </div>
       )}
     </li>
   )

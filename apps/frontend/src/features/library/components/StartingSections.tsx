@@ -301,14 +301,30 @@ function RowCard({
     <div
       data-starting-row={view.sectionKey ?? "text"}
       className={cn(
-        "flex min-h-14 items-center gap-2 rounded-lg border border-border bg-card py-2 pr-2",
+        "relative flex min-h-14 items-center gap-2 rounded-lg border border-border bg-card py-2 pr-2",
         handle === undefined ? "pl-3" : "pl-1",
+        view.sectionKey !== null && "transition-colors hover:bg-hover",
         dragging && cn(SURFACE_BG[Math.min(substrate + 1, 8)], "shadow-md")
       )}
     >
-      {handle}
-      {view.icon}
-      <div className="flex min-w-0 flex-1 flex-col">
+      {view.sectionKey === null ? null : (
+        <LibraryEntryLink
+          scope={scope}
+          kind="section"
+          entryKey={view.sectionKey}
+          aria-label={
+            editable
+              ? m.templates_types_section_edit_aria({ name: view.name })
+              : m.templates_types_section_view_aria({ name: view.name })
+          }
+          className="absolute inset-0 rounded-lg focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+        />
+      )}
+      {handle === undefined ? null : (
+        <span className="relative flex">{handle}</span>
+      )}
+      <span className="pointer-events-none flex">{view.icon}</span>
+      <div className="pointer-events-none flex min-w-0 flex-1 flex-col">
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className="min-w-0 truncate text-body font-semibold">
             {view.name}
@@ -321,28 +337,12 @@ function RowCard({
           </span>
         )}
       </div>
-      {view.sectionKey === null ? null : (
-        <Button
-          variant="raised"
-          size="xs"
-          render={
-            <LibraryEntryLink
-              scope={scope}
-              kind="section"
-              entryKey={view.sectionKey}
-            />
-          }
-        >
-          {editable
-            ? m.templates_types_section_edit()
-            : m.templates_types_section_view()}
-        </Button>
-      )}
       {onRemove === undefined ? null : (
         <Button
           type="button"
           variant="quiet"
           size="square-7"
+          className="relative"
           aria-label={m.templates_types_remove_aria({ name: view.name })}
           onClick={onRemove}
         >

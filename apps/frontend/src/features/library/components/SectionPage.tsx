@@ -23,7 +23,6 @@ import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
-import { hideProjectBlock } from "../atoms/library"
 import {
   createBlockAtom,
   libraryView,
@@ -46,11 +45,7 @@ import {
   IconAndColorField,
   MUTED_VALUE_CLASS
 } from "./DefinitionAside"
-import {
-  DeleteEntryConfirm,
-  EntryActions,
-  HideEntryButton
-} from "./EntryActions"
+import { DeleteEntryConfirm, EntryActions } from "./EntryActions"
 import { SameOnEveryTicketBadge } from "./EntryBadges"
 import { EntryGone } from "./EntryGone"
 import {
@@ -373,33 +368,10 @@ function SectionActions({
 }>) {
   return (
     <EntryActions>
-      {scope.layer === "project" && view.canHide ? (
-        <HideSection scope={scope} sectionKey={section.key} />
-      ) : null}
       {view.canDelete ? (
         <DeleteSection scope={scope} section={section} />
       ) : null}
     </EntryActions>
-  )
-}
-
-function HideSection({
-  scope,
-  sectionKey
-}: Readonly<{
-  scope: Extract<LibraryScope, { layer: "project" }>
-  sectionKey: BlockKey
-}>) {
-  const mutation = hideProjectBlock({ req: scope.req, key: sectionKey })
-  const hide = useAtomSet(mutation, { mode: "promiseExit" })
-  const state = useAtomValue(mutation)
-  return (
-    <HideEntryButton
-      note={m.templates_sections_hide_note()}
-      waiting={state.waiting}
-      error={mutationErrorText(state)}
-      onHide={() => void hide()}
-    />
   )
 }
 

@@ -16,7 +16,6 @@ import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
 import { deleteProjectTypeMovingTickets } from "../atoms/deleteType"
-import { hideProjectType } from "../atoms/library"
 import {
   createTypeAtom,
   libraryView,
@@ -40,8 +39,7 @@ import { DeleteTypeDialog } from "./DeleteTypeDialog"
 import {
   DeleteEntryConfirm,
   DeleteEntryTrigger,
-  EntryActions,
-  HideEntryButton
+  EntryActions
 } from "./EntryActions"
 import { EntryGone } from "./EntryGone"
 import {
@@ -283,9 +281,6 @@ function TypeActions({
 }>) {
   return (
     <EntryActions>
-      {scope.layer === "project" && view.canHide ? (
-        <HideType scope={scope} typeKey={type.key} />
-      ) : null}
       {view.canDelete ? (
         scope.layer === "project" ? (
           <DeleteProjectType scope={scope} library={library} type={type} />
@@ -298,23 +293,6 @@ function TypeActions({
 }
 
 type ProjectScope = Extract<LibraryScope, { layer: "project" }>
-
-function HideType({
-  scope,
-  typeKey
-}: Readonly<{ scope: ProjectScope; typeKey: TypeKey }>) {
-  const mutation = hideProjectType({ req: scope.req, key: typeKey })
-  const hide = useAtomSet(mutation, { mode: "promiseExit" })
-  const state = useAtomValue(mutation)
-  return (
-    <HideEntryButton
-      note={m.templates_types_hide_note()}
-      waiting={state.waiting}
-      error={mutationErrorText(state)}
-      onHide={() => void hide()}
-    />
-  )
-}
 
 function DeleteProjectType({
   scope,

@@ -68,7 +68,6 @@ describe("entryView", () => {
       canFork: true,
       canEditUpstream: true,
       canRevert: false,
-      canHide: true,
       canShow: false,
       canDelete: false,
       notice: null
@@ -96,10 +95,9 @@ describe("entryView", () => {
         view.canFork,
         view.canEditUpstream,
         view.canRevert,
-        view.canHide,
         view.canShow,
         view.canDelete
-      ]).toEqual([false, false, false, false, false, false, false])
+      ]).toEqual([false, false, false, false, false, false])
     }
   })
 
@@ -108,7 +106,6 @@ describe("entryView", () => {
     expect(view.editable).toBe(true)
     expect(view.canRevert).toBe(true)
     expect(view.canDelete).toBe(false)
-    expect(view.canHide).toBe(false)
     expect(view.notice).toBe(null)
   })
 
@@ -129,8 +126,7 @@ describe("entryView", () => {
       standing: "hidden",
       editable: false,
       canShow: true,
-      canFork: false,
-      canHide: false
+      canFork: false
     })
   })
 
@@ -140,7 +136,6 @@ describe("entryView", () => {
       editable: false,
       canFork: true,
       canEditUpstream: false,
-      canHide: false,
       canDelete: false
     })
     expect(

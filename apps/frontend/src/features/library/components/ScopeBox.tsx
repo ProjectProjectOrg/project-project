@@ -1,5 +1,5 @@
 import * as Exit from "effect/Exit"
-import { Building2, EyeOff, Folder, Package } from "lucide-react"
+import { Building2, EyeOff, Folder, Lock } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -61,6 +61,13 @@ const upstreamNotice = ({
   return noticeText(view.notice, kind)
 }
 
+const sharedBody = (view: EntryView): string => {
+  if (view.canEditUpstream) return m.templates_types_shared_body()
+  return view.canFork
+    ? m.templates_types_shared_body_fork_only()
+    : m.templates_types_shared_body_read_only()
+}
+
 const copyFor = ({ scope, kind, entry, view }: ScopeBoxProps): Copy => {
   const name = entry.name
   const quiet = "mt-0.5 size-4 shrink-0 text-muted-foreground"
@@ -77,12 +84,9 @@ const copyFor = ({ scope, kind, entry, view }: ScopeBoxProps): Copy => {
   if (scope.layer === "project") {
     if (view.standing === "shared")
       return {
-        icon: <Building2 aria-hidden className={quiet} />,
+        icon: <Lock aria-hidden className={quiet} />,
         title: m.templates_types_shared_title({ name }),
-        body:
-          view.canFork || view.canEditUpstream
-            ? m.templates_types_shared_body()
-            : m.templates_types_shared_body_read_only()
+        body: sharedBody(view)
       }
     if (view.standing === "changed")
       return {
@@ -101,7 +105,7 @@ const copyFor = ({ scope, kind, entry, view }: ScopeBoxProps): Copy => {
   }
   if (view.standing === "shared")
     return {
-      icon: <Package aria-hidden className={quiet} />,
+      icon: <Lock aria-hidden className={quiet} />,
       title: m.templates_types_builtin_title({ name }),
       body: view.canFork
         ? m.templates_types_builtin_body()

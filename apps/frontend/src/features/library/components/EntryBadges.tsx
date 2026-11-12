@@ -12,3 +12,7 @@ export function ChangedHereBadge() {
 export function SameOnEveryTicketBadge() {
   return <Badge size="xs">{m.templates_sections_same_badge()}</Badge>
 }
+
+export function OffHereBadge() {
+  return <Badge size="xs">{m.templates_types_off_badge()}</Badge>
+}
