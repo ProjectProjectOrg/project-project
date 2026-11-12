@@ -19,6 +19,7 @@ import {
 
 import { PreviewCardContent } from "@/components/ui/preview-card"
 import { Markdown } from "@/features/editor/components/Markdown"
+import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {
   project,
@@ -198,10 +199,10 @@ function RelationsPreview({
 }
 
 function FlagPreview({ flag }: Readonly<{ flag: TicketFlag }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const detail = useAtomValue(project(useProjectRequest()))
-  const member = Result.isSuccess(detail)
-    ? detail.value.members.find((candidate) => candidate.id === flag.by)
-    : undefined
+  const members = Result.isSuccess(detail) ? detail.value.members : undefined
+  const member = members?.find((candidate) => candidate.id === flag.by)
   return (
     <div className="flex flex-col gap-1.5 px-2 py-1.5">
       <div className="flex min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
@@ -218,9 +219,11 @@ function FlagPreview({ flag }: Readonly<{ flag: TicketFlag }>) {
         <TimelineTime at={flag.at} className="shrink-0" />
       </div>
       {flag.reason !== undefined && (
-        <Markdown size="compact" blocks="flat" className="text-body">
-          {flag.reason}
-        </Markdown>
+        <MentionScopeProvider scope={{ orgSlug, slug, members }}>
+          <Markdown size="compact" blocks="flat" className="text-body">
+            {flag.reason}
+          </Markdown>
+        </MentionScopeProvider>
       )}
     </div>
   )

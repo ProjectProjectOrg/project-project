@@ -1,8 +1,10 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as DateTime from "effect/DateTime"
+import * as Result from "effect/reactivity/AsyncResult"
 
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { projectRequest } from "@/features/projects/atoms/projects"
+import { MentionScopeProvider } from "@/features/editor/mentions/scope"
+import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { ProjectContext } from "@/features/projects/hooks/useProject"
 import {
   flagTicketDialog,
@@ -47,22 +49,33 @@ function FlagTicket({
   onDone
 }: Readonly<{ request: FlagTicketDialogRequest; onDone: () => void }>) {
   const { userId } = useProjectActor()
+  const detail = useAtomValue(
+    project(projectRequest(request.orgSlug, request.slug))
+  )
   const mutation = updateTicketDetail(
     ticketRequest(request.orgSlug, request.slug, request.ticketId)
   )
   const update = useAtomSet(mutation, { mode: "promiseExit" })
   const state = useAtomValue(mutation)
   return (
-    <FlagForm
-      ticket={{ id: request.ticketId, title: request.title }}
-      onFlag={(reason) =>
-        update({
-          flag: flagFor(reason, userId, DateTime.toDate(DateTime.nowUnsafe()))
-        })
-      }
-      waiting={state.waiting}
-      error={mutationErrorText(state)}
-      onClose={onDone}
-    />
+    <MentionScopeProvider
+      scope={{
+        orgSlug: request.orgSlug,
+        slug: request.slug,
+        members: Result.isSuccess(detail) ? detail.value.members : undefined
+      }}
+    >
+      <FlagForm
+        ticket={{ id: request.ticketId, title: request.title }}
+        onFlag={(reason) =>
+          update({
+            flag: flagFor(reason, userId, DateTime.toDate(DateTime.nowUnsafe()))
+          })
+        }
+        waiting={state.waiting}
+        error={mutationErrorText(state)}
+        onClose={onDone}
+      />
+    </MentionScopeProvider>
   )
 }
