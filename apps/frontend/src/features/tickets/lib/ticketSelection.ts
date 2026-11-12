@@ -18,7 +18,7 @@ export const toggleSelection = (
   range?: ReadonlyArray<string>
 ): TicketSelection => {
   const project = projectOf(key)
-  if (selection.keys.values().some((each) => projectOf(each) !== project)) {
+  if ([...selection.keys].some((each) => projectOf(each) !== project)) {
     return { keys: new Set([key]), anchor: key }
   }
   const keys = new Set(selection.keys)
