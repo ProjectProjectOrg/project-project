@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import { NATURAL_SORT_DIR } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   ArrowUp,
@@ -169,33 +170,41 @@ function Ordering() {
       onValueChange={(next) =>
         onQueryChange({
           ...query,
-          sort: { ...query.sort, key: next }
+          sort: {
+            key: next,
+            dir:
+              next === "manual" || query.sort.key === "manual"
+                ? NATURAL_SORT_DIR[next]
+                : query.sort.dir
+          }
         })
       }
       displayValue={SORT_FIELD_LABELS[query.sort.key]()}
       action={
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          title={
-            ascending
-              ? m.tickets_view_options_ascending()
-              : m.tickets_view_options_descending()
-          }
-          aria-label={
-            ascending
-              ? m.tickets_view_options_set_descending()
-              : m.tickets_view_options_set_ascending()
-          }
-          onClick={() =>
-            onQueryChange({
-              ...query,
-              sort: { ...query.sort, dir: ascending ? "desc" : "asc" }
-            })
-          }
-        >
-          <DirectionIcon />
-        </Button>
+        query.sort.key !== "manual" && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title={
+              ascending
+                ? m.tickets_view_options_ascending()
+                : m.tickets_view_options_descending()
+            }
+            aria-label={
+              ascending
+                ? m.tickets_view_options_set_descending()
+                : m.tickets_view_options_set_ascending()
+            }
+            onClick={() =>
+              onQueryChange({
+                ...query,
+                sort: { ...query.sort, dir: ascending ? "desc" : "asc" }
+              })
+            }
+          >
+            <DirectionIcon />
+          </Button>
+        )
       }
       items={sortKeysFor(estimation).map((key) => ({
         value: key,

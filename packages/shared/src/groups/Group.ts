@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema"
 
-import { TicketId, TicketStatus } from "../tickets/Ticket"
+import { TicketId } from "../tickets/Ticket"
 import { GroupId } from "./GroupId"
 
 export { GroupId }
@@ -112,13 +112,6 @@ export const UpdateGroupTicketsOutput = Schema.Struct({
   evicted: Schema.Array(EvictedFromGroup)
 })
 export type UpdateGroupTicketsOutput = typeof UpdateGroupTicketsOutput.Type
-
-export const UpdateTicketOrderInput = Schema.Struct({
-  ticketId: TicketId,
-  status: Schema.optional(TicketStatus),
-  after: Schema.NullOr(TicketId)
-})
-export type UpdateTicketOrderInput = typeof UpdateTicketOrderInput.Type
 
 export const CompleteSprintDestination = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("sprint"), groupId: GroupId }),

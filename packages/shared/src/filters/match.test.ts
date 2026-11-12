@@ -6,7 +6,7 @@ import { UserId } from "../auth/User"
 import { StatusSlug } from "../statuses/Status"
 import { TagName } from "../tags/Tag"
 import type { Ticket } from "../tickets/Ticket"
-import { TicketId } from "../tickets/Ticket"
+import { TicketId, TicketRank } from "../tickets/Ticket"
 import {
   matchesTicketFilter,
   matchesTicketQuery,
@@ -26,6 +26,7 @@ const baseTicket = (overrides: Partial<Ticket> = {}): Ticket => ({
   status: s("todo"),
   type: "feat",
   priority: "med",
+  rank: TicketRank.make("a0"),
   estimate: null,
   flag: null,
   tags: [],

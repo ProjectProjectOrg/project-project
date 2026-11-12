@@ -18,7 +18,8 @@ export const BulkTicketPatch = Schema.Struct({
     "title",
     "body",
     "blockedBy",
-    "relatedTo"
+    "relatedTo",
+    "position"
   ]),
   sprint: Schema.optional(Schema.NullOr(GroupId))
 })

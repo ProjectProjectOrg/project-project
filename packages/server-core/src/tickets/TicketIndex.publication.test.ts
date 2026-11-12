@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest"
 import { Db } from "@pp/db"
-import { TicketStatus } from "@pp/shared"
+import { TicketStatus, TicketRank } from "@pp/shared"
 import { TicketId } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -32,6 +32,7 @@ const document: TicketDocs.TicketDocument = {
   status: TicketStatus.make("todo"),
   type: "chore",
   priority: "med",
+  rank: TicketRank.make("a0"),
   tags: [],
   branch: null,
   pr: null,

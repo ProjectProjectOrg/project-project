@@ -57,7 +57,8 @@ import {
   StorageError,
   TicketId,
   TicketStatus,
-  User
+  User,
+  TicketRank
 } from "@pp/shared"
 import { eq } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres"
@@ -219,6 +220,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
               status: decodeTicketStatusSync("todo"),
               type: "feat",
               priority: "med",
+              rank: TicketRank.make("a0"),
               tags: [],
               branch: null,
               pr: null,

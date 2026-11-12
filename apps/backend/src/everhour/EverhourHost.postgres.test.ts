@@ -174,7 +174,8 @@ describe.skipIf(!databaseUrl)("Everhour backend composition", () => {
               id: "T-1",
               title: "Tracked work",
               status: "todo",
-              type: "bug"
+              type: "bug",
+              rank: "a0"
             },
             ""
           )

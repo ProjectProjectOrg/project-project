@@ -8,7 +8,8 @@ import {
   NotFound,
   TicketId,
   TicketStatus,
-  ProjectScope
+  ProjectScope,
+  TicketRank
 } from "@pp/shared"
 import type { GroupDetail, OrgRole, Role } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -58,6 +59,7 @@ function makeTicketDocument(
     status,
     type: "other",
     priority: "med",
+    rank: TicketRank.make("a0"),
     tags: [],
     branch: null,
     pr: null,
@@ -73,11 +75,6 @@ function makeTicketDocument(
     commentsRegion: ""
   }
 }
-
-class StatusWriteFailed extends Schema.TaggedError<StatusWriteFailed>()(
-  "StatusWriteFailed",
-  {}
-) {}
 
 function makeFakeDocs(initial?: {
   ticketIds?: ReadonlyArray<string>
@@ -215,6 +212,8 @@ function makeFakeDocs(initial?: {
     neighbors: () => Effect.die(new Error("unexpected TicketIndex.neighbors")),
     orderKeyFor: () =>
       Effect.die(new Error("unexpected TicketIndex.orderKeyFor")),
+    topRank: () => Effect.die(new Error("unexpected TicketIndex.topRank")),
+    rankGap: () => Effect.die(new Error("unexpected TicketIndex.rankGap")),
     count: () => Effect.die(new Error("unexpected TicketIndex.count")),
     listIds: () => Effect.succeed([...ticketsById.keys()]),
     existingIds: (_project, ticketIds) =>
@@ -843,167 +842,6 @@ it.effect("complete fails for non-admin members", () =>
   }).pipe(Effect.provide(makeGroupsLayer(undefined, { role: "developer" })))
 )
 
-it.effect("updateTicketOrder reorders within the same status", () =>
-  Effect.gen(function* () {
-    const groups = yield* Groups.Groups
-    const created = yield* groups.create({
-      name: "G",
-      tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
-    })
-    const updated = yield* groups.updateTicketOrder(created.id, {
-      ticketId: ticketId("T-1"),
-      after: ticketId("T-2")
-    })
-    expect(updated.tickets).toEqual(["T-2", "T-1", "T-3"])
-  }).pipe(
-    Effect.provide(
-      makeGroupsLayer(
-        { ticketIds: ["T-1", "T-2", "T-3"] },
-        { role: "developer" }
-      )
-    )
-  )
-)
-
-it.effect("updateTicketOrder places at the start when after is null", () =>
-  Effect.gen(function* () {
-    const groups = yield* Groups.Groups
-    const created = yield* groups.create({
-      name: "G",
-      tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
-    })
-    const updated = yield* groups.updateTicketOrder(created.id, {
-      ticketId: ticketId("T-3"),
-      after: null
-    })
-    expect(updated.tickets).toEqual(["T-3", "T-1", "T-2"])
-  }).pipe(
-    Effect.provide(
-      makeGroupsLayer(
-        { ticketIds: ["T-1", "T-2", "T-3"] },
-        { role: "developer" }
-      )
-    )
-  )
-)
-
-it.effect(
-  "updateTicketOrder keeps the order when the work before the write fails",
-  () =>
-    Effect.gen(function* () {
-      const groups = yield* Groups.Groups
-      const created = yield* groups.create({
-        name: "G",
-        tickets: [ticketId("T-1"), ticketId("T-2"), ticketId("T-3")]
-      })
-      const failure = yield* Effect.flip(
-        groups.updateTicketOrder(
-          created.id,
-          { ticketId: ticketId("T-1"), after: ticketId("T-2") },
-          new StatusWriteFailed()
-        )
-      )
-      expect(failure._tag).toBe("StatusWriteFailed")
-      expect((yield* groups.get(created.id)).tickets).toEqual([
-        "T-1",
-        "T-2",
-        "T-3"
-      ])
-    }).pipe(
-      Effect.provide(
-        makeGroupsLayer(
-          { ticketIds: ["T-1", "T-2", "T-3"] },
-          { role: "developer" }
-        )
-      )
-    )
-)
-
-it.effect("updateTicketOrder rejects when ticket is not in the group", () =>
-  Effect.gen(function* () {
-    const groups = yield* Groups.Groups
-    const created = yield* groups.create({
-      name: "G",
-      tickets: [ticketId("T-1")]
-    })
-    const result = yield* Effect.result(
-      groups.updateTicketOrder(created.id, {
-        ticketId: ticketId("T-2"),
-        after: null
-      })
-    )
-    expect(result).toMatchObject({
-      _tag: "Failure",
-      failure: { _tag: "NotFound" }
-    })
-  }).pipe(
-    Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "developer" })
-    )
-  )
-)
-
-it.effect("updateTicketOrder rejects when after refers to itself", () =>
-  Effect.gen(function* () {
-    const groups = yield* Groups.Groups
-    const created = yield* groups.create({
-      name: "G",
-      tickets: [ticketId("T-1"), ticketId("T-2")]
-    })
-    const result = yield* Effect.result(
-      groups.updateTicketOrder(created.id, {
-        ticketId: ticketId("T-1"),
-        after: ticketId("T-1")
-      })
-    )
-    expect(result).toMatchObject({
-      _tag: "Failure",
-      failure: { _tag: "Validation" }
-    })
-  }).pipe(
-    Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2"] }, { role: "developer" })
-    )
-  )
-)
-
-it.effect("updateTicketOrder rejects on completed sprint", () =>
-  Effect.gen(function* () {
-    const groups = yield* Groups.Groups
-    const created = yield* groups.create({
-      name: "S",
-      kind: "sprint",
-      tickets: [ticketId("T-1"), ticketId("T-2")]
-    })
-    yield* groups.complete(created.id, {
-      destination: { kind: "backlog" }
-    })
-    const result = yield* Effect.result(
-      groups.updateTicketOrder(created.id, {
-        ticketId: ticketId("T-1"),
-        after: null
-      })
-    )
-    expect(result).toMatchObject({
-      _tag: "Failure",
-      failure: { _tag: "SprintCompletedImmutable" }
-    })
-  }).pipe(
-    Effect.provide(
-      makeGroupsLayer(
-        {
-          ticketIds: ["T-1", "T-2"],
-          ticketStatuses: {
-            "T-1": ticketStatus("done"),
-            "T-2": ticketStatus("done")
-          }
-        },
-        { role: "pm" }
-      )
-    )
-  )
-)
-
 function makeSprintDoc(
   id: string,
   overrides: Partial<GroupDocs.GroupDocument> = {}
@@ -1460,28 +1298,6 @@ it.effect("removeTickets refuses to mutate a completed sprint", () =>
   )
 )
 
-it.effect("setSprintMembership places a ticket at the start", () =>
-  Effect.gen(function* () {
-    const groups = yield* Groups.Groups
-    const sprint = yield* groups.create({
-      name: "Sprint 1",
-      kind: "sprint",
-      tickets: [ticketId("T-1"), ticketId("T-2")]
-    })
-
-    yield* groups.setSprintMembership("org", "p", ticketId("T-3"), sprint.id, {
-      after: null
-    })
-
-    const updated = yield* groups.get(sprint.id)
-    expect(updated.tickets).toEqual(["T-3", "T-1", "T-2"])
-  }).pipe(
-    Effect.provide(
-      makeGroupsLayer({ ticketIds: ["T-1", "T-2", "T-3"] }, { role: "pm" })
-    )
-  )
-)
-
 it.effect(
   "setSprintMembership refuses to move a ticket whose sprint changed since it was read",
   () =>
@@ -1540,7 +1356,7 @@ it.effect("lets a client read groups but not create or change them", () =>
 )
 
 it.effect(
-  "lets developers and clients add to a sprint and reorder it but not take tickets out",
+  "lets developers and clients add to a sprint but not take tickets out",
   () =>
     Effect.gen(function* () {
       const groups = yield* Groups.Groups
@@ -1562,13 +1378,6 @@ it.effect(
 
       yield* groups.addTickets(sprint.id, [ticketId("T-2")]).pipe(developer)
       yield* groups.addTickets(sprint.id, [ticketId("T-3")]).pipe(client)
-      const reordered = yield* groups
-        .updateTicketOrder(sprint.id, {
-          ticketId: ticketId("T-3"),
-          after: null
-        })
-        .pipe(client)
-      expect(reordered.tickets).toEqual(["T-3", "T-1", "T-2"])
 
       const refused = [
         yield* Effect.flip(

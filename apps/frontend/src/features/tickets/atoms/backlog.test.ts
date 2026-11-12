@@ -1,6 +1,6 @@
 import {
+  TicketRank,
   EMPTY_TICKET_RELATIONS,
-  DEFAULT_TICKET_SORT,
   GroupId,
   padNumericIdSort,
   Ticket,
@@ -58,6 +58,7 @@ const ticket = {
   branch: null,
   pr: null,
   prState: null,
+  rank: TicketRank.make("a0"),
   lastTransitionedPr: null,
   parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
@@ -344,13 +345,19 @@ describe("backlog optimistic update", () => {
   })
 
   it("shares one atom between structurally equal requests", () => {
-    const a = backlogRequest("acme", "web", { sort: { key: "id", dir: "asc" } })
-    const b = backlogRequest("acme", "web", { sort: { key: "id", dir: "asc" } })
+    const a = backlogRequest("acme", "web", {
+      sort: { key: "id", dir: "asc" }
+    })
+    const b = backlogRequest("acme", "web", {
+      sort: { key: "id", dir: "asc" }
+    })
     expect(backlog(a)).toBe(backlog(b))
   })
 
   it("shares one atom when the search includes a view field", () => {
-    const a = backlogRequest("acme", "web", { sort: { key: "id", dir: "asc" } })
+    const a = backlogRequest("acme", "web", {
+      sort: { key: "id", dir: "asc" }
+    })
     const b = backlogRequest("acme", "web", {
       sort: { key: "id", dir: "asc" },
       view: "board"
@@ -1443,7 +1450,7 @@ const titleRow = (t: Ticket): ServedRow => [t, titleKey(t)]
 const idRow = (t: Ticket): ServedRow => [t, idKey(t)]
 
 describe("backlog status round trip keeps the section's sort order", () => {
-  it("returns the oldest row to the bottom under the default `created desc` sort", async () => {
+  it("returns the oldest row to the bottom under `created desc`", async () => {
     const items = [
       withTicket("T-1", {
         title: "Alpha",
@@ -1459,7 +1466,7 @@ describe("backlog status round trip keeps the section's sort order", () => {
       })
     ]
     const order = await orderAfterRoundTrip(
-      { sort: DEFAULT_TICKET_SORT },
+      { sort: { key: "created", dir: "desc" } },
       items.map(createdRow),
       items[2].id
     )

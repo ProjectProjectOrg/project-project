@@ -1,4 +1,4 @@
-import { TagName, TicketId, TicketStatus } from "@pp/shared"
+import { TagName, TicketId, TicketStatus, TicketRank } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
@@ -28,6 +28,7 @@ const existing: TicketDocs.TicketDocument = {
   status: ticketStatus("todo"),
   type: "feat",
   priority: "med",
+  rank: TicketRank.make("a0"),
   estimate: { unit: "points", value: 3 },
   tags: [tagName("core")],
   branch: null,

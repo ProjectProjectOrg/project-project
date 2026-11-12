@@ -1,5 +1,5 @@
 import { it } from "@effect/vitest"
-import { TagName, TicketId, TicketStatus } from "@pp/shared"
+import { TagName, TicketId, TicketStatus, TicketRank } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
@@ -38,6 +38,7 @@ const doc = (
   status: ticketStatus("todo"),
   type: "feat",
   priority: "med",
+  rank: TicketRank.make("a0"),
   tags: [],
   branch: null,
   pr: null,
@@ -97,6 +98,7 @@ describe("ticketIndexRowsFor", () => {
             status: ticketStatus("in_progress"),
             type: "chore",
             priority: "high",
+            rank: "a0",
             estimateUnit: "tshirt",
             estimateValue: 4,
             tags: [tagName("backend"), tagName("urgent")],

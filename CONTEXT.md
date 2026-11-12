@@ -82,6 +82,10 @@ A group of tickets with optional start and end dates, planned by the PM and comp
 **Backlog**:
 The tickets in no sprint.
 
+**Rank**:
+A ticket's one position in its project's manual order, stored as a fractional index in its frontmatter. Every list, sprint and board orders by it under **Manual** ordering, so moving a ticket moves it everywhere; planning it into a sprint keeps its place. New tickets go on top.
+_Avoid_: "sprint order", "backlog order" (there is only one order)
+
 ### Git
 
 **Linked branch**:
@@ -135,6 +139,7 @@ _Avoid_: PP CLI (except on the OAuth consent screen)
 - Canceling a **Pending project member** removes that project grant; the underlying organization invitation is canceled only when no project grants remain.
 - A **Pending project member** is displayed by email, not by a user profile, until the invitation is accepted.
 - A **Ticket** is in at most one **Sprint**; otherwise it is in the **Backlog**.
+- A **Ticket** has exactly one **Rank**; a sprint's ticket list records membership only, not order.
 - A **Ticket** has at most one parent: an **Epic**, a ticket without a parent, or a child of an **Epic**.
 - A **Ticket** can have several **linked branches**, forming **stacks**.
 - A **Ticket** can have any number of **Relations** to other tickets in its project. A blocking relation can't form a loop, and a duplicate can't point at another duplicate.

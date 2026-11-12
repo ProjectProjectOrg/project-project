@@ -1,4 +1,5 @@
 import {
+  TicketRank,
   EMPTY_TICKET_RELATIONS,
   TagName,
   TicketId,
@@ -28,6 +29,7 @@ const base = {
   branch: null,
   pr: null,
   prState: null,
+  rank: TicketRank.make("a0"),
   lastTransitionedPr: null,
   parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },

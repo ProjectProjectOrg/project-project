@@ -63,8 +63,8 @@ it("converts all filter fields at the domain boundary while route state stays UR
 it("omits default sorting and restores it for the domain query", () => {
   expect(stringifySearch(ticketSearchFromQuery(decodeQuery({})))).toBe("")
   expect(ticketQueryFromSearch(decodeBacklog({})).sort).toEqual({
-    key: "created",
-    dir: "desc"
+    key: "manual",
+    dir: "asc"
   })
 })
 

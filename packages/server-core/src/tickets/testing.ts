@@ -11,6 +11,7 @@ import {
   GroupId,
   ProjectKey,
   TicketId,
+  TicketRank,
   TicketStatus,
   UserId,
   tryDecodeCursor,
@@ -109,6 +110,7 @@ export function makeTicketDocument(
     status: ticketStatus("todo"),
     type: "other",
     priority: "med",
+    rank: TicketRank.make("a0"),
     tags: [],
     branch: null,
     pr: null,
@@ -291,7 +293,6 @@ export const makeFakeGroups = (
     updateTickets: () => unexpected("Groups.updateTickets"),
     addTickets: () => unexpected("Groups.addTickets"),
     removeTickets: () => unexpected("Groups.removeTickets"),
-    updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
     complete: () => unexpected("Groups.complete"),
     remove: () => unexpected("Groups.remove"),
     ensureSprintAssignable: () => Effect.void,
@@ -457,6 +458,8 @@ export const ticketSortValue = (
   query: TicketListQuery
 ): string => {
   switch (query.sort.key) {
+    case "manual":
+      return document.rank
     case "id":
       return padNumericIdSort(document.id) ?? document.id
     case "created":
@@ -619,6 +622,37 @@ export const relationsOfDocuments = (
     })
   )
 
+export const fakeRanks = (
+  documents: ReadonlyMap<string, TicketDocs.TicketDocument>
+): Pick<TicketIndex.TicketIndex["Service"], "topRank" | "rankGap"> => ({
+  topRank: () =>
+    Effect.sync(
+      () =>
+        [...documents.values()]
+          .map((document) => document.rank)
+          .toSorted()[0] ?? null
+    ),
+  rankGap: (_project, anchorId, side, excludeId) =>
+    Effect.sync(() => {
+      const anchor = documents.get(anchorId)
+      if (anchor === undefined) return null
+      const others = [...documents.values()].flatMap((document) =>
+        document.id === excludeId ? [] : [document.rank]
+      )
+      if (side === "after") {
+        const upper =
+          others.filter((rank) => rank > anchor.rank).toSorted()[0] ?? null
+        return { lower: anchor.rank, upper }
+      }
+      const lower =
+        others
+          .filter((rank) => rank < anchor.rank)
+          .toSorted()
+          .at(-1) ?? null
+      return { lower, upper: anchor.rank }
+    })
+})
+
 export type FakeTicketIndexShape = TicketIndex.TicketIndex["Service"] &
   TicketBranchIndex.TicketBranchIndex["Service"]
 
@@ -682,6 +716,7 @@ export const makeFakeTicketIndex = (
           }
         })
       }),
+    ...fakeRanks(documents),
     orderKeyFor: (_project, ticketId, sort) =>
       Effect.sync(() => {
         const document = documents.get(ticketId)
