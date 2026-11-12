@@ -114,6 +114,19 @@ describe("deselectFromCommandMenu", () => {
     expect(next.ticket?.ticketId).toBe("T-2")
   })
 
+  it("keeps a deselected ticket out when going back", () => {
+    const opened = openCommandMenu(ticket, "root", [
+      selected("T-1"),
+      selected("T-2"),
+      selected("T-3")
+    ])
+    const tags = pushCommandPage(opened, "ticketTags")
+    const back = backCommandMenu(
+      deselectFromCommandMenu(tags, selected("T-3").id)
+    )
+    expect(back.selection.map((each) => each.id)).toEqual(["T-1", "T-2"])
+  })
+
   it("opens single-ticket pages on the ticket alone", () => {
     const opened = openCommandMenu(ticket, "ticketMove", [
       selected("T-1"),

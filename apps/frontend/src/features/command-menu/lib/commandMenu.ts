@@ -136,22 +136,27 @@ export const openCommandMenu = (
   pages: [page]
 })
 
+const deselect = <F extends Frame>(frame: F, ticketId: TicketId): F => {
+  const selection = frame.selection.filter((each) => each.id !== ticketId)
+  const [first] = selection
+  if (first === undefined) return { ...frame, selection }
+  return {
+    ...frame,
+    selection: selection.length > 1 ? selection : [],
+    ticket:
+      frame.ticket === null || frame.ticket.ticketId !== ticketId
+        ? frame.ticket
+        : { ...frame.ticket, ticketId: first.id }
+  }
+}
+
 export const deselectFromCommandMenu = (
   state: CommandMenuState,
   ticketId: TicketId
-): CommandMenuState => {
-  const selection = state.selection.filter((each) => each.id !== ticketId)
-  const [first] = selection
-  if (first === undefined) return { ...state, selection }
-  return {
-    ...state,
-    selection: selection.length > 1 ? selection : [],
-    ticket:
-      state.ticket === null || state.ticket.ticketId !== ticketId
-        ? state.ticket
-        : { ...state.ticket, ticketId: first.id }
-  }
-}
+): CommandMenuState => ({
+  ...deselect(state, ticketId),
+  trail: state.trail.map((step) => deselect(step, ticketId))
+})
 
 const deeper = (
   state: CommandMenuState,

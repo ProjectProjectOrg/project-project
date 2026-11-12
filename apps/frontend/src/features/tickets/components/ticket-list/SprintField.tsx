@@ -68,7 +68,7 @@ export function SprintField({
       ? membership.id
       : selectedSprints.size === 1
         ? sharedSprint
-        : null
+        : undefined
   const failed = Result.isFailure(addState) || Result.isFailure(removeState)
 
   return (
