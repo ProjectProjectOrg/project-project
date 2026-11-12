@@ -92,6 +92,7 @@ function SelectionFailureNotice({
 function SelectionActions({ store }: Readonly<{ store: SelectionStore }>) {
   const { orgSlug } = useParams({ strict: false })
   const keys = [...useAtomValue(store.selection).keys]
+  const known = useAtomValue(store.known)
   const [first] = keys
   if (orgSlug === undefined || first === undefined) return null
   return (
@@ -99,7 +100,7 @@ function SelectionActions({ store }: Readonly<{ store: SelectionStore }>) {
       store={store}
       orgSlug={orgSlug}
       slug={projectOfKey(first)}
-      tickets={keys.flatMap((key) => store.known.get(key) ?? [])}
+      tickets={keys.flatMap((key) => known.get(key) ?? [])}
     />
   )
 }

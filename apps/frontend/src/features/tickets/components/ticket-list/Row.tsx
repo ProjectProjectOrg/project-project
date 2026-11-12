@@ -30,6 +30,7 @@ import { TicketHoverCard } from "@/features/tickets/components/TicketHoverCard"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
+import { sharedTicketFields } from "@/features/tickets/lib/sharedTicketFields"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { transitions } from "@/lib/springs"
@@ -98,6 +99,10 @@ function RowImpl({
   const selectable = useTicketSelection(key)
   const selection = pending ? null : selectable
   const selectionActions = useSelectionActions(key)
+  const shared =
+    selectionActions.count > 1
+      ? sharedTicketFields(selectionActions.selectedTickets)
+      : null
   const onPatch = (edit: TicketEdit) => {
     if (!selectionActions.patch(edit)) patchRow(edit)
   }
@@ -150,6 +155,9 @@ function RowImpl({
                 <span className="relative z-20 flex w-(--list-icon) justify-center">
                   <StatusButton
                     ticket={ticket}
+                    selected={
+                      shared === null ? undefined : (shared.status ?? null)
+                    }
                     stopPropagation
                     onPatch={onPatch}
                   />
@@ -157,6 +165,9 @@ function RowImpl({
                 <span className="relative z-20 inline-flex">
                   <PriorityButton
                     ticket={ticket}
+                    selected={
+                      shared === null ? undefined : (shared.priority ?? null)
+                    }
                     stopPropagation
                     onPatch={onPatch}
                   />

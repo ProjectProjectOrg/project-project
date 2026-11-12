@@ -55,6 +55,20 @@ export function SprintField({
   if (!membership) return null
 
   const sprints = Result.isSuccess(list) ? list.value : []
+  const sprintOf = (id: TicketId) =>
+    sprints.find(
+      (sprint) => sprint.completedAt === null && sprint.tickets.includes(id)
+    )?.id ?? null
+  const selectedSprints = new Set(
+    selection.selectedTickets.map((each) => sprintOf(each.id))
+  )
+  const [sharedSprint = null] = selectedSprints
+  const selectedId =
+    selection.count === 1
+      ? membership.id
+      : selectedSprints.size === 1
+        ? sharedSprint
+        : null
   const failed = Result.isFailure(addState) || Result.isFailure(removeState)
 
   return (
@@ -63,7 +77,7 @@ export function SprintField({
         open={open}
         onOpenChange={setOpen}
         sprints={sprints}
-        selectedId={membership.id}
+        selectedId={selectedId}
         onSelect={(s) => {
           if (selection.count === 1) {
             addTickets({ groupId: s.id })

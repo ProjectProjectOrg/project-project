@@ -123,7 +123,7 @@ const selectionScope = (
     return {
       slug: projectOfKey(first),
       tickets: keys.flatMap((key) => {
-        const ticket = store.known.get(key)
+        const ticket = registry.get(store.known).get(key)
         return ticket === undefined ? [] : [ticket]
       })
     }
@@ -146,13 +146,17 @@ export function SelectionOrder({
   children
 }: Readonly<{ entries: ReadonlyArray<SelectionEntry>; children: ReactNode }>) {
   const store = use(SelectionContext)
+  const registry = use(RegistryContext)
   const current = useRef<ReadonlyArray<string>>([])
   useLayoutEffect(() => {
     current.current = entries.map(({ key }) => key)
-    for (const { key, ticket, bulk } of entries) {
-      store?.known.set(key, ticket)
-      store?.views.set(key, bulk)
-    }
+    if (store === null) return
+    for (const { key, bulk } of entries) store.views.set(key, bulk)
+    const known = registry.get(store.known)
+    if (entries.every(({ key, ticket }) => known.get(key) === ticket)) return
+    const next = new Map(known)
+    for (const { key, ticket } of entries) next.set(key, ticket)
+    registry.set(store.known, next)
   })
   const [order] = useState(() => () => current.current)
   return <OrderContext value={order}>{children}</OrderContext>
@@ -196,7 +200,7 @@ export function useSelectedTickets(
     const { keys } = registry.get(store.selection)
     if (!keys.has(key) || keys.size < 2) return []
     return [...keys].flatMap((each) => {
-      const ticket = store.known.get(each)
+      const ticket = registry.get(store.known).get(each)
       return ticket === undefined ? [] : [ticket]
     })
   }
@@ -204,6 +208,7 @@ export function useSelectedTickets(
 
 const noCount = Atom.make(0)
 const noSelection = Atom.make(emptySelection)
+const noKnown = Atom.make<ReadonlyMap<string, SelectedTicket>>(new Map())
 
 export function useSelectionActions(key: string) {
   const store = use(SelectionContext)
@@ -214,14 +219,15 @@ export function useSelectionActions(key: string) {
   )
   const acting = store !== null && selected && size > 1
   const { keys } = useAtomValue(store === null ? noSelection : store.selection)
+  const known = useAtomValue(store === null ? noKnown : store.known)
   const selectedTickets = acting
-    ? [...keys].flatMap((each) => store.known.get(each) ?? [])
+    ? [...keys].flatMap((each) => known.get(each) ?? [])
     : []
   const selectedIds = () =>
     store === null
       ? []
       : [...registry.get(store.selection).keys].flatMap(
-          (each) => store.known.get(each)?.id ?? []
+          (each) => registry.get(store.known).get(each)?.id ?? []
         )
   const patchBulk = (patch: BulkTicketPatch): boolean => {
     if (!acting) return false

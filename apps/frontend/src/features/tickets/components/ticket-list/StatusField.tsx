@@ -96,6 +96,7 @@ function StatusTrigger({
 
 export function StatusSelect({
   value,
+  selected = value,
   onChange,
   size = "sm",
   stopPropagation,
@@ -104,6 +105,7 @@ export function StatusSelect({
   manageAction = true
 }: {
   value: TicketStatus
+  selected?: TicketStatus | null
   onChange: (status: TicketStatus) => void
   size?: "sm" | "lg"
   stopPropagation?: boolean
@@ -154,9 +156,9 @@ export function StatusSelect({
         finalFocus={false}
       >
         <DropdownMenuRadioGroup
-          value={value}
+          value={selected}
           onValueChange={(next) => {
-            if (next !== value) onChange(next)
+            if (next !== selected) onChange(next)
           }}
           items={statusOptions}
         />
@@ -184,12 +186,14 @@ export function StatusSelect({
 
 export function StatusButton({
   ticket,
+  selected,
   stopPropagation,
   size = "sm",
   onPatch,
   disabled = false
 }: {
   ticket: Ticket
+  selected?: TicketStatus | null
   stopPropagation?: boolean
   size?: "sm" | "lg"
   onPatch: (patch: TicketEdit) => void
@@ -198,12 +202,11 @@ export function StatusButton({
   return (
     <StatusSelect
       value={ticket.status}
+      selected={selected === undefined ? ticket.status : selected}
       size={size}
       disabled={disabled}
       stopPropagation={stopPropagation}
-      onChange={(status) => {
-        if (status !== ticket.status) onPatch({ status })
-      }}
+      onChange={(status) => onPatch({ status })}
     />
   )
 }

@@ -41,7 +41,7 @@ export function PriorityMenu({
   disabled = false,
   className = "w-44"
 }: Readonly<{
-  value: TicketPriority
+  value: TicketPriority | null
   onChange: (priority: TicketPriority) => void
   trigger: ReactElement
   disabled?: boolean
@@ -70,11 +70,13 @@ export function PriorityMenu({
 
 export function PrioritySelect({
   value,
+  selected = value,
   onChange,
   stopPropagation,
   showLabel = false
 }: {
   value: TicketPriority
+  selected?: TicketPriority | null
   onChange: (priority: TicketPriority) => void
   stopPropagation?: boolean
   showLabel?: boolean
@@ -84,7 +86,7 @@ export function PrioritySelect({
   const priorityLabel = PRIORITY_LABELS[value]()
   return (
     <PriorityMenu
-      value={value}
+      value={selected}
       onChange={onChange}
       trigger={
         <Button
@@ -108,16 +110,19 @@ export function PrioritySelect({
 
 export function PriorityButton({
   ticket,
+  selected,
   stopPropagation,
   onPatch
 }: {
   ticket: { id: TicketId; priority: TicketPriority }
+  selected?: TicketPriority | null
   stopPropagation?: boolean
   onPatch: (patch: TicketEdit) => void
 }) {
   return (
     <PrioritySelect
       value={ticket.priority}
+      selected={selected === undefined ? ticket.priority : selected}
       stopPropagation={stopPropagation}
       onChange={(priority) => onPatch({ priority })}
     />

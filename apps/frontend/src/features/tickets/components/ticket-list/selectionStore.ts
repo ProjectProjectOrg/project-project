@@ -23,7 +23,7 @@ export const createSelectionStore = () => {
       Atom.map(selection, ({ keys }) => keys.has(key))
     ),
     failure: Atom.make<SelectionFailure | null>(null),
-    known: new Map<string, SelectedTicket>(),
+    known: Atom.make<ReadonlyMap<string, SelectedTicket>>(new Map()),
     views: new Map<string, BulkTicketUpdateAtom>()
   }
 }
