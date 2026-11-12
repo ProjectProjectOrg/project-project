@@ -56,6 +56,7 @@ import {
   LibraryEntryFrame
 } from "./LibraryEditorChrome"
 import { LibraryEntryLink, useOpenList } from "./LibraryEntryLink"
+import { ProjectVersions } from "./ProjectVersions"
 import { ScopeBox } from "./ScopeBox"
 
 const isBlockKey = Schema.is(BlockKey)
@@ -350,6 +351,13 @@ function SectionEditor({
               )}
             </MetaRow>
           </AsideGroup>
+          {scope.layer === "org" ? (
+            <ProjectVersions
+              orgSlug={scope.req.params.orgSlug}
+              kind="section"
+              entryKey={section.key}
+            />
+          ) : null}
           <SectionActions scope={scope} section={section} view={view} />
         </>
       }

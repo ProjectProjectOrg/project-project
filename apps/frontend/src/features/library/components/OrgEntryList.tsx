@@ -175,7 +175,7 @@ function OrgEntryList({
   )
 }
 
-const asIsText = (usage: EntryUsage): string => {
+export const asIsText = (usage: EntryUsage): string => {
   if (usage.projects === 0) return m.templates_types_usage_no_projects()
   if (usage.asIs === usage.projects)
     return usage.projects === 1

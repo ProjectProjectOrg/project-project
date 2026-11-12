@@ -49,6 +49,7 @@ import {
   LibraryEntryFrame
 } from "./LibraryEditorChrome"
 import { useOpenList } from "./LibraryEntryLink"
+import { ProjectVersions } from "./ProjectVersions"
 import { ScopeBox } from "./ScopeBox"
 import { StartingSections } from "./StartingSections"
 
@@ -256,6 +257,13 @@ function TypeEditor({
               />
             </MetaRow>
           </AsideGroup>
+          {scope.layer === "org" ? (
+            <ProjectVersions
+              orgSlug={scope.req.params.orgSlug}
+              kind="type"
+              entryKey={type.key}
+            />
+          ) : null}
           <TypeActions
             scope={scope}
             library={library}
