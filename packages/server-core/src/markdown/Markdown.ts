@@ -99,6 +99,12 @@ export class Markdown extends Context.Service<
       frontmatter: Record<string, unknown>,
       body: string
     ) => Effect.Effect<void, MarkdownError>
+    writeTicketFileRaw: (
+      orgSlug: string,
+      slug: string,
+      id: string,
+      content: string
+    ) => Effect.Effect<void, MarkdownError>
     writeTicketWithRegion: (
       orgSlug: string,
       slug: string,
@@ -485,17 +491,15 @@ const make = Effect.gen(function* () {
     )
   })
 
-  const writeTicketFile = Effect.fn("Markdown.writeTicketFile")(function* (
+  const writeTicketContent = Effect.fnUntraced(function* (
     orgSlug: string,
     slug: string,
     id: string,
-    frontmatter: Record<string, unknown>,
-    body: string
+    content: string
   ) {
     yield* ensureSafeOrgAndProject(orgSlug, slug)
     yield* ensureSafeId(id)
     const file = ticketFilePath(orgSlug, slug, id)
-    const content = markdownFileContent(frontmatter, body)
     const temporary = yield* ticketTemporaryFile(file)
     yield* Effect.gen(function* () {
       yield* fs
@@ -518,6 +522,27 @@ const make = Effect.gen(function* () {
       Effect.ensuring(fs.remove(temporary, { force: true }).pipe(Effect.ignore))
     )
   })
+
+  const writeTicketFile = Effect.fn("Markdown.writeTicketFile")(function* (
+    orgSlug: string,
+    slug: string,
+    id: string,
+    frontmatter: Record<string, unknown>,
+    body: string
+  ) {
+    return yield* writeTicketContent(
+      orgSlug,
+      slug,
+      id,
+      markdownFileContent(frontmatter, body)
+    )
+  })
+
+  const writeTicketFileRaw = Effect.fn("Markdown.writeTicketFileRaw")(
+    function* (orgSlug: string, slug: string, id: string, content: string) {
+      return yield* writeTicketContent(orgSlug, slug, id, content)
+    }
+  )
 
   const writeTicketWithRegion = Effect.fn("Markdown.writeTicketWithRegion")(
     function* (
@@ -1062,6 +1087,7 @@ const make = Effect.gen(function* () {
     readTicketFileRaw,
     createTicketFile,
     writeTicketFile,
+    writeTicketFileRaw,
     writeTicketWithRegion,
     removeTicketFile,
     listTicketIds,

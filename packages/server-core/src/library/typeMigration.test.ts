@@ -9,7 +9,8 @@ import {
   legacyLayerFrom,
   planOrgLayer,
   planProjectLayer,
-  withoutLegacyDefaults
+  withoutLegacyDefaults,
+  withoutLegacyTicketType
 } from "./typeMigration"
 
 const template = (
@@ -255,5 +256,34 @@ describe("planProjectLayer", () => {
           .steps
       )
     ).toEqual(["chore -> chore-2 [tombstone]"])
+  })
+})
+
+describe("withoutLegacyTicketType", () => {
+  it("rewrites only the type line of the frontmatter", () => {
+    const before =
+      "---\nid: T-1\ntitle:   'Odd   spacing'\ntype: other\ntags: []\n---\n\ntype: other\n\nBody\n"
+    expect(withoutLegacyTicketType(before)).toBe(
+      before.replace("\ntype: other\ntags", "\ntype: null\ntags")
+    )
+  })
+
+  it("handles quoted values and Windows line endings", () => {
+    expect(
+      withoutLegacyTicketType('---\r\nid: T-1\r\ntype: "other"\r\n---\r\nBody')
+    ).toBe("---\r\nid: T-1\r\ntype: null\r\n---\r\nBody")
+  })
+
+  it("leaves every other file alone", () => {
+    for (const content of [
+      "---\nid: T-1\ntype: bug\n---\nBody\n",
+      "---\nid: T-1\ntype: null\n---\nBody\n",
+      "---\nid: T-1\ntype: otherwise\n---\nBody\n",
+      "---\nid: T-1\nsubtype: other\n---\nBody\n",
+      "---\nid: T-1\ntype: bug\n---\n\ntype: other\n",
+      "type: other\n"
+    ]) {
+      expect(withoutLegacyTicketType(content)).toBeNull()
+    }
   })
 })

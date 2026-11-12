@@ -12,8 +12,11 @@ import { describe, expect } from "vitest"
 
 import { parseMarkdownFile } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
+import * as TicketIndex from "../tickets/TicketIndex"
+import * as TicketIndexMaintenance from "../tickets/TicketIndexMaintenance"
 import * as LibraryDocs from "./LibraryDocs"
 import * as LibraryMigration from "./LibraryMigration"
+import { migrateLibraryOnBoot } from "./LibraryMigrationLive"
 
 type LogLine = Readonly<{
   message: unknown
@@ -448,5 +451,131 @@ describe("LibraryMigration (real fs)", () => {
       expect(yield* exists("solo", "library.md")).toBe(false)
       expect(yield* list("solo")).toEqual(["types"])
     }).pipe(Effect.provide(TestLayer))
+  )
+})
+
+const ticketFile = (id: string, type: string, body = "Body\n") =>
+  `---\nid: ${id}\ntitle:   'Kept   as written'\nstatus: todo\ntype: ${type}\npriority: med\ncreatedBy: user-1\ncreatedAt: 2026-09-09T00:00:00.000Z\nupdatedAt: 2026-09-09T00:00:00.000Z\n---\n\n${body}`
+
+const seedTickets = Effect.gen(function* () {
+  const ticket = (project: string, id: string, content: string) =>
+    write(content, "acme", "projects", project, "tickets", `${id}.md`)
+  yield* ticket("web", "WEB-1", ticketFile("WEB-1", "other", "type: other\n"))
+  yield* ticket("web", "WEB-2", ticketFile("WEB-2", "bug"))
+  yield* ticket("web", "WEB-3", ticketFile("WEB-3", "null"))
+  yield* ticket("web", "WEB-4", ticketFile("WEB-4", "other"))
+  yield* ticket("api", "API-1", ticketFile("API-1", "incident-lite"))
+  yield* ticket("api", "API-2", ticketFile("API-2", "other"))
+  yield* ticket("docs", "DOCS-1", ticketFile("DOCS-1", "feat"))
+})
+
+const migrateTickets = Effect.flatMap(
+  LibraryMigration.LibraryMigration,
+  (migration) => migration.migrateTicketTypes()
+)
+
+describe("LibraryMigration ticket types (real fs)", () => {
+  it.effect("rewrites tickets of type other to no type and nothing else", () =>
+    Effect.gen(function* () {
+      yield* seedTickets
+      const before = yield* snapshot
+
+      const summary = yield* migrateTickets
+
+      expect(summary).toEqual({
+        migrated: [
+          { orgSlug: "acme", projectSlug: "api", rewritten: 1 },
+          { orgSlug: "acme", projectSlug: "web", rewritten: 2 }
+        ],
+        failed: []
+      })
+      const after = yield* snapshot
+      const rewritten = new Set([
+        "acme/projects/api/tickets/API-2.md",
+        "acme/projects/web/tickets/WEB-1.md",
+        "acme/projects/web/tickets/WEB-4.md"
+      ])
+      for (const [file, content] of Object.entries(before)) {
+        expect(after[file]).toBe(
+          rewritten.has(file)
+            ? content.replace(
+                "\ntype: other\npriority",
+                "\ntype: null\npriority"
+              )
+            : content
+        )
+      }
+      expect(Object.keys(after)).toEqual(Object.keys(before))
+      expect(after["acme/projects/web/tickets/WEB-1.md"]).toContain(
+        "\n\ntype: other\n"
+      )
+      expect(
+        logLines.flatMap((line) =>
+          String(line.message) ===
+          "library migration: tickets of type other now have no type"
+            ? [[line.annotations.projectSlug, line.annotations.rewritten]]
+            : []
+        )
+      ).toEqual([
+        ["api", 1],
+        ["web", 2]
+      ])
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect("changes nothing when it runs again", () =>
+    Effect.gen(function* () {
+      yield* seedTickets
+      yield* migrateTickets
+      const migrated = yield* snapshot
+
+      expect(yield* migrateTickets).toEqual({ migrated: [], failed: [] })
+      expect(yield* snapshot).toEqual(migrated)
+    }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect(
+    "rebuilds the ticket index of each rewritten project on boot",
+    () => {
+      const rebuilt: Array<readonly [string, boolean | undefined]> = []
+      return Effect.gen(function* () {
+        yield* seedTickets
+
+        yield* migrateLibraryOnBoot
+
+        expect(rebuilt).toEqual([
+          ["api", true],
+          ["web", true]
+        ])
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            TestLayer,
+            Layer.mock(TicketIndex.TicketIndex, {
+              projectFor: (orgSlug, slug) =>
+                Effect.succeed({
+                  orgSlug,
+                  organizationId: "org-1",
+                  projectId: `project-${slug}`,
+                  slug
+                })
+            }),
+            Layer.mock(TicketIndexMaintenance.TicketIndexMaintenance, {
+              reconcileProject: (indexed, options) =>
+                Effect.sync(() => {
+                  rebuilt.push([indexed.slug, options?.force])
+                  return {
+                    project: indexed,
+                    drift: { missing: [], orphaned: [], stale: [] },
+                    rebuilt: true,
+                    indexed: 0,
+                    skipped: 0
+                  }
+                })
+            })
+          )
+        )
+      )
+    }
   )
 })
