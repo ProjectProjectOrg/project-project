@@ -20,6 +20,9 @@ import {
   type User,
   ProjectScope,
   StatusSlug,
+  Validation,
+  BUILTIN_TYPE_KEYS,
+  isBuiltinTypeKey,
   isEpic
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -108,7 +111,7 @@ export function makeTicketDocument(
     id: ticketId(id),
     title: id,
     status: ticketStatus("todo"),
-    type: "other",
+    type: null,
     priority: "med",
     tags: [],
     branch: null,
@@ -851,7 +854,13 @@ export const makeRecordingTicketIndex = (
 }
 
 export const PassthroughLibrary = Layer.mock(Library.Library, {
-  resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body)
+  resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body),
+  typeKeys: () => Effect.succeed(new Set<string>(BUILTIN_TYPE_KEYS)),
+  untouchedBodyCheck: () => Effect.succeed((body) => body.trim() === ""),
+  expandForCreate: (_orgSlug, _slug, key) =>
+    isBuiltinTypeKey(key)
+      ? Effect.succeed({ body: "", priority: null, tags: [] })
+      : Effect.fail(new Validation({ reason: `unknown_type:${key}` }))
 })
 
 export type TicketsLayerOptions = Readonly<{

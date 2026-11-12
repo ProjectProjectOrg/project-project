@@ -1,4 +1,4 @@
-import type { JiraMigrationDetail } from "@pp/shared"
+import type { JiraMigrationDetail, TypeDefinition } from "@pp/shared"
 
 import { buildJiraImportDraft } from "./draft"
 import {
@@ -9,10 +9,15 @@ import {
 import { jiraLandingStep, type JiraImportStep } from "./stages"
 
 export function jiraImportLanding(
-  detail: Pick<JiraMigrationDetail, "requirements" | "configuration">
+  detail: Pick<JiraMigrationDetail, "requirements" | "configuration">,
+  types: ReadonlyArray<TypeDefinition>
 ): JiraImportStep {
   if (detail.requirements === null) return "scan"
-  const draft = buildJiraImportDraft(detail.requirements, detail.configuration)
+  const draft = buildJiraImportDraft(
+    detail.requirements,
+    detail.configuration,
+    types
+  )
   const counts = jiraSetupCounts(draft.setup, detail.requirements, 0)
   return jiraLandingStep(
     detail.configuration !== null,

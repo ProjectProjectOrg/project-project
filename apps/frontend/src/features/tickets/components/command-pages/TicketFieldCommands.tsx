@@ -1,11 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import {
-  isEpic,
-  ESTIMATE_SIZES,
-  TagName,
-  TicketType,
-  type Estimate
-} from "@pp/shared"
+import { isEpic, ESTIMATE_SIZES, TagName, type Estimate } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
@@ -18,6 +12,7 @@ import { CommandMenuCheck, CommandMenuItem } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
+import { blockIconComponent } from "@/features/editor/lib/blockIcons"
 import {
   projectActor,
   projectRequest
@@ -30,14 +25,21 @@ import {
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
+import { NoTypeIcon } from "@/features/tickets/components/TypeGlyph"
 import { useApplyCreatedTag } from "@/features/tickets/hooks/useApplyCreatedTag"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import {
   formatEstimate,
   parseEstimateMinutes,
   parseEstimatePoints
 } from "@/features/tickets/lib/estimateMeta"
-import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
 import { parentRef } from "@/features/tickets/lib/ticketPatch"
+import {
+  typeKeyOfOption,
+  typeName,
+  typeOptions,
+  typeOptionValue
+} from "@/features/tickets/lib/ticketTypes"
 import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -150,26 +152,35 @@ export function TicketEstimatePage({
 
 export function TicketTypePage({ ticket, chip, onBack, env }: TicketPageProps) {
   const { current, update } = useTicketMutation(ticket)
-  const types = TicketType.literals
+  const options = typeOptions(useTicketTypes(ticket.orgSlug, ticket.slug))
   return (
     <CommandFrame
       chip={chip}
       placeholder={m.tickets_command_type_placeholder()}
       onBack={onBack}
-      items={types.map((type) => ({
-        value: type,
-        label: TYPE_LABELS[type](),
-        icon: TYPE_META[type].icon
+      items={options.map((option) => ({
+        value: option.value,
+        label: typeName(option.type),
+        icon:
+          option.type === null
+            ? NoTypeIcon
+            : blockIconComponent(option.type.icon)
       }))}
       onSelect={(item) => {
-        const type = types.find((candidate) => candidate === item.value)
-        if (type !== undefined) update({ type })
+        const option = options.find(
+          (candidate) => candidate.value === item.value
+        )
+        if (option !== undefined) {
+          update({ type: typeKeyOfOption(option.value) })
+        }
         env.close()
       }}
       renderItem={(item) => (
         <CommandMenuItem value={item.value}>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          {current?.type === item.value && <CommandMenuCheck />}
+          {current !== null && typeOptionValue(current.type) === item.value && (
+            <CommandMenuCheck />
+          )}
         </CommandMenuItem>
       )}
     />

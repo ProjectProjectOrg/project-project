@@ -183,6 +183,8 @@ export function TicketSplitForm({
                     <form.Field name={`results[${index}].type`}>
                       {(typeField) => (
                         <TypeSelect
+                          orgSlug={orgSlug}
+                          slug={slug}
                           value={typeField.value}
                           onChange={typeField.handleChange}
                         />

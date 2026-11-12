@@ -2,7 +2,6 @@ import {
   builtinType,
   isBuiltinTypeKey,
   isReservedTypeKey,
-  TicketType,
   type TypeDraft,
   TypeKey
 } from "@pp/shared"
@@ -17,8 +16,17 @@ import { decodeTypeFields, isTombstone, parseLibraryFile } from "./LibraryDocs"
 
 export const LEGACY_DEFAULTS_KEY = "templateDefaults"
 
+const LegacyTicketType = Schema.Literals([
+  "feat",
+  "bug",
+  "chore",
+  "other",
+  "epic"
+])
+type LegacyTicketType = typeof LegacyTicketType.Type
+
 export type LegacyDefaults = Readonly<
-  Partial<Record<TicketType, string | null>>
+  Partial<Record<LegacyTicketType, string | null>>
 >
 
 export type LegacyTemplate = Readonly<{ key: string } & Omit<TypeDraft, "key">>
@@ -49,10 +57,23 @@ export type LayerPlan = Readonly<{
   ownKeys: ReadonlyMap<string, string>
 }>
 
-const TICKET_TYPES: ReadonlyArray<TicketType> = TicketType.literals
+const TICKET_TYPES: ReadonlyArray<LegacyTicketType> = LegacyTicketType.literals
 
-const decodeTicketType = Schema.decodeUnknownOption(TicketType)
+const decodeTicketType = Schema.decodeUnknownOption(LegacyTicketType)
 const decodeLegacyKey = Schema.decodeUnknownOption(Schema.NullOr(Schema.String))
+
+const FRONTMATTER = /^(\uFEFF?---\r?\n)([\s\S]*?)(\r?\n---(?:\r?\n|$))/
+
+const LEGACY_TYPE_LINE = /^type:[ \t]*(?:other|"other"|'other')[ \t]*(?=\r?$)/m
+
+export const withoutLegacyTicketType = (content: string): string | null => {
+  const match = FRONTMATTER.exec(content)
+  if (match === null) return null
+  const [whole, open, frontmatter, close] = match
+  if (!LEGACY_TYPE_LINE.test(frontmatter)) return null
+  const rewritten = frontmatter.replace(LEGACY_TYPE_LINE, "type: null")
+  return `${open}${rewritten}${close}${content.slice(whole.length)}`
+}
 
 export const EMPTY_LEGACY_LAYER: LegacyLayer = {
   templates: [],
@@ -181,7 +202,7 @@ const effectiveDefaults = (
 const typesDefaultingTo = (
   defaults: LegacyDefaults,
   key: string
-): ReadonlyArray<TicketType> =>
+): ReadonlyArray<LegacyTicketType> =>
   TICKET_TYPES.filter((type) => defaults[type] === key)
 
 const asTypeDefinition = (

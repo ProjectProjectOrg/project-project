@@ -1,20 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router"
-
-import { projectScope } from "@/features/library/atoms/libraryScope"
-import { TypeEditorPage } from "@/features/library/components/TypeEditorPage"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey"
 )({
-  component: ProjectTemplateEditor
+  beforeLoad: ({ params: { templateKey, ...params } }) => {
+    throw redirect({
+      to: "/orgs/$orgSlug/projects/$slug/settings/types/$typeKey",
+      params: { ...params, typeKey: templateKey },
+      replace: true
+    })
+  }
 })
-
-function ProjectTemplateEditor() {
-  const params = Route.useParams()
-  return (
-    <TypeEditorPage
-      scope={projectScope(params.orgSlug, params.slug)}
-      templateKey={params.templateKey}
-    />
-  )
-}

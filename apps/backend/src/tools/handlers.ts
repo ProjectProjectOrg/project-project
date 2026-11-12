@@ -26,14 +26,12 @@ import {
   formatBlockIssue,
   formatTicketBodyEditFailure,
   GIT_AUTOMATION_EVENTS,
-  isPristineTypeBody,
   isRasterImageContentType,
   parseTicketBlocks,
   permits,
   ProjectScope,
   serializeTicketBlocks,
   stripDefinitionHints,
-  stripHints,
   Tools,
   CurrentUser,
   TicketListQuery,
@@ -48,13 +46,10 @@ import {
   type GitAutomation,
   type GroupId,
   type Pagination,
-  type Library as LibraryValue,
   type ProjectStatus,
   type SprintState,
-  type TypeKey,
   type TicketBodyEdit,
   type TicketId,
-  type TicketType,
   type UpdateGroupInput,
   type UpdateTicketInput
 } from "@pp/shared"
@@ -106,23 +101,6 @@ const withBlocks = <T extends Readonly<{ body: string }>>(detail: T) => ({
       : []
   )
 })
-
-const isUntouchedBody = (body: string, library: LibraryValue): boolean => {
-  if (body.trim() === "") return true
-  const lookup = blockLookupFor(library)
-  const comparable = stripHints(body)
-  return library.types.some((type) =>
-    isPristineTypeBody(comparable, type, lookup)
-  )
-}
-
-const TICKET_TYPES: ReadonlyArray<TicketType> = [
-  "feat",
-  "bug",
-  "chore",
-  "other",
-  "epic"
-]
 
 const me = (_input: {}) =>
   Effect.gen(function* () {
@@ -348,7 +326,7 @@ const list_blocks = (_input: { orgSlug: string; projectSlug: string }) =>
       }))
   })
 
-const list_templates = (_input: { orgSlug: string; projectSlug: string }) =>
+const list_types = (_input: { orgSlug: string; projectSlug: string }) =>
   Effect.gen(function* () {
     const library = yield* Library.Library
     const result = yield* library.projectLibrary()
@@ -361,10 +339,7 @@ const list_templates = (_input: { orgSlug: string; projectSlug: string }) =>
         description: type.description,
         priority: type.priority,
         tags: type.tags,
-        body: expandTypeKeepingHints(type, lookup),
-        isDefaultFor: TICKET_TYPES.filter(
-          (ticketType) => ticketType === type.key
-        )
+        body: expandTypeKeepingHints(type, lookup)
       }))
   })
 
@@ -373,37 +348,13 @@ const create_ticket = (
 ) =>
   Effect.gen(function* () {
     const commands = yield* TicketCommands.TicketCommands
-    const {
-      orgSlug: _orgSlug,
-      projectSlug: _projectSlug,
-      body,
-      ...payload
-    } = input
-    const sanitizedBody =
-      body === undefined ? undefined : yield* sanitizeMcpBody(body)
-    const created = yield* commands.create({
-      ...payload,
-      ...(sanitizedBody === undefined ? {} : { body: sanitizedBody })
-    })
-    return withBlocks(created)
-  })
-
-const templateBodyFor = (id: TicketId, template: TypeKey) =>
-  Effect.gen(function* () {
-    const { orgSlug, slug } = yield* ProjectScope
-    const queries = yield* TicketQueries.TicketQueries
-    const library = yield* Library.Library
-    const expansion = yield* library.expandForCreate(orgSlug, slug, template)
-    const [ticket, projectLibrary] = yield* Effect.all(
-      [queries.get(id), library.projectLibrary()],
-      { concurrency: 2 }
+    const { orgSlug: _orgSlug, projectSlug: _projectSlug, ...payload } = input
+    const created = yield* commands.create(
+      payload.body === undefined
+        ? payload
+        : { ...payload, body: yield* sanitizeMcpBody(payload.body) }
     )
-    if (!isUntouchedBody(ticket.body, projectLibrary)) {
-      return yield* new Validation({
-        reason: `template_needs_body:${template}`
-      })
-    }
-    return { body: expansion.body, expectedBody: ticket.body }
+    return withBlocks(created)
   })
 
 const editedBody = (id: TicketId, edits: ReadonlyArray<TicketBodyEdit>) =>
@@ -426,7 +377,6 @@ const update_ticket = (
     orgSlug: string
     projectSlug: string
     id: TicketId
-    template?: TypeKey | null
     edits?: ReadonlyArray<TicketBodyEdit>
     expectedUpdatedAt?: Date
   } & UpdateTicketInput
@@ -438,21 +388,16 @@ const update_ticket = (
       projectSlug: _projectSlug,
       id,
       body,
-      template,
       edits,
       expectedUpdatedAt,
       ...payload
     } = input
-    if (edits !== undefined && (body !== undefined || template != null)) {
-      return yield* new Validation({ reason: "edits_with_body_or_template" })
+    if (edits !== undefined && body !== undefined) {
+      return yield* new Validation({ reason: "edits_with_body" })
     }
     const write = Effect.gen(function* () {
       const pending =
-        edits !== undefined
-          ? yield* editedBody(id, edits)
-          : body === undefined && template !== undefined && template !== null
-            ? yield* templateBodyFor(id, template)
-            : undefined
+        edits === undefined ? undefined : yield* editedBody(id, edits)
       const nextBody =
         body !== undefined ? yield* sanitizeMcpBody(body) : pending?.body
       return yield* commands.update(
@@ -465,26 +410,16 @@ const update_ticket = (
         { body: pending?.expectedBody, updatedAt: expectedUpdatedAt }
       )
     })
-    const updated = yield* (
-      edits === undefined
-        ? write
-        : write.pipe(
-            Effect.retry({
-              times: 2,
-              while: (error) =>
-                Predicate.isTagged(error, "Validation") &&
-                error.reason === "ticket_body_changed"
-            })
-          )
-    ).pipe(
-      Effect.catchTag("Validation", (error) =>
-        error.reason === "ticket_body_changed" && template != null
-          ? Effect.fail(
-              new Validation({ reason: `template_needs_body:${template}` })
-            )
-          : Effect.fail(error)
-      )
-    )
+    const updated = yield* edits === undefined
+      ? write
+      : write.pipe(
+          Effect.retry({
+            times: 2,
+            while: (error) =>
+              Predicate.isTagged(error, "Validation") &&
+              error.reason === "ticket_body_changed"
+          })
+        )
     return withBlocks(updated.ticket)
   })
 
@@ -737,7 +672,7 @@ export const ToolHandlersLive = Tools.toLayer(
         get_ticket_doc
       ),
       list_blocks: run.project({ ticket: ["read"] }, list_blocks),
-      list_templates: run.project({ ticket: ["read"] }, list_templates),
+      list_types: run.project({ ticket: ["read"] }, list_types),
       create_ticket: run.project({ ticket: ["create"] }, create_ticket),
       update_ticket: run.project("membership", update_ticket),
       archive_ticket: run.project({ ticket: ["update"] }, archive_ticket),

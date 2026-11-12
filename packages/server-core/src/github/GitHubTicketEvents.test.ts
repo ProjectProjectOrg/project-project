@@ -1,7 +1,7 @@
 import { PgClient } from "@effect/sql-pg"
 import { it as plainIt, layer } from "@effect/vitest"
 import { DbLive } from "@pp/db"
-import { EMPTY_TICKET_RELATIONS } from "@pp/shared"
+import { EMPTY_TICKET_RELATIONS, TypeKey } from "@pp/shared"
 import {
   NotFound,
   TicketId,
@@ -39,7 +39,7 @@ const baseDocument = (
   id: ticketId("T-1"),
   title: "first",
   status: ticketStatus("in_progress"),
-  type: "feat",
+  type: TypeKey.make("feat"),
   priority: "med",
   tags: [],
   branch: "feat/T-1",

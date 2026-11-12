@@ -1,10 +1,5 @@
 import { mergeRegister } from "@lexical/utils"
-import type {
-  BlockDefinition,
-  BlockIconName,
-  BlockLookup,
-  Library
-} from "@pp/shared"
+import type { BlockDefinition, BlockIconName, Library } from "@pp/shared"
 import {
   COMMAND_PRIORITY_CRITICAL,
   KEY_ARROW_DOWN_COMMAND,
@@ -120,20 +115,13 @@ export const BASIC_ICONS: Record<SlashBasicKind, LucideIcon> = {
 const SECTION_LABELS: Record<SlashSectionKey, () => string> = {
   suggested: m.editor_slash_section_suggested,
   blocks: m.editor_slash_section_blocks,
-  templates: m.editor_slash_section_templates,
   basic: m.editor_slash_section_basic
 }
 
 const TAB_LABELS: Record<SlashTab, () => string> = {
   all: m.editor_slash_tab_all,
   blocks: m.editor_slash_section_blocks,
-  templates: m.editor_slash_section_templates,
   markdown: m.editor_slash_section_basic
-}
-
-const GALLERY_LABELS = {
-  block: m.editor_slash_gallery_blocks,
-  template: m.editor_slash_gallery_templates
 }
 
 const ORIGIN_LABELS = {
@@ -151,10 +139,6 @@ function ItemIcon({ item }: Readonly<{ item: SlashItem }>) {
         icon={item.definition.icon}
         color={item.definition.color}
       />
-    )
-  if (item.kind === "template")
-    return (
-      <BlockIconGlyph icon={item.template.icon} color={item.template.color} />
     )
   const Icon = item.kind === "gallery" ? LibraryBig : BASIC_ICONS[item.basic]
   return (
@@ -193,15 +177,12 @@ const glyphIcon = (
 const itemIcon = (item: SlashItem): IconComponent => {
   if (item.kind === "block")
     return glyphIcon(item.definition.icon, item.definition.color)
-  if (item.kind === "template")
-    return glyphIcon(item.template.icon, item.template.color)
   return item.kind === "gallery" ? LibraryBig : BASIC_ICONS[item.basic]
 }
 
 const itemName = (item: SlashItem): string => {
   if (item.kind === "block") return item.definition.name
-  if (item.kind === "template") return item.template.name
-  if (item.kind === "gallery") return GALLERY_LABELS[item.entry]()
+  if (item.kind === "gallery") return m.editor_slash_gallery_blocks()
   return basicLabel(item.basic)
 }
 
@@ -210,17 +191,9 @@ const blockMeta = (definition: BlockDefinition): string | null => {
   return ORIGIN_LABELS[definition.origin]()
 }
 
-const templateMeta = (adds: number): string => {
-  if (adds === 0) return m.editor_slash_template_applied()
-  return adds === 1
-    ? m.editor_slash_template_adds_one()
-    : m.editor_slash_template_adds({ count: adds })
-}
-
 const itemMeta = (item: SlashItem): string | null => {
   if (item.kind === "block")
     return item.suggestedBy ?? blockMeta(item.definition)
-  if (item.kind === "template") return templateMeta(item.adds)
   if (item.kind === "gallery") return m.editor_slash_gallery_browse()
   return null
 }
@@ -309,12 +282,10 @@ function SlashMenuKeys({
 
 function SlashMenuPreviewPane({
   items,
-  library,
-  lookup
+  library
 }: Readonly<{
   items: ReadonlyMap<string, SlashItem>
   library: Library
-  lookup: BlockLookup
 }>) {
   const row = useHighlightedItem()
   const item = row === undefined ? undefined : items.get(row.value)
@@ -330,7 +301,6 @@ function SlashMenuPreviewPane({
           name={itemName(item)}
           meta={itemMeta(item)}
           library={library}
-          lookup={lookup}
         />
       )}
     </div>
@@ -397,7 +367,6 @@ export function SlashMenuList({
   menu,
   query,
   library,
-  lookup,
   detachRef,
   onPick,
   onTab
@@ -406,7 +375,6 @@ export function SlashMenuList({
   menu: SlashMenuModel
   query: string
   library: Library
-  lookup: BlockLookup
   detachRef: RefObject<boolean>
   onPick: (key: string) => void
   onTab: (tab: SlashTab) => void
@@ -520,11 +488,7 @@ export function SlashMenuList({
               </CommandMenuList>
             </div>
             {layout?.fit.preview === true ? (
-              <SlashMenuPreviewPane
-                items={itemsByKey}
-                library={library}
-                lookup={lookup}
-              />
+              <SlashMenuPreviewPane items={itemsByKey} library={library} />
             ) : null}
           </div>
           <SlashMenuFooter tabs={hasTabs} />

@@ -3,7 +3,8 @@ import {
   TicketDetail,
   TicketId,
   TicketStatus,
-  TicketUpdateResult
+  TicketUpdateResult,
+  TypeKey
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -28,7 +29,7 @@ const ticket = {
   id: ticketId,
   title: "Ticket",
   status: Schema.decodeSync(TicketStatus)("todo"),
-  type: "chore",
+  type: TypeKey.make("chore"),
   priority: "med",
   estimate: null,
   tags: [],

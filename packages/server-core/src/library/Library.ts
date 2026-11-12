@@ -11,7 +11,6 @@ import {
   type TypeDefinition,
   TypeKey,
   type TicketPriority,
-  type TicketType,
   type UpdateBlockInput,
   type UpdateTypeInput,
   Validation,
@@ -21,7 +20,8 @@ import {
   BlockKey,
   blockLookupFor,
   expandType,
-  ticketTypeForKey,
+  isPristineTypeBody,
+  stripHints,
   typeFor,
   extractAttachmentRefs,
   extractMentionLinks,
@@ -50,7 +50,6 @@ import * as LibraryDocs from "./LibraryDocs"
 
 export type TypeExpansion = Readonly<{
   body: string
-  type: TicketType | null
   priority: TicketPriority | null
   tags: ReadonlyArray<TagName>
 }>
@@ -142,6 +141,14 @@ export class Library extends Context.Service<
       TypeExpansion,
       NotFound | Validation | Markdown.MarkdownError
     >
+    typeKeys: (
+      orgSlug: string,
+      slug: string
+    ) => Effect.Effect<ReadonlySet<string>, Markdown.MarkdownError>
+    untouchedBodyCheck: (
+      orgSlug: string,
+      slug: string
+    ) => Effect.Effect<(body: string) => boolean, Markdown.MarkdownError>
     resolveSynced: (
       orgSlug: string,
       slug: string,
@@ -679,7 +686,7 @@ const make = Effect.gen(function* () {
     const library = resolveLibrary(yield* layersFor(orgSlug, slug), false)
     const definition = typeFor(library, key)
     if (definition === null)
-      return yield* new Validation({ reason: `unknown_template:${key}` })
+      return yield* new Validation({ reason: `unknown_type:${key}` })
     const [body, known] = yield* Effect.all(
       [
         sanitizeMentions(
@@ -695,9 +702,33 @@ const make = Effect.gen(function* () {
     )
     return {
       body,
-      type: ticketTypeForKey(definition.key),
       priority: definition.priority,
       tags: definition.tags.filter((tag) => known.has(tag))
+    }
+  })
+
+  const typeKeys = Effect.fn("Library.typeKeys")(function* (
+    orgSlug: string,
+    slug: string
+  ): Effect.fn.Return<ReadonlySet<string>, Markdown.MarkdownError> {
+    const library = resolveLibrary(yield* layersFor(orgSlug, slug), false)
+    return new Set(
+      library.types.flatMap((type) => (type.hidden ? [] : [type.key]))
+    )
+  })
+
+  const untouchedBodyCheck = Effect.fn("Library.untouchedBodyCheck")(function* (
+    orgSlug: string,
+    slug: string
+  ): Effect.fn.Return<(body: string) => boolean, Markdown.MarkdownError> {
+    const library = resolveLibrary(yield* layersFor(orgSlug, slug), false)
+    const lookup = blockLookupFor(library)
+    return (body) => {
+      if (body.trim() === "") return true
+      const comparable = stripHints(body)
+      return library.types.some((type) =>
+        isPristineTypeBody(comparable, type, lookup)
+      )
     }
   })
 
@@ -875,6 +906,8 @@ const make = Effect.gen(function* () {
     removeType,
     hideType,
     expandForCreate,
+    typeKeys,
+    untouchedBodyCheck,
     resolveSynced
   })
 })

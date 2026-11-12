@@ -1,14 +1,11 @@
 import type { MenuTextMatch } from "@lexical/react/LexicalTypeaheadMenuPlugin"
 import {
-  expandType,
-  mergeTypeInto,
   parseTicketBlocks,
   typeFor,
   type BlockDefinition,
   type BlockLookup,
   type Library,
-  type TypeDefinition,
-  type TicketType
+  type TypeKey
 } from "@pp/shared"
 
 import type { EditorBlocksMode } from "./editorBlocks"
@@ -74,25 +71,14 @@ export type SlashItem =
       definition: BlockDefinition
       suggestedBy: string | null
     }>
-  | Readonly<{
-      kind: "template"
-      key: string
-      template: TypeDefinition
-      adds: number
-    }>
   | Readonly<{ kind: "basic"; key: string; basic: SlashBasicKind }>
-  | Readonly<{ kind: "gallery"; key: string; entry: "block" | "template" }>
+  | Readonly<{ kind: "gallery"; key: string }>
 
-export type SlashSectionKey = "suggested" | "blocks" | "templates" | "basic"
+export type SlashSectionKey = "suggested" | "blocks" | "basic"
 
-export type SlashTab = "all" | "blocks" | "templates" | "markdown"
+export type SlashTab = "all" | "blocks" | "markdown"
 
-export const SLASH_TABS: ReadonlyArray<SlashTab> = [
-  "all",
-  "blocks",
-  "templates",
-  "markdown"
-]
+export const SLASH_TABS: ReadonlyArray<SlashTab> = ["all", "blocks", "markdown"]
 
 export type SlashSection = Readonly<{
   section: SlashSectionKey
@@ -102,7 +88,7 @@ export type SlashSection = Readonly<{
 export type SlashMenuInput = Readonly<{
   library: Library
   lookup: BlockLookup
-  ticketType: TicketType | null
+  ticketType: TypeKey | null
   body: string
   query: string
   basicLabel: (kind: SlashBasicKind) => string
@@ -151,34 +137,43 @@ const blockTypesIn = (markdown: string): ReadonlyArray<string> =>
 const visibleBlocks = (library: Library): ReadonlyArray<BlockDefinition> =>
   library.blocks.filter((block) => !block.hidden)
 
-const suggestedItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> => {
-  if (input.query !== "" || input.ticketType === null) return []
-  const template = typeFor(input.library, input.ticketType)
-  if (template === null) return []
+const suggestedDefinitions = (
+  input: Pick<SlashMenuInput, "library" | "lookup" | "ticketType" | "body">
+): ReadonlyArray<Readonly<{ definition: BlockDefinition; by: string }>> => {
+  if (input.ticketType === null) return []
+  const type = typeFor(input.library, input.ticketType)
+  if (type === null) return []
   const present = new Set(blockTypesIn(input.body))
   const seen = new Set<string>()
-  return blockTypesIn(template.body).flatMap(
-    (type): ReadonlyArray<SlashItem> => {
-      if (present.has(type) || seen.has(type)) return []
-      seen.add(type)
-      const definition = input.lookup(type)
-      return definition === undefined
-        ? []
-        : [
-            {
-              kind: "block",
-              key: `suggested:${type}`,
-              definition,
-              suggestedBy: template.name
-            }
-          ]
-    }
-  )
+  return blockTypesIn(type.body).flatMap((key) => {
+    if (present.has(key) || seen.has(key)) return []
+    seen.add(key)
+    const definition = input.lookup(key)
+    return definition === undefined || definition.hidden
+      ? []
+      : [{ definition, by: type.name }]
+  })
 }
 
-const blockItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> =>
-  visibleBlocks(input.library).flatMap(
+const suggestedItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> =>
+  input.query !== ""
+    ? []
+    : suggestedDefinitions(input).map(({ definition, by }) => ({
+        kind: "block",
+        key: `suggested:${definition.key}`,
+        definition,
+        suggestedBy: by
+      }))
+
+const blockItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> => {
+  const suggested = new Set(
+    suggestedItems(input).flatMap((item) =>
+      item.kind === "block" ? [item.definition.key] : []
+    )
+  )
+  return visibleBlocks(input.library).flatMap(
     (definition): ReadonlyArray<SlashItem> =>
+      !suggested.has(definition.key) &&
       matchesSlashQuery(input.query, [
         definition.name,
         definition.key,
@@ -194,43 +189,27 @@ const blockItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> =>
           ]
         : []
   )
-
-export const templateAdds = (
-  template: TypeDefinition,
-  body: string,
-  lookup: BlockLookup
-): number => mergeTypeInto(body, expandType(template, lookup)).added.length
-
-export const orderedTemplates = (
-  library: Library,
-  ticketType: TicketType | null
-): ReadonlyArray<TypeDefinition> => {
-  const defaultKey = ticketType
-  const active = library.types.filter((template) => !template.hidden)
-  return [
-    ...active.filter((template) => template.key === defaultKey),
-    ...active.filter((template) => template.key !== defaultKey)
-  ]
 }
 
-const templateItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> =>
-  orderedTemplates(input.library, input.ticketType).flatMap(
-    (template): ReadonlyArray<SlashItem> =>
-      matchesSlashQuery(input.query, [
-        template.name,
-        template.key,
-        template.description
-      ])
-        ? [
-            {
-              kind: "template",
-              key: `template:${template.key}`,
-              template,
-              adds: templateAdds(template, input.body, input.lookup)
-            }
-          ]
-        : []
-  )
+export type AddSectionGroups = Readonly<{
+  suggestedFor: string | null
+  suggested: ReadonlyArray<BlockDefinition>
+  all: ReadonlyArray<BlockDefinition>
+}>
+
+export const addSectionGroups = (
+  input: Pick<SlashMenuInput, "library" | "lookup" | "ticketType" | "body">
+): AddSectionGroups => {
+  const suggested = suggestedDefinitions(input)
+  const keys = new Set(suggested.map(({ definition }) => definition.key))
+  return {
+    suggestedFor: suggested[0]?.by ?? null,
+    suggested: suggested.map(({ definition }) => definition),
+    all: visibleBlocks(input.library).filter(
+      (definition) => !keys.has(definition.key)
+    )
+  }
+}
 
 const basicKindsFor = (mode: SlashMode): ReadonlyArray<SlashBasicKind> =>
   mode === "definition" ? [...SLASH_BASIC_KINDS, "hint"] : SLASH_BASIC_KINDS
@@ -248,24 +227,19 @@ const basicItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> =>
   )
 
 const MODE_SECTIONS: Record<SlashMode, ReadonlySet<SlashSectionKey>> = {
-  ticket: new Set(["suggested", "blocks", "templates", "basic"]),
+  ticket: new Set(["suggested", "blocks", "basic"]),
   template: new Set(["blocks", "basic"]),
   definition: new Set(["basic"]),
   basic: new Set(["basic"])
 }
 
 const TAB_SECTIONS: Record<SlashTab, ReadonlyArray<SlashSectionKey>> = {
-  all: ["suggested", "basic", "blocks", "templates"],
+  all: ["suggested", "basic", "blocks"],
   blocks: ["suggested", "blocks"],
-  templates: ["templates"],
   markdown: ["basic"]
 }
 
-const galleryItem = (entry: "block" | "template"): SlashItem => ({
-  kind: "gallery",
-  key: `gallery:${entry}`,
-  entry
-})
+const GALLERY_ITEM: SlashItem = { kind: "gallery", key: "gallery:block" }
 
 export const slashMenuSections = (
   input: SlashMenuInput
@@ -274,7 +248,6 @@ export const slashMenuSections = (
     [
       { section: "suggested", items: suggestedItems(input) },
       { section: "blocks", items: blockItems(input) },
-      { section: "templates", items: templateItems(input) },
       { section: "basic", items: basicItems(input) }
     ] satisfies ReadonlyArray<SlashSection>
   ).filter(
@@ -291,20 +264,8 @@ export type SlashMenuView = Readonly<{
   sections: ReadonlyArray<SlashSection>
 }>
 
-const libraryIsEmpty = (
-  library: Library,
-  section: SlashSectionKey
-): boolean => {
-  if (section === "blocks") return visibleBlocks(library).length === 0
-  if (section === "templates")
-    return library.types.every((template) => template.hidden)
-  return false
-}
-
-const GALLERY_ENTRY: Partial<Record<SlashSectionKey, "block" | "template">> = {
-  blocks: "block",
-  templates: "template"
-}
+const libraryIsEmpty = (library: Library, section: SlashSectionKey): boolean =>
+  section === "blocks" && visibleBlocks(library).length === 0
 
 /** An item whose own name (or a Markdown alias) starts with the query. */
 const namedByQuery = (input: SlashMenuInput, item: SlashItem): boolean => {
@@ -313,8 +274,6 @@ const namedByQuery = (input: SlashMenuInput, item: SlashItem): boolean => {
   switch (item.kind) {
     case "block":
       return starts(item.definition.name)
-    case "template":
-      return starts(item.template.name)
     case "basic":
       return [
         input.basicLabel(item.basic),
@@ -353,12 +312,10 @@ const unrankedTabSections = (
     if (!allowed.has(key)) return []
     const section = found.find((candidate) => candidate.section === key)
     if (section !== undefined) return [section]
-    const entry = GALLERY_ENTRY[key]
     const teaches =
-      entry !== undefined &&
       libraryIsEmpty(input.library, key) &&
       (input.query === "" || tab !== "all")
-    return teaches ? [{ section: key, items: [galleryItem(entry)] }] : []
+    return teaches ? [{ section: key, items: [GALLERY_ITEM] }] : []
   })
 }
 

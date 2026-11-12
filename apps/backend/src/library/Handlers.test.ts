@@ -144,6 +144,8 @@ const fakeLibrary: Library.Library["Service"] = {
   hideType: (...args) =>
     inProjectScope("hideType", args, failFor(args[0], undefined)),
   expandForCreate: () => Effect.die("unexpected"),
+  typeKeys: () => Effect.die("unexpected"),
+  untouchedBodyCheck: () => Effect.die("unexpected"),
   resolveSynced: () => Effect.die("unexpected")
 }
 

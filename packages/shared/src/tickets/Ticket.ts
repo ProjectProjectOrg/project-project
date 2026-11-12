@@ -7,6 +7,7 @@
 
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
+import * as SchemaTransformation from "effect/SchemaTransformation"
 
 import { User } from "../auth/User"
 import { Estimate, ESTIMATE_MAX_MINUTES } from "../estimates/Estimate"
@@ -42,19 +43,25 @@ export function isCarryover(
   return !finished.has(status)
 }
 
-export const TicketType = Schema.Literals([
-  "feat",
-  "bug",
-  "chore",
-  "other",
-  "epic"
-])
-export type TicketType = typeof TicketType.Type
+export const LEGACY_NO_TYPE = "other"
+
+export const StoredTicketType = Schema.Union([
+  Schema.Literal(LEGACY_NO_TYPE),
+  Schema.NullOr(TypeKey)
+]).pipe(
+  Schema.decodeTo(
+    Schema.toType(Schema.NullOr(TypeKey)),
+    SchemaTransformation.transform({
+      decode: (stored) => (stored === LEGACY_NO_TYPE ? null : stored),
+      encode: (type) => type
+    })
+  )
+)
 
 export const TicketParent = Schema.Struct({
   id: TicketId,
   title: Schema.String,
-  type: TicketType
+  type: Schema.NullOr(TypeKey)
 })
 export type TicketParent = typeof TicketParent.Type
 
@@ -78,7 +85,7 @@ export const Ticket = Schema.Struct({
   id: TicketId,
   title: Schema.String,
   status: TicketStatus,
-  type: TicketType,
+  type: Schema.NullOr(TypeKey),
   priority: TicketPriority,
   estimate: Schema.NullOr(Estimate).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
@@ -173,16 +180,17 @@ export const QuickCreateTicketInput = Schema.Struct({
     Schema.check(Schema.isMinLength(1)),
     Schema.check(Schema.isMaxLength(200))
   ),
-  type: Schema.optional(TicketType),
+  type: Schema.optional(Schema.NullOr(TypeKey)),
   status: Schema.optional(TicketStatus),
-  parent: Schema.optional(TicketId),
-  template: Schema.optional(Schema.NullOr(TypeKey))
+  parent: Schema.optional(TicketId)
 })
 export type QuickCreateTicketInput = typeof QuickCreateTicketInput.Type
 
 const ticketFieldDocs = {
   status: "A status slug from `list_statuses` (default `todo`).",
-  type: "The ticket type (default `other`).",
+  type:
+    "A type key from `list_types`: built in (`feat`, `bug`, `chore`, `epic`) or one of the project's own. " +
+    "`null` means no type.",
   priority: "The priority (default `med`).",
   estimate:
     "An estimate in the project's estimation unit (`estimation` in `get_project`): " +
@@ -208,7 +216,7 @@ export const CreateTicketInput = Schema.Struct({
   status: Schema.optional(TicketStatus).annotate({
     description: ticketFieldDocs.status
   }),
-  type: Schema.optional(TicketType).annotate({
+  type: Schema.optional(Schema.NullOr(TypeKey)).annotate({
     description: ticketFieldDocs.type
   }),
   priority: Schema.optional(TicketPriority).annotate({
@@ -234,10 +242,6 @@ export const CreateTicketInput = Schema.Struct({
   }),
   relatedTo: Schema.optional(Schema.Array(TicketId)).annotate({
     description: ticketFieldDocs.relatedTo
-  }),
-  template: Schema.optional(Schema.NullOr(TypeKey)).annotate({
-    description:
-      "A template key from `list_templates` to expand into the body; omit or pass `null` for a blank ticket."
   })
 })
 export type CreateTicketInput = typeof CreateTicketInput.Type
@@ -269,7 +273,7 @@ export const UpdateTicketInput = Schema.Struct({
     description:
       "A status slug from `list_statuses`; don't set one that git automation sets (`setBy`)."
   }),
-  type: Schema.optional(TicketType).annotate({
+  type: Schema.optional(Schema.NullOr(TypeKey)).annotate({
     description: ticketFieldDocs.type
   }),
   priority: Schema.optional(TicketPriority).annotate({
@@ -304,7 +308,7 @@ export const SplitTicketResultInput = Schema.Struct({
     Schema.check(Schema.isMinLength(1)),
     Schema.check(Schema.isMaxLength(200))
   ),
-  type: TicketType,
+  type: Schema.NullOr(TypeKey),
   status: TicketStatus,
   priority: TicketPriority,
   sprintId: Schema.NullOr(GroupId),

@@ -1,4 +1,4 @@
-import type { TicketType } from "@pp/shared"
+import type { TypeKey } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import { useEffect, useRef, useState } from "react"
 
@@ -12,7 +12,10 @@ export type TypePatch = (
   patch: TicketEdit
 ) => Promise<Exit.Exit<unknown, unknown>>
 
-export function useTemplateSwap(ticketType: TicketType, onPatch: TypePatch) {
+export function useTemplateSwap(
+  ticketType: TypeKey | null,
+  onPatch: TypePatch
+) {
   const descriptionRef = useRef<DescriptionHandle>(null)
   const [note, setNote] = useState<TemplateSwapNote | null>(null)
 
@@ -35,13 +38,12 @@ export function useTemplateSwap(ticketType: TicketType, onPatch: TypePatch) {
   }
 
   const onTypePatch = (patch: TicketEdit) => {
-    const nextType =
-      patch.type !== undefined && patch.type !== ticketType ? patch.type : null
+    const retyped = patch.type !== undefined && patch.type !== ticketType
     const swap =
-      nextType === null
+      patch.type === undefined || !retyped
         ? null
-        : (descriptionRef.current?.swapTemplate(ticketType, nextType) ?? null)
-    if (nextType !== null) setNote(swap)
+        : (descriptionRef.current?.swapTemplate(ticketType, patch.type) ?? null)
+    if (retyped) setNote(swap)
     void onPatch(patch).then((exit) => {
       if (swap !== null && Exit.isFailure(exit)) rollBack(swap)
     })

@@ -5,6 +5,8 @@ import {
   EstimateFilterValue,
   GroupId,
   GroupIdFilter,
+  LEGACY_NO_TYPE,
+  NO_TYPE_FILTER,
   ParentFilter,
   SortDir,
   SortKey,
@@ -13,7 +15,7 @@ import {
   TicketId,
   TicketListQuery,
   TicketStatus,
-  TicketType,
+  TypeFilter,
   type TicketViewSource
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
@@ -31,9 +33,15 @@ const DateSearch = Schema.String.pipe(
   Schema.check(Schema.makeFilter((value) => Option.isSome(decodeDate(value))))
 )
 
+const TypeSearch = Schema.Union([
+  Schema.Literal(LEGACY_NO_TYPE).transform(NO_TYPE_FILTER),
+  TypeFilter
+])
+
 export const TicketListSearch = Schema.Struct({
   status: Schema.optional(Schema.ArrayEnsure(TicketStatus)),
-  type: Schema.optional(Schema.ArrayEnsure(TicketType)),
+  type: Schema.optional(Schema.ArrayEnsure(TypeSearch)),
+  excludeType: Schema.optional(Schema.ArrayEnsure(TypeSearch)),
   assignee: Schema.optional(Schema.ArrayEnsure(AssigneeFilter)),
   tags: Schema.optional(Schema.ArrayEnsure(TagName)),
   groupId: Schema.optional(Schema.ArrayEnsure(GroupIdFilter)),

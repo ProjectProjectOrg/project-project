@@ -1,4 +1,4 @@
-import { canHoldChildren, type TicketType, canHaveParent } from "@pp/shared"
+import { canHoldChildren, canHaveParent, type TypeKey } from "@pp/shared"
 
 import type { JiraMappingSource, JiraMigrationMappings } from "./Mappings"
 
@@ -69,9 +69,9 @@ export function resolveJiraHierarchy(
       .filter(({ id }) => !excluded.has(id))
       .map((issue) => [issue.id, issue])
   )
-  const typeOf = (issueId: string): TicketType => {
+  const typeOf = (issueId: string): TypeKey | null => {
     const issue = issues.get(issueId)
-    return (issue && types.get(issue.issueTypeId)) ?? "other"
+    return (issue && types.get(issue.issueTypeId)) ?? null
   }
 
   const resolved = new Map<string, string | null>()

@@ -5,7 +5,8 @@ import {
   Ticket,
   TicketId,
   TicketStatus,
-  UpdateGroupTicketsInput
+  UpdateGroupTicketsInput,
+  TypeKey
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -66,7 +67,7 @@ const makeTicket = (id: TicketId): Ticket => ({
   id,
   title: `Ticket ${id}`,
   status: decodeTicketStatusSync("todo"),
-  type: "chore",
+  type: TypeKey.make("chore"),
   priority: "med",
   estimate: null,
   tags: [],

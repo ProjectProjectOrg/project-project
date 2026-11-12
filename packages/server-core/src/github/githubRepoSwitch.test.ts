@@ -26,7 +26,8 @@ import {
   ProjectScope,
   Slug,
   TicketId,
-  TicketStatus
+  TicketStatus,
+  TypeKey
 } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
@@ -67,7 +68,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
     id: ticketId,
     title: "Keep branch, clear old PR",
     status: decodeTicketStatusSync("todo"),
-    type: "feat",
+    type: TypeKey.make("feat"),
     priority: "med",
     tags: [],
     branch: "feat/T-1",

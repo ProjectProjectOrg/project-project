@@ -19,7 +19,8 @@ import {
   planOrgLayer,
   planProjectLayer,
   stepKey,
-  withoutLegacyDefaults
+  withoutLegacyDefaults,
+  withoutLegacyTicketType
 } from "./typeMigration"
 
 export type LayerMigration = Readonly<{
@@ -36,11 +37,24 @@ export type MigrationSummary = Readonly<{
   >
 }>
 
+export type ProjectRef = Readonly<{ orgSlug: string; projectSlug: string }>
+
+export type TicketTypeMigration = ProjectRef & Readonly<{ rewritten: number }>
+
+export type TicketTypeSummary = Readonly<{
+  migrated: ReadonlyArray<TicketTypeMigration>
+  failed: ReadonlyArray<ProjectRef>
+}>
+
 export class LibraryMigration extends Context.Service<
   LibraryMigration,
   Readonly<{
     migrateTemplates: () => Effect.Effect<
       MigrationSummary,
+      Markdown.MarkdownError
+    >
+    migrateTicketTypes: () => Effect.Effect<
+      TicketTypeSummary,
       Markdown.MarkdownError
     >
   }>
@@ -367,7 +381,83 @@ const make = Effect.gen(function* () {
     }
   )
 
-  return LibraryMigration.of({ migrateTemplates })
+  const rewriteTicket = (
+    orgSlug: string,
+    projectSlug: string,
+    id: string
+  ): Effect.Effect<boolean, Markdown.MarkdownError> =>
+    Effect.gen(function* () {
+      const file = yield* markdown.readTicketFileRaw(orgSlug, projectSlug, id)
+      const rewritten = withoutLegacyTicketType(file.content)
+      if (rewritten === null) return false
+      yield* markdown.writeTicketFileRaw(orgSlug, projectSlug, id, rewritten)
+      return true
+    }).pipe(Effect.catchTag("NotFound", () => Effect.succeed(false)))
+
+  const migrateProjectTickets = (
+    orgSlug: string,
+    projectSlug: string
+  ): Effect.Effect<TicketTypeMigration, Markdown.MarkdownError> =>
+    Effect.gen(function* () {
+      const ids = yield* markdown.listTicketIds(orgSlug, projectSlug)
+      const outcomes = yield* Effect.forEach(
+        ids,
+        (id) => rewriteTicket(orgSlug, projectSlug, id),
+        { concurrency: 8 }
+      )
+      const rewritten = outcomes.filter(Boolean).length
+      if (rewritten > 0) {
+        yield* Effect.logInfo(
+          "library migration: tickets of type other now have no type"
+        ).pipe(Effect.annotateLogs({ orgSlug, projectSlug, rewritten }))
+      }
+      return { orgSlug, projectSlug, rewritten }
+    })
+
+  const migrateProjectTicketsSafely = (
+    orgSlug: string,
+    projectSlug: string
+  ): Effect.Effect<TicketTypeMigration | null> =>
+    migrateProjectTickets(orgSlug, projectSlug).pipe(
+      Effect.catchCause((cause) =>
+        Cause.hasInterrupts(cause)
+          ? Effect.interrupt
+          : Effect.logError(
+              "library migration: ticket types failed, the project is retried on the next start",
+              cause
+            ).pipe(
+              Effect.annotateLogs({ orgSlug, projectSlug }),
+              Effect.as(null)
+            )
+      )
+    )
+
+  const migrateTicketTypes = Effect.fn("LibraryMigration.migrateTicketTypes")(
+    function* () {
+      const orgSlugs = yield* markdown.listOrgSlugs()
+      const projects = yield* Effect.forEach(orgSlugs, (orgSlug) =>
+        Effect.map(markdown.listProjectSlugs(orgSlug), (projectSlugs) =>
+          projectSlugs.map((projectSlug) => ({ orgSlug, projectSlug }))
+        )
+      )
+      const outcomes = yield* Effect.forEach(projects.flat(), (project) =>
+        Effect.map(
+          migrateProjectTicketsSafely(project.orgSlug, project.projectSlug),
+          (migration) => ({ project, migration })
+        )
+      )
+      return {
+        migrated: outcomes.flatMap(({ migration }) =>
+          migration === null || migration.rewritten === 0 ? [] : [migration]
+        ),
+        failed: outcomes.flatMap(({ project, migration }) =>
+          migration === null ? [project] : []
+        )
+      }
+    }
+  )
+
+  return LibraryMigration.of({ migrateTemplates, migrateTicketTypes })
 })
 
 export const layer = Layer.effect(LibraryMigration, make)

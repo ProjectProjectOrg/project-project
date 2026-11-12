@@ -1,8 +1,8 @@
 import * as Schema from "effect/Schema"
 
 import { EPIC_TYPE } from "../tickets/hierarchy"
-import { TicketType } from "../tickets/Ticket"
 import { type BlockDraft, type BlockIcon, TypeDraft } from "./Library"
+import type { TypeKey } from "./LibraryKey"
 import { blockDraftsFrom, type BlockSource, lines, references } from "./sources"
 
 type TypeSource = Readonly<{
@@ -118,7 +118,7 @@ const TYPE_SOURCES: ReadonlyArray<TypeSource> = [
     key: "feat",
     name: "Feature",
     icon: "Sparkles",
-    color: "#00bc85",
+    color: "#70b445",
     description: "New behaviour users will notice",
     body: references(
       "context",
@@ -167,17 +167,12 @@ export const BUILTIN_TYPES: ReadonlyArray<TypeDraft> = decodeTypeDrafts(
   TYPE_SOURCES.map((source) => ({ ...source, priority: null, tags: [] }))
 )
 
-export const BUILTIN_TYPE_KEYS: ReadonlyArray<string> = BUILTIN_TYPES.map(
+export const BUILTIN_TYPE_KEYS: ReadonlyArray<TypeKey> = BUILTIN_TYPES.map(
   (type) => type.key
 )
 
 export const isBuiltinTypeKey = (key: string): boolean =>
-  BUILTIN_TYPE_KEYS.includes(key)
+  BUILTIN_TYPE_KEYS.some((builtin) => builtin === key)
 
 export const builtinType = (key: string): TypeDraft | undefined =>
   BUILTIN_TYPES.find((type) => type.key === key)
-
-const isTicketType = Schema.is(TicketType)
-
-export const ticketTypeForKey = (key: string): TicketType | null =>
-  isTicketType(key) ? key : null

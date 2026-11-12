@@ -26,7 +26,8 @@ import {
   TagName,
   TicketId,
   TicketPriority,
-  TicketType,
+  StoredTicketType,
+  type TypeKey,
   type StatusPhase
 } from "@pp/shared"
 import { DateTime, Effect, Option, Schema } from "effect"
@@ -106,7 +107,7 @@ export type JiraStagedTicket = Readonly<{
   id: string
   title: string
   status: string
-  type: TicketType
+  type: TypeKey | null
   priority: "low" | "med" | "high"
   tags: ReadonlyArray<string>
   assignees: ReadonlyArray<string>
@@ -1227,7 +1228,7 @@ const PlannedTicket = Schema.Struct({
   id: TicketId,
   title: Schema.String,
   status: StatusSlug,
-  type: TicketType,
+  type: StoredTicketType,
   priority: TicketPriority,
   tags: Schema.Array(TagName),
   assignees: Schema.Array(Schema.String),
@@ -1302,7 +1303,7 @@ const TicketRow = Schema.Struct({
   ticketId: TicketId,
   title: Schema.String,
   status: StatusSlug,
-  type: TicketType,
+  type: StoredTicketType,
   priority: TicketPriority,
   tags: Schema.Array(TagName),
   assignees: Schema.Array(Schema.String),

@@ -7,7 +7,8 @@ import {
   TICKET_ACTIVITY_PAGE_SIZE,
   TicketId,
   TicketStatus,
-  UserId
+  UserId,
+  TypeKey
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -35,7 +36,7 @@ const ticket: TicketDocs.TicketDocument = {
   id: ticketId("T-7"),
   title: "Split me",
   status: status("todo"),
-  type: "feat",
+  type: TypeKey.make("feat"),
   priority: "med",
   tags: [],
   branch: null,

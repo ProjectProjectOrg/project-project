@@ -19,7 +19,7 @@ import {
   type BlockDefinition,
   type Library,
   type TypeDefinition,
-  type TicketType
+  TypeKey
 } from "@pp/shared"
 import {
   HISTORY_PUSH_TAG,
@@ -39,7 +39,6 @@ import {
   $replaceWithTemplate,
   $restoreBody,
   $startFromTemplate,
-  templateStarts,
   templateSwap
 } from "./descriptionTemplates"
 
@@ -90,34 +89,13 @@ const bodyOf = (editor: LexicalEditor): string =>
 const run = (editor: LexicalEditor, fn: () => void) =>
   editor.update(fn, { discrete: true, tag: HISTORY_PUSH_TAG })
 
-describe("templateStarts", () => {
-  it("puts the type's default first, then the rest by name, up to three", () => {
-    const starts = templateStarts(BUILTIN_LIBRARY, "bug")
-    expect(starts.templates.map((entry) => entry.key)).toEqual([
-      "bug",
-      "chore",
-      "design-task"
-    ])
-    expect(starts.more).toBe(true)
-  })
-
-  it("has no default to lead with for a blank type", () => {
-    const starts = templateStarts(BUILTIN_LIBRARY, "other")
-    expect(starts.templates.map((entry) => entry.name)).toEqual([
-      "Bug",
-      "Chore",
-      "Design task"
-    ])
-  })
-})
-
 describe("templateSwap", () => {
   it("swaps a body that is exactly the old type's default", () => {
     const next = templateSwap({
       library: BUILTIN_LIBRARY,
       body: expanded("bug"),
-      from: "bug",
-      to: "feat"
+      from: TypeKey.make("bug"),
+      to: TypeKey.make("feat")
     })
     expect(next?.key).toBe("feat")
   })
@@ -126,8 +104,8 @@ describe("templateSwap", () => {
     const next = templateSwap({
       library: BUILTIN_LIBRARY,
       body: `\n${expanded("bug").replaceAll("\n\n", "\n\n\n")}\n\n`,
-      from: "bug",
-      to: "feat"
+      from: TypeKey.make("bug"),
+      to: TypeKey.make("feat")
     })
     expect(next?.key).toBe("feat")
   })
@@ -136,8 +114,8 @@ describe("templateSwap", () => {
     const next = templateSwap({
       library: BUILTIN_LIBRARY,
       body: expanded("bug").replace("**Expected:**", "**Expected:** ok"),
-      from: "bug",
-      to: "feat"
+      from: TypeKey.make("bug"),
+      to: TypeKey.make("feat")
     })
     expect(next).toBeNull()
   })
@@ -146,8 +124,8 @@ describe("templateSwap", () => {
     const next = templateSwap({
       library: BUILTIN_LIBRARY,
       body: "",
-      from: "other",
-      to: "feat"
+      from: null,
+      to: TypeKey.make("feat")
     })
     expect(next?.key).toBe("feat")
   })
@@ -157,8 +135,8 @@ describe("templateSwap", () => {
       templateSwap({
         library: BUILTIN_LIBRARY,
         body: "",
-        from: "bug",
-        to: "other"
+        from: TypeKey.make("bug"),
+        to: null
       })
     ).toBeNull()
   })
@@ -168,8 +146,8 @@ describe("templateSwap", () => {
       templateSwap({
         library: BUILTIN_LIBRARY,
         body: expanded("bug"),
-        from: "bug",
-        to: "other"
+        from: TypeKey.make("bug"),
+        to: null
       })
     ).toBeNull()
   })
@@ -187,8 +165,8 @@ describe("templateSwap", () => {
       templateSwap({
         library,
         body: expanded("bug"),
-        from: "bug",
-        to: "feat"
+        from: TypeKey.make("bug"),
+        to: TypeKey.make("feat")
       })?.body
     ).toBe(template("spike").body)
   })
@@ -211,8 +189,8 @@ describe("$startFromTemplate", () => {
     const next = templateSwap({
       library: BUILTIN_LIBRARY,
       body: bodyOf(editor),
-      from: "bug",
-      to: "feat"
+      from: TypeKey.make("bug"),
+      to: TypeKey.make("feat")
     })
     expect(next?.key).toBe("feat")
   })
@@ -229,8 +207,8 @@ describe("$replaceWithTemplate and $restoreBody", () => {
       templateSwap({
         library: BUILTIN_LIBRARY,
         body: swapped,
-        from: "chore",
-        to: "bug"
+        from: TypeKey.make("chore"),
+        to: TypeKey.make("bug")
       })?.key
     ).toBe("bug")
     run(editor, () => $restoreBody(previous, MARKDOWN_TRANSFORMERS))
@@ -276,7 +254,7 @@ function liveEditor(markdown: string): LexicalEditor {
   return editor
 }
 
-const defaultBody = (type: TicketType): string => {
+const defaultBody = (type: string): string => {
   const found = typeFor(chainLibrary, type)
   if (found === null) throw new Error(`no default for ${type}`)
   return expandType(found, chainLookup)
@@ -284,14 +262,14 @@ const defaultBody = (type: TicketType): string => {
 
 const changeType = (
   editor: LexicalEditor,
-  from: TicketType,
-  to: TicketType
+  from: string | null,
+  to: string | null
 ): string | null => {
   const next = templateSwap({
     library: chainLibrary,
     body: bodyOf(editor),
-    from,
-    to
+    from: from === null ? null : TypeKey.make(from),
+    to: to === null ? null : TypeKey.make(to)
   })
   if (next !== null)
     run(editor, () =>
@@ -345,8 +323,8 @@ describe("type swap across repeated changes", () => {
 
   it("swaps again after passing through a blank type", () => {
     const editor = liveEditor(defaultBody("feat"))
-    expect(changeType(editor, "feat", "other")).toBeNull()
-    expect(changeType(editor, "other", "bug")).toBe("bug")
+    expect(changeType(editor, "feat", null)).toBeNull()
+    expect(changeType(editor, null, "bug")).toBe("bug")
   })
 
   it("swaps a body started from a template that is not the default", () => {
@@ -369,8 +347,8 @@ describe("type swap across repeated changes", () => {
       templateSwap({
         library: chainLibrary,
         body: withHints,
-        from: "bug",
-        to: "feat"
+        from: TypeKey.make("bug"),
+        to: TypeKey.make("feat")
       })?.key
     ).toBe("feat")
   })

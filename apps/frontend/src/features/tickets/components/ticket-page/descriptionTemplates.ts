@@ -3,14 +3,16 @@ import {
   isPristineTypeBody,
   stripHints,
   typeFor,
+  type BlockDefinition,
   type BlockLookup,
   type Library,
   type TypeDefinition,
-  type TicketType
+  type TypeKey
 } from "@pp/shared"
 import {
   $createParagraphNode,
   $getRoot,
+  $isParagraphNode,
   $getSelection,
   $isRangeSelection,
   $setSelection,
@@ -19,42 +21,24 @@ import {
 } from "lexical"
 
 import { $applyTemplate } from "@/features/editor/lexical/blocks/blockCommands"
-import { orderedTemplates } from "@/features/editor/lexical/blocks/slashMenuItems"
+import { $runSlashItem } from "@/features/editor/lexical/blocks/slashCommands"
 import { lookupFor } from "@/features/editor/lib/blockChrome"
-
-export const START_TEMPLATE_LIMIT = 3
-
-export type TemplateStarts = Readonly<{
-  templates: ReadonlyArray<TypeDefinition>
-  more: boolean
-}>
-
-export const templateStarts = (
-  library: Library,
-  ticketType: TicketType
-): TemplateStarts => {
-  const templates = orderedTemplates(library, ticketType)
-  return {
-    templates: templates.slice(0, START_TEMPLATE_LIMIT),
-    more: templates.length > START_TEMPLATE_LIMIT
-  }
-}
 
 export type TemplateSwapInput = Readonly<{
   library: Library
   body: string
-  from: TicketType
-  to: TicketType
+  from: TypeKey | null
+  to: TypeKey | null
 }>
 
 const untouchedTemplate = (
   library: Library,
   body: string,
-  from: TicketType
+  from: TypeKey | null
 ): TypeDefinition | null => {
   const lookup = lookupFor(library)
   const comparable = stripHints(body)
-  const current = typeFor(library, from)
+  const current = from === null ? null : typeFor(library, from)
   const candidates =
     current === null
       ? library.types
@@ -72,7 +56,7 @@ export const templateSwap = ({
   from,
   to
 }: TemplateSwapInput): TypeDefinition | null => {
-  const next = typeFor(library, to)
+  const next = to === null ? null : typeFor(library, to)
   if (next === null) return null
   if (body.trim() === "") return next
   const untouched = untouchedTemplate(library, body, from)
@@ -151,5 +135,41 @@ export function restoreBody(
 ) {
   editor.update(() => $restoreBody(markdown, transformers), {
     tag: HISTORY_PUSH_TAG
+  })
+}
+
+export function $appendSection(
+  editor: LexicalEditor,
+  definition: BlockDefinition,
+  context: TemplateBodyContext
+) {
+  const root = $getRoot()
+  const last = root.getLastChild()
+  if ($isParagraphNode(last) && last.getTextContentSize() === 0) last.select()
+  else {
+    const line = $createParagraphNode()
+    root.append(line)
+    line.select()
+  }
+  $runSlashItem(
+    editor,
+    {
+      kind: "block",
+      key: `block:${definition.key}`,
+      definition,
+      suggestedBy: null
+    },
+    { ...context, detach: false }
+  )
+}
+
+export function appendSection(
+  editor: LexicalEditor,
+  definition: BlockDefinition,
+  context: TemplateBodyContext
+) {
+  editor.update(() => $appendSection(editor, definition, context), {
+    tag: HISTORY_PUSH_TAG,
+    onUpdate: () => editor.focus()
   })
 }

@@ -92,7 +92,7 @@ const ticketDetail = {
   id: "T-1",
   title: "Ticket",
   status: "todo",
-  type: "other",
+  type: null,
   priority: "med",
   tags: [],
   branch: "feat/T-1",

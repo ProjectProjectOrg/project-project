@@ -64,16 +64,6 @@ describe("toolErrorMessage", () => {
     )
   })
 
-  it("names an unknown template key and points at list_templates", () => {
-    const text = toolErrorMessage(
-      new Validation({ reason: "unknown_template:bug-report" })
-    )
-    expect(text).toBe(
-      'Unknown template "bug-report". Discover the project\'s template keys ' +
-        "via list_templates, or omit template for a blank ticket."
-    )
-  })
-
   it("leaves untagged values unmapped for the caller to treat as internal", () => {
     expect(toolErrorMessage(new Error("boom"))).toBeUndefined()
   })

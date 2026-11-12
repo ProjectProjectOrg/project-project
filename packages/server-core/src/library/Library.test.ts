@@ -223,7 +223,7 @@ const typeInput = (
     icon: "Siren",
     color: null,
     description: "Something is on fire",
-    type: "bug",
+    type: TypeKey.make("bug"),
     priority: "high",
     tags: [],
     body: '<block type="context">\n\n</block>',
@@ -469,7 +469,7 @@ describe("built-in entries", () => {
           yield* library
             .expandForCreate("acme", "web", typeKey("bug"))
             .pipe(Effect.flip)
-        ).toMatchObject({ _tag: "Validation", reason: "unknown_template:bug" })
+        ).toMatchObject({ _tag: "Validation", reason: "unknown_type:bug" })
 
         yield* library.removeType("bug").pipe(asProject("project-admin"))
         const shown = yield* library.projectLibrary().pipe(asProject("member"))
@@ -841,7 +841,6 @@ describe("expandForCreate", () => {
           typeKey("bug")
         )
 
-        expect(expansion.type).toBe("bug")
         expect(expansion.body).toContain(
           '<block type="definition-of-done" sync>'
         )
@@ -867,26 +866,6 @@ describe("expandForCreate", () => {
         )
         expect(expansion.body).not.toContain('<block type="environment">')
         expect(expansion.body).toContain('<block type="steps-to-reproduce">')
-      }),
-      world
-    )
-  })
-
-  it.effect("sets the ticket type only for a built-in type key", () => {
-    const world = makeWorld()
-    adopt(world, null, ["spike"])
-    return run(
-      Effect.gen(function* () {
-        const library = yield* Library.Library
-        const typeOf = (key: string) =>
-          library
-            .expandForCreate("acme", "web", typeKey(key))
-            .pipe(Effect.map((expansion) => expansion.type))
-
-        expect(yield* typeOf("feat")).toBe("feat")
-        expect(yield* typeOf("chore")).toBe("chore")
-        expect(yield* typeOf("epic")).toBe("epic")
-        expect(yield* typeOf("spike")).toBeNull()
       }),
       world
     )
@@ -971,11 +950,11 @@ describe("expandForCreate", () => {
 
         expect(unadopted).toMatchObject({
           _tag: "Validation",
-          reason: "unknown_template:incident"
+          reason: "unknown_type:incident"
         })
         expect(hidden).toMatchObject({
           _tag: "Validation",
-          reason: "unknown_template:spike"
+          reason: "unknown_type:spike"
         })
       }),
       world

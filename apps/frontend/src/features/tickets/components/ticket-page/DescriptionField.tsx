@@ -2,10 +2,10 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { $convertToMarkdownString } from "@lexical/markdown"
 import {
   expandType,
+  typeFor,
   type Member,
-  type TypeDefinition,
   type TicketDetail,
-  type TicketType
+  type TypeKey
 } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
@@ -33,7 +33,7 @@ import {
 import { useEditorBlocks } from "@/features/editor/hooks/useEditorBlocks"
 import { AttachmentAvailabilityProvider } from "@/features/editor/lexical/attachmentAvailability"
 import { $selectFirstHint } from "@/features/editor/lexical/blocks/blockCommands"
-import { OPEN_SLASH_MENU_COMMAND } from "@/features/editor/lexical/blocks/SlashMenuPlugin"
+import { addSectionGroups } from "@/features/editor/lexical/blocks/slashMenuItems"
 import { lookupFor } from "@/features/editor/lib/blockChrome"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
@@ -44,18 +44,21 @@ import {
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
 import { useTicketParticipants } from "@/features/tickets/hooks/useTicketParticipants"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
+import { startingTypes } from "@/features/tickets/lib/creatorType"
 import { useOrgActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+import { AddSectionButton } from "./AddSectionButton"
 import {
+  appendSection,
   replaceWithTemplate,
   restoreBody,
   startFromTemplate,
-  templateStarts,
   templateSwap
 } from "./descriptionTemplates"
-import { DescriptionTemplateStarts } from "./DescriptionTemplateStarts"
+import { DescriptionTypeStarts } from "./DescriptionTypeStarts"
 
 export type TemplateSwapNote = Readonly<{
   name: string
@@ -64,7 +67,10 @@ export type TemplateSwapNote = Readonly<{
 }>
 
 export type DescriptionHandle = Readonly<{
-  swapTemplate: (from: TicketType, to: TicketType) => TemplateSwapNote | null
+  swapTemplate: (
+    from: TypeKey | null,
+    to: TypeKey | null
+  ) => TemplateSwapNote | null
   restore: (markdown: string) => void
   matches: (markdown: string) => boolean
   onEdit: (markdown: string, callback: () => void) => () => void
@@ -77,12 +83,14 @@ export function DescriptionField({
   members,
   autoFocus,
   onStatusChange,
+  onStartType,
   ref
 }: Readonly<{
   ticket: TicketDetail
   members: ReadonlyArray<Member>
   autoFocus: boolean
   onStatusChange: (status: SaveStatus) => void
+  onStartType: (type: TypeKey) => void
   ref?: Ref<DescriptionHandle>
 }>) {
   const { orgSlug, slug } = useProjectRoute()
@@ -108,17 +116,19 @@ export function DescriptionField({
   const library = blocks?.library ?? null
   const lookup = useMemo(() => lookupFor(library), [library])
 
-  const startFrom = (template: TypeDefinition) => {
-    const editor = editorRef.current
-    if (editor === null) return
-    startFromTemplate(editor, expandType(template, lookup), {
-      transformers,
-      lookup
-    })
-  }
+  const types = useTicketTypes(orgSlug, slug)
+  const body = bodyDraft ?? ticket.body
 
-  const openTemplateMenu = () =>
-    editorRef.current?.dispatchCommand(OPEN_SLASH_MENU_COMMAND, "templates")
+  const startAs = (key: TypeKey) => {
+    const editor = editorRef.current
+    const definition = library === null ? null : typeFor(library, key)
+    if (key !== ticket.type) onStartType(key)
+    else if (editor !== null && definition !== null)
+      startFromTemplate(editor, expandType(definition, lookup), {
+        transformers,
+        lookup
+      })
+  }
 
   useImperativeHandle(ref, () => {
     const markdownOf = (editor: LexicalEditorType): string =>
@@ -172,10 +182,9 @@ export function DescriptionField({
     })
   }, [autoFocus, library, lookup])
 
+  const empty = body.trim() === ""
   const offersStarts =
-    library !== null &&
-    (bodyDraft ?? ticket.body).trim() === "" &&
-    templateStarts(library, ticket.type).templates.length > 0
+    library !== null && empty && startingTypes(types, ticket.type).length > 0
 
   return (
     <div>
@@ -185,7 +194,7 @@ export function DescriptionField({
             <AttachmentAvailabilityProvider missing={ticket.missingAttachments}>
               <LexicalEditor
                 key={`${slug}/${ticket.id}`}
-                markdown={bodyDraft ?? ticket.body}
+                markdown={body}
                 onDraftChange={setBodyDraft}
                 onChange={async (next) => {
                   const exit = await update({ body: next })
@@ -201,18 +210,33 @@ export function DescriptionField({
               />
             </AttachmentAvailabilityProvider>
           </MentionScopeProvider>
-          {library !== null && (
-            <DescriptionTemplateStarts
-              library={library}
+          {offersStarts && (
+            <DescriptionTypeStarts
+              types={types}
               ticketType={ticket.type}
-              body={bodyDraft ?? ticket.body}
-              onStart={startFrom}
-              onMore={openTemplateMenu}
+              onStart={startAs}
               className="absolute inset-x-0 top-7 bottom-0"
             />
           )}
         </div>
       </div>
+      {library !== null && !empty && (
+        <div className="mt-1 px-3">
+          <AddSectionButton
+            groups={addSectionGroups({
+              library,
+              lookup,
+              ticketType: ticket.type,
+              body
+            })}
+            onAdd={(definition) => {
+              const editor = editorRef.current
+              if (editor !== null)
+                appendSection(editor, definition, { transformers, lookup })
+            }}
+          />
+        </div>
+      )}
       {definitionError !== null && (
         <p
           role="alert"

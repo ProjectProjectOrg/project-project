@@ -1,8 +1,12 @@
-import type { Ticket, TicketType } from "./Ticket"
+import * as Schema from "effect/Schema"
+
+import type { Ticket } from "./Ticket"
 
 type Typed = Readonly<{ type?: string | null }> | null | undefined
 
-export const EPIC_TYPE = "epic" satisfies TicketType
+export const EPIC_TYPE = Schema.Literal("epic")
+  .pipe(Schema.brand("TypeKey"))
+  .make("epic")
 
 export const isEpicType = (
   type: string | null | undefined
