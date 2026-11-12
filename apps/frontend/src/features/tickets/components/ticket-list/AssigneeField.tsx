@@ -199,12 +199,14 @@ export function AssignMeItem({
 export function AssigneeSelect({
   value,
   onChange,
+  onClear,
   members,
   variant = "row",
   className
 }: {
   value: ReadonlyArray<string>
   onChange: (assignees: ReadonlyArray<string>) => void
+  onClear?: () => void
   members: ReadonlyArray<Member>
   variant?: AssigneeVariant
   className?: string
@@ -212,7 +214,9 @@ export function AssigneeSelect({
   const resolved = resolveAssignees(value, members)
   const toggle = (memberId: string) => onChange(toggleAssignee(value, memberId))
   const clear = () => {
-    if (value.length > 0) onChange([])
+    if (value.length === 0) return
+    if (onClear === undefined) onChange([])
+    else onClear()
   }
 
   const label =
@@ -298,13 +302,9 @@ export function AssigneeField({
     <AssigneeSelect
       value={ticket.assignees}
       onChange={(assignees) =>
-        onPatch({
-          assignees:
-            assignees.length === 0
-              ? []
-              : listEditBetween(ticket.assignees, assignees)
-        })
+        onPatch({ assignees: listEditBetween(ticket.assignees, assignees) })
       }
+      onClear={() => onPatch({ assignees: [] })}
       members={members}
       variant={variant}
       className={className}

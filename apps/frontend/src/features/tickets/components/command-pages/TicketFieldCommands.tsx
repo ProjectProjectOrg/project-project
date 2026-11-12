@@ -100,6 +100,10 @@ export function TicketEstimatePage({
     options.map((estimate) => [formatEstimate(estimate), estimate])
   )
   const estimate = current?.estimate ?? null
+  const clearable =
+    context.selection.length > 1
+      ? context.selection.some((each) => each.estimate !== null)
+      : estimate !== null
   return (
     <CommandFrame
       chip={chip}
@@ -112,7 +116,7 @@ export function TicketEstimatePage({
           label: formatEstimate(option),
           prefiltered: mode !== "tshirt"
         })),
-        ...(estimate === null
+        ...(!clearable
           ? []
           : [
               {
