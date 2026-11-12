@@ -1,8 +1,9 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { Project, TicketDetail } from "@pp/shared"
+import { hasSubTickets, type Project, type TicketDetail } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
+import { FolderInput } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 import { CommandMenuItem } from "@/components/ui/command-menu"
@@ -40,6 +41,8 @@ export function TicketMovePage({
     .filter((project) => project.slug !== ticket.slug)
     .toSorted((a, b) => a.name.localeCompare(b.name))
   const chosen = projects.find((project) => project.slug === destination)
+  const epicHasTickets =
+    context.ticketDetail?.type === "epic" && hasSubTickets(context.ticketDetail)
 
   if (chosen !== undefined && context.ticketDetail !== null) {
     return (
@@ -60,11 +63,24 @@ export function TicketMovePage({
       placeholder={m.tickets_command_move_project_placeholder()}
       onBack={onBack}
       notice={Result.isFailure(result) ? m.tickets_move_projects_error() : null}
-      items={projects.map((project) => ({
-        value: project.slug,
-        label: project.name,
-        keywords: [project.key]
-      }))}
+      empty={
+        epicHasTickets
+          ? {
+              icon: FolderInput,
+              title: m.tickets_move_error_epic_has_tickets(),
+              description: ""
+            }
+          : undefined
+      }
+      items={
+        epicHasTickets
+          ? []
+          : projects.map((project) => ({
+              value: project.slug,
+              label: project.name,
+              keywords: [project.key]
+            }))
+      }
       onSelect={(item) => setDestination(item.value)}
       renderItem={(item) => {
         const project = projects.find((entry) => entry.slug === item.value)
