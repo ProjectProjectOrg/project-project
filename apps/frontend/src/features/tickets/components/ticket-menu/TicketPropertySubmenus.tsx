@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { TagName, TicketType, type Member } from "@pp/shared"
+import { listEditBetween, TagName, TicketType, type Member } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
@@ -37,7 +37,6 @@ import { createTag, tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
 import { AssignMeItem } from "@/features/tickets/components/ticket-list/AssigneeField"
 import { typeOptions } from "@/features/tickets/components/ticket-list/TypeField"
-import { useApplyCreatedTag } from "@/features/tickets/hooks/useApplyCreatedTag"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { toggleAssignee } from "@/features/tickets/lib/assignees"
 import {
@@ -122,7 +121,7 @@ export function TicketPropertySubmenus({
     closeOnClick: true
   }))
   const setAssignees = (assignees: ReadonlyArray<string>) =>
-    onPatch({ assignees })
+    onPatch({ assignees: listEditBetween(ticket.assignees, assignees) })
 
   return (
     <>
@@ -256,18 +255,15 @@ function TagsSubmenu({
   const create = useAtomSet(createTag(req), { mode: "promiseExit" })
   const canCreate = useProjectActor().call("tags", "create")
   const [draft, setDraft] = useState("")
-  const applyCreatedTag = useApplyCreatedTag(applied, onPatch)
   const tags = Result.isSuccess(result) ? result.value : []
   const toggle = (name: TagName) =>
     onPatch({
-      tags: applied.includes(name)
-        ? applied.filter((tag) => tag !== name)
-        : [...applied, name]
+      tags: applied.includes(name) ? { remove: [name] } : { add: [name] }
     })
   const createAndApply = async (name: TagName) => {
     setDraft("")
     const exit = await create({ name })
-    if (Exit.isSuccess(exit)) applyCreatedTag(name)
+    if (Exit.isSuccess(exit)) onPatch({ tags: { add: [name] } })
   }
   return (
     <DropdownMenuSub

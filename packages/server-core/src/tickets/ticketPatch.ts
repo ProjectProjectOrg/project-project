@@ -1,5 +1,5 @@
 import type { TicketPolicy } from "@pp/access/policies"
-import type { UpdateTicketInput } from "@pp/shared"
+import { applyListEdit, type UpdateTicketInput } from "@pp/shared"
 import * as Equal from "effect/Equal"
 
 import type * as TicketDocs from "./TicketDocs"
@@ -36,9 +36,14 @@ export const applyTicketPatch = (
     patch.estimate === undefined
       ? existing.estimate
       : (patch.estimate ?? undefined),
-  tags: patch.tags === undefined ? existing.tags : [...patch.tags],
+  tags:
+    patch.tags === undefined
+      ? existing.tags
+      : [...applyListEdit(existing.tags, patch.tags)],
   assignees:
-    patch.assignees === undefined ? existing.assignees : [...patch.assignees],
+    patch.assignees === undefined
+      ? existing.assignees
+      : [...applyListEdit(existing.assignees, patch.assignees)],
   blockedBy:
     patch.blockedBy === undefined
       ? existing.blockedBy

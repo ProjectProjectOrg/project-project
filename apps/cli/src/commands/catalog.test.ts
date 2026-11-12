@@ -47,6 +47,13 @@ describe("generated commands", () => {
     })
   })
 
+  it("keep list flags for fields that also accept { add, remove }", () => {
+    const kinds = Object.fromEntries(
+      entry("update_ticket").fields.map((field) => [field.name, field.kind])
+    )
+    expect(kinds).toMatchObject({ tags: "strings", assignees: "strings" })
+  })
+
   it("offer enum values as choices and describe each flag", () => {
     const fields = Object.fromEntries(
       entry("list_tickets").fields.map((field) => [field.name, field])

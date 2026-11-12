@@ -138,7 +138,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
         updateTicketDetail(
           ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
         ),
-        { assignees: [...ticketDetail.assignees, viewerId] }
+        { assignees: { add: [viewerId] } }
       )
       env.close()
     }
@@ -160,7 +160,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
         updateTicketDetail(
           ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
         ),
-        { assignees: ticketDetail.assignees.filter((id) => id !== viewerId) }
+        { assignees: { remove: [viewerId] } }
       )
       env.close()
     }

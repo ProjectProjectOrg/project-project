@@ -6,6 +6,7 @@ import {
   Conflict,
   DEFAULT_TICKET_SORT,
   isStaleEstimate,
+  listEditAdds,
   MentionInvalid,
   NotFound,
   formatMentionHref,
@@ -721,7 +722,7 @@ const make = Effect.gen(function* () {
               : validateStatusExists(projectId, input.status),
             input.tags === undefined
               ? Effect.void
-              : validateTagsExist(projectId, input.tags),
+              : validateTagsExist(projectId, listEditAdds(input.tags)),
             gitView,
             input.body === undefined
               ? Effect.succeed(undefined)
@@ -768,7 +769,7 @@ const make = Effect.gen(function* () {
               yield* requireTicketChange(ticketChangeOf(existing, next))
               if (input.assignees !== undefined) {
                 const existingSet = new Set(existing.assignees)
-                const newcomers = input.assignees.filter(
+                const newcomers = next.assignees.filter(
                   (assigneeId) => !existingSet.has(assigneeId)
                 )
                 if (newcomers.length > 0) {
@@ -1828,7 +1829,7 @@ const make = Effect.gen(function* () {
           : validateStatusExists(projectId, fields.status),
         fields.tags === undefined
           ? Effect.void
-          : validateTagsExist(projectId, fields.tags),
+          : validateTagsExist(projectId, listEditAdds(fields.tags)),
         validateEstimate(scope, fields.estimate),
         sprint === undefined || sprint === null
           ? Effect.void

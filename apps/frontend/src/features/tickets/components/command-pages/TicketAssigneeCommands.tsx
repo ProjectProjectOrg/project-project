@@ -49,8 +49,8 @@ export function TicketAssigneeCommands({
         if (current === null || member === undefined) return
         update({
           assignees: assigned.has(member.id)
-            ? current.assignees.filter((id) => id !== member.id)
-            : [...current.assignees, member.id]
+            ? { remove: [member.id] }
+            : { add: [member.id] }
         })
         onClose()
       }}

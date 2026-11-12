@@ -1,8 +1,11 @@
-import type {
-  Ticket,
-  TicketDetail,
-  TicketParent,
-  UpdateTicketInput
+import {
+  applyListEdit,
+  composeListEdit,
+  type ListEdit,
+  type Ticket,
+  type TicketDetail,
+  type TicketParent,
+  type UpdateTicketInput
 } from "@pp/shared"
 
 export const parentRef = ({
@@ -20,6 +23,26 @@ export const toUpdateInput = ({
 }: TicketEdit): UpdateTicketInput =>
   parent === undefined ? edit : { ...edit, parent: parent?.id ?? null }
 
+const composed = <A>(
+  pending: ListEdit<A> | undefined,
+  next: ListEdit<A> | undefined
+) =>
+  pending === undefined || next === undefined
+    ? (next ?? pending)
+    : composeListEdit(pending, next)
+
+export const mergeTicketEdit = (
+  pending: TicketEdit,
+  next: TicketEdit
+): TicketEdit => {
+  return {
+    ...pending,
+    ...next,
+    tags: composed(pending.tags, next.tags),
+    assignees: composed(pending.assignees, next.assignees)
+  }
+}
+
 /** Apply a server patch to a list row. Fields absent from the patch are kept. */
 export function applyTicketPatch(ticket: Ticket, patch: TicketEdit): Ticket {
   return {
@@ -29,8 +52,14 @@ export function applyTicketPatch(ticket: Ticket, patch: TicketEdit): Ticket {
     type: patch.type ?? ticket.type,
     priority: patch.priority ?? ticket.priority,
     estimate: patch.estimate !== undefined ? patch.estimate : ticket.estimate,
-    tags: patch.tags ?? ticket.tags,
-    assignees: patch.assignees ?? ticket.assignees,
+    tags:
+      patch.tags === undefined
+        ? ticket.tags
+        : applyListEdit(ticket.tags, patch.tags),
+    assignees:
+      patch.assignees === undefined
+        ? ticket.assignees
+        : applyListEdit(ticket.assignees, patch.assignees),
     parent: patch.parent === undefined ? ticket.parent : patch.parent
   }
 }
