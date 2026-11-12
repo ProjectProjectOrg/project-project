@@ -66,7 +66,7 @@ const defaultConfiguration = (
   })),
   issueTypes: requirements.issueTypes.map((issueType) => ({
     jiraIssueTypeId: issueType.jiraIssueTypeId,
-    projectType: issueType.suggestedProjectType ?? "other"
+    projectType: issueType.suggestedProjectType
   })),
   priorities: requirements.priorities.map((priority) => ({
     jiraPriorityId: priority.jiraPriorityId,

@@ -1,11 +1,11 @@
 import { useAtomValue } from "@effect/atom-react"
 import {
-  JiraProjectType,
-  ticketTypeOfJira,
+  NO_TYPE_FILTER,
   type JiraMigrationDestinationConflict,
   type JiraMigrationDetail,
   type JiraMigrationRequirements,
-  type TicketPriority
+  type TicketPriority,
+  type TypeDefinition
 } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
@@ -32,10 +32,6 @@ import {
 } from "@/features/jira/lib/setup"
 import { NoTypeIcon } from "@/features/tickets/components/TypeGlyph"
 import { PRIORITY_META } from "@/features/tickets/lib/priorityMeta"
-import {
-  BUILTIN_TYPE_DEFINITIONS,
-  resolveType
-} from "@/features/tickets/lib/ticketTypes"
 import { useOrgActor } from "@/hooks/useActor"
 import { useFormValues } from "@/lib/form"
 import { m } from "@/paraglide/messages"
@@ -49,17 +45,22 @@ import { SprintsSection } from "./SprintsSection"
 import { StatusesSection } from "./StatusesSection"
 import { TagsSection } from "./TagsSection"
 
-const typeOptions: ReadonlyArray<EnumOption<JiraProjectType>> =
-  JiraProjectType.literals.map((value) => {
-    const type = resolveType(BUILTIN_TYPE_DEFINITIONS, ticketTypeOfJira(value))
-    return type === null
-      ? { value, label: m.jira_import_type_none, icon: NoTypeIcon }
-      : {
-          value,
-          label: () => type.name,
-          icon: blockIconComponent(type.icon)
-        }
-  })
+const typeOptionsOf = (
+  types: ReadonlyArray<TypeDefinition>
+): ReadonlyArray<EnumOption<string>> => [
+  ...types.map((type) => ({
+    value: type.key,
+    label: () => type.name,
+    icon: blockIconComponent(type.icon)
+  })),
+  { value: NO_TYPE_FILTER, label: m.jira_import_type_none, icon: NoTypeIcon }
+]
+
+const typeOptionOf = (type: string | null | undefined): string | undefined =>
+  type === null ? NO_TYPE_FILTER : type
+
+const typeOfOption = (value: string): string | null =>
+  value === NO_TYPE_FILTER ? null : value
 
 const priorityOptions: ReadonlyArray<EnumOption<TicketPriority>> = [
   {
@@ -89,6 +90,7 @@ export function SetupStep({
   orgSlug,
   detail,
   requirements,
+  types,
   draft,
   focusSection,
   onFocusSection,
@@ -101,6 +103,7 @@ export function SetupStep({
   orgSlug: string
   detail: JiraMigrationDetail
   requirements: JiraMigrationRequirements
+  types: ReadonlyArray<TypeDefinition>
   draft: JiraImportDraftSave
   focusSection: JiraSetupSection | undefined
   onFocusSection: (section: JiraSetupSection | undefined) => void
@@ -125,6 +128,7 @@ export function SetupStep({
     conflictingFields(conflicts)
   )
   const sections = visibleSetupSections(requirements)
+  const [typeOptions] = useState(() => typeOptionsOf(types))
   const [validator] = useState(() =>
     Schema.toStandardSchemaV1(setupSchema(requirements))
   )
@@ -220,6 +224,7 @@ export function SetupStep({
                 section={section}
                 form={form}
                 requirements={requirements}
+                typeOptions={typeOptions}
                 values={values}
                 counts={counts}
                 canInvite={canInvite}
@@ -244,6 +249,7 @@ function SetupSectionView({
   section,
   form,
   requirements,
+  typeOptions,
   values,
   counts,
   canInvite,
@@ -256,6 +262,7 @@ function SetupSectionView({
   section: JiraSetupSection
   form: JiraImportForm
   requirements: JiraMigrationRequirements
+  typeOptions: ReadonlyArray<EnumOption<string>>
   values: JiraImportDraft
   counts: JiraSetupCounts
   canInvite: boolean
@@ -294,13 +301,13 @@ function SetupSectionView({
             name: issueType.name,
             context: issueType.isSubtask ? m.jira_import_types_subtask() : null,
             count: issueType.issueCount,
-            value: values.setup.issueTypes[index]?.projectType
+            value: typeOptionOf(values.setup.issueTypes[index]?.projectType)
           }))}
           cell={(index, control) => (
             <form.Field name={`setup.issueTypes[${index}].projectType`}>
               {(field) =>
-                control(field.value, (next) => {
-                  field.handleChange(next)
+                control(typeOptionOf(field.value), (next) => {
+                  field.handleChange(typeOfOption(next))
                   commit()
                 })
               }
