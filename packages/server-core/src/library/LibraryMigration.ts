@@ -3,6 +3,7 @@ import * as Context from "effect/Context"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
+import * as Match from "effect/Match"
 
 import { markdownFileContent, parseMarkdownFile } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
@@ -17,6 +18,7 @@ import {
   type MigrationStep,
   planOrgLayer,
   planProjectLayer,
+  stepKey,
   withoutLegacyDefaults
 } from "./typeMigration"
 
@@ -66,15 +68,24 @@ type ProjectOutcome = Readonly<{
 const hasLegacyDefaults = (frontmatter: LegacyFrontmatter | null): boolean =>
   frontmatter !== null && LEGACY_DEFAULTS_KEY in frontmatter.data
 
-const stepTarget = (step: MigrationStep): string =>
-  step._tag === "type" ? step.draft.key : step.key
-
 const stepOutcome = (step: MigrationStep): string =>
-  step._tag === "tombstone"
-    ? "hidden type"
-    : step._tag === "raw"
-      ? "unreadable type file"
-      : "type"
+  Match.value(step).pipe(
+    Match.tagsExhaustive({
+      type: () => "type",
+      raw: () => "unreadable type file",
+      tombstone: () => "hidden type"
+    })
+  )
+
+const logLayer = (migration: LayerMigration): Effect.Effect<void> =>
+  Effect.logInfo("library migration: layer migrated").pipe(
+    Effect.annotateLogs({
+      orgSlug: migration.orgSlug,
+      projectSlug: migration.projectSlug,
+      written: migration.written.length,
+      skipped: migration.skipped.length
+    })
+  )
 
 const make = Effect.gen(function* () {
   const markdown = yield* Markdown.Markdown
@@ -140,17 +151,21 @@ const make = Effect.gen(function* () {
     projectSlug: string | null,
     step: MigrationStep
   ): Effect.Effect<void, Markdown.MarkdownError> =>
-    step._tag === "type"
-      ? docs.writeType(orgSlug, projectSlug, step.draft)
-      : step._tag === "tombstone"
-        ? docs.writeTombstone(orgSlug, projectSlug, "types", step.key)
-        : markdown.writeLibraryFile(
+    Match.value(step).pipe(
+      Match.tagsExhaustive({
+        type: (typed) => docs.writeType(orgSlug, projectSlug, typed.draft),
+        tombstone: (hidden) =>
+          docs.writeTombstone(orgSlug, projectSlug, "types", hidden.key),
+        raw: (raw) =>
+          markdown.writeLibraryFile(
             orgSlug,
             projectSlug,
             "types",
-            step.key,
-            step.content
+            raw.key,
+            raw.content
           )
+      })
+    )
 
   const applyStep = (
     orgSlug: string,
@@ -158,14 +173,14 @@ const make = Effect.gen(function* () {
     step: MigrationStep
   ): Effect.Effect<boolean, Markdown.MarkdownError> =>
     Effect.gen(function* () {
-      const type = stepTarget(step)
+      const type = stepKey(step)
       const annotations = {
         orgSlug,
         projectSlug,
         template: step.template,
         type,
         became: stepOutcome(step),
-        renamed: step._tag !== "tombstone" && type !== step.template
+        renamed: type !== step.template
       }
       if (yield* docs.hasFile(orgSlug, projectSlug, "types", type)) {
         yield* Effect.logInfo(
@@ -188,7 +203,7 @@ const make = Effect.gen(function* () {
     Effect.gen(function* () {
       const outcomes = yield* Effect.forEach(plan.steps, (step) =>
         Effect.map(applyStep(orgSlug, projectSlug, step), (written) => ({
-          key: stepTarget(step),
+          key: stepKey(step),
           written
         }))
       )
@@ -239,16 +254,6 @@ const make = Effect.gen(function* () {
           )
       return true
     })
-
-  const logLayer = (migration: LayerMigration): Effect.Effect<void> =>
-    Effect.logInfo("library migration: layer migrated").pipe(
-      Effect.annotateLogs({
-        orgSlug: migration.orgSlug,
-        projectSlug: migration.projectSlug,
-        written: migration.written.length,
-        skipped: migration.skipped.length
-      })
-    )
 
   const migrateProject = (
     orgSlug: string,

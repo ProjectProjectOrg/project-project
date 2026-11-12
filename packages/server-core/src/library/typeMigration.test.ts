@@ -1,3 +1,4 @@
+import * as Match from "effect/Match"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -33,9 +34,16 @@ const layer = (overrides: Partial<LegacyLayer>): LegacyLayer => ({
 
 const summary = (steps: ReturnType<typeof planOrgLayer>["steps"]) =>
   steps.map((step) =>
-    step._tag === "type"
-      ? `${step.template} -> ${step.draft.key} (${step.draft.name})`
-      : `${step.template} -> ${step.key} [${step._tag}]`
+    Match.value(step).pipe(
+      Match.tag(
+        "type",
+        (typed) =>
+          `${typed.template} -> ${typed.draft.key} (${typed.draft.name})`
+      ),
+      Match.orElse(
+        (other) => `${other.template} -> ${other.key} [${other._tag}]`
+      )
+    )
   )
 
 describe("legacy frontmatter", () => {

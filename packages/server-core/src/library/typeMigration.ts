@@ -6,6 +6,8 @@ import {
   type TypeDraft,
   TypeKey
 } from "@pp/shared"
+import * as Data from "effect/Data"
+import * as Match from "effect/Match"
 import * as Option from "effect/Option"
 import * as Predicate from "effect/Predicate"
 import * as Schema from "effect/Schema"
@@ -37,6 +39,8 @@ export type MigrationStep =
     }>
   | Readonly<{ _tag: "raw"; template: string; key: string; content: string }>
   | Readonly<{ _tag: "tombstone"; template: string; key: string }>
+
+const Step = Data.taggedEnum<MigrationStep>()
 
 export type LayerPlan = Readonly<{
   steps: ReadonlyArray<MigrationStep>
@@ -143,17 +147,22 @@ const ownKeysFor = (
     ...layer.templates.map((template) => template.key),
     ...layer.unreadable.map((file) => file.key)
   ].toSorted()
-  return keys.reduce((assigned, key) => {
+  const assigned = new Map<string, string>()
+  for (const key of keys) {
     const taken = new Set([...keys, ...assigned.values()])
     const preferred = inherited.get(key)
-    const own =
+    const keepsPreferred =
       preferred !== undefined && (preferred === key || !taken.has(preferred))
+    assigned.set(
+      key,
+      keepsPreferred
         ? preferred
         : needsRename(key)
           ? firstFree(key, taken)
           : key
-    return new Map([...assigned, [key, own]])
-  }, new Map<string, string>())
+    )
+  }
+  return assigned
 }
 
 const effectiveDefaults = (
@@ -183,8 +192,7 @@ const asTypeDefinition = (
   return builtin === undefined
     ? []
     : [
-        {
-          _tag: "type",
+        Step.type({
           template: template.key,
           from,
           draft: {
@@ -197,7 +205,7 @@ const asTypeDefinition = (
             tags: template.tags,
             body: template.body
           }
-        }
+        })
       ]
 }
 
@@ -205,12 +213,12 @@ const asOwnType = (
   template: LegacyTemplate,
   ownKey: string,
   from: "org" | "project"
-): MigrationStep => ({
-  _tag: "type",
-  template: template.key,
-  from,
-  draft: { ...template, key: TypeKey.make(ownKey) }
-})
+): MigrationStep =>
+  Step.type({
+    template: template.key,
+    from,
+    draft: { ...template, key: TypeKey.make(ownKey) }
+  })
 
 type TemplatePlan = Readonly<{
   template: string
@@ -237,8 +245,11 @@ const planTemplate = (
   }
 }
 
-const stepKey = (step: MigrationStep): string =>
-  step._tag === "type" ? step.draft.key : step.key
+export const stepKey = (step: MigrationStep): string =>
+  Match.value(step).pipe(
+    Match.tag("type", (typed) => typed.draft.key),
+    Match.orElse((other) => other.key)
+  )
 
 const targetsOf = (
   plans: ReadonlyArray<TemplatePlan>
@@ -252,12 +263,11 @@ const rawSteps = (
   byKey(layer.unreadable).map((file) => ({
     template: file.key,
     steps: [
-      {
-        _tag: "raw",
+      Step.raw({
         template: file.key,
         key: ownKeys.get(file.key) ?? file.key,
         content: file.content
-      }
+      })
     ]
   }))
 
@@ -326,8 +336,8 @@ export const planProjectLayer = (
   const tombstones = project.hidden
     .toSorted()
     .flatMap((template) =>
-      (orgPlan.targets.get(template) ?? []).map(
-        (key): MigrationStep => ({ _tag: "tombstone", template, key })
+      (orgPlan.targets.get(template) ?? []).map((key) =>
+        Step.tombstone({ template, key })
       )
     )
     .filter((step) => !defined.has(stepKey(step)))
