@@ -4,7 +4,6 @@ import {
   draggable,
   dropTargetForElements
 } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
-import { pointerOutsideOfPreview } from "@atlaskit/pragmatic-drag-and-drop/element/pointer-outside-of-preview"
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview"
 import type { ElementDragType } from "@atlaskit/pragmatic-drag-and-drop/types"
 import { RegistryContext } from "@effect/atom-react"
@@ -22,6 +21,8 @@ import {
   type ReactNode,
   type RefObject
 } from "react"
+import { flushSync } from "react-dom"
+import { createRoot } from "react-dom/client"
 
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import {
@@ -35,6 +36,7 @@ import {
 import { cn } from "@/lib/utils"
 
 import { useIgnoreListHover } from "./ListKeyboard"
+import { RowDragPreview } from "./RowDragPreview"
 
 const RowDragData = Schema.Struct({
   type: Schema.Literal("list-row"),
@@ -66,6 +68,7 @@ const draggedRow = (data: DragPayload): DraggedRow | null =>
 type Landing = Readonly<{ id: TicketId; at: number }>
 
 const LANDING_MS = 900
+const PREVIEW_GRAB_X = 24
 
 export type SectionDrop = Readonly<{
   section: string
@@ -196,7 +199,7 @@ export function DraggableRow({
   })
   const section = drop?.section
   const ordered = drop?.ordered ?? false
-  const { id, type, title } = ticket
+  const { id, type, title, priority } = ticket
   const subTicketCount = ticket.subTicketCount ?? 0
 
   useEffect(() => {
@@ -216,25 +219,26 @@ export function DraggableRow({
           subTicketCount,
           section
         }),
-        onGenerateDragPreview: ({ nativeSetDragImage }) =>
+        onGenerateDragPreview: ({ nativeSetDragImage, location }) => {
+          const grabY =
+            location.current.input.clientY - element.getBoundingClientRect().top
           setCustomNativeDragPreview({
             nativeSetDragImage,
-            getOffset: pointerOutsideOfPreview({ x: "12px", y: "8px" }),
+            getOffset: ({ container }) => ({
+              x: PREVIEW_GRAB_X,
+              y: Math.min(grabY, container.getBoundingClientRect().height - 8)
+            }),
             render: ({ container }) => {
-              const preview = document.createElement("div")
-              preview.className =
-                "flex max-w-80 items-center gap-2 rounded-md border border-foreground/15 bg-popover px-2.5 py-1.5 text-body text-popover-foreground shadow-lg"
-              const key = document.createElement("span")
-              key.className =
-                "shrink-0 font-mono text-caption text-muted-foreground"
-              key.textContent = id
-              const name = document.createElement("span")
-              name.className = "truncate"
-              name.textContent = title
-              preview.append(key, name)
-              container.append(preview)
+              const root = createRoot(container)
+              flushSync(() =>
+                root.render(
+                  <RowDragPreview ticket={{ id, type, title, priority }} />
+                )
+              )
+              return () => root.unmount()
             }
-          }),
+          })
+        },
         onDragStart: () => setDragging(true),
         onDrop: () => {
           setDragging(false)
@@ -256,6 +260,7 @@ export function DraggableRow({
     nextId,
     type,
     title,
+    priority,
     subTicketCount,
     section,
     ordered,
