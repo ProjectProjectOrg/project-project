@@ -88,7 +88,8 @@ function RowImpl({
   }
   const pointAt = usePointedTicket(orgSlug, slug, ticket.id)
   const key = selectionKey(slug, ticket.id)
-  const selection = useTicketSelection(key)
+  const selectable = useTicketSelection(key)
+  const selection = pending ? null : selectable
   return (
     <div
       className="group/list-row col-span-full grid grid-cols-subgrid"
