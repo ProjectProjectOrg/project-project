@@ -13,6 +13,7 @@ export interface TimeControlsProps {
   options: ReadonlyArray<WorkTypeOption>
   running: boolean
   busy: boolean
+  error: string | null
   onStart: () => void
   onStop: () => void
   logOpen: boolean
@@ -39,6 +40,7 @@ export function TimeControls({
   options,
   running,
   busy,
+  error,
   onStart,
   onStop,
   logOpen,
@@ -81,6 +83,11 @@ export function TimeControls({
           </Button>
         )}
       </div>
+      {error ? (
+        <p role="alert" className="text-caption text-destructive">
+          {error}
+        </p>
+      ) : null}
       <div className="border-t border-border pt-2">
         <Button
           type="button"
