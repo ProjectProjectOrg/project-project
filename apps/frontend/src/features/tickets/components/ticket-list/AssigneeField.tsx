@@ -214,9 +214,8 @@ export function AssigneeSelect({
   const resolved = resolveAssignees(value, members)
   const toggle = (memberId: string) => onChange(toggleAssignee(value, memberId))
   const clear = () => {
-    if (value.length === 0) return
-    if (onClear === undefined) onChange([])
-    else onClear()
+    if (onClear !== undefined) onClear()
+    else if (value.length > 0) onChange([])
   }
 
   const label =

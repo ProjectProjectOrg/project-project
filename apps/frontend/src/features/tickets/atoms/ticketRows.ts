@@ -8,6 +8,7 @@ import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Reactivity from "effect/reactivity/Reactivity"
+import * as Semaphore from "effect/Semaphore"
 
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
 import {
@@ -44,8 +45,9 @@ type BulkTicketUpdate<V> = Readonly<{
 export const bulkTicketUpdate = <V, VE>(
   view: OptimisticView<V, VE>,
   update: BulkTicketUpdate<V>
-) =>
-  viewMutation(view, {
+) => {
+  const writes = Semaphore.makeUnsafe(1)
+  return viewMutation(view, {
     name: update.name,
     predict: (value, input: BulkUpdateTicketsInput) => {
       const edit = fromBulkPatch(input.patch)
@@ -61,6 +63,7 @@ export const bulkTicketUpdate = <V, VE>(
           payload: { tickets, patch: input.patch }
         })
       ).pipe(
+        (effect) => writes.withPermit(effect),
         Effect.onError(() =>
           Reactivity.invalidate(
             bulkChangedKeys(
@@ -79,6 +82,7 @@ export const bulkTicketUpdate = <V, VE>(
         input.patch.sprint !== undefined
       )
   })
+}
 
 export const createdKeys = Atom.family((_scope: string) =>
   Atom.make<ReadonlyMap<TicketId, string>>(new Map()).pipe(
