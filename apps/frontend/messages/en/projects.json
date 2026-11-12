@@ -179,7 +179,7 @@
   "org_settings_rename_error": "Couldn't rename the organization. Try again.",
   "org_settings_slug_label": "URL slug",
   "org_settings_slug_readonly_note": "The slug is baked into every URL for this organization, so it can't be changed.",
-  "org_settings_types_description": "Shared by every project in this organization. A project can make its own version of a type or turn one off.",
+  "org_settings_types_description": "Shared by every project in this organization. A project can make a custom version of a type or turn one off.",
   "org_settings_types_heading": "Ticket types",
   "org_settings_types_tab": "Ticket types",
   "org_switcher_create_new": "Create new org",
