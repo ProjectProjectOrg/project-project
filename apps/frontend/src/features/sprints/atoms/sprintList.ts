@@ -374,6 +374,7 @@ export const bulkAddTicketsToSprint = Atom.family((req: SprintListRequest) =>
           Reactivity.invalidate([
             Keys.sprints(scopeOf(req)),
             Keys.sprintMembership(scopeOf(req)),
+            Keys.sprint(scopeOf(req), input.groupId),
             ...Keys.ticketsChanged(scopeOf(req))
           ])
         )
