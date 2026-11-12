@@ -22,6 +22,7 @@ import {
   useStatusReorder,
   type StatusReorder
 } from "@/features/sprints/hooks/useStatusReorder"
+import { encodeTicketListQuery } from "@/features/tickets/atoms/backlog"
 import { viewCounts } from "@/features/tickets/atoms/viewCounts"
 import { useProjectActor } from "@/hooks/useActor"
 import {
@@ -36,6 +37,7 @@ import { BacklogGroupingControl } from "./BacklogGroupingControl"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { SprintTicketCreator } from "./SprintTicketCreator"
 import { CreatorActiveScope, DimWhileCreating } from "./TicketCreatorShell"
+import { TicketSelectionProvider } from "./TicketSelection"
 import {
   TicketToolbar,
   useViewTicketCounts,
@@ -208,7 +210,11 @@ export function ProjectTicketLayout({
               )}
             </motion.div>
           </Activity>
-          {children({ grouping, preferencesKey, reorder })}
+          <TicketSelectionProvider
+            resetKey={`${scope}:${view}:${grouping}:${encodeTicketListQuery(query)}`}
+          >
+            {children({ grouping, preferencesKey, reorder })}
+          </TicketSelectionProvider>
         </DimWhileCreating>
       </PageContainer>
     </CreatorActiveScope>

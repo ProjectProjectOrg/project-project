@@ -1,0 +1,33 @@
+import { describe, expect, it } from "vitest"
+
+import { emptySelection, toggleSelection } from "./ticketSelection"
+
+const order = ["a", "b", "c", "d", "e"]
+
+const selected = (keys: ReadonlyArray<string>, anchor: string) => ({
+  keys: new Set(keys),
+  anchor
+})
+
+describe("toggleSelection", () => {
+  it("toggles one key and makes it the anchor", () => {
+    const once = toggleSelection(emptySelection, "b")
+    expect(once).toEqual(selected(["b"], "b"))
+    expect(toggleSelection(once, "b")).toEqual(selected([], "b"))
+  })
+
+  it("applies the anchor's state to the range in either direction", () => {
+    expect(toggleSelection(selected(["d"], "d"), "b", order)).toEqual(
+      selected(["b", "c", "d"], "b")
+    )
+    expect(
+      toggleSelection(selected(["a", "c", "e"], "b"), "e", order).keys
+    ).toEqual(new Set(["a"]))
+  })
+
+  it("toggles alone when the anchor is outside the range", () => {
+    expect(toggleSelection(selected(["x"], "x"), "c", order)).toEqual(
+      selected(["x", "c"], "c")
+    )
+  })
+})

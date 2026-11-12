@@ -15,9 +15,14 @@ import {
   rowGridClassName
 } from "@/features/tickets/components/ticket-list/Row"
 import { TicketComposer } from "@/features/tickets/components/ticket-list/TicketComposer"
+import {
+  SelectionOrder,
+  TicketSelectionProvider
+} from "@/features/tickets/components/ticket-list/TicketSelection"
 import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
 import { NON_EPIC_TYPES } from "@/features/tickets/lib/ticketMeta"
 import { parentRef } from "@/features/tickets/lib/ticketPatch"
+import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 
 import { AttachTicketPicker } from "./AttachTicketPicker"
 
@@ -61,22 +66,28 @@ export function ChildTicketList({
         onError: (error) => <ErrorPage error={error} contained />,
         onDefect: (defect) => <ErrorPage error={defect} contained />,
         onSuccess: ({ value }) => (
-          <div className={rowGridClassName}>
-            {value.map((row) => (
-              <Row
-                key={row.key}
-                update={childTicketUpdates(req)}
-                ticket={row.ticket}
-                members={members}
-                contextParent={parent.id}
-                pending={row.pending}
-                editable={editable}
-                previewOpen={preview.activePreviewId === row.ticket.id}
-                onPreviewPointerEnter={preview.onPreviewPointerEnter}
-                onPreviewOpenChange={preview.onPreviewOpenChange}
-              />
-            ))}
-          </div>
+          <TicketSelectionProvider resetKey={parent.id}>
+            <SelectionOrder
+              keys={value.map((row) => selectionKey(slug, row.ticket.id))}
+            >
+              <div className={rowGridClassName}>
+                {value.map((row) => (
+                  <Row
+                    key={row.key}
+                    update={childTicketUpdates(req)}
+                    ticket={row.ticket}
+                    members={members}
+                    contextParent={parent.id}
+                    pending={row.pending}
+                    editable={editable}
+                    previewOpen={preview.activePreviewId === row.ticket.id}
+                    onPreviewPointerEnter={preview.onPreviewPointerEnter}
+                    onPreviewOpenChange={preview.onPreviewOpenChange}
+                  />
+                ))}
+              </div>
+            </SelectionOrder>
+          </TicketSelectionProvider>
         )
       })}
     </div>

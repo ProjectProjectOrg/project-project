@@ -5,6 +5,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { AnimatePresence, motion } from "motion/react"
 import { memo, use, useRef, useState } from "react"
 
+import { Checkbox } from "@/components/ui/checkbox"
 import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { usePointedTicket } from "@/features/command-menu/hooks/usePointedTicket"
@@ -24,8 +25,10 @@ import {
 import { TicketHoverCard } from "@/features/tickets/components/TicketHoverCard"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
+import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
 import { AssigneeField } from "./AssigneeField"
 import { EstimateChip } from "./EstimateField"
@@ -33,12 +36,13 @@ import { ParentPrefix } from "./ParentPrefix"
 import { PriorityButton } from "./PriorityField"
 import { SprintField } from "./SprintField"
 import { StatusButton } from "./StatusField"
+import { useTicketSelection } from "./TicketSelection"
 import { UpdateFailureMarker } from "./UpdateFailureMarker"
 
 const TICKET_PREVIEW_DELAY_MS = 550
 
 export const rowGridClassName =
-  "grid gap-y-1 grid-cols-[auto_auto_auto_minmax(0,1fr)_auto]"
+  "grid gap-y-1 grid-cols-[auto_auto_auto_auto_minmax(0,1fr)_auto]"
 
 export type RowProps = Readonly<{
   update: TicketUpdates
@@ -83,6 +87,8 @@ function RowImpl({
     onPreviewOpenChange(ticket.id, false)
   }
   const pointAt = usePointedTicket(orgSlug, slug, ticket.id)
+  const key = selectionKey(slug, ticket.id)
+  const selection = useTicketSelection(key)
   return (
     <div
       className="group/list-row col-span-full grid grid-cols-subgrid"
@@ -104,10 +110,12 @@ function RowImpl({
           >
             <div
               ref={rowElement}
+              data-selected={selection?.selected || undefined}
+              data-selection-key={selection ? key : undefined}
               className={cn(
-                "relative col-span-full grid grid-cols-subgrid items-center gap-x-1.5 px-3 py-2.5 text-left outline-none [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20",
+                "group/reveal relative col-span-full grid grid-cols-subgrid items-center gap-x-1.5 px-3 py-2.5 text-left outline-none [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20",
                 variant === "standalone" &&
-                  "isolate rounded-lg transition-colors hover:bg-hover has-[[data-popup-open]]:bg-hover data-[popup-open]:bg-hover"
+                  "isolate rounded-lg transition-colors hover:bg-hover has-[[data-popup-open]]:bg-hover data-selected:bg-active data-[popup-open]:bg-hover"
               )}
             >
               <Link
@@ -121,8 +129,13 @@ function RowImpl({
                 aria-keyshortcuts="Shift+F10"
                 className="absolute inset-0 z-10 rounded-lg outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
               />
+              <span className="relative z-20 box-content flex w-(--list-lead) justify-center pr-[calc(var(--list-lead-gap)-0.375rem)]">
+                {selection && (
+                  <RowCheckbox ticketId={ticket.id} selection={selection} />
+                )}
+              </span>
               <fieldset disabled={!editable} className="contents">
-                <span className="relative z-20 inline-flex">
+                <span className="relative z-20 flex w-(--list-icon) justify-center">
                   <StatusButton
                     ticket={ticket}
                     stopPropagation
@@ -156,7 +169,7 @@ function RowImpl({
                   </span>
                 </span>
               </fieldset>
-              <div className="col-start-4 row-start-1 flex min-w-0 items-center self-stretch pl-1.5">
+              <div className="col-start-5 row-start-1 flex min-w-0 items-center self-stretch pl-1.5">
                 {ticket.parent && ticket.parent.id !== contextParent && (
                   <ParentPrefix parent={ticket.parent} />
                 )}
@@ -232,6 +245,32 @@ function RowImpl({
     </div>
   )
 }
+
+function RowCheckbox({
+  ticketId,
+  selection
+}: Readonly<{
+  ticketId: TicketId
+  selection: NonNullable<ReturnType<typeof useTicketSelection>>
+}>) {
+  return (
+    <Checkbox
+      checked={selection.selected}
+      onCheckedChange={(_checked, details) =>
+        selection.toggle(withShift(details.event))
+      }
+      onMouseDown={(event) => {
+        if (event.shiftKey) event.preventDefault()
+      }}
+      aria-label={m.tickets_row_select_aria_label({ id: ticketId })}
+      className="opacity-0 transition-opacity group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100 group-data-selecting/selection:opacity-100 data-checked:opacity-100"
+    />
+  )
+}
+
+const withShift = (event: Event) =>
+  (event instanceof MouseEvent || event instanceof KeyboardEvent) &&
+  event.shiftKey
 
 function RowSprint({ ticketId }: Readonly<{ ticketId: TicketId }>) {
   const { orgSlug, slug } = useProjectRoute()
