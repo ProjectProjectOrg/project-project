@@ -24,6 +24,7 @@ import {
   type Ref
 } from "react"
 
+import { AutoHeight } from "@/components/ui/auto-height"
 import {
   CommandMenu,
   CommandMenuItem,
@@ -46,7 +47,7 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { TicketStatusIcon } from "@/features/tickets/components/ticket-marks/TicketStatusIcon"
-import { NON_EPIC_TYPES } from "@/features/tickets/lib/ticketMeta"
+import { useCreatorType } from "@/features/tickets/hooks/useCreatorType"
 import type { PagedSearchResults } from "@/hooks/usePagedSearch"
 import {
   mutationErrorText,
@@ -59,11 +60,10 @@ import { m } from "@/paraglide/messages"
 import { CreatorTypeMenu } from "./CreatorMenus"
 import { EpicTextPrefix } from "./EpicLabel"
 import { EpicTicketPicker, useEpicPicker } from "./EpicTicketPicker"
-import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
+import { StartsWithLine } from "./StartsWithLine"
 import { TicketCreatorShell } from "./TicketCreatorShell"
 import { useAddableTicketSearch } from "./useAddableTicketSearch"
 import { useCreatorFocus } from "./useCreatorFocus"
-import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 
 type Item =
   | { kind: "create"; label: string }
@@ -108,7 +108,7 @@ export function SprintTicketCreator({
   const navigate = useNavigate()
 
   const [title, setTitle] = useState("")
-  const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
+  const creatorType = useCreatorType({ orgSlug, slug, epics: false })
   const [inputFocused, setInputFocused] = useState(false)
   const [listDismissed, setListDismissed] = useState(false)
   const [added, setAdded] = useState<ReadonlySet<TicketId>>(new Set())
@@ -121,21 +121,10 @@ export function SprintTicketCreator({
   const formRef = useRef<HTMLFormElement>(null)
   const { active: expanded } = useCreatorFocus(formRef)
   const trimmed = title.trim()
-  const templateChoice = useTemplateChoice(orgSlug, slug, type)
-  const slash = useTemplateSlash({
-    title,
-    choice: templateChoice,
-    onChoose: (_template, ticketType) => {
-      setTitle("")
-      if (ticketType !== null && NON_EPIC_TYPES.includes(ticketType)) {
-        applyTemplateDefault(ticketType)
-      }
-    }
-  })
 
   const sprintsResult = useAtomValue(sprintList(sprintReq))
   const { recent, results } = useAddableTicketSearch(
-    inputFocused && !slash.open ? trimmed : null
+    inputFocused ? trimmed : null
   )
 
   const memberOfOtherSprint = useMemo(() => {
@@ -192,7 +181,6 @@ export function SprintTicketCreator({
   const note = noteFor(results, menuItems.length > 0)
   const dropdownOpen =
     inputFocused &&
-    !slash.open &&
     (pendingEpic !== null ||
       (!listDismissed && (menuItems.length > 0 || note !== null)))
 
@@ -211,8 +199,8 @@ export function SprintTicketCreator({
 
   async function createTicket(title: string) {
     if (submitting) return
-    const exit = await create({ title, ...templateChoice.payload })
-    templateChoice.recover(exit)
+    const exit = await create({ title, ...creatorType.payload })
+    creatorType.settle(exit)
     if (Exit.isSuccess(exit)) {
       refreshGitStates()
       reset()
@@ -264,7 +252,6 @@ export function SprintTicketCreator({
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (slash.onKeyDown(e)) return
     if (pendingEpic !== null) {
       picker.onKeyDown(e)
       return
@@ -287,17 +274,16 @@ export function SprintTicketCreator({
 
   const typeAddon = (
     <CreatorTypeMenu
-      type={type}
-      types={NON_EPIC_TYPES}
-      onTypeChange={setType}
+      type={creatorType.type}
+      lastUsed={creatorType.lastUsed}
+      epics={false}
+      onTypeChange={creatorType.pick}
       expanded={expanded}
       inputRef={inputRef}
     />
   )
 
-  const dropdown = slash.open ? (
-    <TemplateSlashList slash={slash} choice={templateChoice} />
-  ) : dropdownOpen ? (
+  const dropdown = dropdownOpen ? (
     <div className="absolute inset-x-0 top-full z-30 mt-1 flex max-h-80 flex-col overflow-hidden rounded-xl border border-border/60 bg-card text-foreground shadow-[0_4px_12px_rgba(0,0,0,0.02)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
       <CommandMenu
         items={menuItems}
@@ -395,7 +381,6 @@ export function SprintTicketCreator({
       value={title}
       onValueChange={(v) => {
         picker.close()
-        slash.onTitleChange(title, v)
         setTitle(v)
         setListDismissed(false)
       }}
@@ -406,7 +391,6 @@ export function SprintTicketCreator({
       onBlur={() => {
         setInputFocused(false)
         setAdded(new Set())
-        slash.close()
       }}
       onKeyDown={onKeyDown}
       onSubmit={onSubmit}
@@ -416,11 +400,19 @@ export function SprintTicketCreator({
       busy={submitting}
       maxLength={200}
       error={error}
-      listbox={slash.open ? slash.listbox : menuListbox}
+      listbox={menuListbox}
       leadingAddons={[typeAddon]}
       belowInput={
         <>
           {dropdown}
+          <AutoHeight>
+            {expanded && (
+              <StartsWithLine
+                start={creatorType.start}
+                className="px-3 pt-1.5"
+              />
+            )}
+          </AutoHeight>
           <span role="status" className="sr-only">
             {announcement}
           </span>

@@ -274,7 +274,7 @@ ${table(
   ["Jira type", "Destination"],
   mappings.issueTypes.map(({ sourceIssueTypeId, destinationType }) => [
     escapeCell(typeNames.get(sourceIssueTypeId) ?? sourceIssueTypeId),
-    `\`${destinationType}\``
+    destinationType === null ? "no type" : `\`${destinationType}\``
   ])
 )}
 

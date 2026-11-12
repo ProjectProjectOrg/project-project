@@ -118,7 +118,7 @@ const TYPE_SOURCES: ReadonlyArray<TypeSource> = [
     key: "feat",
     name: "Feature",
     icon: "Sparkles",
-    color: "#00bc85",
+    color: "#70b445",
     description: "New behaviour users will notice",
     body: references(
       "context",

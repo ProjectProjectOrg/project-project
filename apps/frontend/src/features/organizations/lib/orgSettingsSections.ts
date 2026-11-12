@@ -1,6 +1,6 @@
 import {
-  LayoutTemplate,
   Plug,
+  Shapes,
   SlidersHorizontal,
   TriangleAlert,
   Users
@@ -14,7 +14,7 @@ export type OrgSettingsSection = Readonly<{
     | "/orgs/$orgSlug/settings/general"
     | "/orgs/$orgSlug/settings/members"
     | "/orgs/$orgSlug/settings/integrations"
-    | "/orgs/$orgSlug/settings/templates"
+    | "/orgs/$orgSlug/settings/types"
     | "/orgs/$orgSlug/settings/danger"
   label: string
   icon: typeof SlidersHorizontal
@@ -48,12 +48,12 @@ export const ORG_SETTINGS_SECTIONS: ReadonlyArray<OrgSettingsSection> = [
     description: m.org_settings_integrations_description()
   },
   {
-    key: "templates",
-    to: "/orgs/$orgSlug/settings/templates",
-    label: m.org_settings_templates_tab(),
-    icon: LayoutTemplate,
-    heading: m.org_settings_templates_heading(),
-    description: m.org_settings_templates_description()
+    key: "types",
+    to: "/orgs/$orgSlug/settings/types",
+    label: m.org_settings_types_tab(),
+    icon: Shapes,
+    heading: m.org_settings_types_heading(),
+    description: m.org_settings_types_description()
   },
   {
     key: "danger",

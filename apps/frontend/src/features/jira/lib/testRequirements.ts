@@ -1,5 +1,14 @@
-import { JiraMigrationRequirements } from "@pp/shared"
+import {
+  EMPTY_LAYER,
+  JiraMigrationRequirements,
+  resolveLibrary
+} from "@pp/shared"
 import * as Schema from "effect/Schema"
+
+export const testTypes = resolveLibrary(
+  { org: EMPTY_LAYER, project: null },
+  false
+).types
 
 const decodeRequirements = Schema.decodeSync(JiraMigrationRequirements)
 

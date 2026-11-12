@@ -1,20 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router"
-
-import { orgScope } from "@/features/library/atoms/libraryScope"
-import { BlockEditorPage } from "@/features/library/components/BlockEditorPage"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/settings/templates/blocks/$blockKey"
 )({
-  component: OrgBlockEditor
+  beforeLoad: ({ params: { blockKey, ...params } }) => {
+    throw redirect({
+      to: "/orgs/$orgSlug/settings/types/sections/$sectionKey",
+      params: { ...params, sectionKey: blockKey },
+      replace: true
+    })
+  }
 })
-
-function OrgBlockEditor() {
-  const params = Route.useParams()
-  return (
-    <BlockEditorPage
-      scope={orgScope(params.orgSlug)}
-      blockKey={params.blockKey}
-    />
-  )
-}

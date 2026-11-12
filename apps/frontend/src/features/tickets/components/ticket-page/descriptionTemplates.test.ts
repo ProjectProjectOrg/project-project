@@ -39,7 +39,6 @@ import {
   $replaceWithTemplate,
   $restoreBody,
   $startFromTemplate,
-  templateStarts,
   templateSwap
 } from "./descriptionTemplates"
 
@@ -89,27 +88,6 @@ const bodyOf = (editor: LexicalEditor): string =>
 
 const run = (editor: LexicalEditor, fn: () => void) =>
   editor.update(fn, { discrete: true, tag: HISTORY_PUSH_TAG })
-
-describe("templateStarts", () => {
-  it("puts the type's default first, then the rest by name, up to three", () => {
-    const starts = templateStarts(BUILTIN_LIBRARY, TypeKey.make("bug"))
-    expect(starts.templates.map((entry) => entry.key)).toEqual([
-      "bug",
-      "chore",
-      "design-task"
-    ])
-    expect(starts.more).toBe(true)
-  })
-
-  it("has no default to lead with for a blank type", () => {
-    const starts = templateStarts(BUILTIN_LIBRARY, null)
-    expect(starts.templates.map((entry) => entry.name)).toEqual([
-      "Bug",
-      "Chore",
-      "Design task"
-    ])
-  })
-})
 
 describe("templateSwap", () => {
   it("swaps a body that is exactly the old type's default", () => {

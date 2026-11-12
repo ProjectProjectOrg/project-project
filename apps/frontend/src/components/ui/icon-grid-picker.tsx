@@ -55,9 +55,9 @@ export function IconGridPicker<K extends string>({
       >
         {triggerIcon}
       </PopoverTrigger>
-      <PopoverContent align="start" sideOffset={6} className="w-[228px] p-2">
+      <PopoverContent align="start" sideOffset={6} className="w-auto p-2">
         {options.length > 0 ? (
-          <div className="grid max-h-60 grid-cols-8 gap-1 overflow-y-auto">
+          <div className="grid max-h-60 [scrollbar-gutter:stable] grid-cols-[repeat(8,1.75rem)] gap-1 overflow-x-hidden overflow-y-auto">
             {options.map((name) => (
               <button
                 key={name}

@@ -36,22 +36,22 @@ import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import { createTag, tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
 import { AssignMeItem } from "@/features/tickets/components/ticket-list/AssigneeField"
-import { typeOptions } from "@/features/tickets/components/ticket-list/TypeField"
+import { typeMenuItems } from "@/features/tickets/components/ticket-list/TypeField"
 import { useApplyCreatedTag } from "@/features/tickets/hooks/useApplyCreatedTag"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { toggleAssignee } from "@/features/tickets/lib/assignees"
 import {
   PRIORITY_LABELS,
   PRIORITY_META,
   PRIORITY_ORDER
 } from "@/features/tickets/lib/priorityMeta"
-import {
-  statusMetaFor,
-  PICKABLE_TYPES,
-  pickableTypeOf,
-  typeKeyOf
-} from "@/features/tickets/lib/ticketMeta"
+import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import {
+  typeKeyOfOption,
+  typeOptionValue
+} from "@/features/tickets/lib/ticketTypes"
 import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -122,7 +122,8 @@ export function TicketPropertySubmenus({
       )
     }
   })
-  const typeItems = typeOptions(PICKABLE_TYPES).map((item) => ({
+  const types = useTicketTypes(orgSlug, slug)
+  const typeItems = typeMenuItems(types).map((item) => ({
     ...item,
     closeOnClick: true
   }))
@@ -164,11 +165,13 @@ export function TicketPropertySubmenus({
               <Shapes className="size-4" strokeWidth={1.75} />
               {m.tickets_command_change_type()}
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-40">
+            <DropdownMenuSubContent className="w-44">
               <DropdownMenuRadioGroup
                 items={typeItems}
-                value={pickableTypeOf(ticket.type)}
-                onValueChange={(type) => onPatch({ type: typeKeyOf(type) })}
+                value={typeOptionValue(ticket.type)}
+                onValueChange={(type) =>
+                  onPatch({ type: typeKeyOfOption(type) })
+                }
               />
             </DropdownMenuSubContent>
           </DropdownMenuSub>

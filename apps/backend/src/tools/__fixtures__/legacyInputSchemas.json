@@ -835,7 +835,7 @@
     "additionalProperties": true,
     "$defs": {}
   },
-  "list_templates": {
+  "list_types": {
     "type": "object",
     "properties": {
       "orgSlug": {
@@ -1060,23 +1060,7 @@
         ]
       },
       "template": {
-        "anyOf": [
-          {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-                "maxLength": 48
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          {
-            "type": "null"
-          }
-        ]
+        "not": {}
       }
     },
     "required": ["orgSlug", "projectSlug", "title"],
@@ -1306,23 +1290,7 @@
         ]
       },
       "template": {
-        "anyOf": [
-          {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-                "maxLength": 48
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          {
-            "type": "null"
-          }
-        ]
+        "not": {}
       },
       "edits": {
         "anyOf": [

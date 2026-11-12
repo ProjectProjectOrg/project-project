@@ -16,7 +16,6 @@ import {
 } from "@/features/tickets/components/ticket-list/Row"
 import { TicketComposer } from "@/features/tickets/components/ticket-list/TicketComposer"
 import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
-import { NON_EPIC_TYPES } from "@/features/tickets/lib/ticketMeta"
 import { parentRef } from "@/features/tickets/lib/ticketPatch"
 
 import { AttachTicketPicker } from "./AttachTicketPicker"
@@ -47,7 +46,7 @@ export function ChildTicketList({
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <TicketComposer
-              types={NON_EPIC_TYPES}
+              epics={false}
               parent={parentRef(parent)}
               create={create}
               createState={createState}

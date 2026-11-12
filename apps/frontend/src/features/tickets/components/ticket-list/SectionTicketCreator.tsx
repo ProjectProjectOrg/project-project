@@ -26,7 +26,6 @@ import {
   type RefObject
 } from "react"
 
-import { comboboxProps } from "@/components/ui/menu-listbox"
 import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   project as projectView,
@@ -51,10 +50,7 @@ import {
   quickCreateSprintSectionsTicket,
   type SprintSectionsRequest
 } from "@/features/tickets/atoms/sprintSections"
-import {
-  NON_EPIC_TYPES,
-  PICKABLE_TYPES
-} from "@/features/tickets/lib/ticketMeta"
+import { useCreatorType } from "@/features/tickets/hooks/useCreatorType"
 import type { QuickCreateInput } from "@/features/tickets/lib/ticketRows"
 import {
   mutationErrorText,
@@ -63,9 +59,8 @@ import {
 import { m } from "@/paraglide/messages"
 
 import { CreatorSprintMenu, CreatorTypeMenu } from "./CreatorMenus"
-import { TemplateSlashList, useTemplateSlash } from "./TemplateSlashList"
+import { StartsWithLine } from "./StartsWithLine"
 import { useCreatorFocus } from "./useCreatorFocus"
-import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 
 const isGroupId = Schema.is(GroupId)
 
@@ -224,13 +219,11 @@ function SectionCreatorForm({
   const hasSprints = sprints.some((s) => s.completedAt === null)
   const showSprintAddon =
     activeSprintId === null && !isExplicitNoSprintFilter && hasSprints
-  const types =
-    activeSprintId !== null || parent !== undefined
-      ? NON_EPIC_TYPES
-      : PICKABLE_TYPES
+  const epics = activeSprintId === null && parent === undefined
 
   const [title, setTitle] = useState("")
-  const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
+  const creatorType = useCreatorType({ orgSlug, slug, epics })
+  const { type } = creatorType
   const [pickedSprint, setPickedSprint] = useState<Group | null>()
   const inputRef = useRef<HTMLInputElement>(null)
   const focusOnMount = useCallback((input: HTMLInputElement | null) => {
@@ -239,17 +232,6 @@ function SectionCreatorForm({
   }, [])
   const errorId = useId()
   const trimmed = title.trim()
-  const templateChoice = useTemplateChoice(orgSlug, slug, type)
-  const slash = useTemplateSlash({
-    title,
-    choice: templateChoice,
-    onChoose: (_template, ticketType) => {
-      setTitle("")
-      if (ticketType !== null && types.includes(ticketType)) {
-        applyTemplateDefault(ticketType)
-      }
-    }
-  })
   useCreatorFocus(containerRef, onDone)
 
   const selectedSprint =
@@ -269,7 +251,7 @@ function SectionCreatorForm({
       payload: {
         title: submittedTitle,
         status,
-        ...templateChoice.payload
+        ...creatorType.payload
       },
       parent,
       prediction: {
@@ -277,11 +259,11 @@ function SectionCreatorForm({
         createdBy: viewerId ?? "",
         projectPrefix,
         estimation,
-        ...templateChoice.prediction
+        ...creatorType.prediction
       }
     })
+    creatorType.settle(exit)
     if (Exit.isFailure(exit)) {
-      templateChoice.recover(exit)
       setTitle(submittedTitle)
       return
     }
@@ -303,51 +285,50 @@ function SectionCreatorForm({
     ) : null
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="relative flex w-full items-center gap-2"
-    >
-      <CreatorTypeMenu
-        type={type}
-        types={types}
-        onTypeChange={setType}
-        expanded
-        inputRef={inputRef}
-      />
+    <form onSubmit={onSubmit} className="flex w-full flex-col gap-1">
+      <div className="flex w-full items-center gap-2">
+        <CreatorTypeMenu
+          type={type}
+          lastUsed={creatorType.lastUsed}
+          epics={epics}
+          onTypeChange={creatorType.pick}
+          expanded
+          inputRef={inputRef}
+        />
 
-      {sprintAddon}
+        {sprintAddon}
 
-      <input
-        ref={focusOnMount}
-        type="text"
-        {...comboboxProps(slash.listbox)}
-        value={title}
-        onChange={(e) => {
-          slash.onTitleChange(title, e.target.value)
-          setTitle(e.target.value)
-        }}
-        onKeyDown={slash.onKeyDown}
-        placeholder={m.tickets_section_create_placeholder()}
-        aria-label={m.tickets_section_create_placeholder()}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? errorId : undefined}
-        readOnly={submitting}
-        aria-disabled={submitting || undefined}
-        maxLength={200}
-        className="min-w-0 flex-1 bg-transparent text-body font-semibold text-foreground outline-none placeholder:text-muted-foreground read-only:cursor-wait"
-      />
+        <input
+          ref={focusOnMount}
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" || e.nativeEvent.isComposing) return
+            e.preventDefault()
+            e.currentTarget.form?.requestSubmit()
+          }}
+          placeholder={m.tickets_section_create_placeholder()}
+          aria-label={m.tickets_section_create_placeholder()}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
+          readOnly={submitting}
+          aria-disabled={submitting || undefined}
+          maxLength={200}
+          className="min-w-0 flex-1 bg-transparent text-body font-semibold text-foreground outline-none placeholder:text-muted-foreground read-only:cursor-wait"
+        />
 
-      {error && (
-        <span
-          id={errorId}
-          role="alert"
-          className="shrink-0 text-caption text-destructive"
-        >
-          {error}
-        </span>
-      )}
-
-      <TemplateSlashList slash={slash} choice={templateChoice} />
+        {error && (
+          <span
+            id={errorId}
+            role="alert"
+            className="shrink-0 text-caption text-destructive"
+          >
+            {error}
+          </span>
+        )}
+      </div>
+      <StartsWithLine start={creatorType.start} className="pl-1" />
     </form>
   )
 }
