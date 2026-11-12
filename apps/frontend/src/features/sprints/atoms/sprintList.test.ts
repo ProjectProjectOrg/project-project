@@ -835,6 +835,50 @@ describe("ticket membership mutations", () => {
     }
   })
 
+  it("refetches the sprint list when a later batch fails", async () => {
+    const tickets = Array.from({ length: 250 }, (_, index) =>
+      decodeTicketId(`T-${index + 10}`)
+    )
+    let batches = 0
+    let lists = 0
+    fetchStub.set((input, init) => {
+      const request = new Request(input, init)
+      if (!request.url.endsWith("/tickets/bulk")) {
+        lists += 1
+        return Promise.resolve(listResponse([sprint]))
+      }
+      batches += 1
+      return Promise.resolve(
+        batches === 1
+          ? Response.json({
+              tickets: [],
+              sprint: {
+                target: encodeGroupDetail(asDetail(sprint)),
+                evicted: []
+              }
+            })
+          : new Response(null, { status: 500 })
+      )
+    })
+    const registry = AtomRegistry.make()
+    const view = sprintList(req)
+    registry.mount(view)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({ _tag: "Success" })
+      )
+      const before = lists
+      const result = await fireMutation(registry, bulkAddTicketsToSprint(req), {
+        groupId,
+        tickets
+      })
+      expect(AsyncResult.isFailure(result)).toBe(true)
+      await vi.waitFor(() => expect(lists).toBeGreaterThan(before))
+    } finally {
+      registry.dispose()
+    }
+  })
+
   it("removes tickets from the sprint", async () => {
     let finish = (_r: Response) => {}
     fetchStub.set((_input, init) => {

@@ -16,6 +16,7 @@ import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Atom from "effect/reactivity/Atom"
 import type * as Registry from "effect/reactivity/AtomRegistry"
+import * as Reactivity from "effect/reactivity/Reactivity"
 import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
@@ -368,6 +369,14 @@ export const bulkAddTicketsToSprint = Atom.family((req: SprintListRequest) =>
           params: req.params,
           payload: { tickets, patch: { sprint: input.groupId } }
         })
+      ).pipe(
+        Effect.onError(() =>
+          Reactivity.invalidate([
+            Keys.sprints(scopeOf(req)),
+            Keys.sprintMembership(scopeOf(req)),
+            ...Keys.ticketsChanged(scopeOf(req))
+          ])
+        )
       ),
     confirm: (sprints, results, input) =>
       results.reduce(
