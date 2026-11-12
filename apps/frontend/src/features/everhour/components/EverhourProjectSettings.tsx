@@ -109,9 +109,8 @@ function EverhourSettingsContent({
       m.project_settings_everhour_action_error
     )
   const error =
-    status.lastSyncStatus === "ok"
-      ? null
-      : (status.lastSyncError ?? mutationError)
+    mutationError ??
+    (status.lastSyncStatus === "ok" ? null : status.lastSyncError)
 
   return (
     <SettingsRow

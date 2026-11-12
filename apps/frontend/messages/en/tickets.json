@@ -299,6 +299,7 @@
   "tickets_page_meta_sprint": "sprint",
   "tickets_page_meta_sub_ticket_of": "sub-ticket of",
   "tickets_page_meta_tags": "tags",
+  "tickets_peek_load_failed": "Couldn't load this ticket.",
   "tickets_peek_more_sub_tickets": "+{count} more",
   "tickets_peek_sub_tickets": "Sub-tickets",
   "tickets_priority_aria_label": "Priority: {label}. Click to change.",

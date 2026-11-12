@@ -5,13 +5,15 @@ import {
   AvatarGroupCount,
   AvatarImage
 } from "@/components/ui/avatar"
+import { avatarColor } from "@/features/members/lib/avatarColor"
 import { cn } from "@/lib/utils"
 
-export interface AvatarSubject {
-  readonly name?: string | null
-  readonly email?: string | null
-  readonly image?: string | null
-}
+export type AvatarSubject = Readonly<{
+  id: string
+  name?: string | null
+  email?: string | null
+  image?: string | null
+}>
 
 const fontSize = (size: number) => Math.max(10, Math.round(size * 0.5))
 
@@ -40,7 +42,15 @@ export function MemberAvatar({
           className="object-cover"
         />
       )}
-      <AvatarFallback style={{ fontSize: fontSize(size) }}>
+      <AvatarFallback
+        className={cn(!member.image && "text-foreground dark:text-background")}
+        style={{
+          fontSize: fontSize(size),
+          backgroundColor: member.image
+            ? undefined
+            : avatarColor(member.id).oklch
+        }}
+      >
         {initial}
       </AvatarFallback>
     </Avatar>
@@ -62,8 +72,8 @@ export function AvatarStack({
   const overflow = subjects.length - visible.length
   return (
     <AvatarGroup className={className}>
-      {visible.map((subject, index) => (
-        <MemberAvatar key={index} member={subject} size={size} />
+      {visible.map((subject) => (
+        <MemberAvatar key={subject.id} member={subject} size={size} />
       ))}
       {overflow > 0 && (
         <AvatarGroupCount

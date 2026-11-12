@@ -28,6 +28,7 @@ import {
 } from "@/features/tags/atoms/tags"
 import { TagAdminPopover } from "@/features/tags/components/TagAdminPopover"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -51,10 +52,14 @@ export function TagEditor({ ticket, canManageTags }: Props) {
       ? tagUsage(tagsReq)
       : idleUsageCountsAtom
   )
-  const updateTags = useAtomSet(applyTagsInEditor(editorReq))
+  const updateTags = useAtomSet(applyTagsInEditor(editorReq), {
+    mode: "promiseExit"
+  })
   const create = useAtomSet(createTagInEditor(editorReq), {
     mode: "promiseExit"
   })
+  const createState = useAtomValue(createTagInEditor(editorReq))
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [draft, setDraft] = useState("")
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [anchor, setAnchor] =
@@ -75,22 +80,27 @@ export function TagEditor({ ticket, canManageTags }: Props) {
     return map
   }, [registry])
 
-  const apply = (next: ReadonlyArray<string>) =>
-    updateTags({ tags: next.map((name) => makeTagName(name)) })
+  const apply = async (next: ReadonlyArray<string>) => {
+    const exit = await updateTags({
+      tags: next.map((name) => makeTagName(name))
+    })
+    if (Exit.isSuccess(exit)) setDeleteError(null)
+  }
 
   const addTag = (name: string) => {
     if (displayedNames.includes(makeTagName(name))) return
-    apply([...displayedNames, name])
+    void apply([...displayedNames, name])
   }
 
   const removeFromTicket = (name: string) => {
-    apply(displayedNames.filter((tagName) => tagName !== name))
+    void apply(displayedNames.filter((tagName) => tagName !== name))
   }
 
   const createAndApply = async (name: TagName) => {
-    setDraft("")
     const exit = await create({ name })
-    if (Exit.isSuccess(exit)) addTag(name)
+    if (Exit.isFailure(exit)) return
+    setDraft("")
+    addTag(name)
   }
 
   const ticketHasTag = (name: string) =>
@@ -123,6 +133,7 @@ export function TagEditor({ ticket, canManageTags }: Props) {
             req={editorReq}
             usageCount={tag ? usageCountFor(tag.name) : 0}
             onRemove={() => removeFromTicket(name)}
+            onDeleteError={setDeleteError}
             onManagementOpenChange={(open) =>
               setManagedTag((current) =>
                 open ? name : current === name ? null : current
@@ -175,6 +186,7 @@ export function TagEditor({ ticket, canManageTags }: Props) {
             applied={displayedNames}
             draft={draft}
             canCreate={canManageTags}
+            error={mutationErrorText(createState)}
             onToggle={(name) =>
               ticketHasTag(name) ? removeFromTicket(name) : addTag(name)
             }
@@ -182,6 +194,11 @@ export function TagEditor({ ticket, canManageTags }: Props) {
           />
         </DropdownMenuContent>
       </DropdownMenu>
+      {deleteError && (
+        <p role="alert" className="basis-full text-caption text-destructive">
+          {deleteError}
+        </p>
+      )}
     </div>
   )
 }
@@ -195,6 +212,7 @@ function AppliedTagChip({
   req,
   usageCount,
   onRemove,
+  onDeleteError,
   onManagementOpenChange
 }: {
   name: string
@@ -205,19 +223,24 @@ function AppliedTagChip({
   req: TagEditorRequest
   usageCount: number
   onRemove: () => void
+  onDeleteError: (error: string | null) => void
   onManagementOpenChange: (open: boolean) => void
 }) {
   const updateMutation = updateTagInEditor({ req, name: mutationName })
   const removeMutation = deleteTagInEditor({ req, name: mutationName })
-  const update = useAtomSet(updateMutation)
+  const update = useAtomSet(updateMutation, { mode: "promiseExit" })
   const updateState = useAtomValue(updateMutation)
   const remove = useAtomSet(removeMutation, { mode: "promiseExit" })
   const removeState = useAtomValue(removeMutation)
   const waiting = updateState.waiting || removeState.waiting
-  const patch = (next: { nextName?: TagName; color?: Tag["color"] }) =>
-    update({ name: next.nextName, color: next.color })
+  const patch = async (next: { nextName?: TagName; color?: Tag["color"] }) => {
+    const exit = await update({ name: next.nextName, color: next.color })
+    if (Exit.isSuccess(exit)) onDeleteError(null)
+  }
   const removeTag = async () => {
+    onDeleteError(null)
     const exit = await remove()
+    onDeleteError(mutationErrorText(Result.fromExit(exit)))
     if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
   }
   const hex = color ?? NEUTRAL
@@ -254,7 +277,8 @@ function AppliedTagChip({
       <TagAdminPopover
         tag={tag}
         usageCount={usageCount}
-        onPatch={patch}
+        updateError={mutationErrorText(updateState)}
+        onPatch={(next) => void patch(next)}
         onDelete={removeTag}
         onOpenChange={onManagementOpenChange}
       >

@@ -19,6 +19,7 @@ export function TagMenuBody({
   applied,
   draft,
   canCreate,
+  error,
   onToggle,
   onCreate
 }: Readonly<{
@@ -26,6 +27,7 @@ export function TagMenuBody({
   applied: ReadonlyArray<string>
   draft: string
   canCreate: boolean
+  error?: string | null
   onToggle: (name: TagName) => void
   onCreate: (name: TagName) => void
 }>) {
@@ -65,6 +67,11 @@ export function TagMenuBody({
         )}
       </DropdownMenuList>
       <DropdownMenuEmpty>{m.tickets_command_tags_empty()}</DropdownMenuEmpty>
+      {error && (
+        <div role="alert" className="px-2 py-1.5 text-caption text-destructive">
+          {error}
+        </div>
+      )}
     </>
   )
 }

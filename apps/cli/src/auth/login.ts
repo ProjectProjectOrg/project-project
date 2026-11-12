@@ -58,12 +58,14 @@ const codeFrom = (params: URLSearchParams, pkce: Pkce) => {
     : Effect.succeed(code)
 }
 
-const redirected = (listening: Listening) =>
+const redirected = (listening: Listening, origin: string) =>
   listening.redirect.pipe(
     Effect.timeoutOrElse({
       duration: "10 minutes",
       orElse: () =>
-        Effect.fail(notSignedIn("Sign-in timed out. Run `pp login` again."))
+        Effect.fail(
+          notSignedIn(`Sign-in timed out. Run \`pp login ${origin}\` again.`)
+        )
     })
   )
 
@@ -76,6 +78,7 @@ const completeSignIn = (
   Effect.gen(function* () {
     const code = yield* codeFrom(params, pkce)
     const tokens = yield* exchangeCode({
+      origin: discovered.origin,
       tokenEndpoint: discovered.tokenEndpoint,
       code,
       redirectUri,
@@ -114,7 +117,7 @@ const signIn = (discovered: Discovered, pkce: Pkce) =>
         `Opening your browser to sign in to ${discovered.origin}.\nIf it doesn't open, visit:\n\n  ${url}\n`
       )
       yield* (yield* Browser).open(url)
-      const params = yield* redirected(listening).pipe(
+      const params = yield* redirected(listening, discovered.origin).pipe(
         withLoading("Waiting for you to approve in the browser")
       )
       return yield* completeSignIn(

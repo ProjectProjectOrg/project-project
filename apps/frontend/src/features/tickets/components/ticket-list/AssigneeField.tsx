@@ -1,6 +1,7 @@
+import { useAtomValue } from "@effect/atom-react"
 import type { Member, TicketId } from "@pp/shared"
 import * as Match from "effect/Match"
-import { UserRound } from "lucide-react"
+import { UserCheck, UserMinus, UserRound } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -10,14 +11,18 @@ import {
   DropdownMenuContent,
   DropdownMenuEmpty,
   DropdownMenuInput,
+  DropdownMenuItem,
   DropdownMenuList,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { Hitbox } from "@/components/ui/hitbox"
+import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   AvatarStack,
   MemberAvatar
 } from "@/features/members/components/MemberAvatar"
+import { toggleAssignee } from "@/features/tickets/lib/assignees"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { m } from "@/paraglide/messages"
 
@@ -155,6 +160,42 @@ function Trigger({
   )
 }
 
+export function AssignMeItem({
+  assignees,
+  members,
+  onChange
+}: Readonly<{
+  assignees: ReadonlyArray<string>
+  members: ReadonlyArray<Member>
+  onChange: (assignees: ReadonlyArray<string>) => void
+}>) {
+  const viewerId = useAtomValue(currentUserId)
+  if (
+    viewerId === undefined ||
+    !members.some((member) => member.id === viewerId)
+  ) {
+    return null
+  }
+  const assigned = assignees.includes(viewerId)
+  const label = assigned
+    ? m.tickets_command_unassign_me()
+    : m.tickets_command_assign_me()
+  const Icon = assigned ? UserMinus : UserCheck
+  return (
+    <>
+      <DropdownMenuItem
+        label={label}
+        onClick={() => onChange(toggleAssignee(assignees, viewerId))}
+        className="cursor-pointer"
+      >
+        <Icon className="size-4" strokeWidth={1.75} />
+        {label}
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+    </>
+  )
+}
+
 export function AssigneeSelect({
   value,
   onChange,
@@ -169,12 +210,7 @@ export function AssigneeSelect({
   className?: string
 }) {
   const resolved = resolveAssignees(value, members)
-  const toggle = (memberId: string) =>
-    onChange(
-      value.includes(memberId)
-        ? value.filter((a) => a !== memberId)
-        : [...value, memberId]
-    )
+  const toggle = (memberId: string) => onChange(toggleAssignee(value, memberId))
   const clear = () => {
     if (value.length > 0) onChange([])
   }
@@ -201,6 +237,11 @@ export function AssigneeSelect({
           aria-label={m.tickets_assignee_search_placeholder()}
         />
         <DropdownMenuList>
+          <AssignMeItem
+            assignees={value}
+            members={members}
+            onChange={onChange}
+          />
           <DropdownMenuCheckboxItem
             label={m.tickets_assignee_unassigned()}
             checked={value.length === 0}

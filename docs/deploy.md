@@ -84,6 +84,7 @@ Edit `.env` and fill in:
 - `GITHUB_APP_WEBHOOK_SECRET` — the secret configured on the GitHub App webhook.
 - `BOOTSTRAP_ORG_SLUG` / `BOOTSTRAP_ORG_NAME` — the first organization to create.
 - `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_NAME` / `BOOTSTRAP_OWNER_USERNAME` — the initial owner identity. Use the same email and username as the GitHub account that will sign in.
+- `USER_SECRET_ENCRYPTION_KEY` — a base64-encoded 32-byte key that encrypts saved integration, email and storage credentials. Generate with `openssl rand -base64 32`.
 
 The GitHub OAuth app's "Authorization callback URL" must be:
 
@@ -114,15 +115,13 @@ and `web` exposing `:8080` on the VM.
 
 ### 4. Rebuild the ticket index
 
-The release that adds migration `0015` creates an empty `ticket_index` table.
-Existing ticket lists, counts, search results, and tag usage counts stay empty
-until the markdown tickets are indexed.
-
-Run this once after migrations:
+The backend checks the `ticket_index` table against the markdown tickets on
+every start and rebuilds any project that is out of date, so this step is
+optional. To force a full rebuild:
 
 ```sh
 cd /srv/projectproject
-docker compose run --rm app bun run ticket-index:rebuild
+docker compose run --rm app bun packages/backend/scripts/rebuild-ticket-index.ts
 ```
 
 ### 5. Bootstrap the first organization
@@ -133,15 +132,17 @@ from the VM:
 
 ```sh
 cd /srv/projectproject
-docker compose run --rm app bun run bootstrap:org
+docker compose run --rm app bun packages/backend/scripts/bootstrap-org.ts
 ```
 
 The command is repeat-safe. Re-running it reports the existing org, owner,
 and membership instead of creating duplicates. After bootstrap, the owner signs
 in with the configured email (magic link, Google or Microsoft), then invites teammates
-from org settings. Invited users open their invite link (or `/welcome`), sign
-in with the invited email, and land inside the org. Connecting a personal
-GitHub account for branch automation happens later, from the profile page.
+from org settings. No email is sent: the magic link appears in the backend log
+as a `[magic-link] email=... url=...` line (`docker compose logs app`).
+Invited users open their invite link (or `/welcome`), sign in with the
+invited email, and land inside the org. Connecting a personal GitHub account
+for branch automation happens later, from the profile page.
 
 ### 6. nginx-proxy-manager
 

@@ -21,6 +21,7 @@ const isFresh = (server: SavedServer) =>
 const refreshed = (server: SavedServer) =>
   Effect.map(
     refreshTokens({
+      origin: server.origin,
       tokenEndpoint: server.endpoints.token,
       refreshToken: server.tokens.refreshToken,
       resource: resourceFor(server.origin)

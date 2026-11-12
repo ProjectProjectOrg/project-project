@@ -43,6 +43,7 @@ export const userProvider = (scope: MentionScope): MentionProvider => ({
     <div className="flex min-w-0 items-center gap-2">
       <MemberAvatar
         member={{
+          id: candidate.id,
           name: candidate.label,
           email: candidate.secondary ?? null,
           image: candidate.image ?? null

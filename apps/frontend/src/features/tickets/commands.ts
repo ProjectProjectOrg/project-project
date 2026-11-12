@@ -211,7 +211,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
     icon: FolderInput,
     keywords: ["project", "transfer", "inbox"],
     tool: "move_ticket",
-    when: (context) => context.ticket !== null && context.tickets.move,
+    when: (context) => onLiveTicket(context) && context.tickets.move,
     page: "ticketMove"
   },
   {
@@ -293,7 +293,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
     label: m.tickets_split_menu_item,
     icon: Split,
     keywords: ["break up", "divide"],
-    when: ({ ticket, tickets }) => ticket !== null && tickets.split,
+    when: (context) => onLiveTicket(context) && context.tickets.split,
     run: ({ ticket }, env) => {
       if (ticket === null) return
       env.close()

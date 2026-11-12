@@ -21,6 +21,7 @@ import {
 import { useOpenTicketPage } from "@/features/tickets/components/ticket-menu/useOpenTicketPage"
 import { removableRelations } from "@/features/tickets/lib/relationGroups"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
 import { MARK_KINDS } from "./markKinds"
@@ -68,6 +69,7 @@ export function RelationsSubmenu({
   const req = ticketRequest(orgSlug, slug, ticketId)
   const detail = useAtomValue(ticketDetail(req))
   const registry = useContext(RegistryContext)
+  const failure = mutationErrorText(useAtomValue(unmarkTicket(req)))
   const detachable = canDetach ? parent : null
   const marks =
     canUnmark && Result.isSuccess(detail)
@@ -113,6 +115,11 @@ export function RelationsSubmenu({
             />
           )
         })}
+        {failure && (
+          <p role="alert" className="px-2 py-1.5 text-caption text-destructive">
+            {failure}
+          </p>
+        )}
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   )

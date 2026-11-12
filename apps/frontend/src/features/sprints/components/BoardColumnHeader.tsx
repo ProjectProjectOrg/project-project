@@ -144,7 +144,7 @@ function CollapseColumnButton({
       onClick={onCollapse}
       aria-label={text}
       title={text}
-      className="opacity-0 group-hover/reveal:opacity-100 focus-visible:opacity-100"
+      className="opacity-0 group-hover/reveal:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
     >
       <FoldHorizontal className="size-4" strokeWidth={1.75} />
     </Button>

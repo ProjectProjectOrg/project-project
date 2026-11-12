@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect"
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
 import * as Schema from "effect/Schema"
 
-import { notSignedIn, unreachable } from "../CliFailure"
+import { CliFailure, ExitCode, notSignedIn, unreachable } from "../CliFailure"
 
 const TokenResponse = Schema.Struct({
   access_token: Schema.String,
@@ -19,6 +19,7 @@ export type Tokens = Readonly<{
 }>
 
 const requestTokens = (
+  origin: string,
   tokenEndpoint: string,
   params: Readonly<Record<string, string>>
 ) =>
@@ -35,9 +36,15 @@ const requestTokens = (
         unreachable(`Couldn't reach the sign-in server at ${tokenEndpoint}.`)
       )
     )
+    if (response.status >= 500) {
+      return yield* new CliFailure({
+        message: `${origin} answered with HTTP ${response.status}.`,
+        code: ExitCode.failure
+      })
+    }
     if (response.status !== 200) {
       return yield* notSignedIn(
-        "The server didn't accept the sign-in. Run `pp login` again."
+        `The server didn't accept the sign-in. Run \`pp login ${origin}\` again.`
       )
     }
     const body = yield* HttpClientResponse.schemaBodyJson(TokenResponse)(
@@ -58,6 +65,7 @@ const requestTokens = (
 
 export const exchangeCode = (
   input: Readonly<{
+    origin: string
     tokenEndpoint: string
     code: string
     redirectUri: string
@@ -65,7 +73,7 @@ export const exchangeCode = (
     resource: string
   }>
 ) =>
-  requestTokens(input.tokenEndpoint, {
+  requestTokens(input.origin, input.tokenEndpoint, {
     grant_type: "authorization_code",
     code: input.code,
     redirect_uri: input.redirectUri,
@@ -75,12 +83,13 @@ export const exchangeCode = (
 
 export const refreshTokens = (
   input: Readonly<{
+    origin: string
     tokenEndpoint: string
     refreshToken: string
     resource: string
   }>
 ) =>
-  requestTokens(input.tokenEndpoint, {
+  requestTokens(input.origin, input.tokenEndpoint, {
     grant_type: "refresh_token",
     refresh_token: input.refreshToken,
     resource: input.resource

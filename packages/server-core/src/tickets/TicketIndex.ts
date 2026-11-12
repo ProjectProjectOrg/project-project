@@ -1044,10 +1044,10 @@ const make = Effect.gen(function* () {
           },
     subTicketCount: row.subTicketCount,
     subTicketDoneCount: row.subTicketDoneCount,
-    subTicketsInSection:
-      row.subTicketsInSection === undefined || row.subTicketsInSection === null
-        ? undefined
-        : row.subTicketsInSection,
+    ...(row.subTicketsInSection === undefined ||
+    row.subTicketsInSection === null
+      ? {}
+      : { subTicketsInSection: row.subTicketsInSection }),
     openBlockerCount: row.openBlockerCount,
     openBlockingCount: row.openBlockingCount,
     relatedCount: row.relatedCount,
