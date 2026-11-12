@@ -114,12 +114,12 @@ const contextFor = (
 
 const environment = (): CommandEnv => ({
   registry: AtomRegistry.make(),
-  execute: vi.fn(),
-  navigate: vi.fn(),
-  copy: vi.fn(),
-  open: vi.fn(),
-  actOn: vi.fn(),
-  close: vi.fn()
+  execute: vi.fn<(atom: unknown, value: unknown) => void>(),
+  navigate: vi.fn<CommandEnv["navigate"]>(),
+  copy: vi.fn<CommandEnv["copy"]>(),
+  open: vi.fn<CommandEnv["open"]>(),
+  actOn: vi.fn<CommandEnv["actOn"]>(),
+  close: vi.fn<CommandEnv["close"]>()
 })
 
 afterEach(() => vi.unstubAllGlobals())
@@ -188,7 +188,7 @@ it.each([
   },
   { id: "git.open-pr", expected: "https://github.com/other/api/pull/7" }
 ])("$id opens the ticket's repository", ({ id, expected }) => {
-  const open = vi.fn()
+  const open = vi.fn<Window["open"]>()
   vi.stubGlobal("window", { open })
   const context = contextFor("member", "developer")
   const command = gitCommands.find((entry) => entry.id === id)
