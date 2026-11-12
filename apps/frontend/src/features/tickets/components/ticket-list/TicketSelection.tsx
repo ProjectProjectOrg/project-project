@@ -225,7 +225,13 @@ export function useSelectionActions(key: string) {
         )
   const patchBulk = (patch: BulkTicketPatch): boolean => {
     if (!acting) return false
-    updateSelected(registry, store, projectOfKey(key), selectedIds(), patch)
+    void updateSelected(
+      registry,
+      store,
+      projectOfKey(key),
+      selectedIds(),
+      patch
+    )
     return true
   }
   return {

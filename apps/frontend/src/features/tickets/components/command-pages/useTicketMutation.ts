@@ -37,15 +37,20 @@ export function useTicketMutation(
   const [edited, setEdited] = useState(selection)
   if (selection.length > 1) {
     const tickets = selection.map((each) => each.id)
+    const current = edited.filter((each) => tickets.includes(each.id))
     return {
-      current: sharedTicketFields(edited),
+      current: sharedTicketFields(current),
       update: (edit: TicketEdit) => {
-        setEdited((current) =>
-          current.map((each) => applySelectedEdit(each, edit))
-        )
+        const before = edited
+        setEdited(before.map((each) => applySelectedEdit(each, edit)))
         const patch = toBulkPatch(edit)
-        if (updateSelection === null) updateMany({ tickets, patch })
-        else updateSelection(ticket.slug, tickets, patch)
+        if (updateSelection === null) {
+          updateMany({ tickets, patch })
+          return
+        }
+        void updateSelection(ticket.slug, tickets, patch).then((saved) => {
+          if (!saved) setEdited(before)
+        })
       }
     }
   }

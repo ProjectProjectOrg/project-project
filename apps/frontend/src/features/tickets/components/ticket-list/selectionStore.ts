@@ -43,15 +43,16 @@ export const updateSelected = (
     if (view !== undefined) byView.set(view, [...(byView.get(view) ?? []), id])
   }
   registry.set(store.failure, null)
-  for (const [view, ids] of byView) {
-    void fireMutation(registry, view, { tickets: ids, patch }).then(
-      (result) => {
-        if (!Result.isFailure(result)) return
+  return Promise.all(
+    [...byView].map(([view, ids]) =>
+      fireMutation(registry, view, { tickets: ids, patch }).then((result) => {
+        if (!Result.isFailure(result)) return true
         registry.set(store.failure, {
           count: ids.length,
-          retry: () => updateSelected(registry, store, slug, ids, patch)
+          retry: () => void updateSelected(registry, store, slug, ids, patch)
         })
-      }
+        return false
+      })
     )
-  }
+  ).then((results) => results.every(Boolean))
 }

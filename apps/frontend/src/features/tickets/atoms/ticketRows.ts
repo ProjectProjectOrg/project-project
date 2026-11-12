@@ -7,6 +7,7 @@ import type {
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
+import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
 import {
@@ -59,6 +60,16 @@ export const bulkTicketUpdate = <V, VE>(
           params: update.path,
           payload: { tickets, patch: input.patch }
         })
+      ).pipe(
+        Effect.onError(() =>
+          Reactivity.invalidate(
+            bulkChangedKeys(
+              update.path,
+              input.tickets,
+              input.patch.sprint !== undefined
+            )
+          )
+        )
       ),
     confirm: keepPredicted,
     publish: (_result, input) =>

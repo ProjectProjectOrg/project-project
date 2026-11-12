@@ -95,7 +95,7 @@ export const relationCommands: ReadonlyArray<Command> = [
         env.registry.get(commandScopes)
       )
       if (selection.length > 1 && updateSelection !== null) {
-        updateSelection(
+        void updateSelection(
           ticket.slug,
           selection.map((each) => each.id),
           { flag: null }

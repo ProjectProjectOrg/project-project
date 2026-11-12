@@ -21,7 +21,7 @@ export type CommandScope = Readonly<{
     slug: string,
     tickets: ReadonlyArray<TicketId>,
     patch: BulkTicketPatch
-  ) => void
+  ) => Promise<boolean>
   sprint?: SprintContext
   view?: ViewContext
   commands?: ReadonlyArray<Command>
