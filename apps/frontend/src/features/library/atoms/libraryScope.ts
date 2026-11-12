@@ -1,12 +1,10 @@
-import type { BlockKey, LibraryOrigin, TypeKey } from "@pp/shared"
+import type { BlockKey, TypeKey } from "@pp/shared"
 
 import {
   createOrgBlock,
   createOrgType,
   createProjectBlock,
   createProjectType,
-  hideProjectBlock,
-  hideProjectType,
   orgLibraryFor,
   orgLibraryRequest,
   projectLibraryFor,
@@ -59,30 +57,10 @@ export const removeTypeAtom = (scope: LibraryScope, key: TypeKey) =>
     ? removeOrgType({ req: scope.req, key })
     : removeProjectType({ req: scope.req, key })
 
-export const dropTypeAtom = (
-  scope: LibraryScope,
-  entry: Readonly<{ key: TypeKey; origin: LibraryOrigin }>
-) =>
-  scope.layer === "org"
-    ? removeOrgType({ req: scope.req, key: entry.key })
-    : entry.origin === "project"
-      ? removeProjectType({ req: scope.req, key: entry.key })
-      : hideProjectType({ req: scope.req, key: entry.key })
-
 export const removeBlockAtom = (scope: LibraryScope, key: BlockKey) =>
   scope.layer === "org"
     ? removeOrgBlock({ req: scope.req, key })
     : removeProjectBlock({ req: scope.req, key })
-
-export const dropBlockAtom = (
-  scope: LibraryScope,
-  entry: Readonly<{ key: BlockKey; origin: LibraryOrigin }>
-) =>
-  scope.layer === "org"
-    ? removeOrgBlock({ req: scope.req, key: entry.key })
-    : entry.origin === "project"
-      ? removeProjectBlock({ req: scope.req, key: entry.key })
-      : hideProjectBlock({ req: scope.req, key: entry.key })
 
 export const updateTypeAtom = (scope: LibraryScope, key: TypeKey) =>
   scope.layer === "org"

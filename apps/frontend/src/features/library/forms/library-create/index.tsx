@@ -1,207 +1,285 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import {
-  FALLBACK_BLOCK_ICON,
-  type BlockDraft,
-  BlockKey,
-  type TypeDraft,
-  TypeKey
-} from "@pp/shared"
-import * as Exit from "effect/Exit"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
+import { RegistryContext, useAtomValue } from "@effect/atom-react"
+import type { Library } from "@pp/shared"
+import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
+import { useContext, useId, useState } from "react"
 
+import { fireMutation } from "@/api/viewMutation"
 import { Button } from "@/components/ui/button"
-import { useInlineForm } from "@/components/ui/inline-form"
 import { Input } from "@/components/ui/input"
+import {
+  SegmentedTabs,
+  type SegmentedItem
+} from "@/components/ui/segmented-tabs"
 import {
   createBlockAtom,
   createTypeAtom,
+  orgScope,
+  type LibraryLayer,
   type LibraryScope
 } from "@/features/library/atoms/libraryScope"
-import { useOpenEntry } from "@/features/library/components/LibraryEntryLink"
+import {
+  ExamplePicker,
+  useExamples
+} from "@/features/library/components/ExamplePicker"
+import {
+  LibraryListLink,
+  useOpenEntry
+} from "@/features/library/components/LibraryEntryLink"
 import type { LibraryKind } from "@/features/library/lib/libraryModel"
+import {
+  exampleSections,
+  exampleTypes,
+  newSectionDraft,
+  newTypeDraft,
+  sectionsNeededBy,
+  takenKeys
+} from "@/features/library/lib/newEntry"
 import { useAppForm, useFormValues } from "@/lib/form"
 import { mutationErrorText } from "@/lib/mutationError"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import { effectiveLibraryKey, libraryCreateFormOpts } from "./opts"
+import {
+  effectiveLibraryKey,
+  libraryCreateFormOpts,
+  type LibraryCreateValues
+} from "./opts"
 
 export type LibraryCreateProps = Readonly<{
   kind: LibraryKind
   scope: LibraryScope
-  taken: ReadonlySet<string>
+  library: Library
+  orgLibrary: Library | null
+  layers: ReadonlyArray<LibraryLayer>
+  orgName: string
 }>
 
-type CreateResult = AsyncResult.AsyncResult<unknown, Readonly<{ _tag: string }>>
-
-const templateDraft = (key: string, name: string): TypeDraft => ({
-  key: TypeKey.make(key),
-  name,
-  icon: "LayoutTemplate",
-  color: null,
-  description: "",
-  priority: null,
-  tags: [],
-  body: ""
-})
-
-const blockDraft = (key: string, name: string): BlockDraft => ({
-  key: BlockKey.make(key),
-  name,
-  icon: FALLBACK_BLOCK_ICON,
-  color: null,
-  description: "",
-  sync: false,
-  content: `## ${name}`
-})
-
-export function LibraryCreateForm(props: LibraryCreateProps) {
-  return props.kind === "template" ? (
-    <TemplateCreateForm {...props} />
-  ) : (
-    <BlockCreateForm {...props} />
-  )
-}
-
-function TemplateCreateForm(props: LibraryCreateProps) {
-  const mutation = createTypeAtom(props.scope)
-  const create = useAtomSet(mutation, { mode: "promiseExit" })
-  const state = useAtomValue(mutation)
-  return (
-    <CreateFields
-      {...props}
-      state={state}
-      submit={(key, name) => create(templateDraft(key, name))}
-    />
-  )
-}
-
-function BlockCreateForm(props: LibraryCreateProps) {
-  const mutation = createBlockAtom(props.scope)
-  const create = useAtomSet(mutation, { mode: "promiseExit" })
-  const state = useAtomValue(mutation)
-  return (
-    <CreateFields
-      {...props}
-      state={state}
-      submit={(key, name) => create(blockDraft(key, name))}
-    />
-  )
-}
-
-function CreateFields({
+export function LibraryCreateForm({
   kind,
   scope,
-  taken,
-  state,
-  submit
-}: LibraryCreateProps &
-  Readonly<{
-    state: CreateResult
-    submit: (
-      key: string,
-      name: string
-    ) => Promise<Exit.Exit<unknown, Readonly<{ _tag: string }>>>
-  }>) {
-  const { close } = useInlineForm()
-  const openEntry = useOpenEntry(scope)
-  const busy = state.waiting
-  const failure = busy ? null : mutationErrorText(state)
+  library,
+  orgLibrary,
+  layers,
+  orgName
+}: LibraryCreateProps) {
+  const registry = useContext(RegistryContext)
+  const openEntry = useOpenEntry()
+  const nameId = useId()
+  const keyId = useId()
+  const [failure, setFailure] = useState<string | null>(null)
+  const initialLayer = layers[0] ?? scope.layer
+  const targetOf = (layer: LibraryLayer): LibraryScope =>
+    layer === scope.layer ? scope : orgScope(scope.req.params.orgSlug)
+  const libraryOf = (layer: LibraryLayer): Library =>
+    layer === "org" && scope.layer === "project"
+      ? (orgLibrary ?? library)
+      : library
+  const takenIn = (layer: LibraryLayer) =>
+    takenKeys(
+      layer === scope.layer ? [library] : [library, libraryOf(layer)],
+      kind
+    )
+
   const form = useAppForm({
-    ...libraryCreateFormOpts(kind, taken),
+    ...libraryCreateFormOpts(kind, initialLayer, takenIn),
     onSubmit: async ({ value }) => {
-      const key = effectiveLibraryKey(value)
-      const exit = await submit(key, value.name.trim())
-      if (!Exit.isSuccess(exit)) return
-      close()
-      openEntry(kind, key)
+      setFailure(null)
+      const target = targetOf(value.layer)
+      const failed = await createEntry(registry, {
+        kind,
+        target,
+        library: libraryOf(value.layer),
+        value
+      })
+      if (failed !== null) return setFailure(failed)
+      openEntry(target, kind, effectiveLibraryKey(value))
     }
   })
   const values = useFormValues(form)
-  const trimmed = values.name.trim()
+  const target = targetOf(values.layer)
+  const typeWaiting = useAtomValue(createTypeAtom(target)).waiting
+  const blockWaiting = useAtomValue(createBlockAtom(target)).waiting
+  const busy = typeWaiting || blockWaiting
+  const targetLibrary = libraryOf(values.layer)
+  const examples = useExamples(kind, targetLibrary)
+  const chosen = examples.find((example) => example.key === values.example)
+
+  const pick = (key: string | null) => {
+    const previous = examples.find((example) => example.key === values.example)
+    const next = examples.find((example) => example.key === key)
+    form.setFieldValue("example", key)
+    if (values.name.trim() === "" || values.name === previous?.name)
+      form.setFieldValue("name", next?.name ?? "")
+  }
+
+  const layerItems: ReadonlyArray<SegmentedItem<LibraryLayer>> = layers.map(
+    (layer) => ({
+      key: layer,
+      label:
+        layer === "project"
+          ? m.templates_new_for_project()
+          : m.templates_new_for_org({ org: orgName })
+    })
+  )
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault()
-        if (busy) return
-        if (trimmed.length === 0) close()
-        else void form.handleSubmit()
+        if (!busy) void form.handleSubmit()
       }}
-      onKeyDown={(event) => {
-        if (event.key !== "Escape") return
-        event.preventDefault()
-        if (!busy) close()
-      }}
-      className="flex flex-col gap-1 rounded-lg border border-border bg-background p-3"
+      className="flex flex-col gap-6"
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <form.Field name="name">
-          {(field) => (
-            <Input
-              autoFocus
-              value={field.value}
-              disabled={busy}
-              maxLength={60}
-              onChange={(event) => field.handleChange(event.target.value)}
-              onBlur={field.handleBlur}
-              placeholder={
-                kind === "template"
-                  ? m.templates_settings_new_template_placeholder()
-                  : m.templates_settings_new_block_placeholder()
-              }
-              className="h-8 w-64 max-w-full rounded-md"
-            />
-          )}
-        </form.Field>
-        <form.Field name="key">
-          {(field) => (
-            <label className="flex items-center gap-1.5 text-caption text-muted-foreground">
-              {m.templates_settings_key_label()}
+      <ExamplePicker
+        kind={kind}
+        examples={examples}
+        value={values.example}
+        disabled={busy}
+        onPick={pick}
+      />
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor={nameId} className="px-0.5 text-body font-semibold">
+          {m.templates_new_name()}
+        </label>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <form.Field name="name">
+            {(field) => (
               <Input
-                value={effectiveLibraryKey(values)}
+                id={nameId}
+                value={field.value}
                 disabled={busy}
-                maxLength={48}
-                spellCheck={false}
+                maxLength={60}
                 aria-invalid={field.errors.length > 0}
                 onChange={(event) => field.handleChange(event.target.value)}
                 onBlur={field.handleBlur}
-                className="h-8 w-48 rounded-md font-mono text-caption"
+                className="w-72 max-w-full"
               />
-            </label>
+            )}
+          </form.Field>
+          <form.Field name="key">
+            {(field) => (
+              <span className="flex items-center gap-1.5 text-caption text-muted-foreground">
+                <label htmlFor={keyId}>
+                  {m.templates_settings_key_label()}
+                </label>
+                <Input
+                  id={keyId}
+                  value={effectiveLibraryKey(values)}
+                  disabled={busy}
+                  maxLength={48}
+                  spellCheck={false}
+                  aria-invalid={field.errors.length > 0}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  onBlur={field.handleBlur}
+                  className="h-8 w-48 font-mono text-caption"
+                />
+              </span>
+            )}
+          </form.Field>
+        </div>
+        <form.Field name="key">
+          {(keyField) => (
+            <form.Field name="name">
+              {(nameField) => {
+                const message =
+                  nameField.errors[0]?.message ?? keyField.errors[0]?.message
+                return message === undefined ? null : (
+                  <p
+                    role="alert"
+                    className="px-0.5 text-caption text-destructive"
+                  >
+                    {message}
+                  </p>
+                )
+              }}
+            </form.Field>
           )}
         </form.Field>
-        <span className="ml-auto flex items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={busy}
-            onClick={close}
-          >
-            {m.templates_settings_cancel()}
-          </Button>
-          <Button
-            type="submit"
-            size="sm"
-            variant="primary"
-            disabled={busy || trimmed.length === 0}
-          >
-            {m.templates_settings_create()}
-          </Button>
-        </span>
       </div>
-      <form.Field name="key">
-        {(field) => {
-          const problem =
-            trimmed.length > 0 && !busy ? field.errors[0]?.message : undefined
-          const error = problem ?? failure
-          return error === null ? null : (
-            <p className="text-caption text-destructive" role="alert">
-              {error}
-            </p>
-          )
-        }}
-      </form.Field>
+      {layerItems.length > 1 ? (
+        <div className="flex flex-col gap-1.5">
+          <span className="px-0.5 text-body font-semibold">
+            {m.templates_new_for()}
+          </span>
+          <form.Field name="layer">
+            {(field) => (
+              <SegmentedTabs
+                className="self-start"
+                items={layerItems}
+                value={field.value}
+                onValueChange={field.handleChange}
+              />
+            )}
+          </form.Field>
+        </div>
+      ) : null}
+      {kind === "type" && chosen !== undefined ? (
+        <p className="px-0.5 text-caption text-muted-foreground">
+          {m.templates_new_example_note()}
+        </p>
+      ) : null}
+      {failure === null ? null : (
+        <p role="alert" className="px-0.5 text-caption text-destructive">
+          {failure}
+        </p>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="submit"
+          variant="primary"
+          disabled={busy}
+          className={cn(busy && "animate-pulse")}
+        >
+          {kind === "type"
+            ? m.templates_new_create_type()
+            : m.templates_new_create_section()}
+        </Button>
+        <Button
+          variant="ghost"
+          render={<LibraryListLink scope={scope} kind={kind} />}
+        >
+          {m.templates_settings_cancel()}
+        </Button>
+      </div>
     </form>
+  )
+}
+
+type CreateRequest = Readonly<{
+  kind: LibraryKind
+  target: LibraryScope
+  library: Library
+  value: LibraryCreateValues
+}>
+
+const createEntry = async (
+  registry: AtomRegistry,
+  { kind, target, library, value }: CreateRequest
+): Promise<string | null> => {
+  const key = effectiveLibraryKey(value)
+  const name = value.name.trim()
+  if (kind === "section") {
+    const example =
+      exampleSections(library).find((draft) => draft.key === value.example) ??
+      null
+    return mutationErrorText(
+      await fireMutation(
+        registry,
+        createBlockAtom(target),
+        newSectionDraft(example, { key, name, icon: null })
+      )
+    )
+  }
+  const example =
+    exampleTypes(library).find((draft) => draft.key === value.example) ?? null
+  const draft = newTypeDraft(example, { key, name, icon: null })
+  for (const section of sectionsNeededBy(library, draft)) {
+    const failed = mutationErrorText(
+      await fireMutation(registry, createBlockAtom(target), section)
+    )
+    if (failed !== null) return failed
+  }
+  return mutationErrorText(
+    await fireMutation(registry, createTypeAtom(target), draft)
   )
 }

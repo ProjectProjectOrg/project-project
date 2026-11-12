@@ -49,7 +49,7 @@ export function DescriptionTemplateStarts({
             onMouseDown={keepEditorFocus}
             render={
               <Link
-                to="/orgs/$orgSlug/projects/$slug/settings/templates"
+                to="/orgs/$orgSlug/projects/$slug/settings/types"
                 params={{ orgSlug, slug }}
               />
             }

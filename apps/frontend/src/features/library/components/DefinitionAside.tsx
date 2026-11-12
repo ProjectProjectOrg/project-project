@@ -4,7 +4,6 @@ import {
   TagName,
   type BlockIconName,
   type LibraryColor,
-  type LibraryOrigin,
   type TicketPriority
 } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -162,17 +161,10 @@ export function IconAndColorField({
 function ChoiceTrigger({
   label,
   icon,
-  disabled,
   ariaLabel
-}: Readonly<{
-  label: string
-  icon?: ReactNode
-  disabled: boolean
-  ariaLabel: string
-}>) {
+}: Readonly<{ label: string; icon?: ReactNode; ariaLabel: string }>) {
   return (
     <SelectTrigger
-      disabled={disabled}
       aria-label={ariaLabel}
       render={
         <Button type="button" variant="chip" size="sm" className="-ml-1.5" />
@@ -180,12 +172,10 @@ function ChoiceTrigger({
     >
       {icon}
       <span>{label}</span>
-      {disabled ? null : (
-        <ChevronDown
-          className="size-3.5 text-muted-foreground"
-          strokeWidth={1.75}
-        />
-      )}
+      <ChevronDown
+        className="size-3.5 text-muted-foreground"
+        strokeWidth={1.75}
+      />
     </SelectTrigger>
   )
 }
@@ -204,6 +194,18 @@ export function NullablePriorityField({
   const meta = value === null ? null : PRIORITY_META[value]
   const label = value === null ? noneLabel() : PRIORITY_LABELS[value]()
   const Icon = meta?.icon ?? null
+  if (disabled)
+    return (
+      <span className="flex items-center gap-1.5 text-body text-muted-foreground">
+        {Icon === null ? null : (
+          <Icon
+            className={cn("size-3.5", meta?.className)}
+            strokeWidth={1.75}
+          />
+        )}
+        {label}
+      </span>
+    )
   return (
     <Select
       items={[null, ...PRIORITY_ORDER].map((priority) => {
@@ -231,13 +233,11 @@ export function NullablePriorityField({
         }
       })}
       value={value ?? NO_PRIORITY}
-      disabled={disabled}
       onValueChange={(next) => onChange(next === NO_PRIORITY ? null : next)}
       contentProps={{ align: "start", className: "w-44" }}
     >
       <ChoiceTrigger
         label={label}
-        disabled={disabled}
         ariaLabel={m.templates_editor_priority_aria({ label })}
         icon={
           Icon === null ? null : (
@@ -408,14 +408,5 @@ export function TemplateTagsField({
     </div>
   )
 }
-
-const ORIGIN_LABELS: Record<LibraryOrigin, () => string> = {
-  builtin: m.templates_settings_origin_builtin,
-  org: m.templates_settings_origin_org,
-  project: m.templates_settings_origin_project
-}
-
-export const originLabel = (origin: LibraryOrigin): string =>
-  ORIGIN_LABELS[origin]()
 
 export const MUTED_VALUE_CLASS = "text-body text-muted-foreground"

@@ -71,17 +71,17 @@ function useOpenGallery() {
     (entry: "block" | "template") => {
       if (router === undefined) return
       const params: RouteParams = router.state.matches.at(-1)?.params ?? {}
-      const search = entry === "block" ? { tab: "blocks" as const } : {}
+      const search = entry === "block" ? { tab: "sections" as const } : {}
       if (params.orgSlug === undefined) return
       if (params.slug === undefined)
         void router.navigate({
-          to: "/orgs/$orgSlug/settings/templates",
+          to: "/orgs/$orgSlug/settings/types",
           params: { orgSlug: params.orgSlug },
           search
         })
       else
         void router.navigate({
-          to: "/orgs/$orgSlug/projects/$slug/settings/templates",
+          to: "/orgs/$orgSlug/projects/$slug/settings/types",
           params: { orgSlug: params.orgSlug, slug: params.slug },
           search
         })
