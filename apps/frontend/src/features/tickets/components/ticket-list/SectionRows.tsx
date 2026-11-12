@@ -87,6 +87,7 @@ export function SectionRows({
                 >
                   <DraggableRow
                     ticket={ticket}
+                    nextId={items[index + 1]?.ticket.id ?? null}
                     pending={pending}
                     className="col-span-full grid grid-cols-subgrid"
                   >

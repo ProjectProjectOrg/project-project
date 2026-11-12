@@ -23,7 +23,7 @@ export type ListDropTarget = Readonly<
 export type DraggedRow = Pick<Ticket, "id" | "type" | "subTicketCount"> &
   Readonly<{ section: string }>
 
-export type RowAnchor = Readonly<{ id: TicketId; edge: "top" | "bottom" }>
+export type RowGap = TicketId | "end"
 
 export function sectionEdit(
   row: DraggedRow,
@@ -43,19 +43,38 @@ export function sectionEdit(
   return { parent }
 }
 
+export function movingGap(
+  column: ReadonlyArray<Pick<Ticket, "id">>,
+  rowId: TicketId,
+  gap: RowGap
+): RowGap | null {
+  const index = column.findIndex((ticket) => ticket.id === rowId)
+  if (index < 0) return gap
+  const next = column[index + 1]?.id ?? "end"
+  return gap === rowId || gap === next ? null : gap
+}
+
 export function listDropEdit(
   row: DraggedRow,
   to: ListDropTarget,
   column: ReadonlyArray<Pick<Ticket, "id" | "rank">>,
-  anchor: RowAnchor | null,
+  gap: RowGap | null,
   ordered: boolean
 ): TicketEdit | null {
   const edit = sectionEdit(row, to)
   if (edit === null) return null
+  const at = ordered && gap !== null ? movingGap(column, row.id, gap) : null
   const position =
-    ordered && anchor !== null && anchor.id !== row.id
-      ? boardMove(column, column, row.id, { type: "card", ...anchor })
-      : undefined
+    at === null
+      ? undefined
+      : boardMove(
+          column,
+          column,
+          row.id,
+          at === "end"
+            ? { type: "column" }
+            : { type: "card", id: at, edge: "top" }
+        )
   const next = position === undefined ? edit : { ...edit, position }
   return Object.keys(next).length === 0 ? null : next
 }

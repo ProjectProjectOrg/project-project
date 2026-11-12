@@ -23,9 +23,11 @@ import {
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import {
   listDropEdit,
+  movingGap,
   sectionEdit,
   type DraggedRow,
-  type ListDropTarget
+  type ListDropTarget,
+  type RowGap
 } from "@/features/tickets/lib/listDrop"
 import { cn } from "@/lib/utils"
 
@@ -40,8 +42,7 @@ const isRowDragData = Schema.is(RowDragData)
 
 const RowDropData = Schema.Struct({
   type: Schema.Literal("list-row-target"),
-  id: TicketId,
-  edge: Schema.Literals(["top", "bottom"])
+  gap: Schema.Union([TicketId, Schema.Literal("end")])
 })
 const isRowDropData = Schema.is(RowDropData)
 
@@ -60,6 +61,7 @@ const draggedRow = (data: DragPayload): DraggedRow | null =>
 export type SectionDrop = Readonly<{
   section: string
   ordered: boolean
+  gap: RowGap | null
   accepts: (data: DragPayload) => boolean
 }>
 
@@ -86,6 +88,7 @@ export function useSectionDrop(
 ) {
   const registry = useContext(RegistryContext)
   const [over, setOver] = useState(false)
+  const [gap, setGap] = useState<RowGap | null>(null)
   const latest = useRef(options)
   useLayoutEffect(() => {
     latest.current = options
@@ -103,21 +106,31 @@ export function useSectionDrop(
       getData: () => ({ type: "list-section" }),
       onDragEnter: ({ source }) =>
         setOver(draggedRow(source.data)?.section !== key),
-      onDragLeave: () => setOver(false),
+      onDrag: ({ source, location }) => {
+        const row = draggedRow(source.data)
+        const inner = location.current.dropTargets[0]?.data
+        setGap(
+          row !== null && isRowDropData(inner)
+            ? movingGap(latest.current.tickets, row.id, inner.gap)
+            : null
+        )
+      },
+      onDragLeave: () => {
+        setOver(false)
+        setGap(null)
+      },
       onDrop: ({ source, location }) => {
         setOver(false)
+        setGap(null)
         const row = draggedRow(source.data)
         const current = latest.current
         if (row === null || current.target === undefined) return
         const inner = location.current.dropTargets[0]?.data
-        const anchor = isRowDropData(inner)
-          ? { id: inner.id, edge: inner.edge }
-          : null
         const edit = listDropEdit(
           row,
           current.target,
           current.tickets,
-          anchor,
+          isRowDropData(inner) ? inner.gap : null,
           current.ordered
         )
         if (edit !== null) registry.set(current.update(row.id), edit)
@@ -129,6 +142,7 @@ export function useSectionDrop(
     ? {
         section: key,
         ordered,
+        gap,
         accepts: (data) => acceptsRow(data, latest.current)
       }
     : null
@@ -144,18 +158,19 @@ export function SectionDropProvider({
 
 export function DraggableRow({
   ticket,
+  nextId,
   pending,
   className,
   children
 }: Readonly<{
   ticket: Ticket
+  nextId: TicketId | null
   pending: boolean
   className: string
   children: ReactNode
 }>) {
   const drop = use(SectionDropContext)
   const ref = useRef<HTMLDivElement>(null)
-  const [edge, setEdge] = useState<"top" | "bottom" | null>(null)
   const [dragging, setDragging] = useState(false)
   const latest = useRef(drop)
   useLayoutEffect(() => {
@@ -169,9 +184,9 @@ export function DraggableRow({
   useEffect(() => {
     const element = ref.current
     if (!element || section === undefined || pending) return undefined
-    const edgeAt = (clientY: number) => {
+    const gapAt = (clientY: number): RowGap => {
       const rect = element.getBoundingClientRect()
-      return clientY < rect.top + rect.height / 2 ? "top" : "bottom"
+      return clientY < rect.top + rect.height / 2 ? id : (nextId ?? "end")
     }
     return combine(
       draggable({
@@ -192,22 +207,15 @@ export function DraggableRow({
           ordered && (latest.current?.accepts(source.data) ?? false),
         getData: ({ input }) => ({
           type: "list-row-target",
-          id,
-          edge: edgeAt(input.clientY)
-        }),
-        onDrag: ({ self, source }) => {
-          const data = self.data
-          setEdge(
-            draggedRow(source.data)?.id !== id && isRowDropData(data)
-              ? data.edge
-              : null
-          )
-        },
-        onDragLeave: () => setEdge(null),
-        onDrop: () => setEdge(null)
+          gap: gapAt(input.clientY)
+        })
       })
     )
-  }, [id, type, subTicketCount, section, ordered, pending])
+  }, [id, nextId, type, subTicketCount, section, ordered, pending])
+
+  const gap = drop?.gap ?? null
+  const edge =
+    gap === id ? "top" : gap === "end" && nextId === null ? "bottom" : null
 
   return (
     <div
@@ -220,7 +228,7 @@ export function DraggableRow({
           aria-hidden
           className={cn(
             "pointer-events-none absolute inset-x-2 h-0.5 rounded-full bg-foreground/60",
-            edge === "top" ? "-top-0.5" : "-bottom-0.5"
+            edge === "top" ? "-top-[3px]" : "-bottom-[3px]"
           )}
         />
       )}

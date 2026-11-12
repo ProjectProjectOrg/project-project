@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   listDropEdit,
+  movingGap,
   sectionEdit,
   type DraggedRow,
   type ListDropTarget
@@ -91,27 +92,44 @@ describe("sectionEdit", () => {
   })
 })
 
+describe("movingGap", () => {
+  const column = [
+    { id: ticketId("T-1") },
+    { id: ticketId("T-2") },
+    { id: ticketId("T-3") }
+  ]
+
+  it("hides the gaps on either side of the dragged row, which move nothing", () => {
+    expect(movingGap(column, ticketId("T-2"), ticketId("T-2"))).toBeNull()
+    expect(movingGap(column, ticketId("T-2"), ticketId("T-3"))).toBeNull()
+    expect(movingGap(column, ticketId("T-3"), "end")).toBeNull()
+    expect(movingGap(column, ticketId("T-3"), ticketId("T-1"))).toBe("T-1")
+    expect(movingGap(column, ticketId("T-9"), ticketId("T-2"))).toBe("T-2")
+  })
+})
+
 describe("listDropEdit", () => {
   const column = [
     { id: ticketId("T-2"), rank: TicketRank.make("a0") },
     { id: ticketId("T-3"), rank: TicketRank.make("a1") }
   ]
   const done: ListDropTarget = { grouping: "status", key: status("done") }
-  const anchor = { id: ticketId("T-2"), edge: "bottom" } as const
 
-  it("places the row at the drop position only with manual ordering", () => {
-    expect(listDropEdit(row(), done, column, anchor, true)).toMatchObject({
-      status: "done",
-      position: { to: { after: "T-2" } }
+  it("places the row in the gap only with manual ordering", () => {
+    expect(
+      listDropEdit(row(), done, column, ticketId("T-3"), true)
+    ).toMatchObject({ status: "done", position: { to: { before: "T-3" } } })
+    expect(listDropEdit(row(), done, column, "end", true)).toMatchObject({
+      position: { to: { after: "T-3" } }
     })
-    expect(listDropEdit(row(), done, column, anchor, false)).toEqual({
+    expect(listDropEdit(row(), done, column, ticketId("T-3"), false)).toEqual({
       status: "done"
     })
   })
 
   it("does nothing when the drop changes neither section nor position", () => {
     expect(
-      listDropEdit(row({ section: "done" }), done, column, anchor, false)
+      listDropEdit(row({ section: "done" }), done, column, null, true)
     ).toBeNull()
   })
 })
