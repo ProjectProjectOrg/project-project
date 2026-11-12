@@ -24,6 +24,8 @@ export type SelectedTicket = Pick<
   | "tags"
   | "assignees"
   | "flag"
+  | "rank"
+  | "subTicketCount"
 >
 
 export type SprintContext = Readonly<{

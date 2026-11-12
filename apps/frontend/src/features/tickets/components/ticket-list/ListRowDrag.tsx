@@ -2,15 +2,18 @@ import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-sc
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine"
 import {
   draggable,
-  dropTargetForElements
+  dropTargetForElements,
+  monitorForElements
 } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { disableNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/disable-native-drag-preview"
 import type { ElementDragType } from "@atlaskit/pragmatic-drag-and-drop/types"
 import { RegistryContext } from "@effect/atom-react"
 import {
+  BULK_TICKETS_MAX,
   SPRINT_SECTION_UNSCHEDULED,
   TicketId,
   TicketPriority,
+  TicketRank,
   TypeKey,
   type Ticket
 } from "@pp/shared"
@@ -28,8 +31,13 @@ import {
   type RefObject
 } from "react"
 
-import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import type {
+  BulkTicketMoveAtom,
+  TicketUpdates
+} from "@/features/tickets/atoms/ticketRows"
 import {
+  listBulkDrop,
   listDropEdit,
   movingGap,
   sectionEdit,
@@ -37,18 +45,25 @@ import {
   type ListDropTarget,
   type RowGap
 } from "@/features/tickets/lib/listDrop"
+import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { cn } from "@/lib/utils"
 
-import { useIgnoreListHover } from "./ListKeyboard"
+import { fireSelected } from "./selectionStore"
+import { useSelectionActions, useSelectionStore } from "./TicketSelection"
+
+const DraggedRowData = Schema.Struct({
+  id: TicketId,
+  ticketType: Schema.NullOr(TypeKey),
+  subTicketCount: Schema.Number,
+  rank: TicketRank,
+  section: Schema.String
+})
 
 const RowDragData = Schema.Struct({
   type: Schema.Literal("list-row"),
-  id: TicketId,
-  ticketType: Schema.NullOr(TypeKey),
   title: Schema.String,
   priority: TicketPriority,
-  subTicketCount: Schema.Number,
-  section: Schema.String
+  rows: Schema.NonEmptyArray(DraggedRowData)
 })
 export const isRowDragData = Schema.is(RowDragData)
 
@@ -60,17 +75,12 @@ const isRowDropData = Schema.is(RowDropData)
 
 type DragPayload = ElementDragType["payload"]["data"]
 
-const draggedRow = (data: DragPayload): DraggedRow | null =>
+const draggedRows = (data: DragPayload): ReadonlyArray<DraggedRow> | null =>
   isRowDragData(data)
-    ? {
-        id: data.id,
-        type: data.ticketType,
-        subTicketCount: data.subTicketCount,
-        section: data.section
-      }
+    ? data.rows.map(({ ticketType, ...row }) => ({ ...row, type: ticketType }))
     : null
 
-type Landing = Readonly<{ id: TicketId; at: number }>
+type Landing = Readonly<{ ids: ReadonlyArray<TicketId>; at: number }>
 
 const LANDING_MS = 900
 
@@ -89,22 +99,30 @@ type SectionDropOptions = Readonly<{
   target: ListDropTarget | undefined
   tickets: ReadonlyArray<Ticket>
   update: TicketUpdates
+  bulkMove: BulkTicketMoveAtom | undefined
   ordered: boolean
   canRegroup: boolean
   canLeaveSprint: boolean
 }>
 
-const acceptsRow = (data: DragPayload, options: SectionDropOptions) => {
-  const row = draggedRow(data)
-  if (row === null || options.target === undefined) return false
-  if (row.section === options.target.key) return options.ordered
-  const leavesSprint =
-    options.target.grouping === "sprint" &&
-    row.section !== SPRINT_SECTION_UNSCHEDULED
+const acceptsRows = (data: DragPayload, options: SectionDropOptions) => {
+  const rows = draggedRows(data)
+  const { target } = options
+  if (rows === null || target === undefined) return false
+  if (rows.length > 1 && options.bulkMove === undefined) return false
+  if (rows.length > BULK_TICKETS_MAX) return false
+  if (rows.every((row) => row.section === target.key)) return options.ordered
+  const leavesSprint = (row: DraggedRow) =>
+    target.grouping === "sprint" &&
+    row.section !== SPRINT_SECTION_UNSCHEDULED &&
+    row.section !== target.key
   return (
     options.canRegroup &&
-    (!leavesSprint || options.canLeaveSprint) &&
-    sectionEdit(row, options.target) !== null
+    rows.every(
+      (row) =>
+        (!leavesSprint(row) || options.canLeaveSprint) &&
+        sectionEdit(row, target) !== null
+    )
   )
 }
 
@@ -113,6 +131,7 @@ export function useSectionDrop(
   options: SectionDropOptions
 ) {
   const registry = useContext(RegistryContext)
+  const selection = useSelectionStore()
   const [over, setOver] = useState(false)
   const [gap, setGap] = useState<RowGap | null>(null)
   const [landed, setLanded] = useState<Landing | null>(null)
@@ -130,17 +149,21 @@ export function useSectionDrop(
     if (!element || !active) return undefined
     return dropTargetForElements({
       element,
-      canDrop: ({ source }) => acceptsRow(source.data, latest.current),
+      canDrop: ({ source }) => acceptsRows(source.data, latest.current),
       getData: () => ({ type: "list-section" }),
       onDragEnter: ({ source }) =>
-        setOver(draggedRow(source.data)?.section !== key),
+        setOver(
+          draggedRows(source.data)?.some((row) => row.section !== key) ?? false
+        ),
       onDrag: ({ source, location }) => {
-        const row = draggedRow(source.data)
+        const rows = draggedRows(source.data)
         const inner = location.current.dropTargets[0]?.data
         setGap(
-          row !== null && isRowDropData(inner)
-            ? movingGap(latest.current.tickets, row.id, inner.gap)
-            : null
+          rows === null || !isRowDropData(inner)
+            ? null
+            : rows.length === 1
+              ? movingGap(latest.current.tickets, rows[0].id, inner.gap)
+              : inner.gap
         )
       },
       onDragLeave: () => {
@@ -150,23 +173,49 @@ export function useSectionDrop(
       onDrop: ({ source, location }) => {
         setOver(false)
         setGap(null)
-        const row = draggedRow(source.data)
+        const rows = draggedRows(source.data)
         const current = latest.current
-        if (row === null || current.target === undefined) return
+        if (rows === null || current.target === undefined) return
         const inner = location.current.dropTargets[0]?.data
-        const edit = listDropEdit(
-          row,
+        const gapAt = isRowDropData(inner) ? inner.gap : null
+        const at = performance.now()
+        if (rows.length === 1) {
+          const [row] = rows
+          const edit = listDropEdit(
+            row,
+            current.target,
+            current.tickets,
+            gapAt,
+            current.ordered
+          )
+          if (edit === null) return
+          registry.set(current.update(row.id), edit)
+          setLanded({ ids: [row.id], at })
+          return
+        }
+        if (current.bulkMove === undefined) return
+        const move = listBulkDrop(
+          rows,
           current.target,
           current.tickets,
-          isRowDropData(inner) ? inner.gap : null,
+          gapAt,
           current.ordered
         )
-        if (edit === null) return
-        registry.set(current.update(row.id), edit)
-        setLanded({ id: row.id, at: performance.now() })
+        if (move === null) return
+        if (selection === null) registry.set(current.bulkMove, move)
+        else {
+          fireSelected(
+            registry,
+            selection,
+            current.bulkMove,
+            move,
+            move.tickets.length
+          )
+        }
+        setLanded({ ids: move.tickets, at })
       }
     })
-  }, [ref, active, key, registry])
+  }, [ref, active, key, registry, selection])
 
   const settle = () => setLanded(null)
   const drop: SectionDrop | null = active
@@ -176,7 +225,7 @@ export function useSectionDrop(
         gap,
         landed,
         settle,
-        accepts: (data) => acceptsRow(data, latest.current)
+        accepts: (data) => acceptsRows(data, latest.current)
       }
     : null
   return { drop, over, landed, settle }
@@ -203,17 +252,31 @@ export function DraggableRow({
   children: ReactNode
 }>) {
   const drop = use(SectionDropContext)
-  const ignoreHover = useIgnoreListHover()
+  const { slug } = useProjectRoute()
+  const selection = useSelectionActions(selectionKey(slug, ticket.id))
   const ref = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
-  const latest = useRef(drop)
+  const latest = useRef({ drop, selected: selection.selectedTickets })
   useLayoutEffect(() => {
-    latest.current = drop
+    latest.current = { drop, selected: selection.selectedTickets }
   })
   const section = drop?.section
   const ordered = drop?.ordered ?? false
-  const { id, type, title, priority } = ticket
+  const { id, type, title, priority, rank } = ticket
   const subTicketCount = ticket.subTicketCount ?? 0
+
+  useEffect(
+    () =>
+      monitorForElements({
+        canMonitor: ({ source }) => isRowDragData(source.data),
+        onDragStart: ({ source }) =>
+          setDragging(
+            draggedRows(source.data)?.some((row) => row.id === id) ?? false
+          ),
+        onDrop: () => setDragging(false)
+      }),
+    [id]
+  )
 
   useEffect(() => {
     const element = ref.current
@@ -227,25 +290,32 @@ export function DraggableRow({
         element,
         getInitialData: () => ({
           type: "list-row",
-          id,
-          ticketType: type,
           title,
           priority,
-          subTicketCount,
-          section
+          rows: [
+            { id, ticketType: type, subTicketCount, rank, section },
+            ...latest.current.selected.flatMap((other) =>
+              other.id === id
+                ? []
+                : [
+                    {
+                      id: other.id,
+                      ticketType: other.type,
+                      subTicketCount: other.subTicketCount ?? 0,
+                      rank: other.rank,
+                      section: ""
+                    }
+                  ]
+            )
+          ]
         }),
         onGenerateDragPreview: ({ nativeSetDragImage }) =>
-          disableNativeDragPreview({ nativeSetDragImage }),
-        onDragStart: () => setDragging(true),
-        onDrop: () => {
-          setDragging(false)
-          ignoreHover()
-        }
+          disableNativeDragPreview({ nativeSetDragImage })
       }),
       dropTargetForElements({
         element,
         canDrop: ({ source }) =>
-          ordered && (latest.current?.accepts(source.data) ?? false),
+          ordered && (latest.current.drop?.accepts(source.data) ?? false),
         getData: ({ input }) => ({
           type: "list-row-target",
           gap: gapAt(input.clientY)
@@ -258,14 +328,14 @@ export function DraggableRow({
     type,
     title,
     priority,
+    rank,
     subTicketCount,
     section,
     ordered,
-    pending,
-    ignoreHover
+    pending
   ])
 
-  const landed = drop?.landed?.id === id ? drop.landed : null
+  const landed = drop?.landed?.ids.includes(id) ? drop.landed : null
   const gap = drop?.gap ?? null
   const edge =
     gap === id ? "top" : gap === "end" && nextId === null ? "bottom" : null

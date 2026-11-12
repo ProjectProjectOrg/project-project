@@ -22,6 +22,7 @@ import {
   epicSections,
   epicSectionsRequest,
   epicSectionsTicketUpdates,
+  bulkMoveEpicSectionsTickets,
   bulkUpdateEpicSectionsTickets,
   loadMoreEpicSections,
   type EpicSectionsRequest
@@ -238,6 +239,7 @@ function EpicSection({
         }
         update={epicSectionsTicketUpdates(snapshotReq)}
         bulkUpdate={bulkUpdateEpicSectionsTickets(snapshotReq)}
+        bulkMove={bulkMoveEpicSectionsTickets(snapshotReq)}
         snapshotReq={snapshotReq}
         collapsed={collapsed}
         onToggleCollapsed={onToggleCollapsed}

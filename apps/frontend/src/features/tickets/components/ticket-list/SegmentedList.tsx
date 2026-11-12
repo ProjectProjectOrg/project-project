@@ -30,10 +30,12 @@ import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import {
   backlogRequest,
   backlogTicketUpdates,
+  bulkMoveBacklogTickets,
   bulkUpdateBacklogTickets,
   type BacklogValue
 } from "@/features/tickets/atoms/backlog"
 import type {
+  BulkTicketMoveAtom,
   BulkTicketUpdateAtom,
   TicketUpdates
 } from "@/features/tickets/atoms/ticketRows"
@@ -92,6 +94,7 @@ export function SegmentedList({
   const bulkUpdate = bulkUpdateBacklogTickets(
     backlogRequest(orgSlug, slug, query)
   )
+  const bulkMove = bulkMoveBacklogTickets(backlogRequest(orgSlug, slug, query))
 
   const statusReq = statusesRequest(orgSlug, slug)
   const statusesResult = useAtomValue(statusesFor(statusReq))
@@ -206,6 +209,7 @@ export function SegmentedList({
             query={query}
             update={update}
             bulkUpdate={bulkUpdate}
+            bulkMove={bulkMove}
             count={byStatus[status] ?? 0}
             page={sections[status] ?? EMPTY_PAGE}
             members={members}
@@ -228,6 +232,7 @@ function StatusSection({
   query,
   update,
   bulkUpdate,
+  bulkMove,
   count,
   page,
   members,
@@ -242,6 +247,7 @@ function StatusSection({
   query: TicketListQuery
   update: TicketUpdates
   bulkUpdate: BulkTicketUpdateAtom
+  bulkMove: BulkTicketMoveAtom
   count: number
   page: TicketRowPage
   members: ReadonlyArray<Member>
@@ -262,6 +268,7 @@ function StatusSection({
       query={query}
       update={update}
       bulkUpdate={bulkUpdate}
+      bulkMove={bulkMove}
       count={count}
       page={page}
       collapsed={collapsed}

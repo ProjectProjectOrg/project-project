@@ -91,6 +91,7 @@ export const toBulkPatch = (edit: TicketEdit): BulkTicketPatch => {
 export const fromBulkPatch = ({
   sprint: _sprint,
   parent: _parent,
+  position: _position,
   flag,
   ...edit
 }: BulkTicketPatch): TicketEdit =>

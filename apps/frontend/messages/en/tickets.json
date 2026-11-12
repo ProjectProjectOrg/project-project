@@ -171,6 +171,17 @@
     }
   ],
   "tickets_detail_load_error": "Couldn't load detail: {error}",
+  "tickets_drag_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} ticket",
+        "countPlural=*": "{count} tickets"
+      }
+    }
+  ],
+  "tickets_drag_more": "+{count}",
   "tickets_empty_hint_folder": "tickets/",
   "tickets_empty_hint_prefix": "Type a title in the row above and press Enter. Each ticket becomes a markdown file under",
   "tickets_empty_title": "No tickets yet",

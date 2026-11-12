@@ -637,6 +637,25 @@ const make = Effect.gen(function* () {
       return rankBetween(gap)
     })
 
+  const ranksAt = Effect.fnUntraced(function* (
+    project: TicketProject,
+    tickets: ReadonlyArray<TicketDocs.TicketDocument>,
+    position: TicketPosition
+  ) {
+    const [anchor, side] =
+      "after" in position
+        ? ([position.after, "after"] as const)
+        : ([position.before, "before"] as const)
+    if (tickets.some((ticket) => ticket.id === anchor)) {
+      return yield* new Validation({ reason: "position_is_self" })
+    }
+    const ordered = tickets.toSorted(compareByRank)
+    const gap = yield* ticketIndex.rankGap(project, anchor, side, ordered[0].id)
+    if (gap === null) return yield* new NotFound()
+    const ranks = ranksBetween(gap, ordered.length)
+    return new Map(ordered.map((ticket, index) => [ticket.id, ranks[index]]))
+  })
+
   const expansionFor = (
     project: TicketProject,
     type: TypeKey | null
@@ -2061,8 +2080,9 @@ const make = Effect.gen(function* () {
     const scope = yield* ProjectScope
     const { orgSlug, slug, userId, projectId } = scope
     const ids = [...new Set(input.tickets)]
-    const { sprint, ...fields } = input.patch
-    const touchesTickets = Object.keys(fields).length > 0
+    const { sprint, position, ...fields } = input.patch
+    const touchesTickets =
+      Object.keys(fields).length > 0 || position !== undefined
     const [, , , , allGroups, view] = yield* Effect.all(
       [
         fields.status === undefined
@@ -2106,7 +2126,7 @@ const make = Effect.gen(function* () {
       sprint === undefined
         ? Effect.succeed(null)
         : changeSprint(ids, sprint, openSprints)
-    const nexts = yield* withTicketLocks(
+    const write = withTicketLocks(
       scope,
       ids,
       Effect.gen(function* () {
@@ -2122,17 +2142,26 @@ const make = Effect.gen(function* () {
           originals.every((existing) => existing.type === fields.type)
             ? null
             : yield* bodyAfterTypeChange(scope, fields.type)
+        const ranks =
+          position === undefined
+            ? null
+            : yield* ranksAt(scope, originals, position)
         const patched = originals.map((existing) => {
           const next = applyTicketPatch(existing, fields, userId, now)
+          const rank = ranks?.get(existing.id)
+          const ranked = rank === undefined ? next : { ...next, rank }
           return retyped === null || next.type === existing.type
-            ? next
-            : { ...next, body: retyped(existing.body) }
+            ? ranked
+            : { ...ranked, body: retyped(existing.body) }
         })
         const changes = originals.map((existing, index) =>
           fieldChangesOf(existing, patched[index])
         )
         if (touchesTickets) {
-          yield* requireTicketChange(batchChangeOf(changes))
+          const change = batchChangeOf(changes)
+          yield* requireTicketChange(
+            ranks === null ? change : { ...change, content: true }
+          )
         }
         const newcomers = [
           ...new Set(
@@ -2166,7 +2195,7 @@ const make = Effect.gen(function* () {
           }
         }
         const nexts = originals.map((existing, index) =>
-          touchesTickets && !isUnchanged(changes[index])
+          touchesTickets && (ranks !== null || !isUnchanged(changes[index]))
             ? clearFlagWhenFinished(existing, patched[index], finished)
             : existing
         )
@@ -2189,9 +2218,16 @@ const make = Effect.gen(function* () {
         return nexts
       })
     )
-    const sprintChange = yield* planSprint.pipe(
-      Effect.onError(() => withTicketLocks(scope, ids, revertWritten))
-    )
+    const writeAndPlan = Effect.gen(function* () {
+      const nexts = yield* write
+      const sprintChange = yield* planSprint.pipe(
+        Effect.onError(() => withTicketLocks(scope, ids, revertWritten))
+      )
+      return { nexts, sprintChange }
+    })
+    const { nexts, sprintChange } = yield* position === undefined
+      ? writeAndPlan
+      : withRanksLock(scope, writeAndPlan)
 
     const entries = yield* ticketIndex.list(
       scope,

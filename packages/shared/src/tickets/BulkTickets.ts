@@ -17,8 +17,7 @@ export const BulkTicketPatch = Schema.Struct({
     "title",
     "body",
     "blockedBy",
-    "relatedTo",
-    "position"
+    "relatedTo"
   ])
 })
 export type BulkTicketPatch = typeof BulkTicketPatch.Type

@@ -1,4 +1,10 @@
-import { TagName, TicketId, TicketStatus, TypeKey } from "@pp/shared"
+import {
+  TagName,
+  TicketId,
+  TicketRank,
+  TicketStatus,
+  TypeKey
+} from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
@@ -18,7 +24,8 @@ const ticket = (id: string, status: string, tags: ReadonlyArray<string>) => ({
   estimate: null,
   tags: tags.map((name) => tag(name)),
   assignees: [],
-  flag: null
+  flag: null,
+  rank: TicketRank.make("a0")
 })
 
 describe("sharedTicketFields", () => {
