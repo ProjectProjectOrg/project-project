@@ -43,3 +43,6 @@ export const hasErrorCode = (cause: unknown, code: string) =>
   cause !== null &&
   "code" in cause &&
   cause.code === code
+
+export const invitationUrl = (invitationId: string): string =>
+  `${window.location.origin}/invite/${invitationId}`

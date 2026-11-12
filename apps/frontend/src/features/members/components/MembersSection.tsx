@@ -1,5 +1,5 @@
 import * as Exit from "effect/Exit"
-import { Crown, LogOut, Trash2 } from "lucide-react"
+import { Crown, Link2, LogOut, Trash2 } from "lucide-react"
 import { motion } from "motion/react"
 import { useState, type FormEvent, type ReactNode } from "react"
 
@@ -278,12 +278,14 @@ export function PendingRowView<R extends string>({
   email,
   role,
   pulsing = false,
+  inviteLink,
   cancel
 }: Readonly<{
   roles: Readonly<Record<R, RoleMeta>>
   email: string
   role: R
   pulsing?: boolean
+  inviteLink: string | null
   cancel: MemberConfirm | null
 }>) {
   return (
@@ -293,7 +295,7 @@ export function PendingRowView<R extends string>({
         role={roles[role]}
         pulsing={pulsing}
         menu={
-          cancel === null ? (
+          cancel === null && inviteLink === null ? (
             <MemberMenuSpacer />
           ) : (
             <DropdownMenu>
@@ -303,15 +305,33 @@ export function PendingRowView<R extends string>({
               <DropdownMenuContent align="end" sideOffset={6} className="w-52">
                 <ConfirmButton.Root bare>
                   <ConfirmButton.Idle>
-                    <ConfirmButton.MenuItem
-                      closeOnClick={false}
-                      variant="destructive"
-                    >
-                      <Trash2 className="size-4" strokeWidth={1.75} />
-                      {cancel.label}
-                    </ConfirmButton.MenuItem>
+                    {inviteLink !== null && (
+                      <DropdownMenuItem
+                        onClick={() =>
+                          void navigator.clipboard.writeText(inviteLink)
+                        }
+                        className="cursor-pointer"
+                      >
+                        <Link2 className="size-4" strokeWidth={1.75} />
+                        {m.members_pending_copy_link()}
+                      </DropdownMenuItem>
+                    )}
+                    {inviteLink !== null && cancel !== null && (
+                      <DropdownMenuSeparator />
+                    )}
+                    {cancel !== null && (
+                      <ConfirmButton.MenuItem
+                        closeOnClick={false}
+                        variant="destructive"
+                      >
+                        <Trash2 className="size-4" strokeWidth={1.75} />
+                        {cancel.label}
+                      </ConfirmButton.MenuItem>
+                    )}
                   </ConfirmButton.Idle>
-                  <MenuConfirm when="default" confirm={cancel} />
+                  {cancel !== null && (
+                    <MenuConfirm when="default" confirm={cancel} />
+                  )}
                 </ConfirmButton.Root>
               </DropdownMenuContent>
             </DropdownMenu>

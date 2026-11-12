@@ -467,6 +467,7 @@
   "members_pending_cancel_button": "Cancel invite",
   "members_pending_cancel_confirm_prompt": "Cancel invite for {email}?",
   "members_pending_cancel_in_progress": "Canceling…",
+  "members_pending_copy_link": "Copy invite link",
   "members_pending_detail": "Invite pending",
   "members_remove_button": "Remove",
   "members_remove_confirm_prompt": "Remove {name} from this project?",
