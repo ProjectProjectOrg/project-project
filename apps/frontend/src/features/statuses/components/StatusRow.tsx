@@ -52,7 +52,7 @@ type Props = Readonly<{
 }>
 
 const REVEAL =
-  "opacity-0 transition-all group-hover/reveal:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100"
+  "opacity-0 transition-all group-hover/reveal:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100 pointer-coarse:opacity-100"
 
 const isUnchanged = (status: ProjectStatus, draft: StatusEditorValues) =>
   draft.label.trim() === status.label &&

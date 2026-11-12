@@ -72,7 +72,7 @@ export function TemplateList({ scope, library }: TemplateListProps) {
       {visible.length === 0 ? (
         <LibraryEmpty
           caption={m.templates_settings_empty()}
-          hint={m.templates_settings_empty_hint()}
+          hint={library.canEdit ? m.templates_settings_empty_hint() : undefined}
         />
       ) : (
         <ul className={LIBRARY_GRID_CLASS}>

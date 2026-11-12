@@ -28,6 +28,7 @@ import { m } from "@/paraglide/messages"
 
 import { deletePrompt } from "./deletePrompt"
 import { Pagination } from "./Pagination"
+import { pageAfterRemoval } from "./paging"
 import { Row } from "./Row"
 import {
   allDeletableSelected,
@@ -130,7 +131,15 @@ export function AttachmentsBrowser({ orgSlug }: { orgSlug: string }) {
                     : new Set(deletableIds(value.items))
                 )
               }
-              onDelete={async () => {
+              onDelete={async (removed) => {
+                setPage(
+                  pageAfterRemoval({
+                    page,
+                    pageSize: ORG_ATTACHMENTS_PAGE_SIZE,
+                    total: value.total,
+                    removed
+                  })
+                )
                 setSelected(new Set())
               }}
               request={req}
@@ -200,7 +209,7 @@ function AttachmentsTable({
   selected: ReadonlySet<string>
   onToggle: (id: string) => void
   onToggleAll: () => void
-  onDelete: () => Promise<void>
+  onDelete: (removed: number) => Promise<void>
   request: ReturnType<typeof orgAttachmentsRequest>
 }) {
   const selectedIds = [...selected]
@@ -327,7 +336,7 @@ function DeleteCell({
   request
 }: {
   row: AttachmentRowData
-  onDelete: () => Promise<void>
+  onDelete: (removed: number) => Promise<void>
   request: ReturnType<typeof orgAttachmentsRequest>
 }) {
   if (!isDeletable(row)) return <span />
@@ -338,7 +347,7 @@ function DeleteCell({
         type="button"
         variant="ghost"
         size="sm"
-        className="opacity-0 transition-opacity group-hover/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 focus-visible:opacity-100"
+        className="opacity-0 transition-opacity group-hover/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
       >
         {m.attachments_delete_button()}
       </ConfirmButton.Trigger>
@@ -365,7 +374,7 @@ function DeleteConfirm({
 }: {
   prompt: string
   ids: ReadonlyArray<string>
-  onDelete: () => Promise<void>
+  onDelete: (removed: number) => Promise<void>
   request: ReturnType<typeof orgAttachmentsRequest>
 }) {
   const remove = useAtomSet(
@@ -378,7 +387,7 @@ function DeleteConfirm({
       label={m.attachments_delete_button()}
       onConfirm={async () => {
         const exit = await remove()
-        if (Exit.isSuccess(exit)) await onDelete()
+        if (Exit.isSuccess(exit)) await onDelete(ids.length)
         return exit
       }}
     />

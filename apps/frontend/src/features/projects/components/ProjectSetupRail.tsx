@@ -103,7 +103,7 @@ function ProjectSetupRail({ project }: { project: ProjectDetailType }) {
                     item: item.label
                   })}
                   onClick={item.dismiss}
-                  className="absolute top-1/2 right-1.5 grid size-6 -translate-y-1/2 cursor-pointer place-items-center rounded-md text-muted-foreground opacity-0 transition-colors transition-transform duration-100 group-hover/setup-row:opacity-100 hover:bg-surface-3 hover:text-foreground active:scale-[0.97]"
+                  className="absolute top-1/2 right-1.5 grid size-6 -translate-y-1/2 cursor-pointer place-items-center rounded-md text-muted-foreground opacity-0 transition-colors transition-transform duration-100 group-hover/setup-row:opacity-100 hover:bg-surface-3 hover:text-foreground focus-visible:opacity-100 active:scale-[0.97] pointer-coarse:opacity-100"
                 >
                   <X className="size-3.5" strokeWidth={1.75} />
                 </button>

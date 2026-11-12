@@ -110,6 +110,7 @@
   "templates_settings_origin_project": "project",
   "templates_settings_overrides": "{origin} · overrides {shadowed}",
   "templates_settings_read_only": "Only admins can change these. You can still preview them.",
+  "templates_settings_reset_confirm": "Reset {name}?",
   "templates_settings_synced": "synced",
   "templates_settings_tab_blocks": "Blocks",
   "templates_settings_tab_templates": "Templates",

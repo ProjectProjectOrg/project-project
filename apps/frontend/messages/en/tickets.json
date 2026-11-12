@@ -339,7 +339,16 @@
   "tickets_search_min_hint": "Min. 3 characters",
   "tickets_search_placeholder": "Search tickets by title or id…",
   "tickets_section_collapse_aria_label": "Toggle section {label}",
-  "tickets_section_count_aria_label": "{count} tickets",
+  "tickets_section_count_aria_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} ticket",
+        "countPlural=*": "{count} tickets"
+      }
+    }
+  ],
   "tickets_section_create_aria_label": "Create ticket in {label}",
   "tickets_section_create_dismiss_aria_label": "Dismiss ticket creator for {label}",
   "tickets_section_create_placeholder": "Ticket title…",
@@ -407,7 +416,16 @@
   "tickets_status_delete_button": "Delete",
   "tickets_status_delete_cancel": "Cancel",
   "tickets_status_delete_confirm_empty": "Delete this status?",
-  "tickets_status_delete_confirm_with_tickets": "Move {count} tickets to",
+  "tickets_status_delete_confirm_with_tickets": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Move {count} ticket to",
+        "countPlural=*": "Move {count} tickets to"
+      }
+    }
+  ],
   "tickets_status_delete_error_fallback": "Couldn't delete this status. Try again.",
   "tickets_status_delete_resets_git_automation": "Git automation rules that move tickets here will be reset.",
   "tickets_status_deleting": "Deleting…",

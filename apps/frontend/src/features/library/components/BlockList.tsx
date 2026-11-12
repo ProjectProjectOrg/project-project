@@ -64,7 +64,11 @@ export function BlockList({ scope, library }: BlockListProps) {
       {visible.length === 0 ? (
         <LibraryEmpty
           caption={m.templates_settings_empty_blocks()}
-          hint={m.templates_settings_empty_blocks_hint()}
+          hint={
+            library.canEdit
+              ? m.templates_settings_empty_blocks_hint()
+              : undefined
+          }
         />
       ) : (
         <ul className={LIBRARY_GRID_CLASS}>

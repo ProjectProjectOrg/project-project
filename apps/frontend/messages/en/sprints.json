@@ -43,6 +43,7 @@
   "sprints_delete_confirm_title": "Delete this sprint?",
   "sprints_delete_error_fallback": "Failed to delete sprint",
   "sprints_description_add_button": "Add description…",
+  "sprints_description_empty": "No goal set for this sprint.",
   "sprints_description_label": "Description",
   "sprints_description_placeholder": "Describe the goal of this sprint…",
   "sprints_empty_no_sprints_body": "Plan a span of work, drop tickets in, and let the date range carry the rhythm.",
