@@ -189,7 +189,7 @@ export type QuickCreateTicketInput = typeof QuickCreateTicketInput.Type
 const ticketFieldDocs = {
   status: "A status slug from `list_statuses` (default `todo`).",
   type:
-    "A type key the project has: built in (`feat`, `bug`, `chore`, `epic`) or one of its own. " +
+    "A type key from `list_types`: built in (`feat`, `bug`, `chore`, `epic`) or one of the project's own. " +
     "`null` means no type.",
   priority: "The priority (default `med`).",
   estimate:

@@ -123,6 +123,13 @@ const ticketId = TicketId.annotate({
 })
 const groupId = GroupId.annotate({ description: "A group id such as `G-3`." })
 
+const removedTemplate = Schema.optionalKey(
+  Schema.Never.annotate({
+    message:
+      "`template` was removed. Pass `type` with a key from `list_types` instead"
+  })
+)
+
 const StatusWithAutomation = Schema.Struct({
   ...ProjectStatus.fields,
   setBy: Schema.optional(Schema.Array(GitAutomationEvent))
@@ -653,26 +660,24 @@ export const Tools = Toolkit.make(
       })
     )
   }),
-  defineTool("list_templates", {
-    title: "List templates",
+  defineTool("list_types", {
+    title: "List types",
     hints: reads,
     description:
-      "List the ticket types a project can start a ticket from, as " +
-      "templates: the built-in ones, the org's and the project's own, " +
-      "with project overriding org. Each entry's `body` is the type's " +
-      "starting description fully expanded, its block references resolved " +
-      "to their current definitions, with `{{hint}}` placeholders kept so " +
-      "you can see what to fill in. Pass the same `key` as `template` to " +
-      "`create_ticket` to have the server do the expansion (with hints " +
-      "stripped) when it creates the ticket; the server never applies it " +
-      "on its own, so pass `template` explicitly. An entry's `key` is " +
-      "also the value a ticket's `type` takes, and `isDefaultFor` repeats " +
-      "it; creating from an entry without an explicit `type` gives the " +
-      "ticket that type. Hidden entries are omitted. " +
+      "List the ticket types a project has: the built-in ones, the org's " +
+      "and the project's own, with project overriding org. An entry's " +
+      "`key` is the value a ticket's `type` takes, and `priority` and " +
+      "`tags` are the defaults a new ticket of that type gets. Each " +
+      "entry's `body` is the type's starting description fully expanded, " +
+      "its block references resolved to their current definitions, with " +
+      "`{{hint}}` placeholders kept so you can see what to fill in. Pass " +
+      "the `key` as `type` to `create_ticket` without a `body` to have " +
+      "the server write that starting description (with hints stripped) " +
+      "into the new ticket. Hidden types are omitted. " +
       BLOCK_FORMAT_POINTER,
     cli: {
-      command: ["templates", "list"],
-      summary: "List the ticket templates a project can use."
+      command: ["types", "list"],
+      summary: "List the ticket types a project has."
     },
     parameters: Schema.Struct({ orgSlug, projectSlug }),
     success: Schema.Array(
@@ -682,8 +687,7 @@ export const Tools = Toolkit.make(
         description: LibraryDescription,
         priority: Schema.NullOr(TicketPriority),
         tags: Schema.Array(TagName),
-        body: Schema.String,
-        isDefaultFor: Schema.Array(TypeKey)
+        body: Schema.String
       })
     )
   }),
@@ -698,19 +702,19 @@ export const Tools = Toolkit.make(
     description:
       "Create a ticket in a project. Follow the ticket-writing guidance " +
       "in the server instructions: check for an existing ticket first, " +
-      "start from a template, and write a title and summary that someone " +
-      "without your context can follow.\n\n" +
+      "pick a type from `list_types`, and write a title and summary that " +
+      "someone without your context can follow.\n\n" +
       "`title` is required; every other field has a default. " +
       PARENT_GUIDE +
       " An unknown tag name fails. " +
       ESTIMATE_GUIDE +
       "\n\n" +
-      "With a template and no `body`, the server expands the template " +
-      "into the body with hints stripped. With both, `body` wins and the " +
-      "template only supplies defaults: its priority, tags and type (an " +
-      "explicit `type` always wins). A `type` without a `template` and " +
-      "without a `body` starts the ticket from that type's description " +
-      "the same way.\n\n" +
+      "With a `type` and no `body`, the server starts the ticket from " +
+      "that type's starting description with hints stripped, and gives " +
+      "it the type's default priority and tags unless you pass them. " +
+      "With both, `body` wins and the type still supplies those " +
+      "defaults. Pass `null` as `type` for a ticket without a type; an " +
+      "unknown key fails with `Validation`.\n\n" +
       "A malformed block in `body` fails with `Validation` naming the " +
       "line. " +
       BLOCK_FORMAT_POINTER +
@@ -727,10 +731,7 @@ export const Tools = Toolkit.make(
       orgSlug,
       projectSlug,
       ...CreateTicketInput.fields,
-      template: Schema.optional(Schema.NullOr(TypeKey)).annotate({
-        description:
-          "A template key from `list_templates` to expand into the body; omit or pass `null` for a blank ticket."
-      })
+      template: removedTemplate
     }),
     success: TicketDetailWithBlocks
   }),
@@ -747,9 +748,11 @@ export const Tools = Toolkit.make(
       "left unchanged. " +
       PARENT_GUIDE +
       " A ticket with children can't switch between epic and another " +
-      "type. Changing `type` replaces the description with the new " +
-      "type's starting description only while the description is empty " +
-      "or still an untouched starting description. " +
+      "type. `type` takes a key from `list_types`, or `null` for no " +
+      "type. Changing it replaces the description with the new type's " +
+      "starting description (hints stripped) only while the description " +
+      "is empty or still an untouched starting description; priority " +
+      "and tags change only when passed. " +
       ESTIMATE_GUIDE +
       "\n\n" +
       "`edits` changes part of the description without resending it, and " +
@@ -763,7 +766,7 @@ export const Tools = Toolkit.make(
       "of the one named block of that type, heading included, keeping its " +
       "tags (synced blocks can't be replaced). If any edit fails, nothing " +
       "is saved and `Validation` names the edit's index. `edits` can't be " +
-      "combined with `body` or `template`.\n\n" +
+      "combined with `body`.\n\n" +
       "For a rewrite, read the current body with `get_ticket`, edit it, " +
       "and send it back in full as `body` so nothing is lost. Fill named " +
       "blocks in rather than replacing them; a malformed block fails " +
@@ -772,13 +775,6 @@ export const Tools = Toolkit.make(
       " " +
       MENTION_GUIDE +
       "\n\n" +
-      "A `template` only shapes the body; type, priority and tags change " +
-      "only when passed. Without `body`, the server expands the template " +
-      "(hints stripped) into the description, but only while the " +
-      "description is empty or still an untouched template; otherwise it " +
-      "fails with `Validation`, and you fill in the template's body from " +
-      "`list_templates` and pass it as `body`. When both are given, " +
-      "`body` wins.\n\n" +
       "The branch can't be changed here; use `attach_branch`. Returns the " +
       "full ticket after the update, with the same `blocks` breakdown as " +
       "`get_ticket`.",
@@ -792,15 +788,12 @@ export const Tools = Toolkit.make(
       projectSlug,
       id: ticketId,
       ...UpdateTicketInput.fields,
-      template: Schema.optional(Schema.NullOr(TypeKey)).annotate({
-        description:
-          "A template key from `list_templates` to expand into the body."
-      }),
+      template: removedTemplate,
       edits: Schema.optional(TicketBodyEdits).annotate({
         description:
           'Edits to the description, run in order: `{ kind: "replace", oldText, newText, replaceAll? }`, ' +
           '`{ kind: "append", text }` or `{ kind: "replace_block", type, content }`. ' +
-          "Can't be combined with `body` or `template`."
+          "Can't be combined with `body`."
       }),
       expectedUpdatedAt: Schema.optional(Schema.DateFromString).annotate({
         description:
