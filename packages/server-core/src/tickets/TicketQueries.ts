@@ -48,12 +48,10 @@ import {
   type TicketSections,
   type TicketSort,
   type TicketSprintSections,
-  TicketType,
   type User,
   UserId,
   EPIC_TYPE,
-  isEpic,
-  isEpicType
+  isEpic
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
@@ -940,9 +938,8 @@ const make = Effect.gen(function* () {
 
   const parentSectionQuery = (query: TicketListQuery): TicketListQuery => ({
     ...query,
-    type: (query.type?.length ? query.type : TicketType.literals).filter(
-      (type) => !isEpicType(type)
-    ),
+    type: query.type?.length ? query.type : undefined,
+    excludeType: [...(query.excludeType ?? []), EPIC_TYPE],
     parent: undefined,
     groupId: undefined,
     cursor: undefined

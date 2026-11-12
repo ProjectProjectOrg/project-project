@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { TicketType } from "@pp/shared"
+import type { TypeKey } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useCallback, useMemo } from "react"
@@ -16,7 +16,7 @@ import { useMakeBlockDefinition } from "./useMakeBlockDefinition"
 export function useEditorBlocks(
   orgSlug: string,
   slug: string,
-  ticketType: TicketType | null,
+  ticketType: TypeKey | null,
   onMakeDefinitionError: (message: string) => void
 ): EditorBlocks | undefined {
   const navigate = useNavigate()
@@ -36,13 +36,13 @@ export function useEditorBlocks(
     (_kind, key, origin) => {
       if (origin === "project")
         void navigate({
-          to: "/orgs/$orgSlug/projects/$slug/settings/templates/blocks/$blockKey",
-          params: { orgSlug, slug, blockKey: key }
+          to: "/orgs/$orgSlug/projects/$slug/settings/types/sections/$sectionKey",
+          params: { orgSlug, slug, sectionKey: key }
         })
       else
         void navigate({
-          to: "/orgs/$orgSlug/settings/templates/blocks/$blockKey",
-          params: { orgSlug, blockKey: key }
+          to: "/orgs/$orgSlug/settings/types/sections/$sectionKey",
+          params: { orgSlug, sectionKey: key }
         })
     },
     [navigate, orgSlug, slug]

@@ -20,7 +20,7 @@ const groupDescriptions: Readonly<Record<string, string>> = {
   tags: "A project's tags.",
   members: "A project's members.",
   blocks: "Reusable ticket blocks.",
-  templates: "Ticket templates.",
+  types: "Ticket types.",
   branches: "Link GitHub branches to tickets.",
   attachments: "Upload files to tickets.",
   git: "GitHub branch and pull request state."

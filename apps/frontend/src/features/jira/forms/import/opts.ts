@@ -1,8 +1,4 @@
-import {
-  TicketPriority,
-  TicketType,
-  type JiraMigrationRequirements
-} from "@pp/shared"
+import { TicketPriority, type JiraMigrationRequirements } from "@pp/shared"
 import { createValidator, type ReactFormType } from "@tanstack/react-form"
 import * as Schema from "effect/Schema"
 
@@ -32,7 +28,7 @@ const Choices = Schema.Struct({
   issueTypes: Schema.Array(
     Schema.Struct({
       jiraIssueTypeId: Schema.String,
-      projectType: Schema.UndefinedOr(TicketType)
+      projectType: Schema.UndefinedOr(Schema.NullOr(Schema.String))
     })
   ),
   priorities: Schema.Array(

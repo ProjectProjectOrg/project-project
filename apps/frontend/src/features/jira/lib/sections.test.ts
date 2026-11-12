@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest"
 import { buildJiraImportDraft } from "./draft"
 import { jiraCategoryLabel, jiraSectionSummary } from "./sections"
 import { jiraSetupCounts } from "./setup"
-import { testRequirements as requirements } from "./testRequirements"
+import { testRequirements as requirements, testTypes } from "./testRequirements"
 
-const { setup } = buildJiraImportDraft(requirements, null)
+const { setup } = buildJiraImportDraft(requirements, null, testTypes)
 const counts = jiraSetupCounts(setup, requirements, 0)
 
 describe("jiraSectionSummary", () => {

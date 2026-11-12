@@ -4,7 +4,8 @@ import {
   ActivityActor,
   TicketId,
   TicketStatus,
-  type Estimate
+  type Estimate,
+  TypeKey
 } from "@pp/shared"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as DateTime from "effect/DateTime"
@@ -69,7 +70,7 @@ const ticketDocument = (
   id: ticketId(id),
   title: "Persist branch matching preference",
   status: ticketStatus("todo"),
-  type: "chore",
+  type: TypeKey.make("chore"),
   priority: "med",
   tags: [],
   branch: "chore/branch-matching",
@@ -223,7 +224,7 @@ describe("TicketDocs branch matching persistence", () => {
           id: "T-3",
           title: "Ticket",
           status: "todo",
-          type: "chore",
+          type: TypeKey.make("chore"),
           priority: "med",
           tags: [],
           branch: null,
@@ -244,6 +245,43 @@ describe("TicketDocs branch matching persistence", () => {
     }).pipe(Effect.provide(TestLayer))
   )
 
+  it.effect("reads a stored type other as no type and writes null", () =>
+    Effect.gen(function* () {
+      const markdown = yield* Markdown.Markdown
+      const docs = yield* TicketDocs.TicketDocs
+      yield* markdown.createTicketFile(
+        "acme",
+        "project",
+        "T-4",
+        {
+          id: "T-4",
+          title: "Ticket",
+          status: "todo",
+          type: "other",
+          createdBy: "user-1",
+          createdAt: "2026-09-07T10:00:00Z",
+          updatedAt: "2026-09-07T10:00:00Z"
+        },
+        "# Ticket\n"
+      )
+
+      const document = yield* docs.read("acme", "project", "T-4")
+      expect(document.type).toBeNull()
+
+      yield* docs.write("acme", "project", "T-4", {
+        ...document,
+        title: "Renamed"
+      })
+      const written = yield* markdown.readTicketFileRaw(
+        "acme",
+        "project",
+        "T-4"
+      )
+      expect(written.content).toContain("type: null")
+      expect((yield* docs.read("acme", "project", "T-4")).type).toBeNull()
+    }).pipe(Effect.provide(TestLayer))
+  )
+
   it.effect("decodes the singular assignee field", () =>
     Effect.gen(function* () {
       const markdown = yield* Markdown.Markdown
@@ -256,7 +294,7 @@ describe("TicketDocs branch matching persistence", () => {
           id: "T-4",
           title: "Ticket",
           status: "todo",
-          type: "chore",
+          type: TypeKey.make("chore"),
           priority: "med",
           tags: [],
           branch: null,
@@ -289,7 +327,7 @@ describe("TicketDocs branch matching persistence", () => {
           id: "T-5",
           title: "Ticket",
           status: "todo",
-          type: "chore",
+          type: TypeKey.make("chore"),
           priority: "med",
           tags: [],
           branch: null,
@@ -418,7 +456,7 @@ describe("TicketDocs branches persistence", () => {
           id: "T-25",
           title: "Ticket",
           status: "todo",
-          type: "chore",
+          type: TypeKey.make("chore"),
           priority: "med",
           tags: [],
           branches: [
@@ -452,7 +490,7 @@ describe("TicketDocs branches persistence", () => {
           id: "T-23",
           title: "Ticket",
           status: "todo",
-          type: "chore",
+          type: TypeKey.make("chore"),
           priority: "med",
           tags: [],
           branch: "feat/T-23",
@@ -532,7 +570,7 @@ describe("TicketDocs estimate persistence", () => {
           id: "T-15",
           title: "Ticket",
           status: "todo",
-          type: "chore",
+          type: TypeKey.make("chore"),
           priority: "med",
           estimate: "XXL",
           tags: [],

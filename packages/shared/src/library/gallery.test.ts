@@ -1,26 +1,20 @@
 import { describe, expect, it } from "vitest"
 
 import { parseTicketBlocks, validateTicketBlocks } from "../tickets/blocks"
-import {
-  BUILTIN_BLOCKS,
-  BUILTIN_TEMPLATE_DEFAULTS,
-  BUILTIN_TEMPLATES
-} from "./gallery"
+import { BUILTIN_BLOCKS, BUILTIN_TYPES } from "./builtins"
+import { GALLERY_BLOCKS, GALLERY_TYPES } from "./gallery"
 import { hintSlots } from "./hints"
 import { BLOCK_ICONS } from "./icons"
 import {
+  EMPTY_LAYER,
   GALLERY_LAYER,
   blockLookupFor,
-  expandTemplate,
+  expandType,
   resolveLibrary
 } from "./resolve"
 
-const builtinLookup = blockLookupFor(
-  resolveLibrary(
-    { org: GALLERY_LAYER, project: null },
-    { org: {}, project: null },
-    false
-  )
+const galleryLookup = blockLookupFor(
+  resolveLibrary({ org: GALLERY_LAYER, project: null }, false, EMPTY_LAYER)
 )
 
 const blockTypesOf = (markdown: string) =>
@@ -28,55 +22,58 @@ const blockTypesOf = (markdown: string) =>
     segment.kind === "block" ? [segment.type] : []
   )
 
-describe("built-in blocks", () => {
+describe("gallery blocks", () => {
   it("ships 16 blocks with unique keys", () => {
-    expect(BUILTIN_BLOCKS).toHaveLength(16)
-    expect(new Set(BUILTIN_BLOCKS.map((block) => block.key)).size).toBe(16)
+    expect(GALLERY_BLOCKS).toHaveLength(16)
+    expect(new Set(GALLERY_BLOCKS.map((block) => block.key)).size).toBe(16)
   })
 
   it("uses curated icons only", () => {
-    for (const item of [...BUILTIN_BLOCKS, ...BUILTIN_TEMPLATES]) {
+    for (const item of [...GALLERY_BLOCKS, ...GALLERY_TYPES]) {
       expect(BLOCK_ICONS).toContain(item.icon)
     }
   })
 
   it("ships without colours, so icons match the text", () => {
-    for (const item of [...BUILTIN_BLOCKS, ...BUILTIN_TEMPLATES])
+    for (const item of [...GALLERY_BLOCKS, ...GALLERY_TYPES])
       expect(item.color, item.key).toBeNull()
+  })
+
+  it("opens with the built-in sections", () => {
+    expect(GALLERY_BLOCKS.slice(0, BUILTIN_BLOCKS.length)).toEqual(
+      BUILTIN_BLOCKS
+    )
   })
 
   it("syncs only the definition of done", () => {
     expect(
-      BUILTIN_BLOCKS.filter((block) => block.sync).map((block) => block.key)
+      GALLERY_BLOCKS.filter((block) => block.sync).map((block) => block.key)
     ).toEqual(["definition-of-done"])
   })
 
   it("opens every block with a heading that matches its name", () => {
-    for (const block of BUILTIN_BLOCKS) {
+    for (const block of GALLERY_BLOCKS) {
       expect(block.content.split("\n")[0]).toBe(`## ${block.name}`)
     }
   })
 
   it("keeps block markup out of definitions and passes validation", () => {
-    for (const block of BUILTIN_BLOCKS) {
+    for (const block of GALLERY_BLOCKS) {
       expect(block.content).not.toContain("<block")
       expect(validateTicketBlocks(block.content)).toEqual([])
     }
   })
 
   it("gives every copied block at least one hint", () => {
-    for (const block of BUILTIN_BLOCKS.filter((candidate) => !candidate.sync)) {
+    for (const block of GALLERY_BLOCKS.filter((candidate) => !candidate.sync)) {
       expect(hintSlots(block.content).length, block.key).toBeGreaterThan(0)
     }
   })
 })
 
-describe("built-in templates", () => {
-  it("ships 9 gallery templates", () => {
-    expect(BUILTIN_TEMPLATES.map((template) => template.key)).toEqual([
-      "bug-report",
-      "feature",
-      "chore",
+describe("gallery types", () => {
+  it("ships the gallery types that are not built in", () => {
+    expect(GALLERY_TYPES.map((type) => type.key)).toEqual([
       "spike",
       "user-story",
       "incident",
@@ -84,20 +81,14 @@ describe("built-in templates", () => {
       "design-task",
       "docs"
     ])
-  })
-
-  it("suggests a template per type, with other as blank", () => {
-    expect(BUILTIN_TEMPLATE_DEFAULTS).toEqual({
-      feat: "feature",
-      bug: "bug-report",
-      chore: "chore",
-      other: null,
-      epic: null
-    })
+    for (const type of GALLERY_TYPES)
+      expect(BUILTIN_TYPES.map((builtin) => builtin.key)).not.toContain(
+        type.key
+      )
   })
 
   it("heads Spike's approach like the Approach block it adopts", () => {
-    const spike = BUILTIN_TEMPLATES.find((template) => template.key === "spike")
+    const spike = GALLERY_TYPES.find((type) => type.key === "spike")
     const approach = parseTicketBlocks(spike?.body ?? "").find(
       (segment) => segment.kind === "block" && segment.type === "approach"
     )
@@ -106,31 +97,32 @@ describe("built-in templates", () => {
     ).toBe("## Approach")
   })
 
-  it("references built-in blocks only, in valid markup", () => {
-    const keys = BUILTIN_BLOCKS.map((block) => block.key)
-    for (const template of BUILTIN_TEMPLATES) {
-      expect(validateTicketBlocks(template.body)).toEqual([])
-      for (const type of blockTypesOf(template.body))
-        expect(keys).toContain(type)
+  it("references gallery blocks only, in valid markup", () => {
+    const keys = GALLERY_BLOCKS.map((block) => block.key)
+    for (const type of GALLERY_TYPES) {
+      expect(validateTicketBlocks(type.body)).toEqual([])
+      for (const blockType of blockTypesOf(type.body))
+        expect(keys).toContain(blockType)
     }
   })
 
-  it.each(
-    BUILTIN_TEMPLATES.map((template) => [template.key, template] as const)
-  )("expands %s to a clean body with every block", (_key, template) => {
-    const expanded = expandTemplate(template, builtinLookup)
+  it.each(GALLERY_TYPES.map((type) => [type.key, type] as const))(
+    "expands %s to a clean body with every block",
+    (_key, type) => {
+      const expanded = expandType(type, galleryLookup)
 
-    expect(validateTicketBlocks(expanded)).toEqual([])
-    expect(expanded).not.toContain("{{")
-    expect(blockTypesOf(expanded)).toEqual(blockTypesOf(template.body))
-  })
+      expect(validateTicketBlocks(expanded)).toEqual([])
+      expect(expanded).not.toContain("{{")
+      expect(blockTypesOf(expanded)).toEqual(blockTypesOf(type.body))
+    }
+  )
 
   it("expands the incident review with its own headings", () => {
-    const expanded = expandTemplate(
-      BUILTIN_TEMPLATES.find((template) => template.key === "incident") ?? {
+    const expanded = expandType(
+      GALLERY_TYPES.find((type) => type.key === "incident") ?? {
         body: ""
       },
-      builtinLookup
+      galleryLookup
     )
 
     expect(expanded.match(/^## .+$/gm)).toEqual([

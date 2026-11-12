@@ -1,3 +1,4 @@
+import { TypeKey } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -9,9 +10,13 @@ import {
   isEpic,
   isEpicType
 } from "./hierarchy"
-import { TicketType } from "./Ticket"
-
-const otherTypes = TicketType.literals.filter((type) => type !== EPIC_TYPE)
+const otherTypes = [
+  TypeKey.make("feat"),
+  TypeKey.make("bug"),
+  TypeKey.make("chore"),
+  TypeKey.make("incident"),
+  null
+]
 
 describe("isEpicType", () => {
   it("is true for the epic type only", () => {
@@ -29,8 +34,8 @@ describe("isEpicType", () => {
 
 describe("isEpic", () => {
   it("reads the type of a ticket", () => {
-    expect(isEpic({ type: "epic" })).toBe(true)
-    expect(isEpic({ type: "feat" })).toBe(false)
+    expect(isEpic({ type: TypeKey.make("epic") })).toBe(true)
+    expect(isEpic({ type: TypeKey.make("feat") })).toBe(false)
   })
 
   it("is false for a missing ticket", () => {
@@ -50,20 +55,32 @@ describe("canHaveParent and canJoinSprint", () => {
 
 describe("canHoldChildren", () => {
   it("lets an epic hold tickets", () => {
-    expect(canHoldChildren({ type: "epic" }, null)).toBe(true)
+    expect(canHoldChildren({ type: TypeKey.make("epic") }, null)).toBe(true)
   })
 
   it("lets a ticket without a parent hold sub-tickets", () => {
-    expect(canHoldChildren({ type: "feat" }, null)).toBe(true)
-    expect(canHoldChildren({ type: "feat" }, undefined)).toBe(true)
+    expect(canHoldChildren({ type: TypeKey.make("feat") }, null)).toBe(true)
+    expect(canHoldChildren({ type: TypeKey.make("feat") }, undefined)).toBe(
+      true
+    )
   })
 
   it("lets a ticket under an epic hold sub-tickets", () => {
-    expect(canHoldChildren({ type: "feat" }, { type: "epic" })).toBe(true)
+    expect(
+      canHoldChildren(
+        { type: TypeKey.make("feat") },
+        { type: TypeKey.make("epic") }
+      )
+    ).toBe(true)
   })
 
   it("stops a sub-ticket from holding sub-tickets", () => {
-    expect(canHoldChildren({ type: "bug" }, { type: "feat" })).toBe(false)
+    expect(
+      canHoldChildren(
+        { type: TypeKey.make("bug") },
+        { type: TypeKey.make("feat") }
+      )
+    ).toBe(false)
   })
 })
 

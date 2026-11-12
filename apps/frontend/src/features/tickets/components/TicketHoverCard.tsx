@@ -7,7 +7,7 @@ import type {
   TicketId,
   TicketPriority,
   TicketStatus,
-  TicketType
+  TypeKey
 } from "@pp/shared"
 import { finishedStatusSlugs, flattenTicketBlocks } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
@@ -34,6 +34,8 @@ import {
 } from "@/features/tickets/atoms/ticketDetail"
 import { EpicTextPrefix } from "@/features/tickets/components/ticket-list/EpicLabel"
 import { EstimateChip } from "@/features/tickets/components/ticket-list/EstimateField"
+import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import {
   PRIORITY_LABELS,
   PRIORITY_META
@@ -41,10 +43,9 @@ import {
 import { openBlockers } from "@/features/tickets/lib/relationGroups"
 import {
   statusMetaFor,
-  statusLabelFor,
-  TYPE_LABELS,
-  TYPE_META
+  statusLabelFor
 } from "@/features/tickets/lib/ticketMeta"
+import { resolveType } from "@/features/tickets/lib/ticketTypes"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -209,7 +210,7 @@ function MetaRow({
 }: {
   ticket: {
     status: TicketStatus
-    type: TicketType
+    type: TypeKey | null
     priority: TicketPriority
     estimate: Estimate | null
     assignees: ReadonlyArray<string>
@@ -218,10 +219,12 @@ function MetaRow({
   statuses: ReadonlyArray<ProjectStatus>
 }) {
   const statusMeta = statusMetaFor(ticket.status, statuses)
-  const type = TYPE_META[ticket.type]
+  const type = resolveType(
+    useTicketTypes(scope.orgSlug, scope.slug),
+    ticket.type
+  )
   const priority = PRIORITY_META[ticket.priority]
   const StatusIcon = statusMeta.icon
-  const TypeIcon = type.icon
   const PriorityIcon = priority.icon
   const estimation = useAtomValue(
     projectEstimation(projectRequest(scope.orgSlug, scope.slug))
@@ -242,10 +245,12 @@ function MetaRow({
         />
         <span>{statusLabelFor(ticket.status, statuses)}</span>
       </span>
-      <span className="inline-flex items-center gap-1">
-        <TypeIcon className="size-3.5" strokeWidth={1.75} />
-        <span>{TYPE_LABELS[ticket.type]()}</span>
-      </span>
+      {type !== null && (
+        <span className="inline-flex items-center gap-1">
+          <TypeGlyph type={type} className="size-3.5" />
+          <span>{type.name}</span>
+        </span>
+      )}
       <span className="inline-flex items-center gap-1">
         <PriorityIcon
           className={cn("size-3.5", priority.className)}

@@ -1,18 +1,12 @@
-import { isEpicType, TicketType, type ProjectStatus } from "@pp/shared"
+import type { ProjectStatus } from "@pp/shared"
 import {
-  Bug,
   Check,
   Circle,
   CircleDashed,
   CircleDot,
-  Hammer,
-  HelpCircle,
-  Layers,
-  Sparkles,
   type LucideIcon
 } from "lucide-react"
 
-import type { BadgeTone } from "@/components/ui/badge"
 import { getStatusIcon } from "@/features/statuses/lib/statusIcons"
 import { m } from "@/paraglide/messages"
 
@@ -85,26 +79,4 @@ export function statusMetaFor(
     className: "text-muted-foreground",
     color: null
   }
-}
-
-export const TYPE_META: Record<
-  TicketType,
-  { label: string; icon: LucideIcon; tone: BadgeTone }
-> = {
-  feat: { label: "Feature", icon: Sparkles, tone: "emerald" },
-  bug: { label: "Bug", icon: Bug, tone: "red" },
-  chore: { label: "Chore", icon: Hammer, tone: "amber" },
-  other: { label: "Other", icon: HelpCircle, tone: "muted" },
-  epic: { label: "Epic", icon: Layers, tone: "blue" }
-}
-
-export const NON_EPIC_TYPES: ReadonlyArray<TicketType> =
-  TicketType.literals.filter((type) => !isEpicType(type))
-
-export const TYPE_LABELS: Record<TicketType, () => string> = {
-  feat: () => m.tickets_type_feat(),
-  bug: () => m.tickets_type_bug(),
-  chore: () => m.tickets_type_chore(),
-  other: () => m.tickets_type_other(),
-  epic: () => m.tickets_type_epic()
 }

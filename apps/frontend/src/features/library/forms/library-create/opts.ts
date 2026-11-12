@@ -1,6 +1,7 @@
 import { createValidator } from "@tanstack/react-form"
 import * as Schema from "effect/Schema"
 
+import type { LibraryLayer } from "@/features/library/atoms/libraryScope"
 import {
   keyFromName,
   keyProblem,
@@ -11,12 +12,15 @@ import { appFormOptions } from "@/lib/form"
 import { m } from "@/paraglide/messages"
 
 export type LibraryCreateValues = Readonly<{
+  example: string | null
   name: string
   key: string | null
+  layer: LibraryLayer
 }>
 
-export const effectiveLibraryKey = (values: LibraryCreateValues): string =>
-  values.key ?? keyFromName(values.name.trim())
+export const effectiveLibraryKey = (
+  values: Pick<LibraryCreateValues, "name" | "key">
+): string => values.key ?? keyFromName(values.name.trim())
 
 const KEY_PROBLEM_MESSAGES: Readonly<Record<KeyProblem, () => string>> = {
   invalid: () => m.templates_settings_key_invalid(),
@@ -24,13 +28,24 @@ const KEY_PROBLEM_MESSAGES: Readonly<Record<KeyProblem, () => string>> = {
   taken: () => m.templates_error_key_taken()
 }
 
-const libraryCreateSchema = (kind: LibraryKind, taken: ReadonlySet<string>) =>
+const libraryCreateSchema = (
+  kind: LibraryKind,
+  taken: (layer: LibraryLayer) => ReadonlySet<string>
+) =>
   Schema.Struct({
+    example: Schema.NullOr(Schema.String),
     name: Schema.String,
-    key: Schema.NullOr(Schema.String)
+    key: Schema.NullOr(Schema.String),
+    layer: Schema.Literals(["org", "project"])
   }).check(
     Schema.makeFilter((values) => {
-      const problem = keyProblem(effectiveLibraryKey(values), kind, taken)
+      if (values.name.trim() === "")
+        return { path: ["name"], issue: m.validation_required() }
+      const problem = keyProblem(
+        effectiveLibraryKey(values),
+        kind,
+        taken(values.layer)
+      )
       return problem === null
         ? undefined
         : { path: ["key"], issue: KEY_PROBLEM_MESSAGES[problem]() }
@@ -55,14 +70,20 @@ const validateOnceKeyed = createValidator({
   ]
 })
 
-const defaultValues: LibraryCreateValues = { name: "", key: null }
+const defaultValuesFor = (layer: LibraryLayer): LibraryCreateValues => ({
+  example: null,
+  name: "",
+  key: null,
+  layer
+})
 
 export const libraryCreateFormOpts = (
   kind: LibraryKind,
-  taken: ReadonlySet<string>
+  layer: LibraryLayer,
+  taken: (layer: LibraryLayer) => ReadonlySet<string>
 ) =>
   appFormOptions({
-    defaultValues,
+    defaultValues: defaultValuesFor(layer),
     validators: [
       validateOnceKeyed(
         Schema.toStandardSchemaV1(libraryCreateSchema(kind, taken))

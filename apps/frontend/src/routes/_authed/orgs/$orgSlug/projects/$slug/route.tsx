@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import {
+  projectLibraryFor,
+  projectLibraryRequest
+} from "@/features/library/atoms/library"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import {
   statusesFor,
@@ -20,6 +24,7 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
     registry.mount(project(projectRequest(orgSlug, slug)))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
     registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
+    registry.mount(projectLibraryFor(projectLibraryRequest(orgSlug, slug)))()
     return {
       crumb: [
         {

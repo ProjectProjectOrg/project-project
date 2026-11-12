@@ -5,27 +5,23 @@ import {
   serializeTicketBlocks,
   type TicketBlockSegment
 } from "../tickets/blocks"
-import type { TicketType } from "../tickets/Ticket"
-import { BUILTIN_BLOCKS, BUILTIN_TEMPLATES } from "./gallery"
+import { BUILTIN_BLOCKS, BUILTIN_TYPES } from "./builtins"
+import { GALLERY_BLOCKS, GALLERY_TYPES } from "./gallery"
 import { stripHints } from "./hints"
 import type {
   BlockDefinition,
   BlockDraft,
   Library,
-  LibraryDefaults,
   LibraryOrigin,
-  PartialTemplateDefaults,
-  TemplateDefaults,
-  TemplateDefinition,
-  TemplateDraft,
-  UpdateTemplateDefaultsInput
+  TypeDefinition,
+  TypeDraft
 } from "./Library"
 
 export type Layer = Readonly<{
   blocks: ReadonlyArray<BlockDraft>
-  templates: ReadonlyArray<TemplateDraft>
+  types: ReadonlyArray<TypeDraft>
   hiddenBlocks: ReadonlyArray<string>
-  hiddenTemplates: ReadonlyArray<string>
+  hiddenTypes: ReadonlyArray<string>
 }>
 
 export type LibraryLayers = Readonly<{
@@ -33,17 +29,12 @@ export type LibraryLayers = Readonly<{
   project: Layer | null
 }>
 
-export type LayerDefaults = Readonly<{
-  org: PartialTemplateDefaults
-  project: PartialTemplateDefaults | null
-}>
-
-export type TemplateMerge = Readonly<{
+export type TypeMerge = Readonly<{
   body: string
   added: ReadonlyArray<string>
 }>
 
-export type TicketAsTemplate = Readonly<{ body: string; customized: number }>
+export type TicketAsType = Readonly<{ body: string; customized: number }>
 
 export type BlockLookup = (key: string) => BlockDefinition | undefined
 
@@ -66,24 +57,23 @@ type BlockSegment = Extract<TicketBlockSegment, { kind: "block" }>
 
 export const EMPTY_LAYER: Layer = {
   blocks: [],
-  templates: [],
+  types: [],
   hiddenBlocks: [],
-  hiddenTemplates: []
+  hiddenTypes: []
+}
+
+export const BASE_LAYER: Layer = {
+  blocks: BUILTIN_BLOCKS,
+  types: BUILTIN_TYPES,
+  hiddenBlocks: [],
+  hiddenTypes: []
 }
 
 export const GALLERY_LAYER: Layer = {
-  blocks: BUILTIN_BLOCKS,
-  templates: BUILTIN_TEMPLATES,
+  blocks: GALLERY_BLOCKS,
+  types: GALLERY_TYPES,
   hiddenBlocks: [],
-  hiddenTemplates: []
-}
-
-export const NO_TEMPLATE_DEFAULTS: TemplateDefaults = {
-  feat: null,
-  bug: null,
-  chore: null,
-  other: null,
-  epic: null
+  hiddenTypes: []
 }
 
 const SYNCED_OPENER = /<block[^>]*\ssync/
@@ -145,94 +135,35 @@ const resolveEntries = <A extends Keyed & Readonly<{ name: string }>>(
 }
 
 const layerStack = (
-  layers: LibraryLayers
+  layers: LibraryLayers,
+  base: Layer
 ): ReadonlyArray<readonly [LibraryOrigin, Layer]> => [
   ...(layers.project === null ? [] : [["project", layers.project] as const]),
-  ["org", layers.org]
+  ["org", layers.org],
+  ["builtin", base]
 ]
-
-const TICKET_TYPES: ReadonlyArray<TicketType> = [
-  "feat",
-  "bug",
-  "chore",
-  "other",
-  "epic"
-]
-
-const resolveDefaults = (
-  requested: PartialTemplateDefaults,
-  fallback: TemplateDefaults,
-  active: ReadonlySet<string>
-): TemplateDefaults => {
-  const resolveType = (type: TicketType) => {
-    const key = type in requested ? (requested[type] ?? null) : fallback[type]
-    return key !== null && active.has(key) ? key : null
-  }
-  return {
-    feat: resolveType("feat"),
-    bug: resolveType("bug"),
-    chore: resolveType("chore"),
-    other: resolveType("other"),
-    epic: resolveType("epic")
-  }
-}
-
-export const resolveLibraryDefaults = (
-  defaults: LayerDefaults,
-  templates: ReadonlyArray<TemplateDefinition>
-): LibraryDefaults => {
-  const active = new Set(
-    templates.flatMap((template) => (template.hidden ? [] : [template.key]))
-  )
-  const inheritedDefaults =
-    defaults.project === null
-      ? NO_TEMPLATE_DEFAULTS
-      : resolveDefaults(defaults.org, NO_TEMPLATE_DEFAULTS, active)
-  const ownDefaults = defaults.project ?? defaults.org
-  return {
-    defaults: resolveDefaults(ownDefaults, inheritedDefaults, active),
-    ownDefaults,
-    inheritedDefaults
-  }
-}
-
-export const withDefaultsUpdate = (
-  own: PartialTemplateDefaults,
-  update: UpdateTemplateDefaultsInput
-): PartialTemplateDefaults => {
-  const reset = new Set<TicketType>(update.reset ?? [])
-  const next: PartialTemplateDefaults = { ...own, ...update.defaults }
-  return Object.fromEntries(
-    TICKET_TYPES.flatMap((type) =>
-      type in next && !reset.has(type) ? [[type, next[type] ?? null]] : []
-    )
-  )
-}
 
 export const resolveLibrary = (
   layers: LibraryLayers,
-  defaults: LayerDefaults,
-  canEdit: boolean
+  canEdit: boolean,
+  base: Layer = BASE_LAYER
 ): Library => {
-  const stack = layerStack(layers)
-  const blocks = resolveEntries(
-    stack.map(([origin, layer]) => ({
-      origin,
-      definitions: layer.blocks,
-      hidden: layer.hiddenBlocks
-    }))
-  )
-  const templates = resolveEntries(
-    stack.map(([origin, layer]) => ({
-      origin,
-      definitions: layer.templates,
-      hidden: layer.hiddenTemplates
-    }))
-  )
+  const stack = layerStack(layers, base)
   return {
-    blocks,
-    templates,
-    ...resolveLibraryDefaults(defaults, templates),
+    blocks: resolveEntries(
+      stack.map(([origin, layer]) => ({
+        origin,
+        definitions: layer.blocks,
+        hidden: layer.hiddenBlocks
+      }))
+    ),
+    types: resolveEntries(
+      stack.map(([origin, layer]) => ({
+        origin,
+        definitions: layer.types,
+        hidden: layer.hiddenTypes
+      }))
+    ),
     canEdit
   }
 }
@@ -283,22 +214,22 @@ const expandSegment = (
     : [blockSegment(segment.type, clean(definition.content), definition.sync)]
 }
 
-export const expandTemplate = (
-  template: Readonly<{ body: string }>,
+export const expandType = (
+  type: Readonly<{ body: string }>,
   lookup: BlockLookup
 ): string =>
   serializeTicketBlocks(
-    parseTicketBlocks(template.body).flatMap((segment) =>
+    parseTicketBlocks(type.body).flatMap((segment) =>
       expandSegment(segment, lookup, false)
     )
   )
 
-export const expandTemplateKeepingHints = (
-  template: Readonly<{ body: string }>,
+export const expandTypeKeepingHints = (
+  type: Readonly<{ body: string }>,
   lookup: BlockLookup
 ): string =>
   serializeTicketBlocks(
-    parseTicketBlocks(template.body).flatMap((segment) =>
+    parseTicketBlocks(type.body).flatMap((segment) =>
       expandSegment(segment, lookup, true)
     )
   )
@@ -311,10 +242,7 @@ const blockTypesIn = (markdown: string): ReadonlyArray<string> =>
     .filter(isBlockSegment)
     .map((segment) => segment.type)
 
-export const mergeTemplateInto = (
-  body: string,
-  expanded: string
-): TemplateMerge => {
+export const mergeTypeInto = (body: string, expanded: string): TypeMerge => {
   if (isBlank(body)) return { body: expanded, added: blockTypesIn(expanded) }
   const present = new Set(blockTypesIn(body))
   const missing = parseTicketBlocks(expanded)
@@ -417,7 +345,7 @@ export const blockMatchesDefinition = (
   comparableMarkdown(content) ===
   comparableMarkdown(stripHints(definition.content))
 
-const templateSegmentFromTicket = (
+const typeSegmentFromTicket = (
   segment: TicketBlockSegment,
   lookup: BlockLookup
 ): TicketBlockSegment => {
@@ -433,12 +361,12 @@ const templateSegmentFromTicket = (
 const isCustomization = (segment: TicketBlockSegment): boolean =>
   segment.kind === "block" && !isBlank(segment.content)
 
-export const templateBodyFromTicket = (
+export const typeBodyFromTicket = (
   body: string,
   lookup: BlockLookup
-): TicketAsTemplate => {
+): TicketAsType => {
   const segments = parseTicketBlocks(body).map((segment) =>
-    templateSegmentFromTicket(segment, lookup)
+    typeSegmentFromTicket(segment, lookup)
   )
   return {
     body: serializeTicketBlocks(segments),
@@ -446,64 +374,37 @@ export const templateBodyFromTicket = (
   }
 }
 
-export const isPristineTemplateBody = (
+export const isPristineTypeBody = (
   body: string,
-  template: Readonly<{ body: string }>,
+  type: Readonly<{ body: string }>,
   lookup: BlockLookup
 ): boolean =>
-  comparableMarkdown(body) ===
-  comparableMarkdown(expandTemplate(template, lookup))
+  comparableMarkdown(body) === comparableMarkdown(expandType(type, lookup))
 
-export const typesDefaultingTo = (
-  defaults: TemplateDefaults,
-  key: string
-): ReadonlyArray<TicketType> =>
-  TICKET_TYPES.filter((type) => defaults[type] === key)
-
-export const ticketTypeForTemplate = (
-  defaults: TemplateDefaults,
-  key: string
-): TicketType | null => {
-  const types = typesDefaultingTo(defaults, key)
-  return types.length === 1 ? (types[0] ?? null) : null
-}
-
-export const templateFor = (
-  library: Library,
-  type: TicketType
-): TemplateDefinition | null => {
-  const key = library.defaults[type]
-  if (key === null) return null
-  return (
-    library.templates.find(
-      (template) => template.key === key && !template.hidden
-    ) ?? null
-  )
-}
+export const typeFor = (library: Library, key: string): TypeDefinition | null =>
+  library.types.find((type) => type.key === key && !type.hidden) ?? null
 
 const keysOf = (entries: ReadonlyArray<Keyed>): ReadonlySet<string> =>
   new Set(entries.map((entry) => entry.key))
 
-export const galleryTemplatesFor = (
-  library: Library
-): ReadonlyArray<TemplateDraft> => {
-  const present = keysOf(library.templates)
-  return BUILTIN_TEMPLATES.filter((draft) => !present.has(draft.key))
+export const galleryTypesFor = (library: Library): ReadonlyArray<TypeDraft> => {
+  const present = keysOf(library.types)
+  return GALLERY_TYPES.filter((draft) => !present.has(draft.key))
 }
 
 export const galleryBlocksFor = (
   library: Library
 ): ReadonlyArray<BlockDraft> => {
   const present = keysOf(library.blocks)
-  return BUILTIN_BLOCKS.filter((draft) => !present.has(draft.key))
+  return GALLERY_BLOCKS.filter((draft) => !present.has(draft.key))
 }
 
 export const galleryBlocksToAdopt = (
   library: Library,
-  template: Readonly<{ body: string }>
+  type: Readonly<{ body: string }>
 ): ReadonlyArray<BlockDraft> => {
   const referenced = new Set(
-    parseTicketBlocks(template.body).flatMap((segment) =>
+    parseTicketBlocks(type.body).flatMap((segment) =>
       segment.kind === "block" ? [segment.type] : []
     )
   )

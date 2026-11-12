@@ -4,9 +4,10 @@ import {
   isAllowedAttachmentContentType,
   type JiraMigrationFinding,
   type JiraMigrationScanSummary,
-  type TicketType,
   type JiraMigrationUserOption,
-  isEpicType
+  isEpicType,
+  EPIC_TYPE,
+  TypeKey
 } from "@pp/shared"
 import { Option, Predicate, Stream } from "effect"
 import * as DateTime from "effect/DateTime"
@@ -126,17 +127,17 @@ const suggestedKey = (key: string, name: string): string => {
 const suggestedIssueType = (
   name: string,
   hierarchyLevel: number | null
-): TicketType => {
+): TypeKey | null => {
   const lower = name.toLowerCase()
   return isJiraEpicLevel({ name, hierarchyLevel })
-    ? "epic"
+    ? EPIC_TYPE
     : lower.includes("bug") || lower.includes("defect")
-      ? "bug"
+      ? TypeKey.make("bug")
       : lower.includes("task") || lower.includes("chore")
-        ? "chore"
+        ? TypeKey.make("chore")
         : lower.includes("story") || lower.includes("feature")
-          ? "feat"
-          : "other"
+          ? TypeKey.make("feat")
+          : null
 }
 
 const suggestedPriority = (name: string) => {

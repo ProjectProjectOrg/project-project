@@ -14,7 +14,7 @@ import { RichTextExtension } from "@lexical/rich-text"
 import { TableExtension } from "@lexical/table"
 import { IS_APPLE } from "@lexical/utils"
 import {
-  BUILTIN_BLOCKS,
+  GALLERY_BLOCKS,
   blockMatchesDefinition,
   formatTicketBlock,
   restoreDefinitionHints,
@@ -500,7 +500,7 @@ describe("making a ticket block the definition", () => {
       })
 
   it("keeps every hint of a block the ticket left untouched", () => {
-    for (const definition of BUILTIN_BLOCKS.filter((draft) => !draft.sync)) {
+    for (const definition of GALLERY_BLOCKS.filter((draft) => !draft.sync)) {
       const content = exported(block(definition.key), definition.key)
       expect(
         restoreDefinitionHints(content, definition.content).trimEnd(),

@@ -8,7 +8,8 @@ import {
   TicketId,
   TicketStatus,
   TicketUpdateResult,
-  UpdateTicketInput
+  UpdateTicketInput,
+  TypeKey
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -40,7 +41,7 @@ const makeTicket = (id: TicketId, status: TicketStatus): Ticket => ({
   id,
   title: `Ticket ${id}`,
   status,
-  type: "chore",
+  type: TypeKey.make("chore"),
   priority: "med",
   estimate: null,
   tags: [],
@@ -550,7 +551,11 @@ describe("updateBoardTicket", () => {
     const payloads: Array<unknown> = []
     let finishFirst: ((response: Response) => void) | undefined
     let served = ticketA
-    const confirmed = { ...ticketA, title: "Renamed", type: "bug" as const }
+    const confirmed = {
+      ...ticketA,
+      title: "Renamed",
+      type: TypeKey.make("bug")
+    }
     fetchStub.set(async (input, init) => {
       const request =
         input instanceof Request ? input : new Request(input, init)
@@ -583,18 +588,21 @@ describe("updateBoardTicket", () => {
         })
       )
       registry.set(mutation, { title: "Renamed" })
-      registry.set(mutation, { type: "bug" })
+      registry.set(mutation, { type: TypeKey.make("bug") })
       const optimistic = registry.get(view)
       if (!AsyncResult.isSuccess(optimistic)) throw new Error("not ready")
       expect(optimistic.value.tickets[0]).toMatchObject({
         title: "Renamed",
-        type: "bug"
+        type: TypeKey.make("bug")
       })
       await vi.waitFor(() => expect(payloads).toHaveLength(1))
       served = { ...ticketA, title: "Renamed" }
       finishFirst?.(Response.json(encodeTicketUpdate(asTicketDetail(served))))
       await vi.waitFor(() =>
-        expect(payloads).toEqual([{ title: "Renamed" }, { type: "bug" }])
+        expect(payloads).toEqual([
+          { title: "Renamed" },
+          { type: TypeKey.make("bug") }
+        ])
       )
       await vi.waitFor(() => {
         expect(registry.get(mutation)).toMatchObject({

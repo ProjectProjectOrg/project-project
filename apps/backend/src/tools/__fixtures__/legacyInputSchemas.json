@@ -283,8 +283,40 @@
           {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": ["feat", "bug", "chore", "other", "epic"]
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["none"]
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                  "maxLength": 48
+                }
+              ]
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "excludeType": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["none"]
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                  "maxLength": 48
+                }
+              ]
             }
           },
           {
@@ -803,7 +835,7 @@
     "additionalProperties": true,
     "$defs": {}
   },
-  "list_templates": {
+  "list_types": {
     "type": "object",
     "properties": {
       "orgSlug": {
@@ -859,8 +891,16 @@
       "type": {
         "anyOf": [
           {
-            "type": "string",
-            "enum": ["feat", "bug", "chore", "other", "epic"]
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                "maxLength": 48
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           {
             "type": "null"
@@ -1020,23 +1060,7 @@
         ]
       },
       "template": {
-        "anyOf": [
-          {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-                "maxLength": 48
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          {
-            "type": "null"
-          }
-        ]
+        "not": {}
       }
     },
     "required": ["orgSlug", "projectSlug", "title"],
@@ -1090,8 +1114,16 @@
       "type": {
         "anyOf": [
           {
-            "type": "string",
-            "enum": ["feat", "bug", "chore", "other", "epic"]
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                "maxLength": 48
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           {
             "type": "null"
@@ -1258,23 +1290,7 @@
         ]
       },
       "template": {
-        "anyOf": [
-          {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-                "maxLength": 48
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          {
-            "type": "null"
-          }
-        ]
+        "not": {}
       },
       "edits": {
         "anyOf": [

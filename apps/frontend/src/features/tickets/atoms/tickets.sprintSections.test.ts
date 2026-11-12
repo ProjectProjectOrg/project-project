@@ -6,7 +6,8 @@ import {
   Ticket,
   TicketId,
   TicketStatus,
-  UserId
+  UserId,
+  TypeKey
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -33,7 +34,7 @@ const ticket = {
   id: Schema.decodeSync(TicketId)("T-1"),
   title: "Before",
   status: Schema.decodeSync(TicketStatus)("todo"),
-  type: "chore",
+  type: TypeKey.make("chore"),
   priority: "med",
   estimate: null,
   tags: [],
@@ -311,8 +312,8 @@ describe("ticket sprint sections", () => {
 
   it.each([
     {
-      filter: { type: ["chore"] },
-      patch: { type: "bug" },
+      filter: { type: [TypeKey.make("chore")] },
+      patch: { type: TypeKey.make("bug") },
       count: 0
     },
     {
@@ -395,7 +396,7 @@ describe("ticket sprint sections", () => {
         expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
       )
       registry.set(mutation, {
-        payload: { title: "New", type: "chore", status: doing },
+        payload: { title: "New", type: TypeKey.make("chore"), status: doing },
         prediction: {
           clientId: "new-ticket",
           createdBy: "user-1",
@@ -440,7 +441,7 @@ describe("ticket sprint sections", () => {
         expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
       )
       registry.set(mutation, {
-        payload: { title: "New", type: "chore" },
+        payload: { title: "New", type: TypeKey.make("chore") },
         prediction: {
           clientId: "new-ticket",
           createdBy: "user-1",

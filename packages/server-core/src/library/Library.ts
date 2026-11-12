@@ -3,42 +3,38 @@ import {
   type BlockDefinition,
   Conflict,
   type CreateBlockInput,
-  type CreateTemplateInput,
+  type CreateTypeInput,
   type Library as LibraryValue,
   type MentionInvalid,
   NotFound,
   type TagName,
-  type LibraryDefaults,
-  type TemplateDefinition,
-  TemplateKey,
+  type TypeDefinition,
+  TypeKey,
   type TicketPriority,
-  type TicketType,
   type UpdateBlockInput,
-  type UpdateTemplateDefaultsInput,
-  type UpdateTemplateInput,
+  type UpdateTypeInput,
   Validation,
   OrgScope,
   ProjectScope,
+  BASE_LAYER,
   BlockKey,
   blockLookupFor,
-  expandTemplate,
+  expandType,
+  isPristineTypeBody,
+  stripHints,
+  typeFor,
   extractAttachmentRefs,
   extractMentionLinks,
   parseMentionHref,
   parseTicketBlocks,
   resolveLibrary,
-  resolveLibraryDefaults,
-  ticketTypeForTemplate,
   resolveSyncedBlocks,
   serializeTicketBlocks,
   validateTicketBlocks,
-  withDefaultsUpdate,
   type BlockDraft,
   type Layer as LibraryLayer,
-  type LayerDefaults,
   type LibraryLayers,
-  type PartialTemplateDefaults,
-  type TemplateDraft,
+  type TypeDraft,
   type TicketBlockSegment
 } from "@pp/shared"
 import * as Context from "effect/Context"
@@ -49,13 +45,11 @@ import * as Schema from "effect/Schema"
 import { validateBodyMentions } from "../comments/BodyMentions"
 import * as KeyedLock from "../locks/KeyedLock"
 import type * as Markdown from "../markdown/Markdown"
-import * as ProjectDocs from "../projects/ProjectDocs"
 import * as TicketDocs from "../tickets/TicketDocs"
 import * as LibraryDocs from "./LibraryDocs"
 
-export type TemplateExpansion = Readonly<{
+export type TypeExpansion = Readonly<{
   body: string
-  type: TicketType | null
   priority: TicketPriority | null
   tags: ReadonlyArray<TagName>
 }>
@@ -87,23 +81,16 @@ export class Library extends Context.Service<
     removeOrgBlock: (
       key: string
     ) => Effect.Effect<void, NotFound | Markdown.MarkdownError, OrgScope>
-    createOrgTemplate: (
-      input: CreateTemplateInput
-    ) => Effect.Effect<TemplateDefinition, OrgEditError | Conflict, OrgScope>
-    updateOrgTemplate: (
+    createOrgType: (
+      input: CreateTypeInput
+    ) => Effect.Effect<TypeDefinition, OrgEditError | Conflict, OrgScope>
+    updateOrgType: (
       key: string,
-      input: UpdateTemplateInput
-    ) => Effect.Effect<TemplateDefinition, OrgEditError | NotFound, OrgScope>
-    removeOrgTemplate: (
+      input: UpdateTypeInput
+    ) => Effect.Effect<TypeDefinition, OrgEditError | NotFound, OrgScope>
+    removeOrgType: (
       key: string
     ) => Effect.Effect<void, NotFound | Markdown.MarkdownError, OrgScope>
-    setOrgTemplateDefaults: (
-      input: UpdateTemplateDefaultsInput
-    ) => Effect.Effect<
-      LibraryDefaults,
-      NotFound | Validation | Markdown.MarkdownError,
-      OrgScope
-    >
     createBlock: (
       input: CreateBlockInput
     ) => Effect.Effect<
@@ -125,42 +112,43 @@ export class Library extends Context.Service<
       NotFound | Conflict | Markdown.MarkdownError,
       ProjectScope
     >
-    createTemplate: (
-      input: CreateTemplateInput
+    createType: (
+      input: CreateTypeInput
     ) => Effect.Effect<
-      TemplateDefinition,
+      TypeDefinition,
       ProjectEditError | Conflict,
       ProjectScope
     >
-    updateTemplate: (
+    updateType: (
       key: string,
-      input: UpdateTemplateInput
-    ) => Effect.Effect<TemplateDefinition, ProjectEditError, ProjectScope>
-    removeTemplate: (
+      input: UpdateTypeInput
+    ) => Effect.Effect<TypeDefinition, ProjectEditError, ProjectScope>
+    removeType: (
       key: string
     ) => Effect.Effect<void, NotFound | Markdown.MarkdownError, ProjectScope>
-    hideTemplate: (
+    hideType: (
       key: string
     ) => Effect.Effect<
       void,
       NotFound | Conflict | Markdown.MarkdownError,
       ProjectScope
     >
-    setTemplateDefaults: (
-      input: UpdateTemplateDefaultsInput
-    ) => Effect.Effect<
-      LibraryDefaults,
-      NotFound | Validation | Markdown.MarkdownError,
-      ProjectScope
-    >
     expandForCreate: (
       orgSlug: string,
       slug: string,
-      key: TemplateKey
+      key: TypeKey
     ) => Effect.Effect<
-      TemplateExpansion,
+      TypeExpansion,
       NotFound | Validation | Markdown.MarkdownError
     >
+    typeKeys: (
+      orgSlug: string,
+      slug: string
+    ) => Effect.Effect<ReadonlySet<string>, Markdown.MarkdownError>
+    untouchedBodyCheck: (
+      orgSlug: string,
+      slug: string
+    ) => Effect.Effect<(body: string) => boolean, Markdown.MarkdownError>
     resolveSynced: (
       orgSlug: string,
       slug: string,
@@ -181,8 +169,6 @@ type KindOps<Draft extends Keyed, Definition extends Keyed> = Readonly<{
   contentOf: (draft: Draft) => string
   allowsBlocks: boolean
 }>
-
-const NO_LAYER_DEFAULTS: LayerDefaults = { org: {}, project: null }
 
 const SYNCED_OPENER = /<block[^>\n]*\ssync/
 
@@ -210,16 +196,16 @@ const blockOps: KindOps<BlockDraft, BlockDefinition> = {
   allowsBlocks: false
 }
 
-const templateOps: KindOps<TemplateDraft, TemplateDefinition> = {
-  kind: "templates",
-  isKey: Schema.is(TemplateKey),
-  definitions: (layer) => layer.templates,
-  hidden: (layer) => layer.hiddenTemplates,
-  entries: (library) => library.templates,
+const typeOps: KindOps<TypeDraft, TypeDefinition> = {
+  kind: "types",
+  isKey: Schema.is(TypeKey),
+  definitions: (layer) => layer.types,
+  hidden: (layer) => layer.hiddenTypes,
+  entries: (library) => library.types,
   withDefinition: (layer, draft) => ({
     ...layer,
-    templates: replaceByKey(layer.templates, draft),
-    hiddenTemplates: layer.hiddenTemplates.filter((key) => key !== draft.key)
+    types: replaceByKey(layer.types, draft),
+    hiddenTypes: layer.hiddenTypes.filter((key) => key !== draft.key)
   }),
   contentOf: (draft) => draft.body,
   allowsBlocks: true
@@ -241,10 +227,7 @@ const patchBlock = (
   content: patched(patch.content, draft.content)
 })
 
-const patchTemplate = (
-  draft: TemplateDraft,
-  patch: UpdateTemplateInput
-): TemplateDraft => ({
+const patchType = (draft: TypeDraft, patch: UpdateTypeInput): TypeDraft => ({
   key: draft.key,
   name: patched(patch.name, draft.name),
   icon: patched(patch.icon, draft.icon),
@@ -301,7 +284,6 @@ type LayerTarget = Readonly<{ orgSlug: string; slug: string | null }>
 const make = Effect.gen(function* () {
   const db = yield* Db
   const docs = yield* LibraryDocs.LibraryDocs
-  const projectDocs = yield* ProjectDocs.ProjectDocs
   const ticketDocs = yield* TicketDocs.TicketDocs
   const keyedLock = yield* KeyedLock.KeyedLock
 
@@ -519,7 +501,7 @@ const make = Effect.gen(function* () {
     key: string
   ): Effect.Effect<Definition> => {
     const entry = ops
-      .entries(resolveLibrary(layers, NO_LAYER_DEFAULTS, true))
+      .entries(resolveLibrary(layers, true))
       .find((definition) => definition.key === key)
     return entry === undefined
       ? Effect.die(
@@ -660,9 +642,9 @@ const make = Effect.gen(function* () {
         slug,
         Effect.gen(function* () {
           const layers = yield* layersFor(orgSlug, slug)
-          const inherited = ops
-            .definitions(layers.org)
-            .some((definition) => definition.key === key)
+          const inherited = [layers.org, BASE_LAYER].some((layer) =>
+            ops.definitions(layer).some((definition) => definition.key === key)
+          )
           if (!inherited) return yield* new NotFound()
           const customized = ops
             .definitions(ownLayer(layers))
@@ -677,137 +659,42 @@ const make = Effect.gen(function* () {
       )
     })
 
-  const layerDefaultsFor = (
-    orgSlug: string,
-    slug: string | null
-  ): Effect.Effect<LayerDefaults, NotFound | Markdown.MarkdownError> =>
-    Effect.all(
-      {
-        org: docs.readOrgDefaults(orgSlug),
-        project:
-          slug === null
-            ? Effect.succeed(null)
-            : projectDocs
-                .read(orgSlug, slug)
-                .pipe(Effect.map((project) => project.templateDefaults))
-      },
-      { concurrency: 2 }
-    )
-
   const orgLibrary = Effect.fn("Library.orgLibrary")(function* () {
     const { orgSlug, permissions } = yield* OrgScope
-    const [layers, defaults] = yield* Effect.all(
-      [layersFor(orgSlug, null), layerDefaultsFor(orgSlug, null)],
-      { concurrency: 2 }
-    )
     return resolveLibrary(
-      layers,
-      defaults,
+      yield* layersFor(orgSlug, null),
       permissions.can({ library: ["manage"] })
     )
   })
 
   const projectLibrary = Effect.fn("Library.projectLibrary")(function* () {
     const { orgSlug, slug, permissions } = yield* ProjectScope
-    const [layers, defaults] = yield* Effect.all(
-      [layersFor(orgSlug, slug), layerDefaultsFor(orgSlug, slug)],
-      { concurrency: 2 }
-    )
     return resolveLibrary(
-      layers,
-      defaults,
+      yield* layersFor(orgSlug, slug),
       permissions.can({ library: ["manage"] })
     )
   })
 
-  const updateDefaults = Effect.fn("Library.updateDefaults")(function* (
-    orgSlug: string,
-    slug: string | null,
-    input: UpdateTemplateDefaultsInput,
-    write: (
-      defaults: PartialTemplateDefaults
-    ) => Effect.Effect<void, NotFound | Markdown.MarkdownError>
-  ): Effect.fn.Return<
-    LibraryDefaults,
-    NotFound | Validation | Markdown.MarkdownError
-  > {
-    const [layers, current] = yield* Effect.all(
-      [layersFor(orgSlug, slug), layerDefaultsFor(orgSlug, slug)],
-      { concurrency: 2 }
-    )
-    const { templates } = resolveLibrary(layers, NO_LAYER_DEFAULTS, true)
-    const active = new Set<string>(
-      templates.flatMap((template) => (template.hidden ? [] : [template.key]))
-    )
-    const unknown = Object.values(input.defaults).find(
-      (key) => key !== null && key !== undefined && !active.has(key)
-    )
-    if (unknown !== undefined && unknown !== null)
-      return yield* new Validation({
-        reason: `unknown_template:${unknown}`
-      })
-    const own = withDefaultsUpdate(current.project ?? current.org, input)
-    yield* write(own)
-    return resolveLibraryDefaults(
-      slug === null
-        ? { org: own, project: null }
-        : { org: current.org, project: own },
-      templates
-    )
-  })
-
-  const setOrgTemplateDefaults = Effect.fn("Library.setOrgTemplateDefaults")(
-    function* (input: UpdateTemplateDefaultsInput) {
-      const { orgSlug } = yield* orgLayer
-      return yield* withLayerLock(
-        orgSlug,
-        null,
-        updateDefaults(orgSlug, null, input, (defaults) =>
-          docs.writeOrgDefaults(orgSlug, defaults)
-        )
-      )
-    }
-  )
-
-  const setTemplateDefaults = Effect.fn("Library.setTemplateDefaults")(
-    function* (input: UpdateTemplateDefaultsInput) {
-      const { orgSlug, slug } = yield* projectLayer
-      return yield* withLayerLock(
-        orgSlug,
-        slug,
-        updateDefaults(orgSlug, slug, input, (defaults) =>
-          projectDocs.writeTemplateDefaults(orgSlug, slug, defaults)
-        )
-      )
-    }
-  )
-
   const expandForCreate = Effect.fn("Library.expandForCreate")(function* (
     orgSlug: string,
     slug: string,
-    key: TemplateKey
+    key: TypeKey
   ): Effect.fn.Return<
-    TemplateExpansion,
+    TypeExpansion,
     NotFound | Validation | Markdown.MarkdownError
   > {
-    const [layers, defaults] = yield* Effect.all(
-      [layersFor(orgSlug, slug), layerDefaultsFor(orgSlug, slug)],
-      { concurrency: 2 }
-    )
-    const library = resolveLibrary(layers, defaults, false)
-    const template = library.templates.find(
-      (candidate) => candidate.key === key && !candidate.hidden
-    )
-    if (template === undefined)
-      return yield* new Validation({ reason: `unknown_template:${key}` })
+    const library = resolveLibrary(yield* layersFor(orgSlug, slug), false)
+    const definition = typeFor(library, key)
+    if (definition === null)
+      return yield* new Validation({ reason: `unknown_type:${key}` })
     const [body, known] = yield* Effect.all(
       [
         sanitizeMentions(
           orgSlug,
           slug,
-          expandTemplate(template, blockLookupFor(library))
+          expandType(definition, blockLookupFor(library))
         ),
-        template.tags.length === 0
+        definition.tags.length === 0
           ? Effect.succeed(new Set<string>())
           : projectTagNames(orgSlug, slug)
       ],
@@ -815,9 +702,33 @@ const make = Effect.gen(function* () {
     )
     return {
       body,
-      type: ticketTypeForTemplate(library.defaults, template.key),
-      priority: template.priority,
-      tags: template.tags.filter((tag) => known.has(tag))
+      priority: definition.priority,
+      tags: definition.tags.filter((tag) => known.has(tag))
+    }
+  })
+
+  const typeKeys = Effect.fn("Library.typeKeys")(function* (
+    orgSlug: string,
+    slug: string
+  ): Effect.fn.Return<ReadonlySet<string>, Markdown.MarkdownError> {
+    const library = resolveLibrary(yield* layersFor(orgSlug, slug), false)
+    return new Set(
+      library.types.flatMap((type) => (type.hidden ? [] : [type.key]))
+    )
+  })
+
+  const untouchedBodyCheck = Effect.fn("Library.untouchedBodyCheck")(function* (
+    orgSlug: string,
+    slug: string
+  ): Effect.fn.Return<(body: string) => boolean, Markdown.MarkdownError> {
+    const library = resolveLibrary(yield* layersFor(orgSlug, slug), false)
+    const lookup = blockLookupFor(library)
+    return (body) => {
+      if (body.trim() === "") return true
+      const comparable = stripHints(body)
+      return library.types.some((type) =>
+        isPristineTypeBody(comparable, type, lookup)
+      )
     }
   })
 
@@ -827,11 +738,7 @@ const make = Effect.gen(function* () {
     body: string
   ): Effect.fn.Return<string, Markdown.MarkdownError> {
     if (!SYNCED_OPENER.test(body)) return body
-    const library = resolveLibrary(
-      yield* layersFor(orgSlug, slug),
-      NO_LAYER_DEFAULTS,
-      false
-    )
+    const library = resolveLibrary(yield* layersFor(orgSlug, slug), false)
     return yield* sanitizeSyncedMentions(
       orgSlug,
       slug,
@@ -864,29 +771,21 @@ const make = Effect.gen(function* () {
       )
     )
 
-  const createTemplateIn = <E, R>(
+  const createTypeIn = <E, R>(
     layer: Effect.Effect<LayerTarget, E, R>,
-    input: CreateTemplateInput
+    input: CreateTypeInput
   ) =>
     Effect.flatMap(layer, ({ orgSlug, slug }) =>
-      createEntry(templateOps, docs.writeTemplate, orgSlug, slug, input)
+      createEntry(typeOps, docs.writeType, orgSlug, slug, input)
     )
 
-  const updateTemplateIn = <E, R>(
+  const updateTypeIn = <E, R>(
     layer: Effect.Effect<LayerTarget, E, R>,
     key: string,
-    input: UpdateTemplateInput
+    input: UpdateTypeInput
   ) =>
     Effect.flatMap(layer, ({ orgSlug, slug }) =>
-      updateEntry(
-        templateOps,
-        docs.writeTemplate,
-        patchTemplate,
-        orgSlug,
-        slug,
-        key,
-        input
-      )
+      updateEntry(typeOps, docs.writeType, patchType, orgSlug, slug, key, input)
     )
 
   const removeFrom = <E, R>(
@@ -928,23 +827,23 @@ const make = Effect.gen(function* () {
     return yield* removeFrom(orgLayer, blockOps, key)
   })
 
-  const createOrgTemplate = Effect.fn("Library.createOrgTemplate")(function* (
-    input: CreateTemplateInput
+  const createOrgType = Effect.fn("Library.createOrgType")(function* (
+    input: CreateTypeInput
   ) {
-    return yield* createTemplateIn(orgLayer, input)
+    return yield* createTypeIn(orgLayer, input)
   })
 
-  const updateOrgTemplate = Effect.fn("Library.updateOrgTemplate")(function* (
+  const updateOrgType = Effect.fn("Library.updateOrgType")(function* (
     key: string,
-    input: UpdateTemplateInput
+    input: UpdateTypeInput
   ) {
-    return yield* updateTemplateIn(orgLayer, key, input)
+    return yield* updateTypeIn(orgLayer, key, input)
   })
 
-  const removeOrgTemplate = Effect.fn("Library.removeOrgTemplate")(function* (
+  const removeOrgType = Effect.fn("Library.removeOrgType")(function* (
     key: string
   ) {
-    return yield* removeFrom(orgLayer, templateOps, key)
+    return yield* removeFrom(orgLayer, typeOps, key)
   })
 
   const createBlock = Effect.fn("Library.createBlock")(function* (
@@ -968,29 +867,25 @@ const make = Effect.gen(function* () {
     return yield* hideIn(blockOps, key)
   })
 
-  const createTemplate = Effect.fn("Library.createTemplate")(function* (
-    input: CreateTemplateInput
+  const createType = Effect.fn("Library.createType")(function* (
+    input: CreateTypeInput
   ) {
-    return yield* createTemplateIn(projectLayer, input)
+    return yield* createTypeIn(projectLayer, input)
   })
 
-  const updateTemplate = Effect.fn("Library.updateTemplate")(function* (
+  const updateType = Effect.fn("Library.updateType")(function* (
     key: string,
-    input: UpdateTemplateInput
+    input: UpdateTypeInput
   ) {
-    return yield* updateTemplateIn(projectLayer, key, input)
+    return yield* updateTypeIn(projectLayer, key, input)
   })
 
-  const removeTemplate = Effect.fn("Library.removeTemplate")(function* (
-    key: string
-  ) {
-    return yield* removeFrom(projectLayer, templateOps, key)
+  const removeType = Effect.fn("Library.removeType")(function* (key: string) {
+    return yield* removeFrom(projectLayer, typeOps, key)
   })
 
-  const hideTemplate = Effect.fn("Library.hideTemplate")(function* (
-    key: string
-  ) {
-    return yield* hideIn(templateOps, key)
+  const hideType = Effect.fn("Library.hideType")(function* (key: string) {
+    return yield* hideIn(typeOps, key)
   })
 
   return Library.of({
@@ -999,20 +894,20 @@ const make = Effect.gen(function* () {
     createOrgBlock,
     updateOrgBlock,
     removeOrgBlock,
-    createOrgTemplate,
-    updateOrgTemplate,
-    removeOrgTemplate,
+    createOrgType,
+    updateOrgType,
+    removeOrgType,
     createBlock,
     updateBlock,
     removeBlock,
     hideBlock,
-    createTemplate,
-    updateTemplate,
-    removeTemplate,
-    hideTemplate,
-    setOrgTemplateDefaults,
-    setTemplateDefaults,
+    createType,
+    updateType,
+    removeType,
+    hideType,
     expandForCreate,
+    typeKeys,
+    untouchedBodyCheck,
     resolveSynced
   })
 })

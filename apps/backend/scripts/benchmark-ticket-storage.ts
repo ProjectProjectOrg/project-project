@@ -19,7 +19,7 @@ import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import { FinishedStatuses } from "@pp/server-core/projects/FinishedStatuses"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
-import { TicketId, TicketStatus } from "@pp/shared"
+import { TicketId, TicketStatus, TypeKey } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Clock from "effect/Clock"
 import * as ConfigProvider from "effect/ConfigProvider"
@@ -160,7 +160,7 @@ const makeDocument = (index: number): TicketDocs.TicketDocument => {
     id: decodeTicketId(`T-${index + 1}`),
     title: `Benchmark ticket ${index + 1}`,
     status: decodeTicketStatus("todo"),
-    type: "chore",
+    type: TypeKey.make("chore"),
     priority: "med",
     tags: [],
     branch: null,

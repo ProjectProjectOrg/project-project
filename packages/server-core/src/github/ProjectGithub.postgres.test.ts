@@ -114,14 +114,12 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
             invitePeopleDismissedAt: null,
             connectGithubDismissedAt: null
           },
-          templateDefaults: {},
           body: "Project body"
         }),
       write: (_org, _slug, file) =>
         Effect.sync(() => {
           writtenConnections.push(file.github)
         }),
-      writeTemplateDefaults: unused,
       markSystem: unused,
       systemRole: unused,
       removeDir: unused,
