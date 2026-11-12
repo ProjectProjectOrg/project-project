@@ -728,10 +728,11 @@ it.effect("update refreshes the stored synced snapshot", () =>
   }).pipe(Effect.provide(TestLayer))
 )
 
+const tag = Schema.decodeSync(TagName)
+
 it.effect("concurrent tag adds on one ticket keep both tags", () =>
   Effect.gen(function* () {
     const tickets = yield* TicketCommands.TicketCommands
-    const tag = Schema.decodeSync(TagName)
     const created = yield* tickets.quickCreate({ title: "two taggers" })
     yield* Effect.all(
       [
