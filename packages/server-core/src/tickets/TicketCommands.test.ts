@@ -5,13 +5,11 @@ import { Slug } from "@pp/shared"
 import {
   BlockDraft,
   BUILTIN_BLOCKS,
-  BUILTIN_TEMPLATE_DEFAULTS,
-  BUILTIN_TEMPLATES,
   Conflict,
   formatMentionHref,
   ProjectKey,
-  TemplateDraft,
-  TemplateKey,
+  TypeDraft,
+  TypeKey,
   TicketStatus,
   type User,
   UserId,
@@ -254,7 +252,6 @@ const TestLayer = Layer.unwrap(
                   invitePeopleDismissedAt: null,
                   connectGithubDismissedAt: null
                 },
-                templateDefaults: {},
                 body: ""
               })
           })
@@ -465,8 +462,8 @@ it.effect(
     }).pipe(Effect.provide(TestLayer))
 )
 
-const templateKey = Schema.decodeUnknownSync(TemplateKey)
-const decodeTemplateDraft = Schema.decodeUnknownSync(TemplateDraft)
+const typeKey = Schema.decodeUnknownSync(TypeKey)
+const decodeTypeDraft = Schema.decodeUnknownSync(TypeDraft)
 const decodeBlockDraft = Schema.decodeUnknownSync(BlockDraft)
 
 const SYNCED_DONE = [
@@ -480,8 +477,8 @@ const SYNCED_DONE = [
   "</block>"
 ].join("\n")
 
-const projectTemplate = (overrides: Readonly<Record<string, unknown>>) =>
-  decodeTemplateDraft({
+const projectType = (overrides: Readonly<Record<string, unknown>>) =>
+  decodeTypeDraft({
     key: "incident-lite",
     name: "Incident lite",
     icon: "Siren",
@@ -516,57 +513,37 @@ const adoptAtOrg = (keys: ReadonlyArray<string>) =>
       keys.includes(draft.key)
     ))
       yield* docs.writeBlock("org", null, block)
-    for (const template of BUILTIN_TEMPLATES.filter((draft) =>
-      keys.includes(draft.key)
-    ))
-      yield* docs.writeTemplate("org", null, template)
-    yield* docs.writeOrgDefaults(
-      "org",
-      Object.fromEntries(
-        Object.entries(BUILTIN_TEMPLATE_DEFAULTS).filter(
-          ([, key]) => key !== null && keys.includes(key)
-        )
-      )
-    )
   })
 
-const BUG_REPORT_KIT = [
-  "bug-report",
-  "expected-vs-actual",
-  "steps-to-reproduce",
-  "environment",
-  "definition-of-done"
-]
+it.effect(
+  "quickCreate with a type key writes its starting description and type",
+  () =>
+    Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      const queries = yield* TicketQueries.TicketQueries
+      const created = yield* tickets.quickCreate({
+        title: "login loops",
+        template: typeKey("bug")
+      })
+      expect(created.type).toBe("bug")
+      expect(created.priority).toBe("med")
+      expect(created.body).toContain('<block type="expected-vs-actual">')
+      expect(created.body).toContain('<block type="definition-of-done" sync>')
+      expect(created.body).toContain("**Expected:**")
+      expect(created.body).not.toContain("{{")
 
-it.effect("quickCreate with a template writes its expanded body and type", () =>
-  Effect.gen(function* () {
-    yield* adoptAtOrg(BUG_REPORT_KIT)
-    const tickets = yield* TicketCommands.TicketCommands
-    const queries = yield* TicketQueries.TicketQueries
-    const created = yield* tickets.quickCreate({
-      title: "login loops",
-      template: templateKey("bug-report")
-    })
-    expect(created.type).toBe("bug")
-    expect(created.priority).toBe("med")
-    expect(created.body).toContain('<block type="expected-vs-actual">')
-    expect(created.body).toContain('<block type="definition-of-done" sync>')
-    expect(created.body).toContain("**Expected:**")
-    expect(created.body).not.toContain("{{")
-
-    const fetched = yield* queries.get(created.id)
-    expect(fetched.body).toBe(created.body)
-  }).pipe(Effect.provide(TestLayer))
+      const fetched = yield* queries.get(created.id)
+      expect(fetched.body).toBe(created.body)
+    }).pipe(Effect.provide(TestLayer))
 )
 
 it.effect("quickCreate keeps an explicit type over the template's", () =>
   Effect.gen(function* () {
-    yield* adoptAtOrg(BUG_REPORT_KIT)
     const tickets = yield* TicketCommands.TicketCommands
     const created = yield* tickets.quickCreate({
       title: "typed",
       type: "chore",
-      template: templateKey("bug-report")
+      template: typeKey("bug")
     })
     expect(created.type).toBe("chore")
     expect(created.body).toContain('<block type="expected-vs-actual">')
@@ -594,15 +571,15 @@ it.effect("no template or a null template creates a blank ticket", () =>
 it.effect("create lets explicit fields win and filters template tags", () =>
   Effect.gen(function* () {
     yield* adoptAtOrg(["context"])
-    yield* (yield* LibraryDocs.LibraryDocs).writeTemplate(
+    yield* (yield* LibraryDocs.LibraryDocs).writeType(
       "org",
       "p",
-      projectTemplate({})
+      projectType({})
     )
     const tickets = yield* TicketCommands.TicketCommands
     const defaults = yield* tickets.create({
       title: "from template",
-      template: templateKey("incident-lite")
+      template: typeKey("incident-lite")
     })
     expect(defaults.type).toBe("other")
     expect(defaults.priority).toBe("high")
@@ -615,7 +592,7 @@ it.effect("create lets explicit fields win and filters template tags", () =>
       priority: "low",
       tags: [],
       body: "my own body",
-      template: templateKey("incident-lite")
+      template: typeKey("incident-lite")
     })
     expect(explicit.type).toBe("chore")
     expect(explicit.priority).toBe("low")
@@ -630,14 +607,14 @@ it.effect("an unknown template fails with Validation", () =>
     const quick = yield* Effect.flip(
       tickets.quickCreate({
         title: "nope",
-        template: templateKey("nope")
+        template: typeKey("nope")
       })
     )
     const full = yield* Effect.flip(
       tickets.create({
         title: "nope",
         body: "body wins but the key is still checked",
-        template: templateKey("nope")
+        template: typeKey("nope")
       })
     )
     expect(quick).toMatchObject({
@@ -653,17 +630,17 @@ it.effect("an unknown template fails with Validation", () =>
 
 it.effect("unresolvable template mentions become plain text on create", () =>
   Effect.gen(function* () {
-    yield* (yield* LibraryDocs.LibraryDocs).writeTemplate(
+    yield* (yield* LibraryDocs.LibraryDocs).writeType(
       "org",
       "p",
-      projectTemplate({
+      projectType({
         body: `Follow up on [T-99](${formatMentionHref("ticket", "T-99")})`
       })
     )
     const tickets = yield* TicketCommands.TicketCommands
     const created = yield* tickets.quickCreate({
       title: "mentions",
-      template: templateKey("incident-lite")
+      template: typeKey("incident-lite")
     })
     expect(created.body).toBe("Follow up on T-99")
   }).pipe(Effect.provide(TestLayer))

@@ -15,7 +15,7 @@ import {
   type ProjectKey,
   type Estimate,
   type SplitTicketResultInput,
-  type TemplateKey,
+  type TypeKey,
   TicketStatus,
   TicketType,
   ProjectScope,
@@ -539,9 +539,9 @@ const make = Effect.gen(function* () {
 
   const expansionFor = (
     project: TicketProject,
-    template: TemplateKey | null | undefined
+    template: TypeKey | null | undefined
   ): Effect.Effect<
-    Library.TemplateExpansion | null,
+    Library.TypeExpansion | null,
     NotFound | Validation | Markdown.MarkdownError
   > =>
     template === undefined || template === null
