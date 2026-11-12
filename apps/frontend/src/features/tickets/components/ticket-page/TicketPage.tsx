@@ -11,11 +11,8 @@ import type {
 import { useNavigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Archive } from "lucide-react"
-import { useState } from "react"
 
-import { type SaveStatus } from "@/features/editor/components/LexicalEditor"
 import { Markdown } from "@/features/editor/components/Markdown"
-import { MarkdownSaveIndicator } from "@/features/editor/components/MarkdownSaveIndicator"
 import { TicketTimeSection } from "@/features/everhour/components/TicketTimePanel"
 import { TicketGitPanel } from "@/features/github/components/ticket-git/TicketGit"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -92,7 +89,6 @@ export function TicketPage({
   const archiveState = useAtomValue(archiveTicket(req))
   const unarchiveTicketSet = useAtomSet(unarchiveTicket(req))
   const unarchiveState = useAtomValue(unarchiveTicket(req))
-  const [bodyStatus, setBodyStatus] = useState<SaveStatus>("idle")
   const bodyDraft = useAtomValue(ticketBodyDraft(req))
   const actor = useProjectActor()
   const estimation = useEstimationMode()
@@ -119,7 +115,6 @@ export function TicketPage({
       }}
       actions={
         <>
-          <MarkdownSaveIndicator status={bodyStatus} />
           {from && <TicketStepper ticketId={ticket.id} from={from} />}
           {actor.call("tickets", "archive") && (
             <ArchiveTicketControl
@@ -194,11 +189,11 @@ export function TicketPage({
         <main className="flex min-w-0 flex-col gap-6 sm:pl-(--ticket-rail-inset)">
           {canEdit ? (
             <DescriptionField
+              key={ticket.id}
               ref={descriptionRef}
               ticket={ticket}
               members={members}
               autoFocus={autoFocusBody}
-              onStatusChange={setBodyStatus}
               onStartType={(type) => onTypePatch({ type })}
             />
           ) : (

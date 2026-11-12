@@ -465,6 +465,19 @@
 .block-rail-scope {
   --ticket-status-column: 1rem;
 }
+[data-description] {
+  --fs-body: 1rem;
+  --lh-body: 1.625rem;
+  --fs-subtitle: 1.125rem;
+  --lh-subtitle: 1.625rem;
+  --fs-title: 1.25rem;
+  --lh-title: 1.75rem;
+  --fs-display-compact: 1.625rem;
+  --lh-display-compact: 2.125rem;
+}
+[data-description] .lexical-content > :first-child {
+  padding-inline-end: 11rem;
+}
 /* One text edge for the ticket page: the title's (status column, its gap and
    the title's hover padding). Boxed fields (description, comments) sit their
    border and padding outside it, and the block rail stretches its gap so its
@@ -548,7 +561,7 @@
   margin: 0;
 }
 .prose-md.block-gutter
-  .lexical-content
+  .lexical-content[contenteditable="true"]
   > .ticket-block:is([data-hovered], [data-active]) {
   background-color: var(--hover);
   transition-duration: 0ms;
