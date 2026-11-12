@@ -128,7 +128,8 @@ by invitation.
 
 2. **Owner signs in and invites the team.** The owner signs in with the
    configured email, opens org settings → members, and invites teammates by
-   email.
+   email. No email is sent: a magic link appears in the backend log as a
+   `[magic-link] email=... url=...` line.
 
 3. **Invited users land from their invite.** Each invitation produces a link
    (`/invite/<invitationId>`, logged by `sendInvitationEmail`). Opening it
