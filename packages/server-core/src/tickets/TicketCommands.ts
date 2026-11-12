@@ -6,6 +6,8 @@ import {
   type BulkDeleteTicketsInput,
   type BulkTicketsResult,
   type BulkUpdateTicketsInput,
+  type Group,
+  type GroupId,
   Conflict,
   DEFAULT_TICKET_SORT,
   isStaleEstimate,
@@ -123,6 +125,17 @@ const makeTicketStatus = Schema.decodeSync(TicketStatus)
 const makeSlug = Schema.decodeSync(Slug)
 const DEFAULT_STATUS = Schema.decodeSync(TicketStatus)("todo")
 
+const openSprintsOf = (groups: ReadonlyArray<Group>) =>
+  groups.filter(
+    (group) => group.kind === "sprint" && group.completedAt === null
+  )
+
+const sprintIdsAfter = (
+  before: ReadonlyArray<string>,
+  sprint: GroupId | null | undefined
+): ReadonlyArray<string> =>
+  sprint === undefined ? before : sprint === null ? [] : [sprint]
+
 const requireTicketChange = (change: TicketPolicy.Change) =>
   requirePolicy((scope) => TicketPolicy.canChange(scope, change))
 
@@ -177,7 +190,12 @@ export class TicketCommands extends Context.Service<
       expected?: TicketUpdateExpectation
     ) => Effect.Effect<
       TicketUpdateResult,
-      Forbidden | TicketReadError | Validation | MentionInvalid | Conflict,
+      | Forbidden
+      | TicketReadError
+      | Validation
+      | MentionInvalid
+      | Conflict
+      | SprintCompletedImmutable,
       ProjectScope | ActivityActor
     >
     clearStaleEstimates: () => Effect.Effect<
@@ -817,17 +835,32 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* ProjectScope
     const { orgSlug, slug, userId, projectId } = scope
+    const { sprint, ...fields } = input
+    const touchesTicket = Object.keys(fields).length > 0
     const readsProjectDocument =
       input.estimate !== undefined && input.estimate !== null
     yield* Effect.all(
       [
         validateEstimate(scope, input.estimate),
+        sprint === undefined || sprint === null
+          ? Effect.void
+          : groups.ensureSprintAssignable([sprint]),
         sort?.key === "estimate" && !readsProjectDocument
           ? readProjectDocument({ db, docs: projectDocs, project: scope })
           : Effect.void
       ],
-      { concurrency: 2, discard: true }
+      { concurrency: 3, discard: true }
     )
+    if (
+      sprint !== undefined &&
+      openSprintIdsOf(yield* groups.list(), id).some(
+        (sprintId) => sprintId !== sprint
+      )
+    ) {
+      yield* requirePolicy((scope) =>
+        GroupPolicy.can(scope, "sprint", "remove_ticket")
+      )
+    }
     const changesRelations =
       input.blockedBy !== undefined || input.relatedTo !== undefined
     const locked = withTicketDocumentLock(
@@ -867,86 +900,134 @@ const make = Effect.gen(function* () {
         )
 
         let bodyChanged = input.body !== undefined
-        const next = yield* ticketDocs.update(
-          orgSlug,
-          slug,
-          id,
-          (existing) =>
-            Effect.gen(function* () {
-              if (
-                expected?.updatedAt !== undefined &&
-                existing.updatedAt.getTime() !== expected.updatedAt.getTime()
-              ) {
-                return yield* new Conflict({
-                  reason: "ticket_updated_since_read"
-                })
-              }
-              if (
-                expected?.body !== undefined &&
-                (yield* library.resolveSynced(orgSlug, slug, existing.body)) !==
-                  expected.body
-              ) {
-                return yield* new Validation({
-                  reason: "ticket_body_changed"
-                })
-              }
-              const now = yield* DateTime.nowAsDate
-              const patched = {
-                ...applyTicketPatch(existing, { ...input, body }, userId, now),
-                rank: rank ?? existing.rank
-              }
-              yield* requireTicketChange(ticketChangeOf(existing, patched))
-              const retyped =
-                patched.type === existing.type
-                  ? null
-                  : yield* bodyAfterTypeChange(scope, patched.type)
-              const next =
-                retyped === null || input.body !== undefined
-                  ? patched
-                  : { ...patched, body: retyped(existing.body) }
-              if (next.body !== existing.body) bodyChanged = true
-              if (input.assignees !== undefined) {
-                const existingSet = new Set(existing.assignees)
-                const newcomers = next.assignees.filter(
-                  (assigneeId) => !existingSet.has(assigneeId)
-                )
-                if (newcomers.length > 0) {
-                  yield* validateAssigneesAreMembers(newcomers)
-                }
-              }
-              yield* validateHierarchy(
-                hierarchyLookups(scope, userId),
-                hierarchyChangeOf(existing, next)
-              )
-              if (isEpic(next) && !isEpic(existing)) {
-                const sprints = openSprintIdsOf(
-                  yield* groups.list(),
-                  existing.id
-                )
-                if (breaksEpicSprintRule(existing, next, sprints, sprints)) {
-                  return yield* new Validation({ reason: "epic_in_sprint" })
-                }
-              }
-              return next
-            }),
-          (next) =>
-            (!bodyChanged
-              ? Effect.void
-              : Effect.all(
-                  [
-                    attachments.reconcileTicket(orgSlug, slug, id, next.body),
-                    figmaLinks.reconcileTicket(
-                      orgSlug,
-                      slug,
-                      id,
-                      next.title,
-                      next.body
+        const checkExpected = Effect.fnUntraced(function* (
+          existing: TicketDocs.TicketDocument
+        ) {
+          if (
+            expected?.updatedAt !== undefined &&
+            existing.updatedAt.getTime() !== expected.updatedAt.getTime()
+          ) {
+            return yield* new Conflict({ reason: "ticket_updated_since_read" })
+          }
+          if (
+            expected?.body !== undefined &&
+            (yield* library.resolveSynced(orgSlug, slug, existing.body)) !==
+              expected.body
+          ) {
+            return yield* new Validation({ reason: "ticket_body_changed" })
+          }
+        })
+        const original =
+          sprint === undefined
+            ? undefined
+            : yield* ticketDocs.read(orgSlug, slug, id)
+        if (original !== undefined && !touchesTicket) {
+          yield* checkExpected(original)
+        }
+        const next =
+          original !== undefined && !touchesTicket
+            ? original
+            : yield* ticketDocs.update(
+                orgSlug,
+                slug,
+                id,
+                (existing) =>
+                  Effect.gen(function* () {
+                    yield* checkExpected(existing)
+                    const now = yield* DateTime.nowAsDate
+                    const patched = {
+                      ...applyTicketPatch(
+                        existing,
+                        { ...input, body },
+                        userId,
+                        now
+                      ),
+                      rank: rank ?? existing.rank
+                    }
+                    yield* requireTicketChange(
+                      ticketChangeOf(existing, patched)
                     )
-                  ],
-                  { concurrency: 2, discard: true }
-                )
-            ).pipe(Effect.andThen(ticketIndex.upsertTicket(scope, next)))
-        )
+                    const retyped =
+                      patched.type === existing.type
+                        ? null
+                        : yield* bodyAfterTypeChange(scope, patched.type)
+                    const next =
+                      retyped === null || input.body !== undefined
+                        ? patched
+                        : { ...patched, body: retyped(existing.body) }
+                    if (next.body !== existing.body) bodyChanged = true
+                    if (input.assignees !== undefined) {
+                      const existingSet = new Set(existing.assignees)
+                      const newcomers = next.assignees.filter(
+                        (assigneeId) => !existingSet.has(assigneeId)
+                      )
+                      if (newcomers.length > 0) {
+                        yield* validateAssigneesAreMembers(newcomers)
+                      }
+                    }
+                    yield* validateHierarchy(
+                      hierarchyLookups(scope, userId),
+                      hierarchyChangeOf(existing, next)
+                    )
+                    if (
+                      isEpic(next) &&
+                      (!isEpic(existing) ||
+                        (sprint !== undefined && sprint !== null))
+                    ) {
+                      const before = openSprintIdsOf(
+                        yield* groups.list(),
+                        existing.id
+                      )
+                      const after = sprintIdsAfter(before, sprint)
+                      if (breaksEpicSprintRule(existing, next, before, after)) {
+                        return yield* new Validation({
+                          reason: "epic_in_sprint"
+                        })
+                      }
+                    }
+                    return next
+                  }),
+                (next) =>
+                  (!bodyChanged
+                    ? Effect.void
+                    : Effect.all(
+                        [
+                          attachments.reconcileTicket(
+                            orgSlug,
+                            slug,
+                            id,
+                            next.body
+                          ),
+                          figmaLinks.reconcileTicket(
+                            orgSlug,
+                            slug,
+                            id,
+                            next.title,
+                            next.body
+                          )
+                        ],
+                        { concurrency: 2, discard: true }
+                      )
+                  ).pipe(Effect.andThen(ticketIndex.upsertTicket(scope, next)))
+              )
+
+        if (sprint !== undefined && original !== undefined) {
+          const open = openSprintsOf(yield* groups.list())
+          yield* changeSprint([makeTicketId(id)], sprint, open).pipe(
+            Effect.onError(() =>
+              next === original
+                ? Effect.void
+                : restoreTicket(scope, id, original).pipe(
+                    Effect.andThen(
+                      bodyChanged
+                        ? reconcileBodyLinks(scope, original)
+                        : Effect.void
+                    ),
+                    Effect.ignore
+                  )
+            )
+          )
+        }
 
         const [detail, orderKey, entries] = yield* Effect.all(
           [
@@ -1921,6 +2002,59 @@ const make = Effect.gen(function* () {
         effect
       )
 
+  const leaveOpenSprints = (
+    ids: ReadonlyArray<TicketId>,
+    openSprints: ReadonlyArray<Group>
+  ) => {
+    const left: Array<
+      Readonly<{ group: Group; leaving: ReadonlyArray<TicketId> }>
+    > = []
+    const rejoin = Effect.suspend(() =>
+      Effect.forEach(
+        left,
+        ({ group, leaving }) =>
+          Effect.forEach(
+            leaving,
+            (ticketId) =>
+              ProjectScope.pipe(
+                Effect.flatMap(({ orgSlug, slug }) =>
+                  groups.setSprintMembership(
+                    orgSlug,
+                    slug,
+                    ticketId,
+                    group.id,
+                    { from: null }
+                  )
+                ),
+                Effect.catchCause((cause) =>
+                  Effect.logError("sprint rollback failed", cause)
+                )
+              ),
+            { discard: true }
+          ),
+        { discard: true }
+      )
+    )
+    return Effect.gen(function* () {
+      for (const group of openSprints) {
+        const leaving = group.tickets.filter((id) => ids.includes(id))
+        if (leaving.length === 0) continue
+        yield* groups.removeTickets(group.id, leaving)
+        left.push({ group, leaving })
+      }
+    }).pipe(Effect.onError(() => rejoin))
+  }
+
+  const changeSprint = Effect.fnUntraced(function* (
+    ids: ReadonlyArray<TicketId>,
+    sprint: GroupId | null,
+    openSprints: ReadonlyArray<Group>
+  ) {
+    if (sprint !== null) return yield* groups.addTickets(sprint, ids)
+    yield* leaveOpenSprints(ids, openSprints)
+    return null
+  })
+
   const bulkUpdate = Effect.fn("TicketCommands.bulkUpdate")(function* (
     input: BulkUpdateTicketsInput
   ) {
@@ -1946,9 +2080,7 @@ const make = Effect.gen(function* () {
       ],
       { concurrency: "unbounded" }
     )
-    const openSprints = allGroups.filter(
-      (group) => group.kind === "sprint" && group.completedAt === null
-    )
+    const openSprints = openSprintsOf(allGroups)
 
     const written: Array<
       Readonly<{
@@ -1970,55 +2102,10 @@ const make = Effect.gen(function* () {
         { discard: true }
       )
     )
-    const rejoinSprints = (
-      left: ReadonlyArray<
-        Readonly<{
-          group: (typeof openSprints)[number]
-          leaving: ReadonlyArray<string>
-        }>
-      >
-    ) =>
-      Effect.forEach(
-        left,
-        ({ group, leaving }) =>
-          Effect.forEach(
-            group.tickets.filter((ticketId) => leaving.includes(ticketId)),
-            (ticketId) =>
-              groups
-                .setSprintMembership(orgSlug, slug, ticketId, group.id, {
-                  from: null
-                })
-                .pipe(
-                  Effect.catchCause((cause) =>
-                    Effect.logError(
-                      "bulk update: sprint rollback failed",
-                      cause
-                    )
-                  )
-                ),
-            { discard: true }
-          ),
-        { discard: true }
-      )
-    const planSprint = Effect.gen(function* () {
-      if (sprint === undefined) return null
-      if (sprint !== null) return yield* groups.addTickets(sprint, ids)
-      const left: Array<
-        Readonly<{
-          group: (typeof openSprints)[number]
-          leaving: ReadonlyArray<string>
-        }>
-      > = []
-      yield* Effect.gen(function* () {
-        for (const group of openSprints) {
-          const leaving = group.tickets.filter((id) => ids.includes(id))
-          if (leaving.length === 0) continue
-          yield* groups.removeTickets(group.id, leaving)
-          left.push({ group, leaving })
-        }
-      }).pipe(Effect.onError(() => rejoinSprints(left)))
-      return null
-    })
+    const planSprint =
+      sprint === undefined
+        ? Effect.succeed(null)
+        : changeSprint(ids, sprint, openSprints)
     const nexts = yield* withTicketLocks(
       scope,
       ids,
@@ -2066,12 +2153,7 @@ const make = Effect.gen(function* () {
             hierarchyChangeOf(existing, patched[index])
           )
           const sprintsBefore = openSprintIdsOf(openSprints, existing.id)
-          const sprintsAfter =
-            sprint === undefined
-              ? sprintsBefore
-              : sprint === null
-                ? []
-                : [sprint]
+          const sprintsAfter = sprintIdsAfter(sprintsBefore, sprint)
           if (
             breaksEpicSprintRule(
               existing,

@@ -2,7 +2,6 @@ import * as Schema from "effect/Schema"
 import * as Struct from "effect/Struct"
 
 import { UpdateGroupTicketsOutput } from "../groups/Group"
-import { GroupId } from "../groups/GroupId"
 import {
   ArchiveTicketInput,
   DeleteTicketQuery,
@@ -20,8 +19,7 @@ export const BulkTicketPatch = Schema.Struct({
     "blockedBy",
     "relatedTo",
     "position"
-  ]),
-  sprint: Schema.optional(Schema.NullOr(GroupId))
+  ])
 })
 export type BulkTicketPatch = typeof BulkTicketPatch.Type
 

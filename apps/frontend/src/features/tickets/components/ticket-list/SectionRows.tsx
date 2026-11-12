@@ -11,12 +11,18 @@ import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { cn } from "@/lib/utils"
 
 import { useListKeyboardSection } from "./ListKeyboard"
+import {
+  DraggableRow,
+  SectionDropProvider,
+  type SectionDrop
+} from "./ListRowDrag"
 import { Row, rowGridClassName } from "./Row"
 import { SelectionOrder } from "./TicketSelection"
 import { VirtualRows } from "./VirtualRows"
 
 export function SectionRows({
   items,
+  drop,
   update,
   bulkUpdate,
   members,
@@ -28,6 +34,7 @@ export function SectionRows({
   onPreviewOpenChange
 }: Readonly<{
   items: ReadonlyArray<TicketRow>
+  drop: SectionDrop | null
   update: TicketUpdates
   bulkUpdate: BulkTicketUpdateAtom
   members: ReadonlyArray<Member>
@@ -57,43 +64,52 @@ export function SectionRows({
           : [{ key: selectionKey(slug, ticket.id), ticket, bulk: bulkUpdate }]
       )}
     >
-      <div ref={section} className="contents">
-        <VirtualRows
-          className={rowGridClassName}
-          rowKeys={items.map(({ key }) => key)}
-          activeIndex={items.findIndex(
-            ({ ticket }) => ticket.id === activePreviewId
-          )}
-          reveal={reveal}
-        >
-          {(index) => {
-            const { ticket, pending } = items[index]
-            return (
-              <div
-                inert={pending}
-                aria-busy={pending}
-                className={cn(
-                  "col-span-full grid grid-cols-subgrid",
-                  pending && "pointer-events-none animate-pulse"
-                )}
-              >
-                <Row
-                  update={update}
-                  contextParent={contextParent}
-                  showSprint={showSprint}
-                  ticket={ticket}
-                  members={members}
-                  pending={pending}
-                  editable={editable}
-                  previewOpen={activePreviewId === ticket.id}
-                  onPreviewPointerEnter={onPreviewPointerEnter}
-                  onPreviewOpenChange={onPreviewOpenChange}
-                />
-              </div>
-            )
-          }}
-        </VirtualRows>
-      </div>
+      <SectionDropProvider drop={drop}>
+        <div ref={section} className="contents">
+          <VirtualRows
+            className={rowGridClassName}
+            rowKeys={items.map(({ key }) => key)}
+            activeIndex={items.findIndex(
+              ({ ticket }) => ticket.id === activePreviewId
+            )}
+            reveal={reveal}
+          >
+            {(index) => {
+              const { ticket, pending } = items[index]
+              return (
+                <div
+                  inert={pending}
+                  aria-busy={pending}
+                  className={cn(
+                    "col-span-full grid grid-cols-subgrid",
+                    pending && "pointer-events-none animate-pulse"
+                  )}
+                >
+                  <DraggableRow
+                    ticket={ticket}
+                    nextId={items[index + 1]?.ticket.id ?? null}
+                    pending={pending}
+                    className="col-span-full grid grid-cols-subgrid"
+                  >
+                    <Row
+                      update={update}
+                      contextParent={contextParent}
+                      showSprint={showSprint}
+                      ticket={ticket}
+                      members={members}
+                      pending={pending}
+                      editable={editable}
+                      previewOpen={activePreviewId === ticket.id}
+                      onPreviewPointerEnter={onPreviewPointerEnter}
+                      onPreviewOpenChange={onPreviewOpenChange}
+                    />
+                  </DraggableRow>
+                </div>
+              )
+            }}
+          </VirtualRows>
+        </div>
+      </SectionDropProvider>
     </SelectionOrder>
   )
 }

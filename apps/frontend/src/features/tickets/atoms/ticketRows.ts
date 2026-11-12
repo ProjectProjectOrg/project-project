@@ -217,8 +217,10 @@ export const coalescingTicketUpdate = <V, VE>(
     confirm: (value, confirmed) => update.confirm(value, confirmed),
     publish: (_confirmed, payload) =>
       update.publish?.(payload) ??
-      Keys.ticketChanged(
-        projectScope(update.path.orgSlug, update.path.slug),
-        update.path.id
-      )
+      (payload.sprint === undefined
+        ? Keys.ticketChanged(
+            projectScope(update.path.orgSlug, update.path.slug),
+            update.path.id
+          )
+        : bulkChangedKeys(update.path, [update.path.id], true))
   })

@@ -40,6 +40,7 @@ export function PrLink({
       render={
         <a
           href={url}
+          draggable={false}
           target="_blank"
           rel="noreferrer"
           onClick={(e) => e.stopPropagation()}

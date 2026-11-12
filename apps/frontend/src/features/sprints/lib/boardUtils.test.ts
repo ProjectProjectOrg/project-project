@@ -20,7 +20,6 @@ describe("boardMove", () => {
       boardMove(column, column, id("T-3"), {
         type: "card",
         id: id("T-2"),
-        status: todo,
         edge: "top"
       })?.to
     ).toEqual({ before: id("T-2") })
@@ -28,7 +27,6 @@ describe("boardMove", () => {
       boardMove(column, column, id("T-3"), {
         type: "card",
         id: id("T-1"),
-        status: todo,
         edge: "bottom"
       })?.to
     ).toEqual({ after: id("T-1") })
@@ -47,7 +45,6 @@ describe("boardMove", () => {
       boardMove(column, column, id("T-2"), {
         type: "card",
         id: id("T-1"),
-        status: todo,
         edge: "bottom"
       })
     ).toBeUndefined()
@@ -55,7 +52,6 @@ describe("boardMove", () => {
       boardMove(column, column, id("T-1"), {
         type: "card",
         id: id("T-2"),
-        status: todo,
         edge: "top"
       })
     ).toBeUndefined()

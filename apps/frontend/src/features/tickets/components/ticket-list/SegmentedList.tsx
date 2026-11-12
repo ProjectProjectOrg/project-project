@@ -9,7 +9,7 @@ import type {
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { FilterX, ListChecks } from "lucide-react"
-import { useMemo, type ReactNode } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { Button } from "@/components/ui/button"
@@ -40,6 +40,7 @@ import type {
 import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
 import { m } from "@/paraglide/messages"
 
+import { useListRowAutoScroll } from "./ListRowDrag"
 import { statusCollapseKey, useCollapsedInSet } from "./sectionCollapse"
 import { CreatingSectionsProvider, SectionList } from "./SectionList"
 import { useTicketPreview } from "./useTicketPreview"
@@ -59,6 +60,8 @@ export function SegmentedList({
   empty?: ReactNode
 }) {
   const { orgSlug, slug } = useProjectRoute()
+  const [listElement, setListElement] = useState<HTMLDivElement | null>(null)
+  useListRowAutoScroll(listElement)
   const router = useRouter()
   const navigate = useNavigate()
   const resetFilters = () => {
@@ -188,6 +191,7 @@ export function SegmentedList({
   return (
     <div
       key="sections"
+      ref={setListElement}
       style={{ overflowAnchor: "none" }}
       className="flex flex-col gap-1"
     >
@@ -254,6 +258,7 @@ function StatusSection({
     <SectionList
       status={status}
       statuses={statuses}
+      dropTarget={{ grouping: "status", key: status }}
       query={query}
       update={update}
       bulkUpdate={bulkUpdate}

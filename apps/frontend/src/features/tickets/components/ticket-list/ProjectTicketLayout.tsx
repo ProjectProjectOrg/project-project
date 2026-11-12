@@ -35,6 +35,7 @@ import { m } from "@/paraglide/messages"
 
 import { BacklogGroupingControl } from "./BacklogGroupingControl"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
+import { ListDragOverlay } from "./ListDragOverlay"
 import { ListKeyboardProvider } from "./ListKeyboard"
 import { SprintTicketCreator } from "./SprintTicketCreator"
 import { CreatorActiveScope, DimWhileCreating } from "./TicketCreatorShell"
@@ -216,6 +217,7 @@ export function ProjectTicketLayout({
           >
             <ListKeyboardProvider>
               {children({ grouping, preferencesKey, reorder })}
+              <ListDragOverlay />
             </ListKeyboardProvider>
           </TicketSelectionProvider>
         </DimWhileCreating>

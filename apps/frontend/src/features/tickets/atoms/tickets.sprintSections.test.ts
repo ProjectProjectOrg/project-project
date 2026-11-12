@@ -230,6 +230,42 @@ describe("ticket sprint sections", () => {
     }
   })
 
+  it("moves a row to the backlog section with an optimistic sprint change", async () => {
+    fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) =>
+      init?.method === "PATCH"
+        ? new Promise<Response>(() => {})
+        : Promise.resolve(snapshot([ticket]))
+    )
+    const registry = AtomRegistry.make()
+    const view = sprintSections(req)
+    const mutation = updateSprintSectionsTicket({ req, id: ticket.id })
+    registry.mount(view)
+    registry.mount(mutation)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({
+          _tag: "Success",
+          waiting: false
+        })
+      )
+      registry.set(mutation, { sprint: null })
+      const moved = registry.get(view)
+      if (!AsyncResult.isSuccess(moved)) throw new Error("no optimistic value")
+      expect(
+        moved.value.sections.map((section) => [
+          section.key,
+          section.count,
+          section.page.items.map((row) => row.ticket.id)
+        ])
+      ).toEqual([
+        [groupId, 0, []],
+        [SPRINT_SECTION_UNSCHEDULED, 1, [ticket.id]]
+      ])
+    } finally {
+      registry.dispose()
+    }
+  })
+
   it("shifts the section's estimate totals with an optimistic estimate and status change", async () => {
     const done = decodeTicketStatusSync("done")
     fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) =>

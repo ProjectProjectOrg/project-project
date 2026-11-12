@@ -342,6 +342,10 @@ export const UpdateTicketInput = Schema.Struct({
   position: Schema.optional(TicketPosition).annotate({
     description:
       "Moves the ticket in the project's manual order: `{ after: id }` places it right below that ticket, `{ before: id }` right above it. The order is shared by every view, sprint and board."
+  }),
+  sprint: Schema.optional(Schema.NullOr(GroupId)).annotate({
+    description:
+      "Moves the ticket into this planned or active sprint, out of any other open sprint; `null` takes it out of its open sprint, back to the backlog. Epics can't be in a sprint."
   })
 })
 export type UpdateTicketInput = typeof UpdateTicketInput.Type

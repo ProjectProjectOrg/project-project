@@ -24,6 +24,7 @@ type Sections = Map<HTMLElement, ListKeyboardSection>
 
 const ListKeyboardContext = createContext<Readonly<{
   register: (element: HTMLElement, section: ListKeyboardSection) => () => void
+  ignoreHoverUntilMouseMoves: () => void
 }> | null>(null)
 
 const shownSections = (sections: Sections) =>
@@ -72,6 +73,7 @@ export function ListKeyboardProvider({
     if (hovered !== null) last.current = hovered
   })
   const [context] = useState(() => ({
+    ignoreHoverUntilMouseMoves: startKeyboardMode,
     register: (element: HTMLElement, section: ListKeyboardSection) => {
       sections.current.set(element, section)
       returnToTicket()
@@ -137,6 +139,12 @@ export function ListKeyboardProvider({
     </ListKeyboardContext>
   )
 }
+
+export function useIgnoreListHover(): () => void {
+  return use(ListKeyboardContext)?.ignoreHoverUntilMouseMoves ?? noop
+}
+
+const noop = () => {}
 
 export function useListKeyboardSection(
   ref: RefObject<HTMLElement | null>,

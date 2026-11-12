@@ -39,6 +39,7 @@ import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
 import { m } from "@/paraglide/messages"
 
+import { useListRowAutoScroll } from "./ListRowDrag"
 import { parentCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
 import {
   CreatingSectionsProvider,
@@ -60,6 +61,8 @@ type Props = Readonly<{
 export function EpicSections(props: Props) {
   const { orgSlug, slug } = useProjectRoute()
   const persistKey = parentCollapseKey(props.preferencesKey, props.by)
+  const [listElement, setListElement] = useState<HTMLDivElement | null>(null)
+  useListRowAutoScroll(listElement)
   const snapshotReq = epicSectionsRequest(orgSlug, slug, props.query, props.by)
   const preview = useTicketPreview()
   const snapshotResult = useAtomValue(epicSections(snapshotReq))
@@ -98,7 +101,11 @@ export function EpicSections(props: Props) {
       : null
   const renderSections = () =>
     active ? (
-      <div style={{ overflowAnchor: "none" }} className="flex flex-col gap-1">
+      <div
+        ref={setListElement}
+        style={{ overflowAnchor: "none" }}
+        className="flex flex-col gap-1"
+      >
         <TicketViewSourceContext
           value={ticketSearchFromSource({
             kind: "sections",
@@ -185,6 +192,11 @@ function EpicSection({
       <SectionList
         query={query}
         parent={section.parent ?? undefined}
+        dropTarget={{
+          grouping: "parent",
+          key: section.key,
+          parent: section.parent
+        }}
         status={
           selectedStatuses?.length === 1
             ? selectedStatuses[0]

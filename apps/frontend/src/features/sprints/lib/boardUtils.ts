@@ -67,7 +67,9 @@ export function boardMove(
   ranked: ReadonlyArray<RankedCard>,
   column: ReadonlyArray<RankedCard>,
   movingId: TicketId,
-  drop: DropData
+  drop:
+    | Pick<CardDropData, "type" | "id" | "edge">
+    | Pick<ColumnDropData, "type">
 ): TicketMove | undefined {
   const last = column.findLast((ticket) => ticket.id !== movingId)
   const to: TicketPosition | undefined =
