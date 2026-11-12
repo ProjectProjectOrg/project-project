@@ -75,6 +75,8 @@ const FakeTicketDocs = Layer.succeed(TicketDocs.TicketDocs, {
   readRaw: () => unexpected("TicketDocs.readRaw")
 } satisfies TicketDocs.TicketDocs["Service"])
 
+const defaultRepository = { repoId: "repo-1", isDefault: true }
+
 const DatabaseLive = DbLive.pipe(Layer.provideMerge(PgLive))
 const TestLayer = Layer.mergeAll(
   TicketIndexServices.layer.pipe(Layer.provide(FakeTicketDocs)),
@@ -555,10 +557,12 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         prBase: "main",
         ignoredBranches: ["spike"]
       })
-      expect(yield* branchIndex.findStackLayers(projectId, "ui")).toEqual([
-        { ...project, ticketId: "T-1", branch: "ui" }
-      ])
-      expect(yield* branchIndex.findStackLayers(projectId, "api")).toEqual([])
+      expect(
+        yield* branchIndex.findStackLayers(projectId, defaultRepository, "ui")
+      ).toEqual([{ ...project, ticketId: "T-1", branch: "ui" }])
+      expect(
+        yield* branchIndex.findStackLayers(projectId, defaultRepository, "api")
+      ).toEqual([])
       expect(yield* branchIndex.stacksFor(project)).toEqual(
         new Map([
           [
@@ -625,21 +629,151 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           ]
         })
       )
-      expect(yield* branchIndex.findMergesAwaiting(projectId, "api")).toEqual([
+      expect(
+        yield* branchIndex.findMergesAwaiting(
+          projectId,
+          defaultRepository,
+          "api"
+        )
+      ).toEqual([
         { ...project, ticketId: "T-2", branch: "feat/two", stacked: false }
       ])
       expect(
-        yield* branchIndex.findMergesAwaiting(projectId, "feat/two")
+        yield* branchIndex.findMergesAwaiting(
+          projectId,
+          defaultRepository,
+          "feat/two"
+        )
       ).toEqual([
         { ...project, ticketId: "T-2", branch: "two-ui", stacked: true }
       ])
-      expect(yield* branchIndex.findMergesAwaiting(projectId, "main")).toEqual(
-        []
-      )
+      expect(
+        yield* branchIndex.findMergesAwaiting(
+          projectId,
+          defaultRepository,
+          "main"
+        )
+      ).toEqual([])
 
       yield* index.deleteTicket(project, "T-1")
       expect(yield* layers()).toEqual([])
     }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect(
+    "keeps a branch event for one repository away from another repository's ticket",
+    () =>
+      Effect.gen(function* () {
+        const suffix = randomUUID()
+        const organizationId = `ticket-index-repos-${suffix}`
+        const projectId = randomUUID()
+        yield* withClient(async (client) => {
+          await client.query(
+            "insert into organization (id, name, slug, created_at) values ($1, $1, $1, now())",
+            [organizationId]
+          )
+          await client.query(
+            "insert into project_index (id, slug, organization_id, key, name, icon, color, created_by, created_at) values ($1, $2, $2, 'T', 'Test', 'folder', 'blue', 'test-user', now())",
+            [projectId, organizationId]
+          )
+        })
+        yield* Effect.addFinalizer(() =>
+          withClient((client) =>
+            client.query("delete from organization where id = $1", [
+              organizationId
+            ])
+          )
+        )
+        const index = yield* TicketIndex.TicketIndex
+        const branchIndex = yield* TicketBranchIndex.TicketBranchIndex
+        const project = yield* index.projectFor(organizationId, organizationId)
+        const merged = {
+          branch: "feat/login",
+          prBase: "main",
+          pr: 4,
+          prState: "merged"
+        } as const
+        yield* Effect.forEach(
+          [
+            indexedDocument("T-1", { ...merged, repo: "repo-a" }),
+            indexedDocument("T-2", { ...merged, repo: "repo-b" }),
+            indexedDocument("T-3", {
+              ...merged,
+              stack: [{ branch: "feat/login-ui", base: "feat/login" }]
+            })
+          ],
+          (document) => index.upsertTicket(project, document)
+        )
+        const repoA = { repoId: "repo-a", isDefault: true }
+        const repoB = { repoId: "repo-b", isDefault: false }
+        const ticketIds = (
+          matches: ReadonlyArray<Readonly<{ ticketId: string }>>
+        ) => matches.map((match) => match.ticketId).toSorted()
+
+        expect(
+          ticketIds(
+            yield* branchIndex.findTicketsByBranch(
+              projectId,
+              repoB,
+              "feat/login"
+            )
+          )
+        ).toEqual(["T-2"])
+        expect(
+          ticketIds(
+            yield* branchIndex.findTicketsByBranch(
+              projectId,
+              repoA,
+              "feat/login"
+            )
+          )
+        ).toEqual(["T-1", "T-3"])
+        expect(
+          yield* branchIndex.findStackLayers(projectId, repoB, "feat/login-ui")
+        ).toEqual([])
+        expect(
+          ticketIds(
+            yield* branchIndex.findStackLayers(
+              projectId,
+              repoA,
+              "feat/login-ui"
+            )
+          )
+        ).toEqual(["T-3"])
+        expect(
+          ticketIds(
+            yield* branchIndex.findMergesAwaiting(projectId, repoB, "main")
+          )
+        ).toEqual(["T-2"])
+        expect(
+          yield* branchIndex.updateBranchChecks(
+            projectId,
+            repoB,
+            "feat/login",
+            "passing",
+            "abc",
+            DateTime.toDate(DateTime.makeUnsafe("2026-02-01T00:00:00.000Z"))
+          )
+        ).toEqual(["T-2"])
+        expect(
+          yield* branchIndex.markBranchStale(
+            projectId,
+            repoB,
+            "feat/login",
+            DateTime.toDate(DateTime.makeUnsafe("2026-02-01T00:00:00.000Z"))
+          )
+        ).toEqual(["T-2"])
+        expect(yield* branchIndex.getBranchDeletedAt(project, "T-1")).toBeNull()
+        expect(
+          (yield* index.list(project)).map((entry) => [entry.id, entry.repoId])
+        ).toEqual(
+          expect.arrayContaining([
+            ["T-1", "repo-a"],
+            ["T-2", "repo-b"],
+            ["T-3", null]
+          ])
+        )
+      }).pipe(Effect.provide(TestLayer))
   )
 
   it.effect("rebuilds stacked layers from ticket files", () =>
@@ -1222,7 +1356,12 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         index.upsertTicket(project, document)
       )
 
-      yield* branchIndex.markBranchStale(projectId, "feat/T-2", januaryTwelfth)
+      yield* branchIndex.markBranchStale(
+        projectId,
+        defaultRepository,
+        "feat/T-2",
+        januaryTwelfth
+      )
       expect(yield* branchIndex.getBranchDeletedAt(project, "T-2")).toEqual(
         januaryTwelfth
       )

@@ -6,12 +6,14 @@ import { describe, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
 import { disconnectPersonalGithub, me } from "@/features/auth/atoms/auth"
-import { projectRequest } from "@/features/projects/atoms/projects"
+import { project, projectRequest } from "@/features/projects/atoms/projects"
 
 import {
   branches,
   branchesRequest,
   clearBranch,
+  deleteGithubApp,
+  deleteGithubInstallation,
   connectGithub,
   createBranch,
   githubIntegration,
@@ -151,6 +153,7 @@ const projectDetail = (
   createdBy: "user-1",
   createdAt: "2026-01-01T00:00:00.000Z",
   github,
+  githubRepos: github === null ? [] : [github],
   setup: {
     workflowReviewedAt: null,
     invitePeopleDismissedAt: null,
@@ -178,10 +181,20 @@ const repoB = {
 
 const integration = {
   status: "active",
-  accountLogin: "acme",
-  accountType: "Organization",
-  lastCheckedAt: null,
-  lastCheckError: null
+  apps: [],
+  installations: [
+    {
+      id: "installation-1",
+      appId: null,
+      status: "active",
+      accountLogin: "acme",
+      accountType: "Organization",
+      projectAccess: "all",
+      projectSlugs: [],
+      lastCheckedAt: null,
+      lastCheckError: null
+    }
+  ]
 }
 
 describe("createBranch", () => {
@@ -373,6 +386,96 @@ describe("projectGitStates", () => {
       registry.dispose()
     }
   })
+})
+
+describe("removing GitHub access", () => {
+  it.each(["app", "installation"])(
+    "refreshes cached project and GitHub reads after %s removal",
+    async (kind) => {
+      let connected = true
+      fetchStub.set((input, init) => {
+        const path = pathOf(input)
+        if (init?.method === "DELETE") {
+          connected = false
+          return Promise.resolve(
+            Response.json({
+              status: "not_connected",
+              apps: [],
+              installations: []
+            })
+          )
+        }
+        if (path.endsWith("/projects/app"))
+          return Promise.resolve(
+            Response.json(projectDetail(connected ? repoA : null))
+          )
+        if (path.endsWith("/git-states"))
+          return Promise.resolve(
+            Response.json(
+              connected
+                ? prOpen
+                : { ...noBranch, states: {}, repoStatus: "not_connected" }
+            )
+          )
+        if (path.endsWith("/github/branches"))
+          return Promise.resolve(
+            Response.json({
+              items: connected
+                ? [{ name: "feat/T-1", isProtected: false }]
+                : [],
+              nextCursor: null,
+              totalCount: connected ? 1 : 0
+            })
+          )
+        if (path.endsWith("/integrations/github"))
+          return Promise.resolve(Response.json(integration))
+        return pending()
+      })
+      const detail = project(req)
+      const states = projectGitStates(req)
+      const branchView = branches(branchesRequest("acme", "app", ""))
+      const orgReq = githubOrgRequest("acme")
+      const mutation =
+        kind === "app"
+          ? deleteGithubApp({ req: orgReq, appId: "app-1" })
+          : deleteGithubInstallation({
+              req: orgReq,
+              installationId: "installation-1"
+            })
+      const registry = AtomRegistry.make()
+      registry.mount(detail)
+      registry.mount(states)
+      registry.mount(branchView)
+      registry.mount(githubIntegration(orgReq))
+      registry.mount(mutation)
+      try {
+        await vi.waitFor(() => {
+          const value = registry.get(detail)
+          if (!AsyncResult.isSuccess(value)) throw new Error("no project")
+          expect(value.value.github?.repoId).toBe("repo-a")
+          expect(AsyncResult.isSuccess(registry.get(states))).toBe(true)
+          expect(AsyncResult.isSuccess(registry.get(branchView))).toBe(true)
+        })
+        registry.set(mutation, undefined)
+        await vi.waitFor(() => {
+          const value = registry.get(detail)
+          const git = registry.get(states)
+          const available = registry.get(branchView)
+          if (
+            !AsyncResult.isSuccess(value) ||
+            !AsyncResult.isSuccess(git) ||
+            !AsyncResult.isSuccess(available)
+          )
+            throw new Error("reads not ready")
+          expect(value.value.github).toBeNull()
+          expect(git.value.repoStatus).toBe("not_connected")
+          expect(available.value.items).toEqual([])
+        })
+      } finally {
+        registry.dispose()
+      }
+    }
+  )
 })
 
 describe("disconnectPersonalGithub", () => {

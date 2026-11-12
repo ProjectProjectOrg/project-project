@@ -32,6 +32,26 @@ ProjectProject keeps its Octokit REST/GraphQL transport and GitHub App
 installation authentication. User-initiated branch and PR creation retains the
 existing user-token attribution. No GitHub CLI dependency is introduced.
 
+## Upgrading existing ticket repositories
+
+On startup, the existing ticket index reconciliation first writes the project's
+oldest retained repository ID into legacy tickets that have a branch but no
+`repo` in their markdown. It then reconciles the derived ticket index. Repository
+mismatches count as drift even when timestamps match, so the next startup can
+repair an interrupted previous run.
+
+Existing repository values, ticket timestamps and activity stay unchanged. This
+runs safely on every startup, with no manual command or migration flag. Backfill
+failures are logged per project and do not prevent other projects or index
+reconciliation from running. Projects without a connected repository are reported
+and left untouched; a new default cannot recover a disconnected repository's
+historical identity. Retained broken connections remain eligible for backfill;
+disconnected history is excluded. Connecting another repository also preserves
+that legacy identity before a new default can take over.
+
+Repository disconnection and App or installation removal also stamp legacy
+tickets before removing the current default repository's connection.
+
 Automatic matching applies to a ticket's attached branch in its connected
 repository. A PR created directly on GitHub can be discovered without creating
 it through ProjectProject. Forks with the same branch name are excluded.
@@ -48,7 +68,9 @@ outside ProjectProject match too (`feat/pp-123-add-search`, `Pp-123/add-search`)
 IDs must be separated from surrounding letters and digits, so slashes, dashes,
 dots, and brackets all count as boundaries. Only branches carrying a well-formed
 ID are fetched for pull-request state. Matching is scoped to the project and
-repository; the default branch is excluded. Multiple candidate branches,
+repository; the default branch is excluded. In a project with several connected
+repositories every repository is searched, the default one first, and the
+ticket then belongs to the repository its branch was found in. Multiple candidate branches,
 multiple ticket IDs in one branch, and branches already attached to any ticket
 in another connected project require manual attachment. Repository ownership
 uses GitHub's stable repository ID across organizations. Broken connections

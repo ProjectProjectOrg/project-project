@@ -74,7 +74,7 @@ const FakeProjects = Layer.mergeAll(
     remove: () => unexpected("Projects.remove")
   } satisfies Projects.Projects["Service"]),
   Layer.mock(ProjectGithub.ProjectGithub, {
-    integration: () => Effect.succeed(null)
+    integrations: () => Effect.succeed([])
   }),
   Layer.mock(ProjectMembers.ProjectMembers, {
     memberIds: () => Effect.succeed(new Set(["user-1", "user-2"]))
@@ -248,6 +248,7 @@ const TestLayer = Layer.unwrap(
                   DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")
                 ),
                 github: null,
+                githubRepos: [],
                 estimation: "points",
                 setup: {
                   workflowReviewedAt: null,

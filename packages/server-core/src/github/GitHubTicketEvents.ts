@@ -13,7 +13,8 @@ import type {
   GitHubBranchDeletionChange,
   GitHubCheckWebhookChange
 } from "@pp/shared"
-import { and, eq } from "drizzle-orm"
+import { and, eq, sql as drizzleSql } from "drizzle-orm"
+import { alias } from "drizzle-orm/pg-core"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -72,14 +73,15 @@ export class GitHubTicketEvents extends Context.Service<
   }>
 >()("@pp/server-core/github/GitHubTicketEvents") {}
 
-export type PullRequestWebhookMatch = Readonly<{
-  orgSlug: string
-  organizationId: string
-  projectId: string
-  slug: string
-  ticketId: string
-  branch: string
-}>
+export type PullRequestWebhookMatch = TicketBranchIndex.BranchRepository &
+  Readonly<{
+    orgSlug: string
+    organizationId: string
+    projectId: string
+    slug: string
+    ticketId: string
+    branch: string
+  }>
 
 type PullRequestWebhookDeps = Readonly<{
   ticketDocs: TicketDocs.TicketDocs["Service"]
@@ -95,6 +97,7 @@ type PullRequestWebhookDeps = Readonly<{
 type PullRequestWebhookPatch = Partial<
   Pick<
     TicketDocs.TicketDocument,
+    | "repo"
     | "branch"
     | "pr"
     | "prState"
@@ -144,6 +147,14 @@ const writePullRequestWebhook = (
         match.ticketId,
         (ticket) =>
           Effect.gen(function* () {
+            if (
+              ticket.branch !== null &&
+              (ticket.repo === undefined
+                ? !match.isDefault
+                : ticket.repo !== match.repoId)
+            ) {
+              return ticket
+            }
             const patch = yield* patchFor(ticket)
             if (!patch) return ticket
             changed = true
@@ -316,6 +327,7 @@ export const landMergesInto = Effect.fn("GitHubWebhooks.landMergesInto")(
   function* (
     deps: PullRequestWebhookDeps,
     projectId: string,
+    repository: TicketBranchIndex.BranchRepository,
     branch: string,
     deliveryId: string | null,
     mergedAt: Date | null,
@@ -330,13 +342,14 @@ export const landMergesInto = Effect.fn("GitHubWebhooks.landMergesInto")(
       for (const base of frontier) {
         const waiting = yield* deps.ticketBranchIndex.findMergesAwaiting(
           projectId,
+          repository,
           base.branch
         )
         for (const match of waiting) {
           if (visited.has(match.branch)) continue
           const landedAt = yield* landAwaitingMerge(
             deps,
-            match,
+            { ...match, ...repository },
             deliveryId,
             base,
             mergedAtByPr
@@ -365,7 +378,8 @@ export const linkPullRequestWebhookToTicket = Effect.fn(
   deps: PullRequestWebhookDeps,
   project: TicketProject,
   change: GitHubPullRequestWebhookChange,
-  deliveryId: string | null
+  deliveryId: string | null,
+  isDefaultRepository = true
 ): Effect.fn.Return<void, Markdown.MarkdownError> {
   const logSkipped = (
     reason: PullRequestLinkSkip,
@@ -409,7 +423,13 @@ export const linkPullRequestWebhookToTicket = Effect.fn(
     return
   }
   const { ticketId, source } = pick.value
-  const match = { ...project, ticketId, branch: change.branch }
+  const match = {
+    ...project,
+    ticketId,
+    branch: change.branch,
+    repoId: change.repositoryId,
+    isDefault: isDefaultRepository
+  }
   yield* deps.ticketDocumentLock.withTicketDocumentLock(
     project.orgSlug,
     project.slug,
@@ -437,6 +457,13 @@ export const linkPullRequestWebhookToTicket = Effect.fn(
             }).pipe(Effect.as(null))
             if (ticket.archivedAt !== null) return notLinkable
             if (ticket.branch !== null) {
+              if (
+                ticket.repo === undefined
+                  ? !isDefaultRepository
+                  : ticket.repo !== change.repositoryId
+              ) {
+                return notLinkable
+              }
               const layer = planStackAttach(
                 ticket,
                 stackPullRequest(change),
@@ -453,6 +480,7 @@ export const linkPullRequestWebhookToTicket = Effect.fn(
               return notLinkable
             }
             return Effect.succeed({
+              repo: change.repositoryId,
               branch: change.branch,
               prBase: change.baseBranch,
               ...planPullRequestPatch(
@@ -482,6 +510,7 @@ const make = Effect.gen(function* () {
   const ticketBranchIndex = yield* TicketBranchIndex.TicketBranchIndex
   const ticketDocumentLock = yield* TicketDocumentLock.TicketDocumentLock
   const gitAutomation = yield* ProjectGitAutomation.ProjectGitAutomation
+  const earlierLink = alias(projectIntegrationLink, "earlier_link")
   const activeProjectLinksForRepository = Effect.fn(
     "GitHubWebhooks.activeProjectLinksForRepository"
   )(function* (
@@ -497,7 +526,19 @@ const make = Effect.gen(function* () {
         slug: projectIndex.slug,
         organizationId: projectIndex.organizationId,
         orgSlug: organization.slug,
-        defaultBranch: projectGithubRepository.defaultBranch
+        defaultBranch: projectGithubRepository.defaultBranch,
+        repoId: projectGithubRepository.repoId,
+        isDefault: drizzleSql<boolean>`not exists (${db
+          .select({ id: earlierLink.id })
+          .from(earlierLink)
+          .where(
+            and(
+              eq(earlierLink.projectId, projectIntegrationLink.projectId),
+              eq(earlierLink.provider, "github"),
+              eq(earlierLink.status, "active"),
+              drizzleSql`(${earlierLink.connectedAt}, ${earlierLink.id}) < (${projectIntegrationLink.connectedAt}, ${projectIntegrationLink.id})`
+            )
+          )})`
       })
       .from(projectGithubRepository)
       .innerJoin(
@@ -590,9 +631,14 @@ const make = Effect.gen(function* () {
               [
                 ticketBranchIndex.findTicketsByBranch(
                   link.projectId,
+                  link,
                   change.branch
                 ),
-                ticketBranchIndex.findStackLayers(link.projectId, change.branch)
+                ticketBranchIndex.findStackLayers(
+                  link.projectId,
+                  link,
+                  change.branch
+                )
               ],
               { concurrency: 2 }
             )
@@ -601,7 +647,8 @@ const make = Effect.gen(function* () {
                 deps,
                 link,
                 linkChange,
-                deliveryId
+                deliveryId,
+                link.isDefault
               ).pipe(
                 Effect.annotateLogs({
                   installationId: change.installationId,
@@ -615,7 +662,7 @@ const make = Effect.gen(function* () {
               (match) =>
                 applyPullRequestWebhookToTicket(
                   deps,
-                  match,
+                  { ...match, repoId: link.repoId, isDefault: link.isDefault },
                   linkChange,
                   deliveryId
                 ),
@@ -626,7 +673,7 @@ const make = Effect.gen(function* () {
               (match) =>
                 applyPullRequestWebhookToLayer(
                   deps,
-                  match,
+                  { ...match, repoId: link.repoId, isDefault: link.isDefault },
                   linkChange,
                   deliveryId
                 ),
@@ -636,6 +683,7 @@ const make = Effect.gen(function* () {
               yield* landMergesInto(
                 deps,
                 link.projectId,
+                link,
                 change.branch,
                 deliveryId,
                 change.mergedAt ?? null,
@@ -671,6 +719,7 @@ const make = Effect.gen(function* () {
         Effect.gen(function* () {
           const matches = yield* ticketBranchIndex.findTicketsByBranch(
             link.projectId,
+            link,
             change.branch
           )
           const pending = yield* Effect.filter(
@@ -692,12 +741,13 @@ const make = Effect.gen(function* () {
                   ticketDocumentLock,
                   gitAutomation
                 },
-                match
+                { ...match, repoId: link.repoId, isDefault: link.isDefault }
               ),
             { concurrency: 1, discard: true }
           )
           yield* ticketBranchIndex.markBranchStale(
             link.projectId,
+            link,
             change.branch,
             now
           )
@@ -728,6 +778,7 @@ const make = Effect.gen(function* () {
               ticketBranchIndex
                 .updateBranchChecks(
                   link.projectId,
+                  link,
                   change.branch,
                   change.checks,
                   change.headSha,

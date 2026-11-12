@@ -26,11 +26,13 @@ import { BaseBranchSubmenu, StatusSubmenu } from "./BranchPickerOptions"
 export function CreateBranchSubmenu({
   ticket,
   github,
+  repoId,
   suggestedName,
   onDone
 }: Readonly<{
   ticket: Pick<TicketDetail, "id" | "status">
   github: GithubConnection
+  repoId: string | undefined
   suggestedName: string
   onDone: () => void
 }>) {
@@ -44,7 +46,7 @@ export function CreateBranchSubmenu({
   function submit() {
     if (branchName === "") return
     onDone()
-    void createBranch({ name: branchName, base, status })
+    void createBranch({ name: branchName, base, status, repoId })
   }
 
   return (
@@ -55,7 +57,7 @@ export function CreateBranchSubmenu({
       }}
     >
       <DropdownMenuSubTrigger openOnHover={false} label={suggestedName}>
-        <Plus strokeWidth={1.75} />
+        <Plus />
         <span className="shrink-0">{m.git_branch_picker_create()}</span>
         <MiddleTruncate
           value={suggestedName}
@@ -85,6 +87,7 @@ export function CreateBranchSubmenu({
             onChange={setBase}
             ticketId={ticket.id}
             defaultBase={defaultBase}
+            repoId={repoId}
           />
           <StatusSubmenu value={status} onChange={setStatus} />
         </DropdownMenuGroup>
@@ -94,7 +97,7 @@ export function CreateBranchSubmenu({
           onClick={submit}
           className="text-foreground"
         >
-          <Plus strokeWidth={1.75} />
+          <Plus />
           <span className="flex-1">{m.git_branch_create_submit()}</span>
           <KbdGroup data-menu-meta aria-hidden>
             <Kbd size="sm">{m.git_branch_create_key_shift()}</Kbd>

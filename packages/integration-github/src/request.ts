@@ -27,14 +27,12 @@ type RawRequestFailure = Readonly<{
 }>
 
 const cooldownKey = (attributes: GitHubRequestAttributes): string =>
-  attributes.tokenSource === "app"
-    ? "app"
-    : `${attributes.tokenSource}:${
-        attributes.scopeKey ??
-        attributes.installationId ??
-        attributes.userId ??
-        attributes.tokenSource
-      }`
+  `${attributes.tokenSource}:${
+    attributes.scopeKey ??
+    attributes.installationId ??
+    attributes.userId ??
+    attributes.tokenSource
+  }`
 
 export class GitHubRequestState extends Context.Service<
   GitHubRequestState,

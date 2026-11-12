@@ -11,6 +11,12 @@ import type {
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
 
+export type SealedSecret = Readonly<{
+  ciphertext: string
+  nonce: string
+  tag: string
+}>
+
 export class GitHubHost extends Context.Service<
   GitHubHost,
   Readonly<{
@@ -33,6 +39,13 @@ export class GitHubHost extends Context.Service<
       organizationId: string,
       state: string
     ) => Effect.Effect<string, NotFound | GitHubError>
+    publicBaseUrl: () => Effect.Effect<string, GitHubError>
+    webhookUrl: () => Effect.Effect<string, GitHubError>
+    preserveInstallationRepositories: (
+      integrationIds: ReadonlyArray<string>
+    ) => Effect.Effect<void>
+    seal: (plaintext: string) => Effect.Effect<SealedSecret, GitHubError>
+    open: (sealed: SealedSecret) => Effect.Effect<string, GitHubError>
     pullRequestChanged: (
       change: GitHubPullRequestWebhookChange,
       deliveryId: string | null

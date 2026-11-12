@@ -23,6 +23,7 @@ import { useMemo, useState } from "react"
 import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import { unstackBranch } from "@/features/github/atoms/github"
 import { compareUrl } from "@/features/github/lib/branchUrl"
+import { repoSlug } from "@/features/github/lib/repos"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/hooks/useActor"
@@ -248,7 +249,7 @@ export function StackedBranches({
               last={index === rows.length - 1}
               own={layer === bottom}
               pulse={layer === bottom && pulse}
-              repoSlug={`${github.repoOwner}/${github.repoName}`}
+              repoSlug={repoSlug(github)}
               canWrite={canWrite}
             />
           ))}
@@ -257,7 +258,7 @@ export function StackedBranches({
           className="inline-flex items-center gap-1 text-micro text-muted-foreground"
           title={m.git_stack_count_title(count)}
         >
-          <Layers className="size-3" strokeWidth={1.75} aria-hidden />
+          <Layers className="size-3" aria-hidden />
           {m.git_stack_count(count)}
         </span>
       </section>
@@ -341,7 +342,7 @@ function StackLayerRow({
       <span title={label} className="mt-0.5">
         <Icon
           className={cn("size-3.5 shrink-0", className)}
-          strokeWidth={1.75}
+
           aria-hidden
         />
         <span className="sr-only">{label}</span>

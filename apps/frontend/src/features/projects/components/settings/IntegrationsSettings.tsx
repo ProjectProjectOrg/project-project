@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { EverhourSettingsRow } from "@/features/everhour/components/EverhourProjectSettings"
 import { FigmaProjectSettings } from "@/features/figma/components/FigmaProjectSettings"
 import { GithubSettingsRows } from "@/features/github/components/GithubSettingsRows"
+import { connectedRepos, repoSlug } from "@/features/github/lib/repos"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
 import {
   projectRequest,
@@ -33,6 +34,7 @@ export function IntegrationsSettings() {
   const req = projectRequest(orgSlug, project.slug)
   const update = useAtomSet(updateProjectSetup(req))
   const actor = useProjectActor()
+  const repos = connectedRepos(project)
 
   const canManageSlack = actor.call("slack", "saveProject")
 
@@ -41,14 +43,14 @@ export function IntegrationsSettings() {
       <SettingsSection>
         <SettingsGroup>
           {actor.call("projects", "gitStates") ? (
-            <GithubSettingsRows github={project.github} />
+            <GithubSettingsRows repos={repos} />
           ) : (
             <SettingsRow
               icon={<IntegrationLogo kind="github" />}
               label={m.project_settings_github_heading()}
               description={
-                project.github
-                  ? `${project.github.repoOwner}/${project.github.repoName}`
+                repos.length > 0
+                  ? repos.map(repoSlug).join(", ")
                   : m.project_settings_github_not_connected()
               }
             />
@@ -65,6 +67,10 @@ export function IntegrationsSettings() {
               </Button>
             </SettingsRow>
           ) : null}
+        </SettingsGroup>
+      </SettingsSection>
+      <SettingsSection>
+        <SettingsGroup>
           {actor.call("everhour", "projectStatus") && (
             <EverhourSettingsRow
               canManage={actor.call("everhour", "connectProject")}

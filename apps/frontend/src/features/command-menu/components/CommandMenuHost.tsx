@@ -179,12 +179,14 @@ function useProjectContext(orgSlug: string, projectSlug: string | null) {
   const actor = useAtomValue(req === null ? noActor : projectActor(req))
   if (actor === null) {
     return {
+      projectActor: null,
       project: null,
       tickets: NO_PROJECT_TICKETS,
       canManageProject: false
     }
   }
   return {
+    projectActor: actor,
     project:
       detail !== null && AsyncResult.isSuccess(detail) ? detail.value : null,
     tickets: ticketPermissions(actor),
@@ -270,6 +272,7 @@ function CommandMenuPage({
   const feedback = useAtomValue(feedbackStatus(orgSlug))
   const context: CommandContext = {
     orgSlug,
+    orgActor,
     projectSlug,
     ticket,
     selection: state.selection,

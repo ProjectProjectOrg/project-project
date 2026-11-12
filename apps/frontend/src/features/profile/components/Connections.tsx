@@ -50,7 +50,6 @@ export function Connections() {
           <SettingsGroup>
             <GithubRow
               connected={user.personalGithub.connected}
-              email={user.email}
               oauthError={githubOAuthError}
             />
             <EverhourRows everhour={user.personalEverhour} />

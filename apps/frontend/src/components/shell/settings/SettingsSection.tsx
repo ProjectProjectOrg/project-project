@@ -14,12 +14,14 @@ import { cn } from "@/lib/utils"
 type SettingsSectionProps = Readonly<{
   title?: ReactNode
   description?: ReactNode
+  action?: ReactNode
   children: ReactNode
 }>
 
 export function SettingsSection({
   title,
   description,
+  action,
   children
 }: SettingsSectionProps) {
   const titleId = useId()
@@ -28,18 +30,21 @@ export function SettingsSection({
       aria-labelledby={title ? titleId : undefined}
       className="flex flex-col gap-2"
     >
-      {title || description ? (
-        <header className="px-0.5">
-          {title ? (
-            <h2 id={titleId} className="text-body font-semibold">
-              {title}
-            </h2>
-          ) : null}
-          {description ? (
-            <p className="mt-0.5 text-caption text-muted-foreground">
-              {description}
-            </p>
-          ) : null}
+      {title || description || action ? (
+        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-0.5">
+          <div className="min-w-0 flex-1 basis-40">
+            {title ? (
+              <h2 id={titleId} className="text-body font-semibold">
+                {title}
+              </h2>
+            ) : null}
+            {description ? (
+              <p className="mt-0.5 text-caption text-muted-foreground">
+                {description}
+              </p>
+            ) : null}
+          </div>
+          {action ? <div className="ml-auto shrink-0">{action}</div> : null}
         </header>
       ) : null}
       {children}

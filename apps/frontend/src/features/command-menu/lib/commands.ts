@@ -1,4 +1,11 @@
-import type { Group, ProjectDetail, TicketDetail, Tools } from "@pp/shared"
+import type {
+  Group,
+  OrgActor,
+  ProjectActor,
+  ProjectDetail,
+  TicketDetail,
+  Tools
+} from "@pp/shared"
 import type * as AsyncResult from "effect/reactivity/AsyncResult"
 import type * as Atom from "effect/reactivity/Atom"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
@@ -38,6 +45,8 @@ export type CommandGroup = (typeof COMMAND_GROUPS)[number]
 
 export type CommandContext = Readonly<{
   orgSlug: string
+  orgActor: OrgActor
+  projectActor: ProjectActor | null
   projectSlug: string | null
   ticket: TicketContext | null
   selection: ReadonlyArray<SelectedTicket>
@@ -111,6 +120,7 @@ export const runCommand = (
   context: CommandContext,
   env: CommandEnv
 ): void => {
+  if (command.when?.(context) === false) return
   if ("page" in command) env.open(command.page)
   else command.run(context, env)
 }

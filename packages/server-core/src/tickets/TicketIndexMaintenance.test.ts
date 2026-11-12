@@ -18,6 +18,7 @@ import {
   makeTicketIndexReconciler,
   ticketIndexRowsFor,
   ticketIndexHasDrift,
+  type IndexedTicketRef,
   type TicketIndexReconcilerDeps
 } from "./TicketIndexMaintenance"
 import type { TicketProject } from "./ticketProject"
@@ -80,6 +81,7 @@ describe("ticketIndexRowsFor", () => {
           tags,
           assignees,
           parent: ticketId("T-9"),
+          repo: "repo-1",
           branch: "chore/T-27-index-builders",
           pr: 172,
           prState: "open",
@@ -110,6 +112,7 @@ describe("ticketIndexRowsFor", () => {
             tags: [tagName("backend"), tagName("urgent")],
             assignees: ["user-2", "user-3"],
             parent: ticketId("T-9"),
+            repoId: "repo-1",
             movedFrom: [],
             branch: "chore/T-27-index-builders",
             pr: 172,
@@ -223,8 +226,16 @@ describe("detectTicketIndexDrift", () => {
     Effect.sync(() => {
       const drift = detectTicketIndexDrift(
         [
-          { ticketId: "T-1", updatedAt: at("2026-05-02T00:00:00.000Z") },
-          { ticketId: "T-2", updatedAt: at("2026-05-03T00:00:00.000Z") }
+          {
+            ticketId: "T-1",
+            repoId: null,
+            updatedAt: at("2026-05-02T00:00:00.000Z")
+          },
+          {
+            ticketId: "T-2",
+            repoId: null,
+            updatedAt: at("2026-05-03T00:00:00.000Z")
+          }
         ],
         [
           { id: "T-1", updatedAt: at("2026-05-02T00:00:00.000Z") },
@@ -239,7 +250,13 @@ describe("detectTicketIndexDrift", () => {
   it.effect("flags a document with no index row as missing", () =>
     Effect.sync(() => {
       const drift = detectTicketIndexDrift(
-        [{ ticketId: "T-1", updatedAt: at("2026-05-02T00:00:00.000Z") }],
+        [
+          {
+            ticketId: "T-1",
+            repoId: null,
+            updatedAt: at("2026-05-02T00:00:00.000Z")
+          }
+        ],
         [
           { id: "T-1", updatedAt: at("2026-05-02T00:00:00.000Z") },
           { id: "T-2", updatedAt: at("2026-05-03T00:00:00.000Z") }
@@ -253,7 +270,13 @@ describe("detectTicketIndexDrift", () => {
   it.effect("flags an index row with a mismatched timestamp as stale", () =>
     Effect.sync(() => {
       const drift = detectTicketIndexDrift(
-        [{ ticketId: "T-1", updatedAt: at("2026-05-02T00:00:00.000Z") }],
+        [
+          {
+            ticketId: "T-1",
+            repoId: null,
+            updatedAt: at("2026-05-02T00:00:00.000Z")
+          }
+        ],
         [{ id: "T-1", updatedAt: at("2026-05-09T00:00:00.000Z") }]
       )
       expect(drift).toEqual({ missing: [], orphaned: [], stale: ["T-1"] })
@@ -265,8 +288,16 @@ describe("detectTicketIndexDrift", () => {
     Effect.sync(() => {
       const drift = detectTicketIndexDrift(
         [
-          { ticketId: "T-1", updatedAt: at("2026-05-02T00:00:00.000Z") },
-          { ticketId: "T-9", updatedAt: at("2026-05-02T00:00:00.000Z") }
+          {
+            ticketId: "T-1",
+            repoId: null,
+            updatedAt: at("2026-05-02T00:00:00.000Z")
+          },
+          {
+            ticketId: "T-9",
+            repoId: null,
+            updatedAt: at("2026-05-02T00:00:00.000Z")
+          }
         ],
         [{ id: "T-1", updatedAt: at("2026-05-02T00:00:00.000Z") }]
       )
@@ -279,8 +310,16 @@ describe("detectTicketIndexDrift", () => {
     Effect.sync(() => {
       const drift = detectTicketIndexDrift(
         [
-          { ticketId: "T-1", updatedAt: at("2026-05-02T00:00:00.000Z") },
-          { ticketId: "T-9", updatedAt: at("2026-05-02T00:00:00.000Z") }
+          {
+            ticketId: "T-1",
+            repoId: null,
+            updatedAt: at("2026-05-02T00:00:00.000Z")
+          },
+          {
+            ticketId: "T-9",
+            repoId: null,
+            updatedAt: at("2026-05-02T00:00:00.000Z")
+          }
         ],
         [
           { id: "T-1", updatedAt: at("2026-05-05T00:00:00.000Z") },
@@ -308,7 +347,7 @@ const makeHarness = (config: {
   projects?: ReadonlyArray<TicketProject>
   documents: ReadonlyArray<TicketDocs.TicketDocument>
   skipped?: number
-  indexed: ReadonlyArray<{ ticketId: string; updatedAt: Date }>
+  indexed: ReadonlyArray<IndexedTicketRef>
 }): Harness => {
   const writes: Harness["writes"] = []
   const deps: TicketIndexReconcilerDeps = {
@@ -333,7 +372,11 @@ describe("makeTicketIndexReconciler", () => {
       const { deps, writes } = makeHarness({
         documents: [doc("T-1", "2026-05-02T00:00:00.000Z")],
         indexed: [
-          { ticketId: "T-1", updatedAt: at("2026-05-02T00:00:00.000Z") }
+          {
+            ticketId: "T-1",
+            repoId: null,
+            updatedAt: at("2026-05-02T00:00:00.000Z")
+          }
         ]
       })
       const reconciler = makeTicketIndexReconciler(deps)
@@ -355,8 +398,16 @@ describe("makeTicketIndexReconciler", () => {
         documents,
         skipped: 1,
         indexed: [
-          { ticketId: "T-1", updatedAt: at("2026-05-02T00:00:00.000Z") },
-          { ticketId: "T-9", updatedAt: at("2026-05-02T00:00:00.000Z") }
+          {
+            ticketId: "T-1",
+            repoId: null,
+            updatedAt: at("2026-05-02T00:00:00.000Z")
+          },
+          {
+            ticketId: "T-9",
+            repoId: null,
+            updatedAt: at("2026-05-02T00:00:00.000Z")
+          }
         ]
       })
       const reconciler = makeTicketIndexReconciler(deps)
@@ -380,7 +431,11 @@ describe("makeTicketIndexReconciler", () => {
       const { deps, writes } = makeHarness({
         documents,
         indexed: [
-          { ticketId: "T-1", updatedAt: at("2026-05-02T00:00:00.000Z") }
+          {
+            ticketId: "T-1",
+            repoId: null,
+            updatedAt: at("2026-05-02T00:00:00.000Z")
+          }
         ]
       })
       const reconciler = makeTicketIndexReconciler(deps)
@@ -409,7 +464,13 @@ describe("makeTicketIndexReconciler", () => {
         indexedRefs: (target) =>
           Effect.succeed(
             target.projectId === project.projectId
-              ? [{ ticketId: "T-1", updatedAt: at("2026-05-02T00:00:00.000Z") }]
+              ? [
+                  {
+                    ticketId: "T-1",
+                    repoId: null,
+                    updatedAt: at("2026-05-02T00:00:00.000Z")
+                  }
+                ]
               : []
           ),
         writeProject: (target) =>

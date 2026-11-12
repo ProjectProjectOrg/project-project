@@ -295,8 +295,36 @@ export const organizationIntegration = pgTable(
     unique("organization_integration_id_org_uidx").on(t.id, t.organizationId),
     uniqueIndex("organization_integration_active_provider_uidx")
       .on(t.organizationId, t.provider)
-      .where(sql`${t.status} = 'active'`),
+      .where(sql`${t.status} = 'active' and ${t.provider} <> 'github'`),
     index("organization_integration_org_idx").on(t.organizationId)
+  ]
+)
+
+export const organizationGithubApp = pgTable(
+  "organization_github_app",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    githubAppId: text("github_app_id").notNull(),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    ownerLogin: text("owner_login"),
+    clientId: text("client_id").notNull(),
+    ciphertext: text("ciphertext").notNull(),
+    nonce: text("nonce").notNull(),
+    tag: text("tag").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    uniqueIndex("organization_github_app_org_app_uidx").on(
+      t.organizationId,
+      t.githubAppId
+    ),
+    index("organization_github_app_github_app_idx").on(t.githubAppId)
   ]
 )
 
@@ -306,6 +334,13 @@ export const organizationGithubIntegration = pgTable(
     organizationIntegrationId: uuid("organization_integration_id")
       .primaryKey()
       .references(() => organizationIntegration.id, { onDelete: "cascade" }),
+    githubAppId: uuid("github_app_id").references(
+      () => organizationGithubApp.id,
+      { onDelete: "cascade" }
+    ),
+    projectAccess: text("project_access", { enum: ["all", "selected"] })
+      .notNull()
+      .default("all"),
     installationId: text("installation_id").notNull(),
     githubAccountId: text("github_account_id").notNull(),
     githubAccountLogin: text("github_account_login").notNull(),
@@ -316,7 +351,29 @@ export const organizationGithubIntegration = pgTable(
   (t) => [
     uniqueIndex("organization_github_integration_installation_uidx").on(
       t.installationId
-    )
+    ),
+    index("organization_github_integration_app_idx").on(t.githubAppId)
+  ]
+)
+
+export const organizationGithubIntegrationProject = pgTable(
+  "organization_github_integration_project",
+  {
+    organizationIntegrationId: uuid("organization_integration_id")
+      .notNull()
+      .references(
+        () => organizationGithubIntegration.organizationIntegrationId,
+        {
+          onDelete: "cascade"
+        }
+      ),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projectIndex.id, { onDelete: "cascade" })
+  },
+  (t) => [
+    primaryKey({ columns: [t.organizationIntegrationId, t.projectId] }),
+    index("organization_github_integration_project_project_idx").on(t.projectId)
   ]
 )
 
@@ -368,6 +425,10 @@ export const githubAppInstallSession = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    githubAppId: uuid("github_app_id").references(
+      () => organizationGithubApp.id,
+      { onDelete: "cascade" }
+    ),
     returnProjectId: uuid("return_project_id"),
     returnProjectOrgId: text("return_project_org_id"),
     stateHash: text("state_hash").notNull().unique(),
@@ -441,7 +502,7 @@ export const projectIntegrationLink = pgTable(
     }).onDelete("cascade"),
     uniqueIndex("project_integration_link_active_provider_uidx")
       .on(t.projectId, t.provider)
-      .where(sql`${t.status} = 'active'`),
+      .where(sql`${t.status} = 'active' and ${t.provider} <> 'github'`),
     index("project_integration_link_project_idx").on(t.projectId),
     index("project_integration_link_org_integration_idx").on(
       t.organizationIntegrationId
@@ -688,6 +749,7 @@ export const ticketIndex = pgTable(
       .notNull()
       .default(sql`'{}'::text[]`),
     parent: text("parent"),
+    repoId: text("repo_id"),
     movedFrom: text("moved_from")
       .array()
       .notNull()
@@ -1491,7 +1553,9 @@ export const relations = defineRelations(
     projectStatus,
     projectGitAutomation,
     organizationIntegration,
+    organizationGithubApp,
     organizationGithubIntegration,
+    organizationGithubIntegrationProject,
     organizationS3Integration,
     organizationEmail,
     githubAppInstallSession,

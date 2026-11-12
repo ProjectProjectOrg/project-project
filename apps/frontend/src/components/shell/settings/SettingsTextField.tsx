@@ -9,16 +9,20 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 
-type SettingsTextFieldProps = Readonly<{
-  value: string
-  onCommit: (next: string) => void
-  disabled?: boolean
-  waiting?: boolean
-  maxLength?: number
-  placeholder?: string
-  allowEmpty?: boolean
-  className?: string
-}>
+type SettingsTextFieldProps = Pick<
+  ComponentProps<typeof Input>,
+  "variant" | "aria-label"
+> &
+  Readonly<{
+    value: string
+    onCommit: (next: string) => void
+    disabled?: boolean
+    waiting?: boolean
+    maxLength?: number
+    placeholder?: string
+    allowEmpty?: boolean
+    className?: string
+  }>
 
 export function SettingsTextField({
   value,
@@ -28,7 +32,9 @@ export function SettingsTextField({
   maxLength,
   placeholder,
   allowEmpty = false,
-  className
+  className,
+  variant,
+  "aria-label": ariaLabel
 }: SettingsTextFieldProps) {
   const { labelId, descriptionId } = useSettingsRow()
   const [draft, setDraft] = useState(value)
@@ -54,6 +60,7 @@ export function SettingsTextField({
   return (
     <Input
       value={draft}
+      variant={variant}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={commit}
       onKeyDown={(event) => {
@@ -66,7 +73,8 @@ export function SettingsTextField({
       disabled={disabled}
       maxLength={maxLength}
       placeholder={placeholder}
-      aria-labelledby={labelId}
+      aria-label={ariaLabel}
+      aria-labelledby={ariaLabel === undefined ? labelId : undefined}
       aria-describedby={descriptionId}
       className={cn("w-64 text-body", waiting && "animate-pulse", className)}
     />

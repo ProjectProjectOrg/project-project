@@ -56,6 +56,7 @@ const TicketFrontmatterOnDisk = Schema.Struct({
       )
     )
   ),
+  repo: Schema.optionalKey(Schema.String),
   ignoredBranches: Schema.optionalKey(Schema.Array(Schema.String)),
   branchAutoLinkDisabled: Schema.optionalKey(Schema.Boolean),
   branch: Schema.optionalKey(Schema.NullOr(Schema.String)),
@@ -83,6 +84,7 @@ const TicketFrontmatterOnDisk = Schema.Struct({
 
 const gitKeysOnDisk = [
   "branches",
+  "repo",
   "ignoredBranches",
   "branchAutoLinkDisabled",
   "branch",
@@ -93,6 +95,7 @@ const gitKeysOnDisk = [
 ] as const
 
 const TicketGitValue = {
+  repo: Schema.optional(Schema.String),
   branch: Schema.NullOr(Schema.String),
   branchAutoLinkDisabled: Schema.optional(Schema.Boolean),
   pr: Schema.NullOr(Schema.Finite),
@@ -122,6 +125,7 @@ const TicketFrontmatterValue = Schema.Struct({
 })
 
 const gitKeysInMemory = [
+  "repo",
   "branch",
   "branchAutoLinkDisabled",
   "pr",
@@ -160,6 +164,7 @@ const gitFromDisk = (input: TicketGitOnDisk): TicketGit => {
   if (own === undefined) {
     return Object.assign(
       flags,
+      input.repo === undefined || !input.branch ? {} : { repo: input.repo },
       {
         branch: input.branch ?? null,
         pr: input.pr ?? null,
@@ -171,6 +176,7 @@ const gitFromDisk = (input: TicketGitOnDisk): TicketGit => {
   }
   return Object.assign(
     flags,
+    input.repo === undefined ? {} : { repo: input.repo },
     {
       branch: own.branch,
       pr: own.pr ?? null,
@@ -204,6 +210,7 @@ const gitToDisk = (input: TicketGit): TicketGitOnDisk => {
   return Object.assign(
     {},
     branches.length > 0 ? { branches } : {},
+    branches.length > 0 && input.repo !== undefined ? { repo: input.repo } : {},
     input.ignoredBranches && input.ignoredBranches.length > 0
       ? { ignoredBranches: input.ignoredBranches }
       : {},

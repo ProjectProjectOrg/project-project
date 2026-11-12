@@ -13,11 +13,6 @@ import {
   parseCommentsRegion,
   serializeCommentsRegion
 } from "../comments/comments-region"
-import {
-  clearedPrMetadata,
-  hasPrMetadata,
-  prMetadataOf
-} from "../git/prMetadata"
 import type * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as TicketDocs from "./TicketDocs"
@@ -64,11 +59,11 @@ export class TicketRewrites extends Context.Service<
       slug: string,
       claim: JiraIdentityClaim
     ) => Effect.Effect<ReadonlyArray<string>, never, ActivityActor>
-    withClearedPrMetadata: <A, E, R>(
+    stampRepository: (
       orgSlug: string,
       slug: string,
-      switchRepository: Effect.Effect<A, E, R>
-    ) => Effect.Effect<A, E | Markdown.MarkdownError, R | ActivityActor>
+      repoId: string
+    ) => Effect.Effect<number, Markdown.MarkdownError, ActivityActor>
   }>
 >()("@pp/server-core/tickets/TicketRewrites") {}
 
@@ -392,100 +387,33 @@ const make = Effect.gen(function* () {
     }
   )
 
-  const withClearedPrMetadata = Effect.fn(
-    "TicketRewrites.withClearedPrMetadata"
-  )(function* <A, E, R>(
-    orgSlug: string,
-    slug: string,
-    switchRepository: Effect.Effect<A, E, R>
-  ): Effect.fn.Return<A, E | Markdown.MarkdownError, R | ActivityActor> {
-    const project = yield* ticketIndex
-      .projectFor(orgSlug, slug)
-      .pipe(Effect.orDie)
-    const ids = yield* ticketDocs.listIds(orgSlug, slug)
-    const originals: Array<TicketDocs.TicketDocument> = []
-    const clearAndSwitch = Effect.gen(function* () {
-      for (const id of ids) {
-        const ticket = yield* ticketDocs.read(orgSlug, slug, id).pipe(
+  const stampRepository = Effect.fn("TicketRewrites.stampRepository")(
+    function* (orgSlug: string, slug: string, repoId: string) {
+      const ids = yield* ticketDocs.listIds(orgSlug, slug)
+      const stamped = yield* Effect.forEach(ids, (id) =>
+        rewrite(
+          orgSlug,
+          slug,
+          id,
+          (existing) =>
+            existing.branch === null || existing.repo !== undefined
+              ? null
+              : Effect.succeed({ ...existing, repo: repoId }),
+          { silent: true }
+        ).pipe(
           Effect.catchTags({
-            NotFound: () => Effect.succeed(null),
+            NotFound: () => Effect.succeed(false),
             MalformedTicketDocument: (error) =>
-              Effect.logWarning("Skipping unreadable ticket pr metadata").pipe(
+              Effect.logWarning("Skipping unreadable ticket repository").pipe(
                 Effect.annotateLogs({ orgSlug, slug, ticketId: id, error }),
-                Effect.as(null)
+                Effect.as(false)
               )
           })
         )
-        if (ticket === null || !hasPrMetadata(ticket)) {
-          continue
-        }
-        const next = {
-          ...clearedPrMetadata(ticket),
-          updatedAt: yield* DateTime.nowAsDate
-        }
-        yield* ticketDocs
-          .update(
-            orgSlug,
-            slug,
-            id,
-            (current) =>
-              Effect.succeed({
-                ...current,
-                ...prMetadataOf(next),
-                updatedAt: next.updatedAt
-              }),
-            (updated) =>
-              Effect.gen(function* () {
-                originals.push(ticket)
-                yield* ticketIndex.upsertTicket(project, updated)
-              }),
-            { silent: true }
-          )
-          .pipe(
-            Effect.catchTags({
-              NotFound: () => Effect.void,
-              MalformedTicketDocument: (error) =>
-                Effect.logWarning("Skipping unreadable ticket pr metadata", {
-                  orgSlug,
-                  slug,
-                  ticketId: id,
-                  error
-                })
-            })
-          )
-      }
-      return yield* switchRepository
-    }).pipe(
-      Effect.onError(() =>
-        Effect.forEach(
-          originals,
-          (ticket) =>
-            ticketDocs.update(
-              orgSlug,
-              slug,
-              ticket.id,
-              (current) =>
-                Effect.succeed({
-                  ...current,
-                  ...prMetadataOf(ticket),
-                  updatedAt: ticket.updatedAt
-                }),
-              (restored) => ticketIndex.upsertTicket(project, restored),
-              { silent: true }
-            ),
-          { discard: true }
-        ).pipe(Effect.orDie)
-      ),
-      Effect.uninterruptible
-    )
-    return yield* ids
-      .toSorted()
-      .reduceRight(
-        (effect, id) =>
-          ticketDocumentLock.withTicketDocumentLock(orgSlug, slug, id, effect),
-        clearAndSwitch
       )
-  })
+      return stamped.filter(Boolean).length
+    }
+  )
 
   return TicketRewrites.of({
     renameTag,
@@ -493,7 +421,7 @@ const make = Effect.gen(function* () {
     unassignUserFromActiveTickets,
     unassignUserFromOrgTickets,
     claimJiraIdentity,
-    withClearedPrMetadata
+    stampRepository
   })
 })
 

@@ -3,13 +3,16 @@ import type {
   BranchListItem,
   ChooseGithubInstallationInput,
   ConnectGithubInput,
+  CreateBranchInput,
   GitState,
   GitStatesResponse,
   GithubRepo,
   GithubRepoPage,
   StackLayerState,
+  StartGithubAppManifestInput,
   StartGithubInstallInput,
-  TicketId
+  TicketId,
+  UpdateGithubInstallationInput
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Match from "effect/Match"
@@ -27,6 +30,16 @@ import {
   mergeStaleGitStateDetails
 } from "@/features/github/lib/gitStateMerge"
 import {
+  connectedRepoIdsKey,
+  withConfirmedInstallation,
+  withConfirmedRepo,
+  withConnectedRepo,
+  withInstallationAccess,
+  withoutConnectedRepo,
+  withoutGithubApp,
+  withoutGithubInstallation
+} from "@/features/github/lib/repos"
+import {
   confirmedProject,
   project,
   type ProjectRequest
@@ -42,30 +55,32 @@ export const githubOrgRequest = (orgSlug: string): GithubOrgRequest => ({
 
 export type GithubReposRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
-  query: Readonly<{ q: string | undefined }>
+  query: Readonly<{ q: string | undefined; installationId: string | undefined }>
 }>
 
 export const githubReposRequest = (
   orgSlug: string,
   slug: string,
-  q: string
+  q: string,
+  installationId?: string
 ): GithubReposRequest => ({
   params: { orgSlug, slug },
-  query: { q: q.trim() === "" ? undefined : q.trim() }
+  query: { q: q.trim() === "" ? undefined : q.trim(), installationId }
 })
 
 export type BranchesRequest = Readonly<{
   params: Readonly<{ orgSlug: string; slug: string }>
-  query: Readonly<{ q: string | undefined }>
+  query: Readonly<{ q: string | undefined; repoId: string | undefined }>
 }>
 
 export const branchesRequest = (
   orgSlug: string,
   slug: string,
-  q: string
+  q: string,
+  repoId?: string
 ): BranchesRequest => ({
   params: { orgSlug, slug },
-  query: { q: q.trim() === "" ? undefined : q.trim() }
+  query: { q: q.trim() === "" ? undefined : q.trim(), repoId }
 })
 
 export type GitStateMutationRequest = Readonly<{
@@ -76,6 +91,22 @@ export type GitStateMutationRequest = Readonly<{
 export type CreateBranchMutationInput = Readonly<{
   name: string
   baseBranch: string
+  repoId?: string | undefined
+}>
+
+export type GithubRepoMutationRequest = Readonly<{
+  req: ProjectRequest
+  repoId: string
+}>
+
+export type GithubAppMutationRequest = Readonly<{
+  req: GithubOrgRequest
+  appId: string
+}>
+
+export type GithubInstallationMutationRequest = Readonly<{
+  req: GithubOrgRequest
+  installationId: string
 }>
 
 const scopeOf = (req: ProjectRequest | BranchesRequest) =>
@@ -92,23 +123,23 @@ const gitStatesQuery = (req: ProjectRequest) =>
   })
 
 type GitStatesSnapshot = Readonly<{
-  repoId: string | null | undefined
+  repoIds: string | undefined
   response: GitStatesResponse
 }>
 
-const connectedRepoId = Atom.family((req: ProjectRequest) =>
-  Atom.readable((get): string | null | undefined => {
+const connectedRepoIds = Atom.family((req: ProjectRequest) =>
+  Atom.readable((get): string | undefined => {
     const detail = Option.getOrUndefined(
       AsyncResult.value(get(confirmedProject(req)))
     )
-    return detail === undefined ? undefined : (detail.github?.repoId ?? null)
+    return detail === undefined ? undefined : connectedRepoIdsKey(detail)
   })
 )
 
 const gitStatesSnapshot = Atom.family((req: ProjectRequest) =>
   Atom.readable(
     (get) => {
-      const repoId = get(connectedRepoId(req))
+      const repoIds = get(connectedRepoIds(req))
       const prior = Option.getOrUndefined(
         Option.flatMap(
           get.self<AsyncResult.AsyncResult<GitStatesSnapshot, unknown>>(),
@@ -116,13 +147,13 @@ const gitStatesSnapshot = Atom.family((req: ProjectRequest) =>
         )
       )
       return AsyncResult.map(get(gitStatesQuery(req)), (response) => ({
-        repoId: repoId ?? prior?.repoId,
+        repoIds: repoIds ?? prior?.repoIds,
         response: mergeStaleGitStateDetails(
           prior?.response,
           response,
-          repoId !== undefined &&
-            prior?.repoId !== undefined &&
-            repoId !== prior.repoId
+          repoIds !== undefined &&
+            prior?.repoIds !== undefined &&
+            repoIds !== prior.repoIds
         )
       }))
     },
@@ -182,7 +213,7 @@ export const githubRepos = Atom.family((req: GithubReposRequest) =>
           const first = yield* Api.use((client) =>
             client.projects.listGithubRepos({
               params: req.params,
-              query: { q: req.query.q, page: 1 }
+              query: { ...req.query, page: 1 }
             })
           )
           if (req.query.q === undefined || !first.hasMore) return first
@@ -193,7 +224,7 @@ export const githubRepos = Atom.family((req: GithubReposRequest) =>
             const next = yield* Api.use((client) =>
               client.projects.listGithubRepos({
                 params: req.params,
-                query: { q: req.query.q, page }
+                query: { ...req.query, page }
               })
             )
             repos.push(...next.repos)
@@ -312,41 +343,53 @@ const githubKeys = (req: ProjectRequest) => [
   Keys.branches(scopeOf(req))
 ]
 
-export const connectGithub = Atom.family((req: ProjectRequest) =>
+const repoMutation = (req: ProjectRequest, name: string) =>
   viewMutation(project(req), {
-    name: "connectGithub",
-    predict: (value, input: ConnectGithubInput) => ({
-      ...value,
-      github: {
+    name,
+    predict: (value, input: ConnectGithubInput) =>
+      withConnectedRepo(value, {
         repoId: input.repoId,
         repoOwner: input.repoOwner,
         repoName: input.repoName,
         defaultBaseBranch: input.defaultBaseBranch ?? null
-      }
-    }),
+      }),
     call: (client, input) =>
       client.projects.connectGithub({ params: req.params, payload: input }),
-    confirm: (current, updated, input) => ({
-      ...current,
-      github:
-        current.github?.repoId === input.repoId
-          ? updated.github
-          : current.github
-    }),
+    confirm: (current, updated, input) =>
+      withConfirmedRepo(current, updated, input.repoId),
     publish: () => githubKeys(req)
   })
+
+export const connectGithub = Atom.family((req: ProjectRequest) =>
+  repoMutation(req, "connectGithub")
 )
 
-export const disconnectGithub = Atom.family((req: ProjectRequest) =>
-  viewMutation(project(req), {
-    name: "disconnectGithub",
-    predict: (value, _input: void) => ({ ...value, github: null }),
-    call: (client) => client.projects.disconnectGithub({ params: req.params }),
-    confirm: (current, updated) => ({
-      ...current,
-      github: current.github === null ? updated.github : current.github
-    }),
-    publish: () => githubKeys(req)
+export const updateGithubRepo = Atom.family(
+  ({ req }: GithubRepoMutationRequest) => repoMutation(req, "updateGithubRepo")
+)
+
+export const disconnectGithub = Atom.family(
+  ({ req, repoId }: GithubRepoMutationRequest) =>
+    viewMutation(project(req), {
+      name: "disconnectGithub",
+      predict: (value, _input: void) => withoutConnectedRepo(value, repoId),
+      call: (client) =>
+        client.projects.disconnectGithub({
+          params: { ...req.params, repoId }
+        }),
+      confirm: (current) => withoutConnectedRepo(current, repoId),
+      publish: () => githubKeys(req)
+    })
+)
+
+export const projectGithubInstallations = Atom.family((req: ProjectRequest) =>
+  query("projects", "listGithubInstallations", {
+    params: req.params,
+    timeToLive: "1 minute",
+    reactivityKeys: [
+      Keys.githubIntegration(req.params.orgSlug),
+      Keys.githubAuth(req.params.orgSlug)
+    ]
   })
 )
 
@@ -356,13 +399,80 @@ export const startGithubInstall = Atom.family((req: GithubOrgRequest) =>
       const response = yield* Api.use((client) =>
         client.projects.startGithubInstall({
           params: req.params,
-          payload: { returnProjectSlug: input.returnProjectSlug ?? null }
+          payload: {
+            appId: input.appId,
+            returnProjectSlug: input.returnProjectSlug ?? null
+          }
         })
       )
       yield* Reactivity.invalidate([Keys.githubIntegration(req.params.orgSlug)])
       return response
     })
   )
+)
+
+export const startGithubAppManifest = Atom.family((req: GithubOrgRequest) =>
+  Api.runtime.fn(
+    Effect.fn("startGithubAppManifest")(function* (
+      input: StartGithubAppManifestInput
+    ) {
+      return yield* Api.use((client) =>
+        client.projects.startGithubAppManifest({
+          params: req.params,
+          payload: input
+        })
+      )
+    })
+  )
+)
+
+const integrationKeys = (req: GithubOrgRequest) => [
+  Keys.githubIntegration(req.params.orgSlug),
+  Keys.githubAuth(req.params.orgSlug)
+]
+
+export const deleteGithubApp = Atom.family(
+  ({ req, appId }: GithubAppMutationRequest) =>
+    viewMutation(githubIntegration(req), {
+      name: "deleteGithubApp",
+      predict: (value, _input: void) => withoutGithubApp(value, appId),
+      call: (client) =>
+        client.projects.deleteGithubApp({ params: { ...req.params, appId } }),
+      confirm: (current) => withoutGithubApp(current, appId),
+      publish: () => integrationKeys(req)
+    })
+)
+
+export const updateGithubInstallation = Atom.family(
+  ({ req, installationId }: GithubInstallationMutationRequest) =>
+    viewMutation(githubIntegration(req), {
+      name: "updateGithubInstallation",
+      predict: (value, input: UpdateGithubInstallationInput) =>
+        withInstallationAccess(value, installationId, input),
+      call: (client, input) =>
+        client.projects.updateGithubInstallation({
+          params: { ...req.params, installationId },
+          payload: input
+        }),
+      confirm: (current, updated) =>
+        withConfirmedInstallation(current, updated, installationId),
+      publish: () => integrationKeys(req)
+    })
+)
+
+export const deleteGithubInstallation = Atom.family(
+  ({ req, installationId }: GithubInstallationMutationRequest) =>
+    viewMutation(githubIntegration(req), {
+      name: "deleteGithubInstallation",
+      predict: (value, _input: void) =>
+        withoutGithubInstallation(value, installationId),
+      call: (client) =>
+        client.projects.deleteGithubInstallation({
+          params: { ...req.params, installationId }
+        }),
+      confirm: (current) => withoutGithubInstallation(current, installationId),
+      publish: () => integrationKeys(req)
+    })
 )
 
 export type GithubInstallationChoicesRequest = Readonly<{
@@ -422,6 +532,13 @@ const withGitState = (
   states: { ...value.states, [id]: state }
 })
 
+const createBranchPayload = ({
+  name,
+  baseBranch,
+  repoId
+}: CreateBranchMutationInput): CreateBranchInput =>
+  repoId === undefined ? { name, baseBranch } : { name, baseBranch, repoId }
+
 const branchKeys = (req: ProjectRequest, id: TicketId) => [
   Keys.ticketsIn(scopeOf(req)),
   Keys.ticket(scopeOf(req), id)
@@ -441,7 +558,7 @@ export const createBranch = Atom.family(
       call: (client, input) =>
         client.tickets.createBranch({
           params: { ...req.params, id },
-          payload: { name: input.name, baseBranch: input.baseBranch }
+          payload: createBranchPayload(input)
         }),
       confirm: (value, updated) => withGitState(value, id, updated.gitState),
       publish: () => [...branchKeys(req, id), Keys.branches(scopeOf(req))]
@@ -462,7 +579,7 @@ export const attachBranch = Atom.family(
       call: (client, input) =>
         client.tickets.attachBranch({
           params: { ...req.params, id },
-          payload: { name: input.name }
+          payload: input
         }),
       confirm: (value, updated) => withGitState(value, id, updated.gitState),
       publish: () => branchKeys(req, id)

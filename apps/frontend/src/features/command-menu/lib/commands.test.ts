@@ -1,4 +1,10 @@
-import { TicketId, TicketRank, TicketStatus, TypeKey } from "@pp/shared"
+import {
+  OrgActor,
+  TicketId,
+  TicketRank,
+  TicketStatus,
+  TypeKey
+} from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { Settings } from "lucide-react"
 import { describe, expect, it } from "vitest"
@@ -10,6 +16,8 @@ const decodeStatus = Schema.decodeSync(TicketStatus)
 
 const context: CommandContext = {
   orgSlug: "acme",
+  orgActor: OrgActor.none,
+  projectActor: null,
   projectSlug: null,
   ticket: null,
   selection: [],

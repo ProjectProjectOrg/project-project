@@ -83,7 +83,7 @@ type TicketBranches = Readonly<{
 
 const stacksOf = (
   tickets: Iterable<TicketBranches>,
-  github: ProjectGithub.ProjectGithubIntegration,
+  github: ProjectGithub.ProjectGithubIntegration | null,
   raw?: GitHub.RawProjectStates
 ): Record<string, ReadonlyArray<StackLayerState>> =>
   Object.fromEntries(
@@ -98,6 +98,56 @@ const stacksOf = (
           ]
     )
   )
+
+const refreshRank = { fresh: 0, stale: 1, rate_limited: 2 } as const
+
+const mergeGitStates = (
+  results: ReadonlyArray<GitStatesResponse>
+): GitStatesResponse => {
+  const states: Record<string, GitStatesResponse["states"][string]> = {}
+  for (const result of results) {
+    for (const [ticketId, state] of Object.entries(result.states)) {
+      const existing = states[ticketId]
+      if (existing === undefined || existing.tag === "no_branch") {
+        states[ticketId] = state
+      }
+    }
+  }
+  const refreshStatuses = results.flatMap((result) =>
+    result.refreshStatus === undefined ? [] : [result.refreshStatus]
+  )
+  const retryAts = results.flatMap((result) =>
+    result.retryAt === undefined ? [] : [result.retryAt]
+  )
+  const merged: GitStatesResponse = {
+    states,
+    stacks: Object.assign({}, ...results.map((result) => result.stacks ?? {})),
+    transitioned: results.flatMap((result) => result.transitioned),
+    changedTicketIds: [
+      ...new Set(results.flatMap((result) => result.changedTicketIds ?? []))
+    ],
+    tokenStatus:
+      results.find((result) => result.tokenStatus !== "ok")?.tokenStatus ??
+      "ok",
+    repoStatus: results.some((result) => result.repoStatus === "ok")
+      ? "ok"
+      : (results[0]?.repoStatus ?? "not_connected")
+  }
+  const [firstRefresh, ...otherRefreshes] = refreshStatuses
+  return Object.assign(
+    merged,
+    firstRefresh === undefined
+      ? null
+      : {
+          refreshStatus: otherRefreshes.reduce(
+            (worst, status) =>
+              refreshRank[status] > refreshRank[worst] ? status : worst,
+            firstRefresh
+          )
+        },
+    retryAts.length === 0 ? null : { retryAt: Math.max(...retryAts) }
+  )
+}
 
 const mergeBasesAwaitingLanding = (
   ticket: StackedTicketEntry
@@ -209,6 +259,7 @@ const make = Effect.gen(function* () {
     project: TicketProject,
     existing: TicketDocs.TicketDocument,
     patch: {
+      repo?: string | undefined
       branch?: string | null
       branchAutoLinkDisabled?: boolean
       pr?: number | null
@@ -240,6 +291,40 @@ const make = Effect.gen(function* () {
       gitAutomationActivity
     )
 
+  const repositoryFor = Effect.fn("TicketGit.repositoryFor")(function* (
+    ticket: Pick<TicketDocs.TicketDocument, "repo" | "branch">,
+    requested?: string
+  ) {
+    const integrations = yield* projectGithubLinks.integrations()
+    const current =
+      ticket.branch === null
+        ? null
+        : ProjectGithub.integrationForRepo(integrations, ticket.repo)
+    const repository =
+      requested === undefined
+        ? ticket.branch === null
+          ? ProjectGithub.integrationForRepo(integrations, null)
+          : current
+        : ProjectGithub.integrationForRepo(integrations, requested)
+    if (!repository) {
+      return yield* new Conflict({ reason: "no_github_connection" })
+    }
+    return { repository, moved: current?.repoId !== repository.repoId }
+  })
+
+  const ticketRepository = Effect.fn("TicketGit.ticketRepository")(function* (
+    ticket: Pick<TicketDocs.TicketDocument, "repo">
+  ) {
+    const repository = ProjectGithub.integrationForRepo(
+      yield* projectGithubLinks.integrations(),
+      ticket.repo
+    )
+    if (!repository) {
+      return yield* new Conflict({ reason: "no_github_connection" })
+    }
+    return repository
+  })
+
   const createBranch = Effect.fn("TicketGit.createBranch")(function* (
     id: string,
     input: CreateBranchInput
@@ -251,11 +336,11 @@ const make = Effect.gen(function* () {
       slug,
       id,
       Effect.gen(function* () {
-        const projectGithub = yield* projectGithubLinks.integration()
-        if (!projectGithub) {
-          return yield* new Conflict({ reason: "no_github_connection" })
-        }
         const ticket = yield* readTicket(scope, id)
+        const { repository: projectGithub, moved } = yield* repositoryFor(
+          ticket,
+          input.repoId
+        )
         const baseBranch = input.baseBranch ?? projectGithub.defaultBaseBranch
 
         yield* github.createBranchAsUser(
@@ -269,12 +354,14 @@ const make = Effect.gen(function* () {
         const next = yield* withRepositoryBranchLock(
           projectGithub.repoId,
           writeGitFields(scope, ticket, {
+            repo: projectGithub.repoId,
             branch: input.name,
             branchAutoLinkDisabled: false,
             pr: null,
             prState: null,
             prDraft: false,
             lastTransitionedPr: null,
+            stack: moved ? [] : ticket.stack,
             ignoredBranches: withoutIgnored(ticket, input.name)
           })
         )
@@ -294,12 +381,15 @@ const make = Effect.gen(function* () {
       slug,
       id,
       Effect.gen(function* () {
-        const projectGithub = yield* projectGithubLinks.integration()
-        if (!projectGithub) {
-          return yield* new Conflict({ reason: "no_github_connection" })
-        }
         const ticket = yield* readTicket(scope, id)
-        if ((ticket.stack ?? []).some((layer) => layer.branch === input.name)) {
+        const { repository: projectGithub, moved } = yield* repositoryFor(
+          ticket,
+          input.repoId
+        )
+        if (
+          !moved &&
+          (ticket.stack ?? []).some((layer) => layer.branch === input.name)
+        ) {
           return yield* new Conflict({ reason: "branch_already_on_ticket" })
         }
 
@@ -317,7 +407,7 @@ const make = Effect.gen(function* () {
           projectGithub.repoId,
           Effect.gen(function* () {
             if (
-              ticket.branch !== input.name &&
+              (moved || ticket.branch !== input.name) &&
               (yield* ticketBranchIndex.isRepositoryBranchAttached(
                 projectGithub.repoId,
                 input.name,
@@ -329,6 +419,7 @@ const make = Effect.gen(function* () {
               })
             }
             return yield* writeGitFields(scope, ticket, {
+              repo: projectGithub.repoId,
               branch: input.name,
               branchAutoLinkDisabled: false,
               pr: null,
@@ -336,6 +427,7 @@ const make = Effect.gen(function* () {
               prDraft: false,
               lastTransitionedPr: null,
               prBase: undefined,
+              stack: moved ? [] : ticket.stack,
               ignoredBranches: withoutIgnored(ticket, input.name)
             })
           })
@@ -356,11 +448,8 @@ const make = Effect.gen(function* () {
       slug,
       id,
       Effect.gen(function* () {
-        const projectGithub = yield* projectGithubLinks.integration()
-        if (!projectGithub) {
-          return yield* new Conflict({ reason: "no_github_connection" })
-        }
         const ticket = yield* readTicket(scope, id)
+        const projectGithub = yield* ticketRepository(ticket)
         if (!ticket.branch) {
           return yield* new Conflict({ reason: "no_branch_on_ticket" })
         }
@@ -410,6 +499,7 @@ const make = Effect.gen(function* () {
           ...(ticket.stack ?? []).map((layer) => layer.branch)
         ]
         const next = yield* writeGitFields(scope, ticket, {
+          repo: undefined,
           branch: null,
           branchAutoLinkDisabled: true,
           pr: null,
@@ -437,11 +527,8 @@ const make = Effect.gen(function* () {
       slug,
       id,
       Effect.gen(function* () {
-        const projectGithub = yield* projectGithubLinks.integration()
-        if (!projectGithub) {
-          return yield* new Conflict({ reason: "no_github_connection" })
-        }
         const ticket = yield* readTicket(scope, id)
+        const projectGithub = yield* ticketRepository(ticket)
         if (!ticket.branch) {
           return yield* new Conflict({ reason: "no_branch_on_ticket" })
         }
@@ -650,7 +737,8 @@ const make = Effect.gen(function* () {
       project: TicketProject,
       projectGithub: ProjectGithub.ProjectGithubIntegration,
       tickets: ReadonlyArray<StackedTicketEntry>,
-      raw: GitHub.RawProjectStates
+      raw: GitHub.RawProjectStates,
+      knownIds: ReadonlySet<string>
     ): Effect.fn.Return<GitStatesResponse, Markdown.MarkdownError> {
       const { orgSlug, slug } = project
       const automaticLinks = planAutomaticBranchLinks(
@@ -658,7 +746,8 @@ const make = Effect.gen(function* () {
         raw.existingBranches,
         projectGithub.defaultBaseBranch,
         raw.openPullRequestText,
-        raw.prByBranch
+        raw.prByBranch,
+        knownIds
       )
       const automaticStacks = planAutomaticStacks(
         tickets,
@@ -666,7 +755,8 @@ const make = Effect.gen(function* () {
         raw.existingBranches,
         projectGithub.defaultBaseBranch,
         raw.openPullRequestText,
-        raw.prByBranch
+        raw.prByBranch,
+        knownIds
       )
       const stackedTicketIds = tickets.flatMap((ticket) =>
         automaticStacks.has(ticket.id) ||
@@ -716,6 +806,7 @@ const make = Effect.gen(function* () {
       >(plan.writes.map((write) => [write.ticketId, write.patch]))
       for (const [ticketId, branch] of automaticLinks) {
         writesById.set(ticketId, {
+          repo: projectGithub.repoId,
           branch,
           pr: null,
           prState: null,
@@ -885,11 +976,18 @@ const make = Effect.gen(function* () {
               gitAutomation,
               ticketDocumentLock: { withTicketDocumentLock }
             },
-            { ...project, ticketId, branch }
+            {
+              ...project,
+              ticketId,
+              branch,
+              repoId: projectGithub.repoId,
+              isDefault: projectGithub.isDefault
+            }
           )
         }
         yield* ticketBranchIndex.markBranchStale(
           project.projectId,
+          projectGithub,
           branch,
           deletedAt
         )
@@ -907,6 +1005,96 @@ const make = Effect.gen(function* () {
     }
   )
 
+  const repositoryGitStates = Effect.fn("TicketGit.repositoryGitStates")(
+    function* (
+      scope: ProjectScope["Service"],
+      projectGithub: ProjectGithub.ProjectGithubIntegration,
+      tickets: ReadonlyArray<StackedTicketEntry>,
+      options: GitStateOptions,
+      knownIds: ReadonlySet<string>
+    ): Effect.fn.Return<GitStatesResponse, Markdown.MarkdownError> {
+      const result = yield* fetchGitSnapshot(projectGithub, tickets)
+
+      if (!result.ok) {
+        const gone = result.repoStatus === "gone"
+        return {
+          states: gone
+            ? {}
+            : Object.fromEntries(
+                tickets.map((ticket) => [
+                  ticket.id,
+                  pendingGitState(ticket, projectGithub)
+                ])
+              ),
+          stacks: gone ? {} : stacksOf(tickets, projectGithub),
+          transitioned: [],
+          changedTicketIds: [],
+          tokenStatus: result.tokenStatus,
+          repoStatus: result.repoStatus,
+          ...("refreshStatus" in result
+            ? { refreshStatus: result.refreshStatus }
+            : {}),
+          ...("retryAt" in result ? { retryAt: result.retryAt } : {})
+        }
+      }
+
+      if (result.raw.refreshStatus) {
+        const snapshot = planTicketGitStates(
+          tickets,
+          result.raw,
+          yield* DateTime.nowAsDate
+        )
+        return {
+          states: Object.fromEntries(
+            tickets.map((ticket) => [
+              ticket.id,
+              ticket.branch &&
+              (result.raw.existingBranches.has(ticket.branch) ||
+                result.raw.prByBranch.has(ticket.branch))
+                ? snapshot.states[ticket.id]
+                : pendingGitState(ticket, projectGithub)
+            ])
+          ),
+          stacks: stacksOf(tickets, projectGithub, result.raw),
+          transitioned: [],
+          changedTicketIds: [],
+          tokenStatus: "ok",
+          repoStatus: "ok",
+          refreshStatus: result.raw.refreshStatus,
+          retryAt: result.raw.retryAt
+        }
+      }
+
+      if (!options.reconcile) {
+        const snapshot = planTicketGitStates(
+          tickets,
+          result.raw,
+          yield* DateTime.nowAsDate
+        )
+        const planned = tickets.map((ticket) => ({
+          ...ticket,
+          stack: planStackPullRequests(ticket.stack, result.raw)
+        }))
+        return {
+          states: snapshot.states,
+          stacks: stacksOf(planned, projectGithub, result.raw),
+          transitioned: [],
+          changedTicketIds: [],
+          tokenStatus: "ok",
+          repoStatus: "ok"
+        }
+      }
+
+      return yield* reconcileGitStates(
+        scope,
+        projectGithub,
+        tickets,
+        result.raw,
+        knownIds
+      )
+    }
+  )
+
   const listGitStates = Effect.fn("TicketGit.listGitStates")(function* (
     options: GitStateOptions = { reconcile: true }
   ): Effect.fn.Return<
@@ -915,9 +1103,9 @@ const make = Effect.gen(function* () {
     ProjectScope
   > {
     const scope = yield* ProjectScope
-    const projectGithub = yield* projectGithubLinks.integration()
+    const repositories = yield* projectGithubLinks.integrations()
 
-    if (!projectGithub) {
+    if (repositories.length === 0) {
       return {
         states: {},
         transitioned: [],
@@ -934,79 +1122,39 @@ const make = Effect.gen(function* () {
       (ticket): StackedTicketEntry =>
         Object.assign({ stack: stacks.get(ticket.id) ?? [] }, ticket)
     )
-    const result = yield* fetchGitSnapshot(projectGithub, tickets)
-
-    if (!result.ok) {
-      const gone = result.repoStatus === "gone"
-      return {
-        states: gone
-          ? {}
-          : Object.fromEntries(
-              tickets.map((ticket) => [
-                ticket.id,
-                pendingGitState(ticket, projectGithub)
-              ])
-            ),
-        stacks: gone ? {} : stacksOf(tickets, projectGithub),
-        transitioned: [],
-        changedTicketIds: [],
-        tokenStatus: result.tokenStatus,
-        repoStatus: result.repoStatus,
-        ...("refreshStatus" in result
-          ? { refreshStatus: result.refreshStatus }
-          : {}),
-        ...("retryAt" in result ? { retryAt: result.retryAt } : {})
-      }
-    }
-
-    if (result.raw.refreshStatus) {
-      const snapshot = planTicketGitStates(
-        tickets,
-        result.raw,
-        yield* DateTime.nowAsDate
-      )
-      return {
-        states: Object.fromEntries(
-          tickets.map((ticket) => [
-            ticket.id,
-            ticket.branch &&
-            (result.raw.existingBranches.has(ticket.branch) ||
-              result.raw.prByBranch.has(ticket.branch))
-              ? snapshot.states[ticket.id]
-              : pendingGitState(ticket, projectGithub)
-          ])
+    const knownIds = new Set<string>(tickets.map((ticket) => ticket.id))
+    const repositoryOf = (ticket: StackedTicketEntry) =>
+      ProjectGithub.integrationForRepo(repositories, ticket.repoId)
+    const orphaned = tickets.filter(
+      (ticket) => ticket.branch !== null && repositoryOf(ticket) === null
+    )
+    const results = yield* Effect.forEach(
+      repositories,
+      (repository) =>
+        repositoryGitStates(
+          scope,
+          repository,
+          tickets.filter(
+            (ticket) =>
+              ticket.branch === null ||
+              repositoryOf(ticket)?.repoId === repository.repoId
+          ),
+          options,
+          knownIds
         ),
-        stacks: stacksOf(tickets, projectGithub, result.raw),
-        transitioned: [],
-        changedTicketIds: [],
-        tokenStatus: "ok",
-        repoStatus: "ok",
-        refreshStatus: result.raw.refreshStatus,
-        retryAt: result.raw.retryAt
-      }
+      { concurrency: 1 }
+    )
+    const merged = mergeGitStates(results)
+    return {
+      ...merged,
+      states: {
+        ...Object.fromEntries(
+          orphaned.map((ticket) => [ticket.id, pendingGitState(ticket, null)])
+        ),
+        ...merged.states
+      },
+      stacks: { ...stacksOf(orphaned, null), ...merged.stacks }
     }
-
-    if (!options.reconcile) {
-      const snapshot = planTicketGitStates(
-        tickets,
-        result.raw,
-        yield* DateTime.nowAsDate
-      )
-      const planned = tickets.map((ticket) => ({
-        ...ticket,
-        stack: planStackPullRequests(ticket.stack, result.raw)
-      }))
-      return {
-        states: snapshot.states,
-        stacks: stacksOf(planned, projectGithub, result.raw),
-        transitioned: [],
-        changedTicketIds: [],
-        tokenStatus: "ok",
-        repoStatus: "ok"
-      }
-    }
-
-    return yield* reconcileGitStates(scope, projectGithub, tickets, result.raw)
   })
 
   const getGitState = Effect.fn("TicketGit.getGitState")(function* (

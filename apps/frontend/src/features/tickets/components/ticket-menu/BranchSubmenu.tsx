@@ -22,6 +22,7 @@ import {
 import { clearBranch } from "@/features/github/atoms/github"
 import { usePreferredBranchLink } from "@/features/github/components/ticket-git/BranchChip"
 import { repoUrl } from "@/features/github/lib/branchUrl"
+import { ticketRepo } from "@/features/github/lib/repos"
 import { project } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { m } from "@/paraglide/messages"
@@ -29,7 +30,7 @@ import { m } from "@/paraglide/messages"
 import type { TicketMenuTicket } from "./TicketMenu"
 import { useOpenTicketPage } from "./useOpenTicketPage"
 
-type BranchTicket = Pick<TicketMenuTicket, "id" | "branch" | "pr">
+type BranchTicket = Pick<TicketMenuTicket, "id" | "branch" | "pr" | "repoId">
 
 export function BranchSubmenu({
   ticket,
@@ -43,7 +44,7 @@ export function BranchSubmenu({
   const { projectReq } = useProjectRoute()
   const projectResult = useAtomValue(project(projectReq))
   const github = Result.isSuccess(projectResult)
-    ? projectResult.value.github
+    ? ticketRepo(projectResult.value, ticket.repoId)
     : null
   if (ticket.branch === null || github === null) return null
   return (

@@ -1421,6 +1421,7 @@ it.effect(
             color: "#3b82f6",
             createdAt: isoDate("2026-01-01T00:00:00Z"),
             github: null,
+            githubRepos: [],
             estimation: switched ? "time" : "points",
             body: "",
             setup: {

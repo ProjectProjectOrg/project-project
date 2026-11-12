@@ -81,36 +81,34 @@ export const nextTicketNumberFor = (
       return Number.isSafeInteger(number) ? Math.max(next, number + 1) : next
     }, 1)
 
-export interface IndexedTicketRef {
-  readonly ticketId: string
-  readonly updatedAt: Date
-}
+export type IndexedTicketRef = Readonly<
+  Pick<typeof ticketIndex.$inferSelect, "ticketId" | "updatedAt" | "repoId">
+>
 
-export interface DocumentTicketRef {
-  readonly id: string
-  readonly updatedAt: Date
-}
+export type DocumentTicketRef = Readonly<
+  Pick<TicketDocs.TicketDocument, "updatedAt" | "repo"> & { id: string }
+>
 
 export const detectTicketIndexDrift = (
   indexed: ReadonlyArray<IndexedTicketRef>,
   documents: ReadonlyArray<DocumentTicketRef>
 ): TicketIndex.TicketIndexDrift => {
-  const indexedTimes = new Map(
-    indexed.map((row) => [row.ticketId, row.updatedAt.getTime()])
-  )
-  const documentTimes = new Map(
-    documents.map((doc) => [doc.id, doc.updatedAt.getTime()])
-  )
+  const indexedById = new Map(indexed.map((row) => [row.ticketId, row]))
+  const documentsById = new Map(documents.map((doc) => [doc.id, doc]))
   const missing: Array<string> = []
   const stale: Array<string> = []
-  for (const [id, time] of documentTimes) {
-    const indexedTime = indexedTimes.get(id)
-    if (indexedTime === undefined) missing.push(id)
-    else if (indexedTime !== time) stale.push(id)
+  for (const [id, document] of documentsById) {
+    const row = indexedById.get(id)
+    if (row === undefined) missing.push(id)
+    else if (
+      row.updatedAt.getTime() !== document.updatedAt.getTime() ||
+      row.repoId !== (document.repo ?? null)
+    )
+      stale.push(id)
   }
   const orphaned: Array<string> = []
-  for (const id of indexedTimes.keys()) {
-    if (!documentTimes.has(id)) orphaned.push(id)
+  for (const id of indexedById.keys()) {
+    if (!documentsById.has(id)) orphaned.push(id)
   }
   return {
     missing: missing.sort(),
@@ -156,10 +154,7 @@ export const makeTicketIndexReconciler = (deps: TicketIndexReconcilerDeps) => {
       const indexedBefore = yield* deps.indexedRefs(project)
       const { documents, skipped } = yield* deps.collectDocuments(project)
       const indexed = yield* deps.indexedRefs(project)
-      const drift = detectTicketIndexDrift(
-        indexed,
-        documents.map((doc) => ({ id: doc.id, updatedAt: doc.updatedAt }))
-      )
+      const drift = detectTicketIndexDrift(indexed, documents)
       const shouldRebuild =
         (options?.force ?? false) || ticketIndexHasDrift(drift)
       if (!shouldRebuild) {
@@ -481,7 +476,8 @@ const make = Effect.gen(function* () {
     db
       .select({
         ticketId: ticketIndex.ticketId,
-        updatedAt: ticketIndex.updatedAt
+        updatedAt: ticketIndex.updatedAt,
+        repoId: ticketIndex.repoId
       })
       .from(ticketIndex)
       .where(eq(ticketIndex.projectId, project.projectId))

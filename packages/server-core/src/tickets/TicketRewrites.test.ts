@@ -2,8 +2,6 @@ import { it } from "@effect/vitest"
 import { ActivityActor } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import * as Option from "effect/Option"
-import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
 import { FinishedStatuses } from "../projects/FinishedStatuses"
@@ -127,53 +125,49 @@ describe("unassigning a removed member from a project's tickets", () => {
   )
 })
 
-describe("TicketRewrites tracing", () => {
+describe("stamping a project's tickets with their repository", () => {
   it.effect(
-    "runs the repository switch inside one TicketRewrites.withClearedPrMetadata span",
+    "marks tickets that have a branch and no repository, and skips the rest",
     () =>
       Effect.gen(function* () {
-        const spans: Array<Tracer.NativeSpan> = []
-        const tracer = Tracer.make({
-          span: (options) => {
-            const span = new Tracer.NativeSpan(options)
-            spans.push(span)
-            return span
-          }
-        })
-        const { layer } = fixture()
+        const { documents, activity, upserts, layer } = fixture(["T-9"])
+        documents.set("T-1", makeTicketDocument("T-1", { branch: "feat/T-1" }))
+        documents.set(
+          "T-2",
+          makeTicketDocument("T-2", { branch: "feat/T-2", repo: "repo-2" })
+        )
 
-        const result = yield* Effect.flatMap(
+        const counts = yield* Effect.flatMap(
           TicketRewrites.TicketRewrites,
           (rewrites) =>
-            rewrites.withClearedPrMetadata(
-              "org",
-              "p",
-              Effect.succeed("switched").pipe(Effect.withSpan("switch"))
-            )
+            Effect.gen(function* () {
+              const first = yield* rewrites.stampRepository(
+                "org",
+                "p",
+                "repo-1"
+              )
+              const second = yield* rewrites.stampRepository(
+                "org",
+                "p",
+                "repo-2"
+              )
+              return [first, second]
+            })
         ).pipe(
           Effect.provideService(ActivityActor, ActivityActor.user("user-pm")),
-          Effect.provide(layer),
-          Effect.withTracer(tracer)
+          Effect.provide(layer)
         )
 
-        const ancestors = (span: Tracer.NativeSpan): Array<string> =>
-          Option.match(span.parent, {
-            onNone: () => [],
-            onSome: (parent) =>
-              parent._tag === "Span" && parent instanceof Tracer.NativeSpan
-                ? [parent.name, ...ancestors(parent)]
-                : []
-          })
-        const rewrite = spans.filter(
-          (span) => span.name === "TicketRewrites.withClearedPrMetadata"
-        )
-        const switchSpan = spans.find((span) => span.name === "switch")
-
-        expect(result).toBe("switched")
-        expect(rewrite).toHaveLength(1)
-        expect(Option.isNone(rewrite[0].parent)).toBe(true)
-        expect(switchSpan && ancestors(switchSpan)).toContain(
-          "TicketRewrites.withClearedPrMetadata"
+        expect(counts).toEqual([1, 0])
+        expect(documents.get("T-1")).toMatchObject({
+          repo: "repo-1",
+          updatedAt: before
+        })
+        expect(documents.get("T-2")?.repo).toBe("repo-2")
+        expect(documents.get("T-3")?.repo).toBeUndefined()
+        expect(upserts).toEqual(["T-1"])
+        expect(activity.every(({ options }) => options.silent === true)).toBe(
+          true
         )
       })
   )

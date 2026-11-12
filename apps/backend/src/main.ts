@@ -5,6 +5,7 @@ import { Db } from "@pp/db"
 import { publishedProject } from "@pp/db/projectVisibility"
 import { projectIndex } from "@pp/db/schema"
 import { EverhourRuntimeLive } from "@pp/integration-everhour/Runtime"
+import * as GitHubApps from "@pp/integration-github/GitHubApps"
 import * as GitHubIntegrations from "@pp/integration-github/GitHubIntegrations"
 import * as GitHubWebhooks from "@pp/integration-github/GitHubWebhooks"
 import { SlackRuntimeLive } from "@pp/integration-slack/Runtime"
@@ -86,7 +87,6 @@ import { HttpApiBuilder, HttpApiSwagger } from "effect/http-api"
 import * as Layer from "effect/Layer"
 import { OtlpSerialization, OtlpTracer } from "effect/observability"
 import * as Option from "effect/Option"
-import * as Redacted from "effect/Redacted"
 import * as Schema from "effect/Schema"
 
 import { TicketActivityHandlerLive } from "./activity/Handlers"
@@ -311,6 +311,45 @@ const githubCallbackRoute = Effect.gen(function* () {
   )
 )
 
+const githubManifestRoute = Effect.gen(function* () {
+  const integrations = yield* GitHubIntegrations.GitHubIntegrations
+  const req = yield* HttpServerRequest.HttpServerRequest
+  const webReq = yield* HttpServerRequest.toWeb(req)
+  const url = new URL(webReq.url)
+  const query = decodeGithubCallbackQueryOption(url.searchParams)
+  if (Option.isNone(query)) return badRequest("Missing GitHub manifest state")
+  const { redirectUrl } = yield* integrations.completeAppManifest(
+    query.value.state,
+    query.value.code
+  )
+  return HttpServerResponse.redirect(redirectUrl)
+}).pipe(
+  Effect.catchTags({
+    NotFound: () =>
+      Effect.succeed(
+        HttpServerResponse.text("GitHub App setup expired", { status: 404 })
+      ),
+    Forbidden: () =>
+      Effect.succeed(
+        HttpServerResponse.text("GitHub App setup is not allowed", {
+          status: 403
+        })
+      ),
+    GitHubError: () =>
+      Effect.succeed(
+        HttpServerResponse.text("GitHub App setup failed", { status: 500 })
+      )
+  }),
+  Effect.catchCause((cause) =>
+    Effect.andThen(
+      Effect.logError("github manifest route failure", cause),
+      Effect.succeed(
+        HttpServerResponse.text("GitHub App setup failed", { status: 500 })
+      )
+    )
+  )
+)
+
 export const verifyGithubWebhook = (
   body: string,
   signature: string | null,
@@ -379,6 +418,18 @@ export const readGithubWebhookBody = (
         : new GithubWebhookBodyReadError({ cause })
   })
 
+const decodeGithubWebhookInstallation = Schema.decodeUnknownOption(
+  Schema.fromJsonString(
+    Schema.Struct({
+      installation: Schema.optional(
+        Schema.NullOr(
+          Schema.Struct({ id: Schema.Union([Schema.String, Schema.Finite]) })
+        )
+      )
+    })
+  )
+)
+
 export const githubWebhookRoute = Effect.gen(function* () {
   const webhooks = yield* GitHubWebhooks.GitHubWebhooks
   const req = yield* HttpServerRequest.HttpServerRequest
@@ -391,14 +442,26 @@ export const githubWebhookRoute = Effect.gen(function* () {
       status: 413
     })
   }
-  const secret = yield* Config.Redacted("GITHUB_APP_WEBHOOK_SECRET")
-  const verified = verifyGithubWebhook(
-    body,
-    webReq.headers.get("x-hub-signature-256"),
-    Redacted.value(secret)
+  const apps = yield* GitHubApps.GitHubApps
+  const secrets = yield* apps.webhookSecrets(
+    webReq.headers.get("x-github-hook-installation-target-id")
   )
-  if (!verified) {
+  const signature = webReq.headers.get("x-hub-signature-256")
+  const verifiedApps = secrets.flatMap((app) =>
+    verifyGithubWebhook(body, signature, app.secret) ? [app.githubAppId] : []
+  )
+  if (verifiedApps.length === 0) {
     return HttpServerResponse.text("Invalid signature", { status: 401 })
+  }
+  const installationId = Option.flatMap(
+    decodeGithubWebhookInstallation(body),
+    (payload) => Option.fromNullishOr(payload.installation?.id)
+  )
+  if (Option.isSome(installationId)) {
+    const owner = yield* apps.installationOwner(String(installationId.value))
+    if (owner === null || !verifiedApps.includes(owner)) {
+      return HttpServerResponse.text("ok")
+    }
   }
   const event = webReq.headers.get("x-github-event")
   if (!event) {
@@ -425,6 +488,7 @@ const githubIntegrationRoutes = HttpRouter.addAll(
   [
     HttpRouter.route("GET", "/setup", githubSetupRoute),
     HttpRouter.route("GET", "/callback", githubCallbackRoute),
+    HttpRouter.route("GET", "/manifest", githubManifestRoute),
     HttpRouter.route("POST", "/webhook", githubWebhookRoute)
   ],
   { prefix: "/api/integrations/github" }

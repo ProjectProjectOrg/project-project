@@ -33,6 +33,7 @@ export type ProjectDocument = Readonly<{
   createdBy?: string
   createdAt: Date
   github: GithubConnection | null
+  githubRepos: ReadonlyArray<GithubConnection>
   estimation: EstimationMode
   setup: ProjectSetup
   body: string
@@ -48,6 +49,7 @@ export type ProjectDocumentWrite = Readonly<{
   createdBy: string
   createdAt: Date
   github: GithubConnection | null
+  githubRepos: ReadonlyArray<GithubConnection>
   estimation: EstimationMode
   setup: ProjectSetup
   body: string
@@ -144,6 +146,7 @@ const ProjectFrontmatterOnDisk = Schema.Struct({
   createdBy: Schema.optional(Schema.String),
   createdAt: Schema.DateFromString,
   github: Schema.optionalKey(Schema.NullOr(ProjectDocGithub)),
+  githubRepos: Schema.optionalKey(Schema.Array(ProjectDocGithub)),
   estimation: Schema.optionalKey(EstimationMode),
   setup: ProjectDocSetup.pipe(
     Schema.withDecodingDefaultTypeKey(
@@ -159,6 +162,7 @@ const ProjectFrontmatterOnDisk = Schema.Struct({
 const ProjectFrontmatterValue = Schema.Struct(
   Struct.evolve(ProjectFrontmatterOnDisk.fields, {
     github: () => Schema.NullOr(ProjectDocGithub),
+    githubRepos: () => Schema.Array(ProjectDocGithub),
     estimation: () => EstimationMode
   })
 )
@@ -168,14 +172,22 @@ const ProjectFrontmatter = ProjectFrontmatterOnDisk.pipe(
     Schema.toType(ProjectFrontmatterValue),
     SchemaTransformation.transform({
       decode: (input) =>
-        Object.assign(Struct.omit(input, ["github", "estimation"]), {
-          github: input.github ?? null,
-          estimation: input.estimation ?? "off"
-        }),
+        Object.assign(
+          Struct.omit(input, ["github", "githubRepos", "estimation"]),
+          {
+            github: input.github ?? null,
+            githubRepos:
+              input.githubRepos ?? (input.github ? [input.github] : []),
+            estimation: input.estimation ?? "off"
+          }
+        ),
       encode: (input) =>
         Object.assign(
-          Struct.omit(input, ["github", "estimation"]),
+          Struct.omit(input, ["github", "githubRepos", "estimation"]),
           input.github === null ? {} : { github: input.github },
+          input.githubRepos.length > 1
+            ? { githubRepos: input.githubRepos }
+            : {},
           input.estimation === "off" ? {} : { estimation: input.estimation }
         )
     })

@@ -69,6 +69,8 @@ export type CommandPage =
   | "ticketRemoveRelation"
   | "ticketArchive"
   | "ticketDelete"
+  | "githubRegisterApp"
+  | "githubInstallApp"
   | "ticketBranch"
   | "ticketLinkBranch"
   | "ticketStackBranch"

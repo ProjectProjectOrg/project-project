@@ -35,15 +35,17 @@ function RepoName({ owner, name }: Readonly<{ owner: string; name: string }>) {
 }
 
 export function GithubChip({
-  github
-}: Readonly<{ github: GithubConnection | null }>) {
+  repos
+}: Readonly<{ repos: ReadonlyArray<GithubConnection> }>) {
   const { orgSlug, slug } = useProjectRoute()
   const canManage = useCanManageGithub(orgSlug)
   const warning = useGithubWarning(orgSlug, slug)
 
-  if (!github) {
+  const github = repos[0]
+  if (github === undefined) {
     return canManage ? <ConnectMenu /> : null
   }
+  const more = repos.length - 1
 
   return (
     <DropdownMenu>
@@ -59,24 +61,40 @@ export function GithubChip({
             className={cn(warning && "text-state-warning")}
           >
             <RepoName owner={github.repoOwner} name={github.repoName} />
+            {more > 0 ? (
+              <span className="shrink-0 text-muted-foreground tabular-nums">
+                {m.github_chip_more_repos({ count: more })}
+              </span>
+            ) : null}
           </Button>
         }
       />
-      <DropdownMenuContent align="end" sideOffset={6} className="w-60">
+      <DropdownMenuContent
+        align="end"
+        sideOffset={6}
+        className={more > 0 ? "w-72" : "w-60"}
+      >
         {warning ? (
           <>
             <MenuNote tone="error">{warning}</MenuNote>
             <DropdownMenuSeparator />
           </>
         ) : null}
-        <DropdownMenuItem
-          render={
-            <a href={repoUrl(github)} target="_blank" rel="noreferrer">
-              <ExternalLink strokeWidth={1.75} />
-              {m.github_chip_open_on_github()}
-            </a>
-          }
-        />
+        {repos.map((repo) => (
+          <DropdownMenuItem
+            key={repo.repoId}
+            render={
+              <a href={repoUrl(repo)} target="_blank" rel="noreferrer">
+                <ExternalLink />
+                {more > 0 ? (
+                  <RepoName owner={repo.repoOwner} name={repo.repoName} />
+                ) : (
+                  m.github_chip_open_on_github()
+                )}
+              </a>
+            }
+          />
+        ))}
         {canManage ? (
           <DropdownMenuItem
             render={
@@ -84,7 +102,7 @@ export function GithubChip({
                 to="/orgs/$orgSlug/projects/$slug/settings/integrations"
                 params={{ orgSlug, slug }}
               >
-                <Settings2 strokeWidth={1.75} />
+                <Settings2 />
                 {m.github_chip_repository_settings()}
               </Link>
             }

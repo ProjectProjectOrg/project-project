@@ -49,7 +49,14 @@ export function useIntegrationCommands(
       key: "github",
       name: m.project_settings_github_heading(),
       icon: GitBranch,
-      keywords: ["git", "repository", "repo", "pull request"],
+      keywords: [
+        "git",
+        "repository",
+        "repo",
+        "pull request",
+        "app registration",
+        "installation"
+      ],
       allowed: canManageGithub,
       state: github
     },
@@ -117,7 +124,12 @@ export function useIntegrationCommands(
               keywords: provider.keywords,
               parent: m.chrome_command_menu_settings_parent_project,
               to: `/orgs/${orgSlug}/projects/${projectSlug ?? ""}/settings/integrations`,
-              allowed: projectSlug !== null && context.canManageProject
+              allowed:
+                projectSlug !== null &&
+                (provider.key === "github"
+                  ? context.projectActor?.call("projects", "connectGithub") ===
+                    true
+                  : context.canManageProject)
             }
           ]
         : []

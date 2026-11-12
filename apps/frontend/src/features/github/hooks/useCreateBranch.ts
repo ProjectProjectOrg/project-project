@@ -16,18 +16,19 @@ export type CreateBranchInput = Readonly<{
   name: string
   base: string
   status: TicketStatus
+  repoId?: string | undefined
 }>
 
 export function useCreateBranch(ticket: Pick<TicketDetail, "id" | "status">) {
   const { orgSlug, slug } = useProjectRoute()
   const registry = useContext(RegistryContext)
   const setAttempt = useAtomSet(branchAttempt(ticket.id))
-  return async ({ name, base, status }: CreateBranchInput) => {
+  return async ({ name, base, status, repoId }: CreateBranchInput) => {
     setAttempt({ action: "create", name })
     const result = await fireMutation(
       registry,
       createBranch({ req: projectRequest(orgSlug, slug), id: ticket.id }),
-      { name, baseBranch: base }
+      { name, baseBranch: base, repoId }
     )
     if (AsyncResult.isSuccess(result) && status !== ticket.status) {
       registry.set(

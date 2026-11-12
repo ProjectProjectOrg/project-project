@@ -68,6 +68,8 @@ const baseMatch = (
   slug: "p",
   ticketId: "T-1",
   branch: "feat/T-1",
+  repoId: "456",
+  isDefault: true,
   ...overrides
 })
 
@@ -332,6 +334,31 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
   )
 
   it.effect(
+    "ignores a stale webhook after a same-named branch moves to another repository",
+    () =>
+      Effect.gen(function* () {
+        const original = baseDocument({ repo: "new-repo" })
+        const docs = makeFakeDocs([original])
+        const index = makeFakeIndex()
+        yield* GitHubTicketEvents.applyPullRequestWebhookToTicket(
+          {
+            ticketDocs: docs.shape,
+            ticketIndex: index.shape,
+            ticketBranchIndex: index.shape,
+            ticketDocumentLock: yield* TicketDocumentLock.TicketDocumentLock,
+            gitAutomation: gitAutomationTestService()
+          },
+          baseMatch(),
+          openChange,
+          "stale-repository"
+        )
+        expect(docs.documents.get("T-1")).toEqual(original)
+        expect(docs.writes).toEqual([])
+        expect(index.upserts).toEqual([])
+      })
+  )
+
+  it.effect(
     "applyPullRequestWebhookToTicket skips when markdown is malformed",
     () =>
       Effect.gen(function* () {
@@ -469,12 +496,13 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
   )
 
   it.effect(
-    "moveForDeletedBranch moves only tickets still on the deleted branch",
+    "moveForDeletedBranch checks the current branch and repository",
     () =>
       Effect.gen(function* () {
         const docs = makeFakeDocs([
           baseDocument(),
-          baseDocument({ id: ticketId("T-2"), branch: "feat/T-2" })
+          baseDocument({ id: ticketId("T-2"), branch: "feat/T-2" }),
+          baseDocument({ id: ticketId("T-4"), repo: "other-repo" })
         ])
         const deps = {
           ticketDocs: docs.shape,
@@ -494,7 +522,8 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
           [
             baseMatch(),
             baseMatch({ ticketId: "T-2" }),
-            baseMatch({ ticketId: "T-3" })
+            baseMatch({ ticketId: "T-3" }),
+            baseMatch({ ticketId: "T-4" })
           ],
           (match) => moveForDeletedBranch(deps, match)
         )
@@ -518,7 +547,8 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
   const linkPullRequest = (
     documents: ReadonlyArray<TicketDocs.TicketDocument>,
     change: Partial<GitHubPullRequestWebhookChange>,
-    indexOverrides: Partial<FakeIndexShape> = {}
+    indexOverrides: Partial<FakeIndexShape> = {},
+    isDefaultRepository = true
   ) =>
     Effect.gen(function* () {
       const docs = makeFakeDocs(documents)
@@ -537,7 +567,8 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
         },
         project,
         { ...openChange, branch: "fix-login", title: "Fix login", ...change },
-        "delivery-1"
+        "delivery-1",
+        isDefaultRepository
       )
       return docs
     })
@@ -744,6 +775,63 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
       })
     )
   }
+
+  it.effect("records the repository of a newly linked pull request", () =>
+    Effect.gen(function* () {
+      const docs = yield* linkPullRequest([unlinked()], {
+        branch: "feat/T-1-login",
+        repositoryId: "repo-b"
+      })
+
+      expect(docs.writes[0]?.document).toMatchObject({
+        repo: "repo-b",
+        branch: "feat/T-1-login",
+        pr: 80
+      })
+    })
+  )
+
+  for (const { name, document, isDefaultRepository } of [
+    {
+      name: "a ticket whose branch lives in another repository",
+      document: baseDocument({ repo: "repo-a" }),
+      isDefaultRepository: true
+    },
+    {
+      name: "a ticket in the default repository when it comes from another one",
+      document: baseDocument(),
+      isDefaultRepository: false
+    }
+  ]) {
+    it.effect(`doesn't stack a pull request onto ${name}`, () =>
+      Effect.gen(function* () {
+        const docs = yield* linkPullRequest(
+          [document],
+          { branch: "feat/T-1-ui", repositoryId: "repo-b" },
+          {},
+          isDefaultRepository
+        )
+
+        expect(docs.writes).toEqual([])
+      })
+    )
+  }
+
+  it.effect("stacks a pull request from the ticket's own repository", () =>
+    Effect.gen(function* () {
+      const docs = yield* linkPullRequest(
+        [baseDocument({ repo: "repo-b" })],
+        { branch: "feat/T-1-ui", repositoryId: "repo-b" },
+        {},
+        false
+      )
+
+      expect(docs.writes[0]?.document.stack?.at(-1)).toMatchObject({
+        branch: "feat/T-1-ui",
+        pr: 80
+      })
+    })
+  )
 
   const stackedMatch = baseMatch({ branch: "feat/T-1-ui" })
   const stackedChange: GitHubPullRequestWebhookChange = {
@@ -989,7 +1077,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
               }))
           ])
         const index = makeFakeIndex({
-          findMergesAwaiting: (_projectId, base) =>
+          findMergesAwaiting: (_projectId, _repository, base) =>
             Effect.sync(() => awaiting(base))
         })
 
@@ -1002,6 +1090,7 @@ layer(TicketDocumentLock.layer)("pull request webhooks", (it) => {
             gitAutomation: gitAutomationTestService()
           },
           "project-1",
+          { repoId: "repo-1", isDefault: true },
           "feat/base",
           "delivery-1",
           DateTime.toDate(DateTime.makeUnsafe("2026-05-01T12:00:00Z")),

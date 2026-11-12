@@ -30,9 +30,13 @@ import {
   GithubRepoPage,
   Project,
   ProjectDetail,
+  ProjectGithubInstallation,
   Slug,
+  StartGithubAppManifestInput,
+  StartGithubAppManifestResponse,
   StartGithubInstallInput,
   StartGithubInstallResponse,
+  UpdateGithubInstallationInput,
   UpdateMemberInput,
   UpdateProjectInput,
   UpdateProjectSetupInput
@@ -126,6 +130,66 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
   )
   .add(
     HttpApiEndpoint.post(
+      "startGithubAppManifest",
+      "/orgs/:orgSlug/integrations/github/apps/manifest",
+      {
+        params: OrgPath,
+        payload: StartGithubAppManifestInput,
+        success: StartGithubAppManifestResponse,
+        error: [Unauthorized, NotFound, Forbidden, GitHubError]
+      }
+    )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "deleteGithubApp",
+      "/orgs/:orgSlug/integrations/github/apps/:appId",
+      {
+        params: Schema.Struct({ ...OrgPath.fields, appId: Schema.String }),
+        success: GithubOrgIntegrationStatus,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
+  )
+  .add(
+    HttpApiEndpoint.patch(
+      "updateGithubInstallation",
+      "/orgs/:orgSlug/integrations/github/installations/:installationId",
+      {
+        params: Schema.Struct({
+          ...OrgPath.fields,
+          installationId: Schema.String
+        }),
+        payload: UpdateGithubInstallationInput,
+        success: GithubOrgIntegrationStatus,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
+  )
+  .add(
+    HttpApiEndpoint.delete(
+      "deleteGithubInstallation",
+      "/orgs/:orgSlug/integrations/github/installations/:installationId",
+      {
+        params: Schema.Struct({
+          ...OrgPath.fields,
+          installationId: Schema.String
+        }),
+        success: GithubOrgIntegrationStatus,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresOrg, { integration: ["manage"] })
+      .middleware(OrgAccess)
+  )
+  .add(
+    HttpApiEndpoint.post(
       "startGithubInstall",
       "/orgs/:orgSlug/integrations/github/install/start",
       {
@@ -179,7 +243,8 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
               Schema.check(Schema.isInt()),
               Schema.check(Schema.isGreaterThan(0))
             )
-          )
+          ),
+          installationId: Schema.optional(Schema.String)
         }),
         success: GithubRepoPage,
         error: [
@@ -287,9 +352,12 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
   .add(
     HttpApiEndpoint.delete(
       "disconnectGithub",
-      "/orgs/:orgSlug/projects/:slug/github",
+      "/orgs/:orgSlug/projects/:slug/github/:repoId",
       {
-        params: ProjectPath,
+        params: Schema.Struct({
+          ...ProjectPath.fields,
+          repoId: Schema.String
+        }),
         success: ProjectDetail,
         error: [Unauthorized, NotFound, Forbidden]
       }
@@ -319,7 +387,8 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
         query: Schema.Struct({
           q: Schema.optional(Schema.String),
           first: Schema.optional(Schema.FiniteFromString),
-          after: Schema.optional(Schema.String)
+          after: Schema.optional(Schema.String),
+          repoId: Schema.optional(Schema.String)
         }),
         success: BranchListResponse,
         error: [
@@ -339,6 +408,19 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
   )
   .add(
     HttpApiEndpoint.get(
+      "listGithubInstallations",
+      "/orgs/:orgSlug/projects/:slug/github/installations",
+      {
+        params: ProjectPath,
+        success: Schema.Array(ProjectGithubInstallation),
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { github: ["write"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
       "listGithubRepos",
       "/orgs/:orgSlug/projects/:slug/github/repos",
       {
@@ -350,7 +432,8 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
               Schema.check(Schema.isInt()),
               Schema.check(Schema.isGreaterThan(0))
             )
-          )
+          ),
+          installationId: Schema.optional(Schema.String)
         }),
         success: GithubRepoPage,
         error: [

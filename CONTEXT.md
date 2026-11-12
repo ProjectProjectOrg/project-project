@@ -88,8 +88,17 @@ _Avoid_: "sprint order", "backlog order" (there is only one order)
 
 ### Git
 
+**GitHub App**:
+A GitHub App an organization registered from its settings. Its credentials are stored encrypted, and an organization can have several.
+
+**Installation**:
+One GitHub App installed on one GitHub account. It grants access to that account's repositories, and org admins choose which projects may use it.
+
+**Connected repository**:
+A GitHub repository a project is connected to through an installation. A project can connect several; the first is its **default repository**. A repository is connected to at most one project per organization.
+
 **Linked branch**:
-A branch recorded on a ticket, with its base, PR number, PR state and whether it has **landed** (merged into the default branch).
+A branch recorded on a ticket, with its base, PR number, PR state and whether it has **landed** (merged into the default branch). A ticket's branches all live in one connected repository.
 
 **Stack** / **stack layer**:
 A chain of branches where each one's base is the branch before it. Each branch in the chain is a layer; a ticket's own branch is the bottom layer.

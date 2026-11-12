@@ -17,6 +17,7 @@ import {
   isoDate,
   ticketStatus,
   githubIntegration,
+  secondGithubIntegration,
   makeTicketDocument,
   makeFakeTicketDocs,
   makeFakeProjects,
@@ -903,7 +904,9 @@ it.effect("manual unlink waits for a webhook write and remains unlinked", () =>
             organizationId: "org-1",
             projectId: "project-1",
             ticketId: "T-1",
-            branch: "feat/T-1"
+            branch: "feat/T-1",
+            repoId: "repo-1",
+            isDefault: true
           },
           {
             installationId: "123",
@@ -1271,7 +1274,7 @@ it.effect(
                   : null
               }))
             ),
-          markBranchStale: (_projectId, branch) =>
+          markBranchStale: (_projectId, _repository, branch) =>
             Effect.sync(() =>
               [...docs.documents.values()].flatMap((document) => {
                 if (document.branch !== branch || stale.has(document.id)) {
@@ -1710,6 +1713,319 @@ it.effect(
         lastTransitionedPr: 41,
         status: ticketStatus("done")
       })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+const twoRepositories = makeFakeProjectGithub({
+  integrations: () =>
+    Effect.succeed([githubIntegration, secondGithubIntegration])
+})
+
+it.effect("createBranch creates the branch in the repository asked for", () => {
+  const docs = makeFakeTicketDocs(["T-1", "T-2"])
+  const created: Array<string> = []
+  const layer = makeTicketsLayer("T", docs.layer, {
+    projects: makeFakeProjects("T"),
+    projectGithub: twoRepositories,
+    github: makeFakeGitHub({
+      createBranchAsUser: (owner, repo, branch) =>
+        Effect.sync(() => {
+          created.push(`${owner}/${repo}:${branch}`)
+          return { name: branch, sha: "sha-1" }
+        })
+    }),
+    ticketIndex: makeFakeTicketIndex(docs.documents)
+  })
+
+  return Effect.gen(function* () {
+    const git = yield* TicketGit.TicketGit
+    const second = yield* git.createBranch("T-1", {
+      name: "feat/T-1",
+      repoId: "repo-2"
+    })
+    const fallback = yield* git.createBranch("T-2", { name: "feat/T-2" })
+    const unknown = yield* Effect.flip(
+      git.createBranch("T-2", { name: "feat/T-2-b", repoId: "repo-9" })
+    )
+
+    expect(created).toEqual(["acme/api:feat/T-1", "acme/app:feat/T-2"])
+    expect(second.repoId).toBe("repo-2")
+    expect(docs.documents.get("T-1")?.repo).toBe("repo-2")
+    expect(fallback.repoId).toBe("repo-1")
+    expect(unknown).toMatchObject({
+      _tag: "Conflict",
+      reason: "no_github_connection"
+    })
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect.each(["createBranch", "attachBranch"] as const)(
+  "%s requires an explicit repository when the ticket repository is disconnected",
+  (operation) => {
+    const docs = makeFakeTicketDocs([])
+    const original = makeTicketDocument("T-1", {
+      repo: "repo-gone",
+      branch: "feat/T-1-old",
+      stack: [{ branch: "feat/T-1-ui", base: "feat/T-1-old" }]
+    })
+    docs.documents.set("T-1", original)
+    const requested: Array<string> = []
+    const layer = makeTicketsLayer("T", docs.layer, {
+      projects: makeFakeProjects("T"),
+      projectGithub: makeFakeProjectGithub({
+        integrations: () => Effect.succeed([githubIntegration])
+      }),
+      github: makeFakeGitHub({
+        createBranchAsUser: (owner, repo, branch) =>
+          Effect.sync(() => {
+            requested.push(`${owner}/${repo}`)
+            return { name: branch, sha: "sha-1" }
+          }),
+        branchExistsInstallation: (_installation, owner, repo) =>
+          Effect.sync(() => {
+            requested.push(`${owner}/${repo}`)
+            return true
+          })
+      }),
+      ticketIndex: makeFakeTicketIndex(docs.documents)
+    })
+    return Effect.gen(function* () {
+      const git = yield* TicketGit.TicketGit
+      const error =
+        operation === "createBranch"
+          ? yield* Effect.flip(
+              git.createBranch("T-1", { name: "feat/T-1-new" })
+            )
+          : yield* Effect.flip(
+              git.attachBranch("T-1", { name: "feat/T-1-new" })
+            )
+      expect(error).toMatchObject({
+        _tag: "Conflict",
+        reason: "no_github_connection"
+      })
+      expect(requested).toEqual([])
+      expect(docs.documents.get("T-1")).toEqual(original)
+      yield* git[operation]("T-1", { name: "feat/T-1-new", repoId: "repo-1" })
+      expect(requested).toEqual(["acme/app"])
+      expect(docs.documents.get("T-1")?.repo).toBe("repo-1")
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "createBranch drops the stack when the ticket moves to another repository",
+  () => {
+    const docs = makeFakeTicketDocs([])
+    docs.documents.set(
+      "T-1",
+      makeTicketDocument("T-1", {
+        repo: "repo-1",
+        branch: "feat/T-1",
+        stack: [{ branch: "feat/T-1-ui", base: "feat/T-1" }]
+      })
+    )
+    const layer = makeTicketsLayer("T", docs.layer, {
+      projects: makeFakeProjects("T"),
+      projectGithub: twoRepositories,
+      github: makeFakeGitHub({
+        createBranchAsUser: (_owner, _repo, branch) =>
+          Effect.succeed({ name: branch, sha: "sha-1" })
+      }),
+      ticketIndex: makeFakeTicketIndex(docs.documents)
+    })
+
+    return Effect.gen(function* () {
+      const git = yield* TicketGit.TicketGit
+      yield* git.createBranch("T-1", { name: "feat/T-1-api", repoId: "repo-2" })
+
+      expect(docs.documents.get("T-1")).toMatchObject({
+        repo: "repo-2",
+        branch: "feat/T-1-api"
+      })
+      expect(docs.documents.get("T-1")?.stack ?? []).toEqual([])
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "listGitStates reads each ticket's state from its own repository",
+  () => {
+    const docs = makeFakeTicketDocs(["T-4"])
+    docs.documents.set("T-1", makeTicketDocument("T-1", { branch: "feat/one" }))
+    docs.documents.set(
+      "T-2",
+      makeTicketDocument("T-2", { branch: "feat/two", repo: "repo-2" })
+    )
+    const orphan = makeTicketDocument("T-3", {
+      branch: "feat/three",
+      repo: "repo-gone",
+      pr: 7,
+      prState: "open"
+    })
+    docs.documents.set("T-3", orphan)
+    const fetched: Array<readonly [string, ReadonlyArray<string>]> = []
+    const stale: Array<string> = []
+    const layer = makeTicketsLayer("T", docs.layer, {
+      projects: makeFakeProjects("T"),
+      projectGithub: twoRepositories,
+      ticketIndex: makeFakeTicketIndex(docs.documents, {
+        markBranchStale: (_projectId, repository, branch) =>
+          Effect.sync(() => {
+            stale.push(`${repository.repoId}:${branch}`)
+            return []
+          })
+      }),
+      github: makeFakeGitHub({
+        fetchInstallationProjectStates: (
+          _installation,
+          _owner,
+          repo,
+          branches
+        ) => {
+          fetched.push([repo, [...branches]])
+          return Effect.succeed({
+            defaultBranch: "main",
+            openPullRequestText: new Map(),
+            mergedPrsByBranch: new Map(),
+            fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+            existingBranches: new Set(
+              repo === "api" ? ["feat/two"] : ["feat/one"]
+            ),
+            prByBranch: new Map(
+              repo === "api"
+                ? [
+                    [
+                      "feat/two",
+                      {
+                        headRefName: "feat/two",
+                        baseRefName: "main",
+                        state: "open" as const,
+                        draft: false,
+                        number: 42,
+                        url: "https://github.com/acme/api/pull/42",
+                        title: "Two",
+                        mergedAt: null,
+                        checks: "passing" as const
+                      }
+                    ]
+                  ]
+                : []
+            )
+          })
+        }
+      })
+    })
+
+    return Effect.gen(function* () {
+      const git = yield* TicketGit.TicketGit
+      const result = yield* git.listGitStates()
+
+      expect(fetched).toEqual([
+        ["app", ["feat/one"]],
+        ["api", ["feat/two"]]
+      ])
+      expect(result.repoStatus).toBe("ok")
+      expect(result.states["T-1"]).toMatchObject({
+        tag: "branch_no_pr",
+        name: "feat/one"
+      })
+      expect(result.states["T-2"]).toMatchObject({
+        tag: "pr_open",
+        number: 42,
+        url: "https://github.com/acme/api/pull/42"
+      })
+      expect(docs.documents.get("T-2")).toMatchObject({
+        repo: "repo-2",
+        pr: 42,
+        prState: "open"
+      })
+      expect(result.states["T-3"]).toMatchObject({
+        tag: "pr_pending",
+        branch: "feat/three",
+        number: 7
+      })
+      expect(docs.documents.get("T-3")).toEqual(orphan)
+      expect(stale).toEqual([])
+      expect(result.states["T-4"]).toMatchObject({ tag: "no_branch" })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "listGitStates records the repository where it finds a ticket's branch",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    const layer = makeTicketsLayer("T", docs.layer, {
+      projects: makeFakeProjects("T"),
+      projectGithub: twoRepositories,
+      ticketIndex: makeFakeTicketIndex(docs.documents),
+      github: makeFakeGitHub({
+        fetchInstallationProjectStates: (_installation, _owner, repo) =>
+          Effect.succeed({
+            defaultBranch: "main",
+            openPullRequestText: new Map(),
+            mergedPrsByBranch: new Map(),
+            fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+            existingBranches: new Set(
+              repo === "api" ? ["feat/T-1-external"] : []
+            ),
+            prByBranch: new Map()
+          })
+      })
+    })
+
+    return Effect.gen(function* () {
+      const git = yield* TicketGit.TicketGit
+      const result = yield* git.listGitStates()
+
+      expect(docs.documents.get("T-1")).toMatchObject({
+        repo: "repo-2",
+        branch: "feat/T-1-external"
+      })
+      expect(result.states["T-1"]).toMatchObject({
+        tag: "branch_no_pr",
+        name: "feat/T-1-external"
+      })
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "branch discovery keeps ambiguous references to tickets in other repositories",
+  () => {
+    const docs = makeFakeTicketDocs(["T-1"])
+    docs.documents.set(
+      "T-2",
+      makeTicketDocument("T-2", { branch: "feat/T-2", repo: "repo-1" })
+    )
+    const layer = makeTicketsLayer("T", docs.layer, {
+      projects: makeFakeProjects("T"),
+      projectGithub: twoRepositories,
+      ticketIndex: makeFakeTicketIndex(docs.documents),
+      github: makeFakeGitHub({
+        fetchInstallationProjectStates: (_installation, _owner, repo) =>
+          Effect.succeed({
+            defaultBranch: "main",
+            fetchedAt: isoDate("2026-04-01T00:00:00Z"),
+            existingBranches: new Set(
+              repo === "api" ? ["checkout"] : ["feat/T-2"]
+            ),
+            openPullRequestText: new Map(
+              repo === "api"
+                ? [["checkout", { title: "T-1 T-2", body: "" }]]
+                : []
+            ),
+            prByBranch: new Map(),
+            mergedPrsByBranch: new Map()
+          })
+      })
+    })
+    return Effect.gen(function* () {
+      const git = yield* TicketGit.TicketGit
+      yield* git.listGitStates()
+      expect(docs.documents.get("T-1")?.branch).toBeNull()
+      expect(docs.documents.get("T-2")?.repo).toBe("repo-1")
     }).pipe(Effect.provide(layer))
   }
 )

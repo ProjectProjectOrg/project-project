@@ -49,10 +49,14 @@ type ProjectIndexRow = typeof projectIndex.$inferSelect
 
 export const presentDetail = (
   scope: ProjectScope["Service"],
-  detail: Omit<ProjectDetail, "permissions">
+  detail: Omit<ProjectDetail, "permissions" | "github" | "githubRepos"> &
+    Readonly<{ github: ReadonlyArray<GithubConnection> }>
 ): ProjectDetail => ({
   ...detail,
-  github: scope.permissions.can({ github: ["read"] }) ? detail.github : null,
+  github: scope.permissions.can({ github: ["read"] })
+    ? (detail.github[0] ?? null)
+    : null,
+  githubRepos: scope.permissions.can({ github: ["read"] }) ? detail.github : [],
   pendingMembers: scope.permissions.can({ members: ["manage"] })
     ? detail.pendingMembers
     : [],
@@ -90,12 +94,12 @@ export class ProjectDetails extends Context.Service<
     pendingMembers: (
       projectId: string
     ) => Effect.Effect<ReadonlyArray<PendingProjectMember>>
-    githubIntegration: (
+    githubIntegrations: (
       projectId: string
-    ) => Effect.Effect<ProjectGithub.ProjectGithubIntegration | null>
+    ) => Effect.Effect<ReadonlyArray<ProjectGithub.ProjectGithubIntegration>>
     githubConnection: (
       indexRow: ProjectIndexRow
-    ) => Effect.Effect<GithubConnection | null>
+    ) => Effect.Effect<ReadonlyArray<GithubConnection>>
     writeFrontmatter: (
       orgSlug: string,
       slug: string,
@@ -106,7 +110,7 @@ export class ProjectDetails extends Context.Service<
       createdAt: Date,
       key: ProjectKey,
       body: string,
-      connection: GithubConnection | null,
+      connection: ReadonlyArray<GithubConnection>,
       setup: ProjectSetup,
       estimation: EstimationMode
     ) => Effect.Effect<void, Markdown.MarkdownError>
@@ -224,7 +228,7 @@ const make = Effect.gen(function* () {
     }
   )
 
-  const loadGithubIntegration = Effect.fn("ProjectDetails.githubIntegration")(
+  const loadGithubIntegrations = Effect.fn("ProjectDetails.githubIntegrations")(
     function* (projectId: string) {
       return yield* db
         .select({
@@ -273,9 +277,14 @@ const make = Effect.gen(function* () {
             eq(organizationIntegration.status, "active")
           )
         )
-        .limit(1)
+        .orderBy(
+          asc(projectIntegrationLink.connectedAt),
+          asc(projectIntegrationLink.id)
+        )
         .pipe(
-          Effect.map((rows) => rows[0] ?? null),
+          Effect.map((rows) =>
+            rows.map((row, position) => ({ ...row, isDefault: position === 0 }))
+          ),
           Effect.orDie
         )
     }
@@ -283,16 +292,14 @@ const make = Effect.gen(function* () {
 
   const loadGithubConnection = Effect.fn("ProjectDetails.githubConnection")(
     function* (indexRow: typeof projectIndex.$inferSelect) {
-      return yield* loadGithubIntegration(indexRow.id).pipe(
-        Effect.map((row) =>
-          row === null
-            ? null
-            : {
-                repoId: row.repoId,
-                repoOwner: row.repoOwner,
-                repoName: row.repoName,
-                defaultBaseBranch: row.defaultBaseBranch
-              }
+      return yield* loadGithubIntegrations(indexRow.id).pipe(
+        Effect.map((rows) =>
+          rows.map((row) => ({
+            repoId: row.repoId,
+            repoOwner: row.repoOwner,
+            repoName: row.repoName,
+            defaultBaseBranch: row.defaultBaseBranch
+          }))
         )
       )
     }
@@ -309,7 +316,7 @@ const make = Effect.gen(function* () {
       createdAt: Date,
       key: ProjectKey,
       body: string,
-      connection: GithubConnection | null,
+      connection: ReadonlyArray<GithubConnection>,
       setup: ProjectSetup,
       estimation: EstimationMode
     ) {
@@ -322,7 +329,8 @@ const make = Effect.gen(function* () {
         color,
         createdBy,
         createdAt,
-        github: connection,
+        github: connection[0] ?? null,
+        githubRepos: connection,
         estimation,
         setup,
         body
@@ -387,7 +395,7 @@ const make = Effect.gen(function* () {
     current: inScope,
     members: loadMembers,
     pendingMembers: loadPendingMembers,
-    githubIntegration: loadGithubIntegration,
+    githubIntegrations: loadGithubIntegrations,
     githubConnection: loadGithubConnection,
     writeFrontmatter: syncFrontmatter,
     replay: replayDetail

@@ -9,6 +9,7 @@ import type * as TicketIndex from "../tickets/TicketIndex"
 import type { TicketProject } from "../tickets/ticketProject"
 import { gitAutomationEvent, planGitAutomation } from "./automation"
 import type * as ProjectGitAutomation from "./ProjectGitAutomation"
+import type { BranchRepository } from "./TicketBranchIndex"
 
 export type GitAutomationDeps = Readonly<{
   ticketDocs: TicketDocs.TicketDocs["Service"]
@@ -58,7 +59,7 @@ export const moveForDeletedBranch = (
         "withTicketDocumentLock"
       >
     }>,
-  match: TicketIndex.TicketIndexMatch
+  match: TicketIndex.TicketIndexMatch & BranchRepository
 ): Effect.Effect<void, Markdown.MarkdownError> =>
   deps.ticketDocumentLock.withTicketDocumentLock(
     match.orgSlug,
@@ -70,7 +71,12 @@ export const moveForDeletedBranch = (
           deps,
           match,
           ticket,
-          ticket.branch === match.branch ? "branch_deleted" : null
+          ticket.branch === match.branch &&
+            (ticket.repo === undefined
+              ? match.isDefault
+              : ticket.repo === match.repoId)
+            ? "branch_deleted"
+            : null
         )
       ),
       Effect.asVoid,

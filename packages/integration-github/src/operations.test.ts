@@ -5,7 +5,9 @@ import * as Schema from "effect/Schema"
 import { Octokit } from "octokit"
 import { beforeEach, describe, expect, vi } from "vitest"
 
+import type { GitHubAppAuth } from "./appAuth"
 import * as GitHub from "./GitHub"
+import * as GitHubApps from "./GitHubApps"
 import { GitHubHost } from "./Host"
 import * as ProjectStateCache from "./projectStateCache"
 import * as GitHubRequest from "./request"
@@ -23,10 +25,6 @@ const { authenticate, fetch } = vi.hoisted(() => ({
       }) => Promise<{ token: string }>
     >(),
   fetch: vi.fn<typeof globalThis.fetch>()
-}))
-
-vi.mock("./appAuth", () => ({
-  appAuth: () => Effect.succeed(authenticate)
 }))
 
 vi.mock("./clients", () => ({
@@ -47,6 +45,11 @@ const layer = GitHub.layer.pipe(
   Layer.provide(
     Layer.mergeAll(
       Layer.mock(GitHubHost, fakeHost),
+      Layer.mock(GitHubApps.GitHubApps, {
+        auth: () => Effect.succeed(authenticate as unknown as GitHubAppAuth),
+        authForInstallation: () =>
+          Effect.succeed(authenticate as unknown as GitHubAppAuth)
+      }),
       GitHubRequest.layer,
       ProjectStateCache.layer
     )
@@ -78,7 +81,7 @@ beforeEach(() => {
 
 describe("GitHub installation authentication", () => {
   it.effect(
-    "shares the app budget without blocking installation requests",
+    "shares each app budget without blocking other apps or installations",
     () =>
       Effect.gen(function* () {
         const appLimited = json({ message: "API rate limit exceeded" }, 429)
@@ -91,18 +94,33 @@ describe("GitHub installation authentication", () => {
         })
         fetch
           .mockResolvedValueOnce(appLimited)
+          .mockResolvedValueOnce(
+            json({
+              id: 789,
+              account: { id: 9, login: "other", type: "Organization" }
+            })
+          )
           .mockResolvedValueOnce(installationResponse)
         const github = yield* GitHub.GitHub
 
         const firstAppCall = yield* github
-          .getInstallationAccount("123")
+          .getInstallationAccount("app", "123")
           .pipe(Effect.flip)
         expect(firstAppCall._tag).toBe("RateLimited")
 
         const secondAppCall = yield* github
-          .getInstallationAccount("456")
+          .getInstallationAccount("app", "456")
           .pipe(Effect.flip)
         expect(secondAppCall._tag).toBe("RateLimited")
+
+        const otherAppCall = yield* github.getInstallationAccount(
+          "other-app",
+          "789"
+        )
+        expect(otherAppCall).toMatchObject({
+          installationId: "789",
+          accountLogin: "other"
+        })
 
         const installationCall = yield* github.verifyInstallationRepo(
           "123",
@@ -110,7 +128,7 @@ describe("GitHub installation authentication", () => {
           "app"
         )
         expect(installationCall.repoId).toBe("1")
-        expect(fetch).toHaveBeenCalledTimes(2)
+        expect(fetch).toHaveBeenCalledTimes(3)
       }).pipe(Effect.provide(layer))
   )
 
