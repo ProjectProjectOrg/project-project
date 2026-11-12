@@ -320,7 +320,7 @@ function PullRequestChip({
           {needsAttention(checks) && (
             <PreviewCallout
               icon={CHECKS[checks].icon}
-              tone={CHECKS[checks].tone}
+              tone={cn(CHECKS[checks].tone, CHECKS[checks].motion)}
               label={capitalize(CHECKS[checks].label())}
             />
           )}
