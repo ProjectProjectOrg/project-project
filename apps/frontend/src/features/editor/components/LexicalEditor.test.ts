@@ -307,7 +307,7 @@ describe("createCoalescedSaveQueue", () => {
     await queue.flush()
 
     expect(onError).toHaveBeenCalledOnce()
-    expect(onStatus).toHaveBeenLastCalledWith("dirty")
+    expect(onStatus).toHaveBeenLastCalledWith("failed")
     expect(schedule).not.toHaveBeenCalled()
 
     await queue.flush()

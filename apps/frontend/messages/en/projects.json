@@ -554,6 +554,7 @@
   "editor_paper_open": "Open in Paper",
   "editor_paper_remove": "Remove",
   "editor_placeholder": "Write a description in markdown…",
+  "editor_save_failed": "Couldn't save. Edit to try again.",
   "editor_submit_hint": "Enter to send, Shift+Enter for a new line",
   "editor_slash_basic_bullet_list": "Bulleted list",
   "editor_slash_basic_checklist": "Checklist",
