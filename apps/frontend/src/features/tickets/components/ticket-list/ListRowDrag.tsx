@@ -106,9 +106,10 @@ export function useSectionDrop(
   useLayoutEffect(() => {
     latest.current = options
   })
-  const { ordered, canRegroup } = options
-  const key = options.target?.key
-  const active = key !== undefined && (ordered || canRegroup)
+  const { ordered, canRegroup, target } = options
+  const key = target?.key
+  const completed = target?.grouping === "sprint" && target.completed
+  const active = key !== undefined && !completed && (ordered || canRegroup)
 
   useEffect(() => {
     const element = ref.current

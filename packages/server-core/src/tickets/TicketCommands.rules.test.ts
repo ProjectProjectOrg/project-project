@@ -1048,9 +1048,29 @@ it.effect(
     )
     return Effect.gen(function* () {
       const tickets = yield* TicketCommands.TicketCommands
-      yield* tickets.update("T-1", { sprint: null })
+      yield* tickets
+        .update("T-1", { sprint: null })
+        .pipe(as(scopeAs("member", "pm", "user-1")))
 
       expect(removed).toEqual([["G-1", ["T-1"]]])
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "update refuses to take a ticket out of its sprint before writing it, without permission to remove sprint tickets",
+  () => {
+    const { docs, layer } = makeRulesFixture([makeTicketDocument("T-1")], {
+      list: () => Effect.succeed([inSprint(["T-1"])])
+    })
+    return Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      const error = yield* tickets
+        .update("T-1", { status: ticketStatus("done"), sprint: null })
+        .pipe(as(transitionOnly), Effect.flip)
+
+      expect(error._tag).toBe("Forbidden")
+      expect(docs.documents.get("T-1")?.status).toBe("todo")
     }).pipe(Effect.provide(layer))
   }
 )

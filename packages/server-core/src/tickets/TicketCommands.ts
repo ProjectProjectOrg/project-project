@@ -851,6 +851,16 @@ const make = Effect.gen(function* () {
       ],
       { concurrency: 3, discard: true }
     )
+    if (
+      sprint !== undefined &&
+      openSprintIdsOf(yield* groups.list(), id).some(
+        (sprintId) => sprintId !== sprint
+      )
+    ) {
+      yield* requirePolicy((scope) =>
+        GroupPolicy.can(scope, "sprint", "remove_ticket")
+      )
+    }
     const changesRelations =
       input.blockedBy !== undefined || input.relatedTo !== undefined
     const locked = withTicketDocumentLock(
