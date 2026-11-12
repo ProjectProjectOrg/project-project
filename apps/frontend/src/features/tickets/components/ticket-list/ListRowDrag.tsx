@@ -34,6 +34,8 @@ import {
 } from "@/features/tickets/lib/listDrop"
 import { cn } from "@/lib/utils"
 
+import { useIgnoreListHover } from "./ListKeyboard"
+
 const RowDragData = Schema.Struct({
   type: Schema.Literal("list-row"),
   id: TicketId,
@@ -185,6 +187,7 @@ export function DraggableRow({
   children: ReactNode
 }>) {
   const drop = use(SectionDropContext)
+  const ignoreHover = useIgnoreListHover()
   const ref = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
   const latest = useRef(drop)
@@ -233,7 +236,10 @@ export function DraggableRow({
             }
           }),
         onDragStart: () => setDragging(true),
-        onDrop: () => setDragging(false)
+        onDrop: () => {
+          setDragging(false)
+          ignoreHover()
+        }
       }),
       dropTargetForElements({
         element,
@@ -245,7 +251,17 @@ export function DraggableRow({
         })
       })
     )
-  }, [id, nextId, type, title, subTicketCount, section, ordered, pending])
+  }, [
+    id,
+    nextId,
+    type,
+    title,
+    subTicketCount,
+    section,
+    ordered,
+    pending,
+    ignoreHover
+  ])
 
   const landed = drop?.landed?.id === id ? drop.landed : null
   const gap = drop?.gap ?? null
