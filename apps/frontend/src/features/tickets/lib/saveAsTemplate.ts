@@ -11,7 +11,7 @@ import {
 } from "@pp/shared"
 
 import type { LibraryLayer } from "@/features/library/atoms/libraryScope"
-import { keyFromName } from "@/features/library/lib/libraryModel"
+import { keyFromName, NEW_ENTRY_KEY } from "@/features/library/lib/libraryModel"
 
 export type SaveAsTemplateOptions = Readonly<{
   name: string
@@ -63,7 +63,8 @@ export const freeTemplateKey = (
   taken: ReadonlySet<string>
 ): TypeKey => {
   const base = keyFromName(name) || FALLBACK_KEY
-  const free = (key: string) => !isReservedTypeKey(key) && !taken.has(key)
+  const free = (key: string) =>
+    key !== NEW_ENTRY_KEY && !isReservedTypeKey(key) && !taken.has(key)
   if (free(base)) return TypeKey.make(base)
   for (let index = 2; ; index++) {
     const suffix = `-${index}`

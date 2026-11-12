@@ -11,6 +11,7 @@ import * as Credentials from "@pp/integration-jira/Credentials"
 import * as Migrations from "@pp/integration-jira/Migrations"
 import * as Transport from "@pp/integration-jira/Transport"
 import { accessLayer, orgScope } from "@pp/server-core/access/testing"
+import * as Library from "@pp/server-core/library/Library"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import { JiraError, JiraRateLimited as PublicJiraRateLimited } from "@pp/shared"
@@ -20,10 +21,13 @@ import {
   Authentication,
   Conflict,
   CurrentUser,
+  EMPTY_LAYER,
   FeedbackIntakeGuard,
   JiraMigrationConfiguration,
   type JiraMigrationDetail,
   NotFound,
+  resolveLibrary,
+  TypeKey,
   UserId,
   type User
 } from "@pp/shared"
@@ -54,6 +58,10 @@ const decodeUnknownJiraMigrationConfiguration = Schema.decodeUnknownEffect(
 )
 
 const unused = () => Effect.die("Unexpected dependency call")
+const builtinLibrary = resolveLibrary(
+  { org: EMPTY_LAYER, project: null },
+  false
+)
 const user: User = {
   id: Schema.decodeUnknownSync(UserId)("user-1"),
   name: "User",
@@ -104,6 +112,16 @@ const dependenciesFor = (
       root,
       projectDir: () => root,
       libraryDir: () => root
+    }),
+    Layer.mock(Library.Library, {
+      orgLibrary: () =>
+        Effect.succeed({
+          ...builtinLibrary,
+          types: [
+            ...builtinLibrary.types,
+            { ...builtinLibrary.types[0], key: TypeKey.make("spike") }
+          ]
+        })
     }),
     Layer.succeed(Credentials.JiraCredentials)({
       status: unused,
@@ -770,6 +788,94 @@ it.effect(
             reason: "jira_migration_revision_conflict"
           }
         })
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(handlers, HttpServer.layerServices).pipe(
+            Layer.provideMerge(accessMiddleware)
+          )
+        )
+      )
+    })
+)
+
+it.effect(
+  "configuring maps issue types to the organization's types or no type, and reads a stored other as no type",
+  () =>
+    Effect.gen(function* () {
+      const configurationWith = (
+        issueTypes: ReadonlyArray<
+          Readonly<{ jiraIssueTypeId: string; projectType: string | null }>
+        >
+      ) =>
+        decodeUnknownJiraMigrationConfiguration({
+          destination: { name: "Application", slug: "application", key: "APP" },
+          identities: [],
+          statuses: [],
+          issueTypes,
+          priorities: [],
+          tags: [],
+          activeFutureSprintChoices: [],
+          restrictedContent: { policy: "exclude" as const },
+          skippedAttachmentIds: [],
+          attachmentSkipsAccepted: false
+        })
+      const saved: Array<JiraMigrationConfiguration> = []
+      const dependencies = Layer.mergeAll(
+        dependenciesFor(),
+        Layer.succeed(Migrations.JiraMigrations)({
+          list: unused,
+          get: unused,
+          create: unused,
+          run: unused,
+          rescan: unused,
+          cancel: unused,
+          discard: unused,
+          destinationConflicts: unused,
+          configure: (_organizationId, _userId, _migrationId, _rev, draft) => {
+            saved.push(draft)
+            return Effect.fail(
+              new Conflict({ reason: "jira_migration_revision_conflict" })
+            )
+          }
+        })
+      )
+      const handlers = JiraMigrationsHandlerLive.pipe(
+        Layer.provide(dependencies),
+        HttpRouter.provideRequest(dependencies),
+        Layer.provideMerge(authentication)
+      )
+      const legacy = yield* configurationWith([
+        { jiraIssueTypeId: "task", projectType: "other" }
+      ])
+      expect(legacy.issueTypes).toEqual([
+        { jiraIssueTypeId: "task", projectType: null }
+      ])
+      const accepted = yield* configurationWith([
+        { jiraIssueTypeId: "story", projectType: "spike" },
+        { jiraIssueTypeId: "epic", projectType: "epic" },
+        { jiraIssueTypeId: "task", projectType: null }
+      ])
+      const unknown = yield* configurationWith([
+        { jiraIssueTypeId: "story", projectType: "ghost" }
+      ])
+      yield* Effect.gen(function* () {
+        const client = yield* HttpApiTest.groups(AppApi, ["jiraMigrations"])
+        const configure = (configuration: JiraMigrationConfiguration) =>
+          Effect.result(
+            client.jiraMigrations.configure({
+              params: { orgSlug: "organization", migrationId: "draft-1" },
+              payload: { expectedRevision: 1, configuration }
+            })
+          )
+        expect(yield* configure(accepted)).toMatchObject({
+          _tag: "Failure",
+          failure: { _tag: "Conflict" }
+        })
+        expect(yield* configure(unknown)).toMatchObject({
+          _tag: "Failure",
+          failure: { _tag: "Validation", reason: "unknown_type:ghost" }
+        })
+        expect(saved).toEqual([accepted])
       }).pipe(
         Effect.provide(
           Layer.mergeAll(handlers, HttpServer.layerServices).pipe(

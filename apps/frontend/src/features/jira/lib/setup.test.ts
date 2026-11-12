@@ -14,9 +14,9 @@ import {
   moveAllToBacklog,
   visibleSetupSections
 } from "./setup"
-import { testRequirements as requirements } from "./testRequirements"
+import { testRequirements as requirements, testTypes } from "./testRequirements"
 
-const setup = buildJiraImportDraft(requirements, null).setup
+const setup = buildJiraImportDraft(requirements, null, testTypes).setup
 
 describe("jiraSetupCounts", () => {
   it("counts only rows without a valid default as needing attention", () => {
@@ -30,7 +30,7 @@ describe("jiraSetupCounts", () => {
       attention: 0
     })
     expect(counts.statuses.attention).toBe(1)
-    expect(counts.types.attention).toBe(1)
+    expect(counts.types.attention).toBe(0)
     expect(counts.tags.attention).toBe(1)
     expect(counts.sprints.attention).toBe(1)
     expect(counts.destination.attention).toBe(0)

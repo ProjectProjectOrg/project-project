@@ -60,6 +60,21 @@ describe("generated commands", () => {
     }
   })
 
+  it("list a project's types and take any type key, with no template flag", () => {
+    expect(entry("list_types").command).toEqual(["types", "list"])
+    for (const name of ["create_ticket", "update_ticket"]) {
+      const fields = Object.fromEntries(
+        entry(name).fields.map((field) => [field.name, field])
+      )
+      expect(fields["template"], name).toBeUndefined()
+      expect(fields["type"], name).toMatchObject({
+        kind: "string",
+        nullable: true,
+        choices: undefined
+      })
+    }
+  })
+
   it("read --sort as key[:dir], defaulting to the key's natural direction", () => {
     expect(parseSort("updated")).toEqual({ key: "updated", dir: "desc" })
     expect(parseSort("title:desc")).toEqual({ key: "title", dir: "desc" })
@@ -123,12 +138,13 @@ describe("generated commands", () => {
         {
           id: "T-1",
           parent: Option.some("null"),
+          type: Option.some("null"),
           tags: [""],
           title: Option.some("null")
         },
         { orgSlug: Option.some("acme"), projectSlug: Option.some("web") }
       )
-      expect(input).toMatchObject({ parent: null, tags: [] })
+      expect(input).toMatchObject({ parent: null, type: null, tags: [] })
       expect(input).toMatchObject({ title: "null" })
     }).pipe(Effect.provide(BunServices.layer))
   )

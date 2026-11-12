@@ -67,27 +67,24 @@ function useOpenGallery() {
   const router: ReturnType<typeof useRouter> | undefined = useRouter({
     warn: false
   })
-  return useCallback(
-    (entry: "block" | "template") => {
-      if (router === undefined) return
-      const params: RouteParams = router.state.matches.at(-1)?.params ?? {}
-      const search = entry === "block" ? { tab: "blocks" as const } : {}
-      if (params.orgSlug === undefined) return
-      if (params.slug === undefined)
-        void router.navigate({
-          to: "/orgs/$orgSlug/settings/templates",
-          params: { orgSlug: params.orgSlug },
-          search
-        })
-      else
-        void router.navigate({
-          to: "/orgs/$orgSlug/projects/$slug/settings/templates",
-          params: { orgSlug: params.orgSlug, slug: params.slug },
-          search
-        })
-    },
-    [router]
-  )
+  return useCallback(() => {
+    if (router === undefined) return
+    const params: RouteParams = router.state.matches.at(-1)?.params ?? {}
+    const search = { tab: "sections" as const }
+    if (params.orgSlug === undefined) return
+    if (params.slug === undefined)
+      void router.navigate({
+        to: "/orgs/$orgSlug/settings/types",
+        params: { orgSlug: params.orgSlug },
+        search
+      })
+    else
+      void router.navigate({
+        to: "/orgs/$orgSlug/projects/$slug/settings/types",
+        params: { orgSlug: params.orgSlug, slug: params.slug },
+        search
+      })
+  }, [router])
 }
 
 export function SlashMenuPlugin({
@@ -208,7 +205,7 @@ export function SlashMenuPlugin({
           nodeToReplace?.remove()
           closeMenu()
         })
-        openGallery(item.entry)
+        openGallery()
         return
       }
       editor.update(() => {
@@ -245,7 +242,6 @@ export function SlashMenuPlugin({
                 editor={editor}
                 menu={menu}
                 library={library}
-                lookup={lookup}
                 detachRef={detachRef}
                 onTab={switchTab}
                 query={matchingString}

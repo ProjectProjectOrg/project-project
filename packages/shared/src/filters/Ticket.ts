@@ -75,7 +75,7 @@ const TicketFilterFields = {
   }),
   type: Schema.optional(Schema.Array(TypeFilter)).annotate({
     description:
-      "Type keys the project has (`list_templates`), or `none` for tickets without a type."
+      "Type keys the project has (`list_types`), or `none` for tickets without a type."
   }),
   excludeType: Schema.optional(Schema.Array(TypeFilter)).annotate({
     description:
