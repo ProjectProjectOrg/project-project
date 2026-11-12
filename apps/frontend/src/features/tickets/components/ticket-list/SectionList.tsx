@@ -43,7 +43,7 @@ import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import { useSectionDrop } from "./ListRowDrag"
+import { LandingFlash, useSectionDrop } from "./ListRowDrag"
 import { SectionBody } from "./SectionBody"
 import { SectionHeader, type SectionHeading } from "./SectionHeader"
 import { SectionRows } from "./SectionRows"
@@ -152,7 +152,7 @@ export function SectionList({
 
   const shellRef = useRef<HTMLDivElement>(null)
   const sectionRef = useRef<HTMLDivElement>(null)
-  const { drop, over } = useSectionDrop(sectionRef, {
+  const { drop, over, landed, settle } = useSectionDrop(sectionRef, {
     target: dropTarget,
     tickets: items.map((row) => row.ticket),
     update,
@@ -170,12 +170,15 @@ export function SectionList({
     <div
       ref={sectionRef}
       className={cn(
-        "flex flex-col rounded-lg transition-[opacity,background-color] duration-200 ease-out",
+        "relative flex flex-col rounded-lg transition-[opacity,background-color] duration-200 ease-out",
         dimmed && "opacity-35",
         over && "bg-accent/40"
       )}
       data-creating={creating || undefined}
     >
+      {collapsed && landed !== null && (
+        <LandingFlash key={landed.at} className="rounded-lg" onDone={settle} />
+      )}
       <SectionHeader
         ref={shellRef}
         heading={heading}

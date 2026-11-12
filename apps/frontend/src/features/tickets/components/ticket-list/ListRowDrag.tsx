@@ -10,6 +10,7 @@ import type { ElementDragType } from "@atlaskit/pragmatic-drag-and-drop/types"
 import { RegistryContext } from "@effect/atom-react"
 import { TicketId, TicketType, type Ticket } from "@pp/shared"
 import * as Schema from "effect/Schema"
+import { motion } from "motion/react"
 import {
   createContext,
   use,
@@ -60,10 +61,16 @@ const draggedRow = (data: DragPayload): DraggedRow | null =>
       }
     : null
 
+type Landing = Readonly<{ id: TicketId; at: number }>
+
+const LANDING_MS = 900
+
 export type SectionDrop = Readonly<{
   section: string
   ordered: boolean
   gap: RowGap | null
+  landed: Landing | null
+  settle: () => void
   accepts: (data: DragPayload) => boolean
 }>
 
@@ -91,6 +98,7 @@ export function useSectionDrop(
   const registry = useContext(RegistryContext)
   const [over, setOver] = useState(false)
   const [gap, setGap] = useState<RowGap | null>(null)
+  const [landed, setLanded] = useState<Landing | null>(null)
   const latest = useRef(options)
   useLayoutEffect(() => {
     latest.current = options
@@ -135,20 +143,25 @@ export function useSectionDrop(
           isRowDropData(inner) ? inner.gap : null,
           current.ordered
         )
-        if (edit !== null) registry.set(current.update(row.id), edit)
+        if (edit === null) return
+        registry.set(current.update(row.id), edit)
+        setLanded({ id: row.id, at: performance.now() })
       }
     })
   }, [ref, active, key, registry])
 
+  const settle = () => setLanded(null)
   const drop: SectionDrop | null = active
     ? {
         section: key,
         ordered,
         gap,
+        landed,
+        settle,
         accepts: (data) => acceptsRow(data, latest.current)
       }
     : null
-  return { drop, over }
+  return { drop, over, landed, settle }
 }
 
 export function SectionDropProvider({
@@ -207,7 +220,7 @@ export function DraggableRow({
             render: ({ container }) => {
               const preview = document.createElement("div")
               preview.className =
-                "flex max-w-80 items-center gap-2 rounded-md border bg-popover px-2.5 py-1.5 text-body text-popover-foreground opacity-70 shadow-md"
+                "flex max-w-80 items-center gap-2 rounded-md border border-foreground/15 bg-popover px-2.5 py-1.5 text-body text-popover-foreground shadow-lg"
               const key = document.createElement("span")
               key.className =
                 "shrink-0 font-mono text-caption text-muted-foreground"
@@ -234,6 +247,7 @@ export function DraggableRow({
     )
   }, [id, nextId, type, title, subTicketCount, section, ordered, pending])
 
+  const landed = drop?.landed?.id === id ? drop.landed : null
   const gap = drop?.gap ?? null
   const edge =
     gap === id ? "top" : gap === "end" && nextId === null ? "bottom" : null
@@ -248,6 +262,9 @@ export function DraggableRow({
       )}
     >
       {children}
+      {landed !== null && drop !== null && (
+        <LandingFlash key={landed.at} onDone={drop.settle} />
+      )}
       {edge !== null && (
         <div
           aria-hidden
@@ -258,6 +275,25 @@ export function DraggableRow({
         />
       )}
     </div>
+  )
+}
+
+export function LandingFlash({
+  className,
+  onDone
+}: Readonly<{ className?: string; onDone: () => void }>) {
+  return (
+    <motion.div
+      aria-hidden
+      initial={{ opacity: 1 }}
+      animate={{ opacity: 0 }}
+      transition={{ duration: LANDING_MS / 1000, ease: "easeOut" }}
+      onAnimationComplete={onDone}
+      className={cn(
+        "pointer-events-none absolute inset-0 rounded-md bg-accent/60 ring-1 ring-foreground/20",
+        className
+      )}
+    />
   )
 }
 
