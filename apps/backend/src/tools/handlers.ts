@@ -26,14 +26,12 @@ import {
   formatBlockIssue,
   formatTicketBodyEditFailure,
   GIT_AUTOMATION_EVENTS,
-  isPristineTypeBody,
   isRasterImageContentType,
   parseTicketBlocks,
   permits,
   ProjectScope,
   serializeTicketBlocks,
   stripDefinitionHints,
-  stripHints,
   Tools,
   CurrentUser,
   TicketListQuery,
@@ -48,13 +46,11 @@ import {
   type GitAutomation,
   type GroupId,
   type Pagination,
-  type Library as LibraryValue,
   type ProjectStatus,
   type SprintState,
   type TypeKey,
   type TicketBodyEdit,
   type TicketId,
-  type TicketType,
   type UpdateGroupInput,
   type UpdateTicketInput
 } from "@pp/shared"
@@ -107,22 +103,22 @@ const withBlocks = <T extends Readonly<{ body: string }>>(detail: T) => ({
   )
 })
 
-const isUntouchedBody = (body: string, library: LibraryValue): boolean => {
-  if (body.trim() === "") return true
-  const lookup = blockLookupFor(library)
-  const comparable = stripHints(body)
-  return library.types.some((type) =>
-    isPristineTypeBody(comparable, type, lookup)
-  )
-}
-
-const TICKET_TYPES: ReadonlyArray<TicketType> = [
-  "feat",
-  "bug",
-  "chore",
-  "other",
-  "epic"
-]
+const expandTemplate = (template: TypeKey) =>
+  Effect.gen(function* () {
+    const { orgSlug, slug } = yield* ProjectScope
+    const library = yield* Library.Library
+    return yield* library
+      .expandForCreate(orgSlug, slug, template)
+      .pipe(
+        Effect.catchTag("Validation", (error) =>
+          Effect.fail(
+            error.reason === `unknown_type:${template}`
+              ? new Validation({ reason: `unknown_template:${template}` })
+              : error
+          )
+        )
+      )
+  })
 
 const me = (_input: {}) =>
   Effect.gen(function* () {
@@ -362,14 +358,16 @@ const list_templates = (_input: { orgSlug: string; projectSlug: string }) =>
         priority: type.priority,
         tags: type.tags,
         body: expandTypeKeepingHints(type, lookup),
-        isDefaultFor: TICKET_TYPES.filter(
-          (ticketType) => ticketType === type.key
-        )
+        isDefaultFor: [type.key]
       }))
   })
 
 const create_ticket = (
-  input: { orgSlug: string; projectSlug: string } & CreateTicketInput
+  input: {
+    orgSlug: string
+    projectSlug: string
+    template?: TypeKey | null
+  } & CreateTicketInput
 ) =>
   Effect.gen(function* () {
     const commands = yield* TicketCommands.TicketCommands
@@ -377,12 +375,27 @@ const create_ticket = (
       orgSlug: _orgSlug,
       projectSlug: _projectSlug,
       body,
+      template,
       ...payload
     } = input
     const sanitizedBody =
       body === undefined ? undefined : yield* sanitizeMcpBody(body)
+    const expansion =
+      template === undefined || template === null
+        ? null
+        : yield* expandTemplate(template)
+    const started =
+      expansion === null
+        ? payload
+        : {
+            ...payload,
+            type: payload.type === undefined ? template : payload.type,
+            priority: payload.priority ?? expansion.priority ?? undefined,
+            tags: payload.tags ?? expansion.tags,
+            body: expansion.body
+          }
     const created = yield* commands.create({
-      ...payload,
+      ...started,
       ...(sanitizedBody === undefined ? {} : { body: sanitizedBody })
     })
     return withBlocks(created)
@@ -393,12 +406,12 @@ const templateBodyFor = (id: TicketId, template: TypeKey) =>
     const { orgSlug, slug } = yield* ProjectScope
     const queries = yield* TicketQueries.TicketQueries
     const library = yield* Library.Library
-    const expansion = yield* library.expandForCreate(orgSlug, slug, template)
-    const [ticket, projectLibrary] = yield* Effect.all(
-      [queries.get(id), library.projectLibrary()],
+    const expansion = yield* expandTemplate(template)
+    const [ticket, isUntouched] = yield* Effect.all(
+      [queries.get(id), library.untouchedBodyCheck(orgSlug, slug)],
       { concurrency: 2 }
     )
-    if (!isUntouchedBody(ticket.body, projectLibrary)) {
+    if (!isUntouched(ticket.body)) {
       return yield* new Validation({
         reason: `template_needs_body:${template}`
       })

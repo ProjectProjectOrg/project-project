@@ -4,7 +4,7 @@ import {
   isAllowedAttachmentContentType,
   type JiraMigrationFinding,
   type JiraMigrationScanSummary,
-  type TicketType,
+  type JiraProjectType,
   type JiraMigrationUserOption,
   isEpicType
 } from "@pp/shared"
@@ -126,7 +126,7 @@ const suggestedKey = (key: string, name: string): string => {
 const suggestedIssueType = (
   name: string,
   hierarchyLevel: number | null
-): TicketType => {
+): JiraProjectType => {
   const lower = name.toLowerCase()
   return isJiraEpicLevel({ name, hierarchyLevel })
     ? "epic"

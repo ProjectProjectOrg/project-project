@@ -51,13 +51,7 @@ describe("generated commands", () => {
     const fields = Object.fromEntries(
       entry("list_tickets").fields.map((field) => [field.name, field])
     )
-    expect(fields["type"]?.choices).toEqual([
-      "feat",
-      "bug",
-      "chore",
-      "other",
-      "epic"
-    ])
+    expect(fields["type"]?.choices).toBeUndefined()
     expect(fields["estimate"]?.choices).toContain("stale")
     expect(fields["assignee"]?.choices).toBeUndefined()
     expect(fields["sort"]?.description).toContain("`key`")

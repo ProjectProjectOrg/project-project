@@ -12,7 +12,7 @@ import {
   StatusSlug,
   TicketId,
   TicketPriority,
-  TicketType
+  JiraProjectType
 } from "@pp/shared"
 import type { JiraMigrationConfiguration } from "@pp/shared"
 import * as Schema from "effect/Schema"
@@ -61,7 +61,7 @@ export const JiraMigrationMappings = Schema.Struct({
   issueTypes: Schema.Array(
     Schema.Struct({
       sourceIssueTypeId: Schema.NonEmptyString,
-      destinationType: TicketType
+      destinationType: JiraProjectType
     })
   ),
   priorities: Schema.Array(

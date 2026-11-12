@@ -283,8 +283,17 @@
           {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": ["feat", "bug", "chore", "other", "epic"]
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": ["none"]
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                  "maxLength": 48
+                }
+              ]
             }
           },
           {
@@ -859,8 +868,16 @@
       "type": {
         "anyOf": [
           {
-            "type": "string",
-            "enum": ["feat", "bug", "chore", "other", "epic"]
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                "maxLength": 48
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           {
             "type": "null"
@@ -1090,8 +1107,16 @@
       "type": {
         "anyOf": [
           {
-            "type": "string",
-            "enum": ["feat", "bug", "chore", "other", "epic"]
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                "maxLength": 48
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           {
             "type": "null"

@@ -1,4 +1,4 @@
-import type { TicketType } from "@pp/shared"
+import type { JiraProjectType } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
 import { resolveJiraHierarchy } from "./Hierarchy"
@@ -14,7 +14,7 @@ const issue = (
 })
 
 const mappings = (
-  types: Readonly<Record<string, TicketType>>,
+  types: Readonly<Record<string, JiraProjectType>>,
   excludedRestrictions: ReadonlyArray<string> = []
 ) => ({
   issueTypes: Object.entries(types).map(

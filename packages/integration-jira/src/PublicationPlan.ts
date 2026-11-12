@@ -26,7 +26,9 @@ import {
   TagName,
   TicketId,
   TicketPriority,
-  TicketType,
+  StoredTicketType,
+  ticketTypeOfJira,
+  type TypeKey,
   type StatusPhase
 } from "@pp/shared"
 import { DateTime, Effect, Option, Schema } from "effect"
@@ -106,7 +108,7 @@ export type JiraStagedTicket = Readonly<{
   id: string
   title: string
   status: string
-  type: TicketType
+  type: TypeKey | null
   priority: "low" | "med" | "high"
   tags: ReadonlyArray<string>
   assignees: ReadonlyArray<string>
@@ -505,7 +507,7 @@ function createJiraPublicationDraft(
         id: requireMapped(ticketMappings, issue.id),
         title: issue.summary,
         status: requireMapped(statusMappings, issue.statusId),
-        type: requireMapped(typeMappings, issue.issueTypeId),
+        type: ticketTypeOfJira(requireMapped(typeMappings, issue.issueTypeId)),
         priority: requireMapped(
           priorityMappings,
           priorityMappingKey(issue.priorityId)
@@ -1227,7 +1229,7 @@ const PlannedTicket = Schema.Struct({
   id: TicketId,
   title: Schema.String,
   status: StatusSlug,
-  type: TicketType,
+  type: StoredTicketType,
   priority: TicketPriority,
   tags: Schema.Array(TagName),
   assignees: Schema.Array(Schema.String),
@@ -1302,7 +1304,7 @@ const TicketRow = Schema.Struct({
   ticketId: TicketId,
   title: Schema.String,
   status: StatusSlug,
-  type: TicketType,
+  type: StoredTicketType,
   priority: TicketPriority,
   tags: Schema.Array(TagName),
   assignees: Schema.Array(Schema.String),
