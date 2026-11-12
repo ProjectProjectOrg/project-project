@@ -220,7 +220,11 @@ export function DraggableRow({
   return (
     <div
       ref={ref}
-      className={cn("relative", className, dragging && "opacity-40")}
+      className={cn(
+        "relative before:absolute before:inset-x-0 before:-top-0.5 before:h-0.5 before:content-[''] after:absolute after:inset-x-0 after:-bottom-0.5 after:h-0.5 after:content-['']",
+        className,
+        dragging && "opacity-40"
+      )}
     >
       {children}
       {edge !== null && (
