@@ -95,13 +95,21 @@ Project rules that move a ticket to a status on a git event: branch linked, PR o
 ### Library
 
 **Library**:
-The reusable blocks and templates of an org or a project. A project item can shadow or hide an org item with the same key.
+The ticket types and blocks of an org or a project. It resolves in three layers: built in, org, project. An item can override the item with the same key in the layer below, and a project can hide one.
+
+**Ticket type**:
+What kind of work a ticket is, defined in the library: a key, name, icon, colour, description, default priority, default tags and a starting description. Feature (`feat`), Bug (`bug`), Chore (`chore`) and Epic (`epic`) are built in; an org or a project can edit its own copy of them and add its own types. A ticket can also have the type `other`, which has no definition.
+_Avoid_: Template, issue type
+
+**Starting description**:
+The body of a ticket type: the markdown a new ticket of that type starts with. It can reference blocks, which are filled in from their current definition when the ticket is created.
+_Avoid_: Template, default template
 
 **Block**:
-A named, reusable piece of markdown inserted into a ticket body as `<block type="…">…</block>`.
+A named, reusable piece of markdown inserted into a ticket body as `<block type="…">…</block>`. Seven blocks are built in.
 
-**Template**:
-A starting body, priority and tags for a new ticket. A project can set a default template per ticket type.
+**Built-in**:
+A ticket type or block that exists in every org without a file. It can be overridden or hidden, never deleted.
 
 ### Surfaces and delivery
 

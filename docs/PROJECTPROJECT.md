@@ -59,12 +59,12 @@ Integration packages own provider behavior and reach PP through Effect host serv
 
 ```
 <PROJECTS_DIR>/orgs/<org-slug>/
-├── library.md, blocks/, templates/        # org-level blocks and templates
+├── blocks/, types/                        # org-level library: blocks and ticket types
 └── projects/<project-slug>/
     ├── project.md
     ├── tickets/<ticket-id>.md             # frontmatter, description, comments region
     ├── groups/<group-id>.md               # sprints and epics
-    └── blocks/, templates/                # project-level library
+    └── blocks/, types/                    # project-level library
 ```
 
 The rule: markdown holds what is **portable and cheap** — anything a human would write or read, or another tool could use, expressed in a few characters. Postgres holds what is neither — data that is large, opaque or meaningless outside this instance. Losing the Postgres half costs a re-upload or a reindex, not information. See `docs/history/specs/2026-09-10-aesthetic-data-in-postgres-design.md`.
@@ -138,6 +138,26 @@ The ticket index mirrors `movedFrom`, so an old URL redirects to the ticket and 
 A ticket mention is `mention:ticket/<id>` inside its own project and `mention:ticket/<project-slug>/<id>` across projects. A move rewrites the mentions in the moved ticket and the mentions of it in its old project.
 
 Relations live in the frontmatter of one ticket: the waiting ticket stores `blockedBy`, a duplicate stores `duplicateOf` (set when it is archived as a duplicate), and `relatedTo` stays on the ticket it was added from. The reverse directions ("blocking", "duplicates", the other side of "related") come from the `ticket_relation_index` table, which is rebuilt from frontmatter with the ticket index. Deleting a ticket leaves links to it in other files; reads hide them, and the next relation edit on the referencing ticket drops them.
+
+**Library (`blocks/<key>.md`, `types/<key>.md`):** a block is a named, reusable piece of markdown; a ticket type holds a name, icon, colour, description, default priority and tags in its frontmatter, and its body is the type's starting description, which may reference blocks.
+
+```yaml
+---
+name: Bug
+icon: Bug
+color: "#f16f7e"
+description: Something is broken
+priority: high # optional default for new tickets of this type
+tags: [frontend] # optional default tags
+---
+<block type="steps-to-reproduce">
+
+</block>
+```
+
+The library resolves in three layers: built in, then org, then project. The types Feature (`feat`), Bug (`bug`), Chore (`chore`) and Epic (`epic`) and seven blocks (`context`, `acceptance-criteria`, `out-of-scope`, `definition-of-done`, `expected-vs-actual`, `steps-to-reproduce`, `environment`) are built in: they are defined in `packages/shared/src/library/builtins.ts`, exist in every org without a file, and can't be deleted. A file with the same key in an org or a project overrides the layer below, so editing a built-in saves a copy and removing the copy restores it. A project hides an entry from a lower layer with a tombstone file (`hidden: true`). Type keys are kebab-case, at most 48 characters, never `other` or `blank`, and fixed once created.
+
+Older storage kept `templates/` folders and a default template per ticket type in `library.md` and `project.md`. The backend migrates both when it starts, before it accepts requests (`packages/server-core/src/library/LibraryMigration.ts`): a template that was the default for a type becomes that type's file in the same layer, every other template becomes a type of its own, and the `templates/` folders and the `templateDefaults` frontmatter are removed. It never overwrites an existing type file, so it is safe to run again.
 
 ### What lives in Postgres
 
