@@ -175,7 +175,8 @@ const patchableKeys = [
   "tags",
   "assignees",
   "body",
-  "flag"
+  "flag",
+  "rank"
 ] as const
 
 type PatchableKey = (typeof patchableKeys)[number]
@@ -225,7 +226,8 @@ export const revertTicketPatch = (
     estimate: pick("estimate"),
     tags: pick("tags"),
     assignees: pick("assignees"),
-    body: pick("body")
+    body: pick("body"),
+    rank: pick("rank")
   }
   if (current.updatedAt.getTime() !== written.updatedAt.getTime()) {
     return restored

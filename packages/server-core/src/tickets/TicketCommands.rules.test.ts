@@ -242,6 +242,30 @@ it.effect("update with a position moves the ticket next to its anchor", () => {
   }).pipe(Effect.provide(layer))
 })
 
+it.effect(
+  "bulkUpdate with a position places the tickets together in that gap, in their current order",
+  () => {
+    const { docs, layer } = makeRulesFixture(
+      ["a0", "a1", "a2", "a3", "a4"].map((rank, index) =>
+        makeTicketDocument(`T-${index + 1}`, { rank: TicketRank.make(rank) })
+      )
+    )
+    const manualOrder = () =>
+      [...docs.documents.values()]
+        .toSorted((a, b) => (a.rank < b.rank ? -1 : 1))
+        .map((document) => document.id)
+    return Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      yield* tickets.bulkUpdate({
+        tickets: [ticketId("T-5"), ticketId("T-2")],
+        patch: { position: { after: ticketId("T-3") } }
+      })
+
+      expect(manualOrder()).toStrictEqual(["T-1", "T-3", "T-2", "T-5", "T-4"])
+    }).pipe(Effect.provide(layer))
+  }
+)
+
 it.effect("update rejects a position anchored on the ticket itself", () => {
   const { documents, layer } = makeRankedFixture([
     ["T-1", "a0"],
@@ -874,6 +898,24 @@ it.effect("bulkUpdate writes nothing when one ticket breaks a rule", () => {
       reason: "epic_in_sprint"
     })
     expect(docs.documents.get("T-1")?.priority).toBe("med")
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("bulkUpdate restores the ranks when planning fails", () => {
+  const { docs, layer } = makeBulkFixture(() =>
+    Effect.fail(new SprintCompletedImmutable())
+  )
+  return Effect.gen(function* () {
+    const before = docs.documents.get("T-1")?.rank
+    const tickets = yield* TicketCommands.TicketCommands
+    yield* tickets
+      .bulkUpdate({
+        tickets: [ticketId("T-1")],
+        patch: { position: { after: ticketId("T-2") }, sprint: bulkSprint.id }
+      })
+      .pipe(Effect.flip)
+
+    expect(docs.documents.get("T-1")?.rank).toBe(before)
   }).pipe(Effect.provide(layer))
 })
 
