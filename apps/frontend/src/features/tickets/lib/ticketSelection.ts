@@ -22,18 +22,19 @@ export const toggleSelection = (
     return { keys: new Set([key]), anchor: key }
   }
   const keys = new Set(selection.keys)
+  const scoped = range?.filter((each) => projectOf(each) === project)
   const from =
-    range !== undefined && selection.anchor !== null
-      ? range.indexOf(selection.anchor)
+    scoped !== undefined && selection.anchor !== null
+      ? scoped.indexOf(selection.anchor)
       : -1
-  const to = range?.indexOf(key) ?? -1
-  if (range === undefined || from < 0 || to < 0) {
+  const to = scoped?.indexOf(key) ?? -1
+  if (scoped === undefined || from < 0 || to < 0) {
     if (keys.has(key)) keys.delete(key)
     else keys.add(key)
     return { keys, anchor: key }
   }
-  const select = keys.has(range[from])
-  for (const each of range.slice(Math.min(from, to), Math.max(from, to) + 1)) {
+  const select = keys.has(scoped[from])
+  for (const each of scoped.slice(Math.min(from, to), Math.max(from, to) + 1)) {
     if (select) keys.add(each)
     else keys.delete(each)
   }

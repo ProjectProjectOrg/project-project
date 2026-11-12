@@ -31,6 +31,13 @@ describe("toggleSelection", () => {
     ).toEqual(selected(["api/T-1"], "api/T-1"))
   })
 
+  it("keeps a range inside the clicked ticket's project", () => {
+    const mixed = ["web/T-1", "api/T-1", "web/T-2"]
+    expect(
+      toggleSelection(selected(["web/T-1"], "web/T-1"), "web/T-2", mixed).keys
+    ).toEqual(new Set(["web/T-1", "web/T-2"]))
+  })
+
   it("toggles alone when the anchor is outside the range", () => {
     expect(toggleSelection(selected(["x"], "x"), "c", order)).toEqual(
       selected(["x", "c"], "c")

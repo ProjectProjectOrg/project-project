@@ -49,6 +49,7 @@ import {
   ticketRequest,
   unarchiveTicket
 } from "@/features/tickets/atoms/ticketDetail"
+import { useForgetTicket } from "@/features/tickets/components/ticket-list/TicketSelection"
 import {
   MarkAsSubmenu,
   RelationsSubmenu
@@ -61,6 +62,7 @@ import { ArchiveForm } from "@/features/tickets/forms/archive-ticket"
 import type { SaveAsTemplateProps } from "@/features/tickets/forms/save-as-template"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { ticketPermissions } from "@/features/tickets/lib/ticketPermissions"
+import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
@@ -375,10 +377,14 @@ function TicketMenuFlowPopovers({
   const cascadeId = useId()
   const subTickets = ticket.subTicketCount ?? 0
   const popupAnchor = anchor ?? undefined
+  const forget = useForgetTicket(selectionKey(slug, ticket.id))
 
   const archiveAndClose = async (input: ArchiveTicketInput) => {
     const exit = await archive(input)
-    if (Exit.isSuccess(exit)) onFlow(null)
+    if (Exit.isSuccess(exit)) {
+      forget()
+      onFlow(null)
+    }
     return exit
   }
 
@@ -418,7 +424,10 @@ function TicketMenuFlowPopovers({
           }
           onConfirm={async () => {
             const exit = await remove({ cascadeSubTickets: cascade })
-            if (Exit.isSuccess(exit)) onDeleted?.()
+            if (Exit.isSuccess(exit)) {
+              forget()
+              onDeleted?.()
+            }
             return exit
           }}
         >

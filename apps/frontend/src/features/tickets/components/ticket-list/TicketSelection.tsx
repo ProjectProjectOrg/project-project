@@ -126,13 +126,13 @@ function SelectionBar({
         </Freeze>
         <Button
           type="button"
-          variant="ghost"
-          size="icon-sm"
+          variant="quiet"
+          size="square-8"
           onClick={onClear}
           aria-label={m.tickets_selection_clear_aria_label()}
           title={m.tickets_selection_clear_aria_label()}
         >
-          <X strokeWidth={1.75} />
+          <X className="size-4" strokeWidth={1.75} />
         </Button>
       </motion.div>
     </div>
@@ -154,6 +154,30 @@ export function SelectionOrder({
   })
   const [order] = useState(() => () => current.current)
   return <OrderContext value={order}>{children}</OrderContext>
+}
+
+export function useClearSelectionWhen(value: string) {
+  const store = use(SelectionContext)
+  const registry = use(RegistryContext)
+  const previous = useRef(value)
+  useEffect(() => {
+    if (previous.current === value) return
+    previous.current = value
+    if (store !== null) registry.set(store.selection, emptySelection)
+  }, [registry, store, value])
+}
+
+export function useForgetTicket(key: string) {
+  const store = use(SelectionContext)
+  const registry = use(RegistryContext)
+  return () => {
+    if (store === null) return
+    const current = registry.get(store.selection)
+    if (!current.keys.has(key)) return
+    const keys = new Set(current.keys)
+    keys.delete(key)
+    registry.set(store.selection, { ...current, keys })
+  }
 }
 
 export function useTicketSelection(key: string) {

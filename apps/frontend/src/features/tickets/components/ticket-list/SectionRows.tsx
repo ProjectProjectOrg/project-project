@@ -34,7 +34,9 @@ export function SectionRows({
   const { slug } = useProjectRoute()
   return (
     <SelectionOrder
-      keys={items.map(({ ticket }) => selectionKey(slug, ticket.id))}
+      keys={items.flatMap(({ ticket, pending }) =>
+        pending ? [] : [selectionKey(slug, ticket.id)]
+      )}
     >
       <VirtualRows
         className={rowGridClassName}

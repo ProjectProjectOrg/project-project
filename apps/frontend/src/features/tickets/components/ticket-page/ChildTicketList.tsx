@@ -68,7 +68,9 @@ export function ChildTicketList({
         onSuccess: ({ value }) => (
           <TicketSelectionProvider resetKey={parent.id}>
             <SelectionOrder
-              keys={value.map((row) => selectionKey(slug, row.ticket.id))}
+              keys={value.flatMap((row) =>
+                row.pending ? [] : [selectionKey(slug, row.ticket.id)]
+              )}
             >
               <div className={rowGridClassName}>
                 {value.map((row) => (
