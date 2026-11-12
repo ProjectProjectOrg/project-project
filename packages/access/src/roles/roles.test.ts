@@ -88,8 +88,8 @@ const projectMatrix: ReadonlyArray<
   ["manage epics", { epic: ["manage"] }, ["pm", "developer"]],
   ["plan sprints and milestones", { sprint: ["manage"] }, ["pm"]],
   [
-    "add tickets to a sprint and reorder it",
-    { sprint: ["add_ticket", "reorder"] },
+    "add tickets to a sprint",
+    { sprint: ["add_ticket"] },
     ["pm", "developer", "client"]
   ],
   ["take tickets out of a sprint", { sprint: ["remove_ticket"] }, ["pm"]],

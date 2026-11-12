@@ -1,4 +1,5 @@
 import {
+  TicketRank,
   EMPTY_TICKET_RELATIONS,
   Group,
   GroupDetail,
@@ -19,12 +20,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
 
-import {
-  boardRequest,
-  placeBoardTicket,
-  sprintBoard,
-  updateBoardTicket
-} from "./sprintBoard"
+import { boardRequest, sprintBoard, updateBoardTicket } from "./sprintBoard"
 
 const encodeTicketUpdateResultSync = Schema.encodeSync(TicketUpdateResult)
 
@@ -37,17 +33,23 @@ const ticketBId = Schema.decodeSync(TicketId)("T-2")
 const todo = Schema.decodeSync(TicketStatus)("todo")
 const inProgress = Schema.decodeSync(TicketStatus)("in_progress")
 
-const makeTicket = (id: TicketId, status: TicketStatus): Ticket => ({
+const makeTicket = (
+  id: TicketId,
+  status: TicketStatus,
+  rank: string
+): Ticket => ({
   id,
   title: `Ticket ${id}`,
   status,
   type: TypeKey.make("chore"),
   priority: "med",
   estimate: null,
+  flag: null,
   tags: [],
   branch: null,
   pr: null,
   prState: null,
+  rank: TicketRank.make(rank),
   lastTransitionedPr: null,
   parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
@@ -58,14 +60,14 @@ const makeTicket = (id: TicketId, status: TicketStatus): Ticket => ({
   updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"))
 })
 
-const ticketA = makeTicket(ticketAId, todo)
-const ticketB = makeTicket(ticketBId, todo)
+const ticketA = makeTicket(ticketAId, todo, "a0")
+const ticketB = makeTicket(ticketBId, todo, "a1")
 
 const group: Group = {
   id: groupId,
   name: "Sprint 1",
   kind: "sprint",
-  tickets: [ticketAId, ticketBId],
+  tickets: [ticketBId, ticketAId],
   color: Schema.decodeSync(Group.fields.color)("#123456"),
   startsAt: null,
   endsAt: null,
@@ -120,16 +122,7 @@ describe("sprintBoard", () => {
     expect(sprintBoard(a)).toBe(sprintBoard(b))
   })
 
-  it("keys each board placement by ticket", () => {
-    expect(placeBoardTicket({ req, id: ticketAId })).toBe(
-      placeBoardTicket({ req, id: ticketAId })
-    )
-    expect(placeBoardTicket({ req, id: ticketAId })).not.toBe(
-      placeBoardTicket({ req, id: ticketBId })
-    )
-  })
-
-  it("pairs each id from the group's order with its ticket", async () => {
+  it("orders cards by rank, whatever order the sprint lists them in", async () => {
     fetchStub.set((input, init) =>
       routeByPath(
         input,
@@ -202,7 +195,7 @@ describe("sprintBoard", () => {
     )
     const registry = AtomRegistry.make()
     const view = sprintBoard(req)
-    const mutation = placeBoardTicket({ req, id: ticketBId })
+    const mutation = updateBoardTicket({ req, id: ticketBId })
     registry.mount(view)
     registry.mount(mutation)
     try {
@@ -213,9 +206,7 @@ describe("sprintBoard", () => {
         })
       )
       registry.set(mutation, {
-        ticketId: ticketBId,
-        after: null,
-        status: undefined
+        position: { to: { before: ticketAId }, rank: TicketRank.make("Zz") }
       })
       const optimistic = registry.get(view)
       if (!AsyncResult.isSuccess(optimistic))
@@ -227,114 +218,12 @@ describe("sprintBoard", () => {
 
       finishOrder(
         Response.json(
-          encodeGroup(
-            asGroupDetail({ ...group, tickets: [ticketBId, ticketAId] })
+          encodeTicketUpdate(
+            asTicketDetail({ ...ticketB, rank: TicketRank.make("Zy") })
           )
         )
       )
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
-    } finally {
-      registry.dispose()
-    }
-  })
-
-  it("holds the drag preview until both the group and its tickets refetch", async () => {
-    let finishOrder = (_r: Response) => {}
-    let finishTickets = (_r: Response) => {}
-    let ticketsResolved = false
-    fetchStub.set((input, init) =>
-      routeByPath(
-        input,
-        [
-          [
-            (_url, method) => method === "PATCH",
-            () =>
-              new Promise<Response>((resolve) => {
-                finishOrder = resolve
-              })
-          ],
-          [
-            (url, method) =>
-              method === "GET" && url.pathname.endsWith("/tickets"),
-            () => {
-              if (!ticketsResolved) {
-                ticketsResolved = true
-                return Promise.resolve(
-                  Response.json([encodeTicket(ticketA), encodeTicket(ticketB)])
-                )
-              }
-              return new Promise<Response>((resolve) => {
-                finishTickets = resolve
-              })
-            }
-          ],
-          [
-            (url, method) =>
-              method === "GET" && !url.pathname.endsWith("/tickets"),
-            () =>
-              Promise.resolve(Response.json(encodeGroup(asGroupDetail(group))))
-          ]
-        ],
-        init
-      )
-    )
-    const registry = AtomRegistry.make()
-    const view = sprintBoard(req)
-    const mutation = placeBoardTicket({ req, id: ticketAId })
-    registry.mount(view)
-    registry.mount(mutation)
-    try {
-      await vi.waitFor(() =>
-        expect(registry.get(view)).toMatchObject({
-          _tag: "Success",
-          waiting: false
-        })
-      )
-
-      registry.set(mutation, {
-        ticketId: ticketAId,
-        status: inProgress,
-        after: null
-      })
-      const optimistic = registry.get(view)
-      if (!AsyncResult.isSuccess(optimistic))
-        throw new Error("no optimistic value")
-      const moved = optimistic.value.tickets.find((t) => t.id === ticketAId)
-      expect(moved?.status).toBe(inProgress)
-
-      const reordered = { ...group, tickets: [ticketAId, ticketBId] }
-      finishOrder(Response.json(encodeGroup(asGroupDetail(reordered))))
-      await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
-
-      await vi.waitFor(() =>
-        expect(registry.get(view)).toMatchObject({
-          _tag: "Success",
-          waiting: true
-        })
-      )
-      const stillHeld = registry.get(view)
-      if (!AsyncResult.isSuccess(stillHeld)) throw new Error("no held value")
-      expect(
-        stillHeld.value.tickets.find((t) => t.id === ticketAId)?.status
-      ).toBe(inProgress)
-
-      finishTickets(
-        Response.json([
-          encodeTicket({ ...ticketA, status: inProgress }),
-          encodeTicket(ticketB)
-        ])
-      )
-      await vi.waitFor(() =>
-        expect(registry.get(view)).toMatchObject({
-          _tag: "Success",
-          waiting: false
-        })
-      )
-      const settled = registry.get(view)
-      if (!AsyncResult.isSuccess(settled)) throw new Error("did not settle")
-      expect(
-        settled.value.tickets.find((t) => t.id === ticketAId)?.status
-      ).toBe(inProgress)
     } finally {
       registry.dispose()
     }
@@ -369,7 +258,7 @@ describe("sprintBoard", () => {
     )
     const registry = AtomRegistry.make()
     const view = sprintBoard(req)
-    const mutation = placeBoardTicket({ req, id: ticketAId })
+    const mutation = updateBoardTicket({ req, id: ticketAId })
     registry.mount(view)
     registry.mount(mutation)
     try {
@@ -380,9 +269,8 @@ describe("sprintBoard", () => {
         })
       )
       registry.set(mutation, {
-        ticketId: ticketAId,
         status: inProgress,
-        after: ticketBId
+        position: { to: { after: ticketBId }, rank: TicketRank.make("a2") }
       })
       const optimistic = registry.get(view)
       if (!AsyncResult.isSuccess(optimistic))
@@ -404,80 +292,6 @@ describe("sprintBoard", () => {
           settled.value.tickets.find((t) => t.id === ticketAId)?.status
         ).toBe(todo)
       })
-    } finally {
-      registry.dispose()
-    }
-  })
-
-  it("keeps a second placement in flight when the first fails", async () => {
-    const finishers: Array<(response: Response) => void> = []
-    fetchStub.set((input, init) =>
-      routeByPath(
-        input,
-        [
-          [
-            (_url, method) => method === "PATCH",
-            () =>
-              new Promise<Response>((resolve) => {
-                finishers.push(resolve)
-              })
-          ],
-          [
-            (url, method) =>
-              method === "GET" && url.pathname.endsWith("/tickets"),
-            () =>
-              Promise.resolve(
-                Response.json([encodeTicket(ticketA), encodeTicket(ticketB)])
-              )
-          ],
-          [
-            (url, method) =>
-              method === "GET" && !url.pathname.endsWith("/tickets"),
-            () =>
-              Promise.resolve(Response.json(encodeGroup(asGroupDetail(group))))
-          ]
-        ],
-        init
-      )
-    )
-    const registry = AtomRegistry.make()
-    const view = sprintBoard(req)
-    const placeA = placeBoardTicket({ req, id: ticketAId })
-    const placeB = placeBoardTicket({ req, id: ticketBId })
-    registry.mount(view)
-    registry.mount(placeA)
-    registry.mount(placeB)
-    try {
-      await vi.waitFor(() =>
-        expect(registry.get(view)).toMatchObject({
-          _tag: "Success",
-          waiting: false
-        })
-      )
-      registry.set(placeA, {
-        ticketId: ticketAId,
-        status: inProgress,
-        after: null
-      })
-      await vi.waitFor(() => expect(finishers).toHaveLength(1))
-      registry.set(placeB, {
-        ticketId: ticketBId,
-        after: null,
-        status: undefined
-      })
-      await vi.waitFor(() => expect(finishers).toHaveLength(2))
-      expect(registry.get(placeA).waiting).toBe(true)
-      expect(registry.get(placeB).waiting).toBe(true)
-
-      finishers[0](new Response("nope", { status: 500 }))
-      await vi.waitFor(() => expect(registry.get(placeA).waiting).toBe(false))
-      expect(registry.get(placeB).waiting).toBe(true)
-      const held = registry.get(view)
-      if (!AsyncResult.isSuccess(held)) throw new Error("no held value")
-      expect(held.value.tickets.map((t) => t.id)).toEqual([
-        ticketBId,
-        ticketAId
-      ])
     } finally {
       registry.dispose()
     }

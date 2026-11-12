@@ -160,12 +160,11 @@ describe("GroupPolicy.can", () => {
     ["sprint", "manage", ["pm"]],
     ["sprint", "add_ticket", ["pm", "developer", "client"]],
     ["sprint", "remove_ticket", ["pm"]],
-    ["sprint", "reorder", ["pm", "developer", "client"]],
     ["milestone", "manage", ["pm"]],
     ["milestone", "remove_ticket", ["pm"]],
     ["epic", "manage", ["pm", "developer"]],
     ["epic", "remove_ticket", ["pm", "developer"]],
-    ["other", "reorder", ["pm", "developer"]]
+    ["other", "add_ticket", ["pm", "developer"]]
   ])("%s %s", (kind, action, expected) => {
     expect(
       allowed((candidate) => GroupPolicy.can(candidate, kind, action))
@@ -184,7 +183,6 @@ describe("GroupPolicy.ticketActions", () => {
     [["T-1", "T-2"], ["T-1", "T-2"], []],
     [["T-1"], ["T-1", "T-2"], ["add_ticket"]],
     [["T-1", "T-2"], ["T-1"], ["remove_ticket"]],
-    [["T-1", "T-2"], ["T-2", "T-1"], ["reorder"]],
     [
       ["T-1", "T-2"],
       ["T-3", "T-2"],
@@ -193,7 +191,7 @@ describe("GroupPolicy.ticketActions", () => {
     [
       ["T-1", "T-2", "T-3"],
       ["T-3", "T-1", "T-4"],
-      ["add_ticket", "remove_ticket", "reorder"]
+      ["add_ticket", "remove_ticket"]
     ]
   ])("%j to %j takes %j", (current, next, expected) => {
     expect(GroupPolicy.ticketActions(current, next)).toStrictEqual(expected)
@@ -213,11 +211,6 @@ describe("GroupPolicy.canChangeTickets", () => {
       "adding a ticket from another active sprint",
       { current: ["T-1"], next: ["T-1", "T-2"], evicts: true },
       ["pm"]
-    ],
-    [
-      "reordering",
-      { current: ["T-1", "T-2"], next: ["T-2", "T-1"], evicts: false },
-      ["pm", "developer", "client"]
     ],
     [
       "taking a ticket out",

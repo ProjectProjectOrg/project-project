@@ -1,4 +1,10 @@
-import { TagName, TicketId, TicketStatus, TypeKey } from "@pp/shared"
+import {
+  TagName,
+  TicketId,
+  TicketStatus,
+  TypeKey,
+  TicketRank
+} from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
@@ -28,6 +34,7 @@ const existing: TicketDocs.TicketDocument = {
   status: ticketStatus("todo"),
   type: TypeKey.make("feat"),
   priority: "med",
+  rank: TicketRank.make("a0"),
   estimate: { unit: "points", value: 3 },
   tags: [tagName("core")],
   branch: null,
@@ -93,6 +100,36 @@ describe("applyTicketPatch", () => {
     )
     expect(next.estimate).toBeUndefined()
     expect(next.parent).toBeUndefined()
+  })
+})
+
+describe("applyTicketPatch flag", () => {
+  const flagged = {
+    ...existing,
+    flag: { reason: "Waiting on the customer", by: "user-1", at: created }
+  }
+
+  it("stamps a new flag with the editor and time, dropping a blank reason", () => {
+    expect(
+      applyTicketPatch(existing, { flag: { reason: "  " } }, "user-2", now).flag
+    ).toEqual({ by: "user-2", at: now })
+  })
+
+  it("keeps who flagged it and when if the reason is unchanged", () => {
+    expect(
+      applyTicketPatch(
+        flagged,
+        { flag: { reason: "Waiting on the customer " } },
+        "user-2",
+        now
+      ).flag
+    ).toBe(flagged.flag)
+  })
+
+  it("removes the flag when the patch sets it to null", () => {
+    expect(
+      applyTicketPatch(flagged, { flag: null }, "user-2", now).flag
+    ).toBeUndefined()
   })
 })
 
@@ -297,6 +334,19 @@ describe("revertTicketPatch", () => {
       priority: "med",
       tags: existing.tags
     })
+  })
+
+  it("restores a flag that finishing the ticket cleared", () => {
+    const flagged = {
+      ...existing,
+      flag: { reason: "Needs a decision", by: "user-1", at: created }
+    }
+    const { flag: _flag, ...finished } = {
+      ...flagged,
+      status: ticketStatus("done"),
+      updatedAt: now
+    }
+    expect(revertTicketPatch(flagged, finished, finished)).toEqual(flagged)
   })
 
   it("leaves a field someone else changed again", () => {

@@ -953,6 +953,26 @@ describe("immutable v2 publication", () => {
         expect(same.publicationRevision).toBe(result.publicationRevision)
       })
   )
+  it.effect("ranks imported tickets in Jira board order", () =>
+    Effect.gen(function* () {
+      const input = preparationInput()
+      const prepared = yield* prepareJiraPublication({
+        ...input,
+        manifest: {
+          ...input.manifest,
+          ranks: [
+            { id: "rank-1", issueId: "issue-1", rank: "0|z" },
+            { id: "rank-4", issueId: "issue-4", rank: "0|a" }
+          ]
+        }
+      })
+      const result = yield* finalizeJiraPublication(prepared, [])
+      const rows = result.plan.indexes.tickets.toSorted((a, b) =>
+        a.rank < b.rank ? -1 : 1
+      )
+      expect(rows.map((row) => row.ticketId)).toEqual(["APP-4", "APP-1"])
+    })
+  )
   it.effect(
     "remaps ticket IDs with a changed key and blocks collisions on the final IDs",
     () =>

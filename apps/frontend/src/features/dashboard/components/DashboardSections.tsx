@@ -27,6 +27,7 @@ import {
   type MyTicketsRequest
 } from "@/features/tickets/atoms/myTickets"
 import { GroupingMenu } from "@/features/tickets/components/ticket-list/GroupingMenu"
+import { useClearSelectionWhen } from "@/features/tickets/components/ticket-list/TicketSelection"
 import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
 import {
   createLocalStorageCodec,
@@ -83,6 +84,7 @@ export function MyTicketsSection({
     groupingCodec,
     "project"
   )
+  useClearSelectionWhen(grouping)
   return (
     <section className="flex flex-col gap-3">
       <div className="flex h-9 items-center justify-between gap-3">

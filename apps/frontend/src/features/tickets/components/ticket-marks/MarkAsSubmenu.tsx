@@ -2,7 +2,15 @@ import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { isEpic } from "@pp/shared"
 import type { TicketId, TicketParent } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Flag, Layers, Link2, X, type LucideIcon } from "lucide-react"
+import {
+  Flag,
+  FlagOff,
+  Layers,
+  Link2,
+  Stamp,
+  X,
+  type LucideIcon
+} from "lucide-react"
 import { Fragment, useContext } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
@@ -27,15 +35,37 @@ import { m } from "@/paraglide/messages"
 
 import { MARK_KINDS } from "./markKinds"
 
-export function MarkAsSubmenu({ ticketId }: Readonly<{ ticketId: TicketId }>) {
+export function MarkAsSubmenu({
+  ticketId,
+  flagged,
+  onFlag,
+  onUnflag
+}: Readonly<{
+  ticketId: TicketId
+  flagged: boolean
+  onFlag: () => void
+  onUnflag: () => void
+}>) {
   const openPage = useOpenTicketPage(ticketId)
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>
-        <Flag className="size-4" strokeWidth={1.75} />
+        <Stamp className="size-4" strokeWidth={1.75} />
         {m.tickets_mark_as()}
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-56">
+        {flagged ? (
+          <DropdownMenuItem onClick={onUnflag} className="cursor-pointer">
+            <FlagOff className="size-4" strokeWidth={1.75} />
+            {m.tickets_mark_remove_flag()}
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem onClick={onFlag} className="cursor-pointer">
+            <Flag className="size-4" strokeWidth={1.75} />
+            {m.tickets_mark_flagged()}
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
         {MARK_KINDS.map(({ kind, icon: Icon, label }) => (
           <Fragment key={kind}>
             {kind === "duplicateOf" && <DropdownMenuSeparator />}
@@ -103,7 +133,7 @@ export function RelationsSubmenu({
           return (
             <RelationItem
               key={`${kind}:${linked.id}`}
-              icon={mark?.icon ?? Flag}
+              icon={mark?.icon ?? Link2}
               kind={mark?.label() ?? ""}
               id={linked.id}
               title={linked.title}

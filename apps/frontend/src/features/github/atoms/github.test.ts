@@ -94,6 +94,7 @@ const ticketDetail = {
   status: "todo",
   type: null,
   priority: "med",
+  rank: "a0",
   tags: [],
   branch: "feat/T-1",
   pr: null,

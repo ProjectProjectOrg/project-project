@@ -30,9 +30,13 @@ import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import {
   backlogRequest,
   backlogTicketUpdates,
+  bulkUpdateBacklogTickets,
   type BacklogValue
 } from "@/features/tickets/atoms/backlog"
-import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
+import type {
+  BulkTicketUpdateAtom,
+  TicketUpdates
+} from "@/features/tickets/atoms/ticketRows"
 import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
 import { m } from "@/paraglide/messages"
 
@@ -82,6 +86,9 @@ export function SegmentedList({
   }
   const preview = useTicketPreview()
   const update = backlogTicketUpdates(backlogRequest(orgSlug, slug, query))
+  const bulkUpdate = bulkUpdateBacklogTickets(
+    backlogRequest(orgSlug, slug, query)
+  )
 
   const statusReq = statusesRequest(orgSlug, slug)
   const statusesResult = useAtomValue(statusesFor(statusReq))
@@ -194,6 +201,7 @@ export function SegmentedList({
             statuses={statuses}
             query={query}
             update={update}
+            bulkUpdate={bulkUpdate}
             count={byStatus[status] ?? 0}
             page={sections[status] ?? EMPTY_PAGE}
             members={members}
@@ -215,6 +223,7 @@ function StatusSection({
   statuses,
   query,
   update,
+  bulkUpdate,
   count,
   page,
   members,
@@ -228,6 +237,7 @@ function StatusSection({
   statuses: ReadonlyArray<ProjectStatus>
   query: TicketListQuery
   update: TicketUpdates
+  bulkUpdate: BulkTicketUpdateAtom
   count: number
   page: TicketRowPage
   members: ReadonlyArray<Member>
@@ -246,6 +256,7 @@ function StatusSection({
       statuses={statuses}
       query={query}
       update={update}
+      bulkUpdate={bulkUpdate}
       count={count}
       page={page}
       collapsed={collapsed}

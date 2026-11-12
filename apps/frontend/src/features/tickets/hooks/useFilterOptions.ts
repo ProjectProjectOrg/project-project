@@ -4,6 +4,7 @@ import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   Archive,
+  Flag,
   Gauge,
   OctagonMinus,
   Shapes,
@@ -56,6 +57,7 @@ export const FILTER_DIMENSION_META: Readonly<
   >
 > = {
   blocked: { label: m.tickets_filters_blocked, icon: OctagonMinus },
+  flagged: { label: m.tickets_filters_flagged, icon: Flag },
   archived: { label: m.tickets_filters_section_archived, icon: Archive },
   type: { label: m.tickets_filters_section_type, icon: Shapes },
   assignee: { label: m.tickets_filters_section_assignee, icon: UserRound },
@@ -94,6 +96,14 @@ export function useFilterOptions(
             choice: { dimension },
             label: m.tickets_filters_blocked_only(),
             icon: OctagonMinus
+          }
+        ]
+      case "flagged":
+        return [
+          {
+            choice: { dimension },
+            label: m.tickets_filters_flagged_only(),
+            icon: Flag
           }
         ]
       case "archived":

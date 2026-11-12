@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import type { ReactNode } from "react"
 
+import { Markdown } from "@/features/editor/components/Markdown"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TagChip } from "@/features/tags/components/TagChip"
@@ -249,9 +250,13 @@ function ActivityLineBodyView({
   return (
     <>
       {body.text}{" "}
-      <span className="mt-1 block border-l-2 border-border pl-2.5 whitespace-pre-line text-foreground">
+      <Markdown
+        size="compact"
+        blocks="flat"
+        className="mt-1 border-l-2 border-border pl-2.5 text-foreground"
+      >
         {body.quote}
-      </span>
+      </Markdown>
     </>
   )
 }

@@ -5,7 +5,8 @@ import {
   TicketId,
   TicketStatus,
   type Estimate,
-  TypeKey
+  TypeKey,
+  TicketRank
 } from "@pp/shared"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as DateTime from "effect/DateTime"
@@ -72,6 +73,7 @@ const ticketDocument = (
   status: ticketStatus("todo"),
   type: TypeKey.make("chore"),
   priority: "med",
+  rank: TicketRank.make("a0"),
   tags: [],
   branch: "chore/branch-matching",
   branchAutoLinkDisabled,
@@ -226,6 +228,7 @@ describe("TicketDocs branch matching persistence", () => {
           status: "todo",
           type: TypeKey.make("chore"),
           priority: "med",
+          rank: "a0",
           tags: [],
           branch: null,
           pr: null,
@@ -258,6 +261,7 @@ describe("TicketDocs branch matching persistence", () => {
           title: "Ticket",
           status: "todo",
           type: "other",
+          rank: "a0",
           createdBy: "user-1",
           createdAt: "2026-09-07T10:00:00Z",
           updatedAt: "2026-09-07T10:00:00Z"
@@ -296,6 +300,7 @@ describe("TicketDocs branch matching persistence", () => {
           status: "todo",
           type: TypeKey.make("chore"),
           priority: "med",
+          rank: "a0",
           tags: [],
           branch: null,
           pr: null,
@@ -329,6 +334,7 @@ describe("TicketDocs branch matching persistence", () => {
           status: "todo",
           type: TypeKey.make("chore"),
           priority: "med",
+          rank: "a0",
           tags: [],
           branch: null,
           pr: null,
@@ -458,6 +464,7 @@ describe("TicketDocs branches persistence", () => {
           status: "todo",
           type: TypeKey.make("chore"),
           priority: "med",
+          rank: "a0",
           tags: [],
           branches: [
             { branch: "feat/T-25" },
@@ -492,6 +499,7 @@ describe("TicketDocs branches persistence", () => {
           status: "todo",
           type: TypeKey.make("chore"),
           priority: "med",
+          rank: "a0",
           tags: [],
           branch: "feat/T-23",
           pr: 7,
@@ -572,6 +580,7 @@ describe("TicketDocs estimate persistence", () => {
           status: "todo",
           type: TypeKey.make("chore"),
           priority: "med",
+          rank: "a0",
           estimate: "XXL",
           tags: [],
           branch: null,
@@ -836,6 +845,42 @@ describe("TicketDocs activity capture", () => {
       ).toEqual([
         ["status_changed", "git_automation"],
         ["pr_merged", undefined]
+      ])
+    })
+  )
+
+  it.effect("clears the flag when the ticket moves to a finished status", () =>
+    Effect.gen(function* () {
+      const flag = { reason: "Needs a decision", by: "user-1", at: later }
+      const { recorded, result } = yield* capture((docs) =>
+        Effect.gen(function* () {
+          yield* docs.update("acme", "project", "T-1", (ticket) =>
+            Effect.succeed({ ...ticket, flag, updatedAt: later })
+          )
+          yield* docs.update("acme", "project", "T-1", (ticket) =>
+            Effect.succeed({
+              ...ticket,
+              status: ticketStatus("in_progress"),
+              updatedAt: later
+            })
+          )
+          yield* docs.update("acme", "project", "T-1", (ticket) =>
+            Effect.succeed({
+              ...ticket,
+              status: ticketStatus("done"),
+              updatedAt: later
+            })
+          )
+          return yield* docs.read("acme", "project", "T-1")
+        })
+      )
+      expect(result.flag).toBeUndefined()
+      expect(
+        recorded.map((entry) => entry.changes.map(({ change }) => change.kind))
+      ).toEqual([
+        ["flagged"],
+        ["status_changed"],
+        ["status_changed", "unflagged"]
       ])
     })
   )

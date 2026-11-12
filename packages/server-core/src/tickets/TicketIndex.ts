@@ -14,6 +14,7 @@ import {
   type ActivityActor,
   type ChecksStatus,
   type PullRequestState,
+  type TicketFlag,
   type TicketPriority,
   type TicketParent,
   type TypeKey,
@@ -28,6 +29,7 @@ import {
   TagName,
   TicketActivityChange,
   TicketId,
+  TicketRank,
   tryDecodeCursor,
   type EstimateFilterValue,
   type TicketCountQuery,
@@ -119,6 +121,7 @@ export type TicketIndexEntry = Readonly<{
   status: TicketStatus
   type: TypeKey | null
   priority: TicketPriority
+  rank: TicketRank
   estimate: Estimate | null
   tags: ReadonlyArray<TagName>
   branch: string | null
@@ -141,10 +144,16 @@ export type TicketIndexEntry = Readonly<{
   openBlockingCount: number
   relatedCount: number
   duplicateCount: number
+  flag: TicketFlag | null
   archivedAt: Date | null
   createdBy: string
   createdAt: Date
   updatedAt: Date
+}>
+
+export type TicketRankGap = Readonly<{
+  lower: TicketRank | null
+  upper: TicketRank | null
 }>
 
 /** A section with `ticketIds` holds exactly those tickets; one without catches the rest. */
@@ -176,9 +185,10 @@ export type TicketIndexSectionOrder =
   | Readonly<{ kind: "parent" | "ticketParent"; keys: ReadonlyArray<string> }>
   | Readonly<{ kind: "explicit"; sections: ReadonlyArray<TicketIndexSection> }>
 
-export type TicketIndexWithinOrder =
-  | Readonly<{ kind: "sort"; sort: TicketSort }>
-  | Readonly<{ kind: "manual"; ticketIds: ReadonlyArray<string> }>
+export type TicketIndexWithinOrder = Readonly<{
+  sort: TicketSort
+  nestAcrossSections?: boolean
+}>
 
 export type TicketIndexNeighborsOptions = TicketIndexCountOptions &
   Readonly<{
@@ -339,6 +349,13 @@ export class TicketIndex extends Context.Service<
       ticketId: string,
       sort: TicketSort
     ) => Effect.Effect<string | null>
+    topRank: (project: TicketProject) => Effect.Effect<TicketRank | null>
+    rankGap: (
+      project: TicketProject,
+      anchorId: string,
+      side: "after" | "before",
+      excludeId: string
+    ) => Effect.Effect<TicketRankGap | null>
     count: (
       project: TicketProject,
       query: TicketCountQuery,
@@ -442,6 +459,7 @@ export const ticketIndexRowFor = (
   status: document.status,
   type: document.type,
   priority: document.priority,
+  rank: document.rank,
   estimateUnit: document.estimate?.unit ?? null,
   estimateValue: document.estimate ? estimateRank(document.estimate) : null,
   tags: [...document.tags],
@@ -456,10 +474,25 @@ export const ticketIndexRowFor = (
   lastTransitionedPr: document.lastTransitionedPr,
   ignoredBranches: [...(document.ignoredBranches ?? [])],
   archivedAt: document.archivedAt,
+  flagReason: document.flag?.reason ?? null,
+  flaggedBy: document.flag?.by ?? null,
+  flaggedAt: document.flag?.at ?? null,
   createdBy: document.createdBy,
   createdAt: document.createdAt,
   updatedAt: document.updatedAt
 })
+
+const flagFromIndex = (
+  row: Pick<
+    typeof ticketIndex.$inferSelect,
+    "flagReason" | "flaggedBy" | "flaggedAt"
+  >
+): TicketFlag | null => {
+  if (row.flaggedBy === null || row.flaggedAt === null) return null
+  return row.flagReason === null
+    ? { by: row.flaggedBy, at: row.flaggedAt }
+    : { reason: row.flagReason, by: row.flaggedBy, at: row.flaggedAt }
+}
 
 export const ticketBranchRowsFor = (
   project: TicketProject,
@@ -553,6 +586,8 @@ const estimateFilterCondition = (value: EstimateFilterValue): SQL => {
 
 export const ticketSortExpression = (sort: TicketSort): SQL<string | Date> => {
   switch (sort.key) {
+    case "manual":
+      return drizzleSql`${ticketIndex.rank} collate "C"`
     case "id":
       return ticketIdSortExpression
     case "created":
@@ -954,6 +989,13 @@ const ticketWhereConditions = (
         : drizzleSql`${openBlockerCountOf(parentRow)} = 0`
     )
   }
+  if (filter?.flagged !== undefined) {
+    conditions.push(
+      filter.flagged
+        ? isNotNull(ticketIndex.flaggedAt)
+        : isNull(ticketIndex.flaggedAt)
+    )
+  }
   if (filter?.subTickets === "nested") {
     const matchingParents = and(
       notEpic,
@@ -1034,6 +1076,7 @@ const make = Effect.gen(function* () {
     status: TicketStatus.make(row.status),
     type: row.type,
     priority: row.priority,
+    rank: TicketRank.make(row.rank),
     estimate: estimateFromIndex(row.estimateUnit, row.estimateValue),
     tags: row.tags.map((tag) => makeTagName(tag)),
     branch: row.branch,
@@ -1066,6 +1109,7 @@ const make = Effect.gen(function* () {
     openBlockingCount: row.openBlockingCount,
     relatedCount: row.relatedCount,
     duplicateCount: row.duplicateCount,
+    flag: flagFromIndex(row),
     archivedAt: row.archivedAt,
     createdBy: row.createdBy,
     createdAt: row.createdAt,
@@ -1199,13 +1243,13 @@ const make = Effect.gen(function* () {
         sortValue: drizzleSql<string | Date>`${expression}`.as("sort_value"),
         subTicketsInSection: subTicketsInSection(nestWithin),
         section: drizzleSql<string | null>`${section}`.as("section"),
-        rank: drizzleSql<number>`row_number() over (
+        position: drizzleSql<number>`row_number() over (
           partition by ${section}
           order by ${expression} ${ascending ? drizzleSql`asc` : drizzleSql`desc`},
             ${ticketIndex.ticketId} ${ascending ? drizzleSql`asc` : drizzleSql`desc`}
         )`
           .mapWith(Number)
-          .as("rank")
+          .as("position")
       })
       .from(ticketIndex)
       .where(
@@ -1221,10 +1265,10 @@ const make = Effect.gen(function* () {
       .where(
         and(
           isNotNull(ranked.section),
-          lte(ranked.rank, Math.max(1, options.limit))
+          lte(ranked.position, Math.max(1, options.limit))
         )
       )
-      .orderBy(asc(ranked.section), asc(ranked.rank))
+      .orderBy(asc(ranked.section), asc(ranked.position))
     const counts = db
       .select({
         section: drizzleSql<string | null>`${section}`,
@@ -1266,7 +1310,12 @@ const make = Effect.gen(function* () {
           current.counts.byStatus[row.status] = row.total
           current.counts.total += row.total
         }
-        for (const { sortValue, section: key, rank: _rank, ...row } of rows) {
+        for (const {
+          sortValue,
+          section: key,
+          position: _position,
+          ...row
+        } of rows) {
           if (key === null) continue
           const value = sortValueText(sortValue)
           at(key).entries.push({
@@ -1289,7 +1338,7 @@ const make = Effect.gen(function* () {
     const order = options.sections
     const sections = order.kind === "explicit" ? order.sections : order.kind
     const nestWithin: NestWithin | undefined =
-      options.within.kind === "manual" ||
+      options.within.nestAcrossSections === true ||
       sections === "parent" ||
       sections === "ticketParent"
         ? undefined
@@ -1306,15 +1355,9 @@ const make = Effect.gen(function* () {
               ? order.sections.map((section) => section.key)
               : [...order.keys]
           )}::text[], ${sectionExpression(sections)})`
-    const within = options.within
-    const ascending = within.kind === "manual" || within.sort.dir === "asc"
-    const dir = ascending ? drizzleSql`asc` : drizzleSql`desc`
-    const withinExpression =
-      within.kind === "manual"
-        ? drizzleSql`array_position(${drizzleSql.param([
-            ...within.ticketIds
-          ])}::text[], ${ticketIndex.ticketId})`
-        : ticketSortExpression(within.sort)
+    const { sort } = options.within
+    const dir = sort.dir === "asc" ? drizzleSql`asc` : drizzleSql`desc`
+    const withinExpression = ticketSortExpression(sort)
     const window = drizzleSql`order by ${ordinal} asc, ${withinExpression} ${dir}, ${ticketIndex.ticketId} ${dir}`
     const ordered = db
       .select({
@@ -1497,12 +1540,12 @@ const make = Effect.gen(function* () {
       const ranked = db
         .select({
           ...entryColumns,
-          rank: drizzleSql<number>`row_number() over (
+          position: drizzleSql<number>`row_number() over (
           partition by ${ticketIndex.projectId}
           order by ${ticketIndex.updatedAt} desc, ${ticketIndex.ticketId} desc
         )`
             .mapWith(Number)
-            .as("rank"),
+            .as("position"),
           total: drizzleSql<number>`count(*) over (
           partition by ${ticketIndex.projectId}
         )`
@@ -1515,12 +1558,12 @@ const make = Effect.gen(function* () {
       return yield* db
         .select()
         .from(ranked)
-        .where(lte(ranked.rank, Math.max(1, scope.perProject)))
-        .orderBy(asc(ranked.projectId), asc(ranked.rank))
+        .where(lte(ranked.position, Math.max(1, scope.perProject)))
+        .orderBy(asc(ranked.projectId), asc(ranked.position))
         .pipe(
           Effect.map((rows) => {
             const byProject = new Map<string, TicketIndexProjectPreview>()
-            for (const { rank: _rank, total, ...row } of rows) {
+            for (const { position: _position, total, ...row } of rows) {
               const project = projects.find(
                 (candidate) => candidate.projectId === row.projectId
               )
@@ -1664,6 +1707,63 @@ const make = Effect.gen(function* () {
         ),
         Effect.orDie
       )
+  })
+
+  const rankCollated = drizzleSql`${ticketIndex.rank} collate "C"`
+
+  const topRank = Effect.fn("TicketIndex.topRank")(function* (
+    project: TicketProject
+  ) {
+    const rows = yield* db
+      .select({ rank: ticketIndex.rank })
+      .from(ticketIndex)
+      .where(eq(ticketIndex.projectId, project.projectId))
+      .orderBy(asc(rankCollated))
+      .limit(1)
+      .pipe(Effect.orDie)
+    const rank = rows[0]?.rank
+    return rank === undefined ? null : TicketRank.make(rank)
+  })
+
+  const rankGap = Effect.fn("TicketIndex.rankGap")(function* (
+    project: TicketProject,
+    anchorId: string,
+    side: "after" | "before",
+    excludeId: string
+  ) {
+    const anchor = (yield* db
+      .select({ rank: ticketIndex.rank })
+      .from(ticketIndex)
+      .where(
+        and(
+          eq(ticketIndex.projectId, project.projectId),
+          eq(ticketIndex.ticketId, anchorId)
+        )
+      )
+      .limit(1)
+      .pipe(Effect.orDie))[0]
+    if (anchor === undefined) return null
+    const neighbor = (yield* db
+      .select({ rank: ticketIndex.rank })
+      .from(ticketIndex)
+      .where(
+        and(
+          eq(ticketIndex.projectId, project.projectId),
+          ne(ticketIndex.ticketId, excludeId),
+          side === "after"
+            ? drizzleSql`${rankCollated} > ${anchor.rank} collate "C"`
+            : drizzleSql`${rankCollated} < ${anchor.rank} collate "C"`
+        )
+      )
+      .orderBy(side === "after" ? asc(rankCollated) : desc(rankCollated))
+      .limit(1)
+      .pipe(Effect.orDie))[0]
+    const anchorRank = TicketRank.make(anchor.rank)
+    const neighborRank =
+      neighbor === undefined ? null : TicketRank.make(neighbor.rank)
+    return side === "after"
+      ? { lower: anchorRank, upper: neighborRank }
+      : { lower: neighborRank, upper: anchorRank }
   })
 
   const orderKeyFor = Effect.fn("TicketIndex.orderKeyFor")(function* (
@@ -2153,6 +2253,8 @@ const make = Effect.gen(function* () {
     querySections,
     neighbors,
     orderKeyFor,
+    topRank,
+    rankGap,
     count,
     listIds,
     existingIds,

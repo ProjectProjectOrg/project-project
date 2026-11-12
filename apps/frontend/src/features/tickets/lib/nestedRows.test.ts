@@ -1,4 +1,10 @@
-import { TicketId, TicketStatus, type Ticket, TypeKey } from "@pp/shared"
+import {
+  TicketId,
+  TicketStatus,
+  type Ticket,
+  TypeKey,
+  TicketRank
+} from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
@@ -19,9 +25,11 @@ const ticket = (id: string, fields: Partial<Ticket> = {}): Ticket => ({
   branch: null,
   pr: null,
   prState: null,
+  rank: TicketRank.make("a0"),
   lastTransitionedPr: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
   estimate: null,
+  flag: null,
   assignees: [],
   parent: null,
   archivedAt: null,

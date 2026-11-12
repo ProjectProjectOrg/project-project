@@ -1,4 +1,5 @@
 import {
+  TicketRank,
   type EstimateSummary,
   GroupId,
   padNumericIdSort,
@@ -37,10 +38,12 @@ const ticket = {
   type: TypeKey.make("chore"),
   priority: "med",
   estimate: null,
+  flag: null,
   tags: [],
   branch: null,
   pr: null,
   prState: null,
+  rank: TicketRank.make("a0"),
   lastTransitionedPr: null,
   parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },

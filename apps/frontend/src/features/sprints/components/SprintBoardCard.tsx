@@ -13,6 +13,7 @@ import { AssigneeField } from "@/features/tickets/components/ticket-list/Assigne
 import { UpdateFailureMarker } from "@/features/tickets/components/ticket-list/UpdateFailureMarker"
 import { TicketContextMenu } from "@/features/tickets/components/ticket-menu/TicketMenu"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
+import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { useProjectActor } from "@/hooks/useActor"
 
@@ -57,6 +58,7 @@ function BoardCardFields({
   const actor = useProjectActor()
   const editable = TicketPolicy.canChange(actor, { content: true })
   const canAssign = TicketPolicy.canChange(actor, { assignees: true })
+  const { shows } = useDisplayProperties()
   return (
     <DeferredDropdownMenus>
       <TicketContextMenu
@@ -68,11 +70,11 @@ function BoardCardFields({
         <div
           {...pointAt}
           data-board-card={ticket.id}
-          onPointerEnter={() => {
-            pointAt.onPointerEnter()
+          onPointerEnter={(event) => {
+            pointAt.onPointerEnter(event)
             preloadChildren()
           }}
-          className="relative isolate flex flex-col rounded-lg bg-surface-3 px-2.5 pt-2 pb-1 text-left shadow-surface-1 transition outline-none hover:bg-surface-4 hover:shadow-surface-1-hover has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover data-[popup-open]:bg-surface-4 data-[popup-open]:shadow-surface-1-hover [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20"
+          className="relative isolate flex flex-col rounded-lg bg-surface-3 px-2.5 pt-2 pb-1 text-left shadow-surface-1 transition outline-none not-in-data-keyboard-navigation:hover:bg-surface-4 not-in-data-keyboard-navigation:hover:shadow-surface-1-hover in-data-keyboard-navigation:duration-0 has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover has-[[data-row-link]:focus-visible]:bg-surface-4 has-[[data-row-link]:focus-visible]:shadow-surface-1-hover has-[[data-row-link]:focus-visible]:duration-0 data-[popup-open]:bg-surface-4 data-[popup-open]:shadow-surface-1-hover [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20"
         >
           <Link
             to="/orgs/$orgSlug/projects/$slug/tickets/$id"
@@ -97,16 +99,18 @@ function BoardCardFields({
                     <ParentTicketCrumb parent={ticket.parent} />
                   )}
                 </span>
-                <span className="ml-auto flex shrink-0 items-center">
-                  <fieldset disabled={!canAssign} className="contents">
-                    <AssigneeField
-                      ticket={ticket}
-                      members={members}
-                      variant="card"
-                      onPatch={onPatch}
-                    />
-                  </fieldset>
-                </span>
+                {shows("assignee") && (
+                  <span className="ml-auto flex shrink-0 items-center">
+                    <fieldset disabled={!canAssign} className="contents">
+                      <AssigneeField
+                        ticket={ticket}
+                        members={members}
+                        variant="card"
+                        onPatch={onPatch}
+                      />
+                    </fieldset>
+                  </span>
+                )}
               </div>
               <div className="min-w-0 text-subtitle leading-snug font-semibold">
                 <span className="line-clamp-2">{ticket.title}</span>

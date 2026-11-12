@@ -20,8 +20,7 @@ import {
   GroupDetail,
   UpdateGroupInput,
   UpdateGroupTicketsInput,
-  UpdateGroupTicketsOutput,
-  UpdateTicketOrderInput
+  UpdateGroupTicketsOutput
 } from "./Group"
 
 export const GroupsGroup = HttpApiGroup.make("groups")
@@ -115,24 +114,6 @@ export const GroupsGroup = HttpApiGroup.make("groups")
         payload: UpdateGroupTicketsInput,
         success: UpdateGroupTicketsOutput,
         error: [Unauthorized, NotFound, Forbidden, SprintCompletedImmutable]
-      }
-    ).annotate(RequiresProject, "membership")
-  )
-  .add(
-    HttpApiEndpoint.patch(
-      "updateTicketOrder",
-      "/orgs/:orgSlug/projects/:slug/groups/:id/ticket-order",
-      {
-        params: GroupPath,
-        payload: UpdateTicketOrderInput,
-        success: GroupDetail,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          SprintCompletedImmutable,
-          Validation
-        ]
       }
     ).annotate(RequiresProject, "membership")
   )

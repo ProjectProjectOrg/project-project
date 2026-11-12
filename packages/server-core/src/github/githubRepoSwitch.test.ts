@@ -27,7 +27,8 @@ import {
   Slug,
   TicketId,
   TicketStatus,
-  TypeKey
+  TypeKey,
+  TicketRank
 } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
@@ -70,6 +71,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
     status: decodeTicketStatusSync("todo"),
     type: TypeKey.make("feat"),
     priority: "med",
+    rank: TicketRank.make("a0"),
     tags: [],
     branch: "feat/T-1",
     pr: 42,
@@ -193,6 +195,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
         const delegate = TicketDocumentLock.make(yield* KeyedLock.KeyedLock)
         return TicketDocumentLock.TicketDocumentLock.of({
           withTicketRelationsLock: (_org, _project, effect) => effect,
+          withTicketRanksLock: delegate.withTicketRanksLock,
           withTicketWriteLocks: delegate.withTicketWriteLocks,
           withRepositoryBranchLock: delegate.withRepositoryBranchLock,
           withTicketDocumentLock: (org, project, id, effect) =>

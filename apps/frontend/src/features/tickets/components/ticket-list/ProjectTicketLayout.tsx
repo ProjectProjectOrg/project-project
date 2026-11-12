@@ -22,6 +22,7 @@ import {
   useStatusReorder,
   type StatusReorder
 } from "@/features/sprints/hooks/useStatusReorder"
+import { encodeTicketListQuery } from "@/features/tickets/atoms/backlog"
 import { viewCounts } from "@/features/tickets/atoms/viewCounts"
 import { useProjectActor } from "@/hooks/useActor"
 import {
@@ -34,8 +35,10 @@ import { m } from "@/paraglide/messages"
 
 import { BacklogGroupingControl } from "./BacklogGroupingControl"
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
+import { ListKeyboardProvider } from "./ListKeyboard"
 import { SprintTicketCreator } from "./SprintTicketCreator"
 import { CreatorActiveScope, DimWhileCreating } from "./TicketCreatorShell"
+import { TicketSelectionProvider } from "./TicketSelection"
 import {
   TicketToolbar,
   useViewTicketCounts,
@@ -104,9 +107,9 @@ export function ProjectTicketLayout({
   const isBoard = view === "board"
   const scopeFilters: ReadonlyArray<FilterDimension> = groupId
     ? isBoard
-      ? ["blocked", "type", "assignee", "tags"]
-      : ["blocked", "archived", "type", "assignee", "tags"]
-    : ["blocked", "archived", "type", "assignee", "sprint", "tags"]
+      ? ["flagged", "blocked", "type", "assignee", "tags"]
+      : ["flagged", "blocked", "archived", "type", "assignee", "tags"]
+    : ["flagged", "blocked", "archived", "type", "assignee", "sprint", "tags"]
   const filterDimensions: ReadonlyArray<FilterDimension> =
     project.estimation === "off" ? scopeFilters : [...scopeFilters, "estimate"]
   const countsSource = {
@@ -208,7 +211,13 @@ export function ProjectTicketLayout({
               )}
             </motion.div>
           </Activity>
-          {children({ grouping, preferencesKey, reorder })}
+          <TicketSelectionProvider
+            resetKey={`${orgSlug}/${slug}:${scope}:${view}:${grouping}:${encodeTicketListQuery(query)}`}
+          >
+            <ListKeyboardProvider>
+              {children({ grouping, preferencesKey, reorder })}
+            </ListKeyboardProvider>
+          </TicketSelectionProvider>
         </DimWhileCreating>
       </PageContainer>
     </CreatorActiveScope>

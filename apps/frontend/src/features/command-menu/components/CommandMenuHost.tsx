@@ -33,6 +33,7 @@ import {
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import { TicketContextChip } from "@/features/tickets/components/command-pages/TicketContextChip"
+import { TicketSelectionChips } from "@/features/tickets/components/command-pages/TicketSelectionChips"
 import {
   ticketPermissions,
   type TicketPermissions
@@ -52,12 +53,14 @@ import {
   openCommandMenu,
   pushCommandPage,
   actOnTicket,
+  deselectFromCommandMenu,
   type CommandMenuState,
   type TicketContext
 } from "../lib/commandMenu"
 import type { CommandContext, CommandEnv } from "../lib/commands"
 import {
   scopeCommands,
+  scopeSelection,
   scopeSprint,
   scopeTicket,
   scopeView,
@@ -84,16 +87,24 @@ export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
       <CommandMenuDialog
         open={state.open}
         onOpenChange={(open) => {
+          const selection = open ? scopeSelection(scopes) : null
+          const [first] = selection?.tickets ?? []
           setState(
-            open
-              ? openCommandMenu(
-                  scopeTicket(scopes) ?? registry.get(pointedTicket)
-                )
-              : CLOSED_COMMAND_MENU
+            !open
+              ? CLOSED_COMMAND_MENU
+              : selection !== null && first !== undefined
+                ? openCommandMenu(
+                    { orgSlug, slug: selection.slug, ticketId: first.id },
+                    "root",
+                    selection.tickets
+                  )
+                : openCommandMenu(
+                    scopeTicket(scopes) ?? registry.get(pointedTicket)
+                  )
           )
         }}
         title={m.chrome_command_menu_title()}
-        pulseKey={`${state.ticket?.ticketId ?? ""}:${state.pages.join("/")}`}
+        pulseKey={`${state.ticket?.ticketId ?? ""}:${state.selection.length}:${state.pages.join("/")}`}
       >
         {shown.open && (
           <Freeze frozen={!state.open}>
@@ -261,6 +272,7 @@ function CommandMenuPage({
     orgSlug,
     projectSlug,
     ticket,
+    selection: state.selection,
     ticketDetail: detail,
     ticketSprint: useTicketSprint(ticket),
     canHoldChildren: detail !== null && canHoldChildren(detail, detail.parent),
@@ -276,7 +288,17 @@ function CommandMenuPage({
   const env = useCommandEnv(state, onChange)
   const props = {
     context,
-    chip: ticket === null ? null : <TicketContextChip ticket={ticket} />,
+    chip:
+      state.selection.length > 1 ? (
+        <TicketSelectionChips
+          tickets={state.selection}
+          onDeselect={(ticketId) =>
+            onChange(deselectFromCommandMenu(state, ticketId))
+          }
+        />
+      ) : ticket === null ? null : (
+        <TicketContextChip ticket={ticket} />
+      ),
     onBack: () => onChange(backCommandMenu(state)),
     env
   }

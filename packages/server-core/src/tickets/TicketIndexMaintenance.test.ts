@@ -1,5 +1,11 @@
 import { it } from "@effect/vitest"
-import { TagName, TicketId, TicketStatus, TypeKey } from "@pp/shared"
+import {
+  TagName,
+  TicketId,
+  TicketStatus,
+  TypeKey,
+  TicketRank
+} from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
@@ -38,6 +44,7 @@ const doc = (
   status: ticketStatus("todo"),
   type: TypeKey.make("feat"),
   priority: "med",
+  rank: TicketRank.make("a0"),
   tags: [],
   branch: null,
   pr: null,
@@ -80,6 +87,7 @@ describe("ticketIndexRowsFor", () => {
           prBase: "main",
           lastTransitionedPr: 171,
           archivedAt,
+          flag: { reason: "Needs a decision", by: "user-2", at: archivedAt },
           createdBy: "user-4",
           createdAt,
           updatedAt
@@ -96,6 +104,7 @@ describe("ticketIndexRowsFor", () => {
             status: ticketStatus("in_progress"),
             type: TypeKey.make("chore"),
             priority: "high",
+            rank: "a0",
             estimateUnit: "tshirt",
             estimateValue: 4,
             tags: [tagName("backend"), tagName("urgent")],
@@ -110,6 +119,9 @@ describe("ticketIndexRowsFor", () => {
             lastTransitionedPr: 171,
             ignoredBranches: [],
             archivedAt,
+            flagReason: "Needs a decision",
+            flaggedBy: "user-2",
+            flaggedAt: archivedAt,
             createdBy: "user-4",
             createdAt,
             updatedAt

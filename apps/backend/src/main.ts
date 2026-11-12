@@ -69,6 +69,7 @@ import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import { FeedbackDispatcherLive } from "@pp/server-core/feedback/FeedbackDelivery"
 import { LibraryMigrationLive } from "@pp/server-core/library/LibraryMigrationLive"
 import { TicketIndexReconcilerLive } from "@pp/server-core/tickets/TicketIndexReconcilerLive"
+import { TicketRankBackfillLive } from "@pp/server-core/tickets/TicketRankBackfill"
 import { AppApi } from "@pp/shared"
 import { count } from "drizzle-orm"
 import * as Config from "effect/Config"
@@ -464,8 +465,14 @@ const LibraryMigrationBootLive = LibraryMigrationLive.pipe(
   Layer.provide(BackendInfrastructureLive)
 )
 
+const RankBackfillLive = TicketRankBackfillLive.pipe(
+  Layer.provide(BackendHttpServicesLive),
+  Layer.provide(BackendInfrastructureLive)
+)
+
 const ServerLive = HttpRouter.serve(RouteLive).pipe(
   Layer.provide(LibraryMigrationBootLive),
+  Layer.provide(RankBackfillLive),
   Layer.provide(TicketActivityRecoveryLive),
   Layer.provide(SlackRuntimeLive),
   Layer.provide(EverhourRuntimeLive),
@@ -474,6 +481,7 @@ const ServerLive = HttpRouter.serve(RouteLive).pipe(
 )
 
 const ReconcilerLive = TicketIndexReconcilerLive.pipe(
+  Layer.provide(RankBackfillLive),
   Layer.provide(BackendHttpServicesLive),
   Layer.provide(BackendInfrastructureLive)
 )

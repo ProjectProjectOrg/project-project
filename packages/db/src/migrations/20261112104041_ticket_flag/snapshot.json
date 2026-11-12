@@ -1,0 +1,115 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "dd0282bb-891d-419b-8c39-825ff7451a71",
+  "prevIds": [
+    "8d976d6c-6ab0-4345-b434-0fd1fc0e3e41"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_index",
+        "flag_reason"
+      ],
+      "writes": [
+        "s|col|public.ticket_index.flag_reason",
+        "n|col|public.ticket_index.flag_reason",
+        "e|col|public.ticket_index.flag_reason"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_index",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_index",
+        "flagged_by"
+      ],
+      "writes": [
+        "s|col|public.ticket_index.flagged_by",
+        "n|col|public.ticket_index.flagged_by",
+        "e|col|public.ticket_index.flagged_by"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_index",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_index",
+        "flagged_at"
+      ],
+      "writes": [
+        "s|col|public.ticket_index.flagged_at",
+        "n|col|public.ticket_index.flagged_at",
+        "e|col|public.ticket_index.flagged_at"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_index",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_index",
+        "name": "flag_reason",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_index",
+        "name": "flagged_by",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_index",
+        "name": "flagged_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

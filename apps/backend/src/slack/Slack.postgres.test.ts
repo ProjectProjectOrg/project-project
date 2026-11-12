@@ -31,7 +31,8 @@ import {
   ProjectScope,
   TicketId,
   TicketStatus,
-  TypeKey
+  TypeKey,
+  TicketRank
 } from "@pp/shared"
 import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster"
 import * as ConfigProvider from "effect/ConfigProvider"
@@ -340,6 +341,7 @@ describe.skipIf(!databaseUrl)("Slack integration", () => {
       status: decodeStatus("todo"),
       type: TypeKey.make("bug"),
       priority: "med",
+      rank: TicketRank.make("a0"),
       tags: [],
       assignees: [userId],
       branch: null,

@@ -3,6 +3,7 @@ import { SortKey, type EstimationMode } from "@pp/shared"
 import { m } from "@/paraglide/messages"
 
 export const SORT_FIELD_LABELS: Readonly<Record<SortKey, () => string>> = {
+  manual: () => m.tickets_sort_manual(),
   id: () => m.tickets_sort_id(),
   updated: () => m.tickets_view_options_updated(),
   created: () => m.tickets_view_options_created(),

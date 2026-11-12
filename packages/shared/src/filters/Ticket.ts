@@ -13,6 +13,7 @@ import { Ticket, TicketDetail } from "../tickets/Ticket"
 import { TicketActivityActor } from "../tickets/TicketActivity"
 
 export const SortKey = Schema.Literals([
+  "manual",
   "id",
   "created",
   "updated",
@@ -32,11 +33,12 @@ export const TicketSort = Schema.Struct({
 export type TicketSort = typeof TicketSort.Type
 
 export const DEFAULT_TICKET_SORT: TicketSort = {
-  key: "created",
-  dir: "desc"
+  key: "manual",
+  dir: "asc"
 }
 
 export const NATURAL_SORT_DIR: Record<SortKey, SortDir> = {
+  manual: "asc",
   id: "asc",
   created: "desc",
   updated: "desc",
@@ -118,6 +120,10 @@ const TicketFilterFields = {
   blocked: Schema.optional(Schema.Boolean).annotate({
     description:
       "`true` lists only tickets blocked by an unfinished, unarchived ticket; `false` only tickets that aren't."
+  }),
+  flagged: Schema.optional(Schema.Boolean).annotate({
+    description:
+      "`true` lists only flagged tickets; `false` only tickets that aren't."
   })
 } as const
 
@@ -130,7 +136,7 @@ export const TicketListQuery = TicketFilter.pipe(
   Schema.fieldsAssign({
     sort: TicketSort.annotate({
       description:
-        "`{ key, dir }` with `key` one of `id`, `created`, `updated`, `title`, `priority` or `estimate` and `dir` `asc` or `desc` (default newest first)."
+        "`{ key, dir }` with `key` one of `manual`, `id`, `created`, `updated`, `title`, `priority` or `estimate` and `dir` `asc` or `desc`. The default is `manual`: the project's hand-ranked order, top first."
     }).pipe(
       Schema.withDecodingDefaultType(Effect.succeed(DEFAULT_TICKET_SORT))
     ),

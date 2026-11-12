@@ -1,4 +1,6 @@
 import {
+  BulkUpdateTicketsInput,
+  TicketRank,
   Group,
   GroupDetail,
   GroupId,
@@ -15,12 +17,14 @@ import * as Schema from "effect/Schema"
 import { describe, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
+import { fireMutation } from "@/api/viewMutation"
 import { backlog, backlogRequest } from "@/features/tickets/atoms/backlog"
 
 import { boardRequest, sprintBoard } from "./sprintBoard"
 import {
   addTicketsToSprint,
   assignTicketToSprint,
+  bulkAddTicketsToSprint,
   completeSprint,
   createSprint,
   deleteSprint,
@@ -36,6 +40,12 @@ const decodeTicketStatusSync = Schema.decodeSync(TicketStatus)
 const decodeUnknownUpdateGroupTicketsInputSync = Schema.decodeUnknownSync(
   UpdateGroupTicketsInput
 )
+
+const decodeUnknownBulkUpdateTicketsInputSync = Schema.decodeUnknownSync(
+  BulkUpdateTicketsInput
+)
+
+const decodeTicketId = Schema.decodeSync(TicketId)
 
 const groupId = Schema.decodeSync(GroupId)("G-1")
 const otherGroupId = Schema.decodeSync(GroupId)("G-2")
@@ -70,10 +80,12 @@ const makeTicket = (id: TicketId): Ticket => ({
   type: TypeKey.make("chore"),
   priority: "med",
   estimate: null,
+  flag: null,
   tags: [],
   branch: null,
   pr: null,
   prState: null,
+  rank: TicketRank.make("a0"),
   lastTransitionedPr: null,
   parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
@@ -784,6 +796,87 @@ describe("ticket membership mutations", () => {
         })
       )
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("splits a large sprint assignment into accepted batches", async () => {
+    const tickets = Array.from({ length: 250 }, (_, index) =>
+      decodeTicketId(`T-${index + 10}`)
+    )
+    const sent: Array<number> = []
+    fetchStub.set(async (input, init) => {
+      const request = new Request(input, init)
+      if (!request.url.endsWith("/tickets/bulk")) {
+        return listResponse([sprint])
+      }
+      sent.push(
+        decodeUnknownBulkUpdateTicketsInputSync(await request.json()).tickets
+          .length
+      )
+      return Response.json({
+        tickets: [],
+        sprint: { target: encodeGroupDetail(asDetail(sprint)), evicted: [] }
+      })
+    })
+    const registry = AtomRegistry.make()
+    const view = sprintList(req)
+    registry.mount(view)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({ _tag: "Success" })
+      )
+      const result = await fireMutation(registry, bulkAddTicketsToSprint(req), {
+        groupId,
+        tickets
+      })
+      expect(AsyncResult.isSuccess(result)).toBe(true)
+      expect(sent).toEqual([200, 50])
+    } finally {
+      registry.dispose()
+    }
+  })
+
+  it("refetches the sprint list when a later batch fails", async () => {
+    const tickets = Array.from({ length: 250 }, (_, index) =>
+      decodeTicketId(`T-${index + 10}`)
+    )
+    let batches = 0
+    let lists = 0
+    fetchStub.set((input, init) => {
+      const request = new Request(input, init)
+      if (!request.url.endsWith("/tickets/bulk")) {
+        lists += 1
+        return Promise.resolve(listResponse([sprint]))
+      }
+      batches += 1
+      return Promise.resolve(
+        batches === 1
+          ? Response.json({
+              tickets: [],
+              sprint: {
+                target: encodeGroupDetail(asDetail(sprint)),
+                evicted: []
+              }
+            })
+          : new Response(null, { status: 500 })
+      )
+    })
+    const registry = AtomRegistry.make()
+    const view = sprintList(req)
+    registry.mount(view)
+    try {
+      await vi.waitFor(() =>
+        expect(registry.get(view)).toMatchObject({ _tag: "Success" })
+      )
+      const before = lists
+      const result = await fireMutation(registry, bulkAddTicketsToSprint(req), {
+        groupId,
+        tickets
+      })
+      expect(AsyncResult.isFailure(result)).toBe(true)
+      await vi.waitFor(() => expect(lists).toBeGreaterThan(before))
     } finally {
       registry.dispose()
     }

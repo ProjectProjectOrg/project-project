@@ -51,6 +51,7 @@ export const TicketListSearch = Schema.Struct({
   hasPr: Schema.optional(BooleanSearch),
   archived: Schema.optional(BooleanSearch),
   blocked: Schema.optional(BooleanSearch),
+  flagged: Schema.optional(BooleanSearch),
   updatedAfter: Schema.optional(DateSearch),
   subTickets: Schema.optional(SubTicketsMode),
   sort: Schema.optional(SortKey),
@@ -127,8 +128,16 @@ export function ticketQueryFromSearch(
 export function ticketSearchFromQuery(
   query: TicketListQuery
 ): TicketListSearch {
-  const { sort, hasBranch, hasPr, archived, blocked, updatedAfter, ...filter } =
-    query
+  const {
+    sort,
+    hasBranch,
+    hasPr,
+    archived,
+    blocked,
+    flagged,
+    updatedAfter,
+    ...filter
+  } = query
   const defaultSort =
     sort.key === DEFAULT_TICKET_SORT.key && sort.dir === DEFAULT_TICKET_SORT.dir
   return {
@@ -138,6 +147,7 @@ export function ticketSearchFromQuery(
     hasPr: encodeBoolean(hasPr),
     archived: encodeBoolean(archived),
     blocked: encodeBoolean(blocked),
+    flagged: encodeBoolean(flagged),
     sort: defaultSort ? undefined : query.sort.key,
     dir: defaultSort ? undefined : query.sort.dir
   }

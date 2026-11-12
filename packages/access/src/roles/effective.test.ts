@@ -48,7 +48,7 @@ describe("roleOnProject", () => {
         {
           ticket: ["create", "update", "transition", "assign", "delete"],
           comment: ["create"],
-          sprint: ["manage", "add_ticket", "remove_ticket", "reorder"],
+          sprint: ["manage", "add_ticket", "remove_ticket"],
           epic: ["manage"],
           workflow: ["manage"],
           library: ["manage"],

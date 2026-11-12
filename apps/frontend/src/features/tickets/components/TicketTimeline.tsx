@@ -63,7 +63,9 @@ const SYSTEM_NAMES: Readonly<Record<ActivitySystemSource, () => string>> = {
 
 const AGENT_LOGOS = [
   { match: "claude", light: claudeLogo, dark: claudeLogo },
-  { match: "codex", light: codexLightLogo, dark: codexDarkLogo }
+  { match: "codex", light: codexLightLogo, dark: codexDarkLogo },
+  { match: "chatgpt", light: codexLightLogo, dark: codexDarkLogo },
+  { match: "openai", light: codexLightLogo, dark: codexDarkLogo }
 ] as const
 
 const agentLogo = (actor: TicketActivityActor | null) =>
@@ -81,16 +83,8 @@ function ActorMark({ actor }: Readonly<{ actor: TicketActivityActor | null }>) {
     return (
       <Avatar aria-hidden className="size-5">
         <AvatarFallback>
-          <img
-            src={logo.light}
-            alt=""
-            className="size-3 opacity-70 grayscale dark:hidden"
-          />
-          <img
-            src={logo.dark}
-            alt=""
-            className="hidden size-3 opacity-70 grayscale dark:block"
-          />
+          <img src={logo.light} alt="" className="size-3 dark:hidden" />
+          <img src={logo.dark} alt="" className="hidden size-3 dark:block" />
         </AvatarFallback>
       </Avatar>
     )
@@ -173,12 +167,12 @@ function EventRow({
       <span className="relative z-10 grid h-5 place-items-center">
         <ActorMark actor={actor} />
       </span>
-      <p className="min-w-0 text-body leading-5 wrap-anywhere text-muted-foreground">
+      <div className="min-w-0 text-body leading-5 wrap-anywhere text-muted-foreground">
         <ActorName actor={actor} />{" "}
         <ActivityLineView line={line} lookups={lookups} />
         <span aria-hidden> · </span>
         <TimelineTime at={at} />
-      </p>
+      </div>
     </li>
   )
 }

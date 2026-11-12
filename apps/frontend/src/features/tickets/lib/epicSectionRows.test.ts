@@ -1,4 +1,5 @@
 import {
+  TicketRank,
   EPIC_SECTION_NONE,
   TicketId,
   TicketStatus,
@@ -37,9 +38,11 @@ const ticket = {
   branch: null,
   pr: null,
   prState: null,
+  rank: TicketRank.make("a0"),
   lastTransitionedPr: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
   estimate: null,
+  flag: null,
   assignees: [],
   parent: null,
   archivedAt: null,

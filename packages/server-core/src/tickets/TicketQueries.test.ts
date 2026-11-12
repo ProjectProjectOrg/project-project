@@ -6,7 +6,8 @@ import {
   GroupId,
   TICKET_LIST_LIMIT,
   type TicketListQuery,
-  TypeKey
+  TypeKey,
+  TicketRank
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -359,28 +360,19 @@ it.effect("list ungrouped filter excludes tickets in a planned sprint", () => {
   )
 })
 
-it.effect("list defaults to created desc", () => {
+it.effect("list defaults to the manual order", () => {
   const { documents, layer } = makeTicketsFixture("T", [])
   documents.set(
     "T-1",
-    makeTicketDocument("T-1", {
-      title: "old",
-      createdAt: isoDate("2026-01-01T00:00:00.000Z")
-    })
+    makeTicketDocument("T-1", { title: "third", rank: TicketRank.make("a2") })
   )
   documents.set(
     "T-2",
-    makeTicketDocument("T-2", {
-      title: "mid",
-      createdAt: isoDate("2026-02-01T00:00:00.000Z")
-    })
+    makeTicketDocument("T-2", { title: "first", rank: TicketRank.make("a0") })
   )
   documents.set(
     "T-3",
-    makeTicketDocument("T-3", {
-      title: "new",
-      createdAt: isoDate("2026-03-01T00:00:00.000Z")
-    })
+    makeTicketDocument("T-3", { title: "second", rank: TicketRank.make("a1") })
   )
 
   return Effect.gen(function* () {
@@ -390,9 +382,9 @@ it.effect("list defaults to created desc", () => {
     })
 
     expect(result.items.map((row) => row.ticket.title)).toEqual([
-      "new",
-      "mid",
-      "old"
+      "first",
+      "second",
+      "third"
     ])
     expect(result.nextCursor).toBeNull()
   }).pipe(Effect.provide(layer))
@@ -446,7 +438,7 @@ it.effect("list paginates by cursor", () => {
   }).pipe(Effect.provide(layer))
 })
 
-it.effect("list paginates by cursor with default created desc sort", () => {
+it.effect("list paginates by cursor with created desc sort", () => {
   const { documents, layer } = makeTicketsFixture("T", [])
   const total = TICKET_LIST_LIMIT + 5
   const base = DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")
@@ -461,10 +453,11 @@ it.effect("list paginates by cursor with default created desc sort", () => {
     )
   }
 
+  const createdDesc = { key: "created", dir: "desc" } as const
   return Effect.gen(function* () {
     const queries = yield* TicketQueries.TicketQueries
     const page1 = yield* queries.list({
-      sort: DEFAULT_TICKET_SORT
+      sort: createdDesc
     })
     expect(page1.items.length).toBe(TICKET_LIST_LIMIT)
     expect(page1.nextCursor).not.toBeNull()
@@ -474,7 +467,7 @@ it.effect("list paginates by cursor with default created desc sort", () => {
     }
 
     const page2 = yield* queries.list({
-      sort: DEFAULT_TICKET_SORT,
+      sort: createdDesc,
       cursor: page1.nextCursor ?? undefined
     })
     expect(page2.items.length).toBe(5)
@@ -855,7 +848,6 @@ function makeFakeSprintGroups(sprints: ReadonlyArray<GroupDetail>) {
     updateTickets: () => unexpected("Groups.updateTickets"),
     addTickets: () => unexpected("Groups.addTickets"),
     removeTickets: () => unexpected("Groups.removeTickets"),
-    updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
     complete: () => unexpected("Groups.complete"),
     remove: () => unexpected("Groups.remove"),
     ensureSprintAssignable: () => Effect.void,

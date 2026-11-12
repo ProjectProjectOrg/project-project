@@ -97,6 +97,7 @@ const ticketLink = (context: CommandContext) =>
 export const ticketCommands: ReadonlyArray<Command> = [
   {
     id: "ticket.status",
+    bulk: true,
     group: "ticket",
     label: m.tickets_command_change_status,
     icon: CircleDot,
@@ -106,6 +107,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.priority",
+    bulk: true,
     group: "ticket",
     label: m.tickets_command_set_priority,
     icon: SignalHigh,
@@ -115,6 +117,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.assign",
+    bulk: true,
     group: "ticket",
     label: m.tickets_command_assign,
     icon: UserRound,
@@ -139,7 +142,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
         updateTicketDetail(
           ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
         ),
-        { assignees: [...ticketDetail.assignees, viewerId] }
+        { assignees: { add: [viewerId] } }
       )
       env.close()
     }
@@ -161,13 +164,14 @@ export const ticketCommands: ReadonlyArray<Command> = [
         updateTicketDetail(
           ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
         ),
-        { assignees: ticketDetail.assignees.filter((id) => id !== viewerId) }
+        { assignees: { remove: [viewerId] } }
       )
       env.close()
     }
   },
   {
     id: "ticket.sprint",
+    bulk: true,
     group: "ticket",
     label: m.tickets_command_move_to_sprint,
     icon: Timer,
@@ -217,6 +221,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.estimate",
+    bulk: true,
     group: "ticket",
     label: m.tickets_command_set_estimate,
     icon: Gauge,
@@ -230,6 +235,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.type",
+    bulk: true,
     group: "ticket",
     label: m.tickets_command_change_type,
     icon: Shapes,
@@ -240,6 +246,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.tags",
+    bulk: true,
     group: "ticket",
     label: m.tickets_command_tags,
     icon: Tag,
@@ -305,6 +312,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.archive",
+    bulk: true,
     group: "ticketActions",
     label: m.tickets_command_archive,
     icon: Archive,
@@ -340,6 +348,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.delete",
+    bulk: true,
     group: "ticketActions",
     label: m.tickets_command_delete,
     icon: Trash2,

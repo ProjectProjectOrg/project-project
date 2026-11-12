@@ -12,7 +12,8 @@ import {
   TicketId,
   TicketStatus,
   UserId,
-  ProjectScope
+  ProjectScope,
+  TicketRank
 } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
@@ -68,6 +69,7 @@ const document: TicketDocs.TicketDocument = {
   status: ticketStatus("todo"),
   type: TypeKey.make("chore"),
   priority: "med",
+  rank: TicketRank.make("a0"),
   tags: [],
   branch: null,
   pr: null,
@@ -113,6 +115,8 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   querySections: () => unexpected("TicketIndex.querySections"),
   neighbors: () => unexpected("TicketIndex.neighbors"),
   orderKeyFor: () => unexpected("TicketIndex.orderKeyFor"),
+  topRank: () => unexpected("TicketIndex.topRank"),
+  rankGap: () => unexpected("TicketIndex.rankGap"),
   count: () => unexpected("TicketIndex.count"),
   listIds: () => unexpected("TicketIndex.listIds"),
   existingIds: () => unexpected("TicketIndex.existingIds"),

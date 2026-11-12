@@ -51,7 +51,9 @@ import { TicketPageHeader } from "@/features/tickets/components/ticket-page/Tick
 import { TicketPageShell } from "@/features/tickets/components/ticket-page/TicketPageShell"
 import { TicketStepper } from "@/features/tickets/components/ticket-page/TicketStepper"
 import { useTemplateSwap } from "@/features/tickets/components/ticket-page/useTemplateSwap"
+import { FlagChip } from "@/features/tickets/components/ticket-preview/PreviewChips"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
+import { useRememberViewedTicket } from "@/features/tickets/hooks/useReturnToTicket"
 import {
   type TicketHierarchy,
   ticketHierarchy
@@ -78,6 +80,7 @@ export function TicketPage({
   from?: TicketViewSource
 }) {
   const { orgSlug, slug } = useProjectRoute()
+  useRememberViewedTicket(ticket.id, from)
   const req = ticketRequest(orgSlug, slug, ticket.id)
   const updateTicket = useAtomSet(updateTicketDetail(req))
   const patchTicket = useAtomSet(updateTicketDetail(req), {
@@ -166,6 +169,10 @@ export function TicketPage({
                   label={m.tickets_header_sub_ticket_of()}
                 />
               )}
+              <FlagChip
+                ticket={ticket}
+                className="size-6 justify-center px-0"
+              />
               <BlockedByNote relations={ticket.relations} />
               {swapNote !== null && (
                 <TemplateSwapNote name={swapNote.name} onUndo={undoSwap} />

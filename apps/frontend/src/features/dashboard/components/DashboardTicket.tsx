@@ -13,6 +13,7 @@ import {
 import { ProjectContext } from "@/features/projects/hooks/useProject"
 import { BOARD_CARD_SLOT_CLASS } from "@/features/sprints/components/BoardColumnShell"
 import { SprintBoardCard } from "@/features/sprints/components/SprintBoardCard"
+import { bulkUpdateTickets } from "@/features/tickets/atoms/bulkTickets"
 import type {
   OrgTicket,
   OrgTicketUpdates
@@ -21,7 +22,9 @@ import {
   Row,
   rowGridClassName
 } from "@/features/tickets/components/ticket-list/Row"
+import { SelectionOrder } from "@/features/tickets/components/ticket-list/TicketSelection"
 import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
+import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { cn } from "@/lib/utils"
 
 const NO_MEMBERS: ReadonlyArray<Member> = []
@@ -75,7 +78,7 @@ export function DashboardRow({
         className={cn(
           "col-span-full grid grid-cols-subgrid",
           below !== undefined &&
-            "relative isolate rounded-lg border border-border bg-card transition-colors hover:bg-hover"
+            "relative isolate rounded-lg border border-border bg-card transition-colors hover:bg-hover has-[[data-selected]]:bg-foreground/6"
         )}
       >
         <Row
@@ -90,7 +93,7 @@ export function DashboardRow({
           onPreviewOpenChange={onPreviewOpenChange}
         />
         {below !== undefined && (
-          <div className="col-span-full -mt-1.5 grid grid-cols-subgrid items-center gap-x-1.5 px-3 pb-2.5">
+          <div className="col-span-full -mt-1.5 grid grid-cols-subgrid items-center gap-x-(--list-row-gap) px-3 pb-2.5">
             {below}
           </div>
         )}
@@ -132,19 +135,27 @@ export function DashboardRows({
   below?: (item: OrgTicket) => ReactNode
 }>) {
   return (
-    <div className={cn(rowGridClassName, below !== undefined && "gap-y-2")}>
-      {tickets.map((item) => (
-        <DashboardRow
-          key={`${item.project.slug}/${item.ticket.id}`}
-          orgSlug={orgSlug}
-          item={item}
-          update={update}
-          below={below?.(item)}
-          previewOpen={preview.activePreviewId === item.ticket.id}
-          onPreviewPointerEnter={preview.onPreviewPointerEnter}
-          onPreviewOpenChange={preview.onPreviewOpenChange}
-        />
-      ))}
-    </div>
+    <SelectionOrder
+      entries={tickets.map((item) => ({
+        key: selectionKey(item.project.slug, item.ticket.id),
+        ticket: item.ticket,
+        bulk: bulkUpdateTickets({ orgSlug, slug: item.project.slug })
+      }))}
+    >
+      <div className={cn(rowGridClassName, below !== undefined && "gap-y-2")}>
+        {tickets.map((item) => (
+          <DashboardRow
+            key={`${item.project.slug}/${item.ticket.id}`}
+            orgSlug={orgSlug}
+            item={item}
+            update={update}
+            below={below?.(item)}
+            previewOpen={preview.activePreviewId === item.ticket.id}
+            onPreviewPointerEnter={preview.onPreviewPointerEnter}
+            onPreviewOpenChange={preview.onPreviewOpenChange}
+          />
+        ))}
+      </div>
+    </SelectionOrder>
   )
 }

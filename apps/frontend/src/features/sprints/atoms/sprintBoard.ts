@@ -1,21 +1,13 @@
-import type {
-  GroupId,
-  Ticket,
-  TicketId,
-  UpdateTicketOrderInput
-} from "@pp/shared"
+import type { GroupId, Ticket, TicketId } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
-import {
-  bindRowMutation,
-  keepPredicted,
-  viewMutation
-} from "@/api/viewMutation"
+import { bindRowMutation } from "@/api/viewMutation"
 import { coalescingTicketUpdate } from "@/features/tickets/atoms/ticketRows"
 import { applyTicketPatch } from "@/features/tickets/lib/ticketPatch"
+import { compareByRank } from "@/features/tickets/lib/ticketRank"
 
 import { sprintQuery, sprintRequest } from "./sprintDetail"
 
@@ -60,15 +52,13 @@ const boardView = (req: BoardRequest) => {
   return Atom.readable(
     (get) => {
       const combined = AsyncResult.all([get(sprint), get(ticketsQuery(req))])
-      return AsyncResult.map(combined, ([group, tickets]): BoardValue => {
-        const byId = new Map(tickets.map((t) => [t.id, t]))
-        const ordered: Array<Ticket> = []
-        for (const id of group.tickets) {
-          const ticket = byId.get(id)
-          if (ticket) ordered.push(ticket)
-        }
-        return { tickets: ordered, completedAt: group.completedAt }
-      })
+      return AsyncResult.map(
+        combined,
+        ([group, tickets]): BoardValue => ({
+          tickets: tickets.toSorted(compareByRank),
+          completedAt: group.completedAt
+        })
+      )
     },
     (refresh) => {
       refresh(sprint)
@@ -81,25 +71,6 @@ export const sprintBoard = Atom.family((req: BoardRequest) =>
   Atom.optimistic(boardView(req))
 )
 
-const placeTicket = (
-  value: BoardValue,
-  input: UpdateTicketOrderInput
-): BoardValue => {
-  const moving = value.tickets.find((t) => t.id === input.ticketId)
-  if (!moving) return value
-  const without = value.tickets.filter((t) => t.id !== input.ticketId)
-  const patched =
-    input.status !== undefined ? { ...moving, status: input.status } : moving
-  const index =
-    input.after === null
-      ? 0
-      : without.findIndex((t) => t.id === input.after) + 1
-  return {
-    ...value,
-    tickets: [...without.slice(0, index), patched, ...without.slice(index)]
-  }
-}
-
 type BoardTicketUpdateKey = Readonly<{
   req: BoardRequest
   id: TicketId
@@ -110,23 +81,6 @@ const boardTicketKeys = (req: BoardRequest, id: TicketId) => [
   Keys.ticketUpdatedQuery(scopeOf(req))
 ]
 
-export const placeBoardTicket = Atom.family(
-  ({ req, id }: BoardTicketUpdateKey) =>
-    viewMutation(sprintBoard(req), {
-      name: "placeBoardTicket",
-      predict: (value, input: UpdateTicketOrderInput) =>
-        placeTicket(value, { ...input, ticketId: id }),
-      call: (client, input) =>
-        client.groups.updateTicketOrder({
-          params: req.params,
-          payload: { ...input, ticketId: id }
-        }),
-      confirm: keepPredicted,
-      publish: (_confirmed, input) =>
-        input.status === undefined ? [] : boardTicketKeys(req, id)
-    })
-)
-
 export const updateBoardTicket = Atom.family(
   ({ req, id }: BoardTicketUpdateKey) =>
     coalescingTicketUpdate(sprintBoard(req), {
@@ -135,13 +89,15 @@ export const updateBoardTicket = Atom.family(
       idleTTL: "10 minutes",
       predict: (value, patch) => ({
         ...value,
-        tickets: value.tickets.map((t) =>
-          t.id === id ? applyTicketPatch(t, patch) : t
-        )
+        tickets: value.tickets
+          .map((t) => (t.id === id ? applyTicketPatch(t, patch) : t))
+          .toSorted(compareByRank)
       }),
       confirm: (value, { ticket }) => ({
         ...value,
-        tickets: value.tickets.map((t) => (t.id === id ? ticket : t))
+        tickets: value.tickets
+          .map((t) => (t.id === id ? ticket : t))
+          .toSorted(compareByRank)
       }),
       publish: () => boardTicketKeys(req, id)
     })

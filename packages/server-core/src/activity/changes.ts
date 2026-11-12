@@ -1,6 +1,7 @@
 import {
   type ActivityCause,
   Estimate,
+  TicketFlag,
   UserId,
   type GroupDetail,
   type TicketActivityChange,
@@ -15,6 +16,7 @@ import type * as TicketDocs from "../tickets/TicketDocs"
 
 const makeUserId = Schema.decodeUnknownSync(UserId)
 const sameEstimate = Schema.toEquivalence(Schema.NullOr(Estimate))
+const sameFlag = Schema.toEquivalence(Schema.UndefinedOr(TicketFlag))
 
 export type TicketChangeSource = Pick<
   TicketDocs.TicketDocument,
@@ -27,6 +29,7 @@ export type TicketChangeSource = Pick<
   | "tags"
   | "body"
   | "archivedAt"
+  | "flag"
   | "branch"
   | "pr"
   | "prState"
@@ -168,6 +171,16 @@ export const ticketChanges = (
   }
   if (before.archivedAt !== null && after.archivedAt === null) {
     changes.push({ kind: "unarchived" })
+  }
+  if (after.flag !== undefined && !sameFlag(before.flag, after.flag)) {
+    changes.push(
+      after.flag.reason === undefined
+        ? { kind: "flagged" }
+        : { kind: "flagged", reason: after.flag.reason }
+    )
+  }
+  if (before.flag !== undefined && after.flag === undefined) {
+    changes.push({ kind: "unflagged" })
   }
   if (before.branch !== after.branch) {
     if (before.branch !== null) {

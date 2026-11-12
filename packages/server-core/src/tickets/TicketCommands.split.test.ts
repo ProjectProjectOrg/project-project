@@ -44,7 +44,7 @@ import * as ProjectDocs from "../projects/ProjectDocs"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
 import * as Users from "../users/Users"
-import { entryFromDocument } from "./testing"
+import { entryFromDocument, fakeRanks } from "./testing"
 import * as TicketCommands from "./TicketCommands"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
@@ -74,7 +74,6 @@ const sprintAssignments: Array<{
   ticketId: string
   sprintId: string | null
 }> = []
-const sprintAssignmentAnchors: Array<string | null> = []
 const sprintMemberships = new Map<string, string>()
 const sprintTicketOrders = new Map<string, Array<string>>()
 const indexed = new Map<string, TicketDocs.TicketDocument>()
@@ -135,12 +134,11 @@ const FakeGroups = Layer.succeed(Groups.Groups, {
   updateTickets: () => unexpected("Groups.updateTickets"),
   addTickets: () => unexpected("Groups.addTickets"),
   removeTickets: () => unexpected("Groups.removeTickets"),
-  updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
   complete: () => unexpected("Groups.complete"),
   remove: () => unexpected("Groups.remove"),
   ensureSprintAssignable: () =>
     Effect.suspend(() => (sprintAssignable ? Effect.void : new Forbidden())),
-  setSprintMembership: (_orgSlug, _slug, ticketId, sprintId, options) =>
+  setSprintMembership: (_orgSlug, _slug, ticketId, sprintId) =>
     Effect.suspend(() => {
       sprintAssignmentAttempts += 1
       if (sprintAssignmentAttempts === failSprintAssignmentAt) {
@@ -150,7 +148,6 @@ const FakeGroups = Layer.succeed(Groups.Groups, {
         })
       }
       sprintAssignments.push({ ticketId, sprintId })
-      sprintAssignmentAnchors.push(options?.after ?? null)
       for (const [id, tickets] of sprintTicketOrders) {
         sprintTicketOrders.set(
           id,
@@ -160,23 +157,10 @@ const FakeGroups = Layer.succeed(Groups.Groups, {
       if (sprintId === null) sprintMemberships.delete(ticketId)
       else {
         sprintMemberships.set(ticketId, sprintId)
-        const tickets = sprintTicketOrders.get(sprintId) ?? []
-        const anchor =
-          options?.after === undefined || options.after === null
-            ? -1
-            : tickets.indexOf(options.after)
-        sprintTicketOrders.set(
-          sprintId,
-          options?.after === null
-            ? [ticketId, ...tickets]
-            : anchor >= 0
-              ? [
-                  ...tickets.slice(0, anchor + 1),
-                  ticketId,
-                  ...tickets.slice(anchor + 1)
-                ]
-              : [...tickets, ticketId]
-        )
+        sprintTicketOrders.set(sprintId, [
+          ...(sprintTicketOrders.get(sprintId) ?? []),
+          ticketId
+        ])
       }
       return Effect.void
     }),
@@ -226,6 +210,7 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   querySections: () => Effect.succeed(new Map()),
   neighbors: () => Effect.succeed(null),
   orderKeyFor: () => Effect.succeed(null),
+  ...fakeRanks(indexed),
   count: () => Effect.succeed({ total: 0, byStatus: {} }),
   listIds: () => Effect.succeed([]),
   existingIds: () => Effect.succeed(new Set()),
@@ -361,7 +346,6 @@ const splitActivity = () =>
 const resetFakes = Effect.sync(() => {
   recordedActivity.length = 0
   sprintAssignments.length = 0
-  sprintAssignmentAnchors.length = 0
   sprintMemberships.clear()
   sprintTicketOrders.clear()
   sprintAssignable = true
@@ -445,10 +429,6 @@ it.effect("split retains the original and creates the remaining tickets", () =>
         sprintId: null
       }))
     )
-    expect(sprintAssignmentAnchors).toEqual([
-      original.id,
-      outcome.created[0].id
-    ])
     expect(splitActivity()).toEqual([
       {
         ticketId: original.id,
@@ -458,6 +438,33 @@ it.effect("split retains the original and creates the remaining tickets", () =>
         }
       }
     ])
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("split ranks the new tickets directly below the original", () =>
+  Effect.gen(function* () {
+    yield* resetFakes
+    const tickets = yield* TicketCommands.TicketCommands
+    const below = yield* tickets.create({
+      title: "Below",
+      type: TypeKey.make("chore")
+    })
+    const original = yield* seedOriginal
+
+    const outcome = yield* tickets.split(original.id, {
+      results: [
+        result("Detail page layout", "feat"),
+        result("Sidebar API", "feat"),
+        result("View preference migration", "chore")
+      ]
+    })
+    const ranks = [
+      outcome.retained.rank,
+      ...outcome.created.map((created) => created.rank),
+      below.rank
+    ]
+    expect(ranks).toStrictEqual(ranks.toSorted())
+    expect(new Set(ranks).size).toBe(4)
   }).pipe(Effect.provide(TestLayer))
 )
 
@@ -633,11 +640,6 @@ it.effect(
       expect(sprintMemberships.get(original.id)).toBe(originalSprintId)
       expect(sprintMemberships.has("T-2")).toBe(false)
       expect(sprintMemberships.has("T-3")).toBe(false)
-      expect(sprintTicketOrders.get(originalSprintId)).toEqual([
-        "T-10",
-        original.id,
-        "T-9"
-      ])
       expect(yield* fs.exists(ticketFile(root, path, "T-2"))).toBe(false)
       expect(yield* fs.exists(ticketFile(root, path, "T-3"))).toBe(false)
       expect(splitActivity()).toEqual([])

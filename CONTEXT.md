@@ -53,6 +53,10 @@ _Avoid_: Transfer, migrate (that is the Jira import)
 A link between two tickets in one project: **blocked by** (and its reverse, **blocking**), **related**, or **duplicate of** (and its reverse, **duplicates**). The ticket that waits stores `blockedBy`, a duplicate stores `duplicateOf`, and `relatedTo` stays on the ticket it was added from. A ticket is **blocked** while any blocker is unarchived and not finished. The UI calls setting one a **mark** ("Mark as blocked by…").
 _Avoid_: Link (for relations), dependency (except "blocked by"), issue link
 
+**Flag**:
+A marker that a ticket needs attention, with an optional markdown reason and who set it when. It doesn't change the status and isn't a **Relation**: it points at no other ticket. Moving the ticket to a finished status removes it. The UI sets it from "Mark as → Flagged".
+_Avoid_: Blocked (for a flag), impediment
+
 **Status**:
 A project-defined column a ticket moves through. Projects start with `todo`, `in_progress` and `done` and can add their own.
 
@@ -77,6 +81,10 @@ A group of tickets with optional start and end dates, planned by the PM and comp
 
 **Backlog**:
 The tickets in no sprint.
+
+**Rank**:
+A ticket's one position in its project's manual order, stored as a fractional index in its frontmatter. Every list, sprint and board orders by it under **Manual** ordering, so moving a ticket moves it everywhere; planning it into a sprint keeps its place. New tickets go on top.
+_Avoid_: "sprint order", "backlog order" (there is only one order)
 
 ### Git
 
@@ -139,6 +147,7 @@ _Avoid_: PP CLI (except on the OAuth consent screen)
 - Canceling a **Pending project member** removes that project grant; the underlying organization invitation is canceled only when no project grants remain.
 - A **Pending project member** is displayed by email, not by a user profile, until the invitation is accepted.
 - A **Ticket** is in at most one **Sprint**; otherwise it is in the **Backlog**.
+- A **Ticket** has exactly one **Rank**; a sprint's ticket list records membership only, not order.
 - A **Ticket** has at most one parent: an **Epic**, a ticket without a parent, or a child of an **Epic**.
 - A **Ticket** can have several **linked branches**, forming **stacks**.
 - A **Ticket** can have any number of **Relations** to other tickets in its project. A blocking relation can't form a loop, and a duplicate can't point at another duplicate.

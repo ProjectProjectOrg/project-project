@@ -10,6 +10,7 @@ import {
   ProjectKey,
   TypeDraft,
   TypeKey,
+  TagName,
   TicketStatus,
   type User,
   UserId,
@@ -90,7 +91,6 @@ const FakeGroups = Layer.succeed(Groups.Groups, {
   updateTickets: () => unexpected("Groups.updateTickets"),
   addTickets: () => unexpected("Groups.addTickets"),
   removeTickets: () => unexpected("Groups.removeTickets"),
-  updateTicketOrder: () => unexpected("Groups.updateTicketOrder"),
   complete: () => unexpected("Groups.complete"),
   remove: () => unexpected("Groups.remove"),
   ensureSprintAssignable: () => Effect.void,
@@ -158,6 +158,8 @@ const FakeTicketIndex = Layer.sync(TicketIndex.TicketIndex, () => {
     querySections: () => Effect.succeed(new Map()),
     neighbors: () => Effect.succeed(null),
     orderKeyFor: () => Effect.succeed(null),
+    topRank: () => Effect.succeed(null),
+    rankGap: () => Effect.succeed(null),
     count: () => Effect.succeed({ total: 0, byStatus: {} }),
     listIds: () => Effect.succeed([]),
     existingIds: () => Effect.succeed(new Set()),
@@ -213,7 +215,7 @@ const FakeFigmaLinks = Layer.succeed(FigmaLinks.FigmaLinks, {
 
 const FakeDb = databaseLayer(({ sql }) =>
   Effect.sync(() => {
-    if (sql.includes('from "project_tag"')) return [["frontend"]]
+    if (sql.includes('from "project_tag"')) return [["frontend"], ["backend"]]
     if (sql.includes('from "project_index"')) return [["project-1"]]
     if (sql.includes('from "project_status"'))
       return [["todo"], ["in_progress"], ["done"]]
@@ -397,6 +399,43 @@ it.effect("archiving records the trimmed reason on the activity entry", () =>
 
     const unarchived = yield* tickets.unarchive(created.id)
     expect(unarchived.archivedAt).toBeNull()
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("bulk archive skips tickets that are already archived", () =>
+  Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    const first = yield* tickets.quickCreate({ title: "first" })
+    const second = yield* tickets.quickCreate({ title: "second" })
+    yield* tickets.archive(first.id)
+
+    const result = yield* tickets.bulkArchive({
+      tickets: [first.id, second.id]
+    })
+
+    expect(result.tickets).toEqual([second.id])
+    const stored = yield* (yield* TicketDocs.TicketDocs).read(
+      "org",
+      "p",
+      second.id
+    )
+    expect(stored.archivedAt).not.toBeNull()
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("bulk delete ignores tickets that are already gone", () =>
+  Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    const first = yield* tickets.quickCreate({ title: "first" })
+    const second = yield* tickets.quickCreate({ title: "second" })
+    yield* tickets.remove(first.id)
+
+    yield* tickets.bulkDelete({ tickets: [first.id, second.id] })
+
+    const read = yield* Effect.exit(
+      (yield* TicketDocs.TicketDocs).read("org", "p", second.id)
+    )
+    expect(read._tag).toBe("Failure")
   }).pipe(Effect.provide(TestLayer))
 )
 
@@ -849,6 +888,28 @@ it.effect("update refreshes the stored synced snapshot", () =>
     expect(stored.body).toContain("- [x] Reviewed and merged")
     expect(stored.body).toContain("- [ ] Released")
     expect(stored.body).not.toContain("Tests cover the change")
+  }).pipe(Effect.provide(TestLayer))
+)
+
+const tag = Schema.decodeSync(TagName)
+
+it.effect("concurrent tag adds on one ticket keep both tags", () =>
+  Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    const created = yield* tickets.quickCreate({ title: "two taggers" })
+    yield* Effect.all(
+      [
+        tickets.update(created.id, { tags: { add: [tag("frontend")] } }),
+        tickets.update(created.id, { tags: { add: [tag("backend")] } })
+      ],
+      { concurrency: "unbounded", discard: true }
+    )
+    const stored = yield* (yield* TicketDocs.TicketDocs).read(
+      "org",
+      "p",
+      created.id
+    )
+    expect(stored.tags.toSorted()).toEqual(["backend", "frontend"])
   }).pipe(Effect.provide(TestLayer))
 )
 

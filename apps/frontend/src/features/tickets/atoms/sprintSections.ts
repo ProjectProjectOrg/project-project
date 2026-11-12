@@ -55,6 +55,7 @@ import {
 } from "@/features/tickets/lib/ticketRows"
 
 import {
+  bulkTicketUpdate,
   coalescingTicketUpdate,
   createdKeys,
   loadNextPage,
@@ -428,6 +429,22 @@ export const updateSprintSectionsTicket = Atom.family(
 
 export const sprintSectionsTicketUpdates = bindRowMutation(
   updateSprintSectionsTicket
+)
+
+export const bulkUpdateSprintSectionsTickets = Atom.family(
+  (req: SprintSectionsRequest) =>
+    bulkTicketUpdate(sprintSections(req), {
+      name: "bulkUpdateSprintSectionsTickets",
+      path: req.params,
+      predict: (value, id, edit) =>
+        patchRow(
+          value,
+          id,
+          edit,
+          req.query,
+          DateTime.toDate(DateTime.nowUnsafe())
+        )
+    })
 )
 
 const assignedSprintId = (key: SprintSectionKey): GroupId | undefined =>

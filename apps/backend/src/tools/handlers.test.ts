@@ -28,6 +28,7 @@ import type { TicketProject } from "@pp/server-core/tickets/ticketProject"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import * as Users from "@pp/server-core/users/Users"
 import {
+  applyListEdit,
   blockLookupFor,
   expandType,
   formatTicketBlock,
@@ -53,7 +54,8 @@ import {
   EMPTY_TICKET_RELATIONS,
   ProjectScope,
   Validation,
-  TypeKey
+  TypeKey,
+  TicketRank
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
@@ -135,7 +137,9 @@ const fakeTicket = {
   status: TicketStatus.make("todo"),
   type: TypeKey.make("feat"),
   priority: "med" as const,
+  rank: TicketRank.make("a0"),
   estimate: null,
+  flag: null,
   tags: [],
   branch: null,
   pr: null,
@@ -660,8 +664,14 @@ describe("MCP handlers → write tools", () => {
         return Effect.succeed({
           ticket: {
             ...fakeTicketDetail,
-            tags: input.tags ?? fakeTicketDetail.tags,
-            assignees: input.assignees ?? fakeTicketDetail.assignees
+            tags:
+              input.tags === undefined
+                ? fakeTicketDetail.tags
+                : applyListEdit(fakeTicketDetail.tags, input.tags),
+            assignees:
+              input.assignees === undefined
+                ? fakeTicketDetail.assignees
+                : applyListEdit(fakeTicketDetail.assignees, input.assignees)
           },
           orderKey: null
         })

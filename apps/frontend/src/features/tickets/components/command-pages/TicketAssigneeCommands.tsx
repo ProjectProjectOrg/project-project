@@ -5,7 +5,10 @@ import type { ReactNode } from "react"
 
 import { CommandMenuItem, CommandMenuCheck } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
-import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
+import type {
+  SelectedTicket,
+  TicketContext
+} from "@/features/command-menu/lib/commandMenu"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { m } from "@/paraglide/messages"
@@ -16,11 +19,13 @@ const NO_MEMBERS: ReadonlyArray<Member> = []
 
 export function TicketAssigneeCommands({
   ticket,
+  selection,
   chip,
   onBack,
   onClose
 }: Readonly<{
   ticket: TicketContext
+  selection: ReadonlyArray<SelectedTicket>
   chip: ReactNode
   onBack: () => void
   onClose: () => void
@@ -29,7 +34,7 @@ export function TicketAssigneeCommands({
     project(projectRequest(ticket.orgSlug, ticket.slug))
   )
   const members = Result.isSuccess(result) ? result.value.members : NO_MEMBERS
-  const { current, update } = useTicketMutation(ticket)
+  const { current, update } = useTicketMutation(ticket, selection)
   const assigned = new Set(current?.assignees ?? [])
   const byId = new Map<string, Member>(
     members.map((member) => [member.id, member])
@@ -49,8 +54,8 @@ export function TicketAssigneeCommands({
         if (current === null || member === undefined) return
         update({
           assignees: assigned.has(member.id)
-            ? current.assignees.filter((id) => id !== member.id)
-            : [...current.assignees, member.id]
+            ? { remove: [member.id] }
+            : { add: [member.id] }
         })
         onClose()
       }}

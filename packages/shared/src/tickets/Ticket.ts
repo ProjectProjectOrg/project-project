@@ -17,6 +17,7 @@ import { TypeKey } from "../library/LibraryKey"
 import { ProjectKey } from "../projects/Project"
 import { StatusSlug } from "../statuses/Status"
 import { TagName } from "../tags/Tag"
+import { ListEdit } from "./listEdit"
 
 const isProjectKey = Schema.is(ProjectKey)
 
@@ -32,6 +33,18 @@ export const TicketId = Schema.String.pipe(
   Schema.brand("TicketId")
 )
 export type TicketId = typeof TicketId.Type
+
+export const TicketRank = Schema.String.pipe(
+  Schema.check(Schema.isMinLength(1)),
+  Schema.brand("TicketRank")
+)
+export type TicketRank = typeof TicketRank.Type
+
+export const TicketPosition = Schema.Union([
+  Schema.Struct({ after: TicketId }),
+  Schema.Struct({ before: TicketId })
+])
+export type TicketPosition = typeof TicketPosition.Type
 
 export const TicketStatus = StatusSlug
 export type TicketStatus = typeof TicketStatus.Type
@@ -81,13 +94,26 @@ export const TicketBranchEntry = Schema.Struct({
 })
 export type TicketBranchEntry = typeof TicketBranchEntry.Type
 
+export const FLAG_REASON_MAX_LENGTH = 20_000
+
+export const TicketFlag = Schema.Struct({
+  reason: Schema.optionalKey(Schema.String),
+  by: Schema.String,
+  at: Schema.DateFromString
+})
+export type TicketFlag = typeof TicketFlag.Type
+
 export const Ticket = Schema.Struct({
   id: TicketId,
   title: Schema.String,
   status: TicketStatus,
   type: Schema.NullOr(TypeKey),
   priority: TicketPriority,
+  rank: TicketRank,
   estimate: Schema.NullOr(Estimate).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
+  flag: Schema.NullOr(TicketFlag).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
   tags: Schema.Array(TagName),
@@ -262,6 +288,15 @@ export const ArchiveTicketInput = Schema.Struct({
 })
 export type ArchiveTicketInput = typeof ArchiveTicketInput.Type
 
+export const FlagTicketInput = Schema.Struct({
+  reason: Schema.optional(
+    Schema.String.pipe(Schema.check(Schema.isMaxLength(FLAG_REASON_MAX_LENGTH)))
+  ).annotate({
+    description: `Why the ticket needs attention, as markdown up to ${FLAG_REASON_MAX_LENGTH.toLocaleString("en")} characters.`
+  })
+})
+export type FlagTicketInput = typeof FlagTicketInput.Type
+
 export const UpdateTicketInput = Schema.Struct({
   title: Schema.optional(
     Schema.String.pipe(
@@ -282,11 +317,11 @@ export const UpdateTicketInput = Schema.Struct({
   estimate: Schema.optional(Schema.NullOr(Estimate)).annotate({
     description: ticketFieldDocs.estimate
   }),
-  tags: Schema.optional(Schema.Array(TagName)).annotate({
-    description: `${ticketFieldDocs.tags} Pass an empty list to clear.`
+  tags: Schema.optional(ListEdit(TagName)).annotate({
+    description: `${ticketFieldDocs.tags} A list replaces the tags (an empty list clears them); \`{ add, remove }\` changes the current tags.`
   }),
-  assignees: Schema.optional(Schema.Array(Schema.String)).annotate({
-    description: `${ticketFieldDocs.assignees} Pass an empty list to clear.`
+  assignees: Schema.optional(ListEdit(Schema.String)).annotate({
+    description: `${ticketFieldDocs.assignees} A list replaces the assignees (an empty list clears them); \`{ add, remove }\` changes the current assignees.`
   }),
   body: Schema.optional(Schema.String).annotate({
     description: `${ticketFieldDocs.body} Replaces the whole description.`
@@ -299,6 +334,14 @@ export const UpdateTicketInput = Schema.Struct({
   }),
   relatedTo: Schema.optional(Schema.Array(TicketId)).annotate({
     description: `${ticketFieldDocs.relatedTo} Replaces the list stored on this ticket; pass an empty list to clear.`
+  }),
+  flag: Schema.optional(Schema.NullOr(FlagTicketInput)).annotate({
+    description:
+      "Flags the ticket as needing attention, with an optional reason; `null` removes the flag. A flag doesn't change the status, and moving the ticket to a finished status removes it."
+  }),
+  position: Schema.optional(TicketPosition).annotate({
+    description:
+      "Moves the ticket in the project's manual order: `{ after: id }` places it right below that ticket, `{ before: id }` right above it. The order is shared by every view, sprint and board."
   })
 })
 export type UpdateTicketInput = typeof UpdateTicketInput.Type

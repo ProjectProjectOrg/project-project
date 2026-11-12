@@ -7,7 +7,7 @@ import { UserId } from "../auth/User"
 import { StatusSlug } from "../statuses/Status"
 import { TagName } from "../tags/Tag"
 import type { Ticket } from "../tickets/Ticket"
-import { TicketId } from "../tickets/Ticket"
+import { TicketId, TicketRank } from "../tickets/Ticket"
 import {
   matchesTicketFilter,
   matchesTicketQuery,
@@ -27,7 +27,9 @@ const baseTicket = (overrides: Partial<Ticket> = {}): Ticket => ({
   status: s("todo"),
   type: TypeKey.make("feat"),
   priority: "med",
+  rank: TicketRank.make("a0"),
   estimate: null,
+  flag: null,
   tags: [],
   branch: null,
   pr: null,
@@ -190,6 +192,19 @@ describe("matchesTicketFilter", () => {
     expect(matchesTicketFilter(baseTicket({ pr: null }), { hasPr: true })).toBe(
       false
     )
+  })
+
+  it("flagged filter matches on whether the ticket has a flag", () => {
+    const flagged = baseTicket({
+      flag: { by: "user-1", at: isoDate("2026-11-12T09:00:00Z") }
+    })
+    const plain = baseTicket()
+    expect(
+      [flagged, plain].map((t) => matchesTicketFilter(t, { flagged: true }))
+    ).toEqual([true, false])
+    expect(
+      [flagged, plain].map((t) => matchesTicketFilter(t, { flagged: false }))
+    ).toEqual([false, true])
   })
 
   it("updatedAfter is strict greater-than", () => {
@@ -369,6 +384,7 @@ describe("matchesTicketQuery", () => {
       prState: null,
       assignees: [],
       estimate: null,
+      flag: null,
       archivedAt: null,
       updatedAt: isoDate("2026-05-10T00:00:00.000Z")
     }

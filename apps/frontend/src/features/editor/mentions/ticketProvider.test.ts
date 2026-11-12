@@ -25,6 +25,7 @@ it.effect("deduplicates identical ticket mention searches", () =>
                   status: "todo",
                   type: "feat",
                   priority: "med",
+                  rank: "a0",
                   tags: [],
                   branch: null,
                   pr: null,

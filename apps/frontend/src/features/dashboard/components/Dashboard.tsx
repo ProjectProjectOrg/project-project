@@ -22,6 +22,7 @@ import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
+import { TicketSelectionProvider } from "@/features/tickets/components/ticket-list/TicketSelection"
 import { useOrgActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -75,14 +76,16 @@ export function Dashboard() {
               )
             }
           />
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-6 @5xl/dashboard:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @5xl/dashboard:items-start @5xl/dashboard:gap-12">
-            <MyTicketsSection
-              orgSlug={orgSlug}
-              view={view}
-              onViewChange={setView}
-            />
-            <RecentTicketsSection orgSlug={orgSlug} />
-          </div>
+          <TicketSelectionProvider resetKey={`${orgSlug}:${view}`}>
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-6 @5xl/dashboard:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @5xl/dashboard:items-start @5xl/dashboard:gap-12">
+              <MyTicketsSection
+                orgSlug={orgSlug}
+                view={view}
+                onViewChange={setView}
+              />
+              <RecentTicketsSection orgSlug={orgSlug} />
+            </div>
+          </TicketSelectionProvider>
         </div>
       </div>
       <DashboardGitSync orgSlug={orgSlug} />
