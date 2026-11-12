@@ -171,6 +171,7 @@
     }
   ],
   "tickets_detail_load_error": "Couldn't load detail: {error}",
+  "tickets_drag_more": "+{count}",
   "tickets_drag_count": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],

@@ -1,8 +1,10 @@
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import type { DragLocationHistory } from "@atlaskit/pragmatic-drag-and-drop/types"
-import type { Ticket } from "@pp/shared"
+import type { Ticket, TicketId } from "@pp/shared"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
+
+import { compareByRank } from "@/features/tickets/lib/ticketRank"
 
 import { useIgnoreListHover } from "./ListKeyboard"
 import { isRowDragData } from "./ListRowDrag"
@@ -13,7 +15,7 @@ const MAX_GRAB_Y = 24
 
 type Drag = Readonly<{
   ticket: Pick<Ticket, "id" | "type" | "title" | "priority">
-  count: number
+  ids: ReadonlyArray<TicketId>
   grabY: number
   x: number
   y: number
@@ -48,7 +50,7 @@ export function ListDragOverlay() {
             title: data.title,
             priority: data.priority
           },
-          count: data.rows.length,
+          ids: data.rows.toSorted(compareByRank).map(({ id }) => id),
           grabY: Math.min(
             MAX_GRAB_Y,
             clientY - source.element.getBoundingClientRect().top
@@ -74,7 +76,7 @@ export function ListDragOverlay() {
         transform: `translate(${drag.x - GRAB_X}px, ${drag.y - drag.grabY}px)`
       }}
     >
-      <RowDragPreview ticket={drag.ticket} count={drag.count} />
+      <RowDragPreview ticket={drag.ticket} ids={drag.ids} />
     </div>,
     document.body
   )
