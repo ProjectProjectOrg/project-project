@@ -5,6 +5,7 @@
   "comments_composer_submit": "Comment",
   "comments_delete_aria_label": "Delete comment",
   "comments_delete_confirm": "Delete this comment?",
+  "comments_delete_failed": "Failed to delete comment.",
   "comments_edit_button": "Edit",
   "comments_edited_marker": "(edited)",
   "comments_editing_marker": "editing…",
