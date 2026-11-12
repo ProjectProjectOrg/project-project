@@ -253,6 +253,7 @@ When a new feature needs categorical color the user controls (tags, statuses, la
 - **Title** (Geist, 600, 1.125rem, 1.3): section H2; ticket / project titles in a header.
 - **Body** (Geist, 400, 0.875rem (`text-sm`), 1.5): default text. Prose blocks (`.prose-md`) cap line length at 65–75ch; data tables run denser.
 - **Prose** (`.prose-md`): long-form markdown on the type roles. Body text is `body` at 80% foreground (`--prose-body`) so headings, bold and inline code carry the hierarchy at full foreground; h1 is `display-compact`, h2 `title`, h3 `subtitle`. Headings get 8px below and 20–24px above.
+- **Description prose** (`[data-description]`): the ticket description is read more than anything else on the page, so it re-scales the same type roles instead of using new ones: body 16px / 26px, h1 26px, h2 20px, h3 18px. The empty state (placeholder, "Start as" and its type buttons) follows at 16px. Comments and other markdown stay on the standard roles.
 - **Label** (Geist, 500, 0.8125rem (`text-[13px]`), 1.2): nav items, button text, form labels, chip text.
 - **Mono** (Geist Mono, 400, 0.8125rem, 1.4): IDs, branches, slugs, code, anywhere "this is a literal."
 
