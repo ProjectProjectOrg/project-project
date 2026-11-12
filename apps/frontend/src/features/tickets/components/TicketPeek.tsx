@@ -83,6 +83,13 @@ export function TicketPeek({
   const statuses = Result.isSuccess(statusesResult)
     ? statusesResult.value
     : NO_STATUSES
+  if (Result.isFailure(result)) {
+    return (
+      <p role="alert" className="p-4 text-body text-destructive">
+        {m.tickets_peek_load_failed()}
+      </p>
+    )
+  }
   const ticket = Result.isSuccess(result) ? result.value : shown
   if (ticket === null) return <PeekSkeleton />
   const status = statusMetaFor(ticket.status, statuses)
