@@ -4,6 +4,8 @@ import {
   draggable,
   dropTargetForElements
 } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
+import { pointerOutsideOfPreview } from "@atlaskit/pragmatic-drag-and-drop/element/pointer-outside-of-preview"
+import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview"
 import type { ElementDragType } from "@atlaskit/pragmatic-drag-and-drop/types"
 import { RegistryContext } from "@effect/atom-react"
 import { TicketId, TicketType, type Ticket } from "@pp/shared"
@@ -178,7 +180,7 @@ export function DraggableRow({
   })
   const section = drop?.section
   const ordered = drop?.ordered ?? false
-  const { id, type } = ticket
+  const { id, type, title } = ticket
   const subTicketCount = ticket.subTicketCount ?? 0
 
   useEffect(() => {
@@ -198,6 +200,25 @@ export function DraggableRow({
           subTicketCount,
           section
         }),
+        onGenerateDragPreview: ({ nativeSetDragImage }) =>
+          setCustomNativeDragPreview({
+            nativeSetDragImage,
+            getOffset: pointerOutsideOfPreview({ x: "12px", y: "8px" }),
+            render: ({ container }) => {
+              const preview = document.createElement("div")
+              preview.className =
+                "flex max-w-80 items-center gap-2 rounded-md border bg-popover px-2.5 py-1.5 text-body text-popover-foreground opacity-70 shadow-md"
+              const key = document.createElement("span")
+              key.className =
+                "shrink-0 font-mono text-caption text-muted-foreground"
+              key.textContent = id
+              const name = document.createElement("span")
+              name.className = "truncate"
+              name.textContent = title
+              preview.append(key, name)
+              container.append(preview)
+            }
+          }),
         onDragStart: () => setDragging(true),
         onDrop: () => setDragging(false)
       }),
@@ -211,7 +232,7 @@ export function DraggableRow({
         })
       })
     )
-  }, [id, nextId, type, subTicketCount, section, ordered, pending])
+  }, [id, nextId, type, title, subTicketCount, section, ordered, pending])
 
   const gap = drop?.gap ?? null
   const edge =
