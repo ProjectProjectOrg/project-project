@@ -67,7 +67,7 @@ describe("ticketCreateErrorMessage", () => {
     )
     expect(
       ticketCreateErrorMessage(
-        new Validation({ reason: "unknown_template:bug-report" })
+        new Validation({ reason: "unknown_type:bug-report" })
       )
     ).toBe('The template "bug-report" doesn\'t exist anymore.')
   })

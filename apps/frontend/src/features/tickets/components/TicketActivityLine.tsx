@@ -4,7 +4,7 @@ import type {
   ProjectStatus,
   Tag,
   TicketPriority,
-  TicketType
+  TypeKey
 } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import {
@@ -34,7 +34,8 @@ import {
 import {
   statusMetaFor,
   TYPE_LABELS,
-  TYPE_META
+  TYPE_META,
+  pickableTypeOf
 } from "@/features/tickets/lib/ticketMeta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -108,8 +109,9 @@ function PriorityValue({ priority }: Readonly<{ priority: TicketPriority }>) {
   )
 }
 
-function TypeValue({ type }: Readonly<{ type: TicketType }>) {
-  return <Value icon={TYPE_META[type].icon}>{TYPE_LABELS[type]()}</Value>
+function TypeValue({ type }: Readonly<{ type: TypeKey | null }>) {
+  const shown = pickableTypeOf(type)
+  return <Value icon={TYPE_META[shown].icon}>{TYPE_LABELS[shown]()}</Value>
 }
 
 function People({

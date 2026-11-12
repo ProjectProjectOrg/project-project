@@ -1,11 +1,15 @@
-import type { Group, TicketType } from "@pp/shared"
+import type { Group } from "@pp/shared"
 import { Plus } from "lucide-react"
 import { useRef, type ComponentProps, type RefObject } from "react"
 
 import { Select, SelectTrigger } from "@/components/ui/select"
 import { SprintAssignMenu } from "@/features/sprints/components/SprintAssignMenu"
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
-import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import {
+  TYPE_LABELS,
+  TYPE_META,
+  type PickableType
+} from "@/features/tickets/lib/ticketMeta"
 import { m } from "@/paraglide/messages"
 
 import { CreatorChip } from "./CreatorChip"
@@ -46,9 +50,9 @@ export function CreatorTypeMenu({
   inputRef
 }: CreatorMenuProps &
   Readonly<{
-    type: TicketType
-    types: ReadonlyArray<TicketType>
-    onTypeChange: (type: TicketType) => void
+    type: PickableType
+    types: ReadonlyArray<PickableType>
+    onTypeChange: (type: PickableType) => void
   }>) {
   const TypeIcon = TYPE_META[type].icon
   const focus = useCreatorMenuFocus(inputRef)

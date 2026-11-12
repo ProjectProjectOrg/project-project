@@ -4,7 +4,7 @@ import {
   useAtomValue
 } from "@effect/atom-react"
 import { isEpic, isEpicType } from "@pp/shared"
-import type { Group, Ticket, TicketParent, TicketType } from "@pp/shared"
+import type { Group, Ticket, TicketParent } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Random from "effect/Random"
@@ -24,6 +24,7 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { pickDefaultSprint } from "@/features/sprints/components/SprintAssignMenu"
+import { type PickableType } from "@/features/tickets/lib/ticketMeta"
 import type { QuickCreateInput } from "@/features/tickets/lib/ticketRows"
 import {
   mutationErrorText,
@@ -40,7 +41,7 @@ import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 type CreatorError = Readonly<{ _tag: string }>
 
 export type TicketComposerProps = Readonly<{
-  types: ReadonlyArray<TicketType>
+  types: ReadonlyArray<PickableType>
   parent?: TicketParent
   create: (input: QuickCreateInput) => Promise<Exit.Exit<Ticket, CreatorError>>
   createState: Result.AsyncResult<unknown, CreatorError>
@@ -111,7 +112,7 @@ export function TicketComposer({
     inputRef.current?.blur()
     leave()
     const exit = await create({
-      payload: { title: trimmed, type, ...templateChoice.payload },
+      payload: { title: trimmed, ...templateChoice.payload },
       parent,
       prediction: {
         clientId: Effect.runSync(Random.next).toString(36),

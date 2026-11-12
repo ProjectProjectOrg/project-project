@@ -13,7 +13,7 @@ import {
   TicketId,
   TicketListQuery,
   TicketStatus,
-  TicketType,
+  TypeFilter,
   type TicketViewSource
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
@@ -33,7 +33,7 @@ const DateSearch = Schema.String.pipe(
 
 export const TicketListSearch = Schema.Struct({
   status: Schema.optional(Schema.ArrayEnsure(TicketStatus)),
-  type: Schema.optional(Schema.ArrayEnsure(TicketType)),
+  type: Schema.optional(Schema.ArrayEnsure(TypeFilter)),
   assignee: Schema.optional(Schema.ArrayEnsure(AssigneeFilter)),
   tags: Schema.optional(Schema.ArrayEnsure(TagName)),
   groupId: Schema.optional(Schema.ArrayEnsure(GroupIdFilter)),

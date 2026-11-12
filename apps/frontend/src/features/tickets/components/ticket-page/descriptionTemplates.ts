@@ -6,7 +6,7 @@ import {
   type BlockLookup,
   type Library,
   type TypeDefinition,
-  type TicketType
+  type TypeKey
 } from "@pp/shared"
 import {
   $createParagraphNode,
@@ -31,7 +31,7 @@ export type TemplateStarts = Readonly<{
 
 export const templateStarts = (
   library: Library,
-  ticketType: TicketType
+  ticketType: TypeKey | null
 ): TemplateStarts => {
   const templates = orderedTemplates(library, ticketType)
   return {
@@ -43,18 +43,18 @@ export const templateStarts = (
 export type TemplateSwapInput = Readonly<{
   library: Library
   body: string
-  from: TicketType
-  to: TicketType
+  from: TypeKey | null
+  to: TypeKey | null
 }>
 
 const untouchedTemplate = (
   library: Library,
   body: string,
-  from: TicketType
+  from: TypeKey | null
 ): TypeDefinition | null => {
   const lookup = lookupFor(library)
   const comparable = stripHints(body)
-  const current = typeFor(library, from)
+  const current = from === null ? null : typeFor(library, from)
   const candidates =
     current === null
       ? library.types
@@ -72,7 +72,7 @@ export const templateSwap = ({
   from,
   to
 }: TemplateSwapInput): TypeDefinition | null => {
-  const next = typeFor(library, to)
+  const next = to === null ? null : typeFor(library, to)
   if (next === null) return null
   if (body.trim() === "") return next
   const untouched = untouchedTemplate(library, body, from)

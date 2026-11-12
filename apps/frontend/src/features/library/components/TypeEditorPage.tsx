@@ -2,7 +2,6 @@ import { useAtomValue } from "@effect/atom-react"
 import {
   blockLookupFor,
   expandType,
-  ticketTypeForKey,
   type Library,
   type TypeDefinition,
   type UpdateTypeInput
@@ -144,7 +143,7 @@ function TemplateEditor({
     () => ({
       mode: "template",
       library,
-      ticketType: ticketTypeForKey(key),
+      ticketType: key,
       canEdit,
       onEditDefinition
     }),

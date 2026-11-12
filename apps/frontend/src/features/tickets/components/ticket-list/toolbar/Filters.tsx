@@ -3,7 +3,6 @@ import {
   sprintState,
   type AssigneeFilter,
   type EstimationMode,
-  TicketType,
   type TicketFilter,
   type Member
 } from "@pp/shared"
@@ -77,7 +76,9 @@ import {
   statusLabelFor,
   statusMetaFor,
   TYPE_LABELS,
-  TYPE_META
+  TYPE_META,
+  PICKABLE_TYPES,
+  typeFilterOf
 } from "@/features/tickets/lib/ticketMeta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -374,11 +375,11 @@ function FilterType({
       <CheckboxOptions
         selected={value}
         onChange={onChange}
-        options={TicketType.literals.map((type) => {
+        options={PICKABLE_TYPES.map((type) => {
           const TIcon = TYPE_META[type].icon
           const label = TYPE_LABELS[type]()
           return {
-            value: type,
+            value: typeFilterOf(type),
             label,
             content: (
               <>

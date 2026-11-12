@@ -5,7 +5,7 @@ import {
   type Member,
   type TypeDefinition,
   type TicketDetail,
-  type TicketType
+  type TypeKey
 } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
@@ -64,7 +64,10 @@ export type TemplateSwapNote = Readonly<{
 }>
 
 export type DescriptionHandle = Readonly<{
-  swapTemplate: (from: TicketType, to: TicketType) => TemplateSwapNote | null
+  swapTemplate: (
+    from: TypeKey | null,
+    to: TypeKey | null
+  ) => TemplateSwapNote | null
   restore: (markdown: string) => void
   matches: (markdown: string) => boolean
   onEdit: (markdown: string, callback: () => void) => () => void

@@ -194,6 +194,7 @@ const validationMessage = (reason: string): string => {
         ids: detail.replaceAll(",", ", ")
       })
     case "unknown_template":
+    case "unknown_type":
       return m.templates_error_unknown_template({ key: detail })
     case "jira_migration_not_configurable":
     case "jira_migration_run_not_allowed":

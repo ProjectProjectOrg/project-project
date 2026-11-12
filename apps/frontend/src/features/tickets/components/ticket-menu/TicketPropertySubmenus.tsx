@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { TagName, TicketType, type Member } from "@pp/shared"
+import { TagName, type Member } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
@@ -45,7 +45,12 @@ import {
   PRIORITY_META,
   PRIORITY_ORDER
 } from "@/features/tickets/lib/priorityMeta"
-import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
+import {
+  statusMetaFor,
+  PICKABLE_TYPES,
+  pickableTypeOf,
+  typeKeyOf
+} from "@/features/tickets/lib/ticketMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
@@ -117,7 +122,7 @@ export function TicketPropertySubmenus({
       )
     }
   })
-  const typeItems = typeOptions(TicketType.literals).map((item) => ({
+  const typeItems = typeOptions(PICKABLE_TYPES).map((item) => ({
     ...item,
     closeOnClick: true
   }))
@@ -162,8 +167,8 @@ export function TicketPropertySubmenus({
             <DropdownMenuSubContent className="w-40">
               <DropdownMenuRadioGroup
                 items={typeItems}
-                value={ticket.type}
-                onValueChange={(type) => onPatch({ type })}
+                value={pickableTypeOf(ticket.type)}
+                onValueChange={(type) => onPatch({ type: typeKeyOf(type) })}
               />
             </DropdownMenuSubContent>
           </DropdownMenuSub>

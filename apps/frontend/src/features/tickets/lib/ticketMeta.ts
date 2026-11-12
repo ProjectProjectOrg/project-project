@@ -1,4 +1,10 @@
-import { isEpicType, TicketType, type ProjectStatus } from "@pp/shared"
+import {
+  isEpicType,
+  NO_TYPE_FILTER,
+  TypeKey,
+  type ProjectStatus,
+  type TypeFilter
+} from "@pp/shared"
 import {
   Bug,
   Check,
@@ -87,8 +93,22 @@ export function statusMetaFor(
   }
 }
 
+export const PICKABLE_TYPES = ["feat", "bug", "chore", "other", "epic"] as const
+export type PickableType = (typeof PICKABLE_TYPES)[number]
+
+const NO_TYPE: PickableType = "other"
+
+export const pickableTypeFor = (key: string): PickableType | null =>
+  PICKABLE_TYPES.find((type) => type === key && type !== NO_TYPE) ?? null
+
+export const pickableTypeOf = (type: string | null): PickableType =>
+  type === null ? NO_TYPE : (pickableTypeFor(type) ?? NO_TYPE)
+
+export const typeKeyOf = (type: PickableType): TypeKey | null =>
+  type === NO_TYPE ? null : TypeKey.make(type)
+
 export const TYPE_META: Record<
-  TicketType,
+  PickableType,
   { label: string; icon: LucideIcon; tone: BadgeTone }
 > = {
   feat: { label: "Feature", icon: Sparkles, tone: "emerald" },
@@ -98,10 +118,16 @@ export const TYPE_META: Record<
   epic: { label: "Epic", icon: Layers, tone: "blue" }
 }
 
-export const NON_EPIC_TYPES: ReadonlyArray<TicketType> =
-  TicketType.literals.filter((type) => !isEpicType(type))
+export const typeFilterOf = (type: PickableType): TypeFilter =>
+  typeKeyOf(type) ?? NO_TYPE_FILTER
 
-export const TYPE_LABELS: Record<TicketType, () => string> = {
+export const NON_EPIC_TYPES: ReadonlyArray<PickableType> =
+  PICKABLE_TYPES.filter((type) => !isEpicType(type))
+
+export const NON_EPIC_TYPE_FILTERS: ReadonlyArray<TypeFilter> =
+  NON_EPIC_TYPES.map(typeFilterOf)
+
+export const TYPE_LABELS: Record<PickableType, () => string> = {
   feat: () => m.tickets_type_feat(),
   bug: () => m.tickets_type_bug(),
   chore: () => m.tickets_type_chore(),

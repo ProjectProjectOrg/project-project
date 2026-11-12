@@ -1,4 +1,4 @@
-import type { TypeDefinition, TypeKey, TicketType } from "@pp/shared"
+import type { TypeDefinition, TypeKey } from "@pp/shared"
 import { CircleDashed } from "lucide-react"
 import { useId, useMemo, useState, type KeyboardEvent } from "react"
 
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/menu-listbox"
 import { matchesSlashQuery } from "@/features/editor/lexical/blocks/slashMenuItems"
 import { BlockIconGlyph } from "@/features/library/components/BlockIconGlyph"
+import { type PickableType } from "@/features/tickets/lib/ticketMeta"
 import { m } from "@/paraglide/messages"
 
 import type { TemplateChoice } from "./useTemplateChoice"
@@ -79,7 +80,7 @@ export function useTemplateSlash({
   choice: TemplateChoice
   onChoose: (
     template: TypeDefinition | null,
-    ticketType: TicketType | null
+    ticketType: PickableType | null
   ) => void
 }>): TemplateSlash {
   const listboxId = useId()

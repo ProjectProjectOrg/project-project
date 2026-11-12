@@ -5,7 +5,7 @@ import {
   MenuOption
 } from "@lexical/react/LexicalTypeaheadMenuPlugin"
 import { mergeRegister } from "@lexical/utils"
-import type { Library, TicketType } from "@pp/shared"
+import type { Library, TypeKey } from "@pp/shared"
 import { useRouter } from "@tanstack/react-router"
 import {
   COMMAND_PRIORITY_CRITICAL,
@@ -97,7 +97,7 @@ export function SlashMenuPlugin({
   mode = "ticket"
 }: Readonly<{
   library: Library
-  ticketType: TicketType | null
+  ticketType: TypeKey | null
   transformers: ReadonlyArray<Transformer>
   mode?: SlashMode
 }>) {

@@ -1,3 +1,4 @@
+import { TypeKey } from "@pp/shared"
 import { act, renderHook } from "@testing-library/react"
 import * as Exit from "effect/Exit"
 import { expect, it, vi } from "vitest"
@@ -36,14 +37,16 @@ const fakeDescription = () => {
 
 const setup = (onPatch: TypePatch) => {
   const description = fakeDescription()
-  const hook = renderHook(() => useTemplateSwap("feat", onPatch))
+  const hook = renderHook(() => useTemplateSwap(TypeKey.make("feat"), onPatch))
   hook.result.current.descriptionRef.current = description.handle
   return { ...description, hook }
 }
 
 it("dismisses the note once the swapped body is edited", async () => {
   const { hook, type } = setup(async () => Exit.succeed(undefined))
-  await act(async () => hook.result.current.onTypePatch({ type: "bug" }))
+  await act(async () =>
+    hook.result.current.onTypePatch({ type: TypeKey.make("bug") })
+  )
   expect(hook.result.current.note?.name).toBe("Bug report")
   act(() => type("new body, and my notes"))
   expect(hook.result.current.note).toBeNull()
@@ -51,7 +54,9 @@ it("dismisses the note once the swapped body is edited", async () => {
 
 it("rolls the body back when the type change fails", async () => {
   const { hook, handle } = setup(async () => Exit.fail("boom"))
-  await act(async () => hook.result.current.onTypePatch({ type: "bug" }))
+  await act(async () =>
+    hook.result.current.onTypePatch({ type: TypeKey.make("bug") })
+  )
   expect(handle.restore).toHaveBeenCalledWith(PREVIOUS)
   expect(hook.result.current.note).toBeNull()
 })
@@ -64,7 +69,7 @@ it("keeps what the user typed when the type change fails later", async () => {
         settle = resolve
       })
   )
-  act(() => hook.result.current.onTypePatch({ type: "bug" }))
+  act(() => hook.result.current.onTypePatch({ type: TypeKey.make("bug") }))
   act(() => type("my notes"))
   await act(async () => settle(Exit.fail("boom")))
   expect(handle.restore).not.toHaveBeenCalled()
@@ -72,7 +77,9 @@ it("keeps what the user typed when the type change fails later", async () => {
 
 it("undo restores the previous body while it is untouched", async () => {
   const { hook, handle } = setup(async () => Exit.succeed(undefined))
-  await act(async () => hook.result.current.onTypePatch({ type: "bug" }))
+  await act(async () =>
+    hook.result.current.onTypePatch({ type: TypeKey.make("bug") })
+  )
   act(() => hook.result.current.undo())
   expect(handle.restore).toHaveBeenCalledWith(PREVIOUS)
   expect(hook.result.current.note).toBeNull()

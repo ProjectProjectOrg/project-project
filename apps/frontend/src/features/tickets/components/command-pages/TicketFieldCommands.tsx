@@ -1,11 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import {
-  isEpic,
-  ESTIMATE_SIZES,
-  TagName,
-  TicketType,
-  type Estimate
-} from "@pp/shared"
+import { isEpic, ESTIMATE_SIZES, TagName, type Estimate } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
@@ -36,7 +30,13 @@ import {
   parseEstimateMinutes,
   parseEstimatePoints
 } from "@/features/tickets/lib/estimateMeta"
-import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import {
+  TYPE_LABELS,
+  TYPE_META,
+  PICKABLE_TYPES,
+  typeKeyOf,
+  pickableTypeOf
+} from "@/features/tickets/lib/ticketMeta"
 import { parentRef } from "@/features/tickets/lib/ticketPatch"
 import { errorMessage } from "@/lib/errorMessage"
 import { cn } from "@/lib/utils"
@@ -150,7 +150,7 @@ export function TicketEstimatePage({
 
 export function TicketTypePage({ ticket, chip, onBack, env }: TicketPageProps) {
   const { current, update } = useTicketMutation(ticket)
-  const types = TicketType.literals
+  const types = PICKABLE_TYPES
   return (
     <CommandFrame
       chip={chip}
@@ -163,13 +163,15 @@ export function TicketTypePage({ ticket, chip, onBack, env }: TicketPageProps) {
       }))}
       onSelect={(item) => {
         const type = types.find((candidate) => candidate === item.value)
-        if (type !== undefined) update({ type })
+        if (type !== undefined) update({ type: typeKeyOf(type) })
         env.close()
       }}
       renderItem={(item) => (
         <CommandMenuItem value={item.value}>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          {current?.type === item.value && <CommandMenuCheck />}
+          {current !== null && pickableTypeOf(current.type) === item.value && (
+            <CommandMenuCheck />
+          )}
         </CommandMenuItem>
       )}
     />

@@ -1,4 +1,4 @@
-import type { Library, TypeDefinition, TicketType } from "@pp/shared"
+import type { Library, TypeDefinition, TypeKey } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import { type MouseEvent } from "react"
 
@@ -21,7 +21,7 @@ export function DescriptionTemplateStarts({
   className
 }: Readonly<{
   library: Library
-  ticketType: TicketType
+  ticketType: TypeKey | null
   body: string
   onStart: (template: TypeDefinition) => void
   onMore: () => void

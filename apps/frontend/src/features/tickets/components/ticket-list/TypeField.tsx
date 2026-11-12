@@ -1,9 +1,16 @@
-import { isEpicType, TicketType, type TicketId } from "@pp/shared"
+import { isEpicType, type TicketId, type TypeKey } from "@pp/shared"
 import type { ComponentProps, ReactElement, ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger } from "@/components/ui/select"
-import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import {
+  PICKABLE_TYPES,
+  pickableTypeOf,
+  TYPE_LABELS,
+  TYPE_META,
+  typeKeyOf,
+  type PickableType
+} from "@/features/tickets/lib/ticketMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -12,7 +19,7 @@ type SelectContentProps = NonNullable<
   ComponentProps<typeof Select>["contentProps"]
 >
 
-export const typeOptions = (types: ReadonlyArray<TicketType>) =>
+export const typeOptions = (types: ReadonlyArray<PickableType>) =>
   types.map((t, index) => {
     const TIcon = TYPE_META[t].icon
     return {
@@ -36,8 +43,8 @@ function TypePicker({
   trigger,
   children
 }: Readonly<{
-  value: TicketType
-  onChange: (type: TicketType) => void
+  value: PickableType
+  onChange: (type: PickableType) => void
   align: SelectContentProps["align"]
   finalFocus?: SelectContentProps["finalFocus"]
   trigger: ReactElement
@@ -45,7 +52,7 @@ function TypePicker({
 }>) {
   return (
     <Select
-      items={typeOptions(TicketType.literals)}
+      items={typeOptions(PICKABLE_TYPES)}
       value={value}
       onValueChange={(next) => {
         if (next !== value) onChange(next)
@@ -63,8 +70,8 @@ export function TypeSelect({
   ariaLabel,
   className
 }: {
-  value: TicketType
-  onChange: (type: TicketType) => void
+  value: PickableType
+  onChange: (type: PickableType) => void
   ariaLabel?: string
   className?: string
 }) {
@@ -99,16 +106,17 @@ export function TypeBadgeTrigger({
   onPatch,
   className
 }: {
-  ticket: { id: TicketId; type: TicketType }
+  ticket: { id: TicketId; type: TypeKey | null }
   onPatch: (patch: TicketEdit) => void
   className?: string
 }) {
-  const Icon = TYPE_META[ticket.type].icon
-  const typeLabel = TYPE_LABELS[ticket.type]()
+  const type = pickableTypeOf(ticket.type)
+  const Icon = TYPE_META[type].icon
+  const typeLabel = TYPE_LABELS[type]()
   return (
     <TypePicker
-      value={ticket.type}
-      onChange={(next) => onPatch({ type: next })}
+      value={type}
+      onChange={(next) => onPatch({ type: typeKeyOf(next) })}
       align="end"
       finalFocus={false}
       trigger={
@@ -133,17 +141,18 @@ export function TypeButton({
   iconOnly,
   onPatch
 }: {
-  ticket: { id: TicketId; type: TicketType }
+  ticket: { id: TicketId; type: TypeKey | null }
   className?: string
   iconOnly?: boolean
   onPatch: (patch: TicketEdit) => void
 }) {
-  const Icon = TYPE_META[ticket.type].icon
-  const typeLabel = TYPE_LABELS[ticket.type]()
+  const type = pickableTypeOf(ticket.type)
+  const Icon = TYPE_META[type].icon
+  const typeLabel = TYPE_LABELS[type]()
   return (
     <TypePicker
-      value={ticket.type}
-      onChange={(next) => onPatch({ type: next })}
+      value={type}
+      onChange={(next) => onPatch({ type: typeKeyOf(next) })}
       align="start"
       trigger={
         <Button

@@ -6,7 +6,6 @@ import {
   type TicketPriority,
   type TicketId,
   type TicketStatus,
-  type TicketType,
   isEpicType
 } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
@@ -68,6 +67,7 @@ import { StatusSelect } from "@/features/tickets/components/ticket-list/StatusFi
 import { TypeSelect } from "@/features/tickets/components/ticket-list/TypeField"
 import { useTemplateChoice } from "@/features/tickets/components/ticket-list/useTemplateChoice"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
+import { type PickableType } from "@/features/tickets/lib/ticketMeta"
 import { useRouteBoundDialog } from "@/hooks/useRouteBoundDialog"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
@@ -124,7 +124,7 @@ function CreateTicketForm({
   useEffect(() => titleInput.current?.focus(), [])
   const [title, setTitle] = useState(request.title ?? "")
   const [description, setDescription] = useState("")
-  const [type, setType] = useState<TicketType>("other")
+  const [type, setType] = useState<PickableType>("other")
   const [priority, setPriority] = useState<TicketPriority>("med")
   const [status, setStatus] = useState<TicketStatus | null>(null)
   const [assignees, setAssignees] = useState<ReadonlyArray<string>>([])
@@ -146,12 +146,12 @@ function CreateTicketForm({
       slug,
       payload: {
         title: trimmed,
-        type,
         priority,
         status: status ?? undefined,
         assignees: assignees.length === 0 ? undefined : assignees,
         estimate: estimate ?? undefined,
-        ...(body === "" ? templateChoice.payload : { body }),
+        ...templateChoice.payload,
+        body: body === "" ? undefined : body,
         ...relatedPayload(related)
       }
     })
@@ -318,8 +318,8 @@ function CreateTicketChips({
   slug: string
   status: TicketStatus | null
   onStatus: (status: TicketStatus) => void
-  type: TicketType
-  onType: (type: TicketType) => void
+  type: PickableType
+  onType: (type: PickableType) => void
   priority: TicketPriority
   onPriority: (priority: TicketPriority) => void
   assignees: ReadonlyArray<string>

@@ -8,7 +8,7 @@ import {
   type JiraMigrationConfiguration as JiraMigrationConfigurationType,
   type JiraMigrationRequirements,
   type TicketPriority,
-  type TicketType
+  type JiraProjectType
 } from "@pp/shared"
 import * as Schema from "effect/Schema"
 
@@ -22,7 +22,7 @@ export type StatusChoice = Readonly<{
 
 export type IssueTypeChoice = Readonly<{
   jiraIssueTypeId: string
-  projectType: TicketType | undefined
+  projectType: JiraProjectType | undefined
 }>
 
 export type PriorityChoice = Readonly<{
@@ -115,7 +115,7 @@ export const destinationIssues = (
 
 const normalized = (value: string) => value.trim().toLowerCase()
 
-const nativeTypeNames = new Map<string, TicketType>([
+const nativeTypeNames = new Map<string, JiraProjectType>([
   ["feat", "feat"],
   ["feature", "feat"],
   ["bug", "bug"],
@@ -124,7 +124,7 @@ const nativeTypeNames = new Map<string, TicketType>([
   ["epic", "epic"]
 ])
 
-const matchIssueType = (name: string): TicketType | undefined =>
+const matchIssueType = (name: string): JiraProjectType | undefined =>
   nativeTypeNames.get(normalized(name))
 
 export const sameNameStatus = (

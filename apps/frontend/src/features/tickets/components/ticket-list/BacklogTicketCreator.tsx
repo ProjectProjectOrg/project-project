@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { TicketType, type TicketListQuery } from "@pp/shared"
+import type { TicketListQuery } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -7,6 +7,7 @@ import {
   backlogRequest,
   quickCreateBacklogTicket
 } from "@/features/tickets/atoms/backlog"
+import { PICKABLE_TYPES } from "@/features/tickets/lib/ticketMeta"
 
 import { TicketComposer } from "./TicketComposer"
 
@@ -21,7 +22,7 @@ export function BacklogTicketCreator({ query }: { query: TicketListQuery }) {
 
   return (
     <TicketComposer
-      types={TicketType.literals}
+      types={PICKABLE_TYPES}
       create={create}
       createState={createState}
       onCreated={(ticket) =>

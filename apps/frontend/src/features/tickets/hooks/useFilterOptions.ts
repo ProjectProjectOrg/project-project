@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import { TicketType, type TicketFilter } from "@pp/shared"
+import type { TicketFilter } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
@@ -34,7 +34,12 @@ import {
   type FilterChoiceDimension
 } from "@/features/tickets/lib/filterChoices"
 import { filterableSprints } from "@/features/tickets/lib/ticketFilters"
-import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import {
+  TYPE_LABELS,
+  TYPE_META,
+  PICKABLE_TYPES,
+  typeFilterOf
+} from "@/features/tickets/lib/ticketMeta"
 import type { IconComponent } from "@/lib/icon"
 import { m } from "@/paraglide/messages"
 
@@ -101,10 +106,10 @@ export function useFilterOptions(
           }
         ]
       case "type":
-        return TicketType.literals.map((value) => ({
-          choice: { dimension, value },
-          label: TYPE_LABELS[value](),
-          icon: TYPE_META[value].icon
+        return PICKABLE_TYPES.map((type) => ({
+          choice: { dimension, value: typeFilterOf(type) },
+          label: TYPE_LABELS[type](),
+          icon: TYPE_META[type].icon
         }))
       case "assignee":
         return [

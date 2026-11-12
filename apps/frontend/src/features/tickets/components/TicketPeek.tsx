@@ -39,7 +39,8 @@ import {
   statusLabelFor,
   statusMetaFor,
   TYPE_LABELS,
-  TYPE_META
+  TYPE_META,
+  pickableTypeOf
 } from "@/features/tickets/lib/ticketMeta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -94,7 +95,8 @@ export function TicketPeek({
   if (ticket === null) return <PeekSkeleton />
   const status = statusMetaFor(ticket.status, statuses)
   const priority = PRIORITY_META[ticket.priority]
-  const type = TYPE_META[ticket.type]
+  const shownType = pickableTypeOf(ticket.type)
+  const type = TYPE_META[shownType]
   const StatusIcon = status.icon
   const PriorityIcon = priority.icon
   const TypeIcon = type.icon
@@ -136,7 +138,7 @@ export function TicketPeek({
           </Meta>
           <Meta>
             <TypeIcon className="size-3.5" strokeWidth={1.75} />
-            {TYPE_LABELS[ticket.type]()}
+            {TYPE_LABELS[shownType]()}
           </Meta>
           {estimation !== "off" && ticket.estimate !== null && (
             <EstimateChip

@@ -25,7 +25,7 @@ import {
   saveAsTemplateDraft,
   saveAsTemplateSummary
 } from "@/features/tickets/lib/saveAsTemplate"
-import { TYPE_LABELS } from "@/features/tickets/lib/ticketMeta"
+import { TYPE_LABELS, pickableTypeOf } from "@/features/tickets/lib/ticketMeta"
 import { useAppForm, useFormValues } from "@/lib/form"
 import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
@@ -71,7 +71,7 @@ export function SaveAsTemplateForm({
     ...saveAsTemplateFormOpts,
     defaultValues: {
       ...saveAsTemplateFormOpts.defaultValues,
-      name: TYPE_LABELS[ticket.type](),
+      name: TYPE_LABELS[pickableTypeOf(ticket.type)](),
       layer: layers[0] ?? "project"
     },
     onSubmit: async ({ value }) => {

@@ -4,7 +4,7 @@ import type {
   JiraMigrationDetail,
   JiraMigrationRequirements,
   TicketPriority,
-  TicketType
+  JiraProjectType
 } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
@@ -43,7 +43,7 @@ import { SprintsSection } from "./SprintsSection"
 import { StatusesSection } from "./StatusesSection"
 import { TagsSection } from "./TagsSection"
 
-const typeOptions: ReadonlyArray<EnumOption<TicketType>> = [
+const typeOptions: ReadonlyArray<EnumOption<JiraProjectType>> = [
   { value: "feat", label: m.jira_import_type_feat, icon: TYPE_META.feat.icon },
   { value: "bug", label: m.jira_import_type_bug, icon: TYPE_META.bug.icon },
   {

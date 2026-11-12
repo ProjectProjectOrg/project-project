@@ -1,11 +1,9 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import {
-  ticketTypeForKey,
   typeFor,
   type Library,
   type TypeDefinition,
-  type TypeKey,
-  type TicketType
+  type TypeKey
 } from "@pp/shared"
 import type * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -15,6 +13,11 @@ import {
   projectLibraryFor,
   projectLibraryRequest
 } from "@/features/library/atoms/library"
+import {
+  pickableTypeFor,
+  typeKeyOf,
+  type PickableType
+} from "@/features/tickets/lib/ticketMeta"
 import type { TemplatePrediction } from "@/features/tickets/lib/ticketRows"
 import { failedOnUnknownTemplate } from "@/lib/mutationError"
 
@@ -25,15 +28,15 @@ export type TemplateChoice = Readonly<{
   sticky: boolean
   ready: boolean
   pick: (key: TypeKey | null) => void
-  ticketTypeOf: (key: TypeKey) => TicketType | null
-  payload: Readonly<{ template?: TypeKey }>
+  ticketTypeOf: (key: TypeKey) => PickableType | null
+  payload: Readonly<{ type: TypeKey | null }>
   prediction: TemplatePrediction | undefined
   recover: (exit: Exit.Exit<unknown, Readonly<{ _tag: string }>>) => void
 }>
 
 export const orderedTemplates = (
   library: Library,
-  type: TicketType
+  type: PickableType
 ): ReadonlyArray<TypeDefinition> => {
   const active = library.types.filter((template) => !template.hidden)
   return [
@@ -44,7 +47,7 @@ export const orderedTemplates = (
 
 export const chosenTemplate = (
   library: Library,
-  type: TicketType,
+  type: PickableType,
   picked: TypeKey | null | undefined
 ): TypeDefinition | null =>
   picked === undefined
@@ -58,7 +61,7 @@ export const chosenTemplate = (
 export function useTemplateChoice(
   orgSlug: string,
   slug: string,
-  type: TicketType
+  type: PickableType
 ): TemplateChoice {
   const libraryAtom = projectLibraryFor(projectLibraryRequest(orgSlug, slug))
   const result = useAtomValue(libraryAtom)
@@ -82,8 +85,10 @@ export function useTemplateChoice(
       sticky: picked !== undefined,
       ready: library !== null,
       pick: setPicked,
-      ticketTypeOf: ticketTypeForKey,
-      payload: template === null ? {} : { template: template.key },
+      ticketTypeOf: pickableTypeFor,
+      payload: {
+        type: library === null ? typeKeyOf(type) : (template?.key ?? null)
+      },
       prediction:
         template === null
           ? undefined
@@ -94,22 +99,22 @@ export function useTemplateChoice(
 }
 
 export type TicketTypeChoice = Readonly<{
-  type: TicketType
-  setType: (next: TicketType) => void
-  applyTemplateDefault: (next: TicketType) => void
+  type: PickableType
+  setType: (next: PickableType) => void
+  applyTemplateDefault: (next: PickableType) => void
 }>
 
 export function useTicketTypeChoice(
-  initial: TicketType = "other"
+  initial: PickableType = "other"
 ): TicketTypeChoice {
-  const [type, setTypeState] = useState<TicketType>(initial)
+  const [type, setTypeState] = useState<PickableType>(initial)
   const [explicit, setExplicit] = useState(false)
-  const setType = useCallback((next: TicketType) => {
+  const setType = useCallback((next: PickableType) => {
     setExplicit(true)
     setTypeState(next)
   }, [])
   const applyTemplateDefault = useCallback(
-    (next: TicketType) => {
+    (next: PickableType) => {
       if (!explicit) setTypeState(next)
     },
     [explicit]

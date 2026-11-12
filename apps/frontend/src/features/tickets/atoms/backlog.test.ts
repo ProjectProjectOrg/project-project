@@ -41,15 +41,13 @@ const decodeTicketIdSync = Schema.decodeSync(TicketId)
 
 const decodeGroupIdSync = Schema.decodeSync(GroupId)
 
-const decodeTemplateKeySync = Schema.decodeSync(TypeKey)
-
 const decodeTagNameSync = Schema.decodeSync(TagName)
 
 const ticket = {
   id: Schema.decodeSync(TicketId)("T-1"),
   title: "Before",
   status: Schema.decodeSync(TicketStatus)("todo"),
-  type: "chore",
+  type: TypeKey.make("chore"),
   priority: "med",
   estimate: null,
   tags: [],
@@ -185,19 +183,23 @@ describe("backlog optimistic update", () => {
       )
       registry.set(mutation, { priority: "high" })
       await vi.waitFor(() => expect(bodies).toHaveLength(1))
-      registry.set(mutation, { type: "bug" })
+      registry.set(mutation, { type: TypeKey.make("bug") })
       pending[0](
         Response.json(
           encodeUpdateResponse(asUpdateResult({ ...ticket, priority: "high" }))
         )
       )
       await vi.waitFor(() => expect(bodies).toHaveLength(2))
-      expect(bodies[1]).toEqual({ type: "bug" })
+      expect(bodies[1]).toEqual({ type: TypeKey.make("bug") })
 
       pending[1](
         Response.json(
           encodeUpdateResponse(
-            asUpdateResult({ ...ticket, priority: "high", type: "bug" })
+            asUpdateResult({
+              ...ticket,
+              priority: "high",
+              type: TypeKey.make("bug")
+            })
           )
         )
       )
@@ -917,7 +919,7 @@ describe("backlog pagination", () => {
 describe("backlog quick create", () => {
   it.each([
     { filter: { q: "missing" } },
-    { filter: { type: ["bug"] } },
+    { filter: { type: [TypeKey.make("bug")] } },
     { filter: { assignee: ["mine"] } },
     { filter: { groupId: [decodeGroupIdSync("G-1")] } }
   ] as const)(
@@ -942,7 +944,7 @@ describe("backlog quick create", () => {
           expect(AsyncResult.isSuccess(registry.get(view))).toBe(true)
         )
         registry.set(create, {
-          payload: { title: "Created", type: "chore" },
+          payload: { title: "Created", type: TypeKey.make("chore") },
           prediction: {
             clientId: "creation-filtered",
             createdBy: "user-1",
@@ -964,7 +966,7 @@ describe("backlog quick create", () => {
     }
   )
 
-  it("sends the template and predicts the template's priority and tags", async () => {
+  it("sends the type and predicts the type's priority and tags", async () => {
     const payloads: Array<unknown> = []
     fetchStub.set(async (_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "POST") {
@@ -985,8 +987,7 @@ describe("backlog quick create", () => {
       registry.set(create, {
         payload: {
           title: "Login loops",
-          type: "bug",
-          template: decodeTemplateKeySync("bug-report")
+          type: TypeKey.make("bug")
         },
         prediction: {
           clientId: "creation-1",
@@ -1007,9 +1008,7 @@ describe("backlog quick create", () => {
         ticket: { type: "bug", priority: "high", tags: ["auth"] }
       })
       await vi.waitFor(() =>
-        expect(payloads).toEqual([
-          { title: "Login loops", type: "bug", template: "bug-report" }
-        ])
+        expect(payloads).toEqual([{ title: "Login loops", type: "bug" }])
       )
     } finally {
       registry.dispose()

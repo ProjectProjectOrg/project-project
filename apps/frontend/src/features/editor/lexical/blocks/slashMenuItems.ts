@@ -8,7 +8,7 @@ import {
   type BlockLookup,
   type Library,
   type TypeDefinition,
-  type TicketType
+  type TypeKey
 } from "@pp/shared"
 
 import type { EditorBlocksMode } from "./editorBlocks"
@@ -102,7 +102,7 @@ export type SlashSection = Readonly<{
 export type SlashMenuInput = Readonly<{
   library: Library
   lookup: BlockLookup
-  ticketType: TicketType | null
+  ticketType: TypeKey | null
   body: string
   query: string
   basicLabel: (kind: SlashBasicKind) => string
@@ -203,7 +203,7 @@ export const templateAdds = (
 
 export const orderedTemplates = (
   library: Library,
-  ticketType: TicketType | null
+  ticketType: TypeKey | null
 ): ReadonlyArray<TypeDefinition> => {
   const defaultKey = ticketType
   const active = library.types.filter((template) => !template.hidden)

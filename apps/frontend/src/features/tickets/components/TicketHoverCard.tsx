@@ -7,7 +7,7 @@ import type {
   TicketId,
   TicketPriority,
   TicketStatus,
-  TicketType
+  TypeKey
 } from "@pp/shared"
 import { finishedStatusSlugs, flattenTicketBlocks } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
@@ -43,7 +43,8 @@ import {
   statusMetaFor,
   statusLabelFor,
   TYPE_LABELS,
-  TYPE_META
+  TYPE_META,
+  pickableTypeOf
 } from "@/features/tickets/lib/ticketMeta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -209,7 +210,7 @@ function MetaRow({
 }: {
   ticket: {
     status: TicketStatus
-    type: TicketType
+    type: TypeKey | null
     priority: TicketPriority
     estimate: Estimate | null
     assignees: ReadonlyArray<string>
@@ -218,7 +219,8 @@ function MetaRow({
   statuses: ReadonlyArray<ProjectStatus>
 }) {
   const statusMeta = statusMetaFor(ticket.status, statuses)
-  const type = TYPE_META[ticket.type]
+  const shownType = pickableTypeOf(ticket.type)
+  const type = TYPE_META[shownType]
   const priority = PRIORITY_META[ticket.priority]
   const StatusIcon = statusMeta.icon
   const TypeIcon = type.icon
@@ -244,7 +246,7 @@ function MetaRow({
       </span>
       <span className="inline-flex items-center gap-1">
         <TypeIcon className="size-3.5" strokeWidth={1.75} />
-        <span>{TYPE_LABELS[ticket.type]()}</span>
+        <span>{TYPE_LABELS[shownType]()}</span>
       </span>
       <span className="inline-flex items-center gap-1">
         <PriorityIcon

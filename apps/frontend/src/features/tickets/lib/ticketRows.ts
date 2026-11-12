@@ -19,7 +19,7 @@ import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { compareCodePoints } from "@/lib/orderKey"
 
 import { PRIORITY_META } from "./priorityMeta"
-import { NON_EPIC_TYPES } from "./ticketMeta"
+import { NON_EPIC_TYPE_FILTERS } from "./ticketMeta"
 import { applyTicketPatch } from "./ticketPatch"
 
 export type TicketRow = Readonly<{
@@ -44,7 +44,7 @@ export const ticketListQueryOf = (query: QueryWithView): TicketListQuery => {
 }
 
 export const withoutEpicsByDefault = <Q extends TicketFilter>(query: Q): Q =>
-  query.type?.length ? query : { ...query, type: NON_EPIC_TYPES }
+  query.type?.length ? query : { ...query, type: NON_EPIC_TYPE_FILTERS }
 
 export const viewQuery = (query: QueryWithView): TicketListQuery =>
   withoutEpicsByDefault(ticketListQueryOf(query))
@@ -186,7 +186,7 @@ export const predictedTicket = (
   id,
   title: input.payload.title,
   status,
-  type: input.payload.type ?? "other",
+  type: input.payload.type ?? null,
   priority: input.prediction.priority ?? "med",
   estimate: null,
   tags: input.prediction.tags ?? [],

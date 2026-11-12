@@ -51,7 +51,7 @@ export const mutationErrorText = <E>(
 type Tagged = Readonly<{ _tag: string }>
 
 export const isUnknownTemplate = (error: Tagged): boolean =>
-  isValidationDetail(error) && error.reason.startsWith("unknown_template")
+  isValidationDetail(error) && error.reason.startsWith("unknown_type")
 
 export const failedOnUnknownTemplate = (
   exit: Exit.Exit<unknown, Tagged>

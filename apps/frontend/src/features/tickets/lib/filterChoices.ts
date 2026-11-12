@@ -4,7 +4,7 @@ import type {
   GroupIdFilter,
   TagName,
   TicketFilter,
-  TicketType
+  TypeFilter
 } from "@pp/shared"
 
 import { toggled } from "./ticketFilters"
@@ -12,7 +12,7 @@ import { toggled } from "./ticketFilters"
 export type FilterChoice =
   | Readonly<{ dimension: "blocked" }>
   | Readonly<{ dimension: "archived" }>
-  | Readonly<{ dimension: "type"; value: TicketType }>
+  | Readonly<{ dimension: "type"; value: TypeFilter }>
   | Readonly<{ dimension: "assignee"; value: AssigneeFilter }>
   | Readonly<{ dimension: "sprint"; value: GroupIdFilter }>
   | Readonly<{ dimension: "estimate"; value: EstimateFilterValue }>

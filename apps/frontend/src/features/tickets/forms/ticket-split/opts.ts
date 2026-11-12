@@ -6,7 +6,7 @@ import {
   type SplitTicketInput,
   type TicketPriority,
   type TicketStatus,
-  type TicketType
+  type TypeKey
 } from "@pp/shared"
 import type { ReactFormType } from "@tanstack/react-form"
 import * as Schema from "effect/Schema"
@@ -14,7 +14,7 @@ import * as Schema from "effect/Schema"
 import { appFormOptions } from "@/lib/form"
 
 export type SplitResultDefaults = Readonly<{
-  type: TicketType
+  type: TypeKey | null
   status: TicketStatus
   priority: TicketPriority
   sprintId: GroupId | null

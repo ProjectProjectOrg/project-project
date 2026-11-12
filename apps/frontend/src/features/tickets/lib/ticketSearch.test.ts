@@ -117,7 +117,7 @@ it.each([
 )
 
 it.each([
-  "?type=invalid",
+  "?type=other",
   "?sort=invalid",
   "?hasPr=invalid",
   "?updatedAfter=invalid"
@@ -127,7 +127,7 @@ it.each([
 
 it("drops malformed flat navigation context as a unit", () => {
   const search = decodeTicket(
-    parseSearch("?from=sections&group=status&type=invalid&focusBody=1")
+    parseSearch("?from=sections&group=status&type=other&focusBody=1")
   )
   expect(search).toEqual({ focusBody: "1", from: undefined })
   expect(ticketSourceFromSearch(search)).toBeUndefined()

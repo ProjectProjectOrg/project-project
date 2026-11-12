@@ -211,7 +211,7 @@ export function SprintTicketCreator({
 
   async function createTicket(title: string) {
     if (submitting) return
-    const exit = await create({ title, type, ...templateChoice.payload })
+    const exit = await create({ title, ...templateChoice.payload })
     templateChoice.recover(exit)
     if (Exit.isSuccess(exit)) {
       refreshGitStates()

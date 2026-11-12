@@ -3,7 +3,6 @@ import {
   EPIC_SECTION_NONE,
   GroupId,
   sprintSectionKey,
-  TicketType,
   type Group,
   type TicketId,
   type TicketListQuery,
@@ -52,7 +51,10 @@ import {
   quickCreateSprintSectionsTicket,
   type SprintSectionsRequest
 } from "@/features/tickets/atoms/sprintSections"
-import { NON_EPIC_TYPES } from "@/features/tickets/lib/ticketMeta"
+import {
+  NON_EPIC_TYPES,
+  PICKABLE_TYPES
+} from "@/features/tickets/lib/ticketMeta"
 import type { QuickCreateInput } from "@/features/tickets/lib/ticketRows"
 import {
   mutationErrorText,
@@ -225,7 +227,7 @@ function SectionCreatorForm({
   const types =
     activeSprintId !== null || parent !== undefined
       ? NON_EPIC_TYPES
-      : TicketType.literals
+      : PICKABLE_TYPES
 
   const [title, setTitle] = useState("")
   const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
@@ -266,7 +268,6 @@ function SectionCreatorForm({
     const exit = await create({
       payload: {
         title: submittedTitle,
-        type,
         status,
         ...templateChoice.payload
       },
