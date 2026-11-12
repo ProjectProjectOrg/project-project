@@ -7,6 +7,8 @@ import {
   Archive,
   ArchiveRestore,
   CircleSlash,
+  Flag,
+  FlagOff,
   MoreHorizontal,
   Split,
   Trash2
@@ -42,11 +44,11 @@ import {
   sprintListRequest,
   sprintMembership
 } from "@/features/sprints/atoms/sprintList"
-import { flagTicketDialog } from "@/features/tickets/atoms/flagTicketDialog"
 import {
   bulkArchiveTickets,
   bulkDeleteTickets
 } from "@/features/tickets/atoms/bulkTickets"
+import { flagTicketDialog } from "@/features/tickets/atoms/flagTicketDialog"
 import {
   archiveTicket,
   deleteTicket,
@@ -239,6 +241,34 @@ function TicketMenuItems({
           }
         />
         {single && canPlan && <RemoveFromSprintItem ticketId={ticket.id} />}
+        {!single && can.edit && (
+          <DropdownMenuItem
+            onClick={() =>
+              openFlagDialog({
+                orgSlug,
+                slug,
+                ticketId: ticket.id,
+                title: ticket.title,
+                selection: selectedTickets.map((each) => each.id)
+              })
+            }
+            className="cursor-pointer"
+          >
+            <Flag className="size-4" strokeWidth={1.75} />
+            {m.tickets_menu_flag_many({ count })}
+          </DropdownMenuItem>
+        )}
+        {!single &&
+          can.edit &&
+          selectedTickets.some((each) => each.flag !== null) && (
+            <DropdownMenuItem
+              onClick={() => onPatch({ flag: null })}
+              className="cursor-pointer"
+            >
+              <FlagOff className="size-4" strokeWidth={1.75} />
+              {m.tickets_menu_unflag_many()}
+            </DropdownMenuItem>
+          )}
         {single && can.edit && <MorePropertiesSubmenu ticket={ticket} />}
       </Fragment>
     ),
@@ -256,7 +286,8 @@ function TicketMenuItems({
                 orgSlug,
                 slug,
                 ticketId: ticket.id,
-                title: ticket.title
+                title: ticket.title,
+                selection: []
               })
             }
             onUnflag={() => onPatch({ flag: null })}

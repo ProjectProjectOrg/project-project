@@ -1,6 +1,8 @@
 import { Flag, FlagOff, Layers, ListPlus, Stamp, Unlink } from "lucide-react"
 
+import { commandScopes } from "@/features/command-menu/atoms/commandMenu"
 import type { Command } from "@/features/command-menu/lib/commands"
+import { scopeSelectionUpdate } from "@/features/command-menu/lib/commandScopes"
 import { openFlagDialog } from "@/features/tickets/atoms/flagTicketDialog"
 import {
   ticketRequest,
@@ -53,6 +55,7 @@ export const relationCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.flag",
+    bulk: true,
     group: "ticketRelations",
     label: m.tickets_command_flag,
     icon: Flag,
@@ -60,15 +63,22 @@ export const relationCommands: ReadonlyArray<Command> = [
     tool: "update_ticket",
     when: (context) =>
       editable(context) &&
-      context.ticketDetail !== null &&
-      context.ticketDetail.flag === null,
-    run: ({ ticket, ticketDetail }, env) => {
+      (context.selection.length > 1
+        ? context.selection.some((each) => each.flag === null)
+        : context.ticketDetail !== null && context.ticketDetail.flag === null),
+    run: ({ ticket, ticketDetail, selection }, env) => {
       if (ticket === null || ticketDetail === null) return
-      openFlagDialog(env, ticket, ticketDetail.title)
+      openFlagDialog(
+        env,
+        ticket,
+        ticketDetail.title,
+        selection.map((each) => each.id)
+      )
     }
   },
   {
     id: "ticket.unflag",
+    bulk: true,
     group: "ticketRelations",
     label: m.tickets_mark_remove_flag,
     icon: FlagOff,
@@ -76,10 +86,23 @@ export const relationCommands: ReadonlyArray<Command> = [
     tool: "update_ticket",
     when: (context) =>
       editable(context) &&
-      context.ticketDetail !== null &&
-      context.ticketDetail.flag !== null,
-    run: ({ ticket }, env) => {
+      (context.selection.length > 1
+        ? context.selection.some((each) => each.flag !== null)
+        : context.ticketDetail !== null && context.ticketDetail.flag !== null),
+    run: ({ ticket, selection }, env) => {
       if (ticket === null) return
+      const updateSelection = scopeSelectionUpdate(
+        env.registry.get(commandScopes)
+      )
+      if (selection.length > 1 && updateSelection !== null) {
+        updateSelection(
+          ticket.slug,
+          selection.map((each) => each.id),
+          { flag: null }
+        )
+        env.close()
+        return
+      }
       env.execute(
         updateTicketDetail(
           ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)

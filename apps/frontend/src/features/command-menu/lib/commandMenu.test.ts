@@ -83,7 +83,8 @@ const selected = (id: string) => ({
   type: "feat" as const,
   estimate: null,
   tags: [],
-  assignees: []
+  assignees: [],
+  flag: null
 })
 
 describe("deselectFromCommandMenu", () => {

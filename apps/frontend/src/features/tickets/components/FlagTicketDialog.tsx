@@ -6,6 +6,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { ProjectContext } from "@/features/projects/hooks/useProject"
+import { bulkUpdateTickets } from "@/features/tickets/atoms/bulkTickets"
 import {
   flagTicketDialog,
   type FlagTicketDialogRequest
@@ -19,6 +20,7 @@ import { flagFor } from "@/features/tickets/lib/ticketFlag"
 import { useProjectActor } from "@/hooks/useActor"
 import { useRouteBoundDialog } from "@/hooks/useRouteBoundDialog"
 import { mutationErrorText } from "@/lib/mutationError"
+import { m } from "@/paraglide/messages"
 
 export function FlagTicketDialogHost() {
   const { open, shown, close } = useRouteBoundDialog(flagTicketDialog)
@@ -57,6 +59,13 @@ function FlagTicket({
   )
   const update = useAtomSet(mutation, { mode: "promiseExit" })
   const state = useAtomValue(mutation)
+  const bulk = bulkUpdateTickets({
+    orgSlug: request.orgSlug,
+    slug: request.slug
+  })
+  const updateMany = useAtomSet(bulk, { mode: "promiseExit" })
+  const manyState = useAtomValue(bulk)
+  const many = request.selection.length > 1
   return (
     <MentionScopeProvider
       scope={{
@@ -66,14 +75,34 @@ function FlagTicket({
       }}
     >
       <FlagForm
-        ticket={{ id: request.ticketId, title: request.title }}
-        onFlag={(reason) =>
-          update({
-            flag: flagFor(reason, userId, DateTime.toDate(DateTime.nowUnsafe()))
-          })
+        ticket={
+          many
+            ? {
+                id: null,
+                title: m.tickets_selection_flag_title({
+                  count: request.selection.length
+                })
+              }
+            : { id: request.ticketId, title: request.title }
         }
-        waiting={state.waiting}
-        error={mutationErrorText(state)}
+        onFlag={(reason) => {
+          if (!many) {
+            return update({
+              flag: flagFor(
+                reason,
+                userId,
+                DateTime.toDate(DateTime.nowUnsafe())
+              )
+            })
+          }
+          const trimmed = reason.trim()
+          return updateMany({
+            tickets: request.selection,
+            patch: { flag: trimmed === "" ? {} : { reason: trimmed } }
+          })
+        }}
+        waiting={many ? manyState.waiting : state.waiting}
+        error={many ? mutationErrorText(manyState) : mutationErrorText(state)}
         onClose={onDone}
       />
     </MentionScopeProvider>

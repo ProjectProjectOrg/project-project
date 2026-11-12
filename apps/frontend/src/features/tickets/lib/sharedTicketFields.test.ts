@@ -17,7 +17,8 @@ const ticket = (id: string, status: string, tags: ReadonlyArray<string>) => ({
   type: "feat" as const,
   estimate: null,
   tags: tags.map((name) => tag(name)),
-  assignees: []
+  assignees: [],
+  flag: null
 })
 
 describe("sharedTicketFields", () => {

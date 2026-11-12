@@ -39,7 +39,7 @@ export function MarkAsCommands({
         if (item.value === FLAG) {
           if (ticket === null) return
           if (!flagged) {
-            return openFlagDialog(env, ticket, ticketDetail?.title ?? "")
+            return openFlagDialog(env, ticket, ticketDetail?.title ?? "", [])
           }
           env.execute(
             updateTicketDetail(

@@ -90,7 +90,8 @@ describe("visibleCommands", () => {
       type: "feat" as const,
       estimate: null,
       tags: [],
-      assignees: []
+      assignees: [],
+      flag: null
     }))
     expect(
       visibleCommands(commands, { ...context, selection: tickets }).map(

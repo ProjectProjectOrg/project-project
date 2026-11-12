@@ -19,7 +19,7 @@ export function FlagForm({
   error,
   onClose
 }: Readonly<{
-  ticket: Pick<Ticket, "id" | "title">
+  ticket: Readonly<{ id: Ticket["id"] | null; title: string }>
   onFlag: (reason: string) => Promise<Exit.Exit<unknown, unknown>>
   waiting: boolean
   error: string | null
@@ -55,7 +55,11 @@ export function FlagForm({
           <Flag className="size-3.5" strokeWidth={1.75} />
           {m.tickets_flag_heading()}
         </DialogTitle>
-        <span className="text-muted-foreground tabular-nums">{ticket.id}</span>
+        {ticket.id !== null && (
+          <span className="text-muted-foreground tabular-nums">
+            {ticket.id}
+          </span>
+        )}
       </Composer.Header>
       <Composer.Title className="mt-1 truncate">{ticket.title}</Composer.Title>
       <form.Field name="reason">
