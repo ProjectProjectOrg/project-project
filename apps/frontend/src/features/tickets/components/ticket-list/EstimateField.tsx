@@ -284,7 +284,8 @@ function EstimateInputForm({
           setDraft(event.target.value)
           setInvalid(false)
         }}
-        className="h-8 rounded-[10px] border-input bg-transparent px-2.5 tabular-nums focus-visible:border-foreground/30 focus-visible:ring-0 aria-invalid:border-destructive/60"
+        variant="popover"
+        className="tabular-nums"
       />
       {invalid ? (
         <p id={errorId} role="alert" className="text-caption text-destructive">
