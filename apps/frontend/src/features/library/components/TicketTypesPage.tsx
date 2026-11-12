@@ -105,9 +105,13 @@ function LibraryContent({
       </p>
       {scope.layer === "org" ? (
         tab === "types" ? (
-          <OrgTypeList scope={scope} library={library} />
+          <OrgTypeList scope={scope} library={library} canCreate={canCreate} />
         ) : (
-          <OrgSectionList scope={scope} library={library} />
+          <OrgSectionList
+            scope={scope}
+            library={library}
+            canCreate={canCreate}
+          />
         )
       ) : tab === "types" ? (
         <ProjectTypeGroups

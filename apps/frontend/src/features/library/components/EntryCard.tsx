@@ -26,6 +26,7 @@ type EntryCardProps = Readonly<{
   detail: string
   strip?: ReactNode
   control?: ReactNode
+  footer?: ReactNode
   off?: boolean
 }>
 
@@ -37,6 +38,7 @@ export function EntryCard({
   detail,
   strip,
   control,
+  footer,
   off = false
 }: EntryCardProps) {
   return (
@@ -52,16 +54,18 @@ export function EntryCard({
         aria-label={entry.name}
         className="absolute inset-0 rounded-lg focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
       />
-      <div className="pointer-events-none flex min-w-0 items-center gap-2">
+      <div className="pointer-events-none flex min-w-0 items-start gap-2">
         <span
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-2",
+            "flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1",
             off && "opacity-50"
           )}
         >
-          <BlockIconGlyph icon={entry.icon} color={entry.color} />
-          <span className="min-w-0 truncate text-body font-semibold">
-            {entry.name}
+          <span className="flex max-w-full min-w-0 items-center gap-2">
+            <BlockIconGlyph icon={entry.icon} color={entry.color} />
+            <span className="min-w-0 truncate text-body font-semibold">
+              {entry.name}
+            </span>
           </span>
           {badges}
         </span>
@@ -80,6 +84,11 @@ export function EntryCard({
       {strip === undefined ? null : (
         <div className={cn("pointer-events-none min-w-0", off && "opacity-50")}>
           {strip}
+        </div>
+      )}
+      {footer === undefined || footer === null ? null : (
+        <div className="pointer-events-none relative mt-auto flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-caption text-muted-foreground [&_[data-slot=badge]]:pointer-events-auto">
+          {footer}
         </div>
       )}
     </li>

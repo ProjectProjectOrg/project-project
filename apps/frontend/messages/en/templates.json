@@ -170,7 +170,6 @@
   "templates_types_use_type_on": "{name} is on in {project}. Switch it off and new tickets there can't use it. Tickets that already have it keep it.",
   "templates_types_usage_all": "As is in all {count} projects",
   "templates_types_usage_all_one": "As is in the only project",
-  "templates_types_usage_joined": "{detail} · {usage}",
   "templates_types_usage_no_projects": "No projects yet",
   "templates_types_usage_none": "Not used as is",
   "templates_types_usage_some": "As is in {count} projects",

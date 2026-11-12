@@ -1,10 +1,9 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
-import type { BlockIconName, Library } from "@pp/shared"
+import { blockLookupFor, type BlockIconName, type Library } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useMemo, type ReactNode } from "react"
 
 import { ReadFailure } from "@/components/shell/ReadFailure"
-import { SettingsGroup } from "@/components/shell/settings/SettingsSection"
 import { Badge } from "@/components/ui/badge"
 import {
   Tooltip,
@@ -17,22 +16,26 @@ import type { LibraryScope } from "../atoms/libraryScope"
 import {
   libraryUsage,
   libraryUsageRequest,
-  USAGE_PROJECT_LIMIT,
-  type LibraryUsage
+  USAGE_PROJECT_LIMIT
 } from "../atoms/libraryUsage"
+import { templateSketch } from "../lib/blockSketchModel"
 import { standingOf } from "../lib/entryStanding"
 import type { LibraryKind } from "../lib/libraryModel"
 import { entryUsage, type EntryUsage, type UsageProject } from "../lib/orgUsage"
 import { usageBySection } from "../lib/sectionUsage"
-import { BlockIconGlyph } from "./BlockIconGlyph"
+import { BlockStrip } from "./BlockSketch"
 import { ChangedHereBadge, SameOnEveryTicketBadge } from "./EntryBadges"
+import { ENTRY_GRID_CLASS, EntryCard, NewEntryCard } from "./EntryCard"
 import { LibraryEmpty } from "./LibraryEmpty"
-import { LibraryEntryLink } from "./LibraryEntryLink"
 import { sectionUseText } from "./ProjectEntryGroups"
 
 type OrgScope = Extract<LibraryScope, { layer: "org" }>
 
-type OrgListProps = Readonly<{ scope: OrgScope; library: Library }>
+type OrgListProps = Readonly<{
+  scope: OrgScope
+  library: Library
+  canCreate: boolean
+}>
 
 type Row = Readonly<{
   key: string
@@ -41,14 +44,17 @@ type Row = Readonly<{
   color: string | null
   changed: boolean
   badges: ReactNode
-  detail: string | null
+  detail: string
+  strip?: ReactNode
 }>
 
-export function OrgTypeList({ scope, library }: OrgListProps) {
+export function OrgTypeList({ scope, library, canCreate }: OrgListProps) {
+  const lookup = useMemo(() => blockLookupFor(library), [library])
   return (
     <OrgEntryList
       scope={scope}
       kind="type"
+      canCreate={canCreate}
       note={m.templates_types_org_note()}
       rows={library.types.map((type) => ({
         key: type.key,
@@ -57,18 +63,20 @@ export function OrgTypeList({ scope, library }: OrgListProps) {
         color: type.color,
         changed: standingOf(type, "org") === "changed",
         badges: null,
-        detail: null
+        detail: type.description,
+        strip: <BlockStrip blocks={templateSketch(type.body, lookup, 0)} />
       }))}
     />
   )
 }
 
-export function OrgSectionList({ scope, library }: OrgListProps) {
+export function OrgSectionList({ scope, library, canCreate }: OrgListProps) {
   const usedBy = useMemo(() => usageBySection(library), [library])
   return (
     <OrgEntryList
       scope={scope}
       kind="section"
+      canCreate={canCreate}
       note={m.templates_sections_org_note()}
       rows={library.blocks.map((section) => ({
         key: section.key,
@@ -87,12 +95,14 @@ function OrgEntryList({
   scope,
   kind,
   rows,
-  note
+  note,
+  canCreate
 }: Readonly<{
   scope: OrgScope
   kind: LibraryKind
   rows: ReadonlyArray<Row>
   note: string
+  canCreate: boolean
 }>) {
   const usageAtom = libraryUsage(libraryUsageRequest(scope.req.params.orgSlug))
   const usage = useAtomValue(usageAtom)
@@ -112,39 +122,37 @@ function OrgEntryList({
 
   return (
     <div className="flex flex-col gap-3">
-      <SettingsGroup render={<ul />}>
+      <ul className={ENTRY_GRID_CLASS}>
         {rows.map((row) => (
-          <li
+          <EntryCard
             key={row.key}
-            data-entry-row={row.key}
-            className="relative flex min-h-12 flex-wrap items-center gap-x-2.5 gap-y-1 px-4 py-2.5 transition-colors hover:bg-hover"
-          >
-            <LibraryEntryLink
-              scope={scope}
-              kind={kind}
-              entryKey={row.key}
-              aria-label={row.name}
-              className="absolute inset-0 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
-            />
-            <BlockIconGlyph icon={row.icon} color={row.color} />
-            <span className="min-w-0 truncate text-body font-semibold">
-              {row.name}
-            </span>
-            {row.badges}
-            {row.changed ? <ChangedHereBadge /> : null}
-            <span className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-x-2.5 gap-y-1">
-              {loaded === null || !loaded.complete ? null : (
-                <UsageBadges
-                  usage={entryUsage(loaded.libraries, kind, row.key)}
-                />
-              )}
-              <span className="text-caption text-muted-foreground">
-                {usageLine(row.detail, usage, kind, row.key)}
-              </span>
-            </span>
-          </li>
+            scope={scope}
+            kind={kind}
+            entry={row}
+            badges={
+              <>
+                {row.badges}
+                {row.changed ? <ChangedHereBadge /> : null}
+              </>
+            }
+            detail={row.detail}
+            strip={row.strip}
+            footer={
+              loaded === null || !loaded.complete ? null : (
+                <>
+                  <span>
+                    {asIsText(entryUsage(loaded.libraries, kind, row.key))}
+                  </span>
+                  <UsageBadges
+                    usage={entryUsage(loaded.libraries, kind, row.key)}
+                  />
+                </>
+              )
+            }
+          />
         ))}
-      </SettingsGroup>
+        {canCreate ? <NewEntryCard scope={scope} kind={kind} /> : null}
+      </ul>
       {AsyncResult.isFailure(usage) ? (
         <ReadFailure
           failure={AsyncResult.matchWithError(usage, {
@@ -177,22 +185,6 @@ const asIsText = (usage: EntryUsage): string => {
   return usage.asIs === 1
     ? m.templates_types_usage_some_one()
     : m.templates_types_usage_some({ count: usage.asIs })
-}
-
-const usageLine = (
-  detail: string | null,
-  usage: AsyncResult.AsyncResult<LibraryUsage, unknown>,
-  kind: LibraryKind,
-  key: string
-): string => {
-  const asIs =
-    AsyncResult.isSuccess(usage) && usage.value.complete
-      ? asIsText(entryUsage(usage.value.libraries, kind, key))
-      : null
-  if (detail === null) return asIs ?? ""
-  return asIs === null
-    ? detail
-    : m.templates_types_usage_joined({ detail, usage: asIs })
 }
 
 function UsageBadges({ usage }: Readonly<{ usage: EntryUsage }>) {
