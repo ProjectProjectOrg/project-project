@@ -1,5 +1,6 @@
 import type { Transformer } from "@lexical/markdown"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
+import { useLexicalEditable } from "@lexical/react/useLexicalEditable"
 import { mergeRegister } from "@lexical/utils"
 import {
   $getNodeByKey,
@@ -38,7 +39,7 @@ import {
   type TopLevelBlockNode
 } from "./blockCommands"
 import { BlockDragPreview } from "./BlockDragPreview"
-import { OPEN_MENU_SHORTCUT, registerBlockKeyboard } from "./blockKeyboard"
+import { registerBlockKeyboard } from "./blockKeyboard"
 import { BlockMenu } from "./BlockMenu"
 import {
   $blockMenuModel,
@@ -69,8 +70,6 @@ type GutterItem = Readonly<{
 }>
 
 type Announcement = Readonly<{ id: number; text: string }>
-
-const HINT_LIFT = 16
 
 const firstLineOffset = (block: HTMLElement): number => {
   const line =
@@ -197,6 +196,7 @@ export function BlockGutterPlugin({
   transformers: ReadonlyArray<Transformer>
 }>) {
   const [editor] = useLexicalComposerContext()
+  const editable = useLexicalEditable()
   const { library, canEdit, onMakeDefinition, mode } = blocks
   const lookup = useMemo(() => lookupFor(library), [library])
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
@@ -514,11 +514,6 @@ export function BlockGutterPlugin({
     menu === null
       ? null
       : anchor.querySelector(`[data-block-key="${menu.key}"]`)
-  const hintKey = hovered ?? (focused ? active : null)
-  const hintItem =
-    dragKey === null && menu === null
-      ? items.find((item) => item.key === hintKey && !item.synced)
-      : undefined
 
   return createPortal(
     <TooltipProvider>
@@ -543,30 +538,19 @@ export function BlockGutterPlugin({
               landOrder={landing.get(item.key)}
               state={{
                 grip:
-                  item.key === hovered ||
-                  item.key === menu?.key ||
-                  (focused && item.key === active),
+                  editable &&
+                  (item.key === hovered ||
+                    item.key === menu?.key ||
+                    (focused && item.key === active)),
                 expanded: item.key === menu?.key,
                 dragging: dragKey !== null,
-                source: item.key === dragKey
+                source: item.key === dragKey,
+                readOnly: !editable
               }}
               onClick={() => onClick(item.key)}
               {...gripHandlers(item.key)}
             />
           ))}
-        {hintItem !== undefined && (
-          <span
-            aria-hidden
-            data-block-shortcut-hint
-            className="absolute flex h-6 animate-in items-center rounded-md border border-border bg-popover px-1.5 text-caption whitespace-nowrap text-muted-foreground shadow-sm duration-150 select-none fade-in"
-            style={{
-              top: hintItem.blockTop - HINT_LIFT,
-              right: hintItem.right + 8
-            }}
-          >
-            {OPEN_MENU_SHORTCUT}
-          </span>
-        )}
         {drag !== null && <BlockDragPreview drag={drag} y={previewY} />}
       </div>
       <output aria-live="polite" className="sr-only">

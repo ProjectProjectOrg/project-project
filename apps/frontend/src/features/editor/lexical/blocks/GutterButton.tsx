@@ -21,6 +21,7 @@ export type GutterButtonState = Readonly<{
   expanded: boolean
   dragging: boolean
   source: boolean
+  readOnly: boolean
 }>
 
 const keepFocus = (event: ReactMouseEvent) => event.preventDefault()
@@ -53,17 +54,18 @@ export function GutterButton({
   onPointerCancel: () => void
 }>) {
   const chrome = blockChrome(blockType, lookup)
-  const { grip, expanded, dragging, source } = state
+  const { grip, expanded, dragging, source, readOnly } = state
   return (
     <Tooltip>
       <TooltipTrigger
-        disabled={dragging}
+        disabled={dragging || readOnly}
         render={
           <Button
             type="button"
             variant="block-grip"
             size="block-grip"
             aria-label={m.editor_block_handle_label({ name: chrome.name })}
+            disabled={readOnly}
             aria-haspopup="menu"
             aria-expanded={expanded}
             data-block-key={nodeKey}
@@ -75,6 +77,7 @@ export function GutterButton({
               dragging &&
                 "cursor-grabbing motion-safe:transition-[color,background-color,scale,top]",
               source && "opacity-0",
+              readOnly && "cursor-default disabled:opacity-100",
               landOrder !== undefined && "block-rail-landing"
             )}
             style={{
