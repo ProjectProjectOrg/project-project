@@ -48,7 +48,6 @@ import {
   ticketRequest,
   unarchiveTicket
 } from "@/features/tickets/atoms/ticketDetail"
-import { ArchiveForm } from "@/features/tickets/components/ticket-list/ArchiveControl"
 import {
   MarkAsSubmenu,
   RelationsSubmenu
@@ -57,6 +56,7 @@ import {
   SaveAsTemplateMenuItem,
   SaveAsTemplatePopover
 } from "@/features/tickets/components/ticket-page/SaveAsTemplatePopover"
+import { ArchiveForm } from "@/features/tickets/forms/archive-ticket"
 import type { SaveAsTemplateProps } from "@/features/tickets/forms/save-as-template"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { ticketPermissions } from "@/features/tickets/lib/ticketPermissions"
@@ -354,7 +354,6 @@ function TicketMenuFlowPopovers({
   const archiveState = useAtomValue(archiveTicket(req))
   const remove = useAtomSet(deleteTicket(req), { mode: "promiseExit" })
   const removeState = useAtomValue(deleteTicket(req))
-  const [reason, setReason] = useState("")
   const [cascade, setCascade] = useState(false)
   const cascadeId = useId()
   const subTickets = ticket.subTicketCount ?? 0
@@ -371,20 +370,16 @@ function TicketMenuFlowPopovers({
       <Popover
         open={flow === "archive"}
         onOpenChange={(open) => onFlow(open ? "archive" : null)}
-        onOpenChangeComplete={(open) => {
-          if (!open) setReason("")
-        }}
       >
         <PopoverContent
           anchor={popupAnchor}
           align="end"
           sideOffset={6}
-          className="w-72"
+          className="w-[min(32rem,calc(100vw-2rem))] p-0"
           onClick={(event) => event.stopPropagation()}
         >
           <ArchiveForm
-            reason={reason}
-            onReasonChange={setReason}
+            ticket={ticket}
             onArchive={archiveAndClose}
             waiting={archiveState.waiting}
             failed={Result.isFailure(archiveState)}

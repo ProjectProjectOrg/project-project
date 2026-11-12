@@ -5,7 +5,7 @@ import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ArrowRightLeft, CalendarDays, Info } from "lucide-react"
+import { ArrowRightLeft, CalendarDays } from "lucide-react"
 import {
   useContext,
   useState,
@@ -18,6 +18,8 @@ import {
 import { fireMutation } from "@/api/viewMutation"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
+import { Composer } from "@/components/ui/composer"
+import { Input } from "@/components/ui/input"
 import {
   Popover,
   PopoverContent,
@@ -150,7 +152,7 @@ export function CreateSprintForm({
 
   return (
     <form onSubmit={(event) => void submit(event)} className="flex flex-col">
-      <div className="flex items-center gap-2 pt-4 pr-4 pl-1.5">
+      <Composer.Header>
         <ProjectSelect
           projects={projects}
           value={slug}
@@ -160,24 +162,23 @@ export function CreateSprintForm({
         <Title className="text-body font-normal text-muted-foreground">
           {m.sprints_create_dialog_title()}
         </Title>
-      </div>
-      <input
-        autoFocus
-        aria-label={m.sprints_new_name_placeholder()}
-        placeholder={m.sprints_new_name_placeholder()}
-        value={name}
-        maxLength={120}
-        onKeyDown={onSubmitShortcut}
-        onChange={(event) => {
-          setName(event.target.value)
-          setFailure(null)
-        }}
-        className="mt-3 w-full bg-transparent px-4 text-title font-semibold outline-none placeholder:text-muted-foreground"
-      />
-      <div
-        onKeyDownCapture={onSubmitShortcut}
-        className="mt-1 max-h-[50dvh] overflow-y-auto px-4"
-      >
+      </Composer.Header>
+      <Composer.Title>
+        <Input
+          variant="composer-title"
+          autoFocus
+          aria-label={m.sprints_new_name_placeholder()}
+          placeholder={m.sprints_new_name_placeholder()}
+          value={name}
+          maxLength={120}
+          onKeyDown={onSubmitShortcut}
+          onChange={(event) => {
+            setName(event.target.value)
+            setFailure(null)
+          }}
+        />
+      </Composer.Title>
+      <Composer.Body onKeyDownCapture={onSubmitShortcut}>
         <MentionScopeProvider scope={{ orgSlug, slug: slug ?? "" }}>
           <LexicalEditor
             markdown=""
@@ -185,8 +186,8 @@ export function CreateSprintForm({
             placeholder={m.sprints_create_dialog_description_placeholder()}
           />
         </MentionScopeProvider>
-      </div>
-      <div className="flex flex-wrap items-center gap-1.5 pt-2 pr-4 pl-1.5">
+      </Composer.Body>
+      <Composer.Chips>
         <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
           <PopoverTrigger render={<Button type="button" variant="chip" />}>
             <CalendarDays className="size-3.5" strokeWidth={1.75} />
@@ -232,24 +233,14 @@ export function CreateSprintForm({
           </PopoverContent>
         </Popover>
         {range.from === undefined && (
-          <span className="flex items-center gap-1 px-1 text-caption text-muted-foreground">
-            <Info className="size-3.5 shrink-0" strokeWidth={1.75} />
-            {m.sprints_no_dates_hint()}
-          </span>
+          <Composer.Hint>{m.sprints_no_dates_hint()}</Composer.Hint>
         )}
-      </div>
+      </Composer.Chips>
       {completeFrom !== undefined && slug !== null && (
         <CompleteFromLine orgSlug={orgSlug} slug={slug} sprint={completeFrom} />
       )}
-      {failure !== null && (
-        <p
-          role="alert"
-          className="mx-4 mt-3 rounded-lg bg-destructive-light px-3 py-2 text-body text-destructive"
-        >
-          {failure}
-        </p>
-      )}
-      <div className="mt-4 flex items-center justify-end gap-2 border-t border-border/60 px-4 py-3">
+      <Composer.Error>{failure}</Composer.Error>
+      <Composer.Footer>
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>
           {m.common_cancel_button()}
         </Button>
@@ -258,7 +249,7 @@ export function CreateSprintForm({
             ? m.sprints_create_dialog_submit_start()
             : m.sprints_create_dialog_submit()}
         </Button>
-      </div>
+      </Composer.Footer>
     </form>
   )
 }

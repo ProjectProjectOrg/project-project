@@ -63,6 +63,8 @@ const buttonVariants = cva(
         "inline-help":
           "bg-transparent align-middle text-micro text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active data-[popup-open]:bg-active data-[popup-open]:text-foreground",
         chip: "bg-transparent text-foreground hover:bg-hover active:bg-accent/80 data-[popup-open]:bg-hover [&[aria-haspopup]]:active:bg-hover",
+        "chip-toggle":
+          "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-accent/80 aria-pressed:bg-active aria-pressed:text-foreground",
         "block-grip":
           "bg-transparent text-muted-foreground hover:bg-hover active:bg-accent/80 data-[popup-open]:bg-hover [&[aria-haspopup]]:active:bg-hover",
         "template-start":

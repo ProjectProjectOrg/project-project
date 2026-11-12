@@ -3,7 +3,13 @@ import * as React from "react"
 import { fieldTouchClass } from "@/lib/typeScale"
 import { cn } from "@/lib/utils"
 
-type InputVariant = "default" | "compact" | "inline" | "inline-muted" | "bare"
+type InputVariant =
+  | "default"
+  | "compact"
+  | "inline"
+  | "inline-muted"
+  | "bare"
+  | "composer-title"
 
 const INPUT_VARIANT: Record<InputVariant, string> = {
   default:
@@ -13,6 +19,7 @@ const INPUT_VARIANT: Record<InputVariant, string> = {
   inline:
     "rounded-md bg-transparent px-2 py-1 font-semibold transition-colors placeholder:font-normal hover:bg-foreground/5 focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring aria-invalid:ring-1 aria-invalid:ring-destructive",
   bare: "bg-transparent",
+  "composer-title": "bg-transparent text-title font-semibold",
   "inline-muted":
     "rounded-md bg-transparent px-2 py-0.5 text-caption text-muted-foreground transition-colors hover:bg-foreground/5 focus-visible:bg-background focus-visible:text-foreground focus-visible:ring-1 focus-visible:ring-ring aria-invalid:ring-1 aria-invalid:ring-destructive"
 }
