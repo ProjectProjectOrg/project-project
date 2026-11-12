@@ -256,14 +256,14 @@ export function DraggableRow({
     <div
       ref={ref}
       className={cn(
-        "relative before:absolute before:inset-x-0 before:-top-0.5 before:h-0.5 before:content-[''] after:absolute after:inset-x-0 after:-bottom-0.5 after:h-0.5 after:content-['']",
+        "relative isolate before:absolute before:inset-x-0 before:-top-0.5 before:h-0.5 before:content-[''] after:absolute after:inset-x-0 after:-bottom-0.5 after:h-0.5 after:content-['']",
         className,
         dragging && "opacity-40"
       )}
     >
       {children}
       {landed !== null && drop !== null && (
-        <LandingFlash key={landed.at} onDone={drop.settle} />
+        <LandingFlash at={landed.at} onDone={drop.settle} />
       )}
       {edge !== null && (
         <div
@@ -279,18 +279,22 @@ export function DraggableRow({
 }
 
 export function LandingFlash({
+  at,
   className,
   onDone
-}: Readonly<{ className?: string; onDone: () => void }>) {
+}: Readonly<{ at: number; className?: string; onDone: () => void }>) {
+  const [left] = useState(() =>
+    Math.max(0, 1 - (performance.now() - at) / LANDING_MS)
+  )
   return (
     <motion.div
       aria-hidden
-      initial={{ opacity: 1 }}
+      initial={{ opacity: left }}
       animate={{ opacity: 0 }}
-      transition={{ duration: LANDING_MS / 1000, ease: "easeOut" }}
+      transition={{ duration: (left * LANDING_MS) / 1000, ease: "easeOut" }}
       onAnimationComplete={onDone}
       className={cn(
-        "pointer-events-none absolute inset-0 rounded-md bg-accent/60 ring-1 ring-foreground/20",
+        "pointer-events-none absolute inset-0 -z-10 rounded-md bg-foreground/10",
         className
       )}
     />

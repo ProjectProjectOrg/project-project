@@ -170,14 +170,14 @@ export function SectionList({
     <div
       ref={sectionRef}
       className={cn(
-        "relative flex flex-col rounded-lg transition-[opacity,background-color] duration-200 ease-out",
+        "relative isolate flex flex-col rounded-lg transition-[opacity,background-color] duration-200 ease-out",
         dimmed && "opacity-35",
         over && "bg-accent/40"
       )}
       data-creating={creating || undefined}
     >
       {collapsed && landed !== null && (
-        <LandingFlash key={landed.at} className="rounded-lg" onDone={settle} />
+        <LandingFlash at={landed.at} className="rounded-lg" onDone={settle} />
       )}
       <SectionHeader
         ref={shellRef}
