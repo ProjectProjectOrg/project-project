@@ -278,6 +278,7 @@
   "tickets_move_drops_assignees": "Not a member there, will be unassigned: {names}",
   "tickets_move_drops_estimate": "The estimate is removed, because that project estimates differently.",
   "tickets_move_drops_tags": "Tags that project doesn't have, will be removed: {tags}",
+  "tickets_move_drops_type": "That project doesn't have the type {type}, so the ticket will have no type.",
   "tickets_move_error_changed": "This ticket changed while it was being moved. Try again.",
   "tickets_move_error_epic_has_tickets": "Move or detach this epic's tickets before moving the epic.",
   "tickets_move_error_no_statuses": "That project has no statuses yet.",

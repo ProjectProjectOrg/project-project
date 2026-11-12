@@ -1362,28 +1362,36 @@ const make = Effect.gen(function* () {
     source: ProjectScope["Service"],
     destination: ProjectScope["Service"]
   ) {
-    const [statuses, tags, memberIds, sourceDoc, destinationDoc, projectKey] =
-      yield* Effect.all(
-        [
-          db
-            .select({ slug: schema.projectStatus.slug })
-            .from(schema.projectStatus)
-            .where(eq(schema.projectStatus.projectId, destination.projectId))
-            .orderBy(asc(schema.projectStatus.orderKey))
-            .pipe(Effect.orDie),
-          db.query.projectTag
-            .findMany({
-              columns: { name: true },
-              where: { projectId: destination.projectId }
-            })
-            .pipe(Effect.orDie),
-          projectMembers.memberIds(),
-          readProjectDocument({ db, docs: projectDocs, project: source }),
-          readProjectDocument({ db, docs: projectDocs, project: destination }),
-          projects.key()
-        ],
-        { concurrency: 6 }
-      ).pipe(Effect.provideService(ProjectScope, destination))
+    const [
+      statuses,
+      types,
+      tags,
+      memberIds,
+      sourceDoc,
+      destinationDoc,
+      projectKey
+    ] = yield* Effect.all(
+      [
+        db
+          .select({ slug: schema.projectStatus.slug })
+          .from(schema.projectStatus)
+          .where(eq(schema.projectStatus.projectId, destination.projectId))
+          .orderBy(asc(schema.projectStatus.orderKey))
+          .pipe(Effect.orDie),
+        library.typeKeys(destination.orgSlug, destination.slug),
+        db.query.projectTag
+          .findMany({
+            columns: { name: true },
+            where: { projectId: destination.projectId }
+          })
+          .pipe(Effect.orDie),
+        projectMembers.memberIds(),
+        readProjectDocument({ db, docs: projectDocs, project: source }),
+        readProjectDocument({ db, docs: projectDocs, project: destination }),
+        projects.key()
+      ],
+      { concurrency: 7 }
+    ).pipe(Effect.provideService(ProjectScope, destination))
     const sameRepository =
       sourceDoc.github !== null &&
       destinationDoc.github !== null &&
@@ -1396,6 +1404,7 @@ const make = Effect.gen(function* () {
       sameRepository,
       plan: {
         statuses: statuses.map((row) => row.slug),
+        types,
         tags: tags.map((row) => row.name),
         memberIds,
         estimation: destinationDoc.estimation
@@ -1574,7 +1583,6 @@ const make = Effect.gen(function* () {
       source,
       destination
     )
-    const types = yield* library.typeKeys(orgSlug, destination.slug)
     if (plan.statuses.length === 0) {
       return yield* new Validation({ reason: "move_destination_no_statuses" })
     }
@@ -1609,11 +1617,20 @@ const make = Effect.gen(function* () {
         if (isEpic(originals[0]) && children.length > 0) {
           return yield* new Validation({ reason: "move_epic_has_tickets" })
         }
+        const fieldsOf = originals.map((original) =>
+          planTicketMove(
+            original,
+            plan,
+            original.id === rootId ? input.status : undefined
+          )
+        )
         const moved: Array<MovedTicket> = []
-        for (const original of originals) {
+        for (const [index, original] of originals.entries()) {
+          const { dropped } = fieldsOf[index]
           moved.push({
             from: original.id,
-            to: yield* reserveFreeTicketId(destination, projectKey)
+            to: yield* reserveFreeTicketId(destination, projectKey),
+            dropped
           })
         }
         const mentions: MoveMentionContext = {
@@ -1630,19 +1647,12 @@ const make = Effect.gen(function* () {
           })
         const now = yield* DateTime.nowAsDate
         const documents = originals.map((original, index) => {
-          const fields = planTicketMove(
-            original,
-            plan,
-            original.id === rootId ? input.status : undefined
-          )
+          const fields = fieldsOf[index]
           const linked = sameRepository ? original : withoutGitLink(original)
           return {
             ...linked,
             id: moved[index].to,
-            type:
-              original.type !== null && types.has(original.type)
-                ? original.type
-                : null,
+            type: fields.type,
             status: makeTicketStatus(fields.status ?? plan.statuses[0]),
             tags: fields.tags,
             assignees: [...fields.assignees],
