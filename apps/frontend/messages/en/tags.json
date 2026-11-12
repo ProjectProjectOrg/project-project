@@ -8,6 +8,8 @@
   "tags_delete_confirm_one": "Delete {name} permanently? It will be removed from 1 ticket and the tag will no longer exist on this project.",
   "tags_delete_in_progress": "Deleting…",
   "tags_edit_aria_label": "Edit tag {name}",
+  "tags_more": "+{count}",
+  "tags_more_aria_label": "{count} more tags",
   "tags_name_aria_label": "Tag name",
   "tags_name_validation_hint": "Use lowercase letters, digits, spaces or hyphens. Start with a letter or digit. Max 31 characters.",
   "tags_remove_aria_label": "Remove tag {name}",
