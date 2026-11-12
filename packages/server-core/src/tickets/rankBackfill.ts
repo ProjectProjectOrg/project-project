@@ -5,7 +5,8 @@ export type UnrankedTicket = Readonly<{ id: string; createdAt: number }>
 const startsThenCreated = (a: Group, b: Group) =>
   (a.startsAt?.getTime() ?? Number.POSITIVE_INFINITY) -
     (b.startsAt?.getTime() ?? Number.POSITIVE_INFINITY) ||
-  a.createdAt.getTime() - b.createdAt.getTime()
+  a.createdAt.getTime() - b.createdAt.getTime() ||
+  (a.id < b.id ? -1 : 1)
 
 export const initialRankOrder = (
   groups: ReadonlyArray<Group>,
@@ -25,7 +26,7 @@ export const initialRankOrder = (
     .filter((id) => unranked.delete(id))
   const backlog = tickets
     .filter((ticket) => unranked.has(ticket.id))
-    .toSorted((a, b) => b.createdAt - a.createdAt)
+    .toSorted((a, b) => b.createdAt - a.createdAt || (a.id < b.id ? -1 : 1))
     .map((ticket) => ticket.id)
   return [...sprintOrder, ...backlog]
 }

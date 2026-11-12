@@ -36,9 +36,28 @@ describe("boardMove", () => {
 
   it("drops on a column below its last other card, and nowhere in an empty one", () => {
     const drop = { type: "column", status: todo } as const
-    expect(boardMove(column, column, id("T-2"), drop)?.to).toEqual({
-      after: id("T-1")
+    expect(boardMove(column, column, id("T-1"), drop)?.to).toEqual({
+      after: id("T-2")
     })
     expect(boardMove([], [], id("T-3"), drop)).toBeUndefined()
+  })
+
+  it("sends no move when the card would land where it already is", () => {
+    expect(
+      boardMove(column, column, id("T-2"), {
+        type: "card",
+        id: id("T-1"),
+        status: todo,
+        edge: "bottom"
+      })
+    ).toBeUndefined()
+    expect(
+      boardMove(column, column, id("T-1"), {
+        type: "card",
+        id: id("T-2"),
+        status: todo,
+        edge: "top"
+      })
+    ).toBeUndefined()
   })
 })

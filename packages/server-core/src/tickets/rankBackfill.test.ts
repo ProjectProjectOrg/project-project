@@ -62,4 +62,18 @@ describe("initialRankOrder", () => {
       )
     ).toStrictEqual(["T-5", "T-2", "T-3", "T-7", "T-8", "T-6", "T-4", "T-1"])
   })
+
+  it("orders tickets created at the same moment by id, whatever order the files are read in", () => {
+    const at = 1_700_000_000_000
+    const tickets = [
+      { id: "T-2", createdAt: at },
+      { id: "T-1", createdAt: at }
+    ]
+    const now = DateTime.toDate(DateTime.makeUnsafe(at))
+    expect(initialRankOrder([], tickets, now)).toEqual(["T-1", "T-2"])
+    expect(initialRankOrder([], tickets.toReversed(), now)).toEqual([
+      "T-1",
+      "T-2"
+    ])
+  })
 })

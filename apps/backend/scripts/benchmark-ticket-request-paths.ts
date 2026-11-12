@@ -522,7 +522,7 @@ const seedFixture = async (
     await client.query(
       `insert into ticket_index
          (organization_id, project_id, ticket_id,
-          title, status, type, priority, tags, assignees, branch, pr,
+          title, status, type, priority, rank, tags, assignees, branch, pr,
           pr_state, last_transitioned_pr, archived_at, created_by, created_at,
           updated_at)
        select $1, $2, 'T-' || value,
@@ -547,6 +547,7 @@ const seedFixture = async (
             when value % 3 = 1 then 'med'
             else 'low'
           end,
+          'a' || lpad(value::text, 8, '0') || 'V',
           case
             when value % 10 = 0 then array['performance', 'backend']::text[]
             when value % 2 = 0 then array['backend']::text[]

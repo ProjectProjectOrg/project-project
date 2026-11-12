@@ -78,9 +78,12 @@ export function boardMove(
       : last === undefined
         ? undefined
         : { after: last.id }
-  return to === undefined
-    ? undefined
-    : { to, rank: predictRank(ranked, movingId, to) }
+  if (to === undefined) return undefined
+  const index = column.findIndex((ticket) => ticket.id === movingId)
+  const neighbour = "after" in to ? column[index - 1] : column[index + 1]
+  if (index >= 0 && neighbour?.id === ("after" in to ? to.after : to.before))
+    return undefined
+  return { to, rank: predictRank(ranked, movingId, to) }
 }
 
 export function boardEdit(
