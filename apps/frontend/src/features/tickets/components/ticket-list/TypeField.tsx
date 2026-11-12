@@ -33,7 +33,7 @@ export const typeMenuItems = (
   types: ReadonlyArray<TypeDefinition>,
   {
     epics = true,
-    lastUsed = null,
+    lastUsed,
     separateNone = false
   }: Readonly<{
     epics?: boolean
@@ -49,7 +49,7 @@ export const typeMenuItems = (
       <>
         <TypeGlyph type={option.type} />
         <span className="truncate">{typeName(option.type)}</span>
-        {lastUsed !== null && option.type?.key === lastUsed && (
+        {lastUsed !== undefined && (option.type?.key ?? null) === lastUsed && (
           <span className="ml-auto shrink-0 text-micro text-muted-foreground">
             {m.tickets_create_type_last_used()}
           </span>

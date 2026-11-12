@@ -52,7 +52,7 @@ export function useCreatorTypeItems(
   orgSlug: string,
   slug: string,
   epics: boolean,
-  lastUsed: TypeKey | null
+  lastUsed: TypeKey | null | undefined
 ) {
   const types = useTicketTypes(orgSlug, slug)
   const editing = useTypeEditing(orgSlug, slug)
@@ -86,7 +86,7 @@ export function CreatorTypeMenu({
 }: CreatorMenuProps &
   Readonly<{
     type: TypeKey | null
-    lastUsed: TypeKey | null
+    lastUsed: TypeKey | null | undefined
     epics: boolean
     onTypeChange: (type: TypeKey | null) => void
   }>) {
@@ -134,7 +134,7 @@ export function CreatorTypeSelect({
   orgSlug: string
   slug: string
   type: TypeKey | null
-  lastUsed: TypeKey | null
+  lastUsed: TypeKey | null | undefined
   epics: boolean
   onTypeChange: (type: TypeKey | null) => void
 }>) {

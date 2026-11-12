@@ -23,7 +23,7 @@ import { useLastUsedType } from "./useLastUsedType"
 export type CreatorType = Readonly<{
   type: TypeKey | null
   epics: boolean
-  lastUsed: TypeKey | null
+  lastUsed: TypeKey | null | undefined
   start: TypeStart
   pick: (type: TypeKey | null) => void
   reset: () => void
@@ -46,7 +46,9 @@ export function useCreatorType({
   const [lastUsed, setLastUsed] = useLastUsedType(orgSlug, slug)
   const [picked, setPicked] = useState<TypeKey | null | undefined>(undefined)
   const type =
-    picked === undefined ? startingType(library, lastUsed, epics) : picked
+    picked === undefined
+      ? startingType(library, lastUsed ?? null, epics)
+      : picked
 
   const settle = useCallback(
     (exit: Exit.Exit<unknown, Readonly<{ _tag: string }>>) => {
