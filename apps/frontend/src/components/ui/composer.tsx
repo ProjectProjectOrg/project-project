@@ -3,7 +3,7 @@ import type { ComponentProps, ReactNode } from "react"
 
 import { cn } from "@/lib/utils"
 
-function Header({ className, ...props }: ComponentProps<"div">) {
+function Header({ className, ...props }: Readonly<ComponentProps<"div">>) {
   return (
     <div
       className={cn("flex items-center gap-2 pt-4 pr-4 pl-1.5", className)}
@@ -12,7 +12,7 @@ function Header({ className, ...props }: ComponentProps<"div">) {
   )
 }
 
-function Title({ className, ...props }: ComponentProps<"div">) {
+function Title({ className, ...props }: Readonly<ComponentProps<"div">>) {
   return (
     <div
       className={cn("mt-3 px-4 text-title font-semibold", className)}
@@ -21,7 +21,10 @@ function Title({ className, ...props }: ComponentProps<"div">) {
   )
 }
 
-function TitleInput({ className, ...props }: ComponentProps<"input">) {
+function TitleInput({
+  className,
+  ...props
+}: Readonly<ComponentProps<"input">>) {
   return (
     <input
       className={cn(
@@ -33,7 +36,7 @@ function TitleInput({ className, ...props }: ComponentProps<"input">) {
   )
 }
 
-function Body({ className, ...props }: ComponentProps<"div">) {
+function Body({ className, ...props }: Readonly<ComponentProps<"div">>) {
   return (
     <div
       className={cn("mt-1 max-h-[50dvh] overflow-y-auto px-4", className)}
@@ -42,7 +45,7 @@ function Body({ className, ...props }: ComponentProps<"div">) {
   )
 }
 
-function Chips({ className, ...props }: ComponentProps<"div">) {
+function Chips({ className, ...props }: Readonly<ComponentProps<"div">>) {
   return (
     <div
       className={cn(
@@ -54,7 +57,7 @@ function Chips({ className, ...props }: ComponentProps<"div">) {
   )
 }
 
-function Hint({ className, children }: ComponentProps<"span">) {
+function Hint({ className, children }: Readonly<ComponentProps<"span">>) {
   return (
     <span
       className={cn(
@@ -81,7 +84,7 @@ function ErrorMessage({ children }: Readonly<{ children: ReactNode }>) {
   )
 }
 
-function Footer({ className, ...props }: ComponentProps<"div">) {
+function Footer({ className, ...props }: Readonly<ComponentProps<"div">>) {
   return (
     <div
       className={cn(

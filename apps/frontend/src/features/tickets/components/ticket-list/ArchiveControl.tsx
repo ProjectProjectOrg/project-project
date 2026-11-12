@@ -127,7 +127,9 @@ function ArchivePopover({
   )
 }
 
-const presets = (): ReadonlyArray<{ label: string; icon: IconComponent }> => [
+type ArchivePreset = Readonly<{ label: string; icon: IconComponent }>
+
+const presets = (): ReadonlyArray<ArchivePreset> => [
   { label: m.tickets_archive_preset_duplicate(), icon: Copy },
   { label: m.tickets_archive_preset_wont_do(), icon: Ban },
   { label: m.tickets_archive_preset_obsolete(), icon: Clock }
@@ -176,11 +178,10 @@ export function ArchiveForm({
           <Button
             key={label}
             type="button"
-            variant="chip"
+            variant="chip-toggle"
             size="compact"
             aria-pressed={preset === label}
             onClick={() => setPreset(preset === label ? null : label)}
-            className="gap-1 text-muted-foreground hover:text-foreground aria-pressed:bg-active aria-pressed:text-foreground"
           >
             <Icon className="size-3.5" strokeWidth={1.75} />
             <span>{label}</span>
