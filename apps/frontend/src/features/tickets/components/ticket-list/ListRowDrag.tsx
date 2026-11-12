@@ -47,7 +47,8 @@ import {
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { cn } from "@/lib/utils"
 
-import { useSelectionActions } from "./TicketSelection"
+import { fireSelected } from "./selectionStore"
+import { useSelectionActions, useSelectionStore } from "./TicketSelection"
 
 const DraggedRowData = Schema.Struct({
   id: TicketId,
@@ -128,6 +129,7 @@ export function useSectionDrop(
   options: SectionDropOptions
 ) {
   const registry = useContext(RegistryContext)
+  const selection = useSelectionStore()
   const [over, setOver] = useState(false)
   const [gap, setGap] = useState<RowGap | null>(null)
   const [landed, setLanded] = useState<Landing | null>(null)
@@ -198,11 +200,20 @@ export function useSectionDrop(
           current.ordered
         )
         if (move === null) return
-        registry.set(current.bulkMove, move)
+        if (selection === null) registry.set(current.bulkMove, move)
+        else {
+          fireSelected(
+            registry,
+            selection,
+            current.bulkMove,
+            move,
+            move.tickets.length
+          )
+        }
         setLanded({ ids: move.tickets, at })
       }
     })
-  }, [ref, active, key, registry])
+  }, [ref, active, key, registry, selection])
 
   const settle = () => setLanded(null)
   const drop: SectionDrop | null = active

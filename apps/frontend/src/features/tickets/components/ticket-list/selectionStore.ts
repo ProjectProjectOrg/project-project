@@ -57,3 +57,20 @@ export const updateSelected = (
     )
   ).then((results) => results.every(Boolean))
 }
+
+export const fireSelected = <I>(
+  registry: AtomRegistry,
+  store: SelectionStore,
+  atom: Atom.Writable<Result.AsyncResult<unknown, unknown>, I>,
+  input: I,
+  count: number
+): void => {
+  registry.set(store.failure, null)
+  void fireMutation(registry, atom, input).then((result) => {
+    if (!Result.isFailure(result)) return
+    registry.set(store.failure, {
+      count,
+      retry: () => fireSelected(registry, store, atom, input, count)
+    })
+  })
+}

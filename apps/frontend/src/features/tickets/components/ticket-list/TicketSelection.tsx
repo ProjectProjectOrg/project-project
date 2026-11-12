@@ -206,6 +206,10 @@ const noCount = Atom.make(0)
 const noSelection = Atom.make(emptySelection)
 const noKnown = Atom.make<ReadonlyMap<string, SelectedTicket>>(new Map())
 
+export function useSelectionStore() {
+  return use(SelectionContext)
+}
+
 export function useSelectionActions(key: string) {
   const store = use(SelectionContext)
   const registry = use(RegistryContext)
