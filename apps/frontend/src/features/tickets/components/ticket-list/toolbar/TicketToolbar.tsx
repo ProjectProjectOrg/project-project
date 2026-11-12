@@ -49,10 +49,15 @@ export function TicketToolbar({
   }
   const clearAll = () => {
     search.reset()
-    onQueryChange({ sort: query.sort })
+    onQueryChange({
+      sort: query.sort,
+      status: boardScope ? query.status : undefined
+    })
   }
   const hasActiveFilters =
-    !!query.status?.length || activeFilterCount(query, filters) > 0 || !!query.q
+    (!boardScope && !!query.status?.length) ||
+    activeFilterCount(query, filters) > 0 ||
+    !!query.q
 
   return (
     <TicketToolbarContext
