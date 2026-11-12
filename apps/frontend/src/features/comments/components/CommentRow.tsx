@@ -64,7 +64,7 @@ export function CommentRow({
       actions={["edit"]}
       fade={false}
       className={cn(
-        "ticket-comment rounded-md p-(--ticket-comment-pad)",
+        "ticket-comment rounded-xl border-border/60 p-0 [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]",
         waiting && "animate-pulse"
       )}
     >
@@ -99,11 +99,11 @@ export function CommentRow({
             </div>
           )}
         </CommentHeader>
-        <div className="mt-2">
+        <div className="px-4 pt-1 pb-3.5">
           <Markdown>{comment.body}</Markdown>
         </div>
         {deleteError && (
-          <p role="alert" className="text-body text-destructive">
+          <p role="alert" className="px-4 pb-3.5 text-body text-destructive">
             {deleteError}
           </p>
         )}
@@ -124,7 +124,7 @@ function CommentHeader({
 }) {
   const author = comment.author
   return (
-    <header className="flex min-h-8 items-center justify-between gap-2 text-body">
+    <header className="flex min-h-7 items-center justify-between gap-2 pt-1.5 pr-1.5 pl-4 text-body">
       <div className="flex items-center gap-2">
         {author.kind === "user" && (
           <MemberAvatar member={author.user} size={20} />
@@ -194,14 +194,16 @@ function EditForm({
           {m.comments_editing_marker()}
         </span>
       </CommentHeader>
-      <LexicalEditor
-        markdown={body}
-        onDraftChange={setBody}
-        autoFocus
-        compact
-      />
-      {error && <p className="text-body text-destructive">{error}</p>}
-      <div className="flex justify-end gap-2">
+      <div className="px-4 pt-1">
+        <LexicalEditor
+          markdown={body}
+          onDraftChange={setBody}
+          autoFocus
+          compact
+        />
+      </div>
+      {error && <p className="px-4 text-body text-destructive">{error}</p>}
+      <div className="flex justify-end gap-2 p-1.5">
         <InlineForm.Cancel />
         <Button size="sm" onClick={save} disabled={busy || !body.trim()}>
           {m.comments_save_button()}

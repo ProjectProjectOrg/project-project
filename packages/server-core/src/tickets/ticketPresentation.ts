@@ -6,6 +6,7 @@ import {
   ProjectScope,
   type Ticket,
   type TicketParent,
+  type TicketParentState,
   type TicketDetail,
   type User
 } from "@pp/shared"
@@ -139,17 +140,35 @@ export function indexEntryToTicket(
   })
 }
 
+export function parentOfEntry(
+  entry: TicketIndex.TicketIndexEntry | undefined
+): Readonly<{
+  parent: TicketParent | null
+  parentState: TicketParentState | null
+}> {
+  if (entry === undefined) return { parent: null, parentState: null }
+  return {
+    parent: { id: entry.id, title: entry.title, type: entry.type },
+    parentState: {
+      status: entry.status,
+      subTicketCount: entry.subTicketCount,
+      subTicketDoneCount: entry.subTicketDoneCount
+    }
+  }
+}
+
 export function documentToDetail(
   document: TicketDocs.TicketDocument,
   view: GitView,
   creator: User | null,
   updater: User | null,
-  parent: TicketParent | null,
+  hierarchy: ReturnType<typeof parentOfEntry>,
   branchDeletedAt: Date | null = null,
   relations: TicketRelations = EMPTY_TICKET_RELATIONS
 ): TicketDetail {
   return {
-    ...documentToTicket(document, view, parent, branchDeletedAt),
+    ...documentToTicket(document, view, hierarchy.parent, branchDeletedAt),
+    parentState: hierarchy.parentState,
     stack: view.visible
       ? stackLayerStates(
           document.branch,

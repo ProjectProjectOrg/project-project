@@ -62,6 +62,8 @@ import {
 } from "./descriptionTemplates"
 import { DescriptionTypeStarts } from "./DescriptionTypeStarts"
 
+const SLASH_COMMAND_ONLY = /^(\/\S*)?$/
+
 export type TemplateSwapNote = Readonly<{
   name: string
   previous: string
@@ -76,6 +78,7 @@ export type DescriptionHandle = Readonly<{
   restore: (markdown: string) => void
   matches: (markdown: string) => boolean
   onEdit: (markdown: string, callback: () => void) => () => void
+  focus: () => void
 }>
 
 const sameBody = (a: string, b: string): boolean => a.trim() === b.trim()
@@ -159,6 +162,7 @@ export function DescriptionField({
         const editor = editorRef.current
         return editor !== null && sameBody(markdownOf(editor), markdown)
       },
+      focus: () => startEditing(),
       onEdit: (markdown, callback) => {
         const editor = editorRef.current
         if (editor === null) return () => {}
@@ -272,7 +276,7 @@ export function DescriptionField({
     return () => document.removeEventListener("keydown", onKeyDown)
   }, [editing])
 
-  const empty = body.trim() === ""
+  const empty = SLASH_COMMAND_ONLY.test(body.trim())
   const offersStarts =
     library !== null && empty && startingTypes(types, ticket.type).length > 0
 
@@ -300,7 +304,7 @@ export function DescriptionField({
         data-block-rail-host
         data-description
         role="presentation"
-        className="relative px-3"
+        className="relative px-3 [&_.lexical-content]:min-h-0"
         onClick={(event) => {
           if (editing || !empty) return
           if (event.target instanceof Element && event.target.closest("button"))
@@ -308,7 +312,7 @@ export function DescriptionField({
           startEditing()
         }}
       >
-        <div className={cn("relative", offersStarts && "min-h-56")}>
+        <div className="relative">
           <MentionScopeProvider scope={{ orgSlug, slug, members, involved }}>
             <AttachmentAvailabilityProvider missing={ticket.missingAttachments}>
               <LexicalEditor
@@ -335,7 +339,7 @@ export function DescriptionField({
               types={types}
               ticketType={ticket.type}
               onStart={startAs}
-              className="absolute inset-x-0 top-7 bottom-0"
+              className="mt-2"
             />
           )}
         </div>

@@ -327,6 +327,7 @@ The single primitive lives in `components/ui/button.tsx`, exposing variants `pri
 - **Raised:** `--surface-5` fill with the `--shadow-1` hairline, `--surface-7` on hover. For actions revealed on a card that is itself hovered, where a ghost button's hover fill would match the card.
 - **Destructive:** `bg-destructive text-destructive-foreground`; reserved for delete and irreversible-action confirms.
 - **Chip:** inline trigger for ticket fields and badges — `h-8` like an `md` button, `px-2.5`, the app shape. No fill at rest; `bg-hover` on hover.
+- **Chip muted:** the chip's size with `muted-foreground` text that turns full foreground on hover. For page chrome next to the content, such as the ticket page's Back button.
 - **Dither:** the brand-thread variant — animated dithered backdrop. Reserved for hero / marketing surfaces, not chrome.
 - **Sizes:** `xs` (h-5, 11px), `sm` (h-7, 12px), `md` (h-8, 13px, default), `lg` (h-9, 14px). Icon sizes match by height.
 

@@ -113,7 +113,7 @@
   --avatar-cutout: var(--background);
   --tint: oklch(0 0 0 / 8%);
   --tint-hover: oklch(0 0 0 / 6.5%);
-  --prose-body: oklch(0.145 0 0 / 0.8);
+  --prose-body: oklch(0.23 0.002 265);
   --prose-quiet: oklch(0.145 0 0 / 0.42);
   --prose-code: oklch(0 0 0 / 4.5%);
   --prose-code-ring: oklch(0 0 0 / 6%);
@@ -205,7 +205,7 @@
   --active: rgb(255 255 255 / 0.1);
   --tint: oklch(1 0 0 / 14%);
   --tint-hover: oklch(1 0 0 / 11%);
-  --prose-body: oklch(0.985 0 0 / 0.8);
+  --prose-body: oklch(0.918 0.002 265);
   --prose-quiet: oklch(0.985 0 0 / 0.45);
   --prose-code: oklch(1 0 0 / 6%);
   --prose-code-ring: oklch(1 0 0 / 7%);
@@ -478,23 +478,25 @@
 [data-description] .lexical-content > :first-child {
   padding-inline-end: 11rem;
 }
-/* One text edge for the ticket page: the title's (status column, its gap and
-   the title's hover padding). Boxed fields (description, comments) sit their
-   border and padding outside it, and the block rail stretches its gap so its
-   icons stay centred under the status icon. */
+/* One text edge for the ticket page: the title's hover padding, under the
+   Back button. Boxed fields (description, comments) sit their border and
+   padding outside it, and the block rail hangs in the page margin. */
 .ticket-page {
-  --ticket-title-gap: 0.25rem;
-  --ticket-text-inset: calc(
-    var(--ticket-status-column) + var(--ticket-title-gap) + 0.5rem
-  );
+  --ticket-text-inset: calc(0.5rem + 1px);
   --ticket-box-offset: calc(0.75rem + 1px);
   --ticket-rail-inset: calc(
     var(--ticket-text-inset) - var(--ticket-box-offset)
   );
-  --block-rail-gap: calc(
-    var(--ticket-rail-inset) - var(--ticket-status-column) / 2 -
-      var(--block-rail-size) / 2
-  );
+  --block-rail-gap: 0.375rem;
+}
+.ticket-page main {
+  --fs-body: 15px;
+  --lh-body: 24px;
+  --text-body: 15px;
+  --text-body--line-height: 24px;
+}
+.ticket-page main .prose-md {
+  font-weight: 450;
 }
 .ticket-comment,
 .block-rail-sheet {

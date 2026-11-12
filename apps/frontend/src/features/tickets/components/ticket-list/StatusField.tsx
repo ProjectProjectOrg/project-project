@@ -14,7 +14,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { Hitbox } from "@/components/ui/hitbox"
 import {
   statusesFor,
   statusesRequest
@@ -32,28 +31,22 @@ import { m } from "@/paraglide/messages"
 function StatusTrigger({
   meta,
   label,
-  size,
   disabled,
   stopPropagation,
-  showLabel
+  showLabel,
+  blocked
 }: Readonly<{
   meta: ReturnType<typeof statusMetaFor>
   label: string
-  size: "sm" | "lg"
   disabled: boolean
   stopPropagation?: boolean
   showLabel?: boolean
+  blocked: boolean
 }>) {
   const Icon = meta.icon
   const icon = (
     <Icon
-      className={
-        size === "lg"
-          ? cn("size-5", meta.className)
-          : showLabel
-            ? cn("size-3.5", meta.className)
-            : meta.className
-      }
+      className={showLabel ? cn("size-3.5", meta.className) : meta.className}
       style={meta.color ? { color: meta.color } : undefined}
       strokeWidth={1.75}
     />
@@ -66,17 +59,6 @@ function StatusTrigger({
     title: label,
     disabled
   }
-  if (size === "lg") {
-    return (
-      <DropdownMenuTrigger
-        render={<Hitbox mode="inline" margin="1" {...triggerProps} />}
-      >
-        <span className="grid size-10 place-items-center rounded-lg bg-muted transition-colors hitbox-hover:bg-foreground/5">
-          {icon}
-        </span>
-      </DropdownMenuTrigger>
-    )
-  }
   return (
     <DropdownMenuTrigger
       render={
@@ -88,7 +70,17 @@ function StatusTrigger({
         />
       }
     >
-      {icon}
+      {blocked ? (
+        <span className="relative inline-flex">
+          {icon}
+          <span
+            aria-hidden
+            className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-state-warning ring-2 ring-region"
+          />
+        </span>
+      ) : (
+        icon
+      )}
       {showLabel && <span>{label}</span>}
     </DropdownMenuTrigger>
   )
@@ -98,19 +90,19 @@ export function StatusSelect({
   value,
   selected = value,
   onChange,
-  size = "sm",
   stopPropagation,
   disabled = false,
   showLabel = false,
+  blocked = false,
   manageAction = true
 }: {
   value: TicketStatus
   selected?: TicketStatus | null
   onChange: (status: TicketStatus) => void
-  size?: "sm" | "lg"
   stopPropagation?: boolean
   disabled?: boolean
   showLabel?: boolean
+  blocked?: boolean
   manageAction?: boolean
 }) {
   const { orgSlug, slug } = useProjectRoute()
@@ -144,10 +136,10 @@ export function StatusSelect({
       <StatusTrigger
         meta={meta}
         label={statusLabel}
-        size={size}
         disabled={disabled}
         stopPropagation={stopPropagation}
         showLabel={showLabel}
+        blocked={blocked}
       />
       <DropdownMenuContent
         align="start"
@@ -188,14 +180,12 @@ export function StatusButton({
   ticket,
   selected,
   stopPropagation,
-  size = "sm",
   onPatch,
   disabled = false
 }: {
   ticket: Ticket
   selected?: TicketStatus | null
   stopPropagation?: boolean
-  size?: "sm" | "lg"
   onPatch: (patch: TicketEdit) => void
   disabled?: boolean
 }) {
@@ -203,7 +193,6 @@ export function StatusButton({
     <StatusSelect
       value={ticket.status}
       selected={selected === undefined ? ticket.status : selected}
-      size={size}
       disabled={disabled}
       stopPropagation={stopPropagation}
       onChange={(status) => onPatch({ status })}

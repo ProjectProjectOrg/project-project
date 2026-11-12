@@ -1,19 +1,10 @@
 import { useAtomMount, useAtomValue } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
-import {
-  ArrowDownWideNarrow,
-  ArrowUpNarrowWide,
-  ChevronRight
-} from "lucide-react"
-import { motion, AnimatePresence } from "motion/react"
-import { useState, type ReactNode } from "react"
+import { ArrowDownWideNarrow, ArrowUpNarrowWide } from "lucide-react"
+import { AnimatePresence } from "motion/react"
 
 import { Button } from "@/components/ui/button"
-import {
-  SegmentedTabs,
-  type SegmentedItem
-} from "@/components/ui/segmented-tabs"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
@@ -28,25 +19,14 @@ import { TicketTimeline } from "@/features/tickets/components/TicketTimeline"
 import { useActivityOrder } from "@/features/tickets/hooks/useActivityOrder"
 import { useTicketParticipants } from "@/features/tickets/hooks/useTicketParticipants"
 import { useProjectActor } from "@/hooks/useActor"
-import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 import { CommentComposer } from "./CommentComposer"
 import { CommentRow } from "./CommentRow"
 
-type DiscussionTab = "extra" | "activity"
-
-export type ExtraTab = Readonly<{
-  label: string
-  badge: number | null
-  content: ReactNode
-  placement: "first" | "last"
-}>
-
 export function CommentsSection({
-  ticketId,
-  extraTab
-}: Readonly<{ ticketId: TicketId; extraTab?: ExtraTab }>) {
+  ticketId
+}: Readonly<{ ticketId: TicketId }>) {
   const { orgSlug, slug } = useProjectRoute()
   const req = commentsRequest(orgSlug, slug, ticketId)
   const result = useAtomValue(comments(req))
@@ -54,23 +34,9 @@ export function CommentsSection({
   const project = useProject()
   const involved = useTicketParticipants(ticketId)
   const canComment = useProjectActor().call("ticketComments", "create")
-  const [collapsed, setCollapsed] = useState(false)
   const [order, setOrder] = useActivityOrder()
-  const [tab, setTab] = useState<DiscussionTab>(
-    extraTab?.placement === "first" ? "extra" : "activity"
-  )
 
   const rows = Result.isSuccess(result) ? result.value : []
-  const total = rows.length
-
-  const extraItems: ReadonlyArray<SegmentedItem<DiscussionTab>> = extraTab
-    ? [{ key: "extra", label: extraTab.label, badge: extraTab.badge }]
-    : []
-  const tabs: ReadonlyArray<SegmentedItem<DiscussionTab>> = [
-    ...(extraTab?.placement === "first" ? extraItems : []),
-    { key: "activity", label: m.tickets_activity_tab() },
-    ...(extraTab?.placement === "last" ? extraItems : [])
-  ]
 
   const orderLabel =
     order === "asc"
@@ -78,103 +44,56 @@ export function CommentsSection({
       : m.tickets_activity_order_newest()
   const OrderIcon = order === "asc" ? ArrowUpNarrowWide : ArrowDownWideNarrow
 
-  const headingLabel =
-    total > 0
-      ? m.comments_heading_with_count({ count: total })
-      : m.comments_heading()
-
   return (
     <MentionScopeProvider
       scope={{ orgSlug, slug, members: project.members, involved }}
     >
-      <section className="mt-8 space-y-4">
-        <div className="relative flex items-center gap-1">
-          <button
+      <section className="flex flex-col gap-3 [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]">
+        <div className="flex items-center gap-1 pl-(--ticket-box-offset)">
+          <h2 className="text-[15px]/5 text-foreground">
+            {m.tickets_activity_tab()}
+          </h2>
+          <Button
             type="button"
-            onClick={() => setCollapsed((c) => !c)}
-            className="-ml-1.5 grid size-7 place-items-center rounded-md text-muted-foreground transition-[color,transform] duration-100 hover:text-foreground active:scale-[0.97] sm:absolute sm:top-1/2 sm:left-[calc(var(--ticket-status-column)/2-var(--ticket-rail-inset))] sm:ml-0 sm:-translate-1/2"
-            aria-expanded={!collapsed}
-            aria-label={headingLabel}
+            variant="quiet"
+            size="square-7"
+            onClick={() => setOrder(order === "asc" ? "desc" : "asc")}
+            aria-label={orderLabel}
+            title={orderLabel}
           >
-            <ChevronRight
-              className={
-                "size-4 transition-transform duration-200 " +
-                (collapsed ? "" : "rotate-90")
-              }
-            />
-          </button>
-          <SegmentedTabs
-            aria-label={m.tickets_activity_tabs_aria_label()}
-            items={tabs}
-            value={tab}
-            onValueChange={(next) => {
-              setTab(next)
-              setCollapsed(false)
-            }}
+            <OrderIcon className="size-4" strokeWidth={1.75} />
+          </Button>
+        </div>
+        <div className="flex flex-col gap-4">
+          <TicketTimeline
+            ticketId={ticketId}
+            order={order}
+            comments={rows.map((row) => ({
+              key: row.key,
+              at: row.comment.createdAt,
+              value: row
+            }))}
+            renderComment={({ value: row }) => (
+              <AnimatePresence initial={true}>
+                <CommentRow
+                  comment={row.comment}
+                  pending={row.pending}
+                  ticketId={ticketId}
+                />
+              </AnimatePresence>
+            )}
           />
-          {tab === "activity" && !collapsed && (
-            <Button
-              type="button"
-              variant="quiet"
-              size="square-7"
-              onClick={() => setOrder(order === "asc" ? "desc" : "asc")}
-              aria-label={orderLabel}
-              title={orderLabel}
-              className="ml-auto"
-            >
-              <OrderIcon className="size-4" strokeWidth={1.75} />
-            </Button>
+          {Result.isFailure(result) && (
+            <p className="text-body text-destructive">
+              {m.comments_load_failed()}
+            </p>
+          )}
+          {canComment && (
+            <div className={order === "desc" ? "order-first" : undefined}>
+              <CommentComposer ticketId={ticketId} />
+            </div>
           )}
         </div>
-        <AnimatePresence initial={false}>
-          {!collapsed && (
-            <motion.div
-              key="body"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={transitions.layout}
-              className="overflow-y-clip"
-            >
-              {tab === "extra" && extraTab ? (
-                extraTab.content
-              ) : (
-                <div className="flex flex-col gap-4">
-                  <TicketTimeline
-                    ticketId={ticketId}
-                    order={order}
-                    comments={rows.map((row) => ({
-                      key: row.key,
-                      at: row.comment.createdAt,
-                      value: row
-                    }))}
-                    renderComment={({ value: row }) => (
-                      <AnimatePresence initial={true}>
-                        <CommentRow
-                          comment={row.comment}
-                          pending={row.pending}
-                          ticketId={ticketId}
-                        />
-                      </AnimatePresence>
-                    )}
-                  />
-                  {Result.isFailure(result) && (
-                    <p className="text-body text-destructive">
-                      {m.comments_load_failed()}
-                    </p>
-                  )}
-                  {canComment && (
-                    <div
-                      className={order === "desc" ? "order-first" : undefined}
-                    >
-                      <CommentComposer ticketId={ticketId} />
-                    </div>
-                  )}
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
       </section>
     </MentionScopeProvider>
   )

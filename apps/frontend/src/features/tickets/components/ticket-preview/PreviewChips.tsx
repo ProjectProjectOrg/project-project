@@ -6,6 +6,7 @@ import { SubTicketCount } from "@/features/tickets/components/ticket-list/SubTic
 import { SquareOctagonMinus } from "@/features/tickets/components/ticket-marks/blockingIcon"
 import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import type { RelationPreviewKind } from "@/features/tickets/lib/relationGroups"
+import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
 import type { IconComponent } from "@/lib/icon"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -80,9 +81,13 @@ export function RelationChips({
 
 export function SubTicketsChip({
   ticket,
+  current,
+  search,
   className
 }: Readonly<{
   ticket: Pick<Ticket, "id" | "subTicketCount" | "subTicketDoneCount">
+  current?: Ticket["id"]
+  search?: TicketDetailSearch
   className?: string
 }>) {
   if (!hasSubTickets(ticket)) return null
@@ -91,7 +96,7 @@ export function SubTicketsChip({
   const label = m.tickets_sub_tickets_progress({ done, total })
   return (
     <TicketPreviewTrigger
-      preview={{ kind: "subTickets", id: ticket.id, label }}
+      preview={{ kind: "subTickets", id: ticket.id, label, current, search }}
       aria-label={label}
       render={
         <Button

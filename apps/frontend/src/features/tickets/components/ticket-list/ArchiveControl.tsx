@@ -3,11 +3,8 @@ import { Archive, ArchiveRestore } from "lucide-react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
+import { Composer } from "@/components/ui/composer"
+import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import {
   ArchiveForm,
   type ArchiveExit,
@@ -108,10 +105,7 @@ function ArchivePopover({
           </Button>
         }
       />
-      <PopoverContent
-        align="end"
-        className="w-[min(32rem,calc(100vw-2rem))] p-0"
-      >
+      <Composer.Popover align="end">
         <ArchiveForm
           ticket={ticket}
           onArchive={onArchive}
@@ -119,7 +113,7 @@ function ArchivePopover({
           failed={failed}
           onClose={() => setOpen(false)}
         />
-      </PopoverContent>
+      </Composer.Popover>
     </Popover>
   )
 }

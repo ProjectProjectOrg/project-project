@@ -150,14 +150,11 @@ function estimateTrigger(
   return (
     <Button
       type="button"
-      variant="chip"
+      variant={active === null ? "chip-muted" : "chip"}
       onClick={(e) => e.stopPropagation()}
       aria-label={m.tickets_estimate_aria_label({ label })}
       title={stale !== null ? m.tickets_estimate_stale_hint() : undefined}
-      className={cn(
-        active === null && "text-muted-foreground hover:text-foreground",
-        className
-      )}
+      className={className}
     >
       <Icon className="size-3.5" strokeWidth={1.75} />
       <span>{label}</span>

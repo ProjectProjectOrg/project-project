@@ -1877,25 +1877,6 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       }).pipe(Effect.provide(TestLayer))
   )
 
-  it.effect("looks up a parent's id, title and type", () =>
-    Effect.gen(function* () {
-      const organizationId = yield* seedRebuildProject
-      const index = yield* TicketIndex.TicketIndex
-      const project = yield* index.projectFor(organizationId, organizationId)
-      yield* index.upsertTicket(
-        project,
-        indexedDocument("T-1", { type: TypeKey.make("epic"), title: "Launch" })
-      )
-
-      expect(yield* index.parentOf(project, "T-1")).toEqual({
-        id: "T-1",
-        title: "Launch",
-        type: TypeKey.make("epic")
-      })
-      expect(yield* index.parentOf(project, "T-404")).toBeNull()
-    }).pipe(Effect.provide(TestLayer))
-  )
-
   it.effect("sections a lone sub-ticket under its parent's epic", () =>
     Effect.gen(function* () {
       const organizationId = yield* seedRebuildProject

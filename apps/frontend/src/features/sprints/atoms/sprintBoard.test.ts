@@ -84,6 +84,7 @@ const encodeTicketUpdate = (ticket: TicketDetail) =>
 const asGroupDetail = (g: Group): GroupDetail => ({ ...g, body: "" })
 const asTicketDetail = (t: Ticket): TicketDetail => ({
   ...t,
+  parentState: null,
   relations: EMPTY_TICKET_RELATIONS,
   creator: null,
   updater: null,

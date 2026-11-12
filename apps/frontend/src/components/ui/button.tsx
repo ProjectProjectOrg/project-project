@@ -63,6 +63,8 @@ const buttonVariants = cva(
         "inline-help":
           "bg-transparent align-middle text-micro text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active data-[popup-open]:bg-active data-[popup-open]:text-foreground",
         chip: "bg-transparent text-foreground hover:bg-hover active:bg-accent/80 data-[popup-open]:bg-hover [&[aria-haspopup]]:active:bg-hover",
+        "chip-muted":
+          "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-accent/80",
         "chip-toggle":
           "bg-transparent text-muted-foreground inset-ring inset-ring-border/60 hover:bg-hover hover:text-foreground active:bg-accent/80 aria-pressed:bg-active aria-pressed:text-foreground aria-pressed:inset-ring-transparent",
         "block-grip":
@@ -125,7 +127,7 @@ const buttonVariants = cva(
       { size: "md", iconRight: true, className: "pr-[10px]" },
       { size: "lg", iconRight: true, className: "pr-[14px]" },
       {
-        variant: "chip",
+        variant: ["chip", "chip-muted"],
         className: "h-8 gap-1.5 px-2.5 text-body"
       },
       {

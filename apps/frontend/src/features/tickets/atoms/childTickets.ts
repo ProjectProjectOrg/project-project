@@ -1,8 +1,9 @@
 import {
+  CHILD_TICKET_SORT,
   TicketStatus,
+  type CreateTicketInput,
   type Ticket,
   type TicketId,
-  type TicketSort,
   type TicketParent
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -21,9 +22,8 @@ import {
   placeholderRow,
   toRow,
   withCreatedKeys,
-  type QuickCreateInput,
-  type TicketRow,
-  quickCreatePayload
+  type QuickCreatePrediction,
+  type TicketRow
 } from "@/features/tickets/lib/ticketRows"
 
 import { allPages } from "./allPages"
@@ -44,8 +44,6 @@ export const childTicketsRequest = (
   slug: string,
   parent: TicketId
 ): ChildTicketsRequest => ({ params: { orgSlug, slug }, parent })
-
-const CHILD_TICKET_SORT: TicketSort = { key: "created", dir: "asc" }
 
 const scopeOf = (req: ChildTicketsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -130,21 +128,42 @@ export const expandedChildrenSettled = Atom.family(
     )
 )
 
-export const quickCreateChildTicket = Atom.family((req: ChildTicketsRequest) =>
+export type ChildTicketCreateInput = Readonly<{
+  payload: Omit<CreateTicketInput, "parent">
+  parent: TicketParent
+  prediction: QuickCreatePrediction
+}>
+
+export const createChildTicket = Atom.family((req: ChildTicketsRequest) =>
   viewMutation(childTickets(req), {
-    name: "quickCreateChildTicket",
-    predict: (rows, input: QuickCreateInput) => [
-      ...rows,
-      placeholderRow(
+    name: "createChildTicket",
+    predict: (rows, input: ChildTicketCreateInput) => {
+      const row = placeholderRow(
         input,
         rows,
         input.payload.status ?? TicketStatus.make("todo"),
         DateTime.toDate(DateTime.nowUnsafe())
       )
-    ],
+      const { priority, assignees, estimate } = input.payload
+      return [
+        ...rows,
+        {
+          ...row,
+          ticket: {
+            ...row.ticket,
+            priority: priority ?? row.ticket.priority,
+            assignees: assignees ?? [],
+            estimate: estimate ?? null
+          }
+        }
+      ]
+    },
     call: (client, input, get) =>
       client.tickets
-        .quickCreate({ params: req.params, payload: quickCreatePayload(input) })
+        .create({
+          params: req.params,
+          payload: { ...input.payload, parent: input.parent.id }
+        })
         .pipe(
           Effect.tap((created) =>
             Effect.sync(() =>

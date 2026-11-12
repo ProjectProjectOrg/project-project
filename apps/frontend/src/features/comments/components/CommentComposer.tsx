@@ -95,23 +95,25 @@ function ReadyCommentComposer({
   return (
     <div
       ref={rootRef}
-      className="rounded-md border border-border bg-background px-3 py-3"
+      className="rounded-xl border border-border/60 bg-background [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]"
     >
-      <LexicalEditor
-        key={editorVersion}
-        markdown={body}
-        onDraftChange={setBody}
-        onSubmit={submit}
-        placeholder={m.comments_composer_placeholder()}
-        autoFocus={focusEditor}
-        compact
-      />
+      <div className="px-4 pt-3.5">
+        <LexicalEditor
+          key={editorVersion}
+          markdown={body}
+          onDraftChange={setBody}
+          onSubmit={submit}
+          placeholder={m.comments_composer_placeholder()}
+          autoFocus={focusEditor}
+          compact
+        />
+      </div>
       {failed && (
-        <p role="alert" className="mt-2 text-body text-destructive">
+        <p role="alert" className="mx-4 mt-2 text-body text-destructive">
           {m.comments_composer_failed()}
         </p>
       )}
-      <div className="mt-2 flex justify-end">
+      <div className="flex justify-end p-1.5">
         <Button size="sm" onClick={submit} disabled={!body.trim()}>
           {m.comments_composer_submit()}
         </Button>

@@ -123,11 +123,13 @@ function TriggerVisual({
 
 function Trigger({
   variant,
+  empty,
   label,
   className,
   children
 }: {
   variant: AssigneeVariant
+  empty: boolean
   label: string
   className?: string
   children: ReactNode
@@ -136,7 +138,11 @@ function Trigger({
     return (
       <DropdownMenuTrigger
         render={
-          <Button type="button" variant="chip" aria-label={label}>
+          <Button
+            type="button"
+            variant={empty ? "chip-muted" : "chip"}
+            aria-label={label}
+          >
             {children}
           </Button>
         }
@@ -225,7 +231,12 @@ export function AssigneeSelect({
 
   return (
     <DropdownMenu filterable>
-      <Trigger variant={variant} label={label} className={className}>
+      <Trigger
+        variant={variant}
+        empty={value.length === 0}
+        label={label}
+        className={className}
+      >
         <TriggerVisual variant={variant} resolved={resolved} />
       </Trigger>
       <DropdownMenuContent

@@ -1,4 +1,4 @@
-import { TicketId } from "@pp/shared"
+import { TicketId, type TicketViewSource } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 
@@ -9,6 +9,10 @@ import {
 } from "@/features/library/atoms/library"
 import { orgDetail, orgRequest } from "@/features/organizations/atoms/orgs"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
+import {
+  sprintDetail,
+  sprintRequest
+} from "@/features/sprints/atoms/sprintDetail"
 import { epicsRequest, projectEpics } from "@/features/tickets/atoms/epics"
 import {
   ticketActivity,
@@ -29,6 +33,7 @@ import {
 } from "@/features/tickets/lib/ticketSearch"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
+const SIBLINGS: TicketViewSource = { kind: "siblings" }
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/tickets/$id"
@@ -38,10 +43,19 @@ export const Route = createFileRoute(
   loaderDeps: ({ search }) => ({ from: ticketSourceFromSearch(search) }),
   loader: ({ context, params, deps }) => {
     const id = decodeTicketId(params.id)
-    if (deps.from !== undefined) {
+    for (const source of deps.from === undefined || deps.from.kind === "parent"
+      ? [SIBLINGS]
+      : [SIBLINGS, deps.from]) {
       context.registry.mount(
         ticketNeighbors(
-          ticketNeighborsRequest(params.orgSlug, params.slug, id, deps.from)
+          ticketNeighborsRequest(params.orgSlug, params.slug, id, source)
+        )
+      )()
+    }
+    if (deps.from?.kind === "sprintBoard") {
+      context.registry.mount(
+        sprintDetail(
+          sprintRequest(params.orgSlug, params.slug, deps.from.groupId)
         )
       )()
     }

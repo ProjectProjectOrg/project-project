@@ -16,7 +16,7 @@ import {
   TicketListQuery,
   TicketStatus,
   TypeFilter,
-  type TicketViewSource
+  type TicketListSource
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
@@ -86,9 +86,19 @@ const SprintBoardSearch = TicketListSearch.pipe(
   })
 )
 
+const ParentSearch = Schema.Struct({
+  from: Schema.Literal("parent"),
+  parentId: TicketId
+})
+
 export type TicketNavigationSearch =
   | typeof SectionSearch.Type
   | typeof SprintBoardSearch.Type
+  | typeof ParentSearch.Type
+
+export type TicketPageSource =
+  | TicketListSource
+  | Readonly<{ kind: "parent"; parent: TicketId }>
 
 const TicketActions = {
   focusBody: Schema.optional(Schema.Literal("1")),
@@ -100,6 +110,7 @@ const TicketActions = {
 export const TicketDetailSearch = Schema.Union([
   SectionSearch.pipe(Schema.fieldsAssign(TicketActions)),
   SprintBoardSearch.pipe(Schema.fieldsAssign(TicketActions)),
+  ParentSearch.pipe(Schema.fieldsAssign(TicketActions)),
   Schema.Struct({
     ...TicketActions,
     from: Schema.optional(Schema.Undefined).pipe(
@@ -154,7 +165,7 @@ export function ticketSearchFromQuery(
 }
 
 export function ticketSearchFromSource(
-  source: TicketViewSource
+  source: TicketListSource
 ): TicketNavigationSearch {
   const query = ticketSearchFromQuery(source.query)
   return source.kind === "sections"
@@ -164,8 +175,10 @@ export function ticketSearchFromSource(
 
 export function ticketSourceFromSearch(
   search: TicketDetailSearch
-): TicketViewSource | undefined {
+): TicketPageSource | undefined {
   if (search.from === undefined) return undefined
+  if (search.from === "parent")
+    return { kind: "parent", parent: search.parentId }
   const query = ticketQueryFromSearch(search)
   return search.from === "sections"
     ? { kind: search.from, grouping: search.group, query }

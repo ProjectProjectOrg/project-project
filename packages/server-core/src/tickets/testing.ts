@@ -880,13 +880,6 @@ export const makeFakeTicketIndex = (
     querySections: (project, query, options) =>
       querySectionsVia(index)(project, query, options),
     neighbors: () => Effect.die(new Error("unexpected TicketIndex.neighbors")),
-    parentOf: (_project, ticketId) =>
-      Effect.sync(() => {
-        const parent = documents.get(ticketId)
-        return parent
-          ? { id: parent.id, title: parent.title, type: parent.type }
-          : null
-      }),
     relationsOf: (_project, ticketId) =>
       Effect.sync(() => relationsOfDocuments(documents, ticketId)),
     relationEdges: () => Effect.sync(() => relationEdgesOfDocuments(documents)),

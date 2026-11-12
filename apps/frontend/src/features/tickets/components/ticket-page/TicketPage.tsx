@@ -1,12 +1,11 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
-import { isEpic } from "@pp/shared"
+import { finishedStatusSlugs, isEpic } from "@pp/shared"
 import type {
   GithubConnection,
   Member,
   TicketDetail,
-  TicketId,
-  TicketViewSource
+  TicketId
 } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -15,6 +14,10 @@ import { Archive } from "lucide-react"
 import { Markdown } from "@/features/editor/components/Markdown"
 import { TicketTimeSection } from "@/features/everhour/components/TicketTimePanel"
 import { TicketGitPanel } from "@/features/github/components/ticket-git/TicketGit"
+import {
+  statusesFor,
+  statusesRequest
+} from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TagEditor } from "@/features/tags/components/TagEditor"
 import {
@@ -29,8 +32,8 @@ import { AssigneePicker } from "@/features/tickets/components/ticket-list/Assign
 import { EstimateBadgeTrigger } from "@/features/tickets/components/ticket-list/EstimateField"
 import { PriorityBadgeTrigger } from "@/features/tickets/components/ticket-list/PriorityField"
 import { SprintBadgeTrigger } from "@/features/tickets/components/ticket-list/SprintField"
+import { StatusSelect } from "@/features/tickets/components/ticket-list/StatusField"
 import { TypeBadgeTrigger } from "@/features/tickets/components/ticket-list/TypeField"
-import { BlockedByNote } from "@/features/tickets/components/ticket-marks/BlockedByNote"
 import { TicketRelationRows } from "@/features/tickets/components/ticket-marks/TicketRelationRows"
 import {
   TicketContextMenu,
@@ -38,24 +41,23 @@ import {
 } from "@/features/tickets/components/ticket-menu/TicketMenu"
 import { DescriptionField } from "@/features/tickets/components/ticket-page/DescriptionField"
 import { EpicField } from "@/features/tickets/components/ticket-page/EpicField"
+import { FlagNote } from "@/features/tickets/components/ticket-page/FlagNote"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
-import { ParentTicketLink } from "@/features/tickets/components/ticket-page/ParentTicketLink"
 import { SplitResultBanner } from "@/features/tickets/components/ticket-page/SplitResultBanner"
+import { SubTicketOf } from "@/features/tickets/components/ticket-page/SubTicketOf"
 import { TemplateSwapNote } from "@/features/tickets/components/ticket-page/TemplateSwapNote"
+import { TicketBackButton } from "@/features/tickets/components/ticket-page/TicketBackButton"
 import { TicketDesignLinks } from "@/features/tickets/components/ticket-page/TicketDesignLinks"
 import { TicketDiscussion } from "@/features/tickets/components/ticket-page/TicketDiscussion"
 import { TicketPageHeader } from "@/features/tickets/components/ticket-page/TicketPageHeader"
 import { TicketPageShell } from "@/features/tickets/components/ticket-page/TicketPageShell"
 import { TicketStepper } from "@/features/tickets/components/ticket-page/TicketStepper"
 import { useTemplateSwap } from "@/features/tickets/components/ticket-page/useTemplateSwap"
-import { FlagChip } from "@/features/tickets/components/ticket-preview/PreviewChips"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { useRememberViewedTicket } from "@/features/tickets/hooks/useReturnToTicket"
-import {
-  type TicketHierarchy,
-  ticketHierarchy
-} from "@/features/tickets/lib/ticketHierarchy"
-import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import { openBlockers } from "@/features/tickets/lib/relationGroups"
+import { ticketHierarchy } from "@/features/tickets/lib/ticketHierarchy"
+import type { TicketPageSource } from "@/features/tickets/lib/ticketSearch"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
@@ -74,10 +76,10 @@ export function TicketPage({
   github: GithubConnection | null
   autoFocusBody?: boolean
   splitInto?: ReadonlyArray<TicketId>
-  from?: TicketViewSource
+  from?: TicketPageSource
 }) {
   const { orgSlug, slug } = useProjectRoute()
-  useRememberViewedTicket(ticket.id, from)
+  useRememberViewedTicket(ticket.id, from?.kind === "parent" ? undefined : from)
   const req = ticketRequest(orgSlug, slug, ticket.id)
   const updateTicket = useAtomSet(updateTicketDetail(req))
   const patchTicket = useAtomSet(updateTicketDetail(req), {
@@ -94,6 +96,14 @@ export function TicketPage({
   const estimation = useEstimationMode()
   const canEdit = TicketPolicy.canChange(actor, { content: true })
   const hierarchy = ticketHierarchy(ticket)
+  const statuses = useAtomValue(statusesFor(statusesRequest(orgSlug, slug)))
+  const blocked =
+    openBlockers(
+      ticket.relations,
+      new Set(
+        finishedStatusSlugs(Result.isSuccess(statuses) ? statuses.value : [])
+      )
+    ).length > 0
   const navigate = useNavigate()
   const goToProject = () =>
     void navigate({
@@ -109,13 +119,83 @@ export function TicketPage({
 
   return (
     <TicketPageShell
-      back={{
-        to: "/orgs/$orgSlug/projects/$slug",
-        params: { orgSlug, slug }
-      }}
+      back={<TicketBackButton from={from} />}
+      aside={
+        <TicketContextMenu
+          ticket={ticket}
+          members={members}
+          onPatch={updateTicket}
+          template={{ ticket, body: bodyDraft ?? ticket.body }}
+          onDeleted={goToProject}
+        >
+          <aside className="flex min-w-0 flex-col gap-5 px-2 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:pt-3 lg:pr-1 lg:pl-5">
+            <fieldset disabled={!canEdit} className="contents">
+              <MetaRow controls label={m.tickets_page_group_properties()}>
+                <StatusSelect
+                  value={ticket.status}
+                  onChange={(status) => updateTicket({ status })}
+                  disabled={!canEdit}
+                  blocked={blocked}
+                  showLabel
+                />
+                <TypeBadgeTrigger ticket={ticket} onPatch={onTypePatch} />
+                <PriorityBadgeTrigger ticket={ticket} onPatch={updateTicket} />
+                <AssigneePicker
+                  ticket={ticket}
+                  members={members}
+                  onPatch={updateTicket}
+                />
+              </MetaRow>
+              <MetaRow controls label={m.tickets_page_meta_tags()}>
+                <TagEditor
+                  ticket={ticket}
+                  canManageTags={actor.call("tags", "create")}
+                />
+              </MetaRow>
+              <MetaRow controls label={m.tickets_page_group_planning()}>
+                {!isEpic(ticket) && <SprintBadgeTrigger ticketId={ticket.id} />}
+                {estimation !== "off" && (
+                  <EstimateBadgeTrigger
+                    ticket={ticket}
+                    mode={estimation}
+                    onPatch={updateTicket}
+                  />
+                )}
+                {!isEpic(ticket) && hierarchy.subTicketOf === null && (
+                  <EpicField
+                    ticket={ticket}
+                    editable={canEdit}
+                    onPatch={updateTicket}
+                  />
+                )}
+              </MetaRow>
+              {actor.call("everhour", "ticketTime") && (
+                <TicketTimeSection ticket={ticket} />
+              )}
+              <TicketRelationRows
+                ticketId={ticket.id}
+                relations={ticket.relations}
+                members={members}
+                editable={canEdit}
+              />
+            </fieldset>
+            {github && (
+              <MetaRow controls label={m.tickets_page_meta_git()}>
+                <TicketGitPanel
+                  ticket={ticket}
+                  github={github}
+                  branchTemplate={null}
+                  variant="ghost"
+                />
+              </MetaRow>
+            )}
+            <TicketDesignLinks ticket={ticket} />
+          </aside>
+        </TicketContextMenu>
+      }
       actions={
         <>
-          {from && <TicketStepper ticketId={ticket.id} from={from} />}
+          <TicketStepper ticket={ticket} from={from} />
           {actor.call("tickets", "archive") && (
             <ArchiveTicketControl
               ticket={ticket}
@@ -144,49 +224,38 @@ export function TicketPage({
         </>
       }
       header={
-        <TicketPageHeader
-          ticket={ticket}
-          readOnly={!canEdit}
-          onPatch={updateTicket}
-          meta={
-            <>
-              <fieldset disabled={!canEdit} className="contents">
-                <TypeBadgeTrigger
-                  ticket={ticket}
-                  onPatch={onTypePatch}
-                  className="-mx-2 px-2"
-                />
-              </fieldset>
-              {hierarchy.subTicketOf !== null && (
-                <ParentTicketLink
-                  parent={hierarchy.subTicketOf}
-                  variant="inline"
-                  label={m.tickets_header_sub_ticket_of()}
-                />
-              )}
-              <FlagChip
-                ticket={ticket}
-                className="size-6 justify-center px-0"
-              />
-              <BlockedByNote relations={ticket.relations} />
-              {swapNote !== null && (
-                <TemplateSwapNote name={swapNote.name} onUndo={undoSwap} />
-              )}
-              {ticket.archivedAt !== null && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-micro text-muted-foreground">
-                  <Archive className="size-3" strokeWidth={1.75} />
-                  {m.tickets_archived_badge()}
-                </span>
-              )}
-            </>
-          }
-        />
+        <>
+          {ticket.archivedAt !== null && (
+            <p className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-caption text-muted-foreground">
+              <Archive className="size-3.5 shrink-0" strokeWidth={1.75} />
+              {m.tickets_archived_banner()}
+            </p>
+          )}
+        </>
       }
     >
       {splitInto.length > 0 && <SplitResultBanner created={splitInto} />}
 
-      <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <main className="flex min-w-0 flex-col gap-6 sm:pl-(--ticket-rail-inset)">
+      <main className="flex min-w-0 flex-col gap-6 sm:ml-(--ticket-rail-inset)">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:-ml-(--ticket-rail-inset)">
+            <TicketPageHeader
+              ticket={ticket}
+              readOnly={!canEdit}
+              onTitleEnter={() => descriptionRef.current?.focus()}
+              meta={<SubTicketOf ticket={ticket} from={from} />}
+            />
+          </div>
+          {ticket.flag !== null && (
+            <FlagNote
+              flag={ticket.flag}
+              members={members}
+              onRemove={canEdit ? () => updateTicket({ flag: null }) : null}
+            />
+          )}
+          {swapNote !== null && (
+            <TemplateSwapNote name={swapNote.name} onUndo={undoSwap} />
+          )}
           {canEdit ? (
             <DescriptionField
               key={ticket.id}
@@ -199,109 +268,15 @@ export function TicketPage({
           ) : (
             <Markdown>{ticket.body}</Markdown>
           )}
+        </div>
 
-          <TicketDiscussion
-            ticket={ticket}
-            members={members}
-            editable={canEdit}
-            holdsChildren={hierarchy.holdsChildren}
-          />
-        </main>
-
-        <TicketContextMenu
+        <TicketDiscussion
           ticket={ticket}
           members={members}
-          onPatch={updateTicket}
-          template={{ ticket, body: bodyDraft ?? ticket.body }}
-          onDeleted={goToProject}
-        >
-          <aside className="flex min-w-0 flex-col gap-4 sm:pl-(--ticket-rail-inset) lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:pr-1 lg:pl-5">
-            <fieldset disabled={!canEdit} className="contents">
-              <MetaRow controls label={m.tickets_page_meta_priority()}>
-                <PriorityBadgeTrigger ticket={ticket} onPatch={updateTicket} />
-              </MetaRow>
-              {estimation !== "off" && (
-                <MetaRow controls label={m.tickets_page_meta_estimate()}>
-                  <EstimateBadgeTrigger
-                    ticket={ticket}
-                    mode={estimation}
-                    onPatch={updateTicket}
-                  />
-                </MetaRow>
-              )}
-              <PlanningMetaRows
-                ticket={ticket}
-                hierarchy={hierarchy}
-                editable={canEdit}
-                onPatch={updateTicket}
-              />
-              <TicketRelationRows
-                ticketId={ticket.id}
-                relations={ticket.relations}
-                members={members}
-                editable={canEdit}
-              />
-              <MetaRow controls label={m.tickets_page_meta_assignees()}>
-                <AssigneePicker
-                  ticket={ticket}
-                  members={members}
-                  onPatch={updateTicket}
-                />
-              </MetaRow>
-              <MetaRow controls label={m.tickets_page_meta_tags()}>
-                <TagEditor
-                  ticket={ticket}
-                  canManageTags={actor.call("tags", "create")}
-                />
-              </MetaRow>
-            </fieldset>
-            {github && (
-              <MetaRow controls label={m.tickets_page_meta_git()}>
-                <TicketGitPanel
-                  ticket={ticket}
-                  github={github}
-                  branchTemplate={null}
-                  variant="ghost"
-                />
-              </MetaRow>
-            )}
-            <TicketDesignLinks ticket={ticket} />
-            {actor.call("everhour", "ticketTime") && (
-              <TicketTimeSection ticket={ticket} />
-            )}
-          </aside>
-        </TicketContextMenu>
-      </div>
+          editable={canEdit}
+          holdsChildren={hierarchy.holdsChildren}
+        />
+      </main>
     </TicketPageShell>
-  )
-}
-
-function PlanningMetaRows({
-  ticket,
-  hierarchy,
-  editable,
-  onPatch
-}: Readonly<{
-  ticket: TicketDetail
-  hierarchy: TicketHierarchy
-  editable: boolean
-  onPatch: (patch: TicketEdit) => void
-}>) {
-  if (isEpic(ticket)) return null
-  return (
-    <>
-      <MetaRow controls label={m.tickets_page_meta_sprint()}>
-        <SprintBadgeTrigger ticketId={ticket.id} />
-      </MetaRow>
-      {hierarchy.subTicketOf !== null ? (
-        <MetaRow controls label={m.tickets_page_meta_sub_ticket_of()}>
-          <ParentTicketLink parent={hierarchy.subTicketOf} />
-        </MetaRow>
-      ) : (
-        <MetaRow controls label={m.tickets_page_meta_epic()}>
-          <EpicField ticket={ticket} editable={editable} onPatch={onPatch} />
-        </MetaRow>
-      )}
-    </>
   )
 }

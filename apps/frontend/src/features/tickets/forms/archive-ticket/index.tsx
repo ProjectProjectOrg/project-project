@@ -62,7 +62,7 @@ export function ArchiveForm({
         <span className="text-muted-foreground tabular-nums">{ticket.id}</span>
       </Composer.Header>
       <Composer.Title className="mt-1 truncate">{ticket.title}</Composer.Title>
-      <Composer.Chips className="gap-0.5 pl-2.5">
+      <Composer.Chips className="pl-2.5">
         <form.Field name="preset">
           {(field) =>
             presets().map(({ label, icon: Icon }) => (
@@ -70,7 +70,7 @@ export function ArchiveForm({
                 key={label}
                 type="button"
                 variant="chip-toggle"
-                size="compact"
+                size="sm"
                 aria-pressed={field.value === label}
                 onClick={() =>
                   field.handleChange(field.value === label ? null : label)
@@ -83,7 +83,7 @@ export function ArchiveForm({
           }
         </form.Field>
       </Composer.Chips>
-      <Composer.Body>
+      <Composer.Body className="mt-3">
         <form.Field name="details">
           {(field) => (
             <textarea

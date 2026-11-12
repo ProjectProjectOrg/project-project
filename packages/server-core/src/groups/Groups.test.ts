@@ -242,7 +242,6 @@ function makeFakeDocs(initial?: {
       Effect.sync(() => {
         ticketsById.set(document.id, document)
       }),
-    parentOf: () => Effect.succeed(null),
     relationsOf: () => Effect.succeed(EMPTY_TICKET_RELATIONS),
     relationEdges: () => Effect.succeed([]),
     deleteTicket: (_project, id) =>

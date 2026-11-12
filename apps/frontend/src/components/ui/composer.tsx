@@ -1,7 +1,23 @@
 import { Info } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 
+import { PopoverContent } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
+
+function ComposerPopover({
+  className,
+  ...props
+}: Readonly<ComponentProps<typeof PopoverContent>>) {
+  return (
+    <PopoverContent
+      className={cn(
+        "w-[min(32rem,calc(100vw-2rem))] p-0 shadow-[0_8px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)]",
+        className
+      )}
+      {...props}
+    />
+  )
+}
 
 function Header({ className, ...props }: Readonly<ComponentProps<"div">>) {
   return (
@@ -82,6 +98,7 @@ function Footer({ className, ...props }: Readonly<ComponentProps<"div">>) {
 }
 
 export const Composer = {
+  Popover: ComposerPopover,
   Header,
   Title,
   Body,

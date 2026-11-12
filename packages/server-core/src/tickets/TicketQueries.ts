@@ -1,6 +1,7 @@
 import { TicketPolicy } from "@pp/access/policies"
 import { Db } from "@pp/db"
 import {
+  CHILD_TICKET_SORT,
   DEFAULT_TICKET_SORT,
   EPIC_SECTION_NONE,
   type EpicSectionKey,
@@ -1142,6 +1143,19 @@ const make = Effect.gen(function* () {
     ticketId: string,
     source: TicketViewSource
   ) {
+    if (source.kind === "siblings") {
+      const [entry] = yield* ticketIndex.list(yield* ProjectScope, [ticketId])
+      const parent = entry?.parent?.id
+      if (parent === undefined) return null
+      const query = { parent: [parent], sort: CHILD_TICKET_SORT }
+      const scope = yield* queryable(query)
+      return yield* ticketIndex.neighbors(scope, query, {
+        viewerId: scope.userId,
+        ticketId,
+        sections: { kind: "explicit", sections: [{ key: parent }] },
+        within: { sort: CHILD_TICKET_SORT }
+      })
+    }
     const scope = yield* queryable(source.query)
     const query = { ...source.query, cursor: undefined }
     const find = (

@@ -78,6 +78,13 @@ export const TicketParent = Schema.Struct({
 })
 export type TicketParent = typeof TicketParent.Type
 
+export const TicketParentState = Schema.Struct({
+  status: TicketStatus,
+  subTicketCount: Schema.Finite,
+  subTicketDoneCount: Schema.Finite
+})
+export type TicketParentState = typeof TicketParentState.Type
+
 export const TicketPriority = Schema.Literals(["low", "med", "high"])
 export type TicketPriority = typeof TicketPriority.Type
 
@@ -192,6 +199,9 @@ export const TicketDetail = Schema.Struct({
   ...Ticket.fields,
   stack: Schema.optional(Schema.Array(StackLayerState)),
   splitFrom: Schema.optional(Schema.NullOr(TicketId)),
+  parentState: Schema.NullOr(TicketParentState).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
   relations: TicketRelations.pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(EMPTY_TICKET_RELATIONS))
   ),

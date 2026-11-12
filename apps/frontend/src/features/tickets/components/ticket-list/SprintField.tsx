@@ -164,7 +164,7 @@ export function SprintSelect({
       trigger={
         <Button
           type="button"
-          variant="chip"
+          variant={current ? "chip" : "chip-muted"}
           aria-label={
             current
               ? m.tickets_sprint_chip_aria({ name: current.name })
@@ -222,7 +222,7 @@ export function SprintBadgeTrigger({
         onOpenChange={setCreating}
         tickets={[ticketId]}
         trigger={
-          <Button type="button" variant="chip" className={className}>
+          <Button type="button" variant="chip-muted" className={className}>
             <Plus className="size-3.5" strokeWidth={1.75} />
             <span>{m.sprints_new_button()}</span>
           </Button>
@@ -246,7 +246,7 @@ export function SprintBadgeTrigger({
         trigger={
           <Button
             type="button"
-            variant="chip"
+            variant={current ? "chip" : "chip-muted"}
             onClick={(e) => e.stopPropagation()}
             aria-label={
               failed

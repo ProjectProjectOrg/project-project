@@ -4,12 +4,8 @@ import { MessageSquarePlus } from "lucide-react"
 import { useState } from "react"
 
 import { NavButton } from "@/components/shell/NavItem"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTitle,
-  PopoverTrigger
-} from "@/components/ui/popover"
+import { Composer } from "@/components/ui/composer"
+import { Popover, PopoverTitle, PopoverTrigger } from "@/components/ui/popover"
 import { feedbackStatus } from "@/features/feedback/atoms/feedback"
 import { SendFeedbackForm } from "@/features/feedback/forms/send-feedback"
 import { m } from "@/paraglide/messages"
@@ -29,19 +25,14 @@ export function FeedbackPopover({ orgSlug }: Readonly<{ orgSlug: string }>) {
           />
         }
       />
-      <PopoverContent
-        side="right"
-        align="end"
-        sideOffset={12}
-        className="w-[min(32rem,calc(100vw-2rem))] p-0"
-      >
+      <Composer.Popover side="right" align="end" sideOffset={12}>
         <SendFeedbackForm
           orgSlug={orgSlug}
           attachments={status.value.attachments}
           Title={PopoverTitle}
           onDone={() => setOpen(false)}
         />
-      </PopoverContent>
+      </Composer.Popover>
     </Popover>
   )
 }
