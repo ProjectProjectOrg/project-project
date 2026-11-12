@@ -1941,11 +1941,7 @@ const make = Effect.gen(function* () {
         const now = yield* DateTime.nowAsDate
         const finished = yield* finishedStatuses.forProject(orgSlug, slug)
         const patched = originals.map((existing) =>
-          clearFlagWhenFinished(
-            existing,
-            applyTicketPatch(existing, fields, userId, now),
-            finished
-          )
+          applyTicketPatch(existing, fields, userId, now)
         )
         const changes = originals.map((existing, index) =>
           fieldChangesOf(existing, patched[index])
@@ -1991,7 +1987,7 @@ const make = Effect.gen(function* () {
         }
         const nexts = originals.map((existing, index) =>
           touchesTickets && !isUnchanged(changes[index])
-            ? patched[index]
+            ? clearFlagWhenFinished(existing, patched[index], finished)
             : existing
         )
 

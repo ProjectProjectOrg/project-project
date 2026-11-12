@@ -329,6 +329,19 @@ describe("revertTicketPatch", () => {
     })
   })
 
+  it("restores a flag that finishing the ticket cleared", () => {
+    const flagged = {
+      ...existing,
+      flag: { reason: "Needs a decision", by: "user-1", at: created }
+    }
+    const { flag: _flag, ...finished } = {
+      ...flagged,
+      status: ticketStatus("done"),
+      updatedAt: now
+    }
+    expect(revertTicketPatch(flagged, finished, finished)).toEqual(flagged)
+  })
+
   it("leaves a field someone else changed again", () => {
     const current = {
       ...written,

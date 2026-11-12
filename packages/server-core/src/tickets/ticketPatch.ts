@@ -174,7 +174,8 @@ const patchableKeys = [
   "estimate",
   "tags",
   "assignees",
-  "body"
+  "body",
+  "flag"
 ] as const
 
 type PatchableKey = (typeof patchableKeys)[number]
@@ -211,8 +212,11 @@ export const revertTicketPatch = (
   if (reverted.size === 0) return null
   const pick = <K extends PatchableKey>(key: K) =>
     reverted.has(key) ? original[key] : current[key]
+  const { flag: _flag, ...unflagged } = current
+  const flag = pick("flag")
   const restored: TicketDocs.TicketDocument = {
-    ...current,
+    ...unflagged,
+    ...(flag === undefined ? {} : { flag }),
     title: pick("title"),
     status: pick("status"),
     type: pick("type"),
