@@ -151,6 +151,7 @@ function RowImpl({
                 params={{ orgSlug, slug, id: ticket.id }}
                 search={from ?? {}}
                 preload="intent"
+                draggable={false}
                 data-row-link
                 aria-label={`${ticket.id} ${ticket.title}`}
                 aria-haspopup="menu"
@@ -220,6 +221,7 @@ function RowImpl({
                   params={{ orgSlug, slug, id: ticket.id }}
                   search={from ?? {}}
                   preload="intent"
+                  draggable={false}
                   tabIndex={-1}
                   className="flex min-w-0 items-center self-stretch outline-none"
                 >
