@@ -8,6 +8,7 @@ import { CommentsSection } from "@/features/comments/components/CommentsSection"
 import { useChildTicketCount } from "@/features/tickets/hooks/useChildTicketCount"
 import { ownsKeystrokes } from "@/lib/keyboard"
 import { transitions } from "@/lib/springs"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { AddChildTicketButton } from "./AddChildTicketButton"
@@ -92,12 +93,12 @@ function ChildrenSection({
             onClick={() =>
               empty ? setAdding((current) => !current) : setOpen(!open)
             }
-            className="h-7 gap-1.5 px-2 text-subtitle-compact motion-safe:active:scale-100"
+            className="h-7 gap-1.5 px-2 text-[15px]/5 motion-safe:active:scale-100"
           >
             {empty && (
               <Plus className="size-3.5" strokeWidth={1.75} aria-hidden />
             )}
-            {heading}
+            <span className={cn(!empty && "text-foreground")}>{heading}</span>
             {count > 0 && <span className="tabular-nums">{count}</span>}
             {!empty && (
               <ChevronRight

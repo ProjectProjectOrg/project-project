@@ -63,6 +63,7 @@ import {
 import { DescriptionTypeStarts } from "./DescriptionTypeStarts"
 
 const SLASH_COMMAND_ONLY = /^(\/\S*)?$/
+const INTERACTIVE = "a, button, input, label"
 
 export type TemplateSwapNote = Readonly<{
   name: string
@@ -121,6 +122,48 @@ export function DescriptionField({
 
   const types = useTicketTypes(orgSlug, slug)
   const body = bodyDraft ?? ticket.body
+
+  const [editing, setEditing] = useState(autoFocus)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
+  const rootRef = useRef<HTMLDivElement>(null)
+  const wasEditingRef = useRef(editing)
+
+  useEffect(() => {
+    const wasEditing = wasEditingRef.current
+    wasEditingRef.current = editing
+    if (editing || !wasEditing) return
+    const active = document.activeElement
+    const lost =
+      active === null ||
+      active === document.body ||
+      (rootRef.current?.contains(active) ?? false)
+    if (lost) rootRef.current?.focus({ preventScroll: true })
+  }, [editing])
+
+  const startEditing = (point?: Readonly<{ x: number; y: number }>) => {
+    const editor = editorRef.current
+    if (editor === null) return
+    editor.setEditable(true)
+    setEditing(true)
+    const root = editor.getRootElement()
+    const range = point === undefined ? null : caretRangeAt(point)
+    if (
+      root === null ||
+      range === null ||
+      !root.contains(range.startContainer)
+    ) {
+      editor.focus()
+      return
+    }
+    editor.update(
+      () => {
+        const selection = $createRangeSelection()
+        selection.applyDOMRange(range)
+        $setSelection(selection)
+      },
+      { onUpdate: () => editor.focus() }
+    )
+  }
 
   const startAs = (key: TypeKey) => {
     const editor = editorRef.current
@@ -187,49 +230,6 @@ export function DescriptionField({
     })
   }, [autoFocus, library, lookup])
 
-  const [editing, setEditing] = useState(autoFocus)
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
-  const rootRef = useRef<HTMLDivElement>(null)
-  const editButtonRef = useRef<HTMLButtonElement>(null)
-  const wasEditingRef = useRef(editing)
-
-  useEffect(() => {
-    const wasEditing = wasEditingRef.current
-    wasEditingRef.current = editing
-    if (editing || !wasEditing) return
-    const active = document.activeElement
-    const lost =
-      active === null ||
-      active === document.body ||
-      (rootRef.current?.contains(active) ?? false)
-    if (lost) editButtonRef.current?.focus({ preventScroll: true })
-  }, [editing])
-
-  const startEditing = (point?: Readonly<{ x: number; y: number }>) => {
-    const editor = editorRef.current
-    if (editor === null) return
-    editor.setEditable(true)
-    setEditing(true)
-    const root = editor.getRootElement()
-    const range = point === undefined ? null : caretRangeAt(point)
-    if (
-      root === null ||
-      range === null ||
-      !root.contains(range.startContainer)
-    ) {
-      editor.focus()
-      return
-    }
-    editor.update(
-      () => {
-        const selection = $createRangeSelection()
-        selection.applyDOMRange(range)
-        $setSelection(selection)
-      },
-      { onUpdate: () => editor.focus() }
-    )
-  }
-
   const startFromShortcut = useEffectEvent(() => startEditing())
 
   useEffect(() => {
@@ -277,18 +277,17 @@ export function DescriptionField({
   }, [editing])
 
   const empty = SLASH_COMMAND_ONLY.test(body.trim())
-  const offersStarts =
-    library !== null && empty && startingTypes(types, ticket.type).length > 0
+  const canStart =
+    library !== null && startingTypes(types, ticket.type).length > 0
+  const offersStarts = canStart && empty
 
   return (
     <div
       ref={rootRef}
       role="presentation"
-      onDoubleClick={(event) => {
-        if (!editing) startEditing({ x: event.clientX, y: event.clientY })
-      }}
+      tabIndex={-1}
       className={cn(
-        "group/reveal relative rounded-xl py-2 transition-[background-color,box-shadow] duration-150 ease-out motion-reduce:transition-none",
+        "group/reveal relative rounded-xl py-2 transition-[background-color,box-shadow] duration-150 ease-out outline-none motion-reduce:transition-none",
         editing &&
           "bg-surface-2 shadow-surface-1 [--muted-foreground:color-mix(in_oklch,var(--color-muted-foreground)_88%,var(--color-foreground))]"
       )}
@@ -296,7 +295,6 @@ export function DescriptionField({
       <DescriptionActions
         editing={editing}
         status={saveStatus}
-        buttonRef={editButtonRef}
         onEdit={() => startEditing()}
         onDone={stopEditing}
       />
@@ -304,15 +302,19 @@ export function DescriptionField({
         data-block-rail-host
         data-description
         role="presentation"
-        className="relative px-3 [&_.lexical-content]:min-h-0"
+        className="relative cursor-text px-3 [&_.lexical-content]:min-h-0"
         onClick={(event) => {
-          if (editing || !empty) return
-          if (event.target instanceof Element && event.target.closest("button"))
+          if (editing) return
+          if (
+            event.target instanceof Element &&
+            event.target.closest(INTERACTIVE)
+          )
             return
-          startEditing()
+          if (!(window.getSelection()?.isCollapsed ?? true)) return
+          startEditing({ x: event.clientX, y: event.clientY })
         }}
       >
-        <div className="relative">
+        <div className={cn("relative", canStart && "min-h-15")}>
           <MentionScopeProvider scope={{ orgSlug, slug, members, involved }}>
             <AttachmentAvailabilityProvider missing={ticket.missingAttachments}>
               <LexicalEditor

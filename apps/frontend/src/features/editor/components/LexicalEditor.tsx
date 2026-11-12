@@ -614,7 +614,7 @@ export function LexicalEditor({
             </>
           ) : null}
           <EditablePlugin editable={editable} />
-          <FormattingToolbarPlugin />
+          {editable && <FormattingToolbarPlugin />}
           <LinkBlurActivationPlugin />
           <LinkFaviconsPlugin />
           {compact ? null : <LinePlaceholderPlugin />}

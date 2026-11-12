@@ -465,16 +465,6 @@
 .block-rail-scope {
   --ticket-status-column: 1rem;
 }
-[data-description] {
-  --fs-body: 1rem;
-  --lh-body: 1.625rem;
-  --fs-subtitle: 1.125rem;
-  --lh-subtitle: 1.625rem;
-  --fs-title: 1.25rem;
-  --lh-title: 1.75rem;
-  --fs-display-compact: 1.625rem;
-  --lh-display-compact: 2.125rem;
-}
 [data-description] .lexical-content > :first-child {
   padding-inline-end: 11rem;
 }
@@ -956,17 +946,20 @@ html.dark .prose-md .token.coord {
   padding-left: 1.75em;
   list-style: none;
   outline: none;
-  cursor: pointer;
+  cursor: text;
 }
 .prose-md .lexical-li-checked::before,
 .prose-md .lexical-li-unchecked::before {
   content: "";
+  cursor: pointer;
   position: absolute;
   left: 0;
   top: 0.3em;
-  width: 1em;
+  width: 1.75em;
   height: 1em;
-  border-radius: 0.3em;
+  border-right: 0.75em solid transparent;
+  border-radius: 0.3em 1.05em 1.05em 0.3em / 0.3em;
+  background-clip: padding-box;
   box-shadow: inset 0 0 0 1.5px var(--prose-check-ring);
   transition:
     background 100ms,
@@ -976,11 +969,12 @@ html.dark .prose-md .token.coord {
   box-shadow: inset 0 0 0 1.5px var(--prose-quiet);
 }
 .prose-md .lexical-li-checked::before {
-  background: var(--foreground);
+  background-color: var(--foreground);
   box-shadow: inset 0 0 0 1px var(--foreground);
 }
 .prose-md .lexical-li-checked::after {
   content: "";
+  cursor: pointer;
   position: absolute;
   left: 0.36em;
   top: 0.44em;

@@ -3,7 +3,7 @@ import type { GroupId, TicketId } from "@pp/shared"
 import { Link, useMatches, useSearch } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronRight } from "lucide-react"
-import { createContext, use, useRef, type ReactNode } from "react"
+import { createContext, use, useMemo, useRef, type ReactNode } from "react"
 
 import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
@@ -51,12 +51,9 @@ export function Breadcrumbs({ className }: { className?: string }) {
 
   if (crumbs.length === 0) return null
   const crumb = (c: Crumb, i: number) => (
-    <CrumbPosition
-      key={crumbKey(c, i)}
-      value={{ index: i, isLast: i === crumbs.length - 1 }}
-    >
+    <CrumbSlot key={crumbKey(c, i)} index={i} isLast={i === crumbs.length - 1}>
       <CrumbItem crumb={c} />
-    </CrumbPosition>
+    </CrumbSlot>
   )
   const current = crumbs.length - 1
   const last = crumbs[current]
@@ -82,13 +79,13 @@ export function Breadcrumbs({ className }: { className?: string }) {
         <TrailContext value={hover.registerItem}>
           {crumbs.slice(0, current).map(crumb)}
           {last?.type === "ticket" && (
-            <CrumbPosition value={{ index: current, isLast: false }}>
+            <CrumbSlot index={current} isLast={false}>
               <TicketTrailCrumb
                 orgSlug={last.orgSlug}
                 slug={last.slug}
                 id={last.id}
               />
-            </CrumbPosition>
+            </CrumbSlot>
           )}
         </TrailContext>
       </div>
@@ -104,6 +101,15 @@ const TrailContext = createContext<
 const CrumbPosition = createContext<
   Readonly<{ index: number; isLast: boolean }>
 >({ index: 0, isLast: true })
+
+function CrumbSlot({
+  index,
+  isLast,
+  children
+}: Readonly<{ index: number; isLast: boolean; children: ReactNode }>) {
+  const value = useMemo(() => ({ index, isLast }), [index, isLast])
+  return <CrumbPosition value={value}>{children}</CrumbPosition>
+}
 
 function CrumbSeparator() {
   return (
@@ -144,7 +150,7 @@ function CrumbItem({ crumb }: Readonly<{ crumb: Crumb }>) {
     case "static":
       return (
         <CrumbText to={crumb.to} params={crumb.params}>
-          {crumb.label}
+          <span className="truncate">{crumb.label}</span>
         </CrumbText>
       )
     case "project":
@@ -184,7 +190,7 @@ function SprintCrumb({
       to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
       params={{ orgSlug, slug, groupId }}
     >
-      {result.value.name}
+      <span className="truncate">{result.value.name}</span>
     </CrumbText>
   )
 }
@@ -204,7 +210,7 @@ function ProjectCrumb({
   }
   return (
     <CrumbText to="/orgs/$orgSlug/projects/$slug" params={{ orgSlug, slug }}>
-      {result.value.name}
+      <span className="truncate">{result.value.name}</span>
     </CrumbText>
   )
 }
@@ -291,11 +297,7 @@ function CrumbText({
   )
   const content = (
     <>
-      {typeof children === "string" ? (
-        <span className="truncate">{children}</span>
-      ) : (
-        children
-      )}
+      {children}
       {!isLast && <CrumbSeparator />}
     </>
   )

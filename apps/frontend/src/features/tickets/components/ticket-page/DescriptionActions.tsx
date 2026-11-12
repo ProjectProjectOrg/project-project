@@ -1,6 +1,5 @@
 import { Pencil } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import type { Ref } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
@@ -19,13 +18,11 @@ const fadeOut = { opacity: 0 }
 export function DescriptionActions({
   editing,
   status,
-  buttonRef,
   onEdit,
   onDone
 }: Readonly<{
   editing: boolean
   status: SaveStatus
-  buttonRef: Ref<HTMLButtonElement>
   onEdit: () => void
   onDone: () => void
 }>) {
@@ -48,7 +45,6 @@ export function DescriptionActions({
         )}
       </AnimatePresence>
       <MotionButton
-        ref={buttonRef}
         layout={!reduce}
         transition={{ layout: springs.moderate }}
         style={{ borderRadius: 16 }}
@@ -80,7 +76,13 @@ export function DescriptionActions({
                 {m.tickets_description_edit_short()}
               </>
             )}
-            <Kbd aria-hidden className="rounded-full px-1.5">
+            <Kbd
+              aria-hidden
+              className={cn(
+                "rounded-full px-1.5",
+                !editing && "bg-surface-5 shadow-surface-1"
+              )}
+            >
               {editing
                 ? m.tickets_description_done_key()
                 : m.tickets_description_edit_key()}
