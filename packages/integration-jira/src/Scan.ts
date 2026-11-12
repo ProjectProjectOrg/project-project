@@ -5,7 +5,8 @@ import {
   type JiraMigrationFinding,
   type JiraMigrationScanSummary,
   type TicketType,
-  type JiraMigrationUserOption
+  type JiraMigrationUserOption,
+  isEpicType
 } from "@pp/shared"
 import { Option, Predicate, Stream } from "effect"
 import * as DateTime from "effect/DateTime"
@@ -795,8 +796,8 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
       groups: manifest.groups.length,
       sprints: manifest.groups.filter(({ kind }) => kind === "sprint").length,
       restrictions: manifest.restrictions.length,
-      epics: manifest.issues.filter(
-        (issue) => suggestedTypes.get(issue.issueTypeId) === "epic"
+      epics: manifest.issues.filter((issue) =>
+        isEpicType(suggestedTypes.get(issue.issueTypeId))
       ).length,
       subTickets: hierarchy.parents.size
     }

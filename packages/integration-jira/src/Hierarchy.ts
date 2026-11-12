@@ -1,4 +1,4 @@
-import { canHoldChildren, type TicketType } from "@pp/shared"
+import { canHoldChildren, type TicketType, canHaveParent } from "@pp/shared"
 
 import type { JiraMappingSource, JiraMigrationMappings } from "./Mappings"
 
@@ -98,7 +98,7 @@ export function resolveJiraHierarchy(
       resolved.set(issueId, null)
       return null
     }
-    if (typeOf(issueId) === "epic") return drop("epic-cannot-have-parent")
+    if (!canHaveParent(typeOf(issueId))) return drop("epic-cannot-have-parent")
     if (excluded.has(parentIssueId)) return drop("parent-excluded")
     if (!issues.has(parentIssueId)) return drop("parent-not-scanned")
     if (parentIssueId === issueId || resolving.has(parentIssueId))

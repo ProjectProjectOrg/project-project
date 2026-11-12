@@ -1,3 +1,4 @@
+import { isEpic } from "@pp/shared"
 import { Flag, Layers, ListPlus, Unlink } from "lucide-react"
 
 import type { Command } from "@/features/command-menu/lib/commands"
@@ -23,15 +24,14 @@ export const relationCommands: ReadonlyArray<Command> = [
     icon: Layers,
     keywords: ["epic"],
     tool: "update_ticket",
-    when: (context) =>
-      editable(context) && context.ticketDetail?.type !== "epic",
+    when: (context) => editable(context) && !isEpic(context.ticketDetail),
     page: "ticketParent"
   },
   {
     id: "ticket.add-sub-ticket",
     group: "ticketRelations",
     label: ({ ticketDetail }) =>
-      ticketDetail?.type === "epic"
+      isEpic(ticketDetail)
         ? m.tickets_command_add_ticket_to_epic()
         : m.tickets_command_add_sub_ticket(),
     icon: ListPlus,
@@ -96,7 +96,7 @@ export const relationCommands: ReadonlyArray<Command> = [
     id: "ticket.detach",
     group: "ticketRelations",
     label: ({ ticketDetail }) =>
-      ticketDetail?.parent?.type === "epic"
+      isEpic(ticketDetail?.parent)
         ? m.tickets_row_detach_epic_action({ id: ticketDetail.parent.id })
         : ticketDetail?.parent
           ? m.tickets_row_detach_parent_action({ id: ticketDetail.parent.id })

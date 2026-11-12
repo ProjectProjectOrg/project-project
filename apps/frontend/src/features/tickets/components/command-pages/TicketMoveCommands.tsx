@@ -1,5 +1,10 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { hasSubTickets, type Project, type TicketDetail } from "@pp/shared"
+import {
+  isEpic,
+  hasSubTickets,
+  type Project,
+  type TicketDetail
+} from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -42,7 +47,7 @@ export function TicketMovePage({
     .toSorted((a, b) => a.name.localeCompare(b.name))
   const chosen = projects.find((project) => project.slug === destination)
   const epicHasTickets =
-    context.ticketDetail?.type === "epic" && hasSubTickets(context.ticketDetail)
+    isEpic(context.ticketDetail) && hasSubTickets(context.ticketDetail)
 
   if (chosen !== undefined && context.ticketDetail !== null) {
     return (

@@ -3,6 +3,7 @@ import {
   useAtomRefresh,
   useAtomValue
 } from "@effect/atom-react"
+import { isEpic, isEpicType } from "@pp/shared"
 import type { Group, Ticket, TicketParent, TicketType } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -123,7 +124,7 @@ export function TicketComposer({
     templateChoice.recover(exit)
     if (Exit.isSuccess(exit)) {
       const ticket = exit.value
-      if (selectedSprint && ticket.type !== "epic") {
+      if (selectedSprint && !isEpic(ticket)) {
         assignTicketToSprint(registry, sprintReq, ticket.id, selectedSprint.id)
       }
       setTitle("")
@@ -143,7 +144,7 @@ export function TicketComposer({
   )
 
   const sprintAddon =
-    hasSprints && type !== "epic" ? (
+    hasSprints && !isEpicType(type) ? (
       <CreatorSprintMenu
         sprints={sprints}
         selected={selectedSprint}

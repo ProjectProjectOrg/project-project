@@ -1,4 +1,5 @@
 import type { TicketPolicy } from "@pp/access/policies"
+import { isEpic } from "@pp/shared"
 import type { UpdateTicketInput } from "@pp/shared"
 import * as Equal from "effect/Equal"
 
@@ -119,10 +120,9 @@ export const breaksEpicSprintRule = (
   sprintsBefore: ReadonlyArray<string>,
   sprintsAfter: ReadonlyArray<string>
 ) =>
-  next.type === "epic" &&
+  isEpic(next) &&
   sprintsAfter.length > 0 &&
-  (existing.type !== "epic" ||
-    sprintsAfter.some((id) => !sprintsBefore.includes(id)))
+  (!isEpic(existing) || sprintsAfter.some((id) => !sprintsBefore.includes(id)))
 
 const patchableKeys = [
   "title",

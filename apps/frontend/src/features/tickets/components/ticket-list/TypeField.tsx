@@ -1,4 +1,4 @@
-import { TicketType, type TicketId } from "@pp/shared"
+import { isEpicType, TicketType, type TicketId } from "@pp/shared"
 import type { ComponentProps, ReactElement, ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -18,7 +18,7 @@ export const typeOptions = (types: ReadonlyArray<TicketType>) =>
     return {
       value: t,
       textValue: TYPE_LABELS[t](),
-      separated: types[index + 1] === "epic",
+      separated: isEpicType(types[index + 1]),
       label: (
         <>
           <TIcon className="size-4" strokeWidth={1.75} />

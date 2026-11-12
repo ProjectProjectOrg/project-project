@@ -1,3 +1,4 @@
+import { isEpicType } from "@pp/shared"
 import type { Ticket } from "@pp/shared"
 
 export const withoutNestedChildren = <
@@ -8,6 +9,6 @@ export const withoutNestedChildren = <
   const typeOf = new Map(tickets.map(({ id, type }) => [id, type]))
   return tickets.filter(({ parent }) => {
     const parentType = parent === null ? undefined : typeOf.get(parent.id)
-    return parentType === undefined || parentType === "epic"
+    return parentType === undefined || isEpicType(parentType)
   })
 }

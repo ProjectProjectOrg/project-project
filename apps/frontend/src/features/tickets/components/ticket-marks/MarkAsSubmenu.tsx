@@ -1,4 +1,5 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
+import { isEpic } from "@pp/shared"
 import type { TicketId, TicketParent } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Flag, Layers, Link2, X, type LucideIcon } from "lucide-react"
@@ -87,7 +88,7 @@ export function RelationsSubmenu({
           <RelationItem
             icon={Layers}
             kind={
-              detachable.type === "epic"
+              isEpic(detachable)
                 ? m.tickets_menu_relation_epic()
                 : m.tickets_menu_relation_parent()
             }

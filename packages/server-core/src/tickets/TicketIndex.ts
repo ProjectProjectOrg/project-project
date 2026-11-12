@@ -39,7 +39,8 @@ import {
   type TicketSort,
   type TicketRelations,
   type ParentFilter,
-  TicketStatus
+  TicketStatus,
+  EPIC_TYPE
 } from "@pp/shared"
 import {
   and,
@@ -776,7 +777,7 @@ const attachableConditions = (
   attachable === undefined
     ? []
     : [
-        ne(ticketIndex.type, "epic"),
+        ne(ticketIndex.type, EPIC_TYPE),
         ne(ticketIndex.ticketId, attachable.parent),
         drizzleSql`${ticketIndex.parent} is distinct from ${attachable.parent}`,
         ...(attachable.leavesOnly
@@ -942,7 +943,7 @@ const ticketWhereConditions = (
   }
   if (filter?.subTickets === "nested") {
     const matchingParents = and(
-      ne(ticketIndex.type, "epic"),
+      ne(ticketIndex.type, EPIC_TYPE),
       ...ticketWhereConditions(
         project,
         { ...query, subTickets: "flat" },

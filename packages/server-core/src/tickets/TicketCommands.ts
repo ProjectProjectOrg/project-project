@@ -47,7 +47,8 @@ import {
   type MoveDestination,
   type MoveMentionContext,
   type MoveTicketInput,
-  type MoveTicketResult
+  type MoveTicketResult,
+  isEpic
 } from "@pp/shared"
 import { and, asc, eq } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -779,7 +780,7 @@ const make = Effect.gen(function* () {
                 hierarchyLookups(scope, userId),
                 hierarchyChangeOf(existing, next)
               )
-              if (next.type === "epic" && existing.type !== "epic") {
+              if (isEpic(next) && !isEpic(existing)) {
                 const sprints = openSprintIdsOf(
                   yield* groups.list(),
                   existing.id
@@ -1044,9 +1045,7 @@ const make = Effect.gen(function* () {
 
     const originalId = makeTicketId(id)
     if (
-      input.results.some(
-        (result) => result.type === "epic" && result.sprintId !== null
-      )
+      input.results.some((result) => isEpic(result) && result.sprintId !== null)
     ) {
       return yield* new Validation({ reason: "epic_in_sprint" })
     }
@@ -1117,7 +1116,7 @@ const make = Effect.gen(function* () {
                   prState: null,
                   lastTransitionedPr: null,
                   splitFrom: originalId,
-                  parent: result.type === "epic" ? undefined : original.parent,
+                  parent: isEpic(result) ? undefined : original.parent,
                   assignees: [...result.assignees],
                   archivedAt: original.archivedAt,
                   createdBy: userId,
@@ -1510,7 +1509,7 @@ const make = Effect.gen(function* () {
     const rootId = makeTicketId(id)
     const root = yield* readTicket(source, id)
     const children = yield* childIds(source, userId, id)
-    if (root.type === "epic" && children.length > 0) {
+    if (isEpic(root) && children.length > 0) {
       return yield* new Validation({ reason: "move_epic_has_tickets" })
     }
     const sourceIds = [rootId, ...children.map((child) => makeTicketId(child))]
@@ -1529,7 +1528,7 @@ const make = Effect.gen(function* () {
         ) {
           return yield* new Conflict({ reason: "move_ticket_changed" })
         }
-        if (originals[0].type === "epic" && children.length > 0) {
+        if (isEpic(originals[0]) && children.length > 0) {
           return yield* new Validation({ reason: "move_epic_has_tickets" })
         }
         const moved: Array<MovedTicket> = []

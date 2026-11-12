@@ -1,5 +1,5 @@
 import { useAtomSet } from "@effect/atom-react"
-import { canHoldChildren } from "@pp/shared"
+import { isEpic, canHoldChildren } from "@pp/shared"
 import { ListPlus } from "lucide-react"
 
 import {
@@ -63,7 +63,7 @@ function CreateRelatedItems({
             className="cursor-pointer"
           >
             <ListPlus className="size-4" strokeWidth={1.75} />
-            {ticket.type === "epic"
+            {isEpic(ticket)
               ? m.tickets_menu_related_epic_ticket()
               : m.tickets_menu_related_sub_ticket()}
           </DropdownMenuItem>

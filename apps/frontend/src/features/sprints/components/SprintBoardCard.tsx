@@ -1,5 +1,6 @@
 import { useAtomSet } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
+import { isEpic } from "@pp/shared"
 import type { Member, Ticket } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import { memo, type ReactNode, use } from "react"
@@ -92,7 +93,7 @@ function BoardCardFields({
                   <span className="shrink-0 font-mono tabular-nums">
                     {ticket.id}
                   </span>
-                  {ticket.parent && ticket.parent.type !== "epic" && (
+                  {ticket.parent && !isEpic(ticket.parent) && (
                     <ParentTicketCrumb parent={ticket.parent} />
                   )}
                 </span>

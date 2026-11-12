@@ -8,7 +8,8 @@ import {
   type TicketId,
   type TicketListQuery,
   type TicketStatus,
-  type TicketParent
+  type TicketParent,
+  isEpicType
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -284,13 +285,13 @@ function SectionCreatorForm({
       return
     }
     const attachTo = activeSprintId ?? selectedSprint?.id ?? null
-    if (attachTo !== null && assignsSprint && type !== "epic") {
+    if (attachTo !== null && assignsSprint && !isEpicType(type)) {
       assignTicketToSprint(registry, sprintReq, exit.value.id, attachTo)
     }
   }
 
   const sprintAddon =
-    showSprintAddon && type !== "epic" ? (
+    showSprintAddon && !isEpicType(type) ? (
       <CreatorSprintMenu
         sprints={sprints}
         selected={selectedSprint}

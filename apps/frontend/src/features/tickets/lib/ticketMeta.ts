@@ -1,4 +1,4 @@
-import { TicketType, type ProjectStatus } from "@pp/shared"
+import { isEpicType, TicketType, type ProjectStatus } from "@pp/shared"
 import {
   Bug,
   Check,
@@ -99,7 +99,7 @@ export const TYPE_META: Record<
 }
 
 export const NON_EPIC_TYPES: ReadonlyArray<TicketType> =
-  TicketType.literals.filter((type) => type !== "epic")
+  TicketType.literals.filter((type) => !isEpicType(type))
 
 export const TYPE_LABELS: Record<TicketType, () => string> = {
   feat: () => m.tickets_type_feat(),

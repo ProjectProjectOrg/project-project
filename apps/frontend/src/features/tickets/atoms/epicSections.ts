@@ -4,7 +4,8 @@ import {
   type Ticket,
   type TicketId,
   type TicketListQuery,
-  TicketStatus
+  TicketStatus,
+  isEpicType
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -95,7 +96,7 @@ const pageQuery = (
     params: req.params,
     query: {
       ...req.query,
-      type: req.query.type?.filter((type) => type !== "epic"),
+      type: req.query.type?.filter((type) => !isEpicType(type)),
       section: req.by === "epic" ? { parent: [key] } : { ticketParent: [key] },
       cursor
     },

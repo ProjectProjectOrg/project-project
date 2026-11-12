@@ -1,4 +1,5 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
+import { isEpic, canJoinSprint } from "@pp/shared"
 import type { ArchiveTicketInput, Member, Ticket, TicketId } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
@@ -195,7 +196,7 @@ function TicketMenuItems({
   const can = ticketPermissions(useProjectActor())
   const registry = useContext(RegistryContext)
   const archived = ticket.archivedAt !== null
-  const canPlan = can.planSprints && ticket.type !== "epic"
+  const canPlan = can.planSprints && canJoinSprint(ticket.type)
   const openPage = useOpenTicketPage(ticket.id)
   const parent = ticket.parent ?? null
   const detachable = parent !== null && can.edit
@@ -415,7 +416,7 @@ function TicketMenuFlowPopovers({
                 checked={cascade}
                 onCheckedChange={setCascade}
               />
-              {ticket.type === "epic"
+              {isEpic(ticket)
                 ? m.tickets_detail_delete_cascade_tickets({ count: subTickets })
                 : m.tickets_detail_delete_cascade_sub_tickets({
                     count: subTickets

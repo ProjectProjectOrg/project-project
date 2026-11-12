@@ -3,7 +3,8 @@ import {
   hasSubTickets,
   type Ticket,
   type TicketParent,
-  type TicketPriority
+  type TicketPriority,
+  isEpic
 } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -69,7 +70,7 @@ export function BoardCardProperties({
           "min-w-[22px] justify-center px-[5px] [&_svg]:size-3"
         )}
       />
-      {ticket.parent?.type === "epic" && <EpicChip epic={ticket.parent} />}
+      {isEpic(ticket.parent) && <EpicChip epic={ticket.parent} />}
       {ticket.estimate !== null && estimation !== "off" && (
         <fieldset disabled={!editable} className="contents">
           <EstimateBadgeTrigger

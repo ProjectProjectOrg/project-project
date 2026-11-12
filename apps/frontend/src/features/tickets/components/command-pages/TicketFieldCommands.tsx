@@ -1,5 +1,11 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { ESTIMATE_SIZES, TagName, TicketType, type Estimate } from "@pp/shared"
+import {
+  isEpic,
+  ESTIMATE_SIZES,
+  TagName,
+  TicketType,
+  type Estimate
+} from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
@@ -406,16 +412,15 @@ export function TicketDeletePage({
           : [
               {
                 value: DELETE_CASCADE,
-                label:
-                  context.ticketDetail?.type === "epic"
-                    ? m.tickets_command_delete_epic_cascade_action({
-                        id: ticket.ticketId,
-                        count
-                      })
-                    : m.tickets_command_delete_cascade_action({
-                        id: ticket.ticketId,
-                        count
-                      }),
+                label: isEpic(context.ticketDetail)
+                  ? m.tickets_command_delete_epic_cascade_action({
+                      id: ticket.ticketId,
+                      count
+                    })
+                  : m.tickets_command_delete_cascade_action({
+                      id: ticket.ticketId,
+                      count
+                    }),
                 icon: Trash2
               }
             ])

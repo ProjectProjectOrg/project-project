@@ -6,7 +6,8 @@ import {
   type TicketPriority,
   type TicketId,
   type TicketStatus,
-  type TicketType
+  type TicketType,
+  isEpicType
 } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
@@ -182,7 +183,7 @@ function CreateTicketForm({
         return
       }
     }
-    if (sprint !== null && type !== "epic") {
+    if (sprint !== null && !isEpicType(type)) {
       assignTicketToSprint(
         registry,
         sprintListRequest(orgSlug, slug),
@@ -352,7 +353,7 @@ function CreateTicketChips({
         mode={estimation}
         onPatch={(patch) => onEstimate(patch.estimate ?? null)}
       />
-      {type !== "epic" && <SprintSelect value={sprint} onChange={onSprint} />}
+      {!isEpicType(type) && <SprintSelect value={sprint} onChange={onSprint} />}
     </>
   )
 }

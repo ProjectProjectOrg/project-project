@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import { canHaveParent } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { GitBranch, GitMerge, Layers, Settings2 } from "lucide-react"
 
@@ -26,7 +27,7 @@ export function MorePropertiesSubmenu({
     ? projectResult.value.github
     : null
   const openPage = useOpenTicketPage(ticket.id)
-  const canEpic = ticket.type !== "epic"
+  const canEpic = canHaveParent(ticket.type)
   const canBranch = ticket.branch === null && github !== null
   if (!canEpic && !canBranch) return null
   return (

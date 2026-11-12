@@ -19,7 +19,8 @@ import {
   type TicketListQuery,
   type User,
   ProjectScope,
-  StatusSlug
+  StatusSlug,
+  isEpic
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -544,9 +545,9 @@ export const querySectionsVia =
             entry.parent === null ? undefined : byId.get(entry.parent.id)
           if (parent === undefined) return EPIC_SECTION_NONE
           if (!byEpic) {
-            return parent.type === "epic" ? EPIC_SECTION_NONE : parent.id
+            return isEpic(parent) ? EPIC_SECTION_NONE : parent.id
           }
-          return parent.type === "epic"
+          return isEpic(parent)
             ? parent.id
             : (parent.parent?.id ?? EPIC_SECTION_NONE)
         }

@@ -27,7 +27,8 @@ import {
   paginateSorted,
   padNumericIdSort,
   sprintState,
-  TAG_DEFAULT_PALETTE
+  TAG_DEFAULT_PALETTE,
+  isEpic
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
@@ -263,7 +264,7 @@ const make = Effect.gen(function* () {
     Effect.gen(function* () {
       if (kind !== "sprint" || ticketIds.length === 0) return
       const entries = yield* ticketIndex.list(scope, ticketIds)
-      if (entries.some((entry) => entry.type === "epic")) {
+      if (entries.some((entry) => isEpic(entry))) {
         return yield* new Validation({ reason: "epic_in_sprint" })
       }
     })

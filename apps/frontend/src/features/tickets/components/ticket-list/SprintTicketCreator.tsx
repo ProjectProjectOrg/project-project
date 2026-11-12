@@ -4,6 +4,7 @@ import {
   useAtomSet,
   useAtomValue
 } from "@effect/atom-react"
+import { isEpic } from "@pp/shared"
 import type { GroupId, Ticket, TicketId } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
@@ -235,7 +236,7 @@ export function SprintTicketCreator({
 
   async function commit(item: Item | undefined) {
     if (!item) return
-    if (item.kind === "existing" && item.ticket.type === "epic") {
+    if (item.kind === "existing" && isEpic(item.ticket)) {
       picker.open(item.ticket)
       return
     }

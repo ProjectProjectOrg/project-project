@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
+import { isEpic } from "@pp/shared"
 import type {
   GithubConnection,
   Member,
@@ -283,7 +284,7 @@ function PlanningMetaRows({
   editable: boolean
   onPatch: (patch: TicketEdit) => void
 }>) {
-  if (ticket.type === "epic") return null
+  if (isEpic(ticket)) return null
   return (
     <>
       <MetaRow controls label={m.tickets_page_meta_sprint()}>

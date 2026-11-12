@@ -1,3 +1,4 @@
+import { isEpic } from "@pp/shared"
 import type { Ticket } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Atom from "effect/reactivity/Atom"
@@ -15,7 +16,7 @@ import type { MentionCandidate, MentionPage, MentionProvider } from "./registry"
 const NO_PAGE: MentionPage = { items: [], nextCursor: null }
 
 const toCandidate = (ticket: Ticket): MentionCandidate =>
-  ticket.parent?.type === "epic"
+  isEpic(ticket.parent)
     ? { id: ticket.id, label: ticket.title, secondary: ticket.parent.title }
     : { id: ticket.id, label: ticket.title }
 
