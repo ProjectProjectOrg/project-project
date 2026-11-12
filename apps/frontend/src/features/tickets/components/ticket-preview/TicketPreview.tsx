@@ -2,6 +2,7 @@ import { PreviewCard } from "@base-ui/react/preview-card"
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import {
   finishedStatusSlugs,
+  type TicketFlag,
   type TicketId,
   type TicketStatus
 } from "@pp/shared"
@@ -17,7 +18,12 @@ import {
 } from "react"
 
 import { PreviewCardContent } from "@/components/ui/preview-card"
-import type { ProjectRequest } from "@/features/projects/atoms/projects"
+import { Markdown } from "@/features/editor/components/Markdown"
+import { MemberAvatar } from "@/features/members/components/MemberAvatar"
+import {
+  project,
+  type ProjectRequest
+} from "@/features/projects/atoms/projects"
 import {
   statusesFor,
   statusesRequest
@@ -40,6 +46,7 @@ import {
   loadMarkdown,
   TicketPreviewBody
 } from "@/features/tickets/components/TicketHoverCard"
+import { TimelineTime } from "@/features/tickets/components/TimelineTime"
 import {
   previewRelationGroups,
   type RelationGroupKey,
@@ -51,6 +58,7 @@ type TicketPreview =
   | Readonly<{ kind: "ticket"; id: TicketId; shortcut?: string }>
   | Readonly<{ kind: "relations"; id: TicketId; relation: RelationPreviewKind }>
   | Readonly<{ kind: "subTickets"; id: TicketId; label: string }>
+  | Readonly<{ kind: "flag"; id: TicketId; flag: TicketFlag }>
 
 type TicketPreviewPayload = Readonly<{
   project: ProjectRequest
@@ -95,6 +103,7 @@ function useWarmPreview() {
   const registry = useContext(RegistryContext)
   const { orgSlug, slug } = useProjectRoute()
   return (preview: TicketPreview) => {
+    if (preview.kind === "flag") return
     const loaded =
       preview.kind === "subTickets"
         ? Registry.getResult(
@@ -146,6 +155,8 @@ function PreviewContent({ preview }: Readonly<{ preview: TicketPreview }>) {
       )
     case "relations":
       return <RelationsPreview id={preview.id} relation={preview.relation} />
+    case "flag":
+      return <FlagPreview flag={preview.flag} />
   }
   return <SubTicketsPreview id={preview.id} label={preview.label} />
 }
@@ -184,6 +195,35 @@ function RelationsPreview({
       ))}
     </PreviewList>
   ))
+}
+
+function FlagPreview({ flag }: Readonly<{ flag: TicketFlag }>) {
+  const detail = useAtomValue(project(useProjectRequest()))
+  const member = Result.isSuccess(detail)
+    ? detail.value.members.find((candidate) => candidate.id === flag.by)
+    : undefined
+  return (
+    <div className="flex flex-col gap-1.5 px-2 py-1.5">
+      <div className="flex min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
+        {member !== undefined && <MemberAvatar member={member} size={16} />}
+        <span className="min-w-0 truncate">
+          {m.tickets_flag_by({
+            name:
+              member?.name ||
+              member?.email ||
+              m.tickets_activity_actor_unknown()
+          })}
+        </span>
+        <span aria-hidden>·</span>
+        <TimelineTime at={flag.at} className="shrink-0" />
+      </div>
+      {flag.reason !== undefined && (
+        <Markdown size="compact" blocks="flat" className="text-body">
+          {flag.reason}
+        </Markdown>
+      )}
+    </div>
+  )
 }
 
 function SubTicketsPreview({

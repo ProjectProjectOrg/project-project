@@ -113,6 +113,10 @@ ignoredBranches: # never linked automatically again
 assignees: [github_88]
 blockedBy: [T-9] # can't start until T-9 is done; omitted when empty
 relatedTo: [T-14] # omitted when empty
+flag: # needs attention; omitted when not flagged, removed when the ticket finishes
+  reason: Waiting on the customer's API key # markdown, optional
+  by: github_88
+  at: 2025-11-04T14:02:00Z
 createdBy: github_42
 createdAt: 2025-11-04T11:30:00Z
 updatedAt: 2025-11-04T15:12:00Z

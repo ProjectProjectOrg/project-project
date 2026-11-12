@@ -52,6 +52,7 @@ const ticket = {
   type: "chore",
   priority: "med",
   estimate: null,
+  flag: null,
   tags: [],
   branch: null,
   pr: null,

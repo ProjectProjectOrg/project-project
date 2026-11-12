@@ -82,6 +82,11 @@ export const TicketActivityChange = Schema.Union([
   }),
   Schema.Struct({ kind: Schema.Literal("unarchived") }),
   Schema.Struct({
+    kind: Schema.Literal("flagged"),
+    reason: Schema.optional(Schema.String)
+  }),
+  Schema.Struct({ kind: Schema.Literal("unflagged") }),
+  Schema.Struct({
     kind: Schema.Literal("split"),
     into: Schema.Array(TicketId)
   }),

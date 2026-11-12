@@ -13,6 +13,7 @@ import {
   Archive,
   ChevronDown,
   CircleDot,
+  Flag,
   Gauge,
   ListFilter,
   OctagonMinus,
@@ -91,7 +92,11 @@ import {
 import { ToolbarButton } from "./shared"
 import { sortTagsByColor } from "./tagOrder"
 
-const TOGGLES: ReadonlySet<FilterDimension> = new Set(["archived", "blocked"])
+const TOGGLES: ReadonlySet<FilterDimension> = new Set([
+  "archived",
+  "blocked",
+  "flagged"
+])
 
 export function Filters() {
   const {
@@ -213,6 +218,17 @@ export function Filters() {
           >
             <OctagonMinus className="size-4" strokeWidth={1.75} />
             {m.tickets_filters_blocked_only()}
+          </DropdownMenuCheckboxItem>
+        )}
+        {filters.includes("flagged") && (
+          <DropdownMenuCheckboxItem
+            checked={value?.flagged === true}
+            onCheckedChange={(on) =>
+              onChange({ flagged: on ? true : undefined })
+            }
+          >
+            <Flag className="size-4" strokeWidth={1.75} />
+            {m.tickets_filters_flagged_only()}
           </DropdownMenuCheckboxItem>
         )}
         {filters.includes("archived") && (

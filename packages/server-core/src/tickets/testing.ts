@@ -429,6 +429,7 @@ export const entryFromDocument = (
   return {
     ...entry,
     estimate: entry.estimate ?? null,
+    flag: entry.flag ?? null,
     parent:
       parent === undefined
         ? null

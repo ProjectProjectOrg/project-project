@@ -715,7 +715,7 @@ const make = Effect.gen(function* () {
         if (changesRelations) {
           yield* validateOwnedRelations(scope, makeTicketId(id), input)
         }
-        const [, , view, body] = yield* Effect.all(
+        const [, , view, , body] = yield* Effect.all(
           [
             input.status === undefined
               ? Effect.void
@@ -724,6 +724,9 @@ const make = Effect.gen(function* () {
               ? Effect.void
               : validateTagsExist(projectId, listEditAdds(input.tags)),
             gitView,
+            input.flag?.reason === undefined
+              ? Effect.void
+              : validateBody(input.flag.reason, scope),
             input.body === undefined
               ? Effect.succeed(undefined)
               : library
@@ -760,11 +763,12 @@ const make = Effect.gen(function* () {
                   reason: "ticket_body_changed"
                 })
               }
+              const now = yield* DateTime.nowAsDate
               const next = applyTicketPatch(
                 existing,
                 { ...input, body },
                 userId,
-                existing.updatedAt
+                now
               )
               yield* requireTicketChange(ticketChangeOf(existing, next))
               if (input.assignees !== undefined) {
@@ -789,7 +793,7 @@ const make = Effect.gen(function* () {
                   return yield* new Validation({ reason: "epic_in_sprint" })
                 }
               }
-              return { ...next, updatedAt: yield* DateTime.nowAsDate }
+              return next
             }),
           (next) =>
             (input.body === undefined

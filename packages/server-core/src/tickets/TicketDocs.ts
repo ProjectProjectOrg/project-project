@@ -11,6 +11,7 @@ import {
   TicketId,
   TicketPriority,
   TicketBranchEntry,
+  TicketFlag,
   TicketStatus,
   TicketType,
   type NotFound
@@ -65,6 +66,7 @@ const TicketFrontmatterOnDisk = Schema.Struct({
   archivedAt: Schema.NullOr(Schema.DateFromString).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
+  flag: Schema.optionalKey(TicketFlag),
   splitFrom: Schema.optionalKey(TicketId),
   movedFrom: Schema.optionalKey(Schema.Array(Schema.String)),
   blockedBy: Schema.optionalKey(Schema.Array(TicketId)),
@@ -571,12 +573,20 @@ const make = Effect.gen(function* () {
           const actor = yield* ActivityActor
           const touched =
             transformed.updatedAt.getTime() !== current.updatedAt.getTime()
-          const next = touched
+          const finished =
+            current.status === transformed.status
+              ? null
+              : yield* finishedStatuses.forProject(orgSlug, slug)
+          const stamped = touched
             ? {
                 ...transformed,
                 updatedBy: activityActorUserId(actor) ?? transformed.updatedBy
               }
             : transformed
+          const next =
+            finished?.has(stamped.status) && stamped.flag !== undefined
+              ? Struct.omit(stamped, ["flag"])
+              : stamped
           const changes = activity.silent
             ? []
             : [
@@ -584,13 +594,9 @@ const make = Effect.gen(function* () {
                 ...(activity.extra ?? [])
               ]
           const events =
-            activity.silent || current.status === next.status
+            activity.silent || finished === null
               ? []
-              : ticketEvents(
-                  current,
-                  next,
-                  yield* finishedStatuses.forProject(orgSlug, slug)
-                )
+              : ticketEvents(current, next, finished)
           return yield* Effect.gen(function* () {
             yield* ticketActivity.record(
               orgSlug,

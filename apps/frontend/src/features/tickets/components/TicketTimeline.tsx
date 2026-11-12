@@ -172,12 +172,12 @@ function EventRow({
       <span className="relative z-10 grid h-5 place-items-center">
         <ActorMark actor={actor} />
       </span>
-      <p className="min-w-0 text-body leading-5 wrap-anywhere text-muted-foreground">
+      <div className="min-w-0 text-body leading-5 wrap-anywhere text-muted-foreground">
         <ActorName actor={actor} />{" "}
         <ActivityLineView line={line} lookups={lookups} />
         <span aria-hidden> · </span>
         <TimelineTime at={at} />
-      </p>
+      </div>
     </li>
   )
 }

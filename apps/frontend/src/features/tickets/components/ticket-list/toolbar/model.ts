@@ -8,6 +8,7 @@ export type FilterDimension =
   | "estimate"
   | "archived"
   | "blocked"
+  | "flagged"
 
 const FILTER_KEYS: Readonly<Record<FilterDimension, keyof TicketFilter>> = {
   type: "type",
@@ -16,7 +17,8 @@ const FILTER_KEYS: Readonly<Record<FilterDimension, keyof TicketFilter>> = {
   sprint: "groupId",
   estimate: "estimate",
   archived: "archived",
-  blocked: "blocked"
+  blocked: "blocked",
+  flagged: "flagged"
 }
 
 export function activeFilterCount(

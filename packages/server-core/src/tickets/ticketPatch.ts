@@ -1,5 +1,9 @@
 import type { TicketPolicy } from "@pp/access/policies"
-import { applyListEdit, type UpdateTicketInput } from "@pp/shared"
+import {
+  applyListEdit,
+  type TicketFlag,
+  type UpdateTicketInput
+} from "@pp/shared"
 import * as Equal from "effect/Equal"
 
 import type * as TicketDocs from "./TicketDocs"
@@ -19,43 +23,64 @@ const uniqueOrUndefined = <A>(
 ): ReadonlyArray<A> | undefined =>
   values.length === 0 ? undefined : [...new Set(values)]
 
+const flagOf = (
+  existing: TicketFlag | undefined,
+  patch: TicketPatch["flag"],
+  actor: string,
+  now: Date
+): TicketFlag | undefined => {
+  if (patch === undefined) return existing
+  if (patch === null) return undefined
+  const reason = patch.reason?.trim() || undefined
+  if (existing !== undefined && existing.reason === reason) return existing
+  return reason === undefined
+    ? { by: actor, at: now }
+    : { reason, by: actor, at: now }
+}
+
 export const applyTicketPatch = (
-  existing: TicketDocs.TicketDocument,
+  { flag: currentFlag, ...existing }: TicketDocs.TicketDocument,
   patch: TicketPatch,
   actor: string,
   now: Date
-): TicketDocs.TicketDocument => ({
-  ...existing,
-  title: patch.title ?? existing.title,
-  status: patch.status ?? existing.status,
-  type: patch.type ?? existing.type,
-  parent:
-    patch.parent === undefined ? existing.parent : (patch.parent ?? undefined),
-  priority: patch.priority ?? existing.priority,
-  estimate:
-    patch.estimate === undefined
-      ? existing.estimate
-      : (patch.estimate ?? undefined),
-  tags:
-    patch.tags === undefined
-      ? existing.tags
-      : [...applyListEdit(existing.tags, patch.tags)],
-  assignees:
-    patch.assignees === undefined
-      ? existing.assignees
-      : [...applyListEdit(existing.assignees, patch.assignees)],
-  blockedBy:
-    patch.blockedBy === undefined
-      ? existing.blockedBy
-      : uniqueOrUndefined(patch.blockedBy),
-  relatedTo:
-    patch.relatedTo === undefined
-      ? existing.relatedTo
-      : uniqueOrUndefined(patch.relatedTo),
-  updatedBy: actor,
-  updatedAt: now,
-  body: patch.body ?? existing.body
-})
+): TicketDocs.TicketDocument => {
+  const flag = flagOf(currentFlag, patch.flag, actor, now)
+  return {
+    ...existing,
+    title: patch.title ?? existing.title,
+    status: patch.status ?? existing.status,
+    type: patch.type ?? existing.type,
+    parent:
+      patch.parent === undefined
+        ? existing.parent
+        : (patch.parent ?? undefined),
+    priority: patch.priority ?? existing.priority,
+    estimate:
+      patch.estimate === undefined
+        ? existing.estimate
+        : (patch.estimate ?? undefined),
+    tags:
+      patch.tags === undefined
+        ? existing.tags
+        : [...applyListEdit(existing.tags, patch.tags)],
+    assignees:
+      patch.assignees === undefined
+        ? existing.assignees
+        : [...applyListEdit(existing.assignees, patch.assignees)],
+    blockedBy:
+      patch.blockedBy === undefined
+        ? existing.blockedBy
+        : uniqueOrUndefined(patch.blockedBy),
+    relatedTo:
+      patch.relatedTo === undefined
+        ? existing.relatedTo
+        : uniqueOrUndefined(patch.relatedTo),
+    ...(flag === undefined ? {} : { flag }),
+    updatedBy: actor,
+    updatedAt: now,
+    body: patch.body ?? existing.body
+  }
+}
 
 export const fieldChangesOf = (
   existing: TicketDocs.TicketDocument,
@@ -67,6 +92,7 @@ export const fieldChangesOf = (
     next.priority !== existing.priority ||
     next.parent !== existing.parent ||
     !Equal.equals(next.estimate, existing.estimate) ||
+    next.flag !== existing.flag ||
     next.body !== existing.body ||
     listChanged(next.tags, existing.tags) ||
     listChanged(next.blockedBy ?? [], existing.blockedBy ?? []) ||

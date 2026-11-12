@@ -802,6 +802,42 @@ describe("TicketDocs activity capture", () => {
     })
   )
 
+  it.effect("clears the flag when the ticket moves to a finished status", () =>
+    Effect.gen(function* () {
+      const flag = { reason: "Needs a decision", by: "user-1", at: later }
+      const { recorded, result } = yield* capture((docs) =>
+        Effect.gen(function* () {
+          yield* docs.update("acme", "project", "T-1", (ticket) =>
+            Effect.succeed({ ...ticket, flag, updatedAt: later })
+          )
+          yield* docs.update("acme", "project", "T-1", (ticket) =>
+            Effect.succeed({
+              ...ticket,
+              status: ticketStatus("in_progress"),
+              updatedAt: later
+            })
+          )
+          yield* docs.update("acme", "project", "T-1", (ticket) =>
+            Effect.succeed({
+              ...ticket,
+              status: ticketStatus("done"),
+              updatedAt: later
+            })
+          )
+          return yield* docs.read("acme", "project", "T-1")
+        })
+      )
+      expect(result.flag).toBeUndefined()
+      expect(
+        recorded.map((entry) => entry.changes.map(({ change }) => change.kind))
+      ).toEqual([
+        ["flagged"],
+        ["status_changed"],
+        ["status_changed", "unflagged"]
+      ])
+    })
+  )
+
   it.effect("passes the cause, appends extra changes, and honours silent", () =>
     Effect.gen(function* () {
       const { recorded } = yield* capture((docs) =>
