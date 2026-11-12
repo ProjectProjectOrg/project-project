@@ -152,7 +152,10 @@ describe("listBulkDrop", () => {
   it("refuses the drop when any one ticket can't go there", () => {
     expect(
       listBulkDrop(
-        [row(), row({ id: ticketId("T-9"), type: "epic", section: "" })],
+        [
+          row(),
+          row({ id: ticketId("T-9"), type: TypeKey.make("epic"), section: "" })
+        ],
         sprint("G-2"),
         [],
         null,
