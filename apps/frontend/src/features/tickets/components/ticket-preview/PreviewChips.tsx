@@ -4,6 +4,7 @@ import { Flag, Link2, OctagonMinus, SquareEqual } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SubTicketCount } from "@/features/tickets/components/ticket-list/SubTicketProgress"
 import { SquareOctagonMinus } from "@/features/tickets/components/ticket-marks/blockingIcon"
+import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import type { RelationPreviewKind } from "@/features/tickets/lib/relationGroups"
 import type { IconComponent } from "@/lib/icon"
 import { cn } from "@/lib/utils"
@@ -47,10 +48,11 @@ export function RelationChips({
   ticket,
   className
 }: Readonly<{ ticket: RelationCounts; className?: string }>) {
+  const { shows } = useDisplayProperties()
   return RELATION_CHIPS.map((chip) => {
     const { relation, field, icon: Icon } = chip
     const n = ticket[field] ?? 0
-    if (n === 0) return null
+    if (n === 0 || !shows(relation)) return null
     return (
       <TicketPreviewTrigger
         key={relation}

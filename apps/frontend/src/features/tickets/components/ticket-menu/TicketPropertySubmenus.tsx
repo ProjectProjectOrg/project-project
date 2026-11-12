@@ -1,6 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { listEditBetween, TagName, TicketType, type Member } from "@pp/shared"
-import * as Exit from "effect/Exit"
+import { listEditBetween, TicketType, type Member } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   CircleDot,
@@ -10,7 +9,6 @@ import {
   Tag,
   UserRound
 } from "lucide-react"
-import { useState } from "react"
 
 import {
   DropdownMenuCheckboxItem,
@@ -33,11 +31,11 @@ import {
 } from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
-import { createTag, tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
 import { AssignMeItem } from "@/features/tickets/components/ticket-list/AssigneeField"
 import { typeOptions } from "@/features/tickets/components/ticket-list/TypeField"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
+import { useTicketTagMenu } from "@/features/tickets/hooks/useTicketTagMenu"
 import { toggleAssignee } from "@/features/tickets/lib/assignees"
 import {
   PRIORITY_LABELS,
@@ -46,7 +44,6 @@ import {
 } from "@/features/tickets/lib/priorityMeta"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
-import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -249,45 +246,18 @@ function TagsSubmenu({
   tags: TicketMenuTicket["tags"]
   onPatch: (patch: TicketEdit) => void
 }>) {
-  const { orgSlug, slug } = useProjectRoute()
-  const req = tagsRequest(orgSlug, slug)
-  const result = useAtomValue(tagsFor(req))
-  const create = useAtomSet(createTag(req), { mode: "promiseExit" })
-  const canCreate = useProjectActor().call("tags", "create")
-  const [draft, setDraft] = useState("")
-  const tags = Result.isSuccess(result) ? result.value : []
-  const toggle = (name: TagName) =>
-    onPatch({
-      tags: applied.includes(name) ? { remove: [name] } : { add: [name] }
-    })
-  const createAndApply = async (name: TagName) => {
-    setDraft("")
-    const exit = await create({ name })
-    if (Exit.isSuccess(exit)) onPatch({ tags: { add: [name] } })
-  }
+  const menu = useTicketTagMenu(applied, onPatch)
   return (
     <DropdownMenuSub
-      filterable={{
-        value: draft,
-        onValueChange: (next) => setDraft(next.toLowerCase())
-      }}
-      onOpenChange={(open) => {
-        if (!open) setDraft("")
-      }}
+      filterable={menu.filterable}
+      onOpenChange={menu.onOpenChange}
     >
       <DropdownMenuSubTrigger>
         <Tag className="size-4" strokeWidth={1.75} />
         {m.tickets_command_tags()}
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-56">
-        <TagMenuBody
-          tags={tags}
-          applied={applied}
-          draft={draft}
-          canCreate={canCreate}
-          onToggle={toggle}
-          onCreate={(name) => void createAndApply(name)}
-        />
+        <TagMenuBody {...menu.body} />
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   )

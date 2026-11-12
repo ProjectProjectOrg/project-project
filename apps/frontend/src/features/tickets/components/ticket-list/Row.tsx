@@ -15,6 +15,10 @@ import {
   sprintListRequest,
   sprintMembership
 } from "@/features/sprints/atoms/sprintList"
+import {
+  relationChipClass,
+  TagChips
+} from "@/features/sprints/components/BoardCardProperties"
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { TicketContextMenu } from "@/features/tickets/components/ticket-menu/TicketMenu"
 import {
@@ -24,6 +28,7 @@ import {
 } from "@/features/tickets/components/ticket-preview/PreviewChips"
 import { TicketHoverCard } from "@/features/tickets/components/TicketHoverCard"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
+import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { transitions } from "@/lib/springs"
@@ -79,6 +84,7 @@ function RowImpl({
   const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
   const rowElement = useRef<HTMLDivElement>(null)
   const estimation = useEstimationMode()
+  const { shows } = useDisplayProperties()
   const [previewMounted, setPreviewMounted] = useState(false)
   const handleTitlePointerEnter = () => {
     onPreviewPointerEnter(ticket.id)
@@ -171,9 +177,11 @@ function RowImpl({
                 </span>
               </fieldset>
               <div className="col-start-5 row-start-1 flex min-w-0 items-center self-stretch pl-1">
-                {ticket.parent && ticket.parent.id !== contextParent && (
-                  <ParentPrefix parent={ticket.parent} />
-                )}
+                {ticket.parent &&
+                  ticket.parent.id !== contextParent &&
+                  (ticket.parent.type !== "epic" || shows("epic")) && (
+                    <ParentPrefix parent={ticket.parent} />
+                  )}
                 <Link
                   to="/orgs/$orgSlug/projects/$slug/tickets/$id"
                   params={{ orgSlug, slug, id: ticket.id }}
@@ -211,26 +219,49 @@ function RowImpl({
                 </Link>
                 <FlagChip ticket={ticket} className="ml-1" />
                 <SubTicketsChip ticket={ticket} className="ml-1" />
-                <RelationChips ticket={ticket} className="ml-1" />
               </div>
-              <fieldset disabled={!editable} className="contents">
-                <div className="flex shrink-0 items-center justify-end gap-1">
-                  <UpdateFailureMarker update={update(ticket.id)} />
-                  <TicketGitChip
-                    orgSlug={orgSlug}
-                    slug={slug}
+              <div className="flex shrink-0 items-center justify-end gap-1 [&>fieldset>span:empty]:hidden">
+                <UpdateFailureMarker update={update(ticket.id)} />
+                {shows("tags") && (
+                  <span className="flex max-w-60 min-w-0 items-center gap-1.5 *:shrink empty:hidden">
+                    <TagChips
+                      names={ticket.tags}
+                      onPatch={editable ? onPatch : undefined}
+                    />
+                  </span>
+                )}
+                {shows("git") && (
+                  <fieldset disabled={!editable} className="contents">
+                    <TicketGitChip
+                      orgSlug={orgSlug}
+                      slug={slug}
+                      ticket={ticket}
+                    />
+                  </fieldset>
+                )}
+                <span className="flex items-center gap-1.5 empty:hidden">
+                  <RelationChips
                     ticket={ticket}
+                    className={relationChipClass}
                   />
-                  <EstimateChip ticket={ticket} mode={estimation} />
-                  {showSprint && <RowSprint ticketId={ticket.id} />}
-                  <AssigneeField
-                    ticket={ticket}
-                    members={members}
-                    onPatch={onPatch}
-                    className="hidden sm:inline-flex"
-                  />
-                </div>
-              </fieldset>
+                </span>
+                <fieldset disabled={!editable} className="contents">
+                  {shows("estimate") && (
+                    <EstimateChip ticket={ticket} mode={estimation} />
+                  )}
+                  {showSprint && shows("sprint") && (
+                    <RowSprint ticketId={ticket.id} />
+                  )}
+                  {shows("assignee") && (
+                    <AssigneeField
+                      ticket={ticket}
+                      members={members}
+                      onPatch={onPatch}
+                      className="hidden sm:inline-flex"
+                    />
+                  )}
+                </fieldset>
+              </div>
             </div>
           </TicketContextMenu>
           {previewMounted && (
