@@ -22,6 +22,8 @@ import {
   toUpdateInput
 } from "@/features/tickets/lib/ticketPatch"
 
+import { bulkBatches, bulkChangedKeys } from "./bulkTickets"
+
 export type TicketUpdateAtom = Atom.AtomResultFn<TicketEdit, unknown, unknown>
 
 export type TicketUpdates = (id: TicketId) => TicketUpdateAtom
@@ -52,16 +54,19 @@ export const bulkTicketUpdate = <V, VE>(
       )
     },
     call: (client, input) =>
-      client.tickets.bulkUpdate({ params: update.path, payload: input }),
+      Effect.forEach(bulkBatches(input.tickets), (tickets) =>
+        client.tickets.bulkUpdate({
+          params: update.path,
+          payload: { tickets, patch: input.patch }
+        })
+      ),
     confirm: keepPredicted,
-    publish: (_result, input) => {
-      const scope = projectScope(update.path.orgSlug, update.path.slug)
-      return [
-        ...Keys.ticketsChanged(scope),
-        Keys.sprintMembership(scope),
-        ...input.tickets.map((id) => Keys.ticket(scope, id))
-      ]
-    }
+    publish: (_result, input) =>
+      bulkChangedKeys(
+        update.path,
+        input.tickets,
+        input.patch.sprint !== undefined
+      )
   })
 
 export const createdKeys = Atom.family((_scope: string) =>

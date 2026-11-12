@@ -1,4 +1,7 @@
+import { applyListEdit } from "@pp/shared"
+
 import type { SelectedTicket } from "@/features/command-menu/lib/commandMenu"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 
 type Single = "status" | "priority" | "type" | "estimate"
 
@@ -32,4 +35,23 @@ export const sharedTicketFields = (
   estimate: sameFor(tickets, "estimate"),
   tags: commonTo(tickets.map((ticket) => ticket.tags)),
   assignees: commonTo(tickets.map((ticket) => ticket.assignees))
+})
+
+export const applySelectedEdit = (
+  ticket: SelectedTicket,
+  edit: TicketEdit
+): SelectedTicket => ({
+  ...ticket,
+  status: edit.status ?? ticket.status,
+  priority: edit.priority ?? ticket.priority,
+  type: edit.type ?? ticket.type,
+  estimate: edit.estimate === undefined ? ticket.estimate : edit.estimate,
+  tags:
+    edit.tags === undefined
+      ? ticket.tags
+      : applyListEdit(ticket.tags, edit.tags),
+  assignees:
+    edit.assignees === undefined
+      ? ticket.assignees
+      : applyListEdit(ticket.assignees, edit.assignees)
 })

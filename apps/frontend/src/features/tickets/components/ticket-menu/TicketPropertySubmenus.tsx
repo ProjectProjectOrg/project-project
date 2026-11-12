@@ -129,7 +129,12 @@ export function TicketPropertySubmenus({
     closeOnClick: true
   }))
   const setAssignees = (assignees: ReadonlyArray<string>) =>
-    onPatch({ assignees: listEditBetween(ticket.assignees, assignees) })
+    onPatch({
+      assignees:
+        assignees.length === 0
+          ? []
+          : listEditBetween(ticket.assignees, assignees)
+    })
 
   return (
     <>

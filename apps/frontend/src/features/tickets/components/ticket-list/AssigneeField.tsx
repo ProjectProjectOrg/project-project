@@ -298,7 +298,12 @@ export function AssigneeField({
     <AssigneeSelect
       value={ticket.assignees}
       onChange={(assignees) =>
-        onPatch({ assignees: listEditBetween(ticket.assignees, assignees) })
+        onPatch({
+          assignees:
+            assignees.length === 0
+              ? []
+              : listEditBetween(ticket.assignees, assignees)
+        })
       }
       members={members}
       variant={variant}

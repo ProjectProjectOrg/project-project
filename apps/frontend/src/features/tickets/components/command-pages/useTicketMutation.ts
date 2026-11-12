@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Result from "effect/reactivity/AsyncResult"
+import { useState } from "react"
 
 import { commandScopes } from "@/features/command-menu/atoms/commandMenu"
 import type {
@@ -13,7 +14,10 @@ import {
   ticketRequest,
   updateTicketDetail
 } from "@/features/tickets/atoms/ticketDetail"
-import { sharedTicketFields } from "@/features/tickets/lib/sharedTicketFields"
+import {
+  applySelectedEdit,
+  sharedTicketFields
+} from "@/features/tickets/lib/sharedTicketFields"
 import {
   toBulkPatch,
   type TicketEdit
@@ -30,11 +34,15 @@ export function useTicketMutation(
     bulkUpdateTickets({ orgSlug: ticket.orgSlug, slug: ticket.slug })
   )
   const updateSelection = scopeSelectionUpdate(useAtomValue(commandScopes))
+  const [edited, setEdited] = useState(selection)
   if (selection.length > 1) {
     const tickets = selection.map((each) => each.id)
     return {
-      current: sharedTicketFields(selection),
+      current: sharedTicketFields(edited),
       update: (edit: TicketEdit) => {
+        setEdited((current) =>
+          current.map((each) => applySelectedEdit(each, edit))
+        )
         const patch = toBulkPatch(edit)
         if (updateSelection === null) updateMany({ tickets, patch })
         else updateSelection(ticket.slug, tickets, patch)
