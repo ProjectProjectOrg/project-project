@@ -12,6 +12,7 @@ import { AssigneeField } from "@/features/tickets/components/ticket-list/Assigne
 import { UpdateFailureMarker } from "@/features/tickets/components/ticket-list/UpdateFailureMarker"
 import { TicketContextMenu } from "@/features/tickets/components/ticket-menu/TicketMenu"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
+import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { useProjectActor } from "@/hooks/useActor"
 
@@ -56,6 +57,7 @@ function BoardCardFields({
   const actor = useProjectActor()
   const editable = TicketPolicy.canChange(actor, { content: true })
   const canAssign = TicketPolicy.canChange(actor, { assignees: true })
+  const { shows } = useDisplayProperties()
   return (
     <DeferredDropdownMenus>
       <TicketContextMenu
@@ -96,16 +98,18 @@ function BoardCardFields({
                     <ParentTicketCrumb parent={ticket.parent} />
                   )}
                 </span>
-                <span className="ml-auto flex shrink-0 items-center">
-                  <fieldset disabled={!canAssign} className="contents">
-                    <AssigneeField
-                      ticket={ticket}
-                      members={members}
-                      variant="card"
-                      onPatch={onPatch}
-                    />
-                  </fieldset>
-                </span>
+                {shows("assignee") && (
+                  <span className="ml-auto flex shrink-0 items-center">
+                    <fieldset disabled={!canAssign} className="contents">
+                      <AssigneeField
+                        ticket={ticket}
+                        members={members}
+                        variant="card"
+                        onPatch={onPatch}
+                      />
+                    </fieldset>
+                  </span>
+                )}
               </div>
               <div className="min-w-0 text-subtitle leading-snug font-semibold">
                 <span className="line-clamp-2">{ticket.title}</span>

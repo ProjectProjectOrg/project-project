@@ -1,8 +1,13 @@
 import { PreviewCard } from "@base-ui/react/preview-card"
-import { RegistryContext, useAtomValue } from "@effect/atom-react"
+import {
+  RegistryContext,
+  useAtomRefresh,
+  useAtomValue
+} from "@effect/atom-react"
 import {
   finishedStatusSlugs,
   type TicketFlag,
+  type TagName,
   type TicketId,
   type TicketStatus
 } from "@pp/shared"
@@ -10,6 +15,7 @@ import { Link } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
+import { Copy } from "lucide-react"
 import {
   useContext,
   useEffect,
@@ -17,6 +23,8 @@ import {
   type ReactNode
 } from "react"
 
+import { AsyncView } from "@/components/shell/AsyncView"
+import { Button } from "@/components/ui/button"
 import { PreviewCardContent } from "@/components/ui/preview-card"
 import { Markdown } from "@/features/editor/components/Markdown"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
@@ -34,6 +42,7 @@ import {
   useProjectRequest,
   useProjectRoute
 } from "@/features/projects/hooks/useProject"
+import { tagsFor, tagsRequest, tagUsage } from "@/features/tags/atoms/tags"
 import {
   childTickets,
   childTicketsRequest
@@ -60,6 +69,7 @@ type TicketPreview =
   | Readonly<{ kind: "relations"; id: TicketId; relation: RelationPreviewKind }>
   | Readonly<{ kind: "subTickets"; id: TicketId; label: string }>
   | Readonly<{ kind: "flag"; id: TicketId; flag: TicketFlag }>
+  | Readonly<{ kind: "tag"; name: TagName }>
 
 type TicketPreviewPayload = Readonly<{
   project: ProjectRequest
@@ -76,7 +86,7 @@ export function TicketPreviewTrigger({
 }: Readonly<{ preview: TicketPreview }> &
   Omit<
     ComponentProps<typeof PreviewCard.Trigger>,
-    "handle" | "payload" | "delay" | "onPointerEnter"
+    "handle" | "payload" | "delay" | "closeDelay" | "onPointerEnter"
   >) {
   const project = useProjectRequest()
   const warm = useWarmPreview()
@@ -85,6 +95,8 @@ export function TicketPreviewTrigger({
       handle={ticketPreview}
       payload={{ project, preview }}
       delay={PREVIEW_DELAY_MS}
+      closeDelay={0}
+      aria-haspopup={preview.kind === "ticket" ? undefined : "dialog"}
       onPointerEnter={() => warm(preview)}
       onClick={
         preview.kind === "ticket"
@@ -106,15 +118,17 @@ function useWarmPreview() {
   return (preview: TicketPreview) => {
     if (preview.kind === "flag") return
     const loaded =
-      preview.kind === "subTickets"
-        ? Registry.getResult(
-            registry,
-            childTickets(childTicketsRequest(orgSlug, slug, preview.id))
-          )
-        : Registry.getResult(
-            registry,
-            ticketDetail(ticketRequest(orgSlug, slug, preview.id))
-          )
+      preview.kind === "tag"
+        ? Registry.getResult(registry, tagUsage(tagsRequest(orgSlug, slug)))
+        : preview.kind === "subTickets"
+          ? Registry.getResult(
+              registry,
+              childTickets(childTicketsRequest(orgSlug, slug, preview.id))
+            )
+          : Registry.getResult(
+              registry,
+              ticketDetail(ticketRequest(orgSlug, slug, preview.id))
+            )
     void Effect.runPromise(Effect.ignore(loaded))
   }
 }
@@ -127,11 +141,7 @@ export function TicketPreviewRoot() {
     <PreviewCard.Root handle={ticketPreview}>
       {({ payload }) =>
         payload !== undefined && (
-          <PreviewCardContent
-            className={
-              payload.preview.kind === "ticket" ? "w-80" : "w-72 p-1.5"
-            }
-          >
+          <PreviewCardContent className={PREVIEW_WIDTHS[payload.preview.kind]}>
             <ProjectContext value={payload.project}>
               <PreviewContent preview={payload.preview} />
             </ProjectContext>
@@ -140,6 +150,14 @@ export function TicketPreviewRoot() {
       }
     </PreviewCard.Root>
   )
+}
+
+const PREVIEW_WIDTHS: Readonly<Record<TicketPreview["kind"], string>> = {
+  ticket: "w-80",
+  relations: "w-72 p-1.5",
+  subTickets: "w-72 p-1.5",
+  flag: "w-72 p-1.5",
+  tag: "w-64 p-0"
 }
 
 function PreviewContent({ preview }: Readonly<{ preview: TicketPreview }>) {
@@ -158,6 +176,8 @@ function PreviewContent({ preview }: Readonly<{ preview: TicketPreview }>) {
       return <RelationsPreview id={preview.id} relation={preview.relation} />
     case "flag":
       return <FlagPreview flag={preview.flag} />
+    case "tag":
+      return <TagPreview name={preview.name} />
   }
   return <SubTicketsPreview id={preview.id} label={preview.label} />
 }
@@ -225,6 +245,52 @@ function FlagPreview({ flag }: Readonly<{ flag: TicketFlag }>) {
           </Markdown>
         </MentionScopeProvider>
       )}
+    </div>
+  )
+}
+
+function TagPreview({ name }: Readonly<{ name: TagName }>) {
+  const { orgSlug, slug } = useProjectRoute()
+  const request = tagsRequest(orgSlug, slug)
+  const tags = useAtomValue(tagsFor(request))
+  const usage = useAtomValue(tagUsage(request))
+  const refreshUsage = useAtomRefresh(tagUsage(request))
+  const color = Result.isSuccess(tags)
+    ? tags.value.find((tag) => tag.name === name)?.color
+    : undefined
+  return (
+    <div className="flex flex-col">
+      <div className="flex min-w-0 items-center gap-2 px-3 py-2.5 text-body text-foreground">
+        <span
+          aria-hidden
+          className="size-2.5 shrink-0 rounded-full bg-muted-foreground"
+          style={{ backgroundColor: color }}
+        />
+        <span className="min-w-0 truncate">{name}</span>
+      </div>
+      <div className="flex items-center gap-1.5 border-t border-border/60 px-3 py-2.5 text-caption text-muted-foreground">
+        <Copy className="size-3.5 shrink-0" strokeWidth={1.75} />
+        <AsyncView
+          result={usage}
+          onInitial={() => <span className="h-3 w-20 rounded bg-muted" />}
+          onFailure={() => (
+            <>
+              <span className="min-w-0 flex-1">
+                {m.tags_usage_load_failed()}
+              </span>
+              <Button variant="ghost" size="xs" onClick={refreshUsage}>
+                {m.error_page_retry_button()}
+              </Button>
+            </>
+          )}
+          onSuccess={({ value }) => {
+            const count = value[name] ?? 0
+            return count === 1
+              ? m.tags_usage_one()
+              : m.tags_usage_many({ count })
+          }}
+        />
+      </div>
     </div>
   )
 }

@@ -1,3 +1,5 @@
+import { useAtomValue } from "@effect/atom-react"
+import * as Result from "effect/reactivity/AsyncResult"
 import {
   ArrowUp,
   ArrowDown,
@@ -14,6 +16,16 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import {
+  sprintListRequest,
+  sprintMembership
+} from "@/features/sprints/atoms/sprintList"
+import {
+  DISPLAY_PROPERTIES,
+  useDisplayProperties,
+  type DisplayProperty
+} from "@/features/tickets/hooks/useDisplayProperties"
 import { useSubTicketsExpanded } from "@/features/tickets/hooks/useSubTicketsExpanded"
 import { m } from "@/paraglide/messages"
 
@@ -73,9 +85,66 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
               <ExpandSubTickets />
             </>
           )}
+          <DisplayProperties />
         </div>
       </PopoverContent>
     </Popover>
+  )
+}
+
+const PROPERTY_LABELS: Readonly<Record<DisplayProperty, () => string>> = {
+  blockedBy: m.tickets_preview_blocked_by,
+  blocking: m.tickets_preview_blocking,
+  related: m.tickets_preview_related,
+  duplicates: m.tickets_preview_duplicates,
+  epic: m.tickets_type_epic,
+  tags: m.tickets_view_options_property_tags,
+  git: m.tickets_view_options_property_git,
+  estimate: m.tickets_view_options_estimate,
+  sprint: m.tickets_view_options_property_sprint,
+  assignee: m.tickets_view_options_property_assignee
+}
+
+function DisplayProperties() {
+  const { estimation } = useTicketToolbar()
+  const { orgSlug, slug } = useProjectRoute()
+  const membership = useAtomValue(
+    sprintMembership(sprintListRequest(orgSlug, slug))
+  )
+  const hasSprints = Result.isSuccess(membership) && membership.value.size > 0
+  const { shows, toggle, isDefault, reset } = useDisplayProperties()
+  const offered = DISPLAY_PROPERTIES.filter(
+    (property) =>
+      (property !== "estimate" || estimation !== "off") &&
+      (property !== "sprint" || hasSprints)
+  )
+  return (
+    <section className="space-y-2 border-t border-border/60 pt-3">
+      <div className="flex min-h-7 items-center justify-between gap-3">
+        <h3 className="text-body text-muted-foreground">
+          {m.tickets_view_options_display_properties()}
+        </h3>
+        {!isDefault && (
+          <Button variant="ghost" size="sm" onClick={reset}>
+            {m.tickets_view_options_reset()}
+          </Button>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {offered.map((property) => (
+          <Button
+            key={property}
+            type="button"
+            variant="chip-toggle"
+            size="sm"
+            aria-pressed={shows(property)}
+            onClick={() => toggle(property)}
+          >
+            {PROPERTY_LABELS[property]()}
+          </Button>
+        ))}
+      </div>
+    </section>
   )
 }
 

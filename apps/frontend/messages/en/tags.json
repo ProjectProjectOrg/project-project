@@ -12,6 +12,7 @@
   "tags_name_validation_hint": "Use lowercase letters, digits, spaces or hyphens. Start with a letter or digit. Max 31 characters.",
   "tags_remove_aria_label": "Remove tag {name}",
   "tags_search_or_create_placeholder": "Search or create...",
+  "tags_usage_load_failed": "Couldn't load usage.",
   "tags_usage_many": "Applied to {count} tickets",
   "tags_usage_one": "Applied to 1 ticket",
   "color_picker_aria_label": "Pick color",
