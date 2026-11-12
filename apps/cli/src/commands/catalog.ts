@@ -242,9 +242,11 @@ export const commandFor = (entry: CatalogEntry) => {
         pagingEnabled(process.env) &&
         stdoutTerminal().fancy
       ) {
-        return yield* pagedList(page, entry.command[0], layout).pipe(
-          explainDefault(scope)
-        )
+        return yield* pagedList(
+          page,
+          entry.name === "list_ticket_activity" ? "changes" : entry.command[0],
+          layout
+        ).pipe(explainDefault(scope))
       }
       const everyPage = Effect.map(
         allPages(

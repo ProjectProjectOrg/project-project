@@ -1,4 +1,8 @@
-import { type AttachmentContentType, Tools } from "@pp/shared"
+import {
+  ATTACHMENT_MAX_BYTES,
+  type AttachmentContentType,
+  Tools
+} from "@pp/shared"
 import { Argument, Command } from "effect/cli"
 import * as Console from "effect/Console"
 import * as Effect from "effect/Effect"
@@ -57,6 +61,11 @@ export const attachFile = Effect.fn("attachFile")(function* (
   const bytes = yield* fs
     .readFile(file)
     .pipe(Effect.mapError(() => usage(`Couldn't read ${file}.`)))
+  if (bytes.byteLength > ATTACHMENT_MAX_BYTES) {
+    return yield* usage(
+      `pp can't attach ${filename}: files can be up to ${ATTACHMENT_MAX_BYTES / (1024 * 1024)} MiB.`
+    )
+  }
   const prepared = yield* callToolAs(
     server,
     "prepare_ticket_attachment",
