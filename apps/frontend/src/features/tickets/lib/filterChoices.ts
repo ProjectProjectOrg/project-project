@@ -11,6 +11,7 @@ import { toggled } from "./ticketFilters"
 
 export type FilterChoice =
   | Readonly<{ dimension: "blocked" }>
+  | Readonly<{ dimension: "flagged" }>
   | Readonly<{ dimension: "archived" }>
   | Readonly<{ dimension: "type"; value: TicketType }>
   | Readonly<{ dimension: "assignee"; value: AssigneeFilter }>
@@ -32,6 +33,8 @@ export const isChosen = (
   switch (choice.dimension) {
     case "blocked":
       return filter.blocked === true
+    case "flagged":
+      return filter.flagged === true
     case "archived":
       return filter.archived === true
     case "type":
@@ -54,6 +57,8 @@ export const toggleChoice = (
   switch (choice.dimension) {
     case "blocked":
       return { blocked: filter.blocked === true ? undefined : true }
+    case "flagged":
+      return { flagged: filter.flagged === true ? undefined : true }
     case "archived":
       return { archived: filter.archived === true ? undefined : true }
     case "type":
@@ -72,4 +77,4 @@ export const toggleChoice = (
 export const isValueDimension = (
   dimension: FilterChoiceDimension
 ): dimension is ValueFilterDimension =>
-  dimension !== "blocked" && dimension !== "archived"
+  dimension !== "blocked" && dimension !== "flagged" && dimension !== "archived"

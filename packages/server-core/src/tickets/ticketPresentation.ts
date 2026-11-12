@@ -101,6 +101,7 @@ function documentToTicket(
   return presentTicket(view, {
     ...ticket,
     estimate: document.estimate ?? null,
+    flag: document.flag ?? null,
     parent,
     gitState: pendingGitState(document, view.integration, branchDeletedAt)
   })

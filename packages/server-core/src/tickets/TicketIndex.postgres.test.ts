@@ -1903,6 +1903,59 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       }).pipe(Effect.provide(TestLayer))
   )
 
+  it.effect("filters on flagged tickets and returns the flag", () =>
+    Effect.gen(function* () {
+      const organizationId = `ticket-index-flag-${randomUUID()}`
+      const projectId = randomUUID()
+      yield* withClient(async (client) => {
+        await client.query(
+          `insert into organization (id, name, slug, created_at)
+             values ($1, 'Ticket flags', $1, now())`,
+          [organizationId]
+        )
+        await client.query(
+          `insert into project_index
+               (id, slug, organization_id, key, name, icon, color, created_by, created_at)
+             values ($1, $2, $2, 'T', 'Ticket flags', 'folder', 'blue', 'test-user', now())`,
+          [projectId, organizationId]
+        )
+      })
+      yield* Effect.addFinalizer(() =>
+        withClient((client) =>
+          client.query("delete from organization where id = $1", [
+            organizationId
+          ])
+        )
+      )
+
+      const index = yield* TicketIndex.TicketIndex
+      const project = yield* index.projectFor(organizationId, organizationId)
+      const flag = {
+        reason: "Waiting on the customer",
+        by: "user-1",
+        at: DateTime.toDate(DateTime.makeUnsafe("2026-11-12T09:00:00.000Z"))
+      }
+      yield* Effect.forEach(
+        [indexedDocument("T-1", { flag }), indexedDocument("T-2")],
+        (document) => index.upsertTicket(project, document)
+      )
+
+      const flagged = (value: boolean) =>
+        index
+          .query(
+            project,
+            { flagged: value, sort: { key: "id", dir: "asc" } },
+            { viewerId: "viewer", limit: 10 }
+          )
+          .pipe(Effect.map((rows) => rows.map(({ entry }) => entry.id)))
+      expect(yield* flagged(true)).toEqual(["T-1"])
+      expect(yield* flagged(false)).toEqual(["T-2"])
+      const [t1, t2] = yield* index.list(project, ["T-1", "T-2"])
+      expect(t1?.flag).toEqual(flag)
+      expect(t2?.flag).toBeNull()
+    }).pipe(Effect.provide(TestLayer))
+  )
+
   it.effect(
     "limits attach search to tickets that can move under the parent",
     () =>

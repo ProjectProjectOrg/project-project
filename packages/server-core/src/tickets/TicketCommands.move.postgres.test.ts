@@ -27,6 +27,7 @@ import {
   recordingActivityLayer,
   type RecordedActivity
 } from "../activity/testing"
+import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import {
   FakeGroups,
@@ -195,6 +196,7 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
         )
       ),
       Layer.provide(TicketDocumentLock.layer),
+      Layer.provide(FinishedStatuses.baseline),
       Layer.orDie
     )
     return { documents: docs.documents, put, recorded, layer }

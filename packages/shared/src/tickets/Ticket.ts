@@ -75,6 +75,15 @@ export const TicketBranchEntry = Schema.Struct({
 })
 export type TicketBranchEntry = typeof TicketBranchEntry.Type
 
+export const FLAG_REASON_MAX_LENGTH = 20_000
+
+export const TicketFlag = Schema.Struct({
+  reason: Schema.optionalKey(Schema.String),
+  by: Schema.String,
+  at: Schema.DateFromString
+})
+export type TicketFlag = typeof TicketFlag.Type
+
 export const Ticket = Schema.Struct({
   id: TicketId,
   title: Schema.String,
@@ -82,6 +91,9 @@ export const Ticket = Schema.Struct({
   type: TicketType,
   priority: TicketPriority,
   estimate: Schema.NullOr(Estimate).pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
+  ),
+  flag: Schema.NullOr(TicketFlag).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
   tags: Schema.Array(TagName),
@@ -259,6 +271,15 @@ export const ArchiveTicketInput = Schema.Struct({
 })
 export type ArchiveTicketInput = typeof ArchiveTicketInput.Type
 
+export const FlagTicketInput = Schema.Struct({
+  reason: Schema.optional(
+    Schema.String.pipe(Schema.check(Schema.isMaxLength(FLAG_REASON_MAX_LENGTH)))
+  ).annotate({
+    description: `Why the ticket needs attention, as markdown up to ${FLAG_REASON_MAX_LENGTH.toLocaleString("en")} characters.`
+  })
+})
+export type FlagTicketInput = typeof FlagTicketInput.Type
+
 export const UpdateTicketInput = Schema.Struct({
   title: Schema.optional(
     Schema.String.pipe(
@@ -296,6 +317,10 @@ export const UpdateTicketInput = Schema.Struct({
   }),
   relatedTo: Schema.optional(Schema.Array(TicketId)).annotate({
     description: `${ticketFieldDocs.relatedTo} Replaces the list stored on this ticket; pass an empty list to clear.`
+  }),
+  flag: Schema.optional(Schema.NullOr(FlagTicketInput)).annotate({
+    description:
+      "Flags the ticket as needing attention, with an optional reason; `null` removes the flag. A flag doesn't change the status, and moving the ticket to a finished status removes it."
   })
 })
 export type UpdateTicketInput = typeof UpdateTicketInput.Type

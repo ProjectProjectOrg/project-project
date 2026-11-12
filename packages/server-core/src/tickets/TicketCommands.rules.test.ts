@@ -5,6 +5,7 @@ import {
   ProjectScope,
   SprintCompletedImmutable
 } from "@pp/shared"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
@@ -559,6 +560,29 @@ it.effect(
       expect(result.tickets.map((ticket) => ticket.id)).toEqual(["T-1", "T-2"])
       expect(docs.documents.get("T-1")?.status).toBe("done")
       expect(docs.documents.get("T-2")).toBe(done)
+    }).pipe(Effect.provide(layer))
+  }
+)
+
+it.effect(
+  "bulkUpdate to a finished status clears the flag with only transition permission",
+  () => {
+    const flag = {
+      by: "user-1",
+      at: DateTime.toDate(DateTime.makeUnsafe("2026-11-12T09:00:00Z"))
+    }
+    const { docs, layer } = makeRulesFixture([
+      makeTicketDocument("T-1", { flag })
+    ])
+    return Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      yield* tickets
+        .bulkUpdate({
+          tickets: [ticketId("T-1")],
+          patch: { status: ticketStatus("done") }
+        })
+        .pipe(as(transitionOnly))
+      expect(docs.documents.get("T-1")?.flag).toBeUndefined()
     }).pipe(Effect.provide(layer))
   }
 )

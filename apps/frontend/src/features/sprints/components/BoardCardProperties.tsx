@@ -17,6 +17,7 @@ import { EstimateBadgeTrigger } from "@/features/tickets/components/ticket-list/
 import { PriorityMenu } from "@/features/tickets/components/ticket-list/PriorityField"
 import { SubTicketCount } from "@/features/tickets/components/ticket-list/SubTicketProgress"
 import {
+  FlagChip,
   RelationChips,
   SubTicketsChip
 } from "@/features/tickets/components/ticket-preview/PreviewChips"
@@ -55,6 +56,14 @@ export function BoardCardProperties({
   const estimation = useEstimationMode()
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-1 [&:not(:has(>:not(:empty)))]:hidden [&>:empty]:hidden">
+      <FlagChip
+        ticket={ticket}
+        className={cn(
+          boardChipClass,
+          hoverChipClass,
+          "w-[22px] justify-center px-0 [&_svg]:size-3"
+        )}
+      />
       <PriorityChip
         priority={ticket.priority}
         editable={editable}

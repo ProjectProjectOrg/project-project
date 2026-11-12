@@ -14,6 +14,7 @@ import {
   type ActivityActor,
   type ChecksStatus,
   type PullRequestState,
+  type TicketFlag,
   type TicketPriority,
   type TicketParent,
   type TicketType,
@@ -138,6 +139,7 @@ export type TicketIndexEntry = Readonly<{
   openBlockingCount: number
   relatedCount: number
   duplicateCount: number
+  flag: TicketFlag | null
   archivedAt: Date | null
   createdBy: string
   createdAt: Date
@@ -453,10 +455,25 @@ export const ticketIndexRowFor = (
   lastTransitionedPr: document.lastTransitionedPr,
   ignoredBranches: [...(document.ignoredBranches ?? [])],
   archivedAt: document.archivedAt,
+  flagReason: document.flag?.reason ?? null,
+  flaggedBy: document.flag?.by ?? null,
+  flaggedAt: document.flag?.at ?? null,
   createdBy: document.createdBy,
   createdAt: document.createdAt,
   updatedAt: document.updatedAt
 })
+
+const flagFromIndex = (
+  row: Pick<
+    typeof ticketIndex.$inferSelect,
+    "flagReason" | "flaggedBy" | "flaggedAt"
+  >
+): TicketFlag | null => {
+  if (row.flaggedBy === null || row.flaggedAt === null) return null
+  return row.flagReason === null
+    ? { by: row.flaggedBy, at: row.flaggedAt }
+    : { reason: row.flagReason, by: row.flaggedBy, at: row.flaggedAt }
+}
 
 export const ticketBranchRowsFor = (
   project: TicketProject,
@@ -940,6 +957,13 @@ const ticketWhereConditions = (
         : drizzleSql`${openBlockerCountOf(parentRow)} = 0`
     )
   }
+  if (filter?.flagged !== undefined) {
+    conditions.push(
+      filter.flagged
+        ? isNotNull(ticketIndex.flaggedAt)
+        : isNull(ticketIndex.flaggedAt)
+    )
+  }
   if (filter?.subTickets === "nested") {
     const matchingParents = and(
       ne(ticketIndex.type, "epic"),
@@ -1052,6 +1076,7 @@ const make = Effect.gen(function* () {
     openBlockingCount: row.openBlockingCount,
     relatedCount: row.relatedCount,
     duplicateCount: row.duplicateCount,
+    flag: flagFromIndex(row),
     archivedAt: row.archivedAt,
     createdBy: row.createdBy,
     createdAt: row.createdAt,

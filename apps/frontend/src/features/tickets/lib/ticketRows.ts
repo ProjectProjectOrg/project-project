@@ -189,6 +189,7 @@ export const predictedTicket = (
   type: input.payload.type ?? "other",
   priority: input.prediction.priority ?? "med",
   estimate: null,
+  flag: null,
   tags: input.prediction.tags ?? [],
   branch: null,
   pr: null,

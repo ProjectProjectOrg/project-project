@@ -1,6 +1,7 @@
-import { Flag, Layers, ListPlus, Unlink } from "lucide-react"
+import { Flag, FlagOff, Layers, ListPlus, Stamp, Unlink } from "lucide-react"
 
 import type { Command } from "@/features/command-menu/lib/commands"
+import { openFlagDialog } from "@/features/tickets/atoms/flagTicketDialog"
 import {
   ticketRequest,
   updateTicketDetail
@@ -51,10 +52,48 @@ export const relationCommands: ReadonlyArray<Command> = [
     page: "ticketCreateRelated"
   },
   {
+    id: "ticket.flag",
+    group: "ticketRelations",
+    label: m.tickets_command_flag,
+    icon: Flag,
+    keywords: ["attention", "mark"],
+    tool: "update_ticket",
+    when: (context) =>
+      editable(context) &&
+      context.ticketDetail !== null &&
+      context.ticketDetail.flag === null,
+    run: ({ ticket, ticketDetail }, env) => {
+      if (ticket === null || ticketDetail === null) return
+      openFlagDialog(env, ticket, ticketDetail.title)
+    }
+  },
+  {
+    id: "ticket.unflag",
+    group: "ticketRelations",
+    label: m.tickets_mark_remove_flag,
+    icon: FlagOff,
+    keywords: ["attention", "unflag"],
+    tool: "update_ticket",
+    when: (context) =>
+      editable(context) &&
+      context.ticketDetail !== null &&
+      context.ticketDetail.flag !== null,
+    run: ({ ticket }, env) => {
+      if (ticket === null) return
+      env.execute(
+        updateTicketDetail(
+          ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
+        ),
+        { flag: null }
+      )
+      env.close()
+    }
+  },
+  {
     id: "ticket.mark",
     group: "ticketRelations",
     label: m.tickets_command_mark_as,
-    icon: Flag,
+    icon: Stamp,
     keywords: [
       "relation",
       "link",

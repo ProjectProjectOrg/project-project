@@ -4,6 +4,7 @@ import {
   type ListEdit,
   type Ticket,
   type TicketDetail,
+  type TicketFlag,
   type TicketParent,
   type UpdateTicketInput
 } from "@pp/shared"
@@ -14,14 +15,26 @@ export const parentRef = ({
   type
 }: Pick<Ticket, "id" | "title" | "type">): TicketParent => ({ id, title, type })
 
-export type TicketEdit = Omit<UpdateTicketInput, "parent"> &
-  Readonly<{ parent?: TicketParent | null }>
+export type TicketEdit = Omit<UpdateTicketInput, "parent" | "flag"> &
+  Readonly<{ parent?: TicketParent | null; flag?: TicketFlag | null }>
+
+const flagInput = (
+  flag: TicketFlag | null | undefined
+): Pick<UpdateTicketInput, "flag"> => {
+  if (flag === undefined) return {}
+  if (flag === null) return { flag: null }
+  return { flag: flag.reason === undefined ? {} : { reason: flag.reason } }
+}
 
 export const toUpdateInput = ({
   parent,
+  flag,
   ...edit
-}: TicketEdit): UpdateTicketInput =>
-  parent === undefined ? edit : { ...edit, parent: parent?.id ?? null }
+}: TicketEdit): UpdateTicketInput => ({
+  ...edit,
+  ...(parent === undefined ? {} : { parent: parent?.id ?? null }),
+  ...flagInput(flag)
+})
 
 const composed = <A>(
   pending: ListEdit<A> | undefined,
@@ -60,7 +73,8 @@ export function applyTicketPatch(ticket: Ticket, patch: TicketEdit): Ticket {
       patch.assignees === undefined
         ? ticket.assignees
         : applyListEdit(ticket.assignees, patch.assignees),
-    parent: patch.parent === undefined ? ticket.parent : patch.parent
+    parent: patch.parent === undefined ? ticket.parent : patch.parent,
+    flag: patch.flag === undefined ? ticket.flag : patch.flag
   }
 }
 

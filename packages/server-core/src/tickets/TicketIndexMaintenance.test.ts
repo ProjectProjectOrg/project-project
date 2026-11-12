@@ -80,6 +80,7 @@ describe("ticketIndexRowsFor", () => {
           prBase: "main",
           lastTransitionedPr: 171,
           archivedAt,
+          flag: { reason: "Needs a decision", by: "user-2", at: archivedAt },
           createdBy: "user-4",
           createdAt,
           updatedAt
@@ -110,6 +111,9 @@ describe("ticketIndexRowsFor", () => {
             lastTransitionedPr: 171,
             ignoredBranches: [],
             archivedAt,
+            flagReason: "Needs a decision",
+            flaggedBy: "user-2",
+            flaggedAt: archivedAt,
             createdBy: "user-4",
             createdAt,
             updatedAt

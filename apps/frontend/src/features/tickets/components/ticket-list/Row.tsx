@@ -17,6 +17,7 @@ import {
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { TicketContextMenu } from "@/features/tickets/components/ticket-menu/TicketMenu"
 import {
+  FlagChip,
   RelationChips,
   SubTicketsChip
 } from "@/features/tickets/components/ticket-preview/PreviewChips"
@@ -194,6 +195,7 @@ function RowImpl({
                     </span>
                   </PopoverTrigger>
                 </Link>
+                <FlagChip ticket={ticket} className="ml-1" />
                 <SubTicketsChip ticket={ticket} className="ml-1" />
                 <RelationChips ticket={ticket} className="ml-1" />
               </div>

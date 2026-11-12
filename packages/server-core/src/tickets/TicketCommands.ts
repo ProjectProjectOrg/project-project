@@ -67,6 +67,7 @@ import * as FigmaLinks from "../figma/FigmaLinks"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import type * as Markdown from "../markdown/Markdown"
+import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
@@ -81,6 +82,7 @@ import {
 import * as TicketIndex from "./TicketIndex"
 import {
   applyTicketPatch,
+  clearFlagWhenFinished,
   batchChangeOf,
   breaksEpicSprintRule,
   fieldChangesOf,
@@ -268,6 +270,7 @@ export class TicketCommands extends Context.Service<
 
 const make = Effect.gen(function* () {
   const ticketDocs = yield* TicketDocs.TicketDocs
+  const finishedStatuses = yield* FinishedStatuses
   const ticketActivity = yield* TicketActivity.TicketActivity
   const { withTicketDocumentLock, withTicketWriteLocks } =
     yield* TicketDocumentLock.TicketDocumentLock
@@ -715,7 +718,7 @@ const make = Effect.gen(function* () {
         if (changesRelations) {
           yield* validateOwnedRelations(scope, makeTicketId(id), input)
         }
-        const [, , view, body] = yield* Effect.all(
+        const [, , view, , body] = yield* Effect.all(
           [
             input.status === undefined
               ? Effect.void
@@ -724,6 +727,9 @@ const make = Effect.gen(function* () {
               ? Effect.void
               : validateTagsExist(projectId, listEditAdds(input.tags)),
             gitView,
+            input.flag?.reason === undefined
+              ? Effect.void
+              : validateBody(input.flag.reason, scope),
             input.body === undefined
               ? Effect.succeed(undefined)
               : library
@@ -760,11 +766,12 @@ const make = Effect.gen(function* () {
                   reason: "ticket_body_changed"
                 })
               }
+              const now = yield* DateTime.nowAsDate
               const next = applyTicketPatch(
                 existing,
                 { ...input, body },
                 userId,
-                existing.updatedAt
+                now
               )
               yield* requireTicketChange(ticketChangeOf(existing, next))
               if (input.assignees !== undefined) {
@@ -789,7 +796,7 @@ const make = Effect.gen(function* () {
                   return yield* new Validation({ reason: "epic_in_sprint" })
                 }
               }
-              return { ...next, updatedAt: yield* DateTime.nowAsDate }
+              return next
             }),
           (next) =>
             (input.body === undefined
@@ -1932,6 +1939,7 @@ const make = Effect.gen(function* () {
           { concurrency: 8 }
         )
         const now = yield* DateTime.nowAsDate
+        const finished = yield* finishedStatuses.forProject(orgSlug, slug)
         const patched = originals.map((existing) =>
           applyTicketPatch(existing, fields, userId, now)
         )
@@ -1979,7 +1987,7 @@ const make = Effect.gen(function* () {
         }
         const nexts = originals.map((existing, index) =>
           touchesTickets && !isUnchanged(changes[index])
-            ? patched[index]
+            ? clearFlagWhenFinished(existing, patched[index], finished)
             : existing
         )
 

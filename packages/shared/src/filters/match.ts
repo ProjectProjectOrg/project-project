@@ -21,6 +21,7 @@ export type MatchableTicket = Readonly<{
   estimate: Estimate | null
   parent?: Readonly<{ id: string }> | null
   openBlockerCount?: number
+  flag?: Readonly<{ at: Date }> | null
   archivedAt: Date | null
   updatedAt: Date
 }>
@@ -41,6 +42,13 @@ export const matchesTicketFilter = (
   if (
     filter.blocked !== undefined &&
     (ticket.openBlockerCount ?? 0) > 0 !== filter.blocked
+  ) {
+    return false
+  }
+
+  if (
+    filter.flagged !== undefined &&
+    ((ticket.flag ?? null) !== null) !== filter.flagged
   ) {
     return false
   }

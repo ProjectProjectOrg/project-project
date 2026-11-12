@@ -137,6 +137,7 @@ const fakeTicket = {
   type: "feat" as const,
   priority: "med" as const,
   estimate: null,
+  flag: null,
   tags: [],
   branch: null,
   pr: null,

@@ -53,6 +53,10 @@ _Avoid_: Transfer, migrate (that is the Jira import)
 A link between two tickets in one project: **blocked by** (and its reverse, **blocking**), **related**, or **duplicate of** (and its reverse, **duplicates**). The ticket that waits stores `blockedBy`, a duplicate stores `duplicateOf`, and `relatedTo` stays on the ticket it was added from. A ticket is **blocked** while any blocker is unarchived and not finished. The UI calls setting one a **mark** ("Mark as blocked by…").
 _Avoid_: Link (for relations), dependency (except "blocked by"), issue link
 
+**Flag**:
+A marker that a ticket needs attention, with an optional markdown reason and who set it when. It doesn't change the status and isn't a **Relation**: it points at no other ticket. Moving the ticket to a finished status removes it. The UI sets it from "Mark as → Flagged".
+_Avoid_: Blocked (for a flag), impediment
+
 **Status**:
 A project-defined column a ticket moves through. Projects start with `todo`, `in_progress` and `done` and can add their own.
 

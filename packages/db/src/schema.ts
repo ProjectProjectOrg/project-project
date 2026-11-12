@@ -710,6 +710,9 @@ export const ticketIndex = pgTable(
     checksHeadSha: text("checks_head_sha"),
     checksUpdatedAt: timestamp("checks_updated_at", { withTimezone: true }),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
+    flagReason: text("flag_reason"),
+    flaggedBy: text("flagged_by"),
+    flaggedAt: timestamp("flagged_at", { withTimezone: true }),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull()

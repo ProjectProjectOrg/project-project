@@ -42,6 +42,7 @@ import {
   sprintListRequest,
   sprintMembership
 } from "@/features/sprints/atoms/sprintList"
+import { flagTicketDialog } from "@/features/tickets/atoms/flagTicketDialog"
 import {
   archiveTicket,
   deleteTicket,
@@ -86,6 +87,7 @@ export type TicketMenuTicket = Pick<
   | "archivedAt"
   | "parent"
   | "subTicketCount"
+  | "flag"
 >
 
 export type TicketMenuProps = Readonly<{
@@ -197,6 +199,7 @@ function TicketMenuItems({
   const archived = ticket.archivedAt !== null
   const canPlan = can.planSprints && ticket.type !== "epic"
   const openPage = useOpenTicketPage(ticket.id)
+  const openFlagDialog = useAtomSet(flagTicketDialog)
   const parent = ticket.parent ?? null
   const detachable = parent !== null && can.edit
   const sections = [
@@ -222,7 +225,21 @@ function TicketMenuItems({
         {!archived && can.create && (
           <CreateRelatedSubmenu ticket={ticket} canAttach={can.edit} />
         )}
-        {!archived && can.edit && <MarkAsSubmenu ticketId={ticket.id} />}
+        {!archived && can.edit && (
+          <MarkAsSubmenu
+            ticketId={ticket.id}
+            flagged={ticket.flag !== null}
+            onFlag={() =>
+              openFlagDialog({
+                orgSlug,
+                slug,
+                ticketId: ticket.id,
+                title: ticket.title
+              })
+            }
+            onUnflag={() => onPatch({ flag: null })}
+          />
+        )}
         <RelationsSubmenu
           ticketId={ticket.id}
           parent={parent}
