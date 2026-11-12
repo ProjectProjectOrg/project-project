@@ -480,6 +480,7 @@
   "tickets_type_chore": "Chore",
   "tickets_type_epic": "Epic",
   "tickets_type_feat": "Feature",
+  "tickets_type_none": "No type",
   "tickets_type_other": "Other",
   "tickets_unarchive_action_aria_label": "Unarchive ticket",
   "tickets_unarchive_button": "Unarchive",
