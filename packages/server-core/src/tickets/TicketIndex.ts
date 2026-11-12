@@ -16,7 +16,8 @@ import {
   type PullRequestState,
   type TicketPriority,
   type TicketParent,
-  type TicketType,
+  type TypeKey,
+  NO_TYPE_FILTER,
   ESTIMATE_SIZES,
   EPIC_SECTION_NONE,
   Estimate,
@@ -39,6 +40,7 @@ import {
   type TicketSort,
   type TicketRelations,
   type ParentFilter,
+  type TypeFilter,
   TicketStatus,
   EPIC_TYPE
 } from "@pp/shared"
@@ -104,6 +106,7 @@ export interface TicketIndexCountOptions {
   readonly viewerId: string
   readonly ticketIds?: ReadonlyArray<string>
   readonly excludeTicketIds?: ReadonlyArray<string>
+  readonly excludeEpics?: boolean
 }
 
 export interface TicketIndexCounts {
@@ -115,7 +118,7 @@ export type TicketIndexEntry = Readonly<{
   id: TicketId
   title: string
   status: TicketStatus
-  type: TicketType
+  type: TypeKey | null
   priority: TicketPriority
   estimate: Estimate | null
   tags: ReadonlyArray<TagName>
@@ -649,7 +652,7 @@ const ticketParentSection = drizzleSql`coalesce((
   from ${ticketIndex} as ${parentTicketRow}
   where ${columnOf(parentTicketRow, ticketIndex.projectId)} = ${columnOf(parentRow, ticketIndex.projectId)}
     and ${columnOf(parentTicketRow, ticketIndex.ticketId)} = ${columnOf(parentRow, ticketIndex.parent)}
-    and ${columnOf(parentTicketRow, ticketIndex.type)} <> 'epic'
+    and ${columnOf(parentTicketRow, ticketIndex.type)} is distinct from 'epic'
 ), ${EPIC_SECTION_NONE}::text)`
 
 const ticketParentSectionCondition = (
@@ -771,13 +774,23 @@ type EntryRow = TicketIndexRow &
     duplicateCount: number
   }>
 
+const notEpic = drizzleSql`${ticketIndex.type} is distinct from ${EPIC_TYPE}`
+
+const typeCondition = (types: ReadonlyArray<TypeFilter>): SQL => {
+  const keys = types.flatMap((type) => (type === NO_TYPE_FILTER ? [] : [type]))
+  const conditions: Array<SQL> = []
+  if (types.includes(NO_TYPE_FILTER)) conditions.push(isNull(ticketIndex.type))
+  if (keys.length > 0) conditions.push(inArray(ticketIndex.type, keys))
+  return or(...conditions) ?? drizzleSql`false`
+}
+
 const attachableConditions = (
   attachable: TicketIndexAttachable | undefined
 ): ReadonlyArray<SQL> =>
   attachable === undefined
     ? []
     : [
-        ne(ticketIndex.type, EPIC_TYPE),
+        notEpic,
         ne(ticketIndex.ticketId, attachable.parent),
         drizzleSql`${ticketIndex.parent} is distinct from ${attachable.parent}`,
         ...(attachable.leavesOnly
@@ -831,6 +844,7 @@ interface TicketWhereOptions {
   readonly viewerId: string
   readonly ticketIds?: ReadonlyArray<string>
   readonly excludeTicketIds?: ReadonlyArray<string>
+  readonly excludeEpics?: boolean
   readonly nestWithin?: NestWithin
 }
 
@@ -886,12 +900,9 @@ const ticketWhereConditions = (
     conditions.push(statusCondition(filter.status))
   }
   if (filter?.type !== undefined) {
-    conditions.push(
-      filter.type.length === 0
-        ? drizzleSql`false`
-        : inArray(ticketIndex.type, [...filter.type])
-    )
+    conditions.push(typeCondition(filter.type))
   }
+  if (options.excludeEpics) conditions.push(notEpic)
   if (filter?.assignee !== undefined) {
     const assignees = filter.assignee.map((assignee) =>
       assignee === "mine" ? options.viewerId : assignee
@@ -943,7 +954,7 @@ const ticketWhereConditions = (
   }
   if (filter?.subTickets === "nested") {
     const matchingParents = and(
-      ne(ticketIndex.type, EPIC_TYPE),
+      notEpic,
       ...ticketWhereConditions(
         project,
         { ...query, subTickets: "flat" },
@@ -1036,7 +1047,7 @@ const make = Effect.gen(function* () {
     checksUpdatedAt: row.checksUpdatedAt,
     assignees: row.assignees,
     parent:
-      row.parent === null || row.parentTitle === null || row.parentType === null
+      row.parent === null || row.parentTitle === null
         ? null
         : {
             id: makeTicketId(row.parent),

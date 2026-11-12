@@ -10,7 +10,8 @@ import {
   NotFound,
   ProjectScope,
   Slug,
-  TagName
+  TagName,
+  TypeKey
 } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
@@ -321,7 +322,7 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
 
   it.effect("refuses an epic that still has tickets", () => {
     const { documents, put, layer } = fixture()
-    put(makeTicketDocument("T-1", { type: "epic" }))
+    put(makeTicketDocument("T-1", { type: TypeKey.make("epic") }))
     put(makeTicketDocument("T-2", { parent: ticketId("T-1") }))
     return run(
       layer,

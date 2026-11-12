@@ -5,7 +5,7 @@ import * as BunCrypto from "@effect/platform-bun/BunCrypto"
 import { it } from "@effect/vitest"
 import { DbLive, migrationsFolder, PgLive } from "@pp/db"
 import { commentIndex } from "@pp/db/schema"
-import { EMPTY_TICKET_RELATIONS } from "@pp/shared"
+import { EMPTY_TICKET_RELATIONS, TypeKey } from "@pp/shared"
 import {
   ActivityActor,
   CommentId,
@@ -66,7 +66,7 @@ const document: TicketDocs.TicketDocument = {
   id: ticketId("T-1"),
   title: "Comments",
   status: ticketStatus("todo"),
-  type: "chore",
+  type: TypeKey.make("chore"),
   priority: "med",
   tags: [],
   branch: null,

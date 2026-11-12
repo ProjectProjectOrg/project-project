@@ -48,12 +48,10 @@ import {
   type TicketSections,
   type TicketSort,
   type TicketSprintSections,
-  TicketType,
   type User,
   UserId,
   EPIC_TYPE,
-  isEpic,
-  isEpicType
+  isEpic
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
@@ -940,9 +938,7 @@ const make = Effect.gen(function* () {
 
   const parentSectionQuery = (query: TicketListQuery): TicketListQuery => ({
     ...query,
-    type: (query.type?.length ? query.type : TicketType.literals).filter(
-      (type) => !isEpicType(type)
-    ),
+    type: query.type?.length ? query.type : undefined,
     parent: undefined,
     groupId: undefined,
     cursor: undefined
@@ -960,6 +956,7 @@ const make = Effect.gen(function* () {
         parentSectionQuery(query),
         {
           viewerId: scope.userId,
+          excludeEpics: true,
           ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet],
           limit: TICKET_LIST_LIMIT + 1,
           sections
@@ -1198,6 +1195,7 @@ const make = Effect.gen(function* () {
           { concurrency: "unbounded" }
         )
         return yield* find(parentSectionQuery(query), {
+          excludeEpics: true,
           ticketIds: members === null ? undefined : [...members],
           sections: { kind: "parent", keys: wanted.map(({ key }) => key) },
           within
@@ -1210,6 +1208,7 @@ const make = Effect.gen(function* () {
           yield* parentSectionsOf(scope, query, "ticketParent", members)
         )
         return yield* find(parentSectionQuery(query), {
+          excludeEpics: true,
           ticketIds: members === null ? undefined : [...members],
           sections: {
             kind: "ticketParent",

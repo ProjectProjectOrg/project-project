@@ -2,7 +2,7 @@ import {
   canHoldChildren,
   Validation,
   type TicketId,
-  type TicketType,
+  type TypeKey,
   isEpic,
   isEpicType
 } from "@pp/shared"
@@ -10,7 +10,7 @@ import * as Effect from "effect/Effect"
 
 export type HierarchyNode = Readonly<{
   id: TicketId
-  type: TicketType
+  type: TypeKey | null
   parent: TicketId | null
   archivedAt: Date | null
 }>
@@ -22,8 +22,8 @@ export type HierarchyLookups = Readonly<{
 
 export type HierarchyChange = Readonly<{
   id: TicketId | null
-  fromType: TicketType | null
-  type: TicketType
+  fromType: TypeKey | null
+  type: TypeKey | null
   parent: TicketId | undefined
   parentChanged: boolean
 }>
@@ -66,8 +66,7 @@ export const validateHierarchy = (
         ? yield* validParent(lookups, change.id, change.parent)
         : null
     const becomesSubTicket = parent !== null && !isEpic(parent)
-    const changesEpicness =
-      change.fromType !== null && isEpicType(change.fromType) !== isEpic(change)
+    const changesEpicness = isEpicType(change.fromType) !== isEpic(change)
     if (
       change.id !== null &&
       (becomesSubTicket || changesEpicness) &&

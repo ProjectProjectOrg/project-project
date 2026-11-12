@@ -1,4 +1,4 @@
-import { TagName, TicketId, TicketStatus } from "@pp/shared"
+import { TagName, TicketId, TicketStatus, TypeKey } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
@@ -26,7 +26,7 @@ const existing: TicketDocs.TicketDocument = {
   id: ticketId("T-2"),
   title: "Checkout",
   status: ticketStatus("todo"),
-  type: "feat",
+  type: TypeKey.make("feat"),
   priority: "med",
   estimate: { unit: "points", value: 3 },
   tags: [tagName("core")],
@@ -60,7 +60,7 @@ describe("applyTicketPatch", () => {
       {
         title: "Pay",
         status: ticketStatus("done"),
-        type: "bug",
+        type: TypeKey.make("bug"),
         priority: "high",
         estimate: { unit: "points", value: 5 },
         tags: [],
@@ -74,7 +74,7 @@ describe("applyTicketPatch", () => {
     expect(next).toMatchObject({
       title: "Pay",
       status: "done",
-      type: "bug",
+      type: TypeKey.make("bug"),
       priority: "high",
       estimate: { unit: "points", value: 5 },
       tags: [],
@@ -196,7 +196,7 @@ describe("batchChangeOf", () => {
 
 describe("breaksEpicSprintRule", () => {
   const ticket = existing
-  const epic = { ...existing, type: "epic" as const }
+  const epic = { ...existing, type: TypeKey.make("epic") }
   const cases: ReadonlyArray<
     readonly [
       string,
@@ -330,24 +330,29 @@ describe("revertTicketPatch", () => {
   })
 
   it("keeps type and parent together when someone changed one of them", () => {
-    const epic = { ...existing, type: "epic" as const, parent: undefined }
-    const demoted = applyTicketPatch(epic, { type: "feat" }, "user-2", now)
+    const epic = { ...existing, type: TypeKey.make("epic"), parent: undefined }
+    const demoted = applyTicketPatch(
+      epic,
+      { type: TypeKey.make("feat") },
+      "user-2",
+      now
+    )
     const current = { ...demoted, parent: ticketId("T-7"), updatedAt: later }
     expect(revertTicketPatch(epic, demoted, current)).toBeNull()
   })
 
   it("still reverts other fields when type and parent can't be reverted", () => {
-    const epic = { ...existing, type: "epic" as const, parent: undefined }
+    const epic = { ...existing, type: TypeKey.make("epic"), parent: undefined }
     const demoted = applyTicketPatch(
       epic,
-      { type: "feat", priority: "high" },
+      { type: TypeKey.make("feat"), priority: "high" },
       "user-2",
       now
     )
     const current = { ...demoted, parent: ticketId("T-7"), updatedAt: later }
     expect(revertTicketPatch(epic, demoted, current)).toMatchObject({
       priority: epic.priority,
-      type: "feat",
+      type: TypeKey.make("feat"),
       parent: "T-7"
     })
   })
@@ -368,12 +373,17 @@ describe("hierarchyChangeOf", () => {
     expect(
       hierarchyChangeOf(
         existing,
-        applyTicketPatch(existing, { type: "epic", parent: null }, "u", now)
+        applyTicketPatch(
+          existing,
+          { type: TypeKey.make("epic"), parent: null },
+          "u",
+          now
+        )
       )
     ).toEqual({
       id: "T-2",
       fromType: "feat",
-      type: "epic",
+      type: TypeKey.make("epic"),
       parent: undefined,
       parentChanged: true
     })

@@ -29,7 +29,7 @@ export const applyTicketPatch = (
   ...existing,
   title: patch.title ?? existing.title,
   status: patch.status ?? existing.status,
-  type: patch.type ?? existing.type,
+  type: patch.type === undefined ? existing.type : patch.type,
   parent:
     patch.parent === undefined ? existing.parent : (patch.parent ?? undefined),
   priority: patch.priority ?? existing.priority,

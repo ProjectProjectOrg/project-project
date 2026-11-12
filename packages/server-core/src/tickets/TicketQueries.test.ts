@@ -5,7 +5,8 @@ import {
   GroupDetail,
   GroupId,
   TICKET_LIST_LIMIT,
-  type TicketListQuery
+  type TicketListQuery,
+  TypeKey
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -187,10 +188,10 @@ it.effect("epicSections groups tickets under their epic, then No epic", () => {
   const docs = makeFakeTicketDocs([])
   const add = (id: string, overrides: Partial<TicketDocs.TicketDocument>) =>
     docs.documents.set(id, makeTicketDocument(id, overrides))
-  add("T-1", { type: "epic", title: "Estimation" })
+  add("T-1", { type: TypeKey.make("epic"), title: "Estimation" })
   add("T-2", { title: "Estimate field", parent: ticketId("T-1") })
   add("T-3", { title: "Passkeys" })
-  add("T-4", { type: "epic", title: "Access control" })
+  add("T-4", { type: TypeKey.make("epic"), title: "Access control" })
   const layer = makeTicketsLayer("T", docs.layer, {
     ticketIndex: makeFakeTicketIndex(docs.documents)
   })
@@ -221,7 +222,7 @@ it.effect(
     const docs = makeFakeTicketDocs([])
     const add = (id: string, overrides: Partial<TicketDocs.TicketDocument>) =>
       docs.documents.set(id, makeTicketDocument(id, overrides))
-    add("T-1", { type: "epic", title: "Estimation" })
+    add("T-1", { type: TypeKey.make("epic"), title: "Estimation" })
     add("T-2", { title: "Estimate field", parent: ticketId("T-1") })
     add("T-3", { title: "Field validation", parent: ticketId("T-2") })
     add("T-4", { title: "Passkeys" })
@@ -628,35 +629,44 @@ it.effect("count still applies non-status filters", () => {
   const { documents, layer } = makeTicketsFixture("T", [])
   documents.set(
     "T-1",
-    makeTicketDocument("T-1", { status: ticketStatus("todo"), type: "feat" })
+    makeTicketDocument("T-1", {
+      status: ticketStatus("todo"),
+      type: TypeKey.make("feat")
+    })
   )
   documents.set(
     "T-2",
     makeTicketDocument("T-2", {
       status: ticketStatus("in_progress"),
-      type: "feat"
+      type: TypeKey.make("feat")
     })
   )
   documents.set(
     "T-3",
-    makeTicketDocument("T-3", { status: ticketStatus("done"), type: "feat" })
+    makeTicketDocument("T-3", {
+      status: ticketStatus("done"),
+      type: TypeKey.make("feat")
+    })
   )
   documents.set(
     "T-4",
-    makeTicketDocument("T-4", { status: ticketStatus("todo"), type: "bug" })
+    makeTicketDocument("T-4", {
+      status: ticketStatus("todo"),
+      type: TypeKey.make("bug")
+    })
   )
   documents.set(
     "T-5",
     makeTicketDocument("T-5", {
       status: ticketStatus("in_progress"),
-      type: "bug"
+      type: TypeKey.make("bug")
     })
   )
 
   return Effect.gen(function* () {
     const queries = yield* TicketQueries.TicketQueries
     const result = yield* queries.count({
-      type: ["bug"]
+      type: [TypeKey.make("bug")]
     })
     expect(result).toEqual({
       total: 2,
