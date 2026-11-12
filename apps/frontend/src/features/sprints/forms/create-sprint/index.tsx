@@ -19,6 +19,7 @@ import { fireMutation } from "@/api/viewMutation"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Composer } from "@/components/ui/composer"
+import { Input } from "@/components/ui/input"
 import {
   Popover,
   PopoverContent,
@@ -163,7 +164,8 @@ export function CreateSprintForm({
         </Title>
       </Composer.Header>
       <Composer.Title>
-        <Composer.TitleInput
+        <Input
+          variant="composer-title"
           autoFocus
           aria-label={m.sprints_new_name_placeholder()}
           placeholder={m.sprints_new_name_placeholder()}

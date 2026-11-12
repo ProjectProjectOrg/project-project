@@ -21,21 +21,6 @@ function Title({ className, ...props }: Readonly<ComponentProps<"div">>) {
   )
 }
 
-function TitleInput({
-  className,
-  ...props
-}: Readonly<ComponentProps<"input">>) {
-  return (
-    <input
-      className={cn(
-        "w-full bg-transparent outline-none placeholder:text-muted-foreground",
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
 function Body({ className, ...props }: Readonly<ComponentProps<"div">>) {
   return (
     <div
@@ -99,7 +84,6 @@ function Footer({ className, ...props }: Readonly<ComponentProps<"div">>) {
 export const Composer = {
   Header,
   Title,
-  TitleInput,
   Body,
   Chips,
   Hint,

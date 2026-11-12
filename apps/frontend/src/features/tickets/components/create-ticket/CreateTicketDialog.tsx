@@ -33,6 +33,7 @@ import {
   DialogContent,
   DialogTitle
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
@@ -232,7 +233,8 @@ function CreateTicketForm({
         )}
       </Composer.Header>
       <Composer.Title>
-        <Composer.TitleInput
+        <Input
+          variant="composer-title"
           aria-label={m.tickets_create_title_aria_label()}
           aria-required
           placeholder={m.tickets_create_dialog_title_placeholder()}

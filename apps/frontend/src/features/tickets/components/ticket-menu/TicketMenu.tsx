@@ -48,7 +48,6 @@ import {
   ticketRequest,
   unarchiveTicket
 } from "@/features/tickets/atoms/ticketDetail"
-import { ArchiveForm } from "@/features/tickets/components/ticket-list/ArchiveControl"
 import {
   MarkAsSubmenu,
   RelationsSubmenu
@@ -57,6 +56,7 @@ import {
   SaveAsTemplateMenuItem,
   SaveAsTemplatePopover
 } from "@/features/tickets/components/ticket-page/SaveAsTemplatePopover"
+import { ArchiveForm } from "@/features/tickets/forms/archive-ticket"
 import type { SaveAsTemplateProps } from "@/features/tickets/forms/save-as-template"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { ticketPermissions } from "@/features/tickets/lib/ticketPermissions"

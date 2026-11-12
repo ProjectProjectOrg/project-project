@@ -194,7 +194,7 @@ export function SendFeedbackForm({
               <Composer.Title className="grid leading-6">
                 <Input
                   ref={titleRef}
-                  variant="bare"
+                  variant="composer-title"
                   autoFocus
                   value={field.value}
                   maxLength={200}
@@ -205,7 +205,7 @@ export function SendFeedbackForm({
                   onBlur={field.handleBlur}
                   onKeyDown={sendOnModEnter}
                   onPaste={attachPasted}
-                  className="col-start-1 row-start-1 text-title leading-6"
+                  className="col-start-1 row-start-1 leading-6"
                 />
                 {field.value === "" ? (
                   <TitlePlaceholder
