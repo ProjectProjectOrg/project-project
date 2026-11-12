@@ -31,8 +31,16 @@ export function useKeyboardMode(
       delete element.dataset.keyboardNavigation
       latest.current(event, wasNavigating)
     }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Tab" || event.key === "F2")
+        root.current?.removeAttribute("data-keyboard-navigation")
+    }
     document.addEventListener("pointermove", onPointerMove, { passive: true })
-    return () => document.removeEventListener("pointermove", onPointerMove)
+    document.addEventListener("keydown", onKeyDown, true)
+    return () => {
+      document.removeEventListener("pointermove", onPointerMove)
+      document.removeEventListener("keydown", onKeyDown, true)
+    }
   }, [root])
 
   return start
