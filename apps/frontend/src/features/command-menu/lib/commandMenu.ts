@@ -141,13 +141,15 @@ export const deselectFromCommandMenu = (
   ticketId: TicketId
 ): CommandMenuState => {
   const selection = state.selection.filter((each) => each.id !== ticketId)
-  const [only] = selection
-  if (selection.length > 1 || only === undefined) return { ...state, selection }
+  const [first] = selection
+  if (first === undefined) return { ...state, selection }
   return {
     ...state,
-    selection: [],
+    selection: selection.length > 1 ? selection : [],
     ticket:
-      state.ticket === null ? null : { ...state.ticket, ticketId: only.id }
+      state.ticket === null || state.ticket.ticketId !== ticketId
+        ? state.ticket
+        : { ...state.ticket, ticketId: first.id }
   }
 }
 

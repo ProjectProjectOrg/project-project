@@ -103,6 +103,17 @@ describe("deselectFromCommandMenu", () => {
     expect(currentCommandPage(one)).toBe("ticketSprint")
   })
 
+  it("retargets the menu when its ticket is deselected", () => {
+    const opened = openCommandMenu(ticket, "root", [
+      selected("T-1"),
+      selected("T-2"),
+      selected("T-3")
+    ])
+    const next = deselectFromCommandMenu(opened, selected("T-1").id)
+    expect(next.selection.map((each) => each.id)).toEqual(["T-2", "T-3"])
+    expect(next.ticket?.ticketId).toBe("T-2")
+  })
+
   it("opens single-ticket pages on the ticket alone", () => {
     const opened = openCommandMenu(ticket, "ticketMove", [
       selected("T-1"),
