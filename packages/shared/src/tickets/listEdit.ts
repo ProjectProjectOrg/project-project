@@ -26,6 +26,30 @@ export const applyListEdit = <A>(
   return [...new Set([...kept, ...(edit.add ?? [])])]
 }
 
+export const composeListEdit = <A>(
+  first: ListEdit<A>,
+  then: ListEdit<A>
+): ListEdit<A> => {
+  if (isReplacement(then)) return then
+  if (isReplacement(first)) return applyListEdit(first, then)
+  const added = new Set(then.add)
+  const removed = new Set(then.remove)
+  return {
+    add: [
+      ...new Set([
+        ...(first.add ?? []).filter((value) => !removed.has(value)),
+        ...added
+      ])
+    ],
+    remove: [
+      ...new Set([
+        ...(first.remove ?? []).filter((value) => !added.has(value)),
+        ...removed
+      ])
+    ]
+  }
+}
+
 export const listEditAdds = <A>(edit: ListEdit<A>): ReadonlyArray<A> =>
   isReplacement(edit) ? edit : (edit.add ?? [])
 

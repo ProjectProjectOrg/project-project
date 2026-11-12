@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { applyListEdit, listEditBetween } from "./listEdit"
+import { applyListEdit, composeListEdit, listEditBetween } from "./listEdit"
 
 describe("applyListEdit", () => {
   it("replaces the list when given one", () => {
@@ -11,6 +11,17 @@ describe("applyListEdit", () => {
     expect(
       applyListEdit(["a", "b", "c"], { add: ["d", "a"], remove: ["b", "x"] })
     ).toEqual(["a", "c", "d"])
+  })
+})
+
+describe("composeListEdit", () => {
+  it("ends with the same values as applying both edits in order", () => {
+    const current = ["a", "b"]
+    const first = { add: ["c"], remove: ["a"] }
+    const then = { add: ["a"], remove: ["b"] }
+    expect(
+      applyListEdit(current, composeListEdit(first, then)).toSorted()
+    ).toEqual(applyListEdit(applyListEdit(current, first), then).toSorted())
   })
 })
 

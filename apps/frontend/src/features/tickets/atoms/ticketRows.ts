@@ -6,6 +6,7 @@ import * as Atom from "effect/reactivity/Atom"
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
 import { coalescingMutation, type OptimisticView } from "@/api/viewMutation"
 import {
+  mergeTicketEdit,
   type TicketEdit,
   toUpdateInput
 } from "@/features/tickets/lib/ticketPatch"
@@ -137,6 +138,7 @@ export const coalescingTicketUpdate = <V, VE>(
     name: update.name,
     idleTTL: update.idleTTL ?? "2 minutes",
     predict: update.predict,
+    merge: mergeTicketEdit,
     call: (client, edit: TicketEdit) =>
       client.tickets.update({
         params: update.path,

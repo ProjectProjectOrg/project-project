@@ -45,7 +45,10 @@ const kindOf = (schema: unknown): FieldKind => {
     const options = schema.anyOf.filter((option) => !isNull(option))
     const kinds = new Set(options.map(kindOf))
     const [only] = kinds
-    return kinds.size === 1 && only !== undefined ? only : "json"
+    if (kinds.size === 1 && only !== undefined) return only
+    return kinds.size === 2 && kinds.has("strings") && kinds.has("json")
+      ? "strings"
+      : "json"
   }
   if (!isTyped(schema)) return "json"
   if (schema.type !== "array") return schema.type

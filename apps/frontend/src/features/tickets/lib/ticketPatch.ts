@@ -1,5 +1,7 @@
 import {
   applyListEdit,
+  composeListEdit,
+  type ListEdit,
   type Ticket,
   type TicketDetail,
   type TicketParent,
@@ -20,6 +22,26 @@ export const toUpdateInput = ({
   ...edit
 }: TicketEdit): UpdateTicketInput =>
   parent === undefined ? edit : { ...edit, parent: parent?.id ?? null }
+
+const composed = <A>(
+  pending: ListEdit<A> | undefined,
+  next: ListEdit<A> | undefined
+) =>
+  pending === undefined || next === undefined
+    ? (next ?? pending)
+    : composeListEdit(pending, next)
+
+export const mergeTicketEdit = (
+  pending: TicketEdit,
+  next: TicketEdit
+): TicketEdit => {
+  return {
+    ...pending,
+    ...next,
+    tags: composed(pending.tags, next.tags),
+    assignees: composed(pending.assignees, next.assignees)
+  }
+}
 
 /** Apply a server patch to a list row. Fields absent from the patch are kept. */
 export function applyTicketPatch(ticket: Ticket, patch: TicketEdit): Ticket {
