@@ -25,7 +25,6 @@ type ScopeBoxProps = Readonly<{
   scope: LibraryScope
   kind: LibraryKind
   entry: Readonly<{ key: string; name: string }>
-  orgName: string
   view: EntryView
   actions: ScopeActions
 }>
@@ -62,13 +61,7 @@ const upstreamNotice = ({
   return noticeText(view.notice, kind)
 }
 
-const copyFor = ({
-  scope,
-  kind,
-  entry,
-  orgName,
-  view
-}: ScopeBoxProps): Copy => {
+const copyFor = ({ scope, kind, entry, view }: ScopeBoxProps): Copy => {
   const name = entry.name
   const quiet = "mt-0.5 size-4 shrink-0 text-muted-foreground"
   const changed = "mt-0.5 size-4 shrink-0 text-state-warning"
@@ -85,7 +78,7 @@ const copyFor = ({
     if (view.standing === "shared")
       return {
         icon: <Building2 aria-hidden className={quiet} />,
-        title: m.templates_types_shared_title({ name, org: orgName }),
+        title: m.templates_types_shared_title({ name }),
         body:
           view.canFork || view.canEditUpstream
             ? m.templates_types_shared_body()
@@ -97,8 +90,8 @@ const copyFor = ({
         title: m.templates_types_changed_title(),
         body:
           kind === "type"
-            ? m.templates_types_changed_body({ name, org: orgName })
-            : m.templates_sections_changed_body({ org: orgName })
+            ? m.templates_types_changed_body({ name })
+            : m.templates_sections_changed_body()
       }
     return {
       icon: <Folder aria-hidden className={quiet} />,

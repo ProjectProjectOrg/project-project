@@ -98,6 +98,11 @@ function LibraryContent({
           </p>
         )}
       </div>
+      <p className="-mt-2 max-w-2xl text-body text-muted-foreground">
+        {tab === "types"
+          ? m.templates_types_tab_types_intro()
+          : m.templates_types_tab_sections_intro()}
+      </p>
       {scope.layer === "org" ? (
         tab === "types" ? (
           <OrgTypeList scope={scope} library={library} />

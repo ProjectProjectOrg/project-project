@@ -22,7 +22,6 @@ import {
   removeTypeAtom,
   type LibraryScope
 } from "../atoms/libraryScope"
-import { useOrgName } from "../hooks/useLibraryPermissions"
 import { templateSketch } from "../lib/blockSketchModel"
 import {
   groupEntries,
@@ -150,14 +149,13 @@ function EntryGroups({
   own: ReadonlyArray<ReactNode>
   hidden: ReadonlyArray<ReactNode>
 }>) {
-  const orgName = useOrgName(scope.req.params.orgSlug)
   const canCreate = permissions.project || permissions.org
   return (
     <div className="flex flex-col gap-8">
       <section className="flex flex-col gap-3">
         <GroupHeading
           icon={<Building2 aria-hidden className="size-3.5" />}
-          title={m.templates_types_group_shared({ org: orgName })}
+          title={m.templates_types_group_shared()}
           note={m.templates_types_group_shared_note()}
           action={
             permissions.org ? (

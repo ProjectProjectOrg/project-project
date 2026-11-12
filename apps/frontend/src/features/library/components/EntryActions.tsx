@@ -10,17 +10,19 @@ type Outcome = Exit.Exit<unknown, unknown>
 
 export function EntryActions({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <div className="flex flex-col items-start gap-1 empty:hidden">
+    <div className="flex flex-col items-start gap-2 border-t border-border/60 pt-4 empty:hidden">
       {children}
     </div>
   )
 }
 
 export function HideEntryButton({
+  note,
   waiting,
   error,
   onHide
 }: Readonly<{
+  note: string
   waiting: boolean
   error: string | null
   onHide: () => void
@@ -29,14 +31,14 @@ export function HideEntryButton({
     <>
       <Button
         type="button"
-        variant="ghost"
+        variant="tertiary"
         size="sm"
-        bleed="start"
         className={cn(waiting && "animate-pulse")}
         onClick={onHide}
       >
         {m.templates_types_hide()}
       </Button>
+      <p className="mb-2 text-caption text-muted-foreground">{note}</p>
       {error === null ? null : (
         <p role="alert" className="text-caption text-destructive">
           {error}
@@ -53,9 +55,8 @@ export function DeleteEntryTrigger({
   return (
     <Button
       type="button"
-      variant="ghost"
+      variant="tertiary"
       size="sm"
-      bleed="start"
       className="text-destructive hover:text-destructive"
       onClick={onClick}
     >
@@ -77,9 +78,8 @@ export function DeleteEntryConfirm({
     <ConfirmButton.Root className="flex-wrap">
       <ConfirmButton.Trigger
         type="button"
-        variant="ghost"
+        variant="tertiary"
         size="sm"
-        bleed="start"
         className="text-destructive hover:text-destructive"
       >
         {label}

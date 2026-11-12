@@ -166,9 +166,7 @@ function ChoiceTrigger({
   return (
     <SelectTrigger
       aria-label={ariaLabel}
-      render={
-        <Button type="button" variant="chip" size="sm" className="-ml-1.5" />
-      }
+      render={<Button type="button" variant="chip" size="sm" bleed="start" />}
     >
       {icon}
       <span>{label}</span>
@@ -308,6 +306,7 @@ function ProjectTagPicker({
             type="button"
             variant="ghost"
             size="xs"
+            bleed="start"
             leadingIcon={Plus}
             aria-label={m.templates_editor_tag_add()}
           >
@@ -410,3 +409,17 @@ export function TemplateTagsField({
 }
 
 export const MUTED_VALUE_CLASS = "text-body text-muted-foreground"
+
+export function AsideGroup({
+  heading,
+  children
+}: Readonly<{ heading?: string; children: ReactNode }>) {
+  return (
+    <section className="flex flex-col gap-4 border-t border-border/60 pt-4 first:border-t-0 first:pt-0 empty:hidden">
+      {heading === undefined ? null : (
+        <h3 className="text-caption font-semibold">{heading}</h3>
+      )}
+      {children}
+    </section>
+  )
+}

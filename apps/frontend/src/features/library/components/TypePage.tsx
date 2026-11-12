@@ -23,15 +23,13 @@ import {
   removeTypeAtom,
   type LibraryScope
 } from "../atoms/libraryScope"
-import {
-  useLibraryPermissions,
-  useOrgName
-} from "../hooks/useLibraryPermissions"
+import { useLibraryPermissions } from "../hooks/useLibraryPermissions"
 import { saveTypeTask, useLibrarySave } from "../hooks/useLibrarySave"
 import { entryView, type EntryView } from "../lib/entryStanding"
 import { typeDraftOf } from "../lib/libraryModel"
 import { BlockIconGlyph } from "./BlockIconGlyph"
 import {
+  AsideGroup,
   CommitInput,
   IconAndColorField,
   MUTED_VALUE_CLASS,
@@ -93,7 +91,6 @@ function TypeEntry({
   typeKey
 }: Readonly<{ scope: LibraryScope; library: Library; typeKey: TypeKey }>) {
   const permissions = useLibraryPermissions(scope, library)
-  const orgName = useOrgName(scope.req.params.orgSlug)
   const forkAtom = createTypeAtom(scope)
   const restoreAtom = removeTypeAtom(scope, typeKey)
   const fork = useAtomSet(forkAtom, { mode: "promiseExit" })
@@ -126,7 +123,6 @@ function TypeEntry({
           scope={scope}
           kind="type"
           entry={type}
-          orgName={orgName}
           view={view}
           actions={{
             fork: () => fork(typeDraftOf(type)),
@@ -215,47 +211,53 @@ function TypeEditor({
       }
       aside={
         <>
-          <MetaRow label={m.templates_editor_icon_label()}>
-            <IconAndColorField
-              icon={type.icon}
-              color={type.color}
-              onIcon={(icon) => patch({ icon })}
-              onColor={(color) => patch({ color })}
-              disabled={!editable}
-            />
-          </MetaRow>
-          <MetaRow label={m.templates_editor_description_label()}>
-            {editable ? (
-              <CommitInput
-                value={type.description}
-                onCommit={(description) => patch({ description })}
-                ariaLabel={m.templates_editor_description_label()}
-                placeholder={m.templates_editor_description_placeholder()}
-                maxLength={200}
+          <AsideGroup>
+            <MetaRow label={m.templates_editor_icon_label()}>
+              <IconAndColorField
+                icon={type.icon}
+                color={type.color}
+                onIcon={(icon) => patch({ icon })}
+                onColor={(color) => patch({ color })}
+                disabled={!editable}
               />
-            ) : (
-              <span className={MUTED_VALUE_CLASS}>
-                {type.description === ""
-                  ? m.templates_editor_none()
-                  : type.description}
-              </span>
-            )}
-          </MetaRow>
-          <MetaRow label={m.templates_editor_priority_label()}>
-            <NullablePriorityField
-              value={type.priority}
-              onChange={(priority) => patch({ priority })}
-              disabled={!editable}
-            />
-          </MetaRow>
-          <MetaRow label={m.templates_editor_tags_label()}>
-            <TemplateTagsField
-              scope={scope}
-              value={type.tags}
-              onChange={(tags) => patch({ tags })}
-              disabled={!editable}
-            />
-          </MetaRow>
+            </MetaRow>
+            <MetaRow label={m.templates_editor_description_label()}>
+              {editable ? (
+                <CommitInput
+                  value={type.description}
+                  onCommit={(description) => patch({ description })}
+                  ariaLabel={m.templates_editor_description_label()}
+                  placeholder={m.templates_editor_description_placeholder()}
+                  maxLength={200}
+                />
+              ) : (
+                <span className={MUTED_VALUE_CLASS}>
+                  {type.description === ""
+                    ? m.templates_editor_none()
+                    : type.description}
+                </span>
+              )}
+            </MetaRow>
+          </AsideGroup>
+          <AsideGroup
+            heading={m.templates_types_defaults_heading({ name: type.name })}
+          >
+            <MetaRow label={m.templates_editor_priority_label()}>
+              <NullablePriorityField
+                value={type.priority}
+                onChange={(priority) => patch({ priority })}
+                disabled={!editable}
+              />
+            </MetaRow>
+            <MetaRow label={m.templates_editor_tags_label()}>
+              <TemplateTagsField
+                scope={scope}
+                value={type.tags}
+                onChange={(tags) => patch({ tags })}
+                disabled={!editable}
+              />
+            </MetaRow>
+          </AsideGroup>
           <TypeActions
             scope={scope}
             library={library}
@@ -306,6 +308,7 @@ function HideType({
   const state = useAtomValue(mutation)
   return (
     <HideEntryButton
+      note={m.templates_types_hide_note()}
       waiting={state.waiting}
       error={mutationErrorText(state)}
       onHide={() => void hide()}

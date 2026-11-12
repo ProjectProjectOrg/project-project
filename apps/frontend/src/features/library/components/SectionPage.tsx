@@ -30,10 +30,7 @@ import {
   removeBlockAtom,
   type LibraryScope
 } from "../atoms/libraryScope"
-import {
-  useLibraryPermissions,
-  useOrgName
-} from "../hooks/useLibraryPermissions"
+import { useLibraryPermissions } from "../hooks/useLibraryPermissions"
 import { saveBlockTask, useLibrarySave } from "../hooks/useLibrarySave"
 import {
   entryView,
@@ -44,6 +41,7 @@ import { blockDraftOf, containsBlockMarkup } from "../lib/libraryModel"
 import { typesUsingSection } from "../lib/sectionUsage"
 import { BlockIconGlyph } from "./BlockIconGlyph"
 import {
+  AsideGroup,
   CommitInput,
   IconAndColorField,
   MUTED_VALUE_CLASS
@@ -110,7 +108,6 @@ function SectionEntry({
   sectionKey
 }: Readonly<{ scope: LibraryScope; library: Library; sectionKey: BlockKey }>) {
   const permissions = useLibraryPermissions(scope, library)
-  const orgName = useOrgName(scope.req.params.orgSlug)
   const forkAtom = createBlockAtom(scope)
   const restoreAtom = removeBlockAtom(scope, sectionKey)
   const fork = useAtomSet(forkAtom, { mode: "promiseExit" })
@@ -139,7 +136,6 @@ function SectionEntry({
           scope={scope}
           kind="section"
           entry={section}
-          orgName={orgName}
           view={view}
           actions={{
             fork: () => fork(blockDraftOf(section)),
@@ -278,79 +274,87 @@ function SectionEditor({
       }
       aside={
         <>
-          <MetaRow label={m.templates_editor_icon_label()}>
-            <IconAndColorField
-              icon={section.icon}
-              color={section.color}
-              onIcon={(icon) => patch({ icon })}
-              onColor={(color) => patch({ color })}
-              disabled={!editable}
-            />
-          </MetaRow>
-          <MetaRow label={m.templates_editor_description_label()}>
-            {editable ? (
-              <CommitInput
-                value={section.description}
-                onCommit={(description) => patch({ description })}
-                ariaLabel={m.templates_editor_description_label()}
-                placeholder={m.templates_editor_description_placeholder()}
-                maxLength={200}
-              />
-            ) : (
-              <span className={MUTED_VALUE_CLASS}>
-                {section.description === ""
-                  ? m.templates_editor_none()
-                  : section.description}
-              </span>
-            )}
-          </MetaRow>
-          <MetaRow label={m.templates_sections_same_label()}>
-            <div className="flex flex-col items-start gap-1.5">
-              <Switch
-                id={syncId}
-                checked={section.sync}
+          <AsideGroup>
+            <MetaRow label={m.templates_editor_icon_label()}>
+              <IconAndColorField
+                icon={section.icon}
+                color={section.color}
+                onIcon={(icon) => patch({ icon })}
+                onColor={(color) => patch({ color })}
                 disabled={!editable}
-                aria-describedby={`${syncId}-help`}
-                onCheckedChange={(sync) => patch({ sync })}
               />
-              <label
-                htmlFor={syncId}
+            </MetaRow>
+            <MetaRow label={m.templates_editor_description_label()}>
+              {editable ? (
+                <CommitInput
+                  value={section.description}
+                  onCommit={(description) => patch({ description })}
+                  ariaLabel={m.templates_editor_description_label()}
+                  placeholder={m.templates_editor_description_placeholder()}
+                  maxLength={200}
+                />
+              ) : (
+                <span className={MUTED_VALUE_CLASS}>
+                  {section.description === ""
+                    ? m.templates_editor_none()
+                    : section.description}
+                </span>
+              )}
+            </MetaRow>
+          </AsideGroup>
+          <AsideGroup>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor={syncId} className="text-body">
+                  {m.templates_sections_same_label()}
+                </label>
+                <Switch
+                  id={syncId}
+                  checked={section.sync}
+                  disabled={!editable}
+                  aria-describedby={`${syncId}-help`}
+                  onCheckedChange={(sync) => patch({ sync })}
+                />
+              </div>
+              <p
                 id={`${syncId}-help`}
                 className="text-caption text-muted-foreground"
               >
                 {section.sync
                   ? m.templates_sections_same_on()
                   : m.templates_sections_same_off()}
-              </label>
+              </p>
             </div>
-          </MetaRow>
-          <MetaRow label={m.templates_sections_used_by()}>
-            {usedBy.length === 0 ? (
-              <span className={MUTED_VALUE_CLASS}>
-                {m.templates_sections_used_by_none()}
-              </span>
-            ) : (
-              <ul className="flex flex-col gap-0.5">
-                {usedBy.map((type) => (
-                  <li key={type.key}>
-                    <LibraryEntryLink
-                      scope={scope}
-                      kind="type"
-                      entryKey={type.key}
-                      className="-mx-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-body transition-colors hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-                    >
-                      <BlockIconGlyph
-                        icon={type.icon}
-                        color={type.color}
-                        className="size-3.5"
-                      />
-                      {type.name}
-                    </LibraryEntryLink>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </MetaRow>
+          </AsideGroup>
+          <AsideGroup>
+            <MetaRow label={m.templates_sections_used_by()}>
+              {usedBy.length === 0 ? (
+                <span className={MUTED_VALUE_CLASS}>
+                  {m.templates_sections_used_by_none()}
+                </span>
+              ) : (
+                <ul className="flex flex-col gap-0.5">
+                  {usedBy.map((type) => (
+                    <li key={type.key}>
+                      <LibraryEntryLink
+                        scope={scope}
+                        kind="type"
+                        entryKey={type.key}
+                        className="-mx-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-body transition-colors hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+                      >
+                        <BlockIconGlyph
+                          icon={type.icon}
+                          color={type.color}
+                          className="size-3.5"
+                        />
+                        {type.name}
+                      </LibraryEntryLink>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </MetaRow>
+          </AsideGroup>
           <SectionActions scope={scope} section={section} view={view} />
         </>
       }
@@ -391,6 +395,7 @@ function HideSection({
   const state = useAtomValue(mutation)
   return (
     <HideEntryButton
+      note={m.templates_sections_hide_note()}
       waiting={state.waiting}
       error={mutationErrorText(state)}
       onHide={() => void hide()}
