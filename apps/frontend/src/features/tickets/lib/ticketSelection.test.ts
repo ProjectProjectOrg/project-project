@@ -25,6 +25,12 @@ describe("toggleSelection", () => {
     ).toEqual(new Set(["a"]))
   })
 
+  it("starts a new selection when the key is in another project", () => {
+    expect(
+      toggleSelection(selected(["web/T-1", "web/T-2"], "web/T-2"), "api/T-1")
+    ).toEqual(selected(["api/T-1"], "api/T-1"))
+  })
+
   it("toggles alone when the anchor is outside the range", () => {
     expect(toggleSelection(selected(["x"], "x"), "c", order)).toEqual(
       selected(["x", "c"], "c")

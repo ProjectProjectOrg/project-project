@@ -10,11 +10,17 @@ export const emptySelection: TicketSelection = { keys: new Set(), anchor: null }
 export const selectionKey = (slug: string, ticketId: TicketId): string =>
   `${slug}/${ticketId}`
 
+const projectOf = (key: string) => key.slice(0, key.lastIndexOf("/"))
+
 export const toggleSelection = (
   selection: TicketSelection,
   key: string,
   range?: ReadonlyArray<string>
 ): TicketSelection => {
+  const project = projectOf(key)
+  if (selection.keys.values().some((each) => projectOf(each) !== project)) {
+    return { keys: new Set([key]), anchor: key }
+  }
   const keys = new Set(selection.keys)
   const from =
     range !== undefined && selection.anchor !== null
