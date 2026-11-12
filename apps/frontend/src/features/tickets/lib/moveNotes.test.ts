@@ -4,7 +4,12 @@ import { m } from "@/paraglide/messages"
 
 import { moveNotes } from "./moveNotes"
 
-const nothingDropped = { tags: [], assignees: [], estimate: false }
+const nothingDropped = {
+  type: null,
+  tags: [],
+  assignees: [],
+  estimate: false
+}
 
 describe("moveNotes", () => {
   it("always says the ticket leaves its sprint and epic", () => {
@@ -17,10 +22,16 @@ describe("moveNotes", () => {
     expect(
       moveNotes(
         { branch: "feat/T-1-thing", subTicketCount: 2 },
-        { tags: ["ui", "inbox"], assignees: ["u1", "u2"], estimate: true },
+        {
+          type: "Spike",
+          tags: ["ui", "inbox"],
+          assignees: ["u1", "u2"],
+          estimate: true
+        },
         [{ id: "u1", name: "Ada" }]
       )
     ).toEqual([
+      m.tickets_move_drops_type({ type: "Spike" }),
       m.tickets_move_drops_tags({ tags: "ui, inbox" }),
       m.tickets_move_drops_assignees({ names: "Ada, u2" }),
       m.tickets_move_drops_estimate(),

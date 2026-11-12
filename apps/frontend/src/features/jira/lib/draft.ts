@@ -3,15 +3,17 @@ import {
   EmailAddress,
   JiraMigrationConfiguration,
   Slug,
+  TypeKey,
   StatusSlug,
   TagName,
   type JiraMigrationConfiguration as JiraMigrationConfigurationType,
   type JiraMigrationRequirements,
   type TicketPriority,
-  type JiraProjectType
+  type TypeDefinition
 } from "@pp/shared"
 import * as Schema from "effect/Schema"
 
+import { offeredOrUnset, suggestedIssueType } from "./issueTypes"
 import type { PeopleChoice } from "./people"
 
 export type StatusChoice = Readonly<{
@@ -22,7 +24,7 @@ export type StatusChoice = Readonly<{
 
 export type IssueTypeChoice = Readonly<{
   jiraIssueTypeId: string
-  projectType: JiraProjectType | undefined
+  projectType: string | null | undefined
 }>
 
 export type PriorityChoice = Readonly<{
@@ -93,6 +95,7 @@ const isStatusSlug = Schema.is(StatusSlug)
 const isSlug = Schema.is(Slug)
 const isProjectKey = Schema.is(CreatableProjectKey)
 const isConfiguration = Schema.is(JiraMigrationConfiguration)
+const isTypeKey = Schema.is(TypeKey)
 
 export const isValidTagName = (name: string): boolean => isTagName(name)
 
@@ -114,18 +117,6 @@ export const destinationIssues = (
 })
 
 const normalized = (value: string) => value.trim().toLowerCase()
-
-const nativeTypeNames = new Map<string, JiraProjectType>([
-  ["feat", "feat"],
-  ["feature", "feat"],
-  ["bug", "bug"],
-  ["chore", "chore"],
-  ["other", "other"],
-  ["epic", "epic"]
-])
-
-const matchIssueType = (name: string): JiraProjectType | undefined =>
-  nativeTypeNames.get(normalized(name))
 
 export const sameNameStatus = (
   jiraName: string,
@@ -189,7 +180,8 @@ export const hasRestrictedContent = (
 
 export function buildJiraImportDraft(
   requirements: JiraMigrationRequirements,
-  configuration: JiraMigrationConfigurationType | null
+  configuration: JiraMigrationConfigurationType | null,
+  types: ReadonlyArray<TypeDefinition>
 ): JiraImportDraft {
   const identities = new Map(
     configuration?.identities.map((item) => [item.jiraAccountId, item])
@@ -263,13 +255,16 @@ export function buildJiraImportDraft(
           projectStatusSlug: matchStatus(status, requirements.statusOptions)
         }
       }),
-      issueTypes: requirements.issueTypes.map((issueType) => ({
-        jiraIssueTypeId: issueType.jiraIssueTypeId,
-        projectType:
-          issueTypes.get(issueType.jiraIssueTypeId) ??
-          issueType.suggestedProjectType ??
-          matchIssueType(issueType.name)
-      })),
+      issueTypes: requirements.issueTypes.map((issueType) => {
+        const configured = issueTypes.get(issueType.jiraIssueTypeId)
+        return {
+          jiraIssueTypeId: issueType.jiraIssueTypeId,
+          projectType:
+            configured === undefined
+              ? suggestedIssueType(issueType, types)
+              : offeredOrUnset(configured, types)
+        }
+      }),
       priorities: requirements.priorities.map((priority) => ({
         jiraPriorityId: priority.jiraPriorityId,
         projectPriority:
@@ -363,14 +358,14 @@ export function toJiraImportConfiguration(
           ]
     ),
     issueTypes: setup.issueTypes.flatMap((item) =>
-      item.projectType === undefined
-        ? []
-        : [
+      item.projectType === null || isTypeKey(item.projectType)
+        ? [
             {
               jiraIssueTypeId: item.jiraIssueTypeId,
               projectType: item.projectType
             }
           ]
+        : []
     ),
     priorities: setup.priorities.flatMap((item) =>
       item.projectPriority === undefined

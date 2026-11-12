@@ -1,6 +1,7 @@
 import type {
   JiraMigrationConfiguration,
-  JiraMigrationRequirements
+  JiraMigrationRequirements,
+  TypeDefinition
 } from "@pp/shared"
 import { useState, type ReactNode } from "react"
 
@@ -14,19 +15,21 @@ export type { JiraImportForm } from "./opts"
 export function JiraImportFormScope({
   requirements,
   configuration,
+  types,
   onStart,
   onInvalid,
   children
 }: Readonly<{
   requirements: JiraMigrationRequirements
   configuration: JiraMigrationConfiguration | null
+  types: ReadonlyArray<TypeDefinition>
   onStart: () => Promise<boolean>
   onInvalid: () => void
   children: (form: JiraImportForm) => ReactNode
 }>) {
   const [opts] = useState(() => jiraImportFormOpts(requirements))
   const [defaultValues] = useState(() =>
-    buildJiraImportDraft(requirements, configuration)
+    buildJiraImportDraft(requirements, configuration, types)
   )
   const form = useAppForm({
     ...opts,

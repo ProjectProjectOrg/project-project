@@ -26,7 +26,8 @@ import {
   JiraMigrationConfiguration,
   JiraMigrationRequirements,
   Conflict,
-  JiraError
+  JiraError,
+  TypeKey
 } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
@@ -486,7 +487,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
                   jiraIssueTypeId: "bug",
                   name: "Bug",
                   isSubtask: false,
-                  suggestedProjectType: "bug" as const
+                  suggestedProjectType: TypeKey.make("bug")
                 }
               ]
             }
@@ -522,7 +523,7 @@ describe.skipIf(!databaseUrl)("atomic Jira durable commands", () => {
             const complete = {
               ...configuration,
               issueTypes: [
-                { jiraIssueTypeId: "bug", projectType: "bug" as const }
+                { jiraIssueTypeId: "bug", projectType: TypeKey.make("bug") }
               ]
             }
             const ready = yield* m.configure(
