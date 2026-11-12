@@ -21,7 +21,9 @@ export const predictRank = (
     "after" in position
       ? [others[index].rank, others[index + 1]?.rank ?? null]
       : [others[index - 1]?.rank ?? null, others[index].rank]
-  if (lower !== null && upper !== null && compareCodePoints(lower, upper) >= 0)
+  try {
+    return TicketRank.make(generateKeyBetween(lower, upper))
+  } catch {
     return null
-  return TicketRank.make(generateKeyBetween(lower, upper))
+  }
 }

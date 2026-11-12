@@ -34,11 +34,16 @@ describe("predictRank", () => {
     ])
   })
 
-  it("gives up when the anchor is missing or tied with its neighbour", () => {
+  it("gives up when the anchor is missing, tied, or next to a placeholder rank", () => {
     expect(predictRank(deck, "T-1", { after: ticketId("T-9") })).toBeNull()
     expect(
       predictRank([ranked("a0", "T-1"), ranked("a0", "T-2")], "T-3", {
         after: ticketId("T-1")
+      })
+    ).toBeNull()
+    expect(
+      predictRank([ranked(" ", "T-9"), ranked("a0", "T-1")], "T-3", {
+        before: ticketId("T-1")
       })
     ).toBeNull()
   })
