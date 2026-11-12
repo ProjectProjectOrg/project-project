@@ -389,8 +389,8 @@ Shared rules, all from `components/ui/menu-styles.ts`:
 **A setting lives where its scope is.**
 
 - **Profile** is just you, everywhere: account, preferences, connections that act as you, agent tokens.
-- **Organization** is shared setup every project relies on, managed by admins: members, integrations (GitHub App, storage with its files, email), the template library.
-- **Project** is how this project works, managed by PMs: appearance, team, workflow, project templates on top of the organization's, and integration *links* (which repo, which board). A project screen never sets up a shared service; when a prerequisite is missing it points to where that service is set up.
+- **Organization** is shared setup every project relies on, managed by admins: members, integrations (GitHub App, storage with its files, email), the ticket types every project shares.
+- **Project** is how this project works, managed by PMs: appearance, team, workflow, ticket types on top of the organization's, and integration *links* (which repo, which board). A project screen never sets up a shared service; when a prerequisite is missing it points to where that service is set up.
 
 Every settings area — organization, project, profile — uses the same rail and the same page anatomy (`components/shell/settings/`):
 

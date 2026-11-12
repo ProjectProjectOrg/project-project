@@ -108,7 +108,7 @@ export function SaveAsTemplateForm({
         </span>
         <LibraryEntryLink
           scope={scope}
-          kind="template"
+          kind="type"
           entryKey={saved}
           className="text-foreground underline-offset-2 transition-colors hover:underline"
         >

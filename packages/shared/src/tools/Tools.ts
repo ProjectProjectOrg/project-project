@@ -936,7 +936,8 @@ export const Tools = Toolkit.make(
       "description, comments, attachments and history; its old id and URL " +
       "keep resolving to it. Sub-tickets move with it. An epic that still " +
       "has tickets can't be moved and fails with `Validation`.\n\n" +
-      "What the destination doesn't have is dropped: tags it doesn't " +
+      "What the destination doesn't have is dropped: a type it doesn't " +
+      "have (an epic stays an epic), tags it doesn't " +
       "define, assignees who aren't members there, an estimate in another " +
       "unit, sprint and epic membership, relations to tickets that stay " +
       "behind, and the branch link unless both " +
@@ -948,7 +949,8 @@ export const Tools = Toolkit.make(
       "in its old project are repointed. Only a PM of the ticket's project " +
       "can move it, and you need to be able to create tickets in the " +
       "destination. Returns the destination project and " +
-      "the new id, with `moved` listing every old and new id.",
+      "the new id, with `moved` listing every old and new id and what was " +
+      "dropped from each ticket.",
     cli: {
       command: ["tickets", "move"],
       args: ["id"],

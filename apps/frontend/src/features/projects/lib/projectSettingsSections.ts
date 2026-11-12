@@ -1,6 +1,6 @@
 import {
   GitBranch,
-  LayoutTemplate,
+  Shapes,
   SlidersHorizontal,
   TriangleAlert,
   Users,
@@ -13,7 +13,7 @@ export type SectionKey =
   | "general"
   | "team"
   | "workflow"
-  | "templates"
+  | "types"
   | "integrations"
   | "danger"
 
@@ -49,11 +49,11 @@ export const PROJECT_SETTINGS_SECTIONS: ReadonlyArray<ProjectSettingsSection> =
       description: m.project_settings_workflow_description()
     },
     {
-      key: "templates",
-      label: m.project_settings_templates_tab(),
-      icon: LayoutTemplate,
-      heading: m.project_settings_templates_heading(),
-      description: m.project_settings_templates_description()
+      key: "types",
+      label: m.project_settings_types_tab(),
+      icon: Shapes,
+      heading: m.project_settings_types_heading(),
+      description: m.project_settings_types_description()
     },
     {
       key: "integrations",

@@ -1,6 +1,5 @@
 import * as Schema from "effect/Schema"
 
-import { TypeKey } from "../library/LibraryKey"
 import { EmailAddress } from "../organizations/OrgEmail"
 import { CreatableProjectKey, Slug } from "../projects/Project"
 import {
@@ -10,19 +9,7 @@ import {
   StatusSlug
 } from "../statuses/Status"
 import { TagName } from "../tags/Tag"
-import { TicketPriority } from "../tickets/Ticket"
-
-export const JiraProjectType = Schema.Literals([
-  "feat",
-  "bug",
-  "chore",
-  "other",
-  "epic"
-])
-export type JiraProjectType = typeof JiraProjectType.Type
-
-export const ticketTypeOfJira = (type: JiraProjectType): TypeKey | null =>
-  type === "other" ? null : TypeKey.make(type)
+import { StoredTicketType, TicketPriority } from "../tickets/Ticket"
 
 export const JiraReconnectReason = Schema.Literals([
   "invalid_grant",
@@ -135,7 +122,7 @@ export const JiraMigrationConfiguration = Schema.Struct({
   issueTypes: Schema.Array(
     Schema.Struct({
       jiraIssueTypeId: Schema.NonEmptyString,
-      projectType: JiraProjectType
+      projectType: StoredTicketType
     })
   ),
   priorities: Schema.Array(
@@ -271,7 +258,7 @@ export const JiraMigrationRequirements = Schema.Struct({
       jiraIssueTypeId: Schema.NonEmptyString,
       name: Schema.NonEmptyString,
       isSubtask: Schema.Boolean,
-      suggestedProjectType: Schema.NullOr(JiraProjectType),
+      suggestedProjectType: StoredTicketType,
       issueCount: Schema.optional(JiraMigrationCount)
     })
   ),

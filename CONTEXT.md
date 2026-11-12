@@ -106,7 +106,7 @@ The body of a ticket type: the markdown a new ticket of that type starts with. I
 _Avoid_: Template, default template
 
 **Block**:
-A named, reusable piece of markdown inserted into a ticket body as `<block type="…">…</block>`. Seven blocks are built in.
+A named, reusable piece of markdown inserted into a ticket body as `<block type="…">…</block>`. Seven blocks are built in. On screen a block is called a section.
 
 **Built-in**:
 A ticket type or block that exists in every org without a file. It can be overridden or hidden, never deleted.

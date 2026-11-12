@@ -27,7 +27,6 @@ import {
   TicketId,
   TicketPriority,
   StoredTicketType,
-  ticketTypeOfJira,
   type TypeKey,
   type StatusPhase
 } from "@pp/shared"
@@ -507,7 +506,7 @@ function createJiraPublicationDraft(
         id: requireMapped(ticketMappings, issue.id),
         title: issue.summary,
         status: requireMapped(statusMappings, issue.statusId),
-        type: ticketTypeOfJira(requireMapped(typeMappings, issue.issueTypeId)),
+        type: requireMapped(typeMappings, issue.issueTypeId),
         priority: requireMapped(
           priorityMappings,
           priorityMappingKey(issue.priorityId)
