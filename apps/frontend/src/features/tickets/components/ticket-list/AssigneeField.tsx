@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { Member, TicketId } from "@pp/shared"
+import { listEditBetween, type Member, type TicketId } from "@pp/shared"
 import * as Match from "effect/Match"
 import { UserCheck, UserMinus, UserRound } from "lucide-react"
 import type { ReactNode } from "react"
@@ -297,7 +297,9 @@ export function AssigneeField({
   return (
     <AssigneeSelect
       value={ticket.assignees}
-      onChange={(assignees) => onPatch({ assignees })}
+      onChange={(assignees) =>
+        onPatch({ assignees: listEditBetween(ticket.assignees, assignees) })
+      }
       members={members}
       variant={variant}
       className={className}

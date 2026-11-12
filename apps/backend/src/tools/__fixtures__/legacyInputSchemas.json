@@ -1177,11 +1177,49 @@
       "tags": {
         "anyOf": [
           {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "pattern": "^(?:[a-z0-9][a-z0-9 -]{0,30}|component:[a-z0-9][a-z0-9-]{0,20})$"
-            }
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^(?:[a-z0-9][a-z0-9 -]{0,30}|component:[a-z0-9][a-z0-9-]{0,20})$"
+                }
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "add": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^(?:[a-z0-9][a-z0-9 -]{0,30}|component:[a-z0-9][a-z0-9-]{0,20})$"
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "remove": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^(?:[a-z0-9][a-z0-9 -]{0,30}|component:[a-z0-9][a-z0-9-]{0,20})$"
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": true
+              }
+            ]
           },
           {
             "type": "null"
@@ -1191,10 +1229,46 @@
       "assignees": {
         "anyOf": [
           {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "add": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "remove": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": true
+              }
+            ]
           },
           {
             "type": "null"

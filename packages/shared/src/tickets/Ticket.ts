@@ -16,6 +16,7 @@ import { TemplateKey } from "../library/LibraryKey"
 import { ProjectKey } from "../projects/Project"
 import { StatusSlug } from "../statuses/Status"
 import { TagName } from "../tags/Tag"
+import { ListEdit } from "./listEdit"
 
 const isProjectKey = Schema.is(ProjectKey)
 
@@ -278,11 +279,11 @@ export const UpdateTicketInput = Schema.Struct({
   estimate: Schema.optional(Schema.NullOr(Estimate)).annotate({
     description: ticketFieldDocs.estimate
   }),
-  tags: Schema.optional(Schema.Array(TagName)).annotate({
-    description: `${ticketFieldDocs.tags} Pass an empty list to clear.`
+  tags: Schema.optional(ListEdit(TagName)).annotate({
+    description: `${ticketFieldDocs.tags} A list replaces the tags (an empty list clears them); \`{ add, remove }\` changes the current tags.`
   }),
-  assignees: Schema.optional(Schema.Array(Schema.String)).annotate({
-    description: `${ticketFieldDocs.assignees} Pass an empty list to clear.`
+  assignees: Schema.optional(ListEdit(Schema.String)).annotate({
+    description: `${ticketFieldDocs.assignees} A list replaces the assignees (an empty list clears them); \`{ add, remove }\` changes the current assignees.`
   }),
   body: Schema.optional(Schema.String).annotate({
     description: `${ticketFieldDocs.body} Replaces the whole description.`

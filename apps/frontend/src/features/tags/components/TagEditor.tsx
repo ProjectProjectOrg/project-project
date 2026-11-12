@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { TagName, type Tag, type TicketDetail } from "@pp/shared"
+import { TagName, type ListEdit, type Tag, type TicketDetail } from "@pp/shared"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -80,20 +80,18 @@ export function TagEditor({ ticket, canManageTags }: Props) {
     return map
   }, [registry])
 
-  const apply = async (next: ReadonlyArray<string>) => {
-    const exit = await updateTags({
-      tags: next.map((name) => makeTagName(name))
-    })
+  const apply = async (tags: ListEdit<TagName>) => {
+    const exit = await updateTags({ tags })
     if (Exit.isSuccess(exit)) setDeleteError(null)
   }
 
   const addTag = (name: string) => {
     if (displayedNames.includes(makeTagName(name))) return
-    void apply([...displayedNames, name])
+    void apply({ add: [makeTagName(name)] })
   }
 
   const removeFromTicket = (name: string) => {
-    void apply(displayedNames.filter((tagName) => tagName !== name))
+    void apply({ remove: [makeTagName(name)] })
   }
 
   const createAndApply = async (name: TagName) => {

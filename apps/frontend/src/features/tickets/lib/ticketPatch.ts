@@ -1,8 +1,9 @@
-import type {
-  Ticket,
-  TicketDetail,
-  TicketParent,
-  UpdateTicketInput
+import {
+  applyListEdit,
+  type Ticket,
+  type TicketDetail,
+  type TicketParent,
+  type UpdateTicketInput
 } from "@pp/shared"
 
 export const parentRef = ({
@@ -29,8 +30,14 @@ export function applyTicketPatch(ticket: Ticket, patch: TicketEdit): Ticket {
     type: patch.type ?? ticket.type,
     priority: patch.priority ?? ticket.priority,
     estimate: patch.estimate !== undefined ? patch.estimate : ticket.estimate,
-    tags: patch.tags ?? ticket.tags,
-    assignees: patch.assignees ?? ticket.assignees,
+    tags:
+      patch.tags === undefined
+        ? ticket.tags
+        : applyListEdit(ticket.tags, patch.tags),
+    assignees:
+      patch.assignees === undefined
+        ? ticket.assignees
+        : applyListEdit(ticket.assignees, patch.assignees),
     parent: patch.parent === undefined ? ticket.parent : patch.parent
   }
 }

@@ -28,6 +28,7 @@ import type { TicketProject } from "@pp/server-core/tickets/ticketProject"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import * as Users from "@pp/server-core/users/Users"
 import {
+  applyListEdit,
   blockLookupFor,
   expandTemplate,
   formatTicketBlock,
@@ -662,8 +663,14 @@ describe("MCP handlers → write tools", () => {
         return Effect.succeed({
           ticket: {
             ...fakeTicketDetail,
-            tags: input.tags ?? fakeTicketDetail.tags,
-            assignees: input.assignees ?? fakeTicketDetail.assignees
+            tags:
+              input.tags === undefined
+                ? fakeTicketDetail.tags
+                : applyListEdit(fakeTicketDetail.tags, input.tags),
+            assignees:
+              input.assignees === undefined
+                ? fakeTicketDetail.assignees
+                : applyListEdit(fakeTicketDetail.assignees, input.assignees)
           },
           orderKey: null
         })

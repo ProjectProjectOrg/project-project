@@ -24,7 +24,6 @@ import {
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
-import { useApplyCreatedTag } from "@/features/tickets/hooks/useApplyCreatedTag"
 import {
   formatEstimate,
   parseEstimateMinutes,
@@ -183,7 +182,6 @@ export function TicketTagsPage({ ticket, chip, onBack }: TicketPageProps) {
   const [pending, setPending] = useState(false)
   const tags = Result.isSuccess(result) ? result.value : []
   const applied = current?.tags ?? []
-  const applyCreatedTag = useApplyCreatedTag(applied, update)
   const newName = Option.filter(
     decodeTagName(query.trim().toLowerCase()),
     (name) => canCreate && !tags.some((tag) => tag.name === name)
@@ -219,7 +217,7 @@ export function TicketTagsPage({ ticket, chip, onBack }: TicketPageProps) {
           setFailure(null)
           const exit = await create({ name: newName.value })
           setPending(false)
-          if (Exit.isSuccess(exit)) applyCreatedTag(newName.value)
+          if (Exit.isSuccess(exit)) update({ tags: { add: [newName.value] } })
           else setFailure(errorMessage(Cause.squash(exit.cause)))
           return
         }
@@ -227,8 +225,8 @@ export function TicketTagsPage({ ticket, chip, onBack }: TicketPageProps) {
         if (tag === undefined) return
         update({
           tags: applied.includes(tag.name)
-            ? applied.filter((name) => name !== tag.name)
-            : [...applied, tag.name]
+            ? { remove: [tag.name] }
+            : { add: [tag.name] }
         })
       }}
       renderItem={(item) => {
