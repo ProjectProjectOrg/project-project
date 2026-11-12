@@ -173,7 +173,11 @@ function TypeEditor({
       notice={notice}
       title={
         <div className="flex min-w-0 items-center gap-2">
-          <BlockIconGlyph icon={type.icon} color={type.color} />
+          <BlockIconGlyph
+            icon={type.icon}
+            color={type.color}
+            className="size-5"
+          />
           {editable ? (
             <CommitInput
               value={type.name}
@@ -181,10 +185,10 @@ function TypeEditor({
               ariaLabel={m.templates_editor_name_aria()}
               maxLength={60}
               required
-              className="text-display font-bold"
+              className="mx-0 text-display font-bold"
             />
           ) : (
-            <h2 className="min-w-0 truncate text-display font-bold">
+            <h2 className="min-w-0 truncate px-2 text-display font-bold">
               {type.name}
             </h2>
           )}
@@ -199,6 +203,7 @@ function TypeEditor({
           <StartingSections
             scope={scope}
             library={library}
+            typeName={type.name}
             body={type.body}
             editable={editable}
             onChange={(body) => patch({ body })}

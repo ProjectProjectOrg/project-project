@@ -217,7 +217,11 @@ function SectionEditor({
       notice={notice}
       title={
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <BlockIconGlyph icon={section.icon} color={section.color} />
+          <BlockIconGlyph
+            icon={section.icon}
+            color={section.color}
+            className="size-5"
+          />
           {editable ? (
             <CommitInput
               value={section.name}
@@ -225,10 +229,10 @@ function SectionEditor({
               ariaLabel={m.templates_editor_name_aria()}
               maxLength={60}
               required
-              className="min-w-0 flex-1 text-display font-bold"
+              className="mx-0 min-w-0 flex-1 text-display font-bold"
             />
           ) : (
-            <h2 className="min-w-0 truncate text-display font-bold">
+            <h2 className="min-w-0 truncate px-2 text-display font-bold">
               {section.name}
             </h2>
           )}
@@ -301,14 +305,13 @@ function SectionEditor({
             )}
           </MetaRow>
           <MetaRow label={m.templates_sections_same_label()}>
-            <div className="flex items-start gap-2">
+            <div className="flex flex-col items-start gap-1.5">
               <Switch
                 id={syncId}
                 checked={section.sync}
                 disabled={!editable}
                 aria-describedby={`${syncId}-help`}
                 onCheckedChange={(sync) => patch({ sync })}
-                className="mt-0.5"
               />
               <label
                 htmlFor={syncId}

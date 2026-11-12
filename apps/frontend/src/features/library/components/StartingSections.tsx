@@ -14,6 +14,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { blockChrome } from "@/features/editor/lib/blockChrome"
@@ -36,10 +37,12 @@ import {
 import { BlockIconGlyph } from "./BlockIconGlyph"
 import { SameOnEveryTicketBadge } from "./EntryBadges"
 import { LibraryEntryLink } from "./LibraryEntryLink"
+import { NewSectionDialog } from "./NewSectionDialog"
 
 type StartingSectionsProps = Readonly<{
   scope: LibraryScope
   library: Library
+  typeName: string
   body: string
   editable: boolean
   onChange: (body: string) => void
@@ -97,9 +100,11 @@ export function StartingSections({
   scope,
   library,
   body,
+  typeName,
   editable,
   onChange
 }: StartingSectionsProps) {
+  const [creating, setCreating] = useState(false)
   const lookup = useMemo(() => blockLookupFor(library), [library])
   const rows = useMemo(() => startingRows(body), [body])
   const [dragOrder, setDragOrder] = useState<ReadonlyArray<StartingRow> | null>(
@@ -165,7 +170,6 @@ export function StartingSections({
       )}
       <DropdownMenu>
         <DropdownMenuTrigger
-          disabled={available.length === 0}
           render={
             <Button
               type="button"
@@ -188,8 +192,23 @@ export function StartingSections({
               <span className="min-w-0 flex-1 truncate">{section.name}</span>
             </DropdownMenuItem>
           ))}
+          {available.length === 0 ? null : <DropdownMenuSeparator />}
+          <DropdownMenuItem onClick={() => setCreating(true)}>
+            <Plus aria-hidden className="size-4 shrink-0" strokeWidth={1.75} />
+            <span className="min-w-0 flex-1 truncate">
+              {m.templates_types_add_new_section()}
+            </span>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <NewSectionDialog
+        scope={scope}
+        library={library}
+        typeName={typeName}
+        open={creating}
+        onOpenChange={setCreating}
+        onCreated={(key) => commit(withSection(rows, key))}
+      />
     </div>
   )
 }

@@ -131,7 +131,7 @@ const copyFor = ({
 }
 
 export function ScopeBox(props: ScopeBoxProps) {
-  const { scope, kind, entry, orgName, view, actions } = props
+  const { scope, kind, entry, view, actions } = props
   const copy = copyFor(props)
   const notice = upstreamNotice(props)
   const hasActions =
@@ -208,7 +208,7 @@ export function ScopeBox(props: ScopeBoxProps) {
                   size="sm"
                 >
                   {scope.layer === "project"
-                    ? m.templates_types_revert_project({ org: orgName })
+                    ? m.templates_types_revert_project()
                     : m.templates_types_revert_org()}
                 </ConfirmButton.Trigger>
                 <ConfirmButton.Confirm className="flex-wrap">

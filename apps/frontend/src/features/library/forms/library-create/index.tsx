@@ -52,6 +52,9 @@ export type LibraryCreateProps = Readonly<{
   orgLibrary: Library | null
   layers: ReadonlyArray<LibraryLayer>
   orgName: string
+  compact?: boolean
+  onCreated?: (key: string) => void
+  onCancel?: () => void
 }>
 
 export function LibraryCreateForm({
@@ -60,7 +63,10 @@ export function LibraryCreateForm({
   library,
   orgLibrary,
   layers,
-  orgName
+  orgName,
+  compact = false,
+  onCreated,
+  onCancel
 }: LibraryCreateProps) {
   const registry = useContext(RegistryContext)
   const openEntry = useOpenEntry()
@@ -92,7 +98,9 @@ export function LibraryCreateForm({
         value
       })
       if (failed !== null) return setFailure(failed)
-      openEntry(target, kind, effectiveLibraryKey(value))
+      const key = effectiveLibraryKey(value)
+      if (onCreated === undefined) openEntry(target, kind, key)
+      else onCreated(key)
     }
   })
   const values = useFormValues(form)
@@ -128,55 +136,44 @@ export function LibraryCreateForm({
         event.preventDefault()
         if (!busy) void form.handleSubmit()
       }}
-      className="flex flex-col gap-6"
+      className={cn("flex flex-col", compact ? "gap-4" : "max-w-2xl gap-6")}
     >
-      <ExamplePicker
-        kind={kind}
-        examples={examples}
-        value={values.example}
-        disabled={busy}
-        onPick={pick}
-      />
       <div className="flex flex-col gap-1.5">
         <label htmlFor={nameId} className="px-0.5 text-body font-semibold">
           {m.templates_new_name()}
         </label>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <form.Field name="name">
-            {(field) => (
+        <form.Field name="name">
+          {(field) => (
+            <Input
+              id={nameId}
+              value={field.value}
+              disabled={busy}
+              maxLength={60}
+              aria-invalid={field.errors.length > 0}
+              onChange={(event) => field.handleChange(event.target.value)}
+              onBlur={field.handleBlur}
+            />
+          )}
+        </form.Field>
+        <form.Field name="key">
+          {(field) => (
+            <span className="flex items-center gap-1 px-0.5 text-caption text-muted-foreground">
+              <label htmlFor={keyId}>{m.templates_settings_key_label()}</label>
               <Input
-                id={nameId}
-                value={field.value}
+                id={keyId}
+                variant="inline-muted"
+                value={effectiveLibraryKey(values)}
                 disabled={busy}
-                maxLength={60}
+                maxLength={48}
+                spellCheck={false}
                 aria-invalid={field.errors.length > 0}
                 onChange={(event) => field.handleChange(event.target.value)}
                 onBlur={field.handleBlur}
-                className="w-72 max-w-full"
+                className="w-56 max-w-full font-mono"
               />
-            )}
-          </form.Field>
-          <form.Field name="key">
-            {(field) => (
-              <span className="flex items-center gap-1.5 text-caption text-muted-foreground">
-                <label htmlFor={keyId}>
-                  {m.templates_settings_key_label()}
-                </label>
-                <Input
-                  id={keyId}
-                  value={effectiveLibraryKey(values)}
-                  disabled={busy}
-                  maxLength={48}
-                  spellCheck={false}
-                  aria-invalid={field.errors.length > 0}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                  className="h-8 w-48 font-mono text-caption"
-                />
-              </span>
-            )}
-          </form.Field>
-        </div>
+            </span>
+          )}
+        </form.Field>
         <form.Field name="key">
           {(keyField) => (
             <form.Field name="name">
@@ -213,6 +210,15 @@ export function LibraryCreateForm({
           </form.Field>
         </div>
       ) : null}
+      {compact ? null : (
+        <ExamplePicker
+          kind={kind}
+          examples={examples}
+          value={values.example}
+          disabled={busy}
+          onPick={pick}
+        />
+      )}
       {kind === "type" && chosen !== undefined ? (
         <p className="px-0.5 text-caption text-muted-foreground">
           {m.templates_new_example_note()}
@@ -223,26 +229,43 @@ export function LibraryCreateForm({
           {failure}
         </p>
       )}
-      <div className="flex flex-wrap items-center gap-2">
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-2",
+          compact && "justify-end"
+        )}
+      >
+        {onCancel === undefined ? null : (
+          <Button type="button" variant="ghost" onClick={onCancel}>
+            {m.templates_settings_cancel()}
+          </Button>
+        )}
         <Button
           type="submit"
           variant="primary"
           disabled={busy}
           className={cn(busy && "animate-pulse")}
         >
-          {kind === "type"
-            ? m.templates_new_create_type()
-            : m.templates_new_create_section()}
+          {submitLabel(kind, onCreated !== undefined)}
         </Button>
-        <Button
-          variant="ghost"
-          render={<LibraryListLink scope={scope} kind={kind} />}
-        >
-          {m.templates_settings_cancel()}
-        </Button>
+        {onCancel === undefined ? (
+          <Button
+            variant="ghost"
+            render={<LibraryListLink scope={scope} kind={kind} />}
+          >
+            {m.templates_settings_cancel()}
+          </Button>
+        ) : null}
       </div>
     </form>
   )
+}
+
+const submitLabel = (kind: LibraryKind, adds: boolean): string => {
+  if (adds) return m.templates_new_create_and_add()
+  return kind === "type"
+    ? m.templates_new_create_type()
+    : m.templates_new_create_section()
 }
 
 type CreateRequest = Readonly<{
