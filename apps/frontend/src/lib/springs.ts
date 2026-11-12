@@ -1,3 +1,5 @@
+import type { Variants } from "motion/react"
+
 export const springs = {
   fast: {
     type: "spring" as const,
@@ -57,3 +59,20 @@ export const spring = {
 
 export const exitFallbackMs = (tier: { exit: { duration: number } }) =>
   Math.round(tier.exit.duration * 1000) + 100
+
+export const blurSwap: Variants = {
+  shown: {
+    opacity: 1,
+    filter: "blur(0px)",
+    transition: {
+      type: "tween",
+      duration: spring.moderate.duration,
+      ease: "easeOut"
+    }
+  },
+  hidden: {
+    opacity: 0,
+    filter: "blur(4px)",
+    transition: { type: "tween", ...spring.moderate.exit, ease: "easeIn" }
+  }
+}

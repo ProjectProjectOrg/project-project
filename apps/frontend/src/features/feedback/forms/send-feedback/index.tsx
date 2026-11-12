@@ -29,7 +29,7 @@ import { useFeedbackFiles } from "@/features/feedback/hooks/useFeedbackFiles"
 import type { FileRejection } from "@/features/feedback/lib/feedbackFiles"
 import { useAppForm, useFormValues } from "@/lib/form"
 import { mutationErrorText } from "@/lib/mutationError"
-import { spring } from "@/lib/springs"
+import { blurSwap, spring } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -57,23 +57,6 @@ const swap: Variants = {
     scale: 0.97,
     filter: "blur(4px)",
     transition: { type: "tween", ...spring.slow.exit, ease: "easeIn" }
-  }
-}
-
-const placeholderSwap: Variants = {
-  shown: {
-    opacity: 1,
-    filter: "blur(0px)",
-    transition: {
-      type: "tween",
-      duration: spring.moderate.duration,
-      ease: "easeOut"
-    }
-  },
-  hidden: {
-    opacity: 0,
-    filter: "blur(4px)",
-    transition: { type: "tween", ...spring.moderate.exit, ease: "easeIn" }
   }
 }
 
@@ -283,7 +266,7 @@ function TitlePlaceholder({
       <AnimatePresence initial={false}>
         <motion.span
           key={kind}
-          variants={placeholderSwap}
+          variants={blurSwap}
           initial="hidden"
           animate="shown"
           exit="hidden"

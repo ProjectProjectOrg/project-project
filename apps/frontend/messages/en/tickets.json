@@ -208,6 +208,7 @@
   "tickets_estimate_aria_label": "Estimate: {label}. Click to change.",
   "tickets_estimate_chip_aria_label": "Estimate: {label}",
   "tickets_estimate_clear": "Clear estimate",
+  "tickets_estimate_clear_short": "Clear",
   "tickets_estimate_empty": "Add estimate",
   "tickets_estimate_points": [
     {
@@ -225,7 +226,8 @@
   "tickets_estimate_size_count": "{count} {size}",
   "tickets_estimate_stale": "was {value}",
   "tickets_estimate_stale_hint": "Estimated in a unit this project no longer uses. Pick a new value to replace it.",
-  "tickets_estimate_time_invalid": "Enter 1–59,940 minutes (up to 999 hours), using a format like 2w 4d 6h 45m.",
+  "tickets_estimate_time_hint": "A day is 8h, a week is 5d.",
+  "tickets_estimate_time_invalid": "Try 45m, 3h, 2d 4h or 1w, up to 999h.",
   "tickets_estimate_time_label": "Duration",
   "tickets_estimate_time_placeholder": "2w 4d 6h 45m",
   "tickets_estimate_time_save": "Save",

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   formatDuration,
   formatWorkDuration,
+  formatWorkDurationLong,
   parseDurationToSeconds
 } from "./duration"
 
@@ -48,5 +49,14 @@ describe("formatWorkDuration", () => {
     [(2 * 40 + 4 * 8 + 6) * 3600 + 45 * 60, "2w 4d 6h 45m"]
   ])("formats %i seconds in working weeks and days", (seconds, expected) => {
     expect(formatWorkDuration(seconds)).toBe(expected)
+  })
+})
+
+describe("formatWorkDurationLong", () => {
+  it.each([
+    [90 * 60, "1 hour, 30 minutes"],
+    [(40 + 2 * 8) * 3600, "1 week, 2 days"]
+  ])("spells out %i seconds in working weeks and days", (seconds, expected) => {
+    expect(formatWorkDurationLong(seconds)).toBe(expected)
   })
 })
