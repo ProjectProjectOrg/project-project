@@ -10,6 +10,7 @@ import { BUILTIN_LIBRARY } from "../lib/blockChrome"
 import type { SyncedBlockMode } from "../lib/syncedContent"
 
 const ORIGIN_LABELS: Record<LibraryOrigin, () => string> = {
+  builtin: m.editor_block_origin_builtin,
   org: m.editor_block_origin_org,
   project: m.editor_block_origin_project
 }
@@ -28,6 +29,7 @@ const EDITABLE_FROM: Record<
   LibraryOrigin,
   (canEdit: LayerPermissions) => boolean
 > = {
+  builtin: (canEdit) => canEdit.org,
   org: (canEdit) => canEdit.org,
   project: (canEdit) => canEdit.project
 }

@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import type { Library, TemplateKey, TicketDetail } from "@pp/shared"
+import type { Library, TypeKey, TicketDetail } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import { useId, useMemo, useState } from "react"
 
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/segmented-tabs"
 import { lookupFor } from "@/features/editor/lib/blockChrome"
 import {
-  createTemplateAtom,
+  createTypeAtom,
   orgScope,
   projectScope,
   type LibraryLayer,
@@ -53,18 +53,18 @@ export function SaveAsTemplateForm({
 }: SaveAsTemplateProps &
   Readonly<{ library: Library; layers: ReadonlyArray<LibraryLayer> }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const [saved, setSaved] = useState<TemplateKey | null>(null)
+  const [saved, setSaved] = useState<TypeKey | null>(null)
   const nameId = useId()
   const taken = useMemo(
-    () => new Set(library.templates.map((template) => template.key)),
-    [library.templates]
+    () => new Set(library.types.map((template) => template.key)),
+    [library.types]
   )
   const createInProject = useAtomSet(
-    createTemplateAtom(scopeFor("project", orgSlug, slug)),
+    createTypeAtom(scopeFor("project", orgSlug, slug)),
     { mode: "promiseExit" }
   )
   const createInOrg = useAtomSet(
-    createTemplateAtom(scopeFor("org", orgSlug, slug)),
+    createTypeAtom(scopeFor("org", orgSlug, slug)),
     { mode: "promiseExit" }
   )
   const form = useAppForm({
@@ -88,7 +88,7 @@ export function SaveAsTemplateForm({
   })
   const values = useFormValues(form)
   const scope = scopeFor(values.layer, orgSlug, slug)
-  const state = useAtomValue(createTemplateAtom(scope))
+  const state = useAtomValue(createTypeAtom(scope))
   const error = mutationErrorText(state)
   const lookup = useMemo(
     () => lookupForLayer(lookupFor(library), values.layer),

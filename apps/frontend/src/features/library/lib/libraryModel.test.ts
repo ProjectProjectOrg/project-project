@@ -1,34 +1,10 @@
-import { TemplateKey } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
-import {
-  copyKey,
-  defaultRemoval,
-  keyFromName,
-  keyProblem,
-  rowActions
-} from "./libraryModel"
-
-describe("defaultRemoval", () => {
-  const chore = TemplateKey.make("chore")
-
-  it("resets a default this layer set itself", () => {
-    expect(defaultRemoval({ bug: chore }, "bug", chore)).toEqual({
-      defaults: {},
-      reset: ["bug"]
-    })
-  })
-
-  it("clears an inherited default with an explicit null", () => {
-    expect(defaultRemoval({}, "bug", chore)).toEqual({
-      defaults: { bug: null }
-    })
-  })
-})
+import { copyKey, keyFromName, keyProblem, rowActions } from "./libraryModel"
 
 const entry = (
-  origin: "org" | "project",
-  shadows: "org" | "project" | null,
+  origin: "builtin" | "org" | "project",
+  shadows: "builtin" | "org" | "project" | null,
   hidden = false
 ) => ({ key: "chore", origin, shadows, hidden })
 
@@ -52,6 +28,22 @@ describe("rowActions", () => {
     ])
   })
 
+  it("offers a copy of a built-in, and hiding it only in a project", () => {
+    expect(rowActions(entry("builtin", null), "org", true)).toEqual([
+      "customize",
+      "duplicate"
+    ])
+    expect(rowActions(entry("builtin", null), "project", true)).toEqual([
+      "customize",
+      "duplicate",
+      "hide"
+    ])
+    expect(rowActions(entry("org", "builtin"), "org", true)).toEqual([
+      "duplicate",
+      "reset"
+    ])
+  })
+
   it("offers nothing to read-only viewers or on hidden entries", () => {
     expect(rowActions(entry("org", null), "project", false)).toEqual([])
     expect(rowActions(entry("project", "org", true), "project", true)).toEqual(
@@ -70,6 +62,7 @@ describe("keys", () => {
     const taken = new Set(["chore"])
     expect(keyProblem("Bad key", "template", taken)).toBe("invalid")
     expect(keyProblem("blank", "template", taken)).toBe("reserved")
+    expect(keyProblem("other", "template", taken)).toBe("reserved")
     expect(keyProblem("blank", "block", taken)).toBeNull()
     expect(keyProblem("chore", "block", taken)).toBe("taken")
   })

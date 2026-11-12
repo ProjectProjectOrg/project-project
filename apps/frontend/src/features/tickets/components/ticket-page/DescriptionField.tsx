@@ -1,9 +1,9 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { $convertToMarkdownString } from "@lexical/markdown"
 import {
-  expandTemplate,
+  expandType,
   type Member,
-  type TemplateDefinition,
+  type TypeDefinition,
   type TicketDetail,
   type TicketType
 } from "@pp/shared"
@@ -108,10 +108,10 @@ export function DescriptionField({
   const library = blocks?.library ?? null
   const lookup = useMemo(() => lookupFor(library), [library])
 
-  const startFrom = (template: TemplateDefinition) => {
+  const startFrom = (template: TypeDefinition) => {
     const editor = editorRef.current
     if (editor === null) return
-    startFromTemplate(editor, expandTemplate(template, lookup), {
+    startFromTemplate(editor, expandType(template, lookup), {
       transformers,
       lookup
     })
@@ -130,7 +130,7 @@ export function DescriptionField({
         const body = markdownOf(editor)
         const template = templateSwap({ library, body, from, to })
         if (template === null) return null
-        replaceWithTemplate(editor, expandTemplate(template, lookup), {
+        replaceWithTemplate(editor, expandType(template, lookup), {
           transformers,
           lookup
         })

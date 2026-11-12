@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema"
 
 import { EPIC_TYPE } from "../tickets/hierarchy"
+import { TicketType } from "../tickets/Ticket"
 import { type BlockDraft, type BlockIcon, TypeDraft } from "./Library"
 import { blockDraftsFrom, type BlockSource, lines, references } from "./sources"
 
@@ -175,3 +176,8 @@ export const isBuiltinTypeKey = (key: string): boolean =>
 
 export const builtinType = (key: string): TypeDraft | undefined =>
   BUILTIN_TYPES.find((type) => type.key === key)
+
+const isTicketType = Schema.is(TicketType)
+
+export const ticketTypeForKey = (key: string): TicketType | null =>
+  isTicketType(key) ? key : null

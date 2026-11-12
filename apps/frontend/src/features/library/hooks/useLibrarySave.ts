@@ -3,10 +3,10 @@ import type {
   BlockDefinition,
   BlockKey,
   Library,
-  TemplateDefinition,
-  TemplateKey,
+  TypeDefinition,
+  TypeKey,
   UpdateBlockInput,
-  UpdateTemplateInput
+  UpdateTypeInput
 } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import type * as Atom from "effect/reactivity/Atom"
@@ -20,13 +20,13 @@ import { m } from "@/paraglide/messages"
 
 import {
   createBlockAtom,
-  createTemplateAtom,
+  createTypeAtom,
   libraryView,
   updateBlockAtom,
-  updateTemplateAtom,
+  updateTypeAtom,
   type LibraryScope
 } from "../atoms/libraryScope"
-import { blockDraftOf, templateDraftOf } from "../lib/libraryModel"
+import { blockDraftOf, typeDraftOf } from "../lib/libraryModel"
 
 type Task = (registry: Registry.AtomRegistry) => Promise<string | null>
 
@@ -94,20 +94,20 @@ export function useLibrarySave(): LibrarySave {
 
 const missing = () => Promise.resolve(m.templates_settings_entry_missing())
 
-export const saveTemplateTask =
-  (scope: LibraryScope, key: TemplateKey, patch: UpdateTemplateInput): Task =>
+export const saveTypeTask =
+  (scope: LibraryScope, key: TypeKey, patch: UpdateTypeInput): Task =>
   (registry) => {
-    const entry: TemplateDefinition | undefined = currentLibrary(
+    const entry: TypeDefinition | undefined = currentLibrary(
       registry,
       scope
-    )?.templates.find((template) => template.key === key)
+    )?.types.find((template) => template.key === key)
     if (entry === undefined) return missing()
     return entry.origin === scope.layer
-      ? runLibraryMutation(registry, updateTemplateAtom(scope, key), patch)
+      ? runLibraryMutation(registry, updateTypeAtom(scope, key), patch)
       : runLibraryMutation(
           registry,
-          createTemplateAtom(scope),
-          withoutUndefined(templateDraftOf(entry), patch)
+          createTypeAtom(scope),
+          withoutUndefined(typeDraftOf(entry), patch)
         )
   }
 

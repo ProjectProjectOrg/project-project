@@ -1,16 +1,16 @@
 import { useAtomSet } from "@effect/atom-react"
 import {
   blockLookupFor,
-  expandTemplate,
+  expandType,
   formatTicketBlock,
   galleryBlocksFor,
   galleryBlocksToAdopt,
-  galleryTemplatesFor,
+  galleryTypesFor,
   stripHints,
   type BlockDefinition,
   type BlockDraft,
   type Library,
-  type TemplateDraft
+  type TypeDraft
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -24,7 +24,7 @@ import { m } from "@/paraglide/messages"
 
 import {
   createBlockAtom,
-  createTemplateAtom,
+  createTypeAtom,
   type LibraryScope
 } from "../atoms/libraryScope"
 import {
@@ -34,7 +34,7 @@ import {
 } from "../lib/blockSketchModel"
 import {
   blockDraftOf,
-  templateDraftOf,
+  typeDraftOf,
   type LibraryKind
 } from "../lib/libraryModel"
 import { DitheredBlocks } from "./DitheredBlocks"
@@ -66,26 +66,26 @@ const withGalleryBlocks = (library: Library, scope: LibraryScope): Library => ({
   ]
 })
 
-export function TemplateGalleryWell({ scope, library }: GalleryProps) {
+export function TypeGalleryWell({ scope, library }: GalleryProps) {
   const preview = useMemo(
     () => withGalleryBlocks(library, scope),
     [library, scope]
   )
   const lookup = useMemo(() => blockLookupFor(preview), [preview])
-  const createTemplate = useAtomSet(createTemplateAtom(scope), {
+  const createTemplate = useAtomSet(createTypeAtom(scope), {
     mode: "promiseExit"
   })
   const createBlock = useAtomSet(createBlockAtom(scope), {
     mode: "promiseExit"
   })
-  const drafts = galleryTemplatesFor(library)
+  const drafts = galleryTypesFor(library)
 
-  const adopt = async (draft: TemplateDraft): Promise<string | null> => {
+  const adopt = async (draft: TypeDraft): Promise<string | null> => {
     for (const block of galleryBlocksToAdopt(library, draft)) {
       const message = failureOf(await createBlock(blockDraftOf(block)))
       if (message !== null) return message
     }
-    return failureOf(await createTemplate(templateDraftOf(draft)))
+    return failureOf(await createTemplate(typeDraftOf(draft)))
   }
 
   return (
@@ -100,7 +100,7 @@ export function TemplateGalleryWell({ scope, library }: GalleryProps) {
           badge: null,
           sketch: templateSketch(draft.body, lookup, TEMPLATE_SKETCH_LINES),
           sketchNames: true,
-          preview: expandTemplate(draft, lookup),
+          preview: expandType(draft, lookup),
           adopt: () => adopt(draft)
         }))}
       />

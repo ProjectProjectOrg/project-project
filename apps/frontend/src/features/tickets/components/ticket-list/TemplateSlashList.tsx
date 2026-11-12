@@ -1,4 +1,4 @@
-import type { TemplateDefinition, TemplateKey, TicketType } from "@pp/shared"
+import type { TypeDefinition, TypeKey, TicketType } from "@pp/shared"
 import { CircleDashed } from "lucide-react"
 import { useId, useMemo, useState, type KeyboardEvent } from "react"
 
@@ -16,7 +16,7 @@ import type { TemplateChoice } from "./useTemplateChoice"
 
 export function TemplateGlyph({
   template
-}: Readonly<{ template: TemplateDefinition | null }>) {
+}: Readonly<{ template: TypeDefinition | null }>) {
   return template === null ? (
     <CircleDashed
       aria-hidden
@@ -28,12 +28,12 @@ export function TemplateGlyph({
   )
 }
 
-export const templateLabel = (template: TemplateDefinition | null): string =>
+export const templateLabel = (template: TypeDefinition | null): string =>
   template === null ? m.templates_creator_blank() : template.name
 
 export const templateMeta = (
-  template: TemplateDefinition | null,
-  defaultKey: TemplateKey | null
+  template: TypeDefinition | null,
+  defaultKey: TypeKey | null
 ): string | null =>
   template !== null && template.key === defaultKey
     ? m.templates_creator_default()
@@ -42,11 +42,11 @@ export const templateMeta = (
 export type TemplateSlash = Readonly<{
   open: boolean
   listbox: ListboxState
-  options: ReadonlyArray<TemplateDefinition | null>
+  options: ReadonlyArray<TypeDefinition | null>
   highlight: number
   onTitleChange: (previous: string, next: string) => void
   onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => boolean
-  choose: (template: TemplateDefinition | null) => void
+  choose: (template: TypeDefinition | null) => void
   setHighlight: (index: number) => void
   close: () => void
 }>
@@ -58,8 +58,8 @@ const BLANK_TERMS = (): ReadonlyArray<string> => [
 
 export const slashOptions = (
   query: string,
-  templates: ReadonlyArray<TemplateDefinition>
-): ReadonlyArray<TemplateDefinition | null> => [
+  templates: ReadonlyArray<TypeDefinition>
+): ReadonlyArray<TypeDefinition | null> => [
   ...(matchesSlashQuery(query, BLANK_TERMS()) ? [null] : []),
   ...templates.filter((template) =>
     matchesSlashQuery(query, [
@@ -78,7 +78,7 @@ export function useTemplateSlash({
   title: string
   choice: TemplateChoice
   onChoose: (
-    template: TemplateDefinition | null,
+    template: TypeDefinition | null,
     ticketType: TicketType | null
   ) => void
 }>): TemplateSlash {
@@ -97,7 +97,7 @@ export function useTemplateSlash({
     setHighlight(0)
   }
 
-  const choose = (template: TemplateDefinition | null) => {
+  const choose = (template: TypeDefinition | null) => {
     choice.pick(template?.key ?? null)
     close()
     onChoose(

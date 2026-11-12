@@ -1,11 +1,11 @@
 import { useAtomValue } from "@effect/atom-react"
 import {
   blockLookupFor,
-  expandTemplate,
-  ticketTypeForTemplate,
+  expandType,
+  ticketTypeForKey,
   type Library,
-  type TemplateDefinition,
-  type UpdateTemplateInput
+  type TypeDefinition,
+  type UpdateTypeInput
 } from "@pp/shared"
 import { useCallback, useMemo, useState } from "react"
 
@@ -23,11 +23,10 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { libraryView, type LibraryScope } from "../atoms/libraryScope"
-import { saveTemplateTask, useLibrarySave } from "../hooks/useLibrarySave"
+import { saveTypeTask, useLibrarySave } from "../hooks/useLibrarySave"
 import { BlockIconGlyph } from "./BlockIconGlyph"
 import {
   CommitInput,
-  DefaultForField,
   IconAndColorField,
   MUTED_VALUE_CLASS,
   NullablePriorityField,
@@ -49,7 +48,7 @@ export function useLayerPermissions(
 ): EditorBlocks["canEdit"] {
   const orgAdmin = useOrgActor(scope.req.params.orgSlug).call(
     "library",
-    "updateOrgTemplate"
+    "updateOrgType"
   )
   return useMemo(
     () =>
@@ -69,7 +68,7 @@ export const combinedStatus = (
   return save === "idle" ? editor : save
 }
 
-export function TemplateEditorPage({
+export function TypeEditorPage({
   scope,
   templateKey
 }: Readonly<{ scope: LibraryScope; templateKey: string }>) {
@@ -85,9 +84,7 @@ export function TemplateEditorPage({
         </div>
       )}
       onSuccess={({ value }) => {
-        const template = value.templates.find(
-          (entry) => entry.key === templateKey
-        )
+        const template = value.types.find((entry) => entry.key === templateKey)
         return (
           <LibraryContext value={value}>
             {template === undefined ? (
@@ -120,7 +117,7 @@ function TemplateEditor({
 }: Readonly<{
   scope: LibraryScope
   library: Library
-  template: TemplateDefinition
+  template: TypeDefinition
 }>) {
   const save = useLibrarySave()
   const { run } = save
@@ -133,8 +130,8 @@ function TemplateEditor({
   const editable = library.canEdit
 
   const patch = useCallback(
-    (input: UpdateTemplateInput) =>
-      void run(saveTemplateTask(scope, key, input)).catch(() => {}),
+    (input: UpdateTypeInput) =>
+      void run(saveTypeTask(scope, key, input)).catch(() => {}),
     [key, run, scope]
   )
 
@@ -147,14 +144,14 @@ function TemplateEditor({
     () => ({
       mode: "template",
       library,
-      ticketType: ticketTypeForTemplate(library.defaults, key),
+      ticketType: ticketTypeForKey(key),
       canEdit,
       onEditDefinition
     }),
     [canEdit, key, library, onEditDefinition]
   )
 
-  const preview = expandTemplate({ body: draft }, blockLookupFor(library))
+  const preview = expandType({ body: draft }, blockLookupFor(library))
   const showPreview = tab === "preview" || !editable
 
   return (
@@ -205,7 +202,7 @@ function TemplateEditor({
                 key={`${scope.layer}:${key}`}
                 markdown={template.body}
                 onDraftChange={setDraft}
-                onChange={(body) => run(saveTemplateTask(scope, key, { body }))}
+                onChange={(body) => run(saveTypeTask(scope, key, { body }))}
                 onStatusChange={setEditorStatus}
                 placeholder={m.templates_editor_placeholder()}
                 blocks={blocks}
@@ -248,13 +245,6 @@ function TemplateEditor({
             ) : (
               <span className={MUTED_VALUE_CLASS}>{template.description}</span>
             )}
-          </MetaRow>
-          <MetaRow label={m.templates_editor_default_for_label()}>
-            <DefaultForField
-              scope={scope}
-              library={library}
-              templateKey={key}
-            />
           </MetaRow>
           <MetaRow label={m.templates_editor_priority_label()}>
             <NullablePriorityField

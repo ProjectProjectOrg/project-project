@@ -1,11 +1,11 @@
 import { $convertFromMarkdownString, type Transformer } from "@lexical/markdown"
 import {
-  isPristineTemplateBody,
+  isPristineTypeBody,
   stripHints,
-  templateFor,
+  typeFor,
   type BlockLookup,
   type Library,
-  type TemplateDefinition,
+  type TypeDefinition,
   type TicketType
 } from "@pp/shared"
 import {
@@ -25,7 +25,7 @@ import { lookupFor } from "@/features/editor/lib/blockChrome"
 export const START_TEMPLATE_LIMIT = 3
 
 export type TemplateStarts = Readonly<{
-  templates: ReadonlyArray<TemplateDefinition>
+  templates: ReadonlyArray<TypeDefinition>
   more: boolean
 }>
 
@@ -51,17 +51,17 @@ const untouchedTemplate = (
   library: Library,
   body: string,
   from: TicketType
-): TemplateDefinition | null => {
+): TypeDefinition | null => {
   const lookup = lookupFor(library)
   const comparable = stripHints(body)
-  const current = templateFor(library, from)
+  const current = typeFor(library, from)
   const candidates =
     current === null
-      ? library.templates
-      : [current, ...library.templates.filter((t) => t.key !== current.key)]
+      ? library.types
+      : [current, ...library.types.filter((t) => t.key !== current.key)]
   return (
     candidates.find((template) =>
-      isPristineTemplateBody(comparable, template, lookup)
+      isPristineTypeBody(comparable, template, lookup)
     ) ?? null
   )
 }
@@ -71,8 +71,8 @@ export const templateSwap = ({
   body,
   from,
   to
-}: TemplateSwapInput): TemplateDefinition | null => {
-  const next = templateFor(library, to)
+}: TemplateSwapInput): TypeDefinition | null => {
+  const next = typeFor(library, to)
   if (next === null) return null
   if (body.trim() === "") return next
   const untouched = untouchedTemplate(library, body, from)

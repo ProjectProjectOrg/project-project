@@ -1,13 +1,13 @@
 import type { MenuTextMatch } from "@lexical/react/LexicalTypeaheadMenuPlugin"
 import {
-  expandTemplate,
-  mergeTemplateInto,
+  expandType,
+  mergeTypeInto,
   parseTicketBlocks,
-  templateFor,
+  typeFor,
   type BlockDefinition,
   type BlockLookup,
   type Library,
-  type TemplateDefinition,
+  type TypeDefinition,
   type TicketType
 } from "@pp/shared"
 
@@ -77,7 +77,7 @@ export type SlashItem =
   | Readonly<{
       kind: "template"
       key: string
-      template: TemplateDefinition
+      template: TypeDefinition
       adds: number
     }>
   | Readonly<{ kind: "basic"; key: string; basic: SlashBasicKind }>
@@ -153,7 +153,7 @@ const visibleBlocks = (library: Library): ReadonlyArray<BlockDefinition> =>
 
 const suggestedItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> => {
   if (input.query !== "" || input.ticketType === null) return []
-  const template = templateFor(input.library, input.ticketType)
+  const template = typeFor(input.library, input.ticketType)
   if (template === null) return []
   const present = new Set(blockTypesIn(input.body))
   const seen = new Set<string>()
@@ -196,18 +196,17 @@ const blockItems = (input: SlashMenuInput): ReadonlyArray<SlashItem> =>
   )
 
 export const templateAdds = (
-  template: TemplateDefinition,
+  template: TypeDefinition,
   body: string,
   lookup: BlockLookup
-): number =>
-  mergeTemplateInto(body, expandTemplate(template, lookup)).added.length
+): number => mergeTypeInto(body, expandType(template, lookup)).added.length
 
 export const orderedTemplates = (
   library: Library,
   ticketType: TicketType | null
-): ReadonlyArray<TemplateDefinition> => {
-  const defaultKey = ticketType === null ? null : library.defaults[ticketType]
-  const active = library.templates.filter((template) => !template.hidden)
+): ReadonlyArray<TypeDefinition> => {
+  const defaultKey = ticketType
+  const active = library.types.filter((template) => !template.hidden)
   return [
     ...active.filter((template) => template.key === defaultKey),
     ...active.filter((template) => template.key !== defaultKey)
@@ -298,7 +297,7 @@ const libraryIsEmpty = (
 ): boolean => {
   if (section === "blocks") return visibleBlocks(library).length === 0
   if (section === "templates")
-    return library.templates.every((template) => template.hidden)
+    return library.types.every((template) => template.hidden)
   return false
 }
 

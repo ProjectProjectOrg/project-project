@@ -534,6 +534,7 @@
   "editor_block_menu_reset_confirm": "Discard edits and reset",
   "editor_block_menu_revert_confirm": "Discard the customization and link the block",
   "editor_block_not_filled_in": "Not filled in",
+  "editor_block_origin_builtin": "built in",
   "editor_block_origin_org": "org",
   "editor_block_origin_project": "project",
   "editor_block_status_edited": "Edited",

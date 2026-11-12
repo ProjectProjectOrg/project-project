@@ -23,12 +23,7 @@ import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPl
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
 import { RichTextExtension } from "@lexical/rich-text"
 import { TableExtension } from "@lexical/table"
-import {
-  EMPTY_LAYER,
-  NO_TEMPLATE_DEFAULTS,
-  resolveLibrary,
-  type TicketId
-} from "@pp/shared"
+import { EMPTY_LAYER, resolveLibrary, type TicketId } from "@pp/shared"
 import { useDebouncer } from "@tanstack/react-pacer"
 import * as Effect from "effect/Effect"
 import {
@@ -281,8 +276,8 @@ export interface AttachmentsTarget {
 
 const NO_LIBRARY = resolveLibrary(
   { org: EMPTY_LAYER, project: null },
-  { org: NO_TEMPLATE_DEFAULTS, project: null },
-  false
+  false,
+  EMPTY_LAYER
 )
 
 export interface LexicalEditorProps {

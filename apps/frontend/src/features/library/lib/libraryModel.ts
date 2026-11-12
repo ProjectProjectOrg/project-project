@@ -1,16 +1,12 @@
 import {
-  BLANK_TEMPLATE_KEY,
+  isReservedTypeKey,
   LIBRARY_KEY_MAX_LENGTH,
   TICKET_BLOCK_TYPE_PATTERN,
   type BlockDefinition,
   type BlockDraft,
-  type Library,
   type LibraryOrigin,
-  type TemplateDefinition,
-  type TemplateDraft,
-  type TemplateKey,
-  type TicketType,
-  type UpdateTemplateDefaultsInput
+  type TypeDefinition,
+  type TypeDraft
 } from "@pp/shared"
 
 import { slugify } from "@/lib/slug"
@@ -36,7 +32,9 @@ export const rowActions = (
   if (!canEdit || entry.hidden) return []
   if (entry.origin === layer)
     return ["duplicate", entry.shadows === null ? "delete" : "reset"]
-  return ["customize", "duplicate", "hide"]
+  return layer === "project"
+    ? ["customize", "duplicate", "hide"]
+    : ["customize", "duplicate"]
 }
 
 export const canUnhide = (
@@ -68,7 +66,7 @@ export const keyProblem = (
     !TICKET_BLOCK_TYPE_PATTERN.test(key)
   )
     return "invalid"
-  if (kind === "template" && key === BLANK_TEMPLATE_KEY) return "reserved"
+  if (kind === "template" && isReservedTypeKey(key)) return "reserved"
   if (taken.has(key)) return "taken"
   return null
 }
@@ -84,9 +82,9 @@ export const copyKey = (key: string, taken: ReadonlySet<string>): string => {
   }
 }
 
-export const templateDraftOf = (
-  template: TemplateDefinition | TemplateDraft
-): TemplateDraft => ({
+export const typeDraftOf = (
+  template: TypeDefinition | TypeDraft
+): TypeDraft => ({
   key: template.key,
   name: template.name,
   icon: template.icon,
@@ -108,34 +106,6 @@ export const blockDraftOf = (
   sync: block.sync,
   content: block.content
 })
-
-export const TICKET_TYPES: ReadonlyArray<TicketType> = [
-  "feat",
-  "bug",
-  "chore",
-  "other",
-  "epic"
-]
-
-export type DefaultState = "own" | "inherited" | "overridden"
-
-export const defaultState = (
-  library: Library,
-  layer: LibraryLayer,
-  type: TicketType
-): DefaultState => {
-  if (layer === "org") return "own"
-  return type in library.ownDefaults ? "overridden" : "inherited"
-}
-
-export const defaultRemoval = (
-  ownDefaults: Library["ownDefaults"],
-  type: TicketType,
-  templateKey: TemplateKey
-): UpdateTemplateDefaultsInput =>
-  ownDefaults[type] === templateKey
-    ? { defaults: {}, reset: [type] }
-    : { defaults: { [type]: null } }
 
 export const layoutIdFor = (kind: LibraryKind, key: string): string =>
   `library-${kind}:${key}`

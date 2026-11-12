@@ -3,8 +3,8 @@ import {
   blockLookupFor,
   type BlockLookup,
   type Library,
-  type TemplateDefinition,
-  TemplateKey
+  type TypeDefinition,
+  TypeKey
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -14,9 +14,9 @@ import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
 import {
-  createTemplateAtom,
-  dropTemplateAtom,
-  removeTemplateAtom,
+  createTypeAtom,
+  dropTypeAtom,
+  removeTypeAtom,
   type LibraryScope
 } from "../atoms/libraryScope"
 import { templateSketch } from "../lib/blockSketchModel"
@@ -25,7 +25,7 @@ import {
   copyKey,
   rowActions,
   splitHidden,
-  templateDraftOf,
+  typeDraftOf,
   type RowAction
 } from "../lib/libraryModel"
 import { BlockStrip } from "./BlockSketch"
@@ -39,15 +39,15 @@ import {
 } from "./LibraryRow"
 import { LIBRARY_GRID_CLASS, LibrarySectionHeader } from "./LibrarySection"
 
-type TemplateListProps = Readonly<{ scope: LibraryScope; library: Library }>
+type TypeListProps = Readonly<{ scope: LibraryScope; library: Library }>
 
-export function TemplateList({ scope, library }: TemplateListProps) {
+export function TypeList({ scope, library }: TypeListProps) {
   const lookup = useMemo(() => blockLookupFor(library), [library])
-  const { visible, hidden } = splitHidden(library.templates)
+  const { visible, hidden } = splitHidden(library.types)
   const isFresh = useFreshKeys(visible.map((entry) => entry.key))
   const taken = useMemo(
-    () => new Set(library.templates.map((template) => template.key)),
-    [library.templates]
+    () => new Set(library.types.map((template) => template.key)),
+    [library.types]
   )
   const heading = {
     id: "library-list-heading-template",
@@ -77,7 +77,7 @@ export function TemplateList({ scope, library }: TemplateListProps) {
       ) : (
         <ul className={LIBRARY_GRID_CLASS}>
           {visible.map((template) => (
-            <TemplateCard
+            <TypeCard
               key={template.key}
               scope={scope}
               library={library}
@@ -94,15 +94,13 @@ export function TemplateList({ scope, library }: TemplateListProps) {
           ...template,
           unhide: canUnhide(template, scope.layer, library.canEdit)
         }))}
-        renderUnhide={(key) => (
-          <TemplateUnhide scope={scope} templateKey={key} />
-        )}
+        renderUnhide={(key) => <TypeUnhide scope={scope} templateKey={key} />}
       />
     </section>
   )
 }
 
-function TemplateCard({
+function TypeCard({
   scope,
   library,
   template,
@@ -112,14 +110,14 @@ function TemplateCard({
 }: Readonly<{
   scope: LibraryScope
   library: Library
-  template: TemplateDefinition
+  template: TypeDefinition
   lookup: BlockLookup
   taken: ReadonlySet<string>
   fresh: boolean
 }>) {
-  const dropAtom = dropTemplateAtom(scope, template)
+  const dropAtom = dropTypeAtom(scope, template)
   const drop = useAtomSet(dropAtom, { mode: "promiseExit" })
-  const create = useAtomSet(createTemplateAtom(scope), { mode: "promiseExit" })
+  const create = useAtomSet(createTypeAtom(scope), { mode: "promiseExit" })
   const dropState = useAtomValue(dropAtom)
   const [createError, setCreateError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
@@ -128,14 +126,14 @@ function TemplateCard({
     setCreateError(null)
     if (action === "hide" || action === "reset" || action === "delete")
       return Exit.isSuccess(await drop())
-    const draft = templateDraftOf(template)
+    const draft = typeDraftOf(template)
     setCreating(true)
     const exit = await create(
       action === "customize"
         ? draft
         : {
             ...draft,
-            key: TemplateKey.make(copyKey(template.key, taken)),
+            key: TypeKey.make(copyKey(template.key, taken)),
             name: m
               .templates_settings_copy_name({ name: template.name })
               .slice(0, 60)
@@ -162,11 +160,11 @@ function TemplateCard({
   )
 }
 
-function TemplateUnhide({
+function TypeUnhide({
   scope,
   templateKey
-}: Readonly<{ scope: LibraryScope; templateKey: TemplateKey }>) {
-  const mutation = removeTemplateAtom(scope, templateKey)
+}: Readonly<{ scope: LibraryScope; templateKey: TypeKey }>) {
+  const mutation = removeTypeAtom(scope, templateKey)
   // promiseExit keeps the mutation mounted after the optimistic unhide unmounts this row.
   const unhide = useAtomSet(mutation, { mode: "promiseExit" })
   const state = useAtomValue(mutation)

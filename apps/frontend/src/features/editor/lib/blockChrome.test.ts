@@ -1,4 +1,4 @@
-import { EMPTY_LAYER, NO_TEMPLATE_DEFAULTS, resolveLibrary } from "@pp/shared"
+import { EMPTY_LAYER, resolveLibrary } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -33,8 +33,8 @@ describe("blockChrome", () => {
   const lookup = lookupFor(BUILTIN_LIBRARY)
   const EMPTY_LIBRARY = resolveLibrary(
     { org: EMPTY_LAYER, project: null },
-    { org: NO_TEMPLATE_DEFAULTS, project: null },
-    false
+    false,
+    EMPTY_LAYER
   )
 
   it("uses the definition for a known block", () => {

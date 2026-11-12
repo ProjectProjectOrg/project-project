@@ -1,10 +1,10 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import {
-  templateFor,
-  ticketTypeForTemplate,
+  ticketTypeForKey,
+  typeFor,
   type Library,
-  type TemplateDefinition,
-  type TemplateKey,
+  type TypeDefinition,
+  type TypeKey,
   type TicketType
 } from "@pp/shared"
 import type * as Exit from "effect/Exit"
@@ -19,14 +19,14 @@ import type { TemplatePrediction } from "@/features/tickets/lib/ticketRows"
 import { failedOnUnknownTemplate } from "@/lib/mutationError"
 
 export type TemplateChoice = Readonly<{
-  templates: ReadonlyArray<TemplateDefinition>
-  template: TemplateDefinition | null
-  defaultKey: TemplateKey | null
+  templates: ReadonlyArray<TypeDefinition>
+  template: TypeDefinition | null
+  defaultKey: TypeKey | null
   sticky: boolean
   ready: boolean
-  pick: (key: TemplateKey | null) => void
-  ticketTypeOf: (key: TemplateKey) => TicketType | null
-  payload: Readonly<{ template?: TemplateKey }>
+  pick: (key: TypeKey | null) => void
+  ticketTypeOf: (key: TypeKey) => TicketType | null
+  payload: Readonly<{ template?: TypeKey }>
   prediction: TemplatePrediction | undefined
   recover: (exit: Exit.Exit<unknown, Readonly<{ _tag: string }>>) => void
 }>
@@ -34,25 +34,24 @@ export type TemplateChoice = Readonly<{
 export const orderedTemplates = (
   library: Library,
   type: TicketType
-): ReadonlyArray<TemplateDefinition> => {
-  const defaultKey = library.defaults[type]
-  const active = library.templates.filter((template) => !template.hidden)
+): ReadonlyArray<TypeDefinition> => {
+  const active = library.types.filter((template) => !template.hidden)
   return [
-    ...active.filter((template) => template.key === defaultKey),
-    ...active.filter((template) => template.key !== defaultKey)
+    ...active.filter((template) => template.key === type),
+    ...active.filter((template) => template.key !== type)
   ]
 }
 
 export const chosenTemplate = (
   library: Library,
   type: TicketType,
-  picked: TemplateKey | null | undefined
-): TemplateDefinition | null =>
+  picked: TypeKey | null | undefined
+): TypeDefinition | null =>
   picked === undefined
-    ? templateFor(library, type)
+    ? typeFor(library, type)
     : picked === null
       ? null
-      : (library.templates.find(
+      : (library.types.find(
           (template) => template.key === picked && !template.hidden
         ) ?? null)
 
@@ -65,9 +64,7 @@ export function useTemplateChoice(
   const result = useAtomValue(libraryAtom)
   const refreshLibrary = useAtomRefresh(libraryAtom)
   const library = AsyncResult.isSuccess(result) ? result.value : null
-  const [picked, setPicked] = useState<TemplateKey | null | undefined>(
-    undefined
-  )
+  const [picked, setPicked] = useState<TypeKey | null | undefined>(undefined)
   const recover = useCallback(
     (exit: Exit.Exit<unknown, Readonly<{ _tag: string }>>) => {
       if (failedOnUnknownTemplate(exit)) refreshLibrary()
@@ -80,12 +77,12 @@ export function useTemplateChoice(
     return {
       templates: library === null ? [] : orderedTemplates(library, type),
       template,
-      defaultKey: library === null ? null : library.defaults[type],
+      defaultKey:
+        library === null ? null : (typeFor(library, type)?.key ?? null),
       sticky: picked !== undefined,
       ready: library !== null,
       pick: setPicked,
-      ticketTypeOf: (key: TemplateKey) =>
-        library === null ? null : ticketTypeForTemplate(library.defaults, key),
+      ticketTypeOf: ticketTypeForKey,
       payload: template === null ? {} : { template: template.key },
       prediction:
         template === null

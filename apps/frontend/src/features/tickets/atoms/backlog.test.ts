@@ -6,7 +6,7 @@ import {
   Ticket,
   TicketDetail,
   TagName,
-  TemplateKey,
+  TypeKey,
   TicketId,
   type TicketListQuery,
   TicketStatus,
@@ -41,7 +41,7 @@ const decodeTicketIdSync = Schema.decodeSync(TicketId)
 
 const decodeGroupIdSync = Schema.decodeSync(GroupId)
 
-const decodeTemplateKeySync = Schema.decodeSync(TemplateKey)
+const decodeTemplateKeySync = Schema.decodeSync(TypeKey)
 
 const decodeTagNameSync = Schema.decodeSync(TagName)
 

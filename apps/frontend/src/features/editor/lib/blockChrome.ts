@@ -1,6 +1,5 @@
 import {
-  BUILTIN_BLOCKS,
-  BUILTIN_TEMPLATE_DEFAULTS,
+  GALLERY_BLOCKS,
   FALLBACK_BLOCK_ICON,
   GALLERY_LAYER,
   blockLookupFor,
@@ -23,7 +22,6 @@ export type BlockChrome = Readonly<{
 
 export const BUILTIN_LIBRARY: Library = resolveLibrary(
   { org: GALLERY_LAYER, project: null },
-  { org: BUILTIN_TEMPLATE_DEFAULTS, project: null },
   false
 )
 
@@ -47,7 +45,7 @@ export const humanizeBlockType = (blockType: string): string => {
 }
 
 const galleryChrome = (blockType: string): BlockChrome => {
-  const gallery = BUILTIN_BLOCKS.find((block) => block.key === blockType)
+  const gallery = GALLERY_BLOCKS.find((block) => block.key === blockType)
   return {
     name: gallery?.name ?? humanizeBlockType(blockType),
     origin: null,
@@ -72,6 +70,7 @@ export const blockChrome = (
 }
 
 const ORIGIN_LABELS: Record<LibraryOrigin, () => string> = {
+  builtin: m.editor_block_origin_builtin,
   org: m.editor_block_origin_org,
   project: m.editor_block_origin_project
 }

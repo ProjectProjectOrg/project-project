@@ -29,6 +29,7 @@ export type LibraryRowEntry = Readonly<{
 }>
 
 const ORIGIN_LABELS: Readonly<Record<LibraryOrigin, () => string>> = {
+  builtin: () => m.templates_settings_origin_builtin(),
   org: () => m.templates_settings_origin_org(),
   project: () => m.templates_settings_origin_project()
 }

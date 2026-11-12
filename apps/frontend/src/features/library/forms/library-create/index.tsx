@@ -3,8 +3,8 @@ import {
   FALLBACK_BLOCK_ICON,
   type BlockDraft,
   BlockKey,
-  type TemplateDraft,
-  TemplateKey
+  type TypeDraft,
+  TypeKey
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -14,7 +14,7 @@ import { useInlineForm } from "@/components/ui/inline-form"
 import { Input } from "@/components/ui/input"
 import {
   createBlockAtom,
-  createTemplateAtom,
+  createTypeAtom,
   type LibraryScope
 } from "@/features/library/atoms/libraryScope"
 import { useOpenEntry } from "@/features/library/components/LibraryEntryLink"
@@ -33,8 +33,8 @@ export type LibraryCreateProps = Readonly<{
 
 type CreateResult = AsyncResult.AsyncResult<unknown, Readonly<{ _tag: string }>>
 
-const templateDraft = (key: string, name: string): TemplateDraft => ({
-  key: TemplateKey.make(key),
+const templateDraft = (key: string, name: string): TypeDraft => ({
+  key: TypeKey.make(key),
   name,
   icon: "LayoutTemplate",
   color: null,
@@ -63,7 +63,7 @@ export function LibraryCreateForm(props: LibraryCreateProps) {
 }
 
 function TemplateCreateForm(props: LibraryCreateProps) {
-  const mutation = createTemplateAtom(props.scope)
+  const mutation = createTypeAtom(props.scope)
   const create = useAtomSet(mutation, { mode: "promiseExit" })
   const state = useAtomValue(mutation)
   return (

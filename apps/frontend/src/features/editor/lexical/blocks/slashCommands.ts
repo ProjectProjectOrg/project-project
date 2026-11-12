@@ -14,7 +14,7 @@ import {
 import { $setBlocksType } from "@lexical/selection"
 import { INSERT_TABLE_COMMAND } from "@lexical/table"
 import {
-  expandTemplate,
+  expandType,
   formatTicketBlock,
   stripHints,
   type BlockDefinition,
@@ -169,7 +169,7 @@ export function $runSlashItem(
       return
     case "template":
       $applyTemplate(
-        expandTemplate(item.template, context.lookup),
+        expandType(item.template, context.lookup),
         context.transformers,
         context.lookup
       )

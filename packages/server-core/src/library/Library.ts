@@ -11,7 +11,7 @@ import {
   type TypeDefinition,
   TypeKey,
   type TicketPriority,
-  TicketType,
+  type TicketType,
   type UpdateBlockInput,
   type UpdateTypeInput,
   Validation,
@@ -21,6 +21,7 @@ import {
   BlockKey,
   blockLookupFor,
   expandType,
+  ticketTypeForKey,
   typeFor,
   extractAttachmentRefs,
   extractMentionLinks,
@@ -39,7 +40,6 @@ import {
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
-import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import { validateBodyMentions } from "../comments/BodyMentions"
@@ -162,8 +162,6 @@ type KindOps<Draft extends Keyed, Definition extends Keyed> = Readonly<{
   contentOf: (draft: Draft) => string
   allowsBlocks: boolean
 }>
-
-const decodeTicketType = Schema.decodeUnknownOption(TicketType)
 
 const SYNCED_OPENER = /<block[^>\n]*\ssync/
 
@@ -697,7 +695,7 @@ const make = Effect.gen(function* () {
     )
     return {
       body,
-      type: Option.getOrNull(decodeTicketType(definition.key)),
+      type: ticketTypeForKey(definition.key),
       priority: definition.priority,
       tags: definition.tags.filter((tag) => known.has(tag))
     }

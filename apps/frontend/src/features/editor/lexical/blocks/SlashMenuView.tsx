@@ -137,6 +137,7 @@ const GALLERY_LABELS = {
 }
 
 const ORIGIN_LABELS = {
+  builtin: m.editor_block_origin_builtin,
   org: m.editor_block_origin_org,
   project: m.editor_block_origin_project
 }

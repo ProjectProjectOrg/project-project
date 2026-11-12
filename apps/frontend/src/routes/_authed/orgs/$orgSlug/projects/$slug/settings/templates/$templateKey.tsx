@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 
 import { projectScope } from "@/features/library/atoms/libraryScope"
-import { TemplateEditorPage } from "@/features/library/components/TemplateEditorPage"
+import { TypeEditorPage } from "@/features/library/components/TypeEditorPage"
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey"
@@ -12,7 +12,7 @@ export const Route = createFileRoute(
 function ProjectTemplateEditor() {
   const params = Route.useParams()
   return (
-    <TemplateEditorPage
+    <TypeEditorPage
       scope={projectScope(params.orgSlug, params.slug)}
       templateKey={params.templateKey}
     />

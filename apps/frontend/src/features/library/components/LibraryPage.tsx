@@ -13,9 +13,8 @@ import { m } from "@/paraglide/messages"
 
 import { libraryView, type LibraryScope } from "../atoms/libraryScope"
 import { BlockList } from "./BlockList"
-import { BlockGalleryWell, TemplateGalleryWell } from "./GalleryWell"
-import { TemplateDefaultsRow } from "./TemplateDefaultsRow"
-import { TemplateList } from "./TemplateList"
+import { BlockGalleryWell, TypeGalleryWell } from "./GalleryWell"
+import { TypeList } from "./TypeList"
 
 export type LibraryTab = "templates" | "blocks"
 
@@ -74,9 +73,8 @@ function LibraryContent({
           </>
         ) : (
           <>
-            <TemplateDefaultsRow scope={scope} library={library} />
-            <TemplateList scope={scope} library={library} />
-            <TemplateGalleryWell scope={scope} library={library} />
+            <TypeList scope={scope} library={library} />
+            <TypeGalleryWell scope={scope} library={library} />
           </>
         )}
       </div>

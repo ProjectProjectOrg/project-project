@@ -1,12 +1,14 @@
 import {
-  BUILTIN_BLOCKS,
+  BUILTIN_TYPES,
+  GALLERY_BLOCKS,
   BlockDefinition,
   BlockKey,
   Conflict,
   EMPTY_LAYER,
   Library,
-  LibraryDefaults,
+  TypeDefinition,
   resolveLibrary,
+  typeFor,
   type BlockDraft,
   type Layer
 } from "@pp/shared"
@@ -20,12 +22,12 @@ import { stubFetch } from "@/api/testFetch"
 import {
   createOrgBlock,
   createProjectBlock,
+  createProjectType,
   orgLibraryFor,
   orgLibraryRequest,
   projectLibraryFor,
   projectLibraryRequest,
   removeProjectBlock,
-  setTemplateDefaults,
   updateOrgBlockFromProject,
   updateProjectBlock
 } from "./library"
@@ -35,11 +37,11 @@ const orgReq = orgLibraryRequest("acme")
 const projectReq = projectLibraryRequest("acme", "web")
 const encodeLibrary = Schema.encodeSync(Library)
 const encodeBlock = Schema.encodeSync(BlockDefinition)
-const encodeDefaults = Schema.encodeSync(LibraryDefaults)
+const encodeType = Schema.encodeSync(TypeDefinition)
 const encodeConflict = Schema.encodeSync(Conflict)
 const blockKey = Schema.decodeSync(BlockKey)
 
-const contextBlock = BUILTIN_BLOCKS.find((block) => block.key === "context")!
+const contextBlock = GALLERY_BLOCKS.find((block) => block.key === "context")!
 
 const triageDraft: BlockDraft = {
   key: blockKey("triage"),
@@ -52,11 +54,7 @@ const triageDraft: BlockDraft = {
 }
 
 const libraryWith = (project: Layer | null, org: Layer = EMPTY_LAYER) =>
-  resolveLibrary(
-    { org, project },
-    { org: {}, project: project === null ? null : {} },
-    true
-  )
+  resolveLibrary({ org, project }, true, EMPTY_LAYER)
 
 const layerWith = (blocks: ReadonlyArray<BlockDraft>): Layer => ({
   ...EMPTY_LAYER,
@@ -425,41 +423,52 @@ describe("library atoms", () => {
     }
   })
 
-  it("writes template defaults through the project wrapper", async () => {
-    const setDefaults = deferred()
+  it("saves a project copy of a built-in type through the project wrapper", async () => {
+    const created = deferred()
+    const builtinOnly = resolveLibrary(
+      { org: EMPTY_LAYER, project: EMPTY_LAYER },
+      true
+    )
+    const bug = typeFor(builtinOnly, "bug")!
+    const draft = BUILTIN_TYPES.find((type) => type.key === bug.key)!
+    const copy = { ...draft, name: "Defect" }
+    const withCopy = resolveLibrary(
+      { org: EMPTY_LAYER, project: { ...EMPTY_LAYER, types: [copy] } },
+      true
+    )
+    let served = builtinOnly
     serve([
       {
         method: "GET",
         path: PROJECT_PATH,
-        respond: json(libraryWith(null))
+        respond: () => json(served)()
       },
       {
-        method: "PATCH",
-        path: `${PROJECT_PATH}/defaults`,
-        respond: () => setDefaults.promise
+        method: "POST",
+        path: `${PROJECT_PATH}/types`,
+        respond: () => created.promise
       }
     ])
     const registry = AtomRegistry.make()
     const view = projectLibraryFor(projectReq)
-    const mutation = setTemplateDefaults({ req: projectReq })
+    const mutation = createProjectType({ req: projectReq })
     registry.mount(view)
     registry.mount(mutation)
     try {
       await vi.waitFor(() => expect(registry.get(view)._tag).toBe("Success"))
-      registry.set(mutation, { defaults: { bug: null } })
-      const predicted = successValue(registry.get(view))
-      expect(predicted.defaults.bug).toBe(null)
-      expect(predicted.ownDefaults).toEqual({ bug: null })
-      setDefaults.resolve(
-        Response.json(
-          encodeDefaults({
-            defaults: predicted.defaults,
-            ownDefaults: { bug: null },
-            inheritedDefaults: predicted.inheritedDefaults
-          })
-        )
+      expect(bug.origin).toBe("builtin")
+      registry.set(mutation, copy)
+      expect(typeFor(successValue(registry.get(view)), "bug")).toEqual(
+        typeFor(withCopy, "bug")
       )
+      served = withCopy
+      created.resolve(Response.json(encodeType(typeFor(withCopy, "bug")!)))
       await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+      expect(typeFor(successValue(registry.get(view)), "bug")).toMatchObject({
+        name: "Defect",
+        origin: "project",
+        shadows: "builtin"
+      })
     } finally {
       registry.dispose()
     }

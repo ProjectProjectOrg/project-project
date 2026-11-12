@@ -4,7 +4,7 @@ import {
   stripHints,
   type BlockDefinition,
   type Library,
-  type TemplateDefinition,
+  type TypeDefinition,
   type UpdateBlockInput
 } from "@pp/shared"
 import { useCallback, useId, useMemo, useState } from "react"
@@ -37,7 +37,7 @@ import {
   LibraryEntryMissing
 } from "./LibraryEditorChrome"
 import { LibraryEntryLink } from "./LibraryEntryLink"
-import { combinedStatus, useLayerPermissions } from "./TemplateEditorPage"
+import { combinedStatus, useLayerPermissions } from "./TypeEditorPage"
 
 const BLOCK_MARKUP_LINE = /^ {0,3}<\/?block\b/m
 
@@ -47,8 +47,8 @@ export const containsBlockMarkup = (content: string): boolean =>
 export const templatesUsingBlock = (
   library: Library,
   key: string
-): ReadonlyArray<TemplateDefinition> =>
-  library.templates.filter(
+): ReadonlyArray<TypeDefinition> =>
+  library.types.filter(
     (template) =>
       !template.hidden &&
       parseTicketBlocks(template.body).some(

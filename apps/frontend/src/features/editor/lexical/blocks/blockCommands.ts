@@ -9,7 +9,7 @@ import { $findMatchingParent } from "@lexical/utils"
 import {
   HINT,
   hintSlots,
-  mergeTemplateInto,
+  mergeTypeInto,
   outlineBlockContent,
   parseTicketBlocks,
   serializeTicketBlocks,
@@ -278,7 +278,7 @@ export function $applyTemplate(
   lookup: BlockLookup
 ): ReadonlyArray<string> {
   const body = $convertToMarkdownString([...transformers])
-  const merge = mergeTemplateInto(body, expanded)
+  const merge = mergeTypeInto(body, expanded)
   const markdown =
     body.trim() === "" ? expanded : missingBlocksMarkdown(expanded, merge.added)
   if (markdown.trim() === "") return []

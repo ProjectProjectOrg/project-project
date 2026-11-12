@@ -1,5 +1,5 @@
 import {
-  expandTemplateKeepingHints,
+  expandTypeKeepingHints,
   type BlockLookup,
   type Library
 } from "@pp/shared"
@@ -70,7 +70,7 @@ const previewMarkdown = (
     case "block":
       return hintsAsEmphasis(item.definition.content)
     case "template":
-      return hintsAsEmphasis(expandTemplateKeepingHints(item.template, lookup))
+      return hintsAsEmphasis(expandTypeKeepingHints(item.template, lookup))
     case "basic":
       return basicSample(item.basic, label)
     case "gallery":
