@@ -1,4 +1,5 @@
 import type { Ticket } from "@pp/shared"
+import * as Exit from "effect/Exit"
 import { Flag } from "lucide-react"
 import type { KeyboardEvent } from "react"
 
@@ -14,20 +15,26 @@ import { flagTicketFormOpts } from "./opts"
 export function FlagForm({
   ticket,
   onFlag,
+  waiting,
+  error,
   onClose
 }: Readonly<{
   ticket: Pick<Ticket, "id" | "title">
-  onFlag: (reason: string) => void
+  onFlag: (reason: string) => Promise<Exit.Exit<unknown, unknown>>
+  waiting: boolean
+  error: string | null
   onClose: () => void
 }>) {
   const form = useAppForm({
     ...flagTicketFormOpts,
-    onSubmit: ({ value }) => {
-      onFlag(value.reason)
-      onClose()
+    onSubmit: async ({ value }) => {
+      const exit = await onFlag(value.reason)
+      if (Exit.isSuccess(exit)) onClose()
     }
   })
-  const submit = () => void form.handleSubmit()
+  const submit = () => {
+    if (!waiting) void form.handleSubmit()
+  }
   const submitOnModEnter = (event: KeyboardEvent) => {
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
       event.preventDefault()
@@ -66,11 +73,12 @@ export function FlagForm({
       <Composer.Hint className="px-4 pt-4">
         {m.tickets_flag_hint()}
       </Composer.Hint>
+      <Composer.Error>{error}</Composer.Error>
       <Composer.Footer>
         <Button type="button" variant="ghost" size="sm" onClick={onClose}>
           {m.common_cancel_button()}
         </Button>
-        <Button type="submit" size="sm">
+        <Button type="submit" size="sm" disabled={waiting}>
           {m.tickets_flag_submit()}
         </Button>
       </Composer.Footer>

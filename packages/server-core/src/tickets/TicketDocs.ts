@@ -31,6 +31,7 @@ import * as KeyedLock from "../locks/KeyedLock"
 import { markdownFileContent, ticketFileBody } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
+import { clearFlagWhenFinished } from "./ticketPatch"
 
 const TicketFrontmatterOnDisk = Schema.Struct({
   id: TicketId,
@@ -584,9 +585,9 @@ const make = Effect.gen(function* () {
               }
             : transformed
           const next =
-            finished?.has(stamped.status) && stamped.flag !== undefined
-              ? Struct.omit(stamped, ["flag"])
-              : stamped
+            finished === null
+              ? stamped
+              : clearFlagWhenFinished(current, stamped, finished)
           const changes = activity.silent
             ? []
             : [

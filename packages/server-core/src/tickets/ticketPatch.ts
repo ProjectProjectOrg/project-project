@@ -38,6 +38,16 @@ const flagOf = (
     : { reason, by: actor, at: now }
 }
 
+export const clearFlagWhenFinished = (
+  current: TicketDocs.TicketDocument,
+  next: TicketDocs.TicketDocument,
+  finished: ReadonlySet<string>
+): TicketDocs.TicketDocument => {
+  if (current.status === next.status || !finished.has(next.status)) return next
+  const { flag: _flag, ...unflagged } = next
+  return unflagged
+}
+
 export const applyTicketPatch = (
   { flag: currentFlag, ...existing }: TicketDocs.TicketDocument,
   patch: TicketPatch,

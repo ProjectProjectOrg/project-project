@@ -67,6 +67,7 @@ import * as FigmaLinks from "../figma/FigmaLinks"
 import * as Groups from "../groups/Groups"
 import * as Library from "../library/Library"
 import type * as Markdown from "../markdown/Markdown"
+import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
@@ -81,6 +82,7 @@ import {
 import * as TicketIndex from "./TicketIndex"
 import {
   applyTicketPatch,
+  clearFlagWhenFinished,
   batchChangeOf,
   breaksEpicSprintRule,
   fieldChangesOf,
@@ -268,6 +270,7 @@ export class TicketCommands extends Context.Service<
 
 const make = Effect.gen(function* () {
   const ticketDocs = yield* TicketDocs.TicketDocs
+  const finishedStatuses = yield* FinishedStatuses
   const ticketActivity = yield* TicketActivity.TicketActivity
   const { withTicketDocumentLock, withTicketWriteLocks } =
     yield* TicketDocumentLock.TicketDocumentLock
@@ -1936,8 +1939,13 @@ const make = Effect.gen(function* () {
           { concurrency: 8 }
         )
         const now = yield* DateTime.nowAsDate
+        const finished = yield* finishedStatuses.forProject(orgSlug, slug)
         const patched = originals.map((existing) =>
-          applyTicketPatch(existing, fields, userId, now)
+          clearFlagWhenFinished(
+            existing,
+            applyTicketPatch(existing, fields, userId, now),
+            finished
+          )
         )
         const changes = originals.map((existing, index) =>
           fieldChangesOf(existing, patched[index])

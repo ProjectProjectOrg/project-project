@@ -1,4 +1,4 @@
-import { useAtomSet } from "@effect/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as DateTime from "effect/DateTime"
 
 import { Dialog, DialogContent } from "@/components/ui/dialog"
@@ -16,6 +16,7 @@ import { FlagForm } from "@/features/tickets/forms/flag-ticket"
 import { flagFor } from "@/features/tickets/lib/ticketFlag"
 import { useProjectActor } from "@/hooks/useActor"
 import { useRouteBoundDialog } from "@/hooks/useRouteBoundDialog"
+import { mutationErrorText } from "@/lib/mutationError"
 
 export function FlagTicketDialogHost() {
   const { open, shown, close } = useRouteBoundDialog(flagTicketDialog)
@@ -46,11 +47,11 @@ function FlagTicket({
   onDone
 }: Readonly<{ request: FlagTicketDialogRequest; onDone: () => void }>) {
   const { userId } = useProjectActor()
-  const update = useAtomSet(
-    updateTicketDetail(
-      ticketRequest(request.orgSlug, request.slug, request.ticketId)
-    )
+  const mutation = updateTicketDetail(
+    ticketRequest(request.orgSlug, request.slug, request.ticketId)
   )
+  const update = useAtomSet(mutation, { mode: "promiseExit" })
+  const state = useAtomValue(mutation)
   return (
     <FlagForm
       ticket={{ id: request.ticketId, title: request.title }}
@@ -59,6 +60,8 @@ function FlagTicket({
           flag: flagFor(reason, userId, DateTime.toDate(DateTime.nowUnsafe()))
         })
       }
+      waiting={state.waiting}
+      error={mutationErrorText(state)}
       onClose={onDone}
     />
   )
