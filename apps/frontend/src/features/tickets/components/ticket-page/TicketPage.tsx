@@ -119,6 +119,7 @@ export function TicketPage({
           {from && <TicketStepper ticketId={ticket.id} from={from} />}
           {actor.call("tickets", "archive") && (
             <ArchiveTicketControl
+              ticket={ticket}
               archived={ticket.archivedAt !== null}
               onArchive={archiveTicketSet}
               onUnarchive={unarchiveTicketSet}

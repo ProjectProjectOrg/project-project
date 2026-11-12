@@ -26,11 +26,11 @@ import {
 
 import { fireMutation } from "@/api/viewMutation"
 import { Button } from "@/components/ui/button"
+import { Composer } from "@/components/ui/composer"
 import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogFooter,
   DialogTitle
 } from "@/components/ui/dialog"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
@@ -206,7 +206,7 @@ function CreateTicketForm({
 
   return (
     <form onSubmit={(event) => void submit(event)} className="flex flex-col">
-      <div className="flex items-center gap-2 pt-4 pr-4 pl-1.5">
+      <Composer.Header>
         <ProjectSelect
           projects={projects}
           value={slug}
@@ -230,25 +230,23 @@ function CreateTicketForm({
             </TicketIdText>
           </span>
         )}
-      </div>
-      <input
-        aria-label={m.tickets_create_title_aria_label()}
-        aria-required
-        placeholder={m.tickets_create_dialog_title_placeholder()}
-        value={title}
-        maxLength={200}
-        onKeyDown={onSubmitShortcut}
-        onChange={(event) => {
-          setTitle(event.target.value)
-          setFailure(null)
-        }}
-        className="mt-3 w-full bg-transparent px-4 text-title font-semibold outline-none placeholder:text-muted-foreground"
-        ref={titleInput}
-      />
-      <div
-        onKeyDownCapture={onSubmitShortcut}
-        className="mt-1 max-h-[50dvh] overflow-y-auto px-4"
-      >
+      </Composer.Header>
+      <Composer.Title>
+        <Composer.TitleInput
+          aria-label={m.tickets_create_title_aria_label()}
+          aria-required
+          placeholder={m.tickets_create_dialog_title_placeholder()}
+          value={title}
+          maxLength={200}
+          onKeyDown={onSubmitShortcut}
+          onChange={(event) => {
+            setTitle(event.target.value)
+            setFailure(null)
+          }}
+          ref={titleInput}
+        />
+      </Composer.Title>
+      <Composer.Body onKeyDownCapture={onSubmitShortcut}>
         <MentionScopeProvider scope={{ orgSlug, slug: slug ?? "" }}>
           <LexicalEditor
             markdown=""
@@ -256,8 +254,8 @@ function CreateTicketForm({
             placeholder={m.tickets_create_dialog_description_placeholder()}
           />
         </MentionScopeProvider>
-      </div>
-      <div className="flex flex-wrap items-center gap-1.5 pt-2 pr-4 pl-1.5">
+      </Composer.Body>
+      <Composer.Chips>
         {slug === null ? (
           <TypeSelect value={type} onChange={setType} />
         ) : (
@@ -281,16 +279,9 @@ function CreateTicketForm({
             />
           </ProjectScope>
         )}
-      </div>
-      {failure !== null && (
-        <p
-          role="alert"
-          className="mx-4 mt-3 rounded-lg bg-destructive-light px-3 py-2 text-body text-destructive"
-        >
-          {failure}
-        </p>
-      )}
-      <DialogFooter className="border-t border-border/60 px-4 py-3">
+      </Composer.Chips>
+      <Composer.Error>{failure}</Composer.Error>
+      <Composer.Footer>
         <DialogClose
           render={<Button type="button" variant="ghost" size="sm" />}
         >
@@ -299,7 +290,7 @@ function CreateTicketForm({
         <Button type="submit" size="sm" disabled={!canSubmit}>
           {m.tickets_create_dialog_submit()}
         </Button>
-      </DialogFooter>
+      </Composer.Footer>
     </form>
   )
 }
