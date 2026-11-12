@@ -1,4 +1,4 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import {
   listEditBetween,
   TicketType,

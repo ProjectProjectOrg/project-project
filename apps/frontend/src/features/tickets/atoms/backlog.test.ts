@@ -362,21 +362,17 @@ describe("backlog optimistic update", () => {
 })
 
 const urlOf = (input: RequestInfo | URL) =>
-  typeof input === "string"
-    ? input
-    : input instanceof URL
-      ? input.href
-      : input.url
+  input instanceof Request ? input.url : new URL(input, "http://test").href
 
 describe("backlog bulk update", () => {
   const second = { ...ticket, id: decodeTicketIdSync("T-2") }
 
   const run = async (respond: () => Response) => {
-    let finish = (_r: Response) => {}
+    const resolvers: Array<(response: Response) => void> = []
     fetchStub.set((input: RequestInfo | URL) =>
       urlOf(input).endsWith("/tickets/bulk")
         ? new Promise<Response>((resolve) => {
-            finish = resolve
+            resolvers.push(resolve)
           })
         : Promise.resolve(sections([ticket, second]))
     )
@@ -398,7 +394,7 @@ describe("backlog bulk update", () => {
       return value.value.sections.todo.items.map((row) => row.ticket.priority)
     }
     const previewed = priorities()
-    finish(respond())
+    resolvers[0]?.(respond())
     await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
     const settled = priorities()
     registry.dispose()
