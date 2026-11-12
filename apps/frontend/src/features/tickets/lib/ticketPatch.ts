@@ -71,9 +71,10 @@ export const toBulkPatch = (edit: TicketEdit): BulkTicketPatch => {
 export const fromBulkPatch = ({
   sprint: _sprint,
   parent: _parent,
-  flag: _flag,
+  flag,
   ...edit
-}: BulkTicketPatch): TicketEdit => edit
+}: BulkTicketPatch): TicketEdit =>
+  flag === null ? { ...edit, flag: null } : edit
 
 /** Apply a server patch to a list row. Fields absent from the patch are kept. */
 export function applyTicketPatch(ticket: Ticket, patch: TicketEdit): Ticket {
