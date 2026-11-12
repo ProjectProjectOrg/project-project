@@ -900,10 +900,30 @@ const make = Effect.gen(function* () {
         )
 
         let bodyChanged = input.body !== undefined
+        const checkExpected = Effect.fnUntraced(function* (
+          existing: TicketDocs.TicketDocument
+        ) {
+          if (
+            expected?.updatedAt !== undefined &&
+            existing.updatedAt.getTime() !== expected.updatedAt.getTime()
+          ) {
+            return yield* new Conflict({ reason: "ticket_updated_since_read" })
+          }
+          if (
+            expected?.body !== undefined &&
+            (yield* library.resolveSynced(orgSlug, slug, existing.body)) !==
+              expected.body
+          ) {
+            return yield* new Validation({ reason: "ticket_body_changed" })
+          }
+        })
         const original =
           sprint === undefined
             ? undefined
             : yield* ticketDocs.read(orgSlug, slug, id)
+        if (original !== undefined && !touchesTicket) {
+          yield* checkExpected(original)
+        }
         const next =
           original !== undefined && !touchesTicket
             ? original
@@ -913,27 +933,7 @@ const make = Effect.gen(function* () {
                 id,
                 (existing) =>
                   Effect.gen(function* () {
-                    if (
-                      expected?.updatedAt !== undefined &&
-                      existing.updatedAt.getTime() !==
-                        expected.updatedAt.getTime()
-                    ) {
-                      return yield* new Conflict({
-                        reason: "ticket_updated_since_read"
-                      })
-                    }
-                    if (
-                      expected?.body !== undefined &&
-                      (yield* library.resolveSynced(
-                        orgSlug,
-                        slug,
-                        existing.body
-                      )) !== expected.body
-                    ) {
-                      return yield* new Validation({
-                        reason: "ticket_body_changed"
-                      })
-                    }
+                    yield* checkExpected(existing)
                     const now = yield* DateTime.nowAsDate
                     const patched = {
                       ...applyTicketPatch(
@@ -1017,7 +1017,14 @@ const make = Effect.gen(function* () {
             Effect.onError(() =>
               next === original
                 ? Effect.void
-                : restoreTicket(scope, id, original).pipe(Effect.ignore)
+                : restoreTicket(scope, id, original).pipe(
+                    Effect.andThen(
+                      bodyChanged
+                        ? reconcileBodyLinks(scope, original)
+                        : Effect.void
+                    ),
+                    Effect.ignore
+                  )
             )
           )
         }

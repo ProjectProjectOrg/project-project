@@ -1075,6 +1075,22 @@ it.effect(
   }
 )
 
+it.effect("update refuses a sprint-only change from a stale read", () => {
+  const { layer } = makeRulesFixture([makeTicketDocument("T-1")], {
+    list: () => Effect.succeed([inSprint(["T-1"])])
+  })
+  return Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    const error = yield* tickets
+      .update("T-1", { sprint: null }, undefined, {
+        updatedAt: DateTime.toDate(DateTime.makeUnsafe("2000-01-01T00:00:00Z"))
+      })
+      .pipe(as(scopeAs("member", "pm", "user-1")), Effect.flip)
+
+    expect(error._tag).toBe("Conflict")
+  }).pipe(Effect.provide(layer))
+})
+
 it.effect("update restores the ticket when planning fails", () => {
   const { docs, layer } = makeBulkFixture(() =>
     Effect.fail(new SprintCompletedImmutable())

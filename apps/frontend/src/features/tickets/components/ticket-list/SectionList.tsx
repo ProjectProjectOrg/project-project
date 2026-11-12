@@ -1,12 +1,13 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { GroupPolicy, TicketPolicy } from "@pp/access/policies"
-import type {
-  Member,
-  ProjectStatus,
-  TicketId,
-  TicketListQuery,
-  TicketStatus,
-  TicketParent
+import {
+  SPRINT_SECTION_UNSCHEDULED,
+  type Member,
+  type ProjectStatus,
+  type TicketId,
+  type TicketListQuery,
+  type TicketStatus,
+  type TicketParent
 } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Loader2 } from "lucide-react"
@@ -156,8 +157,10 @@ export function SectionList({
     target: dropTarget,
     tickets: items.map((row) => row.ticket),
     update,
-    ordered: query.sort.key === "manual" && editable,
-    canRegroup: canRegroup(actor, dropTarget, editable)
+    ordered:
+      query.sort.key === "manual" && query.sort.dir === "asc" && editable,
+    canRegroup: canRegroup(actor, dropTarget, editable),
+    canLeaveSprint: GroupPolicy.can(actor, "sprint", "remove_ticket")
   })
 
   const onStartCreate = () => {
@@ -250,9 +253,10 @@ function canRegroup(
     return TicketPolicy.canChange(actor, { status: true })
   }
   if (target.grouping === "sprint") {
-    return (
-      GroupPolicy.can(actor, "sprint", "add_ticket") &&
-      GroupPolicy.can(actor, "sprint", "remove_ticket")
+    return GroupPolicy.can(
+      actor,
+      "sprint",
+      target.key === SPRINT_SECTION_UNSCHEDULED ? "remove_ticket" : "add_ticket"
     )
   }
   return editable

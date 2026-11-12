@@ -7,7 +7,13 @@ import {
 import { disableNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/disable-native-drag-preview"
 import type { ElementDragType } from "@atlaskit/pragmatic-drag-and-drop/types"
 import { RegistryContext } from "@effect/atom-react"
-import { TicketId, TicketPriority, TypeKey, type Ticket } from "@pp/shared"
+import {
+  SPRINT_SECTION_UNSCHEDULED,
+  TicketId,
+  TicketPriority,
+  TypeKey,
+  type Ticket
+} from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { motion } from "motion/react"
 import {
@@ -85,13 +91,21 @@ type SectionDropOptions = Readonly<{
   update: TicketUpdates
   ordered: boolean
   canRegroup: boolean
+  canLeaveSprint: boolean
 }>
 
 const acceptsRow = (data: DragPayload, options: SectionDropOptions) => {
   const row = draggedRow(data)
   if (row === null || options.target === undefined) return false
   if (row.section === options.target.key) return options.ordered
-  return options.canRegroup && sectionEdit(row, options.target) !== null
+  const leavesSprint =
+    options.target.grouping === "sprint" &&
+    row.section !== SPRINT_SECTION_UNSCHEDULED
+  return (
+    options.canRegroup &&
+    (!leavesSprint || options.canLeaveSprint) &&
+    sectionEdit(row, options.target) !== null
+  )
 }
 
 export function useSectionDrop(
