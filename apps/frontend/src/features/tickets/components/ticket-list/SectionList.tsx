@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { TicketPolicy } from "@pp/access/policies"
+import { GroupPolicy, TicketPolicy } from "@pp/access/policies"
 import type {
   Member,
   ProjectStatus,
@@ -37,11 +37,13 @@ import type {
   BulkTicketUpdateAtom,
   TicketUpdates
 } from "@/features/tickets/atoms/ticketRows"
+import type { ListDropTarget } from "@/features/tickets/lib/listDrop"
 import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
 import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
+import { useSectionDrop } from "./ListRowDrag"
 import { SectionBody } from "./SectionBody"
 import { SectionHeader, type SectionHeading } from "./SectionHeader"
 import { SectionRows } from "./SectionRows"
@@ -100,7 +102,8 @@ export function SectionList({
   bulkUpdate,
   emptyMessage,
   snapshotReq,
-  parent
+  parent,
+  dropTarget
 }: Readonly<{
   heading?: SectionHeading
   canCreate?: boolean
@@ -109,6 +112,7 @@ export function SectionList({
   bulkUpdate: BulkTicketUpdateAtom
   snapshotReq?: SprintSectionsRequest | EpicSectionsRequest
   parent?: TicketParent
+  dropTarget?: ListDropTarget
   emptyMessage?: string
   status: TicketStatus
   statuses: ReadonlyArray<ProjectStatus>
@@ -147,6 +151,14 @@ export function SectionList({
     query.groupId[0] !== "ungrouped"
 
   const shellRef = useRef<HTMLDivElement>(null)
+  const sectionRef = useRef<HTMLDivElement>(null)
+  const { drop, over } = useSectionDrop(sectionRef, {
+    target: dropTarget,
+    tickets: items.map((row) => row.ticket),
+    update,
+    ordered: query.sort.key === "manual" && editable,
+    canRegroup: canRegroup(actor, dropTarget, editable)
+  })
 
   const onStartCreate = () => {
     if (collapsed) onToggleCollapsed()
@@ -156,9 +168,11 @@ export function SectionList({
 
   return (
     <div
+      ref={sectionRef}
       className={cn(
-        "flex flex-col transition-opacity duration-200 ease-out",
-        dimmed && "opacity-35"
+        "flex flex-col rounded-lg transition-[opacity,background-color] duration-200 ease-out",
+        dimmed && "opacity-35",
+        over && "bg-accent/40"
       )}
       data-creating={creating || undefined}
     >
@@ -194,6 +208,7 @@ export function SectionList({
         ) : (
           <SectionRows
             items={items}
+            drop={drop}
             update={update}
             bulkUpdate={bulkUpdate}
             members={members}
@@ -220,6 +235,24 @@ export function SectionList({
       </SectionBody>
     </div>
   )
+}
+
+function canRegroup(
+  actor: ReturnType<typeof useProjectActor>,
+  target: ListDropTarget | undefined,
+  editable: boolean
+): boolean {
+  if (target === undefined) return false
+  if (target.grouping === "status") {
+    return TicketPolicy.canChange(actor, { status: true })
+  }
+  if (target.grouping === "sprint") {
+    return (
+      GroupPolicy.can(actor, "sprint", "add_ticket") &&
+      GroupPolicy.can(actor, "sprint", "remove_ticket")
+    )
+  }
+  return editable
 }
 
 function SectionPagination({

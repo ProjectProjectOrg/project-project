@@ -44,6 +44,7 @@ import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
+import { useListRowAutoScroll } from "./ListRowDrag"
 import { sprintCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
 import {
   CreatingSectionsProvider,
@@ -80,6 +81,8 @@ export const queryHasActiveFilter = (query: TicketListQuery) =>
 export function SprintSections(props: Props) {
   const { orgSlug, slug } = useProjectRoute()
   const persistKey = sprintCollapseKey(props.preferencesKey)
+  const [listElement, setListElement] = useState<HTMLDivElement | null>(null)
+  useListRowAutoScroll(listElement)
   const groupsReq = sprintListRequest(orgSlug, slug)
   const snapshotReq = sprintSectionsRequest(orgSlug, slug, props.query)
   const preview = useTicketPreview()
@@ -124,7 +127,11 @@ export function SprintSections(props: Props) {
   const waiting = groupsResult.waiting || snapshotResult.waiting
   const renderSections = () =>
     groups && active ? (
-      <div style={{ overflowAnchor: "none" }} className="flex flex-col gap-1">
+      <div
+        ref={setListElement}
+        style={{ overflowAnchor: "none" }}
+        className="flex flex-col gap-1"
+      >
         <TicketViewSourceContext
           value={ticketSearchFromSource({
             kind: "sections",
@@ -281,6 +288,11 @@ function SprintSection({
           ) : undefined
         }}
         canCreate={state !== "completed"}
+        dropTarget={{
+          grouping: "sprint",
+          key: id,
+          completed: state === "completed"
+        }}
         emptyMessage={
           queryHasActiveFilter(props.query)
             ? m.tickets_no_filter_matches()
