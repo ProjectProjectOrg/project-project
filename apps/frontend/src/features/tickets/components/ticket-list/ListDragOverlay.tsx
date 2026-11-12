@@ -4,7 +4,7 @@ import type { Ticket } from "@pp/shared"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 
-import { isRowDragData, isSectionDropData } from "./ListRowDrag"
+import { isRowDragData } from "./ListRowDrag"
 import { RowDragPreview } from "./RowDragPreview"
 
 const GRAB_X = 24
@@ -12,21 +12,10 @@ const MAX_GRAB_Y = 24
 
 type Drag = Readonly<{
   ticket: Pick<Ticket, "id" | "type" | "title" | "priority">
-  section: string
   grabY: number
   x: number
   y: number
-  landing: string | null
 }>
-
-const landingOf = (location: DragLocationHistory, section: string) => {
-  const target = location.current.dropTargets
-    .map(({ data }) => data)
-    .find(isSectionDropData)
-  return target === undefined || target.section === section
-    ? null
-    : target.label
-}
 
 export function ListDragOverlay() {
   const [drag, setDrag] = useState<Drag | null>(null)
@@ -40,8 +29,7 @@ export function ListDragOverlay() {
           current && {
             ...current,
             x: location.current.input.clientX,
-            y: location.current.input.clientY,
-            landing: landingOf(location, current.section)
+            y: location.current.input.clientY
           }
       )
     return monitorForElements({
@@ -57,18 +45,15 @@ export function ListDragOverlay() {
             title: data.title,
             priority: data.priority
           },
-          section: data.section,
           grabY: Math.min(
             MAX_GRAB_Y,
             clientY - source.element.getBoundingClientRect().top
           ),
           x: clientX,
-          y: clientY,
-          landing: null
+          y: clientY
         })
       },
       onDrag: follow,
-      onDropTargetChange: follow,
       onDrop: () => setDrag(null)
     })
   }, [])
@@ -82,7 +67,7 @@ export function ListDragOverlay() {
         transform: `translate(${drag.x - GRAB_X}px, ${drag.y - drag.grabY}px)`
       }}
     >
-      <RowDragPreview ticket={drag.ticket} landing={drag.landing} />
+      <RowDragPreview ticket={drag.ticket} />
     </div>,
     document.body
   )

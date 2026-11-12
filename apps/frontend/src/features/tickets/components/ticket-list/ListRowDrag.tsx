@@ -46,13 +46,6 @@ const RowDragData = Schema.Struct({
 })
 export const isRowDragData = Schema.is(RowDragData)
 
-const SectionDropData = Schema.Struct({
-  type: Schema.Literal("list-section"),
-  section: Schema.String,
-  label: Schema.String
-})
-export const isSectionDropData = Schema.is(SectionDropData)
-
 const RowDropData = Schema.Struct({
   type: Schema.Literal("list-row-target"),
   gap: Schema.Union([TicketId, Schema.Literal("end")])
@@ -88,7 +81,6 @@ const SectionDropContext = createContext<SectionDrop | null>(null)
 
 type SectionDropOptions = Readonly<{
   target: ListDropTarget | undefined
-  label: string
   tickets: ReadonlyArray<Ticket>
   update: TicketUpdates
   ordered: boolean
@@ -124,11 +116,7 @@ export function useSectionDrop(
     return dropTargetForElements({
       element,
       canDrop: ({ source }) => acceptsRow(source.data, latest.current),
-      getData: () => ({
-        type: "list-section",
-        section: key,
-        label: latest.current.label
-      }),
+      getData: () => ({ type: "list-section" }),
       onDragEnter: ({ source }) =>
         setOver(draggedRow(source.data)?.section !== key),
       onDrag: ({ source, location }) => {
