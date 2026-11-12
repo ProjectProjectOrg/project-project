@@ -3,6 +3,7 @@ import {
   isPristineTypeBody,
   stripHints,
   typeFor,
+  type BlockDefinition,
   type BlockLookup,
   type Library,
   type TypeDefinition,
@@ -11,6 +12,7 @@ import {
 import {
   $createParagraphNode,
   $getRoot,
+  $isParagraphNode,
   $getSelection,
   $isRangeSelection,
   $setSelection,
@@ -19,26 +21,8 @@ import {
 } from "lexical"
 
 import { $applyTemplate } from "@/features/editor/lexical/blocks/blockCommands"
-import { orderedTemplates } from "@/features/editor/lexical/blocks/slashMenuItems"
+import { $runSlashItem } from "@/features/editor/lexical/blocks/slashCommands"
 import { lookupFor } from "@/features/editor/lib/blockChrome"
-
-export const START_TEMPLATE_LIMIT = 3
-
-export type TemplateStarts = Readonly<{
-  templates: ReadonlyArray<TypeDefinition>
-  more: boolean
-}>
-
-export const templateStarts = (
-  library: Library,
-  ticketType: TypeKey | null
-): TemplateStarts => {
-  const templates = orderedTemplates(library, ticketType)
-  return {
-    templates: templates.slice(0, START_TEMPLATE_LIMIT),
-    more: templates.length > START_TEMPLATE_LIMIT
-  }
-}
 
 export type TemplateSwapInput = Readonly<{
   library: Library
@@ -151,5 +135,41 @@ export function restoreBody(
 ) {
   editor.update(() => $restoreBody(markdown, transformers), {
     tag: HISTORY_PUSH_TAG
+  })
+}
+
+export function $appendSection(
+  editor: LexicalEditor,
+  definition: BlockDefinition,
+  context: TemplateBodyContext
+) {
+  const root = $getRoot()
+  const last = root.getLastChild()
+  if ($isParagraphNode(last) && last.getTextContentSize() === 0) last.select()
+  else {
+    const line = $createParagraphNode()
+    root.append(line)
+    line.select()
+  }
+  $runSlashItem(
+    editor,
+    {
+      kind: "block",
+      key: `block:${definition.key}`,
+      definition,
+      suggestedBy: null
+    },
+    { ...context, detach: false }
+  )
+}
+
+export function appendSection(
+  editor: LexicalEditor,
+  definition: BlockDefinition,
+  context: TemplateBodyContext
+) {
+  editor.update(() => $appendSection(editor, definition, context), {
+    tag: HISTORY_PUSH_TAG,
+    onUpdate: () => editor.focus()
   })
 }

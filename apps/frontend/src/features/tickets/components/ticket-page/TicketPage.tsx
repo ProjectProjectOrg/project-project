@@ -192,6 +192,7 @@ export function TicketPage({
               members={members}
               autoFocus={autoFocusBody}
               onStatusChange={setBodyStatus}
+              onStartType={(type) => onTypePatch({ type })}
             />
           ) : (
             <Markdown>{ticket.body}</Markdown>
