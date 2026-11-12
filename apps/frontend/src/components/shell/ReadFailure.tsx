@@ -14,9 +14,7 @@ export function ReadFailure<E>({
   className?: string
 }>) {
   const message =
-    failure.kind === "error"
-      ? errorMessage(failure.error)
-      : m.jira_import_error_unexpected()
+    failure.kind === "error" ? errorMessage(failure.error) : m.error_unknown()
   return (
     <div
       role="alert"
@@ -24,7 +22,7 @@ export function ReadFailure<E>({
     >
       <span className="min-w-0 text-body text-muted-foreground">{message}</span>
       <Button variant="tertiary" size="sm" onClick={onRetry}>
-        {m.jira_import_action_retry()}
+        {m.error_page_retry_button()}
       </Button>
     </div>
   )

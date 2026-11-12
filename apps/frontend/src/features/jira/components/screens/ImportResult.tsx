@@ -8,6 +8,7 @@ import { Link } from "@tanstack/react-router"
 import { useId, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
+import { ReadFailure } from "@/components/shell/ReadFailure"
 import { AutoHeight } from "@/components/ui/auto-height"
 import { Button } from "@/components/ui/button"
 import { Markdown } from "@/features/editor/components/Markdown"
@@ -22,7 +23,6 @@ import { m } from "@/paraglide/messages"
 
 import { FactBlock, FactList, FactRow } from "../Facts"
 import { JiraFindings } from "../Findings"
-import { ReadFailure } from "../ReadFailure"
 import { StepFrame } from "../StepFrame"
 
 const replacementNotes: Readonly<

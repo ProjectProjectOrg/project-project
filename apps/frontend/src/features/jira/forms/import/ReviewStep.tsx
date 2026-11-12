@@ -9,12 +9,12 @@ import * as Schema from "effect/Schema"
 import { useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
+import { ReadFailure } from "@/components/shell/ReadFailure"
 import { Button } from "@/components/ui/button"
 import {
   jiraDestinationConflicts,
   jiraDestinationConflictsRequest
 } from "@/features/jira/atoms/jiraMigration"
-import { ReadFailure } from "@/features/jira/components/ReadFailure"
 import { StepFrame, StepNote } from "@/features/jira/components/StepFrame"
 import type { JiraImportDraftSave } from "@/features/jira/hooks/useJiraImportDraft"
 import { useSyncDraftOnOpen } from "@/features/jira/hooks/useSyncDraftOnOpen"

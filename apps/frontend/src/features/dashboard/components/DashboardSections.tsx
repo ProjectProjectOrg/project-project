@@ -4,6 +4,7 @@ import { CircleDot, Columns3, FolderKanban, Rows3 } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
+import { ReadFailure } from "@/components/shell/ReadFailure"
 import {
   SegmentedTabs,
   type SegmentedItem
@@ -146,8 +147,9 @@ function FlatTicketList({ req }: Readonly<{ req: MyTicketsRequest }>) {
   return (
     <AsyncView
       result={result}
-      contained
-      reset={refresh}
+      onFailure={(failure) => (
+        <ReadFailure failure={failure} onRetry={refresh} />
+      )}
       onInitial={() => <RowsSkeleton count={4} />}
       onSuccess={({ value }) =>
         value.tickets.length === 0 ? (
@@ -196,8 +198,9 @@ function MyTicketsBoard({ orgSlug }: Readonly<{ orgSlug: string }>) {
   return (
     <AsyncView
       result={result}
-      contained
-      reset={refresh}
+      onFailure={(failure) => (
+        <ReadFailure failure={failure} onRetry={refresh} />
+      )}
       onInitial={() => <BoardSkeleton />}
       onSuccess={({ value }) =>
         value.columns.every((column) => column.items.length === 0) ? (
@@ -235,8 +238,9 @@ export function RecentTicketsSection({
       </h2>
       <AsyncView
         result={result}
-        contained
-        reset={refresh}
+        onFailure={(failure) => (
+          <ReadFailure failure={failure} onRetry={refresh} />
+        )}
         onInitial={() => <RowsSkeleton count={3} />}
         onSuccess={({ value }) =>
           value.tickets.length === 0 ? (
