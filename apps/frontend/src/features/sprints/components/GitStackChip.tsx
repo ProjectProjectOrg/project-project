@@ -93,12 +93,12 @@ function StackLayerRow({ layer }: Readonly<{ layer: StackLayerState }>) {
 }
 
 function ChecksIcon({ checks }: Readonly<{ checks: Checks }>) {
-  const { icon: Icon, tone, label } = CHECKS[checks]
+  const { icon: Icon, tone, motion, label } = CHECKS[checks]
   return (
     <>
       <Icon
         aria-hidden
-        className={cn("size-3 shrink-0", tone)}
+        className={cn("size-3 shrink-0", tone, motion)}
         strokeWidth={1.75}
       />
       <span className="sr-only">{label()}</span>
