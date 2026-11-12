@@ -14,7 +14,7 @@ import {
   TicketBranchEntry,
   TicketFlag,
   TicketStatus,
-  TicketType,
+  StoredTicketType,
   type NotFound
 } from "@pp/shared"
 import * as Context from "effect/Context"
@@ -38,7 +38,7 @@ const TicketFrontmatterOnDisk = Schema.Struct({
   id: TicketId,
   title: Schema.String,
   status: TicketStatus,
-  type: TicketType,
+  type: StoredTicketType,
   priority: TicketPriority.pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed("med" as const))
   ),

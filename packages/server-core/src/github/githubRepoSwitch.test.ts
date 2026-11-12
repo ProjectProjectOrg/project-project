@@ -27,6 +27,7 @@ import {
   Slug,
   TicketId,
   TicketStatus,
+  TypeKey,
   TicketRank
 } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
@@ -68,7 +69,7 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
     id: ticketId,
     title: "Keep branch, clear old PR",
     status: decodeTicketStatusSync("todo"),
-    type: "feat",
+    type: TypeKey.make("feat"),
     priority: "med",
     rank: TicketRank.make("a0"),
     tags: [],
@@ -245,11 +246,9 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
                 invitePeopleDismissedAt: null,
                 connectGithubDismissedAt: null
               },
-              templateDefaults: {},
               body: "Project body"
             }),
           write: () => Effect.void,
-          writeTemplateDefaults: unused,
           markSystem: unused,
           systemRole: unused,
           removeDir: unused,

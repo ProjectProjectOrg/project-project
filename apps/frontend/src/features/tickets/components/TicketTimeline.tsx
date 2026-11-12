@@ -37,6 +37,7 @@ import {
   type ActivityLookups
 } from "@/features/tickets/components/TicketActivityLine"
 import { TimelineTime } from "@/features/tickets/components/TimelineTime"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { actorKey } from "@/features/tickets/lib/activityGroups"
 import {
   timelineEvents,
@@ -282,6 +283,7 @@ export function TicketTimeline<C>({
   )
   const tagsResult = useAtomValue(tagsFor(tagsRequest(orgSlug, slug)))
   const project = useProject()
+  const types = useTicketTypes(orgSlug, slug)
 
   if (AsyncResult.isInitial(result)) {
     return (
@@ -296,7 +298,8 @@ export function TicketTimeline<C>({
   const lookups: ActivityLookups = {
     members: project.members,
     statuses: AsyncResult.isSuccess(statusesResult) ? statusesResult.value : [],
-    tags: AsyncResult.isSuccess(tagsResult) ? tagsResult.value : []
+    tags: AsyncResult.isSuccess(tagsResult) ? tagsResult.value : [],
+    types
   }
   const { items, hasOlder } = AsyncResult.isSuccess(result)
     ? result.value

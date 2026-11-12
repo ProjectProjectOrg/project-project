@@ -30,6 +30,7 @@ import {
   placeholderRow,
   toRow,
   withCreatedKeys,
+  withoutEpics,
   viewQuery,
   type QueryWithView,
   type QuickCreateInput,
@@ -95,8 +96,7 @@ const pageQuery = (
   query("tickets", "list", {
     params: req.params,
     query: {
-      ...req.query,
-      type: req.query.type?.filter((type) => type !== "epic"),
+      ...withoutEpics(req.query),
       section: req.by === "epic" ? { parent: [key] } : { ticketParent: [key] },
       cursor
     },

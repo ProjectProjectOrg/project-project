@@ -1,129 +1,156 @@
 import { Link, useNavigate } from "@tanstack/react-router"
-import { useCallback, type ReactNode } from "react"
+import { useCallback, type ComponentProps } from "react"
 
 import type { LibraryScope } from "../atoms/libraryScope"
 import type { LibraryKind } from "../lib/libraryModel"
 
-type EntryLinkProps = Readonly<{
-  scope: LibraryScope
-  kind: LibraryKind
-  entryKey: string
-  className?: string
-  "aria-label"?: string
-  children?: ReactNode
-}>
+type LinkChrome = Omit<ComponentProps<"a">, "href">
+
+type EntryLinkProps = LinkChrome &
+  Readonly<{
+    scope: LibraryScope
+    kind: LibraryKind
+    entryKey: string
+  }>
 
 export function LibraryEntryLink({
   scope,
   kind,
   entryKey,
-  className,
-  children,
   ...rest
 }: EntryLinkProps) {
-  const label = rest["aria-label"]
   if (scope.layer === "org")
-    return kind === "template" ? (
+    return kind === "type" ? (
       <Link
-        to="/orgs/$orgSlug/settings/templates/$templateKey"
-        params={{ ...scope.req.params, templateKey: entryKey }}
-        className={className}
-        aria-label={label}
-      >
-        {children}
-      </Link>
+        {...rest}
+        to="/orgs/$orgSlug/settings/types/$typeKey"
+        params={{ ...scope.req.params, typeKey: entryKey }}
+      />
     ) : (
       <Link
-        to="/orgs/$orgSlug/settings/templates/blocks/$blockKey"
-        params={{ ...scope.req.params, blockKey: entryKey }}
-        className={className}
-        aria-label={label}
-      >
-        {children}
-      </Link>
+        {...rest}
+        to="/orgs/$orgSlug/settings/types/sections/$sectionKey"
+        params={{ ...scope.req.params, sectionKey: entryKey }}
+      />
     )
-  return kind === "template" ? (
+  return kind === "type" ? (
     <Link
-      to="/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey"
-      params={{ ...scope.req.params, templateKey: entryKey }}
-      className={className}
-      aria-label={label}
-    >
-      {children}
-    </Link>
+      {...rest}
+      to="/orgs/$orgSlug/projects/$slug/settings/types/$typeKey"
+      params={{ ...scope.req.params, typeKey: entryKey }}
+    />
   ) : (
     <Link
-      to="/orgs/$orgSlug/projects/$slug/settings/templates/blocks/$blockKey"
-      params={{ ...scope.req.params, blockKey: entryKey }}
-      className={className}
-      aria-label={label}
-    >
-      {children}
-    </Link>
+      {...rest}
+      to="/orgs/$orgSlug/projects/$slug/settings/types/sections/$sectionKey"
+      params={{ ...scope.req.params, sectionKey: entryKey }}
+    />
   )
 }
 
-export function useOpenEntry(scope: LibraryScope) {
+export function useOpenEntry() {
   const navigate = useNavigate()
   return useCallback(
-    (kind: LibraryKind, entryKey: string) => {
+    (scope: LibraryScope, kind: LibraryKind, entryKey: string) => {
       if (scope.layer === "org") {
-        if (kind === "template")
+        if (kind === "type")
           void navigate({
-            to: "/orgs/$orgSlug/settings/templates/$templateKey",
-            params: { ...scope.req.params, templateKey: entryKey }
+            to: "/orgs/$orgSlug/settings/types/$typeKey",
+            params: { ...scope.req.params, typeKey: entryKey }
           })
         else
           void navigate({
-            to: "/orgs/$orgSlug/settings/templates/blocks/$blockKey",
-            params: { ...scope.req.params, blockKey: entryKey }
+            to: "/orgs/$orgSlug/settings/types/sections/$sectionKey",
+            params: { ...scope.req.params, sectionKey: entryKey }
           })
         return
       }
-      if (kind === "template")
+      if (kind === "type")
         void navigate({
-          to: "/orgs/$orgSlug/projects/$slug/settings/templates/$templateKey",
-          params: { ...scope.req.params, templateKey: entryKey }
+          to: "/orgs/$orgSlug/projects/$slug/settings/types/$typeKey",
+          params: { ...scope.req.params, typeKey: entryKey }
         })
       else
         void navigate({
-          to: "/orgs/$orgSlug/projects/$slug/settings/templates/blocks/$blockKey",
-          params: { ...scope.req.params, blockKey: entryKey }
+          to: "/orgs/$orgSlug/projects/$slug/settings/types/sections/$sectionKey",
+          params: { ...scope.req.params, sectionKey: entryKey }
         })
     },
-    [navigate, scope]
+    [navigate]
   )
 }
 
-export function LibraryBackLink({
-  scope,
-  kind,
-  className,
-  children
-}: Readonly<{
-  scope: LibraryScope
-  kind: LibraryKind
-  className?: string
-  children: ReactNode
-}>) {
-  const search = kind === "block" ? { tab: "blocks" as const } : {}
+type ListLinkProps = LinkChrome &
+  Readonly<{ scope: LibraryScope; kind: LibraryKind }>
+
+const searchFor = (kind: LibraryKind) =>
+  kind === "section" ? { tab: "sections" as const } : {}
+
+export function LibraryListLink({ scope, kind, ...rest }: ListLinkProps) {
   return scope.layer === "org" ? (
     <Link
-      to="/orgs/$orgSlug/settings/templates"
+      {...rest}
+      to="/orgs/$orgSlug/settings/types"
       params={scope.req.params}
-      search={search}
-      className={className}
-    >
-      {children}
-    </Link>
+      search={searchFor(kind)}
+    />
   ) : (
     <Link
-      to="/orgs/$orgSlug/projects/$slug/settings/templates"
+      {...rest}
+      to="/orgs/$orgSlug/projects/$slug/settings/types"
       params={scope.req.params}
-      search={search}
-      className={className}
-    >
-      {children}
-    </Link>
+      search={searchFor(kind)}
+    />
+  )
+}
+
+export function useOpenList() {
+  const navigate = useNavigate()
+  return useCallback(
+    (scope: LibraryScope, kind: LibraryKind) => {
+      if (scope.layer === "org")
+        void navigate({
+          to: "/orgs/$orgSlug/settings/types",
+          params: scope.req.params,
+          search: searchFor(kind)
+        })
+      else
+        void navigate({
+          to: "/orgs/$orgSlug/projects/$slug/settings/types",
+          params: scope.req.params,
+          search: searchFor(kind)
+        })
+    },
+    [navigate]
+  )
+}
+
+export function LibraryNewLink({ scope, kind, ...rest }: ListLinkProps) {
+  if (scope.layer === "org")
+    return kind === "type" ? (
+      <Link
+        {...rest}
+        to="/orgs/$orgSlug/settings/types/new"
+        params={scope.req.params}
+      />
+    ) : (
+      <Link
+        {...rest}
+        to="/orgs/$orgSlug/settings/types/sections/new"
+        params={scope.req.params}
+      />
+    )
+  return kind === "type" ? (
+    <Link
+      {...rest}
+      to="/orgs/$orgSlug/projects/$slug/settings/types/new"
+      params={scope.req.params}
+    />
+  ) : (
+    <Link
+      {...rest}
+      to="/orgs/$orgSlug/projects/$slug/settings/types/sections/new"
+      params={scope.req.params}
+    />
   )
 }

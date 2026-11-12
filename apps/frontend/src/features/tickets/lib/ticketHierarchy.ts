@@ -1,4 +1,9 @@
-import { canHoldChildren, type Ticket, type TicketParent } from "@pp/shared"
+import {
+  isEpic,
+  canHoldChildren,
+  type Ticket,
+  type TicketParent
+} from "@pp/shared"
 
 export type TicketHierarchy = Readonly<{
   subTicketOf: TicketParent | null
@@ -10,9 +15,7 @@ export function ticketHierarchy(
 ): TicketHierarchy {
   return {
     subTicketOf:
-      ticket.parent !== null && ticket.parent.type !== "epic"
-        ? ticket.parent
-        : null,
+      ticket.parent !== null && !isEpic(ticket.parent) ? ticket.parent : null,
     holdsChildren: canHoldChildren(ticket, ticket.parent)
   }
 }

@@ -98,7 +98,7 @@ const PROPERTY_LABELS: Readonly<Record<DisplayProperty, () => string>> = {
   blocking: m.tickets_preview_blocking,
   related: m.tickets_preview_related,
   duplicates: m.tickets_preview_duplicates,
-  epic: m.tickets_type_epic,
+  epic: m.tickets_view_options_property_epic,
   tags: m.tickets_view_options_property_tags,
   git: m.tickets_view_options_property_git,
   estimate: m.tickets_view_options_estimate,

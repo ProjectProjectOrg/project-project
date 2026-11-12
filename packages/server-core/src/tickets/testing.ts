@@ -20,7 +20,11 @@ import {
   type TicketListQuery,
   type User,
   ProjectScope,
-  StatusSlug
+  StatusSlug,
+  Validation,
+  BUILTIN_TYPE_KEYS,
+  isBuiltinTypeKey,
+  isEpic
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -108,7 +112,7 @@ export function makeTicketDocument(
     id: ticketId(id),
     title: id,
     status: ticketStatus("todo"),
-    type: "other",
+    type: null,
     priority: "med",
     rank: TicketRank.make("a0"),
     tags: [],
@@ -256,7 +260,6 @@ export const testInfra = (scope = defaultScope) =>
           createdAt: isoDate("2026-01-01T00:00:00Z"),
           github: null,
           estimation: "points",
-          templateDefaults: {},
           body: "",
           setup: {
             workflowReviewedAt: null,
@@ -548,9 +551,9 @@ export const querySectionsVia =
             entry.parent === null ? undefined : byId.get(entry.parent.id)
           if (parent === undefined) return EPIC_SECTION_NONE
           if (!byEpic) {
-            return parent.type === "epic" ? EPIC_SECTION_NONE : parent.id
+            return isEpic(parent) ? EPIC_SECTION_NONE : parent.id
           }
-          return parent.type === "epic"
+          return isEpic(parent)
             ? parent.id
             : (parent.parent?.id ?? EPIC_SECTION_NONE)
         }
@@ -887,7 +890,13 @@ export const makeRecordingTicketIndex = (
 }
 
 export const PassthroughLibrary = Layer.mock(Library.Library, {
-  resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body)
+  resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body),
+  typeKeys: () => Effect.succeed(new Set<string>(BUILTIN_TYPE_KEYS)),
+  untouchedBodyCheck: () => Effect.succeed((body) => body.trim() === ""),
+  expandForCreate: (_orgSlug, _slug, key) =>
+    isBuiltinTypeKey(key)
+      ? Effect.succeed({ body: "", priority: null, tags: [] })
+      : Effect.fail(new Validation({ reason: `unknown_type:${key}` }))
 })
 
 export type TicketsLayerOptions = Readonly<{

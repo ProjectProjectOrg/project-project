@@ -4,7 +4,8 @@ import {
   TagName,
   TicketId,
   TicketStatus,
-  type TicketDetail
+  type TicketDetail,
+  TypeKey
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
@@ -21,7 +22,7 @@ const base = {
   id: Schema.decodeSync(TicketId)("T-1"),
   title: "Before",
   status: Schema.decodeSync(TicketStatus)("todo"),
-  type: "chore",
+  type: TypeKey.make("chore"),
   priority: "med",
   estimate: null,
   flag: null,

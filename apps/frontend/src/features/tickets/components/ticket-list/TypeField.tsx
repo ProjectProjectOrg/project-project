@@ -1,43 +1,94 @@
-import { TicketType, type TicketId } from "@pp/shared"
+import type { TicketId, TypeDefinition, TypeKey } from "@pp/shared"
+import { Settings2 } from "lucide-react"
 import type { ComponentProps, ReactElement, ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger } from "@/components/ui/select"
-import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
+import { useTypeEditing } from "@/features/tickets/hooks/useTypeEditing"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
-import { cn } from "@/lib/utils"
+import {
+  resolveType,
+  typeKeyOfOption,
+  typeName,
+  typeOptions,
+  typeOptionValue
+} from "@/features/tickets/lib/ticketTypes"
 import { m } from "@/paraglide/messages"
 
 type SelectContentProps = NonNullable<
   ComponentProps<typeof Select>["contentProps"]
 >
 
-export const typeOptions = (types: ReadonlyArray<TicketType>) =>
-  types.map((t, index) => {
-    const TIcon = TYPE_META[t].icon
-    return {
-      value: t,
-      textValue: TYPE_LABELS[t](),
-      separated: types[index + 1] === "epic",
-      label: (
-        <>
-          <TIcon className="size-4" strokeWidth={1.75} />
-          {TYPE_LABELS[t]()}
-        </>
-      )
-    }
-  })
+export type TypeMenuAction = Readonly<{
+  label: string
+  onAction: () => void
+}>
+
+const TYPE_MENU_ACTION = "type-menu-action"
+
+export const typeMenuItems = (
+  types: ReadonlyArray<TypeDefinition>,
+  {
+    epics = true,
+    lastUsed,
+    separateNone = false
+  }: Readonly<{
+    epics?: boolean
+    lastUsed?: TypeKey | null
+    separateNone?: boolean
+  }> = {}
+) =>
+  typeOptions(types, epics).map((option) => ({
+    value: option.value,
+    textValue: typeName(option.type),
+    separated: option.separated || (separateNone && option.type === null),
+    label: (
+      <>
+        <TypeGlyph type={option.type} />
+        <span className="truncate">{typeName(option.type)}</span>
+        {lastUsed !== undefined && (option.type?.key ?? null) === lastUsed && (
+          <span className="ml-auto shrink-0 text-micro text-muted-foreground">
+            {m.tickets_create_type_last_used()}
+          </span>
+        )}
+      </>
+    )
+  }))
+
+export const typeActionItems = (action: TypeMenuAction | null) =>
+  action === null
+    ? []
+    : [
+        {
+          value: TYPE_MENU_ACTION,
+          textValue: action.label,
+          label: (
+            <>
+              <Settings2 strokeWidth={1.75} />
+              <span className="truncate">{action.label}</span>
+            </>
+          ),
+          onAction: action.onAction
+        }
+      ]
 
 function TypePicker({
+  types,
   value,
   onChange,
+  action = null,
   align,
   finalFocus,
   trigger,
   children
 }: Readonly<{
-  value: TicketType
-  onChange: (type: TicketType) => void
+  types: ReadonlyArray<TypeDefinition>
+  value: TypeKey | null
+  action?: TypeMenuAction | null
+  onChange: (type: TypeKey | null) => void
   align: SelectContentProps["align"]
   finalFocus?: SelectContentProps["finalFocus"]
   trigger: ReactElement
@@ -45,12 +96,20 @@ function TypePicker({
 }>) {
   return (
     <Select
-      items={typeOptions(TicketType.literals)}
-      value={value}
+      items={[
+        ...typeMenuItems(types, { separateNone: action !== null }),
+        ...typeActionItems(action)
+      ]}
+      value={typeOptionValue(value)}
       onValueChange={(next) => {
-        if (next !== value) onChange(next)
+        const key = typeKeyOfOption(next)
+        if (key !== value) onChange(key)
       }}
-      contentProps={{ align, className: "w-40", finalFocus }}
+      contentProps={{
+        align,
+        className: action === null ? "w-44" : "w-auto max-w-80",
+        finalFocus
+      }}
     >
       <SelectTrigger render={trigger}>{children}</SelectTrigger>
     </Select>
@@ -58,20 +117,26 @@ function TypePicker({
 }
 
 export function TypeSelect({
+  orgSlug,
+  slug,
   value,
   onChange,
   ariaLabel,
   className
-}: {
-  value: TicketType
-  onChange: (type: TicketType) => void
+}: Readonly<{
+  orgSlug: string
+  slug: string
+  value: TypeKey | null
+  onChange: (type: TypeKey | null) => void
   ariaLabel?: string
   className?: string
-}) {
-  const Icon = TYPE_META[value].icon
-  const typeLabel = TYPE_LABELS[value]()
+}>) {
+  const types = useTicketTypes(orgSlug, slug)
+  const type = resolveType(types, value)
+  const label = typeName(type)
   return (
     <TypePicker
+      types={types}
       value={value}
       onChange={onChange}
       align="end"
@@ -81,15 +146,13 @@ export function TypeSelect({
           type="button"
           variant="chip"
           onClick={(e) => e.stopPropagation()}
-          aria-label={
-            ariaLabel ?? m.tickets_type_aria_label({ label: typeLabel })
-          }
+          aria-label={ariaLabel ?? m.tickets_type_aria_label({ label })}
           className={className}
         />
       }
     >
-      <Icon className="size-3.5" strokeWidth={1.75} />
-      <span>{typeLabel}</span>
+      <TypeGlyph type={type} className="size-3.5" />
+      <span>{label}</span>
     </TypePicker>
   )
 }
@@ -98,75 +161,44 @@ export function TypeBadgeTrigger({
   ticket,
   onPatch,
   className
-}: {
-  ticket: { id: TicketId; type: TicketType }
+}: Readonly<{
+  ticket: Readonly<{ id: TicketId; type: TypeKey | null }>
   onPatch: (patch: TicketEdit) => void
   className?: string
-}) {
-  const Icon = TYPE_META[ticket.type].icon
-  const typeLabel = TYPE_LABELS[ticket.type]()
+}>) {
+  const { orgSlug, slug } = useProjectRoute()
+  const types = useTicketTypes(orgSlug, slug)
+  const editing = useTypeEditing(orgSlug, slug)
+  const type = resolveType(types, ticket.type)
+  const label = typeName(type)
+  const editable = type !== null && type.known && !type.hidden
   return (
     <TypePicker
+      types={types}
       value={ticket.type}
       onChange={(next) => onPatch({ type: next })}
-      align="end"
+      action={
+        editing.canEdit && editable
+          ? {
+              label: m.tickets_type_edit_starting({ type: type.name }),
+              onAction: () => editing.openType(type.key)
+            }
+          : null
+      }
+      align="start"
       finalFocus={false}
       trigger={
         <Button
           type="button"
           variant="chip"
           onClick={(e) => e.stopPropagation()}
-          aria-label={m.tickets_type_aria_label({ label: typeLabel })}
+          aria-label={m.tickets_type_aria_label({ label })}
           className={className}
         />
       }
     >
-      <Icon className="size-3" strokeWidth={1.75} />
-      <span>{typeLabel}</span>
-    </TypePicker>
-  )
-}
-
-export function TypeButton({
-  ticket,
-  className,
-  iconOnly,
-  onPatch
-}: {
-  ticket: { id: TicketId; type: TicketType }
-  className?: string
-  iconOnly?: boolean
-  onPatch: (patch: TicketEdit) => void
-}) {
-  const Icon = TYPE_META[ticket.type].icon
-  const typeLabel = TYPE_LABELS[ticket.type]()
-  return (
-    <TypePicker
-      value={ticket.type}
-      onChange={(next) => onPatch({ type: next })}
-      align="start"
-      trigger={
-        <Button
-          type="button"
-          variant="chip"
-          size={iconOnly ? "icon-sm" : undefined}
-          onClick={(e) => e.stopPropagation()}
-          aria-label={m.tickets_type_aria_label({ label: typeLabel })}
-          className={cn(
-            "text-muted-foreground hover:text-foreground",
-            className
-          )}
-        />
-      }
-    >
-      {iconOnly ? (
-        <Icon strokeWidth={1.75} />
-      ) : (
-        <>
-          <Icon className="size-3.5" strokeWidth={1.75} />
-          {typeLabel}
-        </>
-      )}
+      <TypeGlyph type={type} className="size-3" />
+      <span>{label}</span>
     </TypePicker>
   )
 }

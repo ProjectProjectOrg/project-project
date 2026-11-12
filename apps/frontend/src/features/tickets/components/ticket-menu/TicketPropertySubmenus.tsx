@@ -1,10 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import {
-  listEditBetween,
-  TicketType,
-  type Member,
-  type TicketId
-} from "@pp/shared"
+import { listEditBetween, type Member, type TicketId } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   CircleDot,
@@ -36,9 +31,10 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
 import { AssignMeItem } from "@/features/tickets/components/ticket-list/AssigneeField"
-import { typeOptions } from "@/features/tickets/components/ticket-list/TypeField"
+import { typeMenuItems } from "@/features/tickets/components/ticket-list/TypeField"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { useTicketTagMenu } from "@/features/tickets/hooks/useTicketTagMenu"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { toggleAssignee } from "@/features/tickets/lib/assignees"
 import {
   PRIORITY_LABELS,
@@ -48,6 +44,10 @@ import {
 import type { SharedTicketFields } from "@/features/tickets/lib/sharedTicketFields"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import {
+  typeKeyOfOption,
+  typeOptionValue
+} from "@/features/tickets/lib/ticketTypes"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -124,7 +124,8 @@ export function TicketPropertySubmenus({
       )
     }
   })
-  const typeItems = typeOptions(TicketType.literals).map((item) => ({
+  const types = useTicketTypes(orgSlug, slug)
+  const typeItems = typeMenuItems(types).map((item) => ({
     ...item,
     closeOnClick: true
   }))
@@ -166,11 +167,17 @@ export function TicketPropertySubmenus({
               <Shapes className="size-4" strokeWidth={1.75} />
               {m.tickets_command_change_type()}
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-40">
+            <DropdownMenuSubContent className="w-44">
               <DropdownMenuRadioGroup
                 items={typeItems}
-                value={ticket.type ?? null}
-                onValueChange={(type) => onPatch({ type })}
+                value={
+                  ticket.type === undefined
+                    ? null
+                    : typeOptionValue(ticket.type)
+                }
+                onValueChange={(type) =>
+                  onPatch({ type: typeKeyOfOption(type) })
+                }
               />
             </DropdownMenuSubContent>
           </DropdownMenuSub>

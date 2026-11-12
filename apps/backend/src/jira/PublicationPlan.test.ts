@@ -1301,7 +1301,7 @@ it.effect.each([
     ]
   },
   { statuses: [{ jiraStatusId: "status-1", projectStatusSlug: "missing" }] },
-  { issueTypes: [{ jiraIssueTypeId: "type-1", projectType: "invalid" }] },
+  { issueTypes: [{ jiraIssueTypeId: "type-1", projectType: "Not a type" }] },
   {
     priorities: [{ jiraPriorityId: "priority-1", projectPriority: "invalid" }]
   },

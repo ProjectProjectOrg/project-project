@@ -1,6 +1,7 @@
 import type { TicketPolicy } from "@pp/access/policies"
 import {
   applyListEdit,
+  isEpic,
   type TicketFlag,
   type UpdateTicketInput
 } from "@pp/shared"
@@ -59,7 +60,7 @@ export const applyTicketPatch = (
     ...existing,
     title: patch.title ?? existing.title,
     status: patch.status ?? existing.status,
-    type: patch.type ?? existing.type,
+    type: patch.type === undefined ? existing.type : patch.type,
     parent:
       patch.parent === undefined
         ? existing.parent
@@ -160,10 +161,9 @@ export const breaksEpicSprintRule = (
   sprintsBefore: ReadonlyArray<string>,
   sprintsAfter: ReadonlyArray<string>
 ) =>
-  next.type === "epic" &&
+  isEpic(next) &&
   sprintsAfter.length > 0 &&
-  (existing.type !== "epic" ||
-    sprintsAfter.some((id) => !sprintsBefore.includes(id)))
+  (!isEpic(existing) || sprintsAfter.some((id) => !sprintsBefore.includes(id)))
 
 const patchableKeys = [
   "title",

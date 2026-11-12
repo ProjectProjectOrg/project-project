@@ -9,7 +9,7 @@ import {
   StatusSlug
 } from "../statuses/Status"
 import { TagName } from "../tags/Tag"
-import { TicketPriority, TicketType } from "../tickets/Ticket"
+import { StoredTicketType, TicketPriority } from "../tickets/Ticket"
 
 export const JiraReconnectReason = Schema.Literals([
   "invalid_grant",
@@ -122,7 +122,7 @@ export const JiraMigrationConfiguration = Schema.Struct({
   issueTypes: Schema.Array(
     Schema.Struct({
       jiraIssueTypeId: Schema.NonEmptyString,
-      projectType: TicketType
+      projectType: StoredTicketType
     })
   ),
   priorities: Schema.Array(
@@ -258,7 +258,7 @@ export const JiraMigrationRequirements = Schema.Struct({
       jiraIssueTypeId: Schema.NonEmptyString,
       name: Schema.NonEmptyString,
       isSubtask: Schema.Boolean,
-      suggestedProjectType: Schema.NullOr(TicketType),
+      suggestedProjectType: StoredTicketType,
       issueCount: Schema.optional(JiraMigrationCount)
     })
   ),

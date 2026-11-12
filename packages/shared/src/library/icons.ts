@@ -21,6 +21,7 @@ export const BLOCK_ICONS = [
   "GitBranch",
   "GitCompareArrows",
   "Globe",
+  "Hammer",
   "Heart",
   "Layers",
   "LayoutTemplate",

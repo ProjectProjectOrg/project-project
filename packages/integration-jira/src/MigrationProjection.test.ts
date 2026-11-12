@@ -6,7 +6,8 @@ import { it } from "@effect/vitest"
 import { DbLive } from "@pp/db"
 import {
   JiraMigrationConfiguration,
-  JiraMigrationRequirements
+  JiraMigrationRequirements,
+  TypeKey
 } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
@@ -1091,7 +1092,9 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
             ...save,
             configuration: {
               ...configuration,
-              issueTypes: [{ jiraIssueTypeId: "bug", projectType: "bug" }],
+              issueTypes: [
+                { jiraIssueTypeId: "bug", projectType: TypeKey.make("bug") }
+              ],
               restrictedContent: null
             }
           })
@@ -1118,7 +1121,9 @@ describe.skipIf(!databaseUrl)("Jira migration projection CAS", () => {
             expectedRevision: draft.revision,
             configuration: {
               ...configuration,
-              issueTypes: [{ jiraIssueTypeId: "bug", projectType: "bug" }]
+              issueTypes: [
+                { jiraIssueTypeId: "bug", projectType: TypeKey.make("bug") }
+              ]
             }
           })
           expect(complete.status).toBe("ready")

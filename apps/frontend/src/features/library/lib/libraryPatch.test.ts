@@ -1,10 +1,9 @@
 import {
-  BUILTIN_BLOCKS,
-  BUILTIN_TEMPLATES,
+  GALLERY_BLOCKS,
+  GALLERY_TYPES,
   EMPTY_LAYER,
   resolveLibrary,
-  type Layer,
-  type PartialTemplateDefaults
+  type Layer
 } from "@pp/shared"
 import { describe, expect, it } from "vitest"
 
@@ -13,24 +12,17 @@ import {
   applyBlockHide,
   applyBlockRemove,
   applyBlockUpdate,
-  applyTemplateDefaults,
-  applyTemplateRemove
+  applyTypeHide,
+  applyTypeRemove
 } from "./libraryPatch"
 
-const contextBlock = BUILTIN_BLOCKS.find((block) => block.key === "context")!
-const bugReport = BUILTIN_TEMPLATES.find((t) => t.key === "bug-report")!
-const chore = BUILTIN_TEMPLATES.find((t) => t.key === "chore")!
+const contextBlock = GALLERY_BLOCKS.find((block) => block.key === "context")!
+const spike = GALLERY_TYPES.find((type) => type.key === "spike")!
 
 const orgWithContext: Layer = { ...EMPTY_LAYER, blocks: [contextBlock] }
 
-const libraryWith = (
-  project: Layer | null,
-  org: Layer = EMPTY_LAYER,
-  defaults: Readonly<{
-    org: PartialTemplateDefaults
-    project: PartialTemplateDefaults | null
-  }> = { org: {}, project: project === null ? null : {} }
-) => resolveLibrary({ org, project }, defaults, true)
+const libraryWith = (project: Layer | null, org: Layer = EMPTY_LAYER) =>
+  resolveLibrary({ org, project }, true, EMPTY_LAYER)
 
 const blockIn = (library: ReturnType<typeof libraryWith>, key: string) =>
   library.blocks.find((block) => block.key === key)
@@ -120,32 +112,30 @@ describe("libraryPatch", () => {
     expect(unhidden.blocks).toEqual(shown.blocks)
   })
 
-  it("removing an adopted template returns it to the gallery", () => {
-    const library = libraryWith(null, {
-      ...EMPTY_LAYER,
-      templates: [bugReport]
-    })
-    const removed = applyTemplateRemove(library, "bug-report", "org")
-    expect(removed.templates).toEqual([])
+  it("removing an adopted type returns it to the gallery", () => {
+    const library = libraryWith(null, { ...EMPTY_LAYER, types: [spike] })
+    const removed = applyTypeRemove(library, "spike", "org")
+    expect(removed.types).toEqual([])
   })
 
-  it("merges project overrides over inherited org defaults", () => {
-    const org: Layer = { ...EMPTY_LAYER, templates: [bugReport, chore] }
-    const library = libraryWith(EMPTY_LAYER, org, {
-      org: { bug: bugReport.key },
-      project: { chore: chore.key }
-    })
-    const overridden = applyTemplateDefaults(library, {
-      defaults: { bug: chore.key }
-    })
-    expect(overridden.defaults).toMatchObject({ bug: "chore", chore: "chore" })
-    expect(overridden.ownDefaults).toEqual({ bug: "chore", chore: "chore" })
-
-    const reset = applyTemplateDefaults(overridden, {
-      defaults: {},
-      reset: ["bug", "chore"]
-    })
-    expect(reset.defaults).toEqual(library.inheritedDefaults)
-    expect(reset.ownDefaults).toEqual({})
+  it("hiding a built-in in a project matches the resolved result", () => {
+    const shown = resolveLibrary(
+      { org: EMPTY_LAYER, project: EMPTY_LAYER },
+      true
+    )
+    const resolvedHidden = resolveLibrary(
+      {
+        org: EMPTY_LAYER,
+        project: {
+          ...EMPTY_LAYER,
+          hiddenTypes: ["bug"],
+          hiddenBlocks: ["context"]
+        }
+      },
+      true
+    )
+    const hidden = applyBlockHide(applyTypeHide(shown, "bug"), "context")
+    expect(hidden.types).toEqual(resolvedHidden.types)
+    expect(hidden.blocks).toEqual(resolvedHidden.blocks)
   })
 })

@@ -9,12 +9,12 @@ export type BranchPickerEntry =
 
 export const defaultBranchName = (
   template: string | null,
-  type: string,
+  type: string | null,
   id: string,
   title: string
 ): string =>
   (template ?? "{type}/{id}-{slug}")
-    .replace("{type}", type)
+    .replace("{type}", type ?? "other")
     .replace("{id}", id)
     .replace("{slug}", slugify(title))
 

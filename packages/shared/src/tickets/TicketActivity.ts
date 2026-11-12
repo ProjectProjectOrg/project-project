@@ -5,7 +5,12 @@ import { Estimate } from "../estimates/Estimate"
 import { GroupKind } from "../groups/Group"
 import { GroupId } from "../groups/GroupId"
 import { TagName } from "../tags/Tag"
-import { TicketId, TicketPriority, TicketStatus, TicketType } from "./Ticket"
+import {
+  StoredTicketType,
+  TicketId,
+  TicketPriority,
+  TicketStatus
+} from "./Ticket"
 
 export const ActivitySystemSource = Schema.Literals([
   "github",
@@ -67,7 +72,7 @@ export const TicketActivityChange = Schema.Union([
   valueChange("title_changed", Schema.String),
   valueChange("status_changed", TicketStatus),
   valueChange("priority_changed", TicketPriority),
-  valueChange("type_changed", TicketType),
+  valueChange("type_changed", StoredTicketType),
   valueChange("estimate_changed", Schema.NullOr(Estimate)),
   listChange("assignees_changed", UserId),
   listChange("tags_changed", TagName),

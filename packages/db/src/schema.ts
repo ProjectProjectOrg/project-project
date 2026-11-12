@@ -50,7 +50,8 @@ import type {
   OrgEverhourConfig,
   ProjectBanner,
   ProjectIconImage,
-  TicketActivityChangeEncoded
+  TicketActivityChangeEncoded,
+  TypeKey
 } from "@pp/shared"
 import { defineRelations, sql } from "drizzle-orm"
 import {
@@ -669,9 +670,7 @@ export const ticketIndex = pgTable(
     ticketId: text("ticket_id").notNull(),
     title: text("title").notNull(),
     status: text("status").notNull(),
-    type: text("type", {
-      enum: ["feat", "bug", "chore", "other", "epic"]
-    }).notNull(),
+    type: text("type").$type<TypeKey>(),
     priority: text("priority", {
       enum: ["low", "med", "high"]
     }).notNull(),

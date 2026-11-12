@@ -1,15 +1,10 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import {
   BLOCK_ICONS,
   TagName,
   type BlockIconName,
-  type Library,
   type LibraryColor,
-  type LibraryOrigin,
-  type TemplateKey,
-  type TicketPriority,
-  type TicketType,
-  typesDefaultingTo
+  type TicketPriority
 } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
@@ -22,7 +17,6 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { IconGridPicker } from "@/components/ui/icon-grid-picker"
@@ -34,13 +28,10 @@ import {
   PRIORITY_META,
   PRIORITY_ORDER
 } from "@/features/tickets/lib/priorityMeta"
-import { TYPE_LABELS } from "@/features/tickets/lib/ticketMeta"
-import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import { setDefaultsAtom, type LibraryScope } from "../atoms/libraryScope"
-import { defaultRemoval, TICKET_TYPES } from "../lib/libraryModel"
+import type { LibraryScope } from "../atoms/libraryScope"
 import { BlockIconGlyph } from "./BlockIconGlyph"
 
 const NO_PRIORITY = "none" as const
@@ -170,30 +161,19 @@ export function IconAndColorField({
 function ChoiceTrigger({
   label,
   icon,
-  disabled,
   ariaLabel
-}: Readonly<{
-  label: string
-  icon?: ReactNode
-  disabled: boolean
-  ariaLabel: string
-}>) {
+}: Readonly<{ label: string; icon?: ReactNode; ariaLabel: string }>) {
   return (
     <SelectTrigger
-      disabled={disabled}
       aria-label={ariaLabel}
-      render={
-        <Button type="button" variant="chip" size="sm" className="-ml-1.5" />
-      }
+      render={<Button type="button" variant="chip" size="sm" bleed="start" />}
     >
       {icon}
       <span>{label}</span>
-      {disabled ? null : (
-        <ChevronDown
-          className="size-3.5 text-muted-foreground"
-          strokeWidth={1.75}
-        />
-      )}
+      <ChevronDown
+        className="size-3.5 text-muted-foreground"
+        strokeWidth={1.75}
+      />
     </SelectTrigger>
   )
 }
@@ -212,6 +192,18 @@ export function NullablePriorityField({
   const meta = value === null ? null : PRIORITY_META[value]
   const label = value === null ? noneLabel() : PRIORITY_LABELS[value]()
   const Icon = meta?.icon ?? null
+  if (disabled)
+    return (
+      <span className="flex items-center gap-1.5 text-body text-muted-foreground">
+        {Icon === null ? null : (
+          <Icon
+            className={cn("size-3.5", meta?.className)}
+            strokeWidth={1.75}
+          />
+        )}
+        {label}
+      </span>
+    )
   return (
     <Select
       items={[null, ...PRIORITY_ORDER].map((priority) => {
@@ -239,13 +231,11 @@ export function NullablePriorityField({
         }
       })}
       value={value ?? NO_PRIORITY}
-      disabled={disabled}
       onValueChange={(next) => onChange(next === NO_PRIORITY ? null : next)}
       contentProps={{ align: "start", className: "w-44" }}
     >
       <ChoiceTrigger
         label={label}
-        disabled={disabled}
         ariaLabel={m.templates_editor_priority_aria({ label })}
         icon={
           Icon === null ? null : (
@@ -316,6 +306,7 @@ function ProjectTagPicker({
             type="button"
             variant="ghost"
             size="xs"
+            bleed="start"
             leadingIcon={Plus}
             aria-label={m.templates_editor_tag_add()}
           >
@@ -417,104 +408,18 @@ export function TemplateTagsField({
   )
 }
 
-export function DefaultForField({
-  scope,
-  library,
-  templateKey
-}: Readonly<{
-  scope: LibraryScope
-  library: Library
-  templateKey: TemplateKey
-}>) {
-  const mutation = setDefaultsAtom(scope)
-  const setDefaults = useAtomSet(mutation)
-  const state = useAtomValue(mutation)
-  const error = mutationErrorText(state)
-  const current = typesDefaultingTo(library.defaults, templateKey)
-  const others = TICKET_TYPES.filter((type) => !current.includes(type))
-  const add = (type: TicketType) =>
-    setDefaults({ defaults: { [type]: templateKey } })
-  const remove = (type: TicketType) =>
-    setDefaults(defaultRemoval(library.ownDefaults, type, templateKey))
+export const MUTED_VALUE_CLASS = "text-body text-muted-foreground"
 
+export function AsideGroup({
+  heading,
+  children
+}: Readonly<{ heading?: string; children: ReactNode }>) {
   return (
-    <div className="flex flex-col gap-1">
-      <div
-        className={cn(
-          "flex flex-wrap items-center gap-1",
-          state.waiting && "animate-pulse"
-        )}
-      >
-        {current.length === 0 && !library.canEdit ? (
-          <span className="text-body text-muted-foreground">{noneLabel()}</span>
-        ) : null}
-        {current.map((type) => (
-          <span
-            key={type}
-            data-default-for={type}
-            className="inline-flex h-6 items-center gap-1 rounded-md bg-muted px-1.5 text-caption text-foreground"
-          >
-            {TYPE_LABELS[type]()}
-            {library.canEdit ? (
-              <button
-                type="button"
-                aria-label={m.templates_editor_default_remove_aria({
-                  type: TYPE_LABELS[type]()
-                })}
-                onClick={() => remove(type)}
-                className="text-muted-foreground transition-all duration-100 hover:text-foreground active:scale-[0.97]"
-              >
-                <X className="size-3" strokeWidth={1.75} />
-              </button>
-            ) : null}
-          </span>
-        ))}
-        {library.canEdit && others.length > 0 ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  leadingIcon={Plus}
-                  aria-label={m.templates_editor_default_add()}
-                >
-                  {current.length === 0
-                    ? m.templates_editor_default_add()
-                    : null}
-                </Button>
-              }
-            />
-            <DropdownMenuContent align="start" sideOffset={6} className="w-40">
-              {others.map((type) => (
-                <DropdownMenuItem
-                  key={type}
-                  onClick={() => add(type)}
-                  className="cursor-pointer"
-                >
-                  {TYPE_LABELS[type]()}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
-      </div>
-      {error === null ? null : (
-        <p role="alert" className="text-caption text-destructive">
-          {error}
-        </p>
+    <section className="flex flex-col gap-4 border-t border-border/60 pt-4 first:border-t-0 first:pt-0 empty:hidden">
+      {heading === undefined ? null : (
+        <h3 className="text-caption font-semibold">{heading}</h3>
       )}
-    </div>
+      {children}
+    </section>
   )
 }
-
-const ORIGIN_LABELS: Record<LibraryOrigin, () => string> = {
-  org: m.templates_settings_origin_org,
-  project: m.templates_settings_origin_project
-}
-
-export const originLabel = (origin: LibraryOrigin): string =>
-  ORIGIN_LABELS[origin]()
-
-export const MUTED_VALUE_CLASS = "text-body text-muted-foreground"

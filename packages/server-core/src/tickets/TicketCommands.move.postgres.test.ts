@@ -10,7 +10,8 @@ import {
   NotFound,
   ProjectScope,
   Slug,
-  TagName
+  TagName,
+  TypeKey
 } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
@@ -27,6 +28,7 @@ import {
   recordingActivityLayer,
   type RecordedActivity
 } from "../activity/testing"
+import * as Library from "../library/Library"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import {
@@ -118,7 +120,11 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
     await pool.end()
   })
 
-  const fixture = (destinationScope = destination, groups = FakeGroups) => {
+  const fixture = (
+    destinationScope = destination,
+    groups = FakeGroups,
+    library: Layer.Layer<Library.Library> = PassthroughLibrary
+  ) => {
     const docs = makeFakeTicketDocs([])
     const put = (document: TicketDocs.TicketDocument) =>
       docs.documents.set(document.id, document)
@@ -148,7 +154,6 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
               createdAt: isoDate("2026-01-01T00:00:00Z"),
               github: null,
               estimation: projectSlug === "inbox" ? "points" : "tshirt",
-              templateDefaults: {},
               body: "",
               setup: {
                 workflowReviewedAt: null,
@@ -159,7 +164,7 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
         })
       ),
       Layer.provide(accessLayer({ projects: [source, destinationScope] })),
-      Layer.provide(PassthroughLibrary),
+      Layer.provide(library),
       Layer.provide(Layer.succeed(TicketDocs.TicketDocs, service)),
       Layer.provideMerge(recordingActivityLayer(recorded, userId)),
       Layer.provide(makeFakeAttachments()),
@@ -322,9 +327,90 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
     )
   })
 
+  const destinationTypes = Layer.mock(Library.Library, {
+    resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body),
+    typeKeys: (_orgSlug, projectSlug) =>
+      Effect.succeed(
+        new Set<string>(
+          projectSlug === "product"
+            ? ["feat", "bug", "spike"]
+            : ["feat", "bug", "epic", "spike", "research"]
+        )
+      )
+  })
+
+  it.effect(
+    "keeps a type the destination has, drops one it doesn't, for sub-tickets too, and reports it",
+    () => {
+      const { documents, put, layer } = fixture(
+        destination,
+        FakeGroups,
+        destinationTypes
+      )
+      put(
+        makeTicketDocument("T-1", {
+          type: TypeKey.make("spike"),
+          tags: [tagName("inbox-only")]
+        })
+      )
+      put(
+        makeTicketDocument("T-2", {
+          parent: ticketId("T-1"),
+          type: TypeKey.make("research")
+        })
+      )
+      put(makeTicketDocument("T-3", { parent: ticketId("T-1"), type: null }))
+      return run(
+        layer,
+        Effect.gen(function* () {
+          const commands = yield* TicketCommands.TicketCommands
+          const result = yield* commands.move("T-1", {
+            toProject: slug("product")
+          })
+          const movedFrom = new Map(
+            result.moved.map((entry) => [entry.from, entry])
+          )
+          const typeOf = (id: string) =>
+            documents.get(movedFrom.get(ticketId(id))?.to ?? ticketId(id))?.type
+          expect(typeOf("T-1")).toBe("spike")
+          expect(typeOf("T-2")).toBeNull()
+          expect(typeOf("T-3")).toBeNull()
+          expect(movedFrom.get(ticketId("T-1"))?.dropped).toEqual({
+            type: null,
+            tags: ["inbox-only"],
+            assignees: [],
+            estimate: false
+          })
+          expect(movedFrom.get(ticketId("T-2"))?.dropped.type).toBe("research")
+          expect(movedFrom.get(ticketId("T-3"))?.dropped.type).toBeNull()
+        })
+      )
+    }
+  )
+
+  it.effect("an epic stays an epic when the destination hides epics", () => {
+    const { documents, put, layer } = fixture(
+      destination,
+      FakeGroups,
+      destinationTypes
+    )
+    put(makeTicketDocument("T-1", { type: TypeKey.make("epic") }))
+    return run(
+      layer,
+      Effect.gen(function* () {
+        const commands = yield* TicketCommands.TicketCommands
+        const result = yield* commands.move("T-1", {
+          toProject: slug("product")
+        })
+        expect(documents.get(result.id)?.type).toBe("epic")
+        expect(result.moved[0].dropped.type).toBeNull()
+      })
+    )
+  })
+
   it.effect("refuses an epic that still has tickets", () => {
     const { documents, put, layer } = fixture()
-    put(makeTicketDocument("T-1", { type: "epic" }))
+    put(makeTicketDocument("T-1", { type: TypeKey.make("epic") }))
     put(makeTicketDocument("T-2", { parent: ticketId("T-1") }))
     return run(
       layer,

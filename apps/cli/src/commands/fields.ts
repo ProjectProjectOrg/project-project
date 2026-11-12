@@ -32,12 +32,14 @@ const Alternatives = Schema.Struct({ anyOf: Schema.Array(Schema.Unknown) })
 const Enumerated = Schema.Struct({ enum: Schema.Array(Schema.String) })
 const Described = Schema.Struct({ description: Schema.String })
 const NullType = Schema.Struct({ type: Schema.Literal("null") })
+const Rejected = Schema.Struct({ not: Schema.Struct({}) })
 
 const isTyped = Schema.is(Typed)
 const isAlternatives = Schema.is(Alternatives)
 const isDescribed = Schema.is(Described)
 const isEnumerated = Schema.is(Enumerated)
 const isNull = Schema.is(NullType)
+const isRejected = Schema.is(Rejected)
 const decodeObject = Schema.decodeUnknownSync(ObjectSchema)
 
 const kindOf = (schema: unknown): FieldKind => {
@@ -90,14 +92,16 @@ const isClearable = (schema: unknown, required: boolean) =>
 export const fieldsOf = (tool: Tool.Any): ReadonlyArray<Field> => {
   const schema = decodeObject(ToolModule.getJsonSchema(tool))
   const required = new Set(schema.required ?? [])
-  return Object.entries(schema.properties ?? {}).map(([name, property]) => ({
-    name,
-    kind: kindOf(property),
-    required: required.has(name),
-    nullable: isClearable(property, required.has(name)),
-    choices: choicesOf(property),
-    description: descriptionOf(property)
-  }))
+  return Object.entries(schema.properties ?? {})
+    .filter(([, property]) => !isRejected(property))
+    .map(([name, property]) => ({
+      name,
+      kind: kindOf(property),
+      required: required.has(name),
+      nullable: isClearable(property, required.has(name)),
+      choices: choicesOf(property),
+      description: descriptionOf(property)
+    }))
 }
 
 export const flagName = (field: string) =>

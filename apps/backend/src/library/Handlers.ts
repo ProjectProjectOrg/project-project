@@ -35,19 +35,19 @@ export const LibraryHandlerLive = HttpApiBuilder.group(
           library.removeOrgBlock(params.key)
         ).pipe(dieOnMarkdown)
       )
-      .handle("createOrgTemplate", ({ payload }) =>
+      .handle("createOrgType", ({ payload }) =>
         Effect.flatMap(Library.Library, (library) =>
-          library.createOrgTemplate(payload)
+          library.createOrgType(payload)
         ).pipe(dieOnMarkdown)
       )
-      .handle("updateOrgTemplate", ({ params, payload }) =>
+      .handle("updateOrgType", ({ params, payload }) =>
         Effect.flatMap(Library.Library, (library) =>
-          library.updateOrgTemplate(params.key, payload)
+          library.updateOrgType(params.key, payload)
         ).pipe(dieOnMarkdown)
       )
-      .handle("removeOrgTemplate", ({ params }) =>
+      .handle("removeOrgType", ({ params }) =>
         Effect.flatMap(Library.Library, (library) =>
-          library.removeOrgTemplate(params.key)
+          library.removeOrgType(params.key)
         ).pipe(dieOnMarkdown)
       )
       .handle("createProjectBlock", ({ payload }) =>
@@ -70,34 +70,24 @@ export const LibraryHandlerLive = HttpApiBuilder.group(
           library.hideBlock(params.key)
         ).pipe(dieOnMarkdown)
       )
-      .handle("createProjectTemplate", ({ payload }) =>
+      .handle("createProjectType", ({ payload }) =>
         Effect.flatMap(Library.Library, (library) =>
-          library.createTemplate(payload)
+          library.createType(payload)
         ).pipe(dieOnMarkdown)
       )
-      .handle("updateProjectTemplate", ({ params, payload }) =>
+      .handle("updateProjectType", ({ params, payload }) =>
         Effect.flatMap(Library.Library, (library) =>
-          library.updateTemplate(params.key, payload)
+          library.updateType(params.key, payload)
         ).pipe(dieOnMarkdown)
       )
-      .handle("removeProjectTemplate", ({ params }) =>
+      .handle("removeProjectType", ({ params }) =>
         Effect.flatMap(Library.Library, (library) =>
-          library.removeTemplate(params.key)
+          library.removeType(params.key)
         ).pipe(dieOnMarkdown)
       )
-      .handle("hideProjectTemplate", ({ params }) =>
+      .handle("hideProjectType", ({ params }) =>
         Effect.flatMap(Library.Library, (library) =>
-          library.hideTemplate(params.key)
-        ).pipe(dieOnMarkdown)
-      )
-      .handle("setOrgTemplateDefaults", ({ payload }) =>
-        Effect.flatMap(Library.Library, (library) =>
-          library.setOrgTemplateDefaults(payload)
-        ).pipe(dieOnMarkdown)
-      )
-      .handle("setTemplateDefaults", ({ payload }) =>
-        Effect.flatMap(Library.Library, (library) =>
-          library.setTemplateDefaults(payload)
+          library.hideType(params.key)
         ).pipe(dieOnMarkdown)
       )
 )

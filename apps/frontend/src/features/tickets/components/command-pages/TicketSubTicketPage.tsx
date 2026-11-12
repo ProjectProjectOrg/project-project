@@ -1,4 +1,5 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
+import { isEpic } from "@pp/shared"
 import type { Ticket } from "@pp/shared"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Effect from "effect/Effect"
@@ -49,7 +50,7 @@ export function TicketSubTicketPage({
   const candidates = useSettledValue(result, NO_TICKETS)
   const detail = context.ticketDetail
   const parent = detail === null ? null : parentRef(detail)
-  const isEpic = detail?.type === "epic"
+  const epic = isEpic(detail)
   const req = childTicketsRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
   return (
     <CommandFrame
@@ -70,7 +71,7 @@ export function TicketSubTicketPage({
           : [
               {
                 value: CREATE,
-                label: isEpic
+                label: epic
                   ? m.tickets_command_create_in_epic({ title })
                   : m.tickets_command_create_sub_ticket({ title }),
                 icon: Plus

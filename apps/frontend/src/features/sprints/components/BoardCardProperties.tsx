@@ -3,7 +3,8 @@ import {
   hasSubTickets,
   type Ticket,
   type TicketParent,
-  type TicketPriority
+  type TicketPriority,
+  isEpic
 } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -98,7 +99,7 @@ export function BoardCardProperties({
         />
       )}
       <RelationChips ticket={ticket} className={relationChipClass} />
-      {ticket.parent?.type === "epic" && shows("epic") && (
+      {isEpic(ticket.parent) && shows("epic") && (
         <EpicChip epic={ticket.parent} />
       )}
       {ticket.estimate !== null &&

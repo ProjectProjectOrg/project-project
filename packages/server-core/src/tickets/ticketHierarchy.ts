@@ -2,13 +2,15 @@ import {
   canHoldChildren,
   Validation,
   type TicketId,
-  type TicketType
+  type TypeKey,
+  isEpic,
+  isEpicType
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 
 export type HierarchyNode = Readonly<{
   id: TicketId
-  type: TicketType
+  type: TypeKey | null
   parent: TicketId | null
   archivedAt: Date | null
 }>
@@ -20,8 +22,8 @@ export type HierarchyLookups = Readonly<{
 
 export type HierarchyChange = Readonly<{
   id: TicketId | null
-  fromType: TicketType | null
-  type: TicketType
+  fromType: TypeKey | null
+  type: TypeKey | null
   parent: TicketId | undefined
   parentChanged: boolean
 }>
@@ -56,27 +58,24 @@ export const validateHierarchy = (
   change: HierarchyChange
 ): Effect.Effect<void, Validation> =>
   Effect.gen(function* () {
-    if (change.parent !== undefined && change.type === "epic") {
+    if (change.parent !== undefined && isEpic(change)) {
       return yield* new Validation({ reason: "epic_with_parent" })
     }
     const parent =
       change.parentChanged && change.parent !== undefined
         ? yield* validParent(lookups, change.id, change.parent)
         : null
-    const becomesSubTicket = parent !== null && parent.type !== "epic"
-    const changesEpicness =
-      change.fromType !== null &&
-      (change.fromType === "epic") !== (change.type === "epic")
+    const becomesSubTicket = parent !== null && !isEpic(parent)
+    const changesEpicness = isEpicType(change.fromType) !== isEpic(change)
     if (
       change.id !== null &&
       (becomesSubTicket || changesEpicness) &&
       (yield* lookups.hasChildren(change.id))
     ) {
       return yield* new Validation({
-        reason:
-          change.fromType === "epic"
-            ? "epic_has_tickets"
-            : "ticket_has_sub_tickets"
+        reason: isEpicType(change.fromType)
+          ? "epic_has_tickets"
+          : "ticket_has_sub_tickets"
       })
     }
   })

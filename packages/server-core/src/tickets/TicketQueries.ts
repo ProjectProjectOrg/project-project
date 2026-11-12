@@ -48,9 +48,10 @@ import {
   type TicketSections,
   type TicketSort,
   type TicketSprintSections,
-  TicketType,
   type User,
-  UserId
+  UserId,
+  EPIC_TYPE,
+  isEpic
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
@@ -611,7 +612,7 @@ const make = Effect.gen(function* () {
             ? undefined
             : {
                 parent: options.attachableTo,
-                leavesOnly: attachParent?.type !== "epic"
+                leavesOnly: !isEpic(attachParent)
               },
         limit
       }
@@ -940,9 +941,8 @@ const make = Effect.gen(function* () {
 
   const parentSectionQuery = (query: TicketListQuery): TicketListQuery => ({
     ...query,
-    type: (query.type?.length ? query.type : TicketType.literals).filter(
-      (type) => type !== "epic"
-    ),
+    type: query.type?.length ? query.type : undefined,
+    excludeType: [...(query.excludeType ?? []), EPIC_TYPE],
     parent: undefined,
     groupId: undefined,
     cursor: undefined
@@ -1038,12 +1038,12 @@ const make = Effect.gen(function* () {
       [
         ticketIndex.query(
           scope,
-          { type: ["epic"], sort: EPIC_SECTION_SORT },
+          { type: [EPIC_TYPE], sort: EPIC_SECTION_SORT },
           epicOptions
         ),
         ticketIndex.query(
           scope,
-          { type: ["epic"], archived: true, sort: EPIC_SECTION_SORT },
+          { type: [EPIC_TYPE], archived: true, sort: EPIC_SECTION_SORT },
           epicOptions
         )
       ],

@@ -8,6 +8,7 @@ import {
   TicketId,
   TicketStatus,
   UserId,
+  TypeKey,
   TicketRank
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -36,7 +37,7 @@ const ticket: TicketDocs.TicketDocument = {
   id: ticketId("T-7"),
   title: "Split me",
   status: status("todo"),
-  type: "feat",
+  type: TypeKey.make("feat"),
   priority: "med",
   rank: TicketRank.make("a0"),
   tags: [],

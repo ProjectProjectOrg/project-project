@@ -14,12 +14,12 @@ import { RichTextExtension } from "@lexical/rich-text"
 import { TableExtension } from "@lexical/table"
 import {
   BlockKey,
-  TemplateKey,
-  expandTemplate,
+  expandType,
+  typeFor,
   type BlockDefinition,
   type Library,
-  type TemplateDefinition,
-  type TicketType
+  type TypeDefinition,
+  TypeKey
 } from "@pp/shared"
 import {
   HISTORY_PUSH_TAG,
@@ -39,20 +39,19 @@ import {
   $replaceWithTemplate,
   $restoreBody,
   $startFromTemplate,
-  templateStarts,
   templateSwap
 } from "./descriptionTemplates"
 
 const lookup = lookupFor(BUILTIN_LIBRARY)
 const context = { transformers: MARKDOWN_TRANSFORMERS, lookup }
 
-const template = (key: string): TemplateDefinition => {
-  const found = BUILTIN_LIBRARY.templates.find((entry) => entry.key === key)
+const template = (key: string): TypeDefinition => {
+  const found = BUILTIN_LIBRARY.types.find((entry) => entry.key === key)
   if (found === undefined) throw new Error(`no template ${key}`)
   return found
 }
 
-const expanded = (key: string): string => expandTemplate(template(key), lookup)
+const expanded = (key: string): string => expandType(template(key), lookup)
 
 function editorWith(markdown: string): LexicalEditor {
   const editor = buildEditorFromExtensions(
@@ -90,54 +89,33 @@ const bodyOf = (editor: LexicalEditor): string =>
 const run = (editor: LexicalEditor, fn: () => void) =>
   editor.update(fn, { discrete: true, tag: HISTORY_PUSH_TAG })
 
-describe("templateStarts", () => {
-  it("puts the type's default first, then the rest by name, up to three", () => {
-    const starts = templateStarts(BUILTIN_LIBRARY, "bug")
-    expect(starts.templates.map((entry) => entry.key)).toEqual([
-      "bug-report",
-      "chore",
-      "design-task"
-    ])
-    expect(starts.more).toBe(true)
-  })
-
-  it("has no default to lead with for a blank type", () => {
-    const starts = templateStarts(BUILTIN_LIBRARY, "other")
-    expect(starts.templates.map((entry) => entry.name)).toEqual([
-      "Bug report",
-      "Chore",
-      "Design task"
-    ])
-  })
-})
-
 describe("templateSwap", () => {
   it("swaps a body that is exactly the old type's default", () => {
     const next = templateSwap({
       library: BUILTIN_LIBRARY,
-      body: expanded("bug-report"),
-      from: "bug",
-      to: "feat"
+      body: expanded("bug"),
+      from: TypeKey.make("bug"),
+      to: TypeKey.make("feat")
     })
-    expect(next?.key).toBe("feature")
+    expect(next?.key).toBe("feat")
   })
 
   it("ignores whitespace the editor adds or drops", () => {
     const next = templateSwap({
       library: BUILTIN_LIBRARY,
-      body: `\n${expanded("bug-report").replaceAll("\n\n", "\n\n\n")}\n\n`,
-      from: "bug",
-      to: "feat"
+      body: `\n${expanded("bug").replaceAll("\n\n", "\n\n\n")}\n\n`,
+      from: TypeKey.make("bug"),
+      to: TypeKey.make("feat")
     })
-    expect(next?.key).toBe("feature")
+    expect(next?.key).toBe("feat")
   })
 
   it("leaves an edited body alone", () => {
     const next = templateSwap({
       library: BUILTIN_LIBRARY,
-      body: expanded("bug-report").replace("**Expected:**", "**Expected:** ok"),
-      from: "bug",
-      to: "feat"
+      body: expanded("bug").replace("**Expected:**", "**Expected:** ok"),
+      from: TypeKey.make("bug"),
+      to: TypeKey.make("feat")
     })
     expect(next).toBeNull()
   })
@@ -146,10 +124,10 @@ describe("templateSwap", () => {
     const next = templateSwap({
       library: BUILTIN_LIBRARY,
       body: "",
-      from: "other",
-      to: "feat"
+      from: null,
+      to: TypeKey.make("feat")
     })
-    expect(next?.key).toBe("feature")
+    expect(next?.key).toBe("feat")
   })
 
   it("leaves an empty body alone when the new type has no default", () => {
@@ -157,8 +135,8 @@ describe("templateSwap", () => {
       templateSwap({
         library: BUILTIN_LIBRARY,
         body: "",
-        from: "bug",
-        to: "other"
+        from: TypeKey.make("bug"),
+        to: null
       })
     ).toBeNull()
   })
@@ -167,51 +145,37 @@ describe("templateSwap", () => {
     expect(
       templateSwap({
         library: BUILTIN_LIBRARY,
-        body: expanded("bug-report"),
-        from: "bug",
-        to: "other"
+        body: expanded("bug"),
+        from: TypeKey.make("bug"),
+        to: null
       })
     ).toBeNull()
   })
 
-  it("does nothing when both types share a default", () => {
+  it("follows a project's own copy of a type", () => {
     const library: Library = {
       ...BUILTIN_LIBRARY,
-      defaults: {
-        ...BUILTIN_LIBRARY.defaults,
-        chore: template("bug-report").key
-      }
+      types: BUILTIN_LIBRARY.types.map((entry) =>
+        entry.key === "feat"
+          ? { ...entry, body: template("spike").body, origin: "project" }
+          : entry
+      )
     }
     expect(
       templateSwap({
         library,
-        body: expanded("bug-report"),
-        from: "bug",
-        to: "chore"
-      })
-    ).toBeNull()
-  })
-
-  it("follows a project's own defaults", () => {
-    const library: Library = {
-      ...BUILTIN_LIBRARY,
-      defaults: { ...BUILTIN_LIBRARY.defaults, feat: template("spike").key }
-    }
-    expect(
-      templateSwap({
-        library,
-        body: expanded("bug-report"),
-        from: "bug",
-        to: "feat"
-      })?.key
-    ).toBe("spike")
+        body: expanded("bug"),
+        from: TypeKey.make("bug"),
+        to: TypeKey.make("feat")
+      })?.body
+    ).toBe(template("spike").body)
   })
 })
 
 describe("$startFromTemplate", () => {
   it("fills an empty body with the template in one undo step", async () => {
     const editor = editorWith("")
-    run(editor, () => $startFromTemplate(expanded("bug-report"), context))
+    run(editor, () => $startFromTemplate(expanded("bug"), context))
     expect(bodyOf(editor)).toContain('<block type="steps-to-reproduce">')
     expect(bodyOf(editor)).toContain('<block type="environment">')
     editor.dispatchCommand(UNDO_COMMAND, undefined)
@@ -221,20 +185,20 @@ describe("$startFromTemplate", () => {
 
   it("stays pristine through the editor, so a type change can swap it", () => {
     const editor = editorWith("")
-    run(editor, () => $startFromTemplate(expanded("bug-report"), context))
+    run(editor, () => $startFromTemplate(expanded("bug"), context))
     const next = templateSwap({
       library: BUILTIN_LIBRARY,
       body: bodyOf(editor),
-      from: "bug",
-      to: "feat"
+      from: TypeKey.make("bug"),
+      to: TypeKey.make("feat")
     })
-    expect(next?.key).toBe("feature")
+    expect(next?.key).toBe("feat")
   })
 })
 
 describe("$replaceWithTemplate and $restoreBody", () => {
   it("swaps the whole body and restores the previous one", async () => {
-    const editor = editorWith(expanded("bug-report"))
+    const editor = editorWith(expanded("bug"))
     const previous = bodyOf(editor)
     run(editor, () => $replaceWithTemplate(expanded("chore"), context))
     const swapped = bodyOf(editor)
@@ -243,10 +207,10 @@ describe("$replaceWithTemplate and $restoreBody", () => {
       templateSwap({
         library: BUILTIN_LIBRARY,
         body: swapped,
-        from: "chore",
-        to: "bug"
+        from: TypeKey.make("chore"),
+        to: TypeKey.make("bug")
       })?.key
-    ).toBe("bug-report")
+    ).toBe("bug")
     run(editor, () => $restoreBody(previous, MARKDOWN_TRANSFORMERS))
     expect(bodyOf(editor).trimEnd()).toBe(previous.trimEnd())
     editor.dispatchCommand(UNDO_COMMAND, undefined)
@@ -264,9 +228,8 @@ const RELEASE_CHECKS: BlockDefinition = {
   hidden: false
 }
 
-const RELEASE_CHORE: TemplateDefinition = {
+const RELEASE_CHORE: TypeDefinition = {
   ...template("chore"),
-  key: TemplateKey.make("release-chore"),
   name: "Release chore",
   body: '<block type="context">\n\n</block>\n\n<block type="release-checks" sync>\n\n</block>\n\nNotes: {{anything else}}'
 }
@@ -274,8 +237,9 @@ const RELEASE_CHORE: TemplateDefinition = {
 const chainLibrary: Library = {
   ...BUILTIN_LIBRARY,
   blocks: [...BUILTIN_LIBRARY.blocks, RELEASE_CHECKS],
-  templates: [...BUILTIN_LIBRARY.templates, RELEASE_CHORE],
-  defaults: { ...BUILTIN_LIBRARY.defaults, chore: RELEASE_CHORE.key }
+  types: BUILTIN_LIBRARY.types.map((entry) =>
+    entry.key === RELEASE_CHORE.key ? RELEASE_CHORE : entry
+  )
 }
 const chainLookup = lookupFor(chainLibrary)
 const chainContext = {
@@ -290,27 +254,26 @@ function liveEditor(markdown: string): LexicalEditor {
   return editor
 }
 
-const defaultBody = (type: TicketType): string => {
-  const key = chainLibrary.defaults[type]
-  const found = chainLibrary.templates.find((entry) => entry.key === key)
-  if (found === undefined) throw new Error(`no default for ${type}`)
-  return expandTemplate(found, chainLookup)
+const defaultBody = (type: string): string => {
+  const found = typeFor(chainLibrary, type)
+  if (found === null) throw new Error(`no default for ${type}`)
+  return expandType(found, chainLookup)
 }
 
 const changeType = (
   editor: LexicalEditor,
-  from: TicketType,
-  to: TicketType
+  from: string | null,
+  to: string | null
 ): string | null => {
   const next = templateSwap({
     library: chainLibrary,
     body: bodyOf(editor),
-    from,
-    to
+    from: from === null ? null : TypeKey.make(from),
+    to: to === null ? null : TypeKey.make(to)
   })
   if (next !== null)
     run(editor, () =>
-      $replaceWithTemplate(expandTemplate(next, chainLookup), chainContext)
+      $replaceWithTemplate(expandType(next, chainLookup), chainContext)
     )
   return next?.key ?? null
 }
@@ -318,26 +281,26 @@ const changeType = (
 describe("type swap across repeated changes", () => {
   it("swaps on every change of a feat, bug, chore, feat chain", () => {
     const editor = liveEditor(defaultBody("feat"))
-    expect(changeType(editor, "feat", "bug")).toBe("bug-report")
-    expect(changeType(editor, "bug", "chore")).toBe("release-chore")
-    expect(changeType(editor, "chore", "feat")).toBe("feature")
-    expect(changeType(editor, "feat", "bug")).toBe("bug-report")
+    expect(changeType(editor, "feat", "bug")).toBe("bug")
+    expect(changeType(editor, "bug", "chore")).toBe("chore")
+    expect(changeType(editor, "chore", "feat")).toBe("feat")
+    expect(changeType(editor, "feat", "bug")).toBe("bug")
   })
 
   it("keeps swapping a synced block with hints and checklists", () => {
     const editor = liveEditor("")
     run(editor, () => $startFromTemplate(defaultBody("chore"), chainContext))
     expect(bodyOf(editor)).toContain('<block type="release-checks" sync>')
-    expect(changeType(editor, "chore", "bug")).toBe("bug-report")
-    expect(changeType(editor, "bug", "chore")).toBe("release-chore")
-    expect(changeType(editor, "chore", "feat")).toBe("feature")
+    expect(changeType(editor, "chore", "bug")).toBe("bug")
+    expect(changeType(editor, "bug", "chore")).toBe("chore")
+    expect(changeType(editor, "chore", "feat")).toBe("feat")
   })
 
   it("keeps swapping after a reload of the saved body", () => {
     const first = liveEditor(defaultBody("feat"))
     changeType(first, "feat", "chore")
     const reloaded = liveEditor(bodyOf(first))
-    expect(changeType(reloaded, "chore", "bug")).toBe("bug-report")
+    expect(changeType(reloaded, "chore", "bug")).toBe("bug")
   })
 
   it("swaps again after Undo restored the previous type's body", () => {
@@ -345,8 +308,8 @@ describe("type swap across repeated changes", () => {
     const previous = bodyOf(editor)
     changeType(editor, "feat", "bug")
     run(editor, () => $restoreBody(previous, MARKDOWN_TRANSFORMERS))
-    expect(changeType(editor, "bug", "chore")).toBe("release-chore")
-    expect(changeType(editor, "chore", "feat")).toBe("feature")
+    expect(changeType(editor, "bug", "chore")).toBe("chore")
+    expect(changeType(editor, "chore", "feat")).toBe("feat")
   })
 
   it("swapping back after Undo keeps the restored body", () => {
@@ -360,19 +323,19 @@ describe("type swap across repeated changes", () => {
 
   it("swaps again after passing through a blank type", () => {
     const editor = liveEditor(defaultBody("feat"))
-    expect(changeType(editor, "feat", "other")).toBeNull()
-    expect(changeType(editor, "other", "bug")).toBe("bug-report")
+    expect(changeType(editor, "feat", null)).toBeNull()
+    expect(changeType(editor, null, "bug")).toBe("bug")
   })
 
   it("swaps a body started from a template that is not the default", () => {
     const editor = liveEditor("")
     run(editor, () =>
       $startFromTemplate(
-        expandTemplate(template("spike"), chainLookup),
+        expandType(template("spike"), chainLookup),
         chainContext
       )
     )
-    expect(changeType(editor, "feat", "bug")).toBe("bug-report")
+    expect(changeType(editor, "feat", "bug")).toBe("bug")
   })
 
   it("swaps a body that kept its hints, as agents create it", () => {
@@ -384,10 +347,10 @@ describe("type swap across repeated changes", () => {
       templateSwap({
         library: chainLibrary,
         body: withHints,
-        from: "bug",
-        to: "feat"
+        from: TypeKey.make("bug"),
+        to: TypeKey.make("feat")
       })?.key
-    ).toBe("feature")
+    ).toBe("feat")
   })
 
   it("leaves the body alone once it is edited", () => {

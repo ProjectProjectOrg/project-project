@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
-import { TicketType, type TicketFilter } from "@pp/shared"
+import type { TicketFilter } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 
 import { currentUserId } from "@/features/auth/atoms/auth"
+import { blockIconComponent } from "@/features/editor/lib/blockIcons"
 import {
   useProject,
   useProjectRoute
@@ -25,6 +26,8 @@ import {
 } from "@/features/sprints/atoms/sprintList"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import type { FilterDimension } from "@/features/tickets/components/ticket-list/toolbar/model"
+import { NoTypeIcon } from "@/features/tickets/components/TypeGlyph"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import {
   estimateFilterLabel,
   estimateFilterValues
@@ -35,7 +38,7 @@ import {
   type FilterChoiceDimension
 } from "@/features/tickets/lib/filterChoices"
 import { filterableSprints } from "@/features/tickets/lib/ticketFilters"
-import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import { typeName, typeOptions } from "@/features/tickets/lib/ticketTypes"
 import type { IconComponent } from "@/lib/icon"
 import { m } from "@/paraglide/messages"
 
@@ -76,6 +79,7 @@ export function useFilterOptions(
   const sprintsResult = useAtomValue(
     sprintList(sprintListRequest(orgSlug, slug))
   )
+  const types = useTicketTypes(orgSlug, slug)
   const tags = Result.isSuccess(tagsResult) ? tagsResult.value : []
   const sprints = Result.isSuccess(sprintsResult)
     ? filterableSprints(
@@ -111,10 +115,13 @@ export function useFilterOptions(
           }
         ]
       case "type":
-        return TicketType.literals.map((value) => ({
-          choice: { dimension, value },
-          label: TYPE_LABELS[value](),
-          icon: TYPE_META[value].icon
+        return typeOptions(types).map((option) => ({
+          choice: { dimension, value: option.value },
+          label: typeName(option.type),
+          icon:
+            option.type === null
+              ? NoTypeIcon
+              : blockIconComponent(option.type.icon)
         }))
       case "assignee":
         return [

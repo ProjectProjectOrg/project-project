@@ -19,9 +19,8 @@ import {
   type ProjectKey,
   type Estimate,
   type SplitTicketResultInput,
-  type TemplateKey,
+  type TypeKey,
   TicketStatus,
-  TicketType,
   ProjectScope,
   ActivityActor,
   type ArchiveTicketInput,
@@ -51,7 +50,8 @@ import {
   type MoveDestination,
   type MoveMentionContext,
   type MoveTicketInput,
-  type MoveTicketResult
+  type MoveTicketResult,
+  isEpic
 } from "@pp/shared"
 import { and, asc, eq } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -458,7 +458,7 @@ const make = Effect.gen(function* () {
   const validateNewParent = (
     project: TicketProject,
     viewerId: string,
-    type: TicketType,
+    type: TypeKey | null,
     parent: TicketId | undefined
   ): Effect.Effect<void, Validation> =>
     validateHierarchy(hierarchyLookups(project, viewerId), {
@@ -557,6 +557,29 @@ const make = Effect.gen(function* () {
       }
     })
 
+  const reconcileBodyLinks = (
+    project: TicketProject,
+    document: TicketDocs.TicketDocument
+  ) =>
+    Effect.all(
+      [
+        attachments.reconcileTicket(
+          project.orgSlug,
+          project.slug,
+          document.id,
+          document.body
+        ),
+        figmaLinks.reconcileTicket(
+          project.orgSlug,
+          project.slug,
+          document.id,
+          document.title,
+          document.body
+        )
+      ],
+      { concurrency: 2, discard: true }
+    )
+
   const rankAtTop = (project: TicketProject) =>
     ticketIndex
       .topRank(project)
@@ -598,14 +621,53 @@ const make = Effect.gen(function* () {
 
   const expansionFor = (
     project: TicketProject,
-    template: TemplateKey | null | undefined
+    type: TypeKey | null
   ): Effect.Effect<
-    Library.TemplateExpansion | null,
+    Library.TypeExpansion | null,
     NotFound | Validation | Markdown.MarkdownError
   > =>
-    template === undefined || template === null
+    type === null
       ? Effect.succeed(null)
-      : library.expandForCreate(project.orgSlug, project.slug, template)
+      : library.expandForCreate(project.orgSlug, project.slug, type)
+
+  const validateTypesExist = (
+    project: TicketProject,
+    types: ReadonlyArray<TypeKey | null>
+  ): Effect.Effect<void, Validation | Markdown.MarkdownError> => {
+    const wanted = types.filter((type) => type !== null)
+    if (wanted.length === 0) return Effect.void
+    return library.typeKeys(project.orgSlug, project.slug).pipe(
+      Effect.flatMap((known) => {
+        const unknown = wanted.find((type) => !known.has(type))
+        return unknown === undefined
+          ? Effect.void
+          : Effect.fail(new Validation({ reason: `unknown_type:${unknown}` }))
+      })
+    )
+  }
+
+  const bodyAfterTypeChange = (
+    project: TicketProject,
+    type: TypeKey | null
+  ): Effect.Effect<
+    (body: string) => string,
+    NotFound | Validation | Markdown.MarkdownError
+  > =>
+    type === null
+      ? Effect.succeed((body) => body)
+      : Effect.all(
+          [
+            library.expandForCreate(project.orgSlug, project.slug, type),
+            library.untouchedBodyCheck(project.orgSlug, project.slug)
+          ],
+          { concurrency: 2 }
+        ).pipe(
+          Effect.map(
+            ([expansion, isUntouched]) =>
+              (body) =>
+                isUntouched(body) ? expansion.body : body
+          )
+        )
 
   const quickCreate = Effect.fn("TicketCommands.quickCreate")(function* (
     input: QuickCreateTicketInput
@@ -617,12 +679,13 @@ const make = Effect.gen(function* () {
       status: input.status !== undefined && input.status !== DEFAULT_STATUS,
       assignees: false
     })
+    const type = input.type ?? null
     const [, expansion, projectKey, view] = yield* Effect.all(
       [
         input.status === undefined
           ? Effect.void
           : validateStatusExists(projectId, input.status),
-        expansionFor(scope, input.template),
+        expansionFor(scope, type),
         projects.key(),
         gitView
       ],
@@ -630,7 +693,6 @@ const make = Effect.gen(function* () {
     )
     const tags = expansion?.tags ?? []
     const body = expansion?.body ?? ""
-    const type = input.type ?? expansion?.type ?? "other"
     yield* Effect.all(
       [
         validateTagsExist(projectId, tags),
@@ -675,6 +737,7 @@ const make = Effect.gen(function* () {
       status: input.status !== undefined && input.status !== DEFAULT_STATUS,
       assignees: (input.assignees ?? []).length > 0
     })
+    const type = input.type ?? null
     const [, , , expansion, projectKey, view] = yield* Effect.all(
       [
         input.status === undefined
@@ -684,14 +747,13 @@ const make = Effect.gen(function* () {
           ? Effect.void
           : validateAssigneesAreMembers(input.assignees),
         validateEstimate(scope, input.estimate),
-        expansionFor(scope, input.template),
+        expansionFor(scope, type),
         projects.key(),
         gitView
       ],
       { concurrency: "unbounded" }
     )
     const tags = input.tags ?? expansion?.tags ?? []
-    const type = input.type ?? expansion?.type ?? "other"
     const [, body] = yield* Effect.all(
       [
         validateTagsExist(projectId, tags),
@@ -804,6 +866,7 @@ const make = Effect.gen(function* () {
           { concurrency: "unbounded" }
         )
 
+        let bodyChanged = input.body !== undefined
         const next = yield* ticketDocs.update(
           orgSlug,
           slug,
@@ -828,11 +891,20 @@ const make = Effect.gen(function* () {
                 })
               }
               const now = yield* DateTime.nowAsDate
-              const next = {
+              const patched = {
                 ...applyTicketPatch(existing, { ...input, body }, userId, now),
                 rank: rank ?? existing.rank
               }
-              yield* requireTicketChange(ticketChangeOf(existing, next))
+              yield* requireTicketChange(ticketChangeOf(existing, patched))
+              const retyped =
+                patched.type === existing.type
+                  ? null
+                  : yield* bodyAfterTypeChange(scope, patched.type)
+              const next =
+                retyped === null || input.body !== undefined
+                  ? patched
+                  : { ...patched, body: retyped(existing.body) }
+              if (next.body !== existing.body) bodyChanged = true
               if (input.assignees !== undefined) {
                 const existingSet = new Set(existing.assignees)
                 const newcomers = next.assignees.filter(
@@ -846,7 +918,7 @@ const make = Effect.gen(function* () {
                 hierarchyLookups(scope, userId),
                 hierarchyChangeOf(existing, next)
               )
-              if (next.type === "epic" && existing.type !== "epic") {
+              if (isEpic(next) && !isEpic(existing)) {
                 const sprints = openSprintIdsOf(
                   yield* groups.list(),
                   existing.id
@@ -858,7 +930,7 @@ const make = Effect.gen(function* () {
               return next
             }),
           (next) =>
-            (input.body === undefined
+            (!bodyChanged
               ? Effect.void
               : Effect.all(
                   [
@@ -1062,9 +1134,7 @@ const make = Effect.gen(function* () {
 
     const originalId = makeTicketId(id)
     if (
-      input.results.some(
-        (result) => result.type === "epic" && result.sprintId !== null
-      )
+      input.results.some((result) => isEpic(result) && result.sprintId !== null)
     ) {
       return yield* new Validation({ reason: "epic_in_sprint" })
     }
@@ -1099,6 +1169,12 @@ const make = Effect.gen(function* () {
         Effect.gen(function* () {
           const original = yield* ticketDocs.read(orgSlug, slug, id)
           yield* requireSplit(original, retainedInput, newInputs)
+          yield* validateTypesExist(
+            scope,
+            input.results
+              .map((result) => result.type)
+              .filter((type) => type !== original.type)
+          )
           yield* validateHierarchy(hierarchyLookups(scope, userId), {
             id: original.id,
             fromType: original.type,
@@ -1135,8 +1211,7 @@ const make = Effect.gen(function* () {
                     prState: null,
                     lastTransitionedPr: null,
                     splitFrom: originalId,
-                    parent:
-                      result.type === "epic" ? undefined : original.parent,
+                    parent: isEpic(result) ? undefined : original.parent,
                     assignees: [...result.assignees],
                     archivedAt: original.archivedAt,
                     createdBy: userId,
@@ -1295,28 +1370,36 @@ const make = Effect.gen(function* () {
     source: ProjectScope["Service"],
     destination: ProjectScope["Service"]
   ) {
-    const [statuses, tags, memberIds, sourceDoc, destinationDoc, projectKey] =
-      yield* Effect.all(
-        [
-          db
-            .select({ slug: schema.projectStatus.slug })
-            .from(schema.projectStatus)
-            .where(eq(schema.projectStatus.projectId, destination.projectId))
-            .orderBy(asc(schema.projectStatus.orderKey))
-            .pipe(Effect.orDie),
-          db.query.projectTag
-            .findMany({
-              columns: { name: true },
-              where: { projectId: destination.projectId }
-            })
-            .pipe(Effect.orDie),
-          projectMembers.memberIds(),
-          readProjectDocument({ db, docs: projectDocs, project: source }),
-          readProjectDocument({ db, docs: projectDocs, project: destination }),
-          projects.key()
-        ],
-        { concurrency: 6 }
-      ).pipe(Effect.provideService(ProjectScope, destination))
+    const [
+      statuses,
+      types,
+      tags,
+      memberIds,
+      sourceDoc,
+      destinationDoc,
+      projectKey
+    ] = yield* Effect.all(
+      [
+        db
+          .select({ slug: schema.projectStatus.slug })
+          .from(schema.projectStatus)
+          .where(eq(schema.projectStatus.projectId, destination.projectId))
+          .orderBy(asc(schema.projectStatus.orderKey))
+          .pipe(Effect.orDie),
+        library.typeKeys(destination.orgSlug, destination.slug),
+        db.query.projectTag
+          .findMany({
+            columns: { name: true },
+            where: { projectId: destination.projectId }
+          })
+          .pipe(Effect.orDie),
+        projectMembers.memberIds(),
+        readProjectDocument({ db, docs: projectDocs, project: source }),
+        readProjectDocument({ db, docs: projectDocs, project: destination }),
+        projects.key()
+      ],
+      { concurrency: 7 }
+    ).pipe(Effect.provideService(ProjectScope, destination))
     const sameRepository =
       sourceDoc.github !== null &&
       destinationDoc.github !== null &&
@@ -1329,6 +1412,7 @@ const make = Effect.gen(function* () {
       sameRepository,
       plan: {
         statuses: statuses.map((row) => row.slug),
+        types,
         tags: tags.map((row) => row.name),
         memberIds,
         estimation: destinationDoc.estimation
@@ -1519,7 +1603,7 @@ const make = Effect.gen(function* () {
     const rootId = makeTicketId(id)
     const root = yield* readTicket(source, id)
     const children = yield* childIds(source, userId, id)
-    if (root.type === "epic" && children.length > 0) {
+    if (isEpic(root) && children.length > 0) {
       return yield* new Validation({ reason: "move_epic_has_tickets" })
     }
     const sourceIds = [rootId, ...children.map((child) => makeTicketId(child))]
@@ -1540,14 +1624,23 @@ const make = Effect.gen(function* () {
           ) {
             return yield* new Conflict({ reason: "move_ticket_changed" })
           }
-          if (originals[0].type === "epic" && children.length > 0) {
+          if (isEpic(originals[0]) && children.length > 0) {
             return yield* new Validation({ reason: "move_epic_has_tickets" })
           }
+          const fieldsOf = originals.map((original) =>
+            planTicketMove(
+              original,
+              plan,
+              original.id === rootId ? input.status : undefined
+            )
+          )
           const moved: Array<MovedTicket> = []
-          for (const original of originals) {
+          for (const [index, original] of originals.entries()) {
+            const { dropped } = fieldsOf[index]
             moved.push({
               from: original.id,
-              to: yield* reserveFreeTicketId(destination, projectKey)
+              to: yield* reserveFreeTicketId(destination, projectKey),
+              dropped
             })
           }
           const mentions: MoveMentionContext = {
@@ -1569,15 +1662,12 @@ const make = Effect.gen(function* () {
           )
           const byRank = originals.toSorted(compareByRank)
           const documents = originals.map((original, index) => {
-            const fields = planTicketMove(
-              original,
-              plan,
-              original.id === rootId ? input.status : undefined
-            )
+            const fields = fieldsOf[index]
             const linked = sameRepository ? original : withoutGitLink(original)
             return {
               ...linked,
               id: moved[index].to,
+              type: fields.type,
               status: makeTicketStatus(fields.status ?? plan.statuses[0]),
               rank: topRanks[byRank.indexOf(original)],
               tags: fields.tags,
@@ -1940,9 +2030,17 @@ const make = Effect.gen(function* () {
         )
         const now = yield* DateTime.nowAsDate
         const finished = yield* finishedStatuses.forProject(orgSlug, slug)
-        const patched = originals.map((existing) =>
-          applyTicketPatch(existing, fields, userId, now)
-        )
+        const retyped =
+          fields.type === undefined ||
+          originals.every((existing) => existing.type === fields.type)
+            ? null
+            : yield* bodyAfterTypeChange(scope, fields.type)
+        const patched = originals.map((existing) => {
+          const next = applyTicketPatch(existing, fields, userId, now)
+          return retyped === null || next.type === existing.type
+            ? next
+            : { ...next, body: retyped(existing.body) }
+        })
         const changes = originals.map((existing, index) =>
           fieldChangesOf(existing, patched[index])
         )
@@ -1996,11 +2094,12 @@ const make = Effect.gen(function* () {
             for (const next of nexts.filter(
               (next, index) => next !== originals[index]
             )) {
+              const original = originals[nexts.indexOf(next)]
               yield* ticketDocs.write(orgSlug, slug, next.id, next)
-              written.push({
-                original: originals[nexts.indexOf(next)],
-                next
-              })
+              written.push({ original, next })
+              if (next.body !== original.body) {
+                yield* reconcileBodyLinks(scope, next)
+              }
               yield* ticketIndex.upsertTicket(scope, next)
             }
           }).pipe(Effect.onError(() => revertWritten))

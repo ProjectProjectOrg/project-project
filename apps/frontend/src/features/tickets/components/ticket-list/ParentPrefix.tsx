@@ -1,3 +1,4 @@
+import { isEpic } from "@pp/shared"
 import type { TicketParent } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 
@@ -10,7 +11,7 @@ export function ParentPrefix({ parent }: Readonly<{ parent: TicketParent }>) {
   const { orgSlug, slug } = useProjectRoute()
   return (
     <>
-      {parent.type === "epic" ? (
+      {isEpic(parent) ? (
         <TicketPreviewTrigger
           preview={{ kind: "ticket", id: parent.id }}
           render={<span className="flex min-w-0 shrink-0" />}

@@ -1,6 +1,6 @@
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { it } from "@effect/vitest"
-import { EMPTY_TICKET_RELATIONS } from "@pp/shared"
+import { BUILTIN_TYPE_KEYS, EMPTY_TICKET_RELATIONS, TypeKey } from "@pp/shared"
 import {
   Forbidden,
   GroupColor,
@@ -287,7 +287,9 @@ const FakeDb = databaseLayer(({ sql }) =>
 )
 
 const PassthroughLibrary = Layer.mock(Library.Library, {
-  resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body)
+  resolveSynced: (_orgSlug, _slug, body) => Effect.succeed(body),
+  typeKeys: () => Effect.succeed(new Set<string>(BUILTIN_TYPE_KEYS)),
+  expandForCreate: () => Effect.succeed({ body: "", priority: null, tags: [] })
 })
 
 const TestLayer = Layer.unwrap(
@@ -360,11 +362,11 @@ const ticketFile = (root: string, path: Path.Path, id: string) =>
 
 const result = (
   title: string,
-  type: "feat" | "bug" | "chore" | "other",
+  type: "feat" | "bug" | "chore",
   assignees: ReadonlyArray<string> = []
 ) => ({
   title,
-  type,
+  type: TypeKey.make(type),
   status: decodeStatus("in_progress"),
   priority: "high" as const,
   sprintId: null,
@@ -375,7 +377,7 @@ const seedOriginal = Effect.gen(function* () {
   const tickets = yield* TicketCommands.TicketCommands
   return yield* tickets.create({
     title: "Rework the detail page",
-    type: "feat",
+    type: TypeKey.make("feat"),
     priority: "high",
     status: decodeStatus("in_progress"),
     tags: [decodeTagName("ui")],
@@ -443,7 +445,10 @@ it.effect("split ranks the new tickets directly below the original", () =>
   Effect.gen(function* () {
     yield* resetFakes
     const tickets = yield* TicketCommands.TicketCommands
-    const below = yield* tickets.create({ title: "Below", type: "chore" })
+    const below = yield* tickets.create({
+      title: "Below",
+      type: TypeKey.make("chore")
+    })
     const original = yield* seedOriginal
 
     const outcome = yield* tickets.split(original.id, {
@@ -475,7 +480,7 @@ it.effect("split keeps the new tickets in the original's epic", () =>
       ...stored,
       id: epicId,
       title: "Launch",
-      type: "epic"
+      type: TypeKey.make("epic")
     })
     yield* docs.write("org", "p", original.id, { ...stored, parent: epicId })
 
@@ -656,7 +661,7 @@ const scopedAs = (role: "developer" | "client", userId: string) =>
 const seedClientTicket = Effect.gen(function* () {
   const tickets = yield* TicketCommands.TicketCommands
   const created = yield* tickets
-    .create({ title: "Client request", type: "feat" })
+    .create({ title: "Client request", type: TypeKey.make("feat") })
     .pipe(scopedAs("client", "client-1"))
   return yield* tickets.update(created.id, {
     status: decodeStatus("in_progress"),

@@ -1,8 +1,7 @@
 import {
   type BlockDraft,
   type Layer as LibraryLayer,
-  type PartialTemplateDefaults,
-  type TemplateDraft,
+  type TypeDraft,
   BlockIcon,
   BlockKey,
   FALLBACK_BLOCK_ICON,
@@ -12,7 +11,7 @@ import {
   LibraryName,
   normalizeLineEndings,
   TagName,
-  TemplateKey,
+  TypeKey,
   TicketPriority
 } from "@pp/shared"
 import * as Context from "effect/Context"
@@ -25,10 +24,6 @@ import * as Schema from "effect/Schema"
 
 import { markdownFileContent, parseMarkdownFile } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
-import {
-  templateDefaultsFrom,
-  withTemplateDefaults
-} from "./templateDefaultsFrontmatter"
 
 export class LibraryDocs extends Context.Service<
   LibraryDocs,
@@ -42,10 +37,10 @@ export class LibraryDocs extends Context.Service<
       projectSlug: string | null,
       draft: BlockDraft
     ) => Effect.Effect<void, Markdown.MarkdownError>
-    writeTemplate: (
+    writeType: (
       orgSlug: string,
       projectSlug: string | null,
-      draft: TemplateDraft
+      draft: TypeDraft
     ) => Effect.Effect<void, Markdown.MarkdownError>
     writeTombstone: (
       orgSlug: string,
@@ -53,14 +48,6 @@ export class LibraryDocs extends Context.Service<
       kind: Markdown.LibraryKind,
       key: string
     ) => Effect.Effect<void, Markdown.MarkdownError>
-    readOrgDefaults: (
-      orgSlug: string
-    ) => Effect.Effect<PartialTemplateDefaults, Markdown.MarkdownError>
-    writeOrgDefaults: (
-      orgSlug: string,
-      defaults: PartialTemplateDefaults
-    ) => Effect.Effect<void, Markdown.MarkdownError>
-
     hasFile: (
       orgSlug: string,
       projectSlug: string | null,
@@ -87,7 +74,7 @@ const BlockFrontmatter = Schema.Struct({
   sync: withDefault(Schema.Boolean, false)
 })
 
-const TemplateFrontmatter = Schema.Struct({
+const TypeFrontmatter = Schema.Struct({
   name: LibraryName,
   icon: withDefault(BlockIcon, FALLBACK_BLOCK_ICON),
   color: withDefault(LibraryColor, null),
@@ -100,20 +87,19 @@ const TOMBSTONE = "---\nhidden: true\n---\n"
 
 const Tombstone = Schema.Struct({ hidden: Schema.Literal(true) })
 
-const isTombstone = Schema.is(Tombstone)
+export const isTombstone = Schema.is(Tombstone)
 const decodeBlockFrontmatter = Schema.decodeUnknownOption(BlockFrontmatter)
-const decodeTemplateFrontmatter =
-  Schema.decodeUnknownOption(TemplateFrontmatter)
+const decodeTypeFrontmatter = Schema.decodeUnknownOption(TypeFrontmatter)
 const decodeBlockKey = Schema.decodeUnknownOption(BlockKey)
-const decodeTemplateKey = Schema.decodeUnknownOption(TemplateKey)
+const decodeTypeKey = Schema.decodeUnknownOption(TypeKey)
 const decodeContent = Schema.decodeUnknownOption(LibraryContent)
 const encodeBlockFrontmatter = Schema.encodeSync(BlockFrontmatter)
-const encodeTemplateFrontmatter = Schema.encodeSync(TemplateFrontmatter)
+const encodeTypeFrontmatter = Schema.encodeSync(TypeFrontmatter)
 
 const trimBlankLines = (text: string): string =>
   text.replace(/^(?:[ \t]*\r?\n)+/, "").replace(/(?:\r?\n[ \t]*)+$/, "")
 
-type ParsedFile = Readonly<{
+export type ParsedFile = Readonly<{
   key: string
   data: Record<string, unknown>
   body: string
@@ -124,7 +110,9 @@ type DecodedLayerPart<A> = Readonly<{
   hidden: ReadonlyArray<string>
 }>
 
-const parseFile = (file: Markdown.LibraryFile): Option.Option<ParsedFile> => {
+export const parseLibraryFile = (
+  file: Markdown.LibraryFile
+): Option.Option<ParsedFile> => {
   try {
     const parsed = parseMarkdownFile(normalizeLineEndings(file.content))
     return Option.some({
@@ -150,18 +138,19 @@ const decodeBlock = (file: ParsedFile): Option.Option<BlockDraft> =>
     }))
   )
 
-const decodeTemplate = (file: ParsedFile): Option.Option<TemplateDraft> =>
+export const decodeTypeFields = (
+  file: ParsedFile
+): Option.Option<Omit<TypeDraft, "key">> =>
   Option.all({
-    key: decodeTemplateKey(file.key),
-    frontmatter: decodeTemplateFrontmatter(file.data),
+    frontmatter: decodeTypeFrontmatter(file.data),
     body: decodeContent(file.body)
-  }).pipe(
-    Option.map(({ key, frontmatter, body }) => ({
-      key,
-      ...frontmatter,
-      body
-    }))
-  )
+  }).pipe(Option.map(({ frontmatter, body }) => ({ ...frontmatter, body })))
+
+const decodeType = (file: ParsedFile): Option.Option<TypeDraft> =>
+  Option.all({
+    key: decodeTypeKey(file.key),
+    fields: decodeTypeFields(file)
+  }).pipe(Option.map(({ key, fields }) => ({ key, ...fields })))
 
 type ClassifiedFile<A> =
   | Readonly<{ _tag: "definition"; definition: A }>
@@ -171,7 +160,7 @@ type ClassifiedFile<A> =
 const classifyFile = <A>(decode: (file: ParsedFile) => Option.Option<A>) => {
   const ClassifiedFile = Data.taggedEnum<ClassifiedFile<A>>()
   return (file: Markdown.LibraryFile): ClassifiedFile<A> => {
-    const parsed = parseFile(file)
+    const parsed = parseLibraryFile(file)
     if (Option.isNone(parsed)) return ClassifiedFile.skipped({ key: file.key })
     if (isTombstone(parsed.value.data))
       return ClassifiedFile.hidden({ key: file.key })
@@ -181,29 +170,6 @@ const classifyFile = <A>(decode: (file: ParsedFile) => Option.Option<A>) => {
     })
   }
 }
-
-type OrgLibraryFile = Readonly<{
-  data: Record<string, unknown>
-  body: string
-}>
-
-const EMPTY_ORG_FILE: OrgLibraryFile = { data: {}, body: "" }
-
-class OrgLibraryUnreadable extends Data.TaggedError("OrgLibraryUnreadable")<
-  Readonly<{ cause: unknown; orgSlug: string }>
-> {}
-
-const parseOrgFile = (
-  orgSlug: string,
-  content: string
-): Effect.Effect<OrgLibraryFile, OrgLibraryUnreadable> =>
-  Effect.try({
-    try: () => {
-      const parsed = parseMarkdownFile(content)
-      return { data: parsed.data, body: parsed.content }
-    },
-    catch: (cause) => new OrgLibraryUnreadable({ cause, orgSlug })
-  })
 
 const annotateLibraryDoc = <A, E>(
   operation: string,
@@ -276,18 +242,18 @@ const make = Effect.gen(function* () {
       projectSlug,
       {},
       Effect.gen(function* () {
-        const [blocks, templates] = yield* Effect.all(
+        const [blocks, types] = yield* Effect.all(
           [
             readKind(orgSlug, projectSlug, "blocks", decodeBlock),
-            readKind(orgSlug, projectSlug, "templates", decodeTemplate)
+            readKind(orgSlug, projectSlug, "types", decodeType)
           ],
           { concurrency: 2 }
         )
         return {
           blocks: blocks.definitions,
-          templates: templates.definitions,
+          types: types.definitions,
           hiddenBlocks: blocks.hidden,
-          hiddenTemplates: templates.hidden
+          hiddenTypes: types.hidden
         }
       })
     )
@@ -314,23 +280,23 @@ const make = Effect.gen(function* () {
     )
   })
 
-  const writeTemplate = Effect.fn("LibraryDocs.writeTemplate")(function* (
+  const writeType = Effect.fn("LibraryDocs.writeType")(function* (
     orgSlug: string,
     projectSlug: string | null,
-    draft: TemplateDraft
+    draft: TypeDraft
   ) {
     const { key, body, ...frontmatter } = draft
     return yield* annotateLibraryDoc(
-      "writeTemplate",
+      "writeType",
       orgSlug,
       projectSlug,
       { key },
       markdown.writeLibraryFile(
         orgSlug,
         projectSlug,
-        "templates",
+        "types",
         key,
-        markdownFileContent(encodeTemplateFrontmatter(frontmatter), body)
+        markdownFileContent(encodeTypeFrontmatter(frontmatter), body)
       )
     )
   })
@@ -347,72 +313,6 @@ const make = Effect.gen(function* () {
       projectSlug,
       { kind, key },
       markdown.writeLibraryFile(orgSlug, projectSlug, kind, key, TOMBSTONE)
-    )
-  })
-
-  const readOrgFile = (
-    orgSlug: string
-  ): Effect.Effect<
-    OrgLibraryFile,
-    Markdown.MarkdownError | OrgLibraryUnreadable
-  > =>
-    markdown
-      .readOrgLibraryFile(orgSlug)
-      .pipe(
-        Effect.flatMap((content) =>
-          content === null
-            ? Effect.succeed(EMPTY_ORG_FILE)
-            : parseOrgFile(orgSlug, content)
-        )
-      )
-
-  const readOrgDefaults = Effect.fn("LibraryDocs.readOrgDefaults")(function* (
-    orgSlug: string
-  ) {
-    return yield* annotateLibraryDoc(
-      "readOrgDefaults",
-      orgSlug,
-      null,
-      {},
-      readOrgFile(orgSlug).pipe(
-        Effect.catchTag("OrgLibraryUnreadable", () =>
-          Effect.logWarning("skipping unreadable org library file").pipe(
-            Effect.as(EMPTY_ORG_FILE)
-          )
-        ),
-        Effect.map((file) => templateDefaultsFrom(file.data))
-      )
-    )
-  })
-
-  const writeOrgDefaults = Effect.fn("LibraryDocs.writeOrgDefaults")(function* (
-    orgSlug: string,
-    defaults: PartialTemplateDefaults
-  ) {
-    return yield* annotateLibraryDoc(
-      "writeOrgDefaults",
-      orgSlug,
-      null,
-      {},
-      Effect.gen(function* () {
-        const file = yield* readOrgFile(orgSlug).pipe(
-          Effect.catchTag("OrgLibraryUnreadable", (error) =>
-            Effect.fail(
-              new Markdown.MarkdownError({
-                cause: error.cause,
-                message: `refusing to overwrite unparseable orgs/${orgSlug}/library.md`
-              })
-            )
-          )
-        )
-        yield* markdown.writeOrgLibraryFile(
-          orgSlug,
-          markdownFileContent(
-            withTemplateDefaults(file.data, defaults),
-            file.body
-          )
-        )
-      })
     )
   })
 
@@ -451,10 +351,8 @@ const make = Effect.gen(function* () {
   return LibraryDocs.of({
     readLayer,
     writeBlock,
-    writeTemplate,
+    writeType,
     writeTombstone,
-    readOrgDefaults,
-    writeOrgDefaults,
     hasFile,
     remove
   })

@@ -1,6 +1,6 @@
 import * as BunServices from "@effect/platform-bun/BunServices"
 import { it } from "@effect/vitest"
-import { BlockDraft, TemplateDraft, TemplateKey } from "@pp/shared"
+import { BlockDraft, TypeDraft } from "@pp/shared"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
@@ -11,13 +11,12 @@ import * as Schema from "effect/Schema"
 import * as Tracer from "effect/Tracer"
 import { describe, expect } from "vitest"
 
-import { markdownFileContent, parseMarkdownFile } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
 import * as LibraryDocs from "./LibraryDocs"
 
 const decodeUnknownBlockDraft = Schema.decodeUnknownEffect(BlockDraft)
 
-const decodeUnknownTemplateDraft = Schema.decodeUnknownEffect(TemplateDraft)
+const decodeUnknownTypeDraft = Schema.decodeUnknownEffect(TypeDraft)
 
 const TestLayer = Layer.unwrap(
   Effect.gen(function* () {
@@ -47,7 +46,7 @@ const block = Schema.decodeUnknownSync(BlockDraft)({
     "## Acceptance criteria\n\n- [ ] {{Given a state, then this}}\n- [ ] "
 })
 
-const template = Schema.decodeUnknownSync(TemplateDraft)({
+const type = Schema.decodeUnknownSync(TypeDraft)({
   key: "bug-report",
   name: "Bug report",
   icon: "Bug",
@@ -57,8 +56,6 @@ const template = Schema.decodeUnknownSync(TemplateDraft)({
   tags: ["frontend"],
   body: '<block type="expected-vs-actual">\n\n</block>'
 })
-
-const templateKey = Schema.decodeUnknownSync(TemplateKey)
 
 const libraryPath = (org: string, ...rest: ReadonlyArray<string>) =>
   Effect.gen(function* () {
@@ -71,29 +68,7 @@ const libraryPath = (org: string, ...rest: ReadonlyArray<string>) =>
   })
 
 describe("LibraryDocs (real fs)", () => {
-  it.effect("preserves the org body when removing the last default", () =>
-    Effect.gen(function* () {
-      const docs = yield* LibraryDocs.LibraryDocs
-      const fs = yield* FileSystem.FileSystem
-      const file = yield* libraryPath("acme", "library.md")
-      const defaults = { bug: templateKey("bug-report") }
-      const body = "---js\n({ example: true })\n---\nOrg notes.\n"
-
-      yield* docs.writeOrgDefaults("acme", defaults)
-      yield* fs.writeFileString(
-        file,
-        markdownFileContent({ templateDefaults: defaults }, body)
-      )
-      yield* docs.writeOrgDefaults("acme", {})
-
-      const raw = yield* fs.readFileString(file, "utf8")
-      expect(parseMarkdownFile(raw)).toEqual({ data: {}, content: body })
-      yield* docs.writeOrgDefaults("acme", defaults)
-      expect(yield* docs.readOrgDefaults("acme")).toEqual(defaults)
-    }).pipe(Effect.provide(TestLayer))
-  )
-
-  it.effect("preserves frontmatter-looking block and template bodies", () =>
+  it.effect("preserves frontmatter-looking block and type bodies", () =>
     Effect.gen(function* () {
       const docs = yield* LibraryDocs.LibraryDocs
       const body = "---js\nthrow new Error('executed')\n---\nExample"
@@ -101,17 +76,17 @@ describe("LibraryDocs (real fs)", () => {
         ...block,
         content: body
       })
-      const literalTemplate = yield* decodeUnknownTemplateDraft({
-        ...template,
+      const literalType = yield* decodeUnknownTypeDraft({
+        ...type,
         body
       })
 
       yield* docs.writeBlock("acme", null, literalBlock)
-      yield* docs.writeTemplate("acme", null, literalTemplate)
+      yield* docs.writeType("acme", null, literalType)
 
       const layer = yield* docs.readLayer("acme", null)
       expect(layer.blocks).toEqual([literalBlock])
-      expect(layer.templates).toEqual([literalTemplate])
+      expect(layer.types).toEqual([literalType])
     }).pipe(Effect.provide(TestLayer))
   )
 
@@ -124,63 +99,12 @@ describe("LibraryDocs (real fs)", () => {
 
       expect(layer).toEqual({
         blocks: [],
-        templates: [],
+        types: [],
         hiddenBlocks: [],
-        hiddenTemplates: []
+        hiddenTypes: []
       })
       expect(projectLayer).toEqual(layer)
       expect(yield* fs.exists(yield* libraryPath("acme"))).toBe(false)
-    }).pipe(Effect.provide(TestLayer))
-  )
-
-  it.effect("keeps org template defaults in orgs/<org>/library.md", () =>
-    Effect.gen(function* () {
-      const docs = yield* LibraryDocs.LibraryDocs
-      const fs = yield* FileSystem.FileSystem
-      const file = yield* libraryPath("acme", "library.md")
-
-      expect(yield* docs.readOrgDefaults("acme")).toEqual({})
-      yield* docs.writeOrgDefaults("acme", {
-        bug: templateKey("bug-report"),
-        other: null
-      })
-      expect(yield* docs.readOrgDefaults("acme")).toEqual({
-        bug: "bug-report",
-        other: null
-      })
-      const raw = yield* fs.readFileString(file, "utf8")
-      expect(raw).toContain("templateDefaults:")
-      expect(raw).toContain("bug: bug-report")
-
-      yield* fs.writeFileString(
-        file,
-        "---\nnote: kept\ntemplateDefaults:\n  bug: Not A Key\n  feat: feature\n---\n"
-      )
-      expect(yield* docs.readOrgDefaults("acme")).toEqual({ feat: "feature" })
-      yield* docs.writeOrgDefaults("acme", {})
-      const cleared = yield* fs.readFileString(file, "utf8")
-      expect(cleared).toContain("note: kept")
-      expect(cleared).not.toContain("templateDefaults")
-    }).pipe(Effect.provide(TestLayer))
-  )
-
-  it.effect("refuses to overwrite an org library.md it cannot parse", () =>
-    Effect.gen(function* () {
-      const docs = yield* LibraryDocs.LibraryDocs
-      const fs = yield* FileSystem.FileSystem
-      const path = yield* Path.Path
-      const file = yield* libraryPath("acme", "library.md")
-      const malformed = "---\nnote: [unclosed\n---\n\nOrg notes.\n"
-      yield* fs.makeDirectory(path.dirname(file), { recursive: true })
-      yield* fs.writeFileString(file, malformed)
-
-      expect(yield* docs.readOrgDefaults("acme")).toEqual({})
-      const failure = yield* docs
-        .writeOrgDefaults("acme", { bug: templateKey("bug-report") })
-        .pipe(Effect.flip)
-
-      expect(failure._tag).toBe("MarkdownError")
-      expect(yield* fs.readFileString(file, "utf8")).toBe(malformed)
     }).pipe(Effect.provide(TestLayer))
   )
 
@@ -191,7 +115,7 @@ describe("LibraryDocs (real fs)", () => {
       const fs = yield* FileSystem.FileSystem
 
       yield* docs.writeBlock("acme", null, block)
-      yield* docs.writeTemplate("acme", "web", template)
+      yield* docs.writeType("acme", "web", type)
 
       const orgFile = yield* libraryPath(
         "acme",
@@ -202,12 +126,12 @@ describe("LibraryDocs (real fs)", () => {
         "acme",
         "projects",
         "web",
-        "templates",
+        "types",
         "bug-report.md"
       )
       expect(yield* fs.exists(orgFile)).toBe(true)
       expect(yield* fs.exists(projectFile)).toBe(true)
-      expect(markdown.libraryDir("acme", "web", "templates")).toBe(
+      expect(markdown.libraryDir("acme", "web", "types")).toBe(
         projectFile.slice(0, -"/bug-report.md".length)
       )
       expect(
@@ -224,17 +148,17 @@ describe("LibraryDocs (real fs)", () => {
     Effect.gen(function* () {
       const docs = yield* LibraryDocs.LibraryDocs
       yield* docs.writeBlock("acme", "web", block)
-      yield* docs.writeTemplate("acme", "web", template)
+      yield* docs.writeType("acme", "web", type)
 
       const layer = yield* docs.readLayer("acme", "web")
 
       expect(layer.blocks).toEqual([block])
-      expect(layer.templates).toEqual([template])
+      expect(layer.types).toEqual([type])
       expect(yield* docs.readLayer("acme", null)).toEqual({
         blocks: [],
-        templates: [],
+        types: [],
         hiddenBlocks: [],
-        hiddenTemplates: []
+        hiddenTypes: []
       })
     }).pipe(Effect.provide(TestLayer))
   )
@@ -267,19 +191,19 @@ describe("LibraryDocs (real fs)", () => {
     }).pipe(Effect.provide(TestLayer))
   )
 
-  it.effect("reads a template written with the retired type field", () =>
+  it.effect("reads a type written with the retired type field", () =>
     Effect.gen(function* () {
       const docs = yield* LibraryDocs.LibraryDocs
       const markdown = yield* Markdown.Markdown
       yield* markdown.writeLibraryFile(
         "acme",
         null,
-        "templates",
+        "types",
         "incident",
         "---\nname: Incident\ntype: bug\npriority: high\n---\n\n## Timeline\n"
       )
 
-      const [incident] = (yield* docs.readLayer("acme", null)).templates
+      const [incident] = (yield* docs.readLayer("acme", null)).types
 
       expect(incident?.key).toBe("incident")
       expect(incident?.priority).toBe("high")
@@ -292,7 +216,7 @@ describe("LibraryDocs (real fs)", () => {
       const docs = yield* LibraryDocs.LibraryDocs
       const fs = yield* FileSystem.FileSystem
       yield* docs.writeTombstone("acme", "web", "blocks", "context")
-      yield* docs.writeTombstone("acme", "web", "templates", "chore")
+      yield* docs.writeTombstone("acme", "web", "types", "chore")
 
       const layer = yield* docs.readLayer("acme", "web")
       const raw = yield* fs.readFileString(
@@ -301,7 +225,7 @@ describe("LibraryDocs (real fs)", () => {
       )
 
       expect(layer.hiddenBlocks).toEqual(["context"])
-      expect(layer.hiddenTemplates).toEqual(["chore"])
+      expect(layer.hiddenTypes).toEqual(["chore"])
       expect(layer.blocks).toEqual([])
       expect(raw).toBe("---\nhidden: true\n---\n")
     }).pipe(Effect.provide(TestLayer))
@@ -341,9 +265,9 @@ describe("LibraryDocs (real fs)", () => {
       yield* markdown.writeLibraryFile(
         "acme",
         null,
-        "templates",
-        "blank",
-        "---\nname: Blank\n---\n"
+        "types",
+        "other",
+        "---\nname: Other\n---\n"
       )
       yield* fs.writeFileString(
         yield* libraryPath("acme", "blocks", "Bad_Key.md"),
@@ -353,11 +277,11 @@ describe("LibraryDocs (real fs)", () => {
       const layer = yield* docs.readLayer("acme", null)
 
       expect(layer.blocks).toEqual([])
-      expect(layer.templates).toEqual([])
+      expect(layer.types).toEqual([])
 
       expect(yield* docs.hasFile("acme", null, "blocks", "broken")).toBe(true)
       expect(yield* docs.hasFile("acme", null, "blocks", "missing")).toBe(false)
-      expect(yield* docs.hasFile("acme", null, "templates", "blank")).toBe(true)
+      expect(yield* docs.hasFile("acme", null, "types", "other")).toBe(true)
     }).pipe(Effect.provide(TestLayer))
   )
 
@@ -392,7 +316,7 @@ describe("LibraryDocs (real fs)", () => {
         .listLibraryFiles("acme", "../other", "blocks")
         .pipe(Effect.flip)
       const tooLong = yield* markdown
-        .removeLibraryFile("acme", null, "templates", "a".repeat(49))
+        .removeLibraryFile("acme", null, "types", "a".repeat(49))
         .pipe(Effect.flip)
 
       expect(badKey._tag).toBe("MarkdownError")
@@ -419,7 +343,7 @@ describe("LibraryDocs tracing", () => {
         yield* Effect.gen(function* () {
           const docs = yield* LibraryDocs.LibraryDocs
           yield* docs.writeBlock("acme", null, block)
-          yield* docs.writeTemplate("acme", "web", template)
+          yield* docs.writeType("acme", "web", type)
           yield* docs.writeTombstone(
             "acme",
             "web",
@@ -427,10 +351,6 @@ describe("LibraryDocs tracing", () => {
             "acceptance-criteria"
           )
           yield* docs.readLayer("acme", "web")
-          yield* docs.writeOrgDefaults("acme", {
-            bug: templateKey("bug-report")
-          })
-          yield* docs.readOrgDefaults("acme")
           yield* docs.hasFile("acme", null, "blocks", "acceptance-criteria")
           yield* docs.remove("acme", null, "blocks", "acceptance-criteria")
         }).pipe(Effect.withTracer(tracer))
@@ -463,11 +383,11 @@ describe("LibraryDocs tracing", () => {
             }
           },
           {
-            name: "LibraryDocs.writeTemplate",
+            name: "LibraryDocs.writeType",
             parent: null,
             attributes: {
               ...at("acme", "web"),
-              operation: "writeTemplate",
+              operation: "writeType",
               key: "bug-report"
             }
           },
@@ -485,16 +405,6 @@ describe("LibraryDocs tracing", () => {
             name: "LibraryDocs.readLayer",
             parent: null,
             attributes: { ...at("acme", "web"), operation: "readLayer" }
-          },
-          {
-            name: "LibraryDocs.writeOrgDefaults",
-            parent: null,
-            attributes: { ...at("acme", null), operation: "writeOrgDefaults" }
-          },
-          {
-            name: "LibraryDocs.readOrgDefaults",
-            parent: null,
-            attributes: { ...at("acme", null), operation: "readOrgDefaults" }
           },
           {
             name: "LibraryDocs.hasFile",

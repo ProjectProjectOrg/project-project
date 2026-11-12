@@ -1,5 +1,11 @@
 import { it } from "@effect/vitest"
-import { TagName, TicketId, TicketStatus, TicketRank } from "@pp/shared"
+import {
+  TagName,
+  TicketId,
+  TicketStatus,
+  TypeKey,
+  TicketRank
+} from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
@@ -36,7 +42,7 @@ const doc = (
   id: ticketId(id),
   title: `Ticket ${id}`,
   status: ticketStatus("todo"),
-  type: "feat",
+  type: TypeKey.make("feat"),
   priority: "med",
   rank: TicketRank.make("a0"),
   tags: [],
@@ -68,7 +74,7 @@ describe("ticketIndexRowsFor", () => {
         const document = doc("T-27", updatedAt.toISOString(), {
           title: "Ship pure index builders",
           status: ticketStatus("in_progress"),
-          type: "chore",
+          type: TypeKey.make("chore"),
           priority: "high",
           estimate: { unit: "tshirt", value: "L" },
           tags,
@@ -96,7 +102,7 @@ describe("ticketIndexRowsFor", () => {
             ticketId: ticketId("T-27"),
             title: "Ship pure index builders",
             status: ticketStatus("in_progress"),
-            type: "chore",
+            type: TypeKey.make("chore"),
             priority: "high",
             rank: "a0",
             estimateUnit: "tshirt",

@@ -1,26 +1,22 @@
-import type { BlockKey, TemplateKey, TicketType } from "@pp/shared"
+import type { BlockKey, TypeKey } from "@pp/shared"
 
 import {
   createOrgBlock,
-  createOrgTemplate,
+  createOrgType,
   createProjectBlock,
-  createProjectTemplate,
-  hideProjectBlock,
-  hideProjectTemplate,
+  createProjectType,
   orgLibraryFor,
   orgLibraryRequest,
   projectLibraryFor,
   projectLibraryRequest,
   removeOrgBlock,
-  removeOrgTemplate,
+  removeOrgType,
   removeProjectBlock,
-  removeProjectTemplate,
-  setOrgTemplateDefaults,
-  setTemplateDefaults,
+  removeProjectType,
   updateOrgBlock,
-  updateOrgTemplate,
+  updateOrgType,
   updateProjectBlock,
-  updateProjectTemplate,
+  updateProjectType,
   type OrgLibraryRequest,
   type ProjectLibraryRequest
 } from "@/features/library/atoms/library"
@@ -46,57 +42,30 @@ export const libraryView = (scope: LibraryScope) =>
     ? orgLibraryFor(scope.req)
     : projectLibraryFor(scope.req)
 
-export const createTemplateAtom = (scope: LibraryScope) =>
+export const createTypeAtom = (scope: LibraryScope) =>
   scope.layer === "org"
-    ? createOrgTemplate({ req: scope.req })
-    : createProjectTemplate({ req: scope.req })
+    ? createOrgType({ req: scope.req })
+    : createProjectType({ req: scope.req })
 
 export const createBlockAtom = (scope: LibraryScope) =>
   scope.layer === "org"
     ? createOrgBlock({ req: scope.req })
     : createProjectBlock({ req: scope.req })
 
-export const removeTemplateAtom = (scope: LibraryScope, key: TemplateKey) =>
+export const removeTypeAtom = (scope: LibraryScope, key: TypeKey) =>
   scope.layer === "org"
-    ? removeOrgTemplate({ req: scope.req, key })
-    : removeProjectTemplate({ req: scope.req, key })
-
-export const dropTemplateAtom = (
-  scope: LibraryScope,
-  entry: Readonly<{ key: TemplateKey; origin: LibraryLayer }>
-) =>
-  scope.layer === "org"
-    ? removeOrgTemplate({ req: scope.req, key: entry.key })
-    : entry.origin === "project"
-      ? removeProjectTemplate({ req: scope.req, key: entry.key })
-      : hideProjectTemplate({ req: scope.req, key: entry.key })
+    ? removeOrgType({ req: scope.req, key })
+    : removeProjectType({ req: scope.req, key })
 
 export const removeBlockAtom = (scope: LibraryScope, key: BlockKey) =>
   scope.layer === "org"
     ? removeOrgBlock({ req: scope.req, key })
     : removeProjectBlock({ req: scope.req, key })
 
-export const dropBlockAtom = (
-  scope: LibraryScope,
-  entry: Readonly<{ key: BlockKey; origin: LibraryLayer }>
-) =>
+export const updateTypeAtom = (scope: LibraryScope, key: TypeKey) =>
   scope.layer === "org"
-    ? removeOrgBlock({ req: scope.req, key: entry.key })
-    : entry.origin === "project"
-      ? removeProjectBlock({ req: scope.req, key: entry.key })
-      : hideProjectBlock({ req: scope.req, key: entry.key })
-
-export const setDefaultsAtom = (scope: LibraryScope, type?: TicketType) => {
-  const key = type === undefined ? {} : { type }
-  return scope.layer === "org"
-    ? setOrgTemplateDefaults({ req: scope.req, ...key })
-    : setTemplateDefaults({ req: scope.req, ...key })
-}
-
-export const updateTemplateAtom = (scope: LibraryScope, key: TemplateKey) =>
-  scope.layer === "org"
-    ? updateOrgTemplate({ req: scope.req, key })
-    : updateProjectTemplate({ req: scope.req, key })
+    ? updateOrgType({ req: scope.req, key })
+    : updateProjectType({ req: scope.req, key })
 
 export const updateBlockAtom = (scope: LibraryScope, key: BlockKey) =>
   scope.layer === "org"

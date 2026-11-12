@@ -1,4 +1,4 @@
-import { TagName, TicketId, TicketStatus } from "@pp/shared"
+import { TagName, TicketId, TicketStatus, TypeKey } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
@@ -14,7 +14,7 @@ const ticket = (id: string, status: string, tags: ReadonlyArray<string>) => ({
   title: id,
   status: decodeStatus(status),
   priority: "med" as const,
-  type: "feat" as const,
+  type: TypeKey.make("feat"),
   estimate: null,
   tags: tags.map((name) => tag(name)),
   assignees: [],

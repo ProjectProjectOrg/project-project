@@ -50,6 +50,7 @@ export * from "./groups/sprints"
 export * from "./jira/JiraMigration"
 
 export * from "./library/Library"
+export * from "./library/builtins"
 export * from "./library/gallery"
 export * from "./library/hints"
 export * from "./library/icons"

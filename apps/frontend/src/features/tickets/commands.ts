@@ -1,3 +1,4 @@
+import { isEpic } from "@pp/shared"
 import type { TicketDetail } from "@pp/shared"
 import {
   Archive,
@@ -179,7 +180,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
     when: (context) =>
       onLiveTicket(context) &&
       context.tickets.planSprints &&
-      context.ticketDetail?.type !== "epic",
+      !isEpic(context.ticketDetail),
     page: "ticketSprint"
   },
   {

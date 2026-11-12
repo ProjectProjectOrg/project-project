@@ -4,8 +4,10 @@ import {
   isAllowedAttachmentContentType,
   type JiraMigrationFinding,
   type JiraMigrationScanSummary,
-  type TicketType,
-  type JiraMigrationUserOption
+  type JiraMigrationUserOption,
+  isEpicType,
+  EPIC_TYPE,
+  TypeKey
 } from "@pp/shared"
 import { Option, Predicate, Stream } from "effect"
 import * as DateTime from "effect/DateTime"
@@ -125,17 +127,17 @@ const suggestedKey = (key: string, name: string): string => {
 const suggestedIssueType = (
   name: string,
   hierarchyLevel: number | null
-): TicketType => {
+): TypeKey | null => {
   const lower = name.toLowerCase()
   return isJiraEpicLevel({ name, hierarchyLevel })
-    ? "epic"
+    ? EPIC_TYPE
     : lower.includes("bug") || lower.includes("defect")
-      ? "bug"
+      ? TypeKey.make("bug")
       : lower.includes("task") || lower.includes("chore")
-        ? "chore"
+        ? TypeKey.make("chore")
         : lower.includes("story") || lower.includes("feature")
-          ? "feat"
-          : "other"
+          ? TypeKey.make("feat")
+          : null
 }
 
 const suggestedPriority = (name: string) => {
@@ -795,8 +797,8 @@ export const buildJiraScanArtifacts = (input: JiraScanInput) =>
       groups: manifest.groups.length,
       sprints: manifest.groups.filter(({ kind }) => kind === "sprint").length,
       restrictions: manifest.restrictions.length,
-      epics: manifest.issues.filter(
-        (issue) => suggestedTypes.get(issue.issueTypeId) === "epic"
+      epics: manifest.issues.filter((issue) =>
+        isEpicType(suggestedTypes.get(issue.issueTypeId))
       ).length,
       subTickets: hierarchy.parents.size
     }

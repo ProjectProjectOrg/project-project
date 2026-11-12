@@ -1,6 +1,6 @@
 import { it } from "@effect/vitest"
 import { assertTrue } from "@effect/vitest/utils"
-import { EMPTY_TICKET_RELATIONS } from "@pp/shared"
+import { EMPTY_TICKET_RELATIONS, TypeKey } from "@pp/shared"
 import { GroupColor } from "@pp/shared"
 import {
   ActivityActor,
@@ -57,7 +57,7 @@ function makeTicketDocument(
     id: ticketId(id),
     title: id,
     status,
-    type: "other",
+    type: null,
     priority: "med",
     rank: TicketRank.make("a0"),
     tags: [],
@@ -95,7 +95,9 @@ function makeFakeDocs(initial?: {
           id,
           initial?.ticketStatuses?.[id] ?? defaultTicketStatus
         ),
-        ...(initial?.epicIds?.includes(id) ? { type: "epic" as const } : {})
+        ...(initial?.epicIds?.includes(id)
+          ? { type: TypeKey.make("epic") }
+          : {})
       }
     ])
   )

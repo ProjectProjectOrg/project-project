@@ -42,6 +42,7 @@ import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
 import * as Library from "@pp/server-core/library/Library"
 import * as LibraryDocs from "@pp/server-core/library/LibraryDocs"
+import * as LibraryMigration from "@pp/server-core/library/LibraryMigration"
 import * as LinkPreviews from "@pp/server-core/linkPreviews/LinkPreviews"
 import * as KeyedLock from "@pp/server-core/locks/KeyedLock"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
@@ -156,6 +157,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(TicketServices.layer),
       Layer.provideMerge(TicketActivityFeed.layer),
       Layer.provideMerge(Library.layer),
+      Layer.provideMerge(LibraryMigration.layer),
       Layer.provideMerge(AttachmentUploads.layer),
       Layer.provideMerge(Attachments.layer),
       Layer.provideMerge(FigmaLinks.layer),

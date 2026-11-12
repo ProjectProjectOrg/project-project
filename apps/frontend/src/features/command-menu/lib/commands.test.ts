@@ -1,4 +1,4 @@
-import { TicketId, TicketStatus } from "@pp/shared"
+import { TicketId, TicketStatus, TypeKey } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { Settings } from "lucide-react"
 import { describe, expect, it } from "vitest"
@@ -87,7 +87,7 @@ describe("visibleCommands", () => {
       title,
       status: decodeStatus("todo"),
       priority: "med" as const,
-      type: "feat" as const,
+      type: TypeKey.make("feat"),
       estimate: null,
       tags: [],
       assignees: [],

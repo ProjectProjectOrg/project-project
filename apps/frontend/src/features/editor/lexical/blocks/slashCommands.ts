@@ -14,7 +14,6 @@ import {
 import { $setBlocksType } from "@lexical/selection"
 import { INSERT_TABLE_COMMAND } from "@lexical/table"
 import {
-  expandTemplate,
   formatTicketBlock,
   stripHints,
   type BlockDefinition,
@@ -31,7 +30,7 @@ import {
 
 import { m } from "@/paraglide/messages"
 
-import { $applyTemplate, $insertBlocksAt } from "./blockCommands"
+import { $insertBlocksAt } from "./blockCommands"
 import type { EditorBlocksMode } from "./editorBlocks"
 import { $createHintNode } from "./HintNode"
 import type { SlashBasicKind, SlashItem } from "./slashMenuItems"
@@ -163,13 +162,6 @@ export function $runSlashItem(
           context.detach,
           context.mode ?? "ticket"
         ),
-        context.transformers,
-        context.lookup
-      )
-      return
-    case "template":
-      $applyTemplate(
-        expandTemplate(item.template, context.lookup),
         context.transformers,
         context.lookup
       )

@@ -16,6 +16,8 @@ import {
   type ParentFilter,
   type TicketFilter,
   type TicketSort,
+  TypeKey,
+  EPIC_TYPE,
   TicketRank
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -83,7 +85,7 @@ const rebuiltDocument: TicketDocs.TicketDocument = {
   id: ticketId("T-41"),
   title: "Restored ticket",
   status: ticketStatus("todo"),
-  type: "other",
+  type: null,
   priority: "med",
   rank: TicketRank.make("a0"),
   tags: [],
@@ -1188,14 +1190,14 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         indexedDocument("T-10", {
           title: "Alpha %_ literal",
           status: ticketStatus("in_progress"),
-          type: "feat",
+          type: TypeKey.make("feat"),
           priority: "high",
           updatedAt: januaryEleventh
         }),
         indexedDocument("T-11", {
           title: "Beta",
           status: ticketStatus("in_progress"),
-          type: "bug",
+          type: TypeKey.make("bug"),
           priority: "med",
           tags: [tagName("backend")],
           assignees: ["viewer"],
@@ -1306,7 +1308,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           filter: { status: [ticketStatus("in_progress")] },
           expected: ["T-10", "T-11"]
         },
-        { filter: { type: ["bug"] }, expected: ["T-11"] },
+        { filter: { type: [TypeKey.make("bug")] }, expected: ["T-11"] },
         {
           filter: { assignee: ["unassigned"] },
           expected: ["T-10", "T-13", "T-14"]
@@ -1519,7 +1521,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       const epic = ticketId("T-1")
       yield* Effect.forEach(
         [
-          indexedDocument("T-1", { type: "epic" }),
+          indexedDocument("T-1", { type: TypeKey.make("epic") }),
           indexedDocument("T-2", { parent: epic }),
           indexedDocument("T-3", {
             parent: epic,
@@ -1534,7 +1536,12 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       const grouped = yield* index.querySections(
         project,
         {
-          type: ["feat", "bug", "chore", "other"],
+          type: [
+            TypeKey.make("feat"),
+            TypeKey.make("bug"),
+            TypeKey.make("chore"),
+            "none"
+          ],
           parent: [epic, "none"],
           sort: { key: "id", dir: "asc" }
         },
@@ -1565,7 +1572,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       const parent = ticketId("T-2")
       yield* Effect.forEach(
         [
-          indexedDocument("T-1", { type: "epic" }),
+          indexedDocument("T-1", { type: TypeKey.make("epic") }),
           indexedDocument("T-2", { parent: epic }),
           indexedDocument("T-3", { parent }),
           indexedDocument("T-4", {})
@@ -1574,7 +1581,12 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       )
 
       const query = {
-        type: ["feat", "bug", "chore", "other"],
+        type: [
+          TypeKey.make("feat"),
+          TypeKey.make("bug"),
+          TypeKey.make("chore"),
+          "none"
+        ],
         sort: { key: "id", dir: "asc" }
       } as const
       const options = { viewerId: "viewer", limit: 10 }
@@ -1609,7 +1621,10 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       const project = yield* index.projectFor(organizationId, organizationId)
       yield* Effect.forEach(
         [
-          indexedDocument("T-1", { type: "epic", title: "Launch" }),
+          indexedDocument("T-1", {
+            type: TypeKey.make("epic"),
+            title: "Launch"
+          }),
           indexedDocument("T-2", { parent: ticketId("T-1"), title: "Billing" }),
           indexedDocument("T-3", { parent: ticketId("T-2") })
         ],
@@ -1624,10 +1639,103 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
 
       expect(rows.map(({ entry }) => entry.parent)).toEqual([
         null,
-        { id: "T-1", title: "Launch", type: "epic" },
-        { id: "T-2", title: "Billing", type: "other" }
+        { id: "T-1", title: "Launch", type: TypeKey.make("epic") },
+        { id: "T-2", title: "Billing", type: null }
       ])
     }).pipe(Effect.provide(TestLayer))
+  )
+
+  it.effect(
+    "stores custom type keys and no type, and lists, filters and counts by both",
+    () =>
+      Effect.gen(function* () {
+        const organizationId = yield* seedRebuildProject
+        const index = yield* TicketIndex.TicketIndex
+        const project = yield* index.projectFor(organizationId, organizationId)
+        const incident = TypeKey.make("incident-lite")
+        yield* Effect.forEach(
+          [
+            indexedDocument("T-1", { type: TypeKey.make("epic") }),
+            indexedDocument("T-2", { type: incident, title: "Outage" }),
+            indexedDocument("T-3", { type: null }),
+            indexedDocument("T-4", {
+              type: TypeKey.make("bug"),
+              parent: ticketId("T-2")
+            }),
+            indexedDocument("T-5", {
+              type: incident,
+              status: ticketStatus("in_progress")
+            })
+          ],
+          (document) => index.upsertTicket(project, document)
+        )
+        const options = { viewerId: "viewer", limit: 10 }
+        const sort = { key: "id", dir: "asc" } as const
+        const idsFor = (type: TicketFilter["type"]) =>
+          index
+            .query(project, { type, sort }, options)
+            .pipe(Effect.map((rows) => rows.map(({ entry }) => entry.id)))
+
+        const all = yield* index.list(project)
+        expect(
+          Object.fromEntries(all.map((entry) => [entry.id, entry.type]))
+        ).toEqual({
+          "T-1": "epic",
+          "T-2": "incident-lite",
+          "T-3": null,
+          "T-4": "bug",
+          "T-5": "incident-lite"
+        })
+        expect(all.find((entry) => entry.id === "T-4")?.parent).toEqual({
+          id: "T-2",
+          title: "Outage",
+          type: "incident-lite"
+        })
+        expect(yield* idsFor([incident])).toEqual(["T-2", "T-5"])
+        expect(yield* idsFor(["none"])).toEqual(["T-3"])
+        expect(yield* idsFor(["none", incident])).toEqual(["T-2", "T-3", "T-5"])
+        expect(yield* idsFor([])).toEqual([])
+        expect(
+          yield* index.count(project, { type: [incident] }, options)
+        ).toEqual({ total: 2, byStatus: { in_progress: 1, todo: 1 } })
+        expect(
+          yield* index.count(project, { type: ["none"] }, options)
+        ).toEqual({ total: 1, byStatus: { todo: 1 } })
+
+        const idsWithout = (
+          excludeType: TicketFilter["type"],
+          type?: TicketFilter["type"]
+        ) =>
+          index
+            .query(project, { type, excludeType, sort }, options)
+            .pipe(Effect.map((rows) => rows.map(({ entry }) => entry.id)))
+        expect(yield* idsWithout([EPIC_TYPE])).toEqual([
+          "T-2",
+          "T-3",
+          "T-4",
+          "T-5"
+        ])
+        expect(yield* idsWithout(["none", incident])).toEqual(["T-1", "T-4"])
+        expect(yield* idsWithout([])).toHaveLength(5)
+        expect(
+          yield* idsWithout([incident], [incident, "none", EPIC_TYPE])
+        ).toEqual(["T-1", "T-3"])
+        expect(
+          yield* index.count(project, { excludeType: [EPIC_TYPE] }, options)
+        ).toEqual({ total: 4, byStatus: { in_progress: 1, todo: 3 } })
+
+        const sections = yield* index.querySections(
+          project,
+          { excludeType: [EPIC_TYPE], sort },
+          { ...options, sections: "ticketParent" }
+        )
+        expect(
+          sections.get("none")?.entries.map(({ entry }) => entry.id)
+        ).toEqual(["T-2", "T-3", "T-5"])
+        expect(
+          sections.get("T-2")?.entries.map(({ entry }) => entry.id)
+        ).toEqual(["T-4"])
+      }).pipe(Effect.provide(TestLayer))
   )
 
   it.effect("looks up a parent's id, title and type", () =>
@@ -1637,13 +1745,13 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       const project = yield* index.projectFor(organizationId, organizationId)
       yield* index.upsertTicket(
         project,
-        indexedDocument("T-1", { type: "epic", title: "Launch" })
+        indexedDocument("T-1", { type: TypeKey.make("epic"), title: "Launch" })
       )
 
       expect(yield* index.parentOf(project, "T-1")).toEqual({
         id: "T-1",
         title: "Launch",
-        type: "epic"
+        type: TypeKey.make("epic")
       })
       expect(yield* index.parentOf(project, "T-404")).toBeNull()
     }).pipe(Effect.provide(TestLayer))
@@ -1657,7 +1765,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       const epic = ticketId("T-1")
       yield* Effect.forEach(
         [
-          indexedDocument("T-1", { type: "epic" }),
+          indexedDocument("T-1", { type: TypeKey.make("epic") }),
           indexedDocument("T-2", { parent: epic }),
           indexedDocument("T-3", {
             parent: ticketId("T-2"),
@@ -1669,7 +1777,12 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       )
 
       const mine = {
-        type: ["feat", "bug", "chore", "other"],
+        type: [
+          TypeKey.make("feat"),
+          TypeKey.make("bug"),
+          TypeKey.make("chore"),
+          "none"
+        ],
         assignee: ["mine"],
         subTickets: "nested",
         sort: { key: "id", dir: "asc" }
@@ -1729,7 +1842,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       const parent = ticketId("T-2")
       yield* Effect.forEach(
         [
-          indexedDocument("T-1", { type: "epic" }),
+          indexedDocument("T-1", { type: TypeKey.make("epic") }),
           indexedDocument("T-2", { parent: epic }),
           indexedDocument("T-3", { parent }),
           indexedDocument("T-4", {
@@ -1994,7 +2107,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         const target = ticketId("T-4")
         yield* Effect.forEach(
           [
-            indexedDocument("T-1", { type: "epic" }),
+            indexedDocument("T-1", { type: TypeKey.make("epic") }),
             indexedDocument("T-2", { parent: epic }),
             indexedDocument("T-3", { parent: ticketId("T-2") }),
             indexedDocument("T-4", {}),
@@ -2894,7 +3007,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
             project,
             indexedDocument("T-5", {
               parent: ticketId("T-1"),
-              type: "bug",
+              type: TypeKey.make("bug"),
               status: ticketStatus("todo"),
               rank: TicketRank.make("a1")
             })

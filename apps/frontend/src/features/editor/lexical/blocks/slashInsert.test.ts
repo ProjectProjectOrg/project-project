@@ -13,8 +13,8 @@ import {
 import { RichTextExtension } from "@lexical/rich-text"
 import { TableExtension } from "@lexical/table"
 import {
-  BUILTIN_TEMPLATES,
-  expandTemplate,
+  BUILTIN_TYPES,
+  expandType,
   formatTicketBlock,
   stripHints
 } from "@pp/shared"
@@ -53,7 +53,7 @@ const block = (key: string): string => {
   return formatTicketBlock(key, stripHints(definition.content))
 }
 
-const chore = BUILTIN_TEMPLATES.find((template) => template.key === "chore")
+const chore = BUILTIN_TYPES.find((template) => template.key === "chore")
 if (chore === undefined) throw new Error("no chore template")
 
 function editorWith(markdown: string): LexicalEditor {
@@ -269,7 +269,7 @@ describe("$applyTemplate", () => {
     run(editor, () => {
       $caretAfter("Intro")
       added = $applyTemplate(
-        expandTemplate(chore, lookup),
+        expandType(chore, lookup),
         MARKDOWN_TRANSFORMERS,
         lookup
       )
@@ -294,7 +294,7 @@ describe("$applyTemplate", () => {
     run(editor, () => {
       $caretAfter("Tail")
       added = $applyTemplate(
-        expandTemplate(chore, lookup),
+        expandType(chore, lookup),
         MARKDOWN_TRANSFORMERS,
         lookup
       )
@@ -308,11 +308,7 @@ describe("$applyTemplate", () => {
     const editor = editorWith("")
     run(editor, () => {
       $getRoot().selectEnd()
-      $applyTemplate(
-        expandTemplate(chore, lookup),
-        MARKDOWN_TRANSFORMERS,
-        lookup
-      )
+      $applyTemplate(expandType(chore, lookup), MARKDOWN_TRANSFORMERS, lookup)
     })
 
     expect(

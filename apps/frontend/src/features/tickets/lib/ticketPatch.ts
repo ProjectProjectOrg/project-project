@@ -102,7 +102,7 @@ export function applyTicketPatch(ticket: Ticket, patch: TicketEdit): Ticket {
     ...ticket,
     title: patch.title ?? ticket.title,
     status: patch.status ?? ticket.status,
-    type: patch.type ?? ticket.type,
+    type: patch.type === undefined ? ticket.type : patch.type,
     priority: patch.priority ?? ticket.priority,
     rank: patch.position?.rank ?? ticket.rank,
     estimate: patch.estimate !== undefined ? patch.estimate : ticket.estimate,

@@ -4,6 +4,7 @@ import {
   ActivityActor,
   ProjectScope,
   SprintCompletedImmutable,
+  TypeKey,
   TicketRank
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -262,7 +263,10 @@ it.effect("update rejects a position anchored on the ticket itself", () => {
 
 const makeEpicFixture = () => {
   const docs = makeFakeTicketDocs(["T-1", "T-2"])
-  docs.documents.set("T-1", makeTicketDocument("T-1", { type: "epic" }))
+  docs.documents.set(
+    "T-1",
+    makeTicketDocument("T-1", { type: TypeKey.make("epic") })
+  )
   const layer = makeTicketsLayer("T", docs.layer, {
     ticketIndex: makeFakeTicketIndex(docs.documents)
   })
@@ -302,7 +306,7 @@ it.effect(
       const nestedEpic = yield* tickets
         .create({
           title: "Nested",
-          type: "epic",
+          type: TypeKey.make("epic"),
           parent: ticketId("T-1")
         })
         .pipe(Effect.flip)
@@ -342,18 +346,23 @@ it.effect("an epic keeps its type while it has tickets", () => {
       parent: ticketId("T-1")
     })
     const blocked = yield* tickets
-      .update("T-1", { type: "feat" })
+      .update("T-1", { type: TypeKey.make("feat") })
+      .pipe(Effect.flip)
+    const untyped = yield* tickets
+      .update("T-1", { type: null })
       .pipe(Effect.flip)
     yield* tickets.update("T-2", { parent: null })
-    const freed = yield* tickets.update("T-1", {
-      type: "feat"
-    })
+    const freed = yield* tickets.update("T-1", { type: null })
 
     expect(blocked).toMatchObject({
       _tag: "Validation",
       reason: "epic_has_tickets"
     })
-    expect(freed.ticket.type).toBe("feat")
+    expect(untyped).toMatchObject({
+      _tag: "Validation",
+      reason: "epic_has_tickets"
+    })
+    expect(freed.ticket.type).toBeNull()
   }).pipe(Effect.provide(layer))
 })
 
@@ -392,7 +401,7 @@ it.effect(
         .update("T-2", { parent: ticketId("T-3") })
         .pipe(Effect.flip)
       const toEpic = yield* tickets
-        .update("T-2", { type: "epic" })
+        .update("T-2", { type: TypeKey.make("epic") })
         .pipe(Effect.flip)
       const underEpic = yield* tickets.update("T-2", {
         parent: ticketId("T-1")
@@ -456,7 +465,7 @@ it.effect("a ticket in an open sprint can't become an epic", () => {
   return Effect.gen(function* () {
     const tickets = yield* TicketCommands.TicketCommands
     const error = yield* tickets
-      .update("T-1", { type: "epic" })
+      .update("T-1", { type: TypeKey.make("epic") })
       .pipe(Effect.flip)
 
     expect(error).toMatchObject({
@@ -486,7 +495,10 @@ const makeBulkFixture = (
   const docs = makeFakeTicketDocs(["T-1", "T-2", "T-3"])
   docs.documents.set(
     "T-3",
-    makeTicketDocument("T-3", { type: "epic", title: "Estimation" })
+    makeTicketDocument("T-3", {
+      type: TypeKey.make("epic"),
+      title: "Estimation"
+    })
   )
   const layer = makeTicketsLayer("T", docs.layer, {
     ticketIndex: makeFakeTicketIndex(docs.documents),
@@ -614,7 +626,7 @@ it.effect(
   "update and bulkUpdate both edit an epic already in an open sprint",
   () => {
     const { docs, layer } = makeRulesFixture(
-      [makeTicketDocument("T-1", { type: "epic" })],
+      [makeTicketDocument("T-1", { type: TypeKey.make("epic") })],
       { list: () => Effect.succeed([inSprint(["T-1"])]) }
     )
     return Effect.gen(function* () {
@@ -719,14 +731,17 @@ it.effect(
     return Effect.gen(function* () {
       const tickets = yield* TicketCommands.TicketCommands
       const error = yield* tickets
-        .bulkUpdate({ tickets: [ticketId("T-1")], patch: { type: "epic" } })
+        .bulkUpdate({
+          tickets: [ticketId("T-1")],
+          patch: { type: TypeKey.make("epic") }
+        })
         .pipe(Effect.flip)
 
       expect(error).toMatchObject({
         _tag: "Validation",
         reason: "epic_in_sprint"
       })
-      expect(docs.documents.get("T-1")?.type).toBe("other")
+      expect(docs.documents.get("T-1")?.type).toBeNull()
     }).pipe(Effect.provide(layer))
   }
 )
@@ -747,7 +762,7 @@ it.effect(
       const tickets = yield* TicketCommands.TicketCommands
       yield* tickets.bulkUpdate({
         tickets: [ticketId("T-1")],
-        patch: { type: "epic", sprint: null }
+        patch: { type: TypeKey.make("epic"), sprint: null }
       })
 
       expect(docs.documents.get("T-1")?.type).toBe("epic")
@@ -761,7 +776,7 @@ it.effect(
   () => {
     const added: Array<ReadonlyArray<string>> = []
     const { layer } = makeRulesFixture(
-      [makeTicketDocument("T-1", { type: "epic" })],
+      [makeTicketDocument("T-1", { type: TypeKey.make("epic") })],
       {
         list: () => Effect.succeed([inSprint(["T-1"])]),
         addTickets: (_id, ids) =>
@@ -789,8 +804,8 @@ it.effect(
     const otherSprint = { ...inSprint(["T-1"]), id: groupId("G-2") }
     const { layer } = makeRulesFixture(
       [
-        makeTicketDocument("T-1", { type: "epic" }),
-        makeTicketDocument("T-2", { type: "epic" })
+        makeTicketDocument("T-1", { type: TypeKey.make("epic") }),
+        makeTicketDocument("T-2", { type: TypeKey.make("epic") })
       ],
       {
         list: () => Effect.succeed([inSprint([]), otherSprint]),
@@ -835,7 +850,7 @@ it.effect(
       const tickets = yield* TicketCommands.TicketCommands
       yield* tickets.bulkUpdate({
         tickets: [ticketId("T-1")],
-        patch: { type: "epic" }
+        patch: { type: TypeKey.make("epic") }
       })
 
       expect(docs.documents.get("T-1")?.type).toBe("epic")
@@ -1270,7 +1285,6 @@ it.effect(
             github: null,
             estimation: switched ? "time" : "points",
             body: "",
-            templateDefaults: {},
             setup: {
               workflowReviewedAt: null,
               invitePeopleDismissedAt: null,

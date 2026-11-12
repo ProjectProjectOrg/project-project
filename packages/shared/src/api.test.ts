@@ -170,16 +170,19 @@ const projectMatrix: ReadonlyArray<
   ["tickets.archive", ["pm", "developer", "client"]],
   ["tickets.delete", ["pm"]],
   ["ticketActivity.list", ["pm", "developer", "client", "orgAdmin"]],
-  ["library.createProjectTemplate", ["pm"]],
-  ["library.hideProjectTemplate", ["pm"]],
-  ["library.setTemplateDefaults", ["pm"]]
+  ["library.createProjectType", ["pm"]],
+  ["library.updateProjectType", ["pm"]],
+  ["library.removeProjectType", ["pm"]],
+  ["library.hideProjectType", ["pm"]]
 ]
 
 const orgMatrix: ReadonlyArray<
   readonly [endpoint: string, allowed: ReadonlyArray<Org.OrgRoleName>]
 > = [
   ["library.createOrgBlock", ["owner", "admin"]],
-  ["library.setOrgTemplateDefaults", ["owner", "admin"]]
+  ["library.createOrgType", ["owner", "admin"]],
+  ["library.updateOrgType", ["owner", "admin"]],
+  ["library.removeOrgType", ["owner", "admin"]]
 ]
 
 describe("who gets past the access middleware", () => {

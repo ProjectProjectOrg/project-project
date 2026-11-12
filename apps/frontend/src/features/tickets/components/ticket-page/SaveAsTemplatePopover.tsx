@@ -23,7 +23,7 @@ function useTemplateLayers() {
   const libraryResult = useAtomValue(
     projectLibraryFor(projectLibraryRequest(orgSlug, slug))
   )
-  const orgAdmin = useOrgActor(orgSlug).call("library", "createOrgTemplate")
+  const orgAdmin = useOrgActor(orgSlug).call("library", "createOrgType")
   if (!AsyncResult.isSuccess(libraryResult)) return null
   const library = libraryResult.value
   const layers: ReadonlyArray<LibraryLayer> = [

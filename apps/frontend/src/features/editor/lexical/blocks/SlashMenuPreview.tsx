@@ -1,8 +1,4 @@
-import {
-  expandTemplateKeepingHints,
-  type BlockLookup,
-  type Library
-} from "@pp/shared"
+import type { Library } from "@pp/shared"
 import type { ReactNode } from "react"
 
 import { Markdown } from "@/features/editor/components/Markdown"
@@ -61,16 +57,10 @@ const basicSample = (kind: SlashBasicKind, label: string): string => {
   }
 }
 
-const previewMarkdown = (
-  item: SlashItem,
-  label: string,
-  lookup: BlockLookup
-): string | null => {
+const previewMarkdown = (item: SlashItem, label: string): string | null => {
   switch (item.kind) {
     case "block":
       return hintsAsEmphasis(item.definition.content)
-    case "template":
-      return hintsAsEmphasis(expandTemplateKeepingHints(item.template, lookup))
     case "basic":
       return basicSample(item.basic, label)
     case "gallery":
@@ -80,7 +70,6 @@ const previewMarkdown = (
 
 const previewDescription = (item: SlashItem): string | null => {
   if (item.kind === "block") return item.definition.description || null
-  if (item.kind === "template") return item.template.description || null
   if (item.kind === "gallery") return m.editor_slash_preview_gallery()
   return null
 }
@@ -90,18 +79,16 @@ export function SlashMenuPreview({
   icon,
   name,
   meta,
-  library,
-  lookup
+  library
 }: Readonly<{
   item: SlashItem
   icon: ReactNode
   name: string
   meta: string | null
   library: Library
-  lookup: BlockLookup
 }>) {
   const description = previewDescription(item)
-  const markdown = previewMarkdown(item, name, lookup)
+  const markdown = previewMarkdown(item, name)
   return (
     <div
       key={item.key}

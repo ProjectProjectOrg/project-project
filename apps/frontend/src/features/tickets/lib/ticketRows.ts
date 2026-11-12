@@ -1,4 +1,5 @@
 import {
+  EPIC_TYPE,
   estimateRank,
   padNumericIdSort,
   TicketId,
@@ -20,7 +21,6 @@ import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { compareCodePoints } from "@/lib/orderKey"
 
 import { PRIORITY_META } from "./priorityMeta"
-import { NON_EPIC_TYPES } from "./ticketMeta"
 import { applyTicketPatch } from "./ticketPatch"
 
 export type TicketRow = Readonly<{
@@ -44,8 +44,13 @@ export const ticketListQueryOf = (query: QueryWithView): TicketListQuery => {
   return rest
 }
 
+export const withoutEpics = <Q extends TicketFilter>(query: Q): Q =>
+  query.excludeType?.includes(EPIC_TYPE)
+    ? query
+    : { ...query, excludeType: [...(query.excludeType ?? []), EPIC_TYPE] }
+
 export const withoutEpicsByDefault = <Q extends TicketFilter>(query: Q): Q =>
-  query.type?.length ? query : { ...query, type: NON_EPIC_TYPES }
+  query.type?.length ? query : withoutEpics(query)
 
 export const viewQuery = (query: QueryWithView): TicketListQuery =>
   withoutEpicsByDefault(ticketListQueryOf(query))
@@ -157,12 +162,12 @@ export const placeholderId = (
   return TicketId.make(`${prefix}-${n}`)
 }
 
-export type TemplatePrediction = Readonly<{
+export type TypePrediction = Readonly<{
   priority: TicketPriority | null
   tags: ReadonlyArray<TagName>
 }>
 
-export type QuickCreatePrediction = Partial<TemplatePrediction> &
+export type QuickCreatePrediction = Partial<TypePrediction> &
   Readonly<{
     clientId: string
     createdBy: string
@@ -193,7 +198,7 @@ export const predictedTicket = (
   id,
   title: input.payload.title,
   status,
-  type: input.payload.type ?? "other",
+  type: input.payload.type ?? null,
   priority: input.prediction.priority ?? "med",
   rank: PREDICTED_TOP_RANK,
   estimate: null,

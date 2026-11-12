@@ -6,7 +6,7 @@ import {
   type TicketPriority,
   type TicketId,
   type TicketStatus,
-  type TicketType
+  isEpicType
 } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
@@ -60,13 +60,17 @@ import {
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import { AssigneeSelect } from "@/features/tickets/components/ticket-list/AssigneeField"
+import { CreatorTypeSelect } from "@/features/tickets/components/ticket-list/CreatorMenus"
 import { EstimateBadgeTrigger } from "@/features/tickets/components/ticket-list/EstimateField"
 import { PrioritySelect } from "@/features/tickets/components/ticket-list/PriorityField"
 import { SprintSelect } from "@/features/tickets/components/ticket-list/SprintField"
+import { StartsWithLine } from "@/features/tickets/components/ticket-list/StartsWithLine"
 import { StatusSelect } from "@/features/tickets/components/ticket-list/StatusField"
-import { TypeSelect } from "@/features/tickets/components/ticket-list/TypeField"
-import { useTemplateChoice } from "@/features/tickets/components/ticket-list/useTemplateChoice"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
+import {
+  useCreatorType,
+  type CreatorType
+} from "@/features/tickets/hooks/useCreatorType"
 import { useRouteBoundDialog } from "@/hooks/useRouteBoundDialog"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
@@ -123,8 +127,12 @@ function CreateTicketForm({
   useEffect(() => titleInput.current?.focus(), [])
   const [title, setTitle] = useState(request.title ?? "")
   const [description, setDescription] = useState("")
-  const [type, setType] = useState<TicketType>("other")
-  const [priority, setPriority] = useState<TicketPriority>("med")
+  const creatorType = useCreatorType({
+    orgSlug,
+    slug: slug ?? "",
+    epics: related?.kind !== "subTicket"
+  })
+  const [priority, setPriority] = useState<TicketPriority | null>(null)
   const [status, setStatus] = useState<TicketStatus | null>(null)
   const [assignees, setAssignees] = useState<ReadonlyArray<string>>([])
   const [estimate, setEstimate] = useState<Estimate | null>(null)
@@ -133,7 +141,6 @@ function CreateTicketForm({
   const [failure, setFailure] = useState<string | null>(null)
   const [created, setCreated] = useState<TicketId | null>(null)
   const [pending, setPending] = useState(false)
-  const templateChoice = useTemplateChoice(orgSlug, slug ?? "", type)
   const create = useAtomSet(createTicketInProject, { mode: "promiseExit" })
   const trimmed = title.trim()
   const body = description.trim()
@@ -145,15 +152,16 @@ function CreateTicketForm({
       slug,
       payload: {
         title: trimmed,
-        type,
-        priority,
+        priority: priority ?? undefined,
         status: status ?? undefined,
         assignees: assignees.length === 0 ? undefined : assignees,
         estimate: estimate ?? undefined,
-        ...(body === "" ? templateChoice.payload : { body }),
+        ...creatorType.payload,
+        body: body === "" ? undefined : body,
         ...relatedPayload(related)
       }
     })
+    creatorType.settle(exit)
     if (Exit.isSuccess(exit)) return exit.value.id
     setFailure(errorMessage(Cause.squash(exit.cause)))
     return null
@@ -182,7 +190,7 @@ function CreateTicketForm({
         return
       }
     }
-    if (sprint !== null && type !== "epic") {
+    if (sprint !== null && !isEpicType(creatorType.type)) {
       assignTicketToSprint(
         registry,
         sprintListRequest(orgSlug, slug),
@@ -213,6 +221,8 @@ function CreateTicketForm({
           value={slug}
           onChange={(next) => {
             setPicked(next)
+            creatorType.reset()
+            setPriority(null)
             setCreated(null)
             setStatus(null)
             setAssignees([])
@@ -258,9 +268,7 @@ function CreateTicketForm({
         </MentionScopeProvider>
       </Composer.Body>
       <Composer.Chips>
-        {slug === null ? (
-          <TypeSelect value={type} onChange={setType} />
-        ) : (
+        {slug === null ? null : (
           <ProjectScope orgSlug={orgSlug} slug={slug}>
             <CreateTicketChips
               key={slug}
@@ -268,9 +276,8 @@ function CreateTicketForm({
               slug={slug}
               status={status}
               onStatus={setStatus}
-              type={type}
-              onType={setType}
-              priority={priority}
+              creatorType={creatorType}
+              priority={priority ?? creatorType.prediction?.priority ?? "med"}
               onPriority={setPriority}
               assignees={assignees}
               onAssignees={setAssignees}
@@ -282,6 +289,9 @@ function CreateTicketForm({
           </ProjectScope>
         )}
       </Composer.Chips>
+      {body === "" && (
+        <StartsWithLine start={creatorType.start} className="px-4 pt-2" />
+      )}
       <Composer.Error>{failure}</Composer.Error>
       <Composer.Footer>
         <DialogClose
@@ -302,8 +312,7 @@ function CreateTicketChips({
   slug,
   status,
   onStatus,
-  type,
-  onType,
+  creatorType,
   priority,
   onPriority,
   assignees,
@@ -317,8 +326,7 @@ function CreateTicketChips({
   slug: string
   status: TicketStatus | null
   onStatus: (status: TicketStatus) => void
-  type: TicketType
-  onType: (type: TicketType) => void
+  creatorType: CreatorType
   priority: TicketPriority
   onPriority: (priority: TicketPriority) => void
   assignees: ReadonlyArray<string>
@@ -339,7 +347,14 @@ function CreateTicketChips({
         onChange={onStatus}
         showLabel
       />
-      <TypeSelect value={type} onChange={onType} />
+      <CreatorTypeSelect
+        orgSlug={orgSlug}
+        slug={slug}
+        type={creatorType.type}
+        lastUsed={creatorType.lastUsed}
+        epics={creatorType.epics}
+        onTypeChange={creatorType.pick}
+      />
       <PrioritySelect value={priority} onChange={onPriority} showLabel />
       <AssigneeSelect
         value={assignees}
@@ -352,7 +367,9 @@ function CreateTicketChips({
         mode={estimation}
         onPatch={(patch) => onEstimate(patch.estimate ?? null)}
       />
-      {type !== "epic" && <SprintSelect value={sprint} onChange={onSprint} />}
+      {!isEpicType(creatorType.type) && (
+        <SprintSelect value={sprint} onChange={onSprint} />
+      )}
     </>
   )
 }

@@ -1,0 +1,38 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "c73fc72b-b4c1-4185-afe3-bc313c5480c1",
+  "prevIds": [
+    "8d976d6c-6ab0-4345-b434-0fd1fc0e3e41"
+  ],
+  "footprints": [
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_index",
+        "type"
+      ],
+      "writes": [
+        "s|colprop|public.ticket_index.type.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_index",
+        "n|sch|public",
+        "n|col|public.ticket_index.type"
+      ],
+      "sqlHash": "18c7de8bbf405f55"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"ticket_index\",\"type\"]",
+      "set": {
+        "notNull": false
+      }
+    }
+  ]
+}
