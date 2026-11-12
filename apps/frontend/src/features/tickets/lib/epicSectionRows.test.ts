@@ -67,7 +67,7 @@ const grouped = (
   total: sections.reduce((sum, s) => sum + s.count, 0),
   counts: { total: 1, byStatus: { [ticket.status]: 1 } },
   sections,
-  viewer: { id: undefined, estimation: "off" }
+  viewer: { id: undefined, estimation: "off", sprints: [] }
 })
 
 const idsBySection = (value: EpicSectionsValue) =>

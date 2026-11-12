@@ -1,6 +1,13 @@
 import { TicketPolicy } from "@pp/access/policies"
 import { Db } from "@pp/db"
 import {
+  ticketRule,
+  withoutTicketRule,
+  nonEpicTicketRules,
+  matchesStatusRule,
+  type TicketFilter
+} from "@pp/shared"
+import {
   DEFAULT_TICKET_SORT,
   EPIC_SECTION_NONE,
   type EpicSectionKey,
@@ -30,6 +37,8 @@ import {
   summarizeEstimates,
   type Ticket,
   type TicketCountQuery,
+  type TicketFacetCounts,
+  type TicketFacetField,
   type TicketCounts,
   type TicketDetail,
   type TicketEpicSection,
@@ -48,7 +57,6 @@ import {
   type TicketSections,
   type TicketSort,
   type TicketSprintSections,
-  TicketType,
   type User,
   UserId
 } from "@pp/shared"
@@ -260,6 +268,14 @@ export class TicketQueries extends Context.Service<
       Forbidden | NotFound | Markdown.MarkdownError,
       ProjectScope
     >
+    facets: (
+      field: TicketFacetField,
+      query: TicketCountQuery
+    ) => Effect.Effect<
+      TicketFacetCounts,
+      Forbidden | NotFound | Markdown.MarkdownError,
+      ProjectScope
+    >
     search: (
       options: TicketSearchQuery
     ) => Effect.Effect<
@@ -329,7 +345,7 @@ const make = Effect.gen(function* () {
     yield* requirePolicy((scope) => TicketPolicy.canQuery(scope, query))
     const scope = yield* ProjectScope
     if (
-      query.estimate?.length ||
+      ticketRule(query, "estimate")?.values.length ||
       ("sort" in query && query.sort.key === "estimate")
     ) {
       yield* readProjectDocument({ db, docs: projectDocs, project: scope })
@@ -388,6 +404,26 @@ const make = Effect.gen(function* () {
       return memberSet
     })
 
+  const resolveQueryMembers = Effect.fnUntraced(function* (
+    scope: TicketProject,
+    query: TicketFilter
+  ) {
+    const rule = ticketRule(query, "sprint")
+    const scoped =
+      query.scopeGroupId === undefined
+        ? null
+        : new Set((yield* groups.get(query.scopeGroupId)).tickets)
+    if (!rule) return scoped
+    const members = yield* resolveGroupMembers(scope, rule.values)
+    if (rule.operator === "is")
+      return scoped === null
+        ? (members ?? new Set<string>())
+        : new Set([...scoped].filter((id) => members?.has(id)))
+    const candidates =
+      scoped === null ? yield* ticketIndex.listIds(scope) : [...scoped]
+    return new Set(candidates.filter((id) => !members?.has(id)))
+  })
+
   const list = Effect.fn("TicketQueries.list")(function* (
     query: TicketPageQuery,
     limit?: number
@@ -396,7 +432,7 @@ const make = Effect.gen(function* () {
     const { userId } = scope
     const [groupMemberSet, sectionMemberSet] = yield* Effect.all(
       [
-        resolveGroupMembers(scope, query.groupId),
+        resolveQueryMembers(scope, query),
         resolveGroupMembers(scope, query.section?.groupId)
       ],
       { concurrency: 2 }
@@ -725,10 +761,10 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* queryable(query)
     const { userId } = scope
-    const groupMemberSet = yield* resolveGroupMembers(scope, query.groupId)
+    const groupMemberSet = yield* resolveQueryMembers(scope, query)
     const queryForCount: TicketCountQuery = {
       ...query,
-      status: undefined
+      rules: withoutTicketRule(query, "status")
     }
     const counts = yield* ticketIndex.count(scope, queryForCount, {
       viewerId: userId,
@@ -740,12 +776,47 @@ const make = Effect.gen(function* () {
     }
   })
 
+  const facets = Effect.fn("TicketQueries.facets")(function* (
+    field: TicketFacetField,
+    query: TicketCountQuery
+  ) {
+    const scope = yield* queryable(query)
+    const facetQuery: TicketCountQuery = {
+      ...query,
+      rules: withoutTicketRule(query, field)
+    }
+    const groupMemberSet = yield* resolveQueryMembers(scope, facetQuery)
+    const options = {
+      viewerId: scope.userId,
+      ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet]
+    }
+    if (field !== "sprint")
+      return yield* ticketIndex.facetCounts(scope, facetQuery, options, {
+        field
+      })
+    const [allGroups, ungrouped] = yield* Effect.all(
+      [groups.list(), resolveGroupMembers(scope, ["ungrouped"])],
+      { concurrency: 2 }
+    )
+    return yield* ticketIndex.facetCounts(scope, facetQuery, options, {
+      field,
+      buckets: {
+        ungrouped: [...(ungrouped ?? [])],
+        ...Object.fromEntries(
+          allGroups
+            .filter((group) => group.kind === "sprint")
+            .map((group) => [group.id, group.tickets])
+        )
+      }
+    })
+  })
+
   const sections = Effect.fn("TicketQueries.sections")(function* (
     query: TicketListQuery
   ) {
     const scope = yield* queryable(query)
     const { userId } = scope
-    const groupMemberSet = yield* resolveGroupMembers(scope, query.groupId)
+    const groupMemberSet = yield* resolveQueryMembers(scope, query)
     const options = {
       viewerId: userId,
       ticketIds: groupMemberSet === null ? undefined : [...groupMemberSet]
@@ -769,11 +840,7 @@ const make = Effect.gen(function* () {
     }
     const counts = { total, byStatus }
     const pages = Object.keys(byStatus)
-      .filter(
-        (status) =>
-          !query.status?.length ||
-          query.status.some((requested) => requested === status)
-      )
+      .filter((status) => matchesStatusRule(query, status))
       .map(
         (status) =>
           [
@@ -793,12 +860,17 @@ const make = Effect.gen(function* () {
     scope: TicketProject,
     query: TicketListQuery
   ) {
+    const filterMembers = yield* resolveQueryMembers(scope, query)
     const allGroups = yield* groups.list()
     const now = yield* DateTime.nowAsDate
     const sprints = allGroups.filter((group) => group.kind === "sprint")
-    const sectionIds = backlogSprintSections(sprints, query.groupId, now).map(
-      (sprint): GroupIdFilter => sprint?.id ?? "ungrouped"
-    )
+    const sectionIds = backlogSprintSections(
+      sprints,
+      ticketRule(query, "sprint")?.operator === "is"
+        ? ticketRule(query, "sprint")?.values
+        : undefined,
+      now
+    ).map((sprint): GroupIdFilter => sprint?.id ?? "ungrouped")
     const selectedSections = new Set(sectionIds)
     const claimed = new Set<string>()
     const bySprint = new Map<GroupId, Array<string>>()
@@ -821,18 +893,27 @@ const make = Effect.gen(function* () {
         bySprint.set(sprint.id, takeUnclaimed(sprint.tickets))
       }
     }
-    const ungroupedMembers = query.groupId?.includes("ungrouped")
-      ? yield* resolveGroupMembers(scope, ["ungrouped"])
-      : null
-    return sectionIds.map((groupId) => ({
-      key: groupId,
-      ticketIds:
-        groupId === "ungrouped"
-          ? ungroupedMembers === null
-            ? undefined
-            : [...ungroupedMembers].filter((id) => !claimed.has(id))
-          : (bySprint.get(groupId) ?? [])
-    }))
+    const ungroupedMembers = yield* resolveGroupMembers(scope, ["ungrouped"])
+    return sectionIds
+      .map((groupId) => ({
+        key: groupId,
+        ticketIds:
+          groupId === "ungrouped"
+            ? ungroupedMembers === null
+              ? undefined
+              : [...ungroupedMembers].filter((id) => !claimed.has(id))
+            : (bySprint.get(groupId) ?? [])
+      }))
+      .map((section) =>
+        filterMembers === null
+          ? section
+          : {
+              ...section,
+              ticketIds: (section.ticketIds ?? []).filter((id) =>
+                filterMembers.has(id)
+              )
+            }
+      )
   })
 
   const sprintSections = Effect.fn("TicketQueries.sprintSections")(function* (
@@ -859,7 +940,7 @@ const make = Effect.gen(function* () {
       [
         ticketIndex.querySections(
           scope,
-          { ...query, groupId: undefined, cursor: undefined },
+          { ...query, cursor: undefined },
           {
             viewerId: userId,
             limit: TICKET_LIST_LIMIT + 1,
@@ -901,12 +982,11 @@ const make = Effect.gen(function* () {
       return {
         section: {
           key: sprintSectionKey(groupId === "ungrouped" ? null : groupId),
-          count: query.status?.length
-            ? [...new Set(query.status)].reduce(
-                (sum, status) => sum + (counts.byStatus[status] ?? 0),
-                0
-              )
-            : counts.total,
+          count: Object.entries(counts.byStatus).reduce(
+            (sum, [status, count]) =>
+              sum + (matchesStatusRule(query, status) ? count : 0),
+            0
+          ),
           page: ticketPage(
             result?.entries ?? [],
             query,
@@ -937,11 +1017,9 @@ const make = Effect.gen(function* () {
 
   const parentSectionQuery = (query: TicketListQuery): TicketListQuery => ({
     ...query,
-    type: (query.type?.length ? query.type : TicketType.literals).filter(
-      (type) => type !== "epic"
-    ),
+    rules: nonEpicTicketRules(query),
     parent: undefined,
-    groupId: undefined,
+
     cursor: undefined
   })
 
@@ -982,12 +1060,11 @@ const make = Effect.gen(function* () {
         section: {
           key,
           parent,
-          count: query.status?.length
-            ? [...new Set(query.status)].reduce(
-                (sum, status) => sum + (counts.byStatus[status] ?? 0),
-                0
-              )
-            : counts.total,
+          count: Object.entries(counts.byStatus).reduce(
+            (sum, [status, count]) =>
+              sum + (matchesStatusRule(query, status) ? count : 0),
+            0
+          ),
           page: ticketPage(
             result?.entries ?? [],
             query,
@@ -1035,12 +1112,21 @@ const make = Effect.gen(function* () {
       [
         ticketIndex.query(
           scope,
-          { type: ["epic"], sort: EPIC_SECTION_SORT },
+          {
+            rules: [{ field: "type", operator: "is", values: ["epic"] }],
+            sort: EPIC_SECTION_SORT
+          },
           epicOptions
         ),
         ticketIndex.query(
           scope,
-          { type: ["epic"], archived: true, sort: EPIC_SECTION_SORT },
+          {
+            rules: [
+              { field: "type", operator: "is", values: ["epic"] },
+              { field: "archived", operator: "is" }
+            ],
+            sort: EPIC_SECTION_SORT
+          },
           epicOptions
         )
       ],
@@ -1057,11 +1143,7 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* queryable(query)
     const [groupMemberSet, { wanted, archivedIds }, view] = yield* Effect.all(
-      [
-        resolveGroupMembers(scope, query.groupId),
-        epicSectionsWanted(scope),
-        gitView
-      ],
+      [resolveQueryMembers(scope, query), epicSectionsWanted(scope), gitView],
       { concurrency: "unbounded" }
     )
     const bySection = yield* parentSectionsOf(
@@ -1103,7 +1185,10 @@ const make = Effect.gen(function* () {
               ),
               ticketIndex.query(
                 scope,
-                { archived: true, sort: EPIC_SECTION_SORT },
+                {
+                  rules: [{ field: "archived", operator: "is" }],
+                  sort: EPIC_SECTION_SORT
+                },
                 parentOptions
               )
             ],
@@ -1117,7 +1202,7 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* queryable(query)
     const [groupMemberSet, view] = yield* Effect.all(
-      [resolveGroupMembers(scope, query.groupId), gitView],
+      [resolveQueryMembers(scope, query), gitView],
       { concurrency: "unbounded" }
     )
     const bySection = yield* parentSectionsOf(
@@ -1141,25 +1226,33 @@ const make = Effect.gen(function* () {
   ) {
     const scope = yield* queryable(source.query)
     const query = { ...source.query, cursor: undefined }
-    const find = (
+    const find = Effect.fnUntraced(function* (
       ticketQuery: TicketListQuery,
       options: Omit<
         TicketIndex.TicketIndexNeighborsOptions,
         "viewerId" | "ticketId"
       >
-    ) =>
-      ticketIndex.neighbors(scope, ticketQuery, {
+    ) {
+      const matching = yield* resolveQueryMembers(scope, ticketQuery)
+      const ticketIds =
+        matching === null
+          ? options.ticketIds
+          : options.ticketIds === undefined
+            ? [...matching]
+            : options.ticketIds.filter((id) => matching.has(id))
+      return yield* ticketIndex.neighbors(scope, ticketQuery, {
         ...options,
+        ticketIds,
         viewerId: scope.userId,
         ticketId
       })
+    })
     if (source.kind === "sprintBoard") {
       const group = yield* groups.get(source.groupId)
       return yield* find(
         {
           ...query,
-          groupId: undefined,
-          archived: undefined,
+
           subTickets: "nested"
         },
         {
@@ -1172,7 +1265,7 @@ const make = Effect.gen(function* () {
     const within = { kind: "sort", sort: query.sort } as const
     switch (source.grouping) {
       case "status": {
-        const members = yield* resolveGroupMembers(scope, query.groupId)
+        const members = yield* resolveQueryMembers(scope, query)
         return yield* find(query, {
           ticketIds: members === null ? undefined : [...members],
           sections: { kind: "status" },
@@ -1181,17 +1274,14 @@ const make = Effect.gen(function* () {
       }
       case "sprint": {
         const members = yield* sprintSectionMembers(scope, query)
-        return yield* find(
-          { ...query, groupId: undefined },
-          { sections: { kind: "explicit", sections: members }, within }
-        )
+        return yield* find(query, {
+          sections: { kind: "explicit", sections: members },
+          within
+        })
       }
       case "epic": {
         const [members, { wanted }] = yield* Effect.all(
-          [
-            resolveGroupMembers(scope, query.groupId),
-            epicSectionsWanted(scope)
-          ],
+          [resolveQueryMembers(scope, query), epicSectionsWanted(scope)],
           { concurrency: "unbounded" }
         )
         return yield* find(parentSectionQuery(query), {
@@ -1201,7 +1291,7 @@ const make = Effect.gen(function* () {
         })
       }
       case "parent": {
-        const members = yield* resolveGroupMembers(scope, query.groupId)
+        const members = yield* resolveQueryMembers(scope, query)
         const wanted = yield* parentSectionsWanted(
           scope,
           yield* parentSectionsOf(scope, query, "ticketParent", members)
@@ -1271,6 +1361,7 @@ const make = Effect.gen(function* () {
     neighbors,
     list,
     count,
+    facets,
     search,
     titles,
     textSearch,

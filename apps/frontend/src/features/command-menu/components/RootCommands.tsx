@@ -104,23 +104,42 @@ function useIsOnTicketPage(self: CommandContext["ticket"]) {
   )
 }
 
+export function TicketSearchCommands(props: CommandPageProps) {
+  return (
+    <RootCommands
+      {...props}
+      chip={null}
+      scope="tickets"
+      commands={[]}
+      initialSearch=""
+      initialFocus={null}
+    />
+  )
+}
+
 export function RootCommands({
   context,
   chip,
   onBack,
   env,
+  scope = "everything",
   commands,
   initialSearch,
   initialFocus
 }: CommandPageProps &
   Readonly<{
+    scope?: "everything" | "tickets"
     commands: ReadonlyArray<Command>
     initialSearch: string
     initialFocus: string | null
   }>) {
   const [search, setSearch] = useState(initialSearch)
   const { recent, found, searching } = useTicketCommandSearch(context, search)
-  const projects = useProjectSearchTargets(context.orgSlug, context.projectSlug)
+  const projectTargets = useProjectSearchTargets(
+    context.orgSlug,
+    context.projectSlug
+  )
+  const projects = scope === "tickets" ? [] : projectTargets
   const self = context.ticket
   const onOwnPage = useIsOnTicketPage(self)
   const createIn = useSprintToCreateIn(context.sprint)
@@ -159,9 +178,14 @@ export function RootCommands({
       enterLabel: m.chrome_command_menu_open_project()
     })),
     ...tickets.map((target) => ({
-      ...ticketItem(target, m.tickets_command_group_results(), {
-        inSearch: true
-      }),
+      ...ticketItem(
+        target,
+        scope === "tickets" && recent.includes(target)
+          ? m.tickets_command_group_recent()
+          : m.tickets_command_group_results(),
+        { inSearch: true }
+      ),
+      searchOnly: scope === "everything",
       actionable: !isContextTicket(self, target),
       enterLabel: m.chrome_command_menu_open_ticket()
     })),
@@ -183,7 +207,11 @@ export function RootCommands({
   return (
     <CommandFrame
       chip={chip}
-      placeholder={m.chrome_command_menu_placeholder()}
+      placeholder={
+        scope === "tickets"
+          ? m.tickets_search_placeholder()
+          : m.chrome_command_menu_placeholder()
+      }
       onBack={onBack}
       items={items}
       initialSearch={initialSearch}
@@ -216,7 +244,7 @@ export function RootCommands({
           : undefined
       }
       initialFocus={initialFocus}
-      searchFooter
+      searchFooter={scope === "tickets" ? "always" : "whenSearching"}
       fixedHeight
       renderPeek={(value) => {
         const target = ticketsByValue.get(value)

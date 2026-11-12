@@ -1,4 +1,5 @@
 import { useAtomRefresh, useAtomValue, useAtomSet } from "@effect/atom-react"
+import { ticketRule, withTicketRule } from "@pp/shared"
 import {
   backlogSprintSections,
   sprintSectionKey,
@@ -35,6 +36,7 @@ import {
   type SprintSectionsValue
 } from "@/features/tickets/atoms/sprintSections"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
+import { hasTicketFilters } from "@/features/tickets/lib/ticketFilters"
 import {
   viewQuery,
   type TicketRowPage
@@ -43,6 +45,7 @@ import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
+import { FilteredEmpty } from "./FilteredEmpty"
 import { sprintCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
 import {
   CreatingSectionsProvider,
@@ -54,6 +57,7 @@ import { useTicketPreview } from "./useTicketPreview"
 const defaultCreateStatus = Schema.decodeSync(TicketStatus)("todo")
 const EMPTY_PAGE: TicketRowPage = { items: [], nextCursor: null }
 
+import { useReportShownQuery } from "./shownQuery"
 import { useDeferredOnRequestChange } from "./useDeferredOnRequestChange"
 
 type Props = Readonly<{
@@ -62,19 +66,6 @@ type Props = Readonly<{
   onQueryChange: (query: TicketListQuery) => void
   members: ReadonlyArray<Member>
 }>
-
-export const queryHasActiveFilter = (query: TicketListQuery) =>
-  (query.q !== undefined && query.q.length > 0) ||
-  (query.status?.length ?? 0) > 0 ||
-  (query.type?.length ?? 0) > 0 ||
-  (query.assignee?.length ?? 0) > 0 ||
-  (query.tags?.length ?? 0) > 0 ||
-  (query.groupId?.length ?? 0) > 0 ||
-  (query.estimate?.length ?? 0) > 0 ||
-  query.hasBranch !== undefined ||
-  query.hasPr !== undefined ||
-  query.updatedAfter !== undefined ||
-  query.archived !== undefined
 
 export function SprintSections(props: Props) {
   const { orgSlug, slug } = useProjectRoute()
@@ -120,9 +111,15 @@ export function SprintSections(props: Props) {
         }
       : null
   const active = useDeferredOnRequestChange(latest)
+  useReportShownQuery(active?.query)
   const waiting = groupsResult.waiting || snapshotResult.waiting
   const renderSections = () =>
-    groups && active ? (
+    groups &&
+    active &&
+    hasTicketFilters(active.query) &&
+    active.value.sections.every((section) => section.count === 0) ? (
+      <FilteredEmpty query={active.query} />
+    ) : groups && active ? (
       <div style={{ overflowAnchor: "none" }} className="flex flex-col gap-1">
         <TicketViewSourceContext
           value={ticketSearchFromSource({
@@ -132,31 +129,34 @@ export function SprintSections(props: Props) {
           })}
         >
           <CreatingSectionsProvider>
-            {backlogSprintSections(groups, active.query.groupId).map(
-              (sprint) => {
-                const id = sprintSectionKey(sprint?.id ?? null)
-                const section = active.value.sections.find(
-                  (entry) => entry.key === id
-                )
-                return (
-                  <SprintSection
-                    key={id}
-                    {...props}
-                    persistKey={persistKey}
-                    query={active.query}
-                    snapshotReq={active.req}
-                    sprint={sprint}
-                    page={section?.page ?? EMPTY_PAGE}
-                    count={section?.count ?? 0}
-                    estimates={section?.estimates ?? null}
-                    waiting={waiting}
-                    activePreviewId={preview.activePreviewId}
-                    onPreviewPointerEnter={preview.onPreviewPointerEnter}
-                    onPreviewOpenChange={preview.onPreviewOpenChange}
-                  />
-                )
-              }
-            )}
+            {backlogSprintSections(
+              groups,
+              ticketRule(active.query, "sprint")?.operator === "is"
+                ? ticketRule(active.query, "sprint")?.values
+                : undefined
+            ).map((sprint) => {
+              const id = sprintSectionKey(sprint?.id ?? null)
+              const section = active.value.sections.find(
+                (entry) => entry.key === id
+              )
+              return (
+                <SprintSection
+                  key={id}
+                  {...props}
+                  persistKey={persistKey}
+                  query={active.query}
+                  snapshotReq={active.req}
+                  sprint={sprint}
+                  page={section?.page ?? EMPTY_PAGE}
+                  count={section?.count ?? 0}
+                  estimates={section?.estimates ?? null}
+                  waiting={waiting}
+                  activePreviewId={preview.activePreviewId}
+                  onPreviewPointerEnter={preview.onPreviewPointerEnter}
+                  onPreviewOpenChange={preview.onPreviewOpenChange}
+                />
+              )
+            })}
           </CreatingSectionsProvider>
         </TicketViewSourceContext>
       </div>
@@ -227,7 +227,7 @@ function SprintSection({
   const { members } = props
   const query = {
     ...props.query,
-    groupId: [sprint?.id ?? "ungrouped"] as TicketListQuery["groupId"],
+    scopeGroupId: sprint?.id,
     cursor: undefined
   }
   const label = sprint?.name ?? m.tickets_grouping_unscheduled()
@@ -243,7 +243,10 @@ function SprintSection({
         }).format(date)
       )
       .join(" – ")
-  const selectedStatuses = query.status
+  const selectedStatuses =
+    ticketRule(query, "status")?.operator === "is"
+      ? ticketRule(query, "status")?.values
+      : undefined
   return (
     <div aria-busy={waiting}>
       <SectionList
@@ -272,7 +275,14 @@ function SprintSection({
                   sprint={sprint}
                   summary={estimates}
                   onShowUnestimated={() =>
-                    props.onQueryChange({ ...props.query, estimate: ["none"] })
+                    props.onQueryChange({
+                      ...props.query,
+                      rules: withTicketRule(props.query, {
+                        field: "estimate",
+                        operator: "is",
+                        values: ["none"]
+                      })
+                    })
                   }
                 />
               )}
@@ -281,8 +291,8 @@ function SprintSection({
         }}
         canCreate={state !== "completed"}
         emptyMessage={
-          queryHasActiveFilter(props.query)
-            ? m.tickets_no_filter_matches()
+          hasTicketFilters(props.query)
+            ? m.tickets_no_filter_matches_in_section({ section: label })
             : undefined
         }
         count={count}

@@ -8,29 +8,30 @@ import { createContext, use, type ReactNode } from "react"
 
 import type { BoardScope } from "@/features/sprints/hooks/useBoardColumns"
 
-import type { useTicketSearch } from "../search"
 import type { FilterDimension } from "./model"
 
 export type TicketToolbarProps = Readonly<{
+  leading?: ReactNode
   query: TicketListQuery
   onQueryChange: (query: TicketListQuery) => void
+  onQueryPrefetch: (query: TicketListQuery) => void
   members: ReadonlyArray<Member>
   counts: Record<string, number> | null
   filters: ReadonlyArray<FilterDimension>
   estimation: EstimationMode
-  scopeKey?: string
   viewControls?: ReactNode
   showSort?: boolean
   boardScope?: BoardScope
 }>
 
-type TicketToolbarContextValue = Omit<TicketToolbarProps, "showSort"> &
+type TicketToolbarContextValue = Omit<
+  TicketToolbarProps,
+  "showSort" | "leading"
+> &
   Readonly<{
-    search: ReturnType<typeof useTicketSearch>
-    searchActive: boolean
-    controlsCompact: boolean
-    setFocused: (focused: boolean) => void
+    compact: boolean
     patchFilter: (patch: Partial<TicketFilter>) => void
+    prefetchFilter: (patch: Partial<TicketFilter>) => void
     clearAll: () => void
     hasActiveFilters: boolean
   }>

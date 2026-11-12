@@ -35,11 +35,15 @@ export function CreatorActiveScope({
   return <CreatorActiveContext value={value}>{children}</CreatorActiveContext>
 }
 
+export function useCreatorActive() {
+  return use(CreatorActiveContext)?.active ?? false
+}
+
 export function DimWhileCreating({
   className,
   children
 }: Readonly<{ className?: string; children: ReactNode }>) {
-  const active = use(CreatorActiveContext)?.active ?? false
+  const active = useCreatorActive()
   return <div className={cn(className, active && "opacity-35")}>{children}</div>
 }
 

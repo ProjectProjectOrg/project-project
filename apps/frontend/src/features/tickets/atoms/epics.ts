@@ -20,8 +20,7 @@ const epicsPage = (req: EpicsRequest, cursor: string | undefined) =>
   query("tickets", "list", {
     params: req.params,
     query: {
-      type: ["epic"],
-      archived: false,
+      rules: [{ field: "type", operator: "is", values: ["epic"] }],
       sort: EPIC_SORT,
       cursor
     },

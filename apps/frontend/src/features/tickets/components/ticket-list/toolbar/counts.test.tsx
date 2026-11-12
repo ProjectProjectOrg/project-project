@@ -1,3 +1,4 @@
+import { ticketRule } from "@pp/shared"
 import { GroupId, TicketListQuery } from "@pp/shared"
 import { cleanup, renderHook } from "@testing-library/react"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -31,10 +32,12 @@ vi.mock("@/features/tickets/atoms/viewCounts", async () => {
   return {
     viewCounts: Atom.family((source: ViewCountsSource) =>
       Atom.make(
-        source.query.status?.some((status) => status === "in_progress")
+        ticketRule(source.query, "status")?.values?.some(
+          (status) => status === "in_progress"
+        )
           ? AsyncResult.fail(new Error("count failed"))
-          : source.query.status?.length ||
-              source.query.type?.length ||
+          : ticketRule(source.query, "status")?.values?.length ||
+              ticketRule(source.query, "type")?.values?.length ||
               (source.groupId && source.view === "list")
             ? AsyncResult.initial()
             : AsyncResult.success({
@@ -61,9 +64,27 @@ it("keeps known status counts during a first fetch without masking other request
         view: "list",
         grouping: "sprint",
         query: decodeQuery({
-          status: status ? [status] : undefined,
-          type: type ? ["bug" as const] : undefined,
-          sort: { key: "title", dir: "asc" }
+          sort: { key: "title", dir: "asc" },
+          rules: [
+            ...(status
+              ? [
+                  {
+                    field: "status" as const,
+                    operator: "is" as const,
+                    values: [status]
+                  }
+                ]
+              : []),
+            ...(type
+              ? [
+                  {
+                    field: "type" as const,
+                    operator: "is" as const,
+                    values: ["bug" as const]
+                  }
+                ]
+              : [])
+          ]
         })
       }),
     { initialProps: { status: "", type: "" } }
@@ -112,9 +133,11 @@ it("keeps sprint counts while the list loads for the first time", () => {
         view,
         grouping: "status",
         query: decodeQuery({
-          groupId: [groupId],
-          archived,
-          updatedAfter: "2026-09-01T00:00:00.000Z"
+          updatedAfter: "2026-09-01T00:00:00.000Z",
+          rules: [
+            { field: "sprint", operator: "is", values: [groupId] },
+            { field: "archived", operator: archived ? "is" : "isNot" }
+          ]
         })
       }),
     { initialProps }

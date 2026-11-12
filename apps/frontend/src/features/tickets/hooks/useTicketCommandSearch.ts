@@ -34,6 +34,8 @@ const TITLE_LIMIT = 20
 const TEXT_SEARCH_MIN = 3
 const SEARCHING_DELAY_MS = 120
 const TEXT_SEARCH_WAIT_MS = 150
+const BROWSE_LIMIT = 20
+const newestFirst = new Intl.Collator(undefined, { numeric: true })
 
 export type TicketCommandSearch = Readonly<{
   recent: ReadonlyArray<TicketTarget>
@@ -75,7 +77,7 @@ export function useTicketCommandSearch(
   search: string
 ): TicketCommandSearch {
   const query = search.trim()
-  const inProject = projectSlug !== null && query !== ""
+  const inProject = projectSlug !== null
   const textQuery = inProject && query.length >= TEXT_SEARCH_MIN
   const [debounced] = useDebouncedValue(query, { wait: TEXT_SEARCH_WAIT_MS })
   const textSearch = textQuery && debounced.length >= TEXT_SEARCH_MIN
@@ -112,14 +114,13 @@ export function useTicketCommandSearch(
     textQuery && !current && !held,
     SEARCHING_DELAY_MS
   )
-  if (query === "") return { recent: [], found: [], searching: false }
-
   const recent = (
     Result.isSuccess(recentResult) ? recentResult.value.tickets : []
   )
     .flatMap((row) => {
       if (projectSlug !== null && row.project.slug !== projectSlug) return []
-      const score = titleScore(row.ticket, query, projectSlug !== null)
+      const score =
+        query === "" ? 0 : titleScore(row.ticket, query, projectSlug !== null)
       return score === null
         ? []
         : [
@@ -132,6 +133,18 @@ export function useTicketCommandSearch(
           ]
     })
     .slice(0, RECENT_LIMIT)
+  if (query === "") {
+    const recentIds = new Set(recent.map((target) => target.id))
+    const browse =
+      projectSlug === null || !Result.isSuccess(titlesResult)
+        ? []
+        : titlesResult.value
+            .filter((ticket) => !recentIds.has(ticket.id))
+            .toSorted((a, b) => newestFirst.compare(b.id, a.id))
+            .slice(0, BROWSE_LIMIT - recent.length)
+            .map(({ id, title }) => ({ id, title, projectSlug }))
+    return { recent, found: browse, searching: false }
+  }
   if (projectSlug === null) return { recent, found: [], searching: false }
 
   const titles = titleMatches(

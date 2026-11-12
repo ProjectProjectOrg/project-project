@@ -1,3 +1,4 @@
+import { withoutTicketRule } from "@pp/shared"
 import {
   matchesTicketQuery,
   type GroupId,
@@ -20,6 +21,10 @@ import {
   sprintBoard,
   type BoardRequest
 } from "@/features/sprints/atoms/sprintBoard"
+import {
+  sprintList,
+  sprintListRequest
+} from "@/features/sprints/atoms/sprintList"
 
 import { backlog, backlogRequest, type BacklogRequest } from "./backlog"
 import {
@@ -64,24 +69,24 @@ const epicSectionsCounts = Atom.family((req: EpicSectionsRequest) =>
 
 const sprintBoardCounts = Atom.family(
   ({ req, query }: Readonly<{ req: BoardRequest; query: TicketListQuery }>) => {
-    const {
-      archived: _archived,
-      cursor: _cursor,
-      sort: _sort,
-      status: _status,
-      ...filter
-    } = query
+    const { cursor: _cursor, sort: _sort, ...rest } = query
+    const filter = { ...rest, rules: withoutTicketRule(query, "status") }
     return Atom.make((get) => {
       const viewerId = get(currentUserId)
       const estimation = get(
         projectEstimation(projectRequest(req.params.orgSlug, req.params.slug))
       )
-      return AsyncResult.map(get(sprintBoard(req)), ({ tickets }) =>
-        countTickets(
-          tickets.filter((ticket) =>
-            matchesTicketQuery(ticket, filter, viewerId, estimation)
+      const sprints = get(
+        sprintList(sprintListRequest(req.params.orgSlug, req.params.slug))
+      )
+      return AsyncResult.map(
+        AsyncResult.all([get(sprintBoard(req)), sprints]),
+        ([{ tickets }, groups]) =>
+          countTickets(
+            tickets.filter((ticket) =>
+              matchesTicketQuery(ticket, filter, viewerId, estimation, groups)
+            )
           )
-        )
       )
     })
   }

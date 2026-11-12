@@ -23,7 +23,7 @@ import { useTicketToolbar } from "./context"
 import { OptionPicker, ToolbarButton } from "./shared"
 
 export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
-  const { viewControls, boardScope, searchActive: compact } = useTicketToolbar()
+  const { viewControls, boardScope, compact } = useTicketToolbar()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [anchor, setAnchor] =
     useState<ComponentProps<typeof PopoverContent>["anchor"]>()

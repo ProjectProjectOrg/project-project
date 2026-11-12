@@ -1,3 +1,6 @@
+import { ticketRule } from "@pp/shared"
+import { type Group } from "@pp/shared"
+import { withoutTicketRule, matchesStatusRule } from "@pp/shared"
 import {
   matchesTicketQuery,
   SPRINT_SECTION_UNSCHEDULED,
@@ -36,9 +39,17 @@ import {
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import {
+  sprintList,
+  sprintListRequest
+} from "@/features/sprints/atoms/sprintList"
+import {
   createInSprint,
   sprintAssignmentKeys
 } from "@/features/sprints/atoms/sprintList"
+import {
+  canonicalTicketQuery,
+  withCreatedSprintTicket
+} from "@/features/tickets/lib/ticketFilters"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import {
   insertByOrderKey,
@@ -75,10 +86,10 @@ export const sprintSectionsRequest = (
 ): SprintSectionsRequest => ({
   _view: "sprintSections",
   params: { orgSlug, slug },
-  query: {
+  query: canonicalTicketQuery({
     ...viewQuery(query),
     cursor: undefined
-  }
+  })
 })
 
 const scopeOf = (req: SprintSectionsRequest) =>
@@ -98,6 +109,7 @@ export type SprintSectionsValue = Readonly<{
   viewer: Readonly<{
     id: UserId | undefined
     estimation: EstimationMode
+    sprints: ReadonlyArray<Group>
     phaseOf: StatusPhaseOf
   }>
 }>
@@ -172,13 +184,24 @@ const sprintSectionsView = (req: SprintSectionsRequest) =>
   Atom.readable(
     (get) => {
       const base = get(snapshotQuery(req))
-      const viewer = viewerOf(get, req)
-      if (!AsyncResult.isSuccess(base)) {
-        return AsyncResult.map(base, () => emptySprintSections(viewer))
+      const membership =
+        ticketRule(req.query, "sprint") || req.query.scopeGroupId
+          ? get(
+              sprintList(sprintListRequest(req.params.orgSlug, req.params.slug))
+            )
+          : AsyncResult.success<ReadonlyArray<Group>>([])
+      const viewer = {
+        ...viewerOf(get, req),
+        sprints: AsyncResult.isSuccess(membership) ? membership.value : []
+      }
+      if (!AsyncResult.isSuccess(base) || !AsyncResult.isSuccess(membership)) {
+        return AsyncResult.map(AsyncResult.all([base, membership]), () =>
+          emptySprintSections(viewer)
+        )
       }
       const loaded = get(loadedPagesAtom(req))
       const created = get(createdKeys(scopeOf(req)))
-      let waiting = base.waiting
+      let waiting = base.waiting || membership.waiting
       const sections = base.value.sections.map((section) => {
         const pages = readLoadedPages(
           get,
@@ -207,7 +230,13 @@ const sprintSectionsView = (req: SprintSectionsRequest) =>
         { waiting }
       )
     },
-    (refresh) => refresh(snapshotQuery(req))
+    (refresh) => {
+      refresh(snapshotQuery(req))
+      if (ticketRule(req.query, "sprint") || req.query.scopeGroupId)
+        refresh(
+          sprintList(sprintListRequest(req.params.orgSlug, req.params.slug))
+        )
+    }
   )
 
 export const sprintSections = Atom.family((req: SprintSectionsRequest) =>
@@ -325,15 +354,17 @@ const patchRow = (
       patched = found
       staysCounted = matchesTicketQuery(
         found.ticket,
-        { ...query, status: undefined },
+        { ...query, rules: withoutTicketRule(query, "status") },
         value.viewer.id,
-        value.viewer.estimation
+        value.viewer.estimation,
+        value.viewer.sprints
       )
       staysVisible = matchesTicketQuery(
         found.ticket,
         query,
         value.viewer.id,
-        value.viewer.estimation
+        value.viewer.estimation,
+        value.viewer.sprints
       )
     }
     if (found === undefined || before === undefined) return section
@@ -451,14 +482,14 @@ const insertCreated = (
   if (
     !matchesTicketQuery(
       row.ticket,
-      { ...req.query, status: undefined },
+      { ...req.query, rules: withoutTicketRule(req.query, "status") },
       undefined,
-      input.prediction.estimation
+      input.prediction.estimation,
+      withCreatedSprintTicket(value.viewer.sprints, row.ticket.id, key)
     )
   )
     return value
-  const isVisible =
-    !req.query.status?.length || req.query.status.includes(status)
+  const isVisible = matchesStatusRule(req.query, status)
   const counts = {
     total: value.counts.total + 1,
     byStatus: {

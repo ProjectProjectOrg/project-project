@@ -1,7 +1,9 @@
+import { withoutTicketRule } from "@pp/shared"
 import {
   EPIC_SECTION_NONE,
   matchesTicketQuery,
   type EpicSectionKey,
+  type Group,
   type EstimationMode,
   type Ticket,
   type TicketCounts,
@@ -36,6 +38,7 @@ export type EpicSectionsValue = Readonly<{
   viewer: Readonly<{
     id: UserId | undefined
     estimation: EstimationMode
+    sprints: ReadonlyArray<Group>
   }>
 }>
 
@@ -105,15 +108,17 @@ export const patchEpicSectionsRow = (
       patched = found
       staysCounted = matchesTicketQuery(
         found.ticket,
-        { ...query, status: undefined },
+        { ...query, rules: withoutTicketRule(query, "status") },
         value.viewer.id,
-        value.viewer.estimation
+        value.viewer.estimation,
+        value.viewer.sprints
       )
       staysVisible = matchesTicketQuery(
         found.ticket,
         query,
         value.viewer.id,
-        value.viewer.estimation
+        value.viewer.estimation,
+        value.viewer.sprints
       )
     }
     if (found === undefined) return section

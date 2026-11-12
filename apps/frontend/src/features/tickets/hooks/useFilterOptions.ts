@@ -1,5 +1,11 @@
 import { useAtomValue } from "@effect/atom-react"
-import { TicketType, type TicketFilter } from "@pp/shared"
+import {
+  sprintState,
+  TicketType,
+  type Member,
+  type TicketFilter,
+  ticketRule
+} from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
@@ -22,6 +28,7 @@ import {
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
+import { SPRINT_STATE_META } from "@/features/sprints/components/SprintChip"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import type { FilterDimension } from "@/features/tickets/components/ticket-list/toolbar/model"
 import {
@@ -38,11 +45,22 @@ import { TYPE_LABELS, TYPE_META } from "@/features/tickets/lib/ticketMeta"
 import type { IconComponent } from "@/lib/icon"
 import { m } from "@/paraglide/messages"
 
+export type FilterVisual =
+  | Readonly<{
+      kind: "icon"
+      icon: IconComponent
+      className?: string
+      color?: string
+    }>
+  | Readonly<{ kind: "color"; color: string }>
+  | Readonly<{ kind: "member"; member: Member }>
+
 export type FilterOption = Readonly<{
   key: string
   choice: FilterChoice
   label: string
   icon: IconComponent
+  visual?: FilterVisual
   chosen: boolean
 }>
 
@@ -75,10 +93,12 @@ export function useFilterOptions(
     sprintList(sprintListRequest(orgSlug, slug))
   )
   const tags = Result.isSuccess(tagsResult) ? tagsResult.value : []
+  const now = DateTime.toDate(DateTime.nowUnsafe())
   const sprints = Result.isSuccess(sprintsResult)
     ? filterableSprints(
         sprintsResult.value,
-        DateTime.toDate(DateTime.nowUnsafe())
+        now,
+        ticketRule(filter, "sprint")?.values
       )
     : []
 
@@ -88,7 +108,10 @@ export function useFilterOptions(
         return [
           {
             choice: { dimension },
-            label: m.tickets_filters_blocked_only(),
+            label:
+              ticketRule(filter, "blocked")?.operator === "isNot"
+                ? m.tickets_filters_ticket_not_blocked()
+                : m.tickets_filters_blocked_only(),
             icon: OctagonMinus
           }
         ]
@@ -96,7 +119,10 @@ export function useFilterOptions(
         return [
           {
             choice: { dimension },
-            label: m.tickets_filters_archived_show(),
+            label:
+              ticketRule(filter, "archived")?.operator === "isNot"
+                ? m.tickets_filters_ticket_not_archived()
+                : m.tickets_filters_archived_show(),
             icon: Archive
           }
         ]
@@ -104,7 +130,8 @@ export function useFilterOptions(
         return TicketType.literals.map((value) => ({
           choice: { dimension, value },
           label: TYPE_LABELS[value](),
-          icon: TYPE_META[value].icon
+          icon: TYPE_META[value].icon,
+          visual: { kind: "icon", icon: TYPE_META[value].icon }
         }))
       case "assignee":
         return [
@@ -113,33 +140,41 @@ export function useFilterOptions(
                 {
                   choice: { dimension, value: "mine" },
                   label: m.tickets_filters_assignee_mine(),
-                  icon: UserRound
+                  icon: UserRound,
+                  visual: { kind: "icon", icon: UserRound }
                 } satisfies Draft
               ]
             : []),
           {
             choice: { dimension, value: "unassigned" },
             label: m.tickets_filters_assignee_unassigned(),
-            icon: UserMinus
+            icon: UserMinus,
+            visual: { kind: "icon", icon: UserMinus }
           },
           ...project.members.map((member) => ({
             choice: { dimension, value: member.id },
             label: member.name,
-            icon: UserRound
-          }))
+            icon: UserRound,
+            visual: { kind: "member", member }
+          }) satisfies Draft)
         ]
       case "sprint":
         return [
           {
             choice: { dimension, value: "ungrouped" },
             label: m.tickets_filters_sprint_none(),
-            icon: Timer
+            icon: Timer,
+            visual: { kind: "icon", icon: Timer }
           },
           ...sprints.map((sprint) => ({
             choice: { dimension, value: sprint.id },
             label: sprint.name,
-            icon: Timer
-          }))
+            icon: Timer,
+            visual: {
+              kind: "icon",
+              ...SPRINT_STATE_META[sprintState(sprint, now)]
+            }
+          }) satisfies Draft)
         ]
       case "estimate":
         return estimateFilterValues(project.estimation).map((value) => ({
@@ -151,17 +186,19 @@ export function useFilterOptions(
         return tags.map((tag) => ({
           choice: { dimension, value: tag.name },
           label: tag.name,
-          icon: Tag
+          icon: Tag,
+          visual: { kind: "color", color: tag.color }
         }))
     }
   }
 
   return dimensions.flatMap((dimension) =>
-    drafts(dimension).map(({ choice, label, icon }) => ({
+    drafts(dimension).map(({ choice, label, icon, visual }) => ({
       key: `${choice.dimension}:${"value" in choice ? choice.value : ""}`,
       choice,
       label,
       icon,
+      visual,
       chosen: isChosen(filter, choice)
     }))
   )

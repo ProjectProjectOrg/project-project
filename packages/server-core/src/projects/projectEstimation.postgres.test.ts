@@ -167,7 +167,11 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
           "T-2",
           "T-1"
         ])
-        expect((yield* queries.count({ estimate: ["any"] })).total).toBe(1)
+        expect(
+          (yield* queries.count({
+            rules: [{ field: "estimate", operator: "is", values: ["any"] }]
+          })).total
+        ).toBe(1)
         expect((yield* projects.get()).estimation).toBe("points")
 
         document = { ...document, estimation: "tshirt" }
@@ -179,8 +183,8 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
         )
         expect(
           (yield* queries.list({
-            estimate: ["stale"],
-            sort: DEFAULT_TICKET_SORT
+            sort: DEFAULT_TICKET_SORT,
+            rules: [{ field: "estimate", operator: "is", values: ["stale"] }]
           })).items.map(({ ticket }) => ticket.id)
         ).toEqual(["T-1"])
 
@@ -199,7 +203,11 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
 
         document = { ...document, estimation: "off" }
         expect((yield* projects.get()).estimation).toBe("off")
-        expect((yield* queries.count({ estimate: ["any"] })).total).toBe(0)
+        expect(
+          (yield* queries.count({
+            rules: [{ field: "estimate", operator: "is", values: ["any"] }]
+          })).total
+        ).toBe(0)
         yield* projects.update({ estimation: "points" })
         expect(document.estimation).toBe("points")
       }).pipe(

@@ -1,5 +1,10 @@
 import { Project } from "@pp/access/roles"
-import { ProjectDetail, TicketListQuery, User } from "@pp/shared"
+import {
+  ProjectDetail,
+  TicketListQuery,
+  TicketFilterRule,
+  User
+} from "@pp/shared"
 import type { AnyRoute } from "@tanstack/react-router"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
@@ -13,6 +18,9 @@ import { ticketSearchFromQuery } from "@/features/tickets/lib/ticketSearch"
 import { Route as BacklogRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/index"
 import { Route as SprintRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId"
 import { Route as SprintIndexRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/index"
+const decodeRule = Schema.decodeUnknownSync(
+  Schema.fromJsonString(TicketFilterRule)
+)
 const decodeTicketListQuery = Schema.decodeSync(TicketListQuery)
 
 const viewer = Schema.decodeSync(User)({
@@ -136,8 +144,8 @@ it("starts backlog sections alongside metadata without waiting, even with collap
   )
   const query = decodeTicketListQuery({
     q: "search",
-    status: ["review"],
-    sort: { key: "title", dir: "desc" }
+    sort: { key: "title", dir: "desc" },
+    rules: [{ field: "status", operator: "is", values: ["review"] }]
   })
   expect(
     load(BacklogRoute.options.loader, {
@@ -150,7 +158,12 @@ it("starts backlog sections alongside metadata without waiting, even with collap
   const sections = await started("/tickets/sections")
   await started("/statuses")
   expect(sections.searchParams.get("q")).toBe("search")
-  expect(sections.searchParams.has("status")).toBe(false)
+  expect(
+    sections.searchParams
+      .getAll("rules")
+      .map((value) => decodeRule(value))
+      .some((rule) => rule.field === "status")
+  ).toBe(false)
   expect(sections.searchParams.get("sort")).toBe('{"key":"title","dir":"desc"}')
   expect(
     requests.some((url) => url.pathname.endsWith("/tickets/sprint-sections"))
@@ -164,8 +177,8 @@ it("starts only sprint sections when the viewer groups the list by sprint", asyn
   )
   const query = decodeTicketListQuery({
     q: "search",
-    status: ["review"],
-    sort: { key: "title", dir: "desc" }
+    sort: { key: "title", dir: "desc" },
+    rules: [{ field: "status", operator: "is", values: ["review"] }]
   })
   load(BacklogRoute.options.loader, {
     ...loaderDefaults(BacklogRoute),
@@ -175,7 +188,11 @@ it("starts only sprint sections when the viewer groups the list by sprint", asyn
   })
   const sprintSections = await started("/tickets/sprint-sections")
   expect(sprintSections.searchParams.get("q")).toBe("search")
-  expect(sprintSections.searchParams.get("status")).toBe("review")
+  expect(
+    sprintSections.searchParams
+      .getAll("rules")
+      .map((value) => decodeRule(value))
+  ).toContainEqual({ field: "status", operator: "is", values: ["review"] })
   expect(
     requests.some((url) => url.pathname.endsWith("/tickets/sections"))
   ).toBe(false)
@@ -193,8 +210,10 @@ it.each(["board", "list", "description"] as const)(
           ...ticketSearchFromQuery(
             decodeTicketListQuery({
               q: "needle",
-              status: ["review"],
-              groupId: ["G-2"]
+              rules: [
+                { field: "status", operator: "is", values: ["review"] },
+                { field: "sprint", operator: "is", values: ["G-2"] }
+              ]
             })
           ),
           view
@@ -212,7 +231,7 @@ it.each(["board", "list", "description"] as const)(
       expect(ticketRequests[0].searchParams.has("status")).toBe(false)
     }
     if (view === "list")
-      expect(ticketRequests[0].searchParams.get("groupId")).toBe("G-1")
+      expect(ticketRequests[0].searchParams.get("scopeGroupId")).toBe("G-1")
     if (view === "board")
       expect(ticketRequests[0].pathname).toMatch(/\/groups\/G-1\/tickets$/)
   }

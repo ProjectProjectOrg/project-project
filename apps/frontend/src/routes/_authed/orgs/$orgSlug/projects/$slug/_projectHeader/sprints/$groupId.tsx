@@ -36,7 +36,7 @@ export const Route = createFileRoute(
     deps: search
   }) => {
     const id = decodeGroupId(groupId)
-    const query = { ...ticketQueryFromSearch(search), groupId: [id] }
+    const query = { ...ticketQueryFromSearch(search), scopeGroupId: id }
     const view = search.view ?? readViewPreference(orgSlug, slug, "sprints")
     registry.mount(sprintDetail(sprintRequest(orgSlug, slug, id)))()
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()

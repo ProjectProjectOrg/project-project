@@ -7,6 +7,7 @@ import {
   sprintDateDraft,
   sprintCountdown,
   sprintDatesPatch,
+  sprintElapsed,
   startPresets,
   startSprintPatch
 } from "./sprintDates"
@@ -125,6 +126,17 @@ describe("sprintCountdown", () => {
     ["2026-05-16", { kind: "ended", days: 2 }]
   ])("on %s", (today, expected) => {
     expect(sprintCountdown({ endsAt }, noon(today))).toEqual(expected)
+  })
+})
+
+describe("sprintElapsed", () => {
+  const sprint = { startsAt: noon("2026-05-01"), endsAt: noon("2026-05-14") }
+  it.each([
+    ["2026-04-28", 0],
+    ["2026-05-08", 0.5],
+    ["2026-05-20", 1]
+  ])("on %s", (today, expected) => {
+    expect(sprintElapsed(sprint, noon(today))).toBe(expected)
   })
 })
 

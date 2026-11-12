@@ -1,12 +1,14 @@
 import type { UserId } from "../auth/User"
 import type { Estimate, EstimationMode } from "../estimates/Estimate"
 import { matchesEstimateFilter } from "../estimates/estimates"
+import type { Group } from "../groups/Group"
 import type {
   PullRequestState,
   TicketStatus,
   TicketType
 } from "../tickets/Ticket"
-import type { TicketFilter, TicketListQuery } from "./Ticket"
+import { ticketRule } from "./rules"
+import type { TicketFilter, TicketFilterRule, TicketListQuery } from "./Ticket"
 
 export type MatchableTicket = Readonly<{
   id: string
@@ -25,81 +27,88 @@ export type MatchableTicket = Readonly<{
   updatedAt: Date
 }>
 
+export function matchesTicketRule(
+  ticket: MatchableTicket,
+  rule: TicketFilterRule,
+  viewerId: UserId | undefined,
+  estimation: EstimationMode,
+  sprints: ReadonlyArray<Group> | undefined
+): boolean {
+  const positive = (): boolean => {
+    switch (rule.field) {
+      case "status":
+        return rule.values.includes(ticket.status)
+      case "type":
+        return rule.values.includes(ticket.type)
+      case "tags":
+        return rule.values.some((tag) => ticket.tags.includes(tag))
+      case "assignee":
+        return rule.values.some((value) =>
+          value === "unassigned"
+            ? ticket.assignees.length === 0
+            : ticket.assignees.some(
+                (id) => id === (value === "mine" ? viewerId : value)
+              )
+        )
+      case "estimate":
+        return matchesEstimateFilter(ticket.estimate, rule.values, estimation)
+      case "archived":
+        return ticket.archivedAt !== null
+      case "blocked":
+        return (ticket.openBlockerCount ?? 0) > 0
+      case "sprint":
+        return rule.values.some((value) =>
+          value === "ungrouped"
+            ? !sprints?.some(
+                (sprint) =>
+                  sprint.completedAt === null &&
+                  sprint.tickets.some((id) => id === ticket.id)
+              )
+            : sprints?.some(
+                (sprint) =>
+                  sprint.id === value &&
+                  sprint.tickets.some((id) => id === ticket.id)
+              ) === true
+        )
+    }
+  }
+  if (rule.field === "sprint" && sprints === undefined) return false
+  return positive() === (rule.operator === "is")
+}
+
 export const matchesTicketFilter = (
   ticket: MatchableTicket,
   filter: TicketFilter | undefined,
   viewerId?: UserId,
-  estimation: EstimationMode = "off"
+  estimation: EstimationMode = "off",
+  sprints?: ReadonlyArray<Group>
 ): boolean => {
   if (!filter) return true
-
-  if (filter.status !== undefined) {
-    if (filter.status.length === 0) return false
-    if (!filter.status.includes(ticket.status)) return false
-  }
-
   if (
-    filter.blocked !== undefined &&
-    (ticket.openBlockerCount ?? 0) > 0 !== filter.blocked
-  ) {
+    filter.rules?.some(
+      (rule) => !matchesTicketRule(ticket, rule, viewerId, estimation, sprints)
+    )
+  )
     return false
-  }
-
-  if (filter.type !== undefined) {
-    if (filter.type.length === 0) return false
-    if (!filter.type.includes(ticket.type)) return false
-  }
-
-  if (filter.assignee !== undefined) {
-    if (filter.assignee.length === 0) return false
-    const wantsUnassigned = filter.assignee.includes("unassigned")
-    const isUnassigned = ticket.assignees.length === 0
-    const hasWantedAssignee = ticket.assignees.some((ticketAssignee) =>
-      filter.assignee?.some((wantedAssignee) =>
-        wantedAssignee === "mine"
-          ? ticketAssignee === viewerId
-          : wantedAssignee === ticketAssignee
-      )
+  if (
+    filter.hasBranch !== undefined &&
+    (ticket.branch !== null) !== filter.hasBranch
+  )
+    return false
+  if (filter.hasPr !== undefined && (ticket.pr !== null) !== filter.hasPr)
+    return false
+  if (
+    filter.parent !== undefined &&
+    !filter.parent.some((wanted) =>
+      wanted === "none" ? ticket.parent == null : wanted === ticket.parent?.id
     )
-    if (!(wantsUnassigned && isUnassigned) && !hasWantedAssignee) return false
-  }
-
-  if (filter.tags !== undefined) {
-    if (filter.tags.length === 0) return false
-    if (!filter.tags.some((t) => ticket.tags.includes(t))) return false
-  }
-
-  if (filter.hasBranch !== undefined) {
-    if (filter.hasBranch && ticket.branch === null) return false
-    if (!filter.hasBranch && ticket.branch !== null) return false
-  }
-
-  if (filter.hasPr !== undefined) {
-    if (filter.hasPr && ticket.pr === null) return false
-    if (!filter.hasPr && ticket.pr !== null) return false
-  }
-
-  if (filter.estimate !== undefined) {
-    if (filter.estimate.length === 0) return false
-    if (!matchesEstimateFilter(ticket.estimate, filter.estimate, estimation))
-      return false
-  }
-
-  if (filter.parent !== undefined) {
-    const parent = ticket.parent?.id ?? null
-    if (
-      !filter.parent.some((wanted) =>
-        wanted === "none" ? parent === null : wanted === parent
-      )
-    )
-      return false
-  }
-
-  if (filter.updatedAfter !== undefined) {
-    if (ticket.updatedAt.getTime() <= filter.updatedAfter.getTime())
-      return false
-  }
-
+  )
+    return false
+  if (
+    filter.updatedAfter !== undefined &&
+    ticket.updatedAt.getTime() <= filter.updatedAfter.getTime()
+  )
+    return false
   return true
 }
 
@@ -107,24 +116,26 @@ export const matchesTicketQuery = (
   ticket: MatchableTicket,
   query: TicketFilter & Pick<TicketListQuery, "q">,
   viewerId: UserId | undefined,
-  estimation: EstimationMode
+  estimation: EstimationMode,
+  sprints?: ReadonlyArray<Group>
 ): boolean => {
-  const showArchived = query.archived === true
-  if ((ticket.archivedAt !== null) !== showArchived) return false
-
-  if (!matchesTicketFilter(ticket, query, viewerId, estimation)) return false
-
-  if (query.q !== undefined) {
-    const needle = query.q.trim().toLowerCase()
-    if (needle.length > 0) {
-      if (
-        !ticket.title.toLowerCase().includes(needle) &&
-        !ticket.id.toLowerCase().includes(needle)
-      ) {
-        return false
-      }
-    }
-  }
-
-  return true
+  if (
+    query.scopeGroupId !== undefined &&
+    !sprints?.some(
+      (sprint) =>
+        sprint.id === query.scopeGroupId &&
+        sprint.tickets.some((id) => id === ticket.id)
+    )
+  )
+    return false
+  if (ticketRule(query, "archived") === undefined && ticket.archivedAt !== null)
+    return false
+  if (!matchesTicketFilter(ticket, query, viewerId, estimation, sprints))
+    return false
+  const needle = query.q?.trim().toLowerCase()
+  return (
+    !needle ||
+    ticket.title.toLowerCase().includes(needle) ||
+    ticket.id.toLowerCase().includes(needle)
+  )
 }

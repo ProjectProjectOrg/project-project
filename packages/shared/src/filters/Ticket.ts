@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
+import * as SchemaTransformation from "effect/SchemaTransformation"
 
 import { UserId } from "../auth/User"
 import { EstimateFilterValue, EstimateSummary } from "../estimates/Estimate"
@@ -67,7 +68,8 @@ export type ParentFilter = typeof ParentFilter.Type
 export const SubTicketsMode = Schema.Literals(["nested", "flat"])
 export type SubTicketsMode = typeof SubTicketsMode.Type
 
-const TicketFilterFields = {
+export const LegacyTicketFilterFields = {
+  scopeGroupId: Schema.optional(GroupId),
   status: Schema.optional(Schema.Array(TicketStatus)).annotate({
     description: "Status slugs from `list_statuses`."
   }),
@@ -114,8 +116,176 @@ const TicketFilterFields = {
   })
 } as const
 
+const TicketRuleOperator = Schema.Literals(["is", "isNot"])
+
+export const TicketFilterRule = Schema.Union([
+  Schema.Struct({
+    field: Schema.Literal("status"),
+    operator: TicketRuleOperator,
+    values: Schema.Array(TicketStatus)
+  }),
+  Schema.Struct({
+    field: Schema.Literal("type"),
+    operator: TicketRuleOperator,
+    values: Schema.Array(TicketType)
+  }),
+  Schema.Struct({
+    field: Schema.Literal("assignee"),
+    operator: TicketRuleOperator,
+    values: Schema.Array(AssigneeFilter)
+  }),
+  Schema.Struct({
+    field: Schema.Literal("tags"),
+    operator: TicketRuleOperator,
+    values: Schema.Array(TagName)
+  }),
+  Schema.Struct({
+    field: Schema.Literal("sprint"),
+    operator: TicketRuleOperator,
+    values: Schema.Array(GroupIdFilter)
+  }),
+  Schema.Struct({
+    field: Schema.Literal("estimate"),
+    operator: TicketRuleOperator,
+    values: Schema.Array(EstimateFilterValue)
+  }),
+  Schema.Struct({
+    field: Schema.Literal("archived"),
+    operator: TicketRuleOperator
+  }),
+  Schema.Struct({
+    field: Schema.Literal("blocked"),
+    operator: TicketRuleOperator
+  })
+]).pipe(
+  Schema.check(
+    Schema.makeFilter(
+      (rule) =>
+        !("values" in rule) ||
+        new Set<string>(rule.values).size === rule.values.length ||
+        "Filter values must be unique"
+    )
+  )
+)
+export type TicketFilterRule = typeof TicketFilterRule.Type
+
+export const TicketFilterRules = Schema.Array(TicketFilterRule).pipe(
+  Schema.check(
+    Schema.makeFilter(
+      (rules) =>
+        new Set(rules.map((rule) => rule.field)).size === rules.length ||
+        "A field can only have one filter rule"
+    )
+  )
+)
+
+const TicketFilterFields = {
+  scopeGroupId: LegacyTicketFilterFields.scopeGroupId,
+  rules: Schema.optional(TicketFilterRules),
+  hasBranch: LegacyTicketFilterFields.hasBranch,
+  hasPr: LegacyTicketFilterFields.hasPr,
+  updatedAfter: LegacyTicketFilterFields.updatedAfter,
+  parent: LegacyTicketFilterFields.parent,
+  subTickets: LegacyTicketFilterFields.subTickets
+} as const
+
 export const TicketFilter = Schema.Struct(TicketFilterFields)
 export type TicketFilter = typeof TicketFilter.Type
+
+const legacyRuleKeys = [
+  "status",
+  "type",
+  "assignee",
+  "tags",
+  "groupId",
+  "estimate",
+  "archived",
+  "blocked"
+] as const
+const LegacyTicketFilter = Schema.Struct(LegacyTicketFilterFields)
+
+export function ticketFilterFromLegacy(
+  input: typeof LegacyTicketFilter.Type
+): TicketFilter {
+  const rules: Array<TicketFilterRule> = []
+  if (input.status !== undefined)
+    rules.push({
+      field: "status",
+      operator: "is",
+      values: [...new Set(input.status)]
+    })
+  if (input.type !== undefined)
+    rules.push({
+      field: "type",
+      operator: "is",
+      values: [...new Set(input.type)]
+    })
+  if (input.assignee !== undefined)
+    rules.push({
+      field: "assignee",
+      operator: "is",
+      values: [...new Set(input.assignee)]
+    })
+  if (input.tags !== undefined)
+    rules.push({
+      field: "tags",
+      operator: "is",
+      values: [...new Set(input.tags)]
+    })
+  if (input.groupId !== undefined)
+    rules.push({
+      field: "sprint",
+      operator: "is",
+      values: [...new Set(input.groupId)]
+    })
+  if (input.estimate !== undefined)
+    rules.push({
+      field: "estimate",
+      operator: "is",
+      values: [...new Set(input.estimate)]
+    })
+  if (input.archived !== undefined)
+    rules.push({ field: "archived", operator: input.archived ? "is" : "isNot" })
+  if (input.blocked !== undefined)
+    rules.push({ field: "blocked", operator: input.blocked ? "is" : "isNot" })
+  return {
+    scopeGroupId: input.scopeGroupId,
+    rules: rules.length ? rules : undefined,
+    hasBranch: input.hasBranch,
+    hasPr: input.hasPr,
+    updatedAfter: input.updatedAfter,
+    parent: input.parent,
+    subTickets: input.subTickets
+  }
+}
+
+export const TicketFilterInput = Schema.Struct({
+  ...LegacyTicketFilterFields,
+  rules: TicketFilterFields.rules
+})
+
+export const validTicketFilterInput = Schema.makeFilter(
+  (input: typeof TicketFilterInput.Type) =>
+    input.rules === undefined ||
+    !legacyRuleKeys.some((key) => input[key] !== undefined) ||
+    "Use rules or legacy filter fields, not both"
+)
+
+export function ticketFilterFromInput(
+  input: typeof TicketFilterInput.Type
+): TicketFilter {
+  return input.rules === undefined
+    ? ticketFilterFromLegacy(input)
+    : {
+        scopeGroupId: input.scopeGroupId,
+        rules: input.rules,
+        hasBranch: input.hasBranch,
+        hasPr: input.hasPr,
+        updatedAfter: input.updatedAfter,
+        parent: input.parent,
+        subTickets: input.subTickets
+      }
+}
 
 export const TICKET_LIST_LIMIT = 50
 
@@ -137,9 +307,35 @@ export const TicketListQuery = TicketFilter.pipe(
 )
 export type TicketListQuery = typeof TicketListQuery.Type
 
+export const TicketListQueryInput = Schema.Struct({
+  ...TicketFilterInput.fields,
+  sort: TicketListQuery.fields.sort,
+  q: TicketListQuery.fields.q,
+  cursor: TicketListQuery.fields.cursor
+})
+
+export const ticketListQueryInputTransformation =
+  SchemaTransformation.transform({
+    decode: (input: typeof TicketListQueryInput.Type): TicketListQuery => ({
+      ...ticketFilterFromInput(input),
+      sort: input.sort,
+      q: input.q,
+      cursor: input.cursor
+    }),
+    encode: (query: TicketListQuery): typeof TicketListQueryInput.Type => query
+  })
+
+export const TicketListQueryCompatibility = TicketListQueryInput.pipe(
+  Schema.check(validTicketFilterInput),
+  Schema.decodeTo(
+    Schema.toType(TicketListQuery),
+    ticketListQueryInputTransformation
+  )
+)
+
 export const TicketSection = Schema.Struct({
-  status: TicketFilterFields.status,
-  groupId: TicketFilterFields.groupId,
+  status: LegacyTicketFilterFields.status,
+  groupId: LegacyTicketFilterFields.groupId,
   parent: TicketFilterFields.parent,
   ticketParent: TicketFilterFields.parent
 })
@@ -243,10 +439,39 @@ export const TicketCounts = Schema.Struct({
 })
 export type TicketCounts = typeof TicketCounts.Type
 
+export const TicketFacetField = Schema.Literals([
+  "type",
+  "tags",
+  "assignee",
+  "estimate",
+  "sprint"
+])
+export type TicketFacetField = typeof TicketFacetField.Type
+
+export const TicketFacetCounts = Schema.Record(Schema.String, Schema.Finite)
+export type TicketFacetCounts = typeof TicketFacetCounts.Type
+
 export const TicketCountQuery = TicketFilter.pipe(
   Schema.fieldsAssign({ q: Schema.optional(Schema.String) })
 )
 export type TicketCountQuery = typeof TicketCountQuery.Type
+
+export const TicketCountQueryCompatibility = Schema.Struct({
+  ...TicketFilterInput.fields,
+  q: TicketCountQuery.fields.q
+}).pipe(
+  Schema.check(validTicketFilterInput),
+  Schema.decodeTo(
+    Schema.toType(TicketCountQuery),
+    SchemaTransformation.transform({
+      decode: (input): TicketCountQuery => ({
+        ...ticketFilterFromInput(input),
+        q: input.q
+      }),
+      encode: (query: TicketCountQuery) => query
+    })
+  )
+)
 
 export const TicketSearchQuery = Schema.Struct({
   q: Schema.optional(Schema.String),
@@ -340,6 +565,19 @@ export const TicketViewSource = Schema.Union([
   })
 ])
 export type TicketViewSource = typeof TicketViewSource.Type
+
+export const TicketViewSourceCompatibility = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("sections"),
+    grouping: BacklogGrouping,
+    query: TicketListQueryCompatibility
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("sprintBoard"),
+    groupId: GroupId,
+    query: TicketListQueryCompatibility
+  })
+])
 
 export const TicketNeighbor = Schema.Struct({
   id: Ticket.fields.id,

@@ -339,7 +339,12 @@ function DropdownMenuRadioGroup<
       }}
     >
       {items.map(({ label, textValue, ...item }) => (
-        <DropdownMenuRadioItem key={item.value} label={textValue} {...item}>
+        <DropdownMenuRadioItem
+          key={item.value}
+          label={textValue}
+          data-value={item.value}
+          {...item}
+        >
           {label}
         </DropdownMenuRadioItem>
       ))}

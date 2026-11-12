@@ -675,8 +675,8 @@ describe("ticket membership mutations", () => {
     const destination = sprintBoard(boardRequest("acme", "web", otherGroupId))
     const filtered = backlog(
       backlogRequest("acme", "web", {
-        groupId: [otherGroupId],
-        sort: { key: "id", dir: "asc" }
+        sort: { key: "id", dir: "asc" },
+        rules: [{ field: "sprint", operator: "is", values: [otherGroupId] }]
       })
     )
     const add = addTicketsToSprint({ req, ticketId: ticketA })

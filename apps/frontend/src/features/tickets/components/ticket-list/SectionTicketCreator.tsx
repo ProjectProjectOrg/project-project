@@ -1,4 +1,5 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
+import { ticketRule } from "@pp/shared"
 import {
   EPIC_SECTION_NONE,
   GroupId,
@@ -125,9 +126,14 @@ function SprintSectionTicketCreator(
   props: CreatorProps & Readonly<{ req: SprintSectionsRequest }>
 ) {
   const { req, query } = props
+  const sprintRule = ticketRule(query, "sprint")
+  const selectedSprint =
+    query.scopeGroupId ??
+    (sprintRule?.operator === "is" ? sprintRule.values[0] : undefined)
   const key = sprintSectionKey(
-    isGroupId(query.groupId?.[0]) ? query.groupId[0] : null
+    isGroupId(selectedSprint) ? selectedSprint : null
   )
+
   const create = useAtomSet(quickCreateSprintSectionsTicket({ req, key }), {
     mode: "promiseExit"
   })
@@ -211,7 +217,11 @@ function SectionCreatorForm({
     [sprintListResult]
   )
 
-  const groupIdFilter = query.groupId
+  const groupIdFilter = query.scopeGroupId
+    ? [query.scopeGroupId]
+    : ticketRule(query, "sprint")?.operator === "is"
+      ? ticketRule(query, "sprint")?.values
+      : undefined
   const singleGroupIdFilter =
     groupIdFilter && groupIdFilter.length === 1 ? groupIdFilter[0] : undefined
   const activeSprintId = isGroupId(singleGroupIdFilter)

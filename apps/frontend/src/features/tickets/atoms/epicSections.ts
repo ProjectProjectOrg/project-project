@@ -1,3 +1,10 @@
+import { ticketRule } from "@pp/shared"
+import { type Group } from "@pp/shared"
+import {
+  withoutTicketRule,
+  matchesStatusRule,
+  nonEpicTicketRules
+} from "@pp/shared"
 import {
   matchesTicketQuery,
   type EpicSectionKey,
@@ -20,12 +27,17 @@ import {
   projectEstimation,
   projectRequest
 } from "@/features/projects/atoms/projects"
+import {
+  sprintList,
+  sprintListRequest
+} from "@/features/sprints/atoms/sprintList"
 import type { ParentGrouping } from "@/features/tickets/lib/backlogGrouping"
 import {
   patchEpicSectionsRow,
   replaceEpicSectionsRow,
   type EpicSectionsValue
 } from "@/features/tickets/lib/epicSectionRows"
+import { canonicalTicketQuery } from "@/features/tickets/lib/ticketFilters"
 import {
   placeholderRow,
   toRow,
@@ -60,10 +72,10 @@ export const epicSectionsRequest = (
   _view: "epicSections",
   by,
   params: { orgSlug, slug },
-  query: {
+  query: canonicalTicketQuery({
     ...viewQuery(query),
     cursor: undefined
-  }
+  })
 })
 
 const scopeOf = (req: EpicSectionsRequest) =>
@@ -95,7 +107,7 @@ const pageQuery = (
     params: req.params,
     query: {
       ...req.query,
-      type: req.query.type?.filter((type) => type !== "epic"),
+      rules: nonEpicTicketRules(req.query),
       section: req.by === "epic" ? { parent: [key] } : { ticketParent: [key] },
       cursor
     },
@@ -127,13 +139,24 @@ const epicSectionsView = (req: EpicSectionsRequest) =>
   Atom.readable(
     (get) => {
       const base = get(snapshotQuery(req))
-      const viewer = viewerOf(get, req)
-      if (!AsyncResult.isSuccess(base)) {
-        return AsyncResult.map(base, () => emptyEpicSections(viewer))
+      const membership =
+        ticketRule(req.query, "sprint") || req.query.scopeGroupId
+          ? get(
+              sprintList(sprintListRequest(req.params.orgSlug, req.params.slug))
+            )
+          : AsyncResult.success<ReadonlyArray<Group>>([])
+      const viewer = {
+        ...viewerOf(get, req),
+        sprints: AsyncResult.isSuccess(membership) ? membership.value : []
+      }
+      if (!AsyncResult.isSuccess(base) || !AsyncResult.isSuccess(membership)) {
+        return AsyncResult.map(AsyncResult.all([base, membership]), () =>
+          emptyEpicSections(viewer)
+        )
       }
       const loaded = get(loadedPagesAtom(req))
       const created = get(createdKeys(scopeOf(req)))
-      let waiting = base.waiting
+      let waiting = base.waiting || membership.waiting
       const sections = base.value.sections.map((section) => {
         const pages = readLoadedPages(
           get,
@@ -162,7 +185,13 @@ const epicSectionsView = (req: EpicSectionsRequest) =>
         { waiting }
       )
     },
-    (refresh) => refresh(snapshotQuery(req))
+    (refresh) => {
+      refresh(snapshotQuery(req))
+      if (ticketRule(req.query, "sprint") || req.query.scopeGroupId)
+        refresh(
+          sprintList(sprintListRequest(req.params.orgSlug, req.params.slug))
+        )
+    }
   )
 
 export const epicSections = Atom.family((req: EpicSectionsRequest) =>
@@ -244,9 +273,10 @@ const insertCreated = (
   if (
     !matchesTicketQuery(
       row.ticket,
-      { ...req.query, status: undefined },
+      { ...req.query, rules: withoutTicketRule(req.query, "status") },
       undefined,
-      input.prediction.estimation
+      input.prediction.estimation,
+      value.viewer.sprints
     )
   )
     return value
@@ -257,7 +287,7 @@ const insertCreated = (
       [status]: (value.counts.byStatus[status] ?? 0) + 1
     }
   }
-  if (req.query.status?.length && !req.query.status.includes(status)) {
+  if (!matchesStatusRule(req.query, status)) {
     return { ...value, counts }
   }
   return {

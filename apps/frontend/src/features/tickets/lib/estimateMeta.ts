@@ -1,4 +1,10 @@
 import {
+  ticketRule,
+  withTicketRule,
+  withoutTicketRule,
+  type TicketFilter
+} from "@pp/shared"
+import {
   DEFAULT_TICKET_SORT,
   ESTIMATE_MAX_MINUTES,
   ESTIMATE_MAX_POINTS,
@@ -117,3 +123,16 @@ export const isEmptyEstimateSummary = (summary: EstimateSummary): boolean =>
   (summary.unit === "tshirt"
     ? ESTIMATE_SIZES.every((size) => summary.sizes[size] === 0)
     : summary.committed === 0)
+
+export function normalizeEstimateRules(
+  mode: EstimationMode,
+  filter: TicketFilter
+): TicketFilter["rules"] {
+  const rule = ticketRule(filter, "estimate")
+  if (!rule) return filter.rules
+  const values = normalizeEstimateFilter(mode, rule.values)
+  if (values?.length === rule.values.length) return filter.rules
+  return values
+    ? withTicketRule(filter, { ...rule, values })
+    : withoutTicketRule(filter, "estimate")
+}

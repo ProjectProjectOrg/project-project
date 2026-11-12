@@ -1,4 +1,5 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import { ticketRule } from "@pp/shared"
 import type { Member, TicketListQuery } from "@pp/shared"
 import * as Equal from "effect/Equal"
 import * as Option from "effect/Option"
@@ -19,6 +20,7 @@ import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
 
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { SegmentedList } from "./SegmentedList"
+import { useReportShownQuery } from "./shownQuery"
 import { CreatorActiveScope, DimWhileCreating } from "./TicketCreatorShell"
 import { useDeferredOnRequestChange } from "./useDeferredOnRequestChange"
 import { useSubTicketsSettled } from "./useSubTicketsSettled"
@@ -109,7 +111,7 @@ function StatusSections({
   } | null>(null)
   const subTicketsSettled = useSubTicketsSettled(
     Result.isSuccess(result) ? result.value : null,
-    query.status,
+    ticketRule(query, "status")?.values,
     showAlternate
   )
   const current =
@@ -133,6 +135,7 @@ function StatusSections({
           )
         }
   const active = useDeferredOnRequestChange(latest)
+  useReportShownQuery(active?.query)
   const renderSections = () =>
     active ? (
       <TicketViewSourceContext

@@ -1,4 +1,9 @@
-import { GroupId, TicketListQuery } from "@pp/shared"
+import {
+  GroupId,
+  TicketListQuery,
+  ticketRule,
+  withoutTicketRule
+} from "@pp/shared"
 import { useMatches, useNavigate, useRouter } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 import { Activity, useEffect, useMemo, useState } from "react"
@@ -9,8 +14,10 @@ import {
 } from "@/features/projects/hooks/useProject"
 import {
   normalizeEstimateFilter,
+  normalizeEstimateRules,
   normalizeEstimateSort
 } from "@/features/tickets/lib/estimateMeta"
+import { restoreStatusRule } from "@/features/tickets/lib/ticketFilters"
 import {
   ticketQueryFromSearch,
   ticketSearchFromQuery,
@@ -26,9 +33,9 @@ const decodeGroupId = Schema.decodeUnknownSync(GroupId)
 const defaultTicketListQuery = Schema.decodeSync(TicketListQuery)({})
 
 const forView = (query: TicketListQuery, view: string): TicketListQuery => {
-  if (view !== "board" || query.status === undefined) return query
-  const { status: _status, ...rest } = query
-  return rest
+  return view === "board"
+    ? { ...query, rules: withoutTicketRule(query, "status") }
+    : query
 }
 
 export function RetainedProjectViews() {
@@ -76,7 +83,9 @@ export function RetainedProjectViews() {
   const normalizedSort = activeSort
     ? normalizeEstimateSort(estimation, activeSort)
     : undefined
-  const activeEstimate = (sprint ?? backlog)?.search.estimate
+  const activeEstimate = activeQuery
+    ? ticketRule(activeQuery, "estimate")?.values
+    : undefined
   const normalizedEstimate = useMemo(
     () => normalizeEstimateFilter(estimation, activeEstimate),
     [estimation, activeEstimate]
@@ -94,7 +103,7 @@ export function RetainedProjectViews() {
       search: (previous) => ({
         ...ticketSearchFromQuery({
           ...activeQuery,
-          estimate: normalizedEstimate,
+          rules: normalizeEstimateRules(estimation, activeQuery),
           sort: normalizedSort ?? activeQuery.sort,
           cursor: undefined
         }),
@@ -105,6 +114,7 @@ export function RetainedProjectViews() {
     })
   }, [
     activeQuery,
+    estimation,
     normalizedEstimate,
     activeEstimate,
     normalizedSort,
@@ -125,18 +135,20 @@ export function RetainedProjectViews() {
     "sprints"
   ).view
   const boardActive = (sprint ? sprintView : backlogView) === "board"
-  const querySearch = (
-    query: TicketListQuery,
-    previous: Pick<TicketListSearch, "status">
-  ) => {
+  const querySearch = (query: TicketListQuery, previous: TicketListSearch) => {
     const nextSearch = ticketSearchFromQuery({
       ...query,
-      estimate: normalizeEstimateFilter(estimation, query.estimate),
+      rules: normalizeEstimateRules(estimation, query),
       sort: normalizeEstimateSort(estimation, query.sort)
     })
     return {
       ...nextSearch,
-      status: boardActive ? previous.status : nextSearch.status,
+      rule: boardActive
+        ? ticketSearchFromQuery({
+            ...query,
+            rules: restoreStatusRule(query, ticketQueryFromSearch(previous))
+          }).rule
+        : nextSearch.rule,
       cursor: undefined
     }
   }
@@ -151,22 +163,12 @@ export function RetainedProjectViews() {
       resetScroll: false
     })
   }
-  const prefetchQuery = (query: TicketListQuery) => {
-    void router.preloadRoute({
-      to: router.state.location.pathname,
-      search: (previous) => ({
-        ...querySearch(query, previous),
-        view: previous.view
-      })
-    })
-  }
   const backlogQuery = useMemo(() => {
     if (!lastBacklog) return defaultTicketListQuery
     const query = ticketQueryFromSearch(lastBacklog)
-    const normalized = normalizeEstimateFilter(estimation, query.estimate)
     const next = {
       ...query,
-      estimate: normalized,
+      rules: normalizeEstimateRules(estimation, query),
       sort: normalizeEstimateSort(estimation, query.sort)
     }
     return forView(next, backlogView)
@@ -175,12 +177,11 @@ export function RetainedProjectViews() {
   const sprintQuery = useMemo(() => {
     if (!lastSprint) return defaultTicketListQuery
     const query = ticketQueryFromSearch(lastSprint.search)
-    const normalized = normalizeEstimateFilter(estimation, query.estimate)
     const next = {
       ...query,
-      estimate: normalized,
+      rules: normalizeEstimateRules(estimation, query),
       sort: normalizeEstimateSort(estimation, query.sort),
-      groupId: sprintId ? [sprintId] : query.groupId
+      scopeGroupId: sprintId ?? undefined
     }
     return forView(next, sprintView)
   }, [lastSprint, sprintId, estimation, sprintView])
@@ -193,7 +194,6 @@ export function RetainedProjectViews() {
           view={sprint ? sprintView : backlogView}
           query={sprint ? sprintQuery : backlogQuery}
           onQueryChange={updateQuery}
-          onQueryPrefetch={prefetchQuery}
         >
           {({ grouping, preferencesKey, reorder }) => (
             <>

@@ -1,4 +1,4 @@
-import type { TicketListQuery } from "@pp/shared"
+import { ticketRule, type TicketListQuery } from "@pp/shared"
 import { FilterX, SlidersHorizontal } from "lucide-react"
 import { useMemo } from "react"
 
@@ -56,7 +56,10 @@ export function ViewFilterCommandScope({
               icon: FilterX,
               keywords: ["reset", "remove filters"],
               run: (_context, env) => {
-                onQueryChange({ ...query, ...clearedFilters(dimensions) })
+                onQueryChange({
+                  ...query,
+                  ...clearedFilters(query, dimensions)
+                })
                 env.close()
               }
             } satisfies Command
@@ -69,7 +72,9 @@ export function ViewFilterCommandScope({
           searchOnly: true,
           parent: option.chosen
             ? m.tickets_command_filter_remove_parent
-            : m.tickets_command_filter_parent,
+            : ticketRule(query, option.choice.dimension)?.operator === "isNot"
+              ? m.tickets_command_filter_exclude_parent
+              : m.tickets_command_filter_parent,
           label: () =>
             isValueDimension(option.choice.dimension)
               ? m.tickets_command_filter_value({

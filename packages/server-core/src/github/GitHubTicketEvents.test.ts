@@ -133,6 +133,7 @@ const makeFakeIndex = (overrides: Partial<FakeIndexShape> = {}) => {
     mentionableIds: () => Effect.succeed(new Set()),
     movedTo: () => Effect.succeed(null),
     reserveTicketNumber: () => Effect.succeed(1),
+    facetCounts: () => Effect.succeed({}),
     tagUsageCounts: () => Effect.succeed({}),
     findTicketIdsByTag: () => Effect.succeed([]),
     findTicketIdsByStatus: () => Effect.succeed([]),

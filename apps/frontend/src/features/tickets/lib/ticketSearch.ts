@@ -12,6 +12,9 @@ import {
   TagName,
   TicketId,
   TicketListQuery,
+  TicketListQueryCompatibility,
+  TicketFilterRule,
+  TicketFilterRules,
   TicketStatus,
   TicketType,
   type TicketViewSource
@@ -31,7 +34,30 @@ const DateSearch = Schema.String.pipe(
   Schema.check(Schema.makeFilter((value) => Option.isSome(decodeDate(value))))
 )
 
-export const TicketListSearch = Schema.Struct({
+const RuleParam = Schema.fromJsonString(TicketFilterRule)
+const decodeRule = Schema.decodeUnknownSync(RuleParam)
+const encodeRule = Schema.encodeSync(RuleParam)
+const validRule = Schema.decodeUnknownOption(RuleParam)
+
+const TicketListSearchInput = Schema.Struct({
+  scopeGroupId: Schema.optional(GroupId),
+  rule: Schema.optional(
+    Schema.ArrayEnsure(
+      Schema.String.pipe(
+        Schema.check(
+          Schema.makeFilter((value) => Option.isSome(validRule(value)))
+        )
+      )
+    ).pipe(
+      Schema.check(
+        Schema.makeFilter(
+          (values) =>
+            new Set(values.map((value) => decodeRule(value).field)).size ===
+              values.length || "A field can only have one filter rule"
+        )
+      )
+    )
+  ),
   status: Schema.optional(Schema.ArrayEnsure(TicketStatus)),
   type: Schema.optional(Schema.ArrayEnsure(TicketType)),
   assignee: Schema.optional(Schema.ArrayEnsure(AssigneeFilter)),
@@ -50,31 +76,54 @@ export const TicketListSearch = Schema.Struct({
   q: TicketListQuery.fields.q,
   cursor: TicketListQuery.fields.cursor
 })
+
+const validSearch = Schema.makeFilter(
+  (search: typeof TicketListSearchInput.Type) =>
+    search.rule === undefined ||
+    ![
+      search.status,
+      search.type,
+      search.assignee,
+      search.tags,
+      search.groupId,
+      search.estimate,
+      search.archived,
+      search.blocked
+    ].some((value) => value !== undefined) ||
+    "Use rules or legacy filter fields, not both"
+)
+export const TicketListSearch = TicketListSearchInput.pipe(
+  Schema.check(validSearch)
+)
 export type TicketListSearch = typeof TicketListSearch.Type
 
 export const BacklogSearch = TicketListSearch.pipe(
   Schema.fieldsAssign({
     view: Schema.optional(Schema.Literals(["list", "board"]))
-  })
+  }),
+  Schema.check(validSearch)
 )
 
 export const SprintSearch = TicketListSearch.pipe(
   Schema.fieldsAssign({
     view: Schema.optional(Schema.Literals(["list", "board", "description"]))
-  })
+  }),
+  Schema.check(validSearch)
 )
 
 const SectionSearch = TicketListSearch.pipe(
   Schema.fieldsAssign({
     from: Schema.Literal("sections"),
     group: BacklogGrouping
-  })
+  }),
+  Schema.check(validSearch)
 )
 const SprintBoardSearch = TicketListSearch.pipe(
   Schema.fieldsAssign({
     from: Schema.Literal("sprintBoard"),
     sprint: GroupId
-  })
+  }),
+  Schema.check(validSearch)
 )
 
 export type TicketNavigationSearch =
@@ -89,8 +138,14 @@ const TicketActions = {
 }
 
 export const TicketDetailSearch = Schema.Union([
-  SectionSearch.pipe(Schema.fieldsAssign(TicketActions)),
-  SprintBoardSearch.pipe(Schema.fieldsAssign(TicketActions)),
+  SectionSearch.pipe(
+    Schema.fieldsAssign(TicketActions),
+    Schema.check(validSearch)
+  ),
+  SprintBoardSearch.pipe(
+    Schema.fieldsAssign(TicketActions),
+    Schema.check(validSearch)
+  ),
   Schema.Struct({
     ...TicketActions,
     from: Schema.optional(Schema.Undefined).pipe(
@@ -101,14 +156,20 @@ export const TicketDetailSearch = Schema.Union([
 export type TicketDetailSearch = typeof TicketDetailSearch.Type
 
 const decodeQuery = Schema.decodeUnknownSync(
-  Schema.toCodecStringTree(TicketListQuery)
+  Schema.toCodecStringTree(TicketListQueryCompatibility)
 )
 
 export function ticketQueryFromSearch(
   search: TicketListSearch
 ): TicketListQuery {
+  const { rule, ...fields } = search
   return decodeQuery({
-    ...search,
+    ...fields,
+    rules: rule
+      ? Schema.decodeUnknownSync(TicketFilterRules)(
+          rule.map((value) => decodeRule(value))
+        )
+      : undefined,
     sort: {
       key: search.sort ?? DEFAULT_TICKET_SORT.key,
       dir: search.dir ?? DEFAULT_TICKET_SORT.dir
@@ -119,8 +180,7 @@ export function ticketQueryFromSearch(
 export function ticketSearchFromQuery(
   query: TicketListQuery
 ): TicketListSearch {
-  const { sort, hasBranch, hasPr, archived, blocked, updatedAfter, ...filter } =
-    query
+  const { sort, hasBranch, hasPr, rules, updatedAfter, ...filter } = query
   const defaultSort =
     sort.key === DEFAULT_TICKET_SORT.key && sort.dir === DEFAULT_TICKET_SORT.dir
   return {
@@ -128,8 +188,7 @@ export function ticketSearchFromQuery(
     updatedAfter: updatedAfter?.toISOString(),
     hasBranch: encodeBoolean(hasBranch),
     hasPr: encodeBoolean(hasPr),
-    archived: encodeBoolean(archived),
-    blocked: encodeBoolean(blocked),
+    rule: rules?.length ? rules.map((rule) => encodeRule(rule)) : undefined,
     sort: defaultSort ? undefined : query.sort.key,
     dir: defaultSort ? undefined : query.sort.dir
   }

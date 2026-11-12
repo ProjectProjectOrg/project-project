@@ -11,6 +11,11 @@ import {
   ticketRelationIndex
 } from "@pp/db/schema"
 import {
+  ticketRule,
+  withoutTicketRule,
+  type TicketFilterRule
+} from "@pp/shared"
+import {
   type ActivityActor,
   type ChecksStatus,
   type PullRequestState,
@@ -104,6 +109,13 @@ export interface TicketIndexCountOptions {
   readonly ticketIds?: ReadonlyArray<string>
   readonly excludeTicketIds?: ReadonlyArray<string>
 }
+
+export type TicketIndexFacet =
+  | Readonly<{ field: "type" | "tags" | "assignee" | "estimate" }>
+  | Readonly<{
+      field: "sprint"
+      buckets: Readonly<Record<string, ReadonlyArray<string>>>
+    }>
 
 export interface TicketIndexCounts {
   readonly total: number
@@ -341,6 +353,12 @@ export class TicketIndex extends Context.Service<
       query: TicketCountQuery,
       options: TicketIndexCountOptions
     ) => Effect.Effect<TicketIndexCounts>
+    facetCounts: (
+      project: TicketProject,
+      query: TicketCountQuery,
+      options: TicketIndexCountOptions,
+      facet: TicketIndexFacet
+    ) => Effect.Effect<Readonly<Record<string, number>>>
     listIds: (project: TicketProject) => Effect.Effect<ReadonlyArray<string>>
     existingIds: (
       project: TicketProject,
@@ -859,6 +877,52 @@ const subTicketsInSection = (within: NestWithin | undefined) =>
         drizzleSql`${nestKey(within, childRow)} = ${nestKey(within, parentRow)}`
       ).as("sub_tickets_in_section")
 
+const ticketRuleCondition = (rule: TicketFilterRule, viewerId: string): SQL => {
+  const positive = (): SQL => {
+    switch (rule.field) {
+      case "status":
+        return statusCondition(rule.values)
+      case "type":
+        return rule.values.length
+          ? inArray(ticketIndex.type, [...rule.values])
+          : drizzleSql`false`
+      case "tags":
+        return rule.values.length
+          ? arrayOverlaps(ticketIndex.tags, [...rule.values])
+          : drizzleSql`false`
+      case "assignee": {
+        const values = rule.values.map((value) =>
+          value === "mine" ? viewerId : value
+        )
+        const ids = values.filter((value) => value !== "unassigned")
+        return (
+          or(
+            ...(values.includes("unassigned")
+              ? [drizzleSql`cardinality(${ticketIndex.assignees}) = 0`]
+              : []),
+            ...(ids.length ? [arrayOverlaps(ticketIndex.assignees, ids)] : [])
+          ) ?? drizzleSql`false`
+        )
+      }
+      case "estimate":
+        return (
+          or(...rule.values.map(estimateFilterCondition)) ?? drizzleSql`false`
+        )
+      case "archived":
+        return isNotNull(ticketIndex.archivedAt)
+      case "blocked":
+        return drizzleSql`${openBlockerCountOf(parentRow)} > 0`
+      case "sprint":
+        return drizzleSql`true`
+    }
+  }
+  if (rule.field === "sprint") return drizzleSql`true`
+  const condition = positive()
+  return rule.operator === "is"
+    ? condition
+    : drizzleSql`not coalesce((${condition}), false)`
+}
+
 const ticketWhereConditions = (
   project: TicketProject,
   query: TicketFilter & Pick<TicketListQuery, "q">,
@@ -867,9 +931,12 @@ const ticketWhereConditions = (
   const filter = query
   const conditions: Array<SQL> = [
     eq(ticketIndex.projectId, project.projectId),
-    filter?.archived === true
-      ? isNotNull(ticketIndex.archivedAt)
-      : isNull(ticketIndex.archivedAt)
+    ...(ticketRule(filter, "archived") === undefined
+      ? [isNull(ticketIndex.archivedAt)]
+      : []),
+    ...(filter.rules ?? []).map((rule) =>
+      ticketRuleCondition(rule, options.viewerId)
+    )
   ]
   if (options.ticketIds !== undefined) {
     conditions.push(ticketIdsCondition(options.ticketIds))
@@ -879,43 +946,6 @@ const ticketWhereConditions = (
       drizzleSql`${ticketIndex.ticketId} <> all(${drizzleSql.param([
         ...options.excludeTicketIds
       ])}::text[])`
-    )
-  }
-  if (filter?.status !== undefined) {
-    conditions.push(statusCondition(filter.status))
-  }
-  if (filter?.type !== undefined) {
-    conditions.push(
-      filter.type.length === 0
-        ? drizzleSql`false`
-        : inArray(ticketIndex.type, [...filter.type])
-    )
-  }
-  if (filter?.assignee !== undefined) {
-    const assignees = filter.assignee.map((assignee) =>
-      assignee === "mine" ? options.viewerId : assignee
-    )
-    const requestedIds = assignees.filter(
-      (assignee) => assignee !== "unassigned"
-    )
-    const assigneeConditions: Array<SQL> = []
-    if (assignees.includes("unassigned")) {
-      assigneeConditions.push(
-        drizzleSql`cardinality(${ticketIndex.assignees}) = 0`
-      )
-    }
-    if (requestedIds.length > 0) {
-      assigneeConditions.push(
-        arrayOverlaps(ticketIndex.assignees, requestedIds)
-      )
-    }
-    conditions.push(or(...assigneeConditions) ?? drizzleSql`false`)
-  }
-  if (filter?.tags !== undefined) {
-    conditions.push(
-      filter.tags.length === 0
-        ? drizzleSql`false`
-        : arrayOverlaps(ticketIndex.tags, [...filter.tags])
     )
   }
   if (filter?.hasBranch !== undefined) {
@@ -932,13 +962,6 @@ const ticketWhereConditions = (
   }
   if (filter?.parent !== undefined) {
     conditions.push(parentCondition(filter.parent))
-  }
-  if (filter?.blocked !== undefined) {
-    conditions.push(
-      filter.blocked
-        ? drizzleSql`${openBlockerCountOf(parentRow)} > 0`
-        : drizzleSql`${openBlockerCountOf(parentRow)} = 0`
-    )
   }
   if (filter?.subTickets === "nested") {
     const matchingParents = and(
@@ -962,11 +985,6 @@ const ticketWhereConditions = (
   }
   if (filter?.updatedAfter !== undefined) {
     conditions.push(gt(ticketIndex.updatedAt, filter.updatedAfter))
-  }
-  if (filter?.estimate !== undefined) {
-    conditions.push(
-      or(...filter.estimate.map(estimateFilterCondition)) ?? drizzleSql`false`
-    )
   }
   const needle = query.q?.trim()
   if (needle) {
@@ -1222,7 +1240,7 @@ const make = Effect.gen(function* () {
         and(
           ...ticketWhereConditions(
             project,
-            { ...ticketQuery, status: undefined },
+            { ...ticketQuery, rules: withoutTicketRule(ticketQuery, "status") },
             whereOptions
           ),
           ...explicitIds
@@ -1708,6 +1726,71 @@ const make = Effect.gen(function* () {
       )
   })
 
+  const facetCounts = Effect.fn("TicketIndex.facetCounts")(function* (
+    project: TicketProject,
+    ticketQuery: TicketCountQuery,
+    options: TicketIndexCountOptions,
+    facet: TicketIndexFacet
+  ) {
+    if (options.ticketIds?.length === 0) return {}
+    const where = and(...ticketWhereConditions(project, ticketQuery, options))
+    if (facet.field === "estimate" || facet.field === "sprint") {
+      const buckets: ReadonlyArray<readonly [string, SQL]> =
+        facet.field === "sprint"
+          ? Object.entries(facet.buckets).map(
+              ([key, ids]) =>
+                [
+                  key,
+                  ids.length
+                    ? inArray(ticketIndex.ticketId, [...ids])
+                    : drizzleSql`false`
+                ] as const
+            )
+          : (["none", "any", "stale", ...ESTIMATE_SIZES] as const).map(
+              (value) => [value, estimateFilterCondition(value)] as const
+            )
+      if (buckets.length === 0) return {}
+      return yield* db
+        .select(
+          Object.fromEntries(
+            buckets.map(([, condition], index) => [
+              `b${index}`,
+              drizzleSql<number>`count(*) filter (where ${condition})`
+                .mapWith(Number)
+                .as(`b${index}`)
+            ])
+          )
+        )
+        .from(ticketIndex)
+        .where(where)
+        .pipe(
+          Effect.map(([row]) =>
+            Object.fromEntries(
+              buckets.map(([key], index) => [key, row?.[`b${index}`] ?? 0])
+            )
+          ),
+          Effect.orDie
+        )
+    }
+    const value =
+      facet.field === "type"
+        ? drizzleSql<string>`${ticketIndex.type}`
+        : facet.field === "tags"
+          ? drizzleSql<string>`unnest(${ticketIndex.tags})`
+          : drizzleSql<string>`unnest(coalesce(nullif(${ticketIndex.assignees}, '{}'), array['unassigned']::text[]))`
+    return yield* db
+      .select({ value: value.as("value"), total: drizzleCount() })
+      .from(ticketIndex)
+      .where(where)
+      .groupBy(drizzleSql`1`)
+      .pipe(
+        Effect.map((rows) =>
+          Object.fromEntries(rows.map((row) => [row.value, row.total]))
+        ),
+        Effect.orDie
+      )
+  })
+
   const listIds = Effect.fn("TicketIndex.listIds")(function* (
     project: TicketProject
   ) {
@@ -2140,6 +2223,7 @@ const make = Effect.gen(function* () {
     neighbors,
     orderKeyFor,
     count,
+    facetCounts,
     listIds,
     existingIds,
     mentionableIds,

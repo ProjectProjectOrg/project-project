@@ -234,6 +234,7 @@ function makeFakeDocs(initial?: {
             ...[...ticketsById.keys()].map((id) => Number(id.slice(2)))
           ) + 1
       ),
+    facetCounts: () => Effect.succeed({}),
     tagUsageCounts: () => Effect.succeed({}),
     findTicketIdsByTag: () => Effect.succeed([]),
     findTicketIdsByStatus: () => Effect.succeed([]),

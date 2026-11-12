@@ -1,4 +1,5 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import { DEFAULT_TICKET_SORT } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import { ArrowRight } from "lucide-react"
 import { useState, type ReactNode } from "react"
@@ -25,6 +26,7 @@ import {
   type SectionHeading
 } from "@/features/tickets/components/ticket-list/SectionHeader"
 import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
+import { ticketSearchFromQuery } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 
 import { DashboardRows, type TicketPreview } from "./DashboardTicket"
@@ -159,7 +161,10 @@ function ViewAllInProject({
           <Link
             to="/orgs/$orgSlug/projects/$slug"
             params={{ orgSlug, slug: group.project.slug }}
-            search={{ assignee: ["mine"] }}
+            search={ticketSearchFromQuery({
+              sort: DEFAULT_TICKET_SORT,
+              rules: [{ field: "assignee", operator: "is", values: ["mine"] }]
+            })}
           />
         }
       >

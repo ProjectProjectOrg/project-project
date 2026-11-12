@@ -74,6 +74,11 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           queries.count(query)
         ).pipe(dieOnMarkdown)
       )
+      .handle("facets", ({ params, query }) =>
+        Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
+          queries.facets(params.field, query)
+        ).pipe(dieOnMarkdown)
+      )
       .handle("quickCreate", ({ payload }) =>
         Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
           commands.quickCreate(payload)

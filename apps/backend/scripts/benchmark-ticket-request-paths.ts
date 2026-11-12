@@ -752,7 +752,7 @@ const benchmarkProgram = (
     yield* measure("list-filter-status", () =>
       verify(
         queries.list({
-          status: [inProgress],
+          rules: [{ field: "status", operator: "is", values: [inProgress] }],
           sort: { key: "created", dir: "desc" }
         }),
         (page) =>
@@ -767,7 +767,7 @@ const benchmarkProgram = (
     yield* measure("list-filter-tag", () =>
       verify(
         queries.list({
-          tags: [performanceTag],
+          rules: [{ field: "tags", operator: "is", values: [performanceTag] }],
           sort: { key: "created", dir: "desc" }
         }),
         (page) =>
@@ -781,7 +781,7 @@ const benchmarkProgram = (
     yield* measure("list-filter-assignee", () =>
       verify(
         queries.list({
-          assignee: ["mine"],
+          rules: [{ field: "assignee", operator: "is", values: ["mine"] }],
           sort: { key: "created", dir: "desc" }
         }),
         (page) =>
@@ -793,7 +793,7 @@ const benchmarkProgram = (
     yield* measure("list-archived", () =>
       verify(
         queries.list({
-          archived: true,
+          rules: [{ field: "archived", operator: "is" }],
           sort: { key: "created", dir: "desc" }
         }),
         (page) =>
@@ -805,7 +805,7 @@ const benchmarkProgram = (
     yield* measure("list-filter-group", () =>
       verify(
         queries.list({
-          groupId: [groupId],
+          rules: [{ field: "sprint", operator: "is", values: [groupId] }],
           sort: { key: "created", dir: "desc" }
         }),
         (page) =>
@@ -819,7 +819,7 @@ const benchmarkProgram = (
     yield* measure("count-filtered", () =>
       verify(
         queries.count({
-          type: ["bug"]
+          rules: [{ field: "type", operator: "is", values: ["bug"] }]
         }),
         (counts) =>
           counts.total === activeBugCount &&

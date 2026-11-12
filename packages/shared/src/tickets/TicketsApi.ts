@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect"
 import { HttpApiEndpoint, HttpApiGroup } from "effect/http-api"
 import * as Schema from "effect/Schema"
+import * as SchemaTransformation from "effect/SchemaTransformation"
 
 import { OrgAccess, RequiresOrg } from "../access/OrgAccess"
 import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
@@ -31,9 +32,18 @@ import {
   RecentTicketRow,
   TicketCountQuery,
   TicketCounts,
+  TicketFacetCounts,
+  TicketFacetField,
   TicketEpicSections,
   TicketListPage,
   TicketListQuery,
+  TicketListQueryInput,
+  TicketFilterInput,
+  TicketFilterRule,
+  ticketFilterFromInput,
+  ticketListQueryInputTransformation,
+  validTicketFilterInput,
+  TicketPageQuery,
   TicketNeighbors,
   TicketOrderKeyQuery,
   TicketSearchQuery,
@@ -42,7 +52,7 @@ import {
   TicketSort,
   TicketSprintSections,
   TicketUpdateResult,
-  TicketViewSource
+  TicketViewSourceCompatibility
 } from "../filters/Ticket"
 import {
   AttachBranchInput,
@@ -72,18 +82,63 @@ import {
   TicketTitle
 } from "./TicketTextSearch"
 
-const TicketListHttpQuery = TicketListQuery.pipe(
+const TicketListHttpQueryInput = TicketListQueryInput.pipe(
   Schema.fieldsAssign({
+    rules: Schema.optional(
+      Schema.Array(Schema.fromJsonString(TicketFilterRule))
+    ),
     sort: Schema.fromJsonString(TicketSort).pipe(
       Schema.withDecodingDefaultType(Effect.succeed(DEFAULT_TICKET_SORT))
     )
   })
 )
 
-const TicketPageHttpQuery = TicketListHttpQuery.pipe(
+const TicketListHttpQuery = TicketListHttpQueryInput.pipe(
+  Schema.check(validTicketFilterInput),
+  Schema.decodeTo(
+    Schema.toType(TicketListQuery),
+    ticketListQueryInputTransformation
+  )
+)
+
+const TicketPageHttpQuery = TicketListHttpQueryInput.pipe(
   Schema.fieldsAssign({
     section: Schema.optional(Schema.fromJsonString(TicketSection))
-  })
+  }),
+  Schema.check(validTicketFilterInput),
+  Schema.decodeTo(
+    Schema.toType(TicketPageQuery),
+    SchemaTransformation.transform({
+      decode: (input): typeof TicketPageQuery.Type => ({
+        ...ticketFilterFromInput(input),
+        sort: input.sort,
+        q: input.q,
+        cursor: input.cursor,
+        section: input.section
+      }),
+      encode: (query: typeof TicketPageQuery.Type) => query
+    })
+  )
+)
+
+const TicketCountHttpQuery = TicketFilterInput.pipe(
+  Schema.fieldsAssign({
+    rules: Schema.optional(
+      Schema.Array(Schema.fromJsonString(TicketFilterRule))
+    ),
+    q: TicketCountQuery.fields.q
+  }),
+  Schema.check(validTicketFilterInput),
+  Schema.decodeTo(
+    Schema.toType(TicketCountQuery),
+    SchemaTransformation.transform({
+      decode: (input): typeof TicketCountQuery.Type => ({
+        ...ticketFilterFromInput(input),
+        q: input.q
+      }),
+      encode: (query: typeof TicketCountQuery.Type) => query
+    })
+  )
 )
 
 const TicketOrderKeyHttpQuery = TicketOrderKeyQuery.pipe(
@@ -258,8 +313,24 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/count",
       {
         params: ProjectPath,
-        query: TicketCountQuery,
+        query: TicketCountHttpQuery,
         success: TicketCounts,
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "facets",
+      "/orgs/:orgSlug/projects/:slug/tickets/facets/:field",
+      {
+        params: ProjectPath.pipe(
+          Schema.fieldsAssign({ field: TicketFacetField })
+        ),
+        query: TicketCountHttpQuery,
+        success: TicketFacetCounts,
         error: [Unauthorized, NotFound, Forbidden]
       }
     )
@@ -318,7 +389,9 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       "/orgs/:orgSlug/projects/:slug/tickets/:id/neighbors",
       {
         params: TicketPath,
-        query: Schema.Struct({ from: Schema.fromJsonString(TicketViewSource) }),
+        query: Schema.Struct({
+          from: Schema.fromJsonString(TicketViewSourceCompatibility)
+        }),
         success: Schema.NullOr(TicketNeighbors),
         error: [Unauthorized, NotFound, Forbidden]
       }

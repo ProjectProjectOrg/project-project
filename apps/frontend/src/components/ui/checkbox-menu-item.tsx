@@ -5,11 +5,13 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 
 export function CheckboxMenuItem({
   label,
+  value,
   checked,
   onToggle,
   children
 }: Readonly<{
   label: string
+  value?: string
   checked: boolean
   onToggle: () => void
   children: ReactNode
@@ -17,6 +19,7 @@ export function CheckboxMenuItem({
   return (
     <DropdownMenuItem
       label={label}
+      data-value={value}
       closeOnClick={false}
       onClick={onToggle}
       className="group cursor-pointer"

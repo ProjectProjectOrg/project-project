@@ -100,6 +100,15 @@ export const sprintCountdown = (
   return { kind: "ended", days: -days }
 }
 
+export const sprintElapsed = (
+  sprint: Pick<Group, "startsAt" | "endsAt">,
+  now: Date
+): number | null => {
+  const length = sprintLengthDays(sprint)
+  if (length === null || sprint.startsAt === null) return null
+  return Math.min(1, Math.max(0, daysBetween(sprint.startsAt, now) / length))
+}
+
 export const sprintEnded = (
   sprint: Group,
   now: Date = DateTime.toDate(DateTime.nowUnsafe())

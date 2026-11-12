@@ -119,6 +119,7 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   mentionableIds: () => unexpected("TicketIndex.mentionableIds"),
   movedTo: () => unexpected("TicketIndex.movedTo"),
   reserveTicketNumber: () => unexpected("TicketIndex.reserveTicketNumber"),
+  facetCounts: () => unexpected("TicketIndex.facetCounts"),
   tagUsageCounts: () => unexpected("TicketIndex.tagUsageCounts"),
   findTicketIdsByTag: () => unexpected("TicketIndex.findTicketIdsByTag"),
   findTicketIdsByStatus: () => unexpected("TicketIndex.findTicketIdsByStatus"),

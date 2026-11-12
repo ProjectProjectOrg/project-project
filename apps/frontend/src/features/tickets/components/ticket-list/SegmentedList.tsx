@@ -1,4 +1,5 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import { ticketRule, matchesStatusRule } from "@pp/shared"
 import type {
   Member,
   ProjectStatus,
@@ -6,16 +7,13 @@ import type {
   TicketListQuery,
   TicketStatus
 } from "@pp/shared"
-import { useNavigate, useRouter } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { FilterX, ListChecks } from "lucide-react"
+import { ListChecks } from "lucide-react"
 import { useMemo, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { Button } from "@/components/ui/button"
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -33,9 +31,11 @@ import {
   type BacklogValue
 } from "@/features/tickets/atoms/backlog"
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
+import { hasTicketFilters } from "@/features/tickets/lib/ticketFilters"
 import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
 import { m } from "@/paraglide/messages"
 
+import { FilteredEmpty } from "./FilteredEmpty"
 import { statusCollapseKey, useCollapsedInSet } from "./sectionCollapse"
 import { CreatingSectionsProvider, SectionList } from "./SectionList"
 import { useTicketPreview } from "./useTicketPreview"
@@ -55,31 +55,6 @@ export function SegmentedList({
   empty?: ReactNode
 }) {
   const { orgSlug, slug } = useProjectRoute()
-  const router = useRouter()
-  const navigate = useNavigate()
-  const resetFilters = () => {
-    void navigate({
-      to: router.state.location.pathname,
-      search: (previous) => ({
-        status: undefined,
-        type: undefined,
-        assignee: undefined,
-        tags: undefined,
-        groupId: undefined,
-        hasBranch: undefined,
-        hasPr: undefined,
-        updatedAfter: undefined,
-        archived: undefined,
-        sort: undefined,
-        dir: undefined,
-        q: undefined,
-        cursor: undefined,
-        view: previous.view
-      }),
-      replace: true,
-      resetScroll: false
-    })
-  }
   const preview = useTicketPreview()
   const update = backlogTicketUpdates(backlogRequest(orgSlug, slug, query))
 
@@ -94,27 +69,15 @@ export function SegmentedList({
 
   const { counts, sections } = snapshot
   const byStatus = counts.byStatus
-  const hasActiveFilter =
-    (query.q !== undefined && query.q.length > 0) ||
-    (query.status?.length ?? 0) > 0 ||
-    (query.type?.length ?? 0) > 0 ||
-    (query.assignee?.length ?? 0) > 0 ||
-    (query.tags?.length ?? 0) > 0 ||
-    (empty === undefined && (query.groupId?.length ?? 0) > 0) ||
-    query.hasBranch !== undefined ||
-    query.hasPr !== undefined ||
-    query.updatedAfter !== undefined ||
-    query.archived !== undefined
+  const hasActiveFilter = hasTicketFilters(query)
 
   const filteredStatuses: ReadonlyArray<TicketStatus> = useMemo(() => {
-    const requested = query.status
-    const allOrdered = boardStatusesFor(statuses)
-    if (requested !== undefined && requested.length > 0) {
-      return allOrdered.filter((s) => requested.includes(s))
-    }
-    if (!hasActiveFilter) return allOrdered
-    return allOrdered.filter((s) => (byStatus[s] ?? 0) > 0)
-  }, [statuses, query.status, hasActiveFilter, byStatus])
+    const allOrdered = boardStatusesFor(statuses).filter((status) =>
+      matchesStatusRule(query, status)
+    )
+    if (ticketRule(query, "status") || !hasActiveFilter) return allOrdered
+    return allOrdered.filter((status) => (byStatus[status] ?? 0) > 0)
+  }, [statuses, query, hasActiveFilter, byStatus])
 
   const persistKey = statusCollapseKey(orgSlug, slug)
 
@@ -154,28 +117,7 @@ export function SegmentedList({
   }
 
   if (filteredStatuses.length === 0 && hasActiveFilter) {
-    return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <FilterX strokeWidth={1.75} />
-          </EmptyMedia>
-          <EmptyTitle>{m.tickets_no_filter_matches_title()}</EmptyTitle>
-          <EmptyDescription>{m.tickets_no_filter_matches()}</EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
-          <Button
-            type="button"
-            variant="tertiary"
-            size="sm"
-            leadingIcon={FilterX}
-            onClick={resetFilters}
-          >
-            {m.tickets_filters_clear_all()}
-          </Button>
-        </EmptyContent>
-      </Empty>
-    )
+    return <FilteredEmpty query={query} />
   }
 
   return (

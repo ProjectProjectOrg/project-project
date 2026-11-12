@@ -9,30 +9,24 @@ export type FilterDimension =
   | "archived"
   | "blocked"
 
-const FILTER_KEYS: Readonly<Record<FilterDimension, keyof TicketFilter>> = {
-  type: "type",
-  assignee: "assignee",
-  tags: "tags",
-  sprint: "groupId",
-  estimate: "estimate",
-  archived: "archived",
-  blocked: "blocked"
-}
-
 export function activeFilterCount(
   filter: TicketFilter | undefined,
   dimensions: ReadonlyArray<FilterDimension>
-) {
-  return dimensions.filter((dimension) => {
-    const value = filter?.[FILTER_KEYS[dimension]]
-    return Array.isArray(value) ? value.length > 0 : value === true
-  }).length
+): number {
+  return (
+    filter?.rules?.filter((rule) =>
+      dimensions.some((dimension) => dimension === rule.field)
+    ).length ?? 0
+  )
 }
 
 export function clearedFilters(
+  filter: TicketFilter,
   dimensions: ReadonlyArray<FilterDimension>
 ): Partial<TicketFilter> {
-  return Object.fromEntries(
-    dimensions.map((dimension) => [FILTER_KEYS[dimension], undefined])
-  )
+  return {
+    rules: filter.rules?.filter(
+      (rule) => !dimensions.some((dimension) => dimension === rule.field)
+    )
+  }
 }

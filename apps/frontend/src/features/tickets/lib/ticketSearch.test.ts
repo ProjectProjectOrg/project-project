@@ -1,4 +1,4 @@
-import { TicketListQuery, TicketViewSource } from "@pp/shared"
+import { TicketListQueryCompatibility, TicketViewSource } from "@pp/shared"
 import {
   createMemoryHistory,
   createRootRoute,
@@ -20,7 +20,7 @@ import {
   ticketSourceFromSearch
 } from "./ticketSearch"
 
-const decodeQuery = Schema.decodeUnknownSync(TicketListQuery)
+const decodeQuery = Schema.decodeUnknownSync(TicketListQueryCompatibility)
 const decodeSource = Schema.decodeUnknownSync(TicketViewSource)
 const decodeBacklog = Schema.decodeUnknownSync(BacklogSearch)
 const decodeSprint = Schema.decodeUnknownSync(SprintSearch)
@@ -45,7 +45,9 @@ it("converts all filter fields at the domain boundary while route state stays UR
     sort: { key: "priority", dir: "asc" }
   })
   const url = stringifySearch(ticketSearchFromQuery(query))
-  expect(url).toContain("type=bug&type=chore")
+  expect(parseSearch(url).rule).toContain(
+    JSON.stringify({ field: "type", operator: "is", values: ["bug", "chore"] })
+  )
   expect(url).toContain("sort=priority&dir=asc")
   const search = decodeBacklog(parseSearch(url))
   expect(search).toMatchObject({
@@ -85,10 +87,10 @@ it.each([
     },
     expected: "?assignee=mine&groupId=G-2&from=sprintBoard&sprint=G-1"
   }
-])("preserves navigation context in $expected", ({ source, expected }) => {
-  const from = decodeSource(source)
+])("preserves navigation context in $expected", ({ source }) => {
+  const from = decodeSource({ ...source, query: decodeQuery(source.query) })
   const url = stringifySearch(ticketSearchFromSource(from))
-  expect(url).toBe(expected)
+  expect(parseSearch(url)).toMatchObject({ from: source.kind })
   const search = decodeTicket(parseSearch(url))
   expect(decodeTicket(search)).toEqual(search)
   expect(ticketSourceFromSearch(search)).toEqual(from)
@@ -170,7 +172,9 @@ it("keeps filters and context through router links, navigation and reloads", asy
     params,
     search
   })
-  expect(location.href).toContain("type=bug&type=chore")
+  expect(parseSearch(location.searchStr).rule).toEqual(
+    JSON.stringify({ field: "type", operator: "is", values: ["bug", "chore"] })
+  )
   expect(location.href).toContain("from=sections&group=status")
   await router.navigate({
     to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
@@ -204,3 +208,36 @@ it("keeps filters and context through router links, navigation and reloads", asy
   expect(router.state.matches.at(-1)?.status).toBe("success")
   expect(router.state.matches.at(-1)?.search).toEqual({ from: undefined })
 })
+
+it("preserves ordered negative rules across URL serialization and reload", () => {
+  const query = decodeQuery({
+    rules: [
+      { field: "archived", operator: "isNot" },
+      { field: "status", operator: "isNot", values: ["done"] },
+      { field: "assignee", operator: "is", values: ["mine"] }
+    ]
+  })
+  const url = stringifySearch(ticketSearchFromQuery(query))
+  expect(ticketQueryFromSearch(decodeBacklog(parseSearch(url))).rules).toEqual([
+    { field: "archived", operator: "isNot" },
+    { field: "status", operator: "isNot", values: ["done"] },
+    { field: "assignee", operator: "is", values: ["mine"] }
+  ])
+})
+
+it.each(["duplicate", "mixed"])(
+  "rejects %s rule URLs and drops their ticket-navigation context",
+  (kind) => {
+    const rule = JSON.stringify({ field: "blocked", operator: "isNot" })
+    const params = new URLSearchParams()
+    params.append("rule", rule)
+    if (kind === "duplicate") params.append("rule", rule)
+    else params.append("status", "todo")
+    expect(() => decodeBacklog(parseSearch(`?${params}`))).toThrow()
+    params.set("from", "sections")
+    params.set("group", "status")
+    expect(
+      ticketSourceFromSearch(decodeTicket(parseSearch(`?${params}`)))
+    ).toBeUndefined()
+  }
+)

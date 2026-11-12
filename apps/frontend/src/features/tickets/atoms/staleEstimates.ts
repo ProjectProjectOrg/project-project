@@ -16,8 +16,10 @@ const staleCountQuery = Atom.family((req: ProjectRequest) => {
   const sources = [false, true].map((archived) =>
     ticketCounts(
       countsRequest(req.params.orgSlug, req.params.slug, {
-        estimate: ["stale"],
-        archived
+        rules: [
+          { field: "estimate", operator: "is", values: ["stale"] },
+          { field: "archived", operator: archived ? "is" : "isNot" }
+        ]
       })
     )
   )

@@ -1,3 +1,4 @@
+import { ticketRule, withTicketRule } from "@pp/shared"
 import {
   estimateRank,
   padNumericIdSort,
@@ -44,7 +45,16 @@ export const ticketListQueryOf = (query: QueryWithView): TicketListQuery => {
 }
 
 export const withoutEpicsByDefault = <Q extends TicketFilter>(query: Q): Q =>
-  query.type?.length ? query : { ...query, type: NON_EPIC_TYPES }
+  ticketRule(query, "type")
+    ? query
+    : {
+        ...query,
+        rules: withTicketRule(query, {
+          field: "type",
+          operator: "is",
+          values: NON_EPIC_TYPES
+        })
+      }
 
 export const viewQuery = (query: QueryWithView): TicketListQuery =>
   withoutEpicsByDefault(ticketListQueryOf(query))

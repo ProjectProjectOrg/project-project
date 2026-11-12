@@ -1,9 +1,9 @@
-import { GroupColor, GroupId, type Group } from "@pp/shared"
+import { GroupColor, GroupId, TicketListQuery, type Group } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { filterableSprints, toggled } from "./ticketFilters"
+import { filterableSprints, toggled, restoreStatusRule } from "./ticketFilters"
 
 const date = (iso: string) => DateTime.toDate(DateTime.makeUnsafe(iso))
 const NOW = date("2026-05-09T00:00:00.000Z")
@@ -53,4 +53,35 @@ describe("filterableSprints", () => {
       planned
     ])
   })
+})
+
+it("keeps a selected completed sprint available for editing", () => {
+  const completed = sprint("G-3", {
+    completedAt: date("2026-05-02T00:00:00.000Z")
+  })
+  expect(filterableSprints([completed], NOW, [completed.id])).toEqual([
+    completed
+  ])
+})
+
+it("keeps a dormant status rule in its original position when board filters change", () => {
+  const decode = Schema.decodeSync(TicketListQuery)
+  const previous = decode({
+    rules: [
+      { field: "type", operator: "is", values: ["bug"] },
+      { field: "status", operator: "isNot", values: ["done"] },
+      { field: "assignee", operator: "is", values: ["mine"] }
+    ]
+  })
+  const current = decode({
+    rules: [
+      { field: "assignee", operator: "is", values: ["unassigned"] },
+      { field: "blocked", operator: "is" }
+    ]
+  })
+  expect(restoreStatusRule(current, previous)).toEqual([
+    { field: "status", operator: "isNot", values: ["done"] },
+    { field: "assignee", operator: "is", values: ["unassigned"] },
+    { field: "blocked", operator: "is" }
+  ])
 })

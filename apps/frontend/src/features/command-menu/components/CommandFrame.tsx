@@ -111,7 +111,7 @@ export type CommandFrameProps = Readonly<{
   description?: string
   initialSearch?: string
   initialFocus?: string | null
-  searchFooter?: boolean
+  searchFooter?: "whenSearching" | "always"
   onActOn?: (item: CommandMenuItemData) => boolean
   renderPeek?: (value: string) => ReactNode
   warmPeek?: (value: string) => ReactNode
@@ -139,7 +139,7 @@ export function CommandFrame({
   description,
   initialSearch = "",
   initialFocus = null,
-  searchFooter = false,
+  searchFooter,
   onActOn,
   renderPeek,
   warmPeek,
@@ -283,7 +283,8 @@ export function CommandFrame({
           </CommandMenuList>
         </motion.div>
       </div>
-      {searchFooter && query !== "" && (
+      {(searchFooter === "always" ||
+        (searchFooter === "whenSearching" && query !== "")) && (
         <SearchFooter decorations={decorations} peekOpen={peek.active} />
       )}
       {notice !== null && (

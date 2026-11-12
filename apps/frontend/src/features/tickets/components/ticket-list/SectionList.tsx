@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
+import { ticketRule } from "@pp/shared"
 import type {
   Member,
   ProjectStatus,
@@ -136,10 +137,13 @@ export function SectionList({
     !creatingSections.creatingIds.has(sectionId)
 
   const { items } = page
+  const sprintRule = ticketRule(query, "sprint")
   const inOneSprint =
     snapshotReq?._view !== "sprintSections" &&
-    query.groupId?.length === 1 &&
-    query.groupId[0] !== "ungrouped"
+    (query.scopeGroupId !== undefined ||
+      (sprintRule?.operator === "is" &&
+        sprintRule.values.length === 1 &&
+        sprintRule.values[0] !== "ungrouped"))
 
   const shellRef = useRef<HTMLDivElement>(null)
 

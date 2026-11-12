@@ -1,3 +1,4 @@
+import { ticketRule } from "@pp/shared"
 import {
   type EstimateSummary,
   GroupId,
@@ -187,8 +188,13 @@ describe("ticket sprint sections", () => {
 
   it("sends the sprint filter with the snapshot request", () => {
     expect(
-      sprintSectionsRequest("org", "project", { ...query, groupId: [groupId] })
-        .query.groupId
+      ticketRule(
+        sprintSectionsRequest("org", "project", {
+          ...query,
+          rules: [{ field: "sprint", operator: "is", values: [groupId] }]
+        }).query,
+        "sprint"
+      )?.values
     ).toEqual([groupId])
   })
 
@@ -275,7 +281,7 @@ describe("ticket sprint sections", () => {
   it("removes a ticket from filtered totals when its status changes", async () => {
     const filteredReq = sprintSectionsRequest("org", "project", {
       ...query,
-      status: [ticket.status]
+      rules: [{ field: "status", operator: "is", values: [ticket.status] }]
     })
     fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) =>
       init?.method === "PATCH"
@@ -311,17 +317,28 @@ describe("ticket sprint sections", () => {
 
   it.each([
     {
-      filter: { type: ["chore"] },
+      filter: {
+        rules: [{ field: "type", operator: "isNot", values: ["bug"] }]
+      },
       patch: { type: "bug" },
       count: 0
     },
     {
-      filter: { assignee: ["mine"] },
+      filter: { rules: [{ field: "type", operator: "is", values: ["chore"] }] },
+      patch: { type: "bug" },
+      count: 0
+    },
+    {
+      filter: {
+        rules: [{ field: "assignee", operator: "is", values: ["mine"] }]
+      },
       patch: { assignees: [] },
       count: 0
     },
     {
-      filter: { assignee: ["mine"] },
+      filter: {
+        rules: [{ field: "assignee", operator: "is", values: ["mine"] }]
+      },
       patch: { title: "After" },
       count: 1
     }
@@ -375,7 +392,7 @@ describe("ticket sprint sections", () => {
   it("keeps an excluded quick-create out of filtered sections", async () => {
     const filteredReq = sprintSectionsRequest("org", "project", {
       ...query,
-      status: [ticket.status]
+      rules: [{ field: "status", operator: "is", values: [ticket.status] }]
     })
     fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) =>
       init?.method === "POST"

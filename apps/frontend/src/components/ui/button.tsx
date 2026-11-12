@@ -62,6 +62,10 @@ const buttonVariants = cva(
           "w-fit max-w-full justify-start bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-accent data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
         "inline-help":
           "bg-transparent align-middle text-micro text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active data-[popup-open]:bg-active data-[popup-open]:text-foreground",
+        "filter-operator":
+          "rounded-none border-l border-border bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground data-[popup-open]:bg-hover",
+        "filter-value":
+          "min-w-0 rounded-none border-l border-border bg-transparent text-foreground hover:bg-hover data-[popup-open]:bg-hover",
         chip: "bg-transparent text-foreground hover:bg-hover active:bg-accent/80 data-[popup-open]:bg-hover [&[aria-haspopup]]:active:bg-hover",
         "block-grip":
           "bg-transparent text-muted-foreground hover:bg-hover active:bg-accent/80 data-[popup-open]:bg-hover [&[aria-haspopup]]:active:bg-hover",
@@ -121,6 +125,14 @@ const buttonVariants = cva(
       { size: "sm", iconRight: true, className: "pr-[6px]" },
       { size: "md", iconRight: true, className: "pr-[10px]" },
       { size: "lg", iconRight: true, className: "pr-[14px]" },
+      {
+        variant: "filter-operator",
+        className: "h-full gap-1 px-2 text-caption"
+      },
+      {
+        variant: "filter-value",
+        className: "h-full gap-1 px-2 text-caption"
+      },
       {
         variant: "chip",
         className: "h-8 gap-1.5 px-2.5 text-body"
@@ -239,7 +251,11 @@ function Button({
       iconRight: !isIconOnly && !!TrailingIcon
     }),
     variant === "tertiary" && SURFACE_BG[Math.min(surface + 2, 8)],
-    variant !== "quiet" && variant !== "toolbar" && "rounded-[20px]",
+    variant !== "quiet" &&
+      variant !== "toolbar" &&
+      variant !== "filter-operator" &&
+      variant !== "filter-value" &&
+      "rounded-[20px]",
     className
   )
   const leadingIconNode = LeadingIcon && (

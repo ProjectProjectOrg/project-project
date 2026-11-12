@@ -1,6 +1,7 @@
 import { Tool, Toolkit } from "effect/ai"
 import * as Context from "effect/Context"
 import * as Schema from "effect/Schema"
+import * as SchemaTransformation from "effect/SchemaTransformation"
 
 import {
   ATTACHMENT_MAX_BYTES,
@@ -29,7 +30,13 @@ import {
   Unauthorized,
   Validation
 } from "../errors"
-import { GroupFilter, TicketListQuery } from "../filters"
+import {
+  GroupFilter,
+  TicketListQuery,
+  TicketListQueryInput,
+  validTicketFilterInput,
+  ticketFilterFromInput
+} from "../filters"
 import { GitAutomationEvent } from "../github/GitAutomation"
 import { AttachBranchInput, GitStatesResponse } from "../github/GitState"
 import {
@@ -212,6 +219,16 @@ const defineTool = <
     )
     .annotate(Tool.OpenWorld, spec.hints.openWorld)
 
+const TicketListToolParameters = Schema.Struct({
+  ...TicketListQuery.fields,
+  orgSlug,
+  projectSlug,
+  limit: Pagination.fields.limit
+})
+const TicketListToolInput = TicketListQueryInput.pipe(
+  Schema.fieldsAssign({ orgSlug, projectSlug, limit: Pagination.fields.limit })
+)
+
 export const Tools = Toolkit.make(
   defineTool("me", {
     title: "Who am I",
@@ -370,12 +387,25 @@ export const Tools = Toolkit.make(
       command: ["tickets", "list"],
       summary: "List and filter a project's tickets."
     },
-    parameters: TicketListQuery.pipe(
-      Schema.fieldsAssign({
-        orgSlug,
-        projectSlug,
-        limit: Pagination.fields.limit
-      })
+    parameters: TicketListToolInput.pipe(
+      Schema.check(validTicketFilterInput),
+      Schema.decodeTo(
+        Schema.toType(TicketListToolParameters),
+        SchemaTransformation.transform({
+          decode: (input): typeof TicketListToolParameters.Type => ({
+            ...ticketFilterFromInput(input),
+            sort: input.sort,
+            q: input.q,
+            cursor: input.cursor,
+            orgSlug: input.orgSlug,
+            projectSlug: input.projectSlug,
+            limit: input.limit
+          }),
+          encode: (
+            input: typeof TicketListToolParameters.Type
+          ): typeof TicketListToolInput.Type => input
+        })
+      )
     ),
     success: Page(Ticket)
   }),

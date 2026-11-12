@@ -1,6 +1,7 @@
 import { GroupPolicy, TicketPolicy } from "@pp/access/policies"
 import { Db } from "@pp/db"
 import * as schema from "@pp/db/schema"
+import type { TicketFilter } from "@pp/shared"
 import {
   type BulkUpdateTicketsInput,
   Conflict,
@@ -457,7 +458,10 @@ const make = Effect.gen(function* () {
       [false, true],
       (archived) =>
         Effect.gen(function* () {
-          const filter = { parent: [makeTicketId(id)], archived }
+          const filter: TicketFilter = {
+            parent: [makeTicketId(id)],
+            rules: [{ field: "archived", operator: archived ? "is" : "isNot" }]
+          }
           const { total } = yield* ticketIndex.count(project, filter, {
             viewerId
           })
@@ -482,7 +486,10 @@ const make = Effect.gen(function* () {
       (archived) =>
         ticketIndex.count(
           project,
-          { parent: [makeTicketId(id)], archived },
+          {
+            parent: [makeTicketId(id)],
+            rules: [{ field: "archived", operator: archived ? "is" : "isNot" }]
+          },
           { viewerId }
         ),
       { concurrency: 2 }
@@ -853,7 +860,12 @@ const make = Effect.gen(function* () {
       })
       const batches = yield* Effect.forEach([false, true], (archived) =>
         Effect.gen(function* () {
-          const query = { estimate: ["stale" as const], archived }
+          const query: TicketFilter = {
+            rules: [
+              { field: "estimate", operator: "is", values: ["stale"] },
+              { field: "archived", operator: archived ? "is" : "isNot" }
+            ]
+          }
           const { total } = yield* ticketIndex.count(scope, query, {
             viewerId: scope.userId
           })

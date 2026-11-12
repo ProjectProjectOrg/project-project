@@ -1,4 +1,5 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
+import { ticketRule } from "@pp/shared"
 import {
   EPIC_SECTION_NONE,
   type EpicSectionKey,
@@ -30,18 +31,20 @@ import type {
   EpicSectionsValue,
   EpicSectionValue
 } from "@/features/tickets/lib/epicSectionRows"
+import { hasTicketFilters } from "@/features/tickets/lib/ticketFilters"
 import { TYPE_META } from "@/features/tickets/lib/ticketMeta"
 import { viewQuery } from "@/features/tickets/lib/ticketRows"
 import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 
+import { FilteredEmpty } from "./FilteredEmpty"
 import { parentCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
 import {
   CreatingSectionsProvider,
   SectionList,
   TicketPagination
 } from "./SectionList"
-import { queryHasActiveFilter } from "./SprintSections"
+import { useReportShownQuery } from "./shownQuery"
 import { useTicketPreview } from "./useTicketPreview"
 
 const defaultCreateStatus = Schema.decodeSync(TicketStatus)("todo")
@@ -93,8 +96,13 @@ export function EpicSections(props: Props) {
           )
         }
       : null
+  useReportShownQuery(active?.query)
   const renderSections = () =>
-    active ? (
+    active &&
+    hasTicketFilters(active.query) &&
+    active.value.sections.every((section) => section.count === 0) ? (
+      <FilteredEmpty query={active.query} />
+    ) : active ? (
       <div style={{ overflowAnchor: "none" }} className="flex flex-col gap-1">
         <TicketViewSourceContext
           value={ticketSearchFromSource({
@@ -173,7 +181,15 @@ function EpicSection({
     parent: [section.key],
     cursor: undefined
   }
-  const selectedStatuses = query.status
+  const selectedStatuses =
+    ticketRule(query, "status")?.operator === "is"
+      ? ticketRule(query, "status")?.values
+      : undefined
+  const label =
+    section.parent?.title ??
+    (props.by === "epic"
+      ? m.tickets_grouping_no_epic()
+      : m.tickets_grouping_no_parent())
   const SectionIcon =
     section.key === EPIC_SECTION_NONE
       ? Inbox
@@ -192,11 +208,7 @@ function EpicSection({
         }
         statuses={[]}
         heading={{
-          label:
-            section.parent?.title ??
-            (props.by === "epic"
-              ? m.tickets_grouping_no_epic()
-              : m.tickets_grouping_no_parent()),
+          label,
           icon: (
             <SectionIcon
               className="size-4 text-muted-foreground"
@@ -205,8 +217,8 @@ function EpicSection({
           )
         }}
         emptyMessage={
-          queryHasActiveFilter(props.query)
-            ? m.tickets_no_filter_matches()
+          hasTicketFilters(props.query)
+            ? m.tickets_no_filter_matches_in_section({ section: label })
             : undefined
         }
         count={section.count}

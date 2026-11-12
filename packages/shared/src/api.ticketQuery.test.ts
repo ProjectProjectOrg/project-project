@@ -161,16 +161,28 @@ it.effect("preserves filters and keeps an omitted update sort absent", () =>
     const { client, received, receivedUpdate } = yield* makeHarness
     const query = yield* decodeTicketListQuery({
       sort: { key: "updated", dir: "desc" },
-      status: ["todo", "in_progress"],
-      type: ["bug"],
       hasBranch: false,
-      archived: true,
       q: "same day",
       cursor: "next-page",
-      updatedAfter: "2026-09-15T10:11:12.345Z"
+      updatedAfter: "2026-09-15T10:11:12.345Z",
+      rules: [
+        { field: "status", operator: "is", values: ["todo", "in_progress"] },
+        { field: "type", operator: "is", values: ["bug"] },
+        { field: "archived", operator: "is" }
+      ]
     })
     yield* client.tickets.list({ params, query })
     expect(yield* Ref.get(received)).toEqual(query)
+    yield* client.tickets.list({
+      params,
+      query: {
+        sort: DEFAULT_TICKET_SORT,
+        rules: [{ field: "archived", operator: "isNot" }]
+      }
+    })
+    expect((yield* Ref.get(received)).rules).toEqual([
+      { field: "archived", operator: "isNot" }
+    ])
     yield* client.tickets.update({
       params: { ...params, id: ticket.id },
       query: {},
@@ -246,4 +258,21 @@ it.effect(
         }
       }
     }).pipe(Effect.scoped)
+)
+
+it.effect("converts legacy filter query strings before invoking handlers", () =>
+  Effect.gen(function* () {
+    const middleware = HttpApiMiddleware.layerClient(
+      Authentication,
+      ({ next, request }) =>
+        next(HttpClientRequest.setUrlParam(request, "status", "todo"))
+    )
+    const { client, received } = yield* makeHarness.pipe(
+      Effect.provide(middleware)
+    )
+    yield* client.tickets.list({ params, query: { sort: DEFAULT_TICKET_SORT } })
+    expect((yield* Ref.get(received)).rules).toEqual([
+      { field: "status", operator: "is", values: ["todo"] }
+    ])
+  }).pipe(Effect.scoped)
 )

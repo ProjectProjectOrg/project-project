@@ -27,6 +27,7 @@ import * as TicketIndexMaintenance from "@pp/server-core/tickets/TicketIndexMain
 import type { TicketProject } from "@pp/server-core/tickets/ticketProject"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import * as Users from "@pp/server-core/users/Users"
+import { ticketRule } from "@pp/shared"
 import {
   blockLookupFor,
   expandTemplate,
@@ -350,7 +351,9 @@ describe("MCP handlers → list_tickets", () => {
       const text = result.content[0].text
       const payload = parseJson(text)
       expect(capturedListLimits).toEqual([10])
-      expect(capturedListQueries[0].status).toEqual(["todo"])
+      expect(ticketRule(capturedListQueries[0], "status")?.values).toEqual([
+        "todo"
+      ])
       expect(payload.items).toHaveLength(10)
       expect(payload.items[0].id).toBe("T-1")
       expect(payload.nextCursor).toBe("cursor-next")

@@ -1,3 +1,5 @@
+import type { Group, UserId, EstimationMode } from "@pp/shared"
+import { ticketRule, withoutTicketRule } from "@pp/shared"
 import {
   matchesTicketQuery,
   type Ticket,
@@ -17,6 +19,16 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { bindRowMutation, viewMutation } from "@/api/viewMutation"
+import { currentUserId } from "@/features/auth/atoms/auth"
+import {
+  projectEstimation,
+  projectRequest
+} from "@/features/projects/atoms/projects"
+import {
+  sprintList,
+  sprintListRequest
+} from "@/features/sprints/atoms/sprintList"
+import { canonicalTicketQuery } from "@/features/tickets/lib/ticketFilters"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import {
   insertByOrderKey,
@@ -57,17 +69,22 @@ export const backlogRequest = (
 ): BacklogRequest => ({
   _view: "backlog",
   params: { orgSlug, slug },
-  query: {
+  query: canonicalTicketQuery({
     ...viewQuery(query),
-    status: undefined,
+    rules: withoutTicketRule(query, "status"),
     cursor: undefined
-  }
+  })
 })
 
 const scopeOf = (req: BacklogRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
 export type BacklogValue = Readonly<{
+  viewer: Readonly<{
+    id: UserId | undefined
+    estimation: EstimationMode
+    sprints: ReadonlyArray<Group>
+  }>
   counts: TicketCounts
   sections: Readonly<Record<string, TicketRowPage>>
 }>
@@ -105,7 +122,8 @@ const pageQuery = (req: BacklogRequest, status: string, cursor: string) =>
     ]
   })
 
-const emptyBacklog = (): BacklogValue => ({
+const emptyBacklog = (viewer: BacklogValue["viewer"]): BacklogValue => ({
+  viewer,
   counts: { total: 0, byStatus: {} },
   sections: {}
 })
@@ -114,12 +132,31 @@ const backlogView = (req: BacklogRequest) =>
   Atom.readable(
     (get) => {
       const base = get(sectionsQuery(req))
-      if (!AsyncResult.isSuccess(base)) {
-        return AsyncResult.map(base, emptyBacklog)
+      const membership =
+        ticketRule(req.query, "sprint") || req.query.scopeGroupId
+          ? get(
+              sprintList(sprintListRequest(req.params.orgSlug, req.params.slug))
+            )
+          : AsyncResult.success<ReadonlyArray<Group>>([])
+      const viewer = {
+        id: ticketRule(req.query, "assignee") ? get(currentUserId) : undefined,
+        estimation: ticketRule(req.query, "estimate")
+          ? get(
+              projectEstimation(
+                projectRequest(req.params.orgSlug, req.params.slug)
+              )
+            )
+          : ("off" as const),
+        sprints: AsyncResult.isSuccess(membership) ? membership.value : []
+      }
+      if (!AsyncResult.isSuccess(base) || !AsyncResult.isSuccess(membership)) {
+        return AsyncResult.map(AsyncResult.all([base, membership]), () =>
+          emptyBacklog(viewer)
+        )
       }
       const loaded = get(loadedPagesAtom(req))
       const created = get(createdKeys(scopeOf(req)))
-      let waiting = base.waiting
+      let waiting = base.waiting || membership.waiting
       const sections: Record<string, TicketRowPage> = {}
 
       for (const [status, page] of Object.entries(base.value.sections)) {
@@ -138,11 +175,17 @@ const backlogView = (req: BacklogRequest) =>
 
       // A failed or unmounted page must not fail the region, so this is not `AsyncResult.all`.
       return AsyncResult.success<BacklogValue>(
-        { counts: base.value.counts, sections },
+        { counts: base.value.counts, sections, viewer },
         { waiting }
       )
     },
-    (refresh) => refresh(sectionsQuery(req))
+    (refresh) => {
+      refresh(sectionsQuery(req))
+      if (ticketRule(req.query, "sprint") || req.query.scopeGroupId)
+        refresh(
+          sprintList(sprintListRequest(req.params.orgSlug, req.params.slug))
+        )
+    }
   )
 
 export const backlog = Atom.family((req: BacklogRequest) =>
@@ -192,9 +235,10 @@ const patchRow = (
   value: BacklogValue,
   id: TicketId,
   patch: TicketEdit,
-  sort: TicketSort,
+  query: TicketListQuery,
   now: Date
 ): BacklogValue => {
+  const sort = query.sort
   let patched: TicketRow | undefined
   let from: TicketStatus | undefined
   const sections: Record<string, TicketRowPage> = {}
@@ -213,6 +257,26 @@ const patchRow = (
   }
 
   if (!patched || from === undefined) return { ...value, sections }
+  if (
+    !matchesTicketQuery(
+      patched.ticket,
+      query,
+      value.viewer.id,
+      value.viewer.estimation,
+      value.viewer.sprints
+    )
+  )
+    return {
+      ...value,
+      sections,
+      counts: {
+        total: Math.max(0, value.counts.total - 1),
+        byStatus: {
+          ...value.counts.byStatus,
+          [from]: Math.max(0, (value.counts.byStatus[from] ?? 0) - 1)
+        }
+      }
+    }
 
   const to = patch.status ?? from
   const target = sections[to] ?? { items: [], nextCursor: null }
@@ -227,7 +291,7 @@ const patchRow = (
   byStatus[from] = Math.max(0, (byStatus[from] ?? 0) - 1)
   byStatus[to] = (byStatus[to] ?? 0) + 1
 
-  return { counts: { total: value.counts.total, byStatus }, sections }
+  return { ...value, counts: { total: value.counts.total, byStatus }, sections }
 }
 
 const replaceRow = (
@@ -273,7 +337,7 @@ export const updateBacklogTicket = Atom.family(
           value,
           id,
           patch,
-          req.query.sort,
+          req.query,
           DateTime.toDate(DateTime.nowUnsafe())
         ),
       confirm: (value, { ticket, orderKey }) =>
@@ -282,10 +346,6 @@ export const updateBacklogTicket = Atom.family(
 )
 
 export const backlogTicketUpdates = bindRowMutation(updateBacklogTicket)
-
-const filtersBySprint = (req: BacklogRequest) =>
-  (req.query.groupId?.length ?? 0) > 0 &&
-  !req.query.groupId?.includes("ungrouped")
 
 const insertCreated = (
   req: BacklogRequest,
@@ -303,14 +363,15 @@ const insertCreated = (
   if (
     !matchesTicketQuery(
       row.ticket,
-      { ...req.query, status: undefined },
+      { ...req.query, rules: withoutTicketRule(req.query, "status") },
       undefined,
-      input.prediction.estimation
-    ) ||
-    filtersBySprint(req)
+      input.prediction.estimation,
+      value.viewer.sprints
+    )
   )
     return value
   return {
+    viewer: value.viewer,
     counts: {
       total: value.counts.total + 1,
       byStatus: {

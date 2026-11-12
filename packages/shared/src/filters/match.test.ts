@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import { UserId } from "../auth/User"
+import { Group } from "../groups/Group"
 import { StatusSlug } from "../statuses/Status"
 import { TagName } from "../tags/Tag"
 import type { Ticket } from "../tickets/Ticket"
@@ -12,7 +13,11 @@ import {
   matchesTicketQuery,
   type MatchableTicket
 } from "./match"
-import type { TicketFilter, TicketListQuery } from "./Ticket"
+import {
+  TicketFilterRule,
+  type TicketFilter,
+  type TicketListQuery
+} from "./Ticket"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 const decodeTagName = Schema.decodeUnknownSync(TagName)
@@ -48,7 +53,13 @@ describe("matchesTicketFilter", () => {
     const stale = baseTicket({ estimate: { unit: "tshirt", value: "M" } })
     const none = baseTicket()
     const cases: ReadonlyArray<
-      readonly [NonNullable<TicketFilter["estimate"]>, ReadonlyArray<boolean>]
+      readonly [
+        Extract<
+          import("./Ticket").TicketFilterRule,
+          Readonly<{ field: "estimate" }>
+        >["values"],
+        ReadonlyArray<boolean>
+      ]
     > = [
       [["M"], [false, false, false]],
       [["any"], [true, false, false]],
@@ -59,7 +70,14 @@ describe("matchesTicketFilter", () => {
     for (const [estimate, expected] of cases) {
       expect(
         [points, stale, none].map((t) =>
-          matchesTicketFilter(t, { estimate }, undefined, "points")
+          matchesTicketFilter(
+            t,
+            {
+              rules: [{ field: "estimate", operator: "is", values: estimate }]
+            },
+            undefined,
+            "points"
+          )
         )
       ).toEqual(expected)
     }
@@ -75,7 +93,15 @@ describe("matchesTicketFilter", () => {
 
   it("status filter ORs across entries", () => {
     const t = baseTicket({ status: s("in_progress") })
-    const f: TicketFilter = { status: [s("in_progress"), s("done")] }
+    const f: TicketFilter = {
+      rules: [
+        {
+          field: "status",
+          operator: "is",
+          values: [s("in_progress"), s("done")]
+        }
+      ]
+    }
     expect(matchesTicketFilter(t, f)).toBe(true)
     expect(matchesTicketFilter(baseTicket({ status: s("todo") }), f)).toBe(
       false
@@ -83,24 +109,46 @@ describe("matchesTicketFilter", () => {
   })
 
   it("empty status array matches nothing", () => {
-    expect(matchesTicketFilter(baseTicket(), { status: [] })).toBe(false)
+    expect(
+      matchesTicketFilter(baseTicket(), {
+        rules: [{ field: "status", operator: "is", values: [] }]
+      })
+    ).toBe(false)
   })
 
   it("type filter ORs across entries", () => {
-    const f: TicketFilter = { type: ["bug"] }
+    const f: TicketFilter = {
+      rules: [{ field: "type", operator: "is", values: ["bug"] }]
+    }
     expect(matchesTicketFilter(baseTicket({ type: "bug" }), f)).toBe(true)
     expect(matchesTicketFilter(baseTicket({ type: "feat" }), f)).toBe(false)
   })
 
   it("assignee: unassigned entry matches unassigned tickets", () => {
     const t = baseTicket({ assignees: [] })
-    expect(matchesTicketFilter(t, { assignee: ["unassigned"] })).toBe(true)
-    expect(matchesTicketFilter(t, { assignee: [userId("alice")] })).toBe(false)
+    expect(
+      matchesTicketFilter(t, {
+        rules: [{ field: "assignee", operator: "is", values: ["unassigned"] }]
+      })
+    ).toBe(true)
+    expect(
+      matchesTicketFilter(t, {
+        rules: [
+          { field: "assignee", operator: "is", values: [userId("alice")] }
+        ]
+      })
+    ).toBe(false)
   })
 
   it("assignee mix matches union of unassigned + named", () => {
     const f: TicketFilter = {
-      assignee: ["unassigned", userId("alice")]
+      rules: [
+        {
+          field: "assignee",
+          operator: "is",
+          values: ["unassigned", userId("alice")]
+        }
+      ]
     }
     expect(matchesTicketFilter(baseTicket({ assignees: [] }), f)).toBe(true)
     expect(matchesTicketFilter(baseTicket({ assignees: ["alice"] }), f)).toBe(
@@ -115,8 +163,20 @@ describe("matchesTicketFilter", () => {
     const t = baseTicket({
       tags: [decodeTagName("bug"), decodeTagName("perf")]
     })
-    expect(matchesTicketFilter(t, { tags: [decodeTagName("bug")] })).toBe(true)
-    expect(matchesTicketFilter(t, { tags: [decodeTagName("ui")] })).toBe(false)
+    expect(
+      matchesTicketFilter(t, {
+        rules: [
+          { field: "tags", operator: "is", values: [decodeTagName("bug")] }
+        ]
+      })
+    ).toBe(true)
+    expect(
+      matchesTicketFilter(t, {
+        rules: [
+          { field: "tags", operator: "is", values: [decodeTagName("ui")] }
+        ]
+      })
+    ).toBe(false)
   })
 
   it("hasBranch true requires non-null branch", () => {
@@ -170,10 +230,20 @@ describe("matchesTicketFilter", () => {
   it("ANDs across fields", () => {
     const t = baseTicket({ status: s("in_progress"), type: "bug" })
     expect(
-      matchesTicketFilter(t, { status: [s("in_progress")], type: ["bug"] })
+      matchesTicketFilter(t, {
+        rules: [
+          { field: "status", operator: "is", values: [s("in_progress")] },
+          { field: "type", operator: "is", values: ["bug"] }
+        ]
+      })
     ).toBe(true)
     expect(
-      matchesTicketFilter(t, { status: [s("in_progress")], type: ["feat"] })
+      matchesTicketFilter(t, {
+        rules: [
+          { field: "status", operator: "is", values: [s("in_progress")] },
+          { field: "type", operator: "is", values: ["feat"] }
+        ]
+      })
     ).toBe(false)
   })
 })
@@ -203,10 +273,20 @@ describe("matchesTicketQuery", () => {
     })
     const active = baseTicket()
     expect(
-      matchesTicketQuery(archived, { archived: true }, userId("user-a"), "off")
+      matchesTicketQuery(
+        archived,
+        { rules: [{ field: "archived", operator: "is" }] },
+        userId("user-a"),
+        "off"
+      )
     ).toBe(true)
     expect(
-      matchesTicketQuery(active, { archived: true }, userId("user-a"), "off")
+      matchesTicketQuery(
+        active,
+        { rules: [{ field: "archived", operator: "is" }] },
+        userId("user-a"),
+        "off"
+      )
     ).toBe(false)
   })
 
@@ -230,10 +310,20 @@ describe("matchesTicketQuery", () => {
   it("'mine' resolves to viewer id in assignee filter", () => {
     const t = baseTicket({ assignees: ["user-a"] })
     expect(
-      matchesTicketQuery(t, { assignee: ["mine"] }, userId("user-a"), "off")
+      matchesTicketQuery(
+        t,
+        { rules: [{ field: "assignee", operator: "is", values: ["mine"] }] },
+        userId("user-a"),
+        "off"
+      )
     ).toBe(true)
     expect(
-      matchesTicketQuery(t, { assignee: ["mine"] }, userId("user-b"), "off")
+      matchesTicketQuery(
+        t,
+        { rules: [{ field: "assignee", operator: "is", values: ["mine"] }] },
+        userId("user-b"),
+        "off"
+      )
     ).toBe(false)
   })
 
@@ -243,7 +333,9 @@ describe("matchesTicketQuery", () => {
     expect(
       matchesTicketQuery(
         unassigned,
-        { assignee: ["unassigned"] },
+        {
+          rules: [{ field: "assignee", operator: "is", values: ["unassigned"] }]
+        },
         userId("user-a"),
         "off"
       )
@@ -251,7 +343,9 @@ describe("matchesTicketQuery", () => {
     expect(
       matchesTicketQuery(
         assigned,
-        { assignee: ["unassigned"] },
+        {
+          rules: [{ field: "assignee", operator: "is", values: ["unassigned"] }]
+        },
         userId("user-a"),
         "off"
       )
@@ -261,15 +355,18 @@ describe("matchesTicketQuery", () => {
   it("ANDs q and filter — both must match", () => {
     const ticket = baseTicket({ status: s("in_progress"), title: "hello" })
     const both: TicketFilter & Pick<TicketListQuery, "q"> = {
-      status: [s("in_progress")],
-      q: "hello"
+      q: "hello",
+      rules: [{ field: "status", operator: "is", values: [s("in_progress")] }]
     }
     expect(matchesTicketQuery(ticket, both, userId("user-a"), "off")).toBe(true)
 
     expect(
       matchesTicketQuery(
         ticket,
-        { status: [s("todo")], q: "hello" },
+        {
+          q: "hello",
+          rules: [{ field: "status", operator: "is", values: [s("todo")] }]
+        },
         userId("user-a"),
         "off"
       )
@@ -277,7 +374,12 @@ describe("matchesTicketQuery", () => {
     expect(
       matchesTicketQuery(
         ticket,
-        { status: [s("in_progress")], q: "goodbye" },
+        {
+          q: "goodbye",
+          rules: [
+            { field: "status", operator: "is", values: [s("in_progress")] }
+          ]
+        },
         userId("user-a"),
         "off"
       )
@@ -322,7 +424,7 @@ describe("matchesTicketQuery", () => {
     expect(
       matchesTicketQuery(
         predicted,
-        { status: [s("todo")] },
+        { rules: [{ field: "status", operator: "is", values: [s("todo")] }] },
         userId("user-a"),
         "off"
       )
@@ -330,7 +432,7 @@ describe("matchesTicketQuery", () => {
     expect(
       matchesTicketQuery(
         predicted,
-        { status: [s("done")] },
+        { rules: [{ field: "status", operator: "is", values: [s("done")] }] },
         userId("user-a"),
         "off"
       )
@@ -339,4 +441,79 @@ describe("matchesTicketQuery", () => {
       matchesTicketQuery(predicted, { q: "anything" }, userId("user-a"), "off")
     ).toBe(false)
   })
+})
+
+it("negates scalar, set, unassigned, missing-estimate predicates", () => {
+  const ticket = baseTicket()
+  const rules: ReadonlyArray<
+    Readonly<{ rule: TicketFilterRule; expected: boolean }>
+  > = [
+    {
+      rule: { field: "status", operator: "isNot", values: [s("todo")] },
+      expected: false
+    },
+    {
+      rule: { field: "type", operator: "isNot", values: ["bug"] },
+      expected: true
+    },
+    {
+      rule: {
+        field: "tags",
+        operator: "isNot",
+        values: [decodeTagName("bug")]
+      },
+      expected: true
+    },
+    {
+      rule: { field: "assignee", operator: "isNot", values: ["unassigned"] },
+      expected: false
+    },
+    {
+      rule: { field: "estimate", operator: "isNot", values: ["any"] },
+      expected: true
+    },
+    { rule: { field: "archived", operator: "isNot" }, expected: true }
+  ]
+  for (const { rule, expected } of rules)
+    expect(
+      matchesTicketQuery(ticket, { rules: [rule] }, undefined, "points")
+    ).toBe(expected)
+})
+
+it("matches negated sprint membership from resolved groups and requires its context", () => {
+  const sprint = Schema.decodeUnknownSync(Group)({
+    id: "G-1",
+    name: "Sprint",
+    kind: "sprint",
+    tickets: ["T-1"],
+    color: "#777777",
+    startsAt: null,
+    endsAt: null,
+    completedAt: null,
+    createdBy: "user-1",
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z"
+  })
+  const rule = Schema.decodeUnknownSync(TicketFilterRule)({
+    field: "sprint",
+    operator: "isNot",
+    values: ["G-1"]
+  })
+  expect(
+    matchesTicketQuery(baseTicket(), { rules: [rule] }, undefined, "off", [
+      sprint
+    ])
+  ).toBe(false)
+  expect(
+    matchesTicketQuery(
+      baseTicket({ id: decodeTicketId("T-2") }),
+      { rules: [rule] },
+      undefined,
+      "off",
+      [sprint]
+    )
+  ).toBe(true)
+  expect(
+    matchesTicketQuery(baseTicket(), { rules: [rule] }, undefined, "off")
+  ).toBe(false)
 })

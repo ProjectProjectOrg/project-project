@@ -917,9 +917,23 @@ describe("backlog pagination", () => {
 describe("backlog quick create", () => {
   it.each([
     { filter: { q: "missing" } },
-    { filter: { type: ["bug"] } },
-    { filter: { assignee: ["mine"] } },
-    { filter: { groupId: [decodeGroupIdSync("G-1")] } }
+    { filter: { rules: [{ field: "type", operator: "is", values: ["bug"] }] } },
+    {
+      filter: {
+        rules: [{ field: "assignee", operator: "is", values: ["mine"] }]
+      }
+    },
+    {
+      filter: {
+        rules: [
+          {
+            field: "sprint",
+            operator: "is",
+            values: [decodeGroupIdSync("G-1")]
+          }
+        ]
+      }
+    }
   ] as const)(
     "does not count a creation excluded by $filter",
     async ({ filter }) => {
@@ -927,11 +941,16 @@ describe("backlog quick create", () => {
         sort: { key: "id", dir: "asc" },
         ...filter
       })
-      fetchStub.set((_input: RequestInfo | URL, init?: RequestInit) =>
-        init?.method === "POST"
+      fetchStub.set((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(
+          input instanceof Request ? input.url : String(input)
+        )
+        if (url.pathname.endsWith("/groups"))
+          return Promise.resolve(Response.json([]))
+        return init?.method === "POST"
           ? new Promise<Response>(() => {})
           : Promise.resolve(sections([]))
-      )
+      })
       const registry = AtomRegistry.make()
       const view = backlog(filteredReq)
       const create = quickCreateBacklogTicket(filteredReq)
@@ -1280,14 +1299,14 @@ describe("backlog quick create", () => {
 describe("encodeTicketListQuery", () => {
   it("canonicalizes structurally equal queries regardless of key order", () => {
     const a: TicketListQuery = {
-      archived: false,
       sort: { key: "updated", dir: "desc" },
-      q: "foo"
+      q: "foo",
+      rules: [{ field: "archived", operator: "isNot" }]
     }
     const b: TicketListQuery = {
       q: "foo",
       sort: { dir: "desc", key: "updated" },
-      archived: false
+      rules: [{ field: "archived", operator: "isNot" }]
     }
     expect(encodeTicketListQuery(a)).toBe(encodeTicketListQuery(b))
   })

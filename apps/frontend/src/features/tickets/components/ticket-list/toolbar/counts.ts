@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import { ticketRule, withoutTicketRule } from "@pp/shared"
 import type { TicketCounts } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState } from "react"
@@ -17,8 +18,11 @@ export function useViewTicketCounts(source: ViewCountsSource) {
   const result = useAtomValue(viewCounts(source))
   const countsKey = viewCounts({
     ...source,
-    view: source.query.archived ? source.view : "list",
-    query: { ...source.query, status: undefined }
+    view:
+      ticketRule(source.query, "archived")?.operator === "is"
+        ? source.view
+        : "list",
+    query: { ...source.query, rules: withoutTicketRule(source.query, "status") }
   })
   const [previous, setPrevious] = useState<
     Readonly<{ key: typeof countsKey; value: TicketCounts }> | undefined

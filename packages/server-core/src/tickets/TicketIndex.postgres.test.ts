@@ -1285,12 +1285,18 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         project,
         {
           sort: { key: "updated", dir: "desc" },
-          status: [ticketStatus("in_progress")],
-          assignee: ["mine"],
-          tags: [tagName("backend")],
           hasBranch: true,
           hasPr: true,
-          updatedAfter: januaryEleventh
+          updatedAfter: januaryEleventh,
+          rules: [
+            {
+              field: "status",
+              operator: "is",
+              values: [ticketStatus("in_progress")]
+            },
+            { field: "assignee", operator: "is", values: ["mine"] },
+            { field: "tags", operator: "is", values: [tagName("backend")] }
+          ]
         },
         { viewerId: "viewer", limit: 10 }
       )
@@ -1301,19 +1307,45 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         expected: ReadonlyArray<string>
       }> = [
         {
-          filter: { status: [ticketStatus("in_progress")] },
+          filter: {
+            rules: [
+              {
+                field: "status",
+                operator: "is",
+                values: [ticketStatus("in_progress")]
+              }
+            ]
+          },
           expected: ["T-10", "T-11"]
         },
-        { filter: { type: ["bug"] }, expected: ["T-11"] },
         {
-          filter: { assignee: ["unassigned"] },
+          filter: {
+            rules: [{ field: "type", operator: "is", values: ["bug"] }]
+          },
+          expected: ["T-11"]
+        },
+        {
+          filter: {
+            rules: [
+              { field: "assignee", operator: "is", values: ["unassigned"] }
+            ]
+          },
           expected: ["T-10", "T-13", "T-14"]
         },
         {
-          filter: { assignee: ["mine"] },
+          filter: {
+            rules: [{ field: "assignee", operator: "is", values: ["mine"] }]
+          },
           expected: ["T-2", "T-11"]
         },
-        { filter: { tags: [tagName("backend")] }, expected: ["T-2", "T-11"] },
+        {
+          filter: {
+            rules: [
+              { field: "tags", operator: "is", values: [tagName("backend")] }
+            ]
+          },
+          expected: ["T-2", "T-11"]
+        },
         {
           filter: { hasBranch: false },
           expected: ["T-10", "T-13", "T-14"]
@@ -1326,8 +1358,53 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           filter: { updatedAfter: januaryEleventh },
           expected: ["T-11", "T-13", "T-14"]
         },
-        { filter: { status: [] }, expected: [] },
-        { filter: { tags: [] }, expected: [] }
+        {
+          filter: { rules: [{ field: "status", operator: "is", values: [] }] },
+          expected: []
+        },
+        {
+          filter: { rules: [{ field: "tags", operator: "is", values: [] }] },
+          expected: []
+        },
+
+        {
+          filter: {
+            rules: [
+              {
+                field: "status",
+                operator: "isNot",
+                values: [ticketStatus("in_progress")]
+              }
+            ]
+          },
+          expected: ["T-2", "T-13", "T-14"]
+        },
+        {
+          filter: {
+            rules: [
+              { field: "tags", operator: "isNot", values: [tagName("backend")] }
+            ]
+          },
+          expected: ["T-10", "T-13", "T-14"]
+        },
+        {
+          filter: {
+            rules: [
+              { field: "assignee", operator: "isNot", values: ["unassigned"] }
+            ]
+          },
+          expected: ["T-2", "T-11"]
+        },
+        {
+          filter: {
+            rules: [{ field: "estimate", operator: "isNot", values: ["any"] }]
+          },
+          expected: ["T-2", "T-10", "T-11", "T-13", "T-14"]
+        },
+        {
+          filter: { rules: [{ field: "archived", operator: "isNot" }] },
+          expected: ["T-2", "T-10", "T-11", "T-13", "T-14"]
+        }
       ]
       yield* Effect.forEach(filterCases, ({ filter, expected }) =>
         Effect.gen(function* () {
@@ -1387,12 +1464,33 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
 
       const counts = yield* index.count(
         project,
-        { tags: [tagName("backend")] },
+        {
+          rules: [
+            { field: "tags", operator: "is", values: [tagName("backend")] }
+          ]
+        },
         { viewerId: "viewer" }
       )
       expect(counts).toEqual({
         total: 2,
         byStatus: { todo: 1, in_progress: 1 }
+      })
+
+      const facet = (facet: TicketIndex.TicketIndexFacet) =>
+        index.facetCounts(project, {}, { viewerId: "viewer" }, facet)
+      expect({
+        type: yield* facet({ field: "type" }),
+        tags: yield* facet({ field: "tags" }),
+        assignee: yield* facet({ field: "assignee" }),
+        sprint: yield* facet({
+          field: "sprint",
+          buckets: { sprint: ["T-1", "T-2", "T-3"], empty: [] }
+        })
+      }).toEqual({
+        type: { bug: 1, feat: 1, other: 3 },
+        tags: { backend: 2 },
+        assignee: { unassigned: 3, viewer: 2 },
+        sprint: { sprint: 1, empty: 0 }
       })
 
       const summarize = (sections: TicketIndex.TicketIndexSections) =>
@@ -1409,7 +1507,12 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       const titleSort = { key: "title", dir: "asc" } as const
       const byStatus = yield* index.querySections(
         project,
-        { sort: titleSort, status: [ticketStatus("todo")] },
+        {
+          sort: titleSort,
+          rules: [
+            { field: "status", operator: "is", values: [ticketStatus("todo")] }
+          ]
+        },
         { viewerId: "viewer", limit: 2, sections: "status" }
       )
       // Each status is limited on its own; counts ignore the status filter.
@@ -1423,8 +1526,14 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           project,
           {
             sort: titleSort,
-            status: [ticketStatus("todo")],
-            section: { status: [ticketStatus("todo")] }
+            section: { status: [ticketStatus("todo")] },
+            rules: [
+              {
+                field: "status",
+                operator: "is",
+                values: [ticketStatus("todo")]
+              }
+            ]
           },
           { viewerId: "viewer", limit: 2 }
         )
@@ -1475,8 +1584,8 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       const archived = yield* index.query(
         project,
         {
-          archived: true,
-          sort: { key: "id", dir: "asc" }
+          sort: { key: "id", dir: "asc" },
+          rules: [{ field: "archived", operator: "is" }]
         },
         { viewerId: "viewer", limit: 10 }
       )
@@ -1532,9 +1641,15 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       const grouped = yield* index.querySections(
         project,
         {
-          type: ["feat", "bug", "chore", "other"],
           parent: [epic, "none"],
-          sort: { key: "id", dir: "asc" }
+          sort: { key: "id", dir: "asc" },
+          rules: [
+            {
+              field: "type",
+              operator: "is",
+              values: ["feat", "bug", "chore", "other"]
+            }
+          ]
         },
         { viewerId: "viewer", limit: 2, sections: "parent" }
       )
@@ -1572,7 +1687,13 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       )
 
       const query = {
-        type: ["feat", "bug", "chore", "other"],
+        rules: [
+          {
+            field: "type",
+            operator: "is",
+            values: ["feat", "bug", "chore", "other"]
+          }
+        ],
         sort: { key: "id", dir: "asc" }
       } as const
       const options = { viewerId: "viewer", limit: 10 }
@@ -1667,8 +1788,14 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
       )
 
       const mine = {
-        type: ["feat", "bug", "chore", "other"],
-        assignee: ["mine"],
+        rules: [
+          {
+            field: "type",
+            operator: "is",
+            values: ["feat", "bug", "chore", "other"]
+          },
+          { field: "assignee", operator: "is", values: ["mine"] }
+        ],
         subTickets: "nested",
         sort: { key: "id", dir: "asc" }
       } as const
@@ -1744,9 +1871,15 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           .query(
             project,
             {
-              status: [ticketStatus(status)],
               subTickets: "nested",
-              sort: { key: "id", dir: "asc" }
+              sort: { key: "id", dir: "asc" },
+              rules: [
+                {
+                  field: "status",
+                  operator: "is",
+                  values: [ticketStatus(status)]
+                }
+              ]
             },
             { viewerId: "viewer", limit: 10 }
           )
@@ -1866,7 +1999,10 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
           index
             .query(
               project,
-              { blocked: value, sort: { key: "id", dir: "asc" } },
+              {
+                sort: { key: "id", dir: "asc" },
+                rules: [{ field: "blocked", operator: value ? "is" : "isNot" }]
+              },
               { viewerId: "viewer", limit: 10 }
             )
             .pipe(Effect.map((rows) => rows.map(({ entry }) => entry.id)))
@@ -2154,11 +2290,21 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         (document) => index.upsertTicket(project, document)
       )
 
-      const matching = (estimate: NonNullable<TicketFilter["estimate"]>) =>
+      const matching = (
+        estimate: NonNullable<
+          Extract<
+            import("@pp/shared").TicketFilterRule,
+            Readonly<{ field: "estimate" }>
+          >["values"]
+        >
+      ) =>
         index
           .query(
             project,
-            { sort: { key: "id", dir: "asc" }, estimate },
+            {
+              sort: { key: "id", dir: "asc" },
+              rules: [{ field: "estimate", operator: "is", values: estimate }]
+            },
             { viewerId: "viewer", limit: 10 }
           )
           .pipe(Effect.map((rows) => rows.map((row) => row.entry.id)))
@@ -2829,10 +2975,22 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
             })
           )
           const ticketIds = ["T-1", "T-5", "T-2", "T-4", "T-3"]
-          const find = (id: string, status?: TicketFilter["status"]) =>
+          const find = (
+            id: string,
+            status?: Extract<
+              import("@pp/shared").TicketFilterRule,
+              Readonly<{ field: "status" }>
+            >["values"]
+          ) =>
             index.neighbors(
               project,
-              { ...byId, subTickets: "nested", status },
+              {
+                ...byId,
+                subTickets: "nested",
+                rules: status
+                  ? [{ field: "status", operator: "is", values: status }]
+                  : undefined
+              },
               {
                 viewerId: "viewer",
                 ticketId: id,
@@ -2862,7 +3020,16 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
         const { index, project } = yield* seedStatusProject
         const found = yield* index.neighbors(
           project,
-          { ...byId, status: [ticketStatus("todo")] },
+          {
+            ...byId,
+            rules: [
+              {
+                field: "status",
+                operator: "is",
+                values: [ticketStatus("todo")]
+              }
+            ]
+          },
           {
             viewerId: "viewer",
             ticketId: "T-1",

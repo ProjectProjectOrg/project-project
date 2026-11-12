@@ -204,24 +204,104 @@
   "tickets_estimate_time_placeholder": "2w 4d 6h 45m",
   "tickets_estimate_time_save": "Save",
   "tickets_filters_active_aria_label": "Filters ({count} active)",
+  "tickets_filters_add": "Add filter",
   "tickets_filters_archived_show": "Show archived",
   "tickets_filters_aria_label": "Filters",
   "tickets_filters_assignee_mine": "Mine",
   "tickets_filters_assignee_unassigned": "Unassigned",
   "tickets_filters_blocked": "Blocked",
   "tickets_filters_blocked_only": "Only blocked tickets",
-  "tickets_filters_clear_all": "Clear all filters",
+  "tickets_filters_chip_remove_aria_label": "Remove {dimension} filter",
+  "tickets_filters_clear_all": "Clear filters",
   "tickets_filters_estimate_any": "Estimated",
   "tickets_filters_estimate_none": "Not estimated",
   "tickets_filters_estimate_stale": "Old estimate",
   "tickets_filters_label": "Filters",
+  "tickets_filters_operator_include": "include",
+  "tickets_filters_operator_include_any": "include any of",
+  "tickets_filters_operator_include_none": "include none of",
+  "tickets_filters_operator_is": "is",
+  "tickets_filters_operator_is_any": "is any of",
+  "tickets_filters_operator_is_none": "is none of",
+  "tickets_filters_operator_is_not": "is not",
+  "tickets_filters_operator_not_include": "do not include",
+  "tickets_filters_search_empty": "No matching options",
+  "tickets_filters_search_fields": "Find a filter…",
+  "tickets_filters_search_values": "Search {dimension}…",
   "tickets_filters_section_archived": "Archived",
   "tickets_filters_section_assignee": "Assignee",
   "tickets_filters_section_estimate": "Estimate",
   "tickets_filters_section_sprint": "Sprint",
+  "tickets_filters_section_status": "Status",
   "tickets_filters_section_tags": "Tags",
   "tickets_filters_section_type": "Type",
   "tickets_filters_sprint_none": "Not in a sprint",
+  "tickets_filters_subject_ticket": "Ticket",
+  "tickets_filters_tags_search_placeholder": "Search tags…",
+  "tickets_filters_ticket_not_archived": "Ticket is not archived",
+  "tickets_filters_ticket_not_blocked": "Ticket is not blocked",
+  "tickets_filters_value_archived": "archived",
+  "tickets_filters_value_blocked": "blocked",
+  "tickets_filters_value_count_assignee": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} assignee",
+        "countPlural=*": "{count} assignees"
+      }
+    }
+  ],
+  "tickets_filters_value_count_estimate": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} estimate",
+        "countPlural=*": "{count} estimates"
+      }
+    }
+  ],
+  "tickets_filters_value_count_sprint": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} sprint",
+        "countPlural=*": "{count} sprints"
+      }
+    }
+  ],
+  "tickets_filters_value_count_status": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} status",
+        "countPlural=*": "{count} statuses"
+      }
+    }
+  ],
+  "tickets_filters_value_count_tags": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} tag",
+        "countPlural=*": "{count} tags"
+      }
+    }
+  ],
+  "tickets_filters_value_count_type": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} type",
+        "countPlural=*": "{count} types"
+      }
+    }
+  ],
   "tickets_grouping_epic": "Epic",
   "tickets_grouping_label": "Group by: {label}",
   "tickets_grouping_no_epic": "No epic",
@@ -284,8 +364,19 @@
   "tickets_move_projects_error": "Couldn't load your projects. Try again.",
   "tickets_move_sub_tickets_note": "Its sub-tickets move with it ({count}).",
   "tickets_new_button": "New ticket",
-  "tickets_no_filter_matches": "No tickets match your filters.",
-  "tickets_no_filter_matches_title": "No matches",
+    "tickets_no_filter_matches_hidden": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} ticket",
+        "countPlural=*": "{count} tickets"
+      }
+    }
+  ],
+  "tickets_no_filter_matches_hidden_suffix": "hidden by filters",
+  "tickets_no_filter_matches_in_section": "No matches in {section}",
+  "tickets_no_filter_matches_title": "No tickets match",
   "tickets_no_search_matches_prefix": "No tickets match",
   "tickets_not_found_body": "We couldn't find that ticket. It may have been deleted, or you don't have access to this project.",
   "tickets_not_found_title": "Ticket not found",
@@ -336,7 +427,7 @@
   "tickets_search_aria_label": "Search tickets",
   "tickets_search_clear_aria_label": "Clear search",
   "tickets_search_min_hint": "Min. 3 characters",
-  "tickets_search_placeholder": "Search tickets by title or id…",
+  "tickets_search_placeholder": "Search tickets…",
   "tickets_section_collapse_aria_label": "Toggle section {label}",
   "tickets_section_count_aria_label": "{count} tickets",
   "tickets_section_create_aria_label": "Create ticket in {label}",
@@ -482,6 +573,7 @@
   "tickets_view_options_updated": "Updated",
   "tickets_view_tabs_aria_label": "Switch view",
   "tickets_command_group_results": "Tickets",
+  "tickets_command_group_recent": "Recent",
   "tickets_command_create": "Create ticket…",
   "tickets_create_dialog_title": "New ticket",
   "tickets_create_dialog_project": "Choose a project",
@@ -535,6 +627,7 @@
   "tickets_command_create_from_search": "Create ticket “{title}”",
   "tickets_command_create_from_search_body": "Press Enter to turn it into a ticket.",
   "tickets_command_filter": "Filter tickets",
+  "tickets_command_filter_exclude_parent": "Exclude",
   "tickets_command_filter_parent": "Filter",
   "tickets_command_filter_pick_placeholder": "Filter by {dimension}…",
   "tickets_command_filter_placeholder": "Filter by…",
@@ -596,8 +689,6 @@
   "tickets_view_options_expand_sub_tickets": "Expand sub-tickets",
   "tickets_view_options_grouping": "Grouping",
   "tickets_board_aria_label": "Ticket board",
-  "tickets_filters_section_status": "Status",
-  "tickets_filters_tags_search_placeholder": "Search tags…",
   "tickets_estimate_breakdown_done": "Done",
   "tickets_estimate_breakdown_started": "In progress",
   "tickets_estimate_breakdown_tickets": [

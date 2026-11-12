@@ -1,4 +1,9 @@
 import {
+  withTicketRule,
+  withoutTicketRule,
+  matchesStatusRule
+} from "@pp/shared"
+import {
   ActivityActor,
   EPIC_SECTION_NONE,
   Group,
@@ -489,7 +494,11 @@ export const matchingDocuments = (
           estimate: document.estimate ?? null,
           parent: document.parent ? { id: document.parent } : null
         },
-        query,
+        {
+          ...query,
+          scopeGroupId: undefined,
+          rules: withoutTicketRule(query, "sprint")
+        },
         userId(viewerId),
         "points"
       )
@@ -511,17 +520,22 @@ export const querySectionsVia =
           entries: ReadonlyArray<TicketIndex.TicketIndexQueryEntry>
         }
       >()
-      const countQuery = { ...query, status: undefined }
+      const countQuery = { ...query, rules: withoutTicketRule(query, "status") }
       if (options.sections === "status") {
         const counts = yield* index.count(project, countQuery, options)
         for (const [status, total] of Object.entries(counts.byStatus)) {
-          const requested =
-            query.status === undefined ||
-            query.status.some((value) => value === status)
+          const requested = matchesStatusRule(query, status)
           const entries = requested
             ? yield* index.query(
                 project,
-                { ...query, status: [decodeStatusSlug(status)] },
+                {
+                  ...query,
+                  rules: withTicketRule(query, {
+                    field: "status",
+                    operator: "is",
+                    values: [decodeStatusSlug(status)]
+                  })
+                },
                 options
               )
             : []
@@ -714,6 +728,7 @@ export const makeFakeTicketIndex = (
       ),
     movedTo: () => Effect.succeed(null),
     reserveTicketNumber: () => Effect.sync(() => nextTicketNumber++),
+    facetCounts: () => Effect.succeed({}),
     tagUsageCounts: () =>
       Effect.sync(() => {
         const counts: Record<string, number> = {}

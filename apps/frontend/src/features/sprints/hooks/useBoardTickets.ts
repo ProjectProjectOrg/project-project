@@ -15,6 +15,7 @@ import {
 } from "@/features/projects/atoms/projectStatuses"
 import { withoutNestedChildren } from "@/features/tickets/lib/nestedRows"
 
+import { sprintList, sprintListRequest } from "../atoms/sprintList"
 import { boardStatusesFor } from "../lib/boardUtils"
 
 export type BoardTickets = Readonly<{
@@ -31,27 +32,28 @@ export function useBoardTickets(
 ): BoardTickets {
   const statusReq = statusesRequest(orgSlug, slug)
   const statusesResult = useAtomValue(statusesFor(statusReq))
+  const sprintsResult = useAtomValue(
+    sprintList(sprintListRequest(orgSlug, slug))
+  )
+  const sprints = Result.isSuccess(sprintsResult)
+    ? sprintsResult.value
+    : undefined
   const viewerId = useAtomValue(currentUserId)
   const estimation = useAtomValue(
     projectEstimation(projectRequest(orgSlug, slug))
   )
 
   const boardQuery = useMemo(() => {
-    const {
-      archived: _archived,
-      cursor: _cursor,
-      sort: _sort,
-      ...filter
-    } = query
+    const { cursor: _cursor, sort: _sort, ...filter } = query
     return filter
   }, [query])
 
   const matchingTickets = useMemo(
     () =>
       tickets.filter((ticket) =>
-        matchesTicketQuery(ticket, boardQuery, viewerId, estimation)
+        matchesTicketQuery(ticket, boardQuery, viewerId, estimation, sprints)
       ),
-    [tickets, boardQuery, viewerId, estimation]
+    [tickets, boardQuery, viewerId, estimation, sprints]
   )
 
   const statusSlugs = useMemo(

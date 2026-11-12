@@ -38,6 +38,7 @@ export type SprintPage =
 
 export type CommandPage =
   | "root"
+  | "ticketSearch"
   | SprintPage
   | "ticketStatus"
   | "ticketPriority"

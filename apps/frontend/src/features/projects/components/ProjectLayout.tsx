@@ -14,6 +14,7 @@ import {
 } from "@/features/projects/atoms/projects"
 import { ProjectBanner } from "@/features/projects/components/ProjectBanner"
 import { ProjectSetupSlot } from "@/features/projects/components/ProjectSetupRail"
+import { ProjectToolbarSlotScope } from "@/features/projects/components/ProjectToolbarSlot"
 import { RetainedProjectViews } from "@/features/projects/components/RetainedProjectViews"
 import {
   ProjectContext,
@@ -79,8 +80,10 @@ export function ProjectLayout() {
             waiting={waiting && projectUpdate.waiting}
             pageBackdrop
           />
-          <Outlet />
-          <RetainedProjectViews key={`${orgSlug}/${slug}`} />
+          <ProjectToolbarSlotScope>
+            <Outlet />
+            <RetainedProjectViews key={`${orgSlug}/${slug}`} />
+          </ProjectToolbarSlotScope>
         </div>
       </ProjectContext.Provider>
     )

@@ -40,6 +40,7 @@ import {
 import { useHorizontalAutoScroll } from "@/features/sprints/hooks/useHorizontalAutoScroll"
 import { useReorderMode } from "@/features/sprints/hooks/useReorderMode"
 import { encodeTicketListQuery } from "@/features/tickets/atoms/backlog"
+import { useReportShownQuery } from "@/features/tickets/components/ticket-list/shownQuery"
 import { useExpandSubTicketsCommand } from "@/features/tickets/components/ticket-list/useExpandSubTicketsCommand"
 import { useBoardSubTicketsSettled } from "@/features/tickets/components/ticket-list/useSubTicketsSettled"
 import { useProjectActor } from "@/hooks/useActor"
@@ -139,6 +140,7 @@ function SprintBoardContent({
   waiting: boolean
 }) {
   useExpandSubTicketsCommand()
+  useReportShownQuery(query)
   const { orgSlug, slug } = useProjectRoute()
   const ref = useRef<HTMLDivElement>(null)
   const groupRef = useReorderMode(reorderMode, onExitReorder)

@@ -45,6 +45,7 @@ import { MarkAsCommands } from "@/features/tickets/components/ticket-marks/MarkA
 import { MarkTicketCommand } from "@/features/tickets/components/ticket-marks/MarkTicketCommand"
 import type { MarkPickKind } from "@/features/tickets/lib/relationGroups"
 
+import { TicketSearchCommands } from "./components/RootCommands"
 import { ThemeCommands } from "./components/ThemeCommands"
 import type { CommandPage } from "./lib/commandMenu"
 import type { CommandPageProps } from "./lib/commandPages"
@@ -123,6 +124,7 @@ const sprintPage = (Page: ComponentType<SprintPageProps>) =>
 export const COMMAND_PAGES: Readonly<
   Record<Exclude<CommandPage, "root">, ComponentType<CommandPageProps>>
 > = {
+  ticketSearch: TicketSearchCommands,
   ticketStatus: TicketStatusPage,
   ticketPriority: TicketPriorityPage,
   ticketAssignee: TicketAssigneePage,

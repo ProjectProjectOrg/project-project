@@ -262,6 +262,17 @@
   "list_tickets": {
     "type": "object",
     "properties": {
+      "scopeGroupId": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^G-[1-9][0-9]*$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "status": {
         "anyOf": [
           {
@@ -441,6 +452,209 @@
         "anyOf": [
           {
             "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "rules": {
+        "anyOf": [
+          {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "enum": ["status"]
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": ["is", "isNot"]
+                    },
+                    "values": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9_]+$",
+                        "minLength": 1,
+                        "maxLength": 40
+                      }
+                    }
+                  },
+                  "required": ["field", "operator", "values"],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "enum": ["type"]
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": ["is", "isNot"]
+                    },
+                    "values": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": ["feat", "bug", "chore", "other", "epic"]
+                      }
+                    }
+                  },
+                  "required": ["field", "operator", "values"],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "enum": ["assignee"]
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": ["is", "isNot"]
+                    },
+                    "values": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": ["mine", "unassigned"]
+                          },
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": ["field", "operator", "values"],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "enum": ["tags"]
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": ["is", "isNot"]
+                    },
+                    "values": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^(?:[a-z0-9][a-z0-9 -]{0,30}|component:[a-z0-9][a-z0-9-]{0,20})$"
+                      }
+                    }
+                  },
+                  "required": ["field", "operator", "values"],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "enum": ["sprint"]
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": ["is", "isNot"]
+                    },
+                    "values": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": ["ungrouped"]
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^G-[1-9][0-9]*$"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": ["field", "operator", "values"],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "enum": ["estimate"]
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": ["is", "isNot"]
+                    },
+                    "values": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "any",
+                          "stale",
+                          "XS",
+                          "S",
+                          "M",
+                          "L",
+                          "XL"
+                        ]
+                      }
+                    }
+                  },
+                  "required": ["field", "operator", "values"],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "enum": ["archived"]
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": ["is", "isNot"]
+                    }
+                  },
+                  "required": ["field", "operator"],
+                  "additionalProperties": true
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "enum": ["blocked"]
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": ["is", "isNot"]
+                    }
+                  },
+                  "required": ["field", "operator"],
+                  "additionalProperties": true
+                }
+              ]
+            }
           },
           {
             "type": "null"
