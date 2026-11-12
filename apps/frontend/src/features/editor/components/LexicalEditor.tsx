@@ -36,6 +36,7 @@ import {
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -295,6 +296,7 @@ export interface LexicalEditorProps {
   attachments?: AttachmentsTarget
   blocks?: EditorBlocks
   editorRef?: RefObject<LexicalEditorType | null>
+  editable?: boolean
 }
 
 export function nextMarkdownChange(
@@ -388,6 +390,16 @@ function LinkBlurActivationPlugin() {
   return null
 }
 
+function EditablePlugin({ editable }: Readonly<{ editable: boolean }>) {
+  const [editor] = useLexicalComposerContext()
+
+  useLayoutEffect(() => {
+    editor.setEditable(editable)
+  }, [editor, editable])
+
+  return null
+}
+
 export function LexicalEditor({
   markdown,
   onChange,
@@ -402,7 +414,8 @@ export function LexicalEditor({
   size = "default",
   attachments,
   blocks,
-  editorRef
+  editorRef,
+  editable = true
 }: LexicalEditorProps) {
   const [transformers] = useState(() =>
     transformersForMode(blocks?.mode, attachments)
@@ -510,16 +523,14 @@ export function LexicalEditor({
   useEffect(() => {
     const wrapper = wrapperRef.current
     if (!wrapper) return
-    const editable = wrapper.querySelector<HTMLElement>(
-      '[contenteditable="true"]'
-    )
-    if (!editable) return
-    editable.spellcheck = false
+    const content = wrapper.querySelector<HTMLElement>(".lexical-content")
+    if (!content) return
+    content.spellcheck = false
     const focusIn = () => {
-      editable.spellcheck = true
+      content.spellcheck = true
     }
     const focusOut = () => {
-      editable.spellcheck = false
+      content.spellcheck = false
     }
     wrapper.addEventListener("focusin", focusIn)
     wrapper.addEventListener("focusout", focusOut)
@@ -602,6 +613,7 @@ export function LexicalEditor({
               </span>
             </>
           ) : null}
+          <EditablePlugin editable={editable} />
           <FormattingToolbarPlugin />
           <LinkBlurActivationPlugin />
           <LinkFaviconsPlugin />

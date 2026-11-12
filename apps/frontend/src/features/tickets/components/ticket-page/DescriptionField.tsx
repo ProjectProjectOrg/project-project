@@ -12,11 +12,14 @@ import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
+  $createRangeSelection,
+  $setSelection,
   HISTORY_MERGE_TAG,
   type LexicalEditor as LexicalEditorType
 } from "lexical"
 import {
   useEffect,
+  useEffectEvent,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -33,7 +36,6 @@ import {
 import { useEditorBlocks } from "@/features/editor/hooks/useEditorBlocks"
 import { AttachmentAvailabilityProvider } from "@/features/editor/lexical/attachmentAvailability"
 import { $selectFirstHint } from "@/features/editor/lexical/blocks/blockCommands"
-import { addSectionGroups } from "@/features/editor/lexical/blocks/slashMenuItems"
 import { lookupFor } from "@/features/editor/lib/blockChrome"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
@@ -47,12 +49,12 @@ import { useTicketParticipants } from "@/features/tickets/hooks/useTicketPartici
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { startingTypes } from "@/features/tickets/lib/creatorType"
 import { useOrgActor } from "@/hooks/useActor"
+import { hasModifier, ownsKeystrokes } from "@/lib/keyboard"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-import { AddSectionButton } from "./AddSectionButton"
+import { DescriptionActions } from "./DescriptionActions"
 import {
-  appendSection,
   replaceWithTemplate,
   restoreBody,
   startFromTemplate,
@@ -82,14 +84,12 @@ export function DescriptionField({
   ticket,
   members,
   autoFocus,
-  onStatusChange,
   onStartType,
   ref
 }: Readonly<{
   ticket: TicketDetail
   members: ReadonlyArray<Member>
   autoFocus: boolean
-  onStatusChange: (status: SaveStatus) => void
   onStartType: (type: TypeKey) => void
   ref?: Ref<DescriptionHandle>
 }>) {
@@ -122,6 +122,7 @@ export function DescriptionField({
   const startAs = (key: TypeKey) => {
     const editor = editorRef.current
     const definition = library === null ? null : typeFor(library, key)
+    startEditing()
     if (key !== ticket.type) onStartType(key)
     else if (editor !== null && definition !== null)
       startFromTemplate(editor, expandType(definition, lookup), {
@@ -182,13 +183,131 @@ export function DescriptionField({
     })
   }, [autoFocus, library, lookup])
 
+  const [editing, setEditing] = useState(autoFocus)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
+  const rootRef = useRef<HTMLDivElement>(null)
+  const editButtonRef = useRef<HTMLButtonElement>(null)
+  const wasEditingRef = useRef(editing)
+
+  useEffect(() => {
+    const wasEditing = wasEditingRef.current
+    wasEditingRef.current = editing
+    if (editing || !wasEditing) return
+    const active = document.activeElement
+    const lost =
+      active === null ||
+      active === document.body ||
+      (rootRef.current?.contains(active) ?? false)
+    if (lost) editButtonRef.current?.focus({ preventScroll: true })
+  }, [editing])
+
+  const startEditing = (point?: Readonly<{ x: number; y: number }>) => {
+    const editor = editorRef.current
+    if (editor === null) return
+    editor.setEditable(true)
+    setEditing(true)
+    const root = editor.getRootElement()
+    const range = point === undefined ? null : caretRangeAt(point)
+    if (
+      root === null ||
+      range === null ||
+      !root.contains(range.startContainer)
+    ) {
+      editor.focus()
+      return
+    }
+    editor.update(
+      () => {
+        const selection = $createRangeSelection()
+        selection.applyDOMRange(range)
+        $setSelection(selection)
+      },
+      { onUpdate: () => editor.focus() }
+    )
+  }
+
+  const startFromShortcut = useEffectEvent(() => startEditing())
+
+  useEffect(() => {
+    if (editing) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "e" && event.key !== "E") return
+      if (event.repeat || event.defaultPrevented || hasModifier(event)) return
+      if (ownsKeystrokes(event.target)) return
+      event.preventDefault()
+      startFromShortcut()
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [editing])
+
+  const stopEditing = () => {
+    editorRef.current?.blur()
+    setEditing(false)
+  }
+  const stopFromEvent = useEffectEvent(stopEditing)
+
+  useEffect(() => {
+    if (!editing) return
+    const app = document.getElementById("root")
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Node) || !(app?.contains(target) ?? false)) return
+      if (rootRef.current?.contains(target) ?? false) return
+      stopFromEvent()
+    }
+    document.addEventListener("pointerdown", onPointerDown)
+    return () => document.removeEventListener("pointerdown", onPointerDown)
+  }, [editing])
+
+  useEffect(() => {
+    if (!editing) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return
+      if (!(event.target instanceof Node)) return
+      if (!(rootRef.current?.contains(event.target) ?? false)) return
+      stopFromEvent()
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [editing])
+
   const empty = body.trim() === ""
   const offersStarts =
     library !== null && empty && startingTypes(types, ticket.type).length > 0
 
   return (
-    <div>
-      <div data-block-rail-host className="relative px-3 py-2">
+    <div
+      ref={rootRef}
+      role="presentation"
+      onDoubleClick={(event) => {
+        if (!editing) startEditing({ x: event.clientX, y: event.clientY })
+      }}
+      className={cn(
+        "group/reveal relative rounded-xl py-2 transition-[background-color,box-shadow] duration-150 ease-out motion-reduce:transition-none",
+        editing &&
+          "bg-surface-2 shadow-surface-1 [--muted-foreground:color-mix(in_oklch,var(--color-muted-foreground)_88%,var(--color-foreground))]"
+      )}
+    >
+      <DescriptionActions
+        editing={editing}
+        status={saveStatus}
+        buttonRef={editButtonRef}
+        onEdit={() => startEditing()}
+        onDone={stopEditing}
+      />
+      <div
+        data-block-rail-host
+        data-description
+        role="presentation"
+        className="relative px-3"
+        onClick={(event) => {
+          if (editing || !empty) return
+          if (event.target instanceof Element && event.target.closest("button"))
+            return
+          startEditing()
+        }}
+      >
         <div className={cn("relative", offersStarts && "min-h-56")}>
           <MentionScopeProvider scope={{ orgSlug, slug, members, involved }}>
             <AttachmentAvailabilityProvider missing={ticket.missingAttachments}>
@@ -201,12 +320,13 @@ export function DescriptionField({
                   if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
                   setBodyDraft((draft) => (draft === next ? null : draft))
                 }}
-                onStatusChange={onStatusChange}
+                onStatusChange={setSaveStatus}
                 autoFocus={autoFocus ? "start" : false}
                 placeholder={m.tickets_description_placeholder()}
                 attachments={attachments}
                 blocks={blocks}
                 editorRef={editorRef}
+                editable={editing}
               />
             </AttachmentAvailabilityProvider>
           </MentionScopeProvider>
@@ -220,23 +340,6 @@ export function DescriptionField({
           )}
         </div>
       </div>
-      {library !== null && !empty && (
-        <div className="mt-1 px-3">
-          <AddSectionButton
-            groups={addSectionGroups({
-              library,
-              lookup,
-              ticketType: ticket.type,
-              body
-            })}
-            onAdd={(definition) => {
-              const editor = editorRef.current
-              if (editor !== null)
-                appendSection(editor, definition, { transformers, lookup })
-            }}
-          />
-        </div>
-      )}
       {definitionError !== null && (
         <p
           role="alert"
@@ -265,4 +368,17 @@ export function DescriptionField({
       )}
     </div>
   )
+}
+
+const caretRangeAt = ({
+  x,
+  y
+}: Readonly<{ x: number; y: number }>): Range | null => {
+  const position = document.caretPositionFromPoint?.(x, y)
+  if (position) {
+    const range = document.createRange()
+    range.setStart(position.offsetNode, position.offset)
+    return range
+  }
+  return document.caretRangeFromPoint?.(x, y) ?? null
 }
