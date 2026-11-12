@@ -54,7 +54,8 @@ import {
   type TicketListQuery,
   EMPTY_TICKET_RELATIONS,
   ProjectScope,
-  Validation
+  Validation,
+  TicketRank
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
@@ -136,6 +137,7 @@ const fakeTicket = {
   status: TicketStatus.make("todo"),
   type: "feat" as const,
   priority: "med" as const,
+  rank: TicketRank.make("a0"),
   estimate: null,
   flag: null,
   tags: [],

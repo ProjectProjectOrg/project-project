@@ -38,9 +38,11 @@ import { useHorizontalAutoScroll } from "@/features/sprints/hooks/useHorizontalA
 import { useReorderMode } from "@/features/sprints/hooks/useReorderMode"
 import { visibleColumns } from "@/features/sprints/lib/boardColumns"
 import {
+  boardEdit,
+  boardMove,
   boardStatusesFor,
   isDragData,
-  isColumnDropData
+  isDropData
 } from "@/features/sprints/lib/boardUtils"
 import {
   backlogRequest,
@@ -112,10 +114,15 @@ function BacklogBoardContent({
     [orgSlug, slug, query]
   )
   const ref = useRef<HTMLDivElement>(null)
-  const canMove = TicketPolicy.canChange(useProjectActor(), { status: true })
+  const actor = useProjectActor()
+  const canMove = TicketPolicy.canChange(actor, { status: true })
+  const manual =
+    query.sort.key === "manual" &&
+    TicketPolicy.canChange(actor, { content: true })
+  const canDrag = canMove || manual
   const groupRef = useReorderMode(reorderMode, onExitReorder)
   const { height, hasRightOverflow } = useBoardViewport(ref)
-  useHorizontalAutoScroll(ref, !reorderMode && canMove)
+  useHorizontalAutoScroll(ref, !reorderMode && canDrag)
 
   const registry = useContext(RegistryContext)
 
@@ -152,25 +159,32 @@ function BacklogBoardContent({
 
   useEffect(() => {
     const el = ref.current
-    if (!el || reorderMode || !canMove) return
+    if (!el || reorderMode || !canDrag) return
     return monitorForElements({
       onDrop({ source, location }) {
         const target = location.current.dropTargets[0]
         if (!target) return
         const src = source.data
         const dst = target.data
-        if (!isDragData(src) || !isColumnDropData(dst)) return
-        if (dst.status === src.status) return
+        if (!isDragData(src) || !isDropData(dst)) return
+        if (dst.type === "card" && dst.id === src.id) return
         const row = columnsRef.current
           .find((column) => column.status === src.status)
           ?.rows.find((r) => r.ticket.id === src.id)
         if (!row || row.pending) return
-        registry.set(updateBacklogTicket({ req, id: src.id }), {
-          status: dst.status
-        })
+        const status = dst.status !== src.status ? dst.status : undefined
+        if (status !== undefined && !canMove) return
+        const column =
+          columnsRef.current.find((c) => c.status === dst.status)?.tickets ?? []
+        const position = manual
+          ? boardMove(column, column, src.id, dst)
+          : undefined
+        const edit = boardEdit(status, position)
+        if (edit === null) return
+        registry.set(updateBacklogTicket({ req, id: src.id }), edit)
       }
     })
-  }, [canMove, reorderMode, req, registry])
+  }, [canDrag, canMove, manual, reorderMode, req, registry])
 
   const keyboard = useBoardKeyboardNavigation(
     ref,
@@ -219,8 +233,8 @@ function BacklogBoardContent({
                   filterKey={encodeTicketListQuery(query)}
                   count={column?.count ?? 0}
                   members={members}
-                  isDraggable={canMove}
-                  ordered={false}
+                  isDraggable={canDrag}
+                  ordered={manual}
                   inertTicketIds={inertTicketIds}
                   lastFlash={null}
                   reorderMode={reorderMode}

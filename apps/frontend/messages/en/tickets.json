@@ -378,6 +378,7 @@
   "tickets_selection_remove_aria_label": "Remove {id}",
   "tickets_selection_retry": "Retry",
   "tickets_sort_id": "ID",
+  "tickets_sort_manual": "Manual",
   "tickets_sort_title": "Title",
   "tickets_split_action_aria_label": "Split this ticket into multiple tickets",
   "tickets_split_add_hint": "Up to {max} · each new ticket opens with “Split from {id}” as its first line",

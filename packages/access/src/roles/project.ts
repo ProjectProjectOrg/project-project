@@ -12,7 +12,7 @@ export const projectStatement = Statement.make({
     "assign"
   ]),
   comment: Schema.Literals(["create", "update_own", "delete_own", "moderate"]),
-  sprint: Schema.Literals(["manage", "add_ticket", "remove_ticket", "reorder"]),
+  sprint: Schema.Literals(["manage", "add_ticket", "remove_ticket"]),
   epic: Schema.Literals(["manage"]),
   workflow: Schema.Literals(["manage"]),
   library: Schema.Literals(["manage"]),
@@ -33,7 +33,7 @@ export const pm = projectStatement.role(projectStatement.all)
 export const developer = projectStatement.role({
   ticket: ["read", "create", "update", "transition", "assign"],
   comment: ["create", "update_own", "delete_own"],
-  sprint: ["add_ticket", "reorder"],
+  sprint: ["add_ticket"],
   epic: ["manage"],
   docs: ["read", "write"],
   github: ["read", "write"],
@@ -45,7 +45,7 @@ export const developer = projectStatement.role({
 export const client = projectStatement.role({
   ticket: ["read", "create", "update", "transition", "assign"],
   comment: ["create", "update_own", "delete_own"],
-  sprint: ["add_ticket", "reorder"],
+  sprint: ["add_ticket"],
   docs: ["read"],
   figma: ["read"],
   attachment: ["upload"]

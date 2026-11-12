@@ -33,6 +33,18 @@ export const TicketId = Schema.String.pipe(
 )
 export type TicketId = typeof TicketId.Type
 
+export const TicketRank = Schema.String.pipe(
+  Schema.check(Schema.isMinLength(1)),
+  Schema.brand("TicketRank")
+)
+export type TicketRank = typeof TicketRank.Type
+
+export const TicketPosition = Schema.Union([
+  Schema.Struct({ after: TicketId }),
+  Schema.Struct({ before: TicketId })
+])
+export type TicketPosition = typeof TicketPosition.Type
+
 export const TicketStatus = StatusSlug
 export type TicketStatus = typeof TicketStatus.Type
 
@@ -90,6 +102,7 @@ export const Ticket = Schema.Struct({
   status: TicketStatus,
   type: TicketType,
   priority: TicketPriority,
+  rank: TicketRank,
   estimate: Schema.NullOr(Estimate).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(null))
   ),
@@ -321,6 +334,10 @@ export const UpdateTicketInput = Schema.Struct({
   flag: Schema.optional(Schema.NullOr(FlagTicketInput)).annotate({
     description:
       "Flags the ticket as needing attention, with an optional reason; `null` removes the flag. A flag doesn't change the status, and moving the ticket to a finished status removes it."
+  }),
+  position: Schema.optional(TicketPosition).annotate({
+    description:
+      "Moves the ticket in the project's manual order: `{ after: id }` places it right below that ticket, `{ before: id }` right above it. The order is shared by every view, sprint and board."
   })
 })
 export type UpdateTicketInput = typeof UpdateTicketInput.Type

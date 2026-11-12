@@ -3,7 +3,8 @@ import { Project } from "@pp/access/roles"
 import {
   ActivityActor,
   ProjectScope,
-  SprintCompletedImmutable
+  SprintCompletedImmutable,
+  TicketRank
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -16,7 +17,6 @@ import type * as Groups from "../groups/Groups"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import {
   decodeGroupSync,
-  decodeGroupDetailSync,
   isoDate,
   ticketId,
   ticketStatus,
@@ -27,6 +27,7 @@ import {
   makeRecordingFigmaLinks,
   makeRecordingAttachments,
   entryFromDocument,
+  fakeRanks,
   makeFakeTicketIndex,
   makeTicketsLayer,
   makeTicketsFixture,
@@ -171,6 +172,93 @@ it.effect(
     }).pipe(Effect.provide(layer))
   }
 )
+
+const makeRankedFixture = (ranks: ReadonlyArray<readonly [string, string]>) => {
+  const fixture = makeTicketsFixture(
+    "T",
+    ranks.map(([id]) => id)
+  )
+  for (const [id, rank] of ranks) {
+    const document = fixture.documents.get(id)
+    if (document) {
+      fixture.documents.set(id, { ...document, rank: TicketRank.make(rank) })
+    }
+  }
+  const manualOrder = () =>
+    [...fixture.documents.values()]
+      .toSorted((a, b) => (a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : 0))
+      .map((document) => document.id)
+  return { ...fixture, manualOrder }
+}
+
+it.effect("create puts the new ticket at the top of the manual order", () => {
+  const { layer, manualOrder } = makeRankedFixture([
+    ["T-1", "a0"],
+    ["T-2", "a1"]
+  ])
+  return Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    const created = yield* tickets.create({ title: "Newest" })
+
+    expect(manualOrder()).toStrictEqual([created.id, "T-1", "T-2"])
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("concurrent creates never share a rank", () => {
+  const docs = makeFakeTicketDocs(["T-1"])
+  const ranks = fakeRanks(docs.documents)
+  const layer = makeTicketsLayer("T", docs.layer, {
+    ticketIndex: makeFakeTicketIndex(docs.documents, {
+      topRank: (project) =>
+        ranks.topRank(project).pipe(Effect.tap(() => Effect.yieldNow))
+    })
+  })
+  return Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    yield* Effect.all(
+      ["A", "B", "C"].map((title) => tickets.create({ title })),
+      { concurrency: "unbounded" }
+    )
+    const all = [...docs.documents.values()].map((document) => document.rank)
+    expect(new Set(all).size).toBe(all.length)
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("update with a position moves the ticket next to its anchor", () => {
+  const { layer, manualOrder } = makeRankedFixture([
+    ["T-1", "a0"],
+    ["T-2", "a1"],
+    ["T-3", "a2"],
+    ["T-4", "a3"]
+  ])
+  return Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    yield* tickets.update("T-4", { position: { after: ticketId("T-1") } })
+    expect(manualOrder()).toStrictEqual(["T-1", "T-4", "T-2", "T-3"])
+
+    yield* tickets.update("T-1", { position: { before: ticketId("T-3") } })
+    expect(manualOrder()).toStrictEqual(["T-4", "T-2", "T-1", "T-3"])
+  }).pipe(Effect.provide(layer))
+})
+
+it.effect("update rejects a position anchored on the ticket itself", () => {
+  const { documents, layer } = makeRankedFixture([
+    ["T-1", "a0"],
+    ["T-2", "a1"]
+  ])
+  return Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    const error = yield* Effect.flip(
+      tickets.update("T-1", { position: { after: ticketId("T-1") } })
+    )
+
+    expect(error).toMatchObject({
+      _tag: "Validation",
+      reason: "position_is_self"
+    })
+    expect(documents.get("T-1")?.rank).toBe("a0")
+  }).pipe(Effect.provide(layer))
+})
 
 const makeEpicFixture = () => {
   const docs = makeFakeTicketDocs(["T-1", "T-2"])
@@ -868,12 +956,7 @@ it.effect(
     const first = { ...inSprint(["T-9", "T-1", "T-3"]), id: groupId("G-1") }
     const second = { ...inSprint(["T-2"]), id: groupId("G-2") }
     const rejoined: Array<
-      readonly [
-        string,
-        string | null,
-        string | null | undefined,
-        string | null | undefined
-      ]
+      readonly [string, string | null, string | null | undefined]
     > = []
     const { docs, layer } = makeRulesFixture(
       [
@@ -889,7 +972,7 @@ it.effect(
             : Effect.fail(new SprintCompletedImmutable()),
         setSprintMembership: (_org, _slug, ticket, sprintId, options) =>
           Effect.sync(() => {
-            rejoined.push([ticket, sprintId, options?.after, options?.from])
+            rejoined.push([ticket, sprintId, options?.from])
           })
       }
     )
@@ -904,8 +987,8 @@ it.effect(
 
       expect(error._tag).toBe("SprintCompletedImmutable")
       expect(rejoined).toEqual([
-        ["T-1", "G-1", "T-9", null],
-        ["T-3", "G-1", "T-1", null]
+        ["T-1", "G-1", null],
+        ["T-3", "G-1", null]
       ])
       expect(docs.documents.get("T-1")?.priority).toBe("med")
     }).pipe(Effect.provide(layer))
@@ -1282,71 +1365,6 @@ it.effect("only accepts estimates in the project's estimation unit", () => {
     expect(docs.documents.get("T-1")?.estimate).toBeUndefined()
   }).pipe(Effect.provide(layer))
 })
-
-it.effect(
-  "moves a ticket on the sprint board only with permission to transition it",
-  () => {
-    const docs = makeFakeTicketDocs([])
-    docs.documents.set("T-1", makeTicketDocument("T-1"))
-    const orders: Array<unknown> = []
-    const sprint = decodeGroupDetailSync({
-      id: "G-1",
-      name: "Sprint",
-      kind: "sprint",
-      tickets: ["T-1"],
-      color: "#123456",
-      startsAt: null,
-      endsAt: null,
-      completedAt: null,
-      createdBy: "user-1",
-      createdAt: "2026-04-01T00:00:00.000Z",
-      updatedAt: "2026-04-01T00:00:00.000Z",
-      body: ""
-    })
-    const layer = makeTicketsLayer("T", docs.layer, {
-      ticketIndex: makeFakeTicketIndex(docs.documents),
-      groups: makeFakeGroups({
-        updateTicketOrder: (_id, input, beforeWrite = Effect.void) =>
-          beforeWrite.pipe(
-            Effect.andThen(
-              Effect.sync(() => {
-                orders.push(input)
-                return sprint
-              })
-            )
-          )
-      })
-    })
-    return Effect.gen(function* () {
-      const tickets = yield* TicketCommands.TicketCommands
-      const move = { ticketId: ticketId("T-1"), after: null }
-      const readOnly = yield* Effect.flip(
-        tickets
-          .moveInGroup("G-1", { ...move, status: ticketStatus("done") })
-          .pipe(as(scopeAs("admin", null, "admin-1")))
-      )
-      const unknown = yield* Effect.flip(
-        tickets
-          .moveInGroup("G-1", { ...move, status: ticketStatus("bogus") })
-          .pipe(as(scopeAs("guest", "client", "client-1")))
-      )
-      expect([readOnly._tag, unknown._tag]).toStrictEqual([
-        "Forbidden",
-        "Validation"
-      ])
-      expect(orders).toStrictEqual([])
-
-      yield* tickets
-        .moveInGroup("G-1", { ...move, status: ticketStatus("in_progress") })
-        .pipe(as(scopeAs("guest", "client", "client-1")))
-      expect(orders).toStrictEqual([move])
-      expect(docs.documents.get("T-1")).toMatchObject({
-        status: "in_progress",
-        updatedBy: "client-1"
-      })
-    }).pipe(Effect.provide(layer))
-  }
-)
 
 it.effect("keeps org admins without a role from editing", () => {
   const { docs, layer } = permissionFixture()

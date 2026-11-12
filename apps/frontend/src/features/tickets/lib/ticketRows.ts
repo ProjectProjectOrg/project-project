@@ -2,6 +2,7 @@ import {
   estimateRank,
   padNumericIdSort,
   TicketId,
+  TicketRank,
   type EstimationMode,
   type QuickCreateTicketInput,
   type TicketParent,
@@ -106,6 +107,7 @@ export const patchesSortedField = (
   key: TicketSort["key"]
 ): boolean => {
   if (key === "updated") return true
+  if (key === "manual") return patch.position !== undefined
   if (key === "title") return patch.title !== undefined
   if (key === "priority") return patch.priority !== undefined
   if (key === "estimate") return patch.estimate !== undefined
@@ -115,6 +117,9 @@ export const patchesSortedField = (
 export const localOrderKey = (ticket: Ticket, sort: TicketSort): string => {
   let value: string
   switch (sort.key) {
+    case "manual":
+      value = ticket.rank
+      break
     case "id":
       value = padNumericIdSort(ticket.id) ?? ticket.id
       break
@@ -177,6 +182,8 @@ export const quickCreatePayload = ({
 }: QuickCreateInput): QuickCreateTicketInput =>
   parent === undefined ? payload : { ...payload, parent: parent.id }
 
+const PREDICTED_TOP_RANK = TicketRank.make(" ")
+
 export const predictedTicket = (
   input: QuickCreateInput,
   id: TicketId,
@@ -188,6 +195,7 @@ export const predictedTicket = (
   status,
   type: input.payload.type ?? "other",
   priority: input.prediction.priority ?? "med",
+  rank: PREDICTED_TOP_RANK,
   estimate: null,
   flag: null,
   tags: input.prediction.tags ?? [],

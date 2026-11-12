@@ -10,6 +10,7 @@ import {
   TagName,
   TicketId,
   TicketPriority,
+  TicketRank,
   TicketBranchEntry,
   TicketFlag,
   TicketStatus,
@@ -41,6 +42,7 @@ const TicketFrontmatterOnDisk = Schema.Struct({
   priority: TicketPriority.pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed("med" as const))
   ),
+  rank: TicketRank,
   estimate: Schema.optionalKey(Schema.Union([Schema.Finite, Schema.String])),
   tags: Schema.Array(TagName).pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed([]))

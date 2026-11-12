@@ -1,5 +1,6 @@
 import {
   BulkUpdateTicketsInput,
+  TicketRank,
   Group,
   GroupDetail,
   GroupId,
@@ -83,6 +84,7 @@ const makeTicket = (id: TicketId): Ticket => ({
   branch: null,
   pr: null,
   prState: null,
+  rank: TicketRank.make("a0"),
   lastTransitionedPr: null,
   parent: null,
   gitState: { tag: "no_branch", baseBranch: "main" },

@@ -17,7 +17,8 @@ import {
   ProjectKey,
   TagName,
   TicketId,
-  TicketStatus
+  TicketStatus,
+  TicketRank
 } from "@pp/shared"
 
 import { testActivityLayer } from "../activity/testing"
@@ -116,6 +117,7 @@ it.effect("TicketDocs reads ticket frontmatter as a typed document", () =>
                   title: "Fix auth",
                   status: ticketStatus("todo"),
                   type: "bug",
+                  rank: "a0",
                   branch: null,
                   assignees: ["user-1"],
                   createdBy: "user-2",
@@ -145,6 +147,7 @@ it.effect(
         status: ticketStatus("todo"),
         type: "chore",
         priority: "med",
+        rank: TicketRank.make("a0"),
         tags: [],
         branch: null,
         pr: null,
@@ -209,6 +212,7 @@ it.effect(
         status: ticketStatus("in_progress"),
         type: "chore",
         priority: "high",
+        rank: TicketRank.make("a0"),
         tags: [tagName("backend")],
         branch: "chore/T-2-write-tests",
         pr: 42,
@@ -232,6 +236,7 @@ it.effect(
           status: ticketStatus("in_progress"),
           type: "chore",
           priority: "high",
+          rank: "a0",
           tags: ["backend"],
           branches: [
             { branch: "chore/T-2-write-tests", pr: 42, prState: "open" }
@@ -288,6 +293,7 @@ it.effect("TicketDocs serializes concurrent document updates", () => {
       status: "todo",
       type: "chore",
       priority: "med",
+      rank: "a0",
       tags: [],
       branch: null,
       pr: null,
@@ -377,6 +383,7 @@ it.effect(
         status: "todo",
         type: "chore",
         priority: "med",
+        rank: "a0",
         tags: [],
         branch: null,
         pr: null,

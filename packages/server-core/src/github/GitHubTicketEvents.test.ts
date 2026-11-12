@@ -6,7 +6,8 @@ import {
   NotFound,
   TicketId,
   TicketStatus,
-  type TicketBranchEntry
+  type TicketBranchEntry,
+  TicketRank
 } from "@pp/shared"
 import type { GitHubPullRequestWebhookChange } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -41,6 +42,7 @@ const baseDocument = (
   status: ticketStatus("in_progress"),
   type: "feat",
   priority: "med",
+  rank: TicketRank.make("a0"),
   tags: [],
   branch: "feat/T-1",
   pr: null,
@@ -127,6 +129,8 @@ const makeFakeIndex = (overrides: Partial<FakeIndexShape> = {}) => {
     querySections: () => Effect.succeed(new Map()),
     neighbors: () => Effect.succeed(null),
     orderKeyFor: () => Effect.succeed(null),
+    topRank: () => Effect.succeed(null),
+    rankGap: () => Effect.succeed(null),
     count: () => Effect.succeed({ total: 0, byStatus: {} }),
     listIds: () => Effect.succeed([]),
     existingIds: () => Effect.succeed(new Set()),

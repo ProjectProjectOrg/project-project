@@ -675,6 +675,7 @@ export const ticketIndex = pgTable(
     priority: text("priority", {
       enum: ["low", "med", "high"]
     }).notNull(),
+    rank: text("rank").notNull(),
     estimateUnit: text("estimate_unit", {
       enum: ["points", "tshirt", "time"]
     }),
@@ -731,7 +732,8 @@ export const ticketIndex = pgTable(
     index("ticket_index_updated_idx").on(t.projectId, t.updatedAt),
     index("ticket_index_assignees_idx").using("gin", t.assignees),
     index("ticket_index_moved_from_idx").using("gin", t.movedFrom),
-    index("ticket_index_parent_idx").on(t.projectId, t.parent)
+    index("ticket_index_parent_idx").on(t.projectId, t.parent),
+    index("ticket_index_rank_idx").on(t.projectId, sql`${t.rank} collate "C"`)
   ]
 )
 

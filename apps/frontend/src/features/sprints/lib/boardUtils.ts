@@ -2,10 +2,13 @@ import {
   TicketId,
   TicketStatus,
   type ProjectStatus,
-  type Ticket
+  type Ticket,
+  type TicketPosition
 } from "@pp/shared"
 import * as Schema from "effect/Schema"
 
+import type { TicketEdit, TicketMove } from "@/features/tickets/lib/ticketPatch"
+import { predictRank } from "@/features/tickets/lib/ticketRank"
 import { compareByOrderKey } from "@/lib/orderKey"
 
 export const DragData = Schema.Struct({
@@ -56,4 +59,34 @@ export function groupTicketsByStatus(
     out[bucket].push(ticket)
   }
   return out
+}
+
+type RankedCard = Pick<Ticket, "id" | "rank">
+
+export function boardMove(
+  ranked: ReadonlyArray<RankedCard>,
+  column: ReadonlyArray<RankedCard>,
+  movingId: TicketId,
+  drop: DropData
+): TicketMove | undefined {
+  const last = column.findLast((ticket) => ticket.id !== movingId)
+  const to: TicketPosition | undefined =
+    drop.type === "card"
+      ? drop.edge === "top"
+        ? { before: drop.id }
+        : { after: drop.id }
+      : last === undefined
+        ? undefined
+        : { after: last.id }
+  return to === undefined
+    ? undefined
+    : { to, rank: predictRank(ranked, movingId, to) }
+}
+
+export function boardEdit(
+  status: TicketStatus | undefined,
+  position: TicketMove | undefined
+): TicketEdit | null {
+  if (status === undefined) return position === undefined ? null : { position }
+  return position === undefined ? { status } : { status, position }
 }

@@ -465,6 +465,7 @@
               "key": {
                 "type": "string",
                 "enum": [
+                  "manual",
                   "id",
                   "created",
                   "updated",
@@ -1364,6 +1365,39 @@
               },
               {
                 "type": "null"
+              }
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "position": {
+        "anyOf": [
+          {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "after": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+                  }
+                },
+                "required": ["after"],
+                "additionalProperties": true
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "before": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9]{0,9}-[1-9][0-9]*$"
+                  }
+                },
+                "required": ["before"],
+                "additionalProperties": true
               }
             ]
           },

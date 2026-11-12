@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { TicketId, TicketStatus } from "@pp/shared"
+import { TicketId, TicketStatus, TicketRank } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Schema from "effect/Schema"
 
@@ -20,6 +20,7 @@ const ticket = (
   status: decodeUnknownTicketStatusSync("todo"),
   type: "chore",
   priority: "med",
+  rank: TicketRank.make("a0"),
   tags: [],
   branch: "feat/T-1",
   pr: null,

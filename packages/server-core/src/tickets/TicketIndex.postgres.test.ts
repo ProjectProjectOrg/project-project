@@ -15,7 +15,8 @@ import {
   TicketStatus,
   type ParentFilter,
   type TicketFilter,
-  type TicketSort
+  type TicketSort,
+  TicketRank
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Deferred from "effect/Deferred"
@@ -84,6 +85,7 @@ const rebuiltDocument: TicketDocs.TicketDocument = {
   status: ticketStatus("todo"),
   type: "other",
   priority: "med",
+  rank: TicketRank.make("a0"),
   tags: [],
   branch: null,
   pr: null,
@@ -2758,61 +2760,66 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
       }).pipe(Effect.provide(TestLayer))
   )
   describe("neighbors", () => {
-    const seedStatusProject = Effect.gen(function* () {
-      const organizationId = `neighbors-${randomUUID()}`
-      const projectId = randomUUID()
-      const viewerId = `neighbors-viewer-${randomUUID()}`
-      yield* withClient(async (client) => {
-        await client.query(
-          "insert into organization (id, name, slug, created_at) values ($1, $1, $1, now())",
-          [organizationId]
-        )
-        await client.query(
-          "insert into project_index (id, slug, organization_id, key, name, icon, color, created_by, created_at) values ($1, $2, $2, 'T', 'Test', 'folder', 'blue', 'test-user', now())",
-          [projectId, organizationId]
-        )
-        await client.query(
-          `insert into "user" (id, name, email, created_at, updated_at)
+    const seedStatusProject = (ranks: Readonly<Record<string, string>> = {}) =>
+      Effect.gen(function* () {
+        const organizationId = `neighbors-${randomUUID()}`
+        const projectId = randomUUID()
+        const viewerId = `neighbors-viewer-${randomUUID()}`
+        yield* withClient(async (client) => {
+          await client.query(
+            "insert into organization (id, name, slug, created_at) values ($1, $1, $1, now())",
+            [organizationId]
+          )
+          await client.query(
+            "insert into project_index (id, slug, organization_id, key, name, icon, color, created_by, created_at) values ($1, $2, $2, 'T', 'Test', 'folder', 'blue', 'test-user', now())",
+            [projectId, organizationId]
+          )
+          await client.query(
+            `insert into "user" (id, name, email, created_at, updated_at)
              values ($1, 'Viewer', $2, now(), now())`,
-          [viewerId, `${viewerId}@example.com`]
-        )
-        await client.query(
-          `insert into project_status (project_id, slug, label, icon, color, order_key, created_by)
+            [viewerId, `${viewerId}@example.com`]
+          )
+          await client.query(
+            `insert into project_status (project_id, slug, label, icon, color, order_key, created_by)
              values ($1, 'in_progress', 'In progress', 'Circle', '#e0a03b', 'a1', $2),
                     ($1, 'todo', 'Todo', 'Circle', '#a3a3a3', 'a0', $2)`,
-          [projectId, viewerId]
-        )
-      })
-      yield* Effect.addFinalizer(() =>
-        withClient(async (client) => {
-          await client.query("delete from organization where id = $1", [
-            organizationId
-          ])
-          await client.query('delete from "user" where id = $1', [viewerId])
+            [projectId, viewerId]
+          )
         })
-      )
-      const index = yield* TicketIndex.TicketIndex
-      const project = yield* index.projectFor(organizationId, organizationId)
-      yield* Effect.forEach(
-        [
-          indexedDocument("T-1", { status: ticketStatus("in_progress") }),
-          indexedDocument("T-2", { status: ticketStatus("todo") }),
-          indexedDocument("T-3", { status: ticketStatus("todo") }),
-          indexedDocument("T-4", { status: ticketStatus("in_progress") })
-        ],
-        (document) => index.upsertTicket(project, document)
-      )
-      return { index, project }
-    })
+        yield* Effect.addFinalizer(() =>
+          withClient(async (client) => {
+            await client.query("delete from organization where id = $1", [
+              organizationId
+            ])
+            await client.query('delete from "user" where id = $1', [viewerId])
+          })
+        )
+        const index = yield* TicketIndex.TicketIndex
+        const project = yield* index.projectFor(organizationId, organizationId)
+        yield* Effect.forEach(
+          [
+            indexedDocument("T-1", { status: ticketStatus("in_progress") }),
+            indexedDocument("T-2", { status: ticketStatus("todo") }),
+            indexedDocument("T-3", { status: ticketStatus("todo") }),
+            indexedDocument("T-4", { status: ticketStatus("in_progress") })
+          ],
+          (document) =>
+            index.upsertTicket(project, {
+              ...document,
+              rank: TicketRank.make(ranks[document.id] ?? "a0")
+            })
+        )
+        return { index, project }
+      })
 
     const byId = { sort: { key: "id", dir: "asc" } } as const
-    const sortById = { kind: "sort", sort: byId.sort } as const
+    const sortById = { sort: byId.sort }
 
     it.effect(
       "steps through status sections in status order, then the view's sort",
       () =>
         Effect.gen(function* () {
-          const { index, project } = yield* seedStatusProject
+          const { index, project } = yield* seedStatusProject()
           const find = (id: string) =>
             index.neighbors(project, byId, {
               viewerId: "viewer",
@@ -2833,7 +2840,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
 
     it.effect("orders explicit sections by their position in the list", () =>
       Effect.gen(function* () {
-        const { index, project } = yield* seedStatusProject
+        const { index, project } = yield* seedStatusProject()
         const found = yield* index.neighbors(project, byId, {
           viewerId: "viewer",
           ticketId: "T-1",
@@ -2851,37 +2858,47 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
       }).pipe(Effect.provide(TestLayer))
     )
 
-    it.effect("follows a manual order within each status", () =>
-      Effect.gen(function* () {
-        const { index, project } = yield* seedStatusProject
-        const found = yield* index.neighbors(project, byId, {
-          viewerId: "viewer",
-          ticketId: "T-2",
-          sections: { kind: "status" },
-          within: { kind: "manual", ticketIds: ["T-4", "T-3", "T-1", "T-2"] }
-        })
-        expect(found).toMatchObject({
-          prev: { id: "T-3" },
-          next: { id: "T-4" },
-          position: 2
-        })
-      }).pipe(Effect.provide(TestLayer))
+    it.effect(
+      "orders manual sections by rank in byte order, then by ticket id",
+      () =>
+        Effect.gen(function* () {
+          const { index, project } = yield* seedStatusProject({
+            "T-1": "a0",
+            "T-4": "Zz"
+          })
+          const found = yield* index.neighbors(project, byId, {
+            viewerId: "viewer",
+            ticketId: "T-3",
+            sections: { kind: "status" },
+            within: { sort: { key: "manual", dir: "asc" } }
+          })
+          expect(found).toMatchObject({
+            prev: { id: "T-2" },
+            next: { id: "T-4" },
+            position: 2
+          })
+        }).pipe(Effect.provide(TestLayer))
     )
 
     it.effect(
       "nests manual board children across statuses without hiding children of filtered parents",
       () =>
         Effect.gen(function* () {
-          const { index, project } = yield* seedStatusProject
+          const { index, project } = yield* seedStatusProject({
+            "T-1": "a0",
+            "T-2": "a2",
+            "T-4": "a3",
+            "T-3": "a4"
+          })
           yield* index.upsertTicket(
             project,
             indexedDocument("T-5", {
               parent: ticketId("T-1"),
               type: "bug",
-              status: ticketStatus("todo")
+              status: ticketStatus("todo"),
+              rank: TicketRank.make("a1")
             })
           )
-          const ticketIds = ["T-1", "T-5", "T-2", "T-4", "T-3"]
           const find = (id: string, status?: TicketFilter["status"]) =>
             index.neighbors(
               project,
@@ -2889,9 +2906,12 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
               {
                 viewerId: "viewer",
                 ticketId: id,
-                ticketIds,
+                ticketIds: ["T-1", "T-2", "T-3", "T-4", "T-5"],
                 sections: { kind: "status" },
-                within: { kind: "manual", ticketIds }
+                within: {
+                  sort: { key: "manual", dir: "asc" },
+                  nestAcrossSections: true
+                }
               }
             )
           expect(yield* find("T-3")).toEqual({
@@ -2910,9 +2930,45 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
         }).pipe(Effect.provide(TestLayer))
     )
 
+    it.effect("topRank is the lowest rank in byte order", () =>
+      Effect.gen(function* () {
+        const { index, project } = yield* seedStatusProject({
+          "T-1": "a0",
+          "T-2": "a2",
+          "T-3": "a4",
+          "T-4": "Zz"
+        })
+        expect(yield* index.topRank(project)).toBe("Zz")
+      }).pipe(Effect.provide(TestLayer))
+    )
+
+    it.effect(
+      "rankGap spans the anchor and its neighbour on that side, skipping the moving ticket",
+      () =>
+        Effect.gen(function* () {
+          const { index, project } = yield* seedStatusProject({
+            "T-1": "a0",
+            "T-2": "a2",
+            "T-3": "a4",
+            "T-4": "Zz"
+          })
+          expect([
+            yield* index.rankGap(project, "T-2", "after", "T-1"),
+            yield* index.rankGap(project, "T-2", "before", "T-3"),
+            yield* index.rankGap(project, "T-2", "after", "T-3"),
+            yield* index.rankGap(project, "T-9", "after", "T-1")
+          ]).toStrictEqual([
+            { lower: "a2", upper: "a4" },
+            { lower: "a0", upper: "a2" },
+            { lower: "a2", upper: null },
+            null
+          ])
+        }).pipe(Effect.provide(TestLayer))
+    )
+
     it.effect("returns null for a ticket the view filters out", () =>
       Effect.gen(function* () {
-        const { index, project } = yield* seedStatusProject
+        const { index, project } = yield* seedStatusProject()
         const found = yield* index.neighbors(
           project,
           { ...byId, status: [ticketStatus("todo")] },

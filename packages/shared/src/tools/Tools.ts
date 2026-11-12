@@ -357,8 +357,8 @@ export const Tools = Toolkit.make(
     title: "List tickets",
     hints: reads,
     description:
-      "List a project's tickets, newest first unless `sort` says " +
-      "otherwise. Items are summaries without the body; use `get_ticket` " +
+      "List a project's tickets in the project's manual order (the team's " +
+      "ranking, top first) unless `sort` says otherwise. Items are summaries without the body; use `get_ticket` " +
       "for a ticket's description. Filters combine with AND, and a list " +
       "filter matches any of its values. `q` searches titles and ticket IDs only; use " +
       "`search_tickets` for descriptions and comments too. Items carry `parent` (the " +

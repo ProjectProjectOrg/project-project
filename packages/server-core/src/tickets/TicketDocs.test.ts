@@ -4,7 +4,8 @@ import {
   ActivityActor,
   TicketId,
   TicketStatus,
-  type Estimate
+  type Estimate,
+  TicketRank
 } from "@pp/shared"
 import * as ConfigProvider from "effect/ConfigProvider"
 import * as DateTime from "effect/DateTime"
@@ -71,6 +72,7 @@ const ticketDocument = (
   status: ticketStatus("todo"),
   type: "chore",
   priority: "med",
+  rank: TicketRank.make("a0"),
   tags: [],
   branch: "chore/branch-matching",
   branchAutoLinkDisabled,
@@ -225,6 +227,7 @@ describe("TicketDocs branch matching persistence", () => {
           status: "todo",
           type: "chore",
           priority: "med",
+          rank: "a0",
           tags: [],
           branch: null,
           pr: null,
@@ -258,6 +261,7 @@ describe("TicketDocs branch matching persistence", () => {
           status: "todo",
           type: "chore",
           priority: "med",
+          rank: "a0",
           tags: [],
           branch: null,
           pr: null,
@@ -291,6 +295,7 @@ describe("TicketDocs branch matching persistence", () => {
           status: "todo",
           type: "chore",
           priority: "med",
+          rank: "a0",
           tags: [],
           branch: null,
           pr: null,
@@ -420,6 +425,7 @@ describe("TicketDocs branches persistence", () => {
           status: "todo",
           type: "chore",
           priority: "med",
+          rank: "a0",
           tags: [],
           branches: [
             { branch: "feat/T-25" },
@@ -454,6 +460,7 @@ describe("TicketDocs branches persistence", () => {
           status: "todo",
           type: "chore",
           priority: "med",
+          rank: "a0",
           tags: [],
           branch: "feat/T-23",
           pr: 7,
@@ -534,6 +541,7 @@ describe("TicketDocs estimate persistence", () => {
           status: "todo",
           type: "chore",
           priority: "med",
+          rank: "a0",
           estimate: "XXL",
           tags: [],
           branch: null,

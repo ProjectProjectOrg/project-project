@@ -18,6 +18,11 @@ export class TicketDocumentLock extends Context.Service<
       projectSlug: string,
       effect: Effect.Effect<A, E, R>
     ) => Effect.Effect<A, E, R>
+    readonly withTicketRanksLock: <A, E, R>(
+      orgSlug: string,
+      projectSlug: string,
+      effect: Effect.Effect<A, E, R>
+    ) => Effect.Effect<A, E, R>
     readonly withTicketWriteLocks: <A, E, R>(
       orgSlug: string,
       projectSlug: string,
@@ -43,6 +48,11 @@ export const make = (
     withTicketRelationsLock: (orgSlug, projectSlug, effect) =>
       lock.withLock(
         KeyedLock.LockKey.ticketRelations(orgSlug, projectSlug),
+        effect
+      ),
+    withTicketRanksLock: (orgSlug, projectSlug, effect) =>
+      lock.withLock(
+        KeyedLock.LockKey.ticketRanks(orgSlug, projectSlug),
         effect
       ),
     withTicketWriteLocks: (orgSlug, projectSlug, ticketIds, effect) =>

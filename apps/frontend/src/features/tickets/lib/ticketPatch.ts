@@ -7,6 +7,8 @@ import {
   type TicketDetail,
   type TicketFlag,
   type TicketParent,
+  type TicketPosition,
+  type TicketRank,
   type UpdateTicketInput
 } from "@pp/shared"
 
@@ -14,10 +16,26 @@ export const parentRef = ({
   id,
   title,
   type
-}: Pick<Ticket, "id" | "title" | "type">): TicketParent => ({ id, title, type })
+}: Pick<Ticket, "id" | "title" | "type">): TicketParent => ({
+  id,
+  title,
+  type
+})
 
-export type TicketEdit = Omit<UpdateTicketInput, "parent" | "flag"> &
-  Readonly<{ parent?: TicketParent | null; flag?: TicketFlag | null }>
+export type TicketMove = Readonly<{
+  to: TicketPosition
+  rank: TicketRank | null
+}>
+
+export type TicketEdit = Omit<
+  UpdateTicketInput,
+  "parent" | "flag" | "position"
+> &
+  Readonly<{
+    parent?: TicketParent | null
+    flag?: TicketFlag | null
+    position?: TicketMove
+  }>
 
 const flagInput = (
   flag: TicketFlag | null | undefined
@@ -30,10 +48,12 @@ const flagInput = (
 export const toUpdateInput = ({
   parent,
   flag,
+  position,
   ...edit
 }: TicketEdit): UpdateTicketInput => ({
   ...edit,
   ...(parent === undefined ? {} : { parent: parent?.id ?? null }),
+  ...(position === undefined ? {} : { position: position.to }),
   ...flagInput(flag)
 })
 
@@ -84,6 +104,7 @@ export function applyTicketPatch(ticket: Ticket, patch: TicketEdit): Ticket {
     status: patch.status ?? ticket.status,
     type: patch.type ?? ticket.type,
     priority: patch.priority ?? ticket.priority,
+    rank: patch.position?.rank ?? ticket.rank,
     estimate: patch.estimate !== undefined ? patch.estimate : ticket.estimate,
     tags:
       patch.tags === undefined

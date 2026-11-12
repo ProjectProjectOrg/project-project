@@ -7,7 +7,8 @@ import {
   TICKET_ACTIVITY_PAGE_SIZE,
   TicketId,
   TicketStatus,
-  UserId
+  UserId,
+  TicketRank
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -37,6 +38,7 @@ const ticket: TicketDocs.TicketDocument = {
   status: status("todo"),
   type: "feat",
   priority: "med",
+  rank: TicketRank.make("a0"),
   tags: [],
   branch: null,
   pr: null,
