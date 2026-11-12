@@ -70,7 +70,14 @@ function makeMarkdown(overrides: Partial<Markdown.Markdown["Service"]>) {
     writeLibraryFile: () => unexpectedMarkdownCall("writeLibraryFile"),
     readOrgLibraryFile: () => unexpectedMarkdownCall("readOrgLibraryFile"),
     writeOrgLibraryFile: () => unexpectedMarkdownCall("writeOrgLibraryFile"),
+    removeOrgLibraryFile: () => unexpectedMarkdownCall("removeOrgLibraryFile"),
     removeLibraryFile: () => unexpectedMarkdownCall("removeLibraryFile"),
+    listOrgSlugs: () => unexpectedMarkdownCall("listOrgSlugs"),
+    listProjectSlugs: () => unexpectedMarkdownCall("listProjectSlugs"),
+    listLegacyTemplateFiles: () =>
+      unexpectedMarkdownCall("listLegacyTemplateFiles"),
+    removeLegacyTemplatesDir: () =>
+      unexpectedMarkdownCall("removeLegacyTemplatesDir"),
     ...overrides
   } satisfies Markdown.Markdown["Service"]
 

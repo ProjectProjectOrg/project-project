@@ -147,7 +147,6 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
               createdAt: isoDate("2026-01-01T00:00:00Z"),
               github: null,
               estimation: projectSlug === "inbox" ? "points" : "tshirt",
-              templateDefaults: {},
               body: "",
               setup: {
                 workflowReviewedAt: null,

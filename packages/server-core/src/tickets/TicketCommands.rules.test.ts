@@ -1146,7 +1146,6 @@ it.effect(
             github: null,
             estimation: switched ? "time" : "points",
             body: "",
-            templateDefaults: {},
             setup: {
               workflowReviewedAt: null,
               invitePeopleDismissedAt: null,

@@ -92,11 +92,9 @@ export const projectsOnPostgres = (
                 invitePeopleDismissedAt: null,
                 connectGithubDismissedAt: null
               },
-              templateDefaults: {},
               body: "Project body"
             }),
           write: () => Effect.void,
-          writeTemplateDefaults: unused,
           markSystem: unused,
           systemRole: unused,
           removeDir: () => Effect.void,

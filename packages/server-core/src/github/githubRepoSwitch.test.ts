@@ -242,11 +242,9 @@ describe.skipIf(!databaseUrl)("GitHub repository switch", () => {
                 invitePeopleDismissedAt: null,
                 connectGithubDismissedAt: null
               },
-              templateDefaults: {},
               body: "Project body"
             }),
           write: () => Effect.void,
-          writeTemplateDefaults: unused,
           markSystem: unused,
           systemRole: unused,
           removeDir: unused,

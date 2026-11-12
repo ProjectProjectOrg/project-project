@@ -65,7 +65,6 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
     createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-01-01T00:00:00Z")),
     github: null,
     estimation: "points",
-    templateDefaults: {},
     body: "Project body",
     setup: {
       workflowReviewedAt: null,
@@ -77,7 +76,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
     read: () => Effect.sync(() => document),
     write: (_org, _slug, next) =>
       Effect.sync(() => {
-        document = { ...next, templateDefaults: {} }
+        document = next
       })
   })
 

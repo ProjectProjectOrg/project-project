@@ -482,8 +482,7 @@ const BenchmarkLive = (options: Options) =>
         FakeProjects,
         Layer.mock(ProjectGitAutomation.ProjectGitAutomation, {}),
         Layer.mock(ProjectDocs.ProjectDocs, {
-          read: (_org, slug) =>
-            Effect.succeed({ ...benchmarkProject, slug, templateDefaults: {} })
+          read: (_org, slug) => Effect.succeed({ ...benchmarkProject, slug })
         }),
         makeFakeGroups(options.ticketCount),
         FakeGitHub,

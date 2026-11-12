@@ -37,7 +37,7 @@ export type TicketParts = Readonly<{
   region: string
 }>
 
-export type LibraryKind = "blocks" | "templates"
+export type LibraryKind = "blocks" | "types"
 
 export type LibraryFile = Readonly<{ key: string; content: string }>
 
@@ -183,16 +183,33 @@ export class Markdown extends Context.Service<
       orgSlug: string,
       content: string
     ) => Effect.Effect<void, MarkdownError>
+    removeOrgLibraryFile: (
+      orgSlug: string
+    ) => Effect.Effect<void, MarkdownError>
     removeLibraryFile: (
       orgSlug: string,
       projectSlug: string | null,
       kind: LibraryKind,
       key: string
     ) => Effect.Effect<boolean, MarkdownError>
+    listOrgSlugs: () => Effect.Effect<ReadonlyArray<string>, MarkdownError>
+    listProjectSlugs: (
+      orgSlug: string
+    ) => Effect.Effect<ReadonlyArray<string>, MarkdownError>
+    listLegacyTemplateFiles: (
+      orgSlug: string,
+      projectSlug: string | null
+    ) => Effect.Effect<ReadonlyArray<LibraryFile>, MarkdownError>
+    removeLegacyTemplatesDir: (
+      orgSlug: string,
+      projectSlug: string | null
+    ) => Effect.Effect<boolean, MarkdownError>
   }>
 >()("@pp/server-core/markdown/Markdown") {}
 
 const SAFE_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
+
+const LEGACY_TEMPLATES_FOLDER = "templates"
 
 function ensureSafeSlug(slug: string): Effect.Effect<void, MarkdownError> {
   if (!SAFE_SLUG.test(slug)) {
@@ -799,14 +816,20 @@ const make = Effect.gen(function* () {
           })
         )
 
+  const libraryScopeDir = (
+    orgSlug: string,
+    projectSlug: string | null,
+    folder: string
+  ) =>
+    projectSlug === null
+      ? path.join(absoluteRoot, "orgs", orgSlug, folder)
+      : path.join(projectDir(orgSlug, projectSlug), folder)
+
   const libraryDir = (
     orgSlug: string,
     projectSlug: string | null,
     kind: LibraryKind
-  ) =>
-    projectSlug === null
-      ? path.join(absoluteRoot, "orgs", orgSlug, kind)
-      : path.join(projectDir(orgSlug, projectSlug), kind)
+  ) => libraryScopeDir(orgSlug, projectSlug, kind)
 
   const libraryFilePath = (
     orgSlug: string,
@@ -829,32 +852,93 @@ const make = Effect.gen(function* () {
     )
   }
 
+  const listLibraryDir = (
+    dir: string
+  ): Effect.Effect<ReadonlyArray<LibraryFile>, MarkdownError> =>
+    Effect.gen(function* () {
+      const entries = yield* fs.readDirectory(dir).pipe(
+        Effect.catchReason("PlatformError", "NotFound", () =>
+          Effect.succeed<ReadonlyArray<string>>([])
+        ),
+        Effect.mapError(
+          (cause) =>
+            new MarkdownError({ cause, message: `list failed: ${dir}` })
+        )
+      )
+      const keys = entries
+        .filter((entry) => entry.endsWith(".md"))
+        .map((entry) => entry.slice(0, -3))
+        .filter(isSafeLibraryKey)
+        .toSorted()
+      const files = yield* Effect.forEach(
+        keys,
+        (key) => readLibraryFile(dir, key),
+        { concurrency: 8 }
+      )
+      return files.flat()
+    })
+
   const listLibraryFiles = Effect.fn("Markdown.listLibraryFiles")(function* (
     orgSlug: string,
     projectSlug: string | null,
     kind: LibraryKind
   ) {
     yield* ensureSafeLibraryScope(orgSlug, projectSlug)
-    const dir = libraryDir(orgSlug, projectSlug, kind)
-    const entries = yield* fs.readDirectory(dir).pipe(
+    return yield* listLibraryDir(libraryDir(orgSlug, projectSlug, kind))
+  })
+
+  const listLegacyTemplateFiles = Effect.fn("Markdown.listLegacyTemplateFiles")(
+    function* (orgSlug: string, projectSlug: string | null) {
+      yield* ensureSafeLibraryScope(orgSlug, projectSlug)
+      return yield* listLibraryDir(
+        libraryScopeDir(orgSlug, projectSlug, LEGACY_TEMPLATES_FOLDER)
+      )
+    }
+  )
+
+  const removeLegacyTemplatesDir = Effect.fn(
+    "Markdown.removeLegacyTemplatesDir"
+  )(function* (orgSlug: string, projectSlug: string | null) {
+    yield* ensureSafeLibraryScope(orgSlug, projectSlug)
+    const dir = libraryScopeDir(orgSlug, projectSlug, LEGACY_TEMPLATES_FOLDER)
+    return yield* fs.remove(dir, { recursive: true }).pipe(
+      Effect.as(true),
+      Effect.catchReason("PlatformError", "NotFound", () =>
+        Effect.succeed(false)
+      ),
+      Effect.mapError(
+        (cause) =>
+          new MarkdownError({ cause, message: `remove failed: ${dir}` })
+      )
+    )
+  })
+
+  const listSlugDirs = (
+    dir: string
+  ): Effect.Effect<ReadonlyArray<string>, MarkdownError> =>
+    fs.readDirectory(dir).pipe(
       Effect.catchReason("PlatformError", "NotFound", () =>
         Effect.succeed<ReadonlyArray<string>>([])
       ),
       Effect.mapError(
         (cause) => new MarkdownError({ cause, message: `list failed: ${dir}` })
+      ),
+      Effect.map((entries) =>
+        entries.filter((entry) => SAFE_SLUG.test(entry)).toSorted()
       )
     )
-    const keys = entries
-      .filter((entry) => entry.endsWith(".md"))
-      .map((entry) => entry.slice(0, -3))
-      .filter(isSafeLibraryKey)
-      .toSorted()
-    const files = yield* Effect.forEach(
-      keys,
-      (key) => readLibraryFile(dir, key),
-      { concurrency: 8 }
+
+  const listOrgSlugs = Effect.fn("Markdown.listOrgSlugs")(function* () {
+    return yield* listSlugDirs(path.join(absoluteRoot, "orgs"))
+  })
+
+  const listProjectSlugs = Effect.fn("Markdown.listProjectSlugs")(function* (
+    orgSlug: string
+  ) {
+    yield* ensureSafeSlug(orgSlug)
+    return yield* listSlugDirs(
+      path.join(absoluteRoot, "orgs", orgSlug, "projects")
     )
-    return files.flat()
   })
 
   const writeLibraryFile = Effect.fn("Markdown.writeLibraryFile")(function* (
@@ -928,6 +1012,21 @@ const make = Effect.gen(function* () {
     }
   )
 
+  const removeOrgLibraryFile = Effect.fn("Markdown.removeOrgLibraryFile")(
+    function* (orgSlug: string) {
+      yield* ensureSafeSlug(orgSlug)
+      const file = orgLibraryFilePath(orgSlug)
+      yield* fs
+        .remove(file, { force: true })
+        .pipe(
+          Effect.mapError(
+            (cause) =>
+              new MarkdownError({ cause, message: `remove failed: ${file}` })
+          )
+        )
+    }
+  )
+
   const removeLibraryFile = Effect.fn("Markdown.removeLibraryFile")(function* (
     orgSlug: string,
     projectSlug: string | null,
@@ -978,7 +1077,12 @@ const make = Effect.gen(function* () {
     writeLibraryFile,
     readOrgLibraryFile,
     writeOrgLibraryFile,
+    removeOrgLibraryFile,
     removeLibraryFile,
+    listOrgSlugs,
+    listProjectSlugs,
+    listLegacyTemplateFiles,
+    removeLegacyTemplatesDir,
     root: absoluteRoot
   })
 })
