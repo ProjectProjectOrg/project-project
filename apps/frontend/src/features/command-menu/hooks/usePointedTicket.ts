@@ -1,6 +1,13 @@
 import { RegistryContext } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
-import { useContext, useEffect, type FocusEvent } from "react"
+import {
+  useContext,
+  useEffect,
+  type FocusEvent,
+  type PointerEvent
+} from "react"
+
+import { isKeyboardNavigating } from "@/lib/keyboard"
 
 import { pointedTicket } from "../atoms/commandMenu"
 import type { TicketContext } from "../lib/commandMenu"
@@ -41,11 +48,23 @@ export function usePointedTicket(
     [registry, orgSlug, slug, ticketId]
   )
   return {
-    onPointerEnter: enter,
-    onPointerLeave: leave,
+    onPointerEnter: (event: PointerEvent<HTMLElement>) => {
+      if (!isKeyboardNavigating(event.currentTarget)) enter()
+    },
+    onPointerLeave: (event: PointerEvent<HTMLElement>) => {
+      if (!isKeyboardNavigating(event.currentTarget)) leave()
+    },
+    onPointerMove: (event: PointerEvent<HTMLElement>) => {
+      if (event.movementX !== 0 || event.movementY !== 0) enter()
+    },
     onFocus: enter,
     onBlur: (event: FocusEvent<HTMLElement>) => {
-      if (!event.currentTarget.contains(event.relatedTarget)) leave()
+      if (
+        !event.currentTarget.contains(event.relatedTarget) &&
+        (!event.currentTarget.matches(":hover") ||
+          isKeyboardNavigating(event.currentTarget))
+      )
+        leave()
     }
   }
 }

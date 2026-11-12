@@ -52,6 +52,7 @@ import { TicketStepper } from "@/features/tickets/components/ticket-page/TicketS
 import { useTemplateSwap } from "@/features/tickets/components/ticket-page/useTemplateSwap"
 import { FlagChip } from "@/features/tickets/components/ticket-preview/PreviewChips"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
+import { useRememberViewedTicket } from "@/features/tickets/hooks/useReturnToTicket"
 import {
   type TicketHierarchy,
   ticketHierarchy
@@ -78,6 +79,7 @@ export function TicketPage({
   from?: TicketViewSource
 }) {
   const { orgSlug, slug } = useProjectRoute()
+  useRememberViewedTicket(ticket.id, from)
   const req = ticketRequest(orgSlug, slug, ticket.id)
   const updateTicket = useAtomSet(updateTicketDetail(req))
   const patchTicket = useAtomSet(updateTicketDetail(req), {

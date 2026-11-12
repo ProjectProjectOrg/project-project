@@ -27,6 +27,7 @@ import {
   projectOfKey,
   toggleSelection
 } from "@/features/tickets/lib/ticketSelection"
+import { ownsKeystrokes } from "@/lib/keyboard"
 
 import { SelectionBar } from "./SelectionBar"
 import {
@@ -75,7 +76,7 @@ export function TicketSelectionProvider({
         event.altKey ||
         !inList ||
         row === null ||
-        isEditable(target)
+        ownsKeystrokes(target)
       ) {
         return
       }
@@ -129,11 +130,6 @@ const selectionScope = (
     }
   }
 })
-
-const isEditable = (element: HTMLElement) =>
-  element.isContentEditable ||
-  element instanceof HTMLInputElement ||
-  element instanceof HTMLTextAreaElement
 
 export type SelectionEntry = Readonly<{
   key: string

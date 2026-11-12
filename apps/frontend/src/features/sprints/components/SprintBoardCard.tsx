@@ -69,11 +69,11 @@ function BoardCardFields({
         <div
           {...pointAt}
           data-board-card={ticket.id}
-          onPointerEnter={() => {
-            pointAt.onPointerEnter()
+          onPointerEnter={(event) => {
+            pointAt.onPointerEnter(event)
             preloadChildren()
           }}
-          className="relative isolate flex flex-col rounded-lg bg-surface-3 px-2.5 pt-2 pb-1 text-left shadow-surface-1 transition outline-none hover:bg-surface-4 hover:shadow-surface-1-hover has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover data-[popup-open]:bg-surface-4 data-[popup-open]:shadow-surface-1-hover [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20"
+          className="relative isolate flex flex-col rounded-lg bg-surface-3 px-2.5 pt-2 pb-1 text-left shadow-surface-1 transition outline-none not-in-data-keyboard-navigation:hover:bg-surface-4 not-in-data-keyboard-navigation:hover:shadow-surface-1-hover in-data-keyboard-navigation:duration-0 has-[[data-popup-open]]:bg-surface-4 has-[[data-popup-open]]:shadow-surface-1-hover has-[[data-row-link]:focus-visible]:bg-surface-4 has-[[data-row-link]:focus-visible]:shadow-surface-1-hover has-[[data-row-link]:focus-visible]:duration-0 data-[popup-open]:bg-surface-4 data-[popup-open]:shadow-surface-1-hover [&_a:not([data-row-link])]:relative [&_a:not([data-row-link])]:z-20 [&_button]:relative [&_button]:z-20"
         >
           <Link
             to="/orgs/$orgSlug/projects/$slug/tickets/$id"
