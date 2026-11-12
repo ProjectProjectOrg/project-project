@@ -1,19 +1,23 @@
-import type { Group } from "@pp/shared"
+import type { Group, TypeKey } from "@pp/shared"
 import { Plus } from "lucide-react"
 import { useRef, type ComponentProps, type RefObject } from "react"
 
 import { Select, SelectTrigger } from "@/components/ui/select"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { SprintAssignMenu } from "@/features/sprints/components/SprintAssignMenu"
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
+import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import {
-  TYPE_LABELS,
-  TYPE_META,
-  type PickableType
-} from "@/features/tickets/lib/ticketMeta"
+  resolveType,
+  typeKeyOfOption,
+  typeName,
+  typeOptionValue
+} from "@/features/tickets/lib/ticketTypes"
 import { m } from "@/paraglide/messages"
 
 import { CreatorChip } from "./CreatorChip"
-import { typeOptions } from "./TypeField"
+import { typeMenuItems } from "./TypeField"
 
 type OnOpenChange = NonNullable<ComponentProps<typeof Select>["onOpenChange"]>
 type CloseReason = Parameters<OnOpenChange>[1]["reason"]
@@ -44,27 +48,30 @@ function useCreatorMenuFocus(inputRef: RefObject<HTMLInputElement | null>) {
 
 export function CreatorTypeMenu({
   type,
-  types,
+  epics,
   onTypeChange,
   expanded,
   inputRef
 }: CreatorMenuProps &
   Readonly<{
-    type: PickableType
-    types: ReadonlyArray<PickableType>
-    onTypeChange: (type: PickableType) => void
+    type: TypeKey | null
+    epics: boolean
+    onTypeChange: (type: TypeKey | null) => void
   }>) {
-  const TypeIcon = TYPE_META[type].icon
+  const { orgSlug, slug } = useProjectRoute()
+  const types = useTicketTypes(orgSlug, slug)
+  const shown = resolveType(types, type)
+  const label = typeName(shown)
   const focus = useCreatorMenuFocus(inputRef)
   return (
     <Select
-      items={typeOptions(types)}
-      value={type}
-      onValueChange={onTypeChange}
+      items={typeMenuItems(types, epics)}
+      value={typeOptionValue(type)}
+      onValueChange={(next) => onTypeChange(typeKeyOfOption(next))}
       onOpenChange={focus.onOpenChange}
       contentProps={{
         align: "start",
-        className: "w-40",
+        className: "w-44",
         finalFocus: focus.finalFocus
       }}
     >
@@ -72,13 +79,12 @@ export function CreatorTypeMenu({
         render={
           <CreatorChip
             expanded={expanded}
-            tone={TYPE_META[type].tone}
-            icon={<TypeIcon className="size-4 shrink-0" strokeWidth={1.75} />}
-            label={TYPE_LABELS[type]()}
-            contentKey={type}
-            aria-label={m.tickets_create_type_aria_label({
-              type: TYPE_LABELS[type]()
-            })}
+            tone="muted"
+            tint={shown?.color}
+            icon={<TypeGlyph type={shown} />}
+            label={label}
+            contentKey={typeOptionValue(type)}
+            aria-label={m.tickets_create_type_aria_label({ type: label })}
           />
         }
       />

@@ -7,7 +7,6 @@ import {
   backlogRequest,
   quickCreateBacklogTicket
 } from "@/features/tickets/atoms/backlog"
-import { PICKABLE_TYPES } from "@/features/tickets/lib/ticketMeta"
 
 import { TicketComposer } from "./TicketComposer"
 
@@ -22,7 +21,7 @@ export function BacklogTicketCreator({ query }: { query: TicketListQuery }) {
 
   return (
     <TicketComposer
-      types={PICKABLE_TYPES}
+      epics
       create={create}
       createState={createState}
       onCreated={(ticket) =>

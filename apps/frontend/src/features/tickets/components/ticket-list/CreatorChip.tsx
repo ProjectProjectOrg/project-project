@@ -8,6 +8,7 @@ export type CreatorChipProps = Readonly<
   Omit<ComponentProps<"button">, "children"> & {
     expanded: boolean
     tone: BadgeTone
+    tint?: string | null
     icon: ReactNode
     label: ReactNode
     contentKey: string
@@ -18,13 +19,16 @@ export type CreatorChipProps = Readonly<
 export function CreatorChip({
   expanded,
   tone,
+  tint = null,
   icon,
   label,
   contentKey,
   labelClassName = "max-w-[16ch]",
   className,
+  style,
   ...props
 }: CreatorChipProps) {
+  const tinted = expanded && tint !== null
   return (
     <button
       type="button"
@@ -32,10 +36,13 @@ export function CreatorChip({
       className={cn(
         "transition-expand inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md outline-none focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]",
         expanded
-          ? cn("px-2", BADGE_TONES[tone])
+          ? cn("px-2", !tinted && BADGE_TONES[tone])
           : "px-1 hover:bg-hover hover:text-foreground",
         className
       )}
+      style={
+        tinted ? { ...style, backgroundColor: `${tint}1a`, color: tint } : style
+      }
     >
       {icon}
       <CollapsingLabel show={expanded} contentKey={contentKey} gap={6}>

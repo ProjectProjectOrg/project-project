@@ -24,7 +24,6 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { pickDefaultSprint } from "@/features/sprints/components/SprintAssignMenu"
-import { type PickableType } from "@/features/tickets/lib/ticketMeta"
 import type { QuickCreateInput } from "@/features/tickets/lib/ticketRows"
 import {
   mutationErrorText,
@@ -41,7 +40,7 @@ import { useTemplateChoice, useTicketTypeChoice } from "./useTemplateChoice"
 type CreatorError = Readonly<{ _tag: string }>
 
 export type TicketComposerProps = Readonly<{
-  types: ReadonlyArray<PickableType>
+  epics: boolean
   parent?: TicketParent
   create: (input: QuickCreateInput) => Promise<Exit.Exit<Ticket, CreatorError>>
   createState: Result.AsyncResult<unknown, CreatorError>
@@ -49,7 +48,7 @@ export type TicketComposerProps = Readonly<{
 }>
 
 export function TicketComposer({
-  types,
+  epics,
   parent,
   create,
   createState,
@@ -95,7 +94,7 @@ export function TicketComposer({
     choice: templateChoice,
     onChoose: (_template, ticketType) => {
       setTitle("")
-      if (ticketType !== null && types.includes(ticketType)) {
+      if (ticketType !== null && (epics || !isEpicType(ticketType))) {
         applyTemplateDefault(ticketType)
       }
     }
@@ -137,7 +136,7 @@ export function TicketComposer({
   const typeAddon = (
     <CreatorTypeMenu
       type={type}
-      types={types}
+      epics={epics}
       onTypeChange={setType}
       expanded={expanded}
       inputRef={inputRef}

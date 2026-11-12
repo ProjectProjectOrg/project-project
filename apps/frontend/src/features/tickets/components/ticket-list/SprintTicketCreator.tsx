@@ -4,7 +4,7 @@ import {
   useAtomSet,
   useAtomValue
 } from "@effect/atom-react"
-import { isEpic } from "@pp/shared"
+import { isEpic, isEpicType } from "@pp/shared"
 import type { GroupId, Ticket, TicketId } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
@@ -46,7 +46,6 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { TicketStatusIcon } from "@/features/tickets/components/ticket-marks/TicketStatusIcon"
-import { NON_EPIC_TYPES } from "@/features/tickets/lib/ticketMeta"
 import type { PagedSearchResults } from "@/hooks/usePagedSearch"
 import {
   mutationErrorText,
@@ -127,7 +126,7 @@ export function SprintTicketCreator({
     choice: templateChoice,
     onChoose: (_template, ticketType) => {
       setTitle("")
-      if (ticketType !== null && NON_EPIC_TYPES.includes(ticketType)) {
+      if (ticketType !== null && !isEpicType(ticketType)) {
         applyTemplateDefault(ticketType)
       }
     }
@@ -288,7 +287,7 @@ export function SprintTicketCreator({
   const typeAddon = (
     <CreatorTypeMenu
       type={type}
-      types={NON_EPIC_TYPES}
+      epics={false}
       onTypeChange={setType}
       expanded={expanded}
       inputRef={inputRef}

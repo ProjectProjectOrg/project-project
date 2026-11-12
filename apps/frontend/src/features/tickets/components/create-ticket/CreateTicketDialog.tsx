@@ -6,6 +6,7 @@ import {
   type TicketPriority,
   type TicketId,
   type TicketStatus,
+  type TypeKey,
   isEpicType
 } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
@@ -67,7 +68,6 @@ import { StatusSelect } from "@/features/tickets/components/ticket-list/StatusFi
 import { TypeSelect } from "@/features/tickets/components/ticket-list/TypeField"
 import { useTemplateChoice } from "@/features/tickets/components/ticket-list/useTemplateChoice"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
-import { type PickableType } from "@/features/tickets/lib/ticketMeta"
 import { useRouteBoundDialog } from "@/hooks/useRouteBoundDialog"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
@@ -124,7 +124,7 @@ function CreateTicketForm({
   useEffect(() => titleInput.current?.focus(), [])
   const [title, setTitle] = useState(request.title ?? "")
   const [description, setDescription] = useState("")
-  const [type, setType] = useState<PickableType>("other")
+  const [type, setType] = useState<TypeKey | null>(null)
   const [priority, setPriority] = useState<TicketPriority>("med")
   const [status, setStatus] = useState<TicketStatus | null>(null)
   const [assignees, setAssignees] = useState<ReadonlyArray<string>>([])
@@ -259,9 +259,7 @@ function CreateTicketForm({
         </MentionScopeProvider>
       </Composer.Body>
       <Composer.Chips>
-        {slug === null ? (
-          <TypeSelect value={type} onChange={setType} />
-        ) : (
+        {slug === null ? null : (
           <ProjectScope orgSlug={orgSlug} slug={slug}>
             <CreateTicketChips
               key={slug}
@@ -318,8 +316,8 @@ function CreateTicketChips({
   slug: string
   status: TicketStatus | null
   onStatus: (status: TicketStatus) => void
-  type: PickableType
-  onType: (type: PickableType) => void
+  type: TypeKey | null
+  onType: (type: TypeKey | null) => void
   priority: TicketPriority
   onPriority: (priority: TicketPriority) => void
   assignees: ReadonlyArray<string>
@@ -340,7 +338,12 @@ function CreateTicketChips({
         onChange={onStatus}
         showLabel
       />
-      <TypeSelect value={type} onChange={onType} />
+      <TypeSelect
+        orgSlug={orgSlug}
+        slug={slug}
+        value={type}
+        onChange={onType}
+      />
       <PrioritySelect value={priority} onChange={onPriority} showLabel />
       <AssigneeSelect
         value={assignees}

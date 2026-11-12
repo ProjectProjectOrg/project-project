@@ -51,10 +51,6 @@ import {
   quickCreateSprintSectionsTicket,
   type SprintSectionsRequest
 } from "@/features/tickets/atoms/sprintSections"
-import {
-  NON_EPIC_TYPES,
-  PICKABLE_TYPES
-} from "@/features/tickets/lib/ticketMeta"
 import type { QuickCreateInput } from "@/features/tickets/lib/ticketRows"
 import {
   mutationErrorText,
@@ -224,10 +220,7 @@ function SectionCreatorForm({
   const hasSprints = sprints.some((s) => s.completedAt === null)
   const showSprintAddon =
     activeSprintId === null && !isExplicitNoSprintFilter && hasSprints
-  const types =
-    activeSprintId !== null || parent !== undefined
-      ? NON_EPIC_TYPES
-      : PICKABLE_TYPES
+  const epics = activeSprintId === null && parent === undefined
 
   const [title, setTitle] = useState("")
   const { type, setType, applyTemplateDefault } = useTicketTypeChoice()
@@ -245,7 +238,7 @@ function SectionCreatorForm({
     choice: templateChoice,
     onChoose: (_template, ticketType) => {
       setTitle("")
-      if (ticketType !== null && types.includes(ticketType)) {
+      if (ticketType !== null && (epics || !isEpicType(ticketType))) {
         applyTemplateDefault(ticketType)
       }
     }
@@ -309,7 +302,7 @@ function SectionCreatorForm({
     >
       <CreatorTypeMenu
         type={type}
-        types={types}
+        epics={epics}
         onTypeChange={setType}
         expanded
         inputRef={inputRef}

@@ -64,6 +64,8 @@ import { SPRINT_STATE_META } from "@/features/sprints/components/SprintChip"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagMenuItem } from "@/features/tags/components/TagMenuItem"
+import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import {
   estimateFilterLabel,
   estimateFilterValues
@@ -74,12 +76,9 @@ import {
 } from "@/features/tickets/lib/ticketFilters"
 import {
   statusLabelFor,
-  statusMetaFor,
-  TYPE_LABELS,
-  TYPE_META,
-  PICKABLE_TYPES,
-  typeFilterOf
+  statusMetaFor
 } from "@/features/tickets/lib/ticketMeta"
+import { typeName, typeOptions } from "@/features/tickets/lib/ticketTypes"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -370,20 +369,21 @@ function FilterType({
   value: TicketFilter["type"]
   onChange: (value: TicketFilter["type"]) => void
 }>) {
+  const { orgSlug, slug } = useProjectRoute()
+  const types = useTicketTypes(orgSlug, slug)
   return (
     <FilterSubmenu icon={Shapes} label={m.tickets_filters_section_type()}>
       <CheckboxOptions
         selected={value}
         onChange={onChange}
-        options={PICKABLE_TYPES.map((type) => {
-          const TIcon = TYPE_META[type].icon
-          const label = TYPE_LABELS[type]()
+        options={typeOptions(types).map((option) => {
+          const label = typeName(option.type)
           return {
-            value: typeFilterOf(type),
+            value: option.value,
             label,
             content: (
               <>
-                <TIcon className="size-4" strokeWidth={1.75} />
+                <TypeGlyph type={option.type} />
                 {text(label)}
               </>
             )

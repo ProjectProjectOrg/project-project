@@ -30,7 +30,6 @@ import {
 } from "@/features/tickets/components/ticket-split/SplitResults"
 import { SplitWarnings } from "@/features/tickets/components/ticket-split/SplitWarnings"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
-import { pickableTypeOf, typeKeyOf } from "@/features/tickets/lib/ticketMeta"
 import { useAppForm } from "@/lib/form"
 import { m } from "@/paraglide/messages"
 
@@ -184,10 +183,10 @@ export function TicketSplitForm({
                     <form.Field name={`results[${index}].type`}>
                       {(typeField) => (
                         <TypeSelect
-                          value={pickableTypeOf(typeField.value)}
-                          onChange={(type) =>
-                            typeField.handleChange(typeKeyOf(type))
-                          }
+                          orgSlug={orgSlug}
+                          slug={slug}
+                          value={typeField.value}
+                          onChange={typeField.handleChange}
                         />
                       )}
                     </form.Field>

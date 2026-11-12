@@ -1,41 +1,43 @@
-import { isEpicType, type TicketId, type TypeKey } from "@pp/shared"
+import type { TicketId, TypeDefinition, TypeKey } from "@pp/shared"
 import type { ComponentProps, ReactElement, ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger } from "@/components/ui/select"
-import {
-  PICKABLE_TYPES,
-  pickableTypeOf,
-  TYPE_LABELS,
-  TYPE_META,
-  typeKeyOf,
-  type PickableType
-} from "@/features/tickets/lib/ticketMeta"
+import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
+import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
-import { cn } from "@/lib/utils"
+import {
+  resolveType,
+  typeKeyOfOption,
+  typeName,
+  typeOptions,
+  typeOptionValue
+} from "@/features/tickets/lib/ticketTypes"
 import { m } from "@/paraglide/messages"
 
 type SelectContentProps = NonNullable<
   ComponentProps<typeof Select>["contentProps"]
 >
 
-export const typeOptions = (types: ReadonlyArray<PickableType>) =>
-  types.map((t, index) => {
-    const TIcon = TYPE_META[t].icon
-    return {
-      value: t,
-      textValue: TYPE_LABELS[t](),
-      separated: isEpicType(types[index + 1]),
-      label: (
-        <>
-          <TIcon className="size-4" strokeWidth={1.75} />
-          {TYPE_LABELS[t]()}
-        </>
-      )
-    }
-  })
+export const typeMenuItems = (
+  types: ReadonlyArray<TypeDefinition>,
+  epics: boolean = true
+) =>
+  typeOptions(types, epics).map((option) => ({
+    value: option.value,
+    textValue: typeName(option.type),
+    separated: option.separated,
+    label: (
+      <>
+        <TypeGlyph type={option.type} />
+        <span className="truncate">{typeName(option.type)}</span>
+      </>
+    )
+  }))
 
 function TypePicker({
+  types,
   value,
   onChange,
   align,
@@ -43,8 +45,9 @@ function TypePicker({
   trigger,
   children
 }: Readonly<{
-  value: PickableType
-  onChange: (type: PickableType) => void
+  types: ReadonlyArray<TypeDefinition>
+  value: TypeKey | null
+  onChange: (type: TypeKey | null) => void
   align: SelectContentProps["align"]
   finalFocus?: SelectContentProps["finalFocus"]
   trigger: ReactElement
@@ -52,12 +55,13 @@ function TypePicker({
 }>) {
   return (
     <Select
-      items={typeOptions(PICKABLE_TYPES)}
-      value={value}
+      items={typeMenuItems(types)}
+      value={typeOptionValue(value)}
       onValueChange={(next) => {
-        if (next !== value) onChange(next)
+        const key = typeKeyOfOption(next)
+        if (key !== value) onChange(key)
       }}
-      contentProps={{ align, className: "w-40", finalFocus }}
+      contentProps={{ align, className: "w-44", finalFocus }}
     >
       <SelectTrigger render={trigger}>{children}</SelectTrigger>
     </Select>
@@ -65,20 +69,26 @@ function TypePicker({
 }
 
 export function TypeSelect({
+  orgSlug,
+  slug,
   value,
   onChange,
   ariaLabel,
   className
-}: {
-  value: PickableType
-  onChange: (type: PickableType) => void
+}: Readonly<{
+  orgSlug: string
+  slug: string
+  value: TypeKey | null
+  onChange: (type: TypeKey | null) => void
   ariaLabel?: string
   className?: string
-}) {
-  const Icon = TYPE_META[value].icon
-  const typeLabel = TYPE_LABELS[value]()
+}>) {
+  const types = useTicketTypes(orgSlug, slug)
+  const type = resolveType(types, value)
+  const label = typeName(type)
   return (
     <TypePicker
+      types={types}
       value={value}
       onChange={onChange}
       align="end"
@@ -88,15 +98,13 @@ export function TypeSelect({
           type="button"
           variant="chip"
           onClick={(e) => e.stopPropagation()}
-          aria-label={
-            ariaLabel ?? m.tickets_type_aria_label({ label: typeLabel })
-          }
+          aria-label={ariaLabel ?? m.tickets_type_aria_label({ label })}
           className={className}
         />
       }
     >
-      <Icon className="size-3.5" strokeWidth={1.75} />
-      <span>{typeLabel}</span>
+      <TypeGlyph type={type} className="size-3.5" />
+      <span>{label}</span>
     </TypePicker>
   )
 }
@@ -105,18 +113,20 @@ export function TypeBadgeTrigger({
   ticket,
   onPatch,
   className
-}: {
-  ticket: { id: TicketId; type: TypeKey | null }
+}: Readonly<{
+  ticket: Readonly<{ id: TicketId; type: TypeKey | null }>
   onPatch: (patch: TicketEdit) => void
   className?: string
-}) {
-  const type = pickableTypeOf(ticket.type)
-  const Icon = TYPE_META[type].icon
-  const typeLabel = TYPE_LABELS[type]()
+}>) {
+  const { orgSlug, slug } = useProjectRoute()
+  const types = useTicketTypes(orgSlug, slug)
+  const type = resolveType(types, ticket.type)
+  const label = typeName(type)
   return (
     <TypePicker
-      value={type}
-      onChange={(next) => onPatch({ type: typeKeyOf(next) })}
+      types={types}
+      value={ticket.type}
+      onChange={(next) => onPatch({ type: next })}
       align="end"
       finalFocus={false}
       trigger={
@@ -124,58 +134,13 @@ export function TypeBadgeTrigger({
           type="button"
           variant="chip"
           onClick={(e) => e.stopPropagation()}
-          aria-label={m.tickets_type_aria_label({ label: typeLabel })}
+          aria-label={m.tickets_type_aria_label({ label })}
           className={className}
         />
       }
     >
-      <Icon className="size-3" strokeWidth={1.75} />
-      <span>{typeLabel}</span>
-    </TypePicker>
-  )
-}
-
-export function TypeButton({
-  ticket,
-  className,
-  iconOnly,
-  onPatch
-}: {
-  ticket: { id: TicketId; type: TypeKey | null }
-  className?: string
-  iconOnly?: boolean
-  onPatch: (patch: TicketEdit) => void
-}) {
-  const type = pickableTypeOf(ticket.type)
-  const Icon = TYPE_META[type].icon
-  const typeLabel = TYPE_LABELS[type]()
-  return (
-    <TypePicker
-      value={type}
-      onChange={(next) => onPatch({ type: typeKeyOf(next) })}
-      align="start"
-      trigger={
-        <Button
-          type="button"
-          variant="chip"
-          size={iconOnly ? "icon-sm" : undefined}
-          onClick={(e) => e.stopPropagation()}
-          aria-label={m.tickets_type_aria_label({ label: typeLabel })}
-          className={cn(
-            "text-muted-foreground hover:text-foreground",
-            className
-          )}
-        />
-      }
-    >
-      {iconOnly ? (
-        <Icon strokeWidth={1.75} />
-      ) : (
-        <>
-          <Icon className="size-3.5" strokeWidth={1.75} />
-          {typeLabel}
-        </>
-      )}
+      <TypeGlyph type={type} className="size-3" />
+      <span>{label}</span>
     </TypePicker>
   )
 }

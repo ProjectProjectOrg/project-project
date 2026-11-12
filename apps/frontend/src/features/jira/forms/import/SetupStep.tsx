@@ -1,16 +1,18 @@
 import { useAtomValue } from "@effect/atom-react"
-import type {
-  JiraMigrationDestinationConflict,
-  JiraMigrationDetail,
-  JiraMigrationRequirements,
-  TicketPriority,
-  JiraProjectType
+import {
+  JiraProjectType,
+  ticketTypeOfJira,
+  type JiraMigrationDestinationConflict,
+  type JiraMigrationDetail,
+  type JiraMigrationRequirements,
+  type TicketPriority
 } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { useEffect, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { blockIconComponent } from "@/features/editor/lib/blockIcons"
 import {
   jiraDestinationConflicts,
   jiraDestinationConflictsRequest
@@ -28,8 +30,12 @@ import {
   type JiraSetupCounts,
   type JiraSetupSection
 } from "@/features/jira/lib/setup"
+import { NoTypeIcon } from "@/features/tickets/components/TypeGlyph"
 import { PRIORITY_META } from "@/features/tickets/lib/priorityMeta"
-import { TYPE_META } from "@/features/tickets/lib/ticketMeta"
+import {
+  BUILTIN_TYPE_DEFINITIONS,
+  resolveType
+} from "@/features/tickets/lib/ticketTypes"
 import { useOrgActor } from "@/hooks/useActor"
 import { useFormValues } from "@/lib/form"
 import { m } from "@/paraglide/messages"
@@ -43,21 +49,17 @@ import { SprintsSection } from "./SprintsSection"
 import { StatusesSection } from "./StatusesSection"
 import { TagsSection } from "./TagsSection"
 
-const typeOptions: ReadonlyArray<EnumOption<JiraProjectType>> = [
-  { value: "feat", label: m.jira_import_type_feat, icon: TYPE_META.feat.icon },
-  { value: "bug", label: m.jira_import_type_bug, icon: TYPE_META.bug.icon },
-  {
-    value: "chore",
-    label: m.jira_import_type_chore,
-    icon: TYPE_META.chore.icon
-  },
-  {
-    value: "other",
-    label: m.jira_import_type_other,
-    icon: TYPE_META.other.icon
-  },
-  { value: "epic", label: m.jira_import_type_epic, icon: TYPE_META.epic.icon }
-]
+const typeOptions: ReadonlyArray<EnumOption<JiraProjectType>> =
+  JiraProjectType.literals.map((value) => {
+    const type = resolveType(BUILTIN_TYPE_DEFINITIONS, ticketTypeOfJira(value))
+    return type === null
+      ? { value, label: m.jira_import_type_none, icon: NoTypeIcon }
+      : {
+          value,
+          label: () => type.name,
+          icon: blockIconComponent(type.icon)
+        }
+  })
 
 const priorityOptions: ReadonlyArray<EnumOption<TicketPriority>> = [
   {

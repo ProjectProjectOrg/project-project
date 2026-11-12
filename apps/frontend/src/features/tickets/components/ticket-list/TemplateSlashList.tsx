@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/menu-listbox"
 import { matchesSlashQuery } from "@/features/editor/lexical/blocks/slashMenuItems"
 import { BlockIconGlyph } from "@/features/library/components/BlockIconGlyph"
-import { type PickableType } from "@/features/tickets/lib/ticketMeta"
 import { m } from "@/paraglide/messages"
 
 import type { TemplateChoice } from "./useTemplateChoice"
@@ -80,7 +79,7 @@ export function useTemplateSlash({
   choice: TemplateChoice
   onChoose: (
     template: TypeDefinition | null,
-    ticketType: PickableType | null
+    ticketType: TypeKey | null
   ) => void
 }>): TemplateSlash {
   const listboxId = useId()
@@ -101,10 +100,7 @@ export function useTemplateSlash({
   const choose = (template: TypeDefinition | null) => {
     choice.pick(template?.key ?? null)
     close()
-    onChoose(
-      template,
-      template === null ? null : choice.ticketTypeOf(template.key)
-    )
+    onChoose(template, template?.key ?? null)
   }
 
   const onTitleChange = (previous: string, next: string) => {
