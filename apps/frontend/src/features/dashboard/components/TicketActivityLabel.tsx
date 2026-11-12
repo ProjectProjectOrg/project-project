@@ -42,10 +42,10 @@ export function TicketActivityLabel({
   const Icon = ACTIVITY_ICONS[activity.tag]
   return (
     <>
-      <span className="grid size-8 place-items-center text-muted-foreground">
+      <span className="col-start-2 grid h-8 w-(--list-icon) place-items-center text-muted-foreground">
         <Icon className="size-4" strokeWidth={1.75} />
       </span>
-      <span className="col-[2/-1] min-w-0 text-body text-muted-foreground">
+      <span className="col-[3/-1] min-w-0 text-body text-muted-foreground">
         {activityText(activity, viewerId, statuses)}
       </span>
     </>

@@ -49,7 +49,7 @@ function HeadingContent(props: HeadingSource & { count: number }): ReactNode {
 
   return (
     <div className="flex w-full items-center gap-2">
-      <span className="grid size-6 shrink-0 place-items-center">
+      <span className="grid h-6 w-(--list-icon) shrink-0 place-items-center">
         {heading ? heading.icon : <StatusHeadingIcon {...props} />}
       </span>
       <span className="truncate text-body font-semibold">{label}</span>
@@ -115,7 +115,7 @@ export const SectionHeader = forwardRef<HTMLDivElement, SectionHeaderProps>(
             : (e) => keepInPlace(e.currentTarget, onToggleCollapsed)
         }
         className={cn(
-          "sticky top-0 z-10 flex items-center gap-3 rounded-lg bg-muted px-3 py-2 transition-colors",
+          "sticky top-0 z-10 flex items-center gap-(--list-lead-gap) rounded-lg bg-muted px-3 py-2 transition-colors",
           !creating &&
             "cursor-pointer select-none hover:bg-[color-mix(in_oklch,var(--muted)_95%,var(--foreground)_5%)]"
         )}
@@ -129,7 +129,7 @@ export const SectionHeader = forwardRef<HTMLDivElement, SectionHeaderProps>(
           aria-expanded={!collapsed}
           aria-label={m.tickets_section_collapse_aria_label({ label })}
           className={cn(
-            "grid size-6 shrink-0 cursor-pointer place-items-center rounded-md text-muted-foreground outline-none",
+            "grid h-6 w-(--list-lead) shrink-0 cursor-pointer place-items-center rounded-md text-muted-foreground outline-none",
             "transition-all duration-100 hover:text-foreground",
             "focus-visible:ring-2 focus-visible:ring-ring",
             "active:scale-[0.97]"

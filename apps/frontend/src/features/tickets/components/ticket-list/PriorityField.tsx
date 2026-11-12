@@ -90,7 +90,7 @@ export function PrioritySelect({
         <Button
           type="button"
           variant="chip"
-          size={showLabel ? undefined : "icon-sm"}
+          size={showLabel ? undefined : "square-6"}
           onClick={(e) => stopPropagation && e.stopPropagation()}
           aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
           title={priorityLabel}

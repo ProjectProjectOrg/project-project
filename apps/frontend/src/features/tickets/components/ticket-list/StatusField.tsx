@@ -83,7 +83,7 @@ function StatusTrigger({
         <Button
           type="button"
           variant="chip"
-          size={showLabel ? undefined : "icon-sm"}
+          size={showLabel ? undefined : "square-6"}
           {...triggerProps}
         />
       }
