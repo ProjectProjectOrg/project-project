@@ -8,10 +8,12 @@ import {
   type EstimationMode
 } from "@pp/shared"
 import { Plus, X } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
 import { useId, useState, type FormEvent, type ReactElement } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Kbd } from "@/components/ui/kbd"
 import {
   Popover,
   PopoverContent,
@@ -26,6 +28,8 @@ import {
   parseEstimatePoints
 } from "@/features/tickets/lib/estimateMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import { formatWorkDurationLong } from "@/lib/duration"
+import { blurSwap } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -255,14 +259,14 @@ function EstimateInputForm({
   const [draft, setDraft] = useState(initial)
   const [invalid, setInvalid] = useState(false)
   const copy = INPUT_COPY[unit]
+  const parsed = parseTypedEstimate(unit, draft)
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const estimate = parseTypedEstimate(unit, draft)
-    if (estimate === null) {
+    if (parsed === null) {
       setInvalid(true)
       return
     }
-    onSubmit(estimate)
+    onSubmit(parsed)
   }
   return (
     <form onSubmit={submit} className="flex flex-col gap-2">
@@ -280,11 +284,23 @@ function EstimateInputForm({
           setDraft(event.target.value)
           setInvalid(false)
         }}
+        variant="popover"
+        className="tabular-nums"
       />
-      {invalid && (
+      {invalid ? (
         <p id={errorId} role="alert" className="text-caption text-destructive">
           {copy.invalid()}
         </p>
+      ) : (
+        unit === "time" && (
+          <BlurSwapLine
+            text={
+              parsed?.unit === "time"
+                ? formatWorkDurationLong(parsed.minutes * 60)
+                : m.tickets_estimate_time_hint()
+            }
+          />
+        )
       )}
       <div className="flex items-center justify-end gap-1">
         {canClear && (
@@ -294,13 +310,42 @@ function EstimateInputForm({
             size="sm"
             onClick={() => onSubmit(null)}
           >
-            {m.tickets_estimate_clear()}
+            {m.tickets_estimate_clear_short()}
           </Button>
         )}
-        <Button type="submit" size="sm">
+        <Button type="submit" size="sm" disabled={draft.trim() === ""}>
           {m.tickets_estimate_time_save()}
+          <Kbd
+            aria-hidden
+            size="sm"
+            className="bg-background/15 text-background"
+          >
+            ↵
+          </Kbd>
         </Button>
       </div>
     </form>
+  )
+}
+
+function BlurSwapLine({ text }: Readonly<{ text: string }>) {
+  return (
+    <p
+      aria-live="polite"
+      className="grid text-caption text-muted-foreground tabular-nums"
+    >
+      <AnimatePresence initial={false}>
+        <motion.span
+          key={text}
+          variants={blurSwap}
+          initial="hidden"
+          animate="shown"
+          exit="hidden"
+          className="col-start-1 row-start-1"
+        >
+          {text}
+        </motion.span>
+      </AnimatePresence>
+    </p>
   )
 }

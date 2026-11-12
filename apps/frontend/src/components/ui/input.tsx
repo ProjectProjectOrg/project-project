@@ -10,6 +10,7 @@ type InputVariant =
   | "inline-muted"
   | "bare"
   | "composer-title"
+  | "popover"
 
 const INPUT_VARIANT: Record<InputVariant, string> = {
   default:
@@ -20,6 +21,8 @@ const INPUT_VARIANT: Record<InputVariant, string> = {
     "rounded-md bg-transparent px-2 py-1 font-semibold transition-colors placeholder:font-normal hover:bg-foreground/5 focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-ring aria-invalid:ring-1 aria-invalid:ring-destructive",
   bare: "bg-transparent",
   "composer-title": "bg-transparent text-title font-semibold",
+  popover:
+    "h-8 rounded-[10px] border border-input bg-transparent px-2.5 transition-[border-color] focus-visible:border-foreground/30 aria-invalid:border-destructive/60",
   "inline-muted":
     "rounded-md bg-transparent px-2 py-0.5 text-caption text-muted-foreground transition-colors hover:bg-foreground/5 focus-visible:bg-background focus-visible:text-foreground focus-visible:ring-1 focus-visible:ring-ring aria-invalid:ring-1 aria-invalid:ring-destructive"
 }
