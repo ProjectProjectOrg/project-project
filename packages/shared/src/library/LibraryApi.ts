@@ -18,19 +18,17 @@ import {
   BlockDefinition,
   BlockKey,
   CreateBlockInput,
-  CreateTemplateInput,
+  CreateTypeInput,
   Library,
-  LibraryDefaults,
-  TemplateDefinition,
-  TemplateKey,
+  TypeDefinition,
+  TypeKey,
   UpdateBlockInput,
-  UpdateTemplateDefaultsInput,
-  UpdateTemplateInput
+  UpdateTypeInput
 } from "./Library"
 
 const OrgBlockPath = Schema.Struct({ orgSlug: Slug, key: BlockKey })
 
-const OrgTemplatePath = Schema.Struct({ orgSlug: Slug, key: TemplateKey })
+const OrgTypePath = Schema.Struct({ orgSlug: Slug, key: TypeKey })
 
 const ProjectBlockPath = Schema.Struct({
   orgSlug: Slug,
@@ -38,10 +36,10 @@ const ProjectBlockPath = Schema.Struct({
   key: BlockKey
 })
 
-const ProjectTemplatePath = Schema.Struct({
+const ProjectTypePath = Schema.Struct({
   orgSlug: Slug,
   slug: Slug,
-  key: TemplateKey
+  key: TypeKey
 })
 
 export const LibraryGroup = HttpApiGroup.make("library")
@@ -108,34 +106,30 @@ export const LibraryGroup = HttpApiGroup.make("library")
       .middleware(OrgAccess)
   )
   .add(
-    HttpApiEndpoint.post(
-      "createOrgTemplate",
-      "/orgs/:orgSlug/library/templates",
-      {
-        params: OrgPath,
-        payload: CreateTemplateInput,
-        success: TemplateDefinition,
-        error: [
-          Unauthorized,
-          NotFound,
-          Forbidden,
-          Conflict,
-          Validation,
-          MentionInvalid
-        ]
-      }
-    )
+    HttpApiEndpoint.post("createOrgType", "/orgs/:orgSlug/library/types", {
+      params: OrgPath,
+      payload: CreateTypeInput,
+      success: TypeDefinition,
+      error: [
+        Unauthorized,
+        NotFound,
+        Forbidden,
+        Conflict,
+        Validation,
+        MentionInvalid
+      ]
+    })
       .annotate(RequiresOrg, { library: ["manage"] })
       .middleware(OrgAccess)
   )
   .add(
     HttpApiEndpoint.patch(
-      "updateOrgTemplate",
-      "/orgs/:orgSlug/library/templates/:key",
+      "updateOrgType",
+      "/orgs/:orgSlug/library/types/:key",
       {
-        params: OrgTemplatePath,
-        payload: UpdateTemplateInput,
-        success: TemplateDefinition,
+        params: OrgTypePath,
+        payload: UpdateTypeInput,
+        success: TypeDefinition,
         error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
       }
     )
@@ -144,10 +138,10 @@ export const LibraryGroup = HttpApiGroup.make("library")
   )
   .add(
     HttpApiEndpoint.delete(
-      "removeOrgTemplate",
-      "/orgs/:orgSlug/library/templates/:key",
+      "removeOrgType",
+      "/orgs/:orgSlug/library/types/:key",
       {
-        params: OrgTemplatePath,
+        params: OrgTypePath,
         success: HttpApiSchema.NoContent,
         error: [Unauthorized, NotFound, Forbidden]
       }
@@ -218,12 +212,12 @@ export const LibraryGroup = HttpApiGroup.make("library")
   )
   .add(
     HttpApiEndpoint.post(
-      "createProjectTemplate",
-      "/orgs/:orgSlug/projects/:slug/library/templates",
+      "createProjectType",
+      "/orgs/:orgSlug/projects/:slug/library/types",
       {
         params: ProjectPath,
-        payload: CreateTemplateInput,
-        success: TemplateDefinition,
+        payload: CreateTypeInput,
+        success: TypeDefinition,
         error: [
           Unauthorized,
           NotFound,
@@ -239,12 +233,12 @@ export const LibraryGroup = HttpApiGroup.make("library")
   )
   .add(
     HttpApiEndpoint.patch(
-      "updateProjectTemplate",
-      "/orgs/:orgSlug/projects/:slug/library/templates/:key",
+      "updateProjectType",
+      "/orgs/:orgSlug/projects/:slug/library/types/:key",
       {
-        params: ProjectTemplatePath,
-        payload: UpdateTemplateInput,
-        success: TemplateDefinition,
+        params: ProjectTypePath,
+        payload: UpdateTypeInput,
+        success: TypeDefinition,
         error: [Unauthorized, NotFound, Forbidden, Validation, MentionInvalid]
       }
     )
@@ -253,10 +247,10 @@ export const LibraryGroup = HttpApiGroup.make("library")
   )
   .add(
     HttpApiEndpoint.delete(
-      "removeProjectTemplate",
-      "/orgs/:orgSlug/projects/:slug/library/templates/:key",
+      "removeProjectType",
+      "/orgs/:orgSlug/projects/:slug/library/types/:key",
       {
-        params: ProjectTemplatePath,
+        params: ProjectTypePath,
         success: HttpApiSchema.NoContent,
         error: [Unauthorized, NotFound, Forbidden]
       }
@@ -266,40 +260,12 @@ export const LibraryGroup = HttpApiGroup.make("library")
   )
   .add(
     HttpApiEndpoint.post(
-      "hideProjectTemplate",
-      "/orgs/:orgSlug/projects/:slug/library/templates/:key/hide",
+      "hideProjectType",
+      "/orgs/:orgSlug/projects/:slug/library/types/:key/hide",
       {
-        params: ProjectTemplatePath,
+        params: ProjectTypePath,
         success: HttpApiSchema.NoContent,
         error: [Unauthorized, NotFound, Forbidden, Conflict]
-      }
-    )
-      .annotate(RequiresProject, { library: ["manage"] })
-      .middleware(ProjectAccess)
-  )
-  .add(
-    HttpApiEndpoint.patch(
-      "setOrgTemplateDefaults",
-      "/orgs/:orgSlug/library/defaults",
-      {
-        params: OrgPath,
-        payload: UpdateTemplateDefaultsInput,
-        success: LibraryDefaults,
-        error: [Unauthorized, NotFound, Forbidden, Validation]
-      }
-    )
-      .annotate(RequiresOrg, { library: ["manage"] })
-      .middleware(OrgAccess)
-  )
-  .add(
-    HttpApiEndpoint.patch(
-      "setTemplateDefaults",
-      "/orgs/:orgSlug/projects/:slug/library/defaults",
-      {
-        params: ProjectPath,
-        payload: UpdateTemplateDefaultsInput,
-        success: LibraryDefaults,
-        error: [Unauthorized, NotFound, Forbidden, Validation]
       }
     )
       .annotate(RequiresProject, { library: ["manage"] })

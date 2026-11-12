@@ -16,9 +16,11 @@ import {
   NotFound,
   type BlockDefinition,
   type Library as LibraryValue,
-  type TemplateDefinition,
+  type OrgRole,
+  type Role,
+  type TypeDefinition,
   UserId,
-  TemplateKey,
+  TypeKey,
   OrgScope,
   ProjectScope
 } from "@pp/shared"
@@ -71,9 +73,9 @@ const block: BlockDefinition = {
   hidden: false
 }
 
-const template: TemplateDefinition = {
-  key: TemplateKey.make("bug-report"),
-  name: "Bug report",
+const type: TypeDefinition = {
+  key: TypeKey.make("spike"),
+  name: "Spike",
   icon: "Bug",
   color: null,
   description: "",
@@ -87,29 +89,8 @@ const template: TemplateDefinition = {
 
 const library: LibraryValue = {
   blocks: [block],
-  templates: [template],
-  defaults: {
-    feat: null,
-    bug: template.key,
-    chore: null,
-    other: null,
-    epic: null
-  },
-  ownDefaults: { bug: template.key },
-  inheritedDefaults: {
-    feat: null,
-    bug: null,
-    chore: null,
-    other: null,
-    epic: null
-  },
+  types: [type],
   canEdit: true
-}
-
-const libraryDefaults = {
-  defaults: library.defaults,
-  ownDefaults: library.ownDefaults,
-  inheritedDefaults: library.inheritedDefaults
 }
 
 const failFor = <A>(
@@ -140,14 +121,12 @@ const fakeLibrary: Library.Library["Service"] = {
     inOrgScope("updateOrgBlock", args, failFor(args[0], block)),
   removeOrgBlock: (...args) =>
     inOrgScope("removeOrgBlock", args, failFor(args[0], undefined)),
-  createOrgTemplate: (...args) =>
-    inOrgScope("createOrgTemplate", args, Effect.succeed(template)),
-  updateOrgTemplate: (...args) =>
-    inOrgScope("updateOrgTemplate", args, failFor(args[0], template)),
-  removeOrgTemplate: (...args) =>
-    inOrgScope("removeOrgTemplate", args, failFor(args[0], undefined)),
-  setOrgTemplateDefaults: (...args) =>
-    inOrgScope("setOrgTemplateDefaults", args, Effect.succeed(libraryDefaults)),
+  createOrgType: (...args) =>
+    inOrgScope("createOrgType", args, Effect.succeed(type)),
+  updateOrgType: (...args) =>
+    inOrgScope("updateOrgType", args, failFor(args[0], type)),
+  removeOrgType: (...args) =>
+    inOrgScope("removeOrgType", args, failFor(args[0], undefined)),
   createBlock: (...args) =>
     inProjectScope("createBlock", args, Effect.succeed(block)),
   updateBlock: (...args) =>
@@ -156,20 +135,14 @@ const fakeLibrary: Library.Library["Service"] = {
     inProjectScope("removeBlock", args, failFor(args[0], undefined)),
   hideBlock: (...args) =>
     inProjectScope("hideBlock", args, failFor(args[0], undefined)),
-  createTemplate: (...args) =>
-    inProjectScope("createTemplate", args, Effect.succeed(template)),
-  updateTemplate: (...args) =>
-    inProjectScope("updateTemplate", args, failFor(args[0], template)),
-  removeTemplate: (...args) =>
-    inProjectScope("removeTemplate", args, failFor(args[0], undefined)),
-  hideTemplate: (...args) =>
-    inProjectScope("hideTemplate", args, failFor(args[0], undefined)),
-  setTemplateDefaults: (...args) =>
-    inProjectScope(
-      "setTemplateDefaults",
-      args,
-      Effect.succeed(libraryDefaults)
-    ),
+  createType: (...args) =>
+    inProjectScope("createType", args, Effect.succeed(type)),
+  updateType: (...args) =>
+    inProjectScope("updateType", args, failFor(args[0], type)),
+  removeType: (...args) =>
+    inProjectScope("removeType", args, failFor(args[0], undefined)),
+  hideType: (...args) =>
+    inProjectScope("hideType", args, failFor(args[0], undefined)),
   expandForCreate: () => Effect.die("unexpected"),
   resolveSynced: () => Effect.die("unexpected")
 }
@@ -178,51 +151,70 @@ const services = Context.make(Library.Library, fakeLibrary)
 
 const TestApi = HttpApi.make(AppApi.identifier).add(AppApi.groups.library)
 
-const ApiUnderTestLive = HttpApiBuilder.layer(TestApi).pipe(
-  Layer.provide(LibraryHandlerLive),
-  Layer.provide(
-    Layer.mergeAll(OrgAccessLive, ProjectAccessLive).pipe(
+const apiFor = (orgRole: OrgRole, projectRole: Role) =>
+  HttpRouter.toWebHandler(
+    HttpApiBuilder.layer(TestApi).pipe(
+      Layer.provide(LibraryHandlerLive),
       Layer.provide(
-        accessLayer({
-          org: orgScope("owner", { userId: USER_ID }),
-          projects: [
-            projectScope("owner", "pm", { userId: USER_ID, slug: "web" })
-          ]
-        })
-      )
-    )
-  ),
-  Layer.provide(
-    Layer.succeed(Authentication, {
-      sessionCookie: (httpEffect) =>
-        httpEffect.pipe(
-          Effect.provideService(CurrentUser, {
-            id: UserId.make(USER_ID),
-            email: "u@example.com",
-            name: "U",
-            username: null,
-            image: null,
-            createdAt: DateTime.toDate(DateTime.makeUnsafe(0)),
-            editorPreference: "github"
-          }),
-          Effect.provideService(ActivityActor, ActivityActor.user(USER_ID))
+        Layer.mergeAll(OrgAccessLive, ProjectAccessLive).pipe(
+          Layer.provide(
+            accessLayer({
+              org: orgScope(orgRole, { userId: USER_ID }),
+              projects: [
+                projectScope(orgRole, projectRole, {
+                  userId: USER_ID,
+                  slug: "web"
+                })
+              ]
+            })
+          )
         )
-    })
+      ),
+      Layer.provide(
+        Layer.succeed(Authentication, {
+          sessionCookie: (httpEffect) =>
+            httpEffect.pipe(
+              Effect.provideService(CurrentUser, {
+                id: UserId.make(USER_ID),
+                email: "u@example.com",
+                name: "U",
+                username: null,
+                image: null,
+                createdAt: DateTime.toDate(DateTime.makeUnsafe(0)),
+                editorPreference: "github"
+              }),
+              Effect.provideService(ActivityActor, ActivityActor.user(USER_ID))
+            )
+        })
+      ),
+      Layer.provideMerge(HttpServer.layerServices)
+    )
+  )
+
+type TestApp = ReturnType<typeof apiFor>
+
+const ownerApp = apiFor("owner", "pm")
+const adminApp = apiFor("admin", "pm")
+const pmApp = apiFor("member", "pm")
+const developerApp = apiFor("member", "developer")
+
+afterAll(() =>
+  Promise.all(
+    [ownerApp, adminApp, pmApp, developerApp].map((app) => app.dispose())
   )
 )
-
-const { handler, dispose } = HttpRouter.toWebHandler(
-  ApiUnderTestLive.pipe(Layer.provideMerge(HttpServer.layerServices))
-)
-
-afterAll(() => dispose())
 beforeEach(() => {
   calls.length = 0
 })
 
-const send = (method: string, path: string, body?: Schema.Json) =>
+const sendAs = (
+  app: TestApp,
+  method: string,
+  path: string,
+  body?: Schema.Json
+) =>
   Effect.promise(() =>
-    handler(
+    app.handler(
       new Request(`http://localhost${path}`, {
         method,
         headers: {
@@ -235,9 +227,23 @@ const send = (method: string, path: string, body?: Schema.Json) =>
     )
   )
 
+const send = (method: string, path: string, body?: Schema.Json) =>
+  sendAs(ownerApp, method, path, body)
+
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))
 
 const json = (response: Response) => Effect.promise(() => response.json())
+
+const typeDraft = (key: string) => ({
+  key,
+  name: "Spike",
+  icon: "Telescope",
+  color: null,
+  description: "",
+  priority: null,
+  tags: [],
+  body: ""
+})
 
 const draft = (key: string) => ({
   key,
@@ -288,7 +294,7 @@ it.effect("passes the key through update, remove and hide", () =>
   Effect.gen(function* () {
     const update = yield* send(
       "PATCH",
-      "/orgs/acme/projects/web/library/templates/bug-report",
+      "/orgs/acme/projects/web/library/types/spike",
       { name: "Bug" }
     )
     expect(update.status).toBe(200)
@@ -296,53 +302,17 @@ it.effect("passes the key through update, remove and hide", () =>
     expect(remove.status).toBe(204)
     const hide = yield* send(
       "POST",
-      "/orgs/acme/projects/web/library/templates/bug-report/hide"
+      "/orgs/acme/projects/web/library/types/spike/hide"
     )
     expect(hide.status).toBe(204)
     expect(calls).toEqual([
       {
-        method: "updateTemplate",
-        args: ["bug-report", { name: "Bug" }],
+        method: "updateType",
+        args: ["spike", { name: "Bug" }],
         layer: "acme/web"
       },
       { method: "removeOrgBlock", args: ["acceptance"], layer: "acme" },
-      { method: "hideTemplate", args: ["bug-report"], layer: "acme/web" }
-    ])
-  })
-)
-
-it.effect("sets the project's default templates", () =>
-  Effect.gen(function* () {
-    const response = yield* send(
-      "PATCH",
-      "/orgs/acme/projects/web/library/defaults",
-      { defaults: { bug: "bug-report", feat: null } }
-    )
-    expect(response.status).toBe(200)
-    expect(yield* json(response)).toEqual(libraryDefaults)
-    expect(calls).toEqual([
-      {
-        method: "setTemplateDefaults",
-        args: [{ defaults: { bug: "bug-report", feat: null } }],
-        layer: "acme/web"
-      }
-    ])
-  })
-)
-
-it.effect("sets the org's default templates and resets", () =>
-  Effect.gen(function* () {
-    const response = yield* send("PATCH", "/orgs/acme/library/defaults", {
-      defaults: { bug: "bug-report" },
-      reset: ["feat"]
-    })
-    expect(response.status).toBe(200)
-    expect(calls).toEqual([
-      {
-        method: "setOrgTemplateDefaults",
-        args: [{ defaults: { bug: "bug-report" }, reset: ["feat"] }],
-        layer: "acme"
-      }
+      { method: "hideType", args: ["spike"], layer: "acme/web" }
     ])
   })
 )
@@ -357,10 +327,7 @@ it.effect("has no hide endpoint at the org layer", () =>
 
 it.effect("maps service failures to their HTTP statuses", () =>
   Effect.gen(function* () {
-    const missing = yield* send(
-      "DELETE",
-      "/orgs/acme/library/templates/missing"
-    )
+    const missing = yield* send("DELETE", "/orgs/acme/library/types/missing")
     expect(missing.status).toBe(404)
     const taken = yield* send(
       "POST",
@@ -388,11 +355,95 @@ it.effect(
       expect(unknownOrg.status).toBe(404)
       const badKey = yield* send("DELETE", "/orgs/acme/library/blocks/Bad_Key")
       expect(badKey.status).toBe(400)
-      const blank = yield* send(
-        "POST",
-        "/orgs/acme/projects/web/library/templates/blank/hide"
-      )
-      expect(blank.status).toBe(400)
+      for (const reserved of ["blank", "other"]) {
+        const hide = yield* send(
+          "POST",
+          `/orgs/acme/projects/web/library/types/${reserved}/hide`
+        )
+        expect(hide.status).toBe(400)
+        const create = yield* send("POST", "/orgs/acme/library/types", {
+          ...typeDraft("spike"),
+          key: reserved
+        })
+        expect(create.status).toBe(400)
+      }
       expect(calls).toEqual([])
     })
+)
+
+it.effect("has no template or default-template endpoints", () =>
+  Effect.gen(function* () {
+    for (const [method, path] of [
+      ["POST", "/orgs/acme/library/templates"],
+      ["PATCH", "/orgs/acme/library/defaults"],
+      ["POST", "/orgs/acme/projects/web/library/templates"],
+      ["PATCH", "/orgs/acme/projects/web/library/defaults"]
+    ] as const) {
+      const response = yield* send(method, path, typeDraft("spike"))
+      expect(response.status).toBe(404)
+    }
+    expect(calls).toEqual([])
+  })
+)
+
+const orgTypeRequests = [
+  ["POST", "/orgs/acme/library/types", typeDraft("spike")],
+  ["PATCH", "/orgs/acme/library/types/spike", { name: "Research" }],
+  ["DELETE", "/orgs/acme/library/types/spike", undefined]
+] as const
+
+const projectTypeRequests = [
+  ["POST", "/orgs/acme/projects/web/library/types", typeDraft("spike")],
+  ["PATCH", "/orgs/acme/projects/web/library/types/spike", { name: "R" }],
+  ["POST", "/orgs/acme/projects/web/library/types/bug/hide", undefined],
+  ["DELETE", "/orgs/acme/projects/web/library/types/bug", undefined]
+] as const
+
+it.effect("lets org owners and admins manage org types, not members", () =>
+  Effect.gen(function* () {
+    for (const app of [ownerApp, adminApp])
+      for (const [method, path, body] of orgTypeRequests)
+        expect((yield* sendAs(app, method, path, body)).status).toBeLessThan(
+          300
+        )
+    expect(calls.map((call) => call.method)).toEqual([
+      "createOrgType",
+      "updateOrgType",
+      "removeOrgType",
+      "createOrgType",
+      "updateOrgType",
+      "removeOrgType"
+    ])
+    calls.length = 0
+    for (const app of [pmApp, developerApp])
+      for (const [method, path, body] of orgTypeRequests)
+        expect((yield* sendAs(app, method, path, body)).status).toBe(403)
+    expect(
+      (yield* sendAs(developerApp, "GET", "/orgs/acme/library")).status
+    ).toBe(200)
+    expect(calls.map((call) => call.method)).toEqual(["orgLibrary"])
+  })
+)
+
+it.effect("lets a project pm manage project types, not a developer", () =>
+  Effect.gen(function* () {
+    for (const [method, path, body] of projectTypeRequests)
+      expect((yield* sendAs(pmApp, method, path, body)).status).toBeLessThan(
+        300
+      )
+    expect(calls.map((call) => call.method)).toEqual([
+      "createType",
+      "updateType",
+      "hideType",
+      "removeType"
+    ])
+    calls.length = 0
+    for (const [method, path, body] of projectTypeRequests)
+      expect((yield* sendAs(developerApp, method, path, body)).status).toBe(403)
+    expect(
+      (yield* sendAs(developerApp, "GET", "/orgs/acme/projects/web/library"))
+        .status
+    ).toBe(200)
+    expect(calls.map((call) => call.method)).toEqual(["projectLibrary"])
+  })
 )
