@@ -96,7 +96,7 @@ This is what gets shown on the project landing page.
 id: T-12
 title: Add primary button component
 status: in_progress # one of the project's statuses
-type: feat # feat | bug | chore | other
+type: feat # a type key the project has, or null for no type
 branches: # omitted until a branch is linked
   - branch: feat/T-12-add-primary-button # the ticket's own branch
     base: main # what its pull request targets
@@ -126,7 +126,7 @@ Code blocks, lists, tables, the works.
 
 Ticket IDs are sequential per project.
 
-**Moving a ticket to another project** in the same org gives it a new ID there; its sub-tickets move with it, and an epic that still has tickets can't be moved. The file, its comments, attachments and activity move; the ticket leaves its sprint and epic, and keeps only the relations to tickets that move with it. The moved ticket lists every earlier location in its frontmatter, oldest first:
+**Moving a ticket to another project** in the same org gives it a new ID there; its sub-tickets move with it, and an epic that still has tickets can't be moved. A moved ticket keeps its type when the destination project has that type, and has no type otherwise. The file, its comments, attachments and activity move; the ticket leaves its sprint and epic, and keeps only the relations to tickets that move with it. The moved ticket lists every earlier location in its frontmatter, oldest first:
 
 ```yaml
 movedFrom:
@@ -155,9 +155,11 @@ tags: [frontend] # optional default tags
 </block>
 ```
 
-The library resolves in three layers: built in, then org, then project. The types Feature (`feat`), Bug (`bug`), Chore (`chore`) and Epic (`epic`) and seven blocks (`context`, `acceptance-criteria`, `out-of-scope`, `definition-of-done`, `expected-vs-actual`, `steps-to-reproduce`, `environment`) are built in: they are defined in `packages/shared/src/library/builtins.ts`, exist in every org without a file, and can't be deleted. A file with the same key in an org or a project overrides the layer below, so editing a built-in saves a copy and removing the copy restores it. A project hides an entry from a lower layer with a tombstone file (`hidden: true`). Type keys are kebab-case, at most 48 characters, never `other` or `blank`, and fixed once created.
+The library resolves in three layers: built in, then org, then project. The types Feature (`feat`), Bug (`bug`), Chore (`chore`) and Epic (`epic`) and seven blocks (`context`, `acceptance-criteria`, `out-of-scope`, `definition-of-done`, `expected-vs-actual`, `steps-to-reproduce`, `environment`) are built in: they are defined in `packages/shared/src/library/builtins.ts`, exist in every org without a file, and can't be deleted. A file with the same key in an org or a project overrides the layer below, so editing a built-in saves a copy and removing the copy restores it. A project hides an entry from a lower layer with a tombstone file (`hidden: true`). Type keys are kebab-case, at most 48 characters, never `other`, `blank` or `none`, and fixed once created.
 
-Older storage kept `templates/` folders and a default template per ticket type in `library.md` and `project.md`. The backend migrates both when it starts, before it accepts requests (`packages/server-core/src/library/LibraryMigration.ts`): a template that was the default for a type becomes that type's file in the same layer, every other template becomes a type of its own, and the `templates/` folders and the `templateDefaults` frontmatter are removed. It never overwrites an existing type file, so it is safe to run again.
+A ticket's `type` is the key of a type its project has (built in, the org's or the project's own) or `null` for no type; the ticket index stores the same value, and the list filter value `none` selects tickets without a type. Setting a type the project doesn't have, or one the project hides, fails with `Validation` (`unknown_type:<key>`); a ticket that already carries a hidden or removed type keeps it and can still be edited. A ticket created with a type and no description starts with that type's starting description (hints stripped) and its default priority and tags, unless those are passed. Changing the type replaces the description with the new type's starting description only while the description is empty or still an untouched starting description; clearing the type leaves the description alone. A custom type is never an epic.
+
+Older storage kept `templates/` folders and a default template per ticket type in `library.md` and `project.md`. The backend migrates both when it starts, before it accepts requests (`packages/server-core/src/library/LibraryMigration.ts`): a template that was the default for a type becomes that type's file in the same layer, every other template becomes a type of its own, and the `templates/` folders and the `templateDefaults` frontmatter are removed. It never overwrites an existing type file, so it is safe to run again. The same step rewrites ticket files that still say `type: other`, the old way to say no type, to `type: null`, changing nothing else in the file, logs the count per project and rebuilds that project's ticket index. A file not yet rewritten still reads as having no type.
 
 ### What lives in Postgres
 

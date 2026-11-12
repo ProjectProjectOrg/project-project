@@ -35,7 +35,7 @@ The uppercase prefix of a project's ticket ids (`PP` in `PP-12`). Older projects
 _Avoid_: Prefix, code
 
 **Ticket**:
-A unit of work, stored as one markdown file. Has a type (`feat`, `bug`, `chore`, `other`, `epic`), a status, a priority (`low`, `med`, `high`), tags, assignees and an optional estimate.
+A unit of work, stored as one markdown file. Has a ticket type or no type, a status, a priority (`low`, `med`, `high`), tags, assignees and an optional estimate.
 _Avoid_: Issue, task, card (except for the board's visual card)
 
 **Epic**:
@@ -98,7 +98,7 @@ Project rules that move a ticket to a status on a git event: branch linked, PR o
 The ticket types and blocks of an org or a project. It resolves in three layers: built in, org, project. An item can override the item with the same key in the layer below, and a project can hide one.
 
 **Ticket type**:
-What kind of work a ticket is, defined in the library: a key, name, icon, colour, description, default priority, default tags and a starting description. Feature (`feat`), Bug (`bug`), Chore (`chore`) and Epic (`epic`) are built in; an org or a project can edit its own copy of them and add its own types. A ticket can also have the type `other`, which has no definition.
+What kind of work a ticket is, defined in the library: a key, name, icon, colour, description, default priority, default tags and a starting description. Feature (`feat`), Bug (`bug`), Chore (`chore`) and Epic (`epic`) are built in; an org or a project can edit its own copy of them and add its own types. A ticket has one of its project's types or no type; only `epic` makes a ticket an epic.
 _Avoid_: Template, issue type
 
 **Starting description**:
