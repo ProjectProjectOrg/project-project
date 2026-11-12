@@ -5,6 +5,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
+  bulkUpdateChildTickets,
   childTicketUpdates,
   childTickets,
   childTicketsRequest,
@@ -68,8 +69,16 @@ export function ChildTicketList({
         onSuccess: ({ value }) => (
           <TicketSelectionProvider resetKey={parent.id}>
             <SelectionOrder
-              keys={value.flatMap((row) =>
-                row.pending ? [] : [selectionKey(slug, row.ticket.id)]
+              entries={value.flatMap(({ ticket, pending }) =>
+                pending
+                  ? []
+                  : [
+                      {
+                        key: selectionKey(slug, ticket.id),
+                        ticket,
+                        bulk: bulkUpdateChildTickets(req)
+                      }
+                    ]
               )}
             >
               <div className={rowGridClassName}>

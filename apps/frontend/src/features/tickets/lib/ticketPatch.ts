@@ -1,5 +1,6 @@
 import {
   applyListEdit,
+  type BulkTicketPatch,
   composeListEdit,
   type ListEdit,
   type Ticket,
@@ -55,6 +56,24 @@ export const mergeTicketEdit = (
     assignees: composed(pending.assignees, next.assignees)
   }
 }
+
+export const toBulkPatch = (edit: TicketEdit): BulkTicketPatch => {
+  const {
+    title: _title,
+    body: _body,
+    blockedBy: _blockedBy,
+    relatedTo: _relatedTo,
+    ...patch
+  } = toUpdateInput(edit)
+  return patch
+}
+
+export const fromBulkPatch = ({
+  sprint: _sprint,
+  parent: _parent,
+  flag: _flag,
+  ...edit
+}: BulkTicketPatch): TicketEdit => edit
 
 /** Apply a server patch to a list row. Fields absent from the patch are kept. */
 export function applyTicketPatch(ticket: Ticket, patch: TicketEdit): Ticket {

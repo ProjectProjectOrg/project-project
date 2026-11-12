@@ -1,15 +1,17 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { GroupPolicy } from "@pp/access/policies"
 import { type Group, type GroupId, type TicketId } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Plus } from "lucide-react"
-import { useState } from "react"
+import { use, useState } from "react"
 
+import { fireMutation } from "@/api/viewMutation"
 import { Button } from "@/components/ui/button"
 import { Hitbox } from "@/components/ui/hitbox"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   addTicketsToSprint,
+  bulkAddTicketsToSprint,
   removeTicketsFromSprint,
   sprintList,
   sprintListRequest,
@@ -18,9 +20,12 @@ import {
 import { NewSprintPopover } from "@/features/sprints/components/NewSprintPopover"
 import { SprintAssignMenu } from "@/features/sprints/components/SprintAssignMenu"
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
+import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+
+import { useSelectionActions } from "./TicketSelection"
 
 export function SprintField({
   ticketId,
@@ -44,6 +49,8 @@ export function SprintField({
   const removeState = useAtomValue(removeTicketsFromSprint({ req, ticketId }))
   const [open, setOpen] = useState(false)
   const canMove = GroupPolicy.can(useProjectActor(), "sprint", "remove_ticket")
+  const registry = use(RegistryContext)
+  const selection = useSelectionActions(selectionKey(slug, ticketId))
 
   if (!membership) return null
 
@@ -57,8 +64,21 @@ export function SprintField({
         onOpenChange={setOpen}
         sprints={sprints}
         selectedId={membership.id}
-        onSelect={(s) => addTickets({ groupId: s.id })}
-        onClear={() => removeTickets({ groupId: membership.id })}
+        onSelect={(s) => {
+          if (selection.count === 1) {
+            addTickets({ groupId: s.id })
+            return
+          }
+          void fireMutation(registry, bulkAddTicketsToSprint(req), {
+            groupId: s.id,
+            tickets: selection.selectedIds()
+          })
+        }}
+        onClear={() => {
+          if (!selection.patchBulk({ sprint: null })) {
+            void removeTickets({ groupId: membership.id })
+          }
+        }}
         onRequestNewSprint={onRequestNewSprint}
         trigger={
           <Hitbox

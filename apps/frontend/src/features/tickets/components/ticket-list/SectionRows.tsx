@@ -1,7 +1,10 @@
 import type { Member, ParentFilter, TicketId } from "@pp/shared"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
+import type {
+  BulkTicketUpdateAtom,
+  TicketUpdates
+} from "@/features/tickets/atoms/ticketRows"
 import type { TicketRow } from "@/features/tickets/lib/ticketRows"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { cn } from "@/lib/utils"
@@ -13,6 +16,7 @@ import { VirtualRows } from "./VirtualRows"
 export function SectionRows({
   items,
   update,
+  bulkUpdate,
   members,
   editable,
   contextParent,
@@ -23,6 +27,7 @@ export function SectionRows({
 }: Readonly<{
   items: ReadonlyArray<TicketRow>
   update: TicketUpdates
+  bulkUpdate: BulkTicketUpdateAtom
   members: ReadonlyArray<Member>
   editable: boolean
   contextParent: ParentFilter | undefined
@@ -34,8 +39,10 @@ export function SectionRows({
   const { slug } = useProjectRoute()
   return (
     <SelectionOrder
-      keys={items.flatMap(({ ticket, pending }) =>
-        pending ? [] : [selectionKey(slug, ticket.id)]
+      entries={items.flatMap(({ ticket, pending }) =>
+        pending
+          ? []
+          : [{ key: selectionKey(slug, ticket.id), ticket, bulk: bulkUpdate }]
       )}
     >
       <VirtualRows

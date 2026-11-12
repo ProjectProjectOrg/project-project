@@ -30,6 +30,7 @@ import {
   sprintSections,
   sprintSectionsRequest,
   sprintSectionsTicketUpdates,
+  bulkUpdateSprintSectionsTickets,
   type SprintSectionsRequest,
   type SprintSectionValue,
   type SprintSectionsValue
@@ -298,6 +299,7 @@ function SprintSection({
           />
         }
         update={sprintSectionsTicketUpdates(snapshotReq)}
+        bulkUpdate={bulkUpdateSprintSectionsTickets(snapshotReq)}
         snapshotReq={snapshotReq}
         collapsed={collapsed}
         onToggleCollapsed={onToggleCollapsed}

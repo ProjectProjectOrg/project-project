@@ -18,6 +18,7 @@ const context: CommandContext = {
   orgSlug: "acme",
   projectSlug: null,
   ticket: null,
+  selection: [],
   ticketDetail: null,
   ticketSprint: null,
   sprint: null,

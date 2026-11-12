@@ -404,6 +404,43 @@ it.effect("archiving records the trimmed reason on the activity entry", () =>
   }).pipe(Effect.provide(TestLayer))
 )
 
+it.effect("bulk archive skips tickets that are already archived", () =>
+  Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    const first = yield* tickets.quickCreate({ title: "first" })
+    const second = yield* tickets.quickCreate({ title: "second" })
+    yield* tickets.archive(first.id)
+
+    const result = yield* tickets.bulkArchive({
+      tickets: [first.id, second.id]
+    })
+
+    expect(result.tickets).toEqual([second.id])
+    const stored = yield* (yield* TicketDocs.TicketDocs).read(
+      "org",
+      "p",
+      second.id
+    )
+    expect(stored.archivedAt).not.toBeNull()
+  }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect("bulk delete ignores tickets that are already gone", () =>
+  Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    const first = yield* tickets.quickCreate({ title: "first" })
+    const second = yield* tickets.quickCreate({ title: "second" })
+    yield* tickets.remove(first.id)
+
+    yield* tickets.bulkDelete({ tickets: [first.id, second.id] })
+
+    const read = yield* Effect.exit(
+      (yield* TicketDocs.TicketDocs).read("org", "p", second.id)
+    )
+    expect(read._tag).toBe("Failure")
+  }).pipe(Effect.provide(TestLayer))
+)
+
 it.effect("archiving with a blank reason records no reason", () =>
   Effect.gen(function* () {
     recordedActivity.length = 0

@@ -1,4 +1,4 @@
-import type { Group, TicketId } from "@pp/shared"
+import type { Group, Ticket, TicketId } from "@pp/shared"
 
 import type { FilterOption } from "@/features/tickets/hooks/useFilterOptions"
 import type {
@@ -12,6 +12,18 @@ export type TicketContext = Readonly<{
   slug: string
   ticketId: TicketId
 }>
+
+export type SelectedTicket = Pick<
+  Ticket,
+  | "id"
+  | "title"
+  | "status"
+  | "priority"
+  | "type"
+  | "estimate"
+  | "tags"
+  | "assignees"
+>
 
 export type SprintContext = Readonly<{
   orgSlug: string
@@ -74,6 +86,7 @@ export type ReturnPoint = Readonly<{ search: string; value: string }>
 
 type Frame = Readonly<{
   ticket: TicketContext | null
+  selection: ReadonlyArray<SelectedTicket>
   pages: readonly [CommandPage, ...ReadonlyArray<CommandPage>]
 }>
 
@@ -90,28 +103,67 @@ export type CommandMenuState = Frame &
 export const CLOSED_COMMAND_MENU: CommandMenuState = {
   open: false,
   ticket: null,
+  selection: [],
   pages: ["root"],
   trail: [],
   search: "",
   focus: null
 }
 
+const SELECTION_PAGES: ReadonlySet<CommandPage> = new Set<CommandPage>([
+  "root",
+  "ticketStatus",
+  "ticketPriority",
+  "ticketAssignee",
+  "ticketSprint",
+  "ticketEstimate",
+  "ticketType",
+  "ticketTags",
+  "ticketArchive",
+  "ticketDelete"
+])
+
 export const openCommandMenu = (
   ticket: TicketContext | null,
-  page: CommandPage = "root"
+  page: CommandPage = "root",
+  selection: ReadonlyArray<SelectedTicket> = []
 ): CommandMenuState => ({
   ...CLOSED_COMMAND_MENU,
   open: true,
   ticket,
+  selection: selection.length > 1 && SELECTION_PAGES.has(page) ? selection : [],
   pages: [page]
 })
+
+export const deselectFromCommandMenu = (
+  state: CommandMenuState,
+  ticketId: TicketId
+): CommandMenuState => {
+  const selection = state.selection.filter((each) => each.id !== ticketId)
+  const [only] = selection
+  if (selection.length > 1 || only === undefined) return { ...state, selection }
+  return {
+    ...state,
+    selection: [],
+    ticket:
+      state.ticket === null ? null : { ...state.ticket, ticketId: only.id }
+  }
+}
 
 const deeper = (
   state: CommandMenuState,
   from: ReturnPoint | null
 ): CommandMenuState => ({
   ...state,
-  trail: [...state.trail, { ticket: state.ticket, pages: state.pages, from }],
+  trail: [
+    ...state.trail,
+    {
+      ticket: state.ticket,
+      selection: state.selection,
+      pages: state.pages,
+      from
+    }
+  ],
   search: "",
   focus: null
 })
@@ -120,7 +172,12 @@ export const actOnTicket = (
   state: CommandMenuState,
   ticket: TicketContext,
   from: ReturnPoint
-): CommandMenuState => ({ ...deeper(state, from), ticket, pages: ["root"] })
+): CommandMenuState => ({
+  ...deeper(state, from),
+  ticket,
+  selection: [],
+  pages: ["root"]
+})
 
 export const pushCommandPage = (
   state: CommandMenuState,
@@ -138,11 +195,16 @@ const stepBack = (state: CommandMenuState): Step | null => {
   const last = state.trail.at(-1)
   if (last !== undefined) return last
   if (state.pages[0] !== "root") {
-    return { ticket: state.ticket, pages: ["root"], from: null }
+    return {
+      ticket: state.ticket,
+      selection: state.selection,
+      pages: ["root"],
+      from: null
+    }
   }
   return state.ticket === null
     ? null
-    : { ticket: null, pages: ["root"], from: null }
+    : { ticket: null, selection: [], pages: ["root"], from: null }
 }
 
 export const backCommandMenu = (state: CommandMenuState): CommandMenuState => {
@@ -151,6 +213,7 @@ export const backCommandMenu = (state: CommandMenuState): CommandMenuState => {
   return {
     ...state,
     ticket: step.ticket,
+    selection: step.selection,
     pages: step.pages,
     trail: state.trail.slice(0, -1),
     search: step.from?.search ?? "",

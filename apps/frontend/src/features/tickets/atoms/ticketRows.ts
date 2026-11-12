@@ -1,11 +1,22 @@
-import type { TicketId, TicketSort, TicketUpdateResult } from "@pp/shared"
+import type {
+  BulkUpdateTicketsInput,
+  TicketId,
+  TicketSort,
+  TicketUpdateResult
+} from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
-import { coalescingMutation, type OptimisticView } from "@/api/viewMutation"
 import {
+  coalescingMutation,
+  keepPredicted,
+  viewMutation,
+  type OptimisticView
+} from "@/api/viewMutation"
+import {
+  fromBulkPatch,
   mergeTicketEdit,
   type TicketEdit,
   toUpdateInput
@@ -14,6 +25,44 @@ import {
 export type TicketUpdateAtom = Atom.AtomResultFn<TicketEdit, unknown, unknown>
 
 export type TicketUpdates = (id: TicketId) => TicketUpdateAtom
+
+export type BulkTicketUpdateAtom = Atom.AtomResultFn<
+  BulkUpdateTicketsInput,
+  unknown,
+  unknown
+>
+
+type BulkTicketUpdate<V> = Readonly<{
+  name: string
+  path: Readonly<{ orgSlug: string; slug: string }>
+  predict: (value: V, id: TicketId, edit: TicketEdit) => V
+}>
+
+export const bulkTicketUpdate = <V, VE>(
+  view: OptimisticView<V, VE>,
+  update: BulkTicketUpdate<V>
+) =>
+  viewMutation(view, {
+    name: update.name,
+    predict: (value, input: BulkUpdateTicketsInput) => {
+      const edit = fromBulkPatch(input.patch)
+      return input.tickets.reduce(
+        (current, id) => update.predict(current, id, edit),
+        value
+      )
+    },
+    call: (client, input) =>
+      client.tickets.bulkUpdate({ params: update.path, payload: input }),
+    confirm: keepPredicted,
+    publish: (_result, input) => {
+      const scope = projectScope(update.path.orgSlug, update.path.slug)
+      return [
+        ...Keys.ticketsChanged(scope),
+        Keys.sprintMembership(scope),
+        ...input.tickets.map((id) => Keys.ticket(scope, id))
+      ]
+    }
+  })
 
 export const createdKeys = Atom.family((_scope: string) =>
   Atom.make<ReadonlyMap<TicketId, string>>(new Map()).pipe(

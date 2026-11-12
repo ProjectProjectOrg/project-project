@@ -10,6 +10,7 @@ import type { IconComponent } from "@/lib/icon"
 import type {
   CommandPage,
   ReturnPoint,
+  SelectedTicket,
   SprintContext,
   TicketContext,
   ViewContext
@@ -39,6 +40,7 @@ export type CommandContext = Readonly<{
   orgSlug: string
   projectSlug: string | null
   ticket: TicketContext | null
+  selection: ReadonlyArray<SelectedTicket>
   ticketDetail: TicketDetail | null
   ticketSprint: Group | null
   sprint: SprintContext | null
@@ -81,9 +83,15 @@ export type Command = Readonly<{
   keywords?: ReadonlyArray<string>
   shortcut?: string
   tool?: ToolName
+  bulk?: boolean
   when?: (context: CommandContext) => boolean
 }> &
   CommandAction
+
+const appliesToSelection = (command: Command, context: CommandContext) =>
+  context.selection.length < 2 ||
+  !command.group.startsWith("ticket") ||
+  command.bulk === true
 
 export const visibleCommands = <C extends Command>(
   commands: ReadonlyArray<C>,
@@ -91,7 +99,10 @@ export const visibleCommands = <C extends Command>(
 ): ReadonlyArray<C> =>
   COMMAND_GROUPS.flatMap((group) =>
     commands.filter(
-      (command) => command.group === group && (command.when?.(context) ?? true)
+      (command) =>
+        command.group === group &&
+        appliesToSelection(command, context) &&
+        (command.when?.(context) ?? true)
     )
   )
 

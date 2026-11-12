@@ -21,6 +21,7 @@ import {
   epicSections,
   epicSectionsRequest,
   epicSectionsTicketUpdates,
+  bulkUpdateEpicSectionsTickets,
   loadMoreEpicSections,
   type EpicSectionsRequest
 } from "@/features/tickets/atoms/epicSections"
@@ -222,6 +223,7 @@ function EpicSection({
           />
         }
         update={epicSectionsTicketUpdates(snapshotReq)}
+        bulkUpdate={bulkUpdateEpicSectionsTickets(snapshotReq)}
         snapshotReq={snapshotReq}
         collapsed={collapsed}
         onToggleCollapsed={onToggleCollapsed}

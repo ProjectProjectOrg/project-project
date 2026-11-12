@@ -1,4 +1,4 @@
-import type { TicketId } from "@pp/shared"
+import type { TicketId, TicketStatus } from "@pp/shared"
 
 export type TicketSelection = Readonly<{
   keys: ReadonlySet<string>
@@ -10,19 +10,20 @@ export const emptySelection: TicketSelection = { keys: new Set(), anchor: null }
 export const selectionKey = (slug: string, ticketId: TicketId): string =>
   `${slug}/${ticketId}`
 
-const projectOf = (key: string) => key.slice(0, key.lastIndexOf("/"))
+export const projectOfKey = (key: string): string =>
+  key.slice(0, key.lastIndexOf("/"))
 
 export const toggleSelection = (
   selection: TicketSelection,
   key: string,
   range?: ReadonlyArray<string>
 ): TicketSelection => {
-  const project = projectOf(key)
-  if ([...selection.keys].some((each) => projectOf(each) !== project)) {
+  const project = projectOfKey(key)
+  if ([...selection.keys].some((each) => projectOfKey(each) !== project)) {
     return { keys: new Set([key]), anchor: key }
   }
   const keys = new Set(selection.keys)
-  const scoped = range?.filter((each) => projectOf(each) === project)
+  const scoped = range?.filter((each) => projectOfKey(each) === project)
   const from =
     scoped !== undefined && selection.anchor !== null
       ? scoped.indexOf(selection.anchor)
@@ -39,4 +40,21 @@ export const toggleSelection = (
     else keys.delete(each)
   }
   return { keys, anchor: key }
+}
+
+export const suggestedStatus = (
+  current: ReadonlyArray<TicketStatus>,
+  order: ReadonlyArray<TicketStatus>
+): TicketStatus | null => {
+  const counts = new Map<TicketStatus, number>()
+  for (const status of current)
+    counts.set(status, (counts.get(status) ?? 0) + 1)
+  const common = order.reduce<TicketStatus | null>(
+    (best, status) =>
+      (counts.get(status) ?? 0) > (best === null ? 0 : (counts.get(best) ?? 0))
+        ? status
+        : best,
+    null
+  )
+  return common === null ? null : (order[order.indexOf(common) + 1] ?? null)
 }

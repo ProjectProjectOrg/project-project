@@ -30,6 +30,7 @@ import { TicketHoverCard } from "@/features/tickets/components/TicketHoverCard"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import { useDisplayProperties } from "@/features/tickets/hooks/useDisplayProperties"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
@@ -41,7 +42,7 @@ import { ParentPrefix } from "./ParentPrefix"
 import { PriorityButton } from "./PriorityField"
 import { SprintField } from "./SprintField"
 import { StatusButton } from "./StatusField"
-import { useTicketSelection } from "./TicketSelection"
+import { useSelectionActions, useTicketSelection } from "./TicketSelection"
 import { UpdateFailureMarker } from "./UpdateFailureMarker"
 
 const TICKET_PREVIEW_DELAY_MS = 550
@@ -78,7 +79,7 @@ function RowImpl({
 }: RowProps) {
   const { orgSlug, slug } = useProjectRoute()
   const from = use(TicketViewSourceContext)
-  const onPatch = useAtomSet(update(ticket.id))
+  const patchRow = useAtomSet(update(ticket.id))
   const dashIdx = ticket.id.lastIndexOf("-")
   const idPrefix = dashIdx >= 0 ? ticket.id.slice(0, dashIdx) : ticket.id
   const idTail = dashIdx >= 0 ? ticket.id.slice(dashIdx + 1) : ""
@@ -96,6 +97,10 @@ function RowImpl({
   const key = selectionKey(slug, ticket.id)
   const selectable = useTicketSelection(key)
   const selection = pending ? null : selectable
+  const selectionActions = useSelectionActions(key)
+  const onPatch = (edit: TicketEdit) => {
+    if (!selectionActions.patch(edit)) patchRow(edit)
+  }
   return (
     <div
       className="group/list-row col-span-full grid grid-cols-subgrid"
