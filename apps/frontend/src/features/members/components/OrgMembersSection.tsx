@@ -203,7 +203,7 @@ function OrgMemberRow({
   return (
     <MemberRowView
       roles={ROLE_META}
-      avatar={member}
+      avatar={{ ...member, id: member.userId }}
       title={name}
       subtitle={member.email}
       isSelf={isSelf}

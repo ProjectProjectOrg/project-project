@@ -206,7 +206,6 @@ const make = Effect.gen(function* () {
           orderBy: (c, { asc }) => [asc(c.createdAt)]
         })
         .pipe(Effect.orDie)
-      if (rows.length === 0) return []
       const [document, authors] = yield* Effect.all(
         [
           ticketDocs.read(orgSlug, slug, ticketId),

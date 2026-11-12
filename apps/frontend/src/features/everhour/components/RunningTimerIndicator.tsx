@@ -45,6 +45,7 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
+import { mutationErrorText } from "@/lib/mutationError"
 import { transitions } from "@/lib/springs"
 import * as m from "@/paraglide/messages"
 
@@ -317,6 +318,9 @@ function ConnectedProjectTimerIndicator({
     startTicketState.waiting ||
     stopState.waiting ||
     ticketOptionsLoading
+  const timerError =
+    mutationErrorText(ticketId !== null ? startTicketState : startState) ??
+    mutationErrorText(stopState)
 
   if (Result.isInitial(profileResult)) {
     return <div className="h-7 w-48 animate-pulse rounded-lg bg-accent/60" />
@@ -413,6 +417,7 @@ function ConnectedProjectTimerIndicator({
               options={availableOptions}
               running={runningForSelected}
               busy={busy}
+              error={timerError}
               onStart={() =>
                 ticketId !== null
                   ? void startTicket({ workTypeKey: workType })

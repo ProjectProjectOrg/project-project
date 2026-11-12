@@ -270,7 +270,7 @@ const CodeHighlightExtension = defineExtension({
   register: (editor: LexicalEditorType) => registerCodeHighlighting(editor)
 })
 
-export type SaveStatus = "idle" | "dirty" | "saving" | "saved"
+export type SaveStatus = "idle" | "dirty" | "saving" | "saved" | "failed"
 
 export interface AttachmentsTarget {
   readonly orgSlug: string
@@ -343,7 +343,7 @@ export function createCoalescedSaveQueue<A>(options: {
           retainedFailure = true
         }
         options.onError(error)
-        if (notify) options.onStatus("dirty")
+        if (notify) options.onStatus("failed")
       })
       .finally(() => {
         inflight = false

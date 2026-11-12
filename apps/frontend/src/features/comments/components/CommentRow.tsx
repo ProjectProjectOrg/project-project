@@ -53,6 +53,11 @@ export function CommentRow({
   const deleteState = useAtomValue(deleteComment(key))
   const waiting = pending || editState.waiting || deleteState.waiting
   const remove = useAtomSet(deleteComment(key), { mode: "promiseExit" })
+  const deleteError = mutationErrorText(
+    deleteState,
+    () => m.comments_delete_failed(),
+    m.comments_delete_failed
+  )
 
   return (
     <InlineForm.Root<Mode>
@@ -86,7 +91,7 @@ export function CommentRow({
                       prompt={m.comments_delete_confirm()}
                       label={m.common_delete_confirm_button()}
                       busyLabel={m.common_deleting_button()}
-                      onConfirm={async () => Exit.isSuccess(await remove())}
+                      onConfirm={() => remove()}
                     />
                   </ConfirmButton.Confirm>
                 </ConfirmButton.Root>
@@ -97,6 +102,11 @@ export function CommentRow({
         <div className="mt-2">
           <Markdown>{comment.body}</Markdown>
         </div>
+        {deleteError && (
+          <p role="alert" className="text-body text-destructive">
+            {deleteError}
+          </p>
+        )}
       </InlineForm.Idle>
       <InlineForm.Form action="edit">
         <EditForm comment={comment} ticketId={ticketId} />

@@ -21,6 +21,7 @@ import { EverhourSetupHint } from "@/features/everhour/components/EverhourSetupH
 import { TimeControls } from "@/features/everhour/components/TimeControls"
 import { LogTimeForm } from "@/features/everhour/forms/log-time"
 import { useProjectActor } from "@/hooks/useActor"
+import { mutationErrorText } from "@/lib/mutationError"
 
 const options = DEFAULT_WORK_TYPES.map((workType) => ({
   key: workType.key,
@@ -110,6 +111,8 @@ export function SprintTimePanel({
     activeTimerResult.value.groupId === groupId
   const busy =
     startState.waiting || stopState.waiting || activeTimerResult.waiting
+  const timerError =
+    mutationErrorText(startState) ?? mutationErrorText(stopState)
 
   return (
     <div className="flex flex-col gap-2">
@@ -119,6 +122,7 @@ export function SprintTimePanel({
         options={options}
         running={running}
         busy={busy}
+        error={timerError}
         onStart={() => void start({ workTypeKey: workType })}
         onStop={() => void stop()}
         logOpen={showLog}

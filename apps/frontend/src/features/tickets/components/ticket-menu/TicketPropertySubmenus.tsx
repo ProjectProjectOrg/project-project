@@ -35,9 +35,11 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { boardStatusesFor } from "@/features/sprints/lib/boardUtils"
 import { createTag, tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
+import { AssignMeItem } from "@/features/tickets/components/ticket-list/AssigneeField"
 import { typeOptions } from "@/features/tickets/components/ticket-list/TypeField"
 import { useApplyCreatedTag } from "@/features/tickets/hooks/useApplyCreatedTag"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
+import { toggleAssignee } from "@/features/tickets/lib/assignees"
 import {
   PRIORITY_LABELS,
   PRIORITY_META,
@@ -119,12 +121,8 @@ export function TicketPropertySubmenus({
     ...item,
     closeOnClick: true
   }))
-  const toggleAssignee = (memberId: string) =>
-    onPatch({
-      assignees: ticket.assignees.includes(memberId)
-        ? ticket.assignees.filter((id) => id !== memberId)
-        : [...ticket.assignees, memberId]
-    })
+  const setAssignees = (assignees: ReadonlyArray<string>) =>
+    onPatch({ assignees })
 
   return (
     <>
@@ -184,6 +182,11 @@ export function TicketPropertySubmenus({
               aria-label={m.tickets_assignee_search_placeholder()}
             />
             <DropdownMenuList className="max-h-72 overflow-y-auto">
+              <AssignMeItem
+                assignees={ticket.assignees}
+                members={members}
+                onChange={setAssignees}
+              />
               <DropdownMenuCheckboxItem
                 label={m.tickets_assignee_unassigned()}
                 closeOnClick={false}
@@ -205,7 +208,9 @@ export function TicketPropertySubmenus({
                   }
                   closeOnClick={false}
                   checked={ticket.assignees.includes(member.id)}
-                  onCheckedChange={() => toggleAssignee(member.id)}
+                  onCheckedChange={() =>
+                    setAssignees(toggleAssignee(ticket.assignees, member.id))
+                  }
                 >
                   <MemberAvatar member={member} size={20} />
                   <span className="min-w-0 truncate">{member.name}</span>

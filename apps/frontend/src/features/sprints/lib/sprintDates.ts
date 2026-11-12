@@ -47,10 +47,10 @@ const DAY_MS = 24 * 60 * 60 * 1000
 
 const dayOf = (date: Date) => localToday(DateTime.makeUnsafe(date))
 
-export const startOfDay = (date: Date): Date => DateTime.toDate(dayOf(date))
+export const startOfDay = (date: Date): Date => DateTime.toDateUtc(dayOf(date))
 
 export const addDays = (date: Date, days: number): Date =>
-  DateTime.toDate(DateTime.add(dayOf(date), { days }))
+  DateTime.toDateUtc(DateTime.add(dayOf(date), { days }))
 
 export const daysBetween = (from: Date, to: Date): number =>
   Math.round(
@@ -126,7 +126,7 @@ export const startPresets = ({
 }> = {}): ReadonlyArray<StartPreset> => {
   const today = localToday(now)
   const untilMonday = (8 - DateTime.getPart(today, "weekDay")) % 7 || 7
-  const at = (days: number) => DateTime.toDate(DateTime.add(today, { days }))
+  const at = (days: number) => DateTime.toDateUtc(DateTime.add(today, { days }))
   const nowDate = DateTime.toDate(now)
   const candidates: ReadonlyArray<StartPreset> = [
     { key: "now", date: nowDate },
