@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest"
 import {
   applyTicketDetailPatch,
   applyTicketPatch,
+  fromBulkPatch,
   mergeTicketEdit
 } from "./ticketPatch"
 
@@ -83,5 +84,11 @@ describe("mergeTicketEdit", () => {
     )
     expect(merged.priority).toBe("high")
     expect(applyTicketPatch(base, merged).tags).toEqual(["a", "b"])
+  })
+})
+
+describe("fromBulkPatch", () => {
+  it("predicts a cleared flag", () => {
+    expect(fromBulkPatch({ flag: null })).toEqual({ flag: null })
   })
 })

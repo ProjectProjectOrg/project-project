@@ -9,6 +9,7 @@ export type FlagTicketDialogRequest = Readonly<{
   slug: string
   ticketId: TicketId
   title: string
+  selection: ReadonlyArray<TicketId>
 }>
 
 export const flagTicketDialog = Atom.make<FlagTicketDialogRequest | null>(
@@ -18,8 +19,9 @@ export const flagTicketDialog = Atom.make<FlagTicketDialogRequest | null>(
 export const openFlagDialog = (
   env: CommandEnv,
   ticket: TicketContext,
-  title: string
+  title: string,
+  selection: ReadonlyArray<TicketId>
 ) => {
-  env.registry.set(flagTicketDialog, { ...ticket, title })
+  env.registry.set(flagTicketDialog, { ...ticket, title, selection })
   env.close()
 }

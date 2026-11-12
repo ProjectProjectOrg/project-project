@@ -1,39 +1,39 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
+import type { BulkTicketPatch } from "@pp/shared"
 import * as Atom from "effect/reactivity/Atom"
-import { X } from "lucide-react"
-import { AnimatePresence, motion, useIsPresent } from "motion/react"
+import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
+import { AnimatePresence } from "motion/react"
 import {
   createContext,
   use,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode
 } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Freeze } from "@/components/ui/freeze"
+import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
+import type { SelectedTicket } from "@/features/command-menu/lib/commandMenu"
+import type { CommandScope } from "@/features/command-menu/lib/commandScopes"
+import type { BulkTicketUpdateAtom } from "@/features/tickets/atoms/ticketRows"
+import {
+  toBulkPatch,
+  type TicketEdit
+} from "@/features/tickets/lib/ticketPatch"
 import {
   emptySelection,
-  toggleSelection,
-  type TicketSelection
+  projectOfKey,
+  toggleSelection
 } from "@/features/tickets/lib/ticketSelection"
-import { transitions } from "@/lib/springs"
-import { m } from "@/paraglide/messages"
 
-const makeStore = () => {
-  const selection = Atom.make<TicketSelection>(emptySelection)
-  return {
-    selection,
-    count: Atom.map(selection, ({ keys }) => keys.size),
-    isSelected: Atom.family((key: string) =>
-      Atom.map(selection, ({ keys }) => keys.has(key))
-    )
-  }
-}
-
-type SelectionStore = ReturnType<typeof makeStore>
+import { SelectionBar } from "./SelectionBar"
+import {
+  createSelectionStore,
+  type SelectionStore,
+  updateSelected
+} from "./selectionStore"
 
 const SelectionContext = createContext<SelectionStore | null>(null)
 const OrderContext = createContext<(() => ReadonlyArray<string>) | null>(null)
@@ -43,14 +43,19 @@ export function TicketSelectionProvider({
   resetKey,
   children
 }: Readonly<{ resetKey: string; children: ReactNode }>) {
-  const [store, setStore] = useState(makeStore)
+  const [store, setStore] = useState(createSelectionStore)
   const [storeKey, setStoreKey] = useState(resetKey)
   if (storeKey !== resetKey) {
     setStoreKey(resetKey)
-    setStore(makeStore())
+    setStore(createSelectionStore())
   }
   const registry = use(RegistryContext)
   const selecting = useAtomValue(store.count) > 0
+  const scope = useMemo(
+    () => selectionScope(registry, store),
+    [registry, store]
+  )
+  useCommandScope(scope)
   const root = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -104,53 +109,54 @@ export function TicketSelectionProvider({
   )
 }
 
-function SelectionBar({
-  store,
-  onClear
-}: Readonly<{ store: SelectionStore; onClear: () => void }>) {
-  const count = useAtomValue(store.count)
-  const present = useIsPresent()
-  return (
-    <div className="pointer-events-none sticky bottom-6 z-30 flex h-0 items-end justify-center">
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 8 }}
-        transition={transitions.presence}
-        className="pointer-events-auto flex h-11 shrink-0 items-center gap-2 rounded-2xl bg-surface-5 pr-1.5 pl-4 shadow-surface-6"
-      >
-        <Freeze frozen={!present}>
-          <output className="text-body whitespace-nowrap text-foreground tabular-nums">
-            {m.tickets_selection_count({ count })}
-          </output>
-        </Freeze>
-        <Button
-          type="button"
-          variant="quiet"
-          size="square-8"
-          onClick={onClear}
-          aria-label={m.tickets_selection_clear_aria_label()}
-          title={m.tickets_selection_clear_aria_label()}
-        >
-          <X className="size-4" strokeWidth={1.75} />
-        </Button>
-      </motion.div>
-    </div>
-  )
-}
+const selectionScope = (
+  registry: AtomRegistry,
+  store: SelectionStore
+): CommandScope => ({
+  clearSelection: () => registry.set(store.selection, emptySelection),
+  updateSelection: (slug, tickets, patch) =>
+    updateSelected(registry, store, slug, tickets, patch),
+  selection: () => {
+    const keys = [...registry.get(store.selection).keys]
+    const [first] = keys
+    if (first === undefined || keys.length < 2) return null
+    return {
+      slug: projectOfKey(first),
+      tickets: keys.flatMap((key) => {
+        const ticket = registry.get(store.known).get(key)
+        return ticket === undefined ? [] : [ticket]
+      })
+    }
+  }
+})
 
 const isEditable = (element: HTMLElement) =>
   element.isContentEditable ||
   element instanceof HTMLInputElement ||
   element instanceof HTMLTextAreaElement
 
+export type SelectionEntry = Readonly<{
+  key: string
+  ticket: SelectedTicket
+  bulk: BulkTicketUpdateAtom
+}>
+
 export function SelectionOrder({
-  keys,
+  entries,
   children
-}: Readonly<{ keys: ReadonlyArray<string>; children: ReactNode }>) {
-  const current = useRef(keys)
+}: Readonly<{ entries: ReadonlyArray<SelectionEntry>; children: ReactNode }>) {
+  const store = use(SelectionContext)
+  const registry = use(RegistryContext)
+  const current = useRef<ReadonlyArray<string>>([])
   useLayoutEffect(() => {
-    current.current = keys
+    current.current = entries.map(({ key }) => key)
+    if (store === null) return
+    for (const { key, bulk } of entries) store.views.set(key, bulk)
+    const known = registry.get(store.known)
+    if (entries.every(({ key, ticket }) => known.get(key) === ticket)) return
+    const next = new Map(known)
+    for (const { key, ticket } of entries) next.set(key, ticket)
+    registry.set(store.known, next)
   })
   const [order] = useState(() => () => current.current)
   return <OrderContext value={order}>{children}</OrderContext>
@@ -181,6 +187,68 @@ export function useForgetTicket(key: string) {
     const keys = new Set(current.keys)
     keys.delete(key)
     registry.set(store.selection, { ...current, keys })
+  }
+}
+
+export function useSelectedTickets(
+  key: string
+): () => ReadonlyArray<SelectedTicket> {
+  const store = use(SelectionContext)
+  const registry = use(RegistryContext)
+  return () => {
+    if (store === null) return []
+    const { keys } = registry.get(store.selection)
+    if (!keys.has(key) || keys.size < 2) return []
+    return [...keys].flatMap((each) => {
+      const ticket = registry.get(store.known).get(each)
+      return ticket === undefined ? [] : [ticket]
+    })
+  }
+}
+
+const noCount = Atom.make(0)
+const noSelection = Atom.make(emptySelection)
+const noKnown = Atom.make<ReadonlyMap<string, SelectedTicket>>(new Map())
+
+export function useSelectionActions(key: string) {
+  const store = use(SelectionContext)
+  const registry = use(RegistryContext)
+  const size = useAtomValue(store === null ? noCount : store.count)
+  const selected = useAtomValue(
+    store === null ? notSelected : store.isSelected(key)
+  )
+  const acting = store !== null && selected && size > 1
+  const { keys } = useAtomValue(store === null ? noSelection : store.selection)
+  const known = useAtomValue(store === null ? noKnown : store.known)
+  const selectedTickets = acting
+    ? [...keys].flatMap((each) => known.get(each) ?? [])
+    : []
+  const selectedIds = () =>
+    store === null
+      ? []
+      : [...registry.get(store.selection).keys].flatMap(
+          (each) => registry.get(store.known).get(each)?.id ?? []
+        )
+  const patchBulk = (patch: BulkTicketPatch): boolean => {
+    if (!acting) return false
+    void updateSelected(
+      registry,
+      store,
+      projectOfKey(key),
+      selectedIds(),
+      patch
+    )
+    return true
+  }
+  return {
+    count: acting ? size : 1,
+    selectedTickets,
+    selectedIds,
+    clear: () => {
+      if (store !== null) registry.set(store.selection, emptySelection)
+    },
+    patch: (edit: TicketEdit): boolean => patchBulk(toBulkPatch(edit)),
+    patchBulk
   }
 }
 

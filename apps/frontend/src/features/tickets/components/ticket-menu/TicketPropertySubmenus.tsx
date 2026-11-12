@@ -1,5 +1,10 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { listEditBetween, TicketType, type Member } from "@pp/shared"
+import { useAtomValue } from "@effect/atom-react"
+import {
+  listEditBetween,
+  TicketType,
+  type Member,
+  type TicketId
+} from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   CircleDot,
@@ -22,8 +27,6 @@ import {
   DropdownMenuSubTrigger
 } from "@/components/ui/dropdown-menu"
 import { currentUserId } from "@/features/auth/atoms/auth"
-import { commandMenuState } from "@/features/command-menu/atoms/commandMenu"
-import { openCommandMenu } from "@/features/command-menu/lib/commandMenu"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {
   statusesFor,
@@ -42,12 +45,14 @@ import {
   PRIORITY_META,
   PRIORITY_ORDER
 } from "@/features/tickets/lib/priorityMeta"
+import type { SharedTicketFields } from "@/features/tickets/lib/sharedTicketFields"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import type { TicketMenuTicket } from "./TicketMenu"
+import { useOpenTicketPage } from "./useOpenTicketPage"
 
 const viewerFirst = (
   members: ReadonlyArray<Member>,
@@ -61,12 +66,18 @@ const viewerFirst = (
 
 export function TicketPropertySubmenus({
   ticket,
+  unassigned,
   members,
   editable,
   canAssign,
   onPatch
 }: Readonly<{
-  ticket: TicketMenuTicket
+  ticket: Pick<
+    SharedTicketFields,
+    "status" | "priority" | "type" | "tags" | "assignees"
+  > &
+    Readonly<{ id: TicketId }>
+  unassigned: boolean
   members: ReadonlyArray<Member>
   editable: boolean
   canAssign: boolean
@@ -79,7 +90,7 @@ export function TicketPropertySubmenus({
   const statuses = Result.isSuccess(statusesResult) ? statusesResult.value : []
   const estimation = useEstimationMode()
   const viewerId = useAtomValue(currentUserId)
-  const setCommandMenu = useAtomSet(commandMenuState)
+  const openPage = useOpenTicketPage(ticket.id)
   const statusItems = boardStatusesFor(statuses).map((status) => {
     const meta = statusMetaFor(status, statuses)
     const Icon = meta.icon
@@ -132,7 +143,7 @@ export function TicketPropertySubmenus({
             <DropdownMenuSubContent className="w-48">
               <DropdownMenuRadioGroup
                 items={statusItems}
-                value={ticket.status}
+                value={ticket.status ?? null}
                 onValueChange={(status) => onPatch({ status })}
               />
             </DropdownMenuSubContent>
@@ -145,7 +156,7 @@ export function TicketPropertySubmenus({
             <DropdownMenuSubContent className="w-40">
               <DropdownMenuRadioGroup
                 items={priorityItems}
-                value={ticket.priority}
+                value={ticket.priority ?? null}
                 onValueChange={(priority) => onPatch({ priority })}
               />
             </DropdownMenuSubContent>
@@ -158,7 +169,7 @@ export function TicketPropertySubmenus({
             <DropdownMenuSubContent className="w-40">
               <DropdownMenuRadioGroup
                 items={typeItems}
-                value={ticket.type}
+                value={ticket.type ?? null}
                 onValueChange={(type) => onPatch({ type })}
               />
             </DropdownMenuSubContent>
@@ -186,9 +197,9 @@ export function TicketPropertySubmenus({
               <DropdownMenuCheckboxItem
                 label={m.tickets_assignee_unassigned()}
                 closeOnClick={false}
-                checked={ticket.assignees.length === 0}
+                checked={unassigned}
                 onCheckedChange={() => {
-                  if (ticket.assignees.length > 0) onPatch({ assignees: [] })
+                  if (!unassigned) onPatch({ assignees: [] })
                 }}
               >
                 <UserRound className="size-4" strokeWidth={1.75} />
@@ -221,14 +232,7 @@ export function TicketPropertySubmenus({
       )}
       {editable && estimation !== "off" && (
         <DropdownMenuItem
-          onClick={() =>
-            setCommandMenu(
-              openCommandMenu(
-                { orgSlug, slug, ticketId: ticket.id },
-                "ticketEstimate"
-              )
-            )
-          }
+          onClick={() => openPage("ticketEstimate")}
           className="cursor-pointer"
         >
           <Gauge className="size-4" strokeWidth={1.75} />

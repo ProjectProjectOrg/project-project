@@ -109,6 +109,21 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           commands.bulkUpdate(payload)
         ).pipe(dieOnMarkdown)
       )
+      .handle("bulkArchive", ({ payload }) =>
+        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+          commands.bulkArchive(payload)
+        ).pipe(
+          Effect.catchTag("InvalidCommentBody", (error) =>
+            Effect.fail(new Validation({ reason: error.reason }))
+          ),
+          dieOnMarkdown
+        )
+      )
+      .handle("bulkDelete", ({ payload }) =>
+        Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
+          commands.bulkDelete(payload)
+        ).pipe(dieOnMarkdown)
+      )
       .handle("delete", ({ params, query }) =>
         Effect.flatMap(TicketCommands.TicketCommands, (commands) =>
           commands.remove(params.id, query)

@@ -2,6 +2,9 @@ import { GroupPolicy, TicketPolicy } from "@pp/access/policies"
 import { Db } from "@pp/db"
 import * as schema from "@pp/db/schema"
 import {
+  type BulkArchiveTicketsInput,
+  type BulkDeleteTicketsInput,
+  type BulkTicketsResult,
   type BulkUpdateTicketsInput,
   Conflict,
   DEFAULT_TICKET_SORT,
@@ -211,6 +214,25 @@ export class TicketCommands extends Context.Service<
     ) => Effect.Effect<
       BulkUpdateTicketsResult,
       TicketReadError | Validation | Forbidden | SprintCompletedImmutable,
+      ProjectScope | ActivityActor
+    >
+    bulkArchive: (
+      input: BulkArchiveTicketsInput
+    ) => Effect.Effect<
+      BulkTicketsResult,
+      | Forbidden
+      | Conflict
+      | Validation
+      | TicketReadError
+      | MentionInvalid
+      | Comments.InvalidCommentBody,
+      ProjectScope | ActivityActor
+    >
+    bulkDelete: (
+      input: BulkDeleteTicketsInput
+    ) => Effect.Effect<
+      BulkTicketsResult,
+      Markdown.MarkdownError,
       ProjectScope | ActivityActor
     >
     move: (
@@ -2079,6 +2101,37 @@ const make = Effect.gen(function* () {
       : withRelationsLock(scope, locked)
   })
 
+  const bulkArchive = Effect.fn("TicketCommands.bulkArchive")(function* (
+    input: BulkArchiveTicketsInput
+  ) {
+    const archived = yield* Effect.forEach([...new Set(input.tickets)], (id) =>
+      archive(id, { reason: input.reason }).pipe(
+        Effect.as([id]),
+        Effect.catchTag("Conflict", (error) =>
+          error.reason === "ticket_already_archived"
+            ? Effect.succeed([])
+            : Effect.fail(error)
+        )
+      )
+    )
+    return { tickets: archived.flat() }
+  })
+
+  const bulkDelete = Effect.fn("TicketCommands.bulkDelete")(function* (
+    input: BulkDeleteTicketsInput
+  ) {
+    const ids = [...new Set(input.tickets)]
+    yield* Effect.forEach(
+      ids,
+      (id) =>
+        remove(id, { cascadeSubTickets: input.cascadeSubTickets }).pipe(
+          Effect.catchTag("NotFound", () => Effect.void)
+        ),
+      { discard: true }
+    )
+    return { tickets: ids }
+  })
+
   const unarchive = Effect.fn("TicketCommands.unarchive")(function* (
     id: string
   ) {
@@ -2246,6 +2299,8 @@ const make = Effect.gen(function* () {
     move,
     remove,
     archive,
+    bulkArchive,
+    bulkDelete,
     unarchive
   })
 })

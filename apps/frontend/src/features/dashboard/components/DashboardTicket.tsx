@@ -13,6 +13,7 @@ import {
 import { ProjectContext } from "@/features/projects/hooks/useProject"
 import { BOARD_CARD_SLOT_CLASS } from "@/features/sprints/components/BoardColumnShell"
 import { SprintBoardCard } from "@/features/sprints/components/SprintBoardCard"
+import { bulkUpdateTickets } from "@/features/tickets/atoms/bulkTickets"
 import type {
   OrgTicket,
   OrgTicketUpdates
@@ -135,9 +136,11 @@ export function DashboardRows({
 }>) {
   return (
     <SelectionOrder
-      keys={tickets.map((item) =>
-        selectionKey(item.project.slug, item.ticket.id)
-      )}
+      entries={tickets.map((item) => ({
+        key: selectionKey(item.project.slug, item.ticket.id),
+        ticket: item.ticket,
+        bulk: bulkUpdateTickets({ orgSlug, slug: item.project.slug })
+      }))}
     >
       <div className={cn(rowGridClassName, below !== undefined && "gap-y-2")}>
         {tickets.map((item) => (

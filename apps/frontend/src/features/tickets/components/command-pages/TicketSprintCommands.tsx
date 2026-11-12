@@ -4,17 +4,23 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { CircleSlash, Plus, Timer } from "lucide-react"
 import { useContext, type ReactNode } from "react"
 
+import { fireMutation } from "@/api/viewMutation"
 import { CommandMenuCheck, CommandMenuItem } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
-import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
+import type {
+  SelectedTicket,
+  TicketContext
+} from "@/features/command-menu/lib/commandMenu"
 import { createSprintDialog } from "@/features/sprints/atoms/createSprintDialog"
 import {
   assignTicketToSprint,
+  bulkAddTicketsToSprint,
   removeTicketFromSprint,
   sprintList,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
+import { bulkUpdateTickets } from "@/features/tickets/atoms/bulkTickets"
 import { m } from "@/paraglide/messages"
 
 const REMOVE = "remove"
@@ -32,11 +38,13 @@ const byStateThenStart = (a: Group, b: Group) => {
 
 export function TicketSprintCommands({
   ticket: { orgSlug, slug, ticketId },
+  selection,
   chip,
   onBack,
   onClose
 }: Readonly<{
   ticket: TicketContext
+  selection: ReadonlyArray<SelectedTicket>
   chip: ReactNode
   onBack: () => void
   onClose: () => void
@@ -49,13 +57,21 @@ export function TicketSprintCommands({
         .filter((sprint) => sprint.completedAt === null)
         .toSorted(byStateThenStart)
     : []
-  const current = open.find((sprint) => sprint.tickets.includes(ticketId))
+  const ids =
+    selection.length > 1 ? selection.map((each) => each.id) : [ticketId]
+  const many = ids.length > 1
+  const current = open.find((sprint) =>
+    ids.every((id) => sprint.tickets.includes(id))
+  )
+  const inAnySprint = open.some((sprint) =>
+    ids.some((id) => sprint.tickets.includes(id))
+  )
   const byId = new Map<string, Group>(open.map((sprint) => [sprint.id, sprint]))
   const newSprint = () => {
     registry.set(createSprintDialog, {
       orgSlug,
       projectSlug: slug,
-      tickets: [ticketId]
+      tickets: ids
     })
     onClose()
   }
@@ -85,7 +101,7 @@ export function TicketSprintCommands({
           : [
               { value: NEW, label: m.tickets_command_new_sprint(), icon: Plus }
             ]),
-        ...(current === undefined
+        ...(!inAnySprint
           ? []
           : [
               {
@@ -100,13 +116,21 @@ export function TicketSprintCommands({
           newSprint()
           return
         }
-        if (item.value === REMOVE && current !== undefined) {
+        const sprint = byId.get(item.value)
+        if (many && item.value === REMOVE) {
+          void fireMutation(registry, bulkUpdateTickets({ orgSlug, slug }), {
+            tickets: ids,
+            patch: { sprint: null }
+          })
+        } else if (many && sprint !== undefined && sprint !== current) {
+          void fireMutation(registry, bulkAddTicketsToSprint(req), {
+            groupId: sprint.id,
+            tickets: ids
+          })
+        } else if (item.value === REMOVE && current !== undefined) {
           removeTicketFromSprint(registry, req, ticketId, current.id)
-        } else {
-          const sprint = byId.get(item.value)
-          if (sprint !== undefined && sprint !== current) {
-            assignTicketToSprint(registry, req, ticketId, sprint.id)
-          }
+        } else if (sprint !== undefined && sprint !== current) {
+          assignTicketToSprint(registry, req, ticketId, sprint.id)
         }
         onClose()
       }}

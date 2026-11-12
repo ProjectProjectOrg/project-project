@@ -33,7 +33,10 @@ import {
 } from "@/features/tickets/atoms/backlog"
 import type { EpicSectionsRequest } from "@/features/tickets/atoms/epicSections"
 import type { SprintSectionsRequest } from "@/features/tickets/atoms/sprintSections"
-import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
+import type {
+  BulkTicketUpdateAtom,
+  TicketUpdates
+} from "@/features/tickets/atoms/ticketRows"
 import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
 import { useProjectActor } from "@/hooks/useActor"
 import { cn } from "@/lib/utils"
@@ -94,14 +97,16 @@ export function SectionList({
   canCreate = true,
   pagination,
   update,
+  bulkUpdate,
   emptyMessage,
   snapshotReq,
   parent
-}: {
+}: Readonly<{
   heading?: SectionHeading
   canCreate?: boolean
   pagination?: ReactNode
   update: TicketUpdates
+  bulkUpdate: BulkTicketUpdateAtom
   snapshotReq?: SprintSectionsRequest | EpicSectionsRequest
   parent?: TicketParent
   emptyMessage?: string
@@ -116,7 +121,7 @@ export function SectionList({
   activePreviewId: TicketId | null
   onPreviewPointerEnter: (ticketId: TicketId) => void
   onPreviewOpenChange: (ticketId: TicketId, open: boolean) => void
-}) {
+}>) {
   const { orgSlug, slug } = useProjectRoute()
   const actor = useProjectActor()
   const editable = TicketPolicy.canChange(actor, { content: true })
@@ -190,6 +195,7 @@ export function SectionList({
           <SectionRows
             items={items}
             update={update}
+            bulkUpdate={bulkUpdate}
             members={members}
             editable={editable}
             contextParent={

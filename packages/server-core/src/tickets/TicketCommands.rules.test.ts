@@ -564,6 +564,23 @@ it.effect(
   }
 )
 
+it.effect("bulkUpdate flags every ticket with the same reason", () => {
+  const { docs, layer } = makeRulesFixture([
+    makeTicketDocument("T-1"),
+    makeTicketDocument("T-2")
+  ])
+  return Effect.gen(function* () {
+    const tickets = yield* TicketCommands.TicketCommands
+    yield* tickets.bulkUpdate({
+      tickets: [ticketId("T-1"), ticketId("T-2")],
+      patch: { flag: { reason: "waiting on design" } }
+    })
+    for (const id of ["T-1", "T-2"]) {
+      expect(docs.documents.get(id)?.flag?.reason).toBe("waiting on design")
+    }
+  }).pipe(Effect.provide(layer))
+})
+
 it.effect(
   "bulkUpdate to a finished status clears the flag with only transition permission",
   () => {

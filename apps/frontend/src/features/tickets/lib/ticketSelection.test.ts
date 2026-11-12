@@ -1,6 +1,12 @@
+import { TicketStatus } from "@pp/shared"
+import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { emptySelection, toggleSelection } from "./ticketSelection"
+import {
+  emptySelection,
+  suggestedStatus,
+  toggleSelection
+} from "./ticketSelection"
 
 const order = ["a", "b", "c", "d", "e"]
 
@@ -42,5 +48,24 @@ describe("toggleSelection", () => {
     expect(toggleSelection(selected(["x"], "x"), "c", order)).toEqual(
       selected(["x", "c"], "c")
     )
+  })
+})
+
+const status = Schema.decodeSync(TicketStatus)
+
+describe("suggestedStatus", () => {
+  const workflow = ["todo", "in_progress", "done"].map((each) => status(each))
+
+  it("moves the selection to the status after its most common one", () => {
+    expect(
+      suggestedStatus(
+        ["todo", "todo", "in_progress"].map((each) => status(each)),
+        workflow
+      )
+    ).toBe("in_progress")
+  })
+
+  it("suggests nothing when most tickets are in the last status", () => {
+    expect(suggestedStatus([status("done")], workflow)).toBeNull()
   })
 })

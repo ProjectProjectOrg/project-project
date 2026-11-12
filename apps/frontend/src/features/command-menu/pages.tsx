@@ -53,6 +53,7 @@ function TicketStatusPage({ context, chip, onBack, env }: CommandPageProps) {
   return context.ticket === null ? null : (
     <TicketStatusCommands
       ticket={context.ticket}
+      selection={context.selection}
       chip={chip}
       onBack={onBack}
       onClose={env.close}
@@ -64,6 +65,7 @@ function TicketPriorityPage({ context, chip, onBack, env }: CommandPageProps) {
   return context.ticket === null ? null : (
     <TicketPriorityCommands
       ticket={context.ticket}
+      selection={context.selection}
       chip={chip}
       onBack={onBack}
       onClose={env.close}
@@ -75,6 +77,7 @@ function TicketAssigneePage({ context, chip, onBack, env }: CommandPageProps) {
   return context.ticket === null ? null : (
     <TicketAssigneeCommands
       ticket={context.ticket}
+      selection={context.selection}
       chip={chip}
       onBack={onBack}
       onClose={env.close}
@@ -86,6 +89,7 @@ function TicketSprintPage({ context, chip, onBack, env }: CommandPageProps) {
   return context.ticket === null ? null : (
     <TicketSprintCommands
       ticket={context.ticket}
+      selection={context.selection}
       chip={chip}
       onBack={onBack}
       onClose={env.close}

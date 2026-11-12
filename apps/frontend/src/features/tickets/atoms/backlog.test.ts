@@ -26,6 +26,7 @@ import { applyTicketPatch } from "../lib/ticketPatch"
 import {
   backlog,
   backlogRequest,
+  bulkUpdateBacklogTickets,
   encodeTicketListQuery,
   loadMoreBacklog,
   quickCreateBacklogTicket,
@@ -357,6 +358,57 @@ describe("backlog optimistic update", () => {
     expect(backlog(a)).toBe(backlog(b))
     expect(a.query).not.toHaveProperty("view")
     expect(b.query).not.toHaveProperty("view")
+  })
+})
+
+const urlOf = (input: RequestInfo | URL) =>
+  input instanceof Request ? input.url : new URL(input, "http://test").href
+
+describe("backlog bulk update", () => {
+  const second = { ...ticket, id: decodeTicketIdSync("T-2") }
+
+  const run = async (respond: () => Response) => {
+    const resolvers: Array<(response: Response) => void> = []
+    fetchStub.set((input: RequestInfo | URL) =>
+      urlOf(input).endsWith("/tickets/bulk")
+        ? new Promise<Response>((resolve) => {
+            resolvers.push(resolve)
+          })
+        : Promise.resolve(sections([ticket, second]))
+    )
+    const registry = AtomRegistry.make()
+    const view = backlog(req)
+    const mutation = bulkUpdateBacklogTickets(req)
+    registry.mount(view)
+    registry.mount(mutation)
+    await vi.waitFor(() =>
+      expect(registry.get(view)).toMatchObject({ waiting: false })
+    )
+    registry.set(mutation, {
+      tickets: [ticket.id, second.id],
+      patch: { priority: "high" }
+    })
+    const priorities = () => {
+      const value = registry.get(view)
+      if (!AsyncResult.isSuccess(value)) throw new Error("no value")
+      return value.value.sections.todo.items.map((row) => row.ticket.priority)
+    }
+    const previewed = priorities()
+    resolvers[0]?.(respond())
+    await vi.waitFor(() => expect(registry.get(mutation).waiting).toBe(false))
+    const settled = priorities()
+    registry.dispose()
+    return { previewed, settled }
+  }
+
+  it("previews the edit on every selected row at once", async () => {
+    const { previewed } = await run(() => new Response("nope", { status: 500 }))
+    expect(previewed).toEqual(["high", "high"])
+  })
+
+  it("reverts every selected row when the request fails", async () => {
+    const { settled } = await run(() => new Response("nope", { status: 500 }))
+    expect(settled).toEqual(["med", "med"])
   })
 })
 
