@@ -6,10 +6,15 @@ import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { PRIORITY_META } from "@/features/tickets/lib/priorityMeta"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
 import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
 export function RowDragPreview({
-  ticket
-}: Readonly<{ ticket: Pick<Ticket, "id" | "type" | "title" | "priority"> }>) {
+  ticket,
+  count
+}: Readonly<{
+  ticket: Pick<Ticket, "id" | "type" | "title" | "priority">
+  count: number
+}>) {
   const { orgSlug, slug } = useProjectRoute()
   const type = resolveType(useTicketTypes(orgSlug, slug), ticket.type)
   const priority = PRIORITY_META[ticket.priority]
@@ -25,7 +30,12 @@ export function RowDragPreview({
       <span className="shrink-0 font-mono text-caption text-muted-foreground">
         {ticket.id}
       </span>
-      <span className="truncate">{ticket.title}</span>
+      <span className="min-w-0 flex-1 truncate">{ticket.title}</span>
+      {count > 1 && (
+        <span className="shrink-0 rounded-md bg-foreground/10 px-1.5 py-0.5 text-caption tabular-nums">
+          {m.tickets_drag_count({ count })}
+        </span>
+      )}
     </div>
   )
 }

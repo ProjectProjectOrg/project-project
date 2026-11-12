@@ -35,6 +35,7 @@ import {
 import type { EpicSectionsRequest } from "@/features/tickets/atoms/epicSections"
 import type { SprintSectionsRequest } from "@/features/tickets/atoms/sprintSections"
 import type {
+  BulkTicketMoveAtom,
   BulkTicketUpdateAtom,
   TicketUpdates
 } from "@/features/tickets/atoms/ticketRows"
@@ -104,7 +105,8 @@ export function SectionList({
   emptyMessage,
   snapshotReq,
   parent,
-  dropTarget
+  dropTarget,
+  bulkMove
 }: Readonly<{
   heading?: SectionHeading
   canCreate?: boolean
@@ -114,6 +116,7 @@ export function SectionList({
   snapshotReq?: SprintSectionsRequest | EpicSectionsRequest
   parent?: TicketParent
   dropTarget?: ListDropTarget
+  bulkMove?: BulkTicketMoveAtom
   emptyMessage?: string
   status: TicketStatus
   statuses: ReadonlyArray<ProjectStatus>
@@ -157,6 +160,7 @@ export function SectionList({
     target: dropTarget,
     tickets: items.map((row) => row.ticket),
     update,
+    bulkMove,
     ordered:
       query.sort.key === "manual" && query.sort.dir === "asc" && editable,
     canRegroup: canRegroup(actor, dropTarget, editable),

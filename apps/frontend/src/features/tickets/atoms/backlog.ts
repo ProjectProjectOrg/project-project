@@ -33,6 +33,7 @@ import {
 } from "@/features/tickets/lib/ticketRows"
 
 import {
+  bulkTicketMove,
   bulkTicketUpdate,
   coalescingTicketUpdate,
   createdKeys,
@@ -287,6 +288,21 @@ export const backlogTicketUpdates = bindRowMutation(updateBacklogTicket)
 export const bulkUpdateBacklogTickets = Atom.family((req: BacklogRequest) =>
   bulkTicketUpdate(backlog(req), {
     name: "bulkUpdateBacklogTickets",
+    path: req.params,
+    predict: (value, id, edit) =>
+      patchRow(
+        value,
+        id,
+        edit,
+        req.query.sort,
+        DateTime.toDate(DateTime.nowUnsafe())
+      )
+  })
+)
+
+export const bulkMoveBacklogTickets = Atom.family((req: BacklogRequest) =>
+  bulkTicketMove(backlog(req), {
+    name: "bulkMoveBacklogTickets",
     path: req.params,
     predict: (value, id, edit) =>
       patchRow(

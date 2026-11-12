@@ -56,6 +56,7 @@ import {
 } from "@/features/tickets/lib/ticketRows"
 
 import {
+  bulkTicketMove,
   bulkTicketUpdate,
   coalescingTicketUpdate,
   createdKeys,
@@ -489,6 +490,22 @@ export const bulkUpdateSprintSectionsTickets = Atom.family(
   (req: SprintSectionsRequest) =>
     bulkTicketUpdate(sprintSections(req), {
       name: "bulkUpdateSprintSectionsTickets",
+      path: req.params,
+      predict: (value, id, edit) =>
+        patchRow(
+          value,
+          id,
+          edit,
+          req.query,
+          DateTime.toDate(DateTime.nowUnsafe())
+        )
+    })
+)
+
+export const bulkMoveSprintSectionsTickets = Atom.family(
+  (req: SprintSectionsRequest) =>
+    bulkTicketMove(sprintSections(req), {
+      name: "bulkMoveSprintSectionsTickets",
       path: req.params,
       predict: (value, id, edit) =>
         patchRow(

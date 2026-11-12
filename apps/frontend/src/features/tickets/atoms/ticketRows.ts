@@ -17,10 +17,12 @@ import {
   viewMutation,
   type OptimisticView
 } from "@/api/viewMutation"
+import type { BulkDrop } from "@/features/tickets/lib/listDrop"
 import {
   fromBulkPatch,
   mergeTicketEdit,
   type TicketEdit,
+  toBulkPatch,
   toUpdateInput
 } from "@/features/tickets/lib/ticketPatch"
 
@@ -83,6 +85,67 @@ export const bulkTicketUpdate = <V, VE>(
       )
   })
 }
+
+export type BulkTicketMoveAtom = Atom.AtomResultFn<BulkDrop, unknown, unknown>
+
+export const bulkTicketMove = <V, VE>(
+  view: OptimisticView<V, VE>,
+  update: BulkTicketUpdate<V>
+) =>
+  viewMutation(view, {
+    name: update.name,
+    predict: (value, input: BulkDrop) =>
+      input.tickets.reduce(
+        (current, id, index) =>
+          update.predict(
+            current,
+            id,
+            input.position === null
+              ? input.edit
+              : {
+                  ...input.edit,
+                  position: {
+                    to: input.position.to,
+                    rank: input.position.ranks[index] ?? null
+                  }
+                }
+          ),
+        value
+      ),
+    call: (client, input) =>
+      client.tickets
+        .bulkUpdate({
+          params: update.path,
+          payload: {
+            tickets: input.tickets,
+            patch:
+              input.position === null
+                ? toBulkPatch(input.edit)
+                : {
+                    ...toBulkPatch(input.edit),
+                    position: input.position.to
+                  }
+          }
+        })
+        .pipe(
+          Effect.onError(() =>
+            Reactivity.invalidate(
+              bulkChangedKeys(
+                update.path,
+                input.tickets,
+                input.edit.sprint !== undefined
+              )
+            )
+          )
+        ),
+    confirm: keepPredicted,
+    publish: (_result, input) =>
+      bulkChangedKeys(
+        update.path,
+        input.tickets,
+        input.edit.sprint !== undefined
+      )
+  })
 
 export const createdKeys = Atom.family((_scope: string) =>
   Atom.make<ReadonlyMap<TicketId, string>>(new Map()).pipe(

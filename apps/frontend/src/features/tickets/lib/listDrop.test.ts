@@ -11,6 +11,8 @@ import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import {
+  bulkGapPosition,
+  listBulkDrop,
   listDropEdit,
   movingGap,
   sectionEdit,
@@ -26,6 +28,7 @@ const row = (fields: Partial<DraggedRow> = {}): DraggedRow => ({
   id: ticketId("T-1"),
   type: TypeKey.make("feat"),
   subTicketCount: 0,
+  rank: TicketRank.make("a0"),
   section: "todo",
   ...fields
 })
@@ -136,5 +139,71 @@ describe("listDropEdit", () => {
     expect(
       listDropEdit(row({ section: "done" }), done, column, null, true)
     ).toBeNull()
+  })
+})
+
+describe("listBulkDrop", () => {
+  const done: ListDropTarget = { grouping: "status", key: status("done") }
+  const column = ["a0", "a1", "a2", "a3"].map((rank, index) => ({
+    id: ticketId(`T-${index + 1}`),
+    rank: TicketRank.make(rank)
+  }))
+
+  it("refuses the drop when any one ticket can't go there", () => {
+    expect(
+      listBulkDrop(
+        [row(), row({ id: ticketId("T-9"), type: "epic", section: "" })],
+        sprint("G-2"),
+        [],
+        null,
+        false
+      )
+    ).toBeNull()
+  })
+
+  it("moves the tickets in their current rank order, with one group field for all", () => {
+    expect(
+      listBulkDrop(
+        [
+          row({ id: ticketId("T-8"), rank: TicketRank.make("b1") }),
+          row({ id: ticketId("T-9"), rank: TicketRank.make("b0"), section: "" })
+        ],
+        done,
+        column,
+        null,
+        false
+      )
+    ).toEqual({
+      tickets: ["T-9", "T-8"],
+      edit: { status: "done" },
+      position: null
+    })
+  })
+
+  it("places the tickets in the gap only with manual ordering", () => {
+    const rows = [row({ id: ticketId("T-9"), rank: TicketRank.make("b0") })]
+    expect(
+      listBulkDrop(rows, done, column, ticketId("T-3"), true)?.position?.to
+    ).toEqual({ before: "T-3" })
+    expect(
+      listBulkDrop(rows, done, column, ticketId("T-3"), false)?.position
+    ).toBeNull()
+  })
+})
+
+describe("bulkGapPosition", () => {
+  const column = ["T-1", "T-2", "T-3", "T-4"].map((id) => ({
+    id: ticketId(id)
+  }))
+
+  it("anchors on the next ticket that stays, or after the last one", () => {
+    const moving = [ticketId("T-2"), ticketId("T-3")]
+    expect(bulkGapPosition(column, moving, ticketId("T-2"))).toEqual({
+      before: "T-4"
+    })
+    expect(bulkGapPosition(column, moving, "end")).toEqual({ after: "T-4" })
+    expect(
+      bulkGapPosition(column, [...moving, ticketId("T-4")], ticketId("T-3"))
+    ).toEqual({ after: "T-1" })
   })
 })

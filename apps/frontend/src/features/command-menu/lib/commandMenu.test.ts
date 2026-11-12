@@ -1,4 +1,4 @@
-import { TicketId, TicketStatus, TypeKey } from "@pp/shared"
+import { TicketId, TicketRank, TicketStatus, TypeKey } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
@@ -84,7 +84,8 @@ const selected = (id: string) => ({
   estimate: null,
   tags: [],
   assignees: [],
-  flag: null
+  flag: null,
+  rank: TicketRank.make("a0")
 })
 
 describe("deselectFromCommandMenu", () => {

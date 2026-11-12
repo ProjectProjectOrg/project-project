@@ -1,4 +1,4 @@
-import { TicketId, TicketStatus, TypeKey } from "@pp/shared"
+import { TicketId, TicketRank, TicketStatus, TypeKey } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { Settings } from "lucide-react"
 import { describe, expect, it } from "vitest"
@@ -91,7 +91,8 @@ describe("visibleCommands", () => {
       estimate: null,
       tags: [],
       assignees: [],
-      flag: null
+      flag: null,
+      rank: TicketRank.make("a0")
     }))
     expect(
       visibleCommands(commands, { ...context, selection: tickets }).map(
