@@ -62,6 +62,7 @@ export type RecordEffects = Readonly<{
   finished?: ReadonlySet<string> | null
   statusBefore?: string
   touched?: boolean
+  settleLater?: boolean
 }>
 
 export type ActivityPageCursor = Readonly<{ occurredAt: Date; seq: number }>
@@ -80,6 +81,12 @@ export class TicketActivity extends Context.Service<
       effects?: RecordEffects
     ) => Effect.Effect<A, E, R | ActivityActor>
     recover: () => Effect.Effect<void>
+    release: (
+      orgSlug: string,
+      slug: string,
+      document: Pick<ActivityDocument, "kind" | "id">,
+      outcome: "commit" | "discard"
+    ) => Effect.Effect<void>
     removeTicket: (
       orgSlug: string,
       slug: string,
@@ -272,7 +279,8 @@ const make = Effect.gen(function* () {
           and(
             eq(ticketActivityOutbox.projectId, projectId),
             eq(ticketActivityOutbox.documentKind, document.kind),
-            eq(ticketActivityOutbox.documentId, document.id)
+            eq(ticketActivityOutbox.documentId, document.id),
+            eq(ticketActivityOutbox.held, false)
           )
         )
         .pipe(Effect.orDie)
@@ -401,11 +409,13 @@ const make = Effect.gen(function* () {
         rows,
         integrationEvents,
         subscriptions: staged,
-        inbox
+        inbox,
+        held: effects.settleLater === true
       })
       .pipe(Effect.orDie)
     return yield* Effect.gen(function* () {
       const result = yield* write.pipe(Effect.onError(() => discard(batchId)))
+      if (effects.settleLater === true) return result
       yield* commit(
         batchId,
         projectId,
@@ -549,7 +559,79 @@ const make = Effect.gen(function* () {
       )
   })
 
-  return TicketActivity.of({ record, recover, removeTicket, page })
+  const release = Effect.fn("TicketActivity.release")(function* (
+    orgSlug: string,
+    slug: string,
+    document: Pick<ActivityDocument, "kind" | "id">,
+    outcome: "commit" | "discard"
+  ) {
+    const projectId = yield* projectIdOf(orgSlug, slug)
+    if (projectId === null) return
+    const held = yield* db
+      .select({
+        batchId: ticketActivityOutbox.batchId,
+        rows: ticketActivityOutbox.rows,
+        integrationEvents: ticketActivityOutbox.integrationEvents,
+        subscriptions: ticketActivityOutbox.subscriptions,
+        inbox: ticketActivityOutbox.inbox
+      })
+      .from(ticketActivityOutbox)
+      .where(
+        and(
+          eq(ticketActivityOutbox.projectId, projectId),
+          eq(ticketActivityOutbox.documentKind, document.kind),
+          eq(ticketActivityOutbox.documentId, document.id),
+          eq(ticketActivityOutbox.held, true)
+        )
+      )
+      .pipe(Effect.orDie)
+    yield* Effect.forEach(
+      held,
+      (batch) =>
+        (outcome === "commit"
+          ? commit(
+              batch.batchId,
+              projectId,
+              batch.rows,
+              batch.integrationEvents,
+              batch.subscriptions,
+              batch.inbox
+            )
+          : db
+              .delete(ticketActivityOutbox)
+              .where(eq(ticketActivityOutbox.batchId, batch.batchId))
+        ).pipe(
+          Effect.retry({
+            times: 3,
+            schedule: Schedule.exponential("50 millis")
+          }),
+          Effect.catchCause((failure) =>
+            db
+              .update(ticketActivityOutbox)
+              .set({ held: false })
+              .where(eq(ticketActivityOutbox.batchId, batch.batchId))
+              .pipe(
+                Effect.ignore,
+                Effect.andThen(
+                  Effect.logError(
+                    "held ticket activity release failed; it settles like any pending batch",
+                    { batchId: batch.batchId, failure }
+                  )
+                )
+              )
+          )
+        ),
+      { discard: true }
+    )
+  })
+
+  return TicketActivity.of({
+    record,
+    recover,
+    release,
+    removeTicket,
+    page
+  })
 })
 
 export const layer = Layer.effect(TicketActivity, make)

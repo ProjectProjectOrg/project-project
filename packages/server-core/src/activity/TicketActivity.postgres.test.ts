@@ -216,6 +216,55 @@ describe.skipIf(!databaseUrl)("TicketActivity outbox", () => {
     }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
 
+  it.live(
+    "holds a deferred batch until it is released, past other writes",
+    () =>
+      Effect.gen(function* () {
+        const project = yield* seedProject
+        const activity = yield* TicketActivity.TicketActivity
+        const asUser = Effect.provideService(
+          ActivityActor,
+          ActivityActor.user(project.userId)
+        )
+        const write = (title: string, settleLater: boolean) =>
+          activity
+            .record(
+              project.orgSlug,
+              project.slug,
+              {
+                kind: "ticket",
+                id: "T-1",
+                content: markdownFileContent({ id: "T-1", title }, "Body\n")
+              },
+              statusMove,
+              null,
+              writeTicketFile(project.orgSlug, project.slug, title),
+              [],
+              { settleLater }
+            )
+            .pipe(asUser)
+        const release = (outcome: "commit" | "discard") =>
+          activity.release(
+            project.orgSlug,
+            project.slug,
+            { kind: "ticket", id: "T-1" },
+            outcome
+          )
+        const page = activity.page(project.projectId, "T-1", null, 10, true)
+
+        yield* write("Held", true)
+        yield* write("Later", false)
+        expect(yield* page).toHaveLength(1)
+        yield* release("commit")
+        expect(yield* page).toHaveLength(2)
+
+        yield* write("Reverted", true)
+        yield* release("discard")
+        expect(yield* page).toHaveLength(2)
+        expect(yield* outboxCount(project.projectId)).toBe(0)
+      }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
   it.live("commits the batch once the document write succeeds", () =>
     Effect.gen(function* () {
       const project = yield* seedProject

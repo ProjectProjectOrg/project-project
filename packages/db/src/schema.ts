@@ -1255,6 +1255,7 @@ export const ticketActivityOutbox = pgTable(
       .notNull()
       .default([]),
     inbox: jsonb("inbox").$type<StagedInbox | null>(),
+    held: boolean("held").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow()

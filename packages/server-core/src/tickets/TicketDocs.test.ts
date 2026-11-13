@@ -945,6 +945,7 @@ describe("TicketDocs activity capture", () => {
             return result
           }),
         recover: () => Effect.void,
+        release: () => Effect.void,
         removeTicket: () => Effect.void,
         page: () => Effect.succeed([])
       })

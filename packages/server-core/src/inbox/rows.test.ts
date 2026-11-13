@@ -41,17 +41,59 @@ describe("inbox rows", () => {
   })
 
   it("marks a row done once its last direct reason resolves", () => {
-    const row = resolve(deliver(null, mention), "bob", [
-      { kind: "mentioned", userId: "bob" }
-    ])
+    const row = resolve(
+      deliver(null, mention),
+      "bob",
+      [{ kind: "mentioned", userId: "bob" }],
+      at("2026-11-13T12:00:00Z")
+    )
     expect(row).toMatchObject({ state: "done", direct: [] })
   })
 
   it("brings a done row back as unread, counting from one", () => {
-    const done = resolve(deliver(null, mention), "bob", [{ kind: "all" }])
+    const done = resolve(
+      deliver(null, mention),
+      "bob",
+      [{ kind: "all" }],
+      at("2026-11-13T12:00:00Z")
+    )
     expect(deliver(done, comment)).toMatchObject({
       state: "unread",
       unreadCount: 1
+    })
+  })
+
+  it("keeps newer events when an older batch arrives late", () => {
+    const newer = deliver(null, comment)
+    const late = deliver(newer, mention)
+    expect(late).toMatchObject({
+      latest: { kind: "commented" },
+      unreadCount: 2,
+      direct: [{ reason: "mentioned" }]
+    })
+    expect(read(late, at("2026-11-13T10:30:00Z"), null)).toBe(late)
+  })
+
+  it("leaves a mention newer than the resolving write open", () => {
+    expect(
+      resolve(
+        deliver(null, mention),
+        "bob",
+        [{ kind: "all" }],
+        at("2026-11-13T09:00:00Z")
+      )
+    ).toMatchObject({ state: "unread", direct: [{ reason: "mentioned" }] })
+  })
+
+  it("doesn't make an event you already read unread again", () => {
+    const readLater = read(
+      deliver(null, comment),
+      at("2026-11-13T12:00:00Z"),
+      null
+    )
+    expect(deliver(readLater, comment)).toMatchObject({
+      state: "read",
+      unreadCount: 0
     })
   })
 

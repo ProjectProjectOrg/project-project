@@ -100,6 +100,7 @@ const feedLayer = (
         Layer.succeed(TicketActivity.TicketActivity, {
           record: () => unexpected("TicketActivity.record"),
           recover: () => unexpected("TicketActivity.recover"),
+          release: () => unexpected("TicketActivity.release"),
           removeTicket: () => unexpected("TicketActivity.removeTicket"),
           page: (_projectId, _ticketId, _before, limit, includeGit) => {
             gitRequests.push(includeGit)

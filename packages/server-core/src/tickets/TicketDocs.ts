@@ -319,6 +319,7 @@ export type TicketActivityOptions = Readonly<{
   extra?: ReadonlyArray<TicketActivityChange>
   silent?: boolean
   archiveReason?: string
+  settleLater?: boolean
 }>
 
 export type TicketRemoveOptions = Readonly<{ writeLockHeld?: boolean }>
@@ -645,6 +646,7 @@ const make = Effect.gen(function* () {
                     ? yield* finishedStatuses.forProject(orgSlug, slug)
                     : null),
                 statusBefore: current.status,
+                settleLater: activity.settleLater,
                 touched:
                   !activity.silent &&
                   current.commentsRegion !== next.commentsRegion

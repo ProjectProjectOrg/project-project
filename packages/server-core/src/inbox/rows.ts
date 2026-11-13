@@ -23,20 +23,46 @@ export const deliver = (
   delivery: Delivery
 ): InboxRowValue => {
   const reasons = new Set(delivery.direct.map((entry) => entry.reason))
+  const latest =
+    row !== null && row.latestAt.getTime() > delivery.at.getTime()
+      ? {
+          latest: row.latest,
+          latestAt: row.latestAt,
+          actorKind: row.actorKind,
+          actorUserId: row.actorUserId,
+          actorClientId: row.actorClientId,
+          actorClientName: row.actorClientName,
+          actorSource: row.actorSource
+        }
+      : {
+          latest: delivery.event,
+          latestAt: delivery.at,
+          actorKind: delivery.actor.actorKind,
+          actorUserId: delivery.actor.actorUserId ?? null,
+          actorClientId: delivery.actor.actorClientId ?? null,
+          actorClientName: delivery.actor.actorClientName ?? null,
+          actorSource: delivery.actor.actorSource ?? null
+        }
+  const seen =
+    row !== null &&
+    row.lastReadAt !== null &&
+    row.lastReadAt.getTime() >= delivery.at.getTime()
   return {
-    state: "unread",
+    state: seen
+      ? row.state === "done" && delivery.direct.length > 0
+        ? "read"
+        : row.state
+      : "unread",
     direct: [
       ...(row?.direct ?? []).filter((entry) => !reasons.has(entry.reason)),
       ...delivery.direct
     ],
-    latest: delivery.event,
-    latestAt: delivery.at,
-    actorKind: delivery.actor.actorKind,
-    actorUserId: delivery.actor.actorUserId ?? null,
-    actorClientId: delivery.actor.actorClientId ?? null,
-    actorClientName: delivery.actor.actorClientName ?? null,
-    actorSource: delivery.actor.actorSource ?? null,
-    unreadCount: row?.state === "unread" ? row.unreadCount + 1 : 1,
+    ...latest,
+    unreadCount: seen
+      ? row.unreadCount
+      : row?.state === "unread"
+        ? row.unreadCount + 1
+        : 1,
     lastReadAt: row?.lastReadAt ?? null,
     readByClientName: row?.readByClientName ?? null
   }
@@ -45,10 +71,12 @@ export const deliver = (
 export const resolve = (
   row: InboxRowValue,
   userId: string,
-  resolutions: ReadonlyArray<InboxResolution>
+  resolutions: ReadonlyArray<InboxResolution>,
+  at: Date
 ): InboxRowValue => {
   const direct = row.direct.filter(
     (entry) =>
+      Date.parse(entry.at) > at.getTime() ||
       !resolutions.some(
         (resolution) =>
           resolution.kind === "all" ||
@@ -63,10 +91,13 @@ export const read = (
   row: InboxRowValue,
   at: Date,
   clientName: string | null
-): InboxRowValue => ({
-  ...row,
-  state: row.state === "done" ? "done" : "read",
-  unreadCount: 0,
-  lastReadAt: at,
-  readByClientName: clientName
-})
+): InboxRowValue =>
+  row.latestAt.getTime() > at.getTime()
+    ? row
+    : {
+        ...row,
+        state: row.state === "done" ? "done" : "read",
+        unreadCount: 0,
+        lastReadAt: at,
+        readByClientName: clientName
+      }

@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "b5aa0a0f-305c-4dd4-8382-c03df8748973",
+  "prevIds": [
+    "f0460dd1-4bb3-42b2-ab25-094256d6c02b"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_activity_outbox",
+        "held"
+      ],
+      "writes": [
+        "s|col|public.ticket_activity_outbox.held",
+        "n|col|public.ticket_activity_outbox.held",
+        "e|col|public.ticket_activity_outbox.held"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_activity_outbox",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_activity_outbox",
+        "name": "held",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

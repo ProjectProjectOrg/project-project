@@ -6,6 +6,7 @@ import {
   BlockDraft,
   BUILTIN_BLOCKS,
   Conflict,
+  GroupId,
   formatMentionHref,
   ProjectKey,
   TypeDraft,
@@ -30,7 +31,7 @@ import { expect } from "vitest"
 import { databaseLayer } from "../../test/database"
 import { accessLayer, projectScope } from "../access/testing"
 import {
-  recordingTicketActivity,
+  deferringTicketActivity,
   type RecordedActivity
 } from "../activity/testing"
 import * as Attachments from "../attachments/Attachments"
@@ -262,7 +263,7 @@ const TestLayer = Layer.unwrap(
         ),
         Layer.provideMerge(TicketDocs.layer),
         Layer.provideMerge(
-          recordingTicketActivity(recordedActivity, recordedSubscriptions)
+          deferringTicketActivity(recordedActivity, recordedSubscriptions)
         ),
         Layer.provideMerge(
           Layer.succeed(ActivityActor, ActivityActor.user("user-1"))
@@ -404,6 +405,54 @@ it.effect("archiving records the trimmed reason on the activity entry", () =>
     const unarchived = yield* tickets.unarchive(created.id)
     expect(unarchived.archivedAt).toBeNull()
   }).pipe(Effect.provide(TestLayer))
+)
+
+const sprint = Schema.decodeUnknownSync(GroupId)("G-1")
+
+it.effect(
+  "an update whose sprint change fails leaves no activity or subscription",
+  () =>
+    Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      const created = yield* tickets.quickCreate({ title: "sprint fails" })
+      recordedActivity.length = 0
+      recordedSubscriptions.length = 0
+
+      yield* Effect.exit(
+        tickets.update(created.id, {
+          assignees: [UserId.make("user-2")],
+          sprint
+        })
+      )
+
+      expect(
+        (yield* (yield* TicketDocs.TicketDocs).read("org", "p", created.id))
+          .assignees
+      ).toEqual([])
+      expect(recordedActivity).toEqual([])
+      expect(recordedSubscriptions).toEqual([])
+    }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect(
+  "a bulk update whose sprint change fails leaves no activity or subscription",
+  () =>
+    Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      const created = yield* tickets.quickCreate({ title: "bulk sprint fails" })
+      recordedActivity.length = 0
+      recordedSubscriptions.length = 0
+
+      yield* Effect.exit(
+        tickets.bulkUpdate({
+          tickets: [created.id],
+          patch: { assignees: { add: ["user-2"] }, sprint }
+        })
+      )
+
+      expect(recordedActivity).toEqual([])
+      expect(recordedSubscriptions).toEqual([])
+    }).pipe(Effect.provide(TestLayer))
 )
 
 it.effect(
