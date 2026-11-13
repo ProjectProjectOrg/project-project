@@ -6,7 +6,7 @@ import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
 import { Forbidden, NotFound, Unauthorized } from "../errors"
 import { OrgPath, TicketPath } from "../http/paths"
-import { InboxItem, InboxUnread } from "./InboxItem"
+import { InboxItem, InboxListQuery, InboxUnread } from "./InboxItem"
 
 const readPath = "/orgs/:orgSlug/projects/:slug/tickets/:id/read"
 
@@ -14,6 +14,7 @@ export const InboxGroup = HttpApiGroup.make("inbox")
   .add(
     HttpApiEndpoint.get("list", "/orgs/:orgSlug/inbox", {
       params: OrgPath,
+      query: InboxListQuery,
       success: Schema.Array(InboxItem),
       error: [Unauthorized, NotFound]
     })

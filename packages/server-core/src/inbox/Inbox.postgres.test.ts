@@ -13,6 +13,7 @@ import {
   UserId
 } from "@pp/shared"
 import * as ConfigProvider from "effect/ConfigProvider"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
@@ -249,7 +250,7 @@ const asOrgMember = (project: Project, user: string) =>
 
 const inboxOf = (project: Project, user: string) =>
   Effect.flatMap(Inbox.Inbox, (inbox) =>
-    Effect.all({ items: inbox.list(), unread: inbox.unread() })
+    Effect.all({ items: inbox.list({}), unread: inbox.unread() })
   ).pipe(
     Effect.map(({ items, unread }) => ({
       tickets: items.map((item) => item.ticket.id),
@@ -386,7 +387,7 @@ describe.skipIf(!databaseUrl)("inbox", () => {
       yield* comment(project, "T-1")
       yield* assign(project, "T-2", project.bob)
       const items = yield* Effect.flatMap(Inbox.Inbox, (inbox) =>
-        inbox.list()
+        inbox.list({})
       ).pipe(asOrgMember(project, project.bob))
       expect(items).toMatchObject([
         {
@@ -400,6 +401,7 @@ describe.skipIf(!databaseUrl)("inbox", () => {
         },
         { ticket: { id: "T-1" }, unread: true, direct: [] }
       ])
+      const opened = DateTime.toDate(yield* DateTime.now)
       yield* Effect.forEach(["T-1", "T-2"], (ticket) =>
         Effect.flatMap(Inbox.Inbox, (inbox) => inbox.markRead(ticket)).pipe(
           asProjectMember(project, project.bob)
@@ -409,6 +411,10 @@ describe.skipIf(!databaseUrl)("inbox", () => {
         tickets: ["T-2"],
         unread: 0
       })
+      const sinceOpened = yield* Effect.flatMap(Inbox.Inbox, (inbox) =>
+        inbox.list({ readSince: opened })
+      ).pipe(asOrgMember(project, project.bob))
+      expect(sinceOpened.map((item) => item.ticket.id)).toEqual(["T-2", "T-1"])
     }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
 

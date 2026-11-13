@@ -23,5 +23,10 @@ export const InboxItem = Schema.Struct({
 })
 export type InboxItem = typeof InboxItem.Type
 
+export const InboxListQuery = Schema.Struct({
+  readSince: Schema.optional(Schema.DateFromString)
+})
+export type InboxListQuery = typeof InboxListQuery.Type
+
 export const InboxUnread = Schema.Struct({ count: Schema.Finite })
 export type InboxUnread = typeof InboxUnread.Type

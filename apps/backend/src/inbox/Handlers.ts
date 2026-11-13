@@ -10,7 +10,7 @@ export const InboxHandlerLive = HttpApiBuilder.group(
     Effect.gen(function* () {
       const inbox = yield* Inbox.Inbox
       return handlers
-        .handle("list", () => inbox.list())
+        .handle("list", ({ query }) => inbox.list(query))
         .handle("unread", () =>
           Effect.map(inbox.unread(), (count) => ({ count }))
         )

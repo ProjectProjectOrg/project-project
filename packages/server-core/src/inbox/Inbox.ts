@@ -3,12 +3,24 @@ import { inboxRow, projectIndex, ticketIndex } from "@pp/db/schema"
 import {
   InboxEvent,
   type InboxItem,
+  type InboxListQuery,
   OrgScope,
   ProjectScope,
   TicketId,
   TicketStatus
 } from "@pp/shared"
-import { and, count, desc, eq, inArray, lte, ne, or, sql } from "drizzle-orm"
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  lte,
+  ne,
+  or,
+  sql
+} from "drizzle-orm"
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
@@ -30,15 +42,22 @@ const decodeStatus = Schema.decodeUnknownSync(TicketStatus)
 const mine = (userId: string, projectIds: ReadonlyArray<string>) =>
   and(eq(inboxRow.userId, userId), inArray(inboxRow.projectId, [...projectIds]))
 
-const shown = and(
-  ne(inboxRow.state, "done"),
-  or(eq(inboxRow.state, "unread"), sql`${inboxRow.direct} <> '[]'::jsonb`)
-)
+const shown = (readSince: Date | undefined) =>
+  and(
+    ne(inboxRow.state, "done"),
+    or(
+      eq(inboxRow.state, "unread"),
+      sql`${inboxRow.direct} <> '[]'::jsonb`,
+      readSince === undefined ? undefined : gte(inboxRow.lastReadAt, readSince)
+    )
+  )
 
 export class Inbox extends Context.Service<
   Inbox,
   Readonly<{
-    list: () => Effect.Effect<ReadonlyArray<InboxItem>, never, OrgScope>
+    list: (
+      query: InboxListQuery
+    ) => Effect.Effect<ReadonlyArray<InboxItem>, never, OrgScope>
     unread: () => Effect.Effect<number, never, OrgScope>
     readAll: () => Effect.Effect<void, never, OrgScope>
     doneAll: () => Effect.Effect<void, never, OrgScope>
@@ -59,7 +78,7 @@ const make = Effect.gen(function* () {
       .map((scope) => scope.projectId)
   )
 
-  const list = Effect.fn("Inbox.list")(function* () {
+  const list = Effect.fn("Inbox.list")(function* (query: InboxListQuery) {
     const { userId } = yield* OrgScope
     const projectIds = yield* readableProjectIds
     if (projectIds.length === 0) return []
@@ -80,7 +99,7 @@ const make = Effect.gen(function* () {
           eq(ticketIndex.ticketId, inboxRow.ticketId)
         )
       )
-      .where(and(mine(userId, projectIds), shown))
+      .where(and(mine(userId, projectIds), shown(query.readSince)))
       .orderBy(desc(inboxRow.latestAt), desc(inboxRow.ticketId))
       .limit(INBOX_LIMIT)
       .pipe(Effect.orDie)
