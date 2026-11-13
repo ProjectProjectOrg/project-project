@@ -59,10 +59,12 @@ export const deliver = (
 export const resolve = (
   row: InboxRowValue,
   userId: string,
-  resolutions: ReadonlyArray<InboxResolution>
+  resolutions: ReadonlyArray<InboxResolution>,
+  at: Date
 ): InboxRowValue => {
   const direct = row.direct.filter(
     (entry) =>
+      Date.parse(entry.at) > at.getTime() ||
       !resolutions.some(
         (resolution) =>
           resolution.kind === "all" ||

@@ -202,7 +202,7 @@ export const applyInbox = (projectId: string, staged: StagedInbox | null) =>
 
     if (staged.resolve.length > 0)
       for (const [userId, row] of rows) {
-        const next = resolve(row, userId, staged.resolve)
+        const next = resolve(row, userId, staged.resolve, at)
         if (next !== row) changed.set(userId, next)
       }
 

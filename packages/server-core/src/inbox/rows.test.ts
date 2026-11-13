@@ -41,14 +41,22 @@ describe("inbox rows", () => {
   })
 
   it("marks a row done once its last direct reason resolves", () => {
-    const row = resolve(deliver(null, mention), "bob", [
-      { kind: "mentioned", userId: "bob" }
-    ])
+    const row = resolve(
+      deliver(null, mention),
+      "bob",
+      [{ kind: "mentioned", userId: "bob" }],
+      at("2026-11-13T12:00:00Z")
+    )
     expect(row).toMatchObject({ state: "done", direct: [] })
   })
 
   it("brings a done row back as unread, counting from one", () => {
-    const done = resolve(deliver(null, mention), "bob", [{ kind: "all" }])
+    const done = resolve(
+      deliver(null, mention),
+      "bob",
+      [{ kind: "all" }],
+      at("2026-11-13T12:00:00Z")
+    )
     expect(deliver(done, comment)).toMatchObject({
       state: "unread",
       unreadCount: 1
@@ -64,6 +72,17 @@ describe("inbox rows", () => {
       direct: [{ reason: "mentioned" }]
     })
     expect(read(late, at("2026-11-13T10:30:00Z"), null)).toBe(late)
+  })
+
+  it("leaves a mention newer than the resolving write open", () => {
+    expect(
+      resolve(
+        deliver(null, mention),
+        "bob",
+        [{ kind: "all" }],
+        at("2026-11-13T09:00:00Z")
+      )
+    ).toMatchObject({ state: "unread", direct: [{ reason: "mentioned" }] })
   })
 
   it("remembers which agent read the row", () => {
