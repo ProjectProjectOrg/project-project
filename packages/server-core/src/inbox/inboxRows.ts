@@ -17,6 +17,24 @@ import { deliver, read, resolve, type InboxRowValue } from "./rows"
 
 type Database = Db["Service"]
 
+export const lockTickets = (
+  db: Database,
+  projectId: string,
+  ticketIds: ReadonlyArray<string>
+) =>
+  Effect.gen(function* () {
+    const keys = [...new Set(ticketIds)].map(
+      (ticketId) => `inbox:${projectId}:${ticketId}`
+    )
+    const hashes = yield* Effect.forEach(keys, (key) =>
+      db
+        .execute<{ hash: number }>(sql`select hashtext(${key}) as hash`)
+        .pipe(Effect.map((result) => Number(result.rows[0]?.hash)))
+    )
+    for (const hash of [...new Set(hashes)].toSorted((a, b) => a - b))
+      yield* db.execute(sql`select pg_advisory_xact_lock(${hash})`)
+  })
+
 const loadRows = (db: Database, projectId: string, ticketId: string) =>
   db
     .select()
@@ -160,6 +178,23 @@ export const applyInbox = (projectId: string, staged: StagedInbox | null) =>
     const db = yield* Db
     const at = DateTime.toDate(DateTime.makeUnsafe(staged.occurredAt))
     const actorUserId = staged.actor.actorUserId ?? null
+    const waiting =
+      staged.notify && staged.unblockWith !== null
+        ? yield* db
+            .select({ ticketId: ticketRelationIndex.fromTicketId })
+            .from(ticketRelationIndex)
+            .where(
+              and(
+                eq(ticketRelationIndex.projectId, projectId),
+                eq(ticketRelationIndex.toTicketId, staged.ticketId),
+                eq(ticketRelationIndex.kind, "blocked_by")
+              )
+            )
+        : []
+    yield* lockTickets(db, projectId, [
+      staged.ticketId,
+      ...waiting.map((entry) => entry.ticketId)
+    ])
     const rows = yield* loadRows(db, projectId, staged.ticketId)
     const changed = new Map<string, InboxRowValue>()
     const current = (userId: string) =>
@@ -226,16 +261,6 @@ export const applyInbox = (projectId: string, staged: StagedInbox | null) =>
 
     if (!staged.notify || staged.unblockWith === null) return
     const finished = staged.unblockWith
-    const waiting = yield* db
-      .select({ ticketId: ticketRelationIndex.fromTicketId })
-      .from(ticketRelationIndex)
-      .where(
-        and(
-          eq(ticketRelationIndex.projectId, projectId),
-          eq(ticketRelationIndex.toTicketId, staged.ticketId),
-          eq(ticketRelationIndex.kind, "blocked_by")
-        )
-      )
     for (const { ticketId } of waiting) {
       if (
         yield* isStillBlocked(

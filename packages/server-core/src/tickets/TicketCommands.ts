@@ -1429,6 +1429,7 @@ const make = Effect.gen(function* () {
       )
     )
 
+    const finished = yield* finishedStatuses.forProject(orgSlug, slug)
     yield* withTicketDocumentLock(
       orgSlug,
       slug,
@@ -1449,7 +1450,9 @@ const make = Effect.gen(function* () {
           }
         ].map((change) => ({ ticketId: written.retained.id, change })),
         null,
-        Effect.void
+        Effect.void,
+        [],
+        { finished, statusBefore: written.original.status }
       )
     )
 
