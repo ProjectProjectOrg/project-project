@@ -43,14 +43,26 @@ export const deliver = (
           actorClientName: delivery.actor.actorClientName ?? null,
           actorSource: delivery.actor.actorSource ?? null
         }
+  const seen =
+    row !== null &&
+    row.lastReadAt !== null &&
+    row.lastReadAt.getTime() >= delivery.at.getTime()
   return {
-    state: "unread",
+    state: seen
+      ? row.state === "done" && delivery.direct.length > 0
+        ? "read"
+        : row.state
+      : "unread",
     direct: [
       ...(row?.direct ?? []).filter((entry) => !reasons.has(entry.reason)),
       ...delivery.direct
     ],
     ...latest,
-    unreadCount: row?.state === "unread" ? row.unreadCount + 1 : 1,
+    unreadCount: seen
+      ? row.unreadCount
+      : row?.state === "unread"
+        ? row.unreadCount + 1
+        : 1,
     lastReadAt: row?.lastReadAt ?? null,
     readByClientName: row?.readByClientName ?? null
   }

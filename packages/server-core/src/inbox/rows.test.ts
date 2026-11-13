@@ -85,6 +85,18 @@ describe("inbox rows", () => {
     ).toMatchObject({ state: "unread", direct: [{ reason: "mentioned" }] })
   })
 
+  it("doesn't make an event you already read unread again", () => {
+    const readLater = read(
+      deliver(null, comment),
+      at("2026-11-13T12:00:00Z"),
+      null
+    )
+    expect(deliver(readLater, comment)).toMatchObject({
+      state: "read",
+      unreadCount: 0
+    })
+  })
+
   it("remembers which agent read the row", () => {
     expect(
       read(deliver(null, comment), at("2026-11-13T12:00:00Z"), "Claude Code")
