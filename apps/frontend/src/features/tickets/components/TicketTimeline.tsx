@@ -32,6 +32,7 @@ import {
   ticketActivity,
   ticketActivityRequest
 } from "@/features/tickets/atoms/ticketActivity"
+import { useIsNewSinceRead } from "@/features/tickets/components/ReadSince"
 import {
   ActivityLineView,
   type ActivityLookups
@@ -162,12 +163,19 @@ function EventRow({
   first: boolean
   last: boolean
 }>) {
+  const isNew = useIsNewSinceRead(at)
   return (
     <li className={railClass(first, last)}>
       <span className="relative z-10 grid h-5 place-items-center">
         <ActorMark actor={actor} />
       </span>
-      <div className="min-w-0 text-body leading-5 wrap-anywhere text-muted-foreground">
+      <div
+        className={cn(
+          "min-w-0 text-body leading-5 wrap-anywhere text-muted-foreground",
+          isNew && "text-foreground"
+        )}
+      >
+        {isNew && <NewMark />}
         <ActorName actor={actor} />{" "}
         <ActivityLineView line={line} lookups={lookups} />
         <span aria-hidden> · </span>
@@ -264,6 +272,29 @@ function RunRows({
   )
 }
 
+function NewMark() {
+  return <span className="sr-only">{m.tickets_activity_new_since_read()} </span>
+}
+
+function CommentRow({
+  at,
+  children
+}: Readonly<{ at: Date; children: ReactNode }>) {
+  const isNew = useIsNewSinceRead(at)
+  return (
+    <li
+      className={cn(
+        "relative py-3 first:pt-0 last:pb-0",
+        isNew &&
+          "before:absolute before:top-4 before:-left-3 before:size-1.5 before:rounded-full before:bg-foreground before:content-[''] first:before:top-1"
+      )}
+    >
+      {isNew && <NewMark />}
+      {children}
+    </li>
+  )
+}
+
 export function TicketTimeline<C>({
   ticketId,
   comments,
@@ -312,9 +343,9 @@ export function TicketTimeline<C>({
       <ol>
         {rows.map((row) =>
           row.kind === "comment" ? (
-            <li key={row.key} className="py-3 first:pt-0 last:pb-0">
+            <CommentRow key={row.key} at={row.comment.at}>
               {renderComment(row.comment)}
-            </li>
+            </CommentRow>
           ) : (
             <RunRows
               key={row.key}

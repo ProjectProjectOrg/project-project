@@ -21,7 +21,7 @@ import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-const PROJECT_ROW_INDEX_OFFSET = 2
+const PROJECT_ROW_INDEX_OFFSET = 3
 
 export function ProjectsGroup({
   orgSlug,
@@ -52,7 +52,7 @@ export function ProjectsGroup({
         params={{ orgSlug }}
         icon={FolderKanban}
         label={m.chrome_sidebar_projects()}
-        index={1}
+        index={2}
         fillWhenActive={false}
         className={expanded ? "rounded-sm" : undefined}
       />

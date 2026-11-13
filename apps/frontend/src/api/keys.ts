@@ -76,6 +76,8 @@ export const Keys = {
   projects: (orgSlug: string): ReactivityKey => key(`projects/${orgSlug}`),
   /** One organization's content. */
   org: (orgSlug: string): ReactivityKey => key(`org/${orgSlug}`),
+  /** The current user's inbox in one organization. */
+  inbox: (orgSlug: string): ReactivityKey => key(`inbox/${orgSlug}`),
   /** Organizations available to the current user. */
   orgs: (): ReactivityKey => key("orgs"),
   /** Members and invitations for one organization. */

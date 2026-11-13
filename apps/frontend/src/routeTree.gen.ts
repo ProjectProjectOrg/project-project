@@ -25,6 +25,7 @@ import { Route as publicCliSignedInRouteImport } from './routes/(public)/cli.sig
 import { Route as publicCliSignInFailedRouteImport } from './routes/(public)/cli.sign-in-failed'
 import { Route as AuthedOrgsOrgSlugRouteRouteImport } from './routes/_authed/orgs/$orgSlug/route'
 import { Route as AuthedOrgsOrgSlugIndexRouteImport } from './routes/_authed/orgs/$orgSlug/index'
+import { Route as AuthedOrgsOrgSlugInboxRouteImport } from './routes/_authed/orgs/$orgSlug/inbox'
 import { Route as AuthedOrgsOrgSlugSettingsRouteRouteImport } from './routes/_authed/orgs/$orgSlug/settings/route'
 import { Route as AuthedOrgsOrgSlugSettingsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/settings/index'
 import { Route as AuthedOrgsOrgSlugProjectsIndexRouteImport } from './routes/_authed/orgs/$orgSlug/projects/index'
@@ -159,6 +160,11 @@ const AuthedOrgsOrgSlugRouteRoute = AuthedOrgsOrgSlugRouteRouteImport.update({
 const AuthedOrgsOrgSlugIndexRoute = AuthedOrgsOrgSlugIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthedOrgsOrgSlugRouteRoute,
+} as any)
+const AuthedOrgsOrgSlugInboxRoute = AuthedOrgsOrgSlugInboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
   getParentRoute: () => AuthedOrgsOrgSlugRouteRoute,
 } as any)
 const AuthedOrgsOrgSlugSettingsRouteRoute =
@@ -509,6 +515,7 @@ export interface FileRoutesByFullPath {
   '/profile/preferences': typeof AuthedProfilePreferencesRoute
   '/profile/': typeof AuthedProfileIndexRoute
   '/orgs/$orgSlug/settings': typeof AuthedOrgsOrgSlugSettingsRouteRouteWithChildren
+  '/orgs/$orgSlug/inbox': typeof AuthedOrgsOrgSlugInboxRoute
   '/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderRouteRouteWithChildren
   '/orgs/$orgSlug/settings/integrations': typeof AuthedOrgsOrgSlugSettingsIntegrationsRouteRouteWithChildren
@@ -576,6 +583,7 @@ export interface FileRoutesByTo {
   '/profile/connections': typeof AuthedProfileConnectionsRoute
   '/profile/preferences': typeof AuthedProfilePreferencesRoute
   '/profile': typeof AuthedProfileIndexRoute
+  '/orgs/$orgSlug/inbox': typeof AuthedOrgsOrgSlugInboxRoute
   '/orgs/$orgSlug': typeof AuthedOrgsOrgSlugIndexRoute
   '/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugProjectHeaderIndexRoute
   '/orgs/$orgSlug/settings/attachments': typeof AuthedOrgsOrgSlugSettingsAttachmentsRoute
@@ -643,6 +651,7 @@ export interface FileRoutesById {
   '/_authed/profile/preferences': typeof AuthedProfilePreferencesRoute
   '/_authed/profile/': typeof AuthedProfileIndexRoute
   '/_authed/orgs/$orgSlug/settings': typeof AuthedOrgsOrgSlugSettingsRouteRouteWithChildren
+  '/_authed/orgs/$orgSlug/inbox': typeof AuthedOrgsOrgSlugInboxRoute
   '/_authed/orgs/$orgSlug/': typeof AuthedOrgsOrgSlugIndexRoute
   '/_authed/orgs/$orgSlug/projects/$slug': typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   '/_authed/orgs/$orgSlug/settings/integrations': typeof AuthedOrgsOrgSlugSettingsIntegrationsRouteRouteWithChildren
@@ -716,6 +725,7 @@ export interface FileRouteTypes {
     | '/profile/preferences'
     | '/profile/'
     | '/orgs/$orgSlug/settings'
+    | '/orgs/$orgSlug/inbox'
     | '/orgs/$orgSlug/'
     | '/orgs/$orgSlug/projects/$slug'
     | '/orgs/$orgSlug/settings/integrations'
@@ -783,6 +793,7 @@ export interface FileRouteTypes {
     | '/profile/connections'
     | '/profile/preferences'
     | '/profile'
+    | '/orgs/$orgSlug/inbox'
     | '/orgs/$orgSlug'
     | '/orgs/$orgSlug/projects/$slug'
     | '/orgs/$orgSlug/settings/attachments'
@@ -849,6 +860,7 @@ export interface FileRouteTypes {
     | '/_authed/profile/preferences'
     | '/_authed/profile/'
     | '/_authed/orgs/$orgSlug/settings'
+    | '/_authed/orgs/$orgSlug/inbox'
     | '/_authed/orgs/$orgSlug/'
     | '/_authed/orgs/$orgSlug/projects/$slug'
     | '/_authed/orgs/$orgSlug/settings/integrations'
@@ -1027,6 +1039,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/orgs/$orgSlug/'
       preLoaderRoute: typeof AuthedOrgsOrgSlugIndexRouteImport
+      parentRoute: typeof AuthedOrgsOrgSlugRouteRoute
+    }
+    '/_authed/orgs/$orgSlug/inbox': {
+      id: '/_authed/orgs/$orgSlug/inbox'
+      path: '/inbox'
+      fullPath: '/orgs/$orgSlug/inbox'
+      preLoaderRoute: typeof AuthedOrgsOrgSlugInboxRouteImport
       parentRoute: typeof AuthedOrgsOrgSlugRouteRoute
     }
     '/_authed/orgs/$orgSlug/settings': {
@@ -1656,6 +1675,7 @@ const AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren =
 
 interface AuthedOrgsOrgSlugRouteRouteChildren {
   AuthedOrgsOrgSlugSettingsRouteRoute: typeof AuthedOrgsOrgSlugSettingsRouteRouteWithChildren
+  AuthedOrgsOrgSlugInboxRoute: typeof AuthedOrgsOrgSlugInboxRoute
   AuthedOrgsOrgSlugIndexRoute: typeof AuthedOrgsOrgSlugIndexRoute
   AuthedOrgsOrgSlugProjectsSlugRouteRoute: typeof AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren
   AuthedOrgsOrgSlugProjectsIndexRoute: typeof AuthedOrgsOrgSlugProjectsIndexRoute
@@ -1668,6 +1688,7 @@ const AuthedOrgsOrgSlugRouteRouteChildren: AuthedOrgsOrgSlugRouteRouteChildren =
   {
     AuthedOrgsOrgSlugSettingsRouteRoute:
       AuthedOrgsOrgSlugSettingsRouteRouteWithChildren,
+    AuthedOrgsOrgSlugInboxRoute: AuthedOrgsOrgSlugInboxRoute,
     AuthedOrgsOrgSlugIndexRoute: AuthedOrgsOrgSlugIndexRoute,
     AuthedOrgsOrgSlugProjectsSlugRouteRoute:
       AuthedOrgsOrgSlugProjectsSlugRouteRouteWithChildren,

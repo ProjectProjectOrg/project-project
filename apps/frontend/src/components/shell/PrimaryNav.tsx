@@ -5,6 +5,7 @@ import { useRef } from "react"
 import { NavHoverContext, NavItem } from "@/components/shell/NavItem"
 import { ProjectsGroup } from "@/components/shell/ProjectsGroup"
 import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
+import { InboxNavItem } from "@/features/inbox/components/InboxNavItem"
 import { useFluidHover } from "@/hooks/useFluidHover"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -15,8 +16,10 @@ export function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
   const hover = useFluidHover(listRef)
   const projectsExpanded = orgSlug !== null && isProjectsPath(pathname, orgSlug)
   const hoverInGroup =
-    projectsExpanded && hover.activeIndex !== null && hover.activeIndex >= 1
+    projectsExpanded && hover.activeIndex !== null && hover.activeIndex >= 2
   const dashboardActive = pathname === (orgSlug ? `/orgs/${orgSlug}` : "/")
+  const inboxActive =
+    orgSlug !== null && pathname.startsWith(`/orgs/${orgSlug}/inbox`)
   return (
     <nav className="px-3 py-2">
       <NavHoverContext value={hover.registerItem}>
@@ -31,7 +34,10 @@ export function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
         >
           <FluidHoverHighlight
             hover={hover}
-            hidden={dashboardActive && hover.activeIndex === 0}
+            hidden={
+              (dashboardActive && hover.activeIndex === 0) ||
+              (inboxActive && hover.activeIndex === 1)
+            }
             className={cn("z-[1]", hoverInGroup ? "rounded-sm" : "rounded-lg")}
           />
           {orgSlug ? (
@@ -52,6 +58,7 @@ export function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
               exact
             />
           )}
+          {orgSlug && <InboxNavItem orgSlug={orgSlug} />}
           {orgSlug && (
             <ProjectsGroup orgSlug={orgSlug} expanded={projectsExpanded} />
           )}
