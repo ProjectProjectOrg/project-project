@@ -2217,6 +2217,7 @@ const make = Effect.gen(function* () {
         next: TicketDocs.TicketDocument
       }>
     > = []
+    const restored = new Set<string>()
     const revertWritten = Effect.suspend(() =>
       Effect.forEach(
         written,
@@ -2225,7 +2226,9 @@ const make = Effect.gen(function* () {
             const current = yield* ticketDocs.read(orgSlug, slug, next.id)
             const reverted = revertTicketPatch(original, next, current)
             if (reverted !== null) {
-              yield* restoreTicket(scope, next.id, reverted)
+              yield* ticketDocs.write(orgSlug, slug, next.id, reverted)
+              restored.add(next.id)
+              yield* ticketIndex.upsertTicket(scope, reverted)
             }
           }).pipe(Effect.ignore),
         { discard: true }
@@ -2350,7 +2353,7 @@ const make = Effect.gen(function* () {
                 orgSlug,
                 slug,
                 { kind: "ticket", id },
-                Exit.isSuccess(exit) ? "commit" : "discard"
+                Exit.isFailure(exit) && restored.has(id) ? "discard" : "commit"
               ),
             { discard: true }
           )
