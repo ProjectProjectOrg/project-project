@@ -20,6 +20,13 @@ export function shownTicket(
   return cursor !== null && cursor.urls.includes(urlId) ? cursor.shown : urlId
 }
 
+export function settledCursor(
+  cursor: StepCursor | null,
+  urlId: TicketId
+): StepCursor | null {
+  return cursor?.shown === urlId ? null : cursor
+}
+
 export function stepCursor(
   cursor: StepCursor | null,
   urlId: TicketId,

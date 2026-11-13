@@ -20,6 +20,7 @@ import {
   type TicketPageSource
 } from "@/features/tickets/lib/ticketSearch"
 import {
+  settledCursor,
   shownTicket,
   stepCursor,
   stepTarget,
@@ -70,6 +71,7 @@ export function useTicketStepping(
   const sequence = session?.entry === entry ? session.sequence : null
 
   const [cursor, setCursor] = useState<StepCursor | null>(null)
+  if (cursor !== settledCursor(cursor, urlId)) setCursor(null)
   const shown = shownTicket(cursor, urlId)
   const inSequence = (id: TicketId) =>
     sequence?.tickets.some((ticket) => ticket.id === id) ?? false

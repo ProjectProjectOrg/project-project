@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import {
+  settledCursor,
   shownTicket,
   stepCursor,
   stepTarget,
@@ -28,9 +29,8 @@ describe("shownTicket", () => {
     expect(shownTicket(cursor, t4)).toBe(t4)
   })
 
-  it("forgets passed URLs once the URL has caught up", () => {
-    let cursor = stepCursor(null, t1, t2)
-    cursor = stepCursor(cursor, t2, t3)
+  it("lets a link back to a passed ticket win once the URL has caught up", () => {
+    const cursor = settledCursor(stepCursor(null, t1, t2), t2)
     expect(shownTicket(cursor, t1)).toBe(t1)
   })
 })
