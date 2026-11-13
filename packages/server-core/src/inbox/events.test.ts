@@ -130,6 +130,26 @@ describe("stageInbox", () => {
     })
   })
 
+  it("adds no direct reasons in a write that finishes the ticket", () => {
+    expect(
+      stageInbox({
+        ...base,
+        changes: [
+          ...statusTo("done"),
+          {
+            ticketId: ticketId("T-1"),
+            change: {
+              kind: "assignees_changed",
+              added: [userId("bob")],
+              removed: []
+            }
+          }
+        ],
+        finished: new Set(["done"])
+      })
+    ).toMatchObject({ direct: [], resolve: [{ kind: "all" }] })
+  })
+
   it("stays quiet for imports and cleanup, but not for git automation", () => {
     expect(
       stageInbox({

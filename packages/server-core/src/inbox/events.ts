@@ -166,12 +166,16 @@ export const stageInbox = (input: InboxInput): StagedInbox | null => {
     }
   }
 
+  const delivered = resolve.some((resolution) => resolution.kind === "all")
+    ? []
+    : direct
+
   const readBy =
     actor.kind !== "system" &&
     (own.length > 0 || input.notices.length > 0 || input.touched)
   if (
     !readBy &&
-    direct.length === 0 &&
+    delivered.length === 0 &&
     subscribers.length === 0 &&
     resolve.length === 0
   )
@@ -183,7 +187,7 @@ export const stageInbox = (input: InboxInput): StagedInbox | null => {
     actor: actorColumns(actor),
     notify,
     readBy,
-    direct,
+    direct: delivered,
     subscribers,
     resolve,
     unblockWith: unblocks ? [...(input.finished ?? [])] : null
