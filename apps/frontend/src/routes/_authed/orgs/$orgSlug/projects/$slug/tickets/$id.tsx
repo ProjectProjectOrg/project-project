@@ -4,6 +4,10 @@ import * as Schema from "effect/Schema"
 
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
 import {
+  everhourProjectRequest,
+  everhourProjectStatusAtom
+} from "@/features/everhour/atoms/everhour"
+import {
   projectLibraryFor,
   projectLibraryRequest
 } from "@/features/library/atoms/library"
@@ -13,6 +17,7 @@ import {
   sprintDetail,
   sprintRequest
 } from "@/features/sprints/atoms/sprintDetail"
+import { tagEditor, tagEditorRequest } from "@/features/tags/atoms/tags"
 import { epicsRequest, projectEpics } from "@/features/tickets/atoms/epics"
 import {
   ticketActivity,
@@ -75,6 +80,14 @@ export const Route = createFileRoute(
     )()
     context.registry.mount(
       projectEpics(epicsRequest(params.orgSlug, params.slug))
+    )()
+    context.registry.mount(
+      tagEditor(tagEditorRequest(params.orgSlug, params.slug, id))
+    )()
+    context.registry.mount(
+      everhourProjectStatusAtom(
+        everhourProjectRequest(params.orgSlug, params.slug)
+      )
     )()
     return {
       crumb: {
