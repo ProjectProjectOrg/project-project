@@ -38,9 +38,8 @@ export function InboxList({
           size="sm"
           disabled={!items.some((item) => item.unread)}
           onClick={actions.readAll}
-          className="transition-transform duration-100 active:scale-[0.97]"
         >
-          <MailCheck />
+          <MailCheck className="size-3.5" strokeWidth={1.75} />
           <span className="max-lg:sr-only">{m.inbox_mark_all_read()}</span>
         </Button>
         <Button
@@ -48,9 +47,8 @@ export function InboxList({
           size="sm"
           disabled={items.length === 0}
           onClick={actions.doneAll}
-          className="transition-transform duration-100 active:scale-[0.97]"
         >
-          <CheckCheck />
+          <CheckCheck className="size-3.5" strokeWidth={1.75} />
           <span className="max-lg:sr-only">{m.inbox_mark_all_done()}</span>
         </Button>
       </header>

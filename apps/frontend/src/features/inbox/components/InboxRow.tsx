@@ -130,14 +130,14 @@ export const InboxRow = memo(function InboxRow({
           tabbable={selected}
           onClick={() => onUnsubscribe(item)}
         >
-          <BellOff />
+          <BellOff className="size-3.5" strokeWidth={1.75} />
         </RowAction>
         <RowAction
           label={m.inbox_mark_done()}
           tabbable={selected}
           onClick={() => onDone(item)}
         >
-          <Check />
+          <Check className="size-3.5" strokeWidth={1.75} />
         </RowAction>
       </div>
     </li>
@@ -165,7 +165,6 @@ function RowAction({
             aria-label={label}
             tabIndex={tabbable ? 0 : -1}
             onClick={onClick}
-            className="transition-transform duration-100 active:[&>svg]:scale-[0.97]"
           />
         }
       >

@@ -101,7 +101,7 @@ function InboxView({
             {m.inbox_pane_empty()}
           </p>
         ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pt-4 pb-6">
             {neighbours.map((item) => (
               <PrefetchTicket
                 key={inboxKey(item)}

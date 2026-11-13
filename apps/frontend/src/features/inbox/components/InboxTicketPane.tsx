@@ -65,18 +65,22 @@ export function InboxTicketPane({
   return (
     <ProjectContext value={projectReq}>
       <ReadSinceContext value={readSince}>
-        <div className="mx-auto flex w-full max-w-[42rem] flex-col gap-6">
-          <div className="flex items-center justify-between gap-2">
+        <div className="mx-auto flex w-full max-w-[42rem] flex-col gap-3">
+          <div className="flex h-7 items-center gap-2">
             <Button
               variant="chip-muted"
+              size="sm"
               onClick={onClose}
-              className="-ml-2 md:invisible"
+              className="-ml-2 md:hidden"
             >
-              <ChevronLeft />
+              <ChevronLeft className="size-4" strokeWidth={1.75} />
               {m.inbox_back()}
             </Button>
+            <span className="font-mono text-caption text-muted-foreground max-md:hidden">
+              {projectSlug} {id}
+            </span>
             <Button
-              variant="tertiary"
+              variant="ghost"
               size="sm"
               render={
                 <Link
@@ -84,10 +88,10 @@ export function InboxTicketPane({
                   params={{ orgSlug, slug: projectSlug, id }}
                 />
               }
-              className="transition-transform duration-100 active:scale-[0.97]"
+              className="ml-auto"
             >
               {m.inbox_open_ticket()}
-              <ArrowUpRight />
+              <ArrowUpRight className="size-3.5" strokeWidth={1.75} />
               <Kbd className="max-md:hidden">O</Kbd>
             </Button>
           </div>
@@ -176,7 +180,7 @@ function ReadOnlyTicket({
   return (
     <article className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
-        <span className="font-mono text-caption text-muted-foreground">
+        <span className="font-mono text-caption text-muted-foreground md:hidden">
           {projectSlug} {ticket.id}
         </span>
         <h2 className="text-title font-semibold text-balance">
