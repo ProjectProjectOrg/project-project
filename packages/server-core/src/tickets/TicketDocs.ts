@@ -32,6 +32,7 @@ import * as KeyedLock from "../locks/KeyedLock"
 import { markdownFileContent, ticketFileBody } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
+import { subscriptionIntents } from "../subscriptions/intents"
 import { clearFlagWhenFinished } from "./ticketPatch"
 
 const TicketFrontmatterOnDisk = Schema.Struct({
@@ -321,6 +322,8 @@ export type TicketActivityOptions = Readonly<{
 
 export type TicketRemoveOptions = Readonly<{ writeLockHeld?: boolean }>
 
+export type TicketCreateOptions = Readonly<{ autoSubscribe?: boolean }>
+
 export class TicketDocs extends Context.Service<
   TicketDocs,
   Readonly<{
@@ -340,7 +343,8 @@ export class TicketDocs extends Context.Service<
       orgSlug: string,
       slug: string,
       document: TicketDocument,
-      onPersist?: (document: TicketDocument) => Effect.Effect<void>
+      onPersist?: (document: TicketDocument) => Effect.Effect<void>,
+      options?: TicketCreateOptions
     ) => Effect.Effect<void, Markdown.MarkdownError | Markdown.TicketIdTaken>
     write: (
       orgSlug: string,
@@ -483,7 +487,8 @@ const make = Effect.gen(function* () {
     orgSlug: string,
     slug: string,
     document: TicketDocument,
-    onPersist?: (document: TicketDocument) => Effect.Effect<void>
+    onPersist?: (document: TicketDocument) => Effect.Effect<void>,
+    options: TicketCreateOptions = {}
   ) {
     return yield* annotateTicketDoc(
       "create",
@@ -512,7 +517,10 @@ const make = Effect.gen(function* () {
               encodeFrontmatter(document),
               ticketFileBody(document.body, document.commentsRegion)
             ),
-            ticketCreatedEvents(document)
+            ticketCreatedEvents(document),
+            options.autoSubscribe === false
+              ? []
+              : subscriptionIntents(null, document)
           )
           .pipe(
             Effect.provideService(
@@ -623,7 +631,8 @@ const make = Effect.gen(function* () {
               ],
               activity.cause ?? null,
               write(orgSlug, slug, id, next),
-              events
+              events,
+              subscriptionIntents(current, next)
             )
             if (onPersist) yield* onPersist(next)
             return next

@@ -31,6 +31,7 @@ import { ProjectsGroup } from "./projects/ProjectsApi"
 import { SlackGroup } from "./slack/SlackApi"
 import { StatusesGroup } from "./statuses/StatusesApi"
 import { StorageGroup } from "./storage/StorageApi"
+import { TicketSubscriptionsGroup } from "./subscriptions/SubscriptionsApi"
 import { TagsGroup } from "./tags/TagsApi"
 import { TicketActivityGroup, TicketsGroup } from "./tickets/TicketsApi"
 
@@ -78,6 +79,7 @@ export const AppApi = HttpApi.make("projectproject")
   .add(TicketsGroup)
   .add(TicketCommentsGroup)
   .add(TicketActivityGroup)
+  .add(TicketSubscriptionsGroup)
   .add(TagsGroup)
   .add(StatusesGroup)
   .add(GitAutomationGroup)

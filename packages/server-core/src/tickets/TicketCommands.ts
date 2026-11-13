@@ -55,7 +55,7 @@ import {
   type MoveTicketResult,
   isEpic
 } from "@pp/shared"
-import { and, asc, eq } from "drizzle-orm"
+import { and, asc, eq, inArray } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
@@ -1601,6 +1601,35 @@ const make = Effect.gen(function* () {
                     eq(schema.ticketActivity.ticketId, from)
                   )
                 )
+              yield* db
+                .update(schema.ticketSubscription)
+                .set(target)
+                .where(
+                  and(
+                    eq(schema.ticketSubscription.projectId, source.projectId),
+                    eq(schema.ticketSubscription.ticketId, from),
+                    inArray(
+                      schema.ticketSubscription.userId,
+                      db
+                        .select({ userId: schema.projectMember.userId })
+                        .from(schema.projectMember)
+                        .where(
+                          eq(
+                            schema.projectMember.projectId,
+                            destination.projectId
+                          )
+                        )
+                    )
+                  )
+                )
+              yield* db
+                .delete(schema.ticketSubscription)
+                .where(
+                  and(
+                    eq(schema.ticketSubscription.projectId, source.projectId),
+                    eq(schema.ticketSubscription.ticketId, from)
+                  )
+                )
             }),
           { discard: true }
         )
@@ -1800,32 +1829,37 @@ const make = Effect.gen(function* () {
             documents,
             (document) =>
               ticketDocs
-                .create(orgSlug, destination.slug, document, (persisted) =>
-                  Effect.sync(() => created.push(persisted)).pipe(
-                    Effect.andThen(
-                      Effect.all(
-                        [
-                          attachments.reconcileTicket(
-                            orgSlug,
-                            destination.slug,
-                            persisted.id,
-                            persisted.body
-                          ),
-                          figmaLinks.reconcileTicket(
-                            orgSlug,
-                            destination.slug,
-                            persisted.id,
-                            persisted.title,
-                            persisted.body
-                          )
-                        ],
-                        { concurrency: 2, discard: true }
+                .create(
+                  orgSlug,
+                  destination.slug,
+                  document,
+                  (persisted) =>
+                    Effect.sync(() => created.push(persisted)).pipe(
+                      Effect.andThen(
+                        Effect.all(
+                          [
+                            attachments.reconcileTicket(
+                              orgSlug,
+                              destination.slug,
+                              persisted.id,
+                              persisted.body
+                            ),
+                            figmaLinks.reconcileTicket(
+                              orgSlug,
+                              destination.slug,
+                              persisted.id,
+                              persisted.title,
+                              persisted.body
+                            )
+                          ],
+                          { concurrency: 2, discard: true }
+                        )
+                      ),
+                      Effect.andThen(
+                        ticketIndex.upsertTicket(destination, persisted)
                       )
                     ),
-                    Effect.andThen(
-                      ticketIndex.upsertTicket(destination, persisted)
-                    )
-                  )
+                  { autoSubscribe: false }
                 )
                 .pipe(
                   Effect.catchTag("TicketIdTaken", () =>
@@ -2206,7 +2240,9 @@ const make = Effect.gen(function* () {
               (next, index) => next !== originals[index]
             )) {
               const original = originals[nexts.indexOf(next)]
-              yield* ticketDocs.write(orgSlug, slug, next.id, next)
+              yield* ticketDocs.update(orgSlug, slug, next.id, () =>
+                Effect.succeed(next)
+              )
               written.push({ original, next })
               if (next.body !== original.body) {
                 yield* reconcileBodyLinks(scope, next)

@@ -46,6 +46,7 @@ import {
   sprintListRequest,
   sprintMembership
 } from "@/features/sprints/atoms/sprintList"
+import { SubscribeMenuItem } from "@/features/subscriptions/components/SubscribeMenuItem"
 import {
   bulkArchiveTickets,
   bulkDeleteTickets
@@ -303,6 +304,11 @@ function TicketMenuItems({
           canUnmark={!archived && can.edit}
           onPatch={onPatch}
         />
+      </Fragment>
+    ),
+    single && can.subscribe && (
+      <Fragment key="subscribe">
+        <SubscribeMenuItem ticketId={ticket.id} />
       </Fragment>
     ),
     single && (

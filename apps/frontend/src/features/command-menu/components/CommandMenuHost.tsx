@@ -6,6 +6,7 @@ import {
   type ProjectActor,
   type ProjectDetail,
   type TicketDetail,
+  type TicketSubscribers,
   type TicketId
 } from "@pp/shared"
 import { useNavigate, useParams } from "@tanstack/react-router"
@@ -28,6 +29,10 @@ import {
   sprintListRequest,
   sprintMembership
 } from "@/features/sprints/atoms/sprintList"
+import {
+  ticketSubscribers,
+  ticketSubscribersRequest
+} from "@/features/subscriptions/atoms/ticketSubscribers"
 import {
   ticketDetail,
   ticketRequest
@@ -204,6 +209,7 @@ const NO_PROJECT_TICKETS: TicketPermissions = {
   delete: false,
   stackBranch: false,
   clearBranch: false,
+  subscribe: false,
   planSprints: true
 }
 
@@ -233,6 +239,21 @@ function useTicketSprint(ticket: TicketContext | null): Group | null {
   return ticket !== null && AsyncResult.isSuccess(result)
     ? (result.value.get(ticket.ticketId) ?? null)
     : null
+}
+
+const noSubscribers: Atom.Atom<
+  AsyncResult.AsyncResult<TicketSubscribers, unknown>
+> = Atom.make(AsyncResult.initial())
+
+function useTicketSubscribed(ticket: TicketContext | null): boolean | null {
+  const result = useAtomValue(
+    ticket === null
+      ? noSubscribers
+      : ticketSubscribers(
+          ticketSubscribersRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
+        )
+  )
+  return AsyncResult.isSuccess(result) ? result.value.subscribed : null
 }
 
 function useCommandEnv(
@@ -278,6 +299,7 @@ function CommandMenuPage({
     selection: state.selection,
     ticketDetail: detail,
     ticketSprint: useTicketSprint(ticket),
+    ticketSubscribed: useTicketSubscribed(ticket),
     canHoldChildren: detail !== null && canHoldChildren(detail, detail.parent),
     sprint: scopeSprint(scopes),
     view: scopeView(scopes),

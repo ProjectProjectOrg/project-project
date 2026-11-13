@@ -57,6 +57,7 @@ import * as SystemProjects from "@pp/server-core/projects/SystemProjects"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
+import * as TicketSubscriptions from "@pp/server-core/subscriptions/TicketSubscriptions"
 import * as Tags from "@pp/server-core/tags/Tags"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketServices from "@pp/server-core/tickets/layer"
@@ -156,6 +157,7 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(ProjectStatuses.layer),
       Layer.provideMerge(TicketServices.layer),
       Layer.provideMerge(TicketActivityFeed.layer),
+      Layer.provideMerge(TicketSubscriptions.layer),
       Layer.provideMerge(Library.layer),
       Layer.provideMerge(LibraryMigration.layer),
       Layer.provideMerge(AttachmentUploads.layer),

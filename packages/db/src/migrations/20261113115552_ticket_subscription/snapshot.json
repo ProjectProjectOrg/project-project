@@ -1,0 +1,269 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "bec98312-9901-4f5d-ad3d-8955ad001b12",
+  "prevIds": [
+    "a7c0112f-58ce-46ef-9c7d-e603062c828e"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "ticket_subscription"
+      ],
+      "writes": [
+        "s|tbl|public.ticket_subscription",
+        "n|tbl|public.ticket_subscription",
+        "e|tbl|public.ticket_subscription",
+        "n|rel|public.ticket_subscription",
+        "n|type|public.ticket_subscription",
+        "n|rel|public.ticket_subscription_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_activity_outbox",
+        "subscriptions"
+      ],
+      "writes": [
+        "s|col|public.ticket_activity_outbox.subscriptions",
+        "n|col|public.ticket_activity_outbox.subscriptions",
+        "e|col|public.ticket_activity_outbox.subscriptions"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_activity_outbox",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "ticket_subscription",
+        "ticket_subscription_user_idx"
+      ],
+      "writes": [
+        "s|idx|public.ticket_subscription_user_idx",
+        "n|idx|public.ticket_subscription_user_idx",
+        "e|idx|public.ticket_subscription_user_idx",
+        "n|rel|public.ticket_subscription_user_idx"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_subscription",
+        "n|sch|public",
+        "n|col|public.ticket_subscription.user_id",
+        "n|col|public.ticket_subscription.project_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "ticket_subscription"
+      ],
+      "writes": [
+        "s|fk|public.ticket_subscription.ticket_subscription_project_member_fkey",
+        "n|fk|public.ticket_subscription.ticket_subscription_project_member_fkey",
+        "e|fk|public.ticket_subscription.ticket_subscription_project_member_fkey",
+        "n|con|public.ticket_subscription.ticket_subscription_project_member_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_subscription",
+        "n|sch|public",
+        "n|tbl|public.project_member",
+        "n|sch|public",
+        "n|col|public.ticket_subscription.project_id",
+        "n|col|public.ticket_subscription.user_id",
+        "n|col|public.project_member.project_id",
+        "n|col|public.project_member.user_id",
+        "e|uniqueness|public.project_member.project_id.user_id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "ticket_subscription",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_activity_outbox",
+        "name": "subscriptions",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'[]'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_subscription",
+        "name": "project_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_subscription",
+        "name": "ticket_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_subscription",
+        "name": "user_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_subscription",
+        "name": "subscribed",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_subscription",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_subscription",
+        "name": "ticket_subscription_user_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "project_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_subscription",
+        "name": "ticket_subscription_project_member_fkey",
+        "nameExplicit": true,
+        "columns": [
+          "project_id",
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "project_member",
+        "columnsTo": [
+          "project_id",
+          "user_id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_subscription",
+        "name": "ticket_subscription_pkey",
+        "columns": [
+          "project_id",
+          "ticket_id",
+          "user_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

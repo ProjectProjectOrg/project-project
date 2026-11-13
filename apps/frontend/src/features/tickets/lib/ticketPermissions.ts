@@ -13,6 +13,7 @@ export const ticketPermissions = (actor: ProjectActor) => {
     delete: actor.call("tickets", "delete"),
     stackBranch: actor.call("tickets", "stackBranch"),
     clearBranch: actor.call("tickets", "clearBranch"),
+    subscribe: actor.call("ticketSubscriptions", "subscribe"),
     planSprints: GroupPolicy.can(actor, "sprint", "manage")
   }
 }

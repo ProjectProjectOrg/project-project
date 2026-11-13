@@ -52,6 +52,7 @@ export type CommandContext = Readonly<{
   selection: ReadonlyArray<SelectedTicket>
   ticketDetail: TicketDetail | null
   ticketSprint: Group | null
+  ticketSubscribed: boolean | null
   sprint: SprintContext | null
   view: ViewContext | null
   viewerId: string | null

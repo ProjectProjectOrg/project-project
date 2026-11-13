@@ -24,6 +24,7 @@ const context: CommandContext = {
   selection: [],
   ticketDetail: null,
   ticketSprint: null,
+  ticketSubscribed: null,
   sprint: null,
   view: null,
   viewerId: null,
@@ -43,6 +44,7 @@ const context: CommandContext = {
     delete: false,
     stackBranch: false,
     clearBranch: false,
+    subscribe: false,
     planSprints: false
   }
 }

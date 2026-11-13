@@ -55,6 +55,7 @@ import { Org } from "../organizations/Org"
 import { Page, Pagination } from "../pagination/Pagination"
 import { Member, Project, ProjectDetail, Slug } from "../projects/Project"
 import { ProjectStatus } from "../statuses/Status"
+import { TicketSubscribers } from "../subscriptions/TicketSubscribers"
 import { Tag, TagName } from "../tags/Tag"
 import { TicketBodyEdits } from "../tickets/bodyEdits"
 import { MoveTicketInput, MoveTicketResult } from "../tickets/move"
@@ -921,6 +922,47 @@ export const Tools = Toolkit.make(
     },
     parameters: Schema.Struct({ orgSlug, projectSlug, id: ticketId }),
     success: TicketDetail
+  }),
+  defineTool("subscribe_ticket", {
+    title: "Subscribe to ticket",
+    hints: {
+      readOnly: false,
+      destructive: false,
+      idempotent: true,
+      openWorld: false
+    },
+    description:
+      "Subscribe to a ticket so its comments, status changes and other " +
+      "updates reach you. You are already subscribed to tickets you create, " +
+      "are assigned to, comment on or are mentioned in. Subscribing again " +
+      "does nothing. Returns whether you are subscribed and who is.",
+    cli: {
+      command: ["tickets", "subscribe"],
+      args: ["id"],
+      summary: "Subscribe to a ticket."
+    },
+    parameters: Schema.Struct({ orgSlug, projectSlug, id: ticketId }),
+    success: TicketSubscribers
+  }),
+  defineTool("unsubscribe_ticket", {
+    title: "Unsubscribe from ticket",
+    hints: {
+      readOnly: false,
+      destructive: false,
+      idempotent: true,
+      openWorld: false
+    },
+    description:
+      "Unsubscribe from a ticket. The unsubscribe sticks when you comment on " +
+      "the ticket later, but being assigned to it or mentioned in it again " +
+      "subscribes you again. Returns whether you are subscribed and who is.",
+    cli: {
+      command: ["tickets", "unsubscribe"],
+      args: ["id"],
+      summary: "Unsubscribe from a ticket."
+    },
+    parameters: Schema.Struct({ orgSlug, projectSlug, id: ticketId }),
+    success: TicketSubscribers
   }),
   defineTool("move_ticket", {
     title: "Move ticket to another project",

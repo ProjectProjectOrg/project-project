@@ -57,6 +57,10 @@ _Avoid_: Link (for relations), dependency (except "blocked by"), issue link
 A marker that a ticket needs attention, with an optional markdown reason and who set it when. It doesn't change the status and isn't a **Relation**: it points at no other ticket. Moving the ticket to a finished status removes it. The UI sets it from "Mark as → Flagged".
 _Avoid_: Blocked (for a flag), impediment
 
+**Subscribe**:
+A person's subscription to one ticket, so the ticket's updates reach them. You are subscribed to a ticket when you create it, are assigned to it, comment on it or are mentioned in it, and you can subscribe or **unsubscribe** by hand. An unsubscribe sticks until you are assigned or mentioned again. **Subscribers** are everyone subscribed to a ticket.
+_Avoid_: Follow, watch
+
 **Status**:
 A project-defined column a ticket moves through. Projects start with `todo`, `in_progress` and `done` and can add their own.
 

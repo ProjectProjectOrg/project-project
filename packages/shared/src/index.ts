@@ -39,6 +39,8 @@ export { FeedbackIntakeGuard } from "./feedback/FeedbackApi"
 export * from "./figma/Figma"
 export * from "./figma/urls"
 
+export * from "./subscriptions/TicketSubscribers"
+
 export * from "./github/GitAutomation"
 export * from "./github/GitState"
 export * from "./github/types"

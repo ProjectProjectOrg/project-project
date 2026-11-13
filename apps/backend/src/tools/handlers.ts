@@ -12,6 +12,7 @@ import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as TicketSubscriptions from "@pp/server-core/subscriptions/TicketSubscriptions"
 import * as Tags from "@pp/server-core/tags/Tags"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
@@ -449,6 +450,20 @@ const unmark_ticket = (
     commands.unmark(input.id, { kind: input.kind, target: input.target })
   )
 
+const subscribe_ticket = (
+  input: Tool.Parameters<typeof Tools.tools.subscribe_ticket>
+) =>
+  Effect.flatMap(TicketSubscriptions.TicketSubscriptions, (subscriptions) =>
+    subscriptions.setSubscribed(input.id, true)
+  )
+
+const unsubscribe_ticket = (
+  input: Tool.Parameters<typeof Tools.tools.unsubscribe_ticket>
+) =>
+  Effect.flatMap(TicketSubscriptions.TicketSubscriptions, (subscriptions) =>
+    subscriptions.setSubscribed(input.id, false)
+  )
+
 const restore_ticket = (
   input: Tool.Parameters<typeof Tools.tools.restore_ticket>
 ) =>
@@ -680,6 +695,8 @@ export const ToolHandlersLive = Tools.toLayer(
       move_ticket: run.project({ ticket: ["delete"] }, move_ticket),
       mark_ticket: run.project({ ticket: ["update"] }, mark_ticket),
       unmark_ticket: run.project({ ticket: ["update"] }, unmark_ticket),
+      subscribe_ticket: run.project("membership", subscribe_ticket),
+      unsubscribe_ticket: run.project("membership", unsubscribe_ticket),
       prepare_ticket_attachment: run.project(
         { attachment: ["upload"] },
         prepare_ticket_attachment
