@@ -48,6 +48,7 @@ import { FinishedStatuses } from "../projects/FinishedStatuses"
 import * as ProjectDocs from "../projects/ProjectDocs"
 import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
+import type { SubscriptionIntent } from "../subscriptions/intents"
 import * as Users from "../users/Users"
 import * as TicketServices from "./layer"
 import * as TicketCommands from "./TicketCommands"
@@ -223,6 +224,7 @@ const FakeDb = databaseLayer(({ sql }) =>
 )
 
 const recordedActivity: Array<RecordedActivity> = []
+const recordedSubscriptions: Array<SubscriptionIntent> = []
 
 const TestLayer = Layer.unwrap(
   Effect.gen(function* () {
@@ -259,7 +261,9 @@ const TestLayer = Layer.unwrap(
           })
         ),
         Layer.provideMerge(TicketDocs.layer),
-        Layer.provideMerge(recordingTicketActivity(recordedActivity)),
+        Layer.provideMerge(
+          recordingTicketActivity(recordedActivity, recordedSubscriptions)
+        ),
         Layer.provideMerge(
           Layer.succeed(ActivityActor, ActivityActor.user("user-1"))
         ),
@@ -400,6 +404,31 @@ it.effect("archiving records the trimmed reason on the activity entry", () =>
     const unarchived = yield* tickets.unarchive(created.id)
     expect(unarchived.archivedAt).toBeNull()
   }).pipe(Effect.provide(TestLayer))
+)
+
+it.effect(
+  "bulk assigning records the change and subscribes the new assignee",
+  () =>
+    Effect.gen(function* () {
+      const tickets = yield* TicketCommands.TicketCommands
+      const created = yield* tickets.quickCreate({ title: "bulk assign" })
+      recordedActivity.length = 0
+      recordedSubscriptions.length = 0
+
+      yield* tickets.bulkUpdate({
+        tickets: [created.id],
+        patch: { assignees: { add: ["user-2"] } }
+      })
+
+      expect(
+        recordedActivity.flatMap(({ changes }) =>
+          changes.map(({ change }) => change)
+        )
+      ).toEqual([{ kind: "assignees_changed", added: ["user-2"], removed: [] }])
+      expect(
+        recordedSubscriptions.map(({ userId, reason }) => ({ userId, reason }))
+      ).toEqual([{ userId: "user-2", reason: "assigned" }])
+    }).pipe(Effect.provide(TestLayer))
 )
 
 it.effect("bulk archive skips tickets that are already archived", () =>

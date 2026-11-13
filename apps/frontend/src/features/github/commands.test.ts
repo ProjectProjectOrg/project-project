@@ -99,6 +99,7 @@ const contextFor = (
     selection: [],
     ticketDetail: detail,
     ticketSprint: null,
+    ticketSubscribed: null,
     sprint: null,
     view: null,
     viewerId: "user-1",

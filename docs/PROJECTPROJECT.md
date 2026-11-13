@@ -181,6 +181,7 @@ Older storage kept `templates/` folders and a default template per ticket type i
 - **Indexes.** They mirror markdown so lists, filters and lookups don't parse every file, and they can be rebuilt from it. The project index also holds instance-local aesthetics such as banner images.
 - **Project configuration that is instance-bound:** statuses, tags, git automation.
 - **Integration state:** connections, OAuth state, encrypted credentials, links, and per-integration delivery records.
+- **Per-user state about tickets:** who is subscribed to which ticket (`ticket_subscription`), including an explicit unsubscribe. Creating, commenting, being assigned and being mentioned subscribe you automatically. `TicketDocs` derives these subscriptions from the ticket before and after each write (`packages/server-core/src/subscriptions/intents.ts`) and stages them in the activity outbox, so they commit with the activity rows once the markdown write lands. An unsubscribe holds against creating and commenting but not against a new assignment or mention. Subscriptions are deleted with the ticket or when the user leaves the project, and a move keeps the subscribers who are members of the destination.
 - **Durable work:** activity, outboxes and workflow engine state.
 
 The tables themselves are in `packages/db/src/schema.ts`.

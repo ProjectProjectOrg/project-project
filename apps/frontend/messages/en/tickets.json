@@ -681,6 +681,13 @@
   "tickets_flag_indicator_aria_label": "Flagged",
   "tickets_flag_reason_placeholder": "What needs attention? (optional)",
   "tickets_flag_submit": "Flag",
+  "tickets_subscribe_button": "Subscribe",
+  "tickets_subscribe_command": "Subscribe to ticket",
+  "tickets_subscribers_list": "Subscribed: {names}",
+  "tickets_subscribed_button": "Subscribed",
+  "tickets_subscribers_none": "No one is subscribed to this ticket",
+  "tickets_unsubscribe_button": "Unsubscribe",
+  "tickets_unsubscribe_command": "Unsubscribe from ticket",
   "tickets_estimate_breakdown_done": "Done",
   "tickets_estimate_breakdown_started": "In progress",
   "tickets_estimate_breakdown_tickets": [

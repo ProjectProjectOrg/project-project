@@ -46,6 +46,8 @@ import {
   sprintListRequest,
   sprintMembership
 } from "@/features/sprints/atoms/sprintList"
+import { SubscribeMenuItem } from "@/features/subscriptions/components/SubscribeMenuItem"
+import { useCanSubscribe } from "@/features/subscriptions/hooks/useCanSubscribe"
 import {
   bulkArchiveTickets,
   bulkDeleteTickets
@@ -210,6 +212,7 @@ function TicketMenuItems({
 }: TicketMenuProps & Readonly<{ onFlow: (flow: Flow) => void }>) {
   const { orgSlug, slug } = useProjectRoute()
   const can = ticketPermissions(useProjectActor())
+  const subscribable = useCanSubscribe()
   const registry = useContext(RegistryContext)
   const archived = ticket.archivedAt !== null
   const canPlan = can.planSprints && canJoinSprint(ticket.type)
@@ -303,6 +306,11 @@ function TicketMenuItems({
           canUnmark={!archived && can.edit}
           onPatch={onPatch}
         />
+      </Fragment>
+    ),
+    single && subscribable && (
+      <Fragment key="subscribe">
+        <SubscribeMenuItem ticketId={ticket.id} />
       </Fragment>
     ),
     single && (

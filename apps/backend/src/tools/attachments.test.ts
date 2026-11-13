@@ -39,6 +39,7 @@ import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
+import * as TicketSubscriptions from "@pp/server-core/subscriptions/TicketSubscriptions"
 import * as Tags from "@pp/server-core/tags/Tags"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
@@ -294,6 +295,7 @@ const fixture = Effect.fn("attachmentFixture")(function* (
       Layer.mock(ProjectDocs.ProjectDocs, {}),
       Layer.mock(GroupDocs.GroupDocs, {}),
       Layer.mock(TicketActivityFeed.TicketActivityFeed, {}),
+      Layer.mock(TicketSubscriptions.TicketSubscriptions, {}),
       Layer.mock(TicketIndex.TicketIndex, {}),
       Layer.mock(TicketIndexMaintenance.TicketIndexMaintenance, {}),
       Layer.mock(ProjectStatuses.ProjectStatuses, {}),
@@ -972,6 +974,7 @@ describe("MCP attachment contracts", () => {
             Layer.mock(Tags.Tags, {}),
             Layer.mock(TicketDocs.TicketDocs, {}),
             Layer.mock(TicketActivityFeed.TicketActivityFeed, {}),
+            Layer.mock(TicketSubscriptions.TicketSubscriptions, {}),
             Layer.mock(TicketIndex.TicketIndex, {}),
             Layer.mock(TicketIndexMaintenance.TicketIndexMaintenance, {}),
             Layer.mergeAll(

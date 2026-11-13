@@ -11,6 +11,7 @@ import {
   useProject,
   useProjectRoute
 } from "@/features/projects/hooks/useProject"
+import { SubscribeToggle } from "@/features/subscriptions/components/SubscribeToggle"
 import {
   ticketActivity,
   ticketActivityRequest
@@ -63,6 +64,7 @@ export function CommentsSection({
           >
             <OrderIcon className="size-4" strokeWidth={1.75} />
           </Button>
+          <SubscribeToggle ticketId={ticketId} className="mr-2 ml-auto" />
         </div>
         <div className="flex flex-col gap-4">
           <TicketTimeline

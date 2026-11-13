@@ -13,6 +13,7 @@ import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as TicketSubscriptions from "@pp/server-core/subscriptions/TicketSubscriptions"
 import * as Tags from "@pp/server-core/tags/Tags"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
@@ -26,6 +27,7 @@ export const toolDependencies = [
   AttachmentUploads.AttachmentUploads,
   BetterAuth.BetterAuth,
   Comments.Comments,
+  TicketSubscriptions.TicketSubscriptions,
   GroupDocs.GroupDocs,
   Groups.Groups,
   Library.Library,

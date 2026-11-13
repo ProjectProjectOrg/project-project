@@ -960,6 +960,28 @@ export const ticketActivity = pgTable(
   ]
 )
 
+export const ticketSubscription = pgTable(
+  "ticket_subscription",
+  {
+    projectId: uuid("project_id").notNull(),
+    ticketId: text("ticket_id").notNull(),
+    userId: text("user_id").notNull(),
+    subscribed: boolean("subscribed").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.ticketId, t.userId] }),
+    foreignKey({
+      name: "ticket_subscription_project_member_fkey",
+      columns: [t.projectId, t.userId],
+      foreignColumns: [projectMember.projectId, projectMember.userId]
+    }).onDelete("cascade"),
+    index("ticket_subscription_user_idx").on(t.userId, t.projectId)
+  ]
+)
+
 export type TicketActivityRow = typeof ticketActivity.$inferInsert
 export type TicketActivityOutboxRow = Omit<TicketActivityRow, "occurredAt"> &
   Readonly<{ occurredAt: string }>
@@ -1150,6 +1172,18 @@ export const ticketActivityOutbox = pgTable(
     rows: jsonb("rows")
       .$type<ReadonlyArray<TicketActivityOutboxRow>>()
       .notNull(),
+    subscriptions: jsonb("subscriptions")
+      .$type<
+        ReadonlyArray<
+          Readonly<{
+            ticketId: string
+            userId: string
+            overridesUnsubscribe: boolean
+          }>
+        >
+      >()
+      .notNull()
+      .default([]),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow()

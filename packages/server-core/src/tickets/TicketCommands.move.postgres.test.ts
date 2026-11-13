@@ -313,6 +313,45 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
     }
   )
 
+  it.effect("keeps the subscribers who are members of the destination", () => {
+    const { put, layer } = fixture()
+    put(makeTicketDocument("T-1", { status: ticketStatus("todo") }))
+    return run(
+      layer,
+      Effect.gen(function* () {
+        yield* Effect.promise(async () => {
+          for (const id of [userId, outsiderId]) {
+            await pool.query(
+              "INSERT INTO member (id,organization_id,user_id,role,created_at) VALUES ($1,$2,$1,'member',now())",
+              [id, orgId]
+            )
+          }
+          await pool.query(
+            "INSERT INTO project_member (project_id,organization_id,user_id,role_id) VALUES ($1,$3,$4,'pm'), ($1,$3,$5,'pm'), ($2,$3,$4,'pm')",
+            [sourceId, destinationId, orgId, userId, outsiderId]
+          )
+          await pool.query(
+            "INSERT INTO ticket_subscription (project_id,ticket_id,user_id,subscribed) VALUES ($1,'T-1',$2,true), ($1,'T-1',$3,true)",
+            [sourceId, userId, outsiderId]
+          )
+        })
+        const commands = yield* TicketCommands.TicketCommands
+        const result = yield* commands.move("T-1", {
+          toProject: slug("product")
+        })
+        const subscriptions = yield* Effect.promise(() =>
+          pool.query(
+            "SELECT project_id, ticket_id, user_id FROM ticket_subscription WHERE project_id = ANY($1)",
+            [[sourceId, destinationId]]
+          )
+        )
+        expect(subscriptions.rows).toEqual([
+          { project_id: destinationId, ticket_id: result.id, user_id: userId }
+        ])
+      })
+    )
+  })
+
   it.effect("keeps the status when the destination has it", () => {
     const { documents, put, layer } = fixture()
     put(makeTicketDocument("T-1", { status: ticketStatus("todo") }))

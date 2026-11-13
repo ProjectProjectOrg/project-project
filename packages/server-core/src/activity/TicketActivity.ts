@@ -28,6 +28,13 @@ import * as Schema from "effect/Schema"
 
 import { contentHash } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
+import type { SubscriptionIntent } from "../subscriptions/intents"
+import {
+  applySubscriptions,
+  removeTicketSubscriptions,
+  stageSubscriptions,
+  type StagedSubscription
+} from "../subscriptions/subscriptionRows"
 import { actorColumns, actorOf } from "./actorRow"
 import type { TicketScopedChange } from "./changes"
 
@@ -58,7 +65,8 @@ export class TicketActivity extends Context.Service<
       changes: ReadonlyArray<TicketScopedChange>,
       cause: ActivityCause | null,
       write: Effect.Effect<A, E, R>,
-      events?: ReadonlyArray<ProjectEvent>
+      events?: ReadonlyArray<ProjectEvent>,
+      subscriptions?: ReadonlyArray<SubscriptionIntent>
     ) => Effect.Effect<A, E, R | ActivityActor>
     recover: () => Effect.Effect<void>
     removeTicket: (
@@ -124,11 +132,16 @@ const make = Effect.gen(function* () {
 
   const commit = (
     batchId: string,
+    projectId: string,
     rows: ReadonlyArray<TicketActivityOutboxRow>,
-    integrationEvents: ReadonlyArray<IntegrationEventRow>
+    integrationEvents: ReadonlyArray<IntegrationEventRow>,
+    subscriptions: ReadonlyArray<StagedSubscription>
   ) =>
     db.transaction(() =>
       Effect.gen(function* () {
+        yield* applySubscriptions(projectId, subscriptions).pipe(
+          Effect.provideService(Db, db)
+        )
         if (rows.length > 0)
           yield* db
             .insert(ticketActivity)
@@ -185,19 +198,25 @@ const make = Effect.gen(function* () {
       })
     )
 
-  type PendingBatch = Readonly<{
-    batchId: string
-    contentHash: string
-    integrationEvents: ReadonlyArray<IntegrationEventRow>
-    rows: ReadonlyArray<TicketActivityOutboxRow>
-  }>
+  type PendingBatch = Pick<
+    typeof ticketActivityOutbox.$inferSelect,
+    | "batchId"
+    | "projectId"
+    | "contentHash"
+    | "integrationEvents"
+    | "rows"
+    | "subscriptions"
+  >
 
   const settle = (batch: PendingBatch, content: string | null) =>
     documentHash(content) === batch.contentHash
-      ? commit(batch.batchId, batch.rows, batch.integrationEvents).pipe(
-          Effect.orDie,
-          Effect.as(true)
-        )
+      ? commit(
+          batch.batchId,
+          batch.projectId,
+          batch.rows,
+          batch.integrationEvents,
+          batch.subscriptions
+        ).pipe(Effect.orDie, Effect.as(true))
       : discard(batch.batchId).pipe(Effect.as(false))
 
   const readDocument = (
@@ -224,9 +243,11 @@ const make = Effect.gen(function* () {
       const pending = yield* db
         .select({
           batchId: ticketActivityOutbox.batchId,
+          projectId: ticketActivityOutbox.projectId,
           contentHash: ticketActivityOutbox.contentHash,
           integrationEvents: ticketActivityOutbox.integrationEvents,
-          rows: ticketActivityOutbox.rows
+          rows: ticketActivityOutbox.rows,
+          subscriptions: ticketActivityOutbox.subscriptions
         })
         .from(ticketActivityOutbox)
         .where(
@@ -256,7 +277,8 @@ const make = Effect.gen(function* () {
     changes: ReadonlyArray<TicketScopedChange>,
     cause: ActivityCause | null,
     write: Effect.Effect<A, E, R>,
-    requested: ReadonlyArray<ProjectEvent> = []
+    requested: ReadonlyArray<ProjectEvent> = [],
+    intents: ReadonlyArray<SubscriptionIntent> = []
   ): Effect.fn.Return<A, E, R | ActivityActor> {
     const projectId = yield* projectIdOf(orgSlug, slug)
     if (projectId === null) return yield* write
@@ -296,7 +318,8 @@ const make = Effect.gen(function* () {
         )
         .map((event) => ({ linkId: subscription.id, event }))
     )
-    if (changes.length === 0 && selected.length === 0) return yield* write
+    if (changes.length === 0 && selected.length === 0 && intents.length === 0)
+      return yield* write
     const actor = yield* ActivityActor
     const occurredAt = DateTime.formatIso(yield* DateTime.now)
     const rows: ReadonlyArray<TicketActivityOutboxRow> = yield* Effect.forEach(
@@ -325,6 +348,7 @@ const make = Effect.gen(function* () {
           actorId: activityActorUserId(actor)
         }))
       )
+    const staged = stageSubscriptions(intents)
     const batchId = yield* newId
     yield* db
       .insert(ticketActivityOutbox)
@@ -335,12 +359,13 @@ const make = Effect.gen(function* () {
         documentId: document.id,
         contentHash: documentHash(document.content),
         rows,
-        integrationEvents
+        integrationEvents,
+        subscriptions: staged
       })
       .pipe(Effect.orDie)
     return yield* Effect.gen(function* () {
       const result = yield* write.pipe(Effect.onError(() => discard(batchId)))
-      yield* commit(batchId, rows, integrationEvents).pipe(
+      yield* commit(batchId, projectId, rows, integrationEvents, staged).pipe(
         Effect.retry({
           times: 3,
           schedule: Schedule.exponential("50 millis")
@@ -363,8 +388,10 @@ const make = Effect.gen(function* () {
         documentKind: ticketActivityOutbox.documentKind,
         documentId: ticketActivityOutbox.documentId,
         contentHash: ticketActivityOutbox.contentHash,
+        projectId: ticketActivityOutbox.projectId,
         integrationEvents: ticketActivityOutbox.integrationEvents,
         rows: ticketActivityOutbox.rows,
+        subscriptions: ticketActivityOutbox.subscriptions,
         orgSlug: organization.slug,
         slug: projectIndex.slug
       })
@@ -421,6 +448,10 @@ const make = Effect.gen(function* () {
         )
       )
       .pipe(Effect.orDie)
+    yield* removeTicketSubscriptions(projectId, ticketId).pipe(
+      Effect.provideService(Db, db),
+      Effect.orDie
+    )
   })
 
   const page = Effect.fn("TicketActivity.page")(function* (

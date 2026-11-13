@@ -19,6 +19,7 @@ import * as ProjectMembers from "@pp/server-core/projects/ProjectMembers"
 import * as Projects from "@pp/server-core/projects/Projects"
 import * as ProjectStatuses from "@pp/server-core/projects/ProjectStatuses"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
+import * as TicketSubscriptions from "@pp/server-core/subscriptions/TicketSubscriptions"
 import * as Tags from "@pp/server-core/tags/Tags"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
@@ -311,6 +312,7 @@ const ProjectGitAutomationStub = Layer.mock(
 const TestLayer = Layer.mergeAll(
   AccessStub,
   Layer.mock(TicketActivityFeed.TicketActivityFeed, {}),
+  Layer.mock(TicketSubscriptions.TicketSubscriptions, {}),
   Layer.mock(AttachmentUploads.AttachmentUploads, {}),
   Layer.mock(OrgStorage.OrgStorage, {}),
   TicketsStub,

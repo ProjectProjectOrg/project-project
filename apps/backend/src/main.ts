@@ -127,6 +127,7 @@ import { SlackHandlerLive } from "./slack/Handlers"
 import { slackOAuthRoutes } from "./slack/OAuthRoutes"
 import { StatusesHandlerLive } from "./statuses/Handlers"
 import { StorageHandlerLive } from "./storage/Handlers"
+import { TicketSubscriptionsHandlerLive } from "./subscriptions/Handlers"
 import { TagsHandlerLive } from "./tags/Handlers"
 import { TicketsHandlerLive } from "./tickets/Handlers"
 import { ToolsRouteLive } from "./tools/http"
@@ -191,7 +192,13 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
   Layer.provide(JiraHandlerLive),
   Layer.provide(JiraMigrationsHandlerLive),
   Layer.provide(TicketsHandlerLive),
-  Layer.provide(Layer.mergeAll(CommentsHandlerLive, TicketActivityHandlerLive)),
+  Layer.provide(
+    Layer.mergeAll(
+      CommentsHandlerLive,
+      TicketActivityHandlerLive,
+      TicketSubscriptionsHandlerLive
+    )
+  ),
   Layer.provide(TagsHandlerLive),
   Layer.provide(Layer.mergeAll(StatusesHandlerLive, GitAutomationHandlerLive)),
   Layer.provide(GroupsHandlerLive),
