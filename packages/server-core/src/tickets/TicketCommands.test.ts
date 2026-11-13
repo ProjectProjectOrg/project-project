@@ -170,7 +170,6 @@ const FakeTicketIndex = Layer.sync(TicketIndex.TicketIndex, () => {
     findTicketIdsByTag: () => Effect.succeed([]),
     findTicketIdsByStatus: () => Effect.succeed([]),
     upsertTicket: () => Effect.void,
-    parentOf: () => Effect.succeed(null),
     relationsOf: () => Effect.succeed(EMPTY_TICKET_RELATIONS),
     relationEdges: () => Effect.succeed([]),
     deleteTicket: () => Effect.void

@@ -59,6 +59,7 @@ const ticket = {
   rank: TicketRank.make("a0"),
   lastTransitionedPr: null,
   parent: null,
+  parentState: null,
   gitState: { tag: "no_branch", baseBranch: "main" },
   assignees: [],
   archivedAt: null,

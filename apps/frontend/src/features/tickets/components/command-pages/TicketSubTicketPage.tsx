@@ -12,7 +12,7 @@ import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import {
   attachToParent,
   childTicketsRequest,
-  quickCreateChildTicket
+  createChildTicket
 } from "@/features/tickets/atoms/childTickets"
 import {
   searchRequest,
@@ -55,7 +55,11 @@ export function TicketSubTicketPage({
   return (
     <CommandFrame
       chip={chip}
-      placeholder={m.tickets_command_sub_ticket_placeholder()}
+      placeholder={
+        epic
+          ? m.tickets_command_epic_ticket_placeholder()
+          : m.tickets_command_sub_ticket_placeholder()
+      }
       onBack={onBack}
       filter={false}
       fixedHeight
@@ -86,7 +90,7 @@ export function TicketSubTicketPage({
       onSelect={(item) => {
         if (parent === null) return
         if (item.value === CREATE) {
-          void fireMutation(registry, quickCreateChildTicket(req), {
+          void fireMutation(registry, createChildTicket(req), {
             payload: { title },
             parent,
             prediction: {

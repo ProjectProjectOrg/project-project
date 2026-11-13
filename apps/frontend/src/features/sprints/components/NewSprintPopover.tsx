@@ -1,10 +1,10 @@
 import type { TicketId } from "@pp/shared"
 import type { ReactElement } from "react"
 
+import { Composer } from "@/components/ui/composer"
 import {
   Popover,
   PopoverClose,
-  PopoverContent,
   PopoverTitle,
   PopoverTrigger
 } from "@/components/ui/popover"
@@ -27,11 +27,7 @@ export function NewSprintPopover({
   return (
     <Popover open={open} onOpenChange={onOpenChange} modal="trap-focus">
       <PopoverTrigger render={trigger} />
-      <PopoverContent
-        align="start"
-        sideOffset={6}
-        className="w-[min(32rem,calc(100vw-2rem))] p-0"
-      >
+      <Composer.Popover align="start" sideOffset={6}>
         <CreateSprintForm
           request={{ orgSlug, projectSlug: slug, tickets }}
           Title={PopoverTitle}
@@ -40,7 +36,7 @@ export function NewSprintPopover({
         <PopoverClose tabIndex={-1} className="sr-only">
           {m.common_close()}
         </PopoverClose>
-      </PopoverContent>
+      </Composer.Popover>
     </Popover>
   )
 }

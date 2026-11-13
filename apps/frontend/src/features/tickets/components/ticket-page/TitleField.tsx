@@ -2,7 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketDetail } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
-import { useCallback, useId, useRef, useState } from "react"
+import { useId, useLayoutEffect, useRef, useState } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
@@ -13,7 +13,10 @@ import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
-export function TitleField({ ticket }: { ticket: TicketDetail }) {
+export function TitleField({
+  ticket,
+  onEnter
+}: Readonly<{ ticket: TicketDetail; onEnter: () => void }>) {
   const { orgSlug, slug } = useProjectRoute()
   const req = ticketRequest(orgSlug, slug, ticket.id)
   const atom = updateTicketDetail(req)
@@ -33,67 +36,51 @@ export function TitleField({ ticket }: { ticket: TicketDetail }) {
   )
 
   const [draft, setDraft] = useState<string | null>(null)
-  const editing = useRef(false)
   const saving = useRef(false)
-  const restoreFocus = useRef(false)
+  const discarding = useRef(false)
+  const field = useRef<HTMLTextAreaElement>(null)
   const errorId = useId()
+  const value = draft ?? ticket.title
 
-  const previewRef = useCallback((element: HTMLButtonElement | null) => {
-    if (element && restoreFocus.current) {
-      restoreFocus.current = false
-      element.focus()
+  useLayoutEffect(() => {
+    const element = field.current
+    if (!element) return undefined
+    const fit = () => {
+      element.style.height = "auto"
+      element.style.height = `${element.scrollHeight}px`
     }
-  }, [])
-  const focusAtEnd = useCallback((element: HTMLTextAreaElement | null) => {
-    if (!element) return
-    element.focus()
-    element.setSelectionRange(element.value.length, element.value.length)
-  }, [])
-
-  function close(focusPreview: boolean) {
-    editing.current = false
-    restoreFocus.current = focusPreview
-    setDraft(null)
-  }
+    fit()
+    const observer = new ResizeObserver(fit)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [value])
 
   async function commit() {
-    if (draft === null || !editing.current || saving.current || pending) return
+    if (discarding.current) {
+      discarding.current = false
+      setDraft(null)
+      return
+    }
+    if (draft === null || saving.current || pending) return
     const title = draft.trim()
     if (!title || title === ticket.title) {
-      close(false)
+      setDraft(null)
       return
     }
     saving.current = true
     try {
-      if (Exit.isSuccess(await update({ title }))) close(false)
+      if (Exit.isSuccess(await update({ title }))) setDraft(null)
     } finally {
       saving.current = false
     }
   }
 
-  if (draft === null)
-    return (
-      <button
-        type="button"
-        ref={previewRef}
-        disabled={pending}
-        aria-busy={pending}
-        onClick={() => {
-          if (pending) return
-          editing.current = true
-          setDraft(ticket.title)
-        }}
-        className="line-clamp-5 w-full rounded-md px-2 py-1.5 text-left text-display font-bold wrap-anywhere transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none aria-busy:animate-pulse motion-reduce:animate-none"
-      >
-        {ticket.title}
-      </button>
-    )
-
   return (
     <>
       <textarea
-        ref={focusAtEnd}
-        value={draft}
+        ref={field}
+        value={value}
+        rows={1}
         readOnly={pending}
         maxLength={200}
         aria-label={m.tickets_title_aria_label()}
@@ -109,12 +96,15 @@ export function TitleField({ ticket }: { ticket: TicketDetail }) {
           if (event.key === "Enter") {
             event.preventDefault()
             void commit()
+            if (!event.shiftKey) onEnter()
           } else if (event.key === "Escape") {
             event.preventDefault()
-            if (!saving.current && !pending) close(true)
+            if (saving.current || pending) return
+            discarding.current = true
+            event.currentTarget.blur()
           }
         }}
-        className="block field-sizing-content max-h-[calc(5lh+0.75rem)] min-h-[1lh] w-full min-w-0 resize-none overflow-y-auto rounded-md bg-accent/40 px-2 py-1.5 text-display font-bold wrap-anywhere ring-2 ring-ring/50 outline-none aria-busy:animate-pulse motion-reduce:animate-none"
+        className="block w-full min-w-0 resize-none overflow-hidden bg-transparent px-2 py-1.5 text-display-compact font-semibold wrap-anywhere outline-none aria-busy:animate-pulse motion-reduce:animate-none"
       />
       {error && (
         <span

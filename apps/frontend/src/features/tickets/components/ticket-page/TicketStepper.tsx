@@ -1,5 +1,11 @@
 import { useAtomValue } from "@effect/atom-react"
-import type { TicketId, TicketNeighbor, TicketViewSource } from "@pp/shared"
+import {
+  isEpic,
+  type TicketDetail,
+  type TicketNeighbor,
+  type TicketNeighbors,
+  type TicketViewSource
+} from "@pp/shared"
 import { Link, useRouter } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronDown, ChevronUp } from "lucide-react"
@@ -14,12 +20,15 @@ import {
 import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
 import {
   ticketSearchFromSource,
-  type TicketNavigationSearch
+  type TicketDetailSearch,
+  type TicketPageSource
 } from "@/features/tickets/lib/ticketSearch"
 import type { IconComponent } from "@/lib/icon"
 import { hasModifier, ownsKeystrokes } from "@/lib/keyboard"
 import { m } from "@/paraglide/messages"
 
+const SIBLINGS: TicketViewSource = { kind: "siblings" }
+const NO_SEARCH: TicketDetailSearch = {}
 const PREVIOUS_KEY = "k"
 const NEXT_KEY = "j"
 
@@ -30,19 +39,90 @@ type Step = Readonly<{
   label: string
 }>
 
+type Shown = Readonly<{
+  ticketId: TicketDetail["id"]
+  neighbors: TicketNeighbors
+  position: (position: number, total: number) => string
+  search: TicketDetailSearch
+}>
+
+let lastShown: Shown | null = null
+
 export function TicketStepper({
-  ticketId,
+  ticket,
   from
-}: Readonly<{ ticketId: TicketId; from: TicketViewSource }>) {
+}: Readonly<{
+  ticket: Pick<TicketDetail, "id" | "parent">
+  from: TicketPageSource | undefined
+}>) {
   const { orgSlug, slug } = useProjectRoute()
-  const result = useAtomValue(
-    ticketNeighbors(ticketNeighborsRequest(orgSlug, slug, ticketId, from))
+  const source = from === undefined || from.kind === "parent" ? SIBLINGS : from
+  const sourceResult = useAtomValue(
+    ticketNeighbors(ticketNeighborsRequest(orgSlug, slug, ticket.id, source))
   )
+  const siblingResult = useAtomValue(
+    ticketNeighbors(ticketNeighborsRequest(orgSlug, slug, ticket.id, SIBLINGS))
+  )
+
+  const view = useMemo((): Shown | null | "loading" => {
+    const parent = ticket.parent
+    const siblings = (): Shown | null | "loading" => {
+      if (parent === null) return null
+      if (!Result.isSuccess(siblingResult)) return "loading"
+      if (siblingResult.value === null) return null
+      return {
+        ticketId: ticket.id,
+        neighbors: siblingResult.value,
+        search:
+          from?.kind === "parent"
+            ? { from: "parent", parentId: from.parent }
+            : NO_SEARCH,
+        position: (position, total) =>
+          isEpic(parent)
+            ? m.tickets_stepper_epic_position({ position, total })
+            : m.tickets_stepper_sub_ticket_position({ position, total })
+      }
+    }
+    if (source.kind === "siblings") return siblings()
+    if (!Result.isSuccess(sourceResult)) return "loading"
+    if (sourceResult.value === null) return siblings()
+    return {
+      ticketId: ticket.id,
+      neighbors: sourceResult.value,
+      search: ticketSearchFromSource(source),
+      position: (position, total) =>
+        m.tickets_stepper_position({ position, total })
+    }
+  }, [ticket, from, source, sourceResult, siblingResult])
+
+  useEffect(() => {
+    if (view !== "loading") lastShown = view
+  }, [view])
+
+  const shown = view === "loading" ? predict(lastShown, ticket.id) : view
+  if (shown === null) return null
+  return <Stepper shown={shown} orgSlug={orgSlug} slug={slug} />
+}
+
+function predict(last: Shown | null, ticketId: Shown["ticketId"]) {
+  if (last === null) return null
+  const { prev, next, position, total } = last.neighbors
+  const step = next?.id === ticketId ? 1 : prev?.id === ticketId ? -1 : 0
+  if (step === 0) return null
+  return {
+    ...last,
+    ticketId,
+    neighbors: { prev: null, next: null, position: position + step, total }
+  } satisfies Shown
+}
+
+function Stepper({
+  shown: { neighbors, position, search },
+  orgSlug,
+  slug
+}: Readonly<{ shown: Shown; orgSlug: string; slug: string }>) {
   const router = useRouter()
-  const search = useMemo(() => ticketSearchFromSource(from), [from])
-  const neighbors = Result.isSuccess(result) ? result.value : null
-  const prev = neighbors?.prev ?? null
-  const next = neighbors?.next ?? null
+  const { prev, next } = neighbors
 
   useEffect(() => {
     const options = (neighbor: TicketNeighbor) =>
@@ -73,17 +153,13 @@ export function TicketStepper({
     return () => document.removeEventListener("keydown", onKey)
   }, [router, orgSlug, slug, search, prev, next])
 
-  if (neighbors === null) return null
   const step = (step: Step) => (
     <StepButton {...step} orgSlug={orgSlug} slug={slug} search={search} />
   )
   return (
     <div className="flex items-center gap-0.5">
-      <span className="px-1.5 font-mono text-caption text-muted-foreground tabular-nums">
-        {m.tickets_stepper_position({
-          position: neighbors.position,
-          total: neighbors.total
-        })}
+      <span className="pr-1.5 font-mono text-caption whitespace-nowrap text-muted-foreground tabular-nums">
+        {position(neighbors.position, neighbors.total)}
       </span>
       {step({
         neighbor: prev,
@@ -113,7 +189,7 @@ function StepButton({
   Readonly<{
     orgSlug: string
     slug: string
-    search: TicketNavigationSearch
+    search: TicketDetailSearch
   }>) {
   const icon = <Icon strokeWidth={1.75} />
   if (neighbor === null) {

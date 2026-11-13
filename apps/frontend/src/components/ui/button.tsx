@@ -63,14 +63,12 @@ const buttonVariants = cva(
         "inline-help":
           "bg-transparent align-middle text-micro text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active data-[popup-open]:bg-active data-[popup-open]:text-foreground",
         chip: "bg-transparent text-foreground hover:bg-hover active:bg-accent/80 data-[popup-open]:bg-hover [&[aria-haspopup]]:active:bg-hover",
+        "chip-muted":
+          "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-accent/80",
         "chip-toggle":
           "bg-transparent text-muted-foreground inset-ring inset-ring-border/60 hover:bg-hover hover:text-foreground active:bg-accent/80 aria-pressed:bg-active aria-pressed:text-foreground aria-pressed:inset-ring-transparent",
         "block-grip":
           "bg-transparent text-muted-foreground hover:bg-hover active:bg-accent/80 data-[popup-open]:bg-hover [&[aria-haspopup]]:active:bg-hover",
-        "template-start":
-          "border border-border/70 bg-background/60 text-foreground hover:border-border hover:bg-hover active:bg-accent/80 data-[popup-open]:bg-hover [&[aria-haspopup]]:active:bg-hover",
-        "template-more":
-          "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-accent/80 data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
         overlay:
           "bg-background text-muted-foreground shadow-sm hover:bg-[image:linear-gradient(var(--hover),var(--hover))] hover:text-foreground active:bg-[image:linear-gradient(var(--active),var(--active))] data-[popup-open]:bg-[image:linear-gradient(var(--hover),var(--hover))] data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-[image:linear-gradient(var(--hover),var(--hover))]",
         media: "bg-transparent text-foreground hover:bg-hover active:bg-active",
@@ -125,7 +123,7 @@ const buttonVariants = cva(
       { size: "md", iconRight: true, className: "pr-[10px]" },
       { size: "lg", iconRight: true, className: "pr-[14px]" },
       {
-        variant: "chip",
+        variant: ["chip", "chip-muted"],
         className: "h-8 gap-1.5 px-2.5 text-body"
       },
       {
@@ -138,10 +136,6 @@ const buttonVariants = cva(
         size: "square-6",
         className:
           "relative h-6 w-6 px-0 before:absolute before:-inset-x-0.5 before:-inset-y-2 before:content-[''] [&_svg]:size-4"
-      },
-      {
-        variant: ["template-start", "template-more"],
-        className: "h-6 gap-1.5 px-2 text-caption"
       }
     ],
     defaultVariants: {

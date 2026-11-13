@@ -18,7 +18,7 @@ export function NoBranchPanel({ frame }: Readonly<{ frame: GitPanelFrame }>) {
           branchTemplate={branchTemplate}
           align="start"
           trigger={
-            <Button variant="chip">
+            <Button variant="chip-muted">
               <Plus className="size-3.5" strokeWidth={1.75} />
               {m.git_branch_picker_button()}
             </Button>

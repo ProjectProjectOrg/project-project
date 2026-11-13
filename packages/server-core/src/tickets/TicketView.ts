@@ -14,6 +14,7 @@ import * as Users from "../users/Users"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketIndex from "./TicketIndex"
 import {
+  parentOfEntry,
   documentToDetail,
   type GitView,
   type TicketReadError
@@ -72,12 +73,14 @@ const make = Effect.gen(function* () {
     ])
     const byId = new Map<string, User>(found.map((user) => [user.id, user]))
     const scope = yield* ProjectScope
-    const [relations, parent] = yield* Effect.all(
+    const [relations, hierarchy] = yield* Effect.all(
       [
         ticketIndex.relationsOf(scope, document.id),
         document.parent
-          ? ticketIndex.parentOf(scope, document.parent)
-          : Effect.succeed(null)
+          ? ticketIndex
+              .list(scope, [document.parent])
+              .pipe(Effect.map(([entry]) => parentOfEntry(entry)))
+          : Effect.succeed(parentOfEntry(undefined))
       ],
       { concurrency: "unbounded" }
     )
@@ -86,7 +89,7 @@ const make = Effect.gen(function* () {
       view,
       byId.get(document.createdBy) ?? null,
       byId.get(document.updatedBy) ?? null,
-      parent,
+      hierarchy,
       branchDeletedAt,
       relations
     )

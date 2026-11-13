@@ -113,7 +113,7 @@
   --avatar-cutout: var(--background);
   --tint: oklch(0 0 0 / 8%);
   --tint-hover: oklch(0 0 0 / 6.5%);
-  --prose-body: oklch(0.145 0 0 / 0.8);
+  --prose-body: oklch(0.23 0.002 265);
   --prose-quiet: oklch(0.145 0 0 / 0.42);
   --prose-code: oklch(0 0 0 / 4.5%);
   --prose-code-ring: oklch(0 0 0 / 6%);
@@ -205,7 +205,7 @@
   --active: rgb(255 255 255 / 0.1);
   --tint: oklch(1 0 0 / 14%);
   --tint-hover: oklch(1 0 0 / 11%);
-  --prose-body: oklch(0.985 0 0 / 0.8);
+  --prose-body: oklch(0.918 0.002 265);
   --prose-quiet: oklch(0.985 0 0 / 0.45);
   --prose-code: oklch(1 0 0 / 6%);
   --prose-code-ring: oklch(1 0 0 / 7%);
@@ -465,36 +465,28 @@
 .block-rail-scope {
   --ticket-status-column: 1rem;
 }
-[data-description] {
-  --fs-body: 1rem;
-  --lh-body: 1.625rem;
-  --fs-subtitle: 1.125rem;
-  --lh-subtitle: 1.625rem;
-  --fs-title: 1.25rem;
-  --lh-title: 1.75rem;
-  --fs-display-compact: 1.625rem;
-  --lh-display-compact: 2.125rem;
-}
 [data-description] .lexical-content > :first-child {
   padding-inline-end: 11rem;
 }
-/* One text edge for the ticket page: the title's (status column, its gap and
-   the title's hover padding). Boxed fields (description, comments) sit their
-   border and padding outside it, and the block rail stretches its gap so its
-   icons stay centred under the status icon. */
+/* One text edge for the ticket page: the title's hover padding, under the
+   Back button. Boxed fields (description, comments) sit their border and
+   padding outside it, and the block rail hangs in the page margin. */
 .ticket-page {
-  --ticket-title-gap: 0.25rem;
-  --ticket-text-inset: calc(
-    var(--ticket-status-column) + var(--ticket-title-gap) + 0.5rem
-  );
+  --ticket-text-inset: calc(0.5rem + 1px);
   --ticket-box-offset: calc(0.75rem + 1px);
   --ticket-rail-inset: calc(
     var(--ticket-text-inset) - var(--ticket-box-offset)
   );
-  --block-rail-gap: calc(
-    var(--ticket-rail-inset) - var(--ticket-status-column) / 2 -
-      var(--block-rail-size) / 2
-  );
+  --block-rail-gap: 0.375rem;
+}
+.ticket-page main {
+  --fs-body: 15px;
+  --lh-body: 24px;
+  --text-body: 15px;
+  --text-body--line-height: 24px;
+}
+.ticket-page main .prose-md {
+  font-weight: 450;
 }
 .ticket-comment,
 .block-rail-sheet {
@@ -523,7 +515,9 @@
   padding: 6px 8px;
   margin-inline: -8px;
   border-radius: var(--radius-md);
-  transition: background-color 150ms ease-out;
+  transition-property: background-color, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
 }
 .prose-md .ticket-block:has(> .ticket-block-body > h1:first-child) {
   --block-first-line: var(--lh-display-compact);
@@ -534,12 +528,6 @@
 .prose-md
   .ticket-block:has(> .ticket-block-body > :first-child:not(h1, h2, h3)) {
   --block-first-line: var(--lh-body);
-}
-:root {
-  --block-editing-fill: color-mix(in oklch, var(--accent) 30%, transparent);
-}
-.dark {
-  --block-editing-fill: color-mix(in oklch, var(--accent) 20%, transparent);
 }
 .prose-md .ticket-block[data-source-removed] > :first-child::after {
   content: var(--source-removed-note);
@@ -560,16 +548,31 @@
   height: var(--block-first-line);
   margin: 0;
 }
+[data-block-rail-inset] .ticket-block {
+  padding-inline-start: 2rem;
+  border-radius: calc(var(--radius-xl) - 4px);
+}
+[data-block-rail-inset] .lexical-content > .ticket-block:first-child {
+  margin-top: -4px;
+  padding-top: 10px;
+}
+[data-block-rail-inset]
+  .lexical-content
+  > .ticket-block:first-child
+  > .ticket-block-icon {
+  top: 10px;
+}
 .prose-md.block-gutter
   .lexical-content[contenteditable="true"]
   > .ticket-block:is([data-hovered], [data-active]) {
   background-color: var(--hover);
-  transition-duration: 0ms;
 }
 .prose-md.block-gutter:has(.lexical-content:focus)
   .lexical-content
   > .ticket-block:is([data-hovered], [data-active]) {
-  background-color: var(--block-editing-fill);
+  background-color: var(--surface-3);
+  box-shadow: var(--shadow-2);
+  transition-duration: 0ms;
 }
 .prose-md .ticket-block[data-dragging] {
   background-color: color-mix(in oklch, var(--muted) 70%, transparent);
@@ -954,17 +957,20 @@ html.dark .prose-md .token.coord {
   padding-left: 1.75em;
   list-style: none;
   outline: none;
-  cursor: pointer;
+  cursor: text;
 }
 .prose-md .lexical-li-checked::before,
 .prose-md .lexical-li-unchecked::before {
   content: "";
+  cursor: pointer;
   position: absolute;
   left: 0;
   top: 0.3em;
-  width: 1em;
+  width: 1.75em;
   height: 1em;
-  border-radius: 0.3em;
+  border-right: 0.75em solid transparent;
+  border-radius: 0.3em 1.05em 1.05em 0.3em / 0.3em;
+  background-clip: padding-box;
   box-shadow: inset 0 0 0 1.5px var(--prose-check-ring);
   transition:
     background 100ms,
@@ -974,11 +980,12 @@ html.dark .prose-md .token.coord {
   box-shadow: inset 0 0 0 1.5px var(--prose-quiet);
 }
 .prose-md .lexical-li-checked::before {
-  background: var(--foreground);
+  background-color: var(--foreground);
   box-shadow: inset 0 0 0 1px var(--foreground);
 }
 .prose-md .lexical-li-checked::after {
   content: "";
+  cursor: pointer;
   position: absolute;
   left: 0.36em;
   top: 0.44em;

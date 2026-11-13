@@ -163,7 +163,7 @@ export function TagEditor({ ticket, canManageTags }: Props) {
           render={
             <Button
               type="button"
-              variant="chip"
+              variant={displayed.length === 0 ? "chip-muted" : "chip"}
               size={displayed.length === 0 ? undefined : "icon-sm"}
               className="motion-safe:transition-[background-color,color,scale]"
               aria-label={m.tags_add_button()}

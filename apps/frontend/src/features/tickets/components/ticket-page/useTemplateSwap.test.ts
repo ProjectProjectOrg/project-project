@@ -21,6 +21,7 @@ const fakeDescription = () => {
       body = markdown
     }),
     matches: (markdown) => body === markdown,
+    focus: () => {},
     onEdit: (_markdown, callback) => {
       onEdit = callback
       return () => {

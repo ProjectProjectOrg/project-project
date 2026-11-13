@@ -37,6 +37,8 @@ export const DEFAULT_TICKET_SORT: TicketSort = {
   dir: "asc"
 }
 
+export const CHILD_TICKET_SORT: TicketSort = { key: "created", dir: "asc" }
+
 export const NATURAL_SORT_DIR: Record<SortKey, SortDir> = {
   manual: "asc",
   id: "asc",
@@ -340,17 +342,28 @@ export const BacklogGrouping = Schema.Literals([
 ])
 export type BacklogGrouping = typeof BacklogGrouping.Type
 
+const TicketSectionsSource = Schema.Struct({
+  kind: Schema.Literal("sections"),
+  grouping: BacklogGrouping,
+  query: TicketListQuery
+})
+
+const TicketSprintBoardSource = Schema.Struct({
+  kind: Schema.Literal("sprintBoard"),
+  groupId: GroupId,
+  query: TicketListQuery
+})
+
+export const TicketListSource = Schema.Union([
+  TicketSectionsSource,
+  TicketSprintBoardSource
+])
+export type TicketListSource = typeof TicketListSource.Type
+
 export const TicketViewSource = Schema.Union([
-  Schema.Struct({
-    kind: Schema.Literal("sections"),
-    grouping: BacklogGrouping,
-    query: TicketListQuery
-  }),
-  Schema.Struct({
-    kind: Schema.Literal("sprintBoard"),
-    groupId: GroupId,
-    query: TicketListQuery
-  })
+  TicketSectionsSource,
+  TicketSprintBoardSource,
+  Schema.Struct({ kind: Schema.Literal("siblings") })
 ])
 export type TicketViewSource = typeof TicketViewSource.Type
 

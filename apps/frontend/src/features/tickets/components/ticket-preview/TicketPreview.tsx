@@ -17,6 +17,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import { Copy } from "lucide-react"
 import {
+  createRef,
   useContext,
   useEffect,
   type ComponentProps,
@@ -62,12 +63,20 @@ import {
   type RelationGroupKey,
   type RelationPreviewKind
 } from "@/features/tickets/lib/relationGroups"
+import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type TicketPreview =
   | Readonly<{ kind: "ticket"; id: TicketId; shortcut?: string }>
   | Readonly<{ kind: "relations"; id: TicketId; relation: RelationPreviewKind }>
-  | Readonly<{ kind: "subTickets"; id: TicketId; label: string }>
+  | Readonly<{
+      kind: "subTickets"
+      id: TicketId
+      label: string
+      current?: TicketId
+      search?: TicketDetailSearch
+    }>
   | Readonly<{ kind: "flag"; id: TicketId; flag: TicketFlag }>
   | Readonly<{ kind: "tag"; name: TagName }>
   | Readonly<{ kind: "tags"; names: ReadonlyArray<TagName> }>
@@ -78,6 +87,12 @@ type TicketPreviewPayload = Readonly<{
 }>
 
 const ticketPreview = PreviewCard.createHandle<TicketPreviewPayload>()
+const ticketPreviewActions = createRef<PreviewCard.Root.Actions>()
+
+const closePreviewNow = () => {
+  ticketPreview.close()
+  ticketPreviewActions.current?.unmount()
+}
 
 const PREVIEW_DELAY_MS = 400
 
@@ -139,7 +154,7 @@ export function TicketPreviewRoot() {
     void loadMarkdown()
   }, [])
   return (
-    <PreviewCard.Root handle={ticketPreview}>
+    <PreviewCard.Root handle={ticketPreview} actionsRef={ticketPreviewActions}>
       {({ payload }) =>
         payload !== undefined && (
           <PreviewCardContent className={PREVIEW_WIDTHS[payload.preview.kind]}>
@@ -183,7 +198,14 @@ function PreviewContent({ preview }: Readonly<{ preview: TicketPreview }>) {
     case "tags":
       return <TagListPreview names={preview.names} />
   }
-  return <SubTicketsPreview id={preview.id} label={preview.label} />
+  return (
+    <SubTicketsPreview
+      id={preview.id}
+      label={preview.label}
+      current={preview.current}
+      search={preview.search}
+    />
+  )
 }
 
 export const RELATION_PREVIEW_LABELS: Readonly<
@@ -328,8 +350,15 @@ function TagListPreview({
 
 function SubTicketsPreview({
   id,
-  label
-}: Readonly<{ id: TicketId; label: string }>) {
+  label,
+  current,
+  search
+}: Readonly<{
+  id: TicketId
+  label: string
+  current?: TicketId
+  search?: TicketDetailSearch
+}>) {
   const { orgSlug, slug } = useProjectRoute()
   const rows = useAtomValue(
     childTickets(childTicketsRequest(orgSlug, slug, id))
@@ -338,7 +367,12 @@ function SubTicketsPreview({
   return (
     <PreviewList label={label}>
       {rows.value.map(({ key, ticket }) => (
-        <PreviewTicketRow key={key} ticket={ticket} />
+        <PreviewTicketRow
+          key={key}
+          ticket={ticket}
+          current={ticket.id === current}
+          search={search}
+        />
       ))}
     </PreviewList>
   )
@@ -359,18 +393,19 @@ function PreviewList({
 }
 
 function PreviewTicketRow({
-  ticket
+  ticket,
+  current = false,
+  search
 }: Readonly<{
   ticket: Readonly<{ id: TicketId; title: string; status: TicketStatus }>
+  current?: boolean
+  search?: TicketDetailSearch
 }>) {
   const { orgSlug, slug } = useProjectRoute()
-  return (
-    <Link
-      to="/orgs/$orgSlug/projects/$slug/tickets/$id"
-      params={{ orgSlug, slug, id: ticket.id }}
-      preload="intent"
-      className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-body text-muted-foreground transition-colors outline-none hover:bg-hover focus-visible:bg-hover"
-    >
+  const className =
+    "flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-body text-muted-foreground"
+  const content = (
+    <>
       <TicketStatusIcon status={ticket.status} orgSlug={orgSlug} slug={slug} />
       <span className="flex min-w-0 flex-1 items-baseline gap-2">
         <span className="shrink-0 font-mono text-caption tabular-nums">
@@ -378,6 +413,28 @@ function PreviewTicketRow({
         </span>
         <span className="min-w-0 truncate text-foreground">{ticket.title}</span>
       </span>
+    </>
+  )
+  if (current) {
+    return (
+      <div aria-current="page" className={cn(className, "bg-active")}>
+        {content}
+      </div>
+    )
+  }
+  return (
+    <Link
+      to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+      params={{ orgSlug, slug, id: ticket.id }}
+      search={search ?? {}}
+      preload="intent"
+      onClick={closePreviewNow}
+      className={cn(
+        className,
+        "transition-colors outline-none hover:bg-hover focus-visible:bg-hover"
+      )}
+    >
+      {content}
     </Link>
   )
 }

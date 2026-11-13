@@ -155,7 +155,6 @@ const makeFakeIndex = (overrides: Partial<FakeIndexShape> = {}) => {
     markBranchStale: () => Effect.succeed([]),
     clearBranchStale: () => Effect.void,
     updateBranchChecks: () => Effect.succeed([]),
-    parentOf: () => Effect.succeed(null),
     relationsOf: () => Effect.succeed(EMPTY_TICKET_RELATIONS),
     relationEdges: () => Effect.succeed([]),
     deleteTicket: () => Effect.void,

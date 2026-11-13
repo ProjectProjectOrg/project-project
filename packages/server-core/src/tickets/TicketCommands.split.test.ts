@@ -228,13 +228,6 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
       indexed.set(document.id, document)
       return Effect.void
     }),
-  parentOf: (_project, id) =>
-    Effect.sync(() => {
-      const parent = indexed.get(id)
-      return parent
-        ? { id: parent.id, title: parent.title, type: parent.type }
-        : null
-    }),
   relationsOf: () => Effect.succeed(EMPTY_TICKET_RELATIONS),
   relationEdges: () => Effect.succeed([]),
   deleteTicket: () => Effect.void

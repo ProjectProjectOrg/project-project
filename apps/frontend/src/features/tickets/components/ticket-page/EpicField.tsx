@@ -58,7 +58,7 @@ export function EpicField({
         render={
           <Button
             type="button"
-            variant="chip"
+            variant={parent === null ? "chip-muted" : "chip"}
             className="min-w-0"
             aria-label={
               parent === null

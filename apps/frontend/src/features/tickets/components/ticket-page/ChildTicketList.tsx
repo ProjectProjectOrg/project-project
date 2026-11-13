@@ -1,4 +1,4 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomValue } from "@effect/atom-react"
 import type { Member, Ticket } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 
@@ -8,23 +8,19 @@ import {
   bulkUpdateChildTickets,
   childTicketUpdates,
   childTickets,
-  childTicketsRequest,
-  quickCreateChildTicket
+  childTicketsRequest
 } from "@/features/tickets/atoms/childTickets"
 import {
   Row,
   rowGridClassName
 } from "@/features/tickets/components/ticket-list/Row"
-import { TicketComposer } from "@/features/tickets/components/ticket-list/TicketComposer"
 import {
   SelectionOrder,
   TicketSelectionProvider
 } from "@/features/tickets/components/ticket-list/TicketSelection"
 import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
-import { parentRef } from "@/features/tickets/lib/ticketPatch"
+import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
-
-import { AttachTicketPicker } from "./AttachTicketPicker"
 
 type Parent = Pick<Ticket, "id" | "title" | "type">
 
@@ -40,27 +36,10 @@ export function ChildTicketList({
   const { orgSlug, slug } = useProjectRoute()
   const req = childTicketsRequest(orgSlug, slug, parent.id)
   const result = useAtomValue(childTickets(req))
-  const create = useAtomSet(quickCreateChildTicket(req), {
-    mode: "promiseExit"
-  })
-  const createState = useAtomValue(quickCreateChildTicket(req))
   const preview = useTicketPreview()
 
   return (
-    <div className="flex flex-col gap-3 py-0.5">
-      {editable && (
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <TicketComposer
-              epics={false}
-              parent={parentRef(parent)}
-              create={create}
-              createState={createState}
-            />
-          </div>
-          <AttachTicketPicker parent={parent} />
-        </div>
-      )}
+    <div className="flex flex-col gap-1">
       {Result.matchWithError(result, {
         onInitial: () => null,
         onError: (error) => <ErrorPage error={error} contained />,
@@ -80,22 +59,26 @@ export function ChildTicketList({
                     ]
               )}
             >
-              <div className={rowGridClassName}>
-                {value.map((row) => (
-                  <Row
-                    key={row.key}
-                    update={childTicketUpdates(req)}
-                    ticket={row.ticket}
-                    members={members}
-                    contextParent={parent.id}
-                    pending={row.pending}
-                    editable={editable}
-                    previewOpen={preview.activePreviewId === row.ticket.id}
-                    onPreviewPointerEnter={preview.onPreviewPointerEnter}
-                    onPreviewOpenChange={preview.onPreviewOpenChange}
-                  />
-                ))}
-              </div>
+              <TicketViewSourceContext
+                value={{ from: "parent", parentId: parent.id }}
+              >
+                <div className={rowGridClassName}>
+                  {value.map((row) => (
+                    <Row
+                      key={row.key}
+                      update={childTicketUpdates(req)}
+                      ticket={row.ticket}
+                      members={members}
+                      contextParent={parent.id}
+                      pending={row.pending}
+                      editable={editable}
+                      previewOpen={preview.activePreviewId === row.ticket.id}
+                      onPreviewPointerEnter={preview.onPreviewPointerEnter}
+                      onPreviewOpenChange={preview.onPreviewOpenChange}
+                    />
+                  ))}
+                </div>
+              </TicketViewSourceContext>
             </SelectionOrder>
           </TicketSelectionProvider>
         )

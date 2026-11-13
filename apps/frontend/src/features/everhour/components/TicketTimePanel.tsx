@@ -1,6 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { activeEstimate, type TicketDetail } from "@pp/shared"
+import type { TicketDetail } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
+import * as Schema from "effect/Schema"
 import { Info } from "lucide-react"
 import { useState } from "react"
 
@@ -10,6 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
+import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   everhourProjectRequest,
   everhourProjectStatusAtom
@@ -26,15 +28,25 @@ import { EverhourSetupHint } from "@/features/everhour/components/EverhourSetupH
 import { TimeControls } from "@/features/everhour/components/TimeControls"
 import { LogTimeForm } from "@/features/everhour/forms/log-time"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
-import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { useProjectActor } from "@/hooks/useActor"
+import {
+  createLocalStorageCodec,
+  useLocalStorageState
+} from "@/hooks/useLocalStorageState"
 import { formatDuration } from "@/lib/duration"
 import { mutationErrorText } from "@/lib/mutationError"
 import * as m from "@/paraglide/messages"
 
+const dismissedCodec = createLocalStorageCodec(Schema.Boolean)
+
 export function TicketTimeSection({ ticket }: { ticket: TicketDetail }) {
   const { orgSlug, slug } = useProjectRoute()
+  const viewerId = useAtomValue(currentUserId)
+  const [hintDismissed, setHintDismissed] = useLocalStorageState(
+    `projectproject:everhour-setup-hint-dismissed:${viewerId ?? ""}:${orgSlug}/${slug}`,
+    dismissedCodec,
+    false
+  )
   const statusResult = useAtomValue(
     everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
   )
@@ -45,10 +57,10 @@ export function TicketTimeSection({ ticket }: { ticket: TicketDetail }) {
   const notConnected =
     Result.isSuccess(statusResult) &&
     statusResult.value.status === "not_connected"
-  if (notConnected && !canManage) return null
+  if (notConnected && (!canManage || hintDismissed)) return null
 
   return (
-    <MetaRow label={m.time_section_label()}>
+    <div className="mt-1 w-full">
       <AsyncView
         result={statusResult}
         contained
@@ -57,7 +69,7 @@ export function TicketTimeSection({ ticket }: { ticket: TicketDetail }) {
         )}
         onSuccess={({ value }) =>
           value.status === "not_connected" ? (
-            <EverhourSetupHint />
+            <EverhourSetupHint onDismiss={() => setHintDismissed(true)} />
           ) : canLog ? (
             <TicketTimePanel ticket={ticket} />
           ) : (
@@ -65,7 +77,7 @@ export function TicketTimeSection({ ticket }: { ticket: TicketDetail }) {
           )
         }
       />
-    </MetaRow>
+    </div>
   )
 }
 
@@ -117,7 +129,6 @@ export function TicketTimePanel({ ticket }: { ticket: TicketDetail }) {
                   : "flex items-center gap-5 tabular-nums"
               }
             >
-              <EstimatedFigure ticket={ticket} />
               <TrackedFigure
                 label={m.time_tracked_total()}
                 seconds={panel.time.totalSeconds}
@@ -186,7 +197,6 @@ function TicketTimeTotal({
       )}
       onSuccess={({ value }) => (
         <div className="flex items-center gap-5 tabular-nums">
-          <EstimatedFigure ticket={ticket} />
           <TrackedFigure
             label={m.time_tracked_total()}
             seconds={value.totalSeconds}
@@ -194,14 +204,6 @@ function TicketTimeTotal({
         </div>
       )}
     />
-  )
-}
-
-function EstimatedFigure({ ticket }: Readonly<{ ticket: TicketDetail }>) {
-  const estimate = activeEstimate(ticket.estimate, useEstimationMode())
-  if (estimate?.unit !== "time") return null
-  return (
-    <TrackedFigure label={m.time_estimated()} seconds={estimate.minutes * 60} />
   )
 }
 

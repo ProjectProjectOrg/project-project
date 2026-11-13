@@ -72,6 +72,7 @@ const encodeDetail = Schema.encodeSync(TicketDetail)
 const encodeUpdateResponse = Schema.encodeSync(TicketUpdateResult)
 const asDetail = (t: Ticket): TicketDetail => ({
   ...t,
+  parentState: null,
   relations: EMPTY_TICKET_RELATIONS,
   creator: null,
   updater: null,

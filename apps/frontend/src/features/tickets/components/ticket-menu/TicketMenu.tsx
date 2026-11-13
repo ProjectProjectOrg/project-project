@@ -30,6 +30,7 @@ import {
 import { fireMutation } from "@/api/viewMutation"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Composer } from "@/components/ui/composer"
 import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
 import {
   DropdownMenu,
@@ -38,7 +39,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { Popover, PopoverContent } from "@/components/ui/popover"
+import { Popover } from "@/components/ui/popover"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   removeTicketFromSprint,
@@ -476,11 +477,10 @@ function TicketMenuFlowPopovers({
         open={flow === "archive"}
         onOpenChange={(open) => onFlow(open ? "archive" : null)}
       >
-        <PopoverContent
+        <Composer.Popover
           anchor={popupAnchor}
           align="end"
           sideOffset={6}
-          className="w-[min(32rem,calc(100vw-2rem))] p-0"
           onClick={(event) => event.stopPropagation()}
         >
           <ArchiveForm
@@ -494,7 +494,7 @@ function TicketMenuFlowPopovers({
             }
             onClose={() => onFlow(null)}
           />
-        </PopoverContent>
+        </Composer.Popover>
       </Popover>
       <ConfirmButton.Popover anchor={popupAnchor} className="w-72">
         <ConfirmButton.Action

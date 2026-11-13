@@ -1,4 +1,4 @@
-import { TicketListQuery, TicketViewSource } from "@pp/shared"
+import { TicketListQuery, TicketListSource } from "@pp/shared"
 import {
   createMemoryHistory,
   createRootRoute,
@@ -21,7 +21,7 @@ import {
 } from "./ticketSearch"
 
 const decodeQuery = Schema.decodeUnknownSync(TicketListQuery)
-const decodeSource = Schema.decodeUnknownSync(TicketViewSource)
+const decodeSource = Schema.decodeUnknownSync(TicketListSource)
 const decodeBacklog = Schema.decodeUnknownSync(BacklogSearch)
 const decodeSprint = Schema.decodeUnknownSync(SprintSearch)
 const decodeTicket = Schema.decodeUnknownSync(TicketDetailSearch)
@@ -217,4 +217,12 @@ it("keeps filters and context through router links, navigation and reloads", asy
   })
   expect(router.state.matches.at(-1)?.status).toBe("success")
   expect(router.state.matches.at(-1)?.search).toEqual({ from: undefined })
+})
+
+it("keeps the parent a ticket was opened from", () => {
+  const search = decodeTicket(parseSearch("?from=parent&parentId=T-15"))
+  expect(ticketSourceFromSearch(search)).toEqual({
+    kind: "parent",
+    parent: "T-15"
+  })
 })

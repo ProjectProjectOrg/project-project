@@ -7,7 +7,7 @@ import {
 import { ChevronLeft } from "lucide-react"
 import type { MouseEvent } from "react"
 
-import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 
 type BackButtonProps = {
@@ -33,17 +33,13 @@ export function BackButton({ fallback, label, className }: BackButtonProps) {
   }
 
   return (
-    <Link
-      {...fallback}
-      onClick={handleClick}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-2 py-2 text-body text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]",
-        fallback.className,
-        className
-      )}
+    <Button
+      variant="chip-muted"
+      className={className}
+      render={<Link {...fallback} onClick={handleClick} />}
     >
       <ChevronLeft className="size-4" strokeWidth={1.75} />
       <span>{label ?? m.common_back_button()}</span>
-    </Link>
+    </Button>
   )
 }

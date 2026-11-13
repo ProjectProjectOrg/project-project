@@ -395,10 +395,6 @@ export class TicketIndex extends Context.Service<
       project: TicketProject,
       ticketId: string
     ) => Effect.Effect<void>
-    parentOf: (
-      project: TicketProject,
-      ticketId: string
-    ) => Effect.Effect<TicketParent | null>
     relationsOf: (
       project: TicketProject,
       ticketId: string
@@ -2148,27 +2144,6 @@ const make = Effect.gen(function* () {
       .pipe(Effect.asVoid, Effect.orDie)
   })
 
-  const parentOf = Effect.fn("TicketIndex.parentOf")(function* (
-    project: TicketProject,
-    ticketId: string
-  ) {
-    const [row] = yield* db
-      .select({
-        id: ticketIndex.ticketId,
-        title: ticketIndex.title,
-        type: ticketIndex.type
-      })
-      .from(ticketIndex)
-      .where(
-        and(
-          eq(ticketIndex.projectId, project.projectId),
-          eq(ticketIndex.ticketId, ticketId)
-        )
-      )
-      .pipe(Effect.orDie)
-    return row ? { ...row, id: makeTicketId(row.id) } : null
-  })
-
   const relationsOf = Effect.fn("TicketIndex.relationsOf")(function* (
     project: TicketProject,
     ticketId: string
@@ -2242,7 +2217,6 @@ const make = Effect.gen(function* () {
   })
 
   return TicketIndex.of({
-    parentOf,
     relationsOf,
     relationEdges,
     projectFor,

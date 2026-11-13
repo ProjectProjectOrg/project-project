@@ -4,6 +4,7 @@ import { useCanGoBack, useNavigate, useRouter } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { AsyncView } from "@/components/shell/AsyncView"
+import { BackButton } from "@/components/shell/BackButton"
 import { DitherShell } from "@/components/ui/dither-shell"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -79,10 +80,14 @@ export function TicketSplitPage({
 
   return (
     <TicketPageShell
-      back={{
-        to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
-        params: { orgSlug, slug, id: ticket.id }
-      }}
+      back={
+        <BackButton
+          fallback={{
+            to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
+            params: { orgSlug, slug, id: ticket.id }
+          }}
+        />
+      }
       header={
         <TicketPageHeader
           ticket={ticket}

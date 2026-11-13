@@ -1,10 +1,11 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { GroupId, TicketId } from "@pp/shared"
-import { Link, useMatches } from "@tanstack/react-router"
+import { Link, useMatches, useSearch } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronRight } from "lucide-react"
-import { Fragment } from "react"
+import { createContext, use, useMemo, useRef, type ReactNode } from "react"
 
+import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import {
   sprintDetail,
@@ -14,6 +15,7 @@ import {
   ticketDetail,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
+import { useFluidHover, useRegisterFluidHoverItem } from "@/hooks/useFluidHover"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -44,33 +46,95 @@ export function Breadcrumbs({ className }: { className?: string }) {
     loaderData && "crumb" in loaderData ? loaderData.crumb : undefined
   )
   const crumbs = flatten(raw)
+  const trailRef = useRef<HTMLDivElement>(null)
+  const hover = useFluidHover(trailRef, { axis: "x" })
 
   if (crumbs.length === 0) return null
+  const crumb = (c: Crumb, i: number) => (
+    <CrumbSlot key={crumbKey(c, i)} index={i} isLast={i === crumbs.length - 1}>
+      <CrumbItem crumb={c} />
+    </CrumbSlot>
+  )
+  const current = crumbs.length - 1
+  const last = crumbs[current]
 
   return (
     <nav
       aria-label={m.nav_breadcrumb_label()}
       className={cn(
-        "flex min-w-0 items-center gap-1 text-body text-muted-foreground",
+        "-ml-2 flex min-w-0 items-center text-body text-muted-foreground",
         className
       )}
     >
-      {crumbs.map((c, i) => {
-        const isLast = i === crumbs.length - 1
-        return (
-          <Fragment key={crumbKey(c, i)}>
-            {i > 0 && (
-              <ChevronRight
-                className="size-3.5 shrink-0 text-muted-foreground"
-                strokeWidth={1.75}
-                aria-hidden
+      <div
+        ref={trailRef}
+        role="presentation"
+        onMouseEnter={hover.handlers.onMouseEnter}
+        onMouseMove={hover.handlers.onMouseMove}
+        onMouseLeave={hover.handlers.onMouseLeave}
+        onClick={hover.handlers.onClick}
+        className="relative flex shrink-0 items-center"
+      >
+        <FluidHoverHighlight hover={hover} className="rounded-md" />
+        <TrailContext value={hover.registerItem}>
+          {crumbs.slice(0, current).map(crumb)}
+          {last?.type === "ticket" && (
+            <CrumbSlot index={current} isLast={false}>
+              <TicketTrailCrumb
+                orgSlug={last.orgSlug}
+                slug={last.slug}
+                id={last.id}
               />
-            )}
-            <CrumbItem crumb={c} isLast={isLast} />
-          </Fragment>
-        )
-      })}
+            </CrumbSlot>
+          )}
+        </TrailContext>
+      </div>
+      {last && crumb(last, current)}
     </nav>
+  )
+}
+
+const TrailContext = createContext<
+  ((index: number, element: HTMLElement | null) => void) | undefined
+>(undefined)
+
+const CrumbPosition = createContext<
+  Readonly<{ index: number; isLast: boolean }>
+>({ index: 0, isLast: true })
+
+function CrumbSlot({
+  index,
+  isLast,
+  children
+}: Readonly<{ index: number; isLast: boolean; children: ReactNode }>) {
+  const value = useMemo(() => ({ index, isLast }), [index, isLast])
+  return <CrumbPosition value={value}>{children}</CrumbPosition>
+}
+
+function CrumbSeparator() {
+  return (
+    <ChevronRight
+      className="size-3.5 shrink-0 text-muted-foreground"
+      strokeWidth={1.75}
+      aria-hidden
+    />
+  )
+}
+
+function CrumbSkeleton({
+  width,
+  label
+}: Readonly<{ width: string; label: string }>) {
+  const { isLast } = use(CrumbPosition)
+  return (
+    <span className="flex shrink-0 items-center gap-1 pr-1.5 pl-2">
+      <span
+        className="skeleton inline-block h-4 rounded bg-muted/60"
+        style={{ width }}
+        aria-label={label}
+      />
+      {!isLast && <CrumbSeparator />}
+    </span>
   )
 }
 
@@ -81,30 +145,19 @@ function crumbKey(c: Crumb, i: number) {
   return `t-${c.orgSlug}-${c.slug}-${c.id}`
 }
 
-function CrumbItem({ crumb, isLast }: { crumb: Crumb; isLast: boolean }) {
+function CrumbItem({ crumb }: Readonly<{ crumb: Crumb }>) {
   switch (crumb.type) {
     case "static":
       return (
-        <CrumbText to={crumb.to} params={crumb.params} isLast={isLast}>
-          {crumb.label}
+        <CrumbText to={crumb.to} params={crumb.params}>
+          <span className="truncate">{crumb.label}</span>
         </CrumbText>
       )
     case "project":
-      return (
-        <ProjectCrumb
-          orgSlug={crumb.orgSlug}
-          slug={crumb.slug}
-          isLast={isLast}
-        />
-      )
+      return <ProjectCrumb orgSlug={crumb.orgSlug} slug={crumb.slug} />
     case "ticket":
       return (
-        <TicketCrumb
-          orgSlug={crumb.orgSlug}
-          slug={crumb.slug}
-          id={crumb.id}
-          isLast={isLast}
-        />
+        <TicketCrumb orgSlug={crumb.orgSlug} slug={crumb.slug} id={crumb.id} />
       )
     case "sprint":
       return (
@@ -112,7 +165,6 @@ function CrumbItem({ crumb, isLast }: { crumb: Crumb; isLast: boolean }) {
           orgSlug={crumb.orgSlug}
           slug={crumb.slug}
           groupId={crumb.groupId}
-          isLast={isLast}
         />
       )
   }
@@ -121,22 +173,15 @@ function CrumbItem({ crumb, isLast }: { crumb: Crumb; isLast: boolean }) {
 function SprintCrumb({
   orgSlug,
   slug,
-  groupId,
-  isLast
-}: {
-  orgSlug: string
-  slug: string
-  groupId: GroupId
-  isLast: boolean
-}) {
+  groupId
+}: Readonly<{ orgSlug: string; slug: string; groupId: GroupId }>) {
   const req = sprintRequest(orgSlug, slug, groupId)
   const result = useAtomValue(sprintDetail(req))
   if (!Result.isSuccess(result)) {
     return (
-      <span
-        className="skeleton inline-block h-4 rounded bg-muted/60 align-middle"
-        style={{ width: `${Math.max(groupId.length, 4)}ch` }}
-        aria-label={m.nav_crumb_loading({ slug: groupId })}
+      <CrumbSkeleton
+        width={`${Math.max(groupId.length, 4)}ch`}
+        label={m.nav_crumb_loading({ slug: groupId })}
       />
     )
   }
@@ -144,39 +189,28 @@ function SprintCrumb({
     <CrumbText
       to="/orgs/$orgSlug/projects/$slug/sprints/$groupId"
       params={{ orgSlug, slug, groupId }}
-      isLast={isLast}
     >
-      {result.value.name}
+      <span className="truncate">{result.value.name}</span>
     </CrumbText>
   )
 }
 
 function ProjectCrumb({
   orgSlug,
-  slug,
-  isLast
-}: {
-  orgSlug: string
-  slug: string
-  isLast: boolean
-}) {
+  slug
+}: Readonly<{ orgSlug: string; slug: string }>) {
   const result = useAtomValue(project(projectRequest(orgSlug, slug)))
   if (!Result.isSuccess(result)) {
     return (
-      <span
-        className="skeleton inline-block h-4 rounded bg-muted/60 align-middle"
-        style={{ width: `${Math.max(slug.length, 4)}ch` }}
-        aria-label={m.nav_crumb_loading({ slug })}
+      <CrumbSkeleton
+        width={`${Math.max(slug.length, 4)}ch`}
+        label={m.nav_crumb_loading({ slug })}
       />
     )
   }
   return (
-    <CrumbText
-      to="/orgs/$orgSlug/projects/$slug"
-      params={{ orgSlug, slug }}
-      isLast={isLast}
-    >
-      {result.value.name}
+    <CrumbText to="/orgs/$orgSlug/projects/$slug" params={{ orgSlug, slug }}>
+      <span className="truncate">{result.value.name}</span>
     </CrumbText>
   )
 }
@@ -184,26 +218,58 @@ function ProjectCrumb({
 function TicketCrumb({
   orgSlug,
   slug,
-  id,
-  isLast
-}: {
-  orgSlug: string
-  slug: string
-  id: TicketId
-  isLast: boolean
-}) {
+  id
+}: Readonly<{ orgSlug: string; slug: string; id: TicketId }>) {
   const req = ticketRequest(orgSlug, slug, id)
   const result = useAtomValue(ticketDetail(req))
   const label = Result.isSuccess(result) ? result.value.title : id
   return (
+    <CrumbText to="/orgs/$orgSlug/projects/$slug" params={{ orgSlug, slug }}>
+      <span className="flex min-w-0 items-baseline gap-1.5">
+        <span className="shrink-0 font-mono text-caption/[var(--lh-body)] text-muted-foreground tabular-nums">
+          {id}
+        </span>
+        <span
+          className={cn(
+            "truncate",
+            !Result.isSuccess(result) && "italic opacity-60"
+          )}
+        >
+          {Result.isSuccess(result) ? label : m.nav_crumb_loading_placeholder()}
+        </span>
+      </span>
+    </CrumbText>
+  )
+}
+
+function TicketTrailCrumb({
+  orgSlug,
+  slug,
+  id
+}: Readonly<{ orgSlug: string; slug: string; id: TicketId }>) {
+  const search = useSearch({ strict: false })
+  const result = useAtomValue(ticketDetail(ticketRequest(orgSlug, slug, id)))
+  if (search.from === "sprintBoard" && search.sprint !== undefined) {
+    return <SprintCrumb orgSlug={orgSlug} slug={slug} groupId={search.sprint} />
+  }
+  const parent = Result.isSuccess(result) ? result.value.parent : null
+  if (
+    parent === null ||
+    search.from !== "parent" ||
+    search.parentId !== parent.id
+  ) {
+    return null
+  }
+  return (
     <CrumbText
-      to="/orgs/$orgSlug/projects/$slug"
-      params={{ orgSlug, slug }}
-      isLast={isLast}
+      to="/orgs/$orgSlug/projects/$slug/tickets/$id"
+      params={{ orgSlug, slug, id: parent.id }}
     >
-      <span className="font-mono">{id}</span>{" "}
-      <span className={Result.isSuccess(result) ? "" : "italic opacity-60"}>
-        {Result.isSuccess(result) ? label : m.nav_crumb_loading_placeholder()}
+      <span className="flex min-w-0 items-baseline gap-1.5">
+        <span className="shrink-0 font-mono text-caption/[var(--lh-body)] tabular-nums">
+          {parent.id}
+        </span>
+        <span className="truncate">{parent.title}</span>
       </span>
     </CrumbText>
   )
@@ -212,30 +278,45 @@ function TicketCrumb({
 function CrumbText({
   to,
   params,
-  isLast,
   children
-}: {
+}: Readonly<{
   to?: string
   params?: Record<string, string>
-  isLast: boolean
-  children: React.ReactNode
-}) {
+  children: ReactNode
+}>) {
+  const { index, isLast } = use(CrumbPosition)
+  const register = use(TrailContext)
+  const ref = useRef<HTMLAnchorElement>(null)
+  const linked = !isLast && to !== undefined
+  useRegisterFluidHoverItem(linked ? register : undefined, index, ref)
   const className = cn(
-    "truncate",
+    "relative z-10 flex h-7 items-center gap-1.5 rounded-md pl-2",
     isLast
-      ? "max-w-1/2 min-w-0 text-foreground"
-      : "max-w-[20ch] shrink-0 transition-colors hover:text-foreground"
+      ? "max-w-1/2 min-w-0 pr-2 text-foreground"
+      : "max-w-[24ch] shrink-0 pr-1.5"
   )
-  if (isLast || !to) {
+  const content = (
+    <>
+      {children}
+      {!isLast && <CrumbSeparator />}
+    </>
+  )
+  if (!linked) {
     return (
       <span aria-current={isLast ? "page" : undefined} className={className}>
-        {children}
+        {content}
       </span>
     )
   }
   return (
-    <Link to={to} params={params} className={className}>
-      {children}
+    <Link
+      ref={ref}
+      to={to}
+      params={params}
+      activeOptions={{ exact: true }}
+      className={cn(className, "transition-colors hover:text-foreground")}
+    >
+      {content}
     </Link>
   )
 }

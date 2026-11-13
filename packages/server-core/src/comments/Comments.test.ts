@@ -127,7 +127,6 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
   findTicketIdsByTag: () => unexpected("TicketIndex.findTicketIdsByTag"),
   findTicketIdsByStatus: () => unexpected("TicketIndex.findTicketIdsByStatus"),
   upsertTicket: () => unexpected("TicketIndex.upsertTicket"),
-  parentOf: () => Effect.succeed(null),
   relationsOf: () => Effect.succeed(EMPTY_TICKET_RELATIONS),
   relationEdges: () => Effect.succeed([]),
   deleteTicket: () => unexpected("TicketIndex.deleteTicket")

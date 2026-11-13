@@ -13,6 +13,7 @@ import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   $createRangeSelection,
+  $getRoot,
   $setSelection,
   HISTORY_MERGE_TAG,
   type LexicalEditor as LexicalEditorType
@@ -26,6 +27,7 @@ import {
   useState,
   type Ref
 } from "react"
+import { flushSync } from "react-dom"
 
 import {
   attachmentsForDescription,
@@ -62,6 +64,9 @@ import {
 } from "./descriptionTemplates"
 import { DescriptionTypeStarts } from "./DescriptionTypeStarts"
 
+const SLASH_COMMAND_ONLY = /^(\/\S*)?$/
+const INTERACTIVE = "a, button, input, label"
+
 export type TemplateSwapNote = Readonly<{
   name: string
   previous: string
@@ -76,6 +81,7 @@ export type DescriptionHandle = Readonly<{
   restore: (markdown: string) => void
   matches: (markdown: string) => boolean
   onEdit: (markdown: string, callback: () => void) => () => void
+  focus: () => void
 }>
 
 const sameBody = (a: string, b: string): boolean => a.trim() === b.trim()
@@ -119,6 +125,47 @@ export function DescriptionField({
   const types = useTicketTypes(orgSlug, slug)
   const body = bodyDraft ?? ticket.body
 
+  const [editing, setEditing] = useState(autoFocus)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
+  const rootRef = useRef<HTMLDivElement>(null)
+  const wasEditingRef = useRef(editing)
+
+  useEffect(() => {
+    const wasEditing = wasEditingRef.current
+    wasEditingRef.current = editing
+    if (editing || !wasEditing) return
+    const active = document.activeElement
+    const lost =
+      active === null ||
+      active === document.body ||
+      (rootRef.current?.contains(active) ?? false)
+    if (lost) rootRef.current?.focus({ preventScroll: true })
+  }, [editing])
+
+  const startEditing = () => {
+    const editor = editorRef.current
+    if (editor === null) return
+    const root = editor.getRootElement()
+    const range = selectedRangeIn(root)
+    flushSync(() => {
+      editor.setEditable(true)
+      setEditing(true)
+    })
+    editor.update(
+      () => {
+        if (range === null) {
+          $getRoot().selectEnd()
+          return
+        }
+        const selection = $createRangeSelection()
+        selection.applyDOMRange(range)
+        $setSelection(selection)
+      },
+      { discrete: true }
+    )
+    editor.focus()
+  }
+
   const startAs = (key: TypeKey) => {
     const editor = editorRef.current
     const definition = library === null ? null : typeFor(library, key)
@@ -159,6 +206,7 @@ export function DescriptionField({
         const editor = editorRef.current
         return editor !== null && sameBody(markdownOf(editor), markdown)
       },
+      focus: () => startEditing(),
       onEdit: (markdown, callback) => {
         const editor = editorRef.current
         if (editor === null) return () => {}
@@ -182,49 +230,6 @@ export function DescriptionField({
       tag: HISTORY_MERGE_TAG
     })
   }, [autoFocus, library, lookup])
-
-  const [editing, setEditing] = useState(autoFocus)
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
-  const rootRef = useRef<HTMLDivElement>(null)
-  const editButtonRef = useRef<HTMLButtonElement>(null)
-  const wasEditingRef = useRef(editing)
-
-  useEffect(() => {
-    const wasEditing = wasEditingRef.current
-    wasEditingRef.current = editing
-    if (editing || !wasEditing) return
-    const active = document.activeElement
-    const lost =
-      active === null ||
-      active === document.body ||
-      (rootRef.current?.contains(active) ?? false)
-    if (lost) editButtonRef.current?.focus({ preventScroll: true })
-  }, [editing])
-
-  const startEditing = (point?: Readonly<{ x: number; y: number }>) => {
-    const editor = editorRef.current
-    if (editor === null) return
-    editor.setEditable(true)
-    setEditing(true)
-    const root = editor.getRootElement()
-    const range = point === undefined ? null : caretRangeAt(point)
-    if (
-      root === null ||
-      range === null ||
-      !root.contains(range.startContainer)
-    ) {
-      editor.focus()
-      return
-    }
-    editor.update(
-      () => {
-        const selection = $createRangeSelection()
-        selection.applyDOMRange(range)
-        $setSelection(selection)
-      },
-      { onUpdate: () => editor.focus() }
-    )
-  }
 
   const startFromShortcut = useEffectEvent(() => startEditing())
 
@@ -272,43 +277,48 @@ export function DescriptionField({
     return () => document.removeEventListener("keydown", onKeyDown)
   }, [editing])
 
-  const empty = body.trim() === ""
-  const offersStarts =
-    library !== null && empty && startingTypes(types, ticket.type).length > 0
+  const empty = SLASH_COMMAND_ONLY.test(body.trim())
+  const canStart =
+    library !== null && startingTypes(types, ticket.type).length > 0
+  const offersStarts = canStart && empty
 
   return (
     <div
       ref={rootRef}
       role="presentation"
-      onDoubleClick={(event) => {
-        if (!editing) startEditing({ x: event.clientX, y: event.clientY })
-      }}
+      tabIndex={-1}
       className={cn(
-        "group/reveal relative rounded-xl py-2 transition-[background-color,box-shadow] duration-150 ease-out motion-reduce:transition-none",
+        "relative rounded-xl py-2 transition-[background-color,box-shadow] duration-150 ease-out outline-none motion-reduce:transition-none",
         editing &&
           "bg-surface-2 shadow-surface-1 [--muted-foreground:color-mix(in_oklch,var(--color-muted-foreground)_88%,var(--color-foreground))]"
       )}
     >
-      <DescriptionActions
-        editing={editing}
-        status={saveStatus}
-        buttonRef={editButtonRef}
-        onEdit={() => startEditing()}
-        onDone={stopEditing}
-      />
       <div
         data-block-rail-host
+        data-block-rail-inset
         data-description
         role="presentation"
-        className="relative px-3"
+        className={cn(
+          "relative px-3 [&_.lexical-content]:min-h-0",
+          (editing || empty) && "cursor-text"
+        )}
         onClick={(event) => {
           if (editing || !empty) return
-          if (event.target instanceof Element && event.target.closest("button"))
+          if (
+            event.target instanceof Element &&
+            event.target.closest(INTERACTIVE)
+          )
             return
           startEditing()
         }}
       >
-        <div className={cn("relative", offersStarts && "min-h-56")}>
+        <div className={cn("relative flow-root", canStart && "min-h-15")}>
+          <DescriptionActions
+            editing={editing}
+            status={saveStatus}
+            onEdit={() => startEditing()}
+            onDone={stopEditing}
+          />
           <MentionScopeProvider scope={{ orgSlug, slug, members, involved }}>
             <AttachmentAvailabilityProvider missing={ticket.missingAttachments}>
               <LexicalEditor
@@ -335,7 +345,7 @@ export function DescriptionField({
               types={types}
               ticketType={ticket.type}
               onStart={startAs}
-              className="absolute inset-x-0 top-7 bottom-0"
+              className="mt-2"
             />
           )}
         </div>
@@ -370,15 +380,16 @@ export function DescriptionField({
   )
 }
 
-const caretRangeAt = ({
-  x,
-  y
-}: Readonly<{ x: number; y: number }>): Range | null => {
-  const position = document.caretPositionFromPoint?.(x, y)
-  if (position) {
-    const range = document.createRange()
-    range.setStart(position.offsetNode, position.offset)
-    return range
-  }
-  return document.caretRangeFromPoint?.(x, y) ?? null
+const selectedRangeIn = (root: HTMLElement | null): Range | null => {
+  const selection = window.getSelection()
+  if (root === null || selection === null || selection.isCollapsed) return null
+  const range = selection.getRangeAt(0).cloneRange()
+  if (!range.intersectsNode(root)) return null
+  const bounds = document.createRange()
+  bounds.selectNodeContents(root)
+  if (range.compareBoundaryPoints(Range.START_TO_START, bounds) < 0)
+    range.setStart(bounds.startContainer, bounds.startOffset)
+  if (range.compareBoundaryPoints(Range.END_TO_END, bounds) > 0)
+    range.setEnd(bounds.endContainer, bounds.endOffset)
+  return range.collapsed ? null : range
 }

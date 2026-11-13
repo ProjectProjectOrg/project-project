@@ -10,11 +10,16 @@ export function MetaRow({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-2 has-[>div:empty]:hidden">
-      <span className="text-caption text-muted-foreground">{label}</span>
-      <div className={cn("min-w-0", controls && "-my-1.5 -ml-2.5")}>
+    <section className="flex flex-col gap-1.5 has-[>div:empty]:hidden">
+      <h3 className="text-caption text-muted-foreground">{label}</h3>
+      <div
+        className={cn(
+          "flex min-w-0 flex-col items-start",
+          controls && "-ml-2.5 gap-1 [&_[data-slot=button]]:h-7"
+        )}
+      >
         {children}
       </div>
-    </div>
+    </section>
   )
 }

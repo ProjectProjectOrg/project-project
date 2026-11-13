@@ -1,18 +1,9 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
-import {
-  TicketStatus as TicketStatusSchema,
-  type Estimate,
-  type GroupId,
-  type TicketPriority,
-  type TicketId,
-  type TicketStatus,
-  isEpicType
-} from "@pp/shared"
+import { type GroupId, type TicketId, isEpicType } from "@pp/shared"
 import { useNavigate } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import * as Schema from "effect/Schema"
 import {
   useContext,
   useEffect,
@@ -37,7 +28,6 @@ import { Input } from "@/components/ui/input"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
-  project as projectView,
   projectRequest,
   projectsFor,
   projectsRequest
@@ -59,23 +49,20 @@ import {
   markTicket,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
-import { AssigneeSelect } from "@/features/tickets/components/ticket-list/AssigneeField"
-import { CreatorTypeSelect } from "@/features/tickets/components/ticket-list/CreatorMenus"
-import { EstimateBadgeTrigger } from "@/features/tickets/components/ticket-list/EstimateField"
-import { PrioritySelect } from "@/features/tickets/components/ticket-list/PriorityField"
 import { SprintSelect } from "@/features/tickets/components/ticket-list/SprintField"
 import { StartsWithLine } from "@/features/tickets/components/ticket-list/StartsWithLine"
-import { StatusSelect } from "@/features/tickets/components/ticket-list/StatusField"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
-import {
-  useCreatorType,
-  type CreatorType
-} from "@/features/tickets/hooks/useCreatorType"
+import { useCreatorType } from "@/features/tickets/hooks/useCreatorType"
 import { useRouteBoundDialog } from "@/hooks/useRouteBoundDialog"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
-const DEFAULT_STATUS = Schema.decodeSync(TicketStatusSchema)("todo")
+import {
+  DEFAULT_TICKET_FIELDS,
+  TicketFieldChips,
+  ticketFieldsPayload,
+  type TicketFields
+} from "./TicketFieldChips"
 
 const RELATED_LABELS: Readonly<
   Record<RelatedKind, (args: { id: string }) => string>
@@ -132,10 +119,7 @@ function CreateTicketForm({
     slug: slug ?? "",
     epics: related?.kind !== "subTicket"
   })
-  const [priority, setPriority] = useState<TicketPriority | null>(null)
-  const [status, setStatus] = useState<TicketStatus | null>(null)
-  const [assignees, setAssignees] = useState<ReadonlyArray<string>>([])
-  const [estimate, setEstimate] = useState<Estimate | null>(null)
+  const [fields, setFields] = useState<TicketFields>(DEFAULT_TICKET_FIELDS)
   const [sprint, setSprint] = useState<GroupId | null>(request.sprint ?? null)
   const registry = useContext(RegistryContext)
   const [failure, setFailure] = useState<string | null>(null)
@@ -152,10 +136,7 @@ function CreateTicketForm({
       slug,
       payload: {
         title: trimmed,
-        priority: priority ?? undefined,
-        status: status ?? undefined,
-        assignees: assignees.length === 0 ? undefined : assignees,
-        estimate: estimate ?? undefined,
+        ...ticketFieldsPayload(fields),
         ...creatorType.payload,
         body: body === "" ? undefined : body,
         ...relatedPayload(related)
@@ -222,11 +203,8 @@ function CreateTicketForm({
           onChange={(next) => {
             setPicked(next)
             creatorType.reset()
-            setPriority(null)
+            setFields(DEFAULT_TICKET_FIELDS)
             setCreated(null)
-            setStatus(null)
-            setAssignees([])
-            setEstimate(null)
             setSprint(null)
           }}
         />
@@ -270,22 +248,19 @@ function CreateTicketForm({
       <Composer.Chips>
         {slug === null ? null : (
           <ProjectScope orgSlug={orgSlug} slug={slug}>
-            <CreateTicketChips
+            <TicketFieldChips
               key={slug}
               orgSlug={orgSlug}
               slug={slug}
-              status={status}
-              onStatus={setStatus}
               creatorType={creatorType}
-              priority={priority ?? creatorType.prediction?.priority ?? "med"}
-              onPriority={setPriority}
-              assignees={assignees}
-              onAssignees={setAssignees}
-              estimate={estimate}
-              onEstimate={setEstimate}
-              sprint={sprint}
-              onSprint={setSprint}
+              value={fields}
+              onChange={(patch) =>
+                setFields((current) => ({ ...current, ...patch }))
+              }
             />
+            {!isEpicType(creatorType.type) && (
+              <SprintSelect value={sprint} onChange={setSprint} />
+            )}
           </ProjectScope>
         )}
       </Composer.Chips>
@@ -304,73 +279,6 @@ function CreateTicketForm({
         </Button>
       </Composer.Footer>
     </form>
-  )
-}
-
-function CreateTicketChips({
-  orgSlug,
-  slug,
-  status,
-  onStatus,
-  creatorType,
-  priority,
-  onPriority,
-  assignees,
-  onAssignees,
-  estimate,
-  onEstimate,
-  sprint,
-  onSprint
-}: Readonly<{
-  orgSlug: string
-  slug: string
-  status: TicketStatus | null
-  onStatus: (status: TicketStatus) => void
-  creatorType: CreatorType
-  priority: TicketPriority
-  onPriority: (priority: TicketPriority) => void
-  assignees: ReadonlyArray<string>
-  onAssignees: (assignees: ReadonlyArray<string>) => void
-  estimate: Estimate | null
-  onEstimate: (estimate: Estimate | null) => void
-  sprint: GroupId | null
-  onSprint: (sprint: GroupId | null) => void
-}>) {
-  const detail = useAtomValue(projectView(projectRequest(orgSlug, slug)))
-  const members = Result.isSuccess(detail) ? detail.value.members : []
-  const estimation = Result.isSuccess(detail) ? detail.value.estimation : "off"
-  return (
-    <>
-      <StatusSelect
-        manageAction={false}
-        value={status ?? DEFAULT_STATUS}
-        onChange={onStatus}
-        showLabel
-      />
-      <CreatorTypeSelect
-        orgSlug={orgSlug}
-        slug={slug}
-        type={creatorType.type}
-        lastUsed={creatorType.lastUsed}
-        epics={creatorType.epics}
-        onTypeChange={creatorType.pick}
-      />
-      <PrioritySelect value={priority} onChange={onPriority} showLabel />
-      <AssigneeSelect
-        value={assignees}
-        onChange={onAssignees}
-        members={members}
-        variant="chip"
-      />
-      <EstimateBadgeTrigger
-        ticket={{ estimate }}
-        mode={estimation}
-        onPatch={(patch) => onEstimate(patch.estimate ?? null)}
-      />
-      {!isEpicType(creatorType.type) && (
-        <SprintSelect value={sprint} onChange={onSprint} />
-      )}
-    </>
   )
 }
 

@@ -253,7 +253,6 @@ When a new feature needs categorical color the user controls (tags, statuses, la
 - **Title** (Geist, 600, 1.125rem, 1.3): section H2; ticket / project titles in a header.
 - **Body** (Geist, 400, 0.875rem (`text-sm`), 1.5): default text. Prose blocks (`.prose-md`) cap line length at 65–75ch; data tables run denser.
 - **Prose** (`.prose-md`): long-form markdown on the type roles. Body text is `body` at 80% foreground (`--prose-body`) so headings, bold and inline code carry the hierarchy at full foreground; h1 is `display-compact`, h2 `title`, h3 `subtitle`. Headings get 8px below and 20–24px above.
-- **Description prose** (`[data-description]`): the ticket description is read more than anything else on the page, so it re-scales the same type roles instead of using new ones: body 16px / 26px, h1 26px, h2 20px, h3 18px. The empty state (placeholder, "Start as" and its type buttons) follows at 16px. Comments and other markdown stay on the standard roles.
 - **Label** (Geist, 500, 0.8125rem (`text-[13px]`), 1.2): nav items, button text, form labels, chip text.
 - **Mono** (Geist Mono, 400, 0.8125rem, 1.4): IDs, branches, slugs, code, anywhere "this is a literal."
 
@@ -327,6 +326,7 @@ The single primitive lives in `components/ui/button.tsx`, exposing variants `pri
 - **Raised:** `--surface-5` fill with the `--shadow-1` hairline, `--surface-7` on hover. For actions revealed on a card that is itself hovered, where a ghost button's hover fill would match the card.
 - **Destructive:** `bg-destructive text-destructive-foreground`; reserved for delete and irreversible-action confirms.
 - **Chip:** inline trigger for ticket fields and badges — `h-8` like an `md` button, `px-2.5`, the app shape. No fill at rest; `bg-hover` on hover.
+- **Chip muted:** the chip's size with `muted-foreground` text that turns full foreground on hover. For page chrome next to the content, such as the ticket page's Back button.
 - **Dither:** the brand-thread variant — animated dithered backdrop. Reserved for hero / marketing surfaces, not chrome.
 - **Sizes:** `xs` (h-5, 11px), `sm` (h-7, 12px), `md` (h-8, 13px, default), `lg` (h-9, 14px). Icon sizes match by height.
 
