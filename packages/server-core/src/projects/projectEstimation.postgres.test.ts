@@ -66,6 +66,7 @@ describe.skipIf(!databaseUrl)("markdown estimation authority", () => {
     github: null,
     githubRepos: [],
     estimation: "points",
+    links: [],
     body: "Project body",
     setup: {
       workflowReviewedAt: null,

@@ -252,6 +252,7 @@ const TestLayer = Layer.unwrap(
                 github: null,
                 githubRepos: [],
                 estimation: "points",
+                links: [],
                 setup: {
                   workflowReviewedAt: null,
                   invitePeopleDismissedAt: null,

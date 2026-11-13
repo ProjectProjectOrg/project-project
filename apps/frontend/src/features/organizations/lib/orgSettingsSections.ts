@@ -1,10 +1,4 @@
-import {
-  Plug,
-  Shapes,
-  SlidersHorizontal,
-  TriangleAlert,
-  Users
-} from "lucide-react"
+import { Plug, Shapes, SlidersHorizontal, Users } from "lucide-react"
 
 import { m } from "@/paraglide/messages"
 
@@ -15,7 +9,6 @@ export type OrgSettingsSection = Readonly<{
     | "/orgs/$orgSlug/settings/members"
     | "/orgs/$orgSlug/settings/integrations"
     | "/orgs/$orgSlug/settings/types"
-    | "/orgs/$orgSlug/settings/danger"
   label: string
   icon: typeof SlidersHorizontal
   heading: string
@@ -54,13 +47,5 @@ export const ORG_SETTINGS_SECTIONS: ReadonlyArray<OrgSettingsSection> = [
     icon: Shapes,
     heading: m.org_settings_types_heading(),
     description: m.org_settings_types_description()
-  },
-  {
-    key: "danger",
-    to: "/orgs/$orgSlug/settings/danger",
-    label: m.org_settings_danger_tab(),
-    icon: TriangleAlert,
-    heading: m.org_settings_danger_heading(),
-    description: m.org_settings_danger_description()
   }
 ]

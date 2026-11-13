@@ -92,8 +92,9 @@ export type SegmentedTabsProps<K extends string> = Readonly<{
   value: K | null
   onValueChange?: (key: K) => void
   variant?: SegmentedVariant
-  labels?: "all" | "active"
+  labels?: "all" | "active" | "none"
   disabled?: boolean
+  focusable?: boolean
   className?: string
   "aria-label"?: string
 }>
@@ -105,6 +106,7 @@ export function SegmentedTabs<K extends string>({
   variant = "default",
   labels = "all",
   disabled,
+  focusable = true,
   className,
   "aria-label": ariaLabel
 }: SegmentedTabsProps<K>) {
@@ -165,10 +167,13 @@ export function SegmentedTabs<K extends string>({
           key={item.key}
           item={item}
           active={item.key === value}
-          showLabel={labels === "all" || item.key === value}
+          showLabel={
+            labels === "all" || (labels === "active" && item.key === value)
+          }
           hovered={item.key === hovered}
           variant={variant}
           disabled={disabled}
+          focusable={focusable}
           onHover={subtle ? () => setHovered(item.key) : undefined}
           onSelect={() => {
             if (item.key !== value) onValueChange?.(item.key)
@@ -186,6 +191,7 @@ function SegmentedTab({
   hovered,
   variant,
   disabled,
+  focusable,
   onSelect,
   onHover
 }: Readonly<{
@@ -195,6 +201,7 @@ function SegmentedTab({
   hovered: boolean
   variant: SegmentedVariant
   disabled?: boolean
+  focusable: boolean
   onSelect: () => void
   onHover?: () => void
 }>) {
@@ -263,6 +270,7 @@ function SegmentedTab({
             className,
             children,
             disabled,
+            tabIndex: focusable ? undefined : -1,
             onClick: onSelect,
             onPointerEnter: onHover,
             onFocus: onHover,

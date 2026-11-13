@@ -5,7 +5,6 @@ import {
   type LinkComponentProps
 } from "@tanstack/react-router"
 import type { LucideIcon } from "lucide-react"
-import { motion, useReducedMotion } from "motion/react"
 import {
   createContext,
   use,
@@ -13,7 +12,8 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode
+  type ReactNode,
+  type RefObject
 } from "react"
 
 import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
@@ -22,12 +22,7 @@ import {
   useRegisterFluidHoverItem,
   type UseFluidHoverReturn
 } from "@/hooks/useFluidHover"
-import { spring } from "@/lib/springs"
 import { cn } from "@/lib/utils"
-
-export function SettingsRail({ children }: Readonly<{ children: ReactNode }>) {
-  return <div className="flex h-full flex-col gap-4">{children}</div>
-}
 
 type SettingsRailNavValue = Readonly<{
   registerItem: UseFluidHoverReturn["registerItem"]
@@ -42,7 +37,6 @@ export function SettingsRailNav({
   const listRef = useRef<HTMLDivElement>(null)
   const hover = useFluidHover(listRef)
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
-  const reduceMotion = useReducedMotion() ?? false
   const navValue = useMemo(
     () => ({ registerItem: hover.registerItem, setActiveIndex }),
     [hover.registerItem]
@@ -66,17 +60,14 @@ export function SettingsRailNav({
           className="relative flex flex-col gap-1"
         >
           {activeRect ? (
-            <motion.div
+            <div
               aria-hidden
               className="pointer-events-none absolute top-0 left-0 rounded-lg bg-accent"
-              initial={false}
-              animate={{
-                x: activeRect.left,
-                y: activeRect.top,
+              style={{
+                transform: `translate(${activeRect.left}px, ${activeRect.top}px)`,
                 width: activeRect.width,
                 height: activeRect.height
               }}
-              transition={reduceMotion ? { duration: 0 } : spring.moderate}
             />
           ) : null}
           <FluidHoverHighlight hover={hover} className="rounded-lg" />
@@ -84,6 +75,17 @@ export function SettingsRailNav({
         </div>
       </nav>
     </SettingsRailNavContext>
+  )
+}
+
+export function useSettingsRailItem(
+  index: number,
+  ref: RefObject<HTMLElement | null>
+) {
+  useRegisterFluidHoverItem(
+    use(SettingsRailNavContext)?.registerItem,
+    index,
+    ref
   )
 }
 

@@ -386,32 +386,37 @@
   transition-duration: 0ms;
 }
 
-/* Theme switch: circular clip-path reveal centered on the click point. */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
+/* Theme switch: the new theme fades in over the old one, a little ahead in
+   the centre, through a very soft radial mask. */
+.pp-theme-switching *,
+.pp-theme-switching *::before,
+.pp-theme-switching *::after {
+  transition: none !important;
 }
 ::view-transition-old(root) {
-  z-index: 1;
+  animation: none;
 }
 ::view-transition-new(root) {
-  z-index: 2;
+  mask-image: radial-gradient(closest-side, #000 40%, transparent);
+  mask-position: center;
+  mask-repeat: no-repeat;
+  animation: pp-theme-reveal 0.25s ease-out both;
 }
-@media (prefers-reduced-motion: no-preference) {
-  ::view-transition-new(root) {
-    animation: theme-circle-reveal 0.55s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-}
-@keyframes theme-circle-reveal {
+@keyframes pp-theme-reveal {
   from {
-    clip-path: circle(0 at var(--theme-clip-x, 50%) var(--theme-clip-y, 50%));
+    opacity: 0;
+    mask-size: 100vmax 100vmax;
   }
   to {
-    clip-path: circle(
-      var(--theme-clip-radius, 150vmax) at var(--theme-clip-x, 50%)
-        var(--theme-clip-y, 50%)
-    );
+    opacity: 1;
+    mask-size: 400vmax 400vmax;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+    mask-image: none;
   }
 }
 

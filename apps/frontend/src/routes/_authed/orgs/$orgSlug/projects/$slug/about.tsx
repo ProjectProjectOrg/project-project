@@ -4,7 +4,7 @@ import { AboutTab } from "@/features/projects/components/AboutTab"
 import { m } from "@/paraglide/messages"
 
 export const Route = createFileRoute(
-  "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/about"
+  "/_authed/orgs/$orgSlug/projects/$slug/about"
 )({
   component: AboutTab,
   loader: () => ({

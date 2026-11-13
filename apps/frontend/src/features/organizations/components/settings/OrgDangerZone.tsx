@@ -1,59 +1,31 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { ORG_DELETE_GRACE_DAYS, type OrgDetail } from "@pp/shared"
-import { getRouteApi, useNavigate } from "@tanstack/react-router"
+import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { AsyncView } from "@/components/shell/AsyncView"
 import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
-import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { ConfirmButton } from "@/components/ui/confirm-button"
 import { setActiveOrganization } from "@/features/auth/atoms/auth"
 import {
-  orgDetail,
   orgRequest,
   softDeleteOrg,
   userOrgs
 } from "@/features/organizations/atoms/orgs"
 import { nextActiveOrgSlug } from "@/features/organizations/lib/orgReflow"
-import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
-const routeApi = getRouteApi("/_authed/orgs/$orgSlug/settings/danger")
-
-export function OrgDangerSettings() {
-  const { orgSlug } = routeApi.useParams()
-  const result = useAtomValue(orgDetail(orgRequest(orgSlug)))
-  const canDelete = useOrgActor(orgSlug).call("org", "softDelete")
-
-  return (
-    <AsyncView
-      result={result}
-      contained
-      onInitial={() => <SettingsSkeleton rows={2} />}
-      onSuccess={({ value }) =>
-        canDelete ? (
-          <DeleteCard orgSlug={orgSlug} org={value} />
-        ) : (
-          <SettingsSection>
-            <SettingsGroup>
-              <SettingsRow
-                label={m.org_danger_delete_heading()}
-                description={m.org_danger_owner_only()}
-              />
-            </SettingsGroup>
-          </SettingsSection>
-        )
-      }
-    />
-  )
-}
-
-function DeleteCard({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
+export function OrgDangerZone({
+  orgSlug,
+  org
+}: {
+  orgSlug: string
+  org: OrgDetail
+}) {
   const navigate = useNavigate()
   const req = orgRequest(orgSlug)
   const softDelete = useAtomSet(softDeleteOrg(req), { mode: "promiseExit" })
@@ -79,7 +51,7 @@ function DeleteCard({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
   }
 
   return (
-    <SettingsSection>
+    <SettingsSection title={m.org_settings_danger_heading()}>
       <SettingsGroup>
         <SettingsRow
           layout="stacked"

@@ -21,6 +21,7 @@ import {
   updateProject
 } from "@/features/projects/atoms/projects"
 import { ProjectAppearanceSection } from "@/features/projects/components/appearance/ProjectAppearanceSection"
+import { ProjectDangerZone } from "@/features/projects/components/settings/ProjectDangerZone"
 import { useProject } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
@@ -105,6 +106,9 @@ export function ProjectGeneralSettings() {
           </SettingsRow>
         </SettingsGroup>
       </SettingsSection>
+      {actor.call("projects", "delete") ? (
+        <ProjectDangerZone orgSlug={orgSlug} slug={project.slug} />
+      ) : null}
     </>
   )
 }

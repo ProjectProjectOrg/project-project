@@ -142,7 +142,7 @@
   "profile_section_connected_agents_description": "Install the pp command line tool, and manage the apps that can read your projects and act on tickets. Revoke any you don't recognize.",
   "profile_section_connected_agents_title": "Agents & CLI",
   "profile_section_connections_description": "Accounts linked to you, used across every project.",
-  "profile_section_connections_title": "Connections",
+  "profile_section_connections_title": "Connected accounts",
   "profile_section_preferences_description": "How the app behaves for you.",
   "profile_section_preferences_title": "Preferences",
   "profile_user_id_label": "User ID"

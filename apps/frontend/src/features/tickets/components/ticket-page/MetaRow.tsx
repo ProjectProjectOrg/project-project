@@ -1,21 +1,29 @@
+import type { ReactNode } from "react"
+
 import { cn } from "@/lib/utils"
 
 export function MetaRow({
   label,
-  controls = false,
+  action,
+  inset,
   children
 }: {
-  label: string
-  controls?: boolean
-  children: React.ReactNode
+  label: ReactNode
+  action?: ReactNode
+  inset?: "control" | "link"
+  children: ReactNode
 }) {
   return (
     <section className="flex flex-col gap-1.5 has-[>div:empty]:hidden">
-      <h3 className="text-caption text-muted-foreground">{label}</h3>
+      <header className="flex items-center justify-between gap-2">
+        <h3 className="text-caption text-muted-foreground">{label}</h3>
+        {action ? <span className="-my-1.5 -mr-1.5 flex">{action}</span> : null}
+      </header>
       <div
         className={cn(
           "flex min-w-0 flex-col items-start",
-          controls && "-ml-2.5 gap-1 [&_[data-slot=button]]:h-7"
+          inset === "control" && "-ml-2.5 gap-1 [&_[data-slot=button]]:h-7",
+          inset === "link" && "-ml-1.5 gap-1"
         )}
       >
         {children}

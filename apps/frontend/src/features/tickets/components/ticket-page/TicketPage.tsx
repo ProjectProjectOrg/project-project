@@ -130,7 +130,10 @@ export function TicketPage({
         >
           <aside className="flex min-w-0 flex-col gap-5 px-2 lg:sticky lg:top-6 lg:max-h-[calc(100vh-8rem)] lg:[scrollbar-gutter:stable] lg:self-start lg:overflow-y-auto lg:pt-3 lg:pr-1 lg:pl-5">
             <fieldset disabled={!canEdit} className="contents">
-              <MetaRow controls label={m.tickets_page_group_properties()}>
+              <MetaRow
+                inset="control"
+                label={m.tickets_page_group_properties()}
+              >
                 <StatusSelect
                   value={ticket.status}
                   onChange={(status) => updateTicket({ status })}
@@ -160,13 +163,13 @@ export function TicketPage({
                   <TicketTimeSection ticket={ticket} />
                 )}
               </MetaRow>
-              <MetaRow controls label={m.tickets_page_meta_tags()}>
+              <MetaRow inset="control" label={m.tickets_page_meta_tags()}>
                 <TagEditor
                   ticket={ticket}
                   canManageTags={actor.call("tags", "create")}
                 />
               </MetaRow>
-              <MetaRow controls label={m.tickets_page_group_planning()}>
+              <MetaRow inset="control" label={m.tickets_page_group_planning()}>
                 {!isEpic(ticket) && <SprintBadgeTrigger ticketId={ticket.id} />}
                 {!isEpic(ticket) && hierarchy.subTicketOf === null && (
                   <EpicField
@@ -184,7 +187,7 @@ export function TicketPage({
               />
             </fieldset>
             {github && (
-              <MetaRow controls label={m.tickets_page_meta_git()}>
+              <MetaRow inset="control" label={m.tickets_page_meta_git()}>
                 <TicketGitPanel
                   ticket={ticket}
                   github={github}

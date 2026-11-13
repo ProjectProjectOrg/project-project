@@ -3,10 +3,10 @@ import { LayoutDashboard } from "lucide-react"
 import { useRef } from "react"
 
 import { NavHoverContext, NavItem } from "@/components/shell/NavItem"
+import { STATIC_HOVER_INDEX } from "@/components/shell/ProjectNav"
 import {
   matchProjectRoute,
   PROJECT_CARD_HOVER_INDEX,
-  projectPageHoverIndex,
   ProjectScope
 } from "@/components/shell/ProjectScope"
 import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
@@ -20,12 +20,6 @@ export function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
   const listRef = useRef<HTMLDivElement>(null)
   const hover = useFluidHover(listRef)
   const match = orgSlug ? matchProjectRoute(pathname, orgSlug) : null
-  const dashboardActive = pathname === (orgSlug ? `/orgs/${orgSlug}` : "/")
-  const filledIndex = dashboardActive
-    ? DASHBOARD_INDEX
-    : match
-      ? projectPageHoverIndex(match.page)
-      : null
   return (
     <nav className="px-3 py-2">
       <NavHoverContext value={hover.registerItem}>
@@ -35,8 +29,9 @@ export function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
           onMouseEnter={hover.handlers.onMouseEnter}
           onMouseMove={(event) => {
             if (
-              event.target instanceof Node &&
-              listRef.current?.contains(event.target)
+              event.target instanceof Element &&
+              listRef.current?.contains(event.target) &&
+              !event.target.closest("[data-nav-skip]")
             )
               hover.handlers.onMouseMove(event)
             else hover.handlers.onMouseLeave()
@@ -48,8 +43,8 @@ export function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
           <FluidHoverHighlight
             hover={hover}
             hidden={
-              hover.activeIndex === filledIndex ||
-              hover.activeIndex === PROJECT_CARD_HOVER_INDEX
+              hover.activeIndex === PROJECT_CARD_HOVER_INDEX ||
+              (hover.activeIndex ?? 0) >= STATIC_HOVER_INDEX
             }
             className="z-[1] rounded-lg"
           />

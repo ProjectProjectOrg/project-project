@@ -16,6 +16,7 @@ import {
   orgRequest,
   renameOrg
 } from "@/features/organizations/atoms/orgs"
+import { OrgDangerZone } from "@/features/organizations/components/settings/OrgDangerZone"
 import { useOrgActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
@@ -39,34 +40,42 @@ function GeneralForm({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
   const req = orgRequest(orgSlug)
   const rename = useAtomSet(renameOrg(req))
   const renameState = useAtomValue(renameOrg(req))
-  const canEdit = useOrgActor(orgSlug).call("org", "rename")
+  const actor = useOrgActor(orgSlug)
+  const canEdit = actor.call("org", "rename")
 
   return (
-    <SettingsSection>
-      <SettingsGroup>
-        <SettingsRow
-          label={m.org_settings_name_label()}
-          error={
-            Result.isFailure(renameState) ? m.org_settings_rename_error() : null
-          }
-        >
-          <SettingsTextField
-            value={org.name}
-            onCommit={(name) => rename({ name })}
-            disabled={!canEdit}
-            waiting={renameState.waiting}
-            maxLength={120}
-          />
-        </SettingsRow>
-        <SettingsRow
-          label={m.org_settings_slug_label()}
-          description={m.org_settings_slug_readonly_note()}
-        >
-          <span className="font-mono text-body text-muted-foreground">
-            {org.slug}
-          </span>
-        </SettingsRow>
-      </SettingsGroup>
-    </SettingsSection>
+    <>
+      <SettingsSection>
+        <SettingsGroup>
+          <SettingsRow
+            label={m.org_settings_name_label()}
+            error={
+              Result.isFailure(renameState)
+                ? m.org_settings_rename_error()
+                : null
+            }
+          >
+            <SettingsTextField
+              value={org.name}
+              onCommit={(name) => rename({ name })}
+              disabled={!canEdit}
+              waiting={renameState.waiting}
+              maxLength={120}
+            />
+          </SettingsRow>
+          <SettingsRow
+            label={m.org_settings_slug_label()}
+            description={m.org_settings_slug_readonly_note()}
+          >
+            <span className="font-mono text-body text-muted-foreground">
+              {org.slug}
+            </span>
+          </SettingsRow>
+        </SettingsGroup>
+      </SettingsSection>
+      {actor.call("org", "softDelete") ? (
+        <OrgDangerZone orgSlug={orgSlug} org={org} />
+      ) : null}
+    </>
   )
 }

@@ -20,8 +20,8 @@ export function MobileNav({ user }: { user: User }) {
 
   useEffect(
     () =>
-      router.subscribe("onResolved", ({ pathChanged, toLocation }) => {
-        if (pathChanged && !toLocation.state.keepSidebarDrawer) setOpen(false)
+      router.subscribe("onResolved", ({ pathChanged }) => {
+        if (pathChanged) setOpen(false)
       }),
     [router]
   )
