@@ -292,9 +292,18 @@ export const applyInbox = (projectId: string, staged: StagedInbox | null) =>
 
 export const removeTicketInbox = (projectId: string, ticketId: string) =>
   Effect.flatMap(Db, (db) =>
-    db
-      .delete(inboxRow)
-      .where(
-        and(eq(inboxRow.projectId, projectId), eq(inboxRow.ticketId, ticketId))
+    db.transaction(() =>
+      lockTickets(db, projectId, [ticketId]).pipe(
+        Effect.andThen(
+          db
+            .delete(inboxRow)
+            .where(
+              and(
+                eq(inboxRow.projectId, projectId),
+                eq(inboxRow.ticketId, ticketId)
+              )
+            )
+        )
       )
+    )
   )

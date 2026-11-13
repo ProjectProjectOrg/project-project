@@ -151,6 +151,11 @@ const make = Effect.gen(function* () {
   ) =>
     db.transaction(() =>
       Effect.gen(function* () {
+        const claimed = yield* db
+          .delete(ticketActivityOutbox)
+          .where(eq(ticketActivityOutbox.batchId, batchId))
+          .returning({ batchId: ticketActivityOutbox.batchId })
+        if (claimed.length === 0) return
         yield* applySubscriptions(projectId, subscriptions).pipe(
           Effect.provideService(Db, db)
         )
@@ -205,9 +210,6 @@ const make = Effect.gen(function* () {
               .values(deliveries)
               .onConflictDoNothing()
         }
-        yield* db
-          .delete(ticketActivityOutbox)
-          .where(eq(ticketActivityOutbox.batchId, batchId))
       })
     )
 
