@@ -38,10 +38,6 @@ type NavItemProps = (
       params?: undefined
     }
   | {
-      to: "/orgs/$orgSlug/projects"
-      params: { orgSlug: string }
-    }
-  | {
       to: "/orgs/$orgSlug"
       params: { orgSlug: string }
     }
@@ -50,8 +46,6 @@ type NavItemProps = (
   label: string
   index: number
   exact?: boolean
-  fillWhenActive?: boolean
-  className?: string
 }
 
 export function NavItem({
@@ -60,13 +54,11 @@ export function NavItem({
   icon: Icon,
   label,
   index,
-  exact,
-  fillWhenActive = true,
-  className
+  exact
 }: NavItemProps) {
   const ref = useRef<HTMLAnchorElement>(null)
   useNavHoverItem(index, ref)
-  const base = cn(navRowClass, navFocusRing, className)
+  const base = cn(navRowClass, navFocusRing)
   return (
     <Link
       ref={ref}
@@ -79,10 +71,7 @@ export function NavItem({
           "text-muted-foreground data-[fluid-hover-active]:text-foreground"
       }}
       activeProps={{
-        className: cn(
-          "font-semibold text-foreground",
-          fillWhenActive && "bg-accent"
-        )
+        className: "bg-accent font-semibold text-foreground"
       }}
     >
       <Icon className="size-4" strokeWidth={1.75} />
