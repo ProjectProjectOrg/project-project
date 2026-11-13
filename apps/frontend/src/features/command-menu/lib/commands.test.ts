@@ -42,7 +42,6 @@ const context: CommandContext = {
     delete: true,
     stackBranch: true,
     clearBranch: true,
-    subscribe: true,
     planSprints: true
   },
   canManageProject: true

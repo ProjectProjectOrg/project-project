@@ -162,7 +162,8 @@ export const editComment = Atom.family(({ req, commentId }: CommentKey) =>
         row.comment.id === commentId
           ? { ...row, comment: updated, pending: false }
           : row
-      )
+      ),
+    publish: () => [Keys.ticketComments(scopeOf(req))]
   })
 )
 

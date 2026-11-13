@@ -1,8 +1,9 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketSubscribers, TicketId } from "@pp/shared"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { Bell } from "lucide-react"
 
+import { AsyncView } from "@/components/shell/AsyncView"
+import { ReadFailure } from "@/components/shell/ReadFailure"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -15,7 +16,7 @@ import {
   ticketSubscribers,
   ticketSubscribersRequest
 } from "@/features/subscriptions/atoms/ticketSubscribers"
-import { useProjectActor } from "@/hooks/useActor"
+import { useCanSubscribe } from "@/features/subscriptions/hooks/useCanSubscribe"
 import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -39,35 +40,47 @@ export function SubscribeToggle({
   const result = useAtomValue(ticketSubscribers(req))
   const mutation = useAtomValue(setSubscribed(req))
   const subscribe = useAtomSet(setSubscribed(req))
-  const canSubscribe = useProjectActor().call(
-    "ticketSubscriptions",
-    "subscribe"
-  )
+  const refresh = useAtomRefresh(ticketSubscribers(req))
+  const allowed = useCanSubscribe()
 
-  if (!canSubscribe || !AsyncResult.isSuccess(result)) return null
-  const subscribers = result.value
+  if (!allowed) return null
   const error = mutationErrorText(mutation)
 
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            type="button"
-            variant="chip-toggle"
-            size="compact"
-            aria-pressed={subscribers.subscribed}
-            onClick={() => subscribe(!subscribers.subscribed)}
-            className={cn(result.waiting && "animate-pulse", className)}
-          >
-            <Bell className="size-3.5" strokeWidth={1.75} />
-            {subscribers.subscribed
-              ? m.tickets_subscribed_button()
-              : m.tickets_subscribe_button()}
-          </Button>
-        }
-      />
-      <TooltipContent>{error ?? subscribersText(subscribers)}</TooltipContent>
-    </Tooltip>
+    <AsyncView
+      result={result}
+      onInitial={() => null}
+      onFailure={(failure) => (
+        <ReadFailure
+          failure={failure}
+          onRetry={refresh}
+          className={className}
+        />
+      )}
+      onSuccess={({ value: subscribers, waiting }) => (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                variant="chip-toggle"
+                size="compact"
+                aria-pressed={subscribers.subscribed}
+                onClick={() => subscribe(!subscribers.subscribed)}
+                className={cn(waiting && "animate-pulse", className)}
+              >
+                <Bell className="size-3.5" strokeWidth={1.75} />
+                {subscribers.subscribed
+                  ? m.tickets_subscribed_button()
+                  : m.tickets_subscribe_button()}
+              </Button>
+            }
+          />
+          <TooltipContent>
+            {error ?? subscribersText(subscribers)}
+          </TooltipContent>
+        </Tooltip>
+      )}
+    />
   )
 }

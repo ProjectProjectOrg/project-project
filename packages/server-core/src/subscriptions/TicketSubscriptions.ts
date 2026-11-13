@@ -1,6 +1,7 @@
 import { Db } from "@pp/db"
 import { ticketSubscription, ticketIndex } from "@pp/db/schema"
 import {
+  Forbidden,
   NotFound,
   ProjectScope,
   type TicketSubscribers,
@@ -23,7 +24,7 @@ export class TicketSubscriptions extends Context.Service<
     setSubscribed: (
       ticketId: string,
       subscribed: boolean
-    ) => Effect.Effect<TicketSubscribers, NotFound, ProjectScope>
+    ) => Effect.Effect<TicketSubscribers, NotFound | Forbidden, ProjectScope>
   }>
 >()("@pp/server-core/subscriptions/TicketSubscriptions") {}
 
@@ -88,6 +89,7 @@ const make = Effect.gen(function* () {
   const setSubscribed = Effect.fn("TicketSubscriptions.setSubscribed")(
     function* (ticketId: string, subscribed: boolean) {
       const scope = yield* ProjectScope
+      if (scope.role === null) return yield* new Forbidden()
       yield* requireTicket(scope.projectId, ticketId)
       yield* db
         .insert(ticketSubscription)

@@ -209,7 +209,6 @@ const NO_PROJECT_TICKETS: TicketPermissions = {
   delete: false,
   stackBranch: false,
   clearBranch: false,
-  subscribe: false,
   planSprints: true
 }
 

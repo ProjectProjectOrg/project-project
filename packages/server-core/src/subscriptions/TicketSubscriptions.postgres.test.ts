@@ -235,6 +235,28 @@ describe.skipIf(!databaseUrl)("ticket subscriptions", () => {
     }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
 
+  it.live("refuses people with project access but no membership", () =>
+    Effect.gen(function* () {
+      const project = yield* seedProject
+      const subscriptions = yield* TicketSubscriptions.TicketSubscriptions
+      const failure = yield* Effect.flip(
+        subscriptions.setSubscribed("T-1", true).pipe(
+          Effect.provideService(
+            ProjectScope,
+            projectScope("admin", null, {
+              userId: project.outsider,
+              organizationId: project.organizationId,
+              orgSlug: project.orgSlug,
+              slug: project.slug,
+              projectId: project.projectId
+            })
+          )
+        )
+      )
+      expect(failure._tag).toBe("Forbidden")
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
   it.live(
     "lists subscribers in the order they subscribed and whether you are one",
     () =>

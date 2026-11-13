@@ -44,7 +44,6 @@ const context: CommandContext = {
     delete: false,
     stackBranch: false,
     clearBranch: false,
-    subscribe: false,
     planSprints: false
   }
 }

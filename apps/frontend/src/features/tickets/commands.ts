@@ -41,6 +41,7 @@ import {
   setSubscribed,
   ticketSubscribersRequest
 } from "@/features/subscriptions/atoms/ticketSubscribers"
+import { canSubscribe } from "@/features/subscriptions/lib/canSubscribe"
 import { createTicketDialog } from "@/features/tickets/atoms/createTicketDialog"
 import {
   ticketRequest,
@@ -358,8 +359,10 @@ export const ticketCommands: ReadonlyArray<Command> = [
     label: m.tickets_subscribe_command,
     icon: Bell,
     tool: "subscribe_ticket",
-    when: ({ ticket, ticketSubscribed, tickets }) =>
-      ticket !== null && tickets.subscribe && ticketSubscribed === false,
+    when: ({ ticket, ticketSubscribed, project, viewerId }) =>
+      ticket !== null &&
+      canSubscribe(project, viewerId) &&
+      ticketSubscribed === false,
     run: ({ ticket }, env) => {
       if (ticket === null) return
       env.execute(
@@ -377,8 +380,10 @@ export const ticketCommands: ReadonlyArray<Command> = [
     label: m.tickets_unsubscribe_command,
     icon: BellOff,
     tool: "unsubscribe_ticket",
-    when: ({ ticket, ticketSubscribed, tickets }) =>
-      ticket !== null && tickets.subscribe && ticketSubscribed === true,
+    when: ({ ticket, ticketSubscribed, project, viewerId }) =>
+      ticket !== null &&
+      canSubscribe(project, viewerId) &&
+      ticketSubscribed === true,
     run: ({ ticket }, env) => {
       if (ticket === null) return
       env.execute(
