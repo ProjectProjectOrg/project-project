@@ -211,7 +211,7 @@ function makeFakeDocs(initial?: {
     query: () => Effect.die(new Error("unexpected TicketIndex.query")),
     querySections: () =>
       Effect.die(new Error("unexpected TicketIndex.querySections")),
-    neighbors: () => Effect.die(new Error("unexpected TicketIndex.neighbors")),
+    sequence: () => Effect.die(new Error("unexpected TicketIndex.sequence")),
     orderKeyFor: () =>
       Effect.die(new Error("unexpected TicketIndex.orderKeyFor")),
     topRank: () => Effect.die(new Error("unexpected TicketIndex.topRank")),

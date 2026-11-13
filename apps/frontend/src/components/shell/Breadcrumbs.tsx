@@ -11,6 +11,7 @@ import {
   sprintDetail,
   sprintRequest
 } from "@/features/sprints/atoms/sprintDetail"
+import { steppedTicket } from "@/features/tickets/atoms/steppedTicket"
 import {
   ticketDetail,
   ticketRequest
@@ -220,22 +221,56 @@ function TicketCrumb({
   slug,
   id
 }: Readonly<{ orgSlug: string; slug: string; id: TicketId }>) {
+  const stepped = useAtomValue(steppedTicket)
+  if (stepped?.urlId === id) {
+    return (
+      <TicketCrumbText
+        orgSlug={orgSlug}
+        slug={slug}
+        id={stepped.id}
+        title={stepped.title}
+      />
+    )
+  }
+  return <LoadedTicketCrumb orgSlug={orgSlug} slug={slug} id={id} />
+}
+
+function LoadedTicketCrumb({
+  orgSlug,
+  slug,
+  id
+}: Readonly<{ orgSlug: string; slug: string; id: TicketId }>) {
   const req = ticketRequest(orgSlug, slug, id)
   const result = useAtomValue(ticketDetail(req))
-  const label = Result.isSuccess(result) ? result.value.title : id
+  return (
+    <TicketCrumbText
+      orgSlug={orgSlug}
+      slug={slug}
+      id={id}
+      title={Result.isSuccess(result) ? result.value.title : null}
+    />
+  )
+}
+
+function TicketCrumbText({
+  orgSlug,
+  slug,
+  id,
+  title
+}: Readonly<{
+  orgSlug: string
+  slug: string
+  id: TicketId
+  title: string | null
+}>) {
   return (
     <CrumbText to="/orgs/$orgSlug/projects/$slug" params={{ orgSlug, slug }}>
       <span className="flex min-w-0 items-baseline gap-1.5">
         <span className="shrink-0 font-mono text-caption/[var(--lh-body)] text-muted-foreground tabular-nums">
           {id}
         </span>
-        <span
-          className={cn(
-            "truncate",
-            !Result.isSuccess(result) && "italic opacity-60"
-          )}
-        >
-          {Result.isSuccess(result) ? label : m.nav_crumb_loading_placeholder()}
+        <span className={cn("truncate", title === null && "italic opacity-60")}>
+          {title ?? m.nav_crumb_loading_placeholder()}
         </span>
       </span>
     </CrumbText>
@@ -248,7 +283,11 @@ function TicketTrailCrumb({
   id
 }: Readonly<{ orgSlug: string; slug: string; id: TicketId }>) {
   const search = useSearch({ strict: false })
-  const result = useAtomValue(ticketDetail(ticketRequest(orgSlug, slug, id)))
+  const stepped = useAtomValue(steppedTicket)
+  const shownId = stepped?.urlId === id ? stepped.id : id
+  const result = useAtomValue(
+    ticketDetail(ticketRequest(orgSlug, slug, shownId))
+  )
   if (search.from === "sprintBoard" && search.sprint !== undefined) {
     return <SprintCrumb orgSlug={orgSlug} slug={slug} groupId={search.sprint} />
   }

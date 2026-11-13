@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { Button } from "@/components/ui/button"
+import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import {
   statusesFor,
   statusesRequest
@@ -77,7 +78,11 @@ export function SubTicketOf({
           <span className="shrink-0 font-mono text-body text-muted-foreground tabular-nums">
             {parent.id}
           </span>
-          <span className="truncate text-foreground">{parent.title}</span>
+          <MiddleTruncate
+            value={parent.title}
+            title={undefined}
+            className="text-foreground"
+          />
         </span>
       </TicketPreviewTrigger>
       {parentState !== null && (

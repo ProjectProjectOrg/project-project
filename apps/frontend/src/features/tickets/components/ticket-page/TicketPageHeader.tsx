@@ -25,7 +25,9 @@ export function TicketPageHeader({
           <TitleField key={ticket.id} ticket={ticket} onEnter={onTitleEnter} />
         )}
       </h1>
-      <div className="flex min-h-8 items-center gap-4 empty:hidden">{meta}</div>
+      <div className="flex min-h-8 max-w-full items-center gap-4 empty:hidden">
+        {meta}
+      </div>
     </header>
   )
 }

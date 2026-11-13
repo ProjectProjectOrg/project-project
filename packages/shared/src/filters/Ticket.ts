@@ -360,23 +360,14 @@ export const TicketListSource = Schema.Union([
 ])
 export type TicketListSource = typeof TicketListSource.Type
 
-export const TicketViewSource = Schema.Union([
-  TicketSectionsSource,
-  TicketSprintBoardSource,
-  Schema.Struct({ kind: Schema.Literal("siblings") })
-])
-export type TicketViewSource = typeof TicketViewSource.Type
-
-export const TicketNeighbor = Schema.Struct({
+export const TicketSequenceEntry = Schema.Struct({
   id: Ticket.fields.id,
   title: Ticket.fields.title
 })
-export type TicketNeighbor = typeof TicketNeighbor.Type
+export type TicketSequenceEntry = typeof TicketSequenceEntry.Type
 
-export const TicketNeighbors = Schema.Struct({
-  prev: Schema.NullOr(TicketNeighbor),
-  next: Schema.NullOr(TicketNeighbor),
-  position: Schema.Finite,
-  total: Schema.Finite
+export const TicketSequence = Schema.Struct({
+  within: Schema.Literals(["view", "epic", "parent"]),
+  tickets: Schema.Array(TicketSequenceEntry)
 })
-export type TicketNeighbors = typeof TicketNeighbors.Type
+export type TicketSequence = typeof TicketSequence.Type

@@ -879,7 +879,7 @@ export const makeFakeTicketIndex = (
       }),
     querySections: (project, query, options) =>
       querySectionsVia(index)(project, query, options),
-    neighbors: () => Effect.die(new Error("unexpected TicketIndex.neighbors")),
+    sequence: () => Effect.die(new Error("unexpected TicketIndex.sequence")),
     relationsOf: (_project, ticketId) =>
       Effect.sync(() => relationsOfDocuments(documents, ticketId)),
     relationEdges: () => Effect.sync(() => relationEdgesOfDocuments(documents)),
