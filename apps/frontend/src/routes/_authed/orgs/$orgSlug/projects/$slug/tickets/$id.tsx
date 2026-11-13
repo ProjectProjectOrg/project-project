@@ -1,4 +1,4 @@
-import { TicketId, type TicketViewSource } from "@pp/shared"
+import { TicketId } from "@pp/shared"
 import { createFileRoute } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 
@@ -28,9 +28,9 @@ import {
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import {
-  ticketNeighbors,
-  ticketNeighborsRequest
-} from "@/features/tickets/atoms/ticketNeighbors"
+  ticketSequence,
+  ticketSequenceRequest
+} from "@/features/tickets/atoms/ticketSequence"
 import { TicketDetail } from "@/features/tickets/components/ticket-page/TicketDetail"
 import {
   TicketDetailSearch,
@@ -38,7 +38,6 @@ import {
 } from "@/features/tickets/lib/ticketSearch"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
-const SIBLINGS: TicketViewSource = { kind: "siblings" }
 
 export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/tickets/$id"
@@ -46,17 +45,25 @@ export const Route = createFileRoute(
   component: TicketDetail,
   validateSearch: Schema.toStandardSchemaV1(TicketDetailSearch),
   loaderDeps: ({ search }) => ({ from: ticketSourceFromSearch(search) }),
-  loader: ({ context, params, deps }) => {
+  loader: ({ context, params, deps, location }) => {
     const id = decodeTicketId(params.id)
-    for (const source of deps.from === undefined || deps.from.kind === "parent"
-      ? [SIBLINGS]
-      : [SIBLINGS, deps.from]) {
-      context.registry.mount(
-        ticketNeighbors(
-          ticketNeighborsRequest(params.orgSlug, params.slug, id, source)
-        )
-      )()
+    const crumb = {
+      type: "ticket" as const,
+      orgSlug: params.orgSlug,
+      slug: params.slug,
+      id
     }
+    if (location.state.ticketStep === true) return { crumb }
+    context.registry.mount(
+      ticketSequence(
+        ticketSequenceRequest(
+          params.orgSlug,
+          params.slug,
+          id,
+          deps.from?.kind === "parent" ? undefined : deps.from
+        )
+      )
+    )()
     if (deps.from?.kind === "sprintBoard") {
       context.registry.mount(
         sprintDetail(
@@ -89,13 +96,6 @@ export const Route = createFileRoute(
         everhourProjectRequest(params.orgSlug, params.slug)
       )
     )()
-    return {
-      crumb: {
-        type: "ticket" as const,
-        orgSlug: params.orgSlug,
-        slug: params.slug,
-        id
-      }
-    }
+    return { crumb }
   }
 })

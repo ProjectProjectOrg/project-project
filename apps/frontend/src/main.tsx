@@ -56,6 +56,9 @@ declare module "@tanstack/react-router" {
   interface Register {
     router: ReturnType<typeof sessions.getSnapshot>["router"]
   }
+  interface HistoryState {
+    ticketStep?: true
+  }
 }
 
 const rootEl = document.getElementById("root")

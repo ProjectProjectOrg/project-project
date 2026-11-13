@@ -4,7 +4,7 @@ import { getRouteApi, Navigate } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, type ReactNode } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
@@ -21,7 +21,15 @@ import {
   TicketPage,
   TicketPageSkeleton
 } from "@/features/tickets/components/ticket-page"
-import { ticketSourceFromSearch } from "@/features/tickets/lib/ticketSearch"
+import { TicketBackButton } from "@/features/tickets/components/ticket-page/TicketBackButton"
+import { TicketPageLoading } from "@/features/tickets/components/ticket-page/TicketPageLoading"
+import { TicketStepper } from "@/features/tickets/components/ticket-page/TicketStepper"
+import { useRememberViewedTicket } from "@/features/tickets/hooks/useReturnToTicket"
+import { useTicketStepping } from "@/features/tickets/hooks/useTicketStepping"
+import {
+  ticketSourceFromSearch,
+  type TicketPageSource
+} from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(
@@ -65,15 +73,15 @@ export function TicketDetail() {
   const search = routeApi.useSearch()
   const from = useMemo(() => ticketSourceFromSearch(search), [search])
   const navigate = routeApi.useNavigate()
-  const ticketId = decodeTicketId(id)
-  const req = ticketRequest(orgSlug, slug, ticketId)
+  const urlId = decodeTicketId(id)
+  const stepping = useTicketStepping(urlId, from)
+  const { shown, sequence } = stepping
   const commandScope = useMemo(
-    () => ({ ticket: { orgSlug, slug, ticketId } }),
-    [orgSlug, slug, ticketId]
+    () => ({ ticket: { orgSlug, slug, ticketId: shown } }),
+    [orgSlug, slug, shown]
   )
   useCommandScope(commandScope)
-  const result = useAtomValue(ticketDetail(req))
-  const project = useProject()
+  useRememberViewedTicket(shown, from?.kind === "parent" ? undefined : from)
   const autoFocusBody = useRef(search.focusBody === "1").current
 
   useEffect(() => {
@@ -85,8 +93,47 @@ export function TicketDetail() {
     })
   }, [autoFocusBody, navigate])
 
+  const back = <TicketBackButton from={from} />
+  const stepper = sequence !== null && (
+    <TicketStepper sequence={sequence} shown={shown} search={stepping.search} />
+  )
+  const title =
+    sequence?.tickets.find((ticket) => ticket.id === shown)?.title ?? null
+  const loading = (
+    <TicketPageLoading back={back} stepper={stepper} title={title} />
+  )
+  const atUrl = shown === urlId
+  return (
+    <LoadedTicket
+      req={ticketRequest(orgSlug, slug, shown)}
+      loading={loading}
+      stepper={stepper}
+      from={from}
+      autoFocusBody={atUrl && autoFocusBody}
+      splitInto={atUrl ? (search.splitInto ?? []) : []}
+    />
+  )
+}
+
+function LoadedTicket({
+  req,
+  loading,
+  stepper,
+  from,
+  autoFocusBody,
+  splitInto
+}: Readonly<{
+  req: TicketRequest
+  loading: ReactNode
+  stepper: ReactNode
+  from: TicketPageSource | undefined
+  autoFocusBody: boolean
+  splitInto: ReadonlyArray<TicketId>
+}>) {
+  const result = useAtomValue(ticketDetail(req))
+  const project = useProject()
   return Result.matchWithError(result, {
-    onInitial: () => <TicketPageSkeleton />,
+    onInitial: () => loading,
     onError: (error) =>
       Match.value(error).pipe(
         Match.tag("NotFound", () => <MovedTicketRedirect req={req} />),
@@ -100,8 +147,9 @@ export function TicketDetail() {
         members={project.members}
         github={ticketRepo(project, value.repoId)}
         autoFocusBody={autoFocusBody}
-        splitInto={search.splitInto ?? []}
+        splitInto={splitInto}
         from={from}
+        stepper={stepper}
       />
     )
   })

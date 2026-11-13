@@ -1,174 +1,65 @@
-import { useAtomValue } from "@effect/atom-react"
-import {
-  isEpic,
-  type TicketDetail,
-  type TicketNeighbor,
-  type TicketNeighbors,
-  type TicketViewSource
-} from "@pp/shared"
-import { Link, useRouter } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
+import type { TicketId, TicketSequence, TicketSequenceEntry } from "@pp/shared"
+import { Link } from "@tanstack/react-router"
 import { ChevronDown, ChevronUp } from "lucide-react"
-import { useEffect, useMemo } from "react"
 
 import { Button } from "@/components/ui/button"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import {
-  ticketNeighbors,
-  ticketNeighborsRequest
-} from "@/features/tickets/atoms/ticketNeighbors"
 import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
 import {
-  ticketSearchFromSource,
-  type TicketDetailSearch,
-  type TicketPageSource
-} from "@/features/tickets/lib/ticketSearch"
+  NEXT_KEY,
+  PREVIOUS_KEY
+} from "@/features/tickets/hooks/useTicketStepping"
+import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
 import type { IconComponent } from "@/lib/icon"
-import { hasModifier, ownsKeystrokes } from "@/lib/keyboard"
 import { m } from "@/paraglide/messages"
 
-const SIBLINGS: TicketViewSource = { kind: "siblings" }
-const NO_SEARCH: TicketDetailSearch = {}
-const PREVIOUS_KEY = "k"
-const NEXT_KEY = "j"
-
 type Step = Readonly<{
-  neighbor: TicketNeighbor | null
+  neighbor: TicketSequenceEntry | null
   shortcut: string
   icon: IconComponent
   label: string
 }>
 
-type Shown = Readonly<{
-  ticketId: TicketDetail["id"]
-  neighbors: TicketNeighbors
-  position: (position: number, total: number) => string
-  search: TicketDetailSearch
-}>
-
-let lastShown: Shown | null = null
+const positionLabel: Record<
+  TicketSequence["within"],
+  (input: Readonly<{ position: number; total: number }>) => string
+> = {
+  view: m.tickets_stepper_position,
+  epic: m.tickets_stepper_epic_position,
+  parent: m.tickets_stepper_sub_ticket_position
+}
 
 export function TicketStepper({
-  ticket,
-  from
+  sequence,
+  shown,
+  search
 }: Readonly<{
-  ticket: Pick<TicketDetail, "id" | "parent">
-  from: TicketPageSource | undefined
+  sequence: TicketSequence
+  shown: TicketId
+  search: TicketDetailSearch
 }>) {
-  const { orgSlug, slug } = useProjectRoute()
-  const source = from === undefined || from.kind === "parent" ? SIBLINGS : from
-  const sourceResult = useAtomValue(
-    ticketNeighbors(ticketNeighborsRequest(orgSlug, slug, ticket.id, source))
-  )
-  const siblingResult = useAtomValue(
-    ticketNeighbors(ticketNeighborsRequest(orgSlug, slug, ticket.id, SIBLINGS))
-  )
-
-  const view = useMemo((): Shown | null | "loading" => {
-    const parent = ticket.parent
-    const siblings = (): Shown | null | "loading" => {
-      if (parent === null) return null
-      if (!Result.isSuccess(siblingResult)) return "loading"
-      if (siblingResult.value === null) return null
-      return {
-        ticketId: ticket.id,
-        neighbors: siblingResult.value,
-        search:
-          from?.kind === "parent"
-            ? { from: "parent", parentId: from.parent }
-            : NO_SEARCH,
-        position: (position, total) =>
-          isEpic(parent)
-            ? m.tickets_stepper_epic_position({ position, total })
-            : m.tickets_stepper_sub_ticket_position({ position, total })
-      }
-    }
-    if (source.kind === "siblings") return siblings()
-    if (!Result.isSuccess(sourceResult)) return "loading"
-    if (sourceResult.value === null) return siblings()
-    return {
-      ticketId: ticket.id,
-      neighbors: sourceResult.value,
-      search: ticketSearchFromSource(source),
-      position: (position, total) =>
-        m.tickets_stepper_position({ position, total })
-    }
-  }, [ticket, from, source, sourceResult, siblingResult])
-
-  useEffect(() => {
-    if (view !== "loading") lastShown = view
-  }, [view])
-
-  const shown = view === "loading" ? predict(lastShown, ticket.id) : view
-  if (shown === null) return null
-  return <Stepper shown={shown} orgSlug={orgSlug} slug={slug} />
-}
-
-function predict(last: Shown | null, ticketId: Shown["ticketId"]) {
-  if (last === null) return null
-  const { prev, next, position, total } = last.neighbors
-  const step = next?.id === ticketId ? 1 : prev?.id === ticketId ? -1 : 0
-  if (step === 0) return null
-  return {
-    ...last,
-    ticketId,
-    neighbors: { prev: null, next: null, position: position + step, total }
-  } satisfies Shown
-}
-
-function Stepper({
-  shown: { neighbors, position, search },
-  orgSlug,
-  slug
-}: Readonly<{ shown: Shown; orgSlug: string; slug: string }>) {
-  const router = useRouter()
-  const { prev, next } = neighbors
-
-  useEffect(() => {
-    const options = (neighbor: TicketNeighbor) =>
-      ({
-        to: "/orgs/$orgSlug/projects/$slug/tickets/$id",
-        params: { orgSlug, slug, id: neighbor.id },
-        search
-      }) as const
-    for (const neighbor of [prev, next]) {
-      if (neighbor !== null) void router.preloadRoute(options(neighbor))
-    }
-    function onKey(event: KeyboardEvent) {
-      if (
-        event.repeat ||
-        event.defaultPrevented ||
-        hasModifier(event) ||
-        ownsKeystrokes(event.target)
-      ) {
-        return
-      }
-      const target =
-        event.key === PREVIOUS_KEY ? prev : event.key === NEXT_KEY ? next : null
-      if (target === null) return
-      event.preventDefault()
-      void router.navigate({ ...options(target), replace: true })
-    }
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [router, orgSlug, slug, search, prev, next])
-
-  const step = (step: Step) => (
-    <StepButton {...step} orgSlug={orgSlug} slug={slug} search={search} />
-  )
+  const { tickets, within } = sequence
+  const index = tickets.findIndex((ticket) => ticket.id === shown)
+  if (index === -1) return null
+  const total = tickets.length
+  const label = positionLabel[within]
+  const step = (step: Step) => <StepButton {...step} search={search} />
   return (
     <div className="flex items-center gap-0.5">
-      <span className="pr-1.5 font-mono text-caption whitespace-nowrap text-muted-foreground tabular-nums">
-        {position(neighbors.position, neighbors.total)}
+      <span
+        className="pr-1.5 text-right font-mono text-caption whitespace-nowrap text-muted-foreground tabular-nums"
+        style={{ minWidth: `${label({ position: total, total }).length}ch` }}
+      >
+        {label({ position: index + 1, total })}
       </span>
       {step({
-        neighbor: prev,
+        neighbor: tickets[index - 1] ?? null,
         shortcut: PREVIOUS_KEY,
         icon: ChevronUp,
         label: m.tickets_stepper_previous()
       })}
       {step({
-        neighbor: next,
+        neighbor: tickets[index + 1] ?? null,
         shortcut: NEXT_KEY,
         icon: ChevronDown,
         label: m.tickets_stepper_next()
@@ -182,15 +73,9 @@ function StepButton({
   shortcut,
   icon: Icon,
   label,
-  orgSlug,
-  slug,
   search
-}: Step &
-  Readonly<{
-    orgSlug: string
-    slug: string
-    search: TicketDetailSearch
-  }>) {
+}: Step & Readonly<{ search: TicketDetailSearch }>) {
+  const { orgSlug, slug } = useProjectRoute()
   const icon = <Icon strokeWidth={1.75} />
   if (neighbor === null) {
     return (
@@ -214,7 +99,7 @@ function StepButton({
               params={{ orgSlug, slug, id: neighbor.id }}
               search={search}
               replace
-              preload="intent"
+              state={{ ticketStep: true }}
             />
           }
         />

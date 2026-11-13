@@ -208,7 +208,7 @@ const FakeTicketIndex = Layer.succeed(TicketIndex.TicketIndex, {
     ),
   query: () => Effect.succeed([]),
   querySections: () => Effect.succeed(new Map()),
-  neighbors: () => Effect.succeed(null),
+  sequence: () => Effect.succeed([]),
   orderKeyFor: () => Effect.succeed(null),
   ...fakeRanks(indexed),
   count: () => Effect.succeed({ total: 0, byStatus: {} }),

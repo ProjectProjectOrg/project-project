@@ -94,9 +94,9 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
           queries.get(params.id)
         ).pipe(dieOnMarkdown)
       )
-      .handle("neighbors", ({ params, query }) =>
+      .handle("sequence", ({ params, query }) =>
         Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
-          queries.neighbors(params.id, query.from)
+          queries.sequence(params.id, query.from)
         ).pipe(dieOnMarkdown)
       )
       .handle("update", ({ params, payload, query }) =>

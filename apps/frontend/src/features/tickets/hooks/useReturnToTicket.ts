@@ -1,5 +1,5 @@
 import { RegistryContext } from "@effect/atom-react"
-import type { TicketId, TicketViewSource } from "@pp/shared"
+import type { TicketId, TicketListSource } from "@pp/shared"
 import { use, useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -7,7 +7,7 @@ import { lastViewedTicket } from "@/features/tickets/atoms/lastViewedTicket"
 
 export function useRememberViewedTicket(
   ticketId: TicketId,
-  from: TicketViewSource | undefined
+  from: TicketListSource | undefined
 ): void {
   const registry = use(RegistryContext)
   const { orgSlug, slug } = useProjectRoute()

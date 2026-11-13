@@ -10,6 +10,7 @@ import type {
 import { useNavigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Archive } from "lucide-react"
+import type { ReactNode } from "react"
 
 import { Markdown } from "@/features/editor/components/Markdown"
 import { TicketTimeSection } from "@/features/everhour/components/TicketTimePanel"
@@ -51,10 +52,8 @@ import { TicketDesignLinks } from "@/features/tickets/components/ticket-page/Tic
 import { TicketDiscussion } from "@/features/tickets/components/ticket-page/TicketDiscussion"
 import { TicketPageHeader } from "@/features/tickets/components/ticket-page/TicketPageHeader"
 import { TicketPageShell } from "@/features/tickets/components/ticket-page/TicketPageShell"
-import { TicketStepper } from "@/features/tickets/components/ticket-page/TicketStepper"
 import { useTemplateSwap } from "@/features/tickets/components/ticket-page/useTemplateSwap"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
-import { useRememberViewedTicket } from "@/features/tickets/hooks/useReturnToTicket"
 import { openBlockers } from "@/features/tickets/lib/relationGroups"
 import { ticketHierarchy } from "@/features/tickets/lib/ticketHierarchy"
 import type { TicketPageSource } from "@/features/tickets/lib/ticketSearch"
@@ -69,7 +68,8 @@ export function TicketPage({
   github,
   autoFocusBody = false,
   splitInto = NO_SPLIT_RESULTS,
-  from
+  from,
+  stepper
 }: {
   ticket: TicketDetail
   members: ReadonlyArray<Member>
@@ -77,9 +77,9 @@ export function TicketPage({
   autoFocusBody?: boolean
   splitInto?: ReadonlyArray<TicketId>
   from?: TicketPageSource
+  stepper: ReactNode
 }) {
   const { orgSlug, slug } = useProjectRoute()
-  useRememberViewedTicket(ticket.id, from?.kind === "parent" ? undefined : from)
   const req = ticketRequest(orgSlug, slug, ticket.id)
   const updateTicket = useAtomSet(updateTicketDetail(req))
   const patchTicket = useAtomSet(updateTicketDetail(req), {
@@ -199,7 +199,7 @@ export function TicketPage({
       }
       actions={
         <>
-          <TicketStepper ticket={ticket} from={from} />
+          {stepper}
           {actor.call("tickets", "archive") && (
             <ArchiveTicketControl
               ticket={ticket}

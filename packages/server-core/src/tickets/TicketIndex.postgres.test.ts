@@ -2992,7 +2992,7 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
         ])
       }).pipe(Effect.provide(TestLayer))
   )
-  describe("neighbors", () => {
+  describe("sequence", () => {
     const seedStatusProject = (ranks: Readonly<Record<string, string>> = {}) =>
       Effect.gen(function* () {
         const organizationId = `neighbors-${randomUUID()}`
@@ -3047,47 +3047,40 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
 
     const byId = { sort: { key: "id", dir: "asc" } } as const
     const sortById = { sort: byId.sort }
+    const ids = (tickets: ReadonlyArray<Readonly<{ id: string }>>) =>
+      tickets.map((ticket) => ticket.id)
 
     it.effect(
-      "steps through status sections in status order, then the view's sort",
+      "orders status sections in status order, then the view's sort",
       () =>
         Effect.gen(function* () {
           const { index, project } = yield* seedStatusProject()
-          const find = (id: string) =>
-            index.neighbors(project, byId, {
-              viewerId: "viewer",
-              ticketId: id,
-              sections: { kind: "status" },
-              within: sortById
-            })
-          expect(yield* find("T-3")).toEqual({
-            prev: { id: "T-2", title: "T-2" },
-            next: { id: "T-1", title: "T-1" },
-            position: 2,
-            total: 4
+          const found = yield* index.sequence(project, byId, {
+            viewerId: "viewer",
+            sections: { kind: "status" },
+            within: sortById
           })
-          expect((yield* find("T-2"))?.prev).toBeNull()
-          expect((yield* find("T-4"))?.next).toBeNull()
+          expect(found).toEqual([
+            { id: "T-2", title: "T-2" },
+            { id: "T-3", title: "T-3" },
+            { id: "T-1", title: "T-1" },
+            { id: "T-4", title: "T-4" }
+          ])
         }).pipe(Effect.provide(TestLayer))
     )
 
     it.effect("orders explicit sections by their position in the list", () =>
       Effect.gen(function* () {
         const { index, project } = yield* seedStatusProject()
-        const found = yield* index.neighbors(project, byId, {
+        const found = yield* index.sequence(project, byId, {
           viewerId: "viewer",
-          ticketId: "T-1",
           sections: {
             kind: "explicit",
             sections: [{ key: "G-2", ticketIds: ["T-3"] }, { key: "ungrouped" }]
           },
           within: sortById
         })
-        expect(found).toMatchObject({
-          prev: { id: "T-3" },
-          next: { id: "T-2" },
-          position: 2
-        })
+        expect(ids(found)).toEqual(["T-3", "T-1", "T-2", "T-4"])
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -3099,17 +3092,12 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
             "T-1": "a0",
             "T-4": "Zz"
           })
-          const found = yield* index.neighbors(project, byId, {
+          const found = yield* index.sequence(project, byId, {
             viewerId: "viewer",
-            ticketId: "T-3",
             sections: { kind: "status" },
             within: { sort: { key: "manual", dir: "asc" } }
           })
-          expect(found).toMatchObject({
-            prev: { id: "T-2" },
-            next: { id: "T-4" },
-            position: 2
-          })
+          expect(ids(found)).toEqual(["T-2", "T-3", "T-4", "T-1"])
         }).pipe(Effect.provide(TestLayer))
     )
 
@@ -3132,13 +3120,12 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
               rank: TicketRank.make("a1")
             })
           )
-          const find = (id: string, status?: TicketFilter["status"]) =>
-            index.neighbors(
+          const find = (status?: TicketFilter["status"]) =>
+            index.sequence(
               project,
               { ...byId, subTickets: "nested", status },
               {
                 viewerId: "viewer",
-                ticketId: id,
                 ticketIds: ["T-1", "T-2", "T-3", "T-4", "T-5"],
                 sections: { kind: "status" },
                 within: {
@@ -3147,19 +3134,12 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
                 }
               }
             )
-          expect(yield* find("T-3")).toEqual({
-            prev: { id: "T-2", title: "T-2" },
-            next: { id: "T-1", title: "T-1" },
-            position: 2,
-            total: 4
-          })
-          expect(yield* find("T-5")).toBeNull()
-          expect(yield* find("T-5", [ticketStatus("todo")])).toEqual({
-            prev: null,
-            next: { id: "T-2", title: "T-2" },
-            position: 1,
-            total: 3
-          })
+          expect(ids(yield* find())).toEqual(["T-2", "T-3", "T-1", "T-4"])
+          expect(ids(yield* find([ticketStatus("todo")]))).toEqual([
+            "T-5",
+            "T-2",
+            "T-3"
+          ])
         }).pipe(Effect.provide(TestLayer))
     )
 
@@ -3199,20 +3179,19 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres across projects", () => {
         }).pipe(Effect.provide(TestLayer))
     )
 
-    it.effect("returns null for a ticket the view filters out", () =>
+    it.effect("leaves out tickets the view filters out", () =>
       Effect.gen(function* () {
         const { index, project } = yield* seedStatusProject()
-        const found = yield* index.neighbors(
+        const found = yield* index.sequence(
           project,
           { ...byId, status: [ticketStatus("todo")] },
           {
             viewerId: "viewer",
-            ticketId: "T-1",
             sections: { kind: "status" },
             within: sortById
           }
         )
-        expect(found).toBeNull()
+        expect(ids(found)).toEqual(["T-2", "T-3"])
       }).pipe(Effect.provide(TestLayer))
     )
   })

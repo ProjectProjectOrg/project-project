@@ -35,8 +35,7 @@ import {
   type TicketCountQuery,
   type TicketFilter,
   type TicketListQuery,
-  type TicketNeighbor,
-  type TicketNeighbors,
+  type TicketSequenceEntry,
   type TicketPageQuery,
   type TicketSection,
   type TicketSort,
@@ -191,9 +190,8 @@ export type TicketIndexWithinOrder = Readonly<{
   nestAcrossSections?: boolean
 }>
 
-export type TicketIndexNeighborsOptions = TicketIndexCountOptions &
+export type TicketIndexSequenceOptions = TicketIndexCountOptions &
   Readonly<{
-    ticketId: string
     sections: TicketIndexSectionOrder
     within: TicketIndexWithinOrder
   }>
@@ -340,11 +338,11 @@ export class TicketIndex extends Context.Service<
       query: TicketListQuery,
       options: TicketIndexSectionsOptions
     ) => Effect.Effect<TicketIndexSections>
-    neighbors: (
+    sequence: (
       project: TicketProject,
       query: TicketListQuery,
-      options: TicketIndexNeighborsOptions
-    ) => Effect.Effect<TicketNeighbors | null>
+      options: TicketIndexSequenceOptions
+    ) => Effect.Effect<ReadonlyArray<TicketSequenceEntry>>
     orderKeyFor: (
       project: TicketProject,
       ticketId: string,
@@ -409,12 +407,6 @@ const makeTicketId = Schema.decodeUnknownSync(TicketId)
 const makeTagName = Schema.decodeUnknownSync(TagName)
 const decodeEstimate = Schema.decodeUnknownOption(Estimate)
 const decodeActivityChange = Schema.decodeUnknownSync(TicketActivityChange)
-
-const neighborOf = (
-  id: string | null,
-  title: string | null
-): TicketNeighbor | null =>
-  id === null || title === null ? null : { id: makeTicketId(id), title }
 
 const touchedEventOf = (
   row:
@@ -1329,10 +1321,10 @@ const make = Effect.gen(function* () {
     )
   })
 
-  const neighbors = Effect.fn("TicketIndex.neighbors")(function* (
+  const sequence = Effect.fn("TicketIndex.sequence")(function* (
     project: TicketProject,
     ticketQuery: TicketListQuery,
-    options: TicketIndexNeighborsOptions
+    options: TicketIndexSequenceOptions
   ) {
     const order = options.sections
     const sections = order.kind === "explicit" ? order.sections : order.kind
@@ -1357,27 +1349,8 @@ const make = Effect.gen(function* () {
     const { sort } = options.within
     const dir = sort.dir === "asc" ? drizzleSql`asc` : drizzleSql`desc`
     const withinExpression = ticketSortExpression(sort)
-    const window = drizzleSql`order by ${ordinal} asc, ${withinExpression} ${dir}, ${ticketIndex.ticketId} ${dir}`
-    const ordered = db
-      .select({
-        ticketId: ticketIndex.ticketId,
-        prevId: drizzleSql<
-          string | null
-        >`lag(${ticketIndex.ticketId}) over (${window})`.as("prev_id"),
-        prevTitle: drizzleSql<
-          string | null
-        >`lag(${ticketIndex.title}) over (${window})`.as("prev_title"),
-        nextId: drizzleSql<
-          string | null
-        >`lead(${ticketIndex.ticketId}) over (${window})`.as("next_id"),
-        nextTitle: drizzleSql<
-          string | null
-        >`lead(${ticketIndex.title}) over (${window})`.as("next_title"),
-        position: drizzleSql<number>`row_number() over (${window})`
-          .mapWith(Number)
-          .as("position"),
-        total: drizzleSql<number>`count(*) over ()`.mapWith(Number).as("total")
-      })
+    return yield* db
+      .select({ id: ticketIndex.ticketId, title: ticketIndex.title })
       .from(ticketIndex)
       .where(
         and(
@@ -1388,24 +1361,13 @@ const make = Effect.gen(function* () {
           drizzleSql`${ordinal} is not null`
         )
       )
-      .as("ordered")
-    return yield* db
-      .select()
-      .from(ordered)
-      .where(eq(ordered.ticketId, options.ticketId))
-      .limit(1)
+      .orderBy(
+        drizzleSql`${ordinal} asc, ${withinExpression} ${dir}, ${ticketIndex.ticketId} ${dir}`
+      )
       .pipe(
-        Effect.map((rows): TicketNeighbors | null => {
-          const row = rows[0]
-          return row === undefined
-            ? null
-            : {
-                prev: neighborOf(row.prevId, row.prevTitle),
-                next: neighborOf(row.nextId, row.nextTitle),
-                position: row.position,
-                total: row.total
-              }
-        }),
+        Effect.map((rows) =>
+          rows.map((row) => ({ id: makeTicketId(row.id), title: row.title }))
+        ),
         Effect.orDie
       )
   })
@@ -2228,7 +2190,7 @@ const make = Effect.gen(function* () {
     list,
     query,
     querySections,
-    neighbors,
+    sequence,
     orderKeyFor,
     topRank,
     rankGap,

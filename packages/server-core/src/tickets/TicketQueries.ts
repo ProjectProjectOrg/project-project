@@ -44,8 +44,8 @@ import {
   type TicketTextHit,
   type TicketTextSearchQuery,
   type TicketTitle,
-  type TicketNeighbors,
-  type TicketViewSource,
+  type TicketListSource,
+  type TicketSequence,
   type TicketSections,
   type TicketSort,
   type TicketSprintSections,
@@ -240,11 +240,11 @@ export class TicketQueries extends Context.Service<
       Forbidden | NotFound | Markdown.MarkdownError,
       ProjectScope
     >
-    neighbors: (
+    sequence: (
       ticketId: string,
-      source: TicketViewSource
+      source: TicketListSource | undefined
     ) => Effect.Effect<
-      TicketNeighbors | null,
+      TicketSequence | null,
       Forbidden | NotFound | Markdown.MarkdownError,
       ProjectScope
     >
@@ -1139,36 +1139,18 @@ const make = Effect.gen(function* () {
     )
   })
 
-  const neighbors = Effect.fn("TicketQueries.neighbors")(function* (
-    ticketId: string,
-    source: TicketViewSource
+  const viewSequence = Effect.fn("TicketQueries.viewSequence")(function* (
+    source: TicketListSource
   ) {
-    if (source.kind === "siblings") {
-      const [entry] = yield* ticketIndex.list(yield* ProjectScope, [ticketId])
-      const parent = entry?.parent?.id
-      if (parent === undefined) return null
-      const query = { parent: [parent], sort: CHILD_TICKET_SORT }
-      const scope = yield* queryable(query)
-      return yield* ticketIndex.neighbors(scope, query, {
-        viewerId: scope.userId,
-        ticketId,
-        sections: { kind: "explicit", sections: [{ key: parent }] },
-        within: { sort: CHILD_TICKET_SORT }
-      })
-    }
     const scope = yield* queryable(source.query)
     const query = { ...source.query, cursor: undefined }
     const find = (
       ticketQuery: TicketListQuery,
-      options: Omit<
-        TicketIndex.TicketIndexNeighborsOptions,
-        "viewerId" | "ticketId"
-      >
+      options: Omit<TicketIndex.TicketIndexSequenceOptions, "viewerId">
     ) =>
-      ticketIndex.neighbors(scope, ticketQuery, {
+      ticketIndex.sequence(scope, ticketQuery, {
         ...options,
-        viewerId: scope.userId,
-        ticketId
+        viewerId: scope.userId
       })
     if (source.kind === "sprintBoard") {
       const group = yield* groups.get(source.groupId)
@@ -1238,6 +1220,38 @@ const make = Effect.gen(function* () {
     }
   })
 
+  const childSequence = Effect.fn("TicketQueries.childSequence")(function* (
+    ticketId: string
+  ) {
+    const [entry] = yield* ticketIndex.list(yield* ProjectScope, [ticketId])
+    const parent = entry?.parent ?? null
+    if (parent === null) return null
+    const query = { parent: [parent.id], sort: CHILD_TICKET_SORT }
+    const scope = yield* queryable(query)
+    const tickets = yield* ticketIndex.sequence(scope, query, {
+      viewerId: scope.userId,
+      sections: { kind: "explicit", sections: [{ key: parent.id }] },
+      within: { sort: CHILD_TICKET_SORT }
+    })
+    return {
+      within: isEpic(parent) ? "epic" : "parent",
+      tickets
+    } satisfies TicketSequence
+  })
+
+  const sequence = Effect.fn("TicketQueries.sequence")(function* (
+    ticketId: string,
+    source: TicketListSource | undefined
+  ) {
+    if (source !== undefined) {
+      const tickets = yield* viewSequence(source)
+      if (tickets.some((ticket) => ticket.id === ticketId)) {
+        return { within: "view", tickets } satisfies TicketSequence
+      }
+    }
+    return yield* childSequence(ticketId)
+  })
+
   const get = Effect.fn("TicketQueries.get")(function* (id: string) {
     const scope = yield* ProjectScope
     const { orgSlug, slug } = scope
@@ -1288,7 +1302,7 @@ const make = Effect.gen(function* () {
     sprintSections,
     epicSections,
     parentSections,
-    neighbors,
+    sequence,
     list,
     count,
     search,
