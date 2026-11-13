@@ -13,6 +13,7 @@ import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   $createRangeSelection,
+  $getRoot,
   $setSelection,
   HISTORY_MERGE_TAG,
   type LexicalEditor as LexicalEditorType
@@ -26,6 +27,7 @@ import {
   useState,
   type Ref
 } from "react"
+import { flushSync } from "react-dom"
 
 import {
   attachmentsForDescription,
@@ -140,29 +142,28 @@ export function DescriptionField({
     if (lost) rootRef.current?.focus({ preventScroll: true })
   }, [editing])
 
-  const startEditing = (point?: Readonly<{ x: number; y: number }>) => {
+  const startEditing = () => {
     const editor = editorRef.current
     if (editor === null) return
-    editor.setEditable(true)
-    setEditing(true)
     const root = editor.getRootElement()
-    const range = point === undefined ? null : caretRangeAt(point)
-    if (
-      root === null ||
-      range === null ||
-      !root.contains(range.startContainer)
-    ) {
-      editor.focus()
-      return
-    }
+    const range = selectedRangeIn(root)
+    flushSync(() => {
+      editor.setEditable(true)
+      setEditing(true)
+    })
     editor.update(
       () => {
+        if (range === null) {
+          $getRoot().selectEnd()
+          return
+        }
         const selection = $createRangeSelection()
         selection.applyDOMRange(range)
         $setSelection(selection)
       },
-      { onUpdate: () => editor.focus() }
+      { discrete: true }
     )
+    editor.focus()
   }
 
   const startAs = (key: TypeKey) => {
@@ -287,34 +288,37 @@ export function DescriptionField({
       role="presentation"
       tabIndex={-1}
       className={cn(
-        "group/reveal relative rounded-xl py-2 transition-[background-color,box-shadow] duration-150 ease-out outline-none motion-reduce:transition-none",
+        "relative rounded-xl py-2 transition-[background-color,box-shadow] duration-150 ease-out outline-none motion-reduce:transition-none",
         editing &&
           "bg-surface-2 shadow-surface-1 [--muted-foreground:color-mix(in_oklch,var(--color-muted-foreground)_88%,var(--color-foreground))]"
       )}
     >
-      <DescriptionActions
-        editing={editing}
-        status={saveStatus}
-        onEdit={() => startEditing()}
-        onDone={stopEditing}
-      />
       <div
         data-block-rail-host
+        data-block-rail-inset
         data-description
         role="presentation"
-        className="relative cursor-text px-3 [&_.lexical-content]:min-h-0"
+        className={cn(
+          "relative px-3 [&_.lexical-content]:min-h-0",
+          (editing || empty) && "cursor-text"
+        )}
         onClick={(event) => {
-          if (editing) return
+          if (editing || !empty) return
           if (
             event.target instanceof Element &&
             event.target.closest(INTERACTIVE)
           )
             return
-          if (!(window.getSelection()?.isCollapsed ?? true)) return
-          startEditing({ x: event.clientX, y: event.clientY })
+          startEditing()
         }}
       >
-        <div className={cn("relative", canStart && "min-h-15")}>
+        <div className={cn("relative flow-root", canStart && "min-h-15")}>
+          <DescriptionActions
+            editing={editing}
+            status={saveStatus}
+            onEdit={() => startEditing()}
+            onDone={stopEditing}
+          />
           <MentionScopeProvider scope={{ orgSlug, slug, members, involved }}>
             <AttachmentAvailabilityProvider missing={ticket.missingAttachments}>
               <LexicalEditor
@@ -376,15 +380,16 @@ export function DescriptionField({
   )
 }
 
-const caretRangeAt = ({
-  x,
-  y
-}: Readonly<{ x: number; y: number }>): Range | null => {
-  const position = document.caretPositionFromPoint?.(x, y)
-  if (position) {
-    const range = document.createRange()
-    range.setStart(position.offsetNode, position.offset)
-    return range
-  }
-  return document.caretRangeFromPoint?.(x, y) ?? null
+const selectedRangeIn = (root: HTMLElement | null): Range | null => {
+  const selection = window.getSelection()
+  if (root === null || selection === null || selection.isCollapsed) return null
+  const range = selection.getRangeAt(0).cloneRange()
+  if (!range.intersectsNode(root)) return null
+  const bounds = document.createRange()
+  bounds.selectNodeContents(root)
+  if (range.compareBoundaryPoints(Range.START_TO_START, bounds) < 0)
+    range.setStart(bounds.startContainer, bounds.startOffset)
+  if (range.compareBoundaryPoints(Range.END_TO_END, bounds) > 0)
+    range.setEnd(bounds.endContainer, bounds.endOffset)
+  return range.collapsed ? null : range
 }

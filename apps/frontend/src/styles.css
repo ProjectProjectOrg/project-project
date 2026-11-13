@@ -515,7 +515,9 @@
   padding: 6px 8px;
   margin-inline: -8px;
   border-radius: var(--radius-md);
-  transition: background-color 150ms ease-out;
+  transition-property: background-color, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
 }
 .prose-md .ticket-block:has(> .ticket-block-body > h1:first-child) {
   --block-first-line: var(--lh-display-compact);
@@ -526,12 +528,6 @@
 .prose-md
   .ticket-block:has(> .ticket-block-body > :first-child:not(h1, h2, h3)) {
   --block-first-line: var(--lh-body);
-}
-:root {
-  --block-editing-fill: color-mix(in oklch, var(--accent) 30%, transparent);
-}
-.dark {
-  --block-editing-fill: color-mix(in oklch, var(--accent) 20%, transparent);
 }
 .prose-md .ticket-block[data-source-removed] > :first-child::after {
   content: var(--source-removed-note);
@@ -552,16 +548,31 @@
   height: var(--block-first-line);
   margin: 0;
 }
+[data-block-rail-inset] .ticket-block {
+  padding-inline-start: 2rem;
+  border-radius: calc(var(--radius-xl) - 4px);
+}
+[data-block-rail-inset] .lexical-content > .ticket-block:first-child {
+  margin-top: -4px;
+  padding-top: 10px;
+}
+[data-block-rail-inset]
+  .lexical-content
+  > .ticket-block:first-child
+  > .ticket-block-icon {
+  top: 10px;
+}
 .prose-md.block-gutter
   .lexical-content[contenteditable="true"]
   > .ticket-block:is([data-hovered], [data-active]) {
   background-color: var(--hover);
-  transition-duration: 0ms;
 }
 .prose-md.block-gutter:has(.lexical-content:focus)
   .lexical-content
   > .ticket-block:is([data-hovered], [data-active]) {
-  background-color: var(--block-editing-fill);
+  background-color: var(--surface-3);
+  box-shadow: var(--shadow-2);
+  transition-duration: 0ms;
 }
 .prose-md .ticket-block[data-dragging] {
   background-color: color-mix(in oklch, var(--muted) 70%, transparent);

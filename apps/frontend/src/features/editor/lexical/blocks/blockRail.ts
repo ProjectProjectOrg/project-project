@@ -1,5 +1,6 @@
 export const RAIL_SIZE = 20
 const RAIL_EDGE = 2
+export const INSET_RAIL_LEFT = -2
 
 export type RailBounds = Readonly<{
   hostLeft: number

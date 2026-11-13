@@ -56,12 +56,12 @@ export function SubTicketComposer({
   const viewerId = useAtomValue(currentUserId)
   const project = useAtomValue(projectView(projectRequest(orgSlug, slug)))
   const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [editorVersion, setEditorVersion] = useState(0)
+  const [editor, setEditor] = useState({ version: 0, markdown: "" })
   const [fields, setFields] = useState<TicketFields>(DEFAULT_TICKET_FIELDS)
   const [failure, setFailure] = useState<string | null>(null)
   const creatorType = useCreatorType({ orgSlug, slug, epics: false })
   const titleInput = useRef<HTMLInputElement>(null)
+  const description = useRef("")
   useEffect(() => titleInput.current?.focus(), [])
   const inEpic = isEpic(parent)
   const attachExisting = useAttachExistingTicket(parent)
@@ -70,11 +70,11 @@ export function SubTicketComposer({
   const submit = async (event?: FormEvent) => {
     event?.preventDefault()
     if (trimmed === "" || !Result.isSuccess(project)) return
-    const body = description.trim()
+    const body = description.current.trim()
     setFailure(null)
     setTitle("")
-    setDescription("")
-    setEditorVersion((version) => version + 1)
+    description.current = ""
+    setEditor(({ version }) => ({ version: version + 1, markdown: "" }))
     titleInput.current?.focus()
     const exit = await create({
       payload: {
@@ -95,6 +95,10 @@ export function SubTicketComposer({
     creatorType.settle(exit)
     if (Exit.isFailure(exit)) {
       setTitle((current) => (current === "" ? trimmed : current))
+      if (body !== "" && description.current === "") {
+        description.current = body
+        setEditor(({ version }) => ({ version: version + 1, markdown: body }))
+      }
       setFailure(errorMessage(Cause.squash(exit.cause)))
     }
   }
@@ -113,7 +117,7 @@ export function SubTicketComposer({
   return (
     <form
       onSubmit={(event) => void submit(event)}
-      className="flex flex-col rounded-xl border border-border/60 bg-popover [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]"
+      className="flex flex-col rounded-xl border border-border/60 bg-background [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]"
     >
       <Composer.Title className="mt-4">
         <Input
@@ -140,9 +144,11 @@ export function SubTicketComposer({
       >
         <MentionScopeProvider scope={{ orgSlug, slug }}>
           <LexicalEditor
-            key={editorVersion}
-            markdown=""
-            onDraftChange={setDescription}
+            key={editor.version}
+            markdown={editor.markdown}
+            onDraftChange={(markdown) => {
+              description.current = markdown
+            }}
             placeholder={m.tickets_create_dialog_description_placeholder()}
             compact
           />

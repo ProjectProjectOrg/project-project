@@ -146,6 +146,20 @@ export function TicketPage({
                   onPatch={updateTicket}
                 />
               </MetaRow>
+              <MetaRow label={m.tickets_page_group_time()}>
+                {estimation !== "off" && (
+                  <div className="-ml-2.5 [&_[data-slot=button]]:h-7">
+                    <EstimateBadgeTrigger
+                      ticket={ticket}
+                      mode={estimation}
+                      onPatch={updateTicket}
+                    />
+                  </div>
+                )}
+                {actor.call("everhour", "ticketTime") && (
+                  <TicketTimeSection ticket={ticket} />
+                )}
+              </MetaRow>
               <MetaRow controls label={m.tickets_page_meta_tags()}>
                 <TagEditor
                   ticket={ticket}
@@ -154,13 +168,6 @@ export function TicketPage({
               </MetaRow>
               <MetaRow controls label={m.tickets_page_group_planning()}>
                 {!isEpic(ticket) && <SprintBadgeTrigger ticketId={ticket.id} />}
-                {estimation !== "off" && (
-                  <EstimateBadgeTrigger
-                    ticket={ticket}
-                    mode={estimation}
-                    onPatch={updateTicket}
-                  />
-                )}
                 {!isEpic(ticket) && hierarchy.subTicketOf === null && (
                   <EpicField
                     ticket={ticket}
@@ -169,9 +176,6 @@ export function TicketPage({
                   />
                 )}
               </MetaRow>
-              {actor.call("everhour", "ticketTime") && (
-                <TicketTimeSection ticket={ticket} />
-              )}
               <TicketRelationRows
                 ticketId={ticket.id}
                 relations={ticket.relations}

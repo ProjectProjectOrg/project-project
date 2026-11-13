@@ -3,12 +3,13 @@ import {
   isEpic,
   type TicketDetail,
   type TicketNeighbor,
+  type TicketNeighbors,
   type TicketViewSource
 } from "@pp/shared"
 import { Link, useRouter } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronDown, ChevronUp } from "lucide-react"
-import { useEffect, useMemo, type ReactNode } from "react"
+import { useEffect, useMemo } from "react"
 
 import { Button } from "@/components/ui/button"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -38,6 +39,15 @@ type Step = Readonly<{
   label: string
 }>
 
+type Shown = Readonly<{
+  ticketId: TicketDetail["id"]
+  neighbors: TicketNeighbors
+  position: (position: number, total: number) => string
+  search: TicketDetailSearch
+}>
+
+let lastShown: Shown | null = null
+
 export function TicketStepper({
   ticket,
   from
@@ -45,68 +55,74 @@ export function TicketStepper({
   ticket: Pick<TicketDetail, "id" | "parent">
   from: TicketPageSource | undefined
 }>) {
-  const siblingSearch = useMemo(
-    (): TicketDetailSearch =>
-      from?.kind === "parent"
-        ? { from: "parent", parentId: from.parent }
-        : NO_SEARCH,
-    [from]
+  const { orgSlug, slug } = useProjectRoute()
+  const source = from === undefined || from.kind === "parent" ? SIBLINGS : from
+  const sourceResult = useAtomValue(
+    ticketNeighbors(ticketNeighborsRequest(orgSlug, slug, ticket.id, source))
   )
-  const parent = ticket.parent
-  const siblings =
-    parent === null ? null : (
-      <Stepper
-        ticket={ticket}
-        source={SIBLINGS}
-        siblingSearch={siblingSearch}
-        position={(position, total) =>
+  const siblingResult = useAtomValue(
+    ticketNeighbors(ticketNeighborsRequest(orgSlug, slug, ticket.id, SIBLINGS))
+  )
+
+  const view = useMemo((): Shown | null | "loading" => {
+    const parent = ticket.parent
+    const siblings = (): Shown | null | "loading" => {
+      if (parent === null) return null
+      if (!Result.isSuccess(siblingResult)) return "loading"
+      if (siblingResult.value === null) return null
+      return {
+        ticketId: ticket.id,
+        neighbors: siblingResult.value,
+        search:
+          from?.kind === "parent"
+            ? { from: "parent", parentId: from.parent }
+            : NO_SEARCH,
+        position: (position, total) =>
           isEpic(parent)
             ? m.tickets_stepper_epic_position({ position, total })
             : m.tickets_stepper_sub_ticket_position({ position, total })
-        }
-      />
-    )
-  if (from === undefined || from.kind === "parent") return siblings
-  return (
-    <Stepper
-      ticket={ticket}
-      source={from}
-      position={(position, total) =>
-        m.tickets_stepper_position({ position, total })
       }
-      fallback={siblings}
-    />
-  )
+    }
+    if (source.kind === "siblings") return siblings()
+    if (!Result.isSuccess(sourceResult)) return "loading"
+    if (sourceResult.value === null) return siblings()
+    return {
+      ticketId: ticket.id,
+      neighbors: sourceResult.value,
+      search: ticketSearchFromSource(source),
+      position: (position, total) =>
+        m.tickets_stepper_position({ position, total })
+    }
+  }, [ticket, from, source, sourceResult, siblingResult])
+
+  useEffect(() => {
+    if (view !== "loading") lastShown = view
+  }, [view])
+
+  const shown = view === "loading" ? predict(lastShown, ticket.id) : view
+  if (shown === null) return null
+  return <Stepper shown={shown} orgSlug={orgSlug} slug={slug} />
+}
+
+function predict(last: Shown | null, ticketId: Shown["ticketId"]) {
+  if (last === null) return null
+  const { prev, next, position, total } = last.neighbors
+  const step = next?.id === ticketId ? 1 : prev?.id === ticketId ? -1 : 0
+  if (step === 0) return null
+  return {
+    ...last,
+    ticketId,
+    neighbors: { prev: null, next: null, position: position + step, total }
+  } satisfies Shown
 }
 
 function Stepper({
-  ticket,
-  source,
-  position,
-  siblingSearch = NO_SEARCH,
-  fallback = null
-}: Readonly<{
-  ticket: Pick<TicketDetail, "id">
-  source: TicketViewSource
-  position: (position: number, total: number) => string
-  siblingSearch?: TicketDetailSearch
-  fallback?: ReactNode
-}>) {
-  const { orgSlug, slug } = useProjectRoute()
-  const result = useAtomValue(
-    ticketNeighbors(ticketNeighborsRequest(orgSlug, slug, ticket.id, source))
-  )
+  shown: { neighbors, position, search },
+  orgSlug,
+  slug
+}: Readonly<{ shown: Shown; orgSlug: string; slug: string }>) {
   const router = useRouter()
-  const search = useMemo(
-    (): TicketDetailSearch =>
-      source.kind === "siblings"
-        ? siblingSearch
-        : ticketSearchFromSource(source),
-    [source, siblingSearch]
-  )
-  const neighbors = Result.isSuccess(result) ? result.value : null
-  const prev = neighbors?.prev ?? null
-  const next = neighbors?.next ?? null
+  const { prev, next } = neighbors
 
   useEffect(() => {
     const options = (neighbor: TicketNeighbor) =>
@@ -137,8 +153,6 @@ function Stepper({
     return () => document.removeEventListener("keydown", onKey)
   }, [router, orgSlug, slug, search, prev, next])
 
-  if (!Result.isSuccess(result)) return null
-  if (neighbors === null) return fallback
   const step = (step: Step) => (
     <StepButton {...step} orgSlug={orgSlug} slug={slug} search={search} />
   )

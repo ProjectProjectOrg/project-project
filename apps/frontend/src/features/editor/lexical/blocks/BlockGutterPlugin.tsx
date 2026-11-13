@@ -47,6 +47,7 @@ import {
   type BlockMenuModel
 } from "./blockMenuModel"
 import {
+  INSET_RAIL_LEFT,
   layoutTop,
   measureRailBounds,
   RAIL_SIZE,
@@ -144,8 +145,12 @@ const focusedWithin = (editor: LexicalEditor): HTMLElement | null => {
     : null
 }
 
-const measureRail = (anchor: HTMLElement): number | null =>
-  railLeft(measureRailBounds(anchor, railHost(anchor)))
+const measureRail = (anchor: HTMLElement): number | null => {
+  const host = railHost(anchor)
+  return host.hasAttribute("data-block-rail-inset")
+    ? INSET_RAIL_LEFT
+    : railLeft(measureRailBounds(anchor, host))
+}
 
 const flash = (element: HTMLElement, order: number) => {
   element.style.setProperty("--flash-order", String(order))
