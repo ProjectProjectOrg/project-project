@@ -63,7 +63,7 @@ export function useTicketStepping(
         ? { from: "parent", parentId: from.parent }
         : ticketSearchFromSource(from)
 
-  const source = JSON.stringify(from ?? null)
+  const source = JSON.stringify([orgSlug, slug, from ?? null])
   const [entry, setEntry] = useState<Entry>({ id: urlId, source })
   if (entry.source !== source) setEntry({ id: urlId, source })
   const loaded = useAtomValue(
