@@ -6,6 +6,7 @@ import { it } from "@effect/vitest"
 import { DbLive, PgLive } from "@pp/db"
 import {
   ActivityActor,
+  OrgScope,
   ProjectScope,
   TicketId,
   TicketStatus,
@@ -19,10 +20,12 @@ import * as Schema from "effect/Schema"
 import pg from "pg"
 import { describe, expect } from "vitest"
 
-import { projectScope } from "../access/testing"
+import * as Access from "../access/Access"
+import { orgScope, projectScope } from "../access/testing"
 import type { TicketScopedChange } from "../activity/changes"
 import * as TicketActivity from "../activity/TicketActivity"
 import * as Markdown from "../markdown/Markdown"
+import * as Users from "../users/Users"
 import type { InboxNotice } from "./events"
 import * as Inbox from "./Inbox"
 
@@ -73,7 +76,7 @@ const TestLayer = Layer.unwrap(
           )
         )
       ),
-      Inbox.layer
+      Inbox.layer.pipe(Layer.provide(Layer.mergeAll(Access.layer, Users.layer)))
     ).pipe(Layer.provide(DbLive.pipe(Layer.provideMerge(PgLive))))
   })
 ).pipe(Layer.provideMerge(BunServices.layer))
@@ -110,8 +113,8 @@ const seedProject = Effect.gen(function* () {
     }
     await client.query(
       `insert into project_index
-           (id, slug, organization_id, key, name, icon, color, created_by, created_at)
-         values ($1, $2, $3, 'T', 'Inbox', 'folder', 'blue', $4, now())`,
+           (id, slug, organization_id, key, name, icon, color, created_by, created_at, published_at)
+         values ($1, $2, $3, 'T', 'Inbox', 'folder', 'blue', $4, now(), now())`,
       [fixture.projectId, fixture.slug, fixture.organizationId, fixture.ann]
     )
     for (const id of people) {
@@ -199,6 +202,60 @@ const rows = (project: Project) =>
         readBy: row.read_by_client_name
       }))
     )
+  )
+
+const assign = (project: Project, ticket: string, user: string) =>
+  record(project, ActivityActor.user(project.ann), {
+    ticket,
+    changes: [
+      {
+        ticketId: ticketId(ticket),
+        change: {
+          kind: "assignees_changed",
+          added: [userId(user)],
+          removed: []
+        }
+      }
+    ]
+  })
+
+const comment = (project: Project, ticket: string) =>
+  record(project, ActivityActor.user(project.ann), {
+    ticket,
+    notices: [{ kind: "commented", authorId: project.ann, commentId: "c1" }]
+  })
+
+const asProjectMember = (project: Project, user: string) =>
+  Effect.provideService(
+    ProjectScope,
+    projectScope("member", "pm", {
+      userId: user,
+      organizationId: project.organizationId,
+      orgSlug: project.orgSlug,
+      slug: project.slug,
+      projectId: project.projectId
+    })
+  )
+
+const asOrgMember = (project: Project, user: string) =>
+  Effect.provideService(
+    OrgScope,
+    orgScope("member", {
+      userId: user,
+      organizationId: project.organizationId,
+      orgSlug: project.orgSlug
+    })
+  )
+
+const inboxOf = (project: Project, user: string) =>
+  Effect.flatMap(Inbox.Inbox, (inbox) =>
+    Effect.all({ items: inbox.list(), unread: inbox.unread() })
+  ).pipe(
+    Effect.map(({ items, unread }) => ({
+      tickets: items.map((item) => item.ticket.id),
+      unread
+    })),
+    asOrgMember(project, user)
   )
 
 describe.skipIf(!databaseUrl)("inbox", () => {
@@ -319,6 +376,81 @@ describe.skipIf(!databaseUrl)("inbox", () => {
           readBy: null
         }
       ])
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live("lists unread rows and rows with open reasons, newest first", () =>
+    Effect.gen(function* () {
+      const project = yield* seedProject
+      yield* subscribe(project, "T-1", project.bob)
+      yield* comment(project, "T-1")
+      yield* assign(project, "T-2", project.bob)
+      const items = yield* Effect.flatMap(Inbox.Inbox, (inbox) =>
+        inbox.list()
+      ).pipe(asOrgMember(project, project.bob))
+      expect(items).toMatchObject([
+        {
+          projectSlug: project.slug,
+          ticket: { id: "T-2", title: "T-2", status: "todo" },
+          unread: true,
+          direct: ["assigned"],
+          latest: { kind: "assigned" },
+          actor: { kind: "user", user: { id: project.ann } },
+          unreadCount: 1
+        },
+        { ticket: { id: "T-1" }, unread: true, direct: [] }
+      ])
+      yield* Effect.forEach(["T-1", "T-2"], (ticket) =>
+        Effect.flatMap(Inbox.Inbox, (inbox) => inbox.markRead(ticket)).pipe(
+          asProjectMember(project, project.bob)
+        )
+      )
+      expect(yield* inboxOf(project, project.bob)).toEqual({
+        tickets: ["T-2"],
+        unread: 0
+      })
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live("done hides a row until you mark it unread", () =>
+    Effect.gen(function* () {
+      const project = yield* seedProject
+      yield* assign(project, "T-1", project.bob)
+      const asBob = asProjectMember(project, project.bob)
+      yield* Effect.flatMap(Inbox.Inbox, (inbox) => inbox.markDone("T-1")).pipe(
+        asBob
+      )
+      expect(yield* inboxOf(project, project.bob)).toEqual({
+        tickets: [],
+        unread: 0
+      })
+      yield* Effect.flatMap(Inbox.Inbox, (inbox) =>
+        inbox.markUnread("T-1")
+      ).pipe(asBob)
+      expect(yield* inboxOf(project, project.bob)).toEqual({
+        tickets: ["T-1"],
+        unread: 1
+      })
+    }).pipe(Effect.scoped, Effect.provide(TestLayer))
+  )
+
+  it.live("mark all as read keeps open reasons, mark all as done clears", () =>
+    Effect.gen(function* () {
+      const project = yield* seedProject
+      yield* subscribe(project, "T-1", project.bob)
+      yield* comment(project, "T-1")
+      yield* assign(project, "T-2", project.bob)
+      const asBob = asOrgMember(project, project.bob)
+      yield* Effect.flatMap(Inbox.Inbox, (inbox) => inbox.readAll()).pipe(asBob)
+      expect(yield* inboxOf(project, project.bob)).toEqual({
+        tickets: ["T-2"],
+        unread: 0
+      })
+      yield* Effect.flatMap(Inbox.Inbox, (inbox) => inbox.doneAll()).pipe(asBob)
+      expect(yield* inboxOf(project, project.bob)).toEqual({
+        tickets: [],
+        unread: 0
+      })
     }).pipe(Effect.scoped, Effect.provide(TestLayer))
   )
 
