@@ -55,6 +55,17 @@ describe("inbox rows", () => {
     })
   })
 
+  it("keeps newer events when an older batch arrives late", () => {
+    const newer = deliver(null, comment)
+    const late = deliver(newer, mention)
+    expect(late).toMatchObject({
+      latest: { kind: "commented" },
+      unreadCount: 2,
+      direct: [{ reason: "mentioned" }]
+    })
+    expect(read(late, at("2026-11-13T10:30:00Z"), null)).toBe(late)
+  })
+
   it("remembers which agent read the row", () => {
     expect(
       read(deliver(null, comment), at("2026-11-13T12:00:00Z"), "Claude Code")

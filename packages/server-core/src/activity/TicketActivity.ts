@@ -588,7 +588,7 @@ const make = Effect.gen(function* () {
     yield* Effect.forEach(
       held,
       (batch) =>
-        outcome === "commit"
+        (outcome === "commit"
           ? commit(
               batch.batchId,
               projectId,
@@ -596,8 +596,31 @@ const make = Effect.gen(function* () {
               batch.integrationEvents,
               batch.subscriptions,
               batch.inbox
-            ).pipe(Effect.orDie)
-          : discard(batch.batchId),
+            )
+          : db
+              .delete(ticketActivityOutbox)
+              .where(eq(ticketActivityOutbox.batchId, batch.batchId))
+        ).pipe(
+          Effect.retry({
+            times: 3,
+            schedule: Schedule.exponential("50 millis")
+          }),
+          Effect.catchCause((failure) =>
+            db
+              .update(ticketActivityOutbox)
+              .set({ held: false })
+              .where(eq(ticketActivityOutbox.batchId, batch.batchId))
+              .pipe(
+                Effect.ignore,
+                Effect.andThen(
+                  Effect.logError(
+                    "held ticket activity release failed; it settles like any pending batch",
+                    { batchId: batch.batchId, failure }
+                  )
+                )
+              )
+          )
+        ),
       { discard: true }
     )
   })
