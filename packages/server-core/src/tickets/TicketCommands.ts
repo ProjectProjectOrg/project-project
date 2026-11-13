@@ -59,6 +59,7 @@ import { and, asc, eq, inArray } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Exit from "effect/Exit"
 import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 
@@ -883,6 +884,7 @@ const make = Effect.gen(function* () {
     }
     const changesRelations =
       input.blockedBy !== undefined || input.relatedTo !== undefined
+    let reverted = false
     const locked = withTicketDocumentLock(
       orgSlug,
       slug,
@@ -1028,16 +1030,25 @@ const make = Effect.gen(function* () {
                         ],
                         { concurrency: 2, discard: true }
                       )
-                  ).pipe(Effect.andThen(ticketIndex.upsertTicket(scope, next)))
+                  ).pipe(Effect.andThen(ticketIndex.upsertTicket(scope, next))),
+                { settleLater: sprint !== undefined }
               )
 
         if (sprint !== undefined && original !== undefined) {
-          const open = openSprintsOf(yield* groups.list())
-          yield* changeSprint([makeTicketId(id)], sprint, open).pipe(
+          yield* Effect.gen(function* () {
+            const open = openSprintsOf(yield* groups.list())
+            yield* changeSprint([makeTicketId(id)], sprint, open)
+          }).pipe(
             Effect.onError(() =>
               next === original
                 ? Effect.void
-                : restoreTicket(scope, id, original).pipe(
+                : ticketDocs.write(orgSlug, slug, id, original).pipe(
+                    Effect.tap(() =>
+                      Effect.sync(() => {
+                        reverted = true
+                      })
+                    ),
+                    Effect.andThen(ticketIndex.upsertTicket(scope, original)),
                     Effect.andThen(
                       bodyChanged
                         ? reconcileBodyLinks(scope, original)
@@ -1077,7 +1088,18 @@ const make = Effect.gen(function* () {
                 duplicateCount: entry.duplicateCount
               }
         return { ticket, orderKey }
-      })
+      }).pipe(
+        Effect.onExit(() =>
+          sprint === undefined
+            ? Effect.void
+            : ticketActivity.release(
+                orgSlug,
+                slug,
+                { kind: "ticket", id },
+                reverted ? "discard" : "commit"
+              )
+        )
+      )
     )
     const related = changesRelations ? withRelationsLock(scope, locked) : locked
     return yield* input.position === undefined
@@ -2213,9 +2235,7 @@ const make = Effect.gen(function* () {
       sprint === undefined
         ? Effect.succeed(null)
         : changeSprint(ids, sprint, openSprints)
-    const write = withTicketLocks(
-      scope,
-      ids,
+    const write = Effect.suspend(() =>
       Effect.gen(function* () {
         const originals = yield* Effect.forEach(
           ids,
@@ -2293,8 +2313,13 @@ const make = Effect.gen(function* () {
               (next, index) => next !== originals[index]
             )) {
               const original = originals[nexts.indexOf(next)]
-              yield* ticketDocs.update(orgSlug, slug, next.id, () =>
-                Effect.succeed(next)
+              yield* ticketDocs.update(
+                orgSlug,
+                slug,
+                next.id,
+                () => Effect.succeed(next),
+                undefined,
+                { settleLater: true }
               )
               written.push({ original, next })
               if (next.body !== original.body) {
@@ -2307,13 +2332,31 @@ const make = Effect.gen(function* () {
         return nexts
       })
     )
-    const writeAndPlan = Effect.gen(function* () {
-      const nexts = yield* write
-      const sprintChange = yield* planSprint.pipe(
-        Effect.onError(() => withTicketLocks(scope, ids, revertWritten))
+    const writeAndPlan = withTicketLocks(
+      scope,
+      ids,
+      Effect.gen(function* () {
+        const nexts = yield* write
+        const sprintChange = yield* planSprint.pipe(
+          Effect.onError(() => revertWritten)
+        )
+        return { nexts, sprintChange }
+      }).pipe(
+        Effect.onExit((exit) =>
+          Effect.forEach(
+            ids,
+            (id) =>
+              ticketActivity.release(
+                orgSlug,
+                slug,
+                { kind: "ticket", id },
+                Exit.isSuccess(exit) ? "commit" : "discard"
+              ),
+            { discard: true }
+          )
+        )
       )
-      return { nexts, sprintChange }
-    })
+    )
     const { nexts, sprintChange } = yield* position === undefined
       ? writeAndPlan
       : withRanksLock(scope, writeAndPlan)

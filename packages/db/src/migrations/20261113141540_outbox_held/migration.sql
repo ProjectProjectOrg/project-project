@@ -1,0 +1,1 @@
+ALTER TABLE "ticket_activity_outbox" ADD COLUMN "held" boolean DEFAULT false NOT NULL;
