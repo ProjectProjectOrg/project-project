@@ -20,6 +20,7 @@ import {
   type TicketPageSource
 } from "@/features/tickets/lib/ticketSearch"
 import {
+  committedCursor,
   settledCursor,
   shownTicket,
   stepCursor,
@@ -34,8 +35,10 @@ import { hasModifier, ownsKeystrokes } from "@/lib/keyboard"
 export const PREVIOUS_KEY = "k"
 export const NEXT_KEY = "j"
 
+type Entry = Readonly<{ id: TicketId; source: string }>
+
 type Session = Readonly<{
-  entry: TicketId
+  entry: Entry
   sequence: TicketSequence | null
 }>
 
@@ -60,9 +63,11 @@ export function useTicketStepping(
         ? { from: "parent", parentId: from.parent }
         : ticketSearchFromSource(from)
 
-  const [entry, setEntry] = useState(urlId)
+  const source = JSON.stringify(from ?? null)
+  const [entry, setEntry] = useState<Entry>({ id: urlId, source })
+  if (entry.source !== source) setEntry({ id: urlId, source })
   const loaded = useAtomValue(
-    ticketSequence(ticketSequenceRequest(orgSlug, slug, entry, listSource))
+    ticketSequence(ticketSequenceRequest(orgSlug, slug, entry.id, listSource))
   )
   const [session, setSession] = useState<Session | null>(null)
   if (Result.isSuccess(loaded) && session?.entry !== entry) {
@@ -75,8 +80,8 @@ export function useTicketStepping(
   const shown = shownTicket(cursor, urlId)
   const inSequence = (id: TicketId) =>
     sequence?.tickets.some((ticket) => ticket.id === id) ?? false
-  if (session?.entry === entry && entry !== urlId && !inSequence(urlId)) {
-    setEntry(urlId)
+  if (session?.entry === entry && entry.id !== urlId && !inSequence(urlId)) {
+    setEntry({ id: urlId, source })
   }
 
   const direction = useRef<StepDirection>(1)
@@ -131,6 +136,9 @@ export function useTicketStepping(
       commitTimer = undefined
       const { cursor, urlId, search } = latest.current
       if (cursor === null || cursor.shown === urlId) return
+      const committed = committedCursor(cursor)
+      latest.current = { ...latest.current, cursor: committed }
+      setCursor(committed)
       sent.push(performance.now())
       void router.navigate({
         to: "/orgs/$orgSlug/projects/$slug/tickets/$id",

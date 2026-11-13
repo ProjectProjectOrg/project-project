@@ -24,7 +24,11 @@ export function settledCursor(
   cursor: StepCursor | null,
   urlId: TicketId
 ): StepCursor | null {
-  return cursor?.shown === urlId ? null : cursor
+  return cursor === null ||
+    cursor.shown === urlId ||
+    !cursor.urls.includes(urlId)
+    ? null
+    : cursor
 }
 
 export function stepCursor(
@@ -36,7 +40,11 @@ export function stepCursor(
     cursor !== null && cursor.urls.includes(urlId) && urlId !== cursor.shown
       ? cursor.urls
       : []
-  return { shown: next, urls: [...new Set([...urls, urlId, next])] }
+  return { shown: next, urls: [...new Set([...urls, urlId])] }
+}
+
+export function committedCursor(cursor: StepCursor): StepCursor {
+  return { ...cursor, urls: [...new Set([...cursor.urls, cursor.shown])] }
 }
 
 export function stepTarget(

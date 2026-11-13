@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
 import {
+  committedCursor,
   settledCursor,
   shownTicket,
   stepCursor,
@@ -16,17 +17,22 @@ const [t1, t2, t3, t4] = [id("T-1"), id("T-2"), id("T-3"), id("T-4")]
 const tickets = [t1, t2, t3].map((ticket) => ({ id: ticket, title: ticket }))
 
 describe("shownTicket", () => {
-  it("shows the cursor while the URL is one the steps passed through", () => {
-    let cursor = stepCursor(null, t1, t2)
+  it("keeps showing the cursor while its own URL updates land", () => {
+    let cursor = committedCursor(stepCursor(null, t1, t2))
     cursor = stepCursor(cursor, t1, t3)
     expect(shownTicket(cursor, t1)).toBe(t3)
     expect(shownTicket(cursor, t2)).toBe(t3)
-    expect(shownTicket(cursor, t3)).toBe(t3)
   })
 
   it("follows the URL once something else navigates", () => {
     const cursor = stepCursor(null, t1, t2)
     expect(shownTicket(cursor, t4)).toBe(t4)
+  })
+
+  it("drops a pending step once something else navigates, even to a passed ticket", () => {
+    const held = stepCursor(stepCursor(null, t1, t2), t1, t3)
+    expect(settledCursor(held, t4)).toBeNull()
+    expect(settledCursor(held, t2)).toBeNull()
   })
 
   it("lets a link back to a passed ticket win once the URL has caught up", () => {
