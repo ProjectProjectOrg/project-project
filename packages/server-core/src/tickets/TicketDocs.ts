@@ -644,7 +644,10 @@ const make = Effect.gen(function* () {
                   (current.archivedAt === null && next.archivedAt !== null
                     ? yield* finishedStatuses.forProject(orgSlug, slug)
                     : null),
-                statusBefore: current.status
+                statusBefore: current.status,
+                touched:
+                  !activity.silent &&
+                  current.commentsRegion !== next.commentsRegion
               }
             )
             if (onPersist) yield* onPersist(next)

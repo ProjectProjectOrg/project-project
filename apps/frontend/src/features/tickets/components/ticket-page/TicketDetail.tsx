@@ -83,7 +83,12 @@ export function TicketDetail() {
   )
   useCommandScope(commandScope)
   useRememberViewedTicket(shown, from?.kind === "parent" ? undefined : from)
-  useMarkTicketRead(urlId)
+  useMarkTicketRead(
+    urlId,
+    Result.isSuccess(
+      useAtomValue(ticketDetail(ticketRequest(orgSlug, slug, urlId)))
+    )
+  )
   const autoFocusBody = useRef(search.focusBody === "1").current
 
   useEffect(() => {

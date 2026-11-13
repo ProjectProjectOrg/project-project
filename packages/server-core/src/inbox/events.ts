@@ -29,6 +29,7 @@ export type InboxInput = Readonly<{
   notices: ReadonlyArray<InboxNotice>
   finished: ReadonlySet<string> | null
   statusBefore: string | null
+  touched: boolean
 }>
 
 const CLEANUP_CAUSES: ReadonlySet<ActivityCause> = new Set([
@@ -166,7 +167,8 @@ export const stageInbox = (input: InboxInput): StagedInbox | null => {
   }
 
   const readBy =
-    actor.kind !== "system" && (own.length > 0 || input.notices.length > 0)
+    actor.kind !== "system" &&
+    (own.length > 0 || input.notices.length > 0 || input.touched)
   if (
     !readBy &&
     direct.length === 0 &&

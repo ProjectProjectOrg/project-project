@@ -28,7 +28,8 @@ const base: InboxInput = {
   changes: [],
   notices: [],
   finished: null,
-  statusBefore: null
+  statusBefore: null,
+  touched: false
 }
 
 const statusTo = (to: string): InboxInput["changes"] => [
@@ -119,6 +120,14 @@ describe("stageInbox", () => {
         statusBefore: "done"
       })?.unblockWith
     ).toBeNull()
+  })
+
+  it("reads the ticket for whoever edits or removes a comment", () => {
+    expect(stageInbox({ ...base, touched: true })).toMatchObject({
+      readBy: true,
+      subscribers: [],
+      direct: []
+    })
   })
 
   it("stays quiet for imports and cleanup, but not for git automation", () => {

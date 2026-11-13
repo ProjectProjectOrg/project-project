@@ -61,6 +61,7 @@ export type RecordEffects = Readonly<{
   notices?: ReadonlyArray<InboxNotice>
   finished?: ReadonlySet<string> | null
   statusBefore?: string
+  touched?: boolean
 }>
 
 export type ActivityPageCursor = Readonly<{ occurredAt: Date; seq: number }>
@@ -339,7 +340,8 @@ const make = Effect.gen(function* () {
       changes.length === 0 &&
       selected.length === 0 &&
       intents.length === 0 &&
-      notices.length === 0
+      notices.length === 0 &&
+      effects.touched !== true
     )
       return yield* write
     const actor = yield* ActivityActor
@@ -354,7 +356,8 @@ const make = Effect.gen(function* () {
             changes,
             notices,
             finished: effects.finished ?? null,
-            statusBefore: effects.statusBefore ?? null
+            statusBefore: effects.statusBefore ?? null,
+            touched: effects.touched === true
           })
         : null
     const rows: ReadonlyArray<TicketActivityOutboxRow> = yield* Effect.forEach(
