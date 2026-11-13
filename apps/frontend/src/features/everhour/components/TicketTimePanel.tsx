@@ -57,7 +57,8 @@ export function TicketTimeSection({ ticket }: { ticket: TicketDetail }) {
   const notConnected =
     Result.isSuccess(statusResult) &&
     statusResult.value.status === "not_connected"
-  if (notConnected && (!canManage || hintDismissed)) return null
+  const mayBeHidden = notConnected || Result.isInitial(statusResult)
+  if (mayBeHidden && (!canManage || hintDismissed)) return null
 
   return (
     <div className="mt-1 w-full">
