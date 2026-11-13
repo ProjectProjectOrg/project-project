@@ -7,7 +7,6 @@ import {
   CalendarRange,
   ChevronsUpDown,
   Info,
-  LayoutGrid,
   ListChecks,
   Settings,
   type LucideIcon
@@ -15,25 +14,18 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from "react"
 
 import { navFocusRing, useNavHoverItem } from "@/components/shell/NavItem"
-import { ProjectPickerList } from "@/components/shell/ProjectPicker"
-import { DitherBackdrop } from "@/components/ui/button-dither"
+import { ProjectCardBanner } from "@/components/shell/ProjectCardBanner"
+import { ProjectMenuItems } from "@/components/shell/ProjectPicker"
 import {
-  menuItemClass,
-  menuLabelClass,
-  menuSeparatorClass
-} from "@/components/ui/menu-styles"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTitle,
-  PopoverTrigger
-} from "@/components/ui/popover"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
-import { ProjectBanner } from "@/features/projects/components/ProjectBanner"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import { useActiveSprint } from "@/features/sprints/hooks/useActiveSprint"
 import {
@@ -64,6 +56,8 @@ const PAGE_INDEX_OFFSET = 1
 
 export const projectPageHoverIndex = (page: ProjectPage) =>
   PAGE_INDEX_OFFSET + PROJECT_PAGES.findIndex((p) => p.key === page)
+
+export const PROJECT_CARD_HOVER_INDEX = PAGE_INDEX_OFFSET + PROJECT_PAGES.length
 
 export type ProjectRouteMatch = Readonly<{ slug: string; page: ProjectPage }>
 
@@ -138,20 +132,33 @@ function ProjectSwitcher({
   projects: ReadonlyArray<Project>
 }) {
   const [open, setOpen] = useState(false)
-  const close = () => setOpen(false)
+  const [picked, setPicked] = useState(false)
+  const cardRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  useNavHoverItem(PROJECT_CARD_HOVER_INDEX, cardRef)
+  useEffect(() => {
+    if (!open) return undefined
+    const frame = requestAnimationFrame(() =>
+      menuRef.current
+        ?.querySelector<HTMLElement>('[aria-checked="true"]')
+        ?.focus()
+    )
+    return () => cancelAnimationFrame(frame)
+  }, [open])
+  const changeOpen = (next: boolean) => {
+    if (next) setPicked(false)
+    setOpen(next)
+  }
+  const pick = () => {
+    setPicked(true)
+    changeOpen(false)
+  }
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <button
-            type="button"
-            aria-label={m.chrome_sidebar_project_switcher_aria_label()}
-            className={cn(
-              "w-full overflow-hidden rounded-lg bg-card text-left transition-colors hover:bg-hover data-[popup-open]:bg-hover",
-              navFocusRing
-            )}
-          />
-        }
+    <DropdownMenu open={open} onOpenChange={changeOpen}>
+      <DropdownMenuTrigger
+        ref={cardRef}
+        aria-label={m.chrome_sidebar_project_switcher_aria_label()}
+        className="w-full overflow-hidden rounded-lg bg-card text-left transition-colors outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring data-[popup-open]:bg-hover"
       >
         <ProjectFace
           orgSlug={orgSlug}
@@ -163,34 +170,22 @@ function ProjectSwitcher({
             />
           }
         />
-      </PopoverTrigger>
-      <PopoverContent
-        side="right"
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        ref={menuRef}
+        side="bottom"
         align="start"
-        sideOffset={12}
-        className="w-72 p-1"
+        sideOffset={6}
+        className={cn("w-72", picked && "data-[closed]:hidden")}
       >
-        <PopoverTitle className={menuLabelClass}>
-          {m.chrome_sidebar_projects()}
-        </PopoverTitle>
-        <ProjectPickerList
+        <ProjectMenuItems
           orgSlug={orgSlug}
           currentSlug={project.slug}
           projects={projects}
-          onPick={close}
+          onPick={pick}
         />
-        <div className={menuSeparatorClass} />
-        <Link
-          to="/orgs/$orgSlug/projects"
-          params={{ orgSlug }}
-          onClick={close}
-          className={cn(menuItemClass, "hover:bg-hover hover:text-foreground")}
-        >
-          <LayoutGrid strokeWidth={1.75} />
-          {m.org_dashboard_all_projects_link()}
-        </Link>
-      </PopoverContent>
-    </Popover>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -206,18 +201,7 @@ function ProjectFace({
   const activeSprint = useActiveSprint(orgSlug, project.slug)
   return (
     <>
-      <span className="relative isolate block h-8 overflow-hidden">
-        {project.banner ? (
-          <ProjectBanner
-            orgSlug={orgSlug}
-            slug={project.slug}
-            banner={project.banner}
-            variant="row"
-          />
-        ) : (
-          <DefaultBanner color={project.color} />
-        )}
-      </span>
+      <ProjectCardBanner orgSlug={orgSlug} project={project} />
       <span className="flex items-center gap-2.5 px-3 pt-1 pb-3">
         <ProjectIconTile
           orgSlug={orgSlug}
@@ -238,24 +222,6 @@ function ProjectFace({
         {trailing}
       </span>
     </>
-  )
-}
-
-function DefaultBanner({ color }: { color: string }) {
-  return (
-    <span
-      aria-hidden
-      className="pointer-events-none absolute inset-0 -z-10 opacity-40"
-    >
-      <DitherBackdrop
-        from={color}
-        to="var(--card)"
-        direction="b"
-        stops={[0, 1]}
-        matrix="4x4"
-        pixelSize={2}
-      />
-    </span>
   )
 }
 

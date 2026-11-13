@@ -20,7 +20,6 @@ import {
   useProjectRoute
 } from "@/features/projects/hooks/useProject"
 import { ticketKeyWidth } from "@/features/tickets/lib/ticketKeyWidth"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi("/_authed/orgs/$orgSlug/projects/$slug")
@@ -68,8 +67,9 @@ export function ProjectLayout() {
         <ProjectGitStatePolling enabled={value.github !== null} />
         <ProjectSetupSlot project={value} />
         <div
+          key={`${orgSlug}/${slug}`}
           data-page-banner={value.banner ? "" : undefined}
-          className={cn("relative isolate flex flex-1 flex-col gap-3")}
+          className="pp-context-in relative isolate flex flex-1 flex-col gap-3"
           style={{ "--ticket-key-width": ticketKeyWidth(value) }}
         >
           <ProjectBanner

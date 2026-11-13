@@ -1,20 +1,18 @@
 import type { Project } from "@pp/shared"
-import { Link } from "@tanstack/react-router"
-import { Check } from "lucide-react"
-import { useRef } from "react"
+import { useRouter } from "@tanstack/react-router"
+import { LayoutGrid } from "lucide-react"
 
-import { navFocusRing } from "@/components/shell/NavItem"
-import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
+import { ProjectBannerWarmup } from "@/components/shell/ProjectCardBanner"
+import {
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuSeparator
+} from "@/components/ui/dropdown-menu"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import { useActiveSprint } from "@/features/sprints/hooks/useActiveSprint"
-import {
-  useFluidHover,
-  useRegisterFluidHoverItem,
-  type UseFluidHoverReturn
-} from "@/hooks/useFluidHover"
-import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
-export function ProjectPickerList({
+export function ProjectMenuItems({
   orgSlug,
   currentSlug,
   projects,
@@ -25,91 +23,108 @@ export function ProjectPickerList({
   projects: ReadonlyArray<Project>
   onPick: () => void
 }) {
-  const listRef = useRef<HTMLUListElement>(null)
-  const hover = useFluidHover(listRef)
-  const currentIndex = projects.findIndex((p) => p.slug === currentSlug)
+  const router = useRouter()
+  const preload = (slug: string) =>
+    void router.preloadRoute({
+      to: "/orgs/$orgSlug/projects/$slug",
+      params: { orgSlug, slug }
+    })
+  const items = projects.map((project) => ({
+    value: project.slug,
+    textValue: project.name,
+    closeOnClick: true,
+    label: (
+      <ProjectOption
+        orgSlug={orgSlug}
+        project={project}
+        onPointerEnter={() => preload(project.slug)}
+      />
+    )
+  }))
+
   return (
-    <div
-      role="presentation"
-      onMouseEnter={hover.handlers.onMouseEnter}
-      onMouseMove={hover.handlers.onMouseMove}
-      onMouseLeave={hover.handlers.onMouseLeave}
-      className="max-h-96 overflow-y-auto"
-    >
-      <ul ref={listRef} className="relative flex flex-col">
-        <FluidHoverHighlight
-          hover={hover}
-          hidden={hover.activeIndex === currentIndex}
-          className="rounded-md"
-        />
-        {projects.map((p, index) => (
-          <ProjectPickerRow
-            key={p.slug}
-            index={index}
-            register={hover.registerItem}
+    <>
+      {projects
+        .filter((project) => project.slug !== currentSlug)
+        .map((project) => (
+          <ProjectBannerWarmup
+            key={project.slug}
             orgSlug={orgSlug}
-            project={p}
-            current={p.slug === currentSlug}
-            onPick={onPick}
+            project={project}
           />
         ))}
-      </ul>
-    </div>
+      <div
+        role="presentation"
+        onFocus={(event) => {
+          const slug =
+            event.target instanceof Element
+              ? event.target
+                  .querySelector("[data-project-slug]")
+                  ?.getAttribute("data-project-slug")
+              : null
+          if (slug) preload(slug)
+        }}
+      >
+        <DropdownMenuRadioGroup
+          items={items}
+          value={currentSlug}
+          onValueChange={(slug) => {
+            onPick()
+            if (slug === currentSlug) return
+            void router.navigate({
+              to: "/orgs/$orgSlug/projects/$slug",
+              params: { orgSlug, slug }
+            })
+          }}
+        />
+      </div>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        onClick={() => {
+          onPick()
+          void router.navigate({
+            to: "/orgs/$orgSlug/projects",
+            params: { orgSlug }
+          })
+        }}
+      >
+        <LayoutGrid strokeWidth={1.75} />
+        {m.org_dashboard_all_projects_link()}
+      </DropdownMenuItem>
+    </>
   )
 }
 
-function ProjectPickerRow({
-  index,
-  register,
+function ProjectOption({
   orgSlug,
   project,
-  current,
-  onPick
+  onPointerEnter
 }: {
-  index: number
-  register: UseFluidHoverReturn["registerItem"]
   orgSlug: string
   project: Project
-  current: boolean
-  onPick: () => void
+  onPointerEnter: () => void
 }) {
-  const ref = useRef<HTMLAnchorElement>(null)
-  useRegisterFluidHoverItem(register, index, ref)
   const activeSprint = useActiveSprint(orgSlug, project.slug)
   return (
-    <li>
-      <Link
-        ref={ref}
-        to="/orgs/$orgSlug/projects/$slug"
-        params={{ orgSlug, slug: project.slug }}
-        onClick={onPick}
-        aria-current={current ? "page" : undefined}
-        className={cn(
-          "relative z-10 flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors",
-          navFocusRing,
-          current
-            ? "bg-active text-foreground"
-            : "text-muted-foreground data-[fluid-hover-active]:text-foreground"
-        )}
-      >
-        <ProjectIconTile
-          orgSlug={orgSlug}
-          icon={project.icon}
-          iconImage={project.iconImage}
-          color={project.color}
-          size="compact"
-          seed={project.slug}
-        />
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-body">{project.name}</span>
-          <span className="truncate text-caption text-muted-foreground">
-            {activeSprint?.label ?? project.key}
-          </span>
+    <span
+      data-project-slug={project.slug}
+      className="flex min-w-0 flex-1 items-center gap-2.5"
+      onPointerEnter={onPointerEnter}
+    >
+      <ProjectIconTile
+        orgSlug={orgSlug}
+        icon={project.icon}
+        iconImage={project.iconImage}
+        color={project.color}
+        size="compact"
+        seed={project.slug}
+      />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate">{project.name}</span>
+        <span className="truncate text-caption text-muted-foreground">
+          {activeSprint?.label ?? project.key}
         </span>
-        {current ? (
-          <Check className="size-4 shrink-0" strokeWidth={1.75} />
-        ) : null}
-      </Link>
-    </li>
+      </span>
+    </span>
   )
 }

@@ -5,6 +5,7 @@ import { useRef } from "react"
 import { NavHoverContext, NavItem } from "@/components/shell/NavItem"
 import {
   matchProjectRoute,
+  PROJECT_CARD_HOVER_INDEX,
   projectPageHoverIndex,
   ProjectScope
 } from "@/components/shell/ProjectScope"
@@ -32,14 +33,24 @@ export function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
           ref={listRef}
           role="presentation"
           onMouseEnter={hover.handlers.onMouseEnter}
-          onMouseMove={hover.handlers.onMouseMove}
+          onMouseMove={(event) => {
+            if (
+              event.target instanceof Node &&
+              listRef.current?.contains(event.target)
+            )
+              hover.handlers.onMouseMove(event)
+            else hover.handlers.onMouseLeave()
+          }}
           onMouseLeave={hover.handlers.onMouseLeave}
           onClick={hover.handlers.onClick}
           className="relative flex flex-col gap-1"
         >
           <FluidHoverHighlight
             hover={hover}
-            hidden={hover.activeIndex === filledIndex}
+            hidden={
+              hover.activeIndex === filledIndex ||
+              hover.activeIndex === PROJECT_CARD_HOVER_INDEX
+            }
             className="z-[1] rounded-lg"
           />
           {orgSlug ? (
