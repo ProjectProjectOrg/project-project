@@ -151,12 +151,14 @@ const record = (
       null,
       write,
       [],
-      subscriptions.map(
-        (subscribe): SubscriptionIntent => ({
-          ticketId: ticketId("T-1"),
-          ...subscribe
-        })
-      )
+      {
+        subscriptions: subscriptions.map(
+          (subscribe): SubscriptionIntent => ({
+            ticketId: ticketId("T-1"),
+            ...subscribe
+          })
+        )
+      }
     )
   ).pipe(
     Effect.provideService(ActivityActor, ActivityActor.user(project.member))

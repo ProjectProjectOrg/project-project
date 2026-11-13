@@ -19,6 +19,7 @@ import { FeedbackGroup, FeedbackIntakeGroup } from "./feedback/FeedbackApi"
 import { FigmaGroup } from "./figma/FigmaApi"
 import { GitAutomationGroup } from "./github/GitAutomationApi"
 import { GroupsGroup } from "./groups/GroupsApi"
+import { InboxGroup } from "./inbox/InboxApi"
 import { JiraGroup, JiraMigrationsGroup } from "./jira/JiraApi"
 import { LibraryGroup } from "./library/LibraryApi"
 import { LinkPreviewsGroup } from "./linkPreviews/LinkPreviewsApi"
@@ -80,6 +81,7 @@ export const AppApi = HttpApi.make("projectproject")
   .add(TicketCommentsGroup)
   .add(TicketActivityGroup)
   .add(TicketSubscriptionsGroup)
+  .add(InboxGroup)
   .add(TagsGroup)
   .add(StatusesGroup)
   .add(GitAutomationGroup)

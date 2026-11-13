@@ -1630,6 +1630,35 @@ const make = Effect.gen(function* () {
                     eq(schema.ticketSubscription.ticketId, from)
                   )
                 )
+              yield* db
+                .update(schema.inboxRow)
+                .set(target)
+                .where(
+                  and(
+                    eq(schema.inboxRow.projectId, source.projectId),
+                    eq(schema.inboxRow.ticketId, from),
+                    inArray(
+                      schema.inboxRow.userId,
+                      db
+                        .select({ userId: schema.projectMember.userId })
+                        .from(schema.projectMember)
+                        .where(
+                          eq(
+                            schema.projectMember.projectId,
+                            destination.projectId
+                          )
+                        )
+                    )
+                  )
+                )
+              yield* db
+                .delete(schema.inboxRow)
+                .where(
+                  and(
+                    eq(schema.inboxRow.projectId, source.projectId),
+                    eq(schema.inboxRow.ticketId, from)
+                  )
+                )
             }),
           { discard: true }
         )

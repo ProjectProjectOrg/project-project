@@ -20,6 +20,14 @@ export type SubscriptionSource = Pick<
   "id" | "createdBy" | "assignees" | "body" | "commentsRegion"
 >
 
+export type CommentChange = Readonly<{
+  commentId: string
+  authorId: string | null
+  native: boolean
+  isNew: boolean
+  mentioned: ReadonlyArray<string>
+}>
+
 export const overridesUnsubscribe = (reason: SubscriptionReason): boolean =>
   reason === "assigned" || reason === "mentioned"
 
@@ -32,7 +40,7 @@ const mentionCounts = (markdown: string): ReadonlyMap<string, number> => {
   return counts
 }
 
-const newlyMentioned = (
+export const newlyMentioned = (
   before: string,
   after: string
 ): ReadonlyArray<string> => {
@@ -43,25 +51,26 @@ const newlyMentioned = (
     .map(([userId]) => userId)
 }
 
-const commentIntents = (
+export const commentChanges = (
   before: string,
   after: string
-): ReadonlyArray<Readonly<{ userId: string; reason: SubscriptionReason }>> => {
+): ReadonlyArray<CommentChange> => {
   if (before === after) return []
   const previous = new Map(
     parseCommentsRegion(before).map((block) => [block.id, block.body])
   )
   return parseCommentsRegion(after).flatMap((block) => {
     const earlier = previous.get(block.id)
-    const mentions = newlyMentioned(earlier ?? "", block.body).map(
-      (userId) => ({ userId, reason: "mentioned" as const })
-    )
-    return earlier === undefined && block.author.kind === "user"
-      ? [
-          { userId: block.author.userId, reason: "commented" as const },
-          ...mentions
-        ]
-      : mentions
+    if (earlier === block.body) return []
+    return [
+      {
+        commentId: block.id,
+        authorId: block.author.kind === "user" ? block.author.userId : null,
+        native: block.origin === "native",
+        isNew: earlier === undefined,
+        mentioned: newlyMentioned(earlier ?? "", block.body)
+      }
+    ]
   })
 }
 
@@ -81,7 +90,18 @@ export const subscriptionIntents = (
       userId,
       reason: "mentioned" as const
     })),
-    ...commentIntents(before?.commentsRegion ?? "", after.commentsRegion)
+    ...commentChanges(
+      before?.commentsRegion ?? "",
+      after.commentsRegion
+    ).flatMap((comment) => [
+      ...(comment.isNew && comment.authorId !== null
+        ? [{ userId: comment.authorId, reason: "commented" as const }]
+        : []),
+      ...comment.mentioned.map((userId) => ({
+        userId,
+        reason: "mentioned" as const
+      }))
+    ])
   ]
   const byUser = new Map<string, SubscriptionReason>()
   for (const { userId, reason } of candidates) {

@@ -38,11 +38,11 @@ export const recordingTicketActivity = (
         cause,
         write,
         _events,
-        intents = []
+        effects = {}
       ) =>
         Effect.gen(function* () {
           const result = yield* write
-          subscriptions.push(...intents)
+          subscriptions.push(...(effects.subscriptions ?? []))
           if (changes.length > 0) {
             recorded.push({
               document,

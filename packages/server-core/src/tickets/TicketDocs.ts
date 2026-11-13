@@ -28,6 +28,7 @@ import * as Struct from "effect/Struct"
 import { relationChanges, ticketChanges } from "../activity/changes"
 import { ticketCreatedEvents, ticketEvents } from "../activity/projectEvents"
 import * as TicketActivity from "../activity/TicketActivity"
+import { inboxNotices } from "../inbox/events"
 import * as KeyedLock from "../locks/KeyedLock"
 import { markdownFileContent, ticketFileBody } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
@@ -519,8 +520,11 @@ const make = Effect.gen(function* () {
             ),
             ticketCreatedEvents(document),
             options.autoSubscribe === false
-              ? []
-              : subscriptionIntents(null, document)
+              ? {}
+              : {
+                  subscriptions: subscriptionIntents(null, document),
+                  notices: inboxNotices(null, document)
+                }
           )
           .pipe(
             Effect.provideService(
@@ -632,7 +636,16 @@ const make = Effect.gen(function* () {
               activity.cause ?? null,
               write(orgSlug, slug, id, next),
               events,
-              subscriptionIntents(current, next)
+              {
+                subscriptions: subscriptionIntents(current, next),
+                notices: activity.silent ? [] : inboxNotices(current, next),
+                finished:
+                  finished ??
+                  (current.archivedAt === null && next.archivedAt !== null
+                    ? yield* finishedStatuses.forProject(orgSlug, slug)
+                    : null),
+                statusBefore: current.status
+              }
             )
             if (onPersist) yield* onPersist(next)
             return next
