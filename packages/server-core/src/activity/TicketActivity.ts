@@ -28,7 +28,7 @@ import * as Schedule from "effect/Schedule"
 import * as Schema from "effect/Schema"
 
 import { stageInbox, type InboxNotice } from "../inbox/events"
-import { applyInbox, removeTicketInbox } from "../inbox/inboxRows"
+import { applyInbox, lockTickets, removeTicketInbox } from "../inbox/inboxRows"
 import { contentHash } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
 import type { SubscriptionIntent } from "../subscriptions/intents"
@@ -497,14 +497,15 @@ const make = Effect.gen(function* () {
         )
       )
       .pipe(Effect.orDie)
-    yield* removeTicketInbox(projectId, ticketId).pipe(
-      Effect.provideService(Db, db),
-      Effect.orDie
-    )
-    yield* removeTicketSubscriptions(projectId, ticketId).pipe(
-      Effect.provideService(Db, db),
-      Effect.orDie
-    )
+    yield* db
+      .transaction(() =>
+        lockTickets(db, projectId, [ticketId]).pipe(
+          Effect.andThen(removeTicketInbox(projectId, ticketId)),
+          Effect.andThen(removeTicketSubscriptions(projectId, ticketId)),
+          Effect.provideService(Db, db)
+        )
+      )
+      .pipe(Effect.orDie)
   })
 
   const page = Effect.fn("TicketActivity.page")(function* (
