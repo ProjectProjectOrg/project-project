@@ -40,6 +40,7 @@ import * as TicketBranchIndex from "@pp/server-core/git/TicketBranchIndex"
 import * as GitHubTicketEvents from "@pp/server-core/github/GitHubTicketEvents"
 import * as GroupDocs from "@pp/server-core/groups/GroupDocs"
 import * as Groups from "@pp/server-core/groups/Groups"
+import * as Inbox from "@pp/server-core/inbox/Inbox"
 import * as Library from "@pp/server-core/library/Library"
 import * as LibraryDocs from "@pp/server-core/library/LibraryDocs"
 import * as LibraryMigration from "@pp/server-core/library/LibraryMigration"
@@ -157,7 +158,9 @@ export const makeBackendServicesLive = <TE, TR, EE, ER, CE, CR>(
       Layer.provideMerge(ProjectStatuses.layer),
       Layer.provideMerge(TicketServices.layer),
       Layer.provideMerge(TicketActivityFeed.layer),
-      Layer.provideMerge(TicketSubscriptions.layer),
+      Layer.provideMerge(
+        Layer.mergeAll(TicketSubscriptions.layer, Inbox.layer)
+      ),
       Layer.provideMerge(Library.layer),
       Layer.provideMerge(LibraryMigration.layer),
       Layer.provideMerge(AttachmentUploads.layer),

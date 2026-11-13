@@ -10,6 +10,7 @@ import { ErrorPage } from "@/components/shell/ErrorPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
 import { ticketRepo } from "@/features/github/lib/repos"
+import { useMarkTicketRead } from "@/features/inbox/hooks/useMarkTicketRead"
 import { useProject } from "@/features/projects/hooks/useProject"
 import {
   movedTicket,
@@ -82,6 +83,12 @@ export function TicketDetail() {
   )
   useCommandScope(commandScope)
   useRememberViewedTicket(shown, from?.kind === "parent" ? undefined : from)
+  useMarkTicketRead(
+    urlId,
+    Result.isSuccess(
+      useAtomValue(ticketDetail(ticketRequest(orgSlug, slug, urlId)))
+    )
+  )
   const autoFocusBody = useRef(search.focusBody === "1").current
 
   useEffect(() => {

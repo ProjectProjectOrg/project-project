@@ -70,6 +70,7 @@ import { validateBodyMentionsWithLookups } from "../comments/BodyMentions"
 import type * as Comments from "../comments/Comments"
 import * as FigmaLinks from "../figma/FigmaLinks"
 import * as Groups from "../groups/Groups"
+import { lockTickets } from "../inbox/inboxRows"
 import * as Library from "../library/Library"
 import type * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
@@ -1429,6 +1430,7 @@ const make = Effect.gen(function* () {
       )
     )
 
+    const finished = yield* finishedStatuses.forProject(orgSlug, slug)
     yield* withTicketDocumentLock(
       orgSlug,
       slug,
@@ -1449,7 +1451,9 @@ const make = Effect.gen(function* () {
           }
         ].map((change) => ({ ticketId: written.retained.id, change })),
         null,
-        Effect.void
+        Effect.void,
+        [],
+        { finished, statusBefore: written.original.status }
       )
     )
 
@@ -1561,77 +1565,126 @@ const make = Effect.gen(function* () {
   ): Effect.Effect<void> =>
     db
       .transaction(() =>
-        Effect.forEach(
-          moved,
-          ({ from, to }) =>
-            Effect.gen(function* () {
-              const target = { projectId: destination.projectId, ticketId: to }
-              yield* db
-                .update(schema.attachmentIndex)
-                .set(target)
-                .where(
-                  and(
-                    eq(schema.attachmentIndex.projectId, source.projectId),
-                    eq(schema.attachmentIndex.ticketId, from)
-                  )
-                )
-              yield* db
-                .delete(schema.attachmentReference)
-                .where(
-                  and(
-                    eq(schema.attachmentReference.projectId, source.projectId),
-                    eq(schema.attachmentReference.ticketId, from)
-                  )
-                )
-              yield* db
-                .update(schema.commentIndex)
-                .set(target)
-                .where(
-                  and(
-                    eq(schema.commentIndex.projectId, source.projectId),
-                    eq(schema.commentIndex.ticketId, from)
-                  )
-                )
-              yield* db
-                .update(schema.ticketActivity)
-                .set(target)
-                .where(
-                  and(
-                    eq(schema.ticketActivity.projectId, source.projectId),
-                    eq(schema.ticketActivity.ticketId, from)
-                  )
-                )
-              yield* db
-                .update(schema.ticketSubscription)
-                .set(target)
-                .where(
-                  and(
-                    eq(schema.ticketSubscription.projectId, source.projectId),
-                    eq(schema.ticketSubscription.ticketId, from),
-                    inArray(
-                      schema.ticketSubscription.userId,
-                      db
-                        .select({ userId: schema.projectMember.userId })
-                        .from(schema.projectMember)
-                        .where(
-                          eq(
-                            schema.projectMember.projectId,
-                            destination.projectId
-                          )
-                        )
+        lockTickets(
+          db,
+          source.projectId,
+          moved.map(({ from }) => from)
+        ).pipe(
+          Effect.andThen(
+            Effect.forEach(
+              moved,
+              ({ from, to }) =>
+                Effect.gen(function* () {
+                  const target = {
+                    projectId: destination.projectId,
+                    ticketId: to
+                  }
+                  yield* db
+                    .update(schema.attachmentIndex)
+                    .set(target)
+                    .where(
+                      and(
+                        eq(schema.attachmentIndex.projectId, source.projectId),
+                        eq(schema.attachmentIndex.ticketId, from)
+                      )
                     )
-                  )
-                )
-              yield* db
-                .delete(schema.ticketSubscription)
-                .where(
-                  and(
-                    eq(schema.ticketSubscription.projectId, source.projectId),
-                    eq(schema.ticketSubscription.ticketId, from)
-                  )
-                )
-            }),
-          { discard: true }
+                  yield* db
+                    .delete(schema.attachmentReference)
+                    .where(
+                      and(
+                        eq(
+                          schema.attachmentReference.projectId,
+                          source.projectId
+                        ),
+                        eq(schema.attachmentReference.ticketId, from)
+                      )
+                    )
+                  yield* db
+                    .update(schema.commentIndex)
+                    .set(target)
+                    .where(
+                      and(
+                        eq(schema.commentIndex.projectId, source.projectId),
+                        eq(schema.commentIndex.ticketId, from)
+                      )
+                    )
+                  yield* db
+                    .update(schema.ticketActivity)
+                    .set(target)
+                    .where(
+                      and(
+                        eq(schema.ticketActivity.projectId, source.projectId),
+                        eq(schema.ticketActivity.ticketId, from)
+                      )
+                    )
+                  yield* db
+                    .update(schema.ticketSubscription)
+                    .set(target)
+                    .where(
+                      and(
+                        eq(
+                          schema.ticketSubscription.projectId,
+                          source.projectId
+                        ),
+                        eq(schema.ticketSubscription.ticketId, from),
+                        inArray(
+                          schema.ticketSubscription.userId,
+                          db
+                            .select({ userId: schema.projectMember.userId })
+                            .from(schema.projectMember)
+                            .where(
+                              eq(
+                                schema.projectMember.projectId,
+                                destination.projectId
+                              )
+                            )
+                        )
+                      )
+                    )
+                  yield* db
+                    .delete(schema.ticketSubscription)
+                    .where(
+                      and(
+                        eq(
+                          schema.ticketSubscription.projectId,
+                          source.projectId
+                        ),
+                        eq(schema.ticketSubscription.ticketId, from)
+                      )
+                    )
+                  yield* db
+                    .update(schema.inboxRow)
+                    .set(target)
+                    .where(
+                      and(
+                        eq(schema.inboxRow.projectId, source.projectId),
+                        eq(schema.inboxRow.ticketId, from),
+                        inArray(
+                          schema.inboxRow.userId,
+                          db
+                            .select({ userId: schema.projectMember.userId })
+                            .from(schema.projectMember)
+                            .where(
+                              eq(
+                                schema.projectMember.projectId,
+                                destination.projectId
+                              )
+                            )
+                        )
+                      )
+                    )
+                  yield* db
+                    .delete(schema.inboxRow)
+                    .where(
+                      and(
+                        eq(schema.inboxRow.projectId, source.projectId),
+                        eq(schema.inboxRow.ticketId, from)
+                      )
+                    )
+                }),
+              { discard: true }
+            )
+          )
         )
       )
       .pipe(Effect.orDie)

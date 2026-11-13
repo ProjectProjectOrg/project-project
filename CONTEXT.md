@@ -61,6 +61,10 @@ _Avoid_: Blocked (for a flag), impediment
 A person's subscription to one ticket, so the ticket's updates reach them. You are subscribed to a ticket when you create it, are assigned to it, comment on it or are mentioned in it, and you can subscribe or **unsubscribe** by hand. An unsubscribe sticks until you are assigned or mentioned again. **Subscribers** are everyone subscribed to a ticket.
 _Avoid_: Follow, watch
 
+**Inbox**:
+A person's list of tickets that need their attention in one organisation, one row per ticket. A **direct** row is for you whether or not you're subscribed (you were assigned or mentioned) and resolves itself when the ticket finishes or is archived, you're unassigned, or you reply after the mention. Other rows come from tickets you're subscribed to and are done once read. Your agent's actions count as yours.
+_Avoid_: Notifications (for the rows), feed
+
 **Status**:
 A project-defined column a ticket moves through. Projects start with `todo`, `in_progress` and `done` and can add their own.
 

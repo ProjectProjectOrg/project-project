@@ -51,6 +51,9 @@ import type {
   ProjectBanner,
   ProjectIconImage,
   TicketActivityChangeEncoded,
+  DirectReason,
+  InboxEventEncoded,
+  InboxState,
   TypeKey
 } from "@pp/shared"
 import { defineRelations, sql } from "drizzle-orm"
@@ -983,6 +986,73 @@ export const ticketSubscription = pgTable(
 )
 
 export type TicketActivityRow = typeof ticketActivity.$inferInsert
+export type TicketActivityOutboxActor = Pick<
+  TicketActivityRow,
+  | "actorKind"
+  | "actorUserId"
+  | "actorClientId"
+  | "actorClientName"
+  | "actorSource"
+>
+
+export type InboxResolution =
+  | Readonly<{ kind: "all" }>
+  | Readonly<{ kind: DirectReason; userId: string }>
+
+export type StagedInbox = Readonly<{
+  ticketId: string
+  occurredAt: string
+  actor: TicketActivityOutboxActor
+  notify: boolean
+  readBy: boolean
+  direct: ReadonlyArray<Readonly<{ userId: string; event: InboxEventEncoded }>>
+  subscribers: ReadonlyArray<InboxEventEncoded>
+  resolve: ReadonlyArray<InboxResolution>
+  unblockWith: ReadonlyArray<string> | null
+}>
+
+export type InboxDirect = Readonly<{
+  reason: DirectReason
+  at: string
+  commentId: string | null
+}>
+
+export const inboxRow = pgTable(
+  "inbox_row",
+  {
+    projectId: uuid("project_id").notNull(),
+    ticketId: text("ticket_id").notNull(),
+    userId: text("user_id").notNull(),
+    state: text("state").$type<InboxState>().notNull(),
+    direct: jsonb("direct")
+      .$type<ReadonlyArray<InboxDirect>>()
+      .notNull()
+      .default([]),
+    latest: jsonb("latest").$type<InboxEventEncoded>().notNull(),
+    latestAt: timestamp("latest_at", { withTimezone: true }).notNull(),
+    actorKind: text("actor_kind", {
+      enum: ["user", "agent", "system"]
+    }).notNull(),
+    actorUserId: text("actor_user_id"),
+    actorClientId: text("actor_client_id"),
+    actorClientName: text("actor_client_name"),
+    actorSource: text("actor_source", {
+      enum: ["github", "automation", "import"]
+    }),
+    unreadCount: integer("unread_count").notNull().default(0),
+    lastReadAt: timestamp("last_read_at", { withTimezone: true }),
+    readByClientName: text("read_by_client_name")
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.ticketId, t.userId] }),
+    foreignKey({
+      name: "inbox_row_project_member_fkey",
+      columns: [t.projectId, t.userId],
+      foreignColumns: [projectMember.projectId, projectMember.userId]
+    }).onDelete("cascade"),
+    index("inbox_row_user_idx").on(t.userId, t.state, t.latestAt)
+  ]
+)
 export type TicketActivityOutboxRow = Omit<TicketActivityRow, "occurredAt"> &
   Readonly<{ occurredAt: string }>
 
@@ -1184,6 +1254,7 @@ export const ticketActivityOutbox = pgTable(
       >()
       .notNull()
       .default([]),
+    inbox: jsonb("inbox").$type<StagedInbox | null>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow()

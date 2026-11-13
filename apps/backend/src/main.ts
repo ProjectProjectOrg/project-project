@@ -108,6 +108,7 @@ import { figmaOauthRoutes } from "./figma/OAuthRoutes"
 import { figmaThumbnailRoutes } from "./figma/ThumbnailRoutes"
 import { GitAutomationHandlerLive } from "./git/Handlers"
 import { GroupsHandlerLive } from "./groups/Handlers"
+import { InboxHandlerLive } from "./inbox/Handlers"
 import { JiraHandlerLive } from "./jira/Handlers"
 import { JiraMigrationsHandlerLive } from "./jira/MigrationHandlers"
 import { jiraOauthRoutes } from "./jira/OAuthRoutes"
@@ -196,7 +197,8 @@ export const ApiRoutesLive = HttpApiBuilder.layer(AppApi).pipe(
     Layer.mergeAll(
       CommentsHandlerLive,
       TicketActivityHandlerLive,
-      TicketSubscriptionsHandlerLive
+      TicketSubscriptionsHandlerLive,
+      InboxHandlerLive
     )
   ),
   Layer.provide(TagsHandlerLive),
