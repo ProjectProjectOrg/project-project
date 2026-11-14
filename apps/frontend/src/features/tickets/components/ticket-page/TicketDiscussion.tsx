@@ -1,5 +1,5 @@
 import { isEpic, type Member, type Ticket } from "@pp/shared"
-import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys"
+import { useHotkey } from "@tanstack/react-hotkeys"
 import { ChevronRight, Plus } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useState, type ReactNode } from "react"
@@ -32,13 +32,11 @@ export function TicketDiscussion({
   return (
     <>
       {holdsChildren && (
-        <HotkeysProvider scope="ticket">
-          <ChildrenSection
-            parent={ticket}
-            members={members}
-            editable={editable}
-          />
-        </HotkeysProvider>
+        <ChildrenSection
+          parent={ticket}
+          members={members}
+          editable={editable}
+        />
       )}
       <CommentsSection ticketId={ticket.id} />
     </>

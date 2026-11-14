@@ -9,5 +9,8 @@ export function useGlobalShortcut(
     ref.current?.focus()
     ref.current?.select()
   })
-  useHotkey("Escape", () => ref.current?.blur(), { target: ref })
+  useHotkey("Escape", () => ref.current?.blur(), {
+    target: ref,
+    stopPropagation: false
+  })
 }

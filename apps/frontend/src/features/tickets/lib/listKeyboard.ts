@@ -1,10 +1,3 @@
-export const listStep = (key: string): 1 | -1 | null =>
-  key === "j" || key === "ArrowDown"
-    ? 1
-    : key === "k" || key === "ArrowUp"
-      ? -1
-      : null
-
 export const stepTicket = <Id extends string>(
   sections: ReadonlyArray<ReadonlyArray<Id>>,
   current: string | null,

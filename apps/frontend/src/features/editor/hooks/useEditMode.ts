@@ -85,19 +85,16 @@ export function useEditMode({
       if (rootRef.current?.contains(target) ?? false) return
       stopFromEvent()
     }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return
-      if (!(event.target instanceof Node)) return
-      if (!(rootRef.current?.contains(event.target) ?? false)) return
-      stopFromEvent()
-    }
     document.addEventListener("pointerdown", onPointerDown)
-    document.addEventListener("keydown", onKeyDown)
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown)
-      document.removeEventListener("keydown", onKeyDown)
-    }
+    return () => document.removeEventListener("pointerdown", onPointerDown)
   }, [editing, rootRef])
+
+  useHotkey("Escape", stopEditing, {
+    target: rootRef,
+    enabled: editing,
+    preventDefault: false,
+    conflictBehavior: "allow"
+  })
 
   return { editing, startEditing, stopEditing }
 }

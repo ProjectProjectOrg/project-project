@@ -1,4 +1,5 @@
 import { INNER_RING, OUTER_RING, type ColorSwatch } from "@pp/shared"
+import { useHotkey } from "@tanstack/react-hotkeys"
 import { AnimatePresence, motion } from "motion/react"
 import { useEffect, useRef, useState } from "react"
 
@@ -48,16 +49,15 @@ export function ColorPicker({
       const root = rootRef.current
       if (root && e.target instanceof Node && !root.contains(e.target)) close()
     }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close()
-    }
     document.addEventListener("pointerdown", onPointer)
-    document.addEventListener("keydown", onKey)
-    return () => {
-      document.removeEventListener("pointerdown", onPointer)
-      document.removeEventListener("keydown", onKey)
-    }
+    return () => document.removeEventListener("pointerdown", onPointer)
   }, [open, onOpenChange])
+
+  useHotkey("Escape", () => changeOpen(false), {
+    enabled: open,
+    preventDefault: false,
+    conflictBehavior: "allow"
+  })
 
   const select = (hex: string) => {
     onChange(hex)

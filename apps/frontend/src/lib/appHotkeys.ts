@@ -7,6 +7,7 @@ const create = m.chrome_command_menu_group_create()
 const ticket = m.tickets_command_group()
 const view = m.chrome_command_menu_group_view()
 const navigation = m.chrome_command_menu_group_navigation()
+const board = m.sprints_command_group()
 
 export const appHotkeys = defineAppHotkeys({
   "app.command-menu": {
@@ -82,11 +83,47 @@ export const appHotkeys = defineAppHotkeys({
   },
   "tickets.next": {
     hotkey: "J",
+    scope: "ticket",
     meta: { name: m.tickets_stepper_next(), group: ticket }
   },
   "tickets.previous": {
     hotkey: "K",
+    scope: "ticket",
     meta: { name: m.tickets_stepper_previous(), group: ticket }
+  },
+  "tickets.focus-next": {
+    hotkey: "J",
+    scope: "ticket-list",
+    meta: { name: m.tickets_shortcut_focus_next(), group: view }
+  },
+  "tickets.focus-previous": {
+    hotkey: "K",
+    scope: "ticket-list",
+    meta: { name: m.tickets_shortcut_focus_previous(), group: view }
+  },
+  "tickets.select": {
+    hotkey: "X",
+    meta: { name: m.tickets_shortcut_select(), group: view }
+  },
+  "board.left": {
+    hotkey: "H",
+    scope: "board",
+    meta: { name: m.sprints_shortcut_move_left(), group: board }
+  },
+  "board.down": {
+    hotkey: "J",
+    scope: "board",
+    meta: { name: m.sprints_shortcut_move_down(), group: board }
+  },
+  "board.up": {
+    hotkey: "K",
+    scope: "board",
+    meta: { name: m.sprints_shortcut_move_up(), group: board }
+  },
+  "board.right": {
+    hotkey: "L",
+    scope: "board",
+    meta: { name: m.sprints_shortcut_move_right(), group: board }
   }
 })
 

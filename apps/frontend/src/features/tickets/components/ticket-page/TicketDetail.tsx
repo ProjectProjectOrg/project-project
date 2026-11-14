@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import { TicketId } from "@pp/shared"
+import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import { getRouteApi, Navigate } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -112,14 +113,16 @@ export function TicketDetail() {
   )
   const atUrl = shown === urlId
   return (
-    <LoadedTicket
-      req={ticketRequest(orgSlug, slug, shown)}
-      loading={loading}
-      stepper={stepper}
-      from={from}
-      autoFocusBody={atUrl && autoFocusBody}
-      splitInto={atUrl ? (search.splitInto ?? []) : []}
-    />
+    <HotkeysProvider scope="ticket">
+      <LoadedTicket
+        req={ticketRequest(orgSlug, slug, shown)}
+        loading={loading}
+        stepper={stepper}
+        from={from}
+        autoFocusBody={atUrl && autoFocusBody}
+        splitInto={atUrl ? (search.splitInto ?? []) : []}
+      />
+    </HotkeysProvider>
   )
 }
 

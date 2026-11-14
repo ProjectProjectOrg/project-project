@@ -1,8 +1,8 @@
+import { useHotkey } from "@tanstack/react-hotkeys"
 import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -12,7 +12,7 @@ import {
 
 import { useReturnToTicket } from "@/features/tickets/hooks/useReturnToTicket"
 import { useKeyboardMode } from "@/hooks/useKeyboardMode"
-import { hasModifier, ownsKeystrokes } from "@/lib/keyboard"
+import { appHotkeys } from "@/lib/appHotkeys"
 
 import {
   createBoardKeyboardNavigation,
@@ -71,26 +71,28 @@ export function useBoardKeyboardNavigation(
     }
   }, [enabled, ref, returnToTicket])
 
-  useEffect(() => {
-    if (!enabled) return undefined
-    const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      const target = event.target
-      if (
-        event.defaultPrevented ||
-        !isBoardKey(event.key) ||
-        hasModifier(event) ||
-        ownsKeystrokes(target) ||
-        (target instanceof Node && ref.current?.contains(target)) ||
-        (event.key.startsWith("Arrow") && target !== document.body)
-      )
-        return
-      event.preventDefault()
-      startKeyboardMode()
-      controller.current?.enter(event.key)
-    }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-  }, [enabled, ref, startKeyboardMode])
+  const enter = (arrow: boolean) => (event: globalThis.KeyboardEvent) => {
+    const target = event.target
+    if (target instanceof Node && ref.current?.contains(target)) return
+    if (arrow && target !== document.body) return
+    event.preventDefault()
+    startKeyboardMode()
+    controller.current?.enter(event.key)
+  }
+  const manual = {
+    enabled,
+    preventDefault: false,
+    stopPropagation: false
+  } as const
+  const arrows = { ...manual, scope: "board" } as const
+  useHotkey(appHotkeys["board.left"], enter(false), manual)
+  useHotkey(appHotkeys["board.down"], enter(false), manual)
+  useHotkey(appHotkeys["board.up"], enter(false), manual)
+  useHotkey(appHotkeys["board.right"], enter(false), manual)
+  useHotkey("ArrowLeft", enter(true), arrows)
+  useHotkey("ArrowDown", enter(true), arrows)
+  useHotkey("ArrowUp", enter(true), arrows)
+  useHotkey("ArrowRight", enter(true), arrows)
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
