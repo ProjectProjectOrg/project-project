@@ -247,6 +247,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.estimate",
+    hotkey: appHotkeys["tickets.estimate"],
     bulk: true,
     group: "ticket",
     label: m.tickets_command_set_estimate,

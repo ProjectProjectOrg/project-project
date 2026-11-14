@@ -20,6 +20,7 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { Select, SelectTrigger } from "@/components/ui/select"
+import { ShortcutTooltip } from "@/components/ui/tooltip"
 import {
   ESTIMATE_UNIT_ICON,
   formatEstimate,
@@ -28,6 +29,7 @@ import {
   parseEstimatePoints
 } from "@/features/tickets/lib/estimateMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { formatWorkDurationLong } from "@/lib/duration"
 import { blurSwap } from "@/lib/springs"
 import { cn } from "@/lib/utils"
@@ -133,7 +135,9 @@ export function EstimateBadgeTrigger({
       }}
       contentProps={{ align: "start", className: "w-40", finalFocus: false }}
     >
-      <SelectTrigger render={trigger} />
+      <ShortcutTooltip hotkey={appHotkeys["tickets.estimate"]}>
+        <SelectTrigger render={trigger} />
+      </ShortcutTooltip>
     </Select>
   )
 }
@@ -254,7 +258,9 @@ function EstimateInputPopover({
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={trigger} />
+      <ShortcutTooltip hotkey={appHotkeys["tickets.estimate"]}>
+        <PopoverTrigger render={trigger} />
+      </ShortcutTooltip>
       <PopoverContent
         align="start"
         sideOffset={6}

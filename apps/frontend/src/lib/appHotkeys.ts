@@ -30,6 +30,14 @@ export const appHotkeys = defineAppHotkeys({
     hotkey: ["G", "S"],
     meta: { name: m.chrome_command_menu_go_sprints(), group: navigation }
   },
+  "nav.current-sprint": {
+    hotkey: ["G", "C"],
+    meta: { name: m.chrome_command_menu_go_current_sprint(), group: navigation }
+  },
+  "nav.about": {
+    hotkey: ["G", "A"],
+    meta: { name: m.chrome_command_menu_go_about(), group: navigation }
+  },
   "nav.settings": {
     hotkey: ["G", ","],
     meta: { name: m.chrome_command_menu_go_settings(), group: navigation }
@@ -72,6 +80,10 @@ export const appHotkeys = defineAppHotkeys({
   "tickets.tags": {
     hotkey: "T",
     meta: { name: m.tickets_command_tags(), group: ticket }
+  },
+  "tickets.estimate": {
+    hotkey: "Shift+E",
+    meta: { name: m.tickets_command_set_estimate(), group: ticket }
   },
   "tickets.flag": {
     hotkey: "F",

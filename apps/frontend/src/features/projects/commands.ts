@@ -1,4 +1,11 @@
-import { FolderKanban, FolderPlus, ListTodo, Timer } from "lucide-react"
+import {
+  CalendarClock,
+  FolderKanban,
+  FolderPlus,
+  Info,
+  ListTodo,
+  Timer
+} from "lucide-react"
 
 import type {
   Command,
@@ -52,6 +59,32 @@ export const projectCommands: ReadonlyArray<Command> = [
     when: inProject,
     run: (context, env) => {
       env.navigate(`${projectPath(context)}/sprints`)
+      env.close()
+    }
+  },
+  {
+    id: "project.current-sprint",
+    hotkey: appHotkeys["nav.current-sprint"],
+    group: "navigation",
+    label: m.chrome_command_menu_go_current_sprint,
+    icon: CalendarClock,
+    keywords: ["active", "sprint"],
+    when: inProject,
+    run: (context, env) => {
+      env.navigate(`${projectPath(context)}/sprints/current`)
+      env.close()
+    }
+  },
+  {
+    id: "project.about",
+    hotkey: appHotkeys["nav.about"],
+    group: "navigation",
+    label: m.chrome_command_menu_go_about,
+    icon: Info,
+    keywords: ["overview", "readme", "links"],
+    when: inProject,
+    run: (context, env) => {
+      env.navigate(`${projectPath(context)}/about`)
       env.close()
     }
   }
