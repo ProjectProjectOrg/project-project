@@ -202,9 +202,20 @@ describe("inboxNotices", () => {
         ])
       })
     ).toEqual([
-      { kind: "commented", authorId: "carl", commentId: "c2" },
-      { kind: "mentioned", userId: "bob", commentId: "c2" }
+      { kind: "commented", authorId: "carl", commentId: "c2", excerpt: "@bob" },
+      { kind: "mentioned", userId: "bob", commentId: "c2", excerpt: "@bob" }
     ])
+  })
+
+  it("carries a plain-text excerpt of the comment", () => {
+    const body = `**Found it**: the [verify endpoint](https://x.test) drops it.\n\n- ask [Bob](${formatMentionHref("user", "bob")})`
+    const [notice] = inboxNotices(source, {
+      ...source,
+      commentsRegion: serializeCommentsRegion([comment("c1", "native", body)])
+    })
+    expect(notice).toMatchObject({
+      excerpt: "Found it: the verify endpoint drops it. ask @Bob"
+    })
   })
 
   it("assigns the people on a new ticket", () => {

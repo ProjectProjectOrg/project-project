@@ -11,6 +11,7 @@
   "comments_editing_marker": "editing…",
   "comments_imported_from_jira": "Imported from Jira",
   "comments_load_failed": "Failed to load comments.",
+  "comments_new": "New",
   "comments_save_button": "Save",
   "comments_save_failed": "Failed to save."
 }

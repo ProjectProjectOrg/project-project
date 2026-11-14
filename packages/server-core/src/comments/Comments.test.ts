@@ -707,17 +707,10 @@ describe("comment moderation", () => {
       Effect.exit
     )
 
-  it.effect("lets a PM edit and delete someone else's comment", () =>
-    Effect.gen(function* () {
-      const pm = scopeFor("user-1", "pm")
-      expect((yield* attempt("edit", "user-2", pm))._tag).toBe("Success")
-      expect((yield* attempt("remove", "user-2", pm))._tag).toBe("Success")
-    })
-  )
-
-  it.effect("keeps developers and clients to their own comments", () =>
+  it.effect("keeps everyone, PMs included, to their own comments", () =>
     Effect.gen(function* () {
       for (const caller of [
+        scopeFor("user-1", "pm"),
         scopeFor("user-1", "developer"),
         scopeFor("user-1", "client")
       ]) {

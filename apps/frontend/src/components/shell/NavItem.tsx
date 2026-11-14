@@ -6,6 +6,7 @@ import {
   use,
   useRef,
   type ComponentProps,
+  type ReactNode,
   type RefObject
 } from "react"
 
@@ -45,9 +46,15 @@ type NavItemProps = (
       to: "/orgs/$orgSlug"
       params: { orgSlug: string }
     }
+  | {
+      to: "/orgs/$orgSlug/inbox"
+      params: { orgSlug: string }
+    }
 ) & {
   icon: LucideIcon
   label: string
+  trailing?: ReactNode
+  accessibleLabel?: string
   index: number
   exact?: boolean
   fillWhenActive?: boolean
@@ -62,6 +69,8 @@ export function NavItem({
   index,
   exact,
   fillWhenActive = true,
+  trailing,
+  accessibleLabel,
   className
 }: NavItemProps) {
   const ref = useRef<HTMLAnchorElement>(null)
@@ -86,7 +95,17 @@ export function NavItem({
       }}
     >
       <Icon className="size-4" strokeWidth={1.75} />
-      <span>{label}</span>
+      <span aria-hidden={accessibleLabel === undefined ? undefined : true}>
+        {label}
+      </span>
+      {accessibleLabel !== undefined && (
+        <span className="sr-only">{accessibleLabel}</span>
+      )}
+      {trailing !== undefined && (
+        <span aria-hidden className="ml-auto">
+          {trailing}
+        </span>
+      )}
     </Link>
   )
 }

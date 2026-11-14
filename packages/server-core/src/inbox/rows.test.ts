@@ -68,6 +68,7 @@ describe("inbox rows", () => {
     const late = deliver(newer, mention)
     expect(late).toMatchObject({
       latest: { kind: "commented" },
+      firstAt: mention.at,
       unreadCount: 2,
       direct: [{ reason: "mentioned" }]
     })

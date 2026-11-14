@@ -123,6 +123,7 @@ const make = Effect.gen(function* () {
         direct: row.direct.map((entry) => entry.reason),
         latest: decodeEvent(row.latest),
         latestAt: row.latestAt,
+        firstAt: row.firstAt,
         actor: presentActor(actors[index], peopleById),
         unreadCount: row.unreadCount,
         lastReadAt: row.lastReadAt
