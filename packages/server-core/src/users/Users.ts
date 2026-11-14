@@ -95,7 +95,7 @@ const make = Effect.gen(function* () {
         personalGithub: {
           connected: false
         },
-        editorPreference: "github",
+        settings: { avatarSource: null, editorPreference: "github" },
         personalEverhour: {
           connected: false,
           everhourUserId: null,

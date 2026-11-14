@@ -10,9 +10,12 @@ import type {
   OrgMembers,
   PersonalEverhour,
   PersonalGithub,
+  UpdateUserSettingsInput,
   User,
   UserIdentity,
-  UserInvitation
+  UserInvitation,
+  UserSettings,
+  Validation
 } from "@pp/shared"
 import * as Context from "effect/Context"
 import type * as Effect from "effect/Effect"
@@ -42,7 +45,6 @@ export type AuthUser = Readonly<{
   image?: string | null
   createdAt: Date
   username?: string | null
-  editorPreference?: string | null
 }>
 
 export type AuthSession = Readonly<{
@@ -75,6 +77,10 @@ export class BetterAuth extends Context.Service<
       identity: UserIdentity,
       activeOrganizationId: string | null | undefined
     ) => Effect.Effect<User, BetterAuthError>
+    updateSettings: (
+      userId: string,
+      input: UpdateUserSettingsInput
+    ) => Effect.Effect<UserSettings, BetterAuthError | Validation>
     listOrganizations: (
       userId: string
     ) => Effect.Effect<

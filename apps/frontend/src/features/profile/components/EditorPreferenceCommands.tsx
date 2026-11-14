@@ -3,7 +3,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 
 import { fireMutation } from "@/api/viewMutation"
 import { CommandMenuCheck, CommandMenuItem } from "@/components/ui/command-menu"
-import { me, updateEditorPreference } from "@/features/auth/atoms/auth"
+import { me, updateSettings } from "@/features/auth/atoms/auth"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
 import { EDITOR_OPTIONS } from "@/features/profile/lib/editorOptions"
@@ -17,9 +17,9 @@ export function EditorPreferenceCommands({
   env
 }: CommandPageProps) {
   const viewer = useAtomValue(me())
-  const mutation = useAtomValue(updateEditorPreference)
+  const mutation = useAtomValue(updateSettings)
   const current = Result.isSuccess(viewer)
-    ? viewer.value.editorPreference
+    ? viewer.value.settings.editorPreference
     : null
   const error = mutationErrorText(
     mutation,
@@ -51,11 +51,9 @@ export function EditorPreferenceCommands({
           env.close()
           return
         }
-        void fireMutation(
-          env.registry,
-          updateEditorPreference,
-          option.key
-        ).then((result) => {
+        void fireMutation(env.registry, updateSettings, {
+          editorPreference: option.key
+        }).then((result) => {
           if (Result.isSuccess(result)) env.close()
         })
       }}

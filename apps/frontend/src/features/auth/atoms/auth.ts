@@ -1,4 +1,4 @@
-import type { EditorPreference, User } from "@pp/shared"
+import type { UpdateUserSettingsInput, User } from "@pp/shared"
 import type { BetterFetchError } from "better-auth/react"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -9,6 +9,7 @@ import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
 import { query } from "@/api/query"
 import { viewMutation } from "@/api/viewMutation"
+import { applySettingsPatch } from "@/features/profile/lib/userSettings"
 import { clearBannerRenderCache } from "@/features/projects/lib/bannerRenderCache"
 import { authClient } from "@/services/AuthClient"
 
@@ -89,30 +90,25 @@ export const disconnectPersonalGithub = Api.runtime.fn(
   })
 )
 
-export const updateEditorPreference = Api.runtime.fn(
-  Effect.fn("updateEditorPreference")(function* (
-    editorPreference: EditorPreference
-  ) {
-    yield* Effect.tryPromise(() =>
-      authData(authClient.updateUser({ editorPreference }))
-    )
-    yield* Reactivity.invalidate([Keys.me()])
-  })
-)
-
 const activeOrgSlugOf = (viewer: AsyncResult.AsyncResult<User, unknown>) =>
   AsyncResult.isSuccess(viewer) ? viewer.value.activeOrgSlug : null
 
-export const updateAvatar = viewMutation(meAtom, {
-  name: "updateAvatar",
-  predict: (user, image: string | null) => ({ ...user, image }),
-  call: (_client, image, get) =>
-    Effect.tryPromise(() => authData(authClient.updateUser({ image }))).pipe(
-      Effect.as(activeOrgSlugOf(get(meAtom)))
+export const updateSettings = viewMutation(meAtom, {
+  name: "updateSettings",
+  predict: (user, patch: UpdateUserSettingsInput) =>
+    applySettingsPatch(user, patch),
+  call: (client, patch, get) =>
+    client.auth.updateSettings({ payload: patch }).pipe(
+      Effect.map((settings) => ({
+        settings,
+        orgSlug: activeOrgSlugOf(get(meAtom))
+      }))
     ),
-  confirm: (user, _orgSlug, image) => ({ ...user, image }),
-  publish: (orgSlug) =>
-    orgSlug === null ? [Keys.me()] : [Keys.me(), Keys.orgMembers(orgSlug)]
+  confirm: (user, { settings }) => ({ ...user, settings }),
+  publish: ({ orgSlug }, patch) =>
+    patch.avatarSource === undefined || orgSlug === null
+      ? [Keys.me()]
+      : [Keys.me(), Keys.orgMembers(orgSlug)]
 })
 
 export const setActiveOrganization = Api.runtime.fn(

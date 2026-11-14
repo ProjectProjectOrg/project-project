@@ -34,7 +34,7 @@ it("inserts a comment placeholder immediately and swaps in the response", async 
         createdAt: "2026-01-01T00:00:00.000Z",
         activeOrgSlug: "org",
         personalGithub: { connected: true },
-        editorPreference: "cursor",
+        settings: { avatarSource: null, editorPreference: "cursor" },
         personalEverhour: {
           connected: false,
           everhourUserId: null,
@@ -79,7 +79,7 @@ it("inserts a comment placeholder immediately and swaps in the response", async 
       ),
       activeOrgSlug: "org",
       personalGithub: { connected: true },
-      editorPreference: "cursor",
+      settings: { avatarSource: null, editorPreference: "cursor" },
       personalEverhour: {
         connected: false,
         everhourUserId: null,

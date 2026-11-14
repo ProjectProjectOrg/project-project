@@ -39,6 +39,8 @@
 // `bun run db:migrate` to apply it against the running Postgres.
 
 import type {
+  AvatarSource,
+  EditorPreference,
   LinkPreview,
   GitAutomationEvent,
   GitHubInstallationAccount,
@@ -581,6 +583,33 @@ export const userEverhourIntegration = pgTable("user_everhour_integration", {
   lastCheckStatus: text("last_check_status", { enum: ["ok", "error"] }),
   lastCheckError: text("last_check_error")
 })
+
+export const userSettings = pgTable(
+  "user_settings",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    avatarSource: text("avatar_source").$type<AvatarSource>(),
+    editorPreference: text("editor_preference").$type<EditorPreference>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (table) => [
+    check(
+      "user_settings_avatar_source_check",
+      sql`${table.avatarSource} in ('generated', 'github', 'google')`
+    ),
+    check(
+      "user_settings_editor_preference_check",
+      sql`${table.editorPreference} in ('github', 'github_dev', 'vscode', 'cursor')`
+    )
+  ]
+)
 
 export const projectEverhourIntegration = pgTable(
   "project_everhour_integration",
@@ -1668,6 +1697,7 @@ export const relations = defineRelations(
     projectIntegrationLink,
     projectGithubRepository,
     userEverhourIntegration,
+    userSettings,
     projectEverhourIntegration,
     everhourSectionLink,
     everhourWorkTypeTaskLink,
@@ -1825,6 +1855,13 @@ export const relations = defineRelations(
       user: r.one.user({
         optional: false,
         from: [r.userEverhourIntegration.userId],
+        to: [r.user.id]
+      })
+    },
+    userSettings: {
+      user: r.one.user({
+        optional: false,
+        from: [r.userSettings.userId],
         to: [r.user.id]
       })
     },

@@ -1,8 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { EditorPreference } from "@pp/shared"
-import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import {
@@ -12,7 +10,7 @@ import {
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { SettingsSegmented } from "@/components/shell/settings/SettingsTextField"
-import { me, updateEditorPreference } from "@/features/auth/atoms/auth"
+import { me, updateSettings } from "@/features/auth/atoms/auth"
 import { EDITOR_OPTIONS } from "@/features/profile/lib/editorOptions"
 import { m } from "@/paraglide/messages"
 
@@ -38,7 +36,7 @@ export function Preferences() {
       contained
       onInitial={() => <SettingsSkeleton />}
       onSuccess={({ value }) => (
-        <EditorPreferenceRow preference={value.editorPreference} />
+        <EditorPreferenceRow preference={value.settings.editorPreference} />
       )}
     />
   )
@@ -47,24 +45,13 @@ export function Preferences() {
 function EditorPreferenceRow({
   preference
 }: Readonly<{ preference: EditorPreference }>) {
-  const update = useAtomSet(updateEditorPreference, {
-    mode: "promiseExit"
-  })
-  const updateState = useAtomValue(updateEditorPreference)
-  const [selected, setSelected] = useState(preference)
-  const [syncedPreference, setSyncedPreference] = useState(preference)
-
-  if (preference !== syncedPreference) {
-    setSyncedPreference(preference)
-    setSelected(preference)
-  }
+  const update = useAtomSet(updateSettings)
+  const updateState = useAtomValue(updateSettings)
+  const selected = preference
 
   function choose(next: EditorPreference) {
     if (next === selected) return
-    setSelected(next)
-    void update(next).then((exit) => {
-      if (Exit.isFailure(exit)) setSelected(preference)
-    })
+    update({ editorPreference: next })
   }
 
   return (

@@ -52,7 +52,7 @@ const user = Schema.decodeSync(User)({
   createdAt: "2026-09-08T00:00:00Z",
   activeOrgSlug: null,
   personalGithub: { connected: false },
-  editorPreference: "vscode",
+  settings: { avatarSource: null, editorPreference: "vscode" },
   personalEverhour: {
     connected: false,
     everhourUserId: null,

@@ -29,9 +29,34 @@ import { fetchClientMetadataResource } from "./cimdTransport"
 import { legacyMcpResources } from "./legacyMcpResources"
 import { orgAccessControl, orgRoles, requireSingleOrgRole } from "./orgAccess"
 import { protectedResourceMetadata } from "./protectedResourceMetadata"
+import { providerAvatar } from "./providerAvatar"
 import { isSignInProviderConfigured } from "./signInProviders"
 
 const db = drizzle(process.env.DATABASE_URL!, { relations: schema.relations })
+
+const refreshChosenAvatar = async (accountId: string) => {
+  const account = await db.query.account.findFirst({
+    columns: {
+      userId: true,
+      providerId: true,
+      accountId: true,
+      idToken: true
+    },
+    where: { id: accountId }
+  })
+  if (!account) return
+  const chosen = providerAvatar(account)
+  if (!chosen) return
+  const settings = await db.query.userSettings.findFirst({
+    columns: { avatarSource: true },
+    where: { userId: account.userId }
+  })
+  if (settings?.avatarSource !== chosen.source) return
+  await db
+    .update(user)
+    .set({ image: chosen.image })
+    .where(eq(user.id, account.userId))
+}
 
 function roleList(role: string): ReadonlyArray<string> {
   return role.split(",").map((r) => r.trim())
@@ -289,11 +314,6 @@ export const auth = betterAuth({
         required: false,
         input: false,
         unique: true
-      },
-      editorPreference: {
-        type: "string",
-        required: false,
-        input: true
       }
     }
   },
@@ -339,6 +359,10 @@ export const auth = betterAuth({
   // Subsequent in-app org changes flow through the switcher (T-08) — never
   // via URL navigation.
   databaseHooks: {
+    account: {
+      create: { after: (account) => refreshChosenAvatar(account.id) },
+      update: { after: (account) => refreshChosenAvatar(account.id) }
+    },
     session: {
       create: {
         before: async (sessionData) => {

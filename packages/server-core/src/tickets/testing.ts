@@ -405,7 +405,7 @@ export const fakeUser = (id: string): User => ({
   createdAt: isoDate("2026-01-01T00:00:00.000Z"),
   activeOrgSlug: null,
   personalGithub: { connected: false },
-  editorPreference: "github",
+  settings: { avatarSource: null, editorPreference: "github" },
   personalEverhour: {
     connected: false,
     everhourUserId: null,

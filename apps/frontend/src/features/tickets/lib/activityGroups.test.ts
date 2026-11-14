@@ -25,7 +25,7 @@ const user = (id: string): User => ({
   createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00Z")),
   activeOrgSlug: null,
   personalGithub: { connected: false },
-  editorPreference: "github",
+  settings: { avatarSource: null, editorPreference: "github" },
   personalEverhour: {
     connected: false,
     everhourUserId: null,

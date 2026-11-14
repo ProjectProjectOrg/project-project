@@ -166,7 +166,7 @@ const grace = {
   createdAt: "2026-05-01T00:00:00.000Z",
   activeOrgSlug: null,
   personalGithub: { connected: false },
-  editorPreference: "vscode",
+  settings: { avatarSource: null, editorPreference: "vscode" },
   personalEverhour: {
     connected: false,
     everhourUserId: null,

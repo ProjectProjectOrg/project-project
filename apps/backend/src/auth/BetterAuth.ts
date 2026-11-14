@@ -1,5 +1,11 @@
 import * as schema from "@pp/db/schema"
-import { member, oauthClient, organization, user } from "@pp/db/schema"
+import {
+  member,
+  oauthClient,
+  organization,
+  user,
+  userSettings
+} from "@pp/db/schema"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import {
   AvatarOption,
@@ -13,7 +19,10 @@ import {
   PersonalEverhour,
   PersonalGithub,
   UserInvitation,
+  UserSettings,
+  Validation,
   type OrgAssignableRole,
+  type UpdateUserSettingsInput,
   type User,
   type UserIdentity,
   type CursorPayload,
@@ -26,7 +35,6 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Match from "effect/Match"
-import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import { orgRoleOf, pendingInvitations } from "../organizations/Handlers"
@@ -36,6 +44,7 @@ import {
   auth,
   keepingAProjectPm
 } from "./config"
+import { avatarOptions } from "./providerAvatar"
 
 const decodeOrgMember = Schema.decodeEffect(OrgMember)
 
@@ -45,47 +54,9 @@ const decodePersonalGithub = Schema.decodeEffect(PersonalGithub)
 
 const decodePersonalEverhour = Schema.decodeEffect(PersonalEverhour)
 
+const decodeUserSettings = Schema.decodeEffect(UserSettings)
+
 const decodeAvatarOptions = Schema.decodeEffect(Schema.Array(AvatarOption))
-
-const GoogleIdTokenClaims = Schema.fromJsonString(
-  Schema.Struct({ picture: Schema.optional(Schema.String) })
-)
-
-const decodeGoogleIdTokenClaims =
-  Schema.decodeUnknownOption(GoogleIdTokenClaims)
-
-const googlePicture = (idToken: string | null) => {
-  const payload = idToken?.split(".")[1]
-  if (!payload) return null
-  return decodeGoogleIdTokenClaims(
-    Buffer.from(payload, "base64url").toString("utf8")
-  ).pipe(
-    Option.flatMapNullishOr((claims) => claims.picture),
-    Option.getOrNull
-  )
-}
-
-const providerAvatar = (
-  account: Readonly<{
-    providerId: string
-    accountId: string
-    idToken: string | null
-  }>
-) => {
-  switch (account.providerId) {
-    case "github":
-      return {
-        source: "github" as const,
-        image: `https://avatars.githubusercontent.com/u/${account.accountId}?v=4`
-      }
-    case "google": {
-      const image = googlePicture(account.idToken)
-      return image ? { source: "google" as const, image } : null
-    }
-    default:
-      return null
-  }
-}
 
 const decodeOrgMembership = Schema.decodeEffect(
   Schema.Struct({
@@ -358,31 +329,104 @@ export const BetterAuthLive = Layer.effect(
       }
     )
 
-    const getLinkedAccounts = Effect.fn("BetterAuth.getLinkedAccounts")(
+    const readSettings = Effect.fn("BetterAuth.readSettings")(function* (
+      userId: string
+    ) {
+      const row = yield* attempt(() =>
+        db.query.userSettings.findFirst({
+          columns: { avatarSource: true, editorPreference: true },
+          where: { userId }
+        })
+      )
+      return yield* decodeUserSettings({
+        avatarSource: row?.avatarSource ?? null,
+        editorPreference: row?.editorPreference ?? "github"
+      }).pipe(Effect.orDie)
+    })
+
+    const readLinkedAccounts = Effect.fn("BetterAuth.readLinkedAccounts")(
       function* (userId: string) {
-        const accounts = yield* attempt(() =>
+        return yield* attempt(() =>
           db.query.account.findMany({
             columns: { providerId: true, accountId: true, idToken: true },
             where: { userId }
           })
         )
-        const providerOptions = accounts.flatMap(
-          (account) => providerAvatar(account) ?? []
-        )
-        const avatarOptions = yield* decodeAvatarOptions([
-          { source: "generated", image: null },
-          ...providerOptions.filter(
-            (option, index) =>
-              providerOptions.findIndex((o) => o.source === option.source) ===
-              index
-          )
-        ]).pipe(Effect.orDie)
-        const personalGithub = yield* decodePersonalGithub({
-          connected: accounts.some((account) => account.providerId === "github")
-        }).pipe(Effect.orDie)
-        return { avatarOptions, personalGithub }
       }
     )
+
+    const readProfile = Effect.fn("BetterAuth.readProfile")(function* (
+      userId: string
+    ) {
+      const [accounts, settings, row] = yield* Effect.all(
+        [
+          readLinkedAccounts(userId),
+          readSettings(userId),
+          attempt(() =>
+            db.query.user.findFirst({
+              columns: { image: true },
+              where: { id: userId }
+            })
+          )
+        ],
+        { concurrency: "unbounded" }
+      )
+      return {
+        image: row?.image ?? null,
+        settings,
+        avatarOptions: yield* decodeAvatarOptions(avatarOptions(accounts)).pipe(
+          Effect.orDie
+        ),
+        personalGithub: yield* decodePersonalGithub({
+          connected: accounts.some((account) => account.providerId === "github")
+        }).pipe(Effect.orDie)
+      }
+    })
+
+    const updateSettings = Effect.fn("BetterAuth.updateSettings")(function* (
+      userId: string,
+      input: UpdateUserSettingsInput
+    ) {
+      const { avatarSource } = input
+      const chosen =
+        avatarSource === undefined
+          ? undefined
+          : avatarOptions(yield* readLinkedAccounts(userId)).find(
+              (option) => option.source === avatarSource
+            )
+      if (avatarSource !== undefined && chosen === undefined) {
+        return yield* new Validation({
+          reason: `No ${avatarSource} account is linked`
+        })
+      }
+      const changes = {
+        ...(input.avatarSource === undefined
+          ? {}
+          : { avatarSource: input.avatarSource }),
+        ...(input.editorPreference === undefined
+          ? {}
+          : { editorPreference: input.editorPreference })
+      }
+      const updatedAt = DateTime.toDate(yield* DateTime.now)
+      yield* attempt(() =>
+        db.transaction(async (tx) => {
+          await tx
+            .insert(userSettings)
+            .values({ userId, ...changes })
+            .onConflictDoUpdate({
+              target: userSettings.userId,
+              set: { ...changes, updatedAt }
+            })
+          if (chosen !== undefined) {
+            await tx
+              .update(user)
+              .set({ image: chosen.image })
+              .where(eq(user.id, userId))
+          }
+        })
+      )
+      return yield* readSettings(userId)
+    })
 
     const getOrgSlugById = Effect.fn("BetterAuth.getOrgSlugById")(function* (
       organizationId: string | null | undefined
@@ -401,24 +445,22 @@ export const BetterAuthLive = Layer.effect(
       identity: UserIdentity,
       activeOrganizationId: string | null | undefined
     ) {
-      const [
-        activeOrgSlug,
-        { personalGithub, avatarOptions },
-        personalEverhour
-      ] = yield* Effect.all(
+      const [activeOrgSlug, profile, personalEverhour] = yield* Effect.all(
         [
           getOrgSlugById(activeOrganizationId),
-          getLinkedAccounts(identity.id),
+          readProfile(identity.id),
           getPersonalEverhour(identity.id)
         ],
         { concurrency: "unbounded" }
       )
       return {
         ...identity,
+        image: profile.image,
         activeOrgSlug,
-        personalGithub,
+        personalGithub: profile.personalGithub,
         personalEverhour,
-        avatarOptions
+        settings: profile.settings,
+        avatarOptions: profile.avatarOptions
       } satisfies User
     })
 
@@ -433,6 +475,7 @@ export const BetterAuthLive = Layer.effect(
       getPersonalEverhour,
       getOrgSlugById,
       me,
+      updateSettings,
       getSession: Effect.fn("BetterAuth.getSession")(function* (
         headers: Headers
       ) {

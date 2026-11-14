@@ -71,7 +71,7 @@ const user: User = {
   createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-22T00:00:00Z")),
   activeOrgSlug: "organization",
   personalGithub: { connected: false },
-  editorPreference: "vscode",
+  settings: { avatarSource: null, editorPreference: "vscode" },
   personalEverhour: {
     connected: false,
     everhourUserId: null,

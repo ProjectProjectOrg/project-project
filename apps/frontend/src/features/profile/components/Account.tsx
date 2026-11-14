@@ -10,7 +10,7 @@ import {
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { SettingsSegmented } from "@/components/shell/settings/SettingsTextField"
-import { me, updateAvatar } from "@/features/auth/atoms/auth"
+import { me, updateSettings } from "@/features/auth/atoms/auth"
 import { DissolveAvatar } from "@/features/members/components/DissolveAvatar"
 import {
   avatarSourceIcon,
@@ -35,15 +35,16 @@ export function Account() {
 const PROFILE_AVATAR_SIZE = 96
 
 function AccountDetails({ user }: Readonly<{ user: User }>) {
-  const update = useAtomSet(updateAvatar)
-  const updateState = useAtomValue(updateAvatar)
-  const selected = selectedAvatarSource(user.avatarOptions, user.image)
+  const update = useAtomSet(updateSettings)
+  const updateState = useAtomValue(updateSettings)
+  const selected =
+    user.settings.avatarSource ??
+    selectedAvatarSource(user.avatarOptions, user.image)
   const canChoose = user.avatarOptions.length > 1 || selected === null
 
   function choose(next: AvatarSource) {
-    const option = user.avatarOptions.find((o) => o.source === next)
-    if (!option || next === selected) return
-    update(option.image)
+    if (next === selected) return
+    update({ avatarSource: next })
   }
 
   return (
