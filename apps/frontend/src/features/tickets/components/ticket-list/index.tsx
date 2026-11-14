@@ -1,5 +1,5 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
-import type { Member, TicketListQuery } from "@pp/shared"
+import type { GroupId, Member, TicketListQuery } from "@pp/shared"
 import * as Equal from "effect/Equal"
 import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -15,7 +15,7 @@ import {
 } from "@/features/tickets/atoms/backlog"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import { viewQuery } from "@/features/tickets/lib/ticketRows"
-import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
+import { ticketSearchFromQuery } from "@/features/tickets/lib/ticketSearch"
 
 import { BacklogTicketCreator } from "./BacklogTicketCreator"
 import { SegmentedList } from "./SegmentedList"
@@ -37,6 +37,7 @@ type TicketListProps = Readonly<{
   }) => ReactNode
   showAlternate?: boolean
   empty?: ReactNode
+  sprint?: GroupId
 }>
 
 export function TicketList({
@@ -96,7 +97,8 @@ function StatusSections({
   members,
   alternate,
   showAlternate = false,
-  empty
+  empty,
+  sprint
 }: Omit<TicketListProps, "creator" | "toolbar" | "sections">) {
   const { orgSlug, slug } = useProjectRoute()
   const req = backlogRequest(orgSlug, slug, query)
@@ -136,11 +138,12 @@ function StatusSections({
   const renderSections = () =>
     active ? (
       <TicketViewSourceContext
-        value={ticketSearchFromSource({
-          kind: "sections",
-          grouping: "status",
-          query: viewQuery(active.query)
-        })}
+        value={{
+          ...ticketSearchFromQuery(viewQuery(active.query)),
+          from: "sections",
+          group: "status",
+          sprint
+        }}
       >
         <Activity mode={showAlternate ? "hidden" : "visible"}>
           <SegmentedList

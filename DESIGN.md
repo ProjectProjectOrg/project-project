@@ -319,7 +319,7 @@ Lucide icons use a 1.5 stroke width, applied centrally in `styles.css`. Filled s
 
 The single primitive lives in `components/ui/button.tsx`, exposing variants `primary | secondary | destructive | tertiary | ghost | raised | chip | dither` and sizes `xs | sm | md | lg | icon-*`. Shape is the app's pill radius (`rounded-[20px]`), baked into the primitive so callsites never set it.
 
-- **Primary:** `bg-foreground text-background`, hover dims to `/90`, active to `/80`. Always pairs with `active:scale-[0.97]` and `transition-all duration-100`.
+- **Primary:** `bg-foreground text-background`, hover dims to `/90`, active to `/80`.
 - **Secondary:** see-through `--tint`, `--tint-hover` on hover. It takes on whatever surface it sits on, so it works on the page and inside settings groups alike.
 - **Tertiary:** transparent + hairline border + foreground text; hover `bg-hover`, press `bg-active`.
 - **Ghost:** transparent, `muted-foreground` text; hover swaps text to full foreground over `bg-hover`. Default for icon-only chrome.
@@ -330,7 +330,7 @@ The single primitive lives in `components/ui/button.tsx`, exposing variants `pri
 - **Dither:** the brand-thread variant — animated dithered backdrop. Reserved for hero / marketing surfaces, not chrome.
 - **Sizes:** `xs` (h-5, 11px), `sm` (h-7, 12px), `md` (h-8, 13px, default), `lg` (h-9, 14px). Icon sizes match by height.
 
-**Press feel:** every button scales to **97%** on `:active` with a **100–150ms** transform transition. Icon-only buttons compress the icon, not the chrome.
+**Press feel:** nothing scales on `:active`. A press shows through the pressed fill (`bg-active`), never a transform.
 
 **Focus:** `focus-visible:ring-1 focus-visible:ring-ring` — a 1px `--ring` stroke, no offset, no glow.
 
@@ -382,8 +382,9 @@ Shared rules, all from `components/ui/menu-styles.ts`:
 - **Default:** `muted-foreground` text.
 - **Hover:** one `bg-hover` pill per rail that springs between items (`useFluidHover` + `FluidHoverHighlight`); text flips to `foreground`.
 - **Active:** one `bg-accent` pill that travels to the active route, plus `font-medium` `foreground` text. No vertical accent stripe, no colored border.
-- **Settings rails** use `SettingsRail` / `SettingsRailNav` / `SettingsRailLink` from `components/shell/settings/SettingsRail.tsx`; don't hand-roll nav links.
-- **Press:** `active:scale-[0.97]` like every other clickable.
+- **Settings** is a sidebar mode, not a page rail: on any settings route the sidebar swaps to `SettingsSidebar` (`components/shell/settings/SettingsSidebar.tsx`), built from `SettingsRailNav` / `SettingsRailLink` in `SettingsRail.tsx`. Settings pages render no nav of their own; don't hand-roll nav links.
+- **Project rows** under the project card are places, never items: Backlog, Sprints, then About, all `NavRow` from `components/shell/ProjectNavRows.tsx`. While a sprint is running, Sprints has one sub-row beside a guide line: Current, the running sprint's board with its countdown. Planning happens in the backlog grouped by sprint. Individual sprints live on the Sprints page, so the nav never grows with the data and needs no collapsing. A ticket page lights the row it was opened from: a ticket link from a sprint (board or list) carries `sprint` in its search, which also puts the sprint in the breadcrumb; any other ticket lights Backlog.
+- **Account menu:** the sidebar footer row (avatar, name) opens the one user menu: Settings, Theme, Send feedback, Copy version, Sign out. There is no top-right avatar menu.
 
 ### Settings Pages
 
@@ -395,7 +396,7 @@ Shared rules, all from `components/ui/menu-styles.ts`:
 
 Every settings area — organization, project, profile — uses the same rail and the same page anatomy (`components/shell/settings/`):
 
-- **`SettingsPage`:** page title and one-line description, then sections at `gap-8`. Full width up to `96rem`, then centered, so ultra-wide screens settle into a column without squeezing layouts designed for width.
+- **`SettingsLayout`:** the one layout for every settings area. A page route declares its title and one-line description with `settingsPage(title, description)` in its loader (which also sets the crumb); the layout shows the deepest one, then sections at `gap-8`. A page without one (an integration detail with its own header) shows none. Full width up to `96rem`, then centered, so ultra-wide screens settle into a column without squeezing layouts designed for width.
 - **`SettingsSection`:** a 13px/500 title and optional 12px muted description, outside the group. Optional when a section is a single obvious row.
 - **`SettingsGroup`:** the only container on a settings page — `--card` (recessed in dark, white in light), 1px `--border`, `rounded-lg`, hairline dividers, no shadow. Lists (statuses, members, agents) and appearance cards use the same surface.
 - **`SettingsRow`:** label and description left, control right, `min-h-14`. `layout="stacked"` puts a wide control (editor, credential form) underneath. Controls that need an accessible name read the row's ids via `useSettingsRow()`. A failed save shows as a one-line error inside the row, never a full `ErrorPage` — that is reserved for failed reads.
@@ -417,7 +418,7 @@ It never appears on functional controls.
 
 ### Named Rules
 
-**The Press Scale Rule.** Every clickable button — primary, tertiary, ghost, chip, icon, sidebar link — scales to 97% on `:active` with a 100–150ms transform transition. The press needs to _land_. The only exception is when another animation already conveys the press (an inline-form trigger that morphs).
+**The No Press Scale Rule.** Nothing clickable scales on `:active`: not buttons, chips, icons or sidebar rows. A press shows through the pressed fill, never a transform.
 
 **The Hover Asymmetry Rule.** Hover (and Radix `[data-highlighted]` / `[data-selected]`) state changes are **instant on enter** and **ease out at ~150ms on exit**. Implemented as a single global rule in `styles.css`. Hover-affected elements must declare a `transition-colors` / `transition-opacity` class — without it, both directions snap.
 
@@ -440,7 +441,6 @@ It never appears on functional controls.
 - **Do** review every surface in both light and dark before calling it done.
 - **Do** pull categorical color from `TAG_COLOR_WHEEL` (`packages/shared/src/colors.ts`) when adding user-assigned color affordances.
 - **Do** pair every hover-driven state change with a `transition-colors` (or `transition-opacity` / `transition-all`) class so the global asymmetric-hover rule has something to override.
-- **Do** scale every clickable to 97% on `:active` with `transition-transform duration-100` (or 150ms).
 - **Do** use sentence case for every heading, subheading, label, column head, pill text, and section divider.
 - **Do** extend a primitive with a typed variant when you find yourself re-skinning it locally.
 

@@ -129,7 +129,7 @@ export function Row({
                     href={attachmentDownloadUrl(orgSlug, row.id)}
                     download={row.filename}
                     aria-label={m.attachments_download()}
-                    className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
+                    className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors duration-100 hover:bg-hover hover:text-foreground"
                   />
                 }
               >

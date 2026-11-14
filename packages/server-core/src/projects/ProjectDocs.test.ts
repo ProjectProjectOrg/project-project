@@ -114,6 +114,29 @@ it.effect("writes estimation only when it is switched on", () => {
   }).pipe(Effect.provide(layer))
 })
 
+it.effect("writes links only when the project has some", () => {
+  const { layer, written } = docsWith(base)
+  return Effect.gen(function* () {
+    const docs = yield* ProjectDocs.ProjectDocs
+    const original = yield* docs.read("demo", "demo")
+    expect(original.links).toEqual([])
+    const links = [{ label: "Dev", url: "http://localhost:5173" }]
+    const write = (next: typeof original.links) =>
+      docs.write("demo", "demo", {
+        ...original,
+        org: "demo",
+        key: original.key!,
+        createdBy: "owner",
+        links: next
+      })
+    yield* write(links)
+    expect(written()).toHaveProperty("links", links)
+    expect((yield* docs.read("demo", "demo")).links).toEqual(links)
+    yield* write([])
+    expect(written()).not.toHaveProperty("links")
+  }).pipe(Effect.provide(layer))
+})
+
 it.effect(
   "traces each call under one ProjectDocs span with its attributes",
   () => {

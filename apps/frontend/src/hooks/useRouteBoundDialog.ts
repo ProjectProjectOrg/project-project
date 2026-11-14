@@ -6,7 +6,11 @@ import { useEffect, useRef, useState } from "react"
 export function useRouteBoundDialog<T>(atom: Atom.Writable<T | null>) {
   const [request, setRequest] = useAtom(atom)
   const [shown, setShown] = useState(request)
-  if (request !== null && request !== shown) setShown(request)
+  const [openedFrom, setOpenedFrom] = useState<Element | null>(null)
+  if (request !== null && request !== shown) {
+    setShown(request)
+    setOpenedFrom(document.activeElement)
+  }
   const pathname = useRouterState({
     select: (state) => state.location.pathname
   })
@@ -22,5 +26,16 @@ export function useRouteBoundDialog<T>(atom: Atom.Writable<T | null>) {
     }
     if (openedAt.current !== pathname) setRequest(null)
   }, [request, pathname, setRequest])
-  return { open: request !== null, shown, close: () => setRequest(null) }
+  const finalFocus = () =>
+    openedFrom instanceof HTMLElement &&
+    openedFrom.isConnected &&
+    openedFrom !== document.body
+      ? openedFrom
+      : false
+  return {
+    open: request !== null,
+    shown,
+    close: () => setRequest(null),
+    finalFocus
+  }
 }

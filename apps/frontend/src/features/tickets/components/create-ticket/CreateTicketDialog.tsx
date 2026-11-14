@@ -74,7 +74,8 @@ const RELATED_LABELS: Readonly<
 }
 
 export function CreateTicketDialogHost() {
-  const { open, shown, close } = useRouteBoundDialog(createTicketDialog)
+  const { open, shown, close, finalFocus } =
+    useRouteBoundDialog(createTicketDialog)
   return (
     <Dialog
       open={open}
@@ -82,10 +83,15 @@ export function CreateTicketDialogHost() {
         if (!next) close()
       }}
     >
-      <DialogContent size="lg" showCloseButton={false} className="p-0">
+      <DialogContent
+        size="lg"
+        showCloseButton={false}
+        finalFocus={finalFocus}
+        className="p-0"
+      >
         {shown !== null && (
           <CreateTicketForm
-            key={`${shown.orgSlug}:${shown.projectSlug ?? ""}:${shown.sprint ?? ""}:${shown.title ?? ""}:${shown.related?.kind ?? ""}:${shown.related?.ticketId ?? ""}`}
+            key={`${shown.orgSlug}:${shown.projectSlug ?? ""}:${shown.sprint ?? ""}:${shown.type ?? ""}:${shown.title ?? ""}:${shown.related?.kind ?? ""}:${shown.related?.ticketId ?? ""}`}
             request={shown}
             onDone={close}
           />
@@ -117,7 +123,8 @@ function CreateTicketForm({
   const creatorType = useCreatorType({
     orgSlug,
     slug: slug ?? "",
-    epics: related?.kind !== "subTicket"
+    epics: related?.kind !== "subTicket",
+    initial: request.type
   })
   const [fields, setFields] = useState<TicketFields>(DEFAULT_TICKET_FIELDS)
   const [sprint, setSprint] = useState<GroupId | null>(request.sprint ?? null)

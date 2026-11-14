@@ -104,7 +104,7 @@ function subscribeLocalStorage(
   }
 }
 
-function setLocalStorageSnapshot<A>(
+export function writeLocalStorage<A>(
   key: string,
   codec: LocalStorageCodec<A>,
   next: A
@@ -149,7 +149,7 @@ export function useLocalStorageSelect<A, T>(
   const write = useCallback(
     (update: (current: A) => A) => {
       const current = codecRef.current.readSnapshot(key, initialRef.current)
-      setLocalStorageSnapshot(key, codecRef.current, update(current))
+      writeLocalStorage(key, codecRef.current, update(current))
     },
     [key]
   )

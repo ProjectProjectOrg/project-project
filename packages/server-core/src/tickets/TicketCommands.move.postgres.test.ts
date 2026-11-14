@@ -155,6 +155,7 @@ describe.skipIf(!databaseUrl)("moving a ticket to another project", () => {
               github: null,
               githubRepos: [],
               estimation: projectSlug === "inbox" ? "points" : "tshirt",
+              links: [],
               body: "",
               setup: {
                 workflowReviewedAt: null,

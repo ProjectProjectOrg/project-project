@@ -1,6 +1,7 @@
 import { sprintState, type Group } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 
+import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
 import { localToday } from "./parseStartDate"
@@ -41,6 +42,33 @@ export const formatSprintRange = (from: Date, to: Date): string => {
   })
   return `${format.format(from)} – ${format.format(to)}`
 }
+
+export const formatSprintDates = ({
+  from,
+  to
+}: SprintDateDraft): string | null =>
+  from === undefined
+    ? null
+    : to === undefined
+      ? m.sprints_starts_on({
+          date: new Intl.DateTimeFormat(getLocale(), {
+            month: "short",
+            day: "numeric"
+          }).format(from)
+        })
+      : formatSprintRange(from, to)
+
+export const nowDate = (): Date => DateTime.toDate(DateTime.nowUnsafe())
+
+export const timeOr = (date: Date | null, fallback: number): number =>
+  date?.getTime() ?? fallback
+
+const WEEK_DAYS = 7
+
+export const sprintLengthAdjective = (days: number): string =>
+  days % WEEK_DAYS === 0
+    ? m.sprints_length_adjective_weeks({ count: days / WEEK_DAYS })
+    : m.sprints_length_adjective_days({ count: days })
 
 export const DEFAULT_SPRINT_DAYS = 14
 const DAY_MS = 24 * 60 * 60 * 1000

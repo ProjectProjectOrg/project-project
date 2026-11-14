@@ -88,6 +88,7 @@ export const projectsOnPostgres = (
               github: null,
               githubRepos: [],
               estimation: "off",
+              links: [],
               setup: {
                 workflowReviewedAt: null,
                 invitePeopleDismissedAt: null,

@@ -49,7 +49,7 @@ export function AddChildTicketButton({
             aria-label={label}
             aria-keyshortcuts="c"
             onClick={onCreate}
-            className={cn("motion-safe:active:scale-100", className)}
+            className={cn("", className)}
           />
         }
       >

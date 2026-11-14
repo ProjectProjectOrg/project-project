@@ -1,7 +1,6 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomSet } from "@effect/atom-react"
 import { ProjectPolicy } from "@pp/access/policies"
 import { getRouteApi } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
 import { useState } from "react"
 
 import {
@@ -21,8 +20,10 @@ import {
   updateProject
 } from "@/features/projects/atoms/projects"
 import { ProjectAppearanceSection } from "@/features/projects/components/appearance/ProjectAppearanceSection"
+import { ProjectDangerZone } from "@/features/projects/components/settings/ProjectDangerZone"
 import { useProject } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/hooks/useActor"
+import { useSave } from "@/hooks/useSave"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi(
@@ -34,7 +35,7 @@ export function ProjectGeneralSettings() {
   const project = useProject()
   const req = projectRequest(orgSlug, project.slug)
   const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
-  const updateState = useAtomValue(updateProject(req))
+  const rename = useSave((name: string) => update({ name }))
   const actor = useProjectActor()
   const canEdit = ProjectPolicy.canUpdate(actor, { settings: true })
   const canEditBody = ProjectPolicy.canUpdate(actor, { body: true })
@@ -56,19 +57,20 @@ export function ProjectGeneralSettings() {
         <SettingsGroup>
           <SettingsRow
             label={m.project_settings_name_label()}
-            error={
-              Result.isFailure(updateState)
-                ? m.project_settings_name_error()
-                : null
-            }
+            error={rename.error ? m.project_settings_name_error() : null}
           >
-            <SettingsTextField
-              value={project.name}
-              onCommit={(name) => update({ name })}
-              disabled={!canEdit}
-              waiting={updateState.waiting}
-              maxLength={120}
-            />
+            {canEdit ? (
+              <SettingsTextField
+                value={project.name}
+                onCommit={(name) => void rename.run(name)}
+                waiting={rename.waiting}
+                maxLength={120}
+              />
+            ) : (
+              <span className="text-body text-muted-foreground">
+                {project.name}
+              </span>
+            )}
           </SettingsRow>
           <SettingsRow
             label={m.project_settings_key_label()}
@@ -105,6 +107,13 @@ export function ProjectGeneralSettings() {
           </SettingsRow>
         </SettingsGroup>
       </SettingsSection>
+      {actor.call("projects", "delete") ? (
+        <ProjectDangerZone
+          orgSlug={orgSlug}
+          slug={project.slug}
+          projectKey={project.key}
+        />
+      ) : null}
     </>
   )
 }

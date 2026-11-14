@@ -199,6 +199,23 @@ export const ProjectSetup = Schema.Struct({
 })
 export type ProjectSetup = typeof ProjectSetup.Type
 
+export const ProjectLink = Schema.Struct({
+  label: Schema.String.pipe(
+    Schema.check(Schema.isMinLength(1)),
+    Schema.check(Schema.isMaxLength(80))
+  ),
+  url: Schema.String.pipe(
+    Schema.check(Schema.isMaxLength(2048)),
+    Schema.check(Schema.isPattern(/^https?:\/\/\S+$/u))
+  )
+})
+export type ProjectLink = typeof ProjectLink.Type
+
+export const ProjectLinks = Schema.Array(ProjectLink).pipe(
+  Schema.check(Schema.isMaxLength(50))
+)
+export type ProjectLinks = typeof ProjectLinks.Type
+
 export const ProjectBannerPreset = Schema.Literals([
   "sunset",
   "water_lily_pond",
@@ -310,6 +327,9 @@ export const ProjectDetail = Schema.Struct({
     Schema.withDecodingDefaultTypeKey(Effect.succeed("off" as const))
   ),
   body: Schema.String,
+  links: ProjectLinks.pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed([]))
+  ),
   nextTicketNumber: Schema.Int.pipe(
     Schema.withDecodingDefaultTypeKey(Effect.succeed(1))
   ),
@@ -345,6 +365,7 @@ export const UpdateProjectInput = Schema.Struct({
     )
   ),
   body: Schema.optional(Schema.String),
+  links: Schema.optional(ProjectLinks),
   icon: Schema.optional(ProjectIcon),
   color: Schema.optional(ProjectColor),
   estimation: Schema.optional(EstimationMode)

@@ -185,7 +185,7 @@ export function StatusRow({
             isDragging && SURFACE_BG[Math.min(substrate + 1, 8)]
           )}
         >
-          {isPinnedStatus(status.slug) ? (
+          {isPinnedStatus(status.slug) || !canManage ? (
             <span className="w-5 shrink-0" />
           ) : (
             <DragHandle

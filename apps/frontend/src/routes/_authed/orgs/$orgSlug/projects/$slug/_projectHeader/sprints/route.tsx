@@ -7,7 +7,12 @@ export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints"
 )({
   component: SprintsTab,
-  loader: () => ({
-    crumb: { type: "static" as const, label: m.project_detail_tab_sprints() }
+  loader: ({ params: { orgSlug, slug } }) => ({
+    crumb: {
+      type: "static" as const,
+      label: m.project_detail_tab_sprints(),
+      to: "/orgs/$orgSlug/projects/$slug/sprints",
+      params: { orgSlug, slug }
+    }
   })
 })

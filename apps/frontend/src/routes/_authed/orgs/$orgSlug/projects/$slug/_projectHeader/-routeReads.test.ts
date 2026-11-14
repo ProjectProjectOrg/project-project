@@ -12,7 +12,6 @@ import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { ticketSearchFromQuery } from "@/features/tickets/lib/ticketSearch"
 import { Route as BacklogRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/index"
 import { Route as SprintRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId"
-import { Route as SprintIndexRoute } from "@/routes/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/index"
 const decodeTicketListQuery = Schema.decodeSync(TicketListQuery)
 
 const viewer = Schema.decodeSync(User)({
@@ -217,52 +216,3 @@ it.each(["board", "list", "description"] as const)(
       expect(ticketRequests[0].pathname).toMatch(/\/groups\/G-1\/tickets$/)
   }
 )
-
-it("starts the sprint index target's data as soon as the list resolves", async () => {
-  let resolveList: (response: Response) => void = vi.fn()
-  const list = new Promise<Response>((resolve) => {
-    resolveList = resolve
-  })
-  fetchStub.set((input) => {
-    const url = new URL(
-      input instanceof Request ? input.url : String(input),
-      "http://localhost"
-    )
-    requests.push(url)
-    return url.pathname.endsWith("/groups")
-      ? list
-      : new Promise<Response>(() => {})
-  })
-  const loaded = load(SprintIndexRoute.options.loader, {
-    ...loaderDefaults(SprintIndexRoute),
-    context: { registry },
-    params,
-    abortController: new AbortController()
-  })
-  const redirected = expect(loaded).rejects.toMatchObject({
-    options: { params: { groupId: "G-1" } }
-  })
-  await vi.waitFor(() => expect(requests).toHaveLength(1))
-  resolveList(
-    Response.json([
-      {
-        id: "G-1",
-        name: "Sprint",
-        kind: "sprint",
-        tickets: [],
-        color: "#94a3b8",
-        startsAt: null,
-        endsAt: null,
-        completedAt: "2026-01-01T00:00:00.000Z",
-        createdBy: "user-1",
-        createdAt: "2026-01-01T00:00:00.000Z",
-        updatedAt: "2026-01-01T00:00:00.000Z"
-      }
-    ])
-  )
-  await redirected
-  await vi.waitFor(() => expect(requests).toHaveLength(4))
-  expect(requests.map((url) => url.pathname)).toContain(
-    "/api/orgs/org/projects/project/groups/G-1"
-  )
-})

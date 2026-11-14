@@ -1,4 +1,10 @@
-import type { CreateTicketInput, GroupId, MarkKind, TicketId } from "@pp/shared"
+import type {
+  CreateTicketInput,
+  GroupId,
+  MarkKind,
+  TicketId,
+  TypeKey
+} from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Atom from "effect/reactivity/Atom"
 import * as Reactivity from "effect/reactivity/Reactivity"
@@ -10,6 +16,7 @@ export type CreateTicketDialogRequest = Readonly<{
   orgSlug: string
   projectSlug: string | null
   sprint?: GroupId
+  type?: TypeKey
   title?: string
   related?: RelatedTo
 }>

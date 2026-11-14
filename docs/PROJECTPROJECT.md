@@ -85,6 +85,9 @@ githubRepos: # every connected repository, written when there is more than one
   - repoOwner: woutervh
     repoName: design-system-docs
 branchTemplate: "{type}/{id}-{slug}" # default: feat/T-12-add-button
+links: # labelled URLs shown on the About page, written when there are any
+  - label: Staging
+    url: https://staging.example.com
 createdAt: 2025-11-04T10:00:00Z
 ---
 

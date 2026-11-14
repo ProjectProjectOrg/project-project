@@ -73,7 +73,7 @@ export function ClearAll() {
         onClick={clearAll}
         disabled={!hasActiveFilters}
         className={cn(
-          "grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-colors duration-100 active:scale-[0.97]",
+          "grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-destructive/40 bg-destructive/10 text-destructive transition-colors duration-100",
           "hover:border-destructive/60 hover:bg-destructive/15",
           "outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
         )}

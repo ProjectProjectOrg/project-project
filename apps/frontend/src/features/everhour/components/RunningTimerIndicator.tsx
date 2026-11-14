@@ -339,7 +339,7 @@ function ConnectedProjectTimerIndicator({
       aria-label={
         timer ? m.time_timer_running_on({ label }) : m.time_timer_open()
       }
-      className="flex max-w-full min-w-0 items-center gap-2 rounded-lg bg-accent/60 px-2 py-1 text-left transition-colors transition-transform duration-100 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+      className="flex max-w-full min-w-0 items-center gap-2 rounded-lg bg-accent/60 px-2 py-1 text-left transition-colors duration-100 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
     >
       <Timer
         className="size-4 shrink-0 text-muted-foreground"

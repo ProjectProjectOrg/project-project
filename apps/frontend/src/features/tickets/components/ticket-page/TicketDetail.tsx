@@ -28,6 +28,7 @@ import { TicketStepper } from "@/features/tickets/components/ticket-page/TicketS
 import { useRememberViewedTicket } from "@/features/tickets/hooks/useReturnToTicket"
 import { useTicketStepping } from "@/features/tickets/hooks/useTicketStepping"
 import {
+  sprintFromSearch,
   ticketSourceFromSearch,
   type TicketPageSource
 } from "@/features/tickets/lib/ticketSearch"
@@ -75,7 +76,7 @@ export function TicketDetail() {
   const from = useMemo(() => ticketSourceFromSearch(search), [search])
   const navigate = routeApi.useNavigate()
   const urlId = decodeTicketId(id)
-  const stepping = useTicketStepping(urlId, from)
+  const stepping = useTicketStepping(urlId, from, sprintFromSearch(search))
   const { shown, sequence } = stepping
   const commandScope = useMemo(
     () => ({ ticket: { orgSlug, slug, ticketId: shown } }),

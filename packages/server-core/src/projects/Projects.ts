@@ -359,20 +359,19 @@ const make = Effect.gen(function* () {
           .where(eq(projectIndex.id, row.id))
           .pipe(Effect.orDie)
 
-        yield* syncFrontmatter(
-          orgSlug,
-          slug,
-          input.name,
-          identity.icon,
-          identity.color,
+        yield* syncFrontmatter(orgSlug, slug, {
+          name: input.name,
+          icon: identity.icon,
+          color: identity.color,
           createdBy,
           createdAt,
           key,
-          `# ${input.name}\n`,
-          [],
-          defaultSetup(),
-          "off"
-        ).pipe(
+          body: `# ${input.name}\n`,
+          connection: [],
+          setup: defaultSetup(),
+          estimation: "off",
+          links: []
+        }).pipe(
           Effect.catch((cause) =>
             rollback.pipe(Effect.andThen(Effect.die(cause)))
           )
@@ -434,6 +433,7 @@ const make = Effect.gen(function* () {
           setup: file.setup,
           estimation: file.estimation,
           body: file.body,
+          links: file.links,
           nextTicketNumber: indexRow.nextTicketNumber,
           members,
           pendingMembers
@@ -446,12 +446,12 @@ const make = Effect.gen(function* () {
     input: UpdateProjectInput
   ) {
     const scope = yield* ProjectScope
-    const { body, ...settings } = input
+    const { body, links, ...settings } = input
+    const docs = body !== undefined || links !== undefined
     const allowed = ProjectPolicy.canUpdate(scope, {
-      body: body !== undefined,
+      body: docs,
       settings:
-        body === undefined ||
-        Object.values(settings).some((value) => value !== undefined)
+        !docs || Object.values(settings).some((value) => value !== undefined)
     })
     if (!allowed) return yield* new Forbidden()
     const { orgSlug, slug, userId, projectId } = scope
@@ -509,6 +509,7 @@ const make = Effect.gen(function* () {
         const nextIcon = input.icon ?? makeProjectIcon(indexRow.icon)
         const nextColor = input.color ?? makeProjectColor(indexRow.color)
         const nextEstimation = input.estimation ?? file.estimation
+        const nextLinks = links ?? file.links
 
         const dbPatch: Partial<typeof projectIndex.$inferInsert> = {}
         if (input.banner !== undefined) dbPatch.banner = nextBanner
@@ -535,20 +536,19 @@ const make = Effect.gen(function* () {
 
         const members = yield* loadMembers(indexRow.id)
         const pendingMembers = yield* loadPendingMembers(indexRow.id)
-        yield* syncFrontmatter(
-          orgSlug,
-          slug,
-          nextName,
-          nextIcon,
-          nextColor,
-          indexRow.createdBy,
-          indexRow.createdAt,
-          makeProjectKey(indexRow.key),
-          nextBody,
+        yield* syncFrontmatter(orgSlug, slug, {
+          name: nextName,
+          icon: nextIcon,
+          color: nextColor,
+          createdBy: indexRow.createdBy,
+          createdAt: indexRow.createdAt,
+          key: makeProjectKey(indexRow.key),
+          body: nextBody,
           connection,
-          file.setup,
-          nextEstimation
-        )
+          setup: file.setup,
+          estimation: nextEstimation,
+          links: nextLinks
+        })
 
         return ProjectDetails.presentDetail(scope, {
           org: orgSlug,
@@ -565,6 +565,7 @@ const make = Effect.gen(function* () {
           setup: file.setup,
           estimation: nextEstimation,
           body: nextBody,
+          links: nextLinks,
           nextTicketNumber: indexRow.nextTicketNumber,
           members,
           pendingMembers
@@ -594,20 +595,19 @@ const make = Effect.gen(function* () {
         const members = yield* loadMembers(indexRow.id)
         const pendingMembers = yield* loadPendingMembers(indexRow.id)
         const setup = { ...file.setup, ...input }
-        yield* syncFrontmatter(
-          orgSlug,
-          slug,
-          indexRow.name,
-          indexRow.icon,
-          indexRow.color,
-          indexRow.createdBy,
-          indexRow.createdAt,
-          makeProjectKey(indexRow.key),
-          file.body,
+        yield* syncFrontmatter(orgSlug, slug, {
+          name: indexRow.name,
+          icon: indexRow.icon,
+          color: indexRow.color,
+          createdBy: indexRow.createdBy,
+          createdAt: indexRow.createdAt,
+          key: makeProjectKey(indexRow.key),
+          body: file.body,
           connection,
           setup,
-          file.estimation
-        )
+          estimation: file.estimation,
+          links: file.links
+        })
         return ProjectDetails.presentDetail(scope, {
           org: orgSlug,
           slug,
@@ -623,6 +623,7 @@ const make = Effect.gen(function* () {
           banner: indexRow.banner ?? null,
           iconImage: indexRow.iconImage ?? null,
           body: file.body,
+          links: file.links,
           nextTicketNumber: indexRow.nextTicketNumber,
           members,
           pendingMembers

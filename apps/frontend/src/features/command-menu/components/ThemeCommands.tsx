@@ -2,7 +2,6 @@ import { Monitor, Moon, Sun } from "lucide-react"
 
 import { CommandMenuItem, CommandMenuCheck } from "@/components/ui/command-menu"
 import { useTheme, type ThemePreference } from "@/hooks/useTheme"
-import { getThemeRevealRadius } from "@/lib/themeReveal"
 import { m } from "@/paraglide/messages"
 
 import type { CommandPageProps } from "../lib/commandPages"
@@ -15,18 +14,6 @@ const THEMES: ReadonlyArray<
   { value: "dark", label: m.theme_dark, icon: Moon },
   { value: "system", label: m.theme_system, icon: Monitor }
 ]
-
-const revealFromCentre = () => {
-  const x = window.innerWidth / 2
-  const y = window.innerHeight / 2
-  const root = document.documentElement
-  root.style.setProperty("--theme-clip-x", `${x}px`)
-  root.style.setProperty("--theme-clip-y", `${y}px`)
-  root.style.setProperty(
-    "--theme-clip-radius",
-    `${getThemeRevealRadius(x, y, window.innerWidth, window.innerHeight)}px`
-  )
-}
 
 export function ThemeCommands({ chip, onBack, env }: CommandPageProps) {
   const { preference, setPreference } = useTheme()
@@ -42,10 +29,7 @@ export function ThemeCommands({ chip, onBack, env }: CommandPageProps) {
       }))}
       onSelect={(item) => {
         const theme = THEMES.find((candidate) => candidate.value === item.value)
-        if (theme) {
-          revealFromCentre()
-          setPreference(theme.value)
-        }
+        if (theme) setPreference(theme.value)
         env.close()
       }}
       renderItem={(item) => {

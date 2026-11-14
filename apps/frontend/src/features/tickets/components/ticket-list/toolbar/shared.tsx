@@ -19,7 +19,7 @@ export function ToolbarButton({
       aria-pressed={active}
       {...props}
       className={cn(
-        "inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-background px-3 text-body text-muted-foreground transition-[color,background-color,scale] duration-100 outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97] data-[popup-open]:bg-accent data-[popup-open]:text-foreground",
+        "inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-background px-3 text-body text-muted-foreground transition-colors duration-100 outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring data-[popup-open]:bg-accent data-[popup-open]:text-foreground",
         active && "bg-accent text-foreground hover:text-foreground",
         className
       )}

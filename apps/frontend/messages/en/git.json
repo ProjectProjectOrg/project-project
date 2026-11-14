@@ -16,6 +16,8 @@
   "git_automation_event_pr_opened": "Pull request opened",
   "git_automation_event_pr_opened_hint": "Opened, reopened or marked ready for review",
   "git_automation_forward_only_description": "Skip a move that would put a ticket in an earlier status, such as a reopened pull request on a ticket that is already done.",
+  "git_automation_forward_only_off": "Off",
+  "git_automation_forward_only_on": "On",
   "git_automation_forward_only_label": "Only move forward",
   "git_automation_heading": "Git automation",
   "git_automation_save_error": "Couldn't save git automation. Try again.",

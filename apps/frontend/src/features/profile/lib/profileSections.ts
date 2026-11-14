@@ -10,32 +10,27 @@ export type ProfileSection = Readonly<{
     | "/profile/agents"
   label: string
   icon: typeof UserRound
-  description: string
 }>
 
 export const PROFILE_SECTIONS: ReadonlyArray<ProfileSection> = [
   {
     to: "/profile/account",
     label: m.profile_section_account_title(),
-    icon: UserRound,
-    description: m.profile_section_account_description()
+    icon: UserRound
   },
   {
     to: "/profile/preferences",
     label: m.profile_section_preferences_title(),
-    icon: SlidersHorizontal,
-    description: m.profile_section_preferences_description()
+    icon: SlidersHorizontal
   },
   {
     to: "/profile/connections",
     label: m.profile_section_connections_title(),
-    icon: Plug,
-    description: m.profile_section_connections_description()
+    icon: Plug
   },
   {
     to: "/profile/agents",
     label: m.profile_section_connected_agents_title(),
-    icon: Bot,
-    description: m.profile_section_connected_agents_description()
+    icon: Bot
   }
 ]

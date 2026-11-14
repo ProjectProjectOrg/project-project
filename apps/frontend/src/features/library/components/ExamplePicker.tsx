@@ -127,7 +127,7 @@ function ExampleCard({
   return (
     <label
       className={cn(
-        "flex min-w-0 cursor-pointer flex-col gap-1.5 rounded-lg border bg-card p-3 transition-all duration-100 hover:bg-hover active:scale-[0.97] has-[:disabled]:cursor-default has-[:disabled]:opacity-70 has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring",
+        "flex min-w-0 cursor-pointer flex-col gap-1.5 rounded-lg border bg-card p-3 transition-all duration-100 hover:bg-hover has-[:disabled]:cursor-default has-[:disabled]:opacity-70 has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-ring",
         selected ? "border-foreground" : "border-border"
       )}
     >

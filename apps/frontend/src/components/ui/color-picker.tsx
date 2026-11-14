@@ -78,7 +78,7 @@ export function ColorPicker({
         aria-label={ariaLabel ?? m.color_picker_aria_label()}
         aria-expanded={open}
         onClick={() => changeOpen(!open)}
-        className="relative z-10 grid place-items-center rounded-full border border-border/60 shadow-sm transition-transform duration-100 hover:scale-[1.06] active:scale-[0.94]"
+        className="relative z-10 grid place-items-center rounded-full border border-border/60 shadow-sm transition-transform duration-100 hover:scale-[1.06]"
         style={{ width: CENTER, height: CENTER, backgroundColor: value }}
       />
       <AnimatePresence>

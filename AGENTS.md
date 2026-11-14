@@ -89,13 +89,9 @@ Exception: a single short line is acceptable only when a value would actively mi
 
 Forbidden, regardless: multi-line comment blocks, design-rationale prose, layout reasoning, "this used to be X" notes, restatements of what the code obviously does, before/after explanations, and "we picked this because" passages. Those go in the commit message. If you catch yourself writing more than one line, delete the whole comment.
 
-### Press feel — buttons scale down on active
+### Press feel — no scale
 
-Buttons should scale to **97%** on `:active` with a **100–150ms** transform transition, so the user feels the press land. Use `active:scale-[0.97]` (or `active:[&>span]:scale-[0.97]` when the button's content is what should compress, e.g. an icon button) paired with `transition-transform duration-100`.
-
-This applies to every clickable button in the app — not just the obvious primaries. Skip only when the element is non-interactive or the press is already conveyed by another animation (e.g. an inline-form trigger that immediately morphs).
-
-Buttons that open a popup (dropdown, popover, select, dialog) don't scale: the popup anchors to the trigger's box, so a press scale nudges it a pixel or two as it opens and closes. A global rule in `styles.css` cancels the scale for anything carrying `aria-haspopup`, which every Base UI trigger sets, so components don't need their own exception.
+Nothing scales on `:active`. A press shows through the pressed fill (`bg-active`) and the action's own result, never a transform.
 
 ### Hover feel — instant in, eased out
 

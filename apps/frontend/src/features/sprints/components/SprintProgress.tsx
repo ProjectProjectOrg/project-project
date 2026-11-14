@@ -4,7 +4,6 @@ import {
   ESTIMATE_SIZES,
   sprintState,
   type EstimateSummary,
-  type EstimateTotals,
   type Group
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -37,9 +36,9 @@ import { sprintStatusText } from "./SprintChip"
 
 const PREVIEW_DELAY_MS = 400
 
-const DONE_TONE = "bg-foreground/75"
-const STARTED_TONE = "bg-foreground/30"
-const UNSTARTED_TONE = "bg-tint"
+export const DONE_TONE = "bg-foreground/75"
+export const STARTED_TONE = "bg-foreground/30"
+export const UNSTARTED_TONE = "bg-tint"
 
 export function SprintProgress({
   sprint,
@@ -110,17 +109,30 @@ function sprintEstimate(sprint: Group, summary: EstimateSummary): ReactNode {
   }
   return (
     <>
-      <EstimateBar totals={summary} className="w-11" />
+      <PhaseBar
+        done={summary.done}
+        started={summary.started}
+        total={summary.committed}
+        className="w-11"
+      />
       {formatEstimateProgress(summary)}
     </>
   )
 }
 
-function EstimateBar({
-  totals,
+export function PhaseBar({
+  done,
+  started,
+  total,
   className
-}: Readonly<{ totals: EstimateTotals; className?: string }>) {
-  const share = (amount: number) => `${(amount / totals.committed) * 100}%`
+}: Readonly<{
+  done: number
+  started: number
+  total: number
+  className?: string
+}>) {
+  const share = (amount: number) =>
+    `${total === 0 ? 0 : (amount / total) * 100}%`
   return (
     <span
       aria-hidden
@@ -130,8 +142,8 @@ function EstimateBar({
         className
       )}
     >
-      <span className={DONE_TONE} style={{ width: share(totals.done) }} />
-      <span className={STARTED_TONE} style={{ width: share(totals.started) }} />
+      <span className={DONE_TONE} style={{ width: share(done) }} />
+      <span className={STARTED_TONE} style={{ width: share(started) }} />
     </span>
   )
 }
@@ -158,7 +170,7 @@ function UnestimatedChip({
                 event.stopPropagation()
                 onShow()
               }}
-              className="-my-0.5 inline-flex cursor-pointer items-center gap-1 rounded-full py-0.5 pr-1.5 pl-1 text-state-warning transition-all duration-100 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+              className="-my-0.5 inline-flex cursor-pointer items-center gap-1 rounded-full py-0.5 pr-1.5 pl-1 text-state-warning transition-all duration-100 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
             />
           ) : (
             <span className="inline-flex items-center gap-1 text-state-warning" />
@@ -256,7 +268,12 @@ function PreviewEstimate({
   }
   return (
     <div className="flex flex-col gap-2">
-      <EstimateBar totals={summary} className="w-full" />
+      <PhaseBar
+        done={summary.done}
+        started={summary.started}
+        total={summary.committed}
+        className="w-full"
+      />
       <PreviewRows>
         <PreviewRow
           marker={<ToneDot tone={DONE_TONE} />}

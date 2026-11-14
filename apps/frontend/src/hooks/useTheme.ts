@@ -1,14 +1,23 @@
 import * as Schema from "effect/Schema"
+import { Monitor, Moon, Sun } from "lucide-react"
 import { useCallback, useEffect } from "react"
 
+import type { SegmentedItem } from "@/components/ui/segmented-tabs"
 import {
   createLocalStorageStringCodec,
   useLocalStorageState
 } from "@/hooks/useLocalStorageState"
+import { m } from "@/paraglide/messages"
 
 const ThemePreference = Schema.Literals(["light", "dark", "system"])
 export type ThemePreference = typeof ThemePreference.Type
 export type ResolvedTheme = "light" | "dark"
+
+export const THEME_ITEMS = [
+  { key: "light", label: m.theme_light(), icon: Sun },
+  { key: "system", label: m.theme_system(), icon: Monitor },
+  { key: "dark", label: m.theme_dark(), icon: Moon }
+] as const satisfies ReadonlyArray<SegmentedItem<ThemePreference>>
 
 const STORAGE_KEY = "projectproject:theme"
 const themeCodec = createLocalStorageStringCodec(ThemePreference)
@@ -27,6 +36,8 @@ function applyResolved(pref: ThemePreference) {
   const next = resolve(pref)
   document.documentElement.classList.toggle("dark", next === "dark")
 }
+
+let latestSwitch: ViewTransition | null = null
 
 export function useTheme() {
   const [preference, storePreference] = useLocalStorageState(
@@ -54,7 +65,15 @@ export function useTheme() {
         typeof document !== "undefined" &&
         "startViewTransition" in document
       ) {
-        document.startViewTransition(apply)
+        const root = document.documentElement
+        root.classList.add("pp-theme-switching")
+        const transition = document.startViewTransition(apply)
+        latestSwitch = transition
+        void transition.finished.finally(() => {
+          if (latestSwitch !== transition) return
+          latestSwitch = null
+          root.classList.remove("pp-theme-switching")
+        })
       } else {
         apply()
       }

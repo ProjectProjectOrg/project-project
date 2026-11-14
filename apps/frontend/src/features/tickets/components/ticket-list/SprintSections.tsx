@@ -9,12 +9,13 @@ import {
   type TicketListQuery,
   TicketStatus
 } from "@pp/shared"
+import { useLocation } from "@tanstack/react-router"
 import * as Equal from "effect/Equal"
 import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { Inbox } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -23,7 +24,12 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { SprintStateHint } from "@/features/sprints/components/SprintChip"
+import { SprintPlanSummary } from "@/features/sprints/components/SprintPlanSummary"
 import { SprintProgress } from "@/features/sprints/components/SprintProgress"
+import {
+  formatSprintDates,
+  sprintDateDraft
+} from "@/features/sprints/lib/sprintDates"
 import { encodeTicketListQuery } from "@/features/tickets/atoms/backlog"
 import {
   loadMoreSprintSections,
@@ -37,13 +43,13 @@ import {
   type SprintSectionsValue
 } from "@/features/tickets/atoms/sprintSections"
 import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
+import { sprintSectionAnchor } from "@/features/tickets/lib/sprintSectionAnchor"
 import {
   viewQuery,
   type TicketRowPage
 } from "@/features/tickets/lib/ticketRows"
 import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
 import { m } from "@/paraglide/messages"
-import { getLocale } from "@/paraglide/runtime"
 
 import { useListRowAutoScroll } from "./ListRowDrag"
 import { sprintCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
@@ -241,20 +247,26 @@ function SprintSection({
   }
   const label = sprint?.name ?? m.tickets_grouping_unscheduled()
   const state = sprint ? sprintState(sprint) : null
-  const dates =
-    sprint &&
-    [sprint.startsAt, sprint.endsAt]
-      .filter((date): date is Date => date !== null)
-      .map((date) =>
-        new Intl.DateTimeFormat(getLocale(), {
-          month: "short",
-          day: "numeric"
-        }).format(date)
-      )
-      .join(" – ")
+  const dates = sprint && formatSprintDates(sprintDateDraft(sprint))
   const selectedStatuses = query.status
+  const anchor = sprint ? sprintSectionAnchor(sprint.id) : undefined
+  const hash = useLocation({ select: (location) => location.hash })
+  const anchorRef = useRef<HTMLDivElement>(null)
+  const targeted = anchor !== undefined && hash === anchor && !waiting
+  useEffect(() => {
+    if (!targeted) return undefined
+    const frame = requestAnimationFrame(() =>
+      anchorRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })
+    )
+    return () => cancelAnimationFrame(frame)
+  }, [targeted])
   return (
-    <div aria-busy={waiting}>
+    <div
+      ref={anchorRef}
+      id={anchor}
+      aria-busy={waiting}
+      className="scroll-mt-6"
+    >
       <SectionList
         query={query}
         status={
@@ -282,6 +294,17 @@ function SprintSection({
                   summary={estimates}
                   onShowUnestimated={() =>
                     props.onQueryChange({ ...props.query, estimate: ["none"] })
+                  }
+                />
+              )}
+              {state === "planned" && (
+                <SprintPlanSummary
+                  sprint={sprint}
+                  onFilterAssignee={(assignee) =>
+                    props.onQueryChange({
+                      ...props.query,
+                      assignee: [assignee]
+                    })
                   }
                 />
               )}

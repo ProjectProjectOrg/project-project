@@ -296,8 +296,9 @@ export const Tools = Toolkit.make(
       "`github`, the default one; null when no repository is connected, " +
       "in which case git automation never runs), the estimation unit " +
       "(`estimation`, see `create_ticket`), members, your `permissions`, " +
-      "and `body`, the project's own markdown description. Read `body` " +
-      "for background before writing or refining tickets.",
+      "`links`, the team's labelled URLs such as dev servers, staging and " +
+      "docs, and `body`, the project's own markdown description. Read " +
+      "`body` for background before writing or refining tickets.",
     cli: {
       command: ["projects", "get"],
       summary: "Show a project, its members and settings."

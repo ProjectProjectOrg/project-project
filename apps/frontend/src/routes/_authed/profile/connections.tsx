@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
 
+import { settingsPage } from "@/components/shell/settings/SettingsLayout"
 import { figmaProfileAtom } from "@/features/figma/atoms/figma"
 import { Connections } from "@/features/profile/components/Connections"
 import { slackProfiles } from "@/features/slack/atoms/slack"
@@ -28,11 +29,9 @@ export const Route = createFileRoute("/_authed/profile/connections")({
       ),
       { signal: abortController.signal }
     )
-    return {
-      crumb: {
-        type: "static" as const,
-        label: m.profile_section_connections_title()
-      }
-    }
+    return settingsPage(
+      m.profile_section_connections_title(),
+      m.profile_section_connections_description()
+    )
   }
 })

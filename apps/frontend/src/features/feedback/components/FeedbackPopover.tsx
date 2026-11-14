@@ -1,36 +1,52 @@
 import { useAtomValue } from "@effect/atom-react"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { MessageSquarePlus } from "lucide-react"
-import { useState } from "react"
+import type { RefObject } from "react"
 
-import { NavButton } from "@/components/shell/NavItem"
 import { Composer } from "@/components/ui/composer"
-import { Popover, PopoverTitle, PopoverTrigger } from "@/components/ui/popover"
+import { Popover, PopoverTitle } from "@/components/ui/popover"
 import { feedbackStatus } from "@/features/feedback/atoms/feedback"
 import { SendFeedbackForm } from "@/features/feedback/forms/send-feedback"
-import { m } from "@/paraglide/messages"
 
-export function FeedbackPopover({ orgSlug }: Readonly<{ orgSlug: string }>) {
+export function useFeedbackEnabled(orgSlug: string): boolean {
   const status = useAtomValue(feedbackStatus(orgSlug))
-  const [open, setOpen] = useState(false)
+  return AsyncResult.isSuccess(status) && status.value.enabled
+}
+
+export function FeedbackPopover({
+  orgSlug,
+  open,
+  onOpenChange,
+  onDone,
+  anchor
+}: Readonly<{
+  orgSlug: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onDone?: () => void
+  anchor: RefObject<HTMLElement | null>
+}>) {
+  const status = useAtomValue(feedbackStatus(orgSlug))
   if (!AsyncResult.isSuccess(status) || !status.value.enabled) return null
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <NavButton
-            variant="tinted"
-            icon={MessageSquarePlus}
-            label={m.feedback_open()}
-          />
-        }
-      />
-      <Composer.Popover side="right" align="end" sideOffset={12}>
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <Composer.Popover
+        anchor={anchor}
+        side="right"
+        align="end"
+        sideOffset={12}
+        finalFocus={anchor}
+        onKeyDown={(event) => {
+          if (event.key !== "Escape") event.stopPropagation()
+        }}
+      >
         <SendFeedbackForm
           orgSlug={orgSlug}
           attachments={status.value.attachments}
           Title={PopoverTitle}
-          onDone={() => setOpen(false)}
+          onDone={() => {
+            onOpenChange(false)
+            onDone?.()
+          }}
         />
       </Composer.Popover>
     </Popover>

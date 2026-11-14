@@ -33,7 +33,7 @@ export function TicketSelectionChips({
             aria-label={m.tickets_selection_remove_aria_label({
               id: ticket.id
             })}
-            className="grid h-full shrink-0 cursor-pointer place-items-center px-1.5 text-muted-foreground transition-[color,background-color,scale] duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
+            className="grid h-full shrink-0 cursor-pointer place-items-center px-1.5 text-muted-foreground transition-colors duration-100 hover:bg-hover hover:text-foreground"
           >
             <X className="size-3.5" strokeWidth={1.75} />
           </button>

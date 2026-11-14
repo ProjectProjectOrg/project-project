@@ -71,7 +71,7 @@ export function StatusIconPicker({
                 aria-label={m.color_swatch_aria_label({ hex: swatch.hex })}
                 aria-pressed={swatch.hex.toLowerCase() === color?.toLowerCase()}
                 onClick={() => onColorChange(swatch.hex)}
-                className="flex size-7 items-center justify-center rounded-[8px] transition-all duration-100 hover:bg-hover active:scale-[0.97] aria-pressed:bg-active"
+                className="flex size-7 items-center justify-center rounded-[8px] transition-all duration-100 hover:bg-hover aria-pressed:bg-active"
               >
                 <span
                   className="size-4 rounded-full border border-border/60"

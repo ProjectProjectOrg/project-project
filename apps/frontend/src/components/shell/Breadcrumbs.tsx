@@ -288,9 +288,6 @@ function TicketTrailCrumb({
   const result = useAtomValue(
     ticketDetail(ticketRequest(orgSlug, slug, shownId))
   )
-  if (search.from === "sprintBoard" && search.sprint !== undefined) {
-    return <SprintCrumb orgSlug={orgSlug} slug={slug} groupId={search.sprint} />
-  }
   const parent = Result.isSuccess(result) ? result.value.parent : null
   if (
     parent === null ||

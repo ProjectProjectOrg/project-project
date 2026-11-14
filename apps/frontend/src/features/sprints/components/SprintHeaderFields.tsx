@@ -38,6 +38,7 @@ import {
   updateSprint
 } from "@/features/sprints/atoms/sprintList"
 import {
+  nowDate,
   sprintDateDraft,
   sprintEnded,
   sprintDatesPatch,
@@ -53,8 +54,6 @@ import {
   SprintStateIcon
 } from "./SprintChip"
 import { SprintEstimateTotals } from "./SprintEstimateTotals"
-
-export const nowDate = () => DateTime.toDate(DateTime.nowUnsafe())
 
 export function SprintStatusSelect({
   sprint,
@@ -188,7 +187,7 @@ export function SprintNameField({
         }}
         disabled={disabled}
         className={cn(
-          "-mx-1 truncate rounded px-1 text-left text-display font-bold transition-colors transition-transform duration-100 active:scale-[0.97]",
+          "-mx-1 truncate rounded px-1 text-left text-display font-bold transition-colors duration-100",
           !disabled && "hover:bg-hover"
         )}
       >
@@ -292,7 +291,7 @@ function SprintDatesField({
         render={
           <button
             type="button"
-            className="-mx-1 rounded px-1 font-mono tabular-nums transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
+            className="-mx-1 rounded px-1 font-mono tabular-nums transition-colors duration-100 hover:bg-hover hover:text-foreground"
           >
             {label}
           </button>
@@ -342,7 +341,7 @@ export function SprintDeleteMenu({ sprint }: { sprint: Group }) {
               ref={trigger}
               type="button"
               aria-label={m.sprints_actions_aria_label()}
-              className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+              className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             >
               <MoreHorizontal className="size-4" strokeWidth={1.75} />
             </button>

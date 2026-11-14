@@ -3,7 +3,6 @@ import * as Schema from "effect/Schema"
 
 import { orgScope } from "@/features/library/atoms/libraryScope"
 import { TicketTypesPage } from "@/features/library/components/TicketTypesPage"
-import { m } from "@/paraglide/messages"
 
 const LibrarySearch = Schema.Struct({
   tab: Schema.optional(Schema.Literals(["types", "sections"]))
@@ -11,10 +10,7 @@ const LibrarySearch = Schema.Struct({
 
 export const Route = createFileRoute("/_authed/orgs/$orgSlug/settings/types/")({
   component: TicketTypesSettings,
-  validateSearch: Schema.toStandardSchemaV1(LibrarySearch),
-  loader: () => ({
-    crumb: { type: "static" as const, label: m.org_settings_types_tab() }
-  })
+  validateSearch: Schema.toStandardSchemaV1(LibrarySearch)
 })
 
 function TicketTypesSettings() {

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 
 import { currentUserId } from "@/features/auth/atoms/auth"
@@ -20,7 +20,10 @@ import {
   sprintSections,
   sprintSectionsRequest
 } from "@/features/tickets/atoms/sprintSections"
-import { readBacklogGrouping } from "@/features/tickets/components/ticket-list/ProjectTicketLayout"
+import {
+  readBacklogGrouping,
+  writeBacklogGrouping
+} from "@/features/tickets/components/ticket-list/ProjectTicketLayout"
 import {
   BacklogSearch,
   ticketQueryFromSearch
@@ -31,6 +34,25 @@ export const Route = createFileRoute(
   "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/"
 )({
   component: () => null,
+  beforeLoad: ({
+    context: { registry },
+    params: { orgSlug, slug },
+    search,
+    location,
+    preload
+  }) => {
+    if (search.group === undefined || preload) return
+    const viewerId = registry.get(currentUserId)
+    if (viewerId !== undefined)
+      writeBacklogGrouping(viewerId, orgSlug, slug, search.group)
+    throw redirect({
+      to: "/orgs/$orgSlug/projects/$slug",
+      params: { orgSlug, slug },
+      search: { ...search, group: undefined },
+      hash: location.hash,
+      replace: true
+    })
+  },
   loaderDeps: ({ search }) => search,
   loader: ({
     context: { registry },
