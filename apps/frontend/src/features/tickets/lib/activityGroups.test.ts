@@ -33,7 +33,8 @@ const user = (id: string): User => ({
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 })
 
 const wouter: TicketActivityActor = { kind: "user", user: user("wouter") }

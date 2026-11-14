@@ -33,7 +33,8 @@ const user = {
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 } as const
 
 describe("CommentAuthor", () => {

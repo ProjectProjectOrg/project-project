@@ -1,5 +1,6 @@
-import { useAtomValue } from "@effect/atom-react"
-import type { User } from "@pp/shared"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import type { AvatarSource, User } from "@pp/shared"
+import * as Result from "effect/reactivity/AsyncResult"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import {
@@ -8,8 +9,14 @@ import {
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
-import { me } from "@/features/auth/atoms/auth"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
+import { SettingsSegmented } from "@/components/shell/settings/SettingsTextField"
+import { me, updateAvatar } from "@/features/auth/atoms/auth"
+import { DissolveAvatar } from "@/features/members/components/DissolveAvatar"
+import {
+  avatarSourceIcon,
+  avatarSourceLabel,
+  selectedAvatarSource
+} from "@/features/profile/lib/avatarOptions"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -28,14 +35,26 @@ export function Account() {
 const PROFILE_AVATAR_SIZE = 96
 
 function AccountDetails({ user }: Readonly<{ user: User }>) {
+  const update = useAtomSet(updateAvatar)
+  const updateState = useAtomValue(updateAvatar)
+  const selected = selectedAvatarSource(user.avatarOptions, user.image)
+  const canChoose = user.avatarOptions.length > 1 || selected === null
+
+  function choose(next: AvatarSource) {
+    const option = user.avatarOptions.find((o) => o.source === next)
+    if (!option || next === selected) return
+    update(option.image)
+  }
+
   return (
     <SettingsSection>
       <SettingsGroup className="mt-12 overflow-visible">
         <div className="flex flex-col items-center gap-1 px-4 pb-5 text-center">
-          <MemberAvatar
+          <DissolveAvatar
             member={user}
             size={PROFILE_AVATAR_SIZE}
-            className="-mt-12 mb-2 bg-card"
+            className="-mt-12 mb-2"
+            avatarClassName="bg-card"
           />
           <p className="text-subtitle font-semibold">{user.name}</p>
           <p className="text-caption text-muted-foreground">
@@ -48,6 +67,28 @@ function AccountDetails({ user }: Readonly<{ user: User }>) {
             {user.email}
           </p>
         </div>
+        {canChoose ? (
+          <SettingsRow
+            label={m.profile_avatar_title()}
+            description={m.profile_avatar_description()}
+            error={
+              Result.isFailure(updateState)
+                ? m.profile_avatar_update_error()
+                : null
+            }
+          >
+            <SettingsSegmented
+              items={user.avatarOptions.map(({ source }) => ({
+                key: source,
+                label: avatarSourceLabel(source),
+                icon: avatarSourceIcon(source)
+              }))}
+              value={selected}
+              waiting={updateState.waiting}
+              onValueChange={choose}
+            />
+          </SettingsRow>
+        ) : null}
         <SettingsRow label={m.profile_user_id_label()}>
           <span className="font-mono text-body text-muted-foreground">
             {user.id}

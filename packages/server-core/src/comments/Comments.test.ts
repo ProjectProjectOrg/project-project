@@ -164,7 +164,8 @@ const author = {
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 }
 
 const FakeUsers = Layer.succeed(Users.Users, {

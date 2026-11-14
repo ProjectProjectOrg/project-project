@@ -32,7 +32,8 @@ const viewer = Schema.decodeSync(User)({
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 })
 
 const projectReq = projectRequest("org", "project")

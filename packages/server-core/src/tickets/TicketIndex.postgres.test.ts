@@ -1012,7 +1012,8 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         email: null,
         lastVerifiedAt: null,
         lastCheckError: null
-      }
+      },
+      avatarOptions: []
     }
     const commentsLayer = Comments.layer.pipe(
       Layer.provide(

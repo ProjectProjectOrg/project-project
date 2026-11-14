@@ -103,7 +103,8 @@ const make = Effect.gen(function* () {
           email: null,
           lastVerifiedAt: null,
           lastCheckError: null
-        }
+        },
+        avatarOptions: []
       })
     )
   })

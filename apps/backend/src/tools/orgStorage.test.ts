@@ -60,7 +60,8 @@ const user = Schema.decodeSync(User)({
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 })
 const org = Schema.decodeSync(Org)({
   slug: "acme",

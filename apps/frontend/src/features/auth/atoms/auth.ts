@@ -1,4 +1,4 @@
-import type { EditorPreference } from "@pp/shared"
+import type { EditorPreference, User } from "@pp/shared"
 import type { BetterFetchError } from "better-auth/react"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -8,6 +8,7 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 import { Api } from "@/api/Api"
 import { Keys } from "@/api/keys"
 import { query } from "@/api/query"
+import { viewMutation } from "@/api/viewMutation"
 import { clearBannerRenderCache } from "@/features/projects/lib/bannerRenderCache"
 import { authClient } from "@/services/AuthClient"
 
@@ -98,6 +99,21 @@ export const updateEditorPreference = Api.runtime.fn(
     yield* Reactivity.invalidate([Keys.me()])
   })
 )
+
+const activeOrgSlugOf = (viewer: AsyncResult.AsyncResult<User, unknown>) =>
+  AsyncResult.isSuccess(viewer) ? viewer.value.activeOrgSlug : null
+
+export const updateAvatar = viewMutation(meAtom, {
+  name: "updateAvatar",
+  predict: (user, image: string | null) => ({ ...user, image }),
+  call: (_client, image, get) =>
+    Effect.tryPromise(() => authData(authClient.updateUser({ image }))).pipe(
+      Effect.as(activeOrgSlugOf(get(meAtom)))
+    ),
+  confirm: (user, _orgSlug, image) => ({ ...user, image }),
+  publish: (orgSlug) =>
+    orgSlug === null ? [Keys.me()] : [Keys.me(), Keys.orgMembers(orgSlug)]
+})
 
 export const setActiveOrganization = Api.runtime.fn(
   Effect.fn("setActiveOrganization")(function* (organizationSlug: string) {

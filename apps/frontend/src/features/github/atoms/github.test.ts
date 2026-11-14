@@ -131,7 +131,8 @@ const user = {
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 }
 
 const projectDetail = (

@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { logout } from "@/features/auth/atoms/auth"
+import { DissolveAvatar } from "@/features/members/components/DissolveAvatar"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { m } from "@/paraglide/messages"
 
@@ -26,7 +27,7 @@ export function UserMenu({ user }: { user: User }) {
             aria-label={m.chrome_user_menu_open()}
             className="rounded-full ring-offset-background outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <MemberAvatar member={user} size={36} />
+            <DissolveAvatar member={user} size={36} />
           </button>
         }
       />

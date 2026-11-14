@@ -126,7 +126,8 @@ const viewer = () =>
       email: null,
       lastVerifiedAt: null,
       lastCheckError: null
-    }
+    },
+    avatarOptions: []
   })
 
 const fetchStub = stubFetch()

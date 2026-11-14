@@ -2,6 +2,7 @@ import * as schema from "@pp/db/schema"
 import { member, oauthClient, organization, user } from "@pp/db/schema"
 import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import {
+  AvatarOption,
   NotFound,
   Org,
   OrgInvitation,
@@ -25,6 +26,7 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as Match from "effect/Match"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
 import { orgRoleOf, pendingInvitations } from "../organizations/Handlers"
@@ -42,6 +44,48 @@ const decodeOrgMembers = Schema.decodeEffect(OrgMembers)
 const decodePersonalGithub = Schema.decodeEffect(PersonalGithub)
 
 const decodePersonalEverhour = Schema.decodeEffect(PersonalEverhour)
+
+const decodeAvatarOptions = Schema.decodeEffect(Schema.Array(AvatarOption))
+
+const GoogleIdTokenClaims = Schema.fromJsonString(
+  Schema.Struct({ picture: Schema.optional(Schema.String) })
+)
+
+const decodeGoogleIdTokenClaims =
+  Schema.decodeUnknownOption(GoogleIdTokenClaims)
+
+const googlePicture = (idToken: string | null) => {
+  const payload = idToken?.split(".")[1]
+  if (!payload) return null
+  return decodeGoogleIdTokenClaims(
+    Buffer.from(payload, "base64url").toString("utf8")
+  ).pipe(
+    Option.flatMapNullishOr((claims) => claims.picture),
+    Option.getOrNull
+  )
+}
+
+const providerAvatar = (
+  account: Readonly<{
+    providerId: string
+    accountId: string
+    idToken: string | null
+  }>
+) => {
+  switch (account.providerId) {
+    case "github":
+      return {
+        source: "github" as const,
+        image: `https://avatars.githubusercontent.com/u/${account.accountId}?v=4`
+      }
+    case "google": {
+      const image = googlePicture(account.idToken)
+      return image ? { source: "google" as const, image } : null
+    }
+    default:
+      return null
+  }
+}
 
 const decodeOrgMembership = Schema.decodeEffect(
   Schema.Struct({
@@ -314,6 +358,32 @@ export const BetterAuthLive = Layer.effect(
       }
     )
 
+    const getLinkedAccounts = Effect.fn("BetterAuth.getLinkedAccounts")(
+      function* (userId: string) {
+        const accounts = yield* attempt(() =>
+          db.query.account.findMany({
+            columns: { providerId: true, accountId: true, idToken: true },
+            where: { userId }
+          })
+        )
+        const providerOptions = accounts.flatMap(
+          (account) => providerAvatar(account) ?? []
+        )
+        const avatarOptions = yield* decodeAvatarOptions([
+          { source: "generated", image: null },
+          ...providerOptions.filter(
+            (option, index) =>
+              providerOptions.findIndex((o) => o.source === option.source) ===
+              index
+          )
+        ]).pipe(Effect.orDie)
+        const personalGithub = yield* decodePersonalGithub({
+          connected: accounts.some((account) => account.providerId === "github")
+        }).pipe(Effect.orDie)
+        return { avatarOptions, personalGithub }
+      }
+    )
+
     const getOrgSlugById = Effect.fn("BetterAuth.getOrgSlugById")(function* (
       organizationId: string | null | undefined
     ) {
@@ -331,20 +401,24 @@ export const BetterAuthLive = Layer.effect(
       identity: UserIdentity,
       activeOrganizationId: string | null | undefined
     ) {
-      const [activeOrgSlug, personalGithub, personalEverhour] =
-        yield* Effect.all(
-          [
-            getOrgSlugById(activeOrganizationId),
-            getPersonalGithub(identity.id),
-            getPersonalEverhour(identity.id)
-          ],
-          { concurrency: "unbounded" }
-        )
+      const [
+        activeOrgSlug,
+        { personalGithub, avatarOptions },
+        personalEverhour
+      ] = yield* Effect.all(
+        [
+          getOrgSlugById(activeOrganizationId),
+          getLinkedAccounts(identity.id),
+          getPersonalEverhour(identity.id)
+        ],
+        { concurrency: "unbounded" }
+      )
       return {
         ...identity,
         activeOrgSlug,
         personalGithub,
-        personalEverhour
+        personalEverhour,
+        avatarOptions
       } satisfies User
     })
 

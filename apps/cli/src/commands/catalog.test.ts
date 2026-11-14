@@ -174,7 +174,8 @@ const grace = {
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 }
 const linus = { ...grace, id: "u-3", name: "Linus", email: "linus@example.com" }
 const assignment = (id: string, personId: string) => ({

@@ -63,6 +63,15 @@ export const EditorPreference = Schema.Literals([
 ])
 export type EditorPreference = typeof EditorPreference.Type
 
+export const AvatarSource = Schema.Literals(["generated", "github", "google"])
+export type AvatarSource = typeof AvatarSource.Type
+
+export const AvatarOption = Schema.Struct({
+  source: AvatarSource,
+  image: Schema.NullOr(Schema.String)
+})
+export type AvatarOption = typeof AvatarOption.Type
+
 export const User = Schema.Struct({
   id: UserId,
   email: Schema.String,
@@ -78,11 +87,12 @@ export const User = Schema.Struct({
   activeOrgSlug: Schema.NullOr(Schema.String),
   personalGithub: PersonalGithub,
   editorPreference: EditorPreference,
-  personalEverhour: PersonalEverhour
+  personalEverhour: PersonalEverhour,
+  avatarOptions: Schema.Array(AvatarOption)
 })
 export type User = typeof User.Type
 
 export type UserIdentity = Omit<
   User,
-  "activeOrgSlug" | "personalGithub" | "personalEverhour"
+  "activeOrgSlug" | "personalGithub" | "personalEverhour" | "avatarOptions"
 >

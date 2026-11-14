@@ -81,7 +81,8 @@ const user = Schema.decodeSync(User)({
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 })
 const auth = Layer.succeed(Authentication, {
   sessionCookie: (effect) =>

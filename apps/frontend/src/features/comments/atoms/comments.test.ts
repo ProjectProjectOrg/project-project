@@ -42,7 +42,8 @@ it("inserts a comment placeholder immediately and swaps in the response", async 
           email: null,
           lastVerifiedAt: null,
           lastCheckError: null
-        }
+        },
+        avatarOptions: []
       }
     },
     origin: "native",
@@ -86,7 +87,8 @@ it("inserts a comment placeholder immediately and swaps in the response", async 
         email: null,
         lastVerifiedAt: null,
         lastCheckError: null
-      }
+      },
+      avatarOptions: []
     }
   }
   const registry = Registry.make()

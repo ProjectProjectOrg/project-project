@@ -46,7 +46,8 @@ const user = (id: string, activeOrgSlug = "org-a") => ({
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 })
 
 function sessions() {

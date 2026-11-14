@@ -34,7 +34,8 @@ export const testUser = (id: string) =>
       email: null,
       lastVerifiedAt: null,
       lastCheckError: null
-    }
+    },
+    avatarOptions: []
   })
 
 export const orgScope = (

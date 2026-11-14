@@ -413,7 +413,8 @@ export const fakeUser = (id: string): User => ({
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 })
 
 export const FakeUsers = Layer.succeed(Users.Users, {

@@ -35,7 +35,8 @@ const meUser = {
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 }
 
 const titleOf = (slug: string) => `${slug[0]?.toUpperCase()}${slug.slice(1)}`

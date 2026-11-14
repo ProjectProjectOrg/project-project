@@ -41,7 +41,8 @@ const userFor = (id: string) =>
       email: null,
       lastVerifiedAt: null,
       lastCheckError: null
-    }
+    },
+    avatarOptions: []
   })
 
 describe.skipIf(!databaseUrl)("Access", () => {

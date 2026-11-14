@@ -28,7 +28,8 @@ const user = (id: string, name: string) => ({
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 })
 
 const statuses = [

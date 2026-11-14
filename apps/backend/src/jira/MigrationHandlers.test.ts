@@ -79,7 +79,8 @@ const user: User = {
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 }
 const accessMiddleware = Layer.mergeAll(OrgAccessLive, ProjectAccessLive).pipe(
   Layer.provide(

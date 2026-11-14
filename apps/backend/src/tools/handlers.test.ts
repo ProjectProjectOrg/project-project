@@ -750,7 +750,8 @@ describe("MCP handlers → write tools", () => {
               email: null,
               lastVerifiedAt: null,
               lastCheckError: null
-            }
+            },
+            avatarOptions: []
           }
         },
         origin: "native",

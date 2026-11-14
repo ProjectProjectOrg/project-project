@@ -122,7 +122,8 @@ const user = Schema.decodeSync(User)({
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 })
 const databaseUrl = process.env.PROJECTPROJECT_TEST_DATABASE_URL
 const connection: S3Storage.S3Connection = {

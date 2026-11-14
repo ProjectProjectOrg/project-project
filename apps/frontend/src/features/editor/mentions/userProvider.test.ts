@@ -37,7 +37,8 @@ it.effect(
               email: null,
               lastVerifiedAt: null,
               lastCheckError: null
-            }
+            },
+            avatarOptions: []
           })
         )
         fetchStub.set(fetch)
