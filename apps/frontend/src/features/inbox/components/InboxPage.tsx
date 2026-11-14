@@ -11,6 +11,10 @@ import {
   inboxRequest,
   type InboxRequest
 } from "@/features/inbox/atoms/inbox"
+import {
+  InboxCaughtUp,
+  InboxNothingSelected
+} from "@/features/inbox/components/InboxEmpty"
 import { InboxList } from "@/features/inbox/components/InboxList"
 import { InboxTicketPane } from "@/features/inbox/components/InboxTicketPane"
 import { InboxUndoBar } from "@/features/inbox/components/InboxUndoBar"
@@ -87,6 +91,18 @@ function InboxView({
           return item === null || item === selected ? [] : [item]
         })
 
+  const undoBar = (
+    <InboxUndoBar cleared={cleared} onUndo={actions.undo} onDismiss={dismiss} />
+  )
+
+  if (items.length === 0)
+    return (
+      <>
+        <InboxCaughtUp />
+        {undoBar}
+      </>
+    )
+
   return (
     <>
       <ResizableSplit
@@ -107,9 +123,7 @@ function InboxView({
         }
         end={
           selected === null ? (
-            <p className="m-auto text-body text-muted-foreground">
-              {m.inbox_pane_empty()}
-            </p>
+            <InboxNothingSelected />
           ) : (
             <div
               ref={paneRef}
@@ -135,11 +149,7 @@ function InboxView({
           )
         }
       />
-      <InboxUndoBar
-        cleared={cleared}
-        onUndo={actions.undo}
-        onDismiss={dismiss}
-      />
+      {undoBar}
     </>
   )
 }

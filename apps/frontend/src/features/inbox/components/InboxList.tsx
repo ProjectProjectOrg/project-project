@@ -1,15 +1,8 @@
 import type { InboxItem } from "@pp/shared"
-import { CheckCheck, Inbox, MailCheck } from "lucide-react"
+import { CheckCheck, MailCheck } from "lucide-react"
 import type { RefObject } from "react"
 
 import { Button } from "@/components/ui/button"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle
-} from "@/components/ui/empty"
 import { InboxRow } from "@/features/inbox/components/InboxRow"
 import type { InboxActions } from "@/features/inbox/hooks/useInboxActions"
 import { inboxKey } from "@/features/inbox/lib/inboxRows"
@@ -42,46 +35,29 @@ export function InboxList({
           <MailCheck className="size-3.5" strokeWidth={1.75} />
           <span className="max-lg:sr-only">{m.inbox_mark_all_read()}</span>
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={items.length === 0}
-          onClick={actions.doneAll}
-        >
+        <Button variant="ghost" size="sm" onClick={actions.doneAll}>
           <CheckCheck className="size-3.5" strokeWidth={1.75} />
           <span className="max-lg:sr-only">{m.inbox_mark_all_done()}</span>
         </Button>
       </header>
-      {items.length === 0 ? (
-        <Empty className="flex-1">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <Inbox strokeWidth={1.75} />
-            </EmptyMedia>
-            <EmptyTitle>{m.inbox_empty_title()}</EmptyTitle>
-            <EmptyDescription>{m.inbox_empty_body()}</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : (
-        <ul
-          ref={listRef}
-          aria-label={m.inbox_list_label()}
-          className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain px-2 pb-4"
-        >
-          {items.map((item) => (
-            <InboxRow
-              key={inboxKey(item)}
-              orgSlug={orgSlug}
-              item={item}
-              rowKey={inboxKey(item)}
-              selected={item === selected}
-              tabbable={item === tabbable}
-              onDone={actions.done}
-              onUnsubscribe={actions.unsubscribe}
-            />
-          ))}
-        </ul>
-      )}
+      <ul
+        ref={listRef}
+        aria-label={m.inbox_list_label()}
+        className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain px-2 pb-4"
+      >
+        {items.map((item) => (
+          <InboxRow
+            key={inboxKey(item)}
+            orgSlug={orgSlug}
+            item={item}
+            rowKey={inboxKey(item)}
+            selected={item === selected}
+            tabbable={item === tabbable}
+            onDone={actions.done}
+            onUnsubscribe={actions.unsubscribe}
+          />
+        ))}
+      </ul>
     </div>
   )
 }
