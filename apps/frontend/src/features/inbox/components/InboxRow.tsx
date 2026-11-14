@@ -21,6 +21,7 @@ import {
   statusesFor,
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
+import { ActorMark } from "@/features/tickets/components/ActorMark"
 import { TimelineTime } from "@/features/tickets/components/TimelineTime"
 import { statusLabelFor } from "@/features/tickets/lib/ticketMeta"
 import { cn } from "@/lib/utils"
@@ -47,10 +48,20 @@ export const describeEvent = (
   return Match.value(event).pipe(
     Match.discriminatorsExhaustive("kind")({
       assigned: () => m.inbox_event_assigned({ actor: name }),
-      mentioned: () => m.inbox_event_mentioned({ actor: name }),
-      commented: () => m.inbox_event_commented({ actor: name }),
-      status_changed: ({ to }) =>
-        m.inbox_event_status_changed({ actor: name, status: statusLabel(to) }),
+      mentioned: ({ excerpt }) =>
+        excerpt
+          ? m.inbox_event_said({ actor: name, text: excerpt })
+          : m.inbox_event_mentioned({ actor: name }),
+      commented: ({ excerpt }) =>
+        excerpt
+          ? m.inbox_event_said({ actor: name, text: excerpt })
+          : m.inbox_event_commented({ actor: name }),
+      status_changed: ({ from, to }) =>
+        m.inbox_event_status_changed({
+          actor: name,
+          from: statusLabel(from),
+          to: statusLabel(to)
+        }),
       unblocked: ({ by }) => m.inbox_event_unblocked({ ticket: by }),
       archived: () => m.inbox_event_archived({ actor: name }),
       moved: ({ fromProject }) =>
@@ -94,10 +105,20 @@ export const InboxRow = memo(function InboxRow({
   return (
     <li
       className={cn(
-        "group/reveal relative isolate flex flex-col gap-0.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-hover",
+        "group/reveal relative isolate grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-0.5 rounded-lg py-2.5 pr-3 pl-4 transition-colors hover:bg-hover",
         selected && "bg-active hover:bg-active"
       )}
     >
+      <span className="relative row-span-2 pt-px">
+        <ActorMark actor={item.actor} />
+        <span
+          aria-hidden
+          className={cn(
+            "absolute top-2 -left-3 size-1.5 rounded-full",
+            item.unread ? "bg-foreground" : "bg-transparent"
+          )}
+        />
+      </span>
       <Link
         to="/orgs/$orgSlug/inbox"
         params={{ orgSlug }}
@@ -107,13 +128,6 @@ export const InboxRow = memo(function InboxRow({
         data-inbox-row={rowKey}
         className="flex min-w-0 items-center gap-2 outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
       >
-        <span
-          aria-hidden
-          className={cn(
-            "size-1.5 shrink-0 rounded-full",
-            item.unread ? "bg-foreground" : "bg-transparent"
-          )}
-        />
         {item.unread && (
           <span className="sr-only">{m.inbox_unread_label()}, </span>
         )}
@@ -127,10 +141,11 @@ export const InboxRow = memo(function InboxRow({
         </span>
         <TimelineTime
           at={item.latestAt}
-          className="shrink-0 text-caption group-focus-within/reveal:invisible group-hover/reveal:invisible"
+          compact
+          className="min-w-14 shrink-0 text-right text-caption group-focus-within/reveal:invisible group-hover/reveal:invisible"
         />
       </Link>
-      <div className="flex min-w-0 items-center gap-1.5 pl-3.5 text-caption text-muted-foreground">
+      <div className="flex min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
         {item.direct.map((reason) => (
           <span key={reason} className="shrink-0 font-semibold text-foreground">
             {reason === "assigned"
@@ -144,9 +159,7 @@ export const InboxRow = memo(function InboxRow({
             {m.inbox_more_events({ count: more })}
           </span>
         )}
-        <span className="ml-auto shrink-0 font-mono">
-          {item.projectSlug} {item.ticket.id}
-        </span>
+        <span className="ml-auto shrink-0 font-mono">{item.ticket.id}</span>
       </div>
       <div className="absolute top-1.5 right-2 z-10 flex gap-0.5 opacity-0 transition-opacity group-focus-within/reveal:opacity-100 group-hover/reveal:opacity-100">
         <RowAction

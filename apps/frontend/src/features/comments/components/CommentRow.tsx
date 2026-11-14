@@ -5,6 +5,7 @@ import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useState } from "react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ConfirmButton } from "@/components/ui/confirm-button"
 import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
@@ -17,6 +18,7 @@ import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { Markdown } from "@/features/editor/components/Markdown"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { useIsNewSinceRead } from "@/features/tickets/components/ReadSince"
 import { TimelineTime } from "@/features/tickets/components/TimelineTime"
 import { useProjectActor } from "@/hooks/useActor"
 import { errorMessage } from "@/lib/errorMessage"
@@ -123,6 +125,7 @@ function CommentHeader({
   children: React.ReactNode
 }) {
   const author = comment.author
+  const isNew = useIsNewSinceRead(comment.createdAt)
   return (
     <header className="flex min-h-7 items-center justify-between gap-2 pt-1.5 pr-1.5 pl-4 text-body">
       <div className="flex items-center gap-2">
@@ -135,6 +138,11 @@ function CommentHeader({
             : author.displayName}
         </span>
         <TimelineTime at={comment.createdAt} />
+        {isNew && (
+          <Badge tone="blue" size="xs">
+            {m.comments_new()}
+          </Badge>
+        )}
         {comment.editedAt && (
           <span className="text-caption text-muted-foreground">
             {m.comments_edited_marker()}
