@@ -69,16 +69,21 @@ export function EstimateBadgeTrigger({
   ticket,
   mode,
   onPatch,
+  variant = "badge",
   className
 }: Readonly<{
   ticket: EstimateTicket
   mode: EstimationMode
   onPatch: (patch: TicketEdit) => void
+  variant?: "badge" | "compact"
   className?: string
 }>) {
   const unit = estimationUnit(mode)
   if (unit === null) return null
-  const trigger = estimateTrigger(ticket, mode, className)
+  const trigger =
+    variant === "compact"
+      ? compactEstimateTrigger(ticket, mode, unit, className)
+      : estimateTrigger(ticket, mode, className)
   if (unit !== "tshirt") {
     return (
       <EstimateInputPopover
@@ -161,6 +166,36 @@ function estimateTrigger(
     </Button>
   )
 }
+
+function compactEstimateTrigger(
+  ticket: EstimateTicket,
+  mode: EstimationMode,
+  unit: EstimateUnit,
+  className: string | undefined
+): ReactElement {
+  const active = activeEstimate(ticket.estimate, mode)
+  const label =
+    active !== null ? formatEstimate(active) : m.tickets_estimate_empty()
+  const Icon = ESTIMATE_UNIT_ICON[unit]
+  return (
+    <button
+      type="button"
+      onClick={(e) => e.stopPropagation()}
+      aria-label={m.tickets_estimate_aria_label({ label })}
+      className={cn(
+        "inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 text-caption text-muted-foreground tabular-nums transition-[color,background-color] outline-none hover:bg-hover hover:text-foreground focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none data-[popup-open]:bg-hover data-[popup-open]:opacity-100",
+        active === null &&
+          "opacity-0 group-hover/reveal:opacity-100 group-has-[:focus-visible]/reveal:opacity-100",
+        className
+      )}
+    >
+      <Icon className="size-3.5" strokeWidth={1.75} />
+      {active !== null && formatEstimateValue(active)}
+    </button>
+  )
+}
+
+const QUICK_POINTS = [1, 2, 3, 5, 8, 13] as const
 
 type TypedUnit = Exclude<EstimateUnit, "tshirt">
 
@@ -270,6 +305,25 @@ function EstimateInputForm({
       <label htmlFor={inputId} className="text-caption text-muted-foreground">
         {copy.label()}
       </label>
+      {unit === "points" && (
+        <div className="grid grid-cols-6 gap-1">
+          {QUICK_POINTS.map((value) => (
+            <Button
+              key={value}
+              type="button"
+              variant={initial === String(value) ? "secondary" : "ghost"}
+              size="sm"
+              className="px-0 tabular-nums"
+              onClick={() => {
+                const estimate = parseTypedEstimate(unit, String(value))
+                if (estimate !== null) onSubmit(estimate)
+              }}
+            >
+              {value}
+            </Button>
+          ))}
+        </div>
+      )}
       <Input
         id={inputId}
         inputMode={unit === "points" ? "numeric" : undefined}
