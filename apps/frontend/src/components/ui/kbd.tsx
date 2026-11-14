@@ -28,7 +28,8 @@ const KBD_VARIANTS = {
   default: "rounded-sm bg-muted",
   menu: "rounded-[5px] bg-hover",
   pill: "rounded-full bg-muted px-1.5",
-  raised: "rounded-full bg-surface-5 px-1.5 shadow-surface-1"
+  raised: "rounded-full bg-surface-5 px-1.5 shadow-surface-1",
+  plain: "min-w-0 bg-transparent px-0.5"
 } as const
 
 type KbdProps = Readonly<
@@ -115,6 +116,7 @@ function KbdShortcut({
   }>) {
   React.useEffect(installKeyCapHighlight, [])
   const caps = hotkeyCaps(keys, platform)
+  const lights = variant !== "plain"
   return (
     <KbdGroup
       className={cn("gap-0.5 pointer-coarse:hidden", className)}
@@ -125,8 +127,8 @@ function KbdShortcut({
           key={`${cap.label}-${i}`}
           size={size}
           variant={variant}
-          data-key={cap.key}
-          data-sequence-start={cap.sequenceStart ? "" : undefined}
+          data-key={lights ? cap.key : undefined}
+          data-sequence-start={lights && cap.sequenceStart ? "" : undefined}
         >
           <CapLabel label={cap.label} />
         </Kbd>

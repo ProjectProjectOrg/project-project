@@ -478,7 +478,7 @@ function DropdownMenuShortcut({
   return (
     <KbdShortcut
       data-slot="dropdown-menu-shortcut"
-      variant="menu"
+      variant="plain"
       aria-hidden
       className={cn("ml-auto", className)}
       {...props}
