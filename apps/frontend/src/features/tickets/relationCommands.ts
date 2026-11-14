@@ -20,21 +20,21 @@ export const relationCommands: ReadonlyArray<Command> = [
   {
     id: "ticket.parent",
     group: "ticketRelations",
-    label: ({ ticketDetail }) =>
-      ticketDetail?.parent
+    label: ({ ticketData }) =>
+      ticketData?.parent
         ? m.tickets_command_change_epic()
         : m.tickets_command_add_to_epic(),
     icon: Layers,
     keywords: ["epic"],
     tool: "update_ticket",
-    when: (context) => editable(context) && !isEpic(context.ticketDetail),
+    when: (context) => editable(context) && !isEpic(context.ticketData),
     page: "ticketParent"
   },
   {
     id: "ticket.add-sub-ticket",
     group: "ticketRelations",
-    label: ({ ticketDetail }) =>
-      isEpic(ticketDetail)
+    label: ({ ticketData }) =>
+      isEpic(ticketData)
         ? m.tickets_command_add_ticket_to_epic()
         : m.tickets_command_add_sub_ticket(),
     icon: ListPlus,
@@ -65,13 +65,13 @@ export const relationCommands: ReadonlyArray<Command> = [
       editable(context) &&
       (context.selection.length > 1
         ? context.selection.some((each) => each.flag === null)
-        : context.ticketDetail !== null && context.ticketDetail.flag === null),
-    run: ({ ticket, ticketDetail, selection }, env) => {
-      if (ticket === null || ticketDetail === null) return
+        : context.ticketData !== null && context.ticketData.flag === null),
+    run: ({ ticket, ticketData, selection }, env) => {
+      if (ticket === null || ticketData === null) return
       openFlagDialog(
         env,
         ticket,
-        ticketDetail.title,
+        ticketData.title,
         selection.map((each) => each.id)
       )
     }
@@ -88,7 +88,7 @@ export const relationCommands: ReadonlyArray<Command> = [
       editable(context) &&
       (context.selection.length > 1
         ? context.selection.some((each) => each.flag !== null)
-        : context.ticketDetail !== null && context.ticketDetail.flag !== null),
+        : context.ticketData !== null && context.ticketData.flag !== null),
     run: ({ ticket, selection }, env) => {
       if (ticket === null) return
       const updateSelection = scopeSelectionUpdate(
@@ -157,17 +157,17 @@ export const relationCommands: ReadonlyArray<Command> = [
   {
     id: "ticket.detach",
     group: "ticketRelations",
-    label: ({ ticketDetail }) =>
-      isEpic(ticketDetail?.parent)
-        ? m.tickets_row_detach_epic_action({ id: ticketDetail.parent.id })
-        : ticketDetail?.parent
-          ? m.tickets_row_detach_parent_action({ id: ticketDetail.parent.id })
+    label: ({ ticketData }) =>
+      isEpic(ticketData?.parent)
+        ? m.tickets_row_detach_epic_action({ id: ticketData.parent.id })
+        : ticketData?.parent
+          ? m.tickets_row_detach_parent_action({ id: ticketData.parent.id })
           : m.tickets_command_remove_parent(),
     icon: Unlink,
     keywords: ["parent", "epic", "detach"],
     tool: "update_ticket",
-    when: ({ ticket, ticketDetail, tickets }) =>
-      ticket !== null && tickets.edit && ticketDetail?.parent != null,
+    when: ({ ticket, ticketData, tickets }) =>
+      ticket !== null && tickets.edit && ticketData?.parent != null,
     run: ({ ticket }, env) => {
       if (ticket === null) return
       env.execute(

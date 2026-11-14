@@ -1,5 +1,5 @@
 import { RegistryContext } from "@effect/atom-react"
-import type { TicketId } from "@pp/shared"
+import type { Ticket } from "@pp/shared"
 import {
   useContext,
   useEffect,
@@ -10,22 +10,20 @@ import {
 import { isKeyboardNavigating } from "@/lib/keyboard"
 
 import { pointedTicket } from "../atoms/commandMenu"
-import type { TicketContext } from "../lib/commandMenu"
+import type { PointedTicket } from "../lib/commandMenu"
 
-export function usePointedTicket(
-  orgSlug: string,
-  slug: string,
-  ticketId: TicketId
-) {
+export function usePointedTicket(orgSlug: string, slug: string, row: Ticket) {
   const registry = useContext(RegistryContext)
-  const isThis = (pointed: TicketContext | null) =>
+  const ticketId = row.id
+  const isThis = (pointed: PointedTicket | null) =>
     pointed !== null &&
     pointed.ticketId === ticketId &&
     pointed.slug === slug &&
     pointed.orgSlug === orgSlug
   const enter = () => {
-    if (!isThis(registry.get(pointedTicket))) {
-      registry.set(pointedTicket, { orgSlug, slug, ticketId })
+    const pointed = registry.get(pointedTicket)
+    if (!isThis(pointed) || pointed?.row !== row) {
+      registry.set(pointedTicket, { orgSlug, slug, ticketId, row })
     }
   }
   const leave = () => {
@@ -33,6 +31,18 @@ export function usePointedTicket(
       registry.set(pointedTicket, null)
     }
   }
+  useEffect(() => {
+    const pointed = registry.get(pointedTicket)
+    if (
+      pointed !== null &&
+      pointed.row !== row &&
+      pointed.ticketId === row.id &&
+      pointed.slug === slug &&
+      pointed.orgSlug === orgSlug
+    ) {
+      registry.set(pointedTicket, { ...pointed, row })
+    }
+  }, [registry, orgSlug, slug, row])
   useEffect(
     () => () => {
       const pointed = registry.get(pointedTicket)

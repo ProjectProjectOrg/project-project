@@ -57,8 +57,8 @@ import { m } from "@/paraglide/messages"
 
 const onTicket = (context: CommandContext) => context.ticket !== null
 
-export const onLiveTicket = ({ ticket, ticketDetail }: CommandContext) =>
-  ticket !== null && (ticketDetail === null || ticketDetail.archivedAt === null)
+export const onLiveTicket = ({ ticket, ticketData }: CommandContext) =>
+  ticket !== null && (ticketData === null || ticketData.archivedAt === null)
 
 export const editable = (context: CommandContext) =>
   onLiveTicket(context) && context.tickets.edit
@@ -140,11 +140,11 @@ export const ticketCommands: ReadonlyArray<Command> = [
     tool: "update_ticket",
     when: (context) =>
       assignable(context) &&
-      context.ticketDetail !== null &&
+      context.ticketData !== null &&
       context.viewerId !== null &&
-      !context.ticketDetail.assignees.includes(context.viewerId),
-    run: ({ ticket, ticketDetail, viewerId }, env) => {
-      if (ticket === null || ticketDetail === null || viewerId === null) return
+      !context.ticketData.assignees.includes(context.viewerId),
+    run: ({ ticket, ticketData, viewerId }, env) => {
+      if (ticket === null || ticketData === null || viewerId === null) return
       env.execute(
         updateTicketDetail(
           ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
@@ -162,11 +162,11 @@ export const ticketCommands: ReadonlyArray<Command> = [
     tool: "update_ticket",
     when: (context) =>
       assignable(context) &&
-      context.ticketDetail !== null &&
+      context.ticketData !== null &&
       context.viewerId !== null &&
-      context.ticketDetail.assignees.includes(context.viewerId),
-    run: ({ ticket, ticketDetail, viewerId }, env) => {
-      if (ticket === null || ticketDetail === null || viewerId === null) return
+      context.ticketData.assignees.includes(context.viewerId),
+    run: ({ ticket, ticketData, viewerId }, env) => {
+      if (ticket === null || ticketData === null || viewerId === null) return
       env.execute(
         updateTicketDetail(
           ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
@@ -187,7 +187,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
     when: (context) =>
       onLiveTicket(context) &&
       context.tickets.planSprints &&
-      !isEpic(context.ticketDetail),
+      !isEpic(context.ticketData),
     page: "ticketSprint"
   },
   {
@@ -324,11 +324,11 @@ export const ticketCommands: ReadonlyArray<Command> = [
     label: m.tickets_command_archive,
     icon: Archive,
     tool: "archive_ticket",
-    when: ({ ticket, ticketDetail, tickets }) =>
+    when: ({ ticket, ticketData, tickets }) =>
       ticket !== null &&
       tickets.archive &&
-      ticketDetail !== null &&
-      ticketDetail.archivedAt === null,
+      ticketData !== null &&
+      ticketData.archivedAt === null,
     page: "ticketArchive"
   },
   {
@@ -337,11 +337,11 @@ export const ticketCommands: ReadonlyArray<Command> = [
     label: m.tickets_command_unarchive,
     icon: ArchiveRestore,
     tool: "restore_ticket",
-    when: ({ ticket, ticketDetail, tickets }) =>
+    when: ({ ticket, ticketData, tickets }) =>
       ticket !== null &&
       tickets.archive &&
-      ticketDetail !== null &&
-      ticketDetail.archivedAt !== null,
+      ticketData !== null &&
+      ticketData.archivedAt !== null,
     run: ({ ticket }, env) => {
       if (ticket === null) return
       env.execute(

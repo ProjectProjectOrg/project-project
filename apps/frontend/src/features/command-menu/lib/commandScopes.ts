@@ -1,6 +1,7 @@
 import type { BulkTicketPatch, TicketId } from "@pp/shared"
 
 import type {
+  PointedTicket,
   SelectedTicket,
   SprintContext,
   TicketContext,
@@ -63,3 +64,33 @@ export const scopeView = (
   scopes: ReadonlyArray<CommandScope>
 ): ViewContext | null =>
   scopes.findLast((scope) => scope.view !== undefined)?.view ?? null
+
+export type CommandTarget = Readonly<{
+  ticket: TicketContext | null
+  selection: ReadonlyArray<SelectedTicket>
+}>
+
+export const commandTarget = (
+  orgSlug: string,
+  scopes: ReadonlyArray<CommandScope>,
+  pointed: PointedTicket | null
+): CommandTarget => {
+  const selection = scopeSelection(scopes)
+  const [first] = selection?.tickets ?? []
+  if (selection !== null && first !== undefined) {
+    return {
+      ticket: { orgSlug, slug: selection.slug, ticketId: first.id },
+      selection: selection.tickets
+    }
+  }
+  const ticket =
+    scopeTicket(scopes) ??
+    (pointed === null
+      ? null
+      : {
+          orgSlug: pointed.orgSlug,
+          slug: pointed.slug,
+          ticketId: pointed.ticketId
+        })
+  return { ticket, selection: [] }
+}

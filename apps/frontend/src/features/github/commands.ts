@@ -18,8 +18,8 @@ import { projectRequest } from "@/features/projects/atoms/projects"
 import { onLiveTicket } from "@/features/tickets/commands"
 import { m } from "@/paraglide/messages"
 
-const repoOf = ({ project, ticketDetail }: CommandContext) =>
-  project === null ? null : ticketRepo(project, ticketDetail?.repoId)
+const repoOf = ({ project, ticketData }: CommandContext) =>
+  project === null ? null : ticketRepo(project, ticketData?.repoId)
 
 const openExternal = (url: string) => {
   window.open(url, "_blank", "noopener,noreferrer")
@@ -77,8 +77,8 @@ export const gitCommands: ReadonlyArray<Command> = [
     keywords: ["git", "github"],
     when: (context) =>
       onLiveTicket(context) &&
-      context.ticketDetail !== null &&
-      context.ticketDetail.branch === null &&
+      context.ticketData !== null &&
+      context.ticketData.branch === null &&
       context.projectActor?.call("tickets", "createBranch") === true &&
       repoOf(context) !== null,
     page: "ticketBranch"
@@ -91,8 +91,8 @@ export const gitCommands: ReadonlyArray<Command> = [
     keywords: ["git", "github", "attach", "existing"],
     when: (context) =>
       onLiveTicket(context) &&
-      context.ticketDetail !== null &&
-      context.ticketDetail.branch === null &&
+      context.ticketData !== null &&
+      context.ticketData.branch === null &&
       context.projectActor?.call("tickets", "attachBranch") === true &&
       repoOf(context) !== null,
     page: "ticketLinkBranch"
@@ -105,7 +105,7 @@ export const gitCommands: ReadonlyArray<Command> = [
     keywords: ["git", "github", "stack"],
     when: (context) =>
       onLiveTicket(context) &&
-      context.ticketDetail?.branch != null &&
+      context.ticketData?.branch != null &&
       context.tickets.stackBranch &&
       repoOf(context) !== null,
     page: "ticketStackBranch"
@@ -118,7 +118,7 @@ export const gitCommands: ReadonlyArray<Command> = [
     keywords: ["git", "github", "detach", "clear"],
     when: (context) =>
       onLiveTicket(context) &&
-      context.ticketDetail?.branch != null &&
+      context.ticketData?.branch != null &&
       context.tickets.clearBranch,
     run: ({ ticket }, env) => {
       if (ticket === null) return
@@ -138,12 +138,12 @@ export const gitCommands: ReadonlyArray<Command> = [
     label: m.tickets_command_copy_branch,
     icon: Copy,
     keywords: ["git"],
-    when: ({ ticketDetail, projectActor }) =>
+    when: ({ ticketData, projectActor }) =>
       projectActor?.call("projects", "gitStates") === true &&
-      ticketDetail !== null &&
-      ticketDetail.branch !== null,
-    run: ({ ticketDetail }, env) => {
-      if (ticketDetail?.branch) env.copy(ticketDetail.branch)
+      ticketData !== null &&
+      ticketData.branch !== null,
+    run: ({ ticketData }, env) => {
+      if (ticketData?.branch) env.copy(ticketData.branch)
       env.close()
     }
   },
@@ -155,11 +155,11 @@ export const gitCommands: ReadonlyArray<Command> = [
     keywords: ["git", "github"],
     when: (context) =>
       context.projectActor?.call("projects", "gitStates") === true &&
-      context.ticketDetail?.branch != null &&
+      context.ticketData?.branch != null &&
       repoOf(context) !== null,
     run: (context, env) => {
       const github = repoOf(context)
-      const branch = context.ticketDetail?.branch
+      const branch = context.ticketData?.branch
       if (github !== null && branch) {
         openExternal(`${repoUrl(github)}/tree/${encodeURIComponent(branch)}`)
       }
@@ -174,11 +174,11 @@ export const gitCommands: ReadonlyArray<Command> = [
     keywords: ["git", "github", "pull request"],
     when: (context) =>
       context.projectActor?.call("projects", "gitStates") === true &&
-      context.ticketDetail?.pr != null &&
+      context.ticketData?.pr != null &&
       repoOf(context) !== null,
     run: (context, env) => {
       const github = repoOf(context)
-      const pr = context.ticketDetail?.pr
+      const pr = context.ticketData?.pr
       if (github !== null && pr != null) {
         openExternal(`${repoUrl(github)}/pull/${pr}`)
       }

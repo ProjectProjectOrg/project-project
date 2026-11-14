@@ -21,6 +21,7 @@ const context: CommandContext = {
   projectSlug: null,
   ticket: null,
   selection: [],
+  ticketData: null,
   ticketDetail: null,
   ticketSprint: null,
   ticketSubscribed: null,

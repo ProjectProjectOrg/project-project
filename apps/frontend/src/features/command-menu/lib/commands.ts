@@ -3,6 +3,7 @@ import type {
   OrgActor,
   ProjectActor,
   ProjectDetail,
+  Ticket,
   TicketDetail,
   Tools
 } from "@pp/shared"
@@ -50,6 +51,7 @@ export type CommandContext = Readonly<{
   projectSlug: string | null
   ticket: TicketContext | null
   selection: ReadonlyArray<SelectedTicket>
+  ticketData: Ticket | null
   ticketDetail: TicketDetail | null
   ticketSprint: Group | null
   ticketSubscribed: boolean | null

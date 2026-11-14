@@ -13,6 +13,8 @@ export type TicketContext = Readonly<{
   ticketId: TicketId
 }>
 
+export type PointedTicket = TicketContext & Readonly<{ row: Ticket }>
+
 export type SelectedTicket = Pick<
   Ticket,
   | "id"
