@@ -7,6 +7,7 @@ import {
   afterRemoving,
   inboxKey,
   readAllRows,
+  restoreRow,
   seenUntil,
   stepRow,
   unreadRow
@@ -14,14 +15,18 @@ import {
 
 const decodeItem = Schema.decodeUnknownSync(InboxItem)
 
-const item = (id: string, unread: boolean) =>
+const item = (
+  id: string,
+  unread: boolean,
+  latestAt = "2026-11-01T00:00:00.000Z"
+) =>
   decodeItem({
     projectSlug: "web",
     ticket: { id, title: id, status: "todo", archived: false },
     unread,
     direct: [],
     latest: { kind: "assigned" },
-    latestAt: "2026-11-01T00:00:00.000Z",
+    latestAt,
     firstAt: "2026-10-31T00:00:00.000Z",
     actor: null,
     unreadCount: unread ? 2 : 0,
@@ -44,9 +49,22 @@ describe("inbox rows", () => {
 
   it("a row never read counts its first event as new", () => {
     const row = item("T-9", true)
-    expect(seenUntil(row).getTime()).toBe(row.firstAt.getTime() - 1)
+    const commentSavedJustBefore = row.firstAt.getTime() - 10
+    expect(seenUntil(row).getTime()).toBeLessThan(commentSavedJustBefore)
     const at = DateTime.toDate(DateTime.makeUnsafe(1))
     expect(readAllRows([row], at).map(seenUntil)).toEqual([at])
+  })
+
+  it("undo puts a cleared row back in order as unread", () => {
+    const newer = item("T-4", false, "2026-11-02T00:00:00.000Z")
+    const restored = restoreRow(rows, newer)
+    expect(restored.map((row) => row.ticket.id)).toEqual([
+      "T-4",
+      "T-1",
+      "T-2",
+      "T-3"
+    ])
+    expect(restored[0]).toMatchObject({ unread: true, unreadCount: 1 })
   })
 
   it("marking unread counts at least one event", () => {

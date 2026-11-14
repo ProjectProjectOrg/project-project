@@ -1,6 +1,13 @@
-import type { InboxEvent, InboxItem, TicketActivityActor } from "@pp/shared"
+import { useAtomValue } from "@effect/atom-react"
+import type {
+  InboxEvent,
+  InboxItem,
+  ProjectStatus,
+  TicketActivityActor
+} from "@pp/shared"
 import { Link } from "@tanstack/react-router"
 import * as Match from "effect/Match"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { BellOff, Check } from "lucide-react"
 import { memo, type ReactNode } from "react"
 
@@ -10,9 +17,16 @@ import {
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import {
+  statusesFor,
+  statusesRequest
+} from "@/features/projects/atoms/projectStatuses"
 import { TimelineTime } from "@/features/tickets/components/TimelineTime"
+import { statusLabelFor } from "@/features/tickets/lib/ticketMeta"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
+
+const NO_STATUSES: ReadonlyArray<ProjectStatus> = []
 
 const actorName = (actor: TicketActivityActor | null): string => {
   if (actor === null) return m.tickets_activity_actor_unknown()
@@ -26,7 +40,8 @@ const actorName = (actor: TicketActivityActor | null): string => {
 
 export const describeEvent = (
   event: InboxEvent,
-  actor: TicketActivityActor | null
+  actor: TicketActivityActor | null,
+  statusLabel: (status: string) => string
 ): string => {
   const name = actorName(actor)
   return Match.value(event).pipe(
@@ -34,7 +49,8 @@ export const describeEvent = (
       assigned: () => m.inbox_event_assigned({ actor: name }),
       mentioned: () => m.inbox_event_mentioned({ actor: name }),
       commented: () => m.inbox_event_commented({ actor: name }),
-      status_changed: () => m.inbox_event_status_changed({ actor: name }),
+      status_changed: ({ to }) =>
+        m.inbox_event_status_changed({ actor: name, status: statusLabel(to) }),
       unblocked: ({ by }) => m.inbox_event_unblocked({ ticket: by }),
       archived: () => m.inbox_event_archived({ actor: name }),
       moved: ({ fromProject }) =>
@@ -65,7 +81,15 @@ export const InboxRow = memo(function InboxRow({
   onDone,
   onUnsubscribe
 }: InboxRowProps) {
-  const event = describeEvent(item.latest, item.actor)
+  const statuses = useAtomValue(
+    statusesFor(statusesRequest(orgSlug, item.projectSlug))
+  )
+  const event = describeEvent(item.latest, item.actor, (status) =>
+    statusLabelFor(
+      status,
+      AsyncResult.isSuccess(statuses) ? statuses.value : NO_STATUSES
+    )
+  )
   const more = item.unreadCount - 1
   return (
     <li

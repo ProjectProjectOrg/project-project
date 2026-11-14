@@ -4,9 +4,11 @@ import * as DateTime from "effect/DateTime"
 export const inboxKey = (item: InboxItem): string =>
   `${item.projectSlug}/${item.ticket.id}`
 
+const SAME_WRITE_MS = 1000
+
 export const seenUntil = (item: InboxItem): Date =>
   item.lastReadAt ??
-  DateTime.toDate(DateTime.makeUnsafe(item.firstAt.getTime() - 1))
+  DateTime.toDate(DateTime.makeUnsafe(item.firstAt.getTime() - SAME_WRITE_MS))
 
 export const readRow = (
   items: ReadonlyArray<InboxItem>,
@@ -33,6 +35,24 @@ export const withoutRow = (
   items: ReadonlyArray<InboxItem>,
   key: string
 ): ReadonlyArray<InboxItem> => items.filter((item) => inboxKey(item) !== key)
+
+export const restoreRow = (
+  items: ReadonlyArray<InboxItem>,
+  item: InboxItem
+): ReadonlyArray<InboxItem> => {
+  const rest = withoutRow(items, inboxKey(item))
+  const index = rest.findIndex(
+    (other) => other.latestAt.getTime() < item.latestAt.getTime()
+  )
+  const restored = {
+    ...item,
+    unread: true,
+    unreadCount: Math.max(item.unreadCount, 1)
+  }
+  return index < 0
+    ? [...rest, restored]
+    : [...rest.slice(0, index), restored, ...rest.slice(index)]
+}
 
 export const readAllRows = (
   items: ReadonlyArray<InboxItem>,

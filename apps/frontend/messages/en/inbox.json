@@ -10,7 +10,7 @@
   "inbox_event_moved": "{actor} moved it from {project}",
   "inbox_event_reassigned": "{actor} changed the assignees",
   "inbox_event_split": "{actor} split it into {count} tickets",
-  "inbox_event_status_changed": "{actor} changed the status",
+  "inbox_event_status_changed": "{actor} moved it to {status}",
   "inbox_event_unblocked": "Unblocked by {ticket}",
   "inbox_list_label": "Inbox",
   "inbox_mark_all_done": "Mark all as done",
@@ -18,6 +18,7 @@
   "inbox_mark_done": "Mark as done",
   "inbox_mark_read": "Mark as read",
   "inbox_mark_unread": "Mark as unread",
+  "inbox_marked_done": "Marked as done",
   "inbox_more_events": "+{count}",
   "inbox_open_ticket": "Open ticket",
   "inbox_pane_empty": "Pick a ticket to read it here.",
@@ -25,6 +26,8 @@
   "inbox_reason_mentioned": "Mentioned",
   "inbox_resize": "Resize the inbox list",
   "inbox_title": "Inbox",
+  "inbox_undo": "Undo",
   "inbox_unread_label": "Unread",
-  "inbox_unsubscribe": "Unsubscribe"
+  "inbox_unsubscribe": "Unsubscribe",
+  "inbox_unsubscribed": "Unsubscribed and marked as done"
 }

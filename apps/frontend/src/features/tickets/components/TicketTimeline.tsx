@@ -165,7 +165,10 @@ function EventRow({
 }>) {
   const isNew = useIsNewSinceRead(at)
   return (
-    <li className={railClass(first, last)}>
+    <li
+      className={railClass(first, last)}
+      data-new-since-read={isNew || undefined}
+    >
       <span className="relative z-10 grid h-5 place-items-center">
         <ActorMark actor={actor} />
       </span>
@@ -283,6 +286,7 @@ function CommentRow({
   const isNew = useIsNewSinceRead(at)
   return (
     <li
+      data-new-since-read={isNew || undefined}
       className={cn(
         "relative py-3 first:pt-0 last:pb-0",
         isNew &&

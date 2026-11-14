@@ -11,6 +11,7 @@ import { keepPredicted, viewMutation } from "@/api/viewMutation"
 import {
   readAllRows,
   readRow,
+  restoreRow,
   unreadRow,
   withoutRow
 } from "@/features/inbox/lib/inboxRows"
@@ -109,6 +110,33 @@ export const markInboxDone = Atom.family((row: InboxRowRequest) =>
     call: (client) => client.inbox.markDone({ params: ticketParams(row) }),
     confirm: keepPredicted,
     publish: inboxChanged(row.req)
+  })
+)
+
+export type RestoreInput = Readonly<{
+  item: InboxItem
+  after: Promise<unknown>
+}>
+
+export const restoreInboxRow = Atom.family((req: InboxRequest) =>
+  viewMutation(inboxList(req), {
+    name: "restoreInboxRow",
+    predict: (items: ReadonlyArray<InboxItem>, { item }: RestoreInput) =>
+      restoreRow(items, item),
+    call: (client, { item, after }) =>
+      Effect.promise(() => after).pipe(
+        Effect.andThen(
+          client.inbox.markUnread({
+            params: {
+              orgSlug: req.params.orgSlug,
+              slug: item.projectSlug,
+              id: item.ticket.id
+            }
+          })
+        )
+      ),
+    confirm: keepPredicted,
+    publish: inboxChanged(req)
   })
 )
 

@@ -53,6 +53,11 @@ export function useInboxKeys(
       if (inList) focusRow(listRef.current, next)
       return
     }
+    if (event.key === "z") {
+      event.preventDefault()
+      actions.undo()
+      return
+    }
     const action = ROW_KEYS.get(event.key)
     if (action === undefined || selected === null) return
     event.preventDefault()

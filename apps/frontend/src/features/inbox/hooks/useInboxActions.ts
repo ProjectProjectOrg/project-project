@@ -17,6 +17,7 @@ import {
   markInboxDone,
   markInboxRead,
   markInboxUnread,
+  restoreInboxRow,
   type InboxRequest
 } from "@/features/inbox/atoms/inbox"
 import { afterRemoving, inboxKey } from "@/features/inbox/lib/inboxRows"
@@ -33,19 +34,28 @@ const rowOf = (req: InboxRequest, item: InboxItem) => ({
 
 export type InboxActions = ReturnType<typeof useInboxActions>
 
+export type ClearedRow = Readonly<{
+  item: InboxItem
+  unsubscribed: boolean
+  wasSelected: boolean
+  settled: Promise<unknown>
+}>
+
 export function useInboxActions(
   req: InboxRequest,
   items: ReadonlyArray<InboxItem>,
-  selected: InboxItem | null
+  selected: InboxItem | null,
+  cleared: ClearedRow | null,
+  setCleared: (cleared: ClearedRow | null) => void
 ) {
   const { orgSlug } = req.params
   const navigate = useNavigate()
   const registry = useContext(RegistryContext)
   const readAllSet = useAtomSet(markInboxAllRead(req))
   const doneAllSet = useAtomSet(markInboxAllDone(req))
-  const latest = useRef({ items, selected })
+  const latest = useRef({ items, selected, cleared })
   useLayoutEffect(() => {
-    latest.current = { items, selected }
+    latest.current = { items, selected, cleared }
   })
 
   useEffect(() => {
@@ -68,15 +78,51 @@ export function useInboxActions(
     [navigate, orgSlug]
   )
 
-  const done = useCallback(
-    (item: InboxItem) => {
-      const { items: current, selected: open } = latest.current
-      if (open !== null && inboxKey(open) === inboxKey(item))
-        select(afterRemoving(current, inboxKey(item)), true)
-      void fireMutation(registry, markInboxDone(rowOf(req, item)), undefined)
-    },
-    [select, registry, req]
+  const subscribe = useCallback(
+    (item: InboxItem, subscribed: boolean) =>
+      fireMutation(
+        registry,
+        setSubscribed(
+          ticketSubscribersRequest(orgSlug, item.projectSlug, item.ticket.id)
+        ),
+        subscribed
+      ),
+    [registry, orgSlug]
   )
+
+  const clear = useCallback(
+    (item: InboxItem, unsubscribed: boolean) => {
+      const { items: current, selected: open } = latest.current
+      const wasSelected = open !== null && inboxKey(open) === inboxKey(item)
+      if (wasSelected) select(afterRemoving(current, inboxKey(item)), true)
+      const settled = Promise.all([
+        unsubscribed ? subscribe(item, false) : null,
+        fireMutation(registry, markInboxDone(rowOf(req, item)), undefined)
+      ])
+      setCleared({ item, unsubscribed, wasSelected, settled })
+    },
+    [select, subscribe, registry, req, setCleared]
+  )
+
+  const done = useCallback((item: InboxItem) => clear(item, false), [clear])
+
+  const unsubscribe = useCallback(
+    (item: InboxItem) => clear(item, true),
+    [clear]
+  )
+
+  const undo = useCallback(() => {
+    const last = latest.current.cleared
+    if (last === null) return
+    setCleared(null)
+    void fireMutation(registry, restoreInboxRow(req), {
+      item: last.item,
+      after: last.settled
+    })
+    if (last.unsubscribed)
+      void last.settled.then(() => subscribe(last.item, true))
+    if (last.wasSelected) select(last.item, true)
+  }, [registry, req, subscribe, select, setCleared])
 
   const toggleUnread = useCallback(
     (item: InboxItem) =>
@@ -86,20 +132,6 @@ export function useInboxActions(
         undefined
       ),
     [registry, req]
-  )
-
-  const unsubscribe = useCallback(
-    (item: InboxItem) => {
-      void fireMutation(
-        registry,
-        setSubscribed(
-          ticketSubscribersRequest(orgSlug, item.projectSlug, item.ticket.id)
-        ),
-        false
-      )
-      done(item)
-    },
-    [registry, orgSlug, done]
   )
 
   const openTicket = useCallback(
@@ -115,8 +147,9 @@ export function useInboxActions(
 
   const doneAll = useCallback(() => {
     select(null, true)
+    setCleared(null)
     doneAllSet(undefined)
-  }, [select, doneAllSet])
+  }, [select, setCleared, doneAllSet])
 
   return useMemo(
     () => ({
@@ -124,10 +157,20 @@ export function useInboxActions(
       done,
       toggleUnread,
       unsubscribe,
+      undo,
       openTicket,
       readAll,
       doneAll
     }),
-    [select, done, toggleUnread, unsubscribe, openTicket, readAll, doneAll]
+    [
+      select,
+      done,
+      toggleUnread,
+      unsubscribe,
+      undo,
+      openTicket,
+      readAll,
+      doneAll
+    ]
   )
 }

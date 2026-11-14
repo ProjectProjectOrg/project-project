@@ -2,7 +2,7 @@ import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import type { InboxItem } from "@pp/shared"
 import { getRouteApi } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
-import { useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { ResizableSplit } from "@/components/ui/resizable-split"
@@ -13,9 +13,14 @@ import {
 } from "@/features/inbox/atoms/inbox"
 import { InboxList } from "@/features/inbox/components/InboxList"
 import { InboxTicketPane } from "@/features/inbox/components/InboxTicketPane"
-import { useInboxActions } from "@/features/inbox/hooks/useInboxActions"
+import { InboxUndoBar } from "@/features/inbox/components/InboxUndoBar"
+import {
+  useInboxActions,
+  type ClearedRow
+} from "@/features/inbox/hooks/useInboxActions"
 import { useInboxCommands } from "@/features/inbox/hooks/useInboxCommands"
 import { useInboxKeys } from "@/features/inbox/hooks/useInboxKeys"
+import { useScrollToNew } from "@/features/inbox/hooks/useScrollToNew"
 import { inboxKey, seenUntil, stepRow } from "@/features/inbox/lib/inboxRows"
 import {
   ticketDetail,
@@ -57,6 +62,7 @@ function InboxView({
   const { orgSlug } = req.params
   const { ticket: selectedKey } = routeApi.useSearch()
   const listRef = useRef<HTMLUListElement>(null)
+  const paneRef = useRef<HTMLDivElement>(null)
   const selected = useMemo(
     () => items.find((item) => inboxKey(item) === selectedKey) ?? null,
     [items, selectedKey]
@@ -66,9 +72,12 @@ function InboxView({
     setOpened({ key: inboxKey(selected), readSince: seenUntil(selected) })
   }
 
-  const actions = useInboxActions(req, items, selected)
+  const [cleared, setCleared] = useState<ClearedRow | null>(null)
+  const dismiss = useCallback(() => setCleared(null), [])
+  const actions = useInboxActions(req, items, selected, cleared, setCleared)
   const commands = useInboxCommands(selected, actions)
   useInboxKeys(items, selected, actions, listRef)
+  useScrollToNew(paneRef, selected === null ? null : inboxKey(selected))
 
   const neighbours =
     selected === null
@@ -79,49 +88,59 @@ function InboxView({
         })
 
   return (
-    <ResizableSplit
-      storageKey="pp.inbox.listWidth"
-      label={m.inbox_resize()}
-      defaultSize={380}
-      min={280}
-      max={640}
-      show={selected === null ? "start" : "end"}
-      start={
-        <InboxList
-          orgSlug={orgSlug}
-          items={items}
-          selected={selected}
-          actions={actions}
-          listRef={listRef}
-        />
-      }
-      end={
-        selected === null ? (
-          <p className="m-auto text-body text-muted-foreground">
-            {m.inbox_pane_empty()}
-          </p>
-        ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pt-4 pb-6">
-            {neighbours.map((item) => (
-              <PrefetchTicket
-                key={inboxKey(item)}
+    <>
+      <ResizableSplit
+        storageKey="pp.inbox.listWidth"
+        label={m.inbox_resize()}
+        defaultSize={380}
+        min={280}
+        max={640}
+        show={selected === null ? "start" : "end"}
+        start={
+          <InboxList
+            orgSlug={orgSlug}
+            items={items}
+            selected={selected}
+            actions={actions}
+            listRef={listRef}
+          />
+        }
+        end={
+          selected === null ? (
+            <p className="m-auto text-body text-muted-foreground">
+              {m.inbox_pane_empty()}
+            </p>
+          ) : (
+            <div
+              ref={paneRef}
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pt-4 pb-6"
+            >
+              {neighbours.map((item) => (
+                <PrefetchTicket
+                  key={inboxKey(item)}
+                  orgSlug={orgSlug}
+                  item={item}
+                />
+              ))}
+              <InboxTicketPane
+                key={inboxKey(selected)}
                 orgSlug={orgSlug}
-                item={item}
+                projectSlug={selected.projectSlug}
+                id={selected.ticket.id}
+                readSince={opened?.readSince ?? null}
+                commands={commands}
+                onClose={() => actions.select(null, false)}
               />
-            ))}
-            <InboxTicketPane
-              key={inboxKey(selected)}
-              orgSlug={orgSlug}
-              projectSlug={selected.projectSlug}
-              id={selected.ticket.id}
-              readSince={opened?.readSince ?? null}
-              commands={commands}
-              onClose={() => actions.select(null, false)}
-            />
-          </div>
-        )
-      }
-    />
+            </div>
+          )
+        }
+      />
+      <InboxUndoBar
+        cleared={cleared}
+        onUndo={actions.undo}
+        onDismiss={dismiss}
+      />
+    </>
   )
 }
 
