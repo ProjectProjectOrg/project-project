@@ -1,7 +1,12 @@
 import type { InboxItem } from "@pp/shared"
+import * as DateTime from "effect/DateTime"
 
 export const inboxKey = (item: InboxItem): string =>
   `${item.projectSlug}/${item.ticket.id}`
+
+export const seenUntil = (item: InboxItem): Date =>
+  item.lastReadAt ??
+  DateTime.toDate(DateTime.makeUnsafe(item.firstAt.getTime() - 1))
 
 export const readRow = (
   items: ReadonlyArray<InboxItem>,

@@ -119,6 +119,7 @@ const upsert = (
             direct: sql`excluded.direct`,
             latest: sql`excluded.latest`,
             latestAt: sql`excluded.latest_at`,
+            firstAt: sql`excluded.first_at`,
             actorKind: sql`excluded.actor_kind`,
             actorUserId: sql`excluded.actor_user_id`,
             actorClientId: sql`excluded.actor_client_id`,

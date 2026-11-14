@@ -16,7 +16,7 @@ import { InboxTicketPane } from "@/features/inbox/components/InboxTicketPane"
 import { useInboxActions } from "@/features/inbox/hooks/useInboxActions"
 import { useInboxCommands } from "@/features/inbox/hooks/useInboxCommands"
 import { useInboxKeys } from "@/features/inbox/hooks/useInboxKeys"
-import { inboxKey, stepRow } from "@/features/inbox/lib/inboxRows"
+import { inboxKey, seenUntil, stepRow } from "@/features/inbox/lib/inboxRows"
 import {
   ticketDetail,
   ticketRequest
@@ -48,7 +48,7 @@ export function InboxPage() {
   )
 }
 
-type Opened = Readonly<{ key: string | null; readSince: Date | null }>
+type Opened = Readonly<{ key: string; readSince: Date }> | null
 
 function InboxView({
   req,
@@ -61,9 +61,9 @@ function InboxView({
     () => items.find((item) => inboxKey(item) === selectedKey) ?? null,
     [items, selectedKey]
   )
-  const [opened, setOpened] = useState<Opened>({ key: null, readSince: null })
-  if (selected !== null && opened.key !== selectedKey) {
-    setOpened({ key: inboxKey(selected), readSince: selected.lastReadAt })
+  const [opened, setOpened] = useState<Opened>(null)
+  if (selected !== null && opened?.key !== selectedKey) {
+    setOpened({ key: inboxKey(selected), readSince: seenUntil(selected) })
   }
 
   const actions = useInboxActions(req, items, selected)
@@ -114,7 +114,7 @@ function InboxView({
               orgSlug={orgSlug}
               projectSlug={selected.projectSlug}
               id={selected.ticket.id}
-              readSince={opened.readSince}
+              readSince={opened?.readSince ?? null}
               commands={commands}
               onClose={() => actions.select(null, false)}
             />

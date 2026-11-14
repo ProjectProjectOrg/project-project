@@ -7,6 +7,7 @@ import {
   afterRemoving,
   inboxKey,
   readAllRows,
+  seenUntil,
   stepRow,
   unreadRow
 } from "./inboxRows"
@@ -21,6 +22,7 @@ const item = (id: string, unread: boolean) =>
     direct: [],
     latest: { kind: "assigned" },
     latestAt: "2026-11-01T00:00:00.000Z",
+    firstAt: "2026-10-31T00:00:00.000Z",
     actor: null,
     unreadCount: unread ? 2 : 0,
     lastReadAt: null
@@ -38,6 +40,13 @@ describe("inbox rows", () => {
       [false, null],
       [false, at]
     ])
+  })
+
+  it("a row never read counts its first event as new", () => {
+    const row = item("T-9", true)
+    expect(seenUntil(row).getTime()).toBe(row.firstAt.getTime() - 1)
+    const at = DateTime.toDate(DateTime.makeUnsafe(1))
+    expect(readAllRows([row], at).map(seenUntil)).toEqual([at])
   })
 
   it("marking unread counts at least one event", () => {

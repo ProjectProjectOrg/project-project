@@ -1030,6 +1030,7 @@ export const inboxRow = pgTable(
       .default([]),
     latest: jsonb("latest").$type<InboxEventEncoded>().notNull(),
     latestAt: timestamp("latest_at", { withTimezone: true }).notNull(),
+    firstAt: timestamp("first_at", { withTimezone: true }).notNull(),
     actorKind: text("actor_kind", {
       enum: ["user", "agent", "system"]
     }).notNull(),

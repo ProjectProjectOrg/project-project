@@ -17,6 +17,7 @@ export const InboxItem = Schema.Struct({
   direct: Schema.Array(DirectReason),
   latest: InboxEvent,
   latestAt: Schema.DateFromString,
+  firstAt: Schema.DateFromString,
   actor: Schema.NullOr(TicketActivityActor),
   unreadCount: Schema.Finite,
   lastReadAt: Schema.NullOr(Schema.DateFromString)

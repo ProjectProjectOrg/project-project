@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "2641460d-c043-4684-9cde-4040a84bfc54",
+  "prevIds": [
+    "b5aa0a0f-305c-4dd4-8382-c03df8748973"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "inbox_row",
+        "first_at"
+      ],
+      "writes": [
+        "s|col|public.inbox_row.first_at",
+        "n|col|public.inbox_row.first_at",
+        "e|col|public.inbox_row.first_at"
+      ],
+      "reads": [
+        "n|tbl|public.inbox_row",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "inbox_row",
+        "name": "first_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}
