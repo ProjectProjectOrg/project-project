@@ -143,9 +143,9 @@ describe("CommentPolicy", () => {
     ]
   >([
     ["edit", CommentPolicy.canEdit, "me", ["pm", "developer", "client"]],
-    ["edit", CommentPolicy.canEdit, "someone-else", ["pm"]],
+    ["edit", CommentPolicy.canEdit, "someone-else", []],
     ["delete", CommentPolicy.canDelete, "me", ["pm", "developer", "client"]],
-    ["delete", CommentPolicy.canDelete, "someone-else", ["pm"]]
+    ["delete", CommentPolicy.canDelete, "someone-else", []]
   ])("%s a comment by %s", (_, decide, authorId, expected) => {
     expect(
       allowed((candidate) => decide(candidate, { authorId }))
