@@ -7,6 +7,7 @@ import type {
   TicketDetail,
   Tools
 } from "@pp/shared"
+import type { AppHotkey } from "@tanstack/react-hotkeys"
 import type * as AsyncResult from "effect/reactivity/AsyncResult"
 import type * as Atom from "effect/reactivity/Atom"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
@@ -93,7 +94,7 @@ export type Command = Readonly<{
   searchOnly?: boolean
   icon: IconComponent
   keywords?: ReadonlyArray<string>
-  shortcut?: string
+  hotkey?: AppHotkey
   tool?: ToolName
   bulk?: boolean
   when?: (context: CommandContext) => boolean

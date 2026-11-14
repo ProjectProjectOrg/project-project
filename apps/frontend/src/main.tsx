@@ -10,6 +10,7 @@ import { StrictMode, useSyncExternalStore } from "react"
 import ReactDOM from "react-dom/client"
 
 import { createSessionCache } from "./features/auth/lib/sessionCache"
+import { appHotkeys } from "./lib/appHotkeys"
 import { parseSearch, stringifySearch } from "./lib/searchParams"
 import { routeTree } from "./routeTree.gen"
 import { authClient } from "./services/AuthClient"
@@ -49,6 +50,7 @@ function App() {
   return (
     <RegistryContext.Provider key={session.generation} value={session.registry}>
       <HotkeysProvider
+        appHotkeys={appHotkeys}
         defaultOptions={{ hotkey: { ignoreDefaultPrevented: true } }}
       >
         <RouterProvider router={session.router} />

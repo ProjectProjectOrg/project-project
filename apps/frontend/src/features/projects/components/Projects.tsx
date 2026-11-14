@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { FolderKanban } from "lucide-react"
@@ -107,7 +108,7 @@ export function Projects() {
         )}
       </div>
 
-      {content}
+      <HotkeysProvider scope="projects">{content}</HotkeysProvider>
     </PageContainer>
   )
 }

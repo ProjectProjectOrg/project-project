@@ -6,6 +6,7 @@ import {
 } from "@effect/atom-react"
 import { isEpic } from "@pp/shared"
 import type { GroupId, Ticket, TicketId } from "@pp/shared"
+import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -374,51 +375,52 @@ export function SprintTicketCreator({
   ) : null
 
   return (
-    <TicketCreatorShell
-      inputRef={inputRef}
-      formRef={formRef}
-      shortcut="C"
-      value={title}
-      onValueChange={(v) => {
-        picker.close()
-        setTitle(v)
-        setListDismissed(false)
-      }}
-      onFocus={() => {
-        setInputFocused(true)
-        setListDismissed(false)
-      }}
-      onBlur={() => {
-        setInputFocused(false)
-        setAdded(new Set())
-      }}
-      onKeyDown={onKeyDown}
-      onSubmit={onSubmit}
-      expanded={expanded}
-      placeholder={m.sprints_combobox_placeholder()}
-      ariaLabel={m.sprints_combobox_placeholder()}
-      busy={submitting}
-      maxLength={200}
-      error={error}
-      listbox={menuListbox}
-      leadingAddons={[typeAddon]}
-      belowInput={
-        <>
-          {dropdown}
-          <AutoHeight>
-            {expanded && (
-              <StartsWithLine
-                start={creatorType.start}
-                className="px-3 pt-1.5"
-              />
-            )}
-          </AutoHeight>
-          <span role="status" className="sr-only">
-            {announcement}
-          </span>
-        </>
-      }
-    />
+    <HotkeysProvider scope="ticket-list">
+      <TicketCreatorShell
+        inputRef={inputRef}
+        formRef={formRef}
+        value={title}
+        onValueChange={(v) => {
+          picker.close()
+          setTitle(v)
+          setListDismissed(false)
+        }}
+        onFocus={() => {
+          setInputFocused(true)
+          setListDismissed(false)
+        }}
+        onBlur={() => {
+          setInputFocused(false)
+          setAdded(new Set())
+        }}
+        onKeyDown={onKeyDown}
+        onSubmit={onSubmit}
+        expanded={expanded}
+        placeholder={m.sprints_combobox_placeholder()}
+        ariaLabel={m.sprints_combobox_placeholder()}
+        busy={submitting}
+        maxLength={200}
+        error={error}
+        listbox={menuListbox}
+        leadingAddons={[typeAddon]}
+        belowInput={
+          <>
+            {dropdown}
+            <AutoHeight>
+              {expanded && (
+                <StartsWithLine
+                  start={creatorType.start}
+                  className="px-3 pt-1.5"
+                />
+              )}
+            </AutoHeight>
+            <span role="status" className="sr-only">
+              {announcement}
+            </span>
+          </>
+        }
+      />
+    </HotkeysProvider>
   )
 }
 

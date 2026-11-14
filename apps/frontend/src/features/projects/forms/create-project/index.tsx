@@ -10,12 +10,13 @@ import {
   InputGroupAddon,
   InputGroupInput
 } from "@/components/ui/input-group"
-import { Kbd } from "@/components/ui/kbd"
+import { KbdShortcut } from "@/components/ui/kbd"
 import {
   createProject,
   projectsRequest
 } from "@/features/projects/atoms/projects"
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { errorMessage } from "@/lib/errorMessage"
 import { useAppForm, useFormValues } from "@/lib/form"
 import { mutationErrorText } from "@/lib/mutationError"
@@ -58,7 +59,7 @@ export function CreateProjectRow({
   const formRef = useRef<HTMLFormElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const reduceMotion = useReducedMotion()
-  useGlobalShortcut("C", inputRef)
+  useGlobalShortcut(appHotkeys["projects.create"], inputRef)
 
   const trackFocus = (next: boolean) => {
     setFocused(next)
@@ -131,7 +132,9 @@ export function CreateProjectRow({
                       }}
                       placeholder={m.projects_create_name_placeholder()}
                       aria-label={m.projects_create_name_aria_label()}
-                      aria-keyshortcuts="c"
+                      aria-keyshortcuts={
+                        appHotkeys["projects.create"].defaultHotkey
+                      }
                       readOnly={submitting}
                       aria-disabled={submitting}
                       maxLength={120}
@@ -173,7 +176,12 @@ export function CreateProjectRow({
                     </motion.div>
                   )}
                 </AnimatePresence>
-                {!focused && !trimmed && !error && <Kbd aria-hidden>c</Kbd>}
+                {!focused && !trimmed && !error && (
+                  <KbdShortcut
+                    keys={appHotkeys["projects.create"].defaultHotkey}
+                    aria-hidden
+                  />
+                )}
               </InputGroup>
               <AnimatePresence initial={false}>
                 {trimmed && (

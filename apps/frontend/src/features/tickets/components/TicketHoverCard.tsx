@@ -10,13 +10,14 @@ import type {
   TypeKey
 } from "@pp/shared"
 import { finishedStatusSlugs, flattenTicketBlocks } from "@pp/shared"
+import type { HotkeyChord } from "@tanstack/react-hotkeys"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { OctagonMinus } from "lucide-react"
 import type { ComponentProps } from "react"
 import { lazy, Suspense } from "react"
 
-import { Kbd } from "@/components/ui/kbd"
+import { KbdShortcut } from "@/components/ui/kbd"
 import { PopoverContent } from "@/components/ui/popover"
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
@@ -118,7 +119,7 @@ export function TicketPreviewBody({
   ticketId: TicketId
   scope: TicketHoverCardScope
   interactive: boolean
-  shortcut?: string
+  shortcut?: HotkeyChord
 }) {
   const req = ticketRequest(scope.orgSlug, scope.slug, ticketId)
   const result = useAtomValue(ticketDetail(req))
@@ -146,7 +147,7 @@ export function TicketPreviewBody({
               {ticket.title}
             </div>
             {shortcut !== undefined && (
-              <Kbd aria-hidden>{shortcut.toUpperCase()}</Kbd>
+              <KbdShortcut keys={shortcut} aria-hidden />
             )}
           </div>
           <MetaRow ticket={ticket} scope={scope} statuses={statuses} />

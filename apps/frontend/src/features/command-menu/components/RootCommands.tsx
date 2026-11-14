@@ -34,7 +34,7 @@ import {
 } from "../lib/commands"
 import { CommandFrame, type CommandFrameItem } from "./CommandFrame"
 
-const GROUP_LABELS: Readonly<Record<CommandGroup, () => string>> = {
+export const GROUP_LABELS: Readonly<Record<CommandGroup, () => string>> = {
   ticket: m.tickets_command_group,
   ticketRelations: m.tickets_command_group_relations,
   ticketGit: m.tickets_command_group_git,
@@ -62,6 +62,7 @@ export const commandItem = (
   parent: command.parent?.(),
   aside: command.aside?.(context),
   searchOnly: command.searchOnly,
+  shortcut: command.hotkey?.hotkey ?? undefined,
   enterLabel:
     "page" in command
       ? m.chrome_command_menu_select()

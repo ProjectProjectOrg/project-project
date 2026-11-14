@@ -15,6 +15,7 @@ import {
 import { commandMenuState } from "@/features/command-menu/atoms/commandMenu"
 import { openCommandMenu } from "@/features/command-menu/lib/commandMenu"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -47,7 +48,9 @@ export function AddChildTicketButton({
             variant="quiet"
             size="square-7"
             aria-label={label}
-            aria-keyshortcuts="c"
+            aria-keyshortcuts={
+              appHotkeys["tickets.add-sub-ticket"].defaultHotkey
+            }
             onClick={onCreate}
             className={cn("", className)}
           />

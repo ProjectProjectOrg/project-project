@@ -1,5 +1,5 @@
 import { isEpic, type Member, type Ticket } from "@pp/shared"
-import { useHotkey } from "@tanstack/react-hotkeys"
+import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys"
 import { ChevronRight, Plus } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useState, type ReactNode } from "react"
@@ -7,6 +7,7 @@ import { useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { CommentsSection } from "@/features/comments/components/CommentsSection"
 import { useChildTicketCount } from "@/features/tickets/hooks/useChildTicketCount"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -31,11 +32,13 @@ export function TicketDiscussion({
   return (
     <>
       {holdsChildren && (
-        <ChildrenSection
-          parent={ticket}
-          members={members}
-          editable={editable}
-        />
+        <HotkeysProvider scope="ticket">
+          <ChildrenSection
+            parent={ticket}
+            members={members}
+            editable={editable}
+          />
+        </HotkeysProvider>
       )}
       <CommentsSection ticketId={ticket.id} />
     </>
@@ -58,7 +61,9 @@ function ChildrenSection({
     setOpen(true)
     setAdding(true)
   }
-  useHotkey("C", startAdding, { enabled: editable && !adding })
+  useHotkey(appHotkeys["tickets.add-sub-ticket"], startAdding, {
+    enabled: editable && !adding
+  })
 
   const empty = editable && count === 0
   const expanded = empty ? adding : open

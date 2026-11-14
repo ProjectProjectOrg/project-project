@@ -1,11 +1,11 @@
-import { useHotkey, type HotkeyChord } from "@tanstack/react-hotkeys"
+import { useHotkey, type AppHotkey } from "@tanstack/react-hotkeys"
 import type { RefObject } from "react"
 
 export function useGlobalShortcut(
-  key: HotkeyChord,
+  hotkey: AppHotkey,
   ref: RefObject<HTMLInputElement | null>
 ) {
-  useHotkey(key, () => {
+  useHotkey(hotkey, () => {
     ref.current?.focus()
     ref.current?.select()
   })

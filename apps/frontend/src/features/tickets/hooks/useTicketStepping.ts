@@ -31,8 +31,7 @@ import {
   type StepCursor,
   type StepDirection
 } from "@/features/tickets/lib/ticketStepping"
-export const PREVIOUS_KEY = "K"
-export const NEXT_KEY = "J"
+import { appHotkeys } from "@/lib/appHotkeys"
 
 type Entry = Readonly<{ id: TicketId; source: string }>
 
@@ -174,8 +173,12 @@ export function useTicketStepping(
     }
   }, [router, orgSlug, slug])
 
-  useHotkey(NEXT_KEY, (event) => stepper.current?.(1, event.repeat))
-  useHotkey(PREVIOUS_KEY, (event) => stepper.current?.(-1, event.repeat))
+  useHotkey(appHotkeys["tickets.next"], (event) =>
+    stepper.current?.(1, event.repeat)
+  )
+  useHotkey(appHotkeys["tickets.previous"], (event) =>
+    stepper.current?.(-1, event.repeat)
+  )
 
   return { shown, sequence, search }
 }

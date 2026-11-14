@@ -8,6 +8,7 @@ import { Freeze } from "@/components/ui/freeze"
 import { useIntegrationCommands } from "@/features/integrations/hooks/useIntegrationCommands"
 import { TicketContextChip } from "@/features/tickets/components/command-pages/TicketContextChip"
 import { TicketSelectionChips } from "@/features/tickets/components/command-pages/TicketSelectionChips"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 import { commandContext } from "../atoms/commandContext"
@@ -36,7 +37,9 @@ import {
 } from "../lib/commandScopes"
 import { COMMAND_PAGES } from "../pages"
 import { commandRegistry } from "../registry"
+import { CommandHotkeys } from "./CommandHotkeys"
 import { RootCommands } from "./RootCommands"
+import { ShortcutSheet } from "./ShortcutSheet"
 
 export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
   const registry = useContext(RegistryContext)
@@ -63,6 +66,7 @@ export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
           setState(openCommandMenu(target.ticket, "root", target.selection))
         }}
         title={m.chrome_command_menu_title()}
+        shortcut={appHotkeys["app.command-menu"]}
         pulseKey={`${state.ticket?.ticketId ?? ""}:${state.selection.length}:${state.pages.join("/")}`}
       >
         {shown.open && (
@@ -77,6 +81,8 @@ export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
           </Freeze>
         )}
       </CommandMenuDialog>
+      <CommandHotkeys orgSlug={orgSlug} />
+      <ShortcutSheet />
       {!state.open && <CommandMenuPrewarm orgSlug={orgSlug} scopes={scopes} />}
     </>
   )

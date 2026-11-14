@@ -15,6 +15,8 @@ import {
 } from "react"
 import { flushSync } from "react-dom"
 
+import { appHotkeys } from "@/lib/appHotkeys"
+
 export function useEditMode({
   editorRef,
   rootRef,
@@ -69,7 +71,10 @@ export function useEditMode({
 
   const stopFromEvent = useEffectEvent(stopEditing)
 
-  useHotkey("E", startEditing, { enabled: !editing, requireReset: true })
+  useHotkey(appHotkeys["tickets.edit-description"], startEditing, {
+    enabled: !editing,
+    requireReset: true
+  })
 
   useEffect(() => {
     if (!editing) return

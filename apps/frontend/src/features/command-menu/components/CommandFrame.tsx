@@ -1,4 +1,5 @@
 import type { TextRange } from "@pp/shared"
+import type { Hotkey } from "@tanstack/react-hotkeys"
 import { Search } from "lucide-react"
 import { motion } from "motion/react"
 import { useEffect, useId, useRef, useState, type ReactNode } from "react"
@@ -46,6 +47,7 @@ export type CommandFrameItem = CommandMenuItemData &
     actionable?: boolean
     peekable?: boolean
     enterLabel?: string
+    shortcut?: Hotkey
     detail?: Readonly<{
       author?: string
       text: string
