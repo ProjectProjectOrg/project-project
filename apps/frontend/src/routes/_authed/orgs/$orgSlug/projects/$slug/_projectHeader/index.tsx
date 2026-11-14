@@ -38,9 +38,10 @@ export const Route = createFileRoute(
     context: { registry },
     params: { orgSlug, slug },
     search,
-    location
+    location,
+    preload
   }) => {
-    if (search.group === undefined) return
+    if (search.group === undefined || preload) return
     const viewerId = registry.get(currentUserId)
     if (viewerId !== undefined)
       writeBacklogGrouping(viewerId, orgSlug, slug, search.group)

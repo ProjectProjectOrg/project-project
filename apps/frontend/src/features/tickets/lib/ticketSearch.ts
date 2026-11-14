@@ -175,6 +175,18 @@ export function ticketSearchFromSource(
     : { ...query, from: source.kind, sprint: source.groupId }
 }
 
+export function ticketPageSearch(
+  from: TicketPageSource | undefined,
+  sprint: GroupId | undefined
+): TicketDetailSearch {
+  if (from === undefined) return {}
+  if (from.kind === "parent") return { from: "parent", parentId: from.parent }
+  const search = ticketSearchFromSource(from)
+  return search.from === "sections" && sprint !== undefined
+    ? { ...search, sprint }
+    : search
+}
+
 export function sprintFromSearch(
   search: TicketDetailSearch
 ): GroupId | undefined {

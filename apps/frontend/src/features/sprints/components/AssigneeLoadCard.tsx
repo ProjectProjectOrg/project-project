@@ -124,7 +124,10 @@ export function AssigneeLoadCard({
               variant="ghost"
               size="sm"
               trailingIcon={ArrowRight}
-              onClick={onFilter}
+              onClick={(event) => {
+                event.stopPropagation()
+                onFilter()
+              }}
               className="w-full justify-between px-1.5"
             >
               {assignee === null
