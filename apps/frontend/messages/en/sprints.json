@@ -75,6 +75,7 @@
       }
     }
   ],
+  "sprints_load_card_summary_count": "{amount} in {sprint}",
   "sprints_load_card_trigger": "{name}: {amount}",
   "sprints_load_card_unowned": [
     {
@@ -86,6 +87,7 @@
       }
     }
   ],
+  "sprints_load_card_unowned_count": "{amount} nobody owns yet",
   "sprints_load_card_usual": "Usually finishes about {amount}",
   "sprints_load_error_body": "We hit a snag loading this sprint. Try again, or head back.",
   "sprints_load_error_title": "Couldn't load sprint",

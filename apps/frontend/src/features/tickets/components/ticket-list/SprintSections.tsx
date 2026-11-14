@@ -252,10 +252,14 @@ function SprintSection({
   const anchor = sprint ? sprintSectionAnchor(sprint.id) : undefined
   const hash = useLocation({ select: (location) => location.hash })
   const anchorRef = useRef<HTMLDivElement>(null)
+  const targeted = anchor !== undefined && hash === anchor && !waiting
   useEffect(() => {
-    if (anchor !== undefined && hash === anchor)
+    if (!targeted) return undefined
+    const frame = requestAnimationFrame(() =>
       anchorRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })
-  }, [anchor, hash])
+    )
+    return () => cancelAnimationFrame(frame)
+  }, [targeted])
   return (
     <div
       ref={anchorRef}

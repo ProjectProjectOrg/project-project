@@ -84,16 +84,23 @@ export function AssigneeLoadCard({
           <div className="flex min-w-0 flex-col">
             <span className="truncate text-body font-semibold">{name}</span>
             <span className="text-caption text-muted-foreground tabular-nums">
-              {assignee === null
-                ? m.sprints_load_card_unowned({
-                    amount,
-                    count: tickets.length
-                  })
-                : m.sprints_load_card_summary({
-                    amount,
-                    count: tickets.length,
-                    sprint: sprint.name
-                  })}
+              {measure.kind === "count"
+                ? assignee === null
+                  ? m.sprints_load_card_unowned_count({ amount })
+                  : m.sprints_load_card_summary_count({
+                      amount,
+                      sprint: sprint.name
+                    })
+                : assignee === null
+                  ? m.sprints_load_card_unowned({
+                      amount,
+                      count: tickets.length
+                    })
+                  : m.sprints_load_card_summary({
+                      amount,
+                      count: tickets.length,
+                      sprint: sprint.name
+                    })}
             </span>
           </div>
         </div>
