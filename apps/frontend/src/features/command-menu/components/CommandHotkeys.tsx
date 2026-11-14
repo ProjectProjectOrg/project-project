@@ -32,7 +32,7 @@ export function CommandHotkeys({ orgSlug }: Readonly<{ orgSlug: string }>) {
   const params = useParams({ strict: false })
   const navigate = useNavigate()
 
-  const press = (command: Command) => {
+  const press = (commands: ReadonlyArray<Command>) => {
     const current = registry.get(commandScopes)
     const target = commandTarget(orgSlug, current, registry.get(pointedTicket))
     const context: CommandContext = {
@@ -48,7 +48,8 @@ export function CommandHotkeys({ orgSlug }: Readonly<{ orgSlug: string }>) {
       sprint: scopeSprint(current),
       view: scopeView(current)
     }
-    if (visibleCommands([command], context).length === 0) return
+    const [command] = visibleCommands(commands, context)
+    if (command === undefined) return
     runCommand(command, context, {
       registry,
       execute: (atom, value) => void fireMutation(registry, atom, value),
@@ -65,13 +66,20 @@ export function CommandHotkeys({ orgSlug }: Readonly<{ orgSlug: string }>) {
     })
   }
 
-  return [...scopeCommands(scopes), ...commandRegistry].map(
-    (command) =>
-      command.hotkey !== undefined && (
+  const byHotkey = new Map<string, Array<Command>>()
+  for (const command of [...scopeCommands(scopes), ...commandRegistry]) {
+    if (command.hotkey === undefined) continue
+    const shared = byHotkey.get(command.hotkey.id)
+    if (shared === undefined) byHotkey.set(command.hotkey.id, [command])
+    else shared.push(command)
+  }
+  return [...byHotkey.values()].map(
+    (commands) =>
+      commands[0]?.hotkey !== undefined && (
         <CommandHotkey
-          key={command.id}
-          hotkey={command.hotkey}
-          onPress={() => press(command)}
+          key={commands[0].hotkey.id}
+          hotkey={commands[0].hotkey}
+          onPress={() => press(commands)}
         />
       )
   )

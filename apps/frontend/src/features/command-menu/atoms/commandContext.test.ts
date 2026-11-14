@@ -50,7 +50,7 @@ it("reads the hovered row's fields while the ticket's detail isn't loaded", () =
         ticketDetail(ticketRequest("acme", "app", ticket.ticketId)),
         AsyncResult.initial()
       ],
-      [pointedTicket, { ...ticket, row }]
+      [pointedTicket, { ...ticket, row, patch: () => {} }]
     ]
   })
 

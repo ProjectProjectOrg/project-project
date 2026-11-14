@@ -1,5 +1,6 @@
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 import { mergeProps } from "@base-ui/react/merge-props"
+import type { Hotkey } from "@tanstack/react-hotkeys"
 import { CheckIcon, ChevronRightIcon } from "lucide-react"
 import * as React from "react"
 import { flushSync } from "react-dom"
@@ -505,10 +506,12 @@ function DropdownMenuSubTrigger({
   className,
   inset,
   delay = 0,
+  hotkey,
   children,
   ...props
 }: React.ComponentProps<typeof MenuPrimitive.SubmenuTrigger> & {
   inset?: boolean
+  hotkey?: Hotkey
 }) {
   return (
     <MenuPrimitive.SubmenuTrigger
@@ -526,7 +529,10 @@ function DropdownMenuSubTrigger({
       {...props}
     >
       {children}
-      <ChevronRightIcon className="ml-auto size-4" />
+      {hotkey !== undefined && <DropdownMenuShortcut keys={hotkey} />}
+      <ChevronRightIcon
+        className={cn("size-4", hotkey === undefined && "ml-auto")}
+      />
     </MenuPrimitive.SubmenuTrigger>
   )
 }

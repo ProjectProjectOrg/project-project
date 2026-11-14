@@ -6,6 +6,7 @@ import type {
   ValueFilterDimension
 } from "@/features/tickets/lib/filterChoices"
 import type { MarkPickKind } from "@/features/tickets/lib/relationGroups"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 
 export type TicketContext = Readonly<{
   orgSlug: string
@@ -13,7 +14,20 @@ export type TicketContext = Readonly<{
   ticketId: TicketId
 }>
 
-export type PointedTicket = TicketContext & Readonly<{ row: Ticket }>
+export type PointedTicket = TicketContext &
+  Readonly<{ row: Ticket; patch: (edit: TicketEdit) => void }>
+
+export const pointedAt = (
+  pointed: PointedTicket | null,
+  ticket: TicketContext | null
+): PointedTicket | null =>
+  pointed !== null &&
+  ticket !== null &&
+  pointed.ticketId === ticket.ticketId &&
+  pointed.slug === ticket.slug &&
+  pointed.orgSlug === ticket.orgSlug
+    ? pointed
+    : null
 
 export type SelectedTicket = Pick<
   Ticket,

@@ -32,7 +32,8 @@ const pointed: PointedTicket = {
   orgSlug: "acme",
   slug: "app",
   ticketId: row.id,
-  row
+  row,
+  patch: () => {}
 }
 
 const selected = (ticketId: string): SelectedTicket => ({

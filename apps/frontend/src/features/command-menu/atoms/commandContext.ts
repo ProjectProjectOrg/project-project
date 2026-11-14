@@ -28,7 +28,7 @@ import {
   type TicketPermissions
 } from "@/features/tickets/lib/ticketPermissions"
 
-import type { TicketContext } from "../lib/commandMenu"
+import { pointedAt, type TicketContext } from "../lib/commandMenu"
 import type { CommandContext } from "../lib/commands"
 import { pointedTicket } from "./commandMenu"
 
@@ -77,16 +77,8 @@ export const commandContext = Atom.family((key: CommandContextKey) =>
               )
             )
           )
-    const pointed = get(pointedTicket)
     const ticketData =
-      detail ??
-      (ticket !== null &&
-      pointed !== null &&
-      pointed.ticketId === ticket.ticketId &&
-      pointed.slug === ticket.slug &&
-      pointed.orgSlug === ticket.orgSlug
-        ? pointed.row
-        : null)
+      detail ?? pointedAt(get(pointedTicket), ticket)?.row ?? null
     const membership =
       ticket === null
         ? null

@@ -5,16 +5,13 @@ import { commandScopes } from "@/features/command-menu/atoms/commandMenu"
 import type { Command } from "@/features/command-menu/lib/commands"
 import { scopeSelectionUpdate } from "@/features/command-menu/lib/commandScopes"
 import { openFlagDialog } from "@/features/tickets/atoms/flagTicketDialog"
-import {
-  ticketRequest,
-  updateTicketDetail
-} from "@/features/tickets/atoms/ticketDetail"
 import { SquarePlusCorner } from "@/features/tickets/components/ticket-marks/blockingIcon"
 import { MARK_KINDS } from "@/features/tickets/components/ticket-marks/markKinds"
 import { removableRelations } from "@/features/tickets/lib/relationGroups"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
-import { editable, onLiveTicket } from "./commands"
+import { editable, editTicket, onLiveTicket } from "./commands"
 
 export const relationCommands: ReadonlyArray<Command> = [
   {
@@ -55,6 +52,7 @@ export const relationCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.flag",
+    hotkey: appHotkeys["tickets.flag"],
     bulk: true,
     group: "ticketRelations",
     label: m.tickets_command_flag,
@@ -78,6 +76,7 @@ export const relationCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.unflag",
+    hotkey: appHotkeys["tickets.flag"],
     bulk: true,
     group: "ticketRelations",
     label: m.tickets_mark_remove_flag,
@@ -103,12 +102,7 @@ export const relationCommands: ReadonlyArray<Command> = [
         env.close()
         return
       }
-      env.execute(
-        updateTicketDetail(
-          ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
-        ),
-        { flag: null }
-      )
+      editTicket(ticket, env, { flag: null })
       env.close()
     }
   },
@@ -170,12 +164,7 @@ export const relationCommands: ReadonlyArray<Command> = [
       ticket !== null && tickets.edit && ticketData?.parent != null,
     run: ({ ticket }, env) => {
       if (ticket === null) return
-      env.execute(
-        updateTicketDetail(
-          ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
-        ),
-        { parent: null }
-      )
+      editTicket(ticket, env, { parent: null })
       env.close()
     }
   }

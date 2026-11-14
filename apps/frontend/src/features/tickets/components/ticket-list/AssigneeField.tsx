@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuList,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { Hitbox } from "@/components/ui/hitbox"
@@ -24,6 +25,7 @@ import {
 } from "@/features/members/components/MemberAvatar"
 import { toggleAssignee } from "@/features/tickets/lib/assignees"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 type AssigneeVariant = "row" | "card" | "chip"
@@ -196,6 +198,9 @@ export function AssignMeItem({
       >
         <Icon className="size-4" strokeWidth={1.75} />
         {label}
+        <DropdownMenuShortcut
+          keys={appHotkeys["tickets.assign-me"].defaultHotkey}
+        />
       </DropdownMenuItem>
       <DropdownMenuSeparator />
     </>

@@ -27,10 +27,15 @@ import {
 } from "lucide-react"
 import { createElement } from "react"
 
-import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
+import { pointedTicket } from "@/features/command-menu/atoms/commandMenu"
+import {
+  pointedAt,
+  type TicketContext
+} from "@/features/command-menu/lib/commandMenu"
 import type {
   Command,
-  CommandContext
+  CommandContext,
+  CommandEnv
 } from "@/features/command-menu/lib/commands"
 import {
   removeTicketFromSprint,
@@ -52,10 +57,29 @@ import {
   ticketMarkdown,
   ticketPrompt
 } from "@/features/tickets/lib/ticketClipboard"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import { appHotkeys } from "@/lib/appHotkeys"
 import type { IconComponent } from "@/lib/icon"
 import { m } from "@/paraglide/messages"
 
 const onTicket = (context: CommandContext) => context.ticket !== null
+
+export const editTicket = (
+  ticket: TicketContext,
+  env: CommandEnv,
+  edit: TicketEdit
+) => {
+  const row = pointedAt(env.registry.get(pointedTicket), ticket)
+  if (row !== null) row.patch(edit)
+  else {
+    env.execute(
+      updateTicketDetail(
+        ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
+      ),
+      edit
+    )
+  }
+}
 
 export const onLiveTicket = ({ ticket, ticketData }: CommandContext) =>
   ticket !== null && (ticketData === null || ticketData.archivedAt === null)
@@ -104,6 +128,7 @@ const ticketLink = (context: CommandContext) =>
 export const ticketCommands: ReadonlyArray<Command> = [
   {
     id: "ticket.status",
+    hotkey: appHotkeys["tickets.status"],
     bulk: true,
     group: "ticket",
     label: m.tickets_command_change_status,
@@ -114,6 +139,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.priority",
+    hotkey: appHotkeys["tickets.priority"],
     bulk: true,
     group: "ticket",
     label: m.tickets_command_set_priority,
@@ -124,6 +150,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.assign",
+    hotkey: appHotkeys["tickets.assign"],
     bulk: true,
     group: "ticket",
     label: m.tickets_command_assign,
@@ -134,6 +161,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.assign-me",
+    hotkey: appHotkeys["tickets.assign-me"],
     group: "ticket",
     label: m.tickets_command_assign_me,
     icon: UserCheck,
@@ -145,17 +173,13 @@ export const ticketCommands: ReadonlyArray<Command> = [
       !context.ticketData.assignees.includes(context.viewerId),
     run: ({ ticket, ticketData, viewerId }, env) => {
       if (ticket === null || ticketData === null || viewerId === null) return
-      env.execute(
-        updateTicketDetail(
-          ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
-        ),
-        { assignees: { add: [viewerId] } }
-      )
+      editTicket(ticket, env, { assignees: { add: [viewerId] } })
       env.close()
     }
   },
   {
     id: "ticket.unassign-me",
+    hotkey: appHotkeys["tickets.assign-me"],
     group: "ticket",
     label: m.tickets_command_unassign_me,
     icon: UserMinus,
@@ -167,12 +191,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
       context.ticketData.assignees.includes(context.viewerId),
     run: ({ ticket, ticketData, viewerId }, env) => {
       if (ticket === null || ticketData === null || viewerId === null) return
-      env.execute(
-        updateTicketDetail(
-          ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
-        ),
-        { assignees: { remove: [viewerId] } }
-      )
+      editTicket(ticket, env, { assignees: { remove: [viewerId] } })
       env.close()
     }
   },
@@ -253,6 +272,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.tags",
+    hotkey: appHotkeys["tickets.tags"],
     bulk: true,
     group: "ticket",
     label: m.tickets_command_tags,

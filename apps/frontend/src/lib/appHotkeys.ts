@@ -35,6 +35,30 @@ export const appHotkeys = defineAppHotkeys({
     scope: "projects",
     meta: { name: m.projects_shortcut_new_project(), group: create }
   },
+  "tickets.status": {
+    hotkey: "S",
+    meta: { name: m.tickets_command_change_status(), group: ticket }
+  },
+  "tickets.assign": {
+    hotkey: "A",
+    meta: { name: m.tickets_command_assign(), group: ticket }
+  },
+  "tickets.assign-me": {
+    hotkey: "I",
+    meta: { name: m.tickets_command_assign_me(), group: ticket }
+  },
+  "tickets.priority": {
+    hotkey: "P",
+    meta: { name: m.tickets_command_set_priority(), group: ticket }
+  },
+  "tickets.tags": {
+    hotkey: "T",
+    meta: { name: m.tickets_command_tags(), group: ticket }
+  },
+  "tickets.flag": {
+    hotkey: "F",
+    meta: { name: m.tickets_command_flag(), group: ticket }
+  },
   "tickets.edit-description": {
     hotkey: "E",
     meta: { name: m.tickets_description_edit(), group: ticket }
