@@ -176,7 +176,7 @@ const fakeUser = (id: string): User => ({
   createdAt: DateTime.toDate(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z")),
   activeOrgSlug: null,
   personalGithub: { connected: false },
-  editorPreference: "github",
+  settings: { avatarSource: null, editorPreference: "github" },
   personalEverhour: {
     connected: false,
     everhourUserId: null,
@@ -184,7 +184,8 @@ const fakeUser = (id: string): User => ({
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 })
 
 const FakeUsers = Layer.succeed(Users.Users, {

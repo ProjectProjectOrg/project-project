@@ -24,7 +24,7 @@ const viewer = Schema.decodeSync(User)({
   createdAt: "2026-01-01T00:00:00.000Z",
   activeOrgSlug: "org",
   personalGithub: { connected: false },
-  editorPreference: "github",
+  settings: { avatarSource: null, editorPreference: "github" },
   personalEverhour: {
     connected: false,
     everhourUserId: null,
@@ -32,7 +32,8 @@ const viewer = Schema.decodeSync(User)({
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 })
 
 const projectReq = projectRequest("org", "project")

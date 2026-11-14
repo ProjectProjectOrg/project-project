@@ -38,6 +38,7 @@
 // Then run `bun run db:generate` to produce the first migration, and
 // `bun run db:migrate` to apply it against the running Postgres.
 
+import { AvatarSource, EditorPreference } from "@pp/shared"
 import type {
   LinkPreview,
   GitAutomationEvent,
@@ -581,6 +582,36 @@ export const userEverhourIntegration = pgTable("user_everhour_integration", {
   lastCheckStatus: text("last_check_status", { enum: ["ok", "error"] }),
   lastCheckError: text("last_check_error")
 })
+
+const literalList = (values: ReadonlyArray<string>) =>
+  sql.raw(`(${values.map((value) => `'${value}'`).join(", ")})`)
+
+export const userSettings = pgTable(
+  "user_settings",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    avatarSource: text("avatar_source").$type<AvatarSource>(),
+    editorPreference: text("editor_preference").$type<EditorPreference>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  (table) => [
+    check(
+      "user_settings_avatar_source_check",
+      sql`${table.avatarSource} in ${literalList(AvatarSource.literals)}`
+    ),
+    check(
+      "user_settings_editor_preference_check",
+      sql`${table.editorPreference} in ${literalList(EditorPreference.literals)}`
+    )
+  ]
+)
 
 export const projectEverhourIntegration = pgTable(
   "project_everhour_integration",
@@ -1668,6 +1699,7 @@ export const relations = defineRelations(
     projectIntegrationLink,
     projectGithubRepository,
     userEverhourIntegration,
+    userSettings,
     projectEverhourIntegration,
     everhourSectionLink,
     everhourWorkTypeTaskLink,
@@ -1825,6 +1857,13 @@ export const relations = defineRelations(
       user: r.one.user({
         optional: false,
         from: [r.userEverhourIntegration.userId],
+        to: [r.user.id]
+      })
+    },
+    userSettings: {
+      user: r.one.user({
+        optional: false,
+        from: [r.userSettings.userId],
         to: [r.user.id]
       })
     },

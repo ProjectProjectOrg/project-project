@@ -178,6 +178,7 @@ Older storage kept `templates/` folders and a default template per ticket type i
 ### What lives in Postgres
 
 - **Identity and access:** Better Auth's tables, plus project membership, roles and invite grants.
+- **User settings** (`user_settings`): one row per user, one typed column per setting (avatar source, editor preference), read by `/me` and written through `PATCH /me/settings`. Choosing an avatar source also writes the resolved picture to `user.image`, so every avatar read stays a plain column read. The picture options come from the user's linked accounts (`apps/backend/src/auth/providerAvatar.ts`), and a later sign-in with the chosen provider refreshes `user.image`.
 - **Indexes.** They mirror markdown so lists, filters and lookups don't parse every file, and they can be rebuilt from it. The project index also holds instance-local aesthetics such as banner images.
 - **Project configuration that is instance-bound:** statuses, tags, git automation.
 - **Integration state:** connections, OAuth state, encrypted credentials, links, and per-integration delivery records.

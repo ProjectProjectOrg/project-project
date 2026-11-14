@@ -37,7 +37,7 @@ const user = (id: string, activeOrgSlug = "org-a") => ({
   image: null,
   createdAt: "2026-01-01T00:00:00.000Z",
   activeOrgSlug,
-  editorPreference: "github",
+  settings: { avatarSource: null, editorPreference: "github" },
   personalGithub: { connected: false },
   personalEverhour: {
     connected: false,
@@ -46,7 +46,8 @@ const user = (id: string, activeOrgSlug = "org-a") => ({
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 })
 
 function sessions() {

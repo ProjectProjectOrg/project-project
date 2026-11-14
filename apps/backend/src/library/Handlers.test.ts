@@ -182,8 +182,7 @@ const apiFor = (orgRole: OrgRole, projectRole: Role) =>
                 name: "U",
                 username: null,
                 image: null,
-                createdAt: DateTime.toDate(DateTime.makeUnsafe(0)),
-                editorPreference: "github"
+                createdAt: DateTime.toDate(DateTime.makeUnsafe(0))
               }),
               Effect.provideService(ActivityActor, ActivityActor.user(USER_ID))
             )

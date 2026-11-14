@@ -14,7 +14,7 @@ export const MeRole = Schema.Struct({
 export type MeRole = typeof MeRole.Type
 
 export const MeUser = Schema.Struct(
-  Struct.omit(User.fields, ["activeOrgSlug", "editorPreference"])
+  Struct.omit(User.fields, ["activeOrgSlug", "settings", "avatarOptions"])
 )
 export type MeUser = typeof MeUser.Type
 

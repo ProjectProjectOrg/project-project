@@ -742,7 +742,7 @@ describe("MCP handlers → write tools", () => {
             personalGithub: {
               connected: false
             },
-            editorPreference: "github",
+            settings: { avatarSource: null, editorPreference: "github" },
             personalEverhour: {
               connected: false,
               everhourUserId: null,
@@ -750,7 +750,8 @@ describe("MCP handlers → write tools", () => {
               email: null,
               lastVerifiedAt: null,
               lastCheckError: null
-            }
+            },
+            avatarOptions: []
           }
         },
         origin: "native",

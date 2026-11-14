@@ -19,7 +19,7 @@ export function EditorPreferenceCommands({
   const viewer = useAtomValue(me())
   const mutation = useAtomValue(updateEditorPreference)
   const current = Result.isSuccess(viewer)
-    ? viewer.value.editorPreference
+    ? viewer.value.settings.editorPreference
     : null
   const error = mutationErrorText(
     mutation,

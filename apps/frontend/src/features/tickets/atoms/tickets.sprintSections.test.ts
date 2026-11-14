@@ -118,7 +118,7 @@ const viewer = () =>
     createdAt: "2026-09-15T10:00:00.000Z",
     activeOrgSlug: "org",
     personalGithub: { connected: false },
-    editorPreference: "github",
+    settings: { avatarSource: null, editorPreference: "github" },
     personalEverhour: {
       connected: false,
       everhourUserId: null,
@@ -126,7 +126,8 @@ const viewer = () =>
       email: null,
       lastVerifiedAt: null,
       lastCheckError: null
-    }
+    },
+    avatarOptions: []
   })
 
 const fetchStub = stubFetch()

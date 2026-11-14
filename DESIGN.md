@@ -412,6 +412,7 @@ The brand mark is built from two greys (`--dither-front` and `--dither-back`) on
 - The `Button variant="dither"` backdrop
 - Decorative section breaks on long-form pages
 - Generated member avatars: a member without a photo gets a dithered orb seeded by their user id (`features/members/lib/orbAvatar.ts`). Its five tones are three tag-wheel swatches at 20–56% opacity: the member's own swatch for highlights, an accent 90–240° away for the body, and a third hue for the deepest shadow. Being translucent over the surface, it reads as pastel in light mode and as deep tones in dark mode. Initials use the accent hue at L 0.3 (light) or L 0.97 (dark), at least 5:1 on every tone in both themes. Two letters from 24px up, one below.
+- Avatar changes: when your own avatar switches, it dissolves cell by cell in the same 4×4 Bayer order and cell size as the orb, 8 hard steps over 320ms (`features/members/components/DissolveAvatar.tsx`). A switch mid-dissolve freezes the current mix and dissolves over it. Reduced motion swaps instantly.
 
 It never appears on functional controls.
 

@@ -36,14 +36,21 @@ export const AuthHandlerLive = HttpApiBuilder.group(
   (handlers) =>
     Effect.gen(function* () {
       const ba = yield* BetterAuth.BetterAuth
-      return handlers.handle("me", () =>
-        Effect.gen(function* () {
-          const user = yield* CurrentUser
-          const request = yield* HttpServerRequest.HttpServerRequest
-          const session = yield* ba.getSession(toWebHeaders(request.headers))
-          return yield* ba.me(user, session?.session.activeOrganizationId)
-        }).pipe(Effect.orDie)
-      )
+      return handlers
+        .handle("me", () =>
+          Effect.gen(function* () {
+            const user = yield* CurrentUser
+            const request = yield* HttpServerRequest.HttpServerRequest
+            const session = yield* ba.getSession(toWebHeaders(request.headers))
+            return yield* ba.me(user, session?.session.activeOrganizationId)
+          }).pipe(Effect.orDie)
+        )
+        .handle("updateSettings", ({ payload }) =>
+          Effect.gen(function* () {
+            const user = yield* CurrentUser
+            return yield* ba.updateSettings(user.id, payload)
+          }).pipe(Effect.catchTag("BetterAuthError", Effect.die))
+        )
     })
 )
 

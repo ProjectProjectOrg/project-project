@@ -12,7 +12,7 @@ export function usePreferredBranchLink(
 ): { href: string; target?: "_blank"; rel?: "noreferrer" } {
   const viewer = useAtomValue(me())
   const preference = Result.isSuccess(viewer)
-    ? viewer.value.editorPreference
+    ? viewer.value.settings.editorPreference
     : "github"
   const href = branchUrl(preference, slug, name)
   return branchOpensInNewTab(preference)

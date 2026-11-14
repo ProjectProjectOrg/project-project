@@ -156,7 +156,7 @@ const author = {
   createdAt: at("2026-01-01T00:00:00.000Z"),
   activeOrgSlug: "org",
   personalGithub: { connected: false },
-  editorPreference: "github" as const,
+  settings: { avatarSource: null, editorPreference: "github" as const },
   personalEverhour: {
     connected: false,
     everhourUserId: null,
@@ -164,7 +164,8 @@ const author = {
     email: null,
     lastVerifiedAt: null,
     lastCheckError: null
-  }
+  },
+  avatarOptions: []
 }
 
 const FakeUsers = Layer.succeed(Users.Users, {
