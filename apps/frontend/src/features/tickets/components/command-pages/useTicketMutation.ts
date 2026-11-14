@@ -2,10 +2,14 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState } from "react"
 
-import { commandScopes } from "@/features/command-menu/atoms/commandMenu"
-import type {
-  SelectedTicket,
-  TicketContext
+import {
+  commandMenuState,
+  commandScopes
+} from "@/features/command-menu/atoms/commandMenu"
+import {
+  pointedAt,
+  type SelectedTicket,
+  type TicketContext
 } from "@/features/command-menu/lib/commandMenu"
 import { scopeSelectionUpdate } from "@/features/command-menu/lib/commandScopes"
 import { bulkUpdateTickets } from "@/features/tickets/atoms/bulkTickets"
@@ -19,6 +23,7 @@ import {
   sharedTicketFields
 } from "@/features/tickets/lib/sharedTicketFields"
 import {
+  applyTicketPatch,
   toBulkPatch,
   type TicketEdit
 } from "@/features/tickets/lib/ticketPatch"
@@ -34,6 +39,8 @@ export function useTicketMutation(
     bulkUpdateTickets({ orgSlug: ticket.orgSlug, slug: ticket.slug })
   )
   const updateSelection = scopeSelectionUpdate(useAtomValue(commandScopes))
+  const row = pointedAt(useAtomValue(commandMenuState).row, ticket)
+  const [rowValue, setRowValue] = useState(row?.row ?? null)
   const [edited, setEdited] = useState(selection)
   if (selection.length > 1) {
     const tickets = selection.map((each) => each.id)
@@ -51,6 +58,15 @@ export function useTicketMutation(
         void updateSelection(ticket.slug, tickets, patch).then((saved) => {
           if (!saved) setEdited(before)
         })
+      }
+    }
+  }
+  if (row !== null) {
+    return {
+      current: rowValue,
+      update: (edit: TicketEdit) => {
+        setRowValue((value) => value && applyTicketPatch(value, edit))
+        row.patch(edit)
       }
     }
   }

@@ -116,6 +116,7 @@ type Step = Frame & Readonly<{ from: ReturnPoint | null }>
 export type CommandMenuState = Frame &
   Readonly<{
     open: boolean
+    row: PointedTicket | null
     trail: ReadonlyArray<Step>
     search: string
     focus: string | null
@@ -123,6 +124,7 @@ export type CommandMenuState = Frame &
 
 export const CLOSED_COMMAND_MENU: CommandMenuState = {
   open: false,
+  row: null,
   ticket: null,
   selection: [],
   pages: ["root"],
@@ -147,10 +149,12 @@ const SELECTION_PAGES: ReadonlySet<CommandPage> = new Set<CommandPage>([
 export const openCommandMenu = (
   ticket: TicketContext | null,
   page: CommandPage = "root",
-  selection: ReadonlyArray<SelectedTicket> = []
+  selection: ReadonlyArray<SelectedTicket> = [],
+  pointed: PointedTicket | null = null
 ): CommandMenuState => ({
   ...CLOSED_COMMAND_MENU,
   open: true,
+  row: pointedAt(pointed, ticket),
   ticket,
   selection: selection.length > 1 && SELECTION_PAGES.has(page) ? selection : [],
   pages: [page]

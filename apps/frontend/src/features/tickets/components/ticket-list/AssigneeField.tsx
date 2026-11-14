@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { Hitbox } from "@/components/ui/hitbox"
+import { ShortcutTooltip } from "@/components/ui/tooltip"
 import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   AvatarStack,
@@ -138,33 +139,37 @@ function Trigger({
 }) {
   if (variant === "chip") {
     return (
-      <DropdownMenuTrigger
-        render={
-          <Button
-            type="button"
-            variant={empty ? "chip-muted" : "chip"}
-            aria-label={label}
-          >
-            {children}
-          </Button>
-        }
-      />
+      <ShortcutTooltip hotkey={appHotkeys["tickets.assign"]}>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant={empty ? "chip-muted" : "chip"}
+              aria-label={label}
+            >
+              {children}
+            </Button>
+          }
+        />
+      </ShortcutTooltip>
     )
   }
   return (
-    <DropdownMenuTrigger
-      render={
-        <Hitbox
-          mode="inline"
-          margin="2"
-          onClick={(e) => e.stopPropagation()}
-          aria-label={label}
-          className={className}
-        >
-          {children}
-        </Hitbox>
-      }
-    />
+    <ShortcutTooltip hotkey={appHotkeys["tickets.assign"]}>
+      <DropdownMenuTrigger
+        render={
+          <Hitbox
+            mode="inline"
+            margin="2"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={label}
+            className={className}
+          >
+            {children}
+          </Hitbox>
+        }
+      />
+    </ShortcutTooltip>
   )
 }
 

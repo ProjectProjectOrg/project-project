@@ -34,7 +34,8 @@ export function CommandHotkeys({ orgSlug }: Readonly<{ orgSlug: string }>) {
 
   const press = (commands: ReadonlyArray<Command>) => {
     const current = registry.get(commandScopes)
-    const target = commandTarget(orgSlug, current, registry.get(pointedTicket))
+    const pointed = registry.get(pointedTicket)
+    const target = commandTarget(orgSlug, current, pointed)
     const context: CommandContext = {
       ...registry.get(
         commandContext({
@@ -58,7 +59,7 @@ export function CommandHotkeys({ orgSlug }: Readonly<{ orgSlug: string }>) {
       open: (page) =>
         registry.set(
           commandMenuState,
-          openCommandMenu(target.ticket, page, target.selection)
+          openCommandMenu(target.ticket, page, target.selection, pointed)
         ),
       actOn: (ticket) =>
         registry.set(commandMenuState, openCommandMenu(ticket)),

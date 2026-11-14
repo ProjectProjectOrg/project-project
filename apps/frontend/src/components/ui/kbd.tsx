@@ -116,7 +116,10 @@ function KbdShortcut({
   React.useEffect(installKeyCapHighlight, [])
   const caps = hotkeyCaps(keys, platform)
   return (
-    <KbdGroup className={cn("gap-0.5", className)} {...props}>
+    <KbdGroup
+      className={cn("gap-0.5 pointer-coarse:hidden", className)}
+      {...props}
+    >
       {caps.map((cap, i) => (
         <Kbd
           key={`${cap.label}-${i}`}

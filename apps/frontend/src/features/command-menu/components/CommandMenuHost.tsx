@@ -58,12 +58,11 @@ export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
             setState(CLOSED_COMMAND_MENU)
             return
           }
-          const target = commandTarget(
-            orgSlug,
-            scopes,
-            registry.get(pointedTicket)
+          const pointed = registry.get(pointedTicket)
+          const target = commandTarget(orgSlug, scopes, pointed)
+          setState(
+            openCommandMenu(target.ticket, "root", target.selection, pointed)
           )
-          setState(openCommandMenu(target.ticket, "root", target.selection))
         }}
         title={m.chrome_command_menu_title()}
         shortcut={appHotkeys["app.command-menu"]}
