@@ -1,3 +1,5 @@
+import { useMemo } from "react"
+
 import {
   Avatar,
   AvatarFallback,
@@ -5,7 +7,8 @@ import {
   AvatarGroupCount,
   AvatarImage
 } from "@/components/ui/avatar"
-import { avatarColor } from "@/features/members/lib/avatarColor"
+import { avatarInitials, orbAvatar } from "@/features/members/lib/orbAvatar"
+import { orbAvatarUrl } from "@/features/members/lib/paintOrbAvatar"
 import { cn } from "@/lib/utils"
 
 export type AvatarSubject = Readonly<{
@@ -15,7 +18,8 @@ export type AvatarSubject = Readonly<{
   image?: string | null
 }>
 
-const fontSize = (size: number) => Math.max(10, Math.round(size * 0.5))
+const fontSize = (size: number, initials: string) =>
+  Math.max(8, Math.round(size * (initials.length > 1 ? 0.34 : 0.44)))
 
 export function MemberAvatar({
   member,
@@ -26,7 +30,15 @@ export function MemberAvatar({
   size?: number
   className?: string
 }) {
-  const initial = (member.name || member.email || "?").charAt(0).toUpperCase()
+  const initials = avatarInitials(member.name, member.email, size)
+  const ink = useMemo(
+    () => (member.image ? undefined : orbAvatar(member.id).ink),
+    [member.id, member.image]
+  )
+  const generated = useMemo(
+    () => (member.image ? undefined : orbAvatarUrl(member.id, size)),
+    [member.id, member.image, size]
+  )
   return (
     <Avatar
       aria-hidden
@@ -43,15 +55,18 @@ export function MemberAvatar({
         />
       )}
       <AvatarFallback
-        className={cn(!member.image && "text-foreground dark:text-background")}
+        className={cn(
+          ink &&
+            "bg-transparent bg-cover font-bold text-(--avatar-ink) dark:text-(--avatar-ink-dark)"
+        )}
         style={{
-          fontSize: fontSize(size),
-          backgroundColor: member.image
-            ? undefined
-            : avatarColor(member.id).oklch
+          fontSize: fontSize(size, initials),
+          "--avatar-ink": ink?.light,
+          "--avatar-ink-dark": ink?.dark,
+          backgroundImage: generated ? `url(${generated})` : undefined
         }}
       >
-        {initial}
+        {initials}
       </AvatarFallback>
     </Avatar>
   )
@@ -71,7 +86,7 @@ export function AvatarStack({
   const visible = subjects.slice(0, max)
   const overflow = subjects.length - visible.length
   return (
-    <AvatarGroup className={className}>
+    <AvatarGroup className={className} style={{ "--avatar-size": `${size}px` }}>
       {visible.map((subject) => (
         <MemberAvatar key={subject.id} member={subject} size={size} />
       ))}
