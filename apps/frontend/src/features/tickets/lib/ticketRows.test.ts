@@ -1,5 +1,6 @@
 import { DEFAULT_TICKET_SORT, TicketStatus, TypeKey } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
+import * as Equal from "effect/Equal"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -49,6 +50,15 @@ describe("viewQuery", () => {
       sort,
       excludeType: ["epic"]
     })
+  })
+
+  it("drops unset filters, so the same view built two ways is one cache key", () => {
+    expect(
+      Equal.equals(
+        viewQuery({ sort, estimate: undefined, status: undefined }),
+        viewQuery({ sort })
+      )
+    ).toBe(true)
   })
 
   it("keeps a chosen type filter as the include list", () => {
