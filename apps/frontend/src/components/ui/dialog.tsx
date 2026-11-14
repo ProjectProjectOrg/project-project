@@ -1,6 +1,7 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
+import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import { X } from "lucide-react"
-import type { ComponentProps } from "react"
+import { useId, type ComponentProps } from "react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -23,6 +24,7 @@ function DialogContent({
   showCloseButton = true,
   ...props
 }: DialogContentProps) {
+  const scope = useId()
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Backdrop
@@ -40,7 +42,9 @@ function DialogContent({
         )}
         {...props}
       >
-        {children}
+        <HotkeysProvider scope={scope} exclusive>
+          {children}
+        </HotkeysProvider>
         {showCloseButton && (
           <DialogPrimitive.Close
             render={

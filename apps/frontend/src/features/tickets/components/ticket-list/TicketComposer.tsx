@@ -150,7 +150,7 @@ export function TicketComposer({
     <TicketCreatorShell
       inputRef={inputRef}
       formRef={formRef}
-      shortcut="c"
+      shortcut="C"
       value={title}
       onValueChange={setTitle}
       onSubmit={onSubmit}

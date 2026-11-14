@@ -58,7 +58,7 @@ export function CreateProjectRow({
   const formRef = useRef<HTMLFormElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const reduceMotion = useReducedMotion()
-  useGlobalShortcut("c", inputRef)
+  useGlobalShortcut("C", inputRef)
 
   const trackFocus = (next: boolean) => {
     setFocused(next)

@@ -1,5 +1,6 @@
 import { RegistryContext } from "@effect/atom-react"
 import { STATE_COLORS } from "@pp/shared"
+import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import {
   createBrowserHistory,
   createRouter,
@@ -47,7 +48,11 @@ function App() {
   if (!session.ready) return null
   return (
     <RegistryContext.Provider key={session.generation} value={session.registry}>
-      <RouterProvider router={session.router} />
+      <HotkeysProvider
+        defaultOptions={{ hotkey: { ignoreDefaultPrevented: true } }}
+      >
+        <RouterProvider router={session.router} />
+      </HotkeysProvider>
     </RegistryContext.Provider>
   )
 }

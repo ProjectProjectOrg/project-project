@@ -1,3 +1,4 @@
+import { useHotkey } from "@tanstack/react-hotkeys"
 import {
   $createRangeSelection,
   $getRoot,
@@ -13,8 +14,6 @@ import {
   type RefObject
 } from "react"
 import { flushSync } from "react-dom"
-
-import { hasModifier, ownsKeystrokes } from "@/lib/keyboard"
 
 export function useEditMode({
   editorRef,
@@ -68,21 +67,9 @@ export function useEditMode({
     setEditing(false)
   }, [editorRef])
 
-  const startFromShortcut = useEffectEvent(startEditing)
   const stopFromEvent = useEffectEvent(stopEditing)
 
-  useEffect(() => {
-    if (editing) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "e" && event.key !== "E") return
-      if (event.repeat || event.defaultPrevented || hasModifier(event)) return
-      if (ownsKeystrokes(event.target)) return
-      event.preventDefault()
-      startFromShortcut()
-    }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-  }, [editing])
+  useHotkey("E", startEditing, { enabled: !editing, requireReset: true })
 
   useEffect(() => {
     if (!editing) return

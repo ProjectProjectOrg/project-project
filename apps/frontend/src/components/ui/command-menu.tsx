@@ -1,5 +1,10 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import {
+  HotkeysProvider,
+  useHotkey,
+  type HotkeyChord
+} from "@tanstack/react-hotkeys"
+import {
   ArrowBigUp,
   ArrowDown,
   ArrowLeft,
@@ -1008,85 +1013,11 @@ function useHighlightedItem(): CommandMenuItemData | undefined {
   return index === null ? undefined : rows[index]
 }
 
-type ParsedShortcut = Readonly<{
-  mod: boolean
-  meta: boolean
-  ctrl: boolean
-  alt: boolean
-  shift: boolean
-  key: string
-}>
-
-const parseShortcut = (shortcut: string): ParsedShortcut => {
-  const modifiers = new Set<string>()
-  let key = ""
-  for (const token of shortcutTokens(shortcut)) {
-    const lower = token.toLowerCase()
-    const modifier = MODIFIER_TOKENS.get(lower)
-    if (modifier) modifiers.add(modifier)
-    else key = KEY_ALIASES.get(lower) ?? lower
-  }
-  return {
-    mod: modifiers.has("mod"),
-    meta: modifiers.has("meta"),
-    ctrl: modifiers.has("ctrl"),
-    alt: modifiers.has("alt"),
-    shift: modifiers.has("shift"),
-    key
-  }
-}
-
-const matchesShortcut = (
-  event: KeyboardEvent,
-  parsed: ParsedShortcut
-): boolean => {
-  if (parsed.key === "") return false
-  const key = event.key.toLowerCase()
-  const byCode =
-    parsed.key.length === 1 &&
-    /[a-z0-9]/.test(parsed.key) &&
-    (event.altKey || !/^[a-z0-9]$/i.test(event.key)) &&
-    event.code.toLowerCase() ===
-      (/[a-z]/.test(parsed.key) ? `key${parsed.key}` : `digit${parsed.key}`)
-  if (key !== parsed.key && !byCode) return false
-  if (parsed.mod) {
-    if (!event.metaKey && !event.ctrlKey) return false
-  } else if (event.metaKey !== parsed.meta || event.ctrlKey !== parsed.ctrl) {
-    return false
-  }
-  if (event.altKey !== parsed.alt) return false
-  return !parsed.shift || event.shiftKey
-}
-
-const hasModifier = (parsed: ParsedShortcut): boolean =>
-  parsed.mod || parsed.meta || parsed.ctrl || parsed.alt
-
-const isEditable = (target: EventTarget | null): boolean =>
-  target instanceof HTMLElement &&
-  (target.isContentEditable ||
-    ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
-
-const comboKey = (parsed: ParsedShortcut): string =>
-  [
-    parsed.mod && "mod",
-    parsed.meta && "meta",
-    parsed.ctrl && "ctrl",
-    parsed.alt && "alt",
-    parsed.shift && "shift",
-    parsed.key
-  ]
-    .filter(Boolean)
-    .join("+")
-
-const mountedDialogs: Array<
-  Readonly<{ combo: string; isOpen: () => boolean }>
-> = []
-
 export type CommandMenuDialogProps = Readonly<{
   open: boolean
   onOpenChange: (open: boolean) => void
   pulseKey?: string
-  shortcut?: string | null
+  shortcut?: HotkeyChord | null
   title: string
   className?: string
   children: ReactNode
@@ -1114,14 +1045,13 @@ function CommandMenuDialog({
   open,
   onOpenChange,
   pulseKey,
-  shortcut = "mod+k",
+  shortcut = "Mod+K",
   title,
   className,
   children
 }: CommandMenuDialogProps) {
-  const openRef = useRef(open)
-  const onOpenChangeRef = useRef(onOpenChange)
   const popupRef = useRef<HTMLDivElement | null>(null)
+  const scope = useId()
   const lastPulseRef = useRef(pulseKey)
   const pulseOpenRef = useRef(open)
   const pulseRef = useRef<AnimationPlaybackControls | null>(null)
@@ -1173,34 +1103,7 @@ function CommandMenuDialog({
       setContent(null)
     }
   }, [])
-  useIsoLayoutEffect(() => {
-    openRef.current = open
-    onOpenChangeRef.current = onOpenChange
-  })
-
-  useEffect(() => {
-    if (!shortcut) return undefined
-    const parsed = parseShortcut(shortcut)
-    if (parsed.key === "") return undefined
-    const entry = { combo: comboKey(parsed), isOpen: () => openRef.current }
-    mountedDialogs.push(entry)
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.repeat || event.defaultPrevented) return
-      if (!matchesShortcut(event, parsed)) return
-      if (!hasModifier(parsed) && isEditable(event.target)) return
-      const peers = mountedDialogs.filter((d) => d.combo === entry.combo)
-      const answers = peers.find((d) => d.isOpen()) ?? peers.at(-1)
-      if (answers !== entry) return
-      event.preventDefault()
-      onOpenChangeRef.current(!openRef.current)
-    }
-    window.addEventListener("keydown", onKeyDown)
-    return () => {
-      window.removeEventListener("keydown", onKeyDown)
-      const index = mountedDialogs.indexOf(entry)
-      if (index !== -1) mountedDialogs.splice(index, 1)
-    }
-  }, [shortcut])
+  useHotkey(shortcut, () => onOpenChange(true))
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -1221,6 +1124,12 @@ function CommandMenuDialog({
           <DialogPrimitive.Title className="sr-only">
             {title}
           </DialogPrimitive.Title>
+          <HotkeysProvider scope={scope} exclusive>
+            <CloseOnShortcut
+              shortcut={shortcut}
+              onClose={() => onOpenChange(false)}
+            />
+          </HotkeysProvider>
           <motion.div
             className="overflow-hidden"
             initial={false}
@@ -1242,6 +1151,14 @@ function CommandMenuDialog({
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
   )
+}
+
+function CloseOnShortcut({
+  shortcut,
+  onClose
+}: Readonly<{ shortcut: HotkeyChord | null; onClose: () => void }>) {
+  useHotkey(shortcut, onClose)
+  return null
 }
 
 function CommandMenuCheck() {

@@ -37,6 +37,7 @@
     "@pp/access": "workspace:*",
     "@pp/shared": "workspace:*",
     "@tanstack/react-form": "2.0.0-alpha.2",
+    "@tanstack/react-hotkeys": "0.25.1",
     "@tanstack/react-pacer": "^0.22.1",
     "@tanstack/react-router": "1.169.2",
     "@tanstack/react-virtual": "^3.14.11",

@@ -1,12 +1,12 @@
 import { isEpic, type Member, type Ticket } from "@pp/shared"
+import { useHotkey } from "@tanstack/react-hotkeys"
 import { ChevronRight, Plus } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { useEffect, useState, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { CommentsSection } from "@/features/comments/components/CommentsSection"
 import { useChildTicketCount } from "@/features/tickets/hooks/useChildTicketCount"
-import { ownsKeystrokes } from "@/lib/keyboard"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -58,18 +58,7 @@ function ChildrenSection({
     setOpen(true)
     setAdding(true)
   }
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (!editable || adding || event.defaultPrevented) return
-      if (event.metaKey || event.ctrlKey || event.altKey) return
-      if (event.key !== "c" || ownsKeystrokes(event.target)) return
-      event.preventDefault()
-      setOpen(true)
-      setAdding(true)
-    }
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [editable, adding])
+  useHotkey("C", startAdding, { enabled: editable && !adding })
 
   const empty = editable && count === 0
   const expanded = empty ? adding : open

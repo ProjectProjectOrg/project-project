@@ -1,4 +1,5 @@
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
+import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import { XIcon } from "lucide-react"
 import * as React from "react"
 
@@ -64,6 +65,7 @@ function SheetContent({
   side?: SheetSide
   showCloseButton?: boolean
 }) {
+  const scope = React.useId()
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -76,7 +78,9 @@ function SheetContent({
         )}
         {...props}
       >
-        {children}
+        <HotkeysProvider scope={scope} exclusive>
+          {children}
+        </HotkeysProvider>
         {showCloseButton && (
           <SheetPrimitive.Close
             data-slot="sheet-close"

@@ -1,4 +1,5 @@
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
+import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import * as React from "react"
 
 import { useActivityHiddenPortalRef } from "@/hooks/useActivityHiddenPortalRef"
@@ -47,8 +48,10 @@ function PopoverContent({
   collisionBoundary,
   collisionPadding,
   keepMounted,
+  children,
   ...props
 }: PopoverContentProps) {
+  const scope = React.useId()
   return (
     <PopoverPortal keepMounted={keepMounted}>
       <PopoverPrimitive.Positioner
@@ -69,7 +72,11 @@ function PopoverContent({
             className
           )}
           {...props}
-        />
+        >
+          <HotkeysProvider scope={scope} exclusive>
+            {children}
+          </HotkeysProvider>
+        </PopoverPrimitive.Popup>
       </PopoverPrimitive.Positioner>
     </PopoverPortal>
   )

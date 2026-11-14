@@ -377,7 +377,7 @@ export function SprintTicketCreator({
     <TicketCreatorShell
       inputRef={inputRef}
       formRef={formRef}
-      shortcut="c"
+      shortcut="C"
       value={title}
       onValueChange={(v) => {
         picker.close()

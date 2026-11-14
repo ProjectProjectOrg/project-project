@@ -1,3 +1,4 @@
+import type { HotkeyChord } from "@tanstack/react-hotkeys"
 import {
   createContext,
   use,
@@ -46,7 +47,7 @@ export function DimWhileCreating({
 export type TicketCreatorShellProps = Readonly<{
   inputRef: RefObject<HTMLInputElement | null>
   formRef: RefObject<HTMLFormElement | null>
-  shortcut: string
+  shortcut: HotkeyChord
   value: string
   onValueChange: (next: string) => void
   onPointerEnter?: () => void
