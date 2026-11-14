@@ -1,10 +1,10 @@
 export function GoogleMark({
   size = 16,
   className
-}: {
+}: Readonly<{
   size?: number
   className?: string
-}) {
+}>) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -37,10 +37,10 @@ export function GoogleMark({
 export function MicrosoftMark({
   size = 16,
   className
-}: {
+}: Readonly<{
   size?: number
   className?: string
-}) {
+}>) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -61,10 +61,10 @@ export function MicrosoftMark({
 export function GithubMark({
   size = 16,
   className
-}: {
+}: Readonly<{
   size?: number
   className?: string
-}) {
+}>) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"

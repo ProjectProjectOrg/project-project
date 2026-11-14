@@ -1,5 +1,5 @@
 import { Db } from "@pp/db"
-import { UserId, type User } from "@pp/shared"
+import { defaultEditorPreference, UserId, type User } from "@pp/shared"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -95,7 +95,10 @@ const make = Effect.gen(function* () {
         personalGithub: {
           connected: false
         },
-        settings: { avatarSource: null, editorPreference: "github" },
+        settings: {
+          avatarSource: null,
+          editorPreference: defaultEditorPreference
+        },
         personalEverhour: {
           connected: false,
           everhourUserId: null,

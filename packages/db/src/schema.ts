@@ -38,9 +38,8 @@
 // Then run `bun run db:generate` to produce the first migration, and
 // `bun run db:migrate` to apply it against the running Postgres.
 
+import { AvatarSource, EditorPreference } from "@pp/shared"
 import type {
-  AvatarSource,
-  EditorPreference,
   LinkPreview,
   GitAutomationEvent,
   GitHubInstallationAccount,
@@ -584,6 +583,9 @@ export const userEverhourIntegration = pgTable("user_everhour_integration", {
   lastCheckError: text("last_check_error")
 })
 
+const literalList = (values: ReadonlyArray<string>) =>
+  sql.raw(`(${values.map((value) => `'${value}'`).join(", ")})`)
+
 export const userSettings = pgTable(
   "user_settings",
   {
@@ -602,11 +604,11 @@ export const userSettings = pgTable(
   (table) => [
     check(
       "user_settings_avatar_source_check",
-      sql`${table.avatarSource} in ('generated', 'github', 'google')`
+      sql`${table.avatarSource} in ${literalList(AvatarSource.literals)}`
     ),
     check(
       "user_settings_editor_preference_check",
-      sql`${table.editorPreference} in ('github', 'github_dev', 'vscode', 'cursor')`
+      sql`${table.editorPreference} in ${literalList(EditorPreference.literals)}`
     )
   ]
 )

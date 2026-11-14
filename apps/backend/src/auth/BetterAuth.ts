@@ -21,6 +21,7 @@ import {
   UserInvitation,
   UserSettings,
   Validation,
+  defaultEditorPreference,
   type OrgAssignableRole,
   type UpdateUserSettingsInput,
   type User,
@@ -44,7 +45,7 @@ import {
   auth,
   keepingAProjectPm
 } from "./config"
-import { avatarOptions } from "./providerAvatar"
+import { avatarOptions, effectiveAvatarSource } from "./providerAvatar"
 
 const decodeOrgMember = Schema.decodeEffect(OrgMember)
 
@@ -290,20 +291,6 @@ export const BetterAuthLive = Layer.effect(
       return yield* readMember(organizationId, userId)
     })
 
-    const getPersonalGithub = Effect.fn("BetterAuth.getPersonalGithub")(
-      function* (userId: string) {
-        const row = yield* attempt(() =>
-          db.query.account.findFirst({
-            columns: { id: true },
-            where: { userId, providerId: "github" }
-          })
-        )
-        return yield* decodePersonalGithub({
-          connected: row !== undefined
-        }).pipe(Effect.orDie)
-      }
-    )
-
     const getPersonalEverhour = Effect.fn("BetterAuth.getPersonalEverhour")(
       function* (userId: string) {
         const row = yield* attempt(() =>
@@ -340,7 +327,7 @@ export const BetterAuthLive = Layer.effect(
       )
       return yield* decodeUserSettings({
         avatarSource: row?.avatarSource ?? null,
-        editorPreference: row?.editorPreference ?? "github"
+        editorPreference: row?.editorPreference ?? defaultEditorPreference
       }).pipe(Effect.orDie)
     })
 
@@ -371,12 +358,21 @@ export const BetterAuthLive = Layer.effect(
         ],
         { concurrency: "unbounded" }
       )
+      const image = row?.image ?? null
+      const options = yield* decodeAvatarOptions(avatarOptions(accounts)).pipe(
+        Effect.orDie
+      )
       return {
-        image: row?.image ?? null,
-        settings,
-        avatarOptions: yield* decodeAvatarOptions(avatarOptions(accounts)).pipe(
-          Effect.orDie
-        ),
+        image,
+        settings: {
+          ...settings,
+          avatarSource: effectiveAvatarSource(
+            settings.avatarSource,
+            image,
+            options
+          )
+        },
+        avatarOptions: options,
         personalGithub: yield* decodePersonalGithub({
           connected: accounts.some((account) => account.providerId === "github")
         }).pipe(Effect.orDie)
@@ -471,7 +467,6 @@ export const BetterAuthLive = Layer.effect(
           catch: (cause) => new BetterAuth.BetterAuthError({ cause })
         })
       }),
-      getPersonalGithub,
       getPersonalEverhour,
       getOrgSlugById,
       me,

@@ -1,4 +1,4 @@
-import type { AvatarOption } from "@pp/shared"
+import { AvatarSource, type AvatarOption } from "@pp/shared"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 
@@ -9,7 +9,7 @@ const GoogleIdTokenClaims = Schema.fromJsonString(
 const decodeGoogleIdTokenClaims =
   Schema.decodeUnknownOption(GoogleIdTokenClaims)
 
-const googlePicture = (idToken: string | null) => {
+export const googlePicture = (idToken: string | null) => {
   const payload = idToken?.split(".")[1]
   if (!payload) return null
   return decodeGoogleIdTokenClaims(
@@ -48,11 +48,22 @@ export const avatarOptions = (
   const fromProviders = accounts.flatMap(
     (account) => providerAvatar(account) ?? []
   )
-  return [
-    { source: "generated", image: null },
-    ...fromProviders.filter(
-      (option, index) =>
-        fromProviders.findIndex((o) => o.source === option.source) === index
-    )
-  ]
+  const unique = fromProviders.filter(
+    (option, index) =>
+      fromProviders.findIndex((o) => o.source === option.source) === index
+  )
+  return [{ source: "generated" as const, image: null }, ...unique].toSorted(
+    (a, b) =>
+      AvatarSource.literals.indexOf(a.source) -
+      AvatarSource.literals.indexOf(b.source)
+  )
 }
+
+export const effectiveAvatarSource = (
+  stored: AvatarSource | null,
+  image: string | null,
+  options: ReadonlyArray<AvatarOption>
+): AvatarSource | null =>
+  options.find((option) => option.source === stored)?.source ??
+  options.find((option) => option.image === image)?.source ??
+  null

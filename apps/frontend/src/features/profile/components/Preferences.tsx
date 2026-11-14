@@ -10,7 +10,7 @@ import {
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { SettingsSegmented } from "@/components/shell/settings/SettingsTextField"
-import { me, updateSettings } from "@/features/auth/atoms/auth"
+import { me, updateEditorPreference } from "@/features/auth/atoms/auth"
 import { EDITOR_OPTIONS } from "@/features/profile/lib/editorOptions"
 import { m } from "@/paraglide/messages"
 
@@ -45,13 +45,13 @@ export function Preferences() {
 function EditorPreferenceRow({
   preference
 }: Readonly<{ preference: EditorPreference }>) {
-  const update = useAtomSet(updateSettings)
-  const updateState = useAtomValue(updateSettings)
+  const update = useAtomSet(updateEditorPreference)
+  const updateState = useAtomValue(updateEditorPreference)
   const selected = preference
 
   function choose(next: EditorPreference) {
     if (next === selected) return
-    update({ editorPreference: next })
+    update(next)
   }
 
   return (

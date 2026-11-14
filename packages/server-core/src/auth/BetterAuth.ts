@@ -9,7 +9,6 @@ import type {
   OrgMember,
   OrgMembers,
   PersonalEverhour,
-  PersonalGithub,
   UpdateUserSettingsInput,
   User,
   UserIdentity,
@@ -64,9 +63,6 @@ export class BetterAuth extends Context.Service<
     getGithubAccessToken: (
       userId: string
     ) => Effect.Effect<string, NoGithubToken | BetterAuthError>
-    getPersonalGithub: (
-      userId: string
-    ) => Effect.Effect<PersonalGithub, BetterAuthError>
     getPersonalEverhour: (
       userId: string
     ) => Effect.Effect<PersonalEverhour, BetterAuthError>

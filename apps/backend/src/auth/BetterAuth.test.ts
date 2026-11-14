@@ -3,7 +3,7 @@ import * as BetterAuth from "@pp/server-core/auth/BetterAuth"
 import * as Effect from "effect/Effect"
 import * as Option from "effect/Option"
 import * as Tracer from "effect/Tracer"
-import { beforeEach, describe, expect, vi } from "vitest"
+import { expect, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   findFirst: vi.fn(),
@@ -31,42 +31,6 @@ vi.mock("./config", () => ({
 }))
 
 import { BetterAuthLive } from "./BetterAuth"
-
-describe("BetterAuthLive getPersonalGithub", () => {
-  beforeEach(() => {
-    mocks.findFirst.mockReset()
-  })
-
-  it.effect("returns connected when the user has a GitHub account row", () =>
-    Effect.gen(function* () {
-      mocks.findFirst.mockResolvedValue({ id: "account-1" })
-
-      const result = yield* runGetPersonalGithub("user-1")
-
-      expect(result).toEqual({ connected: true })
-      expect(mocks.findFirst).toHaveBeenCalledOnce()
-    })
-  )
-
-  it.effect(
-    "returns disconnected when the user has no GitHub account row",
-    () =>
-      Effect.gen(function* () {
-        mocks.findFirst.mockResolvedValue(undefined)
-
-        const result = yield* runGetPersonalGithub("user-1")
-
-        expect(result).toEqual({ connected: false })
-        expect(mocks.findFirst).toHaveBeenCalledOnce()
-      })
-  )
-})
-
-const runGetPersonalGithub = (userId: string) =>
-  Effect.gen(function* () {
-    const service = yield* BetterAuth.BetterAuth
-    return yield* service.getPersonalGithub(userId)
-  }).pipe(Effect.provide(BetterAuthLive))
 
 it.effect("passes the HTTP request through when accepting OAuth consent", () =>
   Effect.gen(function* () {
@@ -108,10 +72,9 @@ it.effect("traces each BetterAuth call under its own span", () => {
       return span
     }
   })
-  mocks.findFirst.mockResolvedValue(undefined)
   return Effect.gen(function* () {
     const service = yield* BetterAuth.BetterAuth
-    yield* service.getPersonalGithub("user-1")
+    yield* service.getOrgSlugById(null)
   }).pipe(
     Effect.withTracer(tracer),
     Effect.provide(BetterAuthLive),
@@ -120,7 +83,7 @@ it.effect("traces each BetterAuth call under its own span", () => {
         spans
           .filter((span) => Option.isNone(span.parent))
           .map((span) => span.name)
-      ).toEqual(["BetterAuth.getPersonalGithub"])
+      ).toEqual(["BetterAuth.getOrgSlugById"])
     )
   )
 })

@@ -63,6 +63,8 @@ export const EditorPreference = Schema.Literals([
 ])
 export type EditorPreference = typeof EditorPreference.Type
 
+export const defaultEditorPreference: EditorPreference = "github"
+
 export const AvatarSource = Schema.Literals(["generated", "github", "google"])
 export type AvatarSource = typeof AvatarSource.Type
 

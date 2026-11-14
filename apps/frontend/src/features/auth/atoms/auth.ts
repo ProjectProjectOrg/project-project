@@ -1,4 +1,8 @@
-import type { UpdateUserSettingsInput, User } from "@pp/shared"
+import type {
+  AvatarSource,
+  EditorPreference,
+  UpdateUserSettingsInput
+} from "@pp/shared"
 import type { BetterFetchError } from "better-auth/react"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -90,26 +94,45 @@ export const disconnectPersonalGithub = Api.runtime.fn(
   })
 )
 
-const activeOrgSlugOf = (viewer: AsyncResult.AsyncResult<User, unknown>) =>
-  AsyncResult.isSuccess(viewer) ? viewer.value.activeOrgSlug : null
-
-export const updateSettings = viewMutation(meAtom, {
-  name: "updateSettings",
-  predict: (user, patch: UpdateUserSettingsInput) =>
-    applySettingsPatch(user, patch),
-  call: (client, patch, get) =>
-    client.auth.updateSettings({ payload: patch }).pipe(
-      Effect.map((settings) => ({
-        settings,
-        orgSlug: activeOrgSlugOf(get(meAtom))
-      }))
-    ),
-  confirm: (user, { settings }) => ({ ...user, settings }),
-  publish: ({ orgSlug }, patch) =>
-    patch.avatarSource === undefined || orgSlug === null
-      ? [Keys.me()]
-      : [Keys.me(), Keys.orgMembers(orgSlug)]
+const publishMemberAvatar = Effect.fn("publishMemberAvatar")(function* (
+  get: Atom.FnContext
+) {
+  const orgSlug = yield* get.result(me()).pipe(
+    Effect.map((user) => user.activeOrgSlug),
+    Effect.orElseSucceed(() => null)
+  )
+  if (orgSlug !== null) {
+    yield* Reactivity.invalidate([Keys.orgMembers(orgSlug)])
+  }
 })
+
+const settingsMutation = <Input>(
+  name: string,
+  toPatch: (input: Input) => UpdateUserSettingsInput,
+  publishOthers: (
+    get: Atom.FnContext
+  ) => Effect.Effect<void, never, Reactivity.Reactivity> = () => Effect.void
+) =>
+  viewMutation(meAtom, {
+    name,
+    predict: (user, input: Input) => applySettingsPatch(user, toPatch(input)),
+    call: (client, input, get) =>
+      client.auth
+        .updateSettings({ payload: toPatch(input) })
+        .pipe(Effect.tap(() => publishOthers(get))),
+    confirm: (user, settings) => ({ ...user, settings })
+  })
+
+export const updateAvatarSource = settingsMutation(
+  "updateAvatarSource",
+  (avatarSource: AvatarSource) => ({ avatarSource }),
+  publishMemberAvatar
+)
+
+export const updateEditorPreference = settingsMutation(
+  "updateEditorPreference",
+  (editorPreference: EditorPreference) => ({ editorPreference })
+)
 
 export const setActiveOrganization = Api.runtime.fn(
   Effect.fn("setActiveOrganization")(function* (organizationSlug: string) {

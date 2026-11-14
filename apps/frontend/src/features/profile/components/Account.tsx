@@ -1,8 +1,9 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { AvatarSource, User } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
+import type { ComponentType } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
+import { Logo } from "@/components/shell/Logo"
 import {
   SettingsGroup,
   SettingsRow,
@@ -10,13 +11,13 @@ import {
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { SettingsSegmented } from "@/components/shell/settings/SettingsTextField"
-import { me, updateSettings } from "@/features/auth/atoms/auth"
-import { DissolveAvatar } from "@/features/members/components/DissolveAvatar"
+import { me, updateAvatarSource } from "@/features/auth/atoms/auth"
 import {
-  avatarSourceIcon,
-  avatarSourceLabel,
-  selectedAvatarSource
-} from "@/features/profile/lib/avatarOptions"
+  GithubMark,
+  GoogleMark
+} from "@/features/auth/components/ProviderMarks"
+import { DissolveAvatar } from "@/features/members/components/DissolveAvatar"
+import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -34,17 +35,29 @@ export function Account() {
 
 const PROFILE_AVATAR_SIZE = 96
 
+const AVATAR_SOURCES: Readonly<
+  Record<
+    AvatarSource,
+    Readonly<{
+      label: () => string
+      icon: ComponentType<Readonly<{ className?: string }>>
+    }>
+  >
+> = {
+  generated: { label: m.profile_avatar_option_generated, icon: Logo },
+  github: { label: m.profile_avatar_option_github, icon: GithubMark },
+  google: { label: m.profile_avatar_option_google, icon: GoogleMark }
+}
+
 function AccountDetails({ user }: Readonly<{ user: User }>) {
-  const update = useAtomSet(updateSettings)
-  const updateState = useAtomValue(updateSettings)
-  const selected =
-    user.settings.avatarSource ??
-    selectedAvatarSource(user.avatarOptions, user.image)
+  const update = useAtomSet(updateAvatarSource)
+  const updateState = useAtomValue(updateAvatarSource)
+  const selected = user.settings.avatarSource
   const canChoose = user.avatarOptions.length > 1 || selected === null
 
   function choose(next: AvatarSource) {
     if (next === selected) return
-    update({ avatarSource: next })
+    update(next)
   }
 
   return (
@@ -72,17 +85,15 @@ function AccountDetails({ user }: Readonly<{ user: User }>) {
           <SettingsRow
             label={m.profile_avatar_title()}
             description={m.profile_avatar_description()}
-            error={
-              Result.isFailure(updateState)
-                ? m.profile_avatar_update_error()
-                : null
-            }
+            error={mutationErrorText(updateState, () =>
+              m.profile_avatar_update_error()
+            )}
           >
             <SettingsSegmented
               items={user.avatarOptions.map(({ source }) => ({
                 key: source,
-                label: avatarSourceLabel(source),
-                icon: avatarSourceIcon(source)
+                label: AVATAR_SOURCES[source].label(),
+                icon: AVATAR_SOURCES[source].icon
               }))}
               value={selected}
               waiting={updateState.waiting}
