@@ -26,7 +26,9 @@ const KBD_SIZES = {
 
 const KBD_VARIANTS = {
   default: "rounded-sm bg-muted",
-  menu: "rounded-[5px] bg-hover"
+  menu: "rounded-[5px] bg-hover",
+  pill: "rounded-full bg-muted px-1.5",
+  raised: "rounded-full bg-surface-5 px-1.5 shadow-surface-1"
 } as const
 
 type KbdProps = Readonly<

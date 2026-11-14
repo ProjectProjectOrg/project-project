@@ -19,7 +19,6 @@ import {
 import { BlockIconGlyph } from "@/features/library/components/BlockIconGlyph"
 import { m } from "@/paraglide/messages"
 
-import { MOVE_DOWN_SHORTCUT, MOVE_UP_SHORTCUT } from "./blockKeyboard"
 import type { BlockMenuAction, BlockMenuModel } from "./blockMenuModel"
 import { ConfirmMenuItem } from "./ConfirmMenuItem"
 
@@ -105,9 +104,7 @@ function BlockMenuItems({
       >
         <ArrowUp strokeWidth={1.75} />
         {m.editor_block_menu_move_up()}
-        <DropdownMenuShortcut className="">
-          {MOVE_UP_SHORTCUT}
-        </DropdownMenuShortcut>
+        <DropdownMenuShortcut keys="Mod+Shift+ArrowUp" />
       </DropdownMenuItem>
       <DropdownMenuItem
         disabled={!model.canMoveDown}
@@ -115,9 +112,7 @@ function BlockMenuItems({
       >
         <ArrowDown strokeWidth={1.75} />
         {m.editor_block_menu_move_down()}
-        <DropdownMenuShortcut className="">
-          {MOVE_DOWN_SHORTCUT}
-        </DropdownMenuShortcut>
+        <DropdownMenuShortcut keys="Mod+Shift+ArrowDown" />
       </DropdownMenuItem>
       <DropdownMenuItem onClick={() => onAction("duplicate")}>
         <Copy strokeWidth={1.75} />

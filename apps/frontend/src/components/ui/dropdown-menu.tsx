@@ -4,6 +4,7 @@ import { CheckIcon, ChevronRightIcon } from "lucide-react"
 import * as React from "react"
 import { flushSync } from "react-dom"
 
+import { KbdShortcut } from "@/components/ui/kbd"
 import { MenuHighlight } from "@/components/ui/menu-highlight"
 import {
   menuChoiceIndicatorClass,
@@ -472,11 +473,13 @@ function DropdownMenuSeparator({
 function DropdownMenuShortcut({
   className,
   ...props
-}: React.ComponentProps<"span">) {
+}: React.ComponentProps<typeof KbdShortcut>) {
   return (
-    <span
+    <KbdShortcut
       data-slot="dropdown-menu-shortcut"
-      className={cn("ml-auto text-muted-foreground", "text-caption", className)}
+      variant="menu"
+      aria-hidden
+      className={cn("ml-auto", className)}
       {...props}
     />
   )

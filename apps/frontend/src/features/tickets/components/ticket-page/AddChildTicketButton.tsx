@@ -62,7 +62,9 @@ export function AddChildTicketButton({
         <DropdownMenuItem onClick={onCreate} className="cursor-pointer">
           <Plus className="size-4" strokeWidth={1.75} />
           {label}
-          <DropdownMenuShortcut>C</DropdownMenuShortcut>
+          <DropdownMenuShortcut
+            keys={appHotkeys["tickets.add-sub-ticket"].defaultHotkey}
+          />
         </DropdownMenuItem>
         <DropdownMenuItem onClick={attachExisting} className="cursor-pointer">
           <ListPlus className="size-4" strokeWidth={1.75} />
