@@ -63,7 +63,7 @@ function Shell({ user }: { user: User }) {
         <Sidebar user={user} />
         <Topbar user={user} />
         <main className="flex min-h-0 overflow-hidden p-2 pt-0">
-          <div className="relative isolate flex min-w-0 flex-1 overflow-hidden rounded-xl bg-region [--avatar-cutout:var(--color-region)]">
+          <div className="relative isolate flex min-w-0 flex-1 overflow-hidden rounded-xl bg-region">
             <PageBackdropContext value={backdrop}>
               <div
                 data-scroll-root

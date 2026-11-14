@@ -110,7 +110,6 @@
   --shadow-8: var(--shadow-7), 0 96px 96px -48px var(--shadow-color);
   --hover: rgb(0 0 0 / 0.04);
   --active: rgb(0 0 0 / 0.07);
-  --avatar-cutout: var(--background);
   --tint: oklch(0 0 0 / 8%);
   --tint-hover: oklch(0 0 0 / 6.5%);
   --prose-body: oklch(0.23 0.002 265);
@@ -1175,6 +1174,22 @@ html.dark .prose-md .token.coord {
 [aria-haspopup]:not([aria-haspopup="false"]):active,
 [aria-haspopup]:not([aria-haspopup="false"]):active > * {
   scale: none;
+}
+
+[data-slot="avatar-group"] > :not(:last-child) {
+  --avatar-cut: calc(var(--avatar-size) / 2 + 2px);
+  -webkit-mask-image: radial-gradient(
+    var(--avatar-cut) var(--avatar-cut) at
+      calc(var(--avatar-size) * 1.5 - var(--avatar-overlap)) 50%,
+    transparent calc(100% - 0.5px),
+    #000 100%
+  );
+  mask-image: radial-gradient(
+    var(--avatar-cut) var(--avatar-cut) at
+      calc(var(--avatar-size) * 1.5 - var(--avatar-overlap)) 50%,
+    transparent calc(100% - 0.5px),
+    #000 100%
+  );
 }
 
 @layer base {

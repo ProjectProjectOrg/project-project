@@ -213,7 +213,7 @@ function RunRows({
         "grid-cols-[auto_minmax(0,1fr)]"
       )}
     >
-      <AvatarGroup className="relative z-10 h-5 items-center -space-x-1.5">
+      <AvatarGroup className="relative z-10 h-5 items-center [--avatar-overlap:--spacing(1.5)] [--avatar-size:--spacing(5)]">
         <ActorMark actor={lead} />
         {rest.slice(0, 3).map((actor) => (
           <ActorMark key={personKey(actor)} actor={actor} />
