@@ -53,7 +53,7 @@ function Kbd({
         KBD_VARIANTS[variant],
         "[&_svg:not([class*='size-'])]:size-[1em]",
         "[[data-slot=tooltip-content]_&]:bg-background/20 [[data-slot=tooltip-content]_&]:text-background dark:[[data-slot=tooltip-content]_&]:bg-background/10",
-        "data-pressed:bg-foreground data-pressed:text-background data-pressed:duration-0",
+        "data-pressed:bg-selected data-pressed:text-foreground data-pressed:duration-0",
         className
       )}
       {...props}

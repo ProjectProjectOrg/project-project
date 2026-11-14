@@ -19,7 +19,7 @@ export function ShortcutSheet() {
   const [open, setOpen] = useAtom(shortcutSheetOpen)
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent size="lg">
+      <DialogContent size="lg" position="center">
         <DialogHeader>
           <DialogTitle>{m.chrome_keyboard_shortcuts()}</DialogTitle>
         </DialogHeader>
@@ -35,9 +35,12 @@ function ShortcutList({ onClose }: Readonly<{ onClose: () => void }>) {
   })
   const groups = shortcutGroups(useAppHotkeyList())
   return (
-    <div className="-mx-1 flex max-h-[60dvh] flex-col gap-5 overflow-y-auto px-1">
+    <div className="-mx-1 max-h-[75dvh] gap-8 overflow-y-auto px-1 sm:columns-2">
       {groups.map(({ group, items }) => (
-        <section key={group} className="flex flex-col gap-1">
+        <section
+          key={group}
+          className="mb-5 flex break-inside-avoid flex-col gap-1"
+        >
           <h3 className="text-caption text-muted-foreground">{group}</h3>
           <ul className="flex flex-col">
             {items.map(({ appHotkey, status }) => (
