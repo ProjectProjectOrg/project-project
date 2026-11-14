@@ -13,7 +13,7 @@ import { m } from "@/paraglide/messages"
 
 export function InboxCaughtUp() {
   return (
-    <Empty className="m-2 flex-1">
+    <Empty className="flex-1 rounded-none">
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <CheckCheck strokeWidth={1.75} />
