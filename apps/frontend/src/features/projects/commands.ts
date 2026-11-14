@@ -4,6 +4,7 @@ import type {
   Command,
   CommandContext
 } from "@/features/command-menu/lib/commands"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 const projectPath = ({ orgSlug, projectSlug }: CommandContext) =>
@@ -31,6 +32,7 @@ export const projectCommands: ReadonlyArray<Command> = [
   },
   {
     id: "project.backlog",
+    hotkey: appHotkeys["nav.backlog"],
     group: "navigation",
     label: m.chrome_command_menu_go_backlog,
     icon: ListTodo,
@@ -42,6 +44,7 @@ export const projectCommands: ReadonlyArray<Command> = [
   },
   {
     id: "project.sprints",
+    hotkey: appHotkeys["nav.sprints"],
     group: "navigation",
     label: m.chrome_command_menu_go_sprints,
     icon: Timer,

@@ -1,11 +1,13 @@
 import { ArrowLeftRight, LayoutDashboard, Settings } from "lucide-react"
 
 import type { Command } from "@/features/command-menu/lib/commands"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 export const organizationCommands: ReadonlyArray<Command> = [
   {
     id: "org.dashboard",
+    hotkey: appHotkeys["nav.dashboard"],
     group: "navigation",
     label: m.chrome_command_menu_go_dashboard,
     icon: LayoutDashboard,
@@ -17,6 +19,7 @@ export const organizationCommands: ReadonlyArray<Command> = [
   },
   {
     id: "org.settings",
+    hotkey: appHotkeys["nav.settings"],
     group: "navigation",
     label: m.chrome_command_menu_go_settings,
     icon: Settings,

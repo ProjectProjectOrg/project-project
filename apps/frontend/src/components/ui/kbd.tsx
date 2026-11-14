@@ -123,6 +123,7 @@ function KbdShortcut({
           size={size}
           variant={variant}
           data-key={cap.key}
+          data-sequence-start={cap.sequenceStart ? "" : undefined}
         >
           <CapLabel label={cap.label} />
         </Kbd>

@@ -22,13 +22,18 @@ const WORD_LABELS: ReadonlyMap<string, () => string> = new Map([
 
 const MAC_WORDS: ReadonlySet<string> = new Set(["Escape", "Space"])
 
-export type KeyCap = Readonly<{ key: string; label: string }>
+export type KeyCap = Readonly<{
+  key: string
+  label: string
+  sequenceStart: boolean
+}>
 
 export function hotkeyCaps(
   hotkey: Hotkey,
   platform: HotkeyPlatform
 ): ReadonlyArray<KeyCap> {
-  return [hotkey].flat().flatMap((chord) => {
+  const steps = [hotkey].flat()
+  return steps.flatMap((chord, step) => {
     const parsed = parseHotkey(chord, platform)
     const labels = formatForDisplay(chord, { platform, parts: true })
     const names =
@@ -42,7 +47,8 @@ export function hotkeyCaps(
           : undefined
       return {
         key: name.toLowerCase(),
-        label: word?.() ?? labels[index] ?? name
+        label: word?.() ?? labels[index] ?? name,
+        sequenceStart: steps.length > 1 && step === 0
       }
     })
   })

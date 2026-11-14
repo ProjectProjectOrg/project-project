@@ -6,6 +6,7 @@ const general = m.chrome_keyboard_shortcuts_general()
 const create = m.chrome_command_menu_group_create()
 const ticket = m.tickets_command_group()
 const view = m.chrome_command_menu_group_view()
+const navigation = m.chrome_command_menu_group_navigation()
 
 export const appHotkeys = defineAppHotkeys({
   "app.command-menu": {
@@ -15,6 +16,22 @@ export const appHotkeys = defineAppHotkeys({
   "app.shortcuts": {
     hotkey: "?",
     meta: { name: m.chrome_keyboard_shortcuts(), group: general }
+  },
+  "nav.dashboard": {
+    hotkey: ["G", "D"],
+    meta: { name: m.chrome_command_menu_go_dashboard(), group: navigation }
+  },
+  "nav.backlog": {
+    hotkey: ["G", "B"],
+    meta: { name: m.chrome_command_menu_go_backlog(), group: navigation }
+  },
+  "nav.sprints": {
+    hotkey: ["G", "S"],
+    meta: { name: m.chrome_command_menu_go_sprints(), group: navigation }
+  },
+  "nav.settings": {
+    hotkey: ["G", ","],
+    meta: { name: m.chrome_command_menu_go_settings(), group: navigation }
   },
   "tickets.search": {
     hotkey: "/",

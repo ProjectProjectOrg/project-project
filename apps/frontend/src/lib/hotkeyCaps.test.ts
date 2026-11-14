@@ -7,9 +7,9 @@ import { hotkeyCaps } from "./hotkeyCaps"
 describe("hotkeyCaps", () => {
   it("draws glyphs on a Mac and names each cap after its key", () => {
     expect(hotkeyCaps("Mod+Shift+Enter", "mac")).toEqual([
-      { key: "shift", label: "⇧" },
-      { key: "meta", label: "⌘" },
-      { key: "enter", label: "↵" }
+      { key: "shift", label: "⇧", sequenceStart: false },
+      { key: "meta", label: "⌘", sequenceStart: false },
+      { key: "enter", label: "↵", sequenceStart: false }
     ])
   })
 

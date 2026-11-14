@@ -20,3 +20,23 @@ it("lights the caps showing a key while it is held, and only those", () => {
   press("keyup", "/", "Slash")
   expect(document.querySelectorAll("[data-pressed]")).toHaveLength(0)
 })
+
+it("keeps the first key of a sequence lit until the next key", () => {
+  document.body.innerHTML =
+    '<kbd data-key="g" data-sequence-start></kbd><kbd data-key="b"></kbd>'
+  installKeyCapHighlight()
+  const [g, b] = document.querySelectorAll("kbd")
+  const press = (type: string, key: string, code: string) =>
+    document.dispatchEvent(new KeyboardEvent(type, { key, code }))
+
+  press("keydown", "g", "KeyG")
+  press("keyup", "g", "KeyG")
+  expect(g?.hasAttribute("data-pressed")).toBe(true)
+
+  press("keydown", "b", "KeyB")
+  expect([g, b].map((cap) => cap?.hasAttribute("data-pressed"))).toEqual([
+    false,
+    true
+  ])
+  press("keyup", "b", "KeyB")
+})
