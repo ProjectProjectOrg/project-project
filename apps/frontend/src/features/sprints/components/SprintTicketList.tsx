@@ -26,6 +26,7 @@ export function SprintTicketList({
     <TicketListContent
       query={query}
       members={members}
+      sprint={sprint.id}
       empty={
         <Empty>
           <EmptyHeader>

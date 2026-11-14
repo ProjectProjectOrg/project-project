@@ -63,7 +63,8 @@ export type TicketListSearch = typeof TicketListSearch.Type
 
 export const BacklogSearch = TicketListSearch.pipe(
   Schema.fieldsAssign({
-    view: Schema.optional(Schema.Literals(["list", "board"]))
+    view: Schema.optional(Schema.Literals(["list", "board"])),
+    group: Schema.optional(BacklogGrouping)
   })
 )
 
@@ -76,7 +77,8 @@ export const SprintSearch = TicketListSearch.pipe(
 const SectionSearch = TicketListSearch.pipe(
   Schema.fieldsAssign({
     from: Schema.Literal("sections"),
-    group: BacklogGrouping
+    group: BacklogGrouping,
+    sprint: Schema.optional(GroupId)
   })
 )
 const SprintBoardSearch = TicketListSearch.pipe(
@@ -171,6 +173,14 @@ export function ticketSearchFromSource(
   return source.kind === "sections"
     ? { ...query, from: source.kind, group: source.grouping }
     : { ...query, from: source.kind, sprint: source.groupId }
+}
+
+export function sprintFromSearch(
+  search: TicketDetailSearch
+): GroupId | undefined {
+  return search.from === "sections" || search.from === "sprintBoard"
+    ? search.sprint
+    : undefined
 }
 
 export function ticketSourceFromSearch(

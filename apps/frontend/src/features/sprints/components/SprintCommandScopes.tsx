@@ -36,13 +36,13 @@ import {
   updateSprint
 } from "@/features/sprints/atoms/sprintList"
 import { startSprintPatch } from "@/features/sprints/lib/sprintDates"
+import { nowDate } from "@/features/sprints/lib/sprintDates"
 import { sprintNeighbours } from "@/features/sprints/lib/sprintTargets"
 import { createTicketDialog } from "@/features/tickets/atoms/createTicketDialog"
 import { useProjectView, type ProjectView } from "@/hooks/useViewPreference"
 import { m } from "@/paraglide/messages"
 
 import { useUnfinishedCount } from "./CompleteSprintMenu"
-import { nowDate } from "./SprintHeaderFields"
 
 export type ScopeProps = Readonly<{
   orgSlug: string

@@ -4,7 +4,8 @@ import { CreateSprintForm } from "@/features/sprints/forms/create-sprint"
 import { useRouteBoundDialog } from "@/hooks/useRouteBoundDialog"
 
 export function CreateSprintDialogHost() {
-  const { open, shown, close } = useRouteBoundDialog(createSprintDialog)
+  const { open, shown, close, finalFocus } =
+    useRouteBoundDialog(createSprintDialog)
   return (
     <Dialog
       open={open}
@@ -12,7 +13,12 @@ export function CreateSprintDialogHost() {
         if (!next) close()
       }}
     >
-      <DialogContent size="lg" showCloseButton={false} className="p-0">
+      <DialogContent
+        size="lg"
+        showCloseButton={false}
+        finalFocus={finalFocus}
+        className="p-0"
+      >
         {shown !== null && (
           <CreateSprintForm
             key={`${shown.orgSlug}:${shown.projectSlug ?? ""}:${shown.completeFrom?.id ?? ""}:${shown.tickets?.join(",") ?? ""}`}

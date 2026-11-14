@@ -28,7 +28,8 @@ import { useProjectActor } from "@/hooks/useActor"
 import {
   readLocalStorage,
   createLocalStorageCodec,
-  useLocalStorageState
+  useLocalStorageState,
+  writeLocalStorage
 } from "@/hooks/useLocalStorageState"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
@@ -63,6 +64,18 @@ export const readBacklogGrouping = (
     backlogGroupingKey(`${viewerId}:${orgSlug}/${slug}`),
     groupingCodec,
     DEFAULT_GROUPING
+  )
+
+export const writeBacklogGrouping = (
+  viewerId: string,
+  orgSlug: string,
+  slug: string,
+  grouping: BacklogGrouping
+) =>
+  writeLocalStorage(
+    backlogGroupingKey(`${viewerId}:${orgSlug}/${slug}`),
+    groupingCodec,
+    grouping
   )
 
 type TicketLayoutState = Readonly<{
