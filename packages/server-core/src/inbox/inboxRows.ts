@@ -17,23 +17,32 @@ import { deliver, read, resolve, type InboxRowValue } from "./rows"
 
 type Database = Db["Service"]
 
+export type TicketRef = Readonly<{ projectId: string; ticketId: string }>
+
+export const lockInbox = (db: Database, refs: ReadonlyArray<TicketRef>) =>
+  Effect.gen(function* () {
+    if (refs.length === 0) return
+    const keys = [
+      ...new Set(refs.map((ref) => `inbox:${ref.projectId}:${ref.ticketId}`))
+    ]
+    const result = yield* db.execute<{ hash: number }>(
+      sql`select distinct hashtext(key) as hash from unnest(${sql.param(keys)}::text[]) as key`
+    )
+    const hashes = result.rows.map((row) => row.hash).toSorted((a, b) => a - b)
+    yield* db.execute(
+      sql`select pg_advisory_xact_lock(hash) from unnest(${sql.param(hashes)}::int[]) as hash`
+    )
+  })
+
 export const lockTickets = (
   db: Database,
   projectId: string,
   ticketIds: ReadonlyArray<string>
 ) =>
-  Effect.gen(function* () {
-    const keys = [...new Set(ticketIds)].map(
-      (ticketId) => `inbox:${projectId}:${ticketId}`
-    )
-    const hashes = yield* Effect.forEach(keys, (key) =>
-      db
-        .execute<{ hash: number }>(sql`select hashtext(${key}) as hash`)
-        .pipe(Effect.map((result) => Number(result.rows[0]?.hash)))
-    )
-    for (const hash of [...new Set(hashes)].toSorted((a, b) => a - b))
-      yield* db.execute(sql`select pg_advisory_xact_lock(${hash})`)
-  })
+  lockInbox(
+    db,
+    ticketIds.map((ticketId) => ({ projectId, ticketId }))
+  )
 
 const loadRows = (db: Database, projectId: string, ticketId: string) =>
   db
