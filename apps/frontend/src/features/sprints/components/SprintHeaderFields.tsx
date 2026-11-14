@@ -1,5 +1,18 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { sprintState, type Group } from "@pp/shared"
+import type { DateRange } from "@pp/ui/calendar"
+import { Calendar } from "@pp/ui/calendar"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
+import { Hitbox } from "@pp/ui/hitbox"
+import { cn } from "@pp/ui/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { Link, useNavigate } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
@@ -14,22 +27,6 @@ import {
 } from "lucide-react"
 import { useRef, useState, type KeyboardEvent } from "react"
 
-import type { DateRange } from "@/components/ui/calendar"
-import { Calendar } from "@/components/ui/calendar"
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { Hitbox } from "@/components/ui/hitbox"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   completeSprint,
@@ -43,7 +40,7 @@ import {
   sprintDatesPatch,
   startSprintPatch
 } from "@/features/sprints/lib/sprintDates"
-import { cn } from "@/lib/utils"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 import { CompleteSprintSubmenu } from "./CompleteSprintMenu"
@@ -300,6 +297,10 @@ function SprintDatesField({
       />
       <PopoverContent align="start" initialFocus={false} className="w-auto p-0">
         <Calendar
+          navLabels={{
+            previous: m.common_previous_month(),
+            next: m.common_next_month()
+          }}
           mode="range"
           selected={draft}
           onSelect={(r) => setDraft(r ?? { from: undefined, to: undefined })}
@@ -372,6 +373,8 @@ export function SprintDeleteMenu({ sprint }: { sprint: Group }) {
       </DropdownMenu>
       <ConfirmButton.Popover anchor={trigger} className="w-72">
         <ConfirmButton.Action
+          cancelLabel={m.common_cancel_button()}
+          describeError={describeCause}
           layout="stacked"
           prompt={m.sprints_delete_confirm_title()}
           description={m.sprints_delete_confirm_description()}

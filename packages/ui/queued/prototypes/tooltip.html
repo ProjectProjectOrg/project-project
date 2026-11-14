@@ -1,0 +1,529 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Tooltip directions</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;550&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      .light {
+        --bg: oklch(1 0 0);
+        --fg: oklch(0.145 0 0);
+        --muted: oklch(0.556 0 0);
+        --border: oklch(0.922 0 0);
+        --ring: oklch(0.708 0 0);
+        --popover: oklch(1 0 0);
+        --s1: oklch(0.955 0 0);
+        --s2: oklch(0.977 0 0);
+        --s4: oklch(1 0 0);
+        --hover: rgb(0 0 0/0.04);
+        --active: rgb(0 0 0/0.07);
+        --line: oklch(0 0 0/8%);
+        --warn: oklch(0.5 0.16 75);
+        --ok: oklch(0.7 0.16 135);
+        --shadow-md:
+          0 4px 6px -1px rgb(0 0 0/0.1), 0 2px 4px -2px rgb(0 0 0/0.1);
+      }
+      .dark {
+        --bg: oklch(0.145 0 0);
+        --fg: oklch(0.985 0 0);
+        --muted: oklch(0.708 0 0);
+        --border: oklch(1 0 0/10%);
+        --ring: oklch(0.556 0 0);
+        --popover: oklch(0.205 0 0);
+        --s1: oklch(0.205 0 0);
+        --s2: oklch(0.235 0 0);
+        --s4: oklch(0.293 0 0);
+        --hover: rgb(255 255 255/0.04);
+        --active: rgb(255 255 255/0.07);
+        --line: oklch(1 0 0/6%);
+        --warn: oklch(0.78 0.07 75);
+        --ok: oklch(0.7 0.16 135);
+        --shadow-md:
+          0 4px 6px -1px rgb(0 0 0/0.1), 0 2px 4px -2px rgb(0 0 0/0.1);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Geist, system-ui, sans-serif;
+      }
+      .wrap {
+        display: grid;
+        gap: 12px;
+      }
+      .theme {
+        background: var(--bg);
+        color: var(--fg);
+        padding: 24px;
+        border-radius: 16px;
+      }
+      h1 {
+        font-size: 15px;
+        font-weight: 550;
+        margin: 0 0 4px;
+      }
+      .sub {
+        font-size: 13px;
+        color: var(--muted);
+        margin: 0 0 20px;
+        line-height: 1.5;
+      }
+      .dir {
+        background: var(--s2);
+        border-radius: 20px;
+        corner-shape: squircle;
+        padding: 6px;
+        margin-bottom: 12px;
+      }
+      .cap {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        padding: 8px 10px 10px;
+        flex-wrap: wrap;
+      }
+      .cap b {
+        font-size: 13px;
+        font-weight: 550;
+      }
+      .cap span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .cap i {
+        font-style: normal;
+        font-size: 11px;
+        color: var(--muted);
+        flex-basis: 100%;
+      }
+      .stage {
+        background: var(--bg);
+        border-radius: 14px;
+        corner-shape: squircle;
+        padding: 56px 18px 18px;
+        display: grid;
+        grid-template-columns: auto auto 1fr;
+        gap: 40px;
+        align-items: end;
+      }
+      .lbl {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 10px;
+      }
+      svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      button {
+        font: inherit;
+        cursor: pointer;
+      }
+      :focus-visible {
+        outline: 1px solid var(--ring);
+        outline-offset: -1px;
+      }
+      /* formatting toolbar */
+      .tb {
+        display: inline-flex;
+        gap: 2px;
+        padding: 4px;
+        border-radius: 14px;
+        corner-shape: squircle;
+        background: var(--popover);
+        box-shadow: inset 0 0 0 1px var(--line);
+      }
+      .dark .tb {
+        background: var(--s4);
+      }
+      .tb button {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border: 0;
+        border-radius: 10px;
+        corner-shape: squircle;
+        background: transparent;
+        color: var(--muted);
+        transition:
+          background-color 0.15s,
+          color 0.15s;
+      }
+      .tb button:hover {
+        background: var(--hover);
+        color: var(--fg);
+        transition-duration: 0s;
+      }
+      .tb button[aria-pressed="true"] {
+        background: var(--active);
+        color: var(--fg);
+      }
+      .icon {
+        position: relative;
+        display: inline-grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        border: 0;
+        background: transparent;
+        color: var(--warn);
+      }
+      .icon svg {
+        width: 18px;
+        height: 18px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 28px;
+        padding: 0 10px 0 6px;
+        border-radius: 20px;
+        corner-shape: squircle;
+        background: var(--s1);
+        font-size: 12px;
+      }
+      .pin {
+        position: relative;
+        display: inline-block;
+      }
+      /* tooltip base */
+      .tt {
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + var(--off, 6px));
+        translate: -50% 0;
+        white-space: nowrap;
+        pointer-events: none;
+        z-index: 5;
+        font-size: 12px;
+        line-height: 16px;
+        opacity: 0;
+        visibility: hidden;
+      }
+      .tt.open {
+        opacity: 1;
+        visibility: visible;
+      }
+      .tt kbd {
+        font: inherit;
+        font-size: 11px;
+        margin-left: 8px;
+        opacity: 0.6;
+        letter-spacing: 0.02em;
+      }
+      .tt .arr {
+        display: none;
+        position: absolute;
+        left: 50%;
+        top: 100%;
+        translate: -50% 0;
+        width: 12px;
+        height: 6px;
+      }
+      .tt .arr svg {
+        display: block;
+        width: 12px;
+        height: 6px;
+        stroke: none;
+      }
+
+      /* A · Current */
+      .A .tt {
+        background: var(--popover);
+        color: var(--fg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 4px 8px;
+        box-shadow: var(--shadow-md);
+        transform: scale(0.95);
+        transition:
+          opacity 0.15s,
+          transform 0.15s,
+          visibility 0s 0.15s;
+      }
+      .A .tt.open {
+        transform: none;
+        transition:
+          opacity 0.15s,
+          transform 0.15s;
+      }
+      .A .tt kbd {
+        display: none;
+      }
+
+      /* B · Inverted squircle, no arrow */
+      .B .tt {
+        background: var(--fg);
+        color: var(--bg);
+        border-radius: 10px;
+        corner-shape: squircle;
+        padding: 4px 8px;
+        transform: translateY(4px);
+        transition:
+          opacity 0.1s,
+          transform 0.1s,
+          visibility 0s 0.1s;
+      }
+      .B .tt.open {
+        transform: none;
+        transition:
+          opacity 0.14s ease-out,
+          transform 0.2s cubic-bezier(0.34, 1.3, 0.5, 1);
+      }
+      .B .tt.instant {
+        transition: none;
+      }
+      .B .tt kbd {
+        display: none;
+      }
+
+      /* C · Surface + hairline + arrow, fade only */
+      .C .tt {
+        background: var(--popover);
+        color: var(--fg);
+        border-radius: 10px;
+        corner-shape: squircle;
+        padding: 5px 9px;
+        box-shadow: inset 0 0 0 1px var(--line);
+        transition:
+          opacity 0.12s,
+          visibility 0s 0.12s;
+      }
+      .dark .C .tt {
+        background: var(--s4);
+      }
+      .C .tt.open {
+        transition: opacity 0.12s ease-out;
+      }
+      .C .tt .arr {
+        display: block;
+      }
+      .C .tt .arr .fill {
+        fill: var(--popover);
+      }
+      .dark .C .tt .arr .fill {
+        fill: var(--s4);
+      }
+      .C .tt .arr .edge {
+        fill: none;
+        stroke: var(--line);
+        stroke-width: 1;
+      }
+      .C .tt kbd {
+        display: none;
+      }
+
+      /* D · Inverted + arrow + shortcut, spring from the tip */
+      .D .tt {
+        background: var(--fg);
+        color: var(--bg);
+        border-radius: 10px;
+        corner-shape: squircle;
+        padding: 4px 8px;
+        transform-origin: 50% calc(100% + 6px);
+        transform: scale(0.88);
+        transition:
+          opacity 0.1s,
+          transform 0.1s,
+          visibility 0s 0.1s;
+      }
+      .D .tt.open {
+        transform: none;
+        transition:
+          opacity 0.12s ease-out,
+          transform 0.22s cubic-bezier(0.34, 1.3, 0.5, 1);
+      }
+      .D .tt.instant {
+        transition: none;
+      }
+      .D .tt .arr {
+        display: block;
+        top: calc(100% - 1px);
+      }
+      .D .tt .arr .fill {
+        fill: var(--fg);
+      }
+      .D .tt .arr .edge {
+        display: none;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .tt,
+        .tt.open {
+          transform: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap" id="root"></div>
+    <script>
+      const I = {
+        bold: '<svg viewBox="0 0 24 24"><path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8"/></svg>',
+        ital: '<svg viewBox="0 0 24 24"><path d="M19 4h-9M14 20H5M15 4 9 20"/></svg>',
+        strike:
+          '<svg viewBox="0 0 24 24"><path d="M16 4H9a3 3 0 0 0-2.83 4M14 12a4 4 0 0 1 0 8H6M4 12h16"/></svg>',
+        code: '<svg viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>',
+        link: '<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+        clock:
+          '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>'
+      }
+      const ARR =
+        '<span class="arr"><svg viewBox="0 0 12 6"><path class="fill" d="M0 0h12L7.4 5.1a2 2 0 0 1-2.8 0Z"/><path class="edge" d="M0 .5h.2L4.6 5.1a2 2 0 0 0 2.8 0L11.8.5h.2"/></svg></span>'
+      const DIRS = [
+        {
+          k: "A",
+          t: "A · Current",
+          d: 400,
+          skip: false,
+          n: "popover surface, 1px border, 12px plain corners, shadow-md, fade + zoom-95, 400ms delay every time"
+        },
+        {
+          k: "B",
+          t: "B · Inverted squircle, no arrow",
+          d: 400,
+          skip: true,
+          n: "foreground fill, background text (16:1), 10px squircle, no border or shadow; rises 4px with the spring; 400ms to the first, then instant while you move along the toolbar"
+        },
+        {
+          k: "C",
+          t: "C · Surface + hairline + arrow",
+          d: 500,
+          skip: true,
+          n: "stays on the popover surface (surface-4 in dark) with the faint hairline and a matching 12×6 arrow; fade only, 120ms; a calmer 500ms delay, instant within a group"
+        },
+        {
+          k: "D",
+          t: "D · Inverted + arrow + shortcut",
+          d: 300,
+          skip: true,
+          n: "B's inverted chip with a soft arrow, scales from the arrow tip with the spring; optional muted shortcut (would need a `shortcut` prop); 300ms delay, instant within a group"
+        }
+      ]
+      const tip = (text, kbd) =>
+        '<span class="tt" role="tooltip">' +
+        text +
+        (kbd ? "<kbd>" + kbd + "</kbd>" : "") +
+        ARR +
+        "</span>"
+      const tb = () =>
+        '<div><div class="tb" role="toolbar" aria-label="Formatting">' +
+        [
+          ["bold", "Bold", "⌘B"],
+          ["ital", "Italic", "⌘I"],
+          ["strike", "Strikethrough", "⌘⇧X"],
+          ["code", "Code", "⌘E"],
+          ["link", "Link", "⌘K"]
+        ]
+          .map(
+            (x) =>
+              '<button data-tip aria-label="' +
+              x[1] +
+              '" aria-pressed="' +
+              (x[0] === "bold") +
+              '" style="--off:10px">' +
+              I[x[0]] +
+              tip(x[1], x[2]) +
+              "</button>"
+          )
+          .join("") +
+        '</div><div class="lbl">Formatting toolbar · hover along it</div></div>'
+      const sprint = () =>
+        '<div><span class="chip"><button class="icon" data-tip aria-label="Sprint state">' +
+        I.clock +
+        tip("Ends in 3 days") +
+        '</button>Sprint 14</span><div class="lbl">Sprint chip icon</div></div>'
+      const pinned = () =>
+        '<div><span class="pin"><span class="chip"><span class="icon" style="color:var(--ok)">' +
+        I.clock +
+        "</span>Sprint 15</span>" +
+        tip("Starts tomorrow").replace(
+          'class="tt"',
+          'class="tt open" style="left:20px"'
+        ) +
+        '</span><div class="lbl">Pinned open</div></div>'
+      const block = (mode) =>
+        '<div class="theme ' +
+        mode +
+        '"><h1>Tooltip · ' +
+        (mode === "light" ? "Light" : "Dark") +
+        '</h1><p class="sub">Hover or tab to the buttons. The delay is real: each direction uses its own. B–D show the next tooltip in a toolbar instantly once one is open (Base UI\'s provider does this).</p>' +
+        DIRS.map(
+          (d) =>
+            '<div class="dir ' +
+            d.k +
+            '" data-delay="' +
+            d.d +
+            '" data-skip="' +
+            d.skip +
+            '"><div class="cap"><b>' +
+            d.t +
+            "</b><span>" +
+            d.n +
+            '</span><i>Affects: editor formatting toolbar and block gutter, sprint chip and progress, attachments browser rows, subscribe toggle, update-failure marker, library entries</i></div><div class="stage">' +
+            tb() +
+            sprint() +
+            pinned() +
+            "</div></div>"
+        ).join("") +
+        "</div>"
+      document.getElementById("root").innerHTML = block("light") + block("dark")
+      document.querySelectorAll(".dir").forEach((dir) => {
+        const delay = +dir.dataset.delay,
+          skip = dir.dataset.skip === "true"
+        let timer = 0,
+          openEl = null,
+          warmUntil = 0
+        const show = (t, instant) => {
+          if (openEl && openEl !== t) hide(openEl, true)
+          t.classList.toggle("instant", instant)
+          t.classList.add("open")
+          openEl = t
+        }
+        const hide = (t, instant) => {
+          t.classList.toggle("instant", !!instant)
+          t.classList.remove("open")
+          if (openEl === t) {
+            openEl = null
+            warmUntil = Date.now() + 300
+          }
+        }
+        dir.querySelectorAll("[data-tip]").forEach((b) => {
+          const t = b.querySelector(".tt")
+          const enter = () => {
+            clearTimeout(timer)
+            const warm = skip && (openEl || Date.now() < warmUntil)
+            if (warm) show(t, true)
+            else timer = setTimeout(() => show(t, false), delay)
+          }
+          const leave = () => {
+            clearTimeout(timer)
+            if (t.classList.contains("open")) hide(t, false)
+          }
+          b.addEventListener("mouseenter", enter)
+          b.addEventListener("mouseleave", leave)
+          b.addEventListener("focus", () => {
+            if (b.matches(":focus-visible")) enter()
+          })
+          b.addEventListener("blur", leave)
+          b.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") leave()
+          })
+        })
+      })
+    </script>
+  </body>
+</html>

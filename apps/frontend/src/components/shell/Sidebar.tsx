@@ -1,4 +1,6 @@
 import type { User } from "@pp/shared"
+import { transitions } from "@pp/ui/lib/springs"
+import { Logo, Wordmark } from "@pp/ui/logo"
 import { useParams } from "@tanstack/react-router"
 import {
   AnimatePresence,
@@ -7,7 +9,6 @@ import {
   useReducedMotion
 } from "motion/react"
 
-import { Logo, Wordmark } from "@/components/shell/Logo"
 import { PrimaryNav } from "@/components/shell/PrimaryNav"
 import {
   useSidebarSectionContent,
@@ -17,7 +18,6 @@ import { ThemeSwitcher } from "@/components/shell/ThemeSwitcher"
 import { FeedbackPopover } from "@/features/feedback/components/FeedbackPopover"
 import { InstanceInfo } from "@/features/instance/components/InstanceInfo"
 import { OrgSwitcher } from "@/features/organizations/components/OrgSwitcher"
-import { transitions } from "@/lib/springs"
 
 export function Sidebar({ user }: { user: User }) {
   return (

@@ -1,5 +1,10 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Group } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Calendar } from "@pp/ui/calendar"
+import { Composer } from "@pp/ui/composer"
+import { Input } from "@pp/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { useNavigate } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
@@ -16,15 +21,6 @@ import {
 } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import { Composer } from "@/components/ui/composer"
-import { Input } from "@/components/ui/input"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
@@ -165,7 +161,8 @@ export function CreateSprintForm({
       </Composer.Header>
       <Composer.Title>
         <Input
-          variant="composer-title"
+          variant="bare"
+          className="text-title font-semibold"
           autoFocus
           aria-label={m.sprints_new_name_placeholder()}
           placeholder={m.sprints_new_name_placeholder()}
@@ -189,7 +186,9 @@ export function CreateSprintForm({
       </Composer.Body>
       <Composer.Chips>
         <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-          <PopoverTrigger render={<Button type="button" variant="chip" />}>
+          <PopoverTrigger
+            render={<Button type="button" variant="ghost" tone="strong" />}
+          >
             <CalendarDays className="size-3.5" strokeWidth={1.75} />
             <span>{datesLabel(range)}</span>
           </PopoverTrigger>
@@ -199,6 +198,10 @@ export function CreateSprintForm({
             className="w-auto p-0"
           >
             <Calendar
+              navLabels={{
+                previous: m.common_previous_month(),
+                next: m.common_next_month()
+              }}
               mode="range"
               selected={{ from: range.from, to: range.to }}
               onSelect={(next) => setRange(next ?? {})}

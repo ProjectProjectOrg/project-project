@@ -6,6 +6,7 @@ import {
   type EstimateUnit,
   type Group
 } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { AsyncView } from "@/components/shell/AsyncView"
@@ -17,7 +18,6 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { boardRequest, sprintBoard } from "@/features/sprints/atoms/sprintBoard"
 import { useEstimationMode } from "@/features/tickets/hooks/useEstimationMode"
 import { isEmptyEstimateSummary } from "@/features/tickets/lib/estimateMeta"
-import { cn } from "@/lib/utils"
 
 import { SprintProgress } from "./SprintProgress"
 

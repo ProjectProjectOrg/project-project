@@ -7,6 +7,7 @@ import {
   type TicketDetail,
   type TypeKey
 } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
@@ -52,7 +53,6 @@ import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { startingTypes } from "@/features/tickets/lib/creatorType"
 import { useOrgActor } from "@/hooks/useActor"
 import { hasModifier, ownsKeystrokes } from "@/lib/keyboard"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { DescriptionActions } from "./DescriptionActions"

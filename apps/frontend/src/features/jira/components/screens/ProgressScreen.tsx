@@ -1,3 +1,4 @@
+import { cn } from "@pp/ui/lib/utils"
 import { Check, Circle, LoaderCircle } from "lucide-react"
 
 import { formatNumber } from "@/features/jira/lib/format"
@@ -9,7 +10,6 @@ import type {
   JiraScanCount,
   JiraScanCountLine
 } from "@/features/jira/lib/scanCounts"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { ConfirmAction } from "../ConfirmAction"

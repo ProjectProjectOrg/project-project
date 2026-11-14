@@ -1,8 +1,8 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
 
 import { AsyncView, type AsyncFailure } from "@/components/shell/AsyncView"
 import { ReadFailure } from "@/components/shell/ReadFailure"
-import { Button } from "@/components/ui/button"
 import { jiraProfile, jiraSites } from "@/features/jira/atoms/jiraMigration"
 import { JiraSourceForm } from "@/features/jira/forms/jira-source"
 import { jiraConnectHref } from "@/features/jira/lib/connect"

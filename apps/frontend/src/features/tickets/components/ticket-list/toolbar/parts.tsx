@@ -1,16 +1,16 @@
-import { Search as SearchIcon, X } from "lucide-react"
-import { useRef } from "react"
-
-import { Button } from "@/components/ui/button"
-import { CollapsingLabel } from "@/components/ui/collapsing-label"
+import { Button } from "@pp/ui/button"
+import { CollapsingLabel } from "@pp/ui/collapsing-label"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput
-} from "@/components/ui/input-group"
-import { Kbd } from "@/components/ui/kbd"
+} from "@pp/ui/input-group"
+import { Kbd } from "@pp/ui/kbd"
+import { cn } from "@pp/ui/lib/utils"
+import { Search as SearchIcon, X } from "lucide-react"
+import { useRef } from "react"
+
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { MIN_SEARCH_CHARS } from "../search"

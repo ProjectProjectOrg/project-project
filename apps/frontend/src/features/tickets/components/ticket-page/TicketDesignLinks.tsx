@@ -6,9 +6,9 @@ import {
   type FigmaRef,
   type TicketDetail
 } from "@pp/shared"
+import { Button } from "@pp/ui/button"
 import { ExternalLink } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import {
   FigmaGlyph,
   figmaDisplayName
@@ -125,7 +125,8 @@ function FigmaDesignLink({
 
   return (
     <Button
-      variant="sidebar-link"
+      variant="ghost"
+      className="w-fit max-w-full justify-start gap-2 px-1.5"
       size="sm"
       render={
         <a
@@ -153,7 +154,8 @@ function PaperDesignLink({
 
   return (
     <Button
-      variant="sidebar-link"
+      variant="ghost"
+      className="w-fit max-w-full justify-start gap-2 px-1.5"
       size="sm"
       render={
         <a

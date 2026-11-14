@@ -1,6 +1,9 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { ProjectPolicy } from "@pp/access/policies"
 import { EstimationMode } from "@pp/shared"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import { cn } from "@pp/ui/lib/utils"
+import { type SegmentedItem } from "@pp/ui/segmented-tabs"
 import * as Cause from "effect/Cause"
 import * as Match from "effect/Match"
 import * as Option from "effect/Option"
@@ -9,8 +12,6 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import { SettingsSegmented } from "@/components/shell/settings/SettingsTextField"
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import { type SegmentedItem } from "@/components/ui/segmented-tabs"
 import {
   updateProject,
   type ProjectRequest
@@ -23,7 +24,6 @@ import {
 import { useProjectActor } from "@/hooks/useActor"
 import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const ESTIMATION_MODE_LABELS: Readonly<Record<EstimationMode, () => string>> = {
@@ -115,6 +115,7 @@ function StaleEstimates({ req }: Readonly<{ req: ProjectRequest }>) {
             </ConfirmButton.Trigger>
             <ConfirmButton.Confirm>
               <ConfirmButton.Action
+                cancelLabel={m.common_cancel_button()}
                 prompt={m.project_settings_estimation_clear_stale_confirm()}
                 label={m.project_settings_estimation_clear_stale_submit()}
                 disabled={disabled}

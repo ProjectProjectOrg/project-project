@@ -1,4 +1,5 @@
 import type { ProjectBanner, ProjectIconImage } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 
 import {
   LiveIconImage,
@@ -8,7 +9,6 @@ import { ProjectBanner as ProjectBannerSurface } from "@/features/projects/compo
 import { ProjectIconDisplay } from "@/features/projects/components/ProjectIconDisplay"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function RenderPreviews({

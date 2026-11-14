@@ -1,14 +1,14 @@
 import { useAtomSet } from "@effect/atom-react"
 import { isEpic, canHoldChildren } from "@pp/shared"
-import { ListPlus } from "lucide-react"
-
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import { ListPlus } from "lucide-react"
+
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   createTicketDialog,

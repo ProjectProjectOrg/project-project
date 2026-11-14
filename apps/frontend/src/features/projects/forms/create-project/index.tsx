@@ -1,16 +1,17 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput
+} from "@pp/ui/input-group"
+import { Kbd } from "@pp/ui/kbd"
+import { transitions } from "@pp/ui/lib/springs"
 import * as Exit from "effect/Exit"
 import * as Atom from "effect/reactivity/Atom"
 import { Plus } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useRef, useState } from "react"
 
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput
-} from "@/components/ui/input-group"
-import { Kbd } from "@/components/ui/kbd"
 import {
   createProject,
   projectsRequest
@@ -20,7 +21,6 @@ import { errorMessage } from "@/lib/errorMessage"
 import { useAppForm, useFormValues } from "@/lib/form"
 import { mutationErrorText } from "@/lib/mutationError"
 import { slugify } from "@/lib/slug"
-import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 import {

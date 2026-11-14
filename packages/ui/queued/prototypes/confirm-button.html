@@ -1,0 +1,653 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Confirm button directions</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;550&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      .light {
+        --bg: oklch(1 0 0);
+        --fg: oklch(0.145 0 0);
+        --muted: oklch(0.556 0 0);
+        --border: oklch(0.922 0 0);
+        --s1: oklch(0.955 0 0);
+        --s2: oklch(0.977 0 0);
+        --s3: oklch(1 0 0);
+        --hover: rgb(0 0 0/0.04);
+        --active: rgb(0 0 0/0.07);
+        --tint: oklch(0 0 0/8%);
+        --focus: oklch(0.693 0.161 265.2);
+        --destructive: oklch(0.577 0.245 27.325);
+        --dfg: oklch(0.985 0 0);
+        --dlight: oklch(0.95 0.02 27);
+        --dink: oklch(0.5 0.2 27);
+        --line: oklch(0 0 0/5%);
+        --lit: rgb(255 255 255/0.35);
+        --dsolidfg: oklch(0.985 0 0);
+      }
+      .dark {
+        --bg: oklch(0.145 0 0);
+        --fg: oklch(0.985 0 0);
+        --muted: oklch(0.708 0 0);
+        --border: oklch(1 0 0/10%);
+        --s1: oklch(0.205 0 0);
+        --s2: oklch(0.235 0 0);
+        --s3: oklch(0.264 0 0);
+        --hover: rgb(255 255 255/0.04);
+        --active: rgb(255 255 255/0.1);
+        --tint: oklch(1 0 0/14%);
+        --focus: oklch(0.693 0.161 265.2);
+        --destructive: oklch(0.704 0.191 22.216);
+        --dfg: oklch(0.985 0 0);
+        --dlight: oklch(0.3 0.05 22);
+        --dink: oklch(0.704 0.191 22.216);
+        --line: oklch(1 0 0/6%);
+        --lit: rgb(255 255 255/0.12);
+        --dsolidfg: oklch(0.205 0 0);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Geist, system-ui, sans-serif;
+      }
+      .wrap {
+        display: grid;
+        gap: 12px;
+      }
+      .theme {
+        background: var(--bg);
+        color: var(--fg);
+        padding: 24px;
+        border-radius: 16px;
+      }
+      h1 {
+        font-size: 15px;
+        font-weight: 550;
+        margin: 0 0 4px;
+      }
+      .sub {
+        font-size: 13px;
+        color: var(--muted);
+        margin: 0 0 20px;
+        line-height: 1.5;
+      }
+      .dir {
+        background: var(--s2);
+        border-radius: 20px;
+        corner-shape: squircle;
+        padding: 6px;
+        margin-bottom: 12px;
+      }
+      .cap {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        padding: 8px 10px 10px;
+        flex-wrap: wrap;
+      }
+      .cap b {
+        font-size: 13px;
+        font-weight: 550;
+      }
+      .cap span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .stage {
+        background: var(--bg);
+        border-radius: 14px;
+        corner-shape: squircle;
+        padding: 18px;
+        display: grid;
+        gap: 18px;
+      }
+      .lbl {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      svg {
+        width: 14px;
+        height: 14px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex: none;
+      }
+      /* contexts */
+      .comment {
+        border-radius: 14px;
+        corner-shape: squircle;
+        background: var(--s1);
+        max-width: 560px;
+      }
+      .dark .comment {
+        background: var(--s2);
+      }
+      .chead {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 44px;
+        padding: 0 6px 0 12px;
+      }
+      .ava {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        corner-shape: squircle;
+        background: radial-gradient(
+          circle at 35% 30%,
+          oklch(0.85 0.1 250),
+          oklch(0.6 0.15 280)
+        );
+      }
+      .who {
+        font-size: 13px;
+        font-weight: 550;
+      }
+      .when {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .chead .sp {
+        flex: 1;
+      }
+      .cbody {
+        padding: 0 12px 12px;
+        font-size: 13px;
+        line-height: 20px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 14px 16px;
+        border-radius: 14px;
+        corner-shape: squircle;
+        box-shadow: inset 0 0 0 1px var(--border);
+        max-width: 560px;
+      }
+      .row .t {
+        flex: 1;
+        min-width: 0;
+      }
+      .row .t b {
+        display: block;
+        font-size: 13px;
+        font-weight: 550;
+      }
+      .row .t span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      /* base button */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        height: 28px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: 20px;
+        font: inherit;
+        font-size: 12px;
+        line-height: 16px;
+        cursor: pointer;
+        outline: none;
+        white-space: nowrap;
+        transition:
+          background-color 0.15s,
+          color 0.15s,
+          box-shadow 0.15s,
+          scale 0.1s;
+      }
+      .btn:hover {
+        transition-duration: 0s;
+      }
+      .btn:active {
+        scale: 0.97;
+      }
+      .btn:focus-visible {
+        box-shadow: 0 0 0 2px var(--focus);
+      }
+      .btn[disabled] {
+        opacity: 0.5;
+        pointer-events: none;
+      }
+      .icon {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        background: transparent;
+        color: var(--muted);
+      }
+      .icon:hover {
+        background: var(--hover);
+        color: var(--fg);
+      }
+      .trash:hover {
+        background: color-mix(in oklch, var(--destructive) 10%, transparent);
+        color: var(--destructive);
+      }
+      .ghost {
+        background: transparent;
+        color: var(--muted);
+      }
+      .ghost:hover {
+        background: var(--hover);
+        color: var(--fg);
+      }
+      .tertiary {
+        background: var(--s3);
+        color: var(--fg);
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+      .tertiary:hover {
+        background-image: linear-gradient(var(--hover), var(--hover));
+      }
+      .solid {
+        background: var(--destructive);
+        color: var(--dfg);
+      }
+      .solid:hover {
+        background: color-mix(in oklch, var(--destructive) 90%, transparent);
+      }
+      .cb {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .prompt {
+        font-size: 13px;
+        line-height: 20px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .cf {
+        display: none;
+        align-items: center;
+        gap: 8px;
+      }
+      [data-state="confirming"] .cf {
+        display: flex;
+      }
+      [data-state="confirming"] .trig {
+        display: none;
+      }
+
+      /* ---------- A current ---------- */
+      .A [data-state="confirming"] .cf {
+        animation: fade 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .A .trig {
+        animation: fade 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      @keyframes fade {
+        from {
+          opacity: 0;
+        }
+      }
+
+      /* ---------- B morph capsule ---------- */
+      .B .cb {
+        gap: 0;
+        height: 32px;
+        border-radius: 16px;
+        corner-shape: squircle;
+        transition:
+          width 0.3s cubic-bezier(0.34, 1.3, 0.5, 1),
+          background-color 0.15s;
+        overflow: hidden;
+        justify-content: flex-end;
+      }
+      .B .btn,
+      .B .icon {
+        corner-shape: squircle;
+      }
+      .B [data-state="confirming"] {
+        background: var(--dlight);
+        padding: 2px;
+        box-shadow: inset 0 0 0 1px
+          color-mix(in oklch, var(--destructive) 18%, transparent);
+      }
+      .B .cf {
+        gap: 6px;
+        padding-left: 10px;
+      }
+      .B .cf .prompt {
+        color: var(--dink);
+      }
+      .B .cf .solid {
+        color: var(--dsolidfg);
+        border-radius: 14px;
+      }
+      .B .cf .x {
+        width: 28px;
+        height: 28px;
+        border-radius: 14px;
+        color: var(--dink);
+        background: transparent;
+        padding: 0;
+      }
+      .B .cf .x:hover {
+        background: color-mix(in oklch, var(--destructive) 12%, transparent);
+      }
+      .B [data-state="confirming"] .cf > * {
+        animation: rise 0.24s cubic-bezier(0.34, 1.3, 0.5, 1) both;
+      }
+      .B [data-state="confirming"] .cf > *:nth-child(2) {
+        animation-delay: 0.03s;
+      }
+      .B [data-state="confirming"] .cf > *:nth-child(3) {
+        animation-delay: 0.06s;
+      }
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateX(6px);
+        }
+      }
+
+      /* ---------- C arm the same button ---------- */
+      .C .btn,
+      .C .icon {
+        corner-shape: squircle;
+        border-radius: 16px;
+      }
+      .C .arm {
+        position: relative;
+        overflow: hidden;
+        transition:
+          width 0.28s cubic-bezier(0.34, 1.3, 0.5, 1),
+          background-color 0.15s,
+          color 0.15s;
+      }
+      .C .arm .lab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .C .arm .lab span {
+        white-space: nowrap;
+      }
+      .C [data-state="confirming"] .arm {
+        background: var(--dlight);
+        color: var(--dink);
+        box-shadow: inset 0 0 0 1px
+          color-mix(in oklch, var(--destructive) 22%, transparent);
+      }
+      .C [data-state="confirming"] .arm .lab span {
+        font-weight: 550;
+      }
+      .C .arm .drain {
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: 3px;
+        height: 2px;
+        border-radius: 1px;
+        background: currentColor;
+        opacity: 0;
+        transform-origin: left;
+      }
+      .C [data-state="confirming"] .arm .drain {
+        opacity: 0.5;
+        animation: drain 4s linear forwards;
+      }
+      @keyframes drain {
+        from {
+          transform: scaleX(1);
+        }
+        to {
+          transform: scaleX(0);
+        }
+      }
+      .C .lab.swap {
+        animation: swap 0.16s ease-out;
+      }
+      @keyframes swap {
+        from {
+          opacity: 0;
+          filter: blur(4px);
+        }
+      }
+      .C [data-state="confirming"] .trig {
+        display: inline-flex;
+      }
+      .C [data-state="confirming"] .cf {
+        display: none;
+      }
+
+      /* ---------- D polished inline, soft danger ---------- */
+      .D .btn,
+      .D .icon {
+        corner-shape: squircle;
+      }
+      .D .cf .prompt {
+        color: var(--fg);
+      }
+      .D .cf .soft {
+        background: var(--dlight);
+        color: var(--dink);
+        font-weight: 550;
+        box-shadow:
+          inset 0 0 0 1px
+            color-mix(in oklch, var(--destructive) 20%, transparent),
+          inset 0 1px 0 var(--lit);
+      }
+      .D .cf .soft:hover {
+        background: color-mix(
+          in oklch,
+          var(--dlight) 100%,
+          var(--destructive) 8%
+        );
+      }
+      .D [data-state="confirming"] .cf > * {
+        animation: rise 0.26s cubic-bezier(0.34, 1.3, 0.5, 1) both;
+      }
+      .D [data-state="confirming"] .cf > *:nth-child(2) {
+        animation-delay: 0.03s;
+      }
+      .D [data-state="confirming"] .cf > *:nth-child(3) {
+        animation-delay: 0.06s;
+      }
+      .D .trig {
+        animation: pop 0.2s cubic-bezier(0.34, 1.3, 0.5, 1);
+      }
+      @keyframes pop {
+        from {
+          opacity: 0;
+          scale: 0.9;
+        }
+      }
+
+      .live {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation-name: fade !important;
+          transition-property: opacity, background-color, color !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap" id="root"></div>
+    <script>
+      const I = {
+        trash:
+          '<svg viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>',
+        pen: '<svg viewBox="0 0 24 24"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/></svg>',
+        x: '<svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+      }
+      const DIRS = [
+        {
+          k: "A",
+          t: "A · Current",
+          n: "the trigger vanishes and a muted prompt + solid red Delete + ghost “× Cancel” fade in (150ms), shifting the row. Solid red with white text is ~4.4:1 light and ~2.5:1 dark (fails AA). Affects comment rows, member rows, attachments, GitHub/Slack/Jira rows, project + org danger zones, estimation, sprint header."
+        },
+        {
+          k: "B",
+          t: "B · Morph into a danger capsule",
+          n: "the trigger’s own pill springs wider (300ms, light overshoot) into a destructive-light capsule holding prompt, solid Delete and an × cancel; contents rise in with a 30ms stagger. Grows leftward from where the pointer is. Dark mode: dark ink on the red."
+        },
+        {
+          k: "C",
+          t: "C · Arm the same button",
+          n: "no second row: the trigger itself turns into “Delete? / Confirm delete” in a soft red tint; a second press confirms. A 4s drain line under the label disarms it; Esc or blur disarm too. Smallest footprint, zero layout shift for text triggers."
+        },
+        {
+          k: "D",
+          t: "D · Current layout, polished danger",
+          n: "same structure as today, but the prompt reads in foreground, the confirm is a soft tint (destructive-light, darker red ink, 20% hairline, faint lit top) instead of solid red, items slide in from 6px with a stagger, and Cancel drops its icon. Fixes the dark contrast."
+        }
+      ]
+      const ctx = (k) => {
+        const trashTrig = `<button class="btn icon trash trig" aria-label="Delete comment">${I.trash}</button>`
+        const textTrig = `<button class="btn tertiary trig">Delete project</button>`
+        const cancel =
+          k === "B"
+            ? `<button class="btn x" aria-label="Cancel">${I.x}</button>`
+            : k === "D"
+              ? `<button class="btn ghost" data-cancel>Cancel</button>`
+              : `<button class="btn ghost" data-cancel>${I.x}Cancel</button>`
+        const conf = (p) =>
+          k === "C"
+            ? ""
+            : `<span class="cf"><span class="prompt">${p}</span><button class="btn ${k === "D" ? "soft" : "solid"}" data-go>Delete</button>${cancel}</span>`
+        const armIcon = `<button class="btn icon trash trig arm" aria-label="Delete comment" data-arm data-idle-label="" data-arm-label="Delete?"><span class="lab">${I.trash}<span></span></span><span class="drain"></span></button>`
+        const armText = `<button class="btn tertiary trig arm" data-arm data-idle-label="Delete project" data-arm-label="Confirm delete"><span class="lab"><span>Delete project</span></span><span class="drain"></span></button>`
+        return `<div><div class="lbl">Comment row · DeleteTrigger (icon)</div><div class="comment"><div class="chead"><span class="ava"></span><span class="who">Ada Lovelace</span><span class="when">2h ago</span><span class="sp"></span><button class="btn icon" aria-label="Edit comment">${I.pen}</button><span class="cb" data-state="idle">${k === "C" ? armIcon : trashTrig + conf("Delete this comment?")}<span class="live" aria-live="polite"></span></span></div><div class="cbody">The importer drops archived tickets; can we keep them behind a flag?</div></div></div>
+ <div><div class="lbl">Settings danger row · Trigger (tertiary sm)</div><div class="row"><div class="t"><b>Delete project</b><span>Removes Web app and its 214 tickets for everyone.</span></div><span class="cb" data-state="idle">${k === "C" ? armText : textTrig + conf("Delete this project?")}<span class="live" aria-live="polite"></span></span></div></div>`
+      }
+      const block = (mode) =>
+        `<div class="theme ${mode}"><h1>Confirm button · ${mode === "light" ? "Light" : "Dark"}</h1><p class="sub">Click a trigger to reveal the confirm step. Esc or Cancel goes back. Delete shows the busy label for 1.2s, then resets.</p>` +
+        DIRS.map(
+          (d) =>
+            `<div class="dir ${d.k}"><div class="cap"><b>${d.t}</b><span>${d.n}</span></div><div class="stage">${ctx(d.k)}</div></div>`
+        ).join("") +
+        "</div>"
+      document.getElementById("root").innerHTML = block("light") + block("dark")
+
+      const isB = (cb) => cb.closest(".B")
+      function measure(cb) {
+        cb.style.width = ""
+        return cb.getBoundingClientRect().width
+      }
+      function setState(cb, s) {
+        const from = isB(cb) ? cb.getBoundingClientRect().width : 0
+        cb.dataset.state = s
+        if (isB(cb)) {
+          const to = measure(cb)
+          cb.style.width = from + "px"
+          cb.offsetWidth
+          cb.style.width = to + "px"
+          setTimeout(() => {
+            cb.style.width = ""
+          }, 320)
+        }
+        const live = cb.querySelector(".live")
+        if (s === "confirming") {
+          const c = cb.querySelector("[data-cancel],.x")
+          if (c) c.focus()
+          const p = cb.querySelector(".prompt")
+          live.textContent = p ? p.textContent : ""
+        } else {
+          const t = cb.querySelector(".trig")
+          t && t.focus()
+        }
+      }
+      document.querySelectorAll(".cb").forEach((cb) => {
+        const arm = cb.querySelector("[data-arm]")
+        if (arm) {
+          let timer = null
+          const lab = arm.querySelector(".lab span")
+          const setLabel = (txt) => {
+            lab.textContent = txt
+            arm.querySelector(".lab").classList.remove("swap")
+            arm.offsetWidth
+            arm.querySelector(".lab").classList.add("swap")
+          }
+          const disarm = () => {
+            clearTimeout(timer)
+            cb.dataset.state = "idle"
+            setLabel(arm.dataset.idleLabel)
+            if (!arm.dataset.idleLabel) arm.style.width = ""
+            arm.style.padding = ""
+          }
+          arm.addEventListener("click", () => {
+            if (cb.dataset.state === "idle") {
+              cb.dataset.state = "confirming"
+              setLabel(arm.dataset.armLabel)
+              if (!arm.dataset.idleLabel) {
+                arm.style.width = "auto"
+                arm.style.padding = "0 12px 0 10px"
+              }
+              cb.querySelector(".live").textContent =
+                arm.dataset.armLabel + " Press again to confirm."
+              timer = setTimeout(disarm, 4000)
+            } else {
+              clearTimeout(timer)
+              arm.disabled = true
+              setLabel("Deleting…")
+              setTimeout(() => {
+                arm.disabled = false
+                disarm()
+              }, 1200)
+            }
+          })
+          arm.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && cb.dataset.state === "confirming") {
+              e.preventDefault()
+              disarm()
+            }
+          })
+          arm.addEventListener("blur", () => {
+            if (cb.dataset.state === "confirming" && !arm.disabled) disarm()
+          })
+          return
+        }
+        cb.querySelector(".trig").addEventListener("click", () =>
+          setState(cb, "confirming")
+        )
+        cb.querySelectorAll("[data-cancel],.x").forEach((b) =>
+          b.addEventListener("click", () => setState(cb, "idle"))
+        )
+        const go = cb.querySelector("[data-go]")
+        go.addEventListener("click", () => {
+          go.disabled = true
+          cb.querySelectorAll(".cf button").forEach((b) => (b.disabled = true))
+          go.textContent = "Deleting…"
+          setTimeout(() => {
+            cb.querySelectorAll(".cf button").forEach(
+              (b) => (b.disabled = false)
+            )
+            go.textContent = "Delete"
+            setState(cb, "idle")
+          }, 1200)
+        })
+        cb.addEventListener("keydown", (e) => {
+          if (e.key === "Escape" && cb.dataset.state === "confirming") {
+            e.preventDefault()
+            setState(cb, "idle")
+          }
+        })
+      })
+    </script>
+  </body>
+</html>

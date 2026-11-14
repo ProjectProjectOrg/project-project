@@ -1,7 +1,7 @@
+import { Button } from "@pp/ui/button"
+import { DitherShell } from "@pp/ui/dither-shell"
 import { Link } from "@tanstack/react-router"
 
-import { Button } from "@/components/ui/button"
-import { DitherShell } from "@/components/ui/dither-shell"
 import { m } from "@/paraglide/messages"
 
 type NotFoundPageProps = {

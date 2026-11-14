@@ -1,7 +1,7 @@
 import type { AttachmentSort, AttachmentStatus } from "@pp/shared"
+import { SegmentedTabs } from "@pp/ui/segmented-tabs"
+import { Select, SelectTrigger } from "@pp/ui/select"
 
-import { SegmentedTabs } from "@/components/ui/segmented-tabs"
-import { Select, SelectTrigger } from "@/components/ui/select"
 import { m } from "@/paraglide/messages"
 
 export type StatusFilter = AttachmentStatus | "all"

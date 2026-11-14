@@ -1,20 +1,20 @@
 import type { TicketId, TicketPriority } from "@pp/shared"
-import type { ReactElement } from "react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import { cn } from "@pp/ui/lib/utils"
+import type { ReactElement } from "react"
+
 import {
   PRIORITY_LABELS,
   PRIORITY_META,
   PRIORITY_ORDER
 } from "@/features/tickets/lib/priorityMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export const priorityOptions = () =>
@@ -91,7 +91,8 @@ export function PrioritySelect({
       trigger={
         <Button
           type="button"
-          variant="chip"
+          variant="ghost"
+          tone="strong"
           size={showLabel ? undefined : "square-6"}
           onClick={(e) => stopPropagation && e.stopPropagation()}
           aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
@@ -149,7 +150,8 @@ export function PriorityBadgeTrigger({
       trigger={
         <Button
           type="button"
-          variant="chip"
+          variant="ghost"
+          tone="strong"
           onClick={(e) => e.stopPropagation()}
           aria-label={m.tickets_priority_aria_label({ label: priorityLabel })}
           className={className}

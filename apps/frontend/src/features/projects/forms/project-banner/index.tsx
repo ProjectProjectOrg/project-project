@@ -4,6 +4,7 @@ import {
   isRasterImageContentType,
   type ProjectBanner
 } from "@pp/shared"
+import { transitions } from "@pp/ui/lib/springs"
 import type { ReactFormType } from "@tanstack/react-form"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -32,7 +33,6 @@ import {
   type CompressedBanner
 } from "@/features/projects/lib/imageCompression"
 import { useAppForm, useFormValues } from "@/lib/form"
-import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 import { BannerCropStep } from "./CropStep"

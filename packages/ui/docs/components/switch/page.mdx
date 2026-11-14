@@ -1,0 +1,64 @@
+export const meta = {
+  title: "Switch",
+  group: "Primitives",
+  description:
+    "An on/off toggle in the Checkbox family: off is a ring with a small muted thumb, on fills with ink. Press stretches the thumb toward where it goes, and it can be dragged. Used in settings rows such as Git automation, the ticket view options and the library's section toggles.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "Switch",
+      href: "https://base-ui.com/react/components/switch"
+    },
+    {
+      kind: "shadcn",
+      name: "switch",
+      note: "starting point, lightly restyled",
+      href: "https://ui.shadcn.com/docs/components/switch"
+    }
+  ]
+}
+
+## Overview
+
+Two large live switches to click and drag, then every state: off on the first row, on on the second. Hover, pressed and focus are pinned with `data-force`.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+A switch needs an accessible name. In a settings row, point `aria-labelledby` at the row's label and `aria-describedby` at its description; inside a `label`, the label text names it.
+
+```tsx
+import { Switch } from "@pp/ui/switch"
+
+<label className="flex min-h-8 items-center justify-between gap-3 text-body text-muted-foreground">
+  {m.tickets_view_options_expand_sub_tickets()}
+  <Switch checked={expanded} onCheckedChange={setExpanded} />
+</label>
+```
+
+| Prop                         | Type                         | Default |
+| ---------------------------- | ---------------------------- | ------- |
+| `checked` / `defaultChecked` | `boolean`                    |         |
+| `onCheckedChange`            | `(checked: boolean) => void` |         |
+| `loading` | `boolean` | `false` |
+| `disabled` / `readOnly`      | `boolean`                    | `false` |
+
+Every other prop goes to Base UI's `Switch.Root`.
+
+## Rules
+
+- Off reads like an unchecked Checkbox (a 1.5px `--checkbox-ring` with a small muted thumb); on fills with ink like a checked one. Both share the hover ring and fill.
+- Pressing stretches the thumb 4px toward the side it will go. Dragging moves it with the pointer; on release it springs to the nearer side, and a drag that ends where it started does not toggle.
+- Corners follow `--button-corner`, focus uses the shared `focus-ring`.
+- In a settings row the whole row toggles the switch, with a hover fill to show it; other controls in the row keep their own clicks.
+- `loading` marks a change that is still saving: the thumb stays on its new side and shimmers with the logo loader's sweep, the cursor shows progress, and input is ignored until it settles. If the save fails, the switch springs back and the message takes the description's place in the same grid cell, so the row never changes height.
+- A switch always has a name: `aria-labelledby` in a settings row, or the surrounding `label`.
+
+## Examples
+
+### In a settings group
+
+Rows as the Git automation settings render them: label and description on the left, the switch on the right.
+
+<Demo name="settings-row" title="Settings group" />

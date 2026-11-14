@@ -1,11 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { GithubInstallation } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronDown, ExternalLink } from "lucide-react"
-
-import { SettingsRow } from "@/components/shell/settings/SettingsSection"
-import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
+import { Button } from "@pp/ui/button"
+import { ConfirmButton } from "@pp/ui/confirm-button"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -14,7 +10,12 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import { cn } from "@pp/ui/lib/utils"
+import * as Result from "effect/reactivity/AsyncResult"
+import { ChevronDown, ExternalLink } from "lucide-react"
+
+import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import {
   deleteGithubInstallation,
   githubOrgRequest,
@@ -26,7 +27,6 @@ import {
   projectsRequest
 } from "@/features/projects/atoms/projects"
 import { mutationErrorText } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const installationsUrl = (installation: GithubInstallation) =>
@@ -107,6 +107,7 @@ export function InstallationRow({
             </ConfirmButton.Trigger>
             <ConfirmButton.Confirm>
               <ConfirmButton.Action
+                cancelLabel={m.common_cancel_button()}
                 prompt={m.github_installation_remove_confirm({
                   account: installation.accountLogin
                 })}

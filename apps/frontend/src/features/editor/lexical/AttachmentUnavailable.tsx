@@ -1,4 +1,5 @@
-import { cn } from "@/lib/utils"
+import { cn } from "@pp/ui/lib/utils"
+
 import { m } from "@/paraglide/messages"
 
 import {

@@ -1,11 +1,11 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { sprintState, type Group } from "@pp/shared"
+import { CommandMenuCheck, CommandMenuItem } from "@pp/ui/command-menu"
 import * as Result from "effect/reactivity/AsyncResult"
 import { CircleSlash, Plus, Timer } from "lucide-react"
 import { useContext, type ReactNode } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { CommandMenuCheck, CommandMenuItem } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type {
   SelectedTicket,
@@ -142,7 +142,9 @@ export function TicketSprintCommands({
               <SprintStateIcon sprint={sprint} size="md" />
             )}
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {sprint !== undefined && sprint === current && <CommandMenuCheck />}
+            {sprint !== undefined && sprint === current && (
+              <CommandMenuCheck label={m.chrome_command_menu_selected()} />
+            )}
           </CommandMenuItem>
         )
       }}

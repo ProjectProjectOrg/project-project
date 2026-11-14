@@ -5,6 +5,8 @@ import type {
   StackLayerState,
   Ticket
 } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   AlertTriangle,
@@ -13,7 +15,6 @@ import {
   LoaderCircle
 } from "lucide-react"
 
-import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import { usePreferredBranchLink } from "@/features/github/components/ticket-git/BranchChip"
 import { pendingLabel } from "@/features/github/components/ticket-git/GitField"
 import { ownLayer } from "@/features/github/components/ticket-git/TicketStack"
@@ -23,7 +24,6 @@ import { ticketRepo } from "@/features/github/lib/repos"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { formatRelative } from "@/lib/relativeTime"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { GitChipMenu } from "./GitChipMenu"

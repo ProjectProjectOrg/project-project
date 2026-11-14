@@ -1,7 +1,7 @@
 import type { TicketPriority } from "@pp/shared"
+import type { BadgeTone } from "@pp/ui/badge"
 import { ChevronDown, ChevronUp, Minus, type LucideIcon } from "lucide-react"
 
-import type { BadgeTone } from "@/components/ui/badge"
 import { m } from "@/paraglide/messages"
 
 export const PRIORITY_META: Record<

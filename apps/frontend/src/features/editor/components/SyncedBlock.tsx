@@ -1,9 +1,9 @@
 import type { Library, LibraryOrigin } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
 import { Link2 } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { BUILTIN_LIBRARY } from "../lib/blockChrome"

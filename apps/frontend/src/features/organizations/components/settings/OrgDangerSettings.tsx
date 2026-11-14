@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { ORG_DELETE_GRACE_DAYS, type OrgDetail } from "@pp/shared"
+import { ConfirmButton } from "@pp/ui/confirm-button"
 import { getRouteApi, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -11,7 +12,6 @@ import {
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
-import { ConfirmButton } from "@/components/ui/confirm-button"
 import { setActiveOrganization } from "@/features/auth/atoms/auth"
 import {
   orgDetail,
@@ -21,6 +21,7 @@ import {
 } from "@/features/organizations/atoms/orgs"
 import { nextActiveOrgSlug } from "@/features/organizations/lib/orgReflow"
 import { useOrgActor } from "@/hooks/useActor"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi("/_authed/orgs/$orgSlug/settings/danger")
@@ -94,6 +95,8 @@ function DeleteCard({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
             </ConfirmButton.Trigger>
             <ConfirmButton.Confirm className="w-full">
               <ConfirmButton.Action
+                cancelLabel={m.common_cancel_button()}
+                describeError={describeCause}
                 layout="stacked"
                 prompt={m.org_danger_delete_confirm_label({ slug: org.slug })}
                 typed={org.slug}

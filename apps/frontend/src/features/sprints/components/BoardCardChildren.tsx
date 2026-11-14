@@ -1,5 +1,7 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { hasSubTickets, type Ticket, type TicketId } from "@pp/shared"
+import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -15,8 +17,6 @@ import {
 import { TicketStatusIcon } from "@/features/tickets/components/ticket-marks/TicketStatusIcon"
 import { useSubTicketsExpanded } from "@/features/tickets/hooks/useSubTicketsExpanded"
 import type { TicketRow } from "@/features/tickets/lib/ticketRows"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type Parent = Pick<Ticket, "id" | "subTicketCount" | "subTicketDoneCount">

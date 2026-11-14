@@ -1,0 +1,69 @@
+import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox"
+import type * as React from "react"
+
+import { cn } from "../lib/utils"
+
+const variants = {
+  default:
+    "size-4 [--cb-r:4.5px] supports-[corner-shape:squircle]:[--cb-r:6.5px] shadow-[inset_0_0_0_1.5px_var(--checkbox-ring)]",
+  quiet:
+    "size-4.5 [--cb-r:5px] supports-[corner-shape:squircle]:[--cb-r:7px] shadow-[inset_0_0_0_1.5px_var(--checkbox-ring-quiet)]"
+}
+
+const interactive =
+  "[&:not([data-disabled],[data-readonly])]:hover:shadow-[inset_0_0_0_1.5px_var(--checkbox-ring-hover)] [&:not([data-disabled],[data-readonly])]:hover:duration-[0ms,120ms] [&:not([data-disabled],[data-readonly])]:active:scale-[0.97]"
+
+const focusRing = "focus-ring"
+
+const fillClass =
+  "absolute inset-0 scale-40 rounded-[inherit] bg-foreground opacity-0 transition-[scale,opacity,background-color] duration-[150ms,110ms,150ms] delay-[15ms,35ms,0ms] ease-standard corner-squircle group-data-checked/checkbox:scale-100 group-data-checked/checkbox:opacity-100 group-data-checked/checkbox:duration-[220ms,60ms,150ms] group-data-checked/checkbox:delay-0 group-data-checked/checkbox:ease-spring group-data-indeterminate/checkbox:scale-100 group-data-indeterminate/checkbox:opacity-100 group-data-indeterminate/checkbox:duration-[220ms,60ms,150ms] group-data-indeterminate/checkbox:delay-0 group-data-indeterminate/checkbox:ease-spring group-[:hover:not([data-disabled],[data-readonly])]/checkbox:bg-(--checkbox-fill-hover) motion-reduce:scale-100 motion-reduce:transition-opacity motion-reduce:duration-120 motion-reduce:delay-0"
+
+const markClass =
+  "fill-none stroke-background stroke-[1.75] [stroke-dasharray:1] [stroke-dashoffset:1] [stroke-linecap:round] [stroke-linejoin:round] transition-[stroke-dashoffset] duration-80 ease-standard motion-reduce:transition-none"
+
+function Checkbox({
+  className,
+  variant = "default",
+  ...props
+}: React.ComponentProps<typeof CheckboxPrimitive.Root> &
+  Readonly<{ variant?: keyof typeof variants }>) {
+  return (
+    <CheckboxPrimitive.Root
+      data-slot="checkbox"
+      className={cn(
+        "group/checkbox relative inline-grid shrink-0 cursor-pointer place-items-center rounded-(--cb-r) align-middle transition-[box-shadow,scale] duration-[150ms,120ms] ease-standard outline-none corner-squircle before:absolute before:-inset-2 before:content-[''] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45 data-[readonly]:cursor-default motion-reduce:transition-none",
+        variants[variant],
+        interactive,
+        focusRing,
+        className
+      )}
+      {...props}
+    >
+      <span aria-hidden className={fillClass} />
+      <svg
+        aria-hidden
+        viewBox="0 0 16 16"
+        className="relative size-full overflow-visible"
+      >
+        <path
+          pathLength={1}
+          d="M4.6 8.4 L7 10.7 L11.5 5.6"
+          className={cn(
+            markClass,
+            "group-data-checked/checkbox:delay-60 group-data-checked/checkbox:duration-160 group-data-checked/checkbox:[stroke-dashoffset:0] motion-reduce:delay-0"
+          )}
+        />
+        <path
+          pathLength={1}
+          d="M5 8 H11"
+          className={cn(
+            markClass,
+            "group-data-indeterminate/checkbox:delay-60 group-data-indeterminate/checkbox:duration-160 group-data-indeterminate/checkbox:[stroke-dashoffset:0] motion-reduce:delay-0"
+          )}
+        />
+      </svg>
+    </CheckboxPrimitive.Root>
+  )
+}
+
+export { Checkbox }

@@ -1,6 +1,5 @@
+import { cn } from "@pp/ui/lib/utils"
 import type { ReactNode } from "react"
-
-import { cn } from "@/lib/utils"
 
 type SectionBodyProps = Readonly<{
   collapsed: boolean

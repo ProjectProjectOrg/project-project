@@ -1,15 +1,12 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketSubscribers, TicketId } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import { Bell } from "lucide-react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { ReadFailure } from "@/components/shell/ReadFailure"
-import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   setSubscribed,
@@ -18,7 +15,6 @@ import {
 } from "@/features/subscriptions/atoms/ticketSubscribers"
 import { useCanSubscribe } from "@/features/subscriptions/hooks/useCanSubscribe"
 import { mutationErrorText } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -63,7 +59,7 @@ export function SubscribeToggle({
             render={
               <Button
                 type="button"
-                variant="chip-toggle"
+                variant="ghost"
                 size="compact"
                 aria-pressed={subscribers.subscribed}
                 onClick={() => subscribe(!subscribers.subscribed)}

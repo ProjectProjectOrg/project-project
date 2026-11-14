@@ -1,14 +1,5 @@
 import { RegistryContext, useAtomSet } from "@effect/atom-react"
 import type { GithubConnection, Ticket } from "@pp/shared"
-import { Link } from "@tanstack/react-router"
-import * as Cause from "effect/Cause"
-import * as Option from "effect/Option"
-import * as Predicate from "effect/Predicate"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { GitBranch, Plus } from "lucide-react"
-import { useContext, useState, type ReactElement, type RefObject } from "react"
-
-import { fireMutation } from "@/api/viewMutation"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,8 +9,17 @@ import {
   DropdownMenuList,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { MiddleTruncate } from "@/components/ui/middle-truncate"
+} from "@pp/ui/dropdown-menu"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
+import { Link } from "@tanstack/react-router"
+import * as Cause from "effect/Cause"
+import * as Option from "effect/Option"
+import * as Predicate from "effect/Predicate"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
+import { GitBranch, Plus } from "lucide-react"
+import { useContext, useState, type ReactElement, type RefObject } from "react"
+
+import { fireMutation } from "@/api/viewMutation"
 import {
   attachBranch,
   branchAttempt,

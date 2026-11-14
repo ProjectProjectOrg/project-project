@@ -6,6 +6,8 @@ import {
   clampAttachmentWidth,
   type AttachmentDensity
 } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
 import {
   $applyNodeReplacement,
   $getNodeByKey,
@@ -18,14 +20,12 @@ import {
 import { motion, type MotionProps } from "motion/react"
 import { useRef, useState, type ReactElement } from "react"
 
-import { Button } from "@/components/ui/button"
 import { AttachmentChip } from "@/features/attachments/components/AttachmentChip"
 import {
   ATTACHMENT_IMAGE_CLASS,
   attachmentWidthStyle
 } from "@/features/editor/lexical/attachmentImageStyle"
 import { AttachmentTile } from "@/features/editor/lexical/AttachmentTile"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useAttachmentResolves } from "./attachmentAvailability"

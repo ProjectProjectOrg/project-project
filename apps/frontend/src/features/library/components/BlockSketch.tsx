@@ -1,7 +1,6 @@
+import { cn } from "@pp/ui/lib/utils"
+import { MarqueeIfOverflow } from "@pp/ui/marquee-if-overflow"
 import { cva, type VariantProps } from "class-variance-authority"
-
-import { MarqueeIfOverflow } from "@/components/ui/marquee-if-overflow"
-import { cn } from "@/lib/utils"
 
 import type { SketchBlock, SketchLine } from "../lib/blockSketchModel"
 import { BlockIconGlyph } from "./BlockIconGlyph"

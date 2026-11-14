@@ -1,9 +1,9 @@
 import type { JiraMigrationFinding } from "@pp/shared"
+import { AutoHeight } from "@pp/ui/auto-height"
+import { Button } from "@pp/ui/button"
 import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 
-import { AutoHeight } from "@/components/ui/auto-height"
-import { Button } from "@/components/ui/button"
 import {
   groupJiraFindings,
   type JiraFindingGroup

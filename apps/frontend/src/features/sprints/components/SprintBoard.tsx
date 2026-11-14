@@ -13,12 +13,13 @@ import type {
   TicketListQuery,
   TicketStatus
 } from "@pp/shared"
+import { DitherShell } from "@pp/ui/dither-shell"
+import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
 import { motion, Reorder } from "motion/react"
 import { useContext, useEffect, useMemo, useRef, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { DitherShell } from "@/components/ui/dither-shell"
 import {
   statusesFor,
   statusesRequest
@@ -42,7 +43,6 @@ import { encodeTicketListQuery } from "@/features/tickets/atoms/backlog"
 import { useExpandSubTicketsCommand } from "@/features/tickets/components/ticket-list/useExpandSubTicketsCommand"
 import { useBoardSubTicketsSettled } from "@/features/tickets/components/ticket-list/useSubTicketsSettled"
 import { useProjectActor } from "@/hooks/useActor"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useBoardColumns } from "../hooks/useBoardColumns"

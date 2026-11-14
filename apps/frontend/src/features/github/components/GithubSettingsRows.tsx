@@ -1,18 +1,18 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { GithubConnection } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ExternalLink, GitBranch, MoreHorizontal, Unplug } from "lucide-react"
 import { useRef } from "react"
 
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import { SettingsTextField } from "@/components/shell/settings/SettingsTextField"
-import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
 import {
   disconnectGithub,
   updateGithubRepo
@@ -117,7 +117,7 @@ function RepoRow({
               <SettingsTextField
                 value={repo.defaultBaseBranch ?? ""}
                 placeholder="main"
-                variant="compact"
+                size="sm"
                 className="w-28 font-mono sm:w-36"
                 aria-label={m.github_repos_base_branch_label({
                   repo: repoSlug(repo)
@@ -140,7 +140,7 @@ function RepoRow({
                   <Button
                     ref={trigger}
                     type="button"
-                    variant="quiet"
+                    variant="ghost"
                     size="square-7"
                     aria-label={m.github_repos_actions_label({
                       repo: repoSlug(repo)
@@ -162,6 +162,7 @@ function RepoRow({
       </SettingsRow>
       <ConfirmButton.Popover anchor={trigger} className="w-72">
         <ConfirmButton.Action
+          cancelLabel={m.common_cancel_button()}
           layout="stacked"
           prompt={m.github_chip_disconnect_confirm({ repo: repoSlug(repo) })}
           label={m.github_chip_disconnect_button()}

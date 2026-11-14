@@ -1,3 +1,7 @@
+import {
+  useHighlightedItem,
+  type CommandMenuItemData
+} from "@pp/ui/command-menu"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import { EyeOff } from "lucide-react"
 import {
@@ -9,10 +13,6 @@ import {
 } from "motion/react"
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react"
 
-import {
-  useHighlightedItem,
-  type CommandMenuItemData
-} from "@/components/ui/command-menu"
 import { m } from "@/paraglide/messages"
 
 const PEEK_SETTLE_MS = 60

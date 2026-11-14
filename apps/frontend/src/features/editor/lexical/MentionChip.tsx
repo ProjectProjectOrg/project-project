@@ -1,9 +1,9 @@
 import { parseTicketMentionId, TicketId, type MentionType } from "@pp/shared"
+import { Badge } from "@pp/ui/badge"
+import { Popover, PopoverTrigger } from "@pp/ui/popover"
 import { Link } from "@tanstack/react-router"
 import * as Schema from "effect/Schema"
 
-import { Badge } from "@/components/ui/badge"
-import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { useInAppLink } from "@/features/editor/hooks/useInAppLink"
 import { useMentionScope } from "@/features/editor/mentions/scope"
 import { TicketHoverCard } from "@/features/tickets/components/TicketHoverCard"

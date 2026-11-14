@@ -1,5 +1,7 @@
 import { useAtomSet } from "@effect/atom-react"
 import type { OrgStorageStatus } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { ConfirmButton } from "@pp/ui/confirm-button"
 import { Link } from "@tanstack/react-router"
 import { FolderOpen } from "lucide-react"
 
@@ -8,8 +10,6 @@ import {
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
-import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
   disconnectStorage,
   storageRequest
@@ -17,6 +17,7 @@ import {
 import { StorageCorsPanel } from "@/features/storage/components/StorageCorsPanel"
 import { StorageStatusRows } from "@/features/storage/components/StorageStatusRows"
 import { useOrgActor } from "@/hooks/useActor"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 export function StorageConnectedPanel({
@@ -83,6 +84,8 @@ export function StorageConnectedPanel({
               </ConfirmButton.Trigger>
               <ConfirmButton.Confirm>
                 <ConfirmButton.Action
+                  cancelLabel={m.common_cancel_button()}
+                  describeError={describeCause}
                   prompt={m.storage_disconnect_confirm()}
                   label={m.storage_disconnect_button()}
                   onConfirm={disconnect}

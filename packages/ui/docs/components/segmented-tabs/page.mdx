@@ -1,0 +1,92 @@
+export const meta = {
+  title: "Segmented tabs",
+  group: "Primitives",
+  description:
+    "A row of mutually exclusive options with a pill that slides to the chosen one. Used for project sections, the list and board switch, form pickers and the theme switcher.",
+  sources: [
+    {
+      kind: "fluid",
+      name: "Tabs",
+      note: "segmented control with a sliding indicator, restyled",
+      href: "https://www.fluidfunctionalism.com/docs/tabs"
+    },
+    {
+      kind: "fluid",
+      name: "TabsSubtle",
+      note: "the subtle variant's pill",
+      href: "https://www.fluidfunctionalism.com/docs/tabs-subtle"
+    },
+    { kind: "own", name: "SegmentedTabs", note: "variants and the theme reveal" }
+  ]
+}
+
+## Overview
+
+Every variant, live. Click to move the pill; hover the subtle variant to see its hover pill.
+
+<Demo name="overview" title="All variants" />
+
+## Usage
+
+Pass the options as `items` and control the value. Labels are props, so the app passes its Paraglide messages.
+
+```tsx
+import { SegmentedTabs } from "@pp/ui/segmented-tabs"
+
+<SegmentedTabs
+  aria-label={m.theme_switcher_aria_label()}
+  variant="subtle"
+  labels="active"
+  value={preference}
+  onValueChange={setPreference}
+  items={[
+    { key: "light", label: m.theme_light(), icon: Sun },
+    { key: "system", label: m.theme_system(), icon: Monitor },
+    { key: "dark", label: m.theme_dark(), icon: Moon }
+  ]}
+/>
+```
+
+| Prop            | Type                                                    | Default     |
+| --------------- | ------------------------------------------------------- | ----------- |
+| `items`         | `{ key, label, icon?, badge?, hoverContent?, render? }[]` |             |
+| `value`         | `K \| null`                                             |             |
+| `onValueChange` | `(key: K) => void`                                      |             |
+| `variant`       | `"default" \| "rail" \| "inline" \| "subtle"`            | `"default"` |
+| `labels`        | `"all" \| "active"`                                     | `"all"`     |
+| `fill`          | `boolean` (full width, even split)                      | `false`     |
+| `aria-label`    | `string`                                                |             |
+
+## Rules
+
+### Squircle, concentric, full radius
+
+The track and the pill use squircle corners at a full radius, and the pill's radius is the track's minus its padding (18px around 14px for the default variant), so the two curves run parallel.
+
+### A hairline, not a glow
+
+The selected pill is the tint fill with a 1px hairline at 5% ink in light mode and 6% in dark. No shadow and no highlight: it reads as a selected surface without leaving the app's flat look.
+
+### The pill slides with a light overshoot
+
+Moving to another option slides and resizes the pill over 280ms with a slight overshoot, so it settles like a spring. A press scales the option to 97%. Reduced motion jumps the pill.
+
+### Rail labels stay in full colour
+
+The rail variant sits on a tinted track, where the muted text colour falls to 3.97:1, under WCAG AA's 4.5:1. Its unselected labels use the full text colour, and the pill alone marks the choice.
+
+### The track hugs its options
+
+The track is as wide as its options, whatever its parent's layout. Pass `fill` to stretch it across its container and split it evenly, as the List / Board switch does in View options.
+
+### Theme changes wait for the pill
+
+The theme switcher's pill slides in the current theme first; the page-wide circle reveal starts 200ms later. The reveal snapshots the page, so a slide that started inside it stayed hidden until the circle passed, and the old option seemed to vanish.
+
+## Examples
+
+### In a sidebar
+
+The gallery's Light/Dark switch and the app's theme switcher in a narrow column: both tracks end at their last option.
+
+<Demo name="in-a-sidebar" title="In a sidebar" />

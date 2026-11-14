@@ -1,14 +1,14 @@
 import { TagName, type Tag } from "@pp/shared"
-import * as Option from "effect/Option"
-import * as Schema from "effect/Schema"
-import { Plus } from "lucide-react"
-
 import {
   DropdownMenuEmpty,
   DropdownMenuInput,
   DropdownMenuItem,
   DropdownMenuList
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import * as Option from "effect/Option"
+import * as Schema from "effect/Schema"
+import { Plus } from "lucide-react"
+
 import { TagMenuItem } from "@/features/tags/components/TagMenuItem"
 import { m } from "@/paraglide/messages"
 

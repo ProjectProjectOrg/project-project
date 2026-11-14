@@ -1,4 +1,7 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
+import { Badge } from "@pp/ui/badge"
+import { Input } from "@pp/ui/input"
+import { cn } from "@pp/ui/lib/utils"
 import {
   $applyNodeReplacement,
   $getNodeByKey,
@@ -18,10 +21,7 @@ import {
   type ReactElement
 } from "react"
 
-import { Chip } from "@/components/ui/chip"
-import { Input } from "@/components/ui/input"
 import { useDecoratorSelection } from "@/features/editor/hooks/useDecoratorSelection"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { NodeOverlayAction } from "./NodeOverlayAction"
@@ -202,7 +202,10 @@ function PaperSelectable({
             }}
           />
         ) : (
-          <Chip press="scale">
+          <Badge
+            variant="outline"
+            className="mx-0.5 max-w-full gap-1.5 align-baseline"
+          >
             <PaperGlyph className="size-3 shrink-0" />
             <span className="truncate">{resolvedLabel}</span>
             <a
@@ -221,7 +224,7 @@ function PaperSelectable({
                 aria-hidden="true"
               />
             </a>
-          </Chip>
+          </Badge>
         )}
         <NodeOverlayAction
           slot="absolute right-full -top-1 mr-1 flex h-8 items-center before:absolute before:inset-y-0 before:-inset-x-3 before:content-['']"

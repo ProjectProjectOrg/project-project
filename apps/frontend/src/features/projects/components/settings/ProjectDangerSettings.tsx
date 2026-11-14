@@ -1,4 +1,5 @@
 import { useAtomSet } from "@effect/atom-react"
+import { ConfirmButton } from "@pp/ui/confirm-button"
 import { getRouteApi, useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 
@@ -7,7 +8,6 @@ import {
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
-import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
   deleteProject,
   projectRequest
@@ -44,6 +44,7 @@ export function ProjectDangerSettings() {
               </ConfirmButton.Trigger>
               <ConfirmButton.Confirm>
                 <ConfirmButton.Action
+                  cancelLabel={m.common_cancel_button()}
                   prompt={m.project_settings_delete_confirm_prompt()}
                   label={m.project_detail_delete_button()}
                   busyLabel={m.project_detail_delete_in_progress()}

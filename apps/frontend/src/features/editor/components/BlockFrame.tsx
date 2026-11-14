@@ -1,10 +1,6 @@
+import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import type { ReactNode } from "react"
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { BlockIconGlyph } from "@/features/library/components/BlockIconGlyph"
 import { m } from "@/paraglide/messages"
 

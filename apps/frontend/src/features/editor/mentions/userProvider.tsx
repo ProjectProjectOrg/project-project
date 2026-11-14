@@ -1,9 +1,9 @@
+import { MemberAvatar } from "@pp/ui/member-avatar"
 import * as Effect from "effect/Effect"
 import * as Atom from "effect/reactivity/Atom"
 
 import { me } from "@/features/auth/atoms/auth"
 import { rankMembers } from "@/features/editor/lib/memberRanking"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { m } from "@/paraglide/messages"
 
 import { MentionSearchFailed } from "./errors"

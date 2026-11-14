@@ -3,8 +3,8 @@ import type {
   JiraMigrationRequirements,
   JiraMigrationScanSummary
 } from "@pp/shared"
+import { SegmentedTabs } from "@pp/ui/segmented-tabs"
 
-import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import { FactBlock, FactList, FactRow } from "@/features/jira/components/Facts"
 import { conflictMessages } from "@/features/jira/lib/destination"
 import {

@@ -1,0 +1,21 @@
+export const meta = {
+  title: "Introduction",
+  group: "Design system",
+  order: 0,
+  description:
+    "The primitives every ProjectProject screen is built from: Base UI components styled with the app's tokens, shared motion springs and squircle corners. This gallery is built from the same components."
+}
+
+## How the package works
+
+- Components import from `@pp/ui/<name>`, for example `@pp/ui/checkbox`. Helpers live under `@pp/ui/lib/*` and `@pp/ui/hooks/*`.
+- The app imports `@pp/ui/theme.css` once, after Tailwind. It holds the colour tokens for light and dark, the type scale, fonts and the global hover and press rules.
+- The package has no translations. Every visible or spoken string is a prop, so the app passes its own Paraglide messages.
+
+## How this gallery works
+
+- Each component has a page in `packages/ui/docs/components/<name>/page.mdx`: what it's built on, an Overview demo with every state, Usage, Rules and Examples.
+- A demo is a plain React file in the page's `demos/` folder, placed on the page with `<Demo name="states" title="States" />`.
+- Every demo runs an accessibility check with axe. The badge under it shows the result.
+- **States** demos pin hover, pressed and focus with `data-force`, so every state shows at once.
+- The expand button on a demo opens it on its own at `/demo/<page>/<name>`. Add `?theme=dark` for dark.

@@ -1,16 +1,12 @@
 import { attachmentDownloadSrc, attachmentFileFormat } from "@pp/shared"
+import { Badge } from "@pp/ui/badge"
+import { transitions } from "@pp/ui/lib/springs"
+import { MorphIconLink } from "@pp/ui/morph-icon-link"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { Download, FileText, Film, Image as ImageIcon } from "lucide-react"
 import { motion } from "motion/react"
 import { useState, type ReactNode } from "react"
 
-import { Chip } from "@/components/ui/chip"
-import { MorphIconLink } from "@/components/ui/morph-icon-link"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
-import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 const HOVER_DELAY_MS = 450
@@ -87,18 +83,24 @@ export function AttachmentChip({
 
   if (variant === "linked") {
     return (
-      <Chip>
+      <Badge
+        variant="outline"
+        className="mx-0.5 max-w-full gap-1.5 align-baseline"
+      >
         <ChipBody filename={filename} kind={kind} morphId={morphId} />
-      </Chip>
+      </Badge>
     )
   }
 
   if (kind !== "image" || broken) {
     return (
-      <Chip>
+      <Badge
+        variant="outline"
+        className="mx-0.5 max-w-full gap-1.5 align-baseline"
+      >
         <ChipBody filename={filename} kind={kind} morphId={morphId} />
         {download}
-      </Chip>
+      </Badge>
     )
   }
 
@@ -108,7 +110,12 @@ export function AttachmentChip({
         nativeButton={false}
         openOnHover
         delay={HOVER_DELAY_MS}
-        render={<Chip />}
+        render={
+          <Badge
+            variant="outline"
+            className="mx-0.5 max-w-full gap-1.5 align-baseline"
+          />
+        }
         contentEditable={false}
       >
         <ChipBody filename={filename} kind={kind} morphId={morphId} />

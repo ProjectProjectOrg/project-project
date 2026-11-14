@@ -9,6 +9,8 @@ import {
   type TicketStatus,
   type TicketParent
 } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Loader2 } from "lucide-react"
 import {
@@ -24,7 +26,6 @@ import {
 } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { Button } from "@/components/ui/button"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   backlogRequest,
@@ -42,7 +43,6 @@ import type {
 import type { ListDropTarget } from "@/features/tickets/lib/listDrop"
 import type { TicketRowPage } from "@/features/tickets/lib/ticketRows"
 import { useProjectActor } from "@/hooks/useActor"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { LandingFlash, useSectionDrop } from "./ListRowDrag"

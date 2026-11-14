@@ -1,9 +1,9 @@
 import { figmaEmbedUrl, type FigmaRef } from "@pp/shared"
+import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import { motion } from "motion/react"
 
 import type { FigmaTicketLinksRequest } from "@/features/figma/atoms/figma"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { FigmaChip, FigmaGlyph, figmaDisplayName } from "./FigmaChip"

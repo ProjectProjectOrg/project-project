@@ -1,18 +1,14 @@
 import type { FigmaRef } from "@pp/shared"
+import { Badge } from "@pp/ui/badge"
+import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
+import { MorphIconLink } from "@pp/ui/morph-icon-link"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { ExternalLink } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 
-import { Chip } from "@/components/ui/chip"
-import { MorphIconLink } from "@/components/ui/morph-icon-link"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
 import type { FigmaTicketLinksRequest } from "@/features/figma/atoms/figma"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useFigmaMetadata } from "./figmaMetadata"
@@ -102,10 +98,13 @@ function FigmaChipContent({
 
   if (reference === null) {
     return (
-      <Chip className="border-dashed text-muted-foreground hover:bg-transparent">
+      <Badge
+        variant="outline"
+        className="mx-0.5 max-w-full gap-1.5 align-baseline text-muted-foreground shadow-none outline-1 -outline-offset-1 outline-border outline-dashed"
+      >
         <FigmaGlyph className="h-3 opacity-50" />
         {m.figma_chip_unavailable()}
-      </Chip>
+      </Badge>
     )
   }
 
@@ -150,7 +149,15 @@ function FigmaChipContent({
   )
 
   if (!showThumbnail) {
-    return <Chip title={metadata?.fileName ?? resolvedName}>{body}</Chip>
+    return (
+      <Badge
+        variant="outline"
+        className="mx-0.5 max-w-full gap-1.5 align-baseline"
+        title={metadata?.fileName ?? resolvedName}
+      >
+        {body}
+      </Badge>
+    )
   }
 
   return (
@@ -158,7 +165,13 @@ function FigmaChipContent({
       <PopoverTrigger
         openOnHover
         delay={HOVER_DELAY_MS}
-        render={<Chip title={metadata?.fileName ?? resolvedName} />}
+        render={
+          <Badge
+            variant="outline"
+            className="mx-0.5 max-w-full gap-1.5 align-baseline"
+            title={metadata?.fileName ?? resolvedName}
+          />
+        }
         contentEditable={false}
       >
         {body}

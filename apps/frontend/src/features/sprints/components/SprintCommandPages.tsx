@@ -1,5 +1,7 @@
 import { useAtomSet } from "@effect/atom-react"
 import { pickActiveSprint, type Group } from "@pp/shared"
+import { CommandMenuItem } from "@pp/ui/command-menu"
+import { cn } from "@pp/ui/lib/utils"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import { useNavigate } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
@@ -15,7 +17,6 @@ import {
 } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
-import { CommandMenuItem } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { SprintContext } from "@/features/command-menu/lib/commandMenu"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
@@ -35,7 +36,6 @@ import {
   type StartPreset
 } from "@/features/sprints/lib/sprintDates"
 import { errorMessage } from "@/lib/errorMessage"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useCompleteSprint } from "./CompleteSprintMenu"

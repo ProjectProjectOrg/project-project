@@ -4,11 +4,11 @@ import {
   withAttachmentParams,
   type ProjectIconImage
 } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 import { useEffect, useRef, useState } from "react"
 
 import { CroppedImage } from "@/features/projects/components/CroppedImage"
 import { preloadImage } from "@/features/projects/lib/imagePreload"
-import { cn } from "@/lib/utils"
 
 export function ProjectIconDisplay({
   orgSlug,

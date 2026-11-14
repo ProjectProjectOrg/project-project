@@ -1,9 +1,9 @@
 import type { JiraMigrationRequirements } from "@pp/shared"
+import { AutoHeight } from "@pp/ui/auto-height"
+import { Button } from "@pp/ui/button"
+import { Checkbox } from "@pp/ui/checkbox"
 import { useState } from "react"
 
-import { AutoHeight } from "@/components/ui/auto-height"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { FactList, FactRow } from "@/features/jira/components/Facts"
 import {
   attachmentSkip,

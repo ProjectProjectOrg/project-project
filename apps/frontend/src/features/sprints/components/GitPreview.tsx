@@ -1,9 +1,8 @@
 import { PreviewCard } from "@base-ui/react/preview-card"
+import { cn } from "@pp/ui/lib/utils"
+import { PreviewCardContent } from "@pp/ui/preview-card"
 import type { LucideIcon } from "lucide-react"
 import type { ReactElement, ReactNode } from "react"
-
-import { PreviewCardContent } from "@/components/ui/preview-card"
-import { cn } from "@/lib/utils"
 
 const PREVIEW_DELAY_MS = 400
 

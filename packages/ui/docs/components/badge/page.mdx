@@ -1,0 +1,90 @@
+export const meta = {
+  title: "Badge",
+  group: "Primitives",
+  description:
+    "A small inline label in a tone: member roles, pull request links, mentions in the editor, tag chips and status notes in the library and integrations.",
+  sources: [
+    {
+      kind: "shadcn",
+      name: "badge",
+      note: "starting point, restyled with the app's tones",
+      href: "https://ui.shadcn.com/docs/components/badge"
+    },
+    {
+      kind: "base-ui",
+      name: "useRender",
+      note: "renders as a link or button through `render`",
+      href: "https://base-ui.com/react/utils/use-render"
+    }
+  ]
+}
+
+## Overview
+
+Every tone, the states a badge gets when it is a link or a button, the sizes, counts and the outline chip. Hover, press and focus are pinned with `data-force`; a static badge does not react to hover.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+```tsx
+import { Badge } from "@pp/ui/badge"
+
+<Badge tone={meta.tone}>
+  <Icon strokeWidth={1.75} />
+  {meta.label()}
+</Badge>
+
+<Badge tone="emerald" size="xs" render={<a href={url} target="_blank" rel="noreferrer" />}>
+  <GitPullRequest strokeWidth={1.75} />#{number}
+</Badge>
+
+<Badge variant="outline" className="mx-0.5 max-w-full gap-1.5 align-baseline">
+  <FileText strokeWidth={1.75} />
+  {filename}
+</Badge>
+
+<Badge variant="count" active={active}>{count}</Badge>
+```
+
+| Prop        | Type                                                                        | Default   |
+| ----------- | --------------------------------------------------------------------------- | --------- |
+| `variant`   | `"soft" \| "outline" \| "count"`                                            | `"soft"`  |
+| `tone`      | `"muted" \| "emerald" \| "red" \| "amber" \| "blue" \| "violet" \| null`   | `"muted"` |
+| `size`      | `"xs" \| "sm" \| "md"`                                                      | `"sm"`    |
+| `active`    | `boolean`, for `count`: the count belongs to the active tab or filter       |           |
+| `render`    | `useRender.RenderProp` (a link, a button, a router `Link`)                  |           |
+| `className` | `string`                                                                    |           |
+
+`tone={null}` leaves the colour to the caller: set `--badge-tone` to any colour, as tags do with their picked hue, and the badge builds its fill and text from it.
+
+## Rules
+
+- One component, three variants. `soft` is a tinted label (roles, pull requests, mentions, statuses, tags), `outline` is the card-coloured chip for files and links in running text, `count` is a mono number next to a label.
+- Fill and text are both built from the tone in oklch (`.pp-badge` in `theme.css`): a pure pastel fill with same-hue text at 46% lightness in light mode, a deep wash with 82% text in dark mode. Never tint a badge with an opacity of its tone or mix the tone toward black; both turn it grey.
+- The buttons' sheen lies over every fill: a hair lighter at the top, a hair darker at the bottom. No borders or shadows; the outline chip uses the `--segment-line` hairline.
+- Corners are half the height, shaped by `--button-corner`. Focus uses the shared `focus-ring`.
+- A leading icon trims the left padding by about a quarter (xs 4px, sm 6px, md 8px), like the buttons, so the icon doesn't look pushed in. Put the icon as the badge's direct first child for this to apply.
+- Hover and press only exist when the badge is a link or a button (`render`). A static badge never changes on hover, so it never looks clickable.
+- Text in every tone passes AA on its own fill, in both themes.
+- When a badge is a select's trigger, its value changes through `BlurSwap` (see Select).
+
+## Examples
+
+### Pull request links
+
+The pull requests linked to a ticket, as `xs` badges that render as links. The tone follows the pull request's state: open is emerald, merged is violet, draft and closed are muted.
+
+<Demo name="pull-request-links" title="Pull request links" />
+
+### In a description
+
+Mentions and ticket references are soft `xs` badges that link somewhere; attachments are outline chips that open a preview.
+
+<Demo name="in-prose" title="In a description" />
+
+### Counts
+
+A ticket list section's muted count, and the filter button's active count. Click the button to change it.
+
+<Demo name="counts" title="Counts" />

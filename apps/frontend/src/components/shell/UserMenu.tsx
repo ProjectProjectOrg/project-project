@@ -1,17 +1,17 @@
 import { useAtomSet } from "@effect/atom-react"
 import type { User } from "@pp/shared"
-import { Link } from "@tanstack/react-router"
-import { LogOut, Settings, UserRound } from "lucide-react"
-
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import { Link } from "@tanstack/react-router"
+import { LogOut, Settings, UserRound } from "lucide-react"
+
 import { logout } from "@/features/auth/atoms/auth"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { m } from "@/paraglide/messages"
 
 export function UserMenu({ user }: { user: User }) {

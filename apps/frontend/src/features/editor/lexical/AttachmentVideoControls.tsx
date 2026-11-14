@@ -1,3 +1,5 @@
+import { Button } from "@pp/ui/button"
+import { transitions } from "@pp/ui/lib/springs"
 import {
   Download,
   Maximize,
@@ -10,9 +12,7 @@ import {
 import { motion } from "motion/react"
 import { useEffect, useState } from "react"
 
-import { Button } from "@/components/ui/button"
 import { formatVideoTime, videoProgress } from "@/features/editor/lib/videoTime"
-import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 import { AttachmentVideoScrubber } from "./AttachmentVideoScrubber"
@@ -101,7 +101,8 @@ export function AttachmentVideoControls({
           className="flex items-center gap-0.5"
         >
           <Button
-            variant="media"
+            variant="ghost"
+            tone="strong"
             size="square-7"
             aria-label={
               playing ? m.editor_video_pause() : m.editor_video_play()
@@ -136,7 +137,8 @@ export function AttachmentVideoControls({
           className="flex items-center gap-0.5"
         >
           <Button
-            variant="media"
+            variant="ghost"
+            tone="strong"
             size="sm"
             className="px-2 tabular-nums"
             aria-label={m.editor_video_speed({ rate: state.rate })}
@@ -146,7 +148,8 @@ export function AttachmentVideoControls({
           </Button>
           <span className="group/volume flex items-center">
             <Button
-              variant="media"
+              variant="ghost"
+              tone="strong"
               size="square-7"
               aria-label={
                 silent ? m.editor_video_unmute() : m.editor_video_mute()
@@ -171,7 +174,8 @@ export function AttachmentVideoControls({
             />
           </span>
           <Button
-            variant="media"
+            variant="ghost"
+            tone="strong"
             size="square-7"
             aria-label={
               fullscreen
@@ -187,7 +191,8 @@ export function AttachmentVideoControls({
             )}
           </Button>
           <Button
-            variant="media"
+            variant="ghost"
+            tone="strong"
             size="square-7"
             aria-label={m.editor_attachment_download()}
             render={

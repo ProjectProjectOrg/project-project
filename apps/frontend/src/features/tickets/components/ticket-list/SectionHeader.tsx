@@ -1,17 +1,17 @@
 import type { ProjectStatus, TicketStatus } from "@pp/shared"
+import { Badge } from "@pp/ui/badge"
+import { Hitbox } from "@pp/ui/hitbox"
+import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import { ChevronDown, Plus } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { forwardRef, type ReactNode, type Ref } from "react"
 
-import { CountPill } from "@/components/ui/count-pill"
-import { Hitbox } from "@/components/ui/hitbox"
 import {
   statusLabelFor,
   statusMetaFor
 } from "@/features/tickets/lib/ticketMeta"
 import { keepInPlace } from "@/lib/keepInPlace"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export type SectionHeading = {
@@ -57,7 +57,7 @@ function HeadingContent(props: HeadingSource & { count: number }): ReactNode {
         className="flex"
         aria-label={m.tickets_section_count_aria_label({ count })}
       >
-        <CountPill active={false}>{count}</CountPill>
+        <Badge variant="count">{count}</Badge>
       </span>
       {heading?.detail && (
         <span className="ml-auto hidden text-caption text-muted-foreground sm:block">

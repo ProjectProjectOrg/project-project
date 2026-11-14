@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -9,7 +10,6 @@ import {
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
-import { Button } from "@/components/ui/button"
 import {
   chooseGithubInstallation,
   githubInstallationChoices,

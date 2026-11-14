@@ -1,8 +1,5 @@
 import { TicketStatus } from "@pp/shared"
 import type { GithubConnection, TicketDetail } from "@pp/shared"
-import { CornerDownLeft, Plus } from "lucide-react"
-import { useState } from "react"
-
 import {
   DropdownMenuGroup,
   DropdownMenuInput,
@@ -11,9 +8,12 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
-} from "@/components/ui/dropdown-menu"
-import { Kbd, KbdGroup } from "@/components/ui/kbd"
-import { MiddleTruncate } from "@/components/ui/middle-truncate"
+} from "@pp/ui/dropdown-menu"
+import { Kbd, KbdGroup } from "@pp/ui/kbd"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
+import { CornerDownLeft, Plus } from "lucide-react"
+import { useState } from "react"
+
 import { useCreateBranch } from "@/features/github/hooks/useCreateBranch"
 import {
   branchMenuFilter,

@@ -1,10 +1,10 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
+import { Input } from "@pp/ui/input"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type FormEvent } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { connectEverhourProfileAtom } from "@/features/everhour/atoms/everhour"
 import * as m from "@/paraglide/messages"
 

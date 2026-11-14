@@ -1,3 +1,11 @@
+import { FluidHoverHighlight } from "@pp/ui/fluid-hover-highlight"
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+  type UseFluidHoverReturn
+} from "@pp/ui/hooks/useFluidHover"
+import { spring } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import {
   Link,
   useLocation,
@@ -15,15 +23,6 @@ import {
   useState,
   type ReactNode
 } from "react"
-
-import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
-import {
-  useFluidHover,
-  useRegisterFluidHoverItem,
-  type UseFluidHoverReturn
-} from "@/hooks/useFluidHover"
-import { spring } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 
 export function SettingsRail({ children }: Readonly<{ children: ReactNode }>) {
   return <div className="flex h-full flex-col gap-4">{children}</div>

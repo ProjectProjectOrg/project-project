@@ -4,6 +4,22 @@ import type {
   StackLayerState,
   Ticket
 } from "@pp/shared"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger
+} from "@pp/ui/context-menu"
+import {
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuGroup,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger
+} from "@pp/ui/dropdown-menu"
+import { cn } from "@pp/ui/lib/utils"
 import {
   ArrowUpRight,
   Copy,
@@ -15,21 +31,6 @@ import {
 } from "lucide-react"
 import { Fragment, useRef, useState, type ReactNode } from "react"
 
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuTrigger
-} from "@/components/ui/context-menu"
-import {
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuGroup,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger
-} from "@/components/ui/dropdown-menu"
 import { usePreferredBranchLink } from "@/features/github/components/ticket-git/BranchChip"
 import { RemoveBranchAction } from "@/features/github/components/ticket-git/BranchMenu"
 import { BranchPicker } from "@/features/github/components/ticket-git/BranchPicker"
@@ -41,7 +42,6 @@ import {
 import { compareUrl } from "@/features/github/lib/branchUrl"
 import { canStackOn } from "@/features/github/lib/stacking"
 import { useProjectActor } from "@/hooks/useActor"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import {

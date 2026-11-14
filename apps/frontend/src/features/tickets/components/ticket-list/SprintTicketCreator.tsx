@@ -6,6 +6,18 @@ import {
 } from "@effect/atom-react"
 import { isEpic } from "@pp/shared"
 import type { GroupId, Ticket, TicketId } from "@pp/shared"
+import { AutoHeight } from "@pp/ui/auto-height"
+import {
+  CommandMenu,
+  CommandMenuItem,
+  CommandMenuList,
+  commandMenuItemId,
+  useCommandMenu,
+  type CommandMenuItemData
+} from "@pp/ui/command-menu"
+import { cn } from "@pp/ui/lib/utils"
+import type { ListboxState } from "@pp/ui/menu-listbox"
+import { MenuNote } from "@pp/ui/menu-note"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -24,17 +36,6 @@ import {
   type Ref
 } from "react"
 
-import { AutoHeight } from "@/components/ui/auto-height"
-import {
-  CommandMenu,
-  CommandMenuItem,
-  CommandMenuList,
-  commandMenuItemId,
-  useCommandMenu,
-  type CommandMenuItemData
-} from "@/components/ui/command-menu"
-import type { ListboxState } from "@/components/ui/menu-listbox"
-import { MenuNote } from "@/components/ui/menu-note"
 import { projectGitStates } from "@/features/github/atoms/github"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -54,7 +55,6 @@ import {
   ticketCreateErrorMessage
 } from "@/lib/mutationError"
 import { isNearScrollEnd } from "@/lib/scroll"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { CreatorTypeMenu } from "./CreatorMenus"

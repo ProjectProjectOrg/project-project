@@ -1,0 +1,107 @@
+export const meta = {
+  title: "Dropdown menu",
+  group: "Primitives",
+  description:
+    "Actions and pickers opened from a trigger, with the app's surface, a sliding highlight and checkbox rows for multi-select.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "Menu",
+      href: "https://base-ui.com/react/components/menu"
+    },
+    {
+      kind: "shadcn",
+      name: "dropdown-menu",
+      note: "starting point, restyled",
+      href: "https://ui.shadcn.com/docs/components/dropdown-menu"
+    },
+    { kind: "own", name: "MenuHighlight", note: "sliding highlight" }
+  ]
+}
+
+## Overview
+
+Every kind of row and state in one menu: the highlight resting on the first item, plain items with icons and shortcuts, a disabled item, checkbox and radio choices, a submenu and a destructive action. Hover or use the arrow keys to move the highlight.
+
+<Demo name="overview" title="All states" className="min-h-[38rem] place-items-start justify-items-center" />
+
+## Usage
+
+```tsx
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
+
+<DropdownMenu>
+  <DropdownMenuTrigger render={<Button variant="secondary" />}>
+    {m.tickets_filters_tags()}
+  </DropdownMenuTrigger>
+  <DropdownMenuContent className="w-56">
+    {tags.map((tag) => (
+      <DropdownMenuCheckboxItem
+        key={tag.name}
+        label={tag.name}
+        checked={selected.has(tag.name)}
+        closeOnClick={false}
+        onCheckedChange={() => toggle(tag.name)}
+      >
+        <TagDot color={tag.color} />
+        {tag.name}
+      </DropdownMenuCheckboxItem>
+    ))}
+  </DropdownMenuContent>
+</DropdownMenu>
+```
+
+A row's children are its marker (an icon, dot or avatar), its label and an optional count with `data-menu-meta`. The tick slot is added for you.
+
+## Rules
+
+### Multi-select rows use `DropdownMenuCheckboxItem`
+
+A row that toggles a choice inside a menu is a `menuitemcheckbox`, never a checkbox nested in a menu item. The menu stays open while you toggle, through `closeOnClick={false}`.
+
+### On rows step forward, off rows step back
+
+A checked row gets a leading tick and a full-colour, semibold label. Unchecked rows dim their marker (dot, icon or avatar), so the selection reads at a glance. Labels and counts keep the muted text colour, which meets WCAG AA contrast (6.9:1 on the menu surface); dimming them further fails it.
+
+### The tick's slot opens and closes
+
+Ticking opens a 16px slot with a spring, pushing the row along, then draws the tick. Unticking rewinds the tick first, then closes the slot.
+
+### Radio rows match checkbox rows
+
+A radio row behaves like a checkbox row: the chosen option gets the leading slot, a full-colour semibold label and a dot instead of a tick. The dot springs in from nothing once the slot has opened, and shrinks away quickly when another option is chosen. Single and multiple choice then read the same way, and only the mark tells them apart.
+
+### Shortcuts sit a little in from the edge
+
+Shortcuts and other trailing text get 4px more room on the right than the row's 8px padding, so letters such as ⌘D don't crowd the highlight's rounded edge. Trailing icons, such as the submenu chevron, keep the plain padding.
+
+## Examples
+
+### Ticket actions
+
+The more-actions menu on a ticket row, opened from its three-dot button. Properties open as submenus with radio rows, the assignee submenu filters as you type, and destructive actions sit last, after a separator.
+
+<Demo name="ticket-actions" title="Ticket actions" className="min-h-[30rem] place-items-start" />
+
+### Status picker
+
+The status chip on a ticket. Each status is a radio row with its own icon: the current one gets the dot and keeps its colour, the others dim their icon. A plain link row after the separator leads to the workflow settings.
+
+<Demo name="status-picker" title="Status picker" className="min-h-96 place-items-start" />
+
+### User menu
+
+The avatar menu in the sidebar. A header with the signed-in account sits above the items, and signing out is the destructive last row.
+
+<Demo name="user-menu" title="User menu" className="min-h-96 place-items-start" />
+
+### Multi-select pickers
+
+The tag picker and board column picker as the app uses them: a marker, a label and a count per row, with the selection reading at a glance.
+
+<Demo name="checkbox-items" title="Checkbox items" className="min-h-96 place-items-start" />

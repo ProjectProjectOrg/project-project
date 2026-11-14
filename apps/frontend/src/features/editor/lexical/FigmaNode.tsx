@@ -1,5 +1,7 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { parseFigmaUrl, type FigmaDensity, type FigmaRef } from "@pp/shared"
+import { standardEaseCss, transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import {
   $applyNodeReplacement,
   $getNodeByKey,
@@ -20,8 +22,6 @@ import { useCallback, useLayoutEffect, useRef, type ReactElement } from "react"
 
 import { useDecoratorSelection } from "@/features/editor/hooks/useDecoratorSelection"
 import type { FigmaTicketLinksRequest } from "@/features/figma/atoms/figma"
-import { standardEaseCss, transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { FigmaChip } from "./FigmaChip"

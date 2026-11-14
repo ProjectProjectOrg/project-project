@@ -7,13 +7,13 @@ import {
   type TicketDetail,
   type TicketId
 } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Input } from "@pp/ui/input"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Split } from "lucide-react"
 import { useRef } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   splitTicket,
@@ -144,7 +144,7 @@ export function TicketSplitForm({
                     <form.Field name={`results[${index}].title`}>
                       {(titleField) => (
                         <Input
-                          variant="inline"
+                          size="md"
                           value={titleField.value}
                           onChange={(e) =>
                             titleField.handleChange(e.target.value)

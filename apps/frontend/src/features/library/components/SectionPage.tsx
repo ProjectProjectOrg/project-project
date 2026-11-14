@@ -6,12 +6,12 @@ import {
   type Library,
   type UpdateBlockInput
 } from "@pp/shared"
+import { Switch } from "@pp/ui/switch"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
 import { useCallback, useId, useMemo, useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { Switch } from "@/components/ui/switch"
 import {
   LexicalEditor,
   type SaveStatus

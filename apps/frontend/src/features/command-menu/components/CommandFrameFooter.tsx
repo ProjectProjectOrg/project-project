@@ -1,12 +1,13 @@
-import { motion, useReducedMotion } from "motion/react"
-
 import {
   CommandMenuFooter,
   CommandMenuFooterHint,
   CommandMenuShortcut,
   useHighlightedItem
-} from "@/components/ui/command-menu"
-import { springs } from "@/lib/springs"
+} from "@pp/ui/command-menu"
+import { springs } from "@pp/ui/lib/springs"
+import { motion, useReducedMotion } from "motion/react"
+
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import type { CommandFrameItem } from "./CommandFrame"
@@ -14,7 +15,11 @@ import type { CommandFrameItem } from "./CommandFrame"
 function KeyFirst({ keys, label }: Readonly<{ keys: string; label: string }>) {
   return (
     <span className="flex shrink-0 items-center gap-1.5">
-      <CommandMenuShortcut keys={keys} className="ml-0" />
+      <CommandMenuShortcut
+        keyLabels={keyLabels()}
+        keys={keys}
+        className="ml-0"
+      />
       <span>{label}</span>
     </span>
   )
@@ -52,12 +57,14 @@ export function SearchFooter({
           )}
           {peekOpen ? (
             <CommandMenuFooterHint
+              keyLabels={keyLabels()}
               label={m.chrome_command_menu_close_peek()}
               keys="arrowleft"
             />
           ) : (
             shown?.peekable === true && (
               <CommandMenuFooterHint
+                keyLabels={keyLabels()}
                 label={m.chrome_command_menu_peek()}
                 keys="arrowright"
               />

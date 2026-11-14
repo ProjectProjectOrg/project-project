@@ -1,8 +1,9 @@
+import { Button } from "@pp/ui/button"
+import { ConfirmButton } from "@pp/ui/confirm-button"
 import * as Exit from "effect/Exit"
 import type { ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 type Outcome = Exit.Exit<unknown, unknown>
@@ -53,6 +54,8 @@ export function DeleteEntryConfirm({
       </ConfirmButton.Trigger>
       <ConfirmButton.Confirm className="flex-wrap">
         <ConfirmButton.Action
+          cancelLabel={m.common_cancel_button()}
+          describeError={describeCause}
           prompt={m.templates_settings_delete_confirm({ name })}
           label={m.templates_settings_action_delete()}
           onConfirm={() => onDelete().then(Exit.isSuccess)}

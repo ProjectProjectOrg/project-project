@@ -1,0 +1,74 @@
+export const meta = {
+  title: "Confirm button",
+  group: "Primitives",
+  description:
+    "A two-step confirm for destructive actions: the trigger gives way to a prompt with a confirm and a cancel button, in place, in a popover or from a menu item. Used for deleting comments, members, attachments, projects and organizations, and for disconnecting integrations.",
+  sources: [
+    { kind: "own", name: "ConfirmButton", note: "compound component on Button" }
+  ]
+}
+
+## Overview
+
+Triggers in every state, then the confirm step in each size, layout and status. The rows below the triggers start in the confirm step.
+
+<Demo
+  name="overview"
+  title="All states"
+  className="min-h-96 place-items-start"
+/>
+
+## Usage
+
+```tsx
+import { ConfirmButton } from "@pp/ui/confirm-button"
+
+;<ConfirmButton.Root>
+  <ConfirmButton.DeleteTrigger aria-label={m.comments_delete_aria_label()} />
+  <ConfirmButton.Confirm>
+    <ConfirmButton.Action
+      cancelLabel={m.common_cancel_button()}
+      describeError={describeCause}
+      prompt={m.comments_delete_confirm()}
+      label={m.common_delete_confirm_button()}
+      busyLabel={m.common_deleting_button()}
+      onConfirm={() => remove()}
+    />
+  </ConfirmButton.Confirm>
+</ConfirmButton.Root>
+```
+
+`Root` holds the state. `Trigger` (any button) or `DeleteTrigger` (the trash icon) opens the confirm step; `MenuItem` opens it from a dropdown menu. `Confirm` shows its children in place of the trigger, and `Popover` shows them in a popover anchored to an element. `Action` is the prompt with its buttons. `onConfirm` may return an Effect `Exit`: a failure shows `describeError(cause)` in place of the prompt and keeps the step open.
+
+`Action` props:
+
+| Prop            | Type                                     | Default         |
+| --------------- | ---------------------------------------- | --------------- |
+| `prompt`        | `ReactNode`                              |                 |
+| `label`         | `ReactNode`                              |                 |
+| `cancelLabel`   | `ReactNode`                              |                 |
+| `describeError` | `(cause: Cause<E>) => string`            |                 |
+| `onConfirm`     | `() => Promise<Outcome> \| Outcome`      |                 |
+| `busyLabel`     | `ReactNode`                              | `label`         |
+| `description`   | `ReactNode` (stacked and menu layouts)   |                 |
+| `size`          | `"sm" \| "xs"` (inline layout)           | `"sm"`          |
+| `layout`        | `"inline" \| "stacked" \| "menu"`        | `"inline"`      |
+| `tone`          | `"destructive" \| "neutral"`             | `"destructive"` |
+| `typed`         | `string`, text to type before confirming |                 |
+| `waiting`       | `boolean`, busy state from outside       |                 |
+| `error`         | `ReactNode`, error from outside          |                 |
+| `disabled`      | `boolean`                                | `false`         |
+
+`Root` takes `bare` to skip its wrapping span. `Trigger` and `DeleteTrigger` take `persist` to stay visible while confirming. `Confirm`, `Popover` and `MenuItem` take a key (`when`, `confirm`) so one root can hold several confirm steps.
+
+## Rules
+
+Rules are written during this component's polish pass.
+
+## Examples
+
+### Comment row
+
+The delete control in a comment header: the trash icon gives way to the prompt, focus moves to Cancel, and Esc goes back.
+
+<Demo name="comment-row" title="Comment row" />

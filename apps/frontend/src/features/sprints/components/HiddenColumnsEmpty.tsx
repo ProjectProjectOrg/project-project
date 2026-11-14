@@ -1,6 +1,4 @@
-import { EyeOff } from "lucide-react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   Empty,
   EmptyContent,
@@ -8,7 +6,9 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle
-} from "@/components/ui/empty"
+} from "@pp/ui/empty"
+import { EyeOff } from "lucide-react"
+
 import { m } from "@/paraglide/messages"
 
 export function HiddenColumnsEmpty({

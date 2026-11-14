@@ -6,19 +6,19 @@ import type {
   TicketId,
   TicketRelations
 } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger
+} from "@pp/ui/context-menu"
+import { DropdownMenuItem } from "@pp/ui/dropdown-menu"
+import { Popover, PopoverTrigger } from "@pp/ui/popover"
 import { Link } from "@tanstack/react-router"
 import { Unlink, X } from "lucide-react"
 import { useContext, useRef, useState } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { Button } from "@/components/ui/button"
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuTrigger
-} from "@/components/ui/context-menu"
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   ticketRequest,
@@ -149,7 +149,8 @@ function RelationEntry({
                   preload="intent"
                 />
               }
-              variant="chip"
+              variant="ghost"
+              tone="strong"
               className="max-w-full min-w-0 pr-9 group-hover/reveal:bg-hover"
             />
           }
@@ -184,7 +185,7 @@ function RelationEntry({
       {unmark !== null && (
         <Button
           type="button"
-          variant="quiet"
+          variant="ghost"
           size="square-7"
           aria-label={m.tickets_relations_remove_aria_label({
             title: linked.title

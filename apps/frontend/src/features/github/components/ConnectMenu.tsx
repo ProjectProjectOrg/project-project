@@ -1,19 +1,20 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { ProjectGithubInstallation } from "@pp/shared"
-import { Link } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
-import { AlertTriangle, GitBranch as GithubIcon, Settings2 } from "lucide-react"
-import { useState } from "react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { MenuNote } from "@/components/ui/menu-note"
+} from "@pp/ui/dropdown-menu"
+import { cn } from "@pp/ui/lib/utils"
+import { MenuNote } from "@pp/ui/menu-note"
+import { Link } from "@tanstack/react-router"
+import * as Result from "effect/reactivity/AsyncResult"
+import { AlertTriangle, GitBranch as GithubIcon, Settings2 } from "lucide-react"
+import { useState } from "react"
+
 import {
   githubIntegration,
   githubOrgRequest,
@@ -24,7 +25,6 @@ import { useConnectGithubError } from "@/features/github/hooks/useConnectGithubE
 import { useGithubInstall } from "@/features/github/hooks/useGithubInstall"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useOrgActor } from "@/hooks/useActor"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function ConnectMenu() {

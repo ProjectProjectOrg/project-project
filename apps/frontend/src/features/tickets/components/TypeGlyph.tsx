@@ -1,8 +1,8 @@
+import { cn } from "@pp/ui/lib/utils"
 import { CircleDashed } from "lucide-react"
 
 import { BlockIconGlyph } from "@/features/library/components/BlockIconGlyph"
 import type { TicketType } from "@/features/tickets/lib/ticketTypes"
-import { cn } from "@/lib/utils"
 
 export const NoTypeIcon = CircleDashed
 

@@ -5,13 +5,13 @@ import {
 } from "@effect/atom-react"
 import { isEpic, isEpicType } from "@pp/shared"
 import type { Group, Ticket, TicketParent } from "@pp/shared"
+import { AutoHeight } from "@pp/ui/auto-height"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Random from "effect/Random"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useContext, useMemo, useRef, useState, type FormEvent } from "react"
 
-import { AutoHeight } from "@/components/ui/auto-height"
 import { currentUserId } from "@/features/auth/atoms/auth"
 import { projectGitStates } from "@/features/github/atoms/github"
 import {

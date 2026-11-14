@@ -1,7 +1,7 @@
 import { isRasterImageContentType } from "@pp/shared"
+import { chipIconActionClass } from "@pp/ui/morph-icon-link"
 import { CircleAlert, LoaderCircle, X } from "lucide-react"
 
-import { chipIconActionClass } from "@/components/ui/morph-icon-link"
 import { AttachmentChip } from "@/features/attachments/components/AttachmentChip"
 import type { FeedbackFileDraft } from "@/features/feedback/hooks/useFeedbackFiles"
 import { m } from "@/paraglide/messages"

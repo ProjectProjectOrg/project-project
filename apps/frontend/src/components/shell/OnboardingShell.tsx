@@ -1,7 +1,6 @@
+import { DitherBackdrop } from "@pp/ui/button-dither"
 import type { LucideIcon } from "lucide-react"
 import type { ReactNode } from "react"
-
-import { DitherBackdrop } from "@/components/ui/button-dither"
 
 export function OnboardingGateStatus({ children }: { children: ReactNode }) {
   return (

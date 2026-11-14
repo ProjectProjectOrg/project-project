@@ -1,4 +1,11 @@
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut
+} from "@pp/ui/dropdown-menu"
+import {
   ArrowDown,
   ArrowUp,
   Copy,
@@ -9,13 +16,6 @@ import {
   Upload
 } from "lucide-react"
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut
-} from "@/components/ui/dropdown-menu"
 import { BlockIconGlyph } from "@/features/library/components/BlockIconGlyph"
 import { m } from "@/paraglide/messages"
 

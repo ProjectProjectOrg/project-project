@@ -1,0 +1,76 @@
+export const meta = {
+  title: "Checkbox",
+  group: "Primitives",
+  description:
+    "A squircle box that fills with ink when checked and draws its tick on. Used for row selection, task lists and form toggles.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "Checkbox",
+      href: "https://base-ui.com/react/components/checkbox"
+    },
+    {
+      kind: "shadcn",
+      name: "checkbox",
+      note: "starting point, fully restyled",
+      href: "https://ui.shadcn.com/docs/components/checkbox"
+    }
+  ]
+}
+
+## Overview
+
+Every state at once. Hover, pressed and focus are pinned with `data-force`; the large row is live, so click it to see the motion.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+Wrap the checkbox in a `label` so the text toggles it too. The label is the accessible name; without one, pass `aria-label`.
+
+```tsx
+import { Checkbox } from "@pp/ui/checkbox"
+
+<label className="flex items-center gap-2 text-body">
+  <Checkbox checked={includeTags} onCheckedChange={setIncludeTags} />
+  {m.templates_save_as_include_tags()}
+</label>
+```
+
+| Prop                         | Type                         | Default     |
+| ---------------------------- | ---------------------------- | ----------- |
+| `checked` / `defaultChecked` | `boolean`                    |             |
+| `indeterminate`              | `boolean`                    | `false`     |
+| `onCheckedChange`            | `(checked: boolean) => void` |             |
+| `variant`                    | `"default" \| "quiet"`       | `"default"` |
+| `disabled` / `readOnly`      | `boolean`                    | `false`     |
+
+Every other prop goes to Base UI's `Checkbox.Root`.
+
+## Rules
+
+### Squircle box, ink fill
+
+The box has squircle corners (`corner-shape: squircle`), with a 4.5px rounded fallback in browsers without it. Unchecked, it shows a 1.5px ring at 30% ink, which meets the 3:1 contrast that a control's edge needs.
+
+### Ticking blooms, unticking rewinds
+
+Ticking scales the fill up from 40% with a light spring, then the tick draws on 60ms later. Unticking rewinds the tick and shrinks the fill in about 150ms. Reduced motion keeps only a fade.
+
+### Press and focus
+
+A press scales the box to 97%, the app-wide press standard. Keyboard focus shows a blue ring with a 2px gap. The hit area reaches 8px past the box.
+
+## Examples
+
+### In a form
+
+A parent checkbox shows the mixed state while only some of its children are on.
+
+<Demo name="in-a-form" title="Nested fields" />
+
+### Quiet variant
+
+A little larger with a lighter ring. Ticket rows use it, where it only appears on hover.
+
+<Demo name="quiet" title="Quiet" />

@@ -1,6 +1,6 @@
+import { Button } from "@pp/ui/button"
 import { Plus } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 
 type Props = Readonly<{
@@ -21,7 +21,7 @@ export function StatusPhaseHeader({ label, ticketCount, onAdd }: Props) {
       {onAdd ? (
         <Button
           type="button"
-          variant="quiet"
+          variant="ghost"
           size="square-7"
           className="size-6"
           aria-label={m.tickets_status_create_add_to({ phase: label })}

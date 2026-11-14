@@ -1,7 +1,7 @@
+import { Button } from "@pp/ui/button"
 import type { ReactNode } from "react"
 
 import { SettingsSection } from "@/components/shell/settings/SettingsSection"
-import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 
 export type StepFrame = Readonly<{

@@ -1,7 +1,7 @@
+import { Select, SelectTrigger } from "@pp/ui/select"
 import type { LucideIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { Select, SelectTrigger } from "@/components/ui/select"
 import { useRowFilter } from "@/features/jira/hooks/useRowFilter"
 import type { JiraImportSetup } from "@/features/jira/lib/draft"
 import { formatCount } from "@/features/jira/lib/format"

@@ -1,5 +1,6 @@
+import { cn } from "@pp/ui/lib/utils"
+
 import type { TypeStart } from "@/features/tickets/lib/creatorType"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 

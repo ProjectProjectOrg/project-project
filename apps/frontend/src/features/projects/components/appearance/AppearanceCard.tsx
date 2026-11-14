@@ -1,10 +1,10 @@
+import { Button } from "@pp/ui/button"
+import { transitions } from "@pp/ui/lib/springs"
+import { SurfaceProvider } from "@pp/ui/lib/surfaceContext"
+import { cn } from "@pp/ui/lib/utils"
 import { motion, useReducedMotion } from "motion/react"
 import { useEffect, useRef, type ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
-import { transitions } from "@/lib/springs"
-import { SurfaceProvider } from "@/lib/surfaceContext"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 function useSharedTransition() {

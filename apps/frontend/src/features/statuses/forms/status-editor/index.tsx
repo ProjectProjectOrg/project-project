@@ -1,11 +1,11 @@
 import { STATUS_DESCRIPTION_MAX_LENGTH } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Input } from "@pp/ui/input"
+import { cn } from "@pp/ui/lib/utils"
 import { useState, type KeyboardEvent } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { StatusIconPicker } from "@/features/statuses/components/StatusIconPicker"
 import { useAppForm, useFormValues } from "@/lib/form"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { statusEditorFormOpts, type StatusEditorValues } from "./opts"

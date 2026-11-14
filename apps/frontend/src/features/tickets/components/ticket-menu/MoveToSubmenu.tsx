@@ -1,11 +1,11 @@
-import { ArrowRightLeft, FolderInput, Timer } from "lucide-react"
-
 import {
   DropdownMenuItem,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import { ArrowRightLeft, FolderInput, Timer } from "lucide-react"
+
 import { m } from "@/paraglide/messages"
 
 export function MoveToSubmenu({

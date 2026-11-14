@@ -6,11 +6,12 @@ import {
   type TicketDetail,
   type TicketId
 } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
 import * as Result from "effect/reactivity/AsyncResult"
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react"
 
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {
   projectEstimation,
   projectRequest
@@ -42,7 +43,6 @@ import {
   statusMetaFor
 } from "@/features/tickets/lib/ticketMeta"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const loadMarkdown = () => import("@/features/editor/components/Markdown")

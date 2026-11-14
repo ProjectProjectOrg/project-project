@@ -6,13 +6,13 @@ import {
 import { preserveOffsetOnSource } from "@atlaskit/pragmatic-drag-and-drop/element/preserve-offset-on-source"
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview"
 import type { Member, ProjectStatus, Ticket, TicketId } from "@pp/shared"
+import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import { motion, Reorder, useDragControls } from "motion/react"
 import { useContext, useEffect, useRef, useState, type ReactNode } from "react"
 
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 
 import { BoardKeyboardContext } from "../hooks/useBoardKeyboardNavigation"
 import type { CardDropData, ColumnDropData, DragData } from "../lib/boardUtils"

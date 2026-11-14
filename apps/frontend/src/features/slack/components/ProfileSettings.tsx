@@ -1,12 +1,12 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { SlackProfile } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
-import { Button } from "@/components/ui/button"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
 import { mutationErrorText, slackActionErrorMessage } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import {

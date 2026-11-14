@@ -1,19 +1,15 @@
 import { attachmentDownloadUrl, isRasterImageContentType } from "@pp/shared"
 import type { AttachmentRow, AttachmentTicketRef } from "@pp/shared"
 import { formatAttachmentMarkdown } from "@pp/shared"
+import { Checkbox } from "@pp/ui/checkbox"
+import { CopyButton } from "@pp/ui/copy-button"
+import { cn } from "@pp/ui/lib/utils"
+import { Select, SelectTrigger } from "@pp/ui/select"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { Download, FileText } from "lucide-react"
 
-import { Checkbox } from "@/components/ui/checkbox"
-import { CopyButton } from "@/components/ui/copy-button"
-import { Select, SelectTrigger } from "@/components/ui/select"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { formatBytes } from "@/lib/formatBytes"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 

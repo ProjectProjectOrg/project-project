@@ -1,21 +1,18 @@
 import { useAtomSet } from "@effect/atom-react"
 import { isEpic, type Ticket } from "@pp/shared"
-import { ListPlus, Plus } from "lucide-react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger
-} from "@/components/ui/context-menu"
-import {
-  DropdownMenuItem,
-  DropdownMenuShortcut
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/context-menu"
+import { DropdownMenuItem, DropdownMenuShortcut } from "@pp/ui/dropdown-menu"
+import { cn } from "@pp/ui/lib/utils"
+import { ListPlus, Plus } from "lucide-react"
+
 import { commandMenuState } from "@/features/command-menu/atoms/commandMenu"
 import { openCommandMenu } from "@/features/command-menu/lib/commandMenu"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type Parent = Pick<Ticket, "id" | "type">
@@ -44,7 +41,7 @@ export function AddChildTicketButton({
         render={
           <Button
             type="button"
-            variant="quiet"
+            variant="ghost"
             size="square-7"
             aria-label={label}
             aria-keyshortcuts="c"

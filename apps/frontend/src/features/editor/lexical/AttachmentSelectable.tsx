@@ -1,4 +1,6 @@
 import type { AttachmentDensity } from "@pp/shared"
+import { standardEaseCss, transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import type { NodeKey } from "lexical"
 import { Maximize2, Minimize2, Trash2 } from "lucide-react"
 import {
@@ -10,8 +12,6 @@ import {
 import { useLayoutEffect, useRef, type ReactNode } from "react"
 
 import { useDecoratorSelection } from "@/features/editor/hooks/useDecoratorSelection"
-import { standardEaseCss, transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { NodeOverlayAction } from "./NodeOverlayAction"

@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import { transitions } from "@pp/ui/lib/springs"
 import { getRouteApi, Outlet, useLocation } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { motion, useReducedMotion } from "motion/react"
@@ -23,7 +24,6 @@ import {
   ProjectContext
 } from "@/features/projects/hooks/useProject"
 import { PROJECT_SETTINGS_SECTIONS } from "@/features/projects/lib/projectSettingsSections"
-import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi("/_authed/orgs/$orgSlug/projects/$slug/settings")

@@ -1,5 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { UserInvitation } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
 import {
   getRouteApi,
   Link,
@@ -17,7 +19,6 @@ import {
   OnboardingGateStatus,
   OnboardingShell
 } from "@/components/shell/OnboardingShell"
-import { Button } from "@/components/ui/button"
 import { logout, me, setActiveOrganization } from "@/features/auth/atoms/auth"
 import {
   acceptInvitation,
@@ -30,7 +31,6 @@ import {
 } from "@/features/organizations/lib/invitations"
 import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi("/invite/$invitationId")

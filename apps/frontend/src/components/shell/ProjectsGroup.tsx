@@ -1,5 +1,8 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { ProjectIconImage } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import { Link, useLocation } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { FolderKanban, Settings } from "lucide-react"
@@ -11,14 +14,11 @@ import {
   navFocusRing,
   useNavHoverItem
 } from "@/components/shell/NavItem"
-import { Button } from "@/components/ui/button"
 import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
 import { ProjectIconDisplay } from "@/features/projects/components/ProjectIconDisplay"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const PROJECT_ROW_INDEX_OFFSET = 2
@@ -150,7 +150,7 @@ function ProjectsGroupRow({
         <span className="min-w-0 flex-1 truncate">{name}</span>
       </Link>
       <Button
-        variant="quiet"
+        variant="ghost"
         size="square-7"
         render={
           <Link

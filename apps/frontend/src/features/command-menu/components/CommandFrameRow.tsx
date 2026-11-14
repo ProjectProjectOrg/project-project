@@ -1,8 +1,7 @@
 import type { TextRange } from "@pp/shared"
+import { CommandMenuItem } from "@pp/ui/command-menu"
+import { cn } from "@pp/ui/lib/utils"
 import { ChevronRight } from "lucide-react"
-
-import { CommandMenuItem } from "@/components/ui/command-menu"
-import { cn } from "@/lib/utils"
 
 import type { CommandFrameItem } from "./CommandFrame"
 

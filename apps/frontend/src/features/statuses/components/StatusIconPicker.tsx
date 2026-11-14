@@ -1,11 +1,11 @@
 import { TAG_COLOR_WHEEL, type StatusIconName } from "@pp/shared"
+import { IconGridPicker } from "@pp/ui/icon-grid-picker"
+import { cn } from "@pp/ui/lib/utils"
 
-import { IconGridPicker } from "@/components/ui/icon-grid-picker"
 import {
   STATUS_ICON_NAMES,
   getStatusIcon
 } from "@/features/statuses/lib/statusIcons"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type Props = {

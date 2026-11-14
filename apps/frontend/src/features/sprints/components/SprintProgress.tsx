@@ -7,17 +7,14 @@ import {
   type EstimateTotals,
   type Group
 } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
+import { PreviewCardContent } from "@pp/ui/preview-card"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import { CircleDashed, Shirt } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { PreviewCardContent } from "@/components/ui/preview-card"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import {
   sprintTimeAtom,
   sprintTimerRequest
@@ -30,7 +27,6 @@ import {
   isEmptyEstimateSummary
 } from "@/features/tickets/lib/estimateMeta"
 import { formatWorkDuration } from "@/lib/duration"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { sprintStatusText } from "./SprintChip"

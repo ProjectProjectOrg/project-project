@@ -1,13 +1,13 @@
 import type { TicketId } from "@pp/shared"
-import type { ReactElement } from "react"
-
-import { Composer } from "@/components/ui/composer"
+import { Composer } from "@pp/ui/composer"
 import {
   Popover,
   PopoverClose,
   PopoverTitle,
   PopoverTrigger
-} from "@/components/ui/popover"
+} from "@pp/ui/popover"
+import type { ReactElement } from "react"
+
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { CreateSprintForm } from "@/features/sprints/forms/create-sprint"
 import { m } from "@/paraglide/messages"

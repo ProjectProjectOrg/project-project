@@ -1,5 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { OrgDetail } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { DitherShell } from "@pp/ui/dither-shell"
 import { useRouter } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
@@ -8,8 +10,6 @@ import * as Predicate from "effect/Predicate"
 import { useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { Button } from "@/components/ui/button"
-import { DitherShell } from "@/components/ui/dither-shell"
 import {
   orgDetail,
   orgRequest,

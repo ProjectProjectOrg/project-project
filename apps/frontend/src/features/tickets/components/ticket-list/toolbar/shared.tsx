@@ -1,11 +1,7 @@
+import { cn } from "@pp/ui/lib/utils"
+import { Select, SelectTrigger, type SelectOption } from "@pp/ui/select"
 import type { ComponentProps, ReactNode } from "react"
 
-import {
-  Select,
-  SelectTrigger,
-  type SelectOption
-} from "@/components/ui/select"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function ToolbarButton({

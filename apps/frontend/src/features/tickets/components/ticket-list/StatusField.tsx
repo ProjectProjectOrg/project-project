@@ -1,11 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { Ticket, TicketStatus } from "@pp/shared"
-import { useNavigate } from "@tanstack/react-router"
-import * as Result from "effect/reactivity/AsyncResult"
-import { ArrowRight } from "lucide-react"
-import { type MouseEvent } from "react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +8,13 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import { cn } from "@pp/ui/lib/utils"
+import { useNavigate } from "@tanstack/react-router"
+import * as Result from "effect/reactivity/AsyncResult"
+import { ArrowRight } from "lucide-react"
+import { type MouseEvent } from "react"
+
 import {
   statusesFor,
   statusesRequest
@@ -25,7 +26,6 @@ import {
   statusLabelFor
 } from "@/features/tickets/lib/ticketMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 function StatusTrigger({
@@ -64,7 +64,8 @@ function StatusTrigger({
       render={
         <Button
           type="button"
-          variant="chip"
+          variant="ghost"
+          tone="strong"
           size={showLabel ? undefined : "square-6"}
           {...triggerProps}
         />

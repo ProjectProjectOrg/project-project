@@ -1,11 +1,11 @@
 import { type Project } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import { ChevronRight } from "lucide-react"
 
 import { ProjectBanner } from "@/features/projects/components/ProjectBanner"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import { formatRelative } from "@/lib/relativeTime"
-import { cn } from "@/lib/utils"
 
 export function ProjectRow({
   orgSlug,

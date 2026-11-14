@@ -1,9 +1,5 @@
-import {
-  Empty,
-  EmptyDescription,
-  EmptyMedia,
-  EmptyTitle
-} from "@/components/ui/empty"
+import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from "@pp/ui/empty"
+
 import { m } from "@/paraglide/messages"
 
 import { DitheredCalendar } from "./DitheredCalendar"

@@ -1,10 +1,10 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
 import { getRouteApi, Navigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState } from "react"
 
-import { Button } from "@/components/ui/button"
 import { me } from "@/features/auth/atoms/auth"
 import {
   oauthClientNameAtom,

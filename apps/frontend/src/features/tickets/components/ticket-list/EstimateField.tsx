@@ -7,19 +7,18 @@ import {
   type EstimateUnit,
   type EstimationMode
 } from "@pp/shared"
+import { BlurSwap } from "@pp/ui/blur-swap"
+import { Button } from "@pp/ui/button"
+import { Input } from "@pp/ui/input"
+import { Kbd } from "@pp/ui/kbd"
+import { blurSwap } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
+import { Select, SelectTrigger } from "@pp/ui/select"
 import { Plus, X } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useId, useState, type FormEvent, type ReactElement } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Kbd } from "@/components/ui/kbd"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
-import { Select, SelectTrigger } from "@/components/ui/select"
 import {
   ESTIMATE_UNIT_ICON,
   formatEstimate,
@@ -29,8 +28,6 @@ import {
 } from "@/features/tickets/lib/estimateMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { formatWorkDurationLong } from "@/lib/duration"
-import { blurSwap } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const NO_ESTIMATE = "__no-estimate"
@@ -150,14 +147,17 @@ function estimateTrigger(
   return (
     <Button
       type="button"
-      variant={active === null ? "chip-muted" : "chip"}
+      variant="ghost"
+      tone={active === null ? "muted" : "strong"}
       onClick={(e) => e.stopPropagation()}
       aria-label={m.tickets_estimate_aria_label({ label })}
       title={stale !== null ? m.tickets_estimate_stale_hint() : undefined}
       className={className}
     >
-      <Icon className="size-3.5" strokeWidth={1.75} />
-      <span>{label}</span>
+      <BlurSwap id={label} className="gap-1.5">
+        <Icon className="size-3.5" strokeWidth={1.75} />
+        <span>{label}</span>
+      </BlurSwap>
     </Button>
   )
 }
@@ -281,7 +281,7 @@ function EstimateInputForm({
           setDraft(event.target.value)
           setInvalid(false)
         }}
-        variant="popover"
+        size="md"
         className="tabular-nums"
       />
       {invalid ? (

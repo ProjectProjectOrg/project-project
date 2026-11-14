@@ -1,8 +1,8 @@
+import { Button } from "@pp/ui/button"
+import { DitherShell } from "@pp/ui/dither-shell"
 import { Link, useRouter } from "@tanstack/react-router"
 import * as Predicate from "effect/Predicate"
 
-import { Button } from "@/components/ui/button"
-import { DitherShell } from "@/components/ui/dither-shell"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 

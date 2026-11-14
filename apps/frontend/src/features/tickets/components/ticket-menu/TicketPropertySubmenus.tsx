@@ -1,15 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
 import { listEditBetween, type Member, type TicketId } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
-import {
-  CircleDot,
-  Gauge,
-  Shapes,
-  SignalHigh,
-  Tag,
-  UserRound
-} from "lucide-react"
-
 import {
   DropdownMenuCheckboxItem,
   DropdownMenuEmpty,
@@ -20,9 +10,20 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import * as Result from "effect/reactivity/AsyncResult"
+import {
+  CircleDot,
+  Gauge,
+  Shapes,
+  SignalHigh,
+  Tag,
+  UserRound
+} from "lucide-react"
+
 import { currentUserId } from "@/features/auth/atoms/auth"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {
   statusesFor,
   statusesRequest
@@ -48,7 +49,6 @@ import {
   typeKeyOfOption,
   typeOptionValue
 } from "@/features/tickets/lib/ticketTypes"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import type { TicketMenuTicket } from "./TicketMenu"

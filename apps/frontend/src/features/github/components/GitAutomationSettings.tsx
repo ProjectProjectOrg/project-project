@@ -6,6 +6,7 @@ import {
   type ProjectStatus,
   type StatusSlug
 } from "@pp/shared"
+import { Select, SelectTrigger } from "@pp/ui/select"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import {
   GitBranch,
@@ -26,7 +27,6 @@ import {
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { SettingsSwitch } from "@/components/shell/settings/SettingsTextField"
-import { Select, SelectTrigger } from "@/components/ui/select"
 import {
   gitAutomationFor,
   gitAutomationRequest,

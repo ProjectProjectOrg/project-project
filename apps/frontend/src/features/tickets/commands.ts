@@ -1,5 +1,6 @@
 import { isEpic } from "@pp/shared"
 import type { TicketDetail } from "@pp/shared"
+import type { IconComponent } from "@pp/ui/lib/icon"
 import {
   Archive,
   ArchiveRestore,
@@ -52,7 +53,6 @@ import {
   ticketMarkdown,
   ticketPrompt
 } from "@/features/tickets/lib/ticketClipboard"
-import type { IconComponent } from "@/lib/icon"
 import { m } from "@/paraglide/messages"
 
 const onTicket = (context: CommandContext) => context.ticket !== null

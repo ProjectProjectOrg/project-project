@@ -2,6 +2,7 @@ import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { GroupPolicy } from "@pp/access/policies"
 import type { GroupId, TicketListQuery } from "@pp/shared"
 import { BacklogGrouping } from "@pp/shared"
+import { transitions } from "@pp/ui/lib/springs"
 import * as Result from "effect/reactivity/AsyncResult"
 import { motion } from "motion/react"
 import { Activity, type ReactNode } from "react"
@@ -30,7 +31,6 @@ import {
   createLocalStorageCodec,
   useLocalStorageState
 } from "@/hooks/useLocalStorageState"
-import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 import { BacklogGroupingControl } from "./BacklogGroupingControl"

@@ -1,12 +1,13 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { canJoinSprint } from "@pp/shared"
 import type { Ticket } from "@pp/shared"
+import { CommandMenuItem } from "@pp/ui/command-menu"
+import { cn } from "@pp/ui/lib/utils"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Check } from "lucide-react"
 import { useContext, useState } from "react"
 
-import { CommandMenuItem } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import {
   assignTicketToSprint,
@@ -22,7 +23,6 @@ import {
 } from "@/features/tickets/atoms/ticketSearch"
 import { TicketStatusIcon } from "@/features/tickets/components/ticket-marks/TicketStatusIcon"
 import { useSettledValue } from "@/hooks/useSettledValue"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { SprintContextChip, type SprintPageProps } from "./SprintCommandPages"

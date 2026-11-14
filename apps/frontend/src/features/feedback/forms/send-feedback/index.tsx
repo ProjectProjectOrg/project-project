@@ -1,5 +1,11 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { ATTACHMENT_CONTENT_TYPES, type FeedbackKind } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Composer } from "@pp/ui/composer"
+import { Input } from "@pp/ui/input"
+import { blurSwap, spring } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
+import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
 import { useLocation } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { CircleCheck, Paperclip } from "lucide-react"
@@ -15,13 +21,6 @@ import {
 } from "react"
 import { flushSync } from "react-dom"
 
-import { Button } from "@/components/ui/button"
-import { Composer } from "@/components/ui/composer"
-import { Input } from "@/components/ui/input"
-import {
-  SegmentedTabs,
-  type SegmentedItem
-} from "@/components/ui/segmented-tabs"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { submitFeedback } from "@/features/feedback/atoms/feedback"
 import { FeedbackFileList } from "@/features/feedback/components/FeedbackFileList"
@@ -29,8 +28,6 @@ import { useFeedbackFiles } from "@/features/feedback/hooks/useFeedbackFiles"
 import type { FileRejection } from "@/features/feedback/lib/feedbackFiles"
 import { useAppForm, useFormValues } from "@/lib/form"
 import { mutationErrorText } from "@/lib/mutationError"
-import { blurSwap, spring } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { sendFeedbackFormOpts } from "./opts"
@@ -177,7 +174,7 @@ export function SendFeedbackForm({
               <Composer.Title className="grid leading-6">
                 <Input
                   ref={titleRef}
-                  variant="composer-title"
+                  variant="bare"
                   autoFocus
                   value={field.value}
                   maxLength={200}
@@ -188,7 +185,7 @@ export function SendFeedbackForm({
                   onBlur={field.handleBlur}
                   onKeyDown={sendOnModEnter}
                   onPaste={attachPasted}
-                  className="col-start-1 row-start-1 leading-6"
+                  className="col-start-1 row-start-1 text-title leading-6 font-semibold"
                 />
                 {field.value === "" ? (
                   <TitlePlaceholder
@@ -306,7 +303,8 @@ function AttachButton({
     <>
       <Button
         type="button"
-        variant="chip"
+        variant="ghost"
+        tone="strong"
         onClick={() => inputRef.current?.click()}
       >
         <Paperclip className="size-3.5" strokeWidth={1.75} />

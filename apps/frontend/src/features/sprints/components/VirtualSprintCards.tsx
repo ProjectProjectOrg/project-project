@@ -1,5 +1,6 @@
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import type { Ticket } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual"
 import { useReducedMotion } from "motion/react"
 import {
@@ -11,8 +12,6 @@ import {
   useState,
   type ReactNode
 } from "react"
-
-import { cn } from "@/lib/utils"
 
 import { useDeferredOverscan } from "../../tickets/components/ticket-list/useDeferredOverscan"
 import { useBoardColumnKeyboard } from "../hooks/useBoardKeyboardNavigation"

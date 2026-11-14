@@ -1,11 +1,11 @@
+import { Button } from "@pp/ui/button"
+import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import { LoaderCircle, Play } from "lucide-react"
 import { motion } from "motion/react"
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 
-import { Button } from "@/components/ui/button"
 import { nextPlaybackRate } from "@/features/editor/lib/videoTime"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import {
@@ -250,10 +250,10 @@ export function AttachmentVideo({
 
       {playing ? null : (
         <Button
-          variant="raised"
+          variant="overlay"
           size="icon-lg"
           aria-label={m.editor_video_play()}
-          className="absolute inset-0 m-auto size-12"
+          className="absolute inset-0 m-auto size-12 text-foreground"
           style={{ boxShadow: LIFT }}
           onClick={actions.toggle}
         >

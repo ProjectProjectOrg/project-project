@@ -1,8 +1,8 @@
+import { CommandMenuItem, CommandMenuCheck } from "@pp/ui/command-menu"
+import { setThemeRevealOrigin } from "@pp/ui/lib/themeReveal"
 import { Monitor, Moon, Sun } from "lucide-react"
 
-import { CommandMenuItem, CommandMenuCheck } from "@/components/ui/command-menu"
 import { useTheme, type ThemePreference } from "@/hooks/useTheme"
-import { getThemeRevealRadius } from "@/lib/themeReveal"
 import { m } from "@/paraglide/messages"
 
 import type { CommandPageProps } from "../lib/commandPages"
@@ -16,17 +16,8 @@ const THEMES: ReadonlyArray<
   { value: "system", label: m.theme_system, icon: Monitor }
 ]
 
-const revealFromCentre = () => {
-  const x = window.innerWidth / 2
-  const y = window.innerHeight / 2
-  const root = document.documentElement
-  root.style.setProperty("--theme-clip-x", `${x}px`)
-  root.style.setProperty("--theme-clip-y", `${y}px`)
-  root.style.setProperty(
-    "--theme-clip-radius",
-    `${getThemeRevealRadius(x, y, window.innerWidth, window.innerHeight)}px`
-  )
-}
+const revealFromCentre = () =>
+  setThemeRevealOrigin(window.innerWidth / 2, window.innerHeight / 2)
 
 export function ThemeCommands({ chip, onBack, env }: CommandPageProps) {
   const { preference, setPreference } = useTheme()
@@ -54,7 +45,9 @@ export function ThemeCommands({ chip, onBack, env }: CommandPageProps) {
         return (
           <CommandMenuItem value={item.value}>
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {preference === theme.value && <CommandMenuCheck />}
+            {preference === theme.value && (
+              <CommandMenuCheck label={m.chrome_command_menu_selected()} />
+            )}
           </CommandMenuItem>
         )
       }}

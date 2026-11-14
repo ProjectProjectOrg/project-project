@@ -1,6 +1,6 @@
 import { hasSubTickets, type Ticket } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type Counted = Pick<Ticket, "subTicketCount" | "subTicketDoneCount">

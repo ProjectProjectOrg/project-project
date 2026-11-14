@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
+import { Dialog, DialogContent, DialogTitle } from "@pp/ui/dialog"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import {
   feedbackStatus,
   sendFeedbackDialog
@@ -18,7 +18,7 @@ export function SendFeedbackDialogHost() {
         if (!next) close()
       }}
     >
-      <DialogContent size="lg" showCloseButton={false} className="p-0">
+      <DialogContent size="lg" className="p-0">
         {shown !== null && (
           <FeedbackDialogForm
             key={shown.orgSlug}

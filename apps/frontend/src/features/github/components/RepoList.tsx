@@ -1,17 +1,18 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { GithubRepo } from "@pp/shared"
+import {
+  DropdownMenuInput,
+  DropdownMenuItem,
+  DropdownMenuList
+} from "@pp/ui/dropdown-menu"
+import { cn } from "@pp/ui/lib/utils"
+import { MenuNote } from "@pp/ui/menu-note"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronLeft, Lock } from "lucide-react"
 import { useState } from "react"
 
-import {
-  DropdownMenuInput,
-  DropdownMenuItem,
-  DropdownMenuList
-} from "@/components/ui/dropdown-menu"
-import { MenuNote } from "@/components/ui/menu-note"
 import {
   connectGithub,
   githubRepos,
@@ -21,7 +22,6 @@ import { useConnectGithubError } from "@/features/github/hooks/useConnectGithubE
 import { useProjectRepos } from "@/features/github/hooks/useProjectRepos"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function RepoList({

@@ -1,11 +1,11 @@
 import { useAtomValue } from "@effect/atom-react"
+import { Composer } from "@pp/ui/composer"
+import { Popover, PopoverTitle, PopoverTrigger } from "@pp/ui/popover"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { MessageSquarePlus } from "lucide-react"
 import { useState } from "react"
 
 import { NavButton } from "@/components/shell/NavItem"
-import { Composer } from "@/components/ui/composer"
-import { Popover, PopoverTitle, PopoverTrigger } from "@/components/ui/popover"
 import { feedbackStatus } from "@/features/feedback/atoms/feedback"
 import { SendFeedbackForm } from "@/features/feedback/forms/send-feedback"
 import { m } from "@/paraglide/messages"

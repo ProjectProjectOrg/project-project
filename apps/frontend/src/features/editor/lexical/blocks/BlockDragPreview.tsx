@@ -1,7 +1,6 @@
+import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import { motion, useReducedMotion, type MotionValue } from "motion/react"
-
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 
 import type { BlockDrag } from "./useBlockDrag"
 

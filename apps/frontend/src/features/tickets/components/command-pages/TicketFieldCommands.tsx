@@ -1,5 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { isEpic, ESTIMATE_SIZES, TagName, type Estimate } from "@pp/shared"
+import { CommandMenuCheck, CommandMenuItem } from "@pp/ui/command-menu"
+import { cn } from "@pp/ui/lib/utils"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
@@ -8,7 +10,6 @@ import * as Schema from "effect/Schema"
 import { Archive, CircleSlash, Layers, Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
 
-import { CommandMenuCheck, CommandMenuItem } from "@/components/ui/command-menu"
 import { commandScopes } from "@/features/command-menu/atoms/commandMenu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
@@ -46,7 +47,6 @@ import {
   typeOptionValue
 } from "@/features/tickets/lib/ticketTypes"
 import { errorMessage } from "@/lib/errorMessage"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useTicketMutation } from "./useTicketMutation"
@@ -150,7 +150,7 @@ export function TicketEstimatePage({
               {item.label}
             </span>
             {option !== undefined && sameEstimate(estimate, option) && (
-              <CommandMenuCheck />
+              <CommandMenuCheck label={m.chrome_command_menu_selected()} />
             )}
           </CommandMenuItem>
         )
@@ -196,7 +196,7 @@ export function TicketTypePage({
           {current !== null &&
             current.type !== undefined &&
             typeOptionValue(current.type) === item.value && (
-              <CommandMenuCheck />
+              <CommandMenuCheck label={m.chrome_command_menu_selected()} />
             )}
         </CommandMenuItem>
       )}
@@ -280,7 +280,7 @@ export function TicketTagsPage({
             />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
             {tag !== undefined && applied.includes(tag.name) && (
-              <CommandMenuCheck />
+              <CommandMenuCheck label={m.chrome_command_menu_selected()} />
             )}
           </CommandMenuItem>
         )
@@ -348,7 +348,9 @@ export function TicketParentPage({
                 <span className="min-w-0 truncate">{epic.title}</span>
               </span>
             )}
-            {epic !== undefined && epic.id === parent && <CommandMenuCheck />}
+            {epic !== undefined && epic.id === parent && (
+              <CommandMenuCheck label={m.chrome_command_menu_selected()} />
+            )}
           </CommandMenuItem>
         )
       }}

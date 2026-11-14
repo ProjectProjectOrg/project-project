@@ -1,7 +1,6 @@
+import { spring } from "@pp/ui/lib/springs"
 import { motion } from "motion/react"
 import type { ReactNode } from "react"
-
-import { spring } from "@/lib/springs"
 
 const shown = { opacity: 1, scale: 1, filter: "blur(0px)" }
 const hidden = { opacity: 0, scale: 0.6, filter: "blur(4px)" }

@@ -1,8 +1,8 @@
+import { CollapsingLabel } from "@pp/ui/collapsing-label"
+import type { IconComponent } from "@pp/ui/lib/icon"
+import { Select, SelectTrigger } from "@pp/ui/select"
 import { ChevronDown } from "lucide-react"
 
-import { CollapsingLabel } from "@/components/ui/collapsing-label"
-import { Select, SelectTrigger } from "@/components/ui/select"
-import type { IconComponent } from "@/lib/icon"
 import { m } from "@/paraglide/messages"
 
 import { ToolbarButton } from "./toolbar/shared"

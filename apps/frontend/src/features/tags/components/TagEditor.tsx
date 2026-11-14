@@ -1,5 +1,12 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { TagName, type ListEdit, type Tag, type TicketDetail } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
+import { cn } from "@pp/ui/lib/utils"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -8,12 +15,6 @@ import * as Schema from "effect/Schema"
 import { Plus, X } from "lucide-react"
 import { useMemo, useRef, useState, type ComponentProps } from "react"
 
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   applyTagsInEditor,
@@ -29,7 +30,6 @@ import {
 import { TagAdminPopover } from "@/features/tags/components/TagAdminPopover"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
 import { mutationErrorText } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type Props = {
@@ -163,7 +163,8 @@ export function TagEditor({ ticket, canManageTags }: Props) {
           render={
             <Button
               type="button"
-              variant={displayed.length === 0 ? "chip-muted" : "chip"}
+              variant="ghost"
+              tone={displayed.length === 0 ? "muted" : "strong"}
               size={displayed.length === 0 ? undefined : "icon-sm"}
               className="motion-safe:transition-[background-color,color,scale]"
               aria-label={m.tags_add_button()}

@@ -1,0 +1,70 @@
+export const meta = {
+  title: "Tooltip",
+  group: "Primitives",
+  description:
+    "A short text label shown on hover or keyboard focus, mostly for icon-only buttons. Used in the editor's formatting toolbar and block gutter, sprint chips, attachment rows and the subscribe toggle.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "Tooltip",
+      href: "https://base-ui.com/react/components/tooltip"
+    },
+    {
+      kind: "shadcn",
+      name: "tooltip",
+      note: "starting point, restyled",
+      href: "https://ui.shadcn.com/docs/components/tooltip"
+    }
+  ]
+}
+
+## Overview
+
+A tooltip pinned open on each side, then a live row of icon buttons. Hover the live row: the first tooltip waits 400ms, and moving along the row shows the next one at once.
+
+<Demo
+  name="overview"
+  title="All states"
+  className="min-h-96 place-items-start"
+/>
+
+## Usage
+
+Wrap a group of triggers in `TooltipProvider`, so moving between them skips the delay. The gallery provides one; in the app each toolbar wraps its own.
+
+```tsx
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@pp/ui/tooltip"
+
+;<TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger
+      render={
+        <Button
+          variant="toolbar"
+          size="icon-sm"
+          aria-label={m.editor_format_bold()}
+        />
+      }
+    >
+      <Bold />
+    </TooltipTrigger>
+    <TooltipContent sideOffset={10}>{m.editor_format_bold()}</TooltipContent>
+  </Tooltip>
+</TooltipProvider>
+```
+
+| Component         | Prop         | Type                                     | Default    |
+| ----------------- | ------------ | ---------------------------------------- | ---------- |
+| `TooltipProvider` | `delay`      | `number` (ms before the first opens)     | `400`      |
+| `TooltipContent`  | `side`       | `"top" \| "bottom" \| "left" \| "right"` | `"top"`    |
+| `TooltipContent`  | `align`      | `"start" \| "center" \| "end"`           | `"center"` |
+| `TooltipContent`  | `sideOffset` | `number`                                 | `6`        |
+
+## Rules
+
+Rules are written during this component's polish pass.

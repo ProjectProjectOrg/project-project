@@ -1,15 +1,13 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type { Library } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Input } from "@pp/ui/input"
+import { cn } from "@pp/ui/lib/utils"
+import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
 import { useContext, useId, useState } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-  SegmentedTabs,
-  type SegmentedItem
-} from "@/components/ui/segmented-tabs"
 import {
   createBlockAtom,
   createTypeAtom,
@@ -37,7 +35,6 @@ import {
 } from "@/features/library/lib/newEntry"
 import { useAppForm, useFormValues } from "@/lib/form"
 import { mutationErrorText } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import {
@@ -163,7 +160,7 @@ export function LibraryCreateForm({
               <label htmlFor={keyId}>{m.templates_settings_key_label()}</label>
               <Input
                 id={keyId}
-                variant="inline-muted"
+                size="sm"
                 value={effectiveLibraryKey(values)}
                 disabled={busy}
                 maxLength={48}

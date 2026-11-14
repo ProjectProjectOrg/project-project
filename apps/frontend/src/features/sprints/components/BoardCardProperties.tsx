@@ -6,17 +6,18 @@ import {
   type TicketPriority,
   isEpic
 } from "@pp/shared"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
+import { cn } from "@pp/ui/lib/utils"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronRight, Layers } from "lucide-react"
 import { useState, type ComponentProps, type ReactNode } from "react"
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import { TagMenuBody } from "@/features/tags/components/TagMenuBody"
@@ -38,7 +39,6 @@ import {
   PRIORITY_META
 } from "@/features/tickets/lib/priorityMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { BoardCardGit } from "./BoardCardGit"

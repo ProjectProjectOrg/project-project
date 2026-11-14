@@ -1,6 +1,13 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { isEpic } from "@pp/shared"
 import type { TicketId, TicketParent } from "@pp/shared"
+import {
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger
+} from "@pp/ui/dropdown-menu"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   Flag,
@@ -14,13 +21,6 @@ import {
 import { Fragment, useContext } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger
-} from "@/components/ui/dropdown-menu"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   ticketDetail,

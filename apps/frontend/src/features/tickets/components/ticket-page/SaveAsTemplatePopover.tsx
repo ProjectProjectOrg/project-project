@@ -1,10 +1,10 @@
 import { useAtomValue } from "@effect/atom-react"
+import { DropdownMenuItem } from "@pp/ui/dropdown-menu"
+import { Popover, PopoverContent } from "@pp/ui/popover"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { LayoutTemplate } from "lucide-react"
 import type { ComponentProps } from "react"
 
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { Popover, PopoverContent } from "@/components/ui/popover"
 import {
   projectLibraryFor,
   projectLibraryRequest

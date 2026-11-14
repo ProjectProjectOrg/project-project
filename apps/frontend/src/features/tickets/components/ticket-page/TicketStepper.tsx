@@ -1,8 +1,9 @@
 import type { TicketId, TicketSequence, TicketSequenceEntry } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import type { IconComponent } from "@pp/ui/lib/icon"
 import { Link } from "@tanstack/react-router"
 import { ChevronDown, ChevronUp } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"
 import {
@@ -10,7 +11,6 @@ import {
   PREVIOUS_KEY
 } from "@/features/tickets/hooks/useTicketStepping"
 import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
-import type { IconComponent } from "@/lib/icon"
 import { m } from "@/paraglide/messages"
 
 type Step = Readonly<{

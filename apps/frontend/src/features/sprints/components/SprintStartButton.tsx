@@ -1,15 +1,11 @@
 import { useAtomSet } from "@effect/atom-react"
 import { sprintState, type Group } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Calendar } from "@pp/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { CalendarX, ChevronDown, Play } from "lucide-react"
 import { useState } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   sprintListRequest,
@@ -58,6 +54,10 @@ export function SprintStartButton({ sprint }: { sprint: Group }) {
             {m.sprints_schedule_pick_hint()}
           </p>
           <Calendar
+            navLabels={{
+              previous: m.common_previous_month(),
+              next: m.common_next_month()
+            }}
             mode="single"
             selected={sprint.startsAt ?? undefined}
             onSelect={(date) => {

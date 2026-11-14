@@ -1,6 +1,18 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { isEpic, canJoinSprint } from "@pp/shared"
 import type { ArchiveTicketInput, Member, Ticket, TicketId } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Checkbox } from "@pp/ui/checkbox"
+import { Composer } from "@pp/ui/composer"
+import { ConfirmButton, useConfirmButton } from "@pp/ui/confirm-button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
+import { Popover } from "@pp/ui/popover"
 import { Link } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -28,18 +40,6 @@ import {
 } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Composer } from "@/components/ui/composer"
-import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { Popover } from "@/components/ui/popover"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   removeTicketFromSprint,
@@ -78,6 +78,7 @@ import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { ticketPermissions } from "@/features/tickets/lib/ticketPermissions"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
 import { useProjectActor } from "@/hooks/useActor"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 import { BranchSubmenu } from "./BranchSubmenu"
@@ -506,6 +507,8 @@ function TicketMenuFlowPopovers({
       </Popover>
       <ConfirmButton.Popover anchor={popupAnchor} className="w-72">
         <ConfirmButton.Action
+          cancelLabel={m.common_cancel_button()}
+          describeError={describeCause}
           layout="stacked"
           prompt={
             many

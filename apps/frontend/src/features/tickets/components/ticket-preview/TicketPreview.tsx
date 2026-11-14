@@ -11,6 +11,10 @@ import {
   type TicketId,
   type TicketStatus
 } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import { PreviewCardContent } from "@pp/ui/preview-card"
 import { Link } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -25,11 +29,8 @@ import {
 } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { Button } from "@/components/ui/button"
-import { PreviewCardContent } from "@/components/ui/preview-card"
 import { Markdown } from "@/features/editor/components/Markdown"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {
   project,
   type ProjectRequest
@@ -64,7 +65,6 @@ import {
   type RelationPreviewKind
 } from "@/features/tickets/lib/relationGroups"
 import type { TicketDetailSearch } from "@/features/tickets/lib/ticketSearch"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type TicketPreview =

@@ -1,5 +1,9 @@
 import { useAtomValue } from "@effect/atom-react"
 import { finishedStatusSlugs, type Ticket, type TicketId } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Kbd } from "@pp/ui/kbd"
+import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import { Check } from "lucide-react"
@@ -7,8 +11,6 @@ import { motion } from "motion/react"
 import { useState, type KeyboardEvent } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
-import { Button } from "@/components/ui/button"
-import { Kbd } from "@/components/ui/kbd"
 import {
   statusesFor,
   statusesRequest
@@ -19,8 +21,6 @@ import {
   childTicketsRequest
 } from "@/features/tickets/atoms/childTickets"
 import type { TicketRow } from "@/features/tickets/lib/ticketRows"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const keepFocus = (e: React.MouseEvent) => e.preventDefault()

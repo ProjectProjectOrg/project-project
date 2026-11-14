@@ -1,13 +1,13 @@
 import type { GroupDetail, Member, TicketListQuery } from "@pp/shared"
-import { ListChecks, Trophy } from "lucide-react"
-
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle
-} from "@/components/ui/empty"
+} from "@pp/ui/empty"
+import { ListChecks, Trophy } from "lucide-react"
+
 import { TicketListContent } from "@/features/tickets/components/ticket-list"
 import { m } from "@/paraglide/messages"
 

@@ -35,10 +35,12 @@ colors:
   destructive: "oklch(0.577 0.245 27.325)"
   destructive-dark: "oklch(0.704 0.191 22.216)"
   destructive-light: "oklch(0.95 0.02 27)"
-  state-success: "oklch(0.5 0.15 135)"
+  state-success: "oklch(0.7 0.16 135)"
   state-warning: "oklch(0.5 0.16 75)"
-  state-info: "oklch(0.5 0.18 255)"
-  state-merged: "oklch(0.5 0.18 285)"
+  state-warning-dark: "oklch(0.78 0.07 75)"
+  state-info: "oklch(0.7 0.16 255)"
+  state-merged: "oklch(0.7 0.16 285)"
+  state-danger: "oklch(0.7 0.16 15)"
   tag-quiet-anchor: "oklch(0.78 0.07 0)"
   tag-loud-anchor: "oklch(0.7 0.16 0)"
 typography:
@@ -214,12 +216,13 @@ Never use `--muted` or `--accent` as a hover fill: on a raised surface they land
 A scarce vocabulary, used only when state needs to read at a glance.
 
 - **Destructive** (`oklch(0.577 0.245 27.325)`): delete actions, validation failures, irreversible-action confirmations.
-- **State Success** (`oklch(0.5 0.15 135)`): open PRs, passing checks.
-- **State Warning** (`oklch(0.5 0.16 75)`): pending review, attention-required.
-- **State Info** (`oklch(0.5 0.18 255)`): in-flight branches, active sprints.
-- **State Merged** (`oklch(0.5 0.18 285)`): merged-and-closed state.
+- **State Success** (`oklch(0.7 0.16 135)`): open PRs, passing checks.
+- **State Warning** (`oklch(0.5 0.16 75)` / `oklch(0.78 0.07 75)` dark): pending review, attention-required.
+- **State Info** (`oklch(0.7 0.16 255)`): in-flight branches, active sprints.
+- **State Merged** (`oklch(0.7 0.16 285)`): merged-and-closed state.
+- **State Danger** (`oklch(0.7 0.16 15)`): failed checks, blocked work.
 
-In dark mode the state hues collapse to a single quiet treatment (`oklch(0.78 0.07 <hue>)`) so they stay legible without burning through the dim surface.
+Success, info, merged and danger sit on the tag wheel's outer ring (`L=0.7 C=0.16`) and keep the same value in both themes. Warning is the exception: amber at that lightness is unreadable on white, so light mode uses a darker, more saturated swatch. The values live in `packages/ui/src/styles/theme.css`.
 
 ### User-Assigned (Tag Wheel)
 
@@ -299,7 +302,7 @@ Use the ladder when a surface must sit on another surface — board columns and 
 Components that **elevate** read the surface level they sit on instead of hard-coding one (`useSurface()` / `SurfaceProvider` from `lib/surfaceContext`, class lookups from `lib/surfaceClasses`, both from `@fluid`). The page is level 1; a container that raises itself re-provides its own level so anything inside keeps stepping up.
 
 - **`SettingsGroup`** uses `--card` and provides level 1. In dark that is a recessed well (`0.205`, the same value as `--surface-1`), so the controls inside lift out of it instead of stacking a card on the already-raised content region. In light it is a white card: a grey well on the light region reads muddy, so this is the one deliberate exception to layering both themes the same way.
-- **Segmented pill:** substrate + 4 with the `--shadow-1` hairline. Fluid uses + 3, but our page region sits above `--surface-1`, so + 3 leaves the pill indistinct from its `bg-hover` track.
+- **Segmented pill:** the `bg-tint` fill with a 1px `--segment-line` hairline (5% ink in light, 6% in dark), no shadow; the inline and rail pills keep their raised surface fill with the same hairline. Track and pill use squircle corners at a full radius, concentric (18px around 14px for the default variant), and the track sizes to its options.
 - **Dragged list row:** substrate + 1 while it is being dragged.
 - **Menus and popovers** keep `--card` with the hairline border and their drop shadow. A deliberate choice: the darker floating surface reads better here than a substrate + 2 lift.
 
@@ -317,28 +320,35 @@ Lucide icons use a 1.5 stroke width, applied centrally in `styles.css`. Filled s
 
 ### Buttons
 
-The single primitive lives in `components/ui/button.tsx`, exposing variants `primary | secondary | destructive | tertiary | ghost | raised | chip | dither` and sizes `xs | sm | md | lg | icon-*`. Shape is the app's pill radius (`rounded-[20px]`), baked into the primitive so callsites never set it.
+The single primitive lives in `packages/ui/src/components/button.tsx`, exposing variants `primary | secondary | tertiary | destructive | ghost | dither`, plus two special cases: `toolbar` (pairs with the gliding fluid-hover highlight, so it has no hover fill of its own) and `overlay` (an opaque background-coloured button for actions on images and media; `tone="destructive"` turns its hover red). Layout-only variants (`appearance-row`, `selection-card`, `dropzone`, `artwork-option`, `image-option`) are separate. Anything else is a ghost with a `className`, not a new variant and sizes `xs | sm | md | lg | icon-*`. Shape: corners at half the button's height (`xs` 10px … `lg` 18px) with `corner-shape: var(--button-corner)` (`superellipse(1.5)`, between a squircle and a pill), baked into the primitive so callsites never set it.
 
-- **Primary:** `bg-foreground text-background`, hover dims to `/90`, active to `/80`. Always pairs with `active:scale-[0.97]` and `transition-all duration-100`.
-- **Secondary:** see-through `--tint`, `--tint-hover` on hover. It takes on whatever surface it sits on, so it works on the page and inside settings groups alike.
-- **Tertiary:** transparent + hairline border + foreground text; hover `bg-hover`, press `bg-active`.
-- **Ghost:** transparent, `muted-foreground` text; hover swaps text to full foreground over `bg-hover`. Default for icon-only chrome.
-- **Raised:** `--surface-5` fill with the `--shadow-1` hairline, `--surface-7` on hover. For actions revealed on a card that is itself hovered, where a ghost button's hover fill would match the card.
-- **Destructive:** `bg-destructive text-destructive-foreground`; reserved for delete and irreversible-action confirms.
-- **Chip:** inline trigger for ticket fields and badges — `h-8` like an `md` button, `px-2.5`, the app shape. No fill at rest; `bg-hover` on hover.
-- **Chip muted:** the chip's size with `muted-foreground` text that turns full foreground on hover. For page chrome next to the content, such as the ticket page's Back button.
+Filled variants (primary, secondary, destructive) share `.button-fill` in the theme: a faint vertical sheen made from the fill's own colour with `color-mix(in oklab)` (`--button-sheen-top` / `--button-sheen-bottom`), shown at rest, gone on hover, a little stronger on press. An optional edge in the fill's colour (`--button-edge`) is off. No borders, no shadows.
+
+- **Primary:** foreground fill, background text; hover mixes 10% background in, press 18%.
+- **Secondary:** see-through `--button-secondary` (5% black / 11% white), stronger on hover and press. It takes on whatever surface it sits on.
+- **Tertiary:** a tile one step up the surface ladder (`surface + 2`), no border, foreground text; hover and press lay `--hover` / `--active` over it. For row actions in settings groups (Disconnect, Change, Refresh). Directly on the page (no `SurfaceProvider`) that step is too faint, so it takes `--button-tertiary`, half of secondary's tint (2.5% / 5%).
+- **Ghost:** transparent, no fill at rest; `bg-hover` on hover. `tone="muted"` (default) has `muted-foreground` text that turns full foreground on hover — default for icon-only chrome and page chrome like Back. `tone="strong"` has full foreground text — for inline triggers that show a value, such as ticket fields (status, sprint, assignee). Fields switch to muted while they are empty. At `md` ghost uses 10px padding (8px on the icon side), tighter than filled buttons. A ghost with `aria-pressed` shows the pressed state (`bg-active`, full foreground text), which covers toggles.
+- **Destructive:** tonal — `--destructive` text on `--destructive-light`, deepening by 10% / 16% on hover / press; reserved for delete and irreversible-action confirms.
 - **Dither:** the brand-thread variant — animated dithered backdrop. Reserved for hero / marketing surfaces, not chrome.
 - **Sizes:** `xs` (h-5, 11px), `sm` (h-7, 12px), `md` (h-8, 13px, default), `lg` (h-9, 14px). Icon sizes match by height.
 
 **Press feel:** every button scales to **97%** on `:active` with a **100–150ms** transform transition. Icon-only buttons compress the icon, not the chrome.
 
-**Focus:** `focus-visible:ring-1 focus-visible:ring-ring` — a 1px `--ring` stroke, no offset, no glow.
+**Focus (every interactive component):** the `focus-ring` class from the `@pp/ui` theme — a 2px `--ring` (grey) outline standing 2px off the element, following its corners. It does not move on press. No glow, no box-shadow ring.
+
+**Disabled:** `cursor-not-allowed` at 50% opacity, with hover and press styles switched off. **Loading** is disabled too but stays at full strength with `cursor-progress` and the logo loader in place of the label.
+
+**Icon padding:** a button with a leading or trailing icon gets ¾ of the text-side padding on the icon side (`md` 12px vs 16px, `sm` 9px vs 12px, `lg` 15px vs 20px; chips 8px vs 10px), so the content reads as centred.
+
+### Value changes
+
+**The Blur Swap Rule.** When a control shows a value the user just changed, the change plays through `BlurSwap` (`@pp/ui/blur-swap`): the old value blurs out while the new one blurs in, stacked in place, and the control's width eases to the new value's width. Picking again mid-swap simply starts the next swap. For now this covers every select value (`SelectTrigger` does it on its own; triggers passed through `render` wrap their value in `BlurSwap`); other controls adopt it as they are polished.
 
 ### Inputs
 
-- **Style:** `--background` fill, 1px `--input` stroke, `rounded-md` (~14px). Padding `4px 8px`, height `32px` to match `md` button.
-- **Focus:** stroke shifts to `--ring`, no glow.
-- **Disabled:** `cursor-not-allowed opacity-70`.
+- **Style:** `--field` fill (`bg-field`: white in light, `oklch(0.18 0 0)` in dark, just below the content region so a field reads as a shallow well), 1px `--border` stroke. Variants `default` and `bare`; sizes `sm` / `md` / `lg` at 28 / 32 / 36px, the same heights as Button, with corners at half the height in `--button-corner`. Every field-like control (Select and dropdown triggers, textareas, date pickers) uses the same `--field` fill.
+- **Focus:** the shared `focus-ring` (2px `--ring` outline, 2px off the field); red on `aria-invalid`.
+- **Disabled:** `cursor-not-allowed` at 50% opacity.
 - **Inline form pattern:** many inputs are inline-editable cells inside rows, not standalone form fields. The same input primitive composes inside `StatusEditorRow`, ticket title cells, etc.
 
 ### Cards / Containers
@@ -357,10 +367,10 @@ Sprint and backlog boards have one Tab entry point and remember the last focused
 
 Two primitives share one look. Pick by where the trigger lives, not by how many options there are:
 
-- **`Select`** (`components/ui/select.tsx`, Base UI Select): field-style pickers — forms, settings rows, the View options panel (`OptionPicker`), Jira mapping. Real `combobox`/`option` roles, anchored to its trigger, flips at the viewport edge, typeahead, `multiple` when needed. The trigger is the bordered field look; `selectedLabel` overrides what it shows.
+- **`Select`** (`packages/ui/src/components/select.tsx`, Base UI Select): field-style pickers — forms, settings rows, the View options panel (`OptionPicker`), Jira mapping. Real `combobox`/`option` roles, anchored to its trigger, flips at the viewport edge, typeahead, `multiple` when needed. The trigger is the bordered field look; `selectedLabel` overrides what it shows.
 - **`DropdownMenu`** (Base UI Menu): actions, and pickers opened from an inline chip, button, or hitbox (ticket fields, role badges, org switcher, toolbar filters), plus pickers that mix choices with actions (Status's "Manage statuses", Estimate's "Clear"). Choices are `DropdownMenuRadioItem` / `DropdownMenuCheckboxItem`, never a plain item with a hand-drawn `<Check>`.
 
-Shared rules, all from `components/ui/menu-styles.ts`:
+Shared rules, all from `packages/ui/src/components/menu-styles.ts`:
 
 - **Chrome:** popup `rounded-xl`, `border-border/60`, `bg-card`, `p-1`, the menu drop shadow. Rows `rounded-md`, 36px (`leading-5`), whatever the app shape is.
 - **Rows are flush, fills are inset.** No layout gap between rows, so the hover highlight glides from one to the next. Each row's fill is clipped 1px inside a transparent `border-y`, and `MenuHighlight` insets the same 1px, which leaves an even 2px visual gap between a hovered and a selected row.
@@ -369,7 +379,7 @@ Shared rules, all from `components/ui/menu-styles.ts`:
 - **Trailing meta** (counts, shortcuts): `menuItemMetaClass` with `data-menu-meta`. Plain muted tabular numbers, right-aligned, sitting just before the check slot so they line up as a column.
 - **Reset options** ("All types", "Any sprint", "Don't move"): `separated` on the item renders the menu's own separator after it. Don't hand-place separators for this. A separator that ends up first or last in its list hides itself.
 - **Filtering:** `<DropdownMenu filterable>` with `DropdownMenuInput`, `DropdownMenuList`, and `DropdownMenuEmpty` (Base UI 1.9 menu filtering). The input sits inside the popup padding like a row. Give items a `label` when their children aren't plain text.
-- **Icon grids:** `IconGridPicker` (`components/ui/icon-grid-picker.tsx`) on `Popover`.
+- **Icon grids:** `IconGridPicker` (`packages/ui/src/components/icon-grid-picker.tsx`) on `Popover`.
 
 ### Status / Tag Chips
 
@@ -411,7 +421,7 @@ The brand mark is built from two greys (`--dither-front` and `--dither-back`) on
 - Marketing / landing surfaces
 - The `Button variant="dither"` backdrop
 - Decorative section breaks on long-form pages
-- Generated member avatars: a member without a photo gets a dithered orb seeded by their user id (`features/members/lib/orbAvatar.ts`). Its five tones are three tag-wheel swatches at 20–56% opacity: the member's own swatch for highlights, an accent 90–240° away for the body, and a third hue for the deepest shadow. Being translucent over the surface, it reads as pastel in light mode and as deep tones in dark mode. Initials use the accent hue at L 0.3 (light) or L 0.97 (dark), at least 5:1 on every tone in both themes. Two letters from 24px up, one below.
+- Generated member avatars: a member without a photo gets a dithered orb seeded by their user id (`packages/ui/src/lib/orbAvatar.ts`, rendered by `@pp/ui/member-avatar`). Its five tones are three tag-wheel swatches at 20–56% opacity: the member's own swatch for highlights, an accent 90–240° away for the body, and a third hue for the deepest shadow. Being translucent over the surface, it reads as pastel in light mode and as deep tones in dark mode. Initials use the accent hue at L 0.3 (light) or L 0.97 (dark), at least 5:1 on every tone in both themes. Initials (two letters) show from 24px up; in a stack they centre in the part the cutout leaves visible. Below 24px the orb shows alone, so a 16px or 20px avatar must always have the member's name next to it; where there's no room for the name, use 24px or larger. Avatars are squircles (`corner-shape: squircle`, circle fallback) with a lit edge: a 1px `--avatar-edge` hairline plus an `--avatar-lit` top highlight, no drop shadow. Stacks cut a squircle gap out of each avatar (`--avatar-squircle` mask) so the translucent orbs never show through each other.
 
 It never appears on functional controls.
 

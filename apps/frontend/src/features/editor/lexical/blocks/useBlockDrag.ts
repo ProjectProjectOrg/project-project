@@ -1,3 +1,4 @@
+import { transitions } from "@pp/ui/lib/springs"
 import { $getRoot, type LexicalEditor, type NodeKey } from "lexical"
 import {
   animate,
@@ -13,8 +14,6 @@ import {
   type PointerEvent as ReactPointerEvent
 } from "react"
 import { flushSync } from "react-dom"
-
-import { transitions } from "@/lib/springs"
 
 import { $isTopLevelBlockNode } from "./blockCommands"
 import { layoutTop } from "./blockRail"

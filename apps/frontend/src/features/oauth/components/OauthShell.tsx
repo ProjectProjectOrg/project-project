@@ -1,7 +1,6 @@
+import { DitherShell } from "@pp/ui/dither-shell"
+import { Logo, Wordmark } from "@pp/ui/logo"
 import type { ReactNode } from "react"
-
-import { Logo, Wordmark } from "@/components/shell/Logo"
-import { DitherShell } from "@/components/ui/dither-shell"
 
 export function OauthShell({
   title,

@@ -1,9 +1,9 @@
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
 import { FoldHorizontal, GripVertical } from "lucide-react"
 import { motion } from "motion/react"
 
-import { Button } from "@/components/ui/button"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import {
@@ -138,7 +138,7 @@ function CollapseColumnButton({
   return (
     <Button
       type="button"
-      variant="quiet"
+      variant="ghost"
       size="square-7"
       onPointerDown={(e) => e.stopPropagation()}
       onClick={onCollapse}

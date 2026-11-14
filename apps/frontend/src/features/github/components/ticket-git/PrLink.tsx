@@ -1,3 +1,5 @@
+import { Badge } from "@pp/ui/badge"
+import { cn } from "@pp/ui/lib/utils"
 import {
   Circle,
   GitMerge,
@@ -5,9 +7,7 @@ import {
   GitPullRequestClosed
 } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
 import { checksColor } from "@/features/github/lib/checksColor"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const pullRequestIcons = {

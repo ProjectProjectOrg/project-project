@@ -5,6 +5,9 @@ import {
   sprintState,
   type Group
 } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import { Link, useParams } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -13,7 +16,6 @@ import { motion, useReducedMotion } from "motion/react"
 import { useState } from "react"
 
 import { RailBackLink } from "@/components/shell/RailBackLink"
-import { Button } from "@/components/ui/button"
 import {
   project as projectView,
   projectRequest
@@ -25,8 +27,6 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { formatSprintRange } from "@/features/sprints/lib/sprintDates"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { NewSprintPopover } from "./NewSprintPopover"

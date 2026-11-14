@@ -1,9 +1,9 @@
+import { setThemeRevealOrigin } from "@pp/ui/lib/themeReveal"
+import { SegmentedTabs } from "@pp/ui/segmented-tabs"
 import { Monitor, Moon, Sun } from "lucide-react"
 import type { MouseEvent } from "react"
 
-import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import { useTheme, type ThemePreference } from "@/hooks/useTheme"
-import { getThemeRevealRadius } from "@/lib/themeReveal"
 import { m } from "@/paraglide/messages"
 
 const options: ReadonlyArray<{
@@ -19,20 +19,8 @@ const options: ReadonlyArray<{
 export function ThemeSwitcher() {
   const { preference, setPreference } = useTheme()
 
-  const handleClickCapture = (e: MouseEvent<HTMLDivElement>) => {
-    const root = document.documentElement
-    root.style.setProperty("--theme-clip-x", `${e.clientX}px`)
-    root.style.setProperty("--theme-clip-y", `${e.clientY}px`)
-    root.style.setProperty(
-      "--theme-clip-radius",
-      `${getThemeRevealRadius(
-        e.clientX,
-        e.clientY,
-        window.innerWidth,
-        window.innerHeight
-      )}px`
-    )
-  }
+  const handleClickCapture = (e: MouseEvent<HTMLDivElement>) =>
+    setThemeRevealOrigin(e.clientX, e.clientY)
 
   return (
     <div onClickCapture={handleClickCapture}>

@@ -1,9 +1,9 @@
+import { Button } from "@pp/ui/button"
+import { DropdownMenuItem } from "@pp/ui/dropdown-menu"
+import { transitions } from "@pp/ui/lib/springs"
 import { X, type LucideIcon } from "lucide-react"
 import { motion } from "motion/react"
 
-import { Button } from "@/components/ui/button"
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 import { useSnapBack } from "./useSnapBack"

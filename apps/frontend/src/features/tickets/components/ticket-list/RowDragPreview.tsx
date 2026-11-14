@@ -1,11 +1,11 @@
 import type { Ticket, TicketId } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { PRIORITY_META } from "@/features/tickets/lib/priorityMeta"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 

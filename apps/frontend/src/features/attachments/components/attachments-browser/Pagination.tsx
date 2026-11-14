@@ -1,7 +1,7 @@
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { pageCount, pageRange, pageWindow } from "./paging"

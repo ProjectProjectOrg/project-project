@@ -1,0 +1,629 @@
+import { Menu as MenuPrimitive } from "@base-ui/react/menu"
+import { mergeProps } from "@base-ui/react/merge-props"
+import { ChevronRightIcon } from "lucide-react"
+import * as React from "react"
+import { flushSync } from "react-dom"
+
+import { useActivityHiddenPortalRef } from "../hooks/useActivityHiddenPortalRef"
+import { forwardThroughMenuBackdrop, isMenuBackdrop } from "../lib/menuBackdrop"
+import { fieldTouchClass } from "../lib/typeScale"
+import { cn } from "../lib/utils"
+import { MenuHighlight } from "./menu-highlight"
+import {
+  menuItemClass,
+  menuLabelClass,
+  menuPopupClass,
+  menuSeparatorClass,
+  menuSurfaceClass
+} from "./menu-styles"
+
+const DeferMenusContext = React.createContext(false)
+type DropdownMenuFilter =
+  | boolean
+  | Omit<MenuPrimitive.FilterProvider.Props, "children">
+type DropdownMenuProps = React.ComponentProps<typeof MenuPrimitive.Root> & {
+  filterable?: DropdownMenuFilter
+}
+
+const DeferredMenuContext = React.createContext<{
+  handle: ReturnType<typeof MenuPrimitive.createHandle>
+  mounted: boolean
+  activate: () => void
+  rootProps: React.ComponentProps<typeof MenuPrimitive.Root>
+  filterable: DropdownMenuFilter
+} | null>(null)
+
+function FilterableRoot({
+  filterable,
+  children
+}: {
+  filterable: DropdownMenuFilter
+  children: React.ReactElement
+}) {
+  if (!filterable) return children
+  const options = filterable === true ? {} : filterable
+  return (
+    <MenuPrimitive.FilterProvider autoHighlight="always" {...options}>
+      {children}
+    </MenuPrimitive.FilterProvider>
+  )
+}
+
+function DeferredDropdownMenus({ children }: { children: React.ReactNode }) {
+  return <DeferMenusContext value>{children}</DeferMenusContext>
+}
+
+function DropdownMenu({ filterable = false, ...props }: DropdownMenuProps) {
+  const defer = React.useContext(DeferMenusContext)
+  return defer && !props.handle && typeof props.children !== "function" ? (
+    <DeferredDropdownMenu {...props} filterable={filterable}>
+      {props.children}
+    </DeferredDropdownMenu>
+  ) : (
+    <FilterableRoot filterable={filterable}>
+      <MenuPrimitive.Root {...props} />
+    </FilterableRoot>
+  )
+}
+
+function DeferredDropdownMenu({
+  children,
+  filterable,
+  ...rootProps
+}: Omit<React.ComponentProps<typeof MenuPrimitive.Root>, "children"> & {
+  children: React.ReactNode
+  filterable: DropdownMenuFilter
+}) {
+  const [handle] = React.useState(() => MenuPrimitive.createHandle())
+  const [mounted, setMounted] = React.useState(
+    Boolean(rootProps.open ?? rootProps.defaultOpen)
+  )
+  React.useEffect(() => {
+    if (!mounted) return undefined
+    const onContextMenu = (event: MouseEvent) => {
+      if (!handle.isOpen) return
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[data-slot="dropdown-menu-content"]')
+      ) {
+        return
+      }
+      const backdrop = isMenuBackdrop(event.target)
+      flushSync(() => handle.close())
+      if (backdrop) {
+        event.preventDefault()
+        event.stopPropagation()
+        forwardThroughMenuBackdrop(event)
+      }
+    }
+    document.addEventListener("contextmenu", onContextMenu, true)
+    return () =>
+      document.removeEventListener("contextmenu", onContextMenu, true)
+  }, [handle, mounted])
+  const activate = React.useCallback(() => {
+    if (!mounted) flushSync(() => setMounted(true))
+  }, [mounted])
+  return (
+    <DeferredMenuContext
+      value={{
+        handle,
+        mounted: mounted || rootProps.open === true,
+        activate,
+        rootProps,
+        filterable
+      }}
+    >
+      {children}
+    </DeferredMenuContext>
+  )
+}
+
+function DropdownMenuPortal({
+  ...props
+}: React.ComponentProps<typeof MenuPrimitive.Portal>) {
+  const portalRef = useActivityHiddenPortalRef()
+  return <MenuPrimitive.Portal ref={portalRef} {...props} />
+}
+
+function DropdownMenuTrigger(
+  props: React.ComponentProps<typeof MenuPrimitive.Trigger>
+) {
+  const deferred = React.useContext(DeferredMenuContext)
+  return (
+    <MenuPrimitive.Trigger
+      {...mergeProps(
+        props,
+        deferred
+          ? {
+              handle: deferred.handle,
+              onPointerEnter: deferred.activate,
+              onFocus: deferred.activate,
+              onPointerDownCapture: deferred.activate,
+              onKeyDownCapture: deferred.activate,
+              onClickCapture: deferred.activate
+            }
+          : {}
+      )}
+      data-slot="dropdown-menu-trigger"
+    />
+  )
+}
+
+type DropdownMenuContentProps = React.ComponentProps<
+  typeof MenuPrimitive.Popup
+> &
+  Pick<
+    React.ComponentProps<typeof MenuPrimitive.Positioner>,
+    | "align"
+    | "alignOffset"
+    | "side"
+    | "sideOffset"
+    | "anchor"
+    | "collisionAvoidance"
+  > & { highlightFirst?: boolean }
+
+function DropdownMenuContent(props: DropdownMenuContentProps) {
+  const deferred = React.useContext(DeferredMenuContext)
+  if (!deferred) return <DropdownMenuPopup {...props} />
+  if (!deferred.mounted) return null
+  return (
+    <DeferredMenuContext value={null}>
+      <FilterableRoot filterable={deferred.filterable}>
+        <MenuPrimitive.Root {...deferred.rootProps} handle={deferred.handle}>
+          <DropdownMenuPopup {...props} />
+        </MenuPrimitive.Root>
+      </FilterableRoot>
+    </DeferredMenuContext>
+  )
+}
+
+function DropdownMenuPopup({
+  highlightFirst = false,
+  className,
+  align,
+  alignOffset,
+  side,
+  sideOffset = 4,
+  anchor,
+  collisionAvoidance,
+  onClick,
+  onKeyDown,
+  children,
+  ...props
+}: DropdownMenuContentProps) {
+  return (
+    <DropdownMenuPortal>
+      <MenuPrimitive.Positioner
+        align={align}
+        alignOffset={alignOffset}
+        side={side}
+        sideOffset={sideOffset}
+        anchor={anchor}
+        collisionAvoidance={collisionAvoidance}
+      >
+        <MenuPrimitive.Popup
+          data-slot="dropdown-menu-content"
+          onClick={(event) => {
+            onClick?.(event)
+            event.stopPropagation()
+          }}
+          onKeyDown={(event) => {
+            onKeyDown?.(event)
+            event.stopPropagation()
+          }}
+          className={cn(menuPopupClass, className)}
+          {...props}
+        >
+          <MenuHighlight restOnFirst={highlightFirst} />
+          {children}
+        </MenuPrimitive.Popup>
+      </MenuPrimitive.Positioner>
+    </DropdownMenuPortal>
+  )
+}
+
+function DropdownMenuGroup({
+  ...props
+}: React.ComponentProps<typeof MenuPrimitive.Group>) {
+  return <MenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
+}
+
+function DropdownMenuItem({
+  className,
+  inset,
+  variant = "default",
+  ...props
+}: React.ComponentProps<typeof MenuPrimitive.Item> & {
+  inset?: boolean
+  variant?: "default" | "destructive"
+}) {
+  return (
+    <MenuPrimitive.Item
+      data-slot="dropdown-menu-item"
+      data-inset={inset}
+      data-variant={variant}
+      className={cn(
+        menuItemClass,
+        "data-[inset]:pl-8",
+        "data-[variant=destructive]:text-destructive data-[variant=destructive]:data-[highlighted]:text-destructive",
+        "data-[variant=destructive]:*:[svg]:text-destructive!",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+const checkboxItemClass =
+  "group/check transition-[color,font-weight] duration-150 data-[checked]:font-semibold data-[checked]:text-foreground data-[highlighted]:duration-0 [&>:is(svg,[data-slot=avatar],[aria-hidden]:not([data-slot$=-indicator]))]:transition-[opacity,filter] [&>:is(svg,[data-slot=avatar],[aria-hidden]:not([data-slot$=-indicator]))]:duration-150 data-[unchecked]:[&>:is(svg,[data-slot=avatar],[aria-hidden]:not([data-slot$=-indicator]))]:opacity-40 data-[unchecked]:[&>:is(svg,[data-slot=avatar],[aria-hidden]:not([data-slot$=-indicator]))]:saturate-30 motion-reduce:transition-none"
+
+const checkboxIndicatorClass =
+  "-mr-2 w-0 shrink-0 opacity-0 transition-[width,margin,opacity] duration-[160ms,160ms,80ms] delay-[40ms,40ms,0ms] ease-standard data-[checked]:mr-0 data-[checked]:w-4 data-[checked]:opacity-100 data-[checked]:duration-[260ms,260ms,60ms] data-[checked]:delay-0 data-[checked]:ease-spring motion-reduce:transition-none"
+
+const checkboxTickClass =
+  "fill-none stroke-current stroke-2 [stroke-dasharray:1] [stroke-dashoffset:1] [stroke-linecap:round] [stroke-linejoin:round] transition-[stroke-dashoffset] duration-80 ease-standard group-data-[checked]/check:[stroke-dashoffset:0] group-data-[checked]/check:duration-160 group-data-[checked]/check:delay-90 motion-reduce:transition-none"
+
+const settleAtOnceClass = "transition-none [&_*]:transition-none"
+
+const radioDotClass =
+  "origin-center fill-current [scale:0] transition-[scale] duration-80 ease-standard group-data-[checked]/check:[scale:1] group-data-[checked]/check:duration-260 group-data-[checked]/check:delay-60 group-data-[checked]/check:ease-spring motion-reduce:transition-none"
+
+function DropdownMenuCheckboxItem({
+  className,
+  children,
+  checked,
+  separated = false,
+  ...props
+}: React.ComponentProps<typeof MenuPrimitive.CheckboxItem> & {
+  separated?: boolean
+}) {
+  const item = (
+    <MenuPrimitive.CheckboxItem
+      data-slot="dropdown-menu-checkbox-item"
+      className={cn(menuItemClass, checkboxItemClass, className)}
+      checked={checked}
+      {...props}
+    >
+      <MenuPrimitive.CheckboxItemIndicator
+        keepMounted
+        aria-hidden
+        data-slot="dropdown-menu-checkbox-indicator"
+        className={checkboxIndicatorClass}
+      >
+        <svg viewBox="0 0 16 16" className="size-4 overflow-visible">
+          <path
+            pathLength={1}
+            d="M3.8 8.4 L6.6 11.1 L12.2 5"
+            className={checkboxTickClass}
+          />
+        </svg>
+      </MenuPrimitive.CheckboxItemIndicator>
+      {children}
+    </MenuPrimitive.CheckboxItem>
+  )
+  return separated ? (
+    <>
+      {item}
+      <DropdownMenuSeparator />
+    </>
+  ) : (
+    item
+  )
+}
+
+export type DropdownMenuRadioOption<Value extends string> = Readonly<{
+  value: Value
+  label: React.ReactNode
+  textValue?: string
+  disabled?: boolean
+  separated?: boolean
+  closeOnClick?: boolean
+  "aria-label"?: string
+}>
+
+export type DropdownMenuRadioGroupProps<Value extends string> = Readonly<
+  Omit<
+    React.ComponentProps<typeof MenuPrimitive.RadioGroup>,
+    "children" | "value" | "defaultValue" | "onValueChange"
+  >
+> &
+  Readonly<{
+    items: ReadonlyArray<DropdownMenuRadioOption<Value>>
+    value?: NoInfer<Value> | null
+    defaultValue?: NoInfer<Value> | null
+    onValueChange?: (
+      value: NoInfer<Value>,
+      details: MenuPrimitive.RadioGroup.ChangeEventDetails
+    ) => void
+  }>
+
+function DropdownMenuRadioGroup<
+  const Items extends ReadonlyArray<DropdownMenuRadioOption<string>>
+>({
+  items,
+  onValueChange,
+  ...props
+}: DropdownMenuRadioGroupProps<Items[number]["value"]> &
+  Readonly<{ items: Items }>) {
+  return (
+    <MenuPrimitive.RadioGroup
+      data-slot="dropdown-menu-radio-group"
+      {...props}
+      onValueChange={(next, details) => {
+        const item = items.find((item) => item.value === next)
+        if (item === undefined) {
+          details.cancel()
+          return
+        }
+        onValueChange?.(item.value, details)
+      }}
+    >
+      {items.map(({ label, textValue, ...item }) => (
+        <DropdownMenuRadioItem key={item.value} label={textValue} {...item}>
+          {label}
+        </DropdownMenuRadioItem>
+      ))}
+    </MenuPrimitive.RadioGroup>
+  )
+}
+
+function DropdownMenuRadioItem({
+  className,
+  children,
+  separated = false,
+  closeOnClick,
+  ...props
+}: Readonly<
+  Omit<React.ComponentProps<typeof MenuPrimitive.RadioItem>, "value">
+> &
+  Readonly<{
+    value: string
+    separated?: boolean
+  }>) {
+  const item = (
+    <MenuPrimitive.RadioItem
+      data-slot="dropdown-menu-radio-item"
+      closeOnClick={closeOnClick}
+      className={cn(
+        menuItemClass,
+        checkboxItemClass,
+        // A pick that closes the menu shows its mark at once: animating the
+        // indent while the menu fades out reads as a missed click.
+        closeOnClick && settleAtOnceClass,
+        className
+      )}
+      {...props}
+    >
+      <MenuPrimitive.RadioItemIndicator
+        keepMounted
+        aria-hidden
+        data-slot="dropdown-menu-radio-indicator"
+        className={checkboxIndicatorClass}
+      >
+        <svg viewBox="0 0 16 16" className="size-4 overflow-visible">
+          <circle cx="8" cy="8" r="3" className={radioDotClass} />
+        </svg>
+      </MenuPrimitive.RadioItemIndicator>
+      {children}
+    </MenuPrimitive.RadioItem>
+  )
+  return separated ? (
+    <>
+      {item}
+      <DropdownMenuSeparator />
+    </>
+  ) : (
+    item
+  )
+}
+
+function DropdownMenuInput({
+  className,
+  ...props
+}: React.ComponentProps<typeof MenuPrimitive.Input>) {
+  return (
+    <>
+      <MenuPrimitive.Input
+        data-slot="dropdown-menu-input"
+        className={cn(
+          "h-9 w-full shrink-0 rounded-md bg-transparent px-2 text-foreground outline-none placeholder:text-muted-foreground",
+          "text-body",
+          fieldTouchClass,
+          className
+        )}
+        {...props}
+      />
+      <DropdownMenuSeparator />
+    </>
+  )
+}
+
+function DropdownMenuList({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof MenuPrimitive.List>) {
+  return (
+    <MenuPrimitive.List
+      data-slot="dropdown-menu-list"
+      className={cn("relative overflow-x-hidden", className)}
+      {...props}
+    >
+      <MenuHighlight />
+      {children}
+    </MenuPrimitive.List>
+  )
+}
+
+function DropdownMenuEmpty({
+  className,
+  ...props
+}: React.ComponentProps<typeof MenuPrimitive.Empty>) {
+  return (
+    <MenuPrimitive.Empty
+      data-slot="dropdown-menu-empty"
+      className={cn(
+        "px-2 py-2 text-muted-foreground empty:hidden",
+        "text-body",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function DropdownMenuLabel({
+  className,
+  inset,
+  ...props
+}: React.ComponentProps<typeof MenuPrimitive.GroupLabel> & {
+  inset?: boolean
+}) {
+  return (
+    <MenuPrimitive.GroupLabel
+      data-slot="dropdown-menu-label"
+      data-inset={inset}
+      className={cn(menuLabelClass, "data-[inset]:pl-8", className)}
+      {...props}
+    />
+  )
+}
+
+function DropdownMenuSeparator({
+  className,
+  ...props
+}: React.ComponentProps<typeof MenuPrimitive.Separator>) {
+  return (
+    <MenuPrimitive.Separator
+      data-slot="dropdown-menu-separator"
+      className={cn(menuSeparatorClass, className)}
+      {...props}
+    />
+  )
+}
+
+function DropdownMenuShortcut({
+  className,
+  ...props
+}: React.ComponentProps<"span">) {
+  return (
+    <span
+      data-slot="dropdown-menu-shortcut"
+      className={cn(
+        "ml-auto pr-1 text-muted-foreground",
+        "text-caption",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+// Rows sit 5px inside the popup (4px padding, 1px border). The submenu is
+// placed against the row, so the side offset adds that inset back for a
+// 6px gap between the two surfaces, and the align offset lines its first
+// row up with the trigger row.
+const MENU_ROW_INSET = 5
+const SUBMENU_GAP = 6
+const SUBMENU_SIDE_OFFSET = MENU_ROW_INSET + SUBMENU_GAP
+const SUBMENU_ALIGN_OFFSET = -MENU_ROW_INSET
+
+function DropdownMenuSub({
+  filterable = false,
+  ...props
+}: React.ComponentProps<typeof MenuPrimitive.SubmenuRoot> & {
+  filterable?: DropdownMenuFilter
+}) {
+  return (
+    <FilterableRoot filterable={filterable}>
+      <MenuPrimitive.SubmenuRoot {...props} />
+    </FilterableRoot>
+  )
+}
+
+function DropdownMenuSubTrigger({
+  className,
+  inset,
+  delay = 0,
+  children,
+  ...props
+}: React.ComponentProps<typeof MenuPrimitive.SubmenuTrigger> & {
+  inset?: boolean
+}) {
+  return (
+    <MenuPrimitive.SubmenuTrigger
+      delay={delay}
+      data-slot="dropdown-menu-sub-trigger"
+      data-inset={inset}
+      className={cn(
+        menuItemClass,
+        "data-[popup-open]:text-foreground data-[popup-open]:[&_svg]:stroke-[2]",
+        "data-[inset]:pl-8",
+        className
+      )}
+      {...props}
+    >
+      {children}
+      <ChevronRightIcon className="ml-auto size-4" />
+    </MenuPrimitive.SubmenuTrigger>
+  )
+}
+
+type DropdownMenuSubContentProps = React.ComponentProps<
+  typeof MenuPrimitive.Popup
+> &
+  Pick<
+    React.ComponentProps<typeof MenuPrimitive.Positioner>,
+    "align" | "alignOffset" | "side" | "sideOffset"
+  >
+
+function DropdownMenuSubContent({
+  className,
+  align,
+  alignOffset = SUBMENU_ALIGN_OFFSET,
+  side,
+  sideOffset = SUBMENU_SIDE_OFFSET,
+  children,
+  ...props
+}: DropdownMenuSubContentProps) {
+  return (
+    <DropdownMenuPortal>
+      <MenuPrimitive.Positioner
+        align={align}
+        alignOffset={alignOffset}
+        side={side}
+        sideOffset={sideOffset}
+      >
+        <MenuPrimitive.Popup
+          data-slot="dropdown-menu-sub-content"
+          className={cn(menuSurfaceClass, className)}
+          {...props}
+        >
+          <MenuHighlight restOnFirst />
+          {children}
+        </MenuPrimitive.Popup>
+      </MenuPrimitive.Positioner>
+    </DropdownMenuPortal>
+  )
+}
+
+export {
+  DropdownMenuEmpty,
+  DropdownMenuInput,
+  DropdownMenuList,
+  DeferredDropdownMenus,
+  DropdownMenu,
+  DropdownMenuPortal,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuItem,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent
+}

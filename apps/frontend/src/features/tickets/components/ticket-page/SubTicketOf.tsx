@@ -1,10 +1,11 @@
 import { useAtomValue } from "@effect/atom-react"
 import { isEpic, type TicketDetail } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { Button } from "@/components/ui/button"
-import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import {
   statusesFor,
   statusesRequest
@@ -17,7 +18,6 @@ import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import type { TicketPageSource } from "@/features/tickets/lib/ticketSearch"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function SubTicketOf({
@@ -50,7 +50,7 @@ export function SubTicketOf({
         preview={{ kind: "ticket", id: parent.id }}
         render={
           <Button
-            variant="chip-muted"
+            variant="ghost"
             className="h-6 min-w-0 gap-1 px-1.5"
             render={
               <Link

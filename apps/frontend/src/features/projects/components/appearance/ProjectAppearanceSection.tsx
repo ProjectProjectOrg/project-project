@@ -4,15 +4,16 @@ import {
   type ProjectBanner,
   type ProjectIconImage
 } from "@pp/shared"
+import { AutoHeight } from "@pp/ui/auto-height"
+import { Button } from "@pp/ui/button"
+import { ColorPicker } from "@pp/ui/color-picker"
+import { transitions } from "@pp/ui/lib/springs"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useState } from "react"
 
 import { SettingsSection } from "@/components/shell/settings/SettingsSection"
-import { AutoHeight } from "@/components/ui/auto-height"
-import { Button } from "@/components/ui/button"
-import { ColorPicker } from "@/components/ui/color-picker"
 import {
   projectKey as makeProjectKey,
   projectRequest,
@@ -35,7 +36,6 @@ import {
   bannerSource,
   bannerPresets
 } from "@/features/projects/lib/bannerPresets"
-import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 const makeProjectColor = Schema.decodeUnknownSync(ProjectColor)
@@ -172,6 +172,7 @@ export function ProjectAppearanceSection({
               action={
                 canEdit ? (
                   <ColorPicker
+                    swatchLabel={(hex) => m.color_swatch_aria_label({ hex })}
                     value={color}
                     onChange={(next) =>
                       update({ color: makeProjectColor(next) })

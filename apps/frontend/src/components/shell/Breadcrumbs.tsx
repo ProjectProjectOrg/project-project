@@ -1,11 +1,16 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { GroupId, TicketId } from "@pp/shared"
+import { FluidHoverHighlight } from "@pp/ui/fluid-hover-highlight"
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem
+} from "@pp/ui/hooks/useFluidHover"
+import { cn } from "@pp/ui/lib/utils"
 import { Link, useMatches, useSearch } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronRight } from "lucide-react"
 import { createContext, use, useMemo, useRef, type ReactNode } from "react"
 
-import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import {
   sprintDetail,
@@ -16,8 +21,6 @@ import {
   ticketDetail,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
-import { useFluidHover, useRegisterFluidHoverItem } from "@/hooks/useFluidHover"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export type Crumb =

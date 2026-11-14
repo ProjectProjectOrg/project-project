@@ -99,7 +99,10 @@
   },
   "overrides": [
     {
-      "files": ["apps/frontend/**/*.{js,jsx,ts,tsx}"],
+      "files": [
+        "apps/frontend/**/*.{js,jsx,ts,tsx}",
+        "packages/ui/**/*.{js,jsx,ts,tsx}"
+      ],
       "env": {
         "browser": true
       },
@@ -150,7 +153,17 @@
     {
       "files": ["apps/frontend/src/**/*.{ts,tsx}"],
       "rules": {
-        "workspace/no-raw-api-query": "error",
+        "workspace/no-raw-api-query": "error"
+      }
+    },
+    {
+      "files": [
+        "apps/frontend/src/**/*.{ts,tsx}",
+        "packages/ui/src/**/*.{ts,tsx}",
+        "packages/ui/gallery/src/**/*.{ts,tsx}",
+        "packages/ui/docs/**/*.{ts,tsx}"
+      ],
+      "rules": {
         "workspace/type-scale": "error",
         "eslint/max-lines": [
           "warn",
@@ -174,6 +187,8 @@
       "files": [
         "apps/frontend/src/**/*.{spec,test}.{ts,tsx}",
         "apps/frontend/src/**/*.test-d.{ts,tsx}",
+        "packages/ui/src/**/*.{spec,test}.{ts,tsx}",
+        "packages/ui/src/**/*.test-d.{ts,tsx}",
         "apps/frontend/src/paraglide/**",
         "apps/frontend/src/routeTree.gen.ts"
       ],

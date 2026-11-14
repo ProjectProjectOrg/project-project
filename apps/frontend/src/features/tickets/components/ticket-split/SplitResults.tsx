@@ -1,8 +1,8 @@
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
 import { Plus, X } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export type RailShape = "node" | "stem" | "stem-end"

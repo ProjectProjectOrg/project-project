@@ -1,15 +1,12 @@
 import type { JiraMigrationRequirements } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import { Input } from "@pp/ui/input"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import { Select, SelectTrigger, type SelectOption } from "@pp/ui/select"
 import { Mail, UserPlus } from "lucide-react"
 import { useState } from "react"
 
-import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectTrigger,
-  type SelectOption
-} from "@/components/ui/select"
 import { useRowFilter } from "@/features/jira/hooks/useRowFilter"
 import type { JiraImportSetup } from "@/features/jira/lib/draft"
 import {
@@ -33,7 +30,7 @@ import {
   personNeedsAttention,
   type JiraSetupCounts
 } from "@/features/jira/lib/setup"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 import { MappingTable, MappingTableRow, OptionLabel } from "./MappingTable"
@@ -140,6 +137,8 @@ export function PeopleSection({
           </ConfirmButton.Idle>
           <ConfirmButton.Confirm>
             <ConfirmButton.Action
+              cancelLabel={m.common_cancel_button()}
+              describeError={describeCause}
               tone="neutral"
               prompt={m.jira_import_people_invite_all_prompt({
                 count: inviteCount
@@ -280,7 +279,7 @@ function PersonChoice({
   if (showInput)
     return (
       <Input
-        variant="compact"
+        size="sm"
         type="email"
         autoFocus
         aria-label={m.jira_import_people_invite_email_label({

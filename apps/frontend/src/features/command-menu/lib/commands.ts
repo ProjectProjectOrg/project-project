@@ -6,13 +6,13 @@ import type {
   TicketDetail,
   Tools
 } from "@pp/shared"
+import type { IconComponent } from "@pp/ui/lib/icon"
 import type * as AsyncResult from "effect/reactivity/AsyncResult"
 import type * as Atom from "effect/reactivity/Atom"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
 import type { ReactNode } from "react"
 
 import type { TicketPermissions } from "@/features/tickets/lib/ticketPermissions"
-import type { IconComponent } from "@/lib/icon"
 
 import type {
   CommandPage,

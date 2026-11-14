@@ -1,9 +1,10 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { ProjectStatus } from "@pp/shared"
+import { CommandMenuItem, CommandMenuCheck } from "@pp/ui/command-menu"
+import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
 import type { ReactNode } from "react"
 
-import { CommandMenuItem, CommandMenuCheck } from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type {
   SelectedTicket,
@@ -14,7 +15,6 @@ import {
   statusesRequest
 } from "@/features/projects/atoms/projectStatuses"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useTicketMutation } from "./useTicketMutation"
@@ -70,7 +70,9 @@ export function TicketStatusCommands({
               strokeWidth={1.75}
             />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {current?.status === item.value && <CommandMenuCheck />}
+            {current?.status === item.value && (
+              <CommandMenuCheck label={m.chrome_command_menu_selected()} />
+            )}
           </CommandMenuItem>
         )
       }}

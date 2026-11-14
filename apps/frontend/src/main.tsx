@@ -1,5 +1,4 @@
 import { RegistryContext } from "@effect/atom-react"
-import { STATE_COLORS } from "@pp/shared"
 import {
   createBrowserHistory,
   createRouter,
@@ -14,16 +13,6 @@ import { routeTree } from "./routeTree.gen"
 import { authClient } from "./services/AuthClient"
 
 import "./styles.css"
-
-const stateColorStyle = document.createElement("style")
-const lightStateVars = Object.entries(STATE_COLORS)
-  .map(([name, c]) => `--state-${name}:${c.light.oklch};`)
-  .join("")
-const darkStateVars = Object.entries(STATE_COLORS)
-  .map(([name, c]) => `--state-${name}:${c.dark.oklch};`)
-  .join("")
-stateColorStyle.textContent = `:root{${lightStateVars}}.dark{${darkStateVars}}`
-document.head.appendChild(stateColorStyle)
 
 const history = createBrowserHistory()
 const sessions = createSessionCache((registry) =>

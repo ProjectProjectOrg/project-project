@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import { cn } from "@pp/ui/lib/utils"
 import { getRouteApi, Outlet } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -20,7 +21,6 @@ import {
   useProjectRoute
 } from "@/features/projects/hooks/useProject"
 import { ticketKeyWidth } from "@/features/tickets/lib/ticketKeyWidth"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi("/_authed/orgs/$orgSlug/projects/$slug")

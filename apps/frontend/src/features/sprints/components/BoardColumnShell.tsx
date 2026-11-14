@@ -1,9 +1,10 @@
 import NumberFlow from "@number-flow/react"
+import { cn } from "@pp/ui/lib/utils"
+import { ScrollArea, type ScrollAreaProps } from "@pp/ui/scroll-area"
 import { useState, type ReactNode } from "react"
 
-import { ScrollArea, type ScrollAreaProps } from "@/components/ui/scroll-area"
 import type { StatusMeta } from "@/features/tickets/lib/ticketMeta"
-import { cn } from "@/lib/utils"
+import { m } from "@/paraglide/messages"
 
 export const BOARD_COLUMN_CLASS =
   "flex max-h-full w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-surface-1"
@@ -23,6 +24,7 @@ export function BoardCardList({
 }>) {
   return (
     <ScrollArea
+      roleDescription={m.common_scroll_area_label()}
       className="relative z-10 flex min-h-0 flex-1 flex-col [&>[data-slot=scroll-area-scrollbar]]:pb-2"
       viewportClassName="min-h-0 flex-1 pb-2 outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset [&>div[style]]:!block [&>div[style]]:!min-w-0 ![--scroll-fade-size:6px] scroll-fade"
       viewportProps={viewportProps}

@@ -1,6 +1,6 @@
+import { Button } from "@pp/ui/button"
 import { Plus } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import { BranchPicker } from "@/features/github/components/ticket-git/BranchPicker"
 import { m } from "@/paraglide/messages"
 
@@ -18,7 +18,7 @@ export function NoBranchPanel({ frame }: Readonly<{ frame: GitPanelFrame }>) {
           branchTemplate={branchTemplate}
           align="start"
           trigger={
-            <Button variant="chip-muted">
+            <Button variant="ghost">
               <Plus className="size-3.5" strokeWidth={1.75} />
               {m.git_branch_picker_button()}
             </Button>

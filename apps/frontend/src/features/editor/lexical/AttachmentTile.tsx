@@ -3,13 +3,13 @@ import {
   attachmentFileFormat,
   type AttachmentFileFormat
 } from "@pp/shared"
+import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
+import { MorphIconLink } from "@pp/ui/morph-icon-link"
 import { Download } from "lucide-react"
 import { motion } from "motion/react"
 import { useEffect, useState, type ReactNode } from "react"
 
-import { MorphIconLink } from "@/components/ui/morph-icon-link"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export const ATTACHMENT_TILE_MIN_WIDTH = 148

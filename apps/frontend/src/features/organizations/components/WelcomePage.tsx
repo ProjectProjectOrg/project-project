@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { UserInvitation } from "@pp/shared"
+import { Button } from "@pp/ui/button"
 import { Navigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Inbox, LogOut } from "lucide-react"
@@ -10,7 +11,6 @@ import {
   OnboardingGateStatus,
   OnboardingShell
 } from "@/components/shell/OnboardingShell"
-import { Button } from "@/components/ui/button"
 import { logout, me } from "@/features/auth/atoms/auth"
 import { invitations } from "@/features/organizations/atoms/invitations"
 import { WelcomeInviteList } from "@/features/organizations/components/WelcomeInviteList"

@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { User } from "@pp/shared"
+import { MemberAvatar } from "@pp/ui/member-avatar"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import {
@@ -9,7 +10,6 @@ import {
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { me } from "@/features/auth/atoms/auth"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 

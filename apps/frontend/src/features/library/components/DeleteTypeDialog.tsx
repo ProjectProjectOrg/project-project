@@ -1,13 +1,6 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Library, TypeDefinition, TypeKey } from "@pp/shared"
-import * as Exit from "effect/Exit"
-import * as Predicate from "effect/Predicate"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { useState } from "react"
-
-import { AsyncView } from "@/components/shell/AsyncView"
-import { ReadFailure } from "@/components/shell/ReadFailure"
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -15,19 +8,22 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle
-} from "@/components/ui/dialog"
-import {
-  Select,
-  SelectTrigger,
-  type SelectOption
-} from "@/components/ui/select"
+} from "@pp/ui/dialog"
+import { cn } from "@pp/ui/lib/utils"
+import { Select, SelectTrigger, type SelectOption } from "@pp/ui/select"
+import * as Exit from "effect/Exit"
+import * as Predicate from "effect/Predicate"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
+import { useState } from "react"
+
+import { AsyncView } from "@/components/shell/AsyncView"
+import { ReadFailure } from "@/components/shell/ReadFailure"
 import {
   countsRequest,
   ticketCounts
 } from "@/features/tickets/atoms/ticketCounts"
 import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import {
@@ -134,7 +130,7 @@ export function DeleteTypeDialog({
         if (!busy) onOpenChange(next)
       }}
     >
-      <DialogContent showCloseButton={false}>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>
             {m.templates_settings_delete_confirm({ name: type.name })}

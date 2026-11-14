@@ -4,23 +4,23 @@ import {
   type BlockLookup,
   type Library
 } from "@pp/shared"
-import { GripVertical, Plus, Text, X } from "lucide-react"
-import { Reorder, useDragControls } from "motion/react"
-import { useMemo, useRef, useState, type ReactNode } from "react"
-
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Badge } from "@pp/ui/badge"
+import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import { SURFACE_BG } from "@pp/ui/lib/surfaceClasses"
+import { useSurface } from "@pp/ui/lib/surfaceContext"
+import { cn } from "@pp/ui/lib/utils"
+import { GripVertical, Plus, Text, X } from "lucide-react"
+import { Reorder, useDragControls } from "motion/react"
+import { useMemo, useRef, useState, type ReactNode } from "react"
+
 import { blockChrome } from "@/features/editor/lib/blockChrome"
-import { SURFACE_BG } from "@/lib/surfaceClasses"
-import { useSurface } from "@/lib/surfaceContext"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import type { LibraryScope } from "../atoms/libraryScope"
@@ -340,7 +340,7 @@ function RowCard({
       {onRemove === undefined ? null : (
         <Button
           type="button"
-          variant="quiet"
+          variant="ghost"
           size="square-7"
           className="relative"
           aria-label={m.templates_types_remove_aria({ name: view.name })}

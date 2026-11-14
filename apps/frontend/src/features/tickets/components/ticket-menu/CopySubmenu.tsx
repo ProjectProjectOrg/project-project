@@ -1,15 +1,15 @@
 import { useAtomValue } from "@effect/atom-react"
-import * as Result from "effect/reactivity/AsyncResult"
-import { Bot, Copy, FileText, Hash, Link2, Type } from "lucide-react"
-import type { LucideIcon } from "lucide-react"
-
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import * as Result from "effect/reactivity/AsyncResult"
+import { Bot, Copy, FileText, Hash, Link2, Type } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
+
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   ticketDetail,

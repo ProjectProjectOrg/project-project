@@ -7,6 +7,8 @@ import type {
   TypeDefinition,
   TypeKey
 } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
 import { Link } from "@tanstack/react-router"
 import {
   GitBranch,
@@ -20,7 +22,6 @@ import {
 import type { ReactNode } from "react"
 
 import { Markdown } from "@/features/editor/components/Markdown"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TagChip } from "@/features/tags/components/TagChip"
 import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
@@ -36,7 +37,6 @@ import {
 } from "@/features/tickets/lib/priorityMeta"
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import { resolveType, typeName } from "@/features/tickets/lib/ticketTypes"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const GROUP_ICONS: Readonly<Record<GroupKind, LucideIcon>> = {
@@ -65,7 +65,7 @@ function Value({
   children: ReactNode
 }>) {
   return (
-    <span className="inline-flex items-center gap-1 align-bottom whitespace-nowrap text-foreground">
+    <span className="inline-flex items-center gap-1 align-bottom whitespace-nowrap text-foreground [&>[data-slot=avatar]]:translate-y-px [&>svg]:translate-y-px">
       {Icon && (
         <Icon
           className={cn("size-3.5 shrink-0", iconClassName)}
@@ -118,7 +118,7 @@ function TypeValue({
 }>) {
   const shown = resolveType(types, type)
   return (
-    <span className="inline-flex items-center gap-1 align-bottom whitespace-nowrap text-foreground">
+    <span className="inline-flex items-center gap-1 align-bottom whitespace-nowrap text-foreground [&>[data-slot=avatar]]:translate-y-px [&>svg]:translate-y-px">
       {shown !== null && <TypeGlyph type={shown} className="size-3.5" />}
       {typeName(shown)}
     </span>
@@ -136,7 +136,7 @@ function People({
         return (
           <span
             key={id}
-            className="inline-flex items-center gap-1 whitespace-nowrap text-foreground"
+            className="inline-flex items-center gap-1 align-bottom whitespace-nowrap text-foreground [&>[data-slot=avatar]]:translate-y-px"
           >
             {member && <MemberAvatar member={member} size={16} />}
             {member?.name ||

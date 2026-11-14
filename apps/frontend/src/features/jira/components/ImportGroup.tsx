@@ -1,15 +1,18 @@
 import type { JiraMigrationSummary } from "@pp/shared"
+import { FluidHoverHighlight } from "@pp/ui/fluid-hover-highlight"
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem
+} from "@pp/ui/hooks/useFluidHover"
 import { Link } from "@tanstack/react-router"
 import { useRef } from "react"
 
-import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
 import { formatDateTime } from "@/features/jira/lib/format"
 import {
   isRunningJiraImport,
   jiraProgressRatio
 } from "@/features/jira/lib/imports"
 import { jiraImportStatusLabel } from "@/features/jira/lib/stages"
-import { useFluidHover, useRegisterFluidHoverItem } from "@/hooks/useFluidHover"
 import { m } from "@/paraglide/messages"
 
 import { ProgressBar } from "./ProgressBar"

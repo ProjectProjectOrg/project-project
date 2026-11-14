@@ -46,6 +46,7 @@ Packages use the `@pp/*` namespace.
 | `packages/integration-slack`    | Slack notifications and ticket link previews (see its README)                                  |
 | `packages/integration-everhour` | Everhour time tracking (see its README)                                                        |
 | `packages/integration-jira`     | Durable Jira Cloud project migration                                                           |
+| `packages/ui`                   | Design-system primitives, theme tokens and their gallery; holds no translated strings          |
 
 `@pp/shared` is the keystone: the backend implements its `HttpApi`, the frontend's typed client is derived from it, and the tool catalog in `packages/shared/src/tools` is served both over MCP and to the CLI.
 

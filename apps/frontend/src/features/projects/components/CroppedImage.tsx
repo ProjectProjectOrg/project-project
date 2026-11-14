@@ -1,7 +1,7 @@
+import { cn } from "@pp/ui/lib/utils"
 import { useState, type CSSProperties } from "react"
 
 import { coverCropStyle, type Crop } from "@/features/projects/lib/coverCrop"
-import { cn } from "@/lib/utils"
 
 export function CroppedImage({
   src,

@@ -10,16 +10,17 @@ import type {
   TypeKey
 } from "@pp/shared"
 import { finishedStatusSlugs, flattenTicketBlocks } from "@pp/shared"
+import { Kbd } from "@pp/ui/kbd"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import { PopoverContent } from "@pp/ui/popover"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { OctagonMinus } from "lucide-react"
 import type { ComponentProps } from "react"
 import { lazy, Suspense } from "react"
 
-import { Kbd } from "@/components/ui/kbd"
-import { PopoverContent } from "@/components/ui/popover"
 import { TicketGitChip } from "@/features/github/components/ticket-git/TicketGit"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {
   projectEstimation,
   projectRequest
@@ -46,7 +47,6 @@ import {
   statusLabelFor
 } from "@/features/tickets/lib/ticketMeta"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type MarkdownModule = typeof import("@/features/editor/components/Markdown")
@@ -262,7 +262,7 @@ function MetaRow({
       {visibleAssignees.length > 0 && (
         <span className="ml-auto inline-flex items-center gap-1">
           {visibleAssignees.map((member) => (
-            <MemberAvatar key={member.id} member={member} size={16} />
+            <MemberAvatar key={member.id} member={member} size={24} />
           ))}
         </span>
       )}

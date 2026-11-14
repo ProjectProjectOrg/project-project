@@ -6,6 +6,21 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { $isHeadingNode, $isQuoteNode } from "@lexical/rich-text"
 import { $setBlocksType } from "@lexical/selection"
 import { $getNearestNodeOfType, mergeRegister } from "@lexical/utils"
+import { Button } from "@pp/ui/button"
+import { FluidHoverHighlight } from "@pp/ui/fluid-hover-highlight"
+import {
+  useFluidHover,
+  useRegisterFluidHoverItem,
+  type UseFluidHoverReturn
+} from "@pp/ui/hooks/useFluidHover"
+import { Popover as PopoverRoot, PopoverContent } from "@pp/ui/popover"
+import { ToggleGroup, ToggleGroupItem } from "@pp/ui/toggle-group"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@pp/ui/tooltip"
 import {
   $createParagraphNode,
   $getSelection,
@@ -36,21 +51,6 @@ import {
   type RefObject
 } from "react"
 
-import { Button } from "@/components/ui/button"
-import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
-import { Popover as PopoverRoot, PopoverContent } from "@/components/ui/popover"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
-import {
-  useFluidHover,
-  useRegisterFluidHoverItem,
-  type UseFluidHoverReturn
-} from "@/hooks/useFluidHover"
 import { m } from "@/paraglide/messages"
 
 import { $insertBasic } from "./blocks/slashCommands"

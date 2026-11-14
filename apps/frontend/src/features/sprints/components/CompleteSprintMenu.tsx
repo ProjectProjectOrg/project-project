@@ -6,10 +6,7 @@ import {
   type CompleteSprintDestination,
   type Group
 } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronDown, Inbox, Plus, Trophy } from "lucide-react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +17,11 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@pp/ui/dropdown-menu"
+import { cn } from "@pp/ui/lib/utils"
+import * as Result from "effect/reactivity/AsyncResult"
+import { ChevronDown, Inbox, Plus, Trophy } from "lucide-react"
+
 import {
   statusesFor,
   statusesRequest
@@ -33,7 +34,6 @@ import {
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import { sprintEnded } from "@/features/sprints/lib/sprintDates"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { SprintStateIcon } from "./SprintChip"

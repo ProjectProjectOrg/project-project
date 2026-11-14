@@ -8,6 +8,9 @@ import {
   type ActiveTimer,
   type Group
 } from "@pp/shared"
+import { transitions } from "@pp/ui/lib/springs"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
+import { Select, SelectTrigger } from "@pp/ui/select"
 import { useLocation } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -17,12 +20,6 @@ import { Timer } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { useEffect, useMemo, useState } from "react"
 
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
-import { Select, SelectTrigger } from "@/components/ui/select"
 import {
   everhourProjectRequest,
   everhourProfileAtom,
@@ -46,7 +43,6 @@ import {
 } from "@/features/sprints/atoms/sprintList"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
 import { mutationErrorText } from "@/lib/mutationError"
-import { transitions } from "@/lib/springs"
 import * as m from "@/paraglide/messages"
 
 const decodeGroupId = Schema.decodeUnknownSync(GroupId)

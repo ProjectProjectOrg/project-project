@@ -1,22 +1,18 @@
 import { sprintState } from "@pp/shared"
 import type { Group } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import * as DateTime from "effect/DateTime"
 import * as Match from "effect/Match"
 import { Flag, Trophy, Zap } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
-import {
   daysBetween,
   sprintCountdown,
   sprintEnded,
   type SprintCountdown
 } from "@/features/sprints/lib/sprintDates"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 

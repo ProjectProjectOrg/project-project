@@ -52,7 +52,6 @@ features/<feature>/
   hooks/        useX.ts
   lib/          pure feature logic and its tests
 components/
-  ui/           design-system primitives only (shadcn and Fluid)
   shell/        app chrome: layout, sidebar, nav, page and settings scaffolding, ErrorPage, NotFoundPage
 lib/            cross-feature helpers only
 hooks/          cross-feature hooks only
@@ -61,10 +60,17 @@ routes/         route files
 
 - **Routes stay thin.** A route file holds `createFileRoute` options (`beforeLoad`, `loader`, `validateSearch`) and renders one component imported from `features/*` or `components/shell`. Page components read params and search through `getRouteApi("<route id>")`; nothing outside `routes/` imports from `routes/`. Tests of route modules sit beside them with a `-` prefix so the router ignores them.
 - **Placement.** Code used by one feature lives in that feature; `lib/`, `hooks/` and `components/shell` hold what several features share.
-- **Naming.** Directories are kebab-case. React component files are PascalCase (`TicketHoverCard.tsx`), hooks are `useX.ts`, other modules are camelCase (`activityGroups.ts`). `components/ui` keeps the kebab-case names the shadcn CLI generates. A component folder such as `ticket-list/` may hold its private helpers and hooks.
+- **Naming.** Directories are kebab-case. React component files are PascalCase (`TicketHoverCard.tsx`), hooks are `useX.ts`, other modules are camelCase (`activityGroups.ts`). `packages/ui/src/components` keeps the kebab-case names the shadcn CLI generates. A component folder such as `ticket-list/` may hold its private helpers and hooks.
 - Tests sit beside the module they test.
 - **Pure logic lives in `lib/` with tests.** Sorting, grouping, formatting, payload building and state transitions that a component holds move to `features/<x>/lib/` with a sibling test, not into `*.logic.ts` files beside the component; the component keeps rendering and wiring.
 - **Project scope.** Components rendered only inside a project read `orgSlug` and `slug` from `useProjectRoute()` (`features/projects/hooks/useProject.ts`), which reads `ProjectContext`. `ProjectLayout` provides it for the project route and `DashboardTicket` for each dashboard row, so don't drill the slugs as props. Components also rendered at org scope (dashboard lists, project tiles, hover cards that show another project's ticket) keep explicit props. Sidebar slots render outside the project tree, so a project-scoped slot wraps its content in `ProjectContext`.
+
+### UI package: `@pp/ui`
+
+Design-system primitives (shadcn and Fluid) live in `packages/ui`, not in the app. Import them as `@pp/ui/<name>` (`@pp/ui/checkbox`), their helpers as `@pp/ui/lib/*` and `@pp/ui/hooks/*`. The app imports `@pp/ui/theme.css` right after Tailwind; it holds the tokens, type scale, fonts and global interaction rules.
+
+- **No translations in the package.** Every visible or spoken string is a prop (`closeLabel`, `cancelLabel`, `keyLabels`, `navLabels`, …), and the app passes its Paraglide messages. Never import `@/paraglide` or app modules from `packages/ui`, and never give a string prop an English default.
+- **Gallery.** Every primitive gets a page in `packages/ui/docs/components/<name>/page.mdx` with its design rules, and demos as plain React files in its `demos/` folder, placed with `<Demo name="…" title="…" />`. A `States` demo pins hover, pressed and focus through `data-force`. Each demo runs an axe check, and `/demo/<page>/<name>` renders it alone (`?theme=dark` for dark). The gallery is built from `@pp/ui` itself; run it with `bun run gallery` in `packages/ui` (port 6006). The `ui-components` skill (`.agents/skills/ui-components/SKILL.md`) covers adding, changing and documenting a primitive.
 
 ### Types: readonly type aliases, never interfaces
 
@@ -121,10 +127,10 @@ If extending the primitive feels disruptive (touches public API, would conflict 
 
 Each UI pattern has exactly one primitive. Reach for it (or add a variant to it) before writing a second version:
 
-- **Segmented tabs:** `SegmentedTabs` (`components/ui/segmented-tabs.tsx`), controlled by `value` / `onValueChange`, with `default | inline | view` variants and `labels="active"` for icon-only tabs. A tab that must be a router link passes an item `render` element.
-- **Command menu:** the Fluid `CommandMenu` (`components/ui/command-menu.tsx`), with `CommandMenuInput` when the list filters from a text box. There is no cmdk.
-- **Confirm:** `ConfirmButton` (`components/ui/confirm-button.tsx`). It owns its open state; callers never keep a `confirming` boolean. It covers inline swaps (`Trigger`, `DeleteTrigger`, `Confirm`), confirms opened from a menu (`MenuItem`, `Popover`, or `Idle` plus `Confirm` inside the menu), typed confirmation (`Action typed`), and the mutation atom's `waiting` / `error`.
-- **Inline embed chip:** `Chip` (`components/ui/chip.tsx`) for bordered inline chips in the editor. Tinted labels and tags use `Badge`.
+- **Segmented tabs:** `SegmentedTabs` (`packages/ui/src/components/segmented-tabs.tsx`), controlled by `value` / `onValueChange`, with `default | inline | view` variants and `labels="active"` for icon-only tabs. A tab that must be a router link passes an item `render` element.
+- **Command menu:** the Fluid `CommandMenu` (`packages/ui/src/components/command-menu.tsx`), with `CommandMenuInput` when the list filters from a text box. There is no cmdk.
+- **Confirm:** `ConfirmButton` (`packages/ui/src/components/confirm-button.tsx`). It owns its open state; callers never keep a `confirming` boolean. It covers inline swaps (`Trigger`, `DeleteTrigger`, `Confirm`), confirms opened from a menu (`MenuItem`, `Popover`, or `Idle` plus `Confirm` inside the menu), typed confirmation (`Action typed`), and the mutation atom's `waiting` / `error`.
+- **Inline embed chip:** `Badge variant="outline"` (`packages/ui/src/components/badge.tsx`) for inline chips in the editor; tinted labels and tags use the default `soft` variant, and counts next to a label use `variant="count"`.
 - **Icon chrome buttons:** `Button variant="quiet"` with `size="square-7" | "square-8" | "square-9"`, not hand-pasted `grid size-N … hover:bg-hover` buttons.
 - **Sliding highlights:** `useFluidHover` + `FluidHoverHighlight` when we own the pointer and keyboard index (nav rails, command menu); `MenuHighlight` when Base UI owns `data-highlighted` (menus, selects); `SegmentedIndicator` for the selected tab.
 

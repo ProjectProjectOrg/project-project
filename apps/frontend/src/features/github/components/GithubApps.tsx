@@ -4,6 +4,15 @@ import type {
   GithubInstallation,
   GithubOrgIntegrationStatus
 } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
 import { ChevronDown, ExternalLink } from "lucide-react"
 
 import {
@@ -11,15 +20,6 @@ import {
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
-import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
 import {
   deleteGithubApp,
   githubOrgRequest
@@ -144,6 +144,7 @@ function AppRegistrationRow({
           </ConfirmButton.Trigger>
           <ConfirmButton.Confirm>
             <ConfirmButton.Action
+              cancelLabel={m.common_cancel_button()}
               prompt={m.github_apps_remove_confirm({ name: app.name })}
               label={m.github_apps_remove_button()}
               describeError={() => m.github_apps_remove_error()}

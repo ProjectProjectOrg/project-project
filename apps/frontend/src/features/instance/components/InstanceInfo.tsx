@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
+import { CopyButton } from "@pp/ui/copy-button"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 
-import { CopyButton } from "@/components/ui/copy-button"
 import { m } from "@/paraglide/messages"
 
 import { instanceHealth } from "../atoms/instance"

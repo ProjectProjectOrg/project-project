@@ -2,6 +2,7 @@ import type { Transformer } from "@lexical/markdown"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { useLexicalEditable } from "@lexical/react/useLexicalEditable"
 import { mergeRegister } from "@lexical/utils"
+import { TooltipProvider } from "@pp/ui/tooltip"
 import {
   $getNodeByKey,
   COMMAND_PRIORITY_LOW,
@@ -19,7 +20,6 @@ import {
 } from "react"
 import { createPortal } from "react-dom"
 
-import { TooltipProvider } from "@/components/ui/tooltip"
 import { blockChrome, lookupFor } from "@/features/editor/lib/blockChrome"
 import { m } from "@/paraglide/messages"
 

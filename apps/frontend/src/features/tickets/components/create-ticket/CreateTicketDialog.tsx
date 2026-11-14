@@ -1,5 +1,9 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { type GroupId, type TicketId, isEpicType } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Composer } from "@pp/ui/composer"
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@pp/ui/dialog"
+import { Input } from "@pp/ui/input"
 import { useNavigate } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
@@ -16,15 +20,6 @@ import {
 } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { Button } from "@/components/ui/button"
-import { Composer } from "@/components/ui/composer"
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogTitle
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
@@ -82,7 +77,7 @@ export function CreateTicketDialogHost() {
         if (!next) close()
       }}
     >
-      <DialogContent size="lg" showCloseButton={false} className="p-0">
+      <DialogContent size="lg" className="p-0">
         {shown !== null && (
           <CreateTicketForm
             key={`${shown.orgSlug}:${shown.projectSlug ?? ""}:${shown.sprint ?? ""}:${shown.title ?? ""}:${shown.related?.kind ?? ""}:${shown.related?.ticketId ?? ""}`}
@@ -222,7 +217,8 @@ function CreateTicketForm({
       </Composer.Header>
       <Composer.Title>
         <Input
-          variant="composer-title"
+          variant="bare"
+          className="text-title font-semibold"
           aria-label={m.tickets_create_title_aria_label()}
           aria-required
           placeholder={m.tickets_create_dialog_title_placeholder()}

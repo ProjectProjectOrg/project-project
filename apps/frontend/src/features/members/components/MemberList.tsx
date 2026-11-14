@@ -1,17 +1,18 @@
-import type { LucideIcon } from "lucide-react"
-import { MoreHorizontal, Plus } from "lucide-react"
-import type { FormEvent, ReactNode } from "react"
-
-import { Badge, type BadgeTone } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Badge, type BadgeTone } from "@pp/ui/badge"
+import { BlurSwap } from "@pp/ui/blur-swap"
+import { Button } from "@pp/ui/button"
+import { DropdownMenuTrigger } from "@pp/ui/dropdown-menu"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput
-} from "@/components/ui/input-group"
-import { Select, SelectTrigger } from "@/components/ui/select"
-import { cn } from "@/lib/utils"
+} from "@pp/ui/input-group"
+import { cn } from "@pp/ui/lib/utils"
+import { Select, SelectTrigger } from "@pp/ui/select"
+import type { LucideIcon } from "lucide-react"
+import { MoreHorizontal, Plus } from "lucide-react"
+import type { FormEvent, ReactNode } from "react"
+
 import { m } from "@/paraglide/messages"
 
 export type RoleMeta = Readonly<{
@@ -67,7 +68,7 @@ export function RoleSelect<R extends string>({
           <Badge
             tone={current.tone}
             size="sm"
-            className="cursor-pointer transition-colors"
+            className="cursor-pointer"
             render={
               <button
                 type="button"
@@ -78,8 +79,10 @@ export function RoleSelect<R extends string>({
               />
             }
           >
-            <Icon strokeWidth={1.75} />
-            {current.label()}
+            <BlurSwap id={value} className="gap-1">
+              <Icon className="size-3 shrink-0" strokeWidth={1.75} />
+              {current.label()}
+            </BlurSwap>
           </Badge>
         }
       />

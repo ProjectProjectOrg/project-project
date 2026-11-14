@@ -1,3 +1,6 @@
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import useEmblaCarousel from "embla-carousel-react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
@@ -5,13 +8,6 @@ import { useCallback, useEffect, useState } from "react"
 import applicationAccessImage from "@/assets/everhour-walkthrough/everhour-application-access.png"
 import profileMenuImage from "@/assets/everhour-walkthrough/everhour-profile-menu.png"
 import projectProjectKeyImage from "@/assets/everhour-walkthrough/projectproject-everhour-key.png"
-import { Button } from "@/components/ui/button"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function EverhourApiKeyWalkthrough() {
@@ -64,7 +60,8 @@ export function EverhourApiKeyWalkthrough() {
         render={
           <Button
             type="button"
-            variant="inline-help"
+            variant="ghost"
+            className="align-middle text-micro"
             size="icon-xs"
             aria-label={m.project_settings_everhour_help_trigger_label()}
           >

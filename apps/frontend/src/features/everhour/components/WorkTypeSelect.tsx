@@ -1,6 +1,6 @@
 import type { WorkTypeOption } from "@pp/shared"
+import { Select, SelectTrigger } from "@pp/ui/select"
 
-import { Select, SelectTrigger } from "@/components/ui/select"
 import * as m from "@/paraglide/messages"
 
 export function WorkTypeSelect({

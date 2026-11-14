@@ -1,4 +1,5 @@
 import type { GitState, StackLayerState } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 import { Layers } from "lucide-react"
 
 import {
@@ -6,7 +7,6 @@ import {
   stackSummary,
   TONES
 } from "@/features/github/components/ticket-git/TicketStack"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { CHECKS, needsAttention, reportedChecks, type Checks } from "./gitLooks"

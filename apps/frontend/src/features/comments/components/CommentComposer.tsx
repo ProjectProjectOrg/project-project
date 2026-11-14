@@ -1,5 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketId, User } from "@pp/shared"
+import { Button } from "@pp/ui/button"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -7,7 +8,6 @@ import * as Random from "effect/Random"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useRef, useState } from "react"
 
-import { Button } from "@/components/ui/button"
 import { me } from "@/features/auth/atoms/auth"
 import {
   commentsRequest,

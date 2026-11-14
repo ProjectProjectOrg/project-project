@@ -1,9 +1,10 @@
 import type { TicketId, TypeDefinition, TypeKey } from "@pp/shared"
+import { BlurSwap } from "@pp/ui/blur-swap"
+import { Button } from "@pp/ui/button"
+import { Select, SelectTrigger } from "@pp/ui/select"
 import { Settings2 } from "lucide-react"
 import type { ComponentProps, ReactElement, ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Select, SelectTrigger } from "@/components/ui/select"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TypeGlyph } from "@/features/tickets/components/TypeGlyph"
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
@@ -144,15 +145,18 @@ export function TypeSelect({
       trigger={
         <Button
           type="button"
-          variant="chip"
+          variant="ghost"
+          tone="strong"
           onClick={(e) => e.stopPropagation()}
           aria-label={ariaLabel ?? m.tickets_type_aria_label({ label })}
           className={className}
         />
       }
     >
-      <TypeGlyph type={type} className="size-3.5" />
-      <span>{label}</span>
+      <BlurSwap id={label} className="gap-1.5">
+        <TypeGlyph type={type} className="size-3.5" />
+        <span>{label}</span>
+      </BlurSwap>
     </TypePicker>
   )
 }
@@ -190,15 +194,18 @@ export function TypeBadgeTrigger({
       trigger={
         <Button
           type="button"
-          variant="chip"
+          variant="ghost"
+          tone="strong"
           onClick={(e) => e.stopPropagation()}
           aria-label={m.tickets_type_aria_label({ label })}
           className={className}
         />
       }
     >
-      <TypeGlyph type={type} className="size-3" />
-      <span>{label}</span>
+      <BlurSwap id={label} className="gap-1.5">
+        <TypeGlyph type={type} className="size-3" />
+        <span>{label}</span>
+      </BlurSwap>
     </TypePicker>
   )
 }

@@ -1,5 +1,12 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type { GithubConnection } from "@pp/shared"
+import {
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger
+} from "@pp/ui/dropdown-menu"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   ArrowUpRight,
@@ -12,13 +19,6 @@ import {
 import { useContext } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger
-} from "@/components/ui/dropdown-menu"
 import { clearBranch } from "@/features/github/atoms/github"
 import { usePreferredBranchLink } from "@/features/github/components/ticket-git/BranchChip"
 import { repoUrl } from "@/features/github/lib/branchUrl"

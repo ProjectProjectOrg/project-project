@@ -4,6 +4,9 @@ import type {
   TicketActivityActor,
   TicketId
 } from "@pp/shared"
+import { Avatar, AvatarFallback, AvatarGroup } from "@pp/ui/avatar"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import {
   Bot,
@@ -17,8 +20,6 @@ import { useState, type ReactNode } from "react"
 import claudeLogo from "@/assets/logos/claude.svg"
 import codexDarkLogo from "@/assets/logos/codex_dark.svg"
 import codexLightLogo from "@/assets/logos/codex_light.svg"
-import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {
   statusesFor,
   statusesRequest
@@ -46,7 +47,6 @@ import {
   type TimelineLine,
   type TimelineOrder
 } from "@/features/tickets/lib/timeline"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const SYSTEM_ICONS: Readonly<Record<ActivitySystemSource, LucideIcon>> = {
@@ -75,25 +75,36 @@ const agentLogo = (actor: TicketActivityActor | null) =>
       )
     : undefined
 
-function ActorMark({ actor }: Readonly<{ actor: TicketActivityActor | null }>) {
+// Marks next to an actor's name stay small; marks in the summary stack stand
+// without names, so they use 24px and carry initials.
+function ActorMark({
+  actor,
+  size = 20
+}: Readonly<{ actor: TicketActivityActor | null; size?: 20 | 24 }>) {
+  const box = size === 24 ? "size-6" : "size-5"
+  const glyph = size === 24 ? "size-3.5" : "size-3"
   if (actor !== null && actor.kind !== "system") {
     const logo = agentLogo(actor)
     if (logo === undefined)
-      return <MemberAvatar member={actor.user} size={20} />
+      return <MemberAvatar member={actor.user} size={size} />
     return (
-      <Avatar aria-hidden className="size-5">
+      <Avatar aria-hidden className={box}>
         <AvatarFallback>
-          <img src={logo.light} alt="" className="size-3 dark:hidden" />
-          <img src={logo.dark} alt="" className="hidden size-3 dark:block" />
+          <img src={logo.light} alt="" className={cn(glyph, "dark:hidden")} />
+          <img
+            src={logo.dark}
+            alt=""
+            className={cn(glyph, "hidden dark:block")}
+          />
         </AvatarFallback>
       </Avatar>
     )
   }
   const Icon = actor === null ? null : SYSTEM_ICONS[actor.source]
   return (
-    <Avatar aria-hidden className="size-5">
+    <Avatar aria-hidden className={box}>
       <AvatarFallback>
-        {Icon && <Icon className="size-3" strokeWidth={2} />}
+        {Icon && <Icon className={glyph} strokeWidth={2} />}
       </AvatarFallback>
     </Avatar>
   )
@@ -213,10 +224,10 @@ function RunRows({
         "grid-cols-[auto_minmax(0,1fr)]"
       )}
     >
-      <AvatarGroup className="relative z-10 h-5 items-center [--avatar-overlap:--spacing(1.5)] [--avatar-size:--spacing(5)]">
-        <ActorMark actor={lead} />
+      <AvatarGroup className="relative z-10 h-6 items-center [--avatar-overlap:--spacing(1.5)] [--avatar-size:--spacing(6)]">
+        <ActorMark actor={lead} size={24} />
         {rest.slice(0, 3).map((actor) => (
-          <ActorMark key={personKey(actor)} actor={actor} />
+          <ActorMark key={personKey(actor)} actor={actor} size={24} />
         ))}
       </AvatarGroup>
       <button

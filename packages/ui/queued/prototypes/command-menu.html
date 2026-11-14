@@ -1,0 +1,916 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Command menu directions</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;550&family=Geist+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      .light {
+        --bg: oklch(1 0 0);
+        --fg: oklch(0.145 0 0);
+        --muted: oklch(0.556 0 0);
+        --card: oklch(1 0 0);
+        --border: oklch(0.922 0 0);
+        --border60: oklch(0.922 0 0/60%);
+        --s1: oklch(0.955 0 0);
+        --s2: oklch(0.977 0 0);
+        --s3: oklch(1 0 0);
+        --hover: rgb(0 0 0/0.04);
+        --active: rgb(0 0 0/0.07);
+        --line: oklch(0 0 0/5%);
+        --focus: oklch(0.693 0.161 265.2);
+        --quiet: oklch(0.145 0 0/0.42);
+        --body: oklch(0.23 0.002 265);
+        --scrim: rgb(0 0 0/0.15);
+        --page: oklch(0.97 0 0);
+        --shadowA: 0 16px 48px rgba(0, 0, 0, 0.12);
+      }
+      .dark {
+        --bg: oklch(0.145 0 0);
+        --fg: oklch(0.985 0 0);
+        --muted: oklch(0.708 0 0);
+        --card: oklch(0.205 0 0);
+        --border: oklch(1 0 0/10%);
+        --border60: oklch(1 0 0/6%);
+        --s1: oklch(0.205 0 0);
+        --s2: oklch(0.235 0 0);
+        --s3: oklch(0.264 0 0);
+        --hover: rgb(255 255 255/0.04);
+        --active: rgb(255 255 255/0.1);
+        --line: oklch(1 0 0/6%);
+        --focus: oklch(0.693 0.161 265.2);
+        --quiet: oklch(0.985 0 0/0.45);
+        --body: oklch(0.918 0.002 265);
+        --scrim: rgb(0 0 0/0.4);
+        --page: oklch(0.205 0 0);
+        --shadowA: 0 16px 48px rgba(0, 0, 0, 0.6);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Geist, system-ui, sans-serif;
+      }
+      .wrap {
+        display: grid;
+        gap: 12px;
+      }
+      .theme {
+        background: var(--bg);
+        color: var(--fg);
+        padding: 24px;
+        border-radius: 16px;
+      }
+      h1 {
+        font-size: 15px;
+        font-weight: 550;
+        margin: 0 0 4px;
+      }
+      .sub {
+        font-size: 13px;
+        color: var(--muted);
+        margin: 0 0 20px;
+        line-height: 1.5;
+      }
+      .dir {
+        background: var(--s2);
+        border-radius: 20px;
+        corner-shape: squircle;
+        padding: 6px;
+        margin-bottom: 12px;
+      }
+      .cap {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        padding: 8px 10px 4px;
+        flex-wrap: wrap;
+      }
+      .cap b {
+        font-size: 13px;
+        font-weight: 550;
+      }
+      .cap span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .where {
+        font-size: 11px;
+        color: var(--muted);
+        padding: 0 10px 10px;
+      }
+      .stage {
+        position: relative;
+        border-radius: 14px;
+        corner-shape: squircle;
+        padding: 28px 18px;
+        display: grid;
+        justify-items: center;
+        background: var(--page);
+        overflow: hidden;
+      }
+      .stage::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--scrim);
+      }
+      .replay {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 2;
+        height: 28px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: 14px;
+        corner-shape: squircle;
+        background: var(--card);
+        color: var(--fg);
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
+        box-shadow: inset 0 0 0 1px var(--line);
+        transition: scale 0.12s;
+      }
+      .replay:active {
+        scale: 0.97;
+      }
+      svg.i {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex: none;
+      }
+      :focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+      }
+
+      /* ---------- palette base ---------- */
+      .pal {
+        position: relative;
+        z-index: 1;
+        width: min(560px, 100%);
+        display: flex;
+        flex-direction: column;
+        background: var(--card);
+        color: var(--fg);
+        overflow: hidden;
+      }
+      .head {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .ctx {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 24px;
+        max-width: 100%;
+        overflow: hidden;
+        font-size: 13px;
+        width: fit-content;
+      }
+      .ctx .id {
+        font-family: "Geist Mono", monospace;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .ctx .tt {
+        font-weight: 550;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .field {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .field input {
+        flex: 1;
+        min-width: 0;
+        height: 36px;
+        border: 0;
+        background: none;
+        color: var(--fg);
+        font: inherit;
+        font-size: 13px;
+        outline: none;
+      }
+      .field input::placeholder {
+        color: var(--muted);
+      }
+      .list {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+      }
+      .hl {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        pointer-events: none;
+        background: var(--hover);
+        opacity: 0;
+      }
+      .grp {
+        display: flex;
+        flex-direction: column;
+      }
+      .gh {
+        display: flex;
+        align-items: center;
+        height: 28px;
+        padding: 0 8px;
+        font-size: 12px;
+        color: var(--quiet);
+      }
+      .row {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 8px;
+        font-size: 13px;
+        cursor: pointer;
+        user-select: none;
+        color: var(--body);
+      }
+      .row .i {
+        color: var(--muted);
+      }
+      .row.on {
+        color: var(--fg);
+      }
+      .row.on .i {
+        color: var(--fg);
+      }
+      .row[aria-disabled="true"] {
+        color: var(--muted);
+        cursor: default;
+      }
+      .row .lbl {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .kbd {
+        display: inline-flex;
+        gap: 2px;
+        align-items: center;
+        margin-left: auto;
+      }
+      .kbd span {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 20px;
+        min-width: 20px;
+        padding: 0 4px;
+        border-radius: 5px;
+        background: var(--hover);
+        color: var(--muted);
+        font-size: 11px;
+        transition:
+          scale 0.1s,
+          background-color 0.1s;
+      }
+      .kbd svg.i {
+        width: 11px;
+        height: 11px;
+        stroke-width: 2;
+      }
+      .foot {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        height: 40px;
+        padding: 0 16px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .foot .h {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .foot .end {
+        margin-left: auto;
+        display: flex;
+        gap: 16px;
+      }
+      .empty {
+        padding: 24px 12px;
+        text-align: center;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      /* ---------- A · Current ---------- */
+      .A .pal {
+        border-radius: 20px;
+        border: 1px solid var(--border60);
+        box-shadow: var(--shadowA);
+      }
+      .A .head {
+        padding: 8px 4px 4px;
+        border-bottom: 1px solid var(--border60);
+      }
+      .A .ctx {
+        margin: 0 8px;
+        border-radius: 7px;
+        background: var(--hover);
+        padding-left: 8px;
+      }
+      .A .ctx .kbd span {
+        height: 24px;
+        border-radius: 0;
+        padding: 0 6px;
+      }
+      .A .field {
+        padding: 0 8px;
+      }
+      .A .list {
+        padding: 6px;
+        gap: 4px;
+      }
+      .A .row {
+        height: 36px;
+        border-radius: 16px;
+        transition: color 80ms;
+      }
+      .A .hl {
+        border-radius: 16px;
+        transition:
+          transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+          height 0.18s,
+          opacity 0.08s;
+      }
+      .A .foot {
+        border-top: 1px solid var(--border60);
+      }
+
+      /* ---------- B · Dropdown-row parity, no shadow ---------- */
+      .B .pal,
+      .D .pal {
+        border-radius: 22px;
+        corner-shape: squircle;
+        box-shadow: 0 0 0 1px var(--line);
+      }
+      .dark .B .pal,
+      .dark .D .pal {
+        background: var(--s3);
+      }
+      .B .head,
+      .D .head {
+        padding: 8px 8px 4px;
+        border-bottom: 1px solid var(--border60);
+      }
+      .B .ctx,
+      .D .ctx {
+        margin: 0 4px;
+        border-radius: 9px;
+        corner-shape: squircle;
+        background: var(--hover);
+        padding-left: 8px;
+      }
+      .B .ctx .kbd span,
+      .D .ctx .kbd span {
+        height: 24px;
+        border-radius: 0;
+        padding: 0 6px;
+        background: var(--hover);
+      }
+      .B .field,
+      .D .field {
+        padding: 0 8px;
+      }
+      .B .list,
+      .D .list {
+        padding: 8px;
+      }
+      .B .row,
+      .D .row {
+        height: 36px;
+        border-radius: 14px;
+        corner-shape: squircle;
+        border-block: 1px solid transparent;
+        color: var(--muted);
+        transition: color 0.15s;
+      }
+      .B .row.on,
+      .D .row.on {
+        color: var(--fg);
+        transition-duration: 0s;
+      }
+      .B .row .i,
+      .D .row .i {
+        transition:
+          stroke-width 80ms,
+          color 80ms;
+      }
+      .B .row.on .i,
+      .D .row.on .i {
+        stroke-width: 2;
+      }
+      .B .row[aria-disabled="true"],
+      .D .row[aria-disabled="true"] {
+        opacity: 0.5;
+      }
+      .B .row .kbd,
+      .D .row .kbd {
+        padding-right: 4px;
+      }
+      .B .row .kbd span,
+      .D .row .kbd span {
+        background: none;
+        min-width: 0;
+        padding: 0 1px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .B .row .kbd svg.i,
+      .D .row .kbd svg.i {
+        width: 12px;
+        height: 12px;
+      }
+      .B .hl,
+      .D .hl {
+        border-radius: 14px;
+        corner-shape: squircle;
+      }
+      .B .hl {
+        transition:
+          transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+          height 0.2s,
+          opacity 0.08s;
+      }
+      .B .foot,
+      .D .foot {
+        border-top: 1px solid var(--border60);
+      }
+      .B .foot .kbd span,
+      .D .foot .kbd span {
+        border-radius: 6px;
+        corner-shape: squircle;
+      }
+
+      /* ---------- C · Search field + outlined keycaps, denser list ---------- */
+      .C .pal {
+        border-radius: 24px;
+        corner-shape: squircle;
+        box-shadow: 0 0 0 1px var(--line);
+      }
+      .dark .C .pal {
+        background: var(--s3);
+      }
+      .C .head {
+        padding: 10px 10px 6px;
+        gap: 8px;
+      }
+      .C .ctx {
+        border-radius: 9px;
+        corner-shape: squircle;
+        padding: 0 8px;
+        background: none;
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+      .C .ctx .kbd {
+        display: none;
+      }
+      .C .field {
+        height: 40px;
+        padding: 0 12px;
+        border-radius: 14px;
+        corner-shape: squircle;
+        background: var(--s1);
+        color: var(--muted);
+      }
+      .dark .C .field {
+        background: var(--hover);
+      }
+      .C .field:focus-within {
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+      .C .list {
+        padding: 4px 10px 10px;
+      }
+      .C .grp + .grp {
+        margin-top: 6px;
+      }
+      .C .gh {
+        height: 26px;
+        padding: 0 10px;
+        font-size: 11px;
+      }
+      .C .row {
+        height: 32px;
+        border-radius: 10px;
+        corner-shape: squircle;
+        padding: 0 10px;
+        transition: color 0.15s;
+      }
+      .C .row.on {
+        transition-duration: 0s;
+      }
+      .C .hl {
+        border-radius: 10px;
+        corner-shape: squircle;
+        background: var(--active);
+        transition:
+          transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+          height 0.2s,
+          opacity 0.08s;
+      }
+      .C .kbd span {
+        background: none;
+        box-shadow: inset 0 0 0 1px var(--border);
+        border-radius: 6px;
+        corner-shape: squircle;
+        height: 20px;
+      }
+      .C .foot {
+        height: 36px;
+        margin: 0 6px 6px;
+        padding: 0 12px;
+        border-radius: 18px;
+        corner-shape: squircle;
+        background: var(--s1);
+      }
+      .dark .C .foot {
+        background: var(--hover);
+      }
+
+      /* ---------- D · B + motion ---------- */
+      .D .hl {
+        transition:
+          transform 0.28s cubic-bezier(0.34, 1.3, 0.5, 1),
+          height 0.2s,
+          opacity 0.08s;
+      }
+      .D .row:active {
+        scale: 0.97;
+      }
+      .D .row {
+        transition:
+          color 0.15s,
+          scale 0.12s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .D .pal.opening {
+        animation: pop 0.24s cubic-bezier(0.34, 1.3, 0.5, 1);
+      }
+      @keyframes pop {
+        from {
+          opacity: 0;
+          scale: 0.96;
+          translate: 0 -6px;
+        }
+        to {
+          opacity: 1;
+          scale: 1;
+          translate: 0;
+        }
+      }
+      .D .kbd span.down {
+        scale: 0.88;
+        background: var(--active);
+        color: var(--fg);
+      }
+      .D .verb {
+        display: inline-block;
+        transition:
+          opacity 0.12s,
+          translate 0.2s cubic-bezier(0.34, 1.3, 0.5, 1);
+      }
+      .D .verb.swap {
+        opacity: 0;
+        translate: 0 4px;
+        transition: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .D .pal.opening {
+          animation: none;
+        }
+        .D .hl {
+          transition: opacity 0.08s;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap" id="root"></div>
+    <script>
+      const P = {
+        dash: '<path d="M10.1 2.18a9.93 9.93 0 0 1 3.8 0M17.6 3.71a9.95 9.95 0 0 1 2.69 2.7M21.82 10.1a9.93 9.93 0 0 1 0 3.8M20.29 17.6a9.95 9.95 0 0 1-2.7 2.69M13.9 21.82a9.94 9.94 0 0 1-3.8 0M6.4 20.29a9.95 9.95 0 0 1-2.69-2.7M2.18 13.9a9.93 9.93 0 0 1 0-3.8M3.71 6.4a9.95 9.95 0 0 1 2.7-2.69"/>',
+        userplus:
+          '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>',
+        signal: '<path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8"/>',
+        cal: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+        link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+        archive:
+          '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/>',
+        list: '<path d="M3 5h.01M3 12h.01M3 19h.01M8 5h13M8 12h13M8 19h13"/>',
+        gear: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+        search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+        enter: '<path d="M20 4v7a4 4 0 0 1-4 4H4"/><path d="m9 10-5 5 5 5"/>',
+        tab: '<path d="M17 12H3"/><path d="m11 18 6-6-6-6"/><path d="M21 5v14"/>',
+        right: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+        cmd: '<path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/>',
+        shift: '<path d="M9 18v-6H5l7-7 7 7h-4v6H9z"/>',
+        bksp: '<path d="M10 5a2 2 0 0 0-1.344.519l-6.328 5.74a1 1 0 0 0 0 1.481l6.328 5.741A2 2 0 0 0 10 19h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z"/><path d="m12 9 6 6M18 9l-6 6"/>'
+      }
+      const ic = (k, lbl) =>
+        '<svg class="i" viewBox="0 0 24 24" aria-hidden="true">' +
+        P[k] +
+        "</svg>" +
+        (lbl
+          ? '<span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">' +
+            lbl +
+            "</span>"
+          : "")
+      const cap = (c) =>
+        '<span data-key="' + c + '">' + (P[c] ? ic(c, c) : c) + "</span>"
+      const kbd = (keys) =>
+        '<kbd class="kbd">' + keys.map(cap).join("") + "</kbd>"
+
+      const ITEMS = [
+        { g: "Ticket", l: "Change status", i: "dash", k: ["S"], v: "Change" },
+        { g: "Ticket", l: "Assign to…", i: "userplus", k: ["A"], v: "Assign" },
+        { g: "Ticket", l: "Set priority", i: "signal", k: ["P"], v: "Set" },
+        { g: "Ticket", l: "Move to sprint", i: "cal", k: [], v: "Move" },
+        {
+          g: "Ticket",
+          l: "Copy link",
+          i: "link",
+          k: ["cmd", "shift", "C"],
+          v: "Copy"
+        },
+        {
+          g: "Ticket",
+          l: "Archive ticket",
+          i: "archive",
+          k: [],
+          v: "Archive",
+          d: true
+        },
+        { g: "Go to", l: "Backlog", i: "list", k: ["G", "B"], v: "Open" },
+        { g: "Go to", l: "Project settings", i: "gear", k: [], v: "Open" }
+      ]
+
+      const DIRS = [
+        {
+          k: "A",
+          t: "A · Current",
+          n: "20px rounded dialog with a 48px drop shadow; rows 36px at a 16px radius in body-ink that brighten to foreground; filled 20px keycaps on every row; footer hints keycap-first.",
+          w: "Affects: the ⌘K palette (CommandMenuHost / CommandFrame / CommandFrameRow / footer), the editor slash menu (SlashMenuView), sprint ticket creator, Jira project picker, TicketContextChip."
+        },
+        {
+          k: "B",
+          t: "B · Dropdown-row parity",
+          n: "rows use the dropdown's exact recipe: 14px squircle, 1px inset highlight, muted → foreground, icon stroke 1.75 → 2, shortcuts as plain caption text. Dialog 22px squircle (22 − 8 padding = 14, concentric), hairline instead of drop shadow, dark lifts to surface-3.",
+          w: "Same places as A; one row language across dropdowns and ⌘K."
+        },
+        {
+          k: "C",
+          t: "C · Search field + outlined caps",
+          n: "the input becomes a filled 14px squircle well with a search icon; denser 32px rows with a stronger --active highlight; keycaps outlined by a hairline instead of filled; footer is a recessed strip inside the dialog.",
+          w: "Same places; also changes the slash menu's density. Breaks parity with dropdown rows on purpose."
+        },
+        {
+          k: "D",
+          t: "D · B + motion",
+          n: "B's look, plus: the dialog opens with a light-overshoot spring (0.96 → 1, 240ms); the highlight slides on cubic-bezier(.34,1.3,.5,1) 280ms; Enter presses the row to 97%; footer keycaps depress while their key is held; the ↵ verb follows the highlighted row.",
+          w: "Same places; motion only, reduced motion keeps fades."
+        }
+      ]
+
+      function palette(dk) {
+        const ctx =
+          '<span class="ctx"><span class="id">PP-214</span><span class="tt">Inbox loses read state on reconnect</span>' +
+          kbd(["bksp"]) +
+          "</span>"
+        return (
+          '<div class="pal" role="dialog" aria-label="Command menu, direction ' +
+          dk +
+          '">' +
+          '<div class="head">' +
+          ctx +
+          '<label class="field">' +
+          (dk === "C" ? ic("search") : "") +
+          '<input role="combobox" aria-expanded="true" aria-label="Search commands" placeholder="Type a command or search…"></label></div>' +
+          '<div class="list" role="listbox" aria-label="Commands"></div>' +
+          '<div class="foot"><span class="h">' +
+          kbd(["enter"]) +
+          '<span class="verb">Change</span></span><span class="end"><span class="h">' +
+          kbd(["tab"]) +
+          '<span>Actions</span></span><span class="h"><span>Peek</span>' +
+          kbd(["right"]) +
+          "</span></span></div></div>"
+        )
+      }
+      const block = (m) =>
+        '<div class="theme ' +
+        m +
+        '"><h1>Command menu · ' +
+        (m === "light" ? "Light" : "Dark") +
+        '</h1><p class="sub">Hover rows, or click into the input and use ↑ ↓ and Enter; typing filters. "Archive ticket" is disabled. In D, use Replay open, and watch the footer keycaps while you press keys.</p>' +
+        DIRS.map(
+          (d) =>
+            '<div class="dir ' +
+            d.k +
+            '"><div class="cap"><b>' +
+            d.t +
+            "</b><span>" +
+            d.n +
+            '</span></div><div class="where">' +
+            d.w +
+            '</div><div class="stage">' +
+            (d.k === "D"
+              ? '<button class="replay" type="button">Replay open</button>'
+              : "") +
+            palette(d.k) +
+            "</div></div>"
+        ).join("") +
+        "</div>"
+      document.getElementById("root").innerHTML = block("light") + block("dark")
+
+      document.querySelectorAll(".dir").forEach((dir) => {
+        const pal = dir.querySelector(".pal"),
+          list = pal.querySelector(".list"),
+          input = pal.querySelector("input"),
+          verb = pal.querySelector(".verb")
+        const uid = Math.random().toString(36).slice(2)
+        let shown = ITEMS.slice(),
+          active = 0
+        const render = () => {
+          const groups = [...new Set(shown.map((x) => x.g))]
+          list.innerHTML =
+            '<div class="hl"></div>' +
+            (shown.length
+              ? groups
+                  .map(
+                    (g) =>
+                      '<div class="grp" role="group" aria-label="' +
+                      g +
+                      '"><div class="gh" role="presentation">' +
+                      g +
+                      "</div>" +
+                      shown
+                        .filter((x) => x.g === g)
+                        .map((x) => {
+                          const n = shown.indexOf(x)
+                          return (
+                            '<div class="row" role="option" id="' +
+                            uid +
+                            "-" +
+                            n +
+                            '" data-n="' +
+                            n +
+                            '" aria-selected="false"' +
+                            (x.d ? ' aria-disabled="true"' : "") +
+                            ">" +
+                            ic(x.i) +
+                            '<span class="lbl">' +
+                            x.l +
+                            "</span>" +
+                            (x.k.length ? kbd(x.k) : "") +
+                            "</div>"
+                          )
+                        })
+                        .join("") +
+                      "</div>"
+                  )
+                  .join("")
+              : '<div class="empty" role="status">No commands match</div>')
+          list.querySelectorAll(".row").forEach((r) => {
+            r.addEventListener("mouseenter", () => {
+              if (r.getAttribute("aria-disabled") !== "true") set(+r.dataset.n)
+            })
+            r.addEventListener("click", () => {
+              if (r.getAttribute("aria-disabled") !== "true") fire(+r.dataset.n)
+            })
+          })
+          active = shown.findIndex((x) => !x.d)
+          place(true)
+        }
+        const place = (instant) => {
+          const hl = list.querySelector(".hl")
+          list.querySelectorAll(".row").forEach((r) => {
+            const on = +r.dataset.n === active
+            r.classList.toggle("on", on)
+            r.setAttribute("aria-selected", on)
+          })
+          const r = list.querySelector(".row.on")
+          if (!r || !hl) {
+            hl && (hl.style.opacity = 0)
+            input.removeAttribute("aria-activedescendant")
+            return
+          }
+          input.setAttribute("aria-activedescendant", r.id)
+          const inset =
+            dir.classList.contains("B") || dir.classList.contains("D") ? 1 : 0
+          if (instant) hl.style.transition = "none"
+          hl.style.left = r.offsetLeft + "px"
+          hl.style.right = r.offsetLeft + "px"
+          hl.style.transform = "translateY(" + (r.offsetTop + inset) + "px)"
+          hl.style.height = r.offsetHeight - inset * 2 + "px"
+          hl.style.opacity = 1
+          if (instant) requestAnimationFrame(() => (hl.style.transition = ""))
+          if (verb.textContent !== shown[active].v) {
+            verb.classList.add("swap")
+            verb.textContent = shown[active].v
+            requestAnimationFrame(() =>
+              requestAnimationFrame(() => verb.classList.remove("swap"))
+            )
+          }
+        }
+        const set = (n) => {
+          active = n
+          place(false)
+        }
+        const move = (d) => {
+          if (!shown.length) return
+          let n = active
+          for (let s = 0; s < shown.length; s++) {
+            n = (n + d + shown.length) % shown.length
+            if (!shown[n].d) break
+          }
+          set(n)
+        }
+        const fire = (n) => {
+          const r = list.querySelector('.row[data-n="' + n + '"]')
+          if (!r) return
+          r.style.scale = ".97"
+          setTimeout(() => (r.style.scale = ""), 120)
+        }
+        input.addEventListener("input", () => {
+          const q = input.value.trim().toLowerCase()
+          shown = ITEMS.filter((x) => x.l.toLowerCase().includes(q))
+          render()
+        })
+        const keyCap = {
+          ArrowRight: "right",
+          Tab: "tab",
+          Enter: "enter",
+          Backspace: "bksp"
+        }
+        input.addEventListener("keydown", (e) => {
+          if (dir.classList.contains("D") && keyCap[e.key])
+            pal
+              .querySelectorAll('[data-key="' + keyCap[e.key] + '"]')
+              .forEach((c) => c.classList.add("down"))
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault()
+            move(e.key === "ArrowDown" ? 1 : -1)
+          }
+          if (e.key === "Enter") {
+            e.preventDefault()
+            fire(active)
+          }
+          if (
+            e.key === "Tab" ||
+            (e.key === "ArrowRight" &&
+              input.selectionStart === input.value.length)
+          )
+            e.preventDefault()
+        })
+        input.addEventListener("keyup", () =>
+          pal
+            .querySelectorAll(".down")
+            .forEach((c) => c.classList.remove("down"))
+        )
+        const rb = dir.querySelector(".replay")
+        if (rb)
+          rb.addEventListener("click", () => {
+            pal.classList.remove("opening")
+            void pal.offsetWidth
+            pal.classList.add("opening")
+          })
+        render()
+      })
+      document.fonts &&
+        document.fonts.ready.then(() =>
+          document
+            .querySelectorAll(".dir")
+            .forEach((d) =>
+              d.querySelector("input").dispatchEvent(new Event("input"))
+            )
+        )
+    </script>
+  </body>
+</html>

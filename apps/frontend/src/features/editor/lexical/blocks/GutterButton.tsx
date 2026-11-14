@@ -1,19 +1,15 @@
 import type { BlockLookup } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import { GripVertical } from "lucide-react"
 import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent
 } from "react"
 
-import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { blockChrome, blockTooltip } from "@/features/editor/lib/blockChrome"
 import { BlockIconGlyph } from "@/features/library/components/BlockIconGlyph"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export type GutterButtonState = Readonly<{
@@ -62,7 +58,7 @@ export function GutterButton({
         render={
           <Button
             type="button"
-            variant="block-grip"
+            variant="ghost"
             size="block-grip"
             aria-label={m.editor_block_handle_label({ name: chrome.name })}
             disabled={readOnly}

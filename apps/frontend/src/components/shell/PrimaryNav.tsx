@@ -1,12 +1,12 @@
+import { FluidHoverHighlight } from "@pp/ui/fluid-hover-highlight"
+import { useFluidHover } from "@pp/ui/hooks/useFluidHover"
+import { cn } from "@pp/ui/lib/utils"
 import { useLocation } from "@tanstack/react-router"
 import { LayoutDashboard } from "lucide-react"
 import { useRef } from "react"
 
 import { NavHoverContext, NavItem } from "@/components/shell/NavItem"
 import { ProjectsGroup } from "@/components/shell/ProjectsGroup"
-import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
-import { useFluidHover } from "@/hooks/useFluidHover"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {

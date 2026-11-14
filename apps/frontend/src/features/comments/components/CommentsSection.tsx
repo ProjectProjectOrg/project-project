@@ -1,10 +1,10 @@
 import { useAtomMount, useAtomValue } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
+import { Button } from "@pp/ui/button"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ArrowDownWideNarrow, ArrowUpNarrowWide } from "lucide-react"
 import { AnimatePresence } from "motion/react"
 
-import { Button } from "@/components/ui/button"
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import {
@@ -56,7 +56,7 @@ export function CommentsSection({
           </h2>
           <Button
             type="button"
-            variant="quiet"
+            variant="ghost"
             size="square-7"
             onClick={() => setOrder(order === "asc" ? "desc" : "asc")}
             aria-label={orderLabel}

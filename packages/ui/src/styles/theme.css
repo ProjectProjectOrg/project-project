@@ -1,0 +1,1003 @@
+@import "tw-animate-css";
+
+@source "../";
+
+@plugin "@toolwind/corner-shape";
+
+@custom-variant dark (&:is(.dark *));
+@custom-variant hitbox-hover (&:is(:where(.group\/hitbox):hover *, :where(.group\/hitbox)[data-popup-open] *));
+
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2")
+    format("woff2-variations");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2")
+    format("woff2-variations");
+}
+@font-face {
+  font-family: "Geist Pixel";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../node_modules/geist/dist/fonts/geist-pixel/GeistPixel-Square.woff2")
+    format("woff2");
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  /* @fluid components reference `bg-selected` for the active/checked indicator
+     in tabs-subtle, dropdown, and select. Distinct from --accent (lighter,
+     used for hover) so the active state has a stronger visual presence. */
+  --selected: oklch(0.9 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --state-success: oklch(0.7 0.16 135);
+  --state-warning: oklch(0.5 0.16 75);
+  --state-info: oklch(0.7 0.16 255);
+  --state-merged: oklch(0.7 0.16 285);
+  --state-danger: oklch(0.7 0.16 15);
+  --destructive-light: oklch(0.95 0.02 27);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 1rem;
+  --fs-display: 28px;
+  --lh-display: 34px;
+  --fs-display-compact: 24px;
+  --lh-display-compact: 30px;
+  --fs-title: 16px;
+  --lh-title: 22px;
+  --fs-title-compact: 15px;
+  --lh-title-compact: 20px;
+  --fs-subtitle: 14px;
+  --lh-subtitle: 20px;
+  --fs-subtitle-compact: 13px;
+  --lh-subtitle-compact: 18px;
+  --fs-body: 13px;
+  --lh-body: 20px;
+  --fs-body-compact: 12px;
+  --lh-body-compact: 18px;
+  --fs-caption: 12px;
+  --lh-caption: 16px;
+  --fs-caption-compact: 11px;
+  --lh-caption-compact: 14px;
+  --fs-micro: 11px;
+  --lh-micro: 14px;
+  --fs-micro-compact: 10px;
+  --lh-micro-compact: 12px;
+  --dither-front: var(--ring);
+  --dither-back: color-mix(in oklch, var(--background) 45%, var(--muted) 55%);
+  --focus-ring: oklch(0.693 0.161 265.2);
+  --icon-sticker-outline: oklch(0 0 0 / 0.55);
+  --surface-1: oklch(0.955 0 0);
+  --surface-2: oklch(0.977 0 0);
+  --surface-3: oklch(1 0 0);
+  --surface-4: oklch(1 0 0);
+  --surface-5: oklch(1 0 0);
+  --surface-6: oklch(1 0 0);
+  --surface-7: oklch(1 0 0);
+  --surface-8: oklch(1 0 0);
+  --shadow-color: oklch(0 0 0 / 0.06);
+  --shadow-1: 0 0 0 1px var(--shadow-color);
+  --shadow-1-hover: 0 0 0 1px oklch(0 0 0 / 0.14);
+  --shadow-2: var(--shadow-1), 0 1px 1px -0.5px var(--shadow-color);
+  --shadow-3: var(--shadow-2), 0 3px 3px -1.5px var(--shadow-color);
+  --shadow-4: var(--shadow-3), 0 6px 6px -3px var(--shadow-color);
+  --shadow-5: var(--shadow-4), 0 12px 12px -6px var(--shadow-color);
+  --shadow-6: var(--shadow-5), 0 24px 24px -12px var(--shadow-color);
+  --shadow-7: var(--shadow-6), 0 48px 48px -24px var(--shadow-color);
+  --shadow-8: var(--shadow-7), 0 96px 96px -48px var(--shadow-color);
+  --hover: rgb(0 0 0 / 0.04);
+  --avatar-edge: oklch(0.145 0 0 / 0.1);
+  --segment-line: oklch(0 0 0 / 5%);
+  --kbd-glow: oklch(1 0 0 / 70%);
+  /* Filled buttons: a faint vertical sheen and an optional edge in the
+     button's own colour. Tune here; 0% turns either off. */
+  --button-corner: superellipse(1.5);
+  /* Text field fill. Light: white, lifted off the grey content region.
+     Dark: just below the content region (0.22), so a field reads as a well
+     without sinking all the way to the page colour (0.145). */
+  --field: var(--background);
+  --button-sheen-top: 1.75%;
+  --button-sheen-bottom: 1%;
+  --button-edge: 0%;
+  --button-edge-to: black;
+  --button-secondary: oklch(0 0 0 / 5%);
+  --button-secondary-hover: oklch(0 0 0 / 8%);
+  --button-secondary-active: oklch(0 0 0 / 11%);
+  --button-tertiary: oklch(0 0 0 / 2.5%);
+  --button-tertiary-hover: oklch(0 0 0 / 5%);
+  --button-tertiary-active: oklch(0 0 0 / 8%);
+  --avatar-lit: rgb(255 255 255 / 0.55);
+  --avatar-squircle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M100.00 50.00L99.95 62.79L99.79 68.06L99.52 72.08L99.14 75.44L98.66 78.35L98.06 80.93L97.35 83.25L96.53 85.36L95.59 87.27L94.54 89.01L93.35 90.60L92.04 92.04L90.60 93.35L89.01 94.54L87.27 95.59L85.36 96.53L83.25 97.35L80.93 98.06L78.35 98.66L75.44 99.14L72.08 99.52L68.06 99.79L62.79 99.95L50.00 100.00L37.21 99.95L31.94 99.79L27.92 99.52L24.56 99.14L21.65 98.66L19.07 98.06L16.75 97.35L14.64 96.53L12.73 95.59L10.99 94.54L9.40 93.35L7.96 92.04L6.65 90.60L5.46 89.01L4.41 87.27L3.47 85.36L2.65 83.25L1.94 80.93L1.34 78.35L0.86 75.44L0.48 72.08L0.21 68.06L0.05 62.79L0.00 50.00L0.05 37.21L0.21 31.94L0.48 27.92L0.86 24.56L1.34 21.65L1.94 19.07L2.65 16.75L3.47 14.64L4.41 12.73L5.46 10.99L6.65 9.40L7.96 7.96L9.40 6.65L10.99 5.46L12.73 4.41L14.64 3.47L16.75 2.65L19.07 1.94L21.65 1.34L24.56 0.86L27.92 0.48L31.94 0.21L37.21 0.05L50.00 0.00L62.79 0.05L68.06 0.21L72.08 0.48L75.44 0.86L78.35 1.34L80.93 1.94L83.25 2.65L85.36 3.47L87.27 4.41L89.01 5.46L90.60 6.65L92.04 7.96L93.35 9.40L94.54 10.99L95.59 12.73L96.53 14.64L97.35 16.75L98.06 19.07L98.66 21.65L99.14 24.56L99.52 27.92L99.79 31.94L99.95 37.21Z'/%3E%3C/svg%3E");
+  --active: rgb(0 0 0 / 0.07);
+  --tint: oklch(0 0 0 / 8%);
+  --tint-hover: oklch(0 0 0 / 6.5%);
+  --prose-body: oklch(0.23 0.002 265);
+  --prose-quiet: oklch(0.145 0 0 / 0.42);
+  --prose-code: oklch(0 0 0 / 4.5%);
+  --prose-code-ring: oklch(0 0 0 / 6%);
+  --prose-check-ring: oklch(0 0 0 / 20%);
+  --checkbox-ring: oklch(0 0 0 / 30%);
+  --checkbox-ring-hover: oklch(0 0 0 / 52%);
+  --checkbox-ring-quiet: oklch(0 0 0 / 22%);
+  --checkbox-fill-hover: oklch(0.3 0 0);
+  --switch-thumb-off: oklch(0 0 0 / 38%);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --selected: oklch(0.4 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --state-warning: oklch(0.78 0.07 75);
+  --destructive-light: oklch(0.3 0.05 22);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --dither-front: var(--ring);
+  --dither-back: color-mix(in oklch, var(--background) 45%, var(--muted) 55%);
+  --icon-sticker-outline: oklch(1 0 0 / 0.9);
+  --surface-1: oklch(0.205 0 0);
+  --surface-2: oklch(0.235 0 0);
+  --surface-3: oklch(0.264 0 0);
+  --surface-4: oklch(0.293 0 0);
+  --surface-5: oklch(0.321 0 0);
+  --surface-6: oklch(0.348 0 0);
+  --surface-7: oklch(0.375 0 0);
+  --surface-8: oklch(0.402 0 0);
+  --dm-hi-base: oklch(1 0 0 / 0.01);
+  --dm-hi-mid: oklch(1 0 0 / 0.02);
+  --dm-hi-high: oklch(1 0 0 / 0.04);
+  --dm-hi-peak: oklch(1 0 0 / 0.06);
+  --dm-ring-base: oklch(1 0 0 / 0.02);
+  --dm-ring-mid: oklch(1 0 0 / 0.04);
+  --dm-ring-high: oklch(1 0 0 / 0.06);
+  --dm-drop: oklch(0 0 0 / 0.18);
+  --shadow-1: inset 0 0 0 1px var(--dm-ring-base);
+  --shadow-1-hover: inset 0 0 0 1px oklch(1 0 0 / 0.1);
+  --shadow-2:
+    inset 0 1px 0 0 var(--dm-hi-base), inset 0 0 0 1px var(--dm-ring-base),
+    0 1px 1px -0.5px var(--dm-drop);
+  --shadow-3:
+    inset 0 1px 0 0 var(--dm-hi-mid), inset 0 0 0 1px var(--dm-ring-base),
+    0 0 0 1px oklch(0 0 0 / 0.12), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop);
+  --shadow-4:
+    inset 0 1px 0 0 var(--dm-hi-mid), inset 0 0 0 1px var(--dm-ring-mid),
+    0 0 0 1px oklch(0 0 0 / 0.14), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop);
+  --shadow-5:
+    inset 0 1px 0 0 var(--dm-hi-high), inset 0 0 0 1px var(--dm-ring-mid),
+    0 0 0 1px oklch(0 0 0 / 0.16), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
+    0 12px 12px -6px var(--dm-drop);
+  --shadow-6:
+    inset 0 1px 0 0 var(--dm-hi-high), inset 0 0 0 1px var(--dm-ring-high),
+    0 0 0 1px oklch(0 0 0 / 0.18), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
+    0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop);
+  --shadow-7:
+    inset 0 1px 0 0 var(--dm-hi-peak), inset 0 0 0 1px var(--dm-ring-high),
+    0 0 0 1px oklch(0 0 0 / 0.2), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
+    0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop),
+    0 48px 48px -24px var(--dm-drop);
+  --shadow-8:
+    inset 0 1px 0 0 var(--dm-hi-peak), inset 0 0 0 1px var(--dm-ring-high),
+    0 0 0 1px oklch(0 0 0 / 0.22), 0 1px 1px -0.5px var(--dm-drop),
+    0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop),
+    0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop),
+    0 48px 48px -24px var(--dm-drop), 0 96px 96px -48px var(--dm-drop);
+  --hover: rgb(255 255 255 / 0.04);
+  --avatar-edge: oklch(0.985 0 0 / 0.1);
+  --segment-line: oklch(1 0 0 / 6%);
+  --kbd-glow: oklch(1 0 0 / 9%);
+  --button-edge-to: white;
+  --field: oklch(0.18 0 0);
+  --button-secondary: oklch(1 0 0 / 11%);
+  --button-secondary-hover: oklch(1 0 0 / 15%);
+  --button-secondary-active: oklch(1 0 0 / 19%);
+  --button-tertiary: oklch(1 0 0 / 5%);
+  --button-tertiary-hover: oklch(1 0 0 / 9%);
+  --button-tertiary-active: oklch(1 0 0 / 13%);
+  --avatar-lit: rgb(255 255 255 / 0.22);
+  --active: rgb(255 255 255 / 0.1);
+  --tint: oklch(1 0 0 / 14%);
+  --tint-hover: oklch(1 0 0 / 11%);
+  --prose-body: oklch(0.918 0.002 265);
+  --prose-quiet: oklch(0.985 0 0 / 0.45);
+  --prose-code: oklch(1 0 0 / 6%);
+  --prose-code-ring: oklch(1 0 0 / 7%);
+  --prose-check-ring: oklch(1 0 0 / 22%);
+  --checkbox-ring: oklch(1 0 0 / 32%);
+  --checkbox-ring-hover: oklch(1 0 0 / 55%);
+  --checkbox-ring-quiet: oklch(1 0 0 / 24%);
+  --checkbox-fill-hover: oklch(0.86 0 0);
+  --switch-thumb-off: oklch(1 0 0 / 45%);
+}
+
+@theme inline {
+  --font-weight-semibold: 550;
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: linear(
+    0,
+    0.18 6%,
+    0.5 15%,
+    0.86 27%,
+    1.04 37%,
+    1.08 44%,
+    1.05 52%,
+    1 64%,
+    0.99 76%,
+    1
+  );
+  --text-display: var(--fs-display);
+  --text-display--line-height: var(--lh-display);
+  --text-display-compact: var(--fs-display-compact);
+  --text-display-compact--line-height: var(--lh-display-compact);
+  --text-title: var(--fs-title);
+  --text-title--line-height: var(--lh-title);
+  --text-title-compact: var(--fs-title-compact);
+  --text-title-compact--line-height: var(--lh-title-compact);
+  --text-subtitle: var(--fs-subtitle);
+  --text-subtitle--line-height: var(--lh-subtitle);
+  --text-subtitle-compact: var(--fs-subtitle-compact);
+  --text-subtitle-compact--line-height: var(--lh-subtitle-compact);
+  --text-body: var(--fs-body);
+  --text-body--line-height: var(--lh-body);
+  --text-body-compact: var(--fs-body-compact);
+  --text-body-compact--line-height: var(--lh-body-compact);
+  --text-caption: var(--fs-caption);
+  --text-caption--line-height: var(--lh-caption);
+  --text-caption-compact: var(--fs-caption-compact);
+  --text-caption-compact--line-height: var(--lh-caption-compact);
+  --text-micro: var(--fs-micro);
+  --text-micro--line-height: var(--lh-micro);
+  --text-micro-compact: var(--fs-micro-compact);
+  --text-micro-compact--line-height: var(--lh-micro-compact);
+  --color-hover: var(--hover);
+  --color-region: color-mix(in oklch, var(--muted) 60%, var(--background));
+  --color-field: var(--field);
+  --color-active: var(--active);
+  --color-tint: var(--tint);
+  --color-tint-hover: var(--tint-hover);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-selected: var(--selected);
+  --color-destructive: var(--destructive);
+  --color-destructive-light: var(--destructive-light);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-state-success: var(--state-success);
+  --color-state-danger: var(--state-danger);
+  --color-state-warning: var(--state-warning);
+  --color-state-info: var(--state-info);
+  --color-state-merged: var(--state-merged);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans:
+    "Geist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-focus-ring: var(--focus-ring);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-4: var(--surface-4);
+  --color-surface-5: var(--surface-5);
+  --color-surface-6: var(--surface-6);
+  --color-surface-7: var(--surface-7);
+  --color-surface-8: var(--surface-8);
+  --shadow-surface-1: var(--shadow-1);
+  --shadow-surface-1-hover: var(--shadow-1-hover);
+  --shadow-surface-2: var(--shadow-2);
+  --shadow-surface-3: var(--shadow-3);
+  --shadow-surface-4: var(--shadow-4);
+  --shadow-surface-5: var(--shadow-5);
+  --shadow-surface-6: var(--shadow-6);
+  --shadow-surface-7: var(--shadow-7);
+  --shadow-surface-8: var(--shadow-8);
+}
+
+@keyframes marquee-x {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-marquee-x {
+  animation: marquee-x linear infinite;
+  will-change: transform;
+}
+
+.transition-colors:hover,
+.transition-opacity:hover,
+.transition-all:hover,
+.transition:hover,
+.motion-safe\:transition-all:hover,
+.transition-colors[data-highlighted],
+.transition-all[data-highlighted],
+.motion-safe\:transition-all[data-highlighted],
+.transition-colors[data-selected="true"],
+.transition-all[data-selected="true"],
+.motion-safe\:transition-all[data-selected="true"],
+[data-hovered].transition-colors,
+[data-hovered].transition-opacity,
+[data-hovered].motion-safe\:transition-all,
+[data-hovered] .transition-colors,
+[data-hovered] .transition-opacity,
+.group\/hitbox:hover .transition-colors,
+.group\/hitbox:hover .transition-opacity,
+.group\/hitbox:hover .transition-all,
+.group\/hitbox:hover .transition,
+.group\/reveal:hover .transition-colors,
+.group\/reveal:hover .transition-opacity,
+.group\/reveal:hover .transition-all,
+.group\/reveal:hover .transition {
+  transition-duration: 0ms;
+}
+
+[aria-haspopup]:not([aria-haspopup="false"]):active,
+[aria-haspopup]:not([aria-haspopup="false"]):active > * {
+  scale: none;
+}
+
+/* Theme switch: circular clip-path reveal centered on the click point. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 2;
+}
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-new(root) {
+    animation: theme-circle-reveal 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+@keyframes theme-circle-reveal {
+  from {
+    clip-path: circle(0 at var(--theme-clip-x, 50%) var(--theme-clip-y, 50%));
+  }
+  to {
+    clip-path: circle(
+      var(--theme-clip-radius, 150vmax) at var(--theme-clip-x, 50%)
+        var(--theme-clip-y, 50%)
+    );
+  }
+}
+
+/* Focus ring, the standard for every interactive @pp/ui component: a 2px
+   outline in the app's grey --ring, standing 2px off the element. */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.focus-ring[aria-invalid="true"]:focus-visible {
+  outline-color: var(--destructive);
+}
+
+/* The logo loader: a soft band sweeps across the mark. Used by the app's
+   loading overlay and by Button's loading state. */
+@property --pp-sweep {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: -100;
+}
+
+.pp-loader {
+  --pp-angle: 81deg;
+  --pp-band: 69;
+  --pp-base: 0.32;
+  --pp-speed: 1.8s;
+  -webkit-mask-image: linear-gradient(
+    var(--pp-angle),
+    rgba(0, 0, 0, var(--pp-base)) calc((var(--pp-sweep) - var(--pp-band)) * 1%),
+    #000 calc(var(--pp-sweep) * 1%),
+    rgba(0, 0, 0, var(--pp-base)) calc((var(--pp-sweep) + var(--pp-band)) * 1%)
+  );
+  mask-image: linear-gradient(
+    var(--pp-angle),
+    rgba(0, 0, 0, var(--pp-base)) calc((var(--pp-sweep) - var(--pp-band)) * 1%),
+    #000 calc(var(--pp-sweep) * 1%),
+    rgba(0, 0, 0, var(--pp-base)) calc((var(--pp-sweep) + var(--pp-band)) * 1%)
+  );
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  animation: pp-sweep var(--pp-speed) linear infinite;
+}
+
+.pp-loader > svg {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes pp-sweep {
+  from {
+    --pp-sweep: -100;
+  }
+  to {
+    --pp-sweep: 200;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-loader {
+    animation: none;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+/* Switch: reads like Checkbox. Off is a 1.5px ring with a small muted thumb;
+   on fills with ink and the thumb grows to full size. Pressing stretches the
+   thumb 4px toward where it will go, and dragging moves it with the pointer
+   (--switch-drag, set by switch.tsx) before it springs to the nearer side. */
+.pp-switch {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  width: 36px;
+  height: 20px;
+  padding: 2px;
+  border-radius: 10px;
+  corner-shape: var(--button-corner);
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--checkbox-ring);
+  cursor: pointer;
+  touch-action: pan-y;
+  transition:
+    background-color 150ms ease-out,
+    box-shadow 150ms ease-out;
+}
+.pp-switch::before {
+  content: "";
+  position: absolute;
+  inset: -6px -4px;
+}
+.pp-switch:not([data-disabled], [data-loading]):hover {
+  box-shadow: inset 0 0 0 1.5px var(--checkbox-ring-hover);
+  transition-duration: 0ms;
+}
+.pp-switch[data-checked] {
+  background-color: var(--foreground);
+  box-shadow: none;
+}
+.pp-switch[data-checked]:not([data-disabled], [data-loading]):hover {
+  background-color: var(--checkbox-fill-hover);
+  box-shadow: none;
+}
+.pp-switch[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.pp-switch[data-dragging] {
+  cursor: grabbing;
+}
+.pp-switch[data-loading] {
+  cursor: progress;
+}
+
+.pp-switch-thumb {
+  --switch-x: 0px;
+  --switch-spring: cubic-bezier(0.34, 1.3, 0.5, 1);
+  display: block;
+  width: 10px;
+  height: 10px;
+  margin: 3px;
+  border-radius: 5px;
+  corner-shape: var(--button-corner);
+  background-color: var(--switch-thumb-off);
+  translate: var(--switch-x) 0;
+  transition:
+    translate 280ms var(--switch-spring),
+    width 240ms var(--switch-spring),
+    height 240ms var(--switch-spring),
+    margin 240ms var(--switch-spring),
+    border-radius 240ms var(--switch-spring),
+    background-color 150ms ease-out;
+}
+.pp-switch[data-checked] .pp-switch-thumb {
+  --switch-x: 16px;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border-radius: 8px;
+  background-color: var(--background);
+}
+.pp-switch:not([data-disabled]):is(:active, [data-pressed]) .pp-switch-thumb {
+  width: 14px;
+}
+.pp-switch[data-checked]:not([data-disabled]):is(:active, [data-pressed])
+  .pp-switch-thumb {
+  width: 20px;
+}
+/* The pressed on-thumb sits at 12px, unless it is being dragged: then the
+   pointer decides, in both directions. */
+.pp-switch[data-checked]:not([data-disabled], [data-dragging]):is(
+    :active,
+    [data-pressed]
+  )
+  .pp-switch-thumb {
+  --switch-x: 12px;
+}
+.pp-switch[data-dragging] .pp-switch-thumb {
+  --switch-x: var(--switch-drag);
+  transition-property: width, height, margin, border-radius, background-color;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pp-switch-thumb {
+    transition-duration: 0ms, 0ms, 0ms, 0ms, 0ms, 150ms;
+  }
+}
+
+/* Filled buttons (primary, secondary, destructive). The fill is one colour,
+   --button-fill; a sheen made from that same colour with color-mix in oklab
+   lies over it, so the hue never greys. The sheen is the resting look: hover
+   swaps to the flat hover fill, press brings it back a little stronger. The
+   ::after edge darkens (light) or lightens (dark) the fill's rim by
+   --button-edge; at 0% it is fully transparent. */
+@property --button-sheen {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+/* The gradient carries the fill itself, so translucent fills (secondary)
+   are painted once, not twice. */
+.button-fill {
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(
+      in oklab,
+      var(--button-fill),
+      white calc(var(--button-sheen-top) * var(--button-sheen))
+    ),
+    var(--button-fill) 55%,
+    color-mix(
+      in oklab,
+      var(--button-fill),
+      black calc(var(--button-sheen-bottom) * var(--button-sheen))
+    )
+  );
+}
+.button-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  corner-shape: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--button-edge-to) var(--button-edge), transparent);
+}
+.button-fill:not(:disabled):hover {
+  --button-sheen: 0;
+}
+.button-fill:not(:disabled):active {
+  --button-sheen: 1.5;
+}
+
+.button-primary {
+  --button-fill: var(--foreground);
+  color: var(--background);
+}
+.button-primary:not(:disabled):hover {
+  --button-fill: color-mix(in oklab, var(--foreground) 90%, var(--background));
+}
+.button-primary:not(:disabled):active {
+  --button-fill: color-mix(in oklab, var(--foreground) 82%, var(--background));
+}
+.button-secondary {
+  --button-fill: var(--button-secondary);
+  color: var(--foreground);
+}
+.button-secondary:not(:disabled):hover {
+  --button-fill: var(--button-secondary-hover);
+}
+.button-secondary:not(:disabled):active {
+  --button-fill: var(--button-secondary-active);
+}
+/* Tertiary directly on the page: half of secondary's tint. Inside a surface
+   it is a lifted tile instead (see button.tsx). */
+.button-tertiary {
+  --button-fill: var(--button-tertiary);
+  color: var(--foreground);
+}
+.button-tertiary:not(:disabled):hover {
+  --button-fill: var(--button-tertiary-hover);
+}
+.button-tertiary:not(:disabled):active {
+  --button-fill: var(--button-tertiary-active);
+}
+.button-destructive {
+  --button-fill: var(--destructive-light);
+  color: var(--destructive);
+}
+.button-destructive:not(:disabled):hover {
+  --button-fill: color-mix(
+    in oklab,
+    var(--destructive-light),
+    var(--destructive) 10%
+  );
+}
+.button-destructive:not(:disabled):active {
+  --button-fill: color-mix(
+    in oklab,
+    var(--destructive-light),
+    var(--destructive) 16%
+  );
+}
+
+/* Badges. Fill and ink are both built from one colour, --badge-tone, in
+   oklch: the fill is a pure pastel of the tone (light) or a deep wash of it
+   (dark), the ink the same hue at a lightness that passes AA on that fill.
+   Mixing the tone toward black or making it see-through instead greys the
+   hue, which is what made the old light badges look muddy. The buttons'
+   sheen lies over the fill. Hover and press only apply when the badge is a
+   link or a button. In a layer, so a caller's utilities still win. */
+@layer components {
+  .pp-badge {
+    --badge-tone: var(--muted-foreground);
+    --badge-fill: oklch(from var(--badge-tone) 0.955 calc(c * 0.32) h);
+    --badge-fill-hover: oklch(from var(--badge-tone) 0.93 calc(c * 0.4) h);
+    --badge-ink: oklch(from var(--badge-tone) 0.46 c h);
+    background-color: var(--badge-fill);
+    background-image: linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--badge-fill), white 6%),
+      var(--badge-fill) 55%,
+      color-mix(in oklab, var(--badge-fill), black 3%)
+    );
+    color: var(--badge-ink);
+  }
+  .dark .pp-badge {
+    --badge-fill: oklch(from var(--badge-tone) 0.28 calc(c * 0.35) h);
+    --badge-fill-hover: oklch(from var(--badge-tone) 0.31 calc(c * 0.4) h);
+    --badge-ink: oklch(from var(--badge-tone) 0.82 c h);
+  }
+  .pp-badge[data-tone="amber"] {
+    --badge-ink: oklch(from var(--badge-tone) 0.47 c h);
+  }
+  .dark .pp-badge[data-tone="amber"] {
+    --badge-ink: oklch(from var(--badge-tone) 0.82 c h);
+  }
+  .pp-badge[data-tone="muted"] {
+    --badge-fill: oklch(0.955 0 0);
+    --badge-fill-hover: oklch(0.93 0 0);
+    --badge-ink: oklch(0.42 0 0);
+  }
+  .dark .pp-badge[data-tone="muted"] {
+    --badge-fill: oklch(0.27 0 0);
+    --badge-fill-hover: oklch(0.3 0 0);
+    --badge-ink: oklch(0.82 0 0);
+  }
+
+  /* Outline: a card-coloured chip with the segmented tabs' hairline, for
+     files and links that sit in running text. */
+  .pp-badge[data-variant="outline"] {
+    --badge-fill: var(--card);
+    --badge-fill-hover: color-mix(in oklab, var(--card), var(--foreground) 4%);
+    --badge-ink: var(--foreground);
+    box-shadow: inset 0 0 0 1px var(--segment-line);
+  }
+
+  /* Count: a mono number next to a label; active counts read in foreground. */
+  .pp-badge[data-variant="count"] {
+    --badge-fill: color-mix(in oklab, var(--foreground) 6%, transparent);
+    --badge-ink: oklch(0.45 0 0);
+  }
+  .dark .pp-badge[data-variant="count"] {
+    --badge-ink: var(--muted-foreground);
+  }
+  .pp-badge[data-variant="count"][data-active] {
+    --badge-fill: color-mix(in oklab, var(--foreground) 10%, transparent);
+    --badge-ink: var(--foreground);
+  }
+
+  :is(a, button, [role="button"]).pp-badge {
+    cursor: pointer;
+  }
+  :is(a, button, [role="button"]).pp-badge:hover {
+    --badge-fill: var(--badge-fill-hover);
+  }
+  :is(a, button, [role="button"]).pp-badge:active {
+    scale: 0.97;
+  }
+}
+
+/* Avatar stacks cut a 2px gap out of each avatar where the next one sits,
+   so translucent orbs never show through each other and the gap shows the
+   real surface underneath. The cutout is the avatar's own shape: a squircle
+   (|x|^4 + |y|^4 = 1, what corner-shape: squircle draws at a 50% radius),
+   2px larger on every side. */
+[data-slot="avatar-group"] > :not(:last-child) {
+  --avatar-gap: 2px;
+  --avatar-cut-size: calc(var(--avatar-size) + var(--avatar-gap) * 2);
+  -webkit-mask-image: var(--avatar-squircle), linear-gradient(#000 0 0);
+  mask-image: var(--avatar-squircle), linear-gradient(#000 0 0);
+  -webkit-mask-size:
+    var(--avatar-cut-size) var(--avatar-cut-size),
+    100% 100%;
+  mask-size:
+    var(--avatar-cut-size) var(--avatar-cut-size),
+    100% 100%;
+  -webkit-mask-position:
+    calc(var(--avatar-size) - var(--avatar-overlap) - var(--avatar-gap))
+      calc(var(--avatar-gap) * -1),
+    0 0;
+  mask-position:
+    calc(var(--avatar-size) - var(--avatar-overlap) - var(--avatar-gap))
+      calc(var(--avatar-gap) * -1),
+    0 0;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* Centre the initials in the part of a stacked avatar the cutout leaves. */
+[data-slot="avatar-group"] > :not(:last-child) [data-slot="avatar-fallback"] {
+  padding-right: calc(var(--avatar-overlap) + var(--avatar-gap));
+}
+
+@layer base {
+  .lucide:not([stroke-width="0"]) {
+    stroke-width: 1.5;
+  }
+
+  * {
+    @apply border-border;
+
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+    outline-width: 1px;
+    outline-color: var(--ring);
+    outline-offset: -1px;
+  }
+  :focus-visible {
+    outline-style: solid;
+  }
+  body {
+    @apply bg-muted text-foreground antialiased;
+    margin: 0;
+    padding: 0;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+    isolation: isolate;
+  }
+}
+
+/* React never runs the unmount a popup scheduled while its tree was hidden. */
+[data-retained-stale]
+  :is(
+    [data-slot="popover-content"],
+    [data-slot="dropdown-menu-content"],
+    [data-slot="dropdown-menu-sub-content"]
+  ):not([data-open]) {
+  display: none !important;
+}
+
+@property --sf-start {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+@property --sf-end {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+@keyframes sf-reveal-start {
+  from {
+    --sf-start: 1;
+  }
+  to {
+    --sf-start: 0;
+  }
+}
+@keyframes sf-reveal-end {
+  from {
+    --sf-end: 0;
+  }
+  to {
+    --sf-end: 1;
+  }
+}
+@keyframes sf-divider-start {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes sf-divider-end {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.scrollbar-hide {
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scroll-fade {
+  --scroll-fade-size: 48px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--scroll-fade-size),
+    #000 calc(100% - var(--scroll-fade-size)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--scroll-fade-size),
+    #000 calc(100% - var(--scroll-fade-size)),
+    transparent 100%
+  );
+}
+@supports (animation-timeline: scroll()) {
+  .scroll-fade {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, var(--sf-start)) 0,
+      #000 var(--scroll-fade-size),
+      #000 calc(100% - var(--scroll-fade-size)),
+      rgba(0, 0, 0, var(--sf-end)) 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, var(--sf-start)) 0,
+      #000 var(--scroll-fade-size),
+      #000 calc(100% - var(--scroll-fade-size)),
+      rgba(0, 0, 0, var(--sf-end)) 100%
+    );
+    animation:
+      sf-reveal-start both linear,
+      sf-reveal-end both linear;
+    animation-timeline: scroll(self), scroll(self);
+    animation-range-start: 0, calc(100% - var(--scroll-fade-size));
+    animation-range-end: var(--scroll-fade-size), 100%;
+  }
+}
+@supports (animation-timeline: scroll()) {
+  .scroll-fade-x {
+    --scroll-fade-size: 48px;
+    -webkit-mask-image: linear-gradient(
+      to right,
+      rgba(0, 0, 0, var(--sf-start)) 0,
+      #000 var(--scroll-fade-size),
+      #000 calc(100% - var(--scroll-fade-size)),
+      rgba(0, 0, 0, var(--sf-end)) 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      rgba(0, 0, 0, var(--sf-start)) 0,
+      #000 var(--scroll-fade-size),
+      #000 calc(100% - var(--scroll-fade-size)),
+      rgba(0, 0, 0, var(--sf-end)) 100%
+    );
+    animation:
+      sf-reveal-start both linear,
+      sf-reveal-end both linear;
+    animation-timeline: scroll(self inline), scroll(self inline);
+    animation-range-start: 0, calc(100% - var(--scroll-fade-size));
+    animation-range-end: var(--scroll-fade-size), 100%;
+  }
+}
+@supports (timeline-scope: --sf) {
+  .scroll-divider {
+    position: relative;
+    timeline-scope: --sf-scroller;
+    --scroll-divider-size: 48px;
+  }
+  .scroll-divider .scroll-fade {
+    scroll-timeline-name: --sf-scroller;
+  }
+  .scroll-divider::before,
+  .scroll-divider::after {
+    content: "";
+    position: absolute;
+    left: var(--scroll-divider-inset, 0px);
+    right: var(--scroll-divider-inset, 0px);
+    height: 1px;
+    background-color: var(--border);
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+  }
+  .scroll-divider::before {
+    top: 0;
+    animation: sf-divider-start both linear;
+    animation-timeline: --sf-scroller;
+    animation-range: 0 var(--scroll-divider-size);
+  }
+  .scroll-divider:first-child::before {
+    content: none;
+  }
+  .scroll-divider::after {
+    bottom: 0;
+    animation: sf-divider-end both linear;
+    animation-timeline: --sf-scroller;
+    animation-range: calc(100% - var(--scroll-divider-size)) 100%;
+  }
+}
+
+/* Base UI renders an unnamed select's hidden input as `position: fixed`, which
+   gives every backlog row its own compositor layer and makes each animation
+   frame re-layerize the page. `absolute` keeps it hidden without the layer. */
+input[aria-hidden="true"][tabindex="-1"][style*="position: fixed"] {
+  position: absolute !important;
+}

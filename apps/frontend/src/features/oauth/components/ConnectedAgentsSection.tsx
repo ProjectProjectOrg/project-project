@@ -1,5 +1,8 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { cliRelease, type OAuthApplication } from "@pp/shared"
+import { CodeSnippet } from "@pp/ui/code-snippet"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import { cn } from "@pp/ui/lib/utils"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import { KeyRound } from "lucide-react"
@@ -13,16 +16,13 @@ import {
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
-import { CodeSnippet } from "@/components/ui/code-snippet"
-import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
   type OAuthApplicationsRequest,
   oauthApplicationsRequest,
   oauthApplicationsAtom,
   revokeOAuthApplicationAtom
 } from "@/features/oauth/atoms/oauthApplications"
-import { errorMessage } from "@/lib/errorMessage"
-import { cn } from "@/lib/utils"
+import { errorMessage, describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
@@ -129,6 +129,8 @@ function AgentRow({
         </ConfirmButton.Trigger>
         <ConfirmButton.Confirm>
           <ConfirmButton.Action
+            cancelLabel={m.common_cancel_button()}
+            describeError={describeCause}
             prompt={m.profile_connected_agents_revoke_confirm()}
             label={m.profile_connected_agents_revoke()}
             onConfirm={async () => {
@@ -155,6 +157,8 @@ function InstallCliSection() {
       description={m.profile_cli_install_description()}
     >
       <CodeSnippet
+        copyLabel={m.common_copy_button()}
+        copiedLabel={m.common_copied()}
         code={`curl -fsSL ${origin}${cliRelease.installScriptPath} | sh`}
         language="bash"
       />
@@ -266,7 +270,12 @@ function ProviderItem({
       <p className="text-micro text-muted-foreground">
         {m.profile_connect_mcp_revision({ revision: provider.revision })}
       </p>
-      <CodeSnippet code={snippet} language={provider.language} />
+      <CodeSnippet
+        copyLabel={m.common_copy_button()}
+        copiedLabel={m.common_copied()}
+        code={snippet}
+        language={provider.language}
+      />
     </SettingsDisclosureItem>
   )
 }

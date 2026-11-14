@@ -1,4 +1,13 @@
 import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput
+} from "@pp/ui/input-group"
+import { Kbd } from "@pp/ui/kbd"
+import { cn } from "@pp/ui/lib/utils"
+import { comboboxProps, type ListboxState } from "@pp/ui/menu-listbox"
+import {
+  Children,
   createContext,
   use,
   useEffect,
@@ -10,15 +19,7 @@ import {
   type RefObject
 } from "react"
 
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput
-} from "@/components/ui/input-group"
-import { Kbd } from "@/components/ui/kbd"
-import { comboboxProps, type ListboxState } from "@/components/ui/menu-listbox"
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"
-import { cn } from "@/lib/utils"
 
 type CreatorActive = Readonly<{
   active: boolean
@@ -109,11 +110,13 @@ export function TicketCreatorShell({
           expanded && "pl-[5px]"
         )}
       >
-        {leadingAddons.map((addon, i) => (
-          <InputGroupAddon key={i} className="w-auto">
-            {addon}
+        {/* One slot for every leading chip, 4px apart, so they read as a
+            pair and the field's 8px gap only falls before the title. */}
+        {leadingAddons.length > 0 && (
+          <InputGroupAddon className="flex w-auto gap-1">
+            {Children.toArray(leadingAddons)}
           </InputGroupAddon>
-        ))}
+        )}
         <InputGroupInput
           ref={inputRef}
           {...comboboxProps(listbox)}

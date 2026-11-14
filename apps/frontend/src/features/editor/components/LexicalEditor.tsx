@@ -24,6 +24,7 @@ import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin"
 import { RichTextExtension } from "@lexical/rich-text"
 import { TableExtension } from "@lexical/table"
 import { EMPTY_LAYER, resolveLibrary, type TicketId } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 import { useDebouncer } from "@tanstack/react-pacer"
 import * as Effect from "effect/Effect"
 import {
@@ -44,7 +45,6 @@ import {
 } from "react"
 
 import { figmaTicketLinksRequest } from "@/features/figma/atoms/figma"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { AttachmentExtension } from "../lexical/AttachmentExtension"
@@ -89,7 +89,7 @@ import { MENTION_TRANSFORMER } from "../lexical/mentionTransformer"
 import { PaperExtension } from "../lexical/PaperExtension"
 import { PaperPlugin } from "../lexical/PaperPlugin"
 import { PAPER_TRANSFORMER } from "../lexical/paperTransformer"
-import "@/lib/prismLangs"
+import "@pp/ui/lib/prismLangs"
 
 import { SubmitOnEnterPlugin } from "../lexical/SubmitOnEnterPlugin"
 import { TABLE_TRANSFORMER } from "../lexical/tableTransformer"

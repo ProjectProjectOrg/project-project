@@ -1,8 +1,8 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { Dialog, DialogContent } from "@pp/ui/dialog"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 
-import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
 import { ProjectContext } from "@/features/projects/hooks/useProject"
@@ -31,7 +31,7 @@ export function FlagTicketDialogHost() {
         if (!next) close()
       }}
     >
-      <DialogContent size="lg" showCloseButton={false} className="p-0">
+      <DialogContent size="lg" className="p-0">
         {shown !== null && (
           <ProjectContext value={projectRequest(shown.orgSlug, shown.slug)}>
             <FlagTicket

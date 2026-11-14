@@ -1,6 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
 import type { Member, Ticket } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
 import { type ReactNode } from "react"
 
@@ -25,7 +26,6 @@ import {
 import { SelectionOrder } from "@/features/tickets/components/ticket-list/TicketSelection"
 import { useTicketPreview } from "@/features/tickets/components/ticket-list/useTicketPreview"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
-import { cn } from "@/lib/utils"
 
 const NO_MEMBERS: ReadonlyArray<Member> = []
 

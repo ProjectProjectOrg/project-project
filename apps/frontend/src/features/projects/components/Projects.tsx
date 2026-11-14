@@ -1,4 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
+import { transitions } from "@pp/ui/lib/springs"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { FolderKanban } from "lucide-react"
@@ -6,7 +8,6 @@ import { motion } from "motion/react"
 import { useState } from "react"
 
 import { PageContainer, PageHeader } from "@/components/shell/Page"
-import { Button } from "@/components/ui/button"
 import { ActiveImports } from "@/features/jira/components/ActiveImports"
 import {
   projectsFor,
@@ -15,7 +16,6 @@ import {
 import { ProjectRow } from "@/features/projects/components/ProjectRow"
 import { CreateProjectRow } from "@/features/projects/forms/create-project"
 import { useOrgActor } from "@/hooks/useActor"
-import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi("/_authed/orgs/$orgSlug/projects/")

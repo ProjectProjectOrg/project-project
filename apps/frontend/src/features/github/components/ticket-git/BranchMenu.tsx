@@ -1,5 +1,14 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { GithubConnection, TicketDetail } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   ArrowUpRight,
@@ -12,20 +21,12 @@ import {
 } from "lucide-react"
 import { useRef, useState, type ReactElement } from "react"
 
-import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
 import { clearBranch } from "@/features/github/atoms/github"
 import { repoSlug } from "@/features/github/lib/repos"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/hooks/useActor"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 import { usePreferredBranchLink } from "./BranchChip"
@@ -71,7 +72,7 @@ export function BranchMenu({
             render={
               trigger ?? (
                 <Button
-                  variant="quiet"
+                  variant="ghost"
                   size="square-7"
                   aria-label={m.git_stack_branch_menu_label({ branch })}
                 >
@@ -159,6 +160,8 @@ export function RemoveBranchAction({
   const state = useAtomValue(atom)
   return (
     <ConfirmButton.Action
+      cancelLabel={m.common_cancel_button()}
+      describeError={describeCause}
       layout="stacked"
       prompt={m.git_branch_remove_prompt()}
       description={m.git_branch_remove_description()}

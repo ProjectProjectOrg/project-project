@@ -7,6 +7,8 @@ import {
   parseMentionHref,
   parseTicketBlocks
 } from "@pp/shared"
+import { Checkbox } from "@pp/ui/checkbox"
+import { cn } from "@pp/ui/lib/utils"
 import {
   Children,
   cloneElement,
@@ -16,11 +18,10 @@ import {
   useId,
   type ReactNode
 } from "react"
+import "@pp/ui/lib/prismLangs"
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown"
 import rehypePrismPlus from "rehype-prism-plus/common"
 
-import "@/lib/prismLangs"
-import { Checkbox } from "@/components/ui/checkbox"
 import { AttachmentChip } from "@/features/attachments/components/AttachmentChip"
 import { BlockFrame } from "@/features/editor/components/BlockFrame"
 import {
@@ -44,7 +45,6 @@ import {
 } from "@/features/editor/lib/syncedContent"
 import { PreviewLink } from "@/features/link-previews/components/PreviewLink"
 import { previewableUrl } from "@/features/link-previews/lib/linkPreviewUrl"
-import { cn } from "@/lib/utils"
 
 import { markdownPlugins } from "../lib/markdownParser"
 

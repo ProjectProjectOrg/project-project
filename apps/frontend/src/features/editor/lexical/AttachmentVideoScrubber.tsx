@@ -1,6 +1,5 @@
+import { cn } from "@pp/ui/lib/utils"
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react"
-
-import { cn } from "@/lib/utils"
 
 const BAR =
   "absolute top-1/2 left-0 h-[3px] -translate-y-1/2 rounded-full transition-all duration-150 group-hover/reveal:h-[5px] group-data-[dragging=true]/reveal:h-[5px]"

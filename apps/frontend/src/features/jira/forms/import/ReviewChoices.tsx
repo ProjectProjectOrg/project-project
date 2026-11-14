@@ -1,6 +1,6 @@
 import type { JiraMigrationRequirements } from "@pp/shared"
+import { Button } from "@pp/ui/button"
 
-import { Button } from "@/components/ui/button"
 import { FactBlock, FactList, FactRow } from "@/features/jira/components/Facts"
 import type { JiraImportDraft } from "@/features/jira/lib/draft"
 import {

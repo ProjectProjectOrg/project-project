@@ -1,12 +1,12 @@
 import type { ArchiveTicketInput, Ticket } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Composer } from "@pp/ui/composer"
+import type { IconComponent } from "@pp/ui/lib/icon"
+import { PopoverTitle } from "@pp/ui/popover"
 import * as Exit from "effect/Exit"
 import { Archive, Ban, Clock, Copy } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import { Composer } from "@/components/ui/composer"
-import { PopoverTitle } from "@/components/ui/popover"
 import { useAppForm } from "@/lib/form"
-import type { IconComponent } from "@/lib/icon"
 import { m } from "@/paraglide/messages"
 
 import { archiveTicketFormOpts, toArchiveTicketInput } from "./opts"
@@ -69,7 +69,7 @@ export function ArchiveForm({
               <Button
                 key={label}
                 type="button"
-                variant="chip-toggle"
+                variant="ghost"
                 size="sm"
                 aria-pressed={field.value === label}
                 onClick={() =>

@@ -1,5 +1,8 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { SlackEvent, type SlackProjectStatus } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
+import { Select, SelectTrigger } from "@pp/ui/select"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { RefreshCw } from "lucide-react"
@@ -12,12 +15,9 @@ import {
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSwitch } from "@/components/shell/settings/SettingsTextField"
-import { Button } from "@/components/ui/button"
-import { Select, SelectTrigger } from "@/components/ui/select"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { mutationErrorText, slackActionErrorMessage } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import {

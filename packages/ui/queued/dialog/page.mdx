@@ -1,0 +1,78 @@
+export const meta = {
+  title: "Dialog",
+  group: "Primitives",
+  description:
+    "A modal panel over a dimmed page, for decisions that need the whole screen's attention. Used for deleting a type, flagging a ticket, sending feedback and the create ticket and sprint forms.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "Dialog",
+      href: "https://base-ui.com/react/components/dialog"
+    },
+    {
+      kind: "shadcn",
+      name: "dialog",
+      note: "starting point, restyled",
+      href: "https://ui.shadcn.com/docs/components/dialog"
+    }
+  ]
+}
+
+## Overview
+
+A dialog covers the whole page, so the overview starts closed. Open each one to see its size, its header and footer, and the close button that `closeLabel` adds. Esc, the close button or a press on the backdrop closes it.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+```tsx
+import { Button } from "@pp/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@pp/ui/dialog"
+
+;<Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
+  <DialogContent closeLabel={m.common_close_button()}>
+    <DialogHeader>
+      <DialogTitle>{m.templates_settings_delete_confirm({ name })}</DialogTitle>
+      <DialogDescription>{usedText(count, name, project)}</DialogDescription>
+    </DialogHeader>
+    <DialogFooter>
+      <Button variant="tertiary" onClick={() => onOpenChange(false)}>
+        {m.templates_settings_cancel()}
+      </Button>
+      <Button variant="destructive" onClick={() => void confirm()}>
+        {m.templates_types_delete_type()}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+```
+
+`Dialog` takes Base UI's root props: `open`, `defaultOpen` and `onOpenChange`. `DialogContent` renders the portal, backdrop and panel.
+
+| Prop         | Type           | Default |
+| ------------ | -------------- | ------- |
+| `size`       | `"sm" \| "lg"` | `"sm"`  |
+| `closeLabel` | `string`       |         |
+| `className`  | `string`       |         |
+
+`sm` is 400px wide and `lg` 40rem. Without `closeLabel` there is no close button; with it, an icon button in the top-right corner carries the label as its accessible name. `DialogHeader`, `DialogFooter`, `DialogTitle`, `DialogDescription` and `DialogClose` take the usual element props.
+
+## Rules
+
+Rules are written during this component's polish pass.
+
+## Examples
+
+### Delete a type
+
+The confirm dialog from the library settings: a title that names the type, a sentence on what happens to its tickets, then Cancel and a destructive action on the right.
+
+<Demo name="delete-type" title="Delete a type" />

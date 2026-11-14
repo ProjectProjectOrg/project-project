@@ -1,9 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { BranchListItem, GithubConnection, TicketStatus } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
-import { GitBranch } from "lucide-react"
-import { useState } from "react"
-
 import {
   DropdownMenuInput,
   DropdownMenuList,
@@ -11,8 +7,13 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
-} from "@/components/ui/dropdown-menu"
-import { MiddleTruncate } from "@/components/ui/middle-truncate"
+} from "@pp/ui/dropdown-menu"
+import { cn } from "@pp/ui/lib/utils"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
+import * as Result from "effect/reactivity/AsyncResult"
+import { GitBranch } from "lucide-react"
+import { useState } from "react"
+
 import { useBranchResults } from "@/features/github/hooks/useBranchResults"
 import {
   baseBranchOrder,
@@ -29,7 +30,6 @@ import {
   statusLabelFor,
   statusMetaFor
 } from "@/features/tickets/lib/ticketMeta"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { BranchPagingNote, BranchResultsFrame } from "./BranchPickerNotes"

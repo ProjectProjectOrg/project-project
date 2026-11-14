@@ -1,0 +1,119 @@
+export const meta = {
+  title: "Input",
+  group: "Primitives",
+  description:
+    "Single-line text fields, plus InputGroup for a field with an icon, hint or button inside it. Used for forms, inline renames, composer titles and the ticket search.",
+  sources: [
+    {
+      kind: "shadcn",
+      name: "input",
+      note: "starting point, restyled with variants",
+      href: "https://ui.shadcn.com/docs/components/input"
+    },
+    { kind: "own", name: "InputGroup", note: "field with addons, focus on click" }
+  ]
+}
+
+## Overview
+
+Two large live fields, then every state: one row per size (empty, filled, focus, invalid, disabled), then `InputGroup` and `bare`. Focus and hover are pinned with `data-force`; the group's focus is pinned with its `focused` prop.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+### Input
+
+Strings come from Paraglide. Mark a failed field with `aria-invalid`, and show the error under it.
+
+```tsx
+import { Input } from "@pp/ui/input"
+
+<Input
+  type="email"
+  value={field.value}
+  onChange={(event) => field.handleChange(event.target.value)}
+  onBlur={field.handleBlur}
+  placeholder={m.auth_email_placeholder()}
+  aria-label={m.auth_email_aria_label()}
+  aria-invalid={field.errors.length > 0}
+  required
+/>
+```
+
+Takes every native `input` prop, plus:
+
+| Prop      | Type                                                                                         | Default     |
+| --------- | -------------------------------------------------------------------------------------------- | ----------- |
+| `variant` | `"default" \| "bare"` | `"default"` |
+| `size` | `"sm" \| "md" \| "lg"`, default variant only; the same heights as Button (28, 32, 36) | `"lg"` |
+
+### InputGroup
+
+A field with parts inside its border. Clicking anywhere in the group that isn't a control focuses its input.
+
+```tsx
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@pp/ui/input-group"
+import { Kbd } from "@pp/ui/kbd"
+
+<InputGroup className="min-w-0 flex-1 basis-[220px]">
+  <InputGroupAddon>
+    <SearchIcon className="size-4" strokeWidth={1.75} />
+  </InputGroupAddon>
+  <InputGroupInput
+    value={searchInput}
+    onChange={(e) => search.change(e.target.value)}
+    placeholder={m.tickets_search_placeholder()}
+    aria-label={m.tickets_search_aria_label()}
+    aria-keyshortcuts="/"
+  />
+  <Kbd aria-hidden>/</Kbd>
+</InputGroup>
+```
+
+| Part              | Props                                                                 |
+| ----------------- | --------------------------------------------------------------------- |
+| `InputGroup`      | `div` props, plus `focused?: boolean` to drive the ring from state instead of `:focus-within` |
+| `InputGroupInput` | native `input` props                                                  |
+| `InputGroupAddon` | `div` props; a 24px slot for a leading or trailing icon               |
+| `InputGroupHint`  | `span` props; muted caption text inside the field                     |
+
+## Rules
+
+- Two variants: `default`, the bordered field, and `bare` for fields inside a composer that styles its own text. Anything else is a `className`, not a variant.
+- Sizes match Button (`sm` 28, `md` 32, `lg` 36) with corners at half the height in `--button-corner`, so a field and a button in one row line up.
+- Fields fill with `--field`: white in light, just below the content region in dark, so they read as a shallow well.
+- Focus is the shared `focus-ring`; an invalid field (`aria-invalid`) turns its border and ring red, and says why in text next to or under it.
+- An icon, shortcut hint, picker or second field that belongs to the input goes inside an `InputGroup`, not beside it.
+
+## Examples
+
+### Ticket search
+
+The search field above the ticket list. The `/` hint gives way to a clear button once you type, and a hint appears while the query is too short.
+
+<Demo name="ticket-search" title="Ticket search" />
+
+### Ticket creator
+
+A port of the app's ticket creator (`TicketComposer`, `TicketCreatorShell`, `CreatorMenus`, `useCreatorFocus`). At rest it shows only the type and sprint glyphs and the `c` hint; press `c` anywhere to focus it. Focusing it, or opening one of its menus, expands it: the chips take a tint and their labels slide out, the left padding tightens and the "Starts with" line grows in. Enter saves with a wait cursor, then collapses and clears it. A title containing "fail" shows the inline error, and Escape or a click outside collapses it.
+
+<Demo name="ticket-creator" title="Ticket creator" />
+
+### Project creator
+
+The new-project field. Once it has a name, a second monospace field for the ticket key appears inside the same group, derived from the name until you edit it, and the line below previews the first ticket id and the URL.
+
+<Demo name="project-creator" title="Project creator" />
+
+### Settings field that saves itself
+
+A settings row whose field commits on blur or Enter and reverts on Escape. A bad value stays in the field, and the description turns into the error.
+
+<Demo name="settings-field" title="Branch name setting" />
+
+### Estimate
+
+The time field in a ticket's estimate popover: a medium field with tabular figures, a live reading of the duration under it, and the error in the same line when it can't be read.
+
+<Demo name="estimate" title="Time estimate" />

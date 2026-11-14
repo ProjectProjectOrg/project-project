@@ -1,20 +1,20 @@
 import { MenuOption } from "@lexical/react/LexicalTypeaheadMenuPlugin"
-import { useLayoutEffect, useRef } from "react"
-
-import { MenuHighlight } from "@/components/ui/menu-highlight"
-import { MenuNote } from "@/components/ui/menu-note"
+import { cn } from "@pp/ui/lib/utils"
+import { MenuHighlight } from "@pp/ui/menu-highlight"
+import { MenuNote } from "@pp/ui/menu-note"
 import {
   menuItemClass,
   menuLabelClass,
   menuPopupClass,
   menuSeparatorClass
-} from "@/components/ui/menu-styles"
-import { ScrollArea } from "@/components/ui/scroll-area"
+} from "@pp/ui/menu-styles"
+import { ScrollArea } from "@pp/ui/scroll-area"
+import { useLayoutEffect, useRef } from "react"
+
 import type {
   MentionCandidate,
   MentionProvider
 } from "@/features/editor/mentions/registry"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const MENTION_LISTBOX_ID = "typeahead-menu"
@@ -89,7 +89,10 @@ export function MentionMenu({
       data-open=""
       className={cn(menuPopupClass, "mt-1 w-80 overflow-hidden p-0")}
     >
-      <ScrollArea viewportClassName="max-h-96 [&>div[style]]:!block [&>div[style]]:!min-w-0">
+      <ScrollArea
+        roleDescription={m.common_scroll_area_label()}
+        viewportClassName="max-h-96 [&>div[style]]:!block [&>div[style]]:!min-w-0"
+      >
         <div className="relative p-1">
           <MenuHighlight />
           {groups.map(({ provider, candidates, note }, groupIndex) => (

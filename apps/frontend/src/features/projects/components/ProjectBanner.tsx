@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { ProjectBanner as Banner } from "@pp/shared"
+import { standardEaseCss, transitions } from "@pp/ui/lib/springs"
 import * as Match from "effect/Match"
 import { useReducedMotion } from "motion/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -23,7 +24,6 @@ import {
 } from "@/features/projects/lib/bannerRenderCache"
 import { bannerSource } from "@/features/projects/lib/bannerSource"
 import { usePageBackdrop } from "@/lib/pageBackdrop"
-import { standardEaseCss, transitions } from "@/lib/springs"
 
 import {
   bannerCropStyle,

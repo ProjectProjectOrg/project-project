@@ -1,14 +1,12 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import { cn } from "@pp/ui/lib/utils"
+import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
 import * as Schema from "effect/Schema"
 import { CircleDot, Columns3, FolderKanban, Rows3 } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { ReadFailure } from "@/components/shell/ReadFailure"
-import {
-  SegmentedTabs,
-  type SegmentedItem
-} from "@/components/ui/segmented-tabs"
 import { currentUserId } from "@/features/auth/atoms/auth"
 import {
   BoardColumnShell,
@@ -33,7 +31,6 @@ import {
   createLocalStorageCodec,
   useLocalStorageState
 } from "@/hooks/useLocalStorageState"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { DashboardCard, DashboardRows } from "./DashboardTicket"

@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
 import { Download, ExternalLink } from "lucide-react"
 import { useState } from "react"
 
@@ -9,7 +10,6 @@ import {
   SettingsRow
 } from "@/components/shell/settings/SettingsSection"
 import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
-import { Button } from "@/components/ui/button"
 import { m } from "@/paraglide/messages"
 
 import { slackManifest, slackOrgRequest } from "../atoms/slack"

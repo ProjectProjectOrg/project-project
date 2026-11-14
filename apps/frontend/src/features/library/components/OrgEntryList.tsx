@@ -1,15 +1,11 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { blockLookupFor, type BlockIconName, type Library } from "@pp/shared"
+import { Badge } from "@pp/ui/badge"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useMemo, type ReactNode } from "react"
 
 import { ReadFailure } from "@/components/shell/ReadFailure"
-import { Badge } from "@/components/ui/badge"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
 import { m } from "@/paraglide/messages"
 
 import type { LibraryScope } from "../atoms/libraryScope"

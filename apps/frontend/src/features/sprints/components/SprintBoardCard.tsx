@@ -2,10 +2,10 @@ import { useAtomSet } from "@effect/atom-react"
 import { TicketPolicy } from "@pp/access/policies"
 import { isEpic } from "@pp/shared"
 import type { Member, Ticket } from "@pp/shared"
+import { DeferredDropdownMenus } from "@pp/ui/dropdown-menu"
 import { Link } from "@tanstack/react-router"
 import { memo, type ReactNode, use } from "react"
 
-import { DeferredDropdownMenus } from "@/components/ui/dropdown-menu"
 import { usePointedTicket } from "@/features/command-menu/hooks/usePointedTicket"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import type { TicketUpdates } from "@/features/tickets/atoms/ticketRows"
@@ -90,7 +90,7 @@ function BoardCardFields({
           />
           <div className="flex min-w-0 flex-col gap-2.5 pb-1">
             <div className="flex min-w-0 flex-col gap-1">
-              <div className="flex h-5 min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
+              <div className="flex h-6 min-w-0 items-center gap-1.5 text-caption text-muted-foreground">
                 <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
                   <span className="shrink-0 font-mono tabular-nums">
                     {ticket.id}
@@ -100,7 +100,9 @@ function BoardCardFields({
                   )}
                 </span>
                 {shows("assignee") && (
-                  <span className="ml-auto flex shrink-0 items-center">
+                  // -mr-0.5 sets the 24px avatar 8px from the card's top
+                  // and right edges alike.
+                  <span className="-mr-0.5 ml-auto flex shrink-0 items-center">
                     <fieldset disabled={!canAssign} className="contents">
                       <AssigneeField
                         ticket={ticket}
@@ -112,7 +114,8 @@ function BoardCardFields({
                   </span>
                 )}
               </div>
-              <div className="min-w-0 text-subtitle leading-snug font-semibold">
+              {/* Room for two lines, so every card in a column is one height. */}
+              <div className="min-h-[2lh] min-w-0 text-subtitle leading-snug font-semibold">
                 <span className="line-clamp-2">{ticket.title}</span>
               </div>
             </div>

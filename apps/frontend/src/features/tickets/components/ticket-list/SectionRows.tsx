@@ -1,4 +1,5 @@
 import type { Member, ParentFilter, TicketId } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 import { useRef, useState } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -8,7 +9,6 @@ import type {
 } from "@/features/tickets/atoms/ticketRows"
 import type { TicketRow } from "@/features/tickets/lib/ticketRows"
 import { selectionKey } from "@/features/tickets/lib/ticketSelection"
-import { cn } from "@/lib/utils"
 
 import { useListKeyboardSection } from "./ListKeyboard"
 import {

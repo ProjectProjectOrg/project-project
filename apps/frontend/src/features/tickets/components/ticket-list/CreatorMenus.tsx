@@ -1,9 +1,10 @@
 import type { Group, TypeKey } from "@pp/shared"
+import { BlurSwap } from "@pp/ui/blur-swap"
+import { Button } from "@pp/ui/button"
+import { Select, SelectTrigger } from "@pp/ui/select"
 import { Plus } from "lucide-react"
 import { useRef, type ComponentProps, type RefObject } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Select, SelectTrigger } from "@/components/ui/select"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { SprintAssignMenu } from "@/features/sprints/components/SprintAssignMenu"
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
@@ -152,13 +153,16 @@ export function CreatorTypeSelect({
         render={
           <Button
             type="button"
-            variant="chip"
+            variant="ghost"
+            tone="strong"
             aria-label={m.tickets_type_aria_label({ label })}
           />
         }
       >
-        <TypeGlyph type={shown} className="size-3.5" />
-        <span>{label}</span>
+        <BlurSwap id={label} className="gap-1.5">
+          <TypeGlyph type={shown} className="size-3.5" />
+          <span>{label}</span>
+        </BlurSwap>
       </SelectTrigger>
     </Select>
   )

@@ -6,6 +6,25 @@ import {
   type TicketFilter,
   type Member
 } from "@pp/shared"
+import { Badge } from "@pp/ui/badge"
+import { CollapsingLabel } from "@pp/ui/collapsing-label"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuEmpty,
+  DropdownMenuInput,
+  DropdownMenuItem,
+  DropdownMenuList,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import { menuItemMetaClass } from "@pp/ui/menu-styles"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
@@ -32,26 +51,7 @@ import {
   type ReactNode
 } from "react"
 
-import { CheckboxMenuItem } from "@/components/ui/checkbox-menu-item"
-import { CollapsingLabel } from "@/components/ui/collapsing-label"
-import { CountPill } from "@/components/ui/count-pill"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuEmpty,
-  DropdownMenuInput,
-  DropdownMenuItem,
-  DropdownMenuList,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { menuItemMetaClass } from "@/components/ui/menu-styles"
 import { currentUserId } from "@/features/auth/atoms/auth"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {
   statusesFor,
   statusesRequest
@@ -80,7 +80,6 @@ import {
   statusMetaFor
 } from "@/features/tickets/lib/ticketMeta"
 import { typeName, typeOptions } from "@/features/tickets/lib/ticketTypes"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { useTicketToolbar } from "./context"
@@ -156,7 +155,9 @@ export function Filters() {
               {m.tickets_filters_label()}
             </CollapsingLabel>
             <CollapsingLabel show={active} contentKey={shownCount}>
-              <CountPill active>{shownCount}</CountPill>
+              <Badge variant="count" active>
+                {shownCount}
+              </Badge>
             </CollapsingLabel>
             <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
           </ToolbarButton>
@@ -310,13 +311,14 @@ function CheckboxOptions<A extends string>({
     <>
       {options.map((option) => (
         <Fragment key={option.value}>
-          <CheckboxMenuItem
+          <DropdownMenuCheckboxItem
             label={option.label}
             checked={selected?.includes(option.value) === true}
-            onToggle={() => onChange(toggled(selected, option.value))}
+            closeOnClick={false}
+            onCheckedChange={() => onChange(toggled(selected, option.value))}
           >
             {option.content}
-          </CheckboxMenuItem>
+          </DropdownMenuCheckboxItem>
           {option.separated && <DropdownMenuSeparator />}
         </Fragment>
       ))}

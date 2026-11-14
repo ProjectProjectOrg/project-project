@@ -1,13 +1,15 @@
 import { useAtomValue, useAtomSet } from "@effect/atom-react"
 import { CommentPolicy } from "@pp/access/policies"
 import type { Comment, TicketId } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import { InlineForm, useInlineForm } from "@pp/ui/inline-form"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
 import * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useState } from "react"
 
-import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import { InlineForm, useInlineForm } from "@/components/ui/inline-form"
 import {
   commentsRequest,
   deleteComment,
@@ -15,13 +17,11 @@ import {
 } from "@/features/comments/atoms/comments"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { Markdown } from "@/features/editor/components/Markdown"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TimelineTime } from "@/features/tickets/components/TimelineTime"
 import { useProjectActor } from "@/hooks/useActor"
-import { errorMessage } from "@/lib/errorMessage"
+import { errorMessage, describeCause } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type Mode = "idle" | "edit"
@@ -64,7 +64,7 @@ export function CommentRow({
       actions={["edit"]}
       fade={false}
       className={cn(
-        "ticket-comment rounded-xl border-border/60 p-0 [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]",
+        "ticket-comment rounded-xl border-border/60 p-0 [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px] corner-squircle",
         waiting && "animate-pulse"
       )}
     >
@@ -88,6 +88,8 @@ export function CommentRow({
                   />
                   <ConfirmButton.Confirm>
                     <ConfirmButton.Action
+                      cancelLabel={m.common_cancel_button()}
+                      describeError={describeCause}
                       prompt={m.comments_delete_confirm()}
                       label={m.common_delete_confirm_button()}
                       busyLabel={m.common_deleting_button()}
@@ -99,11 +101,11 @@ export function CommentRow({
             </div>
           )}
         </CommentHeader>
-        <div className="px-4 pt-1 pb-3.5">
+        <div className="px-3 pt-1 pb-3">
           <Markdown>{comment.body}</Markdown>
         </div>
         {deleteError && (
-          <p role="alert" className="px-4 pb-3.5 text-body text-destructive">
+          <p role="alert" className="px-3 pb-3 text-body text-destructive">
             {deleteError}
           </p>
         )}
@@ -124,8 +126,10 @@ function CommentHeader({
 }) {
   const author = comment.author
   return (
-    <header className="flex min-h-7 items-center justify-between gap-2 pt-1.5 pr-1.5 pl-4 text-body">
-      <div className="flex items-center gap-2">
+    <header className="flex min-h-7 items-center justify-between gap-2 pt-2 pr-1.5 pl-3 text-body">
+      {/* min-h-7 matches the action buttons, so the avatar sits 12px from
+          the top and left edges whether or not the buttons show. */}
+      <div className="flex min-h-7 items-center gap-2">
         {author.kind === "user" && (
           <MemberAvatar member={author.user} size={20} />
         )}
@@ -194,7 +198,7 @@ function EditForm({
           {m.comments_editing_marker()}
         </span>
       </CommentHeader>
-      <div className="px-4 pt-1">
+      <div className="px-3 pt-1">
         <LexicalEditor
           markdown={body}
           onDraftChange={setBody}
@@ -202,9 +206,9 @@ function EditForm({
           compact
         />
       </div>
-      {error && <p className="px-4 text-body text-destructive">{error}</p>}
+      {error && <p className="px-3 text-body text-destructive">{error}</p>}
       <div className="flex justify-end gap-2 p-1.5">
-        <InlineForm.Cancel />
+        <InlineForm.Cancel>{m.common_cancel_button()}</InlineForm.Cancel>
         <Button size="sm" onClick={save} disabled={busy || !body.trim()}>
           {m.comments_save_button()}
         </Button>

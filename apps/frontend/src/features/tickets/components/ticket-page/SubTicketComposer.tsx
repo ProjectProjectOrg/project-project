@@ -1,5 +1,8 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { isEpic, type Ticket } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Composer } from "@pp/ui/composer"
+import { Input } from "@pp/ui/input"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
@@ -14,9 +17,6 @@ import {
   type KeyboardEvent
 } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Composer } from "@/components/ui/composer"
-import { Input } from "@/components/ui/input"
 import { currentUserId } from "@/features/auth/atoms/auth"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
@@ -122,7 +122,8 @@ export function SubTicketComposer({
       <Composer.Title className="mt-4">
         <Input
           ref={titleInput}
-          variant="composer-title"
+          variant="bare"
+          className="text-title font-semibold"
           aria-label={m.tickets_create_title_aria_label()}
           placeholder={
             inEpic

@@ -1,3 +1,4 @@
+import { cn } from "@pp/ui/lib/utils"
 import * as Match from "effect/Match"
 import { HardDrive, Mail, Timer, type LucideIcon } from "lucide-react"
 
@@ -5,7 +6,6 @@ import figmaLogo from "@/assets/logos/figma.svg"
 import githubDarkLogo from "@/assets/logos/github_dark.svg"
 import githubLightLogo from "@/assets/logos/github_light.svg"
 import slackLogo from "@/assets/logos/slack.svg"
-import { cn } from "@/lib/utils"
 
 export type IntegrationKind =
   | "github"

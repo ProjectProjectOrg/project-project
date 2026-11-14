@@ -4,6 +4,15 @@ import {
   sprintState,
   type ProjectDetail as ProjectDetailType
 } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@pp/ui/dropdown-menu"
+import { springs, transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import { Link, useMatches } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -21,13 +30,6 @@ import {
 } from "motion/react"
 import { useState, type KeyboardEvent, type ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
 import { GithubChip } from "@/features/github/components/GithubChip"
 import { connectedRepos } from "@/features/github/lib/repos"
 import {
@@ -52,8 +54,6 @@ import {
 } from "@/features/sprints/components/SprintHeaderFields"
 import { SprintStartButton } from "@/features/sprints/components/SprintStartButton"
 import { useProjectActor } from "@/hooks/useActor"
-import { springs, transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const morphFrom = { opacity: 0, filter: "blur(4px)" }
@@ -371,7 +371,7 @@ function ProjectMenu() {
       <DropdownMenuTrigger
         render={
           <Button
-            variant="quiet"
+            variant="ghost"
             size="square-8"
             aria-label={m.project_detail_actions_aria_label()}
             className="focus-visible:ring-2"

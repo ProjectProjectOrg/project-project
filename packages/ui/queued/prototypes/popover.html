@@ -1,0 +1,758 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Popover directions</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;550&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      .light {
+        --bg: oklch(1 0 0);
+        --fg: oklch(0.145 0 0);
+        --muted: oklch(0.556 0 0);
+        --border: oklch(0.922 0 0);
+        --input: oklch(0.922 0 0);
+        --ring: oklch(0.708 0 0);
+        --popover: oklch(1 0 0);
+        --card: oklch(1 0 0);
+        --accent: oklch(0.97 0 0);
+        --s1: oklch(0.955 0 0);
+        --s2: oklch(0.977 0 0);
+        --s3: oklch(1 0 0);
+        --s4: oklch(1 0 0);
+        --hover: rgb(0 0 0/0.04);
+        --active: rgb(0 0 0/0.07);
+        --tint: oklch(0 0 0/8%);
+        --line: oklch(0 0 0/5%);
+        --page: oklch(0.97 0 0);
+        --shadow-md:
+          0 4px 6px -1px rgb(0 0 0/0.1), 0 2px 4px -2px rgb(0 0 0/0.1);
+      }
+      .dark {
+        --bg: oklch(0.145 0 0);
+        --fg: oklch(0.985 0 0);
+        --muted: oklch(0.708 0 0);
+        --border: oklch(1 0 0/10%);
+        --input: oklch(1 0 0/15%);
+        --ring: oklch(0.556 0 0);
+        --popover: oklch(0.205 0 0);
+        --card: oklch(0.205 0 0);
+        --accent: oklch(0.269 0 0);
+        --s1: oklch(0.205 0 0);
+        --s2: oklch(0.235 0 0);
+        --s3: oklch(0.264 0 0);
+        --s4: oklch(0.293 0 0);
+        --hover: rgb(255 255 255/0.04);
+        --active: rgb(255 255 255/0.07);
+        --tint: oklch(1 0 0/14%);
+        --line: oklch(1 0 0/6%);
+        --page: oklch(0.269 0 0);
+        --shadow-md:
+          0 4px 6px -1px rgb(0 0 0/0.1), 0 2px 4px -2px rgb(0 0 0/0.1);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Geist, system-ui, sans-serif;
+      }
+      .wrap {
+        display: grid;
+        gap: 12px;
+      }
+      .theme {
+        background: var(--bg);
+        color: var(--fg);
+        padding: 24px;
+        border-radius: 16px;
+      }
+      h1 {
+        font-size: 15px;
+        font-weight: 550;
+        margin: 0 0 4px;
+      }
+      .sub {
+        font-size: 13px;
+        color: var(--muted);
+        margin: 0 0 20px;
+        line-height: 1.5;
+      }
+      .dir {
+        background: var(--s2);
+        border-radius: 20px;
+        corner-shape: squircle;
+        padding: 6px;
+        margin-bottom: 12px;
+      }
+      .cap {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        padding: 8px 10px 10px;
+        flex-wrap: wrap;
+      }
+      .cap b {
+        font-size: 13px;
+        font-weight: 550;
+      }
+      .cap span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .cap i {
+        font-style: normal;
+        font-size: 11px;
+        color: var(--muted);
+        flex-basis: 100%;
+      }
+      .stage {
+        background: var(--bg);
+        border-radius: 14px;
+        corner-shape: squircle;
+        padding: 18px;
+        min-height: 430px;
+        position: relative;
+      }
+      .bar {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+      svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex-shrink: 0;
+      }
+      button {
+        font: inherit;
+        cursor: pointer;
+      }
+      :focus-visible {
+        outline: 1px solid var(--ring);
+        outline-offset: -1px;
+      }
+      /* toolbar trigger (ToolbarButton) */
+      .trig {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 36px;
+        padding: 0 12px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        background: var(--bg);
+        color: var(--muted);
+        font-size: 13px;
+        transition:
+          color 0.1s,
+          background-color 0.1s,
+          scale 0.1s;
+      }
+      .trig:hover {
+        color: var(--fg);
+      }
+      .trig:active {
+        scale: 0.97;
+      }
+      .trig[aria-expanded="true"] {
+        background: var(--accent);
+        color: var(--fg);
+      }
+      .trig .chev {
+        width: 14px;
+        height: 14px;
+        opacity: 0.6;
+      }
+      /* popover */
+      .anchor {
+        position: relative;
+        display: inline-block;
+      }
+      .pop {
+        position: absolute;
+        right: 0;
+        top: calc(100% + 4px);
+        width: 320px;
+        z-index: 5;
+        transform-origin: top right;
+        color: var(--fg);
+      }
+      .pop[hidden] {
+        display: block;
+        visibility: hidden;
+      }
+      .body {
+        padding: 12px;
+        display: grid;
+        gap: 8px;
+      }
+      .row {
+        display: flex;
+        min-height: 32px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .row .r {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        margin-left: auto;
+      }
+      .sel {
+        display: inline-flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        width: 160px;
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        background: transparent;
+        color: var(--fg);
+        font-size: 13px;
+        transition: background-color 0.08s;
+      }
+      .sel:hover {
+        background: var(--hover);
+      }
+      .sel svg {
+        color: var(--muted);
+        width: 16px;
+        height: 16px;
+        stroke-width: 2;
+      }
+      .ib {
+        display: inline-grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border: 0;
+        border-radius: 20px;
+        background: transparent;
+        color: var(--muted);
+        transition:
+          background-color 0.15s,
+          color 0.15s,
+          scale 0.1s;
+      }
+      .ib:hover {
+        background: var(--hover);
+        color: var(--fg);
+        transition-duration: 0s;
+      }
+      .ib:active {
+        scale: 0.97;
+      }
+      .ib svg {
+        width: 14px;
+        height: 14px;
+      }
+      .seg {
+        position: relative;
+        display: flex;
+        padding: 4px;
+        border-radius: 12px;
+        background: var(--s1);
+      }
+      .dark .seg {
+        background: var(--s3);
+      }
+      .seg button {
+        flex: 1;
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        gap: 6px;
+        height: 28px;
+        border: 0;
+        border-radius: 8px;
+        background: none;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .seg button[aria-pressed="true"] {
+        background: var(--tint);
+        color: var(--fg);
+      }
+      .sec {
+        border-top: 1px solid
+          color-mix(in oklch, var(--border) 60%, transparent);
+        padding-top: 12px;
+        display: grid;
+        gap: 8px;
+      }
+      .sec .h {
+        display: flex;
+        min-height: 28px;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .ghost {
+        height: 28px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: 20px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 12px;
+        transition:
+          background-color 0.15s,
+          color 0.15s,
+          scale 0.1s;
+      }
+      .ghost:hover {
+        background: var(--hover);
+        color: var(--fg);
+        transition-duration: 0s;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .chip {
+        height: 28px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: 20px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 12px;
+        box-shadow: inset 0 0 0 1px
+          color-mix(in oklch, var(--border) 60%, transparent);
+        transition:
+          background-color 0.15s,
+          color 0.15s,
+          scale 0.1s;
+      }
+      .chip:hover {
+        background: var(--hover);
+        color: var(--fg);
+        transition-duration: 0s;
+      }
+      .chip:active {
+        scale: 0.97;
+      }
+      .chip[aria-pressed="true"] {
+        background: var(--active);
+        color: var(--fg);
+        box-shadow: none;
+      }
+
+      /* ---------- A · Current ---------- */
+      .A .pop {
+        background: var(--popover);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        box-shadow: var(--shadow-md);
+      }
+      .A .pop {
+        transition:
+          opacity 0.15s,
+          transform 0.15s;
+      }
+      .A .pop[hidden] {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.95);
+        transition:
+          opacity 0.15s,
+          transform 0.15s,
+          visibility 0s 0.15s;
+      }
+
+      /* ---------- B · Squircle sheet, hairline, spring ---------- */
+      .B .trig,
+      .C .trig,
+      .D .trig {
+        corner-shape: squircle;
+      }
+      .B .pop {
+        background: var(--popover);
+        border-radius: 24px;
+        corner-shape: squircle;
+        box-shadow: inset 0 0 0 1px var(--line);
+      }
+      .light .B .pop {
+        box-shadow: inset 0 0 0 1px oklch(0 0 0/8%);
+      }
+      .dark .B .pop {
+        background: var(--s4);
+      }
+      .B .body {
+        padding: 12px;
+      }
+      .B .seg {
+        border-radius: 12px;
+        corner-shape: squircle;
+      }
+      .B .seg button {
+        border-radius: 8px;
+        corner-shape: squircle;
+      }
+      .B .sel,
+      .B .chip,
+      .B .ib,
+      .B .ghost {
+        corner-shape: squircle;
+        border-radius: 12px;
+      }
+      .B .pop {
+        transition:
+          opacity 0.16s ease-out,
+          transform 0.24s cubic-bezier(0.34, 1.3, 0.5, 1),
+          visibility 0s;
+      }
+      .B .pop[hidden] {
+        opacity: 0;
+        transform: scale(0.96);
+        transition:
+          opacity 0.12s ease-in,
+          transform 0.12s ease-in,
+          visibility 0s 0.12s;
+      }
+
+      /* ---------- C · Inset groups on a tinted sheet ---------- */
+      .C .pop {
+        background: var(--s2);
+        border-radius: 22px;
+        corner-shape: squircle;
+        box-shadow: inset 0 0 0 1px var(--line);
+      }
+      .dark .C .pop {
+        background: var(--s3);
+      }
+      .C .body {
+        padding: 6px;
+        gap: 6px;
+      }
+      .C .grp {
+        background: var(--s3);
+        border-radius: 16px;
+        corner-shape: squircle;
+        padding: 4px 10px;
+      }
+      .dark .C .grp {
+        background: var(--s5, oklch(0.321 0 0));
+      }
+      .C .grp .row + .row {
+        border-top: 1px solid var(--line);
+      }
+      .C .row {
+        min-height: 40px;
+      }
+      .C .seg {
+        background: transparent;
+        padding: 0;
+        margin: 4px -6px;
+      }
+      .C .seg button {
+        border-radius: 12px;
+        corner-shape: squircle;
+        height: 32px;
+      }
+      .C .sec {
+        border: 0;
+        padding: 8px 10px 10px;
+      }
+      .C .sel {
+        border-color: transparent;
+        width: auto;
+        min-width: 110px;
+        justify-content: flex-end;
+        padding: 0 4px 0 10px;
+        corner-shape: squircle;
+        border-radius: 12px;
+      }
+      .C .chip,
+      .C .ib,
+      .C .ghost {
+        corner-shape: squircle;
+        border-radius: 12px;
+      }
+      .C .pop {
+        transition:
+          opacity 0.16s ease-out,
+          transform 0.24s cubic-bezier(0.34, 1.3, 0.5, 1),
+          visibility 0s;
+      }
+      .C .pop[hidden] {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.98);
+        transition:
+          opacity 0.12s ease-in,
+          transform 0.12s ease-in,
+          visibility 0s 0.12s;
+      }
+
+      /* ---------- D · Grows out of the trigger ---------- */
+      .D .pop {
+        background: var(--popover);
+        border-radius: 24px;
+        corner-shape: squircle;
+        box-shadow: inset 0 0 0 1px var(--line);
+      }
+      .dark .D .pop {
+        background: var(--s4);
+      }
+      .light .D .pop {
+        box-shadow: inset 0 0 0 1px oklch(0 0 0/8%);
+      }
+      .D .pop {
+        top: -1px;
+        right: -1px;
+        clip-path: inset(0 0 0 0 round 24px);
+        transition:
+          clip-path 0.3s cubic-bezier(0.34, 1.3, 0.5, 1),
+          opacity 0.1s,
+          visibility 0s;
+      }
+      .D .pop[hidden] {
+        clip-path: inset(0 0 calc(100% - 38px) calc(100% - 150px) round 20px);
+        opacity: 0;
+        transition:
+          clip-path 0.18s cubic-bezier(0.4, 0, 1, 1),
+          opacity 0.12s 0.06s,
+          visibility 0s 0.18s;
+      }
+      .D .phead {
+        display: flex;
+        justify-content: flex-end;
+        padding: 0;
+      }
+      .D .phead .trig {
+        border-color: transparent;
+        background: transparent;
+        color: var(--fg);
+      }
+      .D .body {
+        padding: 4px 12px 12px;
+      }
+      .D .seg {
+        corner-shape: squircle;
+      }
+      .D .seg button {
+        corner-shape: squircle;
+      }
+      .D .sel,
+      .D .chip,
+      .D .ib,
+      .D .ghost {
+        corner-shape: squircle;
+        border-radius: 12px;
+      }
+      .D .body > * {
+        transition:
+          opacity 0.18s 0.06s,
+          transform 0.24s 0.06s cubic-bezier(0.34, 1.3, 0.5, 1);
+      }
+      .D .pop[hidden] .body > * {
+        opacity: 0;
+        transform: translateY(-4px);
+        transition:
+          opacity 0.08s,
+          transform 0.08s;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .pop,
+        .pop[hidden],
+        .pop .body > * {
+          transform: none !important;
+          clip-path: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap" id="root"></div>
+    <script>
+      const I = {
+        sl: '<svg viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></svg>',
+        cd: '<svg class="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
+        rows: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M21 9H3M21 15H3"/></svg>',
+        cols: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18"/></svg>',
+        down: '<svg viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>',
+        up: '<svg viewBox="0 0 24 24"><path d="m5 12 7-7 7 7M12 19V5"/></svg>'
+      }
+      const DIRS = [
+        {
+          k: "A",
+          t: "A · Current",
+          n: "rounded 20px, 1px border, shadow-md, fade + zoom-95 + 8px slide (~150ms)"
+        },
+        {
+          k: "B",
+          t: "B · Squircle sheet, hairline, spring",
+          n: "24px squircle, no shadow, 8% / 6% hairline, dark lifts to surface-4; inner controls 12px (= 24 − 12 padding); scales in from the trigger corner with the light-overshoot spring"
+        },
+        {
+          k: "C",
+          t: "C · Inset groups on a tinted sheet",
+          n: "the sheet sits one surface step down (surface-2) and holds raised inset groups (surface-3); rows split by hairlines, pickers lose their border; 22px outer, 16px inner (6px gap)"
+        },
+        {
+          k: "D",
+          t: "D · Grows out of the trigger",
+          n: "B's surface, but the sheet unfolds from the trigger itself (clip-path spring), the trigger becomes its header; content fades in after the frame"
+        }
+      ]
+      const chipsL = [
+        ["Blocked by", 1],
+        ["Blocking", 1],
+        ["Related", 0],
+        ["Duplicates", 0],
+        ["Epic", 1],
+        ["Tags", 1],
+        ["Pull requests", 1],
+        ["Estimate", 0],
+        ["Assignee", 1]
+      ]
+      let asc = false
+      const content = (k) => {
+        const seg =
+          '<div class="seg" role="group" aria-label="View"><button aria-pressed="true">' +
+          I.rows +
+          'List</button><button aria-pressed="false">' +
+          I.cols +
+          "Board</button></div>"
+        const grouping =
+          '<div class="row">Grouping<div class="r"><button class="sel" aria-label="Grouping: Status">Status' +
+          I.cd +
+          "</button></div></div>"
+        const ordering =
+          '<div class="row">Ordering<div class="r"><button class="ib dirbtn" aria-label="Sort ascending" title="Descending">' +
+          I.down +
+          '</button><button class="sel" aria-label="Ordering: Updated">Updated' +
+          I.cd +
+          "</button></div></div>"
+        const props =
+          '<div class="sec"><div class="h">Display properties<button class="ghost">Reset</button></div><div class="chips">' +
+          chipsL
+            .map(
+              (c) =>
+                '<button class="chip" aria-pressed="' +
+                !!c[1] +
+                '">' +
+                c[0] +
+                "</button>"
+            )
+            .join("") +
+          "</div></div>"
+        if (k === "C")
+          return (
+            '<div class="body"><div class="grp" style="padding:4px 4px">' +
+            seg +
+            '</div><div class="grp">' +
+            grouping +
+            ordering +
+            '</div><div class="grp" style="padding:0">' +
+            props +
+            "</div></div>"
+          )
+        return (
+          '<div class="body">' + seg + grouping + ordering + props + "</div>"
+        )
+      }
+      const trig = (open) =>
+        '<button class="trig" aria-haspopup="dialog" aria-expanded="' +
+        open +
+        '">' +
+        I.sl +
+        "View options" +
+        I.cd +
+        "</button>"
+      const block = (mode) =>
+        '<div class="theme ' +
+        mode +
+        '"><h1>Popover · ' +
+        (mode === "light" ? "Light" : "Dark") +
+        '</h1><p class="sub">The ticket toolbar\'s View options popover (backlog, list view). Click the trigger to close and reopen and watch the motion; the chips, segment and sort direction toggle. Starts open.</p>' +
+        DIRS.map(
+          (d) =>
+            '<div class="dir ' +
+            d.k +
+            '"><div class="cap"><b>' +
+            d.t +
+            "</b><span>" +
+            d.n +
+            '</span><i>Affects: ticket toolbar View options, sprint creator, tag admin, save-as-template, archive confirm, Everhour/Figma walkthroughs, ticket hover card</i></div><div class="stage"><div class="bar"><div class="anchor">' +
+            trig(true) +
+            '<div class="pop" role="dialog" aria-label="View options">' +
+            (d.k === "D"
+              ? '<div class="phead">' +
+                trig(true).replace('class="trig"', 'class="trig inner"') +
+                "</div>"
+              : "") +
+            content(d.k) +
+            "</div></div></div></div></div>"
+        ).join("") +
+        "</div>"
+      document.getElementById("root").innerHTML = block("light") + block("dark")
+      document.querySelectorAll(".anchor").forEach((a) => {
+        const pop = a.querySelector(".pop")
+        const outer = a.querySelector(":scope>.trig")
+        const set = (open) => {
+          pop.hidden = !open
+          a.querySelectorAll(".trig").forEach((t) =>
+            t.setAttribute("aria-expanded", open)
+          )
+        }
+        a.querySelectorAll(".trig").forEach((t) =>
+          t.addEventListener("click", () => set(pop.hidden))
+        )
+        a.querySelectorAll(".chip").forEach((c) =>
+          c.addEventListener("click", () =>
+            c.setAttribute(
+              "aria-pressed",
+              c.getAttribute("aria-pressed") !== "true"
+            )
+          )
+        )
+        a.querySelectorAll(".seg").forEach((s) =>
+          s
+            .querySelectorAll("button")
+            .forEach((b) =>
+              b.addEventListener("click", () =>
+                s
+                  .querySelectorAll("button")
+                  .forEach((x) => x.setAttribute("aria-pressed", x === b))
+              )
+            )
+        )
+        a.querySelectorAll(".dirbtn").forEach((b) => {
+          let up = false
+          b.addEventListener("click", () => {
+            up = !up
+            b.innerHTML = up ? I.up : I.down
+            b.setAttribute(
+              "aria-label",
+              up ? "Sort descending" : "Sort ascending"
+            )
+            b.title = up ? "Ascending" : "Descending"
+          })
+        })
+        a.querySelectorAll(".ghost").forEach((g) =>
+          g.addEventListener("click", () =>
+            a
+              .querySelectorAll(".chip")
+              .forEach((c, i) => c.setAttribute("aria-pressed", !!chipsL[i][1]))
+          )
+        )
+      })
+    </script>
+  </body>
+</html>

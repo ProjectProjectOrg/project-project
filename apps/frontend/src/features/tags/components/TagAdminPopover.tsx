@@ -1,19 +1,15 @@
 import { TagColor, TagName, type Tag } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { ColorPicker } from "@pp/ui/color-picker"
+import { ConfirmButton, useConfirmButton } from "@pp/ui/confirm-button"
+import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import * as Schema from "effect/Schema"
 import { Trash2 } from "lucide-react"
 import { motion } from "motion/react"
 import { useState, type ReactElement } from "react"
 
-import { Button } from "@/components/ui/button"
-import { ColorPicker } from "@/components/ui/color-picker"
-import { ConfirmButton, useConfirmButton } from "@/components/ui/confirm-button"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
@@ -143,6 +139,7 @@ function Editor({
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-1.5">
         <ColorPicker
+          swatchLabel={(hex) => m.color_swatch_aria_label({ hex })}
           value={tag.color}
           onChange={(hex) => onPatch({ color: makeTagColor(hex) })}
           ariaLabel={m.tags_color_aria_label({ name: tag.name })}

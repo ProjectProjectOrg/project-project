@@ -1,12 +1,12 @@
+import { Button } from "@pp/ui/button"
+import { Kbd } from "@pp/ui/kbd"
+import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import { Check, Pencil } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useState } from "react"
 
-import { Button } from "@/components/ui/button"
-import { Kbd } from "@/components/ui/kbd"
 import type { SaveStatus } from "@/features/editor/components/LexicalEditor"
-import { transitions } from "@/lib/springs"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const morphFrom = { opacity: 0, filter: "blur(4px)" }

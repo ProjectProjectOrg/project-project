@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["vite/client", "mdx"],
+    "paths": {
+      "@gallery/*": ["./gallery/src/*"],
+      "@pp/ui/lib/*": ["./src/lib/*"],
+      "@pp/ui/hooks/*": ["./src/hooks/*"],
+      "@pp/ui/*": ["./src/components/*"]
+    }
+  },
+  "include": ["src", "gallery/src", "docs", "queued"]
+}

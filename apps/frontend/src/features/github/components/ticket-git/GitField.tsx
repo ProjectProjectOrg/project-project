@@ -1,4 +1,7 @@
 import type { GitState } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import * as Match from "effect/Match"
 import {
   AlertTriangle,
@@ -10,12 +13,9 @@ import {
 } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
-import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import { compareUrl } from "@/features/github/lib/branchUrl"
 import { canStackOn } from "@/features/github/lib/stacking"
 import { textLinkClass } from "@/lib/textLink"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { BranchMenu, type BranchMenuPr } from "./BranchMenu"
@@ -51,7 +51,8 @@ export function GitField({
         canStack={canStackOn(state)}
         trigger={
           <Button
-            variant="chip"
+            variant="ghost"
+            tone="strong"
             className="max-w-full min-w-0 justify-start"
             aria-busy={view.busy || undefined}
           >

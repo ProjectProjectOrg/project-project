@@ -1,5 +1,6 @@
+import { cn } from "@pp/ui/lib/utils"
+
 import type { SaveStatus } from "@/features/editor/components/LexicalEditor"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function MarkdownSaveIndicator({

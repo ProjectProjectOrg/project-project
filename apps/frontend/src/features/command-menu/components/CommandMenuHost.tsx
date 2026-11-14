@@ -9,14 +9,14 @@ import {
   type TicketSubscribers,
   type TicketId
 } from "@pp/shared"
+import { CommandMenuDialog } from "@pp/ui/command-menu"
+import { Freeze } from "@pp/ui/freeze"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import { useContext, useEffect, useState } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { CommandMenuDialog } from "@/components/ui/command-menu"
-import { Freeze } from "@/components/ui/freeze"
 import { currentUserId } from "@/features/auth/atoms/auth"
 import { feedbackStatus } from "@/features/feedback/atoms/feedback"
 import { useIntegrationCommands } from "@/features/integrations/hooks/useIntegrationCommands"

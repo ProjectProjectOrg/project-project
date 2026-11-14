@@ -1,13 +1,13 @@
 import type { ProjectIconImage } from "@pp/shared"
-import type { ReactNode } from "react"
-
 import {
   DitherBackdrop,
   type DitherDirection,
   type DitherStops
-} from "@/components/ui/button-dither"
+} from "@pp/ui/button-dither"
+import { cn } from "@pp/ui/lib/utils"
+import type { ReactNode } from "react"
+
 import { ProjectIconDisplay } from "@/features/projects/components/ProjectIconDisplay"
-import { cn } from "@/lib/utils"
 
 type TileSize = "xs" | "sm" | "md" | "lg"
 

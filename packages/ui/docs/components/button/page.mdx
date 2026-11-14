@@ -1,0 +1,81 @@
+export const meta = {
+  title: "Button",
+  group: "Primitives",
+  description:
+    "The app's one clickable action: ink primary, tint secondary, lifted tertiary, tonal destructive and ghost (muted or strong), plus icon-only sizes. Used in about 150 places, from dialog footers to ticket toolbars.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "useRender",
+      note: "renders as a link or any element via `render`",
+      href: "https://base-ui.com/react/utils/use-render"
+    },
+    {
+      kind: "shadcn",
+      name: "button",
+      note: "starting point, fully restyled",
+      href: "https://ui.shadcn.com/docs/components/button"
+    },
+    { kind: "own", name: "Button", note: "app variants, icon props, loading and the dither variant" }
+  ]
+}
+
+## Overview
+
+Every main variant, size and state. Hover, pressed and focus are pinned with `data-force`. Layout-specific variants (`appearance-row`, `selection-card`, `dropzone`, `artwork-option`, `image-option`) are left out here. `dither` is shown in the sprint rail below too.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+Pass icons as components through `leadingIcon` and `trailingIcon`, so the button sizes and pads them. Icon-only buttons take the icon as a child and need an `aria-label`.
+
+```tsx
+import { Button } from "@pp/ui/button"
+import { Plus } from "lucide-react"
+
+<Button variant="primary" leadingIcon={Plus} onClick={openCreate}>
+  {m.tickets_create_button()}
+</Button>
+
+<Button render={<Link to="/" />} variant="tertiary" size="lg">
+  {m.error_page_home_link()}
+</Button>
+```
+
+| Prop                            | Type                                                                                       | Default     |
+| ------------------------------- | ------------------------------------------------------------------------------------------ | ----------- |
+| `variant`                       | `"primary" \| "secondary" \| "tertiary" \| "destructive" \| "ghost" \| …`                  | `"primary"` |
+| `tone`                          | `"muted" \| "strong"`, ghost only: muted text that brightens on hover, or full foreground for triggers showing a value | `"muted"` |
+| `size`                          | `"xs" \| "compact" \| "sm" \| "md" \| "lg" \| "icon-xs" \| "icon-sm" \| "icon" \| "icon-lg" \| …` | `"md"`      |
+| `leadingIcon` / `trailingIcon`  | `IconComponent`                                                                            |             |
+| `loading`                       | `boolean`                                                                                  | `false`     |
+| `bleed`                         | `"start" \| "end"`                                                                         |             |
+| `render`                        | `useRender.RenderProp`                                                                     |             |
+| `dither*`                       | colours, stops, matrix and pixel size for the `dither` variant                             |             |
+
+Every other prop goes to the rendered `button`.
+
+## Rules
+
+Rules are written during this component's polish pass.
+
+## Examples
+
+### Confirm dialog footer
+
+A secondary cancel next to a destructive confirm, the most common pairing in the app.
+
+<Demo name="confirm-dialog" title="Confirm dialog" />
+
+### Settings group
+
+Tertiary's home: row actions inside a settings group. It is a tile one step up the surface ladder, with no border. Directly on the page that step is too faint, so it takes half of secondary's tint there, one step quieter than secondary.
+
+<Demo name="settings-group" title="Settings rows" />
+
+### Dither: New sprint
+
+The `dither` variant: the primary colour dithered into the surface behind it, so the button fades into the rail. Hover slides the dither from 0.7 to 0.5 of the width. It takes the same squircle as every other button.
+
+<Demo name="new-sprint" title="Sprint rail" />

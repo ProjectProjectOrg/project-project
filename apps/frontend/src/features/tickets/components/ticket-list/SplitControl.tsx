@@ -1,10 +1,10 @@
 import type { TicketId } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import { Split } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function SplitTicketControl({

@@ -1,4 +1,5 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
+import { cn } from "@pp/ui/lib/utils"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -24,7 +25,6 @@ import {
 } from "@/features/projects/atoms/projects"
 import { TicketSelectionProvider } from "@/features/tickets/components/ticket-list/TicketSelection"
 import { useOrgActor } from "@/hooks/useActor"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const routeApi = getRouteApi("/_authed/orgs/$orgSlug/")

@@ -1,5 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { EMPTY_TICKET_RELATIONS, type Ticket } from "@pp/shared"
+import { CommandMenuItem } from "@pp/ui/command-menu"
+import { cn } from "@pp/ui/lib/utils"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
@@ -7,7 +9,6 @@ import * as Result from "effect/reactivity/AsyncResult"
 import { CircleAlert, Search } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
-import { CommandMenuItem } from "@/components/ui/command-menu"
 import {
   CommandFrame,
   type CommandEmpty
@@ -34,7 +35,6 @@ import {
 } from "@/features/tickets/lib/relationGroups"
 import { useSettledValue } from "@/hooks/useSettledValue"
 import { errorMessage } from "@/lib/errorMessage"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { TicketStatusIcon } from "./TicketStatusIcon"

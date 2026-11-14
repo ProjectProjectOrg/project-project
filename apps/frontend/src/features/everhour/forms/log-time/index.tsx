@@ -1,10 +1,10 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { GroupId, TicketId, WorkTypeOption } from "@pp/shared"
+import { Button } from "@pp/ui/button"
+import { Input } from "@pp/ui/input"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   logTicketTimeAtom,
   logTimeAtom,

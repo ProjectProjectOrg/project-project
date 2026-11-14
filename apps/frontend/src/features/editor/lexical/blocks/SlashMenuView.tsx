@@ -1,6 +1,21 @@
 import { mergeRegister } from "@lexical/utils"
 import type { BlockDefinition, BlockIconName, Library } from "@pp/shared"
 import {
+  CommandMenu,
+  CommandMenuEmpty,
+  CommandMenuFooter,
+  CommandMenuFooterHint,
+  CommandMenuItem,
+  CommandMenuList,
+  CommandMenuShortcut,
+  CommandMenuTabs,
+  useCommandMenu,
+  useHighlightedItem,
+  type CommandMenuItemData
+} from "@pp/ui/command-menu"
+import type { IconComponent } from "@pp/ui/lib/icon"
+import { cn } from "@pp/ui/lib/utils"
+import {
   COMMAND_PRIORITY_CRITICAL,
   KEY_ARROW_DOWN_COMMAND,
   KEY_ARROW_UP_COMMAND,
@@ -36,23 +51,9 @@ import {
   type RefObject
 } from "react"
 
-import {
-  CommandMenu,
-  CommandMenuEmpty,
-  CommandMenuFooter,
-  CommandMenuFooterHint,
-  CommandMenuItem,
-  CommandMenuList,
-  CommandMenuShortcut,
-  CommandMenuTabs,
-  useCommandMenu,
-  useHighlightedItem,
-  type CommandMenuItemData
-} from "@/components/ui/command-menu"
 import { blockIconComponent } from "@/features/editor/lib/blockIcons"
 import { BlockIconGlyph } from "@/features/library/components/BlockIconGlyph"
-import type { IconComponent } from "@/lib/icon"
-import { cn } from "@/lib/utils"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 import {
@@ -312,16 +313,25 @@ function SlashMenuFooter({ tabs }: Readonly<{ tabs: boolean }>) {
   return (
     <CommandMenuFooter>
       <CommandMenuFooterHint
+        keyLabels={keyLabels()}
         label={m.editor_slash_footer_select()}
         keys={["up", "down"]}
       />
       {tabs ? (
-        <CommandMenuFooterHint label={m.editor_slash_tabs_label()} keys="tab" />
+        <CommandMenuFooterHint
+          keyLabels={keyLabels()}
+          label={m.editor_slash_tabs_label()}
+          keys="tab"
+        />
       ) : null}
       {row === undefined ? null : (
         <span className="ml-auto flex min-w-0 items-center gap-1.5 text-foreground">
           <span className="truncate">{row.label}</span>
-          <CommandMenuShortcut keys="enter" className="ml-0" />
+          <CommandMenuShortcut
+            keyLabels={keyLabels()}
+            keys="enter"
+            className="ml-0"
+          />
         </span>
       )}
     </CommandMenuFooter>

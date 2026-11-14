@@ -5,6 +5,8 @@ import type {
   ProjectDetail as ProjectDetailType,
   ProjectStatus
 } from "@pp/shared"
+import { MarqueeIfOverflow } from "@pp/ui/marquee-if-overflow"
+import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
 import { Link, useMatches, useNavigate } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Match from "effect/Match"
@@ -13,11 +15,6 @@ import { CalendarRange, Info, ListChecks, type LucideIcon } from "lucide-react"
 import { startTransition, useOptimistic, type MouseEvent } from "react"
 import { flushSync } from "react-dom"
 
-import { MarqueeIfOverflow } from "@/components/ui/marquee-if-overflow"
-import {
-  SegmentedTabs,
-  type SegmentedItem
-} from "@/components/ui/segmented-tabs"
 import {
   statusesFor,
   statusesRequest

@@ -1,9 +1,8 @@
 import { isEpic } from "@pp/shared"
 import type { TicketParent } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import { Link } from "@tanstack/react-router"
-
-import { MiddleTruncate } from "@/components/ui/middle-truncate"
-import { cn } from "@/lib/utils"
 
 export function EpicLink({
   orgSlug,

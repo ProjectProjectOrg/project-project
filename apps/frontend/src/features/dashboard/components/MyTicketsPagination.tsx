@@ -1,8 +1,8 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { Button } from "@/components/ui/button"
 import {
   loadMoreMyTickets,
   type MyTicketsRequest

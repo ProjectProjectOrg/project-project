@@ -1,20 +1,18 @@
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator
+} from "@pp/ui/dropdown-menu"
+import { transitions } from "@pp/ui/lib/springs"
+import { MemberAvatar, type AvatarSubject } from "@pp/ui/member-avatar"
 import * as Exit from "effect/Exit"
 import { Crown, Link2, LogOut, Trash2 } from "lucide-react"
 import { motion } from "motion/react"
 import { useState, type FormEvent, type ReactNode } from "react"
 
 import { SettingsGroup } from "@/components/shell/settings/SettingsSection"
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator
-} from "@/components/ui/dropdown-menu"
-import {
-  MemberAvatar,
-  type AvatarSubject
-} from "@/features/members/components/MemberAvatar"
 import {
   AddMemberForm,
   MemberMenuSpacer,
@@ -25,7 +23,7 @@ import {
   RoleSelect,
   type RoleMeta
 } from "@/features/members/components/MemberList"
-import { transitions } from "@/lib/springs"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 export type MemberConfirm = Readonly<{
@@ -261,6 +259,8 @@ function MenuConfirm({
   return (
     <ConfirmButton.Confirm when={when} className="block">
       <ConfirmButton.Action
+        cancelLabel={m.common_cancel_button()}
+        describeError={describeCause}
         layout="menu"
         prompt={confirm.prompt}
         label={confirm.label}

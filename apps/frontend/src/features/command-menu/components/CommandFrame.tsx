@@ -1,16 +1,12 @@
 import type { TextRange } from "@pp/shared"
-import { Search } from "lucide-react"
-import { motion } from "motion/react"
-import { useEffect, useId, useRef, useState, type ReactNode } from "react"
-
-import { Button } from "@/components/ui/button"
+import { Button } from "@pp/ui/button"
 import {
   CommandMenu,
   CommandMenuEmpty,
   CommandMenuInput,
   CommandMenuList,
   type CommandMenuItemData
-} from "@/components/ui/command-menu"
+} from "@pp/ui/command-menu"
 import {
   Empty,
   EmptyContent,
@@ -18,10 +14,14 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle
-} from "@/components/ui/empty"
+} from "@pp/ui/empty"
+import type { IconComponent } from "@pp/ui/lib/icon"
+import { cn } from "@pp/ui/lib/utils"
+import { Search } from "lucide-react"
+import { motion } from "motion/react"
+import { useEffect, useId, useRef, useState, type ReactNode } from "react"
+
 import { scoreSearch } from "@/features/command-menu/lib/searchScore"
-import type { IconComponent } from "@/lib/icon"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { SearchFooter } from "./CommandFrameFooter"

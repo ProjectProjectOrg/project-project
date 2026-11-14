@@ -3,15 +3,15 @@ import type {
   AttachmentRow as AttachmentRowData,
   AttachmentSort
 } from "@pp/shared"
+import { Checkbox } from "@pp/ui/checkbox"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import { Empty, EmptyDescription, EmptyTitle } from "@pp/ui/empty"
+import { TooltipProvider } from "@pp/ui/tooltip"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { Checkbox } from "@/components/ui/checkbox"
-import { ConfirmButton } from "@/components/ui/confirm-button"
-import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty"
-import { TooltipProvider } from "@/components/ui/tooltip"
 import {
   deleteOrgAttachments,
   ORG_ATTACHMENTS_PAGE_SIZE,
@@ -24,6 +24,7 @@ import {
   projectsRequest
 } from "@/features/projects/atoms/projects"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 import { deletePrompt } from "./deletePrompt"
@@ -383,6 +384,8 @@ function DeleteConfirm({
   )
   return (
     <ConfirmButton.Action
+      cancelLabel={m.common_cancel_button()}
+      describeError={describeCause}
       prompt={prompt}
       label={m.attachments_delete_button()}
       onConfirm={async () => {

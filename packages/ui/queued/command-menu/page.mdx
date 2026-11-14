@@ -1,0 +1,106 @@
+export const meta = {
+  title: "Command menu",
+  group: "Primitives",
+  description:
+    "A searchable list of commands with groups, a sliding highlight, keyboard shortcuts and footer hints. It powers the ⌘K palette, the editor's slash menu and the sprint ticket creator.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "Dialog",
+      note: "the ⌘K popup in CommandMenuDialog",
+      href: "https://base-ui.com/react/components/dialog"
+    },
+    {
+      kind: "fluid",
+      name: "useFluidHover",
+      note: "the highlight that glides to the row nearest the cursor",
+      href: "https://www.fluidfunctionalism.com"
+    },
+    {
+      kind: "own",
+      name: "CommandMenu",
+      note: "list, keyboard model, shortcuts and footer"
+    }
+  ]
+}
+
+## Overview
+
+Every part at once: tabs, the search input, group headings, the highlighted row (the first enabled row), a plain row, a row with a shortcut, a checked row, a disabled row and the footer hints. The second panel shows the empty state. Type to filter, or use the arrow keys and Enter in the input.
+
+<Demo
+  name="overview"
+  title="All states"
+  className="min-h-96 place-items-start"
+/>
+
+## Usage
+
+```tsx
+import {
+  CommandMenu,
+  CommandMenuDialog,
+  CommandMenuEmpty,
+  CommandMenuInput,
+  CommandMenuItem,
+  CommandMenuList,
+  CommandMenuShortcut
+} from "@pp/ui/command-menu"
+
+;<CommandMenuDialog
+  open={open}
+  onOpenChange={setOpen}
+  title={m.chrome_command_menu_title()}
+>
+  <CommandMenu stretch items={visible} resetKey={query} onSelect={run}>
+    <CommandMenuInput
+      placeholder={m.chrome_command_menu_placeholder()}
+      value={search}
+      onChange={(event) => setSearch(event.target.value)}
+    />
+    <CommandMenuList
+      renderItem={(item) => (
+        <CommandMenuItem value={item.value}>
+          {item.label}
+          <CommandMenuShortcut keys="mod+shift+c" keyLabels={keyLabels()} />
+        </CommandMenuItem>
+      )}
+    >
+      <CommandMenuEmpty>{m.chrome_command_menu_empty_list()}</CommandMenuEmpty>
+    </CommandMenuList>
+  </CommandMenu>
+</CommandMenuDialog>
+```
+
+`keyLabels` names the keys off a Mac (`Ctrl`, `Enter`, …); the app builds it from its Paraglide messages in `lib/keyLabels.ts`. On a Mac, modifiers and arrows render as glyphs.
+
+| Part                    | Prop                                          | Type                                           | Default   |
+| ----------------------- | --------------------------------------------- | ---------------------------------------------- | --------- |
+| `CommandMenu`           | `items`                                       | `{ value, label, icon?, group?, disabled? }[]` |           |
+|                         | `onSelect`                                    | `(item) => void`                               |           |
+|                         | `onActOn`                                     | `(item) => boolean` (Tab on a row)             |           |
+|                         | `initialValue`                                | `string \| null`                               | `null`    |
+|                         | `resetKey`                                    | `string` (the query; resets the highlight)     | `""`      |
+|                         | `stretch`                                     | `boolean` (fill the parent's height)           | `false`   |
+| `CommandMenuDialog`     | `open`, `onOpenChange`                        | `boolean`, `(open) => void`                    |           |
+|                         | `title`                                       | `string` (screen-reader title)                 |           |
+|                         | `shortcut`                                    | `string \| null`                               | `"mod+k"` |
+|                         | `pulseKey`                                    | `string` (a change pulses the open dialog)     |           |
+| `CommandMenuTabs`       | `tabs`, `value`, `onValueChange`, `tabsLabel` | `{ value, label, icon?, count? }[]`, …         |           |
+| `CommandMenuList`       | `renderItem`                                  | `(item, index) => ReactNode`                   |           |
+| `CommandMenuItem`       | `value`                                       | `string`                                       |           |
+| `CommandMenuShortcut`   | `keys`, `keyLabels`                           | `string \| string[]`, `KeyLabels`              |           |
+| `CommandMenuFooterHint` | `label`, `keys`, `keyLabels`                  | `string`, `string \| string[]`, `KeyLabels`    |           |
+| `CommandMenuCheck`      | `label`                                       | `string` (screen-reader text for the tick)     |           |
+
+## Rules
+
+Rules are written during this component's polish pass.
+
+## Examples
+
+### ⌘K palette
+
+The app's palette in a `CommandMenuDialog`: an input, grouped commands with their shortcuts, and selecting a row closes it. The gallery opens it from a button; the app opens it with ⌘K.
+
+<Demo name="palette" title="⌘K palette" />

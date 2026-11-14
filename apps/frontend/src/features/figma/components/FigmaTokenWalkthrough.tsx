@@ -1,3 +1,6 @@
+import { Button } from "@pp/ui/button"
+import { cn } from "@pp/ui/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import useEmblaCarousel from "embla-carousel-react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
@@ -5,13 +8,6 @@ import { useCallback, useEffect, useState } from "react"
 import securityTokensImage from "@/assets/figma-walkthrough/figma-security-tokens.png"
 import devScopesImage from "@/assets/figma-walkthrough/figma-token-dev-scopes.png"
 import scopesImage from "@/assets/figma-walkthrough/figma-token-scopes.png"
-import { Button } from "@/components/ui/button"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 export function FigmaTokenWalkthrough() {
@@ -64,7 +60,8 @@ export function FigmaTokenWalkthrough() {
         render={
           <Button
             type="button"
-            variant="inline-help"
+            variant="ghost"
+            className="align-middle text-micro"
             size="icon-xs"
             aria-label={m.figma_project_help_trigger_label()}
           >

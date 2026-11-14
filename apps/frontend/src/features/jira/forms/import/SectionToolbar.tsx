@@ -1,7 +1,7 @@
+import { Input } from "@pp/ui/input"
+import { SegmentedTabs } from "@pp/ui/segmented-tabs"
 import type { ReactNode } from "react"
 
-import { Input } from "@/components/ui/input"
-import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import type { RowFilter } from "@/features/jira/lib/setup"
 import { m } from "@/paraglide/messages"
 
@@ -21,7 +21,7 @@ export function SectionToolbar({
   return (
     <div className="flex h-7 items-center gap-2">
       <Input
-        variant="compact"
+        size="sm"
         type="search"
         aria-label={searchLabel}
         placeholder={searchLabel}

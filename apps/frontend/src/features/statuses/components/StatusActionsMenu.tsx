@@ -1,20 +1,22 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { ProjectStatus } from "@pp/shared"
-import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronDown, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
-import { useRef, useState, type ReactNode } from "react"
-
-import { AsyncView } from "@/components/shell/AsyncView"
-import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
+import { BlurSwap } from "@pp/ui/blur-swap"
+import { Button } from "@pp/ui/button"
+import { ConfirmButton } from "@pp/ui/confirm-button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import { Select, SelectTrigger } from "@/components/ui/select"
+} from "@pp/ui/dropdown-menu"
+import { cn } from "@pp/ui/lib/utils"
+import { Select, SelectTrigger } from "@pp/ui/select"
+import * as Result from "effect/reactivity/AsyncResult"
+import { ChevronDown, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { useRef, useState, type ReactNode } from "react"
+
+import { AsyncView } from "@/components/shell/AsyncView"
 import {
   gitAutomationFor,
   gitAutomationRequest
@@ -33,7 +35,6 @@ import {
   statusMetaFor
 } from "@/features/tickets/lib/ticketMeta"
 import { useProjectActor } from "@/hooks/useActor"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type Props = Readonly<{
@@ -163,6 +164,7 @@ function DeleteStatusForm({
 
   return (
     <ConfirmButton.Action
+      cancelLabel={m.common_cancel_button()}
       prompt={
         affectedCount > 0
           ? m.tickets_status_delete_confirm_with_tickets({
@@ -240,14 +242,16 @@ function TargetPicker({
               status: selectedMeta.label
             })}
           >
-            <SelectedIcon
-              className={cn("size-3.5", selectedMeta.className)}
-              style={
-                selectedMeta.color ? { color: selectedMeta.color } : undefined
-              }
-              strokeWidth={1.75}
-            />
-            <span>{statusLabelFor(value ?? "", statuses)}</span>
+            <BlurSwap id={value ?? ""} className="gap-1">
+              <SelectedIcon
+                className={cn("size-3.5", selectedMeta.className)}
+                style={
+                  selectedMeta.color ? { color: selectedMeta.color } : undefined
+                }
+                strokeWidth={1.75}
+              />
+              <span>{statusLabelFor(value ?? "", statuses)}</span>
+            </BlurSwap>
             <ChevronDown className="ml-1 size-3.5 text-muted-foreground" />
           </Button>
         }

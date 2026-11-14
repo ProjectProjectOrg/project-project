@@ -6,6 +6,8 @@ import type {
   StackLayerState,
   TicketDetail
 } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import {
@@ -20,14 +22,12 @@ import {
 } from "lucide-react"
 import { useMemo, useState } from "react"
 
-import { MiddleTruncate } from "@/components/ui/middle-truncate"
 import { unstackBranch } from "@/features/github/atoms/github"
 import { compareUrl } from "@/features/github/lib/branchUrl"
 import { repoSlug } from "@/features/github/lib/repos"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { useProjectActor } from "@/hooks/useActor"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { BranchMenu } from "./BranchMenu"

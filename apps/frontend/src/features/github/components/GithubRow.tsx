@@ -1,16 +1,17 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { Button } from "@pp/ui/button"
+import { ConfirmButton } from "@pp/ui/confirm-button"
+import { cn } from "@pp/ui/lib/utils"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
-import { Button } from "@/components/ui/button"
-import { ConfirmButton } from "@/components/ui/confirm-button"
 import {
   connectPersonalGithub,
   disconnectPersonalGithub
 } from "@/features/auth/atoms/auth"
 import { IntegrationLogo } from "@/features/integrations/components/IntegrationLogo"
-import { cn } from "@/lib/utils"
+import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 export function GithubRow({
@@ -65,6 +66,8 @@ export function GithubRow({
             </ConfirmButton.Trigger>
             <ConfirmButton.Confirm>
               <ConfirmButton.Action
+                cancelLabel={m.common_cancel_button()}
+                describeError={describeCause}
                 prompt={m.profile_github_disconnect_confirm_prompt()}
                 label={m.profile_github_disconnect_confirm_button()}
                 onConfirm={async () => Exit.isSuccess(await disconnect())}

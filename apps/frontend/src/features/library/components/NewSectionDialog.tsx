@@ -1,12 +1,12 @@
 import type { Library } from "@pp/shared"
-
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle
-} from "@/components/ui/dialog"
+} from "@pp/ui/dialog"
+
 import { LibraryCreateForm } from "@/features/library/forms/library-create"
 import { m } from "@/paraglide/messages"
 
@@ -29,7 +29,7 @@ export function NewSectionDialog({
 }>) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false}>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{m.templates_new_section_title()}</DialogTitle>
           <DialogDescription>

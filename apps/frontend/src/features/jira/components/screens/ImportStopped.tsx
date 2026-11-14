@@ -1,8 +1,8 @@
 import type { JiraMigrationDetail } from "@pp/shared"
+import { Button } from "@pp/ui/button"
 import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 
-import { Button } from "@/components/ui/button"
 import type { JiraImportLifecycle } from "@/features/jira/hooks/useJiraImportLifecycle"
 import { jiraConnectHref } from "@/features/jira/lib/connect"
 import {

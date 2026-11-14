@@ -1,11 +1,11 @@
 import type { OrgStorageStatus } from "@pp/shared"
+import { cn } from "@pp/ui/lib/utils"
 
 import {
   SettingsGroup,
   SettingsRow,
   SettingsSection
 } from "@/components/shell/settings/SettingsSection"
-import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
 
