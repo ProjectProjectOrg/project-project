@@ -19,8 +19,6 @@ export type ProjectSettingsSection = Readonly<{
   key: SectionKey
   label: string
   icon: typeof SlidersHorizontal
-  heading: string
-  description: string
 }>
 
 export const PROJECT_SETTINGS_SECTIONS: ReadonlyArray<ProjectSettingsSection> =
@@ -28,36 +26,26 @@ export const PROJECT_SETTINGS_SECTIONS: ReadonlyArray<ProjectSettingsSection> =
     {
       key: "general",
       label: m.project_settings_general_tab(),
-      icon: SlidersHorizontal,
-      heading: m.project_settings_general_heading(),
-      description: m.project_settings_general_description()
+      icon: SlidersHorizontal
     },
     {
       key: "team",
       label: m.project_settings_team_tab(),
-      icon: Users,
-      heading: m.project_settings_team_heading(),
-      description: m.project_settings_team_description()
+      icon: Users
     },
     {
       key: "workflow",
       label: m.project_settings_workflow_tab(),
-      icon: Workflow,
-      heading: m.project_settings_workflow_heading(),
-      description: m.project_settings_workflow_description()
+      icon: Workflow
     },
     {
       key: "types",
       label: m.project_settings_types_tab(),
-      icon: Shapes,
-      heading: m.project_settings_types_heading(),
-      description: m.project_settings_types_description()
+      icon: Shapes
     },
     {
       key: "integrations",
       label: m.project_settings_integrations_tab(),
-      icon: GitBranch,
-      heading: m.project_settings_integrations_heading(),
-      description: m.project_settings_integrations_description()
+      icon: GitBranch
     }
   ]

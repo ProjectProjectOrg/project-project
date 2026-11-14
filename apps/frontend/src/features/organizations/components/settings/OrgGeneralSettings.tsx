@@ -55,13 +55,18 @@ function GeneralForm({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
                 : null
             }
           >
-            <SettingsTextField
-              value={org.name}
-              onCommit={(name) => rename({ name })}
-              disabled={!canEdit}
-              waiting={renameState.waiting}
-              maxLength={120}
-            />
+            {canEdit ? (
+              <SettingsTextField
+                value={org.name}
+                onCommit={(name) => rename({ name })}
+                waiting={renameState.waiting}
+                maxLength={120}
+              />
+            ) : (
+              <span className="text-body text-muted-foreground">
+                {org.name}
+              </span>
+            )}
           </SettingsRow>
           <SettingsRow
             label={m.org_settings_slug_label()}

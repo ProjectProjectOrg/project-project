@@ -10,7 +10,8 @@ import { SendFeedbackForm } from "@/features/feedback/forms/send-feedback"
 import { useRouteBoundDialog } from "@/hooks/useRouteBoundDialog"
 
 export function SendFeedbackDialogHost() {
-  const { open, shown, close } = useRouteBoundDialog(sendFeedbackDialog)
+  const { open, shown, close, finalFocus } =
+    useRouteBoundDialog(sendFeedbackDialog)
   return (
     <Dialog
       open={open}
@@ -18,7 +19,12 @@ export function SendFeedbackDialogHost() {
         if (!next) close()
       }}
     >
-      <DialogContent size="lg" showCloseButton={false} className="p-0">
+      <DialogContent
+        size="lg"
+        showCloseButton={false}
+        finalFocus={finalFocus}
+        className="p-0"
+      >
         {shown !== null && (
           <FeedbackDialogForm
             key={shown.orgSlug}

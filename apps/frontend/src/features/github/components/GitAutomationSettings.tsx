@@ -6,6 +6,7 @@ import {
   type ProjectStatus,
   type StatusSlug
 } from "@pp/shared"
+import type * as Exit from "effect/Exit"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import {
   GitBranch,
@@ -38,6 +39,8 @@ import {
 } from "@/features/projects/atoms/projectStatuses"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { StatusOption } from "@/features/statuses/components/StatusOption"
+import { useSave } from "@/hooks/useSave"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 const DONT_MOVE = ""
@@ -120,40 +123,44 @@ function Rules({
     statuses: ReadonlyArray<ProjectStatus>
   }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const mutation = updateGitAutomation(gitAutomationRequest(orgSlug, slug))
-  const save = useAtomSet(mutation)
-  const failed = AsyncResult.isFailure(useAtomValue(mutation))
+  const update = useAtomSet(
+    updateGitAutomation(gitAutomationRequest(orgSlug, slug)),
+    { mode: "promiseExit" }
+  )
+  const forwardOnly = useSave((next: boolean) => update({ forwardOnly: next }))
 
   return (
-    <>
-      <SettingsGroup>
-        {GIT_AUTOMATION_EVENTS.map((event) => (
-          <RuleRow
-            key={event}
-            event={event}
-            target={automation.rules[event]}
-            statuses={statuses}
-            disabled={!canEdit}
-            onChange={(target) => save({ rules: { [event]: target } })}
-          />
-        ))}
-        <SettingsRow
-          label={m.git_automation_forward_only_label()}
-          description={m.git_automation_forward_only_description()}
-        >
+    <SettingsGroup>
+      {GIT_AUTOMATION_EVENTS.map((event) => (
+        <RuleRow
+          key={event}
+          event={event}
+          target={automation.rules[event]}
+          statuses={statuses}
+          canEdit={canEdit}
+          onChange={(target) => update({ rules: { [event]: target } })}
+        />
+      ))}
+      <SettingsRow
+        label={m.git_automation_forward_only_label()}
+        description={m.git_automation_forward_only_description()}
+        error={forwardOnly.error ? m.git_automation_save_error() : null}
+      >
+        {canEdit ? (
           <SettingsSwitch
             checked={automation.forwardOnly}
-            disabled={!canEdit}
-            onCheckedChange={(forwardOnly) => save({ forwardOnly })}
+            className={cn(forwardOnly.waiting && "animate-pulse")}
+            onCheckedChange={(next) => void forwardOnly.run(next)}
           />
-        </SettingsRow>
-      </SettingsGroup>
-      {failed ? (
-        <p role="alert" className="px-0.5 text-caption text-destructive">
-          {m.git_automation_save_error()}
-        </p>
-      ) : null}
-    </>
+        ) : (
+          <span className="text-body text-muted-foreground">
+            {automation.forwardOnly
+              ? m.git_automation_forward_only_on()
+              : m.git_automation_forward_only_off()}
+          </span>
+        )}
+      </SettingsRow>
+    </SettingsGroup>
   )
 }
 
@@ -161,16 +168,23 @@ function RuleRow({
   event,
   target,
   statuses,
-  disabled,
+  canEdit,
   onChange
 }: Readonly<{
   event: GitAutomationEvent
   target: StatusSlug | null
   statuses: ReadonlyArray<ProjectStatus>
-  disabled: boolean
-  onChange: (target: StatusSlug | null) => void
+  canEdit: boolean
+  onChange: (target: StatusSlug | null) => Promise<Exit.Exit<unknown, unknown>>
 }>) {
   const meta = EVENTS[event]
+  const save = useSave(onChange)
+  const current =
+    target === null ? (
+      <DontMoveOption />
+    ) : (
+      <StatusOption slug={target} statuses={statuses} />
+    )
   const EventIcon = meta.icon
   return (
     <SettingsRow
@@ -182,42 +196,40 @@ function RuleRow({
           strokeWidth={1.75}
         />
       }
+      error={save.error ? m.git_automation_save_error() : null}
     >
-      <Select
-        value={target ?? DONT_MOVE}
-        disabled={disabled}
-        onValueChange={(value) => {
-          const next =
-            statuses.find((status) => status.slug === value)?.slug ?? null
-          if (next !== target) onChange(next)
-        }}
-        items={[
-          {
-            separated: statuses.length > 0,
-            value: DONT_MOVE,
-            textValue: m.git_automation_dont_move(),
-            label: <DontMoveOption />
-          },
-          ...statuses.map((status) => ({
-            value: status.slug,
-            textValue: status.label,
-            label: <StatusOption slug={status.slug} statuses={statuses} />
-          }))
-        ]}
-        contentProps={{ align: "end", className: "w-48" }}
-      >
-        <SelectTrigger
-          aria-label={meta.label()}
-          className="w-44"
-          selectedLabel={
-            target === null ? (
-              <DontMoveOption />
-            ) : (
-              <StatusOption slug={target} statuses={statuses} />
-            )
-          }
-        />
-      </Select>
+      {canEdit ? (
+        <Select
+          value={target ?? DONT_MOVE}
+          onValueChange={(value) => {
+            const next =
+              statuses.find((status) => status.slug === value)?.slug ?? null
+            if (next !== target) void save.run(next)
+          }}
+          items={[
+            {
+              separated: statuses.length > 0,
+              value: DONT_MOVE,
+              textValue: m.git_automation_dont_move(),
+              label: <DontMoveOption />
+            },
+            ...statuses.map((status) => ({
+              value: status.slug,
+              textValue: status.label,
+              label: <StatusOption slug={status.slug} statuses={statuses} />
+            }))
+          ]}
+          contentProps={{ align: "end", className: "w-48" }}
+        >
+          <SelectTrigger
+            aria-label={meta.label()}
+            className={cn("w-44", save.waiting && "animate-pulse")}
+            selectedLabel={current}
+          />
+        </Select>
+      ) : (
+        <span className="text-body">{current}</span>
+      )}
     </SettingsRow>
   )
 }

@@ -24,15 +24,15 @@ import {
 const buttonVariants = cva(
   [
     "group relative inline-flex cursor-pointer items-center justify-center whitespace-nowrap outline-none",
-    "motion-safe:transition-all motion-safe:duration-100 motion-safe:active:scale-[0.97]",
-    "disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100",
+    "motion-safe:transition-all motion-safe:duration-100",
+    "disabled:pointer-events-none disabled:opacity-50",
     "focus-visible:ring-1 focus-visible:ring-ring"
   ],
   {
     variants: {
       variant: {
         "appearance-row":
-          "w-full justify-start text-left whitespace-normal hover:bg-hover motion-safe:active:scale-100",
+          "w-full justify-start text-left whitespace-normal hover:bg-hover",
         "selection-card":
           "flex-1 justify-start border border-border text-left whitespace-normal hover:bg-hover aria-pressed:border-foreground",
         dropzone:
@@ -52,7 +52,7 @@ const buttonVariants = cva(
         ghost:
           "bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground active:bg-active data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
         toolbar:
-          "rounded-md bg-transparent text-muted-foreground hover:text-foreground aria-pressed:bg-active aria-pressed:text-foreground data-fluid-hover-active:text-foreground motion-safe:active:scale-100 [&>svg]:transition-transform [&>svg]:duration-100 motion-safe:active:[&>svg]:scale-[0.97] motion-reduce:[&>svg]:transition-none",
+          "rounded-md bg-transparent text-muted-foreground hover:text-foreground aria-pressed:bg-active aria-pressed:text-foreground data-fluid-hover-active:text-foreground",
         quiet:
           "rounded-md bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",
         step: "w-full justify-start rounded-xl bg-transparent text-left text-muted-foreground hover:bg-hover hover:text-foreground data-[popup-open]:bg-hover data-[popup-open]:text-foreground [&[aria-haspopup]]:active:bg-hover",

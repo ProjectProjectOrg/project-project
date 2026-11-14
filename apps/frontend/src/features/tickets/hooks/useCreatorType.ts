@@ -35,8 +35,14 @@ export type CreatorType = Readonly<{
 export function useCreatorType({
   orgSlug,
   slug,
-  epics
-}: Readonly<{ orgSlug: string; slug: string; epics: boolean }>): CreatorType {
+  epics,
+  initial
+}: Readonly<{
+  orgSlug: string
+  slug: string
+  epics: boolean
+  initial?: TypeKey
+}>): CreatorType {
   const libraryAtom = projectLibraryFor(projectLibraryRequest(orgSlug, slug))
   const result = useAtomValue(libraryAtom)
   const refreshLibrary = useAtomRefresh(libraryAtom)
@@ -44,7 +50,7 @@ export function useCreatorType({
     ? result.value
     : null
   const [lastUsed, setLastUsed] = useLastUsedType(orgSlug, slug)
-  const [picked, setPicked] = useState<TypeKey | null | undefined>(undefined)
+  const [picked, setPicked] = useState<TypeKey | null | undefined>(initial)
   const type =
     picked === undefined
       ? startingType(library, lastUsed ?? null, epics)
@@ -52,12 +58,13 @@ export function useCreatorType({
 
   const settle = useCallback(
     (exit: Exit.Exit<unknown, Readonly<{ _tag: string }>>) => {
-      if (Exit.isSuccess(exit)) setLastUsed(type)
-      else if (failedOnUnknownTemplate(exit)) refreshLibrary()
+      if (Exit.isSuccess(exit)) {
+        if (type !== initial) setLastUsed(type)
+      } else if (failedOnUnknownTemplate(exit)) refreshLibrary()
     },
-    [refreshLibrary, setLastUsed, type]
+    [refreshLibrary, setLastUsed, type, initial]
   )
-  const reset = useCallback(() => setPicked(undefined), [])
+  const reset = useCallback(() => setPicked(initial), [initial])
 
   return useMemo(() => {
     const definition =

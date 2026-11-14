@@ -1,4 +1,5 @@
-import type { LinkComponentProps } from "@tanstack/react-router"
+import type { GroupId } from "@pp/shared"
+import { useSearch, type LinkComponentProps } from "@tanstack/react-router"
 
 import { BackButton } from "@/components/shell/BackButton"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -8,9 +9,10 @@ export function TicketBackButton({
   from
 }: Readonly<{ from: TicketPageSource | undefined }>) {
   const { orgSlug, slug } = useProjectRoute()
+  const { sprint } = useSearch({ strict: false })
   return (
     <BackButton
-      fallback={fallbackFor(from, orgSlug, slug)}
+      fallback={fallbackFor(from, sprint, orgSlug, slug)}
       className="-ml-2 shrink-0"
     />
   )
@@ -18,13 +20,14 @@ export function TicketBackButton({
 
 function fallbackFor(
   from: TicketPageSource | undefined,
+  sprint: GroupId | undefined,
   orgSlug: string,
   slug: string
 ): LinkComponentProps {
-  if (from?.kind === "sprintBoard") {
+  if (sprint !== undefined) {
     return {
       to: "/orgs/$orgSlug/projects/$slug/sprints/$groupId",
-      params: { orgSlug, slug, groupId: from.groupId }
+      params: { orgSlug, slug, groupId: sprint }
     }
   }
   if (from?.kind === "parent") {

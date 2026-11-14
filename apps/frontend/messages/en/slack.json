@@ -42,6 +42,7 @@
   "slack_event_ticket_reopened": "Ticket reopened",
   "slack_events": "Send updates for",
   "slack_guides_label": "Setup guides",
+  "slack_forbidden": "Only owners and admins can manage Slack.",
   "slack_heading": "Slack",
   "slack_host_notice": "Use an HTTPS domain for PP, not localhost or an IP address. Your browser must be able to reach it for account linking. Socket Mode does not need a public Events API Request URL.",
   "slack_icon_instructions": "In Slack, open Basic Information → Display Information and upload the downloaded app icon. The manifest does not include it.",

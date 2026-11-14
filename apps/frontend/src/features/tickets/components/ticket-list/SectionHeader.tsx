@@ -132,7 +132,7 @@ export const SectionHeader = forwardRef<HTMLDivElement, SectionHeaderProps>(
             "grid h-6 w-(--list-lead) shrink-0 cursor-pointer place-items-center rounded-md text-muted-foreground outline-none",
             "transition-all duration-100 hover:text-foreground",
             "focus-visible:ring-2 focus-visible:ring-ring",
-            "active:scale-[0.97]"
+            ""
           )}
         >
           <span className="translate-x-px">
@@ -194,7 +194,7 @@ export const SectionHeader = forwardRef<HTMLDivElement, SectionHeaderProps>(
                 : m.tickets_section_create_aria_label({ label })
             }
           >
-            <span className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]">
+            <span className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground">
               <Plus
                 className={cn(
                   "size-4 transition-transform duration-200 ease-out",

@@ -104,7 +104,7 @@ export function NewEntryCard({
       <LibraryNewLink
         scope={scope}
         kind={kind}
-        className="flex min-h-14 flex-1 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-body text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.97]"
+        className="flex min-h-14 flex-1 items-center justify-center gap-1.5 rounded-lg border border-dashed border-border text-body text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
       >
         <Plus className="size-3.5" strokeWidth={1.75} />
         {kind === "type"

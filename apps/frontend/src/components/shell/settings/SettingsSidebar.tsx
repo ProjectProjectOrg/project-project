@@ -1,7 +1,7 @@
 import type { Project } from "@pp/shared"
 import { useLocation, useRouter } from "@tanstack/react-router"
 import { ChevronLeft, ChevronsUpDown } from "lucide-react"
-import { useRef, useState } from "react"
+import { useRef, useState, type ReactNode } from "react"
 
 import { ProjectMenuItems } from "@/components/shell/ProjectPicker"
 import {
@@ -23,9 +23,18 @@ import {
   type SectionKey
 } from "@/features/projects/lib/projectSettingsSections"
 import { useOrgActor } from "@/hooks/useActor"
+import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-const INDEX = { org: 0, project: 20, profile: 40 } as const
+const INDEX = {
+  projectPicker: 0,
+  project: 1,
+  org: 1 + PROJECT_SETTINGS_SECTIONS.length,
+  profile: 1 + PROJECT_SETTINGS_SECTIONS.length + ORG_SETTINGS_SECTIONS.length
+} as const
+
+const projectRowClass =
+  "relative z-10 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-body text-foreground"
 
 export function SettingsSidebar({
   orgSlug,
@@ -38,15 +47,21 @@ export function SettingsSidebar({
 }>) {
   const router = useRouter()
   return (
-    <nav className="flex flex-col gap-3 px-3 py-2">
+    <div className="flex flex-col gap-3 px-3 py-2">
       <button
         type="button"
         onClick={() =>
-          void (backHref
-            ? router.navigate({ href: backHref })
-            : router.navigate({ to: "/" }))
+          void router.navigate({
+            href:
+              backHref ??
+              (orgSlug && projectSlug
+                ? `/orgs/${orgSlug}/projects/${projectSlug}`
+                : orgSlug
+                  ? `/orgs/${orgSlug}`
+                  : "/")
+          })
         }
-        className="flex items-center gap-2 self-start rounded-lg px-3 py-1.5 text-body text-muted-foreground transition-[color,transform] duration-100 outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]"
+        className="flex items-center gap-2 self-start rounded-lg px-3 py-1.5 text-body text-muted-foreground transition-colors duration-100 outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
       >
         <ChevronLeft className="size-4" strokeWidth={1.75} />
         {m.chrome_sidebar_back_to_app()}
@@ -54,13 +69,13 @@ export function SettingsSidebar({
       <SettingsRailNav>
         {orgSlug ? (
           <>
-            <OrgGroup orgSlug={orgSlug} />
             <ProjectGroup orgSlug={orgSlug} projectSlug={projectSlug} />
+            <OrgGroup orgSlug={orgSlug} />
           </>
         ) : null}
         <ProfileGroup />
       </SettingsRailNav>
-    </nav>
+    </div>
   )
 }
 
@@ -74,12 +89,18 @@ function ProjectGroup({
   const { project, projects } = useScopedProject(orgSlug, projectSlug)
   if (!project) return null
   return (
-    <>
-      <ProjectGroupPicker
-        orgSlug={orgSlug}
-        project={project}
-        projects={projects}
-      />
+    <SettingsGroup label={m.chrome_sidebar_project_section_label()}>
+      {projects.length > 1 ? (
+        <ProjectGroupPicker
+          orgSlug={orgSlug}
+          project={project}
+          projects={projects}
+        />
+      ) : (
+        <div className={projectRowClass}>
+          <ProjectRowFace orgSlug={orgSlug} project={project} />
+        </div>
+      )}
       {PROJECT_SETTINGS_SECTIONS.map((section, index) => (
         <SettingsRailLink
           key={section.key}
@@ -90,7 +111,7 @@ function ProjectGroup({
           label={section.label}
         />
       ))}
-    </>
+    </SettingsGroup>
   )
 }
 
@@ -105,7 +126,7 @@ function ProjectGroupPicker({
 }) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  useSettingsRailItem(INDEX.project - 1, triggerRef)
+  useSettingsRailItem(INDEX.projectPicker, triggerRef)
   const settingsPrefix = `/orgs/${orgSlug}/projects/${project.slug}/settings/`
   const section = useLocation({
     select: ({ pathname }): SectionKey => {
@@ -119,45 +140,60 @@ function ProjectGroupPicker({
     }
   })
   return (
-    <div className="pt-4 pb-1">
-      <DropdownMenu open={open} onOpenChange={setOpen}>
-        <DropdownMenuTrigger
-          ref={triggerRef}
-          aria-label={m.chrome_sidebar_project_switcher_aria_label()}
-          className="relative z-10 flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-body text-foreground transition-colors outline-none focus-visible:ring-1 focus-visible:ring-ring data-[popup-open]:bg-hover"
-        >
-          <ProjectIconTile
-            orgSlug={orgSlug}
-            icon={project.icon}
-            iconImage={project.iconImage}
-            color={project.color}
-            size="xs"
-            seed={project.slug}
-          />
-          <span className="min-w-0 flex-1 truncate">{project.name}</span>
-          <ChevronsUpDown
-            className="size-3.5 shrink-0 text-muted-foreground"
-            strokeWidth={1.75}
-          />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="start"
-          sideOffset={4}
-          className="w-(--anchor-width) min-w-64"
-        >
-          <ProjectMenuItems
-            orgSlug={orgSlug}
-            currentSlug={project.slug}
-            projects={projects}
-            onPick={() => setOpen(false)}
-            linkFor={(slug) => ({
-              to: `/orgs/$orgSlug/projects/$slug/settings/${section}`,
-              params: { orgSlug, slug }
-            })}
-          />
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger
+        ref={triggerRef}
+        aria-label={m.chrome_sidebar_project_switcher_aria_label()}
+        className={cn(
+          projectRowClass,
+          "cursor-pointer transition-colors outline-none focus-visible:ring-1 focus-visible:ring-ring data-[popup-open]:bg-hover"
+        )}
+      >
+        <ProjectRowFace orgSlug={orgSlug} project={project} />
+        <ChevronsUpDown
+          className="size-3.5 shrink-0 text-muted-foreground"
+          strokeWidth={1.75}
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        sideOffset={4}
+        className="w-(--anchor-width) min-w-64"
+      >
+        <ProjectMenuItems
+          orgSlug={orgSlug}
+          currentSlug={project.slug}
+          projects={projects}
+          onPick={() => setOpen(false)}
+          linkFor={(slug) => ({
+            to: `/orgs/$orgSlug/projects/$slug/settings/${section}`,
+            params: { orgSlug, slug }
+          })}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function ProjectRowFace({
+  orgSlug,
+  project
+}: {
+  orgSlug: string
+  project: Project
+}) {
+  return (
+    <>
+      <ProjectIconTile
+        orgSlug={orgSlug}
+        icon={project.icon}
+        iconImage={project.iconImage}
+        color={project.color}
+        size="xs"
+        seed={project.slug}
+      />
+      <span className="min-w-0 flex-1 truncate">{project.name}</span>
+    </>
   )
 }
 
@@ -167,8 +203,7 @@ function OrgGroup({ orgSlug }: { orgSlug: string }) {
     (section) => section.key !== "members" || actor.call("org", "members")
   )
   return (
-    <>
-      <GroupHeader label={m.chrome_sidebar_settings_org_label()} />
+    <SettingsGroup label={m.chrome_sidebar_settings_org_label()}>
       {sections.map((section, index) => (
         <SettingsRailLink
           key={section.key}
@@ -179,14 +214,13 @@ function OrgGroup({ orgSlug }: { orgSlug: string }) {
           label={section.label}
         />
       ))}
-    </>
+    </SettingsGroup>
   )
 }
 
 function ProfileGroup() {
   return (
-    <>
-      <GroupHeader label={m.profile_crumb_label()} />
+    <SettingsGroup label={m.profile_crumb_label()}>
       {PROFILE_SECTIONS.map((section, index) => (
         <SettingsRailLink
           key={section.to}
@@ -196,14 +230,20 @@ function ProfileGroup() {
           label={section.label}
         />
       ))}
-    </>
+    </SettingsGroup>
   )
 }
 
-function GroupHeader({ label }: { label: string }) {
+function SettingsGroup({
+  label,
+  children
+}: Readonly<{ label: string; children: ReactNode }>) {
   return (
-    <div className="flex items-center gap-2 px-3 pt-4 pb-1 text-caption font-semibold text-muted-foreground first:pt-0">
-      <span className="min-w-0 truncate">{label}</span>
+    <div className="flex flex-col gap-1">
+      <div className="truncate px-3 pb-1 text-caption font-semibold text-muted-foreground">
+        {label}
+      </div>
+      {children}
     </div>
   )
 }

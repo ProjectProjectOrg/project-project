@@ -1,5 +1,9 @@
 import type { Project } from "@pp/shared"
-import { useRouter, type NavigateOptions } from "@tanstack/react-router"
+import {
+  useParams,
+  useRouter,
+  type NavigateOptions
+} from "@tanstack/react-router"
 import { LayoutGrid } from "lucide-react"
 
 import { ProjectBannerWarmup } from "@/components/shell/ProjectCardBanner"
@@ -26,6 +30,7 @@ export function ProjectMenuItems({
   linkFor: (slug: string) => NavigateOptions
 }) {
   const router = useRouter()
+  const { slug: routeSlug } = useParams({ strict: false })
   const preload = (slug: string) => void router.preloadRoute(linkFor(slug))
   const items = projects.map((project) => ({
     value: project.slug,
@@ -68,7 +73,7 @@ export function ProjectMenuItems({
           value={currentSlug}
           onValueChange={(slug) => {
             onPick()
-            if (slug === currentSlug) return
+            if (slug === routeSlug) return
             void router.navigate(linkFor(slug))
           }}
         />

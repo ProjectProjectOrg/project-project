@@ -82,7 +82,7 @@ export function ProjectBanner({
   const placeholderSize = usePlaceholderSize(placeholder)
   const observerRef = useRef<ResizeObserver | null>(null)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
-  const [measured, setMeasured] = useState(false)
+  const measured = containerSize.width > 0 && containerSize.height > 0
 
   const bucketedWidth =
     containerSize.width > 0 ? bucketRenderWidth(containerSize.width) : 0
@@ -139,7 +139,6 @@ export function ProjectBanner({
     const width = Math.round(node.clientWidth)
     const height = Math.round(node.clientHeight)
     if (width > 0 && height > 0) setContainerSize({ width, height })
-    setMeasured(true)
   }, [])
 
   useEffect(() => () => observerRef.current?.disconnect(), [])

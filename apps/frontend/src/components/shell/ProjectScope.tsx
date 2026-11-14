@@ -1,4 +1,5 @@
 import type { Project } from "@pp/shared"
+import { Link } from "@tanstack/react-router"
 import { ChevronsUpDown } from "lucide-react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 
@@ -24,11 +25,19 @@ export const PROJECT_CARD_HOVER_INDEX = 1
 
 const PROJECT_SECTIONS = ["sprints", "about", "settings"] as const
 
+const PAGE_PATHS = {
+  backlog: "/orgs/$orgSlug/projects/$slug",
+  sprints: "/orgs/$orgSlug/projects/$slug/sprints",
+  about: "/orgs/$orgSlug/projects/$slug/about",
+  settings: "/orgs/$orgSlug/projects/$slug/settings"
+} as const satisfies Record<ProjectRoute["page"], string>
+
 export type ProjectRouteMatch = Readonly<{ slug: string; route: ProjectRoute }>
 
 export function matchProjectRoute(
   pathname: string,
-  orgSlug: string
+  orgSlug: string,
+  fromSprint: string | undefined
 ): ProjectRouteMatch | null {
   const prefix = `/orgs/${orgSlug}/projects/`
   if (!pathname.startsWith(prefix)) return null
@@ -36,6 +45,8 @@ export function matchProjectRoute(
     .slice(prefix.length)
     .split("/")
   if (!slug) return null
+  if (section === "tickets" && fromSprint !== undefined)
+    return { slug, route: { page: "sprints", sub: fromSprint } }
   const page = PROJECT_SECTIONS.find((key) => key === section) ?? "backlog"
   return { slug, route: { page, sub: sub || null } }
 }
@@ -56,11 +67,16 @@ export function ProjectScope({
         {m.chrome_sidebar_project_section_label()}
       </div>
       <ProjectContext value={projectRequest(orgSlug, project.slug)}>
-        <ProjectSwitcher
-          orgSlug={orgSlug}
-          project={project}
-          projects={projects}
-        />
+        {projects.length > 1 ? (
+          <ProjectSwitcher
+            orgSlug={orgSlug}
+            project={project}
+            projects={projects}
+            page={match?.route.page ?? "backlog"}
+          />
+        ) : (
+          <ProjectCardLink orgSlug={orgSlug} project={project} />
+        )}
         <ProjectNav
           orgSlug={orgSlug}
           slug={project.slug}
@@ -71,14 +87,45 @@ export function ProjectScope({
   )
 }
 
+const cardClass =
+  "relative z-10 mb-1 overflow-hidden rounded-lg bg-card shadow-surface-1 has-[>:focus-visible]:ring-1 has-[>:focus-visible]:ring-ring"
+const cardFaceClass =
+  "block w-full text-left transition-colors outline-none hover:bg-hover"
+
+function ProjectCardLink({
+  orgSlug,
+  project
+}: {
+  orgSlug: string
+  project: Project
+}) {
+  const ref = useRef<HTMLAnchorElement>(null)
+  useNavHoverItem(PROJECT_CARD_HOVER_INDEX, ref)
+  return (
+    <div className={cardClass}>
+      <Link
+        ref={ref}
+        to="/orgs/$orgSlug/projects/$slug"
+        params={{ orgSlug, slug: project.slug }}
+        className={cardFaceClass}
+      >
+        <ProjectFace orgSlug={orgSlug} project={project} trailing={null} />
+      </Link>
+      <ProjectSetupLine />
+    </div>
+  )
+}
+
 function ProjectSwitcher({
   orgSlug,
   project,
-  projects
+  projects,
+  page
 }: {
   orgSlug: string
   project: Project
   projects: ReadonlyArray<Project>
+  page: ProjectRoute["page"]
 }) {
   const [open, setOpen] = useState(false)
   const [picked, setPicked] = useState(false)
@@ -104,15 +151,12 @@ function ProjectSwitcher({
     changeOpen(false)
   }
   return (
-    <div
-      ref={containerRef}
-      className="relative z-10 mb-1 overflow-hidden rounded-lg bg-card has-[>button:focus-visible]:ring-1 has-[>button:focus-visible]:ring-ring"
-    >
+    <div ref={containerRef} className={cardClass}>
       <DropdownMenu open={open} onOpenChange={changeOpen}>
         <DropdownMenuTrigger
           ref={cardRef}
           aria-label={m.chrome_sidebar_project_switcher_aria_label()}
-          className="block w-full text-left transition-colors outline-none hover:bg-hover data-[popup-open]:bg-hover"
+          className={cn(cardFaceClass, "data-[popup-open]:bg-hover")}
         >
           <ProjectFace
             orgSlug={orgSlug}
@@ -139,7 +183,7 @@ function ProjectSwitcher({
             projects={projects}
             onPick={pick}
             linkFor={(slug) => ({
-              to: "/orgs/$orgSlug/projects/$slug",
+              to: PAGE_PATHS[page],
               params: { orgSlug, slug }
             })}
           />

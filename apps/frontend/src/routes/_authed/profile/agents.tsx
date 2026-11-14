@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Registry from "effect/reactivity/AtomRegistry"
 
+import { settingsPage } from "@/components/shell/settings/SettingsLayout"
 import {
   oauthApplicationsAtom,
   oauthApplicationsRequest
@@ -19,11 +20,9 @@ export const Route = createFileRoute("/_authed/profile/agents")({
       ),
       { signal: abortController.signal }
     )
-    return {
-      crumb: {
-        type: "static" as const,
-        label: m.profile_section_connected_agents_title()
-      }
-    }
+    return settingsPage(
+      m.profile_section_connected_agents_title(),
+      m.profile_section_connected_agents_description()
+    )
   }
 })

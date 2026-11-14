@@ -11,21 +11,23 @@ import { projectLinkFormOpts, toProjectLink } from "./opts"
 
 export function ProjectLinkForm({
   initial,
+  error,
   onSave,
   onRemove
 }: Readonly<{
   initial?: ProjectLink
-  onSave: (link: ProjectLink) => void
-  onRemove?: () => void
+  error: string | null
+  onSave: (link: ProjectLink) => Promise<void>
+  onRemove?: () => Promise<void>
 }>) {
   const urlId = useId()
   const labelId = useId()
   const errorId = useId()
   const form = useAppForm({
     ...projectLinkFormOpts(initial),
-    onSubmit: ({ value }) => {
+    onSubmit: async ({ value }) => {
       const link = toProjectLink(value)
-      if (link !== null) onSave(link)
+      if (link !== null) await onSave(link)
     }
   })
 
@@ -92,9 +94,19 @@ export function ProjectLinkForm({
           </>
         )}
       </form.Field>
+      {error ? (
+        <p role="alert" className="text-caption text-destructive">
+          {error}
+        </p>
+      ) : null}
       <div className="flex items-center justify-end gap-1">
         {onRemove ? (
-          <Button type="button" variant="ghost" size="sm" onClick={onRemove}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => void onRemove()}
+          >
             {m.project_links_remove_button()}
           </Button>
         ) : null}

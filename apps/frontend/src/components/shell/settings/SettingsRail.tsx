@@ -8,14 +8,12 @@ import type { LucideIcon } from "lucide-react"
 import {
   createContext,
   use,
-  useLayoutEffect,
-  useMemo,
   useRef,
-  useState,
   type ReactNode,
   type RefObject
 } from "react"
 
+import { navActiveFill, navActiveState } from "@/components/shell/NavItem"
 import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
 import {
   useFluidHover,
@@ -24,31 +22,18 @@ import {
 } from "@/hooks/useFluidHover"
 import { cn } from "@/lib/utils"
 
-type SettingsRailNavValue = Readonly<{
-  registerItem: UseFluidHoverReturn["registerItem"]
-  setActiveIndex: (index: number) => void
-}>
-
-const SettingsRailNavContext = createContext<SettingsRailNavValue | null>(null)
+const SettingsRailNavContext = createContext<
+  UseFluidHoverReturn["registerItem"] | null
+>(null)
 
 export function SettingsRailNav({
   children
 }: Readonly<{ children: ReactNode }>) {
   const listRef = useRef<HTMLDivElement>(null)
   const hover = useFluidHover(listRef)
-  const [activeIndex, setActiveIndex] = useState<number | null>(null)
-  const navValue = useMemo(
-    () => ({ registerItem: hover.registerItem, setActiveIndex }),
-    [hover.registerItem]
-  )
-
-  const activeRect =
-    hover.isMeasured && activeIndex !== null
-      ? hover.itemRects[activeIndex]
-      : undefined
 
   return (
-    <SettingsRailNavContext value={navValue}>
+    <SettingsRailNavContext value={hover.registerItem}>
       <nav>
         <div
           ref={listRef}
@@ -57,19 +42,8 @@ export function SettingsRailNav({
           onMouseMove={hover.handlers.onMouseMove}
           onMouseLeave={hover.handlers.onMouseLeave}
           onClick={hover.handlers.onClick}
-          className="relative flex flex-col gap-1"
+          className="relative flex flex-col gap-5"
         >
-          {activeRect ? (
-            <div
-              aria-hidden
-              className="pointer-events-none absolute top-0 left-0 rounded-lg bg-accent"
-              style={{
-                transform: `translate(${activeRect.left}px, ${activeRect.top}px)`,
-                width: activeRect.width,
-                height: activeRect.height
-              }}
-            />
-          ) : null}
           <FluidHoverHighlight hover={hover} className="rounded-lg" />
           {children}
         </div>
@@ -83,24 +57,26 @@ export function useSettingsRailItem(
   ref: RefObject<HTMLElement | null>
 ) {
   useRegisterFluidHoverItem(
-    use(SettingsRailNavContext)?.registerItem,
+    use(SettingsRailNavContext) ?? undefined,
     index,
     ref
   )
 }
 
-type SettingsRailLinkProps = Omit<LinkComponentProps, "children"> &
+type SettingsRailLinkProps = Omit<
+  LinkComponentProps,
+  "children" | "className"
+> &
   Readonly<{ icon: LucideIcon; label: string; index: number }>
 
 export function SettingsRailLink({
   icon: Icon,
   label,
   index,
-  className,
   ...linkProps
 }: SettingsRailLinkProps) {
   const ref = useRef<HTMLAnchorElement>(null)
-  const nav = use(SettingsRailNavContext)
+  const registerItem = use(SettingsRailNavContext)
   const matchRoute = useMatchRoute()
   const active = useLocation({
     select: () =>
@@ -108,23 +84,18 @@ export function SettingsRailLink({
         matchRoute({ to: linkProps.to, params: linkProps.params, fuzzy: true })
       )
   })
-  useRegisterFluidHoverItem(nav?.registerItem, index, ref)
-
-  const setActiveIndex = nav?.setActiveIndex
-  useLayoutEffect(() => {
-    if (active) setActiveIndex?.(index)
-  }, [active, index, setActiveIndex])
+  useRegisterFluidHoverItem(registerItem ?? undefined, index, ref)
 
   return (
     <Link
       {...linkProps}
       ref={ref}
       className={cn(
-        "relative z-10 flex items-center gap-2.5 rounded-lg px-3 py-2 text-body transition-[color,transform] duration-100 active:scale-[0.97]",
+        "relative z-10 flex items-center gap-2.5 rounded-lg px-3 py-2 text-body transition-colors duration-100 before:duration-100",
+        navActiveFill,
         active
-          ? "font-semibold text-foreground"
-          : "text-muted-foreground hover:text-foreground data-[fluid-hover-active]:text-foreground",
-        className
+          ? navActiveState
+          : "text-muted-foreground hover:text-foreground data-[fluid-hover-active]:text-foreground"
       )}
     >
       <Icon className="size-4" strokeWidth={1.75} />

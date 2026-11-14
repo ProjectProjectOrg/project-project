@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { ProjectPolicy } from "@pp/access/policies"
 import type { User } from "@pp/shared"
 import { Link, useParams } from "@tanstack/react-router"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -9,7 +10,7 @@ import {
   MessageSquarePlus,
   Settings
 } from "lucide-react"
-import { useRef, useState } from "react"
+import { useRef, useState, type ReactElement } from "react"
 
 import {
   DropdownMenu,
@@ -27,7 +28,12 @@ import {
 import { instanceHealth } from "@/features/instance/atoms/instance"
 import { displayVersion } from "@/features/instance/lib/displayVersion"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
-import { THEME_ITEMS, useTheme, type ThemePreference } from "@/hooks/useTheme"
+import {
+  projectActor,
+  projectRequest
+} from "@/features/projects/atoms/projects"
+import { useOrgActor } from "@/hooks/useActor"
+import { THEME_ITEMS, useTheme } from "@/hooks/useTheme"
 import { m } from "@/paraglide/messages"
 
 export function SidebarMenu({
@@ -76,47 +82,28 @@ export function SidebarMenu({
             </div>
           </div>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            render={
-              orgSlug && slug ? (
-                <Link
-                  to="/orgs/$orgSlug/projects/$slug/settings"
-                  params={{ orgSlug, slug }}
-                />
-              ) : orgSlug ? (
-                <Link to="/orgs/$orgSlug/settings" params={{ orgSlug }} />
-              ) : (
-                <Link to="/profile/account" />
-              )
-            }
-          >
-            <Settings className="size-4" strokeWidth={1.75} />
-            {m.chrome_sidebar_menu_settings()}
-          </DropdownMenuItem>
+          {orgSlug && slug ? (
+            <ProjectSettingsItem orgSlug={orgSlug} slug={slug} />
+          ) : orgSlug ? (
+            <OrgSettingsItem orgSlug={orgSlug} />
+          ) : (
+            <SettingsItem link={<Link to="/profile/preferences" />} />
+          )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            closeOnClick={false}
-            onKeyDown={(event) => {
-              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight")
-                return
-              event.preventDefault()
-              setPreference(
-                stepTheme(preference, event.key === "ArrowRight" ? 1 : -1)
-              )
-            }}
-            className="justify-between py-1 pr-1"
+          <div
+            data-menu-no-highlight
+            className="flex items-center justify-between gap-2 py-1 pr-1 pl-2 text-body text-muted-foreground"
           >
             <span>{m.theme_switcher_aria_label()}</span>
             <SegmentedTabs
               variant="rail"
               labels="none"
-              focusable={false}
               aria-label={m.theme_switcher_aria_label()}
               value={preference}
               onValueChange={(next) => setPreference(next)}
               items={THEME_ITEMS}
             />
-          </DropdownMenuItem>
+          </div>
           <DropdownMenuSeparator />
           {orgSlug ? (
             <FeedbackItem orgSlug={orgSlug} onDone={() => setOpen(false)} />
@@ -146,10 +133,50 @@ export function SidebarMenu({
   )
 }
 
-function stepTheme(current: ThemePreference, step: 1 | -1): ThemePreference {
-  const index = THEME_ITEMS.findIndex((item) => item.key === current)
-  const next = (index + step + THEME_ITEMS.length) % THEME_ITEMS.length
-  return THEME_ITEMS[next].key
+function ProjectSettingsItem({
+  orgSlug,
+  slug
+}: {
+  orgSlug: string
+  slug: string
+}) {
+  const actor = useAtomValue(projectActor(projectRequest(orgSlug, slug)))
+  if (!ProjectPolicy.canUpdate(actor, { settings: true }))
+    return <OrgSettingsItem orgSlug={orgSlug} />
+  return (
+    <SettingsItem
+      link={
+        <Link
+          to="/orgs/$orgSlug/projects/$slug/settings"
+          params={{ orgSlug, slug }}
+        />
+      }
+    />
+  )
+}
+
+function OrgSettingsItem({ orgSlug }: { orgSlug: string }) {
+  const canManage = useOrgActor(orgSlug).call("org", "rename")
+  return (
+    <SettingsItem
+      link={
+        canManage ? (
+          <Link to="/orgs/$orgSlug/settings" params={{ orgSlug }} />
+        ) : (
+          <Link to="/profile/preferences" />
+        )
+      }
+    />
+  )
+}
+
+function SettingsItem({ link }: { link: ReactElement }) {
+  return (
+    <DropdownMenuItem render={link}>
+      <Settings className="size-4" strokeWidth={1.75} />
+      {m.chrome_sidebar_menu_settings()}
+    </DropdownMenuItem>
+  )
 }
 
 function FeedbackItem({

@@ -1,9 +1,8 @@
-import { useLocation } from "@tanstack/react-router"
+import { useLocation, useSearch } from "@tanstack/react-router"
 import { LayoutDashboard } from "lucide-react"
 import { useRef } from "react"
 
 import { NavHoverContext, NavItem } from "@/components/shell/NavItem"
-import { STATIC_HOVER_INDEX } from "@/components/shell/ProjectNav"
 import {
   matchProjectRoute,
   PROJECT_CARD_HOVER_INDEX,
@@ -17,9 +16,10 @@ const DASHBOARD_INDEX = 0
 
 export function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
   const { pathname } = useLocation()
+  const { sprint } = useSearch({ strict: false })
   const listRef = useRef<HTMLDivElement>(null)
   const hover = useFluidHover(listRef)
-  const match = orgSlug ? matchProjectRoute(pathname, orgSlug) : null
+  const match = orgSlug ? matchProjectRoute(pathname, orgSlug, sprint) : null
   return (
     <nav className="px-3 py-2">
       <NavHoverContext value={hover.registerItem}>
@@ -42,10 +42,7 @@ export function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
         >
           <FluidHoverHighlight
             hover={hover}
-            hidden={
-              hover.activeIndex === PROJECT_CARD_HOVER_INDEX ||
-              (hover.activeIndex ?? 0) >= STATIC_HOVER_INDEX
-            }
+            hidden={hover.activeIndex === PROJECT_CARD_HOVER_INDEX}
             className="z-[1] rounded-lg"
           />
           {orgSlug ? (

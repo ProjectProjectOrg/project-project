@@ -20,7 +20,8 @@ const routeApi = getRouteApi(
 
 export function EmailSettings() {
   const { orgSlug } = routeApi.useParams()
-  const state = useEmailState(orgSlug)
+  const canManage = useOrgActor(orgSlug).call("orgEmail", "get")
+  const state = useEmailState(orgSlug, canManage)
   return (
     <IntegrationDetail
       orgSlug={orgSlug}
@@ -29,10 +30,16 @@ export function EmailSettings() {
       description={m.org_integrations_email_card()}
       about={m.org_integrations_email_about()}
       meta={[
-        {
-          label: m.org_integrations_meta_status(),
-          value: <IntegrationStatus tone={state.tone} label={state.label} />
-        },
+        ...(canManage
+          ? [
+              {
+                label: m.org_integrations_meta_status(),
+                value: (
+                  <IntegrationStatus tone={state.tone} label={state.label} />
+                )
+              }
+            ]
+          : []),
         {
           label: m.org_integrations_meta_category(),
           value: m.org_integrations_category_infrastructure()

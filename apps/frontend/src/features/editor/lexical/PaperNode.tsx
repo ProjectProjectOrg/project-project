@@ -202,7 +202,7 @@ function PaperSelectable({
             }}
           />
         ) : (
-          <Chip press="scale">
+          <Chip>
             <PaperGlyph className="size-3 shrink-0" />
             <span className="truncate">{resolvedLabel}</span>
             <a
@@ -213,7 +213,7 @@ function PaperSelectable({
               aria-label={m.editor_paper_open()}
               title={m.editor_paper_open()}
               onMouseDown={(event) => event.stopPropagation()}
-              className="shrink-0 rounded text-muted-foreground transition-colors duration-100 hover:text-foreground [&>svg]:transition-transform [&>svg]:duration-100 active:[&>svg]:scale-[0.97]"
+              className="shrink-0 rounded text-muted-foreground transition-colors duration-100 hover:text-foreground"
             >
               <ExternalLink
                 strokeWidth={1.75}

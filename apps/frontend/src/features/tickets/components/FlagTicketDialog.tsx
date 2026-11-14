@@ -23,7 +23,8 @@ import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
 export function FlagTicketDialogHost() {
-  const { open, shown, close } = useRouteBoundDialog(flagTicketDialog)
+  const { open, shown, close, finalFocus } =
+    useRouteBoundDialog(flagTicketDialog)
   return (
     <Dialog
       open={open}
@@ -31,7 +32,12 @@ export function FlagTicketDialogHost() {
         if (!next) close()
       }}
     >
-      <DialogContent size="lg" showCloseButton={false} className="p-0">
+      <DialogContent
+        size="lg"
+        showCloseButton={false}
+        finalFocus={finalFocus}
+        className="p-0"
+      >
         {shown !== null && (
           <ProjectContext value={projectRequest(shown.orgSlug, shown.slug)}>
             <FlagTicket

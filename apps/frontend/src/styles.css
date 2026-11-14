@@ -1176,11 +1176,6 @@ html.dark .prose-md .token.coord {
   text-decoration-color: var(--prose-check-ring);
 }
 
-[aria-haspopup]:not([aria-haspopup="false"]):active,
-[aria-haspopup]:not([aria-haspopup="false"]):active > * {
-  scale: none;
-}
-
 [data-slot="avatar-group"] > :not(:last-child) {
   --avatar-cut: calc(var(--avatar-size) / 2 + 2px);
   -webkit-mask-image: radial-gradient(
@@ -1290,8 +1285,20 @@ html.dark .prose-md .token.coord {
   animation: pp-context-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+@keyframes pp-pane-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--pp-pane-from));
+  }
+}
+
+.pp-pane-in {
+  animation: pp-pane-in 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .pp-context-in {
+  .pp-context-in,
+  .pp-pane-in {
     animation: none;
   }
 }

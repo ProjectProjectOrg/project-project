@@ -2,7 +2,6 @@ import { useAtomValue } from "@effect/atom-react"
 import { getRouteApi, Link } from "@tanstack/react-router"
 
 import { AsyncView } from "@/components/shell/AsyncView"
-import { ErrorPage } from "@/components/shell/ErrorPage"
 import {
   SettingsGroup,
   SettingsRow,
@@ -34,7 +33,7 @@ const routeApi = getRouteApi(
 export function SlackIntegrationPage() {
   const { orgSlug } = routeApi.useParams()
   const canManage = useOrgActor(orgSlug).call("slack", "orgStatus")
-  const state = useSlackState(orgSlug)
+  const state = useSlackState(orgSlug, canManage)
   useSlackOrgPolling(orgSlug, canManage)
 
   return (
@@ -45,10 +44,16 @@ export function SlackIntegrationPage() {
       description={m.org_integrations_slack_card()}
       about={m.org_integrations_slack_about()}
       meta={[
-        {
-          label: m.org_integrations_meta_status(),
-          value: <IntegrationStatus tone={state.tone} label={state.label} />
-        },
+        ...(canManage
+          ? [
+              {
+                label: m.org_integrations_meta_status(),
+                value: (
+                  <IntegrationStatus tone={state.tone} label={state.label} />
+                )
+              }
+            ]
+          : []),
         {
           label: m.org_integrations_meta_category(),
           value: m.org_integrations_category_communication()
@@ -59,7 +64,11 @@ export function SlackIntegrationPage() {
         }
       ]}
     >
-      {canManage ? <SlackContent orgSlug={orgSlug} /> : <ErrorPage contained />}
+      {canManage ? (
+        <SlackContent orgSlug={orgSlug} />
+      ) : (
+        <p className="text-body text-muted-foreground">{m.slack_forbidden()}</p>
+      )}
     </IntegrationDetail>
   )
 }

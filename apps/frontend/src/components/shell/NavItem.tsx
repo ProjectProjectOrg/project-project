@@ -1,13 +1,6 @@
 import { Link } from "@tanstack/react-router"
-import { cva, type VariantProps } from "class-variance-authority"
 import type { LucideIcon } from "lucide-react"
-import {
-  createContext,
-  use,
-  useRef,
-  type ComponentProps,
-  type RefObject
-} from "react"
+import { createContext, use, useRef, type RefObject } from "react"
 
 import {
   useRegisterFluidHoverItem,
@@ -28,6 +21,12 @@ export function useNavHoverItem(
 
 export const navFocusRing =
   "outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+
+// Chrome composites background-color transitions and can paint their start colour for one frame as they end.
+export const navActiveFill =
+  "before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:bg-accent before:opacity-0 before:transition-opacity hover:before:duration-0"
+
+export const navActiveState = "font-semibold text-foreground before:opacity-100"
 
 const navRowClass =
   "relative z-10 flex items-center gap-2.5 rounded-lg px-3 py-2 text-body transition-colors"
@@ -58,60 +57,24 @@ export function NavItem({
 }: NavItemProps) {
   const ref = useRef<HTMLAnchorElement>(null)
   useNavHoverItem(index, ref)
-  const base = cn(navRowClass, navFocusRing)
+  const base = cn(navRowClass, navFocusRing, navActiveFill)
   return (
     <Link
       ref={ref}
       to={to}
       params={params}
-      activeOptions={{ exact: exact ?? false }}
+      activeOptions={{ exact: exact ?? false, includeSearch: false }}
       className={base}
       inactiveProps={{
         className:
           "text-muted-foreground data-[fluid-hover-active]:text-foreground"
       }}
       activeProps={{
-        className: "bg-accent font-semibold text-foreground"
+        className: navActiveState
       }}
     >
       <Icon className="size-4" strokeWidth={1.75} />
       <span>{label}</span>
     </Link>
-  )
-}
-
-const navButtonVariants = cva([navRowClass, navFocusRing, "w-full"], {
-  variants: {
-    variant: {
-      ghost:
-        "text-muted-foreground hover:bg-hover hover:text-foreground data-[popup-open]:bg-accent data-[popup-open]:text-foreground",
-      tinted:
-        "bg-tint text-foreground hover:bg-tint-hover data-[popup-open]:bg-accent"
-    }
-  },
-  defaultVariants: { variant: "ghost" }
-})
-
-export function NavButton({
-  icon: Icon,
-  label,
-  variant,
-  className,
-  ...props
-}: Omit<ComponentProps<"button">, "children"> &
-  VariantProps<typeof navButtonVariants> &
-  Readonly<{
-    icon: LucideIcon
-    label: string
-  }>) {
-  return (
-    <button
-      type="button"
-      className={cn(navButtonVariants({ variant }), className)}
-      {...props}
-    >
-      <Icon className="size-4" strokeWidth={1.75} />
-      <span>{label}</span>
-    </button>
   )
 }

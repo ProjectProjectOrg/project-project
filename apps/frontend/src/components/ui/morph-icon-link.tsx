@@ -5,7 +5,7 @@ import type { ComponentProps } from "react"
 import { transitions } from "@/lib/springs"
 
 export const chipIconActionClass =
-  "shrink-0 rounded text-muted-foreground transition-colors duration-100 hover:text-foreground [&>svg]:transition-transform [&>svg]:duration-100 active:[&>svg]:scale-[0.97]"
+  "shrink-0 rounded text-muted-foreground transition-colors duration-100 hover:text-foreground"
 
 type Props = Omit<
   ComponentProps<typeof motion.a>,

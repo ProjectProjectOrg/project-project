@@ -37,6 +37,8 @@ function applyResolved(pref: ThemePreference) {
   document.documentElement.classList.toggle("dark", next === "dark")
 }
 
+let latestSwitch: ViewTransition | null = null
+
 export function useTheme() {
   const [preference, storePreference] = useLocalStorageState(
     STORAGE_KEY,
@@ -65,9 +67,13 @@ export function useTheme() {
       ) {
         const root = document.documentElement
         root.classList.add("pp-theme-switching")
-        void document
-          .startViewTransition(apply)
-          .finished.finally(() => root.classList.remove("pp-theme-switching"))
+        const transition = document.startViewTransition(apply)
+        latestSwitch = transition
+        void transition.finished.finally(() => {
+          if (latestSwitch !== transition) return
+          latestSwitch = null
+          root.classList.remove("pp-theme-switching")
+        })
       } else {
         apply()
       }

@@ -3,6 +3,7 @@ import type { Library } from "@pp/shared"
 import { Plus } from "lucide-react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
+import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { Button } from "@/components/ui/button"
 import {
   SegmentedTabs,
@@ -48,7 +49,7 @@ export function TicketTypesPage({
       onInitial={() => (
         <div className="flex w-full flex-col gap-6">
           <div className="flex">{tabs}</div>
-          <LibrarySkeleton />
+          <SettingsSkeleton rows={4} />
         </div>
       )}
       onSuccess={({ value }) => (
@@ -126,16 +127,6 @@ function LibraryContent({
           permissions={permissions}
         />
       )}
-    </div>
-  )
-}
-
-function LibrarySkeleton() {
-  return (
-    <div className="flex flex-col gap-1" aria-hidden>
-      {[0, 1, 2, 3].map((index) => (
-        <div key={index} className="h-10 animate-pulse rounded-md bg-muted" />
-      ))}
     </div>
   )
 }

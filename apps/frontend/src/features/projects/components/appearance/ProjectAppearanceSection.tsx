@@ -4,7 +4,6 @@ import {
   type ProjectBanner,
   type ProjectIconImage
 } from "@pp/shared"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useState } from "react"
@@ -35,6 +34,7 @@ import {
   bannerSource,
   bannerPresets
 } from "@/features/projects/lib/bannerPresets"
+import { useSave } from "@/hooks/useSave"
 import { transitions } from "@/lib/springs"
 import { m } from "@/paraglide/messages"
 
@@ -59,7 +59,10 @@ export function ProjectAppearanceSection({
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const req = projectRequest(orgSlug, slug)
-  const update = useAtomSet(updateProject(req))
+  const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
+  const recolor = useSave((next: string) =>
+    update({ color: makeProjectColor(next) })
+  )
   const updateState = useAtomValue(updateProject(req))
   const [editing, setEditing] = useState<"icon" | "banner" | null>(null)
   const [live, setLive] = useState<LiveIcon | null>(null)
@@ -76,12 +79,7 @@ export function ProjectAppearanceSection({
   const bannerThumb = bannerSource(orgSlug, banner) ?? null
 
   const changeAffordance = canEdit ? (
-    <Button
-      render={<span />}
-      variant="tertiary"
-      size="sm"
-      className="motion-safe:active:scale-100"
-    >
+    <Button render={<span />} variant="tertiary" size="sm" className="">
       {m.project_appearance_change()}
     </Button>
   ) : null
@@ -173,9 +171,7 @@ export function ProjectAppearanceSection({
                 canEdit ? (
                   <ColorPicker
                     value={color}
-                    onChange={(next) =>
-                      update({ color: makeProjectColor(next) })
-                    }
+                    onChange={(next) => void recolor.run(next)}
                     ariaLabel={m.color_picker_aria_label()}
                     onOpenChange={setPickingColor}
                   />
@@ -245,7 +241,7 @@ export function ProjectAppearanceSection({
             </AutoHeight>
           </AppearanceCard>
 
-          {AsyncResult.isFailure(updateState) ? (
+          {recolor.error ? (
             <p role="alert" className="text-body text-destructive">
               {m.project_identity_error()}
             </p>

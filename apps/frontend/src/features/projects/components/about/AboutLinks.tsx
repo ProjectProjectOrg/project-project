@@ -1,5 +1,6 @@
 import { useAtomSet } from "@effect/atom-react"
 import type { ProjectLink } from "@pp/shared"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import {
   GitBranch,
   Globe,
@@ -34,6 +35,7 @@ import {
   type ProjectLinkKind
 } from "@/features/projects/lib/projectLinks"
 import { MetaRow } from "@/features/tickets/components/ticket-page/MetaRow"
+import { mutationErrorText } from "@/lib/mutationError"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -76,11 +78,14 @@ export function AboutLinks({
   canEdit
 }: Readonly<{ links: ReadonlyArray<ProjectLink>; canEdit: boolean }>) {
   const { projectReq } = useProjectRoute()
-  const update = useAtomSet(updateProject(projectReq))
+  const update = useAtomSet(updateProject(projectReq), {
+    mode: "promiseExit"
+  })
   const [adding, setAdding] = useState(false)
   if (!canEdit && links.length === 0) return null
 
-  const save = (next: ReadonlyArray<ProjectLink>) => update({ links: next })
+  const save = async (next: ReadonlyArray<ProjectLink>) =>
+    mutationErrorText(AsyncResult.fromExit(await update({ links: next })))
 
   return (
     <MetaRow
@@ -91,10 +96,9 @@ export function AboutLinks({
           <LinkPopover
             open={adding}
             onOpenChange={setAdding}
-            onSave={(link) => {
+            onSave={(link) =>
               save([...links.filter((other) => other.url !== link.url), link])
-              setAdding(false)
-            }}
+            }
             trigger={
               <Button
                 variant="quiet"
@@ -146,8 +150,8 @@ function LinkRow({
 }: Readonly<{
   link: ProjectLink
   canEdit: boolean
-  onChange: (link: ProjectLink) => void
-  onRemove: () => void
+  onChange: (link: ProjectLink) => Promise<string | null>
+  onRemove: () => Promise<string | null>
 }>) {
   const [editing, setEditing] = useState(false)
   const [tooltip, setTooltip] = useState(false)
@@ -219,14 +223,8 @@ function LinkRow({
             open={editing}
             onOpenChange={setEditing}
             initial={link}
-            onSave={(next) => {
-              onChange(next)
-              setEditing(false)
-            }}
-            onRemove={() => {
-              onRemove()
-              setEditing(false)
-            }}
+            onSave={onChange}
+            onRemove={onRemove}
             trigger={
               <Button
                 variant="quiet"
@@ -256,12 +254,22 @@ function LinkPopover({
   open: boolean
   onOpenChange: (open: boolean) => void
   initial?: ProjectLink
-  onSave: (link: ProjectLink) => void
-  onRemove?: () => void
+  onSave: (link: ProjectLink) => Promise<string | null>
+  onRemove?: () => Promise<string | null>
   trigger: ReactElement
 }>) {
+  const [error, setError] = useState<string | null>(null)
+  const changeOpen = (next: boolean) => {
+    setError(null)
+    onOpenChange(next)
+  }
+  const settle = async (pending: Promise<string | null>) => {
+    const failure = await pending
+    if (failure === null) changeOpen(false)
+    else setError(failure)
+  }
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
+    <Popover open={open} onOpenChange={changeOpen}>
       <PopoverTrigger render={trigger} />
       <PopoverContent
         align="end"
@@ -271,8 +279,9 @@ function LinkPopover({
       >
         <ProjectLinkForm
           initial={initial}
-          onSave={onSave}
-          onRemove={onRemove}
+          error={error}
+          onSave={(link) => settle(onSave(link))}
+          onRemove={onRemove ? () => settle(onRemove()) : undefined}
         />
       </PopoverContent>
     </Popover>

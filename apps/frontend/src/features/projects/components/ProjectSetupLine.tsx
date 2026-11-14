@@ -70,7 +70,10 @@ function SetupLine({ detail }: { detail: ProjectDetailType }) {
   const Icon = next.icon
 
   return (
-    <div className="group/setup-line flex items-center gap-2 border-t border-border/60 px-3 py-2 text-caption text-muted-foreground">
+    <div
+      data-nav-skip
+      className="group/setup-line flex items-center gap-2 border-t border-border/60 px-3 py-2 text-caption text-muted-foreground"
+    >
       <Link
         to={next.to}
         params={{ orgSlug, slug }}
@@ -87,7 +90,7 @@ function SetupLine({ detail }: { detail: ProjectDetailType }) {
           type="button"
           aria-label={m.project_setup_dismiss_aria_label({ item: next.label })}
           onClick={next.dismiss}
-          className="grid size-5 shrink-0 place-items-center rounded-md opacity-0 transition-[opacity,color,transform] duration-100 group-hover/setup-line:opacity-100 hover:text-foreground focus-visible:opacity-100 active:scale-[0.97] pointer-coarse:opacity-100"
+          className="grid size-5 shrink-0 place-items-center rounded-md opacity-0 transition-[opacity,color] duration-100 group-hover/setup-line:opacity-100 hover:text-foreground focus-visible:opacity-100 pointer-coarse:opacity-100"
         >
           <X className="size-3" strokeWidth={1.75} />
         </button>

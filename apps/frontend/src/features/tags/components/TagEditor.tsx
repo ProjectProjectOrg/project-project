@@ -255,7 +255,7 @@ function AppliedTagChip({
         e.stopPropagation()
         onRemove()
       }}
-      className="-mr-0.5 inline-grid size-4 place-items-center rounded-sm bg-transparent opacity-60 transition-[opacity,background-color] duration-100 hover:bg-black/15 hover:opacity-100 focus-visible:opacity-100 active:scale-[0.9] dark:hover:bg-white/20"
+      className="-mr-0.5 inline-grid size-4 place-items-center rounded-sm bg-transparent opacity-60 transition-[opacity,background-color] duration-100 hover:bg-black/15 hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-white/20"
     >
       <X className="size-3" strokeWidth={2} />
     </button>
@@ -283,7 +283,7 @@ function AppliedTagChip({
         <button
           type="button"
           aria-label={m.tags_edit_aria_label({ name })}
-          className="cursor-pointer rounded transition-transform duration-100 active:scale-[0.97]"
+          className="cursor-pointer rounded"
         >
           {name}
         </button>

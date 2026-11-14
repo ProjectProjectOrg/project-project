@@ -16,10 +16,12 @@ import { m } from "@/paraglide/messages"
 
 export function ProjectDangerZone({
   orgSlug,
-  slug
+  slug,
+  projectKey
 }: {
   orgSlug: string
   slug: string
+  projectKey: string
 }) {
   const navigate = useNavigate()
   const remove = useAtomSet(deleteProject(projectRequest(orgSlug, slug)), {
@@ -30,16 +32,21 @@ export function ProjectDangerZone({
     <SettingsSection title={m.project_settings_danger_heading()}>
       <SettingsGroup>
         <SettingsRow
+          layout="stacked"
           label={m.project_settings_delete_heading()}
           description={m.project_settings_delete_description()}
         >
-          <ConfirmButton.Root>
-            <ConfirmButton.Trigger variant="tertiary" size="sm">
+          <ConfirmButton.Root className="w-full">
+            <ConfirmButton.Trigger variant="destructive" size="sm">
               {m.project_detail_delete_button()}
             </ConfirmButton.Trigger>
-            <ConfirmButton.Confirm>
+            <ConfirmButton.Confirm className="w-full">
               <ConfirmButton.Action
-                prompt={m.project_settings_delete_confirm_prompt()}
+                layout="stacked"
+                prompt={m.project_settings_delete_confirm_prompt({
+                  key: projectKey
+                })}
+                typed={projectKey}
                 label={m.project_detail_delete_button()}
                 busyLabel={m.project_detail_delete_in_progress()}
                 describeError={() => m.project_settings_delete_error()}

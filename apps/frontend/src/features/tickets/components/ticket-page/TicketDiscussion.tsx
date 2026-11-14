@@ -93,7 +93,7 @@ function ChildrenSection({
             onClick={() =>
               empty ? setAdding((current) => !current) : setOpen(!open)
             }
-            className="h-7 gap-1.5 px-2 text-[15px]/5 motion-safe:active:scale-100"
+            className="h-7 gap-1.5 px-2 text-[15px]/5"
           >
             {empty && (
               <Plus className="size-3.5" strokeWidth={1.75} aria-hidden />

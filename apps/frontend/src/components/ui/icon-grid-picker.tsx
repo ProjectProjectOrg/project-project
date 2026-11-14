@@ -68,7 +68,7 @@ export function IconGridPicker<K extends string>({
                   onChange(name)
                   changeOpen(false)
                 }}
-                className="flex size-7 items-center justify-center rounded-[8px] text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97] aria-pressed:bg-active aria-pressed:text-foreground"
+                className="flex size-7 items-center justify-center rounded-[8px] text-muted-foreground transition-all duration-100 hover:bg-hover hover:text-foreground aria-pressed:bg-active aria-pressed:text-foreground"
               >
                 {renderIcon(name)}
               </button>
