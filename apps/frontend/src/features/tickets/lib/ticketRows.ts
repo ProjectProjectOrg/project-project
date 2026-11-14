@@ -39,9 +39,15 @@ export type TicketRowPage = Readonly<{
 
 export type QueryWithView = TicketListQuery & Readonly<{ view?: unknown }>
 
+const withoutUnsetFields = <A extends object>(value: A): A =>
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- fromEntries drops key types; only undefined fields are removed
+  Object.fromEntries(
+    Object.entries(value).filter(([, field]) => field !== undefined)
+  ) as A
+
 export const ticketListQueryOf = (query: QueryWithView): TicketListQuery => {
   const { view: _view, ...rest } = query
-  return rest
+  return withoutUnsetFields(rest)
 }
 
 export const withoutEpics = <Q extends TicketFilter>(query: Q): Q =>
