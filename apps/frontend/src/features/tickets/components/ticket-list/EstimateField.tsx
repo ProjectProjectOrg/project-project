@@ -7,16 +7,14 @@ import {
   type EstimateUnit,
   type EstimationMode
 } from "@pp/shared"
-import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
 import { Input } from "@pp/ui/input"
 import { Kbd } from "@pp/ui/kbd"
-import { blurSwap } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { Select, SelectTrigger } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
 import { Plus, X } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
 import { useId, useState, type FormEvent, type ReactElement } from "react"
 
 import {
@@ -154,10 +152,12 @@ function estimateTrigger(
       title={stale !== null ? m.tickets_estimate_stale_hint() : undefined}
       className={className}
     >
-      <BlurSwap id={label} className="gap-1.5">
-        <Icon className="size-3.5" strokeWidth={1.75} />
-        <span>{label}</span>
-      </BlurSwap>
+      <TextSwap
+        className="gap-1.5"
+        icon={<Icon className="size-3.5" strokeWidth={1.75} />}
+      >
+        {label}
+      </TextSwap>
     </Button>
   )
 }
@@ -290,13 +290,13 @@ function EstimateInputForm({
         </p>
       ) : (
         unit === "time" && (
-          <BlurSwapLine
-            text={
-              parsed?.unit === "time"
+          <p className="text-caption text-muted-foreground tabular-nums">
+            <TextSwap announce className="whitespace-normal">
+              {parsed?.unit === "time"
                 ? formatWorkDurationLong(parsed.minutes * 60)
-                : m.tickets_estimate_time_hint()
-            }
-          />
+                : m.tickets_estimate_time_hint()}
+            </TextSwap>
+          </p>
         )
       )}
       <div className="flex items-center justify-end gap-1">
@@ -322,27 +322,5 @@ function EstimateInputForm({
         </Button>
       </div>
     </form>
-  )
-}
-
-function BlurSwapLine({ text }: Readonly<{ text: string }>) {
-  return (
-    <p
-      aria-live="polite"
-      className="grid text-caption text-muted-foreground tabular-nums"
-    >
-      <AnimatePresence initial={false}>
-        <motion.span
-          key={text}
-          variants={blurSwap}
-          initial="hidden"
-          animate="shown"
-          exit="hidden"
-          className="col-start-1 row-start-1"
-        >
-          {text}
-        </motion.span>
-      </AnimatePresence>
-    </p>
   )
 }

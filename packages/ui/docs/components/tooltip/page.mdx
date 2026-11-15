@@ -100,7 +100,7 @@ The fill is the foreground colour and the text the page colour: near-black in li
 
 ### Motion
 
-Opening and closing fade and scale from 96% over 160ms ease-out; at 100ms on `ease-standard` it read as a pop. Moving to another trigger while one shows, by pointer or by Tab, glides: position, size and the label's blur run together over 180ms on `ease-standard`, the same clock as BlurSwap's width. The curve front-loads, so the blur is quick and crisp; the slower `blurSwap` timing was tried and felt sluggish. The box clips, and the leaving label keeps the size it was measured at, so nothing reflows mid-swap. Reduced motion keeps only the fades.
+Opening and closing fade and scale from 96% over 160ms ease-out; at 100ms on `ease-standard` it read as a pop. Moving to another trigger while one shows, by pointer or by Tab, glides: position and size move over 180ms on `ease-standard`, and a text label rolls to the next one through `TextSwap` on the same clock (`speed="fast"`), keeping the letters they share. The box clips, so the label can't spill while it grows. A label with elements (a shortcut key) updates in place. Reduced motion keeps only the fades, and Scritto shows the new label at once.
 
 ### Shortcuts
 

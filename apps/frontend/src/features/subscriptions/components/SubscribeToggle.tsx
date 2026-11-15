@@ -1,8 +1,8 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketSubscribers, TicketId } from "@pp/shared"
-import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
 import { cn } from "@pp/ui/lib/utils"
+import { TextSwap } from "@pp/ui/text-swap"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import { Bell } from "lucide-react"
 
@@ -67,13 +67,11 @@ export function SubscribeToggle({
                 className={cn(waiting && "animate-pulse", className)}
               >
                 <Bell className="size-3.5" strokeWidth={1.75} />
-                <BlurSwap
-                  id={subscribers.subscribed ? "subscribed" : "subscribe"}
-                >
+                <TextSwap>
                   {subscribers.subscribed
                     ? m.tickets_subscribed_button()
                     : m.tickets_subscribe_button()}
-                </BlurSwap>
+                </TextSwap>
               </Button>
             }
           />

@@ -1,11 +1,11 @@
 import { Badge } from "@pp/ui/badge"
-import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
 import { ColorPicker } from "@pp/ui/color-picker"
 import { ConfirmButton, useConfirmButton } from "@pp/ui/confirm-button"
 import { Input } from "@pp/ui/input"
 import { transitions } from "@pp/ui/lib/springs"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
+import { TextSwap } from "@pp/ui/text-swap"
 import { Trash2, X } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
@@ -34,7 +34,7 @@ export default function TagAdmin() {
         <PopoverTrigger
           render={<button type="button" aria-label={`Edit tag ${name}`} />}
         >
-          <BlurSwap id={name}>{name}</BlurSwap>
+          <TextSwap>{name}</TextSwap>
         </PopoverTrigger>
         <PopoverContent align="start" sideOffset={6} className="w-64 p-2">
           <ConfirmButton.Root className="w-full">

@@ -2,7 +2,7 @@ import { INNER_RING, OUTER_RING, type ColorSwatch } from "@pp/shared"
 import { AnimatePresence, motion } from "motion/react"
 import { useEffect, useRef, useState } from "react"
 
-import { springs } from "../lib/springs"
+import { spring } from "../lib/springs"
 import { cn } from "../lib/utils"
 
 type Props = {
@@ -152,7 +152,7 @@ function Ring({
               scale: 0.3,
               opacity: 0
             }}
-            transition={{ ...springs.slow, delay, scale: { duration: 0.15 } }}
+            transition={{ ...spring.slow, delay, scale: { duration: 0.15 } }}
             whileHover={{ scale: 1.18 }}
             onClick={() => onSelect(c.hex)}
             aria-label={swatchLabel(c.hex)}

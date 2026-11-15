@@ -1,6 +1,6 @@
-import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
 import { Select, SelectTrigger, type SelectOption } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
 import {
   Bug,
   CircleDashed,
@@ -101,13 +101,17 @@ export default function TicketType() {
             />
           }
         >
-          <BlurSwap id={type} className="gap-1.5">
-            <Glyph
-              icon={current?.icon ?? CircleDashed}
-              color={current?.color}
-            />
-            <span>{current?.name ?? "No type"}</span>
-          </BlurSwap>
+          <TextSwap
+            className="gap-1.5"
+            icon={
+              <Glyph
+                icon={current?.icon ?? CircleDashed}
+                color={current?.color}
+              />
+            }
+          >
+            {current?.name ?? "No type"}
+          </TextSwap>
         </SelectTrigger>
       </Select>
       <p className="text-caption text-muted-foreground" aria-live="polite">

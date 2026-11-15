@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Org } from "@pp/shared"
-import { BlurSwap } from "@pp/ui/blur-swap"
 import { Select, SelectTrigger } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronsUpDown, Plus } from "lucide-react"
@@ -78,9 +78,7 @@ export function OrgSwitcher() {
           />
         }
       >
-        <BlurSwap id={current.name} className="min-w-0">
-          <span className="truncate">{current.name}</span>
-        </BlurSwap>
+        <TextSwap className="min-w-0">{current.name}</TextSwap>
         <ChevronsUpDown
           className="size-3.5 shrink-0 opacity-60"
           strokeWidth={1.75}

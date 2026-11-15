@@ -349,7 +349,7 @@ Filled variants (primary, secondary, destructive) share `.button-fill` in the th
 
 ### Value changes
 
-**The Blur Swap Rule.** When a control shows a value the user just changed, the change plays through `BlurSwap` (`@pp/ui/blur-swap`): the old value blurs out while the new one blurs in, stacked in place, and the control's width eases to the new value's width. Picking again mid-swap simply starts the next swap. For now this covers every select value (`SelectTrigger` does it on its own; triggers passed through `render` wrap their value in `BlurSwap`); other controls adopt it as they are polished.
+**The Text Swap Rule.** When a control shows a value the user just changed, the change plays through `TextSwap` (`@pp/ui/text-swap`, built on [Scritto](https://scrit.to)): the letters the old and new value share stay put, the rest roll out and in glyph by glyph, and the control's width eases to fit. An icon beside the value crossfades with it (`icon`). Normal changes run on `transitions.morph` (260ms); a tooltip moving to the next button uses `speed="fast"` (`transitions.presence`, 180ms). Scritto shows the value to screen readers as a labelled image, which isn't announced when it changes, so a line whose change should be read out passes `announce`. This covers every select value (`SelectTrigger` does it on its own), toggle labels like Subscribe, renamed tags and tooltip labels.
 
 ### Inputs
 

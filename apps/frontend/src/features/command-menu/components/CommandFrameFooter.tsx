@@ -4,7 +4,7 @@ import {
   CommandMenuShortcut,
   useHighlightedItem
 } from "@pp/ui/command-menu"
-import { springs } from "@pp/ui/lib/springs"
+import { spring } from "@pp/ui/lib/springs"
 import { motion, useReducedMotion } from "motion/react"
 
 import { keyLabels } from "@/lib/keyLabels"
@@ -42,7 +42,7 @@ export function SearchFooter({
       <motion.div
         initial={reduceMotion ? false : { y: 12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={springs.moderate}
+        transition={spring.moderate}
         className="flex min-w-0 flex-1 items-center gap-4"
       >
         {shown !== null && (

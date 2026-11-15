@@ -1,10 +1,10 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { GroupPolicy } from "@pp/access/policies"
 import { type Group, type GroupId, type TicketId } from "@pp/shared"
-import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
 import { Hitbox } from "@pp/ui/hitbox"
 import { cn } from "@pp/ui/lib/utils"
+import { TextSwap } from "@pp/ui/text-swap"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Plus } from "lucide-react"
 import { use, useState } from "react"
@@ -173,14 +173,18 @@ export function SprintSelect({
               : m.tickets_assign_sprint_chip()
           }
         >
-          <BlurSwap id={current?.id ?? "none"} className="gap-1.5">
-            {current ? (
-              <SprintStateIcon sprint={current} size="xs" />
-            ) : (
-              <Plus className="size-3.5" strokeWidth={1.75} />
-            )}
-            <span className="max-w-[14ch] truncate">{label}</span>
-          </BlurSwap>
+          <TextSwap
+            className="max-w-[14ch] gap-1.5"
+            icon={
+              current ? (
+                <SprintStateIcon sprint={current} size="xs" />
+              ) : (
+                <Plus className="size-3.5" strokeWidth={1.75} />
+              )
+            }
+          >
+            {label}
+          </TextSwap>
         </Button>
       }
     />
@@ -262,14 +266,18 @@ export function SprintBadgeTrigger({
             }
             className={cn(failed && "text-destructive", className)}
           >
-            <BlurSwap id={current?.id ?? "none"} className="gap-1.5">
-              {current ? (
-                <SprintStateIcon sprint={current} size="xs" />
-              ) : (
-                <Plus className="size-3.5" strokeWidth={1.75} />
-              )}
-              <span className="max-w-[14ch] truncate">{label}</span>
-            </BlurSwap>
+            <TextSwap
+              className="max-w-[14ch] gap-1.5"
+              icon={
+                current ? (
+                  <SprintStateIcon sprint={current} size="xs" />
+                ) : (
+                  <Plus className="size-3.5" strokeWidth={1.75} />
+                )
+              }
+            >
+              {label}
+            </TextSwap>
           </Button>
         }
       />

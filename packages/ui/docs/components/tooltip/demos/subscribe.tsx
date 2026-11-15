@@ -1,11 +1,11 @@
-import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
+import { TextSwap } from "@pp/ui/text-swap"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import { Bell } from "lucide-react"
 import { useState } from "react"
 
-// The ticket page's Subscribe toggle. Its label blurs between Subscribe and
-// Subscribed (BlurSwap, which also eases the width). The button says what
+// The ticket page's Subscribe toggle. Its label rolls between Subscribe and
+// Subscribed (TextSwap, which also eases the width). The button says what
 // you'll do; the tooltip says who already gets updates, so it adds to the
 // label and the button is described by it (aria-describedby).
 export default function Subscribe() {
@@ -26,9 +26,7 @@ export default function Subscribe() {
         }
       >
         <Bell className="size-3.5" strokeWidth={1.75} />
-        <BlurSwap id={subscribed ? "subscribed" : "subscribe"}>
-          {subscribed ? "Subscribed" : "Subscribe"}
-        </BlurSwap>
+        <TextSwap>{subscribed ? "Subscribed" : "Subscribe"}</TextSwap>
       </TooltipTrigger>
       <TooltipContent>
         Subscribed: {new Intl.ListFormat("en").format(names)}

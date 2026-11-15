@@ -1,5 +1,4 @@
 import { Badge, type BadgeTone } from "@pp/ui/badge"
-import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
 import { DropdownMenuTrigger } from "@pp/ui/dropdown-menu"
 import {
@@ -9,6 +8,7 @@ import {
 } from "@pp/ui/input-group"
 import { cn } from "@pp/ui/lib/utils"
 import { Select, SelectTrigger } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
 import type { LucideIcon } from "lucide-react"
 import { MoreHorizontal, Plus } from "lucide-react"
 import type { FormEvent, ReactNode } from "react"
@@ -79,10 +79,12 @@ export function RoleSelect<R extends string>({
               />
             }
           >
-            <BlurSwap id={value} className="gap-1">
-              <Icon className="size-3 shrink-0" strokeWidth={1.75} />
+            <TextSwap
+              className="gap-1"
+              icon={<Icon className="size-3 shrink-0" strokeWidth={1.75} />}
+            >
               {current.label()}
-            </BlurSwap>
+            </TextSwap>
           </Badge>
         }
       />

@@ -1,7 +1,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useLayoutEffect, useRef, useState } from "react"
 
-import { springs } from "../lib/springs"
+import { spring } from "../lib/springs"
 import { cn } from "../lib/utils"
 
 export type HighlightTone = "default" | "destructive"
@@ -237,7 +237,7 @@ export function MenuHighlight({
               opacity: 0,
               transition: { duration: restOnFirst ? 0 : 0.15 }
             }}
-            transition={reduceMotion ? { duration: 0 } : springs.fast}
+            transition={reduceMotion ? { duration: 0 } : spring.fast}
           />
         )}
       </AnimatePresence>

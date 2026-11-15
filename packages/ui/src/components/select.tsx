@@ -18,7 +18,6 @@ import {
   useTriggerAnchorRef
 } from "../lib/popupAnchor"
 import { cn } from "../lib/utils"
-import { BlurSwap } from "./blur-swap"
 import { Button } from "./button"
 import { MenuHighlight } from "./menu-highlight"
 import {
@@ -26,6 +25,7 @@ import {
   menuPopupClass,
   menuSeparatorClass
 } from "./menu-styles"
+import { TextSwap } from "./text-swap"
 
 export type SelectOption<Value extends string> = Readonly<{
   value: Value
@@ -81,7 +81,7 @@ type ChoiceValue<Items extends ReadonlyArray<SelectOption<string>>> = Exclude<
 type Chosen = string | ReadonlyArray<string> | null
 
 // The options, for the trigger: it shows the chosen option's label itself so
-// it can blur-swap it.
+// it can roll it through TextSwap.
 type SelectShared = Readonly<{
   items: ReadonlyArray<SelectOption<string>>
   value: Chosen
@@ -223,8 +223,20 @@ type SelectTriggerProps = Omit<
     children?: ReactNode
   }>
 
-const valueKey = (value: Chosen) =>
-  value === null ? "" : typeof value === "string" ? value : value.join("\u0000")
+// A text label rolls through TextSwap; a label with elements (an option that
+// brings its own icon) shows as is.
+function ChosenLabel({
+  label,
+  className
+}: Readonly<{ label: ReactNode; className?: string }>) {
+  if (typeof label === "string")
+    return <TextSwap className={className}>{label}</TextSwap>
+  return (
+    <span className={cn("flex min-w-0 items-center truncate", className)}>
+      {label}
+    </span>
+  )
+}
 
 const labelFor = (
   items: ReadonlyArray<SelectOption<string>>,
@@ -298,17 +310,17 @@ function SelectTrigger({
             />
           ) : null}
           {children ?? (
-            <BlurSwap
-              id={valueKey(chosen)}
+            <ChosenLabel
+              label={
+                chosen === null
+                  ? placeholder
+                  : (selectedLabel ?? labelFor(items, chosen))
+              }
               className={cn(
                 "flex-1 gap-2 text-left",
                 chosen === null && "text-muted-foreground"
               )}
-            >
-              {chosen === null
-                ? placeholder
-                : (selectedLabel ?? labelFor(items, chosen))}
-            </BlurSwap>
+            />
           )}
         </span>
         <ChevronDown

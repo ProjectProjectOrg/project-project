@@ -1,7 +1,7 @@
 import { Badge } from "@pp/ui/badge"
-import { BlurSwap } from "@pp/ui/blur-swap"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { Select, SelectTrigger } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
 import {
   Briefcase,
   ShieldCheck,
@@ -81,10 +81,14 @@ export default function MemberRoles() {
                       />
                     }
                   >
-                    <BlurSwap id={role} className="gap-1">
-                      <Icon className="size-3 shrink-0" strokeWidth={1.75} />
+                    <TextSwap
+                      className="gap-1"
+                      icon={
+                        <Icon className="size-3 shrink-0" strokeWidth={1.75} />
+                      }
+                    >
                       {label}
-                    </BlurSwap>
+                    </TextSwap>
                   </Badge>
                 }
               />

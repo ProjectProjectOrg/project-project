@@ -20,7 +20,7 @@ import {
 } from "react"
 
 import { fontWeights } from "../lib/fontWeight"
-import { sliderSprings as spring } from "../lib/springs"
+import { spring } from "../lib/springs"
 import { cn } from "../lib/utils"
 import {
   nearestStepIndex,

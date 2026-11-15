@@ -1,6 +1,6 @@
-import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
 import { Select, SelectTrigger } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
 import { ChevronDown, FolderKanban } from "lucide-react"
 
 import { m } from "@/paraglide/messages"
@@ -21,10 +21,12 @@ export function ProjectSelect({
   if (readOnly) {
     return (
       <span className="inline-flex h-8 items-center gap-1.5 px-2.5 text-body text-foreground">
-        <BlurSwap id={label} className="gap-1.5">
-          <FolderKanban className="size-3.5" strokeWidth={1.75} />
-          <span>{label}</span>
-        </BlurSwap>
+        <TextSwap
+          className="gap-1.5"
+          icon={<FolderKanban className="size-3.5" strokeWidth={1.75} />}
+        >
+          {label}
+        </TextSwap>
       </span>
     )
   }
@@ -42,10 +44,12 @@ export function ProjectSelect({
       <SelectTrigger
         render={<Button type="button" variant="ghost" tone="strong" />}
       >
-        <BlurSwap id={label} className="gap-1.5">
-          <FolderKanban className="size-3.5" strokeWidth={1.75} />
-          <span>{label}</span>
-        </BlurSwap>
+        <TextSwap
+          className="gap-1.5"
+          icon={<FolderKanban className="size-3.5" strokeWidth={1.75} />}
+        >
+          {label}
+        </TextSwap>
         <ChevronDown className="size-3" strokeWidth={1.75} />
       </SelectTrigger>
     </Select>

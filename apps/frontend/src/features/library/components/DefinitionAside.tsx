@@ -6,7 +6,6 @@ import {
   type LibraryColor,
   type TicketPriority
 } from "@pp/shared"
-import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
 import { ColorPicker } from "@pp/ui/color-picker"
 import {
@@ -19,6 +18,7 @@ import { IconGridPicker } from "@pp/ui/icon-grid-picker"
 import { Input } from "@pp/ui/input"
 import { cn } from "@pp/ui/lib/utils"
 import { Select, SelectTrigger } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { ChevronDown, Plus, X } from "lucide-react"
@@ -178,10 +178,9 @@ function ChoiceTrigger({
         />
       }
     >
-      <BlurSwap id={label} className="gap-1">
-        {icon}
-        <span>{label}</span>
-      </BlurSwap>
+      <TextSwap className="gap-1" icon={icon}>
+        {label}
+      </TextSwap>
       <ChevronDown
         className="size-3.5 text-muted-foreground"
         strokeWidth={1.75}

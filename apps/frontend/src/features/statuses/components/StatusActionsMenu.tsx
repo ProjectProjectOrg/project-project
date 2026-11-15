@@ -1,6 +1,5 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { ProjectStatus } from "@pp/shared"
-import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
 import { ConfirmButton } from "@pp/ui/confirm-button"
 import {
@@ -12,6 +11,7 @@ import {
 } from "@pp/ui/dropdown-menu"
 import { cn } from "@pp/ui/lib/utils"
 import { Select, SelectTrigger } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ChevronDown, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 import { useRef, useState, type ReactNode } from "react"
@@ -242,16 +242,22 @@ function TargetPicker({
               status: selectedMeta.label
             })}
           >
-            <BlurSwap id={value ?? ""} className="gap-1">
-              <SelectedIcon
-                className={cn("size-3.5", selectedMeta.className)}
-                style={
-                  selectedMeta.color ? { color: selectedMeta.color } : undefined
-                }
-                strokeWidth={1.75}
-              />
-              <span>{statusLabelFor(value ?? "", statuses)}</span>
-            </BlurSwap>
+            <TextSwap
+              className="gap-1"
+              icon={
+                <SelectedIcon
+                  className={cn("size-3.5", selectedMeta.className)}
+                  style={
+                    selectedMeta.color
+                      ? { color: selectedMeta.color }
+                      : undefined
+                  }
+                  strokeWidth={1.75}
+                />
+              }
+            >
+              {statusLabelFor(value ?? "", statuses)}
+            </TextSwap>
             <ChevronDown className="ml-1 size-3.5 text-muted-foreground" />
           </Button>
         }

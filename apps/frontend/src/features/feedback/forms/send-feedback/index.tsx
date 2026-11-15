@@ -3,13 +3,14 @@ import { ATTACHMENT_CONTENT_TYPES, type FeedbackKind } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
 import { Input } from "@pp/ui/input"
-import { blurSwap, spring } from "@pp/ui/lib/springs"
+import { spring } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
+import { TextSwap } from "@pp/ui/text-swap"
 import { useLocation } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import { CircleCheck, Paperclip } from "lucide-react"
-import { AnimatePresence, motion, type Variants } from "motion/react"
+import { motion, type Variants } from "motion/react"
 import {
   useRef,
   useState,
@@ -188,10 +189,7 @@ export function SendFeedbackForm({
                   className="col-start-1 row-start-1 text-title leading-6 font-semibold"
                 />
                 {field.value === "" ? (
-                  <TitlePlaceholder
-                    placeholder={placeholder}
-                    kind={values.kind}
-                  />
+                  <TitlePlaceholder placeholder={placeholder} />
                 ) : null}
               </Composer.Title>
             )
@@ -251,27 +249,13 @@ export function SendFeedbackForm({
   )
 }
 
-function TitlePlaceholder({
-  placeholder,
-  kind
-}: Readonly<{ placeholder: string; kind: FeedbackKind }>) {
+function TitlePlaceholder({ placeholder }: Readonly<{ placeholder: string }>) {
   return (
     <span
       aria-hidden
       className="pointer-events-none col-start-1 row-start-1 grid text-muted-foreground"
     >
-      <AnimatePresence initial={false}>
-        <motion.span
-          key={kind}
-          variants={blurSwap}
-          initial="hidden"
-          animate="shown"
-          exit="hidden"
-          className="col-start-1 row-start-1 whitespace-nowrap"
-        >
-          {placeholder}
-        </motion.span>
-      </AnimatePresence>
+      <TextSwap className="col-start-1 row-start-1">{placeholder}</TextSwap>
     </span>
   )
 }

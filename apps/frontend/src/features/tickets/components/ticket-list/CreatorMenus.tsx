@@ -1,7 +1,7 @@
 import type { Group, TypeKey } from "@pp/shared"
-import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
 import { Select, SelectTrigger } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
 import { Plus } from "lucide-react"
 import { useRef, type ComponentProps, type RefObject } from "react"
 
@@ -159,10 +159,12 @@ export function CreatorTypeSelect({
           />
         }
       >
-        <BlurSwap id={label} className="gap-1.5">
-          <TypeGlyph type={shown} className="size-3.5" />
-          <span>{label}</span>
-        </BlurSwap>
+        <TextSwap
+          className="gap-1.5"
+          icon={<TypeGlyph type={shown} className="size-3.5" />}
+        >
+          {label}
+        </TextSwap>
       </SelectTrigger>
     </Select>
   )

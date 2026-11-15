@@ -1,12 +1,12 @@
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
-import Scritto from "@scritto/react"
 import { AnimatePresence, motion, type Transition } from "motion/react"
 import * as React from "react"
 import { createPortal } from "react-dom"
 
 import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
+import { TextSwap } from "./text-swap"
 
 /*
  * Our own tooltip, not Base UI's.
@@ -265,24 +265,13 @@ const inkClass =
 const contentClass =
   "w-max whitespace-nowrap [&[class*='max-w-']]:whitespace-normal"
 
-// The glide, the resize and the label blur share one clock: BlurSwap's
-// width timing, 180ms on ease-standard. The curve front-loads, so the blur
-// is quick and crisp rather than a slow cross-fade (the slower blurSwap
-// timing was tried and felt sluggish). The box clips, so the label can't
-// spill while it grows.
+// The glide and the resize: 180ms on ease-standard (transitions.presence).
+// A text label rolls over on the same clock (TextSwap speed="fast"). The box
+// clips, so the label can't spill while it grows.
 const glide: Transition = transitions.presence
-const labelSwap = {
-  hidden: { opacity: 0, filter: "blur(4px)", transition: glide },
-  shown: { opacity: 1, filter: "blur(0px)", transition: glide }
-}
 // Opening and closing: a fade and a scale from 96% over 160ms ease-out.
 // ease-standard over 100ms was 76% opaque after 60ms and read as a pop.
 const appear: Transition = { duration: 0.16, ease: "easeOut" }
-// Reduced motion: the same swap without the blur.
-const fadeSwap = {
-  hidden: { opacity: 0, transition: { duration: 0.12 } },
-  shown: { opacity: 1, transition: { duration: 0.16 } }
-}
 
 const prefersReducedMotion = () =>
   typeof window !== "undefined" &&
@@ -482,48 +471,22 @@ function HostSurface() {
               "fixed top-0 left-0 z-50 grid overflow-hidden p-0"
             )}
           >
-            {typeof content === "string" ? (
-              // EXPERIMENT (exp/scritto): a plain-text label rolls per glyph
-              // through Scritto, keeping the letters the two labels share.
-              <div
-                className={cn(
-                  inkClass,
-                  contentClass,
-                  "col-start-1 row-start-1 bg-transparent",
-                  registration?.className
-                )}
-              >
-                {/* Matched to the glide (transitions.presence, 180ms); with
-                    Scritto's stagger the last glyph lands about 55ms later. */}
-                <Scritto
-                  value={content}
-                  transition={{
-                    duration: transitions.presence.duration * 1000
-                  }}
-                />
-              </div>
-            ) : (
-              <AnimatePresence initial={false}>
-                <motion.div
-                  key={id}
-                  variants={reduced ? fadeSwap : labelSwap}
-                  initial="hidden"
-                  animate="shown"
-                  exit="hidden"
-                  // Each label keeps the size it was measured at, so the
-                  // leaving one doesn't reflow while the box resizes.
-                  style={{ width: layout.width, height: layout.height }}
-                  className={cn(
-                    inkClass,
-                    contentClass,
-                    "col-start-1 row-start-1 bg-transparent",
-                    registration?.className
-                  )}
-                >
-                  {content}
-                </motion.div>
-              </AnimatePresence>
-            )}
+            <div
+              className={cn(
+                inkClass,
+                contentClass,
+                "col-start-1 row-start-1 bg-transparent",
+                registration?.className
+              )}
+            >
+              {/* A text label rolls to the next one with the glide; a label
+                  with elements (a shortcut key) updates in place. */}
+              {typeof content === "string" ? (
+                <TextSwap speed="fast">{content}</TextSwap>
+              ) : (
+                content
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

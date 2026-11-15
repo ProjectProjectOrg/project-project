@@ -124,7 +124,7 @@ Set during the polish passes; a component that breaks one is not done.
 - **Fields:** text-entry surfaces and select triggers use `bg-field` (`--field`).
 - **Hover and press only on interactive things.** A static element never changes on hover. Press scales to 97%.
 - **Icon padding:** a leading or trailing icon takes about a quarter off the padding on its side (buttons: `iconLeft`/`iconRight`; badges: `has-[>svg:first-child]`).
-- **Value changes:** when a control shows a value the user just changed (a select's chosen option, for now), it plays through `BlurSwap`, which also animates the width.
+- **Value changes:** when a control shows a value the user just changed (a select's chosen option, a toggle's label, a tooltip moving on), it plays through `TextSwap` (Scritto), which also animates the width. Pass plain text; an icon goes in `icon`.
 - **No layout shift:** messages that appear under a control (errors, helper text) take a reserved grid cell or replace the description, so nothing moves.
 - **Responsive:** every overview and example fits a half-width (50/50) window: `@container` queries and `minmax(0,1fr)` columns, never viewport breakpoints.
 - **Theme CSS:** component CSS in `theme.css` that callers may need to override goes in `@layer components`, because unlayered CSS beats Tailwind utilities.

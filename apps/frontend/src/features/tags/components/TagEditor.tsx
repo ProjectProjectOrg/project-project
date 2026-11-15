@@ -1,7 +1,6 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { TagName, type ListEdit, type Tag, type TicketDetail } from "@pp/shared"
 import { Badge } from "@pp/ui/badge"
-import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
@@ -9,6 +8,7 @@ import {
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
 import { cn } from "@pp/ui/lib/utils"
+import { TextSwap } from "@pp/ui/text-swap"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -269,7 +269,7 @@ function AppliedTagChip({
   if (!canManage || !tag) {
     return (
       <Badge {...badgeProps}>
-        <BlurSwap id={name}>{name}</BlurSwap>
+        <TextSwap>{name}</TextSwap>
         {removeButton}
       </Badge>
     )
@@ -286,7 +286,7 @@ function AppliedTagChip({
         onOpenChange={onManagementOpenChange}
       >
         <button type="button" aria-label={m.tags_edit_aria_label({ name })}>
-          <BlurSwap id={name}>{name}</BlurSwap>
+          <TextSwap>{name}</TextSwap>
         </button>
       </TagAdminPopover>
       {removeButton}

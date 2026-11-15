@@ -1,11 +1,9 @@
-import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
 import { Input } from "@pp/ui/input"
 import { Kbd } from "@pp/ui/kbd"
-import { blurSwap } from "@pp/ui/lib/springs"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
+import { TextSwap } from "@pp/ui/text-swap"
 import { Hourglass, Plus } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
 import { useId, useState, type FormEvent } from "react"
 
 const USER_TOGGLES = new Set(["trigger-press", "escape-key", "outside-press"])
@@ -75,10 +73,12 @@ export default function Estimate() {
           />
         }
       >
-        <BlurSwap id={label} className="gap-1.5">
-          <Icon className="size-3.5" strokeWidth={1.75} />
-          <span>{label}</span>
-        </BlurSwap>
+        <TextSwap
+          className="gap-1.5"
+          icon={<Icon className="size-3.5" strokeWidth={1.75} />}
+        >
+          {label}
+        </TextSwap>
       </PopoverTrigger>
       <PopoverContent align="start" sideOffset={6} className="w-60">
         <EstimateForm
@@ -141,22 +141,10 @@ function EstimateForm({
           Try 45m, 3h, 2d 4h or 1w, up to 999h.
         </p>
       ) : (
-        <p
-          aria-live="polite"
-          className="grid text-caption text-muted-foreground tabular-nums"
-        >
-          <AnimatePresence initial={false}>
-            <motion.span
-              key={hint}
-              variants={blurSwap}
-              initial="hidden"
-              animate="shown"
-              exit="hidden"
-              className="col-start-1 row-start-1"
-            >
-              {hint}
-            </motion.span>
-          </AnimatePresence>
+        <p className="text-caption text-muted-foreground tabular-nums">
+          <TextSwap announce className="whitespace-normal">
+            {hint}
+          </TextSwap>
         </p>
       )}
       <div className="flex items-center justify-end gap-1">
