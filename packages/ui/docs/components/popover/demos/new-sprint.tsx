@@ -38,8 +38,11 @@ const twoWeeksFromToday = (): DateDraft => {
   }
 }
 
-// The backlog's "New sprint" composer: a popover holding a whole form, with
-// a second popover nested inside for the date range.
+const SPRINTS = ["Sprint 14", "Sprint 13", "Sprint 12"]
+
+// The sprint rail's "New sprint" button (in the sidebar, on the frame) opens
+// the sprint composer: a popover holding a whole form, with a second popover
+// nested inside for the date range.
 export default function NewSprint() {
   const [open, setOpen] = useState(true)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -49,120 +52,145 @@ export default function NewSprint() {
   const startsNow = range.from !== undefined && range.from <= today
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next, details) => {
-        if (USER_TOGGLES.has(details.reason)) setOpen(next)
-      }}
-      modal="trap-focus"
-    >
-      <PopoverTrigger render={<Button variant="secondary" size="sm" />}>
-        <Plus />
-        New sprint
-      </PopoverTrigger>
-      <Composer.Popover align="start" sideOffset={6}>
-        <form
-          className="flex flex-col"
-          onSubmit={(event) => {
-            event.preventDefault()
-            setOpen(false)
-          }}
-        >
-          <Composer.Header>
-            <span className="flex h-7 items-center gap-1.5 px-2.5 text-body text-foreground">
-              <span aria-hidden>🏗</span>
-              Web app
-            </span>
-            <PopoverTitle className="text-body font-normal text-muted-foreground">
-              New sprint
-            </PopoverTitle>
-          </Composer.Header>
-          <Composer.Title>
-            <Input
-              variant="bare"
-              className="text-title font-semibold"
-              aria-label="Sprint name…"
-              placeholder="Sprint name…"
-              value={name}
-              maxLength={120}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </Composer.Title>
-          <Composer.Body>
-            <textarea
-              aria-label="Description"
-              placeholder="Add a goal or description…"
-              rows={3}
-              className="w-full resize-none bg-transparent text-body outline-none placeholder:text-muted-foreground"
-            />
-          </Composer.Body>
-          <Composer.Chips>
-            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-              <PopoverTrigger
-                render={<Button type="button" variant="ghost" tone="strong" />}
-              >
-                <CalendarDays className="size-3.5" strokeWidth={1.75} />
-                <span>{datesLabel(range)}</span>
-              </PopoverTrigger>
-              <PopoverContent
-                align="start"
-                initialFocus={false}
-                className="w-auto p-0"
-              >
-                <Calendar
-                  navLabels={{ previous: "Previous month", next: "Next month" }}
-                  mode="range"
-                  selected={{ from: range.from, to: range.to }}
-                  onSelect={(next) => setRange(next ?? {})}
-                  disabled={{ before: today }}
-                  defaultMonth={range.from ?? today}
-                />
-                <div className="flex justify-between gap-2 border-t border-border/60 p-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    onClick={() => {
-                      setRange(twoWeeksFromToday())
-                      setPickerOpen(false)
-                    }}
-                  >
-                    Start today
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    disabled={range.from === undefined}
-                    onClick={() => {
-                      setRange({})
-                      setPickerOpen(false)
-                    }}
-                  >
-                    Clear dates
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-            {range.from === undefined && (
-              <Composer.Hint>Stays planned until you start it</Composer.Hint>
-            )}
-          </Composer.Chips>
-          <Composer.Footer>
+    <div className="flex w-60 flex-col gap-0.5 rounded-[20px] bg-background p-2 corner-squircle">
+      {SPRINTS.map((sprint) => (
+        <p key={sprint} className="px-2 py-1.5 text-body text-muted-foreground">
+          {sprint}
+        </p>
+      ))}
+      <Popover
+        open={open}
+        onOpenChange={(next, details) => {
+          if (USER_TOGGLES.has(details.reason)) setOpen(next)
+        }}
+        modal="trap-focus"
+      >
+        <PopoverTrigger
+          render={
             <Button
               type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" size="sm" disabled={name.trim() === ""}>
-              {startsNow ? "Create and start" : "Create sprint"}
-            </Button>
-          </Composer.Footer>
-        </form>
-      </Composer.Popover>
-    </Popover>
+              variant="dither"
+              className="mt-1 w-full justify-start text-primary-foreground"
+              leadingIcon={Plus}
+              ditherFrom="var(--primary)"
+              ditherTo="var(--background)"
+              ditherDirection="r"
+              ditherStops={[0.7, 1]}
+              ditherHoverStops={[0.5, 1]}
+            />
+          }
+        >
+          New sprint
+        </PopoverTrigger>
+        <Composer.Popover align="start" sideOffset={6}>
+          <form
+            className="flex flex-col"
+            onSubmit={(event) => {
+              event.preventDefault()
+              setOpen(false)
+            }}
+          >
+            <Composer.Header>
+              <span className="flex h-7 items-center gap-1.5 px-2.5 text-body text-foreground">
+                <span aria-hidden>🏗</span>
+                Web app
+              </span>
+              <PopoverTitle className="text-body font-normal text-muted-foreground">
+                New sprint
+              </PopoverTitle>
+            </Composer.Header>
+            <Composer.Title>
+              <Input
+                variant="bare"
+                className="text-title font-semibold"
+                aria-label="Sprint name…"
+                placeholder="Sprint name…"
+                value={name}
+                maxLength={120}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </Composer.Title>
+            <Composer.Body>
+              <textarea
+                aria-label="Description"
+                placeholder="Add a goal or description…"
+                rows={3}
+                className="w-full resize-none bg-transparent text-body outline-none placeholder:text-muted-foreground"
+              />
+            </Composer.Body>
+            <Composer.Chips>
+              <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+                <PopoverTrigger
+                  render={
+                    <Button type="button" variant="ghost" tone="strong" />
+                  }
+                >
+                  <CalendarDays className="size-3.5" strokeWidth={1.75} />
+                  <span>{datesLabel(range)}</span>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  initialFocus={false}
+                  className="w-auto p-0"
+                >
+                  <Calendar
+                    navLabels={{
+                      previous: "Previous month",
+                      next: "Next month"
+                    }}
+                    mode="range"
+                    selected={{ from: range.from, to: range.to }}
+                    onSelect={(next) => setRange(next ?? {})}
+                    disabled={{ before: today }}
+                    defaultMonth={range.from ?? today}
+                  />
+                  <div className="flex justify-between gap-2 border-t border-border/60 p-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => {
+                        setRange(twoWeeksFromToday())
+                        setPickerOpen(false)
+                      }}
+                    >
+                      Start today
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      disabled={range.from === undefined}
+                      onClick={() => {
+                        setRange({})
+                        setPickerOpen(false)
+                      }}
+                    >
+                      Clear dates
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              {range.from === undefined && (
+                <Composer.Hint>Stays planned until you start it</Composer.Hint>
+              )}
+            </Composer.Chips>
+            <Composer.Footer>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={name.trim() === ""}>
+                {startsNow ? "Create and start" : "Create sprint"}
+              </Button>
+            </Composer.Footer>
+          </form>
+        </Composer.Popover>
+      </Popover>
+    </div>
   )
 }

@@ -1,9 +1,10 @@
+import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
 import { Input } from "@pp/ui/input"
 import { Kbd } from "@pp/ui/kbd"
 import { blurSwap } from "@pp/ui/lib/springs"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
-import { Timer } from "lucide-react"
+import { Hourglass, Plus } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useId, useState, type FormEvent } from "react"
 
@@ -47,11 +48,15 @@ const formatShort = (minutes: number) => {
     .join(" ")
 }
 
-// A ticket row's estimate chip: a small popover with one field, a live
-// reading of what you typed, and Clear and Save.
+// The estimate property on a ticket page or board card (time estimates): a
+// ghost button that opens a small popover with one field, a live reading of
+// what you typed, and Clear and Save. The button's label blurs to the new
+// value when you save.
 export default function Estimate() {
   const [open, setOpen] = useState(true)
   const [estimate, setEstimate] = useState<number | null>(150)
+  const label = estimate === null ? "Add estimate" : formatShort(estimate)
+  const Icon = estimate === null ? Plus : Hourglass
 
   return (
     <Popover
@@ -61,10 +66,19 @@ export default function Estimate() {
       }}
     >
       <PopoverTrigger
-        render={<Button variant="ghost" size="sm" tone="strong" />}
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            tone={estimate === null ? "muted" : "strong"}
+            aria-label={`Estimate: ${label}. Click to change.`}
+          />
+        }
       >
-        <Timer className="size-3.5" strokeWidth={1.75} />
-        {estimate === null ? "Estimate" : formatShort(estimate)}
+        <BlurSwap id={label} className="gap-1.5">
+          <Icon className="size-3.5" strokeWidth={1.75} />
+          <span>{label}</span>
+        </BlurSwap>
       </PopoverTrigger>
       <PopoverContent align="start" sideOffset={6} className="w-60">
         <EstimateForm
