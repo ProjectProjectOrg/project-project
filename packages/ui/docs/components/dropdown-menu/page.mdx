@@ -58,6 +58,31 @@ import {
 
 A row's children are its marker (an icon, dot or avatar), its label and an optional count with `data-menu-meta`. The tick slot is added for you.
 
+A destructive action in a menu is a `DropdownMenuConfirmItem`, which confirms in place:
+
+```tsx
+<DropdownMenuConfirmItem
+  icon={<Trash2 className="size-4" strokeWidth={1.75} />}
+  label={m.sprints_delete_button()}
+  confirmLabel={m.sprints_delete_confirm_title()}
+  describeError={describeCause}
+  onConfirm={onDelete}
+/>
+```
+
+| Prop             | Type                                         | Default         |
+| ---------------- | -------------------------------------------- | --------------- |
+| `label`          | `string`                                     |                 |
+| `confirmLabel`   | `string`, what the armed item asks           |                 |
+| `onConfirm`      | `() => Promise<Outcome> \| Outcome`          |                 |
+| `describeError`  | `(cause: Cause<E>) => string`                |                 |
+| `icon`           | `ReactNode`                                  |                 |
+| `tone`           | `"destructive" \| "neutral"`                 | `"destructive"` |
+| `quiet`          | `boolean`, plain until armed                 | `false`         |
+| `timeout`        | `number` (seconds) or `false`                | `4`             |
+| `closeOnConfirm` | `boolean`                                    | `true`          |
+| `disabled`       | `boolean`                                    | `false`         |
+
 ## Rules
 
 ### Multi-select rows use `DropdownMenuCheckboxItem`
@@ -79,6 +104,10 @@ A radio row behaves like a checkbox row: the chosen option gets the leading slot
 ### Shortcuts sit a little in from the edge
 
 Shortcuts and other trailing text get 4px more room on the right than the row's 8px padding, so letters such as ⌘D don't crowd the highlight's rounded edge. Trailing icons, such as the submenu chevron, keep the plain padding.
+
+### Destructive items confirm in place
+
+A menu is already a small surface the person is looking at, so a delete confirms right there instead of opening a popover. The first click arms the item: its label rolls to the question (`confirmLabel`) through TextSwap, and its fill becomes Button's countdown, drawn whether or not the pointer is on it, draining over 4 seconds. A second click runs `onConfirm`, with the logo loader in the icon's place, then closes the whole menu. When the countdown runs out the label rolls back. A failure rolls the error in and keeps the item armed, without a countdown, for a retry. Pointer over the item or keyboard focus on it holds the countdown, so keyboard users never run out of time. Choices that need more than yes or no become separate items (delete, or delete with its sub-tickets) or a submenu of `quiet` items that only turn red when armed (move its tickets to this status, then delete).
 
 ## Examples
 
@@ -105,3 +134,9 @@ The avatar menu in the sidebar. A header with the signed-in account sits above t
 The tag picker and board column picker as the app uses them: a marker, a label and a count per row, with the selection reading at a glance.
 
 <Demo name="checkbox-items" title="Checkbox items" className="min-h-96 place-items-start" />
+
+### Confirm item
+
+The sprint page's actions menu. "Delete sprint" arms on the first click and deletes on the second, then the menu closes. It fails every other time here, to show the error.
+
+<Demo name="confirm-item" title="Delete from a menu" className="min-h-80 place-items-start" />

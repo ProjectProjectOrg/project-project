@@ -69,7 +69,7 @@ Every other prop goes to the rendered `button`.
 
 ### Countdown: the fill is the timer
 
-A button that will act or go away by itself shows how long is left in its own fill: the fill drains toward the start over `seconds`, over a tertiary base so the label stays readable, then `onElapsed` runs. `delay` waits first, for example until an entrance has landed. Hovering the button, or an ancestor marked `data-countdown-hold`, holds it; so does keyboard focus in either, for as long as it stays, so keyboard and screen reader users never run out of time (WCAG 2.2.1). A disabled or loading button holds it too. Use it on destructive and secondary: primary's light label doesn't read once its ink fill drains. Confirm button is where the app uses it.
+A button that will act or go away by itself shows how long is left in its own fill: the fill drains toward the start over `seconds`, over a tertiary base so the label stays readable, then `onElapsed` runs. `delay` waits first, for example until an entrance has landed. Hovering the button, or an ancestor marked `data-countdown-hold`, holds it; so does keyboard focus in either, for as long as it stays, so keyboard and screen reader users never run out of time (WCAG 2.2.1). A disabled or loading button holds it too. Use it on destructive and secondary: primary's light label doesn't read once its ink fill drains. The same countdown (`lib/countdown`, the `.countdown` class) runs in Confirm button's capsule and in Dropdown menu's confirm item.
 
 ## Examples
 

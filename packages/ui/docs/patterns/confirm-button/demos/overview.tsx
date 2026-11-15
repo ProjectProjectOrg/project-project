@@ -230,27 +230,6 @@ export default function Overview() {
           </span>
         </div>
         <div className="flex flex-col gap-3">
-          <div className="w-72 rounded-xl border border-border/60 bg-card p-3">
-            <ConfirmButton.Root flow className="w-full">
-              <StartConfirming />
-              <ConfirmButton.Confirm className="w-full">
-                <ConfirmButton.Action
-                  layout="stacked"
-                  prompt="Delete this sprint?"
-                  description="Membership is removed; tickets remain."
-                  label="Delete"
-                  cancelLabel="Cancel"
-                  describeError={noError}
-                  onConfirm={done}
-                />
-              </ConfirmButton.Confirm>
-            </ConfirmButton.Root>
-          </div>
-          <span className="text-caption text-muted-foreground">
-            Stacked: in a popover, from a menu
-          </span>
-        </div>
-        <div className="flex flex-col gap-3 @2xl:col-span-2">
           <ConfirmButton.Root flow>
             <StartConfirming />
             <ConfirmButton.Confirm>

@@ -11,10 +11,10 @@ import { MoreHorizontal, SlidersHorizontal, Trash2 } from "lucide-react"
 
 // The sprint page's actions menu in the app (SprintDeleteMenu). "Delete
 // sprint" confirms in place: the first click arms it, the second deletes,
-// then the menu closes. It fails here once in two, to show the error.
+// then the menu closes. It fails here every other time, to show the error.
 let attempts = 0
 
-export default function FromAMenu() {
+export default function ConfirmItem() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

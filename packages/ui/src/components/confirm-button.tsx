@@ -36,12 +36,10 @@ export { useConfirmButton }
 // slides out over the row as a capsule and nothing reflows.
 function Root({
   className,
-  bare = false,
   flow = false,
   children
 }: Readonly<{
   className?: string
-  bare?: boolean
   flow?: boolean
   children: ReactNode
 }>) {
@@ -72,16 +70,12 @@ function Root({
   )
   return (
     <ConfirmButtonContext value={value}>
-      {bare ? (
-        children
-      ) : (
-        <span
-          ref={rootRef}
-          className={cn("relative inline-flex items-center", className)}
-        >
-          {children}
-        </span>
-      )}
+      <span
+        ref={rootRef}
+        className={cn("relative inline-flex items-center", className)}
+      >
+        {children}
+      </span>
     </ConfirmButtonContext>
   )
 }
