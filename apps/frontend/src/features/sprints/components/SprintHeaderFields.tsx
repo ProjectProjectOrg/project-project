@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
 import { Hitbox } from "@pp/ui/hitbox"
+import { bareFieldTintClass } from "@pp/ui/input"
 import { cn } from "@pp/ui/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { Link, useNavigate } from "@tanstack/react-router"
@@ -185,8 +186,8 @@ export function SprintNameField({
         }}
         disabled={disabled}
         className={cn(
-          "-mx-1 truncate rounded px-1 text-left text-display font-bold transition-colors transition-transform duration-100 active:scale-[0.97]",
-          !disabled && "hover:bg-hover"
+          bareFieldTintClass,
+          "focus-ring -mx-2 truncate px-2 text-left text-display font-bold transition-[background-color,scale] focus-visible:bg-transparent active:scale-[0.97]"
         )}
       >
         {sprint.name}
@@ -202,7 +203,10 @@ export function SprintNameField({
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void commit()}
         onKeyDown={handleKey}
-        className="-mx-1 w-full rounded bg-transparent px-1 text-display font-bold ring-2 ring-ring/50 outline-none"
+        className={cn(
+          bareFieldTintClass,
+          "-mx-2 w-[calc(100%+1rem)] bg-transparent px-2 text-display font-bold outline-none"
+        )}
         maxLength={120}
       />
       {failed && (

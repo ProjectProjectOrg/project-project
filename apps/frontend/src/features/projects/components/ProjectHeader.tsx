@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { bareFieldTintClass } from "@pp/ui/input"
 import { springs, transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { Link, useMatches } from "@tanstack/react-router"
@@ -331,8 +332,8 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
         }}
         disabled={!canEdit}
         className={cn(
-          "-mx-1 truncate rounded px-1 text-left text-display font-bold transition-colors transition-transform duration-100 outline-none focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97]",
-          canEdit && "hover:bg-hover"
+          bareFieldTintClass,
+          "focus-ring -mx-2 truncate px-2 text-left text-display font-bold transition-[background-color,scale] focus-visible:bg-transparent active:scale-[0.97]"
         )}
       >
         {name}
@@ -348,7 +349,10 @@ function NameField({ name, canEdit }: { name: string; canEdit: boolean }) {
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void commit()}
         onKeyDown={handleKey}
-        className="-mx-1 w-full rounded bg-transparent px-1 text-display font-bold ring-1 ring-ring outline-none"
+        className={cn(
+          bareFieldTintClass,
+          "-mx-2 w-[calc(100%+1rem)] bg-transparent px-2 text-display font-bold outline-none"
+        )}
         maxLength={120}
         aria-label={m.project_detail_name_aria_label()}
       />

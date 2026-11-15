@@ -288,9 +288,11 @@ export function DescriptionField({
       role="presentation"
       tabIndex={-1}
       className={cn(
-        "relative rounded-xl py-2 transition-[background-color,box-shadow] duration-150 ease-out outline-none motion-reduce:transition-none",
-        editing &&
-          "bg-surface-2 shadow-surface-1 [--muted-foreground:color-mix(in_oklch,var(--color-muted-foreground)_88%,var(--color-foreground))]"
+        // Same surface as a bare field: editing shows the focus tint, and an
+        // empty description (click to start writing) tints on hover.
+        "relative rounded-xl py-2 transition-colors duration-150 ease-out outline-none [corner-shape:var(--button-corner)] motion-reduce:transition-none",
+        editing && "bg-(--field-focus)",
+        !editing && empty && "hover:bg-hover hover:duration-0"
       )}
     >
       <div

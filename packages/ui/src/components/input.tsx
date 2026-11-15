@@ -11,11 +11,16 @@ type InputVariant = "default" | "bare"
 // The same heights as Button, so a field and a button sit level in a row.
 type InputSize = "sm" | "md" | "lg"
 
-// The bare field's surface. Its padding is cancelled by equal negative
+// The bare field's tint: none at rest, --hover on hover, and the lighter
+// --field-focus while focused. Exported for app fields that edit text in
+// place (a ticket title, a sprint name) so they read like a bare Input.
+const bareFieldTintClass =
+  "rounded-[10px] transition-colors duration-150 [corner-shape:var(--button-corner)] not-disabled:hover:bg-hover not-disabled:hover:duration-0 focus-visible:bg-(--field-focus) focus-within:bg-(--field-focus)"
+
+// The bare Input: the tint plus 8px of padding, cancelled by equal negative
 // margins, so the text sits exactly where an unpadded field's would and
-// nothing around it moves; the tint just bleeds 8px past the text.
-const bareFieldClass =
-  "-mx-2 -my-1 w-[calc(100%+1rem)] rounded-[10px] bg-transparent px-2 py-1 transition-colors duration-150 [corner-shape:var(--button-corner)] not-disabled:hover:bg-hover not-disabled:hover:duration-0 focus-visible:bg-(--field-focus) focus-within:bg-(--field-focus)"
+// nothing around it moves.
+const bareFieldClass = `-mx-2 -my-1 w-[calc(100%+1rem)] bg-transparent px-2 py-1 ${bareFieldTintClass}`
 
 const INPUT_VARIANT: Record<InputVariant, string> = {
   default:
@@ -55,5 +60,5 @@ function Input({
   )
 }
 
-export { Input, bareFieldClass }
+export { Input, bareFieldClass, bareFieldTintClass }
 export type { InputSize, InputVariant }

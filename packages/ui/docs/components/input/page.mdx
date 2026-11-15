@@ -81,7 +81,7 @@ import { Kbd } from "@pp/ui/kbd"
 ## Rules
 
 - Two variants: `default`, the bordered field, and `bare` for fields inside a composer that styles its own text. Anything else is a `className`, not a variant.
-- A bare field has no fill or border at rest, but it is never invisible: hover tints it with `--hover`, and focus with the lighter `--field-focus`, so you can see what is editable and where you are typing. The tint bleeds 8px past the text with matching negative margins, so the text sits exactly where it would without it. `Composer.Body` gives the description area the same surface (`bareFieldClass`).
+- A bare field has no fill or border at rest, but it is never invisible: hover tints it with `--hover`, and focus with the lighter `--field-focus`, so you can see what is editable and where you are typing. The tint bleeds 8px past the text with matching negative margins, so the text sits exactly where it would without it. `Composer.Body` gives the description area the same surface (`bareFieldClass`), and fields that edit text in place in the app (the ticket title and description, the project and sprint names) use `bareFieldTintClass`: the same tint without the padding.
 - Sizes match Button (`sm` 28, `md` 32, `lg` 36) with corners at half the height in `--button-corner`, so a field and a button in one row line up.
 - Fields fill with `--field`: white in light, just below the content region in dark, so they read as a shallow well.
 - Focus is the shared `focus-ring`; an invalid field (`aria-invalid`) turns its border and ring red, and says why in text next to or under it.

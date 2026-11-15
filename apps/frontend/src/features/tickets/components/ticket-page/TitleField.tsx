@@ -1,5 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketDetail } from "@pp/shared"
+import { bareFieldTintClass } from "@pp/ui/input"
+import { cn } from "@pp/ui/lib/utils"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import { useId, useLayoutEffect, useRef, useState } from "react"
@@ -104,7 +106,10 @@ export function TitleField({
             event.currentTarget.blur()
           }
         }}
-        className="block w-full min-w-0 resize-none overflow-hidden bg-transparent px-2 py-1.5 text-display-compact font-semibold wrap-anywhere outline-none aria-busy:animate-pulse motion-reduce:animate-none"
+        className={cn(
+          bareFieldTintClass,
+          "block w-full min-w-0 resize-none overflow-hidden rounded-[12px] bg-transparent px-2 py-1.5 text-display-compact font-semibold wrap-anywhere outline-none aria-busy:animate-pulse motion-reduce:animate-none"
+        )}
       />
       {error && (
         <span
