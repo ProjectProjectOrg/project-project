@@ -47,6 +47,11 @@ function InputGroup({
           ? "focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring"
           : "data-focused:outline-2 data-focused:outline-offset-2 data-focused:outline-ring",
         "has-[input:disabled]:opacity-50",
+        // The same hover and focus tints as Input, over the field fill.
+        "duration-150 not-has-[input:disabled]:hover:shadow-[inset_0_0_0_100vmax_var(--field-hover)] not-has-[input:disabled]:hover:duration-0",
+        focused === undefined
+          ? "focus-within:shadow-[inset_0_0_0_100vmax_var(--field-focus)]"
+          : "data-focused:shadow-[inset_0_0_0_100vmax_var(--field-focus)]",
         className
       )}
       {...props}

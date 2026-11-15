@@ -3,7 +3,9 @@ import * as React from "react"
 import { fieldTouchClass } from "../lib/typeScale"
 import { cn } from "../lib/utils"
 
-// default: the bordered field. bare: no fill or border at rest, for fields
+// default: the bordered field. bare: the same field without the fill and
+// hairline. Both tint on hover and, lighter, while focused. bare has no fill
+// or border at rest, for fields
 // inside a composer that styles its own text; it still shows a hover tint and
 // a lighter tint while focused, so you can see what is editable and where you
 // are typing.
@@ -17,14 +19,19 @@ type InputSize = "sm" | "md" | "lg"
 const bareFieldTintClass =
   "rounded-[10px] transition-colors duration-150 [corner-shape:var(--button-corner)] not-disabled:hover:bg-(--field-hover) not-disabled:hover:duration-0 focus-visible:bg-(--field-focus) focus-within:bg-(--field-focus)"
 
+// The bordered field gets the same two tints, laid over its --field fill as
+// an inset shadow (a background colour would replace the fill, and a
+// gradient can't fade out).
+const fieldTintClass =
+  "transition-[box-shadow] duration-150 not-disabled:hover:shadow-[inset_0_0_0_100vmax_var(--field-hover)] not-disabled:hover:duration-0 focus-visible:shadow-[inset_0_0_0_100vmax_var(--field-focus)]"
+
 // The bare Input: the tint plus 8px of padding, cancelled by equal negative
 // margins, so the text sits exactly where an unpadded field's would and
 // nothing around it moves.
 const bareFieldClass = `-mx-2 -my-1 w-[calc(100%+1rem)] bg-transparent px-2 py-1 ${bareFieldTintClass}`
 
 const INPUT_VARIANT: Record<InputVariant, string> = {
-  default:
-    "border border-(--segment-line) bg-field focus-ring aria-invalid:border-destructive",
+  default: `border border-(--segment-line) bg-field focus-ring aria-invalid:border-destructive ${fieldTintClass}`,
   bare: bareFieldClass
 }
 
@@ -60,5 +67,5 @@ function Input({
   )
 }
 
-export { Input, bareFieldClass, bareFieldTintClass }
+export { Input, bareFieldClass, bareFieldTintClass, fieldTintClass }
 export type { InputSize, InputVariant }
