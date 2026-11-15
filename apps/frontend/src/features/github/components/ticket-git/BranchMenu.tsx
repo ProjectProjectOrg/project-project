@@ -1,15 +1,14 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomSet } from "@effect/atom-react"
 import type { GithubConnection, TicketDetail } from "@pp/shared"
 import { Button } from "@pp/ui/button"
-import { ConfirmButton } from "@pp/ui/confirm-button"
 import {
   DropdownMenu,
+  DropdownMenuConfirmItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
-import * as Result from "effect/reactivity/AsyncResult"
 import {
   ArrowUpRight,
   Copy,
@@ -65,7 +64,7 @@ export function BranchMenu({
   const removable = removal.kind === "stack" || canClear
 
   return (
-    <ConfirmButton.Root bare>
+    <>
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <span ref={anchor} className="inline-flex max-w-full min-w-0">
           <DropdownMenuTrigger
@@ -121,10 +120,7 @@ export function BranchMenu({
               {m.git_stack_remove_item()}
             </DropdownMenuItem>
           ) : canClear ? (
-            <ConfirmButton.MenuItem variant="destructive">
-              <Unlink />
-              {m.git_branch_remove_item()}
-            </ConfirmButton.MenuItem>
+            <RemoveBranchItem ticket={ticket} />
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -139,35 +135,26 @@ export function BranchMenu({
           onOpenChange={setStacking}
         />
       )}
-      {removal.kind === "ticket" && canClear ? (
-        <ConfirmButton.Popover anchor={anchor} className="w-72">
-          <RemoveBranchAction ticket={ticket} />
-        </ConfirmButton.Popover>
-      ) : null}
-    </ConfirmButton.Root>
+    </>
   )
 }
 
-export function RemoveBranchAction({
+// "Unlink branch" in a branch's menus: confirms in place, then the menu
+// closes.
+export function RemoveBranchItem({
   ticket
 }: Readonly<{ ticket: Pick<TicketDetail, "id"> }>) {
   const { orgSlug, slug } = useProjectRoute()
-  const atom = clearBranch({
-    req: projectRequest(orgSlug, slug),
-    id: ticket.id
-  })
-  const clear = useAtomSet(atom, { mode: "promiseExit" })
-  const state = useAtomValue(atom)
+  const clear = useAtomSet(
+    clearBranch({ req: projectRequest(orgSlug, slug), id: ticket.id }),
+    { mode: "promiseExit" }
+  )
   return (
-    <ConfirmButton.Action
-      cancelLabel={m.common_cancel_button()}
+    <DropdownMenuConfirmItem
+      icon={<Unlink />}
+      label={m.git_branch_remove_item()}
+      confirmLabel={m.git_branch_remove_prompt()}
       describeError={describeCause}
-      layout="stacked"
-      prompt={m.git_branch_remove_prompt()}
-      description={m.git_branch_remove_description()}
-      label={m.git_branch_remove_confirm()}
-      waiting={state.waiting}
-      error={Result.isFailure(state) ? m.git_branch_remove_error() : null}
       onConfirm={() => clear()}
     />
   )

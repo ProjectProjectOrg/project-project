@@ -755,37 +755,41 @@
   }
 }
 
-/* Button countdown (Button's `countdown` prop). The fill is the timer: it
-   sits in ::before over a tertiary base and drains toward the start over
-   --countdown, then the button calls onElapsed. Pointer over the button or
-   over a [data-countdown-hold] ancestor holds it, and so does keyboard focus
-   in either, so keyboard and screen reader users never run out of time.
-   Meant for filled variants whose ink reads on tertiary too (destructive,
-   secondary), not primary. */
-.button-countdown {
+/* Countdown (lib/countdown.ts): the fill is the timer. --countdown-fill
+   sits in ::before and drains toward the start over --countdown, then the
+   element calls onElapsed. Pointer over the element or over a
+   [data-countdown-hold] ancestor holds it, and so does keyboard focus in
+   either, so keyboard and screen reader users never run out of time.
+   Filled buttons (Button's `countdown`) drain their own fill over a
+   tertiary base, so their ink must read on tertiary too: destructive and
+   secondary, not primary. */
+.countdown {
   isolation: isolate;
   overflow: hidden;
 }
-.button-countdown.button-fill {
-  background-image: none;
-  background-color: var(--button-tertiary);
-}
-.button-countdown::before {
+.countdown::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: var(--button-fill);
+  border-radius: inherit;
+  corner-shape: inherit;
+  background: var(--countdown-fill);
   transform-origin: left;
-  animation: button-countdown var(--countdown) linear var(--countdown-delay, 0s)
+  pointer-events: none;
+  animation: countdown var(--countdown) linear var(--countdown-delay, 0s)
     forwards;
 }
-.button-countdown:is(:hover, :focus-visible, :disabled)::before,
-[data-countdown-hold]:is(:hover, :has(:focus-visible))
-  .button-countdown::before {
+.countdown.button-fill {
+  --countdown-fill: var(--button-fill);
+  background-image: none;
+  background-color: var(--button-tertiary);
+}
+.countdown:is(:hover, :focus-visible, :disabled, [data-disabled])::before,
+[data-countdown-hold]:is(:hover, :has(:focus-visible)) .countdown::before {
   animation-play-state: paused;
 }
-@keyframes button-countdown {
+@keyframes countdown {
   to {
     scale: 0 1;
   }

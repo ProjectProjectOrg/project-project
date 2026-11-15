@@ -1,6 +1,6 @@
-import { ConfirmButton } from "@pp/ui/confirm-button"
 import {
   DropdownMenu,
+  DropdownMenuConfirmItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator
@@ -27,11 +27,9 @@ import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 export type MemberConfirm = Readonly<{
-  prompt: ReactNode
+  prompt: string
   label: string
-  busyLabel: string
   run: () => Promise<Exit.Exit<unknown, unknown>>
-  waiting: boolean
   error: ReactNode
 }>
 
@@ -194,82 +192,47 @@ function MemberMenu<R extends string, A extends R>({
     <DropdownMenu>
       <MemberMenuTrigger label={m.members_actions_aria_label()} />
       <DropdownMenuContent align="end" sideOffset={6} className="w-60">
-        <ConfirmButton.Root bare>
-          <ConfirmButton.Idle>
-            {assign.map(({ role, label }) => {
-              const RoleIcon = roles[role].icon
-              return (
-                <DropdownMenuItem
-                  key={role}
-                  onClick={() => menu.changeRole(role)}
-                  className="cursor-pointer"
-                >
-                  <RoleIcon className="size-4" strokeWidth={1.75} />
-                  {label}
-                </DropdownMenuItem>
+        {assign.map(({ role, label }) => {
+          const RoleIcon = roles[role].icon
+          return (
+            <DropdownMenuItem
+              key={role}
+              onClick={() => menu.changeRole(role)}
+              className="cursor-pointer"
+            >
+              <RoleIcon className="size-4" strokeWidth={1.75} />
+              {label}
+            </DropdownMenuItem>
+          )
+        })}
+        {transfer && (
+          <DropdownMenuConfirmItem
+            tone="neutral"
+            icon={<Crown className="size-4" strokeWidth={1.75} />}
+            label={transfer.label}
+            confirmLabel={transfer.prompt}
+            describeError={describeCause}
+            onConfirm={transfer.run}
+          />
+        )}
+        {(assign.length > 0 || transfer) && exit && <DropdownMenuSeparator />}
+        {exit && (
+          <DropdownMenuConfirmItem
+            icon={
+              exit.kind === "leave" ? (
+                <LogOut className="size-4" strokeWidth={1.75} />
+              ) : (
+                <Trash2 className="size-4" strokeWidth={1.75} />
               )
-            })}
-            {transfer && (
-              <ConfirmButton.MenuItem
-                confirm="transfer"
-                closeOnClick={false}
-                className="cursor-pointer"
-              >
-                <Crown className="size-4" strokeWidth={1.75} />
-                {transfer.label}
-              </ConfirmButton.MenuItem>
-            )}
-            {(assign.length > 0 || transfer) && exit && (
-              <DropdownMenuSeparator />
-            )}
-            {exit && (
-              <ConfirmButton.MenuItem
-                confirm="exit"
-                closeOnClick={false}
-                variant="destructive"
-              >
-                {exit.kind === "leave" ? (
-                  <LogOut className="size-4" strokeWidth={1.75} />
-                ) : (
-                  <Trash2 className="size-4" strokeWidth={1.75} />
-                )}
-                {exit.label}
-              </ConfirmButton.MenuItem>
-            )}
-          </ConfirmButton.Idle>
-          {transfer && (
-            <MenuConfirm
-              when="transfer"
-              confirm={{ ...transfer, error: null }}
-            />
-          )}
-          {exit && (
-            <MenuConfirm when="exit" confirm={{ ...exit, error: null }} />
-          )}
-        </ConfirmButton.Root>
+            }
+            label={exit.label}
+            confirmLabel={exit.prompt}
+            describeError={describeCause}
+            onConfirm={exit.run}
+          />
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
-
-function MenuConfirm({
-  when,
-  confirm
-}: Readonly<{ when: string; confirm: MemberConfirm }>) {
-  return (
-    <ConfirmButton.Confirm when={when} className="block">
-      <ConfirmButton.Action
-        cancelLabel={m.common_cancel_button()}
-        describeError={describeCause}
-        layout="menu"
-        prompt={confirm.prompt}
-        label={confirm.label}
-        busyLabel={confirm.busyLabel}
-        waiting={confirm.waiting}
-        error={confirm.error}
-        onConfirm={confirm.run}
-      />
-    </ConfirmButton.Confirm>
   )
 }
 
@@ -303,36 +266,29 @@ export function PendingRowView<R extends string>({
                 label={m.members_pending_actions_aria_label()}
               />
               <DropdownMenuContent align="end" sideOffset={6} className="w-52">
-                <ConfirmButton.Root bare>
-                  <ConfirmButton.Idle>
-                    {inviteLink !== null && (
-                      <DropdownMenuItem
-                        onClick={() =>
-                          void navigator.clipboard.writeText(inviteLink)
-                        }
-                        className="cursor-pointer"
-                      >
-                        <Link2 className="size-4" strokeWidth={1.75} />
-                        {m.members_pending_copy_link()}
-                      </DropdownMenuItem>
-                    )}
-                    {inviteLink !== null && cancel !== null && (
-                      <DropdownMenuSeparator />
-                    )}
-                    {cancel !== null && (
-                      <ConfirmButton.MenuItem
-                        closeOnClick={false}
-                        variant="destructive"
-                      >
-                        <Trash2 className="size-4" strokeWidth={1.75} />
-                        {cancel.label}
-                      </ConfirmButton.MenuItem>
-                    )}
-                  </ConfirmButton.Idle>
-                  {cancel !== null && (
-                    <MenuConfirm when="default" confirm={cancel} />
-                  )}
-                </ConfirmButton.Root>
+                {inviteLink !== null && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      void navigator.clipboard.writeText(inviteLink)
+                    }
+                    className="cursor-pointer"
+                  >
+                    <Link2 className="size-4" strokeWidth={1.75} />
+                    {m.members_pending_copy_link()}
+                  </DropdownMenuItem>
+                )}
+                {inviteLink !== null && cancel !== null && (
+                  <DropdownMenuSeparator />
+                )}
+                {cancel !== null && (
+                  <DropdownMenuConfirmItem
+                    icon={<Trash2 className="size-4" strokeWidth={1.75} />}
+                    label={cancel.label}
+                    confirmLabel={cancel.prompt}
+                    describeError={describeCause}
+                    onConfirm={cancel.run}
+                  />
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )

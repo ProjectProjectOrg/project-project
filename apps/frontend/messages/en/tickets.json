@@ -160,36 +160,6 @@
   "tickets_description_placeholder": "Write a description, or type / to add sections…",
   "tickets_description_starts_label": "Start as",
   "tickets_detail_defect": "Something went wrong: {defect}",
-  "tickets_detail_delete_cascade_sub_tickets": [
-    {
-      "declarations": [
-        "input count",
-        "local countPlural = count: plural"
-      ],
-      "selectors": [
-        "countPlural"
-      ],
-      "match": {
-        "countPlural=one": "Also delete {count} sub-ticket",
-        "countPlural=*": "Also delete {count} sub-tickets"
-      }
-    }
-  ],
-  "tickets_detail_delete_cascade_tickets": [
-    {
-      "declarations": [
-        "input count",
-        "local countPlural = count: plural"
-      ],
-      "selectors": [
-        "countPlural"
-      ],
-      "match": {
-        "countPlural=one": "Also delete {count} ticket",
-        "countPlural=*": "Also delete {count} tickets"
-      }
-    }
-  ],
   "tickets_detail_load_error": "Couldn't load detail: {error}",
   "tickets_drag_count": [
     {
@@ -390,12 +360,69 @@
   "tickets_row_archive_many_menu_item": "Archive {count} tickets",
   "tickets_row_blocked_aria_label": "Blocked by {ids}",
   "tickets_row_delete_confirm": "Delete this ticket?",
-  "tickets_row_delete_description": "This can't be undone.",
-  "tickets_row_delete_error_fallback": "Couldn't delete this ticket. Try again.",
   "tickets_row_delete_menu_item": "Delete",
   "tickets_row_delete_many_confirm": "Delete {count} tickets?",
-  "tickets_row_delete_many_error_fallback": "Couldn't delete these tickets. Try again.",
   "tickets_row_delete_many_menu_item": "Delete {count} tickets",
+  "tickets_row_delete_with_sub_tickets_confirm": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "Delete it and {count} sub-ticket?",
+        "countPlural=*": "Delete it and {count} sub-tickets?"
+      }
+    }
+  ],
+  "tickets_row_delete_with_sub_tickets_menu_item": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "Delete with {count} sub-ticket",
+        "countPlural=*": "Delete with {count} sub-tickets"
+      }
+    }
+  ],
+  "tickets_row_delete_with_tickets_confirm": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "Delete it and {count} ticket?",
+        "countPlural=*": "Delete it and {count} tickets?"
+      }
+    }
+  ],
+  "tickets_row_delete_with_tickets_menu_item": [
+    {
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
+      "match": {
+        "countPlural=one": "Delete with {count} ticket",
+        "countPlural=*": "Delete with {count} tickets"
+      }
+    }
+  ],
   "tickets_row_detach_epic_action": "Remove from epic {id}",
   "tickets_row_detach_parent_action": "Remove from parent {id}",
   "tickets_row_select_aria_label": "Select {id}",
@@ -528,8 +555,8 @@
     }
   ],
   "tickets_status_delete_error_fallback": "Couldn't delete this status. Try again.",
+  "tickets_status_delete_move_confirm": "Move to {status} and delete?",
   "tickets_status_delete_resets_git_automation": "Git automation rules that move tickets here will be reset.",
-  "tickets_status_deleting": "Deleting…",
   "tickets_status_description_aria": "Description of {label}",
   "tickets_status_description_placeholder": "What this status means, for people and agents",
   "tickets_status_done": "Done",
@@ -539,7 +566,6 @@
   "tickets_status_icon_picker_aria": "Pick status icon",
   "tickets_status_in_progress": "In progress",
   "tickets_status_loading": "Loading…",
-  "tickets_status_reassign_aria": "Move its tickets to {status}",
   "tickets_status_manage_link": "Manage statuses",
   "tickets_status_name_aria": "Status name",
   "tickets_status_phase_finished": "Finished",

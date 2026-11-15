@@ -1,11 +1,19 @@
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 import { mergeProps } from "@base-ui/react/merge-props"
+import type * as Cause from "effect/Cause"
+import * as Exit from "effect/Exit"
 import { ChevronRightIcon } from "lucide-react"
 import * as React from "react"
 import { flushSync } from "react-dom"
 
 import { useActivityHiddenPortalRef } from "../hooks/useActivityHiddenPortalRef"
+import { useCountdown } from "../lib/countdown"
 import { forwardThroughMenuBackdrop, isMenuBackdrop } from "../lib/menuBackdrop"
+import {
+  MenuCloseProvider,
+  useCloseMenu,
+  useMenuActionsRef
+} from "../lib/menuClose"
 import { openOnReleaseProps } from "../lib/openOnRelease"
 import {
   PopupAnchorProvider,
@@ -14,6 +22,7 @@ import {
 } from "../lib/popupAnchor"
 import { fieldTouchClass } from "../lib/typeScale"
 import { cn } from "../lib/utils"
+import { LogoLoader } from "./logo"
 import { MenuHighlight } from "./menu-highlight"
 import {
   menuItemClass,
@@ -22,6 +31,7 @@ import {
   menuSeparatorClass,
   menuSurfaceClass
 } from "./menu-styles"
+import { TextSwap } from "./text-swap"
 
 const DeferMenusContext = React.createContext(false)
 type DropdownMenuFilter =
@@ -59,20 +69,28 @@ function DeferredDropdownMenus({ children }: { children: React.ReactNode }) {
   return <DeferMenusContext value>{children}</DeferMenusContext>
 }
 
-function DropdownMenu({ filterable = false, ...props }: DropdownMenuProps) {
+function DropdownMenu({
+  filterable = false,
+  actionsRef: givenActions,
+  ...rest
+}: DropdownMenuProps) {
   const defer = React.useContext(DeferMenusContext)
+  const actions = useMenuActionsRef(givenActions)
+  const props = { ...rest, actionsRef: actions.ref }
   return (
-    <PopupAnchorProvider>
-      {defer && !props.handle && typeof props.children !== "function" ? (
-        <DeferredDropdownMenu {...props} filterable={filterable}>
-          {props.children}
-        </DeferredDropdownMenu>
-      ) : (
-        <FilterableRoot filterable={filterable}>
-          <MenuPrimitive.Root {...props} />
-        </FilterableRoot>
-      )}
-    </PopupAnchorProvider>
+    <MenuCloseProvider value={actions.close}>
+      <PopupAnchorProvider>
+        {defer && !props.handle && typeof props.children !== "function" ? (
+          <DeferredDropdownMenu {...props} filterable={filterable}>
+            {props.children}
+          </DeferredDropdownMenu>
+        ) : (
+          <FilterableRoot filterable={filterable}>
+            <MenuPrimitive.Root {...props} />
+          </FilterableRoot>
+        )}
+      </PopupAnchorProvider>
+    </MenuCloseProvider>
   )
 }
 
@@ -266,6 +284,125 @@ function DropdownMenuItem({
       )}
       {...props}
     />
+  )
+}
+
+type Outcome<E> = void | boolean | Exit.Exit<unknown, E>
+
+// How long an armed confirm item waits for its second click.
+const ARMED_SECONDS = 4
+
+type DropdownMenuConfirmItemProps<E> = Readonly<{
+  label: string
+  // What the armed item says: a question naming what goes.
+  confirmLabel: string
+  icon?: React.ReactNode
+  onConfirm: () => Promise<Outcome<E>> | Outcome<E>
+  describeError: (cause: Cause.Cause<E>) => string
+  tone?: "destructive" | "neutral"
+  // Looks like a plain item until armed, e.g. a list of targets (move to
+  // this status, then delete) where only the armed one should be red.
+  quiet?: boolean
+  timeout?: number | false
+  // Close the whole menu once onConfirm succeeds (default); otherwise the
+  // item goes back to its label.
+  closeOnConfirm?: boolean
+  disabled?: boolean
+  className?: string
+}>
+
+// A menu item that confirms in place. The first click arms it: the label
+// rolls to `confirmLabel` through TextSwap and its fill turns into the
+// countdown, drawn whether or not the pointer is on it. A second click runs
+// onConfirm, with Button's logo loader in the icon's place, then closes the
+// menu. When the countdown runs out the item rolls back to its label; a
+// failure rolls the error in and keeps it armed, without a countdown, for a
+// retry. The menu stays open throughout (closeOnClick is off).
+function DropdownMenuConfirmItem<E = unknown>({
+  label,
+  confirmLabel,
+  icon,
+  onConfirm,
+  describeError,
+  tone = "destructive",
+  quiet = false,
+  timeout = ARMED_SECONDS,
+  closeOnConfirm = true,
+  disabled = false,
+  className
+}: DropdownMenuConfirmItemProps<E>) {
+  const [phase, setPhase] = React.useState<"idle" | "armed" | "busy">("idle")
+  const [error, setError] = React.useState<string | null>(null)
+  const closeMenu = useCloseMenu()
+  const disarm = () => {
+    setPhase("idle")
+    setError(null)
+  }
+  const counting = phase === "armed" && error === null && timeout !== false
+  const { countdownClass, countdownStyle, handleAnimationEnd } =
+    useCountdown<HTMLDivElement>(
+      counting ? { seconds: timeout, onElapsed: disarm } : undefined
+    )
+
+  async function run() {
+    setPhase("busy")
+    setError(null)
+    const outcome = await Promise.resolve()
+      .then(onConfirm)
+      .catch(() => false as const)
+    if (outcome === false) return setPhase("armed")
+    if (Exit.isExit(outcome) && Exit.isFailure(outcome)) {
+      setPhase("armed")
+      return setError(describeError(outcome.cause))
+    }
+    if (closeOnConfirm) closeMenu()
+    setPhase("idle")
+  }
+
+  const destructive = tone === "destructive"
+  return (
+    <DropdownMenuItem
+      variant={
+        destructive && (!quiet || phase !== "idle") ? "destructive" : "default"
+      }
+      closeOnClick={false}
+      disabled={disabled}
+      data-armed={phase === "idle" ? undefined : ""}
+      aria-busy={phase === "busy" || undefined}
+      onClick={() => {
+        if (phase === "idle") setPhase("armed")
+        else if (phase === "armed") void run()
+      }}
+      onAnimationEnd={handleAnimationEnd}
+      style={countdownStyle}
+      className={cn(
+        countdownClass,
+        destructive
+          ? "[--countdown-fill:var(--destructive-light)]"
+          : "[--countdown-fill:var(--active)] data-[armed]:text-foreground",
+        className
+      )}
+    >
+      <TextSwap
+        className="gap-2"
+        icon={
+          phase === "busy" ? (
+            <LogoLoader tone="current" className="size-4" />
+          ) : (
+            icon
+          )
+        }
+        iconKey={phase === "busy" ? "busy" : "icon"}
+        announce
+      >
+        {error ?? (phase === "idle" ? label : confirmLabel)}
+      </TextSwap>
+      {error === null ? null : (
+        <span role="alert" className="sr-only">
+          {error}
+        </span>
+      )}
+    </DropdownMenuItem>
   )
 }
 
@@ -623,6 +760,7 @@ function DropdownMenuSubContent({
 }
 
 export {
+  DropdownMenuConfirmItem,
   DropdownMenuEmpty,
   DropdownMenuInput,
   DropdownMenuList,
@@ -642,3 +780,5 @@ export {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent
 }
+
+export type { DropdownMenuConfirmItemProps }

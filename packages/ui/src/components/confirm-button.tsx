@@ -10,7 +10,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ComponentProps,
   type KeyboardEvent,
   type ReactNode
 } from "react"
@@ -23,9 +22,7 @@ import {
   type ConfirmButtonContextValue,
   useConfirmButton
 } from "./confirm-button-context"
-import { DropdownMenuItem } from "./dropdown-menu"
 import { Input } from "./input"
-import { Popover, PopoverContent } from "./popover"
 import { TextSwap } from "./text-swap"
 
 const DEFAULT_KEY = "default"
@@ -159,23 +156,6 @@ function DeleteTrigger({
     >
       <Trash2 strokeWidth={1.75} />
     </Trigger>
-  )
-}
-
-function MenuItem({
-  confirm = DEFAULT_KEY,
-  onClick,
-  ...rest
-}: ComponentProps<typeof DropdownMenuItem> & Readonly<{ confirm?: string }>) {
-  const { open } = useConfirmButton()
-  return (
-    <DropdownMenuItem
-      {...rest}
-      onClick={(event) => {
-        onClick?.(event)
-        open(confirm)
-      }}
-    />
   )
 }
 
@@ -348,38 +328,6 @@ function Capsule({
   )
 }
 
-function ConfirmPopover({
-  when = DEFAULT_KEY,
-  anchor,
-  className,
-  children
-}: Readonly<{
-  when?: string
-  anchor: ComponentProps<typeof PopoverContent>["anchor"]
-  className?: string
-  children: ReactNode
-}>) {
-  const { active, close } = useConfirmButton()
-  return (
-    <Popover
-      open={active === when}
-      onOpenChange={(next) => {
-        if (!next) close()
-      }}
-    >
-      <PopoverContent
-        anchor={anchor}
-        align="end"
-        sideOffset={6}
-        className={className}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
-      </PopoverContent>
-    </Popover>
-  )
-}
-
 function Cancel({
   children,
   ...rest
@@ -422,7 +370,7 @@ type ActionProps<E> = Readonly<{
   describeError: (cause: Cause.Cause<E>) => string
   disabled?: boolean
   size?: keyof typeof CONFIRM_SIZES
-  layout?: "inline" | "stacked" | "menu"
+  layout?: "inline" | "stacked"
   cancelLabel: ReactNode
   waiting?: boolean
   error?: ReactNode
@@ -502,10 +450,7 @@ function Action<E = unknown>({
             }
           : undefined
       }
-      className={cn(
-        layout === "menu" && "flex-1",
-        capsule && "rounded-[12px] px-2.5"
-      )}
+      className={cn(capsule && "rounded-[12px] px-2.5")}
     >
       {busy && busyLabel !== label ? (
         <>
@@ -552,24 +497,14 @@ function Action<E = unknown>({
     )
   }
 
-  const menu = layout === "menu"
   const cancelButton = (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      disabled={menu && busy}
-      onClick={close}
-    >
+    <Button type="button" variant="ghost" size="sm" onClick={close}>
       {cancelLabel}
     </Button>
   )
   const errorLine =
     error === null || error === undefined ? null : (
-      <p
-        role="alert"
-        className={cn("text-caption", "text-destructive", menu && "px-2")}
-      >
+      <p role="alert" className="text-caption text-destructive">
         {error}
       </p>
     )
@@ -609,31 +544,18 @@ function Action<E = unknown>({
     )
 
   return (
-    <div className={cn("flex flex-col", menu ? "gap-2 p-1" : "gap-3")}>
-      <div className={cn("flex flex-col gap-1", menu && "px-2 pt-1")}>
-        <p
-          className={
-            menu
-              ? "text-caption text-muted-foreground"
-              : "text-subtitle font-semibold"
-          }
-        >
-          {prompt}
-        </p>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <p className="text-subtitle font-semibold">{prompt}</p>
         {description === undefined ? null : (
           <p className={"text-caption text-muted-foreground"}>{description}</p>
         )}
       </div>
       {children}
       {errorLine}
-      <div
-        className={cn(
-          "flex items-center gap-2",
-          menu ? "gap-1 px-1 pb-1" : "justify-end"
-        )}
-      >
-        {menu ? confirmButton : cancelButton}
-        {menu ? cancelButton : confirmButton}
+      <div className="flex items-center justify-end gap-2">
+        {cancelButton}
+        {confirmButton}
       </div>
     </div>
   )
@@ -727,10 +649,8 @@ export const ConfirmButton = {
   Root,
   Trigger,
   DeleteTrigger,
-  MenuItem,
   Idle,
   Confirm,
-  Popover: ConfirmPopover,
   Cancel,
   Action
 }

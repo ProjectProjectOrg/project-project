@@ -4,7 +4,6 @@ import type {
   StackLayerState,
   Ticket
 } from "@pp/shared"
-import { ConfirmButton } from "@pp/ui/confirm-button"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -26,13 +25,12 @@ import {
   GitBranch,
   GitPullRequestCreateArrow,
   Layers,
-  Link as LinkIcon,
-  Unlink
+  Link as LinkIcon
 } from "lucide-react"
 import { Fragment, useRef, useState, type ReactNode } from "react"
 
 import { usePreferredBranchLink } from "@/features/github/components/ticket-git/BranchChip"
-import { RemoveBranchAction } from "@/features/github/components/ticket-git/BranchMenu"
+import { RemoveBranchItem } from "@/features/github/components/ticket-git/BranchMenu"
 import { BranchPicker } from "@/features/github/components/ticket-git/BranchPicker"
 import {
   layerTone,
@@ -186,16 +184,11 @@ export function GitChipMenu({
         {m.git_stack_add_button()}
       </DropdownMenuItem>
     ),
-    canClear && (
-      <ConfirmButton.MenuItem key="remove" variant="destructive">
-        <Unlink strokeWidth={1.75} />
-        {m.git_branch_remove_item()}
-      </ConfirmButton.MenuItem>
-    )
+    canClear && <RemoveBranchItem key="remove" ticket={ticket} />
   ].filter((section) => section !== false)
 
   return (
-    <ConfirmButton.Root bare>
+    <>
       <ContextMenu>
         <ContextMenuTrigger
           render={
@@ -228,12 +221,7 @@ export function GitChipMenu({
           onOpenChange={setStacking}
         />
       )}
-      {canClear && (
-        <ConfirmButton.Popover anchor={anchor} className="w-72">
-          <RemoveBranchAction ticket={ticket} />
-        </ConfirmButton.Popover>
-      )}
-    </ConfirmButton.Root>
+    </>
   )
 }
 

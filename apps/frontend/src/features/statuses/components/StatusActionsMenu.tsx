@@ -1,22 +1,23 @@
-import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { ProjectStatus } from "@pp/shared"
 import { Button } from "@pp/ui/button"
-import { ConfirmButton } from "@pp/ui/confirm-button"
 import {
   DropdownMenu,
+  DropdownMenuConfirmItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
 import { cn } from "@pp/ui/lib/utils"
-import { Select, SelectTrigger } from "@pp/ui/select"
-import { TextSwap } from "@pp/ui/text-swap"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronDown, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
-import { useRef, useState, type ReactNode } from "react"
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
-import { AsyncView } from "@/components/shell/AsyncView"
 import {
   gitAutomationFor,
   gitAutomationRequest
@@ -30,10 +31,7 @@ import {
   countsRequest,
   ticketCounts
 } from "@/features/tickets/atoms/ticketCounts"
-import {
-  statusLabelFor,
-  statusMetaFor
-} from "@/features/tickets/lib/ticketMeta"
+import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
 
@@ -56,212 +54,145 @@ export function StatusActionsMenu({
     onEdit: () => void
     triggerClassName?: string
   }>) {
-  const trigger = useRef<HTMLButtonElement>(null)
   return (
-    <ConfirmButton.Root bare>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              ref={trigger}
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={m.tickets_status_actions_aria({ label })}
-              className={cn("shrink-0", triggerClassName)}
-            >
-              <MoreHorizontal strokeWidth={1.75} />
-            </Button>
-          }
-        />
-        <DropdownMenuContent align="end" sideOffset={6} className="w-40">
-          <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
-            <Pencil className="size-4" strokeWidth={1.75} />
-            {m.tickets_status_edit()}
-          </DropdownMenuItem>
-          {canDelete ? (
-            <>
-              <DropdownMenuSeparator />
-              <ConfirmButton.MenuItem
-                variant="destructive"
-                className="cursor-pointer"
-              >
-                <Trash2 className="size-4" strokeWidth={1.75} />
-                {m.tickets_status_delete_button()}
-              </ConfirmButton.MenuItem>
-            </>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <ConfirmButton.Popover anchor={trigger} className="w-72">
-        <ConfirmBody status={status} statuses={statuses} />
-      </ConfirmButton.Popover>
-    </ConfirmButton.Root>
-  )
-}
-
-function ConfirmBody(props: Props) {
-  const canReadGitAutomation = useProjectActor().call("gitAutomation", "get")
-  return canReadGitAutomation ? (
-    <AutomationConfirmBody {...props} />
-  ) : (
-    <DeleteStatusForm {...props} automationReady />
-  )
-}
-
-function AutomationConfirmBody(props: Props) {
-  const { orgSlug, slug } = useProjectRoute()
-  const atom = gitAutomationFor(gitAutomationRequest(orgSlug, slug))
-  const automation = useAtomValue(atom)
-  const refresh = useAtomRefresh(atom)
-  return (
-    <DeleteStatusForm {...props} automationReady={Result.isSuccess(automation)}>
-      <AsyncView
-        result={automation}
-        contained
-        reset={refresh}
-        onInitial={() => (
-          <output className="text-caption text-muted-foreground">
-            {m.tickets_status_loading()}
-          </output>
-        )}
-        onSuccess={({ value }) =>
-          Object.values(value.rules).includes(props.status.slug) ? (
-            <span className="inline-flex h-8 items-center text-caption text-muted-foreground">
-              {m.tickets_status_delete_resets_git_automation()}
-            </span>
-          ) : null
-        }
-      />
-    </DeleteStatusForm>
-  )
-}
-
-function DeleteStatusForm({
-  status,
-  statuses,
-
-  automationReady,
-  children
-}: Props & Readonly<{ automationReady: boolean; children?: ReactNode }>) {
-  const { orgSlug, slug } = useProjectRoute()
-  const req = statusesRequest(orgSlug, slug)
-  const mutation = deleteStatus({ req, statusSlug: status.slug })
-  const remove = useAtomSet(mutation, { mode: "promiseExit" })
-  const removeState = useAtomValue(mutation)
-
-  const countResult = useAtomValue(
-    ticketCounts(countsRequest(orgSlug, slug, {}))
-  )
-  const affectedCount = Result.isSuccess(countResult)
-    ? (countResult.value.byStatus[status.slug] ?? 0)
-    : 0
-
-  const targets = statuses.filter((s) => s.slug !== status.slug)
-  const [target, setTarget] = useState<ProjectStatus["slug"] | null>(null)
-  const effectiveTarget =
-    targets.find((status) => status.slug === target)?.slug ?? targets[0]?.slug
-
-  return (
-    <ConfirmButton.Action
-      cancelLabel={m.common_cancel_button()}
-      prompt={
-        affectedCount > 0
-          ? m.tickets_status_delete_confirm_with_tickets({
-              count: affectedCount
-            })
-          : m.tickets_status_delete_confirm_empty()
-      }
-      layout="stacked"
-      label={m.tickets_status_delete_button()}
-      busyLabel={m.tickets_status_deleting()}
-      waiting={removeState.waiting}
-      describeError={() => m.tickets_status_delete_error_fallback()}
-      disabled={!automationReady || (affectedCount > 0 && !effectiveTarget)}
-      onConfirm={() =>
-        remove({ reassignTo: affectedCount > 0 ? effectiveTarget : undefined })
-      }
-    >
-      {children}
-      {affectedCount > 0 ? (
-        <TargetPicker
-          targets={targets}
-          statuses={statuses}
-          value={effectiveTarget ?? null}
-          onChange={setTarget}
-        />
-      ) : null}
-    </ConfirmButton.Action>
-  )
-}
-
-function TargetPicker({
-  targets,
-  statuses,
-  value,
-  onChange
-}: {
-  targets: ReadonlyArray<ProjectStatus>
-  statuses: ReadonlyArray<ProjectStatus>
-  value: ProjectStatus["slug"] | null
-  onChange: (slug: ProjectStatus["slug"]) => void
-}) {
-  const selectedMeta = statusMetaFor(value ?? "", statuses)
-  const SelectedIcon = selectedMeta.icon
-  return (
-    <Select
-      items={targets.map((s) => {
-        const meta = statusMetaFor(s.slug, statuses)
-        const Icon = meta.icon
-        return {
-          value: s.slug,
-          textValue: meta.label,
-          label: (
-            <>
-              <Icon
-                className={cn("size-4", meta.className)}
-                style={meta.color ? { color: meta.color } : undefined}
-                strokeWidth={1.75}
-              />
-              {meta.label}
-            </>
-          )
-        }
-      })}
-      value={value}
-      onValueChange={onChange}
-      contentProps={{ align: "start", className: "w-44" }}
-    >
-      <SelectTrigger
+    <DropdownMenu>
+      <DropdownMenuTrigger
         render={
           <Button
             type="button"
-            variant="tertiary"
-            size="sm"
-            aria-label={m.tickets_status_reassign_aria({
-              status: selectedMeta.label
-            })}
+            variant="ghost"
+            size="icon-sm"
+            aria-label={m.tickets_status_actions_aria({ label })}
+            className={cn("shrink-0", triggerClassName)}
           >
-            <TextSwap
-              className="gap-1"
-              icon={
-                <SelectedIcon
-                  className={cn("size-3.5", selectedMeta.className)}
-                  style={
-                    selectedMeta.color
-                      ? { color: selectedMeta.color }
-                      : undefined
-                  }
-                  strokeWidth={1.75}
-                />
-              }
-            >
-              {statusLabelFor(value ?? "", statuses)}
-            </TextSwap>
-            <ChevronDown className="ml-1 size-3.5 text-muted-foreground" />
+            <MoreHorizontal strokeWidth={1.75} />
           </Button>
         }
       />
-    </Select>
+      <DropdownMenuContent align="end" sideOffset={6} className="w-44">
+        <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
+          <Pencil className="size-4" strokeWidth={1.75} />
+          {m.tickets_status_edit()}
+        </DropdownMenuItem>
+        {canDelete ? (
+          <>
+            <DropdownMenuSeparator />
+            <DeleteStatusItems status={status} statuses={statuses} />
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
+}
+
+// Delete, confirmed in place. A status with tickets opens a submenu of
+// where to move them; each target is a confirm item ("Move to Done and
+// delete?"). A status git automation moves tickets into says so at the top
+// of the submenu, since deleting it resets those rules.
+function DeleteStatusItems({ status, statuses }: Props) {
+  const { orgSlug, slug } = useProjectRoute()
+  const remove = useAtomSet(
+    deleteStatus({
+      req: statusesRequest(orgSlug, slug),
+      statusSlug: status.slug
+    }),
+    { mode: "promiseExit" }
+  )
+  const counts = useAtomValue(ticketCounts(countsRequest(orgSlug, slug, {})))
+  const affected = Result.isSuccess(counts)
+    ? (counts.value.byStatus[status.slug] ?? 0)
+    : 0
+  const automation = useAutomationReset(status)
+  const icon = <Trash2 className="size-4" strokeWidth={1.75} />
+  const describeError = () => m.tickets_status_delete_error_fallback()
+
+  if (affected === 0 && !automation.resets)
+    return (
+      <DropdownMenuConfirmItem
+        icon={icon}
+        label={m.tickets_status_delete_button()}
+        confirmLabel={m.tickets_status_delete_confirm_empty()}
+        disabled={!automation.ready}
+        describeError={describeError}
+        onConfirm={() => remove({ reassignTo: undefined })}
+      />
+    )
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger
+        disabled={!automation.ready}
+        className="text-destructive data-[highlighted]:text-destructive data-[popup-open]:text-destructive [&_svg]:text-destructive"
+      >
+        {icon}
+        {m.tickets_status_delete_button()}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="w-64">
+        {automation.resets ? (
+          <p className="px-2 py-1.5 text-caption text-muted-foreground">
+            {m.tickets_status_delete_resets_git_automation()}
+          </p>
+        ) : null}
+        {affected === 0 ? (
+          <DropdownMenuConfirmItem
+            icon={icon}
+            label={m.tickets_status_delete_button()}
+            confirmLabel={m.tickets_status_delete_confirm_empty()}
+            describeError={describeError}
+            onConfirm={() => remove({ reassignTo: undefined })}
+          />
+        ) : (
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>
+              {m.tickets_status_delete_confirm_with_tickets({
+                count: affected
+              })}
+            </DropdownMenuLabel>
+            {statuses
+              .filter((target) => target.slug !== status.slug)
+              .map((target) => {
+                const meta = statusMetaFor(target.slug, statuses)
+                const Icon = meta.icon
+                return (
+                  <DropdownMenuConfirmItem
+                    key={target.slug}
+                    quiet
+                    icon={
+                      <Icon
+                        className={cn("size-4", meta.className)}
+                        style={meta.color ? { color: meta.color } : undefined}
+                        strokeWidth={1.75}
+                      />
+                    }
+                    label={meta.label}
+                    confirmLabel={m.tickets_status_delete_move_confirm({
+                      status: meta.label
+                    })}
+                    describeError={describeError}
+                    onConfirm={() => remove({ reassignTo: target.slug })}
+                  />
+                )
+              })}
+          </DropdownMenuGroup>
+        )}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  )
+}
+
+// Whether git automation can be read yet, and whether deleting this status
+// resets any of its rules. Without permission to read it, there is nothing
+// to wait for and nothing to warn about.
+function useAutomationReset(status: ProjectStatus) {
+  const canRead = useProjectActor().call("gitAutomation", "get")
+  const { orgSlug, slug } = useProjectRoute()
+  const automation = useAtomValue(
+    gitAutomationFor(gitAutomationRequest(orgSlug, slug))
+  )
+  if (!canRead) return { ready: true, resets: false }
+  if (!Result.isSuccess(automation)) return { ready: false, resets: false }
+  return {
+    ready: true,
+    resets: Object.values(automation.value.rules).includes(status.slug)
+  }
 }

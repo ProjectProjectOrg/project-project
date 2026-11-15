@@ -2,9 +2,9 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { sprintState, type Group } from "@pp/shared"
 import type { DateRange } from "@pp/ui/calendar"
 import { Calendar } from "@pp/ui/calendar"
-import { ConfirmButton } from "@pp/ui/confirm-button"
 import {
   DropdownMenu,
+  DropdownMenuConfirmItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -339,10 +339,6 @@ export function SprintDeleteMenu({ sprint }: { sprint: Group }) {
   const remove = useAtomSet(deleteSprint({ req, groupId: sprint.id }), {
     mode: "promiseExit"
   })
-  const removeState = useAtomValue(deleteSprint({ req, groupId: sprint.id }))
-  const deleting = removeState.waiting
-  const deleteFailed = Result.isFailure(removeState)
-  const trigger = useRef<HTMLButtonElement>(null)
 
   async function onDelete() {
     const exit = await remove(undefined)
@@ -356,55 +352,39 @@ export function SprintDeleteMenu({ sprint }: { sprint: Group }) {
   }
 
   return (
-    <ConfirmButton.Root bare>
-      <DropdownMenu>
-        <DropdownMenuTrigger
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <button
+            type="button"
+            aria-label={m.sprints_actions_aria_label()}
+            className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
+          >
+            <MoreHorizontal className="size-4" strokeWidth={1.75} />
+          </button>
+        }
+      />
+      <DropdownMenuContent align="end" sideOffset={6} className="w-56">
+        <DropdownMenuItem
           render={
-            <button
-              ref={trigger}
-              type="button"
-              aria-label={m.sprints_actions_aria_label()}
-              className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
-            >
-              <MoreHorizontal className="size-4" strokeWidth={1.75} />
-            </button>
+            <Link
+              to="/orgs/$orgSlug/projects/$slug/settings"
+              params={{ orgSlug, slug }}
+            />
           }
-        />
-        <DropdownMenuContent align="end" sideOffset={6} className="w-56">
-          <DropdownMenuItem
-            render={
-              <Link
-                to="/orgs/$orgSlug/projects/$slug/settings"
-                params={{ orgSlug, slug }}
-              />
-            }
-          >
-            <SlidersHorizontal className="size-4" strokeWidth={1.75} />
-            {m.project_detail_tab_settings()}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <ConfirmButton.MenuItem
-            variant="destructive"
-            className="cursor-pointer"
-          >
-            <Trash2 className="size-4" strokeWidth={1.75} />
-            {m.sprints_delete_button()}
-          </ConfirmButton.MenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <ConfirmButton.Popover anchor={trigger} className="w-72">
-        <ConfirmButton.Action
-          cancelLabel={m.common_cancel_button()}
+        >
+          <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+          {m.project_detail_tab_settings()}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuConfirmItem
+          icon={<Trash2 className="size-4" strokeWidth={1.75} />}
+          label={m.sprints_delete_button()}
+          confirmLabel={m.sprints_delete_confirm_title()}
           describeError={describeCause}
-          layout="stacked"
-          prompt={m.sprints_delete_confirm_title()}
-          description={m.sprints_delete_confirm_description()}
-          label={m.common_delete_confirm_button()}
-          waiting={deleting}
-          error={deleteFailed ? m.sprints_delete_error_fallback() : null}
           onConfirm={onDelete}
         />
-      </ConfirmButton.Popover>
-    </ConfirmButton.Root>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

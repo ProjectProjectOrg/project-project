@@ -4,14 +4,13 @@ import * as Match from "effect/Match"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import {
   useState,
-  type AnimationEvent,
   type ButtonHTMLAttributes,
-  type CSSProperties,
   type FocusEvent,
   type MouseEvent,
   type Ref
 } from "react"
 
+import { useCountdown, type Countdown } from "../lib/countdown"
 import type { IconComponent } from "../lib/icon"
 import { transitions } from "../lib/springs"
 import { SURFACE_BG } from "../lib/surfaceClasses"
@@ -200,34 +199,7 @@ type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "color"> &
     countdown?: ButtonCountdown
   }
 
-type ButtonCountdown = Readonly<{
-  seconds: number
-  onElapsed: () => void
-  delay?: number
-}>
-
-// Button's countdown: the timing variables for theme.css, and onElapsed when
-// the drain (on ::before, so the event's target is the button) finishes.
-function useCountdown(
-  countdown: ButtonCountdown | undefined,
-  style: CSSProperties | undefined,
-  onAnimationEnd: ((e: AnimationEvent<HTMLButtonElement>) => void) | undefined
-) {
-  const countdownStyle: CSSProperties | undefined =
-    countdown === undefined
-      ? style
-      : {
-          ...style,
-          "--countdown": `${countdown.seconds}s`,
-          "--countdown-delay": `${countdown.delay ?? 0}s`
-        }
-  const handleAnimationEnd = (e: AnimationEvent<HTMLButtonElement>) => {
-    if (e.animationName === "button-countdown" && e.target === e.currentTarget)
-      countdown?.onElapsed()
-    onAnimationEnd?.(e)
-  }
-  return { countdownStyle, handleAnimationEnd }
-}
+type ButtonCountdown = Countdown
 
 // A button that passes `loading` at all (true or false) keeps one
 // structure either way: its content in a span that fades and blurs out
@@ -348,6 +320,11 @@ function Button({
   const surface = useSurface()
   const onPage = useOnPage()
 
+  const { countdownClass, countdownStyle, handleAnimationEnd } = useCountdown(
+    countdown,
+    style,
+    onAnimationEnd
+  )
   const compClassName = cn(
     buttonVariants({
       variant,
@@ -362,13 +339,8 @@ function Button({
         ? "button-fill button-tertiary"
         : SURFACE_BG[Math.min(surface + 2, 8)]),
     variant !== "toolbar" && (BUTTON_RADIUS[size ?? "md"] ?? "rounded-[20px]"),
-    countdown !== undefined && "button-countdown",
+    countdownClass,
     className
-  )
-  const { countdownStyle, handleAnimationEnd } = useCountdown(
-    countdown,
-    style,
-    onAnimationEnd
   )
   const leadingIconNode = LeadingIcon && (
     <LeadingIcon
