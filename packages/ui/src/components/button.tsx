@@ -63,7 +63,10 @@ const buttonVariants = cva(
         // A control that holds a value, like a select trigger: the same
         // fill, hairline and invalid state as Input, foreground text.
         field:
-          "justify-between border border-(--segment-line) bg-field text-left text-foreground not-disabled:hover:bg-[color-mix(in_oklab,var(--field),var(--foreground)_3%)] aria-invalid:border-destructive data-[popup-open]:bg-[color-mix(in_oklab,var(--field),var(--foreground)_5%)]",
+          // Tints like Input (fieldTintClass): --field-hover on hover, and
+          // the lighter --field-focus while focused or while its popup is
+          // open, over the fill as an inset shadow.
+          "justify-between border border-(--segment-line) bg-field text-left text-foreground not-disabled:hover:shadow-[inset_0_0_0_100vmax_var(--field-hover)] not-disabled:hover:duration-0 focus-visible:shadow-[inset_0_0_0_100vmax_var(--field-focus)] data-[popup-open]:shadow-[inset_0_0_0_100vmax_var(--field-focus)] aria-invalid:border-destructive",
         dither: "overflow-hidden bg-transparent"
       },
       size: {

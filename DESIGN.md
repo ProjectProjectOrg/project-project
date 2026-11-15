@@ -210,7 +210,7 @@ Hover, pressed, and the secondary button are **translucent overlays**, not opaqu
 
 - **Hover** (`--hover`, 4% black / 4% white): `bg-hover` for every hover fill — rows, tertiary and ghost buttons, select triggers, menu highlights, the segmented track.
 - **Active** (`--active`, 7% / 10%): `bg-active` for pressed states and a menu's checked row.
-- **Field hover and focus** (`--field-hover` 2.5% / 3%, `--field-focus` 1.5% / 2%): bare fields that sit in running text (composer titles and descriptions, the ticket title, in-place names). Lighter than a control's `--hover`, and focus lighter still, so it reads as "you are typing here".
+- **Field hover and focus** (`--field-hover` 2.5% / 3%, `--field-focus` 1.5% / 2%): every field: Input and InputGroup, Select and other `field` buttons (over their `--field` fill, as an inset shadow), and bare fields in running text (composer titles and descriptions, the ticket title, in-place names). Lighter than a control's `--hover`, and focus (or an open picker) lighter still, so it reads as "you are here".
 - **Tint** (`--tint` 8% / 14%, `--tint-hover` 6.5% / 11%): the see-through secondary button fill.
 
 Never use `--muted` or `--accent` as a hover fill: on a raised surface they land at the surface's own tone and the hover disappears.
