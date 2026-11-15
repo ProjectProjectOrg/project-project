@@ -84,13 +84,12 @@ export const commandTarget = (
     }
   }
   const ticket =
-    scopeTicket(scopes) ??
-    (pointed === null
-      ? null
+    pointed === null
+      ? scopeTicket(scopes)
       : {
           orgSlug: pointed.orgSlug,
           slug: pointed.slug,
           ticketId: pointed.ticketId
-        })
+        }
   return { ticket, selection: [] }
 }

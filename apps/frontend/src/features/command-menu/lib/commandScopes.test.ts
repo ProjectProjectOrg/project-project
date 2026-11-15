@@ -45,7 +45,7 @@ const openTicket: CommandScope = {
 }
 
 describe("commandTarget", () => {
-  it("prefers the selection, then the open ticket, then the hovered row", () => {
+  it("prefers the selection, then the hovered row, then the open ticket", () => {
     const selection: CommandScope = {
       selection: () => ({
         slug: "app",
@@ -57,11 +57,11 @@ describe("commandTarget", () => {
       commandTarget("acme", [openTicket, selection], pointed).ticket?.ticketId
     ).toBe("T-7")
     expect(commandTarget("acme", [openTicket], pointed)).toEqual({
-      ticket: openTicket.ticket,
+      ticket: { orgSlug: "acme", slug: "app", ticketId: row.id },
       selection: []
     })
-    expect(commandTarget("acme", [], pointed)).toEqual({
-      ticket: { orgSlug: "acme", slug: "app", ticketId: row.id },
+    expect(commandTarget("acme", [openTicket], null)).toEqual({
+      ticket: openTicket.ticket,
       selection: []
     })
   })
