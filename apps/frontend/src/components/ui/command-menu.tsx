@@ -1103,7 +1103,9 @@ function CommandMenuDialog({
       setContent(null)
     }
   }, [])
-  useHotkey(shortcut, () => onOpenChange(true))
+  useHotkey(shortcut, (event) => {
+    if (!event.repeat) onOpenChange(true)
+  })
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -1157,7 +1159,9 @@ function CloseOnShortcut({
   shortcut,
   onClose
 }: Readonly<{ shortcut: HotkeyChord | null; onClose: () => void }>) {
-  useHotkey(shortcut, onClose)
+  useHotkey(shortcut, (event) => {
+    if (!event.repeat) onClose()
+  })
   return null
 }
 
