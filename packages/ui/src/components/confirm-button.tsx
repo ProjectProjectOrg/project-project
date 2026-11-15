@@ -298,6 +298,22 @@ function Capsule({
     }
   }, [open, from, reduce])
 
+  // The theme can change while the capsule is open (the overview opens its
+  // capsules on mount); read the colour under it again when <html>'s class
+  // changes, which is how the app and gallery switch themes.
+  useEffect(() => {
+    const el = ref.current
+    if (!shown || el === null) return undefined
+    const observer = new MutationObserver(() =>
+      el.style.setProperty("--confirm-under", backgroundUnder(el))
+    )
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme", "style"]
+    })
+    return () => observer.disconnect()
+  }, [shown])
+
   if (!shown) return null
   return (
     // The frame holds the position, clip and the edge fade (in its 24px
