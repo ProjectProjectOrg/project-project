@@ -1,11 +1,12 @@
 import type * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import { Trash2, X } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
+import { animate, motion, useReducedMotion } from "motion/react"
 import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -214,30 +215,90 @@ function Confirm({
       </motion.div>
     )
   }
-  // The capsule: 4px taller than a 28px trigger and pinned to its end edge,
-  // it grows from the trigger's width to fit the prompt and buttons, over
-  // the row, on the popup surface. Closing shrinks it back over the trigger.
-  const width = fromWidth + 4
   return (
-    <AnimatePresence>
-      {active === when ? (
-        <motion.div
-          key="capsule"
-          data-countdown-hold
-          initial={{ width, opacity: 1 }}
-          animate={{ width: "auto" }}
-          exit={{ width, opacity: 0 }}
-          transition={transitions.morph}
-          onKeyDown={onKeyDown}
-          className={cn(
-            "confirm-capsule absolute -end-0.5 top-1/2 z-20 flex h-8 -translate-y-1/2 items-center justify-end gap-1 overflow-hidden rounded-[16px] border border-border/60 bg-card pe-[3px] whitespace-nowrap [corner-shape:var(--button-corner)]",
-            className
-          )}
-        >
-          {children}
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+    <Capsule
+      open={active === when}
+      from={fromWidth + 4}
+      className={className}
+      onKeyDown={onKeyDown}
+    >
+      {children}
+    </Capsule>
+  )
+}
+
+// The capsule: 4px taller than a 28px trigger and pinned to its end edge,
+// it grows from the trigger's width to fit the prompt and buttons, over the
+// row, on the popup surface. Closing shrinks it back over the trigger and
+// fades it out, then unmounts it.
+//
+// Widths are measured with offsetWidth and animated as pixels, not with
+// motion's `width: "auto"`: that measures on-screen size, which is off by
+// the zoom factor inside a CSS `zoom` (the gallery's large specimens), and
+// overshoots to twice the width there.
+function Capsule({
+  open,
+  from,
+  className,
+  onKeyDown,
+  children
+}: Readonly<{
+  open: boolean
+  from: number
+  className?: string
+  onKeyDown: (e: KeyboardEvent) => void
+  children: ReactNode
+}>) {
+  const ref = useRef<HTMLDivElement>(null)
+  const reduce = useReducedMotion() ?? false
+  const [shown, setShown] = useState(open)
+  if (open && !shown) setShown(true)
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (el === null) return
+    const width = reduce ? { duration: 0 } : transitions.morph
+    // Start from wherever it is now, so a quick reopen or close reverses
+    // from the current width instead of jumping.
+    const start = el.offsetWidth
+    if (open) {
+      el.style.width = "auto"
+      const to = el.offsetWidth
+      el.style.width = `${start}px`
+      const run = animate(
+        el,
+        { width: [start, to], opacity: 1 },
+        { width, opacity: transitions.fade }
+      )
+      void run.then(() => {
+        el.style.width = "auto"
+      })
+      return () => run.stop()
+    }
+    const run = animate(
+      el,
+      { width: [start, from], opacity: 0 },
+      { width, opacity: transitions.morph }
+    )
+    void run.then(() => setShown(false))
+    return () => run.stop()
+  }, [open, from, reduce])
+
+  if (!shown) return null
+  return (
+    <div
+      ref={ref}
+      role="group"
+      data-countdown-hold
+      onKeyDown={onKeyDown}
+      style={{ width: from }}
+      className={cn(
+        "confirm-capsule absolute -end-0.5 top-1/2 z-20 flex h-8 -translate-y-1/2 items-center justify-end gap-1 overflow-hidden rounded-[16px] border border-border/60 bg-card pe-[3px] whitespace-nowrap [corner-shape:var(--button-corner)]",
+        className
+      )}
+    >
+      {children}
+    </div>
   )
 }
 
