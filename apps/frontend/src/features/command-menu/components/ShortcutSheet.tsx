@@ -59,7 +59,7 @@ function ShortcutList({ onClose }: Readonly<{ onClose: () => void }>) {
                 >
                   <span className="truncate">{appHotkey.meta?.name}</span>
                   {appHotkey.hotkey !== null && (
-                    <KbdShortcut keys={appHotkey.hotkey} aria-hidden />
+                    <KbdShortcut keys={appHotkey.hotkey} />
                   )}
                 </li>
               ))}
