@@ -1,85 +1,29 @@
-import { useAtomSet } from "@effect/atom-react"
-import { CommandMenuItem } from "@pp/ui/command-menu"
-import * as Cause from "effect/Cause"
-import * as Exit from "effect/Exit"
-import { Bug, Lightbulb } from "lucide-react"
-import { useState } from "react"
+import { useAtomValue } from "@effect/atom-react"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
+import type { ReactNode } from "react"
 
-import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
-import { submitFeedback } from "@/features/feedback/atoms/feedback"
-import { errorMessage } from "@/lib/errorMessage"
-import { m } from "@/paraglide/messages"
+import { feedbackStatus } from "@/features/feedback/atoms/feedback"
+import { SendFeedbackForm } from "@/features/feedback/forms/send-feedback"
 
-const KINDS = ["bug", "feature"] as const
+// The form's heading. In a popover this is PopoverTitle; inside cmd+k it's a
+// plain heading, since the menu names itself.
+function Heading({
+  className,
+  children
+}: Readonly<{ className?: string; children: ReactNode }>) {
+  return <h2 className={className}>{children}</h2>
+}
 
-// "Send feedback" from cmd+k: type it in a line, pick bug or feature. For
-// a description and attachments, the sidebar's Send feedback button opens
-// the full form in a popover.
-export function SendFeedbackPage({
-  context,
-  chip,
-  onBack,
-  env
-}: CommandPageProps) {
-  const send = useAtomSet(submitFeedback(context.orgSlug), {
-    mode: "promiseExit"
-  })
-  const [title, setTitle] = useState("")
-  const [failure, setFailure] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
-  const trimmed = title.trim()
+// "Send feedback" in cmd+k: the full feedback form, inside the command menu.
+export function SendFeedbackPage({ context, env }: CommandPageProps) {
+  const status = useAtomValue(feedbackStatus(context.orgSlug))
   return (
-    <CommandFrame
-      chip={chip}
-      placeholder={m.feedback_command_placeholder()}
-      onBack={onBack}
-      filter={false}
-      notice={failure}
-      onSearchChange={(value) => {
-        setFailure(null)
-        setTitle(value)
-      }}
-      items={
-        trimmed === ""
-          ? []
-          : [
-              {
-                value: "bug",
-                label: m.feedback_command_bug({ title: trimmed }),
-                icon: Bug
-              },
-              {
-                value: "feature",
-                label: m.feedback_command_feature({ title: trimmed }),
-                icon: Lightbulb
-              }
-            ]
-      }
-      renderItem={(item) => (
-        <CommandMenuItem value={item.value}>
-          <span className="min-w-0 flex-1 truncate">{item.label}</span>
-        </CommandMenuItem>
-      )}
-      onSelect={async (item) => {
-        const kind = KINDS.find((each) => each === item.value)
-        if (kind === undefined || pending || trimmed === "") return
-        setPending(true)
-        setFailure(null)
-        const exit = await send({
-          kind,
-          title: trimmed,
-          description: "",
-          route: window.location.pathname,
-          attachmentIds: []
-        })
-        setPending(false)
-        if (Exit.isFailure(exit)) {
-          setFailure(errorMessage(Cause.squash(exit.cause)))
-          return
-        }
-        env.close()
-      }}
+    <SendFeedbackForm
+      orgSlug={context.orgSlug}
+      attachments={AsyncResult.isSuccess(status) && status.value.attachments}
+      Title={Heading}
+      onDone={env.close}
     />
   )
 }

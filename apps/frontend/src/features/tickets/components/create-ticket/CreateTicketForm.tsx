@@ -27,6 +27,7 @@ import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
+import { ProjectSelect } from "@/features/projects/components/ProjectSelect"
 import { ProjectContext } from "@/features/projects/hooks/useProject"
 import {
   assignTicketToSprint,
@@ -65,19 +66,26 @@ const RELATED_LABELS: Readonly<
   related: m.tickets_create_related_related
 }
 
-// The full new-ticket composer, in a popover from the ticket menu's
-// "Create related" (the ticket it relates to is in the request). From cmd+k,
-// a ticket is created on the New ticket page instead.
+// The full new-ticket composer: on cmd+k's New ticket page, and in a popover
+// from the ticket menu's "Create related" (the ticket it relates to is in the
+// request).
 export function CreateTicketForm({
   request,
-  onDone
-}: Readonly<{ request: CreateTicketRequest; onDone: () => void }>) {
+  onDone,
+  inCommandMenu = false
+}: Readonly<{
+  request: CreateTicketRequest
+  onDone: () => void
+  // In cmd+k the composer shows its header with the project picker, and
+  // Cancel goes back instead of closing a popover.
+  inCommandMenu?: boolean
+}>) {
   const { orgSlug } = request
   const navigate = useNavigate()
   const projectsResult = useAtomValue(projectsFor(projectsRequest(orgSlug)))
   const projects = Result.isSuccess(projectsResult) ? projectsResult.value : []
-  // The popover opens inside one project; the first project is a fallback.
-  const slug = request.projectSlug ?? projects[0]?.slug ?? null
+  const [picked, setPicked] = useState(request.projectSlug)
+  const slug = picked ?? projects[0]?.slug ?? null
   const related =
     request.related !== undefined && slug === request.projectSlug
       ? request.related
@@ -169,16 +177,45 @@ export function CreateTicketForm({
 
   return (
     <form onSubmit={(event) => void submit(event)} className="flex flex-col">
-      {related !== null && (
+      {inCommandMenu ? (
         <Composer.Header>
-          <span className="truncate px-2.5 text-body text-muted-foreground">
-            <TicketIdText id={related.ticketId}>
-              {RELATED_LABELS[related.kind]({ id: related.ticketId })}
-            </TicketIdText>
-          </span>
+          <ProjectSelect
+            projects={projects}
+            value={slug}
+            onChange={(next) => {
+              setPicked(next)
+              creatorType.reset()
+              setFields(DEFAULT_TICKET_FIELDS)
+              setCreated(null)
+              setSprint(null)
+            }}
+          />
+          <h2 className="text-body font-normal text-muted-foreground">
+            {m.tickets_create_dialog_title()}
+          </h2>
+          {related !== null && (
+            <span className="truncate text-body text-muted-foreground">
+              ·{" "}
+              <TicketIdText id={related.ticketId}>
+                {RELATED_LABELS[related.kind]({ id: related.ticketId })}
+              </TicketIdText>
+            </span>
+          )}
         </Composer.Header>
+      ) : (
+        related !== null && (
+          <Composer.Header>
+            <span className="truncate px-2.5 text-body text-muted-foreground">
+              <TicketIdText id={related.ticketId}>
+                {RELATED_LABELS[related.kind]({ id: related.ticketId })}
+              </TicketIdText>
+            </span>
+          </Composer.Header>
+        )
       )}
-      <Composer.Title className={related === null ? "mt-4" : undefined}>
+      <Composer.Title
+        className={!inCommandMenu && related === null ? "mt-4" : undefined}
+      >
         <Input
           variant="bare"
           className="text-title font-semibold"
@@ -228,11 +265,17 @@ export function CreateTicketForm({
       )}
       <Composer.Error>{failure}</Composer.Error>
       <Composer.Footer>
-        <PopoverClose
-          render={<Button type="button" variant="ghost" size="sm" />}
-        >
-          {m.common_cancel_button()}
-        </PopoverClose>
+        {inCommandMenu ? (
+          <Button type="button" variant="ghost" size="sm" onClick={onDone}>
+            {m.common_cancel_button()}
+          </Button>
+        ) : (
+          <PopoverClose
+            render={<Button type="button" variant="ghost" size="sm" />}
+          >
+            {m.common_cancel_button()}
+          </PopoverClose>
+        )}
         <Button type="submit" size="sm" disabled={!canSubmit}>
           {m.tickets_create_dialog_submit()}
         </Button>

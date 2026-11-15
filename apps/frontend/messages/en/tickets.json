@@ -835,7 +835,5 @@
     }
   ],
   "tickets_command_flag_action": "Flag {id}",
-  "tickets_command_flag_with_reason": "Flag {id} with this reason",
-  "tickets_command_create_named": "Create ticket “{title}”",
-  "tickets_command_create_named_in": "Create “{title}” in {project}"
+  "tickets_command_flag_with_reason": "Flag {id} with this reason"
 }
