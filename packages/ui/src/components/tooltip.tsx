@@ -70,6 +70,14 @@ let focusedId: string | null = null
 // left or blurred.
 let suppressedId: string | null = null
 let warmUntil = 0
+// While the page scrolls (and briefly after), hovering opens nothing: content
+// sliding under a still pointer fires hover events, which would reopen a
+// tooltip on whatever passes and glide it along with the scroll.
+const SCROLL_QUIET = 200
+let scrollQuietUntil = 0
+// Set when a scroll closes the tooltip, so it vanishes at once instead of
+// fading out over content that has already moved on.
+let closedByScroll = false
 let showTimer: number | undefined
 let hideTimer: number | undefined
 
@@ -98,8 +106,9 @@ const show = (id: string, source: Source) => {
   emit()
 }
 
-const hide = () => {
+const hide = (instant = false) => {
   clearTimers()
+  closedByScroll = instant
   if (activeId === null) return
   warmUntil = performance.now() + WARM_FOR
   activeId = null
@@ -112,6 +121,7 @@ const isWarm = () => activeId !== null || performance.now() < warmUntil
 const tooltipStore = {
   hoverStart(id: string) {
     if (suppressedId === id) return
+    if (performance.now() < scrollQuietUntil) return
     clearTimers()
     if (isWarm()) show(id, "hover")
     else showTimer = window.setTimeout(() => show(id, "hover"), OPEN_DELAY)
@@ -145,10 +155,22 @@ const tooltipStore = {
   },
   popupLeave() {
     if (activeSource === "hover")
-      hideTimer = window.setTimeout(hide, CLOSE_GRACE)
+      hideTimer = window.setTimeout(() => hide(), CLOSE_GRACE)
   },
   touch(id: string) {
     if (activeId === id) emit()
+  },
+  scrolled() {
+    scrollQuietUntil = performance.now() + SCROLL_QUIET
+    warmUntil = 0
+    clearTimeout(showTimer)
+    if (activeId === null) return
+    // A keyboard-focused tooltip stays and is placed again by its trigger.
+    if (activeSource === "focus") emit()
+    else {
+      hide(true)
+      warmUntil = 0
+    }
   },
   unregister(id: string) {
     registrations.delete(id)
@@ -316,10 +338,12 @@ function HostSurface() {
       return {
         ...next,
         id,
-        // Glide only while a tooltip is on screen (or still leaving).
+        // Glide only to a new trigger while a tooltip is on screen (or still
+        // leaving); a scroll or a content change for the same trigger snaps.
         glide:
           surfaceRef.current !== null &&
           previous !== null &&
+          previous.id !== id &&
           !prefersReducedMotion()
       }
     })
@@ -342,19 +366,31 @@ function HostSurface() {
     }
   })
 
-  // Escape, scroll and resize close it.
+  // Any scroll, anywhere, closes a hover tooltip at once and keeps hovers
+  // from opening one until the scrolling stops. A keyboard-focused tooltip
+  // stays, and follows its trigger.
+  React.useEffect(() => {
+    const onScroll = () => tooltipStore.scrolled()
+    window.addEventListener("scroll", onScroll, {
+      capture: true,
+      passive: true
+    })
+    return () =>
+      window.removeEventListener("scroll", onScroll, { capture: true })
+  }, [])
+
+  // Escape and resize close it.
   React.useEffect(() => {
     if (id === null) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") tooltipStore.dismiss()
     }
+    const onResize = () => hide(true)
     document.addEventListener("keydown", onKey)
-    window.addEventListener("scroll", hide, { capture: true, passive: true })
-    window.addEventListener("resize", hide)
+    window.addEventListener("resize", onResize)
     return () => {
       document.removeEventListener("keydown", onKey)
-      window.removeEventListener("scroll", hide, { capture: true })
-      window.removeEventListener("resize", hide)
+      window.removeEventListener("resize", onResize)
     }
   }, [id])
 
@@ -376,7 +412,7 @@ function HostSurface() {
           {content}
         </div>
       </div>
-      <AnimatePresence>
+      <AnimatePresence custom={closedByScroll}>
         {visible && layout && (
           <motion.div
             key="tooltip"
@@ -403,7 +439,15 @@ function HostSurface() {
               width: layout.width,
               height: layout.height
             }}
-            exit={{ opacity: 0, scale: reduced ? 1 : 0.96 }}
+            custom={closedByScroll}
+            exit="closed"
+            variants={{
+              closed: (instant: boolean) => ({
+                opacity: 0,
+                scale: reduced ? 1 : 0.96,
+                transition: instant ? { duration: 0 } : appear
+              })
+            }}
             transition={{
               opacity: appear,
               scale: appear,

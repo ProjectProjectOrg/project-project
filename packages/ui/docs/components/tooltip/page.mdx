@@ -88,7 +88,8 @@ We started on Base UI's tooltip and replaced it. Base UI's tooltip adds no ARIA 
 ### What it handles
 
 - **Opening.** Hover opens after 400ms, so passing over a button doesn't flash one. While a tooltip shows, or for 400ms after one closes, the next opens at once. Keyboard focus opens it straight away, but only on `:focus-visible`, so clicking a button doesn't. Touch never opens one.
-- **Closing.** Leaving the trigger closes it after 100ms, long enough to cross onto the tooltip or the next button. Clicking the trigger, Escape, scrolling and resizing close it; after a click or Escape it stays closed until the pointer leaves or focus moves on.
+- **Closing.** Leaving the trigger closes it after 100ms, long enough to cross onto the tooltip or the next button. Clicking the trigger, Escape and resizing close it; after a click or Escape it stays closed until the pointer leaves or focus moves on.
+- **Scrolling.** The tooltip is `position: fixed`, so a scroll would leave it floating where its trigger was. Any scroll closes a hover tooltip at once, with no fade, and hovering opens nothing until scrolling has been quiet for 200ms: content sliding under a still pointer fires hover events, which would otherwise reopen a tooltip on whatever passes and drag it along. A keyboard-focused tooltip stays and moves with its trigger.
 - **Staying open on hover.** The pointer can move onto the tooltip without it closing (WCAG 1.4.13).
 - **Placement.** It sits on its side of the trigger, flips to the other side when it doesn't fit, and stays 8px inside the window.
 - **Screen readers.** The tooltip has `role="tooltip"`. When it says more than the trigger's `aria-label` (a hint, not just the label), the trigger gets `aria-describedby` pointing at it. Icon buttons still need their own `aria-label`.
