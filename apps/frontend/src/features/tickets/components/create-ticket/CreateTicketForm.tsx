@@ -44,7 +44,7 @@ import {
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import { SprintSelect } from "@/features/tickets/components/ticket-list/SprintField"
-import { StartsWithLine } from "@/features/tickets/components/ticket-list/StartsWithLine"
+import { startText } from "@/features/tickets/components/ticket-list/StartsWithLine"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
 import { useCreatorType } from "@/features/tickets/hooks/useCreatorType"
 import { errorMessage } from "@/lib/errorMessage"
@@ -205,7 +205,7 @@ export function CreateTicketForm({
       ) : (
         related !== null && (
           <Composer.Header>
-            <span className="truncate px-2.5 text-body text-muted-foreground">
+            <span className="truncate">
               <TicketIdText id={related.ticketId}>
                 {RELATED_LABELS[related.kind]({ id: related.ticketId })}
               </TicketIdText>
@@ -213,12 +213,9 @@ export function CreateTicketForm({
           </Composer.Header>
         )
       )}
-      <Composer.Title
-        className={!inCommandMenu && related === null ? "mt-4" : undefined}
-      >
+      <Composer.Title>
         <Input
           variant="bare"
-          className="text-title font-semibold"
           aria-label={m.tickets_create_title_aria_label()}
           aria-required
           placeholder={m.tickets_create_dialog_title_placeholder()}
@@ -241,45 +238,49 @@ export function CreateTicketForm({
           />
         </MentionScopeProvider>
       </Composer.Body>
-      <Composer.Chips>
-        {slug === null ? null : (
-          <ProjectScope orgSlug={orgSlug} slug={slug}>
-            <TicketFieldChips
-              key={slug}
-              orgSlug={orgSlug}
-              slug={slug}
-              creatorType={creatorType}
-              value={fields}
-              onChange={(patch) =>
-                setFields((current) => ({ ...current, ...patch }))
-              }
-            />
-            {!isEpicType(creatorType.type) && (
-              <SprintSelect value={sprint} onChange={setSprint} />
-            )}
-          </ProjectScope>
-        )}
-      </Composer.Chips>
-      {body === "" && (
-        <StartsWithLine start={creatorType.start} className="px-4 pt-2" />
-      )}
       <Composer.Error>{failure}</Composer.Error>
-      <Composer.Footer>
-        {inCommandMenu ? (
-          <Button type="button" variant="ghost" size="sm" onClick={onDone}>
-            {m.common_cancel_button()}
-          </Button>
-        ) : (
-          <PopoverClose
-            render={<Button type="button" variant="ghost" size="sm" />}
-          >
-            {m.common_cancel_button()}
-          </PopoverClose>
+      <Composer.Tray>
+        {slug === null ? null : (
+          <Composer.Fields>
+            <ProjectScope orgSlug={orgSlug} slug={slug}>
+              <TicketFieldChips
+                key={slug}
+                orgSlug={orgSlug}
+                slug={slug}
+                creatorType={creatorType}
+                value={fields}
+                onChange={(patch) =>
+                  setFields((current) => ({ ...current, ...patch }))
+                }
+              />
+              {!isEpicType(creatorType.type) && (
+                <SprintSelect value={sprint} onChange={setSprint} />
+              )}
+            </ProjectScope>
+          </Composer.Fields>
         )}
-        <Button type="submit" size="sm" disabled={!canSubmit}>
-          {m.tickets_create_dialog_submit()}
-        </Button>
-      </Composer.Footer>
+        <Composer.Footer>
+          {body === "" && (
+            <Composer.Hint>{startText(creatorType.start)}</Composer.Hint>
+          )}
+          <Composer.Actions>
+            {inCommandMenu ? (
+              <Button type="button" variant="ghost" size="sm" onClick={onDone}>
+                {m.common_cancel_button()}
+              </Button>
+            ) : (
+              <PopoverClose
+                render={<Button type="button" variant="ghost" size="sm" />}
+              >
+                {m.common_cancel_button()}
+              </PopoverClose>
+            )}
+            <Button type="submit" size="sm" disabled={!canSubmit}>
+              {m.tickets_create_dialog_submit()}
+            </Button>
+          </Composer.Actions>
+        </Composer.Footer>
+      </Composer.Tray>
     </form>
   )
 }

@@ -49,18 +49,16 @@ export function FlagForm({
         submit()
       }}
     >
-      <Composer.Header className="text-body">
-        <h2 className="inline-flex h-8 items-center gap-1.5 px-2.5 font-normal text-foreground">
+      <Composer.Header>
+        <h2 className="inline-flex items-center gap-1.5 font-normal text-foreground">
           <Flag className="size-3.5" strokeWidth={1.75} />
           {m.tickets_flag_heading()}
         </h2>
         {ticket.id !== null && (
-          <span className="text-muted-foreground tabular-nums">
-            {ticket.id}
-          </span>
+          <span className="tabular-nums">{ticket.id}</span>
         )}
       </Composer.Header>
-      <Composer.Title className="mt-1 truncate">{ticket.title}</Composer.Title>
+      <Composer.Title className="truncate">{ticket.title}</Composer.Title>
       <form.Field name="reason">
         {(field) => (
           <Composer.Body onKeyDownCapture={submitOnModEnter}>
@@ -73,18 +71,20 @@ export function FlagForm({
           </Composer.Body>
         )}
       </form.Field>
-      <Composer.Hint className="px-4 pt-4">
-        {m.tickets_flag_hint()}
-      </Composer.Hint>
       <Composer.Error>{error}</Composer.Error>
-      <Composer.Footer>
-        <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-          {m.common_cancel_button()}
-        </Button>
-        <Button type="submit" size="sm" disabled={waiting}>
-          {m.tickets_flag_submit()}
-        </Button>
-      </Composer.Footer>
+      <Composer.Tray>
+        <Composer.Footer>
+          <Composer.Hint>{m.tickets_flag_hint()}</Composer.Hint>
+          <Composer.Actions>
+            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+              {m.common_cancel_button()}
+            </Button>
+            <Button type="submit" size="sm" disabled={waiting}>
+              {m.tickets_flag_submit()}
+            </Button>
+          </Composer.Actions>
+        </Composer.Footer>
+      </Composer.Tray>
     </form>
   )
 }

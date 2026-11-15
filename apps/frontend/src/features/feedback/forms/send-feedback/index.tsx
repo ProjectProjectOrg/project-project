@@ -151,7 +151,10 @@ export function SendFeedbackForm({
         className="col-start-1 row-start-1 flex flex-col"
         aria-label={m.feedback_title()}
       >
-        <Composer.Header className="pl-3">
+        {/* The kind tabs are a control, not text: like the tray's buttons
+            they sit 6px from the top and the side, concentric with the
+            corner. */}
+        <Composer.Header className="px-1.5 pt-1.5">
           <form.Field name="kind">
             {(field) => (
               <SegmentedTabs
@@ -186,7 +189,7 @@ export function SendFeedbackForm({
                   onBlur={field.handleBlur}
                   onKeyDown={sendOnModEnter}
                   onPaste={attachPasted}
-                  className="col-start-1 row-start-1 text-title leading-6 font-semibold"
+                  className="col-start-1 row-start-1 leading-6"
                 />
                 {field.value === "" ? (
                   <TitlePlaceholder placeholder={placeholder} />
@@ -212,7 +215,6 @@ export function SendFeedbackForm({
             </Composer.Body>
           )}
         </form.Field>
-        <AttachRow attachments={attachments} onFiles={files.add} />
         <div className="px-4 pt-2 empty:hidden">
           <FeedbackFileList drafts={files.drafts} onRemove={files.remove} />
         </div>
@@ -227,19 +229,33 @@ export function SendFeedbackForm({
             return <Composer.Error>{message}</Composer.Error>
           }}
         </form.Field>
-        <Composer.Footer>
-          <Button type="button" variant="ghost" size="sm" onClick={onDone}>
-            {m.common_cancel_button()}
-          </Button>
-          <Button
-            type="submit"
-            size="sm"
-            disabled={busy}
-            className={cn(state.waiting && "animate-pulse")}
-          >
-            {state.waiting ? m.feedback_sending() : m.feedback_submit()}
-          </Button>
-        </Composer.Footer>
+        <Composer.Tray>
+          {attachments ? (
+            <Composer.Fields>
+              <AttachButton onFiles={files.add} />
+            </Composer.Fields>
+          ) : null}
+          <Composer.Footer>
+            <Composer.Hint>
+              {attachments
+                ? m.feedback_attach_hint()
+                : m.feedback_attach_unavailable()}
+            </Composer.Hint>
+            <Composer.Actions>
+              <Button type="button" variant="ghost" size="sm" onClick={onDone}>
+                {m.common_cancel_button()}
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={busy}
+                className={cn(state.waiting && "animate-pulse")}
+              >
+                {state.waiting ? m.feedback_sending() : m.feedback_submit()}
+              </Button>
+            </Composer.Actions>
+          </Composer.Footer>
+        </Composer.Tray>
       </motion.form>
       <FeedbackSent sent={sent} onSendAnother={sendAnother} />
       <span aria-live="polite" className="sr-only">
@@ -257,25 +273,6 @@ function TitlePlaceholder({ placeholder }: Readonly<{ placeholder: string }>) {
     >
       <TextSwap className="col-start-1 row-start-1">{placeholder}</TextSwap>
     </span>
-  )
-}
-
-function AttachRow({
-  attachments,
-  onFiles
-}: Readonly<{
-  attachments: boolean
-  onFiles: (files: ReadonlyArray<File>) => void
-}>) {
-  return (
-    <Composer.Chips>
-      {attachments ? <AttachButton onFiles={onFiles} /> : null}
-      <Composer.Hint>
-        {attachments
-          ? m.feedback_attach_hint()
-          : m.feedback_attach_unavailable()}
-      </Composer.Hint>
-    </Composer.Chips>
   )
 }
 

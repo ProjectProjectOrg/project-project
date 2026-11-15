@@ -138,10 +138,9 @@ export function CreateSprintForm({
 
   return (
     <form onSubmit={(event) => void submit(event)} className="flex flex-col">
-      <Composer.Title className="mt-4">
+      <Composer.Title>
         <Input
           variant="bare"
-          className="text-title font-semibold"
           autoFocus
           aria-label={m.sprints_new_name_placeholder()}
           placeholder={m.sprints_new_name_placeholder()}
@@ -167,8 +166,8 @@ export function CreateSprintForm({
         <CompleteFromLine orgSlug={orgSlug} slug={slug} sprint={completeFrom} />
       )}
       <Composer.Error>{failure}</Composer.Error>
-      <Composer.Footer className="justify-between pl-1.5">
-        <div className="flex min-w-0 items-center gap-1.5">
+      <Composer.Tray>
+        <Composer.Footer>
           <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
             <PopoverTrigger
               render={
@@ -229,18 +228,18 @@ export function CreateSprintForm({
           {range.from === undefined && (
             <Composer.Hint>{m.sprints_no_dates_hint()}</Composer.Hint>
           )}
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button type="button" variant="ghost" size="sm" onClick={onDone}>
-            {m.common_cancel_button()}
-          </Button>
-          <Button type="submit" size="sm" disabled={!canSubmit}>
-            {startsNow
-              ? m.sprints_create_dialog_submit_start()
-              : m.sprints_create_dialog_submit()}
-          </Button>
-        </div>
-      </Composer.Footer>
+          <Composer.Actions>
+            <Button type="button" variant="ghost" size="sm" onClick={onDone}>
+              {m.common_cancel_button()}
+            </Button>
+            <Button type="submit" size="sm" disabled={!canSubmit}>
+              {startsNow
+                ? m.sprints_create_dialog_submit_start()
+                : m.sprints_create_dialog_submit()}
+            </Button>
+          </Composer.Actions>
+        </Composer.Footer>
+      </Composer.Tray>
     </form>
   )
 }

@@ -54,36 +54,15 @@ export function ArchiveForm({
         submit()
       }}
     >
-      <Composer.Header className="text-body">
-        <PopoverTitle className="inline-flex h-8 items-center gap-1.5 px-2.5 font-normal text-foreground">
+      <Composer.Header>
+        <PopoverTitle className="inline-flex items-center gap-1.5 font-normal text-foreground">
           <Archive className="size-3.5" strokeWidth={1.75} />
           {m.tickets_archive_heading()}
         </PopoverTitle>
-        <span className="text-muted-foreground tabular-nums">{ticket.id}</span>
+        <span className="tabular-nums">{ticket.id}</span>
       </Composer.Header>
-      <Composer.Title className="mt-1 truncate">{ticket.title}</Composer.Title>
-      <Composer.Chips className="pl-2.5">
-        <form.Field name="preset">
-          {(field) =>
-            presets().map(({ label, icon: Icon }) => (
-              <Button
-                key={label}
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-pressed={field.value === label}
-                onClick={() =>
-                  field.handleChange(field.value === label ? null : label)
-                }
-              >
-                <Icon className="size-3.5" strokeWidth={1.75} />
-                <span>{label}</span>
-              </Button>
-            ))
-          }
-        </form.Field>
-      </Composer.Chips>
-      <Composer.Body className="mt-3">
+      <Composer.Title className="truncate">{ticket.title}</Composer.Title>
+      <Composer.Body>
         <form.Field name="details">
           {(field) => (
             <textarea
@@ -105,20 +84,43 @@ export function ArchiveForm({
           )}
         </form.Field>
       </Composer.Body>
-      <Composer.Hint className="px-4 pt-4">
-        {m.tickets_archive_hint()}
-      </Composer.Hint>
       <Composer.Error>
         {failed ? m.tickets_archive_error_fallback() : null}
       </Composer.Error>
-      <Composer.Footer>
-        <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-          {m.common_cancel_button()}
-        </Button>
-        <Button type="submit" size="sm" disabled={waiting}>
-          {m.tickets_archive_submit()}
-        </Button>
-      </Composer.Footer>
+      <Composer.Tray>
+        <Composer.Fields>
+          <form.Field name="preset">
+            {(field) =>
+              presets().map(({ label, icon: Icon }) => (
+                <Button
+                  key={label}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-pressed={field.value === label}
+                  onClick={() =>
+                    field.handleChange(field.value === label ? null : label)
+                  }
+                >
+                  <Icon className="size-3.5" strokeWidth={1.75} />
+                  <span>{label}</span>
+                </Button>
+              ))
+            }
+          </form.Field>
+        </Composer.Fields>
+        <Composer.Footer>
+          <Composer.Hint>{m.tickets_archive_hint()}</Composer.Hint>
+          <Composer.Actions>
+            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+              {m.common_cancel_button()}
+            </Button>
+            <Button type="submit" size="sm" disabled={waiting}>
+              {m.tickets_archive_submit()}
+            </Button>
+          </Composer.Actions>
+        </Composer.Footer>
+      </Composer.Tray>
     </form>
   )
 }

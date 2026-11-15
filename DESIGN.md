@@ -419,6 +419,10 @@ Every settings area — organization, project, profile — uses the same rail an
 - **Controls size themselves.** The page never caps width to tame a control; an input inside a row gets its own width.
 - **Hover only on click targets.** A row you can't click (a status row, an informational row) has no hover fill; its controls carry their own.
 
+### Composers
+
+A composer (new ticket, sub-ticket, new sprint, archive, flag, feedback) is a popover form in two zones. The card holds the writing: an optional context line, the title, the body. Below it, a tray tinted `--composer-tray` (halfway between `--card` and `--background`) holds everything that isn't writing: field chips (28px), then a row with a hint at the start and the actions at the end. Text starts 16px in throughout; the tray's buttons sit 6px from its edges, and the popover's 20px corners are concentric with them. Parts own their spacing (`@pp/ui/composer`); call sites never pad them.
+
 ### Dithered Brand Surfaces
 
 The brand mark is built from two greys (`--dither-front` and `--dither-back`) on the surface color, rendered as stepped Bayer-matrix shading. The same vocabulary extends to:

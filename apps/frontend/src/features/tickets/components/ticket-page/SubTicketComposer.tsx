@@ -117,13 +117,12 @@ export function SubTicketComposer({
   return (
     <form
       onSubmit={(event) => void submit(event)}
-      className="flex flex-col rounded-xl border border-border/60 bg-background [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px]"
+      className="flex flex-col overflow-hidden rounded-[20px] border border-border/60 bg-background [--fs-body:13px] [--lh-body:20px] [--text-body--line-height:20px] [--text-body:13px] [corner-shape:var(--button-corner)]"
     >
-      <Composer.Title className="mt-4">
+      <Composer.Title>
         <Input
           ref={titleInput}
           variant="bare"
-          className="text-title font-semibold"
           aria-label={m.tickets_create_title_aria_label()}
           placeholder={
             inEpic
@@ -155,39 +154,41 @@ export function SubTicketComposer({
           />
         </MentionScopeProvider>
       </Composer.Body>
-      <Composer.Chips className="gap-0.5 pl-2 [&_[data-slot=button]]:h-7 [&_[data-slot=button]]:px-2">
-        <TicketFieldChips
-          orgSlug={orgSlug}
-          slug={slug}
-          creatorType={creatorType}
-          value={fields}
-          onChange={(patch) =>
-            setFields((current) => ({ ...current, ...patch }))
-          }
-        />
-      </Composer.Chips>
       <Composer.Error>{failure}</Composer.Error>
-      <Composer.Footer className="mt-1.5 p-1.5">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          iconLeft
-          className="mr-auto pl-2.5"
-          onClick={attachExisting}
-        >
-          <Link2 className="size-3.5" strokeWidth={1.75} />
-          {m.tickets_children_attach_button()}
-        </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-          {m.common_cancel_button()}
-        </Button>
-        <Button type="submit" size="sm" disabled={trimmed === ""}>
-          {inEpic
-            ? m.tickets_create_dialog_submit()
-            : m.tickets_children_create_sub_ticket()}
-        </Button>
-      </Composer.Footer>
+      <Composer.Tray>
+        <Composer.Fields>
+          <TicketFieldChips
+            orgSlug={orgSlug}
+            slug={slug}
+            creatorType={creatorType}
+            value={fields}
+            onChange={(patch) =>
+              setFields((current) => ({ ...current, ...patch }))
+            }
+          />
+        </Composer.Fields>
+        <Composer.Footer>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            leadingIcon={Link2}
+            onClick={attachExisting}
+          >
+            {m.tickets_children_attach_button()}
+          </Button>
+          <Composer.Actions>
+            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+              {m.common_cancel_button()}
+            </Button>
+            <Button type="submit" size="sm" disabled={trimmed === ""}>
+              {inEpic
+                ? m.tickets_create_dialog_submit()
+                : m.tickets_children_create_sub_ticket()}
+            </Button>
+          </Composer.Actions>
+        </Composer.Footer>
+      </Composer.Tray>
     </form>
   )
 }

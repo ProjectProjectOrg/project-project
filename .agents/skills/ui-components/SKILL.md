@@ -139,7 +139,8 @@ Set during the polish passes; a component that breaks one is not done.
 | Confirm button | Done, in the gallery's Patterns group (compositions of primitives live in `docs/patterns/`); enter/exit motion still to tune |
 | Command menu | Done: kept as designed; rows and their hover, press and disabled states match the dropdown items |
 | Empty | Done: one variant, `intensity` (ink colour) and `animated`, random dither seed; every app empty state uses it |
-| Kbd | In progress |
+| Kbd | Done: the only keycap (⌘K uses KbdShortcut), colours from currentColor, inset like an icon in buttons |
+| Composer | In progress |
 | Dialog | Removed: the app has no dialogs (PRODUCT.md, "Zero dialogs"); page actions use Popover, cmd+k actions are cmd+k pages |
 
 Open question from the Select pass: dropdown radio rows with `closeOnClick` skip the settle animation (`settleAtOnceClass` in `dropdown-menu.tsx`); ask Wouter whether they should animate again.
