@@ -36,8 +36,7 @@ export default function FlagTicket() {
           <Composer.Tray>
             <Composer.Footer>
               <Composer.Hint>
-                Draws attention to this ticket until someone removes the flag or
-                it's done.
+                Stays flagged until it's done or unflagged.
               </Composer.Hint>
               <Composer.Actions>
                 <Button type="button" variant="ghost" size="sm">

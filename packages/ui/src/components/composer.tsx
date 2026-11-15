@@ -190,7 +190,11 @@ function Hint({ className, children }: Readonly<ComponentProps<"span">>) {
       )}
     >
       <Info className="size-3.5 shrink-0" strokeWidth={1.75} />
-      <span className="min-w-0">{children}</span>
+      {/* Trimmed to cap height, so the letters (not the line box) centre
+          on the icon. */}
+      <span className="min-w-0 [text-box:trim-both_cap_alphabetic]">
+        {children}
+      </span>
     </span>
   )
 }

@@ -761,7 +761,7 @@
   "tickets_filters_tags_search_placeholder": "Search tags…",
   "tickets_flag_by": "Flagged by {name}",
   "tickets_flag_heading": "Flag",
-  "tickets_flag_hint": "Draws attention to this ticket until someone removes the flag or it's done.",
+  "tickets_flag_hint": "Stays flagged until it's done or unflagged.",
   "tickets_flag_indicator_aria_label": "Flagged",
   "tickets_flag_reason_placeholder": "What needs attention? (optional)",
   "tickets_flag_submit": "Flag",
