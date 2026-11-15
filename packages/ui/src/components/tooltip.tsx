@@ -143,7 +143,13 @@ const tooltipStore = {
   focusOut(id: string) {
     if (focusedId === id) focusedId = null
     if (suppressedId === id) suppressedId = null
-    if (activeId === id && activeSource === "focus") hide()
+    // Wait a tick: when focus moves straight to the next trigger (Tab
+    // along a toolbar), its focusIn cancels this, and the tooltip glides
+    // over just like it does for the pointer.
+    if (activeId === id && activeSource === "focus") {
+      window.clearTimeout(hideTimer)
+      hideTimer = window.setTimeout(() => hide(), 0)
+    }
   },
   dismiss() {
     window.clearTimeout(showTimer)
@@ -394,7 +400,10 @@ function HostSurface() {
     }
   }, [id])
 
-  const visible = id !== null && content != null && layout?.id === id
+  // Stay mounted while the next label is measured (layout still holds the
+  // previous trigger for that one render), so the label swap has an old
+  // label to blur out instead of the tooltip remounting.
+  const visible = id !== null && content != null && layout !== null
   const reduced = prefersReducedMotion()
   const move = layout?.glide ? glide : { duration: 0 }
 
