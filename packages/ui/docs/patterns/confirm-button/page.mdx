@@ -60,7 +60,7 @@ import { ConfirmButton } from "@pp/ui/confirm-button";
 | `cancelLabel`   | `ReactNode`                              |                 |
 | `describeError` | `(cause: Cause<E>) => string`            |                 |
 | `onConfirm`     | `() => Promise<Outcome> \| Outcome`      |                 |
-| `busyLabel`     | `ReactNode`                              | `label`         |
+| `busyLabel`     | `ReactNode`, read by screen readers while busy | `label`   |
 | `description`   | `ReactNode` (stacked and menu layouts)   |                 |
 | `layout`        | `"inline" \| "stacked" \| "menu"`        | `"inline"`      |
 | `tone`          | `"destructive" \| "neutral"`             | `"destructive"` |
@@ -90,6 +90,10 @@ An open confirm left behind is a loaded button. The confirm button's red fill is
 ### Focus goes to Cancel, and comes back to the trigger
 
 The step opens from a click, so Cancel takes focus: Enter cancels, and Shift+Tab reaches the confirm. Esc closes the step, and focus returns to the trigger after Esc, Cancel, or the timeout. Cancel is an icon in the capsule, with its label for screen readers.
+
+### Busy uses Button's loader
+
+While `onConfirm` runs, the confirm button shows Button's `loading` state: the logo loader over its label, which keeps the button's width, so nothing in the capsule moves. Cancel disables, the countdown holds, and screen readers hear `busyLabel` ("Deleting…").
 
 ### Errors replace the prompt
 

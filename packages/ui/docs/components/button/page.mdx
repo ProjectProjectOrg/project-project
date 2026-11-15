@@ -63,6 +63,10 @@ Every other prop goes to the rendered `button`.
 
 ## Rules
 
+### Loading swaps in place
+
+`loading` lays the logo loader over the label instead of replacing it: the label fades and blurs out (180ms, `ease-standard`) while the loader fades in from 60% scale, and the reverse when it ends. The label stays laid out, so the button's width never changes. A button that passes `loading` at all, `true` or `false`, keeps that structure either way, so the swap can animate; buttons that never load keep their content unwrapped. With reduced motion, only the fades play.
+
 ### Countdown: the fill is the timer
 
 A button that will act or go away by itself shows how long is left in its own fill: the fill drains toward the start over `seconds`, over a tertiary base so the label stays readable, then `onElapsed` runs. `delay` waits first, for example until an entrance has landed. Hovering the button, or an ancestor marked `data-countdown-hold`, holds it; so does keyboard focus in either, for as long as it stays, so keyboard and screen reader users never run out of time (WCAG 2.2.1). A disabled or loading button holds it too. Use it on destructive and secondary: primary's light label doesn't read once its ink fill drains. Confirm button is where the app uses it.

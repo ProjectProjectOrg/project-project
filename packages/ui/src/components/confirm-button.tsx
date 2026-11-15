@@ -463,6 +463,9 @@ function Action<E = unknown>({
       size={capsule ? "compact" : inline ? size : "sm"}
       variant={tone === "destructive" ? "destructive" : "primary"}
       disabled={blocked}
+      // Busy: Button's loader over the label, which keeps the width;
+      // busyLabel is what screen readers hear.
+      loading={busy}
       onClick={() => void run()}
       countdown={
         timed
@@ -478,7 +481,14 @@ function Action<E = unknown>({
         capsule && "rounded-[12px] px-2.5"
       )}
     >
-      {busy ? busyLabel : label}
+      {busy && busyLabel !== label ? (
+        <>
+          <span aria-hidden>{label}</span>
+          <span className="sr-only">{busyLabel}</span>
+        </>
+      ) : (
+        label
+      )}
     </Button>
   )
 

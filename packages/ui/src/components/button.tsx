@@ -1,6 +1,7 @@
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
 import * as Match from "effect/Match"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import {
   useState,
   type AnimationEvent,
@@ -12,6 +13,7 @@ import {
 } from "react"
 
 import type { IconComponent } from "../lib/icon"
+import { transitions } from "../lib/springs"
 import { SURFACE_BG } from "../lib/surfaceClasses"
 import { useOnPage, useSurface } from "../lib/surfaceContext"
 import { cn } from "../lib/utils"
@@ -227,6 +229,49 @@ function useCountdown(
   return { countdownStyle, handleAnimationEnd }
 }
 
+// A button that passes `loading` at all (true or false) keeps one
+// structure either way: its content in a span that fades and blurs out
+// while the loader scales and fades in over it, and back. The content stays
+// laid out, so the width never changes. Buttons that never load keep their
+// content unwrapped.
+function LoadingSwap({
+  loading,
+  loaderClassName,
+  children
+}: Readonly<{
+  loading: boolean
+  loaderClassName: string
+  children: React.ReactNode
+}>) {
+  const reduceMotion = useReducedMotion() ?? false
+  return (
+    <>
+      <span
+        className={cn(
+          "relative z-10 inline-flex items-center justify-center gap-[inherit] transition-[opacity,filter] duration-180 ease-standard motion-reduce:transition-opacity",
+          loading && "opacity-0 blur-[2px] motion-reduce:blur-none"
+        )}
+      >
+        {children}
+      </span>
+      <AnimatePresence initial={false}>
+        {loading ? (
+          <motion.span
+            key="loader"
+            initial={{ opacity: 0, scale: reduceMotion ? 1 : 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: reduceMotion ? 1 : 0.6 }}
+            transition={transitions.presence}
+            className="absolute inset-0 z-10 grid place-items-center"
+          >
+            <LogoLoader tone="current" className={loaderClassName} />
+          </motion.span>
+        ) : null}
+      </AnimatePresence>
+    </>
+  )
+}
+
 function Button({
   className,
   variant,
@@ -235,7 +280,7 @@ function Button({
   bleed,
   render,
   ref,
-  loading = false,
+  loading,
   leadingIcon: LeadingIcon,
   trailingIcon: TrailingIcon,
   disabled,
@@ -258,6 +303,7 @@ function Button({
   ...props
 }: ButtonProps) {
   const isDither = variant === "dither"
+  const isLoading = loading === true
   const needsDitherHover = isDither && !!ditherHoverStops
   const [isPointerOver, setIsPointerOver] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
@@ -353,53 +399,28 @@ function Button({
     />
   )
 
-  let composedChildren: React.ReactNode
-
-  if (loading) {
-    composedChildren = (
-      <>
-        {ditherBackdrop}
-        <span className="relative z-10 flex items-center justify-center gap-[inherit] opacity-0">
-          {LeadingIcon && !isIconOnly && (
-            <LeadingIcon size={iconSize} strokeWidth={2} />
-          )}
-          {children}
-          {TrailingIcon && !isIconOnly && (
-            <TrailingIcon size={iconSize} strokeWidth={2} />
-          )}
-        </span>
-        <span className="absolute inset-0 z-10 grid place-items-center">
-          <LogoLoader tone="current" className={loaderClassName} />
-        </span>
-      </>
-    )
-  } else if (isIconOnly) {
-    composedChildren = (
-      <>
-        {ditherBackdrop}
-        <span
-          className={cn(
-            "[&_svg]:stroke-[1.5] [&_svg]:transition-[stroke-width] [&_svg]:duration-80 group-hover:[&_svg]:stroke-[2]",
-            isDither && "relative z-10"
-          )}
-        >
-          {children}
-        </span>
-      </>
+  let content: React.ReactNode
+  if (isIconOnly) {
+    content = (
+      <span
+        className={cn(
+          "[&_svg]:stroke-[1.5] [&_svg]:transition-[stroke-width] [&_svg]:duration-80 group-hover:[&_svg]:stroke-[2]",
+          isDither && "relative z-10"
+        )}
+      >
+        {children}
+      </span>
     )
   } else if (isDither) {
-    composedChildren = (
-      <>
-        {ditherBackdrop}
-        <span className="relative z-10 inline-flex items-center gap-[inherit]">
-          {leadingIconNode}
-          {children}
-          {trailingIconNode}
-        </span>
-      </>
+    content = (
+      <span className="relative z-10 inline-flex items-center gap-[inherit]">
+        {leadingIconNode}
+        {children}
+        {trailingIconNode}
+      </span>
     )
   } else {
-    composedChildren = (
+    content = (
       <>
         {leadingIconNode}
         {children}
@@ -407,6 +428,19 @@ function Button({
       </>
     )
   }
+
+  const composedChildren = (
+    <>
+      {ditherBackdrop}
+      {loading === undefined ? (
+        content
+      ) : (
+        <LoadingSwap loading={loading} loaderClassName={loaderClassName}>
+          {content}
+        </LoadingSwap>
+      )}
+    </>
+  )
 
   return useRender({
     defaultTagName: "button",
@@ -416,8 +450,8 @@ function Button({
       ref,
       "data-slot": "button",
       className: compClassName,
-      disabled: disabled || loading,
-      "data-loading": loading || undefined,
+      disabled: disabled || isLoading,
+      "data-loading": isLoading || undefined,
       style: countdownStyle,
       onAnimationEnd: handleAnimationEnd,
       onMouseEnter: handleMouseEnter,
