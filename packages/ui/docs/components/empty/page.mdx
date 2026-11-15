@@ -67,7 +67,11 @@ import {
 
 ### One variant, tuned by intensity and motion
 
-There used to be three looks (a dithered card, a dashed inline box and a compact ⌘K box), and call sites restyled them by hand. Now there is one. What changes between places is how much dither surrounds the message (`intensity`) and whether it drifts (`animated`). The structure doesn't change.
+There used to be three looks (a dithered card, a dashed inline box and a compact ⌘K box), and call sites restyled them by hand. Now there is one. What changes between places is how loud the dither's ink is (`intensity`) and whether it drifts (`animated`). The structure doesn't change.
+
+### Intensity is colour, never density
+
+The dither's shape and density are fixed at one balance that works at every size. `intensity` only changes the ink: `subtle` pulls it 55% toward the paper, `medium` is `--dither-front`, and `strong` pulls it 25% toward the text (`--dither-front-subtle` and `--dither-front-strong` in theme.css). A louder well is darker ink, not more of it.
 
 ### Sizes follow the container, not the call site
 

@@ -17,14 +17,13 @@ const EMPTY_WARP_ZONES: TimeWarpZone[] = [
 
 export type EmptyIntensity = "subtle" | "medium" | "strong"
 
-// How much dither surrounds the message. `bias` shifts the noise toward
-// more or less ink; `opacity` fades the whole layer for the quietest one.
-const INTENSITY: Readonly<
-  Record<EmptyIntensity, Readonly<{ bias: number; opacity: number }>>
-> = {
-  subtle: { bias: -0.2, opacity: 0.6 },
-  medium: { bias: -0.05, opacity: 1 },
-  strong: { bias: 0.1, opacity: 1 }
+// How loud the dither is. Its shape and density never change (they're
+// balanced for every size); intensity only sets the ink's colour, pulled
+// toward the paper (subtle) or toward the text (strong). Tokens in theme.css.
+const INK: Readonly<Record<EmptyIntensity, string>> = {
+  subtle: "var(--dither-front-subtle)",
+  medium: "var(--dither-front)",
+  strong: "var(--dither-front-strong)"
 }
 
 export type EmptyProps = React.ComponentProps<"div"> &
@@ -49,18 +48,17 @@ function Empty({
   // Each empty state samples its own patch of the noise, so two on one
   // screen (or the same one on two visits) never look stamped out.
   const [seed] = useState(() => Effect.runSync(Random.nextBetween(0, 64)))
-  const { bias, opacity } = INTENSITY[intensity]
   return (
     <div
       data-slot="empty"
       data-intensity={intensity}
       className={cn(
-        "@container/empty relative grid min-h-[280px] animate-in place-items-center overflow-hidden rounded-[20px] bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)] p-4 duration-500 fade-in [corner-shape:var(--button-corner)]",
+        "@container/empty relative grid min-h-[280px] animate-in place-items-center overflow-hidden rounded-[20px] bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)] p-4 duration-500 [corner-shape:var(--button-corner)] fade-in",
         className
       )}
       {...props}
     >
-      <div className="pointer-events-none absolute inset-0" style={{ opacity }}>
+      <div className="pointer-events-none absolute inset-0">
         <Dither
           disableAnimation={!animated}
           speed={animated ? 0.1 : 0}
@@ -71,7 +69,8 @@ function Empty({
           rotationAngle={0.5}
           warpStrength={1.1}
           contrast={0.2}
-          bias={bias}
+          bias={-0.05}
+          colorFront={INK[intensity]}
           seed={seed}
           pixelSize={2}
           ditherType="4x4"

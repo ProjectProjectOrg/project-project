@@ -384,7 +384,7 @@ function createProgram(gl: WebGL2RenderingContext): WebGLProgram {
   return program
 }
 
-export function Dither({
+function DitherCanvas({
   speed = 0.3,
   octaves = 4,
   frequency = 2.0,
@@ -522,6 +522,12 @@ export function Dither({
       alpha: true
     })
     if (!gl) return
+    // If the browser drops this context anyway (too many on one page), hide
+    // the canvas so the surface colour shows instead of a broken image.
+    const handleContextLost = () => {
+      canvas.style.visibility = "hidden"
+    }
+    canvas.addEventListener("webglcontextlost", handleContextLost)
 
     let program: WebGLProgram
     try {
@@ -803,6 +809,7 @@ export function Dither({
       ro.disconnect()
       window.removeEventListener("pointerdown", handlePointerDown)
       document.removeEventListener("visibilitychange", handleVisibility)
+      canvas.removeEventListener("webglcontextlost", handleContextLost)
       gl.deleteBuffer(buffer)
       gl.deleteVertexArray(vao)
       gl.deleteProgram(program)
@@ -815,5 +822,41 @@ export function Dither({
       className={className}
       style={{ display: "block", width: "100%", height: "100%", ...style }}
     />
+  )
+}
+
+// Browsers keep only ~16 WebGL contexts alive per page and drop the oldest
+// past that. A dither therefore draws only while it is on or near the screen
+// (200px ahead): scrolled away, its canvas unmounts, and the browser reclaims
+// those contexts first. Coming back on screen it reveals again. (No explicit
+// loseContext: React's dev double-run would reuse the lost context.)
+export function Dither({ className, style, ...props }: DitherProps) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  // Without IntersectionObserver (old browsers, tests), just draw.
+  const [near, setNear] = useState(
+    () => typeof IntersectionObserver === "undefined"
+  )
+  useEffect(() => {
+    const el = ref.current
+    if (el === null || typeof IntersectionObserver === "undefined")
+      return undefined
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries.at(-1)
+        if (entry !== undefined) setNear(entry.isIntersecting)
+      },
+      { rootMargin: "200px" }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{ display: "block", width: "100%", height: "100%", ...style }}
+    >
+      {near ? <DitherCanvas {...props} /> : null}
+    </div>
   )
 }

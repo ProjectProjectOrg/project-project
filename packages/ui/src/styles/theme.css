@@ -95,6 +95,18 @@
   --lh-micro-compact: 12px;
   --dither-front: oklch(0.708 0 0);
   --dither-back: color-mix(in oklch, var(--background) 45%, var(--muted) 55%);
+  /* Empty's intensities: the same dither, its ink pulled toward the paper
+     (subtle) or toward the text (strong). Medium is --dither-front. */
+  --dither-front-subtle: color-mix(
+    in oklch,
+    var(--dither-front) 45%,
+    var(--dither-back)
+  );
+  --dither-front-strong: color-mix(
+    in oklch,
+    var(--dither-front),
+    var(--foreground) 25%
+  );
   --focus-ring: oklch(0.693 0.161 265.2);
   --icon-sticker-outline: oklch(0 0 0 / 0.55);
   --surface-1: oklch(0.955 0 0);

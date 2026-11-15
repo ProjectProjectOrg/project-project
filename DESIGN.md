@@ -423,7 +423,7 @@ Every settings area — organization, project, profile — uses the same rail an
 
 The brand mark is built from two greys (`--dither-front` and `--dither-back`) on the surface color, rendered as stepped Bayer-matrix shading. The same vocabulary extends to:
 
-- Empty-state illustrations
+- Empty states: every `Empty` sits in a dithered well with a random seed, so no two wells look alike. Its density is fixed; `intensity` only changes the ink: `--dither-front-subtle` (55% toward `--dither-back`), `--dither-front`, or `--dither-front-strong` (25% toward `--foreground`). Empty states use a Lucide icon tile, never a custom illustration.
 - Loading frames (where the dither animates between two stops)
 - Marketing / landing surfaces
 - The `Button variant="dither"` backdrop
