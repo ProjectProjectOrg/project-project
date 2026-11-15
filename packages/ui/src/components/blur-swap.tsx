@@ -27,6 +27,8 @@ function BlurSwap({
     return (
       <Scritto
         value={String(children)}
+        // A normal change of state: transitions.morph (260ms).
+        transition={{ duration: transitions.morph.duration * 1000 }}
         className={cn("max-w-full min-w-0", className)}
       />
     )

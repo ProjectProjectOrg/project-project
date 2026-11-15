@@ -493,9 +493,14 @@ function HostSurface() {
                   registration?.className
                 )}
               >
-                {/* Matched to the 180ms glide; with Scritto's stagger the
-                    last glyph lands about 55ms later. */}
-                <Scritto value={content} transition={{ duration: 180 }} />
+                {/* Matched to the glide (transitions.presence, 180ms); with
+                    Scritto's stagger the last glyph lands about 55ms later. */}
+                <Scritto
+                  value={content}
+                  transition={{
+                    duration: transitions.presence.duration * 1000
+                  }}
+                />
               </div>
             ) : (
               <AnimatePresence initial={false}>
