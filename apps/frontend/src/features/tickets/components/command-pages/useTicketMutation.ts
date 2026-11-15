@@ -23,7 +23,6 @@ import {
   sharedTicketFields
 } from "@/features/tickets/lib/sharedTicketFields"
 import {
-  applyTicketPatch,
   toBulkPatch,
   type TicketEdit
 } from "@/features/tickets/lib/ticketPatch"
@@ -40,7 +39,6 @@ export function useTicketMutation(
   )
   const updateSelection = scopeSelectionUpdate(useAtomValue(commandScopes))
   const row = pointedAt(useAtomValue(commandMenuState).row, ticket)
-  const [rowValue, setRowValue] = useState(row?.row ?? null)
   const [edited, setEdited] = useState(selection)
   if (selection.length > 1) {
     const tickets = selection.map((each) => each.id)
@@ -63,11 +61,8 @@ export function useTicketMutation(
   }
   if (row !== null) {
     return {
-      current: rowValue,
-      update: (edit: TicketEdit) => {
-        setRowValue((value) => value && applyTicketPatch(value, edit))
-        row.patch(edit)
-      }
+      current: row.row,
+      update: row.patch
     }
   }
   return {

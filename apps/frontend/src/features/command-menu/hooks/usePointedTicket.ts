@@ -13,7 +13,7 @@ import {
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { isKeyboardNavigating } from "@/lib/keyboard"
 
-import { pointedTicket } from "../atoms/commandMenu"
+import { commandMenuState, pointedTicket } from "../atoms/commandMenu"
 import { pointedAt, type TicketContext } from "../lib/commandMenu"
 
 export function usePointedTicket(
@@ -44,13 +44,15 @@ export function usePointedTicket(
     }
   }
   useEffect(() => {
-    const pointed = pointedAt(registry.get(pointedTicket), {
-      orgSlug,
-      slug,
-      ticketId: row.id
-    })
+    const at = { orgSlug, slug, ticketId: row.id }
+    const pointed = pointedAt(registry.get(pointedTicket), at)
     if (pointed !== null && pointed.row !== row) {
       registry.set(pointedTicket, { ...pointed, row })
+    }
+    const menu = registry.get(commandMenuState)
+    const opened = pointedAt(menu.row, at)
+    if (opened !== null && opened.row !== row) {
+      registry.set(commandMenuState, { ...menu, row: { ...opened, row } })
     }
   }, [registry, orgSlug, slug, row])
   useEffect(
