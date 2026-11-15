@@ -1,9 +1,8 @@
 import { sprintState, type Group } from "@pp/shared"
+import { localToday } from "@pp/ui/lib/parseDate"
 import * as DateTime from "effect/DateTime"
 
 import { getLocale } from "@/paraglide/runtime"
-
-import { localToday } from "./parseStartDate"
 
 export type SprintDateDraft = Readonly<{
   from?: Date | undefined

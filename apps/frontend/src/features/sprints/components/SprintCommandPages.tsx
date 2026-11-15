@@ -10,11 +10,14 @@ import {
   Plus,
   Trash2
 } from "@pp/ui/icons"
+import { parseDayAt, WEEKDAYS } from "@pp/ui/lib/parseDate"
 import { cn } from "@pp/ui/lib/utils"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import { useNavigate } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
+import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
+import * as Option from "effect/Option"
 import { useState, type ReactNode } from "react"
 
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
@@ -26,7 +29,6 @@ import {
   sprintListRequest,
   updateSprint
 } from "@/features/sprints/atoms/sprintList"
-import { parseStartDate, WEEKDAYS } from "@/features/sprints/lib/parseStartDate"
 import {
   addDays,
   DEFAULT_SPRINT_DAYS,
@@ -146,7 +148,9 @@ export function SprintSchedulePage({ sprint, onBack, env }: SprintPageProps) {
     sprint.sprints.filter((other) => other.id !== sprint.sprint.id)
   )
   const presets = startPresets({ activeEnd: active?.endsAt ?? null })
-  const parsed = parseStartDate(query)
+  const parsed = Option.getOrNull(
+    Option.map(parseDayAt(query, DateTime.nowUnsafe()), DateTime.toDateUtc)
+  )
   const [settled] = useDebouncedValue(query, { wait: 400 })
   const [lastParsed, setLastParsed] = useState<Date | null>(null)
   if (parsed !== null && parsed.getTime() !== lastParsed?.getTime()) {
