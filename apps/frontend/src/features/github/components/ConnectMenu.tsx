@@ -8,11 +8,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { AlertTriangle, GitBranch as GithubIcon, Settings2 } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { MenuNote } from "@pp/ui/menu-note"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { AlertTriangle, GitBranch as GithubIcon, Settings2 } from "lucide-react"
 import { useState } from "react"
 
 import {

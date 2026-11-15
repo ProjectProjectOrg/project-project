@@ -15,13 +15,13 @@ import {
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
 import { IconGridPicker } from "@pp/ui/icon-grid-picker"
+import { ChevronDown, Plus, X } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { cn } from "@pp/ui/lib/utils"
 import { Select, SelectTrigger } from "@pp/ui/select"
 import { TextSwap } from "@pp/ui/text-swap"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { ChevronDown, Plus, X } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"

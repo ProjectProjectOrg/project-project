@@ -8,7 +8,7 @@ import {
   Trash2,
   User,
   X
-} from "lucide-react"
+} from "@pp/ui/icons"
 import type { ReactNode } from "react"
 
 function Row({

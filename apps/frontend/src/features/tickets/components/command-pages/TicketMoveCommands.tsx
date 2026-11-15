@@ -6,11 +6,11 @@ import {
   type TicketDetail
 } from "@pp/shared"
 import { CommandMenuItem } from "@pp/ui/command-menu"
+import { FolderInput } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { FolderInput } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"

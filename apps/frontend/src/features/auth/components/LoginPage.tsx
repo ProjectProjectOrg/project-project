@@ -181,7 +181,7 @@ function GoogleMark({
   size = 16,
   className
 }: {
-  size?: number
+  size?: number | string
   className?: string
 }) {
   return (
@@ -217,7 +217,7 @@ function MicrosoftMark({
   size = 16,
   className
 }: {
-  size?: number
+  size?: number | string
   className?: string
 }) {
   return (

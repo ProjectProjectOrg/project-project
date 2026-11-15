@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
+import { CircleAlert } from "@pp/ui/icons"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
-import { CircleAlert } from "lucide-react"
 
 import type { TicketUpdateAtom } from "@/features/tickets/atoms/ticketRows"
 import { errorMessage } from "@/lib/errorMessage"

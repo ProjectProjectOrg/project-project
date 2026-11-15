@@ -1,6 +1,6 @@
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
-import { Archive, Ban, Clock, Copy } from "lucide-react"
+import { Archive, Ban, Clock, Copy } from "@pp/ui/icons"
 import { useState } from "react"
 
 const PRESETS = [

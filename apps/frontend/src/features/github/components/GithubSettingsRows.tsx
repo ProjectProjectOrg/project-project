@@ -7,8 +7,8 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { ExternalLink, GitBranch, MoreHorizontal, Unplug } from "@pp/ui/icons"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ExternalLink, GitBranch, MoreHorizontal, Unplug } from "lucide-react"
 
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import { SettingsTextField } from "@/components/shell/settings/SettingsTextField"

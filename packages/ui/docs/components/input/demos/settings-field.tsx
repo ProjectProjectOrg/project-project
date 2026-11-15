@@ -1,6 +1,6 @@
+import { Check } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { cn } from "@pp/ui/lib/utils"
-import { Check } from "lucide-react"
 import { useId, useState } from "react"
 
 // A settings row with a field that saves itself: it commits on blur or Enter,

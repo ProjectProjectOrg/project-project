@@ -974,8 +974,15 @@
 }
 
 @layer base {
-  .lucide:not([stroke-width="0"]) {
+  /* Hugeicons (@pp/ui/icons) writes stroke-width on every shape, so a width
+     set on the svg (strokeWidth, or CSS like a highlighted row's
+     stroke-[2]) would never reach them. The svg gets the 1.5 default here,
+     in the base layer so utilities still win, and its shapes inherit it. */
+  svg[data-icon]:not([stroke-width="0"]) {
     stroke-width: 1.5;
+  }
+  svg[data-icon] :is(path, circle, rect, line, polyline, polygon, ellipse) {
+    stroke-width: inherit;
   }
 
   * {

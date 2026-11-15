@@ -1,6 +1,5 @@
 import { mergeProps } from "@base-ui/react/merge-props"
 import { Select as SelectPrimitive } from "@base-ui/react/select"
-import { ChevronDown } from "lucide-react"
 import {
   createContext,
   use,
@@ -19,6 +18,7 @@ import {
 } from "../lib/popupAnchor"
 import { cn } from "../lib/utils"
 import { Button } from "./button"
+import { ChevronDown } from "./icons"
 import { MenuHighlight } from "./menu-highlight"
 import {
   menuItemClass,

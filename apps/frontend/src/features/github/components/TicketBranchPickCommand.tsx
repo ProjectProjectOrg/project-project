@@ -1,8 +1,8 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type { GithubConnection } from "@pp/shared"
+import { GitBranch } from "@pp/ui/icons"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Result from "effect/reactivity/AsyncResult"
-import { GitBranch } from "lucide-react"
 import { useContext, useState } from "react"
 
 import { fireMutation } from "@/api/viewMutation"

@@ -12,9 +12,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { ArrowUpRight, Layers, Plus, X } from "@pp/ui/icons"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ArrowUpRight, Layers, Plus, X } from "lucide-react"
 import { useState } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"

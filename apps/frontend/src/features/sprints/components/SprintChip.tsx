@@ -1,11 +1,11 @@
 import { sprintState } from "@pp/shared"
 import type { Group } from "@pp/shared"
+import { Flag, Trophy, Zap } from "@pp/ui/icons"
+import type { IconType } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import * as DateTime from "effect/DateTime"
 import * as Match from "effect/Match"
-import { Flag, Trophy, Zap } from "lucide-react"
-import type { LucideIcon } from "lucide-react"
 
 import {
   daysBetween,
@@ -20,7 +20,7 @@ type SprintStateName = ReturnType<typeof sprintState>
 
 export const SPRINT_STATE_META: Record<
   SprintStateName,
-  { icon: LucideIcon; className: string }
+  { icon: IconType; className: string }
 > = {
   planned: { icon: Flag, className: "text-muted-foreground" },
   active: { icon: Zap, className: "text-state-info" },

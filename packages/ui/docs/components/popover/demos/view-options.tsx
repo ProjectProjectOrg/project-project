@@ -1,7 +1,4 @@
 import { Button } from "@pp/ui/button"
-import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
-import { SegmentedTabs } from "@pp/ui/segmented-tabs"
-import { Select, SelectTrigger } from "@pp/ui/select"
 import {
   ArrowDown,
   ArrowUp,
@@ -9,7 +6,10 @@ import {
   Columns3,
   Rows3,
   SlidersHorizontal
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
+import { SegmentedTabs } from "@pp/ui/segmented-tabs"
+import { Select, SelectTrigger } from "@pp/ui/select"
 import { useState, type ReactNode } from "react"
 
 const USER_TOGGLES = new Set(["trigger-press", "escape-key"])

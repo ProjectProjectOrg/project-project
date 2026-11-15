@@ -1,5 +1,6 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { parseFigmaUrl, type FigmaDensity, type FigmaRef } from "@pp/shared"
+import { ExternalLink, Maximize2, Minimize2, Trash2 } from "@pp/ui/icons"
 import { standardEaseCss, transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import {
@@ -11,7 +12,6 @@ import {
   type SerializedLexicalNode,
   type Spread
 } from "lexical"
-import { ExternalLink, Maximize2, Minimize2, Trash2 } from "lucide-react"
 import {
   AnimatePresence,
   LayoutGroup,

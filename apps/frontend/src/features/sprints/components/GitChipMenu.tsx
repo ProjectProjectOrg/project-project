@@ -18,7 +18,6 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
 } from "@pp/ui/dropdown-menu"
-import { cn } from "@pp/ui/lib/utils"
 import {
   ArrowUpRight,
   Copy,
@@ -26,7 +25,8 @@ import {
   GitPullRequestCreateArrow,
   Layers,
   Link as LinkIcon
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 import { Fragment, useRef, useState, type ReactNode } from "react"
 
 import { usePreferredBranchLink } from "@/features/github/components/ticket-git/BranchChip"

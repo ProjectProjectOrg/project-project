@@ -6,7 +6,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
 } from "@pp/ui/dropdown-menu"
-import { ListPlus } from "lucide-react"
+import { ListPlus } from "@pp/ui/icons"
 
 import type { RelatedKind } from "@/features/tickets/atoms/createTicket"
 import { SquarePlusCorner } from "@/features/tickets/components/ticket-marks/blockingIcon"

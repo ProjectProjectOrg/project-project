@@ -13,6 +13,15 @@ import {
   useRegisterFluidHoverItem,
   type UseFluidHoverReturn
 } from "@pp/ui/hooks/useFluidHover"
+import {
+  Bold,
+  Code,
+  Italic,
+  Link,
+  Strikethrough,
+  Unlink,
+  type IconType
+} from "@pp/ui/icons"
 import { Popover as PopoverRoot, PopoverContent } from "@pp/ui/popover"
 import { ToggleGroup, ToggleGroupItem } from "@pp/ui/toggle-group"
 import { TooltipGroup, TooltipGroupTrigger } from "@pp/ui/tooltip"
@@ -27,15 +36,6 @@ import {
   type RangeSelection,
   type TextFormatType
 } from "lexical"
-import {
-  Bold,
-  Code,
-  Italic,
-  Link,
-  Strikethrough,
-  Unlink,
-  type LucideIcon
-} from "lucide-react"
 import {
   useEffect,
   useMemo,
@@ -53,7 +53,7 @@ import type { SlashBasicKind } from "./blocks/slashMenuItems"
 import { BASIC_ICONS, basicLabel } from "./blocks/SlashMenuView"
 
 const TEXT_FORMATS: ReadonlyArray<
-  Readonly<{ format: TextFormatType; icon: LucideIcon; label: () => string }>
+  Readonly<{ format: TextFormatType; icon: IconType; label: () => string }>
 > = [
   { format: "bold", icon: Bold, label: m.editor_format_bold },
   { format: "italic", icon: Italic, label: m.editor_format_italic },

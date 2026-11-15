@@ -1,5 +1,6 @@
 import { Button } from "@pp/ui/button"
 import { CollapsingLabel } from "@pp/ui/collapsing-label"
+import { Search as SearchIcon, X } from "@pp/ui/icons"
 import {
   InputGroup,
   InputGroupAddon,
@@ -7,7 +8,6 @@ import {
 } from "@pp/ui/input-group"
 import { Kbd } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
-import { Search as SearchIcon, X } from "lucide-react"
 import { useRef } from "react"
 
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"

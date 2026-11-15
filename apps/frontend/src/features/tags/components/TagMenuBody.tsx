@@ -5,9 +5,9 @@ import {
   DropdownMenuItem,
   DropdownMenuList
 } from "@pp/ui/dropdown-menu"
+import { Plus } from "@pp/ui/icons"
 import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
-import { Plus } from "lucide-react"
 
 import { TagMenuItem } from "@/features/tags/components/TagMenuItem"
 import { m } from "@/paraglide/messages"

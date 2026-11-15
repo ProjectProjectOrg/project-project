@@ -1,8 +1,8 @@
 import type { TicketId } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Split } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import { Split } from "lucide-react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { m } from "@/paraglide/messages"

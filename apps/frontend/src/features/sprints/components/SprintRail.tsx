@@ -6,12 +6,12 @@ import {
   type Group
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Plus } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { Link, useParams } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Plus } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { useState } from "react"
 

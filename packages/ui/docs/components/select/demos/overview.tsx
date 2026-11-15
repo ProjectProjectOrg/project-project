@@ -1,5 +1,5 @@
+import { FolderIcon } from "@pp/ui/icons"
 import { Select, SelectTrigger } from "@pp/ui/select"
-import { FolderIcon } from "lucide-react"
 import { type ComponentProps, type ReactNode, useState } from "react"
 
 const USER_TOGGLES = new Set(["trigger-press", "escape-key"])

@@ -1,4 +1,4 @@
-import { ArrowUpRight } from "lucide-react"
+import { ArrowUpRight } from "@pp/ui/icons"
 
 import type { Source, SourceKind } from "./registry"
 

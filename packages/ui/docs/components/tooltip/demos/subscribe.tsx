@@ -1,7 +1,7 @@
 import { Button } from "@pp/ui/button"
+import { Bell } from "@pp/ui/icons"
 import { TextSwap } from "@pp/ui/text-swap"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
-import { Bell } from "lucide-react"
 import { useState } from "react"
 
 // The ticket page's Subscribe toggle. Its label rolls between Subscribe and

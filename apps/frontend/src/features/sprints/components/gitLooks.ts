@@ -7,13 +7,13 @@ import {
   GitPullRequest,
   GitPullRequestClosed,
   GitPullRequestDraft,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
 
 import { m } from "@/paraglide/messages"
 
 export type Look = Readonly<{
-  icon: LucideIcon
+  icon: IconType
   tone: string
   label: () => string
 }>
@@ -24,7 +24,7 @@ export const CHECKS: Readonly<
   Record<
     Checks,
     Readonly<{
-      icon: LucideIcon
+      icon: IconType
       tone: string
       motion: string
       label: () => string

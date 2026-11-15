@@ -1,4 +1,4 @@
-import { FolderKanban, FolderPlus, ListTodo, Timer } from "lucide-react"
+import { FolderKanban, FolderPlus, ListTodo, Timer } from "@pp/ui/icons"
 
 import type {
   Command,

@@ -1,4 +1,3 @@
-import { Select, SelectTrigger } from "@pp/ui/select"
 import {
   Check,
   Circle,
@@ -8,8 +7,9 @@ import {
   GitMerge,
   GitPullRequest,
   Minus,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import { Select, SelectTrigger } from "@pp/ui/select"
 import { useState, type ReactNode } from "react"
 
 const STATUSES = [
@@ -42,7 +42,7 @@ const RULES: ReadonlyArray<
     id: string
     label: string
     hint: string
-    icon: LucideIcon
+    icon: IconType
     target: string
   }>
 > = [
@@ -73,7 +73,7 @@ function Option({
   icon: Icon,
   tone,
   children
-}: Readonly<{ icon: LucideIcon; tone: string; children: ReactNode }>) {
+}: Readonly<{ icon: IconType; tone: string; children: ReactNode }>) {
   return (
     <span className="flex min-w-0 items-center gap-2">
       <Icon className={`size-4 shrink-0 ${tone}`} strokeWidth={1.75} />

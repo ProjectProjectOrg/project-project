@@ -1,5 +1,5 @@
 import { Button } from "@pp/ui/button"
-import { Plus } from "lucide-react"
+import { Plus } from "@pp/ui/icons"
 
 import { m } from "@/paraglide/messages"
 

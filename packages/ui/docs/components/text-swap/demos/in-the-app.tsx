@@ -1,6 +1,5 @@
 import { Badge } from "@pp/ui/badge"
 import { Button } from "@pp/ui/button"
-import { TextSwap } from "@pp/ui/text-swap"
 import {
   Bell,
   BookOpen,
@@ -8,7 +7,8 @@ import {
   ChevronDown,
   ListFilter,
   SquareCheck
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { TextSwap } from "@pp/ui/text-swap"
 import { useState, type ReactNode } from "react"
 
 function Case({

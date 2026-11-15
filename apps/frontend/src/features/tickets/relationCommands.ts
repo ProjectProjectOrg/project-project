@@ -1,5 +1,5 @@
 import { isEpic } from "@pp/shared"
-import { Flag, FlagOff, Layers, ListPlus, Stamp, Unlink } from "lucide-react"
+import { Flag, FlagOff, Layers, ListPlus, Stamp, Unlink } from "@pp/ui/icons"
 
 import { commandScopes } from "@/features/command-menu/atoms/commandMenu"
 import type { Command } from "@/features/command-menu/lib/commands"

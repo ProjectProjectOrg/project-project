@@ -15,13 +15,13 @@ import {
   useCommandMenu,
   type CommandMenuItemData
 } from "@pp/ui/command-menu"
+import { Check, Plus } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import type { ListboxState } from "@pp/ui/menu-listbox"
 import { MenuNote } from "@pp/ui/menu-note"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Check, Plus } from "lucide-react"
 import { AnimatePresence } from "motion/react"
 import {
   useContext,

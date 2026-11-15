@@ -1,7 +1,7 @@
 import type { Library, LibraryOrigin } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Link2 } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
-import { Link2 } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { m } from "@/paraglide/messages"

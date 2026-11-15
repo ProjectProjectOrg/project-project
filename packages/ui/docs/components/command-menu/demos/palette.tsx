@@ -17,7 +17,7 @@ import {
   Moon,
   Signal,
   UserPlus
-} from "lucide-react"
+} from "@pp/ui/icons"
 import { useState } from "react"
 
 const KEY_LABELS: KeyLabels = {

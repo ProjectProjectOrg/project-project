@@ -1,6 +1,8 @@
 import { Badge, type BadgeTone } from "@pp/ui/badge"
 import { Button } from "@pp/ui/button"
 import { DropdownMenuTrigger } from "@pp/ui/dropdown-menu"
+import type { IconType } from "@pp/ui/icons"
+import { MoreHorizontal, Plus } from "@pp/ui/icons"
 import {
   InputGroup,
   InputGroupAddon,
@@ -9,15 +11,13 @@ import {
 import { cn } from "@pp/ui/lib/utils"
 import { Select, SelectTrigger } from "@pp/ui/select"
 import { TextSwap } from "@pp/ui/text-swap"
-import type { LucideIcon } from "lucide-react"
-import { MoreHorizontal, Plus } from "lucide-react"
 import type { FormEvent, ReactNode } from "react"
 
 import { m } from "@/paraglide/messages"
 
 export type RoleMeta = Readonly<{
   label: () => string
-  icon: LucideIcon
+  icon: IconType
   tone: BadgeTone
 }>
 

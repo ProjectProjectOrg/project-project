@@ -14,9 +14,9 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { MoreHorizontal, Pencil, Trash2 } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
 import {
   gitAutomationFor,

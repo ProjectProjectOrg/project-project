@@ -1,5 +1,5 @@
+import { ChevronUp, Minus, UserRound } from "@pp/ui/icons"
 import { AvatarStack, MemberAvatar } from "@pp/ui/member-avatar"
-import { ChevronUp, Minus, UserRound } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { PEOPLE } from "./people"

@@ -1,8 +1,8 @@
 import type { BlockLookup } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { GripVertical } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { TooltipGroupTrigger } from "@pp/ui/tooltip"
-import { GripVertical } from "lucide-react"
 import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent

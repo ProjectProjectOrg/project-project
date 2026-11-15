@@ -13,10 +13,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { GripVertical, Plus, Text, X } from "@pp/ui/icons"
 import { SURFACE_BG } from "@pp/ui/lib/surfaceClasses"
 import { useSurface } from "@pp/ui/lib/surfaceContext"
 import { cn } from "@pp/ui/lib/utils"
-import { GripVertical, Plus, Text, X } from "lucide-react"
 import { Reorder, useDragControls } from "motion/react"
 import { useMemo, useRef, useState, type ReactNode } from "react"
 

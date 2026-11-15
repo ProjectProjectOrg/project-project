@@ -1,3 +1,4 @@
+import { Plus } from "@pp/ui/icons"
 import {
   InputGroup,
   InputGroupAddon,
@@ -6,7 +7,6 @@ import {
 import { Kbd } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
 import { Select, SelectTrigger } from "@pp/ui/select"
-import { Plus } from "lucide-react"
 import { useId, useRef, useState, type FormEvent } from "react"
 
 import {

@@ -8,13 +8,13 @@ import {
   type EstimationMode
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Plus, X } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { KbdShortcut } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { Select, SelectTrigger } from "@pp/ui/select"
 import { TextSwap } from "@pp/ui/text-swap"
-import { Plus, X } from "lucide-react"
 import { useId, useState, type FormEvent, type ReactElement } from "react"
 
 import {

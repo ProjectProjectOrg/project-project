@@ -22,12 +22,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
-import { cn } from "@pp/ui/lib/utils"
-import { MemberAvatar } from "@pp/ui/member-avatar"
-import { menuItemMetaClass } from "@pp/ui/menu-styles"
-import { TextSwap } from "@pp/ui/text-swap"
-import * as DateTime from "effect/DateTime"
-import * as Result from "effect/reactivity/AsyncResult"
 import {
   Archive,
   CircleDot,
@@ -40,8 +34,14 @@ import {
   Timer,
   UserRound,
   X,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import { menuItemMetaClass } from "@pp/ui/menu-styles"
+import { TextSwap } from "@pp/ui/text-swap"
+import * as DateTime from "effect/DateTime"
+import * as Result from "effect/reactivity/AsyncResult"
 import {
   Fragment,
   useMemo,
@@ -272,7 +272,7 @@ function FilterSubmenu({
   className = "w-48",
   children
 }: Readonly<{
-  icon: LucideIcon
+  icon: IconType
   label: string
   filterable?: boolean
   className?: string

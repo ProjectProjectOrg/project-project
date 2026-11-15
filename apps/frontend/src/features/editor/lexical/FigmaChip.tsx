@@ -1,10 +1,10 @@
 import type { FigmaRef } from "@pp/shared"
 import { Badge } from "@pp/ui/badge"
+import { ExternalLink } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { MorphIconLink } from "@pp/ui/morph-icon-link"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
-import { ExternalLink } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 

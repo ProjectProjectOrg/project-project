@@ -1,6 +1,6 @@
 import { Badge } from "@pp/ui/badge"
+import { X } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
-import { X } from "lucide-react"
 
 import { m } from "@/paraglide/messages"
 

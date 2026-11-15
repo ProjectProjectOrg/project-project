@@ -1,10 +1,10 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Org } from "@pp/shared"
+import { ChevronsUpDown, Plus } from "@pp/ui/icons"
 import { Select, SelectTrigger } from "@pp/ui/select"
 import { TextSwap } from "@pp/ui/text-swap"
 import { useNavigate, useParams } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronsUpDown, Plus } from "lucide-react"
 
 import { me, setActiveOrganization } from "@/features/auth/atoms/auth"
 import { userOrgs } from "@/features/organizations/atoms/orgs"

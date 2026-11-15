@@ -1,10 +1,10 @@
+import { Plus } from "@pp/ui/icons"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput
 } from "@pp/ui/input-group"
 import { Kbd } from "@pp/ui/kbd"
-import { Plus } from "lucide-react"
 import { useState } from "react"
 
 const deriveKey = (name: string) =>

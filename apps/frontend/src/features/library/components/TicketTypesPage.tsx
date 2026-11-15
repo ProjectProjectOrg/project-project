@@ -1,8 +1,8 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { Library } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Plus } from "@pp/ui/icons"
 import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
-import { Plus } from "lucide-react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { LibraryContext } from "@/features/editor/lib/blockChrome"

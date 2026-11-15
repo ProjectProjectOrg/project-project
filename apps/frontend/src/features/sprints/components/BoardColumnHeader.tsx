@@ -1,6 +1,6 @@
 import { Button } from "@pp/ui/button"
+import { FoldHorizontal, GripVertical } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
-import { FoldHorizontal, GripVertical } from "lucide-react"
 import { motion } from "motion/react"
 
 import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"

@@ -11,11 +11,11 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { ChevronRight, Layers } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronRight, Layers } from "lucide-react"
 import { useState, type ComponentProps, type ReactNode } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"

@@ -1,5 +1,5 @@
+import { Monitor, Moon, Sun } from "@pp/ui/icons"
 import { SegmentedTabs } from "@pp/ui/segmented-tabs"
-import { Monitor, Moon, Sun } from "lucide-react"
 import { useState } from "react"
 
 type Theme = "light" | "system" | "dark"

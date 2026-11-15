@@ -5,13 +5,13 @@ import type {
   ProjectDetail as ProjectDetailType,
   ProjectStatus
 } from "@pp/shared"
+import { CalendarRange, Info, ListChecks, type IconType } from "@pp/ui/icons"
 import { MarqueeIfOverflow } from "@pp/ui/marquee-if-overflow"
 import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
 import { Link, useMatches, useNavigate } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
-import { CalendarRange, Info, ListChecks, type LucideIcon } from "lucide-react"
 import { startTransition, useOptimistic, type MouseEvent } from "react"
 import { flushSync } from "react-dom"
 
@@ -242,7 +242,7 @@ function BadgeStat({
   color
 }: {
   count: number
-  icon: LucideIcon
+  icon: IconType
   className: string
   color?: string
 }) {

@@ -14,7 +14,6 @@ import {
   type RootProps,
   type WeekProps
 } from "@daypicker/react"
-import { ChevronRight } from "lucide-react"
 import {
   AnimatePresence,
   animate,
@@ -53,6 +52,7 @@ import { exitFallbackMs, spring } from "../lib/springs"
 import { cn } from "../lib/utils"
 import { Button } from "./button"
 import { FluidHoverHighlight } from "./fluid-hover-highlight"
+import { ChevronRight } from "./icons"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip"
 
 function dayNumber(date: Date) {

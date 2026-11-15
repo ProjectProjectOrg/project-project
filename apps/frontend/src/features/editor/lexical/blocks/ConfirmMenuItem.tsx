@@ -1,7 +1,7 @@
 import { Button } from "@pp/ui/button"
 import { DropdownMenuItem } from "@pp/ui/dropdown-menu"
+import { X, type IconType } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
-import { X, type LucideIcon } from "lucide-react"
 import { motion } from "motion/react"
 
 import { m } from "@/paraglide/messages"
@@ -17,7 +17,7 @@ export function ConfirmMenuItem({
   disabled = false,
   onConfirm
 }: Readonly<{
-  icon: LucideIcon
+  icon: IconType
   label: string
   confirmName: string
   message: string

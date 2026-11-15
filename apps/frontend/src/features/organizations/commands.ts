@@ -1,4 +1,4 @@
-import { ArrowLeftRight, LayoutDashboard, Settings } from "lucide-react"
+import { ArrowLeftRight, LayoutDashboard, Settings } from "@pp/ui/icons"
 
 import type { Command } from "@/features/command-menu/lib/commands"
 import { m } from "@/paraglide/messages"

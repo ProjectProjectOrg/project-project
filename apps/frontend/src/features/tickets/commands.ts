@@ -1,6 +1,5 @@
 import { isEpic } from "@pp/shared"
 import type { TicketDetail } from "@pp/shared"
-import type { IconComponent } from "@pp/ui/lib/icon"
 import {
   Archive,
   ArchiveRestore,
@@ -25,7 +24,8 @@ import {
   UserCheck,
   UserMinus,
   UserRound
-} from "lucide-react"
+} from "@pp/ui/icons"
+import type { IconComponent } from "@pp/ui/lib/icon"
 import { createElement } from "react"
 
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"

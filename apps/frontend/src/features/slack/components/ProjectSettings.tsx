@@ -1,11 +1,11 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { SlackEvent, type SlackProjectStatus } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { RefreshCw } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { Select, SelectTrigger } from "@pp/ui/select"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { RefreshCw } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"

@@ -1,8 +1,8 @@
 import { useAtomMount, useAtomValue } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { ArrowDownWideNarrow, ArrowUpNarrowWide } from "@pp/ui/icons"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ArrowDownWideNarrow, ArrowUpNarrowWide } from "lucide-react"
 import { AnimatePresence } from "motion/react"
 
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"

@@ -1,3 +1,4 @@
+import { SearchIcon } from "@pp/ui/icons"
 import { Input, type InputSize } from "@pp/ui/input"
 import {
   InputGroup,
@@ -5,7 +6,6 @@ import {
   InputGroupInput
 } from "@pp/ui/input-group"
 import { Kbd } from "@pp/ui/kbd"
-import { SearchIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
 function Cell({

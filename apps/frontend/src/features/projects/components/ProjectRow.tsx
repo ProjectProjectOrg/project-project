@@ -1,7 +1,7 @@
 import { type Project } from "@pp/shared"
+import { ChevronRight } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import { ChevronRight } from "lucide-react"
 
 import { ProjectBanner } from "@/features/projects/components/ProjectBanner"
 import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"

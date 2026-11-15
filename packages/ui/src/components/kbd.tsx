@@ -1,3 +1,6 @@
+import type { IconComponent } from "../lib/icon"
+import { formatShortcut, useIsMac, type KeyLabels } from "../lib/shortcuts"
+import { cn } from "../lib/utils"
 import {
   ArrowBigUp,
   ArrowDown,
@@ -10,11 +13,7 @@ import {
   CornerDownLeft,
   Delete,
   Option
-} from "lucide-react"
-
-import type { IconComponent } from "../lib/icon"
-import { formatShortcut, useIsMac, type KeyLabels } from "../lib/shortcuts"
-import { cn } from "../lib/utils"
+} from "./icons"
 
 // A key takes its colours from where it sits: the glyph is the surrounding
 // text colour (so it keeps that text's contrast) and the fill is a tint of

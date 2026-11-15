@@ -1,8 +1,8 @@
 import { isEpic, type Member, type Ticket } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { ChevronRight, Plus } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
-import { ChevronRight, Plus } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useEffect, useState, type ReactNode } from "react"
 

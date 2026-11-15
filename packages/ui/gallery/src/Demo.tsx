@@ -1,7 +1,7 @@
 import { Button } from "@pp/ui/button"
+import { Code2, Maximize2, X } from "@pp/ui/icons"
 import { spring } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
-import { Code2, Maximize2, X } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { use, useRef, useState } from "react"
 

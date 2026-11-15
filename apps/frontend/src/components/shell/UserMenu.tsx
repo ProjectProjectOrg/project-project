@@ -7,9 +7,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { LogOut, Settings, UserRound } from "@pp/ui/icons"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { Link } from "@tanstack/react-router"
-import { LogOut, Settings, UserRound } from "lucide-react"
 
 import { logout } from "@/features/auth/atoms/auth"
 import { m } from "@/paraglide/messages"

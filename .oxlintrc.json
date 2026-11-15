@@ -134,6 +134,10 @@
           {
             "paths": [
               {
+                "name": "lucide-react",
+                "message": "Icons come from @pp/ui/icons (Hugeicons behind one module); add a missing icon there."
+              },
+              {
                 "name": "@pp/shared",
                 "importNames": ["canCallProject", "canCallOrg"],
                 "message": "Components read permissions through useProjectActor / useOrgActor from @/lib/access; only the atom layer builds actors from the endpoint table."

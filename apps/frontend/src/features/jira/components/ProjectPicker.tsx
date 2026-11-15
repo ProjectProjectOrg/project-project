@@ -7,9 +7,9 @@ import {
   CommandMenuItem,
   CommandMenuList
 } from "@pp/ui/command-menu"
+import { Check } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { WeightLabel } from "@pp/ui/weight-label"
-import { Check } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"

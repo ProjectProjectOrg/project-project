@@ -1,8 +1,8 @@
 import { FluidHoverHighlight } from "@pp/ui/fluid-hover-highlight"
 import { useFluidHover } from "@pp/ui/hooks/useFluidHover"
+import { LayoutDashboard } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { useLocation } from "@tanstack/react-router"
-import { LayoutDashboard } from "lucide-react"
 import { useRef } from "react"
 
 import { NavHoverContext, NavItem } from "@/components/shell/NavItem"

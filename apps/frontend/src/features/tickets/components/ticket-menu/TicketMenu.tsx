@@ -11,10 +11,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
-import { Popover } from "@pp/ui/popover"
-import { Link } from "@tanstack/react-router"
-import * as Exit from "effect/Exit"
-import * as Result from "effect/reactivity/AsyncResult"
 import {
   Archive,
   ArchiveRestore,
@@ -24,7 +20,11 @@ import {
   MoreHorizontal,
   Split,
   Trash2
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { Popover } from "@pp/ui/popover"
+import { Link } from "@tanstack/react-router"
+import * as Exit from "effect/Exit"
+import * as Result from "effect/reactivity/AsyncResult"
 import {
   cloneElement,
   Fragment,

@@ -5,10 +5,10 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator
 } from "@pp/ui/dropdown-menu"
+import { Crown, Link2, LogOut, Trash2 } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { MemberAvatar, type AvatarSubject } from "@pp/ui/member-avatar"
 import * as Exit from "effect/Exit"
-import { Crown, Link2, LogOut, Trash2 } from "lucide-react"
 import { motion } from "motion/react"
 import { useState, type FormEvent, type ReactNode } from "react"
 

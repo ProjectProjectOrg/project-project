@@ -1,11 +1,11 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { Button } from "@pp/ui/button"
 import { Freeze } from "@pp/ui/freeze"
+import { Command, X } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { useParams } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Command, X } from "lucide-react"
 import { motion, useIsPresent } from "motion/react"
 import { use } from "react"
 

@@ -103,7 +103,7 @@ function EmptyHeader({ className, ...props }: React.ComponentProps<"div">) {
 
 export type EmptyMediaProps = React.ComponentProps<"div"> &
   Readonly<{
-    // `icon` sets a Lucide icon on a squircle tile; `default` leaves an
+    // `icon` sets an icon (@pp/ui/icons) on a squircle tile; `default` leaves an
     // illustration as it is.
     variant?: "default" | "icon"
   }>

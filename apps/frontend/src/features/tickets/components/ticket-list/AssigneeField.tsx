@@ -13,9 +13,9 @@ import {
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
 import { Hitbox } from "@pp/ui/hitbox"
+import { UserCheck, UserMinus, UserRound } from "@pp/ui/icons"
 import { AvatarStack, MemberAvatar } from "@pp/ui/member-avatar"
 import * as Match from "effect/Match"
-import { UserCheck, UserMinus, UserRound } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { currentUserId } from "@/features/auth/atoms/auth"

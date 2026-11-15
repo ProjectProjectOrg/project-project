@@ -1,8 +1,8 @@
 import type { TicketId, TypeDefinition, TypeKey } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Settings2 } from "@pp/ui/icons"
 import { Select, SelectTrigger } from "@pp/ui/select"
 import { TextSwap } from "@pp/ui/text-swap"
-import { Settings2 } from "lucide-react"
 import type { ComponentProps, ReactElement, ReactNode } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"

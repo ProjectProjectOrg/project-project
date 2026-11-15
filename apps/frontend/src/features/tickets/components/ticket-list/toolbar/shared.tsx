@@ -1,7 +1,7 @@
 import { Button } from "@pp/ui/button"
+import { ChevronDown } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { Select, SelectTrigger, type SelectOption } from "@pp/ui/select"
-import { ChevronDown } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 
 import { m } from "@/paraglide/messages"

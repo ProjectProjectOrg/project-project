@@ -1,8 +1,8 @@
 import { Button } from "@pp/ui/button"
 import { ConfirmButton } from "@pp/ui/confirm-button"
+import { Building2, EyeOff, Folder, Lock } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import * as Exit from "effect/Exit"
-import { Building2, EyeOff, Folder, Lock } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { describeCause } from "@/lib/errorMessage"

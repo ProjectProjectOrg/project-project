@@ -18,9 +18,9 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { ChevronDown, Inbox, Plus, Trophy } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronDown, Inbox, Plus, Trophy } from "lucide-react"
 import { useRef, useState } from "react"
 
 import {

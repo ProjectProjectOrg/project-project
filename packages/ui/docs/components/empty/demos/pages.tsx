@@ -7,7 +7,7 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@pp/ui/empty"
-import { Import, FilterX, ListChecks, Plus } from "lucide-react"
+import { Import, FilterX, ListChecks, Plus } from "@pp/ui/icons"
 import type { ReactNode } from "react"
 
 function Case({

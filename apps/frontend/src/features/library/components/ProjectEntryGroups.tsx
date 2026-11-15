@@ -7,11 +7,11 @@ import {
   type TypeDefinition,
   type TypeKey
 } from "@pp/shared"
+import { Building2, Folder } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { Switch } from "@pp/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import { Link } from "@tanstack/react-router"
-import { Building2, Folder } from "lucide-react"
 import { useMemo, type ReactNode } from "react"
 
 import { mutationErrorText } from "@/lib/mutationError"

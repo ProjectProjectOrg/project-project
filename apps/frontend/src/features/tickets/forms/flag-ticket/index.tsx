@@ -1,8 +1,8 @@
 import type { Ticket } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
+import { Flag } from "@pp/ui/icons"
 import * as Exit from "effect/Exit"
-import { Flag } from "lucide-react"
 import type { KeyboardEvent } from "react"
 
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"

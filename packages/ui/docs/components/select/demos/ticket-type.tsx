@@ -1,6 +1,4 @@
 import { Button } from "@pp/ui/button"
-import { Select, SelectTrigger, type SelectOption } from "@pp/ui/select"
-import { TextSwap } from "@pp/ui/text-swap"
 import {
   Bug,
   CircleDashed,
@@ -8,8 +6,10 @@ import {
   Pencil,
   Sparkles,
   SquareCheck,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import { Select, SelectTrigger, type SelectOption } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
 import { useState } from "react"
 
 const TYPES = [
@@ -30,7 +30,7 @@ const EDIT = "edit"
 function Glyph({
   icon: Icon,
   color
-}: Readonly<{ icon: LucideIcon; color?: string }>) {
+}: Readonly<{ icon: IconType; color?: string }>) {
   return (
     <Icon
       aria-hidden

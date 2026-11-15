@@ -8,10 +8,10 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
 } from "@pp/ui/dropdown-menu"
+import { GitBranch } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import * as Result from "effect/reactivity/AsyncResult"
-import { GitBranch } from "lucide-react"
 import { useState } from "react"
 
 import { useBranchResults } from "@/features/github/hooks/useBranchResults"

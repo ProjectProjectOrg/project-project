@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
+import { ArrowUpRight, GitBranch } from "@pp/ui/icons"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ArrowUpRight, GitBranch } from "lucide-react"
 
 import { me } from "@/features/auth/atoms/auth"
 import { branchOpensInNewTab, branchUrl } from "@/features/github/lib/branchUrl"

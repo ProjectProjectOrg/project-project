@@ -1,4 +1,4 @@
-import { Timer } from "lucide-react"
+import { Timer } from "@pp/ui/icons"
 
 import type { Command } from "@/features/command-menu/lib/commands"
 import { newSprintRequest } from "@/features/sprints/atoms/createSprint"

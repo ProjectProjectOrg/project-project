@@ -1,6 +1,6 @@
 import { Button } from "@pp/ui/button"
+import { ChevronLeft, ChevronRight } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
-import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { m } from "@/paraglide/messages"
 

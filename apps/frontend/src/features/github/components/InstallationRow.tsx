@@ -11,9 +11,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { ChevronDown, ExternalLink } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronDown, ExternalLink } from "lucide-react"
 
 import { SettingsRow } from "@/components/shell/settings/SettingsSection"
 import {

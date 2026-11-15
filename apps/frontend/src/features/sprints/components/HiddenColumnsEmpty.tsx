@@ -7,7 +7,7 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@pp/ui/empty"
-import { EyeOff } from "lucide-react"
+import { EyeOff } from "@pp/ui/icons"
 
 import { m } from "@/paraglide/messages"
 

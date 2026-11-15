@@ -1,6 +1,5 @@
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
-import { Input } from "@pp/ui/input"
 import {
   Circle,
   Link2,
@@ -8,7 +7,8 @@ import {
   Plus,
   SquareCheck,
   UserRound
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { Input } from "@pp/ui/input"
 import { useState } from "react"
 
 // The ticket page's Sub-tickets › Add sub-tickets (SubTicketComposer): an

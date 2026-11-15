@@ -14,7 +14,7 @@ import {
   Ungroup,
   Unlink,
   Upload
-} from "lucide-react"
+} from "@pp/ui/icons"
 
 import { BlockIconGlyph } from "@/features/library/components/BlockIconGlyph"
 import { keyLabels } from "@/lib/keyLabels"

@@ -5,8 +5,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { LogOut, Settings, UserRound } from "@pp/ui/icons"
 import { MemberAvatar } from "@pp/ui/member-avatar"
-import { LogOut, Settings, UserRound } from "lucide-react"
 import { useState } from "react"
 
 const USER = { id: "user_ada", name: "Ada Visser", email: "ada@example.com" }

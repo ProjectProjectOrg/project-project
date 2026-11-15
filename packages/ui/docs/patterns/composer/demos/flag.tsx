@@ -1,6 +1,6 @@
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
-import { Flag } from "lucide-react"
+import { Flag } from "@pp/ui/icons"
 
 // A ticket's "…" menu › Flag (FlagTicket). LexicalEditor is app-only; a
 // textarea stands in with the editor's content classes.

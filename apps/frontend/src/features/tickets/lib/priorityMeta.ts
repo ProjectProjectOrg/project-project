@@ -1,6 +1,6 @@
 import type { TicketPriority } from "@pp/shared"
 import type { BadgeTone } from "@pp/ui/badge"
-import { ChevronDown, ChevronUp, Minus, type LucideIcon } from "lucide-react"
+import { ChevronDown, ChevronUp, Minus, type IconType } from "@pp/ui/icons"
 
 import { m } from "@/paraglide/messages"
 
@@ -8,7 +8,7 @@ export const PRIORITY_META: Record<
   TicketPriority,
   {
     label: string
-    icon: LucideIcon
+    icon: IconType
     className: string
     tone: BadgeTone
     ordinal: number

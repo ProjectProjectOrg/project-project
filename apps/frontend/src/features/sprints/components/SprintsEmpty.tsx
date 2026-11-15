@@ -5,7 +5,7 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@pp/ui/empty"
-import { CalendarRange } from "lucide-react"
+import { CalendarRange } from "@pp/ui/icons"
 
 import { m } from "@/paraglide/messages"
 

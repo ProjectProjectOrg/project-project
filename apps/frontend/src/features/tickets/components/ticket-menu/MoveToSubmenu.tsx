@@ -4,7 +4,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
 } from "@pp/ui/dropdown-menu"
-import { ArrowRightLeft, FolderInput, Timer } from "lucide-react"
+import { ArrowRightLeft, FolderInput, Timer } from "@pp/ui/icons"
 
 import { m } from "@/paraglide/messages"
 

@@ -1,10 +1,10 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketSubscribers, TicketId } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Bell } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { TextSwap } from "@pp/ui/text-swap"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
-import { Bell } from "lucide-react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { ReadFailure } from "@/components/shell/ReadFailure"

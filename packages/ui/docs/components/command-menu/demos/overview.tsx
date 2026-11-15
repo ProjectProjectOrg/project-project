@@ -20,7 +20,7 @@ import {
   Settings,
   Signal,
   UserPlus
-} from "lucide-react"
+} from "@pp/ui/icons"
 import { useState, type ReactNode } from "react"
 
 const KEY_LABELS: KeyLabels = {

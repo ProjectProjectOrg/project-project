@@ -7,9 +7,6 @@ import type {
   TypeDefinition,
   TypeKey
 } from "@pp/shared"
-import { cn } from "@pp/ui/lib/utils"
-import { MemberAvatar } from "@pp/ui/member-avatar"
-import { Link } from "@tanstack/react-router"
 import {
   GitBranch,
   GitMerge,
@@ -17,8 +14,11 @@ import {
   GitPullRequestClosed,
   Layers,
   Zap,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 
 import { Markdown } from "@/features/editor/components/Markdown"
@@ -39,7 +39,7 @@ import { statusMetaFor } from "@/features/tickets/lib/ticketMeta"
 import { resolveType, typeName } from "@/features/tickets/lib/ticketTypes"
 import { m } from "@/paraglide/messages"
 
-const GROUP_ICONS: Readonly<Record<GroupKind, LucideIcon>> = {
+const GROUP_ICONS: Readonly<Record<GroupKind, IconType>> = {
   sprint: Zap,
   epic: Layers,
   milestone: Layers,
@@ -59,7 +59,7 @@ function Value({
   iconColor,
   children
 }: Readonly<{
-  icon?: LucideIcon
+  icon?: IconType
   iconClassName?: string
   iconColor?: string | null
   children: ReactNode
@@ -168,7 +168,7 @@ function Tags({
 }
 
 const LITERAL_ICONS: Readonly<
-  Record<ActivityLiteralIcon, Readonly<{ icon: LucideIcon; className: string }>>
+  Record<ActivityLiteralIcon, Readonly<{ icon: IconType; className: string }>>
 > = {
   branch: { icon: GitBranch, className: "text-muted-foreground" },
   stack: { icon: Layers, className: "text-muted-foreground" },

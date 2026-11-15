@@ -6,10 +6,6 @@ import type {
   StackLayerState,
   TicketDetail
 } from "@pp/shared"
-import { cn } from "@pp/ui/lib/utils"
-import { MiddleTruncate } from "@pp/ui/middle-truncate"
-import * as Exit from "effect/Exit"
-import * as Match from "effect/Match"
 import {
   AlertTriangle,
   GitBranch,
@@ -18,8 +14,12 @@ import {
   GitPullRequestClosed,
   GitPullRequestDraft,
   Layers,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
+import * as Exit from "effect/Exit"
+import * as Match from "effect/Match"
 import { useMemo, useState } from "react"
 
 import { unstackBranch } from "@/features/github/atoms/github"
@@ -46,7 +46,7 @@ export const layerTone = (layer: StackLayerState): LayerTone => {
 export const TONES: Readonly<
   Record<
     LayerTone,
-    Readonly<{ icon: LucideIcon; className: string; label: () => string }>
+    Readonly<{ icon: IconType; className: string; label: () => string }>
   >
 > = {
   draft: {

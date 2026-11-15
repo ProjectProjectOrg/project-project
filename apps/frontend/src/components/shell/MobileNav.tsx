@@ -1,8 +1,8 @@
 import type { User } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Menu } from "@pp/ui/icons"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@pp/ui/sheet"
 import { useRouter } from "@tanstack/react-router"
-import { Menu } from "lucide-react"
 import { LayoutGroup } from "motion/react"
 import { useEffect, useState } from "react"
 

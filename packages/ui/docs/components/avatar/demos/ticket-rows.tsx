@@ -1,5 +1,5 @@
+import { Check, Circle, CircleDot } from "@pp/ui/icons"
 import { AvatarStack, MemberAvatar } from "@pp/ui/member-avatar"
-import { Check, Circle, CircleDot } from "lucide-react"
 
 import { PEOPLE } from "./people"
 

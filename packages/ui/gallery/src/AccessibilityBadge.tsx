@@ -1,6 +1,5 @@
 import { Badge } from "@pp/ui/badge"
 import { Button } from "@pp/ui/button"
-import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import {
   ArrowUpRight,
   Check,
@@ -9,7 +8,8 @@ import {
   RotateCw,
   TriangleAlert,
   X
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import {
   useCallback,
   useEffect,

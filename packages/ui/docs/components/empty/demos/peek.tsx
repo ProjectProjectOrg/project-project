@@ -5,8 +5,8 @@ import {
   CommandMenuList
 } from "@pp/ui/command-menu"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@pp/ui/empty"
+import { EyeOff } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
-import { EyeOff } from "lucide-react"
 
 // The ⌘K peek pane with nothing to show.
 

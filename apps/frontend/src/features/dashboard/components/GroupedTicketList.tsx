@@ -1,7 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react"
 import { Button } from "@pp/ui/button"
+import { ArrowRight } from "@pp/ui/icons"
 import { Link } from "@tanstack/react-router"
-import { ArrowRight } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"

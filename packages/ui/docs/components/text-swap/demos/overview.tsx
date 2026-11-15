@@ -1,6 +1,6 @@
 import { Button } from "@pp/ui/button"
+import { Circle, CircleCheck, CircleDashed, CircleDot } from "@pp/ui/icons"
 import { TextSwap } from "@pp/ui/text-swap"
-import { Circle, CircleCheck, CircleDashed, CircleDot } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 const STATUSES = [

@@ -1,13 +1,13 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { RecentTicketActivity } from "@pp/shared"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import {
   ArrowRightLeft,
   FilePlus2,
   MessageSquare,
   UserPlus,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 
 import { currentUserId } from "@/features/auth/atoms/auth"
 import {
@@ -18,14 +18,13 @@ import { useProjectRoute } from "@/features/projects/hooks/useProject"
 
 import { activityText } from "../lib/activityText"
 
-const ACTIVITY_ICONS: Readonly<
-  Record<RecentTicketActivity["tag"], LucideIcon>
-> = {
-  commented: MessageSquare,
-  created: FilePlus2,
-  assigned: UserPlus,
-  status_changed: ArrowRightLeft
-}
+const ACTIVITY_ICONS: Readonly<Record<RecentTicketActivity["tag"], IconType>> =
+  {
+    commented: MessageSquare,
+    created: FilePlus2,
+    assigned: UserPlus,
+    status_changed: ArrowRightLeft
+  }
 
 export function TicketActivityLabel({
   activity

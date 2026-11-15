@@ -5,7 +5,7 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@pp/ui/empty"
-import { LibraryBig } from "lucide-react"
+import { LibraryBig } from "@pp/ui/icons"
 
 export function LibraryEmpty({
   caption,

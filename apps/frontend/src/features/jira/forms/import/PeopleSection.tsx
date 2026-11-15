@@ -1,10 +1,10 @@
 import type { JiraMigrationRequirements } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { ConfirmButton } from "@pp/ui/confirm-button"
+import { Mail, UserPlus } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { Select, SelectTrigger, type SelectOption } from "@pp/ui/select"
-import { Mail, UserPlus } from "lucide-react"
 import { useState } from "react"
 
 import { useRowFilter } from "@/features/jira/hooks/useRowFilter"

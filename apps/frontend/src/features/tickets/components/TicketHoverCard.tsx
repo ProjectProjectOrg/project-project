@@ -10,13 +10,13 @@ import type {
   TypeKey
 } from "@pp/shared"
 import { finishedStatusSlugs, flattenTicketBlocks } from "@pp/shared"
+import { OctagonMinus } from "@pp/ui/icons"
 import { Kbd } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { PopoverContent } from "@pp/ui/popover"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { OctagonMinus } from "lucide-react"
 import type { ComponentProps } from "react"
 import { lazy, Suspense } from "react"
 

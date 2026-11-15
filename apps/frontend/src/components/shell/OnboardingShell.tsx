@@ -1,5 +1,5 @@
 import { DitherBackdrop } from "@pp/ui/button-dither"
-import type { LucideIcon } from "lucide-react"
+import type { IconType } from "@pp/ui/icons"
 import type { ReactNode } from "react"
 
 export function OnboardingGateStatus({ children }: { children: ReactNode }) {
@@ -14,7 +14,7 @@ export function OnboardingShell({
   icon: Icon,
   children
 }: {
-  icon: LucideIcon
+  icon: IconType
   children: ReactNode
 }) {
   return (

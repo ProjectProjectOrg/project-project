@@ -1,8 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { TicketFilter } from "@pp/shared"
-import type { IconComponent } from "@pp/ui/lib/icon"
-import * as DateTime from "effect/DateTime"
-import * as Result from "effect/reactivity/AsyncResult"
 import {
   Archive,
   Flag,
@@ -13,7 +10,10 @@ import {
   Timer,
   UserMinus,
   UserRound
-} from "lucide-react"
+} from "@pp/ui/icons"
+import type { IconComponent } from "@pp/ui/lib/icon"
+import * as DateTime from "effect/DateTime"
+import * as Result from "effect/reactivity/AsyncResult"
 
 import { currentUserId } from "@/features/auth/atoms/auth"
 import { blockIconComponent } from "@/features/editor/lib/blockIcons"

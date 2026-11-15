@@ -7,13 +7,13 @@ import {
   StatusLabel,
   StatusColor
 } from "@pp/shared"
+import { GripVertical } from "@pp/ui/icons"
 import { SURFACE_BG } from "@pp/ui/lib/surfaceClasses"
 import { useSurface } from "@pp/ui/lib/surfaceContext"
 import { cn } from "@pp/ui/lib/utils"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Option from "effect/Option"
-import { GripVertical } from "lucide-react"
 import { Reorder, useDragControls, type DragControls } from "motion/react"
 import { useState } from "react"
 

@@ -1,7 +1,7 @@
 import { AutoHeight } from "@pp/ui/auto-height"
+import { ChevronRight, CircleAlert } from "@pp/ui/icons"
 import { spring } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
-import { ChevronRight, CircleAlert } from "lucide-react"
 import { motion } from "motion/react"
 import type { ReactNode } from "react"
 

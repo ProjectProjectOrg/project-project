@@ -1,9 +1,9 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { CommandMenuItem } from "@pp/ui/command-menu"
+import { Timer } from "@pp/ui/icons"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Timer } from "lucide-react"
 import { useState } from "react"
 
 import { fireMutation } from "@/api/viewMutation"

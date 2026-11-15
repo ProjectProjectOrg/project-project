@@ -7,7 +7,7 @@ import {
   type TicketDetail
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
-import { ExternalLink } from "lucide-react"
+import { ExternalLink } from "@pp/ui/icons"
 
 import {
   FigmaGlyph,

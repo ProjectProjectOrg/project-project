@@ -1,4 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
+import { Plus } from "@pp/ui/icons"
 import {
   InputGroup,
   InputGroupAddon,
@@ -8,7 +9,6 @@ import { Kbd } from "@pp/ui/kbd"
 import { transitions } from "@pp/ui/lib/springs"
 import * as Exit from "effect/Exit"
 import * as Atom from "effect/reactivity/Atom"
-import { Plus } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useRef, useState } from "react"
 

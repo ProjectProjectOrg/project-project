@@ -1,6 +1,6 @@
 import { Button } from "@pp/ui/button"
+import { X } from "@pp/ui/icons"
 import { Link } from "@tanstack/react-router"
-import { X } from "lucide-react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import * as m from "@/paraglide/messages"

@@ -108,7 +108,7 @@ const buttonVariants = cva(
     compoundVariants: [
       { size: "banner-add", className: "text-muted-foreground" },
       // Optical padding: the icon side gets 3/4 of the text side, because an
-      // icon carries less visual weight than a word and Lucide glyphs sit
+      // icon carries less visual weight than a word and icon glyphs sit
       // inside about 1/12 of empty space.
       { size: "xs", iconLeft: true, className: "pl-1" },
       { size: "compact", iconLeft: true, className: "pl-1" },

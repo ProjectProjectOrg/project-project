@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import { CommandMenuItem, CommandMenuCheck } from "@pp/ui/command-menu"
+import { Building2 } from "@pp/ui/icons"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Building2 } from "lucide-react"
 
 import { setActiveOrganization } from "@/features/auth/atoms/auth"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"

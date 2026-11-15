@@ -2,13 +2,13 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { isEpic, type Ticket } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
+import { Link2 } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Random from "effect/Random"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Link2 } from "lucide-react"
 import {
   useEffect,
   useRef,

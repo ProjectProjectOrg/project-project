@@ -1,8 +1,8 @@
-import type { LucideIcon } from "lucide-react"
 import { motion } from "motion/react"
 import type { ComponentProps } from "react"
 
 import { transitions } from "../lib/springs"
+import type { IconType } from "./icons"
 
 export const chipIconActionClass =
   "shrink-0 rounded text-muted-foreground transition-colors duration-100 hover:text-foreground [&>svg]:transition-transform [&>svg]:duration-100 active:[&>svg]:scale-[0.97]"
@@ -11,7 +11,7 @@ type Props = Omit<
   ComponentProps<typeof motion.a>,
   "children" | "className" | "layout" | "transition"
 > &
-  Readonly<{ layoutId: string; label: string; icon: LucideIcon }>
+  Readonly<{ layoutId: string; label: string; icon: IconType }>
 
 export function MorphIconLink({ label, icon: Icon, ...props }: Props) {
   return (

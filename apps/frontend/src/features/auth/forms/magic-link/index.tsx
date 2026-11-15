@@ -1,8 +1,8 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Button } from "@pp/ui/button"
+import { Mail } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { Mail } from "lucide-react"
 
 import { sendMagicLink } from "@/features/auth/atoms/auth"
 import { useAppForm } from "@/lib/form"

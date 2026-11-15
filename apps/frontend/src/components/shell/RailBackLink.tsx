@@ -1,6 +1,6 @@
+import { ChevronLeft } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { Link, type LinkComponentProps } from "@tanstack/react-router"
-import { ChevronLeft } from "lucide-react"
 
 declare module "@tanstack/react-router" {
   interface HistoryState {

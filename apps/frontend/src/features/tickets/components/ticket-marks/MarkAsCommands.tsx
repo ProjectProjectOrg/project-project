@@ -1,4 +1,4 @@
-import { Flag, FlagOff } from "lucide-react"
+import { Flag, FlagOff } from "@pp/ui/icons"
 
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"

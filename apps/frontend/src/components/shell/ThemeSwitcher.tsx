@@ -1,6 +1,6 @@
+import { Monitor, Moon, Sun } from "@pp/ui/icons"
 import { setThemeRevealOrigin } from "@pp/ui/lib/themeReveal"
 import { SegmentedTabs } from "@pp/ui/segmented-tabs"
-import { Monitor, Moon, Sun } from "lucide-react"
 import type { MouseEvent } from "react"
 
 import { useTheme, type ThemePreference } from "@/hooks/useTheme"

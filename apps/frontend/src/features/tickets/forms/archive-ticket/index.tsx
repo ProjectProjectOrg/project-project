@@ -1,10 +1,10 @@
 import type { ArchiveTicketInput, Ticket } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
+import { Archive, Ban, Clock, Copy } from "@pp/ui/icons"
 import type { IconComponent } from "@pp/ui/lib/icon"
 import { PopoverTitle } from "@pp/ui/popover"
 import * as Exit from "effect/Exit"
-import { Archive, Ban, Clock, Copy } from "lucide-react"
 
 import { useAppForm } from "@/lib/form"
 import { m } from "@/paraglide/messages"

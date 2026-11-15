@@ -1,4 +1,4 @@
-import { Link, LogOut, Palette } from "lucide-react"
+import { Link, LogOut, Palette } from "@pp/ui/icons"
 
 import { logout } from "@/features/auth/atoms/auth"
 import { m } from "@/paraglide/messages"

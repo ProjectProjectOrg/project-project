@@ -7,8 +7,8 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@pp/ui/empty"
+import { FolderPlus, Inbox, Plus } from "@pp/ui/icons"
 import { SegmentedTabs } from "@pp/ui/segmented-tabs"
-import { FolderPlus, Inbox, Plus } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 function Case({

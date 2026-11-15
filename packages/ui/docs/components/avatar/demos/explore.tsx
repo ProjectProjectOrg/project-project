@@ -1,11 +1,11 @@
 import { Button } from "@pp/ui/button"
 import { DissolveAvatar } from "@pp/ui/dissolve-avatar"
+import { Dices } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { orbAvatar } from "@pp/ui/lib/orbAvatar"
 import { TextSwap } from "@pp/ui/text-swap"
 import * as Effect from "effect/Effect"
 import * as Random from "effect/Random"
-import { Dices } from "lucide-react"
 import { useEffect, useId, useState, type ReactNode } from "react"
 
 const FIRST = [

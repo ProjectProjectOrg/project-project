@@ -4,6 +4,7 @@ import {
   useRegisterFluidHoverItem,
   type UseFluidHoverReturn
 } from "@pp/ui/hooks/useFluidHover"
+import type { IconType } from "@pp/ui/icons"
 import { spring } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import {
@@ -12,7 +13,6 @@ import {
   useMatchRoute,
   type LinkComponentProps
 } from "@tanstack/react-router"
-import type { LucideIcon } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import {
   createContext,
@@ -87,7 +87,7 @@ export function SettingsRailNav({
 }
 
 type SettingsRailLinkProps = Omit<LinkComponentProps, "children"> &
-  Readonly<{ icon: LucideIcon; label: string; index: number }>
+  Readonly<{ icon: IconType; label: string; index: number }>
 
 export function SettingsRailLink({
   icon: Icon,

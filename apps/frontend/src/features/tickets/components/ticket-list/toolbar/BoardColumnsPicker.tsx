@@ -6,10 +6,10 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { ChevronDown } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { menuItemMetaClass } from "@pp/ui/menu-styles"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronDown } from "lucide-react"
 
 import {
   statusesFor,

@@ -1,4 +1,3 @@
-import { Select, SelectTrigger, type SelectOption } from "@pp/ui/select"
 import {
   ArrowRight,
   Check,
@@ -6,8 +5,9 @@ import {
   CircleDot,
   GitPullRequest,
   Plus,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import { Select, SelectTrigger, type SelectOption } from "@pp/ui/select"
 import { useState, type ReactNode } from "react"
 
 const PROJECT_STATUSES = [
@@ -29,7 +29,7 @@ const CREATE = "create"
 function OptionLabel({
   icon: Icon,
   children
-}: Readonly<{ icon: LucideIcon; children: ReactNode }>) {
+}: Readonly<{ icon: IconType; children: ReactNode }>) {
   return (
     <span className="flex min-w-0 items-center gap-2">
       <Icon className="size-3.5 shrink-0" strokeWidth={1.75} />

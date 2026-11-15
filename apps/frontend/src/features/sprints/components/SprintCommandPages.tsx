@@ -1,11 +1,6 @@
 import { useAtomSet } from "@effect/atom-react"
 import { pickActiveSprint, type Group } from "@pp/shared"
 import { CommandMenuItem } from "@pp/ui/command-menu"
-import { cn } from "@pp/ui/lib/utils"
-import { useDebouncedValue } from "@tanstack/react-pacer"
-import { useNavigate } from "@tanstack/react-router"
-import * as Cause from "effect/Cause"
-import * as Exit from "effect/Exit"
 import {
   CalendarDays,
   CalendarX,
@@ -14,7 +9,12 @@ import {
   Pencil,
   Plus,
   Trash2
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { useDebouncedValue } from "@tanstack/react-pacer"
+import { useNavigate } from "@tanstack/react-router"
+import * as Cause from "effect/Cause"
+import * as Exit from "effect/Exit"
 import { useState, type ReactNode } from "react"
 
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"

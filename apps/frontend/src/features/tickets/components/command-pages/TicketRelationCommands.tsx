@@ -1,5 +1,5 @@
 import { isEpic } from "@pp/shared"
-import { Flag, ListPlus } from "lucide-react"
+import { Flag, ListPlus } from "@pp/ui/icons"
 
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import {

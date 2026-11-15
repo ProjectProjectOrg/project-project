@@ -6,8 +6,8 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
 } from "@pp/ui/dropdown-menu"
+import { GitBranch, GitMerge, Layers, Settings2 } from "@pp/ui/icons"
 import * as Result from "effect/reactivity/AsyncResult"
-import { GitBranch, GitMerge, Layers, Settings2 } from "lucide-react"
 
 import { project } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"

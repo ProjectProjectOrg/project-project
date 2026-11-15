@@ -5,7 +5,6 @@ import {
   type Group,
   type UpdateGroupInput
 } from "@pp/shared"
-import { useMatch, useNavigate } from "@tanstack/react-router"
 import {
   ArrowLeft,
   ArrowRight,
@@ -24,7 +23,8 @@ import {
   Trash2,
   Trophy,
   Zap
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { useMatch, useNavigate } from "@tanstack/react-router"
 import { useMemo } from "react"
 
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"

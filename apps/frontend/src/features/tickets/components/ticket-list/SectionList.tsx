@@ -10,9 +10,9 @@ import {
   type TicketParent
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Loader2 } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Loader2 } from "lucide-react"
 import {
   createContext,
   useCallback,

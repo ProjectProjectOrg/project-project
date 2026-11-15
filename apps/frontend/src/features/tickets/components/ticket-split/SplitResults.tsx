@@ -1,6 +1,6 @@
 import { Button } from "@pp/ui/button"
+import { Plus, X } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
-import { Plus, X } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { m } from "@/paraglide/messages"

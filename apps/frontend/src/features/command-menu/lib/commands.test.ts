@@ -5,8 +5,8 @@ import {
   TicketStatus,
   TypeKey
 } from "@pp/shared"
+import { Settings } from "@pp/ui/icons"
 import * as Schema from "effect/Schema"
-import { Settings } from "lucide-react"
 import { describe, expect, it } from "vitest"
 
 import { visibleCommands, type Command, type CommandContext } from "./commands"

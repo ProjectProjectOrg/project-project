@@ -1,9 +1,9 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { ProjectDetail as ProjectDetailType } from "@pp/shared"
+import { GitBranch, UserPlus, X } from "@pp/ui/icons"
 import { Link } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
-import { GitBranch, UserPlus, X } from "lucide-react"
 import { useCallback } from "react"
 
 import { useSidebarSection } from "@/components/shell/SidebarSlot"

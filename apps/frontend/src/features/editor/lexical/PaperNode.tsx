@@ -1,5 +1,6 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { Badge } from "@pp/ui/badge"
+import { ExternalLink, Pencil, Trash2 } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { cn } from "@pp/ui/lib/utils"
 import {
@@ -11,7 +12,6 @@ import {
   type SerializedLexicalNode,
   type Spread
 } from "lexical"
-import { ExternalLink, Pencil, Trash2 } from "lucide-react"
 import {
   useCallback,
   useEffect,

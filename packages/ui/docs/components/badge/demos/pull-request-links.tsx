@@ -4,7 +4,7 @@ import {
   GitPullRequest,
   GitPullRequestClosed,
   GitPullRequestDraft
-} from "lucide-react"
+} from "@pp/ui/icons"
 
 const PULL_REQUESTS = [
   { number: 482, state: "open", tone: "emerald", icon: GitPullRequest },

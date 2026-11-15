@@ -7,6 +7,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { Plus, X } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { TextSwap } from "@pp/ui/text-swap"
 import * as Cause from "effect/Cause"
@@ -14,7 +15,6 @@ import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Schema from "effect/Schema"
-import { Plus, X } from "lucide-react"
 import { useMemo, useRef, useState, type ComponentProps } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"

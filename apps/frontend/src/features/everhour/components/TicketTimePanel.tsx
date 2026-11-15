@@ -1,9 +1,9 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketDetail } from "@pp/shared"
+import { Info } from "@pp/ui/icons"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { Info } from "lucide-react"
 import { useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"

@@ -8,7 +8,7 @@ import {
   EmptyTitle,
   type EmptyIntensity
 } from "@pp/ui/empty"
-import { EyeOff, ListChecks } from "lucide-react"
+import { EyeOff, ListChecks } from "@pp/ui/icons"
 import type { ReactNode } from "react"
 
 const INTENSITIES: ReadonlyArray<EmptyIntensity> = [

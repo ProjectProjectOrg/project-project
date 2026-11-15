@@ -1,9 +1,9 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { UserInvitation } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Inbox, LogOut } from "@pp/ui/icons"
 import { Navigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Inbox, LogOut } from "lucide-react"
 import { useRef, useState } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"

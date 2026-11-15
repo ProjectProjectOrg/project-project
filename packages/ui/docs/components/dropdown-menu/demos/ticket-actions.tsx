@@ -31,7 +31,7 @@ import {
   SignalMedium,
   Trash2,
   UserRound
-} from "lucide-react"
+} from "@pp/ui/icons"
 import { useState } from "react"
 
 const USER_TOGGLES = new Set(["trigger-press", "escape-key"])

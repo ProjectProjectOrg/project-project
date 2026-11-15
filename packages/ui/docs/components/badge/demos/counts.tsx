@@ -1,6 +1,6 @@
 import { Badge } from "@pp/ui/badge"
 import { Button } from "@pp/ui/button"
-import { ChevronDown, CircleDashed, ListFilter } from "lucide-react"
+import { ChevronDown, CircleDashed, ListFilter } from "@pp/ui/icons"
 import { useState } from "react"
 
 // Counts next to a label: a ticket list section header, where the count is

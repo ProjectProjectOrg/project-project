@@ -1,5 +1,5 @@
 import { Button } from "@pp/ui/button"
-import { ArrowLeftRight, Check, X } from "lucide-react"
+import { ArrowLeftRight, Check, X } from "@pp/ui/icons"
 
 import { m } from "@/paraglide/messages"
 

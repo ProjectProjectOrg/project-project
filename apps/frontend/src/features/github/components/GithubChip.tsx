@@ -7,16 +7,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
-import { cn } from "@pp/ui/lib/utils"
-import { MenuNote } from "@pp/ui/menu-note"
-import { Link } from "@tanstack/react-router"
 import {
   AlertTriangle,
   ChevronDown,
   ExternalLink,
   GitBranch as GithubIcon,
   Settings2
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MenuNote } from "@pp/ui/menu-note"
+import { Link } from "@tanstack/react-router"
 
 import { ConnectMenu } from "@/features/github/components/ConnectMenu"
 import { useCanManageGithub } from "@/features/github/hooks/useCanManageGithub"

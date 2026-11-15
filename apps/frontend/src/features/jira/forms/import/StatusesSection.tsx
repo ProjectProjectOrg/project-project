@@ -1,7 +1,7 @@
 import type { JiraMigrationRequirements } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Plus } from "@pp/ui/icons"
 import { Select, SelectTrigger } from "@pp/ui/select"
-import { Plus } from "lucide-react"
 import { createElement } from "react"
 
 import { useRowFilter } from "@/features/jira/hooks/useRowFilter"

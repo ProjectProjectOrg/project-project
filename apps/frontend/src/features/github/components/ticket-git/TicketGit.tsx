@@ -7,9 +7,9 @@ import type {
   TicketDetail
 } from "@pp/shared"
 import { Badge } from "@pp/ui/badge"
+import { AlertTriangle, Circle, Layers } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
-import { AlertTriangle, Circle, Layers } from "lucide-react"
 
 import {
   StackedBranches,

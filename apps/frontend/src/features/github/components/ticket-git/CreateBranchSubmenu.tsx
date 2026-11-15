@@ -9,9 +9,9 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
 } from "@pp/ui/dropdown-menu"
+import { Plus } from "@pp/ui/icons"
 import { KbdShortcut } from "@pp/ui/kbd"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
-import { Plus } from "lucide-react"
 import { useState } from "react"
 
 import { useCreateBranch } from "@/features/github/hooks/useCreateBranch"

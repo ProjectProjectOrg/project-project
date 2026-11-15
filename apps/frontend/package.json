@@ -51,7 +51,6 @@
     "frimousse": "^0.3.0",
     "geist": "^1.7.0",
     "lexical": "^0.44.0",
-    "lucide-react": "^1.16.0",
     "mdast-util-to-markdown": "^2.2.3",
     "motion": "^12.38.0",
     "pdfjs-dist": "^6.3.289",

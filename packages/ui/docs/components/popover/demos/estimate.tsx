@@ -1,9 +1,9 @@
 import { Button } from "@pp/ui/button"
+import { Hourglass, Plus } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { Kbd } from "@pp/ui/kbd"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { TextSwap } from "@pp/ui/text-swap"
-import { Hourglass, Plus } from "lucide-react"
 import { useId, useState, type FormEvent } from "react"
 
 const USER_TOGGLES = new Set(["trigger-press", "escape-key", "outside-press"])

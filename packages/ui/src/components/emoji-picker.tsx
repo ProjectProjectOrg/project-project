@@ -4,11 +4,11 @@ import {
   type EmojiPickerListRowProps,
   EmojiPicker as EmojiPickerPrimitive
 } from "frimousse"
-import { LoaderIcon, SearchIcon } from "lucide-react"
 import type * as React from "react"
 
 import { fieldTouchClass } from "../lib/typeScale"
 import { cn } from "../lib/utils"
+import { LoaderIcon, SearchIcon } from "./icons"
 
 function EmojiPicker({
   className,

@@ -5,10 +5,10 @@ import {
   useFluidHover,
   useRegisterFluidHoverItem
 } from "@pp/ui/hooks/useFluidHover"
+import { ChevronRight } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { Link, useMatches, useSearch } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronRight } from "lucide-react"
 import { createContext, use, useMemo, useRef, type ReactNode } from "react"
 
 import { project, projectRequest } from "@/features/projects/atoms/projects"

@@ -1,6 +1,6 @@
+import { Columns3, Rows3 } from "@pp/ui/icons"
 import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
 import { useMatch, useNavigate } from "@tanstack/react-router"
-import { Columns3, Rows3 } from "lucide-react"
 import { startTransition } from "react"
 import { flushSync } from "react-dom"
 

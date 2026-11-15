@@ -5,15 +5,15 @@ import type {
   StackLayerState,
   Ticket
 } from "@pp/shared"
-import { cn } from "@pp/ui/lib/utils"
-import { MiddleTruncate } from "@pp/ui/middle-truncate"
-import * as Result from "effect/reactivity/AsyncResult"
 import {
   AlertTriangle,
   ArrowRight,
   GitBranch,
   LoaderCircle
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
+import * as Result from "effect/reactivity/AsyncResult"
 
 import { usePreferredBranchLink } from "@/features/github/components/ticket-git/BranchChip"
 import { pendingLabel } from "@/features/github/components/ticket-git/GitField"

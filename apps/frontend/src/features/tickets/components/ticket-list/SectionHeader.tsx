@@ -1,9 +1,9 @@
 import type { ProjectStatus, TicketStatus } from "@pp/shared"
 import { Badge } from "@pp/ui/badge"
 import { Hitbox } from "@pp/ui/hitbox"
+import { ChevronDown, Plus } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
-import { ChevronDown, Plus } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { forwardRef, type ReactNode, type Ref } from "react"
 

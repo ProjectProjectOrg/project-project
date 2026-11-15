@@ -6,8 +6,6 @@ import {
   type ProjectStatus,
   type StatusSlug
 } from "@pp/shared"
-import { Select, SelectTrigger } from "@pp/ui/select"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import {
   GitBranch,
   GitBranchMinus,
@@ -15,9 +13,11 @@ import {
   GitPullRequest,
   GitPullRequestClosed,
   GitPullRequestDraft,
-  type LucideIcon,
+  type IconType,
   Minus
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { Select, SelectTrigger } from "@pp/ui/select"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import {
@@ -45,7 +45,7 @@ const DONT_MOVE = ""
 const EVENTS: Readonly<
   Record<
     GitAutomationEvent,
-    Readonly<{ icon: LucideIcon; label: () => string; hint: () => string }>
+    Readonly<{ icon: IconType; label: () => string; hint: () => string }>
   >
 > = {
   branch_linked: {

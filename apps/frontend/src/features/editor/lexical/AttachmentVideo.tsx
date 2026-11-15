@@ -1,7 +1,7 @@
 import { Button } from "@pp/ui/button"
+import { LoaderCircle, Play } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
-import { LoaderCircle, Play } from "lucide-react"
 import { motion } from "motion/react"
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 

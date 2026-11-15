@@ -1,10 +1,10 @@
 import { Button } from "@pp/ui/button"
 import { Calendar } from "@pp/ui/calendar"
 import { Composer } from "@pp/ui/composer"
+import { CalendarDays, Plus } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import * as DateTime from "effect/DateTime"
-import { CalendarDays, Plus } from "lucide-react"
 import { useState } from "react"
 
 const USER_TOGGLES = new Set([

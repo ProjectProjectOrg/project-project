@@ -1,4 +1,5 @@
 import { Button } from "@pp/ui/button"
+import { X } from "@pp/ui/icons"
 import {
   Popover,
   PopoverClose,
@@ -6,7 +7,6 @@ import {
   PopoverTitle,
   PopoverTrigger
 } from "@pp/ui/popover"
-import { X } from "lucide-react"
 import { useState } from "react"
 
 const USER_TOGGLES = new Set(["trigger-press", "escape-key", "close-press"])

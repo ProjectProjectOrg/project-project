@@ -8,6 +8,7 @@ import {
   type ActiveTimer,
   type Group
 } from "@pp/shared"
+import { Timer } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { Select, SelectTrigger } from "@pp/ui/select"
@@ -16,7 +17,6 @@ import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Schema from "effect/Schema"
-import { Timer } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { useEffect, useMemo, useState } from "react"
 

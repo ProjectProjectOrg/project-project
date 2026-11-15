@@ -1,5 +1,5 @@
 import type { TicketId } from "@pp/shared"
-import { X } from "lucide-react"
+import { X } from "@pp/ui/icons"
 
 import type { SelectedTicket } from "@/features/command-menu/lib/commandMenu"
 import { m } from "@/paraglide/messages"

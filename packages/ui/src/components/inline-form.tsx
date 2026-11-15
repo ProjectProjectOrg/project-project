@@ -1,4 +1,3 @@
-import { X } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import {
   createContext,
@@ -12,6 +11,7 @@ import {
 import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
 import { Button, type ButtonProps } from "./button"
+import { X } from "./icons"
 
 type InlineFormContextValue = Readonly<{
   mode: string

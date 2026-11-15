@@ -1,16 +1,16 @@
 import type { GitState } from "@pp/shared"
 import { Button } from "@pp/ui/button"
-import { cn } from "@pp/ui/lib/utils"
-import { MiddleTruncate } from "@pp/ui/middle-truncate"
-import * as Match from "effect/Match"
 import {
   AlertTriangle,
   ArrowUpRight,
   ChevronDown,
   GitBranch,
   LoaderCircle,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MiddleTruncate } from "@pp/ui/middle-truncate"
+import * as Match from "effect/Match"
 import type { ReactNode } from "react"
 
 import { compareUrl } from "@/features/github/lib/branchUrl"
@@ -26,7 +26,7 @@ type LinkedState = Exclude<GitState, { tag: "no_branch" }>
 
 type FieldView = Readonly<{
   branch: string
-  icon: LucideIcon
+  icon: IconType
   busy: boolean
   openPr: BranchMenuPr | null
   status: ReactNode
@@ -99,7 +99,10 @@ function StatusLink({
       draggable={false}
       target="_blank"
       rel="noreferrer"
-      className={cn("-my-[5px] inline-flex items-center gap-0.5 py-[5px]", textLinkClass)}
+      className={cn(
+        "-my-[5px] inline-flex items-center gap-0.5 py-[5px]",
+        textLinkClass
+      )}
     >
       {children}
       <ArrowUpRight className="size-3" strokeWidth={1.75} />

@@ -1,8 +1,8 @@
 import { hasSubTickets, type Ticket } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Flag, Link2, OctagonMinus, SquareEqual } from "@pp/ui/icons"
 import type { IconComponent } from "@pp/ui/lib/icon"
 import { cn } from "@pp/ui/lib/utils"
-import { Flag, Link2, OctagonMinus, SquareEqual } from "lucide-react"
 
 import { SubTicketCount } from "@/features/tickets/components/ticket-list/SubTicketProgress"
 import { SquareOctagonMinus } from "@/features/tickets/components/ticket-marks/blockingIcon"

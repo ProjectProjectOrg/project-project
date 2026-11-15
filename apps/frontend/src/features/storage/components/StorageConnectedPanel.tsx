@@ -2,8 +2,8 @@ import { useAtomSet } from "@effect/atom-react"
 import type { OrgStorageStatus } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { ConfirmButton } from "@pp/ui/confirm-button"
+import { FolderOpen } from "@pp/ui/icons"
 import { Link } from "@tanstack/react-router"
-import { FolderOpen } from "lucide-react"
 
 import {
   SettingsGroup,

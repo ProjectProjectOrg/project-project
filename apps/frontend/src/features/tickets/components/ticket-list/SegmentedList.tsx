@@ -15,9 +15,9 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@pp/ui/empty"
+import { FilterX, ListChecks } from "@pp/ui/icons"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { FilterX, ListChecks } from "lucide-react"
 import { useMemo, useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"

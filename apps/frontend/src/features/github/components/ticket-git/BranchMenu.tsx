@@ -17,7 +17,7 @@ import {
   MoreHorizontal,
   Unlink,
   X
-} from "lucide-react"
+} from "@pp/ui/icons"
 import { useRef, useState, type ReactElement } from "react"
 
 import { clearBranch } from "@/features/github/atoms/github"

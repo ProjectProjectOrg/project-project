@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react"
+import { ArrowRight } from "@pp/ui/icons"
 
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import { commandItem } from "@/features/command-menu/components/RootCommands"

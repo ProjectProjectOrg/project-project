@@ -1,9 +1,5 @@
 import { badgeVariants } from "@pp/ui/badge"
 import { CollapsingLabel } from "@pp/ui/collapsing-label"
-import { cn } from "@pp/ui/lib/utils"
-import { menuItemMetaClass } from "@pp/ui/menu-styles"
-import type { SelectOption } from "@pp/ui/select"
-import { TextSwap } from "@pp/ui/text-swap"
 import {
   Bug,
   CircleDashed,
@@ -13,8 +9,12 @@ import {
   SquareCheck,
   X,
   Zap,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { menuItemMetaClass } from "@pp/ui/menu-styles"
+import type { SelectOption } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
 import {
   useCallback,
   useEffect,
@@ -28,7 +28,7 @@ import {
 export type TicketType = Readonly<{
   key: string
   name: string
-  icon: LucideIcon
+  icon: IconType
   color: string
   start: ReadonlyArray<string> | null
 }>

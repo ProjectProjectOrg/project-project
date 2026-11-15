@@ -1,10 +1,10 @@
 import { useAtomValue } from "@effect/atom-react"
 import { Button } from "@pp/ui/button"
+import { Database, Upload } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { SegmentedTabs } from "@pp/ui/segmented-tabs"
 import { Link } from "@tanstack/react-router"
-import { Database, Upload } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { useRef, useState } from "react"
 

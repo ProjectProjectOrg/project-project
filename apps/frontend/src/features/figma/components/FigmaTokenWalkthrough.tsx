@@ -1,8 +1,8 @@
 import { Button } from "@pp/ui/button"
+import { ChevronLeft, ChevronRight } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import useEmblaCarousel from "embla-carousel-react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 
 import securityTokensImage from "@/assets/figma-walkthrough/figma-security-tokens.png"

@@ -1,6 +1,6 @@
 import { CommandMenuItem, CommandMenuCheck } from "@pp/ui/command-menu"
+import { Monitor, Moon, Sun } from "@pp/ui/icons"
 import { setThemeRevealOrigin } from "@pp/ui/lib/themeReveal"
-import { Monitor, Moon, Sun } from "lucide-react"
 
 import { useTheme, type ThemePreference } from "@/hooks/useTheme"
 import { m } from "@/paraglide/messages"

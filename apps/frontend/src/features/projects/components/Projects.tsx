@@ -7,10 +7,10 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@pp/ui/empty"
+import { FolderKanban } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { FolderKanban } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 

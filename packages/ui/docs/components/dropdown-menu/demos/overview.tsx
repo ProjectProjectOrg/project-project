@@ -15,9 +15,9 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { Copy, FileText, Link, Pencil, Share2, Trash2 } from "@pp/ui/icons"
 import type { KeyLabels } from "@pp/ui/kbd"
 import * as Effect from "effect/Effect"
-import { Copy, FileText, Link, Pencil, Share2, Trash2 } from "lucide-react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 
 const KEY_LABELS: KeyLabels = {

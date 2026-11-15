@@ -1,9 +1,9 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { Button } from "@pp/ui/button"
+import { ExternalLink } from "@pp/ui/icons"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { ExternalLink } from "lucide-react"
 
 import {
   SettingsGroup,

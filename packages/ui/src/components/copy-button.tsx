@@ -1,10 +1,10 @@
-import { Check, Copy } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useState } from "react"
 
 import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
 import { Button, type ButtonProps } from "./button"
+import { Check, Copy } from "./icons"
 
 const CONFIRM_DURATION_MS = 1200
 

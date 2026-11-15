@@ -1,11 +1,11 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { ProjectIconImage } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { FolderKanban, Settings } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { Link, useLocation } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { FolderKanban, Settings } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useRef } from "react"
 

@@ -5,7 +5,7 @@ import {
   GitPullRequest,
   Layers,
   Unlink
-} from "lucide-react"
+} from "@pp/ui/icons"
 
 import type {
   Command,

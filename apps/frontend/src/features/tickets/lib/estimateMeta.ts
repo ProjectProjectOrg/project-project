@@ -11,13 +11,13 @@ import {
   type TicketSort,
   type EstimationMode
 } from "@pp/shared"
+import { Gauge, Hourglass, Shirt, type IconType } from "@pp/ui/icons"
 import * as Match from "effect/Match"
-import { Gauge, Hourglass, Shirt, type LucideIcon } from "lucide-react"
 
 import { formatWorkDuration, parseDurationToSeconds } from "@/lib/duration"
 import { m } from "@/paraglide/messages"
 
-export const ESTIMATE_UNIT_ICON: Readonly<Record<EstimateUnit, LucideIcon>> = {
+export const ESTIMATE_UNIT_ICON: Readonly<Record<EstimateUnit, IconType>> = {
   points: Gauge,
   tshirt: Shirt,
   time: Hourglass

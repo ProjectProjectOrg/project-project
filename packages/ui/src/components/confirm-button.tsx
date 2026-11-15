@@ -1,6 +1,5 @@
 import type * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
-import { Trash2, X } from "lucide-react"
 import { animate, motion, useReducedMotion } from "motion/react"
 import {
   useCallback,
@@ -22,6 +21,7 @@ import {
   type ConfirmButtonContextValue,
   useConfirmButton
 } from "./confirm-button-context"
+import { Trash2, X } from "./icons"
 import { Input } from "./input"
 import { TextSwap } from "./text-swap"
 

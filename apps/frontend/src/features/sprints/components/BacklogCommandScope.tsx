@@ -1,6 +1,6 @@
 import { pickActiveSprint, pickEarliestPlannedSprint } from "@pp/shared"
+import { Flag, Plus, Zap } from "@pp/ui/icons"
 import { useMatch, useNavigate } from "@tanstack/react-router"
-import { Flag, Plus, Zap } from "lucide-react"
 import { useMemo } from "react"
 
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"

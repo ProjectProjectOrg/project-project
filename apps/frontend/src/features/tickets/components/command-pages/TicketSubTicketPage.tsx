@@ -1,10 +1,10 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { isEpic } from "@pp/shared"
 import type { Ticket } from "@pp/shared"
+import { ListPlus, Plus } from "@pp/ui/icons"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Effect from "effect/Effect"
 import * as Random from "effect/Random"
-import { ListPlus, Plus } from "lucide-react"
 import { useContext, useState } from "react"
 
 import { fireMutation } from "@/api/viewMutation"

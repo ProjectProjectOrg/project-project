@@ -1,6 +1,6 @@
 import type { BlockIconName } from "@pp/shared"
+import { Plus } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
-import { Plus } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { m } from "@/paraglide/messages"

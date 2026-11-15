@@ -9,9 +9,9 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@pp/ui/empty"
+import { Import, Plus } from "@pp/ui/icons"
 import { Link } from "@tanstack/react-router"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { Import, Plus } from "lucide-react"
 import { MotionConfig } from "motion/react"
 
 import { AsyncView } from "@/components/shell/AsyncView"

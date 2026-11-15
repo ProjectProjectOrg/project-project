@@ -1,4 +1,5 @@
 import { Button } from "@pp/ui/button"
+import { Bold, Code, Italic, Link, Strikethrough } from "@pp/ui/icons"
 import { Kbd } from "@pp/ui/kbd"
 import { Switch } from "@pp/ui/switch"
 import {
@@ -8,7 +9,6 @@ import {
   TooltipGroupTrigger,
   TooltipTrigger
 } from "@pp/ui/tooltip"
-import { Bold, Code, Italic, Link, Strikethrough } from "lucide-react"
 import { useId, useState, type ReactNode } from "react"
 
 const TOOLS = [

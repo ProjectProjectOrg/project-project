@@ -12,10 +12,10 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@pp/ui/empty"
+import { CloudOff, FilterX, FolderOpen } from "@pp/ui/icons"
 import { TooltipGroup } from "@pp/ui/tooltip"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { CloudOff, FilterX, FolderOpen } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"

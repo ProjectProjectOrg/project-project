@@ -13,9 +13,9 @@ import {
   ContextMenuTrigger
 } from "@pp/ui/context-menu"
 import { DropdownMenuItem } from "@pp/ui/dropdown-menu"
+import { Unlink, X } from "@pp/ui/icons"
 import { Popover, PopoverTrigger } from "@pp/ui/popover"
 import { Link } from "@tanstack/react-router"
-import { Unlink, X } from "lucide-react"
 import { useContext, useRef, useState } from "react"
 
 import { fireMutation } from "@/api/viewMutation"

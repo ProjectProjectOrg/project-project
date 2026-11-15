@@ -1,20 +1,15 @@
 import { Badge } from "@pp/ui/badge"
+import { Briefcase, ShieldCheck, UserRound, type IconType } from "@pp/ui/icons"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { Select, SelectTrigger } from "@pp/ui/select"
 import { TextSwap } from "@pp/ui/text-swap"
-import {
-  Briefcase,
-  ShieldCheck,
-  UserRound,
-  type LucideIcon
-} from "lucide-react"
 import { useState } from "react"
 
 const ROLES = {
   pm: { label: "PM", icon: ShieldCheck },
   developer: { label: "Developer", icon: UserRound },
   client: { label: "Client", icon: Briefcase }
-} as const satisfies Record<string, { label: string; icon: LucideIcon }>
+} as const satisfies Record<string, { label: string; icon: IconType }>
 
 type Role = keyof typeof ROLES
 

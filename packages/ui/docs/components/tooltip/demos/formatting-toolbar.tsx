@@ -1,6 +1,4 @@
 import { Button } from "@pp/ui/button"
-import { ToggleGroup, ToggleGroupItem } from "@pp/ui/toggle-group"
-import { TooltipGroup, TooltipGroupTrigger } from "@pp/ui/tooltip"
 import {
   Bold,
   Code,
@@ -13,7 +11,9 @@ import {
   SquareCode,
   Strikethrough,
   TextQuote
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { ToggleGroup, ToggleGroupItem } from "@pp/ui/toggle-group"
+import { TooltipGroup, TooltipGroupTrigger } from "@pp/ui/tooltip"
 import { useState } from "react"
 
 const TEXT_FORMATS = [

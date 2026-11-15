@@ -1,8 +1,8 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import { sprintState, type Group } from "@pp/shared"
 import { CommandMenuCheck, CommandMenuItem } from "@pp/ui/command-menu"
+import { CircleSlash, Plus, Timer } from "@pp/ui/icons"
 import * as Result from "effect/reactivity/AsyncResult"
-import { CircleSlash, Plus, Timer } from "lucide-react"
 import { useContext, type ReactNode } from "react"
 
 import { fireMutation } from "@/api/viewMutation"

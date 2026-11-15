@@ -54,10 +54,10 @@ import {
   Users,
   Wrench,
   Zap,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
 
-const BLOCK_ICON_MAP: Record<BlockIconName, LucideIcon> = {
+const BLOCK_ICON_MAP: Record<BlockIconName, IconType> = {
   Accessibility,
   Ban,
   BookOpen,
@@ -116,4 +116,4 @@ const BLOCK_ICON_MAP: Record<BlockIconName, LucideIcon> = {
 
 export const blockIconComponent = (
   name: BlockIconName = FALLBACK_BLOCK_ICON
-): LucideIcon => BLOCK_ICON_MAP[name]
+): IconType => BLOCK_ICON_MAP[name]

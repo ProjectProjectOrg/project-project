@@ -1,5 +1,5 @@
 import type { BacklogGrouping } from "@pp/shared"
-import { CircleDot, Layers, ListTree, Timer } from "lucide-react"
+import { CircleDot, Layers, ListTree, Timer } from "@pp/ui/icons"
 import { useMemo } from "react"
 
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"

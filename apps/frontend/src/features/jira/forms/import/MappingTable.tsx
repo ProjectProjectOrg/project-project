@@ -1,4 +1,4 @@
-import { CircleAlert } from "lucide-react"
+import { CircleAlert } from "@pp/ui/icons"
 import type { ReactNode } from "react"
 
 import { m } from "@/paraglide/messages"

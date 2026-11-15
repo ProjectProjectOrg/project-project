@@ -1,11 +1,11 @@
 import { Badge } from "@pp/ui/badge"
-import { cn } from "@pp/ui/lib/utils"
 import {
   Circle,
   GitMerge,
   GitPullRequest,
   GitPullRequestClosed
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
 
 import { checksColor } from "@/features/github/lib/checksColor"
 import { m } from "@/paraglide/messages"

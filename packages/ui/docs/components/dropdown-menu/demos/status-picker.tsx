@@ -14,7 +14,7 @@ import {
   CircleDashed,
   CircleDot,
   GitPullRequest
-} from "lucide-react"
+} from "@pp/ui/icons"
 import { useState } from "react"
 
 const USER_TOGGLES = new Set(["trigger-press", "escape-key"])

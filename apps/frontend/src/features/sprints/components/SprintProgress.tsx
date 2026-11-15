@@ -7,12 +7,12 @@ import {
   type EstimateTotals,
   type Group
 } from "@pp/shared"
+import { CircleDashed, Shirt } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { PreviewCardContent } from "@pp/ui/preview-card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
-import { CircleDashed, Shirt } from "lucide-react"
 import type { ReactNode } from "react"
 
 import {

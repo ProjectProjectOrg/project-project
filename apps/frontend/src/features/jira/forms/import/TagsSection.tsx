@@ -1,7 +1,7 @@
 import type { JiraMigrationRequirements } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Ban, Undo2 } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
-import { Ban, Undo2 } from "lucide-react"
 
 import { useRowFilter } from "@/features/jira/hooks/useRowFilter"
 import type { JiraImportSetup, TagChoice } from "@/features/jira/lib/draft"

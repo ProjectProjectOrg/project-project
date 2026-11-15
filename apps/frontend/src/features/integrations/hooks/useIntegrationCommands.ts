@@ -1,5 +1,4 @@
 import { useAtomValue } from "@effect/atom-react"
-import * as Result from "effect/reactivity/AsyncResult"
 import {
   GitBranch,
   HardDrive,
@@ -7,7 +6,8 @@ import {
   MessagesSquare,
   Shapes,
   Timer
-} from "lucide-react"
+} from "@pp/ui/icons"
+import * as Result from "effect/reactivity/AsyncResult"
 
 import { me } from "@/features/auth/atoms/auth"
 import type {

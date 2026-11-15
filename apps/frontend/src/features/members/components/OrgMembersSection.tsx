@@ -5,10 +5,10 @@ import type {
   OrgMember,
   OrgRole
 } from "@pp/shared"
+import { Crown, ShieldCheck, UserRound } from "@pp/ui/icons"
 import { useNavigate } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Crown, ShieldCheck, UserRound } from "lucide-react"
 import { useState } from "react"
 
 import type { RoleMeta } from "@/features/members/components/MemberList"

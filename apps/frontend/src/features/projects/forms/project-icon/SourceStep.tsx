@@ -5,9 +5,9 @@ import {
   EmojiPickerContent,
   EmojiPickerSearch
 } from "@pp/ui/emoji-picker"
+import { Database, Upload } from "@pp/ui/icons"
 import { SegmentedTabs } from "@pp/ui/segmented-tabs"
 import { Link } from "@tanstack/react-router"
-import { Database, Upload } from "lucide-react"
 import { useRef, useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"

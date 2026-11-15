@@ -1,9 +1,9 @@
 import { useAtomValue } from "@effect/atom-react"
 import { TicketId } from "@pp/shared"
+import { FolderKanban, Plus, Search } from "@pp/ui/icons"
 import { useParams } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { FolderKanban, Plus, Search } from "lucide-react"
 import { useState } from "react"
 
 import {

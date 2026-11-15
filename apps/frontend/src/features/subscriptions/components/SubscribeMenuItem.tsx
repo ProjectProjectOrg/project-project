@@ -1,8 +1,8 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
 import { DropdownMenuItem } from "@pp/ui/dropdown-menu"
+import { Bell, BellOff } from "@pp/ui/icons"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { Bell, BellOff } from "lucide-react"
 import { useContext } from "react"
 
 import { fireMutation } from "@/api/viewMutation"

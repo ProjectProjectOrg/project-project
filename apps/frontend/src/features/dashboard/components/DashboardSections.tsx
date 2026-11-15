@@ -6,9 +6,6 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@pp/ui/empty"
-import { cn } from "@pp/ui/lib/utils"
-import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
-import * as Schema from "effect/Schema"
 import {
   Activity,
   CircleDot,
@@ -16,7 +13,10 @@ import {
   FolderKanban,
   Inbox,
   Rows3
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { SegmentedTabs, type SegmentedItem } from "@pp/ui/segmented-tabs"
+import * as Schema from "effect/Schema"
 import { useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"

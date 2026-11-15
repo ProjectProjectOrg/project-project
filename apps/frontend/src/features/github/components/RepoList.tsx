@@ -5,12 +5,12 @@ import {
   DropdownMenuItem,
   DropdownMenuList
 } from "@pp/ui/dropdown-menu"
+import { ChevronLeft, Lock } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { MenuNote } from "@pp/ui/menu-note"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ChevronLeft, Lock } from "lucide-react"
 import { useState } from "react"
 
 import {

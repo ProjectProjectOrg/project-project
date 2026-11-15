@@ -13,7 +13,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
-import { ChevronDown, ExternalLink } from "lucide-react"
+import { ChevronDown, ExternalLink } from "@pp/ui/icons"
 
 import {
   SettingsGroup,

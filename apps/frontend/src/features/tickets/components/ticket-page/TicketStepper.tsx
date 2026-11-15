@@ -1,8 +1,8 @@
 import type { TicketId, TicketSequence, TicketSequenceEntry } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { ChevronDown, ChevronUp } from "@pp/ui/icons"
 import type { IconComponent } from "@pp/ui/lib/icon"
 import { Link } from "@tanstack/react-router"
-import { ChevronDown, ChevronUp } from "lucide-react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import { TicketPreviewTrigger } from "@/features/tickets/components/ticket-preview/TicketPreview"

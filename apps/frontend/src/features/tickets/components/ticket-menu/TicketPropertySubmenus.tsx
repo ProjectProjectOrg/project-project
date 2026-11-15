@@ -11,9 +11,6 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
 } from "@pp/ui/dropdown-menu"
-import { cn } from "@pp/ui/lib/utils"
-import { MemberAvatar } from "@pp/ui/member-avatar"
-import * as Result from "effect/reactivity/AsyncResult"
 import {
   CircleDot,
   Gauge,
@@ -21,7 +18,10 @@ import {
   SignalHigh,
   Tag,
   UserRound
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import * as Result from "effect/reactivity/AsyncResult"
 
 import { currentUserId } from "@/features/auth/atoms/auth"
 import {

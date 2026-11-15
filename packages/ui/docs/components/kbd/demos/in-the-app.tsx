@@ -1,4 +1,5 @@
 import { Button } from "@pp/ui/button"
+import { GitBranch, Plus, SearchIcon } from "@pp/ui/icons"
 import {
   InputGroup,
   InputGroupAddon,
@@ -7,7 +8,6 @@ import {
 import { Kbd, KbdShortcut, type KeyLabels } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
 import { menuItemClass, menuSurfaceClass } from "@pp/ui/menu-styles"
-import { GitBranch, Plus, SearchIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
 const KEY_LABELS: KeyLabels = {

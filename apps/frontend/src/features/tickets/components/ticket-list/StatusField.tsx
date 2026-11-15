@@ -9,10 +9,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { ArrowRight } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { useNavigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { ArrowRight } from "lucide-react"
 import { type MouseEvent } from "react"
 
 import {

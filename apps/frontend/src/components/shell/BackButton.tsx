@@ -1,11 +1,11 @@
 import { Button } from "@pp/ui/button"
+import { ChevronLeft } from "@pp/ui/icons"
 import {
   Link,
   useCanGoBack,
   useRouter,
   type LinkComponentProps
 } from "@tanstack/react-router"
-import { ChevronLeft } from "lucide-react"
 import type { MouseEvent } from "react"
 
 import { m } from "@/paraglide/messages"

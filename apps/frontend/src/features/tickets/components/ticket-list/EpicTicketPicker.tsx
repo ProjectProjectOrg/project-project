@@ -1,12 +1,12 @@
 import { useAtomValue } from "@effect/atom-react"
 import { finishedStatusSlugs, type Ticket, type TicketId } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Check } from "@pp/ui/icons"
 import { Kbd, KbdShortcut } from "@pp/ui/kbd"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
-import { Check } from "lucide-react"
 import { motion } from "motion/react"
 import { useState, type KeyboardEvent } from "react"
 

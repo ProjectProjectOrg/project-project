@@ -7,8 +7,8 @@ import {
   ContextMenuTrigger
 } from "@pp/ui/context-menu"
 import { DropdownMenuItem, DropdownMenuShortcut } from "@pp/ui/dropdown-menu"
+import { ListPlus, Plus } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
-import { ListPlus, Plus } from "lucide-react"
 
 import { commandMenuState } from "@/features/command-menu/atoms/commandMenu"
 import { openCommandMenu } from "@/features/command-menu/lib/commandMenu"

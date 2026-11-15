@@ -10,13 +10,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { GitBranch, Plus } from "@pp/ui/icons"
 import { MiddleTruncate } from "@pp/ui/middle-truncate"
 import { Link } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Option from "effect/Option"
 import * as Predicate from "effect/Predicate"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { GitBranch, Plus } from "lucide-react"
 import { useContext, useState, type ReactElement, type RefObject } from "react"
 
 import { fireMutation } from "@/api/viewMutation"

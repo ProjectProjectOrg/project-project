@@ -1,5 +1,5 @@
 import { Button } from "@pp/ui/button"
-import { Plus } from "lucide-react"
+import { Plus } from "@pp/ui/icons"
 
 import { BranchPicker } from "@/features/github/components/ticket-git/BranchPicker"
 import { m } from "@/paraglide/messages"

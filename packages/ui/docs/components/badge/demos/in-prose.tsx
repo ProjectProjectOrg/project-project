@@ -1,5 +1,5 @@
 import { Badge } from "@pp/ui/badge"
-import { FileText, Image } from "lucide-react"
+import { FileText, Image } from "@pp/ui/icons"
 
 const CHIP = "mx-0.5 max-w-full gap-1.5 align-middle"
 

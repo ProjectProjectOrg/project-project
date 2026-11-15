@@ -1,5 +1,4 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import { Check } from "lucide-react"
 import {
   animate,
   motion,
@@ -47,6 +46,7 @@ import {
   FluidHoverHighlight,
   type FluidHoverSource
 } from "./fluid-hover-highlight"
+import { Check } from "./icons"
 import { KbdShortcut } from "./kbd"
 import { menuItemClass } from "./menu-styles"
 import { ScrollArea } from "./scroll-area"

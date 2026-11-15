@@ -1,12 +1,12 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { UserInvitation } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { LogOut, MailCheck } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { getRouteApi } from "@tanstack/react-router"
 import * as Exit from "effect/Exit"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
-import { LogOut, MailCheck } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { logout, setActiveOrganization } from "@/features/auth/atoms/auth"

@@ -1,6 +1,6 @@
 import { Button } from "@pp/ui/button"
+import { AlertCircle } from "@pp/ui/icons"
 import { Slider } from "@pp/ui/slider"
-import { AlertCircle } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { StepHeading } from "@/features/projects/components/appearance/AppearanceCard"

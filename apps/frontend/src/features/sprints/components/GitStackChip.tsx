@@ -1,6 +1,6 @@
 import type { GitState, StackLayerState } from "@pp/shared"
+import { Layers } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
-import { Layers } from "lucide-react"
 
 import {
   layerTone,

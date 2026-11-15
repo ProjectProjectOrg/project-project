@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft } from "@pp/ui/icons"
 import type { ReactNode } from "react"
 
 import type { SaveStatus } from "@/features/editor/components/LexicalEditor"

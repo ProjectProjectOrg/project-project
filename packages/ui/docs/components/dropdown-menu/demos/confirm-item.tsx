@@ -6,8 +6,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import { MoreHorizontal, SlidersHorizontal, Trash2 } from "@pp/ui/icons"
 import * as Effect from "effect/Effect"
-import { MoreHorizontal, SlidersHorizontal, Trash2 } from "lucide-react"
 
 // The sprint page's actions menu in the app (SprintDeleteMenu). "Delete
 // sprint" confirms in place: the first click arms it, the second deletes,

@@ -1,8 +1,8 @@
 import type { Group, TypeKey } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Plus } from "@pp/ui/icons"
 import { Select, SelectTrigger } from "@pp/ui/select"
 import { TextSwap } from "@pp/ui/text-swap"
-import { Plus } from "lucide-react"
 import { useRef, type ComponentProps, type RefObject } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"

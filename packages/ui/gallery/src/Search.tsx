@@ -9,7 +9,7 @@ import {
   CommandMenuShortcut,
   type KeyLabels
 } from "@pp/ui/command-menu"
-import { Search as SearchIcon } from "lucide-react"
+import { Search as SearchIcon } from "@pp/ui/icons"
 import { useState } from "react"
 
 import { pages } from "./registry"

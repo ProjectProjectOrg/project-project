@@ -323,7 +323,7 @@ Everything that only changes state on hover or press uses the overlays instead a
 
 ## 5. Components
 
-Lucide icons use a 1.5 stroke width, applied centrally in `styles.css`. Filled status dots keep their zero-width stroke.
+Icons are Hugeicons (free set, stroke rounded) behind one module, `@pp/ui/icons`: every icon the app uses is exported there once, under a plain name (`Plus`, `X`, `GitBranch`), and `lucide-react` is banned. A missing icon is added to that module, by picking the closest Hugeicons glyph or drawing one on its 24px grid with `icon()`. Strokes are 1.5, set in `theme.css` (`svg[data-icon]`) so a width on the svg (a highlighted row's 2) reaches every shape. Filled status dots keep their zero-width stroke.
 
 ### Buttons
 
@@ -427,7 +427,7 @@ A composer (new ticket, sub-ticket, new sprint, archive, flag, feedback) is a po
 
 The brand mark is built from two greys (`--dither-front` and `--dither-back`) on the surface color, rendered as stepped Bayer-matrix shading. The same vocabulary extends to:
 
-- Empty states: every `Empty` sits in a dithered well with a random seed, so no two wells look alike. Its density is fixed; `intensity` only changes the ink: `--dither-front-subtle` (55% toward `--dither-back`), `--dither-front`, or `--dither-front-strong` (25% toward `--foreground`). Empty states use a Lucide icon tile, never a custom illustration.
+- Empty states: every `Empty` sits in a dithered well with a random seed, so no two wells look alike. Its density is fixed; `intensity` only changes the ink: `--dither-front-subtle` (55% toward `--dither-back`), `--dither-front`, or `--dither-front-strong` (25% toward `--foreground`). Empty states use an icon tile, never a custom illustration.
 - Loading frames (where the dither animates between two stops)
 - Marketing / landing surfaces
 - The `Button variant="dither"` backdrop

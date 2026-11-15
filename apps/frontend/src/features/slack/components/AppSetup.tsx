@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import { Button } from "@pp/ui/button"
-import { Download, ExternalLink } from "lucide-react"
+import { Download, ExternalLink } from "@pp/ui/icons"
 import { useState } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"

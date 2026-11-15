@@ -6,7 +6,7 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@pp/ui/empty"
-import { ListChecks, Trophy } from "lucide-react"
+import { ListChecks, Trophy } from "@pp/ui/icons"
 
 import { TicketListContent } from "@/features/tickets/components/ticket-list"
 import { m } from "@/paraglide/messages"

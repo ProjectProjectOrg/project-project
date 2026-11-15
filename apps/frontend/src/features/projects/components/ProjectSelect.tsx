@@ -1,7 +1,7 @@
 import { Button } from "@pp/ui/button"
+import { ChevronDown, FolderKanban } from "@pp/ui/icons"
 import { Select, SelectTrigger } from "@pp/ui/select"
 import { TextSwap } from "@pp/ui/text-swap"
-import { ChevronDown, FolderKanban } from "lucide-react"
 
 import { m } from "@/paraglide/messages"
 

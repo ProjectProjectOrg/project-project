@@ -8,7 +8,6 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
 } from "@pp/ui/dropdown-menu"
-import * as Result from "effect/reactivity/AsyncResult"
 import {
   Flag,
   FlagOff,
@@ -16,8 +15,9 @@ import {
   Link2,
   Stamp,
   X,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import * as Result from "effect/reactivity/AsyncResult"
 import { Fragment, useContext } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
@@ -163,7 +163,7 @@ function RelationItem({
   title,
   onClick
 }: Readonly<{
-  icon: LucideIcon
+  icon: IconType
   kind: string
   id: string
   title: string

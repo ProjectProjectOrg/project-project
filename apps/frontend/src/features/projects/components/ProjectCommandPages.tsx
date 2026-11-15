@@ -1,11 +1,11 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { CreateProjectInput } from "@pp/shared"
 import { CommandMenuCheck, CommandMenuItem } from "@pp/ui/command-menu"
+import { FolderKanban, FolderPlus } from "@pp/ui/icons"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { FolderKanban, FolderPlus } from "lucide-react"
 import { useState } from "react"
 
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"

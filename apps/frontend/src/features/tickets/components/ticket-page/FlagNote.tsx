@@ -1,6 +1,6 @@
 import type { Member, TicketFlag } from "@pp/shared"
 import { Button } from "@pp/ui/button"
-import { Flag } from "lucide-react"
+import { Flag } from "@pp/ui/icons"
 
 import { Markdown } from "@/features/editor/components/Markdown"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"

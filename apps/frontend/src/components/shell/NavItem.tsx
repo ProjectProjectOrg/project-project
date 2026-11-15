@@ -2,10 +2,10 @@ import {
   useRegisterFluidHoverItem,
   type UseFluidHoverReturn
 } from "@pp/ui/hooks/useFluidHover"
+import type { IconType } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import { cva, type VariantProps } from "class-variance-authority"
-import type { LucideIcon } from "lucide-react"
 import {
   createContext,
   use,
@@ -45,7 +45,7 @@ type NavItemProps = (
       params: { orgSlug: string }
     }
 ) & {
-  icon: LucideIcon
+  icon: IconType
   label: string
   index: number
   exact?: boolean
@@ -111,7 +111,7 @@ export function NavButton({
 }: Omit<ComponentProps<"button">, "children"> &
   VariantProps<typeof navButtonVariants> &
   Readonly<{
-    icon: LucideIcon
+    icon: IconType
     label: string
   }>) {
   return (

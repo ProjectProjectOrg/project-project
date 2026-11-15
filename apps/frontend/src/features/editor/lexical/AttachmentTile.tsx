@@ -3,10 +3,10 @@ import {
   attachmentFileFormat,
   type AttachmentFileFormat
 } from "@pp/shared"
+import { Download } from "@pp/ui/icons"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { MorphIconLink } from "@pp/ui/morph-icon-link"
-import { Download } from "lucide-react"
 import { motion } from "motion/react"
 import { useEffect, useState, type ReactNode } from "react"
 

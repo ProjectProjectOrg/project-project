@@ -13,15 +13,6 @@ import {
   useHighlightedItem,
   type CommandMenuItemData
 } from "@pp/ui/command-menu"
-import type { IconComponent } from "@pp/ui/lib/icon"
-import { cn } from "@pp/ui/lib/utils"
-import {
-  COMMAND_PRIORITY_CRITICAL,
-  KEY_ARROW_DOWN_COMMAND,
-  KEY_ARROW_UP_COMMAND,
-  KEY_ENTER_COMMAND,
-  type LexicalEditor
-} from "lexical"
 import {
   Heading1,
   Heading2,
@@ -39,8 +30,17 @@ import {
   Table2,
   TextCursorInput,
   TextQuote,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import type { IconComponent } from "@pp/ui/lib/icon"
+import { cn } from "@pp/ui/lib/utils"
+import {
+  COMMAND_PRIORITY_CRITICAL,
+  KEY_ARROW_DOWN_COMMAND,
+  KEY_ARROW_UP_COMMAND,
+  KEY_ENTER_COMMAND,
+  type LexicalEditor
+} from "lexical"
 import {
   useCallback,
   useEffect,
@@ -95,7 +95,7 @@ const BASIC_LABELS: Record<SlashBasicKind, () => string> = {
   hint: m.editor_slash_basic_hint
 }
 
-export const BASIC_ICONS: Record<SlashBasicKind, LucideIcon> = {
+export const BASIC_ICONS: Record<SlashBasicKind, IconType> = {
   paragraph: Pilcrow,
   "heading-1": Heading1,
   "heading-3": Heading3,
@@ -447,7 +447,7 @@ export function SlashMenuList({
               }
         }
         className={cn(
-          "fixed top-0 left-0 z-50 flex w-[28rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[20px] border border-border/60 bg-card [corner-shape:var(--button-corner)] text-foreground shadow-[0_4px_12px_rgba(0,0,0,0.02)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]",
+          "fixed top-0 left-0 z-50 flex w-[28rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[20px] border border-border/60 bg-card text-foreground shadow-[0_4px_12px_rgba(0,0,0,0.02)] [corner-shape:var(--button-corner)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]",
           "data-[slash-menu-side=above]:slide-in-from-bottom-2 data-[slash-menu-side=below]:slide-in-from-top-2",
           layout !== null &&
             "animate-in transition-none duration-150 ease-out fade-in-0 motion-reduce:animate-none",

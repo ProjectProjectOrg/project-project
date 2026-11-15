@@ -1,12 +1,12 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { EMPTY_TICKET_RELATIONS, type Ticket } from "@pp/shared"
 import { CommandMenuItem } from "@pp/ui/command-menu"
+import { CircleAlert, Search } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { CircleAlert, Search } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 import {

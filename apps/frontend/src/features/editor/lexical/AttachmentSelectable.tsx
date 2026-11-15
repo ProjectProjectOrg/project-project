@@ -1,8 +1,8 @@
 import type { AttachmentDensity } from "@pp/shared"
+import { Maximize2, Minimize2, Trash2 } from "@pp/ui/icons"
 import { standardEaseCss, transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import type { NodeKey } from "lexical"
-import { Maximize2, Minimize2, Trash2 } from "lucide-react"
 import {
   AnimatePresence,
   LayoutGroup,

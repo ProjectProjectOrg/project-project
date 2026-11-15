@@ -4,8 +4,8 @@ import {
   type BlockIconName,
   type Library
 } from "@pp/shared"
+import { Check } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
-import { Check } from "lucide-react"
 import { useId, useMemo, type ReactNode } from "react"
 
 import { m } from "@/paraglide/messages"

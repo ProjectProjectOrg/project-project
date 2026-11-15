@@ -8,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut
 } from "@pp/ui/dropdown-menu"
+import { Copy, Link, ListPlus, Plus, Unlink } from "@pp/ui/icons"
 import type { KeyLabels } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
 import {
@@ -15,7 +16,6 @@ import {
   menuSeparatorClass,
   menuSurfaceClass
 } from "@pp/ui/menu-styles"
-import { Copy, Link, ListPlus, Plus, Unlink } from "lucide-react"
 
 const KEY_LABELS: KeyLabels = {
   ctrl: "Ctrl",

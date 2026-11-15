@@ -6,9 +6,9 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
 } from "@pp/ui/dropdown-menu"
+import { Bot, Copy, FileText, Hash, Link2, Type } from "@pp/ui/icons"
+import type { IconType } from "@pp/ui/icons"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Bot, Copy, FileText, Hash, Link2, Type } from "lucide-react"
-import type { LucideIcon } from "lucide-react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
@@ -30,7 +30,7 @@ function CopyItem({
   icon: Icon,
   label,
   text
-}: Readonly<{ icon: LucideIcon; label: string; text: string | null }>) {
+}: Readonly<{ icon: IconType; label: string; text: string | null }>) {
   return (
     <DropdownMenuItem
       disabled={text === null}

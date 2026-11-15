@@ -8,10 +8,10 @@ import {
   type TicketId
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Split } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Split } from "lucide-react"
 import { useRef } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"

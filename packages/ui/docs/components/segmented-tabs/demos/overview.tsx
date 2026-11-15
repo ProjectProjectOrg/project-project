@@ -1,5 +1,5 @@
+import { Calendar, Info, ListTodo, Monitor, Moon, Sun } from "@pp/ui/icons"
 import { SegmentedTabs, type SegmentedVariant } from "@pp/ui/segmented-tabs"
-import { Calendar, Info, ListTodo, Monitor, Moon, Sun } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 function Row({

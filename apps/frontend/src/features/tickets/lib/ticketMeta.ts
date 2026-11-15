@@ -4,15 +4,15 @@ import {
   Circle,
   CircleDashed,
   CircleDot,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
 
 import { getStatusIcon } from "@/features/statuses/lib/statusIcons"
 import { m } from "@/paraglide/messages"
 
 export type StatusMeta = {
   label: string
-  icon: LucideIcon
+  icon: IconType
   className: string
   color: string | null
 }

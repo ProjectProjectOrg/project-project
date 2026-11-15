@@ -11,13 +11,6 @@ import {
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
 import { Hitbox } from "@pp/ui/hitbox"
-import { bareFieldTintClass } from "@pp/ui/input"
-import { cn } from "@pp/ui/lib/utils"
-import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
-import { Link, useNavigate } from "@tanstack/react-router"
-import * as DateTime from "effect/DateTime"
-import * as Exit from "effect/Exit"
-import * as Result from "effect/reactivity/AsyncResult"
 import {
   CalendarX,
   MoreHorizontal,
@@ -25,7 +18,14 @@ import {
   RotateCcw,
   SlidersHorizontal,
   Trash2
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { bareFieldTintClass } from "@pp/ui/input"
+import { cn } from "@pp/ui/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
+import { Link, useNavigate } from "@tanstack/react-router"
+import * as DateTime from "effect/DateTime"
+import * as Exit from "effect/Exit"
+import * as Result from "effect/reactivity/AsyncResult"
 import { useRef, useState, type KeyboardEvent } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"

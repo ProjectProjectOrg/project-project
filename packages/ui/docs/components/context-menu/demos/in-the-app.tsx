@@ -5,7 +5,6 @@ import {
   ContextMenuTrigger
 } from "@pp/ui/context-menu"
 import { DropdownMenuItem, DropdownMenuShortcut } from "@pp/ui/dropdown-menu"
-import type { KeyLabels } from "@pp/ui/kbd"
 import {
   ArrowUpRight,
   Copy,
@@ -13,7 +12,8 @@ import {
   ListPlus,
   Plus,
   Unlink
-} from "lucide-react"
+} from "@pp/ui/icons"
+import type { KeyLabels } from "@pp/ui/kbd"
 import type { ReactNode } from "react"
 
 const KEY_LABELS: KeyLabels = {

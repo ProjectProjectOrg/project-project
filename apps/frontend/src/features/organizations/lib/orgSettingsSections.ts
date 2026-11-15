@@ -4,7 +4,7 @@ import {
   SlidersHorizontal,
   TriangleAlert,
   Users
-} from "lucide-react"
+} from "@pp/ui/icons"
 
 import { m } from "@/paraglide/messages"
 

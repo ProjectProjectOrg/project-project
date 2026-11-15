@@ -12,6 +12,7 @@ import {
   type TicketStatus
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { Copy } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { PreviewCardContent } from "@pp/ui/preview-card"
@@ -19,7 +20,6 @@ import { Link } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
-import { Copy } from "lucide-react"
 import {
   createRef,
   useContext,

@@ -15,9 +15,9 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@pp/ui/empty"
+import { Search } from "@pp/ui/icons"
 import type { IconComponent } from "@pp/ui/lib/icon"
 import { cn } from "@pp/ui/lib/utils"
-import { Search } from "lucide-react"
 import { motion } from "motion/react"
 import { useEffect, useId, useRef, useState, type ReactNode } from "react"
 

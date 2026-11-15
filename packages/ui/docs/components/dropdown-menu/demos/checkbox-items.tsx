@@ -5,15 +5,15 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
-import { menuItemMetaClass } from "@pp/ui/menu-styles"
 import {
   Check,
   Circle,
   CircleDashed,
   CircleDot,
   GitPullRequest,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import { menuItemMetaClass } from "@pp/ui/menu-styles"
 import { useState } from "react"
 
 const TAGS = [
@@ -27,7 +27,7 @@ const TAGS = [
 
 type Column = Readonly<{
   label: string
-  icon: LucideIcon
+  icon: IconType
   className: string
   count: number
 }>

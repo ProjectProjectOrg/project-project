@@ -1,7 +1,7 @@
 import type { Project } from "@pp/shared"
+import { ArrowRight, Plus } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import { ArrowRight, Plus } from "lucide-react"
 
 import { ProjectTile } from "@/features/dashboard/components/ProjectTile"
 import { m } from "@/paraglide/messages"

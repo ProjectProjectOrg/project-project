@@ -1,5 +1,5 @@
 import { Badge, type BadgeTone } from "@pp/ui/badge"
-import { FileText, GitMerge, GitPullRequest, Shield } from "lucide-react"
+import { FileText, GitMerge, GitPullRequest, Shield } from "@pp/ui/icons"
 import type { ReactNode } from "react"
 
 const TONES: ReadonlyArray<BadgeTone> = [

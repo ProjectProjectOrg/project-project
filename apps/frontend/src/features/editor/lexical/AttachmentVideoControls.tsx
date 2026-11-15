@@ -1,5 +1,4 @@
 import { Button } from "@pp/ui/button"
-import { transitions } from "@pp/ui/lib/springs"
 import {
   Download,
   Maximize,
@@ -8,7 +7,8 @@ import {
   Play,
   Volume2,
   VolumeX
-} from "lucide-react"
+} from "@pp/ui/icons"
+import { transitions } from "@pp/ui/lib/springs"
 import { motion } from "motion/react"
 import { useEffect, useState } from "react"
 

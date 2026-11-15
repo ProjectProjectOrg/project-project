@@ -7,7 +7,6 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger
 } from "@pp/ui/dropdown-menu"
-import * as Result from "effect/reactivity/AsyncResult"
 import {
   ArrowUpRight,
   Copy,
@@ -15,7 +14,8 @@ import {
   GitPullRequest,
   Layers,
   Unlink
-} from "lucide-react"
+} from "@pp/ui/icons"
+import * as Result from "effect/reactivity/AsyncResult"
 import { useContext } from "react"
 
 import { fireMutation } from "@/api/viewMutation"

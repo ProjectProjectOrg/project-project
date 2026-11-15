@@ -9,11 +9,11 @@ import {
   type TicketListQuery,
   TicketStatus
 } from "@pp/shared"
+import { Inbox } from "@pp/ui/icons"
 import * as Equal from "effect/Equal"
 import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
-import { Inbox } from "lucide-react"
 import { useState } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"

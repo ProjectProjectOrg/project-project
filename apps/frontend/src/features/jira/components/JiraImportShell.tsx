@@ -4,11 +4,11 @@ import {
   useFluidHover,
   useRegisterFluidHoverItem
 } from "@pp/ui/hooks/useFluidHover"
+import { Check } from "@pp/ui/icons"
 import { spring } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { WeightLabel } from "@pp/ui/weight-label"
 import { Link } from "@tanstack/react-router"
-import { Check } from "lucide-react"
 import {
   AnimatePresence,
   MotionConfig,

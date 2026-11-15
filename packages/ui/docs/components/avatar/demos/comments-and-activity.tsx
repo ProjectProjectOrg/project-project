@@ -1,5 +1,5 @@
+import { CircleDot } from "@pp/ui/icons"
 import { MemberAvatar } from "@pp/ui/member-avatar"
-import { CircleDot } from "lucide-react"
 
 import { PEOPLE } from "./people"
 

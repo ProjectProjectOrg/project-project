@@ -1,8 +1,8 @@
 import { useAtomValue } from "@effect/atom-react"
 import { Composer } from "@pp/ui/composer"
+import { MessageSquarePlus } from "@pp/ui/icons"
 import { Popover, PopoverTitle, PopoverTrigger } from "@pp/ui/popover"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { MessageSquarePlus } from "lucide-react"
 import { useState } from "react"
 
 import { NavButton } from "@/components/shell/NavItem"

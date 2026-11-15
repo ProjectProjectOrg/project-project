@@ -1,9 +1,9 @@
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
+import { Paperclip } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
 import { SegmentedTabs } from "@pp/ui/segmented-tabs"
 import { TextSwap } from "@pp/ui/text-swap"
-import { Paperclip } from "lucide-react"
 import { useState } from "react"
 
 const KINDS = [

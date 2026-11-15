@@ -1,11 +1,11 @@
 import { Button } from "@pp/ui/button"
+import { SearchIcon, XIcon } from "@pp/ui/icons"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput
 } from "@pp/ui/input-group"
 import { Kbd } from "@pp/ui/kbd"
-import { SearchIcon, XIcon } from "lucide-react"
 import { useState } from "react"
 
 export default function TicketSearch() {

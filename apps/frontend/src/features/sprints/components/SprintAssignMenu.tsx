@@ -4,10 +4,10 @@ import {
   sprintState,
   type Group
 } from "@pp/shared"
+import { Plus, X } from "@pp/ui/icons"
 import { menuItemMetaClass } from "@pp/ui/menu-styles"
 import { Select, SelectTrigger } from "@pp/ui/select"
 import * as DateTime from "effect/DateTime"
-import { Plus, X } from "lucide-react"
 import type { ComponentProps, ReactElement } from "react"
 
 import { m } from "@/paraglide/messages"

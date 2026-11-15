@@ -1,5 +1,5 @@
+import { Check, Circle, LoaderCircle } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
-import { Check, Circle, LoaderCircle } from "lucide-react"
 
 import { formatNumber } from "@/features/jira/lib/format"
 import {

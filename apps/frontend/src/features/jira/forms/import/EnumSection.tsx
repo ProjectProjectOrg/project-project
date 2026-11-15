@@ -1,5 +1,5 @@
+import type { IconType } from "@pp/ui/icons"
 import { Select, SelectTrigger } from "@pp/ui/select"
-import type { LucideIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { useRowFilter } from "@/features/jira/hooks/useRowFilter"
@@ -19,7 +19,7 @@ import { SetupSection } from "./SetupSection"
 export type EnumOption<V extends string> = Readonly<{
   value: V
   label: () => string
-  icon: LucideIcon
+  icon: IconType
 }>
 
 export type EnumRow<V extends string> = Readonly<{

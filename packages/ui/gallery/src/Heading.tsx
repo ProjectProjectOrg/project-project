@@ -1,5 +1,5 @@
+import { Check, Hash } from "@pp/ui/icons"
 import { cn } from "@pp/ui/lib/utils"
-import { Check, Hash } from "lucide-react"
 import {
   Children,
   isValidElement,

@@ -1,4 +1,4 @@
-import { Link2, OctagonMinus, SquareEqual, type LucideIcon } from "lucide-react"
+import { Link2, OctagonMinus, SquareEqual, type IconType } from "@pp/ui/icons"
 
 import type { MarkPickKind } from "@/features/tickets/lib/relationGroups"
 import { m } from "@/paraglide/messages"
@@ -8,7 +8,7 @@ import { SquareOctagonMinus } from "./blockingIcon"
 export const MARK_KINDS: ReadonlyArray<
   Readonly<{
     kind: MarkPickKind
-    icon: LucideIcon
+    icon: IconType
     label: () => string
     command: () => string
   }>

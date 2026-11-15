@@ -1,7 +1,7 @@
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
+import { Circle, Minus, Plus, SquareCheck, UserRound } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
-import { Circle, Minus, Plus, SquareCheck, UserRound } from "lucide-react"
 import { useState } from "react"
 
 // A ticket's "…" menu › New ticket that blocks it (CreateTicketForm). LexicalEditor is

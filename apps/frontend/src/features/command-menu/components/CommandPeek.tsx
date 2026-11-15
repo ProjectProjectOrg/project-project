@@ -3,8 +3,8 @@ import {
   type CommandMenuItemData
 } from "@pp/ui/command-menu"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@pp/ui/empty"
+import { EyeOff } from "@pp/ui/icons"
 import { useDebouncedValue } from "@tanstack/react-pacer"
-import { EyeOff } from "lucide-react"
 import {
   animate,
   motion,

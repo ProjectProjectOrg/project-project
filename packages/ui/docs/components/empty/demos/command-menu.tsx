@@ -13,17 +13,17 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@pp/ui/empty"
-import { Plus, Search, type LucideIcon } from "lucide-react"
+import { Plus, Search, type IconType } from "@pp/ui/icons"
 import type { ReactNode } from "react"
 
 // ⌘K with nothing to list: CommandFrame's header and list, and the empty is
 // CommandFrameEmpty, 1:1.
 
 type FrameEmpty = Readonly<{
-  icon: LucideIcon
+  icon: IconType
   title: string
   description: string
-  action?: Readonly<{ label: string; icon: LucideIcon }>
+  action?: Readonly<{ label: string; icon: IconType }>
 }>
 
 function CommandFrameEmpty({

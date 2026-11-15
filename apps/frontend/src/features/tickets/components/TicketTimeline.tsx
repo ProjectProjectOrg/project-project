@@ -5,16 +5,16 @@ import type {
   TicketId
 } from "@pp/shared"
 import { Avatar, AvatarFallback, AvatarGroup } from "@pp/ui/avatar"
-import { cn } from "@pp/ui/lib/utils"
-import { MemberAvatar } from "@pp/ui/member-avatar"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import {
   Bot,
   ChevronRight,
   GitBranch,
   Import,
-  type LucideIcon
-} from "lucide-react"
+  type IconType
+} from "@pp/ui/icons"
+import { cn } from "@pp/ui/lib/utils"
+import { MemberAvatar } from "@pp/ui/member-avatar"
+import * as AsyncResult from "effect/reactivity/AsyncResult"
 import { useState, type ReactNode } from "react"
 
 import claudeLogo from "@/assets/logos/claude.svg"
@@ -49,7 +49,7 @@ import {
 } from "@/features/tickets/lib/timeline"
 import { m } from "@/paraglide/messages"
 
-const SYSTEM_ICONS: Readonly<Record<ActivitySystemSource, LucideIcon>> = {
+const SYSTEM_ICONS: Readonly<Record<ActivitySystemSource, IconType>> = {
   github: GitBranch,
   automation: Bot,
   import: Import

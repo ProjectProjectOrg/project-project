@@ -1,5 +1,5 @@
+import { FileText } from "@pp/ui/icons"
 import { Logo, Wordmark } from "@pp/ui/logo"
-import { FileText } from "lucide-react"
 import { useEffect } from "react"
 
 import { PageContext } from "./context"

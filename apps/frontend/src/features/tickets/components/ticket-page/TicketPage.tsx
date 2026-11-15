@@ -7,9 +7,9 @@ import type {
   TicketDetail,
   TicketId
 } from "@pp/shared"
+import { Archive } from "@pp/ui/icons"
 import { useNavigate } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { Archive } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { Markdown } from "@/features/editor/components/Markdown"
