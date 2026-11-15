@@ -4,7 +4,7 @@ import { AnimatePresence, motion, type Transition } from "motion/react"
 import * as React from "react"
 import { createPortal } from "react-dom"
 
-import { blurSwap, transitions } from "../lib/springs"
+import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
 
 /*
@@ -264,12 +264,16 @@ const inkClass =
 const contentClass =
   "w-max whitespace-nowrap [&[class*='max-w-']]:whitespace-normal"
 
-// The glide and the resize run on BlurSwap's width clock (180ms on
-// ease-standard). The label itself uses BlurSwap's own blur (blurSwap: 160ms
-// ease-out in, 120ms ease-in out): ease-standard front-loads so much that a
-// blur on it is over in about 60ms and never reads. The box clips, so the
-// label can't spill while it grows.
+// The glide, the resize and the label blur share one clock: BlurSwap's
+// width timing, 180ms on ease-standard. The curve front-loads, so the blur
+// is quick and crisp rather than a slow cross-fade (the slower blurSwap
+// timing was tried and felt sluggish). The box clips, so the label can't
+// spill while it grows.
 const glide: Transition = transitions.presence
+const labelSwap = {
+  hidden: { opacity: 0, filter: "blur(4px)", transition: glide },
+  shown: { opacity: 1, filter: "blur(0px)", transition: glide }
+}
 const appear: Transition = { duration: 0.1, ease: [0.22, 1, 0.36, 1] }
 // Reduced motion: the same swap without the blur.
 const fadeSwap = {
@@ -478,7 +482,7 @@ function HostSurface() {
             <AnimatePresence initial={false}>
               <motion.div
                 key={id}
-                variants={reduced ? fadeSwap : blurSwap}
+                variants={reduced ? fadeSwap : labelSwap}
                 initial="hidden"
                 animate="shown"
                 exit="hidden"
