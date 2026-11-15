@@ -63,7 +63,7 @@
   "tickets_archive_error_already_archived": "This ticket is already archived.",
   "tickets_archive_error_fallback": "Failed to archive ticket",
   "tickets_archive_heading": "Archive",
-  "tickets_archive_hint": "Hidden from the backlog and sprints. Find it again with the Archived filter.",
+  "tickets_archive_hint": "Hidden until you filter on Archived.",
   "tickets_archive_preset_duplicate": "Duplicate",
   "tickets_archive_preset_obsolete": "Obsolete",
   "tickets_archive_preset_wont_do": "Won't do",

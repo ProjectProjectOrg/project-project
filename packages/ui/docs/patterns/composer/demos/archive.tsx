@@ -59,8 +59,7 @@ export default function ArchiveTicket() {
             </Composer.Fields>
             <Composer.Footer>
               <Composer.Hint>
-                Hidden from the backlog and sprints. Find it again with the
-                Archived filter.
+                Hidden until you filter on Archived.
               </Composer.Hint>
               <Composer.Actions>
                 <Button type="button" variant="ghost" size="sm">
