@@ -223,7 +223,7 @@ export function EpicTicketPicker({
             )
           })
         )}
-        <div className="flex items-center justify-between gap-2 px-2 pt-2 pb-1">
+        <div className="flex items-center justify-between gap-2 p-2">
           <span className="flex items-center gap-1 text-micro text-muted-foreground">
             <KbdShortcut size="sm" keys="↑↓" keyLabels={keyLabels()} />
             <Kbd size="sm">{m.sprints_add_epic_key_space()}</Kbd>

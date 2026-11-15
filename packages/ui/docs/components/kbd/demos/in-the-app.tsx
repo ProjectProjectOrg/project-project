@@ -75,7 +75,7 @@ export default function InTheApp() {
       </Case>
 
       <Case caption="Sprint › add an epic's tickets (picker footer)">
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-card px-2 pt-2 pb-1">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[18px] border border-border/60 bg-card p-2 [corner-shape:var(--button-corner)]">
           <span className="flex items-center gap-1 text-micro text-muted-foreground">
             <KbdShortcut size="sm" keys="↑↓" keyLabels={KEY_LABELS} />
             <Kbd size="sm">Space</Kbd>
