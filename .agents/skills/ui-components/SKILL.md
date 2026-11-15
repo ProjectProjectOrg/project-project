@@ -135,7 +135,8 @@ Set during the polish passes; a component that breaks one is not done.
 | Component | State |
 | --- | --- |
 | Checkbox, Dropdown menu, Avatar, Segmented tabs, Button, Switch, Input (+ input group), Select, Badge, Popover, Tooltip | Done: polished, documented, in the gallery |
-| Confirm button, Command menu | Queued in `packages/ui/queued/`, hidden from the gallery |
+| Confirm button | Done, in the gallery's Patterns group (compositions of primitives live in `docs/patterns/`); enter/exit motion still to tune |
+| Command menu | Queued in `packages/ui/queued/`, hidden from the gallery |
 | Dialog | Removed: the app has no dialogs (PRODUCT.md, "Zero dialogs"); page actions use Popover, cmd+k actions are cmd+k pages |
 
 Open question from the Select pass: dropdown radio rows with `closeOnClick` skip the settle animation (`settleAtOnceClass` in `dropdown-menu.tsx`); ask Wouter whether they should animate again.

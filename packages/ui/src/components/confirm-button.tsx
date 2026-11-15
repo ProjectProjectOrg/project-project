@@ -321,6 +321,7 @@ type ActionProps<E> = Readonly<{
   error?: ReactNode
   typed?: string
   tone?: "destructive" | "neutral"
+  timeout?: number | false
   children?: ReactNode
 }>
 
@@ -339,6 +340,7 @@ function Action<E = unknown>({
   error: externalError,
   typed,
   tone = "destructive",
+  timeout = CONFIRM_SECONDS,
   children
 }: ActionProps<E>) {
   const { close, busy: internalBusy, setBusy, flow } = useConfirmButton()
@@ -370,6 +372,7 @@ function Action<E = unknown>({
   // An inline destructive confirm closes by itself unless it is busy or
   // showing an error; its fill shows the time left.
   const timed =
+    timeout !== false &&
     inline &&
     tone === "destructive" &&
     (error === null || error === undefined)
@@ -383,7 +386,7 @@ function Action<E = unknown>({
       countdown={
         timed
           ? {
-              seconds: CONFIRM_SECONDS,
+              seconds: timeout,
               delay: capsule ? 0.26 : 0,
               onElapsed: close
             }

@@ -2,15 +2,19 @@ export const meta = {
   title: "Confirm button",
   group: "Patterns",
   description:
-    "A two-step confirm for destructive actions: the trigger gives way to a prompt with a confirm and a cancel button, in place, in a popover or from a menu item. Used for deleting comments, members, attachments, projects and organizations, and for disconnecting integrations.",
+    "A two-step confirm for destructive actions, composed from Button, Popover and Dropdown menu. In a row, the confirm step slides out over the row as a capsule and closes by itself after 4 seconds. From a menu, it opens in a popover. Used for deleting comments, projects, organizations and attachments, and for disconnecting integrations.",
   sources: [
-    { kind: "own", name: "ConfirmButton", note: "compound component on Button" }
-  ]
-}
+    {
+      kind: "own",
+      name: "ConfirmButton",
+      note: "compound component on Button, Popover and Dropdown menu",
+    },
+  ],
+};
 
 ## Overview
 
-Triggers in every state, then the confirm step in each size, layout and status. The rows below the triggers start in the confirm step.
+Try the two triggers at the top: each one counts down and closes by itself; hover the capsule to hold it. Below them: the triggers in every state, the confirm step in each status (held open here), then the layouts for long prompts, menus and typed confirmation.
 
 <Demo
   name="overview"
@@ -21,9 +25,9 @@ Triggers in every state, then the confirm step in each size, layout and status. 
 ## Usage
 
 ```tsx
-import { ConfirmButton } from "@pp/ui/confirm-button"
+import { ConfirmButton } from "@pp/ui/confirm-button";
 
-;<ConfirmButton.Root>
+<ConfirmButton.Root>
   <ConfirmButton.DeleteTrigger aria-label={m.comments_delete_aria_label()} />
   <ConfirmButton.Confirm>
     <ConfirmButton.Action
@@ -35,10 +39,17 @@ import { ConfirmButton } from "@pp/ui/confirm-button"
       onConfirm={() => remove()}
     />
   </ConfirmButton.Confirm>
-</ConfirmButton.Root>
+</ConfirmButton.Root>;
 ```
 
-`Root` holds the state. `Trigger` (any button) or `DeleteTrigger` (the trash icon) opens the confirm step; `MenuItem` opens it from a dropdown menu. `Confirm` shows its children in place of the trigger, and `Popover` shows them in a popover anchored to an element. `Action` is the prompt with its buttons. `onConfirm` may return an Effect `Exit`: a failure shows `describeError(cause)` in place of the prompt and keeps the step open.
+`Root` holds the state. `Trigger` (any button) or `DeleteTrigger` (the trash icon) opens the confirm step; `MenuItem` opens it from a dropdown menu. `Confirm` shows the step over the trigger's row as a capsule, or in its place with `Root flow`. `Popover` shows it in a popover anchored to an element. `Action` is the prompt with its buttons. `onConfirm` may return an Effect `Exit`: a failure shows `describeError(cause)` in place of the prompt and keeps the step open.
+
+`Root` props:
+
+| Prop   | Type      | Default | What it does                                                         |
+| ------ | --------- | ------- | -------------------------------------------------------------------- |
+| `flow` | `boolean` | `false` | The step takes the trigger's place in the layout and may wrap; needed for stacked and typed steps outside a popover |
+| `bare` | `boolean` | `false` | No wrapping span, for menus and popovers that position the step      |
 
 `Action` props:
 
@@ -51,24 +62,67 @@ import { ConfirmButton } from "@pp/ui/confirm-button"
 | `onConfirm`     | `() => Promise<Outcome> \| Outcome`      |                 |
 | `busyLabel`     | `ReactNode`                              | `label`         |
 | `description`   | `ReactNode` (stacked and menu layouts)   |                 |
-| `size`          | `"sm" \| "xs"` (inline layout)           | `"sm"`          |
 | `layout`        | `"inline" \| "stacked" \| "menu"`        | `"inline"`      |
 | `tone`          | `"destructive" \| "neutral"`             | `"destructive"` |
+| `timeout`       | `number` (seconds) or `false`            | `4`             |
 | `typed`         | `string`, text to type before confirming |                 |
 | `waiting`       | `boolean`, busy state from outside       |                 |
 | `error`         | `ReactNode`, error from outside          |                 |
 | `disabled`      | `boolean`                                | `false`         |
+| `size`          | `"sm" \| "xs"` (inline with `flow`)      | `"sm"`          |
 
-`Root` takes `bare` to skip its wrapping span. `Trigger` and `DeleteTrigger` take `persist` to stay visible while confirming. `Confirm`, `Popover` and `MenuItem` take a key (`when`, `confirm`) so one root can hold several confirm steps.
+`Trigger` and `DeleteTrigger` take `persist` to stay visible while confirming. `Confirm`, `Popover` and `MenuItem` take a key (`when`, `confirm`) so one root can hold several confirm steps.
 
 ## Rules
 
-Rules are written during this component's polish pass.
+### The step slides over the row, it doesn't replace the trigger
+
+The old step swapped the trigger for a prompt and two buttons, so the row reflowed: neighbours shifted and descriptions rewrapped. Now the trigger keeps its slot (faded and `inert`), and the step is a capsule pinned to the trigger's end edge that grows from the trigger's width to fit its content (260ms, `ease-standard`). It covers what is to its start side, never pushes it. Closing shrinks it back over the trigger.
+
+### The capsule is a popup
+
+It floats over content, so it uses the popup surface every popup shares: card fill and a 60% hairline, no shadow. It is 32px tall, 2px past a 28px trigger on each side, with 24px buttons on a 4px inset, so the row's height never changes. The prompt, confirm and Cancel rise in after it with a 30ms stagger and a small blur; with reduced motion they only fade.
+
+### A destructive step closes by itself after 4 seconds
+
+An open confirm left behind is a loaded button. The confirm button's red fill is the timer: it waits for the capsule to land, then drains toward the start over 4 seconds and closes the step. It is Button's `countdown`, so the look and the hold rules are Button's. Pointer over the capsule holds it. Keyboard focus inside it holds it too, for as long as it stays, so keyboard and screen reader users never run out of time (WCAG 2.2.1). Busy and error states stop it. Neutral confirms don't count down, because their primary fill doesn't read once it drains. `timeout` changes the time or turns it off.
+
+### Focus goes to Cancel, and comes back to the trigger
+
+The step opens from a click, so Cancel takes focus: Enter cancels, and Shift+Tab reaches the confirm. Esc closes the step, and focus returns to the trigger after Esc, Cancel, or the timeout. Cancel is an icon in the capsule, with its label for screen readers.
+
+### Errors replace the prompt
+
+A failed `onConfirm` shows the error in the prompt's place in the destructive colour, as an alert, and keeps the step open with no countdown, so the person can retry or cancel.
+
+### Wording
+
+The prompt is a question that names what goes ("Delete this comment?", "Delete for everyone?"). The confirm repeats the verb ("Delete", "Delete project", "Disconnect"), never "OK" or "Yes".
+
+### Long prompts and narrow places use `flow`
+
+When the prompt names something long or the row is narrow (library entries, bulk delete, the organization's typed delete), `Root flow` keeps the older in-place step, which may wrap onto a second line. Menus open the stacked step in a popover on the menu's button, with a title, one line of consequence, and the action on the end.
 
 ## Examples
 
 ### Comment row
 
-The delete control in a comment header: the trash icon gives way to the prompt, focus moves to Cancel, and Esc goes back.
+The header's trash icon. The capsule slides over the author and time; the comment body never moves. Delete fails after a second here, to show the error.
 
 <Demo name="comment-row" title="Comment row" />
+
+### Settings danger row
+
+Project settings → Danger zone. The capsule covers the row's description while it is open, so the row keeps its height.
+
+<Demo name="settings-row" title="Settings danger row" />
+
+### From a menu
+
+The sprint page's actions menu. "Delete sprint" closes the menu and opens the stacked confirm in a popover on the menu's button.
+
+<Demo
+  name="from-a-menu"
+  title="Delete from a menu"
+  className="min-h-80 place-items-start"
+/>

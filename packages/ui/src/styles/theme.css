@@ -863,7 +863,6 @@
   }
 }
 
-
 /* Avatar stacks cut a 2px gap out of each avatar where the next one sits,
    so translucent orbs never show through each other and the gap shows the
    real surface underneath. The cutout is the avatar's own shape: a squircle

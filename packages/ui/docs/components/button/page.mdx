@@ -2,23 +2,27 @@ export const meta = {
   title: "Button",
   group: "Primitives",
   description:
-    "The app's one clickable action: ink primary, tint secondary, lifted tertiary, tonal destructive and ghost (muted or strong), plus icon-only sizes. Used in about 150 places, from dialog footers to ticket toolbars.",
+    "The app's one clickable action: ink primary, tint secondary, lifted tertiary, tonal destructive and ghost (muted or strong), plus icon-only sizes. Used in about 150 places, from popover footers to ticket toolbars.",
   sources: [
     {
       kind: "base-ui",
       name: "useRender",
       note: "renders as a link or any element via `render`",
-      href: "https://base-ui.com/react/utils/use-render"
+      href: "https://base-ui.com/react/utils/use-render",
     },
     {
       kind: "shadcn",
       name: "button",
       note: "starting point, fully restyled",
-      href: "https://ui.shadcn.com/docs/components/button"
+      href: "https://ui.shadcn.com/docs/components/button",
     },
-    { kind: "own", name: "Button", note: "app variants, icon props, loading and the dither variant" }
-  ]
-}
+    {
+      kind: "own",
+      name: "Button",
+      note: "app variants, icon props, loading and the dither variant",
+    },
+  ],
+};
 
 ## Overview
 
@@ -43,30 +47,39 @@ import { Plus } from "lucide-react"
 </Button>
 ```
 
-| Prop                            | Type                                                                                       | Default     |
-| ------------------------------- | ------------------------------------------------------------------------------------------ | ----------- |
-| `variant`                       | `"primary" \| "secondary" \| "tertiary" \| "destructive" \| "ghost" \| …`                  | `"primary"` |
-| `tone`                          | `"muted" \| "strong"`, ghost only: muted text that brightens on hover, or full foreground for triggers showing a value | `"muted"` |
-| `size`                          | `"xs" \| "compact" \| "sm" \| "md" \| "lg" \| "icon-xs" \| "icon-sm" \| "icon" \| "icon-lg" \| …` | `"md"`      |
-| `leadingIcon` / `trailingIcon`  | `IconComponent`                                                                            |             |
-| `loading`                       | `boolean`                                                                                  | `false`     |
-| `bleed`                         | `"start" \| "end"`                                                                         |             |
-| `render`                        | `useRender.RenderProp`                                                                     |             |
-| `dither*`                       | colours, stops, matrix and pixel size for the `dither` variant                             |             |
+| Prop                           | Type                                                                                                                   | Default     |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `variant`                      | `"primary" \| "secondary" \| "tertiary" \| "destructive" \| "ghost" \| …`                                              | `"primary"` |
+| `tone`                         | `"muted" \| "strong"`, ghost only: muted text that brightens on hover, or full foreground for triggers showing a value | `"muted"`   |
+| `size`                         | `"xs" \| "compact" \| "sm" \| "md" \| "lg" \| "icon-xs" \| "icon-sm" \| "icon" \| "icon-lg" \| …`                      | `"md"`      |
+| `leadingIcon` / `trailingIcon` | `IconComponent`                                                                                                        |             |
+| `loading`                      | `boolean`                                                                                                              | `false`     |
+| `bleed`                        | `"start" \| "end"`                                                                                                     |             |
+| `render`                       | `useRender.RenderProp`                                                                                                 |             |
+| `dither*`                      | colours, stops, matrix and pixel size for the `dither` variant                                                         |             |
+| `countdown`                    | `{ seconds, onElapsed, delay? }`: the fill drains over `seconds`, then `onElapsed` runs                                |             |
 
 Every other prop goes to the rendered `button`.
 
 ## Rules
 
-Rules are written during this component's polish pass.
+### Countdown: the fill is the timer
+
+A button that will act or go away by itself shows how long is left in its own fill: the fill drains toward the start over `seconds`, over a tertiary base so the label stays readable, then `onElapsed` runs. `delay` waits first, for example until an entrance has landed. Hovering the button, or an ancestor marked `data-countdown-hold`, holds it; so does keyboard focus in either, for as long as it stays, so keyboard and screen reader users never run out of time (WCAG 2.2.1). A disabled or loading button holds it too. Use it on destructive and secondary: primary's light label doesn't read once its ink fill drains. Confirm button is where the app uses it.
 
 ## Examples
 
-### Confirm dialog footer
+### Popover footer
 
-A secondary cancel next to a destructive confirm, the most common pairing in the app.
+A ghost Cancel next to a destructive confirm, as in Confirm button's stacked step from a menu. The app has no dialogs; these footers sit in popovers.
 
-<Demo name="confirm-dialog" title="Confirm dialog" />
+<Demo name="popover-footer" title="Popover footer" />
+
+### Countdown
+
+`countdown` on its own: Delete runs out after 4 seconds, Keep editing after 6. Hover either button, or the space between them, to hold both.
+
+<Demo name="countdown" title="Countdown" />
 
 ### Settings group
 
