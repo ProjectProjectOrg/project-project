@@ -30,7 +30,10 @@ import {
 } from "lucide-react"
 import { createElement } from "react"
 
-import { pointedTicket } from "@/features/command-menu/atoms/commandMenu"
+import {
+  commandMenuState,
+  pointedTicket
+} from "@/features/command-menu/atoms/commandMenu"
 import {
   pointedAt,
   type TicketContext
@@ -83,6 +86,17 @@ export const editTicket = (
       edit
     )
   }
+}
+
+export const openTicket = (ticket: TicketContext, env: CommandEnv) => {
+  const row =
+    pointedAt(env.registry.get(pointedTicket), ticket) ??
+    pointedAt(env.registry.get(commandMenuState).row, ticket)
+  env.close()
+  env.navigate(
+    `/orgs/${ticket.orgSlug}/projects/${ticket.slug}/tickets/${ticket.ticketId}`,
+    row?.search
+  )
 }
 
 export const onLiveTicket = ({ ticket, ticketData }: CommandContext) =>
@@ -341,10 +355,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
     when: onTicket,
     run: ({ ticket }, env) => {
       if (ticket === null) return
-      env.close()
-      env.navigate(
-        `/orgs/${ticket.orgSlug}/projects/${ticket.slug}/tickets/${ticket.ticketId}`
-      )
+      openTicket(ticket, env)
     }
   },
   {

@@ -56,7 +56,8 @@ it("shows the row's live value, also on a page reopened after an edit", () => {
     openCommandMenu(ticket, "ticketStatus", [], {
       ...ticket,
       row,
-      patch: (edit) => patchRow?.(edit)
+      patch: (edit) => patchRow?.(edit),
+      search: undefined
     })
   )
   const wrapper = ({ children }: Readonly<{ children: ReactNode }>) => (

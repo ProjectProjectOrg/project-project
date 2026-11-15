@@ -14,6 +14,7 @@ import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
 import type { ReactNode } from "react"
 
 import type { TicketPermissions } from "@/features/tickets/lib/ticketPermissions"
+import type { TicketNavigationSearch } from "@/features/tickets/lib/ticketSearch"
 import type { IconComponent } from "@/lib/icon"
 
 import type {
@@ -75,7 +76,7 @@ export type CommandEnv = Readonly<{
     atom: Atom.Writable<AsyncResult.AsyncResult<unknown, unknown>, W>,
     value: W
   ) => void
-  navigate: (to: string) => void
+  navigate: (to: string, search?: TicketNavigationSearch) => void
   copy: (text: string) => void
   open: (page: CommandPage, from?: ReturnPoint) => void
   actOn: (ticket: TicketContext, from: ReturnPoint) => void

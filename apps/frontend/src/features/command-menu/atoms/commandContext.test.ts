@@ -59,7 +59,7 @@ it("reads the hovered row, which shortcuts edit, over the cached detail", () => 
         ticketDetail(ticketRequest("acme", "app", ticket.ticketId)),
         AsyncResult.success(detail)
       ],
-      [pointedTicket, { ...ticket, row, patch: () => {} }]
+      [pointedTicket, { ...ticket, row, patch: () => {}, search: undefined }]
     ]
   })
 

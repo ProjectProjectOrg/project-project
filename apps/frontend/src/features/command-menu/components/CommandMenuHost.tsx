@@ -141,7 +141,7 @@ function useCommandEnv(
   return {
     registry,
     execute: (atom, value) => void fireMutation(registry, atom, value),
-    navigate: (to) => void navigate({ to }),
+    navigate: (to, search) => void navigate({ to, search }),
     copy: (text) => void navigator.clipboard.writeText(text),
     open: (page, from) => onChange(pushCommandPage(state, page, from)),
     actOn: (ticket, from) => onChange(actOnTicket(state, ticket, from)),

@@ -45,7 +45,7 @@ export function CommandHotkeys({ orgSlug }: Readonly<{ orgSlug: string }>) {
     const env: CommandEnv = {
       registry,
       execute: (atom, value) => void fireMutation(registry, atom, value),
-      navigate: (to) => void navigate({ to }),
+      navigate: (to, search) => void navigate({ to, search }),
       copy: (text) => void navigator.clipboard.writeText(text),
       open: (page) =>
         registry.set(

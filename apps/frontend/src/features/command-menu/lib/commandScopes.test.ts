@@ -33,7 +33,8 @@ const pointed: PointedTicket = {
   slug: "app",
   ticketId: row.id,
   row,
-  patch: () => {}
+  patch: () => {},
+  search: undefined
 }
 
 const selected = (ticketId: string): SelectedTicket => ({

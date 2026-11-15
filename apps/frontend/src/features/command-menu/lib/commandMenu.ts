@@ -7,6 +7,7 @@ import type {
 } from "@/features/tickets/lib/filterChoices"
 import type { MarkPickKind } from "@/features/tickets/lib/relationGroups"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
+import type { TicketNavigationSearch } from "@/features/tickets/lib/ticketSearch"
 
 export type TicketContext = Readonly<{
   orgSlug: string
@@ -15,7 +16,11 @@ export type TicketContext = Readonly<{
 }>
 
 export type PointedTicket = TicketContext &
-  Readonly<{ row: Ticket; patch: (edit: TicketEdit) => void }>
+  Readonly<{
+    row: Ticket
+    patch: (edit: TicketEdit) => void
+    search: TicketNavigationSearch | undefined
+  }>
 
 export const pointedAt = (
   pointed: PointedTicket | null,

@@ -10,6 +10,7 @@ import {
   type PointerEvent
 } from "react"
 
+import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { isKeyboardNavigating } from "@/lib/keyboard"
 
@@ -23,6 +24,7 @@ export function usePointedTicket(
   patch: (edit: TicketEdit) => void
 ) {
   const registry = useContext(RegistryContext)
+  const search = useContext(TicketViewSourceContext)
   const ticketId = row.id
   const self: TicketContext = { orgSlug, slug, ticketId }
   const latestPatch = useRef(patch)
@@ -35,7 +37,7 @@ export function usePointedTicket(
   const enter = () => {
     const pointed = pointedAt(registry.get(pointedTicket), self)
     if (pointed?.row !== row) {
-      registry.set(pointedTicket, { ...self, row, patch: stablePatch })
+      registry.set(pointedTicket, { ...self, row, patch: stablePatch, search })
     }
   }
   const leave = () => {
