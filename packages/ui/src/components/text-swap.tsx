@@ -1,5 +1,5 @@
 import Scritto from "@scritto/react"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import type { ReactNode } from "react"
 
 import { transitions } from "../lib/springs"
@@ -78,19 +78,21 @@ function TextSwap({
 }
 
 // The icon beside a value: the old one fades and shrinks out while the new
-// one fades and grows in, stacked in one cell so nothing moves.
+// one fades and grows in, stacked in one cell so nothing moves. With reduced
+// motion it only fades (the app has no MotionConfig, so ask here).
 function IconSwap({
   id,
   children
 }: Readonly<{ id: string; children: ReactNode }>) {
+  const scale = (useReducedMotion() ?? false) ? 1 : 0.8
   return (
     <span className="inline-grid shrink-0 place-items-center">
       <AnimatePresence initial={false}>
         <motion.span
           key={id}
-          initial={{ opacity: 0, scale: 0.8 }}
+          initial={{ opacity: 0, scale }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
+          exit={{ opacity: 0, scale }}
           transition={transitions.fade}
           className="col-start-1 row-start-1 inline-flex"
         >

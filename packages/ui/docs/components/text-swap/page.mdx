@@ -1,0 +1,80 @@
+export const meta = {
+  title: "TextSwap",
+  group: "Primitives",
+  description:
+    "A value that just changed, rolled into place: a select's choice, a toggle's label, a count, a tooltip moving to the next button.",
+  sources: [
+    {
+      kind: "own",
+      name: "TextSwap",
+      note: "on Scritto for the letters, Motion for the icon"
+    },
+    {
+      kind: "own",
+      name: "Scritto",
+      note: "rolls the letters that differ, eases the width",
+      href: "https://scrit.to"
+    }
+  ]
+}
+
+## Overview
+
+Press Next under each to change the value. The letters the old and new value share stay where they are; the rest roll out and in, glyph by glyph, and the width eases along. An icon beside the text crossfades on the same change.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+```tsx
+import { TextSwap } from "@pp/ui/text-swap"
+
+// A select's value, with the glyph that follows it.
+<TextSwap className="gap-1.5" icon={<TypeGlyph type={type} className="size-3.5" />}>
+  {label}
+</TextSwap>
+
+// A count beside a 180ms move: the fast speed.
+<TextSwap speed="fast">{String(count)}</TextSwap>
+
+// A hint whose change matters on its own: also said to screen readers.
+<TextSwap announce className="whitespace-normal">{hint}</TextSwap>
+```
+
+| Prop        | Type                   | Default                                           |
+| ----------- | ---------------------- | ------------------------------------------------- |
+| `children`  | `string`               | the value; Scritto animates text only             |
+| `icon`      | `ReactNode`            | an icon before the text, crossfaded on change     |
+| `iconKey`   | `string`               | which icon is showing; defaults to the text       |
+| `speed`     | `"normal" \| "fast"`   | `"normal"` (260ms); `"fast"` is 180ms             |
+| `announce`  | `boolean`              | `false`; also tell screen readers the new value   |
+
+## Rules
+
+### Every value the user just changed plays through it
+
+When a control shows a value the user just changed (a select's chosen option, a toggle's label, a filter count, the tooltip moving to the next button), the change rolls through TextSwap. A value that jumps reads as a glitch; one that rolls reads as the result of what you did. Values that load (a list, a page) don't swap; they arrive.
+
+### Keep what didn't change
+
+Scritto keeps the letters the old and new value share and only moves the rest, so "Subscribe" to "Subscribed" adds a "d" instead of replacing the word. The width eases with the letters, so the control around it grows and shrinks smoothly rather than snapping.
+
+### Two speeds
+
+Normal is the morph timing (260ms), for a change of state. Fast is the presence timing (180ms), for a value riding along with a move, like a count in a toolbar button or a tooltip gliding to the next trigger.
+
+### The icon crossfades in one cell
+
+The old icon fades and shrinks to 80% while the new one fades and grows in, stacked in the same cell, so the text beside it doesn't move.
+
+### Screen readers
+
+Scritto exposes the value as a labelled image, which isn't read out when it changes. That's right for most swaps, because the control's own label already changed. For a line whose change matters on its own (the estimate's parsed duration), `announce` adds a polite live region with the new text.
+
+### Reduced motion
+
+With reduced motion on, Scritto swaps the text without rolling it, and the icon only fades.
+
+## Examples
+
+<Demo name="in-the-app" title="In the app" />
