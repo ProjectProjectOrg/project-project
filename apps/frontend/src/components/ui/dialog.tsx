@@ -1,9 +1,9 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import { X } from "lucide-react"
-import { useId, type ComponentProps } from "react"
+import type { ComponentProps } from "react"
 
 import { Button } from "@/components/ui/button"
+import { PopupHotkeyScope } from "@/components/ui/popup-hotkey-scope"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -11,7 +11,7 @@ function Dialog(props: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root {...props} />
 }
 
-type DialogContentProps = DialogPrimitive.Popup.Props &
+type DialogContentProps = Omit<DialogPrimitive.Popup.Props, "render"> &
   Readonly<{
     size?: "sm" | "lg"
     position?: "top" | "center"
@@ -26,7 +26,6 @@ function DialogContent({
   showCloseButton = true,
   ...props
 }: DialogContentProps) {
-  const scope = useId()
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Backdrop
@@ -47,10 +46,15 @@ function DialogContent({
           className
         )}
         {...props}
+        render={(popupProps, state) => (
+          <div {...popupProps}>
+            <PopupHotkeyScope open={state.open}>
+              {popupProps.children}
+            </PopupHotkeyScope>
+          </div>
+        )}
       >
-        <HotkeysProvider scope={scope} exclusive>
-          {children}
-        </HotkeysProvider>
+        {children}
         {showCloseButton && (
           <DialogPrimitive.Close
             render={

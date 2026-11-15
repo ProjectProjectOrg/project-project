@@ -1,10 +1,5 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import {
-  HotkeysProvider,
-  useHotkey,
-  type AppHotkey,
-  type Hotkey
-} from "@tanstack/react-hotkeys"
+import { useHotkey, type AppHotkey, type Hotkey } from "@tanstack/react-hotkeys"
 import { Check } from "lucide-react"
 import {
   animate,
@@ -38,6 +33,7 @@ import {
   type FluidHoverSource
 } from "@/components/ui/fluid-hover-highlight"
 import { KbdShortcut } from "@/components/ui/kbd"
+import { PopupHotkeyScope } from "@/components/ui/popup-hotkey-scope"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { SegmentedTabs } from "@/components/ui/segmented-tabs"
 import {
@@ -894,7 +890,6 @@ function CommandMenuDialog({
   children
 }: CommandMenuDialogProps) {
   const popupRef = useRef<HTMLDivElement | null>(null)
-  const scope = useId()
   const lastPulseRef = useRef(pulseKey)
   const pulseOpenRef = useRef(open)
   const pulseRef = useRef<AnimationPlaybackControls | null>(null)
@@ -969,12 +964,12 @@ function CommandMenuDialog({
           <DialogPrimitive.Title className="sr-only">
             {title}
           </DialogPrimitive.Title>
-          <HotkeysProvider scope={scope} exclusive enabled={open}>
+          <PopupHotkeyScope open={open}>
             <CloseOnShortcut
               shortcut={shortcut}
               onClose={() => onOpenChange(false)}
             />
-          </HotkeysProvider>
+          </PopupHotkeyScope>
           <motion.div
             className="overflow-hidden"
             initial={false}
