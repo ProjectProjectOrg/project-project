@@ -14,12 +14,12 @@ export const meta = {
 
 ## Overview
 
-On top, a live toolbar sharing one tooltip: hover a button, wait 400ms, then move along the row and the tooltip glides to the next button while its label blurs over. Below, single tooltips pinned open: a label, a label with a shortcut, two lines, and each side.
+On top, a live toolbar sharing one tooltip: hover a button, wait 400ms, then move along the row by pointer or Tab and the tooltip glides to the next button while its label blurs over. Below, every state, shown on hover; switch on "Show every state" to pin them all.
 
 <Demo
   name="overview"
   title="All states"
-  className="min-h-[34rem] place-items-start"
+  className="min-h-[36rem] place-items-start"
 />
 
 ## Usage
@@ -105,3 +105,27 @@ Opening and closing fade and scale from 96% over 100ms. Moving to another trigge
 ### Shortcuts
 
 A keyboard shortcut sits on the right in a `Kbd`, which turns into a see-through key inside the ink.
+
+## Examples
+
+### Formatting toolbar
+
+The toolbar that appears over a text selection in a ticket description: text formats, link, then block types. One tooltip glides along the whole row, by pointer or by Tab.
+
+<Demo
+  name="formatting-toolbar"
+  title="Formatting toolbar"
+  className="min-h-56 place-items-start"
+/>
+
+### Subscribe
+
+The ticket page's Subscribe toggle. The button says what you'll do; the tooltip says who already gets updates. Because it says more than the button's label, the button is described by it (`aria-describedby`).
+
+<Demo name="subscribe" title="Subscribe" className="min-h-40" />
+
+### Attachment rows
+
+The attachments table's row actions, shown when you hover a row. One tooltip serves the whole table, so moving down the rows or between Copy and Download glides it along.
+
+<Demo name="attachment-rows" title="Attachment rows" className="min-h-56" />
