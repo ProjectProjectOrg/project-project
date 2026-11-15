@@ -24,11 +24,11 @@ export const organizationCommands: ReadonlyArray<Command> = [
     label: m.chrome_command_menu_go_settings,
     icon: Settings,
     keywords: ["preferences"],
-    run: ({ orgSlug, projectSlug }, env) => {
+    run: ({ orgSlug, routeProjectSlug }, env) => {
       env.navigate(
-        projectSlug === null
+        routeProjectSlug === null
           ? `/orgs/${orgSlug}/settings`
-          : `/orgs/${orgSlug}/projects/${projectSlug}/settings`
+          : `/orgs/${orgSlug}/projects/${routeProjectSlug}/settings`
       )
       env.close()
     }

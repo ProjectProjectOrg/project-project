@@ -20,6 +20,7 @@ const context: CommandContext = {
   orgActor: OrgActor.none,
   projectActor: null,
   projectSlug: null,
+  routeProjectSlug: null,
   ticket: null,
   selection: [],
   ticketData: null,

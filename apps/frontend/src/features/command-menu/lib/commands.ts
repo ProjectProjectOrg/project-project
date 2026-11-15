@@ -50,6 +50,7 @@ export type CommandContext = Readonly<{
   orgActor: OrgActor
   projectActor: ProjectActor | null
   projectSlug: string | null
+  routeProjectSlug: string | null
   ticket: TicketContext | null
   selection: ReadonlyArray<SelectedTicket>
   ticketData: Ticket | null

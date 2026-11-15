@@ -165,6 +165,7 @@ function CommandMenuPage({
   const projectSlug = params.slug ?? ticket?.slug ?? null
   const context: CommandContext = {
     ...useAtomValue(commandContext({ orgSlug, projectSlug, ticket })),
+    routeProjectSlug: params.slug ?? null,
     selection: state.selection,
     sprint: scopeSprint(scopes),
     view: scopeView(scopes)

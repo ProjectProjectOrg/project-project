@@ -93,6 +93,7 @@ const contextFor = (
   return {
     orgSlug: "acme",
     projectSlug: "app",
+    routeProjectSlug: "app",
     orgActor: OrgActor.make(Org.orgRoles[orgRole].grants),
     projectActor: actor,
     ticket: { orgSlug: "acme", slug: "app", ticketId: TicketId.make("T-1") },

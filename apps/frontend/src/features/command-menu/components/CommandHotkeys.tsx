@@ -58,6 +58,7 @@ export function CommandHotkeys({ orgSlug }: Readonly<{ orgSlug: string }>) {
     }
     const context: CommandContext = {
       ...registry.get(commandContext(key)),
+      routeProjectSlug: params.slug ?? null,
       selection: openCommandMenu(target.ticket, "root", target.selection)
         .selection,
       sprint: scopeSprint(current),
