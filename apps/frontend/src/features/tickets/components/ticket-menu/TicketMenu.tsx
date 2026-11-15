@@ -429,6 +429,7 @@ function DeleteTicketItems({
         label={m.tickets_row_delete_many_menu_item({ count })}
         confirmLabel={m.tickets_row_delete_many_confirm({ count })}
         describeError={describeCause}
+        busyLabel={m.common_deleting_button()}
         onConfirm={async () => {
           const exit = await removeMany({ tickets: selection.selectedIds() })
           if (Exit.isSuccess(exit)) selection.clear()
@@ -455,6 +456,7 @@ function DeleteTicketItems({
         label={m.tickets_row_delete_menu_item()}
         confirmLabel={m.tickets_row_delete_confirm()}
         describeError={describeCause}
+        busyLabel={m.common_deleting_button()}
         onConfirm={removeOne(false)}
       />
       {count > 0 && (
@@ -471,6 +473,7 @@ function DeleteTicketItems({
               : m.tickets_row_delete_with_sub_tickets_confirm({ count })
           }
           describeError={describeCause}
+          busyLabel={m.common_deleting_button()}
           onConfirm={removeOne(true)}
         />
       )}

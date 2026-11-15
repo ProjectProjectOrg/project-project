@@ -1,5 +1,8 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "members_leave_in_progress": "Leaving…",
+  "members_pending_cancel_in_progress": "Canceling…",
+  "members_remove_in_progress": "Removing…",
   "org_danger_delete_button": "Delete organization",
   "org_danger_delete_confirm_label": "Type {slug} to confirm",
   "org_danger_delete_description": "Deleting removes access for everyone. You have {days} days to restore it, after which its data is permanently removed.",
@@ -155,6 +158,7 @@
   "org_members_leave_in_progress": "Leaving…",
   "org_members_make_owner": "Make owner",
   "org_members_transfer_confirm_prompt": "Make {name} the owner? You'll become an admin.",
+  "org_members_transfer_in_progress": "Transferring…",
   "org_settings_crumb": "Settings",
   "org_settings_danger_description": "Delete this organization. You can restore it during the grace period.",
   "org_settings_danger_heading": "Danger zone",

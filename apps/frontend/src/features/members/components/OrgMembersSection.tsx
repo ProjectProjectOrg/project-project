@@ -223,6 +223,7 @@ function OrgMemberRow({
           ? {
               prompt: m.org_members_transfer_confirm_prompt({ name }),
               label: m.org_members_make_owner(),
+              busyLabel: m.org_members_transfer_in_progress(),
               error: orgErrorText(transferState),
               run: () => transfer(undefined)
             }
@@ -232,6 +233,7 @@ function OrgMemberRow({
               kind: "remove",
               prompt: m.members_remove_confirm_prompt({ name }),
               label: m.members_remove_button(),
+              busyLabel: m.members_remove_in_progress(),
               error: orgErrorText(removeState),
               run: () => remove(undefined)
             }
@@ -242,6 +244,7 @@ function OrgMemberRow({
                   org: scope.orgName
                 }),
                 label: m.org_members_leave_button(),
+                busyLabel: m.org_members_leave_in_progress(),
                 error: orgErrorText(leaveState),
                 run: async () => {
                   const exit = await leave(undefined)
@@ -278,6 +281,7 @@ function OrgInvitationRow({
                 email: invitation.email
               }),
               label: m.members_pending_cancel_button(),
+              busyLabel: m.members_pending_cancel_in_progress(),
               error: orgErrorText(state),
               run: () => cancel(undefined)
             }

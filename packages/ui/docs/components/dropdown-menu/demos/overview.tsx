@@ -158,6 +158,7 @@ export default function Overview() {
             icon={trash}
             label="Confirm: click twice"
             confirmLabel="Delete this sprint?"
+            busyLabel="Deleting…"
             describeError={() => "Couldn't delete the sprint."}
             closeOnConfirm={false}
             onConfirm={() => undefined}
@@ -167,6 +168,7 @@ export default function Overview() {
               icon={trash}
               label="Armed"
               confirmLabel="Armed: delete it?"
+              busyLabel="Deleting…"
               timeout={3600}
               describeError={() => "Couldn't delete it."}
               onConfirm={() => undefined}
@@ -176,7 +178,8 @@ export default function Overview() {
             <DropdownMenuConfirmItem
               icon={trash}
               label="Busy"
-              confirmLabel="Busy, holds the menu open"
+              confirmLabel="Delete it?"
+              busyLabel="Deleting…"
               describeError={() => "Couldn't delete it."}
               onConfirm={never}
             />
@@ -186,6 +189,8 @@ export default function Overview() {
               icon={trash}
               label="Error"
               confirmLabel="Delete it?"
+              busyLabel="Deleting…"
+              timeout={3600}
               describeError={() => "Error: couldn't delete it"}
               onConfirm={fails}
             />

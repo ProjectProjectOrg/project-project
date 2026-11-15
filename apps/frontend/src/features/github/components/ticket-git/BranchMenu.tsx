@@ -154,6 +154,7 @@ export function RemoveBranchItem({
       icon={<Unlink />}
       label={m.git_branch_remove_item()}
       confirmLabel={m.git_branch_remove_prompt()}
+      busyLabel={m.git_branch_remove_in_progress()}
       describeError={describeCause}
       onConfirm={() => clear()}
     />

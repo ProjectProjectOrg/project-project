@@ -38,6 +38,7 @@ export default function ConfirmItem() {
           icon={<Trash2 className="size-4" strokeWidth={1.75} />}
           label="Delete sprint"
           confirmLabel="Delete this sprint?"
+          busyLabel="Deleting…"
           describeError={() => "Couldn't delete the sprint."}
           onConfirm={() =>
             Effect.runPromiseExit(

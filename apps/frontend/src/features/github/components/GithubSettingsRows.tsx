@@ -150,6 +150,7 @@ function RepoRow({
                 confirmLabel={m.github_chip_disconnect_confirm({
                   repo: repoSlug(repo)
                 })}
+                busyLabel={m.github_chip_disconnect_in_progress()}
                 describeError={() => m.github_chip_disconnect_error()}
                 onConfirm={() => disconnect()}
               />

@@ -228,6 +228,7 @@ function ProjectMemberRow({
                 kind: "leave",
                 prompt: m.members_leave_confirm_prompt(),
                 label: m.members_leave_button(),
+                busyLabel: m.members_leave_in_progress(),
                 error: memberActionError(leaveState),
                 run: async () => {
                   const exit = await leave()
@@ -245,6 +246,7 @@ function ProjectMemberRow({
                 kind: "remove",
                 prompt: m.members_remove_confirm_prompt({ name: member.name }),
                 label: m.members_remove_button(),
+                busyLabel: m.members_remove_in_progress(),
                 error: memberActionError(removeState),
                 run: () => remove()
               }
@@ -281,6 +283,7 @@ function ProjectPendingRow({
                 email: pending.email
               }),
               label: m.members_pending_cancel_button(),
+              busyLabel: m.members_pending_cancel_in_progress(),
               error: null,
               run: () => cancel()
             }

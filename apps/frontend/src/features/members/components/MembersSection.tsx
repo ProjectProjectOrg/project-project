@@ -29,6 +29,7 @@ import { m } from "@/paraglide/messages"
 export type MemberConfirm = Readonly<{
   prompt: string
   label: string
+  busyLabel: string
   run: () => Promise<Exit.Exit<unknown, unknown>>
   error: ReactNode
 }>
@@ -211,6 +212,7 @@ function MemberMenu<R extends string, A extends R>({
             icon={<Crown className="size-4" strokeWidth={1.75} />}
             label={transfer.label}
             confirmLabel={transfer.prompt}
+            busyLabel={transfer.busyLabel}
             describeError={describeCause}
             onConfirm={transfer.run}
           />
@@ -227,6 +229,7 @@ function MemberMenu<R extends string, A extends R>({
             }
             label={exit.label}
             confirmLabel={exit.prompt}
+            busyLabel={exit.busyLabel}
             describeError={describeCause}
             onConfirm={exit.run}
           />
@@ -285,6 +288,7 @@ export function PendingRowView<R extends string>({
                     icon={<Trash2 className="size-4" strokeWidth={1.75} />}
                     label={cancel.label}
                     confirmLabel={cancel.prompt}
+                    busyLabel={cancel.busyLabel}
                     describeError={describeCause}
                     onConfirm={cancel.run}
                   />

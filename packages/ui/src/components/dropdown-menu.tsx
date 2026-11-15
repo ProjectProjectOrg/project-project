@@ -2,7 +2,7 @@ import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 import { mergeProps } from "@base-ui/react/merge-props"
 import type * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
-import { ChevronRightIcon } from "lucide-react"
+import { ChevronRightIcon, CircleAlert } from "lucide-react"
 import * as React from "react"
 import { flushSync } from "react-dom"
 
@@ -295,13 +295,16 @@ function DropdownMenuItem({
 
 type Outcome<E> = void | boolean | Exit.Exit<unknown, E>
 
-// How long an armed confirm item waits for its second click.
+// How long an armed confirm item waits for its second click, and how long
+// it shows an error before going back to its label.
 const ARMED_SECONDS = 4
 
 type DropdownMenuConfirmItemProps<E> = Readonly<{
   label: string
   // What the armed item says: a question naming what goes.
   confirmLabel: string
+  // What it says while onConfirm runs: the verb in progress ("Deleting…").
+  busyLabel: string
   icon?: React.ReactNode
   onConfirm: () => Promise<Outcome<E>> | Outcome<E>
   describeError: (cause: Cause.Cause<E>) => string
@@ -317,16 +320,21 @@ type DropdownMenuConfirmItemProps<E> = Readonly<{
   className?: string
 }>
 
-// A menu item that confirms in place. The first click arms it: the label
+// A menu item that confirms in place. Any menu action that can't be undone
+// or affects other people (delete, remove, disconnect, transfer, cancel an
+// invite) uses it; the states, wording and checklist are on the gallery's
+// Dropdown menu page, under "Confirm items". The first click arms it: the label
 // rolls to `confirmLabel` through TextSwap and its fill turns into the
 // countdown, drawn whether or not the pointer is on it. A second click runs
-// onConfirm, with Button's logo loader in the icon's place, then closes the
-// menu. When the countdown runs out the item rolls back to its label; a
-// failure rolls the error in and keeps it armed, without a countdown, for a
-// retry. The menu stays open throughout (closeOnClick is off).
+// onConfirm, with `busyLabel` and Button's logo loader in the icon's place,
+// then closes the menu. When the countdown runs out the item rolls back to
+// its label. A failure rolls the error in with an alert icon and keeps it
+// armed for a retry; after the same timeout, unseen (no fill), it rolls back
+// to its label too. The menu stays open throughout (closeOnClick is off).
 function DropdownMenuConfirmItem<E = unknown>({
   label,
   confirmLabel,
+  busyLabel,
   icon,
   onConfirm,
   describeError,
@@ -353,7 +361,9 @@ function DropdownMenuConfirmItem<E = unknown>({
     setPhase("idle")
     setError(null)
   }
-  const counting = phase === "armed" && error === null && timeout !== false
+  // Armed: the visible countdown. Failed: the same timer with no fill, so
+  // the error also resets by itself, and hover or focus holds it as well.
+  const counting = phase === "armed" && timeout !== false
   const { countdownClass, countdownStyle, handleAnimationEnd } =
     useCountdown<HTMLDivElement>(
       counting ? { seconds: timeout, onElapsed: disarm } : undefined
@@ -398,27 +408,38 @@ function DropdownMenuConfirmItem<E = unknown>({
       style={countdownStyle}
       className={cn(
         countdownClass,
-        destructive
-          ? // A step past the hover fill, so the countdown still reads
-            // with the highlight under it.
-            "[--countdown-fill:color-mix(in_oklab,var(--destructive-light),var(--destructive)_16%)]"
-          : "[--countdown-fill:var(--active)] data-[armed]:text-foreground",
+        error !== null
+          ? "[--countdown-fill:transparent]"
+          : destructive
+            ? // A step past the hover fill, so the countdown still reads
+              // with the highlight under it.
+              "[--countdown-fill:color-mix(in_oklab,var(--destructive-light),var(--destructive)_16%)]"
+            : "[--countdown-fill:var(--active)] data-[armed]:text-foreground",
         className
       )}
     >
       <TextSwap
         className="gap-2"
+        // Busy: the logo loader. Failed: an alert, since the label is
+        // already in the destructive colour.
         icon={
           phase === "busy" ? (
             <LogoLoader tone="current" className="size-4" />
+          ) : error !== null ? (
+            <CircleAlert className="size-4" strokeWidth={1.75} />
           ) : (
             icon
           )
         }
-        iconKey={phase === "busy" ? "busy" : "icon"}
+        iconKey={phase === "busy" ? "busy" : error !== null ? "error" : "icon"}
         announce
       >
-        {error ?? (phase === "idle" ? label : confirmLabel)}
+        {error ??
+          (phase === "idle"
+            ? label
+            : phase === "busy"
+              ? busyLabel
+              : confirmLabel)}
       </TextSwap>
       {error === null ? null : (
         <span role="alert" className="sr-only">

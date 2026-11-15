@@ -23,7 +23,7 @@ export const meta = {
 
 Every kind of row and state in one menu: the highlight resting on the first item, plain items with icons and shortcuts, a disabled item, checkbox and radio choices, a submenu, a destructive action, and confirm items: live, armed, busy and failed. The busy one holds the menu open, as it would while a delete runs. Hover, press or use the arrow keys to move the highlight.
 
-<Demo name="overview" title="All states" className="min-h-[46rem] place-items-start justify-items-center" />
+<Demo name="overview" title="All states" className="min-h-[52rem] place-items-start justify-items-center" />
 
 ## Usage
 
@@ -58,30 +58,67 @@ import {
 
 A row's children are its marker (an icon, dot or avatar), its label and an optional count with `data-menu-meta`. The tick slot is added for you.
 
-A destructive action in a menu is a `DropdownMenuConfirmItem`, which confirms in place:
+### Confirm items
+
+Any menu action that can't be undone or affects other people (delete, remove, disconnect, transfer ownership, cancel an invite) is a `DropdownMenuConfirmItem`. It confirms in place: no popover, no dialog. Everything below is built in; what the call site supplies is the four labels and an `onConfirm` that reports failure.
 
 ```tsx
 <DropdownMenuConfirmItem
   icon={<Trash2 className="size-4" strokeWidth={1.75} />}
-  label={m.sprints_delete_button()}
-  confirmLabel={m.sprints_delete_confirm_title()}
-  describeError={describeCause}
-  onConfirm={onDelete}
+  label={m.sprints_delete_button()} // "Delete sprint"
+  confirmLabel={m.sprints_delete_confirm_title()} // "Delete this sprint?"
+  busyLabel={m.common_deleting_button()} // "Deleting…"
+  describeError={describeCause} // "Couldn't delete the sprint."
+  onConfirm={onDelete} // returns the mutation's Exit
 />
 ```
 
-| Prop             | Type                                         | Default         |
-| ---------------- | -------------------------------------------- | --------------- |
-| `label`          | `string`                                     |                 |
-| `confirmLabel`   | `string`, what the armed item asks           |                 |
-| `onConfirm`      | `() => Promise<Outcome> \| Outcome`          |                 |
-| `describeError`  | `(cause: Cause<E>) => string`                |                 |
-| `icon`           | `ReactNode`                                  |                 |
-| `tone`           | `"destructive" \| "neutral"`                 | `"destructive"` |
-| `quiet`          | `boolean`, plain until armed                 | `false`         |
-| `timeout`        | `number` (seconds) or `false`                | `4`             |
-| `closeOnConfirm` | `boolean`                                    | `true`          |
-| `disabled`       | `boolean`                                    | `false`         |
+| Prop             | Type                                                    | Default         |
+| ---------------- | ------------------------------------------------------- | --------------- |
+| `label`          | `string`, the action                                    |                 |
+| `confirmLabel`   | `string`, the question the armed item asks              |                 |
+| `busyLabel`      | `string`, the verb in progress                          |                 |
+| `describeError`  | `(cause: Cause<E>) => string`                           |                 |
+| `onConfirm`      | `() => Promise<Outcome> \| Outcome`                     |                 |
+| `icon`           | `ReactNode`                                             |                 |
+| `tone`           | `"destructive" \| "neutral"` (transfer ownership)       | `"destructive"` |
+| `quiet`          | `boolean`, plain until armed (a list of targets)        | `false`         |
+| `timeout`        | seconds, or `false`, for the countdown and the error     | `4`             |
+| `closeOnConfirm` | `boolean`                                               | `true`          |
+| `disabled`       | `boolean`                                               | `false`         |
+
+`Outcome` is nothing or `true` (done), `false` (quietly back to armed), or an Effect `Exit`: a failure shows `describeError(cause)`. Return the mutation's `Exit` (`useAtomSet(…, { mode: "promiseExit" })`), so failures show in the item.
+
+#### States
+
+| State     | Label                    | Icon            | Fill                                   | Menu                                  | Leaves when                                   |
+| --------- | ------------------------ | --------------- | -------------------------------------- | ------------------------------------- | --------------------------------------------- |
+| Idle      | `label`                  | `icon`          | none (highlight on hover)              | normal                                | first click arms it                           |
+| Armed     | rolls to `confirmLabel`  | `icon`          | countdown, drawn even without hover    | stays open                            | second click, or 4s pass (back to idle)       |
+| Busy      | rolls to `busyLabel`     | logo loader     | none                                   | held open: no Escape, outside click   | `onConfirm` settles                           |
+| Done      |                          |                 |                                        | closes (`closeOnConfirm`)             |                                               |
+| Failed    | rolls to the error       | alert           | none (an unseen timer runs)            | stays open                            | a click retries; 4s pass (back to idle)       |
+
+Every label change rolls through TextSwap and every icon change crossfades, so the row never jumps. Pointer over the item or keyboard focus on it holds both timers, so keyboard and screen reader users never run out of time; the new label is announced politely, and the error as an alert.
+
+#### Wording
+
+| Label          | Write                                      | Example                      | Not                 |
+| -------------- | ------------------------------------------ | ---------------------------- | ------------------- |
+| `label`        | the verb and the thing                     | Delete sprint                | Delete…             |
+| `confirmLabel` | a question naming what goes                | Delete this sprint?          | Are you sure?       |
+| `busyLabel`    | the verb in progress, with an ellipsis      | Deleting…                    | Loading…, Please wait |
+| error          | what failed, from `describeError`          | Couldn't delete the sprint.  | Error, Something went wrong |
+
+#### Checklist
+
+- Return the mutation's `Exit` from `onConfirm`; a thrown or swallowed error leaves the person guessing.
+- Pass a `busyLabel` that says what's happening, not the question again.
+- Don't close the menu, navigate away or clear a selection before `onConfirm` resolves; do it inside `onConfirm` after success, and let the item close the menu.
+- Put destructive items last, after a separator.
+- A choice beyond yes or no is more items, not a form: a second item (delete, or delete with its sub-tickets), or a submenu of `quiet` items (move its tickets to this status, then delete).
+- Transferring ownership and other non-destructive but serious actions use `tone="neutral"`.
+- The page's own buttons confirm with Confirm button's capsule instead; never a popover or dialog.
 
 ## Rules
 
@@ -109,9 +146,21 @@ Shortcuts and other trailing text get 4px more room on the right than the row's 
 
 The highlight that glides between rows takes the ghost button's fills: `--hover` on hover, `--active` while pressed. Destructive rows take the destructive button's: `--destructive-light`, then its hover mix while pressed. Selects and the mention menu share the same highlight.
 
-### Destructive items confirm in place
+### Menu actions confirm in place
 
-A menu is already a small surface the person is looking at, so a delete confirms right there instead of opening a popover. The first click arms the item: its label rolls to the question (`confirmLabel`) through TextSwap, and its fill becomes Button's countdown, drawn whether or not the pointer is on it, draining over 4 seconds. A second click runs `onConfirm`, with the logo loader in the icon's place, then closes the whole menu. When the countdown runs out the label rolls back. A failure rolls the error in and keeps the item armed, without a countdown, for a retry. Pointer over the item or keyboard focus on it holds the countdown, so keyboard users never run out of time. While `onConfirm` runs the menu holds itself open: Escape, an outside click or hovering off a submenu can't close it under a running action. The armed fill is a step darker than the destructive hover, so the countdown still reads with the highlight under it. Choices that need more than yes or no become separate items (delete, or delete with its sub-tickets) or a submenu of `quiet` items that only turn red when armed (move its tickets to this status, then delete).
+A menu is already a small surface the person is looking at, so a delete confirms right where they clicked. A popover or dialog would move their eyes and their pointer for a yes or no; the app has no dialogs at all.
+
+### The armed fill is the countdown
+
+An armed item left alone is a loaded button, so it disarms after 4 seconds, and its fill shows the time left. The fill stays drawn when the pointer leaves, because it's the item's state, not a hover effect. It is a step darker than the destructive hover, so it still reads with the highlight under it. It is Button's countdown (`lib/countdown`), so both read the same.
+
+### A running action holds the menu open
+
+While `onConfirm` runs, Escape, an outside click, another item and hovering off a submenu can't close the menu, so the person sees the result. The hold is counted, so two running items don't release each other, and an item that goes away releases its own.
+
+### Failures say so twice, then step back
+
+The error rolls in and the icon turns into an alert, because the label is already red and colour alone wouldn't mark it. After 4 seconds it goes back to its label, so a stale error doesn't sit in the menu; hover or focus holds it while it's being read.
 
 ## Examples
 

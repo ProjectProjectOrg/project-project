@@ -113,6 +113,7 @@ function DeleteStatusItems({ status, statuses }: Props) {
         label={m.tickets_status_delete_button()}
         confirmLabel={m.tickets_status_delete_confirm_empty()}
         disabled={!automation.ready}
+        busyLabel={m.common_deleting_button()}
         describeError={describeError}
         onConfirm={() => remove({ reassignTo: undefined })}
       />
@@ -138,6 +139,7 @@ function DeleteStatusItems({ status, statuses }: Props) {
             icon={icon}
             label={m.tickets_status_delete_button()}
             confirmLabel={m.tickets_status_delete_confirm_empty()}
+            busyLabel={m.common_deleting_button()}
             describeError={describeError}
             onConfirm={() => remove({ reassignTo: undefined })}
           />
@@ -168,6 +170,7 @@ function DeleteStatusItems({ status, statuses }: Props) {
                     confirmLabel={m.tickets_status_delete_move_confirm({
                       status: meta.label
                     })}
+                    busyLabel={m.common_deleting_button()}
                     describeError={describeError}
                     onConfirm={() => remove({ reassignTo: target.slug })}
                   />

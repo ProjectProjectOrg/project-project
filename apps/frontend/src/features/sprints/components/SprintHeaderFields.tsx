@@ -381,6 +381,7 @@ export function SprintDeleteMenu({ sprint }: { sprint: Group }) {
           icon={<Trash2 className="size-4" strokeWidth={1.75} />}
           label={m.sprints_delete_button()}
           confirmLabel={m.sprints_delete_confirm_title()}
+          busyLabel={m.common_deleting_button()}
           describeError={describeCause}
           onConfirm={onDelete}
         />
