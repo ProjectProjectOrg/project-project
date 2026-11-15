@@ -292,7 +292,7 @@ export function DescriptionField({
         // empty description (click to start writing) tints on hover.
         "relative rounded-xl py-2 transition-colors duration-150 ease-out outline-none [corner-shape:var(--button-corner)] motion-reduce:transition-none",
         editing && "bg-(--field-focus)",
-        !editing && empty && "hover:bg-hover hover:duration-0"
+        !editing && empty && "hover:bg-(--field-hover) hover:duration-0"
       )}
     >
       <div

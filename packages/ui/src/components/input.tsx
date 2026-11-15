@@ -11,11 +11,11 @@ type InputVariant = "default" | "bare"
 // The same heights as Button, so a field and a button sit level in a row.
 type InputSize = "sm" | "md" | "lg"
 
-// The bare field's tint: none at rest, --hover on hover, and the lighter
+// The bare field's tint: none at rest, --field-hover on hover, and the lighter
 // --field-focus while focused. Exported for app fields that edit text in
 // place (a ticket title, a sprint name) so they read like a bare Input.
 const bareFieldTintClass =
-  "rounded-[10px] transition-colors duration-150 [corner-shape:var(--button-corner)] not-disabled:hover:bg-hover not-disabled:hover:duration-0 focus-visible:bg-(--field-focus) focus-within:bg-(--field-focus)"
+  "rounded-[10px] transition-colors duration-150 [corner-shape:var(--button-corner)] not-disabled:hover:bg-(--field-hover) not-disabled:hover:duration-0 focus-visible:bg-(--field-focus) focus-within:bg-(--field-focus)"
 
 // The bare Input: the tint plus 8px of padding, cancelled by equal negative
 // margins, so the text sits exactly where an unpadded field's would and
