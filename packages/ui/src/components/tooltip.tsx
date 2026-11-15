@@ -710,27 +710,47 @@ function PinnedTooltip({
   content: TooltipContextValue["content"]
 }>) {
   const ref = React.useRef<HTMLDivElement>(null)
-  const [layout, setLayout] = React.useState<(Rect & { side: Side }) | null>(
-    null
-  )
+  const [layout, setLayout] = React.useState<
+    (Rect & { side: Side; hidden: boolean }) | null
+  >(null)
   const current = content.current
+  // It's position: fixed like the live one, so it's placed again on every
+  // scroll and resize, and hidden while its trigger is out
+  // of view rather than pinned to the window edge.
   React.useLayoutEffect(() => {
     const element = ref.current
     if (!element || !current) return
-    const box = element.getBoundingClientRect()
-    const next = place(
-      trigger.getBoundingClientRect(),
-      { width: Math.ceil(box.width), height: Math.ceil(box.height) },
-      current.placement
-    )
-    setLayout((previous) =>
-      previous &&
-      previous.x === next.x &&
-      previous.y === next.y &&
-      previous.side === next.side
-        ? previous
-        : next
-    )
+    const update = () => {
+      const box = element.getBoundingClientRect()
+      const anchor = trigger.getBoundingClientRect()
+      const next = place(
+        anchor,
+        { width: Math.ceil(box.width), height: Math.ceil(box.height) },
+        current.placement
+      )
+      const hidden =
+        anchor.bottom < 0 ||
+        anchor.top > window.innerHeight ||
+        anchor.right < 0 ||
+        anchor.left > window.innerWidth
+      setLayout((previous) =>
+        previous &&
+        previous.x === next.x &&
+        previous.y === next.y &&
+        previous.side === next.side &&
+        previous.hidden === hidden
+          ? previous
+          : { ...next, hidden }
+      )
+    }
+    // Scroll events already arrive once per frame; update straight away.
+    update()
+    window.addEventListener("scroll", update, { capture: true, passive: true })
+    window.addEventListener("resize", update)
+    return () => {
+      window.removeEventListener("scroll", update, { capture: true })
+      window.removeEventListener("resize", update)
+    }
   }, [trigger, current])
   if (!current) return null
   return createPortal(
@@ -740,6 +760,7 @@ function PinnedTooltip({
       data-side={layout?.side}
       aria-hidden
       style={{
+        visibility: layout?.hidden ? "hidden" : undefined,
         transform: layout
           ? `translate(${layout.x}px, ${layout.y}px)`
           : "translate(-9999px, 0)"
