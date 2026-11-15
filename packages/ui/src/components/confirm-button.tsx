@@ -26,6 +26,7 @@ import {
 import { DropdownMenuItem } from "./dropdown-menu"
 import { Input } from "./input"
 import { Popover, PopoverContent } from "./popover"
+import { TextSwap } from "./text-swap"
 
 const DEFAULT_KEY = "default"
 // How long an inline confirm stays open before it closes by itself.
@@ -234,7 +235,9 @@ function Confirm({
 // trigger and fades it out, then unmounts it.
 //
 // The clip is in layout pixels (offsetWidth), which also keeps it right
-// inside a CSS `zoom` (the gallery's large specimens).
+// inside a CSS `zoom` (the gallery's large specimens). `w-max`: as an
+// absolute box inside the small trigger span it would otherwise shrink to
+// its min-content width, and TextSwap's text may shrink to nothing.
 function Capsule({
   open,
   from,
@@ -313,7 +316,7 @@ function Capsule({
       data-countdown-hold
       onKeyDown={onKeyDown}
       className={cn(
-        "confirm-capsule absolute -end-0.5 top-1/2 z-20 flex h-8 -translate-y-1/2 items-center justify-end gap-1 rounded-[16px] border border-border/60 bg-card pe-[3px] whitespace-nowrap [corner-shape:var(--button-corner)] *:shrink-0",
+        "confirm-capsule absolute -end-0.5 top-1/2 z-20 flex h-8 w-max -translate-y-1/2 items-center justify-end gap-1 rounded-[16px] border border-border/60 bg-card pe-[3px] whitespace-nowrap [corner-shape:var(--button-corner)] *:shrink-0",
         className
       )}
     >
@@ -510,17 +513,12 @@ function Action<E = unknown>({
     const styles = CONFIRM_SIZES[size]
     return (
       <>
-        <span
-          role={error === null || error === undefined ? undefined : "alert"}
-          className={cn(
-            styles.prompt,
-            error === null || error === undefined
-              ? "text-muted-foreground"
-              : "text-destructive"
-          )}
-        >
-          {error ?? prompt}
-        </span>
+        <PromptLine
+          text={error ?? prompt}
+          failed={error !== null && error !== undefined}
+          muted
+          className={styles.prompt}
+        />
         {children}
         {confirmButton}
         {/* oxlint-disable-next-line jsx-a11y/no-autofocus -- focus follows the click that opened the prompt */}
@@ -618,6 +616,43 @@ function Action<E = unknown>({
   )
 }
 
+// The prompt, or the error in its place. Plain strings roll from one to the
+// other through TextSwap (the capsule follows the width, growing from its
+// end edge), and the colour eases along. The error is also read out as an
+// alert, since TextSwap's text isn't announced when it changes.
+function PromptLine({
+  text,
+  failed,
+  muted = false,
+  className
+}: Readonly<{
+  text: ReactNode
+  failed: boolean
+  muted?: boolean
+  className?: string
+}>) {
+  return (
+    <span
+      className={cn(
+        "transition-colors duration-260 ease-standard",
+        failed
+          ? "text-destructive"
+          : muted
+            ? "text-muted-foreground"
+            : "text-foreground",
+        className
+      )}
+    >
+      {typeof text === "string" ? <TextSwap>{text}</TextSwap> : text}
+      {failed ? (
+        <span role="alert" className="sr-only">
+          {text}
+        </span>
+      ) : null}
+    </span>
+  )
+}
+
 // The inline step inside the capsule: prompt (or the error in its place),
 // the confirm button with its countdown, and an icon-only Cancel that takes
 // focus, so Enter cancels and Esc goes back.
@@ -641,15 +676,11 @@ function CapsuleAction({
   const failed = error !== null && error !== undefined
   return (
     <>
-      <span
-        role={failed ? "alert" : undefined}
-        className={cn(
-          "ps-3.5 pe-1.5 text-body",
-          failed ? "text-destructive" : "text-foreground"
-        )}
-      >
-        {failed ? error : prompt}
-      </span>
+      <PromptLine
+        text={failed ? error : prompt}
+        failed={failed}
+        className="ps-3.5 pe-1.5 text-body"
+      />
       {children}
       {confirmButton}
       <Button

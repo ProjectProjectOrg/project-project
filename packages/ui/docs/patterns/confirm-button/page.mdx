@@ -97,7 +97,7 @@ While `onConfirm` runs, the confirm button shows Button's `loading` state: the l
 
 ### Errors replace the prompt
 
-A failed `onConfirm` shows the error in the prompt's place in the destructive colour, as an alert, and keeps the step open with no countdown, so the person can retry or cancel.
+A failed `onConfirm` rolls the prompt into the error through TextSwap, and the colour eases to destructive; the capsule follows the new width, growing from its end edge. The step stays open with no countdown, so the person can retry or cancel, and a retry rolls the prompt back. The error is also read out as an alert, since TextSwap's text isn't announced when it changes.
 
 ### Wording
 
