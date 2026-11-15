@@ -1,5 +1,6 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { TicketSubscribers, TicketId } from "@pp/shared"
+import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
 import { cn } from "@pp/ui/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
@@ -66,9 +67,13 @@ export function SubscribeToggle({
                 className={cn(waiting && "animate-pulse", className)}
               >
                 <Bell className="size-3.5" strokeWidth={1.75} />
-                {subscribers.subscribed
-                  ? m.tickets_subscribed_button()
-                  : m.tickets_subscribe_button()}
+                <BlurSwap
+                  id={subscribers.subscribed ? "subscribed" : "subscribe"}
+                >
+                  {subscribers.subscribed
+                    ? m.tickets_subscribed_button()
+                    : m.tickets_subscribe_button()}
+                </BlurSwap>
               </Button>
             }
           />
