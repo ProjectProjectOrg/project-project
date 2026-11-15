@@ -207,7 +207,7 @@ function DatePicker(props: DatePickerProps) {
   // Typing straight into the focused trigger: it becomes a text field in
   // place (InlineField), and Enter or leaving it applies what it reads.
   const [typingFrom, setTypingFrom] = useState<string | null>(null)
-  // The field keeps the trigger's width, so nothing around it moves.
+  // The field starts at the trigger's width and grows with the text.
   const [typingWidth, setTypingWidth] = useState<number | undefined>(undefined)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const refocus = useRef(false)
@@ -390,17 +390,80 @@ function DatePicker(props: DatePickerProps) {
   )
 }
 
+// Clips its child and fades the cut edge, only while it's actually cut.
+function ClipFade({ children }: Readonly<{ children: ReactNode }>) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [clipped, setClipped] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (el === null || typeof ResizeObserver === "undefined") return undefined
+    const check = () => setClipped(el.scrollWidth > el.clientWidth + 1)
+    const observer = new ResizeObserver(check)
+    observer.observe(el)
+    if (el.firstElementChild !== null) observer.observe(el.firstElementChild)
+    check()
+    return () => observer.disconnect()
+  }, [])
+  return (
+    <span
+      ref={ref}
+      className="flex min-w-0 overflow-hidden"
+      style={
+        clipped
+          ? {
+              maskImage:
+                "linear-gradient(to right, #000 calc(100% - 20px), transparent)"
+            }
+          : undefined
+      }
+    >
+      {children}
+    </span>
+  )
+}
+
 function TypedResult({
   preview,
-  unreadable
-}: Readonly<{ preview: Preview; unreadable: string }>) {
+  unreadable,
+  fit = false
+}: Readonly<{
+  preview: Preview
+  unreadable: string
+  // In a tight field: the value still rolls through TextSwap, at its own
+  // width, and gives way before anything else, fading out at the clip edge
+  // (Scritto draws in a shadow root, which an ellipsis can't cut); the ↵
+  // key never shrinks.
+  fit?: boolean
+}>) {
   if (preview.kind === "unreadable")
     return (
-      <span className="truncate text-caption text-muted-foreground">
+      <span
+        className={cn(
+          "truncate text-caption text-muted-foreground",
+          fit && "ml-auto min-w-0 shrink-[100]"
+        )}
+      >
         {unreadable}
       </span>
     )
   if (preview.kind === "empty") return null
+  const text =
+    preview.kind === "day"
+      ? formatDay(preview.value)
+      : formatRange(preview.value)
+  if (fit)
+    return (
+      <span className="ml-auto flex shrink-[100] items-center gap-1.5 text-caption text-muted-foreground tabular-nums">
+        <ClipFade>
+          <TextSwap speed="fast" className="max-w-none shrink-0">
+            {text}
+          </TextSwap>
+        </ClipFade>
+        <Kbd size="sm" aria-hidden>
+          ↵
+        </Kbd>
+      </span>
+    )
   return (
     <span className="flex shrink-0 items-center gap-1.5 text-caption text-muted-foreground tabular-nums">
       <TextSwap speed="fast">
@@ -445,12 +508,12 @@ function InlineField({
       className={cn(
         buttonVariants({ variant: "field", size: "md", iconLeft: true }),
         // Button sets its corners outside the variants: the md field's.
-        "min-w-48 cursor-text justify-start rounded-[16px] [corner-shape:var(--button-corner)] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring",
+        "max-w-full min-w-48 cursor-text justify-start rounded-[16px] [corner-shape:var(--button-corner)] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring",
         // A field doesn't press; the ↵ key sits 8px in, like a key in a button.
         "has-[[data-slot=kbd]]:pr-2 motion-safe:active:scale-100",
         className
       )}
-      style={{ width }}
+      style={{ minWidth: width }}
     >
       <CalendarDays aria-hidden className="size-4 shrink-0" />
       <input
@@ -473,10 +536,10 @@ function InlineField({
           apply(preview)
           onEnd(false)
         }}
-        size={1}
-        className="h-full min-w-0 flex-1 bg-transparent text-body outline-hidden"
+        // Grows with what's typed; the preview gives way first.
+        className="[field-sizing:content] h-full min-w-[3ch] shrink bg-transparent text-body outline-hidden"
       />
-      <TypedResult preview={preview} unreadable={labels.unreadable} />
+      <TypedResult preview={preview} unreadable={labels.unreadable} fit />
     </span>
   )
 }
