@@ -37,11 +37,8 @@ function InputGroup({
         // A leading icon sits optically close to the edge, like Button's
         // icon side: about 10px to the glyph against 13px on the text side.
         "has-[>[data-slot=input-group-addon]:first-child]:pl-1",
-        // The shortcut key is inset 8px on every side (7px + the border), so
-        // its corners are the field's minus 8 (18 - 8 = 10) in the same
-        // shape: concentric. No outline: a soft glow along its bottom inside
-        // edge (--kbd-glow) gives it a little depth, like a key catching light.
-        "[&>[data-slot=kbd]]:rounded-[10px] [&>[data-slot=kbd]]:shadow-[inset_0_-1px_2px_var(--kbd-glow)] [&>[data-slot=kbd]]:[corner-shape:var(--button-corner)]",
+        // A trailing shortcut key (Kbd) is inset 8px on every side (7px + the
+        // border), so its 10px corners are the field's 18 minus 8: concentric.
         // The shared focus ring (theme.css .focus-ring), drawn on the group.
         focused === undefined
           ? "focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring"

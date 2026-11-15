@@ -9,7 +9,7 @@ import {
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Input } from "@pp/ui/input"
-import { Kbd } from "@pp/ui/kbd"
+import { KbdShortcut } from "@pp/ui/kbd"
 import { cn } from "@pp/ui/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { Select, SelectTrigger } from "@pp/ui/select"
@@ -26,6 +26,7 @@ import {
 } from "@/features/tickets/lib/estimateMeta"
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { formatWorkDurationLong } from "@/lib/duration"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 const NO_ESTIMATE = "__no-estimate"
@@ -312,13 +313,7 @@ function EstimateInputForm({
         )}
         <Button type="submit" size="sm" disabled={draft.trim() === ""}>
           {m.tickets_estimate_time_save()}
-          <Kbd
-            aria-hidden
-            size="sm"
-            className="bg-background/15 text-background"
-          >
-            ↵
-          </Kbd>
+          <KbdShortcut aria-hidden size="sm" keys="↵" keyLabels={keyLabels()} />
         </Button>
       </div>
     </form>

@@ -177,6 +177,19 @@ const BUTTON_RADIUS: Partial<Record<ButtonSize, string>> = {
   "icon-lg": "rounded-[20px] [corner-shape:var(--button-corner)]"
 }
 
+// A trailing key (Kbd, or a KbdShortcut's keys) sits like a trailing icon,
+// tight to the edge: the end padding becomes (height - key height) / 2, so
+// the key is equally far from the top, bottom and end. A 28px button with a
+// 16px key: 6px all round.
+const KBD_INSET: Partial<Record<ButtonSize, string>> = {
+  xs: "has-[[data-slot=kbd][data-size=sm]]:pr-0.5 has-[[data-slot=kbd][data-size=default]]:pr-0",
+  compact:
+    "has-[[data-slot=kbd][data-size=sm]]:pr-1 has-[[data-slot=kbd][data-size=default]]:pr-0.5",
+  sm: "has-[[data-slot=kbd][data-size=sm]]:pr-1.5 has-[[data-slot=kbd][data-size=default]]:pr-1",
+  md: "has-[[data-slot=kbd][data-size=sm]]:pr-2 has-[[data-slot=kbd][data-size=default]]:pr-1.5",
+  lg: "has-[[data-slot=kbd][data-size=sm]]:pr-2.5 has-[[data-slot=kbd][data-size=default]]:pr-2"
+}
+
 type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "color"> &
   VariantProps<typeof buttonVariants> & {
     ref?: Ref<HTMLButtonElement>
@@ -339,6 +352,7 @@ function Button({
         ? "button-fill button-tertiary"
         : SURFACE_BG[Math.min(surface + 2, 8)]),
     variant !== "toolbar" && (BUTTON_RADIUS[size ?? "md"] ?? "rounded-[20px]"),
+    KBD_INSET[size ?? "md"],
     countdownClass,
     className
   )

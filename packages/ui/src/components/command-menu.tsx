@@ -1,18 +1,5 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import {
-  ArrowBigUp,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowRightToLine,
-  ArrowUp,
-  Check,
-  ChevronUp,
-  Command,
-  CornerDownLeft,
-  Delete,
-  Option
-} from "lucide-react"
+import { Check } from "lucide-react"
 import {
   animate,
   motion,
@@ -47,6 +34,12 @@ import {
 } from "../hooks/useFluidHover"
 import type { IconComponent } from "../lib/icon"
 import { rowScrollTarget, scrollViewportTo } from "../lib/scrollRowIntoView"
+import {
+  KEY_ALIASES,
+  MODIFIER_TOKENS,
+  shortcutTokens,
+  type KeyLabels
+} from "../lib/shortcuts"
 import { spring } from "../lib/springs"
 import { fieldTouchClass } from "../lib/typeScale"
 import { cn } from "../lib/utils"
@@ -54,6 +47,7 @@ import {
   FluidHoverHighlight,
   type FluidHoverSource
 } from "./fluid-hover-highlight"
+import { KbdShortcut } from "./kbd"
 import { menuItemClass } from "./menu-styles"
 import { ScrollArea } from "./scroll-area"
 import { SegmentedTabs } from "./segmented-tabs"
@@ -72,122 +66,6 @@ type CommandMenuSection = Readonly<{
   items: ReadonlyArray<CommandMenuItemData>
   start: number
 }>
-
-const MODIFIER_TOKENS: ReadonlyMap<string, string> = new Map([
-  ["mod", "mod"],
-  ["cmd", "meta"],
-  ["command", "meta"],
-  ["meta", "meta"],
-  ["win", "meta"],
-  ["super", "meta"],
-  ["ctrl", "ctrl"],
-  ["control", "ctrl"],
-  ["alt", "alt"],
-  ["option", "alt"],
-  ["opt", "alt"],
-  ["shift", "shift"]
-])
-
-const KEY_ALIASES: ReadonlyMap<string, string> = new Map([
-  ["esc", "escape"],
-  ["return", "enter"],
-  ["space", " "],
-  ["spacebar", " "],
-  ["up", "arrowup"],
-  ["down", "arrowdown"],
-  ["left", "arrowleft"],
-  ["right", "arrowright"],
-  ["del", "delete"],
-  ["plus", "+"]
-])
-
-const shortcutTokens = (shortcut: string): ReadonlyArray<string> => {
-  const trimmed = shortcut.trim()
-  if (trimmed === "") return []
-  const tokens = trimmed.split("+").map((t) => t.trim())
-  const out: Array<string> = []
-  for (let i = 0; i < tokens.length; i++) {
-    if (tokens[i] === "" && i > 0) {
-      if (out[out.length - 1] !== "+") out.push("+")
-      continue
-    }
-    if (tokens[i] !== "") out.push(tokens[i])
-  }
-  return out
-}
-
-export type KeyLabels = Readonly<{
-  ctrl: string
-  meta: string
-  alt: string
-  shift: string
-  enter: string
-  escape: string
-  backspace: string
-  delete: string
-  tab: string
-  space: string
-}>
-
-type CapLabel = Readonly<{ mac: string; other: string }>
-
-const capLabels = (labels: KeyLabels): ReadonlyMap<string, CapLabel> =>
-  new Map([
-    ["mod", { mac: "⌘", other: labels.ctrl }],
-    ["meta", { mac: "⌘", other: labels.meta }],
-    ["ctrl", { mac: "⌃", other: labels.ctrl }],
-    ["alt", { mac: "⌥", other: labels.alt }],
-    ["shift", { mac: "⇧", other: labels.shift }],
-    ["enter", { mac: "↵", other: labels.enter }],
-    ["escape", { mac: labels.escape, other: labels.escape }],
-    ["backspace", { mac: "⌫", other: labels.backspace }],
-    ["delete", { mac: "⌦", other: labels.delete }],
-    ["tab", { mac: "⇥", other: labels.tab }],
-    [" ", { mac: labels.space, other: labels.space }],
-    ["arrowup", { mac: "↑", other: "↑" }],
-    ["arrowdown", { mac: "↓", other: "↓" }],
-    ["arrowleft", { mac: "←", other: "←" }],
-    ["arrowright", { mac: "→", other: "→" }]
-  ])
-
-const PREFORMATTED = /^[⌘⌃⌥⇧↵⌫⌦⇥↑↓←→]+[A-Za-z0-9]?$/
-
-export function formatShortcut(
-  shortcut: string,
-  mac: boolean,
-  labels: KeyLabels
-): ReadonlyArray<string> {
-  const labelled = capLabels(labels)
-  const caps: Array<string> = []
-  for (const token of shortcutTokens(shortcut)) {
-    if (PREFORMATTED.test(token)) {
-      caps.push(...Array.from(token))
-      continue
-    }
-    const lower = token.toLowerCase()
-    const name = MODIFIER_TOKENS.get(lower) ?? KEY_ALIASES.get(lower) ?? lower
-    const cap = labelled.get(name)
-    if (cap) caps.push(mac ? cap.mac : cap.other)
-    else if (name.length === 1) caps.push(name.toUpperCase())
-    else caps.push(name.charAt(0).toUpperCase() + name.slice(1))
-  }
-  return caps
-}
-
-const isMacPlatform = (): boolean => {
-  if (typeof navigator === "undefined") return false
-  const nav = navigator as Navigator & { userAgentData?: { platform?: string } }
-  const platform = nav.userAgentData?.platform ?? nav.platform ?? ""
-  return /mac|iphone|ipad|ipod/i.test(platform)
-}
-
-let macPlatform: boolean | null = null
-const readMac = () => (macPlatform ??= isMacPlatform())
-const serverMac = () => true
-const subscribeNever = () => () => {}
-
-const useIsMac = (): boolean =>
-  useSyncExternalStore(subscribeNever, readMac, serverMac)
 
 const fadeSizes = new WeakMap<HTMLElement, number>()
 
@@ -831,66 +709,18 @@ export type CommandMenuShortcutProps = HTMLAttributes<HTMLElement> &
     keyLabels: KeyLabels
   }>
 
-const GLYPH_ICONS = {
-  "↵": CornerDownLeft,
-  "⇥": ArrowRightToLine,
-  "←": ArrowLeft,
-  "→": ArrowRight,
-  "↑": ArrowUp,
-  "↓": ArrowDown,
-  "⌫": Delete,
-  "⌘": Command,
-  "⇧": ArrowBigUp,
-  "⌥": Option,
-  "⌃": ChevronUp
-} satisfies Readonly<Record<string, IconComponent>>
-
-const isGlyph = (cap: string): cap is keyof typeof GLYPH_ICONS =>
-  Object.hasOwn(GLYPH_ICONS, cap)
-
-function CapLabel({ cap }: Readonly<{ cap: string }>) {
-  if (!isGlyph(cap)) return cap
-  const Icon = GLYPH_ICONS[cap]
-  return (
-    <>
-      <Icon aria-hidden className="size-[1em]" strokeWidth={2} />
-      <span className="sr-only">{cap}</span>
-    </>
-  )
-}
-
+// The command menu's shortcut caps are Kbd's (KbdShortcut), pushed to the
+// row's end.
 function CommandMenuShortcut({
-  keys,
-  keyLabels,
   className,
-  ref,
   ...props
 }: CommandMenuShortcutProps & Readonly<{ ref?: Ref<HTMLElement> }>) {
-  const mac = useIsMac()
-  const caps = [keys].flat().flatMap((k) => formatShortcut(k, mac, keyLabels))
   return (
-    <kbd
-      ref={ref}
+    <KbdShortcut
       data-slot="command-menu-shortcut"
-      className={cn(
-        "ml-auto inline-flex shrink-0 items-center gap-0.5 align-middle font-sans",
-        className
-      )}
+      className={cn("ml-auto", className)}
       {...props}
-    >
-      {caps.map((cap, i) => (
-        <span
-          key={`${cap}-${i}`}
-          className={cn(
-            "flex items-center justify-center rounded-[5px] bg-hover text-muted-foreground",
-            "h-5 min-w-5 px-1",
-            "text-micro"
-          )}
-        >
-          <CapLabel cap={cap} />
-        </span>
-      ))}
-    </kbd>
+    />
   )
 }
 
@@ -1263,6 +1093,8 @@ function CommandMenuCheck({ label }: Readonly<{ label: string }>) {
     </>
   )
 }
+
+export { formatShortcut, type KeyLabels } from "../lib/shortcuts"
 
 export {
   commandMenuItemId,

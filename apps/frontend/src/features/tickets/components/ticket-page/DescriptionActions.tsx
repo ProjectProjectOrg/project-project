@@ -54,7 +54,7 @@ export function DescriptionActions({
               onClick={onDone}
               title={status === "failed" ? m.editor_save_failed() : undefined}
               className={cn(
-                "rounded-full pr-1.5 pl-3",
+                "rounded-full pl-3",
                 status === "failed"
                   ? "bg-destructive-light text-destructive hover:bg-destructive-light"
                   : "bg-surface-2 bg-[image:linear-gradient(var(--tint),var(--tint))] hover:bg-surface-2 hover:bg-[image:linear-gradient(var(--tint-hover),var(--tint-hover))]"
@@ -66,9 +66,7 @@ export function DescriptionActions({
                   ? m.tickets_description_not_saved()
                   : m.tickets_description_done()}
               </MorphLabel>
-              <Kbd aria-hidden className="rounded-full px-1.5">
-                {m.tickets_description_done_key()}
-              </Kbd>
+              <Kbd aria-hidden>{m.tickets_description_done_key()}</Kbd>
               <span aria-live="polite" className="sr-only">
                 {statusLabel[status]()}
               </span>
@@ -79,16 +77,11 @@ export function DescriptionActions({
               aria-label={m.tickets_description_edit()}
               aria-keyshortcuts="E"
               onClick={onEdit}
-              className="rounded-full bg-page pr-1.5 pl-3 hover:bg-page hover:bg-[image:linear-gradient(var(--hover),var(--hover))]"
+              className="rounded-full bg-page pl-3 hover:bg-page hover:bg-[image:linear-gradient(var(--hover),var(--hover))]"
             >
               <Pencil className="-mr-0.5 size-3.5" strokeWidth={1.75} />
               {m.tickets_description_edit_short()}
-              <Kbd
-                aria-hidden
-                className="rounded-full bg-surface-5 px-1.5 shadow-surface-1"
-              >
-                {m.tickets_description_edit_key()}
-              </Kbd>
+              <Kbd aria-hidden>{m.tickets_description_edit_key()}</Kbd>
             </Button>
           )}
         </motion.div>

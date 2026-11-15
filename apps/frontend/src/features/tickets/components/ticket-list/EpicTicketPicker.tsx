@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import { finishedStatusSlugs, type Ticket, type TicketId } from "@pp/shared"
 import { Button } from "@pp/ui/button"
-import { Kbd } from "@pp/ui/kbd"
+import { Kbd, KbdShortcut } from "@pp/ui/kbd"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -21,6 +21,7 @@ import {
   childTicketsRequest
 } from "@/features/tickets/atoms/childTickets"
 import type { TicketRow } from "@/features/tickets/lib/ticketRows"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 const keepFocus = (e: React.MouseEvent) => e.preventDefault()
@@ -224,7 +225,7 @@ export function EpicTicketPicker({
         )}
         <div className="flex items-center justify-between gap-2 px-2 pt-2 pb-1">
           <span className="flex items-center gap-1 text-micro text-muted-foreground">
-            <Kbd size="sm">↑↓</Kbd>
+            <KbdShortcut size="sm" keys="↑↓" keyLabels={keyLabels()} />
             <Kbd size="sm">{m.sprints_add_epic_key_space()}</Kbd>
             <span className="ml-0.5">{m.sprints_add_epic_toggle_hint()}</span>
           </span>
@@ -248,9 +249,7 @@ export function EpicTicketPicker({
               onClick={onAdd}
             >
               {m.sprints_add_epic_action({ count })}
-              <Kbd size="sm" className="bg-primary-foreground/15 text-inherit">
-                ↵
-              </Kbd>
+              <KbdShortcut size="sm" keys="↵" keyLabels={keyLabels()} />
             </Button>
           </div>
         </div>
