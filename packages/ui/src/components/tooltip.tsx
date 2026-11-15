@@ -1,5 +1,6 @@
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
+import Scritto from "@scritto/react"
 import { AnimatePresence, motion, type Transition } from "motion/react"
 import * as React from "react"
 import { createPortal } from "react-dom"
@@ -481,16 +482,10 @@ function HostSurface() {
               "fixed top-0 left-0 z-50 grid overflow-hidden p-0"
             )}
           >
-            <AnimatePresence initial={false}>
-              <motion.div
-                key={id}
-                variants={reduced ? fadeSwap : labelSwap}
-                initial="hidden"
-                animate="shown"
-                exit="hidden"
-                // Each label keeps the size it was measured at, so the
-                // leaving one doesn't reflow while the box resizes.
-                style={{ width: layout.width, height: layout.height }}
+            {typeof content === "string" ? (
+              // EXPERIMENT (exp/scritto): a plain-text label rolls per glyph
+              // through Scritto, keeping the letters the two labels share.
+              <div
                 className={cn(
                   inkClass,
                   contentClass,
@@ -498,9 +493,30 @@ function HostSurface() {
                   registration?.className
                 )}
               >
-                {content}
-              </motion.div>
-            </AnimatePresence>
+                <Scritto value={content} />
+              </div>
+            ) : (
+              <AnimatePresence initial={false}>
+                <motion.div
+                  key={id}
+                  variants={reduced ? fadeSwap : labelSwap}
+                  initial="hidden"
+                  animate="shown"
+                  exit="hidden"
+                  // Each label keeps the size it was measured at, so the
+                  // leaving one doesn't reflow while the box resizes.
+                  style={{ width: layout.width, height: layout.height }}
+                  className={cn(
+                    inkClass,
+                    contentClass,
+                    "col-start-1 row-start-1 bg-transparent",
+                    registration?.className
+                  )}
+                >
+                  {content}
+                </motion.div>
+              </AnimatePresence>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
