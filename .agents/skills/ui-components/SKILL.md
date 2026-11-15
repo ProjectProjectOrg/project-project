@@ -133,8 +133,8 @@ Set during the polish passes; a component that breaks one is not done.
 
 | Component | State |
 | --- | --- |
-| Checkbox, Dropdown menu, Avatar, Segmented tabs, Button, Switch, Input (+ input group), Select, Badge, Popover | Done: polished, documented, in the gallery |
-| Tooltip, Dialog, Confirm button, Command menu | Queued in `packages/ui/queued/`, hidden from the gallery |
+| Checkbox, Dropdown menu, Avatar, Segmented tabs, Button, Switch, Input (+ input group), Select, Badge, Popover, Tooltip | Done: polished, documented, in the gallery |
+| Dialog, Confirm button, Command menu | Queued in `packages/ui/queued/`, hidden from the gallery |
 
 Open question from the Select pass: dropdown radio rows with `closeOnClick` skip the settle animation (`settleAtOnceClass` in `dropdown-menu.tsx`); ask Wouter whether they should animate again.
 

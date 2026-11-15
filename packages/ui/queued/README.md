@@ -7,4 +7,4 @@ the `ui-components` skill.
 
 `prototypes/` holds the first-round HTML prototypes (open one in T3 to show it).
 
-Queue, in order: tooltip, dialog, confirm-button, command-menu.
+Queue, in order: dialog, confirm-button, command-menu.
