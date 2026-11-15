@@ -192,10 +192,8 @@ function useHighlightRect(
   return state
 }
 
-const TONES: Record<HighlightTone, string> = {
-  default: "bg-hover",
-  destructive: "bg-destructive/10 dark:bg-destructive/20"
-}
+// Fills live in theme.css ([data-slot=menu-highlight]): hover and press
+// match the ghost and destructive buttons.
 
 export function MenuHighlight({
   selector = HIGHLIGHTED,
@@ -216,7 +214,6 @@ export function MenuHighlight({
             data-tone={rect.tone}
             className={cn(
               "pointer-events-none absolute top-0 left-0 block rounded-md",
-              TONES[rect.tone],
               className
             )}
             initial={{

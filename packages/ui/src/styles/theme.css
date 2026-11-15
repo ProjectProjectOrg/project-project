@@ -755,6 +755,30 @@
   }
 }
 
+/* Menu highlight (menu-highlight.tsx): the shape that glides between rows.
+   Hover and press match the buttons: plain rows take the ghost button's
+   --hover, then --active while pressed; destructive rows the destructive
+   button's fill, then its hover mix. */
+[data-slot="menu-highlight"] {
+  background-color: var(--hover);
+  transition: background-color 80ms var(--ease-standard);
+}
+[data-slot="menu-highlight"][data-tone="destructive"] {
+  background-color: var(--destructive-light);
+}
+[data-menu-highlight-host]:has([data-highlighted]:active)
+  [data-slot="menu-highlight"] {
+  background-color: var(--active);
+}
+[data-menu-highlight-host]:has([data-highlighted]:active)
+  [data-slot="menu-highlight"][data-tone="destructive"] {
+  background-color: color-mix(
+    in oklab,
+    var(--destructive-light),
+    var(--destructive) 10%
+  );
+}
+
 /* Countdown (lib/countdown.ts): the fill is the timer. --countdown-fill
    sits in ::before and drains toward the start over --countdown, then the
    element calls onElapsed. Pointer over the element or over a

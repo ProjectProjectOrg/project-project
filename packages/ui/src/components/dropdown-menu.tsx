@@ -10,9 +10,10 @@ import { useActivityHiddenPortalRef } from "../hooks/useActivityHiddenPortalRef"
 import { useCountdown } from "../lib/countdown"
 import { forwardThroughMenuBackdrop, isMenuBackdrop } from "../lib/menuBackdrop"
 import {
-  MenuCloseProvider,
-  useCloseMenu,
-  useMenuActionsRef
+  MenuControlProvider,
+  useHeldOpenChange,
+  useMenuControl,
+  useMenuRoot
 } from "../lib/menuClose"
 import { openOnReleaseProps } from "../lib/openOnRelease"
 import {
@@ -72,13 +73,18 @@ function DeferredDropdownMenus({ children }: { children: React.ReactNode }) {
 function DropdownMenu({
   filterable = false,
   actionsRef: givenActions,
+  onOpenChange,
   ...rest
 }: DropdownMenuProps) {
   const defer = React.useContext(DeferMenusContext)
-  const actions = useMenuActionsRef(givenActions)
-  const props = { ...rest, actionsRef: actions.ref }
+  const root = useMenuRoot(givenActions, onOpenChange)
+  const props = {
+    ...rest,
+    actionsRef: root.ref,
+    onOpenChange: root.onOpenChange
+  }
   return (
-    <MenuCloseProvider value={actions.close}>
+    <MenuControlProvider value={root.control}>
       <PopupAnchorProvider>
         {defer && !props.handle && typeof props.children !== "function" ? (
           <DeferredDropdownMenu {...props} filterable={filterable}>
@@ -90,7 +96,7 @@ function DropdownMenu({
           </FilterableRoot>
         )}
       </PopupAnchorProvider>
-    </MenuCloseProvider>
+    </MenuControlProvider>
   )
 }
 
@@ -333,7 +339,16 @@ function DropdownMenuConfirmItem<E = unknown>({
 }: DropdownMenuConfirmItemProps<E>) {
   const [phase, setPhase] = React.useState<"idle" | "armed" | "busy">("idle")
   const [error, setError] = React.useState<string | null>(null)
-  const closeMenu = useCloseMenu()
+  const menu = useMenuControl()
+  // Release the hold if the item goes away mid-action, so it can't leave
+  // its menu stuck open.
+  const holding = React.useRef(false)
+  React.useEffect(
+    () => () => {
+      if (holding.current) menu.hold(false)
+    },
+    [menu]
+  )
   const disarm = () => {
     setPhase("idle")
     setError(null)
@@ -344,18 +359,24 @@ function DropdownMenuConfirmItem<E = unknown>({
       counting ? { seconds: timeout, onElapsed: disarm } : undefined
     )
 
+  // While onConfirm runs, the menu can't close (Escape, an outside click,
+  // hovering off a submenu); the item closes it itself once it succeeds.
   async function run() {
     setPhase("busy")
     setError(null)
+    menu.hold(true)
+    holding.current = true
     const outcome = await Promise.resolve()
       .then(onConfirm)
       .catch(() => false as const)
+    holding.current = false
+    menu.hold(false)
     if (outcome === false) return setPhase("armed")
     if (Exit.isExit(outcome) && Exit.isFailure(outcome)) {
       setPhase("armed")
       return setError(describeError(outcome.cause))
     }
-    if (closeOnConfirm) closeMenu()
+    if (closeOnConfirm) menu.close()
     setPhase("idle")
   }
 
@@ -378,7 +399,9 @@ function DropdownMenuConfirmItem<E = unknown>({
       className={cn(
         countdownClass,
         destructive
-          ? "[--countdown-fill:var(--destructive-light)]"
+          ? // A step past the hover fill, so the countdown still reads
+            // with the highlight under it.
+            "[--countdown-fill:color-mix(in_oklab,var(--destructive-light),var(--destructive)_16%)]"
           : "[--countdown-fill:var(--active)] data-[armed]:text-foreground",
         className
       )}
@@ -682,13 +705,16 @@ const SUBMENU_ALIGN_OFFSET = -MENU_ROW_INSET
 
 function DropdownMenuSub({
   filterable = false,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof MenuPrimitive.SubmenuRoot> & {
   filterable?: DropdownMenuFilter
 }) {
+  // Stays open while an item in the menu is running its action.
+  const guarded = useHeldOpenChange(onOpenChange)
   return (
     <FilterableRoot filterable={filterable}>
-      <MenuPrimitive.SubmenuRoot {...props} />
+      <MenuPrimitive.SubmenuRoot {...props} onOpenChange={guarded} />
     </FilterableRoot>
   )
 }

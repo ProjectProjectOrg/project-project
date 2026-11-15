@@ -1,7 +1,7 @@
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu"
 import * as React from "react"
 
-import { MenuCloseProvider, useMenuActionsRef } from "../lib/menuClose"
+import { MenuControlProvider, useMenuRoot } from "../lib/menuClose"
 import { cn } from "../lib/utils"
 import { DropdownMenuPortal } from "./dropdown-menu"
 import { MenuHighlight } from "./menu-highlight"
@@ -9,13 +9,18 @@ import { menuPopupClass } from "./menu-styles"
 
 function ContextMenu({
   actionsRef: givenActions,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Root>) {
-  const actions = useMenuActionsRef(givenActions)
+  const root = useMenuRoot(givenActions, onOpenChange)
   return (
-    <MenuCloseProvider value={actions.close}>
-      <ContextMenuPrimitive.Root {...props} actionsRef={actions.ref} />
-    </MenuCloseProvider>
+    <MenuControlProvider value={root.control}>
+      <ContextMenuPrimitive.Root
+        {...props}
+        actionsRef={root.ref}
+        onOpenChange={root.onOpenChange}
+      />
+    </MenuControlProvider>
   )
 }
 

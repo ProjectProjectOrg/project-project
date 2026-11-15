@@ -21,9 +21,9 @@ export const meta = {
 
 ## Overview
 
-Every kind of row and state in one menu: the highlight resting on the first item, plain items with icons and shortcuts, a disabled item, checkbox and radio choices, a submenu and a destructive action. Hover or use the arrow keys to move the highlight.
+Every kind of row and state in one menu: the highlight resting on the first item, plain items with icons and shortcuts, a disabled item, checkbox and radio choices, a submenu, a destructive action, and confirm items: live, armed, busy and failed. The busy one holds the menu open, as it would while a delete runs. Hover, press or use the arrow keys to move the highlight.
 
-<Demo name="overview" title="All states" className="min-h-[38rem] place-items-start justify-items-center" />
+<Demo name="overview" title="All states" className="min-h-[46rem] place-items-start justify-items-center" />
 
 ## Usage
 
@@ -105,9 +105,13 @@ A radio row behaves like a checkbox row: the chosen option gets the leading slot
 
 Shortcuts and other trailing text get 4px more room on the right than the row's 8px padding, so letters such as ⌘D don't crowd the highlight's rounded edge. Trailing icons, such as the submenu chevron, keep the plain padding.
 
+### Hover and press match the buttons
+
+The highlight that glides between rows takes the ghost button's fills: `--hover` on hover, `--active` while pressed. Destructive rows take the destructive button's: `--destructive-light`, then its hover mix while pressed. Selects and the mention menu share the same highlight.
+
 ### Destructive items confirm in place
 
-A menu is already a small surface the person is looking at, so a delete confirms right there instead of opening a popover. The first click arms the item: its label rolls to the question (`confirmLabel`) through TextSwap, and its fill becomes Button's countdown, drawn whether or not the pointer is on it, draining over 4 seconds. A second click runs `onConfirm`, with the logo loader in the icon's place, then closes the whole menu. When the countdown runs out the label rolls back. A failure rolls the error in and keeps the item armed, without a countdown, for a retry. Pointer over the item or keyboard focus on it holds the countdown, so keyboard users never run out of time. Choices that need more than yes or no become separate items (delete, or delete with its sub-tickets) or a submenu of `quiet` items that only turn red when armed (move its tickets to this status, then delete).
+A menu is already a small surface the person is looking at, so a delete confirms right there instead of opening a popover. The first click arms the item: its label rolls to the question (`confirmLabel`) through TextSwap, and its fill becomes Button's countdown, drawn whether or not the pointer is on it, draining over 4 seconds. A second click runs `onConfirm`, with the logo loader in the icon's place, then closes the whole menu. When the countdown runs out the label rolls back. A failure rolls the error in and keeps the item armed, without a countdown, for a retry. Pointer over the item or keyboard focus on it holds the countdown, so keyboard users never run out of time. While `onConfirm` runs the menu holds itself open: Escape, an outside click or hovering off a submenu can't close it under a running action. The armed fill is a step darker than the destructive hover, so the countdown still reads with the highlight under it. Choices that need more than yes or no become separate items (delete, or delete with its sub-tickets) or a submenu of `quiet` items that only turn red when armed (move its tickets to this status, then delete).
 
 ## Examples
 
