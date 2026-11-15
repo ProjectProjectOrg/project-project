@@ -82,9 +82,8 @@ The well uses a 20px radius shaped by `--button-corner`, and the icon tile uses 
 | Look | When | In the app |
 | --- | --- | --- |
 | `strong`, animated | First run: the whole screen is the invitation | Dashboard with no projects |
-| `medium`, animated | A page's main content is empty; the next step is to add something | Backlog, open sprint, Projects page, Jira imports |
+| `medium`, animated | A page's main content is empty; the next step is to add something | Backlog, open sprint, sprints, library, Projects page, Jira imports |
 | `medium`, still | The user emptied it, and the action undoes that | Filters hide everything, every column hidden, a completed sprint |
-| `subtle`, animated | The page brings its own illustration, which leads | No sprints, the library |
 | `subtle`, still | A section, panel or popup inside a bigger screen | Dashboard sections, attachments, ⌘K, the ⌘K peek |
 
 Motion means "start here". A screen gets at most one drifting well, so an empty state inside a busy screen holds still.
@@ -95,7 +94,7 @@ Each `Empty` picks a random seed when it mounts and samples its own patch of the
 
 ### Always an icon
 
-Every empty state leads with an icon tile (or its own illustration), then a title, then one sentence. The title is foreground even inside muted surroundings such as ⌘K.
+Every empty state leads with a Lucide icon on the tile (`EmptyMedia variant="icon"`), then a title, then one sentence. No custom illustrations: the dither is the only decoration. The title is foreground even inside muted surroundings such as ⌘K.
 
 ### What isn't an Empty
 
@@ -107,22 +106,28 @@ An animated well drifts slowly (speed 0.1). A still one reveals once and then ho
 
 ## Examples
 
-Every empty state in the app, grouped by where it appears. Each caption names its intensity and motion.
+One of each kind of empty state in the app. The caption names its intensity and motion.
 
 ### Pages
 
-<Demo name="pages" title="Pages and panels" />
+The backlog with no tickets yet, the backlog with filters that hide everything (still, with the way out), and Jira imports, whose empty state carries a list and a button.
 
-### Dashboard and projects
+<Demo name="pages" title="Pages" />
 
-<Demo name="dashboard" title="Dashboard and projects" />
+### Dashboard
 
-### Attachments
+The first run is the strongest well in the app. Beneath it, a dashboard section stays subtle and still under its heading.
 
-<Demo name="attachments" title="Attachments" />
+<Demo name="dashboard" title="Dashboard" />
 
 ### ⌘K
 
-<Demo name="command-menu" title="⌘K, search" />
+A query nothing matches. The action turns it into a ticket, and Enter runs it.
 
-<Demo name="command-menu-pages" title="⌘K pages" />
+<Demo name="command-menu" title="⌘K, no results" />
+
+### ⌘K peek
+
+The peek pane next to a row with nothing to preview. The well fills the pane and has only a title.
+
+<Demo name="peek" title="⌘K peek" />

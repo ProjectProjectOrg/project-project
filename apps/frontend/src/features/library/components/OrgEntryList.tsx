@@ -113,6 +113,11 @@ function OrgEntryList({
             ? m.templates_types_empty()
             : m.templates_sections_empty()
         }
+        hint={
+          kind === "type"
+            ? m.templates_types_empty_hint()
+            : m.templates_sections_empty_hint()
+        }
       />
     )
 

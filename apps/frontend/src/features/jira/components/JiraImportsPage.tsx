@@ -6,11 +6,12 @@ import {
   EmptyContent,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle
 } from "@pp/ui/empty"
 import { Link } from "@tanstack/react-router"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import { Plus } from "lucide-react"
+import { Import, Plus } from "lucide-react"
 import { MotionConfig } from "motion/react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
@@ -122,6 +123,9 @@ function ImportsEmpty({ orgSlug }: Readonly<{ orgSlug: string }>) {
   return (
     <Empty>
       <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Import strokeWidth={1.75} />
+        </EmptyMedia>
         <EmptyTitle>{m.jira_import_empty_title()}</EmptyTitle>
         <EmptyDescription>{m.jira_import_empty_description()}</EmptyDescription>
       </EmptyHeader>

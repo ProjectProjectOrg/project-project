@@ -7,11 +7,8 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@pp/ui/empty"
-import { EyeOff, FilterX, ListChecks, Plus, Trophy } from "lucide-react"
+import { Import, FilterX, ListChecks, Plus } from "lucide-react"
 import type { ReactNode } from "react"
-
-import { DitheredBlocks } from "../parts/dithered-blocks"
-import { DitheredCalendar } from "../parts/dithered-calendar"
 
 function Case({
   caption,
@@ -69,72 +66,6 @@ export default function Pages() {
             </EmptyContent>
           </Empty>
         </Case>
-        <Case caption="Boards · every column hidden · medium, still">
-          <Empty animated={false}>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <EyeOff strokeWidth={1.75} />
-              </EmptyMedia>
-              <EmptyTitle>All columns hidden</EmptyTitle>
-              <EmptyDescription>
-                Every status column is hidden in View options.
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button type="button" variant="secondary" size="sm">
-                Show all columns
-              </Button>
-            </EmptyContent>
-          </Empty>
-        </Case>
-        <Case caption="Sprints · no sprints yet · subtle, animated">
-          <Empty intensity="subtle">
-            <EmptyMedia>
-              <DitheredCalendar size={120} />
-            </EmptyMedia>
-            <EmptyTitle>No sprints yet</EmptyTitle>
-            <EmptyDescription>
-              Plan a span of work, drop tickets in, and let the date range carry
-              the rhythm.
-            </EmptyDescription>
-          </Empty>
-        </Case>
-        <Case caption="Sprint · open, no tickets · medium, animated">
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <ListChecks strokeWidth={1.75} />
-              </EmptyMedia>
-              <EmptyTitle>No tickets in this sprint yet</EmptyTitle>
-              <EmptyDescription>
-                Add tickets from the backlog to plan this sprint.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        </Case>
-        <Case caption="Sprint · completed, nothing finished · medium, still">
-          <Empty animated={false}>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Trophy strokeWidth={1.75} />
-              </EmptyMedia>
-              <EmptyTitle>Nothing was finished in this sprint</EmptyTitle>
-              <EmptyDescription>
-                Unfinished tickets moved out when it was completed.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        </Case>
-        <Case caption="Library · no types · subtle, animated">
-          <Empty intensity="subtle" className="min-h-[220px]">
-            <EmptyMedia className="mb-1">
-              <DitheredBlocks size={88} />
-            </EmptyMedia>
-            <EmptyTitle className="font-['Geist_Pixel'] text-title font-normal">
-              no types
-            </EmptyTitle>
-          </Empty>
-        </Case>
       </div>
 
       <Case caption="Jira imports · none yet · medium, animated">
@@ -152,6 +83,9 @@ export default function Pages() {
           </div>
           <Empty>
             <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Import strokeWidth={1.75} />
+              </EmptyMedia>
               <EmptyTitle>Bring a Jira project over</EmptyTitle>
               <EmptyDescription>
                 Scan a Jira project, check how it maps, then import it as a new

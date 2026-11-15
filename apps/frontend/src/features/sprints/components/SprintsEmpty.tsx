@@ -1,17 +1,24 @@
-import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from "@pp/ui/empty"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle
+} from "@pp/ui/empty"
+import { CalendarRange } from "lucide-react"
 
 import { m } from "@/paraglide/messages"
 
-import { DitheredCalendar } from "./DitheredCalendar"
-
 export function SprintsEmpty() {
   return (
-    <Empty intensity="subtle">
-      <EmptyMedia>
-        <DitheredCalendar size={120} />
-      </EmptyMedia>
-      <EmptyTitle>{m.sprints_empty_no_sprints_title()}</EmptyTitle>
-      <EmptyDescription>{m.sprints_empty_no_sprints_body()}</EmptyDescription>
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <CalendarRange strokeWidth={1.75} />
+        </EmptyMedia>
+        <EmptyTitle>{m.sprints_empty_no_sprints_title()}</EmptyTitle>
+        <EmptyDescription>{m.sprints_empty_no_sprints_body()}</EmptyDescription>
+      </EmptyHeader>
     </Empty>
   )
 }
