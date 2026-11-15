@@ -3,6 +3,7 @@ import { CollapsingLabel } from "@pp/ui/collapsing-label"
 import { cn } from "@pp/ui/lib/utils"
 import { menuItemMetaClass } from "@pp/ui/menu-styles"
 import type { SelectOption } from "@pp/ui/select"
+import { TextSwap } from "@pp/ui/text-swap"
 import {
   Bug,
   CircleDashed,
@@ -210,7 +211,6 @@ export function CreatorChip({
   expanded,
   icon,
   label,
-  contentKey,
   labelClassName = "max-w-[16ch]",
   className,
   ...props
@@ -218,8 +218,7 @@ export function CreatorChip({
   Omit<ComponentProps<"button">, "children"> & {
     expanded: boolean
     icon: ReactNode
-    label: ReactNode
-    contentKey: string
+    label: string
     labelClassName?: string
   }
 >) {
@@ -237,10 +236,10 @@ export function CreatorChip({
       )}
     >
       {icon}
-      <CollapsingLabel show={expanded} contentKey={contentKey} gap={6}>
-        <span className={cn("truncate text-caption", labelClassName)}>
+      <CollapsingLabel show={expanded} gap={6}>
+        <TextSwap className={cn("text-caption", labelClassName)}>
           {label}
-        </span>
+        </TextSwap>
       </CollapsingLabel>
     </button>
   )

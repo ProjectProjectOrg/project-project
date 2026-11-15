@@ -115,7 +115,6 @@ export function CreatorTypeMenu({
             tone="muted"
             icon={<TypeGlyph type={shown} />}
             label={label}
-            contentKey={typeOptionValue(type)}
             aria-label={m.tickets_create_type_aria_label({ type: label })}
           />
         }
@@ -205,7 +204,6 @@ export function CreatorSprintMenu({
           }
           label={selected ? selected.name : m.tickets_assign_sprint_chip()}
           labelClassName="max-w-[10ch]"
-          contentKey={selected?.id ?? "none"}
           aria-label={
             selected
               ? m.tickets_sprint_chip_aria({ name: selected.name })

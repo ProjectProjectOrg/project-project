@@ -2,12 +2,11 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Member, ParentFilter, Ticket, TicketId } from "@pp/shared"
 import { Checkbox } from "@pp/ui/checkbox"
 import { DeferredDropdownMenus } from "@pp/ui/dropdown-menu"
-import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
 import { Popover, PopoverTrigger } from "@pp/ui/popover"
+import { TextSwap } from "@pp/ui/text-swap"
 import { Link } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
-import { AnimatePresence, motion } from "motion/react"
 import { memo, use, useRef, useState } from "react"
 
 import { usePointedTicket } from "@/features/command-menu/hooks/usePointedTicket"
@@ -193,20 +192,8 @@ function RowImpl({
                 <span className="shrink-0 text-body">
                   <span className="inline-flex min-w-(--ticket-key-width) items-baseline font-mono text-caption text-muted-foreground tabular-nums">
                     <span>{idPrefix}-</span>
-                    <AnimatePresence initial={false} mode="popLayout">
-                      {!pending && (
-                        <motion.span
-                          key={idTail}
-                          initial={{ opacity: 0, filter: "blur(4px)" }}
-                          animate={{ opacity: 1, filter: "blur(0px)" }}
-                          exit={{ opacity: 0, filter: "blur(4px)" }}
-                          transition={transitions.presence}
-                          className="inline-block"
-                        >
-                          {idTail}
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
+                    {/* A new ticket's number rolls in once it's saved. */}
+                    <TextSwap>{pending ? "" : idTail}</TextSwap>
                   </span>
                 </span>
               </fieldset>

@@ -106,7 +106,6 @@ export default function TicketCreator() {
                     expanded={expanded}
                     icon={<TypeGlyph type={type} />}
                     label={type?.name ?? "No type"}
-                    contentKey={typeKey}
                     aria-label={`Type: ${type?.name ?? "No type"}`}
                   />
                 }
@@ -140,7 +139,6 @@ export default function TicketCreator() {
                       }
                       label={sprint ? sprint.name : "Assign sprint"}
                       labelClassName="max-w-[10ch]"
-                      contentKey={sprintId}
                       aria-label={
                         sprint ? `Sprint: ${sprint.name}` : "Assign sprint"
                       }

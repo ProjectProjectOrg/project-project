@@ -25,6 +25,7 @@ import {
 import { cn } from "@pp/ui/lib/utils"
 import { MemberAvatar } from "@pp/ui/member-avatar"
 import { menuItemMetaClass } from "@pp/ui/menu-styles"
+import { TextSwap } from "@pp/ui/text-swap"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
@@ -153,9 +154,9 @@ export function Filters() {
             <CollapsingLabel show={!compact}>
               {m.tickets_filters_label()}
             </CollapsingLabel>
-            <CollapsingLabel show={active} contentKey={shownCount}>
+            <CollapsingLabel show={active}>
               <Badge variant="count" active>
-                {shownCount}
+                <TextSwap speed="fast">{String(shownCount)}</TextSwap>
               </Badge>
             </CollapsingLabel>
             <ToolbarChevron />

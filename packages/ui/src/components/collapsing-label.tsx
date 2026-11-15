@@ -1,19 +1,20 @@
-import { AnimatePresence, motion, type Transition } from "motion/react"
+import { motion, type Transition } from "motion/react"
 import type { ReactNode } from "react"
 import { useLayoutEffect, useRef, useState } from "react"
 
 import { transitions } from "../lib/springs"
 
+// Collapses a label to nothing and back (a toolbar trigger going compact),
+// easing its width and fading it. To animate a change of the label's text,
+// put a TextSwap inside.
 export function CollapsingLabel({
   show,
   children,
-  contentKey,
   gap = 8,
   transition = transitions.presence
 }: Readonly<{
   show: boolean
   children: ReactNode
-  contentKey?: string | number
   gap?: number
   /** Width and fade timing; defaults to the presence transition. */
   transition?: Transition
@@ -56,18 +57,7 @@ export function CollapsingLabel({
       className="inline-flex items-center overflow-hidden whitespace-nowrap"
     >
       <span ref={innerRef} className="inline-flex shrink-0 items-center">
-        <AnimatePresence initial={false} mode="popLayout">
-          <motion.span
-            key={contentKey ?? "content"}
-            initial={{ opacity: 0, filter: "blur(4px)" }}
-            animate={{ opacity: 1, filter: "blur(0px)" }}
-            exit={{ opacity: 0, filter: "blur(4px)" }}
-            transition={transitions.presence}
-            className="inline-flex items-center"
-          >
-            {children}
-          </motion.span>
-        </AnimatePresence>
+        {children}
       </span>
     </motion.span>
   )

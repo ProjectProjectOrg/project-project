@@ -1,6 +1,7 @@
 import { badgeVariants, type BadgeTone } from "@pp/ui/badge"
 import { CollapsingLabel } from "@pp/ui/collapsing-label"
 import { cn } from "@pp/ui/lib/utils"
+import { TextSwap } from "@pp/ui/text-swap"
 import type { ComponentProps, ReactNode } from "react"
 
 export type CreatorChipProps = Readonly<
@@ -8,8 +9,7 @@ export type CreatorChipProps = Readonly<
     expanded: boolean
     tone: BadgeTone
     icon: ReactNode
-    label: ReactNode
-    contentKey: string
+    label: string
     labelClassName?: string
   }
 >
@@ -19,7 +19,6 @@ export function CreatorChip({
   tone,
   icon,
   label,
-  contentKey,
   labelClassName = "max-w-[16ch]",
   className,
   ...props
@@ -38,10 +37,10 @@ export function CreatorChip({
       )}
     >
       {icon}
-      <CollapsingLabel show={expanded} contentKey={contentKey} gap={6}>
-        <span className={cn("truncate text-caption", labelClassName)}>
+      <CollapsingLabel show={expanded} gap={6}>
+        <TextSwap className={cn("text-caption", labelClassName)}>
           {label}
-        </span>
+        </TextSwap>
       </CollapsingLabel>
     </button>
   )

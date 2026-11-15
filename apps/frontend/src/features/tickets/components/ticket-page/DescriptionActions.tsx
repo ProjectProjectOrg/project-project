@@ -2,9 +2,9 @@ import { Button } from "@pp/ui/button"
 import { Kbd } from "@pp/ui/kbd"
 import { transitions } from "@pp/ui/lib/springs"
 import { cn } from "@pp/ui/lib/utils"
+import { TextSwap } from "@pp/ui/text-swap"
 import { Check, Pencil } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { useState } from "react"
 
 import type { SaveStatus } from "@/features/editor/components/LexicalEditor"
 import { m } from "@/paraglide/messages"
@@ -13,8 +13,6 @@ const morphFrom = { opacity: 0, filter: "blur(4px)" }
 const morphTo = { opacity: 1, filter: "blur(0px)" }
 const fadeOut = { opacity: 0 }
 const SAVED_LINGER_S = 1.2
-const labelBlur = { opacity: 0, filter: "blur(6px)" }
-const labelMorph = { duration: 0.22, ease: [0.4, 0, 0.2, 1] } as const
 const slotOpen = { width: 14, marginRight: 0, opacity: 1 }
 const slotClosed = { width: 0, marginRight: -6, opacity: 0 }
 
@@ -143,32 +141,7 @@ function SaveDot({ status }: Readonly<{ status: SaveStatus }>) {
   )
 }
 
+// The status text beside the description's actions rolls through TextSwap.
 function MorphLabel({ children }: Readonly<{ children: string }>) {
-  const reduce = useReducedMotion() ?? false
-  const hidden = reduce ? fadeOut : labelBlur
-  const [width, setWidth] = useState<number>()
-  return (
-    <motion.span
-      initial={false}
-      animate={{ width: width ?? "auto" }}
-      transition={labelMorph}
-      className="relative inline-flex"
-    >
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.span
-          key={children}
-          ref={(el: HTMLSpanElement | null) => {
-            if (el) setWidth(el.offsetWidth)
-          }}
-          initial={hidden}
-          animate={morphTo}
-          exit={hidden}
-          transition={labelMorph}
-          className="whitespace-nowrap"
-        >
-          {children}
-        </motion.span>
-      </AnimatePresence>
-    </motion.span>
-  )
+  return <TextSwap>{children}</TextSwap>
 }
