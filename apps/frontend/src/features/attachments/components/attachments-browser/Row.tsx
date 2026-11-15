@@ -5,7 +5,7 @@ import { Checkbox } from "@pp/ui/checkbox"
 import { CopyButton } from "@pp/ui/copy-button"
 import { cn } from "@pp/ui/lib/utils"
 import { Select, SelectTrigger } from "@pp/ui/select"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@pp/ui/tooltip"
+import { TooltipGroupTrigger } from "@pp/ui/tooltip"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { Download, FileText } from "lucide-react"
 
@@ -100,39 +100,37 @@ export function Row({
       >
         <div className="flex items-center justify-end gap-0.5">
           <span className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/reveal:opacity-100 group-has-[[data-popup-open]]/reveal:opacity-100 focus-within:opacity-100">
-            <Tooltip>
-              <TooltipTrigger render={<span className="inline-flex" />}>
-                <CopyButton
-                  nativeTitle={false}
-                  value={formatAttachmentMarkdown({
-                    kind: isRasterImageContentType(row.contentType)
-                      ? "image"
-                      : "file",
-                    alt: row.filename,
-                    url: row.url
-                  })}
-                  copyLabel={m.attachments_copy_markdown()}
-                  copiedLabel={m.attachments_copied()}
-                />
-              </TooltipTrigger>
-              <TooltipContent>{m.attachments_copy_markdown()}</TooltipContent>
-            </Tooltip>
+            <TooltipGroupTrigger
+              tooltip={m.attachments_copy_markdown()}
+              render={<span className="inline-flex" />}
+            >
+              <CopyButton
+                nativeTitle={false}
+                value={formatAttachmentMarkdown({
+                  kind: isRasterImageContentType(row.contentType)
+                    ? "image"
+                    : "file",
+                  alt: row.filename,
+                  url: row.url
+                })}
+                copyLabel={m.attachments_copy_markdown()}
+                copiedLabel={m.attachments_copied()}
+              />
+            </TooltipGroupTrigger>
 
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <a
-                    href={attachmentDownloadUrl(orgSlug, row.id)}
-                    download={row.filename}
-                    aria-label={m.attachments_download()}
-                    className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
-                  />
-                }
-              >
-                <Download className="size-3.5" strokeWidth={1.75} />
-              </TooltipTrigger>
-              <TooltipContent>{m.attachments_download()}</TooltipContent>
-            </Tooltip>
+            <TooltipGroupTrigger
+              tooltip={m.attachments_download()}
+              render={
+                <a
+                  href={attachmentDownloadUrl(orgSlug, row.id)}
+                  download={row.filename}
+                  aria-label={m.attachments_download()}
+                  className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
+                />
+              }
+            >
+              <Download className="size-3.5" strokeWidth={1.75} />
+            </TooltipGroupTrigger>
           </span>
           {children}
         </div>

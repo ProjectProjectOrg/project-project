@@ -1,0 +1,100 @@
+export const meta = {
+  title: "Tooltip",
+  group: "Primitives",
+  description:
+    "A short text label shown on hover or keyboard focus, mostly for icon-only buttons. Used in the editor's formatting toolbar and block gutter, sprint chips, attachment rows and the subscribe toggle.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "Tooltip",
+      href: "https://base-ui.com/react/components/tooltip"
+    },
+    {
+      kind: "shadcn",
+      name: "tooltip",
+      note: "starting point, restyled",
+      href: "https://ui.shadcn.com/docs/components/tooltip"
+    }
+  ]
+}
+
+## Overview
+
+On top, a live toolbar sharing one tooltip: hover a button, wait 400ms, then move along the row and the tooltip glides to the next button while its label blurs over. Below, single tooltips pinned open: a label, a label with a shortcut, two lines, and each side.
+
+<Demo
+  name="overview"
+  title="All states"
+  className="min-h-[34rem] place-items-start"
+/>
+
+## Usage
+
+A row of triggers, like a toolbar, shares one tooltip through `TooltipGroup`. Each trigger passes what to show as `tooltip`:
+
+```tsx
+import { TooltipGroup, TooltipGroupTrigger } from "@pp/ui/tooltip"
+
+export function FormattingToolbar() {
+  return (
+    <TooltipGroup sideOffset={10}>
+      <TooltipGroupTrigger
+        tooltip={m.editor_format_bold()}
+        render={
+          <Button
+            variant="toolbar"
+            size="icon-sm"
+            aria-label={m.editor_format_bold()}
+          />
+        }
+      >
+        <Bold />
+      </TooltipGroupTrigger>
+    </TooltipGroup>
+  )
+}
+```
+
+A single trigger uses `Tooltip`, `TooltipTrigger` and `TooltipContent`. Wrap a page or panel in `TooltipProvider` so neighbouring tooltips skip the delay.
+
+```tsx
+<Tooltip>
+  <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label={label} />}>
+    <Download />
+  </TooltipTrigger>
+  <TooltipContent>{label}</TooltipContent>
+</Tooltip>
+```
+
+| Component             | Prop         | Type                                     | Default    |
+| --------------------- | ------------ | ---------------------------------------- | ---------- |
+| `TooltipGroup`        | `delay`      | `number` (ms before the first opens)     | `400`      |
+| `TooltipGroup`        | `side`       | `"top" \| "bottom" \| "left" \| "right"` | `"top"`    |
+| `TooltipGroup`        | `sideOffset` | `number`                                 | `6`        |
+| `TooltipGroupTrigger` | `tooltip`    | `ReactNode`, shown while it's active     | required   |
+| `TooltipProvider`     | `delay`      | `number`                                 | `400`      |
+| `TooltipContent`      | `side`       | `"top" \| "bottom" \| "left" \| "right"` | `"top"`    |
+| `TooltipContent`      | `align`      | `"start" \| "center" \| "end"`           | `"center"` |
+| `TooltipContent`      | `sideOffset` | `number`                                 | `6`        |
+
+## Rules
+
+### Ink
+
+The fill is the foreground colour and the text the page colour: near-black in light, near-white in dark. A tooltip is a label, not a place to interact, so it should read instantly over any surface, including white cards and popovers where a card-coloured tooltip disappears. No border, no shadow, squircle corners at about half its height.
+
+### One tooltip per toolbar
+
+A row of triggers shares a single tooltip (`TooltipGroup`, built on Base UI's tooltip handle). Once it's open, moving along the row doesn't close and reopen it: it glides to the next trigger, resizes to the new label, and the label blurs from old to new, all over 200ms on `ease-standard`. The app's formatting toolbar, block gutter and attachments table use it.
+
+### Timing
+
+The first tooltip waits 400ms, so passing over a button doesn't flash one. Opening and closing fade and scale from 96% over 100ms. Moving within a group, or between tooltips under one provider, is instant.
+
+### Shortcuts
+
+A keyboard shortcut sits on the right in a `Kbd`, which turns into a see-through key inside the ink.
+
+### Label swap uses keyframes
+
+The blur between labels is a keyframe animation (`.pp-tooltip-viewport` in `theme.css`), not a transition. Base UI turns transitions off on the new label while it measures the new size, which swallowed a transition; an animation starts over once the measurement ends.

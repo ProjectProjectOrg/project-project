@@ -15,12 +15,7 @@ import {
 } from "@pp/ui/hooks/useFluidHover"
 import { Popover as PopoverRoot, PopoverContent } from "@pp/ui/popover"
 import { ToggleGroup, ToggleGroupItem } from "@pp/ui/toggle-group"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@pp/ui/tooltip"
+import { TooltipGroup, TooltipGroupTrigger } from "@pp/ui/tooltip"
 import {
   $createParagraphNode,
   $getSelection,
@@ -200,23 +195,21 @@ function ToolbarButton({
   const ref = useRef<HTMLButtonElement>(null)
   useRegisterFluidHoverItem(hover.registerItem, index, ref)
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <ToolbarPrimitive.Button
-            ref={ref}
-            render={render}
-            aria-label={label}
-            onFocus={() => hover.setActiveIndex(index)}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={onPress}
-          />
-        }
-      >
-        {children}
-      </TooltipTrigger>
-      <TooltipContent sideOffset={10}>{label}</TooltipContent>
-    </Tooltip>
+    <TooltipGroupTrigger
+      tooltip={label}
+      render={
+        <ToolbarPrimitive.Button
+          ref={ref}
+          render={render}
+          aria-label={label}
+          onFocus={() => hover.setActiveIndex(index)}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={onPress}
+        />
+      }
+    >
+      {children}
+    </TooltipGroupTrigger>
   )
 }
 
@@ -465,7 +458,7 @@ function ToolbarButtons({
     })
 
   return (
-    <TooltipProvider>
+    <TooltipGroup sideOffset={10}>
       <ToolbarPrimitive.Root
         ref={ref}
         loopFocus
@@ -555,6 +548,6 @@ function ToolbarButtons({
           })}
         </ToggleGroup>
       </ToolbarPrimitive.Root>
-    </TooltipProvider>
+    </TooltipGroup>
   )
 }

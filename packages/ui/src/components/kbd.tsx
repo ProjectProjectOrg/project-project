@@ -17,7 +17,8 @@ function Kbd({
         "pointer-events-none inline-flex w-fit items-center justify-center gap-1 rounded-sm bg-muted px-1 font-sans text-muted-foreground select-none",
         KBD_SIZES[size],
         "[&_svg:not([class*='size-'])]:size-[1em]",
-        "[[data-slot=tooltip-content]_&]:bg-background/20 [[data-slot=tooltip-content]_&]:text-background dark:[[data-slot=tooltip-content]_&]:bg-background/10",
+        // Inside an ink tooltip: a see-through key in the tooltip's text colour.
+        "[[data-slot=tooltip-content]_&]:bg-[color-mix(in_oklab,var(--primary-foreground)_16%,transparent)] [[data-slot=tooltip-content]_&]:text-[color-mix(in_oklab,var(--primary-foreground)_80%,var(--foreground))]",
         className
       )}
       {...props}

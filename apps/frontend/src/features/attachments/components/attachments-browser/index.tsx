@@ -6,7 +6,7 @@ import type {
 import { Checkbox } from "@pp/ui/checkbox"
 import { ConfirmButton } from "@pp/ui/confirm-button"
 import { Empty, EmptyDescription, EmptyTitle } from "@pp/ui/empty"
-import { TooltipProvider } from "@pp/ui/tooltip"
+import { TooltipGroup } from "@pp/ui/tooltip"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useState, type ReactNode } from "react"
@@ -179,7 +179,7 @@ function AttachmentStorageGate({
             </EmptyDescription>
           </Empty>
         ) : (
-          <TooltipProvider>{children}</TooltipProvider>
+          <TooltipGroup>{children}</TooltipGroup>
         )
       }
     />

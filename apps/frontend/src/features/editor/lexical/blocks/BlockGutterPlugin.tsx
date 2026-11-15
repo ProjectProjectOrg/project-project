@@ -2,7 +2,7 @@ import type { Transformer } from "@lexical/markdown"
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import { useLexicalEditable } from "@lexical/react/useLexicalEditable"
 import { mergeRegister } from "@lexical/utils"
-import { TooltipProvider } from "@pp/ui/tooltip"
+import { TooltipGroup } from "@pp/ui/tooltip"
 import {
   $getNodeByKey,
   COMMAND_PRIORITY_LOW,
@@ -521,7 +521,7 @@ export function BlockGutterPlugin({
       : anchor.querySelector(`[data-block-key="${menu.key}"]`)
 
   return createPortal(
-    <TooltipProvider>
+    <TooltipGroup side="left">
       <div className="pointer-events-none absolute inset-0" data-block-gutter>
         {rail !== null && (
           <div
@@ -568,7 +568,7 @@ export function BlockGutterPlugin({
         onClose={() => setMenu(null)}
         onAction={runAction}
       />
-    </TooltipProvider>,
+    </TooltipGroup>,
     anchor
   )
 }
