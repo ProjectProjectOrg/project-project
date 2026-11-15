@@ -77,7 +77,7 @@ import { ConfirmButton } from "@pp/ui/confirm-button";
 
 ### The step slides over the row, it doesn't replace the trigger
 
-The old step swapped the trigger for a prompt and two buttons, so the row reflowed: neighbours shifted and descriptions rewrapped. Now the trigger keeps its slot (faded and `inert`), and the step is a capsule pinned to the trigger's end edge that grows from the trigger's width to fit its content (260ms, `ease-standard`). It covers what is to its start side, never pushes it. Closing shrinks it back over the trigger.
+The old step swapped the trigger for a prompt and two buttons, so the row reflowed: neighbours shifted and descriptions rewrapped. Now the trigger keeps its slot (faded and `inert`), and the step is a capsule pinned to the trigger's end edge. It always lays out at its full width and is revealed by a clip from its start edge, from the trigger's width to all of it (260ms, `ease-standard`), so its content never squeezes. It covers what is to its start side, never pushes it. Closing clips it back down to the trigger while it fades (ease-in, so the shrink stays visible). The clip is measured in layout pixels, so it also holds inside a CSS `zoom`.
 
 ### The capsule is a popup
 
