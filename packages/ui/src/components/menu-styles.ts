@@ -1,7 +1,9 @@
-// The floating surface every popup shares (menus, selects, popovers): card
-// fill, a 60% hairline and no shadow, so they read as one family.
+// The floating surface every popup shares (menus, selects, popovers, preview
+// cards): card fill, a 60% hairline and no shadow, so they read as one
+// family. 19px squircle corners, concentric with a menu row's 14px
+// highlight inset 5px (4px padding + the 1px border).
 export const popupSurfaceClass =
-  "z-50 origin-[var(--transform-origin)] rounded-xl border border-border/60 bg-card text-foreground outline-none"
+  "z-50 origin-[var(--transform-origin)] rounded-[19px] border border-border/60 bg-card text-foreground outline-none [corner-shape:var(--button-corner)]"
 
 export const popupMotionClass =
   "data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-95 data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 motion-reduce:data-[closed]:animate-none motion-reduce:data-[open]:animate-none"

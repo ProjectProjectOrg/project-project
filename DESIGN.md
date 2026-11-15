@@ -198,7 +198,7 @@ There is no chromatic brand primary. The visual "primary" is **foreground** — 
 A single OKLCH grayscale ramp. Every UI surface, border, divider, and disabled treatment lives here.
 
 - **Card** (`oklch(1 0 0)` / `oklch(0.205 0 0)` dark): raised content surface.
-- **Popover** (same as Card): floating surface under menus and pickers. Every popup shares `popupSurfaceClass` (card fill, 60% hairline, no shadow).
+- **Popover** (same as Card): floating surface under menus and pickers. Every popup shares `popupSurfaceClass` (card fill, 60% hairline, no shadow, 19px squircle corners).
 - **Muted** (`oklch(0.945 0 0)` / `oklch(0.269 0 0)` dark): wells and placeholders, one clear step off the page in both themes.
 - **Muted Foreground** (`oklch(0.5 0 0)` / `oklch(0.708 0 0)` dark): secondary text, icon strokes at rest, placeholder text. Holds 4.5:1 on every surface, pressed rows included (lowest: 4.6:1 on the light frame under `--active`).
 - **Accent** (`oklch(0.945 0 0)` / `oklch(0.269 0 0)` dark): the active item in a rail or sidebar. Not a hover fill — hover uses the overlays below.
@@ -379,7 +379,7 @@ Two primitives share one look. Pick by where the trigger lives, not by how many 
 
 Shared rules, all from `packages/ui/src/components/menu-styles.ts`:
 
-- **Chrome:** popup `rounded-xl`, `border-border/60`, `bg-card`, `p-1`, the menu drop shadow. Rows `rounded-md`, 36px (`leading-5`), whatever the app shape is.
+- **Chrome:** popup 19px squircle (`corner-shape: var(--button-corner)`, concentric with the 14px row highlight 5px in), `border-border/60`, `bg-card`, `p-1`, no shadow. Rows `rounded-md`, 36px (`leading-5`), whatever the app shape is.
 - **Rows are flush, fills are inset.** No layout gap between rows, so the hover highlight glides from one to the next. Each row's fill is clipped 1px inside a transparent `border-y`, and `MenuHighlight` insets the same 1px, which leaves an even 2px visual gap between a hovered and a selected row.
 - **The highlight lives in the scroller.** `MenuHighlight` is positioned inside whichever element scrolls, so it moves with its row natively instead of being re-measured. The popup hosts one; a scrolling `DropdownMenuList` hosts its own, and each host tracks only its own items.
 - **Selected:** `bg-active` plus a check in a trailing slot every row reserves, so nothing shifts when the selection moves.
