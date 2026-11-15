@@ -285,7 +285,7 @@ function AttachmentsTable({
 
       {selectedIds.length > 0 ? (
         <div className="flex items-center justify-end gap-3 pt-3">
-          <ConfirmButton.Root>
+          <ConfirmButton.Root flow>
             <ConfirmButton.Trigger type="button" variant="secondary" size="sm">
               {m.attachments_delete_selected({ count: selectedIds.length })}
             </ConfirmButton.Trigger>
@@ -352,7 +352,7 @@ function DeleteCell({
       >
         {m.attachments_delete_button()}
       </ConfirmButton.Trigger>
-      <ConfirmButton.Confirm className="absolute top-1/2 -right-1 z-20 -translate-y-1/2 flex-nowrap rounded-lg border border-border bg-popover py-1 pr-2 pl-3.5 whitespace-nowrap shadow-sm">
+      <ConfirmButton.Confirm>
         <DeleteConfirm
           prompt={deletePrompt({
             count: 1,

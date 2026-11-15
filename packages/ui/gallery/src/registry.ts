@@ -37,7 +37,7 @@ type PageModule = Readonly<{ default: MDXContent; meta: PageMeta }>
 type DemoModule = Readonly<{ default: ComponentType }>
 
 const DOCS_ROOT = "../../docs/"
-const GROUP_ORDER = ["Design system", "Primitives"]
+const GROUP_ORDER = ["Design system", "Primitives", "Patterns"]
 
 const pageModules = import.meta.glob<PageModule>("../../docs/**/*.mdx", {
   eager: true

@@ -105,7 +105,7 @@ export function PeopleSection({
         attention={people.attention}
         searchLabel={m.jira_import_people_search()}
       >
-        <ConfirmButton.Root className="gap-1">
+        <ConfirmButton.Root flow className="gap-1">
           <ConfirmButton.Idle>
             {suggestedCount > 0 ? (
               <Button

@@ -3,7 +3,9 @@ import { cva, type VariantProps } from "class-variance-authority"
 import * as Match from "effect/Match"
 import {
   useState,
+  type AnimationEvent,
   type ButtonHTMLAttributes,
+  type CSSProperties,
   type FocusEvent,
   type MouseEvent,
   type Ref
@@ -189,7 +191,41 @@ type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "color"> &
     ditherHoverDuration?: number
     ditherMatrix?: DitherMatrix
     ditherPixelSize?: number
+    // The fill drains toward the start over `seconds`, then `onElapsed`
+    // runs; for filled variants (destructive, secondary). Hovering or
+    // keyboard focus holds it, on the button or on a [data-countdown-hold]
+    // ancestor. `delay` waits before draining, e.g. for an entrance.
+    countdown?: ButtonCountdown
   }
+
+type ButtonCountdown = Readonly<{
+  seconds: number
+  onElapsed: () => void
+  delay?: number
+}>
+
+// Button's countdown: the timing variables for theme.css, and onElapsed when
+// the drain (on ::before, so the event's target is the button) finishes.
+function useCountdown(
+  countdown: ButtonCountdown | undefined,
+  style: CSSProperties | undefined,
+  onAnimationEnd: ((e: AnimationEvent<HTMLButtonElement>) => void) | undefined
+) {
+  const countdownStyle: CSSProperties | undefined =
+    countdown === undefined
+      ? style
+      : {
+          ...style,
+          "--countdown": `${countdown.seconds}s`,
+          "--countdown-delay": `${countdown.delay ?? 0}s`
+        }
+  const handleAnimationEnd = (e: AnimationEvent<HTMLButtonElement>) => {
+    if (e.animationName === "button-countdown" && e.target === e.currentTarget)
+      countdown?.onElapsed()
+    onAnimationEnd?.(e)
+  }
+  return { countdownStyle, handleAnimationEnd }
+}
 
 function Button({
   className,
@@ -213,6 +249,8 @@ function Button({
   ditherHoverDuration,
   ditherMatrix,
   ditherPixelSize,
+  countdown,
+  onAnimationEnd,
   onMouseEnter,
   onMouseLeave,
   onFocus,
@@ -278,7 +316,13 @@ function Button({
         ? "button-fill button-tertiary"
         : SURFACE_BG[Math.min(surface + 2, 8)]),
     variant !== "toolbar" && (BUTTON_RADIUS[size ?? "md"] ?? "rounded-[20px]"),
+    countdown !== undefined && "button-countdown",
     className
+  )
+  const { countdownStyle, handleAnimationEnd } = useCountdown(
+    countdown,
+    style,
+    onAnimationEnd
   )
   const leadingIconNode = LeadingIcon && (
     <LeadingIcon
@@ -374,7 +418,8 @@ function Button({
       className: compClassName,
       disabled: disabled || loading,
       "data-loading": loading || undefined,
-      style,
+      style: countdownStyle,
+      onAnimationEnd: handleAnimationEnd,
       onMouseEnter: handleMouseEnter,
       onMouseLeave: handleMouseLeave,
       onFocus: handleFocus,
@@ -387,4 +432,4 @@ function Button({
 Button.displayName = "Button"
 
 export { Button, buttonVariants }
-export type { ButtonProps }
+export type { ButtonCountdown, ButtonProps }

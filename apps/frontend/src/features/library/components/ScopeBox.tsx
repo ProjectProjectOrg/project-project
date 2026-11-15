@@ -204,7 +204,7 @@ export function ScopeBox(props: ScopeBoxProps) {
               </Button>
             ) : null}
             {view.canRevert ? (
-              <ConfirmButton.Root className="flex-wrap gap-2">
+              <ConfirmButton.Root flow className="flex-wrap gap-2">
                 <ConfirmButton.Trigger
                   type="button"
                   variant="tertiary"

@@ -47,7 +47,7 @@ export function DeleteEntryConfirm({
   onDelete: () => Promise<Outcome>
 }>) {
   return (
-    <ConfirmButton.Root className="flex-wrap">
+    <ConfirmButton.Root flow className="flex-wrap">
       <ConfirmButton.Trigger
         type="button"
         variant="tertiary"

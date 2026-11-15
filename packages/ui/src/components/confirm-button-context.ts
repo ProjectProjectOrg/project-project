@@ -7,6 +7,11 @@ export type ConfirmButtonContextValue = Readonly<{
   close: () => void
   busy: boolean
   setBusy: (b: boolean) => void
+  // Inline confirm steps take the trigger's place in the layout instead of
+  // sliding over the row as a capsule.
+  flow: boolean
+  // The trigger's width when the step opened; the capsule grows from it.
+  fromWidth: number
 }>
 
 export const ConfirmButtonContext =

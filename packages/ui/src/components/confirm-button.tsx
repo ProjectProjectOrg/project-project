@@ -1,13 +1,16 @@
 import type * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import { Trash2, X } from "lucide-react"
-import { motion } from "motion/react"
+import { AnimatePresence, motion } from "motion/react"
 import {
   useCallback,
+  useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   type ComponentProps,
+  type KeyboardEvent,
   type ReactNode
 } from "react"
 
@@ -24,21 +27,33 @@ import { Input } from "./input"
 import { Popover, PopoverContent } from "./popover"
 
 const DEFAULT_KEY = "default"
+// How long an inline confirm stays open before it closes by itself.
+const CONFIRM_SECONDS = 4
 
 export { useConfirmButton }
 
+// `flow`: the inline confirm step takes the trigger's place in the layout
+// (and may wrap), for long prompts in narrow places. Without it the step
+// slides out over the row as a capsule and nothing reflows.
 function Root({
   className,
   bare = false,
+  flow = false,
   children
 }: Readonly<{
   className?: string
   bare?: boolean
+  flow?: boolean
   children: ReactNode
 }>) {
   const [active, setActive] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const open = useCallback((key: string = DEFAULT_KEY) => setActive(key), [])
+  const [fromWidth, setFromWidth] = useState(0)
+  const rootRef = useRef<HTMLSpanElement>(null)
+  const open = useCallback((key: string = DEFAULT_KEY) => {
+    setFromWidth(rootRef.current?.offsetWidth ?? 0)
+    setActive(key)
+  }, [])
   const close = useCallback(() => {
     setBusy(false)
     setActive(null)
@@ -50,16 +65,21 @@ function Root({
       open,
       close,
       busy,
-      setBusy
+      setBusy,
+      flow,
+      fromWidth
     }),
-    [active, open, close, busy]
+    [active, open, close, busy, flow, fromWidth]
   )
   return (
     <ConfirmButtonContext value={value}>
       {bare ? (
         children
       ) : (
-        <span className={cn("relative inline-flex items-center", className)}>
+        <span
+          ref={rootRef}
+          className={cn("relative inline-flex items-center", className)}
+        >
           {children}
         </span>
       )}
@@ -73,16 +93,45 @@ function Trigger({
   children,
   ...rest
 }: Omit<ButtonProps, "onClick"> & Readonly<{ persist?: boolean }>) {
-  const { state, open, busy } = useConfirmButton()
-  if (!persist && state !== "idle") return null
+  const { state, open, busy, flow } = useConfirmButton()
+  const ref = useRef<HTMLButtonElement>(null)
+  const confirming = state !== "idle"
+  // The step held focus; when it closes, focus comes back here instead of
+  // falling to the page.
+  const wasConfirming = useRef(false)
+  useEffect(() => {
+    if (wasConfirming.current && !confirming) {
+      // Focus is on the page, or still in the closing step (the capsule
+      // leaves after its exit animation).
+      const active = document.activeElement
+      const root = ref.current?.parentElement?.parentElement
+      const lost =
+        active === null ||
+        active === document.body ||
+        (root?.contains(active) === true && active !== ref.current)
+      if (lost) ref.current?.focus({ preventScroll: true })
+    }
+    wasConfirming.current = confirming
+  }, [confirming])
+  if (flow && !persist && confirming) return null
+  // Under the capsule the trigger keeps its slot, so nothing reflows.
+  const covered = !flow && !persist && confirming
   return (
     <motion.div
+      // inert, not visibility: focus has to land back here in the same
+      // commit that uncovers it.
+      inert={covered}
       className="flex"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      initial={flow ? { opacity: 0 } : false}
+      animate={{ opacity: covered ? 0 : 1 }}
       transition={transitions.fade}
     >
-      <Button {...rest} disabled={disabled || busy} onClick={() => open()}>
+      <Button
+        {...rest}
+        ref={ref}
+        disabled={disabled || busy}
+        onClick={() => open()}
+      >
         {children}
       </Button>
     </motion.div>
@@ -142,22 +191,53 @@ function Confirm({
   className?: string
   children: ReactNode
 }>) {
-  const { active, close, busy } = useConfirmButton()
-  if (active !== when) return null
+  const { active, close, busy, flow, fromWidth } = useConfirmButton()
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Escape" && !busy && !e.defaultPrevented) {
+      e.preventDefault()
+      close()
+    }
+  }
+  if (flow) {
+    if (active !== when) return null
+    return (
+      <motion.div
+        data-countdown-hold
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={transitions.fade}
+        onKeyDown={onKeyDown}
+      >
+        <div className={cn("flex items-center gap-2", className)}>
+          {children}
+        </div>
+      </motion.div>
+    )
+  }
+  // The capsule: 4px taller than a 28px trigger and pinned to its end edge,
+  // it grows from the trigger's width to fit the prompt and buttons, over
+  // the row, on the popup surface. Closing shrinks it back over the trigger.
+  const width = fromWidth + 4
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={transitions.fade}
-      onKeyDown={(e) => {
-        if (e.key === "Escape" && !busy && !e.defaultPrevented) {
-          e.preventDefault()
-          close()
-        }
-      }}
-    >
-      <div className={cn("flex items-center gap-2", className)}>{children}</div>
-    </motion.div>
+    <AnimatePresence>
+      {active === when ? (
+        <motion.div
+          key="capsule"
+          data-countdown-hold
+          initial={{ width, opacity: 1 }}
+          animate={{ width: "auto" }}
+          exit={{ width, opacity: 0 }}
+          transition={transitions.morph}
+          onKeyDown={onKeyDown}
+          className={cn(
+            "confirm-capsule absolute -end-0.5 top-1/2 z-20 flex h-8 -translate-y-1/2 items-center justify-end gap-1 overflow-hidden rounded-[16px] border border-border/60 bg-card pe-[3px] whitespace-nowrap [corner-shape:var(--button-corner)]",
+            className
+          )}
+        >
+          {children}
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
   )
 }
 
@@ -261,7 +341,7 @@ function Action<E = unknown>({
   tone = "destructive",
   children
 }: ActionProps<E>) {
-  const { close, busy: internalBusy, setBusy } = useConfirmButton()
+  const { close, busy: internalBusy, setBusy, flow } = useConfirmButton()
   const [internalError, setInternalError] = useState<string | null>(null)
   const [typedValue, setTypedValue] = useState("")
   const typedId = useId()
@@ -285,20 +365,54 @@ function Action<E = unknown>({
     close()
   }
 
+  const inline = layout === "inline"
+  const capsule = inline && !flow
+  // An inline destructive confirm closes by itself unless it is busy or
+  // showing an error; its fill shows the time left.
+  const timed =
+    inline &&
+    tone === "destructive" &&
+    (error === null || error === undefined)
   const confirmButton = (
     <Button
       type="button"
-      size={layout === "inline" ? size : "sm"}
+      size={capsule ? "compact" : inline ? size : "sm"}
       variant={tone === "destructive" ? "destructive" : "primary"}
       disabled={blocked}
       onClick={() => void run()}
-      className={layout === "menu" ? "flex-1" : undefined}
+      countdown={
+        timed
+          ? {
+              seconds: CONFIRM_SECONDS,
+              delay: capsule ? 0.26 : 0,
+              onElapsed: close
+            }
+          : undefined
+      }
+      className={cn(
+        layout === "menu" && "flex-1",
+        capsule && "rounded-[12px] px-2.5"
+      )}
     >
       {busy ? busyLabel : label}
     </Button>
   )
 
-  if (layout === "inline") {
+  if (capsule)
+    return (
+      <CapsuleAction
+        prompt={prompt}
+        error={error}
+        confirmButton={confirmButton}
+        cancelLabel={cancelLabel}
+        busy={busy}
+        onCancel={close}
+      >
+        {children}
+      </CapsuleAction>
+    )
+
+  if (inline) {
     const styles = CONFIRM_SIZES[size]
     return (
       <>
@@ -407,6 +521,57 @@ function Action<E = unknown>({
         {menu ? cancelButton : confirmButton}
       </div>
     </div>
+  )
+}
+
+// The inline step inside the capsule: prompt (or the error in its place),
+// the confirm button with its countdown, and an icon-only Cancel that takes
+// focus, so Enter cancels and Esc goes back.
+function CapsuleAction({
+  prompt,
+  error,
+  confirmButton,
+  cancelLabel,
+  busy,
+  onCancel,
+  children
+}: Readonly<{
+  prompt: ReactNode
+  error: ReactNode
+  confirmButton: ReactNode
+  cancelLabel: ReactNode
+  busy: boolean
+  onCancel: () => void
+  children?: ReactNode
+}>) {
+  const failed = error !== null && error !== undefined
+  return (
+    <>
+      <span
+        role={failed ? "alert" : undefined}
+        className={cn(
+          "ps-3.5 pe-1.5 text-body",
+          failed ? "text-destructive" : "text-foreground"
+        )}
+      >
+        {failed ? error : prompt}
+      </span>
+      {children}
+      {confirmButton}
+      <Button
+        type="button"
+        variant="ghost"
+        size="square-6"
+        disabled={busy}
+        onClick={onCancel}
+        // oxlint-disable-next-line jsx-a11y/no-autofocus -- focus follows the click that opened the prompt
+        autoFocus
+        className="rounded-[12px]"
+      >
+        <X aria-hidden />
+        <span className="sr-only">{cancelLabel}</span>
+      </Button>
+    </>
   )
 }
 

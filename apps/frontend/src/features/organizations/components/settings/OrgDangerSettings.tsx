@@ -89,7 +89,7 @@ function DeleteCard({ orgSlug, org }: { orgSlug: string; org: OrgDetail }) {
             days: ORG_DELETE_GRACE_DAYS
           })}
         >
-          <ConfirmButton.Root className="w-full">
+          <ConfirmButton.Root flow className="w-full">
             <ConfirmButton.Trigger variant="destructive" size="sm">
               {m.org_danger_delete_button()}
             </ConfirmButton.Trigger>

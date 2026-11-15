@@ -703,6 +703,71 @@
   );
 }
 
+/* Confirm button. The inline confirm step slides out as a capsule over the
+   row (confirm-button.tsx); its parts rise in with a 30ms stagger. */
+.confirm-capsule > * {
+  animation: confirm-rise 260ms var(--ease-standard) both;
+}
+.confirm-capsule > :nth-child(2) {
+  animation-delay: 30ms;
+}
+.confirm-capsule > :nth-child(3) {
+  animation-delay: 60ms;
+}
+@keyframes confirm-rise {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+    translate: 6px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .confirm-capsule > * {
+    animation-name: confirm-fade;
+  }
+}
+@keyframes confirm-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Button countdown (Button's `countdown` prop). The fill is the timer: it
+   sits in ::before over a tertiary base and drains toward the start over
+   --countdown, then the button calls onElapsed. Pointer over the button or
+   over a [data-countdown-hold] ancestor holds it, and so does keyboard focus
+   in either, so keyboard and screen reader users never run out of time.
+   Meant for filled variants whose ink reads on tertiary too (destructive,
+   secondary), not primary. */
+.button-countdown {
+  isolation: isolate;
+  overflow: hidden;
+}
+.button-countdown.button-fill {
+  background-image: none;
+  background-color: var(--button-tertiary);
+}
+.button-countdown::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--button-fill);
+  transform-origin: left;
+  animation: button-countdown var(--countdown) linear var(--countdown-delay, 0s)
+    forwards;
+}
+.button-countdown:is(:hover, :focus-visible, :disabled)::before,
+[data-countdown-hold]:is(:hover, :has(:focus-visible))
+  .button-countdown::before {
+  animation-play-state: paused;
+}
+@keyframes button-countdown {
+  to {
+    scale: 0 1;
+  }
+}
+
 /* Badges. Fill and ink are both built from one colour, --badge-tone, in
    oklch: the fill is a pure pastel of the tone (light) or a deep wash of it
    (dark), the ink the same hue at a lightness that passes AA on that fill.
