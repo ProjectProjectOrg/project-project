@@ -16,6 +16,7 @@ description: Add, change, polish or document a design-system primitive in packag
 | `packages/ui/src/styles/theme.css` | Every token: colours (light and `.dark`), state colours, type scale, radii, easings (`ease-standard`, `ease-spring`), fonts, global hover and press rules |
 | `packages/ui/src/assets/` | Brand assets (the logo and wordmark), exposed as `@pp/ui/assets/*` |
 | `packages/ui/docs/components/<name>/page.mdx` | The component's gallery page |
+| `packages/ui/docs/patterns/<name>/page.mdx` | A pattern's page: a composition of primitives (Confirm button), in the gallery's Patterns group |
 | `packages/ui/docs/components/<name>/demos/*.tsx` | Its demos, one default-exported component per file |
 | `packages/ui/gallery/` | The gallery app itself: sidebar, search, theme switch, demo frame, accessibility check |
 | `packages/ui/components.json` | shadcn CLI config; registry installs land in `packages/ui` |
