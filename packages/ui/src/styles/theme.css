@@ -708,6 +708,29 @@
 .confirm-capsule > * {
   animation: confirm-rise 260ms var(--ease-standard) both;
 }
+/* What the capsule covers fades out toward it: a gradient to the colour
+   under the capsule (--confirm-under, read from the nearest ancestor with a
+   background when it opens), 24px wide, just outside its start edge. It
+   shows once the reveal has settled, so it never fights the clip. */
+.confirm-capsule::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  right: calc(100% + 1px);
+  width: 24px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--confirm-under, transparent)
+  );
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms var(--ease-standard);
+}
+.confirm-capsule[data-settled]::before {
+  opacity: 1;
+}
 .confirm-capsule > :nth-child(2) {
   animation-delay: 30ms;
 }

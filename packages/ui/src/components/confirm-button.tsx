@@ -228,6 +228,16 @@ function Confirm({
   )
 }
 
+// The first solid background behind an element: what the capsule's edge
+// fade blends into.
+function backgroundUnder(el: HTMLElement): string {
+  for (let node = el.parentElement; node !== null; node = node.parentElement) {
+    const color = getComputedStyle(node).backgroundColor
+    if (color !== "transparent" && color !== "rgba(0, 0, 0, 0)") return color
+  }
+  return "transparent"
+}
+
 // The capsule: 4px taller than a 28px trigger and pinned to its end edge,
 // over the row, on the popup surface. It always lays out at its full width,
 // so nothing inside it squeezes; a clip from the start edge reveals it,
@@ -280,6 +290,8 @@ function Capsule({
     // reverses instead of jumping.
     const start = hidden.current ?? covered
     const target = open ? 0 : covered
+    if (open) el.style.setProperty("--confirm-under", backgroundUnder(el))
+    delete el.dataset.settled
     clip(start)
     // Opening takes the morph timing (260ms); closing is quicker
     // (presence, 180ms): the clip snaps back to the trigger and the capsule
@@ -297,6 +309,10 @@ function Capsule({
           { opacity: [1, 1, 0] },
           { duration: timing.duration, times: [0, 0.55, 1], ease: "linear" }
         )
+    if (open)
+      void reveal.then(() => {
+        el.dataset.settled = ""
+      })
     if (!open)
       void Promise.all([reveal, fade]).then(() => {
         hidden.current = null
