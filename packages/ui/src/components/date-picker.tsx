@@ -1,6 +1,8 @@
 import * as DateTime from "effect/DateTime"
 import * as Option from "effect/Option"
 import {
+  useEffect,
+  useRef,
   useState,
   type KeyboardEvent,
   type ReactElement,
@@ -9,7 +11,7 @@ import {
 
 import { parseDayAt, parseRangeAt } from "../lib/parseDate"
 import { cn } from "../lib/utils"
-import { Button } from "./button"
+import { Button, buttonVariants } from "./button"
 import { Calendar, type DateRange } from "./calendar"
 import { CalendarDays } from "./icons"
 import { Kbd } from "./kbd"
@@ -188,23 +190,64 @@ function DatePicker(props: DatePickerProps) {
         ? null
         : (props.format ?? formatRange)(props.value)
 
-  const result =
-    preview.kind === "unreadable" ? (
-      <span className="truncate text-caption text-muted-foreground">
-        {labels.unreadable}
-      </span>
-    ) : preview.kind === "day" || preview.kind === "range" ? (
-      <span className="flex shrink-0 items-center gap-1.5 text-caption text-muted-foreground tabular-nums">
-        <TextSwap speed="fast">
-          {preview.kind === "day"
-            ? formatDay(preview.value)
-            : formatRange(preview.value)}
-        </TextSwap>
-        <Kbd size="sm" aria-hidden>
-          ↵
-        </Kbd>
-      </span>
-    ) : null
+  const result = (
+    <TypedResult preview={preview} unreadable={labels.unreadable} />
+  )
+
+  // Typing straight into the focused trigger: it becomes a text field in
+  // place (InlineField), and Enter or leaving it applies what it reads.
+  const [typingFrom, setTypingFrom] = useState<string | null>(null)
+  // The field keeps the trigger's width, so nothing around it moves.
+  const [typingWidth, setTypingWidth] = useState<number | undefined>(undefined)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const refocus = useRef(false)
+  useEffect(() => {
+    if (typingFrom !== null || !refocus.current) return
+    refocus.current = false
+    triggerRef.current?.focus()
+  }, [typingFrom])
+
+  const applyPreview = (next: Preview): boolean => {
+    if (next.kind === "day" && props.mode === "single") {
+      props.onChange(next.value)
+      return true
+    }
+    if (next.kind === "range" && props.mode === "range") {
+      props.onChange(next.value)
+      return true
+    }
+    return false
+  }
+
+  const startTyping = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const printable =
+      event.key.length === 1 &&
+      event.key !== " " &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey
+    if (!printable || open) return
+    event.preventDefault()
+    setTypingWidth(event.currentTarget.offsetWidth)
+    setTypingFrom(event.key)
+  }
+
+  if (trigger === undefined && typingFrom !== null)
+    return (
+      <InlineField
+        initial={typingFrom}
+        width={typingWidth}
+        mode={props.mode}
+        allowPast={allowPast}
+        labels={labels}
+        className={className}
+        apply={applyPreview}
+        onEnd={(back) => {
+          refocus.current = back
+          setTypingFrom(null)
+        }}
+      />
+    )
 
   return (
     <Popover
@@ -218,9 +261,11 @@ function DatePicker(props: DatePickerProps) {
         render={
           trigger ?? (
             <Button
+              ref={triggerRef}
               type="button"
               variant="field"
               leadingIcon={CalendarDays}
+              onKeyDown={startTyping}
               className={cn("min-w-48 justify-start", className)}
             />
           )
@@ -332,6 +377,97 @@ function DatePicker(props: DatePickerProps) {
         />
       </PopoverContent>
     </Popover>
+  )
+}
+
+function TypedResult({
+  preview,
+  unreadable
+}: Readonly<{ preview: Preview; unreadable: string }>) {
+  if (preview.kind === "unreadable")
+    return (
+      <span className="truncate text-caption text-muted-foreground">
+        {unreadable}
+      </span>
+    )
+  if (preview.kind === "empty") return null
+  return (
+    <span className="flex shrink-0 items-center gap-1.5 text-caption text-muted-foreground tabular-nums">
+      <TextSwap speed="fast">
+        {preview.kind === "day"
+          ? formatDay(preview.value)
+          : formatRange(preview.value)}
+      </TextSwap>
+      <Kbd size="sm" aria-hidden>
+        ↵
+      </Kbd>
+    </span>
+  )
+}
+
+// The trigger as a text field, after typing into it: the same field look,
+// the typed text, and what it reads as. Enter or leaving applies a readable
+// value (`apply`); Escape cancels; `onEnd(true)` hands focus back.
+function InlineField({
+  initial,
+  width,
+  mode,
+  allowPast,
+  labels,
+  className,
+  apply,
+  onEnd
+}: Readonly<{
+  initial: string
+  width: number | undefined
+  mode: "single" | "range"
+  allowPast: boolean
+  labels: DatePickerLabels
+  className: string | undefined
+  apply: (preview: Preview) => boolean
+  onEnd: (refocus: boolean) => void
+}>) {
+  const [text, setText] = useState(initial)
+  const preview = readTyped(text, mode, allowPast)
+  return (
+    <span
+      data-slot="date-picker-inline"
+      className={cn(
+        buttonVariants({ variant: "field", size: "md", iconLeft: true }),
+        // Button sets its corners outside the variants: the md field's.
+        "min-w-48 cursor-text justify-start rounded-[16px] [corner-shape:var(--button-corner)] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring",
+        // A field doesn't press; the ↵ key sits 8px in, like a key in a button.
+        "has-[[data-slot=kbd]]:pr-2 motion-safe:active:scale-100",
+        className
+      )}
+      style={{ width }}
+    >
+      <CalendarDays aria-hidden className="size-4 shrink-0" />
+      <input
+        // oxlint-disable-next-line jsx-a11y/no-autofocus -- typing into the trigger turned it into this field
+        autoFocus
+        value={text}
+        aria-label={labels.type}
+        aria-invalid={preview.kind === "unreadable" || undefined}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault()
+            onEnd(true)
+          }
+          if (event.key !== "Enter") return
+          event.preventDefault()
+          if (apply(preview) || text.trim() === "") onEnd(true)
+        }}
+        onBlur={() => {
+          apply(preview)
+          onEnd(false)
+        }}
+        size={1}
+        className="h-full min-w-0 flex-1 bg-transparent text-body outline-hidden"
+      />
+      <TypedResult preview={preview} unreadable={labels.unreadable} />
+    </span>
   )
 }
 

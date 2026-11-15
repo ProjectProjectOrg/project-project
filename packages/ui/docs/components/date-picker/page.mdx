@@ -69,6 +69,10 @@ import { dateLabels } from "@/lib/dateLabels"
 
 The popover opens with focus on a type line. "fri", "nov 20", "20/11", "in 3 days", "mon - fri", "nov 16 to 27", "mon for 2 weeks" and "monday next week until two weeks later" all work. The calendar jumps to and previews the result as you type, the line shows it with ↵, and Enter applies it. Text that isn't a date says so; nothing changes until it reads. Clicking a day is always there too.
 
+### Or type into the trigger itself
+
+With focus on the field trigger, just start typing: the trigger turns into a text field in place, the same size, shape and fill, with what it reads shown at its end. Enter or leaving the field applies a readable date; text that isn't a date stays put on Enter (marked invalid) and is dropped on leaving; Escape cancels. No popover opens, so a date can be set without the mouse in two keystrokes and a word.
+
 ### A library reads the dates
 
 Typed dates are read by chrono-node, behind `@pp/ui/lib/parseDate`: an Effect-native layer that returns whole local days (`DateTime.Zoned`) as `Option`s, reads a range's end from its start ("two weeks later" means after the start, not after today), and adds "for N weeks". ⌘K's sprint scheduling reads with the same layer.
