@@ -78,7 +78,8 @@ function Title({ className, ...props }: Readonly<ComponentProps<"div">>) {
 
 // The description area. Like a bare Input it tints on hover and, lighter,
 // while focused. The tint sits on an inner box inside the scroller (a
-// scroller clips negative margins), 8px past the text on each side.
+// scroller clips negative margins), 8px past the text on each side. Its
+// box ends 6px above the tray, mirroring the tray's 6px inside.
 function Body({
   className,
   children,
@@ -88,7 +89,7 @@ function Body({
     <div
       data-slot="composer-body"
       className={cn(
-        "max-h-[50dvh] overflow-y-auto px-2 pt-1.5 pb-3",
+        "max-h-[50dvh] overflow-y-auto px-2 pt-1.5 pb-1.5",
         className
       )}
       {...props}
