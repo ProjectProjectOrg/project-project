@@ -1,3 +1,4 @@
+import { mergeProps } from "@base-ui/react/merge-props"
 import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { ChevronDown } from "lucide-react"
 import {
@@ -10,6 +11,12 @@ import {
 } from "react"
 
 import type { IconComponent } from "../lib/icon"
+import { openOnReleaseProps } from "../lib/openOnRelease"
+import {
+  PopupAnchorProvider,
+  usePopupAnchor,
+  useTriggerAnchorRef
+} from "../lib/popupAnchor"
 import { cn } from "../lib/utils"
 import { BlurSwap } from "./blur-swap"
 import { Button } from "./button"
@@ -159,10 +166,12 @@ function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
           props.onValueChange?.(next)
         }}
       >
-        <SelectItemsContext value={{ items, value: chosen }}>
-          {children}
-        </SelectItemsContext>
-        {content}
+        <PopupAnchorProvider>
+          <SelectItemsContext value={{ items, value: chosen }}>
+            {children}
+          </SelectItemsContext>
+          {content}
+        </PopupAnchorProvider>
       </SelectPrimitive.Root>
     )
   }
@@ -184,10 +193,12 @@ function Select<const Items extends ReadonlyArray<SelectOption<string>>>(
         props.onValueChange?.(next)
       }}
     >
-      <SelectItemsContext value={{ items, value: chosen }}>
-        {children}
-      </SelectItemsContext>
-      {content}
+      <PopupAnchorProvider>
+        <SelectItemsContext value={{ items, value: chosen }}>
+          {children}
+        </SelectItemsContext>
+        {content}
+      </PopupAnchorProvider>
     </SelectPrimitive.Root>
   )
 }
@@ -240,12 +251,19 @@ function SelectTrigger({
   error,
   render,
   children,
+  ref,
   ...props
 }: SelectTriggerProps) {
   const { items, value: chosen } = use(SelectItemsContext)
+  const anchorRef = useTriggerAnchorRef(ref)
   if (render) {
     return (
-      <SelectPrimitive.Trigger render={render} className={className} {...props}>
+      <SelectPrimitive.Trigger
+        ref={anchorRef}
+        render={render}
+        className={className}
+        {...mergeProps(openOnReleaseProps, props)}
+      >
         {children}
       </SelectPrimitive.Trigger>
     )
@@ -254,6 +272,7 @@ function SelectTrigger({
   return (
     <div className="flex max-w-full min-w-0 flex-col gap-1">
       <SelectPrimitive.Trigger
+        ref={anchorRef}
         aria-invalid={error ? true : undefined}
         render={
           <Button
@@ -268,7 +287,7 @@ function SelectTrigger({
           size === "compact" ? "min-w-0" : "min-w-[160px]",
           className
         )}
-        {...props}
+        {...mergeProps(openOnReleaseProps, props)}
       >
         <span className="flex min-w-0 flex-1 items-center gap-2">
           {Icon ? (
@@ -324,6 +343,7 @@ function SelectContent({
   sideOffset = 6,
   finalFocus
 }: SelectContentProps) {
+  const anchor = usePopupAnchor(undefined)
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Positioner
@@ -331,6 +351,7 @@ function SelectContent({
         side={side}
         sideOffset={sideOffset}
         alignItemWithTrigger={false}
+        anchor={anchor}
         className="z-50 outline-none"
       >
         <SelectPrimitive.Popup

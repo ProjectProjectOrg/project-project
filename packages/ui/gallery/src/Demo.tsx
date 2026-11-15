@@ -33,7 +33,7 @@ export function Demo({
       <div
         ref={canvasRef}
         className={cn(
-          "grid min-h-44 place-items-center rounded-[14px] bg-background p-10 corner-squircle",
+          "grid min-h-44 place-items-center rounded-[14px] bg-page p-10 corner-squircle",
           className
         )}
       >

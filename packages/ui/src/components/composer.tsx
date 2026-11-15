@@ -10,10 +10,7 @@ function ComposerPopover({
 }: Readonly<ComponentProps<typeof PopoverContent>>) {
   return (
     <PopoverContent
-      className={cn(
-        "w-[min(32rem,calc(100vw-2rem))] p-0 shadow-[0_8px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)]",
-        className
-      )}
+      className={cn("w-[min(32rem,calc(100vw-2rem))] p-0", className)}
       {...props}
     />
   )

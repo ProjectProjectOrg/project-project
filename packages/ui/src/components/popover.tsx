@@ -2,10 +2,20 @@ import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 import * as React from "react"
 
 import { useActivityHiddenPortalRef } from "../hooks/useActivityHiddenPortalRef"
+import {
+  PopupAnchorProvider,
+  usePopupAnchor,
+  useTriggerAnchorRef
+} from "../lib/popupAnchor"
 import { cn } from "../lib/utils"
+import { popupMotionClass, popupSurfaceClass } from "./menu-styles"
 
 function Popover(props: React.ComponentProps<typeof PopoverPrimitive.Root>) {
-  return <PopoverPrimitive.Root {...props} />
+  return (
+    <PopupAnchorProvider>
+      <PopoverPrimitive.Root {...props} />
+    </PopupAnchorProvider>
+  )
 }
 
 function PopoverPortal({
@@ -15,10 +25,18 @@ function PopoverPortal({
   return <PopoverPrimitive.Portal ref={portalRef} {...props} />
 }
 
-function PopoverTrigger(
-  props: React.ComponentProps<typeof PopoverPrimitive.Trigger>
-) {
-  return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
+function PopoverTrigger({
+  ref,
+  ...props
+}: React.ComponentProps<typeof PopoverPrimitive.Trigger>) {
+  const anchorRef = useTriggerAnchorRef(ref)
+  return (
+    <PopoverPrimitive.Trigger
+      data-slot="popover-trigger"
+      ref={anchorRef}
+      {...props}
+    />
+  )
 }
 
 type PopoverContentProps = React.ComponentProps<typeof PopoverPrimitive.Popup> &
@@ -49,6 +67,7 @@ function PopoverContent({
   keepMounted,
   ...props
 }: PopoverContentProps) {
+  const popupAnchor = usePopupAnchor(anchor)
   return (
     <PopoverPortal keepMounted={keepMounted}>
       <PopoverPrimitive.Positioner
@@ -56,18 +75,14 @@ function PopoverContent({
         alignOffset={alignOffset}
         side={side}
         sideOffset={sideOffset}
-        anchor={anchor}
+        anchor={popupAnchor}
         collisionAvoidance={collisionAvoidance}
         collisionBoundary={collisionBoundary}
         collisionPadding={collisionPadding}
       >
         <PopoverPrimitive.Popup
           data-slot="popover-content"
-          className={cn(
-            "z-50 rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-md outline-none",
-            "origin-[var(--transform-origin)] data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-95 data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 motion-reduce:data-[closed]:animate-none motion-reduce:data-[open]:animate-none",
-            className
-          )}
+          className={cn(popupSurfaceClass, popupMotionClass, "p-3", className)}
           {...props}
         />
       </PopoverPrimitive.Positioner>

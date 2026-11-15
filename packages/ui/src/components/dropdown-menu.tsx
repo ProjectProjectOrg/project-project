@@ -6,6 +6,12 @@ import { flushSync } from "react-dom"
 
 import { useActivityHiddenPortalRef } from "../hooks/useActivityHiddenPortalRef"
 import { forwardThroughMenuBackdrop, isMenuBackdrop } from "../lib/menuBackdrop"
+import { openOnReleaseProps } from "../lib/openOnRelease"
+import {
+  PopupAnchorProvider,
+  usePopupAnchor,
+  useTriggerAnchorRef
+} from "../lib/popupAnchor"
 import { fieldTouchClass } from "../lib/typeScale"
 import { cn } from "../lib/utils"
 import { MenuHighlight } from "./menu-highlight"
@@ -55,14 +61,18 @@ function DeferredDropdownMenus({ children }: { children: React.ReactNode }) {
 
 function DropdownMenu({ filterable = false, ...props }: DropdownMenuProps) {
   const defer = React.useContext(DeferMenusContext)
-  return defer && !props.handle && typeof props.children !== "function" ? (
-    <DeferredDropdownMenu {...props} filterable={filterable}>
-      {props.children}
-    </DeferredDropdownMenu>
-  ) : (
-    <FilterableRoot filterable={filterable}>
-      <MenuPrimitive.Root {...props} />
-    </FilterableRoot>
+  return (
+    <PopupAnchorProvider>
+      {defer && !props.handle && typeof props.children !== "function" ? (
+        <DeferredDropdownMenu {...props} filterable={filterable}>
+          {props.children}
+        </DeferredDropdownMenu>
+      ) : (
+        <FilterableRoot filterable={filterable}>
+          <MenuPrimitive.Root {...props} />
+        </FilterableRoot>
+      )}
+    </PopupAnchorProvider>
   )
 }
 
@@ -125,13 +135,17 @@ function DropdownMenuPortal({
   return <MenuPrimitive.Portal ref={portalRef} {...props} />
 }
 
-function DropdownMenuTrigger(
-  props: React.ComponentProps<typeof MenuPrimitive.Trigger>
-) {
+function DropdownMenuTrigger({
+  ref,
+  ...props
+}: React.ComponentProps<typeof MenuPrimitive.Trigger>) {
   const deferred = React.useContext(DeferredMenuContext)
+  const anchorRef = useTriggerAnchorRef(ref)
   return (
     <MenuPrimitive.Trigger
+      ref={anchorRef}
       {...mergeProps(
+        openOnReleaseProps,
         props,
         deferred
           ? {
@@ -191,6 +205,7 @@ function DropdownMenuPopup({
   children,
   ...props
 }: DropdownMenuContentProps) {
+  const popupAnchor = usePopupAnchor(anchor)
   return (
     <DropdownMenuPortal>
       <MenuPrimitive.Positioner
@@ -198,7 +213,7 @@ function DropdownMenuPopup({
         alignOffset={alignOffset}
         side={side}
         sideOffset={sideOffset}
-        anchor={anchor}
+        anchor={popupAnchor}
         collisionAvoidance={collisionAvoidance}
       >
         <MenuPrimitive.Popup

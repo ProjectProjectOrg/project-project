@@ -15,7 +15,6 @@
 }
 
 :root {
-  --page-surface: color-mix(in srgb, var(--muted) 60%, var(--background));
   --list-lead: 1.5rem;
   --list-lead-gap: 0.75rem;
   --list-icon: 1.5rem;
@@ -23,8 +22,8 @@
 }
 [data-page-banner] [data-page-header] {
   text-shadow:
-    0 0 8px var(--page-surface),
-    0 0 20px var(--page-surface);
+    0 0 8px var(--page),
+    0 0 20px var(--page);
 }
 
 .transition-expand {

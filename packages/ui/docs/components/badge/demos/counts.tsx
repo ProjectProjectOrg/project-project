@@ -15,14 +15,16 @@ export default function Counts() {
           variant="toolbar"
           size="sm"
           onClick={() => setFilters((count) => (count + 1) % 5)}
-          aria-label={`Filters, ${filters} active`}
         >
           <ListFilter className="size-4" strokeWidth={1.75} />
           Filters
           {filters > 0 && (
-            <Badge variant="count" active>
-              {filters}
-            </Badge>
+            <>
+              <Badge variant="count" active>
+                {filters}
+              </Badge>
+              <span className="sr-only">active</span>
+            </>
           )}
           <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
         </Button>
@@ -33,9 +35,8 @@ export default function Counts() {
           strokeWidth={1.75}
         />
         <span className="text-body font-semibold">Backlog</span>
-        <span className="flex" aria-label="23 tickets">
-          <Badge variant="count">23</Badge>
-        </span>
+        <Badge variant="count">23</Badge>
+        <span className="sr-only">tickets</span>
       </div>
     </div>
   )

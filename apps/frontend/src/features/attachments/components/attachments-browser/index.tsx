@@ -236,7 +236,7 @@ function AttachmentsTable({
     <div className={waiting ? "animate-pulse" : undefined}>
       <div className="max-h-[calc(100vh-24rem)] min-h-64 overflow-auto rounded-lg border border-border">
         <table className="w-full min-w-[720px] table-auto border-collapse text-left">
-          <thead className="sticky top-0 z-10 bg-background">
+          <thead className="sticky top-0 z-10 bg-page">
             <tr className="border-b border-border text-caption text-muted-foreground">
               <th scope="col" className="w-6 px-2 py-2 font-normal">
                 <Checkbox

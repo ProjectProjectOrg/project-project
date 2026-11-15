@@ -262,7 +262,7 @@ function Popover({
         collisionPadding={0}
         initialFocus={false}
         finalFocus={false}
-        className="rounded-lg border-border p-1 shadow-md"
+        className="p-1"
       >
         {children}
       </PopoverContent>

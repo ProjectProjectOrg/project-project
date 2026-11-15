@@ -2,8 +2,8 @@ import { TagColor, TagName, type Tag } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { ColorPicker } from "@pp/ui/color-picker"
 import { ConfirmButton, useConfirmButton } from "@pp/ui/confirm-button"
+import { Input } from "@pp/ui/input"
 import { transitions } from "@pp/ui/lib/springs"
-import { cn } from "@pp/ui/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import * as Schema from "effect/Schema"
 import { Trash2 } from "lucide-react"
@@ -144,7 +144,8 @@ function Editor({
           onChange={(hex) => onPatch({ color: makeTagColor(hex) })}
           ariaLabel={m.tags_color_aria_label({ name: tag.name })}
         />
-        <input
+        <Input
+          size="sm"
           value={draftName}
           onChange={(e) => setDraftName(e.target.value.toLowerCase())}
           onBlur={commit}
@@ -161,21 +162,18 @@ function Editor({
           aria-label={m.tags_name_aria_label()}
           aria-invalid={invalid || undefined}
           aria-describedby={invalid ? "tag-rename-error" : undefined}
-          className={cn(
-            "h-7 min-w-0 flex-1 rounded-md border bg-transparent px-2 text-caption transition-colors outline-none",
-            invalid
-              ? "border-destructive/60 focus-visible:border-destructive"
-              : "border-border focus-visible:border-foreground/40"
-          )}
+          className="min-w-0 flex-1"
         />
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="square-7"
           onClick={() => openConfirm()}
           aria-label={m.tags_delete_button()}
-          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-100 hover:bg-destructive/10 hover:text-destructive active:scale-[0.97]"
+          className="not-disabled:hover:text-destructive"
         >
           <Trash2 className="size-3.5" strokeWidth={1.75} />
-        </button>
+        </Button>
       </div>
       {invalid ? (
         <p
@@ -233,9 +231,10 @@ function Confirm({
       <div className="flex gap-1">
         <Button
           size="sm"
+          variant="destructive"
           onClick={() => void run()}
           disabled={busy}
-          className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          className="flex-1"
         >
           {busy ? m.tags_delete_in_progress() : m.tags_delete_button()}
         </Button>

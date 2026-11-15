@@ -29,7 +29,6 @@ import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   Archive,
-  ChevronDown,
   CircleDot,
   Flag,
   Gauge,
@@ -88,7 +87,7 @@ import {
   clearedFilters,
   type FilterDimension
 } from "./model"
-import { ToolbarButton } from "./shared"
+import { ToolbarButton, ToolbarChevron } from "./shared"
 import { sortTagsByColor } from "./tagOrder"
 
 const TOGGLES: ReadonlySet<FilterDimension> = new Set([
@@ -159,7 +158,7 @@ export function Filters() {
                 {shownCount}
               </Badge>
             </CollapsingLabel>
-            <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
+            <ToolbarChevron />
           </ToolbarButton>
         }
       />

@@ -1,11 +1,10 @@
 import { CollapsingLabel } from "@pp/ui/collapsing-label"
 import type { IconComponent } from "@pp/ui/lib/icon"
 import { Select, SelectTrigger } from "@pp/ui/select"
-import { ChevronDown } from "lucide-react"
 
 import { m } from "@/paraglide/messages"
 
-import { ToolbarButton } from "./toolbar/shared"
+import { ToolbarButton, ToolbarChevron } from "./toolbar/shared"
 
 export type GroupingOption<K extends string> = Readonly<{
   key: K
@@ -45,7 +44,7 @@ export function GroupingMenu<K extends string>({
           <ToolbarButton aria-label={label}>
             {current && <current.icon className="size-4" />}
             <CollapsingLabel show={!compact}>{label}</CollapsingLabel>
-            <ChevronDown className="size-3.5 opacity-60" />
+            <ToolbarChevron />
           </ToolbarButton>
         }
       />

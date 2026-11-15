@@ -117,6 +117,8 @@ Set during the polish passes; a component that breaks one is not done.
 - **Focus:** the `focus-ring` class (2px grey `--ring` outline, 2px offset, no animation). Never a coloured ring, never an animated offset.
 - **Disabled:** `cursor-not-allowed`, and guard hover with `not-disabled:` so a disabled control never reacts. Loading controls show the `LogoLoader` (or its sweep), not a spinner.
 - **Corners:** half the control's height, shaped with `[corner-shape:var(--button-corner)]` (`superellipse(1.5)`). Inputs, selects, badges and buttons of the same height share the same radius.
+- **Popups:** every floating panel uses `popupSurfaceClass` (card fill, 60% hairline, no shadow) and anchors through `lib/popupAnchor`, so popup triggers keep their press scale. Menu and select triggers open on release (`lib/openOnRelease`), like the Popover.
+- **Contrast:** check light and dark. Text holds 4.5:1 and control outlines and the focus ring 3:1 against the frame, page and muted wells.
 - **Flat:** no borders and no drop shadows on controls. When something needs an edge, use the segmented tabs' hairline (`--segment-line`) or the bottom glow (`inset 0 -1px 2px var(--kbd-glow)`).
 - **Colour:** build tints in oklch from one tone (`oklch(from var(--tone) L calc(c * k) h)`), never with an opacity of the tone or by mixing toward black, which greys the hue. Sheens use `color-mix(in oklab, fill, white/black n%)` on the fill itself (`.button-fill`, `.pp-badge`).
 - **Fields:** text-entry surfaces and select triggers use `bg-field` (`--field`).
@@ -131,8 +133,8 @@ Set during the polish passes; a component that breaks one is not done.
 
 | Component | State |
 | --- | --- |
-| Checkbox, Dropdown menu, Avatar, Segmented tabs, Button, Switch, Input (+ input group), Select, Badge | Done: polished, documented, in the gallery |
-| Popover, Tooltip, Dialog, Confirm button, Command menu | Queued in `packages/ui/queued/`, hidden from the gallery |
+| Checkbox, Dropdown menu, Avatar, Segmented tabs, Button, Switch, Input (+ input group), Select, Badge, Popover | Done: polished, documented, in the gallery |
+| Tooltip, Dialog, Confirm button, Command menu | Queued in `packages/ui/queued/`, hidden from the gallery |
 
 Open question from the Select pass: dropdown radio rows with `closeOnClick` skip the settle animation (`settleAtOnceClass` in `dropdown-menu.tsx`); ask Wouter whether they should animate again.
 

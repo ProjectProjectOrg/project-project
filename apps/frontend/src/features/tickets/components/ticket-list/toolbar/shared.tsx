@@ -1,24 +1,41 @@
+import { Button } from "@pp/ui/button"
 import { cn } from "@pp/ui/lib/utils"
 import { Select, SelectTrigger, type SelectOption } from "@pp/ui/select"
+import { ChevronDown } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 
 import { m } from "@/paraglide/messages"
 
+// Toolbar triggers (filters, view options, grouping) share the field look of
+// the search input and select triggers beside them: same height, fill,
+// hairline and corners, with a muted leading icon and the select's chevron.
 export function ToolbarButton({
   active,
   className,
   ...props
-}: ComponentProps<"button"> & { active?: boolean }) {
+}: ComponentProps<typeof Button> & { active?: boolean }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="field"
+      tone="strong"
+      size="lg"
       aria-pressed={active}
       {...props}
       className={cn(
-        "inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-background px-3 text-body text-muted-foreground transition-[color,background-color,scale] duration-100 outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97] data-[popup-open]:bg-accent data-[popup-open]:text-foreground",
-        active && "bg-accent text-foreground hover:text-foreground",
+        "gap-2 [&>svg:first-child]:text-muted-foreground [&>svg:first-child]:transition-[color,stroke-width] [&>svg:first-child]:duration-80 hover:[&>svg:first-child]:text-foreground data-[popup-open]:[&>svg:first-child]:text-foreground",
         className
       )}
+    />
+  )
+}
+
+export function ToolbarChevron() {
+  return (
+    <ChevronDown
+      aria-hidden
+      className="size-4 shrink-0 text-muted-foreground transition-[rotate,color] duration-280 ease-spring group-hover:text-foreground group-data-[popup-open]:rotate-180 group-data-[popup-open]:text-foreground motion-reduce:transition-none"
+      strokeWidth={2}
     />
   )
 }

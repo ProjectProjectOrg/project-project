@@ -3,6 +3,7 @@ import * as React from "react"
 
 import { useActivityHiddenPortalRef } from "../hooks/useActivityHiddenPortalRef"
 import { cn } from "../lib/utils"
+import { popupSurfaceClass } from "./menu-styles"
 
 type PreviewCardContentProps = React.ComponentProps<
   typeof PreviewCardPrimitive.Popup
@@ -31,8 +32,8 @@ function PreviewCardContent({
         <PreviewCardPrimitive.Popup
           data-slot="preview-card-content"
           className={cn(
-            "rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-md outline-none",
-            "origin-[var(--transform-origin)] transition-[opacity,scale] duration-100 ease-out data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[instant]:transition-none data-[starting-style]:scale-95 data-[starting-style]:opacity-0 motion-reduce:transition-none",
+            popupSurfaceClass,
+            "p-3 transition-[opacity,scale] duration-100 ease-out data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[instant]:transition-none data-[starting-style]:scale-95 data-[starting-style]:opacity-0 motion-reduce:transition-none",
             className
           )}
           {...props}

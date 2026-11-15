@@ -101,7 +101,7 @@ Buttons should scale to **97%** on `:active` with a **100–150ms** transform tr
 
 This applies to every clickable button in the app — not just the obvious primaries. Skip only when the element is non-interactive or the press is already conveyed by another animation (e.g. an inline-form trigger that immediately morphs).
 
-Buttons that open a popup (dropdown, popover, select, dialog) don't scale: the popup anchors to the trigger's box, so a press scale nudges it a pixel or two as it opens and closes. A global rule in `styles.css` cancels the scale for anything carrying `aria-haspopup`, which every Base UI trigger sets, so components don't need their own exception.
+Buttons that open a popup press like any other button. A popup anchors to its trigger's box, and a pressed trigger is 3% smaller, so `@pp/ui`'s Popover, Dropdown menu and Select measure the trigger (or an `anchor` element you pass) through `lib/popupAnchor`, which divides the press scale back out. Don't add a no-scale exception for popup triggers.
 
 ### Hover feel — instant in, eased out
 

@@ -33,7 +33,10 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
+  /* The base layer: the app frame (sidebar, topbar) and recessed boxes.
+     Pages sit one step up on --page, cards and popups one more on --card. */
+  --background: oklch(0.955 0 0);
+  --page: oklch(0.982 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -41,11 +44,13 @@
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: oklch(0.945 0 0);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --muted: oklch(0.945 0 0);
+  /* 0.50 keeps 4.5:1 on every light surface, hover and pressed rows included
+     (frame + active is the darkest at 4.6:1). */
+  --muted-foreground: oklch(0.5 0 0);
+  --accent: oklch(0.945 0 0);
   --accent-foreground: oklch(0.205 0 0);
   /* @fluid components reference `bg-selected` for the active/checked indicator
      in tabs-subtle, dropdown, and select. Distinct from --accent (lighter,
@@ -61,7 +66,8 @@
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  /* Focus ring: 3:1 against the frame, page and cards. */
+  --ring: oklch(0.58 0 0);
   --radius: 1rem;
   --fs-display: 28px;
   --lh-display: 34px;
@@ -87,7 +93,7 @@
   --lh-micro: 14px;
   --fs-micro-compact: 10px;
   --lh-micro-compact: 12px;
-  --dither-front: var(--ring);
+  --dither-front: oklch(0.708 0 0);
   --dither-back: color-mix(in oklch, var(--background) 45%, var(--muted) 55%);
   --focus-ring: oklch(0.693 0.161 265.2);
   --icon-sticker-outline: oklch(0 0 0 / 0.55);
@@ -116,10 +122,10 @@
   /* Filled buttons: a faint vertical sheen and an optional edge in the
      button's own colour. Tune here; 0% turns either off. */
   --button-corner: superellipse(1.5);
-  /* Text field fill. Light: white, lifted off the grey content region.
-     Dark: just below the content region (0.22), so a field reads as a well
-     without sinking all the way to the page colour (0.145). */
-  --field: var(--background);
+  /* Text field fill. Light: white, lifted off the page (0.982).
+     Dark: just below the page (0.219), so a field reads as a well
+     without sinking all the way to the base layer (0.145). */
+  --field: oklch(1 0 0);
   --button-sheen-top: 1.75%;
   --button-sheen-bottom: 1%;
   --button-edge: 0%;
@@ -136,19 +142,22 @@
   --tint: oklch(0 0 0 / 8%);
   --tint-hover: oklch(0 0 0 / 6.5%);
   --prose-body: oklch(0.23 0.002 265);
-  --prose-quiet: oklch(0.145 0 0 / 0.42);
+  --prose-quiet: oklch(0.145 0 0 / 0.6);
   --prose-code: oklch(0 0 0 / 4.5%);
   --prose-code-ring: oklch(0 0 0 / 6%);
-  --prose-check-ring: oklch(0 0 0 / 20%);
-  --checkbox-ring: oklch(0 0 0 / 30%);
-  --checkbox-ring-hover: oklch(0 0 0 / 52%);
-  --checkbox-ring-quiet: oklch(0 0 0 / 22%);
+  /* Control outlines need 3:1 against the frame, page and muted wells
+     (WCAG 1.4.11); 43% black is the floor in light. */
+  --prose-check-ring: oklch(0 0 0 / 44%);
+  --checkbox-ring: oklch(0 0 0 / 48%);
+  --checkbox-ring-hover: oklch(0 0 0 / 62%);
+  --checkbox-ring-quiet: oklch(0 0 0 / 44%);
   --checkbox-fill-hover: oklch(0.3 0 0);
-  --switch-thumb-off: oklch(0 0 0 / 38%);
+  --switch-thumb-off: oklch(0 0 0 / 48%);
 }
 
 .dark {
   --background: oklch(0.145 0 0);
+  --page: oklch(0.219 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
@@ -241,13 +250,14 @@
   --tint: oklch(1 0 0 / 14%);
   --tint-hover: oklch(1 0 0 / 11%);
   --prose-body: oklch(0.918 0.002 265);
-  --prose-quiet: oklch(0.985 0 0 / 0.45);
+  --prose-quiet: oklch(0.985 0 0 / 0.5);
   --prose-code: oklch(1 0 0 / 6%);
   --prose-code-ring: oklch(1 0 0 / 7%);
-  --prose-check-ring: oklch(1 0 0 / 22%);
-  --checkbox-ring: oklch(1 0 0 / 32%);
-  --checkbox-ring-hover: oklch(1 0 0 / 55%);
-  --checkbox-ring-quiet: oklch(1 0 0 / 24%);
+  /* 3:1 floor in dark is 34% white. */
+  --prose-check-ring: oklch(1 0 0 / 35%);
+  --checkbox-ring: oklch(1 0 0 / 38%);
+  --checkbox-ring-hover: oklch(1 0 0 / 60%);
+  --checkbox-ring-quiet: oklch(1 0 0 / 35%);
   --checkbox-fill-hover: oklch(0.86 0 0);
   --switch-thumb-off: oklch(1 0 0 / 45%);
 }
@@ -292,7 +302,7 @@
   --text-micro-compact: var(--fs-micro-compact);
   --text-micro-compact--line-height: var(--lh-micro-compact);
   --color-hover: var(--hover);
-  --color-region: color-mix(in oklch, var(--muted) 60%, var(--background));
+  --color-page: var(--page);
   --color-field: var(--field);
   --color-active: var(--active);
   --color-tint: var(--tint);
@@ -390,11 +400,6 @@
 .group\/reveal:hover .transition-all,
 .group\/reveal:hover .transition {
   transition-duration: 0ms;
-}
-
-[aria-haspopup]:not([aria-haspopup="false"]):active,
-[aria-haspopup]:not([aria-haspopup="false"]):active > * {
-  scale: none;
 }
 
 /* Theme switch: circular clip-path reveal centered on the click point. */
@@ -565,7 +570,7 @@
   height: 16px;
   margin: 0;
   border-radius: 8px;
-  background-color: var(--background);
+  background-color: var(--primary-foreground);
 }
 .pp-switch:not([data-disabled]):is(:active, [data-pressed]) .pp-switch-thumb {
   width: 14px;
@@ -642,7 +647,7 @@
 
 .button-primary {
   --button-fill: var(--foreground);
-  color: var(--background);
+  color: var(--primary-foreground);
 }
 .button-primary:not(:disabled):hover {
   --button-fill: color-mix(in oklab, var(--foreground) 90%, var(--background));

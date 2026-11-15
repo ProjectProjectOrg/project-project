@@ -110,16 +110,25 @@ export default function ViewOptions() {
       >
         <PopoverTrigger
           render={
-            <button
-              type="button"
+            <Button
+              variant="field"
+              tone="strong"
+              size="lg"
               aria-label="View options"
-              className="inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-background px-3 text-body text-muted-foreground transition-[color,background-color,scale] duration-100 outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring active:scale-[0.97] data-[popup-open]:bg-accent data-[popup-open]:text-foreground"
+              className="gap-2"
             />
           }
         >
-          <SlidersHorizontal className="size-4" strokeWidth={1.75} />
+          <SlidersHorizontal
+            className="size-4 text-muted-foreground transition-colors duration-80 group-hover:text-foreground group-data-[popup-open]:text-foreground"
+            strokeWidth={1.75}
+          />
           View options
-          <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
+          <ChevronDown
+            aria-hidden
+            className="size-4 shrink-0 text-muted-foreground transition-[rotate,color] duration-280 ease-spring group-hover:text-foreground group-data-[popup-open]:rotate-180 group-data-[popup-open]:text-foreground motion-reduce:transition-none"
+            strokeWidth={2}
+          />
         </PopoverTrigger>
         <PopoverContent
           aria-label="View options"

@@ -5,12 +5,7 @@ import { CollapsingLabel } from "@pp/ui/collapsing-label"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { Switch } from "@pp/ui/switch"
 import * as Result from "effect/reactivity/AsyncResult"
-import {
-  ArrowUp,
-  ArrowDown,
-  ChevronDown,
-  SlidersHorizontal
-} from "lucide-react"
+import { ArrowUp, ArrowDown, SlidersHorizontal } from "lucide-react"
 import { useRef, useState, type ComponentProps } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -29,7 +24,7 @@ import { m } from "@/paraglide/messages"
 import { SORT_FIELD_LABELS, sortKeysFor } from "../sort"
 import { BoardColumnsPicker } from "./BoardColumnsPicker"
 import { useTicketToolbar } from "./context"
-import { OptionPicker, ToolbarButton } from "./shared"
+import { OptionPicker, ToolbarButton, ToolbarChevron } from "./shared"
 
 export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
   const { viewControls, boardScope, searchActive: compact } = useTicketToolbar()
@@ -57,7 +52,7 @@ export function ViewOptions({ showSort }: Readonly<{ showSort: boolean }>) {
             <CollapsingLabel show={!compact}>
               {m.tickets_view_options_label()}
             </CollapsingLabel>
-            <ChevronDown className="size-3.5 opacity-60" strokeWidth={1.75} />
+            <ToolbarChevron />
           </ToolbarButton>
         }
       />

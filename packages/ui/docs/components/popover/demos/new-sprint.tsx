@@ -1,0 +1,168 @@
+import { Button } from "@pp/ui/button"
+import { Calendar } from "@pp/ui/calendar"
+import { Composer } from "@pp/ui/composer"
+import { Input } from "@pp/ui/input"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger
+} from "@pp/ui/popover"
+import * as DateTime from "effect/DateTime"
+import { CalendarDays, Plus } from "lucide-react"
+import { useState } from "react"
+
+const USER_TOGGLES = new Set([
+  "trigger-press",
+  "escape-key",
+  "close-press",
+  "outside-press"
+])
+
+const formatDay = (date: Date) =>
+  new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(date)
+
+type DateDraft = { from?: Date; to?: Date }
+
+const datesLabel = (range: DateDraft) => {
+  if (range.from === undefined) return "No dates"
+  if (range.to === undefined) return `Starts ${formatDay(range.from)}`
+  return `${formatDay(range.from)} – ${formatDay(range.to)}`
+}
+
+const twoWeeksFromToday = (): DateDraft => {
+  const now = DateTime.nowUnsafe()
+  return {
+    from: DateTime.toDate(now),
+    to: DateTime.toDate(DateTime.add(now, { days: 13 }))
+  }
+}
+
+// The backlog's "New sprint" composer: a popover holding a whole form, with
+// a second popover nested inside for the date range.
+export default function NewSprint() {
+  const [open, setOpen] = useState(true)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [name, setName] = useState("")
+  const [range, setRange] = useState<DateDraft>({})
+  const today = DateTime.toDate(DateTime.nowUnsafe())
+  const startsNow = range.from !== undefined && range.from <= today
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next, details) => {
+        if (USER_TOGGLES.has(details.reason)) setOpen(next)
+      }}
+      modal="trap-focus"
+    >
+      <PopoverTrigger render={<Button variant="secondary" size="sm" />}>
+        <Plus />
+        New sprint
+      </PopoverTrigger>
+      <Composer.Popover align="start" sideOffset={6}>
+        <form
+          className="flex flex-col"
+          onSubmit={(event) => {
+            event.preventDefault()
+            setOpen(false)
+          }}
+        >
+          <Composer.Header>
+            <span className="flex h-7 items-center gap-1.5 px-2.5 text-body text-foreground">
+              <span aria-hidden>🏗</span>
+              Web app
+            </span>
+            <PopoverTitle className="text-body font-normal text-muted-foreground">
+              New sprint
+            </PopoverTitle>
+          </Composer.Header>
+          <Composer.Title>
+            <Input
+              variant="bare"
+              className="text-title font-semibold"
+              aria-label="Sprint name…"
+              placeholder="Sprint name…"
+              value={name}
+              maxLength={120}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </Composer.Title>
+          <Composer.Body>
+            <textarea
+              aria-label="Description"
+              placeholder="Add a goal or description…"
+              rows={3}
+              className="w-full resize-none bg-transparent text-body outline-none placeholder:text-muted-foreground"
+            />
+          </Composer.Body>
+          <Composer.Chips>
+            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+              <PopoverTrigger
+                render={<Button type="button" variant="ghost" tone="strong" />}
+              >
+                <CalendarDays className="size-3.5" strokeWidth={1.75} />
+                <span>{datesLabel(range)}</span>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                initialFocus={false}
+                className="w-auto p-0"
+              >
+                <Calendar
+                  navLabels={{ previous: "Previous month", next: "Next month" }}
+                  mode="range"
+                  selected={{ from: range.from, to: range.to }}
+                  onSelect={(next) => setRange(next ?? {})}
+                  disabled={{ before: today }}
+                  defaultMonth={range.from ?? today}
+                />
+                <div className="flex justify-between gap-2 border-t border-border/60 p-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => {
+                      setRange(twoWeeksFromToday())
+                      setPickerOpen(false)
+                    }}
+                  >
+                    Start today
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    disabled={range.from === undefined}
+                    onClick={() => {
+                      setRange({})
+                      setPickerOpen(false)
+                    }}
+                  >
+                    Clear dates
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+            {range.from === undefined && (
+              <Composer.Hint>Stays planned until you start it</Composer.Hint>
+            )}
+          </Composer.Chips>
+          <Composer.Footer>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" disabled={name.trim() === ""}>
+              {startsNow ? "Create and start" : "Create sprint"}
+            </Button>
+          </Composer.Footer>
+        </form>
+      </Composer.Popover>
+    </Popover>
+  )
+}

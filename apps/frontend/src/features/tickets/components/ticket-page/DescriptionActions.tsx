@@ -81,7 +81,7 @@ export function DescriptionActions({
               aria-label={m.tickets_description_edit()}
               aria-keyshortcuts="E"
               onClick={onEdit}
-              className="rounded-full bg-region pr-1.5 pl-3 hover:bg-region hover:bg-[image:linear-gradient(var(--hover),var(--hover))]"
+              className="rounded-full bg-page pr-1.5 pl-3 hover:bg-page hover:bg-[image:linear-gradient(var(--hover),var(--hover))]"
             >
               <Pencil className="-mr-0.5 size-3.5" strokeWidth={1.75} />
               {m.tickets_description_edit_short()}

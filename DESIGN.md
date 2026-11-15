@@ -2,19 +2,23 @@
 name: ProjectProject
 description: A markdown-first project management tool for engineers on a homelab.
 colors:
-  background: "oklch(1 0 0)"
+  background: "oklch(0.955 0 0)"
   background-dark: "oklch(0.145 0 0)"
+  page: "oklch(0.982 0 0)"
+  page-dark: "oklch(0.219 0 0)"
+  field: "oklch(1 0 0)"
+  field-dark: "oklch(0.18 0 0)"
   foreground: "oklch(0.145 0 0)"
   foreground-dark: "oklch(0.985 0 0)"
-  muted: "oklch(0.97 0 0)"
+  muted: "oklch(0.945 0 0)"
   muted-dark: "oklch(0.269 0 0)"
-  muted-foreground: "oklch(0.556 0 0)"
+  muted-foreground: "oklch(0.5 0 0)"
   muted-foreground-dark: "oklch(0.708 0 0)"
   card: "oklch(1 0 0)"
   card-dark: "oklch(0.205 0 0)"
   popover: "oklch(1 0 0)"
   popover-dark: "oklch(0.205 0 0)"
-  accent: "oklch(0.97 0 0)"
+  accent: "oklch(0.945 0 0)"
   accent-dark: "oklch(0.269 0 0)"
   selected: "oklch(0.9 0 0)"
   selected-dark: "oklch(0.4 0 0)"
@@ -30,7 +34,7 @@ colors:
   border-dark: "oklch(1 0 0 / 10%)"
   input: "oklch(0.922 0 0)"
   input-dark: "oklch(1 0 0 / 15%)"
-  ring: "oklch(0.708 0 0)"
+  ring: "oklch(0.58 0 0)"
   ring-dark: "oklch(0.556 0 0)"
   destructive: "oklch(0.577 0.245 27.325)"
   destructive-dark: "oklch(0.704 0.191 22.216)"
@@ -186,17 +190,18 @@ A tinted OKLCH grayscale carries the entire chrome. Chromatic hues exist for two
 There is no chromatic brand primary. The visual "primary" is **foreground** — near-black in light mode, near-white in dark — used for type, primary buttons, and the dithered logo's foreground stop.
 
 - **Foreground** (`oklch(0.145 0 0)` light / `oklch(0.985 0 0)` dark): body text, headings, primary button surface.
-- **Background** (`oklch(1 0 0)` light / `oklch(0.145 0 0)` dark): page canvas, card surfaces in light, the recessed layer under cards in dark.
+- **Background** (`oklch(0.955 0 0)` light / `oklch(0.145 0 0)` dark): the base layer. The app frame (sidebar, topbar) and recessed boxes sit on it.
+- **Page** (`oklch(0.982 0 0)` / `oklch(0.219 0 0)` dark, `bg-page`): what every page sits on, one step up from the frame. It replaced the old `bg-region` mix: use the token, never mix one.
 
 ### Neutral
 
 A single OKLCH grayscale ramp. Every UI surface, border, divider, and disabled treatment lives here.
 
 - **Card** (`oklch(1 0 0)` / `oklch(0.205 0 0)` dark): raised content surface.
-- **Popover** (same as Card): floating surface under menus and pickers.
-- **Muted** (`oklch(0.97 0 0)` / `oklch(0.269 0 0)` dark): page background; subtle field fills.
-- **Muted Foreground** (`oklch(0.556 0 0)` / `oklch(0.708 0 0)` dark): secondary text, icon strokes at rest, placeholder text.
-- **Accent** (`oklch(0.97 0 0)` / `oklch(0.269 0 0)` dark): the active item in a rail or sidebar. Not a hover fill — hover uses the overlays below.
+- **Popover** (same as Card): floating surface under menus and pickers. Every popup shares `popupSurfaceClass` (card fill, 60% hairline, no shadow).
+- **Muted** (`oklch(0.945 0 0)` / `oklch(0.269 0 0)` dark): wells and placeholders, one clear step off the page in both themes.
+- **Muted Foreground** (`oklch(0.5 0 0)` / `oklch(0.708 0 0)` dark): secondary text, icon strokes at rest, placeholder text. Holds 4.5:1 on every surface, pressed rows included (lowest: 4.6:1 on the light frame under `--active`).
+- **Accent** (`oklch(0.945 0 0)` / `oklch(0.269 0 0)` dark): the active item in a rail or sidebar. Not a hover fill — hover uses the overlays below.
 - **Selected** (`oklch(0.9 0 0)` / `oklch(0.4 0 0)` dark): opaque selection fill for places that still need one. Menus mark their checked row with `--active` and segmented controls use a raised pill instead (see Surface context).
 
 ### Interaction overlays
@@ -209,7 +214,8 @@ Hover, pressed, and the secondary button are **translucent overlays**, not opaqu
 
 Never use `--muted` or `--accent` as a hover fill: on a raised surface they land at the surface's own tone and the hover disappears.
 - **Border** (`oklch(0.922 0 0)` / `oklch(1 0 0 / 10%)` dark): hairline dividers and input strokes.
-- **Ring** (`oklch(0.708 0 0)` / `oklch(0.556 0 0)` dark): focus ring; also the foreground stop for dithered graphics (`--dither-front`).
+- **Ring** (`oklch(0.58 0 0)` / `oklch(0.556 0 0)` dark): focus ring, at least 3:1 against the frame, page and cards. Dithered graphics keep their own `--dither-front` (`0.708` light).
+- **Control outlines** (`--checkbox-ring*`, `--prose-check-ring`, `--switch-thumb-off`): at least 3:1 against what they sit on (WCAG 1.4.11). The floor is about 43% black in light and 34% white in dark.
 
 ### Semantic State
 
@@ -273,23 +279,23 @@ Inline links strengthen their underline on hover without a background fill; keyb
 
 The system is **flat by default**. No decorative drop shadows on rectangles, no glassmorphism, no layered glow. Depth is conveyed by:
 
-1. **Tonal layering.** The page sits on `--muted`; cards rise to `--card` (light surfaces in light mode; near-black on near-blacker in dark). The contrast is small on purpose.
+1. **Tonal layering.** Three layers, in the same order in both themes: the frame (`--background`), the page one step up (`--page`), and cards, popups and fields above it (`--card`, `--field`). Light: `0.955 → 0.982 → white`. Dark: `0.145 → 0.219`, with cards at `0.205`. The steps are small on purpose.
 2. **Hairline borders.** A single 1px `--border` separates surfaces that share tone.
-3. **Modest shadow on floating UI only.** Popovers, dropdowns, menus — anything that lifts off a surface — gets a soft small shadow (`shadow-sm` / `shadow-md`). Never on a permanent rectangle.
+3. **No shadows on popups.** Popovers, dropdowns, selects, context menus and hover cards share `popupSurfaceClass`: card fill plus the 60% hairline, nothing else. The hairline and the tonal step separate them from the page.
 
 ### The surface ladder
 
 Tonal layering runs out of room in light mode: once a surface reaches `--card` there is nothing lighter than white to stack on top of it, so a card nested in a light container goes invisible. The `--surface-1` … `--surface-8` ladder (ported from `@fluid/surfaces`, re-authored in OKLCH) is the answer, available as `bg-surface-N` / `shadow-surface-N`.
 
-**Both themes must layer the same way.** A container that recesses in dark recesses in light too, by a comparable perceptual amount. Concretely, against the app's content region (`bg-muted/60`, which composites to `0.222` dark and `0.982` light):
+**Both themes must layer the same way.** A container that recesses in dark recesses in light too, by a comparable perceptual amount. Concretely, against the page (`--page`: `0.219` dark, `0.982` light):
 
 |                               | dark               | light              |
 | ----------------------------- | ------------------ | ------------------ |
-| content region                | `0.222`            | `0.982`            |
-| `--surface-1` — recessed well | `0.205` (`-0.017`) | `0.955` (`-0.027`) |
-| `--surface-3` — raised card   | `0.264` (`+0.059`) | `1.000` (`+0.045`) |
+| page                          | `0.219`            | `0.982`            |
+| `--surface-1` — recessed well | `0.205` (`-0.014`) | `0.955` (`-0.027`) |
+| `--surface-3` — raised card   | `0.264` (`+0.045`) | `1.000` (`+0.018`) |
 
-The container steps **down** off the region and the card steps **up** out of the container, in both themes. Light's upward step is necessarily smaller because white is a hard ceiling, but it stays the same order of magnitude — not the near-flat `0.003` that fluid's stock light ladder would give.
+The container steps **down** off the page and the card steps **up** out of the container, in both themes. Light's upward step is necessarily smaller because white is a hard ceiling, but it stays the same order of magnitude — not the near-flat `0.003` that fluid's stock light ladder would give.
 
 Fluid ships light as two hairline steps then flat white, leaning on shadow for everything above `--surface-3`. That suits a shadow-driven system; it does not suit ours, because our dark mode separates tonally and the two themes would stop behaving alike. The light values here are widened deliberately so they don't.
 
@@ -301,7 +307,7 @@ Use the ladder when a surface must sit on another surface — board columns and 
 
 Components that **elevate** read the surface level they sit on instead of hard-coding one (`useSurface()` / `SurfaceProvider` from `lib/surfaceContext`, class lookups from `lib/surfaceClasses`, both from `@fluid`). The page is level 1; a container that raises itself re-provides its own level so anything inside keeps stepping up.
 
-- **`SettingsGroup`** uses `--card` and provides level 1. In dark that is a recessed well (`0.205`, the same value as `--surface-1`), so the controls inside lift out of it instead of stacking a card on the already-raised content region. In light it is a white card: a grey well on the light region reads muddy, so this is the one deliberate exception to layering both themes the same way.
+- **`SettingsGroup`** uses `--card` and provides level 1. In dark that is a recessed well (`0.205`, the same value as `--surface-1`), so the controls inside lift out of it instead of stacking a card on the already-raised page. In light it is a white card: a grey well on the light page reads muddy, so this is the one deliberate exception to layering both themes the same way.
 - **Segmented pill:** the `bg-tint` fill with a 1px `--segment-line` hairline (5% ink in light, 6% in dark), no shadow; the inline and rail pills keep their raised surface fill with the same hairline. Track and pill use squircle corners at a full radius, concentric (18px around 14px for the default variant), and the track sizes to its options.
 - **Dragged list row:** substrate + 1 while it is being dragged.
 - **Menus and popovers** keep `--card` with the hairline border and their drop shadow. A deliberate choice: the darker floating surface reads better here than a substrate + 2 lift.
@@ -346,7 +352,7 @@ Filled variants (primary, secondary, destructive) share `.button-fill` in the th
 
 ### Inputs
 
-- **Style:** `--field` fill (`bg-field`: white in light, `oklch(0.18 0 0)` in dark, just below the content region so a field reads as a shallow well), 1px `--border` stroke. Variants `default` and `bare`; sizes `sm` / `md` / `lg` at 28 / 32 / 36px, the same heights as Button, with corners at half the height in `--button-corner`. Every field-like control (Select and dropdown triggers, textareas, date pickers) uses the same `--field` fill.
+- **Style:** `--field` fill (`bg-field`: white in light, `oklch(0.18 0 0)` in dark, just below the page so a field reads as a shallow well), 1px `--border` stroke. Variants `default` and `bare`; sizes `sm` / `md` / `lg` at 28 / 32 / 36px, the same heights as Button, with corners at half the height in `--button-corner`. Every field-like control (Select and dropdown triggers, textareas, date pickers) uses the same `--field` fill.
 - **Focus:** the shared `focus-ring` (2px `--ring` outline, 2px off the field); red on `aria-invalid`.
 - **Disabled:** `cursor-not-allowed` at 50% opacity.
 - **Inline form pattern:** many inputs are inline-editable cells inside rows, not standalone form fields. The same input primitive composes inside `StatusEditorRow`, ticket title cells, etc.

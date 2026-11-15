@@ -76,7 +76,7 @@ function StatusTrigger({
           {icon}
           <span
             aria-hidden
-            className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-state-warning ring-2 ring-region"
+            className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-state-warning ring-2 ring-page"
           />
         </span>
       ) : (
