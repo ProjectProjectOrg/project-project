@@ -798,52 +798,6 @@
   }
 }
 
-/* TooltipGroup's label swap, on the same 200ms and easing as the glide: the
-   old label blurs out, the new one blurs in. Keyframes, because Base UI
-   disables transitions on the new label while it measures, and an animation
-   starts over once that ends. Base UI keeps the old label until the new
-   label's animation finishes. */
-@layer components {
-  .pp-tooltip-viewport[data-transitioning] > [data-current] {
-    animation: pp-blur-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-  .pp-tooltip-viewport > [data-previous] {
-    animation: pp-blur-out 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-  [data-instant] .pp-tooltip-viewport > * {
-    animation: none;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .pp-tooltip-viewport[data-transitioning] > [data-current] {
-      animation-name: pp-fade-in;
-    }
-    .pp-tooltip-viewport > [data-previous] {
-      animation-name: pp-fade-out;
-    }
-  }
-}
-@keyframes pp-blur-in {
-  from {
-    opacity: 0;
-    filter: blur(4px);
-  }
-}
-@keyframes pp-blur-out {
-  to {
-    opacity: 0;
-    filter: blur(4px);
-  }
-}
-@keyframes pp-fade-in {
-  from {
-    opacity: 0;
-  }
-}
-@keyframes pp-fade-out {
-  to {
-    opacity: 0;
-  }
-}
 
 /* Avatar stacks cut a 2px gap out of each avatar where the next one sits,
    so translucent orbs never show through each other and the gap shows the

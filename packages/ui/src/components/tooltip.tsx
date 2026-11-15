@@ -1,175 +1,722 @@
-import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
+import { mergeProps } from "@base-ui/react/merge-props"
+import { useRender } from "@base-ui/react/use-render"
+import { AnimatePresence, motion, type Transition } from "motion/react"
 import * as React from "react"
+import { createPortal } from "react-dom"
 
+import { transitions } from "../lib/springs"
 import { cn } from "../lib/utils"
+
+/*
+ * Our own tooltip, not Base UI's.
+ *
+ * Base UI's tooltip adds no ARIA of its own (no role, no aria-describedby);
+ * what it gives is open-on-focus, Escape, a hover delay and edge flipping.
+ * We replaced it because:
+ *
+ * - Every Base UI tooltip decides on its own, so a hovered one and a focused
+ *   one could be open at once. Here a single host shows one tooltip for the
+ *   whole app: the latest hover or keyboard focus wins, and when a hover
+ *   ends the focused trigger's tooltip comes back.
+ * - Gliding between triggers with a blur between labels needs control over
+ *   the elements. Base UI's viewport turns transitions off while it measures,
+ *   which swallowed the blur. Here the host measures the next label off
+ *   screen first, then animates position, size and label on one clock.
+ *
+ * What we do ourselves: open on hover after 400ms (instant while a tooltip
+ * is showing or just closed), open on keyboard focus (:focus-visible only),
+ * close on click, Escape, scroll and resize, stay open while the pointer
+ * moves onto the tooltip (WCAG 1.4.13), flip and clamp at the window edges,
+ * role="tooltip", and aria-describedby when the tooltip says more than the
+ * trigger's own label.
+ */
+
+type Side = "top" | "bottom" | "left" | "right"
+type Align = "start" | "center" | "end"
+type Placement = Readonly<{ side: Side; align: Align; sideOffset: number }>
+
+const DEFAULT_PLACEMENT: Placement = {
+  side: "top",
+  align: "center",
+  sideOffset: 6
+}
+const OPEN_DELAY = 400
+// How long a tooltip waits after the pointer leaves before closing, so the
+// pointer can cross the gap onto it, or onto the next trigger.
+const CLOSE_GRACE = 100
+// After a tooltip closes, the next one opens without the delay for this long.
+const WARM_FOR = 400
+const EDGE = 8
+
+type Registration = {
+  element: HTMLElement | null
+  content: React.ReactNode
+  placement: Placement
+  className: string | undefined
+  disabled: boolean
+}
+
+type Source = "hover" | "focus"
+
+// ---------------------------------------------------------------- store
+
+const registrations = new Map<string, { current: Registration }>()
+const listeners = new Set<() => void>()
+let version = 0
+let activeId: string | null = null
+let activeSource: Source | null = null
+let focusedId: string | null = null
+// A tooltip closed by a click or Escape stays closed until its trigger is
+// left or blurred.
+let suppressedId: string | null = null
+let warmUntil = 0
+let showTimer: number | undefined
+let hideTimer: number | undefined
+
+const emit = () => {
+  version += 1
+  for (const listener of listeners) listener()
+}
+const subscribe = (listener: () => void) => {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+const getVersion = () => version
+
+const clearTimers = () => {
+  window.clearTimeout(showTimer)
+  window.clearTimeout(hideTimer)
+}
+
+const show = (id: string, source: Source) => {
+  clearTimers()
+  if (activeId === id && activeSource === source) return
+  activeId = id
+  activeSource = source
+  emit()
+}
+
+const hide = () => {
+  clearTimers()
+  if (activeId === null) return
+  warmUntil = performance.now() + WARM_FOR
+  activeId = null
+  activeSource = null
+  emit()
+}
+
+const isWarm = () => activeId !== null || performance.now() < warmUntil
+
+const tooltipStore = {
+  hoverStart(id: string) {
+    if (suppressedId === id) return
+    clearTimers()
+    if (isWarm()) show(id, "hover")
+    else showTimer = window.setTimeout(() => show(id, "hover"), OPEN_DELAY)
+  },
+  hoverEnd(id: string) {
+    window.clearTimeout(showTimer)
+    if (suppressedId === id) suppressedId = null
+    if (activeId !== id || activeSource !== "hover") return
+    hideTimer = window.setTimeout(() => {
+      // A trigger that still has keyboard focus gets its tooltip back.
+      if (focusedId !== null && focusedId !== id) show(focusedId, "focus")
+      else hide()
+    }, CLOSE_GRACE)
+  },
+  focusIn(id: string) {
+    focusedId = id
+    if (suppressedId !== id) show(id, "focus")
+  },
+  focusOut(id: string) {
+    if (focusedId === id) focusedId = null
+    if (suppressedId === id) suppressedId = null
+    if (activeId === id && activeSource === "focus") hide()
+  },
+  dismiss() {
+    window.clearTimeout(showTimer)
+    suppressedId = activeId
+    hide()
+  },
+  popupEnter() {
+    window.clearTimeout(hideTimer)
+  },
+  popupLeave() {
+    if (activeSource === "hover")
+      hideTimer = window.setTimeout(hide, CLOSE_GRACE)
+  },
+  touch(id: string) {
+    if (activeId === id) emit()
+  },
+  unregister(id: string) {
+    registrations.delete(id)
+    if (focusedId === id) focusedId = null
+    if (activeId === id) hide()
+  }
+}
+
+// ------------------------------------------------------------ placement
+
+type Rect = Readonly<{ x: number; y: number; width: number; height: number }>
+
+const opposite: Record<Side, Side> = {
+  top: "bottom",
+  bottom: "top",
+  left: "right",
+  right: "left"
+}
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), Math.max(min, max))
+
+// Where the tooltip's top-left corner goes, flipped to the other side when
+// it doesn't fit and kept inside the window.
+function place(
+  trigger: DOMRect,
+  size: Readonly<{ width: number; height: number }>,
+  placement: Placement
+): Rect & { side: Side } {
+  const { sideOffset, align } = placement
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const fits = (side: Side) =>
+    side === "top"
+      ? trigger.top - sideOffset - size.height >= EDGE
+      : side === "bottom"
+        ? trigger.bottom + sideOffset + size.height <= vh - EDGE
+        : side === "left"
+          ? trigger.left - sideOffset - size.width >= EDGE
+          : trigger.right + sideOffset + size.width <= vw - EDGE
+  const side =
+    fits(placement.side) || !fits(opposite[placement.side])
+      ? placement.side
+      : opposite[placement.side]
+  const vertical = side === "top" || side === "bottom"
+  const crossStart = vertical ? trigger.left : trigger.top
+  const crossLength = vertical ? trigger.width : trigger.height
+  const ownLength = vertical ? size.width : size.height
+  const cross =
+    align === "start"
+      ? crossStart
+      : align === "end"
+        ? crossStart + crossLength - ownLength
+        : crossStart + crossLength / 2 - ownLength / 2
+  const main =
+    side === "top"
+      ? trigger.top - sideOffset - size.height
+      : side === "bottom"
+        ? trigger.bottom + sideOffset
+        : side === "left"
+          ? trigger.left - sideOffset - size.width
+          : trigger.right + sideOffset
+  const x = clamp(vertical ? cross : main, EDGE, vw - size.width - EDGE)
+  const y = clamp(vertical ? main : cross, EDGE, vh - size.height - EDGE)
+  return { x, y, width: size.width, height: size.height, side }
+}
+
+const origin: Record<Side, string> = {
+  top: "50% 100%",
+  bottom: "50% 0%",
+  left: "100% 50%",
+  right: "0% 50%"
+}
+
+// ---------------------------------------------------------------- styles
 
 // Ink: the foreground colour as the fill and the page colour as the text, so
 // a tooltip reads as a label over any surface and never as a menu. Squircle
 // corners at about half the height, no border, no shadow.
 const inkClass =
-  "z-50 rounded-[9px] bg-foreground px-2 py-[5px] text-caption text-primary-foreground outline-none [corner-shape:var(--button-corner)]"
+  "rounded-[9px] bg-foreground px-2 py-[5px] text-caption text-primary-foreground [corner-shape:var(--button-corner)]"
 
-// Opens with a fade and a scale from 96% over 100ms; when the provider
-// shows it at once (moving along a toolbar), Base UI sets data-instant.
-const motionClass =
-  "origin-[var(--transform-origin)] transition-[opacity,scale] duration-100 ease-standard data-[ending-style]:scale-96 data-[ending-style]:opacity-0 data-[instant]:transition-none data-[starting-style]:scale-96 data-[starting-style]:opacity-0 motion-reduce:transition-opacity"
+// A label stays on one line; a caller that sets a max width (a longer hint)
+// gets wrapping at that width.
+const contentClass =
+  "w-max whitespace-nowrap [&[class*='max-w-']]:whitespace-normal"
 
-function TooltipProvider(
-  props: React.ComponentProps<typeof TooltipPrimitive.Provider>
-) {
-  return <TooltipPrimitive.Provider delay={400} {...props} />
+// The glide, the resize and the label blur share one clock (BlurSwap's
+// 180ms on ease-standard), so the label never outruns the box.
+const glide: Transition = transitions.presence
+const appear: Transition = { duration: 0.1, ease: [0.22, 1, 0.36, 1] }
+const labelSwap = {
+  hidden: { opacity: 0, filter: "blur(4px)" },
+  shown: { opacity: 1, filter: "blur(0px)" }
 }
 
-function Tooltip(props: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  return <TooltipPrimitive.Root {...props} />
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
+// ------------------------------------------------------------------ host
+
+const TOOLTIP_ID = "pp-tooltip"
+let primaryHost: symbol | null = null
+
+/**
+ * Renders the one tooltip. Mount it once near the root (`TooltipProvider`
+ * does); extra hosts render nothing.
+ */
+function TooltipHost() {
+  const [token] = React.useState(() => Symbol("tooltip-host"))
+  const [primary, setPrimary] = React.useState(false)
+  React.useEffect(() => {
+    if (primaryHost !== null) return
+    primaryHost = token
+    setPrimary(true)
+    return () => {
+      if (primaryHost === token) primaryHost = null
+    }
+  }, [token])
+  if (!primary) return null
+  return <HostSurface />
 }
 
-function TooltipTrigger(
-  props: React.ComponentProps<typeof TooltipPrimitive.Trigger>
-) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />
-}
+type Layout = Rect & { side: Side; id: string; glide: boolean }
 
-type Placement = Pick<
-  React.ComponentProps<typeof TooltipPrimitive.Positioner>,
-  "align" | "side" | "sideOffset"
->
+function HostSurface() {
+  const storeVersion = React.useSyncExternalStore(
+    subscribe,
+    getVersion,
+    getVersion
+  )
+  const id = activeId
+  const registration = id === null ? null : registrations.get(id)?.current
+  const content = registration?.disabled ? null : registration?.content
+  const measureRef = React.useRef<HTMLDivElement>(null)
+  const surfaceRef = React.useRef<HTMLDivElement | null>(null)
+  const [layout, setLayout] = React.useState<Layout | null>(null)
+  const describedRef = React.useRef<HTMLElement | null>(null)
 
-type TooltipContentProps = React.ComponentProps<typeof TooltipPrimitive.Popup> &
-  Placement
+  // Measure the next label off screen, then place the tooltip for it.
+  React.useLayoutEffect(() => {
+    const element = registration?.element
+    const measure = measureRef.current
+    if (id === null || !element || !measure || content == null) {
+      setLayout(null)
+      return
+    }
+    const box = measure.getBoundingClientRect()
+    const next = place(
+      element.getBoundingClientRect(),
+      { width: Math.ceil(box.width), height: Math.ceil(box.height) },
+      registration.placement
+    )
+    setLayout((previous) => {
+      if (
+        previous !== null &&
+        previous.id === id &&
+        previous.x === next.x &&
+        previous.y === next.y &&
+        previous.width === next.width &&
+        previous.height === next.height
+      )
+        return previous
+      return {
+        ...next,
+        id,
+        // Glide only while a tooltip is on screen (or still leaving).
+        glide:
+          surfaceRef.current !== null &&
+          previous !== null &&
+          !prefersReducedMotion()
+      }
+    })
+    // Re-measure whenever the store changes: a new trigger or new content.
+  }, [storeVersion, id, content, registration])
 
-function TooltipContent({
-  className,
-  align = "center",
-  side = "top",
-  sideOffset = 6,
-  ...props
-}: TooltipContentProps) {
-  return (
-    <TooltipPrimitive.Portal>
-      <TooltipPrimitive.Positioner
-        align={align}
-        side={side}
-        sideOffset={sideOffset}
+  // Describe the trigger by the tooltip when it says more than the label.
+  React.useEffect(() => {
+    const element = registration?.element ?? null
+    const previous = describedRef.current
+    if (previous && previous !== element)
+      previous.removeAttribute("aria-describedby")
+    describedRef.current = null
+    if (!element || content == null) return
+    const label = element.getAttribute("aria-label")?.trim()
+    const text = measureRef.current?.textContent?.trim()
+    if (text && text !== label) {
+      element.setAttribute("aria-describedby", TOOLTIP_ID)
+      describedRef.current = element
+    }
+  })
+
+  // Escape, scroll and resize close it.
+  React.useEffect(() => {
+    if (id === null) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") tooltipStore.dismiss()
+    }
+    document.addEventListener("keydown", onKey)
+    window.addEventListener("scroll", hide, { capture: true, passive: true })
+    window.addEventListener("resize", hide)
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      window.removeEventListener("scroll", hide, { capture: true })
+      window.removeEventListener("resize", hide)
+    }
+  }, [id])
+
+  const visible = id !== null && content != null && layout?.id === id
+  const reduced = prefersReducedMotion()
+  const move = layout?.glide ? glide : { duration: 0 }
+
+  return createPortal(
+    <>
+      {/* Off-screen copy of the next label, measured before it shows. */}
+      <div
+        aria-hidden
+        className="pointer-events-none invisible fixed top-0 left-0 -z-10"
       >
-        <TooltipPrimitive.Popup
-          data-slot="tooltip-content"
-          className={cn(inkClass, motionClass, className)}
-          {...props}
-        />
-      </TooltipPrimitive.Positioner>
-    </TooltipPrimitive.Portal>
-  )
-}
-
-// One tooltip shared by a row of triggers, like a toolbar. Once it is open,
-// moving to the next trigger doesn't close and reopen it: the popup glides
-// to the new trigger, eases to the new width, and the label blurs from the
-// old text to the new one (the same swap as BlurSwap).
-const TooltipGroupContext =
-  React.createContext<TooltipPrimitive.Handle<React.ReactNode> | null>(null)
-
-type TooltipGroupProps = Placement &
-  Readonly<{
-    children: React.ReactNode
-    // ms before the first tooltip opens; the rest switch at once.
-    delay?: number
-    className?: string
-  }>
-
-// The glide: the positioner moves and the popup resizes over 200ms on the
-// house easing (ease-standard), and the label swap below runs on the same
-// clock. Opening and closing stay at the standalone tooltip's 100ms. All of
-// it snaps when Base UI marks the change instant.
-const glideTransition =
-  "transition-[top,left,right,bottom,transform] duration-200 ease-standard data-[instant]:transition-none motion-reduce:transition-none"
-
-const groupPopupClass =
-  "h-[var(--popup-height,auto)] w-[var(--popup-width,auto)] whitespace-nowrap [transition:width_200ms_cubic-bezier(0.22,1,0.36,1),height_200ms_cubic-bezier(0.22,1,0.36,1),opacity_100ms_cubic-bezier(0.22,1,0.36,1),scale_100ms_cubic-bezier(0.22,1,0.36,1)] data-[ending-style]:scale-96 data-[ending-style]:opacity-0 data-[instant]:transition-none data-[starting-style]:scale-96 data-[starting-style]:opacity-0 motion-reduce:transition-opacity"
-
-// The label swap: the viewport carries the padding and clips, and the old
-// label keeps its own width (--popup-width) while it leaves, so nothing
-// reflows or spills past the edge. The blur itself is a keyframe animation
-// in theme.css (.pp-tooltip-viewport), not a transition: Base UI turns
-// transitions off on the new label while it measures the new size, and an
-// animation restarts cleanly once that's done.
-const viewportClass =
-  "pp-tooltip-viewport relative h-full w-full overflow-clip px-2 py-[5px] [&>[data-previous]]:w-[calc(var(--popup-width)-1rem)]"
-
-function TooltipGroup({
-  children,
-  delay = 400,
-  align = "center",
-  side = "top",
-  sideOffset = 6,
-  className
-}: TooltipGroupProps) {
-  const [handle] = React.useState(() =>
-    TooltipPrimitive.createHandle<React.ReactNode>()
-  )
-  return (
-    <TooltipPrimitive.Provider delay={delay}>
-      <TooltipGroupContext value={handle}>{children}</TooltipGroupContext>
-      <TooltipPrimitive.Root handle={handle}>
-        {({ payload }) => (
-          <TooltipPrimitive.Portal>
-            <TooltipPrimitive.Positioner
-              align={align}
-              side={side}
-              sideOffset={sideOffset}
-              className={cn(
-                "z-50 h-(--positioner-height) w-(--positioner-width) max-w-(--available-width)",
-                glideTransition
-              )}
-            >
-              <TooltipPrimitive.Popup
-                data-slot="tooltip-content"
+        <div
+          ref={measureRef}
+          className={cn(inkClass, contentClass, registration?.className)}
+        >
+          {content}
+        </div>
+      </div>
+      <AnimatePresence>
+        {visible && layout && (
+          <motion.div
+            key="tooltip"
+            ref={surfaceRef}
+            id={TOOLTIP_ID}
+            role="tooltip"
+            data-slot="tooltip-content"
+            data-side={layout.side}
+            onPointerEnter={() => tooltipStore.popupEnter()}
+            onPointerLeave={() => tooltipStore.popupLeave()}
+            initial={{
+              opacity: 0,
+              scale: reduced ? 1 : 0.96,
+              x: layout.x,
+              y: layout.y,
+              width: layout.width,
+              height: layout.height
+            }}
+            animate={{
+              opacity: 1,
+              scale: 1,
+              x: layout.x,
+              y: layout.y,
+              width: layout.width,
+              height: layout.height
+            }}
+            exit={{ opacity: 0, scale: reduced ? 1 : 0.96 }}
+            transition={{
+              opacity: appear,
+              scale: appear,
+              x: move,
+              y: move,
+              width: move,
+              height: move
+            }}
+            style={{ transformOrigin: origin[layout.side] }}
+            className={cn(
+              inkClass,
+              "fixed top-0 left-0 z-50 grid overflow-hidden p-0"
+            )}
+          >
+            <AnimatePresence initial={false}>
+              <motion.div
+                key={id}
+                variants={labelSwap}
+                initial="hidden"
+                animate="shown"
+                exit="hidden"
+                transition={reduced ? { duration: 0 } : glide}
+                // Each label keeps the size it was measured at, so the
+                // leaving one doesn't reflow while the box resizes.
+                style={{ width: layout.width, height: layout.height }}
                 className={cn(
                   inkClass,
-                  "origin-[var(--transform-origin)] overflow-clip p-0",
-                  groupPopupClass,
-                  className
+                  contentClass,
+                  "col-start-1 row-start-1 bg-transparent",
+                  registration?.className
                 )}
               >
-                <TooltipPrimitive.Viewport className={viewportClass}>
-                  {payload}
-                </TooltipPrimitive.Viewport>
-              </TooltipPrimitive.Popup>
-            </TooltipPrimitive.Positioner>
-          </TooltipPrimitive.Portal>
+                {content}
+              </motion.div>
+            </AnimatePresence>
+          </motion.div>
         )}
-      </TooltipPrimitive.Root>
-    </TooltipPrimitive.Provider>
+      </AnimatePresence>
+    </>,
+    document.body
   )
 }
 
-type TooltipGroupTriggerProps = Omit<
-  React.ComponentProps<typeof TooltipPrimitive.Trigger>,
-  "handle" | "payload" | "content"
-> &
+/** Mounts the tooltip host next to an app or a gallery. */
+function TooltipProvider({
+  children
+}: Readonly<{ children?: React.ReactNode }>) {
+  return (
+    <>
+      {children}
+      <TooltipHost />
+    </>
+  )
+}
+
+// --------------------------------------------------------------- trigger
+
+type ContentSlot = {
+  children: React.ReactNode
+  placement: Placement
+  className: string | undefined
+}
+
+type TooltipContextValue = {
+  id: string
+  open: boolean | undefined
+  content: React.RefObject<ContentSlot | null>
+  setTrigger: (element: HTMLElement | null) => void
+}
+
+const TooltipContext = React.createContext<TooltipContextValue | null>(null)
+const GroupPlacementContext = React.createContext<Placement | null>(null)
+
+type TriggerProps = Omit<React.ComponentProps<"button">, "content"> &
   Readonly<{
-    // What the shared tooltip shows while this trigger is active.
-    tooltip: React.ReactNode
+    render?: useRender.RenderProp
+    // Turns the tooltip off without touching the trigger.
+    disabled?: boolean
   }>
 
-function TooltipGroupTrigger({ tooltip, ...props }: TooltipGroupTriggerProps) {
-  const handle = React.useContext(TooltipGroupContext)
-  if (handle === null) {
-    throw new Error("TooltipGroupTrigger must be inside a TooltipGroup")
-  }
+function useTrigger(
+  id: string,
+  read: () => Omit<Registration, "element" | "disabled">,
+  { render, disabled = false, ref, ...props }: TriggerProps,
+  onElement?: (element: HTMLElement | null) => void
+) {
+  const elementRef = React.useRef<HTMLElement | null>(null)
+  const registration = React.useRef<Registration>({
+    element: null,
+    content: null,
+    placement: DEFAULT_PLACEMENT,
+    className: undefined,
+    disabled
+  })
+
+  React.useLayoutEffect(() => {
+    registration.current = {
+      ...read(),
+      element: elementRef.current,
+      disabled
+    }
+    registrations.set(id, registration)
+    tooltipStore.touch(id)
+  })
+  React.useEffect(() => () => tooltipStore.unregister(id), [id])
+
+  const setElement = React.useCallback(
+    (element: HTMLElement | null) => {
+      elementRef.current = element
+      onElement?.(element)
+    },
+    [onElement]
+  )
+
+  const handlers: React.HTMLAttributes<HTMLElement> = disabled
+    ? {}
+    : {
+        onPointerEnter: (event) => {
+          if (event.pointerType !== "touch") tooltipStore.hoverStart(id)
+        },
+        onPointerLeave: (event) => {
+          if (event.pointerType !== "touch") tooltipStore.hoverEnd(id)
+        },
+        onPointerDown: () => tooltipStore.dismiss(),
+        onFocus: (event) => {
+          if (event.currentTarget.matches(":focus-visible"))
+            tooltipStore.focusIn(id)
+        },
+        onBlur: () => tooltipStore.focusOut(id)
+      }
+
+  return useRender({
+    defaultTagName: "button",
+    render,
+    ref: ref ? [ref, setElement] : setElement,
+    props: mergeProps<"button">(
+      { "data-slot": "tooltip-trigger" } as React.ComponentProps<"button">,
+      handlers,
+      props
+    )
+  })
+}
+
+/** One tooltip: a `TooltipTrigger` and its `TooltipContent`. */
+function Tooltip({
+  open,
+  children
+}: Readonly<{
+  // Pins this tooltip open in place (for docs and state galleries).
+  open?: boolean
+  children: React.ReactNode
+}>) {
+  const id = React.useId()
+  const content = React.useRef<ContentSlot | null>(null)
+  const [trigger, setTrigger] = React.useState<HTMLElement | null>(null)
+  const value = React.useMemo(
+    () => ({ id, open, content, setTrigger }),
+    [id, open]
+  )
   return (
-    <TooltipPrimitive.Trigger
-      data-slot="tooltip-trigger"
-      handle={handle}
-      payload={tooltip}
-      {...props}
-    />
+    <TooltipContext value={value}>
+      {children}
+      {open && trigger && <PinnedTooltip trigger={trigger} content={content} />}
+    </TooltipContext>
+  )
+}
+
+function TooltipTrigger(props: TriggerProps) {
+  const context = React.useContext(TooltipContext)
+  if (context === null)
+    throw new Error("TooltipTrigger must be inside a Tooltip")
+  return useTrigger(
+    context.id,
+    () => ({
+      content: context.content.current?.children ?? null,
+      placement: context.content.current?.placement ?? DEFAULT_PLACEMENT,
+      className: context.content.current?.className
+    }),
+    // A pinned tooltip is drawn by the Tooltip itself, not the host.
+    context.open ? { ...props, disabled: true } : props,
+    context.setTrigger
+  )
+}
+
+type TooltipContentProps = Readonly<{
+  children: React.ReactNode
+  side?: Side
+  align?: Align
+  sideOffset?: number
+  className?: string
+}>
+
+/** What the tooltip shows, and where. Renders nothing in place. */
+function TooltipContent({
+  children,
+  side = "top",
+  align = "center",
+  sideOffset = 6,
+  className
+}: TooltipContentProps) {
+  const context = React.useContext(TooltipContext)
+  if (context === null)
+    throw new Error("TooltipContent must be inside a Tooltip")
+  React.useLayoutEffect(() => {
+    context.content.current = {
+      children,
+      placement: { side, align, sideOffset },
+      className
+    }
+    tooltipStore.touch(context.id)
+  })
+  return null
+}
+
+/**
+ * Sets the placement for the triggers inside it, like a toolbar. Every
+ * tooltip already shares the one host, so moving along a row glides.
+ */
+function TooltipGroup({
+  children,
+  side = "top",
+  align = "center",
+  sideOffset = 6
+}: Readonly<{
+  children: React.ReactNode
+  side?: Side
+  align?: Align
+  sideOffset?: number
+}>) {
+  const placement = React.useMemo(
+    () => ({ side, align, sideOffset }),
+    [side, align, sideOffset]
+  )
+  return (
+    <GroupPlacementContext value={placement}>{children}</GroupPlacementContext>
+  )
+}
+
+/** A trigger that carries its own tooltip, for rows of icon buttons. */
+function TooltipGroupTrigger({
+  tooltip,
+  ...props
+}: TriggerProps & Readonly<{ tooltip: React.ReactNode }>) {
+  const id = React.useId()
+  const placement = React.useContext(GroupPlacementContext) ?? DEFAULT_PLACEMENT
+  return useTrigger(
+    id,
+    () => ({ content: tooltip, placement, className: undefined }),
+    props
+  )
+}
+
+// ---------------------------------------------------------------- pinned
+
+function PinnedTooltip({
+  trigger,
+  content
+}: Readonly<{
+  trigger: HTMLElement
+  content: TooltipContextValue["content"]
+}>) {
+  const ref = React.useRef<HTMLDivElement>(null)
+  const [layout, setLayout] = React.useState<(Rect & { side: Side }) | null>(
+    null
+  )
+  const current = content.current
+  React.useLayoutEffect(() => {
+    const element = ref.current
+    if (!element || !current) return
+    const box = element.getBoundingClientRect()
+    const next = place(
+      trigger.getBoundingClientRect(),
+      { width: Math.ceil(box.width), height: Math.ceil(box.height) },
+      current.placement
+    )
+    setLayout((previous) =>
+      previous &&
+      previous.x === next.x &&
+      previous.y === next.y &&
+      previous.side === next.side
+        ? previous
+        : next
+    )
+  }, [trigger, current])
+  if (!current) return null
+  return createPortal(
+    <div
+      ref={ref}
+      data-slot="tooltip-content"
+      data-side={layout?.side}
+      aria-hidden
+      style={{
+        transform: layout
+          ? `translate(${layout.x}px, ${layout.y}px)`
+          : "translate(-9999px, 0)"
+      }}
+      className={cn(
+        inkClass,
+        contentClass,
+        "pointer-events-none fixed top-0 left-0 z-40",
+        current.className
+      )}
+    >
+      {current.children}
+    </div>,
+    document.body
   )
 }
 
 export {
   Tooltip,
   TooltipProvider,
+  TooltipHost,
   TooltipTrigger,
   TooltipContent,
   TooltipGroup,

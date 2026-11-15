@@ -1,3 +1,4 @@
+import { TooltipHost } from "@pp/ui/tooltip"
 import { Outlet, useRouterState } from "@tanstack/react-router"
 import { useEffect } from "react"
 
@@ -19,6 +20,8 @@ export function RootComponent() {
     <>
       <Outlet />
       <LoaderOverlay active={isLoading} />
+      {/* The one tooltip for the whole app; every TooltipTrigger feeds it. */}
+      <TooltipHost />
     </>
   )
 }

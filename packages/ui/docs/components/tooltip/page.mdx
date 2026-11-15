@@ -5,15 +5,9 @@ export const meta = {
     "A short text label shown on hover or keyboard focus, mostly for icon-only buttons. Used in the editor's formatting toolbar and block gutter, sprint chips, attachment rows and the subscribe toggle.",
   sources: [
     {
-      kind: "base-ui",
+      kind: "own",
       name: "Tooltip",
-      href: "https://base-ui.com/react/components/tooltip"
-    },
-    {
-      kind: "shadcn",
-      name: "tooltip",
-      note: "starting point, restyled",
-      href: "https://ui.shadcn.com/docs/components/tooltip"
+      note: "our own; replaced Base UI's tooltip (see Why our own)"
     }
   ]
 }
@@ -30,7 +24,9 @@ On top, a live toolbar sharing one tooltip: hover a button, wait 400ms, then mov
 
 ## Usage
 
-A row of triggers, like a toolbar, shares one tooltip through `TooltipGroup`. Each trigger passes what to show as `tooltip`:
+The app mounts one `TooltipHost` at its root (`RootComponent.tsx`); the gallery mounts it through `TooltipProvider`. Every trigger feeds that one host, so there is only ever one tooltip on screen.
+
+A row of icon buttons gives each trigger its label with `TooltipGroupTrigger`, and sets the side once with `TooltipGroup`:
 
 ```tsx
 import { TooltipGroup, TooltipGroupTrigger } from "@pp/ui/tooltip"
@@ -55,46 +51,56 @@ export function FormattingToolbar() {
 }
 ```
 
-A single trigger uses `Tooltip`, `TooltipTrigger` and `TooltipContent`. Wrap a page or panel in `TooltipProvider` so neighbouring tooltips skip the delay.
+A single trigger uses `Tooltip`, `TooltipTrigger` and `TooltipContent`. `TooltipContent` renders nothing in place; it tells the host what to show.
 
 ```tsx
 <Tooltip>
-  <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label={label} />}>
+  <TooltipTrigger
+    render={<Button variant="ghost" size="icon-sm" aria-label={label} />}
+  >
     <Download />
   </TooltipTrigger>
   <TooltipContent>{label}</TooltipContent>
 </Tooltip>
 ```
 
-| Component             | Prop         | Type                                     | Default    |
-| --------------------- | ------------ | ---------------------------------------- | ---------- |
-| `TooltipGroup`        | `delay`      | `number` (ms before the first opens)     | `400`      |
-| `TooltipGroup`        | `side`       | `"top" \| "bottom" \| "left" \| "right"` | `"top"`    |
-| `TooltipGroup`        | `sideOffset` | `number`                                 | `6`        |
-| `TooltipGroupTrigger` | `tooltip`    | `ReactNode`, shown while it's active     | required   |
-| `TooltipProvider`     | `delay`      | `number`                                 | `400`      |
-| `TooltipContent`      | `side`       | `"top" \| "bottom" \| "left" \| "right"` | `"top"`    |
-| `TooltipContent`      | `align`      | `"start" \| "center" \| "end"`           | `"center"` |
-| `TooltipContent`      | `sideOffset` | `number`                                 | `6`        |
+| Component             | Prop         | Type                                          | Default    |
+| --------------------- | ------------ | --------------------------------------------- | ---------- |
+| `Tooltip`             | `open`       | `boolean`, pins it open in place (docs only)  |            |
+| `TooltipTrigger`      | `render`     | the element to render, like Base UI's         | `<button>` |
+| `TooltipTrigger`      | `disabled`   | `boolean`, turns the tooltip off              | `false`    |
+| `TooltipContent`      | `side`       | `"top" \| "bottom" \| "left" \| "right"`      | `"top"`    |
+| `TooltipContent`      | `align`      | `"start" \| "center" \| "end"`                | `"center"` |
+| `TooltipContent`      | `sideOffset` | `number`                                      | `6`        |
+| `TooltipContent`      | `className`  | e.g. `max-w-64`, which lets a hint wrap       |            |
+| `TooltipGroup`        | `side`, `align`, `sideOffset` | placement for the triggers inside |            |
+| `TooltipGroupTrigger` | `tooltip`    | `ReactNode`, what it shows                    | required   |
 
 ## Rules
 
+### Why our own
+
+We started on Base UI's tooltip and replaced it. Base UI's tooltip adds no ARIA of its own: no `role`, no `aria-describedby`; the trigger's `aria-label` does that work either way. What it gives is behaviour: open on focus, Escape, a hover delay, edge flipping. Two things we needed didn't fit:
+
+- **Only one tooltip at a time.** Every Base UI tooltip decides on its own, so hovering one button while another had keyboard focus showed two. Ours has a single host for the whole app: the latest hover or keyboard focus wins, and when a hover ends, the focused trigger's tooltip comes back.
+- **A glide with a blur between labels.** To move one tooltip between triggers we used Base UI's shared handle and `Viewport`, but the viewport turns transitions off on the new label while it measures the new size, so the blur never played. Ours measures the next label off screen first, then animates position, size and label together.
+
+### What it handles
+
+- **Opening.** Hover opens after 400ms, so passing over a button doesn't flash one. While a tooltip shows, or for 400ms after one closes, the next opens at once. Keyboard focus opens it straight away, but only on `:focus-visible`, so clicking a button doesn't. Touch never opens one.
+- **Closing.** Leaving the trigger closes it after 100ms, long enough to cross onto the tooltip or the next button. Clicking the trigger, Escape, scrolling and resizing close it; after a click or Escape it stays closed until the pointer leaves or focus moves on.
+- **Staying open on hover.** The pointer can move onto the tooltip without it closing (WCAG 1.4.13).
+- **Placement.** It sits on its side of the trigger, flips to the other side when it doesn't fit, and stays 8px inside the window.
+- **Screen readers.** The tooltip has `role="tooltip"`. When it says more than the trigger's `aria-label` (a hint, not just the label), the trigger gets `aria-describedby` pointing at it. Icon buttons still need their own `aria-label`.
+
 ### Ink
 
-The fill is the foreground colour and the text the page colour: near-black in light, near-white in dark. A tooltip is a label, not a place to interact, so it should read instantly over any surface, including white cards and popovers where a card-coloured tooltip disappears. No border, no shadow, squircle corners at about half its height.
+The fill is the foreground colour and the text the page colour: near-black in light, near-white in dark. A tooltip is a label, not a place to interact, so it reads instantly over any surface, including white cards and popovers where a card-coloured tooltip disappears. No border, no shadow, squircle corners at about half its height.
 
-### One tooltip per toolbar
+### Motion
 
-A row of triggers shares a single tooltip (`TooltipGroup`, built on Base UI's tooltip handle). Once it's open, moving along the row doesn't close and reopen it: it glides to the next trigger, resizes to the new label, and the label blurs from old to new, all over 200ms on `ease-standard`. The app's formatting toolbar, block gutter and attachments table use it.
-
-### Timing
-
-The first tooltip waits 400ms, so passing over a button doesn't flash one. Opening and closing fade and scale from 96% over 100ms. Moving within a group, or between tooltips under one provider, is instant.
+Opening and closing fade and scale from 96% over 100ms. Moving to another trigger while one shows glides: position, size and the label's blur run together over 180ms on `ease-standard` (BlurSwap's clock), so the label never outruns the box. The box clips, and the leaving label keeps the size it was measured at, so nothing reflows mid-swap. Reduced motion keeps only the fades.
 
 ### Shortcuts
 
 A keyboard shortcut sits on the right in a `Kbd`, which turns into a see-through key inside the ink.
-
-### Label swap uses keyframes
-
-The blur between labels is a keyframe animation (`.pp-tooltip-viewport` in `theme.css`), not a transition. Base UI turns transitions off on the new label while it measures the new size, which swallowed a transition; an animation starts over once the measurement ends.
