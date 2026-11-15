@@ -1,0 +1,128 @@
+export const meta = {
+  title: "Empty",
+  group: "Primitives",
+  description:
+    "What a list, board, page or panel shows when it has nothing in it yet, or nothing matches: a message in a dithered well, with an optional action.",
+  sources: [
+    {
+      kind: "shadcn",
+      name: "empty",
+      note: "starting point; one variant, dither added",
+      href: "https://ui.shadcn.com/docs/components/empty"
+    },
+    {
+      kind: "own",
+      name: "Dither",
+      note: "the WebGL Bayer shader behind every empty state and the login page"
+    }
+  ]
+}
+
+## Overview
+
+One component for every place. The big specimen is the default, medium and animated. The grid below shows each intensity, animated and still, at a narrow width, where the type and icon step down on their own.
+
+<Demo name="overview" title="All states" />
+
+## Usage
+
+```tsx
+import { Button } from "@pp/ui/button"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle
+} from "@pp/ui/empty"
+
+<Empty>
+  <EmptyHeader>
+    <EmptyMedia variant="icon">
+      <FilterX strokeWidth={1.75} />
+    </EmptyMedia>
+    <EmptyTitle>{m.tickets_no_filter_matches_title()}</EmptyTitle>
+    <EmptyDescription>{m.tickets_no_filter_matches()}</EmptyDescription>
+  </EmptyHeader>
+  <EmptyContent>
+    <Button variant="tertiary" size="sm" leadingIcon={FilterX} onClick={resetFilters}>
+      {m.tickets_filters_clear_all()}
+    </Button>
+  </EmptyContent>
+</Empty>
+
+// In a settings panel or a popover: quieter, and still.
+<Empty intensity="subtle" animated={false}>…</Empty>
+```
+
+| Part           | Prop        | Type                                | Default    |
+| -------------- | ----------- | ----------------------------------- | ---------- |
+| `Empty`        | `intensity` | `"subtle" \| "medium" \| "strong"` | `"medium"` |
+|                | `animated`  | `boolean`                           | `true`     |
+| `EmptyMedia`   | `variant`   | `"default" \| "icon"`               | `"default"` |
+| `EmptyContent` | (children)  | the action: a button, or a row      |            |
+
+## Rules
+
+### One variant, tuned by intensity and motion
+
+There used to be three looks (a dithered card, a dashed inline box and a compact ⌘K box), and call sites restyled them by hand. Now there is one. What changes between places is how much dither surrounds the message (`intensity`) and whether it drifts (`animated`). The structure doesn't change.
+
+### Sizes follow the container, not the call site
+
+`Empty` is a size container. Below 448px wide, the title is 14/20 and the icon tile 32px. Above that, the title is 16/22 and the tile 40px. Callers never set type sizes.
+
+### Squircle surface
+
+The well uses a 20px radius shaped by `--button-corner`, and the icon tile uses 12px (10px when small). These are the same corners as the ⌘K dialog and the buttons.
+
+### Pick intensity and motion by what the empty state is for
+
+| Look | When | In the app |
+| --- | --- | --- |
+| `strong`, animated | First run: the whole screen is the invitation | Dashboard with no projects |
+| `medium`, animated | A page's main content is empty; the next step is to add something | Backlog, open sprint, Projects page, Jira imports |
+| `medium`, still | The user emptied it, and the action undoes that | Filters hide everything, every column hidden, a completed sprint |
+| `subtle`, animated | The page brings its own illustration, which leads | No sprints, the library |
+| `subtle`, still | A section, panel or popup inside a bigger screen | Dashboard sections, attachments, ⌘K, the ⌘K peek |
+
+Motion means "start here". A screen gets at most one drifting well, so an empty state inside a busy screen holds still.
+
+### Every well is different
+
+Each `Empty` picks a random seed when it mounts and samples its own patch of the noise. Two empty states on one screen never look stamped from the same mould, and a revisit shows a new shape.
+
+### Always an icon
+
+Every empty state leads with an icon tile (or its own illustration), then a title, then one sentence. The title is foreground even inside muted surroundings such as ⌘K.
+
+### What isn't an Empty
+
+A line of muted text stays a line of text. That covers a picker or menu with no matches ("No one matches"), a value that isn't set ("None", "No description"), and an empty section in a list ("—"). Those are empty lists or values, not empty states, and a dithered well would drown them.
+
+### Motion
+
+An animated well drifts slowly (speed 0.1). A still one reveals once and then holds. A click ripples either kind. Reduced motion holds every well still.
+
+## Examples
+
+Every empty state in the app, grouped by where it appears. Each caption names its intensity and motion.
+
+### Pages
+
+<Demo name="pages" title="Pages and panels" />
+
+### Dashboard and projects
+
+<Demo name="dashboard" title="Dashboard and projects" />
+
+### Attachments
+
+<Demo name="attachments" title="Attachments" />
+
+### ⌘K
+
+<Demo name="command-menu" title="⌘K, search" />
+
+<Demo name="command-menu-pages" title="⌘K pages" />

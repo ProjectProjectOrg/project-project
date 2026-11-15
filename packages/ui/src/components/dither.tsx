@@ -39,6 +39,9 @@ export interface DitherProps {
   warpStrength?: number
   contrast?: number
   bias?: number
+  // Where in the noise field to sample: two wells with different seeds
+  // show different shapes.
+  seed?: number
   colorFront?: string
   colorBack?: string
   pixelSize?: number
@@ -86,6 +89,7 @@ uniform float u_rotationAngle;
 uniform float u_warpStrength;
 uniform float u_contrast;
 uniform float u_bias;
+uniform float u_seed;
 
 uniform vec4 u_colorFront;
 uniform vec4 u_colorBack;
@@ -263,7 +267,7 @@ void main() {
     t += u_rippleStrength * fade * env * wave;
   }
 
-  vec3 p = vec3(uv * u_frequency, t);
+  vec3 p = vec3(uv * u_frequency, t) + vec3(u_seed * 17.31, u_seed * -9.13, u_seed * 3.77);
   if (u_warpStrength > 0.0) {
     vec2 q = vec2(
       fbm(p),
@@ -390,6 +394,7 @@ export function Dither({
   warpStrength = 0.0,
   contrast = 0.2,
   bias = 0.0,
+  seed = 0,
   colorFront = "var(--dither-front)",
   colorBack = "var(--dither-back)",
   pixelSize = 2,
@@ -425,6 +430,7 @@ export function Dither({
     warpStrength,
     contrast,
     bias,
+    seed,
     colorFront,
     colorBack,
     pixelSize,
@@ -450,6 +456,7 @@ export function Dither({
       warpStrength,
       contrast,
       bias,
+      seed,
       colorFront,
       colorBack,
       pixelSize,
@@ -473,6 +480,7 @@ export function Dither({
     warpStrength,
     contrast,
     bias,
+    seed,
     colorFront,
     colorBack,
     pixelSize,
@@ -547,6 +555,7 @@ export function Dither({
       u_warpStrength: gl.getUniformLocation(program, "u_warpStrength"),
       u_contrast: gl.getUniformLocation(program, "u_contrast"),
       u_bias: gl.getUniformLocation(program, "u_bias"),
+      u_seed: gl.getUniformLocation(program, "u_seed"),
       u_colorFront: gl.getUniformLocation(program, "u_colorFront"),
       u_colorBack: gl.getUniformLocation(program, "u_colorBack"),
       u_pxSize: gl.getUniformLocation(program, "u_pxSize"),
@@ -689,6 +698,7 @@ export function Dither({
       gl.uniform1f(uniforms.u_warpStrength, cur.warpStrength)
       gl.uniform1f(uniforms.u_contrast, cur.contrast)
       gl.uniform1f(uniforms.u_bias, cur.bias)
+      gl.uniform1f(uniforms.u_seed, cur.seed)
       gl.uniform4f(uniforms.u_colorFront, fg[0], fg[1], fg[2], fg[3])
       gl.uniform4f(uniforms.u_colorBack, bg[0], bg[1], bg[2], bg[3])
       gl.uniform1f(uniforms.u_pxSize, cur.pixelSize)

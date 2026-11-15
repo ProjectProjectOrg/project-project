@@ -27,7 +27,7 @@ export function SprintTicketList({
       query={query}
       members={members}
       empty={
-        <Empty>
+        <Empty animated={!completed}>
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <Icon strokeWidth={1.75} />

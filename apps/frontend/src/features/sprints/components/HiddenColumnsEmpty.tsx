@@ -15,7 +15,7 @@ export function HiddenColumnsEmpty({
   onShowAll
 }: Readonly<{ onShowAll: () => void }>) {
   return (
-    <Empty>
+    <Empty animated={false}>
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <EyeOff strokeWidth={1.75} />

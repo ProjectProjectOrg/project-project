@@ -7,7 +7,7 @@ export function LibraryEmpty({
   hint
 }: Readonly<{ caption: string; hint?: string }>) {
   return (
-    <Empty className="min-h-[220px]">
+    <Empty intensity="subtle" className="min-h-[220px]">
       <EmptyMedia className="mb-1">
         <DitheredBlocks size={88} />
       </EmptyMedia>
@@ -15,9 +15,7 @@ export function LibraryEmpty({
         {caption}
       </EmptyTitle>
       {hint === undefined ? null : (
-        <EmptyDescription className="max-w-xs text-caption">
-          {hint}
-        </EmptyDescription>
+        <EmptyDescription className="max-w-xs">{hint}</EmptyDescription>
       )}
     </Empty>
   )

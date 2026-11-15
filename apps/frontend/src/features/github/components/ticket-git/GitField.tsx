@@ -99,7 +99,7 @@ function StatusLink({
       draggable={false}
       target="_blank"
       rel="noreferrer"
-      className={cn("inline-flex items-center gap-0.5", textLinkClass)}
+      className={cn("-my-[5px] inline-flex items-center gap-0.5 py-[5px]", textLinkClass)}
     >
       {children}
       <ArrowUpRight className="size-3" strokeWidth={1.75} />

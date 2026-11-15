@@ -5,10 +5,17 @@ import type {
 } from "@pp/shared"
 import { Checkbox } from "@pp/ui/checkbox"
 import { ConfirmButton } from "@pp/ui/confirm-button"
-import { Empty, EmptyDescription, EmptyTitle } from "@pp/ui/empty"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle
+} from "@pp/ui/empty"
 import { TooltipGroup } from "@pp/ui/tooltip"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
+import { CloudOff, FilterX, FolderOpen } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
@@ -167,16 +174,16 @@ function AttachmentStorageGate({
       onInitial={() => <TableSkeleton />}
       onSuccess={({ value }) =>
         value.status === "not_connected" ? (
-          <Empty
-            variant="inline"
-            className="border border-dashed border-border"
-          >
-            <EmptyTitle className="text-body font-semibold">
-              {m.attachments_empty_no_storage_title()}
-            </EmptyTitle>
-            <EmptyDescription className="max-w-sm text-caption">
-              {m.attachments_empty_no_storage_body()}
-            </EmptyDescription>
+          <Empty intensity="subtle" animated={false}>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <CloudOff strokeWidth={1.75} />
+              </EmptyMedia>
+              <EmptyTitle>{m.attachments_empty_no_storage_title()}</EmptyTitle>
+              <EmptyDescription>
+                {m.attachments_empty_no_storage_body()}
+              </EmptyDescription>
+            </EmptyHeader>
           </Empty>
         ) : (
           <TooltipGroup>{children}</TooltipGroup>
@@ -316,17 +323,26 @@ function AttachmentsTable({
 
 function EmptyRows({ filtered }: { filtered: boolean }) {
   return (
-    <Empty variant="inline" className="border border-dashed border-border">
-      <EmptyTitle className="text-body font-semibold">
-        {filtered
-          ? m.attachments_empty_filtered_title()
-          : m.attachments_empty_none_title()}
-      </EmptyTitle>
-      <EmptyDescription className="max-w-sm text-caption">
-        {filtered
-          ? m.attachments_empty_filtered_body()
-          : m.attachments_empty_none_body()}
-      </EmptyDescription>
+    <Empty intensity="subtle" animated={false}>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          {filtered ? (
+            <FilterX strokeWidth={1.75} />
+          ) : (
+            <FolderOpen strokeWidth={1.75} />
+          )}
+        </EmptyMedia>
+        <EmptyTitle>
+          {filtered
+            ? m.attachments_empty_filtered_title()
+            : m.attachments_empty_none_title()}
+        </EmptyTitle>
+        <EmptyDescription>
+          {filtered
+            ? m.attachments_empty_filtered_body()
+            : m.attachments_empty_none_body()}
+        </EmptyDescription>
+      </EmptyHeader>
     </Empty>
   )
 }

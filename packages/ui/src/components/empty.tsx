@@ -1,5 +1,6 @@
-import { cva, type VariantProps } from "class-variance-authority"
-import { useRef } from "react"
+import * as Effect from "effect/Effect"
+import * as Random from "effect/Random"
+import { useRef, useState } from "react"
 
 import { cn } from "../lib/utils"
 import { Dither, type TimeWarpZone } from "./dither"
@@ -14,70 +15,55 @@ const EMPTY_WARP_ZONES: TimeWarpZone[] = [
   }
 ]
 
-type EmptyVariant = "default" | "inline" | "compact"
+export type EmptyIntensity = "subtle" | "medium" | "strong"
 
-function Empty({
-  className,
-  variant = "default",
-  children,
-  ...props
-}: React.ComponentProps<"div"> & { variant?: EmptyVariant }) {
-  if (variant === "compact") {
-    return (
-      <div
-        data-slot="empty"
-        data-variant="compact"
-        className={cn(
-          "group/empty flex min-w-0 flex-col items-center justify-center gap-1 px-6 py-8 text-center text-balance",
-          className
-        )}
-        {...props}
-      >
-        {children}
-      </div>
-    )
-  }
-  if (variant === "inline") {
-    return (
-      <div
-        data-slot="empty"
-        data-variant="inline"
-        className={cn(
-          "flex min-w-0 flex-1 flex-col items-center justify-center gap-6 rounded-lg border-dashed p-6 text-center text-balance md:p-12",
-          className
-        )}
-        {...props}
-      >
-        {children}
-      </div>
-    )
-  }
-  return (
-    <EmptyDithered className={className} {...props}>
-      {children}
-    </EmptyDithered>
-  )
+// How much dither surrounds the message. `bias` shifts the noise toward
+// more or less ink; `opacity` fades the whole layer for the quietest one.
+const INTENSITY: Readonly<
+  Record<EmptyIntensity, Readonly<{ bias: number; opacity: number }>>
+> = {
+  subtle: { bias: -0.2, opacity: 0.6 },
+  medium: { bias: -0.05, opacity: 1 },
+  strong: { bias: 0.1, opacity: 1 }
 }
 
-function EmptyDithered({
+export type EmptyProps = React.ComponentProps<"div"> &
+  Readonly<{
+    // The dither drifts slowly; off, it holds still (it still reveals once,
+    // and a click still ripples it). Reduced motion always holds it still.
+    animated?: boolean
+    intensity?: EmptyIntensity
+  }>
+
+// One empty state for every place: a page, a panel, a popover, ⌘K. It sizes
+// its type and icon to its own width (container queries), so the same parts
+// read right at 280px and at 1000px.
+function Empty({
   className,
+  animated = true,
+  intensity = "medium",
   children,
   ...props
-}: React.ComponentProps<"div">) {
+}: EmptyProps) {
   const cardRef = useRef<HTMLDivElement | null>(null)
+  // Each empty state samples its own patch of the noise, so two on one
+  // screen (or the same one on two visits) never look stamped out.
+  const [seed] = useState(() => Effect.runSync(Random.nextBetween(0, 64)))
+  const { bias, opacity } = INTENSITY[intensity]
   return (
     <div
       data-slot="empty"
-      data-variant="default"
+      data-intensity={intensity}
       className={cn(
-        "relative grid min-h-[280px] animate-in place-items-center overflow-hidden rounded-xl bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)] p-8 duration-500 fade-in",
+        "@container/empty relative grid min-h-[280px] animate-in place-items-center overflow-hidden rounded-[20px] bg-[color-mix(in_oklch,var(--background)_82%,var(--muted)_18%)] p-4 duration-500 fade-in [corner-shape:var(--button-corner)]",
         className
       )}
       {...props}
     >
-      <div className="pointer-events-none absolute inset-0">
+      <div className="pointer-events-none absolute inset-0" style={{ opacity }}>
         <Dither
-          speed={0.1}
+          disableAnimation={!animated}
+          speed={animated ? 0.1 : 0}
           octaves={6}
           frequency={1.2}
           amplitude={0.52}
@@ -85,19 +71,20 @@ function EmptyDithered({
           rotationAngle={0.5}
           warpStrength={1.1}
           contrast={0.2}
-          bias={-0.05}
+          bias={bias}
+          seed={seed}
           pixelSize={2}
           ditherType="4x4"
           cardRef={cardRef}
           cardWellEnabled
           cardFalloff={60}
-          cardCornerRadius={14}
+          cardCornerRadius={16}
           timeWarpZones={EMPTY_WARP_ZONES}
         />
       </div>
       <div
         ref={cardRef}
-        className="relative flex animate-in flex-col items-center gap-2 rounded-2xl px-6 py-5 text-center duration-500 zoom-in-95 fade-in"
+        className="relative flex max-w-sm animate-in flex-col items-center gap-1 px-4 py-3 text-center text-balance duration-500 zoom-in-95 fade-in @md/empty:px-6 @md/empty:py-5"
       >
         {children}
       </div>
@@ -109,40 +96,34 @@ function EmptyHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="empty-header"
-      className={cn(
-        "flex max-w-sm flex-col items-center gap-2 text-center",
-        className
-      )}
+      className={cn("flex flex-col items-center gap-1 text-center", className)}
       {...props}
     />
   )
 }
 
-const emptyMediaVariants = cva(
-  "mb-2 flex shrink-0 items-center justify-center [&_svg]:pointer-events-none [&_svg]:shrink-0",
-  {
-    variants: {
-      variant: {
-        default: "bg-transparent",
-        icon: "flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground group-data-[variant=compact]/empty:size-8 group-data-[variant=compact]/empty:text-muted-foreground [&_svg:not([class*='size-'])]:size-6 group-data-[variant=compact]/empty:[&_svg:not([class*='size-'])]:size-4"
-      }
-    },
-    defaultVariants: {
-      variant: "default"
-    }
-  }
-)
+export type EmptyMediaProps = React.ComponentProps<"div"> &
+  Readonly<{
+    // `icon` sets a Lucide icon on a squircle tile; `default` leaves an
+    // illustration as it is.
+    variant?: "default" | "icon"
+  }>
 
 function EmptyMedia({
   className,
   variant = "default",
   ...props
-}: React.ComponentProps<"div"> & VariantProps<typeof emptyMediaVariants>) {
+}: EmptyMediaProps) {
   return (
     <div
       data-slot="empty-icon"
       data-variant={variant}
-      className={cn(emptyMediaVariants({ variant, className }))}
+      className={cn(
+        "mb-2 flex shrink-0 items-center justify-center [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        variant === "icon" &&
+          "size-8 rounded-[10px] bg-active text-foreground [corner-shape:var(--button-corner)] @md/empty:size-10 @md/empty:rounded-[12px] [&_svg:not([class*='size-'])]:size-4 @md/empty:[&_svg:not([class*='size-'])]:size-5",
+        className
+      )}
       {...props}
     />
   )
@@ -153,8 +134,7 @@ function EmptyTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="empty-title"
       className={cn(
-        "text-title",
-        "font-semibold group-data-[variant=compact]/empty:text-subtitle",
+        "text-subtitle font-semibold text-foreground @md/empty:text-title",
         className
       )}
       {...props}
@@ -167,8 +147,7 @@ function EmptyDescription({ className, ...props }: React.ComponentProps<"p">) {
     <div
       data-slot="empty-description"
       className={cn(
-        "text-body",
-        "text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
+        "text-body text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-foreground",
         className
       )}
       {...props}
@@ -176,13 +155,13 @@ function EmptyDescription({ className, ...props }: React.ComponentProps<"p">) {
   )
 }
 
+// The actions: one button, or a row of them. Sits 12px under the message.
 function EmptyContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="empty-content"
       className={cn(
-        "flex w-full max-w-sm min-w-0 flex-col items-center gap-4 text-balance",
-        "text-body",
+        "mt-3 flex w-full min-w-0 flex-col items-center gap-3 text-body",
         className
       )}
       {...props}

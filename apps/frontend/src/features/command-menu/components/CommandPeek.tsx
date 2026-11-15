@@ -2,6 +2,7 @@ import {
   useHighlightedItem,
   type CommandMenuItemData
 } from "@pp/ui/command-menu"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@pp/ui/empty"
 import { useDebouncedValue } from "@tanstack/react-pacer"
 import { EyeOff } from "lucide-react"
 import {
@@ -109,10 +110,14 @@ function PeekContent({
   const preview = value === null ? null : render(value)
   return (
     preview ?? (
-      <div className="flex h-full flex-col items-center justify-center gap-2 text-body text-muted-foreground">
-        <EyeOff className="size-5" strokeWidth={1.5} />
-        {m.chrome_command_menu_no_preview()}
-      </div>
+      <Empty intensity="subtle" animated={false} className="h-full min-h-0">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <EyeOff strokeWidth={1.75} />
+          </EmptyMedia>
+          <EmptyTitle>{m.chrome_command_menu_no_preview()}</EmptyTitle>
+        </EmptyHeader>
+      </Empty>
     )
   )
 }

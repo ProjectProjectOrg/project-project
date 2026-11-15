@@ -168,7 +168,7 @@ export function SegmentedList({
 
   if (filteredStatuses.length === 0 && hasActiveFilter) {
     return (
-      <Empty>
+      <Empty animated={false}>
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <FilterX strokeWidth={1.75} />

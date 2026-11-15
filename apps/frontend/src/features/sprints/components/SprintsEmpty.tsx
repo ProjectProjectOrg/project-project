@@ -6,16 +6,12 @@ import { DitheredCalendar } from "./DitheredCalendar"
 
 export function SprintsEmpty() {
   return (
-    <Empty>
-      <EmptyMedia variant="icon" className="mb-1 bg-transparent">
+    <Empty intensity="subtle">
+      <EmptyMedia>
         <DitheredCalendar size={120} />
       </EmptyMedia>
-      <EmptyTitle className="text-body font-semibold">
-        {m.sprints_empty_no_sprints_title()}
-      </EmptyTitle>
-      <EmptyDescription className="max-w-sm text-caption">
-        {m.sprints_empty_no_sprints_body()}
-      </EmptyDescription>
+      <EmptyTitle>{m.sprints_empty_no_sprints_title()}</EmptyTitle>
+      <EmptyDescription>{m.sprints_empty_no_sprints_body()}</EmptyDescription>
     </Empty>
   )
 }

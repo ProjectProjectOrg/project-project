@@ -309,7 +309,7 @@ function CommandFrameEmpty({
   action
 }: CommandEmpty) {
   return (
-    <Empty variant="compact">
+    <Empty intensity="subtle" animated={false} className="m-1.5 min-h-56">
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <Icon strokeWidth={1.75} />
@@ -318,7 +318,7 @@ function CommandFrameEmpty({
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
       {action !== undefined && (
-        <EmptyContent className="mt-3">
+        <EmptyContent>
           <Button
             type="button"
             variant="tertiary"
