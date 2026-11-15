@@ -81,7 +81,7 @@ Text starts 16px in throughout: the context, the title, the body, the hint. Fiel
 
 ### Parts own their spacing
 
-Every part sets its own padding, and the title tucks up under a header on its own. Call sites never pad a part: the six composers used to patch the insets six different ways. The one exception is feedback's header: its kind tabs are a control, not text, so like the tray's buttons they sit 6px from the top and the side, concentric with the corner.
+Every part sets its own padding, and the title tucks up under a header on its own. Call sites never pad a part: the six composers used to patch the insets six different ways. A header that holds a control instead of text (feedback's kind tabs) passes `control`: the control's edge sits on the 16px line, 16px from the top, and the title's text lands 16px below it.
 
 ### Fixed order
 

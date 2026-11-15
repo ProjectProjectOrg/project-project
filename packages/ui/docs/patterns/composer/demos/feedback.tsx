@@ -30,10 +30,7 @@ export default function Feedback() {
           className="flex flex-col"
           aria-label="Send feedback"
         >
-          {/* The kind tabs are a control, not text: like the tray's buttons
-              they sit 6px from the top and the side, concentric with the
-              corner. */}
-          <Composer.Header className="px-1.5 pt-1.5">
+          <Composer.Header control>
             <SegmentedTabs
               variant="rail"
               aria-label="Feedback type"

@@ -38,13 +38,21 @@ function Surface({ className, ...props }: Readonly<ComponentProps<"div">>) {
 }
 
 // The context line: what the composer acts on or relates to ("Archive
-// PP-214", "Blocks PP-214"), or a control choosing it (project, kind).
-function Header({ className, ...props }: Readonly<ComponentProps<"div">>) {
+// PP-214", "Blocks PP-214"). With `control`, it holds a control instead
+// (feedback's kind tabs): the control's edge sits on the 16px text line,
+// 16px from the top, like the text below it.
+function Header({
+  className,
+  control = false,
+  ...props
+}: Readonly<ComponentProps<"div"> & { control?: boolean }>) {
   return (
     <div
       data-slot="composer-header"
+      data-control={control || undefined}
       className={cn(
-        "flex min-w-0 items-center gap-2 px-4 pt-3.5 text-body text-muted-foreground",
+        "flex min-w-0 items-center gap-2 px-4 text-body text-muted-foreground",
+        control ? "pt-4" : "pt-3.5",
         className
       )}
       {...props}
@@ -52,14 +60,15 @@ function Header({ className, ...props }: Readonly<ComponentProps<"div">>) {
   )
 }
 
-// The title: a bare Input, or the subject's title as text. Under a header
-// it tucks up; first in the card it gets the card's 16px.
+// The title: a bare Input, or the subject's title as text. Under a text
+// header it tucks up; under a control, its text lands 16px below the control
+// (the input's box starts 10px down); first in the card it gets 16px.
 function Title({ className, ...props }: Readonly<ComponentProps<"div">>) {
   return (
     <div
       data-slot="composer-title"
       className={cn(
-        "min-w-0 px-4 pt-4 text-title font-semibold [&_input]:text-title [&_input]:font-semibold [[data-slot=composer-header]+&]:pt-1.5",
+        "min-w-0 px-4 pt-4 text-title font-semibold [&_input]:text-title [&_input]:font-semibold [[data-slot=composer-header]+&]:pt-1.5 [[data-slot=composer-header][data-control]+&]:pt-2.5",
         className
       )}
       {...props}

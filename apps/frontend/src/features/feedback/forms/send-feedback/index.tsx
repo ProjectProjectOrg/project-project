@@ -151,10 +151,7 @@ export function SendFeedbackForm({
         className="col-start-1 row-start-1 flex flex-col"
         aria-label={m.feedback_title()}
       >
-        {/* The kind tabs are a control, not text: like the tray's buttons
-            they sit 6px from the top and the side, concentric with the
-            corner. */}
-        <Composer.Header className="px-1.5 pt-1.5">
+        <Composer.Header control>
           <form.Field name="kind">
             {(field) => (
               <SegmentedTabs
