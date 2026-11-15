@@ -100,6 +100,24 @@ export default function Overview() {
             aria-label="Bare"
           />
         </Cell>
+        <Cell caption="Bare hover">
+          <Input
+            variant="bare"
+            data-force="hover"
+            className="text-title font-semibold"
+            placeholder="Ticket title"
+            aria-label="Bare hover"
+          />
+        </Cell>
+        <Cell caption="Bare focus">
+          <Input
+            variant="bare"
+            data-force="focus"
+            className="text-title font-semibold"
+            placeholder="Ticket title"
+            aria-label="Bare focus"
+          />
+        </Cell>
       </div>
     </div>
   )

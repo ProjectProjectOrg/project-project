@@ -2,6 +2,7 @@ import { Info } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 
 import { cn } from "../lib/utils"
+import { bareFieldClass } from "./input"
 import { PopoverContent } from "./popover"
 
 function ComposerPopover({
@@ -34,12 +35,28 @@ function Title({ className, ...props }: Readonly<ComponentProps<"div">>) {
   )
 }
 
-function Body({ className, ...props }: Readonly<ComponentProps<"div">>) {
+// The description area. Like a bare Input it tints on hover and, lighter,
+// while focused. The tint sits on an inner box inside the scroller (a
+// scroller clips negative margins), 8px past the text on each side.
+function Body({
+  className,
+  children,
+  ...props
+}: Readonly<ComponentProps<"div">>) {
   return (
     <div
-      className={cn("mt-1 max-h-[50dvh] overflow-y-auto px-4", className)}
+      className={cn("mt-2 max-h-[50dvh] overflow-y-auto px-2", className)}
       {...props}
-    />
+    >
+      <div
+        className={cn(
+          bareFieldClass,
+          "mx-0 my-0 w-auto cursor-text has-[[contenteditable=false]]:cursor-default"
+        )}
+      >
+        {children}
+      </div>
+    </div>
   )
 }
 

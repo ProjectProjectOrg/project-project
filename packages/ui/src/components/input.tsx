@@ -3,16 +3,24 @@ import * as React from "react"
 import { fieldTouchClass } from "../lib/typeScale"
 import { cn } from "../lib/utils"
 
-// default: the bordered field. bare: no chrome at all, for fields inside a
-// composer that styles its own text.
+// default: the bordered field. bare: no fill or border at rest, for fields
+// inside a composer that styles its own text; it still shows a hover tint and
+// a lighter tint while focused, so you can see what is editable and where you
+// are typing.
 type InputVariant = "default" | "bare"
 // The same heights as Button, so a field and a button sit level in a row.
 type InputSize = "sm" | "md" | "lg"
 
+// The bare field's surface. Its padding is cancelled by equal negative
+// margins, so the text sits exactly where an unpadded field's would and
+// nothing around it moves; the tint just bleeds 8px past the text.
+const bareFieldClass =
+  "-mx-2 -my-1 w-[calc(100%+1rem)] rounded-[10px] bg-transparent px-2 py-1 transition-colors duration-150 [corner-shape:var(--button-corner)] not-disabled:hover:bg-hover not-disabled:hover:duration-0 focus-visible:bg-(--field-focus) focus-within:bg-(--field-focus)"
+
 const INPUT_VARIANT: Record<InputVariant, string> = {
   default:
     "border border-(--segment-line) bg-field focus-ring aria-invalid:border-destructive",
-  bare: "bg-transparent"
+  bare: bareFieldClass
 }
 
 // Corners at half the height, shaped like Button's (--button-corner).
@@ -47,5 +55,5 @@ function Input({
   )
 }
 
-export { Input }
+export { Input, bareFieldClass }
 export type { InputSize, InputVariant }
