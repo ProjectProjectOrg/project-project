@@ -1,4 +1,4 @@
-import { Ticket, TicketId } from "@pp/shared"
+import { Ticket, TicketDetail, TicketId } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
@@ -33,6 +33,15 @@ const row = Schema.decodeSync(Ticket)({
   updatedAt: "2026-01-01T00:00:00.000Z"
 })
 
+const detail = Schema.decodeUnknownSync(TicketDetail)({
+  ...Schema.encodeSync(Ticket)(row),
+  title: "Cached",
+  repoId: null,
+  creator: null,
+  updater: null,
+  body: ""
+})
+
 const ticket = {
   orgSlug: "acme",
   slug: "app",
@@ -43,12 +52,12 @@ let registry: Registry.AtomRegistry | undefined
 
 afterEach(() => registry?.dispose())
 
-it("reads the hovered row's fields while the ticket's detail isn't loaded", () => {
+it("reads the hovered row, which shortcuts edit, over the cached detail", () => {
   registry = Registry.make({
     initialValues: [
       [
         ticketDetail(ticketRequest("acme", "app", ticket.ticketId)),
-        AsyncResult.initial()
+        AsyncResult.success(detail)
       ],
       [pointedTicket, { ...ticket, row, patch: () => {} }]
     ]
@@ -58,6 +67,6 @@ it("reads the hovered row's fields while the ticket's detail isn't loaded", () =
     commandContext({ orgSlug: "acme", projectSlug: "app", ticket })
   )
 
-  expect(context.ticketDetail).toBeNull()
+  expect(context.ticketDetail).toBe(detail)
   expect(context.ticketData).toBe(row)
 })

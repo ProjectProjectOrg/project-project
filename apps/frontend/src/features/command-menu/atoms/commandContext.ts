@@ -40,7 +40,7 @@ export type CommandContextKey = Readonly<{
 
 export type TargetContext = Omit<
   CommandContext,
-  "selection" | "sprint" | "view"
+  "routeProjectSlug" | "selection" | "sprint" | "view"
 >
 
 const NO_PROJECT_TICKETS: TicketPermissions = {
@@ -78,7 +78,7 @@ export const commandContext = Atom.family((key: CommandContextKey) =>
             )
           )
     const ticketData =
-      detail ?? pointedAt(get(pointedTicket), ticket)?.row ?? null
+      pointedAt(get(pointedTicket), ticket)?.row ?? detail ?? null
     const membership =
       ticket === null
         ? null
