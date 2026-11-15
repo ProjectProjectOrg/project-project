@@ -208,7 +208,9 @@ function DatePicker(props: DatePickerProps) {
   // place (InlineField), and Enter or leaving it applies what it reads.
   const [typingFrom, setTypingFrom] = useState<string | null>(null)
   // The field starts at the trigger's width and grows with the text.
-  const [typingWidth, setTypingWidth] = useState<number | undefined>(undefined)
+  const [typingBox, setTypingBox] = useState<
+    Readonly<{ width: number; room: number }> | undefined
+  >(undefined)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const refocus = useRef(false)
   useEffect(() => {
@@ -238,7 +240,12 @@ function DatePicker(props: DatePickerProps) {
       !event.altKey
     if (!printable || open) return
     event.preventDefault()
-    setTypingWidth(event.currentTarget.offsetWidth)
+    // Its width, and how far it may grow: to 16px before the window's edge.
+    const box = event.currentTarget.getBoundingClientRect()
+    setTypingBox({
+      width: event.currentTarget.offsetWidth,
+      room: window.innerWidth - box.left - 16
+    })
     setTypingFrom(event.key)
   }
 
@@ -246,7 +253,7 @@ function DatePicker(props: DatePickerProps) {
     return (
       <InlineField
         initial={typingFrom}
-        width={typingWidth}
+        box={typingBox}
         mode={props.mode}
         allowPast={allowPast}
         labels={labels}
@@ -390,33 +397,11 @@ function DatePicker(props: DatePickerProps) {
   )
 }
 
-// Clips its child and fades the cut edge, only while it's actually cut.
+// Clips its child; the theme's scroll-fade-x fades the cut edge, and only
+// while something is cut (a scroll-driven fade: no overflow, no fade).
 function ClipFade({ children }: Readonly<{ children: ReactNode }>) {
-  const ref = useRef<HTMLSpanElement>(null)
-  const [clipped, setClipped] = useState(false)
-  useEffect(() => {
-    const el = ref.current
-    if (el === null || typeof ResizeObserver === "undefined") return undefined
-    const check = () => setClipped(el.scrollWidth > el.clientWidth + 1)
-    const observer = new ResizeObserver(check)
-    observer.observe(el)
-    if (el.firstElementChild !== null) observer.observe(el.firstElementChild)
-    check()
-    return () => observer.disconnect()
-  }, [])
   return (
-    <span
-      ref={ref}
-      className="flex min-w-0 overflow-hidden"
-      style={
-        clipped
-          ? {
-              maskImage:
-                "linear-gradient(to right, #000 calc(100% - 20px), transparent)"
-            }
-          : undefined
-      }
-    >
+    <span className="scroll-fade-x flex min-w-0 overflow-hidden [--scroll-fade-size:20px]">
       {children}
     </span>
   )
@@ -483,7 +468,7 @@ function TypedResult({
 // value (`apply`); Escape cancels; `onEnd(true)` hands focus back.
 function InlineField({
   initial,
-  width,
+  box,
   mode,
   allowPast,
   labels,
@@ -492,7 +477,7 @@ function InlineField({
   onEnd
 }: Readonly<{
   initial: string
-  width: number | undefined
+  box: Readonly<{ width: number; room: number }> | undefined
   mode: "single" | "range"
   allowPast: boolean
   labels: DatePickerLabels
@@ -502,44 +487,53 @@ function InlineField({
 }>) {
   const [text, setText] = useState(initial)
   const preview = readTyped(text, mode, allowPast)
+  // A placeholder the trigger's size holds its spot in the layout; the
+  // field floats over it, so it can grow past a shrink-wrapped container
+  // (to the window's edge) without moving anything around it.
   return (
     <span
-      data-slot="date-picker-inline"
-      className={cn(
-        buttonVariants({ variant: "field", size: "md", iconLeft: true }),
-        // Button sets its corners outside the variants: the md field's.
-        "max-w-full min-w-48 cursor-text justify-start rounded-[16px] [corner-shape:var(--button-corner)] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring",
-        // A field doesn't press; the ↵ key sits 8px in, like a key in a button.
-        "has-[[data-slot=kbd]]:pr-2 motion-safe:active:scale-100",
-        className
-      )}
-      style={{ minWidth: width }}
+      className={cn("relative inline-flex h-8 align-middle", className)}
+      style={{ width: box?.width }}
     >
-      <CalendarDays aria-hidden className="size-4 shrink-0" />
-      <input
-        // oxlint-disable-next-line jsx-a11y/no-autofocus -- typing into the trigger turned it into this field
-        autoFocus
-        value={text}
-        aria-label={labels.type}
-        aria-invalid={preview.kind === "unreadable" || undefined}
-        onChange={(event) => setText(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
+      <span
+        data-slot="date-picker-inline"
+        className={cn(
+          buttonVariants({ variant: "field", size: "md", iconLeft: true }),
+          // Button sets its corners outside the variants: the md field's.
+          "absolute top-0 left-0 z-10 w-max cursor-text justify-start rounded-[16px] [corner-shape:var(--button-corner)] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring",
+          // A field doesn't press; the ↵ key sits 8px in, like a key in a button.
+          "has-[[data-slot=kbd]]:pr-2 motion-safe:active:scale-100"
+        )}
+        style={{ minWidth: box?.width, maxWidth: box?.room }}
+      >
+        <CalendarDays aria-hidden className="size-4 shrink-0" />
+        <input
+          // oxlint-disable-next-line jsx-a11y/no-autofocus -- typing into the trigger turned it into this field
+          autoFocus
+          value={text}
+          aria-label={labels.type}
+          spellCheck={false}
+          autoComplete="off"
+          aria-invalid={preview.kind === "unreadable" || undefined}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault()
+              onEnd(true)
+            }
+            if (event.key !== "Enter") return
             event.preventDefault()
-            onEnd(true)
-          }
-          if (event.key !== "Enter") return
-          event.preventDefault()
-          if (apply(preview) || text.trim() === "") onEnd(true)
-        }}
-        onBlur={() => {
-          apply(preview)
-          onEnd(false)
-        }}
-        // Grows with what's typed; the preview gives way first.
-        className="[field-sizing:content] h-full min-w-[3ch] shrink bg-transparent text-body outline-hidden"
-      />
-      <TypedResult preview={preview} unreadable={labels.unreadable} fit />
+            if (apply(preview) || text.trim() === "") onEnd(true)
+          }}
+          onBlur={() => {
+            apply(preview)
+            onEnd(false)
+          }}
+          // Grows with what's typed; the preview gives way first.
+          className="[field-sizing:content] h-full min-w-[3ch] shrink bg-transparent text-body outline-hidden"
+        />
+        <TypedResult preview={preview} unreadable={labels.unreadable} fit />
+      </span>
     </span>
   )
 }
