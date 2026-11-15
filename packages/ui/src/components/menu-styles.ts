@@ -13,7 +13,7 @@ export const menuSurfaceClass = `relative max-h-[var(--available-height)] min-w-
 export const menuPopupClass = `${menuSurfaceClass} ${popupMotionClass}`
 
 export const menuItemClass =
-  "relative flex cursor-pointer items-center gap-2 rounded-md border-y border-transparent bg-clip-padding px-2 py-[7px] text-body text-muted-foreground outline-hidden transition-colors data-[highlighted]:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:transition-[stroke-width,color] [&_svg]:duration-80 data-[highlighted]:[&_svg]:stroke-[2] [&_svg:not([class*='size-'])]:size-4"
+  "relative flex cursor-pointer items-center gap-2 rounded-md [corner-shape:var(--button-corner)] border-y border-transparent bg-clip-padding px-2 py-[7px] text-body text-muted-foreground outline-hidden transition-colors data-[highlighted]:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:transition-[stroke-width,color] [&_svg]:duration-80 data-[highlighted]:[&_svg]:stroke-[2] [&_svg:not([class*='size-'])]:size-4"
 
 export const menuLabelClass = "px-2 py-1.5 text-caption text-muted-foreground"
 

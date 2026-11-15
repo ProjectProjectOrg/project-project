@@ -629,7 +629,7 @@ function CommandMenuList({
             hover={fill}
             instant={fill.held}
             fullWidth
-            className="rounded-[15px] border-y border-transparent bg-clip-padding"
+            className="rounded-[15px] border-y border-transparent bg-clip-padding [corner-shape:var(--button-corner)]"
           />
         )}
         {sections.map((section, sectionIndex) => {

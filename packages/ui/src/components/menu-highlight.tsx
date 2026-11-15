@@ -213,7 +213,7 @@ export function MenuHighlight({
             data-slot="menu-highlight"
             data-tone={rect.tone}
             className={cn(
-              "pointer-events-none absolute top-0 left-0 block rounded-md",
+              "pointer-events-none absolute top-0 left-0 block rounded-md [corner-shape:var(--button-corner)]",
               className
             )}
             initial={{
