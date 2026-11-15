@@ -1,5 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { TagName, type ListEdit, type Tag, type TicketDetail } from "@pp/shared"
+import { Badge } from "@pp/ui/badge"
+import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
 import {
   DropdownMenu,
@@ -243,11 +245,13 @@ function AppliedTagChip({
     if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
   }
   const hex = color ?? NEUTRAL
-  const wrapperClass = cn(
-    "inline-flex h-6 w-fit shrink-0 items-center gap-1.5 rounded-md px-2 text-caption whitespace-nowrap transition-colors",
-    waiting && "animate-pulse"
-  )
-  const wrapperStyle = { backgroundColor: `${hex}1a`, color: hex }
+  // The tag's own hue through the badge's clean-colour recipe, like TagChip.
+  const badgeProps = {
+    "data-slot": "tag-chip",
+    tone: null,
+    className: cn("gap-1.5", waiting && "animate-pulse"),
+    style: { "--badge-tone": hex }
+  } as const
   const removeButton = (
     <button
       type="button"
@@ -256,7 +260,7 @@ function AppliedTagChip({
         e.stopPropagation()
         onRemove()
       }}
-      className="-mr-0.5 inline-grid size-4 place-items-center rounded-sm bg-transparent opacity-60 transition-[opacity,background-color] duration-100 hover:bg-black/15 hover:opacity-100 focus-visible:opacity-100 active:scale-[0.9] dark:hover:bg-white/20"
+      className="focus-ring -mr-0.5 inline-grid size-4 place-items-center rounded-sm bg-transparent opacity-60 transition-[opacity,background-color] duration-100 hover:bg-black/15 hover:opacity-100 focus-visible:opacity-100 active:scale-[0.9] dark:hover:bg-white/20"
     >
       <X className="size-3" strokeWidth={2} />
     </button>
@@ -264,15 +268,15 @@ function AppliedTagChip({
 
   if (!canManage || !tag) {
     return (
-      <span data-slot="tag-chip" className={wrapperClass} style={wrapperStyle}>
-        {name}
+      <Badge {...badgeProps}>
+        <BlurSwap id={name}>{name}</BlurSwap>
         {removeButton}
-      </span>
+      </Badge>
     )
   }
 
   return (
-    <span data-slot="tag-chip" className={wrapperClass} style={wrapperStyle}>
+    <Badge {...badgeProps}>
       <TagAdminPopover
         tag={tag}
         usageCount={usageCount}
@@ -281,15 +285,11 @@ function AppliedTagChip({
         onDelete={removeTag}
         onOpenChange={onManagementOpenChange}
       >
-        <button
-          type="button"
-          aria-label={m.tags_edit_aria_label({ name })}
-          className="cursor-pointer rounded transition-transform duration-100 active:scale-[0.97]"
-        >
-          {name}
+        <button type="button" aria-label={m.tags_edit_aria_label({ name })}>
+          <BlurSwap id={name}>{name}</BlurSwap>
         </button>
       </TagAdminPopover>
       {removeButton}
-    </span>
+    </Badge>
   )
 }

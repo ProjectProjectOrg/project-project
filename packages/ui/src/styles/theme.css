@@ -771,6 +771,24 @@
   :is(a, button, [role="button"]).pp-badge:active {
     scale: 0.97;
   }
+
+  /* A badge with its own buttons inside, like an applied tag (name opens
+     the tag admin, × removes it): the first button is the badge's main
+     action, so the whole badge hovers, presses and shows focus with it. */
+  .pp-badge:has(> button:first-child:not(:disabled):hover) {
+    --badge-fill: var(--badge-fill-hover);
+  }
+  .pp-badge:has(> button:first-child:not(:disabled):active) {
+    scale: 0.97;
+  }
+  .pp-badge:has(> button:first-child:focus-visible) {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .pp-badge > button:first-child {
+    cursor: pointer;
+    outline: none;
+  }
 }
 
 /* Avatar stacks cut a 2px gap out of each avatar where the next one sits,

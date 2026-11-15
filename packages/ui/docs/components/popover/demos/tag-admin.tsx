@@ -1,11 +1,12 @@
 import { Badge } from "@pp/ui/badge"
+import { BlurSwap } from "@pp/ui/blur-swap"
 import { Button } from "@pp/ui/button"
 import { ColorPicker } from "@pp/ui/color-picker"
 import { ConfirmButton, useConfirmButton } from "@pp/ui/confirm-button"
 import { Input } from "@pp/ui/input"
 import { transitions } from "@pp/ui/lib/springs"
 import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
-import { Trash2 } from "lucide-react"
+import { Trash2, X } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 
@@ -13,46 +14,49 @@ const USER_TOGGLES = new Set(["trigger-press", "escape-key", "outside-press"])
 const VALID = /^[a-z0-9][a-z0-9 -]{0,30}$/
 const USAGE = 12
 
-// Clicking a tag in the tag editor: recolour it, rename it, or delete it
-// behind an in-place confirmation that swaps the popover's content.
+// Clicking an applied tag in the tag editor. The name is the badge's main
+// button, so the whole badge hovers and presses with it, and a rename blurs
+// into the new name once it commits. The popover recolours, renames, or
+// deletes behind an in-place confirmation that swaps its content.
 export default function TagAdmin() {
   const [open, setOpen] = useState(true)
   const [name, setName] = useState("frontend")
   const [color, setColor] = useState("#8b5cf6")
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next, details) => {
-        if (USER_TOGGLES.has(details.reason)) setOpen(next)
-      }}
-    >
-      <PopoverTrigger
-        render={
-          <button
-            type="button"
-            aria-label={`Edit tag ${name}`}
-            className="focus-ring rounded-full"
-          />
-        }
+    <Badge tone={null} style={{ "--badge-tone": color }} className="gap-1.5">
+      <Popover
+        open={open}
+        onOpenChange={(next, details) => {
+          if (USER_TOGGLES.has(details.reason)) setOpen(next)
+        }}
       >
-        <Badge tone={null} style={{ "--badge-tone": color }}>
-          {name}
-        </Badge>
-      </PopoverTrigger>
-      <PopoverContent align="start" sideOffset={6} className="w-64 p-2">
-        <ConfirmButton.Root className="w-full">
-          <Body
-            name={name}
-            color={color}
-            onRename={setName}
-            onColor={setColor}
-            onDelete={() => setOpen(false)}
-            onDismiss={() => setOpen(false)}
-          />
-        </ConfirmButton.Root>
-      </PopoverContent>
-    </Popover>
+        <PopoverTrigger
+          render={<button type="button" aria-label={`Edit tag ${name}`} />}
+        >
+          <BlurSwap id={name}>{name}</BlurSwap>
+        </PopoverTrigger>
+        <PopoverContent align="start" sideOffset={6} className="w-64 p-2">
+          <ConfirmButton.Root className="w-full">
+            <Body
+              name={name}
+              color={color}
+              onRename={setName}
+              onColor={setColor}
+              onDelete={() => setOpen(false)}
+              onDismiss={() => setOpen(false)}
+            />
+          </ConfirmButton.Root>
+        </PopoverContent>
+      </Popover>
+      <button
+        type="button"
+        aria-label={`Remove tag ${name}`}
+        className="focus-ring -mr-0.5 inline-grid size-4 place-items-center rounded-sm opacity-60 transition-[opacity,background-color] duration-100 hover:bg-black/15 hover:opacity-100 focus-visible:opacity-100 active:scale-[0.9] dark:hover:bg-white/20"
+      >
+        <X className="size-3" strokeWidth={2} />
+      </button>
+    </Badge>
   )
 }
 
