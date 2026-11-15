@@ -110,7 +110,9 @@ export default defineConfig(({ mode }) => ({
           include: ["src/**/*.test.{ts,tsx}"],
           exclude: domTests,
           environment: "node",
-          isolate: true
+          isolate: true,
+          // Scritto (TextSwap) imports its own CSS from its JS.
+          server: { deps: { inline: [/@scritto\//] } }
         }
       },
       {
