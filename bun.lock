@@ -300,6 +300,7 @@
         "@base-ui/react": "^1.9.0",
         "@daypicker/react": "~10.0.2",
         "@pp/shared": "workspace:*",
+        "@scritto/react": "^0.1.0",
         "@toolwind/corner-shape": "^0.0.8-3",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -1071,6 +1072,10 @@
     "@rollup/rollup-win32-x64-gnu": ["@rollup/rollup-win32-x64-gnu@4.68.3", "", { "os": "win32", "cpu": "x64" }, "sha512-i2vH/OA5BcW+TdNg12ZTRC4rn+vILaPMP9CvHqnv+QEpMjBHGGNLo4k4EnEqzjYvTD6x1Xark9WhsQbH4bTzUQ=="],
 
     "@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.68.3", "", { "os": "win32", "cpu": "x64" }, "sha512-ADb1Uz2MNM0sxVpAlMNdQG16Hw4sgW1aqVL7NeqBMpcZeiHb192d7W6shZdMQs33D+w9ihDYBBPsYqqc4MlD8w=="],
+
+    "@scritto/core": ["@scritto/core@0.1.0", "", {}, "sha512-8itfD3jc+DvoDcMYAcWJHyLXZvBNaorlL091Fp/4Toe4trGErbQOtyptO9Qexyb/qvGO0S1WRWDrGO/2KURnxg=="],
+
+    "@scritto/react": ["@scritto/react@0.1.0", "", { "dependencies": { "@scritto/core": "0.1.0" }, "peerDependencies": { "react": "^18 || ^19" } }, "sha512-fNeX/ZjXUBtNMo/aQ03t1AG9+5vbitfEDfrLbO5qVCAcus7xq8kWhuv1LNuGGcBLA6pngo5otymCCkZDNRY84Q=="],
 
     "@shikijs/core": ["@shikijs/core@4.5.0", "", { "dependencies": { "@shikijs/primitive": "4.5.0", "@shikijs/types": "4.5.0", "@shikijs/vscode-textmate": "^10.0.2", "@types/hast": "^3.0.5", "hast-util-to-html": "^9.0.5" } }, "sha512-6CIgwq+bt2JZ3OSjb/nBkkwEf/CfpHcbam+Mg5Pllco7HAGRQ2/EFhZrrJtbyNTgKwknfVS+llsXGygiDGwJWw=="],
 

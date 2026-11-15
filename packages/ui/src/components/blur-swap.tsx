@@ -1,3 +1,4 @@
+import Scritto from "@scritto/react"
 import { AnimatePresence, motion } from "motion/react"
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react"
 
@@ -15,6 +16,28 @@ import { cn } from "../lib/utils"
 // The rule: whenever a control shows a value that the user just changed (a
 // select's chosen option, for now), the change plays through BlurSwap.
 function BlurSwap({
+  id,
+  children,
+  className
+}: Readonly<{ id: string; children: ReactNode; className?: string }>) {
+  // EXPERIMENT (exp/scritto): plain-text values roll per glyph through
+  // Scritto (https://scrit.to), which also eases the width. Values with
+  // icons or other elements keep the blur swap below.
+  if (typeof children === "string" || typeof children === "number")
+    return (
+      <Scritto
+        value={String(children)}
+        className={cn("max-w-full min-w-0", className)}
+      />
+    )
+  return (
+    <BlurSwapNodes id={id} className={className}>
+      {children}
+    </BlurSwapNodes>
+  )
+}
+
+function BlurSwapNodes({
   id,
   children,
   className
