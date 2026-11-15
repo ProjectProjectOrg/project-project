@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { m } from "@/paraglide/messages"
 
-import { hotkeyCaps } from "./kbd"
+import { hotkeyCaps } from "./hotkeyCaps"
 
 describe("hotkeyCaps", () => {
   it("draws glyphs on a Mac and names each cap after its key", () => {
