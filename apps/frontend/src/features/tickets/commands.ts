@@ -1,5 +1,7 @@
 import { isEpic } from "@pp/shared"
 import type { TicketDetail } from "@pp/shared"
+import * as Effect from "effect/Effect"
+import * as AtomRegistry from "effect/reactivity/AtomRegistry"
 import {
   Archive,
   ArchiveRestore,
@@ -17,6 +19,7 @@ import {
   Shapes,
   SignalHigh,
   Split,
+  SquareArrowOutUpRight,
   Tag,
   Timer,
   Trash2,
@@ -44,6 +47,7 @@ import {
 import { SprintChip } from "@/features/sprints/components/SprintChip"
 import {
   setSubscribed,
+  ticketSubscribers,
   ticketSubscribersRequest
 } from "@/features/subscriptions/atoms/ticketSubscribers"
 import { canSubscribe } from "@/features/subscriptions/lib/canSubscribe"
@@ -197,6 +201,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.sprint",
+    hotkey: appHotkeys["tickets.sprint"],
     bulk: true,
     group: "ticket",
     label: m.tickets_command_move_to_sprint,
@@ -262,6 +267,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.type",
+    hotkey: appHotkeys["tickets.type"],
     bulk: true,
     group: "ticket",
     label: m.tickets_command_change_type,
@@ -285,6 +291,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.copy-id",
+    hotkey: appHotkeys["tickets.copy-id"],
     group: "ticketActions",
     label: m.tickets_command_copy_id,
     icon: Copy,
@@ -296,6 +303,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.copy-link",
+    hotkey: appHotkeys["tickets.copy-link"],
     group: "ticketActions",
     label: m.tickets_command_copy_link,
     icon: Link2,
@@ -312,7 +320,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
       label,
       icon,
       keywords,
-      searchOnly: true,
+      listed: "search",
       when: ({ ticketDetail }) => ticketDetail !== null,
       run: (context, env) => {
         const { ticket, ticketDetail } = context
@@ -323,6 +331,22 @@ export const ticketCommands: ReadonlyArray<Command> = [
       }
     })
   ),
+  {
+    id: "ticket.open",
+    hotkey: appHotkeys["tickets.open"],
+    group: "ticketActions",
+    label: m.tickets_shortcut_open,
+    icon: SquareArrowOutUpRight,
+    listed: "search",
+    when: onTicket,
+    run: ({ ticket }, env) => {
+      if (ticket === null) return
+      env.close()
+      env.navigate(
+        `/orgs/${ticket.orgSlug}/projects/${ticket.slug}/tickets/${ticket.ticketId}`
+      )
+    }
+  },
   {
     id: "ticket.split",
     group: "ticketActions",
@@ -340,6 +364,7 @@ export const ticketCommands: ReadonlyArray<Command> = [
   },
   {
     id: "ticket.archive",
+    hotkey: appHotkeys["tickets.archive"],
     bulk: true,
     group: "ticketActions",
     label: m.tickets_command_archive,
@@ -417,18 +442,46 @@ export const ticketCommands: ReadonlyArray<Command> = [
     }
   },
   {
+    id: "ticket.toggle-subscription",
+    hotkey: appHotkeys["tickets.subscribe"],
+    group: "ticketActions",
+    label: m.tickets_shortcut_subscribe,
+    icon: Bell,
+    listed: "never",
+    when: ({ ticket, project, viewerId }) =>
+      ticket !== null && canSubscribe(project, viewerId),
+    run: ({ ticket, ticketSubscribed }, env) => {
+      if (ticket === null) return
+      const req = ticketSubscribersRequest(
+        ticket.orgSlug,
+        ticket.slug,
+        ticket.ticketId
+      )
+      const toggle = (subscribed: boolean) =>
+        env.execute(setSubscribed(req), !subscribed)
+      if (ticketSubscribed !== null) {
+        toggle(ticketSubscribed)
+        return
+      }
+      void Effect.runPromise(
+        AtomRegistry.getResult(env.registry, ticketSubscribers(req))
+      ).then(({ subscribed }) => toggle(subscribed))
+    }
+  },
+  {
     id: "ticket.delete",
     bulk: true,
     group: "ticketActions",
     label: m.tickets_command_delete,
     icon: Trash2,
     keywords: ["remove"],
-    searchOnly: true,
+    listed: "search",
     when: ({ ticket, tickets }) => ticket !== null && tickets.delete,
     page: "ticketDelete"
   },
   {
     id: "ticket.create",
+    hotkey: appHotkeys["tickets.create-anywhere"],
     group: "create",
     label: m.tickets_command_create,
     icon: Plus,

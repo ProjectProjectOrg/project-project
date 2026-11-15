@@ -55,7 +55,7 @@ export function integrationCommands(
           "connect",
           "setup"
         ],
-        searchOnly: !suggested,
+        listed: suggested ? "always" : "search",
         run: (_context, env) => {
           env.navigate(entry.to)
           env.close()

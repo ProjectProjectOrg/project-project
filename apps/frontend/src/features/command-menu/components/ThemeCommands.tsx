@@ -38,7 +38,7 @@ export function ThemeCommands({ chip, onBack, env }: CommandPageProps) {
         return (
           <CommandMenuItem value={item.value}>
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {preference === theme.value && <CommandMenuCheck />}
+            <CommandMenuCheck checked={preference === theme.value} />
           </CommandMenuItem>
         )
       }}

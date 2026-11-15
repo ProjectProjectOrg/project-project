@@ -76,6 +76,13 @@ export function TicketSelectionProvider({
       ? null
       : key
   }
+  useHotkey(appHotkeys["tickets.select-all"], () => {
+    const keys = [...store.orders].flatMap((order) => order())
+    registry.set(store.selection, {
+      keys: new Set(keys),
+      anchor: registry.get(store.selection).anchor ?? keys[0] ?? null
+    })
+  })
   useHotkey(
     appHotkeys["tickets.select"],
     (event) => {
@@ -164,6 +171,13 @@ export function SelectionOrder({
     registry.set(store.known, next)
   })
   const [order] = useState(() => () => current.current)
+  useLayoutEffect(() => {
+    if (store === null) return undefined
+    store.orders.add(order)
+    return () => {
+      store.orders.delete(order)
+    }
+  }, [store, order])
   return <OrderContext value={order}>{children}</OrderContext>
 }
 

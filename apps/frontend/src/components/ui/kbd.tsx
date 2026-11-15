@@ -1,4 +1,8 @@
-import { detectPlatform, type Hotkey } from "@tanstack/react-hotkeys"
+import {
+  detectPlatform,
+  type Hotkey,
+  type HotkeyChord
+} from "@tanstack/react-hotkeys"
 import {
   ArrowBigUp,
   ArrowDown,
@@ -71,6 +75,22 @@ function KbdGroup({ className, ...props }: React.ComponentProps<"kbd">) {
     />
   )
 }
+
+const NUMBER_KEYS = [
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "0"
+] as const satisfies ReadonlyArray<HotkeyChord>
+
+export const numberKey = (index: number): HotkeyChord | undefined =>
+  NUMBER_KEYS[index]
 
 const platform = detectPlatform()
 

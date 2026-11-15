@@ -1,5 +1,5 @@
 import type { TextRange } from "@pp/shared"
-import type { Hotkey } from "@tanstack/react-hotkeys"
+import type { Hotkey, HotkeyChord } from "@tanstack/react-hotkeys"
 import { Search } from "lucide-react"
 import { motion } from "motion/react"
 import { useEffect, useId, useRef, useState, type ReactNode } from "react"
@@ -20,6 +20,7 @@ import {
   EmptyMedia,
   EmptyTitle
 } from "@/components/ui/empty"
+import { numberKey } from "@/components/ui/kbd"
 import { scoreSearch } from "@/features/command-menu/lib/searchScore"
 import type { IconComponent } from "@/lib/icon"
 import { cn } from "@/lib/utils"
@@ -105,7 +106,11 @@ export type CommandFrameProps = Readonly<{
   items: ReadonlyArray<CommandFrameItem>
   onSelect: (item: CommandMenuItemData) => void
   onBack: () => void
-  renderItem?: (item: CommandMenuItemData) => ReactNode
+  renderItem?: (
+    item: CommandMenuItemData,
+    number: HotkeyChord | undefined
+  ) => ReactNode
+  numbered?: boolean
   onSearchChange?: (search: string) => void
   filter?: boolean
   empty?: CommandEmpty
@@ -134,6 +139,7 @@ export function CommandFrame({
   onSelect,
   onBack,
   renderItem,
+  numbered = false,
   onSearchChange,
   filter = true,
   empty,
@@ -162,6 +168,14 @@ export function CommandFrame({
         : items
   const decorations = new Map(
     visible.map((item) => [item.value, item] as const)
+  )
+  const numbers = new Map(
+    numbered && query === ""
+      ? visible.flatMap((item, index) => {
+          const number = numberKey(index)
+          return number === undefined ? [] : [[item.value, number] as const]
+        })
+      : []
   )
 
   return (
@@ -222,6 +236,20 @@ export function CommandFrame({
               peek.open()
               return
             }
+            const picked = numbered && search === "" ? event.key : null
+            const pickedItem = visible.find(
+              (item) => numbers.get(item.value) === picked
+            )
+            if (
+              pickedItem !== undefined &&
+              !event.metaKey &&
+              !event.ctrlKey &&
+              !event.altKey
+            ) {
+              event.preventDefault()
+              onSelect(pickedItem)
+              return
+            }
             if (event.key === "Backspace" && search === "") {
               event.preventDefault()
               onBack()
@@ -260,7 +288,7 @@ export function CommandFrame({
           <CommandMenuList
             className="min-h-0 flex-1 p-1.5"
             renderItem={(item) => {
-              if (renderItem) return renderItem(item)
+              if (renderItem) return renderItem(item, numbers.get(item.value))
               const decoration = decorations.get(item.value)
               return decoration === undefined ? null : (
                 <CommandFrameRow item={decoration} />

@@ -16,6 +16,7 @@ import { editable, editTicket, onLiveTicket } from "./commands"
 export const relationCommands: ReadonlyArray<Command> = [
   {
     id: "ticket.parent",
+    hotkey: appHotkeys["tickets.parent"],
     group: "ticketRelations",
     label: ({ ticketData }) =>
       ticketData?.parent
@@ -126,7 +127,7 @@ export const relationCommands: ReadonlyArray<Command> = [
     ({ kind, icon, command }): Command => ({
       id: `ticket.mark.${kind}`,
       group: "ticketRelations",
-      searchOnly: true,
+      listed: "search",
       label: command,
       icon,
       keywords: ["relation", "link"],

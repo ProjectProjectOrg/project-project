@@ -168,7 +168,9 @@ export function TicketPropertySubmenus({
             </DropdownMenuSubContent>
           </DropdownMenuSub>
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger
+              hotkey={appHotkeys["tickets.type"].defaultHotkey}
+            >
               <Shapes className="size-4" strokeWidth={1.75} />
               {m.tickets_command_change_type()}
             </DropdownMenuSubTrigger>

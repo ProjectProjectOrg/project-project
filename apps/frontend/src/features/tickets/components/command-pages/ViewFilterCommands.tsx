@@ -109,9 +109,9 @@ export function ViewFilterPage({ context, onBack, env }: CommandPageProps) {
                 {row.summary}
               </span>
             )}
-            {row?.kind === "toggle" && row.option.chosen && (
-              <CommandMenuCheck />
-            )}
+            <CommandMenuCheck
+              checked={row?.kind === "toggle" && row.option.chosen}
+            />
           </CommandMenuItem>
         )
       }}
@@ -146,9 +146,11 @@ export const viewFilterDimensionPage = (dimension: ValueFilterDimension) =>
         renderItem={(item) => (
           <CommandMenuItem value={item.value}>
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {options.some(
-              (option) => option.key === item.value && option.chosen
-            ) && <CommandMenuCheck />}
+            <CommandMenuCheck
+              checked={options.some(
+                (option) => option.key === item.value && option.chosen
+              )}
+            />
           </CommandMenuItem>
         )}
       />

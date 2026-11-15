@@ -36,7 +36,7 @@ export const profileCommands: ReadonlyArray<Command> = [
       "login",
       "setup"
     ],
-    searchOnly: true,
+    listed: "search",
     run: (_context, env) => {
       env.navigate("/profile/agents")
       env.close()
@@ -59,7 +59,7 @@ export const profileCommands: ReadonlyArray<Command> = [
       "connect",
       "model context protocol"
     ],
-    searchOnly: true,
+    listed: "search",
     run: (_context, env) => {
       env.navigate("/profile/agents")
       env.close()

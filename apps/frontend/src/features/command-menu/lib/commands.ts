@@ -91,7 +91,7 @@ export type Command = Readonly<{
   label: (context: CommandContext) => string
   aside?: (context: CommandContext) => ReactNode
   parent?: () => string
-  searchOnly?: boolean
+  listed?: "always" | "search" | "never"
   icon: IconComponent
   keywords?: ReadonlyArray<string>
   hotkey?: AppHotkey

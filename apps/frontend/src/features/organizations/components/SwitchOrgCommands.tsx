@@ -35,7 +35,7 @@ export function SwitchOrgCommands({
       renderItem={(item) => (
         <CommandMenuItem value={item.value}>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          {context.orgSlug === item.value && <CommandMenuCheck />}
+          <CommandMenuCheck checked={context.orgSlug === item.value} />
         </CommandMenuItem>
       )}
     />

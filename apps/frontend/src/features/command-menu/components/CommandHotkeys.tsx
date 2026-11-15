@@ -16,7 +16,8 @@ import {
   runCommand,
   visibleCommands,
   type Command,
-  type CommandContext
+  type CommandContext,
+  type CommandEnv
 } from "../lib/commands"
 import {
   commandTarget,
@@ -36,22 +37,12 @@ export function CommandHotkeys({ orgSlug }: Readonly<{ orgSlug: string }>) {
     const current = registry.get(commandScopes)
     const pointed = registry.get(pointedTicket)
     const target = commandTarget(orgSlug, current, pointed)
-    const context: CommandContext = {
-      ...registry.get(
-        commandContext({
-          orgSlug,
-          projectSlug: params.slug ?? target.ticket?.slug ?? null,
-          ticket: target.ticket
-        })
-      ),
-      selection: openCommandMenu(target.ticket, "root", target.selection)
-        .selection,
-      sprint: scopeSprint(current),
-      view: scopeView(current)
+    const key = {
+      orgSlug,
+      projectSlug: params.slug ?? target.ticket?.slug ?? null,
+      ticket: target.ticket
     }
-    const [command] = visibleCommands(commands, context)
-    if (command === undefined) return
-    runCommand(command, context, {
+    const env: CommandEnv = {
       registry,
       execute: (atom, value) => void fireMutation(registry, atom, value),
       navigate: (to) => void navigate({ to }),
@@ -64,7 +55,16 @@ export function CommandHotkeys({ orgSlug }: Readonly<{ orgSlug: string }>) {
       actOn: (ticket) =>
         registry.set(commandMenuState, openCommandMenu(ticket)),
       close: () => {}
-    })
+    }
+    const context: CommandContext = {
+      ...registry.get(commandContext(key)),
+      selection: openCommandMenu(target.ticket, "root", target.selection)
+        .selection,
+      sprint: scopeSprint(current),
+      view: scopeView(current)
+    }
+    const [command] = visibleCommands(commands, context)
+    if (command !== undefined) runCommand(command, context, env)
   }
 
   const byHotkey = new Map<string, Array<Command>>()

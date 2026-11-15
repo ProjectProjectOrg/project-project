@@ -22,6 +22,7 @@ const inProject = (context: CommandContext) => context.projectSlug !== null
 export const projectCommands: ReadonlyArray<Command> = [
   {
     id: "project.switch",
+    hotkey: appHotkeys["nav.projects"],
     group: "navigation",
     label: m.chrome_command_menu_switch_project,
     icon: FolderKanban,

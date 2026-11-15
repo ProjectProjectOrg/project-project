@@ -4,8 +4,10 @@ import {
   DropdownMenuItem,
   DropdownMenuSub,
   DropdownMenuSubContent,
-  DropdownMenuSubTrigger
+  DropdownMenuSubTrigger,
+  DropdownMenuShortcut
 } from "@/components/ui/dropdown-menu"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 export function MoveToSubmenu({
@@ -24,6 +26,9 @@ export function MoveToSubmenu({
           <DropdownMenuItem onClick={onSprint} className="cursor-pointer">
             <Timer className="size-4" strokeWidth={1.75} />
             {m.tickets_menu_move_to_sprint()}
+            <DropdownMenuShortcut
+              keys={appHotkeys["tickets.sprint"].defaultHotkey}
+            />
           </DropdownMenuItem>
         )}
         {onProject !== undefined && (

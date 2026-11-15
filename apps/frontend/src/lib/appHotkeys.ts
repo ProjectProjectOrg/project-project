@@ -38,6 +38,14 @@ export const appHotkeys = defineAppHotkeys({
     hotkey: ["G", "A"],
     meta: { name: m.chrome_command_menu_go_about(), group: navigation }
   },
+  "nav.projects": {
+    hotkey: ["G", "P"],
+    meta: { name: m.chrome_command_menu_switch_project(), group: navigation }
+  },
+  "nav.orgs": {
+    hotkey: ["G", "O"],
+    meta: { name: m.chrome_command_menu_switch_org(), group: navigation }
+  },
   "nav.settings": {
     hotkey: ["G", ","],
     meta: { name: m.chrome_command_menu_go_settings(), group: navigation }
@@ -45,6 +53,10 @@ export const appHotkeys = defineAppHotkeys({
   "tickets.search": {
     hotkey: "/",
     meta: { name: m.tickets_search_aria_label(), group: view }
+  },
+  "tickets.create-anywhere": {
+    hotkey: "C",
+    meta: { name: m.tickets_shortcut_new_ticket(), group: create }
   },
   "tickets.create": {
     hotkey: "C",
@@ -85,6 +97,43 @@ export const appHotkeys = defineAppHotkeys({
     hotkey: "Shift+E",
     meta: { name: m.tickets_command_set_estimate(), group: ticket }
   },
+  "tickets.sprint": {
+    hotkey: "Shift+S",
+    meta: { name: m.tickets_command_move_to_sprint(), group: ticket }
+  },
+  "tickets.parent": {
+    hotkey: "Shift+P",
+    meta: { name: m.tickets_shortcut_set_parent(), group: ticket }
+  },
+  "tickets.type": {
+    hotkey: "Y",
+    meta: { name: m.tickets_command_change_type(), group: ticket }
+  },
+  "tickets.open": {
+    hotkey: "O",
+    meta: { name: m.tickets_shortcut_open(), group: ticket }
+  },
+  "tickets.subscribe": {
+    hotkey: "Shift+U",
+    meta: { name: m.tickets_shortcut_subscribe(), group: ticket }
+  },
+  "tickets.copy-id": {
+    hotkey: "Mod+.",
+    meta: { name: m.tickets_command_copy_id(), group: ticket }
+  },
+  "tickets.copy-link": {
+    hotkey: "Mod+Shift+,",
+    meta: { name: m.tickets_command_copy_link(), group: ticket }
+  },
+  "tickets.copy-branch": {
+    hotkey: "Mod+Shift+.",
+    meta: { name: m.tickets_command_copy_branch(), group: ticket }
+  },
+  "tickets.archive": {
+    hotkey: "Mod+Backspace",
+    options: { ignoreInputs: true },
+    meta: { name: m.tickets_command_archive(), group: ticket }
+  },
   "tickets.flag": {
     hotkey: "F",
     meta: { name: m.tickets_command_flag(), group: ticket }
@@ -112,6 +161,15 @@ export const appHotkeys = defineAppHotkeys({
     hotkey: "K",
     scope: "ticket-list",
     meta: { name: m.tickets_shortcut_focus_previous(), group: view }
+  },
+  "tickets.select-all": {
+    hotkey: "Mod+A",
+    options: { ignoreInputs: true },
+    meta: { name: m.tickets_shortcut_select_all(), group: view }
+  },
+  "tickets.filter": {
+    hotkey: "Shift+F",
+    meta: { name: m.tickets_command_filter(), group: view }
   },
   "tickets.select": {
     hotkey: "X",

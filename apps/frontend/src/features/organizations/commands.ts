@@ -35,6 +35,7 @@ export const organizationCommands: ReadonlyArray<Command> = [
   },
   {
     id: "org.switch",
+    hotkey: appHotkeys["nav.orgs"],
     group: "settings",
     label: m.chrome_command_menu_switch_org,
     icon: ArrowLeftRight,

@@ -69,7 +69,7 @@ export function EditorPreferenceCommands({
           >
             {item.label}
           </span>
-          {current === item.value && <CommandMenuCheck />}
+          <CommandMenuCheck checked={current === item.value} />
         </CommandMenuItem>
       )}
     />

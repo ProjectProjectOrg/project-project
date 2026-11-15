@@ -1,7 +1,11 @@
 import type { TicketPriority } from "@pp/shared"
 import type { ReactNode } from "react"
 
-import { CommandMenuItem, CommandMenuCheck } from "@/components/ui/command-menu"
+import {
+  CommandMenuCheck,
+  CommandMenuItem,
+  CommandMenuShortcut
+} from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type {
   SelectedTicket,
@@ -48,7 +52,8 @@ export function TicketPriorityCommands({
         if (priority) update({ priority })
         onClose()
       }}
-      renderItem={(item) => {
+      numbered
+      renderItem={(item, number) => {
         const priority = byValue.get(item.value)
         if (priority === undefined) return null
         const meta = PRIORITY_META[priority]
@@ -60,7 +65,10 @@ export function TicketPriorityCommands({
               strokeWidth={1.75}
             />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {current?.priority === priority && <CommandMenuCheck />}
+            {number !== undefined && (
+              <CommandMenuShortcut keys={number} aria-hidden />
+            )}
+            <CommandMenuCheck checked={current?.priority === priority} />
           </CommandMenuItem>
         )
       }}

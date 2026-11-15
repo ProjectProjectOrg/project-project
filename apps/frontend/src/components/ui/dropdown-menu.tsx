@@ -1,11 +1,11 @@
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 import { mergeProps } from "@base-ui/react/merge-props"
-import type { Hotkey } from "@tanstack/react-hotkeys"
+import type { Hotkey, HotkeyChord } from "@tanstack/react-hotkeys"
 import { CheckIcon, ChevronRightIcon } from "lucide-react"
 import * as React from "react"
 import { flushSync } from "react-dom"
 
-import { KbdShortcut } from "@/components/ui/kbd"
+import { KbdShortcut, numberKey } from "@/components/ui/kbd"
 import { MenuHighlight } from "@/components/ui/menu-highlight"
 import {
   menuChoiceIndicatorClass,
@@ -181,6 +181,34 @@ function DropdownMenuContent(props: DropdownMenuContentProps) {
   )
 }
 
+const MENU_SELECTOR =
+  '[data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"]'
+
+function pickNumberedItem(event: React.KeyboardEvent<HTMLElement>) {
+  if (event.metaKey || event.ctrlKey || event.altKey) return
+  if (!/^[0-9]$/.test(event.key)) return
+  if (event.target instanceof HTMLInputElement) return
+  const numbered = (menu: Element) =>
+    Array.from(
+      menu.querySelectorAll<HTMLElement>(`[data-number="${event.key}"]`)
+    )
+      .find((number) => number.closest(MENU_SELECTOR) === menu)
+      ?.closest<HTMLElement>('[role="menuitemradio"]')
+  const openSubmenus = Array.from(
+    document.querySelectorAll(MENU_SELECTOR)
+  ).toReversed()
+  const item =
+    numbered(event.currentTarget) ??
+    openSubmenus
+      .filter((menu) => menu !== event.currentTarget)
+      .map(numbered)
+      .find((found) => found !== undefined)
+  if (!item) return
+  event.preventDefault()
+  event.stopPropagation()
+  item.click()
+}
+
 function DropdownMenuPopup({
   highlightFirst = false,
   className,
@@ -207,6 +235,7 @@ function DropdownMenuPopup({
       >
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
+          onKeyDownCapture={pickNumberedItem}
           onClick={(event) => {
             onClick?.(event)
             event.stopPropagation()
@@ -340,8 +369,13 @@ function DropdownMenuRadioGroup<
         onValueChange?.(item.value, details)
       }}
     >
-      {items.map(({ label, textValue, ...item }) => (
-        <DropdownMenuRadioItem key={item.value} label={textValue} {...item}>
+      {items.map(({ label, textValue, ...item }, index) => (
+        <DropdownMenuRadioItem
+          key={item.value}
+          label={textValue}
+          number={numberKey(index)}
+          {...item}
+        >
           {label}
         </DropdownMenuRadioItem>
       ))}
@@ -353,6 +387,7 @@ function DropdownMenuRadioItem({
   className,
   children,
   separated = false,
+  number,
   ...props
 }: Readonly<
   Omit<React.ComponentProps<typeof MenuPrimitive.RadioItem>, "value">
@@ -360,6 +395,7 @@ function DropdownMenuRadioItem({
   Readonly<{
     value: string
     separated?: boolean
+    number?: HotkeyChord
   }>) {
   const item = (
     <MenuPrimitive.RadioItem
@@ -368,6 +404,13 @@ function DropdownMenuRadioItem({
       {...props}
     >
       {children}
+      {number !== undefined && (
+        <DropdownMenuShortcut
+          keys={number}
+          data-menu-meta
+          data-number={number}
+        />
+      )}
       <MenuPrimitive.RadioItemIndicator
         keepMounted
         className={menuChoiceIndicatorClass}
@@ -576,6 +619,7 @@ function DropdownMenuSubContent({
 }
 
 export {
+  pickNumberedItem,
   DropdownMenuEmpty,
   DropdownMenuInput,
   DropdownMenuList,

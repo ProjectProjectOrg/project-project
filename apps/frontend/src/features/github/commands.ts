@@ -16,6 +16,7 @@ import { repoUrl } from "@/features/github/lib/branchUrl"
 import { ticketRepo } from "@/features/github/lib/repos"
 import { projectRequest } from "@/features/projects/atoms/projects"
 import { onLiveTicket } from "@/features/tickets/commands"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 const repoOf = ({ project, ticketData }: CommandContext) =>
@@ -134,6 +135,7 @@ export const gitCommands: ReadonlyArray<Command> = [
   },
   {
     id: "git.copy-branch",
+    hotkey: appHotkeys["tickets.copy-branch"],
     group: "ticketGit",
     label: m.tickets_command_copy_branch,
     icon: Copy,

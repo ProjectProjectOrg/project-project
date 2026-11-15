@@ -969,7 +969,7 @@ function CommandMenuDialog({
           <DialogPrimitive.Title className="sr-only">
             {title}
           </DialogPrimitive.Title>
-          <HotkeysProvider scope={scope} exclusive>
+          <HotkeysProvider scope={scope} exclusive enabled={open}>
             <CloseOnShortcut
               shortcut={shortcut}
               onClose={() => onOpenChange(false)}
@@ -1008,12 +1008,14 @@ function CloseOnShortcut({
   return null
 }
 
-function CommandMenuCheck() {
+function CommandMenuCheck({ checked }: Readonly<{ checked: boolean }>) {
   return (
-    <>
-      <Check className="size-3.5 shrink-0" strokeWidth={1.75} />
-      <span className="sr-only">{m.chrome_command_menu_selected()}</span>
-    </>
+    <span className={cn("flex shrink-0", !checked && "invisible")}>
+      <Check className="size-3.5" strokeWidth={1.75} />
+      {checked && (
+        <span className="sr-only">{m.chrome_command_menu_selected()}</span>
+      )}
+    </span>
   )
 }
 

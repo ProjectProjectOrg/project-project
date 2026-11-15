@@ -51,7 +51,7 @@ export function SwitchProjectPage({
       renderItem={(item) => (
         <CommandMenuItem value={item.value}>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          {context.projectSlug === item.value && <CommandMenuCheck />}
+          <CommandMenuCheck checked={context.projectSlug === item.value} />
         </CommandMenuItem>
       )}
     />

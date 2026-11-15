@@ -61,7 +61,7 @@ export const commandItem = (
   keywords: command.keywords,
   parent: command.parent?.(),
   aside: command.aside?.(context),
-  searchOnly: command.searchOnly,
+  searchOnly: command.listed === "search",
   shortcut: command.hotkey?.hotkey ?? undefined,
   enterLabel:
     "page" in command
@@ -147,7 +147,9 @@ export function RootCommands({
         ] as const
     )
   ])
-  const visible = visibleCommands(commands, context)
+  const visible = visibleCommands(commands, context).filter(
+    (command) => command.listed !== "never"
+  )
   const byId = new Map(visible.map((command) => [command.id, command]))
   const items: ReadonlyArray<CommandFrameItem> = [
     ...visible.map((command) => commandItem(command, context)),

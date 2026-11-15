@@ -123,7 +123,7 @@ describe("integration commands", () => {
     "suggests only actionable setup: $name",
     ({ state, prerequisite, suggested }) => {
       const commands = integrationCommands([{ ...entry, state, prerequisite }])
-      expect(commands[0]?.searchOnly).toBe(!suggested)
+      expect(commands[0]?.listed).toBe(suggested ? "always" : "search")
       expect(commands[0]?.group).toBe(suggested ? "setup" : "navigation")
     }
   )
