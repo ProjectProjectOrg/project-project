@@ -274,7 +274,9 @@ const labelSwap = {
   hidden: { opacity: 0, filter: "blur(4px)", transition: glide },
   shown: { opacity: 1, filter: "blur(0px)", transition: glide }
 }
-const appear: Transition = { duration: 0.1, ease: [0.22, 1, 0.36, 1] }
+// Opening and closing: a fade and a scale from 96% over 160ms ease-out.
+// ease-standard over 100ms was 76% opaque after 60ms and read as a pop.
+const appear: Transition = { duration: 0.16, ease: "easeOut" }
 // Reduced motion: the same swap without the blur.
 const fadeSwap = {
   hidden: { opacity: 0, transition: { duration: 0.12 } },
