@@ -271,17 +271,22 @@ function Capsule({
     const start = hidden.current ?? covered
     const target = open ? 0 : covered
     clip(start)
+    // Opening takes the morph timing (260ms); closing is quicker
+    // (presence, 180ms): the clip snaps back to the trigger and the capsule
+    // stays solid until the last ~80ms, then fades, so there's no long
+    // crossfade over the trigger.
+    const timing = open ? transitions.morph : transitions.presence
     const reveal = animate(start, target, {
-      ...(reduce ? { duration: 0 } : transitions.morph),
+      ...(reduce ? { duration: 0 } : timing),
       onUpdate: clip
     })
-    // Closing fades in step with the clip (ease-in), so the shrink back to
-    // the trigger stays visible instead of vanishing in the first frames.
-    const fade = animate(
-      el,
-      { opacity: open ? 1 : 0 },
-      open ? transitions.morph : { duration: 0.26, ease: "easeIn" }
-    )
+    const fade = open
+      ? animate(el, { opacity: 1 }, transitions.morph)
+      : animate(
+          el,
+          { opacity: [1, 1, 0] },
+          { duration: timing.duration, times: [0, 0.55, 1], ease: "linear" }
+        )
     if (!open)
       void Promise.all([reveal, fade]).then(() => {
         hidden.current = null
