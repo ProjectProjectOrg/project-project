@@ -1,7 +1,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { sprintState, type Group } from "@pp/shared"
 import type { DateRange } from "@pp/ui/calendar"
-import { Calendar } from "@pp/ui/calendar"
+import { DatePicker } from "@pp/ui/date-picker"
 import {
   DropdownMenu,
   DropdownMenuConfirmItem,
@@ -21,7 +21,6 @@ import {
 } from "@pp/ui/icons"
 import { bareFieldTintClass } from "@pp/ui/input"
 import { cn } from "@pp/ui/lib/utils"
-import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { Link, useNavigate } from "@tanstack/react-router"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
@@ -41,6 +40,7 @@ import {
   sprintDatesPatch,
   startSprintPatch
 } from "@/features/sprints/lib/sprintDates"
+import { dateLabels } from "@/lib/dateLabels"
 import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
@@ -294,7 +294,8 @@ function SprintDatesField({
     return <span className="font-mono tabular-nums">{label}</span>
   }
   return (
-    <Popover
+    <DatePicker
+      mode="range"
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
@@ -305,30 +306,19 @@ function SprintDatesField({
         const patch = sprintDatesPatch(sprint, draft)
         if (patch) update(patch)
       }}
-    >
-      <PopoverTrigger
-        render={
-          <button
-            type="button"
-            className="-mx-1 rounded px-1 font-mono tabular-nums transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
-          >
-            {label}
-          </button>
-        }
-      />
-      <PopoverContent align="start" initialFocus={false} className="w-auto p-0">
-        <Calendar
-          navLabels={{
-            previous: m.common_previous_month(),
-            next: m.common_next_month()
-          }}
-          mode="range"
-          selected={draft}
-          onSelect={(r) => setDraft(r ?? { from: undefined, to: undefined })}
-          defaultMonth={draft.from ?? DateTime.toDate(DateTime.nowUnsafe())}
-        />
-      </PopoverContent>
-    </Popover>
+      value={{ from: draft.from, to: draft.to }}
+      onChange={(next) => setDraft({ from: next.from, to: next.to })}
+      labels={dateLabels("range")}
+      allowPast
+      trigger={
+        <button
+          type="button"
+          className="-mx-1 rounded px-1 font-mono tabular-nums transition-colors transition-transform duration-100 hover:bg-hover hover:text-foreground active:scale-[0.97]"
+        >
+          {label}
+        </button>
+      }
+    />
   )
 }
 

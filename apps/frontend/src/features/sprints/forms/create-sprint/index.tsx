@@ -1,11 +1,10 @@
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { Group } from "@pp/shared"
 import { Button } from "@pp/ui/button"
-import { Calendar } from "@pp/ui/calendar"
 import { Composer } from "@pp/ui/composer"
+import { DatePicker } from "@pp/ui/date-picker"
 import { ArrowRightLeft, CalendarDays } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
 import { useNavigate } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as DateTime from "effect/DateTime"
@@ -35,6 +34,7 @@ import {
   formatSprintRange,
   type SprintDateDraft
 } from "@/features/sprints/lib/sprintDates"
+import { dateLabels } from "@/lib/dateLabels"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 import { getLocale } from "@/paraglide/runtime"
@@ -68,7 +68,6 @@ export function CreateSprintForm({
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [range, setRange] = useState<SprintDateDraft>({})
-  const [pickerOpen, setPickerOpen] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const [created, setCreated] = useState<Group["id"] | null>(null)
   const [pending, setPending] = useState(false)
@@ -168,63 +167,30 @@ export function CreateSprintForm({
       <Composer.Error>{failure}</Composer.Error>
       <Composer.Tray>
         <Composer.Footer>
-          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-            <PopoverTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  tone="strong"
-                  size="sm"
-                  leadingIcon={CalendarDays}
-                />
+          <DatePicker
+            mode="range"
+            value={{ from: range.from, to: range.to }}
+            onChange={(next) => setRange({ from: next.from, to: next.to })}
+            labels={dateLabels("range", m.sprints_clear_dates())}
+            quickPicks={[
+              {
+                label: m.sprints_start_today(),
+                value: { from: undefined, ...defaultSprintRange() }
               }
-            >
-              {datesLabel(range)}
-            </PopoverTrigger>
-            <PopoverContent
-              align="start"
-              initialFocus={false}
-              className="w-auto p-0"
-            >
-              <Calendar
-                navLabels={{
-                  previous: m.common_previous_month(),
-                  next: m.common_next_month()
-                }}
-                mode="range"
-                selected={{ from: range.from, to: range.to }}
-                onSelect={(next) => setRange(next ?? {})}
-                disabled={{ before: today }}
-                defaultMonth={range.from ?? today}
-              />
-              <div className="flex justify-between gap-2 border-t border-border/60 p-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => {
-                    setRange(defaultSprintRange())
-                    setPickerOpen(false)
-                  }}
-                >
-                  {m.sprints_start_today()}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  disabled={range.from === undefined}
-                  onClick={() => {
-                    setRange({})
-                    setPickerOpen(false)
-                  }}
-                >
-                  {m.sprints_clear_dates()}
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
+            ]}
+            disabled={{ before: today }}
+            trigger={
+              <Button
+                type="button"
+                variant="ghost"
+                tone="strong"
+                size="sm"
+                leadingIcon={CalendarDays}
+              >
+                {datesLabel(range)}
+              </Button>
+            }
+          />
           {range.from === undefined && (
             <Composer.Hint>{m.sprints_no_dates_hint()}</Composer.Hint>
           )}

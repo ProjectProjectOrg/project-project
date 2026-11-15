@@ -77,6 +77,8 @@ type CalendarContextValue = Readonly<{
   isEnd: (day: number) => boolean
   disabledMatchers: Matcher[]
   navLabels: CalendarNavLabels
+  // How many months show side by side; the nav sits on the last one.
+  months: number
 }>
 
 type CalendarNavLabels = Readonly<{ previous: string; next: string }>
@@ -641,12 +643,13 @@ function captionFade(stride: number) {
 
 function MonthCaption({
   calendarMonth,
-  displayIndex: _displayIndex,
+  displayIndex,
   className,
   children: _children,
   ...props
 }: MonthCaptionProps) {
   const { formatters } = useDayPicker()
+  const { months } = useCalendarContext()
   const { direction, reduceMotion, stride } = useGridContext()
   const key = calendarMonth.date.getTime()
   const firstDay = calendarMonth.weeks[0]?.days[0]
@@ -697,7 +700,8 @@ function MonthCaption({
           <span aria-hidden className="flex-1" />
         </>
       )}
-      <NavGroup />
+      {/* One ‹ › pair, at the far end: on the last month shown. */}
+      {displayIndex === months - 1 && <NavGroup />}
     </div>
   )
 }
@@ -1058,10 +1062,39 @@ const components = {
   DayButton
 } satisfies Partial<CustomComponents>
 
+// Day buttons are named with the day as it's shown ("Sunday, November 1",
+// not DayPicker's "1st"), so the visible number is part of the name (WCAG
+// 2.5.3, label in name).
+const dayName = new Intl.DateTimeFormat(undefined, {
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+  year: "numeric"
+})
+
+const labelDayButton = (
+  date: Date,
+  modifiers: Readonly<Record<string, boolean>>
+) =>
+  [
+    modifiers.today ? "Today" : null,
+    dayName.format(date),
+    modifiers.selected ? "selected" : null
+  ]
+    .filter((part) => part !== null)
+    .join(", ")
+
 type CalendarProps = Readonly<
-  Pick<DayPickerProps, "disabled" | "defaultMonth">
+  Pick<DayPickerProps, "disabled" | "defaultMonth" | "month" | "onMonthChange">
 > &
-  Readonly<{ navLabels: CalendarNavLabels }> &
+  Readonly<{
+    navLabels: CalendarNavLabels
+    // Focus the selected day (or today) on mount. Off when something else,
+    // like DatePicker's type line, should keep focus.
+    autoFocus?: boolean
+    // Months side by side; ranges read better across two.
+    numberOfMonths?: number
+  }> &
   (
     | Readonly<{
         mode: "single"
@@ -1076,7 +1109,15 @@ type CalendarProps = Readonly<
   )
 
 function Calendar(props: CalendarProps) {
-  const { disabled, defaultMonth, navLabels } = props
+  const {
+    disabled,
+    defaultMonth,
+    month,
+    onMonthChange,
+    navLabels,
+    autoFocus = true,
+    numberOfMonths = 1
+  } = props
   const range = props.mode === "range" ? props.selected : undefined
   const picking = !!range?.from && !range.to
   const selectedDay =
@@ -1093,9 +1134,10 @@ function Calendar(props: CalendarProps) {
       picking,
       disabledMatchers,
       navLabels,
+      months: numberOfMonths,
       isEnd: (n) => n === selectedDay || n === from || n === to
     }
-  }, [range, picking, disabledMatchers, selectedDay, navLabels])
+  }, [range, picking, disabledMatchers, selectedDay, navLabels, numberOfMonths])
 
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "Escape" || !picking || props.mode !== "range") return
@@ -1104,9 +1146,14 @@ function Calendar(props: CalendarProps) {
   }
 
   const shared = {
-    autoFocus: true,
+    labels: { labelDayButton },
+    numberOfMonths,
+    autoFocus,
     defaultMonth,
-    showOutsideDays: true,
+    month,
+    onMonthChange,
+    // Across two months, the next month's days already show beside it.
+    showOutsideDays: numberOfMonths === 1,
     hideNavigation: true,
     hideWeekdays: true,
     disabled: disabledMatchers,

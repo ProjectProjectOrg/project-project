@@ -1,9 +1,12 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type { GroupId, TicketId, WorkTypeOption } from "@pp/shared"
 import { Button } from "@pp/ui/button"
+import { DatePicker } from "@pp/ui/date-picker"
 import { Input } from "@pp/ui/input"
+import { parseDayAt } from "@pp/ui/lib/parseDate"
 import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
+import * as Option from "effect/Option"
 
 import {
   logTicketTimeAtom,
@@ -12,18 +15,29 @@ import {
   type TicketTimeRequest
 } from "@/features/everhour/atoms/timeTracking"
 import { WorkTypeSelect } from "@/features/everhour/components/WorkTypeSelect"
+import { dateLabels } from "@/lib/dateLabels"
 import { useAppForm } from "@/lib/form"
 import { mutationErrorText } from "@/lib/mutationError"
 import * as m from "@/paraglide/messages"
 
 import { logTimeFormOpts, toLogTimeInput } from "./opts"
 
-const todayIso = () => {
-  const now = DateTime.toDate(DateTime.nowUnsafe())
-  const month = `${now.getMonth() + 1}`.padStart(2, "0")
-  const day = `${now.getDate()}`.padStart(2, "0")
-  return `${now.getFullYear()}-${month}-${day}`
+const isoDay = (date: Date) => {
+  const month = `${date.getMonth() + 1}`.padStart(2, "0")
+  const day = `${date.getDate()}`.padStart(2, "0")
+  return `${date.getFullYear()}-${month}-${day}`
 }
+
+const todayIso = () => isoDay(DateTime.toDate(DateTime.nowUnsafe()))
+
+// The form keeps the day as "YYYY-MM-DD"; the picker works in Dates.
+const dayOfIso = (iso: string): Date | undefined =>
+  Option.getOrUndefined(
+    Option.map(
+      parseDayAt(iso, DateTime.nowUnsafe(), { allowPast: true }),
+      DateTime.toDateUtc
+    )
+  )
 
 export function LogTimeForm({
   orgSlug,
@@ -100,13 +114,16 @@ export function LogTimeForm({
         {(field) => (
           <label className="flex flex-col gap-1 text-caption text-muted-foreground">
             {m.time_log_date_label()}
-            <Input
-              type="date"
-              value={field.value}
-              className="min-w-0"
-              aria-invalid={field.errors.length > 0}
-              onChange={(event) => field.handleChange(event.target.value)}
-              onBlur={field.handleBlur}
+            <DatePicker
+              mode="single"
+              allowPast
+              value={dayOfIso(field.value)}
+              onChange={(date) => {
+                field.handleChange(date === undefined ? "" : isoDay(date))
+                field.handleBlur()
+              }}
+              labels={dateLabels("single")}
+              className="w-full min-w-0"
             />
           </label>
         )}

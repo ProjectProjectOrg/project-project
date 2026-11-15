@@ -142,6 +142,7 @@ Set during the polish passes; a component that breaks one is not done.
 | Kbd | Done: the only keycap (⌘K uses KbdShortcut), colours from currentColor, inset like an icon in buttons |
 | Composer | Done, in Patterns: a card and a tray, parts own their spacing, `Composer.Surface` for inline use |
 | Context menu | Done: the dropdown opened by right-click (shares rows, highlight, hold); menu shortcuts are Kbd keys |
+| Date picker | Done: type a date or range (chrono-node via lib/parseDate), Calendar inside, two months for ranges; used by sprints and log time |
 | Dialog | Removed: the app has no dialogs (PRODUCT.md, "Zero dialogs"); page actions use Popover, cmd+k actions are cmd+k pages |
 
 Open question from the Select pass: dropdown radio rows with `closeOnClick` skip the settle animation (`settleAtOnceClass` in `dropdown-menu.tsx`); ask Wouter whether they should animate again.

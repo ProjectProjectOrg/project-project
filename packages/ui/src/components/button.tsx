@@ -130,6 +130,15 @@ const buttonVariants = cva(
       // Field buttons pad like Input, not like a button.
       { variant: "field", size: ["md", "lg"], className: "px-3" },
       { variant: "field", size: "sm", className: "px-2.5" },
+      // A leading icon sits closer to the edge, like the input group's: the
+      // glyph 10px in (9px + the border) against 13px for the text.
+      {
+        variant: "field",
+        size: ["md", "lg"],
+        iconLeft: true,
+        className: "pl-[9px]"
+      },
+      { variant: "field", size: "sm", iconLeft: true, className: "pl-[7px]" },
       {
         variant: "overlay",
         tone: "destructive",

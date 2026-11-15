@@ -1,11 +1,20 @@
 import { Button } from "@pp/ui/button"
-import { Calendar } from "@pp/ui/calendar"
 import { Composer } from "@pp/ui/composer"
+import { DatePicker } from "@pp/ui/date-picker"
 import { CalendarDays, Plus } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@pp/ui/popover"
+import { Popover, PopoverTrigger } from "@pp/ui/popover"
 import * as DateTime from "effect/DateTime"
 import { useState } from "react"
+
+const DATE_LABELS = {
+  placeholder: "Pick dates",
+  type: "Type dates: mon for 2 weeks, nov 16 to 27",
+  unreadable: "Can't read that date",
+  previousMonth: "Previous month",
+  nextMonth: "Next month",
+  clear: "Clear dates"
+} as const
 
 const USER_TOGGLES = new Set([
   "trigger-press",
@@ -40,7 +49,6 @@ const SPRINTS = ["Sprint 14", "Sprint 13", "Sprint 12"]
 // nested inside for the date range.
 export default function NewSprint() {
   const [open, setOpen] = useState(true)
-  const [pickerOpen, setPickerOpen] = useState(false)
   const [name, setName] = useState("")
   const [range, setRange] = useState<DateDraft>({})
   const today = DateTime.toDate(DateTime.nowUnsafe())
@@ -106,63 +114,32 @@ export default function NewSprint() {
             </Composer.Body>
             <Composer.Footer className="justify-between pl-1.5">
               <div className="flex min-w-0 items-center gap-1.5">
-                <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-                  <PopoverTrigger
-                    render={
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        tone="strong"
-                        size="sm"
-                        leadingIcon={CalendarDays}
-                      />
+                <DatePicker
+                  mode="range"
+                  value={{ from: range.from, to: range.to }}
+                  onChange={(next) =>
+                    setRange({ from: next.from, to: next.to })
+                  }
+                  labels={DATE_LABELS}
+                  quickPicks={[
+                    {
+                      label: "Start today",
+                      value: { from: undefined, ...twoWeeksFromToday() }
                     }
-                  >
-                    {datesLabel(range)}
-                  </PopoverTrigger>
-                  <PopoverContent
-                    align="start"
-                    initialFocus={false}
-                    className="w-auto p-0"
-                  >
-                    <Calendar
-                      navLabels={{
-                        previous: "Previous month",
-                        next: "Next month"
-                      }}
-                      mode="range"
-                      selected={{ from: range.from, to: range.to }}
-                      onSelect={(next) => setRange(next ?? {})}
-                      disabled={{ before: today }}
-                      defaultMonth={range.from ?? today}
-                    />
-                    <div className="flex justify-between gap-2 border-t border-border/60 p-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="xs"
-                        onClick={() => {
-                          setRange(twoWeeksFromToday())
-                          setPickerOpen(false)
-                        }}
-                      >
-                        Start today
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="xs"
-                        disabled={range.from === undefined}
-                        onClick={() => {
-                          setRange({})
-                          setPickerOpen(false)
-                        }}
-                      >
-                        Clear dates
-                      </Button>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                  ]}
+                  disabled={{ before: today }}
+                  trigger={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      tone="strong"
+                      size="sm"
+                      leadingIcon={CalendarDays}
+                    >
+                      {datesLabel(range)}
+                    </Button>
+                  }
+                />
                 {range.from === undefined && (
                   <Composer.Hint>
                     Stays planned until you start it
