@@ -81,6 +81,8 @@ function CommandHotkey({
   hotkey,
   onPress
 }: Readonly<{ hotkey: AppHotkey; onPress: () => void }>) {
-  useHotkey(hotkey, onPress)
+  useHotkey(hotkey, (event) => {
+    if (!event.repeat) onPress()
+  })
   return null
 }
