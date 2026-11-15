@@ -20,6 +20,11 @@ import { cn } from "../lib/utils"
  * button), the change plays through TextSwap.
  */
 
+// The house curve (--ease-standard), not Scritto's springy default: with it
+// a growing value eases out evenly instead of landing half its width in the
+// first frame.
+const EASING = "cubic-bezier(0.22, 1, 0.36, 1)"
+
 const DURATION = {
   // A normal change of state.
   normal: transitions.morph.duration * 1000,
@@ -63,7 +68,7 @@ function TextSwap({
       {icon != null && <IconSwap id={iconKey ?? children}>{icon}</IconSwap>}
       <Scritto
         value={children}
-        transition={{ duration: DURATION[speed] }}
+        transition={{ duration: DURATION[speed], easing: EASING }}
         className="max-w-full min-w-0"
       />
     </span>

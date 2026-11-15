@@ -59,9 +59,9 @@ When a control shows a value the user just changed (a select's chosen option, a 
 
 Scritto keeps the letters the old and new value share and only moves the rest, so "Subscribe" to "Subscribed" adds a "d" instead of replacing the word. The width eases with the letters, so the control around it grows and shrinks smoothly rather than snapping.
 
-### Two speeds
+### Two speeds, one curve
 
-Normal is the morph timing (260ms), for a change of state. Fast is the presence timing (180ms), for a value riding along with a move, like a count in a toolbar button or a tooltip gliding to the next trigger.
+Both use the house curve (`--ease-standard`), not Scritto's springy default, so a value that grows eases out as evenly as one that shrinks. Normal is the morph timing (260ms), for a change of state. Fast is the presence timing (180ms), for a value riding along with a move, like a count in a toolbar button or a tooltip gliding to the next trigger.
 
 ### The icon crossfades in one cell
 
