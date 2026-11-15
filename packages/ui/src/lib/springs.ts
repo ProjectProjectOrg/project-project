@@ -60,19 +60,26 @@ export const spring = {
 export const exitFallbackMs = (tier: { exit: { duration: number } }) =>
   Math.round(tier.exit.duration * 1000) + 100
 
+// A value swap: the old value blurs and fades out while the new one blurs
+// and fades in, on the same 180ms ease-in-out. Both curves are gentle at
+// the ends, so neither label pops in or vanishes abruptly, and they cross
+// at the midpoint, half faded and about 2px blurred. (An ease-in exit
+// dropped steepest at its last frame and read as the old value being cut.)
+const blurSwapTiming = {
+  type: "tween",
+  duration: 0.18,
+  ease: "easeInOut"
+} as const
+
 export const blurSwap: Variants = {
   shown: {
     opacity: 1,
     filter: "blur(0px)",
-    transition: {
-      type: "tween",
-      duration: spring.moderate.duration,
-      ease: "easeOut"
-    }
+    transition: blurSwapTiming
   },
   hidden: {
     opacity: 0,
     filter: "blur(4px)",
-    transition: { type: "tween", ...spring.moderate.exit, ease: "easeIn" }
+    transition: blurSwapTiming
   }
 }
