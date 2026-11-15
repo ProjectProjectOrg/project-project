@@ -82,8 +82,18 @@ const dayFormat = new Intl.DateTimeFormat(undefined, {
   month: "short",
   day: "numeric"
 })
+const dayYearFormat = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  year: "numeric"
+})
 
-const formatDay = (date: Date) => dayFormat.format(date)
+// "Nov 20" this year, "Nov 20, 2027" any other, so a typed year shows.
+const formatDay = (date: Date) =>
+  (date.getFullYear() === DateTime.getPart(DateTime.nowUnsafe(), "year")
+    ? dayFormat
+    : dayYearFormat
+  ).format(date)
 
 const formatRange = ({ from, to }: DateRange) =>
   from === undefined
