@@ -21,9 +21,7 @@ import { authedRouteRedirect } from "@/features/auth/lib/authRedirect"
 import { CommandMenuHost } from "@/features/command-menu/components/CommandMenuHost"
 import { RunningTimerIndicator } from "@/features/everhour/components/RunningTimerIndicator"
 import { SendFeedbackDialogHost } from "@/features/feedback/components/SendFeedbackDialog"
-import { CreateSprintDialogHost } from "@/features/sprints/components/CreateSprintDialog"
 import { CreateTicketDialogHost } from "@/features/tickets/components/create-ticket/CreateTicketDialog"
-import { FlagTicketDialogHost } from "@/features/tickets/components/FlagTicketDialog"
 import { TicketPreviewRoot } from "@/features/tickets/components/ticket-preview/TicketPreview"
 import { PageBackdropContext } from "@/lib/pageBackdrop"
 
@@ -91,8 +89,6 @@ function Shell({ user }: { user: User }) {
       ) : null}
       <TicketPreviewRoot />
       <CreateTicketDialogHost />
-      <FlagTicketDialogHost />
-      <CreateSprintDialogHost />
       <SendFeedbackDialogHost />
     </div>
   )

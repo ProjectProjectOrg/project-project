@@ -1,7 +1,6 @@
 import type { Ticket } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
-import { DialogTitle } from "@pp/ui/dialog"
 import * as Exit from "effect/Exit"
 import { Flag } from "lucide-react"
 import type { KeyboardEvent } from "react"
@@ -51,10 +50,10 @@ export function FlagForm({
       }}
     >
       <Composer.Header className="text-body">
-        <DialogTitle className="inline-flex h-8 items-center gap-1.5 px-2.5 font-normal text-foreground">
+        <h2 className="inline-flex h-8 items-center gap-1.5 px-2.5 font-normal text-foreground">
           <Flag className="size-3.5" strokeWidth={1.75} />
           {m.tickets_flag_heading()}
-        </DialogTitle>
+        </h2>
         {ticket.id !== null && (
           <span className="text-muted-foreground tabular-nums">
             {ticket.id}

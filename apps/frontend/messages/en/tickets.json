@@ -73,8 +73,13 @@
   "tickets_assign_sprint_chip": "Assign sprint",
   "tickets_assignee_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} person",
         "countPlural=*": "{count} people"
@@ -92,7 +97,9 @@
         "input name",
         "local countPlural = count: plural"
       ],
-      "selectors": ["countPlural"],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Assigned to {name}. Click to change.",
         "countPlural=*": "{count} people assigned. Click to change."
@@ -155,8 +162,13 @@
   "tickets_detail_defect": "Something went wrong: {defect}",
   "tickets_detail_delete_cascade_sub_tickets": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Also delete {count} sub-ticket",
         "countPlural=*": "Also delete {count} sub-tickets"
@@ -165,8 +177,13 @@
   ],
   "tickets_detail_delete_cascade_tickets": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Also delete {count} ticket",
         "countPlural=*": "Also delete {count} tickets"
@@ -176,8 +193,13 @@
   "tickets_detail_load_error": "Couldn't load detail: {error}",
   "tickets_drag_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} ticket",
         "countPlural=*": "{count} tickets"
@@ -215,8 +237,13 @@
   "tickets_estimate_empty": "Add estimate",
   "tickets_estimate_points": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} point",
         "countPlural=*": "{count} points"
@@ -383,8 +410,13 @@
   "tickets_section_collapse_aria_label": "Toggle section {label}",
   "tickets_section_count_aria_label": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} ticket",
         "countPlural=*": "{count} tickets"
@@ -416,8 +448,13 @@
   "tickets_split_menu_item": "Split ticket",
   "tickets_split_result_banner": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Split done. {count} new ticket was created:",
         "countPlural=*": "Split done. {count} new tickets were created:"
@@ -430,8 +467,13 @@
   "tickets_split_row_title_placeholder": "What is this piece of work?",
   "tickets_split_submit": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Split into {count} ticket",
         "countPlural=*": "Split into {count} tickets"
@@ -445,7 +487,9 @@
         "input id",
         "local countPlural = count: plural"
       ],
-      "selectors": ["countPlural"],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} comment stays on {id} and is not copied to the new tickets.",
         "countPlural=*": "{count} comments stay on {id} and are not copied to the new tickets."
@@ -470,8 +514,13 @@
   "tickets_status_delete_confirm_empty": "Delete this status?",
   "tickets_status_delete_confirm_with_tickets": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Move {count} ticket to",
         "countPlural=*": "Move {count} tickets to"
@@ -497,8 +546,13 @@
   "tickets_status_phase_started": "Active",
   "tickets_status_phase_ticket_count": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} ticket",
         "countPlural=*": "{count} tickets"
@@ -649,7 +703,9 @@
         "input count",
         "local countPlural = count: plural"
       ],
-      "selectors": ["countPlural"],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Delete {id} and {count} sub-ticket",
         "countPlural=*": "Delete {id} and {count} sub-tickets"
@@ -663,7 +719,9 @@
         "input count",
         "local countPlural = count: plural"
       ],
-      "selectors": ["countPlural"],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "Delete {id} and {count} ticket",
         "countPlural=*": "Delete {id} and {count} tickets"
@@ -692,8 +750,13 @@
   "tickets_estimate_breakdown_started": "In progress",
   "tickets_estimate_breakdown_tickets": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} ticket",
         "countPlural=*": "{count} tickets"
@@ -709,7 +772,9 @@
         "input committed",
         "local committedPlural = committed: plural"
       ],
-      "selectors": ["committedPlural"],
+      "selectors": [
+        "committedPlural"
+      ],
       "match": {
         "committedPlural=one": "{done} / {committed} pt",
         "committedPlural=*": "{done} / {committed} pts"
@@ -719,8 +784,13 @@
   "tickets_estimate_progress_time": "{done} / {committed}",
   "tickets_estimate_total_points": [
     {
-      "declarations": ["input total", "local totalPlural = total: plural"],
-      "selectors": ["totalPlural"],
+      "declarations": [
+        "input total",
+        "local totalPlural = total: plural"
+      ],
+      "selectors": [
+        "totalPlural"
+      ],
       "match": {
         "totalPlural=one": "{total} pt",
         "totalPlural=*": "{total} pts"
@@ -730,8 +800,13 @@
   "tickets_estimate_unestimated_filter": "Show tickets without an estimate",
   "tickets_estimate_unestimated_hint": [
     {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
+      "declarations": [
+        "input count",
+        "local countPlural = count: plural"
+      ],
+      "selectors": [
+        "countPlural"
+      ],
       "match": {
         "countPlural=one": "{count} ticket without an estimate",
         "countPlural=*": "{count} tickets without an estimate"
@@ -750,11 +825,15 @@
         "input total",
         "local totalPlural = total: plural"
       ],
-      "selectors": ["totalPlural"],
+      "selectors": [
+        "totalPlural"
+      ],
       "match": {
         "totalPlural=one": "{position} of {total} sub-ticket",
         "totalPlural=*": "{position} of {total} sub-tickets"
       }
     }
-  ]
+  ],
+  "tickets_command_flag_action": "Flag {id}",
+  "tickets_command_flag_with_reason": "Flag {id} with this reason"
 }

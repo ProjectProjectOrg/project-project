@@ -4,7 +4,6 @@ import { Flag, FlagOff, Layers, ListPlus, Stamp, Unlink } from "lucide-react"
 import { commandScopes } from "@/features/command-menu/atoms/commandMenu"
 import type { Command } from "@/features/command-menu/lib/commands"
 import { scopeSelectionUpdate } from "@/features/command-menu/lib/commandScopes"
-import { openFlagDialog } from "@/features/tickets/atoms/flagTicketDialog"
 import {
   ticketRequest,
   updateTicketDetail
@@ -66,14 +65,9 @@ export const relationCommands: ReadonlyArray<Command> = [
       (context.selection.length > 1
         ? context.selection.some((each) => each.flag === null)
         : context.ticketDetail !== null && context.ticketDetail.flag === null),
-    run: ({ ticket, ticketDetail, selection }, env) => {
+    run: ({ ticket, ticketDetail }, env) => {
       if (ticket === null || ticketDetail === null) return
-      openFlagDialog(
-        env,
-        ticket,
-        ticketDetail.title,
-        selection.map((each) => each.id)
-      )
+      env.open("ticketFlag")
     }
   },
   {

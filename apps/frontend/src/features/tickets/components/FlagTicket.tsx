@@ -1,16 +1,11 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
-import { Dialog, DialogContent } from "@pp/ui/dialog"
+import type { TicketId } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
 import { project, projectRequest } from "@/features/projects/atoms/projects"
-import { ProjectContext } from "@/features/projects/hooks/useProject"
 import { bulkUpdateTickets } from "@/features/tickets/atoms/bulkTickets"
-import {
-  flagTicketDialog,
-  type FlagTicketDialogRequest
-} from "@/features/tickets/atoms/flagTicketDialog"
 import {
   ticketRequest,
   updateTicketDetail
@@ -18,38 +13,23 @@ import {
 import { FlagForm } from "@/features/tickets/forms/flag-ticket"
 import { flagFor } from "@/features/tickets/lib/ticketFlag"
 import { useProjectActor } from "@/hooks/useActor"
-import { useRouteBoundDialog } from "@/hooks/useRouteBoundDialog"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
-export function FlagTicketDialogHost() {
-  const { open, shown, close } = useRouteBoundDialog(flagTicketDialog)
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) close()
-      }}
-    >
-      <DialogContent size="lg" className="p-0">
-        {shown !== null && (
-          <ProjectContext value={projectRequest(shown.orgSlug, shown.slug)}>
-            <FlagTicket
-              key={`${shown.orgSlug}:${shown.slug}:${shown.ticketId}`}
-              request={shown}
-              onDone={close}
-            />
-          </ProjectContext>
-        )}
-      </DialogContent>
-    </Dialog>
-  )
-}
+export type FlagTicketRequest = Readonly<{
+  orgSlug: string
+  slug: string
+  ticketId: TicketId
+  title: string
+  selection: ReadonlyArray<TicketId>
+}>
 
-function FlagTicket({
+// Flagging a ticket (or a selection) from the ticket menu, inside the menu's
+// flag popover.
+export function FlagTicket({
   request,
   onDone
-}: Readonly<{ request: FlagTicketDialogRequest; onDone: () => void }>) {
+}: Readonly<{ request: FlagTicketRequest; onDone: () => void }>) {
   const { userId } = useProjectActor()
   const detail = useAtomValue(
     project(projectRequest(request.orgSlug, request.slug))

@@ -1,6 +1,7 @@
 import { Button } from "@pp/ui/button"
 import { ConfirmButton } from "@pp/ui/confirm-button"
 import * as Exit from "effect/Exit"
+import type { ComponentProps } from "react"
 import type { ReactNode } from "react"
 
 import { describeCause } from "@/lib/errorMessage"
@@ -16,17 +17,20 @@ export function EntryActions({ children }: Readonly<{ children: ReactNode }>) {
   )
 }
 
+// Also renders as a popover's trigger, so it passes through the props and
+// ref the popover gives it.
 export function DeleteEntryTrigger({
   label,
-  onClick
-}: Readonly<{ label: string; onClick: () => void }>) {
+  ...props
+}: Readonly<{ label: string }> &
+  Omit<ComponentProps<typeof Button>, "children">) {
   return (
     <Button
       type="button"
       variant="tertiary"
       size="sm"
       className="text-destructive hover:text-destructive"
-      onClick={onClick}
+      {...props}
     >
       {label}
     </Button>

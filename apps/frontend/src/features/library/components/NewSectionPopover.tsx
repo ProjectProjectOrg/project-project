@@ -1,21 +1,19 @@
 import type { Library } from "@pp/shared"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle
-} from "@pp/ui/dialog"
+import { Popover, PopoverContent, PopoverTitle } from "@pp/ui/popover"
+import type { RefObject } from "react"
 
 import { LibraryCreateForm } from "@/features/library/forms/library-create"
 import { m } from "@/paraglide/messages"
 
 import type { LibraryScope } from "../atoms/libraryScope"
 
-export function NewSectionDialog({
+// Creating a new section from the "Add section" menu: the menu closes and
+// this popover opens on the same Add section button.
+export function NewSectionPopover({
   scope,
   library,
   typeName,
+  anchor,
   open,
   onOpenChange,
   onCreated
@@ -23,19 +21,25 @@ export function NewSectionDialog({
   scope: LibraryScope
   library: Library
   typeName: string
+  anchor: RefObject<HTMLElement | null>
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreated: (key: string) => void
 }>) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{m.templates_new_section_title()}</DialogTitle>
-          <DialogDescription>
-            {m.templates_new_section_for_type({ name: typeName })}
-          </DialogDescription>
-        </DialogHeader>
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverContent
+        anchor={anchor}
+        align="start"
+        sideOffset={6}
+        className="w-80"
+      >
+        <PopoverTitle className="text-subtitle font-semibold">
+          {m.templates_new_section_title()}
+        </PopoverTitle>
+        <p className="mt-0.5 mb-3 text-body text-muted-foreground">
+          {m.templates_new_section_for_type({ name: typeName })}
+        </p>
         <LibraryCreateForm
           kind="section"
           scope={scope}
@@ -50,7 +54,7 @@ export function NewSectionDialog({
           }}
           onCancel={() => onOpenChange(false)}
         />
-      </DialogContent>
-    </Dialog>
+      </PopoverContent>
+    </Popover>
   )
 }

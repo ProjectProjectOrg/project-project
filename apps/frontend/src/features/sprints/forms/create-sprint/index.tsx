@@ -11,14 +11,7 @@ import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { ArrowRightLeft, CalendarDays } from "lucide-react"
-import {
-  useContext,
-  useState,
-  type ComponentType,
-  type FormEvent,
-  type KeyboardEvent,
-  type ReactNode
-} from "react"
+import { useContext, useState, type FormEvent, type KeyboardEvent } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
 import { LexicalEditor } from "@/features/editor/components/LexicalEditor"
@@ -27,11 +20,10 @@ import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
-import { ProjectSelect } from "@/features/projects/components/ProjectSelect"
 import {
   createSprintInProject,
-  type CreateSprintDialogRequest
-} from "@/features/sprints/atoms/createSprintDialog"
+  type CreateSprintRequest
+} from "@/features/sprints/atoms/createSprint"
 import {
   completeSprint,
   sprintListRequest
@@ -61,14 +53,9 @@ const datesLabel = ({ from, to }: SprintDateDraft) => {
 
 export function CreateSprintForm({
   request,
-  Title,
   onDone
 }: Readonly<{
-  request: CreateSprintDialogRequest
-  // The dialog shows a header with the project picker and this title. The
-  // popover leaves it out: it opens from a "New sprint" button inside one
-  // project, so neither adds anything there.
-  Title?: ComponentType<{ className?: string; children: ReactNode }>
+  request: CreateSprintRequest
   onDone: () => void
 }>) {
   const { orgSlug, completeFrom, tickets } = request
@@ -76,8 +63,8 @@ export function CreateSprintForm({
   const navigate = useNavigate()
   const projectsResult = useAtomValue(projectsFor(projectsRequest(orgSlug)))
   const projects = Result.isSuccess(projectsResult) ? projectsResult.value : []
-  const [picked, setPicked] = useState(request.projectSlug)
-  const slug = picked ?? projects[0]?.slug ?? null
+  // The popover opens inside one project; the first project is a fallback.
+  const slug = request.projectSlug ?? projects[0]?.slug ?? null
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [range, setRange] = useState<SprintDateDraft>({})
@@ -151,20 +138,7 @@ export function CreateSprintForm({
 
   return (
     <form onSubmit={(event) => void submit(event)} className="flex flex-col">
-      {Title && (
-        <Composer.Header>
-          <ProjectSelect
-            projects={projects}
-            value={slug}
-            onChange={setPicked}
-            readOnly={completeFrom !== undefined || tickets !== undefined}
-          />
-          <Title className="text-body font-normal text-muted-foreground">
-            {m.sprints_create_dialog_title()}
-          </Title>
-        </Composer.Header>
-      )}
-      <Composer.Title className={Title ? undefined : "mt-4"}>
+      <Composer.Title className="mt-4">
         <Input
           variant="bare"
           className="text-title font-semibold"

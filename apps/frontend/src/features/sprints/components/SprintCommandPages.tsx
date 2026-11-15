@@ -20,6 +20,7 @@ import { useState, type ReactNode } from "react"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { SprintContext } from "@/features/command-menu/lib/commandMenu"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
+import { newSprintRequest } from "@/features/sprints/atoms/createSprint"
 import {
   deleteSprint,
   sprintListRequest,
@@ -301,7 +302,18 @@ export function SprintRenamePage({ sprint, onBack, env }: SprintPageProps) {
 }
 
 export function SprintCompletePage({ sprint, onBack, env }: SprintPageProps) {
-  const action = useCompleteSprint(sprint)
+  const action = useCompleteSprint({
+    ...sprint,
+    // Completing into a new sprint continues on cmd+k's New sprint page.
+    onNew: () => {
+      env.registry.set(newSprintRequest, {
+        orgSlug: sprint.orgSlug,
+        projectSlug: sprint.slug,
+        completeFrom: sprint.sprint
+      })
+      env.open("createSprint")
+    }
+  })
   const { unfinished, targets, completeTo, completeToNew } = action
   const items =
     unfinished === 0

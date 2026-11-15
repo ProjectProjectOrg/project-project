@@ -12,6 +12,7 @@ import {
   CreateProjectPage,
   SwitchProjectPage
 } from "@/features/projects/components/ProjectCommandPages"
+import { CreateSprintPage } from "@/features/sprints/components/CreateSprintPage"
 import { SprintAddTicketsPage } from "@/features/sprints/components/SprintAddTicketsPage"
 import {
   SprintCompletePage,
@@ -27,6 +28,7 @@ import {
   TicketArchivePage,
   TicketDeletePage,
   TicketEstimatePage,
+  TicketFlagPage,
   TicketParentPage,
   TicketTagsPage,
   TicketTypePage,
@@ -97,6 +99,7 @@ function TicketSprintPage({ context, chip, onBack, env }: CommandPageProps) {
       chip={chip}
       onBack={onBack}
       onClose={env.close}
+      onNewSprint={() => env.open("createSprint")}
     />
   )
 }
@@ -145,6 +148,7 @@ export const COMMAND_PAGES: Readonly<
   ticketCreateRelated: ticketPage(TicketCreateRelatedPage),
   ticketRemoveRelation: ticketPage(TicketRemoveRelationPage),
   ticketArchive: ticketPage(TicketArchivePage),
+  ticketFlag: ticketPage(TicketFlagPage),
   ticketDelete: ticketPage(TicketDeletePage),
   githubRegisterApp: GithubRegisterAppCommand,
   githubInstallApp: GithubInstallAppCommand,
@@ -158,6 +162,7 @@ export const COMMAND_PAGES: Readonly<
   switchOrg: SwitchOrgCommands,
   switchProject: SwitchProjectPage,
   createProject: CreateProjectPage,
+  createSprint: CreateSprintPage,
   theme: ThemeCommands,
   editorPreference: EditorPreferenceCommands,
   viewFilter: ViewFilterPage,

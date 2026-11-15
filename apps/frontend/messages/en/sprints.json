@@ -137,5 +137,6 @@
   "sprints_length_adjective_weeks": "{count}-week",
   "sprints_length_adjective_days": "{count}-day",
   "sprints_unschedule": "Unschedule",
-  "sprints_schedule_pick_hint": "Pick a start date"
+  "sprints_schedule_pick_hint": "Pick a start date",
+  "sprints_command_create_named": "Create sprint “{name}”"
 }

@@ -52,13 +52,13 @@ import {
   bulkArchiveTickets,
   bulkDeleteTickets
 } from "@/features/tickets/atoms/bulkTickets"
-import { flagTicketDialog } from "@/features/tickets/atoms/flagTicketDialog"
 import {
   archiveTicket,
   deleteTicket,
   ticketRequest,
   unarchiveTicket
 } from "@/features/tickets/atoms/ticketDetail"
+import { FlagTicket } from "@/features/tickets/components/FlagTicket"
 import {
   useForgetTicket,
   useSelectionActions
@@ -117,7 +117,7 @@ export type TicketMenuProps = Readonly<{
   fromList?: boolean
 }>
 
-type Flow = "archive" | "template" | null
+type Flow = "archive" | "template" | "flag" | null
 
 type ContextTarget = Readonly<{
   "data-popup-open"?: string
@@ -218,7 +218,6 @@ function TicketMenuItems({
   const archived = ticket.archivedAt !== null
   const canPlan = can.planSprints && canJoinSprint(ticket.type)
   const openPage = useOpenTicketPage(ticket.id)
-  const openFlagDialog = useAtomSet(flagTicketDialog)
   const parent = ticket.parent ?? null
   const detachable = parent !== null && can.edit
   const { count, selectedTickets } = useSelectionActions(
@@ -250,15 +249,7 @@ function TicketMenuItems({
         {single && canPlan && <RemoveFromSprintItem ticketId={ticket.id} />}
         {!single && can.edit && (
           <DropdownMenuItem
-            onClick={() =>
-              openFlagDialog({
-                orgSlug,
-                slug,
-                ticketId: ticket.id,
-                title: ticket.title,
-                selection: selectedTickets.map((each) => each.id)
-              })
-            }
+            onClick={() => onFlow("flag")}
             className="cursor-pointer"
           >
             <Flag className="size-4" strokeWidth={1.75} />
@@ -288,15 +279,7 @@ function TicketMenuItems({
           <MarkAsSubmenu
             ticketId={ticket.id}
             flagged={ticket.flag !== null}
-            onFlag={() =>
-              openFlagDialog({
-                orgSlug,
-                slug,
-                ticketId: ticket.id,
-                title: ticket.title,
-                selection: []
-              })
-            }
+            onFlag={() => onFlow("flag")}
             onUnflag={() => onPatch({ flag: null })}
           />
         )}
@@ -502,6 +485,28 @@ function TicketMenuFlowPopovers({
                 : Result.isFailure(archiveState)
             }
             onClose={() => onFlow(null)}
+          />
+        </Composer.Popover>
+      </Popover>
+      <Popover
+        open={flow === "flag"}
+        onOpenChange={(open) => onFlow(open ? "flag" : null)}
+      >
+        <Composer.Popover
+          anchor={popupAnchor}
+          align="end"
+          sideOffset={6}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <FlagTicket
+            request={{
+              orgSlug,
+              slug,
+              ticketId: ticket.id,
+              title: ticket.title,
+              selection: many ? selection.selectedIds() : []
+            }}
+            onDone={() => onFlow(null)}
           />
         </Composer.Popover>
       </Popover>

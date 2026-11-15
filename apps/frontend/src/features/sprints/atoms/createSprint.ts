@@ -6,14 +6,16 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 
-export type CreateSprintDialogRequest = Readonly<{
+export type CreateSprintRequest = Readonly<{
   orgSlug: string
   projectSlug: string | null
   completeFrom?: Group
   tickets?: ReadonlyArray<TicketId>
 }>
 
-export const createSprintDialog = Atom.make<CreateSprintDialogRequest | null>(
+// What the next "New sprint" should start from: set by a command or menu
+// before it opens the new-sprint popover or cmd+k page.
+export const newSprintRequest = Atom.make<CreateSprintRequest | null>(
   null
 ).pipe(Atom.keepAlive)
 

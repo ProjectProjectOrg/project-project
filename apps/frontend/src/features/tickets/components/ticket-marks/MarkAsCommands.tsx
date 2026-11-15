@@ -2,7 +2,6 @@ import { Flag, FlagOff } from "lucide-react"
 
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { CommandPageProps } from "@/features/command-menu/lib/commandPages"
-import { openFlagDialog } from "@/features/tickets/atoms/flagTicketDialog"
 import {
   ticketRequest,
   updateTicketDetail
@@ -35,11 +34,11 @@ export function MarkAsCommands({
         }))
       ]}
       onSelect={(item) => {
-        const { ticket, ticketDetail } = context
+        const { ticket } = context
         if (item.value === FLAG) {
           if (ticket === null) return
           if (!flagged) {
-            return openFlagDialog(env, ticket, ticketDetail?.title ?? "", [])
+            return env.open("ticketFlag")
           }
           env.execute(
             updateTicketDetail(

@@ -37,7 +37,7 @@ import {
 import { BlockIconGlyph } from "./BlockIconGlyph"
 import { SameOnEveryTicketBadge } from "./EntryBadges"
 import { LibraryEntryLink } from "./LibraryEntryLink"
-import { NewSectionDialog } from "./NewSectionDialog"
+import { NewSectionPopover } from "./NewSectionPopover"
 
 type StartingSectionsProps = Readonly<{
   scope: LibraryScope
@@ -105,6 +105,7 @@ export function StartingSections({
   onChange
 }: StartingSectionsProps) {
   const [creating, setCreating] = useState(false)
+  const addButton = useRef<HTMLButtonElement>(null)
   const lookup = useMemo(() => blockLookupFor(library), [library])
   const rows = useMemo(() => startingRows(body), [body])
   const [dragOrder, setDragOrder] = useState<ReadonlyArray<StartingRow> | null>(
@@ -172,6 +173,7 @@ export function StartingSections({
         <DropdownMenuTrigger
           render={
             <Button
+              ref={addButton}
               type="button"
               variant="tertiary"
               size="sm"
@@ -201,10 +203,11 @@ export function StartingSections({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <NewSectionDialog
+      <NewSectionPopover
         scope={scope}
         library={library}
         typeName={typeName}
+        anchor={addButton}
         open={creating}
         onOpenChange={setCreating}
         onCreated={(key) => commit(withSection(rows, key))}

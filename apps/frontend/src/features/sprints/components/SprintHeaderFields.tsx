@@ -45,6 +45,7 @@ import { describeCause } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
 import { CompleteSprintSubmenu } from "./CompleteSprintMenu"
+import { NewSprintPopover } from "./NewSprintPopover"
 import {
   shortDateFormatter,
   sprintStatusText,
@@ -69,69 +70,85 @@ export function SprintStatusSelect({
   const update = useAtomSet(updateSprint({ req, groupId: sprint.id }))
   const reopenState = useAtomValue(updateSprint({ req, groupId: sprint.id }))
   const isCompleted = sprint.completedAt !== null
+  const [creating, setCreating] = useState(false)
+  const statusButton = useRef<HTMLButtonElement>(null)
   const reopening = reopenState.waiting
   const failed =
     Result.isFailure(completeState) || Result.isFailure(reopenState)
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Hitbox
-            mode="inline"
-            margin="1"
-            aria-label={m.sprints_status_aria_label()}
-          >
-            <span className="-mt-1 grid size-10 place-items-center rounded-lg bg-muted transition-colors hitbox-hover:bg-foreground/5">
-              <SprintStateIcon sprint={sprint} size="lg" />
-            </span>
-          </Hitbox>
-        }
-      />
-      <DropdownMenuContent align="start" sideOffset={8} className="w-56">
-        {sprintState(sprint) === "planned" ? (
-          <>
-            <DropdownMenuItem
-              onClick={() => update(startSprintPatch(sprint, nowDate()))}
-              disabled={reopening}
-              className="cursor-pointer"
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          ref={statusButton}
+          render={
+            <Hitbox
+              mode="inline"
+              margin="1"
+              aria-label={m.sprints_status_aria_label()}
             >
-              <Play className="size-4" strokeWidth={1.75} />
-              {m.sprints_start_button()}
-            </DropdownMenuItem>
-            {sprint.startsAt !== null && (
+              <span className="-mt-1 grid size-10 place-items-center rounded-lg bg-muted transition-colors hitbox-hover:bg-foreground/5">
+                <SprintStateIcon sprint={sprint} size="lg" />
+              </span>
+            </Hitbox>
+          }
+        />
+        <DropdownMenuContent align="start" sideOffset={8} className="w-56">
+          {sprintState(sprint) === "planned" ? (
+            <>
               <DropdownMenuItem
-                onClick={() => update({ startsAt: null, endsAt: null })}
+                onClick={() => update(startSprintPatch(sprint, nowDate()))}
                 disabled={reopening}
                 className="cursor-pointer"
               >
-                <CalendarX className="size-4" strokeWidth={1.75} />
-                {m.sprints_unschedule()}
+                <Play className="size-4" strokeWidth={1.75} />
+                {m.sprints_start_button()}
               </DropdownMenuItem>
-            )}
-          </>
-        ) : isCompleted ? (
-          <DropdownMenuItem
-            onClick={() => update({ completedAt: null })}
-            disabled={reopening}
-            className="cursor-pointer"
-          >
-            <RotateCcw className="size-4" strokeWidth={1.75} />
-            {m.sprints_reopen_button()}
-          </DropdownMenuItem>
-        ) : (
-          <CompleteSprintSubmenu sprint={sprint} sprints={sprints} />
-        )}
-        {failed && (
-          <div
-            role="alert"
-            className="px-2 py-1.5 text-caption text-destructive"
-          >
-            {m.sprints_status_error_fallback()}
-          </div>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+              {sprint.startsAt !== null && (
+                <DropdownMenuItem
+                  onClick={() => update({ startsAt: null, endsAt: null })}
+                  disabled={reopening}
+                  className="cursor-pointer"
+                >
+                  <CalendarX className="size-4" strokeWidth={1.75} />
+                  {m.sprints_unschedule()}
+                </DropdownMenuItem>
+              )}
+            </>
+          ) : isCompleted ? (
+            <DropdownMenuItem
+              onClick={() => update({ completedAt: null })}
+              disabled={reopening}
+              className="cursor-pointer"
+            >
+              <RotateCcw className="size-4" strokeWidth={1.75} />
+              {m.sprints_reopen_button()}
+            </DropdownMenuItem>
+          ) : (
+            <CompleteSprintSubmenu
+              sprint={sprint}
+              sprints={sprints}
+              onNew={() => setCreating(true)}
+            />
+          )}
+          {failed && (
+            <div
+              role="alert"
+              className="px-2 py-1.5 text-caption text-destructive"
+            >
+              {m.sprints_status_error_fallback()}
+            </div>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {/* "Complete into a new sprint" opens the composer on this button. */}
+      <NewSprintPopover
+        anchor={statusButton}
+        open={creating}
+        onOpenChange={setCreating}
+        completeFrom={sprint}
+      />
+    </>
   )
 }
 

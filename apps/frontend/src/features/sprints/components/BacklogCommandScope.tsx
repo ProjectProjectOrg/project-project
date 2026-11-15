@@ -5,7 +5,7 @@ import { useMemo } from "react"
 
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
 import type { Command } from "@/features/command-menu/lib/commands"
-import { createSprintDialog } from "@/features/sprints/atoms/createSprintDialog"
+import { newSprintRequest } from "@/features/sprints/atoms/createSprint"
 import { createTicketDialog } from "@/features/tickets/atoms/createTicketDialog"
 import { useProjectView } from "@/hooks/useViewPreference"
 import { m } from "@/paraglide/messages"
@@ -64,8 +64,8 @@ export function BacklogCommandScope({
         label: m.sprints_command_plan_new,
         icon: Flag,
         run: (_context, env) => {
-          env.close()
-          env.registry.set(createSprintDialog, { orgSlug, projectSlug: slug })
+          env.registry.set(newSprintRequest, { orgSlug, projectSlug: slug })
+          env.open("createSprint")
         }
       })
     }

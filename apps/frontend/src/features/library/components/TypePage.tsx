@@ -7,7 +7,7 @@ import {
 } from "@pp/shared"
 import * as Exit from "effect/Exit"
 import * as Schema from "effect/Schema"
-import { useCallback, useState, type ReactNode } from "react"
+import { useCallback, type ReactNode } from "react"
 
 import { AsyncView } from "@/components/shell/AsyncView"
 import { LibraryContext } from "@/features/editor/lib/blockChrome"
@@ -35,7 +35,7 @@ import {
   NullablePriorityField,
   TemplateTagsField
 } from "./DefinitionAside"
-import { DeleteTypeDialog } from "./DeleteTypeDialog"
+import { DeleteTypePopover } from "./DeleteTypePopover"
 import {
   DeleteEntryConfirm,
   DeleteEntryTrigger,
@@ -307,25 +307,15 @@ function DeleteProjectType({
   library,
   type
 }: Readonly<{ scope: ProjectScope; library: Library; type: TypeDefinition }>) {
-  const [open, setOpen] = useState(false)
   const openList = useOpenList()
   return (
-    <>
-      <DeleteEntryTrigger
-        label={m.templates_types_delete()}
-        onClick={() => setOpen(true)}
-      />
-      {open ? (
-        <DeleteTypeDialog
-          req={scope.req}
-          library={library}
-          type={type}
-          open={open}
-          onOpenChange={setOpen}
-          onDeleted={() => openList(scope, "type")}
-        />
-      ) : null}
-    </>
+    <DeleteTypePopover
+      req={scope.req}
+      library={library}
+      type={type}
+      trigger={<DeleteEntryTrigger label={m.templates_types_delete()} />}
+      onDeleted={() => openList(scope, "type")}
+    />
   )
 }
 

@@ -1,7 +1,7 @@
 import { Timer } from "lucide-react"
 
 import type { Command } from "@/features/command-menu/lib/commands"
-import { createSprintDialog } from "@/features/sprints/atoms/createSprintDialog"
+import { newSprintRequest } from "@/features/sprints/atoms/createSprint"
 import { m } from "@/paraglide/messages"
 
 export const sprintCommands: ReadonlyArray<Command> = [
@@ -14,8 +14,8 @@ export const sprintCommands: ReadonlyArray<Command> = [
     tool: "create_sprint",
     when: ({ tickets }) => tickets.planSprints,
     run: ({ orgSlug, projectSlug }, env) => {
-      env.close()
-      env.registry.set(createSprintDialog, { orgSlug, projectSlug })
+      env.registry.set(newSprintRequest, { orgSlug, projectSlug })
+      env.open("createSprint")
     }
   }
 ]
