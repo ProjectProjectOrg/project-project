@@ -7,4 +7,4 @@ the `ui-components` skill.
 
 `prototypes/` holds the first-round HTML prototypes (open one in T3 to show it).
 
-Queue, in order: command-menu. (Dialog was removed: the app has no dialogs.)
+Queue: empty. Every component has had its pass. (Dialog was removed: the app has no dialogs.)

@@ -95,7 +95,25 @@ import {
 
 ## Rules
 
-Rules are written during this component's polish pass.
+### Rows match the dropdown menu's items
+
+The palette is a menu you type into, so its rows behave like `DropdownMenuItem`. A row rests in muted text with a muted icon. When highlighted, the text and icon turn foreground and the icon's stroke thickens from 1.75 to 2. One rule for both means a highlighted row reads the same wherever it appears.
+
+### Hover, then press
+
+The highlight glides between rows on `--hover`. It fills with `--active` while the pointer is down on a row. These are the ghost button's fills, the same ones the dropdown highlight uses, so pressing a row feels like pressing a button. The fill changes over 80ms.
+
+### The keyboard and the pointer share one highlight
+
+↑↓ and the pointer move the same highlight. When the pointer leaves the list, the highlight goes back to the last row it was on, so Enter always runs the row you can see.
+
+### Disabled rows stay in place at half opacity
+
+A disabled row keeps its spot, and the arrow keys and the pointer skip it. It shows at 50% opacity with a not-allowed cursor, like a disabled menu item. Removing it would make the rest of the list jump when it becomes available again.
+
+### The rest of the palette is as designed
+
+The surface, tabs, input, scroll fade, footer hints and open pulse were already polished before this pass and are deliberately unchanged.
 
 ## Examples
 

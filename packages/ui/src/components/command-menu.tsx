@@ -757,7 +757,6 @@ function CommandMenuList({
             className="rounded-lg"
           />
         )}
-        {children}
         {sections.map((section, sectionIndex) => {
           const headingId = section.heading
             ? `${listId}-group-${sectionIndex}`
@@ -797,6 +796,9 @@ function CommandMenuList({
           )
         })}
       </div>
+      {/* The empty state (role=status) sits beside the listbox, not in it:
+          a listbox may only own options and groups. */}
+      {children}
     </ScrollArea>
   )
 }
@@ -949,11 +951,11 @@ const CommandMenuItem = memo(function CommandMenuItem({
         if (!e.defaultPrevented) select(item)
       }}
       className={cn(
-        "group/command-item relative z-10 flex shrink-0 cursor-pointer items-center outline-none select-none aria-disabled:cursor-default aria-disabled:text-muted-foreground",
+        "group/command-item relative z-10 flex shrink-0 cursor-pointer items-center outline-none select-none aria-disabled:cursor-not-allowed aria-disabled:opacity-50",
         "h-9 gap-2 rounded-lg px-2",
         "text-body",
         "transition-[color] duration-80",
-        isActive ? "text-foreground" : "text-(--prose-body)",
+        isActive ? "text-foreground" : "text-muted-foreground",
         className
       )}
       {...props}
@@ -961,9 +963,9 @@ const CommandMenuItem = memo(function CommandMenuItem({
       {Icon && (
         <Icon
           size={16}
-          strokeWidth={1.75}
+          strokeWidth={isActive ? 2 : 1.75}
           className={cn(
-            "shrink-0 transition-[color] duration-80",
+            "shrink-0 transition-[color,stroke-width] duration-80",
             isActive ? "text-foreground" : "text-muted-foreground"
           )}
         />

@@ -778,6 +778,15 @@
     var(--destructive) 10%
   );
 }
+/* The command menu's rows glide on the fluid hover highlight; they take the
+   same fills: --hover, then --active while a row is pressed. */
+[data-slot="command-menu-list"] > [data-slot="fluid-hover-highlight"] {
+  transition: background-color 80ms var(--ease-standard);
+}
+[data-slot="command-menu-list"]:has([data-slot="command-menu-item"]:active)
+  > [data-slot="fluid-hover-highlight"] {
+  background-color: var(--active);
+}
 
 /* Countdown (lib/countdown.ts): the fill is the timer. --countdown-fill
    sits in ::before and drains toward the start over --countdown, then the
