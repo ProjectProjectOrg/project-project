@@ -21,7 +21,7 @@ description: Add, change, polish or document a design-system primitive in packag
 | `packages/ui/gallery/` | The gallery app itself: sidebar, search, theme switch, demo frame, accessibility check |
 | `packages/ui/components.json` | shadcn CLI config; registry installs land in `packages/ui` |
 
-Run the gallery with `bun run gallery` in `packages/ui` (http://localhost:6006).
+The gallery (http://localhost:6006) starts with the app on `bun run dev` from the root, or alone with `bun run dev:gallery` (or `bun run gallery` in `packages/ui`).
 
 ## Rules for primitives
 

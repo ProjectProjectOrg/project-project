@@ -20,6 +20,7 @@
     "test": "bun run --bun vitest run",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",
+    "dev": "vite --config gallery/vite.config.ts",
     "gallery": "vite --config gallery/vite.config.ts",
     "build-gallery": "vite build --config gallery/vite.config.ts"
   },
