@@ -234,9 +234,7 @@ function Confirm({
 // trigger and fades it out, then unmounts it.
 //
 // The clip is in layout pixels (offsetWidth), which also keeps it right
-// inside a CSS `zoom` (the gallery's large specimens). While it moves the
-// clip's corners are round; at rest the clip is dropped, so the capsule's
-// own squircle corners show.
+// inside a CSS `zoom` (the gallery's large specimens).
 function Capsule({
   open,
   from,
@@ -261,10 +259,19 @@ function Capsule({
     const el = ref.current
     if (el === null) return undefined
     const covered = Math.max(0, el.offsetWidth - from)
+    // Only the start edge is cut; the other three sit 2px outside the
+    // capsule, so its own squircle corners render. The cut is softened by
+    // a mask ramp up to 12px wide, narrowing as the reveal ends so the
+    // capsule's start corners never pop. The clip-path also keeps the
+    // hidden part from catching the pointer.
     const clip = (px: number) => {
       hidden.current = px
-      el.style.clipPath =
-        px <= 0 ? "" : `inset(0 0 0 ${px}px round ${el.offsetHeight / 2}px)`
+      const soft = Math.min(12, px)
+      el.style.clipPath = px <= 0 ? "" : `inset(-2px -2px -2px ${px}px)`
+      el.style.maskImage =
+        px <= 0
+          ? ""
+          : `linear-gradient(to right, transparent ${px}px, #000 ${px + soft}px)`
     }
     // Start from wherever the clip is now, so a quick reopen or close
     // reverses instead of jumping.
