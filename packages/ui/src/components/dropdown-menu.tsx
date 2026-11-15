@@ -23,6 +23,7 @@ import {
 } from "../lib/popupAnchor"
 import { fieldTouchClass } from "../lib/typeScale"
 import { cn } from "../lib/utils"
+import { KbdShortcut, type KbdShortcutProps } from "./kbd"
 import { LogoLoader } from "./logo"
 import { MenuHighlight } from "./menu-highlight"
 import {
@@ -698,18 +699,22 @@ function DropdownMenuSeparator({
   )
 }
 
+// A row's shortcut, as Kbd keys at the end of the row: ⌘ ⇧ ↑ on a Mac,
+// Ctrl Shift ↑ elsewhere, like ⌘K and tooltips. Hidden from screen readers
+// (a hint, not part of the row's name); put aria-keyshortcuts on the item.
 function DropdownMenuShortcut({
   className,
   ...props
-}: React.ComponentProps<"span">) {
+}: Omit<KbdShortcutProps, "size">) {
   return (
-    <span
+    <KbdShortcut
       data-slot="dropdown-menu-shortcut"
-      className={cn(
-        "ml-auto pr-1 text-muted-foreground",
-        "text-caption",
-        className
-      )}
+      data-menu-meta
+      aria-hidden
+      size="sm"
+      // 9px from the highlight's end, the same as from its top and bottom
+      // ((34 - 16) / 2): the row's 8px padding plus 1px.
+      className={cn("mr-px ml-auto", className)}
       {...props}
     />
   )

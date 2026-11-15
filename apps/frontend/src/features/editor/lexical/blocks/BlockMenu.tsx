@@ -17,9 +17,9 @@ import {
 } from "lucide-react"
 
 import { BlockIconGlyph } from "@/features/library/components/BlockIconGlyph"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
-import { MOVE_DOWN_SHORTCUT, MOVE_UP_SHORTCUT } from "./blockKeyboard"
 import type { BlockMenuAction, BlockMenuModel } from "./blockMenuModel"
 import { ConfirmMenuItem } from "./ConfirmMenuItem"
 
@@ -105,9 +105,7 @@ function BlockMenuItems({
       >
         <ArrowUp strokeWidth={1.75} />
         {m.editor_block_menu_move_up()}
-        <DropdownMenuShortcut className="">
-          {MOVE_UP_SHORTCUT}
-        </DropdownMenuShortcut>
+        <DropdownMenuShortcut keys="mod+shift+up" keyLabels={keyLabels()} />
       </DropdownMenuItem>
       <DropdownMenuItem
         disabled={!model.canMoveDown}
@@ -115,9 +113,7 @@ function BlockMenuItems({
       >
         <ArrowDown strokeWidth={1.75} />
         {m.editor_block_menu_move_down()}
-        <DropdownMenuShortcut className="">
-          {MOVE_DOWN_SHORTCUT}
-        </DropdownMenuShortcut>
+        <DropdownMenuShortcut keys="mod+shift+down" keyLabels={keyLabels()} />
       </DropdownMenuItem>
       <DropdownMenuItem onClick={() => onAction("duplicate")}>
         <Copy strokeWidth={1.75} />

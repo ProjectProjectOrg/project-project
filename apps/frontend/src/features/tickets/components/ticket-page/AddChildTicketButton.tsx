@@ -13,6 +13,7 @@ import { ListPlus, Plus } from "lucide-react"
 import { commandMenuState } from "@/features/command-menu/atoms/commandMenu"
 import { openCommandMenu } from "@/features/command-menu/lib/commandMenu"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { keyLabels } from "@/lib/keyLabels"
 import { m } from "@/paraglide/messages"
 
 type Parent = Pick<Ticket, "id" | "type">
@@ -53,12 +54,12 @@ export function AddChildTicketButton({
         <Plus className="size-4" strokeWidth={1.75} />
       </ContextMenuTrigger>
       <ContextMenuContent className="w-56">
-        <DropdownMenuItem onClick={onCreate} className="cursor-pointer">
+        <DropdownMenuItem onClick={onCreate}>
           <Plus className="size-4" strokeWidth={1.75} />
           {label}
-          <DropdownMenuShortcut>C</DropdownMenuShortcut>
+          <DropdownMenuShortcut keys="c" keyLabels={keyLabels()} />
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={attachExisting} className="cursor-pointer">
+        <DropdownMenuItem onClick={attachExisting}>
           <ListPlus className="size-4" strokeWidth={1.75} />
           {m.tickets_menu_attach_sub_ticket()}
         </DropdownMenuItem>

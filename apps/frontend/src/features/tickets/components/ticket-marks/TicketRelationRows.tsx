@@ -204,7 +204,7 @@ function RelationEntry({
     <ContextMenu>
       <ContextMenuTrigger render={content} />
       <ContextMenuContent className="w-48">
-        <DropdownMenuItem onClick={unlink} className="cursor-pointer">
+        <DropdownMenuItem onClick={unlink}>
           <Unlink className="size-4" strokeWidth={1.75} />
           {REMOVE_LABELS[unmark]()}
         </DropdownMenuItem>

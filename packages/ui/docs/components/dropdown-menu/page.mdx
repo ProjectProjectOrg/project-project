@@ -138,9 +138,9 @@ Ticking opens a 16px slot with a spring, pushing the row along, then draws the t
 
 A radio row behaves like a checkbox row: the chosen option gets the leading slot, a full-colour semibold label and a dot instead of a tick. The dot springs in from nothing once the slot has opened, and shrinks away quickly when another option is chosen. Single and multiple choice then read the same way, and only the mark tells them apart.
 
-### Shortcuts sit a little in from the edge
+### Shortcuts are keys, inset like a trailing icon
 
-Shortcuts and other trailing text get 4px more room on the right than the row's 8px padding, so letters such as ⌘D don't crowd the highlight's rounded edge. Trailing icons, such as the submenu chevron, keep the plain padding.
+A row's shortcut is `DropdownMenuShortcut keys="…"`: small Kbd keys (⌘ ⇧ ↑ on a Mac, Ctrl Shift ↑ elsewhere), the same keys as ⌘K, tooltips and buttons. The last key sits 9px from the highlight's end, the same as from its top and bottom. The keys are hidden from screen readers; the item carries `aria-keyshortcuts`.
 
 ### Hover and press match the buttons
 

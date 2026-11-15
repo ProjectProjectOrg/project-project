@@ -141,6 +141,7 @@ Set during the polish passes; a component that breaks one is not done.
 | Empty | Done: one variant, `intensity` (ink colour) and `animated`, random dither seed; every app empty state uses it |
 | Kbd | Done: the only keycap (⌘K uses KbdShortcut), colours from currentColor, inset like an icon in buttons |
 | Composer | Done, in Patterns: a card and a tray, parts own their spacing, `Composer.Surface` for inline use |
+| Context menu | Done: the dropdown opened by right-click (shares rows, highlight, hold); menu shortcuts are Kbd keys |
 | Dialog | Removed: the app has no dialogs (PRODUCT.md, "Zero dialogs"); page actions use Popover, cmd+k actions are cmd+k pages |
 
 Open question from the Select pass: dropdown radio rows with `closeOnClick` skip the settle animation (`settleAtOnceClass` in `dropdown-menu.tsx`); ask Wouter whether they should animate again.

@@ -15,9 +15,23 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from "@pp/ui/dropdown-menu"
+import type { KeyLabels } from "@pp/ui/kbd"
 import * as Effect from "effect/Effect"
 import { Copy, FileText, Link, Pencil, Share2, Trash2 } from "lucide-react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
+
+const KEY_LABELS: KeyLabels = {
+  ctrl: "Ctrl",
+  meta: "Win",
+  alt: "Alt",
+  shift: "Shift",
+  enter: "Enter",
+  escape: "Esc",
+  backspace: "Backspace",
+  delete: "Delete",
+  tab: "Tab",
+  space: "Space"
+}
 
 const USER_TOGGLES = new Set(["trigger-press", "escape-key"])
 
@@ -91,7 +105,7 @@ export default function Overview() {
           <DropdownMenuItem>
             <Pencil />
             Highlighted
-            <DropdownMenuShortcut>E</DropdownMenuShortcut>
+            <DropdownMenuShortcut keys="e" keyLabels={KEY_LABELS} />
           </DropdownMenuItem>
           <DropdownMenuItem>
             <Copy />
@@ -99,7 +113,7 @@ export default function Overview() {
           </DropdownMenuItem>
           <DropdownMenuItem>
             With shortcut
-            <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
+            <DropdownMenuShortcut keys="mod+d" keyLabels={KEY_LABELS} />
           </DropdownMenuItem>
           <DropdownMenuItem disabled>Disabled</DropdownMenuItem>
         </DropdownMenuGroup>

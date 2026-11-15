@@ -1,0 +1,68 @@
+export const meta = {
+  title: "Context menu",
+  group: "Primitives",
+  description:
+    "A dropdown menu that opens on right-click or long-press: on the sub-ticket + button, a related ticket and a board card's git chip.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "Context Menu",
+      href: "https://base-ui.com/react/components/context-menu"
+    }
+  ]
+}
+
+## Overview
+
+Right-click (or long-press) the card for the live menu; beside it, the same menu drawn open. Its rows, their states and the highlight are the dropdown menu's, so see [Dropdown menu](/components/dropdown-menu) for every row state.
+
+<Demo name="overview" title="Context menu" />
+
+## Usage
+
+```tsx
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger
+} from "@pp/ui/context-menu"
+import { DropdownMenuItem, DropdownMenuShortcut } from "@pp/ui/dropdown-menu"
+
+<ContextMenu>
+  <ContextMenuTrigger render={<Button variant="ghost" size="square-7" aria-label={label} />}>
+    <Plus />
+  </ContextMenuTrigger>
+  <ContextMenuContent className="w-56">
+    <DropdownMenuItem onClick={onCreate}>
+      <Plus />
+      {label}
+      <DropdownMenuShortcut keys="c" keyLabels={keyLabels()} />
+    </DropdownMenuItem>
+  </ContextMenuContent>
+</ContextMenu>
+```
+
+| Part                 | What                                                              |
+| -------------------- | ----------------------------------------------------------------- |
+| `ContextMenu`        | the root; holds the menu open while a confirm item runs, like `DropdownMenu` |
+| `ContextMenuTrigger` | the area that opens it on right-click or long-press               |
+| `ContextMenuContent` | the popup: the dropdown's surface, highlight and motion           |
+| (rows)               | every `DropdownMenu…` part: items, submenus, confirm items, shortcuts |
+
+## Rules
+
+### One menu, two ways in
+
+A context menu is the dropdown menu opened by right-click instead of a button. It reuses the dropdown's rows, highlight, hover and press fills, confirm items and submenus, so a row looks and behaves the same whichever way the menu opened. There are no `ContextMenuItem` parts to drift.
+
+### Never the only way
+
+Right-click is hidden. Everything in a context menu is also reachable another way: the + button's click creates, the relation row has its own remove button, the git chip opens the same menu on click. The context menu is a shortcut for people who expect one.
+
+### Shortcuts are keys
+
+A row's shortcut is `DropdownMenuShortcut keys="…"`, which renders small Kbd keys (⌘ ⇧ ↑ on a Mac, Ctrl Shift ↑ elsewhere), the same as ⌘K and tooltips.
+
+## Examples
+
+<Demo name="in-the-app" title="In the app" />
