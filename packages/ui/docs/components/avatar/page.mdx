@@ -43,6 +43,8 @@ import { AvatarStack, MemberAvatar } from "@pp/ui/member-avatar"
 | `size`   | `number` (px)                              | `20`    |
 | `label`  | `string`                                   |         |
 
+Where an avatar changes in front of the person (picking a profile photo, a name being typed), use `DissolveAvatar` from `@pp/ui/dissolve-avatar`: it takes the same `member`, `size` and `label`, and dithers from the old look to the new one.
+
 `AvatarStack` takes `subjects`, `size` and `max` (default 4), and shows `+n` for the rest. Hovering or focusing the `+n` shows a tooltip listing the people it stands for, each with their avatar and name.
 
 ## Rules
@@ -68,6 +70,16 @@ Each avatar in a stack has a squircle cut out where the next one overlaps it, 2p
 ### Accessible name
 
 An avatar next to the person's name, or inside a labelled control, is hidden from assistive tech. An avatar that stands alone takes `label`, usually the member's name, and becomes an image with that name. The initials are drawn with generated content, not text, so they never end up in the name of a button that wraps the avatar.
+
+### Changes dither in
+
+`DissolveAvatar` fills the new avatar in through an ordered (Bayer) dither, the same 4×4 pattern the orbs are painted with: 8 steps over 320ms, linear, the old avatar showing through the cells not yet covered. The cells are 2, 3 or 4px depending on the avatar's size, like the orb's own dither, so the transition looks like part of the avatar rather than a fade laid over it. A change mid-transition starts a new layer on top instead of restarting, so typing a name keeps dissolving smoothly. A new photo waits until it has decoded. With reduced motion it swaps at once.
+
+## Explore
+
+Type a name, or roll a random one. Once typing pauses (250ms), the orb follows: it is seeded by the name, so every name gets its own; the line under it lists what was drawn. Each change dithers in, at every size and next to a name.
+
+<Demo name="explore" title="Explore" />
 
 ## Examples
 
