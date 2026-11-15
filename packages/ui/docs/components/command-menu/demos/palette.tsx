@@ -100,12 +100,12 @@ export default function Palette() {
       >
         <CommandMenu
           stretch
-          className="flex min-h-0 flex-1 flex-col"
+          className="flex min-h-0 flex-1 flex-col [&_.scroll-divider]:border-t-0"
           items={shown}
           resetKey={needle}
           onSelect={() => setOpen(false)}
         >
-          <div className="border-b border-border/60 px-1 pt-2 pb-1">
+          <div className="border-b border-border/60">
             <CommandMenuInput
               aria-label="Search commands"
               placeholder="Type a command or search…"
@@ -115,7 +115,6 @@ export default function Palette() {
           </div>
           <CommandMenuList
             aria-label="Commands"
-            className="p-1.5"
             renderItem={(item) => {
               const shortcut = SHORTCUTS.get(item.value)
               return (

@@ -95,9 +95,9 @@ import {
 
 ## Rules
 
-### Rows match the dropdown menu's items
+### Rows are dropdown menu items
 
-The palette is a menu you type into, so its rows behave like `DropdownMenuItem`. A row rests in muted text with a muted icon. When highlighted, the text and icon turn foreground and the icon's stroke thickens from 1.75 to 2. One rule for both means a highlighted row reads the same wherever it appears.
+The palette is a menu you type into, so a row *is* a `DropdownMenuItem`, 1:1. It uses the same `menuItemClass` and is driven by the same `data-highlighted` attribute. That gives it the same 36px height, 8px padding, type, muted resting colour, foreground when highlighted, and icon stroke going from 1.75 to 2. The highlight matches too: a 34px fill (1px in from the row's top and bottom) with a 14px radius. A change to the dropdown item lands here as well.
 
 ### Hover, then press
 
@@ -110,6 +110,14 @@ The highlight glides between rows on `--hover`. It fills with `--active` while t
 ### Disabled rows stay in place at half opacity
 
 A disabled row keeps its spot, and the arrow keys and the pointer skip it. It shows at 50% opacity with a not-allowed cursor, like a disabled menu item. Removing it would make the rest of the list jump when it becomes available again.
+
+### One inset grid
+
+The input's text, the group headings and the row icons share one left edge, 14px in (the list's 6px padding plus a row's 8px). The row highlight and the tab pills sit 6px in. The input row is 44px tall, 8px more than a row, so the query has room above and below. Callers don't pad the input or the list themselves.
+
+### Squircle surface
+
+The ⌘K dialog and the slash menu use a 20px radius shaped by `--button-corner`. That is close to the tab pill's 16px corner plus its 6px inset, so the inner and outer corners read as concentric.
 
 ### The rest of the palette is as designed
 

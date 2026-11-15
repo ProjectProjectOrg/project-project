@@ -54,6 +54,7 @@ import {
   FluidHoverHighlight,
   type FluidHoverSource
 } from "./fluid-hover-highlight"
+import { menuItemClass } from "./menu-styles"
 import { ScrollArea } from "./scroll-area"
 import { SegmentedTabs } from "./segmented-tabs"
 
@@ -607,11 +608,7 @@ function CommandMenuTabs({
     <div
       ref={ref}
       data-slot="command-menu-tabs"
-      className={cn(
-        "flex shrink-0 items-center",
-        "gap-2 px-2.5 pb-2",
-        className
-      )}
+      className={cn("flex shrink-0 items-center", "px-1.5 pt-1.5", className)}
       {...props}
     >
       <div
@@ -653,7 +650,7 @@ function CommandMenuInput({
   return (
     <div
       data-slot="command-menu-input"
-      className="flex h-9 shrink-0 items-center px-2"
+      className="flex h-11 shrink-0 items-center px-3.5"
     >
       <input
         ref={ref}
@@ -684,7 +681,7 @@ function CommandMenuInput({
           select(row)
         }}
         className={cn(
-          "h-9 w-full min-w-0 bg-transparent outline-hidden placeholder:text-muted-foreground",
+          "h-full w-full min-w-0 bg-transparent outline-hidden placeholder:text-muted-foreground",
           "text-body",
           fieldTouchClass,
           className
@@ -744,7 +741,7 @@ function CommandMenuList({
         onClick={listHandlers.onClick}
         onMouseDown={(e) => e.preventDefault()}
         className={cn(
-          "relative flex flex-col gap-1 p-1 outline-none data-[empty]:p-0",
+          "relative flex flex-col gap-1 p-1.5 outline-none data-[empty]:p-0",
           className
         )}
         {...props}
@@ -754,7 +751,7 @@ function CommandMenuList({
             hover={fill}
             instant={fill.held}
             fullWidth
-            className="rounded-lg"
+            className="rounded-[15px] border-y border-transparent bg-clip-padding"
           />
         )}
         {sections.map((section, sectionIndex) => {
@@ -943,6 +940,8 @@ const CommandMenuItem = memo(function CommandMenuItem({
       role="option"
       aria-selected={isActive}
       aria-disabled={item.disabled === true || undefined}
+      data-highlighted={isActive || undefined}
+      data-disabled={item.disabled === true || undefined}
       data-fluid-hover-index={index}
       data-value={value}
       data-slot="command-menu-item"
@@ -951,25 +950,15 @@ const CommandMenuItem = memo(function CommandMenuItem({
         if (!e.defaultPrevented) select(item)
       }}
       className={cn(
-        "group/command-item relative z-10 flex shrink-0 cursor-pointer items-center outline-none select-none aria-disabled:cursor-not-allowed aria-disabled:opacity-50",
-        "h-9 gap-2 rounded-lg px-2",
-        "text-body",
-        "transition-[color] duration-80",
-        isActive ? "text-foreground" : "text-muted-foreground",
+        // The dropdown menu's row, 1:1: same height, padding, type, colours
+        // and icon weight, driven by the same data-highlighted attribute.
+        menuItemClass,
+        "group/command-item z-10 shrink-0 select-none",
         className
       )}
       {...props}
     >
-      {Icon && (
-        <Icon
-          size={16}
-          strokeWidth={isActive ? 2 : 1.75}
-          className={cn(
-            "shrink-0 transition-[color,stroke-width] duration-80",
-            isActive ? "text-foreground" : "text-muted-foreground"
-          )}
-        />
-      )}
+      {Icon && <Icon strokeWidth={1.75} />}
       {children}
     </div>
   )
@@ -1235,7 +1224,7 @@ function CommandMenuDialog({
           ref={popupRef}
           data-slot="command-menu-dialog"
           className={cn(
-            "fixed inset-x-0 top-[round(down,max(12dvh,calc(50dvh-220px)),1px)] mx-auto flex w-[min(40rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-border/60 bg-popover text-foreground shadow-[0_16px_48px_rgba(0,0,0,0.12)] outline-none dark:shadow-[0_16px_48px_rgba(0,0,0,0.6)]",
+            "fixed inset-x-0 top-[round(down,max(12dvh,calc(50dvh-220px)),1px)] mx-auto flex w-[min(40rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-[20px] border border-border/60 bg-popover text-foreground shadow-[0_16px_48px_rgba(0,0,0,0.12)] outline-none [corner-shape:var(--button-corner)] dark:shadow-[0_16px_48px_rgba(0,0,0,0.6)]",
             "origin-top data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-[0.98] data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-[0.98] motion-reduce:animate-none",
             className
           )}

@@ -97,7 +97,7 @@ function Panel({
   return (
     <div className="grid gap-2">
       <span className="text-caption text-muted-foreground">{label}</span>
-      <div className="flex max-h-[26rem] w-[30rem] max-w-full flex-col overflow-hidden rounded-xl border border-border/60 bg-popover text-foreground">
+      <div className="flex max-h-[26rem] w-[30rem] max-w-full flex-col overflow-hidden rounded-[20px] border border-border/60 bg-popover text-foreground [corner-shape:var(--button-corner)]">
         {children}
       </div>
     </div>
@@ -120,7 +120,6 @@ function Palette({
   return (
     <CommandMenu items={shown} resetKey={`${tab}:${needle}`}>
       <CommandMenuTabs
-        className="pt-2"
         tabsLabel="Command groups"
         tabs={TABS}
         value={tab}

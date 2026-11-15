@@ -176,8 +176,12 @@ export function CommandFrame({
       onActOn={onActOn}
       initialValue={initialFocus}
     >
-      <div className="flex flex-col gap-1 border-b border-border/60 px-1 pt-2 pb-1">
-        {chip !== null && <div className="px-2">{chip}</div>}
+      <div className="flex flex-col border-b border-border/60 has-[[data-slot=command-frame-chip]]:pt-2">
+        {chip !== null && (
+          <div data-slot="command-frame-chip" className="px-3.5">
+            {chip}
+          </div>
+        )}
         <span id={backHint} className="sr-only">
           {m.chrome_command_menu_back_hint()}
         </span>
@@ -256,7 +260,7 @@ export function CommandFrame({
           )}
         >
           <CommandMenuList
-            className="min-h-0 flex-1 p-1.5"
+            className="min-h-0 flex-1"
             renderItem={(item) => {
               if (renderItem) return renderItem(item)
               const decoration = decorations.get(item.value)
