@@ -6,7 +6,7 @@ import { useMemo } from "react"
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
 import type { Command } from "@/features/command-menu/lib/commands"
 import { newSprintRequest } from "@/features/sprints/atoms/createSprint"
-import { createTicketDialog } from "@/features/tickets/atoms/createTicketDialog"
+import { newTicketRequest } from "@/features/tickets/atoms/createTicket"
 import { useProjectView } from "@/hooks/useViewPreference"
 import { m } from "@/paraglide/messages"
 
@@ -89,8 +89,8 @@ export function BacklogCommandScope({
         keywords: ["new", "add", "issue"],
         when: ({ tickets }) => tickets.create,
         run: (_context, env) => {
-          env.close()
-          env.registry.set(createTicketDialog, { orgSlug, projectSlug: slug })
+          env.registry.set(newTicketRequest, { orgSlug, projectSlug: slug })
+          env.open("createTicket")
         }
       })
     }

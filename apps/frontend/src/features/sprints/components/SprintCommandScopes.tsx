@@ -37,7 +37,7 @@ import {
 } from "@/features/sprints/atoms/sprintList"
 import { startSprintPatch } from "@/features/sprints/lib/sprintDates"
 import { sprintNeighbours } from "@/features/sprints/lib/sprintTargets"
-import { createTicketDialog } from "@/features/tickets/atoms/createTicketDialog"
+import { newTicketRequest } from "@/features/tickets/atoms/createTicket"
 import { useProjectView, type ProjectView } from "@/hooks/useViewPreference"
 import { m } from "@/paraglide/messages"
 
@@ -218,12 +218,12 @@ export function useSprintActions({
         keywords: ["new", "add", "issue", "ticket"],
         when: ({ tickets }) => tickets.create,
         run: (_context, env) => {
-          env.close()
-          env.registry.set(createTicketDialog, {
+          env.registry.set(newTicketRequest, {
             orgSlug,
             projectSlug: slug,
             sprint: sprint.id
           })
+          env.open("createTicket")
         }
       })
     }

@@ -52,12 +52,14 @@ import {
   bulkArchiveTickets,
   bulkDeleteTickets
 } from "@/features/tickets/atoms/bulkTickets"
+import type { RelatedKind } from "@/features/tickets/atoms/createTicket"
 import {
   archiveTicket,
   deleteTicket,
   ticketRequest,
   unarchiveTicket
 } from "@/features/tickets/atoms/ticketDetail"
+import { CreateTicketForm } from "@/features/tickets/components/create-ticket/CreateTicketForm"
 import { FlagTicket } from "@/features/tickets/components/FlagTicket"
 import {
   useForgetTicket,
@@ -117,7 +119,14 @@ export type TicketMenuProps = Readonly<{
   fromList?: boolean
 }>
 
-type Flow = "archive" | "template" | "flag" | null
+type Flow = "archive" | "template" | "flag" | `related:${RelatedKind}` | null
+
+const RELATED_FLOWS: Readonly<Record<string, RelatedKind>> = {
+  "related:subTicket": "subTicket",
+  "related:blocking": "blocking",
+  "related:blockedBy": "blockedBy",
+  "related:related": "related"
+}
 
 type ContextTarget = Readonly<{
   "data-popup-open"?: string
@@ -273,7 +282,11 @@ function TicketMenuItems({
     single && ((!archived && (can.edit || can.create)) || detachable) && (
       <Fragment key="relations">
         {!archived && can.create && (
-          <CreateRelatedSubmenu ticket={ticket} canAttach={can.edit} />
+          <CreateRelatedSubmenu
+            ticket={ticket}
+            canAttach={can.edit}
+            onCreate={(kind) => onFlow(`related:${kind}`)}
+          />
         )}
         {!archived && can.edit && (
           <MarkAsSubmenu
@@ -442,6 +455,7 @@ function TicketMenuFlowPopovers({
   const subTickets = ticket.subTicketCount ?? 0
   const popupAnchor = anchor ?? undefined
   const forget = useForgetTicket(selectionKey(slug, ticket.id))
+  const relatedKind = flow === null ? undefined : RELATED_FLOWS[flow]
 
   const archiveAndClose = async (input: ArchiveTicketInput) => {
     if (many) {
@@ -508,6 +522,31 @@ function TicketMenuFlowPopovers({
             }}
             onDone={() => onFlow(null)}
           />
+        </Composer.Popover>
+      </Popover>
+      <Popover
+        open={relatedKind !== undefined}
+        onOpenChange={(open) => {
+          if (!open) onFlow(null)
+        }}
+      >
+        <Composer.Popover
+          anchor={popupAnchor}
+          align="end"
+          sideOffset={6}
+          aria-label={m.tickets_create_dialog_title()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {relatedKind !== undefined && (
+            <CreateTicketForm
+              request={{
+                orgSlug,
+                projectSlug: slug,
+                related: { kind: relatedKind, ticketId: ticket.id }
+              }}
+              onDone={() => onFlow(null)}
+            />
+          )}
         </Composer.Popover>
       </Popover>
       <ConfirmButton.Popover anchor={popupAnchor} className="w-72">

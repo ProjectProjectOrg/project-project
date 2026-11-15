@@ -6,7 +6,7 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 
-export type CreateTicketDialogRequest = Readonly<{
+export type CreateTicketRequest = Readonly<{
   orgSlug: string
   projectSlug: string | null
   sprint?: GroupId
@@ -32,7 +32,10 @@ export const relatedPayload = (
 ): Partial<CreateTicketInput> =>
   related === null ? {} : RELATED_PAYLOADS[related.kind](related.ticketId)
 
-export const createTicketDialog = Atom.make<CreateTicketDialogRequest | null>(
+// What the next "New ticket" should start from (project, sprint, a ticket
+// it relates to, a title already typed): set by a command or menu before it
+// opens the cmd+k page or the composer popover.
+export const newTicketRequest = Atom.make<CreateTicketRequest | null>(
   null
 ).pipe(Atom.keepAlive)
 

@@ -79,6 +79,8 @@ export type CommandPage =
   | "switchProject"
   | "createProject"
   | "createSprint"
+  | "createTicket"
+  | "sendFeedback"
   | "theme"
   | "editorPreference"
   | "viewFilter"

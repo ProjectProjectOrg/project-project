@@ -20,8 +20,6 @@ import { me } from "@/features/auth/atoms/auth"
 import { authedRouteRedirect } from "@/features/auth/lib/authRedirect"
 import { CommandMenuHost } from "@/features/command-menu/components/CommandMenuHost"
 import { RunningTimerIndicator } from "@/features/everhour/components/RunningTimerIndicator"
-import { SendFeedbackDialogHost } from "@/features/feedback/components/SendFeedbackDialog"
-import { CreateTicketDialogHost } from "@/features/tickets/components/create-ticket/CreateTicketDialog"
 import { TicketPreviewRoot } from "@/features/tickets/components/ticket-preview/TicketPreview"
 import { PageBackdropContext } from "@/lib/pageBackdrop"
 
@@ -88,8 +86,6 @@ function Shell({ user }: { user: User }) {
         <CommandMenuHost orgSlug={user.activeOrgSlug} />
       ) : null}
       <TicketPreviewRoot />
-      <CreateTicketDialogHost />
-      <SendFeedbackDialogHost />
     </div>
   )
 }

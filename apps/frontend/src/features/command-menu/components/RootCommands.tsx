@@ -10,7 +10,7 @@ import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
-import { createTicketDialog } from "@/features/tickets/atoms/createTicketDialog"
+import { newTicketRequest } from "@/features/tickets/atoms/createTicket"
 import {
   TicketPeek,
   TicketPrefetch
@@ -203,13 +203,13 @@ export function RootCommands({
                 }),
                 icon: Plus,
                 run: () => {
-                  env.close()
-                  env.registry.set(createTicketDialog, {
+                  env.registry.set(newTicketRequest, {
                     orgSlug: context.orgSlug,
                     projectSlug: context.projectSlug,
                     title: search.trim(),
                     sprint: createIn
                   })
+                  env.open("createTicket")
                 }
               }
             }

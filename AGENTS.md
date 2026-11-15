@@ -134,6 +134,10 @@ Each UI pattern has exactly one primitive. Reach for it (or add a variant to it)
 - **Icon chrome buttons:** `Button variant="quiet"` with `size="square-7" | "square-8" | "square-9"`, not hand-pasted `grid size-N … hover:bg-hover` buttons.
 - **Sliding highlights:** `useFluidHover` + `FluidHoverHighlight` when we own the pointer and keyboard index (nav rails, command menu); `MenuHighlight` when Base UI owns `data-highlighted` (menus, selects); `SegmentedIndicator` for the selected tab.
 
+### No dialogs
+
+The app has no modal dialogs (PRODUCT.md, "Zero dialogs"), and `@pp/ui` has no Dialog component. The cmd+k menu is the one modal surface. An action reached from cmd+k is a cmd+k page (`features/command-menu/pages.tsx`, built on `CommandFrame`; see `CreateTicketPage`, `CreateSprintPage`, `TicketFlagPage`). An action on the page opens a `Popover` on its trigger; when it's picked from a menu, anchor the popover to the menu's trigger (`anchor` ref) or run it as a ticket-menu flow (`TicketMenu` `Flow`). A command that needs input to carry over (a sprint, a related ticket, a typed title) sets a request atom (`newTicketRequest`, `newSprintRequest`) before `env.open(page)`.
+
 ### Ticket rows are one component
 
 Render every ticket in a list with `Row` (`apps/frontend/src/features/tickets/components/ticket-list/Row.tsx`) inside a `rowGridClassName` grid. `Row` owns its fields and context menu and reads the data it needs itself, so callsites pass the ticket and its mutation, nothing about which columns to show. Don't hand-build a ticket row, and add new row behaviour to `Row` rather than to a list. The visual rule is "The One Ticket Row Rule" in `DESIGN.md`.

@@ -1,5 +1,6 @@
 import type { ComponentType } from "react"
 
+import { SendFeedbackPage } from "@/features/feedback/components/SendFeedbackPage"
 import {
   GithubRegisterAppCommand,
   GithubInstallAppCommand
@@ -47,6 +48,7 @@ import {
   viewFilterDimensionPage,
   ViewFilterPage
 } from "@/features/tickets/components/command-pages/ViewFilterCommands"
+import { CreateTicketPage } from "@/features/tickets/components/create-ticket/CreateTicketPage"
 import { MarkAsCommands } from "@/features/tickets/components/ticket-marks/MarkAsCommands"
 import { MarkTicketCommand } from "@/features/tickets/components/ticket-marks/MarkTicketCommand"
 import type { MarkPickKind } from "@/features/tickets/lib/relationGroups"
@@ -163,6 +165,8 @@ export const COMMAND_PAGES: Readonly<
   switchProject: SwitchProjectPage,
   createProject: CreateProjectPage,
   createSprint: CreateSprintPage,
+  createTicket: CreateTicketPage,
+  sendFeedback: SendFeedbackPage,
   theme: ThemeCommands,
   editorPreference: EditorPreferenceCommands,
   viewFilter: ViewFilterPage,

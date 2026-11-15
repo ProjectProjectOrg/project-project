@@ -471,7 +471,7 @@ It never appears on functional controls.
 - **Don't** use `Geist Pixel` outside of graphic surfaces (empty states, brand marks, decorative moments). Never in body, labels, nav, or running UI.
 - **Don't** put drop shadows on permanent rectangles. Shadows are for elements that lift off the surface (popovers, menus, drag previews).
 - **Don't** nest cards. If a card is inside a card, one of them is wrong.
-- **Don't** reach for a modal as the first answer. Inline and progressive disclosure first; the project rule is zero dialogs (see PRODUCT.md).
+- **Don't** use a modal dialog. The project rule is zero dialogs apart from the cmd+k menu (see PRODUCT.md): cmd+k actions stay in cmd+k, and page buttons and menus open popovers. Inline and progressive disclosure first.
 - **Don't** use a `border-left` or `border-right` > 1px as a colored accent stripe on cards, rows, callouts, or alerts. Replace with full hairline border, background tint, or leading icon.
 - **Don't** use gradient text (`background-clip: text` + gradient). Emphasis through weight and size.
 - **Don't** use glassmorphism decoratively.

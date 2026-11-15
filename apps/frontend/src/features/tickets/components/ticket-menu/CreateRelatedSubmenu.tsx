@@ -1,4 +1,3 @@
-import { useAtomSet } from "@effect/atom-react"
 import { isEpic, canHoldChildren } from "@pp/shared"
 import {
   DropdownMenuItem,
@@ -9,11 +8,7 @@ import {
 } from "@pp/ui/dropdown-menu"
 import { ListPlus } from "lucide-react"
 
-import { useProjectRoute } from "@/features/projects/hooks/useProject"
-import {
-  createTicketDialog,
-  type RelatedKind
-} from "@/features/tickets/atoms/createTicketDialog"
+import type { RelatedKind } from "@/features/tickets/atoms/createTicket"
 import { SquarePlusCorner } from "@/features/tickets/components/ticket-marks/blockingIcon"
 import { MARK_KINDS } from "@/features/tickets/components/ticket-marks/markKinds"
 import { m } from "@/paraglide/messages"
@@ -23,10 +18,17 @@ import { useOpenTicketPage } from "./useOpenTicketPage"
 
 type Related = Pick<TicketMenuTicket, "id" | "type" | "parent">
 
+// "Create related" in the ticket menu. Picking a kind opens the new-ticket
+// composer in a popover from the ticket (onCreate), not a dialog.
 export function CreateRelatedSubmenu({
   ticket,
-  canAttach
-}: Readonly<{ ticket: Related; canAttach: boolean }>) {
+  canAttach,
+  onCreate
+}: Readonly<{
+  ticket: Related
+  canAttach: boolean
+  onCreate: (kind: RelatedKind) => void
+}>) {
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>
@@ -34,7 +36,11 @@ export function CreateRelatedSubmenu({
         {m.tickets_menu_create_related()}
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="max-w-72 min-w-48">
-        <CreateRelatedItems ticket={ticket} canAttach={canAttach} />
+        <CreateRelatedItems
+          ticket={ticket}
+          canAttach={canAttach}
+          onCreate={onCreate}
+        />
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   )
@@ -42,18 +48,15 @@ export function CreateRelatedSubmenu({
 
 function CreateRelatedItems({
   ticket,
-  canAttach
-}: Readonly<{ ticket: Related; canAttach: boolean }>) {
-  const { orgSlug, slug } = useProjectRoute()
+  canAttach,
+  onCreate: create
+}: Readonly<{
+  ticket: Related
+  canAttach: boolean
+  onCreate: (kind: RelatedKind) => void
+}>) {
   const openPage = useOpenTicketPage(ticket.id)
-  const openDialog = useAtomSet(createTicketDialog)
   const holdsChildren = canHoldChildren(ticket, ticket.parent)
-  const create = (kind: RelatedKind) =>
-    openDialog({
-      orgSlug,
-      projectSlug: slug,
-      related: { kind, ticketId: ticket.id }
-    })
   return (
     <>
       {holdsChildren && (

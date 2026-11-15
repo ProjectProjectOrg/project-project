@@ -121,7 +121,10 @@ export default defineConfig(({ mode }) => ({
           pool: "forks",
           isolate: true,
           execArgv: ["--no-experimental-webstorage"],
-          environmentOptions: { jsdom: { url: "http://localhost/" } }
+          environmentOptions: { jsdom: { url: "http://localhost/" } },
+          // Scritto (TextSwap) imports its own CSS from its JS; let Vite
+          // transform it instead of handing a .css import to Node.
+          server: { deps: { inline: [/@scritto\//] } }
         }
       }
     ]

@@ -117,6 +117,7 @@ Set during the polish passes; a component that breaks one is not done.
 - **Focus:** the `focus-ring` class (2px grey `--ring` outline, 2px offset, no animation). Never a coloured ring, never an animated offset.
 - **Disabled:** `cursor-not-allowed`, and guard hover with `not-disabled:` so a disabled control never reacts. Loading controls show the `LogoLoader` (or its sweep), not a spinner.
 - **Corners:** half the control's height, shaped with `[corner-shape:var(--button-corner)]` (`superellipse(1.5)`). Inputs, selects, badges and buttons of the same height share the same radius.
+- **No dialogs:** there is no Dialog primitive. A page action opens a Popover on its trigger; a cmd+k action is a cmd+k page.
 - **Popups:** every floating panel uses `popupSurfaceClass` (card fill, 60% hairline, no shadow) and anchors through `lib/popupAnchor`, so popup triggers keep their press scale. Menu and select triggers open on release (`lib/openOnRelease`), like the Popover.
 - **Contrast:** check light and dark. Text holds 4.5:1 and control outlines and the focus ring 3:1 against the frame, page and muted wells.
 - **Flat:** no borders and no drop shadows on controls. When something needs an edge, use the segmented tabs' hairline (`--segment-line`) or the bottom glow (`inset 0 -1px 2px var(--kbd-glow)`).
@@ -134,7 +135,8 @@ Set during the polish passes; a component that breaks one is not done.
 | Component | State |
 | --- | --- |
 | Checkbox, Dropdown menu, Avatar, Segmented tabs, Button, Switch, Input (+ input group), Select, Badge, Popover, Tooltip | Done: polished, documented, in the gallery |
-| Dialog, Confirm button, Command menu | Queued in `packages/ui/queued/`, hidden from the gallery |
+| Confirm button, Command menu | Queued in `packages/ui/queued/`, hidden from the gallery |
+| Dialog | Removed: the app has no dialogs (PRODUCT.md, "Zero dialogs"); page actions use Popover, cmd+k actions are cmd+k pages |
 
 Open question from the Select pass: dropdown radio rows with `closeOnClick` skip the settle animation (`settleAtOnceClass` in `dropdown-menu.tsx`); ask Wouter whether they should animate again.
 

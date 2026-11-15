@@ -43,7 +43,7 @@ import {
   ticketSubscribersRequest
 } from "@/features/subscriptions/atoms/ticketSubscribers"
 import { canSubscribe } from "@/features/subscriptions/lib/canSubscribe"
-import { createTicketDialog } from "@/features/tickets/atoms/createTicketDialog"
+import { newTicketRequest } from "@/features/tickets/atoms/createTicket"
 import {
   ticketRequest,
   unarchiveTicket,
@@ -416,8 +416,8 @@ export const ticketCommands: ReadonlyArray<Command> = [
     when: ({ sprint, tickets }) =>
       tickets.create && (sprint === null || sprint.sprint.completedAt !== null),
     run: ({ orgSlug, projectSlug }, env) => {
-      env.close()
-      env.registry.set(createTicketDialog, { orgSlug, projectSlug })
+      env.registry.set(newTicketRequest, { orgSlug, projectSlug })
+      env.open("createTicket")
     }
   }
 ]

@@ -2,8 +2,8 @@ import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react"
 import { type GroupId, type TicketId, isEpicType } from "@pp/shared"
 import { Button } from "@pp/ui/button"
 import { Composer } from "@pp/ui/composer"
-import { Dialog, DialogClose, DialogContent, DialogTitle } from "@pp/ui/dialog"
 import { Input } from "@pp/ui/input"
+import { PopoverClose } from "@pp/ui/popover"
 import { useNavigate } from "@tanstack/react-router"
 import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
@@ -27,19 +27,17 @@ import {
   projectsFor,
   projectsRequest
 } from "@/features/projects/atoms/projects"
-import { ProjectSelect } from "@/features/projects/components/ProjectSelect"
 import { ProjectContext } from "@/features/projects/hooks/useProject"
 import {
   assignTicketToSprint,
   sprintListRequest
 } from "@/features/sprints/atoms/sprintList"
 import {
-  createTicketDialog,
   createTicketInProject,
   relatedPayload,
-  type CreateTicketDialogRequest,
+  type CreateTicketRequest,
   type RelatedKind
-} from "@/features/tickets/atoms/createTicketDialog"
+} from "@/features/tickets/atoms/createTicket"
 import {
   markTicket,
   ticketRequest
@@ -48,7 +46,6 @@ import { SprintSelect } from "@/features/tickets/components/ticket-list/SprintFi
 import { StartsWithLine } from "@/features/tickets/components/ticket-list/StartsWithLine"
 import { TicketIdText } from "@/features/tickets/components/TicketIdText"
 import { useCreatorType } from "@/features/tickets/hooks/useCreatorType"
-import { useRouteBoundDialog } from "@/hooks/useRouteBoundDialog"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
 
@@ -68,38 +65,19 @@ const RELATED_LABELS: Readonly<
   related: m.tickets_create_related_related
 }
 
-export function CreateTicketDialogHost() {
-  const { open, shown, close } = useRouteBoundDialog(createTicketDialog)
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) close()
-      }}
-    >
-      <DialogContent size="lg" className="p-0">
-        {shown !== null && (
-          <CreateTicketForm
-            key={`${shown.orgSlug}:${shown.projectSlug ?? ""}:${shown.sprint ?? ""}:${shown.title ?? ""}:${shown.related?.kind ?? ""}:${shown.related?.ticketId ?? ""}`}
-            request={shown}
-            onDone={close}
-          />
-        )}
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function CreateTicketForm({
+// The full new-ticket composer, in a popover from the ticket menu's
+// "Create related" (the ticket it relates to is in the request). From cmd+k,
+// a ticket is created on the New ticket page instead.
+export function CreateTicketForm({
   request,
   onDone
-}: Readonly<{ request: CreateTicketDialogRequest; onDone: () => void }>) {
+}: Readonly<{ request: CreateTicketRequest; onDone: () => void }>) {
   const { orgSlug } = request
   const navigate = useNavigate()
   const projectsResult = useAtomValue(projectsFor(projectsRequest(orgSlug)))
   const projects = Result.isSuccess(projectsResult) ? projectsResult.value : []
-  const [picked, setPicked] = useState(request.projectSlug)
-  const slug = picked ?? projects[0]?.slug ?? null
+  // The popover opens inside one project; the first project is a fallback.
+  const slug = request.projectSlug ?? projects[0]?.slug ?? null
   const related =
     request.related !== undefined && slug === request.projectSlug
       ? request.related
@@ -191,31 +169,16 @@ function CreateTicketForm({
 
   return (
     <form onSubmit={(event) => void submit(event)} className="flex flex-col">
-      <Composer.Header>
-        <ProjectSelect
-          projects={projects}
-          value={slug}
-          onChange={(next) => {
-            setPicked(next)
-            creatorType.reset()
-            setFields(DEFAULT_TICKET_FIELDS)
-            setCreated(null)
-            setSprint(null)
-          }}
-        />
-        <DialogTitle className="text-body font-normal text-muted-foreground">
-          {m.tickets_create_dialog_title()}
-        </DialogTitle>
-        {related !== null && (
-          <span className="truncate text-body text-muted-foreground">
-            ·{" "}
+      {related !== null && (
+        <Composer.Header>
+          <span className="truncate px-2.5 text-body text-muted-foreground">
             <TicketIdText id={related.ticketId}>
               {RELATED_LABELS[related.kind]({ id: related.ticketId })}
             </TicketIdText>
           </span>
-        )}
-      </Composer.Header>
-      <Composer.Title>
+        </Composer.Header>
+      )}
+      <Composer.Title className={related === null ? "mt-4" : undefined}>
         <Input
           variant="bare"
           className="text-title font-semibold"
@@ -265,11 +228,11 @@ function CreateTicketForm({
       )}
       <Composer.Error>{failure}</Composer.Error>
       <Composer.Footer>
-        <DialogClose
+        <PopoverClose
           render={<Button type="button" variant="ghost" size="sm" />}
         >
           {m.common_cancel_button()}
-        </DialogClose>
+        </PopoverClose>
         <Button type="submit" size="sm" disabled={!canSubmit}>
           {m.tickets_create_dialog_submit()}
         </Button>
