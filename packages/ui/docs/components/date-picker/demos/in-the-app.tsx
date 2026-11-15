@@ -2,6 +2,7 @@ import { Button } from "@pp/ui/button"
 import { DatePicker, type DateRange } from "@pp/ui/date-picker"
 import { CalendarDays, ChevronDown, Play } from "@pp/ui/icons"
 import { Input } from "@pp/ui/input"
+import { TextSwap } from "@pp/ui/text-swap"
 import * as DateTime from "effect/DateTime"
 import { useState, type ReactNode } from "react"
 
@@ -82,9 +83,11 @@ export default function InTheApp() {
             leadingIcon={Play}
             className="rounded-r-none"
           >
-            {start === undefined
-              ? "Start sprint"
-              : `Starts ${fmt.format(start)}`}
+            <TextSwap>
+              {start === undefined
+                ? "Start sprint"
+                : `Starts ${fmt.format(start)}`}
+            </TextSwap>
           </Button>
           <DatePicker
             mode="single"
