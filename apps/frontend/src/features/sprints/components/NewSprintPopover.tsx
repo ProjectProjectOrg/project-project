@@ -1,11 +1,6 @@
 import type { TicketId } from "@pp/shared"
 import { Composer } from "@pp/ui/composer"
-import {
-  Popover,
-  PopoverClose,
-  PopoverTitle,
-  PopoverTrigger
-} from "@pp/ui/popover"
+import { Popover, PopoverClose, PopoverTrigger } from "@pp/ui/popover"
 import type { ReactElement } from "react"
 
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -27,10 +22,13 @@ export function NewSprintPopover({
   return (
     <Popover open={open} onOpenChange={onOpenChange} modal="trap-focus">
       <PopoverTrigger render={trigger} />
-      <Composer.Popover align="start" sideOffset={6}>
+      <Composer.Popover
+        align="start"
+        sideOffset={6}
+        aria-label={m.sprints_create_dialog_title()}
+      >
         <CreateSprintForm
           request={{ orgSlug, projectSlug: slug, tickets }}
-          Title={PopoverTitle}
           onDone={() => onOpenChange(false)}
         />
         <PopoverClose tabIndex={-1} className="sr-only">

@@ -65,7 +65,10 @@ export function CreateSprintForm({
   onDone
 }: Readonly<{
   request: CreateSprintDialogRequest
-  Title: ComponentType<{ className?: string; children: ReactNode }>
+  // The dialog shows a header with the project picker and this title. The
+  // popover leaves it out: it opens from a "New sprint" button inside one
+  // project, so neither adds anything there.
+  Title?: ComponentType<{ className?: string; children: ReactNode }>
   onDone: () => void
 }>) {
   const { orgSlug, completeFrom, tickets } = request
@@ -148,18 +151,20 @@ export function CreateSprintForm({
 
   return (
     <form onSubmit={(event) => void submit(event)} className="flex flex-col">
-      <Composer.Header>
-        <ProjectSelect
-          projects={projects}
-          value={slug}
-          onChange={setPicked}
-          readOnly={completeFrom !== undefined || tickets !== undefined}
-        />
-        <Title className="text-body font-normal text-muted-foreground">
-          {m.sprints_create_dialog_title()}
-        </Title>
-      </Composer.Header>
-      <Composer.Title>
+      {Title && (
+        <Composer.Header>
+          <ProjectSelect
+            projects={projects}
+            value={slug}
+            onChange={setPicked}
+            readOnly={completeFrom !== undefined || tickets !== undefined}
+          />
+          <Title className="text-body font-normal text-muted-foreground">
+            {m.sprints_create_dialog_title()}
+          </Title>
+        </Composer.Header>
+      )}
+      <Composer.Title className={Title ? undefined : "mt-4"}>
         <Input
           variant="bare"
           className="text-title font-semibold"
@@ -184,74 +189,83 @@ export function CreateSprintForm({
           />
         </MentionScopeProvider>
       </Composer.Body>
-      <Composer.Chips>
-        <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-          <PopoverTrigger
-            render={<Button type="button" variant="ghost" tone="strong" />}
-          >
-            <CalendarDays className="size-3.5" strokeWidth={1.75} />
-            <span>{datesLabel(range)}</span>
-          </PopoverTrigger>
-          <PopoverContent
-            align="start"
-            initialFocus={false}
-            className="w-auto p-0"
-          >
-            <Calendar
-              navLabels={{
-                previous: m.common_previous_month(),
-                next: m.common_next_month()
-              }}
-              mode="range"
-              selected={{ from: range.from, to: range.to }}
-              onSelect={(next) => setRange(next ?? {})}
-              disabled={{ before: today }}
-              defaultMonth={range.from ?? today}
-            />
-            <div className="flex justify-between gap-2 border-t border-border/60 p-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="xs"
-                onClick={() => {
-                  setRange(defaultSprintRange())
-                  setPickerOpen(false)
-                }}
-              >
-                {m.sprints_start_today()}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="xs"
-                disabled={range.from === undefined}
-                onClick={() => {
-                  setRange({})
-                  setPickerOpen(false)
-                }}
-              >
-                {m.sprints_clear_dates()}
-              </Button>
-            </div>
-          </PopoverContent>
-        </Popover>
-        {range.from === undefined && (
-          <Composer.Hint>{m.sprints_no_dates_hint()}</Composer.Hint>
-        )}
-      </Composer.Chips>
       {completeFrom !== undefined && slug !== null && (
         <CompleteFromLine orgSlug={orgSlug} slug={slug} sprint={completeFrom} />
       )}
       <Composer.Error>{failure}</Composer.Error>
-      <Composer.Footer>
-        <Button type="button" variant="ghost" size="sm" onClick={onDone}>
-          {m.common_cancel_button()}
-        </Button>
-        <Button type="submit" size="sm" disabled={!canSubmit}>
-          {startsNow
-            ? m.sprints_create_dialog_submit_start()
-            : m.sprints_create_dialog_submit()}
-        </Button>
+      <Composer.Footer className="justify-between pl-1.5">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+            <PopoverTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  tone="strong"
+                  size="sm"
+                  leadingIcon={CalendarDays}
+                />
+              }
+            >
+              {datesLabel(range)}
+            </PopoverTrigger>
+            <PopoverContent
+              align="start"
+              initialFocus={false}
+              className="w-auto p-0"
+            >
+              <Calendar
+                navLabels={{
+                  previous: m.common_previous_month(),
+                  next: m.common_next_month()
+                }}
+                mode="range"
+                selected={{ from: range.from, to: range.to }}
+                onSelect={(next) => setRange(next ?? {})}
+                disabled={{ before: today }}
+                defaultMonth={range.from ?? today}
+              />
+              <div className="flex justify-between gap-2 border-t border-border/60 p-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => {
+                    setRange(defaultSprintRange())
+                    setPickerOpen(false)
+                  }}
+                >
+                  {m.sprints_start_today()}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  disabled={range.from === undefined}
+                  onClick={() => {
+                    setRange({})
+                    setPickerOpen(false)
+                  }}
+                >
+                  {m.sprints_clear_dates()}
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+          {range.from === undefined && (
+            <Composer.Hint>{m.sprints_no_dates_hint()}</Composer.Hint>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={onDone}>
+            {m.common_cancel_button()}
+          </Button>
+          <Button type="submit" size="sm" disabled={!canSubmit}>
+            {startsNow
+              ? m.sprints_create_dialog_submit_start()
+              : m.sprints_create_dialog_submit()}
+          </Button>
+        </div>
       </Composer.Footer>
     </form>
   )
