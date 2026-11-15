@@ -710,25 +710,25 @@
 }
 /* What the capsule covers fades out toward it: a gradient to the colour
    under the capsule (--confirm-under, read from the nearest ancestor with a
-   background when it opens), 24px wide, just outside its start edge. It
-   shows once the reveal has settled, so it never fights the clip. */
-.confirm-capsule::before {
+   background when it opens) over the frame's 24px start padding, running
+   on under the surface's rounded corners so they sit on it too. It shows
+   once the reveal has settled, so it never fights the clip. */
+.confirm-capsule-frame::before {
   content: "";
   position: absolute;
-  top: -1px;
-  bottom: -1px;
-  right: calc(100% + 1px);
-  width: 24px;
+  inset-block: 0;
+  left: 0;
+  width: 40px;
   background: linear-gradient(
     to right,
     transparent,
-    var(--confirm-under, transparent)
+    var(--confirm-under, transparent) 24px
   );
   pointer-events: none;
   opacity: 0;
   transition: opacity 150ms var(--ease-standard);
 }
-.confirm-capsule[data-settled]::before {
+.confirm-capsule-frame[data-settled]::before {
   opacity: 1;
 }
 .confirm-capsule > :nth-child(2) {

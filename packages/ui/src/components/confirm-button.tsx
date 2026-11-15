@@ -326,17 +326,24 @@ function Capsule({
 
   if (!shown) return null
   return (
+    // The frame holds the position, clip and the edge fade (in its 24px
+    // start padding, reaching under the surface's rounded corners); the
+    // surface paints on top of the fade.
     <div
       ref={ref}
       role="group"
       data-countdown-hold
       onKeyDown={onKeyDown}
-      className={cn(
-        "confirm-capsule absolute -end-0.5 top-1/2 z-20 flex h-8 w-max -translate-y-1/2 items-center justify-end gap-1 rounded-[16px] border border-border/60 bg-card pe-[3px] whitespace-nowrap [corner-shape:var(--button-corner)] *:shrink-0",
-        className
-      )}
+      className="confirm-capsule-frame absolute -end-0.5 top-1/2 z-20 flex w-max -translate-y-1/2 ps-6"
     >
-      {children}
+      <div
+        className={cn(
+          "confirm-capsule relative flex h-8 items-center justify-end gap-1 rounded-[16px] border border-border/60 bg-card pe-[3px] whitespace-nowrap [corner-shape:var(--button-corner)] *:shrink-0",
+          className
+        )}
+      >
+        {children}
+      </div>
     </div>
   )
 }
