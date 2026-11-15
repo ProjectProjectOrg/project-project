@@ -42,6 +42,23 @@ export const toggleSelection = (
   return { keys, anchor: key }
 }
 
+export const selectAll = (
+  selection: TicketSelection,
+  order: ReadonlyArray<string>,
+  pointed: string | null
+): TicketSelection => {
+  const [selected] = selection.keys
+  const from = selected ?? pointed ?? order[0]
+  if (from === undefined) return selection
+  const project = projectOfKey(from)
+  const keys = order.filter((key) => projectOfKey(key) === project)
+  const anchor =
+    selection.anchor !== null && keys.includes(selection.anchor)
+      ? selection.anchor
+      : (keys[0] ?? null)
+  return { keys: new Set(keys), anchor }
+}
+
 export const suggestedStatus = (
   current: ReadonlyArray<TicketStatus>,
   order: ReadonlyArray<TicketStatus>

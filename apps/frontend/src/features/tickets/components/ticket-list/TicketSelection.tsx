@@ -27,6 +27,7 @@ import {
 import {
   emptySelection,
   projectOfKey,
+  selectAll,
   selectionKey,
   toggleSelection
 } from "@/features/tickets/lib/ticketSelection"
@@ -76,12 +77,12 @@ export function TicketSelectionProvider({
       ? null
       : key
   }
-  useHotkey(appHotkeys["tickets.select-all"], () => {
-    const keys = [...store.orders].flatMap((order) => order())
-    registry.set(store.selection, {
-      keys: new Set(keys),
-      anchor: registry.get(store.selection).anchor ?? keys[0] ?? null
-    })
+  useHotkey(appHotkeys["tickets.select-all"], (event) => {
+    const order = [...store.orders].flatMap((each) => each())
+    registry.set(
+      store.selection,
+      selectAll(registry.get(store.selection), order, rowKeyFor(event.target))
+    )
   })
   useHotkey(
     appHotkeys["tickets.select"],
