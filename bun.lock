@@ -83,6 +83,8 @@
         "@base-ui/react": "^1.9.0",
         "@daypicker/react": "~10.0.2",
         "@effect/atom-react": "4.0.5",
+        "@effect/sql-sqlite-wasm": "4.0.5",
+        "@effect/wa-sqlite": "0.1.2",
         "@inlang/paraglide-js": "2.25.0",
         "@lexical/clipboard": "^0.44.0",
         "@lexical/code": "^0.44.0",
@@ -467,6 +469,8 @@
 
     "@effect/sql-pg": ["@effect/sql-pg@4.0.5", "", { "peerDependencies": { "effect": "^4.0.5" } }, "sha512-F9tG76H+aryhYcp5pvgd+MwWrNltv3XAuLcZSBsOOX6q+PEl+IM4zkQKzx0TF9OsEMH/SQ+3gZRdYWOsDF+vJQ=="],
 
+    "@effect/sql-sqlite-wasm": ["@effect/sql-sqlite-wasm@4.0.5", "", { "peerDependencies": { "@effect/wa-sqlite": ">=0.1.2 <0.2.0", "effect": "^4.0.5" } }, "sha512-jh39FFI1xpMwINyM+13X+RgPUsi6AxtD/LbJ57jDme4kVU+ZdD/s146s8LHAMlm8PjKbhkU/ZE2qTSW2yrHCww=="],
+
     "@effect/tsgo": ["@effect/tsgo@0.53.1", "", { "optionalDependencies": { "@effect/tsgo-darwin-arm64": "0.53.1", "@effect/tsgo-darwin-x64": "0.53.1", "@effect/tsgo-linux-arm": "0.53.1", "@effect/tsgo-linux-arm64": "0.53.1", "@effect/tsgo-linux-x64": "0.53.1", "@effect/tsgo-win32-arm64": "0.53.1", "@effect/tsgo-win32-x64": "0.53.1" }, "bin": { "effect-tsgo": "dist/effect-tsgo.cjs" } }, "sha512-0LW8VI1+HvC+S5KOpReuAneN4T93ipcd8aKNXpy2DubBfm6ShWhBtWxtxPSaQ9M25gAtQs6w/D9NEmXqgd8uGg=="],
 
     "@effect/tsgo-darwin-arm64": ["@effect/tsgo-darwin-arm64@0.53.1", "", { "os": "darwin", "cpu": "arm64" }, "sha512-wje3jvSaN3ttD7sBm9Bw/E8xHq2ZQWMJNg1YAGCj3/tiwUxHDUjKrt1LC/HLju+OnTBSsSvkUE8jXUT3OdQY4A=="],
@@ -484,6 +488,8 @@
     "@effect/tsgo-win32-x64": ["@effect/tsgo-win32-x64@0.53.1", "", { "os": "win32", "cpu": "x64" }, "sha512-XTKMzsK3I78oApuTTcOx6orxGOqkGeDZBDHYiJQ6vIlwiKaeyZqCWm2fUtAgkvyxDyY5g4JXm8Qd23RVRSoxmg=="],
 
     "@effect/vitest": ["@effect/vitest@4.0.5", "", { "peerDependencies": { "effect": "^4.0.5", "vitest": ">=5.0.0 <6.0.0" } }, "sha512-q64paZ/i4V2NiRhTyqCmT2KiDbFjlxc2EZrZca8GGt+Nf8844946HyJM5bPk/q+YeRkFSxIrlCs+J+LSfky/wA=="],
+
+    "@effect/wa-sqlite": ["@effect/wa-sqlite@0.1.2", "", {}, "sha512-2JvJ9BDkBOwfeY/gXsC0XwEKC0AwisP2W5ABJ6mx14QyXTK12MGDIybDlHieuZt1TEFSMiKfpg7yyqyRWRooJQ=="],
 
     "@emnapi/core": ["@emnapi/core@1.11.1", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.2", "tslib": "^2.4.0" } }, "sha512-RSvbQmHzdKzNsLYa/wHrbc3KN4sYLKAdPZxqiM2HATqv/SBk2/ENSHpvXGaLOMcsAyz0poEGqkmmKYG3OWiJEQ=="],
 

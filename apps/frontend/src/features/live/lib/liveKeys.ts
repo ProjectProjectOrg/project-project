@@ -36,8 +36,9 @@ export const liveEventKeys =
   (event: LiveEvent): ReadonlyArray<ReactivityKey> => {
     if (event.kind === "heartbeat") return []
     if (event.kind === "resync") return [Keys.liveResync()]
-    if (event.origin === ownOrigin) return []
-    return liveChangeKeys(event)
+    const facts = Keys.projectFacts(projectScope(event.orgSlug, event.slug))
+    if (event.origin === ownOrigin) return [facts]
+    return [facts, ...liveChangeKeys(event)]
   }
 
 export const uniqueKeys = (

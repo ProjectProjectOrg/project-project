@@ -7,6 +7,7 @@ import { ErrorPage } from "@/components/shell/ErrorPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage"
 import { PageContainer } from "@/components/shell/Page"
 import { useProjectGitStatePolling } from "@/features/github/hooks/useProjectGitStatePolling"
+import { LocalProjectCopy } from "@/features/local/components/LocalProjectCopy"
 import {
   project,
   projectRequest,
@@ -75,6 +76,7 @@ export function ProjectLayout() {
     onSuccess: ({ value, waiting }) => (
       <ProjectContext.Provider value={req}>
         <ProjectGitStatePolling enabled={value.github !== null} />
+        <LocalProjectCopy />
         <div
           key={`${orgSlug}/${slug}`}
           data-page-banner={value.banner ? "" : undefined}

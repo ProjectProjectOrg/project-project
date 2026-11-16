@@ -47,6 +47,8 @@ export const Keys = {
   /** Queries whose ordering or matching depends on `updatedAt`. */
   ticketUpdatedQuery: (scope: string): ReactivityKey =>
     key(`ticket-updated-query/${scope}`),
+  /** The local copy of this project, which pulls on every change to it. */
+  projectFacts: (scope: string): ReactivityKey => key(`project-facts/${scope}`),
   /** Every query, refetched when the live connection reconnects. */
   liveResync: (): ReactivityKey => key("live-resync"),
   /** Any query returning this project's sprints. */
