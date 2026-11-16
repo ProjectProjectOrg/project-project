@@ -35,31 +35,33 @@ function ShortcutList({ onClose }: Readonly<{ onClose: () => void }>) {
   })
   const groups = shortcutGroups(useAppHotkeyList())
   return (
-    <div className="-mx-1 max-h-[75dvh] gap-8 overflow-y-auto px-1 sm:columns-2">
-      {groups.map(({ group, items }) => (
-        <section
-          key={group}
-          className="mb-5 flex break-inside-avoid flex-col gap-1"
-        >
-          <h3 className="text-caption text-muted-foreground">{group}</h3>
-          <ul className="flex flex-col">
-            {items.map(({ appHotkey, status }) => (
-              <li
-                key={appHotkey.id}
-                className={cn(
-                  "flex h-8 items-center justify-between gap-4 text-body",
-                  status === "inactive" && "text-muted-foreground"
-                )}
-              >
-                <span className="truncate">{appHotkey.meta?.name}</span>
-                {appHotkey.hotkey !== null && (
-                  <KbdShortcut keys={appHotkey.hotkey} />
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+    <div className="-mx-1 max-h-[75dvh] overflow-y-auto px-1">
+      <div className="gap-8 sm:columns-2">
+        {groups.map(({ group, items }) => (
+          <section
+            key={group}
+            className="mb-5 flex break-inside-avoid flex-col gap-1"
+          >
+            <h3 className="text-caption text-muted-foreground">{group}</h3>
+            <ul className="flex flex-col">
+              {items.map(({ appHotkey, status }) => (
+                <li
+                  key={appHotkey.id}
+                  className={cn(
+                    "flex h-8 items-center justify-between gap-4 text-body",
+                    status === "inactive" && "text-muted-foreground"
+                  )}
+                >
+                  <span className="truncate">{appHotkey.meta?.name}</span>
+                  {appHotkey.hotkey !== null && (
+                    <KbdShortcut keys={appHotkey.hotkey} />
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
     </div>
   )
 }
