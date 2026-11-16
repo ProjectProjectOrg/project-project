@@ -1,8 +1,15 @@
-import { cn } from "@pp/ui/lib/utils"
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react"
 
+import { cn } from "../lib/utils"
+
+// The video player's slider: seeking (with buffered and a hover time) and
+// volume. Drag or click to set, arrows to step.
+
+// Only the height eases (on hover). The width and the knob's position follow
+// playback every frame; a transition on them restarted each frame and held
+// the bar still until a hover ended it.
 const BAR =
-  "absolute top-1/2 left-0 h-[3px] -translate-y-1/2 rounded-full transition-all duration-150 group-hover/reveal:h-[5px] group-data-[dragging=true]/reveal:h-[5px]"
+  "absolute top-1/2 left-0 h-[3px] -translate-y-1/2 rounded-full transition-[height] duration-150 ease-standard group-hover/reveal:h-[5px] group-data-[dragging=true]/reveal:h-[5px]"
 
 const fractionAt = (event: PointerEvent<HTMLSpanElement>): number => {
   const rect = event.currentTarget.getBoundingClientRect()
@@ -71,6 +78,7 @@ export function AttachmentVideoScrubber({
   return (
     <span
       ref={ref}
+      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a thin seek bar with buffered and hover time, which a range input can't draw
       role="slider"
       tabIndex={0}
       aria-label={label}
@@ -99,7 +107,7 @@ export function AttachmentVideoScrubber({
       )}
       <span className={cn(BAR, "bg-foreground")} style={{ width: percent }} />
       <span
-        className="absolute top-1/2 -ml-[5.5px] size-[11px] -translate-y-1/2 scale-0 rounded-full bg-foreground transition-all duration-150 group-hover/reveal:scale-100 group-focus-visible/reveal:scale-100 group-data-[dragging=true]/reveal:scale-100"
+        className="absolute top-1/2 -ml-[5.5px] size-[11px] -translate-y-1/2 scale-0 rounded-full bg-foreground transition-[scale] duration-150 ease-standard group-hover/reveal:scale-100 group-focus-visible/reveal:scale-100 group-data-[dragging=true]/reveal:scale-100"
         style={{ left: percent }}
       />
       {hoverText === undefined || hover === null ? null : (

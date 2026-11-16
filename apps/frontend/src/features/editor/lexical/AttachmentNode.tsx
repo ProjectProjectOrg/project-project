@@ -6,7 +6,14 @@ import {
   clampAttachmentWidth,
   type AttachmentDensity
 } from "@pp/shared"
-import { Button } from "@pp/ui/button"
+import { AttachmentChip } from "@pp/ui/attachment-chip"
+import {
+  AttachmentFailed,
+  AttachmentUnavailable,
+  AttachmentUploading
+} from "@pp/ui/attachment-status"
+import { AttachmentTile } from "@pp/ui/attachment-tile"
+import { AttachmentVideo } from "@pp/ui/attachment-video"
 import { cn } from "@pp/ui/lib/utils"
 import {
   $applyNodeReplacement,
@@ -20,18 +27,19 @@ import {
 import { motion, type MotionProps } from "motion/react"
 import { useRef, useState, type ReactElement } from "react"
 
-import { AttachmentChip } from "@/features/attachments/components/AttachmentChip"
+import {
+  attachmentFailedLabels,
+  attachmentTileLabels,
+  attachmentVideoLabels
+} from "@/features/attachments/lib/attachmentLabels"
 import {
   ATTACHMENT_IMAGE_CLASS,
   attachmentWidthStyle
 } from "@/features/editor/lexical/attachmentImageStyle"
-import { AttachmentTile } from "@/features/editor/lexical/AttachmentTile"
 import { m } from "@/paraglide/messages"
 
 import { useAttachmentResolves } from "./attachmentAvailability"
 import { AttachmentSelectable } from "./AttachmentSelectable"
-import { AttachmentUnavailable } from "./AttachmentUnavailable"
-import { AttachmentVideo } from "./AttachmentVideo"
 
 export type AttachmentKind = "image" | "file"
 
@@ -155,48 +163,9 @@ function AttachmentImage({
   )
 }
 
-function AttachmentFailed({ uploadId }: { uploadId: string | undefined }) {
-  return (
-    <span className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-caption">
-      <span className="flex-1 truncate text-destructive">
-        {m.editor_attachment_upload_failed()}
-      </span>
-      {(
-        [
-          ["retry", m.editor_attachment_retry],
-          ["remove", m.editor_attachment_remove]
-        ] as const
-      ).map(([action, label]) => (
-        <Button
-          key={action}
-          variant="ghost"
-          size="sm"
-          data-attachment-action={action}
-          data-attachment-upload-id={uploadId}
-        >
-          {label()}
-        </Button>
-      ))}
-    </span>
-  )
-}
-
-function AttachmentUploading({ progress }: { progress: number }) {
-  const percent = Math.round(Math.min(Math.max(progress, 0), 1) * 100)
-  return (
-    <span className="flex min-h-[8rem] w-[20rem] max-w-full flex-col justify-center gap-2 rounded-lg border border-dashed px-3 py-2">
-      <span className="truncate text-caption text-muted-foreground">
-        {m.editor_attachment_uploading()}
-      </span>
-      <span className="h-1 w-full overflow-hidden rounded-full bg-muted">
-        <span
-          className="block h-full rounded-full bg-primary transition-all duration-150"
-          style={{ width: `${percent}%` }}
-        />
-      </span>
-    </span>
-  )
-}
+// pdf.js is loaded only when a PDF tile shows.
+const renderPdfPages = (url: string) =>
+  import("./pdfSpread").then(({ renderPdfSpread }) => renderPdfSpread(url))
 
 export class AttachmentNode extends DecoratorNode<ReactElement> {
   __url: string
@@ -377,9 +346,17 @@ export class AttachmentNode extends DecoratorNode<ReactElement> {
         density={this.__density}
       >
         {this.__failed ? (
-          <AttachmentFailed uploadId={this.__uploadId} />
+          <AttachmentFailed
+            uploadId={this.__uploadId}
+            filename={this.__filename}
+            labels={attachmentFailedLabels()}
+          />
         ) : (
-          <AttachmentUploading progress={this.__progress} />
+          <AttachmentUploading
+            label={m.editor_attachment_uploading()}
+            progress={this.__progress}
+            filename={this.__filename}
+          />
         )}
       </AttachmentSelectable>
     )
@@ -414,7 +391,7 @@ function AttachmentSettled({
     attachmentFileFormat(filename) === "video" &&
     !missing &&
     !unplayable
-  const clipRadius = density === "compact" ? 6 : 8
+  const clipRadius = density === "compact" ? 10 : 18
 
   return (
     <AttachmentSelectable
@@ -432,6 +409,7 @@ function AttachmentSettled({
     >
       {missing ? (
         <AttachmentUnavailable
+          label={m.editor_attachment_unavailable()}
           variant={density === "compact" ? "inline" : "block"}
         />
       ) : density === "compact" ? (
@@ -441,6 +419,7 @@ function AttachmentSettled({
           filename={filename}
           kind={kind}
           morphId={morphId}
+          downloadLabel={m.editor_attachment_download()}
           onBroken={() => setBroken(true)}
         />
       ) : kind === "image" ? (
@@ -456,6 +435,7 @@ function AttachmentSettled({
           src={url}
           filename={filename}
           downloadHref={attachmentDownloadSrc(url)}
+          labels={attachmentVideoLabels()}
           onUnplayable={() => setUnplayable(true)}
         />
       ) : (
@@ -464,6 +444,8 @@ function AttachmentSettled({
           alt={alt}
           filename={filename}
           morphId={morphId}
+          labels={attachmentTileLabels()}
+          renderPdf={renderPdfPages}
         />
       )}
     </AttachmentSelectable>

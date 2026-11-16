@@ -1,17 +1,34 @@
-import { Button } from "@pp/ui/button"
-import { LoaderCircle, Play } from "@pp/ui/icons"
-import { transitions } from "@pp/ui/lib/springs"
-import { cn } from "@pp/ui/lib/utils"
 import { motion } from "motion/react"
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject
+} from "react"
 
-import { nextPlaybackRate } from "@/features/editor/lib/videoTime"
-import { m } from "@/paraglide/messages"
-
+import { transitions } from "../lib/springs"
+import { cn } from "../lib/utils"
+import { nextPlaybackRate } from "../lib/videoTime"
 import {
   AttachmentVideoControls,
-  type AttachmentVideoActions
-} from "./AttachmentVideoControls"
+  type AttachmentVideoActions,
+  type AttachmentVideoLabels
+} from "./attachment-video-controls"
+import { Button } from "./button"
+import { LoaderCircle, Play } from "./icons"
+
+/*
+ * AttachmentVideo: a video attachment, played in place. Before it plays,
+ * a play button and the filename on a pill; once it starts, the pill opens
+ * into the control bar (seek, time, speed, volume, fullscreen, download),
+ * which hides after 2s still and shows again on movement or focus. K plays
+ * or pauses, M mutes, F goes fullscreen.
+ */
+
+export type { AttachmentVideoLabels } from "./attachment-video-controls"
 
 const MAX_HEIGHT = 384
 const IDLE_MS = 2000
@@ -50,36 +67,13 @@ function useIdle() {
   return { active, poke, rest }
 }
 
-export function AttachmentVideo({
-  src,
-  filename,
-  downloadHref,
-  onUnplayable
-}: Readonly<{
-  src: string
-  filename: string
-  downloadHref: string
-  onUnplayable: () => void
-}>) {
-  const layoutId = useId()
-  const rootRef = useRef<HTMLSpanElement>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const { active, poke, rest } = useIdle()
-
-  const [aspect, setAspect] = useState(() => knownAspects.get(src) ?? null)
-  const [duration, setDuration] = useState(Number.NaN)
-  const [time, setTime] = useState(0)
-  const [buffered, setBuffered] = useState(0)
-  const [playing, setPlaying] = useState(false)
-  const [waiting, setWaiting] = useState(false)
-  const [volume, setVolume] = useState(1)
-  const [rate, setRate] = useState(1)
-  const [fullscreen, setFullscreen] = useState(false)
-  const [hovered, setHovered] = useState(false)
-  const [started, setStarted] = useState(false)
-  const [keyboardFocus, setKeyboardFocus] = useState(false)
-
-  const actions = useMemo<AttachmentVideoActions>(
+// What the controls do, on the <video> and its frame.
+function useVideoActions(
+  rootRef: RefObject<HTMLSpanElement | null>,
+  videoRef: RefObject<HTMLVideoElement | null>,
+  setTime: (seconds: number) => void
+): AttachmentVideoActions {
+  return useMemo<AttachmentVideoActions>(
     () => ({
       toggle: () => {
         const video = videoRef.current
@@ -121,26 +115,28 @@ export function AttachmentVideo({
         else void root.requestFullscreen().catch(() => undefined)
       }
     }),
-    []
+    [rootRef, videoRef, setTime]
   )
+}
 
+// Whether the frame is the fullscreen element.
+function useFullscreen(rootRef: RefObject<HTMLSpanElement | null>) {
+  const [fullscreen, setFullscreen] = useState(false)
   useEffect(() => {
     const onChange = () =>
       setFullscreen(document.fullscreenElement === rootRef.current)
     document.addEventListener("fullscreenchange", onChange)
     return () => document.removeEventListener("fullscreenchange", onChange)
-  }, [])
+  }, [rootRef])
+  return fullscreen
+}
 
-  useEffect(() => {
-    if (!playing) return undefined
-    let frame = requestAnimationFrame(function tick() {
-      const video = videoRef.current
-      if (video !== null) setTime(video.currentTime)
-      frame = requestAnimationFrame(tick)
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [playing])
-
+// K plays or pauses, M mutes, F goes fullscreen, while focus is inside.
+function useVideoKeys(
+  rootRef: RefObject<HTMLSpanElement | null>,
+  actions: AttachmentVideoActions,
+  poke: () => void
+) {
   useEffect(() => {
     const root = rootRef.current
     if (root === null) return undefined
@@ -157,7 +153,55 @@ export function AttachmentVideo({
     }
     root.addEventListener("keydown", onKeyDown)
     return () => root.removeEventListener("keydown", onKeyDown)
-  }, [actions, poke])
+  }, [rootRef, actions, poke])
+}
+
+export function AttachmentVideo({
+  src,
+  filename,
+  downloadHref,
+  labels,
+  onUnplayable
+}: Readonly<{
+  src: string
+  filename: string
+  downloadHref: string
+  labels: AttachmentVideoLabels
+  // The browser can't play it (no video track, unsupported codec): show
+  // the file's tile instead.
+  onUnplayable: () => void
+}>) {
+  const layoutId = useId()
+  const rootRef = useRef<HTMLSpanElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const { active, poke, rest } = useIdle()
+
+  const [aspect, setAspect] = useState(() => knownAspects.get(src) ?? null)
+  const [duration, setDuration] = useState(Number.NaN)
+  const [time, setTime] = useState(0)
+  const [buffered, setBuffered] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const [waiting, setWaiting] = useState(false)
+  const [volume, setVolume] = useState(1)
+  const [rate, setRate] = useState(1)
+  const [hovered, setHovered] = useState(false)
+  const [started, setStarted] = useState(false)
+  const [keyboardFocus, setKeyboardFocus] = useState(false)
+
+  const actions = useVideoActions(rootRef, videoRef, setTime)
+  const fullscreen = useFullscreen(rootRef)
+
+  useEffect(() => {
+    if (!playing) return undefined
+    let frame = requestAnimationFrame(function tick() {
+      const video = videoRef.current
+      if (video !== null) setTime(video.currentTime)
+      frame = requestAnimationFrame(tick)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [playing])
+
+  useVideoKeys(rootRef, actions, poke)
 
   const controlsShown =
     started && (active || keyboardFocus || (hovered && !playing))
@@ -167,9 +211,9 @@ export function AttachmentVideo({
       ref={rootRef}
       className={cn(
         "relative block max-w-full overflow-hidden bg-[oklch(0.145_0_0)]",
-        fullscreen
-          ? "rounded-none"
-          : "rounded-lg [clip-path:inset(0_round_var(--radius-lg))]",
+        // The attachments' 18px squircle (overflow clips to the corner
+        // shape, so the video's corners follow it).
+        fullscreen ? "rounded-none" : "rounded-[18px] corner-squircle",
         playing && !controlsShown && "cursor-none"
       )}
       style={
@@ -252,7 +296,7 @@ export function AttachmentVideo({
         <Button
           variant="overlay"
           size="icon-lg"
-          aria-label={m.editor_video_play()}
+          aria-label={labels.play}
           className="absolute inset-0 m-auto size-12 text-foreground"
           style={{ boxShadow: LIFT }}
           onClick={actions.toggle}
@@ -265,7 +309,8 @@ export function AttachmentVideo({
         <span
           data-attachment-player="true"
           className={cn(
-            "absolute inset-x-0 bottom-0 isolate flex flex-col px-2 pb-1.5 text-foreground",
+            // A floating bar, 8px in from the frame's edges.
+            "absolute inset-x-2 bottom-2 isolate flex flex-col px-1.5 pb-1 text-foreground",
             REVEAL,
             controlsShown ? SHOWN : "pointer-events-none opacity-0"
           )}
@@ -273,8 +318,8 @@ export function AttachmentVideo({
           <motion.span
             layoutId={`${layoutId}-surface`}
             transition={transitions.morph}
-            style={{ borderRadius: 0, boxShadow: LIFT }}
-            className="absolute inset-0 -z-10 bg-surface-5"
+            style={{ borderRadius: 16, boxShadow: LIFT }}
+            className="absolute inset-0 -z-10 bg-surface-5 corner-squircle"
           />
           <AttachmentVideoControls
             filename={filename}
@@ -290,6 +335,7 @@ export function AttachmentVideo({
               fullscreen
             }}
             actions={actions}
+            labels={labels}
           />
         </span>
       ) : aspect === null ? null : (
@@ -298,7 +344,7 @@ export function AttachmentVideo({
             layoutId={`${layoutId}-surface`}
             transition={transitions.morph}
             style={{ borderRadius: 20, boxShadow: LIFT }}
-            className="absolute inset-0 -z-10 bg-surface-5"
+            className="absolute inset-0 -z-10 bg-surface-5 corner-squircle"
           />
           <motion.span
             layoutId={`${layoutId}-filename`}

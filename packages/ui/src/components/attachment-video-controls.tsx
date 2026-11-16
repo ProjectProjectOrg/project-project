@@ -1,4 +1,10 @@
-import { Button } from "@pp/ui/button"
+import { motion } from "motion/react"
+import { useEffect, useState } from "react"
+
+import { transitions } from "../lib/springs"
+import { formatVideoTime, videoProgress } from "../lib/videoTime"
+import { AttachmentVideoScrubber } from "./attachment-video-scrubber"
+import { Button } from "./button"
 import {
   Download,
   Maximize,
@@ -7,15 +13,21 @@ import {
   Play,
   Volume2,
   VolumeX
-} from "@pp/ui/icons"
-import { transitions } from "@pp/ui/lib/springs"
-import { motion } from "motion/react"
-import { useEffect, useState } from "react"
+} from "./icons"
 
-import { formatVideoTime, videoProgress } from "@/features/editor/lib/videoTime"
-import { m } from "@/paraglide/messages"
-
-import { AttachmentVideoScrubber } from "./AttachmentVideoScrubber"
+export type AttachmentVideoLabels = Readonly<{
+  play: string
+  pause: string
+  seek: string
+  mute: string
+  unmute: string
+  volume: string
+  fullscreen: string
+  exitFullscreen: string
+  download: string
+  // The speed button's name, for the current rate ("Speed 1.5×").
+  speed: (rate: number) => string
+}>
 
 const FADE_START_MS =
   (transitions.morph.duration - transitions.fade.duration) * 1000
@@ -50,13 +62,15 @@ export function AttachmentVideoControls({
   filenameLayoutId,
   downloadHref,
   state,
-  actions
+  actions,
+  labels
 }: Readonly<{
   filename: string
   filenameLayoutId: string
   downloadHref: string
   state: AttachmentVideoState
   actions: AttachmentVideoActions
+  labels: AttachmentVideoLabels
 }>) {
   const { playing, time, duration, volume, fullscreen } = state
   const known = Number.isFinite(duration)
@@ -80,7 +94,7 @@ export function AttachmentVideoControls({
           className="mx-1.5 -mb-1.5"
           value={videoProgress(time, duration)}
           buffered={state.buffered}
-          label={m.editor_video_seek()}
+          label={labels.seek}
           valueText={formatVideoTime(time)}
           hoverText={(fraction) =>
             formatVideoTime(known ? fraction * duration : 0)
@@ -104,9 +118,7 @@ export function AttachmentVideoControls({
             variant="ghost"
             tone="strong"
             size="square-7"
-            aria-label={
-              playing ? m.editor_video_pause() : m.editor_video_play()
-            }
+            aria-label={playing ? labels.pause : labels.play}
             onClick={actions.toggle}
           >
             {playing ? (
@@ -141,7 +153,7 @@ export function AttachmentVideoControls({
             tone="strong"
             size="sm"
             className="px-2 tabular-nums"
-            aria-label={m.editor_video_speed({ rate: state.rate })}
+            aria-label={labels.speed(state.rate)}
             onClick={actions.cycleRate}
           >
             {state.rate}×
@@ -151,9 +163,7 @@ export function AttachmentVideoControls({
               variant="ghost"
               tone="strong"
               size="square-7"
-              aria-label={
-                silent ? m.editor_video_unmute() : m.editor_video_mute()
-              }
+              aria-label={silent ? labels.unmute : labels.mute}
               onClick={actions.toggleMuted}
             >
               {silent ? (
@@ -165,7 +175,7 @@ export function AttachmentVideoControls({
             <AttachmentVideoScrubber
               className="h-3.5 w-0 opacity-0 transition-all duration-150 group-focus-within/volume:mr-2 group-focus-within/volume:ml-1 group-focus-within/volume:w-14 group-focus-within/volume:opacity-100 group-hover/volume:mr-2 group-hover/volume:ml-1 group-hover/volume:w-14 group-hover/volume:opacity-100"
               value={volume}
-              label={m.editor_video_volume()}
+              label={labels.volume}
               valueText={`${Math.round(volume * 100)}%`}
               onChange={actions.setVolume}
               onStep={(direction) =>
@@ -177,11 +187,7 @@ export function AttachmentVideoControls({
             variant="ghost"
             tone="strong"
             size="square-7"
-            aria-label={
-              fullscreen
-                ? m.editor_video_exit_fullscreen()
-                : m.editor_video_fullscreen()
-            }
+            aria-label={fullscreen ? labels.exitFullscreen : labels.fullscreen}
             onClick={actions.toggleFullscreen}
           >
             {fullscreen ? (
@@ -194,12 +200,12 @@ export function AttachmentVideoControls({
             variant="ghost"
             tone="strong"
             size="square-7"
-            aria-label={m.editor_attachment_download()}
+            aria-label={labels.download}
             render={
               <a
                 href={downloadHref}
                 download={filename}
-                aria-label={m.editor_attachment_download()}
+                aria-label={labels.download}
               />
             }
           >

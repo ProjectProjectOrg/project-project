@@ -65,6 +65,7 @@ import {
   EqualSignSquareIcon,
   FavouriteIcon,
   FileAddIcon,
+  FileBlockIcon,
   FileImportIcon,
   FileTextIcon,
   FilmIcon,
@@ -549,6 +550,7 @@ export const Download = icon(Download01Icon, "Download")
 export const ExternalLink = icon(LinkSquare02Icon, "ExternalLink")
 export const Eye = icon(ViewIcon, "Eye")
 export const EyeOff = icon(ViewOffSlashIcon, "EyeOff")
+export const FileOff = icon(FileBlockIcon, "FileOff")
 export const FilePlus2 = icon(FileAddIcon, "FilePlus2")
 export const FileText = icon(FileTextIcon, "FileText")
 export const Film = icon(FilmIcon, "Film")

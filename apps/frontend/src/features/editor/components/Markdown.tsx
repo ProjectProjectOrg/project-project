@@ -7,8 +7,10 @@ import {
   parseMentionHref,
   parseTicketBlocks
 } from "@pp/shared"
+import { AttachmentChip } from "@pp/ui/attachment-chip"
 import { Checkbox } from "@pp/ui/checkbox"
 import { cn } from "@pp/ui/lib/utils"
+import "@pp/ui/lib/prismLangs"
 import {
   Children,
   cloneElement,
@@ -18,11 +20,9 @@ import {
   useId,
   type ReactNode
 } from "react"
-import "@pp/ui/lib/prismLangs"
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown"
 import rehypePrismPlus from "rehype-prism-plus/common"
 
-import { AttachmentChip } from "@/features/attachments/components/AttachmentChip"
 import { BlockFrame } from "@/features/editor/components/BlockFrame"
 import {
   SourceRemovedNote,
@@ -45,6 +45,7 @@ import {
 } from "@/features/editor/lib/syncedContent"
 import { PreviewLink } from "@/features/link-previews/components/PreviewLink"
 import { previewableUrl } from "@/features/link-previews/lib/linkPreviewUrl"
+import { m } from "@/paraglide/messages"
 
 import { markdownPlugins } from "../lib/markdownParser"
 
@@ -98,6 +99,7 @@ const linkedAttachmentContent = (
           filename={alt ?? ""}
           kind="image"
           morphId={id}
+          downloadLabel={m.editor_attachment_download()}
         />
       )
     }
@@ -313,6 +315,7 @@ export function MarkdownSegment({
                 filename={label}
                 kind="file"
                 morphId={`${attachmentId}-${node?.position?.start.offset}`}
+                downloadLabel={m.editor_attachment_download()}
               />
             )
           }
@@ -360,6 +363,7 @@ export function MarkdownSegment({
                 filename={alt ?? ""}
                 kind="image"
                 morphId={`${attachmentId}-${node?.position?.start.offset}`}
+                downloadLabel={m.editor_attachment_download()}
               />
             )
           }

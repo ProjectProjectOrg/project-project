@@ -854,6 +854,30 @@
    hue, which is what made the old light badges look muddy. The buttons'
    sheen lies over the fill. Hover and press only apply when the badge is a
    link or a button. In a layer, so a caller's utilities still win. */
+/* An upload's arrow (AttachmentUploading): it rises out of the tray, rests,
+   then leaves through the top as the next one comes up, 1.6s a round on the
+   standard curve. The tray doesn't move. Still under reduced motion. */
+@keyframes pp-upload-arrow {
+  0% {
+    translate: 0 12px;
+    opacity: 1;
+  }
+  45%,
+  72% {
+    translate: 0 0;
+    opacity: 1;
+  }
+  100% {
+    translate: 0 -12px;
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-slot="upload-arrow"] {
+    animation: pp-upload-arrow 1.6s var(--ease-standard) infinite;
+  }
+}
+
 /* ColorPicker's Multicolour icon: its gradient is three registered colours,
    so adding or removing a pick eases each step to its new colour; switching
    on, it pops out of grey. Reduced motion keeps the colour change without

@@ -1,0 +1,88 @@
+export const meta = {
+  title: "Attachments",
+  group: "Primitives",
+  description:
+    "Files in a ticket or a comment: a chip inline in the text, a tile for a file, a player for a video, and the uploading, failed and unavailable states in between.",
+  sources: [
+    { kind: "own", name: "AttachmentChip", note: "a soft Badge, with a Popover image preview" },
+    { kind: "own", name: "AttachmentTile", note: "format drawings; PDFs through the app's pdf.js" },
+    { kind: "own", name: "AttachmentVideo", note: "a native <video> with our own controls" }
+  ]
+}
+
+## Overview
+
+Every part in every state. Hover the image chip for its preview; play the video for its controls (K plays or pauses, M mutes, F goes fullscreen).
+
+<Demo name="overview" title="All parts" />
+
+## Usage
+
+```tsx
+import { AttachmentChip } from "@pp/ui/attachment-chip"
+import { AttachmentFailed, AttachmentUnavailable, AttachmentUploading } from "@pp/ui/attachment-status"
+import { AttachmentTile } from "@pp/ui/attachment-tile"
+import { AttachmentVideo } from "@pp/ui/attachment-video"
+import {
+  attachmentFailedLabels,
+  attachmentTileLabels,
+  attachmentVideoLabels
+} from "@/features/attachments/lib/attachmentLabels"
+
+// Compact: in the text.
+<AttachmentChip url={url} alt={alt} filename={filename} kind={kind} morphId={morphId}
+  downloadLabel={m.editor_attachment_download()} />
+
+// Rich: a file's tile, or a video.
+<AttachmentTile url={url} alt={alt} filename={filename} morphId={morphId}
+  labels={attachmentTileLabels()} renderPdf={renderPdfPages} />
+<AttachmentVideo src={url} filename={filename} downloadHref={attachmentDownloadSrc(url)}
+  labels={attachmentVideoLabels()} onUnplayable={() => setUnplayable(true)} />
+```
+
+| Part | Props |
+| --- | --- |
+| `AttachmentChip` | `url`, `alt`, `filename`, `kind` (`"image"` \| `"file"`), `morphId`, `downloadLabel`; `variant="linked"` inside a link; `action` replaces the download; `onBroken` when an image fails to load |
+| `AttachmentTile` | `url`, `alt`, `filename`, `morphId`, `labels` (download and each format's name); `renderPdf` returns a PDF's first pages as images |
+| `AttachmentVideo` | `src`, `filename`, `downloadHref`, `labels` (every control's name), `onUnplayable` |
+| `AttachmentUploading` | `label`, `progress` (0–1), `filename` |
+| `AttachmentFailed` | `uploadId`, `filename`, `labels` (failed, retry, remove) |
+| `AttachmentUnavailable` | `label`; `variant="inline"` for a chip's place |
+
+## Rules
+
+### Two densities, one attachment
+
+An attachment is compact (a chip in the text) or rich (its own line: an image, a tile or a video), and the editor toggles between them. The chip and the tile share a `morphId`, so the filename and the download link glide from one to the other instead of popping.
+
+### One surface
+
+Every rich attachment and its placeholders sit on the same surface (`attachmentSurfaceClass`): an 18px squircle card lit like the avatars and project tiles (a hairline edge and a soft light along the top), with no border. Uploading, failed and gone take a tile's exact size on it, so a placeholder turning into its tile changes what's inside, not the shape, and the text around it doesn't move. The editor's selection ring, images and videos use the same 18px squircle.
+
+### Chips read as text
+
+A chip is a 20px soft Badge (with its sheen) on the text's line: the kind's icon (image, video or file), the filename (truncated) and a download. An image's name opens the image after hovering 450ms, so moving over a sentence doesn't flash previews. The name and the download are separate controls, never one inside the other.
+
+### Every action is a 24px target
+
+Chip and tile actions (download, a Figma file's open, the feedback form's remove) are 24px round targets around a 12px icon (`chipIconActionClass`), tinting on hover and pressing the icon to 85%. In a 20px chip they overhang by 2px top and bottom, so the chip keeps the text's line height.
+
+### Tiles draw the format, PDFs show their pages
+
+A file that isn't an image or a playable video is a tile: a 176px preview over a row with the filename and download. The preview is a well 4px in, its corners concentric with the tile's, tinted a step off the card, so white pages and the drawings sit in it. It holds the file's drawn page (below), or, for a PDF, its first three pages fanned out as paper (a hairline and a soft drop), rendered by the app's pdf.js (`renderPdf`; this package doesn't ship it), with a pulsing page while they load and the drawing if they fail.
+
+### Uploading, failed, gone
+
+They're built like a tile, so a placeholder turning into its tile only changes what's inside. Uploading draws the file's page with its extension; the page fills from the bottom as the file goes up while an arrow rises out of it (only the arrow moves; still under reduced motion), and the row shows the filename and the percentage. Failed puts a red alert on the page with a faint danger tint in the well and "Upload failed" in the text colour; the row offers Retry and Remove as 24px actions named on hover, both carrying `data-attachment-action` and `data-attachment-upload-id`, which the editor's attachments plugin listens for. Gone fades the page back with a "no" glyph and says why; inline, it's a chip with the same words.
+
+### Files are drawn as pages
+
+A file without a preview of its own is a page, drawn in SVG so its fold keeps the hairline edge and the soft drop: paper with a folded corner, the extension on a badge at its foot ("ZIP", "MOV", "KEY"), and a Hugeicons glyph for archives and video. The same page carries the upload and failure states.
+
+### Video plays in place
+
+A video shows a play button and its filename on a pill until it's played; then the pill opens into the control bar, floating 8px in from the frame's edges (one shared surface morphing between them). The bar hides after 2s without movement while playing and returns on movement or keyboard focus; the cursor hides with it. Speed cycles 1×, 1.25×, 1.5×, 2×, 0.5×. A video the browser can't play (no video track, an unsupported codec) calls `onUnplayable`, and the editor shows its tile instead.
+
+## Examples
+
+<Demo name="in-a-description" title="In a ticket description" />

@@ -151,7 +151,11 @@ export function AttachmentSelectable({
         data-attachment-selected={isSelected ? "true" : undefined}
         className={cn(
           "group/hitbox relative inline-block max-w-full align-middle transition-shadow duration-150 focus-within:z-20 hover:z-20",
-          compact ? "my-0.5 rounded-md" : "my-2 rounded-xl",
+          // The ring follows the attachment's own shape: a chip's
+          // half-height squircle, or the 18px surface of a tile, image or video.
+          compact
+            ? "my-0.5 rounded-[10px] [corner-shape:var(--button-corner)]"
+            : "my-2 rounded-[18px] corner-squircle",
           isSelected
             ? "z-20 ring-2 ring-ring ring-offset-2 ring-offset-background"
             : "z-0 ring-0 ring-transparent"

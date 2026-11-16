@@ -99,8 +99,8 @@ function FigmaChipContent({
   if (reference === null) {
     return (
       <Badge
-        variant="outline"
-        className="mx-0.5 max-w-full gap-1.5 align-baseline text-muted-foreground shadow-none outline-1 -outline-offset-1 outline-border outline-dashed"
+        size="xs"
+        className="mx-0.5 max-w-full gap-1 align-[-4px] text-caption text-muted-foreground"
       >
         <FigmaGlyph className="h-3 opacity-50" />
         {m.figma_chip_unavailable()}
@@ -143,6 +143,7 @@ function FigmaChipContent({
           data-figma-action="open"
           label={m.figma_embed_open_in_figma()}
           icon={ExternalLink}
+          className="-mr-1.5"
         />
       )}
     </>
@@ -151,8 +152,8 @@ function FigmaChipContent({
   if (!showThumbnail) {
     return (
       <Badge
-        variant="outline"
-        className="mx-0.5 max-w-full gap-1.5 align-baseline"
+        size="xs"
+        className="mx-0.5 max-w-full gap-1 align-[-4px] text-caption"
         title={metadata?.fileName ?? resolvedName}
       >
         {body}
@@ -167,8 +168,8 @@ function FigmaChipContent({
         delay={HOVER_DELAY_MS}
         render={
           <Badge
-            variant="outline"
-            className="mx-0.5 max-w-full gap-1.5 align-baseline"
+            size="xs"
+            className="mx-0.5 max-w-full gap-1 align-[-4px] text-caption"
             title={metadata?.fileName ?? resolvedName}
           />
         }
