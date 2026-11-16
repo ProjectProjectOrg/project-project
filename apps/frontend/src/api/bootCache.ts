@@ -1,6 +1,7 @@
 import * as Option from "effect/Option"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
+import type * as Registry from "effect/reactivity/AtomRegistry"
 import * as Schema from "effect/Schema"
 
 const STORAGE_KEY = "pp:boot"
@@ -27,7 +28,15 @@ const load = (): Map<string, unknown> =>
   )
 
 let saved = load()
-const latest = new Map<string, unknown>()
+const seen = new WeakMap<Registry.AtomRegistry, Map<string, unknown>>()
+
+const latestIn = (registry: Registry.AtomRegistry) => {
+  const existing = seen.get(registry)
+  if (existing !== undefined) return existing
+  const created = new Map<string, unknown>()
+  seen.set(registry, created)
+  return created
+}
 
 export const persisted =
   <A, I>(
@@ -42,6 +51,7 @@ export const persisted =
     const decode = Schema.decodeUnknownOption(success)
     return Atom.readable(
       (get) => {
+        const latest = latestIn(get.registry)
         const live = get(self)
         if (AsyncResult.isSuccess(live)) {
           Option.map(encode(trim(live.value)), (value) =>
@@ -63,9 +73,12 @@ export const persisted =
     )
   }
 
-export const saveBoot = () => {
+export const saveBoot = (registry: Registry.AtomRegistry) => {
   try {
-    storage()?.setItem(STORAGE_KEY, encodeSaved(Object.fromEntries(latest)))
+    storage()?.setItem(
+      STORAGE_KEY,
+      encodeSaved(Object.fromEntries(latestIn(registry)))
+    )
   } catch {
     storage()?.removeItem(STORAGE_KEY)
   }
@@ -73,6 +86,5 @@ export const saveBoot = () => {
 
 export const clearBoot = () => {
   saved = new Map()
-  latest.clear()
   storage()?.removeItem(STORAGE_KEY)
 }

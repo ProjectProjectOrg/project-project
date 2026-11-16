@@ -46,7 +46,9 @@ const sessions = createSessionCache((registry) => {
 
 authClient.$store.atoms.$sessionSignal.listen(sessions.refreshIdentity)
 window.addEventListener("focus", sessions.refreshIdentity)
-window.addEventListener("pagehide", saveBoot)
+window.addEventListener("pagehide", () =>
+  saveBoot(sessions.getSnapshot().registry)
+)
 
 function App() {
   const session = useSyncExternalStore(sessions.subscribe, sessions.getSnapshot)

@@ -49,7 +49,7 @@ it.effect(
       yield* Effect.yieldNow
       const live = registry.get(greeting)
       expect(AsyncResult.isSuccess(live) && live.value).toBe("live")
-      saveBoot()
+      saveBoot(registry)
       expect(store.get("pp:boot")).toBe('{"greeting":"live"}')
       unmount()
     })
@@ -69,7 +69,7 @@ it.effect(
       const registry = Registry.make()
       const unmount = registry.mount(greeting)
 
-      saveBoot()
+      saveBoot(registry)
       expect(store.get("pp:boot")).toBe('{"greeting":"saved"}')
       unmount()
     })
