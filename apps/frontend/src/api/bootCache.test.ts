@@ -54,3 +54,23 @@ it.effect(
       unmount()
     })
 )
+
+it.effect(
+  "keeps the saved value when the page leaves before the query answers",
+  () =>
+    Effect.gen(function* () {
+      const store = stubStorage({ "pp:boot": '{"greeting":"saved"}' })
+      const { persisted, saveBoot } = yield* Effect.promise(
+        () => import("./bootCache")
+      )
+      const greeting = Atom.make(Effect.never).pipe(
+        persisted("greeting", Schema.String)
+      )
+      const registry = Registry.make()
+      const unmount = registry.mount(greeting)
+
+      saveBoot()
+      expect(store.get("pp:boot")).toBe('{"greeting":"saved"}')
+      unmount()
+    })
+)
