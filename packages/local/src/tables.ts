@@ -1,3 +1,4 @@
+import type { TicketSort } from "@pp/shared"
 import {
   integer,
   primaryKey,
@@ -50,16 +51,7 @@ export const localTickets = sqliteTable(
   (t) => [primaryKey({ columns: [t.scope, t.id] })]
 )
 
-export type LocalSortKey =
-  | "manual"
-  | "id"
-  | "created"
-  | "updated"
-  | "title"
-  | "priority"
-  | "estimate"
-
-export const SORT_KEYS: ReadonlyArray<LocalSortKey> = [
+export const SORT_KEYS = [
   "manual",
   "id",
   "created",
@@ -67,7 +59,9 @@ export const SORT_KEYS: ReadonlyArray<LocalSortKey> = [
   "title",
   "priority",
   "estimate"
-]
+] as const satisfies ReadonlyArray<TicketSort["key"]>
+
+export type LocalSortKey = (typeof SORT_KEYS)[number]
 
 export const orderColumns = {
   manual: localTickets.orderManual,

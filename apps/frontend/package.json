@@ -37,6 +37,7 @@
     "@lexical/utils": "^0.44.0",
     "@number-flow/react": "^0.6.0",
     "@pp/access": "workspace:*",
+    "@pp/local": "workspace:*",
     "@pp/shared": "workspace:*",
     "@tanstack/react-form": "2.0.0-alpha.2",
     "@tanstack/react-hotkeys": "0.25.1",
@@ -47,7 +48,6 @@
     "better-auth": "1.7.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "drizzle-orm": "1.0.0-rc.5",
     "effect": "4.0.5",
     "embla-carousel-react": "^8.6.0",
     "fractional-indexing": "^3.2.0",
@@ -73,7 +73,6 @@
   "devDependencies": {
     "@effect/vitest": "4.0.5",
     "@tailwindcss/vite": "^4.2.4",
-    "@tanstack/db": "1.0.0-rc.1.5",
     "@tanstack/router-plugin": "1.167.35",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",

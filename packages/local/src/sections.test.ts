@@ -1,5 +1,4 @@
 import * as SqliteClient from "@effect/sql-sqlite-wasm/SqliteClient"
-import * as SqliteMigrator from "@effect/sql-sqlite-wasm/SqliteMigrator"
 import { it } from "@effect/vitest"
 import {
   type EstimationMode,
@@ -17,18 +16,15 @@ import * as Layer from "effect/Layer"
 import * as Schema from "effect/Schema"
 import { expect } from "vitest"
 
-import { localOrderKey } from "@/features/tickets/lib/ticketRows"
+import { localDbLayer } from "./LocalDb"
+import { localOrderKey } from "./orderKey"
+import { localSections } from "./sections"
+import { applySync } from "./store"
+import { finishedStatuses } from "./ticketRows"
 
-import { localDbLayer } from "./localDatabase"
-import { localMigrations } from "./localSchema"
-import { localSections } from "./localSections"
-import { applySync } from "./localStore"
-import { finishedStatuses } from "./localTicketRows"
-
-const TestDatabase = Layer.mergeAll(
-  SqliteMigrator.layer({ loader: localMigrations }),
-  localDbLayer
-).pipe(Layer.provideMerge(SqliteClient.layerMemory({})))
+const TestDatabase = localDbLayer.pipe(
+  Layer.provideMerge(SqliteClient.layerMemory({}))
+)
 
 const random = (seed: number) => {
   let state = seed >>> 0

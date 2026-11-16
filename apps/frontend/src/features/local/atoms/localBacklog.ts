@@ -1,3 +1,9 @@
+import {
+  LOCAL_SECTION_TABLES,
+  localCounts as countLocally,
+  localSections,
+  sectionDifferences
+} from "@pp/local"
 import { TICKET_LIST_LIMIT } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -19,13 +25,7 @@ import type { CountsRequest } from "@/features/tickets/atoms/ticketCounts"
 import { createdKeys } from "@/features/tickets/atoms/ticketRows"
 import { toRow, withCreatedKeys } from "@/features/tickets/lib/ticketRows"
 
-import {
-  LOCAL_SECTION_TABLES,
-  localCounts as countLocally,
-  localSections
-} from "../lib/localSections"
 import { localShadowChecks } from "../lib/localShadow"
-import { sectionDifferences } from "../lib/sectionDifferences"
 import { localReady, localRuntime } from "./localProject"
 
 const compareWithServer = (

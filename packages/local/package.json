@@ -1,0 +1,25 @@
+{
+  "name": "@pp/local",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun run --bun vitest run",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint . --fix"
+  },
+  "dependencies": {
+    "@effect/sql-sqlite-wasm": "4.0.5",
+    "@pp/shared": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.5",
+    "effect": "4.0.5"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.5",
+    "vitest": "5.0.5"
+  }
+}

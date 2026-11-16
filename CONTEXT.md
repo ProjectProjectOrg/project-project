@@ -141,6 +141,10 @@ A ticket type or block that exists in every org without a file. It can be overri
 **Tool catalog**:
 The one set of typed tools in `packages/shared/src/tools`, served over MCP and to the CLI.
 
+**Local copy**:
+The browser's SQLite copy of a project's facts, kept current by sync. Project views read from it; the engine lives in `packages/local` (`@pp/local`).
+_Avoid_: Cache, replica, offline store
+
 **pp**:
 The CLI. Always lowercase in prose and code.
 _Avoid_: PP CLI (except on the OAuth consent screen)

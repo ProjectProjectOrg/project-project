@@ -1,3 +1,11 @@
+import {
+  applySync,
+  cursorOf,
+  differences,
+  purge,
+  readFacts,
+  snapshotFacts
+} from "@pp/local"
 import * as Data from "effect/Data"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -12,14 +20,6 @@ import { currentUserId } from "@/features/auth/atoms/auth"
 
 import { localDatabaseLayer } from "../lib/localDatabase"
 import { localShadowChecks } from "../lib/localShadow"
-import {
-  applySync,
-  cursorOf,
-  differences,
-  purge,
-  readFacts,
-  snapshotFacts
-} from "../lib/localStore"
 
 export type LocalSyncState = "live" | "behind" | "offline" | "erroring"
 

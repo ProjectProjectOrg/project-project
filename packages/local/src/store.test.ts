@@ -1,5 +1,4 @@
 import * as SqliteClient from "@effect/sql-sqlite-wasm/SqliteClient"
-import * as SqliteMigrator from "@effect/sql-sqlite-wasm/SqliteMigrator"
 import { it } from "@effect/vitest"
 import type { ProjectSync, TicketFact } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
@@ -7,8 +6,7 @@ import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import { expect } from "vitest"
 
-import { localDbLayer } from "./localDatabase"
-import { localMigrations } from "./localSchema"
+import { localDbLayer } from "./LocalDb"
 import {
   applySync,
   cursorOf,
@@ -16,12 +14,11 @@ import {
   purge,
   readFacts,
   snapshotFacts
-} from "./localStore"
+} from "./store"
 
-const TestDatabase = Layer.mergeAll(
-  SqliteMigrator.layer({ loader: localMigrations }),
-  localDbLayer
-).pipe(Layer.provideMerge(SqliteClient.layerMemory({})))
+const TestDatabase = localDbLayer.pipe(
+  Layer.provideMerge(SqliteClient.layerMemory({}))
+)
 
 const at = DateTime.toDateUtc(DateTime.makeUnsafe("2026-11-16T10:00:00Z"))
 

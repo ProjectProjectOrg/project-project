@@ -1,7 +1,6 @@
+import { localOrderKey } from "@pp/local"
 import {
   EPIC_TYPE,
-  estimateRank,
-  padNumericIdSort,
   TicketId,
   TicketRank,
   type EstimationMode,
@@ -20,7 +19,6 @@ import {
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { compareCodePoints } from "@/lib/orderKey"
 
-import { PRIORITY_META } from "./priorityMeta"
 import { applyTicketPatch } from "./ticketPatch"
 
 export type TicketRow = Readonly<{
@@ -123,49 +121,6 @@ export const patchesSortedField = (
   if (key === "priority") return patch.priority !== undefined
   if (key === "estimate") return patch.estimate !== undefined
   return false
-}
-
-export type Orderable = Readonly<{
-  id: string
-  rank: string
-  createdAt: Date
-  updatedAt: Date
-  title: string
-  priority: Ticket["priority"]
-  estimate: Ticket["estimate"]
-}>
-
-export const localOrderKey = (ticket: Orderable, sort: TicketSort): string => {
-  let value: string
-  switch (sort.key) {
-    case "manual":
-      value = ticket.rank
-      break
-    case "id":
-      value = padNumericIdSort(ticket.id) ?? ticket.id
-      break
-    case "created":
-      value = ticket.createdAt.toISOString()
-      break
-    case "updated":
-      value = ticket.updatedAt.toISOString()
-      break
-    case "title":
-      value = ticket.title.toLowerCase()
-      break
-    case "priority":
-      value = String(PRIORITY_META[ticket.priority].ordinal + 1).padStart(
-        2,
-        "0"
-      )
-      break
-    case "estimate":
-      value = String(
-        ticket.estimate === null ? 0 : estimateRank(ticket.estimate)
-      ).padStart(6, "0")
-      break
-  }
-  return `${value}\u0000${ticket.id}`
 }
 
 export const placeholderId = (

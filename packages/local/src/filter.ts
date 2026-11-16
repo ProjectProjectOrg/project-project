@@ -20,13 +20,13 @@ import {
 } from "drizzle-orm"
 import { alias, type AnySQLiteColumn } from "drizzle-orm/sqlite-core"
 
-import type { LocalDb } from "./localDatabase"
+import type { LocalDb } from "./LocalDb"
 import {
   localRelations,
   localTicketAssignees,
   localTickets,
   localTicketTags
-} from "./localTables"
+} from "./tables"
 
 const t = localTickets
 export const never = sql`0`

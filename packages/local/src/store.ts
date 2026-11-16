@@ -14,10 +14,8 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "effect/sql/SqlClient"
 
-import { localOrderKey } from "@/features/tickets/lib/ticketRows"
-
-import { LocalDb } from "./localDatabase"
-import { storedOrderKey } from "./localSchema"
+import { LocalDb } from "./LocalDb"
+import { localOrderKey, storedOrderKey } from "./orderKey"
 import {
   localGroupMembers,
   localGroups,
@@ -31,7 +29,7 @@ import {
   localTickets,
   localTicketTags,
   type LocalSortKey
-} from "./localTables"
+} from "./tables"
 
 const CHUNK = 500
 

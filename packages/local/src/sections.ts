@@ -20,21 +20,21 @@ import {
 import { alias, union } from "drizzle-orm/sqlite-core"
 import * as Effect from "effect/Effect"
 
-import { LocalDb } from "./localDatabase"
-import { compileFilter, open } from "./localFilter"
-import { readOrderKey } from "./localSchema"
+import { compileFilter, open } from "./filter"
+import { LocalDb } from "./LocalDb"
+import { readOrderKey } from "./orderKey"
 import {
   localRelations,
   localStatuses,
   localTickets,
   orderColumns
-} from "./localTables"
+} from "./tables"
 import {
   decodeStatus,
   finishedStatuses,
   type SectionRow,
   toTicket
-} from "./localTicketRows"
+} from "./ticketRows"
 
 export const LOCAL_SECTION_TABLES = [
   "local_tickets",
@@ -54,10 +54,10 @@ export type LocalSectionsRequest = Readonly<{
   perStatus: (status: string) => number
 }>
 
-const sectionPage = (
+export const sectionPage = (
   db: LocalDb["Service"],
   scope: string,
-  status: string,
+  restriction: SQL | undefined,
   filter: SQL | undefined,
   query: TicketListQuery,
   finished: ReadonlyArray<string>,
@@ -68,7 +68,7 @@ const sectionPage = (
   const page = db
     .select()
     .from(t)
-    .where(and(eq(t.scope, scope), eq(t.status, status), filter))
+    .where(and(eq(t.scope, scope), restriction, filter))
     .orderBy(direction(column))
     .limit(limit)
     .as("page")
@@ -201,7 +201,7 @@ export type LocalCountsRequest = Readonly<{
   estimation: EstimationMode
 }>
 
-const filtered = (request: LocalCountsRequest) =>
+export const filtered = (request: LocalCountsRequest) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
     const statuses = (yield* db
@@ -250,7 +250,7 @@ export const localSections = (request: LocalSectionsRequest) =>
       const rows: ReadonlyArray<SectionRow> = yield* sectionPage(
         db,
         request.scope,
-        status,
+        eq(t.status, status),
         filter,
         request.query,
         finished,

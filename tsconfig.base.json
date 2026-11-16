@@ -39,6 +39,7 @@
           "@effect/atom-react",
           "@effect/platform-bun",
           "@effect/sql-pg",
+          "@effect/sql-sqlite-wasm",
           "@effect/vitest"
         ],
         "diagnosticSeverity": {

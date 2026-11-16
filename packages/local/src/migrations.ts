@@ -2,6 +2,8 @@ import * as Effect from "effect/Effect"
 import * as Migrator from "effect/sql/Migrator"
 import * as SqlClient from "effect/sql/SqlClient"
 
+import { type LocalSortKey, SORT_KEYS } from "./tables"
+
 export const FACT_TABLES = [
   "local_tickets",
   "local_groups",
@@ -25,28 +27,7 @@ const createFacts = Effect.gen(function* () {
   yield* sql`create table local_sync (scope text primary key, cursor text not null)`
 })
 
-export const SORT_KEYS = [
-  "manual",
-  "id",
-  "created",
-  "updated",
-  "title",
-  "priority",
-  "estimate"
-] as const
-
-export type LocalSortKey = (typeof SORT_KEYS)[number]
-
-export const orderColumn = (key: LocalSortKey) => `order_${key}`
-
-const ORDER_SEPARATOR = "\u0000"
-const STORED_SEPARATOR = "\u0001"
-
-export const storedOrderKey = (key: string) =>
-  key.replace(ORDER_SEPARATOR, STORED_SEPARATOR)
-
-export const readOrderKey = (stored: string) =>
-  stored.replace(STORED_SEPARATOR, ORDER_SEPARATOR)
+const orderColumn = (key: LocalSortKey) => `order_${key}`
 
 const ticketColumns = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient

@@ -18,6 +18,7 @@ COPY packages/integration-everhour/package.json ./packages/integration-everhour/
 COPY packages/integration-github/package.json ./packages/integration-github/
 COPY packages/integration-jira/package.json ./packages/integration-jira/
 COPY packages/integration-slack/package.json ./packages/integration-slack/
+COPY packages/local/package.json ./packages/local/
 COPY packages/server-core/package.json ./packages/server-core/
 COPY packages/shared/package.json ./packages/shared/
 COPY apps/backend/package.json ./apps/backend/
@@ -25,6 +26,7 @@ COPY apps/frontend/package.json ./apps/frontend/
 RUN bun install --frozen-lockfile
 
 COPY packages/access ./packages/access
+COPY packages/local ./packages/local
 COPY packages/shared ./packages/shared
 COPY apps/frontend ./apps/frontend
 
