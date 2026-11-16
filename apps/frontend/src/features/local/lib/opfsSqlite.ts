@@ -1,7 +1,7 @@
 import * as SqliteClient from "@effect/sql-sqlite-wasm/SqliteClient"
 import * as WaSqlite from "@effect/wa-sqlite"
 import SQLiteESMFactory from "@effect/wa-sqlite/dist/wa-sqlite.mjs"
-import { AccessHandlePoolVFS } from "@effect/wa-sqlite/src/examples/AccessHandlePoolVFS.js"
+import { OPFSCoopSyncVFS } from "@effect/wa-sqlite/src/examples/OPFSCoopSyncVFS.js"
 import * as Effect from "effect/Effect"
 import * as Predicate from "effect/Predicate"
 import * as Semaphore from "effect/Semaphore"
@@ -43,18 +43,40 @@ const toObject = ({
   values: ReadonlyArray<SQLiteCompatibleType>
 }>): Row => Object.fromEntries(columns.map((c, i) => [c, values[i] ?? null]))
 
-export const openOpfs = (dbName: string) =>
+type WasmModule = Readonly<{ retryOps: Array<Promise<unknown>> }>
+
+const settleRetries = async (module: WasmModule) => {
+  if (module.retryOps.length === 0) return false
+  await Promise.all(module.retryOps.splice(0))
+  return true
+}
+
+const withRetries = async <A>(
+  module: WasmModule,
+  attempt: () => A
+): Promise<A> => {
+  for (;;) {
+    try {
+      return attempt()
+    } catch (error) {
+      if (!(await settleRetries(module))) throw error
+    }
+  }
+}
+
+export const openOpfs = (path: string) =>
   Effect.gen(function* () {
-    const module = yield* Effect.promise(() => SQLiteESMFactory())
+    const module: WasmModule = yield* Effect.promise(() => SQLiteESMFactory())
     const sqlite3 = WaSqlite.Factory(module)
     const vfs = yield* Effect.acquireRelease(
-      Effect.promise(() => AccessHandlePoolVFS.create("opfs", module)),
-      (pool) => Effect.promise(() => Promise.resolve(pool.close()))
+      Effect.promise(() => OPFSCoopSyncVFS.create("coop", module)),
+      (coop) => Effect.promise(() => Promise.resolve(coop.close()))
     )
     sqlite3.vfs_register(vfs, false)
     const db = yield* Effect.acquireRelease(
-      Effect.try({
-        try: () => sqlite3.open_v2(dbName, undefined, "opfs"),
+      Effect.tryPromise({
+        try: () =>
+          withRetries(module, () => sqlite3.open_v2(path, undefined, "coop")),
         catch: failure("openDatabase")
       }),
       (handle) => Effect.sync(() => sqlite3.close(handle))
@@ -71,13 +93,17 @@ export const openOpfs = (dbName: string) =>
       }
     }
     const run = (sql: string, params: ReadonlyArray<unknown> = []) =>
-      Effect.try({
-        try: () => Array.from(rows(sql, params), toObject),
+      Effect.tryPromise({
+        try: () =>
+          withRetries(module, () => Array.from(rows(sql, params), toObject)),
         catch: failure("execute")
       })
     const runValues = (sql: string, params: ReadonlyArray<unknown> = []) =>
-      Effect.try({
-        try: () => Array.from(rows(sql, params), (row) => row.values),
+      Effect.tryPromise({
+        try: () =>
+          withRetries(module, () =>
+            Array.from(rows(sql, params), (row) => row.values)
+          ),
         catch: failure("execute")
       })
 

@@ -4,28 +4,18 @@ import * as Effect from "effect/Effect"
 
 import { openOpfs } from "./opfsSqlite"
 
-const PERSISTED_LOCK = "pp-local"
-const LOCK_WAIT_MS = 3000
+const LEGACY_POOL = "opfs"
 
 const opfsAvailable = () =>
   "locks" in navigator &&
   "storage" in navigator &&
   "getDirectory" in navigator.storage
 
-const claimPersistence = Effect.acquireRelease(
-  Effect.callback<(() => void) | null>((resume) => {
-    navigator.locks
-      .request(
-        PERSISTED_LOCK,
-        { signal: AbortSignal.timeout(LOCK_WAIT_MS) },
-        () =>
-          new Promise<void>((release) => {
-            resume(Effect.succeed(() => release()))
-          })
-      )
-      .catch(() => resume(Effect.succeed(null)))
-  }),
-  (release) => Effect.sync(() => release?.())
+const removeLegacyPool = Effect.promise(() =>
+  navigator.storage
+    .getDirectory()
+    .then((root) => root.removeEntry(LEGACY_POOL, { recursive: true }))
+    .catch(() => undefined)
 )
 
 const inMemory = (reason: string) =>
@@ -37,16 +27,15 @@ const tuned = (sql: SqliteClient.SqliteClient) =>
   Effect.all([
     sql`pragma page_size = 65536`,
     sql`pragma cache_size = -131072`,
-    sql`pragma journal_mode = truncate`,
+    sql`pragma journal_mode = delete`,
     sql`pragma temp_store = memory`
   ])
 
 const open = (userId: string) =>
   Effect.gen(function* () {
     if (!opfsAvailable()) return yield* inMemory("no OPFS in this browser")
-    const release = yield* claimPersistence
-    if (release === null) return yield* inMemory("another tab holds the file")
-    return yield* openOpfs(`pp-${userId}.sqlite`).pipe(
+    yield* removeLegacyPool
+    return yield* openOpfs(`/local/pp-${userId}.sqlite`).pipe(
       Effect.tap(tuned),
       Effect.tap(() => Effect.logInfo("local copy persisted in OPFS")),
       Effect.catchCause((cause) =>
