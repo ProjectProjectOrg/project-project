@@ -73,7 +73,7 @@ export const compileFilter = (
       .from(localTicketAssignees)
       .where(
         and(
-          eq(localTicketAssignees.scope, t.scope),
+          eq(localTicketAssignees.copy, t.copy),
           eq(localTicketAssignees.ticket, t.id),
           users.length === 0
             ? undefined
@@ -87,13 +87,13 @@ export const compileFilter = (
     .innerJoin(
       blocker,
       and(
-        eq(blocker.scope, localRelations.scope),
+        eq(blocker.copy, localRelations.copy),
         eq(blocker.id, localRelations.toId)
       )
     )
     .where(
       and(
-        eq(localRelations.scope, t.scope),
+        eq(localRelations.copy, t.copy),
         eq(localRelations.fromId, t.id),
         eq(localRelations.kind, "blocked_by"),
         open(blocker, context.finished)
@@ -140,7 +140,7 @@ export const compileFilter = (
               .from(localTicketTags)
               .where(
                 and(
-                  eq(localTicketTags.scope, t.scope),
+                  eq(localTicketTags.copy, t.copy),
                   eq(localTicketTags.ticket, t.id),
                   inArray(localTicketTags.tag, [...query.tags])
                 )

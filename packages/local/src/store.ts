@@ -17,6 +17,7 @@ import * as SqlClient from "effect/sql/SqlClient"
 import { LocalDb } from "./LocalDb"
 import { localOrderKey, storedOrderKey } from "./orderKey"
 import {
+  localCopies,
   localGroupMembers,
   localGroups,
   localMembers,
@@ -26,6 +27,7 @@ import {
   localSync,
   localTags,
   localTicketAssignees,
+  localTicketData,
   localTickets,
   localTicketTags,
   type LocalSortKey
@@ -62,20 +64,29 @@ const JSON_KINDS: ReadonlyArray<JsonKind> = [
 ]
 const KINDS: ReadonlyArray<FactKind> = ["tickets", ...JSON_KINDS]
 
+const COPY_TABLES = [
+  localTickets,
+  localTicketData,
+  ...Object.values(JSON_TABLES),
+  localTicketAssignees,
+  localTicketTags,
+  localRelations,
+  localGroupMembers,
+  localProjects
+]
+
 type FactRow = Readonly<{ id: string; data: string }>
 
 type Facts = Readonly<Record<FactKind, ReadonlyArray<FactRow>>>
 
-type FactSet = Readonly<{
-  tickets: ReadonlyArray<TicketFact>
+type JsonFacts = Readonly<{
   groups: ReadonlyArray<GroupFact>
   statuses: ReadonlyArray<StatusFact>
   tags: ReadonlyArray<TagFact>
   members: ReadonlyArray<MemberFact>
 }>
 
-const rowsOf = (facts: FactSet): Facts => ({
-  tickets: facts.tickets.map((f) => ({ id: f.id, data: ticketJson(f) })),
+const jsonRowsOf = (facts: JsonFacts): Record<JsonKind, Array<FactRow>> => ({
   groups: facts.groups.map((f) => ({ id: f.id, data: groupJson(f) })),
   statuses: facts.statuses.map((f) => ({ id: f.slug, data: statusJson(f) })),
   tags: facts.tags.map((f) => ({ id: f.name, data: tagJson(f) })),
@@ -93,31 +104,39 @@ export const snapshotFacts = (
 ): LocalFacts => ({
   cursor: snapshot.cursor,
   project: projectJson(snapshot.project),
-  facts: rowsOf(snapshot)
+  facts: {
+    tickets: snapshot.tickets.map((f) => ({ id: f.id, data: ticketJson(f) })),
+    ...jsonRowsOf(snapshot)
+  }
 })
 
 export type Applied = "applied" | "stale"
 
-export const cursorOf = (scope: string) =>
+const syncRow = (scope: string) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
     const [row] = yield* db
-      .select({ cursor: localSync.cursor })
+      .select({ copy: localSync.copy, cursor: localSync.cursor })
       .from(localSync)
       .where(eq(localSync.scope, scope))
-    return row?.cursor ?? null
+    return row ?? null
   })
+
+export const cursorOf = (scope: string) =>
+  Effect.map(syncRow(scope), (row) => row?.cursor ?? null)
+
+export const copyOf = (scope: string) =>
+  Effect.map(syncRow(scope), (row) => row?.copy ?? null)
 
 const orderKey = (fact: TicketFact, key: LocalSortKey) =>
   storedOrderKey(localOrderKey(fact, { key, dir: "asc" }))
 
 const ticketRow = (
-  scope: string,
+  copy: number,
   fact: TicketFact
 ): typeof localTickets.$inferInsert => ({
-  scope,
+  copy,
   id: fact.id,
-  data: ticketJson(fact),
   title: fact.title,
   status: fact.status,
   type: fact.type,
@@ -138,11 +157,14 @@ const ticketRow = (
   orderEstimate: orderKey(fact, "estimate")
 })
 
-const excludedTicket = Object.fromEntries(
-  Object.entries(getTableColumns(localTickets))
-    .filter(([key]) => key !== "scope" && key !== "id")
-    .map(([key, column]) => [key, sql.raw(`excluded.${column.name}`)])
-)
+const excluded = (columns: Readonly<Record<string, { name: string }>>) =>
+  Object.fromEntries(
+    Object.entries(columns)
+      .filter(([key]) => key !== "copy" && key !== "id")
+      .map(([key, column]) => [key, sql.raw(`excluded.${column.name}`)])
+  )
+
+const excludedTicket = excluded(getTableColumns(localTickets))
 
 const chunked = <A, E, R>(
   rows: ReadonlyArray<A>,
@@ -153,7 +175,7 @@ const chunked = <A, E, R>(
   })
 
 const writeTickets = (
-  scope: string,
+  copy: number,
   facts: ReadonlyArray<TicketFact>,
   fresh: boolean
 ) =>
@@ -161,37 +183,48 @@ const writeTickets = (
     const db = yield* LocalDb
     if (!fresh)
       yield* removeTicketEdges(
-        scope,
+        copy,
         facts.map((fact) => fact.id)
       )
     yield* chunked(
-      facts.map((fact) => ticketRow(scope, fact)),
+      facts.map((fact) => ticketRow(copy, fact)),
       (rows) =>
         db
           .insert(localTickets)
           .values(rows)
           .onConflictDoUpdate({
-            target: [localTickets.scope, localTickets.id],
+            target: [localTickets.copy, localTickets.id],
             set: excludedTicket
           })
     )
     yield* chunked(
+      facts.map((fact) => ({ copy, id: fact.id, data: ticketJson(fact) })),
+      (rows) =>
+        db
+          .insert(localTicketData)
+          .values(rows)
+          .onConflictDoUpdate({
+            target: [localTicketData.copy, localTicketData.id],
+            set: { data: sql.raw("excluded.data") }
+          })
+    )
+    yield* chunked(
       facts.flatMap((fact) =>
-        fact.assignees.map((userId) => ({ scope, ticket: fact.id, userId }))
+        fact.assignees.map((userId) => ({ copy, ticket: fact.id, userId }))
       ),
       (rows) =>
         db.insert(localTicketAssignees).values(rows).onConflictDoNothing()
     )
     yield* chunked(
       facts.flatMap((fact) =>
-        fact.tags.map((tag) => ({ scope, ticket: fact.id, tag }))
+        fact.tags.map((tag) => ({ copy, ticket: fact.id, tag }))
       ),
       (rows) => db.insert(localTicketTags).values(rows).onConflictDoNothing()
     )
     yield* chunked(
       facts.flatMap((fact) =>
         fact.relations.map((relation) => ({
-          scope,
+          copy,
           fromId: fact.id,
           toId: relation.to,
           kind: relation.kind
@@ -201,7 +234,7 @@ const writeTickets = (
     )
   })
 
-const removeTicketEdges = (scope: string, ids: ReadonlyArray<string>) =>
+const removeTicketEdges = (copy: number, ids: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
     yield* chunked(ids, (chunk) =>
@@ -210,7 +243,7 @@ const removeTicketEdges = (scope: string, ids: ReadonlyArray<string>) =>
           .delete(localTicketAssignees)
           .where(
             and(
-              eq(localTicketAssignees.scope, scope),
+              eq(localTicketAssignees.copy, copy),
               inArray(localTicketAssignees.ticket, chunk)
             )
           ),
@@ -218,7 +251,7 @@ const removeTicketEdges = (scope: string, ids: ReadonlyArray<string>) =>
           .delete(localTicketTags)
           .where(
             and(
-              eq(localTicketTags.scope, scope),
+              eq(localTicketTags.copy, copy),
               inArray(localTicketTags.ticket, chunk)
             )
           ),
@@ -226,7 +259,7 @@ const removeTicketEdges = (scope: string, ids: ReadonlyArray<string>) =>
           .delete(localRelations)
           .where(
             and(
-              eq(localRelations.scope, scope),
+              eq(localRelations.copy, copy),
               inArray(localRelations.fromId, chunk)
             )
           )
@@ -235,7 +268,7 @@ const removeTicketEdges = (scope: string, ids: ReadonlyArray<string>) =>
   })
 
 const writeGroupMembers = (
-  scope: string,
+  copy: number,
   groups: ReadonlyArray<GroupFact>,
   fresh: boolean
 ) =>
@@ -243,13 +276,13 @@ const writeGroupMembers = (
     const db = yield* LocalDb
     if (!fresh)
       yield* removeGroupMembers(
-        scope,
+        copy,
         groups.map((group) => group.id)
       )
     yield* chunked(
       groups.flatMap((group) =>
         group.tickets.map((ticket, position) => ({
-          scope,
+          copy,
           groupId: group.id,
           ticket,
           position
@@ -259,7 +292,7 @@ const writeGroupMembers = (
     )
   })
 
-const removeGroupMembers = (scope: string, ids: ReadonlyArray<string>) =>
+const removeGroupMembers = (copy: number, ids: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
     yield* chunked(ids, (chunk) =>
@@ -267,7 +300,7 @@ const removeGroupMembers = (scope: string, ids: ReadonlyArray<string>) =>
         .delete(localGroupMembers)
         .where(
           and(
-            eq(localGroupMembers.scope, scope),
+            eq(localGroupMembers.copy, copy),
             inArray(localGroupMembers.groupId, chunk)
           )
         )
@@ -275,7 +308,7 @@ const removeGroupMembers = (scope: string, ids: ReadonlyArray<string>) =>
   })
 
 const writeJson = (
-  scope: string,
+  copy: number,
   kind: JsonKind,
   rows: ReadonlyArray<FactRow>
 ) =>
@@ -283,66 +316,71 @@ const writeJson = (
     const db = yield* LocalDb
     const table = JSON_TABLES[kind]
     yield* chunked(
-      rows.map((row) => ({ scope, id: row.id, data: row.data })),
+      rows.map((row) => ({ copy, id: row.id, data: row.data })),
       (chunk) =>
         db
           .insert(table)
           .values(chunk)
           .onConflictDoUpdate({
-            target: [table.scope, table.id],
+            target: [table.copy, table.id],
             set: { data: sql.raw("excluded.data") }
           })
     )
   })
 
 const removeFacts = (
-  scope: string,
+  copy: number,
   kind: FactKind,
   ids: ReadonlyArray<string>
 ) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
-    const table = kind === "tickets" ? localTickets : JSON_TABLES[kind]
-    yield* chunked(ids, (chunk) =>
-      db
-        .delete(table)
-        .where(and(eq(table.scope, scope), inArray(table.id, chunk)))
-    )
-    if (kind === "tickets") yield* removeTicketEdges(scope, ids)
-    if (kind === "groups") yield* removeGroupMembers(scope, ids)
+    const tables =
+      kind === "tickets" ? [localTickets, localTicketData] : [JSON_TABLES[kind]]
+    for (const table of tables)
+      yield* chunked(ids, (chunk) =>
+        db
+          .delete(table)
+          .where(and(eq(table.copy, copy), inArray(table.id, chunk)))
+      )
+    if (kind === "tickets") yield* removeTicketEdges(copy, ids)
+    if (kind === "groups") yield* removeGroupMembers(copy, ids)
   })
 
-const clear = (scope: string) =>
+const newCopy = (scope: string) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
-    for (const table of [
-      localTickets,
-      ...Object.values(JSON_TABLES),
-      localTicketAssignees,
-      localTicketTags,
-      localRelations,
-      localGroupMembers
-    ])
-      yield* db.delete(table).where(eq(table.scope, scope))
-    yield* db.delete(localProjects).where(eq(localProjects.scope, scope))
+    const [row] = yield* db
+      .insert(localCopies)
+      .values({ scope })
+      .returning({ id: localCopies.id })
+    return row?.id ?? (yield* Effect.die(new Error("no copy id returned")))
   })
 
-const setProject = (scope: string, data: string) =>
+const dropCopy = (copy: number) =>
+  Effect.gen(function* () {
+    const db = yield* LocalDb
+    for (const table of COPY_TABLES)
+      yield* db.delete(table).where(eq(table.copy, copy))
+    yield* db.delete(localCopies).where(eq(localCopies.id, copy))
+  })
+
+const setProject = (copy: number, data: string) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
     yield* db
       .insert(localProjects)
-      .values({ scope, data })
-      .onConflictDoUpdate({ target: localProjects.scope, set: { data } })
+      .values({ copy, data })
+      .onConflictDoUpdate({ target: localProjects.copy, set: { data } })
   })
 
-const setCursor = (scope: string, cursor: SyncCursor) =>
+const publish = (scope: string, copy: number, cursor: SyncCursor) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
     yield* db
       .insert(localSync)
-      .values({ scope, cursor })
-      .onConflictDoUpdate({ target: localSync.scope, set: { cursor } })
+      .values({ scope, copy, cursor })
+      .onConflictDoUpdate({ target: localSync.scope, set: { copy, cursor } })
   })
 
 export const applySync = (
@@ -354,27 +392,31 @@ export const applySync = (
     const sqlClient = yield* SqlClient.SqlClient
     return yield* sqlClient.withTransaction(
       Effect.gen(function* () {
-        if ((yield* cursorOf(scope)) !== base) return "stale" satisfies Applied
+        const current = yield* syncRow(scope)
+        if ((current?.cursor ?? null) !== base) return "stale" satisfies Applied
         if (sync.kind === "snapshot") {
-          const { project, facts } = snapshotFacts(sync)
-          yield* clear(scope)
-          if (project !== null) yield* setProject(scope, project)
-          yield* writeTickets(scope, sync.tickets, true)
-          yield* writeGroupMembers(scope, sync.groups, true)
+          const copy = yield* newCopy(scope)
+          const json = jsonRowsOf(sync)
+          yield* setProject(copy, projectJson(sync.project))
+          yield* writeTickets(copy, sync.tickets, true)
+          yield* writeGroupMembers(copy, sync.groups, true)
           for (const kind of JSON_KINDS)
-            yield* writeJson(scope, kind, facts[kind])
-        } else {
-          const upserts = rowsOf(sync.upserts)
-          if (sync.project !== null)
-            yield* setProject(scope, projectJson(sync.project))
-          for (const kind of KINDS)
-            yield* removeFacts(scope, kind, sync.deletes[kind])
-          yield* writeTickets(scope, sync.upserts.tickets, false)
-          yield* writeGroupMembers(scope, sync.upserts.groups, false)
-          for (const kind of JSON_KINDS)
-            yield* writeJson(scope, kind, upserts[kind])
+            yield* writeJson(copy, kind, json[kind])
+          yield* publish(scope, copy, sync.cursor)
+          if (current !== null) yield* dropCopy(current.copy)
+          return "applied" satisfies Applied
         }
-        yield* setCursor(scope, sync.cursor)
+        if (current === null) return "stale" satisfies Applied
+        const { copy } = current
+        const json = jsonRowsOf(sync.upserts)
+        if (sync.project !== null)
+          yield* setProject(copy, projectJson(sync.project))
+        for (const kind of KINDS)
+          yield* removeFacts(copy, kind, sync.deletes[kind])
+        yield* writeTickets(copy, sync.upserts.tickets, false)
+        yield* writeGroupMembers(copy, sync.upserts.groups, false)
+        for (const kind of JSON_KINDS) yield* writeJson(copy, kind, json[kind])
+        yield* publish(scope, copy, sync.cursor)
         return "applied" satisfies Applied
       })
     )
@@ -386,7 +428,11 @@ export const purge = (scope: string) =>
     const db = yield* LocalDb
     yield* sqlClient.withTransaction(
       Effect.gen(function* () {
-        yield* clear(scope)
+        const copies = yield* db
+          .select({ id: localCopies.id })
+          .from(localCopies)
+          .where(eq(localCopies.scope, scope))
+        for (const { id } of copies) yield* dropCopy(id)
         yield* db.delete(localSync).where(eq(localSync.scope, scope))
       })
     )
@@ -395,20 +441,22 @@ export const purge = (scope: string) =>
 export const readFacts = (scope: string) =>
   Effect.gen(function* () {
     const db = yield* LocalDb
+    const current = yield* syncRow(scope)
+    const copy = current?.copy ?? -1
     const read = (kind: FactKind) => {
-      const table = kind === "tickets" ? localTickets : JSON_TABLES[kind]
+      const table = kind === "tickets" ? localTicketData : JSON_TABLES[kind]
       return db
         .select({ id: table.id, data: table.data })
         .from(table)
-        .where(eq(table.scope, scope))
+        .where(eq(table.copy, copy))
         .orderBy(asc(table.id))
     }
     const [project] = yield* db
       .select({ data: localProjects.data })
       .from(localProjects)
-      .where(eq(localProjects.scope, scope))
+      .where(eq(localProjects.copy, copy))
     return {
-      cursor: yield* cursorOf(scope),
+      cursor: current?.cursor ?? null,
       project: project?.data ?? null,
       facts: {
         tickets: yield* read("tickets"),

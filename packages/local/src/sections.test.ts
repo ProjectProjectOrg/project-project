@@ -19,7 +19,7 @@ import { expect } from "vitest"
 import { localDbLayer } from "./LocalDb"
 import { localOrderKey } from "./orderKey"
 import { localSections } from "./sections"
-import { applySync } from "./store"
+import { applySync, copyOf } from "./store"
 import { finishedStatuses } from "./ticketRows"
 
 const TestDatabase = localDbLayer.pipe(
@@ -257,10 +257,11 @@ it.effect(
       ] as const) {
         const facts = generate(300, seed)
         yield* applySync(`a/${seed}`, null, snapshot(facts, estimation))
+        const copy = (yield* copyOf(`a/${seed}`)) ?? -1
         for (let i = 0; i < 60; i++) {
           const query = randomQuery(next)
           const local = yield* localSections({
-            scope: `a/${seed}`,
+            copy,
             query,
             viewerId: "u1",
             estimation,
@@ -287,7 +288,7 @@ it.effect("leaves sprint filters to the server", () =>
   Effect.gen(function* () {
     yield* applySync("a/p", null, snapshot(generate(10, 1), "off"))
     const result = yield* localSections({
-      scope: "a/p",
+      copy: (yield* copyOf("a/p")) ?? -1,
       query: decodeQuery({ groupId: ["G-1"] }),
       viewerId: "u1",
       estimation: "off",

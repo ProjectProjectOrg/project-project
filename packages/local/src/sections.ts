@@ -26,6 +26,7 @@ import { readOrderKey } from "./orderKey"
 import {
   localRelations,
   localStatuses,
+  localTicketData,
   localTickets,
   orderColumns
 } from "./tables"
@@ -38,6 +39,7 @@ import {
 
 export const LOCAL_SECTION_TABLES = [
   "local_tickets",
+  "local_ticket_data",
   "local_ticket_assignees",
   "local_ticket_tags",
   "local_relations",
@@ -46,7 +48,7 @@ export const LOCAL_SECTION_TABLES = [
 
 const t = localTickets
 export type LocalSectionsRequest = Readonly<{
-  scope: string
+  copy: number
   query: TicketListQuery
   viewerId: string | undefined
   estimation: EstimationMode
@@ -56,7 +58,7 @@ export type LocalSectionsRequest = Readonly<{
 
 export const sectionPage = (
   db: LocalDb["Service"],
-  scope: string,
+  copy: number,
   restriction: SQL | undefined,
   filter: SQL | undefined,
   query: TicketListQuery,
@@ -68,7 +70,7 @@ export const sectionPage = (
   const page = db
     .select()
     .from(t)
-    .where(and(eq(t.scope, scope), restriction, filter))
+    .where(and(eq(t.copy, copy), restriction, filter))
     .orderBy(direction(column))
     .limit(limit)
     .as("page")
@@ -82,7 +84,7 @@ export const sectionPage = (
       .from(child)
       .where(
         and(
-          eq(child.scope, page.scope),
+          eq(child.copy, page.copy),
           eq(child.parent, page.id),
           eq(child.archived, 0)
         )
@@ -94,7 +96,7 @@ export const sectionPage = (
         .from(linked)
         .where(
           and(
-            eq(linked.scope, relation.scope),
+            eq(linked.copy, relation.copy),
             eq(linked.id, other),
             open(linked, finished)
           )
@@ -109,7 +111,7 @@ export const sectionPage = (
       .from(relation)
       .where(
         and(
-          eq(relation.scope, page.scope),
+          eq(relation.copy, page.copy),
           eq(self, page.id),
           eq(relation.kind, "blocked_by"),
           isOpenLinked(other)
@@ -124,7 +126,7 @@ export const sectionPage = (
       .from(relation)
       .where(
         and(
-          eq(relation.scope, page.scope),
+          eq(relation.copy, page.copy),
           eq(self, page.id),
           eq(relation.kind, "related")
         )
@@ -143,7 +145,7 @@ export const sectionPage = (
           .from(linked)
           .where(
             and(
-              eq(linked.scope, page.scope),
+              eq(linked.copy, page.copy),
               eq(linked.id, ends.other),
               eq(linked.archived, 0)
             )
@@ -155,7 +157,7 @@ export const sectionPage = (
     .from(relation)
     .where(
       and(
-        eq(relation.scope, page.scope),
+        eq(relation.copy, page.copy),
         eq(relation.toId, page.id),
         eq(relation.kind, "duplicate_of")
       )
@@ -171,7 +173,7 @@ export const sectionPage = (
   }[query.sort.key]
   return db
     .select({
-      data: page.data,
+      data: localTicketData.data,
       orderKey: pageOrder,
       parentTitle: parent.title,
       parentType: parent.type,
@@ -188,15 +190,19 @@ export const sectionPage = (
       duplicateCount: sql<number>`(${duplicates})`
     })
     .from(page)
+    .innerJoin(
+      localTicketData,
+      and(eq(localTicketData.copy, page.copy), eq(localTicketData.id, page.id))
+    )
     .leftJoin(
       parent,
-      and(eq(parent.scope, page.scope), eq(parent.id, page.parent))
+      and(eq(parent.copy, page.copy), eq(parent.id, page.parent))
     )
     .orderBy(direction(pageOrder))
 }
 
 export type LocalCountsRequest = Readonly<{
-  scope: string
+  copy: number
   query: TicketCountQuery
   viewerId: string | undefined
   estimation: EstimationMode
@@ -208,7 +214,7 @@ export const filtered = (request: LocalCountsRequest) =>
     const statuses = (yield* db
       .select({ data: localStatuses.data })
       .from(localStatuses)
-      .where(eq(localStatuses.scope, request.scope))).map((row) =>
+      .where(eq(localStatuses.copy, request.copy))).map((row) =>
       decodeStatus(row.data)
     )
     const finished = finishedStatuses(statuses)
@@ -222,7 +228,7 @@ export const filtered = (request: LocalCountsRequest) =>
     const counted = yield* db
       .select({ status: t.status, n: count() })
       .from(t)
-      .where(and(eq(t.scope, request.scope), filter))
+      .where(and(eq(t.copy, request.copy), filter))
       .groupBy(t.status)
     const byStatus: Record<TicketStatus, number> = {}
     for (const { status, n } of counted) byStatus[TicketStatus.make(status)] = n
@@ -250,7 +256,7 @@ export const localSections = (request: LocalSectionsRequest) =>
     for (const { status, n } of counted) {
       const rows: ReadonlyArray<SectionRow> = yield* sectionPage(
         db,
-        request.scope,
+        request.copy,
         eq(t.status, status),
         filter,
         request.query,

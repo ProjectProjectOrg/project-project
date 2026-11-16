@@ -53,7 +53,8 @@ const tuned = (userId: string) =>
     Effect.all([
       sql`pragma page_size = 65536`,
       sql`pragma cache_size = -131072`,
-      sql`pragma journal_mode = truncate`
+      sql`pragma journal_mode = truncate`,
+      sql`pragma temp_store = memory`
     ])
   )
 

@@ -15,6 +15,7 @@ import {
 import { LOCAL_SECTION_TABLES, localCounts, localSections } from "./sections"
 import {
   applySync,
+  copyOf,
   cursorOf,
   differences,
   purge,
@@ -23,8 +24,8 @@ import {
 } from "./store"
 import { SyncSource } from "./SyncSource"
 
-const sectionsRequest = (request: SectionsRequest) => ({
-  scope: scopeOf(request.project),
+const sectionsRequest = (request: SectionsRequest, copy: number) => ({
+  copy,
   query: request.query,
   viewerId: request.viewerId,
   estimation: request.estimation,
@@ -35,8 +36,8 @@ const sectionsRequest = (request: SectionsRequest) => ({
   perStatus: (status: string) => request.limits[status] ?? request.defaultLimit
 })
 
-const countsRequest = (request: CountsRequest) => ({
-  scope: scopeOf(request.project),
+const countsRequest = (request: CountsRequest, copy: number) => ({
+  copy,
   query: request.query,
   viewerId: request.viewerId,
   estimation: request.estimation
@@ -110,6 +111,16 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         )
       )
 
+    const readCopy = <A, E, R>(
+      project: LocalProject,
+      read: (copy: number) => Effect.Effect<A | null, E, R>
+    ) =>
+      sql.withTransaction(
+        Effect.flatMap(copyOf(scopeOf(project)), (copy) =>
+          copy === null ? Effect.succeed(null) : read(copy)
+        )
+      )
+
     return {
       Hydrated: (project) =>
         cursorOf(scopeOf(project)).pipe(
@@ -122,12 +133,19 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         sql
           .reactive(
             LOCAL_SECTION_TABLES,
-            localSections(sectionsRequest(request))
+            readCopy(request.project, (copy) =>
+              localSections(sectionsRequest(request, copy))
+            )
           )
           .pipe(Stream.orDie),
       Counts: (request) =>
         sql
-          .reactive(LOCAL_SECTION_TABLES, localCounts(countsRequest(request)))
+          .reactive(
+            LOCAL_SECTION_TABLES,
+            readCopy(request.project, (copy) =>
+              localCounts(countsRequest(request, copy))
+            )
+          )
           .pipe(Stream.orDie)
     }
   })
