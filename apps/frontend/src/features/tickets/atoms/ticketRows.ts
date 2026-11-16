@@ -1,3 +1,4 @@
+import { PendingWrite } from "@pp/local"
 import type {
   BulkUpdateTicketsInput,
   TicketId,
@@ -17,6 +18,8 @@ import {
   viewMutation,
   type OptimisticView
 } from "@/api/viewMutation"
+import { localFirst } from "@/features/local/atoms/localEdit"
+import { intentsOf } from "@/features/local/lib/localIntents"
 import type { BulkDrop } from "@/features/tickets/lib/listDrop"
 import {
   fromBulkPatch,
@@ -49,7 +52,7 @@ export const bulkTicketUpdate = <V, VE>(
   update: BulkTicketUpdate<V>
 ) => {
   const writes = Semaphore.makeUnsafe(1)
-  return viewMutation(view, {
+  const server = viewMutation(view, {
     name: update.name,
     predict: (value, input: BulkUpdateTicketsInput) => {
       const edit = fromBulkPatch(input.patch)
@@ -84,11 +87,57 @@ export const bulkTicketUpdate = <V, VE>(
         input.patch.sprint !== undefined
       )
   })
+  return localFirst(update.path, server, (input: BulkUpdateTicketsInput) => {
+    const edit = fromBulkPatch(input.patch)
+    const intents = intentsOf(
+      input.patch.sprint === undefined
+        ? edit
+        : { ...edit, sprint: input.patch.sprint }
+    )
+    return bulkBatches(input.tickets).map((tickets) => ({
+      write: PendingWrite.cases.bulk.make({
+        payload: { tickets, patch: input.patch }
+      }),
+      edits: tickets.map((ticket) => ({ ticket, intents }))
+    }))
+  })
 }
 
 export type BulkTicketMoveAtom = Atom.AtomResultFn<BulkDrop, unknown, unknown>
 
+const movedEdit = (input: BulkDrop, index: number): TicketEdit =>
+  input.position === null
+    ? input.edit
+    : {
+        ...input.edit,
+        position: {
+          to: input.position.to,
+          rank: input.position.ranks[index] ?? null
+        }
+      }
+
+const movePatch = (input: BulkDrop) =>
+  input.position === null
+    ? toBulkPatch(input.edit)
+    : { ...toBulkPatch(input.edit), position: input.position.to }
+
 export const bulkTicketMove = <V, VE>(
+  view: OptimisticView<V, VE>,
+  update: BulkTicketUpdate<V>
+) =>
+  localFirst(update.path, serverTicketMove(view, update), (input: BulkDrop) => [
+    {
+      write: PendingWrite.cases.bulk.make({
+        payload: { tickets: input.tickets, patch: movePatch(input) }
+      }),
+      edits: input.tickets.map((ticket, index) => ({
+        ticket,
+        intents: intentsOf(movedEdit(input, index))
+      }))
+    }
+  ])
+
+const serverTicketMove = <V, VE>(
   view: OptimisticView<V, VE>,
   update: BulkTicketUpdate<V>
 ) =>
@@ -97,35 +146,14 @@ export const bulkTicketMove = <V, VE>(
     predict: (value, input: BulkDrop) =>
       input.tickets.reduce(
         (current, id, index) =>
-          update.predict(
-            current,
-            id,
-            input.position === null
-              ? input.edit
-              : {
-                  ...input.edit,
-                  position: {
-                    to: input.position.to,
-                    rank: input.position.ranks[index] ?? null
-                  }
-                }
-          ),
+          update.predict(current, id, movedEdit(input, index)),
         value
       ),
     call: (client, input) =>
       client.tickets
         .bulkUpdate({
           params: update.path,
-          payload: {
-            tickets: input.tickets,
-            patch:
-              input.position === null
-                ? toBulkPatch(input.edit)
-                : {
-                    ...toBulkPatch(input.edit),
-                    position: input.position.to
-                  }
-          }
+          payload: { tickets: input.tickets, patch: movePatch(input) }
         })
         .pipe(
           Effect.onError(() =>
@@ -263,6 +291,24 @@ export type CoalescingTicketUpdate<V> = Readonly<{
 }>
 
 export const coalescingTicketUpdate = <V, VE>(
+  view: OptimisticView<V, VE>,
+  update: CoalescingTicketUpdate<V>
+) =>
+  localFirst(
+    update.path,
+    serverTicketUpdate(view, update),
+    (edit: TicketEdit) => [
+      {
+        write: PendingWrite.cases.update.make({
+          ticket: update.path.id,
+          payload: toUpdateInput(edit)
+        }),
+        edits: [{ ticket: update.path.id, intents: intentsOf(edit) }]
+      }
+    ]
+  )
+
+const serverTicketUpdate = <V, VE>(
   view: OptimisticView<V, VE>,
   update: CoalescingTicketUpdate<V>
 ) =>
