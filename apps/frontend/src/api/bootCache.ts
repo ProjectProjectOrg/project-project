@@ -50,10 +50,11 @@ export const persisted =
           return live
         }
         if (!AsyncResult.isInitial(live)) return live
-        return Option.match(decode(saved.get(key)), {
+        const kept = latest.get(key) ?? saved.get(key)
+        return Option.match(decode(kept), {
           onNone: () => live,
           onSome: (value) => {
-            if (!latest.has(key)) latest.set(key, saved.get(key))
+            latest.set(key, kept)
             return AsyncResult.success<A, E>(value, { waiting: true })
           }
         })

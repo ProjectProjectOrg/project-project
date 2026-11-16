@@ -74,3 +74,26 @@ it.effect(
       unmount()
     })
 )
+
+it.effect(
+  "shows a value seen earlier in this session before the query answers again",
+  () =>
+    Effect.gen(function* () {
+      stubStorage({})
+      const { persisted } = yield* Effect.promise(() => import("./bootCache"))
+      const first = Atom.make(Effect.succeed("seen"))
+      const registry = Registry.make()
+      const unmount = registry.mount(
+        first.pipe(persisted("greeting", Schema.String))
+      )
+      unmount()
+      const again = Atom.make(Effect.never).pipe(
+        persisted("greeting", Schema.String)
+      )
+      expect(registry.get(again)).toMatchObject({
+        _tag: "Success",
+        value: "seen",
+        waiting: true
+      })
+    })
+)
