@@ -1,33 +1,27 @@
-import type { ColorSwatch } from "@pp/shared"
-
-import { avatarColor, hashId, wheelSwatch } from "./avatarColor"
+import { avatarColor, hashId } from "./avatarColor"
+import { ditheredUrl, type DitherScene } from "./ditherPaint"
+import { ditherPalette } from "./ditherPalette"
 import {
   between,
   chance,
   clamp,
   dot,
-  fbm,
   normalize,
   onSphere,
   pick,
   random,
   type Random,
   smoothstep,
-  valueNoise,
   type Vec
 } from "./orbMath"
-import { PATTERN_NAMES, PATTERNS, type Surface } from "./orbPatterns"
+import { mottle, pickPattern, type Surface } from "./orbPatterns"
 
 type Lighting = "front" | "side" | "crescent" | "rim" | "flat"
 
 type Crater = Readonly<{ center: Vec; radius: number }>
 
-export type OrbAvatar = Readonly<{
-  palette: ReadonlyArray<string>
-  ink: Readonly<{ light: string; dark: string }>
-  field: (u: number, v: number) => number
-  traits: ReadonlyArray<string>
-}>
+export type OrbAvatar = DitherScene &
+  Readonly<{ ink: Readonly<{ light: string; dark: string }> }>
 
 const LIGHTING: ReadonlyArray<Lighting> = [
   "front",
@@ -54,37 +48,14 @@ const LIGHT_HEIGHT = {
   flat: 0.53
 }
 const TEXTURE = 0.55
-const ACCENT_SHIFTS: ReadonlyArray<number> = [90, 120, 150, 180, 210, 240]
-const DEEP_SHIFTS: ReadonlyArray<number> = [60, 90, 120, 240, 270]
-const INK_LIGHT = { L: 0.3, C: 0.1 }
-const INK_DARK = { L: 0.97, C: 0.025 }
-
-const css = (L: number, C: number, hue: number, opacity = 1) =>
-  `oklch(${L.toFixed(3)} ${C.toFixed(3)} ${hue % 360}${opacity < 1 ? ` / ${opacity}` : ""})`
-
-const tone = (swatch: ColorSwatch, opacity: number) =>
-  css(swatch.L, swatch.C, swatch.hue, opacity)
 
 const orbColors = (userId: string) => {
-  const next = random(hashId(`${userId}:colours`))
-  const base = avatarColor(userId)
-  const accentHue = (base.hue + pick(next, ACCENT_SHIFTS)) % 360
-  const deepHue = (accentHue + pick(next, DEEP_SHIFTS)) % 360
-  const accent = wheelSwatch(accentHue)
-  const deep = wheelSwatch(deepHue === base.hue % 360 ? deepHue + 30 : deepHue)
-  return {
-    palette: [
-      tone(deep, 0.5),
-      tone(accent, 0.56),
-      tone(accent, 0.4),
-      tone(base, 0.34),
-      tone(base, 0.2)
-    ],
-    ink: {
-      light: css(INK_LIGHT.L, INK_LIGHT.C, accent.hue),
-      dark: css(INK_DARK.L, INK_DARK.C, accent.hue)
-    }
-  }
+  const { hue, L, C } = avatarColor(userId)
+  return ditherPalette(
+    random(hashId(`${userId}:colours`)),
+    { L, C, h: hue },
+    "multi"
+  )
 }
 
 const rotation = (next: Random) => {
@@ -140,21 +111,16 @@ export const orbAvatar = (userId: string): OrbAvatar => {
   const direction = lightDirection(next, lighting)
   const lit = shading(lighting, direction)
   const rotate = rotation(next)
-  const primaryName = pick(next, PATTERN_NAMES)
-  const primary = PATTERNS[primaryName](next, seed)
+  const { name: primaryName, surface: primary } = pickPattern(next, seed)
   const amplitude = between(next, 0.3, 0.5) * (lighting === "flat" ? 1.3 : 1)
   const lightWeight = lighting === "flat" ? 0 : between(next, 0.45, 0.75)
-  const secondaryName = chance(next, 0.5)
-    ? pick(
-        next,
-        PATTERN_NAMES.filter((name) => name !== primaryName)
-      )
+  const secondaryPick = chance(next, 0.5)
+    ? pickPattern(next, seed + 7, primaryName)
     : null
-  const secondary: Surface | null = secondaryName
-    ? PATTERNS[secondaryName](next, seed + 7)
-    : null
+  const secondaryName = secondaryPick?.name ?? null
+  const secondary: Surface | null = secondaryPick?.surface ?? null
   const secondaryAmplitude = between(next, 0.08, 0.16)
-  const mottle = fbm(valueNoise(seed + 13), 3)
+  const texture = mottle(seed)
   const roughness = between(next, 0.1, 0.8)
   const craters = chance(next, 0.45)
     ? Array.from({ length: 1 + Math.floor(next() * 5) }, () => crater(next))
@@ -187,8 +153,8 @@ export const orbAvatar = (userId: string): OrbAvatar => {
     const pattern =
       primary(p) * amplitude +
       (secondary ? secondary(p) * secondaryAmplitude : 0)
-    const texture =
-      (mottle(p) - 0.5) * 0.45 * roughness + craterShade(normal, light)
+    const grain =
+      (texture(p) - 0.5) * 0.45 * roughness + craterShade(normal, light)
     const polar = cap
       ? smoothstep(cap.size - 0.04, cap.size, dot(p, cap.pole)) * 0.4
       : 0
@@ -197,7 +163,7 @@ export const orbAvatar = (userId: string): OrbAvatar => {
       0.5 +
       (light - 0.5) * lightWeight +
       pattern +
-      texture * TEXTURE +
+      grain * TEXTURE +
       polar +
       shine
     )
@@ -221,6 +187,13 @@ export const orbAvatar = (userId: string): OrbAvatar => {
 
   return { ...orbColors(userId), field: scene, traits }
 }
+
+// The painted orb as a data URL, cached per user, size and density.
+export const orbAvatarUrl = (
+  userId: string,
+  size: number
+): string | undefined =>
+  ditheredUrl(`orb:${userId}`, () => orbAvatar(userId), size)
 
 export const avatarInitials = (
   name: string | null | undefined,

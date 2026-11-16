@@ -112,5 +112,6 @@ export {
   AvatarFallback,
   AvatarBadge,
   AvatarGroup,
-  AvatarGroupCount
+  AvatarGroupCount,
+  avatarEdgeClass
 }

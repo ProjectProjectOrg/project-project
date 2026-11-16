@@ -16,7 +16,3 @@ export const hashId = (id: string): number => {
 
 export const avatarColor = (userId: string): ColorSwatch =>
   AVATAR_PALETTE[hashId(userId) % AVATAR_PALETTE.length]
-
-export const wheelSwatch = (hue: number): ColorSwatch =>
-  AVATAR_PALETTE.find((swatch) => swatch.hue % 360 === hue % 360) ??
-  AVATAR_PALETTE[0]

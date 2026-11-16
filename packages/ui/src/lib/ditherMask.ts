@@ -1,4 +1,5 @@
 import { cellSize, threshold } from "./bayer"
+import { pixelRatio } from "./ditherPaint"
 
 const cache = new Map<string, string>()
 
@@ -22,7 +23,7 @@ const paint = (from: number, to: number, cell: number) => {
 
 export const ditherBandStyle = (from: number, to: number, size: number) => {
   if (typeof window === "undefined") return undefined
-  const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1))
+  const dpr = pixelRatio()
   const cell = cellSize(size)
   const key = `${from}:${to}:${cell}:${dpr}`
   const url =

@@ -1,3 +1,4 @@
+import logo from "@pp/ui/assets/logo/logo.svg"
 import { ProjectIcon } from "@pp/ui/project-icon"
 import type { ReactNode } from "react"
 
@@ -49,7 +50,12 @@ export default function Overview() {
       </div>
       <div className="grid grid-cols-[repeat(3,minmax(0,1fr))] justify-items-center gap-y-6">
         <Cell caption="Emoji">
-          <ProjectIcon seed={billing.id} color={billing.color} icon={billing.icon} size={40} />
+          <ProjectIcon
+            seed={billing.id}
+            color={billing.color}
+            icon={billing.icon}
+            size={40}
+          />
         </Cell>
         <Cell caption="Uploaded image">
           <ProjectIcon
@@ -57,14 +63,28 @@ export default function Overview() {
             color={billing.color}
             size={40}
             image={
-              <span className="grid size-full place-items-center text-subtitle font-bold text-white">
-                B
+              // A transparent cutout, the usual upload: the generated backdrop
+              // shows through, and the app's sticker shadow lifts it off. The
+              // logo is drawn edge to edge, so it's inset to the emoji's size
+              // (62% of the tile).
+              <span className="grid size-full place-items-center p-[19%]">
+                <img
+                  src={logo}
+                  alt=""
+                  className="size-full object-contain [filter:drop-shadow(0_1px_2px_rgb(0_0_0/0.45))]"
+                />
               </span>
             }
           />
         </Cell>
         <Cell caption="Saving">
-          <ProjectIcon seed={billing.id} color={billing.color} icon={billing.icon} size={40} waiting />
+          <ProjectIcon
+            seed={billing.id}
+            color={billing.color}
+            icon={billing.icon}
+            size={40}
+            waiting
+          />
         </Cell>
       </div>
     </div>

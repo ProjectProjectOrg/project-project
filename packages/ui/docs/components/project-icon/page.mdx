@@ -16,7 +16,7 @@ Four projects large, the Atlas tile at every size the app uses, and the emoji, u
 
 ## Explore
 
-Generated tiles for sixteen seeds. Each seed picks a surface pattern, a light and a texture; the project's colour sets the palette. Roll new seeds to see more.
+Generated tiles for sixteen seeds. Each seed picks a surface pattern, a light and a texture; the project's colour sets the palette. Switch the tone to repaint the same seeds in one hue, the orbs' three hues, or grey, and roll new seeds to see more.
 
 <Demo name="explore" title="Generated tiles" />
 
@@ -38,6 +38,7 @@ import { ProjectIcon } from "@pp/ui/project-icon"
 | --------- | --------------------------------------------------------- | -------- |
 | `seed`    | `string`, what the backdrop is generated from (the slug)  | required |
 | `color`   | `string`, the project's colour as `#rrggbb`               | required |
+| `tone`    | `"mono" \| "multi" \| "gray"`, how the colour is used | `"mono"` |
 | `size`    | `number`, the side in px                                  | required |
 | `icon`    | `string`, the emoji                                       |          |
 | `image`   | `ReactNode`, an uploaded icon shown instead of the emoji   |          |
@@ -48,7 +49,7 @@ import { ProjectIcon } from "@pp/ui/project-icon"
 
 ### Generated like the avatars
 
-The backdrop is a generated tile (`lib/projectTile`), built like the member orbs (`lib/orbAvatar`): one seed picks a surface pattern from the orbs' set, a light (diagonal, side or flat), a zoom, a texture and sometimes a glow, and the result is painted through the same 4×4 ordered dither at the avatars' cell sizes. The palette is five steps of the project's own colour in OKLCH, from deep to lit, with a seeded hue drift at the ends. So the tile keeps the project's colour, and two projects with the same colour still look different. Painted tiles are cached per seed, colour, size and pixel density.
+The backdrop is a generated tile (`lib/projectTile`), built like the member orbs (`lib/orbAvatar`): one seed picks a surface pattern from the orbs' set, a light (diagonal, side or flat), a zoom, a texture and sometimes a glow, and the result is painted through the same 4×4 ordered dither at the avatars' cell sizes. The colours come from the same place as the orbs' (`lib/ditherPalette`): five translucent steps (50% down to 20%), so the tile reads light, never heavy. They're laid over a card-coloured base, not over whatever is behind the tile, so a tile looks the same in the rail's tinted items, on cards and in rows. A wheel colour is used exactly as the wheel defines it. `mono` keeps every step on the project's hue; `multi` ignores the project's colour and takes all three hues from the seed, exactly as a member orb does, so it's the same tile whatever accent was picked before; `gray` drops the chroma. The tone never changes the pattern, so a project keeps its tile when its tone changes. Two projects with the same colour still look different. Painted tiles are cached per seed, colour, size and pixel density.
 
 ### The emoji is centred on the tile
 
@@ -60,4 +61,4 @@ From 24px up the emoji gets the layered drop shadow that lifts it off the dither
 
 ### Shape
 
-Corners at about 28% of the side, squircled (`corner-squircle`), with the house `shadow-sm`. Without a label the tile is hidden from assistive tech, because the project's name is always next to it.
+Corners at about 28% of the side (`projectIconRadius`), squircled (`corner-squircle`); a container that wraps the tile, like the rail item, takes the same radius instead of rounding the tile to its own, with the avatars' hairline edge and top light (`avatarEdgeClass`) instead of a drop shadow, so tiles and member orbs sit side by side as one family. Without a label the tile is hidden from assistive tech, because the project's name is always next to it.

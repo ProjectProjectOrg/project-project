@@ -254,3 +254,22 @@ export const PATTERNS: Readonly<Record<Pattern, Build>> = {
   storm,
   interference
 }
+
+// A seeded pick of one pattern (never `except`), built at once so the
+// random stream stays in the same order for every caller.
+export const pickPattern = (
+  next: Random,
+  seed: number,
+  except?: Pattern
+): Readonly<{ name: Pattern; surface: Surface }> => {
+  const name = pick(
+    next,
+    except === undefined
+      ? PATTERN_NAMES
+      : PATTERN_NAMES.filter((other) => other !== except)
+  )
+  return { name, surface: PATTERNS[name](next, seed) }
+}
+
+// The fine, cloudy texture laid over every pattern, centred on 0.5.
+export const mottle = (seed: number): Surface => fbm(valueNoise(seed + 13), 3)

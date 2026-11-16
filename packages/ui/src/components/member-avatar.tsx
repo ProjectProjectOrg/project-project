@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 
 import { avatarInitials, orbAvatar } from "../lib/orbAvatar"
-import { orbAvatarUrl } from "../lib/paintOrbAvatar"
+import { orbAvatarUrl } from "../lib/orbAvatar"
 import { cn } from "../lib/utils"
 import {
   Avatar,

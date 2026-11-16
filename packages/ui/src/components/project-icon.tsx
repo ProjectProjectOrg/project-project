@@ -1,7 +1,9 @@
 import { useMemo, type ReactNode } from "react"
 
+import type { PaletteTone } from "../lib/ditherPalette"
 import { projectTileUrl } from "../lib/projectTile"
 import { cn } from "../lib/utils"
+import { avatarEdgeClass } from "./avatar"
 
 /*
  * ProjectIcon: a project's tile, the square sibling of MemberAvatar.
@@ -30,13 +32,19 @@ const emojiShadow = (size: number) =>
       ].join(" ")
 
 // Corners at about a quarter of the side, squircled like the house controls.
-const radius = (size: number) => Math.max(3, Math.round(size * 0.28))
+const projectIconRadius = (size: number) =>
+  Math.max(3, Math.round(size * 0.28))
 
 type ProjectIconProps = Readonly<{
   // What the backdrop is generated from: the project's id (or slug).
   seed: string
   // The project's colour, as #rrggbb.
   color: string
+  // How the colour is used: one hue ("mono"), the member orbs' three hues
+  // ("multi"), or none ("gray").
+  tone?: PaletteTone
+  // Multicolour's picked colours (with tone "multi"); none means seeded.
+  colors?: ReadonlyArray<string>
   // The project's emoji.
   icon?: string
   // An uploaded icon to show instead of the emoji, sized to fill the tile.
@@ -54,6 +62,8 @@ type ProjectIconProps = Readonly<{
 function ProjectIcon({
   seed,
   color,
+  tone = "mono",
+  colors,
   icon,
   image,
   size,
@@ -62,8 +72,8 @@ function ProjectIcon({
   className
 }: ProjectIconProps) {
   const backdrop = useMemo(
-    () => projectTileUrl(seed, color, size),
-    [seed, color, size]
+    () => projectTileUrl(seed, color, size, tone, colors),
+    [seed, color, size, tone, colors]
   )
   const fontSize = Math.round(size * EMOJI_SCALE)
   return (
@@ -73,15 +83,20 @@ function ProjectIcon({
         ? { "aria-hidden": true }
         : { role: "img", "aria-label": label })}
       className={cn(
-        "relative inline-grid shrink-0 place-items-center overflow-hidden bg-cover shadow-sm corner-squircle select-none",
+        "relative inline-grid shrink-0 place-items-center overflow-hidden bg-cover select-none corner-squircle",
+        // The avatars' hairline edge and top light, so tiles and orbs match.
+        avatarEdgeClass,
         waiting && "animate-pulse",
         className
       )}
       style={{
         width: size,
         height: size,
-        borderRadius: radius(size),
-        backgroundColor: color,
+        borderRadius: projectIconRadius(size),
+        // The palette is translucent, like the member orbs; a card-coloured
+        // base under it keeps the tile the same wherever it sits (the rail's
+        // tinted items, cards, rows) instead of taking on what's behind.
+        backgroundColor: "var(--card)",
         backgroundImage: backdrop ? `url(${backdrop})` : undefined
       }}
     >
@@ -97,5 +112,5 @@ function ProjectIcon({
   )
 }
 
-export { ProjectIcon }
+export { ProjectIcon, projectIconRadius }
 export type { ProjectIconProps }
