@@ -41,7 +41,7 @@ What this shows and doesn't:
   Per-step load was mostly side data, fixed separately (PR #539).
 - Cold backlog paint was a server problem (Postgres JIT on the sections query,
   680ms to 7ms in PR #538), not a client one.
-- It does not show TanStack DB beats an equivalent store built on our atoms;
+- It does not show TanStack DB beats an Effect-native store on the same facts;
   that is T-388.
 
 The spike's sync is not shippable: no durable log, the log position and rows
@@ -52,7 +52,7 @@ when a neighbour changes.
 
 | Area | Decision |
 |---|---|
-| Client store | TanStack DB collections and live queries behind `@/local`; Effect runs transport and commands. Confirmed or reversed by T-388. |
+| Client store | Effect-native: SQLite in OPFS through `@effect/sql-sqlite-wasm`, views as `SqlClient.reactive` queries exposed as atoms, all behind `@/local`. TanStack DB is the fallback if T-388 shows the Effect-native store can't meet the requirements. |
 | Sync engine | Our own, on a durable change log in Postgres. No Electric, PowerSync or Zero. |
 | Crash recovery | The startup reconciler re-indexes from markdown and bumps the scope generation, forcing a full resync. No separate recovery journal. |
 | Instances | Single backend instance. The log lives in Postgres so more instances stay possible later. |
@@ -165,47 +165,67 @@ restore and relations stay correct without bulk history.
 
 ## 4. Client store (T-387, decided by T-388)
 
-### Shape
+The preference is a fully Effect-native store. TanStack DB, which the spike
+used, is the fallback if T-388 shows the Effect-native store can't meet the
+requirements below.
 
-- `@/local` owns collections, the sync adapter, persistence and the atom bridge.
-  Nothing else imports TanStack DB directly.
-- Rows are plain JSON derived from the sync schemas, with ISO date strings. No
-  Schema-encoded domain objects in storage, so reads never decode.
-- First try one collection per project holding every fact kind, with
-  kind-prefixed keys, so one batch applies in one sync transaction. Fall back to
-  one collection per kind only if that measures badly.
-- One stable collection instance per session, scope and schema version. The
-  spike crashed with `SourceCollectionIdReuseError` when a collection was
-  rebuilt under the same id while a live query was mounted, and a `findOne` live
-  query returned the previous key's row for one render; production code must
-  never show the previous key's value.
+### Storage
+
+- SQLite (`@effect/wa-sqlite`) through `@effect/sql-sqlite-wasm`, opened with
+  its OPFS worker inside a `SharedWorker`. Every tab talks to the one worker, so
+  there is one connection and no cross-tab coordination to build. Where OPFS or
+  `SharedWorker` is unavailable, an in-memory `SqliteClient` per tab, with no
+  persistence.
+- One database per server and user. Tables per fact kind (`tickets`,
+  `relations`, `groups`, `group_members`, `statuses`, `tags`, `members`,
+  `descriptions`), each keyed by scope, plus `sync_state` (scope, generation,
+  cursor) and `pending_ops`. Migrations through `SqliteMigrator`; a schema
+  version bump drops synced tables and re-snapshots, never `pending_ops`.
+- Rows are plain columns and JSON derived from the sync schemas, with ISO date
+  strings, so reads never decode Effect classes.
+- Applying a sync batch is one SQLite transaction that writes its rows and the
+  new cursor together. The cursor can't run ahead of the rows (the spike's bug),
+  because they commit or roll back as one.
 - Readiness and freshness are separate states: initializing; ready with a sync
   status (live, behind, offline, erroring); denied; failed. `waiting` stays the
   mutation signal only.
 
 ### Reads
 
-- Filters compile to query-builder expressions (status, type, assignee, tags,
-  parent, archived, membership) so they use TanStack DB's indexes. The shared
-  `matchesTicketQuery` stays as a parity oracle in tests and for rare filters
-  only; a JavaScript filter is a full scan.
-- Sorting uses the existing `localOrderKey` and code-point comparison, which
-  mirror the server's sort keys.
+- Views are SQL queries run through `SqlClient.reactive`, keyed by the tables
+  they read. The client installs the driver's reactivity hooks, so SQLite update
+  notifications invalidate those keys and the affected queries re-run. They are
+  exposed as atoms, so feature atoms (`backlog(request)`, `ticketDetail(request)`)
+  keep their shape and components don't change.
+- Queries re-run rather than updating incrementally. SQLite with indexes on
+  `(scope, status)`, `(scope, parent)`, membership and relation endpoints should
+  keep that within a frame at our sizes; T-388 measures it at 5k, 50k and 100k
+  tickets. Re-runs are scoped by table and debounced per animation frame.
+- Counts, sections, reverse relations, open blockers and estimate summaries are
+  SQL (`GROUP BY`, joins), not server fields.
+- The shared filter model compiles to SQL `WHERE` clauses. `matchesTicketQuery`
+  stays as a parity oracle in tests.
+- Sorting uses the server's sort keys (`localOrderKey`, code-point order via
+  `COLLATE BINARY`).
 - Sprint sections reuse `backlogSprintSections` and the server's exclusive-claim
   rule. Time-dependent sprint state re-derives at sprint boundaries.
 - J/K keeps today's semantics: the order is captured on entering the ticket page
   and frozen until leaving.
 
-### Persistence
+### Optimistic edits
 
-- SQLite in OPFS through `@tanstack/browser-db-sqlite-persistence` with the
-  multi-tab coordinator, memory-only fallback when unavailable.
-- Namespaced by server, user, scope and schema version.
-- The cursor is persisted only once the rows it covers are persisted. The spike
-  updated it right after a non-awaited commit, which can skip changes after a
-  crash.
-- Hydration from disk and the network bootstrap start in parallel, with a
-  version gate so an older source never overwrites a newer one.
+- An edit inserts its intent into `pending_ops` and applies it to an overlay
+  (`ticket_overlay` and similar per fact kind) in one transaction. Views read
+  through SQL views that prefer overlay values over synced ones, so every view
+  shows the edit at once.
+- When a sync batch reaches the receipt's sequence, the same transaction that
+  writes the synced rows deletes that operation's overlay and pending row.
+  Settling and the new synced values land together, so nothing flickers.
+- A rejected edit deletes its overlay and pending row, and the overlay is rebuilt
+  from the remaining pending intents over the synced rows. A whole-row snapshot
+  is never restored over a teammate's newer change.
+- Effect runs the command, retries with the same operation id on unknown
+  outcomes, and maps errors for the UI.
 
 ## 5. Content: descriptions, comments, activity (T-391)
 
@@ -218,9 +238,9 @@ restore and relations stay correct without bulk history.
   first; unsaved drafts and descriptions with pending edits are never evicted.
 - When a batch moves a ticket's description revision, the client refetches it
   only if it holds that description.
-- Editing: Lexical keeps keystrokes locally as today. Saves go through paced
-  (debounced) mutations so other views and tabs see the text at once and
-  repeated saves merge into one server write. An edit carries its base
+- Editing: Lexical keeps keystrokes locally as today. Saves are debounced into
+  the description overlay so other views and tabs see the text at once, and
+  queued saves of the same description merge into one server write. An edit carries its base
   revision; a concurrent change merges three-way when the edits don't overlap,
   otherwise the draft is kept for the user to resolve (continues PR #446).
 - Comments and activity load when the user settles on a ticket (PR #539), recent
@@ -285,8 +305,9 @@ retention policy for their reads.
 | A saved write missing from the log, or sequence gaps | Fault injection around file writes and the publication transaction; concurrent writers property test; restart and retry with the same operation id | T-384, T-385 |
 | Snapshot and catch-up disagree | Property test: catching up from any retained cursor equals a fresh snapshot at the same head | T-386 |
 | Field leaks after an access change | Downgrade and removal during snapshot paging and pulls | T-386, T-387 |
-| TanStack DB lifecycle or correctness | Reproduce both spike bugs on the pinned version; optimistic settlement without deadlock; rejected edit over a newer remote edit | T-388 |
-| Store choice | Same facts through TanStack DB and a bounded atom store at 5k, 50k and 100k tickets; parity with server logic over random edits | T-388 |
+| Re-run cost of reactive SQL queries | Several mounted views over 5k, 50k and 100k tickets with a stream of remote changes; long tasks and frame time | T-388 |
+| Overlay correctness | Random sequences of local intents, remote batches, settles and rejections; views always equal synced facts plus remaining intents | T-388 |
+| Store choice | Same facts through the Effect-native store and TanStack DB at 5k, 50k and 100k tickets; parity with server logic over random edits | T-388 |
 | Browser storage | Chromium, Firefox, Safari, private mode, quota exhaustion, two tabs, logout | T-387 |
 | Real user speed | Benchmark against the baseline with #538 and #539: p50/p95 paint, long tasks, compressed transfer, heap, backend CPU, replica lag | T-389 |
 
@@ -304,4 +325,6 @@ Two independent drafts (Claude; GPT-6 Astra) reconciled into this document.
 Astra's draft contributed the publication boundary, facts instead of view rows,
 single-snapshot bootstrap, receipts and the store experiment. The simplifications
 in the Decisions table were chosen over its fuller recovery journal, fenced
-writer and versioned body cache.
+writer and versioned body cache. Both drafts recommended TanStack DB; the
+Effect-native store was chosen afterwards as the preference, with TanStack DB as
+the measured fallback.
