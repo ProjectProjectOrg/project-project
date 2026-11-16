@@ -172,10 +172,14 @@ requirements below.
 ### Storage
 
 - SQLite (`@effect/wa-sqlite`) through `@effect/sql-sqlite-wasm`, opened with
-  its OPFS worker inside a `SharedWorker`. Every tab talks to the one worker, so
-  there is one connection and no cross-tab coordination to build. Where OPFS or
-  `SharedWorker` is unavailable, an in-memory `SqliteClient` per tab, with no
-  persistence.
+  its OPFS worker in a dedicated worker. OPFS synchronous access only exists in
+  dedicated workers, and wa-sqlite's OPFS pool can be held by one worker at a
+  time, so the tab holding the `pp-local` Web Lock persists its copy and other
+  tabs, or browsers without OPFS, keep an in-memory copy (T-387). A leader-tab
+  design (Notion, LiveStore) can replace this later without changing views.
+- The page cache is 128 MB and the journal is `truncate`. With SQLite's default
+  2 MB cache, every re-run read pages back from OPFS and a change at 100k
+  tickets took 484 ms instead of 54 ms.
 - One database per server and user. Tables per fact kind (`tickets`,
   `relations`, `groups`, `group_members`, `statuses`, `tags`, `members`,
   `descriptions`), each keyed by scope, plus `sync_state` (scope, generation,
@@ -227,6 +231,67 @@ requirements below.
 - Effect runs the command, retries with the same operation id on unknown
   outcomes, and maps errors for the UI.
 
+### Decision (T-388): keep the Effect-native store
+
+The same generated facts went through both stores with the same views mounted:
+status counts and the first 100 rows of each status, sprint totals, one
+ticket's sub-tickets, and open-blocker counts for the visible rows. After every
+change and every one of 150 random edits (status, parent, blockers, archive,
+delete) both stores' views equalled a plain JS reference. Measured in Chromium
+through `src/features/local/bench/store.html`; "throttled" is 4x CPU throttling;
+"freeze" is the longest the main thread could not respond.
+
+| Size | Store | Change, p50 / p95 | Freeze on change | First load | Freeze on load | Main-thread heap |
+| --- | --- | --- | --- | --- | --- | --- |
+| 5k | SQLite | 20 / 28 ms | 5 ms | 0.5 s | 50 ms | ~1 MB |
+| 5k | TanStack DB | 4 / 12 ms | 15 ms | 0.2 s | 0.2 s | 18 MB |
+| 5k throttled | SQLite | 29 / 37 ms | 19 ms | 0.7 s | 0.2 s | ~1 MB |
+| 5k throttled | TanStack DB | 14 / 40 ms | 54 ms | 0.8 s | 0.8 s | 18 MB |
+| 20k | SQLite | 37 / 41 ms | 18 ms | 2.7 s | 0.2 s | ~1 MB |
+| 20k | TanStack DB | 20 / 46 ms | 67 ms | 0.8 s | 0.8 s | 64 MB |
+| 20k throttled | SQLite | 44 / 47 ms | 63 ms | 3.4 s | 0.6 s | ~1 MB |
+| 20k throttled | TanStack DB | 66 / 163 ms | 236 ms | 3.0 s | 3.0 s | 64 MB |
+| 100k | SQLite | 54 / 55 ms | | 19 s | 0.4 s | ~1 MB |
+| 100k | TanStack DB | 67 / 142 ms | | 2.5 s | 2.5 s | 322 MB |
+
+TanStack DB updates views sooner on a fast machine, but all its work runs on the
+main thread: on a slow device one change freezes the page for up to 236 ms and a
+first load for its whole duration, and its memory grows with the project.
+SQLite's work runs in the worker, its change time stays flat as the project
+grows, and a reload reads from disk without loading anything into memory. By
+the rule set up front (switch only if the Effect-native store misses frames
+where TanStack DB doesn't) the Effect-native store stays.
+
+What the numbers require of it:
+
+- Every view query needs an index that matches its expression. Without them,
+  counts at 100k took 5.2 s; with them 8 ms. Sections use one indexed
+  `LIMIT 100` query per status, not a window function over every row. Joins
+  through JSON arrays need an explicit `CROSS JOIN` order, or SQLite scans the
+  wrong side (open blockers went from 3.9 s to 2 ms at 5k).
+- The first load is the weak spot: writing a 100k snapshot takes 19 s in OPFS
+  against 1.7 s in memory, and encoding facts on the main thread freezes it for
+  up to 0.6 s at 20k. Follow-ups: encode and write snapshots inside the worker,
+  and batch the per-row update notifications into one invalidation per
+  transaction.
+
+Not covered here and moved to T-389, where the overlay is built: the
+randomized overlay test (local intents, remote batches, settles, rejections).
+
+### What we take from Linear
+
+Linear's sync engine ([reverse-engineered write-up](https://github.com/wzhudev/reverse-linear-sync-engine))
+never holds a large workspace. Models have load strategies (`instant`, `lazy`,
+`partial`), large collections are fetched in slices it remembers (partial
+indexes such as "issues where teamId = X"), views are computed over in-memory
+objects, and IndexedDB is plain storage. Its writes match ours: optimistic in
+memory, a transaction completes when the delta with its sync id arrives, and
+updates rebase last-writer-wins. For us that means the copy should be lean by
+default rather than complete: archived and long-done tickets load on demand
+(T-393), so the store is sized for the active work, not the archive. Carrying
+changed fields in live events, so clients skip the pull, is a later
+optimisation.
+
 ## 5. Content: descriptions, comments, activity (T-391)
 
 - A description is its own cached fact with a revision, separate from the
@@ -257,7 +322,7 @@ server queries; they may cache their last response and revalidate.
 
 ## 7. Large projects (T-393)
 
-Starting budgets, to be validated by T-388: one active project hydrated plus up
+Starting budgets (T-388 measured the store; see the decision in section 4): one active project hydrated plus up
 to two warm ones; about 100 MiB of in-memory project data; about 20 MiB of
 cached content; persistent cache at most 200 MiB or 20% of available quota.
 Projects above budget keep today's server-paged views, chosen per project before
