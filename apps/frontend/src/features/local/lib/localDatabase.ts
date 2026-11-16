@@ -74,7 +74,15 @@ const open = (userId: string) =>
     )
   })
 
+const tuned = (userId: string) =>
+  Effect.tap(open(userId), (sql) =>
+    Effect.all([
+      sql`pragma cache_size = -131072`,
+      sql`pragma journal_mode = truncate`
+    ])
+  )
+
 export const localDatabaseLayer = (userId: string) =>
   SqliteMigrator.layer({ loader: localMigrations }).pipe(
-    Layer.provideMerge(Layer.effect(SqlClient.SqlClient, open(userId)))
+    Layer.provideMerge(Layer.effect(SqlClient.SqlClient, tuned(userId)))
   )

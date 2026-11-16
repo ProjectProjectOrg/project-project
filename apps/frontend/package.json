@@ -72,6 +72,7 @@
   "devDependencies": {
     "@effect/vitest": "4.0.5",
     "@tailwindcss/vite": "^4.2.4",
+    "@tanstack/db": "1.0.0-rc.1.5",
     "@tanstack/router-plugin": "1.167.35",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
