@@ -12,13 +12,14 @@ import {
   TicketStatus,
   TypeKey
 } from "@pp/shared"
-import { and, asc, eq, inArray, type SQL, sql } from "drizzle-orm"
+import { and, asc, eq, type SQL, sql } from "drizzle-orm"
 import * as Effect from "effect/Effect"
 
 import { compileFilter } from "./filter"
 import { keyedCounts, keyedRows } from "./keyedSections"
 import { LocalDb } from "./LocalDb"
 import { readOrderKey } from "./orderKey"
+import { inList } from "./sections"
 import { groupRestriction } from "./sprints"
 import { localStatuses, localTickets } from "./tables"
 import { decodeStatus, finishedStatuses, toTicket } from "./ticketRows"
@@ -42,6 +43,7 @@ const EAGER_SECTIONS = 50
 
 const t = localTickets
 const isEpic = sql`${t.type} = 'epic'`
+const titleOrder = new Intl.Collator()
 
 type Wanted = Readonly<{
   key: EpicSectionKey
@@ -123,14 +125,13 @@ export const localParentSections = (request: LocalParentSectionsRequest) =>
             ))
           ]
         : yield* parentsOf(
-            inArray(
-              t.id,
+            inList(
               [...countsOf.keys()].filter((id) => id !== EPIC_SECTION_NONE)
             )
           )
     const wanted: ReadonlyArray<Wanted> = [
       ...parents.toSorted((a, b) =>
-        (a.parent?.title ?? "").localeCompare(b.parent?.title ?? "")
+        titleOrder.compare(a.parent?.title ?? "", b.parent?.title ?? "")
       ),
       { key: EPIC_SECTION_NONE, parent: null, archived: false }
     ]
