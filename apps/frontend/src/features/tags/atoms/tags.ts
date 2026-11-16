@@ -18,7 +18,7 @@ import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { viewMutation } from "@/api/viewMutation"
 import {
-  ticketQuery,
+  ticketSource,
   ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 
@@ -97,7 +97,7 @@ const ticketRequestOf = (req: TagEditorRequest) =>
 
 const tagEditorQuery = (req: TagEditorRequest) => {
   const tags = tagsQuery(tagsRequestOf(req))
-  const ticket = ticketQuery(ticketRequestOf(req))
+  const ticket = ticketSource(ticketRequestOf(req))
   return Atom.readable(
     (get) =>
       AsyncResult.map(

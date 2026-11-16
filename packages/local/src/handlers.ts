@@ -12,6 +12,7 @@ import * as SqlClient from "effect/sql/SqlClient"
 import * as Stream from "effect/Stream"
 
 import { localSprintBoard } from "./board"
+import { descriptionKey, LocalDescriptions } from "./descriptions"
 import { localGroupList } from "./groups"
 import type { LocalDb } from "./LocalDb"
 import {
@@ -23,6 +24,7 @@ import {
   scopeOf,
   type SectionsRequest
 } from "./LocalRpcs"
+import { localTicket } from "./localTicket"
 import { localParentSections } from "./parents"
 import type { PendingWrite } from "./pending"
 import { PendingWrites } from "./pendingWrites"
@@ -101,6 +103,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
       writer.withPermit(effect)
     const changed = (scope: string) =>
       reactivity.invalidate([projectKey(scope)])
+    const descriptions = yield* LocalDescriptions
 
     const sprintStarts = new Map<string, Fiber.Fiber<void>>()
     const refreshAtNextSprintStart = (
@@ -200,6 +203,8 @@ export const localRpcsLayer = LocalRpcs.toLayer(
           write
         )
         if (applied === "applied" && touches(response)) yield* changed(scope)
+        if (applied === "applied")
+          yield* descriptions.notice(scope, response.upserts.tickets)
         return applied === "stale" || response.more
           ? ("again" as const)
           : ("caughtUp" as const)
@@ -477,7 +482,39 @@ export const localRpcsLayer = LocalRpcs.toLayer(
       Edit: (request) =>
         Effect.uninterruptible(
           edit(request.project, request.write, request.edits)
-        )
+        ),
+      Ticket: (request) =>
+        sql
+          .reactive(
+            [projectKey(scopeOf(request.project))],
+            readCopy(request.project, (copy) =>
+              localTicket(copy, request.id, (repoId) =>
+                repoId === null
+                  ? request.repositories.fallback
+                  : (request.repositories.byId[repoId] ?? null)
+              )
+            )
+          )
+          .pipe(Stream.orDie),
+      Description: (request) => {
+        const scope = scopeOf(request.project)
+        return sql
+          .reactive(
+            [projectKey(scope), descriptionKey(scope, request.id)],
+            descriptions.view(request)
+          )
+          .pipe(Stream.orDie)
+      },
+      PrefetchDescriptions: (request) =>
+        descriptions.prefetch(request).pipe(Effect.orDie),
+      SaveDescription: (request) =>
+        descriptions.save(request).pipe(Effect.orDie),
+      ResolveDescription: (request) =>
+        descriptions.resolve(request).pipe(Effect.orDie),
+      CachedTicketData: (request) =>
+        descriptions.cached(request).pipe(Effect.orDie),
+      CacheTicketData: (request) =>
+        descriptions.cache(request).pipe(Effect.orDie)
     }
   })
 )

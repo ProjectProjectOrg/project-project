@@ -1,0 +1,1 @@
+ALTER TABLE "ticket_index" ADD COLUMN "description_revision" text;

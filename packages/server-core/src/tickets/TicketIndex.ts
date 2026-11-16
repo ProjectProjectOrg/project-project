@@ -81,6 +81,7 @@ import * as SqlClient from "effect/sql/SqlClient"
 
 import { actorOf, type ActorColumns } from "../activity/actorRow"
 import * as SyncLog from "../sync/SyncLog"
+import { DescriptionChange } from "./descriptionChange"
 import type * as TicketDocs from "./TicketDocs"
 import * as TicketIndexRepairs from "./TicketIndexRepairs"
 import type { TicketProject } from "./ticketProject"
@@ -2096,10 +2097,23 @@ const make = Effect.gen(function* () {
             .returning({ ticketId: ticketIndex.ticketId })
           yield* syncTicketBranches(project, document)
           const relinked = yield* syncTicketRelations(project, document)
-          if (written.length > 0 || relinked)
-            yield* syncLog.append(project.projectId, [
-              { kind: "ticket", id: document.id, op: "upsert" }
-            ])
+          const described = (yield* DescriptionChange) === document.id
+          if (!(written.length > 0 || relinked || described)) return
+          const position = yield* syncLog.append(project.projectId, [
+            { kind: "ticket", id: document.id, op: "upsert" }
+          ])
+          if (described)
+            yield* db
+              .update(ticketIndex)
+              .set({
+                descriptionRevision: `${position.generation}.${position.sequence}`
+              })
+              .where(
+                and(
+                  eq(ticketIndex.projectId, project.projectId),
+                  eq(ticketIndex.ticketId, document.id)
+                )
+              )
         })
       )
       .pipe(

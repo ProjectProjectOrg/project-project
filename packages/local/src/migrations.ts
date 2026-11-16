@@ -165,10 +165,31 @@ const pending = Effect.gen(function* () {
     primary key (copy, id))`
 })
 
+const descriptions = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql`create table local_descriptions (
+    scope text not null, id text not null, body text not null,
+    revision text not null, missing text not null, used integer not null,
+    primary key (scope, id))`
+  yield* sql`create index local_descriptions_used on local_descriptions (used)`
+  yield* sql`create table local_description_edits (
+    scope text not null, id text not null, body text not null,
+    base_body text not null, base_revision text not null,
+    operation text, sent text, conflict_body text, conflict_revision text,
+    failed text,
+    primary key (scope, id))`
+  yield* sql`create table local_ticket_cache (
+    scope text not null, ticket text not null, kind text not null,
+    data text not null, used integer not null,
+    primary key (scope, ticket, kind))`
+  yield* sql`create index local_ticket_cache_used on local_ticket_cache (used)`
+})
+
 export const localMigrations = Migrator.fromRecord({
   "0001_facts": createFacts,
   "0002_ticket_columns": ticketColumns,
   "0003_copies": copies,
   "0004_staging": staging,
-  "0005_pending": pending
+  "0005_pending": pending,
+  "0006_descriptions": descriptions
 })

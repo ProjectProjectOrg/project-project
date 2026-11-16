@@ -1,3 +1,4 @@
+import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
 import { Estimate, EstimationMode } from "../estimates/Estimate"
@@ -10,6 +11,8 @@ export const SyncCursor = Schema.String.annotate({
     "Where a local copy stands in a project's change log: `<generation>.<sequence>`."
 })
 export type SyncCursor = typeof SyncCursor.Type
+
+export const NO_DESCRIPTION_REVISION: SyncCursor = "0.0"
 
 export const TicketRelationKind = Schema.Literals([
   "blocked_by",
@@ -48,7 +51,13 @@ export const TicketFact = Schema.Struct({
   archivedAt: Schema.NullOr(Schema.DateFromString),
   createdBy: Schema.String,
   createdAt: Schema.DateFromString,
-  updatedAt: Schema.DateFromString
+  updatedAt: Schema.DateFromString,
+  descriptionRevision: SyncCursor.pipe(
+    Schema.withDecodingDefaultTypeKey(Effect.succeed(NO_DESCRIPTION_REVISION))
+  ).annotate({
+    description:
+      "The change-log position of the last change to the ticket's description."
+  })
 })
 export type TicketFact = typeof TicketFact.Type
 

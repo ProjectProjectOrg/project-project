@@ -34,6 +34,7 @@ import { markdownFileContent, ticketFileBody } from "../markdown/fileContent"
 import * as Markdown from "../markdown/Markdown"
 import { FinishedStatuses } from "../projects/FinishedStatuses"
 import { subscriptionIntents } from "../subscriptions/intents"
+import { DescriptionChange } from "./descriptionChange"
 import { clearFlagWhenFinished } from "./ticketPatch"
 
 const TicketFrontmatterOnDisk = Schema.Struct({
@@ -652,7 +653,13 @@ const make = Effect.gen(function* () {
                   current.commentsRegion !== next.commentsRegion
               }
             )
-            if (onPersist) yield* onPersist(next)
+            if (onPersist)
+              yield* onPersist(next).pipe(
+                Effect.provideService(
+                  DescriptionChange,
+                  current.body === next.body ? null : id
+                )
+              )
             return next
           }).pipe(Effect.uninterruptible)
         })

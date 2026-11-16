@@ -46,7 +46,9 @@ import {
   planTicketMove,
   rewriteMentionsInMovedTicket,
   rewriteMentionsOfMovedTickets,
+  NO_DESCRIPTION_REVISION,
   Slug,
+  type SyncCursor,
   type CurrentUser,
   type MovedTicket,
   type MoveDestination,
@@ -80,6 +82,8 @@ import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
 import { readProjectDocument } from "../projects/readProjectDocument"
 import * as SyncLog from "../sync/SyncLog"
+import { DescriptionChange } from "./descriptionChange"
+import { descriptionRevisions } from "./descriptionRevisions"
 import { compareByRank, rankBetween, ranksBetween } from "./ranks"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketDocumentLock from "./ticketDocumentLock"
@@ -159,6 +163,7 @@ const requireSplit = (
 export type TicketUpdateExpectation = Readonly<{
   body?: string
   updatedAt?: Date
+  descriptionRevision?: SyncCursor
 }>
 
 export class TicketCommands extends Context.Service<
@@ -312,6 +317,11 @@ const make = Effect.gen(function* () {
   const ticketIndex = yield* TicketIndex.TicketIndex
   const groups = yield* Groups.Groups
   const db = yield* Db
+  const descriptionRevisionOf = (projectId: string, id: string) =>
+    descriptionRevisions(projectId, [id]).pipe(
+      Effect.map((found) => found.get(id) ?? NO_DESCRIPTION_REVISION),
+      Effect.provideService(Db, db)
+    )
   const syncLog = yield* SyncLog.SyncLog
   const attachments = yield* Attachments.Attachments
   const access = yield* Access.Access
@@ -946,6 +956,13 @@ const make = Effect.gen(function* () {
           ) {
             return yield* new Validation({ reason: "ticket_body_changed" })
           }
+          if (
+            expected?.descriptionRevision !== undefined &&
+            (yield* descriptionRevisionOf(projectId, id)) !==
+              expected.descriptionRevision
+          ) {
+            return yield* new Conflict({ reason: "description_changed" })
+          }
         })
         const original =
           sprint === undefined
@@ -1056,7 +1073,16 @@ const make = Effect.gen(function* () {
                         reverted = true
                       })
                     ),
-                    Effect.andThen(ticketIndex.upsertTicket(scope, original)),
+                    Effect.andThen(
+                      ticketIndex
+                        .upsertTicket(scope, original)
+                        .pipe(
+                          Effect.provideService(
+                            DescriptionChange,
+                            bodyChanged ? id : null
+                          )
+                        )
+                    ),
                     Effect.andThen(
                       bodyChanged
                         ? reconcileBodyLinks(scope, original)

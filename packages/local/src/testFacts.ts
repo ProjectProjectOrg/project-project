@@ -6,7 +6,10 @@ import type {
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
 
+import { localDescriptionsLayer } from "./descriptions"
+import { DescriptionSource, SaveOutcome } from "./DescriptionSource"
 import { beginStaging, publishStaging } from "./store"
 
 const at = DateTime.toDateUtc(DateTime.makeUnsafe("2026-11-16T10:00:00Z"))
@@ -28,7 +31,8 @@ export const ticket = (id: string, title: string): TicketFact => ({
   archivedAt: null,
   createdBy: "user-1",
   createdAt: at,
-  updatedAt: at
+  updatedAt: at,
+  descriptionRevision: "0.0"
 })
 
 const project = {
@@ -111,3 +115,12 @@ export const onePage = (
 
 export const install = (scope: string, full: ProjectSnapshot) =>
   Effect.andThen(beginStaging(scope, pageOf(full)), publishStaging(scope))
+
+export const noDescriptions = localDescriptionsLayer.pipe(
+  Layer.provide(
+    Layer.succeed(DescriptionSource, {
+      fetch: () => Effect.succeed([]),
+      save: () => Effect.succeed(SaveOutcome.Rejected({ reason: "test" }))
+    })
+  )
+)

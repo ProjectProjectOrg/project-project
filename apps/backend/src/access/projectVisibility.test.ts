@@ -24,6 +24,7 @@ import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import * as SyncLog from "@pp/server-core/sync/SyncLog"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
+import * as TicketDescriptions from "@pp/server-core/tickets/TicketDescriptions"
 import * as TicketDocs from "@pp/server-core/tickets/TicketDocs"
 import * as TicketDocumentLock from "@pp/server-core/tickets/ticketDocumentLock"
 import * as TicketIndex from "@pp/server-core/tickets/TicketIndex"
@@ -266,6 +267,7 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
         Layer.provideMerge(
           Layer.mergeAll(
             Layer.mock(TicketCommands.TicketCommands, {}),
+            Layer.mock(TicketDescriptions.TicketDescriptions, {}),
             Layer.mock(TicketGit.TicketGit, {}),
             Layer.mock(TicketQueries.TicketQueries, {})
           )

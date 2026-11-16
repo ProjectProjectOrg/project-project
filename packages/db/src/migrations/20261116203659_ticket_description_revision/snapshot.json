@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "d12fe9ff-0295-479c-82c0-3454357df78b",
+  "prevIds": [
+    "b919240b-c481-407e-ab4c-f53b756f3d39"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ticket_index",
+        "description_revision"
+      ],
+      "writes": [
+        "s|col|public.ticket_index.description_revision",
+        "n|col|public.ticket_index.description_revision",
+        "e|col|public.ticket_index.description_revision"
+      ],
+      "reads": [
+        "n|tbl|public.ticket_index",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ticket_index",
+        "name": "description_revision",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

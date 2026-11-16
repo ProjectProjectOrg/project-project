@@ -26,7 +26,14 @@ import { type LocalProject, LocalRpcs } from "./LocalRpcs"
 import { Intent, PendingWrite } from "./pending"
 import { PendingWrites } from "./pendingWrites"
 import { SyncOffline, SyncSource } from "./SyncSource"
-import { changes, onePage, pageOf, snapshot, ticket } from "./testFacts"
+import {
+  changes,
+  noDescriptions,
+  onePage,
+  pageOf,
+  snapshot,
+  ticket
+} from "./testFacts"
 
 const responses: Array<ProjectSync> = [
   onePage("1.1", [ticket("T-1", "one")]),
@@ -46,6 +53,7 @@ const engineWith = (
   localRpcsLayer.pipe(
     Layer.provideMerge(Layer.succeed(SyncSource, { pull })),
     Layer.provideMerge(Layer.succeed(PendingWrites, writes)),
+    Layer.provideMerge(noDescriptions),
     Layer.provideMerge(localDatabase(SqliteClient.makeMemory({})))
   )
 

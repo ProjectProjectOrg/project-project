@@ -781,7 +781,8 @@ export const ticketIndex = pgTable(
     flaggedAt: timestamp("flagged_at", { withTimezone: true }),
     createdBy: text("created_by").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull()
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+    descriptionRevision: text("description_revision")
   },
   (t) => [
     primaryKey({

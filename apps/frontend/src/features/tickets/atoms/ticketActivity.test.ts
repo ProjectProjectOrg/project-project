@@ -15,7 +15,11 @@ import { describe, expect, it, vi } from "vitest"
 
 import { stubFetch } from "@/api/testFetch"
 
-import { ticketActivity, ticketActivityRequest } from "./ticketActivity"
+import {
+  olderActivityPages,
+  ticketActivity,
+  ticketActivityRequest
+} from "./ticketActivity"
 import { ticketRequest, updateTicketDetail } from "./ticketDetail"
 
 const encodeTicketUpdateResultSync = Schema.encodeSync(TicketUpdateResult)
@@ -69,6 +73,8 @@ const serve = (fetched: Array<string | null>) =>
       input instanceof Request ? input.url : String(input),
       "http://localhost"
     )
+    if (!url.pathname.endsWith("/activity"))
+      return Promise.resolve(new Response(null, { status: 404 }))
     const cursor = url.searchParams.get("cursor")
     fetched.push(cursor)
     return Promise.resolve(
@@ -91,12 +97,17 @@ const ids = (registry: AtomRegistry.AtomRegistry) => {
 }
 
 describe("ticketActivity", () => {
-  it("loads every page behind the cursor", async () => {
+  it("loads older pages only when asked", async () => {
     const fetched: Array<string | null> = []
     serve(fetched)
     const registry = AtomRegistry.make()
     registry.mount(ticketActivity(req))
     try {
+      await vi.waitFor(() =>
+        expect(ids(registry)).toEqual({ ids: ["newest"], hasOlder: true })
+      )
+      expect(fetched).toEqual([null])
+      registry.set(olderActivityPages(req), 1)
       await vi.waitFor(() =>
         expect(ids(registry)).toEqual({
           ids: ["newest", "oldest"],
