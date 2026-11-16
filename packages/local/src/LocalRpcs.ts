@@ -19,6 +19,8 @@ import {
 import { Rpc, RpcGroup } from "effect/rpc"
 import * as Schema from "effect/Schema"
 
+import { EditRejected, PendingEdit, PendingWrite } from "./pending"
+
 export const LocalSyncState = Schema.Literals([
   "live",
   "behind",
@@ -165,6 +167,14 @@ export class LocalRpcs extends RpcGroup.make(
   Rpc.make("Sequence", {
     payload: SequenceRequest,
     success: Schema.NullOr(LocalSequence)
+  }),
+  Rpc.make("Edit", {
+    payload: Schema.Struct({
+      project: LocalProject,
+      write: PendingWrite,
+      edits: Schema.Array(PendingEdit)
+    }),
+    error: EditRejected
   })
 ) {}
 

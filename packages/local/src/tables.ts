@@ -148,3 +148,24 @@ export const localStaging = sqliteTable("local_staging", {
   next: text("next"),
   git: integer("git").notNull()
 })
+
+export const localPendingOps = sqliteTable("local_pending_ops", {
+  seq: integer("seq").primaryKey({ autoIncrement: true }),
+  id: text("id").notNull().unique(),
+  scope: text("scope").notNull(),
+  tickets: text("tickets").notNull(),
+  edits: text("edits").notNull(),
+  write: text("write").notNull(),
+  receipt: text("receipt")
+})
+
+export const localPendingBase = sqliteTable(
+  "local_pending_base",
+  {
+    copy: integer("copy").notNull(),
+    id: text("id").notNull(),
+    data: text("data").notNull(),
+    groups: text("groups").notNull()
+  },
+  (t) => [primaryKey({ columns: [t.copy, t.id] })]
+)

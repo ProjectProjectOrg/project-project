@@ -153,9 +153,22 @@ const staging = Effect.gen(function* () {
     next text, git integer not null)`
 })
 
+const pending = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql`create table local_pending_ops (
+    seq integer primary key autoincrement, id text not null unique,
+    scope text not null, tickets text not null, edits text not null,
+    write text not null, receipt text)`
+  yield* sql`create index local_pending_ops_scope on local_pending_ops (scope, seq)`
+  yield* sql`create table local_pending_base (
+    copy integer not null, id text not null, data text not null, groups text not null,
+    primary key (copy, id))`
+})
+
 export const localMigrations = Migrator.fromRecord({
   "0001_facts": createFacts,
   "0002_ticket_columns": ticketColumns,
   "0003_copies": copies,
-  "0004_staging": staging
+  "0004_staging": staging,
+  "0005_pending": pending
 })

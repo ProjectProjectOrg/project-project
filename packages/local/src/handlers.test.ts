@@ -3,8 +3,10 @@ import { it } from "@effect/vitest"
 import {
   type ProjectSync,
   type ProjectSyncQuery,
+  TicketId,
   TicketListQuery,
-  TicketStatus
+  TicketStatus,
+  Validation
 } from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
@@ -17,6 +19,8 @@ import { expect } from "vitest"
 import { localRpcsLayer } from "./handlers"
 import { localDatabase } from "./LocalDb"
 import { type LocalProject, LocalRpcs } from "./LocalRpcs"
+import { Intent, PendingWrite } from "./pending"
+import { PendingWrites } from "./pendingWrites"
 import { SyncOffline, SyncSource } from "./SyncSource"
 import { changes, onePage, ticket } from "./testFacts"
 
@@ -26,9 +30,18 @@ const responses: Array<ProjectSync> = [
   changes("1.2", [ticket("T-1", "renamed")], [])
 ]
 
-const engineWith = (pull: SyncSource["Service"]["pull"]) =>
+const unsent: PendingWrites["Service"] = {
+  operationId: Effect.succeed("operation-1"),
+  send: () => Effect.fail(new SyncOffline())
+}
+
+const engineWith = (
+  pull: SyncSource["Service"]["pull"],
+  writes: PendingWrites["Service"] = unsent
+) =>
   localRpcsLayer.pipe(
     Layer.provideMerge(Layer.succeed(SyncSource, { pull })),
+    Layer.provideMerge(Layer.succeed(PendingWrites, writes)),
     Layer.provideMerge(localDatabase(SqliteClient.makeMemory({})))
   )
 
@@ -109,3 +122,85 @@ it.effect("an interrupted snapshot resumes from its next page", () => {
     ])
   }).pipe(Effect.scoped, Effect.provide(engineWith(pull)))
 })
+
+it.effect(
+  "an edit the server never received is sent again under its operation id on the next pull",
+  () => {
+    const sent: Array<string> = []
+    let online = false
+    const writes: PendingWrites["Service"] = {
+      operationId: Effect.succeed("operation-1"),
+      send: (_project, operationId) =>
+        Effect.suspend(() => {
+          sent.push(operationId)
+          return online
+            ? Effect.succeed("project-1.1.2")
+            : Effect.fail(new SyncOffline())
+        })
+    }
+    const pulls: Array<ProjectSync> = [onePage("1.1", [ticket("T-1", "one")])]
+    const pull = () =>
+      Effect.sync(() => pulls.shift() ?? changes("1.1", [], []))
+    return Effect.gen(function* () {
+      const client = yield* RpcTest.makeClient(LocalRpcs)
+      yield* client.Pull(project)
+      yield* client.Edit({
+        project,
+        write: PendingWrite.cases.update.make({
+          ticket: TicketId.make("T-1"),
+          payload: { priority: "high" }
+        }),
+        edits: [
+          {
+            ticket: "T-1",
+            intents: [Intent.cases.priority.make({ priority: "high" })]
+          }
+        ]
+      })
+      online = true
+      yield* client.Pull(project)
+      yield* client.Pull(project)
+      expect(sent).toEqual(["operation-1", "operation-1"])
+    }).pipe(Effect.scoped, Effect.provide(engineWith(pull, writes)))
+  }
+)
+
+it.effect(
+  "a rejected edit fails with the server's error and is never sent again",
+  () => {
+    const sent: Array<string> = []
+    const writes: PendingWrites["Service"] = {
+      operationId: Effect.succeed("operation-1"),
+      send: (_project, operationId) =>
+        Effect.suspend(() => {
+          sent.push(operationId)
+          return Effect.fail(new Validation({ reason: "invalid_status" }))
+        })
+    }
+    const pulls: Array<ProjectSync> = [onePage("1.1", [ticket("T-1", "one")])]
+    const pull = () =>
+      Effect.sync(() => pulls.shift() ?? changes("1.1", [], []))
+    return Effect.gen(function* () {
+      const client = yield* RpcTest.makeClient(LocalRpcs)
+      yield* client.Pull(project)
+      const error = yield* client
+        .Edit({
+          project,
+          write: PendingWrite.cases.update.make({
+            ticket: TicketId.make("T-1"),
+            payload: { status: TicketStatus.make("nope") }
+          }),
+          edits: [
+            {
+              ticket: "T-1",
+              intents: [Intent.cases.status.make({ status: "nope" })]
+            }
+          ]
+        })
+        .pipe(Effect.flip)
+      yield* client.Pull(project)
+      expect(error).toEqual(new Validation({ reason: "invalid_status" }))
+      expect(sent).toEqual(["operation-1"])
+    }).pipe(Effect.scoped, Effect.provide(engineWith(pull, writes)))
+  }
+)

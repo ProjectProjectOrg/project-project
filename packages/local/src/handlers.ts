@@ -22,13 +22,17 @@ import {
   type SectionsRequest
 } from "./LocalRpcs"
 import { localParentSections } from "./parents"
+import type { PendingWrite } from "./pending"
+import { PendingWrites } from "./pendingWrites"
 import { localCounts, localSections } from "./sections"
 import { localSequence } from "./sequence"
 import { localSprintSections } from "./sprints"
 import {
+  type NewEdit,
   applyChanges,
   applyPage,
   beginStaging,
+  confirmEdit,
   copyOf,
   cursorOf,
   differences,
@@ -36,9 +40,12 @@ import {
   forget,
   publishStaging,
   readFacts,
+  recordEdit,
+  rejectEdit,
   snapshotFacts,
   stagingOf,
-  syncOf
+  syncOf,
+  unsentEdits
 } from "./store"
 import { SyncSource } from "./SyncSource"
 import { localTicketList, repositoryFrom } from "./ticketList"
@@ -83,6 +90,9 @@ export const localRpcsLayer = LocalRpcs.toLayer(
     const sql = yield* SqlClient.SqlClient
     const reactivity = yield* Reactivity.Reactivity
     const source = yield* SyncSource
+    const writes = yield* PendingWrites
+    const sender = yield* Semaphore.make(1)
+    const inFlight = new Set<string>()
     const writer = yield* Semaphore.make(1)
     const loops = new Map<string, Semaphore.Semaphore>()
     const write = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -170,9 +180,69 @@ export const localRpcsLayer = LocalRpcs.toLayer(
         )
       )
 
+    const deliver = (
+      project: LocalProject,
+      id: string,
+      pending: PendingWrite
+    ) => {
+      const scope = scopeOf(project)
+      return sender.withPermit(writes.send(project, id, pending)).pipe(
+        Effect.flatMap((receipt) =>
+          write(confirmEdit(scope, id, receipt)).pipe(Effect.orDie)
+        ),
+        Effect.flatMap((settled) => (settled ? changed(scope) : Effect.void)),
+        Effect.as("sent" as const),
+        Effect.catchTag("SyncOffline", () =>
+          Effect.succeed("offline" as const)
+        ),
+        Effect.tapError(() =>
+          write(rejectEdit(scope, id)).pipe(
+            Effect.andThen(changed(scope)),
+            Effect.orDie
+          )
+        ),
+        Effect.ensuring(Effect.sync(() => inFlight.delete(id)))
+      )
+    }
+
+    const resend = (project: LocalProject) =>
+      Effect.gen(function* () {
+        for (const unsent of yield* unsentEdits(scopeOf(project))) {
+          if (inFlight.has(unsent.id)) continue
+          inFlight.add(unsent.id)
+          const delivered = yield* deliver(
+            project,
+            unsent.id,
+            unsent.write
+          ).pipe(Effect.orElseSucceed(() => "rejected" as const))
+          if (delivered === "offline") return
+        }
+      }).pipe(
+        Effect.catchCause((cause) =>
+          Effect.logWarning("resending local edits failed", cause)
+        )
+      )
+
+    const edit = (
+      project: LocalProject,
+      pending: PendingWrite,
+      edits: NewEdit["edits"]
+    ) =>
+      Effect.gen(function* () {
+        const scope = scopeOf(project)
+        const id = yield* writes.operationId
+        inFlight.add(id)
+        yield* write(recordEdit(scope, { id, write: pending, edits })).pipe(
+          Effect.orDie
+        )
+        yield* changed(scope)
+        yield* deliver(project, id, pending)
+      })
+
     const pull = (project: LocalProject) => {
       const scope = scopeOf(project)
-      return pullUntilCaughtUp(project).pipe(
+      return resend(project).pipe(
+        Effect.andThen(pullUntilCaughtUp(project)),
         Effect.as<LocalStatus>({ kind: "ready", sync: "live" }),
         Effect.catchTags({
           SyncDenied: () =>
@@ -361,7 +431,11 @@ export const localRpcsLayer = LocalRpcs.toLayer(
               now
             })
           )
-        ).pipe(Effect.orDie)
+        ).pipe(Effect.orDie),
+      Edit: (request) =>
+        Effect.uninterruptible(
+          edit(request.project, request.write, request.edits)
+        )
     }
   })
 )
