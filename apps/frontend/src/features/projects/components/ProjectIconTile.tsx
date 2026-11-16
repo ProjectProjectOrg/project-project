@@ -1,4 +1,4 @@
-import type { ProjectIconImage } from "@pp/shared"
+import type { ProjectIconImage, ProjectTone } from "@pp/shared"
 import { ProjectIcon } from "@pp/ui/project-icon"
 import type { ReactNode } from "react"
 
@@ -26,6 +26,8 @@ export function ProjectIconTile({
   icon,
   iconImage,
   color,
+  tone = "mono",
+  colors,
   size,
   seed,
   waiting = false,
@@ -36,6 +38,10 @@ export function ProjectIconTile({
   icon: string
   iconImage: ProjectIconImage | null
   color: string
+  // One hue or several (the project's multicolour choice).
+  tone?: ProjectTone
+  // Multicolor's picked colours; none means seeded.
+  colors?: ReadonlyArray<string>
   size: TileSize
   seed?: string
   waiting?: boolean
@@ -57,6 +63,8 @@ export function ProjectIconTile({
     <ProjectIcon
       seed={seed ?? color}
       color={color}
+      tone={tone}
+      colors={colors}
       icon={icon}
       image={image}
       size={px}

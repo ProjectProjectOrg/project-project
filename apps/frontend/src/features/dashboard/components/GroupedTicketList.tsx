@@ -78,6 +78,8 @@ export function ProjectGroupedList(props: GroupedListProps) {
                   icon={group.project.icon}
                   iconImage={group.project.iconImage}
                   color={group.project.color}
+                  tone={group.project.tone}
+                  colors={group.project.colors}
                   size="xs"
                   seed={group.project.slug}
                 />

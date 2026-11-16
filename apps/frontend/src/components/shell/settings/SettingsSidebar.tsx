@@ -110,6 +110,8 @@ function ProjectRowFace({
           icon={project.icon}
           iconImage={project.iconImage}
           color={project.color}
+          tone={project.tone}
+          colors={project.colors}
           size="row"
           seed={project.slug}
         />

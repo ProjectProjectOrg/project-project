@@ -2,6 +2,7 @@ import type { Project, User } from "@pp/shared"
 import { LayoutDashboard, Plus, Search } from "@pp/ui/icons"
 import { KbdShortcut } from "@pp/ui/kbd"
 import { Logo } from "@pp/ui/logo"
+import { projectIconRadius } from "@pp/ui/project-icon"
 import {
   SidebarRail,
   SidebarRailItem,
@@ -90,6 +91,9 @@ export function AppRail({
   )
 }
 
+// The rail tile's side in px (ProjectIconTile's "rail" size).
+const RAIL_TILE = 34
+
 function ProjectTile({
   orgSlug,
   project,
@@ -106,6 +110,10 @@ function ProjectTile({
       label={project.name}
       tone={project.color}
       active={scope.kind === "project" && scope.slug === project.slug}
+      // The item takes the tile's own shape, so the tile looks the same
+      // here as everywhere else.
+      className="corner-squircle"
+      style={{ borderRadius: projectIconRadius(RAIL_TILE) }}
       render={
         settingsSection === undefined ? (
           <Link
@@ -127,9 +135,10 @@ function ProjectTile({
         icon={project.icon}
         iconImage={project.iconImage}
         color={project.color}
+        tone={project.tone}
+        colors={project.colors}
         size="rail"
         seed={project.slug}
-        className="rounded-[inherit]! shadow-none [corner-shape:inherit]"
       />
     </SidebarRailItem>
   )

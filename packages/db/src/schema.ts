@@ -94,6 +94,12 @@ export const projectIndex = pgTable(
     name: text("name").notNull(),
     icon: text("icon").notNull(),
     color: text("color").notNull(),
+    // The generated tile's colouring: one hue or several.
+    tone: text("tone", { enum: ["mono", "multi"] })
+      .notNull()
+      .default("mono"),
+    // Multicolour's picked colours (#rrggbb, up to three); none means seeded.
+    colors: jsonb("colors").$type<ReadonlyArray<string>>().notNull().default([]),
     banner: jsonb("banner").$type<ProjectBanner>(),
     iconImage: jsonb("icon_image").$type<ProjectIconImage>(),
     estimation: text("estimation", {

@@ -49,6 +49,8 @@ export function ProjectGeneralSettings() {
         icon={project.icon}
         iconImage={project.iconImage}
         color={project.color}
+        tone={project.tone}
+        colors={project.colors}
         banner={project.banner}
         canEdit={canEdit}
       />

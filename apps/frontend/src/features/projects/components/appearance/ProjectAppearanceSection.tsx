@@ -2,7 +2,8 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import {
   ProjectColor,
   type ProjectBanner,
-  type ProjectIconImage
+  type ProjectIconImage,
+  type ProjectTone
 } from "@pp/shared"
 import { AutoHeight } from "@pp/ui/auto-height"
 import { Button } from "@pp/ui/button"
@@ -26,7 +27,7 @@ import {
 import type { LiveIcon } from "@/features/projects/components/appearance/IconPreviewTile"
 import { RenderPreviews } from "@/features/projects/components/appearance/RenderPreviews"
 import { CroppedImage } from "@/features/projects/components/CroppedImage"
-import { ProjectIconDisplay } from "@/features/projects/components/ProjectIconDisplay"
+import { ProjectIconTile } from "@/features/projects/components/ProjectIconTile"
 import { ProjectBannerForm } from "@/features/projects/forms/project-banner"
 import { ProjectIconForm } from "@/features/projects/forms/project-icon"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -46,6 +47,8 @@ export function ProjectAppearanceSection({
   icon,
   iconImage,
   color,
+  tone,
+  colors,
   banner,
   canEdit
 }: {
@@ -54,19 +57,16 @@ export function ProjectAppearanceSection({
   icon: string
   iconImage: ProjectIconImage | null
   color: string
+  tone: ProjectTone
+  colors: ReadonlyArray<ProjectColor>
   banner: ProjectBanner | null
   canEdit: boolean
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const req = projectRequest(orgSlug, slug)
-  const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
-  const recolor = useSave((next: string) =>
-    update({ color: makeProjectColor(next) })
-  )
   const updateState = useAtomValue(updateProject(req))
   const [editing, setEditing] = useState<"icon" | "banner" | null>(null)
   const [live, setLive] = useState<LiveIcon | null>(null)
-  const [pickingColor, setPickingColor] = useState(false)
 
   const reduce = useReducedMotion() ?? false
   const fade = reduce ? { duration: 0 } : transitions.fade
@@ -136,14 +136,16 @@ export function ProjectAppearanceSection({
                   >
                     <AppearanceRow
                       thumb={
-                        <span className="inline-flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-[14px] corner-squircle">
-                          <ProjectIconDisplay
-                            orgSlug={orgSlug}
-                            icon={icon}
-                            iconImage={iconImage}
-                            size={40}
-                          />
-                        </span>
+                        <ProjectIconTile
+                          orgSlug={orgSlug}
+                          icon={icon}
+                          iconImage={iconImage}
+                          color={color}
+                          tone={tone}
+                          colors={colors}
+                          seed={slug}
+                          size="md"
+                        />
                       }
                       shareId="icon"
                       label={m.project_appearance_icon_row()}
@@ -161,30 +163,12 @@ export function ProjectAppearanceSection({
             </AutoHeight>
           </AppearanceCard>
 
-          <AppearanceCard className={pickingColor ? "z-20" : undefined}>
-            <AppearanceRow
-              thumb={
-                <span
-                  aria-hidden
-                  className="size-10 shrink-0 rounded-[14px] corner-squircle"
-                  style={{ backgroundColor: color }}
-                />
-              }
-              label={m.project_appearance_accent_row()}
-              detail={color.toUpperCase()}
-              action={
-                canEdit ? (
-                  <ColorPicker
-                    swatchLabel={(hex) => m.color_swatch_aria_label({ hex })}
-                    value={color}
-                    onChange={(next) => void recolor.run(next)}
-                    ariaLabel={m.color_picker_aria_label()}
-                    onOpenChange={setPickingColor}
-                  />
-                ) : null
-              }
-            />
-          </AppearanceCard>
+          <AccentCard
+            color={color}
+            tone={tone}
+            colors={colors}
+            canEdit={canEdit}
+          />
 
           <AppearanceCard>
             <AutoHeight>
@@ -246,12 +230,6 @@ export function ProjectAppearanceSection({
               </AnimatePresence>
             </AutoHeight>
           </AppearanceCard>
-
-          {recolor.error ? (
-            <p role="alert" className="text-body text-destructive">
-              {m.project_identity_error()}
-            </p>
-          ) : null}
         </div>
 
         <div className="flex flex-col gap-2.5">
@@ -270,6 +248,8 @@ export function ProjectAppearanceSection({
               icon={icon}
               iconImage={iconImage}
               color={color}
+              tone={tone}
+              colors={colors}
               banner={banner}
               live={live}
               waiting={updateState.waiting}
@@ -286,6 +266,8 @@ export function ProjectAppearanceSection({
                 icon={icon}
                 iconImage={iconImage}
                 color={color}
+                tone={tone}
+                colors={colors}
                 banner={banner}
                 live={live}
                 waiting={updateState.waiting}
@@ -295,5 +277,83 @@ export function ProjectAppearanceSection({
         </div>
       </div>
     </SettingsSection>
+  )
+}
+
+// The accent: the tile's backdrop alone (what the choice paints), and the
+// colour picker with Multicolor. A colour and Multicolor are one choice, so
+// picking a colour ends Multicolor.
+function AccentCard({
+  color,
+  tone,
+  colors,
+  canEdit
+}: Readonly<{
+  color: string
+  tone: ProjectTone
+  colors: ReadonlyArray<ProjectColor>
+  canEdit: boolean
+}>) {
+  const { orgSlug, slug } = useProjectRoute()
+  const update = useAtomSet(updateProject(projectRequest(orgSlug, slug)), {
+    mode: "promiseExit"
+  })
+  const recolor = useSave((next: string) =>
+    update({ color: makeProjectColor(next), tone: "mono" })
+  )
+  const retone = useSave((next: ProjectTone) => update({ tone: next }))
+  const repick = useSave((next: ReadonlyArray<string>) =>
+    update({ colors: next.map((hex) => makeProjectColor(hex)) })
+  )
+  const [picking, setPicking] = useState(false)
+  return (
+    <>
+      <AppearanceCard className={picking ? "z-20" : undefined}>
+        <AppearanceRow
+          thumb={
+            <ProjectIconTile
+              orgSlug={orgSlug}
+              icon=""
+              iconImage={null}
+              color={color}
+              tone={tone}
+              colors={colors}
+              seed={slug}
+              size="md"
+            />
+          }
+          label={m.project_appearance_accent_row()}
+          detail={
+            tone === "multi"
+              ? m.project_appearance_accent_multicolor()
+              : color.toUpperCase()
+          }
+          action={
+            canEdit ? (
+              <ColorPicker
+                swatchLabel={(hex) => m.color_swatch_aria_label({ hex })}
+                value={color}
+                onChange={(next) => void recolor.run(next)}
+                limit={3}
+                multi={{
+                  label: m.project_appearance_accent_multicolor(),
+                  on: tone === "multi",
+                  colors,
+                  onToggle: (on) => void retone.run(on ? "multi" : "mono"),
+                  onColorsChange: (next) => void repick.run(next)
+                }}
+                ariaLabel={m.color_picker_aria_label()}
+                onOpenChange={setPicking}
+              />
+            ) : null
+          }
+        />
+      </AppearanceCard>
+      {recolor.error || retone.error || repick.error ? (
+        <p role="alert" className="text-body text-destructive">
+          {m.project_identity_error()}
+        </p>
+      ) : null}
+    </>
   )
 }

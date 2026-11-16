@@ -36,6 +36,8 @@ export function ProjectTile({
           icon={project.icon}
           iconImage={project.iconImage}
           color={project.color}
+          tone={project.tone}
+          colors={project.colors}
           size="sm"
           seed={project.slug}
         />
