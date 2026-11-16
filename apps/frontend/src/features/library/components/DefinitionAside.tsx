@@ -137,24 +137,16 @@ export function IconAndColorField({
         disabled={disabled}
       />
       {disabled ? null : (
-        <>
-          <ColorPicker
-            swatchLabel={(hex) => m.color_swatch_aria_label({ hex })}
-            value={color ?? ""}
-            onChange={onColor}
-            ariaLabel={m.templates_editor_color_aria()}
-          />
-          {color === null ? null : (
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              onClick={() => onColor(null)}
-            >
-              {m.templates_editor_color_clear()}
-            </Button>
-          )}
-        </>
+        <ColorPicker
+          swatchLabel={(hex) => m.color_swatch_aria_label({ hex })}
+          value={color}
+          onChange={onColor}
+          ariaLabel={m.templates_editor_color_aria()}
+          clear={{
+            label: m.templates_editor_color_clear(),
+            onClear: () => onColor(null)
+          }}
+        />
       )}
     </div>
   )

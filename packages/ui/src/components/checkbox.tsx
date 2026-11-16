@@ -18,7 +18,11 @@ const focusRing = "focus-ring"
 const fillClass =
   "absolute inset-0 scale-40 rounded-[inherit] bg-foreground opacity-0 transition-[scale,opacity,background-color] duration-[150ms,110ms,150ms] delay-[15ms,35ms,0ms] ease-standard corner-squircle group-data-checked/checkbox:scale-100 group-data-checked/checkbox:opacity-100 group-data-checked/checkbox:duration-[220ms,60ms,150ms] group-data-checked/checkbox:delay-0 group-data-checked/checkbox:ease-spring group-data-indeterminate/checkbox:scale-100 group-data-indeterminate/checkbox:opacity-100 group-data-indeterminate/checkbox:duration-[220ms,60ms,150ms] group-data-indeterminate/checkbox:delay-0 group-data-indeterminate/checkbox:ease-spring group-[:hover:not([data-disabled],[data-readonly])]/checkbox:bg-(--checkbox-fill-hover) motion-reduce:scale-100 motion-reduce:transition-opacity motion-reduce:duration-120 motion-reduce:delay-0"
 
-const markClass =
+// The check, drawn on as its box checks (stroke-dashoffset 1 → 0). Shared
+// with the colour picker's picked dots.
+export const CHECK_PATH = "M4.6 8.4 L7 10.7 L11.5 5.6"
+
+export const markClass =
   "fill-none stroke-background stroke-[1.75] [stroke-dasharray:1] [stroke-dashoffset:1] [stroke-linecap:round] [stroke-linejoin:round] transition-[stroke-dashoffset] duration-80 ease-standard motion-reduce:transition-none"
 
 function Checkbox({
@@ -47,7 +51,7 @@ function Checkbox({
       >
         <path
           pathLength={1}
-          d="M4.6 8.4 L7 10.7 L11.5 5.6"
+          d={CHECK_PATH}
           className={cn(
             markClass,
             "group-data-checked/checkbox:delay-60 group-data-checked/checkbox:duration-160 group-data-checked/checkbox:[stroke-dashoffset:0] motion-reduce:delay-0"

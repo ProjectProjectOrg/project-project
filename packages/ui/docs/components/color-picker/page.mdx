@@ -1,0 +1,92 @@
+export const meta = {
+  title: "Color picker",
+  group: "Primitives",
+  description:
+    "A hexagonal swatch that opens a honeycomb of the app's colours around itself. Project accents (with the multicolour tile), tag and status colours, and template colours.",
+  sources: [
+    {
+      kind: "base-ui",
+      name: "Popover",
+      note: "focus, Escape, outside press and nesting",
+      href: "https://base-ui.com/react/components/popover"
+    },
+    { kind: "own", name: "ColorPicker", note: "the honeycomb, its motion and hover" }
+  ]
+}
+
+## Overview
+
+Open it: the trigger's colour flies out to its place in the grid. Pick another and that dot flies back to the centre as the new value. Hover grows the dot nearest the pointer; arrow keys move across the grid and Enter picks; Escape, a click outside or a click on the centre closes it.
+
+<Demo name="overview" title="All states" className="min-h-96" />
+
+## Usage
+
+```tsx
+import { ColorPicker } from "@pp/ui/color-picker"
+
+<ColorPicker
+  value={tag.color}
+  onChange={(hex) => onPatch({ color: makeTagColor(hex) })}
+  ariaLabel={m.tags_color_aria_label({ name: tag.name })}
+  swatchLabel={(hex) => m.color_swatch_aria_label({ hex })}
+/>
+```
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `string \| null`, the colour as `#rrggbb`, null for none | required |
+| `onChange` | `(hex: string) => void` | required |
+| `ariaLabel` | `string`, names the trigger and the grid | required |
+| `swatchLabel` | `(hex: string) => string`, names each colour | required |
+| `clear` | `{ label, onClear }`, adds the "no colour" chip | |
+| `limit` | `number`, how many colours Multicolour may pick; above 1 shows it | `1` |
+| `multi` | `{ label, on, colors, onToggle, onColorsChange }`, the Multicolour toggle (with `limit` above 1) | |
+| `closeOnSelect` | `boolean`, close after picking | `true` |
+| `onOpenChange` | `(open: boolean) => void` | |
+
+## Rules
+
+### One honeycomb
+
+Every dot is a rounded, pointy-topped hexagon on one hex grid centred on the trigger, 28px across its flats with 2px gaps. Pointy-topped hexagons face their six neighbours with flat sides, so every gap is the same. The 6 soft colours touch the trigger, each on the strong colour of its hue; the 12 strong colours go round them, red at the top; the 4 neutrals (dark grey to white) are the row below. Nothing is placed by eye, so every gap is the same.
+
+### The value travels
+
+The trigger is the value. Opening sends it out to its own place in the grid (it leaves the centre at the trigger's size and grows into a dot), so the centre is empty while you choose. Closing, by picking or not, brings the value's dot back to the centre in 160ms while the rest fold away, and the trigger reappears as it lands.
+
+### Lit like the avatars
+
+Each hexagon has the member avatars' hairline edge and the soft light along its top (`--avatar-edge`, `--avatar-lit`), drawn as SVG strokes inside the shape (`HexSwatch`), because a mask would clip a box shadow. The picked dot sits above its neighbours.
+
+### Picked dots get the checkbox's check
+
+A picked dot shows the Checkbox's check, drawn on in 160ms the same way, in white on darker colours and near-black on lighter ones (lightness above 0.72), so it reads on every colour. An outline fought with the hexagon edges; the check says "picked" without changing the shape. It shows on the value the grid opened with, and on every pick while Multicolour is on; a colour picked to close the grid travels home without one.
+
+### Hover grows, it doesn't move
+
+The dot nearest the pointer grows up to 40% and leans a little (12% of the distance) toward it; the others stay put. Closeness is shared out so the nearest dot takes almost all of it, and the growth hands over smoothly between two dots. It is worked out from the pointer position every frame, without easing, so nothing lags or settles. Reduced motion turns it off.
+
+### Pressed
+
+A pressed dot sinks to 92% in 100ms, the trigger too; it's more than the house 97% because 3% of a 28px hexagon is under a pixel. The hover's growth stays on the button, so pressing a grown dot still shows.
+
+### Opening and closing
+
+The dots grow out of the trigger in 200ms on the standard curve, without overshoot,, ring by ring 20ms apart, and fold back in 110ms on the standard curve. Reduced motion keeps only the fade.
+
+### No colour is a choice, Multicolour a toggle
+
+They aren't colours, so they don't take a dot: they sit under the grid as buttons with hexagon icons. "No colour" clears the value (the trigger becomes an empty outline with a slash) and closes, like picking a colour. "Multicolour" shows only when `limit` is above 1, and is a toggle: off, its icon is grey and the grid picks one colour; on, the grid stays open and each dot adds or removes its colour, up to `limit` (past it, the oldest goes). Its icon and the trigger show the picked colours round the hexagon, or the whole strong ring while none is picked, which means seeded colours. Switched on, the icon pops out of grey (380ms, house spring). Its gradient is always three registered colours (`--m1`…`--m3`), so adding or removing a pick eases each step to its new colour in 320ms; with no picks it shows three hues a third of the ring apart. Reduced motion keeps the colour change without the pop. On close its icon travels into the trigger, as a picked dot would. A choice is outlined (a 1.5px ring standing 1.5px off it) only if it was already the choice when the grid opened.
+
+### Built on Base UI's Popover
+
+So focus moves to the picked dot on open and back to the trigger on close, Escape and outside presses close it, and a picker inside another popover (the tag editor) doesn't close its parent.
+
+### Colours that may be stored
+
+The picker offers `TAG_COLOR_WHEEL` (soft, strong and neutrals). Stored colours are checked against `STORED_COLORS`, which also keeps the earlier 8-colour soft ring, so saved tags, statuses and templates stay valid.
+
+## Examples
+
+<Demo name="in-the-app" title="In the app" className="min-h-[28rem]" />

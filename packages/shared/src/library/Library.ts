@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
-import { TAG_COLOR_WHEEL } from "../colors"
+import { STORED_COLORS } from "../colors"
 import { TagName } from "../tags/Tag"
 import { TicketPriority } from "../tickets/Ticket"
 import { BLOCK_ICONS } from "./icons"
@@ -18,7 +18,7 @@ export {
 } from "./LibraryKey"
 
 const WHEEL_HEXES: ReadonlySet<string> = new Set(
-  TAG_COLOR_WHEEL.map((swatch) => swatch.hex)
+  STORED_COLORS.map((swatch) => swatch.hex)
 )
 
 export const isWheelHex = (value: string): boolean =>

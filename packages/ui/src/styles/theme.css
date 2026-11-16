@@ -854,6 +854,188 @@
    hue, which is what made the old light badges look muddy. The buttons'
    sheen lies over the fill. Hover and press only apply when the badge is a
    link or a button. In a layer, so a caller's utilities still win. */
+/* ColorPicker's Multicolour icon: its gradient is three registered colours,
+   so adding or removing a pick eases each step to its new colour; switching
+   on, it pops out of grey. Reduced motion keeps the colour change without
+   the pop. */
+@property --m1 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+@property --m2 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+@property --m3 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+@keyframes multi-wake {
+  0% {
+    scale: 0.6;
+  }
+  55% {
+    scale: 1.25;
+  }
+  100% {
+    scale: 1;
+  }
+}
+[data-slot="color-picker-multi-icon"] {
+  transition:
+    filter 320ms var(--ease-standard),
+    --m1 320ms var(--ease-standard),
+    --m2 320ms var(--ease-standard),
+    --m3 320ms var(--ease-standard);
+}
+[data-slot="color-picker-multi-icon"][data-on] {
+  animation: multi-wake 380ms var(--ease-spring);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="color-picker-multi-icon"][data-on] {
+    animation: none;
+  }
+}
+
+/* ColorPicker: the honeycomb grows out of the trigger. Each dot travels
+   from near the centre to its place on the standard curve (no overshoot),
+   ring by ring
+   (--delay), and folds back quicker on close. The picked dot ([data-value])
+   is the trigger itself leaving: it starts at the centre at the trigger's
+   size, and on close travels back there while the others fold away, landing
+   as the trigger reappears. The popup's own 1px drift is what Base UI waits
+   on before unmounting, so it outlasts that trip. The picked dot sits
+   above its neighbours, so its ring is never covered. Reduced motion keeps the
+   fades. */
+@layer components {
+  [data-slot="color-picker"] {
+    transition: translate 180ms linear;
+  }
+  [data-slot="color-picker"][data-ending-style] {
+    translate: 0 0.01px;
+  }
+  :is([data-slot="color-picker-dot"], [data-slot="color-picker-chips"]) {
+    translate: var(--x) var(--y);
+    transition:
+      translate 200ms var(--ease-standard) var(--delay),
+      scale 180ms var(--ease-standard) var(--delay),
+      opacity 120ms var(--ease-standard) var(--delay);
+  }
+  [data-slot="color-picker"]:is([data-starting-style], [data-ending-style])
+    :is([data-slot="color-picker-dot"], [data-slot="color-picker-chips"]) {
+    translate: calc(var(--x) * 0.35) calc(var(--y) * 0.35);
+    scale: 0.4;
+    opacity: 0;
+  }
+  [data-slot="color-picker"][data-ending-style]
+    :is([data-slot="color-picker-dot"], [data-slot="color-picker-chips"]) {
+    transition-duration: 110ms;
+    transition-timing-function: var(--ease-standard);
+    transition-delay: 0ms;
+  }
+  [data-slot="color-picker"]:is([data-starting-style], [data-ending-style])
+    [data-slot="color-picker-dot"][data-value] {
+    translate: 0 0;
+    scale: calc(24 / 28);
+    opacity: 1;
+  }
+  [data-slot="color-picker"][data-ending-style]
+    [data-slot="color-picker-dot"][data-value] {
+    transition-duration: 160ms;
+  }
+  [data-slot="color-picker-dot"][data-value] {
+    z-index: 11;
+  }
+  /* The picked check (and ring) fades in as the grid opens and out as the
+     dot travels home, instead of popping when the trigger takes over. */
+  [data-slot="color-picker-dot"]
+    :is([data-slot="hex-swatch-ring"], [data-slot="hex-swatch-check"]) {
+    transition: opacity 120ms var(--ease-standard);
+  }
+  [data-slot="color-picker"]:is([data-starting-style], [data-ending-style])
+    [data-slot="color-picker-dot"]
+    :is([data-slot="hex-swatch-ring"], [data-slot="hex-swatch-check"]) {
+    opacity: 0;
+  }
+  [data-slot="color-picker-dot"]:not([data-ring])
+    [aria-checked="true"]
+    > [data-slot="hex-swatch-check"] {
+    opacity: 0;
+    transition: none;
+  }
+  /* Closing, a dot grown by the hover (or pressed) eases back to its own
+     size on the way home, so it lands at the trigger's size. */
+  [data-slot="color-picker"][data-ending-style]
+    [data-slot="color-picker-dot"]
+    > button {
+    scale: 1 !important;
+    translate: 0 0 !important;
+    transition:
+      scale 160ms var(--ease-standard),
+      translate 160ms var(--ease-standard);
+  }
+  [data-slot="color-picker"][data-ending-style]
+    [data-slot="color-picker-dot"]
+    > button
+    > * {
+    scale: 1;
+  }
+  /* "No colour" or "Multicolour" as the current choice travels like a
+     picked dot: a trigger-sized hexagon (the flyer) leaves the trigger for
+     its icon on open, then hands over to the icon; on close the icon hides
+     and the flyer goes back in 160ms. */
+  [data-slot="color-picker-flyer"] {
+    translate: var(--from-x) var(--from-y);
+    scale: var(--icon-scale);
+    opacity: 0;
+    /* Opening, it travels with the buttons (their 60ms delay and 200ms
+       trip), so both settle together before it hands over to the icon. */
+    transition:
+      translate 200ms var(--ease-standard) 60ms,
+      scale 200ms var(--ease-standard) 60ms,
+      opacity 0s linear 260ms;
+  }
+  [data-slot="color-picker"]:is([data-starting-style], [data-ending-style])
+    [data-slot="color-picker-flyer"][data-active] {
+    translate: 0 0;
+    scale: 1;
+    opacity: 1;
+  }
+  [data-slot="color-picker"][data-ending-style]
+    [data-slot="color-picker-flyer"] {
+    transition:
+      translate 160ms var(--ease-standard),
+      scale 160ms var(--ease-standard),
+      opacity 0s;
+  }
+  [aria-pressed="true"] > [data-slot="color-picker-chip-icon"] {
+    transition: opacity 0s linear 260ms;
+  }
+  [data-slot="color-picker"]:is([data-starting-style], [data-ending-style])
+    [aria-pressed="true"]
+    > [data-slot="color-picker-chip-icon"] {
+    opacity: 0;
+    transition: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-slot="color-picker"]
+      :is([data-slot="color-picker-dot"], [data-slot="color-picker-chips"]) {
+      translate: var(--x) var(--y) !important;
+      scale: 1 !important;
+      transition: opacity 120ms var(--ease-standard);
+    }
+    [data-slot="color-picker-flyer"] {
+      display: none;
+    }
+    [data-slot="color-picker"] [data-slot="color-picker-chip-icon"] {
+      opacity: 1 !important;
+    }
+  }
+}
+
 @layer components {
   .pp-badge {
     --badge-tone: var(--muted-foreground);
@@ -1110,7 +1292,6 @@
   [data-slot="sidebar-row"][data-live] .pp-sidebar-row-action:hover {
     background-color: var(--accent);
   }
-
 }
 @keyframes pp-sidebar-landed {
   from {
