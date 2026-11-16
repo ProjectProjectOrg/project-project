@@ -473,6 +473,19 @@ export const ticketIndexRowFor = (
   updatedAt: document.updatedAt
 })
 
+const indexedColumns = Object.entries(getTableColumns(ticketIndex))
+
+const rowDiffers = (row: typeof ticketIndex.$inferInsert) => {
+  const columns = indexedColumns.filter(([key]) => key in row)
+  return drizzleSql`(${drizzleSql.join(
+    columns.map(([, column]) => drizzleSql`${column}`),
+    drizzleSql`, `
+  )}) is distinct from (${drizzleSql.join(
+    columns.map(([, column]) => drizzleSql.raw(`excluded.${column.name}`)),
+    drizzleSql`, `
+  )})`
+}
+
 export const flagFromIndex = (
   row: Pick<
     typeof ticketIndex.$inferSelect,
@@ -2037,17 +2050,31 @@ const make = Effect.gen(function* () {
     document: TicketDocs.TicketDocument
   ) =>
     Effect.gen(function* () {
-      yield* db
-        .delete(ticketRelationIndex)
-        .where(
-          and(
-            eq(ticketRelationIndex.projectId, project.projectId),
-            eq(ticketRelationIndex.fromTicketId, document.id)
-          )
-        )
+      const fromTicket = and(
+        eq(ticketRelationIndex.projectId, project.projectId),
+        eq(ticketRelationIndex.fromTicketId, document.id)
+      )
       const rows = ticketRelationRowsFor(project, document)
-      if (rows.length === 0) return
-      yield* db.insert(ticketRelationIndex).values([...rows])
+      const edgeKey = (edge: { toTicketId: string; kind: string }) =>
+        `${edge.kind}:${edge.toTicketId}`
+      const existing = new Set(
+        (yield* db
+          .select({
+            toTicketId: ticketRelationIndex.toTicketId,
+            kind: ticketRelationIndex.kind
+          })
+          .from(ticketRelationIndex)
+          .where(fromTicket)).map(edgeKey)
+      )
+      if (
+        existing.size === rows.length &&
+        rows.every((row) => existing.has(edgeKey(row)))
+      )
+        return false
+      yield* db.delete(ticketRelationIndex).where(fromTicket)
+      if (rows.length > 0)
+        yield* db.insert(ticketRelationIndex).values([...rows])
+      return true
     })
 
   const upsertTicket = Effect.fn("TicketIndex.upsertTicket")(function* (
@@ -2057,18 +2084,22 @@ const make = Effect.gen(function* () {
     return yield* sql
       .withTransaction(
         Effect.gen(function* () {
-          yield* db
+          const row = ticketIndexRowFor(project, document)
+          const written = yield* db
             .insert(ticketIndex)
-            .values(ticketIndexRowFor(project, document))
+            .values(row)
             .onConflictDoUpdate({
               target: [ticketIndex.projectId, ticketIndex.ticketId],
-              set: ticketIndexRowFor(project, document)
+              set: row,
+              setWhere: rowDiffers(row)
             })
+            .returning({ ticketId: ticketIndex.ticketId })
           yield* syncTicketBranches(project, document)
-          yield* syncTicketRelations(project, document)
-          yield* syncLog.append(project.projectId, [
-            { kind: "ticket", id: document.id, op: "upsert" }
-          ])
+          const relinked = yield* syncTicketRelations(project, document)
+          if (written.length > 0 || relinked)
+            yield* syncLog.append(project.projectId, [
+              { kind: "ticket", id: document.id, op: "upsert" }
+            ])
         })
       )
       .pipe(

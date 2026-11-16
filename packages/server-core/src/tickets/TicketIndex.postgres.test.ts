@@ -265,6 +265,35 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
   )
 
   it.effect(
+    "logs a ticket change only when its indexed fields or relations change",
+    () =>
+      Effect.gen(function* () {
+        const organizationId = yield* seedRebuildProject
+        const index = yield* TicketIndex.TicketIndex
+        const log = yield* SyncLog.SyncLog
+        const project = yield* index.projectFor(organizationId, organizationId)
+        const ticket = indexedDocument("T-1")
+        yield* index.upsertTicket(project, ticket)
+        yield* index.upsertTicket(project, ticket)
+        expect((yield* log.head(project.projectId)).sequence).toBe(1)
+        yield* index.upsertTicket(project, {
+          ...ticket,
+          blockedBy: [ticketId("T-2")]
+        })
+        yield* index.upsertTicket(project, { ...ticket, title: "Renamed" })
+        expect((yield* log.head(project.projectId)).sequence).toBe(3)
+      }).pipe(
+        Effect.provide(
+          TicketIndexServices.layer.pipe(
+            Layer.provideMerge(SyncLog.layer),
+            Layer.provide(FakeTicketDocs),
+            Layer.provideMerge(DatabaseLive)
+          )
+        )
+      )
+  )
+
+  it.effect(
     "rebuilds an index row that is ahead of its ticket file and starts a new sync generation",
     () =>
       Effect.gen(function* () {

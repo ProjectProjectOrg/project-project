@@ -66,7 +66,7 @@ const makeDb = (failures: number) => {
               })
             })
           )
-        : Effect.succeed([])
+        : Effect.succeed([{ ticket_id: "T-1" }])
     })
   )
   return { layer, state }
