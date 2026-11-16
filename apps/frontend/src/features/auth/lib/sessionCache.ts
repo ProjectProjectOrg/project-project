@@ -45,28 +45,32 @@ export function createSessionCache<
 
   const watch = () => {
     const { registry } = session
-    const stopIdentity = registry.subscribe(me(), (viewer) => {
-      if (disposed || registry !== session.registry) return
-      const nextIdentity = Result.matchWithError(viewer, {
-        onInitial: () => undefined,
-        onSuccess: ({ value }) => value.id,
-        onError: () => null,
-        onDefect: () => undefined
-      })
-      if (
-        session.ready &&
-        nextIdentity !== undefined &&
-        identity !== nextIdentity
-      ) {
-        replace(viewer, nextIdentity)
-        return
-      }
-      if (nextIdentity !== undefined) identity = nextIdentity
-      if (!session.ready && !Result.isInitial(viewer)) {
-        session = { ...session, ready: true }
-        notify()
-      }
-    })
+    const stopIdentity = registry.subscribe(
+      me(),
+      (viewer) => {
+        if (disposed || registry !== session.registry) return
+        const nextIdentity = Result.matchWithError(viewer, {
+          onInitial: () => undefined,
+          onSuccess: ({ value }) => value.id,
+          onError: () => null,
+          onDefect: () => undefined
+        })
+        if (
+          session.ready &&
+          nextIdentity !== undefined &&
+          identity !== nextIdentity
+        ) {
+          replace(viewer, nextIdentity)
+          return
+        }
+        if (nextIdentity !== undefined) identity = nextIdentity
+        if (!session.ready && !Result.isInitial(viewer)) {
+          session = { ...session, ready: true }
+          notify()
+        }
+      },
+      { immediate: true }
+    )
     const stopLogout = registry.subscribe(logout, (result) => {
       if (
         !disposed &&
