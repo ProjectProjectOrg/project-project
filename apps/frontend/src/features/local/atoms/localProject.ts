@@ -135,7 +135,7 @@ export const localProject = Atom.family((request: LocalProjectRequest) =>
         )
       })
     )
-  )
+  ).pipe(Atom.setIdleTTL("30 seconds"))
 )
 
 export const localReady = Atom.family((request: LocalProjectRequest) =>

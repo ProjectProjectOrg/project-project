@@ -1,4 +1,4 @@
-import type { EditorPreference } from "@pp/shared"
+import { type EditorPreference, User } from "@pp/shared"
 import type { BetterFetchError } from "better-auth/react"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
@@ -6,6 +6,7 @@ import * as Atom from "effect/reactivity/Atom"
 import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
+import { persisted } from "@/api/bootCache"
 import { Keys } from "@/api/keys"
 import { query } from "@/api/query"
 import { clearBannerRenderCache } from "@/features/projects/lib/bannerRenderCache"
@@ -13,7 +14,7 @@ import { authClient } from "@/services/AuthClient"
 
 const meQuery = query("auth", "me", {
   reactivityKeys: [Keys.me()]
-})
+}).pipe(persisted("me", User))
 
 const meAtom = Atom.optimistic(meQuery)
 

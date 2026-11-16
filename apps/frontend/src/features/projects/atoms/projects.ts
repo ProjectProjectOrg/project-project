@@ -7,9 +7,9 @@ import {
   type AddMemberInput,
   type CreateProjectInput,
   type EstimationMode,
-  type Project,
+  Project,
   ProjectActor,
-  type ProjectDetail,
+  ProjectDetail,
   type UpdateMemberInput,
   type UpdateProjectInput,
   type UpdateProjectSetupInput
@@ -19,8 +19,10 @@ import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Reactivity from "effect/reactivity/Reactivity"
+import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
+import { persisted } from "@/api/bootCache"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { coalescingMutation, viewMutation } from "@/api/viewMutation"
@@ -88,7 +90,7 @@ const projectsQuery = (req: ProjectsRequest) =>
       params: req.params,
       timeToLive: "1 minute",
       reactivityKeys: [Keys.projects(req.params.orgSlug)]
-    }),
+    }).pipe(persisted(`projects/${req.params.orgSlug}`, Schema.Array(Project))),
     (result) => {
       if (AsyncResult.isSuccess(result) && !result.waiting) {
         for (const project of result.value) {
@@ -113,7 +115,7 @@ export const confirmedProject = (req: ProjectRequest) =>
         Keys.orgMembers(req.params.orgSlug),
         Keys.githubIntegration(req.params.orgSlug)
       ]
-    }),
+    }).pipe(persisted(`project/${scopeOf(req)}`, ProjectDetail)),
     (result) => {
       if (AsyncResult.isSuccess(result) && !result.waiting) {
         preloadProjectImages(req.params.orgSlug, result.value)

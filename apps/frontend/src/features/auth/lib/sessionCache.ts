@@ -3,6 +3,7 @@ import * as Result from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 import * as Registry from "effect/reactivity/AtomRegistry"
 
+import { clearBoot, saveBoot } from "@/api/bootCache"
 import { logout, me } from "@/features/auth/atoms/auth"
 
 export function createSessionCache<
@@ -25,6 +26,7 @@ export function createSessionCache<
   }
   let session = makeSession()
   let stopWatching = () => {}
+  addEventListener("pagehide", saveBoot)
   const notify = () => listeners.forEach((listener) => listener())
 
   const replace = (
@@ -32,6 +34,7 @@ export function createSessionCache<
     nextIdentity: string | null
   ) => {
     stopWatching()
+    clearBoot()
     session.router.cancelMatches()
     session.registry.dispose()
     identity = nextIdentity
@@ -96,6 +99,7 @@ export function createSessionCache<
     },
     dispose: () => {
       disposed = true
+      removeEventListener("pagehide", saveBoot)
       stopWatching()
       session.router.cancelMatches()
       session.registry.dispose()

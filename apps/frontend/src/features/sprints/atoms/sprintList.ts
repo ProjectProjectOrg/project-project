@@ -5,7 +5,7 @@ import {
   type CompleteSprintInput,
   type CompleteSprintOutput,
   type CreateGroupInput,
-  type Group,
+  Group,
   type QuickCreateTicketInput,
   type TicketId,
   type UpdateGroupInput,
@@ -20,6 +20,7 @@ import * as Reactivity from "effect/reactivity/Reactivity"
 import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
+import { persisted } from "@/api/bootCache"
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
 import { query } from "@/api/query"
 import { fireMutation, keepPredicted, viewMutation } from "@/api/viewMutation"
@@ -45,7 +46,7 @@ const sprintsQuery = (req: SprintListRequest) =>
     params: req.params,
     timeToLive: "1 minute",
     reactivityKeys: [Keys.sprints(scopeOf(req))]
-  })
+  }).pipe(persisted(`groups/${scopeOf(req)}`, Schema.Array(Group)))
 
 const sprintListQuery = (req: SprintListRequest) =>
   Atom.mapResult(sprintsQuery(req), (groups) =>

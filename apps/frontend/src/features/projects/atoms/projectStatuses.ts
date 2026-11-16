@@ -7,14 +7,16 @@ import {
   pickStatusColor,
   type CreateStatusInput,
   type DeleteStatusInput,
-  type ProjectStatus,
+  ProjectStatus,
   type ReorderStatusInput,
   type UpdateStatusInput
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Atom from "effect/reactivity/Atom"
+import * as Schema from "effect/Schema"
 import { generateKeyBetween } from "fractional-indexing"
 
+import { persisted } from "@/api/bootCache"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { fireMutation, viewMutation } from "@/api/viewMutation"
@@ -41,7 +43,7 @@ const statusesQuery = (req: StatusesRequest) =>
     params: req.params,
     timeToLive: "5 minutes",
     reactivityKeys: [Keys.statuses(scopeOf(req))]
-  })
+  }).pipe(persisted(`statuses/${scopeOf(req)}`, Schema.Array(ProjectStatus)))
 
 export const statusesFor = Atom.family((req: StatusesRequest) =>
   Atom.optimistic(statusesQuery(req))

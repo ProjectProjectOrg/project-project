@@ -2,7 +2,7 @@ import {
   ORG_DELETE_GRACE_DAYS,
   OrgActor,
   type InviteMemberInput,
-  type OrgDetail,
+  OrgDetail,
   type OrgMember,
   type OrgMembers,
   type RenameOrgInput,
@@ -15,6 +15,7 @@ import * as Atom from "effect/reactivity/Atom"
 import * as Reactivity from "effect/reactivity/Reactivity"
 
 import { Api } from "@/api/Api"
+import { persisted } from "@/api/bootCache"
 import { Keys } from "@/api/keys"
 import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
@@ -41,7 +42,7 @@ const orgDetailQuery = (req: OrgRequest) =>
     params: req.params,
     timeToLive: "2 minutes",
     reactivityKeys: [Keys.org(req.params.orgSlug)]
-  })
+  }).pipe(persisted(`org/${req.params.orgSlug}`, OrgDetail))
 
 export const orgDetail = Atom.family((req: OrgRequest) =>
   Atom.optimistic(orgDetailQuery(req))

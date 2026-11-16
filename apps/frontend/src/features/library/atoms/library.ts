@@ -1,4 +1,4 @@
-import type {
+import {
   BlockDefinition,
   BlockKey,
   CreateBlockInput,
@@ -13,6 +13,7 @@ import type * as Effect from "effect/Effect"
 import * as Atom from "effect/reactivity/Atom"
 
 import { Api } from "@/api/Api"
+import { persisted } from "@/api/bootCache"
 import { Keys, projectScope, type ReactivityKey } from "@/api/keys"
 import { query } from "@/api/query"
 import { viewMutation, type OptimisticView } from "@/api/viewMutation"
@@ -71,7 +72,7 @@ const projectLibraryQuery = (req: ProjectLibraryRequest) =>
       Keys.orgLibrary(req.params.orgSlug),
       Keys.projectLibrary(scopeOf(req))
     ]
-  })
+  }).pipe(persisted(`library/${scopeOf(req)}`, Library))
 
 export const orgLibraryFor = Atom.family((req: OrgLibraryRequest) =>
   Atom.optimistic(orgLibraryQuery(req))
