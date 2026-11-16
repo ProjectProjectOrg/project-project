@@ -137,5 +137,14 @@ export const localCopies = sqliteTable("local_copies", {
 export const localSync = sqliteTable("local_sync", {
   scope: text("scope").primaryKey(),
   copy: integer("copy").notNull(),
-  cursor: text("cursor").notNull()
+  cursor: text("cursor").notNull(),
+  git: integer("git").notNull()
+})
+
+export const localStaging = sqliteTable("local_staging", {
+  scope: text("scope").primaryKey(),
+  copy: integer("copy").notNull(),
+  base: text("base").notNull(),
+  next: text("next"),
+  git: integer("git").notNull()
 })

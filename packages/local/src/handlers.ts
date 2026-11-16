@@ -1,6 +1,11 @@
-import { type SnapshotPage, snapshotFromPages } from "@pp/shared"
+import {
+  type ProjectChanges,
+  type SnapshotPage,
+  snapshotFromPages
+} from "@pp/shared"
 import * as Effect from "effect/Effect"
 import * as Reactivity from "effect/reactivity/Reactivity"
+import * as Semaphore from "effect/Semaphore"
 import * as SqlClient from "effect/sql/SqlClient"
 import * as Stream from "effect/Stream"
 
@@ -13,15 +18,21 @@ import {
   scopeOf,
   type SectionsRequest
 } from "./LocalRpcs"
-import { LOCAL_SECTION_TABLES, localCounts, localSections } from "./sections"
+import { localCounts, localSections } from "./sections"
 import {
-  applySync,
+  applyChanges,
+  applyPage,
+  beginStaging,
   copyOf,
   cursorOf,
   differences,
-  purge,
+  dropCopyBatch,
+  forget,
+  publishStaging,
   readFacts,
-  snapshotFacts
+  snapshotFacts,
+  stagingOf,
+  syncOf
 } from "./store"
 import { SyncSource } from "./SyncSource"
 
@@ -51,12 +62,124 @@ const unavailable = (scope: string, state: LocalSyncState) =>
       cursor === null ? { kind: "failed" } : { kind: "ready", sync: state }
   )
 
+const projectKey = (scope: string) => `local-project:${scope}`
+
+const touches = (changes: ProjectChanges) =>
+  changes.project !== null ||
+  Object.values(changes.upserts).some((facts) => facts.length > 0) ||
+  Object.values(changes.deletes).some((ids) => ids.length > 0)
+
 export const localRpcsLayer = LocalRpcs.toLayer(
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     const reactivity = yield* Reactivity.Reactivity
     const source = yield* SyncSource
-    const changed = reactivity.invalidate(LOCAL_SECTION_TABLES)
+    const writer = yield* Semaphore.make(1)
+    const loops = new Map<string, Semaphore.Semaphore>()
+    const write = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      writer.withPermit(effect)
+    const changed = (scope: string) =>
+      reactivity.invalidate([projectKey(scope)])
+
+    const loopFor = (scope: string) =>
+      Effect.gen(function* () {
+        const existing = loops.get(scope)
+        if (existing !== undefined) return existing
+        const created = yield* Semaphore.make(1)
+        loops.set(scope, created)
+        return created
+      })
+
+    const retire = (copy: number) =>
+      write(dropCopyBatch(copy)).pipe(
+        Effect.repeat({ until: (dropped) => dropped })
+      )
+
+    const restart = (scope: string, page: SnapshotPage) =>
+      Effect.gen(function* () {
+        const abandoned = yield* write(beginStaging(scope, page))
+        if (abandoned !== null) yield* retire(abandoned)
+      })
+
+    const step = (project: LocalProject) =>
+      Effect.gen(function* () {
+        const scope = scopeOf(project)
+        const staging = yield* stagingOf(scope)
+        if (staging !== null) {
+          if (staging.next === null) {
+            const published = yield* write(publishStaging(scope))
+            yield* changed(scope)
+            if (published?.retired != null) yield* retire(published.retired)
+            return "again" as const
+          }
+          const page = yield* source.pull(project, { page: staging.next })
+          if (page.kind !== "snapshot")
+            return yield* Effect.die(new Error("expected a snapshot page"))
+          if (page.start !== null) yield* restart(scope, page)
+          else yield* write(applyPage(scope, staging.next, page))
+          return "again" as const
+        }
+        const current = yield* syncOf(scope)
+        const response = yield* source.pull(
+          project,
+          current === null ? {} : { after: current.cursor }
+        )
+        if (response.kind === "snapshot") {
+          yield* restart(scope, response)
+          return "again" as const
+        }
+        if (current === null) return "again" as const
+        if (response.git !== (current.git === 1)) {
+          yield* forgetCopies(scope)
+          return "again" as const
+        }
+        const applied = yield* applyChanges(
+          scope,
+          current.cursor,
+          response,
+          write
+        )
+        if (applied === "applied" && touches(response)) yield* changed(scope)
+        return applied === "stale" || response.more
+          ? ("again" as const)
+          : ("caughtUp" as const)
+      })
+
+    const forgetCopies = (scope: string) =>
+      Effect.gen(function* () {
+        const copies = yield* write(forget(scope))
+        yield* changed(scope)
+        for (const copy of copies) yield* retire(copy)
+      })
+
+    const pullUntilCaughtUp = (project: LocalProject) =>
+      Effect.flatMap(loopFor(scopeOf(project)), (loop) =>
+        loop.withPermit(
+          step(project).pipe(
+            Effect.repeat({ until: (state) => state === "caughtUp" })
+          )
+        )
+      )
+
+    const pull = (project: LocalProject) => {
+      const scope = scopeOf(project)
+      return pullUntilCaughtUp(project).pipe(
+        Effect.as<LocalStatus>({ kind: "ready", sync: "live" }),
+        Effect.catchTags({
+          SyncDenied: () =>
+            forgetCopies(scope).pipe(
+              Effect.as<LocalStatus>({ kind: "denied" })
+            ),
+          SyncOffline: () => unavailable(scope, "offline")
+        }),
+        Effect.catchCause((cause) =>
+          Effect.logWarning("local copy sync failed", cause).pipe(
+            Effect.andThen(unavailable(scope, "erroring"))
+          )
+        ),
+        Effect.orElseSucceed((): LocalStatus => ({ kind: "failed" }))
+      )
+    }
 
     const collectSnapshot = (project: LocalProject, first: SnapshotPage) =>
       Effect.gen(function* () {
@@ -78,49 +201,6 @@ export const localRpcsLayer = LocalRpcs.toLayer(
           return yield* Effect.die(new Error("snapshot without a start page"))
         return snapshotFromPages(start, pages, page.base)
       })
-
-    const pullOnce = (project: LocalProject) =>
-      Effect.gen(function* () {
-        const scope = scopeOf(project)
-        const after = yield* cursorOf(scope)
-        const first = yield* source.pull(
-          project,
-          after === null ? {} : { after }
-        )
-        if (first.kind === "changes") {
-          const applied = yield* applySync(scope, after, first)
-          return applied === "stale" || first.more ? "again" : "caughtUp"
-        }
-        yield* applySync(scope, after, yield* collectSnapshot(project, first))
-        return "again"
-      })
-
-    const pullUntilApplied = (project: LocalProject) =>
-      pullOnce(project).pipe(
-        Effect.repeat({ until: (state) => state === "caughtUp" })
-      )
-
-    const pull = (project: LocalProject) => {
-      const scope = scopeOf(project)
-      return pullUntilApplied(project).pipe(
-        Effect.andThen(changed),
-        Effect.as<LocalStatus>({ kind: "ready", sync: "live" }),
-        Effect.catchTags({
-          SyncDenied: () =>
-            purge(scope).pipe(
-              Effect.andThen(changed),
-              Effect.as<LocalStatus>({ kind: "denied" })
-            ),
-          SyncOffline: () => unavailable(scope, "offline")
-        }),
-        Effect.catchCause((cause) =>
-          Effect.logWarning("local copy sync failed", cause).pipe(
-            Effect.andThen(unavailable(scope, "erroring"))
-          )
-        ),
-        Effect.orElseSucceed((): LocalStatus => ({ kind: "failed" }))
-      )
-    }
 
     const checkFacts = (project: LocalProject) =>
       Effect.gen(function* () {
@@ -170,7 +250,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
       Sections: (request) =>
         sql
           .reactive(
-            LOCAL_SECTION_TABLES,
+            [projectKey(scopeOf(request.project))],
             readCopy(request.project, (copy) =>
               localSections(sectionsRequest(request, copy))
             )
@@ -179,7 +259,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
       Counts: (request) =>
         sql
           .reactive(
-            LOCAL_SECTION_TABLES,
+            [projectKey(scopeOf(request.project))],
             readCopy(request.project, (copy) =>
               localCounts(countsRequest(request, copy))
             )

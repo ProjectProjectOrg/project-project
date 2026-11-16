@@ -33,12 +33,21 @@ const inMemory = (reason: string) =>
     Effect.andThen(SqliteClient.makeMemory({}))
   )
 
+const tuned = (sql: SqliteClient.SqliteClient) =>
+  Effect.all([
+    sql`pragma page_size = 65536`,
+    sql`pragma cache_size = -131072`,
+    sql`pragma journal_mode = truncate`,
+    sql`pragma temp_store = memory`
+  ])
+
 const open = (userId: string) =>
   Effect.gen(function* () {
     if (!opfsAvailable()) return yield* inMemory("no OPFS in this browser")
     const release = yield* claimPersistence
     if (release === null) return yield* inMemory("another tab holds the file")
     return yield* openOpfs(`pp-${userId}.sqlite`).pipe(
+      Effect.tap(tuned),
       Effect.tap(() => Effect.logInfo("local copy persisted in OPFS")),
       Effect.catchCause((cause) =>
         Effect.logWarning("local copy could not open OPFS", cause).pipe(
@@ -48,15 +57,5 @@ const open = (userId: string) =>
     )
   })
 
-const tuned = (userId: string) =>
-  Effect.tap(open(userId), (sql) =>
-    Effect.all([
-      sql`pragma page_size = 65536`,
-      sql`pragma cache_size = -131072`,
-      sql`pragma journal_mode = truncate`,
-      sql`pragma temp_store = memory`
-    ])
-  )
-
 export const localDatabaseLayer = (userId: string) =>
-  localDatabase(tuned(userId))
+  localDatabase(open(userId))

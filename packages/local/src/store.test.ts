@@ -6,36 +6,45 @@ import { expect } from "vitest"
 
 import { localDbLayer } from "./LocalDb"
 import {
-  applySync,
+  applyChanges,
+  applyPage,
+  beginStaging,
   cursorOf,
   differences,
-  purge,
+  dropCopyBatch,
+  forget,
+  publishStaging,
   readFacts,
   snapshotFacts
 } from "./store"
-import { changes, snapshot, ticket } from "./testFacts"
+import { changes, install, onePage, snapshot, ticket } from "./testFacts"
 
 const TestDatabase = localDbLayer.pipe(
   Layer.provideMerge(SqliteClient.layerMemory({}))
 )
 
+const direct = <A, E, R>(transaction: Effect.Effect<A, E, R>) => transaction
+
+const dropAll = (copy: number) =>
+  dropCopyBatch(copy).pipe(Effect.repeat({ until: (dropped) => dropped }))
+
 it.effect(
   "a snapshot followed by changes holds the same facts as the snapshot at the new cursor",
   () =>
     Effect.gen(function* () {
-      yield* applySync(
+      yield* install(
         "a/p",
-        null,
         snapshot("1.2", [ticket("T-1", "one"), ticket("T-2", "two")])
       )
-      yield* applySync(
+      yield* applyChanges(
         "a/p",
         "1.2",
         changes(
           "1.4",
           [ticket("T-1", "renamed"), ticket("T-3", "three")],
           ["T-2"]
-        )
+        ),
+        direct
       )
 
       const local = yield* readFacts("a/p")
@@ -51,17 +60,19 @@ it.effect(
   "refuses a response pulled from an older cursor and changes nothing",
   () =>
     Effect.gen(function* () {
-      yield* applySync("a/p", null, snapshot("1.2", [ticket("T-1", "one")]))
-      yield* applySync(
+      yield* install("a/p", snapshot("1.2", [ticket("T-1", "one")]))
+      yield* applyChanges(
         "a/p",
         "1.2",
-        changes("1.3", [ticket("T-1", "newer")], [])
+        changes("1.3", [ticket("T-1", "newer")], []),
+        direct
       )
 
-      const result = yield* applySync(
+      const result = yield* applyChanges(
         "a/p",
         "1.2",
-        changes("1.3", [ticket("T-1", "older")], [])
+        changes("1.3", [ticket("T-1", "older")], []),
+        direct
       )
 
       expect(result).toBe("stale")
@@ -72,12 +83,46 @@ it.effect(
     }).pipe(Effect.provide(TestDatabase))
 )
 
-it.effect("purging a project leaves other projects alone", () =>
-  Effect.gen(function* () {
-    yield* applySync("a/p", null, snapshot("1.1", [ticket("T-1", "one")]))
-    yield* applySync("a/q", null, snapshot("1.1", [ticket("Q-1", "one")]))
+it.effect(
+  "keeps the published copy readable until its replacement has every page",
+  () =>
+    Effect.gen(function* () {
+      yield* install("a/p", snapshot("1.2", [ticket("T-1", "one")]))
+      yield* beginStaging("a/p", {
+        ...onePage("2.0", [ticket("T-1", "renamed")]),
+        next: "page-2"
+      })
+      expect(
+        yield* applyPage("a/p", "page-1", {
+          ...onePage("2.0", [ticket("T-9", "wrong page")]),
+          start: null
+        })
+      ).toBe("stale")
+      yield* applyPage("a/p", "page-2", {
+        ...onePage("2.0", [ticket("T-2", "two")]),
+        start: null
+      })
+      expect((yield* readFacts("a/p")).facts.tickets.map((t) => t.id)).toEqual([
+        "T-1"
+      ])
 
-    yield* purge("a/p")
+      const published = yield* publishStaging("a/p")
+      const local = yield* readFacts("a/p")
+      expect(local.cursor).toBe("2.0")
+      expect(local.facts.tickets.map((t) => t.data)).toEqual([
+        expect.stringContaining("renamed"),
+        expect.stringContaining("two")
+      ])
+      expect(published?.retired).not.toBeNull()
+    }).pipe(Effect.provide(TestDatabase))
+)
+
+it.effect("forgetting a project leaves other projects alone", () =>
+  Effect.gen(function* () {
+    yield* install("a/p", snapshot("1.1", [ticket("T-1", "one")]))
+    yield* install("a/q", snapshot("1.1", [ticket("Q-1", "one")]))
+
+    for (const copy of yield* forget("a/p")) yield* dropAll(copy)
 
     expect(yield* readFacts("a/p")).toMatchObject({
       cursor: null,
@@ -90,7 +135,7 @@ it.effect("purging a project leaves other projects alone", () =>
 
 it.effect("reports facts that differ from the server", () =>
   Effect.gen(function* () {
-    yield* applySync("a/p", null, snapshot("1.1", [ticket("T-1", "one")]))
+    yield* install("a/p", snapshot("1.1", [ticket("T-1", "one")]))
 
     const server = snapshotFacts(
       snapshot("1.1", [ticket("T-1", "changed"), ticket("T-2", "two")])

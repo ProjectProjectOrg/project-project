@@ -37,15 +37,6 @@ import {
   toTicket
 } from "./ticketRows"
 
-export const LOCAL_SECTION_TABLES = [
-  "local_tickets",
-  "local_ticket_data",
-  "local_ticket_assignees",
-  "local_ticket_tags",
-  "local_relations",
-  "local_statuses"
-] as const
-
 const t = localTickets
 export type LocalSectionsRequest = Readonly<{
   copy: number

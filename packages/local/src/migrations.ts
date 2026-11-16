@@ -145,8 +145,17 @@ const copies = Effect.gen(function* () {
   yield* sql`create index local_group_members_ticket on local_group_members (copy, ticket)`
 })
 
+const staging = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql`alter table local_sync add column git integer not null default 0`
+  yield* sql`create table local_staging (
+    scope text primary key, copy integer not null, base text not null,
+    next text, git integer not null)`
+})
+
 export const localMigrations = Migrator.fromRecord({
   "0001_facts": createFacts,
   "0002_ticket_columns": ticketColumns,
-  "0003_copies": copies
+  "0003_copies": copies,
+  "0004_staging": staging
 })
