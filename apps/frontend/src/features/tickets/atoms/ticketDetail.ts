@@ -50,7 +50,6 @@ export const ticketQuery = (req: TicketRequest) =>
     timeToLive: "2 minutes",
     reactivityKeys: [
       Keys.ticket(scopeOf(req), req.params.id),
-      Keys.ticketsIn(scopeOf(req)),
       Keys.orgMembers(req.params.orgSlug),
       Keys.orgLibrary(req.params.orgSlug),
       Keys.projectLibrary(scopeOf(req))
@@ -91,8 +90,9 @@ const publishFor = (req: TicketRequest, patch: TicketEdit) => {
   const scope = scopeOf(req)
   const fields = Object.keys(patch)
   const contentOnly = fields.every((f) => f === "title" || f === "body")
-  if (!contentOnly) return Keys.ticketsChanged(scope)
-  const keys = [Keys.ticketUpdatedQuery(scope), Keys.ticketsIn(scope)]
+  const own = Keys.ticket(scope, req.params.id)
+  if (!contentOnly) return [...Keys.ticketsChanged(scope), own]
+  const keys = [Keys.ticketUpdatedQuery(scope), Keys.ticketsIn(scope), own]
   if (patch.title !== undefined) {
     keys.push(Keys.ticketTitleQuery(scope))
   }
@@ -131,7 +131,10 @@ export const markTicket = Atom.family((req: TicketRequest) =>
     call: (client, input) =>
       client.tickets.mark({ params: req.params, payload: input }),
     confirm: replaceWith,
-    publish: () => Keys.ticketsChanged(scopeOf(req))
+    publish: (_ticket, input) => [
+      ...Keys.ticketsChanged(scopeOf(req)),
+      Keys.ticket(scopeOf(req), input.target)
+    ]
   })
 )
 
@@ -145,7 +148,10 @@ export const unmarkTicket = Atom.family((req: TicketRequest) =>
     call: (client, input) =>
       client.tickets.unmark({ params: req.params, payload: input }),
     confirm: replaceWith,
-    publish: () => Keys.ticketsChanged(scopeOf(req))
+    publish: (_ticket, input) => [
+      ...Keys.ticketsChanged(scopeOf(req)),
+      Keys.ticket(scopeOf(req), input.target)
+    ]
   })
 )
 
