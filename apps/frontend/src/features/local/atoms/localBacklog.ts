@@ -85,13 +85,8 @@ export const localBacklog = Atom.family((req: BacklogRequest) =>
             viewerId: get(currentUserId),
             estimation: detail.value.estimation,
             repositories: repositories(detail.value),
-            limits: Object.fromEntries(
-              Object.entries(loaded).map(([status, pages]) => [
-                status,
-                TICKET_LIST_LIMIT * (1 + pages)
-              ])
-            ),
-            defaultLimit: TICKET_LIST_LIMIT
+            pages: loaded,
+            pageSize: TICKET_LIST_LIMIT
           })
           .pipe(
             Stream.zipWithIndex,

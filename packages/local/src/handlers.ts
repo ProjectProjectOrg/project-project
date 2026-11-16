@@ -48,7 +48,8 @@ const sectionsRequest = (request: SectionsRequest, copy: number) => ({
     repoId === null
       ? request.repositories.fallback
       : (request.repositories.byId[repoId] ?? null),
-  perStatus: (status: string) => request.limits[status] ?? request.defaultLimit
+  perStatus: (status: string) =>
+    request.pageSize * (1 + (request.pages[status] ?? 0))
 })
 
 const countsRequest = (request: CountsRequest, copy: number) => ({
@@ -268,7 +269,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
                 localSprintSections({
                   ...sectionsRequest(request, copy),
                   perSection: (key) =>
-                    request.limits[key] ?? request.defaultLimit,
+                    request.pageSize * (1 + (request.pages[key] ?? 0)),
                   now
                 })
               )
@@ -284,8 +285,8 @@ export const localRpcsLayer = LocalRpcs.toLayer(
                 localParentSections({
                   ...sectionsRequest(request, copy),
                   by: request.by,
-                  limits: request.limits,
-                  defaultLimit: request.defaultLimit,
+                  pages: request.pages,
+                  pageSize: request.pageSize,
                   now
                 })
               )

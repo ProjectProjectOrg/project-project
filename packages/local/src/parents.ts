@@ -15,7 +15,6 @@ import {
 import { and, asc, count, eq, inArray, type SQL, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/sqlite-core"
 import * as Effect from "effect/Effect"
-import * as Schema from "effect/Schema"
 
 import { compileFilter } from "./filter"
 import { LocalDb } from "./LocalDb"
@@ -39,18 +38,16 @@ export type LocalParentSectionsRequest = Readonly<{
   viewerId: string | undefined
   estimation: EstimationMode
   repository: (repoId: string | null) => GitRepository | null
-  limits: Readonly<Record<string, number>>
-  defaultLimit: number
+  pages: Readonly<Record<string, number>>
+  pageSize: number
   now: Date
 }>
 
 const EPIC_SECTIONS_LIMIT = 200
+const EAGER_SECTIONS = 50
 
 const t = localTickets
 const sectionParent = alias(localTickets, "section_parent")
-const limitsJson = Schema.encodeSync(
-  Schema.fromJsonString(Schema.Record(Schema.String, Schema.Finite))
-)
 
 const keyOf = (db: LocalDb["Service"], by: ParentGrouping): SQL<string> => {
   const parentRow = and(
@@ -168,6 +165,13 @@ export const localParentSections = (request: LocalParentSectionsRequest) =>
       { key: EPIC_SECTION_NONE, parent: null, archived: false }
     ]
 
+    const limits = Object.fromEntries(
+      wanted.map((section, index) => [
+        section.key,
+        request.pageSize *
+          ((index < EAGER_SECTIONS ? 1 : 0) + (request.pages[section.key] ?? 0))
+      ])
+    )
     const order = orderColumns[query.sort.key]
     const ranked = db
       .select({
@@ -180,12 +184,17 @@ export const localParentSections = (request: LocalParentSectionsRequest) =>
       .from(t)
       .where(and(eq(t.copy, copy), filter))
       .as("ranked")
-    const shown = yield* db
-      .select({ id: ranked.id, sectionKey: ranked.sectionKey })
+    const deepest = Math.max(0, ...Object.values(limits))
+    const shown = (yield* db
+      .select({
+        id: ranked.id,
+        sectionKey: ranked.sectionKey,
+        rank: ranked.rank
+      })
       .from(ranked)
-      .where(
-        sql`${ranked.rank} <= coalesce((select value from json_each(${limitsJson(request.limits)}) where key = ${ranked.sectionKey}), ${request.defaultLimit})`
-      )
+      .where(sql`${ranked.rank} <= ${deepest}`)).filter(
+      (row) => row.rank <= (limits[row.sectionKey] ?? 0)
+    )
     const sectionOf = new Map(shown.map((row) => [row.id, row.sectionKey]))
     const rowsOf = new Map<string, Array<SectionRow>>()
     if (shown.length > 0)

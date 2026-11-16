@@ -28,8 +28,8 @@ const sectionsBy = (by: ParentGrouping) =>
       viewerId: "user-1",
       estimation: "off",
       repository: () => null,
-      limits: {},
-      defaultLimit: 50,
+      pages: {},
+      pageSize: 50,
       now
     })
     return result?.sections.map((section) => ({

@@ -65,8 +65,8 @@ export const SectionsRequest = Schema.Struct({
   query: TicketListQuery,
   ...viewer,
   repositories: LocalRepositories,
-  limits: Schema.Record(Schema.String, Schema.Finite),
-  defaultLimit: Schema.Finite
+  pages: Schema.Record(Schema.String, Schema.Finite),
+  pageSize: Schema.Finite
 })
 export type SectionsRequest = typeof SectionsRequest.Type
 

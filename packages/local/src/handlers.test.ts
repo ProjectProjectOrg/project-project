@@ -57,8 +57,8 @@ it.effect(
           viewerId: undefined,
           estimation: "off",
           repositories: { fallback: null, byId: {} },
-          limits: {},
-          defaultLimit: 50
+          pages: {},
+          pageSize: 50
         })
         .pipe(
           Stream.runForEach((result) =>

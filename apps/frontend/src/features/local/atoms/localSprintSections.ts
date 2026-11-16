@@ -31,13 +31,8 @@ export const localSprintSections = Atom.family((req: SprintSectionsRequest) =>
           viewerId: get(currentUserId),
           estimation: detail.value.estimation,
           repositories: repositories(detail.value),
-          limits: Object.fromEntries(
-            Object.entries(loaded).map(([key, pages]) => [
-              key,
-              TICKET_LIST_LIMIT * (1 + pages)
-            ])
-          ),
-          defaultLimit: TICKET_LIST_LIMIT
+          pages: loaded,
+          pageSize: TICKET_LIST_LIMIT
         })
       )
     )

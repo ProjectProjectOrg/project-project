@@ -6,14 +6,15 @@ import {
   type Member,
   type TicketId,
   type TicketListQuery,
-  TicketStatus
+  TicketStatus,
+  TICKET_LIST_LIMIT
 } from "@pp/shared"
 import * as Equal from "effect/Equal"
 import * as Option from "effect/Option"
 import * as Result from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { Inbox, ListTree } from "lucide-react"
-import { useState } from "react"
+import { Fragment, useState } from "react"
 
 import { ErrorPage } from "@/components/shell/ErrorPage"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
@@ -40,6 +41,7 @@ import { ticketSearchFromSource } from "@/features/tickets/lib/ticketSearch"
 import { resolveType } from "@/features/tickets/lib/ticketTypes"
 import { m } from "@/paraglide/messages"
 
+import { LazySection } from "./LazySection"
 import { useListRowAutoScroll } from "./ListRowDrag"
 import { parentCollapseKey, useCollapsedInRecord } from "./sectionCollapse"
 import {
@@ -115,20 +117,31 @@ export function EpicSections(props: Props) {
           })}
         >
           <CreatingSectionsProvider>
-            {active.value.sections.map((section) => (
-              <EpicSection
-                key={section.key}
-                {...props}
-                persistKey={persistKey}
-                query={active.query}
-                snapshotReq={active.req}
-                section={section}
-                waiting={snapshotResult.waiting}
-                activePreviewId={preview.activePreviewId}
-                onPreviewPointerEnter={preview.onPreviewPointerEnter}
-                onPreviewOpenChange={preview.onPreviewOpenChange}
-              />
-            ))}
+            {active.value.sections.map((section) => {
+              const content = (
+                <EpicSection
+                  {...props}
+                  persistKey={persistKey}
+                  query={active.query}
+                  snapshotReq={active.req}
+                  section={section}
+                  waiting={snapshotResult.waiting}
+                  activePreviewId={preview.activePreviewId}
+                  onPreviewPointerEnter={preview.onPreviewPointerEnter}
+                  onPreviewOpenChange={preview.onPreviewOpenChange}
+                />
+              )
+              return active.value.sections.length > LAZY_SECTIONS_FROM ? (
+                <LazySection
+                  key={section.key}
+                  estimatedHeight={estimatedSectionHeight(section.count)}
+                >
+                  {content}
+                </LazySection>
+              ) : (
+                <Fragment key={section.key}>{content}</Fragment>
+              )
+            })}
           </CreatingSectionsProvider>
         </TicketViewSourceContext>
       </div>
@@ -151,6 +164,13 @@ export function EpicSections(props: Props) {
     onSuccess: renderSections
   })
 }
+
+const LAZY_SECTIONS_FROM = 50
+const SECTION_HEADER_HEIGHT = 44
+const ROW_HEIGHT = 56
+
+const estimatedSectionHeight = (count: number) =>
+  SECTION_HEADER_HEIGHT + Math.min(count, TICKET_LIST_LIMIT) * ROW_HEIGHT
 
 type EpicSectionProps = Props &
   Readonly<{
