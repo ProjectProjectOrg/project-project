@@ -194,9 +194,9 @@ function pickNumberedItem(event: React.KeyboardEvent<HTMLElement>) {
     )
       .find((number) => number.closest(MENU_SELECTOR) === menu)
       ?.closest<HTMLElement>('[role="menuitemradio"]')
-  const openSubmenus = Array.from(
-    document.querySelectorAll(MENU_SELECTOR)
-  ).toReversed()
+  const openSubmenus = Array.from(document.querySelectorAll(MENU_SELECTOR))
+    .filter((menu) => !menu.hasAttribute("data-closed"))
+    .toReversed()
   const item =
     numbered(event.currentTarget) ??
     openSubmenus
