@@ -20,6 +20,12 @@ export type CommandKey = Readonly<{
   operationId: string
 }>
 
+const where = (key: CommandKey) =>
+  and(
+    eq(commandReceipt.userId, key.userId),
+    eq(commandReceipt.operationId, key.operationId)
+  )
+
 export class CommandReceipts extends Context.Service<
   CommandReceipts,
   Readonly<{
@@ -35,12 +41,6 @@ export class CommandReceipts extends Context.Service<
 const make = Effect.gen(function* () {
   const db = yield* Db
   const syncLog = yield* SyncLog.SyncLog
-
-  const where = (key: CommandKey) =>
-    and(
-      eq(commandReceipt.userId, key.userId),
-      eq(commandReceipt.operationId, key.operationId)
-    )
 
   const claim = Effect.fn("CommandReceipts.claim")(function* (
     key: CommandKey,

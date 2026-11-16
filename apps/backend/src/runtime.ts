@@ -63,6 +63,7 @@ import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import * as TicketSubscriptions from "@pp/server-core/subscriptions/TicketSubscriptions"
 import * as CommandReceipts from "@pp/server-core/sync/CommandReceipts"
+import * as ProjectFacts from "@pp/server-core/sync/ProjectFacts"
 import * as SyncLog from "@pp/server-core/sync/SyncLog"
 import * as Tags from "@pp/server-core/tags/Tags"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
@@ -140,10 +141,11 @@ const JiraDurableServicesLive = Layer.unwrap(
 
 const DatabaseLive = DbLive.pipe(Layer.provideMerge(PgLive))
 
-const SyncLive = Layer.mergeAll(LiveChanges.layer, CommandReceipts.layer).pipe(
-  Layer.provideMerge(SyncLog.layer),
-  Layer.provide(DatabaseLive)
-)
+const SyncLive = Layer.mergeAll(
+  LiveChanges.layer,
+  CommandReceipts.layer,
+  ProjectFacts.layer
+).pipe(Layer.provideMerge(SyncLog.layer), Layer.provide(DatabaseLive))
 
 export const BackendInfrastructureLive = Layer.mergeAll(
   KeyedLock.layer,

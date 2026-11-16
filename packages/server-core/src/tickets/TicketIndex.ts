@@ -422,7 +422,7 @@ const touchedEventOf = (
         change: decodeActivityChange(row.change)
       }
 
-const estimateFromIndex = (
+export const estimateFromIndex = (
   unit: (typeof ticketIndex.$inferSelect)["estimateUnit"],
   value: number | null
 ): Estimate | null => {
@@ -473,7 +473,7 @@ export const ticketIndexRowFor = (
   updatedAt: document.updatedAt
 })
 
-const flagFromIndex = (
+export const flagFromIndex = (
   row: Pick<
     typeof ticketIndex.$inferSelect,
     "flagReason" | "flaggedBy" | "flaggedAt"
