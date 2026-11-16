@@ -29,15 +29,19 @@ const KBD_VARIANTS = {
   menu: "rounded-[5px] bg-hover"
 } as const
 
+type KbdProps = Readonly<
+  React.ComponentProps<"kbd"> & {
+    size?: keyof typeof KBD_SIZES
+    variant?: keyof typeof KBD_VARIANTS
+  }
+>
+
 function Kbd({
   className,
   size = "default",
   variant = "default",
   ...props
-}: React.ComponentProps<"kbd"> & {
-  size?: keyof typeof KBD_SIZES
-  variant?: keyof typeof KBD_VARIANTS
-}) {
+}: KbdProps) {
   return (
     <kbd
       data-slot="kbd"
