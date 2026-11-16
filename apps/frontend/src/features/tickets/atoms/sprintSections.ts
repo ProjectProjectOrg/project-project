@@ -4,14 +4,14 @@ import {
   sprintSectionKey,
   statusPhaseLookup,
   summarizeEstimates,
-  type EstimateSummary,
+  EstimateSummary,
   type EstimationMode,
   type GroupId,
   type StatusPhaseOf,
   type GroupIdFilter,
-  type SprintSectionKey,
+  SprintSectionKey,
   type Ticket,
-  type TicketCounts,
+  TicketCounts,
   type TicketId,
   type TicketListQuery,
   type TicketSort,
@@ -22,8 +22,10 @@ import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
+import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
+import { persisted } from "@/api/bootCache"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { bindRowMutation, viewMutation } from "@/api/viewMutation"
@@ -52,11 +54,13 @@ import {
   type QueryWithView,
   type QuickCreateInput,
   type TicketRow,
-  type TicketRowPage,
+  TicketRowPage,
+  firstScreenPages,
   viewQuery,
   quickCreatePayload
 } from "@/features/tickets/lib/ticketRows"
 
+import { encodeTicketListQuery } from "./backlog"
 import { sprintLoadedPages } from "./sprintPages"
 import {
   bulkTicketMove,
@@ -90,23 +94,43 @@ export const sprintSectionsRequest = (
 const scopeOf = (req: SprintSectionsRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-export type SprintSectionValue = Readonly<{
-  key: SprintSectionKey
-  count: number
-  estimates: EstimateSummary | null
+export const SprintSectionValue = Schema.Struct({
+  key: SprintSectionKey,
+  count: Schema.Finite,
+  estimates: Schema.NullOr(EstimateSummary),
   page: TicketRowPage
-}>
+})
+export type SprintSectionValue = typeof SprintSectionValue.Type
 
-export type SprintSectionsValue = Readonly<{
-  total: number
-  counts: TicketCounts
-  sections: ReadonlyArray<SprintSectionValue>
-  viewer: Readonly<{
-    id: UserId | undefined
-    estimation: EstimationMode
-    phaseOf: StatusPhaseOf
+const SprintSectionsData = Schema.Struct({
+  total: Schema.Finite,
+  counts: TicketCounts,
+  sections: Schema.Array(SprintSectionValue)
+})
+type SprintSectionsData = typeof SprintSectionsData.Type
+
+const firstScreen = (data: SprintSectionsData): SprintSectionsData => {
+  const pages = firstScreenPages(data.sections.map((section) => section.page))
+  return {
+    total: data.total,
+    counts: data.counts,
+    sections: data.sections.map((section, index) => ({
+      key: section.key,
+      count: section.count,
+      estimates: section.estimates,
+      page: pages[index] ?? { items: [], nextCursor: null }
+    }))
+  }
+}
+
+export type SprintSectionsValue = SprintSectionsData &
+  Readonly<{
+    viewer: Readonly<{
+      id: UserId | undefined
+      estimation: EstimationMode
+      phaseOf: StatusPhaseOf
+    }>
   }>
-}>
 
 const groupIdFilter = (key: SprintSectionKey): GroupIdFilter =>
   key === SPRINT_SECTION_UNSCHEDULED ? "ungrouped" : key
@@ -159,25 +183,21 @@ const viewerOf = (get: Atom.AtomContext, req: SprintSectionsRequest) => {
   }
 }
 
-const emptySprintSections = (
-  viewer: SprintSectionsValue["viewer"]
-): SprintSectionsValue => ({
+const emptySprintSections: SprintSectionsData = {
   total: 0,
   counts: { total: 0, byStatus: {} },
-  sections: [],
-  viewer
-})
+  sections: []
+}
 
-const sprintSectionsView = (req: SprintSectionsRequest) =>
+const sprintSectionsData = (req: SprintSectionsRequest) =>
   Atom.readable(
     (get) => {
-      const viewer = viewerOf(get, req)
       const local = readLocal(get, req.params, () => localSprintSections(req))
       if (local !== null) {
         const created = get(createdKeys(scopeOf(req)))
         return AsyncResult.map(
           local,
-          (value): SprintSectionsValue => ({
+          (value): SprintSectionsData => ({
             total: value.total,
             counts: value.counts,
             sections: value.sections.map((section) => ({
@@ -188,14 +208,13 @@ const sprintSectionsView = (req: SprintSectionsRequest) =>
                 items: withCreatedKeys(section.page.items.map(toRow), created),
                 nextCursor: section.page.nextCursor
               }
-            })),
-            viewer
+            }))
           })
         )
       }
       const base = get(snapshotQuery(req))
       if (!AsyncResult.isSuccess(base)) {
-        return AsyncResult.map(base, () => emptySprintSections(viewer))
+        return AsyncResult.map(base, () => emptySprintSections)
       }
       const loaded = get(sprintLoadedPages(req))
       const created = get(createdKeys(scopeOf(req)))
@@ -218,18 +237,38 @@ const sprintSectionsView = (req: SprintSectionsRequest) =>
           }
         }
       })
-      return AsyncResult.success<SprintSectionsValue>(
+      return AsyncResult.success<SprintSectionsData>(
         {
           total: base.value.total,
           counts: base.value.counts,
-          sections,
-          viewer
+          sections
         },
         { waiting }
       )
     },
     (refresh) => refresh(snapshotQuery(req))
   )
+
+const sprintSectionsView = (req: SprintSectionsRequest) => {
+  const data = sprintSectionsData(req).pipe(
+    persisted(
+      `view/${scopeOf(req)}/sprint/${encodeTicketListQuery(req.query)}`,
+      SprintSectionsData,
+      firstScreen
+    )
+  )
+  return Atom.readable(
+    (get) =>
+      AsyncResult.map(
+        get(data),
+        (value): SprintSectionsValue => ({
+          ...value,
+          viewer: viewerOf(get, req)
+        })
+      ),
+    (refresh) => refresh(data)
+  )
+}
 
 export const sprintSections = Atom.family((req: SprintSectionsRequest) =>
   Atom.optimistic(sprintSectionsView(req))

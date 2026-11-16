@@ -1,43 +1,67 @@
 import {
   EPIC_SECTION_NONE,
   matchesTicketQuery,
-  type EpicSectionKey,
+  EpicSectionKey,
   type EstimationMode,
   type Ticket,
-  type TicketCounts,
+  TicketCounts,
   type TicketId,
   type TicketListQuery,
-  type TicketParent,
+  TicketParent,
   type TicketSort,
   type TicketStatus,
   type UserId
 } from "@pp/shared"
+import * as Schema from "effect/Schema"
 
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 
 import {
   insertByOrderKey,
   patchTicketRow,
+  firstScreenPages,
   type TicketRow,
-  type TicketRowPage
+  TicketRowPage
 } from "./ticketRows"
 
-export type EpicSectionValue = Readonly<{
-  key: EpicSectionKey
-  parent: TicketParent | null
-  count: number
+export const EpicSectionValue = Schema.Struct({
+  key: EpicSectionKey,
+  parent: Schema.NullOr(TicketParent),
+  count: Schema.Finite,
   page: TicketRowPage
-}>
+})
+export type EpicSectionValue = typeof EpicSectionValue.Type
 
-export type EpicSectionsValue = Readonly<{
-  total: number
-  counts: TicketCounts
-  sections: ReadonlyArray<EpicSectionValue>
-  viewer: Readonly<{
-    id: UserId | undefined
-    estimation: EstimationMode
+export const EpicSectionsData = Schema.Struct({
+  total: Schema.Finite,
+  counts: TicketCounts,
+  sections: Schema.Array(EpicSectionValue)
+})
+export type EpicSectionsData = typeof EpicSectionsData.Type
+
+export const firstScreenEpicSections = (
+  data: EpicSectionsData
+): EpicSectionsData => {
+  const pages = firstScreenPages(data.sections.map((section) => section.page))
+  return {
+    total: data.total,
+    counts: data.counts,
+    sections: data.sections.map((section, index) => ({
+      key: section.key,
+      parent: section.parent,
+      count: section.count,
+      page: pages[index] ?? { items: [], nextCursor: null }
+    }))
+  }
+}
+
+export type EpicSectionsValue = EpicSectionsData &
+  Readonly<{
+    viewer: Readonly<{
+      id: UserId | undefined
+      estimation: EstimationMode
+    }>
   }>
-}>
 
 const sectionOf = (ticket: Ticket): EpicSectionKey =>
   ticket.parent?.id ?? EPIC_SECTION_NONE

@@ -7,7 +7,7 @@ import {
   type QuickCreateTicketInput,
   type TicketParent,
   type TagName,
-  type Ticket,
+  Ticket,
   type TicketFilter,
   type TicketListQuery,
   type TicketListRow,
@@ -15,25 +15,54 @@ import {
   type TicketSort,
   type TicketStatus
 } from "@pp/shared"
+import * as Schema from "effect/Schema"
 
 import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { compareCodePoints } from "@/lib/orderKey"
 
 import { applyTicketPatch } from "./ticketPatch"
 
-export type TicketRow = Readonly<{
-  ticket: Ticket
+export const TicketRow = Schema.Struct({
+  ticket: Ticket,
   /** React key. Equals the ticket id except for rows created in this session. */
-  key: string
+  key: Schema.String,
   /** Server sort position, or the matching local position while an edit is pending. */
-  orderKey: string | null
-  pending: boolean
-}>
+  orderKey: Schema.NullOr(Schema.String),
+  pending: Schema.Boolean
+})
+export type TicketRow = typeof TicketRow.Type
 
-export type TicketRowPage = Readonly<{
-  items: ReadonlyArray<TicketRow>
-  nextCursor: string | null
-}>
+export const TicketRowPage = Schema.Struct({
+  items: Schema.Array(TicketRow),
+  nextCursor: Schema.NullOr(Schema.String)
+})
+export type TicketRowPage = typeof TicketRowPage.Type
+
+export const FIRST_SCREEN_ROWS = 40
+
+export const firstScreenSections = (
+  sections: Readonly<Record<string, TicketRowPage>>
+): Readonly<Record<string, TicketRowPage>> => {
+  let budget = FIRST_SCREEN_ROWS
+  const trimmed: Record<string, TicketRowPage> = {}
+  for (const [key, page] of Object.entries(sections)) {
+    const items = page.items.slice(0, Math.max(0, budget))
+    budget -= items.length
+    trimmed[key] = { items, nextCursor: null }
+  }
+  return trimmed
+}
+
+export const firstScreenPages = (
+  pages: ReadonlyArray<TicketRowPage>
+): ReadonlyArray<TicketRowPage> => {
+  let budget = FIRST_SCREEN_ROWS
+  return pages.map((page) => {
+    const items = page.items.slice(0, Math.max(0, budget))
+    budget -= items.length
+    return { items, nextCursor: null }
+  })
+}
 
 export type QueryWithView = TicketListQuery & Readonly<{ view?: unknown }>
 

@@ -12,6 +12,7 @@ import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
 
 import { Api } from "@/api/Api"
+import { persisted } from "@/api/bootCache"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { bindRowMutation, viewMutation } from "@/api/viewMutation"
@@ -26,6 +27,8 @@ import type { ParentGrouping } from "@/features/tickets/lib/backlogGrouping"
 import {
   patchEpicSectionsRow,
   replaceEpicSectionsRow,
+  EpicSectionsData,
+  firstScreenEpicSections,
   type EpicSectionsValue
 } from "@/features/tickets/lib/epicSectionRows"
 import {
@@ -39,6 +42,7 @@ import {
   quickCreatePayload
 } from "@/features/tickets/lib/ticketRows"
 
+import { encodeTicketListQuery } from "./backlog"
 import { epicLoadedPages } from "./epicPages"
 import {
   bulkTicketMove,
@@ -113,25 +117,21 @@ const viewerOf = (get: Atom.AtomContext, req: EpicSectionsRequest) => ({
   )
 })
 
-const emptyEpicSections = (
-  viewer: EpicSectionsValue["viewer"]
-): EpicSectionsValue => ({
+const emptyEpicSections: EpicSectionsData = {
   total: 0,
   counts: { total: 0, byStatus: {} },
-  sections: [],
-  viewer
-})
+  sections: []
+}
 
-const epicSectionsView = (req: EpicSectionsRequest) =>
+const epicSectionsData = (req: EpicSectionsRequest) =>
   Atom.readable(
     (get) => {
-      const viewer = viewerOf(get, req)
       const local = readLocal(get, req.params, () => localParentSections(req))
       if (local !== null) {
         const created = get(createdKeys(scopeOf(req)))
         return AsyncResult.map(
           local,
-          (value): EpicSectionsValue => ({
+          (value): EpicSectionsData => ({
             total: value.total,
             counts: value.counts,
             sections: value.sections.map((section) => ({
@@ -142,14 +142,13 @@ const epicSectionsView = (req: EpicSectionsRequest) =>
                 items: withCreatedKeys(section.page.items.map(toRow), created),
                 nextCursor: section.page.nextCursor
               }
-            })),
-            viewer
+            }))
           })
         )
       }
       const base = get(snapshotQuery(req))
       if (!AsyncResult.isSuccess(base)) {
-        return AsyncResult.map(base, () => emptyEpicSections(viewer))
+        return AsyncResult.map(base, () => emptyEpicSections)
       }
       const loaded = get(epicLoadedPages(req))
       const created = get(createdKeys(scopeOf(req)))
@@ -172,18 +171,38 @@ const epicSectionsView = (req: EpicSectionsRequest) =>
           }
         }
       })
-      return AsyncResult.success<EpicSectionsValue>(
+      return AsyncResult.success<EpicSectionsData>(
         {
           total: base.value.total,
           counts: base.value.counts,
-          sections,
-          viewer
+          sections
         },
         { waiting }
       )
     },
     (refresh) => refresh(snapshotQuery(req))
   )
+
+const epicSectionsView = (req: EpicSectionsRequest) => {
+  const data = epicSectionsData(req).pipe(
+    persisted(
+      `view/${scopeOf(req)}/${req.by}/${encodeTicketListQuery(req.query)}`,
+      EpicSectionsData,
+      firstScreenEpicSections
+    )
+  )
+  return Atom.readable(
+    (get) =>
+      AsyncResult.map(
+        get(data),
+        (value): EpicSectionsValue => ({
+          ...value,
+          viewer: viewerOf(get, req)
+        })
+      ),
+    (refresh) => refresh(data)
+  )
+}
 
 export const epicSections = Atom.family((req: EpicSectionsRequest) =>
   Atom.optimistic(epicSectionsView(req))

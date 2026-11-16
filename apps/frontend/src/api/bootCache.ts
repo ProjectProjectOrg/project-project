@@ -30,7 +30,11 @@ let saved = load()
 const latest = new Map<string, unknown>()
 
 export const persisted =
-  <A, I>(key: string, success: Schema.Codec<A, I>) =>
+  <A, I>(
+    key: string,
+    success: Schema.Codec<A, I>,
+    trim: (value: A) => A = (value) => value
+  ) =>
   <E>(
     self: Atom.Atom<AsyncResult.AsyncResult<A, E>>
   ): Atom.Atom<AsyncResult.AsyncResult<A, E>> => {
@@ -40,7 +44,9 @@ export const persisted =
       (get) => {
         const live = get(self)
         if (AsyncResult.isSuccess(live)) {
-          Option.map(encode(live.value), (value) => latest.set(key, value))
+          Option.map(encode(trim(live.value)), (value) =>
+            latest.set(key, value)
+          )
           return live
         }
         if (!AsyncResult.isInitial(live)) return live

@@ -1,7 +1,7 @@
 import {
   matchesTicketQuery,
   type Ticket,
-  type TicketCounts,
+  TicketCounts,
   type TicketId,
   TicketListQuery,
   type TicketSort,
@@ -14,6 +14,7 @@ import * as Atom from "effect/reactivity/Atom"
 import * as Schema from "effect/Schema"
 
 import { Api } from "@/api/Api"
+import { persisted } from "@/api/bootCache"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { bindRowMutation, viewMutation } from "@/api/viewMutation"
@@ -29,7 +30,8 @@ import {
   type QueryWithView,
   type QuickCreateInput,
   type TicketRow,
-  type TicketRowPage,
+  firstScreenSections,
+  TicketRowPage,
   viewQuery,
   quickCreatePayload
 } from "@/features/tickets/lib/ticketRows"
@@ -72,10 +74,16 @@ export const backlogRequest = (
 const scopeOf = (req: BacklogRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
 
-export type BacklogValue = Readonly<{
-  counts: TicketCounts
-  sections: Readonly<Record<string, TicketRowPage>>
-}>
+export const BacklogValue = Schema.Struct({
+  counts: TicketCounts,
+  sections: Schema.Record(Schema.String, TicketRowPage)
+})
+export type BacklogValue = typeof BacklogValue.Type
+
+const firstScreen = (value: BacklogValue): BacklogValue => ({
+  counts: value.counts,
+  sections: firstScreenSections(value.sections)
+})
 
 const sectionsQuery = (req: BacklogRequest) =>
   query("tickets", "sections", {
@@ -147,7 +155,15 @@ const backlogView = (req: BacklogRequest) =>
   )
 
 export const backlog = Atom.family((req: BacklogRequest) =>
-  Atom.optimistic(backlogView(req))
+  Atom.optimistic(
+    backlogView(req).pipe(
+      persisted(
+        `view/${scopeOf(req)}/status/${encodeTicketListQuery(req.query)}`,
+        BacklogValue,
+        firstScreen
+      )
+    )
+  )
 )
 
 export const loadMoreBacklog = Atom.family(

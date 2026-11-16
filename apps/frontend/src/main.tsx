@@ -9,6 +9,7 @@ import {
 import { StrictMode, useSyncExternalStore } from "react"
 import ReactDOM from "react-dom/client"
 
+import { saveBoot } from "./api/bootCache"
 import { createSessionCache } from "./features/auth/lib/sessionCache"
 import { localRuntime } from "./features/local/atoms/localProject"
 import { appHotkeys } from "./lib/appHotkeys"
@@ -45,6 +46,7 @@ const sessions = createSessionCache((registry) => {
 
 authClient.$store.atoms.$sessionSignal.listen(sessions.refreshIdentity)
 window.addEventListener("focus", sessions.refreshIdentity)
+window.addEventListener("pagehide", saveBoot)
 
 function App() {
   const session = useSyncExternalStore(sessions.subscribe, sessions.getSnapshot)
