@@ -153,9 +153,21 @@ const staging = Effect.gen(function* () {
     next text, git integer not null)`
 })
 
+const inbox = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql`create table local_inbox (
+    copy integer not null, id text not null, org text not null, key text not null,
+    state text, direct integer not null, latest_at text, last_read_at text,
+    data text not null,
+    primary key (copy, id)) without rowid`
+  yield* sql`create index local_inbox_org on local_inbox (copy, org, state, latest_at)`
+  yield* sql`create index local_inbox_key on local_inbox (copy, org, key)`
+})
+
 export const localMigrations = Migrator.fromRecord({
   "0001_facts": createFacts,
   "0002_ticket_columns": ticketColumns,
   "0003_copies": copies,
-  "0004_staging": staging
+  "0004_staging": staging,
+  "0006_inbox": inbox
 })

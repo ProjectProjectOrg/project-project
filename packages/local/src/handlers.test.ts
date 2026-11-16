@@ -15,6 +15,7 @@ import * as Stream from "effect/Stream"
 import { expect } from "vitest"
 
 import { localRpcsLayer } from "./handlers"
+import { quietInbox } from "./inboxFacts"
 import { localDatabase } from "./LocalDb"
 import { type LocalProject, LocalRpcs } from "./LocalRpcs"
 import { SyncOffline, SyncSource } from "./SyncSource"
@@ -29,6 +30,7 @@ const responses: Array<ProjectSync> = [
 const engineWith = (pull: SyncSource["Service"]["pull"]) =>
   localRpcsLayer.pipe(
     Layer.provideMerge(Layer.succeed(SyncSource, { pull })),
+    Layer.provideMerge(quietInbox),
     Layer.provideMerge(localDatabase(SqliteClient.makeMemory({})))
   )
 

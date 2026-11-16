@@ -148,3 +148,19 @@ export const localStaging = sqliteTable("local_staging", {
   next: text("next"),
   git: integer("git").notNull()
 })
+
+export const localInbox = sqliteTable(
+  "local_inbox",
+  {
+    copy: integer("copy").notNull(),
+    id: text("id").notNull(),
+    org: text("org").notNull(),
+    key: text("key").notNull(),
+    state: text("state"),
+    direct: integer("direct").notNull(),
+    latestAt: text("latest_at"),
+    lastReadAt: text("last_read_at"),
+    data: text("data").notNull()
+  },
+  (t) => [primaryKey({ columns: [t.copy, t.id] })]
+)

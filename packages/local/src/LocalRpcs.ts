@@ -1,5 +1,6 @@
 import {
   EstimationMode,
+  InboxItem,
   TicketCountQuery,
   TicketCounts,
   TicketListPage,
@@ -10,6 +11,8 @@ import {
 } from "@pp/shared"
 import { Rpc, RpcGroup } from "effect/rpc"
 import * as Schema from "effect/Schema"
+
+import { InboxMark } from "./inboxSource"
 
 export const LocalSyncState = Schema.Literals([
   "live",
@@ -81,6 +84,15 @@ export const LocalSectionsResult = Schema.Struct({
 })
 export type LocalSectionsResult = typeof LocalSectionsResult.Type
 
+export const InboxUnreadRequest = Schema.Struct({ orgSlug: Schema.String })
+export type InboxUnreadRequest = typeof InboxUnreadRequest.Type
+
+export const InboxRequest = Schema.Struct({
+  ...InboxUnreadRequest.fields,
+  readSince: Schema.String
+})
+export type InboxRequest = typeof InboxRequest.Type
+
 export class LocalRpcs extends RpcGroup.make(
   Rpc.make("Hydrated", { payload: LocalProject, success: Schema.Boolean }),
   Rpc.make("Pull", { payload: LocalProject, success: LocalStatus }),
@@ -104,7 +116,20 @@ export class LocalRpcs extends RpcGroup.make(
     payload: CountsRequest,
     success: Schema.NullOr(TicketCounts),
     stream: true
-  })
+  }),
+  Rpc.make("InboxPull", { success: LocalStatus }),
+  Rpc.make("Inbox", {
+    payload: InboxRequest,
+    success: Schema.NullOr(Schema.Array(InboxItem)),
+    stream: true
+  }),
+  Rpc.make("InboxUnread", {
+    payload: InboxUnreadRequest,
+    success: Schema.NullOr(Schema.Finite),
+    stream: true
+  }),
+  Rpc.make("InboxMark", { payload: InboxMark }),
+  Rpc.make("InboxForget")
 ) {}
 
 export const LocalWorkerInit = Schema.Struct({ userId: Schema.String })

@@ -10,6 +10,7 @@ import * as Semaphore from "effect/Semaphore"
 import * as SqlClient from "effect/sql/SqlClient"
 import * as Stream from "effect/Stream"
 
+import { inboxHandlers } from "./inboxHandlers"
 import {
   type CountsRequest,
   type LocalProject,
@@ -84,6 +85,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
       writer.withPermit(effect)
     const changed = (scope: string) =>
       reactivity.invalidate([projectKey(scope)])
+    const inbox = yield* inboxHandlers(write)
 
     const loopFor = (scope: string) =>
       Effect.gen(function* () {
@@ -244,6 +246,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
       )
 
     return {
+      ...inbox,
       Hydrated: (project) =>
         cursorOf(scopeOf(project)).pipe(
           Effect.map((cursor) => cursor !== null),
