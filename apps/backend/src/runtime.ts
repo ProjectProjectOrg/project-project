@@ -62,6 +62,7 @@ import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
 import * as S3Storage from "@pp/server-core/storage/S3Storage"
 import * as SecretCrypto from "@pp/server-core/storage/SecretCrypto"
 import * as TicketSubscriptions from "@pp/server-core/subscriptions/TicketSubscriptions"
+import * as CommandReceipts from "@pp/server-core/sync/CommandReceipts"
 import * as SyncLog from "@pp/server-core/sync/SyncLog"
 import * as Tags from "@pp/server-core/tags/Tags"
 import * as TicketIndexServices from "@pp/server-core/tickets/indexLayer"
@@ -84,6 +85,7 @@ import { JiraDestinationQueriesLive } from "./jira/DestinationQueriesLive"
 import { JiraHostLive } from "./jira/HostLive"
 import { JiraWorkflowsLive } from "./jira/WorkflowRuntime"
 import { SlackHostLive } from "./slack/HostLive"
+import { OperationsLive } from "./sync/OperationsMiddleware"
 
 const SlackLive = SlackServicesLive.pipe(
   Layer.provideMerge(SlackHostLive),
@@ -138,7 +140,7 @@ const JiraDurableServicesLive = Layer.unwrap(
 
 const DatabaseLive = DbLive.pipe(Layer.provideMerge(PgLive))
 
-const SyncLive = LiveChanges.layer.pipe(
+const SyncLive = Layer.mergeAll(LiveChanges.layer, CommandReceipts.layer).pipe(
   Layer.provideMerge(SyncLog.layer),
   Layer.provide(DatabaseLive)
 )
@@ -249,6 +251,7 @@ export const makeBackendHttpServicesLive = <TE, TR, EE, ER, CE, CR>(
     AuthenticationLive,
     OrgAccessLive,
     ProjectAccessLive,
+    OperationsLive,
     FeedbackIntakeGuardLive
   ).pipe(
     Layer.provideMerge(

@@ -12,6 +12,7 @@ import {
 } from "../errors"
 import { TicketPath } from "../http/paths"
 import { Slug } from "../projects/Project"
+import { Operations } from "../sync/Operations"
 import { TicketId } from "../tickets/Ticket"
 import {
   Comment,
@@ -75,4 +76,5 @@ export const TicketCommentsGroup = HttpApiGroup.make("ticketComments")
     ).annotate(RequiresProject, "membership")
   )
   .middleware(ProjectAccess)
+  .middleware(Operations)
   .middleware(Authentication)

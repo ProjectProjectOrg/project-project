@@ -14,7 +14,11 @@ import { accessLayer, orgScope } from "@pp/server-core/access/testing"
 import * as Library from "@pp/server-core/library/Library"
 import * as Markdown from "@pp/server-core/markdown/Markdown"
 import * as OrgStorage from "@pp/server-core/storage/OrgStorage"
-import { JiraError, JiraRateLimited as PublicJiraRateLimited } from "@pp/shared"
+import {
+  JiraError,
+  JiraRateLimited as PublicJiraRateLimited,
+  Operations
+} from "@pp/shared"
 import {
   ActivityActor,
   AppApi,
@@ -81,7 +85,11 @@ const user: User = {
     lastCheckError: null
   }
 }
-const accessMiddleware = Layer.mergeAll(OrgAccessLive, ProjectAccessLive).pipe(
+const accessMiddleware = Layer.mergeAll(
+  OrgAccessLive,
+  ProjectAccessLive,
+  Layer.succeed(Operations, (effect) => effect)
+).pipe(
   Layer.provide(
     accessLayer({
       org: orgScope("owner", { userId: user.id, orgSlug: "organization" })

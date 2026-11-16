@@ -19,6 +19,7 @@ import {
 } from "../errors"
 import { BranchListResponse, GitStatesResponse } from "../github/GitState"
 import { OrgPath, ProjectPath } from "../http/paths"
+import { Operations } from "../sync/Operations"
 import {
   AddMemberInput,
   ChooseGithubInstallationInput,
@@ -449,4 +450,5 @@ export const ProjectsGroup = HttpApiGroup.make("projects")
       .annotate(RequiresProject, { github: ["write"] })
       .middleware(ProjectAccess)
   )
+  .middleware(Operations)
   .middleware(Authentication)

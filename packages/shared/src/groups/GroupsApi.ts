@@ -11,6 +11,7 @@ import {
   Validation
 } from "../errors"
 import { GroupPath, ProjectPath } from "../http/paths"
+import { Operations } from "../sync/Operations"
 import { Ticket } from "../tickets/Ticket"
 import {
   CompleteSprintInput,
@@ -147,4 +148,5 @@ export const GroupsGroup = HttpApiGroup.make("groups")
     ).annotate(RequiresProject, "membership")
   )
   .middleware(ProjectAccess)
+  .middleware(Operations)
   .middleware(Authentication)

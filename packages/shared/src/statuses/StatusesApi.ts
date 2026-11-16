@@ -5,6 +5,7 @@ import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
 import { Conflict, Forbidden, NotFound, Unauthorized } from "../errors"
 import { ProjectPath } from "../http/paths"
+import { Operations } from "../sync/Operations"
 import {
   CreateStatusInput,
   ProjectStatus,
@@ -71,4 +72,5 @@ export const StatusesGroup = HttpApiGroup.make("statuses")
     ).annotate(RequiresProject, { workflow: ["manage"] })
   )
   .middleware(ProjectAccess)
+  .middleware(Operations)
   .middleware(Authentication)

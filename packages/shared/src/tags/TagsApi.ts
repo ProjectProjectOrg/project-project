@@ -6,6 +6,7 @@ import { Authentication } from "../auth/Authentication"
 import { Conflict, Forbidden, NotFound, Unauthorized } from "../errors"
 import { ProjectPath } from "../http/paths"
 import { Slug } from "../projects/Project"
+import { Operations } from "../sync/Operations"
 import { CreateTagInput, Tag, TagName, UpdateTagInput } from "./Tag"
 
 const ProjectTagPath = Schema.Struct({
@@ -69,4 +70,5 @@ export const TagsGroup = HttpApiGroup.make("tags")
     ).annotate(RequiresProject, { workflow: ["manage"] })
   )
   .middleware(ProjectAccess)
+  .middleware(Operations)
   .middleware(Authentication)

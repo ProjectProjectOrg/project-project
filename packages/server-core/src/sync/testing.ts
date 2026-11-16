@@ -41,6 +41,7 @@ export const recordingSyncLog = () => {
         }),
       head: (projectId) => Effect.sync(() => headOf(projectId)),
       entriesAfter: () => Effect.succeed([]),
+      positionsOf: () => Effect.succeed(new Map()),
       withEntry: (projectId, changes, write) =>
         Effect.tap(write, () =>
           Effect.sync(() => {

@@ -51,6 +51,7 @@ import {
   OpenPrResult
 } from "../github/GitState"
 import { OrgPath, ProjectPath, TicketPath } from "../http/paths"
+import { Operations } from "../sync/Operations"
 import {
   BulkArchiveTicketsInput,
   BulkDeleteTicketsInput,
@@ -643,6 +644,7 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       .annotate(RequiresProject, { github: ["write"] })
       .middleware(ProjectAccess)
   )
+  .middleware(Operations)
   .middleware(Authentication)
 
 export const TicketActivityGroup = HttpApiGroup.make("ticketActivity")

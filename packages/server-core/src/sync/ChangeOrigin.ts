@@ -6,5 +6,15 @@ export const ChangeOrigin = Context.Reference<string | null>(
   { defaultValue: () => null }
 )
 
+export const SyncOperation = Context.Reference<string | null>(
+  "@pp/server-core/sync/SyncOperation",
+  { defaultValue: () => null }
+)
+
 export const forkDetached = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-  Effect.forkDetach(Effect.provideService(effect, ChangeOrigin, null))
+  Effect.forkDetach(
+    effect.pipe(
+      Effect.provideService(ChangeOrigin, null),
+      Effect.provideService(SyncOperation, null)
+    )
+  )

@@ -29,6 +29,7 @@ import {
   TicketListQuery,
   TicketOrderKeyQuery
 } from "./filters/Ticket"
+import { Operations } from "./sync/Operations"
 import { TicketDetail } from "./tickets/Ticket"
 
 const decodeTicketListQuery = Schema.decodeEffect(TicketListQuery)
@@ -127,7 +128,11 @@ const makeHarness = Effect.gen(function* () {
           Effect.as({ ticket, orderKey: null })
         )
       )
-  ).pipe(Layer.provideMerge(auth), Layer.provideMerge(projectAccess))
+  ).pipe(
+    Layer.provideMerge(auth),
+    Layer.provideMerge(projectAccess),
+    Layer.provideMerge(Layer.succeed(Operations, (effect) => effect))
+  )
   const client = yield* HttpApiTest.groups(api, ["tickets"]).pipe(
     Effect.provide(Layer.merge(handlers, HttpServer.layerServices))
   )

@@ -915,7 +915,36 @@ export const syncChange = pgTable(
       .notNull()
       .defaultNow()
   },
-  (t) => [primaryKey({ columns: [t.projectId, t.generation, t.sequence] })]
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.generation, t.sequence] }),
+    index("sync_change_operation_idx")
+      .on(t.operationId)
+      .where(sql`${t.operationId} is not null`)
+  ]
+)
+
+export type CommandOutcome = Readonly<{
+  status: number
+  contentType: string | null
+  body: string
+}>
+
+export const commandReceipt = pgTable(
+  "command_receipt",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    operationId: text("operation_id").notNull(),
+    requestHash: text("request_hash").notNull(),
+    outcome: jsonb("outcome").$type<CommandOutcome>(),
+    receipt: text("receipt"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true })
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.operationId] })]
 )
 
 export const commentIndex = pgTable(

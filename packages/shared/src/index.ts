@@ -65,6 +65,7 @@ export * from "./linkPreviews/LinkPreview"
 export * from "./live/LiveEvent"
 
 export * from "./sync/SyncChange"
+export * from "./sync/Operations"
 
 export * from "./organizations/Org"
 export * from "./organizations/OrgEmail"

@@ -36,6 +36,7 @@ import {
   AppApi,
   Authentication,
   CurrentUser,
+  Operations,
   OrgScope
 } from "@pp/shared"
 import { drizzle } from "drizzle-orm/node-postgres"
@@ -270,9 +271,11 @@ describe.skipIf(!databaseUrl)("published project visibility", () => {
           )
         ),
         Layer.provide(
-          Layer.mergeAll(OrgAccessLive, ProjectAccessLive).pipe(
-            Layer.provide(access())
-          )
+          Layer.mergeAll(
+            OrgAccessLive,
+            ProjectAccessLive,
+            Layer.succeed(Operations, (effect) => effect)
+          ).pipe(Layer.provide(access()))
         ),
         Layer.provide(
           Layer.succeed(Authentication, {

@@ -4,6 +4,7 @@ import { ProjectAccess, RequiresProject } from "../access/ProjectAccess"
 import { Authentication } from "../auth/Authentication"
 import { Forbidden, NotFound, Unauthorized } from "../errors"
 import { TicketPath } from "../http/paths"
+import { Operations } from "../sync/Operations"
 import { TicketSubscribers } from "./TicketSubscribers"
 
 const subscribersPath = "/orgs/:orgSlug/projects/:slug/tickets/:id/subscribers"
@@ -33,4 +34,5 @@ export const TicketSubscriptionsGroup = HttpApiGroup.make("ticketSubscriptions")
     }).annotate(RequiresProject, "membership")
   )
   .middleware(ProjectAccess)
+  .middleware(Operations)
   .middleware(Authentication)

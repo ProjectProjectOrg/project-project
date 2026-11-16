@@ -202,6 +202,8 @@ Logged writes: ticket index upserts and deletions (`TicketIndex`), which every t
 
 The live update stream reads the log: `LiveChanges` listens for `pg_notify` after each commit and reads the committed entries, and `LiveFeed` stamps each SSE event with a cursor holding one position per project, so a client that reconnects, even after a server restart, replays what it missed from the log and only resyncs when a project's generation changed or the gap is large.
 
+**Operation ids and receipts.** A write to a project endpoint (tickets, comments, groups, statuses, tags, projects, subscriptions) may carry an `Operation-Id` header. The `Operations` middleware (`apps/backend/src/sync/OperationsMiddleware.ts`, store in `CommandReceipts`) claims the id for the signed-in user in `command_receipt` together with a hash of the method, URL and body, tags every log entry the command appends with the id, and stores the response: the success body, or a declared rejection such as `Conflict` or `Validation`. The response carries a `Sync-Receipt` header in the live cursor's format with the last position the command reached in each project, so a client knows when its copy has caught up with its own write. Repeating the request with the same id returns the stored response and runs nothing; a different request under a used id fails with `Conflict` `operation_mismatch`, and one still running (or cut off by a crash) with `operation_pending`. Unauthorized and forbidden requests, defects and non-JSON bodies are not stored, so they can be retried. Receipts live apart from the log and survive generation bumps. Requests without the header, such as those from MCP and the CLI, behave as before.
+
 ---
 
 ## Surfaces

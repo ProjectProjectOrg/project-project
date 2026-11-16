@@ -1,13 +1,13 @@
 import { Db } from "@pp/db"
 import { syncChange, syncScope } from "@pp/db/schema"
 import type { SyncChangeRef } from "@pp/shared"
-import { and, asc, eq, gt, sql as drizzleSql } from "drizzle-orm"
+import { and, asc, desc, eq, gt, sql as drizzleSql } from "drizzle-orm"
 import * as Context from "effect/Context"
 import * as Effect from "effect/Effect"
 import * as Layer from "effect/Layer"
 import * as SqlClient from "effect/sql/SqlClient"
 
-import { ChangeOrigin } from "./ChangeOrigin"
+import { ChangeOrigin, SyncOperation } from "./ChangeOrigin"
 
 export const SYNC_CHANNEL = "pp_sync"
 
@@ -20,11 +20,6 @@ export type SyncEntry = Readonly<{
   origin: string | null
   changes: ReadonlyArray<SyncChangeRef>
 }>
-
-export const SyncOperation = Context.Reference<string | null>(
-  "@pp/server-core/sync/SyncOperation",
-  { defaultValue: () => null }
-)
 
 export class SyncLog extends Context.Service<
   SyncLog,
@@ -40,6 +35,9 @@ export class SyncLog extends Context.Service<
       after: SyncPosition,
       limit: number
     ) => Effect.Effect<ReadonlyArray<SyncEntry>>
+    positionsOf: (
+      operationId: string
+    ) => Effect.Effect<ReadonlyMap<string, SyncPosition>>
     withEntry: <A, R>(
       projectId: string,
       changes: ReadonlyArray<SyncChangeRef>,
@@ -174,6 +172,30 @@ const make = Effect.gen(function* () {
       .limit(limit)
   }, Effect.orDie)
 
+  const positionsOf = Effect.fn("SyncLog.positionsOf")(function* (
+    operationId: string
+  ) {
+    const rows = yield* db
+      .selectDistinctOn([syncChange.projectId], {
+        projectId: syncChange.projectId,
+        generation: syncChange.generation,
+        sequence: syncChange.sequence
+      })
+      .from(syncChange)
+      .where(eq(syncChange.operationId, operationId))
+      .orderBy(
+        syncChange.projectId,
+        desc(syncChange.generation),
+        desc(syncChange.sequence)
+      )
+    return new Map(
+      rows.map((row): [string, SyncPosition] => [
+        row.projectId,
+        { generation: row.generation, sequence: row.sequence }
+      ])
+    )
+  }, Effect.orDie)
+
   const withEntry = <A, R>(
     projectId: string,
     changes: ReadonlyArray<SyncChangeRef>,
@@ -183,7 +205,14 @@ const make = Effect.gen(function* () {
       .withTransaction(Effect.tap(write, () => append(projectId, changes)))
       .pipe(Effect.orDie)
 
-  return SyncLog.of({ append, bumpGeneration, head, entriesAfter, withEntry })
+  return SyncLog.of({
+    append,
+    bumpGeneration,
+    head,
+    entriesAfter,
+    positionsOf,
+    withEntry
+  })
 })
 
 export const layer = Layer.effect(SyncLog, make)
