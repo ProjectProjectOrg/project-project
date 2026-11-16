@@ -2,6 +2,7 @@
 
 import * as TicketGit from "@pp/server-core/git/TicketGit"
 import * as TicketCommands from "@pp/server-core/tickets/TicketCommands"
+import * as TicketDescriptions from "@pp/server-core/tickets/TicketDescriptions"
 import * as TicketQueries from "@pp/server-core/tickets/TicketQueries"
 import { AppApi, Validation } from "@pp/shared"
 import * as Effect from "effect/Effect"
@@ -93,6 +94,19 @@ export const TicketsHandlerLive = HttpApiBuilder.group(
         Effect.flatMap(TicketQueries.TicketQueries, (queries) =>
           queries.get(params.id)
         ).pipe(dieOnMarkdown)
+      )
+      .handle("descriptions", ({ query }) =>
+        Effect.flatMap(TicketDescriptions.TicketDescriptions, (descriptions) =>
+          descriptions.read(query.ids)
+        ).pipe(dieOnMarkdown)
+      )
+      .handle("updateDescription", ({ params, payload }) =>
+        Effect.flatMap(TicketDescriptions.TicketDescriptions, (descriptions) =>
+          descriptions.update(params.id, payload)
+        ).pipe(
+          dieOnMarkdown,
+          Effect.catchTag("SprintCompletedImmutable", Effect.die)
+        )
       )
       .handle("sequence", ({ params, query }) =>
         Effect.flatMap(TicketQueries.TicketQueries, (queries) =>

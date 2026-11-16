@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect/atom-react"
+import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import type {
   ActivitySystemSource,
   TicketActivityActor,
@@ -18,6 +18,7 @@ import claudeLogo from "@/assets/logos/claude.svg"
 import codexDarkLogo from "@/assets/logos/codex_dark.svg"
 import codexLightLogo from "@/assets/logos/codex_light.svg"
 import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 import { MemberAvatar } from "@/features/members/components/MemberAvatar"
 import {
   statusesFor,
@@ -29,6 +30,7 @@ import {
 } from "@/features/projects/hooks/useProject"
 import { tagsFor, tagsRequest } from "@/features/tags/atoms/tags"
 import {
+  olderActivityPages,
   ticketActivity,
   ticketActivityRequest
 } from "@/features/tickets/atoms/ticketActivity"
@@ -278,6 +280,7 @@ export function TicketTimeline<C>({
   const { orgSlug, slug } = useProjectRoute()
   const req = ticketActivityRequest(orgSlug, slug, ticketId)
   const result = useAtomValue(ticketActivity(req))
+  const showOlder = useAtomSet(olderActivityPages(req))
   const statusesResult = useAtomValue(
     statusesFor(statusesRequest(orgSlug, slug))
   )
@@ -326,6 +329,15 @@ export function TicketTimeline<C>({
           )
         )}
       </ol>
+      {hasOlder && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => showOlder((pages) => pages + 1)}
+        >
+          {m.tickets_activity_show_older()}
+        </Button>
+      )}
       {AsyncResult.isFailure(result) && (
         <p role="alert" className="text-body text-destructive">
           {m.tickets_activity_load_failed()}

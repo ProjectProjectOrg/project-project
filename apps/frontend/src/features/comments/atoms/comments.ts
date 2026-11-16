@@ -1,7 +1,7 @@
 import {
+  Comment,
   CommentId,
   Slug,
-  type Comment,
   type CreateCommentInput,
   type TicketId,
   type UpdateCommentInput,
@@ -15,6 +15,7 @@ import * as Schema from "effect/Schema"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { keepPredicted, viewMutation } from "@/api/viewMutation"
+import { locallyCached } from "@/features/local/atoms/localTicketData"
 
 export type CommentsRequest = Readonly<{
   _view: "comments"
@@ -47,11 +48,16 @@ const createdKeys = Atom.family((_req: CommentsRequest) =>
 )
 
 const commentsQuery = (req: CommentsRequest) =>
-  query("ticketComments", "list", {
-    params: req.params,
-    timeToLive: "5 minutes",
-    reactivityKeys: [Keys.comments(scopeOf(req), req.params.id)]
-  })
+  locallyCached(
+    { ...req.params, ticket: req.params.id, kind: "comments" },
+    Schema.Array(Comment)
+  )(
+    query("ticketComments", "list", {
+      params: req.params,
+      timeToLive: "5 minutes",
+      reactivityKeys: [Keys.comments(scopeOf(req), req.params.id)]
+    })
+  )
 
 const commentsView = (req: CommentsRequest) =>
   Atom.readable(

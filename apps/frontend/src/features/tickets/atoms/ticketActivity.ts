@@ -1,9 +1,11 @@
-import type { TicketActivityEntry, TicketId } from "@pp/shared"
+import { TicketActivityEntry, type TicketId } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Atom from "effect/reactivity/Atom"
+import * as Schema from "effect/Schema"
 
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
+import { locallyCached } from "@/features/local/atoms/localTicketData"
 
 export type TicketActivityRequest = Readonly<{
   params: Readonly<{
@@ -19,10 +21,11 @@ export const ticketActivityRequest = (
   id: TicketId
 ): TicketActivityRequest => ({ params: { orgSlug, slug, id } })
 
-export type TicketActivityView = Readonly<{
-  items: ReadonlyArray<TicketActivityEntry>
-  hasOlder: boolean
-}>
+const TicketActivityView = Schema.Struct({
+  items: Schema.Array(TicketActivityEntry),
+  hasOlder: Schema.Boolean
+})
+export type TicketActivityView = typeof TicketActivityView.Type
 
 const scopeOf = (req: TicketActivityRequest) =>
   projectScope(req.params.orgSlug, req.params.slug)
@@ -38,7 +41,11 @@ const pageQuery = (req: TicketActivityRequest, cursor: string | null) =>
     ]
   })
 
-export const ticketActivity = Atom.family((req: TicketActivityRequest) =>
+export const olderActivityPages = Atom.family((_req: TicketActivityRequest) =>
+  Atom.make(0).pipe(Atom.setIdleTTL("10 minutes"))
+)
+
+const activityPages = (req: TicketActivityRequest) =>
   Atom.readable(
     (get) => {
       const first = get(pageQuery(req, null))
@@ -51,12 +58,14 @@ export const ticketActivity = Atom.family((req: TicketActivityRequest) =>
       const items = [...first.value.items]
       let nextCursor = first.value.nextCursor
       let waiting = first.waiting
-      while (nextCursor !== null) {
+      let older = get(olderActivityPages(req))
+      while (nextCursor !== null && older > 0) {
         const page = get(pageQuery(req, nextCursor))
         waiting ||= page.waiting
         if (!AsyncResult.isSuccess(page)) break
         items.push(...page.value.items)
         nextCursor = page.value.nextCursor
+        older -= 1
       }
       return AsyncResult.success<TicketActivityView>(
         { items, hasOlder: nextCursor !== null },
@@ -65,4 +74,10 @@ export const ticketActivity = Atom.family((req: TicketActivityRequest) =>
     },
     (refresh) => refresh(pageQuery(req, null))
   )
+
+export const ticketActivity = Atom.family((req: TicketActivityRequest) =>
+  locallyCached(
+    { ...req.params, ticket: req.params.id, kind: "activity" },
+    TicketActivityView
+  )(activityPages(req))
 )

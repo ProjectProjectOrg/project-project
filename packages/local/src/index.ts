@@ -15,3 +15,12 @@ export {
 export { localOrderKey, type Orderable } from "./orderKey"
 export { sectionDifferences } from "./sectionDifferences"
 export { SyncDenied, SyncOffline, SyncSource } from "./SyncSource"
+export { DescriptionSource, SaveOutcome } from "./DescriptionSource"
+export { mergeDescriptions, type MergeConflict } from "./descriptionMerge"
+export { localDescriptionsLayer } from "./descriptions"
+export {
+  type DescriptionVersion,
+  type LocalDescription,
+  type LocalTicket,
+  type TicketDataKind
+} from "./LocalRpcs"

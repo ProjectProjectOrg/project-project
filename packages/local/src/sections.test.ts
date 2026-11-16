@@ -112,7 +112,8 @@ const generate = (size: number, seed: number): ReadonlyArray<TicketFact> => {
       archivedAt: next() < 0.1 ? day(2) : null,
       createdBy: "u1",
       createdAt: day(Math.floor(next() * 10)),
-      updatedAt: day(Math.floor(next() * 10))
+      updatedAt: day(Math.floor(next() * 10)),
+      descriptionRevision: "0.0"
     }
   })
 }

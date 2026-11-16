@@ -8,8 +8,6 @@ import {
   type TypeKey
 } from "@pp/shared"
 import { Link } from "@tanstack/react-router"
-import * as Cause from "effect/Cause"
-import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
   HISTORY_MERGE_TAG,
@@ -36,12 +34,12 @@ import { AttachmentAvailabilityProvider } from "@/features/editor/lexical/attach
 import { $selectFirstHint } from "@/features/editor/lexical/blocks/blockCommands"
 import { lookupFor } from "@/features/editor/lib/blockChrome"
 import { MentionScopeProvider } from "@/features/editor/mentions/scope"
+import { localDescription } from "@/features/local/atoms/localTicket"
 import { orgStorage, storageRequest } from "@/features/projects/atoms/storage"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   ticketBodyDraft,
-  ticketRequest,
-  updateTicketDetail
+  ticketRequest
 } from "@/features/tickets/atoms/ticketDetail"
 import { useTicketParticipants } from "@/features/tickets/hooks/useTicketParticipants"
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
@@ -51,6 +49,7 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 import { DescriptionActions } from "./DescriptionActions"
+import { DescriptionConflict } from "./DescriptionConflict"
 import {
   replaceWithTemplate,
   restoreBody,
@@ -58,6 +57,7 @@ import {
   templateSwap
 } from "./descriptionTemplates"
 import { DescriptionTypeStarts } from "./DescriptionTypeStarts"
+import { useDescriptionSync } from "./useDescriptionSync"
 
 const SLASH_COMMAND_ONLY = /^(\/\S*)?$/
 const INTERACTIVE = "a, button, input, label"
@@ -81,17 +81,6 @@ export type DescriptionHandle = Readonly<{
 
 const sameBody = (a: string, b: string): boolean => a.trim() === b.trim()
 
-function useIdleReload(body: string, idle: boolean) {
-  const [loaded, setLoaded] = useState({ body, revision: 0 })
-  if (idle && body !== loaded.body)
-    setLoaded({ body, revision: loaded.revision + 1 })
-  return {
-    revision: loaded.revision,
-    saved: (next: string) =>
-      setLoaded((current) => ({ ...current, body: next }))
-  }
-}
-
 export function DescriptionField({
   ticket,
   members,
@@ -107,8 +96,9 @@ export function DescriptionField({
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const req = ticketRequest(orgSlug, slug, ticket.id)
-  const update = useAtomSet(updateTicketDetail(req), { mode: "promiseExit" })
   const bodyDraft = useAtomValue(ticketBodyDraft(req))
+  const description = useAtomValue(localDescription(req))
+  const local = Result.isSuccess(description) ? description.value : null
   const [definitionError, setDefinitionError] = useState<string | null>(null)
   const blocks = useEditorBlocks(orgSlug, slug, ticket.type, setDefinitionError)
   const setBodyDraft = useAtomSet(ticketBodyDraft(req))
@@ -138,7 +128,14 @@ export function DescriptionField({
     rootRef,
     initial: autoFocus
   })
-  const loaded = useIdleReload(ticket.body, !editing && bodyDraft === null)
+  const sync = useDescriptionSync({
+    req,
+    body: ticket.body,
+    local,
+    editorRef,
+    transformers,
+    idle: !editing && bodyDraft === null
+  })
 
   const startAs = (key: TypeKey) => {
     const editor = editorRef.current
@@ -241,26 +238,24 @@ export function DescriptionField({
         }}
       >
         <div className={cn("relative flow-root", canStart && "min-h-15")}>
+          {sync.conflicts !== null && (
+            <DescriptionConflict {...sync} conflicts={sync.conflicts} />
+          )}
           <DescriptionActions
             editing={editing}
-            status={saveStatus}
+            status={local?.edit?.failed == null ? saveStatus : "failed"}
             onEdit={() => startEditing()}
             onDone={stopEditing}
           />
           <MentionScopeProvider scope={{ orgSlug, slug, members, involved }}>
             <AttachmentAvailabilityProvider missing={ticket.missingAttachments}>
               <LexicalEditor
-                key={`${slug}/${ticket.id}/${loaded.revision}`}
+                key={`${slug}/${ticket.id}/${sync.revision}`}
                 markdown={body}
                 onDraftChange={setBodyDraft}
-                onChange={async (next) => {
-                  const exit = await update({ body: next })
-                  if (Exit.isFailure(exit)) throw Cause.squash(exit.cause)
-                  loaded.saved(next)
-                  setBodyDraft((draft) => (draft === next ? null : draft))
-                }}
+                onChange={sync.save}
                 onStatusChange={setSaveStatus}
-                autoFocus={autoFocus && loaded.revision === 0 ? "start" : false}
+                autoFocus={autoFocus && sync.revision === 0 ? "start" : false}
                 placeholder={m.tickets_description_placeholder()}
                 attachments={attachments}
                 blocks={blocks}
@@ -280,31 +275,49 @@ export function DescriptionField({
         </div>
       </div>
       {definitionError !== null && (
-        <p
-          role="alert"
-          className="mt-2 flex items-center gap-2 px-3 text-caption text-destructive"
-        >
-          {m.editor_block_make_definition_failed({ reason: definitionError })}
-          <button
-            type="button"
-            onClick={() => setDefinitionError(null)}
-            className="rounded px-1 text-muted-foreground transition-all duration-100 hover:text-foreground"
-          >
-            {m.editor_block_make_definition_dismiss()}
-          </button>
-        </p>
+        <DefinitionError
+          reason={definitionError}
+          onDismiss={() => setDefinitionError(null)}
+        />
       )}
       {!storageActive && canConnectStorage && (
-        <div className="mt-2 px-3">
-          <Link
-            to="/orgs/$orgSlug/settings/integrations/storage"
-            params={{ orgSlug }}
-            className="text-caption text-muted-foreground underline-offset-2 transition-colors duration-100 hover:text-foreground hover:underline"
-          >
-            {m.editor_attachment_connect_prompt()}
-          </Link>
-        </div>
+        <StoragePrompt orgSlug={orgSlug} />
       )}
+    </div>
+  )
+}
+
+function DefinitionError({
+  reason,
+  onDismiss
+}: Readonly<{ reason: string; onDismiss: () => void }>) {
+  return (
+    <p
+      role="alert"
+      className="mt-2 flex items-center gap-2 px-3 text-caption text-destructive"
+    >
+      {m.editor_block_make_definition_failed({ reason })}
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="rounded px-1 text-muted-foreground transition-all duration-100 hover:text-foreground"
+      >
+        {m.editor_block_make_definition_dismiss()}
+      </button>
+    </p>
+  )
+}
+
+function StoragePrompt({ orgSlug }: Readonly<{ orgSlug: string }>) {
+  return (
+    <div className="mt-2 px-3">
+      <Link
+        to="/orgs/$orgSlug/settings/integrations/storage"
+        params={{ orgSlug }}
+        className="text-caption text-muted-foreground underline-offset-2 transition-colors duration-100 hover:text-foreground hover:underline"
+      >
+        {m.editor_attachment_connect_prompt()}
+      </Link>
     </div>
   )
 }

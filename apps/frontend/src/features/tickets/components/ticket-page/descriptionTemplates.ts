@@ -68,7 +68,7 @@ export type TemplateBodyContext = Readonly<{
   lookup: BlockLookup
 }>
 
-function $ensureTrailingLine() {
+export function $ensureTrailingLine() {
   const root = $getRoot()
   if (root.getLastChild()?.getType() !== "paragraph")
     root.append($createParagraphNode())

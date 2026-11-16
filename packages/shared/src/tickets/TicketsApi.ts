@@ -74,6 +74,11 @@ import {
 } from "./Ticket"
 import { TicketActivityPage } from "./TicketActivity"
 import {
+  TicketDescription,
+  TicketDescriptionsQuery,
+  UpdateTicketDescriptionInput
+} from "./TicketDescription"
+import {
   TicketTextHit,
   TicketTextSearchQuery,
   TicketTitle
@@ -352,6 +357,41 @@ export const TicketsGroup = HttpApiGroup.make("tickets")
       error: [Unauthorized, NotFound, Forbidden]
     })
       .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.get(
+      "descriptions",
+      "/orgs/:orgSlug/projects/:slug/descriptions",
+      {
+        params: ProjectPath,
+        query: TicketDescriptionsQuery,
+        success: Schema.Array(TicketDescription),
+        error: [Unauthorized, NotFound, Forbidden]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["read"] })
+      .middleware(ProjectAccess)
+  )
+  .add(
+    HttpApiEndpoint.put(
+      "updateDescription",
+      "/orgs/:orgSlug/projects/:slug/tickets/:id/description",
+      {
+        params: TicketPath,
+        payload: UpdateTicketDescriptionInput,
+        success: TicketDescription,
+        error: [
+          Unauthorized,
+          NotFound,
+          Forbidden,
+          Validation,
+          MentionInvalid,
+          Conflict
+        ]
+      }
+    )
+      .annotate(RequiresProject, { ticket: ["update"] })
       .middleware(ProjectAccess)
   )
   .add(

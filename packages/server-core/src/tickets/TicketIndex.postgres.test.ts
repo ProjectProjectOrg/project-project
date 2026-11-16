@@ -38,6 +38,8 @@ import * as ProjectMembers from "../projects/ProjectMembers"
 import * as Projects from "../projects/Projects"
 import * as SyncLog from "../sync/SyncLog"
 import * as Users from "../users/Users"
+import { DescriptionChange } from "./descriptionChange"
+import { descriptionRevisions } from "./descriptionRevisions"
 import * as TicketIndexServices from "./indexLayer"
 import * as TicketDocs from "./TicketDocs"
 import * as TicketIndex from "./TicketIndex"
@@ -282,6 +284,39 @@ describe.skipIf(!databaseUrl)("TicketIndex Postgres", () => {
         })
         yield* index.upsertTicket(project, { ...ticket, title: "Renamed" })
         expect((yield* log.head(project.projectId)).sequence).toBe(3)
+      }).pipe(
+        Effect.provide(
+          TicketIndexServices.layer.pipe(
+            Layer.provideMerge(SyncLog.layer),
+            Layer.provide(FakeTicketDocs),
+            Layer.provideMerge(DatabaseLive)
+          )
+        )
+      )
+  )
+
+  it.effect(
+    "a description change records its log position as the ticket's description revision",
+    () =>
+      Effect.gen(function* () {
+        const organizationId = yield* seedRebuildProject
+        const index = yield* TicketIndex.TicketIndex
+        const log = yield* SyncLog.SyncLog
+        const project = yield* index.projectFor(organizationId, organizationId)
+        const revisionOf = Effect.map(
+          descriptionRevisions(project.projectId, ["T-1"]),
+          (revisions) => revisions.get("T-1")
+        )
+        const ticket = indexedDocument("T-1")
+        yield* index.upsertTicket(project, ticket)
+        expect(yield* revisionOf).toBe("0.0")
+        yield* index
+          .upsertTicket(project, { ...ticket, body: "Rewritten" })
+          .pipe(Effect.provideService(DescriptionChange, "T-1"))
+        const head = yield* log.head(project.projectId)
+        expect(yield* revisionOf).toBe(`${head.generation}.${head.sequence}`)
+        yield* index.upsertTicket(project, { ...ticket, title: "Renamed" })
+        expect(yield* revisionOf).toBe(`${head.generation}.${head.sequence}`)
       }).pipe(
         Effect.provide(
           TicketIndexServices.layer.pipe(

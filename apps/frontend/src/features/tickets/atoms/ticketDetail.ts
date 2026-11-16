@@ -21,6 +21,8 @@ import { Api } from "@/api/Api"
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { replaceWith, viewMutation } from "@/api/viewMutation"
+import { localTicketDetail } from "@/features/local/atoms/localTicket"
+import { readLocal } from "@/features/local/atoms/readLocal"
 
 import { withoutRelation } from "../lib/relationGroups"
 import { applyTicketDetailPatch, type TicketEdit } from "../lib/ticketPatch"
@@ -56,8 +58,16 @@ export const ticketQuery = (req: TicketRequest) =>
     ]
   })
 
+export const ticketSource = (req: TicketRequest) =>
+  Atom.readable(
+    (get) =>
+      readLocal(get, req.params, () => localTicketDetail(req)) ??
+      get(ticketQuery(req)),
+    (refresh) => refresh(ticketQuery(req))
+  )
+
 export const ticketDetail = Atom.family((req: TicketRequest) =>
-  Atom.optimistic(ticketQuery(req))
+  Atom.optimistic(ticketSource(req))
 )
 
 const movedTicketQuery = (req: TicketRequest) =>

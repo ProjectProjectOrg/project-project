@@ -1,9 +1,10 @@
-import type { TicketSubscribers, TicketId } from "@pp/shared"
+import { TicketSubscribers, type TicketId } from "@pp/shared"
 import * as Atom from "effect/reactivity/Atom"
 
 import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { viewMutation } from "@/api/viewMutation"
+import { locallyCached } from "@/features/local/atoms/localTicketData"
 
 export type TicketSubscribersRequest = Readonly<{
   _view: "ticketSubscribers"
@@ -21,15 +22,20 @@ export const ticketSubscribersRequest = (
 
 const subscribersQuery = (req: TicketSubscribersRequest) => {
   const scope = projectScope(req.params.orgSlug, req.params.slug)
-  return query("ticketSubscriptions", "list", {
-    params: req.params,
-    timeToLive: "2 minutes",
-    reactivityKeys: [
-      Keys.ticket(scope, req.params.id),
-      Keys.ticketComments(scope),
-      Keys.ticketSubscribers(scope, req.params.id)
-    ]
-  })
+  return locallyCached(
+    { ...req.params, ticket: req.params.id, kind: "subscribers" },
+    TicketSubscribers
+  )(
+    query("ticketSubscriptions", "list", {
+      params: req.params,
+      timeToLive: "2 minutes",
+      reactivityKeys: [
+        Keys.ticket(scope, req.params.id),
+        Keys.ticketComments(scope),
+        Keys.ticketSubscribers(scope, req.params.id)
+      ]
+    })
+  )
 }
 
 export const ticketSubscribers = Atom.family((req: TicketSubscribersRequest) =>

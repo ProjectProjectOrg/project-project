@@ -148,3 +148,45 @@ export const localStaging = sqliteTable("local_staging", {
   next: text("next"),
   git: integer("git").notNull()
 })
+
+export const localDescriptions = sqliteTable(
+  "local_descriptions",
+  {
+    scope: text("scope").notNull(),
+    id: text("id").notNull(),
+    body: text("body").notNull(),
+    revision: text("revision").notNull(),
+    missing: text("missing").notNull(),
+    used: integer("used").notNull()
+  },
+  (t) => [primaryKey({ columns: [t.scope, t.id] })]
+)
+
+export const localDescriptionEdits = sqliteTable(
+  "local_description_edits",
+  {
+    scope: text("scope").notNull(),
+    id: text("id").notNull(),
+    body: text("body").notNull(),
+    baseBody: text("base_body").notNull(),
+    baseRevision: text("base_revision").notNull(),
+    operation: text("operation"),
+    sent: text("sent"),
+    conflictBody: text("conflict_body"),
+    conflictRevision: text("conflict_revision"),
+    failed: text("failed")
+  },
+  (t) => [primaryKey({ columns: [t.scope, t.id] })]
+)
+
+export const localTicketCache = sqliteTable(
+  "local_ticket_cache",
+  {
+    scope: text("scope").notNull(),
+    ticket: text("ticket").notNull(),
+    kind: text("kind").notNull(),
+    data: text("data").notNull(),
+    used: integer("used").notNull()
+  },
+  (t) => [primaryKey({ columns: [t.scope, t.ticket, t.kind] })]
+)

@@ -10,6 +10,7 @@ import * as Semaphore from "effect/Semaphore"
 import * as SqlClient from "effect/sql/SqlClient"
 import * as Stream from "effect/Stream"
 
+import { descriptionKey, LocalDescriptions } from "./descriptions"
 import {
   type CountsRequest,
   type LocalProject,
@@ -19,6 +20,7 @@ import {
   scopeOf,
   type SectionsRequest
 } from "./LocalRpcs"
+import { localTicket } from "./localTicket"
 import { localParentSections } from "./parents"
 import { localCounts, localSections } from "./sections"
 import { localSprintSections } from "./sprints"
@@ -84,6 +86,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
       writer.withPermit(effect)
     const changed = (scope: string) =>
       reactivity.invalidate([projectKey(scope)])
+    const descriptions = yield* LocalDescriptions
 
     const loopFor = (scope: string) =>
       Effect.gen(function* () {
@@ -144,6 +147,8 @@ export const localRpcsLayer = LocalRpcs.toLayer(
           write
         )
         if (applied === "applied" && touches(response)) yield* changed(scope)
+        if (applied === "applied")
+          yield* descriptions.notice(scope, response.upserts.tickets)
         return applied === "stale" || response.more
           ? ("again" as const)
           : ("caughtUp" as const)
@@ -301,7 +306,39 @@ export const localRpcsLayer = LocalRpcs.toLayer(
               localCounts(countsRequest(request, copy))
             )
           )
+          .pipe(Stream.orDie),
+      Ticket: (request) =>
+        sql
+          .reactive(
+            [projectKey(scopeOf(request.project))],
+            readCopy(request.project, (copy) =>
+              localTicket(copy, request.id, (repoId) =>
+                repoId === null
+                  ? request.repositories.fallback
+                  : (request.repositories.byId[repoId] ?? null)
+              )
+            )
+          )
+          .pipe(Stream.orDie),
+      Description: (request) => {
+        const scope = scopeOf(request.project)
+        return sql
+          .reactive(
+            [projectKey(scope), descriptionKey(scope, request.id)],
+            descriptions.view(request)
+          )
           .pipe(Stream.orDie)
+      },
+      PrefetchDescriptions: (request) =>
+        descriptions.prefetch(request).pipe(Effect.orDie),
+      SaveDescription: (request) =>
+        descriptions.save(request).pipe(Effect.orDie),
+      ResolveDescription: (request) =>
+        descriptions.resolve(request).pipe(Effect.orDie),
+      CachedTicketData: (request) =>
+        descriptions.cached(request).pipe(Effect.orDie),
+      CacheTicketData: (request) =>
+        descriptions.cache(request).pipe(Effect.orDie)
     }
   })
 )

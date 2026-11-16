@@ -28,6 +28,7 @@ import type {
   TagFact,
   TicketFact
 } from "@pp/shared"
+import { NO_DESCRIPTION_REVISION } from "@pp/shared"
 import {
   and,
   asc,
@@ -188,7 +189,8 @@ const make = Effect.gen(function* () {
         archivedAt: row.archivedAt,
         createdBy: row.createdBy,
         createdAt: row.createdAt,
-        updatedAt: row.updatedAt
+        updatedAt: row.updatedAt,
+        descriptionRevision: row.descriptionRevision ?? NO_DESCRIPTION_REVISION
       })
     )
   })
