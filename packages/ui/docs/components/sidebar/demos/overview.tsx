@@ -36,14 +36,15 @@ import {
   pinKey,
   PROJECTS,
   samePin,
+  PARENTS,
   type PinRef,
   type Project,
   type Route
 } from "./data"
 import { SprintIcon, StatusIcon } from "./parts/marks"
-import { PanelHeader } from "./parts/panel-header"
 import { PageView } from "./parts/page-view"
-import { ProjectTile } from "./parts/project-tile"
+import { PanelHeader } from "./parts/panel-header"
+import { ProjectTile, railTileItem } from "./parts/project-tile"
 import { SettingsPanel } from "./parts/settings-panel"
 
 type State = Readonly<{
@@ -123,6 +124,58 @@ function PinRow({
   )
 }
 
+type PinNode = Readonly<{ pin: PinRef; children: ReadonlyArray<PinNode> }>
+
+// As the app nests its pins: a ticket goes under its parent's row when that
+// row is in the list too, pinned or live.
+const nestPins = (pins: ReadonlyArray<PinRef>): ReadonlyArray<PinNode> => {
+  const here = (id: string | undefined) =>
+    pins.find((pin) => pin.kind === "ticket" && pin.id === id)
+  const parentOf = (pin: PinRef) =>
+    pin.kind === "ticket" ? here(PARENTS.get(pin.id)) : undefined
+  const node = (pin: PinRef): PinNode => ({
+    pin,
+    children: pins.filter((child) => parentOf(child) === pin).map(node)
+  })
+  return pins.filter((pin) => parentOf(pin) === undefined).map(node)
+}
+
+function PinTree({
+  actions,
+  slug,
+  node,
+  isLive
+}: Readonly<{
+  actions: Actions
+  slug: string
+  node: PinNode
+  isLive: (pin: PinRef) => boolean
+}>) {
+  return (
+    <>
+      <PinRow
+        actions={actions}
+        slug={slug}
+        pin={node.pin}
+        live={isLive(node.pin)}
+      />
+      {node.children.length === 0 ? null : (
+        <SidebarSubRows>
+          {node.children.map((child) => (
+            <PinTree
+              key={pinKey(slug, child.pin)}
+              actions={actions}
+              slug={slug}
+              node={child}
+              isLive={isLive}
+            />
+          ))}
+        </SidebarSubRows>
+      )}
+    </>
+  )
+}
+
 function ProjectPanel({
   actions,
   project
@@ -178,13 +231,13 @@ function ProjectPanel({
               pins.some((p) => pinKey(project.slug, p) === key)
             }
           >
-            {[...(showLive ? [live] : []), ...pins].map((pin) => (
-              <PinRow
-                key={pinKey(project.slug, pin)}
+            {nestPins([...(showLive ? [live] : []), ...pins]).map((node) => (
+              <PinTree
+                key={pinKey(project.slug, node.pin)}
                 actions={actions}
                 slug={project.slug}
-                pin={pin}
-                live={!pins.some((p) => samePin(p, pin))}
+                node={node}
+                isLive={(pin) => !pins.some((p) => samePin(p, pin))}
               />
             ))}
           </SidebarRowGroup>
@@ -232,12 +285,13 @@ function DashboardPanel({ actions }: Readonly<{ actions: Actions }>) {
               <SidebarRowGroup
                 onReorder={(keys) => actions.reorder(project.slug, keys)}
               >
-                {(state.pins[project.slug] ?? []).map((pin) => (
-                  <PinRow
-                    key={pinKey(project.slug, pin)}
+                {nestPins(state.pins[project.slug] ?? []).map((node) => (
+                  <PinTree
+                    key={pinKey(project.slug, node.pin)}
                     actions={actions}
                     slug={project.slug}
-                    pin={pin}
+                    node={node}
+                    isLive={() => false}
                   />
                 ))}
               </SidebarRowGroup>
@@ -291,10 +345,15 @@ function Rail({ actions }: Readonly<{ actions: Actions }>) {
           key={project.slug}
           label={project.name}
           tone={project.tone}
+          {...railTileItem}
           active={state.scope === project.slug}
           onClick={() => go({ page: "backlog" }, project.slug)}
         >
-          <ProjectTile icon={project.icon} color={project.tone} />
+          <ProjectTile
+            slug={project.slug}
+            icon={project.icon}
+            color={project.tone}
+          />
         </SidebarRailItem>
       ))}
       <SidebarRailItem label="New project">
@@ -343,10 +402,15 @@ export default function Overview() {
         ...state,
         pins: {
           ...state.pins,
-          [slug]: keys.flatMap((key) => {
-            const pin = byKey.get(key)
-            return pin ? [pin] : []
-          })
+          // Sub-tickets nested under a parent aren't sorted on their own;
+          // they keep their place after the rows that were.
+          [slug]: [
+            ...keys.flatMap((key) => {
+              const pin = byKey.get(key)
+              return pin ? [pin] : []
+            }),
+            ...pins.filter((pin) => !keys.includes(pinKey(slug, pin)))
+          ]
         },
         landed: null,
         transition: "none"
@@ -396,11 +460,7 @@ export default function Overview() {
           </SidebarPanel>
         </div>
         <div className="m-2 ml-0 hidden min-w-0 overflow-auto rounded-[12px] bg-page px-6 pt-3 pb-6 shadow-[var(--shadow-1)] @2xl:block">
-          <PageView
-            scope={state.scope}
-            route={state.route}
-            go={actions.go}
-          />
+          <PageView scope={state.scope} route={state.route} go={actions.go} />
         </div>
       </div>
     </div>

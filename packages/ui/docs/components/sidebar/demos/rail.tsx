@@ -7,7 +7,7 @@ import {
 } from "@pp/ui/sidebar"
 import { useState } from "react"
 
-import { ProjectTile } from "./parts/project-tile"
+import { ProjectTile, railTileItem } from "./parts/project-tile"
 
 const PROJECTS = [
   {
@@ -63,10 +63,15 @@ export default function Rail() {
             key={project.slug}
             label={project.name}
             tone={project.tone}
+            {...railTileItem}
             active={active === project.slug}
             onClick={() => setActive(project.slug)}
           >
-            <ProjectTile icon={project.icon} color={project.tone} />
+            <ProjectTile
+              slug={project.slug}
+              icon={project.icon}
+              color={project.tone}
+            />
           </SidebarRailItem>
         ))}
         <SidebarRailItem label="New project">

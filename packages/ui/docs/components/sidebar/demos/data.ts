@@ -1,3 +1,5 @@
+import { STRONG_RING } from "@pp/shared"
+
 export type Status = "todo" | "progress" | "review" | "done"
 
 export type Priority = "low" | "med" | "high"
@@ -9,6 +11,7 @@ export type Project = Readonly<{
   name: string
   key: string
   icon: string
+  // The project's colour, from the palette the app's picker offers.
   tone: string
   sprint: string | null
   // One of the app's built-in Claude Monet banners; without one the header
@@ -50,7 +53,7 @@ export const PROJECTS: ReadonlyArray<Project> = [
     name: "Atlas Mobile App",
     key: "ATL",
     icon: "🧭",
-    tone: "oklch(0.7 0.16 350)",
+    tone: STRONG_RING[11].hex,
     sprint: "Sprint 24 · 6d left",
     banner: "water_lily_pond"
   },
@@ -59,7 +62,7 @@ export const PROJECTS: ReadonlyArray<Project> = [
     name: "Billing Platform",
     key: "BIL",
     icon: "💳",
-    tone: "oklch(0.7 0.16 255)",
+    tone: STRONG_RING[8].hex,
     sprint: "Sprint 24 · 6d left",
     banner: "bordighera"
   },
@@ -68,7 +71,7 @@ export const PROJECTS: ReadonlyArray<Project> = [
     name: "Marketing Site",
     key: "WEB",
     icon: "📣",
-    tone: "oklch(0.7 0.16 75)",
+    tone: STRONG_RING[2].hex,
     sprint: "Sprint 24 · 6d left"
   },
   {
@@ -76,7 +79,7 @@ export const PROJECTS: ReadonlyArray<Project> = [
     name: "Hello",
     key: "HELL",
     icon: "🪐",
-    tone: "oklch(0.7 0.16 135)",
+    tone: STRONG_RING[4].hex,
     sprint: null
   }
 ]
@@ -139,6 +142,12 @@ export const findTicket = (id: string) =>
 
 export const findSprint = (id: string) =>
   SPRINTS.find((sprint) => sprint[0] === id)
+
+// Sub-tickets: the ticket each sits under.
+export const PARENTS: ReadonlyMap<string, string> = new Map([
+  ["ATL-6", "ATL-3"],
+  ["ATL-16", "ATL-4"]
+])
 
 export const samePin = (a: PinRef | null, b: PinRef | null) =>
   a !== null && b !== null && a.kind === b.kind && a.id === b.id

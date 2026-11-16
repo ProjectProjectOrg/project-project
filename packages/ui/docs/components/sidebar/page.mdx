@@ -147,7 +147,7 @@ The active item gets a 3px foreground bar on the rail's left edge, 20px tall, ro
 
 ### Project tiles
 
-A tile is the app's `ProjectIconTile`: an ordered dither from the project colour mixed 40% toward black into the colour itself (4×4 matrix at 2px), with the emoji or uploaded icon on top. It fills the item's squircle. Tiles that aren't active sit at 60% opacity and 55% saturation, so the active project stands out without a second marker; hover, focus and active bring a tile to full strength.
+A tile is `ProjectIcon`, the same component the app's rail uses (through its `ProjectIconTile`): a 34px tile with a backdrop generated from the project's id and colour, the lit edge, and the emoji or uploaded icon on top. The item takes the tile's own squircle radius (`projectIconRadius(34)`, `corner-squircle`), so its hover and active ring follow the tile. Tiles that aren't active sit at 60% opacity and 55% saturation, so the active project stands out without a second marker; hover, focus and active bring a tile to full strength.
 
 ### Tooltips
 
@@ -188,6 +188,10 @@ A row that opens a sub-page says so with `submenu`: a muted 14px chevron on its 
 ### Header
 
 The panel header is the title and a caption line (the sprint, or the org), nothing above it: no strip, no colour wash. Project colour lives in the rail tile and banners live on the page. Breadcrumbs sit inside the page container, not above it. `SidebarBack`, as the first thing in a panel, sits on the same 36px line as the logo and the breadcrumbs.
+
+### Sub-tickets nest under their parent
+
+A ticket in the Pinned shelf sits under its parent ticket (or epic) when the parent is in the shelf too, as a sub-row. It doesn't matter which of the two is pinned and which is live: pin a parent and open one of its sub-tickets, and the sub-ticket shows up under it; pin a sub-ticket and open its parent, and the pinned sub-ticket shows under the parent's live row. A parent and its sub-rows drag as one; the sub-rows keep their own order. A sub-ticket whose parent isn't in the shelf stays at the top level.
 
 ### Sub-rows
 

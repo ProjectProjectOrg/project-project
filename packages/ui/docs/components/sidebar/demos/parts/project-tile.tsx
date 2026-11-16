@@ -1,32 +1,23 @@
-import { DitherBackdrop } from "@pp/ui/button-dither"
+import { ProjectIcon, projectIconRadius } from "@pp/ui/project-icon"
+import type { CSSProperties } from "react"
 
-const EMOJI_SHADOW = [
-  "drop-shadow(0 1px 0 rgba(0,0,0,0.45))",
-  "drop-shadow(0 3px 5px rgba(0,0,0,0.55))",
-  "drop-shadow(0 6px 8px rgba(0,0,0,0.35))"
-].join(" ")
+// The rail tile's side in px, as the app's (AppRail, ProjectIconTile's
+// "rail" size).
+export const RAIL_TILE = 34
 
-// The app's ProjectIconTile (features/projects/components/ProjectIconTile):
-// an ordered dither from the darkened project colour into the colour, with
-// the emoji on top, filling the rail item's squircle.
+// What the app passes a project's rail item, so the item takes the tile's
+// own squircle (its hover and active ring follow the tile's shape).
+export const railTileItem = {
+  className: "corner-squircle",
+  style: { borderRadius: projectIconRadius(RAIL_TILE) } satisfies CSSProperties
+} as const
+
+// The app's project tile in the rail: @pp/ui's ProjectIcon, its backdrop
+// generated from the project, with the project's emoji.
 export function ProjectTile({
+  slug,
   icon,
   color
-}: Readonly<{ icon: string; color: string }>) {
-  return (
-    <span className="relative grid size-full place-items-center overflow-hidden rounded-[inherit] text-subtitle leading-none [corner-shape:inherit]">
-      <DitherBackdrop
-        from={`color-mix(in oklch, ${color} 60%, black 40%)`}
-        to={color}
-        direction="br"
-        stops={[0, 1]}
-        matrix="4x4"
-        pixelSize={2}
-        shape="square"
-      />
-      <span aria-hidden className="relative" style={{ filter: EMOJI_SHADOW }}>
-        {icon}
-      </span>
-    </span>
-  )
+}: Readonly<{ slug: string; icon: string; color: string }>) {
+  return <ProjectIcon seed={slug} color={color} icon={icon} size={RAIL_TILE} />
 }

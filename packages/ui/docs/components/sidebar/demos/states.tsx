@@ -1,10 +1,12 @@
+import { STRONG_RING } from "@pp/shared"
 import { CalendarRange, LayoutDashboard, ListChecks, Pin } from "@pp/ui/icons"
 import { SidebarRailItem, SidebarRow, SidebarRowAction } from "@pp/ui/sidebar"
 import type { ReactNode } from "react"
 
 import { SprintIcon } from "./parts/marks"
+import { ProjectTile, railTileItem } from "./parts/project-tile"
 
-const TONE = "oklch(0.7 0.16 350)"
+const TONE = STRONG_RING[11].hex
 
 type Force = "hover" | "hover active" | "focus" | undefined
 
@@ -78,15 +80,21 @@ export default function States() {
             <SidebarRailItem
               label={`Atlas Mobile App, ${caption}`}
               tone={TONE}
+              {...railTileItem}
               data-force={force}
             >
-              <span aria-hidden>🧭</span>
+              <ProjectTile slug="atl" icon="🧭" color={TONE} />
             </SidebarRailItem>
           </RailCell>
         ))}
         <RailCell caption="Tile active">
-          <SidebarRailItem label="Atlas Mobile App, active" tone={TONE} active>
-            <span aria-hidden>🧭</span>
+          <SidebarRailItem
+            label="Atlas Mobile App, active"
+            tone={TONE}
+            {...railTileItem}
+            active
+          >
+            <ProjectTile slug="atl" icon="🧭" color={TONE} />
           </SidebarRailItem>
         </RailCell>
       </div>
