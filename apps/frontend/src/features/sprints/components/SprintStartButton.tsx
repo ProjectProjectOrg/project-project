@@ -10,11 +10,9 @@ import {
   sprintListRequest,
   updateSprint
 } from "@/features/sprints/atoms/sprintList"
-import { startSprintPatch } from "@/features/sprints/lib/sprintDates"
+import { nowDate, startSprintPatch } from "@/features/sprints/lib/sprintDates"
 import { dateLabels } from "@/lib/dateLabels"
 import { m } from "@/paraglide/messages"
-
-import { nowDate } from "./SprintHeaderFields"
 
 export function SprintStartButton({ sprint }: { sprint: Group }) {
   const { orgSlug, slug } = useProjectRoute()

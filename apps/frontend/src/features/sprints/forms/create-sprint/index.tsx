@@ -31,25 +31,15 @@ import { useUnfinishedCount } from "@/features/sprints/components/CompleteSprint
 import { SprintStateIcon } from "@/features/sprints/components/SprintChip"
 import {
   defaultSprintRange,
-  formatSprintRange,
+  formatSprintDates,
   type SprintDateDraft
 } from "@/features/sprints/lib/sprintDates"
 import { dateLabels } from "@/lib/dateLabels"
 import { errorMessage } from "@/lib/errorMessage"
 import { m } from "@/paraglide/messages"
-import { getLocale } from "@/paraglide/runtime"
 
-const datesLabel = ({ from, to }: SprintDateDraft) => {
-  if (from === undefined) return m.sprints_no_dates()
-  if (to === undefined) {
-    const date = new Intl.DateTimeFormat(getLocale(), {
-      month: "short",
-      day: "numeric"
-    }).format(from)
-    return m.sprints_starts_on({ date })
-  }
-  return formatSprintRange(from, to)
-}
+const datesLabel = (draft: SprintDateDraft) =>
+  formatSprintDates(draft) ?? m.sprints_no_dates()
 
 export function CreateSprintForm({
   request,

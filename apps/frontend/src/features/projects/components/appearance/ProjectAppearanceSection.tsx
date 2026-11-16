@@ -8,7 +8,6 @@ import { AutoHeight } from "@pp/ui/auto-height"
 import { Button } from "@pp/ui/button"
 import { ColorPicker } from "@pp/ui/color-picker"
 import { transitions } from "@pp/ui/lib/springs"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
 import * as Schema from "effect/Schema"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useState } from "react"
@@ -36,6 +35,7 @@ import {
   bannerSource,
   bannerPresets
 } from "@/features/projects/lib/bannerPresets"
+import { useSave } from "@/hooks/useSave"
 import { m } from "@/paraglide/messages"
 
 const makeProjectColor = Schema.decodeUnknownSync(ProjectColor)
@@ -59,7 +59,10 @@ export function ProjectAppearanceSection({
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const req = projectRequest(orgSlug, slug)
-  const update = useAtomSet(updateProject(req))
+  const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
+  const recolor = useSave((next: string) =>
+    update({ color: makeProjectColor(next) })
+  )
   const updateState = useAtomValue(updateProject(req))
   const [editing, setEditing] = useState<"icon" | "banner" | null>(null)
   const [live, setLive] = useState<LiveIcon | null>(null)
@@ -174,9 +177,7 @@ export function ProjectAppearanceSection({
                   <ColorPicker
                     swatchLabel={(hex) => m.color_swatch_aria_label({ hex })}
                     value={color}
-                    onChange={(next) =>
-                      update({ color: makeProjectColor(next) })
-                    }
+                    onChange={(next) => void recolor.run(next)}
                     ariaLabel={m.color_picker_aria_label()}
                     onOpenChange={setPickingColor}
                   />
@@ -246,7 +247,7 @@ export function ProjectAppearanceSection({
             </AutoHeight>
           </AppearanceCard>
 
-          {AsyncResult.isFailure(updateState) ? (
+          {recolor.error ? (
             <p role="alert" className="text-body text-destructive">
               {m.project_identity_error()}
             </p>

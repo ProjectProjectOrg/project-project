@@ -22,7 +22,6 @@ import {
 import { bareFieldTintClass } from "@pp/ui/input"
 import { cn } from "@pp/ui/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
-import * as DateTime from "effect/DateTime"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import { useRef, useState, type KeyboardEvent } from "react"
@@ -35,6 +34,7 @@ import {
   updateSprint
 } from "@/features/sprints/atoms/sprintList"
 import {
+  nowDate,
   sprintDateDraft,
   sprintEnded,
   sprintDatesPatch,
@@ -52,8 +52,6 @@ import {
   SprintStateIcon
 } from "./SprintChip"
 import { SprintEstimateTotals } from "./SprintEstimateTotals"
-
-export const nowDate = () => DateTime.toDate(DateTime.nowUnsafe())
 
 export function SprintStatusSelect({
   sprint,

@@ -4,7 +4,6 @@ import {
   ESTIMATE_SIZES,
   sprintState,
   type EstimateSummary,
-  type EstimateTotals,
   type Group
 } from "@pp/shared"
 import { CircleDashed, Shirt } from "@pp/ui/icons"
@@ -33,9 +32,9 @@ import { sprintStatusText } from "./SprintChip"
 
 const PREVIEW_DELAY_MS = 400
 
-const DONE_TONE = "bg-foreground/75"
-const STARTED_TONE = "bg-foreground/30"
-const UNSTARTED_TONE = "bg-tint"
+export const DONE_TONE = "bg-foreground/75"
+export const STARTED_TONE = "bg-foreground/30"
+export const UNSTARTED_TONE = "bg-tint"
 
 export function SprintProgress({
   sprint,
@@ -106,17 +105,30 @@ function sprintEstimate(sprint: Group, summary: EstimateSummary): ReactNode {
   }
   return (
     <>
-      <EstimateBar totals={summary} className="w-11" />
+      <PhaseBar
+        done={summary.done}
+        started={summary.started}
+        total={summary.committed}
+        className="w-11"
+      />
       {formatEstimateProgress(summary)}
     </>
   )
 }
 
-function EstimateBar({
-  totals,
+export function PhaseBar({
+  done,
+  started,
+  total,
   className
-}: Readonly<{ totals: EstimateTotals; className?: string }>) {
-  const share = (amount: number) => `${(amount / totals.committed) * 100}%`
+}: Readonly<{
+  done: number
+  started: number
+  total: number
+  className?: string
+}>) {
+  const share = (amount: number) =>
+    `${total === 0 ? 0 : (amount / total) * 100}%`
   return (
     <span
       aria-hidden
@@ -126,8 +138,8 @@ function EstimateBar({
         className
       )}
     >
-      <span className={DONE_TONE} style={{ width: share(totals.done) }} />
-      <span className={STARTED_TONE} style={{ width: share(totals.started) }} />
+      <span className={DONE_TONE} style={{ width: share(done) }} />
+      <span className={STARTED_TONE} style={{ width: share(started) }} />
     </span>
   )
 }
@@ -252,7 +264,12 @@ function PreviewEstimate({
   }
   return (
     <div className="flex flex-col gap-2">
-      <EstimateBar totals={summary} className="w-full" />
+      <PhaseBar
+        done={summary.done}
+        started={summary.started}
+        total={summary.committed}
+        className="w-full"
+      />
       <PreviewRows>
         <PreviewRow
           marker={<ToneDot tone={DONE_TONE} />}

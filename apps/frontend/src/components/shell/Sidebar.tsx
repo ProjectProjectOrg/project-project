@@ -1,22 +1,13 @@
 import type { User } from "@pp/shared"
-import { transitions } from "@pp/ui/lib/springs"
+import { cn } from "@pp/ui/lib/utils"
 import { Logo, Wordmark } from "@pp/ui/logo"
-import { useParams } from "@tanstack/react-router"
-import {
-  AnimatePresence,
-  LayoutGroup,
-  motion,
-  useReducedMotion
-} from "motion/react"
+import { useLocation, useMatches, useParams } from "@tanstack/react-router"
+import { LayoutGroup } from "motion/react"
+import { useState } from "react"
 
 import { PrimaryNav } from "@/components/shell/PrimaryNav"
-import {
-  useSidebarSectionContent,
-  useSidebarSlotContent
-} from "@/components/shell/SidebarSlot"
-import { ThemeSwitcher } from "@/components/shell/ThemeSwitcher"
-import { FeedbackPopover } from "@/features/feedback/components/FeedbackPopover"
-import { InstanceInfo } from "@/features/instance/components/InstanceInfo"
+import { SettingsSidebar } from "@/components/shell/settings/SettingsSidebar"
+import { SidebarMenu } from "@/components/shell/SidebarMenu"
 import { OrgSwitcher } from "@/features/organizations/components/OrgSwitcher"
 
 export function Sidebar({ user }: { user: User }) {
@@ -29,14 +20,21 @@ export function Sidebar({ user }: { user: User }) {
   )
 }
 
+const SETTINGS_PATH =
+  /^\/(?:profile|orgs\/[^/]+\/settings|orgs\/[^/]+\/projects\/[^/]+\/settings)(?:\/|$)/
+
 export function SidebarContent({ user }: { user: User }) {
-  const { orgSlug: routeOrgSlug } = useParams({ strict: false })
+  const { orgSlug: routeOrgSlug, slug } = useParams({ strict: false })
   const orgSlug = routeOrgSlug ?? user.activeOrgSlug
-  const slot = useSidebarSlotContent()
-  const section = useSidebarSectionContent()
-  const reduceMotion = useReducedMotion()
-  const railScale = reduceMotion ? 1 : 1.02
-  const navScale = reduceMotion ? 1 : 0.98
+  const location = useLocation()
+  const inSettings = useMatches({
+    select: (matches) => SETTINGS_PATH.test(matches.at(-1)?.pathname ?? "")
+  })
+  const [backHref, setBackHref] = useState<string | null>(null)
+  if (!SETTINGS_PATH.test(location.pathname) && backHref !== location.href)
+    setBackHref(location.href)
+  const [pane, setPane] = useState({ inSettings, switched: false })
+  if (pane.inSettings !== inSettings) setPane({ inSettings, switched: true })
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -46,49 +44,29 @@ export function SidebarContent({ user }: { user: User }) {
         {orgSlug ? <OrgSwitcher /> : null}
       </div>
       <div className="relative min-h-0 flex-1">
-        <AnimatePresence initial={false} mode="popLayout">
-          {slot ? (
-            <motion.div
-              key="rail"
-              initial={{ opacity: 0, scale: railScale }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: railScale, pointerEvents: "none" }}
-              transition={transitions.pop}
-              className="absolute inset-0 overflow-y-auto px-3 py-2 will-change-transform"
-            >
-              {slot}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="nav"
-              initial={{ opacity: 0, scale: navScale }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: navScale, pointerEvents: "none" }}
-              transition={transitions.pop}
-              className="absolute inset-0 overflow-y-auto will-change-transform"
-            >
-              <PrimaryNav orgSlug={orgSlug} />
-              <AnimatePresence initial={false}>
-                {section ? (
-                  <motion.div
-                    key="section"
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={transitions.presence}
-                  >
-                    {section}
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
-            </motion.div>
+        <div
+          key={inSettings ? "settings" : "app"}
+          className={cn(
+            "absolute inset-0 overflow-y-auto",
+            pane.switched &&
+              (inSettings
+                ? "pp-pane-in [--pp-pane-from:12px]"
+                : "pp-pane-in [--pp-pane-from:-12px]")
           )}
-        </AnimatePresence>
+        >
+          {inSettings ? (
+            <SettingsSidebar
+              orgSlug={orgSlug}
+              projectSlug={slug ?? null}
+              backHref={backHref}
+            />
+          ) : (
+            <PrimaryNav orgSlug={orgSlug} />
+          )}
+        </div>
       </div>
-      <div className="flex flex-col gap-1 p-3">
-        <ThemeSwitcher />
-        {orgSlug ? <FeedbackPopover orgSlug={orgSlug} /> : null}
-        <InstanceInfo />
+      <div className="p-3">
+        <SidebarMenu user={user} orgSlug={orgSlug} />
       </div>
     </div>
   )

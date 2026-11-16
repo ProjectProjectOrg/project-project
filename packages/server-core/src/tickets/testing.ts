@@ -284,6 +284,7 @@ export const testInfra = (scope = defaultScope) =>
           github: null,
           githubRepos: [],
           estimation: "points",
+          links: [],
           body: "",
           setup: {
             workflowReviewedAt: null,

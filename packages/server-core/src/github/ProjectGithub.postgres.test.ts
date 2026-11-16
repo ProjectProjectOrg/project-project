@@ -114,6 +114,7 @@ describe.skipIf(!databaseUrl)("project GitHub connection", () => {
           github: null,
           githubRepos: [],
           estimation: "off",
+          links: [],
           setup: {
             workflowReviewedAt: null,
             invitePeopleDismissedAt: null,

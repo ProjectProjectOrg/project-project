@@ -98,7 +98,8 @@ export function CreateTicketForm({
   const creatorType = useCreatorType({
     orgSlug,
     slug: slug ?? "",
-    epics: related?.kind !== "subTicket"
+    epics: related?.kind !== "subTicket",
+    initial: request.type
   })
   const [fields, setFields] = useState<TicketFields>(DEFAULT_TICKET_FIELDS)
   const [sprint, setSprint] = useState<GroupId | null>(request.sprint ?? null)

@@ -1,22 +1,25 @@
 import { FluidHoverHighlight } from "@pp/ui/fluid-hover-highlight"
 import { useFluidHover } from "@pp/ui/hooks/useFluidHover"
 import { LayoutDashboard } from "@pp/ui/icons"
-import { cn } from "@pp/ui/lib/utils"
-import { useLocation } from "@tanstack/react-router"
+import { useLocation, useSearch } from "@tanstack/react-router"
 import { useRef } from "react"
 
 import { NavHoverContext, NavItem } from "@/components/shell/NavItem"
-import { ProjectsGroup } from "@/components/shell/ProjectsGroup"
+import {
+  matchProjectRoute,
+  PROJECT_CARD_HOVER_INDEX,
+  ProjectScope
+} from "@/components/shell/ProjectScope"
 import { m } from "@/paraglide/messages"
+
+const DASHBOARD_INDEX = 0
 
 export function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
   const { pathname } = useLocation()
+  const { sprint } = useSearch({ strict: false })
   const listRef = useRef<HTMLDivElement>(null)
   const hover = useFluidHover(listRef)
-  const projectsExpanded = orgSlug !== null && isProjectsPath(pathname, orgSlug)
-  const hoverInGroup =
-    projectsExpanded && hover.activeIndex !== null && hover.activeIndex >= 1
-  const dashboardActive = pathname === (orgSlug ? `/orgs/${orgSlug}` : "/")
+  const match = orgSlug ? matchProjectRoute(pathname, orgSlug, sprint) : null
   return (
     <nav className="px-3 py-2">
       <NavHoverContext value={hover.registerItem}>
@@ -24,15 +27,23 @@ export function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
           ref={listRef}
           role="presentation"
           onMouseEnter={hover.handlers.onMouseEnter}
-          onMouseMove={hover.handlers.onMouseMove}
+          onMouseMove={(event) => {
+            if (
+              event.target instanceof Element &&
+              listRef.current?.contains(event.target) &&
+              !event.target.closest("[data-nav-skip]")
+            )
+              hover.handlers.onMouseMove(event)
+            else hover.handlers.onMouseLeave()
+          }}
           onMouseLeave={hover.handlers.onMouseLeave}
           onClick={hover.handlers.onClick}
           className="relative flex flex-col gap-1"
         >
           <FluidHoverHighlight
             hover={hover}
-            hidden={dashboardActive && hover.activeIndex === 0}
-            className={cn("z-[1]", hoverInGroup ? "rounded-sm" : "rounded-lg")}
+            hidden={hover.activeIndex === PROJECT_CARD_HOVER_INDEX}
+            className="z-[1] rounded-lg"
           />
           {orgSlug ? (
             <NavItem
@@ -40,7 +51,7 @@ export function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
               params={{ orgSlug }}
               icon={LayoutDashboard}
               label={m.chrome_sidebar_dashboard()}
-              index={0}
+              index={DASHBOARD_INDEX}
               exact
             />
           ) : (
@@ -48,20 +59,13 @@ export function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
               to="/"
               icon={LayoutDashboard}
               label={m.chrome_sidebar_dashboard()}
-              index={0}
+              index={DASHBOARD_INDEX}
               exact
             />
           )}
-          {orgSlug && (
-            <ProjectsGroup orgSlug={orgSlug} expanded={projectsExpanded} />
-          )}
+          {orgSlug ? <ProjectScope orgSlug={orgSlug} match={match} /> : null}
         </div>
       </NavHoverContext>
     </nav>
   )
-}
-
-function isProjectsPath(pathname: string, orgSlug: string) {
-  const projectsBase = `/orgs/${orgSlug}/projects`
-  return pathname === projectsBase || pathname.startsWith(`${projectsBase}/`)
 }

@@ -46,7 +46,7 @@ export function IntegrationCard({
   return (
     <Link
       {...link}
-      className="group flex flex-col gap-3 rounded-lg border border-border bg-card p-4 transition-colors outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring"
+      className="group flex flex-col gap-3 rounded-lg border border-border bg-card p-4 transition-colors outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring"
     >
       <span className="flex items-start justify-between gap-2">
         <IntegrationLogo kind={kind} />

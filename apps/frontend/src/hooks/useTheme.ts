@@ -1,3 +1,5 @@
+import { Monitor, Moon, Sun } from "@pp/ui/icons"
+import type { SegmentedItem } from "@pp/ui/segmented-tabs"
 import * as Schema from "effect/Schema"
 import { useCallback, useEffect } from "react"
 
@@ -5,10 +7,17 @@ import {
   createLocalStorageStringCodec,
   useLocalStorageState
 } from "@/hooks/useLocalStorageState"
+import { m } from "@/paraglide/messages"
 
 const ThemePreference = Schema.Literals(["light", "dark", "system"])
 export type ThemePreference = typeof ThemePreference.Type
 export type ResolvedTheme = "light" | "dark"
+
+export const THEME_ITEMS = [
+  { key: "light", label: m.theme_light(), icon: Sun },
+  { key: "system", label: m.theme_system(), icon: Monitor },
+  { key: "dark", label: m.theme_dark(), icon: Moon }
+] as const satisfies ReadonlyArray<SegmentedItem<ThemePreference>>
 
 const STORAGE_KEY = "projectproject:theme"
 const themeCodec = createLocalStorageStringCodec(ThemePreference)

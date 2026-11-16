@@ -781,6 +781,35 @@ html.dark .prose-md .token.coord {
   text-decoration-color: var(--prose-check-ring);
 }
 
+@keyframes pp-context-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.pp-context-in {
+  animation: pp-context-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes pp-pane-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--pp-pane-from));
+  }
+}
+
+.pp-pane-in {
+  animation: pp-pane-in 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-context-in,
+  .pp-pane-in {
+    animation: none;
+  }
+}
+
 .pp-loader-overlay {
   position: fixed;
   inset: 0;

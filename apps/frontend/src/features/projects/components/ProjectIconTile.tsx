@@ -9,11 +9,12 @@ import type { ReactNode } from "react"
 
 import { ProjectIconDisplay } from "@/features/projects/components/ProjectIconDisplay"
 
-type TileSize = "xs" | "sm" | "md" | "lg"
+type TileSize = "xs" | "compact" | "sm" | "md" | "lg"
 
 /* oxlint-disable workspace/type-scale -- glyph sizes for the tile's emoji or letter, not text on the scale */
 const SIZE_TO_CLASS: Record<TileSize, string> = {
   xs: "size-4 rounded-md text-[10px]",
+  compact: "size-7 rounded-xl text-base",
   sm: "size-9 rounded-2xl text-lg",
   md: "size-10 rounded-2xl text-xl",
   lg: "size-12 rounded-2xl text-2xl"
@@ -22,6 +23,7 @@ const SIZE_TO_CLASS: Record<TileSize, string> = {
 
 const SIZE_TO_PX: Record<TileSize, number> = {
   xs: 16,
+  compact: 28,
   sm: 36,
   md: 40,
   lg: 48

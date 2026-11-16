@@ -22,6 +22,18 @@
   "sprints_board_reorder_banner_cancel": "Cancel",
   "sprints_board_reorder_banner_message": "Drag column headers to reorder.",
   "sprints_board_reorder_banner_save": "Save order",
+  "sprints_capacity_basis": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Last sprint finished {amount}",
+        "countPlural=*": "Average of the last {count} sprints: {amount}"
+      }
+    }
+  ],
+  "sprints_capacity_left": "{amount} left",
+  "sprints_capacity_over": "{amount} over",
   "sprints_combobox_added": "Added",
   "sprints_combobox_added_announcement": "Added {id} to the sprint",
   "sprints_combobox_create_prefix": "Create ticket: ",
@@ -47,13 +59,73 @@
   "sprints_description_placeholder": "Describe the goal of this sprint…",
   "sprints_empty_no_sprints_body": "Plan a span of work, drop tickets in, and let the date range carry the rhythm.",
   "sprints_empty_no_sprints_title": "No sprints yet",
+  "sprints_load_card_filter": "Show only their tickets",
+  "sprints_load_card_filter_unassigned": "Show unassigned tickets",
+  "sprints_load_card_more": "and {count} more",
+  "sprints_load_card_open": "{amount} still open in {sprint}",
+  "sprints_load_card_over_usual": "{amount} more than they usually finish",
+  "sprints_load_card_summary": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{amount} across {count} ticket in {sprint}",
+        "countPlural=*": "{amount} across {count} tickets in {sprint}"
+      }
+    }
+  ],
+  "sprints_load_card_summary_count": "{amount} in {sprint}",
+  "sprints_load_card_trigger": "{name}: {amount}",
+  "sprints_load_card_unowned": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{amount} across {count} ticket nobody owns yet",
+        "countPlural=*": "{amount} across {count} tickets nobody owns yet"
+      }
+    }
+  ],
+  "sprints_load_card_unowned_count": "{amount} nobody owns yet",
+  "sprints_load_card_usual": "Usually finishes about {amount}",
   "sprints_load_error_body": "We hit a snag loading this sprint. Try again, or head back.",
   "sprints_load_error_title": "Couldn't load sprint",
+  "sprints_load_label": "Load",
+  "sprints_load_unassigned": "Unassigned",
+  "sprints_load_unestimated": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} unestimated",
+        "countPlural=*": "{count} unestimated"
+      }
+    }
+  ],
   "sprints_name_error": "Couldn't save — try again.",
   "sprints_new_button": "New sprint",
   "sprints_new_name_placeholder": "Sprint name…",
   "sprints_not_found_body": "It may have been removed, or you may not have access.",
   "sprints_not_found_title": "Sprint not found",
+  "sprints_overview_completed_heading": "Completed",
+  "sprints_overview_current_heading": "Now",
+  "sprints_overview_percent_done": "{percent}% done",
+  "sprints_overview_plan": "Plan",
+  "sprints_overview_show_all": "Show all {count}",
+  "sprints_overview_show_less": "Show less",
+  "sprints_overview_start": "Start",
+  "sprints_overview_ticket_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} ticket",
+        "countPlural=*": "{count} tickets"
+      }
+    }
+  ],
+  "sprints_overview_upcoming_empty": "Nothing planned yet.",
+  "sprints_overview_upcoming_heading": "Up next",
   "sprints_planned_label": "Planned",
   "sprints_rail_section_label": "Sprints",
   "sprints_remove_from_sprint_action": "Remove from sprint",

@@ -1,4 +1,4 @@
-import { TicketListQuery, TicketListSource } from "@pp/shared"
+import { GroupId, TicketListQuery, TicketListSource } from "@pp/shared"
 import {
   createMemoryHistory,
   createRootRoute,
@@ -14,6 +14,7 @@ import {
   BacklogSearch,
   SprintSearch,
   TicketDetailSearch,
+  ticketPageSearch,
   ticketQueryFromSearch,
   ticketSearchFromQuery,
   ticketSearchFromSource,
@@ -224,5 +225,18 @@ it("keeps the parent a ticket was opened from", () => {
   expect(ticketSourceFromSearch(search)).toEqual({
     kind: "parent",
     parent: "T-15"
+  })
+})
+
+it("keeps the sprint a section list was opened from when stepping", () => {
+  const sprint = Schema.decodeUnknownSync(GroupId)("G-4")
+  const from = {
+    kind: "sections",
+    grouping: "sprint",
+    query: decodeQuery({})
+  } as const
+  expect(ticketPageSearch(from, sprint)).toMatchObject({
+    from: "sections",
+    sprint: "G-4"
   })
 })

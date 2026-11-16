@@ -22,8 +22,8 @@ import {
   staleEstimateCountWaiting
 } from "@/features/tickets/atoms/staleEstimates"
 import { useProjectActor } from "@/hooks/useActor"
+import { useSave } from "@/hooks/useSave"
 import { errorMessage } from "@/lib/errorMessage"
-import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
 const ESTIMATION_MODE_LABELS: Readonly<Record<EstimationMode, () => string>> = {
@@ -46,24 +46,22 @@ export function EstimationSettings({
   const canEdit = ProjectPolicy.canUpdate(useProjectActor(), {
     settings: true
   })
-  const update = useAtomSet(updateProject(req))
-  const updateState = useAtomValue(updateProject(req))
-
-  const error = mutationErrorText(updateState)
+  const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
+  const save = useSave((estimation: EstimationMode) => update({ estimation }))
 
   return (
     <>
       <SettingsRow
         label={m.project_settings_estimation_label()}
         description={m.project_settings_estimation_description()}
-        error={error}
+        error={save.error}
       >
         {canEdit ? (
           <SettingsSegmented
             items={estimationItems()}
             value={estimation}
-            waiting={updateState.waiting}
-            onValueChange={(next) => update({ estimation: next })}
+            waiting={save.waiting}
+            onValueChange={(next) => void save.run(next)}
           />
         ) : (
           <span className="text-body text-muted-foreground">

@@ -1,5 +1,5 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
-import type { TicketId, TicketSequence } from "@pp/shared"
+import type { GroupId, TicketId, TicketSequence } from "@pp/shared"
 import { useRouter } from "@tanstack/react-router"
 import * as Result from "effect/reactivity/AsyncResult"
 import { use, useEffect, useLayoutEffect, useRef, useState } from "react"
@@ -15,7 +15,7 @@ import {
   ticketSequenceRequest
 } from "@/features/tickets/atoms/ticketSequence"
 import {
-  ticketSearchFromSource,
+  ticketPageSearch,
   type TicketDetailSearch,
   type TicketPageSource
 } from "@/features/tickets/lib/ticketSearch"
@@ -50,18 +50,14 @@ export type TicketStepping = Readonly<{
 
 export function useTicketStepping(
   urlId: TicketId,
-  from: TicketPageSource | undefined
+  from: TicketPageSource | undefined,
+  sprint: GroupId | undefined
 ): TicketStepping {
   const { orgSlug, slug } = useProjectRoute()
   const router = useRouter()
   const registry = use(RegistryContext)
   const listSource = from?.kind === "parent" ? undefined : from
-  const search: TicketDetailSearch =
-    from === undefined
-      ? {}
-      : from.kind === "parent"
-        ? { from: "parent", parentId: from.parent }
-        : ticketSearchFromSource(from)
+  const search = ticketPageSearch(from, sprint)
 
   const source = JSON.stringify([orgSlug, slug, from ?? null])
   const [entry, setEntry] = useState<Entry>({ id: urlId, source })

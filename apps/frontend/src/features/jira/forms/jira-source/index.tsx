@@ -96,7 +96,7 @@ export function JiraSourceForm({
               size="sm"
               render={
                 <Link
-                  to="/orgs/$orgSlug/settings/storage"
+                  to="/orgs/$orgSlug/settings/integrations/storage"
                   params={{ orgSlug }}
                 />
               }

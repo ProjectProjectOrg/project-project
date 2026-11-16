@@ -25,6 +25,7 @@ const OPEN_SUBMENU_TRIGGER =
 const MENU_ROW =
   "[role^=menuitem]:not([data-disabled]), [role=option]:not([data-disabled])"
 const RESTING = "data-menu-resting"
+const NO_HIGHLIGHT = "[data-menu-no-highlight]"
 const HIGHLIGHT_INSET = 1
 
 type Point = Readonly<{ x: number; y: number }>
@@ -50,11 +51,12 @@ const contains = (element: HTMLElement, pointer: Point): boolean => {
   )
 }
 
-const ownedRowAt = (
+const ownedAt = (
   container: HTMLElement,
+  selector: string,
   pointer: Point
 ): HTMLElement | undefined =>
-  Array.from(container.querySelectorAll<HTMLElement>(MENU_ROW)).find(
+  Array.from(container.querySelectorAll<HTMLElement>(selector)).find(
     (row) =>
       row.closest("[data-menu-highlight-host]") === container &&
       contains(row, pointer)
@@ -68,18 +70,21 @@ const ownedRowAt = (
 // its first row, so a submenu opened by hover shows what its rows offer.
 // While the pointer crosses a gap between rows (a separator, the padding) the
 // highlight keeps its last spot (`"hold"`) instead of fading out or jumping to
-// rest, so it slides straight on to the next row.
+// rest, so it slides straight on to the next row. Over a non-item row marked
+// `data-menu-no-highlight` (an inline control such as a theme switcher) the
+// highlight clears instead of holding on the row the pointer came from.
 const measureHighlight = (
   container: HTMLElement,
   selector: string,
   pointer: Point | null,
   restOnFirst: boolean
 ): HighlightRect | null | "hold" => {
+  if (pointer !== null && ownedAt(container, NO_HIGHLIGHT, pointer)) return null
   const active =
     firstOwned(container, selector) ??
     (selector === HIGHLIGHTED
       ? (firstOwned(container, OPEN_SUBMENU_TRIGGER) ??
-        (pointer === null ? undefined : ownedRowAt(container, pointer)))
+        (pointer === null ? undefined : ownedAt(container, MENU_ROW, pointer)))
       : undefined)
   if (active === undefined && pointer !== null && contains(container, pointer))
     return "hold"
@@ -137,6 +142,7 @@ function observeHighlight(
   }
   const track = (event: PointerEvent) => {
     pointer = { x: event.clientX, y: event.clientY }
+    remeasure()
   }
   document.addEventListener("pointermove", track, {
     capture: true,

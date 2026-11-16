@@ -14,8 +14,6 @@ import { ErrorPage } from "@/components/shell/ErrorPage"
 import { LoaderOverlay } from "@/components/shell/LoaderOverlay"
 import { MobileNav } from "@/components/shell/MobileNav"
 import { Sidebar } from "@/components/shell/Sidebar"
-import { SidebarSlotProvider } from "@/components/shell/SidebarSlot"
-import { UserMenu } from "@/components/shell/UserMenu"
 import { me } from "@/features/auth/atoms/auth"
 import { authedRouteRedirect } from "@/features/auth/lib/authRedirect"
 import { CommandMenuHost } from "@/features/command-menu/components/CommandMenuHost"
@@ -41,11 +39,10 @@ export function AuthedLayout() {
         return <Navigate to="/orgs/$orgSlug" params={redirect.params} replace />
       }
       return (
-        <SidebarSlotProvider key={orgSlug ?? value.activeOrgSlug}>
-          <Shell
-            user={{ ...value, activeOrgSlug: orgSlug ?? value.activeOrgSlug }}
-          />
-        </SidebarSlotProvider>
+        <Shell
+          key={orgSlug ?? value.activeOrgSlug}
+          user={{ ...value, activeOrgSlug: orgSlug ?? value.activeOrgSlug }}
+        />
       )
     }
   })
@@ -100,7 +97,6 @@ function Topbar({ user }: { user: User }) {
       {user.activeOrgSlug ? (
         <RunningTimerIndicator orgSlug={user.activeOrgSlug} />
       ) : null}
-      <UserMenu user={user} />
     </header>
   )
 }

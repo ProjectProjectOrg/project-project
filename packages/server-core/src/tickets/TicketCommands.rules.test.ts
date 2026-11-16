@@ -1423,6 +1423,7 @@ it.effect(
             github: null,
             githubRepos: [],
             estimation: switched ? "time" : "points",
+            links: [],
             body: "",
             setup: {
               workflowReviewedAt: null,

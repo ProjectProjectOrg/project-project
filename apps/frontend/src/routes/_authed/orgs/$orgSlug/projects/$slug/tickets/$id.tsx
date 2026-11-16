@@ -33,9 +33,11 @@ import {
 } from "@/features/tickets/atoms/ticketSequence"
 import { TicketDetail } from "@/features/tickets/components/ticket-page/TicketDetail"
 import {
+  sprintFromSearch,
   TicketDetailSearch,
   ticketSourceFromSearch
 } from "@/features/tickets/lib/ticketSearch"
+import { m } from "@/paraglide/messages"
 
 const decodeTicketId = Schema.decodeUnknownSync(TicketId)
 
@@ -44,15 +46,36 @@ export const Route = createFileRoute(
 )({
   component: TicketDetail,
   validateSearch: Schema.toStandardSchemaV1(TicketDetailSearch),
-  loaderDeps: ({ search }) => ({ from: ticketSourceFromSearch(search) }),
+  loaderDeps: ({ search }) => ({
+    from: ticketSourceFromSearch(search),
+    sprint: sprintFromSearch(search)
+  }),
   loader: ({ context, params, deps, location }) => {
     const id = decodeTicketId(params.id)
-    const crumb = {
+    const ticket = {
       type: "ticket" as const,
       orgSlug: params.orgSlug,
       slug: params.slug,
       id
     }
+    const crumb =
+      deps.sprint === undefined
+        ? ticket
+        : [
+            {
+              type: "static" as const,
+              label: m.project_detail_tab_sprints(),
+              to: "/orgs/$orgSlug/projects/$slug/sprints",
+              params: { orgSlug: params.orgSlug, slug: params.slug }
+            },
+            {
+              type: "sprint" as const,
+              orgSlug: params.orgSlug,
+              slug: params.slug,
+              groupId: deps.sprint
+            },
+            ticket
+          ]
     if (location.state.ticketStep === true) return { crumb }
     context.registry.mount(
       ticketSequence(
@@ -64,11 +87,9 @@ export const Route = createFileRoute(
         )
       )
     )()
-    if (deps.from?.kind === "sprintBoard") {
+    if (deps.sprint !== undefined) {
       context.registry.mount(
-        sprintDetail(
-          sprintRequest(params.orgSlug, params.slug, deps.from.groupId)
-        )
+        sprintDetail(sprintRequest(params.orgSlug, params.slug, deps.sprint))
       )()
     }
     context.registry.mount(

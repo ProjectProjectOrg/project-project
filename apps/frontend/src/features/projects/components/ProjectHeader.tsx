@@ -1,7 +1,9 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react"
 import { GroupPolicy, ProjectPolicy } from "@pp/access/policies"
 import {
+  pickActiveSprint,
   sprintState,
+  type Group,
   type ProjectDetail as ProjectDetailType
 } from "@pp/shared"
 import { Button } from "@pp/ui/button"
@@ -56,6 +58,15 @@ import {
 import { SprintStartButton } from "@/features/sprints/components/SprintStartButton"
 import { useProjectActor } from "@/hooks/useActor"
 import { m } from "@/paraglide/messages"
+
+const CURRENT_SPRINT_ROUTE =
+  "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/current"
+
+const currentSprintId = (
+  sprints: ReadonlyArray<Group>,
+  loaded: boolean
+): string | null =>
+  loaded ? (pickActiveSprint(sprints)?.id ?? null) : "current"
 
 const morphFrom = { opacity: 0, filter: "blur(4px)" }
 const morphTo = { opacity: 1, filter: "blur(0px)" }
@@ -117,14 +128,16 @@ export function ProjectHeader({
       mt.routeId ===
       "/_authed/orgs/$orgSlug/projects/$slug/_projectHeader/sprints/$groupId"
   )
-  const sprintGroupId = sprintMatch
-    ? (sprintMatch.params as { groupId: string }).groupId
-    : null
 
   const sprintReq = sprintListRequest(orgSlug, slug)
   const sprintsResult = useAtomValue(sprintList(sprintReq))
   const sprintsLoaded = Result.isSuccess(sprintsResult)
   const sprints = sprintsLoaded ? sprintsResult.value : []
+  const sprintGroupId = sprintMatch
+    ? (sprintMatch.params as { groupId: string }).groupId
+    : matches.some((mt) => mt.routeId === CURRENT_SPRINT_ROUTE)
+      ? currentSprintId(sprints, sprintsLoaded)
+      : null
   const sprint = sprintGroupId
     ? sprints.find((s) => s.id === sprintGroupId)
     : undefined

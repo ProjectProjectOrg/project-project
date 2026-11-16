@@ -13,22 +13,17 @@ import * as Cause from "effect/Cause"
 import * as Exit from "effect/Exit"
 import * as Result from "effect/reactivity/AsyncResult"
 import {
-  $createRangeSelection,
-  $getRoot,
-  $setSelection,
   HISTORY_MERGE_TAG,
   type LexicalEditor as LexicalEditorType
 } from "lexical"
 import {
   useEffect,
-  useEffectEvent,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
   type Ref
 } from "react"
-import { flushSync } from "react-dom"
 
 import {
   attachmentsForDescription,
@@ -36,6 +31,7 @@ import {
   transformersForAttachments,
   type SaveStatus
 } from "@/features/editor/components/LexicalEditor"
+import { useEditMode } from "@/features/editor/hooks/useEditMode"
 import { useEditorBlocks } from "@/features/editor/hooks/useEditorBlocks"
 import { AttachmentAvailabilityProvider } from "@/features/editor/lexical/attachmentAvailability"
 import { $selectFirstHint } from "@/features/editor/lexical/blocks/blockCommands"
@@ -52,7 +48,6 @@ import { useTicketParticipants } from "@/features/tickets/hooks/useTicketPartici
 import { useTicketTypes } from "@/features/tickets/hooks/useTicketTypes"
 import { startingTypes } from "@/features/tickets/lib/creatorType"
 import { useOrgActor } from "@/hooks/useActor"
-import { hasModifier, ownsKeystrokes } from "@/lib/keyboard"
 import { m } from "@/paraglide/messages"
 
 import { DescriptionActions } from "./DescriptionActions"
@@ -125,46 +120,13 @@ export function DescriptionField({
   const types = useTicketTypes(orgSlug, slug)
   const body = bodyDraft ?? ticket.body
 
-  const [editing, setEditing] = useState(autoFocus)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
   const rootRef = useRef<HTMLDivElement>(null)
-  const wasEditingRef = useRef(editing)
-
-  useEffect(() => {
-    const wasEditing = wasEditingRef.current
-    wasEditingRef.current = editing
-    if (editing || !wasEditing) return
-    const active = document.activeElement
-    const lost =
-      active === null ||
-      active === document.body ||
-      (rootRef.current?.contains(active) ?? false)
-    if (lost) rootRef.current?.focus({ preventScroll: true })
-  }, [editing])
-
-  const startEditing = () => {
-    const editor = editorRef.current
-    if (editor === null) return
-    const root = editor.getRootElement()
-    const range = selectedRangeIn(root)
-    flushSync(() => {
-      editor.setEditable(true)
-      setEditing(true)
-    })
-    editor.update(
-      () => {
-        if (range === null) {
-          $getRoot().selectEnd()
-          return
-        }
-        const selection = $createRangeSelection()
-        selection.applyDOMRange(range)
-        $setSelection(selection)
-      },
-      { discrete: true }
-    )
-    editor.focus()
-  }
+  const { editing, startEditing, stopEditing } = useEditMode({
+    editorRef,
+    rootRef,
+    initial: autoFocus
+  })
 
   const startAs = (key: TypeKey) => {
     const editor = editorRef.current
@@ -218,7 +180,7 @@ export function DescriptionField({
         )
       }
     }
-  }, [library, lookup, transformers])
+  }, [library, lookup, transformers, startEditing])
 
   const landedRef = useRef(false)
   useEffect(() => {
@@ -230,52 +192,6 @@ export function DescriptionField({
       tag: HISTORY_MERGE_TAG
     })
   }, [autoFocus, library, lookup])
-
-  const startFromShortcut = useEffectEvent(() => startEditing())
-
-  useEffect(() => {
-    if (editing) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "e" && event.key !== "E") return
-      if (event.repeat || event.defaultPrevented || hasModifier(event)) return
-      if (ownsKeystrokes(event.target)) return
-      event.preventDefault()
-      startFromShortcut()
-    }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-  }, [editing])
-
-  const stopEditing = () => {
-    editorRef.current?.blur()
-    setEditing(false)
-  }
-  const stopFromEvent = useEffectEvent(stopEditing)
-
-  useEffect(() => {
-    if (!editing) return
-    const app = document.getElementById("root")
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target
-      if (!(target instanceof Node) || !(app?.contains(target) ?? false)) return
-      if (rootRef.current?.contains(target) ?? false) return
-      stopFromEvent()
-    }
-    document.addEventListener("pointerdown", onPointerDown)
-    return () => document.removeEventListener("pointerdown", onPointerDown)
-  }, [editing])
-
-  useEffect(() => {
-    if (!editing) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return
-      if (!(event.target instanceof Node)) return
-      if (!(rootRef.current?.contains(event.target) ?? false)) return
-      stopFromEvent()
-    }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-  }, [editing])
 
   const empty = SLASH_COMMAND_ONLY.test(body.trim())
   const canStart =
@@ -380,18 +296,4 @@ export function DescriptionField({
       )}
     </div>
   )
-}
-
-const selectedRangeIn = (root: HTMLElement | null): Range | null => {
-  const selection = window.getSelection()
-  if (root === null || selection === null || selection.isCollapsed) return null
-  const range = selection.getRangeAt(0).cloneRange()
-  if (!range.intersectsNode(root)) return null
-  const bounds = document.createRange()
-  bounds.selectNodeContents(root)
-  if (range.compareBoundaryPoints(Range.START_TO_START, bounds) < 0)
-    range.setStart(bounds.startContainer, bounds.startOffset)
-  if (range.compareBoundaryPoints(Range.END_TO_END, bounds) > 0)
-    range.setEnd(bounds.endContainer, bounds.endOffset)
-  return range.collapsed ? null : range
 }

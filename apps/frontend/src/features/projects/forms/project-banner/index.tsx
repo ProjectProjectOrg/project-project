@@ -32,6 +32,7 @@ import {
   compressBanner,
   type CompressedBanner
 } from "@/features/projects/lib/imageCompression"
+import { useSave } from "@/hooks/useSave"
 import { useAppForm, useFormValues } from "@/lib/form"
 import { m } from "@/paraglide/messages"
 
@@ -51,18 +52,17 @@ export function ProjectBannerForm({
   const { orgSlug, slug } = useProjectRoute()
   const req = projectRequest(orgSlug, slug)
   const uploadReq = uploadProjectImageRequest(orgSlug, slug)
-  const update = useAtomSet(updateProject(req), { mode: "promiseExit" })
+  const save = useSave(useAtomSet(updateProject(req), { mode: "promiseExit" }))
+  const update = save.run
   const upload = useAtomSet(uploadProjectImage(uploadReq), {
     mode: "promiseExit"
   })
-  const updateState = useAtomValue(updateProject(req))
   const uploadState = useAtomValue(uploadProjectImage(uploadReq))
   const setPreview = useAtomSet(
     projectBannerPreview(projectRequest(orgSlug, slug))
   )
-  const busy = updateState.waiting || uploadState.waiting
-  const failed =
-    AsyncResult.isFailure(updateState) || AsyncResult.isFailure(uploadState)
+  const busy = save.waiting || uploadState.waiting
+  const failed = save.error !== null || AsyncResult.isFailure(uploadState)
 
   const [step, setStep] = useState(banner ? 1 : 0)
   const [rejected, setRejected] = useState(false)

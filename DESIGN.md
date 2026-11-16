@@ -399,7 +399,9 @@ Shared rules, all from `packages/ui/src/components/menu-styles.ts`:
 - **Default:** `muted-foreground` text.
 - **Hover:** one `bg-hover` pill per rail that springs between items (`useFluidHover` + `FluidHoverHighlight`); text flips to `foreground`.
 - **Active:** one `bg-accent` pill that travels to the active route, plus `font-medium` `foreground` text. No vertical accent stripe, no colored border.
-- **Settings rails** use `SettingsRail` / `SettingsRailNav` / `SettingsRailLink` from `components/shell/settings/SettingsRail.tsx`; don't hand-roll nav links.
+- **Settings** is a sidebar mode, not a page rail: on any settings route the sidebar swaps to `SettingsSidebar` (`components/shell/settings/SettingsSidebar.tsx`), built from `SettingsRailNav` / `SettingsRailLink` in `SettingsRail.tsx`. Settings pages render no nav of their own; don't hand-roll nav links.
+- **Project rows** under the project card are places, never items: Backlog, Sprints, then About, all `NavRow` from `components/shell/ProjectNavRows.tsx`. While a sprint is running, Sprints has one sub-row beside a guide line: Current, the running sprint's board with its countdown. Planning happens in the backlog grouped by sprint. Individual sprints live on the Sprints page, so the nav never grows with the data and needs no collapsing. A ticket page lights the row it was opened from: a ticket link from a sprint (board or list) carries `sprint` in its search, which also puts the sprint in the breadcrumb; any other ticket lights Backlog.
+- **Account menu:** the sidebar footer row (avatar, name) opens the one user menu: Settings, Theme, Send feedback, Copy version, Sign out. There is no top-right avatar menu.
 - **Press:** `active:scale-[0.97]` like every other clickable.
 
 ### Settings Pages
@@ -412,7 +414,7 @@ Shared rules, all from `packages/ui/src/components/menu-styles.ts`:
 
 Every settings area — organization, project, profile — uses the same rail and the same page anatomy (`components/shell/settings/`):
 
-- **`SettingsPage`:** page title and one-line description, then sections at `gap-8`. Full width up to `96rem`, then centered, so ultra-wide screens settle into a column without squeezing layouts designed for width.
+- **`SettingsLayout`:** the one layout for every settings area. A page route declares its title and one-line description with `settingsPage(title, description)` in its loader (which also sets the crumb); the layout shows the deepest one, then sections at `gap-8`. A page without one (an integration detail with its own header) shows none. Full width up to `96rem`, then centered, so ultra-wide screens settle into a column without squeezing layouts designed for width.
 - **`SettingsSection`:** a 13px/500 title and optional 12px muted description, outside the group. Optional when a section is a single obvious row.
 - **`SettingsGroup`:** the only container on a settings page — `--card` (recessed in dark, white in light), 1px `--border`, `rounded-lg`, hairline dividers, no shadow. Lists (statuses, members, agents) and appearance cards use the same surface.
 - **`SettingsRow`:** label and description left, control right, `min-h-14`. `layout="stacked"` puts a wide control (editor, credential form) underneath. Controls that need an accessible name read the row's ids via `useSettingsRow()`. A failed save shows as a one-line error inside the row, never a full `ErrorPage` — that is reserved for failed reads.

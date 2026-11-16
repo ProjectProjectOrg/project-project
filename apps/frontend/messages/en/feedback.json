@@ -23,5 +23,5 @@
   "feedback_files_too_large": "Files can be up to 10 MB",
   "feedback_files_unsupported": "That file type isn't supported",
   "feedback_attach_hint": "Paste, drop, or attach up to 5 files",
-  "feedback_attach_unavailable": "Attachments need storage set up for this org"
+  "feedback_attach_unavailable": "Attachments need storage set up for this organization"
 }

@@ -678,6 +678,7 @@ it.effect(
           }
         ],
         estimation: "off",
+        links: [],
         setup: {
           workflowReviewedAt: null,
           invitePeopleDismissedAt: null,

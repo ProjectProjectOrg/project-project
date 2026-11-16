@@ -14,6 +14,7 @@ import { SettingsSkeleton } from "@/components/shell/settings/SettingsSkeleton"
 import { SettingsSegmented } from "@/components/shell/settings/SettingsTextField"
 import { me, updateEditorPreference } from "@/features/auth/atoms/auth"
 import { EDITOR_OPTIONS } from "@/features/profile/lib/editorOptions"
+import { THEME_ITEMS, useTheme } from "@/hooks/useTheme"
 import { m } from "@/paraglide/messages"
 
 function editorHint(preference: EditorPreference): string {
@@ -70,6 +71,7 @@ function EditorPreferenceRow({
   return (
     <SettingsSection>
       <SettingsGroup>
+        <ThemeRow />
         <SettingsRow
           label={m.profile_editor_title()}
           description={editorHint(selected)}
@@ -91,5 +93,18 @@ function EditorPreferenceRow({
         </SettingsRow>
       </SettingsGroup>
     </SettingsSection>
+  )
+}
+
+function ThemeRow() {
+  const { preference, setPreference } = useTheme()
+  return (
+    <SettingsRow label={m.theme_switcher_aria_label()}>
+      <SettingsSegmented
+        items={THEME_ITEMS}
+        value={preference}
+        onValueChange={(next) => setPreference(next)}
+      />
+    </SettingsRow>
   )
 }

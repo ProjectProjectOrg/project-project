@@ -34,6 +34,8 @@ import {
 import { bannerDefaults, bannerPresets } from "../lib/bannerPresets"
 import { CachedShaderBanner } from "./CachedShaderBanner"
 
+const COVER_OPACITY = 0.8
+
 const devicePixelRatio = () =>
   typeof window === "undefined" ? 1 : Math.min(window.devicePixelRatio || 1, 2)
 
@@ -43,7 +45,8 @@ export function ProjectBanner({
   banner,
   waiting,
   variant = "header",
-  pageBackdrop = false
+  pageBackdrop = false,
+  cover = false
 }: Readonly<{
   orgSlug: string
   slug: string
@@ -51,6 +54,7 @@ export function ProjectBanner({
   waiting?: boolean
   variant?: "header" | "card" | "row"
   pageBackdrop?: boolean
+  cover?: boolean
 }>) {
   const preview = useAtomValue(
     projectBannerPreview(projectRequest(orgSlug, slug))
@@ -78,7 +82,7 @@ export function ProjectBanner({
   const placeholderSize = usePlaceholderSize(placeholder)
   const observerRef = useRef<ResizeObserver | null>(null)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
-  const [measured, setMeasured] = useState(false)
+  const measured = containerSize.width > 0 && containerSize.height > 0
 
   const bucketedWidth =
     containerSize.width > 0 ? bucketRenderWidth(containerSize.width) : 0
@@ -135,7 +139,6 @@ export function ProjectBanner({
     const width = Math.round(node.clientWidth)
     const height = Math.round(node.clientHeight)
     if (width > 0 && height > 0) setContainerSize({ width, height })
-    setMeasured(true)
   }, [])
 
   useEffect(() => () => observerRef.current?.disconnect(), [])
@@ -153,7 +156,7 @@ export function ProjectBanner({
           Match.when("card", () => 120),
           Match.orElse(() => "100%")
         ),
-        opacity: bannerDefaults.overallOpacity
+        opacity: cover ? COVER_OPACITY : bannerDefaults.overallOpacity
       }}
     >
       <BannerLayers

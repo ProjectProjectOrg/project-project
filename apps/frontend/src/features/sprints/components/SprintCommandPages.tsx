@@ -33,6 +33,7 @@ import {
   addDays,
   DEFAULT_SPRINT_DAYS,
   daysBetween,
+  sprintLengthAdjective,
   sprintLengthDays,
   startPresets,
   startSprintPatch,
@@ -85,12 +86,8 @@ const scheduleDetail = (sprint: Group, value: string, start: Date) => {
   )
 }
 
-const lengthAdjective = (sprint: Group) => {
-  const days = sprintLengthDays(sprint) ?? DEFAULT_SPRINT_DAYS
-  return days % WEEK_DAYS === 0
-    ? m.sprints_length_adjective_weeks({ count: days / WEEK_DAYS })
-    : m.sprints_length_adjective_days({ count: days })
-}
+const lengthAdjective = (sprint: Group) =>
+  sprintLengthAdjective(sprintLengthDays(sprint) ?? DEFAULT_SPRINT_DAYS)
 
 export function SprintContextChip({
   sprint

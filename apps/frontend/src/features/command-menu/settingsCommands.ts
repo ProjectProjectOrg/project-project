@@ -13,9 +13,7 @@ const go =
   }
 
 export const settingsCommands: ReadonlyArray<Command> = [
-  ...PROJECT_SETTINGS_SECTIONS.filter(
-    (section) => section.key !== "danger"
-  ).map(
+  ...PROJECT_SETTINGS_SECTIONS.map(
     (section): Command => ({
       id: `settings.project.${section.key}`,
       group: "navigation",

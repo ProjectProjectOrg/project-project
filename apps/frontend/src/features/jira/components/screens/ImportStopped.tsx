@@ -157,7 +157,10 @@ export function ImportStopped({
           key={action}
           variant={variant}
           render={
-            <Link to="/orgs/$orgSlug/settings/storage" params={{ orgSlug }} />
+            <Link
+              to="/orgs/$orgSlug/settings/integrations/storage"
+              params={{ orgSlug }}
+            />
           }
         >
           {label}

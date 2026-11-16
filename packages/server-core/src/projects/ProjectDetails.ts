@@ -18,12 +18,10 @@ import {
   ProjectScope,
   Role,
   UserId,
-  type EstimationMode,
   type GithubConnection,
   type Member,
   type PendingProjectMember,
-  type ProjectDetail,
-  type ProjectSetup
+  type ProjectDetail
 } from "@pp/shared"
 import { and, asc, eq, gt } from "drizzle-orm"
 import * as Context from "effect/Context"
@@ -46,6 +44,12 @@ const makeProjectIcon = Schema.decodeUnknownSync(ProjectIcon)
 const makeProjectColor = Schema.decodeUnknownSync(ProjectColor)
 
 type ProjectIndexRow = typeof projectIndex.$inferSelect
+
+export type FrontmatterWrite = Omit<
+  ProjectDocs.ProjectDocumentWrite,
+  "org" | "slug" | "github" | "githubRepos"
+> &
+  Readonly<{ connection: ReadonlyArray<GithubConnection> }>
 
 export const presentDetail = (
   scope: ProjectScope["Service"],
@@ -103,16 +107,7 @@ export class ProjectDetails extends Context.Service<
     writeFrontmatter: (
       orgSlug: string,
       slug: string,
-      name: string,
-      icon: string,
-      color: string,
-      createdBy: string,
-      createdAt: Date,
-      key: ProjectKey,
-      body: string,
-      connection: ReadonlyArray<GithubConnection>,
-      setup: ProjectSetup,
-      estimation: EstimationMode
+      document: FrontmatterWrite
     ) => Effect.Effect<void, Markdown.MarkdownError>
     replay: Effect.Effect<
       ProjectDetail,
@@ -309,31 +304,14 @@ const make = Effect.gen(function* () {
     function* (
       orgSlug: string,
       slug: string,
-      name: string,
-      icon: string,
-      color: string,
-      createdBy: string,
-      createdAt: Date,
-      key: ProjectKey,
-      body: string,
-      connection: ReadonlyArray<GithubConnection>,
-      setup: ProjectSetup,
-      estimation: EstimationMode
+      { connection, ...document }: FrontmatterWrite
     ) {
       return yield* projectDocs.write(orgSlug, slug, {
+        ...document,
         org: orgSlug,
         slug,
-        key,
-        name,
-        icon,
-        color,
-        createdBy,
-        createdAt,
         github: connection[0] ?? null,
-        githubRepos: connection,
-        estimation,
-        setup,
-        body
+        githubRepos: connection
       })
     }
   )
@@ -353,20 +331,19 @@ const make = Effect.gen(function* () {
         const connection = yield* loadGithubConnection(indexRow)
         const members = yield* loadMembers(indexRow.id)
         const pendingMembers = yield* loadPendingMembers(indexRow.id)
-        yield* syncFrontmatter(
-          orgSlug,
-          slug,
-          indexRow.name,
-          indexRow.icon,
-          indexRow.color,
-          indexRow.createdBy,
-          indexRow.createdAt,
-          makeProjectKey(indexRow.key),
-          file.body,
+        yield* syncFrontmatter(orgSlug, slug, {
+          name: indexRow.name,
+          icon: indexRow.icon,
+          color: indexRow.color,
+          createdBy: indexRow.createdBy,
+          createdAt: indexRow.createdAt,
+          key: makeProjectKey(indexRow.key),
+          body: file.body,
           connection,
-          file.setup,
-          file.estimation
-        )
+          setup: file.setup,
+          estimation: file.estimation,
+          links: file.links
+        })
         return presentDetail(rescoped(scope, members), {
           org: orgSlug,
           slug: indexRow.slug,
@@ -382,6 +359,7 @@ const make = Effect.gen(function* () {
           setup: file.setup,
           estimation: file.estimation,
           body: file.body,
+          links: file.links,
           nextTicketNumber: indexRow.nextTicketNumber,
           members,
           pendingMembers

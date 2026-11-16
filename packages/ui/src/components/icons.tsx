@@ -113,7 +113,9 @@ import {
   InputTextIcon,
   JusticeScale01Icon,
   Key01Icon,
+  LaptopIcon,
   Layers01Icon,
+  LayoutGridIcon,
   LayoutTemplateIcon,
   LayoutThreeColumnIcon,
   LeftToRightListBulletIcon,
@@ -601,8 +603,10 @@ export const Inbox = icon(InboxIcon, "Inbox")
 export const Info = icon(InformationCircleIcon, "Info")
 export const Italic = icon(TextItalicIcon, "Italic")
 export const KeyRound = icon(Key01Icon, "KeyRound")
+export const Laptop = icon(LaptopIcon, "Laptop")
 export const Layers = icon(Layers01Icon, "Layers")
 export const LayoutDashboard = icon(DashboardSquare02Icon, "LayoutDashboard")
+export const LayoutGrid = icon(LayoutGridIcon, "LayoutGrid")
 export const LayoutTemplate = icon(LayoutTemplateIcon, "LayoutTemplate")
 export const LibraryBig = icon(LibraryIcon, "LibraryBig")
 export const Lightbulb = icon(Idea01Icon, "Lightbulb")

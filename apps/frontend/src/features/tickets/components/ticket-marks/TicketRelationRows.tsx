@@ -69,7 +69,11 @@ export function TicketRelationRows({
       {relationGroups(relations)
         .filter((group) => group.tickets.length > 0)
         .map((group) => (
-          <MetaRow controls key={group.key} label={GROUP_LABELS[group.key]()}>
+          <MetaRow
+            inset="control"
+            key={group.key}
+            label={GROUP_LABELS[group.key]()}
+          >
             <div className="flex flex-col items-start">
               {group.tickets.map((linked) => (
                 <RelationEntry

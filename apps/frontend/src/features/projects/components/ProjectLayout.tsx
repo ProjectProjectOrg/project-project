@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react"
 import { cn } from "@pp/ui/lib/utils"
-import { getRouteApi, Outlet } from "@tanstack/react-router"
+import { getRouteApi, Outlet, useMatch } from "@tanstack/react-router"
 import * as Match from "effect/Match"
 import * as Result from "effect/reactivity/AsyncResult"
 
@@ -14,7 +14,6 @@ import {
   updateProject
 } from "@/features/projects/atoms/projects"
 import { ProjectBanner } from "@/features/projects/components/ProjectBanner"
-import { ProjectSetupSlot } from "@/features/projects/components/ProjectSetupRail"
 import { RetainedProjectViews } from "@/features/projects/components/RetainedProjectViews"
 import {
   ProjectContext,
@@ -30,6 +29,16 @@ export function ProjectLayout() {
   const req = projectRequest(orgSlug, slug)
   const projectResult = useAtomValue(project(req))
   const projectUpdate = useAtomValue(updateProject(req))
+  const inSettings =
+    useMatch({
+      from: "/_authed/orgs/$orgSlug/projects/$slug/settings",
+      shouldThrow: false
+    }) !== undefined
+  const onAbout =
+    useMatch({
+      from: "/_authed/orgs/$orgSlug/projects/$slug/about",
+      shouldThrow: false
+    }) !== undefined
 
   return Result.matchWithError(projectResult, {
     onInitial: () => (
@@ -66,10 +75,13 @@ export function ProjectLayout() {
     onSuccess: ({ value, waiting }) => (
       <ProjectContext.Provider value={req}>
         <ProjectGitStatePolling enabled={value.github !== null} />
-        <ProjectSetupSlot project={value} />
         <div
+          key={`${orgSlug}/${slug}`}
           data-page-banner={value.banner ? "" : undefined}
-          className={cn("relative isolate flex flex-1 flex-col gap-3")}
+          className={cn(
+            "relative isolate flex flex-1 flex-col gap-3",
+            !inSettings && "pp-context-in"
+          )}
           style={{ "--ticket-key-width": ticketKeyWidth(value) }}
         >
           <ProjectBanner
@@ -78,6 +90,7 @@ export function ProjectLayout() {
             banner={value.banner}
             waiting={waiting && projectUpdate.waiting}
             pageBackdrop
+            cover={onAbout}
           />
           <Outlet />
           <RetainedProjectViews key={`${orgSlug}/${slug}`} />

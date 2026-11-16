@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router"
 
 import {
+  everhourProjectRequest,
+  everhourProjectStatusAtom
+} from "@/features/everhour/atoms/everhour"
+import {
   projectLibraryFor,
   projectLibraryRequest
 } from "@/features/library/atoms/library"
@@ -25,6 +29,9 @@ export const Route = createFileRoute("/_authed/orgs/$orgSlug/projects/$slug")({
     registry.mount(sprintList(sprintListRequest(orgSlug, slug)))()
     registry.mount(statusesFor(statusesRequest(orgSlug, slug)))()
     registry.mount(projectLibraryFor(projectLibraryRequest(orgSlug, slug)))()
+    registry.mount(
+      everhourProjectStatusAtom(everhourProjectRequest(orgSlug, slug))
+    )()
     return {
       crumb: [
         {

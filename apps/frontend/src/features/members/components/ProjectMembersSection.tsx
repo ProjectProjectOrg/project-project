@@ -36,7 +36,7 @@ import { errorMessage } from "@/lib/errorMessage"
 import { mutationErrorText } from "@/lib/mutationError"
 import { m } from "@/paraglide/messages"
 
-const ROLE_META: Readonly<Record<Role, RoleMeta>> = {
+export const ROLE_META: Readonly<Record<Role, RoleMeta>> = {
   pm: {
     label: () => m.members_role_pm(),
     icon: ShieldCheck,

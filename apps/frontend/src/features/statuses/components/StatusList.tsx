@@ -117,55 +117,53 @@ function PhasedStatuses({
 
   return (
     <SettingsGroup>
-      <fieldset disabled={!canManage} className="contents">
-        <Reorder.Group
-          as="ul"
-          axis="y"
-          values={[...order]}
-          onReorder={(next) => setDragOrder(next)}
-          className="divide-y divide-border"
-        >
-          {order.map((entry, i) => {
-            switch (entry.kind) {
-              case "phase":
-                return [
-                  i === draftAt ? draft : null,
-                  <Reorder.Item
-                    key={entryKey(entry)}
-                    value={entry}
-                    dragListener={false}
-                    transition={dragging ? undefined : INSTANT_LAYOUT}
-                    className="list-none"
-                  >
-                    <StatusPhaseHeader
-                      label={PHASE_LABEL[entry.phase]()}
-                      ticketCount={phaseCounts[entry.phase]}
-                      onAdd={canManage ? () => setCreating(entry.phase) : null}
-                    />
-                  </Reorder.Item>
-                ]
-              case "status":
-                return (
-                  <StatusRow
-                    key={entryKey(entry)}
-                    entry={entry}
-                    statuses={statuses}
-                    count={byStatus[entry.status.slug] ?? 0}
-                    dragging={dragging}
-                    onDragStart={() => {
-                      if (!dragging) setDragOrder(entries)
-                    }}
-                    onDragEnd={() => commitDrop(entry.status.slug)}
-                    onMove={(delta) =>
-                      moveStatus(entries, entry.status.slug, delta)
-                    }
+      <Reorder.Group
+        as="ul"
+        axis="y"
+        values={[...order]}
+        onReorder={(next) => setDragOrder(next)}
+        className="divide-y divide-border"
+      >
+        {order.map((entry, i) => {
+          switch (entry.kind) {
+            case "phase":
+              return [
+                i === draftAt ? draft : null,
+                <Reorder.Item
+                  key={entryKey(entry)}
+                  value={entry}
+                  dragListener={false}
+                  transition={dragging ? undefined : INSTANT_LAYOUT}
+                  className="list-none"
+                >
+                  <StatusPhaseHeader
+                    label={PHASE_LABEL[entry.phase]()}
+                    ticketCount={phaseCounts[entry.phase]}
+                    onAdd={canManage ? () => setCreating(entry.phase) : null}
                   />
-                )
-            }
-          })}
-          {draftAt === order.length ? draft : null}
-        </Reorder.Group>
-      </fieldset>
+                </Reorder.Item>
+              ]
+            case "status":
+              return (
+                <StatusRow
+                  key={entryKey(entry)}
+                  entry={entry}
+                  statuses={statuses}
+                  count={byStatus[entry.status.slug] ?? 0}
+                  dragging={dragging}
+                  onDragStart={() => {
+                    if (!dragging) setDragOrder(entries)
+                  }}
+                  onDragEnd={() => commitDrop(entry.status.slug)}
+                  onMove={(delta) =>
+                    moveStatus(entries, entry.status.slug, delta)
+                  }
+                />
+              )
+          }
+        })}
+        {draftAt === order.length ? draft : null}
+      </Reorder.Group>
     </SettingsGroup>
   )
 }
