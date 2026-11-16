@@ -1,6 +1,7 @@
 import * as SqliteClient from "@effect/sql-sqlite-wasm/SqliteClient"
 import { it } from "@effect/vitest"
 import {
+  type GroupFact,
   type ProjectSync,
   type ProjectSyncQuery,
   TicketId,
@@ -8,12 +9,15 @@ import {
   TicketStatus,
   Validation
 } from "@pp/shared"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Fiber from "effect/Fiber"
 import * as Layer from "effect/Layer"
 import * as Queue from "effect/Queue"
 import { RpcTest } from "effect/rpc"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
+import * as TestClock from "effect/testing/TestClock"
 import { expect } from "vitest"
 
 import { localRpcsLayer } from "./handlers"
@@ -22,7 +26,7 @@ import { type LocalProject, LocalRpcs } from "./LocalRpcs"
 import { Intent, PendingWrite } from "./pending"
 import { PendingWrites } from "./pendingWrites"
 import { SyncOffline, SyncSource } from "./SyncSource"
-import { changes, onePage, ticket } from "./testFacts"
+import { changes, onePage, pageOf, snapshot, ticket } from "./testFacts"
 
 const responses: Array<ProjectSync> = [
   onePage("1.1", [ticket("T-1", "one")]),
@@ -203,4 +207,66 @@ it.effect(
       expect(sent).toEqual(["operation-1"])
     }).pipe(Effect.scoped, Effect.provide(engineWith(pull, writes)))
   }
+)
+
+const hoursIn = (hours: number) =>
+  DateTime.toDateUtc(DateTime.makeUnsafe(hours * 3_600_000))
+
+const sprintStarting = (id: string, hours: number): GroupFact => ({
+  id,
+  kind: "sprint",
+  name: id,
+  color: "blue",
+  startsAt: hoursIn(hours),
+  endsAt: null,
+  completedAt: null,
+  tickets: [],
+  createdBy: "user-1",
+  createdAt: hoursIn(0),
+  updatedAt: hoursIn(0)
+})
+
+it.effect("an open sprint view re-runs when a sprint starts", () =>
+  Effect.gen(function* () {
+    const client = yield* RpcTest.makeClient(LocalRpcs)
+    yield* client.Pull(project)
+    const orders = yield* Queue.unbounded<string>()
+    const fiber = yield* client
+      .SprintSections({
+        project,
+        query,
+        viewerId: undefined,
+        estimation: "off",
+        repositories: { fallback: null, byId: {} },
+        pages: {},
+        pageSize: 50
+      })
+      .pipe(
+        Stream.runForEach((result) =>
+          Queue.offer(
+            orders,
+            (result?.sections ?? []).map((section) => section.key).join(" ")
+          )
+        ),
+        Effect.forkScoped
+      )
+    expect(yield* Queue.take(orders)).toBe("G-1 unscheduled G-2")
+    yield* TestClock.adjust("1 hour")
+    expect(yield* Queue.take(orders)).toBe("unscheduled G-2 G-1")
+    yield* Fiber.interrupt(fiber)
+  }).pipe(
+    Effect.scoped,
+    Effect.provide(
+      engineWith((_project, query) =>
+        Effect.succeed(
+          query.after === undefined
+            ? pageOf({
+                ...snapshot("1.1", [ticket("T-1", "one")]),
+                groups: [sprintStarting("G-1", 1), sprintStarting("G-2", 0)]
+              })
+            : changes("1.1", [], [])
+        )
+      )
+    )
+  )
 )

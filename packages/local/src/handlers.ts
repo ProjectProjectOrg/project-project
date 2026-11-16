@@ -5,6 +5,7 @@ import {
 } from "@pp/shared"
 import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
+import * as Fiber from "effect/Fiber"
 import * as Reactivity from "effect/reactivity/Reactivity"
 import * as Semaphore from "effect/Semaphore"
 import * as SqlClient from "effect/sql/SqlClient"
@@ -12,6 +13,7 @@ import * as Stream from "effect/Stream"
 
 import { localSprintBoard } from "./board"
 import { localGroupList } from "./groups"
+import type { LocalDb } from "./LocalDb"
 import {
   type CountsRequest,
   type LocalProject,
@@ -26,7 +28,7 @@ import type { PendingWrite } from "./pending"
 import { PendingWrites } from "./pendingWrites"
 import { localCounts, localSections } from "./sections"
 import { localSequence } from "./sequence"
-import { localSprintSections } from "./sprints"
+import { groupMembership, localSprintSections } from "./sprints"
 import {
   type NewEdit,
   applyChanges,
@@ -99,6 +101,45 @@ export const localRpcsLayer = LocalRpcs.toLayer(
       writer.withPermit(effect)
     const changed = (scope: string) =>
       reactivity.invalidate([projectKey(scope)])
+
+    const sprintStarts = new Map<string, Fiber.Fiber<void>>()
+    const refreshAtNextSprintStart = (
+      scope: string
+    ): Effect.Effect<void, never, LocalDb> =>
+      Effect.gen(function* () {
+        const previous = sprintStarts.get(scope)
+        sprintStarts.delete(scope)
+        if (previous !== undefined) yield* Fiber.interrupt(previous)
+        const copy = yield* copyOf(scope)
+        if (copy === null) return
+        const now = yield* DateTime.nowAsDate
+        const next = Math.min(
+          ...(yield* groupMembership(copy)).sprints.flatMap((sprint) =>
+            sprint.startsAt !== null && sprint.startsAt > now
+              ? [sprint.startsAt.getTime()]
+              : []
+          )
+        )
+        if (next === Infinity) return
+        sprintStarts.set(
+          scope,
+          yield* Effect.forkDetach(
+            Effect.sleep(next - now.getTime()).pipe(
+              Effect.andThen(
+                Effect.sync(() => {
+                  sprintStarts.delete(scope)
+                })
+              ),
+              Effect.andThen(changed(scope)),
+              Effect.andThen(refreshAtNextSprintStart(scope))
+            )
+          )
+        )
+      }).pipe(
+        Effect.catchCause((cause) =>
+          Effect.logWarning("scheduling the next sprint start failed", cause)
+        )
+      )
 
     const loopFor = (scope: string) =>
       Effect.gen(function* () {
@@ -243,6 +284,7 @@ export const localRpcsLayer = LocalRpcs.toLayer(
       const scope = scopeOf(project)
       return resend(project).pipe(
         Effect.andThen(pullUntilCaughtUp(project)),
+        Effect.andThen(refreshAtNextSprintStart(scope)),
         Effect.as<LocalStatus>({ kind: "ready", sync: "live" }),
         Effect.catchTags({
           SyncDenied: () =>
