@@ -6,13 +6,20 @@ import * as Atom from "effect/reactivity/Atom"
 import { useState } from "react"
 
 import { pinItem, pinsFor, pinsRequest } from "@/features/pins/atoms/pins"
-import { PinRow, predictionOf } from "@/features/pins/components/PinRow"
+import { predictionOf } from "@/features/pins/components/PinRow"
+import {
+  PinTree,
+  topPins,
+  type PinRowSpec
+} from "@/features/pins/components/PinTree"
 import { usePinReorder } from "@/features/pins/hooks/usePinReorder"
 import {
+  nestPins,
   pinKey,
   pinsIn,
   samePin,
   showsLiveRow,
+  ticketLinkOf,
   type PinPrediction
 } from "@/features/pins/lib/pins"
 import {
@@ -47,7 +54,8 @@ function useLivePrediction(
             id: ticket.value.id,
             title: ticket.value.title,
             status: ticket.value.status,
-            archivedAt: ticket.value.archivedAt
+            archivedAt: ticket.value.archivedAt,
+            parent: ticket.value.parent?.id ?? null
           }
         }
       : null
@@ -103,40 +111,46 @@ export function ProjectPins({
   const failure = mutationErrorText(pinState)
   const reorder = usePinReorder(orgSlug, slug)
 
+  // The live row first, then the pins; sub-tickets nest under their
+  // parent's row when it's here too, pinned or live.
+  const rows: ReadonlyArray<PinRowSpec> = [
+    ...(live === null || viewedKey === null
+      ? []
+      : [
+          {
+            key: viewedKey,
+            target: live.target,
+            display: live.display,
+            pin: null,
+            active: false,
+            onPinned: () => setLanded({ key: viewedKey, on: viewedKey })
+          }
+        ]),
+    ...pins.map((pin) => ({
+      key: pinKey(pin),
+      target: pin,
+      display: predictionOf(pin),
+      pin,
+      active: viewed !== null && samePin(pin, viewed),
+      highlight: landed.key === pinKey(pin)
+    }))
+  ]
+  const tree = nestPins(rows, (row) => ticketLinkOf(row.display))
+
   return (
     <SidebarSection label={m.chrome_sidebar_pinned()} count={pins.length}>
       <SidebarRowGroup
-        onReorder={(order) => reorder(pins, order)}
+        onReorder={(order) => reorder(topPins(tree), order)}
         isSortable={(key) => key !== live?.key}
       >
-        {[
-          ...(live === null || viewedKey === null
-            ? []
-            : [
-                <PinRow
-                  key={viewedKey}
-                  orgSlug={orgSlug}
-                  slug={slug}
-                  target={live.target}
-                  display={live.display}
-                  pinned={false}
-                  active={false}
-                  onPinned={() => setLanded({ key: viewedKey, on: viewedKey })}
-                />
-              ]),
-          ...pins.map((pin) => (
-            <PinRow
-              key={pinKey(pin)}
-              orgSlug={orgSlug}
-              slug={slug}
-              target={pin}
-              display={predictionOf(pin)}
-              pinned
-              active={viewed !== null && samePin(pin, viewed)}
-              highlight={landed.key === pinKey(pin)}
-            />
-          ))
-        ]}
+        {tree.map((node) => (
+          <PinTree
+            key={node.row.key}
+            orgSlug={orgSlug}
+            slug={slug}
+            node={node}
+          />
+        ))}
       </SidebarRowGroup>
       {failure === null ? null : (
         <SidebarNote className="text-destructive">{failure}</SidebarNote>

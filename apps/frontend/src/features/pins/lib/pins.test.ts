@@ -2,7 +2,13 @@ import { GroupId, SidebarPin, StatusSlug, TicketId } from "@pp/shared"
 import * as Schema from "effect/Schema"
 import { describe, expect, it } from "vitest"
 
-import { movedPin, showsLiveRow, withoutPin, withPredictedPin } from "./pins"
+import {
+  movedPin,
+  nestPins,
+  showsLiveRow,
+  withoutPin,
+  withPredictedPin
+} from "./pins"
 
 const decodePin = Schema.decodeSync(SidebarPin)
 const ticketId = Schema.decodeSync(TicketId)
@@ -130,5 +136,76 @@ describe("movedPin", () => {
         "web:ticket:WEB-3"
       ])
     ).toBeNull()
+  })
+})
+
+type Row = Readonly<{ id: string; parent: string | null }>
+
+const ticket = (id: string, parent: string | null = null): Row => ({
+  id,
+  parent
+})
+const sprint = (id: string): Row => ({ id, parent: null })
+
+// A tree as nested ids: a leaf is its id, a parent is [id, children].
+const renderTree = (
+  nodes: ReturnType<typeof nestPins<Row>>
+): ReadonlyArray<unknown> =>
+  nodes.map((node) =>
+    node.children.length === 0
+      ? node.row.id
+      : [node.row.id, renderTree(node.children)]
+  )
+
+const shape = (rows: ReadonlyArray<Row>, sprints: ReadonlyArray<string> = []) =>
+  renderTree(
+    nestPins(rows, (row) =>
+      sprints.includes(row.id) ? null : { id: row.id, parent: row.parent }
+    )
+  )
+
+describe("nestPins", () => {
+  it("puts a sub-ticket under its parent when the parent is in the list", () => {
+    expect(
+      shape([ticket("ATL-1"), ticket("ATL-4"), ticket("ATL-2", "ATL-1")])
+    ).toEqual([["ATL-1", ["ATL-2"]], "ATL-4"])
+  })
+
+  it("nests the live row under its pinned parent, and a pinned child under a live parent", () => {
+    // Live rows come first in the list; nesting doesn't care which is which.
+    expect(shape([ticket("ATL-2", "ATL-1"), ticket("ATL-1")])).toEqual([
+      ["ATL-1", ["ATL-2"]]
+    ])
+  })
+
+  it("keeps a sub-ticket at the top when its parent isn't in the list", () => {
+    expect(shape([ticket("ATL-2", "ATL-1"), ticket("ATL-3")])).toEqual([
+      "ATL-2",
+      "ATL-3"
+    ])
+  })
+
+  it("nests grandchildren and keeps order at every level", () => {
+    expect(
+      shape([
+        ticket("ATL-1"),
+        ticket("ATL-3", "ATL-2"),
+        ticket("ATL-2", "ATL-1"),
+        ticket("ATL-5", "ATL-1")
+      ])
+    ).toEqual([["ATL-1", [["ATL-2", ["ATL-3"]], "ATL-5"]]])
+  })
+
+  it("leaves rows whose parents loop back at the top", () => {
+    expect(shape([ticket("ATL-1", "ATL-2"), ticket("ATL-2", "ATL-1")])).toEqual(
+      ["ATL-1", "ATL-2"]
+    )
+  })
+
+  it("never nests sprints", () => {
+    expect(shape([sprint("G-1"), ticket("ATL-1")], ["G-1"])).toEqual([
+      "G-1",
+      "ATL-1"
+    ])
   })
 })

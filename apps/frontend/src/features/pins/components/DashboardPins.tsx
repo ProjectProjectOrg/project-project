@@ -4,9 +4,15 @@ import { SidebarRowGroup, SidebarSection } from "@pp/ui/sidebar"
 import * as Result from "effect/reactivity/AsyncResult"
 
 import { pinsFor, pinsRequest } from "@/features/pins/atoms/pins"
-import { PinRow, predictionOf } from "@/features/pins/components/PinRow"
+import { predictionOf } from "@/features/pins/components/PinRow"
+import { PinTree, topPins } from "@/features/pins/components/PinTree"
 import { usePinReorder } from "@/features/pins/hooks/usePinReorder"
-import { pinKey, pinsIn } from "@/features/pins/lib/pins"
+import {
+  nestPins,
+  pinKey,
+  pinsIn,
+  ticketLinkOf
+} from "@/features/pins/lib/pins"
 
 export function DashboardPins({
   orgSlug,
@@ -38,6 +44,16 @@ function ProjectGroup({
   pins: ReadonlyArray<SidebarPin>
 }>) {
   const reorder = usePinReorder(orgSlug, project.slug)
+  const tree = nestPins(
+    pins.map((pin) => ({
+      key: pinKey(pin),
+      target: pin,
+      display: predictionOf(pin),
+      pin,
+      active: false
+    })),
+    (row) => ticketLinkOf(row.display)
+  )
   return (
     <SidebarSection
       label={project.name}
@@ -49,16 +65,13 @@ function ProjectGroup({
         />
       }
     >
-      <SidebarRowGroup onReorder={(order) => reorder(pins, order)}>
-        {pins.map((pin) => (
-          <PinRow
-            key={pinKey(pin)}
+      <SidebarRowGroup onReorder={(order) => reorder(topPins(tree), order)}>
+        {tree.map((node) => (
+          <PinTree
+            key={node.row.key}
             orgSlug={orgSlug}
             slug={project.slug}
-            target={pin}
-            display={predictionOf(pin)}
-            pinned
-            active={false}
+            node={node}
           />
         ))}
       </SidebarRowGroup>

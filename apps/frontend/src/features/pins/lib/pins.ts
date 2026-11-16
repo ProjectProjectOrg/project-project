@@ -1,7 +1,7 @@
 import {
   PinOrderKey,
-  type LinkedTicket,
   type PinKind,
+  type PinnedTicket,
   type PinnedSprint,
   type PinTarget,
   type SidebarPin
@@ -16,7 +16,7 @@ export type PinRef = Readonly<{
 }>
 
 export type PinPrediction =
-  | Readonly<{ ticket: LinkedTicket }>
+  | Readonly<{ ticket: PinnedTicket }>
   | Readonly<{ sprint: PinnedSprint }>
 
 const decodeOrderKey = Schema.decodeSync(PinOrderKey)
@@ -142,3 +142,55 @@ export const withOrderKey = (
   const pin = pins.find((each) => samePin(each, target))
   return pin === undefined ? pins : withPin(pins, { ...pin, orderKey })
 }
+
+export type PinNode<Row> = Readonly<{
+  row: Row
+  children: ReadonlyArray<PinNode<Row>>
+}>
+
+type TicketLink = Readonly<{ id: string; parent: string | null }>
+
+// The rows as a tree: a ticket's row goes under the row of the ticket (or
+// epic) it sits under when that row is in the list too, pinned or live; the
+// rest stay at the top. Order is kept at every level.
+export const nestPins = <Row>(
+  rows: ReadonlyArray<Row>,
+  ticketOf: (row: Row) => TicketLink | null
+): ReadonlyArray<PinNode<Row>> => {
+  const byTicket = new Map<string, Row>()
+  for (const row of rows) {
+    const ticket = ticketOf(row)
+    if (ticket !== null && !byTicket.has(ticket.id))
+      byTicket.set(ticket.id, row)
+  }
+  const parentOf = (row: Row): Row | undefined => {
+    const parent = ticketOf(row)?.parent
+    return parent == null ? undefined : byTicket.get(parent)
+  }
+  // A row whose parents lead back to it (data mid-update) stays at the top.
+  const nests = (row: Row): boolean => {
+    let parent = parentOf(row)
+    for (let step = 0; parent !== undefined && step < rows.length; step++) {
+      if (parent === row) return false
+      parent = parentOf(parent)
+    }
+    return parentOf(row) !== undefined && parent === undefined
+  }
+  const children = new Map<Row, Row[]>()
+  const top: Row[] = []
+  for (const row of rows) {
+    const parent = nests(row) ? parentOf(row) : undefined
+    if (parent === undefined) top.push(row)
+    else children.set(parent, [...(children.get(parent) ?? []), row])
+  }
+  const node = (row: Row): PinNode<Row> => ({
+    row,
+    children: (children.get(row) ?? []).map(node)
+  })
+  return top.map(node)
+}
+
+export const ticketLinkOf = (display: PinPrediction): TicketLink | null =>
+  "ticket" in display
+    ? { id: display.ticket.id, parent: display.ticket.parent ?? null }
+    : null

@@ -60,6 +60,7 @@ type PinnedTicket = Readonly<{
   title: string
   status: string
   archivedAt: Date | null
+  parent: string | null
 }>
 
 type Found = Readonly<{ ticket: PinnedTicket } | { sprint: PinnedSprint }>
@@ -71,6 +72,7 @@ type PinRow = Readonly<{
   title: string | null
   status: string | null
   archivedAt: Date | null
+  parent: string | null
 }>
 
 const orNotFound = <A>(option: Option.Option<A>) =>
@@ -135,7 +137,8 @@ const make = Effect.gen(function* () {
       .select({
         title: ticketIndex.title,
         status: ticketIndex.status,
-        archivedAt: ticketIndex.archivedAt
+        archivedAt: ticketIndex.archivedAt,
+        parent: ticketIndex.parent
       })
       .from(ticketIndex)
       .where(
@@ -200,7 +203,8 @@ const make = Effect.gen(function* () {
                 : Option.some({
                     title: row.title,
                     status: row.status,
-                    archivedAt: row.archivedAt
+                    archivedAt: row.archivedAt,
+                    parent: row.parent
                   })
             )
           }
@@ -222,7 +226,8 @@ const make = Effect.gen(function* () {
         orderKey: sidebarPin.orderKey,
         title: ticketIndex.title,
         status: ticketIndex.status,
-        archivedAt: ticketIndex.archivedAt
+        archivedAt: ticketIndex.archivedAt,
+        parent: ticketIndex.parent
       })
       .from(sidebarPin)
       .leftJoin(

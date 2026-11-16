@@ -32,13 +32,21 @@ export const PinnedSprint = Schema.Struct({
 })
 export type PinnedSprint = typeof PinnedSprint.Type
 
+// A pinned ticket: its link, plus the ticket or epic it sits under, so the
+// sidebar can show sub-tickets under their parent.
+export const PinnedTicket = Schema.Struct({
+  ...LinkedTicket.fields,
+  parent: Schema.optional(Schema.NullOr(TicketId))
+})
+export type PinnedTicket = typeof PinnedTicket.Type
+
 export const SidebarPin = Schema.Union([
   Schema.Struct({
     projectSlug: Slug,
     kind: Schema.Literal("ticket"),
     ref: TicketId,
     orderKey: PinOrderKey,
-    ticket: LinkedTicket
+    ticket: PinnedTicket
   }),
   Schema.Struct({
     projectSlug: Slug,
