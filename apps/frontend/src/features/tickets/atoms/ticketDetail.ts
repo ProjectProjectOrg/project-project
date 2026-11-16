@@ -81,7 +81,13 @@ export const ticketQuery = (req: TicketRequest) => {
       get.addFinalizer(() => subscription.unsubscribe())
       const row = collection.get(id)
       if (row !== undefined) return shown(decodeTicketRow(row))
-      void load()
+      if (collection.isReady()) void load()
+      else
+        get.addFinalizer(
+          collection.onFirstReady(() => {
+            if (collection.get(id) === undefined) void load()
+          })
+        )
       return AsyncResult.initial(true)
     },
     () => reload()

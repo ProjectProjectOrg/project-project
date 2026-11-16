@@ -151,17 +151,24 @@ export const createLocalTickets = ({
           else buffered.push(event)
         })
 
+        let ready = false
+        const becomeReady = () => {
+          if (ready) return
+          ready = true
+          report = reportError
+          markReady()
+        }
+        if (collection.size > 0) becomeReady()
+
         fetchAll()
           .then(() => {
             loaded = true
-            report = reportError
-            markReady()
+            becomeReady()
             for (const event of buffered) handle(event)
           })
           .catch((error: unknown) => {
             loaded = true
-            report = reportError
-            markReady()
+            becomeReady()
             reportError(error)
           })
 
