@@ -1,6 +1,7 @@
 import { useAtomMount, useAtomValue } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
+import * as Atom from "effect/reactivity/Atom"
 import { ArrowDownWideNarrow, ArrowUpNarrowWide } from "lucide-react"
 import { AnimatePresence } from "motion/react"
 
@@ -25,15 +26,22 @@ import { m } from "@/paraglide/messages"
 import { CommentComposer } from "./CommentComposer"
 import { CommentRow } from "./CommentRow"
 
+const notLoaded = Atom.make(Result.initial())
+
 export function CommentsSection({
-  ticketId
-}: Readonly<{ ticketId: TicketId }>) {
+  ticketId,
+  settled
+}: Readonly<{ ticketId: TicketId; settled: boolean }>) {
   const { orgSlug, slug } = useProjectRoute()
   const req = commentsRequest(orgSlug, slug, ticketId)
-  const result = useAtomValue(comments(req))
-  useAtomMount(ticketActivity(ticketActivityRequest(orgSlug, slug, ticketId)))
+  const result = useAtomValue(settled ? comments(req) : notLoaded)
+  useAtomMount(
+    settled
+      ? ticketActivity(ticketActivityRequest(orgSlug, slug, ticketId))
+      : notLoaded
+  )
   const project = useProject()
-  const involved = useTicketParticipants(ticketId)
+  const involved = useTicketParticipants(ticketId, settled)
   const canComment = useProjectActor().call("ticketComments", "create")
   const [order, setOrder] = useActivityOrder()
 
@@ -64,11 +72,14 @@ export function CommentsSection({
           >
             <OrderIcon className="size-4" strokeWidth={1.75} />
           </Button>
-          <SubscribeToggle ticketId={ticketId} className="mr-2 ml-auto" />
+          {settled && (
+            <SubscribeToggle ticketId={ticketId} className="mr-2 ml-auto" />
+          )}
         </div>
         <div className="flex flex-col gap-4">
           <TicketTimeline
             ticketId={ticketId}
+            load={settled}
             order={order}
             comments={rows.map((row) => ({
               key: row.key,

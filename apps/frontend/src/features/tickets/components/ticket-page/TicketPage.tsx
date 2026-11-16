@@ -69,7 +69,8 @@ export function TicketPage({
   autoFocusBody = false,
   splitInto = NO_SPLIT_RESULTS,
   from,
-  stepper
+  stepper,
+  settled
 }: {
   ticket: TicketDetail
   members: ReadonlyArray<Member>
@@ -78,6 +79,7 @@ export function TicketPage({
   splitInto?: ReadonlyArray<TicketId>
   from?: TicketPageSource
   stepper: ReactNode
+  settled: boolean
 }) {
   const { orgSlug, slug } = useProjectRoute()
   const req = ticketRequest(orgSlug, slug, ticket.id)
@@ -270,6 +272,7 @@ export function TicketPage({
               ticket={ticket}
               members={members}
               autoFocus={autoFocusBody}
+              settled={settled}
               onStartType={(type) => onTypePatch({ type })}
             />
           ) : (
@@ -282,6 +285,7 @@ export function TicketPage({
           members={members}
           editable={canEdit}
           holdsChildren={hierarchy.holdsChildren}
+          settled={settled}
         />
       </main>
     </TicketPageShell>

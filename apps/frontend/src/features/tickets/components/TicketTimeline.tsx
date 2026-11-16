@@ -5,6 +5,7 @@ import type {
   TicketId
 } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
+import * as Atom from "effect/reactivity/Atom"
 import {
   Bot,
   ChevronRight,
@@ -264,20 +265,24 @@ function RunRows({
   )
 }
 
+const notLoaded = Atom.make(AsyncResult.initial())
+
 export function TicketTimeline<C>({
   ticketId,
+  load,
   comments,
   order,
   renderComment
 }: Readonly<{
   ticketId: TicketId
+  load: boolean
   comments: ReadonlyArray<TimelineComment<C>>
   order: TimelineOrder
   renderComment: (comment: TimelineComment<C>) => ReactNode
 }>) {
   const { orgSlug, slug } = useProjectRoute()
   const req = ticketActivityRequest(orgSlug, slug, ticketId)
-  const result = useAtomValue(ticketActivity(req))
+  const result = useAtomValue(load ? ticketActivity(req) : notLoaded)
   const statusesResult = useAtomValue(
     statusesFor(statusesRequest(orgSlug, slug))
   )

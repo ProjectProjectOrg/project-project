@@ -12,6 +12,7 @@ const URL_WINDOW_LIMIT = 90
 const HELD_URL_INTERVAL_MS = 310
 const WARM_AHEAD = 10
 const WARM_BEHIND = 3
+export const STEP_SETTLE_MS = 300
 
 export function shownTicket(
   cursor: StepCursor | null,

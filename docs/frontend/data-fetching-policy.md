@@ -25,8 +25,12 @@ after its atom has expired.
 
 The ticket description and comments are both core ticket content. Start them
 together, including during ticket hover prefetch, and render each as it becomes
-ready. Time tracking and GitHub data load independently and never block core
-content. Keep loading, empty, failed, and refreshing states distinct at the owning
+ready. The one exception is stepping through tickets with J and K: the
+stepped-to ticket's detail renders at once, but its comments, activity,
+subscribers and sub-tickets, and marking it read, wait until no step has come
+for 300ms. The waiting sections show their loading state meanwhile. A ticket
+opened any other way loads everything at once. Time tracking and GitHub data
+load independently and never block core content. Keep loading, empty, failed, and refreshing states distinct at the owning
 section; a failed refresh must remain visible even when retaining previous data.
 
 ## Backlog and control demand

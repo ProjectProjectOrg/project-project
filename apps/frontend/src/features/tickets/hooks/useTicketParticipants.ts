@@ -1,6 +1,7 @@
 import { useAtomValue } from "@effect/atom-react"
 import type { TicketId } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
+import * as Atom from "effect/reactivity/Atom"
 import { useMemo } from "react"
 
 import { comments, commentsRequest } from "@/features/comments/atoms/comments"
@@ -14,15 +15,18 @@ import {
   ticketParticipants
 } from "@/features/tickets/lib/ticketParticipants"
 
+const notLoaded = Atom.make(Result.initial())
+
 export function useTicketParticipants(
-  ticketId: TicketId
+  ticketId: TicketId,
+  load: boolean
 ): ReadonlyArray<string> {
   const { orgSlug, slug } = useProjectRoute()
   const ticket = useAtomValue(
     ticketDetail(ticketRequest(orgSlug, slug, ticketId))
   )
   const thread = useAtomValue(
-    comments(commentsRequest(orgSlug, slug, ticketId))
+    load ? comments(commentsRequest(orgSlug, slug, ticketId)) : notLoaded
   )
   const current = Result.isSuccess(ticket) ? ticket.value : null
   const rows = Result.isSuccess(thread) ? thread.value : null

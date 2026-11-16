@@ -25,6 +25,7 @@ import {
   settledCursor,
   shownTicket,
   stepCursor,
+  STEP_SETTLE_MS,
   stepTarget,
   urlCommitDelay,
   warmWindow,
@@ -42,6 +43,7 @@ type Session = Readonly<{
 
 export type TicketStepping = Readonly<{
   shown: TicketId
+  settled: boolean
   sequence: TicketSequence | null
   search: TicketDetailSearch
 }>
@@ -70,6 +72,7 @@ export function useTicketStepping(
   const sequence = session?.entry === entry ? session.sequence : null
 
   const [cursor, setCursor] = useState<StepCursor | null>(null)
+  const [stepping, setStepping] = useState(false)
   if (cursor !== settledCursor(cursor, urlId)) setCursor(null)
   const shown = shownTicket(cursor, urlId)
   const inSequence = (id: TicketId) =>
@@ -128,6 +131,7 @@ export function useTicketStepping(
   useEffect(() => {
     const sent: Array<number> = []
     let commitTimer: number | undefined
+    let settleTimer: number | undefined
 
     const commit = () => {
       commitTimer = undefined
@@ -156,6 +160,9 @@ export function useTicketStepping(
       const next = stepCursor(cursor, urlId, target.id)
       latest.current = { ...latest.current, cursor: next, shown: next.shown }
       setCursor(next)
+      setStepping(true)
+      window.clearTimeout(settleTimer)
+      settleTimer = window.setTimeout(() => setStepping(false), STEP_SETTLE_MS)
       document.querySelector("[data-scroll-root]")?.scrollTo({ top: 0 })
 
       const delay = urlCommitDelay(sent, performance.now(), held)
@@ -170,6 +177,7 @@ export function useTicketStepping(
     return () => {
       stepper.current = null
       window.clearTimeout(commitTimer)
+      window.clearTimeout(settleTimer)
     }
   }, [router, orgSlug, slug])
 
@@ -180,5 +188,5 @@ export function useTicketStepping(
     stepper.current?.(-1, event.repeat)
   )
 
-  return { shown, sequence, search }
+  return { shown, settled: !stepping, sequence, search }
 }

@@ -21,13 +21,15 @@ type Props = Readonly<{
   members: ReadonlyArray<Member>
   editable: boolean
   holdsChildren: boolean
+  settled: boolean
 }>
 
 export function TicketDiscussion({
   ticket,
   members,
   editable,
-  holdsChildren
+  holdsChildren,
+  settled
 }: Props) {
   return (
     <>
@@ -36,9 +38,10 @@ export function TicketDiscussion({
           parent={ticket}
           members={members}
           editable={editable}
+          settled={settled}
         />
       )}
-      <CommentsSection ticketId={ticket.id} />
+      <CommentsSection ticketId={ticket.id} settled={settled} />
     </>
   )
 }
@@ -46,13 +49,15 @@ export function TicketDiscussion({
 function ChildrenSection({
   parent,
   members,
-  editable
+  editable,
+  settled
 }: Readonly<{
   parent: Ticket
   members: ReadonlyArray<Member>
   editable: boolean
+  settled: boolean
 }>) {
-  const count = useChildTicketCount(parent)
+  const count = useChildTicketCount(parent, settled)
   const [open, setOpen] = useState(true)
   const [adding, setAdding] = useState(false)
   const startAdding = () => {
@@ -112,11 +117,13 @@ function ChildrenSection({
       <AnimatePresence initial={false}>
         <Collapse key="list" open={open}>
           <div className="flex flex-col pt-2">
-            <ChildTicketList
-              parent={parent}
-              members={members}
-              editable={editable}
-            />
+            {settled && (
+              <ChildTicketList
+                parent={parent}
+                members={members}
+                editable={editable}
+              />
+            )}
           </div>
         </Collapse>
         {open && adding && (

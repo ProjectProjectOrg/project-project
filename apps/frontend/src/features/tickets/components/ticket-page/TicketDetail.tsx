@@ -78,19 +78,17 @@ export function TicketDetail() {
   const navigate = routeApi.useNavigate()
   const urlId = decodeTicketId(id)
   const stepping = useTicketStepping(urlId, from, sprintFromSearch(search))
-  const { shown, sequence } = stepping
+  const { shown, settled, sequence } = stepping
   const commandScope = useMemo(
     () => ({ ticket: { orgSlug, slug, ticketId: shown } }),
     [orgSlug, slug, shown]
   )
   useCommandScope(commandScope)
   useRememberViewedTicket(shown, from?.kind === "parent" ? undefined : from)
-  useMarkTicketRead(
-    urlId,
-    Result.isSuccess(
-      useAtomValue(ticketDetail(ticketRequest(orgSlug, slug, urlId)))
-    )
+  const shownDetail = useAtomValue(
+    ticketDetail(ticketRequest(orgSlug, slug, shown))
   )
+  useMarkTicketRead(shown, settled && Result.isSuccess(shownDetail))
   const autoFocusBody = useRef(search.focusBody === "1").current
 
   useEffect(() => {
@@ -118,6 +116,7 @@ export function TicketDetail() {
         req={ticketRequest(orgSlug, slug, shown)}
         loading={loading}
         stepper={stepper}
+        settled={settled}
         from={from}
         autoFocusBody={atUrl && autoFocusBody}
         splitInto={atUrl ? (search.splitInto ?? []) : []}
@@ -130,6 +129,7 @@ function LoadedTicket({
   req,
   loading,
   stepper,
+  settled,
   from,
   autoFocusBody,
   splitInto
@@ -137,6 +137,7 @@ function LoadedTicket({
   req: TicketRequest
   loading: ReactNode
   stepper: ReactNode
+  settled: boolean
   from: TicketPageSource | undefined
   autoFocusBody: boolean
   splitInto: ReadonlyArray<TicketId>
@@ -161,6 +162,7 @@ function LoadedTicket({
         splitInto={splitInto}
         from={from}
         stepper={stepper}
+        settled={settled}
       />
     )
   })

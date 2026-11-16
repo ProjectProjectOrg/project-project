@@ -85,12 +85,14 @@ export function DescriptionField({
   ticket,
   members,
   autoFocus,
+  settled,
   onStartType,
   ref
 }: Readonly<{
   ticket: TicketDetail
   members: ReadonlyArray<Member>
   autoFocus: boolean
+  settled: boolean
   onStartType: (type: TypeKey) => void
   ref?: Ref<DescriptionHandle>
 }>) {
@@ -113,7 +115,7 @@ export function DescriptionField({
   })
   const transformers = transformersForAttachments(attachments)
   const editorRef = useRef<LexicalEditorType | null>(null)
-  const involved = useTicketParticipants(ticket.id)
+  const involved = useTicketParticipants(ticket.id, settled)
   const library = blocks?.library ?? null
   const lookup = useMemo(() => lookupFor(library), [library])
 
