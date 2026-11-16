@@ -206,8 +206,7 @@ export function CodeLanguagePlugin() {
           setLanguage(next)
           editor.update(() => {
             const node = $getNodeByKey(placed.key)
-            if ($isCodeNode(node))
-              node.setLanguage(next === PLAIN ? undefined : next)
+            if ($isCodeNode(node)) node.setLanguage(next)
           })
         }}
       >

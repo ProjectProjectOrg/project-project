@@ -1,4 +1,8 @@
-import { CodeExtension, registerCodeHighlighting } from "@lexical/code"
+import {
+  CodeExtension,
+  PrismTokenizer,
+  registerCodeHighlighting
+} from "@lexical/code"
 import { defineExtension, type LexicalEditor } from "lexical"
 
 import "../lib/prismLangs"
@@ -85,8 +89,20 @@ export const editorTheme = {
   }
 }
 
+// Lexical's tokenizer, with "plain" as the default language: a block without
+// one stays unhighlighted (Prism has no "plain" grammar) instead of becoming
+// JavaScript, and saves as a bare fence (CODE_BLOCK in
+// editor-transformers.ts). It can't be empty: Lexical stores "" as no
+// language and would keep re-applying the default until it gave up.
+export const PLAIN_CODE_LANGUAGE = "plain"
+const plainByDefault = {
+  ...PrismTokenizer,
+  defaultLanguage: PLAIN_CODE_LANGUAGE
+}
+
 export const CodeHighlightExtension = defineExtension({
   name: "@pp/code-highlight",
   dependencies: [CodeExtension],
-  register: (editor: LexicalEditor) => registerCodeHighlighting(editor)
+  register: (editor: LexicalEditor) =>
+    registerCodeHighlighting(editor, plainByDefault)
 })

@@ -1,5 +1,10 @@
 import { createLinkMatcherWithRegExp, formatUrl } from "@lexical/link"
-import { INLINE_CODE, TRANSFORMERS } from "@lexical/markdown"
+import {
+  CODE,
+  INLINE_CODE,
+  TRANSFORMERS,
+  type MultilineElementTransformer
+} from "@lexical/markdown"
 import { type TicketId } from "@pp/shared"
 
 import { ESCAPED_CHECK_LIST } from "../editor/checklist-markdown"
@@ -19,6 +24,20 @@ import { PAPER_TRANSFORMER } from "./paper/paper-transformer"
 
 // The editor's Markdown transformers, per mode, and its autolink matchers.
 
+// Code blocks without a language are "plain" in the editor (theme.ts); in
+// Markdown they stay a bare fence.
+const CODE_BLOCK: MultilineElementTransformer = {
+  ...CODE,
+  export: (node, exportChildren) => {
+    const markdown = CODE.export?.(node, exportChildren) ?? null
+    return markdown === null
+      ? null
+      : markdown
+          .replace(/^(`{3,}|~{3,})plain\n/, "$1\n")
+          .replace(/^(`{3,}|~{3,})plain$/, "$1")
+  }
+}
+
 export const INLINE_AND_BLOCK_TRANSFORMERS = [
   INLINE_MARKDOWN_TRANSFORMER,
   MENTION_TRANSFORMER,
@@ -26,7 +45,10 @@ export const INLINE_AND_BLOCK_TRANSFORMERS = [
   HORIZONTAL_RULE,
   PAPER_TRANSFORMER,
   FIGMA_TRANSFORMER,
-  ...TRANSFORMERS.filter((transformer) => transformer !== INLINE_CODE)
+  CODE_BLOCK,
+  ...TRANSFORMERS.filter(
+    (transformer) => transformer !== INLINE_CODE && transformer !== CODE
+  )
 ]
 
 export function createMarkdownTransformers(
