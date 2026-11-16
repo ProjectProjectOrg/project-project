@@ -101,6 +101,8 @@ const seed = Effect.gen(function* () {
   return { projectId, userId }
 })
 
+const decodeUser = Schema.decodeEffect(User)
+
 const encodePayload = Schema.encodeSync(
   Schema.fromJsonString(Schema.Struct({ name: Schema.String }))
 )
@@ -127,7 +129,7 @@ const serve = (projectId: string, userId: string) =>
         })
       )
     )
-    const user = yield* Schema.decodeEffect(User)({
+    const user = yield* decodeUser({
       id: userId,
       email: userId,
       name: "Test",

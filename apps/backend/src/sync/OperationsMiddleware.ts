@@ -7,26 +7,17 @@ import * as CommandReceipts from "@pp/server-core/sync/CommandReceipts"
 import {
   Conflict,
   CurrentUser,
-  Forbidden,
   OPERATION_ID_HEADER,
   Operations,
   SYNC_RECEIPT_HEADER,
-  Unauthorized,
   Validation
 } from "@pp/shared"
-import * as Cause from "effect/Cause"
 import * as Effect from "effect/Effect"
-import * as Exit from "effect/Exit"
-import { HttpServerRequest, HttpServerResponse } from "effect/http"
-import type { HttpApiEndpoint } from "effect/http-api"
+import { HttpEffect, HttpServerRequest, HttpServerResponse } from "effect/http"
 import * as Layer from "effect/Layer"
-import * as Option from "effect/Option"
-import * as Schema from "effect/Schema"
-import * as SchemaAST from "effect/SchemaAST"
+import * as Match from "effect/Match"
 
 const OPERATION_ID = /^[A-Za-z0-9_-]{8,128}$/u
-
-const httpApiStatus = SchemaAST.resolveAt<number>("httpApiStatus")
 
 const hashOf = (request: HttpServerRequest.HttpServerRequest, body: string) =>
   createHash("sha256")
@@ -40,41 +31,25 @@ const isJsonOrEmpty = (request: HttpServerRequest.HttpServerRequest) => {
 
 const responseOutcome = (
   response: HttpServerResponse.HttpServerResponse
-): CommandOutcome | null => {
-  const { body } = response
-  if (body._tag === "Empty")
-    return { status: response.status, contentType: null, body: "" }
-  if (body._tag === "Uint8Array")
-    return {
-      status: response.status,
-      contentType: body.contentType,
-      body: new TextDecoder().decode(body.body)
-    }
-  return null
-}
+): CommandOutcome | null =>
+  Match.value(response.body).pipe(
+    Match.tags({
+      Empty: (): CommandOutcome => ({
+        status: response.status,
+        contentType: null,
+        body: ""
+      }),
+      Uint8Array: (body): CommandOutcome => ({
+        status: response.status,
+        contentType: body.contentType,
+        body: new TextDecoder().decode(body.body)
+      })
+    }),
+    Match.orElse(() => null)
+  )
 
-const errorOutcome = (
-  endpoint: HttpApiEndpoint.Top,
-  error: unknown
-): CommandOutcome | null => {
-  if (Schema.is(Unauthorized)(error) || Schema.is(Forbidden)(error)) return null
-  for (const schema of endpoint.error) {
-    if (!Schema.is(schema)(error)) continue
-    const encoded = Schema.encodeUnknownExit(
-      Schema.toCodecJson(schema) as unknown as Schema.Codec<
-        unknown,
-        Schema.Json
-      >
-    )(error)
-    if (Exit.isFailure(encoded)) return null
-    return {
-      status: httpApiStatus(schema.ast) ?? 500,
-      contentType: "application/json",
-      body: JSON.stringify(encoded.value)
-    }
-  }
-  return null
-}
+const isStored = (status: number) =>
+  status < 500 && status !== 401 && status !== 403
 
 const withReceipt = (
   response: HttpServerResponse.HttpServerResponse,
@@ -101,7 +76,7 @@ export const OperationsLive = Layer.effect(
     const receipts = yield* CommandReceipts.CommandReceipts
 
     return Operations.of(
-      Effect.fn("Operations")(function* (httpEffect, { endpoint }) {
+      Effect.fn("Operations")(function* (httpEffect) {
         const request = yield* HttpServerRequest.HttpServerRequest
         const operationId = request.headers[OPERATION_ID_HEADER]
         if (
@@ -123,23 +98,21 @@ export const OperationsLive = Layer.effect(
           return yield* new Conflict({ reason: "operation_pending" })
         if (claim.kind === "done") return replay(claim.outcome, claim.receipt)
 
-        const exit = yield* httpEffect.pipe(
-          Effect.provideService(SyncOperation, operationId),
-          Effect.exit
+        yield* HttpEffect.appendPreResponseHandler((_request, response) =>
+          Effect.gen(function* () {
+            const outcome = responseOutcome(response)
+            if (outcome === null || !isStored(outcome.status)) {
+              yield* receipts.release(key)
+              return response
+            }
+            return withReceipt(response, yield* receipts.complete(key, outcome))
+          })
         )
-        const outcome = Exit.isSuccess(exit)
-          ? responseOutcome(exit.value)
-          : Option.match(Cause.findErrorOption(exit.cause), {
-              onNone: () => null,
-              onSome: (error) => errorOutcome(endpoint, error)
-            })
-        if (outcome === null) {
-          yield* receipts.release(key)
-          return yield* exit
-        }
-        const receipt = yield* receipts.complete(key, outcome)
-        if (Exit.isFailure(exit)) return yield* exit
-        return withReceipt(exit.value, receipt)
+        return yield* Effect.provideService(
+          httpEffect,
+          SyncOperation,
+          operationId
+        )
       }, Effect.uninterruptible)
     )
   })
