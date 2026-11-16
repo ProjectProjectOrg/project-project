@@ -8,7 +8,12 @@ const nowDate = (): Date => DateTime.toDate(DateTime.nowUnsafe())
 export const SprintState = Schema.Literals(["active", "planned", "completed"])
 export type SprintState = typeof SprintState.Type
 
-export function sprintState(sprint: Group, now: Date = nowDate()): SprintState {
+type SprintTiming = Pick<Group, "startsAt" | "completedAt">
+
+export function sprintState(
+  sprint: SprintTiming,
+  now: Date = nowDate()
+): SprintState {
   if (sprint.completedAt !== null) return "completed"
   if (sprint.startsAt === null || sprint.startsAt > now) return "planned"
   return "active"
@@ -57,11 +62,13 @@ export function activeAndPlannedCount(
     .length
 }
 
-export function backlogSprintSections(
-  sprints: ReadonlyArray<Group>,
+export function backlogSprintSections<
+  S extends Pick<Group, "id" | "startsAt" | "completedAt">
+>(
+  sprints: ReadonlyArray<S>,
   selected?: ReadonlyArray<GroupId | "ungrouped">,
   now: Date = nowDate()
-): ReadonlyArray<Group | null> {
+): ReadonlyArray<S | null> {
   const rank = { planned: 0, active: 1, completed: 2 }
   const ordered = sprints.toSorted((a, b) => {
     const stateOrder = rank[sprintState(a, now)] - rank[sprintState(b, now)]

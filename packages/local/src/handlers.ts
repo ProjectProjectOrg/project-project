@@ -3,6 +3,7 @@ import {
   type SnapshotPage,
   snapshotFromPages
 } from "@pp/shared"
+import * as DateTime from "effect/DateTime"
 import * as Effect from "effect/Effect"
 import * as Reactivity from "effect/reactivity/Reactivity"
 import * as Semaphore from "effect/Semaphore"
@@ -19,6 +20,7 @@ import {
   type SectionsRequest
 } from "./LocalRpcs"
 import { localCounts, localSections } from "./sections"
+import { localSprintSections } from "./sprints"
 import {
   applyChanges,
   applyPage,
@@ -253,6 +255,22 @@ export const localRpcsLayer = LocalRpcs.toLayer(
             [projectKey(scopeOf(request.project))],
             readCopy(request.project, (copy) =>
               localSections(sectionsRequest(request, copy))
+            )
+          )
+          .pipe(Stream.orDie),
+      SprintSections: (request) =>
+        sql
+          .reactive(
+            [projectKey(scopeOf(request.project))],
+            readCopy(request.project, (copy) =>
+              Effect.flatMap(DateTime.nowAsDate, (now) =>
+                localSprintSections({
+                  ...sectionsRequest(request, copy),
+                  perSection: (key) =>
+                    request.limits[key] ?? request.defaultLimit,
+                  now
+                })
+              )
             )
           )
           .pipe(Stream.orDie),

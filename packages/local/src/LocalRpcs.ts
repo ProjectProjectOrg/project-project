@@ -4,6 +4,7 @@ import {
   TicketCounts,
   TicketListPage,
   TicketListQuery,
+  TicketSprintSections,
   TicketStatus
 } from "@pp/shared"
 import { Rpc, RpcGroup } from "effect/rpc"
@@ -81,6 +82,11 @@ export class LocalRpcs extends RpcGroup.make(
   Rpc.make("Sections", {
     payload: SectionsRequest,
     success: Schema.NullOr(LocalSectionsResult),
+    stream: true
+  }),
+  Rpc.make("SprintSections", {
+    payload: SectionsRequest,
+    success: Schema.NullOr(TicketSprintSections),
     stream: true
   }),
   Rpc.make("Counts", {

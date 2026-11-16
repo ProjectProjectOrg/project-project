@@ -57,7 +57,7 @@ const repository = (
   defaultBaseBranch: repo.defaultBaseBranch
 })
 
-const repositories = (detail: ProjectRepos): LocalRepositories => ({
+export const repositories = (detail: ProjectRepos): LocalRepositories => ({
   fallback: detail.github === null ? null : repository(detail.github),
   byId: Object.fromEntries(
     connectedRepos(detail).map((repo) => [repo.repoId, repository(repo)])

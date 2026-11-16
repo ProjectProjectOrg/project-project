@@ -28,6 +28,8 @@ import { Keys, projectScope } from "@/api/keys"
 import { query } from "@/api/query"
 import { bindRowMutation, viewMutation } from "@/api/viewMutation"
 import { currentUserId } from "@/features/auth/atoms/auth"
+import { localSprintSections } from "@/features/local/atoms/localSprintSections"
+import { readLocal } from "@/features/local/atoms/readLocal"
 import {
   projectEstimation,
   projectRequest
@@ -55,6 +57,7 @@ import {
   quickCreatePayload
 } from "@/features/tickets/lib/ticketRows"
 
+import { sprintLoadedPages } from "./sprintPages"
 import {
   bulkTicketMove,
   bulkTicketUpdate,
@@ -121,12 +124,6 @@ const snapshotQuery = (req: SprintSectionsRequest) =>
     ]
   })
 
-const loadedPagesAtom = Atom.family((_req: SprintSectionsRequest) =>
-  Atom.make<Readonly<Record<string, number>>>({}).pipe(
-    Atom.setIdleTTL("2 minutes")
-  )
-)
-
 const pageQuery = (
   req: SprintSectionsRequest,
   key: SprintSectionKey,
@@ -174,12 +171,33 @@ const emptySprintSections = (
 const sprintSectionsView = (req: SprintSectionsRequest) =>
   Atom.readable(
     (get) => {
-      const base = get(snapshotQuery(req))
       const viewer = viewerOf(get, req)
+      const local = readLocal(get, req.params, () => localSprintSections(req))
+      if (local !== null) {
+        const created = get(createdKeys(scopeOf(req)))
+        return AsyncResult.map(
+          local,
+          (value): SprintSectionsValue => ({
+            total: value.total,
+            counts: value.counts,
+            sections: value.sections.map((section) => ({
+              key: section.key,
+              count: section.count,
+              estimates: section.estimates,
+              page: {
+                items: withCreatedKeys(section.page.items.map(toRow), created),
+                nextCursor: section.page.nextCursor
+              }
+            })),
+            viewer
+          })
+        )
+      }
+      const base = get(snapshotQuery(req))
       if (!AsyncResult.isSuccess(base)) {
         return AsyncResult.map(base, () => emptySprintSections(viewer))
       }
-      const loaded = get(loadedPagesAtom(req))
+      const loaded = get(sprintLoadedPages(req))
       const created = get(createdKeys(scopeOf(req)))
       let waiting = base.waiting
       const sections = base.value.sections.map((section) => {
@@ -230,6 +248,18 @@ export const loadMoreSprintSections = Atom.family(
         _input: void,
         get: Atom.FnContext
       ) {
+        const shown = get(sprintSections(req))
+        const loaded = get(sprintLoadedPages(req))
+        if (
+          AsyncResult.isSuccess(shown) &&
+          shown.value.sections
+            .find((section) => section.key === key)
+            ?.page.nextCursor?.startsWith("local:")
+        )
+          return get.set(sprintLoadedPages(req), {
+            ...loaded,
+            [key]: (loaded[key] ?? 0) + 1
+          })
         return yield* loadNextPage(get, {
           visibleCursor: () => {
             const current = get(sprintSections(req))
@@ -238,7 +268,7 @@ export const loadMoreSprintSections = Atom.family(
                   ?.page.nextCursor
               : undefined
           },
-          depth: () => get(loadedPagesAtom(req))[key] ?? 0,
+          depth: () => get(sprintLoadedPages(req))[key] ?? 0,
           firstCursor: () => {
             const base = get(snapshotQuery(req))
             return AsyncResult.isSuccess(base)
@@ -248,8 +278,8 @@ export const loadMoreSprintSections = Atom.family(
           },
           page: (cursor) => pageQuery(req, key, cursor),
           deepen: (depth) =>
-            get.set(loadedPagesAtom(req), {
-              ...get(loadedPagesAtom(req)),
+            get.set(sprintLoadedPages(req), {
+              ...get(sprintLoadedPages(req)),
               [key]: depth
             })
         })
