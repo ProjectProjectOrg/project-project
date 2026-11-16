@@ -5,6 +5,7 @@ import {
 } from "@effect/atom-react"
 import { isEpic, isEpicType } from "@pp/shared"
 import type { Group, Ticket, TicketParent } from "@pp/shared"
+import { HotkeysProvider } from "@tanstack/react-hotkeys"
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Random from "effect/Random"
@@ -147,28 +148,34 @@ export function TicketComposer({
     ) : null
 
   return (
-    <TicketCreatorShell
-      inputRef={inputRef}
-      formRef={formRef}
-      shortcut="c"
-      value={title}
-      onValueChange={setTitle}
-      onSubmit={onSubmit}
-      expanded={expanded}
-      placeholder={m.tickets_create_title_placeholder()}
-      ariaLabel={m.tickets_create_title_aria_label()}
-      busy={submitting}
-      maxLength={200}
-      error={error}
-      listbox={null}
-      leadingAddons={[typeAddon, sprintAddon].filter((addon) => addon !== null)}
-      belowInput={
-        <AutoHeight>
-          {expanded && (
-            <StartsWithLine start={creatorType.start} className="px-3 pt-1.5" />
-          )}
-        </AutoHeight>
-      }
-    />
+    <HotkeysProvider scope="ticket-list">
+      <TicketCreatorShell
+        inputRef={inputRef}
+        formRef={formRef}
+        value={title}
+        onValueChange={setTitle}
+        onSubmit={onSubmit}
+        expanded={expanded}
+        placeholder={m.tickets_create_title_placeholder()}
+        ariaLabel={m.tickets_create_title_aria_label()}
+        busy={submitting}
+        maxLength={200}
+        error={error}
+        listbox={null}
+        leadingAddons={[typeAddon, sprintAddon].filter(
+          (addon) => addon !== null
+        )}
+        belowInput={
+          <AutoHeight>
+            {expanded && (
+              <StartsWithLine
+                start={creatorType.start}
+                className="px-3 pt-1.5"
+              />
+            )}
+          </AutoHeight>
+        }
+      />
+    </HotkeysProvider>
   )
 }

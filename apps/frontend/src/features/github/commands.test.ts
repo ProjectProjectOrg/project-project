@@ -93,10 +93,12 @@ const contextFor = (
   return {
     orgSlug: "acme",
     projectSlug: "app",
+    routeProjectSlug: "app",
     orgActor: OrgActor.make(Org.orgRoles[orgRole].grants),
     projectActor: actor,
     ticket: { orgSlug: "acme", slug: "app", ticketId: TicketId.make("T-1") },
     selection: [],
+    ticketData: detail,
     ticketDetail: detail,
     ticketSprint: null,
     ticketSubscribed: null,
@@ -198,7 +200,7 @@ it.each([
   try {
     runCommand(
       command,
-      { ...context, ticketDetail: { ...detail, branch: "feat/T-1", pr: 7 } },
+      { ...context, ticketData: { ...detail, branch: "feat/T-1", pr: 7 } },
       env
     )
     expect(open).toHaveBeenCalledWith(expected, "_blank", "noopener,noreferrer")

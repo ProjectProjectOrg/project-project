@@ -48,6 +48,7 @@ import {
   typeKeyOfOption,
   typeOptionValue
 } from "@/features/tickets/lib/ticketTypes"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -137,7 +138,9 @@ export function TicketPropertySubmenus({
       {editable && (
         <>
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger
+              hotkey={appHotkeys["tickets.status"].defaultHotkey}
+            >
               <CircleDot className="size-4" strokeWidth={1.75} />
               {m.tickets_command_change_status()}
             </DropdownMenuSubTrigger>
@@ -150,7 +153,9 @@ export function TicketPropertySubmenus({
             </DropdownMenuSubContent>
           </DropdownMenuSub>
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger
+              hotkey={appHotkeys["tickets.priority"].defaultHotkey}
+            >
               <SignalHigh className="size-4" strokeWidth={1.75} />
               {m.tickets_command_set_priority()}
             </DropdownMenuSubTrigger>
@@ -163,7 +168,9 @@ export function TicketPropertySubmenus({
             </DropdownMenuSubContent>
           </DropdownMenuSub>
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger
+              hotkey={appHotkeys["tickets.type"].defaultHotkey}
+            >
               <Shapes className="size-4" strokeWidth={1.75} />
               {m.tickets_command_change_type()}
             </DropdownMenuSubTrigger>
@@ -186,7 +193,9 @@ export function TicketPropertySubmenus({
       )}
       {canAssign && (
         <DropdownMenuSub filterable>
-          <DropdownMenuSubTrigger>
+          <DropdownMenuSubTrigger
+            hotkey={appHotkeys["tickets.assign"].defaultHotkey}
+          >
             <UserRound className="size-4" strokeWidth={1.75} />
             {m.tickets_command_assign()}
           </DropdownMenuSubTrigger>
@@ -263,7 +272,7 @@ function TagsSubmenu({
       filterable={menu.filterable}
       onOpenChange={menu.onOpenChange}
     >
-      <DropdownMenuSubTrigger>
+      <DropdownMenuSubTrigger hotkey={appHotkeys["tickets.tags"].defaultHotkey}>
         <Tag className="size-4" strokeWidth={1.75} />
         {m.tickets_command_tags()}
       </DropdownMenuSubTrigger>

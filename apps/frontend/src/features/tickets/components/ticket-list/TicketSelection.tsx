@@ -1,5 +1,6 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react"
 import type { BulkTicketPatch } from "@pp/shared"
+import { useHotkey } from "@tanstack/react-hotkeys"
 import * as Atom from "effect/reactivity/Atom"
 import type { AtomRegistry } from "effect/reactivity/AtomRegistry"
 import { AnimatePresence } from "motion/react"
@@ -14,6 +15,7 @@ import {
   type ReactNode
 } from "react"
 
+import { pointedTicket } from "@/features/command-menu/atoms/commandMenu"
 import { useCommandScope } from "@/features/command-menu/hooks/useCommandScope"
 import type { SelectedTicket } from "@/features/command-menu/lib/commandMenu"
 import type { CommandScope } from "@/features/command-menu/lib/commandScopes"
@@ -25,9 +27,11 @@ import {
 import {
   emptySelection,
   projectOfKey,
+  selectAll,
+  selectionKey,
   toggleSelection
 } from "@/features/tickets/lib/ticketSelection"
-import { ownsKeystrokes } from "@/lib/keyboard"
+import { appHotkeys } from "@/lib/appHotkeys"
 
 import { SelectionBar } from "./SelectionBar"
 import {
@@ -59,39 +63,52 @@ export function TicketSelectionProvider({
   useCommandScope(scope)
   const root = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target
-      if (event.defaultPrevented || !(target instanceof HTMLElement)) return
-      const inList = root.current?.contains(target) === true
-      if (event.key === "Escape" && (inList || target === document.body)) {
-        registry.set(store.selection, emptySelection)
-        return
-      }
+  const rowKeyFor = (target: EventTarget | null): string | null => {
+    const list = root.current
+    if (list === null) return null
+    if (target instanceof Element && list.contains(target)) {
       const row = target.closest<HTMLElement>("[data-selection-key]")
-      if (
-        event.key !== "x" ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.altKey ||
-        !inList ||
-        row === null ||
-        ownsKeystrokes(target)
-      ) {
-        return
-      }
+      if (row !== null) return row.dataset.selectionKey ?? null
+    }
+    const pointed = registry.get(pointedTicket)
+    if (pointed === null) return null
+    const key = selectionKey(pointed.slug, pointed.ticketId)
+    return list.querySelector(`[data-selection-key="${key}"]`) === null
+      ? null
+      : key
+  }
+  useHotkey(appHotkeys["tickets.select-all"], (event) => {
+    const order = [...store.orders].flatMap((each) => each())
+    registry.set(
+      store.selection,
+      selectAll(registry.get(store.selection), order, rowKeyFor(event.target))
+    )
+  })
+  useHotkey(
+    appHotkeys["tickets.select"],
+    (event) => {
+      const key = rowKeyFor(event.target)
+      if (key === null) return
       event.preventDefault()
       registry.set(
         store.selection,
-        toggleSelection(
-          registry.get(store.selection),
-          row.dataset.selectionKey ?? ""
-        )
+        toggleSelection(registry.get(store.selection), key)
       )
-    }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-  }, [registry, store])
+    },
+    { preventDefault: false }
+  )
+  useHotkey(
+    "Escape",
+    (event) => {
+      const target = event.target
+      const inList =
+        target instanceof Node && root.current?.contains(target) === true
+      if (!inList && target !== document.body) return
+      if (registry.get(store.count) === 0) return
+      registry.set(store.selection, emptySelection)
+    },
+    { preventDefault: false, stopPropagation: false, conflictBehavior: "allow" }
+  )
 
   return (
     <SelectionContext value={store}>
@@ -155,6 +172,13 @@ export function SelectionOrder({
     registry.set(store.known, next)
   })
   const [order] = useState(() => () => current.current)
+  useLayoutEffect(() => {
+    if (store === null) return undefined
+    store.orders.add(order)
+    return () => {
+      store.orders.delete(order)
+    }
+  }, [store, order])
   return <OrderContext value={order}>{children}</OrderContext>
 }
 

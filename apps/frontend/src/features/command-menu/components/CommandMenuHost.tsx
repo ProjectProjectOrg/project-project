@@ -1,51 +1,17 @@
 import { RegistryContext, useAtom, useAtomValue } from "@effect/atom-react"
-import { ProjectPolicy } from "@pp/access/policies"
-import {
-  canHoldChildren,
-  type Group,
-  type ProjectActor,
-  type ProjectDetail,
-  type TicketDetail,
-  type TicketSubscribers,
-  type TicketId
-} from "@pp/shared"
 import { useNavigate, useParams } from "@tanstack/react-router"
-import * as AsyncResult from "effect/reactivity/AsyncResult"
-import * as Atom from "effect/reactivity/Atom"
 import { useContext, useEffect, useState } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
 import { CommandMenuDialog } from "@/components/ui/command-menu"
 import { Freeze } from "@/components/ui/freeze"
-import { currentUserId } from "@/features/auth/atoms/auth"
-import { feedbackStatus } from "@/features/feedback/atoms/feedback"
 import { useIntegrationCommands } from "@/features/integrations/hooks/useIntegrationCommands"
-import {
-  project,
-  projectActor,
-  projectRequest
-} from "@/features/projects/atoms/projects"
-import {
-  sprintListRequest,
-  sprintMembership
-} from "@/features/sprints/atoms/sprintList"
-import {
-  ticketSubscribers,
-  ticketSubscribersRequest
-} from "@/features/subscriptions/atoms/ticketSubscribers"
-import {
-  ticketDetail,
-  ticketRequest
-} from "@/features/tickets/atoms/ticketDetail"
 import { TicketContextChip } from "@/features/tickets/components/command-pages/TicketContextChip"
 import { TicketSelectionChips } from "@/features/tickets/components/command-pages/TicketSelectionChips"
-import {
-  ticketPermissions,
-  type TicketPermissions
-} from "@/features/tickets/lib/ticketPermissions"
-import { useOrgActor } from "@/hooks/useActor"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
+import { commandContext } from "../atoms/commandContext"
 import {
   commandMenuState,
   commandScopes,
@@ -59,25 +25,21 @@ import {
   pushCommandPage,
   actOnTicket,
   deselectFromCommandMenu,
-  type CommandMenuState,
-  type TicketContext
+  type CommandMenuState
 } from "../lib/commandMenu"
 import type { CommandContext, CommandEnv } from "../lib/commands"
 import {
+  commandTarget,
   scopeCommands,
-  scopeSelection,
   scopeSprint,
-  scopeTicket,
   scopeView,
   type CommandScope
 } from "../lib/commandScopes"
 import { COMMAND_PAGES } from "../pages"
 import { commandRegistry } from "../registry"
+import { CommandHotkeys } from "./CommandHotkeys"
 import { RootCommands } from "./RootCommands"
-
-const noTicketDetail: Atom.Atom<
-  AsyncResult.AsyncResult<TicketDetail, unknown>
-> = Atom.make(AsyncResult.initial())
+import { ShortcutSheet } from "./ShortcutSheet"
 
 export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
   const registry = useContext(RegistryContext)
@@ -92,23 +54,18 @@ export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
       <CommandMenuDialog
         open={state.open}
         onOpenChange={(open) => {
-          const selection = open ? scopeSelection(scopes) : null
-          const [first] = selection?.tickets ?? []
+          if (!open) {
+            setState(CLOSED_COMMAND_MENU)
+            return
+          }
+          const pointed = registry.get(pointedTicket)
+          const target = commandTarget(orgSlug, scopes, pointed)
           setState(
-            !open
-              ? CLOSED_COMMAND_MENU
-              : selection !== null && first !== undefined
-                ? openCommandMenu(
-                    { orgSlug, slug: selection.slug, ticketId: first.id },
-                    "root",
-                    selection.tickets
-                  )
-                : openCommandMenu(
-                    scopeTicket(scopes) ?? registry.get(pointedTicket)
-                  )
+            openCommandMenu(target.ticket, "root", target.selection, pointed)
           )
         }}
         title={m.chrome_command_menu_title()}
+        shortcut={appHotkeys["app.command-menu"]}
         pulseKey={`${state.ticket?.ticketId ?? ""}:${state.selection.length}:${state.pages.join("/")}`}
       >
         {shown.open && (
@@ -123,6 +80,8 @@ export function CommandMenuHost({ orgSlug }: Readonly<{ orgSlug: string }>) {
           </Freeze>
         )}
       </CommandMenuDialog>
+      <CommandHotkeys orgSlug={orgSlug} />
+      <ShortcutSheet />
       {!state.open && <CommandMenuPrewarm orgSlug={orgSlug} scopes={scopes} />}
     </>
   )
@@ -173,88 +132,6 @@ const PREWARM_TIMEOUT_MS = 3000
 
 const ignoreChange = () => {}
 
-const noProject: Atom.Atom<AsyncResult.AsyncResult<
-  ProjectDetail,
-  unknown
-> | null> = Atom.make(null)
-
-function useProjectContext(orgSlug: string, projectSlug: string | null) {
-  const req = projectSlug === null ? null : projectRequest(orgSlug, projectSlug)
-  const detail = useAtomValue(req === null ? noProject : project(req))
-  const actor = useAtomValue(req === null ? noActor : projectActor(req))
-  if (actor === null) {
-    return {
-      projectActor: null,
-      project: null,
-      tickets: NO_PROJECT_TICKETS,
-      canManageProject: false
-    }
-  }
-  return {
-    projectActor: actor,
-    project:
-      detail !== null && AsyncResult.isSuccess(detail) ? detail.value : null,
-    tickets: ticketPermissions(actor),
-    canManageProject: ProjectPolicy.canUpdate(actor, { settings: true })
-  }
-}
-
-const NO_PROJECT_TICKETS: TicketPermissions = {
-  create: true,
-  edit: false,
-  assign: false,
-  split: false,
-  move: false,
-  archive: false,
-  delete: false,
-  stackBranch: false,
-  clearBranch: false,
-  planSprints: true
-}
-
-const noActor: Atom.Atom<ProjectActor | null> = Atom.make(null)
-
-function useTicketDetail(ticket: TicketContext | null): TicketDetail | null {
-  const result = useAtomValue(
-    ticket === null
-      ? noTicketDetail
-      : ticketDetail(
-          ticketRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
-        )
-  )
-  return AsyncResult.isSuccess(result) ? result.value : null
-}
-
-const noSprintMembership: Atom.Atom<
-  AsyncResult.AsyncResult<ReadonlyMap<TicketId, Group>, unknown>
-> = Atom.make(AsyncResult.initial())
-
-function useTicketSprint(ticket: TicketContext | null): Group | null {
-  const result = useAtomValue(
-    ticket === null
-      ? noSprintMembership
-      : sprintMembership(sprintListRequest(ticket.orgSlug, ticket.slug))
-  )
-  return ticket !== null && AsyncResult.isSuccess(result)
-    ? (result.value.get(ticket.ticketId) ?? null)
-    : null
-}
-
-const noSubscribers: Atom.Atom<
-  AsyncResult.AsyncResult<TicketSubscribers, unknown>
-> = Atom.make(AsyncResult.initial())
-
-function useTicketSubscribed(ticket: TicketContext | null): boolean | null {
-  const result = useAtomValue(
-    ticket === null
-      ? noSubscribers
-      : ticketSubscribers(
-          ticketSubscribersRequest(ticket.orgSlug, ticket.slug, ticket.ticketId)
-        )
-  )
-  return AsyncResult.isSuccess(result) ? result.value.subscribed : null
-}
-
 function useCommandEnv(
   state: CommandMenuState,
   onChange: (state: CommandMenuState) => void
@@ -264,7 +141,7 @@ function useCommandEnv(
   return {
     registry,
     execute: (atom, value) => void fireMutation(registry, atom, value),
-    navigate: (to) => void navigate({ to }),
+    navigate: (to, search) => void navigate({ to, search }),
     copy: (text) => void navigator.clipboard.writeText(text),
     open: (page, from) => onChange(pushCommandPage(state, page, from)),
     actOn: (ticket, from) => onChange(actOnTicket(state, ticket, from)),
@@ -285,28 +162,13 @@ function CommandMenuPage({
 }>) {
   const { ticket } = state
   const params = useParams({ strict: false })
-  const viewerId = useAtomValue(currentUserId) ?? null
   const projectSlug = params.slug ?? ticket?.slug ?? null
-  const orgActor = useOrgActor(orgSlug)
-  const detail = useTicketDetail(ticket)
-  const feedback = useAtomValue(feedbackStatus(orgSlug))
   const context: CommandContext = {
-    orgSlug,
-    orgActor,
-    projectSlug,
-    ticket,
+    ...useAtomValue(commandContext({ orgSlug, projectSlug, ticket })),
+    routeProjectSlug: params.slug ?? null,
     selection: state.selection,
-    ticketDetail: detail,
-    ticketSprint: useTicketSprint(ticket),
-    ticketSubscribed: useTicketSubscribed(ticket),
-    canHoldChildren: detail !== null && canHoldChildren(detail, detail.parent),
     sprint: scopeSprint(scopes),
-    view: scopeView(scopes),
-    viewerId,
-    canSeeOrgMembers: orgActor.call("org", "members"),
-    canCreateProjects: orgActor.call("projects", "create"),
-    canSendFeedback: AsyncResult.isSuccess(feedback) && feedback.value.enabled,
-    ...useProjectContext(orgSlug, projectSlug)
+    view: scopeView(scopes)
   }
   const integrations = useIntegrationCommands(context)
   const env = useCommandEnv(state, onChange)

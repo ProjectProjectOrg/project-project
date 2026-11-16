@@ -17,7 +17,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
-  DropdownMenuSubTrigger
+  DropdownMenuSubTrigger,
+  DropdownMenuShortcut
 } from "@/components/ui/dropdown-menu"
 import { clearBranch } from "@/features/github/atoms/github"
 import { usePreferredBranchLink } from "@/features/github/components/ticket-git/BranchChip"
@@ -25,6 +26,7 @@ import { repoUrl } from "@/features/github/lib/branchUrl"
 import { ticketRepo } from "@/features/github/lib/repos"
 import { project } from "@/features/projects/atoms/projects"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 import type { TicketMenuTicket } from "./TicketMenu"
@@ -115,6 +117,9 @@ function BranchItems({
       >
         <Copy className="size-4" strokeWidth={1.75} />
         {m.tickets_command_copy_branch()}
+        <DropdownMenuShortcut
+          keys={appHotkeys["tickets.copy-branch"].defaultHotkey}
+        />
       </DropdownMenuItem>
       {(canStack || canUnlink) && <DropdownMenuSeparator />}
       {canStack && (

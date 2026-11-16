@@ -20,8 +20,10 @@ const context: CommandContext = {
   orgActor: OrgActor.none,
   projectActor: null,
   projectSlug: null,
+  routeProjectSlug: null,
   ticket: null,
   selection: [],
+  ticketData: null,
   ticketDetail: null,
   ticketSprint: null,
   ticketSubscribed: null,
@@ -122,7 +124,7 @@ describe("integration commands", () => {
     "suggests only actionable setup: $name",
     ({ state, prerequisite, suggested }) => {
       const commands = integrationCommands([{ ...entry, state, prerequisite }])
-      expect(commands[0]?.searchOnly).toBe(!suggested)
+      expect(commands[0]?.listed).toBe(suggested ? "always" : "search")
       expect(commands[0]?.group).toBe(suggested ? "setup" : "navigation")
     }
   )

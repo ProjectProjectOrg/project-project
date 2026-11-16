@@ -1,46 +1,67 @@
 import { RegistryContext } from "@effect/atom-react"
-import type { TicketId } from "@pp/shared"
+import type { Ticket } from "@pp/shared"
 import {
   useContext,
   useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
   type FocusEvent,
   type PointerEvent
 } from "react"
 
+import { TicketViewSourceContext } from "@/features/tickets/hooks/ticketViewSource"
+import type { TicketEdit } from "@/features/tickets/lib/ticketPatch"
 import { isKeyboardNavigating } from "@/lib/keyboard"
 
-import { pointedTicket } from "../atoms/commandMenu"
-import type { TicketContext } from "../lib/commandMenu"
+import { commandMenuState, pointedTicket } from "../atoms/commandMenu"
+import { pointedAt, type TicketContext } from "../lib/commandMenu"
 
 export function usePointedTicket(
   orgSlug: string,
   slug: string,
-  ticketId: TicketId
+  row: Ticket,
+  patch: (edit: TicketEdit) => void
 ) {
   const registry = useContext(RegistryContext)
-  const isThis = (pointed: TicketContext | null) =>
-    pointed !== null &&
-    pointed.ticketId === ticketId &&
-    pointed.slug === slug &&
-    pointed.orgSlug === orgSlug
+  const search = useContext(TicketViewSourceContext)
+  const ticketId = row.id
+  const self: TicketContext = { orgSlug, slug, ticketId }
+  const latestPatch = useRef(patch)
+  useLayoutEffect(() => {
+    latestPatch.current = patch
+  })
+  const [stablePatch] = useState(
+    () => (edit: TicketEdit) => latestPatch.current(edit)
+  )
   const enter = () => {
-    if (!isThis(registry.get(pointedTicket))) {
-      registry.set(pointedTicket, { orgSlug, slug, ticketId })
+    const pointed = pointedAt(registry.get(pointedTicket), self)
+    if (pointed?.row !== row) {
+      registry.set(pointedTicket, { ...self, row, patch: stablePatch, search })
     }
   }
   const leave = () => {
-    if (isThis(registry.get(pointedTicket))) {
+    if (pointedAt(registry.get(pointedTicket), self) !== null) {
       registry.set(pointedTicket, null)
     }
   }
+  useEffect(() => {
+    const at = { orgSlug, slug, ticketId: row.id }
+    const pointed = pointedAt(registry.get(pointedTicket), at)
+    if (pointed !== null && pointed.row !== row) {
+      registry.set(pointedTicket, { ...pointed, row })
+    }
+    const menu = registry.get(commandMenuState)
+    const opened = pointedAt(menu.row, at)
+    if (opened !== null && opened.row !== row) {
+      registry.set(commandMenuState, { ...menu, row: { ...opened, row } })
+    }
+  }, [registry, orgSlug, slug, row])
   useEffect(
     () => () => {
-      const pointed = registry.get(pointedTicket)
       if (
-        pointed !== null &&
-        pointed.ticketId === ticketId &&
-        pointed.slug === slug &&
-        pointed.orgSlug === orgSlug
+        pointedAt(registry.get(pointedTicket), { orgSlug, slug, ticketId }) !==
+        null
       ) {
         registry.set(pointedTicket, null)
       }

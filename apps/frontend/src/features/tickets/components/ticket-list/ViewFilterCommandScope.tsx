@@ -13,6 +13,7 @@ import {
   toggleChoice,
   type FilterChoice
 } from "@/features/tickets/lib/filterChoices"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 import {
@@ -41,6 +42,7 @@ export function ViewFilterCommandScope({
     const commands: Array<Command> = [
       {
         id: "view.filter",
+        hotkey: appHotkeys["tickets.filter"],
         group: "view",
         label: m.tickets_command_filter,
         icon: SlidersHorizontal,
@@ -66,7 +68,7 @@ export function ViewFilterCommandScope({
         (option): Command => ({
           id: `view.filter.${option.key}`,
           group: "view",
-          searchOnly: true,
+          listed: "search",
           parent: option.chosen
             ? m.tickets_command_filter_remove_parent
             : m.tickets_command_filter_parent,

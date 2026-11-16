@@ -1,9 +1,17 @@
-import { FolderKanban, FolderPlus, ListTodo, Timer } from "lucide-react"
+import {
+  CalendarClock,
+  FolderKanban,
+  FolderPlus,
+  Info,
+  ListTodo,
+  Timer
+} from "lucide-react"
 
 import type {
   Command,
   CommandContext
 } from "@/features/command-menu/lib/commands"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 const projectPath = ({ orgSlug, projectSlug }: CommandContext) =>
@@ -14,6 +22,7 @@ const inProject = (context: CommandContext) => context.projectSlug !== null
 export const projectCommands: ReadonlyArray<Command> = [
   {
     id: "project.switch",
+    hotkey: appHotkeys["nav.projects"],
     group: "navigation",
     label: m.chrome_command_menu_switch_project,
     icon: FolderKanban,
@@ -31,6 +40,7 @@ export const projectCommands: ReadonlyArray<Command> = [
   },
   {
     id: "project.backlog",
+    hotkey: appHotkeys["nav.backlog"],
     group: "navigation",
     label: m.chrome_command_menu_go_backlog,
     icon: ListTodo,
@@ -42,6 +52,7 @@ export const projectCommands: ReadonlyArray<Command> = [
   },
   {
     id: "project.sprints",
+    hotkey: appHotkeys["nav.sprints"],
     group: "navigation",
     label: m.chrome_command_menu_go_sprints,
     icon: Timer,
@@ -49,6 +60,32 @@ export const projectCommands: ReadonlyArray<Command> = [
     when: inProject,
     run: (context, env) => {
       env.navigate(`${projectPath(context)}/sprints`)
+      env.close()
+    }
+  },
+  {
+    id: "project.current-sprint",
+    hotkey: appHotkeys["nav.current-sprint"],
+    group: "navigation",
+    label: m.chrome_command_menu_go_current_sprint,
+    icon: CalendarClock,
+    keywords: ["active", "sprint"],
+    when: inProject,
+    run: (context, env) => {
+      env.navigate(`${projectPath(context)}/sprints/current`)
+      env.close()
+    }
+  },
+  {
+    id: "project.about",
+    hotkey: appHotkeys["nav.about"],
+    group: "navigation",
+    label: m.chrome_command_menu_go_about,
+    icon: Info,
+    keywords: ["overview", "readme", "links"],
+    when: inProject,
+    run: (context, env) => {
+      env.navigate(`${projectPath(context)}/about`)
       env.close()
     }
   }

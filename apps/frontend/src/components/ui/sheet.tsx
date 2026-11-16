@@ -2,6 +2,7 @@ import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 import { XIcon } from "lucide-react"
 import * as React from "react"
 
+import { PopupHotkeyScope } from "@/components/ui/popup-hotkey-scope"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -60,7 +61,7 @@ function SheetContent({
   side = "left",
   showCloseButton = true,
   ...props
-}: React.ComponentProps<typeof SheetPrimitive.Popup> & {
+}: Omit<React.ComponentProps<typeof SheetPrimitive.Popup>, "render"> & {
   side?: SheetSide
   showCloseButton?: boolean
 }) {
@@ -75,6 +76,13 @@ function SheetContent({
           className
         )}
         {...props}
+        render={(popupProps, state) => (
+          <div {...popupProps}>
+            <PopupHotkeyScope open={state.open}>
+              {popupProps.children}
+            </PopupHotkeyScope>
+          </div>
+        )}
       >
         {children}
         {showCloseButton && (

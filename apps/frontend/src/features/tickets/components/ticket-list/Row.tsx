@@ -102,7 +102,7 @@ function RowImpl({
     if (!previewOpen) setPreviewMounted(true)
     onPreviewOpenChange(ticket.id, !previewOpen)
   }
-  const pointAt = usePointedTicket(orgSlug, slug, ticket.id)
+  const pointAt = usePointedTicket(orgSlug, slug, ticket, patchRow)
   const key = selectionKey(slug, ticket.id)
   const selectable = useTicketSelection(key)
   const selection = pending ? null : selectable

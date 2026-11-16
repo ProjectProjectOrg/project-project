@@ -1,8 +1,10 @@
-import { Link, LogOut, Palette } from "lucide-react"
+import { Keyboard, Link, LogOut, Palette } from "lucide-react"
 
 import { logout } from "@/features/auth/atoms/auth"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
+import { shortcutSheetOpen } from "./atoms/commandMenu"
 import type { Command } from "./lib/commands"
 
 export const appCommands: ReadonlyArray<Command> = [
@@ -14,6 +16,18 @@ export const appCommands: ReadonlyArray<Command> = [
     run: (_context, env) => {
       env.copy(window.location.href)
       env.close()
+    }
+  },
+  {
+    id: "app.shortcuts",
+    group: "miscellaneous",
+    label: m.chrome_keyboard_shortcuts,
+    icon: Keyboard,
+    keywords: ["hotkeys", "keys", "help"],
+    hotkey: appHotkeys["app.shortcuts"],
+    run: (_context, env) => {
+      env.close()
+      env.registry.set(shortcutSheetOpen, true)
     }
   },
   {

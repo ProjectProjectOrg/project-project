@@ -1,6 +1,8 @@
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip"
+import type { AppHotkey } from "@tanstack/react-hotkeys"
 import * as React from "react"
 
+import { KbdShortcut } from "@/components/ui/kbd"
 import { cn } from "@/lib/utils"
 
 function TooltipProvider(
@@ -54,4 +56,32 @@ function TooltipContent({
   )
 }
 
-export { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent }
+function ShortcutTooltip({
+  hotkey,
+  label,
+  children
+}: Readonly<{
+  hotkey: AppHotkey
+  label?: string
+  children: React.ReactElement
+}>) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={children} />
+      <TooltipContent className="flex items-center gap-2">
+        {label ?? hotkey.meta?.name}
+        {hotkey.hotkey !== null && (
+          <KbdShortcut keys={hotkey.hotkey} size="sm" aria-hidden />
+        )}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+export {
+  ShortcutTooltip,
+  Tooltip,
+  TooltipProvider,
+  TooltipTrigger,
+  TooltipContent
+}

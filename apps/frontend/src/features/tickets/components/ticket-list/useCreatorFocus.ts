@@ -1,3 +1,4 @@
+import { useHotkey } from "@tanstack/react-hotkeys"
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 
 const ownsNode = (container: HTMLElement, node: EventTarget | null) => {
@@ -42,23 +43,22 @@ export function useCreatorFocus(
       const container = containerRef.current
       if (container && !ownsNode(container, e.target)) leave()
     }
-    const onKeyDown = (e: KeyboardEvent) => {
-      const container = containerRef.current
-      if (e.key !== "Escape" || e.defaultPrevented || !activeRef.current) return
-      if (!(e.target instanceof Node) || !container?.contains(e.target)) return
-      e.preventDefault()
-      if (e.target instanceof HTMLElement) e.target.blur()
-      leave()
-    }
     document.addEventListener("focusin", onFocusIn)
     document.addEventListener("pointerdown", onPointerDown)
-    document.addEventListener("keydown", onKeyDown)
     return () => {
       document.removeEventListener("focusin", onFocusIn)
       document.removeEventListener("pointerdown", onPointerDown)
-      document.removeEventListener("keydown", onKeyDown)
     }
   }, [containerRef, leave])
+
+  useHotkey(
+    "Escape",
+    (event) => {
+      if (event.target instanceof HTMLElement) event.target.blur()
+      leave()
+    },
+    { target: containerRef, enabled: active, conflictBehavior: "allow" }
+  )
 
   return { active, leave }
 }

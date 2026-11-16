@@ -22,6 +22,8 @@ const domTests = [
   "src/features/projects/lib/imagePreload.test.ts",
   "src/features/sprints/lib/boardKeyboard.test.ts",
   "src/features/tickets/components/ticket-list/search.test.tsx",
+  "src/lib/keyCapHighlight.test.ts",
+  "src/features/tickets/components/command-pages/useTicketMutation.test.tsx",
   "src/features/tickets/components/ticket-list/sectionCollapse.test.ts",
   "src/features/tickets/components/ticket-list/toolbar/counts.test.tsx",
   "src/features/tickets/components/ticket-list/useTicketPreview.test.ts",

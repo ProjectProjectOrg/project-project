@@ -24,7 +24,11 @@ const subscribersQuery = (req: TicketSubscribersRequest) => {
   return query("ticketSubscriptions", "list", {
     params: req.params,
     timeToLive: "2 minutes",
-    reactivityKeys: [Keys.ticketsIn(scope), Keys.ticketComments(scope)]
+    reactivityKeys: [
+      Keys.ticketsIn(scope),
+      Keys.ticketComments(scope),
+      Keys.ticketSubscribers(scope, req.params.id)
+    ]
   })
 }
 
@@ -43,6 +47,12 @@ export const setSubscribed = Atom.family((req: TicketSubscribersRequest) =>
       subscribed
         ? client.ticketSubscriptions.subscribe({ params: req.params })
         : client.ticketSubscriptions.unsubscribe({ params: req.params }),
-    confirm: (_current, confirmed) => confirmed
+    confirm: (_current, confirmed) => confirmed,
+    publish: () => [
+      Keys.ticketSubscribers(
+        projectScope(req.params.orgSlug, req.params.slug),
+        req.params.id
+      )
+    ]
   })
 )

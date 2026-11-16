@@ -15,9 +15,10 @@ import {
   InputGroupAddon,
   InputGroupInput
 } from "@/components/ui/input-group"
-import { Kbd } from "@/components/ui/kbd"
+import { KbdShortcut } from "@/components/ui/kbd"
 import { comboboxProps, type ListboxState } from "@/components/ui/menu-listbox"
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { cn } from "@/lib/utils"
 
 type CreatorActive = Readonly<{
@@ -46,7 +47,6 @@ export function DimWhileCreating({
 export type TicketCreatorShellProps = Readonly<{
   inputRef: RefObject<HTMLInputElement | null>
   formRef: RefObject<HTMLFormElement | null>
-  shortcut: string
   value: string
   onValueChange: (next: string) => void
   onPointerEnter?: () => void
@@ -68,7 +68,6 @@ export type TicketCreatorShellProps = Readonly<{
 export function TicketCreatorShell({
   inputRef,
   formRef,
-  shortcut,
   value,
   onValueChange,
   onPointerEnter,
@@ -87,7 +86,7 @@ export function TicketCreatorShell({
   belowInput
 }: TicketCreatorShellProps) {
   const errorId = useId()
-  useGlobalShortcut(shortcut, inputRef)
+  useGlobalShortcut(appHotkeys["tickets.create"], inputRef)
 
   const setCreatorActive = use(CreatorActiveContext)?.setActive
   useEffect(() => {
@@ -136,7 +135,7 @@ export function TicketCreatorShell({
           }}
           placeholder={placeholder}
           aria-label={ariaLabel}
-          aria-keyshortcuts={shortcut}
+          aria-keyshortcuts={appHotkeys["tickets.create"].defaultHotkey}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           readOnly={busy}
@@ -153,7 +152,12 @@ export function TicketCreatorShell({
             {error}
           </span>
         ) : (
-          !expanded && <Kbd aria-hidden>{shortcut}</Kbd>
+          !expanded && (
+            <KbdShortcut
+              keys={appHotkeys["tickets.create"].defaultHotkey}
+              aria-hidden
+            />
+          )
         )}
       </InputGroup>
       {belowInput}

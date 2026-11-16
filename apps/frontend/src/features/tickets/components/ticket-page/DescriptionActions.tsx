@@ -3,8 +3,9 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Kbd } from "@/components/ui/kbd"
+import { KbdShortcut } from "@/components/ui/kbd"
 import type { SaveStatus } from "@/features/editor/components/LexicalEditor"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { transitions } from "@/lib/springs"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
@@ -68,9 +69,7 @@ export function DescriptionActions({
                   ? m.tickets_description_not_saved()
                   : m.tickets_description_done()}
               </MorphLabel>
-              <Kbd aria-hidden className="rounded-full px-1.5">
-                {m.tickets_description_done_key()}
-              </Kbd>
+              <KbdShortcut keys="Escape" variant="pill" aria-hidden />
               <span aria-live="polite" className="sr-only">
                 {statusLabel[status]()}
               </span>
@@ -79,18 +78,19 @@ export function DescriptionActions({
             <Button
               variant="ghost"
               aria-label={m.tickets_description_edit()}
-              aria-keyshortcuts="E"
+              aria-keyshortcuts={
+                appHotkeys["tickets.edit-description"].defaultHotkey
+              }
               onClick={onEdit}
               className="rounded-full bg-region pr-1.5 pl-3 hover:bg-region hover:bg-[image:linear-gradient(var(--hover),var(--hover))]"
             >
               <Pencil className="-mr-0.5 size-3.5" strokeWidth={1.75} />
               {m.tickets_description_edit_short()}
-              <Kbd
+              <KbdShortcut
+                keys={appHotkeys["tickets.edit-description"].defaultHotkey}
+                variant="raised"
                 aria-hidden
-                className="rounded-full bg-surface-5 px-1.5 shadow-surface-1"
-              >
-                {m.tickets_description_edit_key()}
-              </Kbd>
+              />
             </Button>
           )}
         </motion.div>

@@ -3,6 +3,7 @@ import { X } from "lucide-react"
 import type { ComponentProps } from "react"
 
 import { Button } from "@/components/ui/button"
+import { PopupHotkeyScope } from "@/components/ui/popup-hotkey-scope"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
@@ -10,9 +11,10 @@ function Dialog(props: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root {...props} />
 }
 
-type DialogContentProps = DialogPrimitive.Popup.Props &
+type DialogContentProps = Omit<DialogPrimitive.Popup.Props, "render"> &
   Readonly<{
     size?: "sm" | "lg"
+    position?: "top" | "center"
     showCloseButton?: boolean
   }>
 
@@ -20,6 +22,7 @@ function DialogContent({
   className,
   children,
   size = "sm",
+  position = "top",
   showCloseButton = true,
   ...props
 }: DialogContentProps) {
@@ -32,13 +35,24 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed inset-x-0 top-[round(down,max(12dvh,calc(50dvh-220px)),1px)] mx-auto flex w-[calc(100vw-2rem)] flex-col rounded-xl border border-border/60 bg-popover p-5 text-foreground shadow-[0_16px_48px_rgba(0,0,0,0.12)] outline-none dark:shadow-[0_16px_48px_rgba(0,0,0,0.6)]",
+          "fixed inset-x-0 mx-auto flex w-[calc(100vw-2rem)] flex-col rounded-xl border border-border/60 bg-popover p-5 text-foreground shadow-[0_16px_48px_rgba(0,0,0,0.12)] outline-none dark:shadow-[0_16px_48px_rgba(0,0,0,0.6)]",
+          position === "top" &&
+            "top-[round(down,max(12dvh,calc(50dvh-220px)),1px)]",
+          position === "center" &&
+            "inset-y-0 my-auto h-fit max-h-[calc(100dvh-2rem)]",
           "origin-top data-[closed]:animate-out data-[closed]:fade-out-0 data-[closed]:zoom-out-[0.98] data-[open]:animate-in data-[open]:fade-in-0 data-[open]:zoom-in-[0.98] motion-reduce:animate-none",
           size === "sm" && "max-w-[400px]",
           size === "lg" && "max-w-[40rem]",
           className
         )}
         {...props}
+        render={(popupProps, state) => (
+          <div {...popupProps}>
+            <PopupHotkeyScope open={state.open}>
+              {popupProps.children}
+            </PopupHotkeyScope>
+          </div>
+        )}
       >
         {children}
         {showCloseButton && (

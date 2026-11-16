@@ -8,7 +8,11 @@ import * as Schema from "effect/Schema"
 import { Archive, CircleSlash, Layers, Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
 
-import { CommandMenuCheck, CommandMenuItem } from "@/components/ui/command-menu"
+import {
+  CommandMenuCheck,
+  CommandMenuItem,
+  CommandMenuShortcut
+} from "@/components/ui/command-menu"
 import { commandScopes } from "@/features/command-menu/atoms/commandMenu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type { TicketContext } from "@/features/command-menu/lib/commandMenu"
@@ -149,9 +153,9 @@ export function TicketEstimatePage({
             <span className="min-w-0 flex-1 truncate tabular-nums">
               {item.label}
             </span>
-            {option !== undefined && sameEstimate(estimate, option) && (
-              <CommandMenuCheck />
-            )}
+            <CommandMenuCheck
+              checked={option !== undefined && sameEstimate(estimate, option)}
+            />
           </CommandMenuItem>
         )
       }}
@@ -190,14 +194,20 @@ export function TicketTypePage({
         }
         env.close()
       }}
-      renderItem={(item) => (
+      numbered
+      renderItem={(item, number) => (
         <CommandMenuItem value={item.value}>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          {current !== null &&
-            current.type !== undefined &&
-            typeOptionValue(current.type) === item.value && (
-              <CommandMenuCheck />
-            )}
+          {number !== undefined && (
+            <CommandMenuShortcut keys={number} aria-hidden />
+          )}
+          <CommandMenuCheck
+            checked={
+              current !== null &&
+              current.type !== undefined &&
+              typeOptionValue(current.type) === item.value
+            }
+          />
         </CommandMenuItem>
       )}
     />
@@ -279,9 +289,9 @@ export function TicketTagsPage({
               style={{ backgroundColor: tag?.color }}
             />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {tag !== undefined && applied.includes(tag.name) && (
-              <CommandMenuCheck />
-            )}
+            <CommandMenuCheck
+              checked={tag !== undefined && applied.includes(tag.name)}
+            />
           </CommandMenuItem>
         )
       }}
@@ -348,7 +358,9 @@ export function TicketParentPage({
                 <span className="min-w-0 truncate">{epic.title}</span>
               </span>
             )}
-            {epic !== undefined && epic.id === parent && <CommandMenuCheck />}
+            <CommandMenuCheck
+              checked={epic !== undefined && epic.id === parent}
+            />
           </CommandMenuItem>
         )
       }}

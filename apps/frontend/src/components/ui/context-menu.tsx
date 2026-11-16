@@ -1,7 +1,10 @@
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu"
 import * as React from "react"
 
-import { DropdownMenuPortal } from "@/components/ui/dropdown-menu"
+import {
+  DropdownMenuPortal,
+  pickNumberedItem
+} from "@/components/ui/dropdown-menu"
 import { MenuHighlight } from "@/components/ui/menu-highlight"
 import { menuPopupClass } from "@/components/ui/menu-styles"
 import { cn } from "@/lib/utils"
@@ -32,6 +35,7 @@ function ContextMenuContent({
       <ContextMenuPrimitive.Positioner>
         <ContextMenuPrimitive.Popup
           data-slot="dropdown-menu-content"
+          onKeyDownCapture={pickNumberedItem}
           onClick={(event) => {
             onClick?.(event)
             event.stopPropagation()

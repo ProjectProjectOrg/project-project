@@ -5,13 +5,17 @@ import { Bell, BellOff } from "lucide-react"
 import { useContext } from "react"
 
 import { fireMutation } from "@/api/viewMutation"
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
+import {
+  DropdownMenuItem,
+  DropdownMenuShortcut
+} from "@/components/ui/dropdown-menu"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
   setSubscribed,
   ticketSubscribers,
   ticketSubscribersRequest
 } from "@/features/subscriptions/atoms/ticketSubscribers"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 export function SubscribeMenuItem({
@@ -35,6 +39,9 @@ export function SubscribeMenuItem({
       {subscribed
         ? m.tickets_unsubscribe_button()
         : m.tickets_subscribe_button()}
+      <DropdownMenuShortcut
+        keys={appHotkeys["tickets.subscribe"].defaultHotkey}
+      />
     </DropdownMenuItem>
   )
 }

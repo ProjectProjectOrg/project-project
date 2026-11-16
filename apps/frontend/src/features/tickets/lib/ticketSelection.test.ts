@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   emptySelection,
+  selectAll,
   suggestedStatus,
   toggleSelection
 } from "./ticketSelection"
@@ -52,6 +53,22 @@ describe("toggleSelection", () => {
 })
 
 const status = Schema.decodeSync(TicketStatus)
+
+describe("selectAll", () => {
+  const mixed = ["web/T-1", "api/T-1", "web/T-2", "api/T-2"]
+
+  it("selects only the project of the current selection or pointed row", () => {
+    expect(selectAll(selected(["api/T-2"], "api/T-2"), mixed, null)).toEqual(
+      selected(["api/T-1", "api/T-2"], "api/T-2")
+    )
+    expect(selectAll(emptySelection, mixed, "api/T-1").keys).toEqual(
+      new Set(["api/T-1", "api/T-2"])
+    )
+    expect(selectAll(emptySelection, mixed, null).keys).toEqual(
+      new Set(["web/T-1", "web/T-2"])
+    )
+  })
+})
 
 describe("suggestedStatus", () => {
   const workflow = ["todo", "in_progress", "done"].map((each) => status(each))

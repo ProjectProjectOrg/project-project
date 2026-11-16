@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef } from "react"
+import { useHotkey } from "@tanstack/react-hotkeys"
+import { useLayoutEffect, useRef } from "react"
 
 export function useReorderMode(reorderMode: boolean, onExit: () => void) {
   const groupRef = useRef<HTMLDivElement>(null)
@@ -13,14 +14,11 @@ export function useReorderMode(reorderMode: boolean, onExit: () => void) {
     if (group.scrollWidth) group.style.width = `${group.scrollWidth}px`
   }, [reorderMode])
 
-  useEffect(() => {
-    if (!reorderMode) return undefined
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onExit()
-    }
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [reorderMode, onExit])
+  useHotkey("Escape", onExit, {
+    enabled: reorderMode,
+    preventDefault: false,
+    conflictBehavior: "allow"
+  })
 
   return groupRef
 }

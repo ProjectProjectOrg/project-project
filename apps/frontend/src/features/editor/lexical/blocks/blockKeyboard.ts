@@ -58,8 +58,6 @@ export const isOpenMenuShortcut = (event: KeyboardEvent): boolean =>
     altKey: false
   })
 
-export const MOVE_UP_SHORTCUT = IS_APPLE ? "⌘⇧↑" : "Ctrl+Shift+↑"
-export const MOVE_DOWN_SHORTCUT = IS_APPLE ? "⌘⇧↓" : "Ctrl+Shift+↓"
 export const OPEN_MENU_SHORTCUT = IS_APPLE ? "⌘." : "Ctrl+."
 
 export function registerBlockKeyboard(

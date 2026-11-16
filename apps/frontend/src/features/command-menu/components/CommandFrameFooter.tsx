@@ -1,3 +1,4 @@
+import type { Hotkey } from "@tanstack/react-hotkeys"
 import { motion, useReducedMotion } from "motion/react"
 
 import {
@@ -11,7 +12,7 @@ import { m } from "@/paraglide/messages"
 
 import type { CommandFrameItem } from "./CommandFrame"
 
-function KeyFirst({ keys, label }: Readonly<{ keys: string; label: string }>) {
+function KeyFirst({ keys, label }: Readonly<{ keys: Hotkey; label: string }>) {
   return (
     <span className="flex shrink-0 items-center gap-1.5">
       <CommandMenuShortcut keys={keys} className="ml-0" />
@@ -42,24 +43,24 @@ export function SearchFooter({
       >
         {shown !== null && (
           <KeyFirst
-            keys="enter"
+            keys="Enter"
             label={shown.enterLabel ?? m.chrome_command_menu_run()}
           />
         )}
         <span className="ml-auto flex items-center gap-4">
           {shown?.actionable === true && (
-            <KeyFirst keys="tab" label={m.chrome_command_menu_actions()} />
+            <KeyFirst keys="Tab" label={m.chrome_command_menu_actions()} />
           )}
           {peekOpen ? (
             <CommandMenuFooterHint
               label={m.chrome_command_menu_close_peek()}
-              keys="arrowleft"
+              keys="ArrowLeft"
             />
           ) : (
             shown?.peekable === true && (
               <CommandMenuFooterHint
                 label={m.chrome_command_menu_peek()}
-                keys="arrowright"
+                keys="ArrowRight"
               />
             )
           )}

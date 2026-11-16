@@ -3,7 +3,11 @@ import type { ProjectStatus } from "@pp/shared"
 import * as Result from "effect/reactivity/AsyncResult"
 import type { ReactNode } from "react"
 
-import { CommandMenuItem, CommandMenuCheck } from "@/components/ui/command-menu"
+import {
+  CommandMenuCheck,
+  CommandMenuItem,
+  CommandMenuShortcut
+} from "@/components/ui/command-menu"
 import { CommandFrame } from "@/features/command-menu/components/CommandFrame"
 import type {
   SelectedTicket,
@@ -57,7 +61,8 @@ export function TicketStatusCommands({
         if (status) update({ status: status.slug })
         onClose()
       }}
-      renderItem={(item) => {
+      numbered
+      renderItem={(item, number) => {
         const status = bySlug.get(item.value)
         if (status === undefined) return null
         const meta = statusMetaFor(status.slug, statuses)
@@ -70,7 +75,10 @@ export function TicketStatusCommands({
               strokeWidth={1.75}
             />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {current?.status === item.value && <CommandMenuCheck />}
+            {number !== undefined && (
+              <CommandMenuShortcut keys={number} aria-hidden />
+            )}
+            <CommandMenuCheck checked={current?.status === item.value} />
           </CommandMenuItem>
         )
       }}

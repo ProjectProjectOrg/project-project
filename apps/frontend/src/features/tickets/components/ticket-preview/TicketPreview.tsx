@@ -11,6 +11,7 @@ import {
   type TicketId,
   type TicketStatus
 } from "@pp/shared"
+import type { HotkeyChord } from "@tanstack/react-hotkeys"
 import { Link } from "@tanstack/react-router"
 import * as Effect from "effect/Effect"
 import * as Result from "effect/reactivity/AsyncResult"
@@ -68,7 +69,7 @@ import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
 type TicketPreview =
-  | Readonly<{ kind: "ticket"; id: TicketId; shortcut?: string }>
+  | Readonly<{ kind: "ticket"; id: TicketId; shortcut?: HotkeyChord }>
   | Readonly<{ kind: "relations"; id: TicketId; relation: RelationPreviewKind }>
   | Readonly<{
       kind: "subTickets"

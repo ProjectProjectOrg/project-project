@@ -1,6 +1,7 @@
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 import * as React from "react"
 
+import { PopupHotkeyScope } from "@/components/ui/popup-hotkey-scope"
 import { useActivityHiddenPortalRef } from "@/hooks/useActivityHiddenPortalRef"
 import { cn } from "@/lib/utils"
 
@@ -21,7 +22,10 @@ function PopoverTrigger(
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
 }
 
-type PopoverContentProps = React.ComponentProps<typeof PopoverPrimitive.Popup> &
+type PopoverContentProps = Omit<
+  React.ComponentProps<typeof PopoverPrimitive.Popup>,
+  "render"
+> &
   Pick<
     React.ComponentProps<typeof PopoverPrimitive.Positioner>,
     | "align"
@@ -47,6 +51,7 @@ function PopoverContent({
   collisionBoundary,
   collisionPadding,
   keepMounted,
+  children,
   ...props
 }: PopoverContentProps) {
   return (
@@ -69,7 +74,16 @@ function PopoverContent({
             className
           )}
           {...props}
-        />
+          render={(popupProps, state) => (
+            <div {...popupProps}>
+              <PopupHotkeyScope open={state.open}>
+                {popupProps.children}
+              </PopupHotkeyScope>
+            </div>
+          )}
+        >
+          {children}
+        </PopoverPrimitive.Popup>
       </PopoverPrimitive.Positioner>
     </PopoverPortal>
   )

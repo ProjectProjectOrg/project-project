@@ -258,7 +258,7 @@ export function useSprintActions({
         group: "sprint",
         label: m.sprints_command_delete,
         icon: Trash2,
-        searchOnly: true,
+        listed: "search",
         keywords: ["remove"],
         page: "sprintDelete"
       })

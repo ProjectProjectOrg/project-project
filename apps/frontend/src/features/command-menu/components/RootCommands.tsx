@@ -34,7 +34,7 @@ import {
 } from "../lib/commands"
 import { CommandFrame, type CommandFrameItem } from "./CommandFrame"
 
-const GROUP_LABELS: Readonly<Record<CommandGroup, () => string>> = {
+export const GROUP_LABELS: Readonly<Record<CommandGroup, () => string>> = {
   ticket: m.tickets_command_group,
   ticketRelations: m.tickets_command_group_relations,
   ticketGit: m.tickets_command_group_git,
@@ -61,7 +61,8 @@ export const commandItem = (
   keywords: command.keywords,
   parent: command.parent?.(),
   aside: command.aside?.(context),
-  searchOnly: command.searchOnly,
+  searchOnly: command.listed === "search",
+  shortcut: command.hotkey?.hotkey ?? undefined,
   enterLabel:
     "page" in command
       ? m.chrome_command_menu_select()
@@ -146,7 +147,9 @@ export function RootCommands({
         ] as const
     )
   ])
-  const visible = visibleCommands(commands, context)
+  const visible = visibleCommands(commands, context).filter(
+    (command) => command.listed !== "never"
+  )
   const byId = new Map(visible.map((command) => [command.id, command]))
   const items: ReadonlyArray<CommandFrameItem> = [
     ...visible.map((command) => commandItem(command, context)),

@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react"
+import type { Hotkey } from "@tanstack/react-hotkeys"
 import * as Result from "effect/reactivity/AsyncResult"
 import { Bot, Copy, FileText, Hash, Link2, Type } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
@@ -8,7 +9,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
-  DropdownMenuSubTrigger
+  DropdownMenuSubTrigger,
+  DropdownMenuShortcut
 } from "@/components/ui/dropdown-menu"
 import { useProjectRoute } from "@/features/projects/hooks/useProject"
 import {
@@ -20,6 +22,7 @@ import {
   ticketPrompt,
   ticketUrl
 } from "@/features/tickets/lib/ticketClipboard"
+import { appHotkeys } from "@/lib/appHotkeys"
 import { m } from "@/paraglide/messages"
 
 import type { TicketMenuTicket } from "./TicketMenu"
@@ -29,8 +32,14 @@ const copy = (text: string) => void navigator.clipboard.writeText(text)
 function CopyItem({
   icon: Icon,
   label,
-  text
-}: Readonly<{ icon: LucideIcon; label: string; text: string | null }>) {
+  text,
+  hotkey
+}: Readonly<{
+  icon: LucideIcon
+  label: string
+  text: string | null
+  hotkey?: Hotkey
+}>) {
   return (
     <DropdownMenuItem
       disabled={text === null}
@@ -41,6 +50,7 @@ function CopyItem({
     >
       <Icon className="size-4" strokeWidth={1.75} />
       {label}
+      {hotkey !== undefined && <DropdownMenuShortcut keys={hotkey} />}
     </DropdownMenuItem>
   )
 }
@@ -72,8 +82,18 @@ function CopyItems({
   const full = Result.isSuccess(detail) ? detail.value : null
   return (
     <>
-      <CopyItem icon={Hash} label={m.tickets_menu_copy_id()} text={ticket.id} />
-      <CopyItem icon={Link2} label={m.tickets_menu_copy_url()} text={url} />
+      <CopyItem
+        icon={Hash}
+        label={m.tickets_menu_copy_id()}
+        text={ticket.id}
+        hotkey={appHotkeys["tickets.copy-id"].defaultHotkey}
+      />
+      <CopyItem
+        icon={Link2}
+        label={m.tickets_menu_copy_url()}
+        text={url}
+        hotkey={appHotkeys["tickets.copy-link"].defaultHotkey}
+      />
       <CopyItem
         icon={Type}
         label={m.tickets_menu_copy_title()}

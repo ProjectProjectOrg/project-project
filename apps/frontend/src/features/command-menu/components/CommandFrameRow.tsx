@@ -1,7 +1,10 @@
 import type { TextRange } from "@pp/shared"
 import { ChevronRight } from "lucide-react"
 
-import { CommandMenuItem } from "@/components/ui/command-menu"
+import {
+  CommandMenuItem,
+  CommandMenuShortcut
+} from "@/components/ui/command-menu"
 import { cn } from "@/lib/utils"
 
 import type { CommandFrameItem } from "./CommandFrame"
@@ -9,7 +12,7 @@ import type { CommandFrameItem } from "./CommandFrame"
 export function CommandFrameRow({
   item
 }: Readonly<{ item: CommandFrameItem }>) {
-  const { prefix, parent, aside, detail } = item
+  const { prefix, parent, aside, detail, shortcut } = item
   if (detail !== undefined) {
     return (
       <CommandMenuItem
@@ -58,6 +61,9 @@ export function CommandFrameRow({
           <span className="ml-1 flex min-w-0 group-aria-selected/command-item:[&_.text-muted-foreground]:text-foreground">
             {aside}
           </span>
+        )}
+        {shortcut !== undefined && (
+          <CommandMenuShortcut keys={shortcut} aria-hidden className="ml-2" />
         )}
       </span>
     </CommandMenuItem>

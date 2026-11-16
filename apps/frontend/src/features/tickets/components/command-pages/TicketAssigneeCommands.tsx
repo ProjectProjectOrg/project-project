@@ -66,7 +66,7 @@ export function TicketAssigneeCommands({
           <CommandMenuItem value={item.value}>
             <MemberAvatar member={member} size={18} />
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {assigned.has(item.value) && <CommandMenuCheck />}
+            <CommandMenuCheck checked={assigned.has(item.value)} />
           </CommandMenuItem>
         )
       }}

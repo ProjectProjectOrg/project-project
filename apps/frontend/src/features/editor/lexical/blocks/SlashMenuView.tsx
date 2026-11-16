@@ -313,15 +313,15 @@ function SlashMenuFooter({ tabs }: Readonly<{ tabs: boolean }>) {
     <CommandMenuFooter>
       <CommandMenuFooterHint
         label={m.editor_slash_footer_select()}
-        keys={["up", "down"]}
+        keys={["ArrowUp", "ArrowDown"]}
       />
       {tabs ? (
-        <CommandMenuFooterHint label={m.editor_slash_tabs_label()} keys="tab" />
+        <CommandMenuFooterHint label={m.editor_slash_tabs_label()} keys="Tab" />
       ) : null}
       {row === undefined ? null : (
         <span className="ml-auto flex min-w-0 items-center gap-1.5 text-foreground">
           <span className="truncate">{row.label}</span>
-          <CommandMenuShortcut keys="enter" className="ml-0" />
+          <CommandMenuShortcut keys="Enter" className="ml-0" />
         </span>
       )}
     </CommandMenuFooter>
