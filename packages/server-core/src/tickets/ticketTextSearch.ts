@@ -35,7 +35,7 @@ export const searchWords = (query: string): ReadonlyArray<string> => [
 const plainProse = (text: string): string => {
   if (!/\[|\*\*|__/.test(text)) return text
   return text
-    .replace(/\[([^\]]*)\]\(mention:[^)]*\)/g, "@$1")
+    .replace(/\[@?([^\]]*)\]\(mention:[^)]*\)/g, "@$1")
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/(\*\*|__)/g, "")
 }
@@ -53,6 +53,21 @@ const plainLine = (line: string): string => {
     )
     .join("")
     .trim()
+}
+
+const EXCERPT_LENGTH = 140
+
+export const plainExcerpt = (markdown: string): string => {
+  const text = markdown
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("```"))
+    .map(plainLine)
+    .filter((line) => line !== "")
+    .join(" ")
+    .replace(/\s+/g, " ")
+  return text.length > EXCERPT_LENGTH
+    ? `${text.slice(0, EXCERPT_LENGTH - 1).trimEnd()}…`
+    : text
 }
 
 const linkKey = (url: string): string =>

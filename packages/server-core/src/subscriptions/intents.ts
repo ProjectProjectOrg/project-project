@@ -26,6 +26,7 @@ export type CommentChange = Readonly<{
   native: boolean
   isNew: boolean
   mentioned: ReadonlyArray<string>
+  body: string
 }>
 
 export const overridesUnsubscribe = (reason: SubscriptionReason): boolean =>
@@ -68,7 +69,8 @@ export const commentChanges = (
         authorId: block.author.kind === "user" ? block.author.userId : null,
         native: block.origin === "native",
         isNew: earlier === undefined,
-        mentioned: newlyMentioned(earlier ?? "", block.body)
+        mentioned: newlyMentioned(earlier ?? "", block.body),
+        body: block.body
       }
     ]
   })

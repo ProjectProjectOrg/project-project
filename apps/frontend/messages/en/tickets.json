@@ -30,6 +30,7 @@
   "tickets_activity_load_failed": "Couldn't load activity.",
   "tickets_activity_loading": "Loading activity…",
   "tickets_activity_moved": "moved this from",
+  "tickets_activity_new_since_read": "New since you last read it:",
   "tickets_activity_order_newest": "Newest first",
   "tickets_activity_order_oldest": "Oldest first",
   "tickets_activity_pr_closed": "closed",

@@ -5,20 +5,10 @@ import type {
   TicketId
 } from "@pp/shared"
 import * as AsyncResult from "effect/reactivity/AsyncResult"
-import {
-  Bot,
-  ChevronRight,
-  GitBranch,
-  Import,
-  type LucideIcon
-} from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
-import claudeLogo from "@/assets/logos/claude.svg"
-import codexDarkLogo from "@/assets/logos/codex_dark.svg"
-import codexLightLogo from "@/assets/logos/codex_light.svg"
-import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar"
-import { MemberAvatar } from "@/features/members/components/MemberAvatar"
+import { AvatarGroup } from "@/components/ui/avatar"
 import {
   statusesFor,
   statusesRequest
@@ -32,6 +22,8 @@ import {
   ticketActivity,
   ticketActivityRequest
 } from "@/features/tickets/atoms/ticketActivity"
+import { ActorMark, agentLogo } from "@/features/tickets/components/ActorMark"
+import { useIsNewSinceRead } from "@/features/tickets/components/ReadSince"
 import {
   ActivityLineView,
   type ActivityLookups
@@ -49,54 +41,10 @@ import {
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-const SYSTEM_ICONS: Readonly<Record<ActivitySystemSource, LucideIcon>> = {
-  github: GitBranch,
-  automation: Bot,
-  import: Import
-}
-
 const SYSTEM_NAMES: Readonly<Record<ActivitySystemSource, () => string>> = {
   github: () => m.tickets_activity_actor_github(),
   automation: () => m.tickets_activity_actor_automation(),
   import: () => m.tickets_activity_actor_import()
-}
-
-const AGENT_LOGOS = [
-  { match: "claude", light: claudeLogo, dark: claudeLogo },
-  { match: "codex", light: codexLightLogo, dark: codexDarkLogo },
-  { match: "chatgpt", light: codexLightLogo, dark: codexDarkLogo },
-  { match: "openai", light: codexLightLogo, dark: codexDarkLogo }
-] as const
-
-const agentLogo = (actor: TicketActivityActor | null) =>
-  actor?.kind === "agent"
-    ? AGENT_LOGOS.find(({ match }) =>
-        actor.client.name.toLowerCase().includes(match)
-      )
-    : undefined
-
-function ActorMark({ actor }: Readonly<{ actor: TicketActivityActor | null }>) {
-  if (actor !== null && actor.kind !== "system") {
-    const logo = agentLogo(actor)
-    if (logo === undefined)
-      return <MemberAvatar member={actor.user} size={20} />
-    return (
-      <Avatar aria-hidden className="size-5">
-        <AvatarFallback>
-          <img src={logo.light} alt="" className="size-3 dark:hidden" />
-          <img src={logo.dark} alt="" className="hidden size-3 dark:block" />
-        </AvatarFallback>
-      </Avatar>
-    )
-  }
-  const Icon = actor === null ? null : SYSTEM_ICONS[actor.source]
-  return (
-    <Avatar aria-hidden className="size-5">
-      <AvatarFallback>
-        {Icon && <Icon className="size-3" strokeWidth={2} />}
-      </AvatarFallback>
-    </Avatar>
-  )
 }
 
 const personKey = (actor: TicketActivityActor | null) =>
@@ -162,12 +110,22 @@ function EventRow({
   first: boolean
   last: boolean
 }>) {
+  const isNew = useIsNewSinceRead(at)
   return (
-    <li className={railClass(first, last)}>
+    <li
+      className={railClass(first, last)}
+      data-new-since-read={isNew || undefined}
+    >
       <span className="relative z-10 grid h-5 place-items-center">
         <ActorMark actor={actor} />
       </span>
-      <div className="min-w-0 text-body leading-5 wrap-anywhere text-muted-foreground">
+      <div
+        className={cn(
+          "min-w-0 text-body leading-5 wrap-anywhere text-muted-foreground",
+          isNew && "text-foreground"
+        )}
+      >
+        {isNew && <NewMark />}
         <ActorName actor={actor} />{" "}
         <ActivityLineView line={line} lookups={lookups} />
         <span aria-hidden> · </span>
@@ -264,6 +222,25 @@ function RunRows({
   )
 }
 
+function NewMark() {
+  return <span className="sr-only">{m.tickets_activity_new_since_read()} </span>
+}
+
+function CommentRow({
+  at,
+  children
+}: Readonly<{ at: Date; children: ReactNode }>) {
+  const isNew = useIsNewSinceRead(at)
+  return (
+    <li
+      data-new-since-read={isNew || undefined}
+      className="py-3 first:pt-0 last:pb-0"
+    >
+      {children}
+    </li>
+  )
+}
+
 export function TicketTimeline<C>({
   ticketId,
   comments,
@@ -312,9 +289,9 @@ export function TicketTimeline<C>({
       <ol>
         {rows.map((row) =>
           row.kind === "comment" ? (
-            <li key={row.key} className="py-3 first:pt-0 last:pb-0">
+            <CommentRow key={row.key} at={row.comment.at}>
               {renderComment(row.comment)}
-            </li>
+            </CommentRow>
           ) : (
             <RunRows
               key={row.key}

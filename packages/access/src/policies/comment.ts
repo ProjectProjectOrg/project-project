@@ -7,9 +7,7 @@ const canTouch = (
   comment: Authored,
   own: "update_own" | "delete_own"
 ) =>
-  actor.permissions.can({ comment: ["moderate"] }) ||
-  (actor.userId === comment.authorId &&
-    actor.permissions.can({ comment: [own] }))
+  actor.userId === comment.authorId && actor.permissions.can({ comment: [own] })
 
 export const canEdit = (actor: PolicyActor, comment: Authored) =>
   canTouch(actor, comment, "update_own")

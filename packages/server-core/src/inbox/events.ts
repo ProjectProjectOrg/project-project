@@ -14,11 +14,22 @@ import {
   newlyMentioned,
   type SubscriptionSource
 } from "../subscriptions/intents"
+import { plainExcerpt } from "../tickets/ticketTextSearch"
 
 export type InboxNotice =
   | Readonly<{ kind: "assigned"; userId: string }>
-  | Readonly<{ kind: "mentioned"; userId: string; commentId: string | null }>
-  | Readonly<{ kind: "commented"; authorId: string; commentId: string }>
+  | Readonly<{
+      kind: "mentioned"
+      userId: string
+      commentId: string | null
+      excerpt?: string
+    }>
+  | Readonly<{
+      kind: "commented"
+      authorId: string
+      commentId: string
+      excerpt?: string
+    }>
 
 export type InboxInput = Readonly<{
   ticketId: string
@@ -62,14 +73,16 @@ export const inboxNotices = (
             {
               kind: "commented" as const,
               authorId: comment.authorId,
-              commentId: comment.commentId
+              commentId: comment.commentId,
+              excerpt: plainExcerpt(comment.body)
             }
           ]
         : []),
       ...comment.mentioned.map((userId) => ({
         kind: "mentioned" as const,
         userId,
-        commentId: comment.commentId
+        commentId: comment.commentId,
+        excerpt: plainExcerpt(comment.body)
       }))
     ])
 ]
@@ -150,13 +163,21 @@ export const stageInbox = (input: InboxInput): StagedInbox | null => {
   for (const notice of input.notices) {
     if (notice.kind === "commented") {
       subscribers.push(
-        encodeEvent({ kind: "commented", commentId: notice.commentId })
+        encodeEvent({
+          kind: "commented",
+          commentId: notice.commentId,
+          excerpt: notice.excerpt
+        })
       )
       resolve.push({ kind: "mentioned", userId: notice.authorId })
     } else if (notice.kind === "mentioned") {
       direct.push({
         userId: notice.userId,
-        event: encodeEvent({ kind: "mentioned", commentId: notice.commentId })
+        event: encodeEvent({
+          kind: "mentioned",
+          commentId: notice.commentId,
+          excerpt: notice.excerpt
+        })
       })
     } else {
       direct.push({

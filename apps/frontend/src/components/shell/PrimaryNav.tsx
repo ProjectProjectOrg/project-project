@@ -9,6 +9,7 @@ import {
   ProjectScope
 } from "@/components/shell/ProjectScope"
 import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight"
+import { InboxNavItem } from "@/features/inbox/components/InboxNavItem"
 import { useFluidHover } from "@/hooks/useFluidHover"
 import { m } from "@/paraglide/messages"
 
@@ -63,6 +64,7 @@ export function PrimaryNav({ orgSlug }: { orgSlug: string | null }) {
               exact
             />
           )}
+          {orgSlug ? <InboxNavItem orgSlug={orgSlug} /> : null}
           {orgSlug ? <ProjectScope orgSlug={orgSlug} match={match} /> : null}
         </div>
       </NavHoverContext>

@@ -21,7 +21,7 @@ import { useActiveSprint } from "@/features/sprints/hooks/useActiveSprint"
 import { cn } from "@/lib/utils"
 import { m } from "@/paraglide/messages"
 
-export const PROJECT_CARD_HOVER_INDEX = 1
+export const PROJECT_CARD_HOVER_INDEX = 2
 
 const PROJECT_SECTIONS = ["sprints", "about", "settings"] as const
 

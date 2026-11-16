@@ -10,10 +10,10 @@ export type ProjectRoute = Readonly<{
 }>
 
 const HOVER = {
-  backlog: 2,
-  sprints: 3,
-  current: 4,
-  about: 5
+  backlog: 3,
+  sprints: 4,
+  current: 5,
+  about: 6
 } as const
 
 const iconClass = "size-4"

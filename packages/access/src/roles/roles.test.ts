@@ -84,7 +84,6 @@ const projectMatrix: ReadonlyArray<
     { comment: ["update_own", "delete_own"] },
     ["pm", "developer", "client"]
   ],
-  ["edit or delete others' comments", { comment: ["moderate"] }, ["pm"]],
   ["manage epics", { epic: ["manage"] }, ["pm", "developer"]],
   ["plan sprints and milestones", { sprint: ["manage"] }, ["pm"]],
   [

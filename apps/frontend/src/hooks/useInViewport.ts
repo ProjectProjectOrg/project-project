@@ -13,10 +13,10 @@ export function useInViewport<T extends Element>(
 
   useEffect(() => {
     const node = ref.current
-    if (!node) return
+    if (!node) return undefined
     if (typeof IntersectionObserver === "undefined") {
       setInView(true)
-      return
+      return undefined
     }
     const observer = new IntersectionObserver(
       (entries) => {

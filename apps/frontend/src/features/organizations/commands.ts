@@ -1,4 +1,4 @@
-import { ArrowLeftRight, LayoutDashboard, Settings } from "lucide-react"
+import { Inbox, ArrowLeftRight, LayoutDashboard, Settings } from "lucide-react"
 
 import type { Command } from "@/features/command-menu/lib/commands"
 import { appHotkeys } from "@/lib/appHotkeys"
@@ -14,6 +14,17 @@ export const organizationCommands: ReadonlyArray<Command> = [
     keywords: ["home", "my tickets", "assigned", "mine"],
     run: ({ orgSlug }, env) => {
       env.navigate(`/orgs/${orgSlug}`)
+      env.close()
+    }
+  },
+  {
+    id: "org.inbox",
+    group: "navigation",
+    label: m.chrome_command_menu_go_inbox,
+    icon: Inbox,
+    keywords: ["notifications", "mentions"],
+    run: ({ orgSlug }, env) => {
+      env.navigate(`/orgs/${orgSlug}/inbox`)
       env.close()
     }
   },

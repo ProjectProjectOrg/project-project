@@ -1,11 +1,14 @@
-import { formatRelative } from "@/lib/relativeTime"
+import * as DateTime from "effect/DateTime"
+
+import { formatCompact, formatRelative } from "@/lib/relativeTime"
 import { cn } from "@/lib/utils"
 import { getLocale } from "@/paraglide/runtime"
 
 export function TimelineTime({
   at,
+  compact = false,
   className
-}: Readonly<{ at: Date; className?: string }>) {
+}: Readonly<{ at: Date; compact?: boolean; className?: string }>) {
   return (
     <time
       className={cn("text-muted-foreground tabular-nums", className)}
@@ -16,7 +19,9 @@ export function TimelineTime({
         hourCycle: "h23"
       })}
     >
-      {formatRelative(at)}
+      {compact
+        ? formatCompact(at, DateTime.toDate(DateTime.nowUnsafe()))
+        : formatRelative(at)}
     </time>
   )
 }

@@ -7,11 +7,13 @@ export const InboxEvent = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("assigned") }),
   Schema.Struct({
     kind: Schema.Literal("mentioned"),
-    commentId: Schema.NullOr(Schema.String)
+    commentId: Schema.NullOr(Schema.String),
+    excerpt: Schema.optional(Schema.String)
   }),
   Schema.Struct({
     kind: Schema.Literal("commented"),
-    commentId: Schema.String
+    commentId: Schema.String,
+    excerpt: Schema.optional(Schema.String)
   }),
   Schema.Struct({
     kind: Schema.Literal("status_changed"),

@@ -7,7 +7,17 @@ export const InboxHandlerLive = HttpApiBuilder.group(
   AppApi,
   "inbox",
   (handlers) =>
-    handlers.handle("markRead", ({ params }) =>
-      Effect.flatMap(Inbox.Inbox, (inbox) => inbox.markRead(params.id))
-    )
+    Effect.gen(function* () {
+      const inbox = yield* Inbox.Inbox
+      return handlers
+        .handle("list", ({ query }) => inbox.list(query))
+        .handle("unread", () =>
+          Effect.map(inbox.unread(), (count) => ({ count }))
+        )
+        .handle("readAll", () => inbox.readAll())
+        .handle("doneAll", () => inbox.doneAll())
+        .handle("markRead", ({ params }) => inbox.markRead(params.id))
+        .handle("markUnread", ({ params }) => inbox.markUnread(params.id))
+        .handle("markDone", ({ params }) => inbox.markDone(params.id))
+    })
 )

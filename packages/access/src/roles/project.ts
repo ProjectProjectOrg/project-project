@@ -11,7 +11,7 @@ export const projectStatement = Statement.make({
     "transition",
     "assign"
   ]),
-  comment: Schema.Literals(["create", "update_own", "delete_own", "moderate"]),
+  comment: Schema.Literals(["create", "update_own", "delete_own"]),
   sprint: Schema.Literals(["manage", "add_ticket", "remove_ticket"]),
   epic: Schema.Literals(["manage"]),
   workflow: Schema.Literals(["manage"]),

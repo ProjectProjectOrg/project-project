@@ -58,6 +58,10 @@ export const deliver = (
       ...delivery.direct
     ],
     ...latest,
+    firstAt:
+      row !== null && row.firstAt.getTime() < delivery.at.getTime()
+        ? row.firstAt
+        : delivery.at,
     unreadCount: seen
       ? row.unreadCount
       : row?.state === "unread"
